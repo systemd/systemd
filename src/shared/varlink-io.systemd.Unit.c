@@ -1328,9 +1328,8 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("Last time the timer triggered"),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(LastTriggerUSec, Timestamp, SD_VARLINK_NULLABLE));
 
-/* Service-specific types */
-
-/* Keep in sync with service_type_table[] in src/core/service.c */
+/* ServiceContext
+ * https://www.freedesktop.org/software/systemd/man/latest/systemd.service.html */
 SD_VARLINK_DEFINE_ENUM_TYPE(
                 ServiceType,
                 SD_VARLINK_DEFINE_ENUM_VALUE(simple),
@@ -1343,14 +1342,205 @@ SD_VARLINK_DEFINE_ENUM_TYPE(
                 SD_VARLINK_DEFINE_ENUM_VALUE(notify_reload),
                 SD_VARLINK_DEFINE_ENUM_VALUE(idle));
 
+SD_VARLINK_DEFINE_ENUM_TYPE(
+                ServiceExitType,
+                SD_VARLINK_DEFINE_ENUM_VALUE(main),
+                SD_VARLINK_DEFINE_ENUM_VALUE(cgroup));
+
+SD_VARLINK_DEFINE_ENUM_TYPE(
+                ServiceRestart,
+                SD_VARLINK_DEFINE_ENUM_VALUE(no),
+                SD_VARLINK_DEFINE_ENUM_VALUE(on_success),
+                SD_VARLINK_DEFINE_ENUM_VALUE(on_failure),
+                SD_VARLINK_DEFINE_ENUM_VALUE(on_abnormal),
+                SD_VARLINK_DEFINE_ENUM_VALUE(on_watchdog),
+                SD_VARLINK_DEFINE_ENUM_VALUE(on_abort),
+                SD_VARLINK_DEFINE_ENUM_VALUE(always));
+
+SD_VARLINK_DEFINE_ENUM_TYPE(
+                ServiceRestartMode,
+                SD_VARLINK_DEFINE_ENUM_VALUE(normal),
+                SD_VARLINK_DEFINE_ENUM_VALUE(direct),
+                SD_VARLINK_DEFINE_ENUM_VALUE(debug));
+
+SD_VARLINK_DEFINE_ENUM_TYPE(
+                ServiceTimeoutFailureMode,
+                SD_VARLINK_DEFINE_ENUM_VALUE(terminate),
+                SD_VARLINK_DEFINE_ENUM_VALUE(abort),
+                SD_VARLINK_DEFINE_ENUM_VALUE(kill));
+
+SD_VARLINK_DEFINE_ENUM_TYPE(
+                NotifyAccess,
+                SD_VARLINK_DEFINE_ENUM_VALUE(none),
+                SD_VARLINK_DEFINE_ENUM_VALUE(all),
+                SD_VARLINK_DEFINE_ENUM_VALUE(exec),
+                SD_VARLINK_DEFINE_ENUM_VALUE(main));
+
+SD_VARLINK_DEFINE_ENUM_TYPE(
+                ServiceResult,
+                SD_VARLINK_DEFINE_ENUM_VALUE(success),
+                SD_VARLINK_DEFINE_ENUM_VALUE(resources),
+                SD_VARLINK_DEFINE_ENUM_VALUE(protocol),
+                SD_VARLINK_DEFINE_ENUM_VALUE(timeout),
+                SD_VARLINK_DEFINE_ENUM_VALUE(exit_code),
+                SD_VARLINK_DEFINE_ENUM_VALUE(signal),
+                SD_VARLINK_DEFINE_ENUM_VALUE(core_dump),
+                SD_VARLINK_DEFINE_ENUM_VALUE(watchdog),
+                SD_VARLINK_DEFINE_ENUM_VALUE(start_limit_hit),
+                SD_VARLINK_DEFINE_ENUM_VALUE(oom_kill),
+                SD_VARLINK_DEFINE_ENUM_VALUE(exec_condition));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                ExitStatusSet,
+                SD_VARLINK_FIELD_COMMENT("Exit status codes"),
+                SD_VARLINK_DEFINE_FIELD(statuses, SD_VARLINK_INT, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Signal names"),
+                SD_VARLINK_DEFINE_FIELD(signals, SD_VARLINK_STRING, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                OpenFile,
+                SD_VARLINK_FIELD_COMMENT("Path to the file to open"),
+                SD_VARLINK_DEFINE_FIELD(path, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("Name for the file descriptor"),
+                SD_VARLINK_DEFINE_FIELD(fileDescriptorName, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("Open file flags"),
+                SD_VARLINK_DEFINE_FIELD(flags, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
+
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 ServiceContext,
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.service.html#Type="),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(Type, ServiceType, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.service.html#ExitType="),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(ExitType, ServiceExitType, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.service.html#Restart="),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Restart, ServiceRestart, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.service.html#RestartMode="),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(RestartMode, ServiceRestartMode, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.service.html#PIDFile="),
+                SD_VARLINK_DEFINE_FIELD(PIDFile, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.service.html#RestartSec="),
+                SD_VARLINK_DEFINE_FIELD(RestartUSec, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.service.html#RestartSteps="),
+                SD_VARLINK_DEFINE_FIELD(RestartSteps, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.service.html#RestartMaxDelaySec="),
+                SD_VARLINK_DEFINE_FIELD(RestartMaxDelayUSec, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.service.html#TimeoutStartSec="),
+                SD_VARLINK_DEFINE_FIELD(TimeoutStartUSec, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.service.html#TimeoutStopSec="),
+                SD_VARLINK_DEFINE_FIELD(TimeoutStopUSec, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.service.html#TimeoutStartFailureMode="),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(TimeoutStartFailureMode, ServiceTimeoutFailureMode, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.service.html#TimeoutStopFailureMode="),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(TimeoutStopFailureMode, ServiceTimeoutFailureMode, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.service.html#RuntimeMaxSec="),
+                SD_VARLINK_DEFINE_FIELD(RuntimeMaxUSec, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.service.html#RuntimeRandomizedExtraSec="),
+                SD_VARLINK_DEFINE_FIELD(RuntimeRandomizedExtraUSec, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.service.html#WatchdogSec="),
+                SD_VARLINK_DEFINE_FIELD(WatchdogUSec, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.service.html#RemainAfterExit="),
+                SD_VARLINK_DEFINE_FIELD(RemainAfterExit, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.service.html#RootDirectoryStartOnly="),
+                SD_VARLINK_DEFINE_FIELD(RootDirectoryStartOnly, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.service.html#GuessMainPID="),
+                SD_VARLINK_DEFINE_FIELD(GuessMainPID, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.service.html#SuccessExitStatus="),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(SuccessExitStatus, ExitStatusSet, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.service.html#RestartPreventExitStatus="),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(RestartPreventExitStatus, ExitStatusSet, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.service.html#RestartForceExitStatus="),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(RestartForceExitStatus, ExitStatusSet, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.service.html#BusName="),
+                SD_VARLINK_DEFINE_FIELD(BusName, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.service.html#NotifyAccess="),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(NotifyAccess, NotifyAccess, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.service.html#FileDescriptorStoreMax="),
+                SD_VARLINK_DEFINE_FIELD(FileDescriptorStoreMax, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.service.html#FileDescriptorStorePreserve="),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(FileDescriptorStorePreserve, ExecPreserveMode, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.service.html#USBFunctionDescriptors="),
+                SD_VARLINK_DEFINE_FIELD(USBFunctionDescriptors, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.service.html#USBFunctionStrings="),
+                SD_VARLINK_DEFINE_FIELD(USBFunctionStrings, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.service.html#OOMPolicy="),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(OOMPolicy, OOMPolicy, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.service.html#OpenFile="),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(OpenFile, OpenFile, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.service.html#ExtraFileDescriptorNames="),
+                SD_VARLINK_DEFINE_FIELD(ExtraFileDescriptorNames, SD_VARLINK_STRING, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.service.html#ReloadSignal="),
+                SD_VARLINK_DEFINE_FIELD(ReloadSignal, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.service.html#RefreshOnReload="),
+                SD_VARLINK_DEFINE_FIELD(RefreshOnReload, SD_VARLINK_STRING, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.service.html#ExecCondition="),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(ExecCondition, ExecCommand, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.service.html#ExecStart="),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(ExecStart, ExecCommand, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.service.html#RemainAfterExit="),
-                SD_VARLINK_DEFINE_FIELD(RemainAfterExit, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.service.html#ExecStartPre="),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(ExecStartPre, ExecCommand, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.service.html#ExecStartPost="),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(ExecStartPost, ExecCommand, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.service.html#ExecReload="),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(ExecReload, ExecCommand, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.service.html#ExecReloadPost="),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(ExecReloadPost, ExecCommand, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.service.html#ExecStop="),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(ExecStop, ExecCommand, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.service.html#ExecStopPost="),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(ExecStopPost, ExecCommand, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                ServiceRuntime,
+                SD_VARLINK_FIELD_COMMENT("Main process PID"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(MainPID, ProcessId, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Control process PID"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(ControlPID, ProcessId, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Status text set by the service"),
+                SD_VARLINK_DEFINE_FIELD(StatusText, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Status errno set by the service"),
+                SD_VARLINK_DEFINE_FIELD(StatusErrno, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Status D-Bus error set by the service"),
+                SD_VARLINK_DEFINE_FIELD(StatusBusError, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Status Varlink error set by the service"),
+                SD_VARLINK_DEFINE_FIELD(StatusVarlinkError, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Result of service operation"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Result, ServiceResult, 0),
+                SD_VARLINK_FIELD_COMMENT("Result of reload operation"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(ReloadResult, ServiceResult, 0),
+                SD_VARLINK_FIELD_COMMENT("Result of cleaning operation"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(CleanResult, ServiceResult, 0),
+                SD_VARLINK_FIELD_COMMENT("Result of live mount operation"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(LiveMountResult, ServiceResult, 0),
+                SD_VARLINK_FIELD_COMMENT("Number of file descriptors in the store"),
+                SD_VARLINK_DEFINE_FIELD(NFileDescriptorStore, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Number of restarts"),
+                SD_VARLINK_DEFINE_FIELD(NRestarts, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Next restart delay"),
+                SD_VARLINK_DEFINE_FIELD(RestartUSecNext, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Timeout for abort"),
+                SD_VARLINK_DEFINE_FIELD(TimeoutAbortUSec, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Main process execution status"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(ExecMain, ExecCommandStatus, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Execution status of ExecCondition commands"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(ExecConditionStatus, ExecCommandStatus, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Execution status of ExecStartPre commands"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(ExecStartPreStatus, ExecCommandStatus, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Execution status of ExecStart commands"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(ExecStartStatus, ExecCommandStatus, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Execution status of ExecStartPost commands"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(ExecStartPostStatus, ExecCommandStatus, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Execution status of ExecReload commands"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(ExecReloadStatus, ExecCommandStatus, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Execution status of ExecReloadPost commands"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(ExecReloadPostStatus, ExecCommandStatus, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Execution status of ExecStop commands"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(ExecStopStatus, ExecCommandStatus, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Execution status of ExecStopPost commands"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(ExecStopPostStatus, ExecCommandStatus, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Reference UID"),
+                SD_VARLINK_DEFINE_FIELD(UID, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Reference GID"),
+                SD_VARLINK_DEFINE_FIELD(GID, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
 
 /* UnitContext */
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
@@ -1709,6 +1899,8 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(Path, PathRuntime, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The scope runtime of the unit"),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(Scope, ScopeRuntime, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The service runtime of the unit"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Service, ServiceRuntime, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The socket runtime of the unit"),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(Socket, SocketRuntime, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The swap runtime of the unit"),
@@ -1874,6 +2066,7 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_type_AutomountResult,
                 &vl_type_AutomountRuntime,
                 &vl_type_ExecCommand,
+                &vl_type_ExecCommandStatus,
                 &vl_type_MountContext,
                 &vl_type_MountResult,
                 &vl_type_MountRuntime,
@@ -1907,6 +2100,17 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_type_EmergencyAction,
 
                 /* Shared types (used by both StartTransient and Unit.List) */
+                &vl_type_ExitStatusSet,
+                &vl_type_NotifyAccess,
+                &vl_type_OpenFile,
+                SD_VARLINK_SYMBOL_COMMENT("Service-specific context"),
+                &vl_type_ServiceContext,
+                &vl_type_ServiceExitType,
+                &vl_type_ServiceRestart,
+                &vl_type_ServiceRestartMode,
+                &vl_type_ServiceResult,
+                &vl_type_ServiceRuntime,
+                &vl_type_ServiceTimeoutFailureMode,
                 SD_VARLINK_SYMBOL_COMMENT("Service type"),
                 &vl_type_ServiceType,
                 SD_VARLINK_SYMBOL_COMMENT("Job mode"),
@@ -1919,8 +2123,6 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_type_JobResult,
                 SD_VARLINK_SYMBOL_COMMENT("A job object (defined in io.systemd.Job)"),
                 &vl_type_Job,
-                SD_VARLINK_SYMBOL_COMMENT("Service-specific context"),
-                &vl_type_ServiceContext,
 
                 /* Errors */
                 SD_VARLINK_SYMBOL_COMMENT("No matching unit found"),

@@ -31,6 +31,7 @@
 #include "varlink-mount.h"
 #include "varlink-path.h"
 #include "varlink-scope.h"
+#include "varlink-service.h"
 #include "varlink-socket.h"
 #include "varlink-swap.h"
 #include "varlink-timer.h"
@@ -117,20 +118,6 @@ static int unit_conditions_build_json(sd_json_variant **ret, const char *name, v
 
         *ret = TAKE_PTR(v);
         return 0;
-}
-
-/* TODO: This covers only a small subset of a service object's properties. Extend to make more available to
- * consumers like Unit.StartTransient */
-static int service_context_build_json(sd_json_variant **ret, const char *name, void *userdata) {
-        Unit *u = ASSERT_PTR(userdata);
-        Service *s = ASSERT_PTR(SERVICE(u));
-        assert(ret);
-
-        return sd_json_buildo(
-                        ret,
-                        JSON_BUILD_PAIR_ENUM("Type", service_type_to_string(s->type)),
-                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("ExecStart", exec_command_list_build_json, s->exec_command[SERVICE_EXEC_START]),
-                        SD_JSON_BUILD_PAIR_BOOLEAN("RemainAfterExit", s->remain_after_exit));
 }
 
 static int unit_context_build_json(sd_json_variant **ret, const char *name, void *userdata) {
@@ -317,6 +304,7 @@ static int unit_runtime_build_json(sd_json_variant **ret, const char *name, void
                 [UNIT_MOUNT]     = mount_runtime_build_json,
                 [UNIT_PATH]      = path_runtime_build_json,
                 [UNIT_SCOPE]     = scope_runtime_build_json,
+                [UNIT_SERVICE]   = service_runtime_build_json,
                 [UNIT_SOCKET]    = socket_runtime_build_json,
                 [UNIT_SWAP]      = swap_runtime_build_json,
                 [UNIT_TIMER]     = timer_runtime_build_json,
