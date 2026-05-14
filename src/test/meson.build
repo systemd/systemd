@@ -555,7 +555,7 @@ executables += [
         },
         core_test_template + {
                 'sources' : files('test-bpf-token.c'),
-                'dependencies' : common_test_dependencies + libbpf,
+                'dependencies' : common_test_dependencies + libbpf_cflags,
                 'conditions' : ['BPF_FRAMEWORK'],
                 'type' : 'manual',
         },
