@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
-#include <getopt.h>
 #include <linux/oom.h>
 #include <linux/vt.h>
 #include <stdlib.h>
@@ -19,6 +18,7 @@
 #include "sd-messages.h"
 
 #include "alloc-util.h"
+#include "ansi-color.h"
 #include "apparmor-setup.h"
 #include "architecture.h"
 #include "argv-util.h"
@@ -47,8 +47,10 @@
 #include "fd-util.h"
 #include "fdset.h"
 #include "fileio.h"
+#include "format-table.h"
 #include "format-util.h"
-#include "getopt-defs.h"
+#include "glyph-util.h"
+#include "help-util.h"
 #include "hexdecoct.h"
 #include "hostname-setup.h"
 #include "id128-util.h"
@@ -73,13 +75,13 @@
 #include "mkdir-label.h"
 #include "mount-setup.h"
 #include "mount-util.h"
+#include "options.h"
 #include "os-util.h"
 #include "osc-context.h"
 #include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
-#include "pretty-print.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
 #include "random-util.h"
@@ -966,251 +968,227 @@ static void set_manager_settings(Manager *m) {
 }
 
 static int parse_argv(int argc, char *argv[]) {
-        enum {
-                COMMON_GETOPT_ARGS,
-                SYSTEMD_GETOPT_ARGS,
-        };
-
-        static const struct option options[] = {
-                COMMON_GETOPT_OPTIONS,
-                SYSTEMD_GETOPT_OPTIONS,
-                {}
-        };
-
-        int c, r;
         bool user_arg_seen = false;
+        int r;
 
         assert(argc >= 1);
         assert(argv);
 
-        if (getpid_cached() == 1)
-                opterr = 0;
+        int log_level_shift = getpid_cached() == 1 ? LOG_DEBUG - LOG_ERR : 0;
+        OptionParser opts = { argc, argv, .log_level_shift = log_level_shift };
 
-        while ((c = getopt_long(argc, argv, SYSTEMD_GETOPT_SHORT_OPTIONS, options, NULL)) >= 0)
-
+        FOREACH_OPTION(c, &opts)
                 switch (c) {
 
-                case 'h':
+                OPTION_COMMON_HELP:
                         arg_action = ACTION_HELP;
                         break;
 
-                case ARG_VERSION:
+                OPTION_COMMON_VERSION:
                         arg_action = ACTION_VERSION;
                         break;
 
-                case ARG_TEST:
+                OPTION_LONG("test", NULL, "Determine initial transaction, dump it and exit"):
                         arg_action = ACTION_TEST;
                         break;
 
-                case ARG_SYSTEM:
+                OPTION_LONG("system", NULL, "Combined with --test: operate in system mode"):
                         arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
                         break;
 
-                case ARG_USER:
+                OPTION_LONG("user", NULL, "Combined with --test: operate in user mode"):
                         arg_runtime_scope = RUNTIME_SCOPE_USER;
                         user_arg_seen = true;
                         break;
 
-                case ARG_DUMP_CONFIGURATION_ITEMS:
+                OPTION_LONG("dump-configuration-items", NULL, "Dump understood unit configuration items"):
                         arg_action = ACTION_DUMP_CONFIGURATION_ITEMS;
                         break;
 
-                case ARG_DUMP_BUS_PROPERTIES:
+                OPTION_LONG("dump-bus-properties", NULL, "Dump exposed bus properties"):
                         arg_action = ACTION_DUMP_BUS_PROPERTIES;
                         break;
 
-                case ARG_BUS_INTROSPECT:
-                        arg_bus_introspect = optarg;
+                OPTION_LONG("bus-introspect", "PATH", "Write XML introspection data"):
+                        arg_bus_introspect = opts.arg;
                         arg_action = ACTION_BUS_INTROSPECT;
                         break;
 
-                case ARG_UNIT:
-                        r = free_and_strdup(&arg_default_unit, optarg);
+                OPTION_LONG("unit", "UNIT", "Set default unit"):
+                        r = free_and_strdup(&arg_default_unit, opts.arg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to set default unit \"%s\": %m", optarg);
-
+                                return log_error_errno(r, "Failed to set default unit \"%s\": %m", opts.arg);
                         break;
 
-                case ARG_DUMP_CORE:
-                        r = parse_boolean_argument("--dump-core", optarg, &arg_dump_core);
+                OPTION_LONG_FLAGS(OPTION_OPTIONAL_ARG, "dump-core", "BOOL", "Dump core on crash"):
+                        r = parse_boolean_argument("--dump-core", opts.arg, &arg_dump_core);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_CRASH_CHVT:
-                        r = parse_crash_chvt(optarg, &arg_crash_chvt);
+                OPTION_LONG("crash-chvt", "NR", "Change to specified VT on crash"):
+                        r = parse_crash_chvt(opts.arg, &arg_crash_chvt);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse crash virtual terminal index: \"%s\": %m",
-                                                       optarg);
+                                                       opts.arg);
                         break;
 
-                case ARG_CRASH_ACTION:
-                        r = crash_action_from_string(optarg);
+                OPTION_LONG("crash-action", "ACTION", "Specify what to do on crash"):
+                        r = crash_action_from_string(opts.arg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse crash action \"%s\": %m", optarg);
+                                return log_error_errno(r, "Failed to parse crash action \"%s\": %m", opts.arg);
                         arg_crash_action = r;
                         break;
 
-                case ARG_CRASH_SHELL:
-                        r = parse_boolean_argument("--crash-shell", optarg, &arg_crash_shell);
+                OPTION_LONG_FLAGS(OPTION_OPTIONAL_ARG, "crash-shell", "BOOL", "Run shell on crash"):
+                        r = parse_boolean_argument("--crash-shell", opts.arg, &arg_crash_shell);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_CONFIRM_SPAWN:
+                OPTION_LONG_FLAGS(OPTION_OPTIONAL_ARG, "confirm-spawn", "BOOL",
+                                  "Ask for confirmation when spawning processes"):
                         arg_confirm_spawn = mfree(arg_confirm_spawn);
 
-                        r = parse_confirm_spawn(optarg, &arg_confirm_spawn);
+                        r = parse_confirm_spawn(opts.arg, &arg_confirm_spawn);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse confirm spawn option: \"%s\": %m",
-                                                       optarg);
+                                                       opts.arg);
                         break;
 
-                case ARG_SHOW_STATUS:
-                        if (optarg) {
-                                r = parse_show_status(optarg, &arg_show_status);
+                OPTION_LONG_FLAGS(OPTION_OPTIONAL_ARG, "show-status", "BOOL",
+                                  "Show status updates on the console during boot"):
+                        if (opts.arg) {
+                                r = parse_show_status(opts.arg, &arg_show_status);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to parse show status boolean: \"%s\": %m",
-                                                               optarg);
+                                                               opts.arg);
                         } else
                                 arg_show_status = SHOW_STATUS_YES;
                         break;
 
-                case ARG_LOG_TARGET:
-                        r = log_set_target_from_string(optarg);
+                OPTION_LONG("log-target", "TARGET",
+                            "Set log target (console, journal, kmsg, journal-or-kmsg, null)"):
+                        r = log_set_target_from_string(opts.arg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse log target \"%s\": %m", optarg);
-
+                                return log_error_errno(r, "Failed to parse log target \"%s\": %m", opts.arg);
                         break;
 
-                case ARG_LOG_LEVEL:
-                        r = log_set_max_level_from_string(optarg);
+                OPTION_LONG("log-level", "LEVEL",
+                            "Set log level (debug, info, notice, warning, err, crit, alert, emerg)"):
+                        r = log_set_max_level_from_string(opts.arg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse log level \"%s\": %m", optarg);
-
+                                return log_error_errno(r, "Failed to parse log level \"%s\": %m", opts.arg);
                         break;
 
-                case ARG_LOG_COLOR:
-
-                        if (optarg) {
-                                r = log_show_color_from_string(optarg);
+                OPTION_LONG_FLAGS(OPTION_OPTIONAL_ARG, "log-color", "BOOL", "Highlight important log messages"):
+                        if (opts.arg) {
+                                r = log_show_color_from_string(opts.arg);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to parse log color setting \"%s\": %m",
-                                                               optarg);
+                                                               opts.arg);
                         } else
                                 log_show_color(true);
-
                         break;
 
-                case ARG_LOG_LOCATION:
-                        if (optarg) {
-                                r = log_show_location_from_string(optarg);
+                OPTION_LONG_FLAGS(OPTION_OPTIONAL_ARG, "log-location", "BOOL",
+                                  "Include code location in log messages"):
+                        if (opts.arg) {
+                                r = log_show_location_from_string(opts.arg);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to parse log location setting \"%s\": %m",
-                                                               optarg);
+                                                               opts.arg);
                         } else
                                 log_show_location(true);
-
                         break;
 
-                case ARG_LOG_TIME:
-
-                        if (optarg) {
-                                r = log_show_time_from_string(optarg);
+                OPTION_LONG_FLAGS(OPTION_OPTIONAL_ARG, "log-time", "BOOL", "Prefix log messages with current time"):
+                        if (opts.arg) {
+                                r = log_show_time_from_string(opts.arg);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to parse log time setting \"%s\": %m",
-                                                               optarg);
+                                                               opts.arg);
                         } else
                                 log_show_time(true);
-
                         break;
 
-                case ARG_DEFAULT_STD_OUTPUT:
-                        r = exec_output_from_string(optarg);
+                OPTION_LONG("default-standard-output", "…", "Set default standard output for services"):
+                        r = exec_output_from_string(opts.arg);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse default standard output setting \"%s\": %m",
-                                                       optarg);
+                                                       opts.arg);
                         arg_defaults.std_output = r;
                         break;
 
-                case ARG_DEFAULT_STD_ERROR:
-                        r = exec_output_from_string(optarg);
+                OPTION_LONG("default-standard-error", "…", "Set default standard error output for services"):
+                        r = exec_output_from_string(opts.arg);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse default standard error output setting \"%s\": %m",
-                                                       optarg);
+                                                       opts.arg);
                         arg_defaults.std_error = r;
                         break;
 
-                case ARG_NO_PAGER:
+                OPTION_COMMON_NO_PAGER:
                         arg_pager_flags |= PAGER_DISABLE;
                         break;
 
                 /* Options not shown in --help. */
 
-                case ARG_CRASH_REBOOT:
-                        r = parse_boolean_argument("--crash-reboot", optarg, NULL);
+                OPTION_LONG_FLAGS(OPTION_OPTIONAL_ARG, "crash-reboot", "BOOL", /* help= */ NULL):
+                        r = parse_boolean_argument("--crash-reboot", opts.arg, NULL);
                         if (r < 0)
                                 return r;
                         arg_crash_action = r > 0 ? CRASH_REBOOT : CRASH_FREEZE;
                         break;
 
-                case ARG_SERVICE_WATCHDOGS:
-                        r = parse_boolean_argument("--service-watchdogs=", optarg, &arg_service_watchdogs);
+                OPTION_LONG("service-watchdogs", "BOOL", /* help= */ NULL):
+                        r = parse_boolean_argument("--service-watchdogs=", opts.arg, &arg_service_watchdogs);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_DESERIALIZE: {
-                        int fd;
-                        FILE *f;
-
-                        fd = parse_fd(optarg);
+                OPTION_LONG("deserialize", "FD", /* help= */ NULL): {
+                        int fd = parse_fd(opts.arg);
                         if (fd < 0)
-                                return log_error_errno(fd, "Failed to parse serialization fd \"%s\": %m", optarg);
+                                return log_error_errno(fd, "Failed to parse serialization fd \"%s\": %m", opts.arg);
 
                         (void) fd_cloexec(fd, true);
 
-                        f = fdopen(fd, "r");
+                        FILE *f = fdopen(fd, "r");
                         if (!f)
                                 return log_error_errno(errno, "Failed to open serialization fd %d: %m", fd);
 
                         safe_fclose(arg_serialization);
                         arg_serialization = f;
-
                         break;
                 }
 
-                case ARG_SWITCHED_ROOT:
+                OPTION_LONG("switched-root", NULL, /* help= */ NULL):
                         arg_switched_root = true;
                         break;
 
-                case ARG_MACHINE_ID:
-                        r = id128_from_string_nonzero(optarg, &arg_machine_id);
+                OPTION_LONG("machine-id", "ID", /* help= */ NULL):
+                        r = id128_from_string_nonzero(opts.arg, &arg_machine_id);
                         if (r < 0)
-                                return log_error_errno(r, "MachineID '%s' is not valid: %m", optarg);
+                                return log_error_errno(r, "MachineID '%s' is not valid: %m", opts.arg);
                         break;
 
-                case 'D':
+                OPTION_SHORT('D', NULL, /* help= */ NULL):
                         log_set_max_level(LOG_DEBUG);
                         break;
 
-                case 'b':
-                case 's':
-                case 'z':
-                        /* Just to eat away the sysvinit kernel cmdline args that we'll parse in
-                         * parse_proc_cmdline_item() or ignore, without any getopt() error messages.
-                         */
-                case '?':
-                        if (getpid_cached() != 1)
-                                return -EINVAL;
-                        else
+                /* Just to eat away the sysvinit kernel cmdline args that we'll parse in
+                 * parse_proc_cmdline_item() or ignore. */
+                OPTION_SHORT('b', NULL,  /* help= */ NULL): {}
+                OPTION_SHORT('s', NULL,  /* help= */ NULL): {}
+                OPTION_SHORT('z', "ARG", /* help= */ NULL):
+                OPTION_ERROR:
+                        if (getpid_cached() == 1)
                                 return 0;
-
-                default:
-                        assert_not_reached();
+                        return -EINVAL;
                 }
 
-        if (optind < argc && getpid_cached() != 1)
+        if (option_parser_get_n_args(&opts) > 0 && getpid_cached() != 1)
                 /* Hmm, when we aren't run as init system let's complain about excess arguments */
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Excess arguments.");
 
@@ -1222,50 +1200,24 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int help(void) {
-        _cleanup_free_ char *link = NULL;
+        _cleanup_(table_unrefp) Table *options = NULL;
         int r;
 
-        r = terminal_urlify_man("systemd", "1", &link);
+        r = option_parser_get_help_table(&options);
         if (r < 0)
-                return log_oom();
+                return r;
 
-        printf("%s [OPTIONS...]\n\n"
-               "%sStarts and monitors system and user services.%s\n\n"
-               "This program takes no positional arguments.\n\n"
-               "%sOptions%s:\n"
-               "  -h --help                      Show this help\n"
-               "     --version                   Show version\n"
-               "     --test                      Determine initial transaction, dump it and exit\n"
-               "     --system                    Combined with --test: operate in system mode\n"
-               "     --user                      Combined with --test: operate in user mode\n"
-               "     --dump-configuration-items  Dump understood unit configuration items\n"
-               "     --dump-bus-properties       Dump exposed bus properties\n"
-               "     --bus-introspect=PATH       Write XML introspection data\n"
-               "     --unit=UNIT                 Set default unit\n"
-               "     --dump-core[=BOOL]          Dump core on crash\n"
-               "     --crash-vt=NR               Change to specified VT on crash\n"
-               "     --crash-action=ACTION       Specify what to do on crash\n"
-               "     --crash-shell[=BOOL]        Run shell on crash\n"
-               "     --confirm-spawn[=BOOL]      Ask for confirmation when spawning processes\n"
-               "     --show-status[=BOOL]        Show status updates on the console during boot\n"
-               "     --log-target=TARGET         Set log target (console, journal, kmsg,\n"
-               "                                                 journal-or-kmsg, null)\n"
-               "     --log-level=LEVEL           Set log level (debug, info, notice, warning,\n"
-               "                                                err, crit, alert, emerg)\n"
-               "     --log-color[=BOOL]          Highlight important log messages\n"
-               "     --log-location[=BOOL]       Include code location in log messages\n"
-               "     --log-time[=BOOL]           Prefix log messages with current time\n"
-               "     --default-standard-output=  Set default standard output for services\n"
-               "     --default-standard-error=   Set default standard error output for services\n"
-               "     --no-pager                  Do not pipe output into a pager\n"
-               "\nSee the %s for details.\n",
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal(),
-               ansi_underline(),
-               ansi_normal(),
-               link);
+        help_cmdline("[OPTIONS...]");
+        help_abstract("Starts and monitors system and user services.");
 
+        printf("\nThis program takes no positional arguments.\n");
+
+        help_section("Options");
+        r = table_print_or_warn(options);
+        if (r < 0)
+                return r;
+
+        help_man_page_reference("systemd", "1");
         return 0;
 }
 
@@ -2202,8 +2154,8 @@ static int do_reexecute(
         }
 
         /* Try the fallback, if there is any, without any serialization. We pass the original argv[] and
-         * envp[]. (Well, modulo the ordering changes due to getopt() in argv[], and some cleanups in envp[],
-         * but let's hope that doesn't matter.) */
+         * envp[]. (Well, modulo the ordering changes due to option parsing in argv[], and some cleanups in
+         * envp[], but let's hope that doesn't matter.) */
 
         arg_serialization = safe_fclose(arg_serialization);
         fds = fdset_free(fds);
