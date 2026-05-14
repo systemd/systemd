@@ -2,7 +2,6 @@
 
 #include "sd-varlink.h"
 
-#include <getopt.h>
 #include <sys/mount.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -59,7 +58,7 @@ static int help(void) {
                 return r;
 
         _cleanup_(table_unrefp) Table *options = NULL;
-        r = option_parser_get_help_table(&options);
+        r = option_parser_get_help_table_ns("storagectl", &options);
         if (r < 0)
                 return r;
 
@@ -406,9 +405,11 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
         assert(argv);
         assert(remaining_args);
 
-        OptionParser opts = { argc, argv };
+        OptionParser opts = { argc, argv, .namespace = "storagectl" };
         FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
+
+                OPTION_NAMESPACE("storagectl"): {}
 
                 OPTION_COMMON_HELP:
                         return help();
@@ -448,7 +449,7 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
 }
 
 static int run_as_mount_helper(int argc, char *argv[]) {
-        int c, r;
+        int r;
 
         /* Implements util-linux "external helper" command line interface, as per mount(8) man page.
          *
@@ -461,51 +462,55 @@ static int run_as_mount_helper(int argc, char *argv[]) {
         const char *fstype = NULL, *options = NULL;
         bool fake = false;
 
-        while ((c = getopt(argc, argv, "sfnvN:o:t:")) >= 0) {
+        OptionParser opts = { argc, argv, .namespace = "mount.storage" };
+        FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
 
-                case 'f':
+                OPTION_NAMESPACE("mount.storage"): {}
+
+                OPTION_SHORT('f', NULL, /* help= */ NULL):
                         fake = true;
                         break;
 
-                case 'o':
-                        options = optarg;
+                OPTION_SHORT('o', "OPTIONS", /* help= */ NULL):
+                        options = opts.arg;
                         break;
 
-                case 't':
-                        fstype = startswith(optarg, "storage.");
+                OPTION_SHORT('t', "FSTYPE", /* help= */ NULL):
+                        fstype = startswith(opts.arg, "storage.");
                         if (fstype) {
                                 /* Paranoia: don't allow "storage.storage.storage.…" chains... */
                                 if (startswith(fstype, "storage.") || streq(fstype, "storage"))
                                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Refusing nested storage volumes.");
-                        } else if (!streq(optarg, "storage"))
-                                log_warning("Unexpected file system type '%s', ignoring.", optarg);
+                        } else if (!streq(opts.arg, "storage"))
+                                log_warning("Unexpected file system type '%s', ignoring.", opts.arg);
 
                         break;
 
-                case 's': /* sloppy mount options */
-                case 'n': /* aka --no-mtab */
-                case 'v': /* aka --verbose */
-                        log_debug("Ignoring option -%c, not implemented.", c);
+                OPTION_SHORT('s', NULL, /* help= */ NULL): {} /* sloppy mount options */
+                OPTION_SHORT('n', NULL, /* help= */ NULL): {} /* aka --no-mtab */
+                OPTION_SHORT('v', NULL, /* help= */ NULL):    /* aka --verbose */
+                        log_debug("Ignoring option -%c, not implemented.", opts.opt->short_code);
                         break;
 
-                case 'N': /* aka --namespace= */
-                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Option -%c is not implemented, refusing.", c);
-
-                case '?':
-                        return -EINVAL;
+                OPTION_SHORT('N', "NS", /* help= */ NULL): /* aka --namespace= */
+                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                               "Option -%c is not implemented, refusing.",
+                                               opts.opt->short_code);
                 }
-        }
 
-        if (optind + 2 != argc)
+        char **args = option_parser_get_args(&opts);
+        size_t n_args = option_parser_get_n_args(&opts);
+
+        if (n_args != 2)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Expected a storage volume specification and target directory as only arguments.");
 
-        const char *colon = strchr(argv[optind], ':');
+        const char *colon = strchr(args[0], ':');
         if (!colon)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid storage volume specification, refusing: %s", argv[optind]);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid storage volume specification, refusing: %s", args[0]);
 
-        _cleanup_free_ char *provider = strndup(argv[optind], colon - argv[optind]);
+        _cleanup_free_ char *provider = strndup(args[0], colon - args[0]);
         if (!provider)
                 return log_oom();
         if (!storage_provider_name_is_valid(provider))
@@ -518,7 +523,7 @@ static int run_as_mount_helper(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid storage volume name: %s", name);
 
         _cleanup_free_ char *path = NULL;
-        r = parse_path_argument(argv[optind+1], /* suppress_root= */ false, &path);
+        r = parse_path_argument(args[1], /* suppress_root= */ false, &path);
         if (r < 0)
                 return r;
 
