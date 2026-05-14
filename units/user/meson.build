@@ -29,6 +29,11 @@ units = [
           'symlinks' : ['sockets.target.wants/'],
         },
         {
+          'file' : 'systemd-machined-ssh-agent.socket',
+          'conditions' : ['ENABLE_MACHINED'],
+          'symlinks' : ['sockets.target.wants/'],
+        },
+        {
           'file' : 'systemd-importd.service.in',
           'conditions' : ['ENABLE_IMPORTD'],
           'symlinks' : ['dbus-org.freedesktop.import1.service'],

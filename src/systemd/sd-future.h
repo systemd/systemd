@@ -29,12 +29,15 @@ struct sockaddr;
 struct msghdr;
 struct timespec;
 
+typedef struct sd_channel sd_channel;
 typedef struct sd_event sd_event;
 typedef struct sd_future sd_future;
 typedef struct sd_future_ops sd_future_ops;
-typedef int (*sd_future_func_t)(sd_future *f);
+typedef struct sd_future_slot sd_future_slot;
+typedef int (*sd_future_func_t)(sd_future *f, void *userdata);
 typedef int (*sd_fiber_func_t)(void *userdata);
 typedef _sd_destroy_t sd_fiber_destroy_t;
+typedef _sd_destroy_t sd_channel_destroy_t;
 
 struct sd_future_ops {
         size_t size;
@@ -50,7 +53,7 @@ __extension__ typedef enum _SD_ENUM_TYPE_S64(sd_future_state_t) {
         _SD_ENUM_FORCE_S64(SD_FUTURE_STATE)
 } sd_future_state_t;
 
-int sd_future_new(const sd_future_ops *ops, sd_future **ret);
+int sd_future_new(sd_event *e, const sd_future_ops *ops, sd_future **ret);
 int sd_future_cancel(sd_future *f);
 int sd_future_resolve(sd_future *f, int result);
 
@@ -59,6 +62,11 @@ _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_future, sd_future_unref);
 void sd_future_unref_array_clear(sd_future *array[], size_t n);
 void sd_future_unref_array(sd_future *array[], size_t n);
 
+sd_future* sd_future_cancel_unref(sd_future *f);
+_SD_DEFINE_POINTER_CLEANUP_FUNC(sd_future, sd_future_cancel_unref);
+void sd_future_cancel_unref_array_clear(sd_future *array[], size_t n);
+void sd_future_cancel_unref_array(sd_future *array[], size_t n);
+
 sd_future* sd_future_cancel_wait_unref(sd_future *f);
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_future, sd_future_cancel_wait_unref);
 void sd_future_cancel_wait_unref_array_clear(sd_future *array[], size_t n);
@@ -66,14 +74,37 @@ void sd_future_cancel_wait_unref_array(sd_future *array[], size_t n);
 
 int sd_future_state(sd_future *f);
 int sd_future_result(sd_future *f);
-void* sd_future_get_userdata(sd_future *f);
 void* sd_future_get_private(sd_future *f);
 const sd_future_ops* sd_future_get_ops(sd_future *f);
+sd_event* sd_future_get_event(sd_future *f);
 
-int sd_future_set_callback(sd_future *f, sd_future_func_t callback, void *userdata);
+int sd_future_add_callback(sd_future *f, sd_future_slot **ret_slot, sd_future_func_t callback, void *userdata);
+
+int sd_future_new_defer(sd_event *e, int result, sd_future **ret);
+
+int sd_future_resume_callback(sd_future *f, void *userdata);
+
+_SD_DECLARE_TRIVIAL_REF_UNREF_FUNC(sd_future_slot);
+_SD_DEFINE_POINTER_CLEANUP_FUNC(sd_future_slot, sd_future_slot_unref);
+
+sd_future* sd_future_slot_get_future(sd_future_slot *s);
+
 int sd_future_set_priority(sd_future *f, int64_t priority);
 
-int sd_future_new_wait(sd_future *target, sd_future **ret);
+__extension__ typedef enum _SD_ENUM_TYPE_S64(sd_future_group_policy_t) {
+        SD_FUTURE_GROUP_WAIT_ALL      = 0,
+        SD_FUTURE_GROUP_WAIT_ANY      = 1 << 0, /* resolve when one child settles */
+        SD_FUTURE_GROUP_IGNORE_ERRORS = 1 << 1, /* don't cancel siblings on child error */
+        _SD_ENUM_FORCE_S64(SD_FUTURE_GROUP_POLICY)
+} sd_future_group_policy_t;
+
+int sd_future_group_new(sd_event *e, sd_future **ret);
+int sd_future_group_set_policy(sd_future *f, uint64_t policy);
+int sd_future_group_add(sd_future *f, sd_future *child);
+int sd_future_group_add_many_internal(sd_future *f, ...);
+#define sd_future_group_add_many(f, ...) sd_future_group_add_many_internal(f, __VA_ARGS__, NULL)
+int sd_future_group_size(sd_future *f, size_t *ret);
+int sd_future_group_await(sd_future *f);
 
 int sd_fiber_new(sd_event *e, const char *name, sd_fiber_func_t func, void *userdata, sd_fiber_destroy_t destroy, sd_future **ret);
 
@@ -84,6 +115,7 @@ int sd_fiber_is_running(void);
 sd_future* sd_fiber_get_current(void);
 int sd_fiber_get_priority(int64_t *ret);
 sd_event* sd_fiber_get_event(void);
+uint64_t sd_fiber_interrupt_count(void);
 
 int sd_fiber_yield(void);
 int sd_fiber_sleep(uint64_t usec);
@@ -103,6 +135,28 @@ sd_future* sd_fiber_timeout(uint64_t timeout);
                        *_SD_CONCATENATE(_sd_fto_b_, uniq) = (sd_future*) (uintptr_t) 1;                                                                         \
              _SD_CONCATENATE(_sd_fto_b_, uniq);                                                                                                                 \
              _SD_CONCATENATE(_sd_fto_b_, uniq) = NULL)
+
+/* Bounded MPMC channel of void* items. A channel buffers up to `capacity` items; sends
+ * block (via their future) when the channel is full, receives block when empty. The
+ * destroy callback (if non-NULL) is invoked on every item still owned by the channel
+ * when its last ref is dropped, on items left in cancelled-or-dropped sender futures,
+ * and on values delivered to receiver futures that were never extracted. */
+
+int sd_channel_new(sd_event *e, size_t capacity, sd_channel_destroy_t destroy, sd_channel **ret);
+int sd_channel_send(sd_channel *c, void *item, sd_future **ret);
+int sd_channel_recv(sd_channel *c, sd_future **ret);
+int sd_channel_recv_get(sd_future *f, void **ret);
+int sd_channel_try_push(sd_channel *c, void *item);
+int sd_channel_try_pop(sd_channel *c, void **ret);
+int sd_channel_push(sd_channel *c, void *item);
+int sd_channel_pop(sd_channel *c, void **ret);
+int sd_channel_pop_latest(sd_channel *c, void **ret);
+
+int sd_channel_close(sd_channel *c);
+int sd_channel_set_slot(sd_channel *c, void *slot, sd_channel_destroy_t destroy);
+
+_SD_DECLARE_TRIVIAL_REF_UNREF_FUNC(sd_channel);
+_SD_DEFINE_POINTER_CLEANUP_FUNC(sd_channel, sd_channel_unref);
 
 /* Fiber I/O operations - use sd-event for non-blocking I/O when in fiber context */
 ssize_t sd_fiber_read(int fd, void *buf, size_t count);

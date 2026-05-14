@@ -75,6 +75,16 @@ int qmp_client_call(
                 sd_json_variant **ret_result,
                 char **reterr_error_desc);
 
+/* Convenience wrapper around qmp_client_call() that logs internal failures via
+ * log_error_errno() and QMP-level errors (with their description) before returning the error
+ * code. Use when the caller would just be wrapping the call in the standard
+ * "Failed to issue QMP command X: %m" pattern anyway. */
+int qmp_client_call_and_log(
+                QmpClient *client,
+                const char *command,
+                QmpClientArgs *args,
+                sd_json_variant **ret_result);
+
 int qmp_client_call_future(
                 QmpClient *client,
                 const char *command,

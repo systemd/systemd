@@ -465,6 +465,8 @@ option('p11kit', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 
        description : 'p11kit support')
 option('libfido2', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'FIDO2 support')
+option('liburing', type : 'feature',
+       description : 'io_uring support via liburing (used by sd-event)')
 option('tpm2', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'TPM2 support')
 option('tpm2-nvpcr-base', type : 'integer', value: 0x01d10200,
