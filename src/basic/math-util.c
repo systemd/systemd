@@ -3,7 +3,7 @@
 #include "math-util.h"
 
 double xfmod(double x, double y) {
-        assert(!xiszero(y));
+        assert(!iszero_safe(y));
         assert((x >= 0 ? x : -x) / (y >= 0 ? y : -y) < (double) INT64_MAX);
         return x - (double) (int64_t) (x / y) * y;
 }
