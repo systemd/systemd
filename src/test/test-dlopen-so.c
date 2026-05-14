@@ -3,7 +3,7 @@
 #include "acl-util.h"
 #include "apparmor-util.h"
 #include "blkid-util.h"
-#include "bpf-dlopen.h"
+#include "bpf-util.h"
 #include "compress.h"
 #include "crypto-util.h"
 #include "cryptsetup-util.h"

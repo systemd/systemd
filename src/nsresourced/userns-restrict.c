@@ -6,7 +6,7 @@
 #include "userns-restrict-skel.h"
 #endif
 
-#include "bpf-dlopen.h"
+#include "bpf-util.h"
 #include "bpf-link.h"
 #include "fd-util.h"
 #include "log.h"

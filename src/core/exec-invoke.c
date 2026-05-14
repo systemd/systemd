@@ -21,7 +21,7 @@
 #include "ask-password-api.h"
 #include "barrier.h"
 #include "bitfield.h"
-#include "bpf-dlopen.h"
+#include "bpf-util.h"
 #include "bpf-restrict-fs.h"
 #include "btrfs-util.h"
 #include "capability-util.h"
