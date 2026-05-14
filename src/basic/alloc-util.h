@@ -76,7 +76,8 @@ static inline void unsetp(void *p) {
 }
 
 static inline void freep(void *p) {
-        *(void**)p = mfree(*(void**) p);
+        if (!PTR_IS_DIRTY(*(void**)p))
+                *(void**)p = mfree(*(void**)p);
 }
 
 #define _cleanup_free_ _cleanup_(freep)

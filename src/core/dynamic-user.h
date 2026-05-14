@@ -33,7 +33,7 @@ int dynamic_user_current(DynamicUser *d, uid_t *ret);
 int dynamic_user_lookup_uid(Manager *m, uid_t uid, char **ret);
 int dynamic_user_lookup_name(Manager *m, const char *name, uid_t *ret);
 
-int dynamic_creds_make(Manager *m, const char *user, const char *group, DynamicCreds **ret);
+DynamicCreds *dynamic_creds_make(Manager *m, const char *user, const char *group);
 int dynamic_creds_realize(DynamicCreds *creds, char **suggested_paths, uid_t *uid, gid_t *gid);
 
 DynamicCreds *dynamic_creds_unref(DynamicCreds *creds);

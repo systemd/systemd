@@ -601,7 +601,7 @@ int exec_shared_runtime_deserialize_one(Manager *m, const char *value, FDSet *fd
 void exec_shared_runtime_done(ExecSharedRuntime *rt);
 void exec_shared_runtime_vacuum(Manager *m);
 
-int exec_runtime_make(const Unit *unit, const ExecContext *context, ExecSharedRuntime *shared, DynamicCreds *creds, ExecRuntime **ret);
+ExecRuntime *exec_runtime_make(const Unit *unit, const ExecContext *context, ExecSharedRuntime *shared, DynamicCreds *creds);
 ExecRuntime* exec_runtime_free(ExecRuntime *rt);
 DEFINE_TRIVIAL_CLEANUP_FUNC(ExecRuntime*, exec_runtime_free);
 ExecRuntime* exec_runtime_destroy(ExecRuntime *rt);
