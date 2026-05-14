@@ -71,6 +71,17 @@ SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("Run via shell"),
                 SD_VARLINK_DEFINE_FIELD(viaShell, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
 
+SD_VARLINK_DEFINE_STRUCT_TYPE(
+                ExecCommandStatus,
+                SD_VARLINK_DEFINE_FIELD(PID, SD_VARLINK_INT, 0),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(StartTimestamp, Timestamp, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(ExitTimestamp, Timestamp, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(HandoffTimestamp, Timestamp, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Exit code (set when the process exited normally)"),
+                SD_VARLINK_DEFINE_FIELD(ExitStatus, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Signal name (set when the process was killed by a signal)"),
+                SD_VARLINK_DEFINE_FIELD(ExitSignal, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
+
 SD_VARLINK_DEFINE_ENUM_TYPE(
                 ExecOutputType,
                 SD_VARLINK_DEFINE_ENUM_VALUE(inherit),
