@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <getopt.h>
 #include <signal.h>
 #include <unistd.h>
 
@@ -10,9 +9,11 @@
 #include "bus-util.h"
 #include "capsule-util.h"
 #include "extract-word.h"
+#include "format-table.h"
 #include "help-util.h"
 #include "image-policy.h"
 #include "install.h"
+#include "options.h"
 #include "output-mode.h"
 #include "pager.h"
 #include "parse-argument.h"
@@ -27,6 +28,7 @@
 #include "systemctl-compat-shutdown.h"
 #include "systemctl-logind.h"
 #include "time-util.h"
+#include "verbs.h"
 
 char **arg_types = NULL;
 char **arg_states = NULL;
@@ -108,233 +110,87 @@ STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_kill_subgroup, freep);
 
 static int systemctl_help(void) {
+        static const char *const vgroups[] = {
+                "Unit Commands",
+                "Unit File Commands",
+                "Machine Commands",
+                "Job Commands",
+                "Environment Commands",
+                "Manager State Commands",
+                "System Commands",
+        };
+
+        Table *vtables[ELEMENTSOF(vgroups)] = {};
+        CLEANUP_ELEMENTS(vtables, table_unref_array_clear);
+        _cleanup_(table_unrefp) Table *options_table = NULL;
+        int r;
+
+        for (size_t i = 0; i < ELEMENTSOF(vgroups); i++) {
+                r = verbs_get_help_table_group(vgroups[i], &vtables[i]);
+                if (r < 0)
+                        return r;
+        }
+
+        r = option_parser_get_help_table_ns("systemctl", &options_table);
+        if (r < 0)
+                return r;
+
+        assert_cc(ELEMENTSOF(vtables) == 7);
+        (void) table_sync_column_widths(0, options_table,
+                                        vtables[0], vtables[1], vtables[2], vtables[3],
+                                        vtables[4], vtables[5], vtables[6]);
+
         pager_open(arg_pager_flags);
 
-        help_cmdline("[OPTIONS...] COMMAND ...");
+        help_cmdline("[OPTIONS…] COMMAND …");
         help_abstract("Query or send control commands to the system manager.");
 
-        help_section("Unit Commands");
-        printf("  list-units [PATTERN...]             List units currently in memory\n"
-               "  list-automounts [PATTERN...]        List automount units currently in memory,\n"
-               "                                      ordered by path\n"
-               "  list-paths [PATTERN...]             List path units currently in memory,\n"
-               "                                      ordered by path\n"
-               "  list-sockets [PATTERN...]           List socket units currently in memory,\n"
-               "                                      ordered by address\n"
-               "  list-timers [PATTERN...]            List timer units currently in memory,\n"
-               "                                      ordered by next elapse\n"
-               "  is-active PATTERN...                Check whether units are active\n"
-               "  is-failed [PATTERN...]              Check whether units are failed or\n"
-               "                                      system is in degraded state\n"
-               "  status [PATTERN...|PID...]          Show runtime status of one or more units\n"
-               "  show [PATTERN...|JOB...]            Show properties of one or more\n"
-               "                                      units/jobs or the manager\n"
-               "  cat PATTERN...                      Show files and drop-ins of specified units\n"
-               "  help PATTERN...|PID...              Show manual for one or more units\n"
-               "  list-dependencies [UNIT...]         Recursively show units which are required\n"
-               "                                      or wanted by the units or by which those\n"
-               "                                      units are required or wanted\n"
-               "  start UNIT...                       Start (activate) one or more units\n"
-               "  stop UNIT...                        Stop (deactivate) one or more units\n"
-               "  reload UNIT...                      Reload one or more units\n"
-               "  restart UNIT...                     Start or restart one or more units\n"
-               "  try-restart UNIT...                 Restart one or more units if active\n"
-               "  enqueue-marked                      Enqueue jobs for all marked units\n"
-               "  reload-or-restart UNIT...           Reload one or more units if possible,\n"
-               "                                      otherwise start or restart\n"
-               "  try-reload-or-restart UNIT...       If active, reload one or more units,\n"
-               "                                      if supported, otherwise restart\n"
-               "  isolate UNIT                        Start one unit and stop all others\n"
-               "  kill UNIT...                        Send signal to processes of a unit\n"
-               "  clean UNIT...                       Clean runtime, cache, state, logs or\n"
-               "                                      configuration of unit\n"
-               "  freeze PATTERN...                   Freeze execution of unit processes\n"
-               "  thaw PATTERN...                     Resume execution of a frozen unit\n"
-               "  set-property UNIT PROPERTY=VALUE... Sets one or more properties of a unit\n"
-               "  bind UNIT PATH [PATH]               Bind-mount a path from the host into a\n"
-               "                                      unit's namespace\n"
-               "  mount-image UNIT PATH [PATH [OPTS]] Mount an image from the host into a\n"
-               "                                      unit's namespace\n"
-               "  service-log-level SERVICE [LEVEL]   Get/set logging threshold for service\n"
-               "  service-log-target SERVICE [TARGET] Get/set logging target for service\n"
-               "  reset-failed [PATTERN...]           Reset failed state for all, one, or more\n"
-               "                                      units\n"
-               "  whoami [PID...]                     Return unit caller or specified PIDs are\n"
-               "                                      part of\n");
-
-        help_section("Unit File Commands");
-        printf("  list-unit-files [PATTERN...]        List installed unit files\n"
-               "  enable [UNIT...|PATH...]            Enable one or more unit files\n"
-               "  disable UNIT...                     Disable one or more unit files\n"
-               "  reenable UNIT...                    Reenable one or more unit files\n"
-               "  preset UNIT...                      Enable/disable one or more unit files\n"
-               "                                      based on preset configuration\n"
-               "  preset-all                          Enable/disable all unit files based on\n"
-               "                                      preset configuration\n"
-               "  is-enabled UNIT...                  Check whether unit files are enabled\n"
-               "  mask UNIT...                        Mask one or more units\n"
-               "  unmask UNIT...                      Unmask one or more units\n"
-               "  link PATH...                        Link one or more units files into\n"
-               "                                      the search path\n"
-               "  revert UNIT...                      Revert one or more unit files to vendor\n"
-               "                                      version\n"
-               "  add-wants TARGET UNIT...            Add 'Wants' dependency for the target\n"
-               "                                      on specified one or more units\n"
-               "  add-requires TARGET UNIT...         Add 'Requires' dependency for the target\n"
-               "                                      on specified one or more units\n"
-               "  edit UNIT...                        Edit one or more unit files\n"
-               "  get-default                         Get the name of the default target\n"
-               "  set-default TARGET                  Set the default target\n");
-
-        help_section("Machine Commands");
-        printf("  list-machines [PATTERN...]          List local containers and host\n");
-
-        help_section("Job Commands");
-        printf("  list-jobs [PATTERN...]              List jobs\n"
-               "  cancel [JOB...]                     Cancel all, one, or more jobs\n");
-
-        help_section("Environment Commands");
-        printf("  show-environment                    Dump environment\n"
-               "  set-environment VARIABLE=VALUE...   Set one or more environment variables\n"
-               "  unset-environment VARIABLE...       Unset one or more environment variables\n"
-               "  import-environment VARIABLE...      Import all or some environment variables\n");
-
-        help_section("Manager State Commands");
-        printf("  daemon-reload                       Reload systemd manager configuration\n"
-               "  daemon-reexec                       Reexecute systemd manager\n"
-               "  log-level [LEVEL]                   Get/set logging threshold for manager\n"
-               "  log-target [TARGET]                 Get/set logging target for manager\n"
-               "  service-watchdogs [BOOL]            Get/set service watchdog state\n");
-
-        help_section("System Commands");
-        printf("  is-system-running                   Check whether system is fully running\n"
-               "  default                             Enter system default mode\n"
-               "  rescue                              Enter system rescue mode\n"
-               "  emergency                           Enter system emergency mode\n"
-               "  halt                                Shut down and halt the system\n"
-               "  poweroff                            Shut down and power-off the system\n"
-               "  reboot                              Shut down and reboot the system\n"
-               "  kexec                               Shut down and reboot the system with kexec\n"
-               "  soft-reboot                         Shut down and reboot userspace\n"
-               "  exit [EXIT_CODE]                    Request user instance or container exit\n"
-               "  switch-root [ROOT [INIT]]           Change to a different root file system\n"
-               "  sleep                               Put the system to sleep (through one of\n"
-               "                                      the operations below)\n"
-               "  suspend                             Suspend the system\n"
-               "  hibernate                           Hibernate the system\n"
-               "  hybrid-sleep                        Hibernate and suspend the system\n"
-               "  suspend-then-hibernate              Suspend the system, wake after a period of\n"
-               "                                      time, and hibernate\n");
+        for (size_t i = 0; i < ELEMENTSOF(vgroups); i++) {
+                help_section(vgroups[i]);
+                r = table_print_or_warn(vtables[i]);
+                if (r < 0)
+                        return r;
+        }
 
         help_section("Options");
-        printf("  -h --help              Show this help\n"
-               "     --version           Show package version\n"
-               "     --system            Connect to system manager\n"
-               "     --user              Connect to user service manager\n"
-               "  -C --capsule=NAME      Connect to service manager of specified capsule\n"
-               "  -H --host=[USER@]HOST  Operate on remote host\n"
-               "  -M --machine=CONTAINER Operate on a local container\n"
-               "  -t --type=TYPE         List units of a particular type\n"
-               "     --state=STATE       List units with particular LOAD or SUB or ACTIVE state\n"
-               "     --failed            Shortcut for --state=failed\n"
-               "  -p --property=NAME     Show only properties by this name\n"
-               "  -P NAME                Equivalent to --value --property=NAME\n"
-               "  -a --all               Show all properties/all units currently in memory,\n"
-               "                         including dead/empty ones. To list all units installed\n"
-               "                         on the system, use 'list-unit-files' instead.\n"
-               "  -l --full              Don't ellipsize unit names on output\n"
-               "  -r --recursive         Show unit list of host and local containers\n"
-               "     --reverse           Show reverse dependencies with 'list-dependencies'\n"
-               "     --before            Show units ordered before with 'list-dependencies'\n"
-               "     --after             Show units ordered after with 'list-dependencies'\n"
-               "     --with-dependencies Show unit dependencies with 'status', 'cat',\n"
-               "                         'list-units', and 'list-unit-files'.\n"
-               "     --job-mode=MODE     Specify how to deal with already queued jobs, when\n"
-               "                         queueing a new job\n"
-               "  -T --show-transaction  When enqueuing a unit job, show full transaction\n"
-               "     --show-types        When showing sockets, explicitly show their type\n"
-               "     --value             When showing properties, only print the value\n"
-               "     --check-inhibitors=MODE\n"
-               "                         Whether to check inhibitors before shutting down,\n"
-               "                         sleeping, or hibernating\n"
-               "  -i                     Shortcut for --check-inhibitors=no\n"
-               "  -s --signal=SIGNAL     Which signal to send\n"
-               "     --kill-whom=WHOM    Whom to send signal to\n"
-               "     --kill-value=INT    Signal value to enqueue\n"
-               "     --kill-subgroup=PATH\n"
-               "                         Send signal to sub-control group only\n"
-               "     --what=RESOURCES    Which types of resources to remove\n"
-               "     --now               Start or stop unit after enabling or disabling it\n"
-               "     --dry-run           Only print what would be done\n"
-               "                         Currently supported by verbs: halt, poweroff, reboot,\n"
-               "                             kexec, soft-reboot, suspend, hibernate, \n"
-               "                             suspend-then-hibernate, hybrid-sleep, default,\n"
-               "                             rescue, emergency, and exit.\n"
-               "  -q --quiet             Suppress output\n"
-               "  -v --verbose           Show unit logs while executing operation\n"
-               "     --no-warn           Suppress several warnings shown by default\n"
-               "     --wait              For (re)start, wait until service stopped again\n"
-               "                         For is-system-running, wait until startup is completed\n"
-               "                         For kill, wait until service stopped\n"
-               "     --no-block          Do not wait until operation finished\n"
-               "     --no-wall           Don't send wall message before halt/power-off/reboot\n"
-               "     --message=MESSAGE   Specify human-readable reason for system shutdown\n"
-               "     --no-reload         Don't reload daemon after en-/dis-abling unit files\n"
-               "     --legend=BOOL       Enable/disable the legend (column headers and hints)\n"
-               "     --no-pager          Do not pipe output into a pager\n"
-               "     --no-ask-password   Do not ask for system passwords\n"
-               "     --global            Edit/enable/disable/mask default user unit files\n"
-               "                         globally\n"
-               "     --runtime           Edit/enable/disable/mask unit files temporarily until\n"
-               "                         next reboot\n"
-               "  -f --force             When enabling unit files, override existing symlinks\n"
-               "                         When shutting down, execute action immediately\n"
-               "     --preset-mode=      Apply only enable, only disable, or all presets\n"
-               "     --root=PATH         Edit/enable/disable/mask unit files in the specified\n"
-               "                         root directory\n"
-               "     --image=PATH        Edit/enable/disable/mask unit files in the specified\n"
-               "                         disk image\n"
-               "     --image-policy=POLICY\n"
-               "                         Specify disk image dissection policy\n"
-               "  -n --lines=INTEGER     Number of journal entries to show\n"
-               "  -o --output=STRING     Change journal output mode (short, short-precise,\n"
-               "                             short-iso, short-iso-precise, short-full,\n"
-               "                             short-monotonic, short-unix, short-delta,\n"
-               "                             verbose, export, json, json-pretty, json-sse, cat)\n"
-               "     --firmware-setup    Tell the firmware to show the setup menu on next boot\n"
-               "     --boot-loader-menu=TIME\n"
-               "                         Boot into boot loader menu on next boot\n"
-               "     --boot-loader-entry=NAME\n"
-               "                         Boot into a specific boot loader entry on next boot\n"
-               "     --reboot-argument=ARG\n"
-               "                         Specify argument string to pass to reboot()\n"
-               "     --kernel-cmdline=CMDLINE\n"
-               "                         Append to the kernel command line when loading the\n"
-               "                         kernel from the booted boot loader entry\n"
-               "     --plain             Print unit dependencies as a list instead of a tree\n"
-               "     --timestamp=FORMAT  Change format of printed timestamps (pretty, unix,\n"
-               "                             us, utc, us+utc)\n"
-               "     --read-only         Create read-only bind mount\n"
-               "     --mkdir             Create directory before mounting, if missing\n"
-               "     --marked            Restart/reload previously marked units\n"
-               "     --drop-in=NAME      Edit unit files using the specified drop-in file name\n"
-               "     --when=TIME         Schedule halt/power-off/reboot/kexec action after\n"
-               "                         a certain timestamp\n"
-               "     --stdin             Read new contents of edited file from stdin\n");
+        r = table_print_or_warn(options_table);
+        if (r < 0)
+                return r;
 
         help_man_page_reference("systemctl", "1");
 
         return 0;
 }
 
-static void help_types(void) {
-        if (arg_legend != 0)
-                puts("Available unit types:");
+static int parse_property_argument(const char *value, char ***properties) {
+        int r;
 
-        DUMP_STRING_TABLE(unit_type, UnitType, _UNIT_TYPE_MAX);
+        assert(value);
+        assert(properties);
+
+        if (isempty(value) && !*properties) {
+                /* Make sure that if the empty property list was specified, we won't show any properties. */
+                *properties = strv_new(NULL);
+                if (!*properties)
+                        return log_oom();
+        } else
+                for (const char *p = value;;) {
+                        _cleanup_free_ char *prop = NULL;
+
+                        r = extract_first_word(&p, &prop, ",", /* flags= */ 0);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse property: '%s'", value);
+                        if (r == 0)
+                                break;
+
+                        if (strv_consume(properties, TAKE_PTR(prop)) < 0)
+                                return log_oom();
+                }
+
+        return 0;
 }
 
-static void help_states(void) {
+static int help_states(void) {
         if (arg_legend != 0)
                 puts("Available unit load states:");
         DUMP_STRING_TABLE(unit_load_state, UnitLoadState, _UNIT_LOAD_STATE_MAX);
@@ -389,137 +245,136 @@ static void help_states(void) {
 
         if (arg_legend != 0)
                 puts("\nAvailable timer unit substates:");
-        DUMP_STRING_TABLE(timer_state, TimerState, _TIMER_STATE_MAX);
+        return DUMP_STRING_TABLE(timer_state, TimerState, _TIMER_STATE_MAX);
 }
 
-static int systemctl_parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_FAIL = 0x100,            /* compatibility only */
-                ARG_REVERSE,
-                ARG_AFTER,
-                ARG_BEFORE,
-                ARG_CHECK_INHIBITORS,
-                ARG_DRY_RUN,
-                ARG_SHOW_TYPES,
-                ARG_IRREVERSIBLE,            /* compatibility only */
-                ARG_IGNORE_DEPENDENCIES,     /* compatibility only */
-                ARG_VALUE,
-                ARG_VERSION,
-                ARG_USER,
-                ARG_SYSTEM,
-                ARG_GLOBAL,
-                ARG_NO_BLOCK,
-                ARG_LEGEND,
-                ARG_NO_LEGEND,                /* compatibility only */
-                ARG_NO_PAGER,
-                ARG_NO_WALL,
-                ARG_ROOT,
-                ARG_IMAGE,
-                ARG_IMAGE_POLICY,
-                ARG_NO_RELOAD,
-                ARG_KILL_WHOM,
-                ARG_KILL_VALUE,
-                ARG_NO_ASK_PASSWORD,
-                ARG_FAILED,
-                ARG_RUNTIME,
-                ARG_PLAIN,
-                ARG_STATE,
-                ARG_JOB_MODE,
-                ARG_PRESET_MODE,
-                ARG_FIRMWARE_SETUP,
-                ARG_BOOT_LOADER_MENU,
-                ARG_BOOT_LOADER_ENTRY,
-                ARG_NOW,
-                ARG_MESSAGE,
-                ARG_WITH_DEPENDENCIES,
-                ARG_WAIT,
-                ARG_WHAT,
-                ARG_REBOOT_ARG,
-                ARG_KERNEL_CMDLINE,
-                ARG_TIMESTAMP_STYLE,
-                ARG_READ_ONLY,
-                ARG_MKDIR,
-                ARG_MARKED,
-                ARG_NO_WARN,
-                ARG_DROP_IN,
-                ARG_WHEN,
-                ARG_STDIN,
-                ARG_KILL_SUBGROUP,
-        };
+static int parse_states_argument(const char *value, char ***states) {
+        int r;
 
-        static const struct option options[] = {
-                { "help",                no_argument,       NULL, 'h'                     },
-                { "version",             no_argument,       NULL, ARG_VERSION             },
-                { "type",                required_argument, NULL, 't'                     },
-                { "property",            required_argument, NULL, 'p'                     },
-                { "all",                 no_argument,       NULL, 'a'                     },
-                { "reverse",             no_argument,       NULL, ARG_REVERSE             },
-                { "after",               no_argument,       NULL, ARG_AFTER               },
-                { "before",              no_argument,       NULL, ARG_BEFORE              },
-                { "show-types",          no_argument,       NULL, ARG_SHOW_TYPES          },
-                { "failed",              no_argument,       NULL, ARG_FAILED              },
-                { "full",                no_argument,       NULL, 'l'                     },
-                { "job-mode",            required_argument, NULL, ARG_JOB_MODE            },
-                { "fail",                no_argument,       NULL, ARG_FAIL                }, /* compatibility only */
-                { "irreversible",        no_argument,       NULL, ARG_IRREVERSIBLE        }, /* compatibility only */
-                { "ignore-dependencies", no_argument,       NULL, ARG_IGNORE_DEPENDENCIES }, /* compatibility only */
-                { "ignore-inhibitors",   no_argument,       NULL, 'i'                     }, /* compatibility only */
-                { "check-inhibitors",    required_argument, NULL, ARG_CHECK_INHIBITORS    },
-                { "value",               no_argument,       NULL, ARG_VALUE               },
-                { "user",                no_argument,       NULL, ARG_USER                },
-                { "system",              no_argument,       NULL, ARG_SYSTEM              },
-                { "global",              no_argument,       NULL, ARG_GLOBAL              },
-                { "capsule",             required_argument, NULL, 'C'                     },
-                { "wait",                no_argument,       NULL, ARG_WAIT                },
-                { "no-block",            no_argument,       NULL, ARG_NO_BLOCK            },
-                { "legend",              required_argument, NULL, ARG_LEGEND              },
-                { "no-legend",           no_argument,       NULL, ARG_NO_LEGEND           }, /* compatibility only */
-                { "no-pager",            no_argument,       NULL, ARG_NO_PAGER            },
-                { "no-wall",             no_argument,       NULL, ARG_NO_WALL             },
-                { "dry-run",             no_argument,       NULL, ARG_DRY_RUN             },
-                { "quiet",               no_argument,       NULL, 'q'                     },
-                { "verbose",             no_argument,       NULL, 'v'                     },
-                { "no-warn",             no_argument,       NULL, ARG_NO_WARN             },
-                { "root",                required_argument, NULL, ARG_ROOT                },
-                { "image",               required_argument, NULL, ARG_IMAGE               },
-                { "image-policy",        required_argument, NULL, ARG_IMAGE_POLICY        },
-                { "force",               no_argument,       NULL, 'f'                     },
-                { "no-reload",           no_argument,       NULL, ARG_NO_RELOAD           },
-                { "kill-whom",           required_argument, NULL, ARG_KILL_WHOM           },
-                { "kill-value",          required_argument, NULL, ARG_KILL_VALUE          },
-                { "signal",              required_argument, NULL, 's'                     },
-                { "no-ask-password",     no_argument,       NULL, ARG_NO_ASK_PASSWORD     },
-                { "host",                required_argument, NULL, 'H'                     },
-                { "machine",             required_argument, NULL, 'M'                     },
-                { "runtime",             no_argument,       NULL, ARG_RUNTIME             },
-                { "lines",               required_argument, NULL, 'n'                     },
-                { "output",              required_argument, NULL, 'o'                     },
-                { "plain",               no_argument,       NULL, ARG_PLAIN               },
-                { "state",               required_argument, NULL, ARG_STATE               },
-                { "recursive",           no_argument,       NULL, 'r'                     },
-                { "with-dependencies",   no_argument,       NULL, ARG_WITH_DEPENDENCIES   },
-                { "preset-mode",         required_argument, NULL, ARG_PRESET_MODE         },
-                { "firmware-setup",      no_argument,       NULL, ARG_FIRMWARE_SETUP      },
-                { "boot-loader-menu",    required_argument, NULL, ARG_BOOT_LOADER_MENU    },
-                { "boot-loader-entry",   required_argument, NULL, ARG_BOOT_LOADER_ENTRY   },
-                { "now",                 no_argument,       NULL, ARG_NOW                 },
-                { "message",             required_argument, NULL, ARG_MESSAGE             },
-                { "show-transaction",    no_argument,       NULL, 'T'                     },
-                { "what",                required_argument, NULL, ARG_WHAT                },
-                { "reboot-argument",     required_argument, NULL, ARG_REBOOT_ARG          },
-                { "kernel-cmdline",      required_argument, NULL, ARG_KERNEL_CMDLINE      },
-                { "timestamp",           required_argument, NULL, ARG_TIMESTAMP_STYLE     },
-                { "read-only",           no_argument,       NULL, ARG_READ_ONLY           },
-                { "mkdir",               no_argument,       NULL, ARG_MKDIR               },
-                { "marked",              no_argument,       NULL, ARG_MARKED              },
-                { "drop-in",             required_argument, NULL, ARG_DROP_IN             },
-                { "when",                required_argument, NULL, ARG_WHEN                },
-                { "stdin",               no_argument,       NULL, ARG_STDIN               },
-                { "kill-subgroup",       required_argument, NULL, ARG_KILL_SUBGROUP       },
-                {}
-        };
+        assert(value);
+        assert(states);
 
-        int c, r;
+        if (isempty(value)) {
+                /* reset the setting */
+                *states = strv_free(*states);
+                return 1;
+        }
+
+        for (const char *p = value;;) {
+                _cleanup_free_ char *s = NULL;
+
+                r = extract_first_word(&p, &s, ",", /* flags= */ 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse --state=: %m");
+                if (r == 0)
+                        break;
+
+                if (streq(s, "help"))
+                        return help_states();
+
+                if (strv_consume(states, TAKE_PTR(s)) < 0)
+                        return log_oom();
+        }
+
+        return 1;
+}
+
+static int help_types(void) {
+        if (arg_legend != 0)
+                puts("Available unit types:");
+
+        return DUMP_STRING_TABLE(unit_type, UnitType, _UNIT_TYPE_MAX);
+}
+
+static int parse_types_argument(const char *value, char ***types, char ***states) {
+        int r;
+
+        assert(value);
+        assert(types);
+        assert(states);
+
+        if (isempty(value)) {
+                /* reset the setting */
+                *types = strv_free(*types);
+                return 1;
+        }
+
+        for (const char *p = value;;) {
+                _cleanup_free_ char *type = NULL;
+
+                r = extract_first_word(&p, &type, ",", /* flags= */ 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse -t/--type=: %m");
+                if (r == 0)
+                        break;
+
+                if (streq(type, "help"))
+                        return help_types();
+
+                if (unit_type_from_string(type) >= 0) {
+                        if (strv_consume(types, TAKE_PTR(type)) < 0)
+                                return log_oom();
+                        continue;
+                }
+
+                /* It's much nicer to use --state= for load states, but let's support this in
+                 * --types= too for compatibility with old versions */
+                if (unit_load_state_from_string(type) >= 0) {
+                        if (strv_consume(states, TAKE_PTR(type)) < 0)
+                                return log_oom();
+                        continue;
+                }
+
+                log_error("Unknown unit type or load state '%s'.", type);
+                return log_info_errno(SYNTHETIC_ERRNO(EINVAL),
+                                      "Use -t help to see a list of allowed values.");
+        }
+
+        return 1;
+}
+
+static int parse_what_argument(const char *value, char ***clean_what) {
+        int r;
+
+        assert(value);
+        assert(clean_what);
+
+        if (isempty(value)) {
+                /* reset the setting */
+                *clean_what = strv_free(*clean_what);
+                return 1;
+        }
+
+        for (const char *p = value;;) {
+                _cleanup_free_ char *k = NULL;
+
+                r = extract_first_word(&p, &k, ",", /* flags= */ 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse --what=: %m");
+                if (r == 0)
+                        break;
+
+                if (streq(k, "help")) {
+                        puts("runtime\n"
+                             "state\n"
+                             "cache\n"
+                             "logs\n"
+                             "configuration\n"
+                             "fdstore\n"
+                             "all");
+                        return 0;
+                }
+
+                r = strv_consume(clean_what, TAKE_PTR(k));
+                if (r < 0)
+                        return log_oom();
+        }
+
+        return 1;
+}
+
+static int systemctl_parse_argv(int argc, char *argv[], int log_level_shift, char ***remaining_args) {
+        int r;
 
         assert(argc >= 0);
         assert(argv);
@@ -527,526 +382,195 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
         /* We default to allowing interactive authorization only in systemctl (not in the legacy commands) */
         arg_ask_password = true;
 
-        while ((c = getopt_long(argc, argv, "hC:t:p:P:alqvfs:H:M:n:o:iTr.::", options, NULL)) >= 0)
+        OptionParser opts = {
+                argc, argv,
+                .namespace = "systemctl",
+                .log_level_shift = log_level_shift,
+        };
 
+        FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
 
-                case 'h':
+                OPTION_NAMESPACE("systemctl"): {}
+
+                OPTION_COMMON_HELP:
                         return systemctl_help();
 
-                case ARG_VERSION:
+                OPTION_COMMON_VERSION:
                         return version();
 
-                case 't':
-                        if (isempty(optarg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "--type= requires arguments.");
-
-                        for (const char *p = optarg;;) {
-                                _cleanup_free_ char *type = NULL;
-
-                                r = extract_first_word(&p, &type, ",", 0);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to parse type: %s", optarg);
-                                if (r == 0)
-                                        break;
-
-                                if (streq(type, "help")) {
-                                        help_types();
-                                        return 0;
-                                }
-
-                                if (unit_type_from_string(type) >= 0) {
-                                        if (strv_consume(&arg_types, TAKE_PTR(type)) < 0)
-                                                return log_oom();
-                                        continue;
-                                }
-
-                                /* It's much nicer to use --state= for load states, but let's support this in
-                                 * --types= too for compatibility with old versions */
-                                if (unit_load_state_from_string(type) >= 0) {
-                                        if (strv_consume(&arg_states, TAKE_PTR(type)) < 0)
-                                                return log_oom();
-                                        continue;
-                                }
-
-                                log_error("Unknown unit type or load state '%s'.", type);
-                                return log_info_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                      "Use -t help to see a list of allowed values.");
-                        }
-
-                        break;
-
-                case 'P':
-                        SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_ONLY_VALUE, true);
-                        _fallthrough_;
-
-                case 'p':
-                        /* Make sure that if the empty property list was specified, we won't show any
-                           properties. */
-                        if (isempty(optarg) && !arg_properties) {
-                                arg_properties = new0(char*, 1);
-                                if (!arg_properties)
-                                        return log_oom();
-                        } else
-                                for (const char *p = optarg;;) {
-                                        _cleanup_free_ char *prop = NULL;
-
-                                        r = extract_first_word(&p, &prop, ",", 0);
-                                        if (r < 0)
-                                                return log_error_errno(r, "Failed to parse property: %s", optarg);
-                                        if (r == 0)
-                                                break;
-
-                                        if (strv_consume(&arg_properties, TAKE_PTR(prop)) < 0)
-                                                return log_oom();
-                                }
-
-                        /* If the user asked for a particular property, show it, even if it is empty. */
-                        SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_SHOW_EMPTY, true);
-
-                        break;
-
-                case 'a':
-                        SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_SHOW_EMPTY, true);
-                        arg_all = true;
-                        break;
-
-                case ARG_REVERSE:
-                        arg_dependency = DEPENDENCY_REVERSE;
-                        break;
-
-                case ARG_AFTER:
-                        arg_dependency = DEPENDENCY_AFTER;
-                        arg_jobs_after = true;
-                        break;
-
-                case ARG_BEFORE:
-                        arg_dependency = DEPENDENCY_BEFORE;
-                        arg_jobs_before = true;
-                        break;
-
-                case ARG_SHOW_TYPES:
-                        arg_show_types = true;
-                        break;
-
-                case ARG_VALUE:
-                        SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_ONLY_VALUE, true);
-                        break;
-
-                case ARG_JOB_MODE:
-                        _arg_job_mode = optarg;
-                        break;
-
-                case ARG_FAIL:
-                        _arg_job_mode = "fail";
-                        break;
-
-                case ARG_IRREVERSIBLE:
-                        _arg_job_mode = "replace-irreversibly";
-                        break;
-
-                case ARG_IGNORE_DEPENDENCIES:
-                        _arg_job_mode = "ignore-dependencies";
-                        break;
-
-                case ARG_USER:
-                        arg_runtime_scope = RUNTIME_SCOPE_USER;
-                        break;
-
-                case ARG_SYSTEM:
+                OPTION_LONG("system", NULL, "Connect to the system service manager"):
                         arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
                         break;
 
-                case ARG_GLOBAL:
-                        arg_runtime_scope = RUNTIME_SCOPE_GLOBAL;
+                OPTION_LONG("user", NULL, "Connect to the user service manager"):
+                        arg_runtime_scope = RUNTIME_SCOPE_USER;
                         break;
 
-                case 'C':
-                        r = capsule_name_is_valid(optarg);
+                OPTION('C', "capsule", "NAME", "Connect to service manager of specified capsule"):
+                        r = capsule_name_is_valid(opts.arg);
                         if (r < 0)
-                                return log_error_errno(r, "Unable to validate capsule name '%s': %m", optarg);
+                                return log_error_errno(r, "Unable to validate capsule name '%s': %m", opts.arg);
                         if (r == 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid capsule name: %s", optarg);
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid capsule name: %s", opts.arg);
 
-                        arg_host = optarg;
+                        arg_host = opts.arg;
                         arg_transport = BUS_TRANSPORT_CAPSULE;
                         arg_runtime_scope = RUNTIME_SCOPE_USER;
                         break;
 
-                case ARG_WAIT:
-                        arg_wait = true;
+                OPTION_COMMON_HOST:
+                        arg_transport = BUS_TRANSPORT_REMOTE;
+                        arg_host = opts.arg;
                         break;
 
-                case ARG_NO_BLOCK:
-                        arg_no_block = true;
-                        break;
-
-                case ARG_NO_LEGEND:
-                        arg_legend = false;
-                        break;
-
-                case ARG_LEGEND:
-                        r = parse_boolean_argument("--legend", optarg, NULL);
-                        if (r < 0)
-                                return r;
-                        arg_legend = r;
-                        break;
-
-                case ARG_NO_PAGER:
-                        arg_pager_flags |= PAGER_DISABLE;
-                        break;
-
-                case ARG_NO_WALL:
-                        arg_no_wall = true;
-                        break;
-
-                case ARG_ROOT:
-                        r = parse_path_argument(optarg, false, &arg_root);
+                OPTION_COMMON_MACHINE:
+                        r = parse_machine_argument(opts.arg, &arg_host, &arg_transport);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_IMAGE:
-                        r = parse_path_argument(optarg, false, &arg_image);
-                        if (r < 0)
+                OPTION('t', "type", "TYPE", "List units of a particular type"):
+                        r = parse_types_argument(opts.arg, &arg_types, &arg_states);
+                        if (r <= 0)
                                 return r;
                         break;
 
-                case ARG_IMAGE_POLICY:
-                        r = parse_image_policy_argument(optarg, &arg_image_policy);
-                        if (r < 0)
+                OPTION_LONG("state", "STATE", "List units with particular LOAD or SUB or ACTIVE state"):
+                        r = parse_states_argument(opts.arg, &arg_states);
+                        if (r <= 0)
                                 return r;
                         break;
 
-                case 'l':
+                OPTION_LONG("failed", NULL, "Shortcut for --state=failed"):
+                        if (strv_extend(&arg_states, "failed") < 0)
+                                return log_oom();
+                        break;
+
+                OPTION('p', "property", "NAME", "Show only properties by this name"): {}
+                OPTION_SHORT('P', "NAME", "Equivalent to --value --property=NAME"):
+                        r = parse_property_argument(opts.arg, &arg_properties);
+                        if (r < 0)
+                                return r;
+
+                        /* If the user asked for a particular property, show it, even if it is empty. */
+                        SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_SHOW_EMPTY, true);
+
+                        if (opts.opt->short_code == 'P')
+                                SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_ONLY_VALUE, true);
+
+                        break;
+
+                OPTION('a', "all", NULL,
+                       "Show all properties/all units currently in memory, including dead/empty ones. "
+                       "To list all units installed on the system, use 'list-unit-files' instead"):
+                        SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_SHOW_EMPTY, true);
+                        arg_all = true;
+                        break;
+
+                OPTION('l', "full", NULL, "Don't ellipsize unit names on output"):
                         arg_full = true;
                         break;
 
-                case ARG_FAILED:
-                        if (strv_extend(&arg_states, "failed") < 0)
-                                return log_oom();
+                OPTION('r', "recursive", NULL, "Show unit list of host and local containers"):
+                        if (geteuid() != 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EPERM),
+                                                       "--recursive requires root privileges");
 
+                        arg_recursive = true;
                         break;
 
-                case ARG_DRY_RUN:
-                        arg_dry_run = true;
+                OPTION_LONG("reverse", NULL, "Show reverse dependencies with 'list-dependencies'"):
+                        arg_dependency = DEPENDENCY_REVERSE;
                         break;
 
-                case 'q':
-                        arg_quiet = true;
-
-                        if (arg_legend < 0)
-                                arg_legend = false;
-
+                OPTION_LONG("before", NULL, "Show units ordered before with 'list-dependencies'"):
+                        arg_dependency = DEPENDENCY_BEFORE;
+                        arg_jobs_before = true;
                         break;
 
-                case 'v':
-                        arg_verbose = true;
+                OPTION_LONG("after", NULL, "Show units ordered after with 'list-dependencies'"):
+                        arg_dependency = DEPENDENCY_AFTER;
+                        arg_jobs_after = true;
                         break;
 
-                case 'f':
-                        arg_force++;
+                OPTION_LONG("with-dependencies", NULL,
+                            "Show unit dependencies with 'status', 'cat', 'list-units', and 'list-unit-files'"):
+                        arg_with_dependencies = true;
                         break;
 
-                case ARG_NO_RELOAD:
-                        arg_no_reload = true;
+                OPTION_LONG("job-mode", "MODE",
+                            "Specify how to deal with already queued jobs, when queueing a new job"):
+                        _arg_job_mode = opts.arg;
                         break;
 
-                case ARG_KILL_WHOM:
-                        arg_kill_whom = optarg;
+                OPTION('T', "show-transaction", NULL, "When enqueuing a unit job, show full transaction"):
+                        arg_show_transaction = true;
                         break;
 
-                case ARG_KILL_VALUE: {
+                OPTION_LONG("show-types", NULL, "When showing sockets, explicitly show their type"):
+                        arg_show_types = true;
+                        break;
+
+                OPTION_LONG("value", NULL, "When showing properties, only print the value"):
+                        SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_ONLY_VALUE, true);
+                        break;
+
+                OPTION_LONG("check-inhibitors", "MODE",
+                            "Whether to check inhibitors before shutting down, sleeping, or hibernating"):
+                        r = parse_tristate_argument_with_auto("--check-inhibitors=", opts.arg, &arg_check_inhibitors);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("ignore-inhibitors", NULL, /* help= */ NULL): {}
+
+                OPTION_SHORT('i', NULL, "Shortcut for --check-inhibitors=no"):
+                        arg_check_inhibitors = 0;
+                        break;
+
+                OPTION('s', "signal", "SIGNAL", "Which signal to send"):
+                        r = parse_signal_argument(opts.arg, &arg_signal);
+                        if (r <= 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("kill-whom", "WHOM", "Whom to send signal to"):
+                        arg_kill_whom = opts.arg;
+                        break;
+
+                OPTION_LONG("kill-value", "INT", "Signal value to enqueue"): {
                         unsigned u;
 
-                        if (isempty(optarg)) {
+                        if (isempty(opts.arg)) {
                                 arg_kill_value_set = false;
                                 return 0;
                         }
 
                         /* First, try to parse unsigned, so that we can support the prefixes 0x, 0o, 0b */
-                        r = safe_atou_full(optarg, 0, &u);
+                        r = safe_atou_full(opts.arg, 0, &u);
                         if (r < 0)
                                 /* If this didn't work, try as signed integer, without those prefixes */
-                                r = safe_atoi(optarg, &arg_kill_value);
+                                r = safe_atoi(opts.arg, &arg_kill_value);
                         else if (u > INT_MAX)
                                 r = -ERANGE;
                         else
                                 arg_kill_value = (int) u;
                         if (r < 0)
-                                return log_error_errno(r, "Unable to parse signal queue value: %s", optarg);
+                                return log_error_errno(r, "Unable to parse signal queue value: %s", opts.arg);
 
                         arg_kill_value_set = true;
                         break;
                 }
 
-                case 's':
-                        r = parse_signal_argument(optarg, &arg_signal);
-                        if (r <= 0)
-                                return r;
-                        break;
-
-                case ARG_NO_ASK_PASSWORD:
-                        arg_ask_password = false;
-                        break;
-
-                case 'H':
-                        arg_transport = BUS_TRANSPORT_REMOTE;
-                        arg_host = optarg;
-                        break;
-
-                case 'M':
-                        r = parse_machine_argument(optarg, &arg_host, &arg_transport);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_RUNTIME:
-                        arg_runtime = true;
-                        break;
-
-                case 'n':
-                        if (safe_atou(optarg, &arg_lines) < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Failed to parse lines '%s'",
-                                                       optarg);
-                        break;
-
-                case 'o':
-                        if (streq(optarg, "help"))
-                                return DUMP_STRING_TABLE(output_mode, OutputMode, _OUTPUT_MODE_MAX);
-
-                        arg_output = output_mode_from_string(optarg);
-                        if (arg_output < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Unknown output '%s'.",
-                                                       optarg);
-
-                        if (OUTPUT_MODE_IS_JSON(arg_output)) {
-                                arg_legend = false;
-                                arg_plain = true;
-                        }
-                        break;
-
-                case 'i':
-                        arg_check_inhibitors = 0;
-                        break;
-
-                case ARG_CHECK_INHIBITORS:
-                        r = parse_tristate_argument_with_auto("--check-inhibitors=", optarg, &arg_check_inhibitors);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_PLAIN:
-                        arg_plain = true;
-                        break;
-
-                case ARG_FIRMWARE_SETUP:
-                        arg_firmware_setup = true;
-                        break;
-
-                case ARG_BOOT_LOADER_MENU:
-
-                        r = parse_sec(optarg, &arg_boot_loader_menu);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse --boot-loader-menu= argument '%s': %m", optarg);
-
-                        break;
-
-                case ARG_BOOT_LOADER_ENTRY:
-
-                        if (streq(optarg, "help")) { /* Yes, this means, "help" is not a valid boot loader entry name we can deal with */
-                                r = help_boot_loader_entry();
-                                if (r < 0)
-                                        return r;
-
-                                return 0;
-                        }
-
-                        arg_boot_loader_entry = empty_to_null(optarg);
-                        break;
-
-                case ARG_STATE:
-                        if (isempty(optarg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "--state= requires arguments.");
-
-                        for (const char *p = optarg;;) {
-                                _cleanup_free_ char *s = NULL;
-
-                                r = extract_first_word(&p, &s, ",", 0);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to parse state: %s", optarg);
-                                if (r == 0)
-                                        break;
-
-                                if (streq(s, "help")) {
-                                        help_states();
-                                        return 0;
-                                }
-
-                                if (strv_consume(&arg_states, TAKE_PTR(s)) < 0)
-                                        return log_oom();
-                        }
-                        break;
-
-                case 'r':
-                        if (geteuid() != 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EPERM),
-                                                       "--recursive requires root privileges.");
-
-                        arg_recursive = true;
-                        break;
-
-                case ARG_PRESET_MODE:
-                        if (streq(optarg, "help"))
-                                return DUMP_STRING_TABLE(unit_file_preset_mode, UnitFilePresetMode, _UNIT_FILE_PRESET_MODE_MAX);
-
-                        arg_preset_mode = unit_file_preset_mode_from_string(optarg);
-                        if (arg_preset_mode < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Failed to parse preset mode: %s.", optarg);
-
-                        break;
-
-                case ARG_NOW:
-                        arg_now = true;
-                        break;
-
-                case ARG_MESSAGE:
-                        if (strv_extend(&arg_wall, optarg) < 0)
-                                return log_oom();
-                        break;
-
-                case 'T':
-                        arg_show_transaction = true;
-                        break;
-
-                case ARG_WITH_DEPENDENCIES:
-                        arg_with_dependencies = true;
-                        break;
-
-                case ARG_WHAT:
-                        if (isempty(optarg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--what= requires arguments (see --what=help).");
-
-                        for (const char *p = optarg;;) {
-                                _cleanup_free_ char *k = NULL;
-
-                                r = extract_first_word(&p, &k, ",", 0);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to parse directory type: %s", optarg);
-                                if (r == 0)
-                                        break;
-
-                                if (streq(k, "help")) {
-                                        puts("runtime\n"
-                                             "state\n"
-                                             "cache\n"
-                                             "logs\n"
-                                             "configuration\n"
-                                             "fdstore\n"
-                                             "all");
-                                        return 0;
-                                }
-
-                                r = strv_consume(&arg_clean_what, TAKE_PTR(k));
-                                if (r < 0)
-                                        return log_oom();
-                        }
-
-                        break;
-
-                case ARG_REBOOT_ARG:
-                        arg_reboot_argument = optarg;
-                        break;
-
-                case ARG_KERNEL_CMDLINE:
-                        if (isempty(optarg)) {
-                                arg_kernel_cmdline = mfree(arg_kernel_cmdline);
-                                break;
-                        }
-
-                        if (!string_is_safe(optarg, STRING_ALLOW_GLOBS|STRING_ALLOW_BACKSLASHES|STRING_ALLOW_QUOTES))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "--kernel-cmdline= argument contains invalid characters: %s", optarg);
-
-                        r = free_and_strdup_warn(&arg_kernel_cmdline, optarg);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_TIMESTAMP_STYLE:
-                        if (streq(optarg, "help"))
-                                return DUMP_STRING_TABLE(timestamp_style, TimestampStyle, _TIMESTAMP_STYLE_MAX);
-
-                        arg_timestamp_style = timestamp_style_from_string(optarg);
-                        if (arg_timestamp_style < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Invalid value: %s.", optarg);
-
-                        break;
-
-                case ARG_READ_ONLY:
-                        arg_read_only = true;
-                        break;
-
-                case ARG_MKDIR:
-                        arg_mkdir = true;
-                        break;
-
-                case ARG_MARKED:
-                        arg_marked = true;
-                        break;
-
-                case ARG_NO_WARN:
-                        arg_no_warn = true;
-                        break;
-
-                case ARG_DROP_IN:
-                        arg_drop_in = optarg;
-                        break;
-
-                case ARG_WHEN:
-                        if (streq(optarg, "show")) {
-                                arg_action = ACTION_SYSTEMCTL_SHOW_SHUTDOWN;
-                                return 1;
-                        }
-
-                        if (STR_IN_SET(optarg, "", "cancel")) {
-                                arg_action = ACTION_CANCEL_SHUTDOWN;
-                                return 1;
-                        }
-
-                        if (streq(optarg, "auto")) {
-                                arg_when = USEC_INFINITY; /* logind chooses on server side */
-                                break;
-                        }
-
-                        r = parse_timestamp(optarg, &arg_when);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse --when= argument '%s': %m", optarg);
-
-                        if (!timestamp_is_set(arg_when))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Invalid timestamp '%s' specified for --when=.", optarg);
-
-                        break;
-
-                case ARG_STDIN:
-                        arg_stdin = true;
-                        break;
-
-                case ARG_KILL_SUBGROUP: {
-                        if (empty_or_root(optarg)) {
+                OPTION_LONG("kill-subgroup", "PATH", "Send signal to sub-control group only"): {
+                        if (empty_or_root(opts.arg)) {
                                 arg_kill_subgroup = mfree(arg_kill_subgroup);
                                 break;
                         }
 
                         _cleanup_free_ char *p = NULL;
-                        if (path_simplify_alloc(optarg, &p) < 0)
+                        if (path_simplify_alloc(opts.arg, &p) < 0)
                                 return log_oom();
 
                         if (!path_is_safe(p))
@@ -1056,19 +580,282 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
-                case '.':
+                OPTION_LONG("what", "RESOURCES", "Which types of resources to remove"):
+                        r = parse_what_argument(opts.arg, &arg_clean_what);
+                        if (r <= 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("now", NULL, "Start or stop unit after enabling or disabling it"):
+                        arg_now = true;
+                        break;
+
+                OPTION_LONG("dry-run", NULL,
+                            "Only print what would be done. Currently supported by verbs: halt, poweroff, "
+                            "reboot, kexec, soft-reboot, suspend, hibernate, suspend-then-hibernate, "
+                            "hybrid-sleep, default, rescue, emergency, and exit."):
+                        arg_dry_run = true;
+                        break;
+
+                OPTION('q', "quiet", NULL, "Suppress output"):
+                        arg_quiet = true;
+
+                        if (arg_legend < 0)
+                                arg_legend = false;
+
+                        break;
+
+                OPTION('v', "verbose", NULL, "Show unit logs while executing operation"):
+                        arg_verbose = true;
+                        break;
+
+                OPTION_LONG("no-warn", NULL, "Suppress several warnings shown by default"):
+                        arg_no_warn = true;
+                        break;
+
+                OPTION_LONG("wait", NULL,
+                            "For (re)start, wait until service stopped again. "
+                            "For is-system-running, wait until startup is completed. "
+                            "For kill, wait until service stopped."):
+                        arg_wait = true;
+                        break;
+
+                OPTION_LONG("no-block", NULL, "Do not wait until operation finished"):
+                        arg_no_block = true;
+                        break;
+
+                OPTION_LONG("no-wall", NULL, "Don't send wall message before halt/power-off/reboot"):
+                        arg_no_wall = true;
+                        break;
+
+                OPTION_LONG("message", "MESSAGE", "Specify human-readable reason for system shutdown"):
+                        if (strv_extend(&arg_wall, opts.arg) < 0)
+                                return log_oom();
+                        break;
+
+                OPTION_LONG("no-reload", NULL, "Don't reload daemon after en-/dis-abling unit files"):
+                        arg_no_reload = true;
+                        break;
+
+                OPTION_LONG("legend", "BOOL", "Enable/disable the legend (column headers and hints)"):
+                        r = parse_boolean_argument("--legend", opts.arg, NULL);
+                        if (r < 0)
+                                return r;
+                        arg_legend = r;
+                        break;
+
+                OPTION_COMMON_NO_PAGER:
+                        arg_pager_flags |= PAGER_DISABLE;
+                        break;
+
+                OPTION_COMMON_NO_ASK_PASSWORD:
+                        arg_ask_password = false;
+                        break;
+
+                OPTION_LONG("global", NULL, "Edit/enable/disable/mask default user unit files globally"):
+                        arg_runtime_scope = RUNTIME_SCOPE_GLOBAL;
+                        break;
+
+                OPTION_LONG("runtime", NULL,
+                            "Edit/enable/disable/mask unit files temporarily until next reboot"):
+                        arg_runtime = true;
+                        break;
+
+                OPTION('f', "force", NULL,
+                       "When enabling unit files, override existing symlinks. "
+                       "When shutting down, execute action immediately."):
+                        arg_force++;
+                        break;
+
+                OPTION_LONG("preset-mode", "MODE", "Apply only enable, only disable, or all presets"):
+                        if (streq(opts.arg, "help"))
+                                return DUMP_STRING_TABLE(unit_file_preset_mode, UnitFilePresetMode, _UNIT_FILE_PRESET_MODE_MAX);
+
+                        arg_preset_mode = unit_file_preset_mode_from_string(opts.arg);
+                        if (arg_preset_mode < 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Failed to parse preset mode: %s.", opts.arg);
+
+                        break;
+
+                OPTION_LONG("root", "PATH",
+                            "Edit/enable/disable/mask unit files in the specified root directory"):
+                        r = parse_path_argument(opts.arg, false, &arg_root);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("image", "PATH",
+                            "Edit/enable/disable/mask unit files in the specified disk image"):
+                        r = parse_path_argument(opts.arg, false, &arg_image);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("image-policy", "POLICY", "Specify disk image dissection policy"):
+                        r = parse_image_policy_argument(opts.arg, &arg_image_policy);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION('n', "lines", "INTEGER", "Number of journal entries to show"):
+                        if (safe_atou(opts.arg, &arg_lines) < 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Failed to parse lines '%s'",
+                                                       opts.arg);
+                        break;
+
+                OPTION('o', "output", "STRING",
+                       "Change journal output mode (short, short-precise, short-iso, short-iso-precise, "
+                       "short-full, short-monotonic, short-unix, short-delta, verbose, export, json, "
+                       "json-pretty, json-sse, cat)"):
+                        if (streq(opts.arg, "help"))
+                                return DUMP_STRING_TABLE(output_mode, OutputMode, _OUTPUT_MODE_MAX);
+
+                        arg_output = output_mode_from_string(opts.arg);
+                        if (arg_output < 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Unknown output '%s'.",
+                                                       opts.arg);
+
+                        if (OUTPUT_MODE_IS_JSON(arg_output)) {
+                                arg_legend = false;
+                                arg_plain = true;
+                        }
+                        break;
+
+                OPTION_LONG("firmware-setup", NULL, "Tell the firmware to show the setup menu on next boot"):
+                        arg_firmware_setup = true;
+                        break;
+
+                OPTION_LONG("boot-loader-menu", "TIME", "Boot into boot loader menu on next boot"):
+                        r = parse_sec(opts.arg, &arg_boot_loader_menu);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --boot-loader-menu= argument '%s': %m", opts.arg);
+
+                        break;
+
+                OPTION_LONG("boot-loader-entry", "NAME",
+                            "Boot into a specific boot loader entry on next boot"):
+                        if (streq(opts.arg, "help")) { /* Yes, this means, "help" is not a valid boot loader entry name we can deal with */
+                                r = help_boot_loader_entry();
+                                if (r < 0)
+                                        return r;
+
+                                return 0;
+                        }
+
+                        arg_boot_loader_entry = empty_to_null(opts.arg);
+                        break;
+
+                OPTION_LONG("reboot-argument", "ARG", "Specify argument string to pass to reboot()"):
+                        arg_reboot_argument = opts.arg;
+                        break;
+
+                OPTION_LONG("kernel-cmdline", "CMDLINE",
+                            "Append to the kernel command line when loading the kernel "
+                            "from the booted boot loader entry"):
+                        if (isempty(opts.arg)) {
+                                arg_kernel_cmdline = mfree(arg_kernel_cmdline);
+                                break;
+                        }
+
+                        if (!string_is_safe(opts.arg, STRING_ALLOW_GLOBS|STRING_ALLOW_BACKSLASHES|STRING_ALLOW_QUOTES))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "--kernel-cmdline= argument contains invalid characters: %s", opts.arg);
+
+                        r = free_and_strdup_warn(&arg_kernel_cmdline, opts.arg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("plain", NULL, "Print unit dependencies as a list instead of a tree"):
+                        arg_plain = true;
+                        break;
+
+                OPTION_LONG("timestamp", "FORMAT",
+                            "Change format of printed timestamps (pretty, unix, us, utc, us+utc)"):
+                        if (streq(opts.arg, "help"))
+                                return DUMP_STRING_TABLE(timestamp_style, TimestampStyle, _TIMESTAMP_STYLE_MAX);
+
+                        arg_timestamp_style = timestamp_style_from_string(opts.arg);
+                        if (arg_timestamp_style < 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Invalid value: %s.", opts.arg);
+
+                        break;
+
+                OPTION_LONG("read-only", NULL, "Create read-only bind mount"):
+                        arg_read_only = true;
+                        break;
+
+                OPTION_LONG("mkdir", NULL, "Create directory before mounting, if missing"):
+                        arg_mkdir = true;
+                        break;
+
+                OPTION_LONG("marked", NULL, "Restart/reload previously marked units"):
+                        arg_marked = true;
+                        break;
+
+                OPTION_LONG("drop-in", "NAME", "Edit unit files using the specified drop-in file name"):
+                        arg_drop_in = opts.arg;
+                        break;
+
+                OPTION_LONG("when", "TIME",
+                            "Schedule halt/power-off/reboot/kexec action after a certain timestamp"):
+                        if (streq(opts.arg, "show")) {
+                                arg_action = ACTION_SYSTEMCTL_SHOW_SHUTDOWN;
+                                return 1;
+                        }
+
+                        if (STR_IN_SET(opts.arg, "", "cancel")) {
+                                arg_action = ACTION_CANCEL_SHUTDOWN;
+                                return 1;
+                        }
+
+                        if (streq(opts.arg, "auto")) {
+                                arg_when = USEC_INFINITY; /* logind chooses on server side */
+                                break;
+                        }
+
+                        r = parse_timestamp(opts.arg, &arg_when);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --when= argument '%s': %m", opts.arg);
+
+                        if (!timestamp_is_set(arg_when))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Invalid timestamp '%s' specified for --when=.", opts.arg);
+
+                        break;
+
+                OPTION_LONG("stdin", NULL, "Read new contents of edited file from stdin"):
+                        arg_stdin = true;
+                        break;
+
+                /* Compatibility-only options, not shown in --help. */
+                OPTION_LONG("fail", NULL, /* help= */ NULL):
+                        _arg_job_mode = "fail";
+                        break;
+
+                OPTION_LONG("irreversible", NULL, /* help= */ NULL):
+                        _arg_job_mode = "replace-irreversibly";
+                        break;
+
+                OPTION_LONG("ignore-dependencies", NULL, /* help= */ NULL):
+                        _arg_job_mode = "ignore-dependencies";
+                        break;
+
+                OPTION_LONG("no-legend", NULL, /* help= */ NULL):
+                        arg_legend = false;
+                        break;
+
+                OPTION_SHORT_FLAGS(OPTION_OPTIONAL_ARG, '.', "ARG", /* help= */ NULL):
                         /* Output an error mimicking getopt, and print a hint afterwards */
                         log_error("%s: invalid option -- '.'", program_invocation_name);
                         log_notice("Hint: to specify units starting with a dash, use \"--\":\n"
-                                   "      %s [OPTIONS...] COMMAND -- -.%s ...",
-                                   program_invocation_name, optarg ?: "mount");
-                        _fallthrough_;
-
-                case '?':
+                                   "      %s [OPTIONS…] COMMAND -- -.%s …",
+                                   program_invocation_name, opts.arg ?: "mount");
                         return -EINVAL;
-
-                default:
-                        assert_not_reached();
                 }
 
         /* If we are in --user mode, there's no point in talking to PolicyKit or the infra to query system
@@ -1088,17 +875,20 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "--wait may not be combined with --no-block.");
 
-        bool do_reload_or_restart = streq_ptr(argv[optind], "reload-or-restart");
+        char **args = option_parser_get_args(&opts);
+        size_t n_args = option_parser_get_n_args(&opts);
+
+        bool do_reload_or_restart = streq_ptr(args[0], "reload-or-restart");
         if (arg_marked) {
                 if (!do_reload_or_restart)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "--marked may only be used with 'reload-or-restart'.");
-                if (optind + 1 < argc)
+                if (n_args > 1)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "No additional arguments allowed with 'reload-or-restart --marked'.");
 
         } else if (do_reload_or_restart) {
-                if (optind + 1 >= argc)
+                if (n_args <= 1)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "List of units to restart/reload is required.");
         }
@@ -1107,30 +897,228 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Please specify either --root= or --image=, the combination of both is not supported.");
 
+        if (remaining_args)
+                *remaining_args = args;
         return 1;
 }
 
-int systemctl_dispatch_parse_argv(int argc, char *argv[]) {
+int systemctl_dispatch_parse_argv(int argc, char *argv[], int log_level_shift, char ***remaining_args) {
         assert(argc >= 0);
         assert(argv);
 
         if (invoked_as(argv, "halt")) {
                 arg_action = ACTION_HALT;
-                return halt_parse_argv(argc, argv);
+                return halt_parse_argv(argc, argv, log_level_shift);
 
         } else if (invoked_as(argv, "poweroff")) {
                 arg_action = ACTION_POWEROFF;
-                return halt_parse_argv(argc, argv);
+                return halt_parse_argv(argc, argv, log_level_shift);
 
         } else if (invoked_as(argv, "reboot")) {
                 arg_action = ACTION_REBOOT;
-                return halt_parse_argv(argc, argv);
+                return halt_parse_argv(argc, argv, log_level_shift);
 
         } else if (invoked_as(argv, "shutdown")) {
                 arg_action = ACTION_POWEROFF;
-                return shutdown_parse_argv(argc, argv);
-        }
+                return shutdown_parse_argv(argc, argv, log_level_shift);
 
-        arg_action = ACTION_SYSTEMCTL;
-        return systemctl_parse_argv(argc, argv);
+        } else {
+                arg_action = ACTION_SYSTEMCTL;
+                return systemctl_parse_argv(argc, argv, log_level_shift, remaining_args);
+        }
+}
+
+VERB_GROUP("Unit Commands");
+
+VERB_SCOPE(, verb_list_units,        "list-units",       "[PATTERN…]", VERB_ANY, VERB_ANY, VERB_DEFAULT|VERB_ONLINE_ONLY,
+           "List units currently in memory");
+VERB_SCOPE(, verb_list_automounts,   "list-automounts",  "[PATTERN…]", VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
+           "List automount units currently in memory, ordered by path");
+VERB_SCOPE(, verb_list_paths,        "list-paths",       "[PATTERN…]", VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
+           "List path units currently in memory, ordered by path");
+VERB_SCOPE(, verb_list_sockets,      "list-sockets",     "[PATTERN…]", VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
+           "List socket units currently in memory, ordered by address");
+VERB_SCOPE(, verb_list_timers,       "list-timers",      "[PATTERN…]", VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
+           "List timer units currently in memory, ordered by next elapse");
+VERB_SCOPE(, verb_is_active,         "is-active",        "PATTERN…",   2,        VERB_ANY, VERB_ONLINE_ONLY,
+           "Check whether units are active");
+VERB_SCOPE(, verb_is_failed,         "is-failed",        "[PATTERN…]", VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
+           "Check whether units are failed or system is in degraded state");
+VERB_SCOPE(, verb_show,              "status",           "[PATTERN…|PID…]", VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
+           "Show runtime status of one or more units");
+VERB_SCOPE(, verb_show,              "show",             "[PATTERN…|JOB…]", VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
+           "Show properties of one or more units/jobs or the manager");
+VERB_SCOPE(, verb_cat,               "cat",              "PATTERN…",   2,        VERB_ANY, VERB_ONLINE_ONLY,
+           "Show files and drop-ins of specified units");
+VERB_SCOPE(, verb_show,              "help",             "PATTERN…|PID…", VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
+           "Show manual for one or more units");
+VERB_SCOPE(, verb_list_dependencies, "list-dependencies", "[UNIT…]",   VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
+           "Recursively show units which are required or wanted by the units "
+           "or by which those units are required or wanted");
+VERB_SCOPE(, verb_start,             "start",            "UNIT…",      2,        VERB_ANY, VERB_ONLINE_ONLY,
+           "Start (activate) one or more units");
+VERB_SCOPE(, verb_start,             "stop",             "UNIT…",      2,        VERB_ANY, VERB_ONLINE_ONLY,
+           "Stop (deactivate) one or more units");
+VERB_SCOPE(, verb_start,             "reload",           "UNIT…",      2,        VERB_ANY, VERB_ONLINE_ONLY,
+           "Reload one or more units");
+VERB_SCOPE(, verb_start,             "restart",          "UNIT…",      2,        VERB_ANY, VERB_ONLINE_ONLY,
+           "Start or restart one or more units");
+VERB_SCOPE(, verb_start,             "try-restart",      "UNIT…",      2,        VERB_ANY, VERB_ONLINE_ONLY,
+           "Restart one or more units if active");
+VERB_SCOPE(, verb_start,             "enqueue-marked",   NULL,         1,        1,        VERB_ONLINE_ONLY,
+           "Enqueue jobs for all marked units");
+VERB_SCOPE(, verb_start,             "reload-or-restart", "UNIT…",     VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
+           "Reload one or more units if possible, otherwise start or restart");
+VERB_SCOPE(, verb_start,             "try-reload-or-restart", "UNIT…", 2,        VERB_ANY, VERB_ONLINE_ONLY,
+           "If active, reload one or more units, if supported, otherwise restart");
+VERB_SCOPE(, verb_start,             "isolate",          "UNIT",       2,        2,        VERB_ONLINE_ONLY,
+           "Start one unit and stop all others");
+VERB_SCOPE(, verb_kill,              "kill",             "UNIT…",      2,        VERB_ANY, VERB_ONLINE_ONLY,
+           "Send signal to processes of a unit");
+VERB_SCOPE(, verb_clean_or_freeze,   "clean",            "UNIT…",      2,        VERB_ANY, VERB_ONLINE_ONLY,
+           "Clean runtime, cache, state, logs or configuration of unit");
+VERB_SCOPE(, verb_clean_or_freeze,   "freeze",           "PATTERN…",   2,        VERB_ANY, VERB_ONLINE_ONLY,
+           "Freeze execution of unit processes");
+VERB_SCOPE(, verb_clean_or_freeze,   "thaw",             "PATTERN…",   2,        VERB_ANY, VERB_ONLINE_ONLY,
+           "Resume execution of a frozen unit");
+VERB_SCOPE(, verb_set_property,      "set-property",     "UNIT PROPERTY=VALUE…", 3, VERB_ANY, VERB_ONLINE_ONLY,
+           "Sets one or more properties of a unit");
+VERB_SCOPE(, verb_bind,              "bind",             "UNIT PATH [PATH]",     3, 4, VERB_ONLINE_ONLY,
+           "Bind-mount a path from the host into a unit's namespace");
+VERB_SCOPE(, verb_mount_image,       "mount-image",      "UNIT PATH [PATH [OPTS]]", 4, 5, VERB_ONLINE_ONLY,
+           "Mount an image from the host into a unit's namespace");
+VERB_SCOPE(, verb_service_log_setting, "service-log-level", "SERVICE [LEVEL]",   2, 3, VERB_ONLINE_ONLY,
+           "Get/set logging threshold for service");
+VERB_SCOPE(, verb_service_log_setting, "service-log-target", "SERVICE [TARGET]", 2, 3, VERB_ONLINE_ONLY,
+           "Get/set logging target for service");
+VERB_SCOPE(, verb_reset_failed,      "reset-failed",     "[PATTERN…]", VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
+           "Reset failed state for all, one, or more units");
+VERB_SCOPE(, verb_whoami,            "whoami",           "[PID…]",     VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
+           "Return unit caller or specified PIDs are part of");
+
+VERB_GROUP("Unit File Commands");
+
+VERB_SCOPE(, verb_list_unit_files,   "list-unit-files",  "[PATTERN…]", VERB_ANY, VERB_ANY, 0,
+           "List installed unit files");
+VERB_SCOPE(, verb_enable,            "enable",           "[UNIT…|PATH…]", 2,     VERB_ANY, 0,
+           "Enable one or more unit files");
+VERB_SCOPE(, verb_enable,            "disable",          "UNIT…",      2,        VERB_ANY, 0,
+           "Disable one or more unit files");
+VERB_SCOPE(, verb_enable,            "reenable",         "UNIT…",      2,        VERB_ANY, 0,
+           "Reenable one or more unit files");
+VERB_SCOPE(, verb_enable,            "preset",           "UNIT…",      2,        VERB_ANY, 0,
+           "Enable/disable one or more unit files based on preset configuration");
+VERB_SCOPE(, verb_preset_all,        "preset-all",       NULL,         VERB_ANY, 1,        0,
+           "Enable/disable all unit files based on preset configuration");
+VERB_SCOPE(, verb_is_enabled,        "is-enabled",       "UNIT…",      2,        VERB_ANY, 0,
+           "Check whether unit files are enabled");
+VERB_SCOPE(, verb_enable,            "mask",             "UNIT…",      2,        VERB_ANY, 0,
+           "Mask one or more units");
+VERB_SCOPE(, verb_enable,            "unmask",           "UNIT…",      2,        VERB_ANY, 0,
+           "Unmask one or more units");
+VERB_SCOPE(, verb_enable,            "link",             "PATH…",      2,        VERB_ANY, 0,
+           "Link one or more units files into the search path");
+VERB_SCOPE(, verb_enable,            "revert",           "UNIT…",      2,        VERB_ANY, 0,
+           "Revert one or more unit files to vendor version");
+VERB_SCOPE(, verb_add_dependency,    "add-wants",        "TARGET UNIT…", 3,      VERB_ANY, 0,
+           "Add 'Wants' dependency for the target on specified one or more units");
+VERB_SCOPE(, verb_add_dependency,    "add-requires",     "TARGET UNIT…", 3,      VERB_ANY, 0,
+           "Add 'Requires' dependency for the target on specified one or more units");
+VERB_SCOPE(, verb_edit,              "edit",             "UNIT…",      2,        VERB_ANY, VERB_ONLINE_ONLY,
+           "Edit one or more unit files");
+VERB_SCOPE(, verb_get_default,       "get-default",      NULL,         VERB_ANY, 1,        0,
+           "Get the name of the default target");
+VERB_SCOPE(, verb_set_default,       "set-default",      "TARGET",     2,        2,        0,
+           "Set the default target");
+
+VERB_GROUP("Machine Commands");
+
+VERB_SCOPE(, verb_list_machines,     "list-machines",    "[PATTERN…]", VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
+           "List local containers and host");
+
+VERB_GROUP("Job Commands");
+
+VERB_SCOPE(, verb_list_jobs,         "list-jobs",        "[PATTERN…]", VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
+           "List jobs");
+VERB_SCOPE(, verb_cancel,            "cancel",           "[JOB…]",     VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
+           "Cancel all, one, or more jobs");
+
+VERB_GROUP("Environment Commands");
+
+VERB_SCOPE(, verb_show_environment,  "show-environment", NULL,         VERB_ANY, 1,        VERB_ONLINE_ONLY,
+           "Dump environment");
+VERB_SCOPE(, verb_set_environment,   "set-environment",  "VARIABLE=VALUE…", 2,   VERB_ANY, VERB_ONLINE_ONLY,
+           "Set one or more environment variables");
+VERB_SCOPE(, verb_set_environment,   "unset-environment", "VARIABLE…", 2,        VERB_ANY, VERB_ONLINE_ONLY,
+           "Unset one or more environment variables");
+VERB_SCOPE(, verb_import_environment, "import-environment", "VARIABLE…", VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
+           "Import all or some environment variables");
+
+VERB_GROUP("Manager State Commands");
+
+VERB_SCOPE(, verb_daemon_reload,     "daemon-reload",    NULL,         1,        1,        VERB_ONLINE_ONLY,
+           "Reload systemd manager configuration");
+VERB_SCOPE(, verb_daemon_reload,     "daemon-reexec",    NULL,         1,        1,        VERB_ONLINE_ONLY,
+           "Reexecute systemd manager");
+VERB_SCOPE(, verb_log_setting,       "log-level",        "[LEVEL]",    VERB_ANY, 2,        VERB_ONLINE_ONLY,
+           "Get/set logging threshold for manager");
+VERB_SCOPE(, verb_log_setting,       "log-target",       "[TARGET]",   VERB_ANY, 2,        VERB_ONLINE_ONLY,
+           "Get/set logging target for manager");
+VERB_SCOPE(, verb_service_watchdogs, "service-watchdogs", "[BOOL]",    VERB_ANY, 2,        VERB_ONLINE_ONLY,
+           "Get/set service watchdog state");
+
+VERB_GROUP("System Commands");
+
+VERB_SCOPE(, verb_is_system_running, "is-system-running", NULL,        VERB_ANY, 1,        0,
+           "Check whether system is fully running");
+VERB_SCOPE(, verb_start_special,     "default",          NULL,         VERB_ANY, 1,        VERB_ONLINE_ONLY,
+           "Enter system default mode");
+VERB_SCOPE(, verb_start_system_special, "rescue",        NULL,         VERB_ANY, 1,        VERB_ONLINE_ONLY,
+           "Enter system rescue mode");
+VERB_SCOPE(, verb_start_system_special, "emergency",     NULL,         VERB_ANY, 1,        VERB_ONLINE_ONLY,
+           "Enter system emergency mode");
+VERB_SCOPE(, verb_start_system_special, "halt",          NULL,         VERB_ANY, 1,        VERB_ONLINE_ONLY,
+           "Shut down and halt the system");
+VERB_SCOPE(, verb_start_system_special, "poweroff",      NULL,         VERB_ANY, 1,        VERB_ONLINE_ONLY,
+           "Shut down and power-off the system");
+VERB_SCOPE(, verb_start_system_special, "reboot",        NULL,         VERB_ANY, 1,        VERB_ONLINE_ONLY,
+           "Shut down and reboot the system");
+VERB_SCOPE(, verb_start_system_special, "kexec",         NULL,         VERB_ANY, 1,        VERB_ONLINE_ONLY,
+           "Shut down and reboot the system with kexec");
+VERB_SCOPE(, verb_start_system_special, "soft-reboot",   NULL,         VERB_ANY, 1,        VERB_ONLINE_ONLY,
+           "Shut down and reboot userspace");
+VERB_SCOPE(, verb_start_special,     "exit",             "[EXIT_CODE]", VERB_ANY, 2,       VERB_ONLINE_ONLY,
+           "Request user instance or container exit");
+VERB_SCOPE(, verb_switch_root,       "switch-root",      "[ROOT [INIT]]", VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
+           "Change to a different root file system");
+VERB_SCOPE(, verb_start_system_special, "sleep",         NULL,         VERB_ANY, 1,        VERB_ONLINE_ONLY,
+           "Put the system to sleep (through one of the operations below)");
+VERB_SCOPE(, verb_start_system_special, "suspend",       NULL,         VERB_ANY, 1,        VERB_ONLINE_ONLY,
+           "Suspend the system");
+VERB_SCOPE(, verb_start_system_special, "hibernate",     NULL,         VERB_ANY, 1,        VERB_ONLINE_ONLY,
+           "Hibernate the system");
+VERB_SCOPE(, verb_start_system_special, "hybrid-sleep",  NULL,         VERB_ANY, 1,        VERB_ONLINE_ONLY,
+           "Hibernate and suspend the system");
+VERB_SCOPE(, verb_start_system_special, "suspend-then-hibernate", NULL, VERB_ANY, 1,       VERB_ONLINE_ONLY,
+           "Suspend the system, wake after a period of time, and hibernate");
+
+/* Compatibility aliases / deprecated verbs hidden from --help. */
+VERB_SCOPE(, verb_trivial_method,    "clear-jobs",       NULL, VERB_ANY, 1,      VERB_ONLINE_ONLY, /* help= */ NULL); /* systemctl < 4 */
+VERB_SCOPE(, verb_start,             "condstop",         NULL, 2,      VERB_ANY, VERB_ONLINE_ONLY, /* help= */ NULL); /* ALTLinux */
+VERB_SCOPE(, verb_start,             "reload-or-try-restart", NULL, 2, VERB_ANY, VERB_ONLINE_ONLY, /* help= */ NULL); /* systemctl <= 228 */
+VERB_SCOPE(, verb_start,             "force-reload",     NULL, 2,      VERB_ANY, VERB_ONLINE_ONLY, /* help= */ NULL); /* SysV */
+VERB_SCOPE(, verb_start,             "condreload",       NULL, 2,      VERB_ANY, VERB_ONLINE_ONLY, /* help= */ NULL); /* ALTLinux */
+VERB_SCOPE(, verb_start,             "condrestart",      NULL, 2,      VERB_ANY, VERB_ONLINE_ONLY, /* help= */ NULL); /* RH */
+VERB_SCOPE(, verb_is_active,         "check",            NULL, 2,      VERB_ANY, VERB_ONLINE_ONLY, /* help= */ NULL); /* deprecated alias of is-active */
+
+int systemctl_main(char **args) {
+        const Verb *verb = verbs_find_verb(args[0],
+                                           ALIGN_PTR(__start_SYSTEMD_VERBS),
+                                           __stop_SYSTEMD_VERBS);
+        if (verb && (verb->flags & VERB_ONLINE_ONLY) && arg_root)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Verb '%s' cannot be used with --root= or --image=.",
+                                       args[0] ?: verb->verb);
+
+        return dispatch_verb_with_args(args, NULL);
 }

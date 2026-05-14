@@ -1988,7 +1988,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           <para>The argument is a comma-separated list of unit types such as <option>service</option> and
           <option>socket</option>. When units are listed with <command>list-units</command>,
           <command>list-dependencies</command>, <command>show</command>, or <command>status</command>,
-          only units of the specified types will be shown. By default, units of all types are shown.</para>
+          only units of the specified types will be shown. By default, units of all types are shown.
+          Use <option>--type=</option> to reset the filter.</para>
 
           <para>As a special case, if one of the arguments is <option>help</option>, a list of allowed values
           will be printed and the program will exit.</para>
@@ -2000,9 +2001,10 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
 
         <listitem>
           <para>The argument is a comma-separated list of unit LOAD, SUB, or ACTIVE states. When listing
-          units with <command>list-units</command>, <command>list-dependencies</command>, <command>show</command>
-          or <command>status</command>, show only those in the specified states. Use <option>--state=failed</option>
-          or <option>--failed</option> to show only failed units.</para>
+          units with <command>list-units</command>, <command>list-dependencies</command>,
+          <command>show</command> or <command>status</command>, show only those in the specified states. Use
+          <option>--state=failed</option> or <option>--failed</option> to show only failed units. Use
+          <option>--state=</option> to reset the filter.</para>
 
           <para>As a special case, if one of the arguments is <option>help</option>, a list of allowed values
           will be printed and the program will exit.</para>
@@ -2576,10 +2578,12 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           <constant>all</constant> as a shortcut for specifying all six resource types. If this option is not
           specified defaults to the combination of <constant>cache</constant>, <constant>runtime</constant>
           and <constant>fdstore</constant>, i.e. the three kinds of resources that are generally considered
-          to be redundant and can be reconstructed on next invocation. Note that the explicit removal of the
-          <constant>fdstore</constant> resource type is only useful if the
-          <varname>FileDescriptorStorePreserve=</varname> option is enabled, since the file descriptor store
-          is otherwise cleaned automatically when the unit is stopped.</para>
+          to be redundant and can be reconstructed on next invocation. The empty argument can be used to
+          reset to this default.</para>
+
+          <para>Note that the explicit removal of the <constant>fdstore</constant> resource type is only
+          useful if the <varname>FileDescriptorStorePreserve=</varname> option is enabled, since the file
+          descriptor store is otherwise cleaned automatically when the unit is stopped.</para>
 
           <xi:include href="version-info.xml" xpointer="v243"/>
         </listitem>
