@@ -23,6 +23,7 @@
 #include "hexdecoct.h"
 #include "import-util.h"
 #include "iovec-util.h"
+#include "path-util.h"
 #include "pidref.h"
 #include "process-util.h"
 #include "sort-util.h"
@@ -157,7 +158,23 @@ static int resource_load_from_directory_recursive(
                 if (!rel_joined_for_matching)
                         return log_oom();
 
-                r = pattern_match_many(rr->patterns, rel_joined_for_matching, &extracted_fields);
+                /* With MatchBasename=yes we descend into any subdirectory when we look for regular files */
+                if (rr->match_basename && de->d_type == DT_DIR && S_ISREG(m)) {
+                        _cleanup_closedir_ DIR *subdir = NULL;
+
+                        subdir = xopendirat(dirfd(d), de->d_name, 0);
+                        if (!subdir)
+                                continue;
+
+                        r = resource_load_from_directory_recursive(rr, subdir, rel_joined, rel_joined_for_matching, m, is_partial, is_pending);
+                        if (r < 0)
+                                return r;
+                        continue;
+                }
+
+                const char *match_str = rr->match_basename ? de_d_name_stripped : rel_joined_for_matching;
+                r = pattern_match_many(rr->patterns, match_str, &extracted_fields);
+                /* Here we also descend because the match pattern itself uses subdirectories */
                 if (r == PATTERN_MATCH_RETRY) {
                         _cleanup_closedir_ DIR *subdir = NULL;
 
@@ -553,18 +570,28 @@ static int resource_load_from_web(
                 if (!fn)
                         return log_oom();
 
-                if (!filename_is_valid(fn))
+                /* Accept either a plain filename or a relative subpath like "subdir/file" but reject
+                 * absolute paths and any paths containing "." or ".." */
+                if (path_is_absolute(fn) || !path_is_normalized(fn))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid filename specified at manifest line %zu, refusing.", line_nr);
                 if (string_has_cc(fn, NULL))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Filename contains control characters at manifest line %zu, refusing.", line_nr);
 
+                /* Magic files can't be in subdirectories */
                 r = process_magic_file(fn, &h);
                 if (r < 0)
                         return r;
                 if (r == 0) {
-                        /* If this isn't a magic file, then do the pattern matching */
+                        /* If this isn't a magic file, then do the pattern matching but
+                         * with MatchBasename=yes only for the last component of the path */
+                        const char *match_str = fn;
+                        if (rr->match_basename) {
+                                const char *slash = strrchr(fn, '/');
+                                if (slash)
+                                        match_str = slash + 1;
+                        }
 
-                        r = pattern_match_many(rr->patterns, fn, &extracted_fields);
+                        r = pattern_match_many(rr->patterns, match_str, &extracted_fields);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to match pattern: %m");
                         if (r == PATTERN_MATCH_YES) {
