@@ -80,6 +80,10 @@ typedef struct Option {
 #define OPTION_POSITIONAL OPTION_FULL(OPTION_POSITIONAL_ENTRY, /* sc= */ 0, "(positional)", /* mv= */ NULL, /* h= */ NULL)
 #define OPTION_HELP_VERBATIM(lc, h) OPTION_FULL(OPTION_HELP_ENTRY_VERBATIM, /* sc= */ 0, lc, /* mv= */ NULL, h)
 
+/* This can be used when custom error handling is needed. */
+#define OPTION_ERROR                                                    \
+        case INT_MIN ... -1
+
 #define OPTION_COMMON_HELP                                              \
         OPTION('h', "help", NULL, "Show this help")
 
