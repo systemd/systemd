@@ -193,7 +193,7 @@ static int verb_validate(int argc, char *argv[], uintptr_t _data, void *userdata
         if (arg_private_key_source_type == OPENSSL_KEY_SOURCE_FILE) {
                 r = parse_path_argument(arg_private_key, /* suppress_root= */ false, &arg_private_key);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to parse private key path %s: %m", arg_private_key);
+                        return r;
         }
 
         r = openssl_load_private_key(
@@ -259,7 +259,7 @@ static int verb_extract_public(int argc, char *argv[], uintptr_t _data, void *us
                 if (arg_private_key_source_type == OPENSSL_KEY_SOURCE_FILE) {
                         r = parse_path_argument(arg_private_key, /* suppress_root= */ false, &arg_private_key);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse private key path %s: %m", arg_private_key);
+                                return r;
                 }
 
                 r = openssl_load_private_key(
