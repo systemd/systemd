@@ -629,12 +629,35 @@
         wildcard, so that a version identifier may be extracted from the filename. All other wildcards are
         optional.</para>
 
-        <para>If the source type is <constant>regular-file</constant> or <constant>directory</constant>, the
-        pattern may contain slash characters. In this case, it will match the file or directory in
-        corresponding subdirectory. For example <literal>MatchPattern=foo_@v/bar.efi</literal> will match
-        <literal>bar.efi</literal> in directory <literal>foo_1</literal>. </para>
+        <para>The pattern may contain slash characters. In this case, it will match the file or directory in
+        the corresponding subdirectory. For example <literal>MatchPattern=foo_@v/bar.efi</literal> will match
+        <literal>bar.efi</literal> in directory <literal>foo_1</literal>. For <constant>url-file</constant>
+        and <constant>url-tar</constant> sources, the corresponding <filename>SHA256SUMS</filename> manifest
+        may then list entries as subpaths such as <literal>foo_1/bar.efi</literal>; such entries are fetched
+        from the matching subpath of the source URL. Manifest entries with absolute paths or
+        <literal>..</literal> components are rejected.</para>
 
         <xi:include href="version-info.xml" xpointer="v251"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>MatchBasename=</varname></term>
+
+        <listitem><para>Specifies to match against the last path component only rather than the full
+        relative path. Takes a boolean and defaults to false. For the sources <constant>regular-file</constant>
+        and <constant>tar</constant> this will descend into all subdirectories when looking for files.
+        For the sources <constant>url-file</constant> and <constant>url-tar</constant> it makes
+        patterns match against the last path component of a <filename>SHA256SUMS</filename> manifest
+        entry but the subdirectory is still used for the actual download.</para>
+
+        <para>This is not supported for the sources <constant>directory</constant> and
+        <constant>subvolume</constant>.</para>
+
+        <para>Note that if <varname>MatchPattern=</varname> itself contains a slash to specify a path path
+        in a subdirectory this still gets used for matching and supports files in subdirectories regardless
+        of this setting. Combining slashes in the pattern with this setting is not supported.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
