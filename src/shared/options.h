@@ -137,6 +137,15 @@ typedef struct Option {
         OPTION_SHORT('j', NULL,                                         \
                      "Equivalent to --json=pretty (on TTY) or --json=short (otherwise)")
 
+#define OPTION_COMMON_ENTRY_TOKEN                                       \
+        OPTION_LONG("entry-token", "TOKEN",                             \
+                    "Entry token to use for this installation "         \
+                    "(machine-id, os-id, os-image-id, auto, literal:…)")
+
+#define OPTION_COMMON_MAKE_ENTRY_DIRECTORY                              \
+        OPTION_LONG("make-entry-directory",                             \
+                    "BOOL|auto", "Create $BOOT/ENTRY-TOKEN/ directory")
+
 #define OPTION_COMMON_PRIVATE_KEY(purpose)                              \
         OPTION_LONG("private-key", "PATH|URI", purpose)
 
