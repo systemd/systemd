@@ -1026,10 +1026,11 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         break;
 
-                OPTION_LONG("crash-chvt", "NR", "Change to specified VT on crash"):
+                OPTION_LONG("crash-chvt", "NR", "Change to specified VT on crash"): {}
+                OPTION_LONG("crash-vt", "NR", /* help= */ NULL):  /* compat option that was previously documented in --help */
                         r = parse_crash_chvt(opts.arg, &arg_crash_chvt);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse crash virtual terminal index: \"%s\": %m",
+                                return log_error_errno(r, "Failed to parse crash virtual terminal index '%s': %m",
                                                        opts.arg);
                         break;
 
