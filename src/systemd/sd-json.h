@@ -184,6 +184,7 @@ __extension__ typedef enum _SD_ENUM_TYPE_S64(sd_json_parse_flags_t) {
         SD_JSON_PARSE_SENSITIVE      = 1 << 0, /* mark variant as "sensitive", i.e. something containing secret key material or such */
         SD_JSON_PARSE_MUST_BE_OBJECT = 1 << 1, /* refuse parsing if top-level is not an object */
         SD_JSON_PARSE_MUST_BE_ARRAY  = 1 << 2, /* refuse parsing if top-level is not an array */
+        SD_JSON_PARSE_SEEK0          = 1 << 3, /* seek to offset 0 before reading */
         _SD_ENUM_FORCE_S64(JSON_PARSE_FLAGS)
 } sd_json_parse_flags_t;
 
