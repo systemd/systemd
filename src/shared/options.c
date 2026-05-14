@@ -39,6 +39,7 @@ static void shift_arg(char* argv[], int target, int source) {
 }
 
 static int partial_match_error(
+                const OptionParser *state,
                 const Option options[],
                 const Option options_end[],
                 const char *optname,
@@ -57,15 +58,17 @@ static int partial_match_error(
 
                         r = strv_extendf(&s, "--%s", option->long_code);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to format message: %m");
+                                return log_full_errno(LOG_ERR + state->log_level_shift, r,
+                                                      "Failed to format message: %m");
                 }
 
         assert(strv_length(s) == n_partial_matches);
 
         _cleanup_free_ char *p = strv_join_full(s, ", ", /* prefix= */ NULL, /* escape_separator= */ false);
-        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                               "%s: option '%s' is ambiguous; possibilities: %s",
-                               program_invocation_short_name, optname, strnull(p));
+        return log_full_errno(LOG_ERR + state->log_level_shift,
+                              SYNTHETIC_ERRNO(EINVAL),
+                              "%s: option '%s' is ambiguous; possibilities: %s",
+                              program_invocation_short_name, optname, strnull(p));
 }
 
 int option_parse(
@@ -84,9 +87,14 @@ int option_parse(
 
         case OPTION_PARSER_INIT: {
                 assert(state->mode >= 0 && state->mode < _OPTION_PARSER_MODE_MAX);
+                /* Make sure the shifted log level is between LOG_EMERG/0 and LOG_DEBUG/7. */
+                assert(state->log_level_shift >= LOG_EMERG - LOG_ERR &&
+                       state->log_level_shift <= LOG_DEBUG - LOG_ERR);
 
                 if (state->argc < 1) {
-                        r = log_error_errno(SYNTHETIC_ERRNO(EUCLEAN), "argv cannot be empty");
+                        r = log_full_errno(LOG_ERR + state->log_level_shift,
+                                           SYNTHETIC_ERRNO(EUCLEAN),
+                                           "argv cannot be empty");
                         goto fail;
                 }
 
@@ -134,7 +142,9 @@ int option_parse(
                 goto done;
 
         case OPTION_PARSER_FAILED:
-                return log_error_errno(SYNTHETIC_ERRNO(ESTALE), "Option parser failed before, refusing.");
+                return log_full_errno(LOG_ERR + state->log_level_shift,
+                                      SYNTHETIC_ERRNO(ESTALE),
+                                      "Option parser failed before, refusing.");
 
         default:
                 assert_not_reached();
@@ -203,7 +213,7 @@ int option_parse(
                         if (eq) {
                                 optname = _optname = strndup(state->argv[state->optind], eq - state->argv[state->optind]);
                                 if (!_optname) {
-                                        r = log_oom();
+                                        r = log_oom_full(LOG_ERR + state->log_level_shift);
                                         goto fail;
                                 }
 
@@ -219,13 +229,15 @@ int option_parse(
                         for (option = state->namespace_start;; option++) {
                                 if (option >= state->namespace_end) {
                                         if (n_partial_matches == 0) {
-                                                r = log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                                    "%s: unrecognized option '%s'",
-                                                                    program_invocation_short_name, optname);
+                                                r = log_full_errno(LOG_ERR + state->log_level_shift,
+                                                                   SYNTHETIC_ERRNO(EINVAL),
+                                                                   "%s: unrecognized option '%s'",
+                                                                   program_invocation_short_name, optname);
                                                 goto fail;
                                         }
                                         if (n_partial_matches > 1) {
                                                 r = partial_match_error(
+                                                                state,
                                                                 state->namespace_start,
                                                                 state->namespace_end,
                                                                 optname,
@@ -261,16 +273,17 @@ int option_parse(
                 char optchar = state->argv[state->optind][state->short_option_offset];
 
                 if (asprintf(&_optname, "-%c", optchar) < 0) {
-                        r = log_oom();
+                        r = log_oom_full(LOG_ERR + state->log_level_shift);
                         goto fail;
                 }
                 optname = _optname;
 
                 for (option = state->namespace_start;; option++) {
                         if (option >= state->namespace_end) {
-                                r = log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                    "%s: unrecognized option '%s'",
-                                                    program_invocation_short_name, optname);
+                                r = log_full_errno(LOG_ERR + state->log_level_shift,
+                                                   SYNTHETIC_ERRNO(EINVAL),
+                                                   "%s: unrecognized option '%s'",
+                                                   program_invocation_short_name, optname);
                                 goto fail;
                         }
 
@@ -295,16 +308,18 @@ int option_parse(
         assert(option);
 
         if (!handling_positional_arg && optval && !option_takes_arg(option)) {
-                r = log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                    "%s: option '%s' doesn't allow an argument",
-                                    program_invocation_short_name, optname);
+                r = log_full_errno(LOG_ERR + state->log_level_shift,
+                                   SYNTHETIC_ERRNO(EINVAL),
+                                   "%s: option '%s' doesn't allow an argument",
+                                   program_invocation_short_name, optname);
                 goto fail;
         }
         if (!handling_positional_arg && !optval && option_arg_required(option)) {
                 if (!state->argv[state->optind + 1]) {
-                        r = log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                            "%s: option '%s' requires an argument",
-                                            program_invocation_short_name, optname);
+                        r = log_full_errno(LOG_ERR + state->log_level_shift,
+                                           SYNTHETIC_ERRNO(EINVAL),
+                                           "%s: option '%s' requires an argument",
+                                           program_invocation_short_name, optname);
                         goto fail;
                 }
                 optval = state->argv[state->optind + 1];

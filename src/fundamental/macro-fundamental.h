@@ -72,6 +72,7 @@
 #define REENABLE_WARNING                                                \
         _Pragma("GCC diagnostic pop")
 
+#define _alias_(x) typeof(x) __attribute__((alias(#x)))
 #define _align_(x) __attribute__((__aligned__(x)))
 #define _alignas_(x) __attribute__((__aligned__(alignof(x))))
 #define _alignptr_ __attribute__((__aligned__(sizeof(void *))))
