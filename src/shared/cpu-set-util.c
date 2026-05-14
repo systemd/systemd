@@ -6,6 +6,7 @@
 
 #include "alloc-util.h"
 #include "bitfield.h"
+#include "cgroup-util.h"
 #include "cpu-set-util.h"
 #include "extract-word.h"
 #include "log.h"
@@ -398,5 +399,52 @@ int cpu_set_from_dbus(const uint8_t *bits, size_t size, CPUSet *ret) {
                         CPU_SET_S(i, c.allocated, c.set);
 
         *ret = TAKE_STRUCT(c);
+        return 0;
+}
+
+static int cgroup_cpus_effective(unsigned *ret) {
+        int r;
+
+        assert(ret);
+
+        _cleanup_free_ char *root = NULL;
+        r = cg_get_root_path(&root);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to determine root cgroup: %m");
+
+        _cleanup_free_ char *value = NULL;
+        r = cg_get_attribute(root, "cpuset.cpus.effective", &value);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to read cpuset.cpus.effective cgroup attribute: %m");
+
+        _cleanup_(cpu_set_done) CPUSet cpus = {};
+        r = parse_cpu_set(value, &cpus);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse cpuset.cpus.effective cgroup attribute: %m");
+
+        *ret = (unsigned) MIN(cpu_set_count(&cpus), UINT_MAX);
+        return 0;
+}
+
+int cpus_online(unsigned *ret) {
+        int r;
+
+        assert(ret);
+
+        /* In order to support containers nicely that have a configured cpuset we'll take the minimum of the
+         * physically reported amount of CPUs and the limit configured for the root cgroup, if there is
+         * any. */
+
+        long sc = sysconf(_SC_NPROCESSORS_ONLN);
+        if (sc < 0)
+                return log_debug_errno(errno, "sysconf(_SC_NPROCESSORS_ONLN) failed: %m");
+
+        unsigned cg, lc = (unsigned) CLAMP((unsigned long) sc, 1U, UINT_MAX);
+        r = cgroup_cpus_effective(&cg);
+        if (r < 0)
+                *ret = lc;
+        else
+                *ret = CLAMP(cg, 1U, lc);
+
         return 0;
 }
