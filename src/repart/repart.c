@@ -340,6 +340,7 @@ typedef struct PartitionEncryptedVolume {
         char *keyfile;
         char *options;
         bool fixate_volume_key;
+        char *token_type;
 } PartitionEncryptedVolume;
 
 static PartitionEncryptedVolume* partition_encrypted_volume_free(PartitionEncryptedVolume *c) {
@@ -349,6 +350,7 @@ static PartitionEncryptedVolume* partition_encrypted_volume_free(PartitionEncryp
         free(c->name);
         free(c->keyfile);
         free(c->options);
+        free(c->token_type);
 
         return mfree(c);
 }
@@ -2687,6 +2689,10 @@ static int config_parse_encrypted_volume(
                 return 0;
         }
 
+        _cleanup_free_ char *saved_token_type = NULL;
+        if (p->encrypted_volume)
+                saved_token_type = TAKE_PTR(p->encrypted_volume->token_type);
+
         partition_encrypted_volume_free(p->encrypted_volume);
 
         p->encrypted_volume = new(PartitionEncryptedVolume, 1);
@@ -2716,7 +2722,51 @@ static int config_parse_encrypted_volume(
                 .keyfile = TAKE_PTR(keyfile),
                 .options = TAKE_PTR(options),
                 .fixate_volume_key = fixate_volume_key,
+                .token_type = TAKE_PTR(saved_token_type),
         };
+
+        return 0;
+}
+
+static int config_parse_encrypt_token(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Partition *p = ASSERT_PTR(data);
+        int r;
+
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                if (p->encrypted_volume)
+                        p->encrypted_volume->token_type = mfree(p->encrypted_volume->token_type);
+                return 0;
+        }
+
+        if (!in_charset(rvalue, ALPHANUMERICAL "_-")) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Invalid token type '%s', ignoring", rvalue);
+                return 0;
+        }
+
+        if (!p->encrypted_volume) {
+                p->encrypted_volume = new0(PartitionEncryptedVolume, 1);
+                if (!p->encrypted_volume)
+                        return log_oom();
+        }
+
+        r = free_and_strdup_warn(&p->encrypted_volume->token_type, rvalue);
+        if (r < 0)
+                return r;
 
         return 0;
 }
@@ -2951,6 +3001,7 @@ static int partition_read_definition(
                 { "Partition", "VerityHashBlockSizeBytes", config_parse_block_size,        0,                                  &p->verity_hash_block_size  },
                 { "Partition", "MountPoint",               config_parse_mountpoint,        0,                                  p                           },
                 { "Partition", "EncryptedVolume",          config_parse_encrypted_volume,  0,                                  p                           },
+                { "Partition", "EncryptToken",             config_parse_encrypt_token,     0,                                  p                           },
                 { "Partition", "TPM2PCRs",                 config_parse_tpm2_pcrs,         0,                                  p                           },
                 { "Partition", "KeyFile",                  config_parse_key_file,          0,                                  p                           },
                 { "Partition", "Integrity",                config_parse_integrity,         0,                                  &p->integrity               },
@@ -3163,6 +3214,15 @@ static int partition_read_definition(
         if (p->encrypt == ENCRYPT_OFF && p->encrypt_kdf >= 0)
                 log_syntax(NULL, LOG_WARNING, path, 1, 0,
                            "EncryptKDF= has no effect with Encrypt=off.");
+
+        if (p->encrypted_volume && p->encrypted_volume->token_type) {
+                if (p->encrypt == ENCRYPT_OFF)
+                        log_syntax(NULL, LOG_WARNING, path, 1, 0,
+                                   "EncryptToken= has no effect with Encrypt=off.");
+                else if (p->encrypt != ENCRYPT_KEY_FILE)
+                        return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
+                                          "EncryptToken= requires Encrypt=key-file.");
+        }
 
         if (p->encrypt != ENCRYPT_OFF && p->integrity == INTEGRITY_INLINE && p->discard > 0)
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
@@ -5396,6 +5456,11 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
         assert(p);
         assert(p->encrypt != ENCRYPT_OFF);
 
+        if (p->encrypted_volume && p->encrypted_volume->token_type &&
+            p->encrypt != ENCRYPT_KEY_FILE)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "EncryptToken= is only supported with Encrypt=key-file.");
+
         r = dlopen_cryptsetup(LOG_ERR);
         if (r < 0)
                 return r;
@@ -5572,6 +5637,7 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
         if (IN_SET(p->encrypt, ENCRYPT_KEY_FILE, ENCRYPT_KEY_FILE_TPM2)) {
                 /* Use partition-specific key if available, otherwise fall back to global key */
                 struct iovec *iovec_key = arg_key.iov_base ? &arg_key : &p->key;
+                int key_file_keyslot;
 
                 r = sym_crypt_keyslot_add_by_volume_key(
                                 cd,
@@ -5583,8 +5649,29 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                 if (r < 0)
                         return log_error_errno(r, "Failed to add LUKS2 key: %m");
 
+                key_file_keyslot = r;
+
                 passphrase = strempty(iovec_key->iov_base);
                 passphrase_size = iovec_key->iov_len;
+
+                if (p->encrypted_volume && p->encrypted_volume->token_type) {
+                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+                        _cleanup_free_ char *keyslot_as_string = NULL;
+
+                        if (asprintf(&keyslot_as_string, "%i", key_file_keyslot) < 0)
+                                return log_oom();
+
+                        r = sd_json_buildo(&v,
+                                           SD_JSON_BUILD_PAIR("type", SD_JSON_BUILD_STRING(p->encrypted_volume->token_type)),
+                                           SD_JSON_BUILD_PAIR("keyslots",
+                                                              SD_JSON_BUILD_ARRAY(SD_JSON_BUILD_STRING(keyslot_as_string))));
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to build LUKS2 token JSON: %m");
+
+                        r = cryptsetup_add_token_json(cd, v);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to add custom LUKS2 token to header: %m");
+                }
         }
 
         if (IN_SET(p->encrypt, ENCRYPT_TPM2, ENCRYPT_KEY_FILE_TPM2)) {
