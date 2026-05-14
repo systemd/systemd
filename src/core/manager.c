@@ -3310,7 +3310,6 @@ static int manager_dispatch_jobs_in_progress(sd_event_source *source, usec_t use
 }
 
 int manager_loop(Manager *m) {
-        RateLimit rl = { .interval = 1*USEC_PER_SEC, .burst = 50000 };
         int r;
 
         assert(m);
@@ -3325,7 +3324,7 @@ int manager_loop(Manager *m) {
 
         while (m->objective == MANAGER_OK) {
 
-                if (!ratelimit_below(&rl)) {
+                if (!ratelimit_below(&m->event_loop_ratelimit)) {
                         /* Yay, something is going seriously wrong, pause a little */
                         log_warning("Looping too fast. Throttling execution a little.");
                         sleep(1);

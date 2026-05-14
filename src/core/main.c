@@ -165,6 +165,8 @@ static void *arg_random_seed;
 static size_t arg_random_seed_size;
 static usec_t arg_reload_limit_interval_sec;
 static unsigned arg_reload_limit_burst;
+static usec_t arg_event_loop_ratelimit_interval_sec;
+static unsigned arg_event_loop_ratelimit_burst;
 static usec_t arg_minimum_uptime_usec;
 
 /* A copy of the original environment block */
@@ -557,6 +559,28 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                         return 0;
                 }
 
+        } else if (proc_cmdline_key_streq(key, "systemd.event_loop_ratelimit_interval_sec")) {
+
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
+
+                r = parse_sec(value, &arg_event_loop_ratelimit_interval_sec);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to parse systemd.event_loop_ratelimit_interval_sec= argument '%s', ignoring: %m", value);
+                        return 0;
+                }
+
+        } else if (proc_cmdline_key_streq(key, "systemd.event_loop_ratelimit_burst")) {
+
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
+
+                r = safe_atou(value, &arg_event_loop_ratelimit_burst);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to parse systemd.event_loop_ratelimit_burst= argument '%s', ignoring: %m", value);
+                        return 0;
+                }
+
         } else if (proc_cmdline_key_streq(key, "systemd.minimum_uptime_sec")) {
 
                 if (proc_cmdline_value_missing(key, value))
@@ -865,6 +889,8 @@ static int parse_config_file(void) {
                 { "Manager", "DefaultOOMScoreAdjust",             config_parse_oom_score_adjust,      0,                        NULL                                                   },
                 { "Manager", "ReloadLimitIntervalSec",            config_parse_sec,                   0,                        &arg_reload_limit_interval_sec                         },
                 { "Manager", "ReloadLimitBurst",                  config_parse_unsigned,              0,                        &arg_reload_limit_burst                                },
+                { "Manager", "EventLoopRateLimitIntervalSec",     config_parse_sec,                   0,                        &arg_event_loop_ratelimit_interval_sec                 },
+                { "Manager", "EventLoopRateLimitBurst",           config_parse_unsigned,              0,                        &arg_event_loop_ratelimit_burst                        },
                 { "Manager", "DefaultMemoryZSwapWriteback",       config_parse_bool,                  0,                        &arg_defaults.memory_zswap_writeback                   },
                 { "Manager", "MinimumUptimeSec",                  config_parse_sec,                   0,                        &arg_minimum_uptime_usec                               },
 #if ENABLE_SMACK
@@ -951,6 +977,8 @@ static void set_manager_settings(Manager *m) {
          * counter on every daemon-reload. */
         m->reload_reexec_ratelimit.interval = arg_reload_limit_interval_sec;
         m->reload_reexec_ratelimit.burst = arg_reload_limit_burst;
+        m->event_loop_ratelimit.interval = arg_event_loop_ratelimit_interval_sec;
+        m->event_loop_ratelimit.burst = arg_event_loop_ratelimit_burst;
 
         manager_set_watchdog(m, WATCHDOG_RUNTIME, arg_runtime_watchdog);
         manager_set_watchdog(m, WATCHDOG_REBOOT, arg_reboot_watchdog);
@@ -2901,6 +2929,9 @@ static void reset_arguments(void) {
 
         arg_reload_limit_interval_sec = 0;
         arg_reload_limit_burst = 0;
+
+        arg_event_loop_ratelimit_interval_sec = 1 * USEC_PER_SEC;
+        arg_event_loop_ratelimit_burst = 50000;
 
         arg_minimum_uptime_usec = USEC_INFINITY;
 }

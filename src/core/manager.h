@@ -495,6 +495,9 @@ typedef struct Manager {
         /* Dump*() are slow, so always rate limit them to 10 per 10 minutes */
         RateLimit dump_ratelimit;
 
+        /* Rate limit for the manager event loop */
+        RateLimit event_loop_ratelimit;
+
         sd_event_source *pressure_event_source[_PRESSURE_RESOURCE_MAX];
 
         /* For NFTSet= */
