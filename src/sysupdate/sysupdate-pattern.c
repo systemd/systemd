@@ -455,7 +455,21 @@ int pattern_match_many(char **patterns, const char *s, InstanceMetadata *ret) {
         int r;
 
         STRV_FOREACH(p, patterns) {
-                r = pattern_match(*p, s, &found);
+                const char *pat = *p, *input_path = s, *pat_rest;
+
+                /* A "@W/" prefix on a pattern means to match the rest of the pattern against the last
+                 * path component only (the basename, so "find this file anywhere under the source tree") */
+                pat_rest = startswith(pat, "@W/");
+                if (pat_rest) {
+                        const char *slash;
+
+                        pat = pat_rest;
+                        slash = strrchr(s, '/');
+                        if (slash)
+                                input_path = slash + 1;
+                }
+
+                r = pattern_match(pat, input_path, &found);
                 if (r < 0)
                         return r;
                 if (r > 0) {
