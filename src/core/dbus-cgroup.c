@@ -26,6 +26,7 @@ BUS_DEFINE_PROPERTY_GET(bus_property_get_tasks_max, "t", CGroupTasksMax, cgroup_
 BUS_DEFINE_PROPERTY_GET_ENUM(bus_property_get_cgroup_pressure_watch, cgroup_pressure_watch, CGroupPressureWatch);
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_cgroup_device_policy, cgroup_device_policy, CGroupDevicePolicy);
+static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_cpuset_partition, cpuset_partition, CPUSetPartition);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_managed_oom_mode, managed_oom_mode, ManagedOOMMode);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_managed_oom_preference, managed_oom_preference, ManagedOOMPreference);
 
@@ -385,6 +386,7 @@ const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_PROPERTY("StartupAllowedCPUs", "ay", property_get_cpuset, offsetof(CGroupContext, startup_cpuset_cpus), 0),
         SD_BUS_PROPERTY("AllowedMemoryNodes", "ay", property_get_cpuset, offsetof(CGroupContext, cpuset_mems), 0),
         SD_BUS_PROPERTY("StartupAllowedMemoryNodes", "ay", property_get_cpuset, offsetof(CGroupContext, startup_cpuset_mems), 0),
+        SD_BUS_PROPERTY("CPUSetPartition", "s", property_get_cpuset_partition, offsetof(CGroupContext, cpuset_partition), 0),
         SD_BUS_PROPERTY("IOAccounting", "b", bus_property_get_bool, offsetof(CGroupContext, io_accounting), 0),
         SD_BUS_PROPERTY("IOWeight", "t", NULL, offsetof(CGroupContext, io_weight), 0),
         SD_BUS_PROPERTY("StartupIOWeight", "t", NULL, offsetof(CGroupContext, startup_io_weight), 0),
@@ -1489,6 +1491,35 @@ int bus_cgroup_set_property(
                         c->device_policy = p;
                         unit_invalidate_cgroup(u, CGROUP_MASK_BPF_DEVICES);
                         unit_write_settingf(u, flags, name, "DevicePolicy=%s", policy);
+                }
+
+                return 1;
+
+        } else if (streq(name, "CPUSetPartition")) {
+                const char *partition_str;
+                CPUSetPartition p;
+
+                r = sd_bus_message_read(message, "s", &partition_str);
+                if (r < 0)
+                        return r;
+
+                if (isempty(partition_str))
+                        p = _CPUSET_PARTITION_INVALID;
+                else {
+                        p = cpuset_partition_from_string(partition_str);
+                        if (p < 0)
+                                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS,
+                                                         "Invalid CPUSetPartition value: %s", partition_str);
+                }
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        c->cpuset_partition = p;
+                        unit_invalidate_cgroup(u, CGROUP_MASK_CPUSET);
+
+                        if (p == _CPUSET_PARTITION_INVALID)
+                                unit_write_settingf(u, flags, name, "%s=", name);
+                        else
+                                unit_write_settingf(u, flags, name, "%s=%s", name, partition_str);
                 }
 
                 return 1;
