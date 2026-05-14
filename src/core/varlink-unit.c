@@ -304,6 +304,7 @@ static int unit_runtime_build_json(sd_json_variant **ret, const char *name, void
                 [UNIT_MOUNT]     = mount_runtime_build_json,
                 [UNIT_PATH]      = path_runtime_build_json,
                 [UNIT_SCOPE]     = scope_runtime_build_json,
+                [UNIT_SERVICE]   = service_runtime_build_json,
                 [UNIT_SOCKET]    = socket_runtime_build_json,
                 [UNIT_SWAP]      = swap_runtime_build_json,
                 [UNIT_TIMER]     = timer_runtime_build_json,
