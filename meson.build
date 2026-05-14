@@ -1844,7 +1844,8 @@ if static_libudev != 'false'
                 install_tag: 'libudev',
                 install_dir : libdir,
                 link_depends : libudev_sym,
-                dependencies : [libmount,
+                dependencies : [libdl,
+                                libmount,
                                 libshared_deps,
                                 userspace],
                 c_args : static_libudev_pic ? [] : ['-fno-PIC'],
@@ -2316,6 +2317,7 @@ test_dlopen = executables_by_name.get('test-dlopen')
 
 nss_targets = []
 pam_targets = []
+cryptsetup_token_targets = []
 foreach dict : modules
         name = dict.get('name')
         is_nss = name.startswith('nss_')
@@ -2359,6 +2361,10 @@ foreach dict : modules
                 kwargs : kwargs,
                 implicit_include_directories : false,
         )
+
+        if name.startswith('cryptsetup-token-')
+                cryptsetup_token_targets += lib
+        endif
 
         if is_nss
                 # We cannot use shared_module because it does not support version suffix.
