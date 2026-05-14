@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <dlfcn.h>
 #include <errno.h>
 #include <sys/syscall.h>
 #include <unistd.h>
@@ -35,21 +36,31 @@
 #define _SHIM_NAME_8(t, n, ...) n, _SHIM_NAME_7(__VA_ARGS__)
 #define _SHIM_NAME(...) _SHIM_CAT(_SHIM_NAME_, _SHIM_PAIRS(__VA_ARGS__))(__VA_ARGS__)
 
-/* Defines a wrapper that calls the libc symbol if available at runtime, or falls back to the
- * corresponding direct syscall otherwise. The libc symbol is redeclared as a weak reference so the
- * binary still loads on libc versions that don't provide it. Each parameter is passed as type,
- * name pairs (flat).
+/* The shim resolves the libc symbol via dlsym(RTLD_DEFAULT) on first call and caches the result.
+ * The cache uses (void *) -1 as a sentinel for "not resolved yet" so NULL (libc doesn't provide
+ * the symbol) is also cacheable. Racing threads may all perform the dlsym() but they all store the
+ * same value, so no locking is needed; acquire/release ordering guarantees later loads observe a
+ * consistent cached value.
  *
- * The weak reference is bound to the libc symbol via an __asm__("label") rename so that the bare
- * libc identifier never appears as a C token. This matters because override/musl headers
- * sometimes #define the libc name to redirect it to the _shim variant — without the rename the
- * caller would have to #undef each name before invoking the macro. # and ## operators don't
- * macro-expand their operands, so the parameter "func" stays a literal token everywhere. */
+ * Each reference to `func` in the macro body is positioned as an operand of `#` or `##` so the
+ * override headers (e.g. "#define openat2 openat2_shim") don't rewrite the token before pasting or
+ * stringification. For the same reason the resolution logic isn't extracted into a helper macro —
+ * passing `func` to a nested macro would expand it as a regular argument and re-trigger the
+ * override.
+ *
+ * Defines a wrapper that calls the libc symbol if available at runtime, or falls back to the
+ * corresponding direct syscall otherwise. Each parameter is passed as type, name pairs (flat). */
 #define DEFINE_SYSCALL_SHIM(func, ret, ...)                                                          \
-        extern typeof(func##_shim) func##_libc_weak __asm__(#func) __attribute__((__weak__));        \
         ret func##_shim(_SHIM_DECL(__VA_ARGS__)) {                                                   \
-                if (func##_libc_weak)                                                                \
-                        return func##_libc_weak(_SHIM_NAME(__VA_ARGS__));                            \
+                static void *cache = (void *) -1;                                                    \
+                void *p = __atomic_load_n(&cache, __ATOMIC_ACQUIRE);                                 \
+                if (p == (void *) -1) {                                                              \
+                        p = dlsym(RTLD_DEFAULT, #func);                                              \
+                        __atomic_store_n(&cache, p, __ATOMIC_RELEASE);                               \
+                }                                                                                    \
+                typeof(&func##_shim) fn = (typeof(&func##_shim)) p;                                  \
+                if (fn)                                                                              \
+                        return fn(_SHIM_NAME(__VA_ARGS__));                                          \
                 return syscall(__NR_##func, _SHIM_NAME(__VA_ARGS__));                                \
         }
 
@@ -57,20 +68,32 @@
  * by returning the positive errno value directly (posix_spawn-family convention). If the libc symbol
  * is missing at runtime, ENOSYS is returned. */
 #define DEFINE_LIBC_SHIM(func, ret, ...)                                                             \
-        extern typeof(func##_shim) func##_libc_weak __asm__(#func) __attribute__((__weak__));        \
         ret func##_shim(_SHIM_DECL(__VA_ARGS__)) {                                                   \
-                if (func##_libc_weak)                                                                \
-                        return func##_libc_weak(_SHIM_NAME(__VA_ARGS__));                            \
+                static void *cache = (void *) -1;                                                    \
+                void *p = __atomic_load_n(&cache, __ATOMIC_ACQUIRE);                                 \
+                if (p == (void *) -1) {                                                              \
+                        p = dlsym(RTLD_DEFAULT, #func);                                              \
+                        __atomic_store_n(&cache, p, __ATOMIC_RELEASE);                               \
+                }                                                                                    \
+                typeof(&func##_shim) fn = (typeof(&func##_shim)) p;                                  \
+                if (fn)                                                                              \
+                        return fn(_SHIM_NAME(__VA_ARGS__));                                          \
                 return ENOSYS;                                                                       \
         }
 
 /* Like DEFINE_LIBC_SHIM but for libc helpers that report errors via errno + -1 return value. If the
  * libc symbol is missing at runtime, errno is set to ENOSYS and -1 is returned. */
 #define DEFINE_LIBC_ERRNO_SHIM(func, ret, ...)                                                       \
-        extern typeof(func##_shim) func##_libc_weak __asm__(#func) __attribute__((__weak__));        \
         ret func##_shim(_SHIM_DECL(__VA_ARGS__)) {                                                   \
-                if (func##_libc_weak)                                                                \
-                        return func##_libc_weak(_SHIM_NAME(__VA_ARGS__));                            \
+                static void *cache = (void *) -1;                                                    \
+                void *p = __atomic_load_n(&cache, __ATOMIC_ACQUIRE);                                 \
+                if (p == (void *) -1) {                                                              \
+                        p = dlsym(RTLD_DEFAULT, #func);                                              \
+                        __atomic_store_n(&cache, p, __ATOMIC_RELEASE);                               \
+                }                                                                                    \
+                typeof(&func##_shim) fn = (typeof(&func##_shim)) p;                                  \
+                if (fn)                                                                              \
+                        return fn(_SHIM_NAME(__VA_ARGS__));                                          \
                 errno = ENOSYS;                                                                      \
                 return -1;                                                                           \
         }
