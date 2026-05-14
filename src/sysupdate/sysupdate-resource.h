@@ -76,6 +76,7 @@ typedef struct Resource {
         bool path_auto; /* automatically find root path (only available if target resource, not source resource) */
         PathRelativeTo path_relative_to;
         char **patterns;
+        bool match_basename; /* Consider files in subdirectories and apply the match pattern to the basename */
         GptPartitionType partition_type;
         bool partition_type_set;
 
