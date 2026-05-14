@@ -905,8 +905,8 @@ int qmp_client_call_future(
         assert(command);
         assert(ret);
 
-        _cleanup_(sd_future_unrefp) sd_future *f = NULL;
-        r = sd_future_new(&qmp_call_future_ops, &f);
+        _cleanup_(sd_future_cancel_unrefp) sd_future *f = NULL;
+        r = sd_future_new(qmp_client_get_event(c), &qmp_call_future_ops, &f);
         if (r < 0)
                 return r;
 
@@ -972,7 +972,7 @@ static int qmp_client_call_suspend(
         if (r < 0)
                 return r;
 
-        r = sd_fiber_suspend();
+        r = sd_fiber_await(call);
 
         /* If the future isn't resolved, the suspend was interrupted before a reply arrived (fiber
          * cancelled, fiber-wide SD_FIBER_TIMEOUT scope expired, …). There's no reply to extract,
@@ -1056,6 +1056,27 @@ int qmp_client_call(
                 *reterr_error_desc = NULL;
 
         return 1;
+}
+
+int qmp_client_call_and_log(
+                QmpClient *c,
+                const char *command,
+                QmpClientArgs *args,
+                sd_json_variant **ret_result) {
+
+        _cleanup_free_ char *desc = NULL;
+        int r;
+
+        assert(c);
+        assert(command);
+
+        r = qmp_client_call(c, command, args, ret_result, &desc);
+        if (r == -EIO && desc)
+                return log_error_errno(r, "QMP command %s failed: %s", command, desc);
+        if (r < 0)
+                return log_error_errno(r, "Failed to issue QMP command %s: %m", command);
+
+        return 0;
 }
 
 void qmp_client_bind_event(QmpClient *c, qmp_event_callback_t callback, void *userdata) {

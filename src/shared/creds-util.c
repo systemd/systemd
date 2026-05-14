@@ -1066,12 +1066,10 @@ int encrypt_credential_and_warn(
 
         context = sym_EVP_CIPHER_CTX_new();
         if (!context)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOMEM), "Failed to allocate encryption object: %s",
-                                       sym_ERR_error_string(sym_ERR_get_error(), NULL));
+                return log_openssl_errors(LOG_ERR, "Failed to allocate encryption object");
 
         if (sym_EVP_EncryptInit_ex(context, cc, NULL, md, iv.iov_base) != 1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to initialize encryption context: %s",
-                                       sym_ERR_error_string(sym_ERR_get_error(), NULL));
+                return log_openssl_errors(LOG_ERR, "Failed to initialize encryption context");
 
         /* Just an upper estimate */
         output.iov_len =
@@ -1137,8 +1135,7 @@ int encrypt_credential_and_warn(
 
         /* Pass the encrypted + TPM2 header + scoped header as AAD */
         if (sym_EVP_EncryptUpdate(context, NULL, &added, output.iov_base, p) != 1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to write AAD data: %s",
-                                       sym_ERR_error_string(sym_ERR_get_error(), NULL));
+                return log_openssl_errors(LOG_ERR, "Failed to write AAD data");
 
         /* Now construct the metadata header */
         ml = strlen_ptr(name);
@@ -1153,8 +1150,7 @@ int encrypt_credential_and_warn(
 
         /* And encrypt the metadata header */
         if (sym_EVP_EncryptUpdate(context, (uint8_t*) output.iov_base + p, &added, (const unsigned char*) m, ALIGN8(offsetof(struct metadata_credential_header, name) + ml)) != 1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to encrypt metadata header: %s",
-                                       sym_ERR_error_string(sym_ERR_get_error(), NULL));
+                return log_openssl_errors(LOG_ERR, "Failed to encrypt metadata header");
 
         assert(added >= 0);
         assert((size_t) added <= output.iov_len - p);
@@ -1162,8 +1158,7 @@ int encrypt_credential_and_warn(
 
         /* Then encrypt the plaintext */
         if (sym_EVP_EncryptUpdate(context, (uint8_t*) output.iov_base + p, &added, input->iov_base, input->iov_len) != 1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to encrypt data: %s",
-                                       sym_ERR_error_string(sym_ERR_get_error(), NULL));
+                return log_openssl_errors(LOG_ERR, "Failed to encrypt data");
 
         assert(added >= 0);
         assert((size_t) added <= output.iov_len - p);
@@ -1171,8 +1166,7 @@ int encrypt_credential_and_warn(
 
         /* Finalize */
         if (sym_EVP_EncryptFinal_ex(context, (uint8_t*) output.iov_base + p, &added) != 1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to finalize data encryption: %s",
-                                       sym_ERR_error_string(sym_ERR_get_error(), NULL));
+                return log_openssl_errors(LOG_ERR, "Failed to finalize data encryption");
 
         assert(added >= 0);
         assert((size_t) added <= output.iov_len - p);
@@ -1182,8 +1176,7 @@ int encrypt_credential_and_warn(
 
         /* Append tag */
         if (sym_EVP_CIPHER_CTX_ctrl(context, EVP_CTRL_GCM_GET_TAG, tsz, (uint8_t*) output.iov_base + p) != 1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to get tag: %s",
-                                       sym_ERR_error_string(sym_ERR_get_error(), NULL));
+                return log_openssl_errors(LOG_ERR, "Failed to get tag");
 
         p += tsz;
         assert(p <= output.iov_len);
@@ -1454,24 +1447,19 @@ int decrypt_credential_and_warn(
 
         context = sym_EVP_CIPHER_CTX_new();
         if (!context)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOMEM), "Failed to allocate decryption object: %s",
-                                       sym_ERR_error_string(sym_ERR_get_error(), NULL));
+                return log_openssl_errors(LOG_ERR, "Failed to allocate decryption object");
 
         if (sym_EVP_DecryptInit_ex(context, cc, NULL, NULL, NULL) != 1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to initialize decryption context: %s",
-                                       sym_ERR_error_string(sym_ERR_get_error(), NULL));
+                return log_openssl_errors(LOG_ERR, "Failed to initialize decryption context");
 
         if (sym_EVP_CIPHER_CTX_ctrl(context, EVP_CTRL_GCM_SET_IVLEN, le32toh(h->iv_size), NULL) != 1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to set IV size on decryption context: %s",
-                                       sym_ERR_error_string(sym_ERR_get_error(), NULL));
+                return log_openssl_errors(LOG_ERR, "Failed to set IV size on decryption context");
 
         if (sym_EVP_DecryptInit_ex(context, NULL, NULL, md, h->iv) != 1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to set IV and key: %s",
-                                       sym_ERR_error_string(sym_ERR_get_error(), NULL));
+                return log_openssl_errors(LOG_ERR, "Failed to set IV and key");
 
         if (sym_EVP_DecryptUpdate(context, NULL, &added, input->iov_base, p) != 1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to write AAD data: %s",
-                                       sym_ERR_error_string(sym_ERR_get_error(), NULL));
+                return log_openssl_errors(LOG_ERR, "Failed to write AAD data");
 
         plaintext.iov_base = malloc(input->iov_len - p - le32toh(h->tag_size));
         if (!plaintext.iov_base)
@@ -1483,20 +1471,17 @@ int decrypt_credential_and_warn(
                             &added,
                             (uint8_t*) input->iov_base + p,
                             input->iov_len - p - le32toh(h->tag_size)) != 1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to decrypt data: %s",
-                                       sym_ERR_error_string(sym_ERR_get_error(), NULL));
+                return log_openssl_errors(LOG_ERR, "Failed to decrypt data");
 
         assert(added >= 0);
         assert((size_t) added <= input->iov_len - p - le32toh(h->tag_size));
         plaintext.iov_len = added;
 
         if (sym_EVP_CIPHER_CTX_ctrl(context, EVP_CTRL_GCM_SET_TAG, le32toh(h->tag_size), (uint8_t*) input->iov_base + input->iov_len - le32toh(h->tag_size)) != 1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to set tag: %s",
-                                       sym_ERR_error_string(sym_ERR_get_error(), NULL));
+                return log_openssl_errors(LOG_ERR, "Failed to set tag");
 
         if (sym_EVP_DecryptFinal_ex(context, (uint8_t*) plaintext.iov_base + plaintext.iov_len, &added) != 1)
-                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Decryption failed (incorrect key?): %s",
-                                       sym_ERR_error_string(sym_ERR_get_error(), NULL));
+                return log_openssl_errors(LOG_ERR, "Decryption failed (incorrect key?)");
 
         plaintext.iov_len += added;
 

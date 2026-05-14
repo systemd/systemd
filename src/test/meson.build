@@ -132,6 +132,7 @@ simple_tests += files(
         'test-iovec-util.c',
         'test-iovec-wrapper.c',
         'test-ip-protocol-list.c',
+        'test-iref.c',
         'test-journal-importer.c',
         'test-kbd-util.c',
         'test-label.c',
@@ -180,7 +181,6 @@ simple_tests += files(
         'test-procfs-util.c',
         'test-progress-bar.c',
         'test-psi-util.c',
-        'test-qmp-client.c',
         'test-qrcode-util.c',
         'test-ratelimit.c',
         'test-raw-clone.c',
@@ -410,9 +410,19 @@ executables += [
                 'type' : 'manual',
         },
         test_template + {
+                'sources' : files('test-qmp-client.c'),
+                'io_uring' : true,
+        },
+        test_template + {
                 'sources' : files('test-qmp-client-qemu.c'),
                 'objects' : ['systemd-vmspawn'],
                 'conditions' : ['ENABLE_VMSPAWN'],
+                'io_uring' : true,
+        },
+        test_template + {
+                'sources' : files('test-ssh-util.c'),
+                'dependencies' : libopenssl_cflags,
+                'conditions' : ['HAVE_OPENSSL'],
         },
         test_template + {
                 'sources' : files('test-random-util.c'),
