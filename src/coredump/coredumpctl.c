@@ -579,239 +579,293 @@ static int print_list(FILE* file, sd_journal *j, Table *t) {
         return 0;
 }
 
-static int print_info(FILE *file, sd_journal *j, bool need_space) {
-        _cleanup_free_ char
-                *mid = NULL, *pid = NULL, *uid = NULL, *gid = NULL,
-                *sgnl = NULL, *exe = NULL, *comm = NULL, *cmdline = NULL,
-                *unit = NULL, *user_unit = NULL, *session = NULL,
-                *boot_id = NULL, *machine_id = NULL, *hostname = NULL,
-                *slice = NULL, *cgroup = NULL, *owner_uid = NULL,
-                *message = NULL, *timestamp = NULL, *filename = NULL,
-                *truncated = NULL,
-                *pkgmeta_name = NULL, *pkgmeta_version = NULL, *pkgmeta_json = NULL,
-                *tid = NULL, *thread_name = NULL;
+typedef enum CoredumpField {
+        COREDUMP_FIELD_MID,
+        COREDUMP_FIELD_PID,
+        COREDUMP_FIELD_UID,
+        COREDUMP_FIELD_GID,
+        COREDUMP_FIELD_SGNL,
+        COREDUMP_FIELD_EXE,
+        COREDUMP_FIELD_COMM,
+        COREDUMP_FIELD_CMDLINE,
+        COREDUMP_FIELD_HOSTNAME,
+        COREDUMP_FIELD_UNIT,
+        COREDUMP_FIELD_USER_UNIT,
+        COREDUMP_FIELD_SESSION,
+        COREDUMP_FIELD_OWNER_UID,
+        COREDUMP_FIELD_SLICE,
+        COREDUMP_FIELD_CGROUP,
+        COREDUMP_FIELD_TIMESTAMP,
+        COREDUMP_FIELD_FILENAME,
+        COREDUMP_FIELD_TRUNCATED,
+        COREDUMP_FIELD_PKGMETA_NAME,
+        COREDUMP_FIELD_PKGMETA_VERSION,
+        COREDUMP_FIELD_PKGMETA_JSON,
+        COREDUMP_FIELD_TID,
+        COREDUMP_FIELD_THREAD_NAME,
+        COREDUMP_FIELD_BOOT_ID,
+        COREDUMP_FIELD_MACHINE_ID,
+        COREDUMP_FIELD_MESSAGE,
+        _COREDUMP_FIELD_MAX,
+} CoredumpField;
+
+static const char* const coredump_field_table[_COREDUMP_FIELD_MAX] = {
+        [COREDUMP_FIELD_MID]              = "MESSAGE_ID",
+        [COREDUMP_FIELD_PID]              = "COREDUMP_PID",
+        [COREDUMP_FIELD_UID]              = "COREDUMP_UID",
+        [COREDUMP_FIELD_GID]              = "COREDUMP_GID",
+        [COREDUMP_FIELD_SGNL]             = "COREDUMP_SIGNAL",
+        [COREDUMP_FIELD_EXE]              = "COREDUMP_EXE",
+        [COREDUMP_FIELD_COMM]             = "COREDUMP_COMM",
+        [COREDUMP_FIELD_CMDLINE]          = "COREDUMP_CMDLINE",
+        [COREDUMP_FIELD_HOSTNAME]         = "COREDUMP_HOSTNAME",
+        [COREDUMP_FIELD_UNIT]             = "COREDUMP_UNIT",
+        [COREDUMP_FIELD_USER_UNIT]        = "COREDUMP_USER_UNIT",
+        [COREDUMP_FIELD_SESSION]          = "COREDUMP_SESSION",
+        [COREDUMP_FIELD_OWNER_UID]        = "COREDUMP_OWNER_UID",
+        [COREDUMP_FIELD_SLICE]            = "COREDUMP_SLICE",
+        [COREDUMP_FIELD_CGROUP]           = "COREDUMP_CGROUP",
+        [COREDUMP_FIELD_TIMESTAMP]        = "COREDUMP_TIMESTAMP",
+        [COREDUMP_FIELD_FILENAME]         = "COREDUMP_FILENAME",
+        [COREDUMP_FIELD_TRUNCATED]        = "COREDUMP_TRUNCATED",
+        [COREDUMP_FIELD_PKGMETA_NAME]     = "COREDUMP_PACKAGE_NAME",
+        [COREDUMP_FIELD_PKGMETA_VERSION]  = "COREDUMP_PACKAGE_VERSION",
+        [COREDUMP_FIELD_PKGMETA_JSON]     = "COREDUMP_PACKAGE_JSON",
+        [COREDUMP_FIELD_TID]              = "COREDUMP_TID",
+        [COREDUMP_FIELD_THREAD_NAME]      = "COREDUMP_THREAD_NAME",
+        [COREDUMP_FIELD_BOOT_ID]          = "_BOOT_ID",
+        [COREDUMP_FIELD_MACHINE_ID]       = "_MACHINE_ID",
+        [COREDUMP_FIELD_MESSAGE]          = "MESSAGE",
+};
+
+typedef struct CoredumpFields {
+        char *fields[_COREDUMP_FIELD_MAX];
+
+        bool normal_coredump;
+        const char *storage_state;  /* points to a static string, not owned */
+        const char *storage_color;  /* points to a static string, not owned */
+        uint64_t disk_size;
+        sd_json_variant *package_json;
+} CoredumpFields;
+
+static void coredump_fields_done(CoredumpFields *f) {
+        assert(f);
+
+        free_many_charp(f->fields, _COREDUMP_FIELD_MAX);
+        sd_json_variant_unref(f->package_json);
+}
+
+static int coredump_fields_load(sd_journal *j, CoredumpFields *ret) {
         const void *d;
         size_t l;
-        bool normal_coredump, has_inline_coredump;
+        int r;
+
+        assert(j);
+        assert(ret);
+
+        (void) sd_journal_set_data_threshold(j, 0);
+
+        SD_JOURNAL_FOREACH_DATA(j, d, l) {
+                for (CoredumpField i = 0; i < _COREDUMP_FIELD_MAX; i++) {
+                        int k = retrieve(d, l, coredump_field_table[i], &ret->fields[i]);
+                        if (k < 0)
+                                return k;
+                        if (k > 0)
+                                break;
+                }
+        }
+
+        ret->normal_coredump = streq_ptr(ret->fields[COREDUMP_FIELD_MID], SD_MESSAGE_COREDUMP_STR);
+
+        if (ret->fields[COREDUMP_FIELD_FILENAME]) {
+                r = resolve_filename(arg_root, &ret->fields[COREDUMP_FIELD_FILENAME]);
+                if (r < 0)
+                        return r;
+
+                analyze_coredump_file(ret->fields[COREDUMP_FIELD_FILENAME], &ret->storage_state, &ret->storage_color, &ret->disk_size);
+
+                if (STRPTR_IN_SET(ret->storage_state, "present", "journal") && ret->fields[COREDUMP_FIELD_TRUNCATED] && parse_boolean(ret->fields[COREDUMP_FIELD_TRUNCATED]) > 0)
+                        ret->storage_state = "truncated";
+        } else if (sd_journal_get_data(j, "COREDUMP", NULL, NULL) >= 0)
+                ret->storage_state = "journal";
+        else
+                ret->storage_state = "none";
+
+        if (ret->fields[COREDUMP_FIELD_PKGMETA_JSON]) {
+                r = sd_json_parse(ret->fields[COREDUMP_FIELD_PKGMETA_JSON], SD_JSON_PARSE_MUST_BE_OBJECT, &ret->package_json, NULL, NULL);
+                if (r < 0) {
+                        _cleanup_free_ char *esc = cescape(ret->fields[COREDUMP_FIELD_PKGMETA_JSON]);
+                        log_warning_errno(r, "Failed to parse COREDUMP_PACKAGE_JSON \"%s\", ignoring: %m", strnull(esc));
+                }
+        }
+
+        return 0;
+}
+
+static int print_info(FILE *file, sd_journal *j, bool need_space) {
+        _cleanup_(coredump_fields_done) CoredumpFields f = {
+                .disk_size = UINT64_MAX,
+        };
         int r;
 
         assert(file);
         assert(j);
 
-        (void) sd_journal_set_data_threshold(j, 0);
-
-        SD_JOURNAL_FOREACH_DATA(j, d, l) {
-                RETRIEVE(d, l, "MESSAGE_ID", mid);
-                RETRIEVE(d, l, "COREDUMP_PID", pid);
-                RETRIEVE(d, l, "COREDUMP_UID", uid);
-                RETRIEVE(d, l, "COREDUMP_GID", gid);
-                RETRIEVE(d, l, "COREDUMP_SIGNAL", sgnl);
-                RETRIEVE(d, l, "COREDUMP_EXE", exe);
-                RETRIEVE(d, l, "COREDUMP_COMM", comm);
-                RETRIEVE(d, l, "COREDUMP_CMDLINE", cmdline);
-                RETRIEVE(d, l, "COREDUMP_HOSTNAME", hostname);
-                RETRIEVE(d, l, "COREDUMP_UNIT", unit);
-                RETRIEVE(d, l, "COREDUMP_USER_UNIT", user_unit);
-                RETRIEVE(d, l, "COREDUMP_SESSION", session);
-                RETRIEVE(d, l, "COREDUMP_OWNER_UID", owner_uid);
-                RETRIEVE(d, l, "COREDUMP_SLICE", slice);
-                RETRIEVE(d, l, "COREDUMP_CGROUP", cgroup);
-                RETRIEVE(d, l, "COREDUMP_TIMESTAMP", timestamp);
-                RETRIEVE(d, l, "COREDUMP_FILENAME", filename);
-                RETRIEVE(d, l, "COREDUMP_TRUNCATED", truncated);
-                RETRIEVE(d, l, "COREDUMP_PACKAGE_NAME", pkgmeta_name);
-                RETRIEVE(d, l, "COREDUMP_PACKAGE_VERSION", pkgmeta_version);
-                RETRIEVE(d, l, "COREDUMP_PACKAGE_JSON", pkgmeta_json);
-                RETRIEVE(d, l, "COREDUMP_TID", tid);
-                RETRIEVE(d, l, "COREDUMP_THREAD_NAME", thread_name);
-                RETRIEVE(d, l, "_BOOT_ID", boot_id);
-                RETRIEVE(d, l, "_MACHINE_ID", machine_id);
-                RETRIEVE(d, l, "MESSAGE", message);
-        }
-
-        /* Check for an inline coredump without copying the (potentially large) payload to heap. */
-        has_inline_coredump = sd_journal_get_data(j, "COREDUMP", NULL, NULL) >= 0;
+        r = coredump_fields_load(j, &f);
+        if (r < 0)
+                return r;
 
         if (need_space)
                 fputs("\n", file);
 
-        normal_coredump = streq_ptr(mid, SD_MESSAGE_COREDUMP_STR);
-
-        if (comm)
+        if (f.fields[COREDUMP_FIELD_COMM])
                 fprintf(file,
                         "           PID: %s%s%s (%s)\n",
-                        ansi_highlight(), strna(pid), ansi_normal(), comm);
+                        ansi_highlight(), strna(f.fields[COREDUMP_FIELD_PID]), ansi_normal(), f.fields[COREDUMP_FIELD_COMM]);
         else
                 fprintf(file,
                         "           PID: %s%s%s\n",
-                        ansi_highlight(), strna(pid), ansi_normal());
+                        ansi_highlight(), strna(f.fields[COREDUMP_FIELD_PID]), ansi_normal());
 
-        if (tid) {
-                if (thread_name)
-                        fprintf(file, "           TID: %s (%s)\n", tid, thread_name);
+        if (f.fields[COREDUMP_FIELD_TID]) {
+                if (f.fields[COREDUMP_FIELD_THREAD_NAME])
+                        fprintf(file, "           TID: %s (%s)\n", f.fields[COREDUMP_FIELD_TID], f.fields[COREDUMP_FIELD_THREAD_NAME]);
                 else
-                        fprintf(file, "           TID: %s\n", tid);
+                        fprintf(file, "           TID: %s\n", f.fields[COREDUMP_FIELD_TID]);
         }
 
-        if (uid) {
+        if (f.fields[COREDUMP_FIELD_UID]) {
                 uid_t n;
 
-                if (parse_uid(uid, &n) >= 0) {
+                if (parse_uid(f.fields[COREDUMP_FIELD_UID], &n) >= 0) {
                         _cleanup_free_ char *u = NULL;
 
                         u = uid_to_name(n);
                         fprintf(file,
                                 "           UID: %s (%s)\n",
-                                uid, u);
-                } else {
+                                f.fields[COREDUMP_FIELD_UID], u);
+                } else
                         fprintf(file,
                                 "           UID: %s\n",
-                                uid);
-                }
+                                f.fields[COREDUMP_FIELD_UID]);
         }
 
-        if (gid) {
+        if (f.fields[COREDUMP_FIELD_GID]) {
                 gid_t n;
 
-                if (parse_gid(gid, &n) >= 0) {
+                if (parse_gid(f.fields[COREDUMP_FIELD_GID], &n) >= 0) {
                         _cleanup_free_ char *g = NULL;
 
                         g = gid_to_name(n);
                         fprintf(file,
                                 "           GID: %s (%s)\n",
-                                gid, g);
-                } else {
+                                f.fields[COREDUMP_FIELD_GID], g);
+                } else
                         fprintf(file,
                                 "           GID: %s\n",
-                                gid);
-                }
+                                f.fields[COREDUMP_FIELD_GID]);
         }
 
-        if (sgnl) {
+        if (f.fields[COREDUMP_FIELD_SGNL]) {
                 int sig;
-                const char *name = normal_coredump ? "Signal" : "Reason";
+                const char *name = f.normal_coredump ? "Signal" : "Reason";
 
-                if (normal_coredump && safe_atoi(sgnl, &sig) >= 0)
-                        fprintf(file, "        %s: %s (%s)\n", name, sgnl, signal_to_string(sig));
+                if (f.normal_coredump && safe_atoi(f.fields[COREDUMP_FIELD_SGNL], &sig) >= 0)
+                        fprintf(file, "        %s: %s (%s)\n", name, f.fields[COREDUMP_FIELD_SGNL], signal_to_string(sig));
                 else
-                        fprintf(file, "        %s: %s\n", name, sgnl);
+                        fprintf(file, "        %s: %s\n", name, f.fields[COREDUMP_FIELD_SGNL]);
         }
 
-        if (timestamp) {
+        if (f.fields[COREDUMP_FIELD_TIMESTAMP]) {
                 usec_t u;
 
-                r = safe_atou64(timestamp, &u);
+                r = safe_atou64(f.fields[COREDUMP_FIELD_TIMESTAMP], &u);
                 if (r >= 0)
                         fprintf(file, "     Timestamp: %s (%s)\n",
                                 FORMAT_TIMESTAMP(u), FORMAT_TIMESTAMP_RELATIVE(u));
-
                 else
-                        fprintf(file, "     Timestamp: %s\n", timestamp);
+                        fprintf(file, "     Timestamp: %s\n", f.fields[COREDUMP_FIELD_TIMESTAMP]);
         }
 
-        if (cmdline)
-                fprintf(file, "  Command Line: %s\n", cmdline);
-        if (exe)
-                fprintf(file, "    Executable: %s%s%s\n", ansi_highlight(), exe, ansi_normal());
-        if (cgroup)
-                fprintf(file, " Control Group: %s\n", cgroup);
-        if (unit)
-                fprintf(file, "          Unit: %s\n", unit);
-        if (user_unit)
-                fprintf(file, "     User Unit: %s\n", user_unit);
-        if (slice)
-                fprintf(file, "         Slice: %s\n", slice);
-        if (session)
-                fprintf(file, "       Session: %s\n", session);
-        if (owner_uid) {
+        if (f.fields[COREDUMP_FIELD_CMDLINE])
+                fprintf(file, "  Command Line: %s\n", f.fields[COREDUMP_FIELD_CMDLINE]);
+        if (f.fields[COREDUMP_FIELD_EXE])
+                fprintf(file, "    Executable: %s%s%s\n", ansi_highlight(), f.fields[COREDUMP_FIELD_EXE], ansi_normal());
+        if (f.fields[COREDUMP_FIELD_CGROUP])
+                fprintf(file, " Control Group: %s\n", f.fields[COREDUMP_FIELD_CGROUP]);
+        if (f.fields[COREDUMP_FIELD_UNIT])
+                fprintf(file, "          Unit: %s\n", f.fields[COREDUMP_FIELD_UNIT]);
+        if (f.fields[COREDUMP_FIELD_USER_UNIT])
+                fprintf(file, "     User Unit: %s\n", f.fields[COREDUMP_FIELD_USER_UNIT]);
+        if (f.fields[COREDUMP_FIELD_SLICE])
+                fprintf(file, "         Slice: %s\n", f.fields[COREDUMP_FIELD_SLICE]);
+        if (f.fields[COREDUMP_FIELD_SESSION])
+                fprintf(file, "       Session: %s\n", f.fields[COREDUMP_FIELD_SESSION]);
+        if (f.fields[COREDUMP_FIELD_OWNER_UID]) {
                 uid_t n;
 
-                if (parse_uid(owner_uid, &n) >= 0) {
+                if (parse_uid(f.fields[COREDUMP_FIELD_OWNER_UID], &n) >= 0) {
                         _cleanup_free_ char *u = NULL;
 
                         u = uid_to_name(n);
                         fprintf(file,
                                 "     Owner UID: %s (%s)\n",
-                                owner_uid, u);
-                } else {
+                                f.fields[COREDUMP_FIELD_OWNER_UID], u);
+                } else
                         fprintf(file,
                                 "     Owner UID: %s\n",
-                                owner_uid);
-                }
+                                f.fields[COREDUMP_FIELD_OWNER_UID]);
         }
-        if (boot_id)
-                fprintf(file, "       Boot ID: %s\n", boot_id);
-        if (machine_id)
-                fprintf(file, "    Machine ID: %s\n", machine_id);
-        if (hostname)
-                fprintf(file, "      Hostname: %s\n", hostname);
+        if (f.fields[COREDUMP_FIELD_BOOT_ID])
+                fprintf(file, "       Boot ID: %s\n", f.fields[COREDUMP_FIELD_BOOT_ID]);
+        if (f.fields[COREDUMP_FIELD_MACHINE_ID])
+                fprintf(file, "    Machine ID: %s\n", f.fields[COREDUMP_FIELD_MACHINE_ID]);
+        if (f.fields[COREDUMP_FIELD_HOSTNAME])
+                fprintf(file, "      Hostname: %s\n", f.fields[COREDUMP_FIELD_HOSTNAME]);
 
-        if (filename) {
-                r = resolve_filename(arg_root, &filename);
-                if (r < 0)
-                        return r;
-
-                const char *state = NULL, *color = NULL;
-                uint64_t size = UINT64_MAX;
-
-                analyze_coredump_file(filename, &state, &color, &size);
-
-                if (STRPTR_IN_SET(state, "present", "journal") && truncated && parse_boolean(truncated) > 0)
-                        state = "truncated";
-
+        if (f.fields[COREDUMP_FIELD_FILENAME]) {
                 fprintf(file,
                         "       Storage: %s%s (%s)%s\n",
-                        strempty(color),
-                        filename,
-                        state,
+                        strempty(f.storage_color),
+                        f.fields[COREDUMP_FIELD_FILENAME],
+                        f.storage_state,
                         ansi_normal());
 
-                if (size != UINT64_MAX)
-                        fprintf(file, "  Size on Disk: %s\n", FORMAT_BYTES(size));
+                if (f.disk_size != UINT64_MAX)
+                        fprintf(file, "  Size on Disk: %s\n", FORMAT_BYTES(f.disk_size));
+        } else
+                fprintf(file, "       Storage: %s\n", f.storage_state);
 
-        } else if (has_inline_coredump)
-                fprintf(file, "       Storage: journal\n");
-        else
-                fprintf(file, "       Storage: none\n");
-
-        if (pkgmeta_name && pkgmeta_version)
-                fprintf(file, "       Package: %s/%s\n", pkgmeta_name, pkgmeta_version);
+        if (f.fields[COREDUMP_FIELD_PKGMETA_NAME] && f.fields[COREDUMP_FIELD_PKGMETA_VERSION])
+                fprintf(file, "       Package: %s/%s\n", f.fields[COREDUMP_FIELD_PKGMETA_NAME], f.fields[COREDUMP_FIELD_PKGMETA_VERSION]);
 
         /* Print out the build-id of the 'main' ELF module, by matching the JSON key
          * with the 'exe' field. */
-        if (exe && pkgmeta_json) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        if (f.fields[COREDUMP_FIELD_EXE] && f.package_json) {
+                const char *module_name;
+                sd_json_variant *module_json;
 
-                r = sd_json_parse(pkgmeta_json, SD_JSON_PARSE_MUST_BE_OBJECT, &v, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
-                if (r < 0) {
-                        _cleanup_free_ char *esc = cescape(pkgmeta_json);
-                        log_warning_errno(r, "json_parse on \"%s\" failed, ignoring: %m", strnull(esc));
-                } else {
-                        const char *module_name;
-                        sd_json_variant *module_json;
+                JSON_VARIANT_OBJECT_FOREACH(module_name, module_json, f.package_json) {
+                        sd_json_variant *build_id;
 
-                        JSON_VARIANT_OBJECT_FOREACH(module_name, module_json, v) {
-                                sd_json_variant *build_id;
+                        /* We only print the build-id for the 'main' ELF module */
+                        if (!path_equal_filename(module_name, f.fields[COREDUMP_FIELD_EXE]))
+                                continue;
 
-                                /* We only print the build-id for the 'main' ELF module */
-                                if (!path_equal_filename(module_name, exe))
-                                        continue;
+                        build_id = sd_json_variant_by_key(module_json, "buildId");
+                        if (build_id)
+                                fprintf(file, "      build-id: %s\n", sd_json_variant_string(build_id));
 
-                                build_id = sd_json_variant_by_key(module_json, "buildId");
-                                if (build_id)
-                                        fprintf(file, "      build-id: %s\n", sd_json_variant_string(build_id));
-
-                                break;
-                        }
+                        break;
                 }
         }
 
-        if (message) {
+        if (f.fields[COREDUMP_FIELD_MESSAGE]) {
                 _cleanup_free_ char *m = NULL;
 
-                m = strreplace(message, "\n", "\n                ");
+                m = strreplace(f.fields[COREDUMP_FIELD_MESSAGE], "\n", "\n                ");
 
-                fprintf(file, "       Message: %s\n", strstrip(m ?: message));
+                fprintf(file, "       Message: %s\n", strstrip(m ?: f.fields[COREDUMP_FIELD_MESSAGE]));
         }
 
         return 0;
@@ -831,6 +885,86 @@ static int focus(sd_journal *j) {
         return r;
 }
 
+static int print_info_json(FILE *file, sd_journal *j) {
+        _cleanup_(coredump_fields_done) CoredumpFields f = {
+                .disk_size = UINT64_MAX,
+        };
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        pid_t pid_as_int = 0, tid_as_int = 0;
+        uid_t uid_as_int = UID_INVALID, owner_uid_as_int = UID_INVALID;
+        gid_t gid_as_int = GID_INVALID;
+        int sig_as_int = 0;
+        usec_t ts = USEC_INFINITY;
+        int r;
+
+        assert(file);
+        assert(j);
+
+        r = coredump_fields_load(j, &f);
+        if (r < 0)
+                return r;
+
+        if (f.fields[COREDUMP_FIELD_PID])
+                (void) parse_pid(f.fields[COREDUMP_FIELD_PID], &pid_as_int);
+        if (f.fields[COREDUMP_FIELD_TID])
+                (void) parse_pid(f.fields[COREDUMP_FIELD_TID], &tid_as_int);
+        if (f.fields[COREDUMP_FIELD_UID])
+                (void) parse_uid(f.fields[COREDUMP_FIELD_UID], &uid_as_int);
+        if (f.fields[COREDUMP_FIELD_GID])
+                (void) parse_gid(f.fields[COREDUMP_FIELD_GID], &gid_as_int);
+        if (f.fields[COREDUMP_FIELD_OWNER_UID])
+                (void) parse_uid(f.fields[COREDUMP_FIELD_OWNER_UID], &owner_uid_as_int);
+        if (f.normal_coredump && f.fields[COREDUMP_FIELD_SGNL])
+                (void) safe_atoi(f.fields[COREDUMP_FIELD_SGNL], &sig_as_int);
+        if (f.fields[COREDUMP_FIELD_TIMESTAMP])
+                (void) safe_atou64(f.fields[COREDUMP_FIELD_TIMESTAMP], &ts);
+
+        r = sd_json_build(&v, SD_JSON_BUILD_OBJECT(
+                SD_JSON_BUILD_PAIR_CONDITION(pid_is_valid(pid_as_int), "PID", SD_JSON_BUILD_UNSIGNED(pid_as_int)),
+                SD_JSON_BUILD_PAIR_CONDITION(!pid_is_valid(pid_as_int) && !!f.fields[COREDUMP_FIELD_PID], "PID", SD_JSON_BUILD_STRING(f.fields[COREDUMP_FIELD_PID])),
+                SD_JSON_BUILD_PAIR_CONDITION(pid_is_valid(tid_as_int), "TID", SD_JSON_BUILD_UNSIGNED(tid_as_int)),
+                SD_JSON_BUILD_PAIR_CONDITION(!pid_is_valid(tid_as_int) && !!f.fields[COREDUMP_FIELD_TID], "TID", SD_JSON_BUILD_STRING(f.fields[COREDUMP_FIELD_TID])),
+                SD_JSON_BUILD_PAIR_CONDITION(!!f.fields[COREDUMP_FIELD_THREAD_NAME], "ThreadName", SD_JSON_BUILD_STRING(f.fields[COREDUMP_FIELD_THREAD_NAME])),
+                SD_JSON_BUILD_PAIR_CONDITION(uid_is_valid(uid_as_int), "UID", SD_JSON_BUILD_UNSIGNED(uid_as_int)),
+                SD_JSON_BUILD_PAIR_CONDITION(!uid_is_valid(uid_as_int) && !!f.fields[COREDUMP_FIELD_UID], "UID", SD_JSON_BUILD_STRING(f.fields[COREDUMP_FIELD_UID])),
+                SD_JSON_BUILD_PAIR_CONDITION(gid_is_valid(gid_as_int), "GID", SD_JSON_BUILD_UNSIGNED(gid_as_int)),
+                SD_JSON_BUILD_PAIR_CONDITION(!gid_is_valid(gid_as_int) && !!f.fields[COREDUMP_FIELD_GID], "GID", SD_JSON_BUILD_STRING(f.fields[COREDUMP_FIELD_GID])),
+                SD_JSON_BUILD_PAIR_CONDITION(f.normal_coredump && sig_as_int > 0, "Signal", SD_JSON_BUILD_INTEGER(sig_as_int)),
+                SD_JSON_BUILD_PAIR_CONDITION(f.normal_coredump && sig_as_int > 0 && !!signal_to_string(sig_as_int), "SignalName", SD_JSON_BUILD_STRING(signal_to_string(sig_as_int))),
+                SD_JSON_BUILD_PAIR_CONDITION(f.normal_coredump && sig_as_int <= 0 && !!f.fields[COREDUMP_FIELD_SGNL], "Signal", SD_JSON_BUILD_STRING(f.fields[COREDUMP_FIELD_SGNL])),
+                SD_JSON_BUILD_PAIR_CONDITION(!f.normal_coredump && !!f.fields[COREDUMP_FIELD_SGNL], "Reason", SD_JSON_BUILD_STRING(f.fields[COREDUMP_FIELD_SGNL])),
+                SD_JSON_BUILD_PAIR_CONDITION(ts != USEC_INFINITY, "Timestamp", SD_JSON_BUILD_UNSIGNED(ts)),
+                SD_JSON_BUILD_PAIR_CONDITION(ts == USEC_INFINITY && !!f.fields[COREDUMP_FIELD_TIMESTAMP], "Timestamp", SD_JSON_BUILD_STRING(f.fields[COREDUMP_FIELD_TIMESTAMP])),
+                SD_JSON_BUILD_PAIR_CONDITION(!!f.fields[COREDUMP_FIELD_EXE], "Executable", SD_JSON_BUILD_STRING(f.fields[COREDUMP_FIELD_EXE])),
+                SD_JSON_BUILD_PAIR_CONDITION(!!f.fields[COREDUMP_FIELD_COMM], "Command", SD_JSON_BUILD_STRING(f.fields[COREDUMP_FIELD_COMM])),
+                SD_JSON_BUILD_PAIR_CONDITION(!!f.fields[COREDUMP_FIELD_CMDLINE], "CommandLine", SD_JSON_BUILD_STRING(f.fields[COREDUMP_FIELD_CMDLINE])),
+                SD_JSON_BUILD_PAIR_CONDITION(!!f.fields[COREDUMP_FIELD_CGROUP], "ControlGroup", SD_JSON_BUILD_STRING(f.fields[COREDUMP_FIELD_CGROUP])),
+                SD_JSON_BUILD_PAIR_CONDITION(!!f.fields[COREDUMP_FIELD_UNIT], "Unit", SD_JSON_BUILD_STRING(f.fields[COREDUMP_FIELD_UNIT])),
+                SD_JSON_BUILD_PAIR_CONDITION(!!f.fields[COREDUMP_FIELD_USER_UNIT], "UserUnit", SD_JSON_BUILD_STRING(f.fields[COREDUMP_FIELD_USER_UNIT])),
+                SD_JSON_BUILD_PAIR_CONDITION(!!f.fields[COREDUMP_FIELD_SLICE], "Slice", SD_JSON_BUILD_STRING(f.fields[COREDUMP_FIELD_SLICE])),
+                SD_JSON_BUILD_PAIR_CONDITION(!!f.fields[COREDUMP_FIELD_SESSION], "Session", SD_JSON_BUILD_STRING(f.fields[COREDUMP_FIELD_SESSION])),
+                SD_JSON_BUILD_PAIR_CONDITION(uid_is_valid(owner_uid_as_int), "OwnerUID", SD_JSON_BUILD_UNSIGNED(owner_uid_as_int)),
+                SD_JSON_BUILD_PAIR_CONDITION(!uid_is_valid(owner_uid_as_int) && !!f.fields[COREDUMP_FIELD_OWNER_UID], "OwnerUID", SD_JSON_BUILD_STRING(f.fields[COREDUMP_FIELD_OWNER_UID])),
+                SD_JSON_BUILD_PAIR_CONDITION(!!f.fields[COREDUMP_FIELD_BOOT_ID], "BootID", SD_JSON_BUILD_STRING(f.fields[COREDUMP_FIELD_BOOT_ID])),
+                SD_JSON_BUILD_PAIR_CONDITION(!!f.fields[COREDUMP_FIELD_MACHINE_ID], "MachineID", SD_JSON_BUILD_STRING(f.fields[COREDUMP_FIELD_MACHINE_ID])),
+                SD_JSON_BUILD_PAIR_CONDITION(!!f.fields[COREDUMP_FIELD_HOSTNAME], "Hostname", SD_JSON_BUILD_STRING(f.fields[COREDUMP_FIELD_HOSTNAME])),
+                SD_JSON_BUILD_PAIR("Storage", SD_JSON_BUILD_STRING(f.storage_state)),
+                SD_JSON_BUILD_PAIR_CONDITION(!!f.fields[COREDUMP_FIELD_FILENAME], "Filename", SD_JSON_BUILD_STRING(f.fields[COREDUMP_FIELD_FILENAME])),
+                SD_JSON_BUILD_PAIR_CONDITION(f.disk_size != UINT64_MAX, "DiskSize", SD_JSON_BUILD_UNSIGNED(f.disk_size)),
+                SD_JSON_BUILD_PAIR_CONDITION(!!f.fields[COREDUMP_FIELD_PKGMETA_NAME], "PackageName", SD_JSON_BUILD_STRING(f.fields[COREDUMP_FIELD_PKGMETA_NAME])),
+                SD_JSON_BUILD_PAIR_CONDITION(!!f.fields[COREDUMP_FIELD_PKGMETA_VERSION], "PackageVersion", SD_JSON_BUILD_STRING(f.fields[COREDUMP_FIELD_PKGMETA_VERSION])),
+                SD_JSON_BUILD_PAIR_CONDITION(!!f.package_json, "Package", SD_JSON_BUILD_VARIANT(f.package_json)),
+                SD_JSON_BUILD_PAIR_CONDITION(!!f.fields[COREDUMP_FIELD_MESSAGE], "Message", SD_JSON_BUILD_STRING(f.fields[COREDUMP_FIELD_MESSAGE]))));
+        if (r < 0)
+                return log_error_errno(r, "Failed to build JSON object: %m");
+
+        r = sd_json_variant_dump(v, arg_json_format_flags, file, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to dump JSON object: %m");
+
+        return 0;
+}
+
 static int print_entry(
                 sd_journal *j,
                 size_t n_found,
@@ -842,6 +976,8 @@ static int print_entry(
                 return print_list(stdout, j, t);
         else if (arg_field)
                 return print_field(stdout, j);
+        else if (sd_json_format_enabled(arg_json_format_flags))
+                return print_info_json(stdout, j);
         else
                 return print_info(stdout, j, n_found > 0);
 }
@@ -878,7 +1014,7 @@ static int verb_dump_list(int argc, char *argv[], uintptr_t _data, void *userdat
                 (void) table_set_align_percent(t, TABLE_HEADER_CELL(7), 100);
 
                 table_set_ersatz_string(t, TABLE_ERSATZ_DASH);
-        } else
+        } else if (!sd_json_format_enabled(arg_json_format_flags))
                 pager_open(arg_pager_flags);
 
         /* "info" without pattern implies "-1" */
