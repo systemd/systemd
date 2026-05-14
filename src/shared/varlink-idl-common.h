@@ -9,6 +9,7 @@ extern const sd_varlink_symbol vl_type_RateLimit;
 extern const sd_varlink_symbol vl_type_ResourceLimit;
 extern const sd_varlink_symbol vl_type_ResourceLimitTable;
 extern const sd_varlink_symbol vl_type_ExecCommand;
+extern const sd_varlink_symbol vl_type_ExecCommandStatus;
 extern const sd_varlink_symbol vl_type_ExecOutputType;
 extern const sd_varlink_symbol vl_type_CGroupPressureWatch;
 extern const sd_varlink_symbol vl_type_ManagedOOMMode;
