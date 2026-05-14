@@ -2689,6 +2689,10 @@ static int config_parse_encrypted_volume(
                 return 0;
         }
 
+        _cleanup_free_ char *saved_token_type = NULL;
+        if (p->encrypted_volume)
+                saved_token_type = TAKE_PTR(p->encrypted_volume->token_type);
+
         partition_encrypted_volume_free(p->encrypted_volume);
 
         p->encrypted_volume = new(PartitionEncryptedVolume, 1);
@@ -2718,6 +2722,7 @@ static int config_parse_encrypted_volume(
                 .keyfile = TAKE_PTR(keyfile),
                 .options = TAKE_PTR(options),
                 .fixate_volume_key = fixate_volume_key,
+                .token_type = TAKE_PTR(saved_token_type),
         };
 
         return 0;
@@ -2747,7 +2752,7 @@ static int config_parse_encrypt_token(
                 return 0;
         }
 
-        if (!string_is_safe(rvalue, STRING_ASCII)) {
+        if (!in_charset(rvalue, ALPHANUMERICAL "_-")) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Invalid token type '%s', ignoring", rvalue);
                 return 0;
@@ -3210,9 +3215,14 @@ static int partition_read_definition(
                 log_syntax(NULL, LOG_WARNING, path, 1, 0,
                            "EncryptKDF= has no effect with Encrypt=off.");
 
-        if (p->encrypted_volume && p->encrypted_volume->token_type && p->encrypt != ENCRYPT_KEY_FILE)
-                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                  "EncryptToken= requires Encrypt=key-file.");
+        if (p->encrypted_volume && p->encrypted_volume->token_type) {
+                if (p->encrypt == ENCRYPT_OFF)
+                        log_syntax(NULL, LOG_WARNING, path, 1, 0,
+                                   "EncryptToken= has no effect with Encrypt=off.");
+                else if (p->encrypt != ENCRYPT_KEY_FILE)
+                        return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
+                                          "EncryptToken= requires Encrypt=key-file.");
+        }
 
         if (p->encrypt != ENCRYPT_OFF && p->integrity == INTEGRITY_INLINE && p->discard > 0)
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
@@ -5627,6 +5637,7 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
         if (IN_SET(p->encrypt, ENCRYPT_KEY_FILE, ENCRYPT_KEY_FILE_TPM2)) {
                 /* Use partition-specific key if available, otherwise fall back to global key */
                 struct iovec *iovec_key = arg_key.iov_base ? &arg_key : &p->key;
+                int key_file_keyslot;
 
                 r = sym_crypt_keyslot_add_by_volume_key(
                                 cd,
@@ -5638,7 +5649,7 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                 if (r < 0)
                         return log_error_errno(r, "Failed to add LUKS2 key: %m");
 
-                int key_file_keyslot = r;
+                key_file_keyslot = r;
 
                 passphrase = strempty(iovec_key->iov_base);
                 passphrase_size = iovec_key->iov_len;
