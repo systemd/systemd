@@ -3502,9 +3502,12 @@ _public_ int sd_json_parse_file_at(
         _cleanup_free_ char *text = NULL;
         int r;
 
-        if (f)
+        if (f) {
+                if (FLAGS_SET(flags, SD_JSON_PARSE_SEEK0) && fseek(f, /* offset= */ 0, SEEK_SET) < 0)
+                        return -errno;
+
                 r = read_full_stream(f, &text, NULL);
-        else
+        } else
                 r = read_full_file_full(dir_fd, path, UINT64_MAX, SIZE_MAX, 0, NULL, &text, NULL);
         if (r < 0)
                 return r;
