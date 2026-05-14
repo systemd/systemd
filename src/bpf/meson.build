@@ -394,7 +394,7 @@ foreach program : bpf_programs
         # Keeping it out of bpf_programs_by_name also keeps it out of the
         # clang-tidy per-source test loop, which would otherwise fall back
         # to a BPF compile_commands.json entry (no -Isrc/shared) and fail
-        # to resolve bpf-dlopen.h.
+        # to resolve bpf-util.h.
         configure_file(
                 input : 'bpf-skel-wrapper.h.in',
                 output : name + '-skel.h',

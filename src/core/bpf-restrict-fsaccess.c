@@ -37,7 +37,7 @@ const char* const restrict_fsaccess_link_names[_RESTRICT_FILESYSTEM_ACCESS_LINK_
 };
 
 #if BPF_FRAMEWORK && HAVE_LSM_INTEGRITY_TYPE
-#include "bpf-dlopen.h"
+#include "bpf-util.h"
 #include "bpf-link.h"
 #include "restrict-fsaccess-skel.h"
 
