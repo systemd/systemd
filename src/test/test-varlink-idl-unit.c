@@ -67,6 +67,14 @@ TEST(unit_enums_idl) {
 
         /* ServiceContext enums */
         TEST_IDL_ENUM(ServiceType, service_type, vl_type_ServiceType);
+        TEST_IDL_ENUM(ServiceExitType, service_exit_type, vl_type_ServiceExitType);
+        TEST_IDL_ENUM(ServiceRestart, service_restart, vl_type_ServiceRestart);
+        TEST_IDL_ENUM(ServiceRestartMode, service_restart_mode, vl_type_ServiceRestartMode);
+        TEST_IDL_ENUM(ServiceTimeoutFailureMode, service_timeout_failure_mode, vl_type_ServiceTimeoutFailureMode);
+
+        /* ServiceRuntime enums */
+        TEST_IDL_ENUM(NotifyAccess, notify_access, vl_type_NotifyAccess);
+        TEST_IDL_ENUM(ServiceResult, service_result, vl_type_ServiceResult);
 
         /* PathContext enums */
         TEST_IDL_ENUM(PathType, path_type, vl_type_PathType);
