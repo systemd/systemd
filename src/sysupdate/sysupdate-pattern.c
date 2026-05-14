@@ -5,6 +5,7 @@
 #include "list.h"
 #include "log.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "sysupdate-instance.h"
@@ -457,7 +458,16 @@ int pattern_match_many(char **patterns, const char *s, InstanceMetadata *ret) {
         int r;
 
         STRV_FOREACH(p, patterns) {
-                r = pattern_match(*p, s, &found);
+                const char *pat = *p, *input_path;
+
+                /* A glob directory prefix on a pattern means to match the rest of the pattern against the
+                 * last path component only (the basename, "find this file anywhere under the source tree") */
+                if (pattern_skip_glob_directory_prefix(&pat))
+                        input_path = last_path_component(s);
+                else
+                        input_path = s;
+
+                r = pattern_match(pat, input_path, &found);
                 if (r < 0)
                         return r;
                 if (r != PATTERN_MATCH_NO) {
@@ -474,6 +484,18 @@ int pattern_match_many(char **patterns, const char *s, InstanceMetadata *ret) {
                 *ret = (InstanceMetadata) INSTANCE_METADATA_NULL;
 
         return PATTERN_MATCH_NO;
+}
+
+bool pattern_skip_glob_directory_prefix(const char **pattern) {
+        assert(pattern);
+        assert(*pattern);
+
+        const char *e = startswith(*pattern, "**/");
+        if (!e)
+                return false;
+
+        *pattern = e;
+        return true;
 }
 
 int pattern_valid(const char *pattern) {
