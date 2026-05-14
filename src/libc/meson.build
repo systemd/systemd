@@ -8,6 +8,7 @@ libc_wrapper_sources = files(
         'kcmp.c',
         'kexec.c',
         'keyctl.c',
+        'math.c',
         'mempolicy.c',
         'mount.c',
         'pidfd.c',
@@ -16,6 +17,8 @@ libc_wrapper_sources = files(
         'signal.c',
         'spawn.c',
         'stat.c',
+        'stdio.c',
+        'stdlib.c',
         'unistd.c',
         'xattr.c',
 )
@@ -29,6 +32,7 @@ libc_wrapper_static = static_library(
         libc_wrapper_sources,
         include_directories : system_includes,
         implicit_include_directories : false,
-        dependencies : [userspace],
+        dependencies : [libdl,
+                        userspace],
         c_args : ['-fvisibility=default'],
         build_by_default : false)
