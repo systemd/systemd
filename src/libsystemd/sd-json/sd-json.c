@@ -2208,7 +2208,9 @@ _public_ int sd_json_variant_append_array(sd_json_variant **v, sd_json_variant *
         int r;
 
         assert_return(v, -EINVAL);
-        assert_return(element, -EINVAL);
+
+        if (!element)
+                element = JSON_VARIANT_MAGIC_NULL;
 
         if (!*v || sd_json_variant_is_null(*v))
                 blank = true;
