@@ -7,6 +7,7 @@
 #include "log.h"
 #include "string-util.h"
 #include "strv.h"
+#include "terminal-util.h"
 #include "verbs.h"
 #include "virt.h"
 
@@ -160,6 +161,56 @@ int dispatch_verb(int argc, char *argv[], const Verb verbs[], void *userdata) {
         return _dispatch_verb_with_args(strv_skip(argv, optind), verbs, verbs + n, userdata);
 }
 
+#define VERB_SYNOPIS_WIDTH_SANE 30
+
+static int verb_add_help_one(Table *table, const Verb *verb) {
+        assert(table);
+        assert(verb);
+
+        bool is_default = FLAGS_SET(verb->flags, VERB_DEFAULT);
+        int r;
+
+        /* We indent the option string by two spaces. We could set the minimum cell width and
+         * right-align for a similar result, but that'd be more work. This is only used for
+         * display. */
+        _cleanup_free_ char *s = strjoin("  ",
+                                         is_default ? "[" : "",
+                                         verb->verb,
+                                         verb->argspec ? " " : "",
+                                         strempty(verb->argspec),
+                                         is_default ? "]" : "");
+        if (!s)
+                return log_oom();
+
+        const char *s2 = NULL;
+        if (strlen(s) > VERB_SYNOPIS_WIDTH_SANE && columns() < VERB_SYNOPIS_WIDTH_SANE * 4) {
+                /* The synopsis is very wide, try to split it up. Locate the first space, preferably after
+                 * VERB_SYNOPIS_WIDTH_SANE, or the last space otherwise. But do this only if the terminal
+                 * is not very wide. If it _is_ wide, the broken up synopsis would look silly. */
+                const char *p = strchr(s + VERB_SYNOPIS_WIDTH_SANE, ' ');
+                if (!p)
+                        p = strrchr(s, ' ');
+                if (p) {
+                        const char *s1 = strndupa_safe(s, p + 1 - s);
+                        s2 = strjoina(s1, "\n    ", p + 1);
+                }
+        }
+
+        r = table_add_cell(table, NULL, TABLE_STRING, s2 ?: s);
+        if (r < 0)
+                return table_log_add_error(r);
+
+        _cleanup_strv_free_ char **t = strv_split(verb->help, /* separators= */ NULL);
+        if (!t)
+                return log_oom();
+
+        r = table_add_many(table, TABLE_STRV_WRAPPED, t);
+        if (r < 0)
+                return table_log_add_error(r);
+
+        return 0;
+}
+
 int _verbs_get_help_table(
                 const Verb verbs[],
                 const Verb verbs_end[],
@@ -192,27 +243,9 @@ int _verbs_get_help_table(
                         /* No help string — we do not show the verb */
                         continue;
 
-                bool is_default = FLAGS_SET(verb->flags, VERB_DEFAULT);
-
-                /* We indent the option string by two spaces. We could set the minimum cell width and
-                 * right-align for a similar result, but that'd be more work. This is only used for
-                 * display. */
-                r = table_add_cell_stringf(table, NULL, "  %s%s%s%s%s",
-                                           is_default ? "[" : "",
-                                           verb->verb,
-                                           verb->argspec ? " " : "",
-                                           strempty(verb->argspec),
-                                           is_default ? "]" : "");
+                r = verb_add_help_one(table, verb);
                 if (r < 0)
-                        return table_log_add_error(r);
-
-                _cleanup_strv_free_ char **s = strv_split(verb->help, /* separators= */ NULL);
-                if (!s)
-                        return log_oom();
-
-                r = table_add_many(table, TABLE_STRV_WRAPPED, s);
-                if (r < 0)
-                        return table_log_add_error(r);
+                        return r;
         }
 
         table_set_header(table, false);
