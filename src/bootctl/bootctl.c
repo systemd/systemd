@@ -554,15 +554,13 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         arg_quiet = true;
                         break;
 
-                OPTION_LONG("entry-token", "TOKEN",
-                            "Entry token to use for this installation"
-                            " (machine-id, os-id, os-image-id, auto, literal:…)"):
+                OPTION_COMMON_ENTRY_TOKEN:
                         r = parse_boot_entry_token_type(opts.arg, &arg_entry_token_type, &arg_entry_token);
                         if (r < 0)
                                 return r;
                         break;
 
-                OPTION_LONG("make-entry-directory", "yes|no|auto", "Create $BOOT/ENTRY-TOKEN/ directory"): {}
+                OPTION_COMMON_MAKE_ENTRY_DIRECTORY: {}
                 OPTION_LONG("make-machine-id-directory", "BOOL", /* help= */ NULL):  /* Compatibility alias */
                         if (streq(opts.arg, "auto"))  /* retained for backwards compatibility */
                                 arg_make_entry_directory = -1; /* yes if machine-id is permanent */
