@@ -45,7 +45,7 @@ modules += [
                 ],
                 'sources' : cryptsetup_token_systemd_tpm2_sources,
                 'dependencies' : [
-                        libcryptsetup,
+                        libcryptsetup_cflags,
                         tpm2,
                 ],
         },
@@ -57,7 +57,7 @@ modules += [
                 ],
                 'sources' : cryptsetup_token_systemd_fido2_sources,
                 'dependencies' : [
-                        libcryptsetup,
+                        libcryptsetup_cflags,
                         libfido2_cflags,
                 ],
         },
@@ -69,7 +69,7 @@ modules += [
                 ],
                 'sources' : cryptsetup_token_systemd_pkcs11_sources,
                 'dependencies' : [
-                        libcryptsetup,
+                        libcryptsetup_cflags,
                         libp11kit_cflags,
                 ],
         },
