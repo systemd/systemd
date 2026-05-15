@@ -585,6 +585,7 @@ typedef enum CoredumpField {
         COREDUMP_FIELD_UID,
         COREDUMP_FIELD_GID,
         COREDUMP_FIELD_SGNL,
+        COREDUMP_FIELD_CODE,
         COREDUMP_FIELD_EXE,
         COREDUMP_FIELD_COMM,
         COREDUMP_FIELD_CMDLINE,
@@ -615,6 +616,7 @@ static const char* const coredump_field_table[_COREDUMP_FIELD_MAX] = {
         [COREDUMP_FIELD_UID]              = "COREDUMP_UID",
         [COREDUMP_FIELD_GID]              = "COREDUMP_GID",
         [COREDUMP_FIELD_SGNL]             = "COREDUMP_SIGNAL",
+        [COREDUMP_FIELD_CODE]             = "COREDUMP_CODE",
         [COREDUMP_FIELD_EXE]              = "COREDUMP_EXE",
         [COREDUMP_FIELD_COMM]             = "COREDUMP_COMM",
         [COREDUMP_FIELD_CMDLINE]          = "COREDUMP_CMDLINE",
@@ -770,9 +772,23 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
                 int sig;
                 const char *name = f.normal_coredump ? "Signal" : "Reason";
 
-                if (f.normal_coredump && safe_atoi(f.fields[COREDUMP_FIELD_SGNL], &sig) >= 0)
-                        fprintf(file, "        %s: %s (%s)\n", name, f.fields[COREDUMP_FIELD_SGNL], signal_to_string(sig));
-                else
+                if (f.normal_coredump && safe_atoi(f.fields[COREDUMP_FIELD_SGNL], &sig) >= 0) {
+                        fprintf(file, "        %s: %s (%s)", name, f.fields[COREDUMP_FIELD_SGNL], signal_to_string(sig));
+
+                        if (f.fields[COREDUMP_FIELD_CODE]) {
+                                int n;
+                                const char *s;
+
+                                if (safe_atoi(f.fields[COREDUMP_FIELD_CODE], &n) >= 0)
+                                        s = signal_code_to_string(sig, n);
+                                else
+                                        s = NULL;
+
+                                fprintf(file, " si_code: %s", s ?: f.fields[COREDUMP_FIELD_CODE]);
+                        }
+
+                        fputc('\n', file);
+                } else
                         fprintf(file, "        %s: %s\n", name, f.fields[COREDUMP_FIELD_SGNL]);
         }
 
