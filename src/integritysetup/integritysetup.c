@@ -211,7 +211,7 @@ static int run(int argc, char *argv[]) {
 
         umask(0022);
 
-        return dispatch_verb_with_args(strv_skip(argv, 1), /* userdata= */ NULL);
+        return dispatch_verb(strv_skip(argv, 1), /* userdata= */ NULL);
 }
 
 DEFINE_MAIN_FUNCTION(run);

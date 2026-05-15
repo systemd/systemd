@@ -1120,5 +1120,5 @@ int systemctl_main(char **args) {
                                        "Verb '%s' cannot be used with --root= or --image=.",
                                        args[0] ?: verb->verb);
 
-        return dispatch_verb_with_args(args, NULL);
+        return dispatch_verb(args, NULL);
 }

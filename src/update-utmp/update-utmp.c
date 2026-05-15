@@ -116,7 +116,7 @@ static int run(int argc, char *argv[]) {
 
         c.audit_fd = open_audit_fd_or_warn();
 
-        return dispatch_verb_with_args(strv_skip(argv, 1), &c);
+        return dispatch_verb(strv_skip(argv, 1), &c);
 }
 
 DEFINE_MAIN_FUNCTION(run);

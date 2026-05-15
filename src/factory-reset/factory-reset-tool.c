@@ -365,7 +365,7 @@ static int run(int argc, char *argv[]) {
         if (arg_varlink)
                 return varlink_service();
 
-        return dispatch_verb_with_args(args, /* userdata= */ NULL);
+        return dispatch_verb(args, /* userdata= */ NULL);
 }
 
 DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);

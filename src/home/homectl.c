@@ -5165,7 +5165,7 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        return dispatch_verb_with_args(args, /* userdata= */ NULL);
+        return dispatch_verb(args, /* userdata= */ NULL);
 }
 
 DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);

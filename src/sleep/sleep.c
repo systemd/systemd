@@ -760,7 +760,7 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        return dispatch_verb_with_args(args, sleep_config);
+        return dispatch_verb(args, sleep_config);
 }
 
 DEFINE_MAIN_FUNCTION(run);

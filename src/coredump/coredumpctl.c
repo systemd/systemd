@@ -1501,7 +1501,7 @@ static int run(int argc, char *argv[]) {
                         return log_oom();
         }
 
-        r = dispatch_verb_with_args(args, NULL);
+        r = dispatch_verb(args, NULL);
 
         if (units_active > 0)
                 printf("%s-- Notice: %d systemd-coredump@.service %s, output may be incomplete.%s\n",

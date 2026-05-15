@@ -9,7 +9,7 @@ static int noop_dispatcher(int argc, char *argv[], uintptr_t _data, void *userda
 }
 
 #define test_dispatch_one(argv, verbs, expected) \
-        assert_se(_dispatch_verb_with_args(argv, verbs, verbs + ELEMENTSOF(verbs) - 1, NULL) == expected);
+        assert_se(_dispatch_verb(argv, verbs, verbs + ELEMENTSOF(verbs) - 1, NULL) == expected);
 
 TEST(verbs) {
         static const Verb verbs[] = {

@@ -3761,7 +3761,7 @@ static int translate(const char *verb, const char *single_arg, char **args) {
         STRV_FOREACH(a, args)
                 *p++ = *a;
 
-        return dispatch_verb_with_args(fake, /* userdata= */ NULL);
+        return dispatch_verb(fake, /* userdata= */ NULL);
 }
 
 static int compat_main(char **args) {
@@ -3883,7 +3883,7 @@ static int run(int argc, char **argv) {
         if (compat)
                 return compat_main(args);
 
-        return dispatch_verb_with_args(args, /* userdata= */ NULL);
+        return dispatch_verb(args, /* userdata= */ NULL);
 }
 
 DEFINE_MAIN_FUNCTION(run);
