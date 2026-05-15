@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <math.h>
-
 /* We make an exception here to our usual "include system headers first" rule because we need one of these
  * macros to disable a warning triggered by the glib headers. */
 #include "macro-fundamental.h"
@@ -482,7 +480,7 @@ int main(int argc, char *argv[]) {
         assert_se(r > 0);
         assert_se(streq(x, "foo"));
         assert_se(u64 == 815ULL);
-        assert_se(fabs(dbl - 47.0) < 0.1);
+        assert_se(ABS(dbl - 47.0) < 0.1);
         assert_se(streq(y, "/"));
 
         r = sd_bus_message_peek_type(m, NULL, NULL);

@@ -181,11 +181,17 @@
         })
 
 #ifdef __clang__
-#  define ABS(a) __builtin_llabs(a)
+#  define __ABS_INTEGER(a) __builtin_llabs(a)
 #else
-#  define ABS(a) __builtin_imaxabs(a)
+#  define __ABS_INTEGER(a) __builtin_imaxabs(a)
 #endif
 assert_cc(sizeof(long long) == sizeof(intmax_t));
+
+#define ABS(a) _Generic((a),                                            \
+                float:       __builtin_fabsf((float) (a)),              \
+                double:      __builtin_fabs((double) (a)),              \
+                long double: __builtin_fabsl((long double) (a)),        \
+                default:     __ABS_INTEGER((long long) (a)))
 
 #define IS_UNSIGNED_INTEGER_TYPE(type) \
         (__builtin_types_compatible_p(typeof(type), unsigned char) ||   \
