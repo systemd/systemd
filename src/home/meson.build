@@ -68,7 +68,6 @@ executables += [
                 'sources' : systemd_homed_sources,
                 'extract' : systemd_homed_extract_sources,
                 'dependencies' : [
-                        libm,
                         libopenssl_cflags,
                         threads,
                 ],
