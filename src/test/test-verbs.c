@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <getopt.h>
-
 #include "strv.h"
 #include "tests.h"
 #include "verbs.h"
@@ -11,8 +9,7 @@ static int noop_dispatcher(int argc, char *argv[], uintptr_t _data, void *userda
 }
 
 #define test_dispatch_one(argv, verbs, expected) \
-        optind = 0; \
-        assert_se(dispatch_verb(strv_length(argv), argv, verbs, NULL) == expected);
+        assert_se(_dispatch_verb_with_args(argv, verbs, verbs + ELEMENTSOF(verbs) - 1, NULL) == expected);
 
 TEST(verbs) {
         static const Verb verbs[] = {
