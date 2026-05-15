@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
-#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -227,25 +226,6 @@ int lock_generic_with_timeout(int fd, LockType type, int operation, usec_t timeo
         if (r < 0)
                 return log_error_errno(r, "Failed to flock block device in child process: %m");
         if (r == 0) {
-                struct sigevent sev = {
-                        .sigev_notify = SIGEV_SIGNAL,
-                        .sigev_signo = SIGALRM,
-                };
-                timer_t id;
-
-                if (timer_create(CLOCK_MONOTONIC, &sev, &id) < 0) {
-                        log_error_errno(errno, "Failed to allocate CLOCK_MONOTONIC timer: %m");
-                        _exit(EXIT_FAILURE);
-                }
-
-                struct itimerspec its = {};
-                timespec_store(&its.it_value, timeout);
-
-                if (timer_settime(id, /* flags= */ 0, &its, NULL) < 0) {
-                        log_error_errno(errno, "Failed to start CLOCK_MONOTONIC timer: %m");
-                        _exit(EXIT_FAILURE);
-                }
-
                 if (lock_generic(fd, type, operation) < 0) {
                         log_error_errno(errno, "Unable to get an exclusive lock on the device: %m");
                         _exit(EXIT_FAILURE);
@@ -255,7 +235,7 @@ int lock_generic_with_timeout(int fd, LockType type, int operation, usec_t timeo
         }
 
         siginfo_t status;
-        r = pidref_wait_for_terminate(&pidref, &status);
+        r = pidref_wait_for_terminate_full(&pidref, timeout, &status);
         if (r < 0)
                 return r;
 
@@ -270,11 +250,6 @@ int lock_generic_with_timeout(int fd, LockType type, int operation, usec_t timeo
                 return 0;
 
         case CLD_KILLED:
-                if (status.si_status == SIGALRM)
-                        return -ETIMEDOUT;
-
-                _fallthrough_;
-
         case CLD_DUMPED:
                 return -EPROTO;
 
