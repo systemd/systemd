@@ -552,4 +552,91 @@ EOF
 done
 done
 
+# Test MatchBasename= and subpaths in SHA256SUMS
+rm -rf "$CONFIGDIR" "$WORKDIR/blobs" "$WORKDIR/source/sub"
+mkdir -p "$CONFIGDIR" "$WORKDIR/blobs" "$WORKDIR/source/sub"
+
+echo $RANDOM >"$WORKDIR/source/sub/blob-v10.bin"
+echo $RANDOM >"$WORKDIR/source/sub/blob-v11.bin"
+(cd "$WORKDIR/source" && rm -f BEST-BEFORE-* && sha256sum sub/blob-*.bin >SHA256SUMS)
+
+# MatchBasename=yes descends into the subdir and matches against
+# the basename, so a pattern without a slash picks up files in source/sub/.
+cat >"$CONFIGDIR/01-basename-dir.transfer" <<EOF
+[Source]
+Type=regular-file
+Path=$WORKDIR/source
+MatchPattern=blob-@v.bin
+MatchBasename=yes
+
+[Target]
+Type=regular-file
+Path=$WORKDIR/blobs
+MatchPattern=blob-@v.bin
+InstancesMax=1
+EOF
+"$SYSUPDATE" --verify=no update
+cmp "$WORKDIR/source/sub/blob-v11.bin" "$WORKDIR/blobs/blob-v11.bin"
+rm "$CONFIGDIR/01-basename-dir.transfer"
+
+# URL source pulled via file:// using SHA256SUMS with "sub/blob-v1x.bin" entries
+rm -rf "$WORKDIR/blobs"
+mkdir -p "$WORKDIR/blobs"
+cat >"$CONFIGDIR/01-basename-url.transfer" <<EOF
+[Source]
+Type=url-file
+Path=file://$WORKDIR/source
+MatchPattern=blob-@v.bin
+MatchBasename=yes
+
+[Target]
+Type=regular-file
+Path=$WORKDIR/blobs
+MatchPattern=blob-@v.bin
+InstancesMax=1
+EOF
+"$SYSUPDATE" --verify=no update
+cmp "$WORKDIR/source/sub/blob-v11.bin" "$WORKDIR/blobs/blob-v11.bin"
+rm "$CONFIGDIR/01-basename-url.transfer"
+
+# Without MatchBasename=, a pattern with an explicit subdir should still work
+# for url sources too (parity with directory source behavior).
+rm -rf "$WORKDIR/blobs"
+mkdir -p "$WORKDIR/blobs"
+cat >"$CONFIGDIR/01-explicit-url.transfer" <<EOF
+[Source]
+Type=url-file
+Path=file://$WORKDIR/source
+MatchPattern=sub/blob-@v.bin
+
+[Target]
+Type=regular-file
+Path=$WORKDIR/blobs
+MatchPattern=blob-@v.bin
+InstancesMax=1
+EOF
+"$SYSUPDATE" --verify=no update
+cmp "$WORKDIR/source/sub/blob-v11.bin" "$WORKDIR/blobs/blob-v11.bin"
+rm "$CONFIGDIR/01-explicit-url.transfer"
+
+# Rejection test for a manifest entry containing ".."
+cp "$WORKDIR/source/SHA256SUMS" "$WORKDIR/source/SHA256SUMS.bak"
+printf '%064x  ../escape-v1.bin\n' 0 >>"$WORKDIR/source/SHA256SUMS"
+cat >"$CONFIGDIR/01-basename-url.transfer" <<EOF
+[Source]
+Type=url-file
+Path=file://$WORKDIR/source
+MatchPattern=escape-@v.bin
+MatchBasename=yes
+
+[Target]
+Type=regular-file
+Path=$WORKDIR/blobs
+MatchPattern=escape-@v.bin
+EOF
+(! "$SYSUPDATE" --verify=no check-new) |& tee "$WORKDIR/traversal.log"
+grep "Invalid filename" "$WORKDIR/traversal.log" >/dev/null
+mv "$WORKDIR/source/SHA256SUMS.bak" "$WORKDIR/source/SHA256SUMS"
+rm "$CONFIGDIR/01-basename-url.transfer"
+
 touch /testok
