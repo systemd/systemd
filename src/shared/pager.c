@@ -206,13 +206,6 @@ void pager_open(PagerFlags flags) {
                         _exit(EXIT_FAILURE);
                 }
 
-                /* Some pager implementations support the PAGERSECURE environment variable, e.g. more(1) */
-                r = set_unset_env("PAGERSECURE", use_secure_mode ? "1" : NULL, true);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to adjust environment variable PAGERSECURE: %m");
-                        _exit(EXIT_FAILURE);
-                }
-
                 if (trust_pager && pager_args) { /* The pager config might be set globally, and we cannot
                                                   * know if the user adjusted it to be appropriate for the
                                                   * secure mode. Thus, start the pager specified through
@@ -235,8 +228,8 @@ void pager_open(PagerFlags flags) {
                 static const char* pagers[] = { "pager", "less", "more", "(built-in)" };
 
                 for (unsigned i = 0; i < ELEMENTSOF(pagers); i++) {
-                        /* Only less, more (and our trivial fallback) implement secure mode right now. */
-                        if (use_secure_mode && !STR_IN_SET(pagers[i], "less", "more", "(built-in)"))
+                        /* Only less (and our trivial fallback) implement secure mode right now. */
+                        if (use_secure_mode && !STR_IN_SET(pagers[i], "less", "(built-in)"))
                                 continue;
 
                         r = loop_write(exe_name_pipe[1], pagers[i], strlen(pagers[i]) + 1);

@@ -190,14 +190,11 @@
       allowing untrusted users to execute commands with elevated privileges.</para>
 
       <para>This option takes a boolean argument. When set to true, the "secure mode" of the pager is
-      enabled. In "secure mode", <option>LESSSECURE=1</option> and <option>PAGERSECURE=1</option> will be set
-      when invoking the pager, which instructs the pager to disable commands that open or create new files or
-      start new subprocesses.
+      enabled. In "secure mode", <option>LESSSECURE=1</option> will be set when invoking the pager, which
+      instructs the pager to disable commands that open or create new files or start new subprocesses.
       Currently only <citerefentry
-      project='man-pages'><refentrytitle>less</refentrytitle><manvolnum>1</manvolnum></citerefentry> and
-      <citerefentry
-      project='man-pages'><refentrytitle>more</refentrytitle><manvolnum>1</manvolnum></citerefentry> are known
-      to understand these variables, respectively, and implement "secure mode".</para>
+      project='man-pages'><refentrytitle>less</refentrytitle><manvolnum>1</manvolnum></citerefentry> is known
+      to understand this variable and implement "secure mode".</para>
 
       <para>When set to false, no limitation is placed on the pager. Setting
       <varname>SYSTEMD_PAGERSECURE=0</varname> or not removing it from the inherited environment may allow
