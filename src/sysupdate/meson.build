@@ -30,7 +30,6 @@ executables += [
                 'dependencies' : [
                         libfdisk_cflags,
                         libopenssl_cflags,
-                        threads,
                 ],
         },
         libexec_template + {
@@ -38,7 +37,6 @@ executables += [
                 'dbus' : true,
                 'conditions' : ['ENABLE_SYSUPDATED'],
                 'sources' : files('sysupdated.c'),
-                'dependencies' : threads,
         },
         executable_template + {
                 'name' : 'updatectl',
