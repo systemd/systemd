@@ -179,6 +179,9 @@ static int acquire_bus(sd_bus **bus) {
         return 0;
 }
 
+VERB_GROUP("Basic User Manipulation Commands");
+VERB(verb_list_homes, "list", /* argspec= */ NULL, VERB_ANY, 1, VERB_DEFAULT,
+     "List home areas");
 static int verb_list_homes(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
@@ -697,6 +700,8 @@ static int inspect_home(sd_bus *bus, const char *name) {
         return 0;
 }
 
+VERB(verb_inspect_homes, "inspect", "USER…", VERB_ANY, VERB_ANY, 0,
+     "Inspect a home area");
 static int verb_inspect_homes(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
@@ -1420,6 +1425,8 @@ static int create_home_common(sd_json_variant *input, bool show_enforce_password
         return 0;
 }
 
+VERB(verb_create_home, "create", "USER", VERB_ANY, 2, 0,
+     "Create a home area");
 static int verb_create_home(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r;
 
@@ -1596,6 +1603,8 @@ static int home_record_reset_human_interaction_permission(UserRecord *hr) {
         return 0;
 }
 
+VERB(verb_update_home, "update", "USER", VERB_ANY, 2, 0,
+     "Update a home area");
 static int verb_update_home(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(user_record_unrefp) UserRecord *hr = NULL, *secret = NULL;
@@ -1773,6 +1782,8 @@ static int verb_update_home(int argc, char *argv[], uintptr_t _data, void *userd
         return 0;
 }
 
+VERB(verb_passwd_home, "passwd", "USER", VERB_ANY, 2, 0,
+     "Change password of a home area");
 static int verb_passwd_home(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(user_record_unrefp) UserRecord *old_secret = NULL, *new_secret = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
@@ -1890,6 +1901,8 @@ static int parse_disk_size(const char *t, uint64_t *ret) {
         return 0;
 }
 
+VERB(verb_resize_home, "resize", "USER SIZE", 2, 3, 0,
+     "Resize a home area");
 static int verb_resize_home(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(user_record_unrefp) UserRecord *secret = NULL;
@@ -1952,6 +1965,8 @@ static int verb_resize_home(int argc, char *argv[], uintptr_t _data, void *userd
         return 0;
 }
 
+VERB(verb_remove_home, "remove", "USER…", 2, VERB_ANY, 0,
+     "Remove a home area");
 static int verb_remove_home(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r, ret = 0;
@@ -1985,6 +2000,9 @@ static int verb_remove_home(int argc, char *argv[], uintptr_t _data, void *userd
         return ret;
 }
 
+VERB_GROUP("Advanced User Manipulation Commands");
+VERB(verb_activate_home, "activate", "USER…", 2, VERB_ANY, 0,
+     "Activate a home area");
 static int verb_activate_home(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r, ret = 0;
@@ -2033,6 +2051,8 @@ static int verb_activate_home(int argc, char *argv[], uintptr_t _data, void *use
         return ret;
 }
 
+VERB(verb_deactivate_home, "deactivate", "USER…", 2, VERB_ANY, 0,
+     "Deactivate a home area");
 static int verb_deactivate_home(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r, ret = 0;
@@ -2064,6 +2084,8 @@ static int verb_deactivate_home(int argc, char *argv[], uintptr_t _data, void *u
         return ret;
 }
 
+VERB_NOARG(verb_deactivate_all_homes, "deactivate-all",
+           "Deactivate all active home areas");
 static int verb_deactivate_all_homes(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
@@ -2085,6 +2107,8 @@ static int verb_deactivate_all_homes(int argc, char *argv[], uintptr_t _data, vo
         return 0;
 }
 
+VERB(verb_with_home, "with", "USER [COMMAND…]", 2, VERB_ANY, 0,
+     "Run shell or command with access to a home area");
 static int verb_with_home(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
@@ -2242,6 +2266,8 @@ static int authenticate_home(sd_bus *bus, const char *name) {
         }
 }
 
+VERB(verb_authenticate_homes, "authenticate", "USER…", VERB_ANY, VERB_ANY, 0,
+     "Authenticate a home area");
 static int verb_authenticate_homes(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
@@ -2267,6 +2293,9 @@ static int verb_authenticate_homes(int argc, char *argv[], uintptr_t _data, void
         }
 }
 
+VERB_GROUP("User Migration Commands");
+VERB(verb_adopt_home, "adopt", "PATH…", VERB_ANY, VERB_ANY, 0,
+     "Add an existing home area on this system");
 static int verb_adopt_home(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r, ret = 0;
 
@@ -2349,6 +2378,8 @@ static int register_home_one(sd_bus *bus, FILE *f, const char *path) {
         return register_home_common(bus, v);
 }
 
+VERB(verb_register_home, "register", "PATH…", VERB_ANY, VERB_ANY, 0,
+     "Register a user record locally");
 static int verb_register_home(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r;
 
@@ -2380,6 +2411,8 @@ static int verb_register_home(int argc, char *argv[], uintptr_t _data, void *use
         return r;
 }
 
+VERB(verb_unregister_home, "unregister", "USER…", 2, VERB_ANY, 0,
+     "Unregister a user record locally");
 static int verb_unregister_home(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r;
 
@@ -2410,6 +2443,9 @@ static int verb_unregister_home(int argc, char *argv[], uintptr_t _data, void *u
         return ret;
 }
 
+VERB_GROUP("Signing Keys Commands");
+VERB_NOARG(verb_list_signing_keys, "list-signing-keys",
+           "List home signing keys");
 static int verb_list_signing_keys(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r;
 
@@ -2500,6 +2536,8 @@ static int verb_list_signing_keys(int argc, char *argv[], uintptr_t _data, void 
         return 0;
 }
 
+VERB(verb_get_signing_key, "get-signing-key", "[NAME…]", VERB_ANY, VERB_ANY, 0,
+     "Get a named home signing key");
 static int verb_get_signing_key(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r;
 
@@ -2556,6 +2594,8 @@ static int add_signing_key_one(sd_bus *bus, const char *fn, FILE *key) {
         return 0;
 }
 
+VERB(verb_add_signing_key, "add-signing-key", "FILE…", VERB_ANY, VERB_ANY, 0,
+     "Add home signing key");
 static int verb_add_signing_key(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r;
 
@@ -2663,6 +2703,8 @@ static int remove_signing_key_one(sd_bus *bus, const char *fn) {
         return 0;
 }
 
+VERB(verb_remove_signing_key, "remove-signing-key", "NAME…", 2, VERB_ANY, 0,
+     "Remove home signing key");
 static int verb_remove_signing_key(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r;
 
@@ -2678,6 +2720,9 @@ static int verb_remove_signing_key(int argc, char *argv[], uintptr_t _data, void
         return r;
 }
 
+VERB_GROUP("Lock/Unlock Commands");
+VERB(verb_lock_home, "lock", "USER…", 2, VERB_ANY, 0,
+     "Temporarily lock an active home area");
 static int verb_lock_home(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r, ret = 0;
@@ -2709,6 +2754,8 @@ static int verb_lock_home(int argc, char *argv[], uintptr_t _data, void *userdat
         return ret;
 }
 
+VERB(verb_unlock_home, "unlock", "USER…", 2, VERB_ANY, 0,
+     "Unlock a temporarily locked home area");
 static int verb_unlock_home(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r, ret = 0;
@@ -2757,6 +2804,8 @@ static int verb_unlock_home(int argc, char *argv[], uintptr_t _data, void *userd
         return ret;
 }
 
+VERB_NOARG(verb_lock_all_homes, "lock-all",
+           "Lock all suitable home areas");
 static int verb_lock_all_homes(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
@@ -2778,6 +2827,9 @@ static int verb_lock_all_homes(int argc, char *argv[], uintptr_t _data, void *us
         return 0;
 }
 
+VERB_GROUP("Other Commands");
+VERB_NOARG(verb_rebalance, "rebalance",
+           "Rebalance free space between home areas");
 static int verb_rebalance(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
@@ -3033,6 +3085,8 @@ static int create_interactively(void) {
         return 0;
 }
 
+VERB_NOARG(verb_firstboot, "firstboot",
+           "Run first-boot home area creation wizard");
 static int verb_firstboot(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r;
 
@@ -3918,7 +3972,16 @@ static int parse_fido2_device_field(const char *arg) {
 }
 
 static int help(void) {
-        static const char* const groups[] = {
+        static const char* const vgroups[] = {
+                "Basic User Manipulation Commands",
+                "Advanced User Manipulation Commands",
+                "User Migration Commands",
+                "Signing Keys Commands",
+                "Lock/Unlock Commands",
+                "Other Commands",
+        };
+
+        static const char* const ogroups[] = {
                 NULL,
                 "General User Record Properties",
                 "Authentication User Record Properties",
@@ -3933,70 +3996,55 @@ static int help(void) {
                 "Login Behaviour User Record Properties",
         };
 
-        Table *tables[ELEMENTSOF(groups)] = {};
-        CLEANUP_ELEMENTS(tables, table_unref_array_clear);
+        Table *vtables[ELEMENTSOF(vgroups)] = {};
+        CLEANUP_ELEMENTS(vtables, table_unref_array_clear);
+        Table *otables[ELEMENTSOF(ogroups)] = {};
+        CLEANUP_ELEMENTS(otables, table_unref_array_clear);
         int r;
 
-        for (size_t i = 0; i < ELEMENTSOF(groups); i++) {
-                r = option_parser_get_help_table_group(groups[i], &tables[i]);
+        for (size_t i = 0; i < ELEMENTSOF(vgroups); i++) {
+                r = verbs_get_help_table_group(vgroups[i], &vtables[i]);
                 if (r < 0)
                         return r;
         }
 
-        assert_cc(ELEMENTSOF(tables) == 12);
-        (void) table_sync_column_widths(0, tables[0], tables[1], tables[2], tables[3],
-                                        tables[4], tables[5], tables[6], tables[7],
-                                        tables[8], tables[9], tables[10], tables[11]);
+        for (size_t i = 0; i < ELEMENTSOF(ogroups); i++) {
+                r = option_parser_get_help_table_group(ogroups[i], &otables[i]);
+                if (r < 0)
+                        return r;
+        }
+
+        /* The two groups are not synchronized because the option table is very wide. */
+
+        assert_cc(ELEMENTSOF(vtables) == 6);
+        (void) table_sync_column_widths(0, vtables[0], vtables[1], vtables[2],
+                                        vtables[3], vtables[4], vtables[5]);
+
+        assert_cc(ELEMENTSOF(otables) == 12);
+        (void) table_sync_column_widths(0, otables[0], otables[1], otables[2], otables[3],
+                                        otables[4], otables[5], otables[6], otables[7],
+                                        otables[8], otables[9], otables[10], otables[11]);
 
         pager_open(arg_pager_flags);
 
         help_cmdline("[OPTIONS…] COMMAND …");
         help_abstract("Create, manipulate or inspect home directories.");
 
-        help_section("Basic User Manipulation Commands");
-        printf("  list                         List home areas\n"
-               "  inspect USER…                Inspect a home area\n"
-               "  create USER                  Create a home area\n"
-               "  update USER                  Update a home area\n"
-               "  passwd USER                  Change password of a home area\n"
-               "  resize USER SIZE             Resize a home area\n"
-               "  remove USER…                 Remove a home area\n");
-
-        help_section("Advanced User Manipulation Commands");
-        printf("  activate USER…               Activate a home area\n"
-               "  deactivate USER…             Deactivate a home area\n"
-               "  deactivate-all               Deactivate all active home areas\n"
-               "  with USER [COMMAND…]         Run shell or command with access to a home area\n"
-               "  authenticate USER…           Authenticate a home area\n");
-
-        help_section("User Migration Commands");
-        printf("  adopt PATH…                  Add an existing home area on this system\n"
-               "  register PATH…               Register a user record locally\n"
-               "  unregister USER…             Unregister a user record locally\n");
-
-        help_section("Signing Keys Commands");
-        printf("  list-signing-keys            List home signing keys\n"
-               "  get-signing-key [NAME…]      Get a named home signing key\n"
-               "  add-signing-key FILE…        Add home signing key\n"
-               "  remove-signing-key NAME…     Remove home signing key\n");
-
-        help_section("Lock/Unlock Commands");
-        printf("  lock USER…                   Temporarily lock an active home area\n"
-               "  unlock USER…                 Unlock a temporarily locked home area\n"
-               "  lock-all                     Lock all suitable home areas\n");
-
-        help_section("Other Commands");
-        printf("  rebalance                    Rebalance free space between home areas\n"
-               "  firstboot                    Run first-boot home area creation wizard\n");
+        for (size_t i = 0; i < ELEMENTSOF(vgroups); i++) {
+                help_section(vgroups[i]);
+                r = table_print_or_warn(vtables[i]);
+                if (r < 0)
+                        return r;
+        }
 
         help_section("Options");
-        r = table_print_or_warn(tables[0]);
+        r = table_print_or_warn(otables[0]);
         if (r < 0)
                 return r;
 
-        for (size_t i = 1; i < ELEMENTSOF(groups); i++) {
-                help_section(groups[i]);
-                r = table_print_or_warn(tables[i]);
+        for (size_t i = 1; i < ELEMENTSOF(ogroups); i++) {
+                help_section(ogroups[i]);
+                r = table_print_or_warn(otables[i]);
                 if (r < 0)
                         return r;
         }
@@ -4006,9 +4054,7 @@ static int help(void) {
         return 0;
 }
 
-static int verb_help(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        return help();
-}
+VERB_COMMON_HELP_HIDDEN(help);
 
 static int parse_argv(int argc, char *argv[], char ***remaining_args) {
         _cleanup_strv_free_ char **arg_languages = NULL;
@@ -5105,35 +5151,6 @@ static int fallback_shell(int argc, char *argv[]) {
 }
 
 static int run(int argc, char *argv[]) {
-        static const Verb verbs[] = {
-                { "help",               VERB_ANY, VERB_ANY, 0,            verb_help                 },
-                { "list",               VERB_ANY, 1,        VERB_DEFAULT, verb_list_homes           },
-                { "activate",           2,        VERB_ANY, 0,            verb_activate_home        },
-                { "deactivate",         2,        VERB_ANY, 0,            verb_deactivate_home      },
-                { "inspect",            VERB_ANY, VERB_ANY, 0,            verb_inspect_homes        },
-                { "authenticate",       VERB_ANY, VERB_ANY, 0,            verb_authenticate_homes   },
-                { "create",             VERB_ANY, 2,        0,            verb_create_home          },
-                { "adopt",              VERB_ANY, VERB_ANY, 0,            verb_adopt_home           },
-                { "register",           VERB_ANY, VERB_ANY, 0,            verb_register_home        },
-                { "unregister",         2,        VERB_ANY, 0,            verb_unregister_home      },
-                { "remove",             2,        VERB_ANY, 0,            verb_remove_home          },
-                { "update",             VERB_ANY, 2,        0,            verb_update_home          },
-                { "passwd",             VERB_ANY, 2,        0,            verb_passwd_home          },
-                { "resize",             2,        3,        0,            verb_resize_home          },
-                { "lock",               2,        VERB_ANY, 0,            verb_lock_home            },
-                { "unlock",             2,        VERB_ANY, 0,            verb_unlock_home          },
-                { "with",               2,        VERB_ANY, 0,            verb_with_home            },
-                { "lock-all",           VERB_ANY, 1,        0,            verb_lock_all_homes       },
-                { "deactivate-all",     VERB_ANY, 1,        0,            verb_deactivate_all_homes },
-                { "rebalance",          VERB_ANY, 1,        0,            verb_rebalance            },
-                { "firstboot",          VERB_ANY, 1,        0,            verb_firstboot            },
-                { "list-signing-keys",  VERB_ANY, 1,        0,            verb_list_signing_keys    },
-                { "get-signing-key",    VERB_ANY, VERB_ANY, 0,            verb_get_signing_key      },
-                { "add-signing-key",    VERB_ANY, VERB_ANY, 0,            verb_add_signing_key      },
-                { "remove-signing-key", 2,        VERB_ANY, 0,            verb_remove_signing_key   },
-                {}
-        };
-
         char **args = NULL;
         int r;
 
@@ -5150,7 +5167,7 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        return _dispatch_verb_with_args(args, verbs, verbs + ELEMENTSOF(verbs) - 1, NULL);
+        return dispatch_verb_with_args(args, /* userdata= */ NULL);
 }
 
 DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);
