@@ -116,8 +116,7 @@ modules += [
                 'sources' : pam_systemd_home_sources,
                 'dependencies' : [
                         libintl,
-                        libpam_misc,
-                        libpam,
+                        libpam_cflags,
                         threads,
                 ],
                 'version-script' : meson.current_source_dir() / 'pam_systemd_home.sym',
