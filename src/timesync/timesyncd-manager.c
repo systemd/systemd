@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <math.h>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <netinet/ip.h>
@@ -26,6 +25,7 @@
 #include "list.h"
 #include "log.h"
 #include "logarithm.h"
+#include "math-util.h"
 #include "network-util.h"
 #include "random-util.h"
 #include "ratelimit.h"
@@ -335,11 +335,13 @@ static bool manager_sample_spike_detection(Manager *m, double offset, double del
                         idx_min = i;
 
         j = 0;
-        FOREACH_ELEMENT(sample, m->samples)
-                j += pow(sample->offset - m->samples[idx_min].offset, 2);
+        FOREACH_ELEMENT(sample, m->samples) {
+                double d = sample->offset - m->samples[idx_min].offset;
+                j += d * d;
+        }
 
         size_t n = ELEMENTSOF(m->samples);
-        m->samples_jitter = sqrt(j / (n - 1));
+        m->samples_jitter = xsqrt(j / (n - 1));
 
         /* ignore samples when resyncing */
         if (m->poll_resync)
@@ -555,7 +557,7 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                   NTP_FIELD_VERSION(ntpmsg.field),
                   NTP_FIELD_MODE(ntpmsg.field),
                   ntpmsg.stratum,
-                  exp2(ntpmsg.precision), ntpmsg.precision,
+                  xexp2i(ntpmsg.precision), ntpmsg.precision,
                   root_distance,
                   ntpmsg.stratum == 1 ? ntpmsg.refid : "n/a",
                   origin - OFFSET_1900_1970,
