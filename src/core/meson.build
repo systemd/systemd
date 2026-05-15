@@ -148,13 +148,10 @@ libcore_static = static_library(
         dependencies : [libaudit_cflags,
                         libbpf_cflags,
                         libcryptsetup_cflags,
-                        libdl,
                         libm,
                         libmount_cflags,
-                        librt,
                         libseccomp_cflags,
                         libselinux_cflags,
-                        threads,
                         userspace],
         build_by_default : false)
 
