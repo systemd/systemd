@@ -124,6 +124,37 @@ if want_tests != 'false'
              exe,
              suite : 'udev',
              args : ['verify', '--resolve-names=late', all_rules])
+
+        # test-bus-marshal deliberately links libdbus / glib for interop
+        # testing and doesn't belong to any of the categorised ABI groups, so
+        # just skip it for now rather than carve out a one-binary category.
+        link_abi_executables = []
+        foreach exe_name, exe : executables_by_name
+                if exe_name != 'test-bus-marshal'
+                        link_abi_executables += exe
+                endif
+        endforeach
+        link_abi_shared_libraries = [
+                libsystemd,
+                libudev,
+                libshared,
+                libcore,
+        ]
+        link_abi_targets = (link_abi_executables
+                            + nss_targets
+                            + pam_targets
+                            + cryptsetup_token_targets
+                            + link_abi_shared_libraries)
+        test('test-link-abi',
+             files('test-link-abi.py'),
+             args : ['--executables'] + link_abi_executables
+                  + ['--shared-libraries'] + link_abi_shared_libraries
+                  + ['--nss-modules'] + nss_targets
+                  + ['--pam-modules'] + pam_targets
+                  + ['--cryptsetup-tokens'] + cryptsetup_token_targets,
+             depends : link_abi_targets,
+             suite : 'dist',
+             timeout : 120)
 endif
 
 ############################################################

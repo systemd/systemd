@@ -978,10 +978,7 @@ endif
 
 #####################################################################
 
-threads = dependency('threads')
-librt = cc.find_library('rt')
 libm = cc.find_library('m')
-libdl = cc.find_library('dl')
 
 # On some distributions that use musl (e.g. Alpine), libintl.h may be provided by gettext rather than musl.
 # In that case, we need to explicitly link with libintl.so.
@@ -1712,14 +1709,13 @@ system_includes = [
         ),
 ]
 
-if get_option('libc') == 'musl'
-        system_include_args = [
-                '-isystem', meson.project_build_root()  / 'src/include/musl',
-                '-isystem', meson.project_source_root() / 'src/include/musl',
-        ] + system_include_args
+libc_include_dir = 'src/include' / get_option('libc')
+system_include_args = [
+        '-isystem', meson.project_build_root()  / libc_include_dir,
+        '-isystem', meson.project_source_root() / libc_include_dir,
+] + system_include_args
 
-        system_includes += include_directories('src/include/musl', is_system : true)
-endif
+system_includes += include_directories(libc_include_dir, is_system : true)
 
 basic_includes = [
         include_directories(
@@ -1776,9 +1772,7 @@ libsystemd = shared_library(
         link_with : [libc_wrapper_static,
                      libbasic_static],
         link_whole : [libsystemd_static],
-        dependencies : [librt,
-                        threads,
-                        userspace],
+        dependencies : [userspace],
         link_depends : libsystemd_sym,
         install : true,
         install_tag: 'libsystemd',
@@ -1797,14 +1791,11 @@ if static_libsystemd != 'false'
                 install_tag: 'libsystemd',
                 install_dir : libdir,
                 pic : static_libsystemd_pic,
-                dependencies : [libdl,
-                                libgcrypt_cflags,
+                dependencies : [libgcrypt_cflags,
                                 liblz4_cflags,
                                 libm,
-                                librt,
                                 libxz_cflags,
                                 libzstd_cflags,
-                                threads,
                                 userspace],
                 c_args : libsystemd_c_args + (static_libsystemd_pic ? [] : ['-fno-PIC']))
 
@@ -1822,8 +1813,7 @@ libudev = shared_library(
                      '-Wl,--version-script=' + libudev_sym_path],
         link_with : [libsystemd_static],
         link_whole : libudev_basic,
-        dependencies : [threads,
-                        userspace],
+        dependencies : [userspace],
         link_depends : libudev_sym,
         install : true,
         install_tag: 'libudev',
@@ -1941,10 +1931,6 @@ nss_template = {
                 libshared_static,
                 libbasic_static,
         ],
-        'dependencies' : [
-                librt,
-                threads,
-        ],
         'install' : true,
         'install_tag' : 'nss',
         'install_dir' : libdir,
@@ -1973,7 +1959,6 @@ pam_template = {
                 # dlopen_libpam().
                 libpam_misc,
                 libpam,
-                threads,
         ],
         'install' : true,
         'install_tag' : 'pam',
@@ -2316,6 +2301,7 @@ test_dlopen = executables_by_name.get('test-dlopen')
 
 nss_targets = []
 pam_targets = []
+cryptsetup_token_targets = []
 foreach dict : modules
         name = dict.get('name')
         is_nss = name.startswith('nss_')
@@ -2359,6 +2345,10 @@ foreach dict : modules
                 kwargs : kwargs,
                 implicit_include_directories : false,
         )
+
+        if name.startswith('cryptsetup-token-')
+                cryptsetup_token_targets += lib
+        endif
 
         if is_nss
                 # We cannot use shared_module because it does not support version suffix.
