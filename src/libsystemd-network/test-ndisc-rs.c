@@ -228,10 +228,11 @@ static void test_callback_ra(sd_ndisc *nd, sd_ndisc_event_t event, void *message
 }
 
 static void test_callback_count(
-                _unused_ sd_ndisc *nd,
+                sd_ndisc *nd,
                 sd_ndisc_event_t event,
-                _unused_ void *message,
+                void *message,
                 void *userdata) {
+
         unsigned *count = ASSERT_PTR(userdata);
 
         if (event == SD_NDISC_EVENT_ROUTER)
