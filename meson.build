@@ -978,10 +978,7 @@ endif
 
 #####################################################################
 
-threads = dependency('threads')
-librt = cc.find_library('rt')
 libm = cc.find_library('m')
-libdl = cc.find_library('dl')
 
 # On some distributions that use musl (e.g. Alpine), libintl.h may be provided by gettext rather than musl.
 # In that case, we need to explicitly link with libintl.so.
@@ -1777,9 +1774,7 @@ libsystemd = shared_library(
         link_with : [libc_wrapper_static,
                      libbasic_static],
         link_whole : [libsystemd_static],
-        dependencies : [librt,
-                        threads,
-                        userspace],
+        dependencies : [userspace],
         link_depends : libsystemd_sym,
         install : true,
         install_tag: 'libsystemd',
@@ -1798,14 +1793,11 @@ if static_libsystemd != 'false'
                 install_tag: 'libsystemd',
                 install_dir : libdir,
                 pic : static_libsystemd_pic,
-                dependencies : [libdl,
-                                libgcrypt_cflags,
+                dependencies : [libgcrypt_cflags,
                                 liblz4_cflags,
                                 libm,
-                                librt,
                                 libxz_cflags,
                                 libzstd_cflags,
-                                threads,
                                 userspace],
                 c_args : libsystemd_c_args + (static_libsystemd_pic ? [] : ['-fno-PIC']))
 
@@ -1823,8 +1815,7 @@ libudev = shared_library(
                      '-Wl,--version-script=' + libudev_sym_path],
         link_with : [libsystemd_static],
         link_whole : libudev_basic,
-        dependencies : [threads,
-                        userspace],
+        dependencies : [userspace],
         link_depends : libudev_sym,
         install : true,
         install_tag: 'libudev',
@@ -1942,10 +1933,6 @@ nss_template = {
                 libshared_static,
                 libbasic_static,
         ],
-        'dependencies' : [
-                librt,
-                threads,
-        ],
         'install' : true,
         'install_tag' : 'nss',
         'install_dir' : libdir,
@@ -1961,7 +1948,6 @@ pam_template = {
         'dependencies' : [
                 libpam_cflags,
                 libpam_misc_cflags,
-                threads,
         ],
         'install' : true,
         'install_tag' : 'pam',
