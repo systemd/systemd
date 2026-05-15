@@ -29,6 +29,7 @@ libc_wrapper_static = static_library(
         libc_wrapper_sources,
         include_directories : system_includes,
         implicit_include_directories : false,
-        dependencies : [userspace],
+        dependencies : [libdl,
+                        userspace],
         c_args : ['-fvisibility=default'],
         build_by_default : false)

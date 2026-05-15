@@ -1712,14 +1712,13 @@ system_includes = [
         ),
 ]
 
-if get_option('libc') == 'musl'
-        system_include_args = [
-                '-isystem', meson.project_build_root()  / 'src/include/musl',
-                '-isystem', meson.project_source_root() / 'src/include/musl',
-        ] + system_include_args
+libc_include_dir = 'src/include' / get_option('libc')
+system_include_args = [
+        '-isystem', meson.project_build_root()  / libc_include_dir,
+        '-isystem', meson.project_source_root() / libc_include_dir,
+] + system_include_args
 
-        system_includes += include_directories('src/include/musl', is_system : true)
-endif
+system_includes += include_directories(libc_include_dir, is_system : true)
 
 basic_includes = [
         include_directories(
@@ -1844,7 +1843,8 @@ if static_libudev != 'false'
                 install_tag: 'libudev',
                 install_dir : libdir,
                 link_depends : libudev_sym,
-                dependencies : [libmount,
+                dependencies : [libdl,
+                                libmount,
                                 libshared_deps,
                                 userspace],
                 c_args : static_libudev_pic ? [] : ['-fno-PIC'],
@@ -2316,6 +2316,7 @@ test_dlopen = executables_by_name.get('test-dlopen')
 
 nss_targets = []
 pam_targets = []
+cryptsetup_token_targets = []
 foreach dict : modules
         name = dict.get('name')
         is_nss = name.startswith('nss_')
@@ -2359,6 +2360,10 @@ foreach dict : modules
                 kwargs : kwargs,
                 implicit_include_directories : false,
         )
+
+        if name.startswith('cryptsetup-token-')
+                cryptsetup_token_targets += lib
+        endif
 
         if is_nss
                 # We cannot use shared_module because it does not support version suffix.
