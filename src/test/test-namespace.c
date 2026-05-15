@@ -1,8 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
+#include <linux/nsfs.h>
 #include <sched.h>
 #include <stdlib.h>
+#include <sys/ioctl.h>
 #include <sys/prctl.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
@@ -280,6 +282,57 @@ TEST(userns_get_base_uid) {
         ASSERT_OK(fd);
 
         ASSERT_ERROR(userns_get_base_uid(fd, &base_uid, &base_gid), ENOMSG);
+}
+
+TEST(namespace_open_by_id) {
+        /* Try our own user namespace first to see if the kernel exposes ns_id at all. */
+        _cleanup_close_ int userns_fd = ASSERT_OK_ERRNO(open("/proc/self/ns/user", O_RDONLY|O_CLOEXEC));
+
+        uint64_t ns_id;
+        int r = RET_NERRNO(ioctl(userns_fd, NS_GET_ID, &ns_id));
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                return (void) log_tests_skipped("NS_GET_ID is not supported by this kernel");
+        ASSERT_OK(r);
+
+        /* namespace_open_by_id() refuses with -EPERM outside the initial user/pid namespace, since
+         * the kernel restricts open_by_handle_at() on nsfs to the initial userns and pidns and to
+         * CAP_SYS_ADMIN. */
+        _cleanup_close_ int opened = namespace_open_by_id(ns_id);
+        if (opened == -EPERM)
+                return (void) log_tests_skipped("not in initial user namespace or missing CAP_SYS_ADMIN");
+        if (IN_SET(opened, -EOPNOTSUPP, -EINVAL))
+                return (void) log_tests_skipped("nsfs lookup by ns_id is not supported by this kernel");
+        ASSERT_OK(opened);
+
+        struct stat orig_st, opened_st;
+        ASSERT_OK_ERRNO(fstat(userns_fd, &orig_st));
+        ASSERT_OK_ERRNO(fstat(opened, &opened_st));
+        ASSERT_EQ(orig_st.st_ino, opened_st.st_ino);
+
+        opened = safe_close(opened);
+
+        ASSERT_ERROR(namespace_open_by_id(0), EINVAL);
+
+        _cleanup_close_ int transient_fd = userns_acquire_empty();
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(transient_fd) || ERRNO_IS_NEG_PRIVILEGE(transient_fd))
+                return (void) log_tests_skipped("cannot acquire userns for transient lookup test");
+        ASSERT_OK(transient_fd);
+
+        uint64_t transient_id;
+        ASSERT_OK_ERRNO(ioctl(transient_fd, NS_GET_ID, &transient_id));
+        ASSERT_NE(transient_id, ns_id);
+
+        opened = ASSERT_OK(namespace_open_by_id(transient_id));
+
+        struct stat transient_st, transient_opened_st;
+        ASSERT_OK_ERRNO(fstat(transient_fd, &transient_st));
+        ASSERT_OK_ERRNO(fstat(opened, &transient_opened_st));
+        ASSERT_EQ(transient_st.st_ino, transient_opened_st.st_ino);
+        opened = safe_close(opened);
+
+        /* Close the only reference. The namespace is now dead — lookup must fail. */
+        transient_fd = safe_close(transient_fd);
+        ASSERT_ERROR(namespace_open_by_id(transient_id), ESTALE);
 }
 
 TEST(process_is_owned_by_uid) {
