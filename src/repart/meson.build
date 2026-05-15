@@ -17,7 +17,6 @@ executables += [
                         libfdisk_cflags,
                         libmount_cflags,
                         libopenssl_cflags,
-                        threads,
                 ],
         },
         executable_template + {
@@ -35,7 +34,6 @@ executables += [
                         libfdisk_cflags,
                         libmount_cflags,
                         libopenssl_cflags,
-                        threads,
                 ],
         },
 ]

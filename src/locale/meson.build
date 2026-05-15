@@ -18,7 +18,6 @@ localectl_sources = files('localectl.c')
 # specify where the headers are.
 if conf.get('HAVE_XKBCOMMON') == 1
         libxkbcommon_deps = [
-                libdl,
                 libxkbcommon_cflags,
         ]
 else
