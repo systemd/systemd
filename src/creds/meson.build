@@ -12,7 +12,6 @@ executables += [
                 'dependencies' : [
                         libmount_cflags,
                         libopenssl_cflags,
-                        threads,
                 ],
         },
 ]

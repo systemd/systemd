@@ -35,10 +35,7 @@ executables += [
                 'sources' : timesyncd_sources,
                 'extract' : timesyncd_extract_sources,
                 'link_with' : timesyncd_link_with,
-                'dependencies' : [
-                        libm,
-                        threads,
-                ],
+                'dependencies' : libm,
         },
         libexec_template + {
                 'name' : 'systemd-time-wait-sync',
