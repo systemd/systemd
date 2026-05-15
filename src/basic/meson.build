@@ -215,7 +215,6 @@ libbasic_static = static_library(
         dependencies : [libbzip2_cflags,
                         libgcrypt_cflags,
                         liblz4_cflags,
-                        libm,
                         libxz_cflags,
                         libz_cflags,
                         libzstd_cflags,
