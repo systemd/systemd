@@ -1844,8 +1844,7 @@ if static_libudev != 'false'
                 install_tag: 'libudev',
                 install_dir : libdir,
                 link_depends : libudev_sym,
-                dependencies : [libmount,
-                                libshared_deps,
+                dependencies : [libshared_deps,
                                 userspace],
                 c_args : static_libudev_pic ? [] : ['-fno-PIC'],
                 pic : static_libudev_pic)
