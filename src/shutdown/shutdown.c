@@ -10,6 +10,7 @@
 #include <unistd.h>
 
 #include "sd-daemon.h"
+#include "sd-json.h"
 #include "sd-messages.h"
 
 #include "alloc-util.h"
@@ -31,6 +32,7 @@
 #include "initrd-util.h"
 #include "killall.h"
 #include "log.h"
+#include "luo-util.h"
 #include "options.h"
 #include "parse-util.h"
 #include "pidref.h"
@@ -363,14 +365,21 @@ int main(int argc, char *argv[]) {
                 SYSTEM_SHUTDOWN_PATH,
                 NULL
         };
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *luo_serialization = NULL;
+        _cleanup_close_ int luo_session_fd = -EBADF;
+        _cleanup_free_ int *luo_fds = NULL;
         _cleanup_free_ char *cgroup = NULL;
+        size_t n_luo_fds = 0;
         int cmd, r;
+
+        /* If PID 1 passed us an LUO serialization fd, parse it first so we know which fds to keep open. */
+        (void) luo_parse_serialization(&luo_serialization, &luo_fds, &n_luo_fds);
 
         /* Close random fds we might have get passed, just for paranoia, before we open any new fds, for
          * example for logging. After all this tool's purpose is about detaching any pinned resources, and
          * open file descriptors are the primary way to pin resources. Note that we don't really expect any
-         * fds to be passed here. */
-        (void) close_all_fds(NULL, 0);
+         * fds to be passed here, except for LUO fds that need to survive until kexec. */
+        (void) close_all_fds(luo_fds, n_luo_fds);
 
         /* The log target defaults to console, but the original systemd process will pass its log target in through a
          * command line argument, which will override this default. Also, ensure we'll never log to the journal or
@@ -646,6 +655,10 @@ int main(int argc, char *argv[]) {
         case LINUX_REBOOT_CMD_KEXEC:
 
                 if (!in_container) {
+                        /* Preserve fd stores via the kernel Live Update Orchestrator before kexec.
+                         * The session fd must stay open until the kexec syscall. */
+                        (void) luo_preserve_fd_stores(luo_serialization, &luo_session_fd);
+
                         log_info("Rebooting with kexec.");
 
                         (void) kexec();
