@@ -40,6 +40,7 @@ SD_VARLINK_DEFINE_ENUM_TYPE(
                 SD_VARLINK_DEFINE_ENUM_VALUE(concurrency));
 
 /* Field names match the D-Bus Job properties (Id, JobType, State) */
+/* TODO Decide if we want to keep it or do context/runtime split */
 SD_VARLINK_DEFINE_STRUCT_TYPE(
                 Job,
                 SD_VARLINK_FIELD_COMMENT("The numeric job ID"),
