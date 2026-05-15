@@ -514,6 +514,7 @@ int transfer_read_definition(Transfer *t, const char *path, const char **dirs, H
                 { "Source",      "Path",                    config_parse_resource_path,        0, &t->source                  },
                 { "Source",      "PathRelativeTo",          config_parse_resource_path_relto,  0, &t->source.path_relative_to },
                 { "Source",      "MatchPattern",            config_parse_resource_pattern,     0, &t->source.patterns         },
+                { "Source",      "MatchBasename",           config_parse_bool,                 0, &t->source.match_basename   },
                 { "Target",      "Type",                    config_parse_resource_type,        0, &t->target.type             },
                 { "Target",      "Path",                    config_parse_resource_path,        0, &t->target                  },
                 { "Target",      "PathRelativeTo",          config_parse_resource_path_relto,  0, &t->target.path_relative_to },
@@ -638,6 +639,16 @@ int transfer_read_definition(Transfer *t, const char *path, const char **dirs, H
         if (strv_isempty(t->source.patterns))
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
                                   "Source specification lacks MatchPattern=.");
+
+        if (t->source.match_basename && IN_SET(t->source.type, RESOURCE_DIRECTORY, RESOURCE_SUBVOLUME))
+                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
+                                  "MatchBasename=yes is not supported for source Type=directory or subvolume.");
+
+        if (t->source.match_basename)
+                STRV_FOREACH(p, t->source.patterns)
+                        if (strchr(*p, '/'))
+                                log_syntax(NULL, LOG_WARNING, path, 1, 0,
+                                           "Source MatchPattern=\"%s\" contains a slash but MatchBasename=yes is set. This will never match.", *p);
 
         if (!t->target.path && !t->target.path_auto)
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
