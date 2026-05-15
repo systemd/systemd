@@ -72,7 +72,6 @@ resolve_common_template = {
                 libidn2_cflags,
                 libopenssl_cflags,
                 libm,
-                threads,
         ],
 }
 
