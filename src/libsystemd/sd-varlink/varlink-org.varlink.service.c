@@ -34,7 +34,7 @@ static SD_VARLINK_DEFINE_ERROR(
 
 static SD_VARLINK_DEFINE_ERROR(
                 MethodNotImplemented,
-                SD_VARLINK_FIELD_COMMENT("Name of method that was called but is not implemented."),
+                SD_VARLINK_FIELD_COMMENT("Name of method that was called but is not implemented"),
                 SD_VARLINK_DEFINE_FIELD(method, SD_VARLINK_STRING, 0));
 
 static SD_VARLINK_DEFINE_ERROR(
@@ -59,7 +59,7 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_error_InterfaceNotFound,
                 SD_VARLINK_SYMBOL_COMMENT("Error returned if an unknown method is called on an known interface"),
                 &vl_error_MethodNotFound,
-                SD_VARLINK_SYMBOL_COMMENT("Error returned if an method is called that is known but not implemented"),
+                SD_VARLINK_SYMBOL_COMMENT("Error returned if a method is called that is known but not implemented"),
                 &vl_error_MethodNotImplemented,
                 SD_VARLINK_SYMBOL_COMMENT("Error returned if a method is called with an invalid parameter"),
                 &vl_error_InvalidParameter,
