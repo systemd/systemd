@@ -39,17 +39,24 @@ SD_VARLINK_DEFINE_ENUM_TYPE(
                 SD_VARLINK_DEFINE_ENUM_VALUE(frozen),
                 SD_VARLINK_DEFINE_ENUM_VALUE(concurrency));
 
-/* Field names match the D-Bus Job properties (Id, JobType, State) */
+/* Field names match the D-Bus Job properties (Id, Unit, JobType, State) */
+#define VARLINK_DEFINE_JOB_FIELDS(direction)                                                                                         \
+        SD_VARLINK_FIELD_COMMENT("The numeric job ID"),                                                                              \
+        SD_VARLINK_DEFINE_##direction(Id, SD_VARLINK_INT, 0),                                                                        \
+        SD_VARLINK_FIELD_COMMENT("The unit name this job operates on"),                                                              \
+        SD_VARLINK_DEFINE_##direction(Unit, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),                                                 \
+        SD_VARLINK_FIELD_COMMENT("The job type"),                                                                                    \
+        SD_VARLINK_DEFINE_##direction##_BY_TYPE(JobType, JobType, 0),                                                                \
+        SD_VARLINK_FIELD_COMMENT("Current job state. 'finished' indicates the job has completed; in that case Result is also set."), \
+        SD_VARLINK_DEFINE_##direction##_BY_TYPE(State, JobState, SD_VARLINK_NULLABLE),                                               \
+        SD_VARLINK_FIELD_COMMENT("Job result. Only set once the job has reached the 'finished' state."),                             \
+        SD_VARLINK_DEFINE_##direction##_BY_TYPE(Result, JobResult, SD_VARLINK_NULLABLE),                                             \
+        SD_VARLINK_FIELD_COMMENT("Activation details describing what triggered this job, as key-value pairs"),                       \
+        SD_VARLINK_DEFINE_##direction(ActivationDetails, SD_VARLINK_STRING, SD_VARLINK_NULLABLE|SD_VARLINK_MAP)
+
 SD_VARLINK_DEFINE_STRUCT_TYPE(
                 Job,
-                SD_VARLINK_FIELD_COMMENT("The numeric job ID"),
-                SD_VARLINK_DEFINE_FIELD(Id, SD_VARLINK_INT, 0),
-                SD_VARLINK_FIELD_COMMENT("The job type"),
-                SD_VARLINK_DEFINE_FIELD_BY_TYPE(JobType, JobType, 0),
-                SD_VARLINK_FIELD_COMMENT("Current job state. 'finished' indicates the job has completed; in that case Result is also set."),
-                SD_VARLINK_DEFINE_FIELD_BY_TYPE(State, JobState, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("Job result. Only set once the job has reached the 'finished' state."),
-                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Result, JobResult, SD_VARLINK_NULLABLE));
+                VARLINK_DEFINE_JOB_FIELDS(FIELD));
 
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_Job,
