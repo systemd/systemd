@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <math.h>
-
 #include "color-util.h"
+#include "math-util.h"
 
 void rgb_to_hsv(double r, double g, double b,
                 double *ret_h, double *ret_s, double *ret_v) {
@@ -11,8 +10,8 @@ void rgb_to_hsv(double r, double g, double b,
         assert(g >= 0 && g <= 1);
         assert(b >= 0 && b <= 1);
 
-        double max_color = fmax(r, fmax(g, b));
-        double min_color = fmin(r, fmin(g, b));
+        double max_color = MAX(r, MAX(g, b));
+        double min_color = MIN(r, MIN(g, b));
         double delta = max_color - min_color;
 
         if (ret_v)
@@ -32,13 +31,13 @@ void rgb_to_hsv(double r, double g, double b,
         if (ret_h) {
                 if (delta > 0) {
                         if (r >= max_color)
-                                *ret_h = 60 * fmod((g - b) / delta, 6);
+                                *ret_h = 60 * xfmod((g - b) / delta, 6);
                         else if (g >= max_color)
                                 *ret_h = 60 * (((b - r) / delta) + 2);
                         else if (b >= max_color)
                                 *ret_h = 60 * (((r - g) / delta) + 4);
 
-                        *ret_h = fmod(*ret_h, 360);
+                        *ret_h = xfmod(*ret_h, 360);
                 } else
                         *ret_h = NAN;
         }
@@ -55,9 +54,9 @@ void hsv_to_rgb(double h, double s, double v,
         assert(ret_g);
         assert(ret_b);
 
-        h = fmod(h, 360);
+        h = xfmod(h, 360);
         c = (s / 100.0) * (v / 100.0);
-        x = c * (1 - fabs(fmod(h / 60.0, 2) - 1));
+        x = c * (1 - ABS(xfmod(h / 60.0, 2) - 1));
         m = (v / 100) - c;
 
         if (h >= 0 && h < 60)
