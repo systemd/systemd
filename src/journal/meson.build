@@ -80,7 +80,6 @@ executables += [
                 'public' : true,
                 'conditions' : ['HAVE_QRENCODE'],
                 'sources' : files('bsod.c'),
-                'dependencies' : libqrencode,
         },
         executable_template + {
                 'name' : 'systemd-cat',
