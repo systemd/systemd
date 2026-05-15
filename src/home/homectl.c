@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <getopt.h>
 #include <unistd.h>
 
 #include "sd-bus.h"
@@ -30,6 +29,7 @@
 #include "fs-util.h"
 #include "glyph-util.h"
 #include "hashmap.h"
+#include "help-util.h"
 #include "hexdecoct.h"
 #include "home-util.h"
 #include "homectl-fido2.h"
@@ -40,6 +40,7 @@
 #include "libfido2-util.h"
 #include "locale-util.h"
 #include "main-func.h"
+#include "options.h"
 #include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"
@@ -3917,218 +3918,90 @@ static int parse_fido2_device_field(const char *arg) {
 }
 
 static int help(void) {
-        _cleanup_free_ char *link = NULL;
+        static const char* const groups[] = {
+                NULL,
+                "General User Record Properties",
+                "Authentication User Record Properties",
+                "Blob Directory User Record Properties",
+                "Account Management User Record Properties",
+                "Password Policy User Record Properties",
+                "Resource Management User Record Properties",
+                "Storage User Record Properties",
+                "LUKS Storage User Record Properties",
+                "Mounting User Record Properties",
+                "CIFS User Record Properties",
+                "Login Behaviour User Record Properties",
+        };
+
+        Table *tables[ELEMENTSOF(groups)] = {};
+        CLEANUP_ELEMENTS(tables, table_unref_array_clear);
         int r;
+
+        for (size_t i = 0; i < ELEMENTSOF(groups); i++) {
+                r = option_parser_get_help_table_group(groups[i], &tables[i]);
+                if (r < 0)
+                        return r;
+        }
+
+        assert_cc(ELEMENTSOF(tables) == 12);
+        (void) table_sync_column_widths(0, tables[0], tables[1], tables[2], tables[3],
+                                        tables[4], tables[5], tables[6], tables[7],
+                                        tables[8], tables[9], tables[10], tables[11]);
 
         pager_open(arg_pager_flags);
 
-        r = terminal_urlify_man("homectl", "1", &link);
-        if (r < 0)
-                return log_oom();
+        help_cmdline("[OPTIONS…] COMMAND …");
+        help_abstract("Create, manipulate or inspect home directories.");
 
-        printf("%1$s [OPTIONS...] COMMAND ...\n\n"
-               "%2$sCreate, manipulate or inspect home directories.%3$s\n"
-               "\n%4$sBasic User Manipulation Commands:%5$s\n"
-               "  list                         List home areas\n"
+        help_section("Basic User Manipulation Commands");
+        printf("  list                         List home areas\n"
                "  inspect USER…                Inspect a home area\n"
                "  create USER                  Create a home area\n"
                "  update USER                  Update a home area\n"
                "  passwd USER                  Change password of a home area\n"
                "  resize USER SIZE             Resize a home area\n"
-               "  remove USER…                 Remove a home area\n"
-               "\n%4$sAdvanced User Manipulation Commands:%5$s\n"
-               "  activate USER…               Activate a home area\n"
+               "  remove USER…                 Remove a home area\n");
+
+        help_section("Advanced User Manipulation Commands");
+        printf("  activate USER…               Activate a home area\n"
                "  deactivate USER…             Deactivate a home area\n"
                "  deactivate-all               Deactivate all active home areas\n"
                "  with USER [COMMAND…]         Run shell or command with access to a home area\n"
-               "  authenticate USER…           Authenticate a home area\n"
-               "\n%4$sUser Migration Commands:%5$s\n"
-               "  adopt PATH…                  Add an existing home area on this system\n"
+               "  authenticate USER…           Authenticate a home area\n");
+
+        help_section("User Migration Commands");
+        printf("  adopt PATH…                  Add an existing home area on this system\n"
                "  register PATH…               Register a user record locally\n"
-               "  unregister USER…             Unregister a user record locally\n"
-               "\n%4$sSigning Keys Commands:%5$s\n"
-               "  list-signing-keys            List home signing keys\n"
+               "  unregister USER…             Unregister a user record locally\n");
+
+        help_section("Signing Keys Commands");
+        printf("  list-signing-keys            List home signing keys\n"
                "  get-signing-key [NAME…]      Get a named home signing key\n"
                "  add-signing-key FILE…        Add home signing key\n"
-               "  remove-signing-key NAME…     Remove home signing key\n"
-               "\n%4$sLock/Unlock Commands:%5$s\n"
-               "  lock USER…                   Temporarily lock an active home area\n"
+               "  remove-signing-key NAME…     Remove home signing key\n");
+
+        help_section("Lock/Unlock Commands");
+        printf("  lock USER…                   Temporarily lock an active home area\n"
                "  unlock USER…                 Unlock a temporarily locked home area\n"
-               "  lock-all                     Lock all suitable home areas\n"
-               "\n%4$sOther Commands:%5$s\n"
-               "  rebalance                    Rebalance free space between home areas\n"
-               "  firstboot                    Run first-boot home area creation wizard\n"
-               "\n%4$sOptions:%5$s\n"
-               "  -h --help                    Show this help\n"
-               "     --version                 Show package version\n"
-               "     --no-pager                Do not pipe output into a pager\n"
-               "     --no-legend               Do not show the headers and footers\n"
-               "     --no-ask-password         Do not ask for system passwords\n"
-               "     --offline                 Don't update record embedded in home directory\n"
-               "  -H --host=[USER@]HOST        Operate on remote host\n"
-               "  -M --machine=CONTAINER       Operate on local container\n"
-               "     --identity=PATH           Read JSON identity from file\n"
-               "     --json=FORMAT             Output inspection data in JSON (takes one of\n"
-               "                               pretty, short, off)\n"
-               "  -j                           Equivalent to --json=pretty (on TTY) or\n"
-               "                               --json=short (otherwise)\n"
-               "     --export-format=          Strip JSON inspection data (full, stripped,\n"
-               "                               minimal)\n"
-               "  -E                           When specified once equals -j --export-format=\n"
-               "                               stripped, when specified twice equals\n"
-               "                               -j --export-format=minimal\n"
-               "     --key-name=NAME           Key name when adding a signing key\n"
-               "     --seize=no                Do not strip existing signatures of user record\n"
-               "                               when creating\n"
-               "     --prompt-new-user         firstboot: Query user interactively for user\n"
-               "                               to create\n"
-               "     --prompt-groups=no        In first-boot mode, don't prompt for auxiliary\n"
-               "                               group memberships\n"
-               "     --prompt-shell=no         In first-boot mode, don't prompt for shells\n"
-               "     --chrome=no               In first-boot mode, don't show colour bar at top\n"
-               "                               and bottom of terminal\n"
-               "     --mute-console=yes        In first-boot mode, tell kernel/PID 1 to not\n"
-               "                               write to the console while running\n"
-               "\n%4$sGeneral User Record Properties:%5$s\n"
-               "  -c --real-name=REALNAME      Real name for user\n"
-               "     --realm=REALM             Realm to create user in\n"
-               "     --alias=ALIAS             Define alias usernames for this account\n"
-               "     --email-address=EMAIL     Email address for user\n"
-               "     --location=LOCATION       Set location of user on earth\n"
-               "     --birth-date=[DATE]       Set user birth date (YYYY-MM-DD)\n"
-               "     --icon-name=NAME          Icon name for user\n"
-               "  -d --home-dir=PATH           Home directory\n"
-               "  -u --uid=UID                 Numeric UID for user\n"
-               "  -G --member-of=GROUP         Add user to group\n"
-               "     --capability-bounding-set=CAPS\n"
-               "                               Bounding POSIX capability set\n"
-               "     --capability-ambient-set=CAPS\n"
-               "                               Ambient POSIX capability set\n"
-               "     --access-mode=MODE        User home directory access mode\n"
-               "     --umask=MODE              Umask for user when logging in\n"
-               "     --skel=PATH               Skeleton directory to use\n"
-               "     --shell=PATH              Shell for account\n"
-               "     --setenv=VARIABLE[=VALUE] Set an environment variable at log-in\n"
-               "     --timezone=TIMEZONE       Set a time-zone\n"
-               "     --language=LOCALE         Set preferred languages\n"
-               "     --default-area=AREA       Select default area\n"
-               "\n%4$sAuthentication User Record Properties:%5$s\n"
-               "     --ssh-authorized-keys=KEYS\n"
-               "                               Specify SSH public keys\n"
-               "     --pkcs11-token-uri=URI    URI to PKCS#11 security token containing\n"
-               "                               private key and matching X.509 certificate\n"
-               "     --fido2-device=PATH       Path to FIDO2 hidraw device with hmac-secret\n"
-               "                               extension\n"
-               "     --fido2-with-client-pin=BOOL\n"
-               "                               Whether to require entering a PIN to unlock the\n"
-               "                               account\n"
-               "     --fido2-with-user-presence=BOOL\n"
-               "                               Whether to require user presence to unlock the\n"
-               "                               account\n"
-               "     --fido2-with-user-verification=BOOL\n"
-               "                               Whether to require user verification to unlock\n"
-               "                               the account\n"
-               "     --recovery-key=BOOL       Add a recovery key\n"
-               "\n%4$sBlob Directory User Record Properties:%5$s\n"
-               "  -b --blob=[FILENAME=]PATH\n"
-               "                               Path to a replacement blob directory, or replace\n"
-               "                               an individual files in the blob directory.\n"
-               "     --avatar=PATH             Path to user avatar picture\n"
-               "     --login-background=PATH   Path to user login background picture\n"
-               "\n%4$sAccount Management User Record Properties:%5$s\n"
-               "     --locked=BOOL             Set locked account state\n"
-               "     --not-before=TIMESTAMP    Do not allow logins before\n"
-               "     --not-after=TIMESTAMP     Do not allow logins after\n"
-               "     --rate-limit-interval=SECS\n"
-               "                               Login rate-limit interval in seconds\n"
-               "     --rate-limit-burst=NUMBER\n"
-               "                               Login rate-limit attempts per interval\n"
-               "\n%4$sPassword Policy User Record Properties:%5$s\n"
-               "     --password-hint=HINT      Set Password hint\n"
-               "     --enforce-password-policy=BOOL\n"
-               "                               Control whether to enforce system's password\n"
-               "                               policy for this user\n"
-               "  -P                           Same as --enforce-password-policy=no\n"
-               "     --password-change-now=BOOL\n"
-               "                               Require the password to be changed on next login\n"
-               "     --password-change-min=TIME\n"
-               "                               Require minimum time between password changes\n"
-               "     --password-change-max=TIME\n"
-               "                               Require maximum time between password changes\n"
-               "     --password-change-warn=TIME\n"
-               "                               How much time to warn before password expiry\n"
-               "     --password-change-inactive=TIME\n"
-               "                               How much time to block password after expiry\n"
-               "\n%4$sResource Management User Record Properties:%5$s\n"
-               "     --disk-size=BYTES         Size to assign the user on disk\n"
-               "     --nice=NICE               Nice level for user\n"
-               "     --rlimit=LIMIT=VALUE[:VALUE]\n"
-               "                               Set resource limits\n"
-               "     --tasks-max=MAX           Set maximum number of per-user tasks\n"
-               "     --memory-high=BYTES       Set high memory threshold in bytes\n"
-               "     --memory-max=BYTES        Set maximum memory limit\n"
-               "     --cpu-weight=WEIGHT       Set CPU weight\n"
-               "     --io-weight=WEIGHT        Set IO weight\n"
-               "     --tmp-limit=BYTES|PERCENT Set limit on /tmp/\n"
-               "     --dev-shm-limit=BYTES|PERCENT\n"
-               "                               Set limit on /dev/shm/\n"
-               "\n%4$sStorage User Record Properties:%5$s\n"
-               "     --storage=STORAGE         Storage type to use (luks, fscrypt, directory,\n"
-               "                               subvolume, cifs)\n"
-               "     --image-path=PATH         Path to image file/directory\n"
-               "     --drop-caches=BOOL        Whether to automatically drop caches on logout\n"
-               "\n%4$sLUKS Storage User Record Properties:%5$s\n"
-               "     --fs-type=TYPE            File system type to use in case of luks\n"
-               "                               storage (btrfs, ext4, xfs)\n"
-               "     --luks-discard=BOOL       Whether to use 'discard' feature of file system\n"
-               "                               when activated (mounted)\n"
-               "     --luks-offline-discard=BOOL\n"
-               "                               Whether to trim file on logout\n"
-               "     --luks-cipher=CIPHER      Cipher to use for LUKS encryption\n"
-               "     --luks-cipher-mode=MODE   Cipher mode to use for LUKS encryption\n"
-               "     --luks-volume-key-size=BITS\n"
-               "                               Volume key size to use for LUKS encryption\n"
-               "     --luks-pbkdf-type=TYPE    Password-based Key Derivation Function to use\n"
-               "     --luks-pbkdf-hash-algorithm=ALGORITHM\n"
-               "                               PBKDF hash algorithm to use\n"
-               "     --luks-pbkdf-time-cost=SECS\n"
-               "                               Time cost for PBKDF in seconds\n"
-               "     --luks-pbkdf-memory-cost=BYTES\n"
-               "                               Memory cost for PBKDF in bytes\n"
-               "     --luks-pbkdf-parallel-threads=NUMBER\n"
-               "                               Number of parallel threads for PKBDF\n"
-               "     --luks-sector-size=BYTES\n"
-               "                               Sector size for LUKS encryption in bytes\n"
-               "     --luks-extra-mount-options=OPTIONS\n"
-               "                               LUKS extra mount options\n"
-               "     --auto-resize-mode=MODE   Automatically grow/shrink home on login/logout\n"
-               "     --rebalance-weight=WEIGHT Weight while rebalancing\n"
-               "\n%4$sMounting User Record Properties:%5$s\n"
-               "     --nosuid=BOOL             Control the 'nosuid' flag of the home mount\n"
-               "     --nodev=BOOL              Control the 'nodev' flag of the home mount\n"
-               "     --noexec=BOOL             Control the 'noexec' flag of the home mount\n"
-               "\n%4$sCIFS User Record Properties:%5$s\n"
-               "     --cifs-domain=DOMAIN      CIFS (Windows) domain\n"
-               "     --cifs-user-name=USER     CIFS (Windows) user name\n"
-               "     --cifs-service=SERVICE    CIFS (Windows) service to mount as home area\n"
-               "     --cifs-extra-mount-options=OPTIONS\n"
-               "                               CIFS (Windows) extra mount options\n"
-               "\n%4$sLogin Behaviour User Record Properties:%5$s\n"
-               "     --stop-delay=SECS         How long to leave user services running after\n"
-               "                               logout\n"
-               "     --kill-processes=BOOL     Whether to kill user processes when sessions\n"
-               "                               terminate\n"
-               "     --auto-login=BOOL         Try to log this user in automatically\n"
-               "     --session-launcher=LAUNCHER\n"
-               "                               Preferred session launcher file\n"
-               "     --session-type=TYPE       Preferred session type\n"
-               "\nSee the %6$s for details.\n",
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal(),
-               ansi_underline(),
-               ansi_normal(),
-               link);
+               "  lock-all                     Lock all suitable home areas\n");
+
+        help_section("Other Commands");
+        printf("  rebalance                    Rebalance free space between home areas\n"
+               "  firstboot                    Run first-boot home area creation wizard\n");
+
+        help_section("Options");
+        r = table_print_or_warn(tables[0]);
+        if (r < 0)
+                return r;
+
+        for (size_t i = 1; i < ELEMENTSOF(groups); i++) {
+                help_section(groups[i]);
+                r = table_print_or_warn(tables[i]);
+                if (r < 0)
+                        return r;
+        }
+
+        help_man_page_reference("homectl", "1");
 
         return 0;
 }
@@ -4137,214 +4010,8 @@ static int verb_help(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return help();
 }
 
-static int parse_argv(int argc, char *argv[]) {
+static int parse_argv(int argc, char *argv[], char ***remaining_args) {
         _cleanup_strv_free_ char **arg_languages = NULL;
-
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_NO_PAGER,
-                ARG_NO_LEGEND,
-                ARG_NO_ASK_PASSWORD,
-                ARG_OFFLINE,
-                ARG_REALM,
-                ARG_ALIAS,
-                ARG_EMAIL_ADDRESS,
-                ARG_DISK_SIZE,
-                ARG_ACCESS_MODE,
-                ARG_STORAGE,
-                ARG_FS_TYPE,
-                ARG_IMAGE_PATH,
-                ARG_UMASK,
-                ARG_LUKS_DISCARD,
-                ARG_LUKS_OFFLINE_DISCARD,
-                ARG_JSON,
-                ARG_SETENV,
-                ARG_TIMEZONE,
-                ARG_LANGUAGE,
-                ARG_LOCKED,
-                ARG_SSH_AUTHORIZED_KEYS,
-                ARG_LOCATION,
-                ARG_BIRTH_DATE,
-                ARG_ICON_NAME,
-                ARG_PASSWORD_HINT,
-                ARG_NICE,
-                ARG_RLIMIT,
-                ARG_NOT_BEFORE,
-                ARG_NOT_AFTER,
-                ARG_LUKS_CIPHER,
-                ARG_LUKS_CIPHER_MODE,
-                ARG_LUKS_VOLUME_KEY_SIZE,
-                ARG_NOSUID,
-                ARG_NODEV,
-                ARG_NOEXEC,
-                ARG_CIFS_DOMAIN,
-                ARG_CIFS_USER_NAME,
-                ARG_CIFS_SERVICE,
-                ARG_CIFS_EXTRA_MOUNT_OPTIONS,
-                ARG_TASKS_MAX,
-                ARG_MEMORY_HIGH,
-                ARG_MEMORY_MAX,
-                ARG_CPU_WEIGHT,
-                ARG_IO_WEIGHT,
-                ARG_LUKS_PBKDF_TYPE,
-                ARG_LUKS_PBKDF_HASH_ALGORITHM,
-                ARG_LUKS_PBKDF_FORCE_ITERATIONS,
-                ARG_LUKS_PBKDF_TIME_COST,
-                ARG_LUKS_PBKDF_MEMORY_COST,
-                ARG_LUKS_PBKDF_PARALLEL_THREADS,
-                ARG_LUKS_SECTOR_SIZE,
-                ARG_RATE_LIMIT_INTERVAL,
-                ARG_RATE_LIMIT_BURST,
-                ARG_STOP_DELAY,
-                ARG_KILL_PROCESSES,
-                ARG_ENFORCE_PASSWORD_POLICY,
-                ARG_PASSWORD_CHANGE_NOW,
-                ARG_PASSWORD_CHANGE_MIN,
-                ARG_PASSWORD_CHANGE_MAX,
-                ARG_PASSWORD_CHANGE_WARN,
-                ARG_PASSWORD_CHANGE_INACTIVE,
-                ARG_EXPORT_FORMAT,
-                ARG_AUTO_LOGIN,
-                ARG_SESSION_LAUNCHER,
-                ARG_SESSION_TYPE,
-                ARG_PKCS11_TOKEN_URI,
-                ARG_FIDO2_DEVICE,
-                ARG_FIDO2_WITH_PIN,
-                ARG_FIDO2_WITH_UP,
-                ARG_FIDO2_WITH_UV,
-                ARG_RECOVERY_KEY,
-                ARG_DROP_CACHES,
-                ARG_LUKS_EXTRA_MOUNT_OPTIONS,
-                ARG_AUTO_RESIZE_MODE,
-                ARG_REBALANCE_WEIGHT,
-                ARG_FIDO2_CRED_ALG,
-                ARG_CAPABILITY_BOUNDING_SET,
-                ARG_CAPABILITY_AMBIENT_SET,
-                ARG_PROMPT_NEW_USER,
-                ARG_AVATAR,
-                ARG_LOGIN_BACKGROUND,
-                ARG_TMP_LIMIT,
-                ARG_DEV_SHM_LIMIT,
-                ARG_DEFAULT_AREA,
-                ARG_KEY_NAME,
-                ARG_SEIZE,
-                ARG_MATCH,
-                ARG_PROMPT_SHELL,
-                ARG_PROMPT_GROUPS,
-                ARG_CHROME,
-                ARG_MUTE_CONSOLE,
-        };
-
-        static const struct option options[] = {
-                { "help",                         no_argument,       NULL, 'h'                             },
-                { "version",                      no_argument,       NULL, ARG_VERSION                     },
-                { "no-pager",                     no_argument,       NULL, ARG_NO_PAGER                    },
-                { "no-legend",                    no_argument,       NULL, ARG_NO_LEGEND                   },
-                { "no-ask-password",              no_argument,       NULL, ARG_NO_ASK_PASSWORD             },
-                { "offline",                      no_argument,       NULL, ARG_OFFLINE                     },
-                { "host",                         required_argument, NULL, 'H'                             },
-                { "machine",                      required_argument, NULL, 'M'                             },
-                { "identity",                     required_argument, NULL, 'I'                             },
-                { "real-name",                    required_argument, NULL, 'c'                             },
-                { "comment",                      required_argument, NULL, 'c'                             }, /* Compat alias to keep thing in sync with useradd(8) */
-                { "realm",                        required_argument, NULL, ARG_REALM                       },
-                { "alias",                        required_argument, NULL, ARG_ALIAS                       },
-                { "email-address",                required_argument, NULL, ARG_EMAIL_ADDRESS               },
-                { "location",                     required_argument, NULL, ARG_LOCATION                    },
-                { "birth-date",                   required_argument, NULL, ARG_BIRTH_DATE                  },
-                { "password-hint",                required_argument, NULL, ARG_PASSWORD_HINT               },
-                { "icon-name",                    required_argument, NULL, ARG_ICON_NAME                   },
-                { "home-dir",                     required_argument, NULL, 'd'                             }, /* Compatible with useradd(8) */
-                { "uid",                          required_argument, NULL, 'u'                             }, /* Compatible with useradd(8) */
-                { "member-of",                    required_argument, NULL, 'G'                             },
-                { "groups",                       required_argument, NULL, 'G'                             }, /* Compat alias to keep thing in sync with useradd(8) */
-                { "skel",                         required_argument, NULL, 'k'                             }, /* Compatible with useradd(8) */
-                { "shell",                        required_argument, NULL, 's'                             }, /* Compatible with useradd(8) */
-                { "setenv",                       required_argument, NULL, ARG_SETENV                      },
-                { "timezone",                     required_argument, NULL, ARG_TIMEZONE                    },
-                { "language",                     required_argument, NULL, ARG_LANGUAGE                    },
-                { "locked",                       required_argument, NULL, ARG_LOCKED                      },
-                { "not-before",                   required_argument, NULL, ARG_NOT_BEFORE                  },
-                { "not-after",                    required_argument, NULL, ARG_NOT_AFTER                   },
-                { "expiredate",                   required_argument, NULL, 'e'                             }, /* Compat alias to keep thing in sync with useradd(8) */
-                { "ssh-authorized-keys",          required_argument, NULL, ARG_SSH_AUTHORIZED_KEYS         },
-                { "disk-size",                    required_argument, NULL, ARG_DISK_SIZE                   },
-                { "access-mode",                  required_argument, NULL, ARG_ACCESS_MODE                 },
-                { "umask",                        required_argument, NULL, ARG_UMASK                       },
-                { "nice",                         required_argument, NULL, ARG_NICE                        },
-                { "rlimit",                       required_argument, NULL, ARG_RLIMIT                      },
-                { "tasks-max",                    required_argument, NULL, ARG_TASKS_MAX                   },
-                { "memory-high",                  required_argument, NULL, ARG_MEMORY_HIGH                 },
-                { "memory-max",                   required_argument, NULL, ARG_MEMORY_MAX                  },
-                { "cpu-weight",                   required_argument, NULL, ARG_CPU_WEIGHT                  },
-                { "io-weight",                    required_argument, NULL, ARG_IO_WEIGHT                   },
-                { "storage",                      required_argument, NULL, ARG_STORAGE                     },
-                { "image-path",                   required_argument, NULL, ARG_IMAGE_PATH                  },
-                { "fs-type",                      required_argument, NULL, ARG_FS_TYPE                     },
-                { "luks-discard",                 required_argument, NULL, ARG_LUKS_DISCARD                },
-                { "luks-offline-discard",         required_argument, NULL, ARG_LUKS_OFFLINE_DISCARD        },
-                { "luks-cipher",                  required_argument, NULL, ARG_LUKS_CIPHER                 },
-                { "luks-cipher-mode",             required_argument, NULL, ARG_LUKS_CIPHER_MODE            },
-                { "luks-volume-key-size",         required_argument, NULL, ARG_LUKS_VOLUME_KEY_SIZE        },
-                { "luks-pbkdf-type",              required_argument, NULL, ARG_LUKS_PBKDF_TYPE             },
-                { "luks-pbkdf-hash-algorithm",    required_argument, NULL, ARG_LUKS_PBKDF_HASH_ALGORITHM   },
-                { "luks-pbkdf-force-iterations",  required_argument, NULL, ARG_LUKS_PBKDF_FORCE_ITERATIONS },
-                { "luks-pbkdf-time-cost",         required_argument, NULL, ARG_LUKS_PBKDF_TIME_COST        },
-                { "luks-pbkdf-memory-cost",       required_argument, NULL, ARG_LUKS_PBKDF_MEMORY_COST      },
-                { "luks-pbkdf-parallel-threads",  required_argument, NULL, ARG_LUKS_PBKDF_PARALLEL_THREADS },
-                { "luks-sector-size",             required_argument, NULL, ARG_LUKS_SECTOR_SIZE            },
-                { "nosuid",                       required_argument, NULL, ARG_NOSUID                      },
-                { "nodev",                        required_argument, NULL, ARG_NODEV                       },
-                { "noexec",                       required_argument, NULL, ARG_NOEXEC                      },
-                { "cifs-user-name",               required_argument, NULL, ARG_CIFS_USER_NAME              },
-                { "cifs-domain",                  required_argument, NULL, ARG_CIFS_DOMAIN                 },
-                { "cifs-service",                 required_argument, NULL, ARG_CIFS_SERVICE                },
-                { "cifs-extra-mount-options",     required_argument, NULL, ARG_CIFS_EXTRA_MOUNT_OPTIONS    },
-                { "rate-limit-interval",          required_argument, NULL, ARG_RATE_LIMIT_INTERVAL         },
-                { "rate-limit-burst",             required_argument, NULL, ARG_RATE_LIMIT_BURST            },
-                { "stop-delay",                   required_argument, NULL, ARG_STOP_DELAY                  },
-                { "kill-processes",               required_argument, NULL, ARG_KILL_PROCESSES              },
-                { "enforce-password-policy",      required_argument, NULL, ARG_ENFORCE_PASSWORD_POLICY     },
-                { "password-change-now",          required_argument, NULL, ARG_PASSWORD_CHANGE_NOW         },
-                { "password-change-min",          required_argument, NULL, ARG_PASSWORD_CHANGE_MIN         },
-                { "password-change-max",          required_argument, NULL, ARG_PASSWORD_CHANGE_MAX         },
-                { "password-change-warn",         required_argument, NULL, ARG_PASSWORD_CHANGE_WARN        },
-                { "password-change-inactive",     required_argument, NULL, ARG_PASSWORD_CHANGE_INACTIVE    },
-                { "auto-login",                   required_argument, NULL, ARG_AUTO_LOGIN                  },
-                { "session-launcher",             required_argument, NULL, ARG_SESSION_LAUNCHER,           },
-                { "session-type",                 required_argument, NULL, ARG_SESSION_TYPE,               },
-                { "json",                         required_argument, NULL, ARG_JSON                        },
-                { "export-format",                required_argument, NULL, ARG_EXPORT_FORMAT               },
-                { "pkcs11-token-uri",             required_argument, NULL, ARG_PKCS11_TOKEN_URI            },
-                { "fido2-credential-algorithm",   required_argument, NULL, ARG_FIDO2_CRED_ALG              },
-                { "fido2-device",                 required_argument, NULL, ARG_FIDO2_DEVICE                },
-                { "fido2-with-client-pin",        required_argument, NULL, ARG_FIDO2_WITH_PIN              },
-                { "fido2-with-user-presence",     required_argument, NULL, ARG_FIDO2_WITH_UP               },
-                { "fido2-with-user-verification", required_argument, NULL, ARG_FIDO2_WITH_UV               },
-                { "recovery-key",                 required_argument, NULL, ARG_RECOVERY_KEY                },
-                { "drop-caches",                  required_argument, NULL, ARG_DROP_CACHES                 },
-                { "luks-extra-mount-options",     required_argument, NULL, ARG_LUKS_EXTRA_MOUNT_OPTIONS    },
-                { "auto-resize-mode",             required_argument, NULL, ARG_AUTO_RESIZE_MODE            },
-                { "rebalance-weight",             required_argument, NULL, ARG_REBALANCE_WEIGHT            },
-                { "capability-bounding-set",      required_argument, NULL, ARG_CAPABILITY_BOUNDING_SET     },
-                { "capability-ambient-set",       required_argument, NULL, ARG_CAPABILITY_AMBIENT_SET      },
-                { "prompt-new-user",              no_argument,       NULL, ARG_PROMPT_NEW_USER             },
-                { "blob",                         required_argument, NULL, 'b'                             },
-                { "avatar",                       required_argument, NULL, ARG_AVATAR                      },
-                { "login-background",             required_argument, NULL, ARG_LOGIN_BACKGROUND            },
-                { "tmp-limit",                    required_argument, NULL, ARG_TMP_LIMIT                   },
-                { "dev-shm-limit",                required_argument, NULL, ARG_DEV_SHM_LIMIT               },
-                { "default-area",                 required_argument, NULL, ARG_DEFAULT_AREA                },
-                { "key-name",                     required_argument, NULL, ARG_KEY_NAME                    },
-                { "seize",                        required_argument, NULL, ARG_SEIZE                       },
-                { "match",                        required_argument, NULL, ARG_MATCH                       },
-                { "prompt-shell",                 required_argument, NULL, ARG_PROMPT_SHELL                },
-                { "prompt-groups",                required_argument, NULL, ARG_PROMPT_GROUPS               },
-                { "chrome",                       required_argument, NULL, ARG_CHROME                      },
-                { "mute-console",                 required_argument, NULL, ARG_MUTE_CONSOLE                },
-                {}
-        };
-
         int r;
 
         /* This points to one of arg_identity_extra, arg_identity_extra_this_machine,
@@ -4354,6 +4021,7 @@ static int parse_argv(int argc, char *argv[]) {
 
         assert(argc >= 0);
         assert(argv);
+        assert(remaining_args);
 
         /* Eventually we should probably turn this into a proper --dry-run option, but as long as it is not
          * hooked up everywhere let's make it an environment variable only. */
@@ -4363,62 +4031,59 @@ static int parse_argv(int argc, char *argv[]) {
         else if (r != -ENXIO)
                 log_debug_errno(r, "Unable to parse $SYSTEMD_HOME_DRY_RUN, ignoring: %m");
 
-        for (;;) {
-                int c;
+        OptionParser opts = { argc, argv };
 
-                c = getopt_long(argc, argv, "hH:M:I:c:d:u:G:k:s:e:b:jPENAT", options, NULL);
-                if (c < 0)
-                        break;
-
+        FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
 
-                case 'h':
+                OPTION_COMMON_HELP:
                         return help();
 
-                case ARG_VERSION:
+                OPTION_COMMON_VERSION:
                         return version();
 
-                case ARG_OFFLINE:
+                OPTION_LONG("offline", NULL, "Don't update record embedded in home directory"):
                         arg_offline = true;
                         break;
 
-                case 'H':
+                OPTION_COMMON_HOST:
                         arg_transport = BUS_TRANSPORT_REMOTE;
-                        arg_host = optarg;
+                        arg_host = opts.arg;
                         break;
 
-                case 'M':
-                        r = parse_machine_argument(optarg, &arg_host, &arg_transport);
+                OPTION_COMMON_MACHINE:
+                        r = parse_machine_argument(opts.arg, &arg_host, &arg_transport);
                         if (r < 0)
                                 return r;
                         break;
 
-                case 'I':
-                        arg_identity = optarg;
+                OPTION('I', "identity", "PATH", "Read JSON identity from file"):
+                        arg_identity = opts.arg;
                         break;
 
-                case ARG_JSON:
-                        r = parse_json_argument(optarg, &arg_json_format_flags);
+                OPTION_COMMON_JSON:
+                        r = parse_json_argument(opts.arg, &arg_json_format_flags);
                         if (r <= 0)
                                 return r;
-
                         break;
 
-                case 'j':
+                OPTION_COMMON_LOWERCASE_J:
                         arg_json_format_flags = SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO;
                         break;
 
-                case ARG_EXPORT_FORMAT:
-                        if (streq(optarg, "help"))
+                OPTION_LONG("export-format", "FORMAT",
+                            "Strip JSON inspection data (full, stripped, minimal)"):
+                        if (streq(opts.arg, "help"))
                                 return DUMP_STRING_TABLE(export_format, ExportFormat, _EXPORT_FORMAT_MAX);
 
-                        arg_export_format = export_format_from_string(optarg);
+                        arg_export_format = export_format_from_string(opts.arg);
                         if (arg_export_format < 0)
-                                return log_error_errno(arg_export_format, "Invalid export format: %s", optarg);
+                                return log_error_errno(arg_export_format, "Invalid export format: %s", opts.arg);
 
                         break;
 
-                case 'E':
+                OPTION_SHORT('E', NULL, "Same as -j --export-format=stripped"): {}
+                OPTION_HELP_VERBATIM("-EE", "Same as -j --export-format=minimal"):
                         if (arg_export_format == EXPORT_FORMAT_FULL)
                                 arg_export_format = EXPORT_FORMAT_STRIPPED;
                         else if (arg_export_format == EXPORT_FORMAT_STRIPPED)
@@ -4431,259 +4096,272 @@ static int parse_argv(int argc, char *argv[]) {
                                 arg_json_format_flags = SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO;
                         break;
 
-                case ARG_KEY_NAME:
-                        if (!isempty(optarg) && !filename_is_valid(optarg))
+                OPTION_LONG("key-name", "NAME", "Key name when adding a signing key"):
+                        if (!isempty(opts.arg) && !filename_is_valid(opts.arg))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Parameter for --key-name= not a valid filename: %s", optarg);
+                                                       "Parameter for --key-name= not a valid filename: %s", opts.arg);
 
-                        r = free_and_strdup_warn(&arg_key_name, empty_to_null(optarg));
+                        r = free_and_strdup_warn(&arg_key_name, empty_to_null(opts.arg));
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_SEIZE:
-                        r = parse_boolean_argument("--seize=", optarg, &arg_seize);
+                OPTION_LONG("seize", "BOOL",
+                            "Whether to strip existing signatures of user record when creating"):
+                        r = parse_boolean_argument("--seize=", opts.arg, &arg_seize);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_PROMPT_NEW_USER:
+                OPTION_LONG("prompt-new-user", NULL,
+                            "firstboot: Query user interactively for user to create"):
                         arg_prompt_new_user = true;
                         break;
 
-                case ARG_PROMPT_GROUPS:
-                        r = parse_boolean_argument("--prompt-groups=", optarg, &arg_prompt_groups);
+                OPTION_LONG("prompt-groups", "BOOL",
+                            "In first-boot mode, don't prompt for auxiliary group memberships"):
+                        r = parse_boolean_argument("--prompt-groups=", opts.arg, &arg_prompt_groups);
                         if (r < 0)
                                 return r;
-
                         break;
 
-                case ARG_PROMPT_SHELL:
-                        r = parse_boolean_argument("--prompt-shell=", optarg, &arg_prompt_shell);
+                OPTION_LONG("prompt-shell", "BOOL",
+                            "In first-boot mode, don't prompt for shells"):
+                        r = parse_boolean_argument("--prompt-shell=", opts.arg, &arg_prompt_shell);
                         if (r < 0)
                                 return r;
-
                         break;
 
-                case ARG_CHROME:
-                        r = parse_boolean_argument("--chrome=", optarg, &arg_chrome);
+                OPTION_LONG("chrome", "BOOL",
+                            "In first-boot mode, don't show colour bar at top and bottom of terminal"):
+                        r = parse_boolean_argument("--chrome=", opts.arg, &arg_chrome);
                         if (r < 0)
                                 return r;
-
                         break;
 
-                case ARG_MUTE_CONSOLE:
-                        r = parse_boolean_argument("--mute-console=", optarg, &arg_mute_console);
+                OPTION_LONG("mute-console", "BOOL",
+                            "In first-boot mode, tell kernel/PID 1 to not write to the console while running"):
+                        r = parse_boolean_argument("--mute-console=", opts.arg, &arg_mute_console);
                         if (r < 0)
                                 return r;
-
                         break;
 
-                case ARG_NO_PAGER:
+                OPTION_COMMON_NO_PAGER:
                         arg_pager_flags |= PAGER_DISABLE;
                         break;
 
-                case ARG_NO_LEGEND:
+                OPTION_COMMON_NO_LEGEND:
                         arg_legend = false;
                         break;
 
-                case ARG_NO_ASK_PASSWORD:
+                OPTION_COMMON_NO_ASK_PASSWORD:
                         arg_ask_password = false;
                         break;
 
-                case 'c':
-                        if (!isempty(optarg) && !valid_gecos(optarg))
+                OPTION_GROUP("General User Record Properties"): {}
+
+                OPTION('c', "real-name", "REALNAME", "Real name for user"): {}
+                OPTION_LONG("comment", "REALNAME", /* help= */ NULL): /* Compat alias to keep things in sync with useradd(8) */
+                        if (!isempty(opts.arg) && !valid_gecos(opts.arg))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Invalid GECOS field '%s'.", optarg);
+                                                       "Invalid GECOS field '%s'.", opts.arg);
 
-                        r = parse_string_field(match_identity ?: &arg_identity_extra, "realName", optarg);
+                        r = parse_string_field(match_identity ?: &arg_identity_extra, "realName", opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_REALM:
-                        r = parse_realm_field(&arg_identity_extra, "realm", optarg);
+                OPTION_LONG("realm", "REALM", "Realm to create user in"):
+                        r = parse_realm_field(&arg_identity_extra, "realm", opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_ALIAS:
-                        r = parse_group_field(&arg_identity_extra, "aliases", optarg);
+                OPTION_LONG("alias", "ALIAS", "Define alias usernames for this account"):
+                        r = parse_group_field(&arg_identity_extra, "aliases", opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_EMAIL_ADDRESS:
-                        r = parse_string_field(match_identity ?: &arg_identity_extra, "emailAddress", optarg);
+                OPTION_LONG("email-address", "EMAIL", "Email address for user"):
+                        r = parse_string_field(match_identity ?: &arg_identity_extra, "emailAddress", opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_LOCATION:
-                        r = parse_string_field(match_identity ?: &arg_identity_extra, "location", optarg);
+                OPTION_LONG("location", "LOCATION", "Set location of user on earth"):
+                        r = parse_string_field(match_identity ?: &arg_identity_extra, "location", opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_BIRTH_DATE:
-                        if (isempty(optarg)) {
+                OPTION_LONG_FLAGS(OPTION_OPTIONAL_ARG, "birth-date", "DATE",
+                                  "Set user birth date (YYYY-MM-DD)"):
+                        if (isempty(opts.arg)) {
                                 r = drop_from_identity("birthDate");
                                 if (r < 0)
                                         return r;
                         } else {
-                                r = parse_birth_date(optarg, /* ret= */ NULL);
+                                r = parse_birth_date(opts.arg, /* ret= */ NULL);
                                 if (r < 0)
-                                        return log_error_errno(r, "Invalid birth date (expected YYYY-MM-DD): %s", optarg);
+                                        return log_error_errno(r, "Invalid birth date (expected YYYY-MM-DD): %s", opts.arg);
 
-                                r = parse_string_field(&arg_identity_extra, "birthDate", optarg);
+                                r = parse_string_field(&arg_identity_extra, "birthDate", opts.arg);
                                 if (r < 0)
                                         return r;
                         }
                         break;
 
-                case ARG_ICON_NAME:
-                        r = parse_string_field(match_identity ?: &arg_identity_extra, "iconName", optarg);
+                OPTION_LONG("icon-name", "NAME", "Icon name for user"):
+                        r = parse_string_field(match_identity ?: &arg_identity_extra, "iconName", opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case 'd':
-                        r = parse_home_directory_field(&arg_identity_extra, "homeDirectory", optarg);
+                OPTION('d', "home-dir", "PATH", "Home directory"): /* Compatible with useradd(8) */
+                        r = parse_home_directory_field(&arg_identity_extra, "homeDirectory", opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case 'u':
-                        r = parse_uid_field(&arg_identity_extra, "uid", optarg);
+                OPTION('u', "uid", "UID", "Numeric UID for user"): /* Compatible with useradd(8) */
+                        r = parse_uid_field(&arg_identity_extra, "uid", opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case 'G':
-                        r = parse_group_field(match_identity ?: &arg_identity_extra, "memberOf", optarg);
+                OPTION('G', "member-of", "GROUP", "Add user to group"): {}
+                OPTION_LONG("groups", "GROUP", /* help= */ NULL): /* Compat alias to keep things in sync with useradd(8) */
+                        r = parse_group_field(match_identity ?: &arg_identity_extra, "memberOf", opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_CAPABILITY_BOUNDING_SET:
+                OPTION_LONG("capability-bounding-set", "CAPS", "Bounding POSIX capability set"):
                         r = parse_capability_set_field(match_identity ?: &arg_identity_extra,
                                                        &arg_capability_bounding_set,
-                                                       "capabilityBoundingSet", optarg);
+                                                       "capabilityBoundingSet", opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_CAPABILITY_AMBIENT_SET:
+                OPTION_LONG("capability-ambient-set", "CAPS", "Ambient POSIX capability set"):
                         r = parse_capability_set_field(match_identity ?: &arg_identity_extra,
                                                        &arg_capability_ambient_set,
-                                                       "capabilityAmbientSet", optarg);
+                                                       "capabilityAmbientSet", opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_ACCESS_MODE:
-                        r = parse_mode_field(&arg_identity_extra, "accessMode", optarg);
+                OPTION_LONG("access-mode", "MODE", "User home directory access mode"):
+                        r = parse_mode_field(&arg_identity_extra, "accessMode", opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_UMASK:
-                        r = parse_mode_field(match_identity ?: &arg_identity_extra, "umask", optarg);
+                OPTION_LONG("umask", "MODE", "Umask for user when logging in"):
+                        r = parse_mode_field(match_identity ?: &arg_identity_extra, "umask", opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case 'k':
-                        r = parse_path_field(match_identity ?: &arg_identity_extra_this_machine, "skeletonDirectory", optarg);
+                OPTION('k', "skel", "PATH", "Skeleton directory to use"): /* Compatible with useradd(8) */
+                        r = parse_path_field(match_identity ?: &arg_identity_extra_this_machine, "skeletonDirectory", opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case 's':
-                        if (!isempty(optarg) && !valid_shell(optarg))
+                OPTION('s', "shell", "PATH", "Shell for account"): /* Compatible with useradd(8) */
+                        if (!isempty(opts.arg) && !valid_shell(opts.arg))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Shell '%s' not valid.", optarg);
+                                                       "Shell '%s' not valid.", opts.arg);
 
-                        r = parse_string_field(match_identity ?: &arg_identity_extra, "shell", optarg);
+                        r = parse_string_field(match_identity ?: &arg_identity_extra, "shell", opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_SETENV:
-                        r = parse_environment_field(match_identity ?: &arg_identity_extra, "environment", optarg);
+                OPTION_LONG("setenv", "VARIABLE[=VALUE]", "Set an environment variable at log-in"):
+                        r = parse_environment_field(match_identity ?: &arg_identity_extra, "environment", opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_TIMEZONE:
-                        if (!isempty(optarg) && !timezone_is_valid(optarg, LOG_DEBUG))
+                OPTION_LONG("timezone", "TIMEZONE", "Set a time-zone"):
+                        if (!isempty(opts.arg) && !timezone_is_valid(opts.arg, LOG_DEBUG))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Timezone '%s' is not valid.", optarg);
+                                                       "Timezone '%s' is not valid.", opts.arg);
 
-                        r = parse_string_field(match_identity ?: &arg_identity_extra, "timeZone", optarg);
+                        r = parse_string_field(match_identity ?: &arg_identity_extra, "timeZone", opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_LANGUAGE:
-                        r = parse_language_field(&arg_languages, optarg);
+                OPTION_LONG("language", "LOCALE", "Set preferred languages"):
+                        r = parse_language_field(&arg_languages, opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_DEFAULT_AREA:
-                        r = parse_filename_field(match_identity ?: &arg_identity_extra, "defaultArea", optarg);
+                OPTION_LONG("default-area", "AREA", "Select default area"):
+                        r = parse_filename_field(match_identity ?: &arg_identity_extra, "defaultArea", opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_SSH_AUTHORIZED_KEYS:
-                        r = parse_ssh_authorized_keys(&arg_identity_extra_privileged, "sshAuthorizedKeys", optarg);
+                OPTION_GROUP("Authentication User Record Properties"): {}
+
+                OPTION_LONG("ssh-authorized-keys", "KEYS", "Specify SSH public keys"):
+                        r = parse_ssh_authorized_keys(&arg_identity_extra_privileged, "sshAuthorizedKeys", opts.arg);
                         if (r < 0)
                                 return r;
-
                         break;
 
-                case ARG_PKCS11_TOKEN_URI:
-                        r = parse_pkcs11_token_uri_field(optarg);
+                OPTION_LONG("pkcs11-token-uri", "URI",
+                            "URI to PKCS#11 security token containing private key and matching X.509 certificate"):
+                        r = parse_pkcs11_token_uri_field(opts.arg);
                         if (r <= 0)
                                 return r;
                         break;
 
-                case ARG_FIDO2_DEVICE:
-                        r = parse_fido2_device_field(optarg);
+                OPTION_LONG("fido2-device", "PATH",
+                            "Path to FIDO2 hidraw device with hmac-secret extension"):
+                        r = parse_fido2_device_field(opts.arg);
                         if (r <= 0)
                                 return r;
                         break;
 
-                case ARG_FIDO2_WITH_PIN:
-                        r = parse_boolean_argument("--fido2-with-client-pin=", optarg, NULL);
+                OPTION_LONG("fido2-with-client-pin", "BOOL",
+                            "Whether to require entering a PIN to unlock the account"):
+                        r = parse_boolean_argument("--fido2-with-client-pin=", opts.arg, NULL);
                         if (r < 0)
                                 return r;
 
                         SET_FLAG(arg_fido2_lock_with, FIDO2ENROLL_PIN, r);
                         break;
 
-                case ARG_FIDO2_WITH_UP:
-                        r = parse_boolean_argument("--fido2-with-user-presence=", optarg, NULL);
+                OPTION_LONG("fido2-with-user-presence", "BOOL",
+                            "Whether to require user presence to unlock the account"):
+                        r = parse_boolean_argument("--fido2-with-user-presence=", opts.arg, NULL);
                         if (r < 0)
                                 return r;
 
                         SET_FLAG(arg_fido2_lock_with, FIDO2ENROLL_UP, r);
                         break;
 
-                case ARG_FIDO2_WITH_UV:
-                        r = parse_boolean_argument("--fido2-with-user-verification=", optarg, NULL);
+                OPTION_LONG("fido2-with-user-verification", "BOOL",
+                            "Whether to require user verification to unlock the account"):
+                        r = parse_boolean_argument("--fido2-with-user-verification=", opts.arg, NULL);
                         if (r < 0)
                                 return r;
 
                         SET_FLAG(arg_fido2_lock_with, FIDO2ENROLL_UV, r);
                         break;
 
-                case ARG_RECOVERY_KEY:
-                        r = parse_boolean(optarg);
+                OPTION_LONG("recovery-key", "BOOL", "Add a recovery key"):
+                        r = parse_boolean(opts.arg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --recovery-key= argument: %s", optarg);
+                                return log_error_errno(r, "Failed to parse --recovery-key= argument: %s", opts.arg);
                         arg_recovery_key = r;
 
                         r = drop_from_identity("recoveryKey", "recoveryKeyType");
@@ -4691,37 +4369,41 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         break;
 
-                case 'b':
-                case ARG_AVATAR:
-                case ARG_LOGIN_BACKGROUND: {
+                OPTION_GROUP("Blob Directory User Record Properties"): {}
+
+                OPTION('b', "blob", "[FILENAME=]PATH",
+                       "Path to a replacement blob directory, or replace an individual files in the blob directory"): {}
+                OPTION_LONG("avatar", "PATH", "Path to user avatar picture"): {}
+                OPTION_LONG("login-background", "PATH", "Path to user login background picture"): {
                         _cleanup_close_ int fd = -EBADF;
                         _cleanup_free_ char *path = NULL, *filename = NULL;
+                        const char *long_code = opts.opt->long_code;
 
-                        if (c == 'b') {
-                                char *eq;
+                        if (streq(long_code, "blob")) {
+                                const char *eq;
 
-                                if (isempty(optarg)) { /* --blob= deletes everything, including existing blob dirs */
+                                if (isempty(opts.arg)) { /* --blob= deletes everything, including existing blob dirs */
                                         hashmap_clear(arg_blob_files);
                                         arg_blob_dir = mfree(arg_blob_dir);
                                         arg_blob_clear = true;
                                         break;
                                 }
 
-                                eq = strrchr(optarg, '=');
+                                eq = strrchr(opts.arg, '=');
                                 if (!eq) { /* --blob=/some/path replaces the blob dir */
-                                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_blob_dir);
+                                        r = parse_path_argument(opts.arg, /* suppress_root= */ false, &arg_blob_dir);
                                         if (r < 0)
                                                 return r;
                                         break;
                                 }
 
                                 /* --blob=filename=/some/path replaces the file "filename" with /some/path */
-                                filename = strndup(optarg, eq - optarg);
+                                filename = strndup(opts.arg, eq - opts.arg);
                                 if (!filename)
                                         return log_oom();
 
                                 if (isempty(filename))
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Can't parse blob file assignment: %s", optarg);
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Can't parse blob file assignment: %s", opts.arg);
                                 if (!suitable_blob_filename(filename))
                                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid blob filename: %s", filename);
 
@@ -4729,17 +4411,11 @@ static int parse_argv(int argc, char *argv[]) {
                                 if (r < 0)
                                         return r;
                         } else {
-                                const char *well_known_filename =
-                                                  c == ARG_AVATAR ? "avatar" :
-                                        c == ARG_LOGIN_BACKGROUND ? "login-background" :
-                                                                    NULL;
-                                assert(well_known_filename);
-
-                                filename = strdup(well_known_filename);
+                                filename = strdup(long_code);
                                 if (!filename)
                                         return log_oom();
 
-                                r = parse_path_argument(optarg, /* suppress_root= */ false, &path);
+                                r = parse_path_argument(opts.arg, /* suppress_root= */ false, &path);
                                 if (r < 0)
                                         return r;
                         }
@@ -4763,406 +4439,420 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
-                case ARG_LOCKED:
-                        r = parse_boolean_field(match_identity ?: &arg_identity_extra, "locked", optarg);
+                OPTION_GROUP("Account Management User Record Properties"): {}
+
+                OPTION_LONG("locked", "BOOL", "Set locked account state"):
+                        r = parse_boolean_field(match_identity ?: &arg_identity_extra, "locked", opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_NOT_BEFORE:
-                case ARG_NOT_AFTER:
-                case 'e': {
-                        const char *field = c == ARG_NOT_BEFORE ? "notBeforeUSec" : "notAfterUSec";
+                OPTION_LONG("not-before", "TIMESTAMP", "Do not allow logins before"): {}
+                OPTION_LONG("not-after", "TIMESTAMP", "Do not allow logins after"): {}
+                OPTION_LONG("expiredate", "TIMESTAMP", /* help= */ NULL): /* Compat alias for -e to keep things in sync with useradd(8) */ {
+                        const char *field = streq(opts.opt->long_code, "not-before") ? "notBeforeUSec" : "notAfterUSec";
 
-                        r = parse_timestamp_field(match_identity ?: &arg_identity_extra, field, optarg);
+                        r = parse_timestamp_field(match_identity ?: &arg_identity_extra, field, opts.arg);
                         if (r < 0)
                                 return r;
                         break;
                 }
 
-                case ARG_RATE_LIMIT_INTERVAL:
-                        r = parse_time_field(match_identity ?: &arg_identity_extra, "rateLimitIntervalUSec", optarg);
+                OPTION_SHORT('e', "TIMESTAMP", /* help= */ NULL): /* -e alias for --expiredate */
+                        r = parse_timestamp_field(match_identity ?: &arg_identity_extra, "notAfterUSec", opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_RATE_LIMIT_BURST:
-                        r = parse_unsigned_field(match_identity ?: &arg_identity_extra, "rateLimitBurst", optarg);
+                OPTION_LONG("rate-limit-interval", "SECS", "Login rate-limit interval in seconds"):
+                        r = parse_time_field(match_identity ?: &arg_identity_extra, "rateLimitIntervalUSec", opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_PASSWORD_HINT:
-                        r = parse_string_field(&arg_identity_extra_privileged, "passwordHint", optarg);
-                        if (r < 0)
-                                return r;
-
-                        string_erase(optarg);
-                        break;
-
-                case ARG_ENFORCE_PASSWORD_POLICY:
-                        r = parse_boolean_field(match_identity ?: &arg_identity_extra, "enforcePasswordPolicy", optarg);
+                OPTION_LONG("rate-limit-burst", "NUMBER", "Login rate-limit attempts per interval"):
+                        r = parse_unsigned_field(match_identity ?: &arg_identity_extra, "rateLimitBurst", opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case 'P':
+                OPTION_GROUP("Password Policy User Record Properties"): {}
+
+                OPTION_LONG("password-hint", "HINT", "Set Password hint"):
+                        r = parse_string_field(&arg_identity_extra_privileged, "passwordHint", opts.arg);
+                        if (r < 0)
+                                return r;
+
+                        string_erase((char *) opts.arg);
+                        break;
+
+                OPTION_LONG("enforce-password-policy", "BOOL",
+                            "Control whether to enforce system's password policy for this user"):
+                        r = parse_boolean_field(match_identity ?: &arg_identity_extra, "enforcePasswordPolicy", opts.arg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_SHORT('P', NULL, "Same as --enforce-password-policy=no"):
                         r = sd_json_variant_set_field_boolean(&arg_identity_extra, "enforcePasswordPolicy", false);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set %s field: %m", "enforcePasswordPolicy");
                         break;
 
-                case ARG_PASSWORD_CHANGE_NOW:
-                        r = parse_boolean_field(match_identity ?: &arg_identity_extra, "passwordChangeNow", optarg);
+                OPTION_LONG("password-change-now", "BOOL",
+                            "Require the password to be changed on next login"):
+                        r = parse_boolean_field(match_identity ?: &arg_identity_extra, "passwordChangeNow", opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_PASSWORD_CHANGE_MIN:
-                case ARG_PASSWORD_CHANGE_MAX:
-                case ARG_PASSWORD_CHANGE_WARN:
-                case ARG_PASSWORD_CHANGE_INACTIVE: {
+                OPTION_LONG("password-change-min", "TIME", "Require minimum time between password changes"): {}
+                OPTION_LONG("password-change-max", "TIME", "Require maximum time between password changes"): {}
+                OPTION_LONG("password-change-warn", "TIME", "How much time to warn before password expiry"): {}
+                OPTION_LONG("password-change-inactive", "TIME", "How much time to block password after expiry"): {
+                        const char *lc = opts.opt->long_code;
                         const char *field =
-                                     c == ARG_PASSWORD_CHANGE_MIN ? "passwordChangeMinUSec" :
-                                     c == ARG_PASSWORD_CHANGE_MAX ? "passwordChangeMaxUSec" :
-                                    c == ARG_PASSWORD_CHANGE_WARN ? "passwordChangeWarnUSec" :
-                                c == ARG_PASSWORD_CHANGE_INACTIVE ? "passwordChangeInactiveUSec" :
-                                                                    NULL;
+                                streq(lc, "password-change-min")      ? "passwordChangeMinUSec" :
+                                streq(lc, "password-change-max")      ? "passwordChangeMaxUSec" :
+                                streq(lc, "password-change-warn")     ? "passwordChangeWarnUSec" :
+                                streq(lc, "password-change-inactive") ? "passwordChangeInactiveUSec" :
+                                                                        NULL;
                         assert(field);
 
-                        r = parse_time_field(match_identity ?: &arg_identity_extra, field, optarg);
+                        r = parse_time_field(match_identity ?: &arg_identity_extra, field, opts.arg);
                         if (r < 0)
                                 return r;
                         break;
                 }
 
-                case ARG_DISK_SIZE:
-                        r = parse_disk_size_field(match_identity ?: &arg_identity_extra_this_machine, optarg);
+                OPTION_GROUP("Resource Management User Record Properties"): {}
+
+                OPTION_LONG("disk-size", "BYTES", "Size to assign the user on disk"):
+                        r = parse_disk_size_field(match_identity ?: &arg_identity_extra_this_machine, opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_NICE:
-                        r = parse_nice_field(match_identity ?: &arg_identity_extra, "niceLevel", optarg);
+                OPTION_LONG("nice", "NICE", "Nice level for user"):
+                        r = parse_nice_field(match_identity ?: &arg_identity_extra, "niceLevel", opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_RLIMIT:
-                        r = parse_rlimit_field(&arg_identity_extra_rlimits, "resourceLimits", optarg);
+                OPTION_LONG("rlimit", "LIMIT=VALUE[:VALUE]", "Set resource limits"):
+                        r = parse_rlimit_field(&arg_identity_extra_rlimits, "resourceLimits", opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_TASKS_MAX:
-                        r = parse_u64_field(match_identity ?: &arg_identity_extra, "tasksMax", optarg);
+                OPTION_LONG("tasks-max", "MAX", "Set maximum number of per-user tasks"):
+                        r = parse_u64_field(match_identity ?: &arg_identity_extra, "tasksMax", opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_MEMORY_HIGH:
-                        r = parse_size_field(match_identity ?: &arg_identity_extra_this_machine, "memoryHigh", optarg);
+                OPTION_LONG("memory-high", "BYTES", "Set high memory threshold in bytes"):
+                        r = parse_size_field(match_identity ?: &arg_identity_extra_this_machine, "memoryHigh", opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_MEMORY_MAX:
-                        r = parse_size_field(match_identity ?: &arg_identity_extra_this_machine, "memoryMax", optarg);
+                OPTION_LONG("memory-max", "BYTES", "Set maximum memory limit"):
+                        r = parse_size_field(match_identity ?: &arg_identity_extra_this_machine, "memoryMax", opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_CPU_WEIGHT:
-                case ARG_IO_WEIGHT: {
-                        const char *field = c == ARG_CPU_WEIGHT ? "cpuWeight" :
-                                             c == ARG_IO_WEIGHT ? "ioWeight" :
-                                                                  NULL;
+                OPTION_LONG("cpu-weight", "WEIGHT", "Set CPU weight"): {}
+                OPTION_LONG("io-weight", "WEIGHT", "Set IO weight"): {
+                        const char *field = streq(opts.opt->long_code, "cpu-weight") ? "cpuWeight" : "ioWeight";
 
-                        r = parse_weight_field(match_identity ?: &arg_identity_extra, field, optarg);
+                        r = parse_weight_field(match_identity ?: &arg_identity_extra, field, opts.arg);
                         if (r < 0)
                                 return r;
                         break;
                 }
 
-                case ARG_TMP_LIMIT:
-                case ARG_DEV_SHM_LIMIT: {
-                        const char *field =
-                                    c == ARG_TMP_LIMIT ? "tmpLimit" :
-                                c == ARG_DEV_SHM_LIMIT ? "devShmLimit" :
-                                                         NULL;
-                        const char *field_scale =
-                                    c == ARG_TMP_LIMIT ? "tmpLimitScale" :
-                                c == ARG_DEV_SHM_LIMIT ? "devShmLimitScale" :
-                                                         NULL;
-
-                        assert(field);
-                        assert(field_scale);
+                OPTION_LONG("tmp-limit", "BYTES|PERCENT", "Set limit on /tmp/"): {}
+                OPTION_LONG("dev-shm-limit", "BYTES|PERCENT", "Set limit on /dev/shm/"): {
+                        bool is_tmp = streq(opts.opt->long_code, "tmp-limit");
+                        const char *field = is_tmp ? "tmpLimit" : "devShmLimit";
+                        const char *field_scale = is_tmp ? "tmpLimitScale" : "devShmLimitScale";
 
                         r = parse_tmpfs_limit_field(match_identity ?: &arg_identity_extra,
-                                                    field, field_scale, optarg);
+                                                    field, field_scale, opts.arg);
                         if (r < 0)
                                 return r;
                         break;
                 }
 
-                case ARG_STORAGE: {
-                        if (!string_is_safe(optarg, STRING_ALLOW_GLOBS))
+                OPTION_GROUP("Storage User Record Properties"): {}
+
+                OPTION_LONG("storage", "STORAGE",
+                            "Storage type to use (luks, fscrypt, directory, subvolume, cifs)"):
+                        if (!string_is_safe(opts.arg, STRING_ALLOW_GLOBS))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Parameter for field %s not valid: %s", "storage", optarg);
+                                                       "Parameter for field %s not valid: %s", "storage", opts.arg);
 
-                        r = parse_string_field(match_identity ?: &arg_identity_extra_this_machine, "storage", optarg);
-                        if (r < 0)
-                                return r;
-                        break;
-                }
-
-                case ARG_IMAGE_PATH:
-                        r = parse_path_field(match_identity ?: &arg_identity_extra_this_machine, "imagePath", optarg);
+                        r = parse_string_field(match_identity ?: &arg_identity_extra_this_machine, "storage", opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_DROP_CACHES:
-                        r = parse_boolean_field(match_identity ?: &arg_identity_extra, "dropCaches", optarg);
+                OPTION_LONG("image-path", "PATH", "Path to image file/directory"):
+                        r = parse_path_field(match_identity ?: &arg_identity_extra_this_machine, "imagePath", opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_FS_TYPE: {
-                        if (!string_is_safe(optarg, STRING_ALLOW_GLOBS))
+                OPTION_LONG("drop-caches", "BOOL", "Whether to automatically drop caches on logout"):
+                        r = parse_boolean_field(match_identity ?: &arg_identity_extra, "dropCaches", opts.arg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_GROUP("LUKS Storage User Record Properties"): {}
+
+                OPTION_LONG("fs-type", "TYPE",
+                            "File system type to use in case of luks storage (btrfs, ext4, xfs)"):
+                        if (!string_is_safe(opts.arg, STRING_ALLOW_GLOBS))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Parameter for field %s not valid: %s", "fileSystemType", optarg);
+                                                       "Parameter for field %s not valid: %s", "fileSystemType", opts.arg);
 
-                        r = parse_string_field(match_identity ?: &arg_identity_extra_this_machine, "fileSystemType", optarg);
+                        r = parse_string_field(match_identity ?: &arg_identity_extra_this_machine, "fileSystemType", opts.arg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("luks-discard", "BOOL",
+                            "Whether to use 'discard' feature of file system when activated (mounted)"): {}
+                OPTION_LONG("luks-offline-discard", "BOOL", "Whether to trim file on logout"): {
+                        const char *field = streq(opts.opt->long_code, "luks-discard") ? "luksDiscard" : "luksOfflineDiscard";
+
+                        r = parse_boolean_field(match_identity ?: &arg_identity_extra, field, opts.arg);
                         if (r < 0)
                                 return r;
                         break;
                 }
 
-                case ARG_LUKS_DISCARD:
-                case ARG_LUKS_OFFLINE_DISCARD: {
-                        const char *field = c == ARG_LUKS_DISCARD ? "luksDiscard" : "luksOfflineDiscard";
-
-                        r = parse_boolean_field(match_identity ?: &arg_identity_extra, field, optarg);
-                        if (r < 0)
-                                return r;
-                        break;
-                }
-
-                case ARG_LUKS_CIPHER: {
-                        if (!string_is_safe(optarg, STRING_ALLOW_GLOBS))
+                OPTION_LONG("luks-cipher", "CIPHER", "Cipher to use for LUKS encryption"):
+                        if (!string_is_safe(opts.arg, STRING_ALLOW_GLOBS))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Parameter for field %s not valid: %s", "luksCipher", optarg);
+                                                       "Parameter for field %s not valid: %s", "luksCipher", opts.arg);
 
-                        r = parse_string_field(match_identity ?: &arg_identity_extra, "luksCipher", optarg);
+                        r = parse_string_field(match_identity ?: &arg_identity_extra, "luksCipher", opts.arg);
                         if (r < 0)
                                 return r;
                         break;
-                }
 
-                case ARG_LUKS_CIPHER_MODE: {
-                        if (!string_is_safe(optarg, STRING_ALLOW_GLOBS))
+                OPTION_LONG("luks-cipher-mode", "MODE", "Cipher mode to use for LUKS encryption"):
+                        if (!string_is_safe(opts.arg, STRING_ALLOW_GLOBS))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Parameter for field %s not valid: %s", "luksCipherMode", optarg);
+                                                       "Parameter for field %s not valid: %s", "luksCipherMode", opts.arg);
 
-                        r = parse_string_field(match_identity ?: &arg_identity_extra, "luksCipherMode", optarg);
-                        if (r < 0)
-                                return r;
-                        break;
-                }
-
-                case ARG_LUKS_VOLUME_KEY_SIZE:
-                        r = parse_unsigned_field(match_identity ?: &arg_identity_extra, "luksVolumeKeySize", optarg);
+                        r = parse_string_field(match_identity ?: &arg_identity_extra, "luksCipherMode", opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_LUKS_PBKDF_TYPE: {
-                        if (!string_is_safe(optarg, STRING_ALLOW_GLOBS))
+                OPTION_LONG("luks-volume-key-size", "BITS", "Volume key size to use for LUKS encryption"):
+                        r = parse_unsigned_field(match_identity ?: &arg_identity_extra, "luksVolumeKeySize", opts.arg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("luks-pbkdf-type", "TYPE", "Password-based Key Derivation Function to use"):
+                        if (!string_is_safe(opts.arg, STRING_ALLOW_GLOBS))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Parameter for field %s not valid: %s", "luksPbkdfType", optarg);
+                                                       "Parameter for field %s not valid: %s", "luksPbkdfType", opts.arg);
 
-                        r = parse_string_field(match_identity ?: &arg_identity_extra, "luksPbkdfType", optarg);
+                        r = parse_string_field(match_identity ?: &arg_identity_extra, "luksPbkdfType", opts.arg);
                         if (r < 0)
                                 return r;
                         break;
-                }
 
-                case ARG_LUKS_PBKDF_HASH_ALGORITHM: {
-                        if (!string_is_safe(optarg, STRING_ALLOW_GLOBS))
+                OPTION_LONG("luks-pbkdf-hash-algorithm", "ALG", "PBKDF hash algorithm to use"):
+                        if (!string_is_safe(opts.arg, STRING_ALLOW_GLOBS))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Parameter for field %s not valid: %s", "luksPbkdfHashAlgorithm", optarg);
+                                                       "Parameter for field %s not valid: %s", "luksPbkdfHashAlgorithm", opts.arg);
 
-                        r = parse_string_field(match_identity ?: &arg_identity_extra, "luksPbkdfHashAlgorithm", optarg);
-                        if (r < 0)
-                                return r;
-                        break;
-                }
-
-                case ARG_LUKS_PBKDF_TIME_COST:
-                        r = parse_time_field(match_identity ?: &arg_identity_extra, "luksPbkdfTimeCostUSec", optarg);
+                        r = parse_string_field(match_identity ?: &arg_identity_extra, "luksPbkdfHashAlgorithm", opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_LUKS_PBKDF_MEMORY_COST:
-                        r = parse_size_field(match_identity ?: &arg_identity_extra_this_machine, "luksPbkdfMemoryCost", optarg);
+                OPTION_LONG("luks-pbkdf-time-cost", "SECS", "Time cost for PBKDF in seconds"):
+                        r = parse_time_field(match_identity ?: &arg_identity_extra, "luksPbkdfTimeCostUSec", opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_LUKS_PBKDF_PARALLEL_THREADS:
-                        r = parse_unsigned_field(match_identity ?: &arg_identity_extra, "luksPbkdfParallelThreads", optarg);
+                OPTION_LONG("luks-pbkdf-memory-cost", "BYTES", "Memory cost for PBKDF in bytes"):
+                        r = parse_size_field(match_identity ?: &arg_identity_extra_this_machine, "luksPbkdfMemoryCost", opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_LUKS_SECTOR_SIZE:
-                        r = parse_sector_size_field(match_identity ?: &arg_identity_extra, "luksSectorSize", optarg);
+                OPTION_LONG("luks-pbkdf-parallel-threads", "N", "Number of parallel threads for PKBDF"):
+                        r = parse_unsigned_field(match_identity ?: &arg_identity_extra, "luksPbkdfParallelThreads", opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_LUKS_EXTRA_MOUNT_OPTIONS:
-                        r = parse_string_field(match_identity ?: &arg_identity_extra, "luksExtraMountOptions", optarg);
+                OPTION_LONG("luks-sector-size", "BYTES", "Sector size for LUKS encryption in bytes"):
+                        r = parse_sector_size_field(match_identity ?: &arg_identity_extra, "luksSectorSize", opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_AUTO_RESIZE_MODE:
+                OPTION_LONG("luks-extra-mount-options", "…", "LUKS extra mount options"):
+                        r = parse_string_field(match_identity ?: &arg_identity_extra, "luksExtraMountOptions", opts.arg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("auto-resize-mode", "MODE",
+                            "Automatically grow/shrink home on login/logout"):
                         r = parse_auto_resize_mode_field(match_identity ?: &arg_identity_extra,
-                                                         "autoResizeMode", optarg);
+                                                         "autoResizeMode", opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_REBALANCE_WEIGHT:
+                OPTION_LONG("rebalance-weight", "WEIGHT", "Weight while rebalancing"):
                         r = parse_rebalance_weight(match_identity ?: &arg_identity_extra,
-                                                   "rebalanceWeight", optarg);
+                                                   "rebalanceWeight", opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_NOSUID:
-                        r = parse_boolean_field(match_identity ?: &arg_identity_extra, "mountNoSuid", optarg);
+                OPTION_GROUP("Mounting User Record Properties"): {}
+
+                OPTION_LONG("nosuid", "BOOL", "Control the 'nosuid' flag of the home mount"):
+                        r = parse_boolean_field(match_identity ?: &arg_identity_extra, "mountNoSuid", opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_NODEV:
-                        r = parse_boolean_field(match_identity ?: &arg_identity_extra, "mountNoDevices", optarg);
+                OPTION_LONG("nodev", "BOOL", "Control the 'nodev' flag of the home mount"):
+                        r = parse_boolean_field(match_identity ?: &arg_identity_extra, "mountNoDevices", opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_NOEXEC:
-                        r = parse_boolean_field(match_identity ?: &arg_identity_extra, "mountNoExecute", optarg);
+                OPTION_LONG("noexec", "BOOL", "Control the 'noexec' flag of the home mount"):
+                        r = parse_boolean_field(match_identity ?: &arg_identity_extra, "mountNoExecute", opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_CIFS_DOMAIN:
-                        r = parse_string_field(match_identity ?: &arg_identity_extra, "cifsDomain", optarg);
+                OPTION_GROUP("CIFS User Record Properties"): {}
+
+                OPTION_LONG("cifs-domain", "DOMAIN", "CIFS (Windows) domain"):
+                        r = parse_string_field(match_identity ?: &arg_identity_extra, "cifsDomain", opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_CIFS_USER_NAME:
-                        r = parse_string_field(match_identity ?: &arg_identity_extra, "cifsUserName", optarg);
+                OPTION_LONG("cifs-user-name", "USER", "CIFS (Windows) user name"):
+                        r = parse_string_field(match_identity ?: &arg_identity_extra, "cifsUserName", opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_CIFS_SERVICE:
-                        if (!isempty(optarg)) {
-                                r = parse_cifs_service(optarg, /* ret_host= */ NULL, /* ret_service= */ NULL, /* ret_path= */ NULL);
+                OPTION_LONG("cifs-service", "SERVICE",
+                            "CIFS (Windows) service to mount as home area"):
+                        if (!isempty(opts.arg)) {
+                                r = parse_cifs_service(opts.arg, /* ret_host= */ NULL, /* ret_service= */ NULL, /* ret_path= */ NULL);
                                 if (r < 0)
-                                        return log_error_errno(r, "Failed to validate CIFS service name: %s", optarg);
+                                        return log_error_errno(r, "Failed to validate CIFS service name: %s", opts.arg);
                         }
 
-                        r = parse_string_field(match_identity ?: &arg_identity_extra, "cifsService", optarg);
+                        r = parse_string_field(match_identity ?: &arg_identity_extra, "cifsService", opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_CIFS_EXTRA_MOUNT_OPTIONS:
-                        r = parse_string_field(match_identity ?: &arg_identity_extra, "cifsExtraMountOptions", optarg);
+                OPTION_LONG("cifs-extra-mount-options", "…",
+                            "CIFS (Windows) extra mount options"):
+                        r = parse_string_field(match_identity ?: &arg_identity_extra, "cifsExtraMountOptions", opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_STOP_DELAY:
-                        r = parse_time_field(match_identity ?: &arg_identity_extra, "stopDelayUSec", optarg);
+                OPTION_GROUP("Login Behaviour User Record Properties"): {}
+
+                OPTION_LONG("stop-delay", "SECS",
+                            "How long to leave user services running after logout"):
+                        r = parse_time_field(match_identity ?: &arg_identity_extra, "stopDelayUSec", opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_KILL_PROCESSES:
-                        r = parse_boolean_field(match_identity ?: &arg_identity_extra, "killProcesses", optarg);
+                OPTION_LONG("kill-processes", "BOOL",
+                            "Whether to kill user processes when sessions terminate"):
+                        r = parse_boolean_field(match_identity ?: &arg_identity_extra, "killProcesses", opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_AUTO_LOGIN:
-                        r = parse_boolean_field(match_identity ?: &arg_identity_extra, "autoLogin", optarg);
+                OPTION_LONG("auto-login", "BOOL", "Try to log this user in automatically"):
+                        r = parse_boolean_field(match_identity ?: &arg_identity_extra, "autoLogin", opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_SESSION_LAUNCHER:
-                        r = parse_string_field(match_identity ?: &arg_identity_extra, "preferredSessionLauncher", optarg);
+                OPTION_LONG("session-launcher", "LAUNCHER", "Preferred session launcher file"):
+                        r = parse_string_field(match_identity ?: &arg_identity_extra, "preferredSessionLauncher", opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_SESSION_TYPE:
-                        r = parse_string_field(match_identity ?: &arg_identity_extra, "preferredSessionType", optarg);
+                OPTION_LONG("session-type", "TYPE", "Preferred session type"):
+                        r = parse_string_field(match_identity ?: &arg_identity_extra, "preferredSessionType", opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_FIDO2_CRED_ALG:
-                        r = parse_fido2_algorithm(optarg, &arg_fido2_cred_alg);
+                /* Hidden options below */
+
+                OPTION_LONG("fido2-credential-algorithm", "ALG", /* help= */ NULL):
+                        r = parse_fido2_algorithm(opts.arg, &arg_fido2_cred_alg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse COSE algorithm: %s", optarg);
+                                return log_error_errno(r, "Failed to parse COSE algorithm: %s", opts.arg);
                         break;
 
-                case ARG_MATCH:
-                        if (streq(optarg, "any"))
+                OPTION_LONG("match", "any|this|other|auto", /* help= */ NULL):
+                        if (streq(opts.arg, "any"))
                                 match_identity = &arg_identity_extra;
-                        else if (streq(optarg, "this"))
+                        else if (streq(opts.arg, "this"))
                                 match_identity = &arg_identity_extra_this_machine;
-                        else if (streq(optarg, "other"))
+                        else if (streq(opts.arg, "other"))
                                 match_identity = &arg_identity_extra_other_machines;
-                        else if (streq(optarg, "auto"))
+                        else if (streq(opts.arg, "auto"))
                                 match_identity = NULL;
                         else
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--machine= argument not understood. Refusing.");
                         break;
 
-                case 'A':
+                OPTION_SHORT('A', NULL, /* help= */ NULL):
                         match_identity = &arg_identity_extra;
                         break;
-                case 'T':
+
+                OPTION_SHORT('T', NULL, /* help= */ NULL):
                         match_identity = &arg_identity_extra_this_machine;
                         break;
-                case 'N':
+
+                OPTION_SHORT('N', NULL, /* help= */ NULL):
                         match_identity = &arg_identity_extra_other_machines;
                         break;
 
-                case ARG_LUKS_PBKDF_FORCE_ITERATIONS:
-                        r = parse_unsigned_field(match_identity ?: &arg_identity_extra, "luksPbkdfForceIterations", optarg);
+                OPTION_LONG("luks-pbkdf-force-iterations", "NUMBER", /* help= */ NULL):
+                        r = parse_unsigned_field(match_identity ?: &arg_identity_extra, "luksPbkdfForceIterations", opts.arg);
                         if (r < 0)
                                 return r;
                         break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
                 }
-        }
 
         if (!strv_isempty(arg_languages)) {
                 char **additional;
@@ -5183,6 +4873,8 @@ static int parse_argv(int argc, char *argv[]) {
                 }
         }
 
+        if (remaining_args)
+                *remaining_args = option_parser_get_args(&opts);
         return 1;
 }
 
@@ -5442,6 +5134,7 @@ static int run(int argc, char *argv[]) {
                 {}
         };
 
+        char **args = NULL;
         int r;
 
         log_setup();
@@ -5453,11 +5146,11 @@ static int run(int argc, char *argv[]) {
         if (is_fallback_shell(argv[0]))
                 return fallback_shell(argc, argv);
 
-        r = parse_argv(argc, argv);
+        r = parse_argv(argc, argv, &args);
         if (r <= 0)
                 return r;
 
-        return dispatch_verb(argc, argv, verbs, NULL);
+        return _dispatch_verb_with_args(args, verbs, verbs + ELEMENTSOF(verbs) - 1, NULL);
 }
 
 DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);
