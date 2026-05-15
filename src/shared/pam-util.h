@@ -6,7 +6,8 @@
 #if HAVE_PAM
 #include <security/pam_appl.h>
 #include <security/pam_ext.h>
-#include <security/pam_modules.h> /* IWYU pragma: export */
+#include <security/pam_misc.h>          /* IWYU pragma: export */
+#include <security/pam_modules.h>       /* IWYU pragma: export */
 #include <syslog.h>
 
 #include "dlfcn-util.h"
@@ -14,10 +15,15 @@
 extern DLSYM_PROTOTYPE(pam_acct_mgmt);
 extern DLSYM_PROTOTYPE(pam_close_session);
 extern DLSYM_PROTOTYPE(pam_end);
+extern DLSYM_PROTOTYPE(pam_get_authtok_noverify);
+extern DLSYM_PROTOTYPE(pam_get_authtok_verify);
 extern DLSYM_PROTOTYPE(pam_get_data);
 extern DLSYM_PROTOTYPE(pam_get_item);
+extern DLSYM_PROTOTYPE(pam_get_user);
+extern DLSYM_PROTOTYPE(pam_getenv);
 extern DLSYM_PROTOTYPE(pam_getenvlist);
 extern DLSYM_PROTOTYPE(pam_open_session);
+extern DLSYM_PROTOTYPE(pam_prompt);
 extern DLSYM_PROTOTYPE(pam_putenv);
 extern DLSYM_PROTOTYPE(pam_set_data);
 extern DLSYM_PROTOTYPE(pam_set_item);
@@ -26,6 +32,13 @@ extern DLSYM_PROTOTYPE(pam_start);
 extern DLSYM_PROTOTYPE(pam_strerror);
 extern DLSYM_PROTOTYPE(pam_syslog);
 extern DLSYM_PROTOTYPE(pam_vsyslog);
+
+extern DLSYM_PROTOTYPE(pam_misc_setenv);
+
+/* sym_pam_prompt() replacement for the pam_info() macro from <security/pam_ext.h>, which expands to a direct
+ * pam_prompt() call. */
+#define sym_pam_info(pamh, fmt, ...) \
+        sym_pam_prompt((pamh), PAM_TEXT_INFO, NULL, (fmt), ## __VA_ARGS__)
 
 void pam_log_setup(void);
 
