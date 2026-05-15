@@ -115,7 +115,6 @@ modules += [
                 'conditions' : ['HAVE_PAM'],
                 'sources' : pam_systemd_home_sources,
                 'dependencies' : [
-                        libintl,
                         libpam_cflags,
                         threads,
                 ],
