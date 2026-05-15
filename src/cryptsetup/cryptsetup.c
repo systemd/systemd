@@ -2741,6 +2741,8 @@ static int verb_attach(int argc, char *argv[], void *userdata) {
                                 return r;
                         if (r > 0)
                                 key_data = &discovered_key_data;
+                        else
+                                try_discover_key = false;
                 }
 
                 if (token_type < 0 && !key_file && !key_data && !passwords) {
