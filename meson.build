@@ -496,6 +496,12 @@ possible_cc_flags = [
 
 if get_option('mode') == 'developer'
         possible_cc_flags += '-fno-omit-frame-pointer'
+        # Let -Wl,--gc-sections drop unused functions/data instead of whole
+        # .o files; biggest win on statically-linked NSS/PAM modules.
+        possible_cc_flags += ['-ffunction-sections', '-fdata-sections']
+        # Compress and dedupe DWARF; transparent to GDB / readelf.
+        possible_cc_flags += ['-gz=zstd', '-fdebug-types-section']
+        possible_link_flags += '-Wl,--compress-debug-sections=zstd'
 endif
 
 add_project_arguments(
