@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <libintl.h>
-
 #include "sd-bus.h"
 
 #include "alloc-util.h"
@@ -792,6 +790,8 @@ _public_ PAM_EXTERN int pam_sm_authenticate(
         if (r < 0)
                 return PAM_SERVICE_ERR;
 
+        (void) dlopen_libintl(LOG_DEBUG); /* best-effort: messages won't be translated if this fails */
+
         pam_log_setup();
 
         if (parse_env(pamh, &flags) < 0)
@@ -857,6 +857,8 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         if (r < 0)
                 return PAM_SERVICE_ERR;
 
+        (void) dlopen_libintl(LOG_DEBUG); /* best-effort: messages won't be translated if this fails */
+
         pam_log_setup();
 
         if (parse_env(pamh, &flags) < 0)
@@ -913,6 +915,8 @@ _public_ PAM_EXTERN int pam_sm_close_session(
         r = dlopen_libpam(LOG_DEBUG);
         if (r < 0)
                 return PAM_SESSION_ERR;
+
+        (void) dlopen_libintl(LOG_DEBUG); /* best-effort: messages won't be translated if this fails */
 
         pam_log_setup();
 
@@ -978,6 +982,8 @@ _public_ PAM_EXTERN int pam_sm_acct_mgmt(
         r = dlopen_libpam(LOG_DEBUG);
         if (r < 0)
                 return PAM_SERVICE_ERR;
+
+        (void) dlopen_libintl(LOG_DEBUG); /* best-effort: messages won't be translated if this fails */
 
         pam_log_setup();
 
@@ -1097,6 +1103,8 @@ _public_ PAM_EXTERN int pam_sm_chauthtok(
         r = dlopen_libpam(LOG_DEBUG);
         if (r < 0)
                 return PAM_SERVICE_ERR;
+
+        (void) dlopen_libintl(LOG_DEBUG); /* best-effort: messages won't be translated if this fails */
 
         pam_log_setup();
 

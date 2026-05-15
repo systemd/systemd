@@ -1,9 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <libintl.h>    /* IWYU pragma: export */
 #include <locale.h>     /* IWYU pragma: export */
 
 #include "basic-forward.h"
+#include "dlfcn-util.h"
+
+extern DLSYM_PROTOTYPE(dgettext);
+
+int dlopen_libintl(int log_level);
 
 typedef enum LocaleVariable {
         /* We don't list LC_ALL here on purpose. People should be
@@ -31,7 +37,9 @@ int get_locales(char ***ret);
 bool locale_is_valid(const char *name);
 int locale_is_installed(const char *name);
 
-#define _(String) dgettext(GETTEXT_PACKAGE, String)
+/* Falls back to the untranslated string if dlopen_libintl() hasn't run or has failed, so callers don't have
+ * to gate every translatable message on a runtime check. */
+#define _(String) (sym_dgettext ? sym_dgettext(GETTEXT_PACKAGE, (String)) : (String))
 #define N_(String) String
 
 bool is_locale_utf8(void);
