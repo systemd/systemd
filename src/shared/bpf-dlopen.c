@@ -51,6 +51,10 @@ DLSYM_PROTOTYPE(bpf_program__attach_cgroup) = NULL;
 DLSYM_PROTOTYPE(bpf_program__attach_lsm) = NULL;
 DLSYM_PROTOTYPE(bpf_program__name) = NULL;
 DLSYM_PROTOTYPE(bpf_program__set_autoload) = NULL;
+static int missing_bpf_token_create(int bpffs_fd, struct bpf_token_create_opts *opts) {
+        return -ENOSYS;
+}
+DLSYM_PROTOTYPE(bpf_token_create) = missing_bpf_token_create;
 DLSYM_PROTOTYPE(libbpf_set_print) = NULL;
 DLSYM_PROTOTYPE(ring_buffer__epoll_fd) = NULL;
 DLSYM_PROTOTYPE(ring_buffer__free) = NULL;
@@ -184,6 +188,11 @@ int dlopen_bpf(int log_level) {
                         DLSYM_ARG(ring_buffer__poll));
         if (r < 0)
                 return cached = log_full_errno(log_level, r, "Failed to load libbpf symbols, cgroup BPF features disabled: %m");
+
+        /* Optional symbols: present in libbpf 1.5+ only. If unresolved, the prototype keeps its
+         * static initializer pointing at a fallback that returns -ENOSYS, so call sites can
+         * invoke the symbol unconditionally. */
+        DLSYM_OPTIONAL(dl, bpf_token_create);
 
         /* We set the print helper unconditionally. Otherwise libbpf will emit not useful log messages. */
         (void) sym_libbpf_set_print(bpf_print_func);
