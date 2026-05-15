@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <libcryptsetup.h>
+#include <syslog.h>
 
 #include "sd-json.h"
 
@@ -36,8 +37,12 @@ _public_ int cryptsetup_token_open_pin(
         assert(pin || pin_size == 0);
         assert(token >= 0);
 
+        r = dlopen_cryptsetup(LOG_DEBUG);
+        if (r < 0)
+                return r;
+
         /* This must not fail at this moment (internal error) */
-        r = crypt_token_json_get(cd, token, &json);
+        r = sym_crypt_token_json_get(cd, token, &json);
         /* Use assert_se() here to avoid emitting warning with -DNDEBUG */
         assert_se(token == r);
         assert(json);
@@ -89,6 +94,9 @@ _public_ void cryptsetup_token_dump(
         _cleanup_free_ char *pkcs11_uri = NULL, *key_str = NULL;
         _cleanup_free_ void *pkcs11_key = NULL;
 
+        if (dlopen_cryptsetup(LOG_DEBUG) < 0)
+                return;
+
         r = parse_luks2_pkcs11_data(cd, json, &pkcs11_uri, &pkcs11_key, &pkcs11_key_size);
         if (r < 0)
                 return (void) crypt_log_debug_errno(cd, r, "Failed to parse " TOKEN_NAME " metadata: %m.");
@@ -114,6 +122,10 @@ _public_ int cryptsetup_token_validate(
         int r;
         sd_json_variant *w;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+
+        r = dlopen_cryptsetup(LOG_DEBUG);
+        if (r < 0)
+                return r;
 
         r = sd_json_parse(json, SD_JSON_PARSE_MUST_BE_OBJECT, &v, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
         if (r < 0)
