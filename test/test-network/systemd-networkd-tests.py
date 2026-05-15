@@ -1277,7 +1277,13 @@ class Utilities():
             if not link_exists(link):
                 time.sleep(0.5)
                 continue
-            output = networkctl_status(link)
+            try:
+                output = networkctl_status(link)
+            except subprocess.CalledProcessError:
+                # networkctl status may transiently fail e.g. when networkd has not
+                # yet picked up the link from the kernel. Retry until the timeout.
+                time.sleep(0.5)
+                continue
             if re.search(rf'(?m)^\s*State:\s+{operstate}\s+\({setup_state}\)\s*$', output):
                 return True
             time.sleep(0.5)
