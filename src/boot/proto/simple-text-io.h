@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <errno.h>
+
 #include "efi.h"
 
 #define EFI_SIMPLE_TEXT_INPUT_PROTOCOL_GUID \
@@ -28,7 +30,8 @@
 #define EFI_NUM_LOCK_ACTIVE    0x02U
 #define EFI_CAPS_LOCK_ACTIVE   0x04U
 
-enum {
+typedef enum {
+        /* foreground and background colors: */
         EFI_BLACK        = 0x00,
         EFI_BLUE         = 0x01,
         EFI_GREEN        = 0x02,
@@ -37,6 +40,7 @@ enum {
         EFI_MAGENTA      = EFI_BLUE | EFI_RED,
         EFI_BROWN        = EFI_GREEN | EFI_RED,
         EFI_LIGHTGRAY    = EFI_BLUE | EFI_GREEN | EFI_RED,
+        /* foreground colors: */
         EFI_BRIGHT       = 0x08,
         EFI_DARKGRAY     = EFI_BLACK | EFI_BRIGHT,
         EFI_LIGHTBLUE    = EFI_BLUE | EFI_BRIGHT,
@@ -46,10 +50,15 @@ enum {
         EFI_LIGHTMAGENTA = EFI_MAGENTA | EFI_BRIGHT,
         EFI_YELLOW       = EFI_BROWN | EFI_BRIGHT,
         EFI_WHITE        = EFI_BLUE | EFI_GREEN | EFI_RED | EFI_BRIGHT,
-};
+        _EFI_COLOR_MAX,
+        _EFI_COLOR_INVALID = -EINVAL,
+} EfiColor;
 
-#define EFI_TEXT_ATTR(fg, bg) ((fg) | ((bg) << 4))
-#define EFI_TEXT_ATTR_SWAP(c) EFI_TEXT_ATTR(((c) & 0xF0U) >> 4, (c) & 0xFU)
+/* Note that the background colors are only from black to lightgray. */
+#define EFI_TEXT_ATTR(fg, bg) (((fg) & 0xFU) | (((bg) & 0x7U) << 4))
+#define EFI_TEXT_ATTR_FG(c) ((c) & 0xFU)
+#define EFI_TEXT_ATTR_BG(c) (((c) >> 4) & 0x7U)
+#define EFI_TEXT_ATTR_SWAP(c) EFI_TEXT_ATTR(EFI_TEXT_ATTR_BG(c), EFI_TEXT_ATTR_FG(c))
 
 enum {
         SCAN_NULL            = 0x000,
