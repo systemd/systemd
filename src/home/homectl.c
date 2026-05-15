@@ -4378,18 +4378,6 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_VERSION:
                         return version();
 
-                case ARG_NO_PAGER:
-                        arg_pager_flags |= PAGER_DISABLE;
-                        break;
-
-                case ARG_NO_LEGEND:
-                        arg_legend = false;
-                        break;
-
-                case ARG_NO_ASK_PASSWORD:
-                        arg_ask_password = false;
-                        break;
-
                 case ARG_OFFLINE:
                         arg_offline = true;
                         break;
@@ -4409,6 +4397,100 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_identity = optarg;
                         break;
 
+                case ARG_JSON:
+                        r = parse_json_argument(optarg, &arg_json_format_flags);
+                        if (r <= 0)
+                                return r;
+
+                        break;
+
+                case 'j':
+                        arg_json_format_flags = SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO;
+                        break;
+
+                case ARG_EXPORT_FORMAT:
+                        if (streq(optarg, "help"))
+                                return DUMP_STRING_TABLE(export_format, ExportFormat, _EXPORT_FORMAT_MAX);
+
+                        arg_export_format = export_format_from_string(optarg);
+                        if (arg_export_format < 0)
+                                return log_error_errno(arg_export_format, "Invalid export format: %s", optarg);
+
+                        break;
+
+                case 'E':
+                        if (arg_export_format == EXPORT_FORMAT_FULL)
+                                arg_export_format = EXPORT_FORMAT_STRIPPED;
+                        else if (arg_export_format == EXPORT_FORMAT_STRIPPED)
+                                arg_export_format = EXPORT_FORMAT_MINIMAL;
+                        else
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Specifying -E more than twice is not supported.");
+
+                        arg_json_format_flags &= ~SD_JSON_FORMAT_OFF;
+                        if (arg_json_format_flags == 0)
+                                arg_json_format_flags = SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO;
+                        break;
+
+                case ARG_KEY_NAME:
+                        if (!isempty(optarg) && !filename_is_valid(optarg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Parameter for --key-name= not a valid filename: %s", optarg);
+
+                        r = free_and_strdup_warn(&arg_key_name, empty_to_null(optarg));
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_SEIZE:
+                        r = parse_boolean_argument("--seize=", optarg, &arg_seize);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_PROMPT_NEW_USER:
+                        arg_prompt_new_user = true;
+                        break;
+
+                case ARG_PROMPT_GROUPS:
+                        r = parse_boolean_argument("--prompt-groups=", optarg, &arg_prompt_groups);
+                        if (r < 0)
+                                return r;
+
+                        break;
+
+                case ARG_PROMPT_SHELL:
+                        r = parse_boolean_argument("--prompt-shell=", optarg, &arg_prompt_shell);
+                        if (r < 0)
+                                return r;
+
+                        break;
+
+                case ARG_CHROME:
+                        r = parse_boolean_argument("--chrome=", optarg, &arg_chrome);
+                        if (r < 0)
+                                return r;
+
+                        break;
+
+                case ARG_MUTE_CONSOLE:
+                        r = parse_boolean_argument("--mute-console=", optarg, &arg_mute_console);
+                        if (r < 0)
+                                return r;
+
+                        break;
+
+                case ARG_NO_PAGER:
+                        arg_pager_flags |= PAGER_DISABLE;
+                        break;
+
+                case ARG_NO_LEGEND:
+                        arg_legend = false;
+                        break;
+
+                case ARG_NO_ASK_PASSWORD:
+                        arg_ask_password = false;
+                        break;
+
                 case 'c':
                         if (!isempty(optarg) && !valid_gecos(optarg))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -4419,51 +4501,29 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         break;
 
-                case ARG_ALIAS:
-                        r = parse_group_field(&arg_identity_extra, "aliases", optarg);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case 'd':
-                        r = parse_home_directory_field(&arg_identity_extra, "homeDirectory", optarg);
-                        if (r < 0)
-                                return r;
-                        break;
-
                 case ARG_REALM:
                         r = parse_realm_field(&arg_identity_extra, "realm", optarg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_EMAIL_ADDRESS:
-                case ARG_LOCATION:
-                case ARG_ICON_NAME:
-                case ARG_CIFS_USER_NAME:
-                case ARG_CIFS_DOMAIN:
-                case ARG_CIFS_EXTRA_MOUNT_OPTIONS:
-                case ARG_LUKS_EXTRA_MOUNT_OPTIONS:
-                case ARG_SESSION_LAUNCHER:
-                case ARG_SESSION_TYPE: {
-                        const char *field =
-                                           c == ARG_EMAIL_ADDRESS ? "emailAddress" :
-                                                c == ARG_LOCATION ? "location" :
-                                               c == ARG_ICON_NAME ? "iconName" :
-                                          c == ARG_CIFS_USER_NAME ? "cifsUserName" :
-                                             c == ARG_CIFS_DOMAIN ? "cifsDomain" :
-                                c == ARG_CIFS_EXTRA_MOUNT_OPTIONS ? "cifsExtraMountOptions" :
-                                c == ARG_LUKS_EXTRA_MOUNT_OPTIONS ? "luksExtraMountOptions" :
-                                        c == ARG_SESSION_LAUNCHER ? "preferredSessionLauncher" :
-                                            c == ARG_SESSION_TYPE ? "preferredSessionType" :
-                                                                    NULL;
-                        assert(field);
-
-                        r = parse_string_field(match_identity ?: &arg_identity_extra, field, optarg);
+                case ARG_ALIAS:
+                        r = parse_group_field(&arg_identity_extra, "aliases", optarg);
                         if (r < 0)
                                 return r;
                         break;
-                }
+
+                case ARG_EMAIL_ADDRESS:
+                        r = parse_string_field(match_identity ?: &arg_identity_extra, "emailAddress", optarg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_LOCATION:
+                        r = parse_string_field(match_identity ?: &arg_identity_extra, "location", optarg);
+                        if (r < 0)
+                                return r;
+                        break;
 
                 case ARG_BIRTH_DATE:
                         if (isempty(optarg)) {
@@ -4481,34 +4541,14 @@ static int parse_argv(int argc, char *argv[]) {
                         }
                         break;
 
-                case ARG_CIFS_SERVICE:
-                        if (!isempty(optarg)) {
-                                r = parse_cifs_service(optarg, /* ret_host= */ NULL, /* ret_service= */ NULL, /* ret_path= */ NULL);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to validate CIFS service name: %s", optarg);
-                        }
-
-                        r = parse_string_field(match_identity ?: &arg_identity_extra, "cifsService", optarg);
+                case ARG_ICON_NAME:
+                        r = parse_string_field(match_identity ?: &arg_identity_extra, "iconName", optarg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_PASSWORD_HINT:
-                        r = parse_string_field(&arg_identity_extra_privileged, "passwordHint", optarg);
-                        if (r < 0)
-                                return r;
-
-                        string_erase(optarg);
-                        break;
-
-                case ARG_NICE:
-                        r = parse_nice_field(match_identity ?: &arg_identity_extra, "niceLevel", optarg);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_RLIMIT:
-                        r = parse_rlimit_field(&arg_identity_extra_rlimits, "resourceLimits", optarg);
+                case 'd':
+                        r = parse_home_directory_field(&arg_identity_extra, "homeDirectory", optarg);
                         if (r < 0)
                                 return r;
                         break;
@@ -4519,15 +4559,45 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         break;
 
-                case 'k':
-                case ARG_IMAGE_PATH: {
-                        const char *field = c == 'k' ? "skeletonDirectory" : "imagePath";
-
-                        r = parse_path_field(match_identity ?: &arg_identity_extra_this_machine, field, optarg);
+                case 'G':
+                        r = parse_group_field(match_identity ?: &arg_identity_extra, "memberOf", optarg);
                         if (r < 0)
                                 return r;
                         break;
-                }
+
+                case ARG_CAPABILITY_BOUNDING_SET:
+                        r = parse_capability_set_field(match_identity ?: &arg_identity_extra,
+                                                       &arg_capability_bounding_set,
+                                                       "capabilityBoundingSet", optarg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_CAPABILITY_AMBIENT_SET:
+                        r = parse_capability_set_field(match_identity ?: &arg_identity_extra,
+                                                       &arg_capability_ambient_set,
+                                                       "capabilityAmbientSet", optarg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_ACCESS_MODE:
+                        r = parse_mode_field(&arg_identity_extra, "accessMode", optarg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_UMASK:
+                        r = parse_mode_field(match_identity ?: &arg_identity_extra, "umask", optarg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case 'k':
+                        r = parse_path_field(match_identity ?: &arg_identity_extra_this_machine, "skeletonDirectory", optarg);
+                        if (r < 0)
+                                return r;
+                        break;
 
                 case 's':
                         if (!isempty(optarg) && !valid_shell(optarg))
@@ -4561,86 +4631,8 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         break;
 
-                case ARG_NOSUID:
-                case ARG_NODEV:
-                case ARG_NOEXEC:
-                case ARG_LOCKED:
-                case ARG_KILL_PROCESSES:
-                case ARG_ENFORCE_PASSWORD_POLICY:
-                case ARG_AUTO_LOGIN:
-                case ARG_PASSWORD_CHANGE_NOW: {
-                        const char *field =
-                                                 c == ARG_LOCKED ? "locked" :
-                                                 c == ARG_NOSUID ? "mountNoSuid" :
-                                                  c == ARG_NODEV ? "mountNoDevices" :
-                                                 c == ARG_NOEXEC ? "mountNoExecute" :
-                                         c == ARG_KILL_PROCESSES ? "killProcesses" :
-                                c == ARG_ENFORCE_PASSWORD_POLICY ? "enforcePasswordPolicy" :
-                                             c == ARG_AUTO_LOGIN ? "autoLogin" :
-                                    c == ARG_PASSWORD_CHANGE_NOW ? "passwordChangeNow" :
-                                                                   NULL;
-                        assert(field);
-
-                        r = parse_boolean_field(match_identity ?: &arg_identity_extra, field, optarg);
-                        if (r < 0)
-                                return r;
-                        break;
-                }
-
-                case 'P':
-                        r = sd_json_variant_set_field_boolean(&arg_identity_extra, "enforcePasswordPolicy", false);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to set %s field: %m", "enforcePasswordPolicy");
-                        break;
-
-                case ARG_DISK_SIZE:
-                        r = parse_disk_size_field(match_identity ?: &arg_identity_extra_this_machine, optarg);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_ACCESS_MODE:
-                        r = parse_mode_field(&arg_identity_extra, "accessMode", optarg);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_LUKS_DISCARD:
-                case ARG_LUKS_OFFLINE_DISCARD: {
-                        const char *field = c == ARG_LUKS_DISCARD ? "luksDiscard" : "luksOfflineDiscard";
-
-                        r = parse_boolean_field(match_identity ?: &arg_identity_extra, field, optarg);
-                        if (r < 0)
-                                return r;
-                        break;
-                }
-
-                case ARG_LUKS_VOLUME_KEY_SIZE:
-                case ARG_LUKS_PBKDF_FORCE_ITERATIONS:
-                case ARG_LUKS_PBKDF_PARALLEL_THREADS:
-                case ARG_RATE_LIMIT_BURST: {
-                        const char *field =
-                                       c == ARG_LUKS_VOLUME_KEY_SIZE ? "luksVolumeKeySize" :
-                                c == ARG_LUKS_PBKDF_FORCE_ITERATIONS ? "luksPbkdfForceIterations" :
-                                c == ARG_LUKS_PBKDF_PARALLEL_THREADS ? "luksPbkdfParallelThreads" :
-                                           c == ARG_RATE_LIMIT_BURST ? "rateLimitBurst" :
-                                                                       NULL;
-                        assert(field);
-
-                        r = parse_unsigned_field(match_identity ?: &arg_identity_extra, field, optarg);
-                        if (r < 0)
-                                return r;
-                        break;
-                }
-
-                case ARG_LUKS_SECTOR_SIZE:
-                        r = parse_sector_size_field(match_identity ?: &arg_identity_extra, "luksSectorSize", optarg);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_UMASK:
-                        r = parse_mode_field(match_identity ?: &arg_identity_extra, "umask", optarg);
+                case ARG_DEFAULT_AREA:
+                        r = parse_filename_field(match_identity ?: &arg_identity_extra, "defaultArea", optarg);
                         if (r < 0)
                                 return r;
                         break;
@@ -4652,131 +4644,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
-                case ARG_NOT_BEFORE:
-                case ARG_NOT_AFTER:
-                case 'e': {
-                        const char *field = c == ARG_NOT_BEFORE ? "notBeforeUSec" : "notAfterUSec";
-
-                        r = parse_timestamp_field(match_identity ?: &arg_identity_extra, field, optarg);
-                        if (r < 0)
-                                return r;
-                        break;
-                }
-
-                case ARG_PASSWORD_CHANGE_MIN:
-                case ARG_PASSWORD_CHANGE_MAX:
-                case ARG_PASSWORD_CHANGE_WARN:
-                case ARG_PASSWORD_CHANGE_INACTIVE: {
-                        const char *field =
-                                     c == ARG_PASSWORD_CHANGE_MIN ? "passwordChangeMinUSec" :
-                                     c == ARG_PASSWORD_CHANGE_MAX ? "passwordChangeMaxUSec" :
-                                    c == ARG_PASSWORD_CHANGE_WARN ? "passwordChangeWarnUSec" :
-                                c == ARG_PASSWORD_CHANGE_INACTIVE ? "passwordChangeInactiveUSec" :
-                                                                    NULL;
-                        assert(field);
-
-                        r = parse_time_field(match_identity ?: &arg_identity_extra, field, optarg);
-                        if (r < 0)
-                                return r;
-                        break;
-                }
-
-                case ARG_STORAGE:
-                case ARG_FS_TYPE:
-                case ARG_LUKS_CIPHER:
-                case ARG_LUKS_CIPHER_MODE:
-                case ARG_LUKS_PBKDF_TYPE:
-                case ARG_LUKS_PBKDF_HASH_ALGORITHM: {
-                        const char *field =
-                                                  c == ARG_STORAGE ? "storage" :
-                                                  c == ARG_FS_TYPE ? "fileSystemType" :
-                                              c == ARG_LUKS_CIPHER ? "luksCipher" :
-                                         c == ARG_LUKS_CIPHER_MODE ? "luksCipherMode" :
-                                          c == ARG_LUKS_PBKDF_TYPE ? "luksPbkdfType" :
-                                c == ARG_LUKS_PBKDF_HASH_ALGORITHM ? "luksPbkdfHashAlgorithm" :
-                                                                     NULL;
-                        assert(field);
-
-                        sd_json_variant **identity =
-                                match_identity ?:
-                                IN_SET(c, ARG_STORAGE, ARG_FS_TYPE) ?
-                                &arg_identity_extra_this_machine : &arg_identity_extra;
-
-                        if (!string_is_safe(optarg, STRING_ALLOW_GLOBS))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Parameter for field %s not valid: %s", field, optarg);
-
-                        r = parse_string_field(identity, field, optarg);
-                        if (r < 0)
-                                return r;
-                        break;
-                }
-
-                case ARG_LUKS_PBKDF_TIME_COST:
-                case ARG_RATE_LIMIT_INTERVAL:
-                case ARG_STOP_DELAY: {
-                        const char *field =
-                                c == ARG_LUKS_PBKDF_TIME_COST ? "luksPbkdfTimeCostUSec" :
-                                 c == ARG_RATE_LIMIT_INTERVAL ? "rateLimitIntervalUSec" :
-                                          c == ARG_STOP_DELAY ? "stopDelayUSec" :
-                                                                NULL;
-                        assert(field);
-
-                        r = parse_time_field(match_identity ?: &arg_identity_extra, field, optarg);
-                        if (r < 0)
-                                return r;
-                        break;
-                }
-
-                case 'G':
-                        r = parse_group_field(match_identity ?: &arg_identity_extra, "memberOf", optarg);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_TASKS_MAX:
-                        r = parse_u64_field(match_identity ?: &arg_identity_extra, "tasksMax", optarg);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_MEMORY_MAX:
-                case ARG_MEMORY_HIGH:
-                case ARG_LUKS_PBKDF_MEMORY_COST: {
-                        const char *field =
-                                            c == ARG_MEMORY_MAX ? "memoryMax" :
-                                           c == ARG_MEMORY_HIGH ? "memoryHigh" :
-                                c == ARG_LUKS_PBKDF_MEMORY_COST ? "luksPbkdfMemoryCost" :
-                                                                  NULL;
-
-                        r = parse_size_field(match_identity ?: &arg_identity_extra_this_machine, field, optarg);
-                        if (r < 0)
-                                return r;
-                        break;
-                }
-
-                case ARG_CPU_WEIGHT:
-                case ARG_IO_WEIGHT: {
-                        const char *field = c == ARG_CPU_WEIGHT ? "cpuWeight" :
-                                             c == ARG_IO_WEIGHT ? "ioWeight" :
-                                                                  NULL;
-
-                        r = parse_weight_field(match_identity ?: &arg_identity_extra, field, optarg);
-                        if (r < 0)
-                                return r;
-                        break;
-                }
-
                 case ARG_PKCS11_TOKEN_URI:
                         r = parse_pkcs11_token_uri_field(optarg);
                         if (r <= 0)
                                 return r;
-                        break;
-
-                case ARG_FIDO2_CRED_ALG:
-                        r = parse_fido2_algorithm(optarg, &arg_fido2_cred_alg);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse COSE algorithm: %s", optarg);
                         break;
 
                 case ARG_FIDO2_DEVICE:
@@ -4818,80 +4689,6 @@ static int parse_argv(int argc, char *argv[]) {
                         r = drop_from_identity("recoveryKey", "recoveryKeyType");
                         if (r < 0)
                                 return r;
-                        break;
-
-                case ARG_AUTO_RESIZE_MODE:
-                        r = parse_auto_resize_mode_field(match_identity ?: &arg_identity_extra,
-                                                         "autoResizeMode", optarg);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_REBALANCE_WEIGHT:
-                        r = parse_rebalance_weight(match_identity ?: &arg_identity_extra,
-                                                   "rebalanceWeight", optarg);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case 'j':
-                        arg_json_format_flags = SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO;
-                        break;
-
-                case ARG_JSON:
-                        r = parse_json_argument(optarg, &arg_json_format_flags);
-                        if (r <= 0)
-                                return r;
-
-                        break;
-
-                case 'E':
-                        if (arg_export_format == EXPORT_FORMAT_FULL)
-                                arg_export_format = EXPORT_FORMAT_STRIPPED;
-                        else if (arg_export_format == EXPORT_FORMAT_STRIPPED)
-                                arg_export_format = EXPORT_FORMAT_MINIMAL;
-                        else
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Specifying -E more than twice is not supported.");
-
-                        arg_json_format_flags &= ~SD_JSON_FORMAT_OFF;
-                        if (arg_json_format_flags == 0)
-                                arg_json_format_flags = SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO;
-                        break;
-
-                case ARG_EXPORT_FORMAT:
-                        if (streq(optarg, "help"))
-                                return DUMP_STRING_TABLE(export_format, ExportFormat, _EXPORT_FORMAT_MAX);
-
-                        arg_export_format = export_format_from_string(optarg);
-                        if (arg_export_format < 0)
-                                return log_error_errno(arg_export_format, "Invalid export format: %s", optarg);
-
-                        break;
-
-                case ARG_DROP_CACHES:
-                        r = parse_boolean_field(match_identity ?: &arg_identity_extra, "dropCaches", optarg);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_CAPABILITY_AMBIENT_SET:
-                        r = parse_capability_set_field(match_identity ?: &arg_identity_extra,
-                                                       &arg_capability_ambient_set,
-                                                       "capabilityAmbientSet", optarg);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_CAPABILITY_BOUNDING_SET:
-                        r = parse_capability_set_field(match_identity ?: &arg_identity_extra,
-                                                       &arg_capability_bounding_set,
-                                                       "capabilityBoundingSet", optarg);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_PROMPT_NEW_USER:
-                        arg_prompt_new_user = true;
                         break;
 
                 case 'b':
@@ -4966,6 +4763,127 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
+                case ARG_LOCKED:
+                        r = parse_boolean_field(match_identity ?: &arg_identity_extra, "locked", optarg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_NOT_BEFORE:
+                case ARG_NOT_AFTER:
+                case 'e': {
+                        const char *field = c == ARG_NOT_BEFORE ? "notBeforeUSec" : "notAfterUSec";
+
+                        r = parse_timestamp_field(match_identity ?: &arg_identity_extra, field, optarg);
+                        if (r < 0)
+                                return r;
+                        break;
+                }
+
+                case ARG_RATE_LIMIT_INTERVAL:
+                        r = parse_time_field(match_identity ?: &arg_identity_extra, "rateLimitIntervalUSec", optarg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_RATE_LIMIT_BURST:
+                        r = parse_unsigned_field(match_identity ?: &arg_identity_extra, "rateLimitBurst", optarg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_PASSWORD_HINT:
+                        r = parse_string_field(&arg_identity_extra_privileged, "passwordHint", optarg);
+                        if (r < 0)
+                                return r;
+
+                        string_erase(optarg);
+                        break;
+
+                case ARG_ENFORCE_PASSWORD_POLICY:
+                        r = parse_boolean_field(match_identity ?: &arg_identity_extra, "enforcePasswordPolicy", optarg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case 'P':
+                        r = sd_json_variant_set_field_boolean(&arg_identity_extra, "enforcePasswordPolicy", false);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to set %s field: %m", "enforcePasswordPolicy");
+                        break;
+
+                case ARG_PASSWORD_CHANGE_NOW:
+                        r = parse_boolean_field(match_identity ?: &arg_identity_extra, "passwordChangeNow", optarg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_PASSWORD_CHANGE_MIN:
+                case ARG_PASSWORD_CHANGE_MAX:
+                case ARG_PASSWORD_CHANGE_WARN:
+                case ARG_PASSWORD_CHANGE_INACTIVE: {
+                        const char *field =
+                                     c == ARG_PASSWORD_CHANGE_MIN ? "passwordChangeMinUSec" :
+                                     c == ARG_PASSWORD_CHANGE_MAX ? "passwordChangeMaxUSec" :
+                                    c == ARG_PASSWORD_CHANGE_WARN ? "passwordChangeWarnUSec" :
+                                c == ARG_PASSWORD_CHANGE_INACTIVE ? "passwordChangeInactiveUSec" :
+                                                                    NULL;
+                        assert(field);
+
+                        r = parse_time_field(match_identity ?: &arg_identity_extra, field, optarg);
+                        if (r < 0)
+                                return r;
+                        break;
+                }
+
+                case ARG_DISK_SIZE:
+                        r = parse_disk_size_field(match_identity ?: &arg_identity_extra_this_machine, optarg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_NICE:
+                        r = parse_nice_field(match_identity ?: &arg_identity_extra, "niceLevel", optarg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_RLIMIT:
+                        r = parse_rlimit_field(&arg_identity_extra_rlimits, "resourceLimits", optarg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_TASKS_MAX:
+                        r = parse_u64_field(match_identity ?: &arg_identity_extra, "tasksMax", optarg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_MEMORY_HIGH:
+                        r = parse_size_field(match_identity ?: &arg_identity_extra_this_machine, "memoryHigh", optarg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_MEMORY_MAX:
+                        r = parse_size_field(match_identity ?: &arg_identity_extra_this_machine, "memoryMax", optarg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_CPU_WEIGHT:
+                case ARG_IO_WEIGHT: {
+                        const char *field = c == ARG_CPU_WEIGHT ? "cpuWeight" :
+                                             c == ARG_IO_WEIGHT ? "ioWeight" :
+                                                                  NULL;
+
+                        r = parse_weight_field(match_identity ?: &arg_identity_extra, field, optarg);
+                        if (r < 0)
+                                return r;
+                        break;
+                }
+
                 case ARG_TMP_LIMIT:
                 case ARG_DEV_SHM_LIMIT: {
                         const char *field =
@@ -4987,26 +4905,226 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
-                case ARG_DEFAULT_AREA:
-                        r = parse_filename_field(match_identity ?: &arg_identity_extra, "defaultArea", optarg);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_KEY_NAME:
-                        if (!isempty(optarg) && !filename_is_valid(optarg))
+                case ARG_STORAGE: {
+                        if (!string_is_safe(optarg, STRING_ALLOW_GLOBS))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Parameter for --key-name= not a valid filename: %s", optarg);
+                                                       "Parameter for field %s not valid: %s", "storage", optarg);
 
-                        r = free_and_strdup_warn(&arg_key_name, empty_to_null(optarg));
+                        r = parse_string_field(match_identity ?: &arg_identity_extra_this_machine, "storage", optarg);
+                        if (r < 0)
+                                return r;
+                        break;
+                }
+
+                case ARG_IMAGE_PATH:
+                        r = parse_path_field(match_identity ?: &arg_identity_extra_this_machine, "imagePath", optarg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_SEIZE:
-                        r = parse_boolean_argument("--seize=", optarg, &arg_seize);
+                case ARG_DROP_CACHES:
+                        r = parse_boolean_field(match_identity ?: &arg_identity_extra, "dropCaches", optarg);
                         if (r < 0)
                                 return r;
+                        break;
+
+                case ARG_FS_TYPE: {
+                        if (!string_is_safe(optarg, STRING_ALLOW_GLOBS))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Parameter for field %s not valid: %s", "fileSystemType", optarg);
+
+                        r = parse_string_field(match_identity ?: &arg_identity_extra_this_machine, "fileSystemType", optarg);
+                        if (r < 0)
+                                return r;
+                        break;
+                }
+
+                case ARG_LUKS_DISCARD:
+                case ARG_LUKS_OFFLINE_DISCARD: {
+                        const char *field = c == ARG_LUKS_DISCARD ? "luksDiscard" : "luksOfflineDiscard";
+
+                        r = parse_boolean_field(match_identity ?: &arg_identity_extra, field, optarg);
+                        if (r < 0)
+                                return r;
+                        break;
+                }
+
+                case ARG_LUKS_CIPHER: {
+                        if (!string_is_safe(optarg, STRING_ALLOW_GLOBS))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Parameter for field %s not valid: %s", "luksCipher", optarg);
+
+                        r = parse_string_field(match_identity ?: &arg_identity_extra, "luksCipher", optarg);
+                        if (r < 0)
+                                return r;
+                        break;
+                }
+
+                case ARG_LUKS_CIPHER_MODE: {
+                        if (!string_is_safe(optarg, STRING_ALLOW_GLOBS))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Parameter for field %s not valid: %s", "luksCipherMode", optarg);
+
+                        r = parse_string_field(match_identity ?: &arg_identity_extra, "luksCipherMode", optarg);
+                        if (r < 0)
+                                return r;
+                        break;
+                }
+
+                case ARG_LUKS_VOLUME_KEY_SIZE:
+                        r = parse_unsigned_field(match_identity ?: &arg_identity_extra, "luksVolumeKeySize", optarg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_LUKS_PBKDF_TYPE: {
+                        if (!string_is_safe(optarg, STRING_ALLOW_GLOBS))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Parameter for field %s not valid: %s", "luksPbkdfType", optarg);
+
+                        r = parse_string_field(match_identity ?: &arg_identity_extra, "luksPbkdfType", optarg);
+                        if (r < 0)
+                                return r;
+                        break;
+                }
+
+                case ARG_LUKS_PBKDF_HASH_ALGORITHM: {
+                        if (!string_is_safe(optarg, STRING_ALLOW_GLOBS))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Parameter for field %s not valid: %s", "luksPbkdfHashAlgorithm", optarg);
+
+                        r = parse_string_field(match_identity ?: &arg_identity_extra, "luksPbkdfHashAlgorithm", optarg);
+                        if (r < 0)
+                                return r;
+                        break;
+                }
+
+                case ARG_LUKS_PBKDF_TIME_COST:
+                        r = parse_time_field(match_identity ?: &arg_identity_extra, "luksPbkdfTimeCostUSec", optarg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_LUKS_PBKDF_MEMORY_COST:
+                        r = parse_size_field(match_identity ?: &arg_identity_extra_this_machine, "luksPbkdfMemoryCost", optarg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_LUKS_PBKDF_PARALLEL_THREADS:
+                        r = parse_unsigned_field(match_identity ?: &arg_identity_extra, "luksPbkdfParallelThreads", optarg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_LUKS_SECTOR_SIZE:
+                        r = parse_sector_size_field(match_identity ?: &arg_identity_extra, "luksSectorSize", optarg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_LUKS_EXTRA_MOUNT_OPTIONS:
+                        r = parse_string_field(match_identity ?: &arg_identity_extra, "luksExtraMountOptions", optarg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_AUTO_RESIZE_MODE:
+                        r = parse_auto_resize_mode_field(match_identity ?: &arg_identity_extra,
+                                                         "autoResizeMode", optarg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_REBALANCE_WEIGHT:
+                        r = parse_rebalance_weight(match_identity ?: &arg_identity_extra,
+                                                   "rebalanceWeight", optarg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_NOSUID:
+                        r = parse_boolean_field(match_identity ?: &arg_identity_extra, "mountNoSuid", optarg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_NODEV:
+                        r = parse_boolean_field(match_identity ?: &arg_identity_extra, "mountNoDevices", optarg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_NOEXEC:
+                        r = parse_boolean_field(match_identity ?: &arg_identity_extra, "mountNoExecute", optarg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_CIFS_DOMAIN:
+                        r = parse_string_field(match_identity ?: &arg_identity_extra, "cifsDomain", optarg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_CIFS_USER_NAME:
+                        r = parse_string_field(match_identity ?: &arg_identity_extra, "cifsUserName", optarg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_CIFS_SERVICE:
+                        if (!isempty(optarg)) {
+                                r = parse_cifs_service(optarg, /* ret_host= */ NULL, /* ret_service= */ NULL, /* ret_path= */ NULL);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to validate CIFS service name: %s", optarg);
+                        }
+
+                        r = parse_string_field(match_identity ?: &arg_identity_extra, "cifsService", optarg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_CIFS_EXTRA_MOUNT_OPTIONS:
+                        r = parse_string_field(match_identity ?: &arg_identity_extra, "cifsExtraMountOptions", optarg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_STOP_DELAY:
+                        r = parse_time_field(match_identity ?: &arg_identity_extra, "stopDelayUSec", optarg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_KILL_PROCESSES:
+                        r = parse_boolean_field(match_identity ?: &arg_identity_extra, "killProcesses", optarg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_AUTO_LOGIN:
+                        r = parse_boolean_field(match_identity ?: &arg_identity_extra, "autoLogin", optarg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_SESSION_LAUNCHER:
+                        r = parse_string_field(match_identity ?: &arg_identity_extra, "preferredSessionLauncher", optarg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_SESSION_TYPE:
+                        r = parse_string_field(match_identity ?: &arg_identity_extra, "preferredSessionType", optarg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_FIDO2_CRED_ALG:
+                        r = parse_fido2_algorithm(optarg, &arg_fido2_cred_alg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse COSE algorithm: %s", optarg);
                         break;
 
                 case ARG_MATCH:
@@ -5032,32 +5150,10 @@ static int parse_argv(int argc, char *argv[]) {
                         match_identity = &arg_identity_extra_other_machines;
                         break;
 
-                case ARG_PROMPT_SHELL:
-                        r = parse_boolean_argument("--prompt-shell=", optarg, &arg_prompt_shell);
+                case ARG_LUKS_PBKDF_FORCE_ITERATIONS:
+                        r = parse_unsigned_field(match_identity ?: &arg_identity_extra, "luksPbkdfForceIterations", optarg);
                         if (r < 0)
                                 return r;
-
-                        break;
-
-                case ARG_PROMPT_GROUPS:
-                        r = parse_boolean_argument("--prompt-groups=", optarg, &arg_prompt_groups);
-                        if (r < 0)
-                                return r;
-
-                        break;
-
-                case ARG_CHROME:
-                        r = parse_boolean_argument("--chrome=", optarg, &arg_chrome);
-                        if (r < 0)
-                                return r;
-
-                        break;
-
-                case ARG_MUTE_CONSOLE:
-                        r = parse_boolean_argument("--mute-console=", optarg, &arg_mute_console);
-                        if (r < 0)
-                                return r;
-
                         break;
 
                 case '?':
