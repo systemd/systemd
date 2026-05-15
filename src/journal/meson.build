@@ -72,7 +72,6 @@ executables += [
                         libselinux_cflags,
                         libxz_cflags,
                         libzstd_cflags,
-                        threads,
                 ],
         },
         libexec_template + {
@@ -87,7 +86,6 @@ executables += [
                 'public' : true,
                 'sources' : files('cat.c'),
                 'objects' : ['systemd-journald'],
-                'dependencies' : [threads],
         },
         executable_template + {
                 'name' : 'journalctl',
@@ -95,11 +93,9 @@ executables += [
                 'sources' : journalctl_sources,
                 'link_with' : journalctl_link_with,
                 'dependencies' : [
-                        libdl,
                         liblz4_cflags,
                         libxz_cflags,
                         libzstd_cflags,
-                        threads,
                 ],
         },
         journal_test_template + {
@@ -124,7 +120,6 @@ executables += [
                         liblz4_cflags,
                         libselinux_cflags,
                         libxz_cflags,
-                        threads,
                 ],
         },
         journal_test_template + {
