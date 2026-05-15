@@ -107,4 +107,39 @@ TEST(fp_equal) {
         assert_se(!fp_equal(42 / INFINITY, INFINITY / INFINITY));
 }
 
+TEST(xexp10i) {
+        /* Table-lookup range: every value is exact in binary64 */
+        ASSERT_TRUE(fp_equal(xexp10i(0), 1.0));
+        ASSERT_TRUE(fp_equal(xexp10i(1), 10.0));
+        ASSERT_TRUE(fp_equal(xexp10i(2), 100.0));
+        ASSERT_TRUE(fp_equal(xexp10i(22), 1e22));
+
+        /* Negative exponents */
+        ASSERT_TRUE(fp_equal(xexp10i(-1), 0.1));
+        ASSERT_TRUE(fp_equal(xexp10i(-3), 0.001));
+
+        /* Beyond the table: result still matches a plain 10.0 multiplication chain (no precision
+         * claim beyond binary64) */
+        ASSERT_TRUE(xexp10i(23) > 0.9e23 && xexp10i(23) < 1.1e23);
+        ASSERT_TRUE(xexp10i(100) > 0.9e100 && xexp10i(100) < 1.1e100);
+
+        /* Overflow saturates to +Inf, underflow to 0 — matching glibc exp10() */
+        ASSERT_TRUE(isinf(xexp10i(400)));
+        ASSERT_TRUE(fp_equal(xexp10i(-400), 0.0));
+
+        /* Pathological inputs must still terminate quickly thanks to the internal cap */
+        ASSERT_TRUE(isinf(xexp10i(INT_MAX)));
+        ASSERT_TRUE(fp_equal(xexp10i(INT_MIN), 0.0));
+
+        /* Regression guard for the DBL_MAX round-trip described in math-util.c: 10^308 must be small
+         * enough that DBL_MAX's mantissa (≈ 1.7976931348623157) multiplied by it does not overflow
+         * to +Inf. Delegating to __builtin_powi(10.0, n) here breaks this — libgcc's __powidf2
+         * accumulates a few ULPs of error through repeated squaring, and the product spills over.
+         * Matching test-json's delta of 0.0001, the reconstructed value must land within 0.01% of
+         * DBL_MAX. */
+        double dbl_max_reconstructed = 1.7976931348623157 * xexp10i(308);
+        ASSERT_FALSE(isinf(dbl_max_reconstructed));
+        ASSERT_TRUE(ABS(1.0 - DBL_MAX / dbl_max_reconstructed) < 0.0001);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);

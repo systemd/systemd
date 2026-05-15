@@ -2801,7 +2801,11 @@ static int json_parse_number(const char **p, JsonValue *ret) {
         *p = c;
 
         if (is_real) {
-                ret->real = ((negative ? -1.0 : 1.0) * (x + (y / shift))) * exp10((exponent_negative ? -1.0 : 1.0) * exponent);
+                /* Clamp before casting to int — a JSON input with an absurdly large exponent could
+                 * otherwise trigger undefined behaviour in the double→int conversion. xexp10i()
+                 * itself saturates anything beyond ~10^308, so clamping at INT_MAX is harmless. */
+                int e = exponent > (double) INT_MAX ? INT_MAX : (int) exponent;
+                ret->real = ((negative ? -1.0 : 1.0) * (x + (y / shift))) * xexp10i(exponent_negative ? -e : e);
                 return JSON_TOKEN_REAL;
         } else if (negative) {
                 ret->integer = i;
