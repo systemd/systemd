@@ -3,6 +3,8 @@
 #include <fcntl.h>
 #include <linux/if.h>
 #include <linux/if_arp.h>
+#include <linux/if_ether.h>
+#include <linux/if_infiniband.h>
 #include <linux/pkt_sched.h>
 #include <mqueue.h>
 #include <net/if.h>
