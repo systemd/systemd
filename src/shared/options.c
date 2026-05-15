@@ -510,7 +510,8 @@ int _option_parser_get_help_table_full(
                 /* We indent the option string by two spaces. We could set the minimum cell width and
                  * right-align for a similar result, but that'd be more work. This is only used for
                  * display. */
-                const char *prefix = opt->short_code != 0 ? "  " : "     ";
+                bool shift_left = opt->short_code != 0 || FLAGS_SET(opt->flags, OPTION_HELP_ENTRY_VERBATIM);
+                const char *prefix = shift_left ? "  " : "     ";
                 _cleanup_free_ char *t = strjoin(prefix, s);
                 if (!t)
                         return log_oom();
