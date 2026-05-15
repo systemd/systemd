@@ -425,6 +425,11 @@ possible_common_cc_flags = [
         '-fstack-protector',
         '-fstack-protector-strong',
         '-fstrict-flex-arrays=3',
+        # We don't read errno from any libm call, and the math-errno fallback
+        # forces a DT_NEEDED on libm via the cold error path even when the hot
+        # path is a single hardware instruction (sqrtsd, etc.). Drop it so the
+        # builtins lower to pure hardware instructions.
+        '-fno-math-errno',
         '--param=ssp-buffer-size=4',
 ]
 
