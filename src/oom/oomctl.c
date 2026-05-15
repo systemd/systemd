@@ -65,8 +65,7 @@ static int help(void) {
 
 VERB_COMMON_HELP_HIDDEN(help);
 
-VERB(verb_dump_state, "dump", NULL, VERB_ANY, 1, VERB_DEFAULT,
-     "Output the current state of systemd-oomd");
+VERB_DEFAULT_NOARG(verb_dump_state, "dump", "Output the current state of systemd-oomd");
 static int verb_dump_state(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;

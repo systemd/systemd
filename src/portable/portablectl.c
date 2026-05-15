@@ -253,7 +253,7 @@ static int maybe_reload(sd_bus **bus) {
         return bus_service_manager_reload(*bus);
 }
 
-VERB(verb_list_images, "list", NULL, VERB_ANY, 1, VERB_DEFAULT,
+VERB_DEFAULT_NOARG(verb_list_images, "list",
      "List available portable service images (default)");
 static int verb_list_images(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;

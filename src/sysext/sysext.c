@@ -2305,7 +2305,7 @@ static int merge(ImageClass image_class,
         return 1;
 }
 
-VERB(verb_status, "status", NULL, VERB_ANY, 1, VERB_DEFAULT, "Show current merge status (default)");
+VERB_DEFAULT_NOARG(verb_status, "status", "Show current merge status (default)");
 static int verb_status(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(table_unrefp) Table *t = NULL;
         int r, ret = 0;
