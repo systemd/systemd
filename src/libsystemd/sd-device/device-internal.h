@@ -6,6 +6,7 @@
 #include "sd-forward.h"
 #include "iterator.h"
 
+#define OLDEST_UDEV_DATABASE_VERSION 1
 #define LATEST_UDEV_DATABASE_VERSION 1
 
 struct sd_device {
@@ -51,7 +52,7 @@ struct sd_device {
         /* The database version indicates the supported features by the udev database.
          * This is saved and parsed in V field.
          *
-         * 0: None of the following features are supported (systemd version <= 246).
+         * 0: None of the following features are supported (systemd version <= 246), unsupported since v261.
          * 1: The current tags (Q) and the database version (V) features are implemented (>= 247).
          */
         unsigned database_version;
