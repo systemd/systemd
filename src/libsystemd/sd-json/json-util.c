@@ -796,6 +796,27 @@ int json_dispatch_access_mode(const char *name, sd_json_variant *variant, sd_jso
         return 0;
 }
 
+int json_dispatch_job_id(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        uint32_t *id = ASSERT_PTR(userdata);
+        uint32_t k;
+        int r;
+
+        if (sd_json_variant_is_null(variant)) {
+                *id = 0;
+                return 0;
+        }
+
+        r = sd_json_dispatch_uint32(name, variant, flags, &k);
+        if (r < 0)
+                return r;
+
+        if (k == 0)
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a valid job ID.", strna(name));
+
+        *id = k;
+        return 0;
+}
+
 int json_variant_compare(sd_json_variant *a, sd_json_variant *b) {
         int r;
 
