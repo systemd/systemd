@@ -163,6 +163,142 @@ static uint64_t pull_job_content_length_effective(PullJob *j) {
         return j->content_length;
 }
 
+static int pull_job_write_uncompressed(const void *p, size_t sz, void *userdata) {
+        PullJob *j = ASSERT_PTR(userdata);
+        bool too_much = false;
+        int r;
+
+        assert(p);
+        assert(sz > 0);
+
+        if (j->written_uncompressed > UINT64_MAX - sz)
+                return log_error_errno(SYNTHETIC_ERRNO(EOVERFLOW), "File too large, overflow");
+
+        if (j->written_uncompressed >= j->uncompressed_max) {
+                too_much = true;
+                goto finish;
+        }
+
+        if (j->written_uncompressed + sz > j->uncompressed_max) {
+                too_much = true;
+                sz = j->uncompressed_max - j->written_uncompressed; /* since we have the data in memory
+                                                                     * already, we might as well write it to
+                                                                     * disk to the max */
+        }
+
+        if (j->disk_fd >= 0) {
+
+                if (S_ISREG(j->disk_stat.st_mode) && j->offset == UINT64_MAX) {
+                        ssize_t n;
+
+                        n = sparse_write(j->disk_fd, p, sz, 64);
+                        if (n < 0)
+                                return log_error_errno((int) n, "Failed to write file: %m");
+                        if ((size_t) n < sz)
+                                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short write");
+                } else {
+                        r = loop_write(j->disk_fd, p, sz);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to write file: %m");
+                }
+        }
+
+        if (j->disk_fd < 0 || j->force_memory) {
+                uint8_t *a = j->payload.iov_base;
+
+                if (!GREEDY_REALLOC(a, j->payload.iov_len + sz + 1))
+                        return log_oom();
+
+                *((uint8_t*) mempcpy(a + j->payload.iov_len, p, sz)) = 0;
+                j->payload.iov_base = a;
+                j->payload.iov_len += sz;
+        }
+
+        j->written_uncompressed += sz;
+
+finish:
+        if (too_much)
+                return log_error_errno(SYNTHETIC_ERRNO(EFBIG), "File overly large, refusing.");
+
+        return 0;
+}
+
+static int pull_job_write_compressed(PullJob *j, const struct iovec *data) {
+        int r;
+
+        assert(j);
+        assert(iovec_is_valid(data));
+
+        if (!iovec_is_set(data))
+                return 0;
+
+        if (j->written_compressed + data->iov_len < j->written_compressed)
+                return log_error_errno(SYNTHETIC_ERRNO(EOVERFLOW), "File too large, overflow");
+
+        if (j->written_compressed + data->iov_len > j->compressed_max)
+                return log_error_errno(SYNTHETIC_ERRNO(EFBIG), "File overly large, refusing.");
+
+        uint64_t cl = pull_job_content_length_effective(j);
+        if (cl != UINT64_MAX &&
+            j->written_compressed + data->iov_len > cl)
+                return log_error_errno(SYNTHETIC_ERRNO(EFBIG),
+                                       "Content length incorrect.");
+
+        if (j->checksum_ctx) {
+                r = sym_EVP_DigestUpdate(j->checksum_ctx, data->iov_base, data->iov_len);
+                if (r == 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                               "Could not hash chunk.");
+        }
+
+        r = decompressor_push(j->compress, data->iov_base, data->iov_len, pull_job_write_uncompressed, j);
+        if (r < 0)
+                return r;
+
+        j->written_compressed += data->iov_len;
+
+        return 0;
+}
+
+static int pull_job_open_disk(PullJob *j) {
+        int r;
+
+        assert(j);
+
+        if (j->on_open_disk) {
+                r = j->on_open_disk(j);
+                if (r < 0)
+                        return r;
+        }
+
+        if (j->disk_fd >= 0) {
+                if (fstat(j->disk_fd, &j->disk_stat) < 0)
+                        return log_error_errno(errno, "Failed to stat disk file: %m");
+
+                if (j->offset != UINT64_MAX) {
+                        if (lseek(j->disk_fd, j->offset, SEEK_SET) < 0)
+                                return log_error_errno(errno, "Failed to seek on file descriptor: %m");
+                }
+        }
+
+        if (j->calc_checksum) {
+                r = dlopen_libcrypto(LOG_ERR);
+                if (r < 0)
+                        return r;
+
+                j->checksum_ctx = sym_EVP_MD_CTX_new();
+                if (!j->checksum_ctx)
+                        return log_oom();
+
+                r = sym_EVP_DigestInit_ex(j->checksum_ctx, sym_EVP_sha256(), NULL);
+                if (r == 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                               "Failed to initialize hash context.");
+        }
+
+        return 0;
+}
+
 static int pull_job_curl_on_finished(CurlSlot *slot, CURL *curl, CURLcode result, void *userdata) {
         PullJob *j = ASSERT_PTR(userdata);
         char *scheme = NULL;
@@ -332,142 +468,6 @@ static int pull_job_curl_on_finished(CurlSlot *slot, CURL *curl, CURLcode result
         log_info("Acquired %s for %s.", FORMAT_BYTES(j->written_uncompressed), pull_job_description(j));
 
         return pull_job_finish(j, 0);
-}
-
-static int pull_job_write_uncompressed(const void *p, size_t sz, void *userdata) {
-        PullJob *j = ASSERT_PTR(userdata);
-        bool too_much = false;
-        int r;
-
-        assert(p);
-        assert(sz > 0);
-
-        if (j->written_uncompressed > UINT64_MAX - sz)
-                return log_error_errno(SYNTHETIC_ERRNO(EOVERFLOW), "File too large, overflow");
-
-        if (j->written_uncompressed >= j->uncompressed_max) {
-                too_much = true;
-                goto finish;
-        }
-
-        if (j->written_uncompressed + sz > j->uncompressed_max) {
-                too_much = true;
-                sz = j->uncompressed_max - j->written_uncompressed; /* since we have the data in memory
-                                                                     * already, we might as well write it to
-                                                                     * disk to the max */
-        }
-
-        if (j->disk_fd >= 0) {
-
-                if (S_ISREG(j->disk_stat.st_mode) && j->offset == UINT64_MAX) {
-                        ssize_t n;
-
-                        n = sparse_write(j->disk_fd, p, sz, 64);
-                        if (n < 0)
-                                return log_error_errno((int) n, "Failed to write file: %m");
-                        if ((size_t) n < sz)
-                                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short write");
-                } else {
-                        r = loop_write(j->disk_fd, p, sz);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to write file: %m");
-                }
-        }
-
-        if (j->disk_fd < 0 || j->force_memory) {
-                uint8_t *a = j->payload.iov_base;
-
-                if (!GREEDY_REALLOC(a, j->payload.iov_len + sz + 1))
-                        return log_oom();
-
-                *((uint8_t*) mempcpy(a + j->payload.iov_len, p, sz)) = 0;
-                j->payload.iov_base = a;
-                j->payload.iov_len += sz;
-        }
-
-        j->written_uncompressed += sz;
-
-finish:
-        if (too_much)
-                return log_error_errno(SYNTHETIC_ERRNO(EFBIG), "File overly large, refusing.");
-
-        return 0;
-}
-
-static int pull_job_write_compressed(PullJob *j, const struct iovec *data) {
-        int r;
-
-        assert(j);
-        assert(iovec_is_valid(data));
-
-        if (!iovec_is_set(data))
-                return 0;
-
-        if (j->written_compressed + data->iov_len < j->written_compressed)
-                return log_error_errno(SYNTHETIC_ERRNO(EOVERFLOW), "File too large, overflow");
-
-        if (j->written_compressed + data->iov_len > j->compressed_max)
-                return log_error_errno(SYNTHETIC_ERRNO(EFBIG), "File overly large, refusing.");
-
-        uint64_t cl = pull_job_content_length_effective(j);
-        if (cl != UINT64_MAX &&
-            j->written_compressed + data->iov_len > cl)
-                return log_error_errno(SYNTHETIC_ERRNO(EFBIG),
-                                       "Content length incorrect.");
-
-        if (j->checksum_ctx) {
-                r = sym_EVP_DigestUpdate(j->checksum_ctx, data->iov_base, data->iov_len);
-                if (r == 0)
-                        return log_error_errno(SYNTHETIC_ERRNO(EIO),
-                                               "Could not hash chunk.");
-        }
-
-        r = decompressor_push(j->compress, data->iov_base, data->iov_len, pull_job_write_uncompressed, j);
-        if (r < 0)
-                return r;
-
-        j->written_compressed += data->iov_len;
-
-        return 0;
-}
-
-static int pull_job_open_disk(PullJob *j) {
-        int r;
-
-        assert(j);
-
-        if (j->on_open_disk) {
-                r = j->on_open_disk(j);
-                if (r < 0)
-                        return r;
-        }
-
-        if (j->disk_fd >= 0) {
-                if (fstat(j->disk_fd, &j->disk_stat) < 0)
-                        return log_error_errno(errno, "Failed to stat disk file: %m");
-
-                if (j->offset != UINT64_MAX) {
-                        if (lseek(j->disk_fd, j->offset, SEEK_SET) < 0)
-                                return log_error_errno(errno, "Failed to seek on file descriptor: %m");
-                }
-        }
-
-        if (j->calc_checksum) {
-                r = dlopen_libcrypto(LOG_ERR);
-                if (r < 0)
-                        return r;
-
-                j->checksum_ctx = sym_EVP_MD_CTX_new();
-                if (!j->checksum_ctx)
-                        return log_oom();
-
-                r = sym_EVP_DigestInit_ex(j->checksum_ctx, sym_EVP_sha256(), NULL);
-                if (r == 0)
-                        return log_error_errno(SYNTHETIC_ERRNO(EIO),
-                                               "Failed to initialize hash context.");
-        }
-
-        return 0;
 }
 
 static int pull_job_detect_compression(PullJob *j) {
