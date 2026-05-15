@@ -5,7 +5,6 @@ executables += [
                 'name' : 'systemd-userwork',
                 'conditions' : ['ENABLE_USERDB'],
                 'sources' : files('userwork.c'),
-                'dependencies' : threads,
         },
         libexec_template + {
                 'name' : 'systemd-userdbd',
@@ -14,13 +13,11 @@ executables += [
                         'userdbd-manager.c',
                         'userdbd.c',
                 ),
-                'dependencies' : threads,
         },
         executable_template + {
                 'name' : 'userdbctl',
                 'conditions' : ['ENABLE_USERDB'],
                 'sources' : files('userdbctl.c'),
-                'dependencies' : threads,
         },
 ]
 
