@@ -602,6 +602,14 @@
 
         <para>Note that <option>--boot</option> is the default mode of operation if the
         <filename>systemd-nspawn@.service</filename> template unit file is used.</para>
+
+        <para>When <option>--boot</option> is used, the passed parameters are processed the same way the
+        kernel processes its command line before handing it to PID 1: any <literal>KEY=VALUE</literal>
+        assignment whose <literal>KEY</literal> does not contain a <literal>.</literal> is exported as
+        an environment variable for PID 1 (with <literal>-</literal> in the key replaced by
+        <literal>_</literal>, as if specified via <option>--setenv=</option>), while all other
+        parameters (including <literal>systemd.*=</literal> assignments) are passed as arguments to the
+        init program.</para>
         </listitem>
       </varlistentry>
 

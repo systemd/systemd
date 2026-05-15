@@ -179,7 +179,7 @@ static int process_partition(
                  * just to make a point. */
                 partition = sd_device_unref(partition);
 
-                r = block_device_remove_partition(fd, subnode, nr);
+                r = block_device_remove_partition(fd, nr);
                 if (r < 0)
                         return log_device_debug_errno(d, r, "Failed to remove kernel partition device '%s' in order to recreate it: %m", subnode);
 
@@ -189,7 +189,7 @@ static int process_partition(
 
         log_device_debug(d, "Adding partition %i...", nr);
 
-        r = block_device_add_partition(fd, subnode, nr, (uint64_t) start * 512U, (uint64_t) size * 512U);
+        r = block_device_add_partition(fd, nr, (uint64_t) start * 512U, (uint64_t) size * 512U);
         if (r < 0)
                 return log_device_debug_errno(d, r, "Failed to add kernel partition device %i to partition table values: %m", nr);
 
@@ -228,7 +228,7 @@ static int remove_partitions(sd_device *d, int fd, sd_device_enumerator *e, Set 
 
                 log_device_debug(partition, "Kernel knows partition %u which we didn't find, removing.", nr);
 
-                r = block_device_remove_partition(fd, devname, (int) nr);
+                r = block_device_remove_partition(fd, (int) nr);
                 if (r < 0) /* NB: when logging we use the parent device below, after all the partition device ceased existing by now, most likely */
                         RET_GATHER(ret, log_device_debug_errno(d, r, "Failed to remove kernel partition device '%s' that vanished from partition table: %m", devname));
                 else  {

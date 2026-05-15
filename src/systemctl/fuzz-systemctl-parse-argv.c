@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <getopt.h>
 #include <stdio.h>
 
 #include "bus-util.h"
@@ -14,6 +13,48 @@
 #include "strv.h"
 #include "systemctl.h"
 #include "systemctl-util.h"
+
+static int verb_noop(int argc, char *argv[], uintptr_t _data, void *userdata) { return 0; }
+_alias_(verb_noop)
+        verb_add_dependency,
+        verb_bind,
+        verb_cancel,
+        verb_cat,
+        verb_clean_or_freeze,
+        verb_edit,
+        verb_enable,
+        verb_get_default,
+        verb_import_environment,
+        verb_is_active,
+        verb_is_enabled,
+        verb_is_failed,
+        verb_is_system_running,
+        verb_kill,
+        verb_list_automounts,
+        verb_list_dependencies,
+        verb_list_jobs,
+        verb_list_machines,
+        verb_list_paths,
+        verb_list_sockets,
+        verb_list_timers,
+        verb_list_unit_files,
+        verb_list_units,
+        verb_log_setting,
+        verb_mount_image,
+        verb_preset_all,
+        verb_reset_failed,
+        verb_service_log_setting,
+        verb_service_watchdogs,
+        verb_set_default,
+        verb_set_environment,
+        verb_set_property,
+        verb_show,
+        verb_show_environment,
+        verb_start_special,
+        verb_start_system_special,
+        verb_switch_root,
+        verb_trivial_method,
+        verb_whoami;
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_strv_free_ char **argv = NULL;
@@ -46,17 +87,16 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
                         log_warning_errno(orig_stdout_fd, "Failed to duplicate fd 1: %m");
                 else
                         assert_se(freopen("/dev/null", "w", stdout));
-
-                opterr = 0; /* do not print errors */
         }
 
         /* We need to reset some global state manually here since libfuzzer feeds a single process with
          * multiple inputs, so we might carry over state from previous invocations that can trigger
          * certain asserts. */
-        optind = 0; /* this tells the getopt machinery to reinitialize */
         arg_transport = BUS_TRANSPORT_LOCAL;
 
-        r = systemctl_dispatch_parse_argv(strv_length(argv), argv);
+        r = systemctl_dispatch_parse_argv(strv_length(argv), argv,
+                                          /* log_level_shift= */ LOG_DEBUG - LOG_ERR,
+                                          /* remaining_args= */ NULL);
         if (r < 0)
                 log_error_errno(r, "Failed to parse args: %m");
         else

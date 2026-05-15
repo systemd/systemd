@@ -18,11 +18,13 @@
 #include "cgroup-setup.h"
 #include "coredump-util.h"
 #include "cpu-set-util.h"
+#include "creds-util.h"
 #include "dissect-image.h"
 #include "dynamic-user.h"
 #include "env-file.h"
 #include "env-util.h"
 #include "escape.h"
+#include "exec-credential.h"
 #include "execute.h"
 #include "execute-serialize.h"
 #include "fd-util.h"
@@ -55,6 +57,7 @@
 #include "serialize.h"
 #include "set.h"
 #include "sort-util.h"
+#include "specifier.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
@@ -751,6 +754,88 @@ void exec_context_done(ExecContext *c) {
         c->extension_image_policy = image_policy_free(c->extension_image_policy);
 
         c->private_hostname = mfree(c->private_hostname);
+}
+
+int exec_context_apply_environment(
+                Unit *u,
+                ExecContext *c,
+                char **env,
+                UnitWriteFlags flags) {
+
+        assert(u);
+        assert(c);
+
+        if (strv_length(env) > ENVIRONMENT_ASSIGNMENTS_MAX)
+                return -E2BIG;
+        if (!strv_env_is_valid(env))
+                return -EINVAL;
+
+        if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                if (strv_isempty(env)) {
+                        c->environment = strv_free(c->environment);
+                        unit_write_setting(u, flags, "Environment", "Environment=");
+                } else {
+                        _cleanup_free_ char *joined = unit_concat_strv(env, UNIT_ESCAPE_SPECIFIERS|UNIT_ESCAPE_C);
+                        if (!joined)
+                                return -ENOMEM;
+
+                        char **e = strv_env_merge(c->environment, env);
+                        if (!e)
+                                return -ENOMEM;
+
+                        strv_free_and_replace(c->environment, e);
+                        unit_write_settingf(u, flags, "Environment", "Environment=%s", joined);
+                }
+        }
+
+        return 0;
+}
+
+int exec_context_apply_set_credential(
+                Unit *u,
+                ExecContext *c,
+                const char *id,
+                const void *data,
+                size_t size,
+                bool encrypted,
+                UnitWriteFlags flags,
+                const char **reterr_message) {
+
+        int r;
+
+        assert(u);
+        assert(c);
+        assert(id);
+        assert(data || size == 0);
+
+        if (!credential_name_valid(id)) {
+                if (reterr_message)
+                        *reterr_message = "Credential ID is invalid";
+                return -EINVAL;
+        }
+
+        if (UNIT_WRITE_FLAGS_NOOP(flags))
+                return 0;
+
+        _cleanup_free_ void *copy = memdup(data, size);
+        if (!copy)
+                return -ENOMEM;
+
+        _cleanup_free_ char *escaped_id = specifier_escape(id);
+        if (!escaped_id)
+                return -ENOMEM;
+
+        _cleanup_free_ char *escaped_value = cescape_length(data, size);
+        if (!escaped_value)
+                return -ENOMEM;
+
+        r = exec_context_put_set_credential(c, id, TAKE_PTR(copy), size, encrypted);
+        if (r < 0)
+                return r;
+
+        const char *name = encrypted ? "SetCredentialEncrypted" : "SetCredential";
+        unit_write_settingf(u, flags, name, "%s=%s:%s", name, escaped_id, escaped_value);
+        return 0;
 }
 
 int exec_context_destroy_runtime_directory(const ExecContext *c, const char *runtime_prefix) {

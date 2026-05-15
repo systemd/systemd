@@ -2249,11 +2249,7 @@ int _table_sync_column_widths(size_t column, Table *a, ...) {
 }
 
 int table_print_full(Table *t, FILE *f, bool flush) {
-        size_t n_rows, *minimum_width, *maximum_width, display_columns, *requested_width,
-                table_minimum_width, table_maximum_width, table_requested_width, table_effective_width,
-                *width = NULL;
         _cleanup_free_ size_t *sorted = NULL;
-        uint64_t *column_weight, weight_sum;
         int r;
 
         assert(t);
@@ -2264,7 +2260,7 @@ int table_print_full(Table *t, FILE *f, bool flush) {
         /* Ensure we have no incomplete rows */
         assert(t->n_cells % t->n_columns == 0);
 
-        n_rows = t->n_cells / t->n_columns;
+        size_t n_rows = t->n_cells / t->n_columns;
         assert(n_rows > 0); /* at least the header row must be complete */
 
         if (t->sort_map) {
@@ -2280,17 +2276,14 @@ int table_print_full(Table *t, FILE *f, bool flush) {
                 typesafe_qsort_r(sorted, n_rows, table_data_compare, t);
         }
 
-        if (t->display_map)
-                display_columns = t->n_display_map;
-        else
-                display_columns = t->n_columns;
-
+        size_t display_columns = t->display_map ? t->n_display_map : t->n_columns;
         assert(display_columns > 0);
 
-        minimum_width = newa(size_t, display_columns);
-        maximum_width = newa(size_t, display_columns);
-        requested_width = newa(size_t, display_columns);
-        column_weight = newa0(uint64_t, display_columns);
+        size_t *minimum_width = newa(size_t, display_columns),
+                *maximum_width = newa(size_t, display_columns),
+                *requested_width = newa(size_t, display_columns),
+                *width = NULL;
+        uint64_t *column_weight = newa0(uint64_t, display_columns);
 
         for (size_t j = 0; j < display_columns; j++) {
                 minimum_width[j] = 1;
@@ -2373,10 +2366,11 @@ int table_print_full(Table *t, FILE *f, bool flush) {
                 }
 
                 /* One space between each column */
+                size_t table_requested_width, table_minimum_width, table_maximum_width, table_effective_width;
                 table_requested_width = table_minimum_width = table_maximum_width = display_columns - 1;
 
                 /* Calculate the total weight for all columns, plus the minimum, maximum and requested width for the table. */
-                weight_sum = 0;
+                uint64_t weight_sum = 0;
                 for (size_t j = 0; j < display_columns; j++) {
                         weight_sum += column_weight[j];
 

@@ -7,7 +7,7 @@
 # the Free Software Foundation; either version 2.1 of the License, or
 # (at your option) any later version.
 [Unit]
-Description=Report System Basic Facts Socket
+Description=Report System Basic Metrics Socket
 DefaultDependencies=no
 Before=sockets.target
 

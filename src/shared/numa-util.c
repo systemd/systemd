@@ -26,7 +26,7 @@ bool numa_policy_is_valid(const NUMAPolicy *policy) {
 
         if (policy->nodes.set &&
             numa_policy_get_type(policy) == MPOL_PREFERRED &&
-            CPU_COUNT_S(policy->nodes.allocated, policy->nodes.set) != 1)
+            cpu_set_count(&policy->nodes) != 1)
                 return false;
 
         return true;

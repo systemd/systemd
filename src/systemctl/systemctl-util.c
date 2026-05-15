@@ -508,7 +508,7 @@ int unit_find_paths(
          * Finds where the unit is defined on disk. Returns 0 if the unit is not found. Returns 1 if it is
          * found, and sets:
          *
-         * - the path to the unit in *ret_frament_path, if it exists on disk,
+         * - the path to the unit in *ret_fragment_path, if it exists on disk,
          *
          * - and a strv of existing drop-ins in *ret_dropin_paths, if the arg is not NULL and any dropins
          *   were found.

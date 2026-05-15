@@ -68,12 +68,12 @@ static int help(void) {
         help_cmdline("[OPTIONS...] COMMAND");
         help_abstract("Set up iocost model and qos solutions for block devices.");
 
-        help_section("Commands:");
+        help_section("Commands");
         r = table_print_or_warn(verbs);
         if (r < 0)
                 return r;
 
-        help_section("Options:");
+        help_section("Options");
         return table_print_or_warn(options);
 }
 

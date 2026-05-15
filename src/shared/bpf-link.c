@@ -19,6 +19,22 @@ bool bpf_can_link_program(struct bpf_program *prog) {
         return bpf_get_error_translated(link) == -EBADF;
 }
 
+bool bpf_can_link_lsm_program(struct bpf_program *prog) {
+        _cleanup_(bpf_link_freep) struct bpf_link *link = NULL;
+
+        assert(prog);
+
+        if (dlopen_bpf(LOG_DEBUG) < 0)
+                return false;
+
+        link = sym_bpf_program__attach_lsm(prog);
+
+        /* If bpf_program__attach_lsm fails the resulting value stores libbpf error code instead of memory
+         * pointer. That is the case when the helper is called on architectures where BPF trampoline (hence
+         * BPF_LSM_MAC attach type) is not supported. */
+        return bpf_get_error_translated(link) == 0;
+}
+
 int bpf_serialize_link(FILE *f, FDSet *fds, const char *key, struct bpf_link *link) {
         assert(key);
 

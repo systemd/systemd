@@ -683,7 +683,7 @@ static void event_find_blocker(Event *event) {
                 log_device_debug(event->dev, "SEQNUM=%" PRIu64 " blocked by SEQNUM=%" PRIu64,
                                  event->seqnum, e->seqnum);
 
-                unref_and_replace_full(event->blocker, e, event_ref, event_unref);
+                unref_and_replace_new_ref(event->blocker, e, event_ref, event_unref);
                 return;
         }
 

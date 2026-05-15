@@ -48,7 +48,7 @@ _machinectl() {
         [MACHINES]='status show start stop login shell enable disable poweroff reboot pause resume terminate kill
                     image-status show-image remove export-tar export-raw'
         [MACHINES_OR_FILES]='edit cat'
-        [MACHINE_ONLY]='clone rename set-limit'
+        [MACHINE_ONLY]='clone rename set-limit bind-volume unbind-volume'
         [READONLY]='read-only'
         [FILE]='import-tar import-raw'
         [MACHINES_AND_FILES]='copy-to copy-from bind'

@@ -6,6 +6,8 @@
 int dlopen_dw(int log_level);
 int dlopen_elf(int log_level);
 
+bool dlopen_dw_has_dwfl_set_sysroot(void);
+
 /* Parse an ELF object in a forked process, so that errors while iterating over
  * untrusted and potentially malicious data do not propagate to the main caller's process.
  * If fork_disable_dump, the child process will not dump core if it crashes. */

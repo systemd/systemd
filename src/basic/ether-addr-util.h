@@ -106,3 +106,5 @@ extern const struct hash_ops ether_addr_hash_ops;
 extern const struct hash_ops ether_addr_hash_ops_free;
 
 void ether_addr_mark_random(struct ether_addr *addr);
+
+int hw_addr_ensure_broadcast(struct hw_addr_data *bcast_addr, uint16_t arp_type);

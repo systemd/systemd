@@ -18,17 +18,15 @@ DLSYM_PROTOTYPE(archive_entry_fflags) = NULL;
 DLSYM_PROTOTYPE(archive_entry_filetype) = NULL;
 DLSYM_PROTOTYPE(archive_entry_free) = NULL;
 DLSYM_PROTOTYPE(archive_entry_gid) = NULL;
-#if HAVE_ARCHIVE_ENTRY_GID_IS_SET
-DLSYM_PROTOTYPE(archive_entry_gid_is_set) = NULL;
-#else
-int sym_archive_entry_gid_is_set(struct archive_entry *e) {
+static int missing_archive_entry_gid_is_set(struct archive_entry *e) {
         return gid_is_valid(sym_archive_entry_gid(e));
 }
-#endif
+DLSYM_PROTOTYPE(archive_entry_gid_is_set) = missing_archive_entry_gid_is_set;
 DLSYM_PROTOTYPE(archive_entry_hardlink) = NULL;
-#if HAVE_ARCHIVE_ENTRY_HARDLINK_IS_SET
-DLSYM_PROTOTYPE(archive_entry_hardlink_is_set) = NULL;
-#endif
+static int missing_archive_entry_hardlink_is_set(struct archive_entry *e) {
+        return !!sym_archive_entry_hardlink(e);
+}
+DLSYM_PROTOTYPE(archive_entry_hardlink_is_set) = missing_archive_entry_hardlink_is_set;
 DLSYM_PROTOTYPE(archive_entry_mode) = NULL;
 DLSYM_PROTOTYPE(archive_entry_mtime) = NULL;
 DLSYM_PROTOTYPE(archive_entry_mtime_is_set) = NULL;
@@ -53,13 +51,10 @@ DLSYM_PROTOTYPE(archive_entry_set_uid) = NULL;
 DLSYM_PROTOTYPE(archive_entry_sparse_add_entry) = NULL;
 DLSYM_PROTOTYPE(archive_entry_symlink) = NULL;
 DLSYM_PROTOTYPE(archive_entry_uid) = NULL;
-#if HAVE_ARCHIVE_ENTRY_UID_IS_SET
-DLSYM_PROTOTYPE(archive_entry_uid_is_set) = NULL;
-#else
-int sym_archive_entry_uid_is_set(struct archive_entry *e) {
+static int missing_archive_entry_uid_is_set(struct archive_entry *e) {
         return uid_is_valid(sym_archive_entry_uid(e));
 }
-#endif
+DLSYM_PROTOTYPE(archive_entry_uid_is_set) = missing_archive_entry_uid_is_set;
 DLSYM_PROTOTYPE(archive_entry_xattr_add_entry) = NULL;
 DLSYM_PROTOTYPE(archive_entry_xattr_next) = NULL;
 DLSYM_PROTOTYPE(archive_entry_xattr_reset) = NULL;
@@ -84,13 +79,15 @@ DLSYM_PROTOTYPE(archive_write_set_format_pax) = NULL;
 
 int dlopen_libarchive(int log_level) {
 #if HAVE_LIBARCHIVE
+        int r;
+
         SD_ELF_NOTE_DLOPEN(
                         "archive",
                         "Support for decompressing archive files",
                         SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
                         "libarchive.so.13");
 
-        return dlopen_many_sym_or_warn(
+        r = dlopen_many_sym_or_warn(
                         &libarchive_dl,
                         "libarchive.so.13",
                         log_level,
@@ -101,13 +98,7 @@ int dlopen_libarchive(int log_level) {
                         DLSYM_ARG(archive_entry_filetype),
                         DLSYM_ARG(archive_entry_free),
                         DLSYM_ARG(archive_entry_gid),
-#if HAVE_ARCHIVE_ENTRY_GID_IS_SET
-                        DLSYM_ARG(archive_entry_gid_is_set),
-#endif
                         DLSYM_ARG(archive_entry_hardlink),
-#if HAVE_ARCHIVE_ENTRY_HARDLINK_IS_SET
-                        DLSYM_ARG(archive_entry_hardlink_is_set),
-#endif
                         DLSYM_ARG(archive_entry_mode),
                         DLSYM_ARG(archive_entry_mtime),
                         DLSYM_ARG(archive_entry_mtime_is_set),
@@ -132,9 +123,6 @@ int dlopen_libarchive(int log_level) {
                         DLSYM_ARG(archive_entry_sparse_add_entry),
                         DLSYM_ARG(archive_entry_symlink),
                         DLSYM_ARG(archive_entry_uid),
-#if HAVE_ARCHIVE_ENTRY_UID_IS_SET
-                        DLSYM_ARG(archive_entry_uid_is_set),
-#endif
                         DLSYM_ARG(archive_entry_xattr_add_entry),
                         DLSYM_ARG(archive_entry_xattr_next),
                         DLSYM_ARG(archive_entry_xattr_reset),
@@ -155,6 +143,16 @@ int dlopen_libarchive(int log_level) {
                         DLSYM_ARG(archive_write_open_fd),
                         DLSYM_ARG(archive_write_set_format_filter_by_ext),
                         DLSYM_ARG(archive_write_set_format_pax));
+        if (r <= 0)
+                return r;
+
+        /* Optional symbols: present in newer libarchive versions only. If missing, sym_X keeps its
+         * fallback-function initializer (see above). */
+        DLSYM_OPTIONAL(libarchive_dl, archive_entry_gid_is_set);
+        DLSYM_OPTIONAL(libarchive_dl, archive_entry_uid_is_set);
+        DLSYM_OPTIONAL(libarchive_dl, archive_entry_hardlink_is_set);
+
+        return 1;
 #else
         return log_full_errno(log_level, SYNTHETIC_ERRNO(EOPNOTSUPP),
                               "libarchive support is not compiled in.");

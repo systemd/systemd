@@ -15,12 +15,6 @@ SD_VARLINK_DEFINE_ENUM_TYPE(
                 SD_VARLINK_DEFINE_ENUM_VALUE(auto),
                 SD_VARLINK_DEFINE_ENUM_VALUE(null));
 
-SD_VARLINK_DEFINE_ENUM_TYPE(
-                OOMPolicy,
-                SD_VARLINK_DEFINE_ENUM_VALUE(continue),
-                SD_VARLINK_DEFINE_ENUM_VALUE(stop),
-                SD_VARLINK_DEFINE_ENUM_VALUE(kill));
-
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 LogLevelStruct,
                 SD_VARLINK_FIELD_COMMENT("'console' target log level"),

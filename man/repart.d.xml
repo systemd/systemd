@@ -653,6 +653,39 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>BlockDeviceReplace=</varname></term>
+
+        <listitem><para>Takes a path to a mountpoint. Its filesystem's backing device will be replaced
+        with the newly created partition. This works only for btrfs filesystems. This option is ignored for already existing partitions.</para>
+
+        <para>If after moving the filesystem, an error happens before the writing of the partition table is
+        finished, there will be an attempt to move the filesystem back to its original device. But if that
+        attempt also fails, the filesystem might be living on a partition that does not exist in the
+        partition table and will be lost on reboot. This feature is intended to save initially volatile
+        mounted filesystems into the new disk with no important data, like a live boot system. They might
+        need to be recreated after a failure writing the partition table.</para>
+
+        <para>This option is not compatible with <option>--offline=yes</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>VolumeName=</varname></term>
+
+        <listitem><para>If an encrypted partition is created through <varname>Encrypt=</varname>, and it will
+        stay activated after <command>systemd-repart</command> is done (using
+        <varname>BlockDeviceReplace=</varname>), then the name of the device mapper volume created will use
+        the name specified by <varname>VolumeName=</varname>.</para>
+
+        <para>The value must be a valid filename. If not specified, it will default to the value of
+        <varname>VolumeLabel=</varname> (which could be derived from <varname>Label=</varname>) if
+        valid.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>Encrypt=</varname></term>
 
         <listitem><para>Takes one of <literal>off</literal>, <literal>key-file</literal>,

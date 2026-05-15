@@ -131,6 +131,7 @@ DEFINE_CONFIG_PARSE(config_parse_socket_protocol, parse_socket_protocol);
 DEFINE_CONFIG_PARSE(config_parse_exec_secure_bits, secure_bits_from_string);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_collect_mode, collect_mode, CollectMode);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_device_policy, cgroup_device_policy, CGroupDevicePolicy);
+DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_cpuset_partition, cpuset_partition, CPUSetPartition, _CPUSET_PARTITION_INVALID);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_exec_keyring_mode, exec_keyring_mode, ExecKeyringMode);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_protect_proc, protect_proc, ProtectProc);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_proc_subset, proc_subset, ProcSubset);

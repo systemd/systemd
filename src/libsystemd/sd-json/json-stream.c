@@ -1259,7 +1259,21 @@ int json_stream_read(JsonStream *s) {
                         .msg_controllen = s->input_control_buffer_size,
                 };
 
-                n = recvmsg_safe(s->input_fd, &mh, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
+                n = RET_NERRNO(recvmsg(s->input_fd, &mh, MSG_DONTWAIT|MSG_CMSG_CLOEXEC));
+                if (n >= 0 && FLAGS_SET(mh.msg_flags, MSG_TRUNC)) {
+                        cmsg_close_all(&mh);
+                        return -EXFULL;
+                }
+                if (n >= 0 && FLAGS_SET(mh.msg_flags, MSG_CTRUNC)) {
+                        /* SCM_RIGHTS got truncated — typically because an LSM (e.g. SELinux)
+                         * denied the fd transfer. Drop the partial fds and continue with the
+                         * data bytes: the request handler will surface a clean error to the
+                         * peer when it tries to peek the missing fd, instead of us tearing
+                         * the connection down silently and leaving the caller waiting. */
+                        json_stream_log(s, "SCM_RIGHTS truncated on inbound message, dropping received file descriptors.");
+                        cmsg_close_all(&mh);
+                        mh.msg_controllen = 0;
+                }
         } else if (FLAGS_SET(s->flags, JSON_STREAM_PREFER_READ))
                 n = RET_NERRNO(read(s->input_fd, p, rs));
         else

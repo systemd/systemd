@@ -320,7 +320,7 @@ static int efi_get_variable_path_and_warn(const char *variable, char **ret) {
 
 static void print_yes_no_line(bool first, bool good, const char *name) {
         printf("%s%s %s\n",
-               first ? "     Features: " : "               ",
+               first ? "       Features: " : "                 ",
                COLOR_MARK_BOOL(good),
                name);
 }
@@ -387,25 +387,26 @@ int verb_status(int argc, char *argv[], uintptr_t _data, void *userdata) {
                         uint64_t flag;
                         const char *name;
                 } loader_flags[] = {
-                        { EFI_LOADER_FEATURE_BOOT_COUNTING,           "Boot counting"                         },
-                        { EFI_LOADER_FEATURE_CONFIG_TIMEOUT,          "Menu timeout control"                  },
-                        { EFI_LOADER_FEATURE_CONFIG_TIMEOUT_ONE_SHOT, "One-shot menu timeout control"         },
-                        { EFI_LOADER_FEATURE_ENTRY_DEFAULT,           "Default entry control"                 },
-                        { EFI_LOADER_FEATURE_ENTRY_ONESHOT,           "One-shot entry control"                },
-                        { EFI_LOADER_FEATURE_XBOOTLDR,                "Support for XBOOTLDR partition"        },
-                        { EFI_LOADER_FEATURE_RANDOM_SEED,             "Support for passing random seed to OS" },
-                        { EFI_LOADER_FEATURE_LOAD_DRIVER,             "Load drop-in drivers"                  },
-                        { EFI_LOADER_FEATURE_SORT_KEY,                "Support Type #1 sort-key field"        },
-                        { EFI_LOADER_FEATURE_SAVED_ENTRY,             "Support @saved pseudo-entry"           },
-                        { EFI_LOADER_FEATURE_DEVICETREE,              "Support Type #1 devicetree field"      },
-                        { EFI_LOADER_FEATURE_SECUREBOOT_ENROLL,       "Enroll SecureBoot keys"                },
-                        { EFI_LOADER_FEATURE_RETAIN_SHIM,             "Retain SHIM protocols"                 },
-                        { EFI_LOADER_FEATURE_MENU_DISABLE,            "Menu can be disabled"                  },
-                        { EFI_LOADER_FEATURE_MULTI_PROFILE_UKI,       "Multi-Profile UKIs are supported"      },
-                        { EFI_LOADER_FEATURE_REPORT_URL,              "Loader reports network boot URL"       },
-                        { EFI_LOADER_FEATURE_TYPE1_UKI,               "Support Type #1 uki field"             },
-                        { EFI_LOADER_FEATURE_TYPE1_UKI_URL,           "Support Type #1 uki-url field"         },
-                        { EFI_LOADER_FEATURE_TPM2_ACTIVE_PCR_BANKS,   "Loader reports active TPM2 PCR banks"  },
+                        { EFI_LOADER_FEATURE_BOOT_COUNTING,           "Boot counting"                           },
+                        { EFI_LOADER_FEATURE_CONFIG_TIMEOUT,          "Menu timeout control"                    },
+                        { EFI_LOADER_FEATURE_CONFIG_TIMEOUT_ONE_SHOT, "One-shot menu timeout control"           },
+                        { EFI_LOADER_FEATURE_ENTRY_DEFAULT,           "Default entry control"                   },
+                        { EFI_LOADER_FEATURE_ENTRY_ONESHOT,           "One-shot entry control"                  },
+                        { EFI_LOADER_FEATURE_XBOOTLDR,                "Support for XBOOTLDR partition"          },
+                        { EFI_LOADER_FEATURE_RANDOM_SEED,             "Support for passing random seed to OS"   },
+                        { EFI_LOADER_FEATURE_LOAD_DRIVER,             "Load drop-in drivers"                    },
+                        { EFI_LOADER_FEATURE_SORT_KEY,                "Support Type #1 sort-key field"          },
+                        { EFI_LOADER_FEATURE_SAVED_ENTRY,             "Support @saved pseudo-entry"             },
+                        { EFI_LOADER_FEATURE_DEVICETREE,              "Support Type #1 devicetree field"        },
+                        { EFI_LOADER_FEATURE_SECUREBOOT_ENROLL,       "Enroll SecureBoot keys"                  },
+                        { EFI_LOADER_FEATURE_RETAIN_SHIM,             "Retain SHIM protocols"                   },
+                        { EFI_LOADER_FEATURE_MENU_DISABLE,            "Menu can be disabled"                    },
+                        { EFI_LOADER_FEATURE_MULTI_PROFILE_UKI,       "Multi-Profile UKIs are supported"        },
+                        { EFI_LOADER_FEATURE_REPORT_URL,              "Loader reports network boot URL"         },
+                        { EFI_LOADER_FEATURE_TYPE1_UKI,               "Support Type #1 uki field"               },
+                        { EFI_LOADER_FEATURE_TYPE1_UKI_URL,           "Support Type #1 uki-url field"           },
+                        { EFI_LOADER_FEATURE_TPM2_ACTIVE_PCR_BANKS,   "Loader reports active TPM2 PCR banks"    },
+                        { EFI_LOADER_FEATURE_KEYBOARD_LAYOUT,         "Loader reports firmware keyboard layout" },
                 };
                 static const struct {
                         uint64_t flag;
@@ -426,7 +427,7 @@ int verb_status(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 };
                 _cleanup_free_ char *fw_type = NULL, *fw_info = NULL, *loader = NULL, *loader_path = NULL, *stub = NULL, *stub_path = NULL,
                         *current_entry = NULL, *oneshot_entry = NULL, *preferred_entry = NULL, *default_entry = NULL, *sysfail_entry = NULL,
-                        *sysfail_reason = NULL;
+                        *sysfail_reason = NULL, *keyboard_layout = NULL;
                 uint64_t loader_features = 0, stub_features = 0;
                 int have;
 
@@ -444,6 +445,7 @@ int verb_status(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 (void) efi_get_variable_string_and_warn(EFI_LOADER_VARIABLE_STR("LoaderEntryDefault"), &default_entry);
                 (void) efi_get_variable_string_and_warn(EFI_LOADER_VARIABLE_STR("LoaderEntrySysFail"), &sysfail_entry);
                 (void) efi_get_variable_string_and_warn(EFI_LOADER_VARIABLE_STR("LoaderSysFailReason"), &sysfail_reason);
+                (void) efi_get_variable_string_and_warn(EFI_LOADER_VARIABLE_STR("LoaderKeyboardLayout"), &keyboard_layout);
 
                 SecureBootMode secure = efi_get_secure_boot_mode();
                 printf("%sSystem:%s\n", ansi_underline(), ansi_normal());
@@ -503,7 +505,7 @@ int verb_status(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
                 if (loader) {
                         printf("%sCurrent Boot Loader:%s\n", ansi_underline(), ansi_normal());
-                        printf("       Product: %s%s%s\n", ansi_highlight(), loader, ansi_normal());
+                        printf("        Product: %s%s%s\n", ansi_highlight(), loader, ansi_normal());
                         for (size_t i = 0; i < ELEMENTSOF(loader_flags); i++)
                                 print_yes_no_line(i == 0, FLAGS_SET(loader_features, loader_flags[i].flag), loader_flags[i].name);
 
@@ -521,38 +523,42 @@ int verb_status(int argc, char *argv[], uintptr_t _data, void *userdata) {
                                                SD_ID128_FORMAT_VAL(loader_partition_uuid),
                                                SD_ID128_FORMAT_VAL(esp_uuid));
 
-                                printf("     Partition: /dev/disk/by-partuuid/" SD_ID128_UUID_FORMAT_STR "\n",
+                                printf("      Partition: /dev/disk/by-partuuid/" SD_ID128_UUID_FORMAT_STR "\n",
                                        SD_ID128_FORMAT_VAL(loader_partition_uuid));
                         } else if (loader_path)
-                                printf("     Partition: n/a\n");
+                                printf("      Partition: n/a\n");
 
                         if (loader_path)
-                                printf("        Loader: %s%s%s/%s%s\n",
+                                printf("         Loader: %s%s%s/%s%s\n",
                                        glyph(GLYPH_TREE_RIGHT), ansi_grey(), arg_esp_path, ansi_normal(), loader_path);
 
                         if (loader_url)
-                                printf("  Net Boot URL: %s\n", loader_url);
+                                printf("   Net Boot URL: %s\n", loader_url);
+
+                        if (FLAGS_SET(loader_features, EFI_LOADER_FEATURE_KEYBOARD_LAYOUT))
+                                printf("Keyboard Layout: %s\n",
+                                       keyboard_layout ?: "n/a (not reported by firmware)");
 
                         if (sysfail_entry)
-                                printf("SysFail Reason: %s\n", sysfail_reason);
+                                printf(" SysFail Reason: %s\n", sysfail_reason);
 
                         if (current_entry)
-                                printf(" Current Entry: %s\n", current_entry);
+                                printf("  Current Entry: %s\n", current_entry);
                         if (preferred_entry)
-                                printf(" Preferred Entry: %s\n", preferred_entry);
+                                printf("Preferred Entry: %s\n", preferred_entry);
                         if (default_entry)
-                                printf(" Default Entry: %s\n", default_entry);
+                                printf("  Default Entry: %s\n", default_entry);
                         if (oneshot_entry && !streq_ptr(oneshot_entry, default_entry))
-                                printf(" OneShot Entry: %s\n", oneshot_entry);
+                                printf("  OneShot Entry: %s\n", oneshot_entry);
                         if (sysfail_entry)
-                                printf(" SysFail Entry: %s\n", sysfail_entry);
+                                printf("  SysFail Entry: %s\n", sysfail_entry);
 
                         printf("\n");
                 }
 
                 if (stub) {
                         printf("%sCurrent Stub:%s\n", ansi_underline(), ansi_normal());
-                        printf("      Product: %s%s%s\n", ansi_highlight(), stub, ansi_normal());
+                        printf("        Product: %s%s%s\n", ansi_highlight(), stub, ansi_normal());
                         for (size_t i = 0; i < ELEMENTSOF(stub_flags); i++)
                                 print_yes_no_line(i == 0, FLAGS_SET(stub_features, stub_flags[i].flag), stub_flags[i].name);
 
@@ -573,16 +579,16 @@ int verb_status(int argc, char *argv[], uintptr_t _data, void *userdata) {
                                                SD_ID128_FORMAT_VAL(esp_uuid),
                                                SD_ID128_FORMAT_VAL(xbootldr_uuid));
 
-                                printf("    Partition: /dev/disk/by-partuuid/" SD_ID128_UUID_FORMAT_STR "\n",
+                                printf("      Partition: /dev/disk/by-partuuid/" SD_ID128_UUID_FORMAT_STR "\n",
                                        SD_ID128_FORMAT_VAL(stub_partition_uuid));
                         } else if (stub_path)
-                                printf("    Partition: n/a\n");
+                                printf("      Partition: n/a\n");
 
                         if (stub_path)
-                                printf("         Stub: %s%s\n", glyph(GLYPH_TREE_RIGHT), strna(stub_path));
+                                printf("           Stub: %s%s\n", glyph(GLYPH_TREE_RIGHT), strna(stub_path));
 
                         if (stub_url)
-                                printf(" Net Boot URL: %s\n", stub_url);
+                                printf("   Net Boot URL: %s\n", stub_url);
 
                         printf("\n");
                 }

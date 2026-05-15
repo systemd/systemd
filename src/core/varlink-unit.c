@@ -11,6 +11,7 @@
 #include "execute.h"
 #include "format-util.h"
 #include "install.h"
+#include "iovec-util.h"
 #include "job.h"
 #include "json-util.h"
 #include "locale-util.h"
@@ -29,6 +30,12 @@
 #include "varlink-execute.h"
 #include "varlink-kill.h"
 #include "varlink-mount.h"
+#include "varlink-path.h"
+#include "varlink-scope.h"
+#include "varlink-service.h"
+#include "varlink-socket.h"
+#include "varlink-swap.h"
+#include "varlink-timer.h"
 #include "varlink-unit.h"
 #include "varlink-util.h"
 
@@ -114,43 +121,6 @@ static int unit_conditions_build_json(sd_json_variant **ret, const char *name, v
         return 0;
 }
 
-static int exec_command_list_build_json(sd_json_variant **ret, const char *name, void *userdata) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-        ExecCommand *list = userdata;
-        int r;
-
-        assert(ret);
-
-        LIST_FOREACH(command, c, list) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *entry = NULL;
-
-                r = exec_command_build_json(&entry, /* name= */ NULL, c);
-                if (r < 0)
-                        return r;
-
-                r = sd_json_variant_append_array(&v, entry);
-                if (r < 0)
-                        return r;
-        }
-
-        *ret = TAKE_PTR(v);
-        return 0;
-}
-
-/* TODO: This covers only a small subset of a service object's properties. Extend to make more available to
- * consumers like Unit.StartTransient */
-static int service_context_build_json(sd_json_variant **ret, const char *name, void *userdata) {
-        Unit *u = ASSERT_PTR(userdata);
-        Service *s = ASSERT_PTR(SERVICE(u));
-        assert(ret);
-
-        return sd_json_buildo(
-                        ret,
-                        JSON_BUILD_PAIR_ENUM("Type", service_type_to_string(s->type)),
-                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("ExecStart", exec_command_list_build_json, s->exec_command[SERVICE_EXEC_START]),
-                        SD_JSON_BUILD_PAIR_BOOLEAN("RemainAfterExit", s->remain_after_exit));
-}
-
 static int unit_context_build_json(sd_json_variant **ret, const char *name, void *userdata) {
         Unit *u = ASSERT_PTR(userdata);
 
@@ -162,7 +132,12 @@ static int unit_context_build_json(sd_json_variant **ret, const char *name, void
         static const sd_json_build_callback_t unit_type_callbacks[_UNIT_TYPE_MAX] = {
                 [UNIT_AUTOMOUNT] = automount_context_build_json,
                 [UNIT_MOUNT]     = mount_context_build_json,
+                [UNIT_PATH]      = path_context_build_json,
+                [UNIT_SCOPE]     = scope_context_build_json,
                 [UNIT_SERVICE]   = service_context_build_json,
+                [UNIT_SOCKET]    = socket_context_build_json,
+                [UNIT_SWAP]      = swap_context_build_json,
+                [UNIT_TIMER]     = timer_context_build_json,
         };
 
         return sd_json_buildo(
@@ -328,6 +303,12 @@ static int unit_runtime_build_json(sd_json_variant **ret, const char *name, void
         static const sd_json_build_callback_t unit_type_callbacks[_UNIT_TYPE_MAX] = {
                 [UNIT_AUTOMOUNT] = automount_runtime_build_json,
                 [UNIT_MOUNT]     = mount_runtime_build_json,
+                [UNIT_PATH]      = path_runtime_build_json,
+                [UNIT_SCOPE]     = scope_runtime_build_json,
+                [UNIT_SERVICE]   = service_runtime_build_json,
+                [UNIT_SOCKET]    = socket_runtime_build_json,
+                [UNIT_SWAP]      = swap_runtime_build_json,
+                [UNIT_TIMER]     = timer_runtime_build_json,
         };
 
         return sd_json_buildo(
@@ -690,7 +671,48 @@ static void transient_exec_command_item_done(TransientExecCommandItem *i) {
 static JSON_DISPATCH_ENUM_DEFINE(dispatch_service_type, ServiceType, service_type_from_string);
 static JSON_DISPATCH_ENUM_DEFINE(dispatch_job_mode, JobMode, job_mode_from_string);
 
+typedef struct TransientWorkingDirectory {
+        const char *path;
+        bool home;
+        bool missing_ok;
+} TransientWorkingDirectory;
+
+typedef struct TransientSetCredential {
+        const char *id;
+        struct iovec value;
+} TransientSetCredential;
+
+typedef struct TransientExecContextParameters {
+        bool present;
+        bool working_directory_set;
+        TransientWorkingDirectory working_directory;
+        bool environment_set;
+        char **environment;
+
+        bool set_credentials_set;
+        TransientSetCredential *set_credentials;
+        size_t n_set_credentials;
+
+        bool set_credentials_encrypted_set;
+        TransientSetCredential *set_credentials_encrypted;
+        size_t n_set_credentials_encrypted;
+} TransientExecContextParameters;
+
+static void transient_set_credential_array_free(TransientSetCredential *items, size_t n) {
+        FOREACH_ARRAY(item, items, n)
+                iovec_done_erase(&item->value);
+        free(items);
+}
+
+static void transient_exec_context_parameters_done(TransientExecContextParameters *p) {
+        assert(p);
+        strv_free(p->environment);
+        transient_set_credential_array_free(p->set_credentials, p->n_set_credentials);
+        transient_set_credential_array_free(p->set_credentials_encrypted, p->n_set_credentials_encrypted);
+}
+
 typedef struct TransientServiceParameters {
+        bool present;
         ServiceType type;
         TransientExecCommandItem *exec_start;
         size_t n_exec_start;
@@ -740,11 +762,14 @@ static int dispatch_transient_exec_command(const char *name, sd_json_variant *va
 typedef struct StartTransientContextParameters {
         const char *id;
         const char *description;
+        TransientExecContextParameters exec;
         TransientServiceParameters service;
+        const char *bad_exec_field; /* Set by inner Exec dispatcher to the unknown sub-property name */
 } StartTransientContextParameters;
 
 static void start_transient_context_parameters_done(StartTransientContextParameters *p) {
         assert(p);
+        transient_exec_context_parameters_done(&p->exec);
         transient_service_parameters_done(&p->service);
 }
 
@@ -753,12 +778,112 @@ typedef struct StartTransientParameters {
         JobMode mode;
         int notify_job_changes;
         int notify_unit_changes;
-        const char *unsupported_property; /* For error reporting on unknown context fields */
+        char *unsupported_property; /* For error reporting on unknown context fields */
 } StartTransientParameters;
 
 static void start_transient_parameters_done(StartTransientParameters *p) {
         assert(p);
         start_transient_context_parameters_done(&p->context);
+        free(p->unsupported_property);
+}
+
+static int dispatch_const_string_empty_as_null(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        const char **s = ASSERT_PTR(userdata);
+        int r;
+
+        r = sd_json_dispatch_const_string(name, variant, flags, s);
+        if (r >= 0 && isempty(*s))
+                *s = NULL;
+        return r;
+}
+
+static int dispatch_transient_working_directory(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        /* No equivalent D-Bus properties, so use varlink camelCase */
+        static const sd_json_dispatch_field dispatch[] = {
+                { "path",      SD_JSON_VARIANT_STRING,  dispatch_const_string_empty_as_null, offsetof(TransientWorkingDirectory, path),       0 },
+                { "home",      SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool,            offsetof(TransientWorkingDirectory, home),       0 },
+                { "missingOK", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool,            offsetof(TransientWorkingDirectory, missing_ok), 0 },
+                {}
+        };
+
+        TransientExecContextParameters *p = ASSERT_PTR(userdata);
+        p->working_directory_set = true;
+        return sd_json_dispatch(variant, dispatch, flags, &p->working_directory);
+}
+
+static int dispatch_transient_environment(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        TransientExecContextParameters *p = ASSERT_PTR(userdata);
+        p->environment_set = true;
+        return sd_json_dispatch_strv(name, variant, flags, &p->environment);
+}
+
+static int dispatch_transient_set_credential_array(
+                sd_json_variant *variant,
+                TransientSetCredential **ret_items,
+                size_t *ret_n) {
+
+        static const sd_json_dispatch_field item_dispatch[] = {
+                { "id",    SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, offsetof(TransientSetCredential, id),    SD_JSON_MANDATORY },
+                { "value", SD_JSON_VARIANT_STRING, json_dispatch_unbase64_iovec,  offsetof(TransientSetCredential, value), SD_JSON_MANDATORY },
+                {}
+        };
+
+        TransientSetCredential *items = NULL;
+        size_t n = 0;
+        int r;
+
+        assert(ret_items);
+        assert(ret_n);
+
+        CLEANUP_ARRAY(items, n, transient_set_credential_array_free);
+
+        size_t n_items = sd_json_variant_elements(variant);
+        if (n_items == 0) {
+                *ret_items = NULL;
+                *ret_n = 0;
+                return 0;
+        }
+
+        items = new0(TransientSetCredential, n_items);
+        if (!items)
+                return -ENOMEM;
+
+        for (; n < n_items; n++) {
+                r = sd_json_dispatch(sd_json_variant_by_index(variant, n), item_dispatch, /* flags= */ 0, &items[n]);
+                if (r < 0)
+                        return r;
+        }
+
+        *ret_n = n;
+        *ret_items = TAKE_PTR(items);
+        return 0;
+}
+
+static int dispatch_transient_set_credential(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        TransientExecContextParameters *p = ASSERT_PTR(userdata);
+        p->set_credentials_set = true;
+        return dispatch_transient_set_credential_array(variant, &p->set_credentials, &p->n_set_credentials);
+}
+
+static int dispatch_transient_set_credential_encrypted(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        TransientExecContextParameters *p = ASSERT_PTR(userdata);
+        p->set_credentials_encrypted_set = true;
+        return dispatch_transient_set_credential_array(variant, &p->set_credentials_encrypted, &p->n_set_credentials_encrypted);
+}
+
+static int dispatch_transient_exec_context(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        /* Key names compatible with D-Bus property names */
+        static const sd_json_dispatch_field exec_dispatch[] = {
+                { "WorkingDirectory",       SD_JSON_VARIANT_OBJECT,        dispatch_transient_working_directory,      0, 0 },
+                { "Environment",            _SD_JSON_VARIANT_TYPE_INVALID, dispatch_transient_environment,            0, 0 },
+                { "SetCredential",          SD_JSON_VARIANT_ARRAY,         dispatch_transient_set_credential,         0, 0 },
+                { "SetCredentialEncrypted", SD_JSON_VARIANT_ARRAY,         dispatch_transient_set_credential_encrypted, 0, 0 },
+                {}
+        };
+
+        StartTransientContextParameters *p = ASSERT_PTR(userdata);
+        p->exec.present = true;
+        return sd_json_dispatch_full(variant, exec_dispatch, /* bad= */ NULL, /* flags= */ 0, &p->exec, &p->bad_exec_field);
 }
 
 static int dispatch_transient_service(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
@@ -770,14 +895,16 @@ static int dispatch_transient_service(const char *name, sd_json_variant *variant
         };
 
         StartTransientContextParameters *p = ASSERT_PTR(userdata);
+        p->service.present = true;
         return sd_json_dispatch(variant, service_dispatch, /* flags= */ 0, &p->service);
 }
 
 static int dispatch_transient_context(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         static const sd_json_dispatch_field context_dispatch[] = {
-                { "ID",          SD_JSON_VARIANT_STRING, json_dispatch_const_unit_name, offsetof(StartTransientContextParameters, id),          SD_JSON_MANDATORY },
-                { "Description", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, offsetof(StartTransientContextParameters, description), 0                 },
-                { "Service",     SD_JSON_VARIANT_OBJECT, dispatch_transient_service,    0,                                                      0                 },
+                { "ID",          SD_JSON_VARIANT_STRING, json_dispatch_const_unit_name,   offsetof(StartTransientContextParameters, id),          SD_JSON_MANDATORY },
+                { "Description", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string,   offsetof(StartTransientContextParameters, description), 0                 },
+                { "Exec",        SD_JSON_VARIANT_OBJECT, dispatch_transient_exec_context, 0,                                                      0                 },
+                { "Service",     SD_JSON_VARIANT_OBJECT, dispatch_transient_service,      0,                                                      0                 },
                 {}
         };
 
@@ -788,17 +915,132 @@ static int dispatch_transient_context(const char *name, sd_json_variant *variant
         /* Don't propagate the caller's flags (in particular SD_JSON_MANDATORY from the outer 'context'
          * field) into the nested dispatch, otherwise every inner field becomes mandatory. */
         r = sd_json_dispatch_full(variant, context_dispatch, /* bad= */ NULL, /* flags= */ 0, &p->context, &bad_field);
-        if (r == -EADDRNOTAVAIL && !isempty(bad_field))
+        if (r == -EADDRNOTAVAIL && !isempty(bad_field)) {
                 /* A UnitContext field that exists in the schema but is not settable at creation time: stash
-                 * the name so the caller can map this to io.systemd.Unit.PropertyNotSupported. */
-                p->unsupported_property = bad_field;
+                 * the name so the caller can map this to io.systemd.Unit.PropertyNotSupported. If the
+                 * unknown field lives inside the nested Exec object, compose a dotted name to identify the
+                 * actual sub-property. */
+                if (streq(bad_field, "Exec") && !isempty(p->context.bad_exec_field))
+                        p->unsupported_property = strjoin("Exec.", p->context.bad_exec_field);
+                else
+                        p->unsupported_property = strdup(bad_field);
+                if (!p->unsupported_property)
+                        return -ENOMEM;
+        }
         return r;
 }
 
-static int transient_service_apply_properties(Unit *u, TransientServiceParameters *sp) {
+static int transient_unit_apply_properties(Unit *u, StartTransientContextParameters *p) {
         int r;
 
-        Service *s = ASSERT_PTR(SERVICE(u));
+        assert(u);
+        assert(p);
+
+        if (p->description) {
+                r = unit_set_description(u, p->description);
+                if (r < 0)
+                        return r;
+                unit_write_settingf(u, UNIT_RUNTIME|UNIT_ESCAPE_SPECIFIERS, "Description", "Description=%s", p->description);
+        }
+
+        return 0;
+}
+
+static int transient_apply_set_credentials(
+                Unit *u,
+                ExecContext *c,
+                const TransientSetCredential *items,
+                size_t n_items,
+                bool encrypted) {
+
+        int r;
+
+        assert(u);
+        assert(c);
+
+        FOREACH_ARRAY(item, items, n_items) {
+                const char *err = NULL;
+
+                r = exec_context_apply_set_credential(u, c, item->id, item->value.iov_base, item->value.iov_len,
+                                                     encrypted, UNIT_RUNTIME|UNIT_PRIVATE, &err);
+                if (r == -EINVAL)
+                        return log_debug_errno(r, "%s: %s", err, item->id);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+static int transient_exec_context_apply_properties(Unit *u, ExecContext *c, TransientExecContextParameters *p) {
+        int r;
+
+        assert(u);
+        assert(c);
+        assert(p);
+
+        if (p->working_directory_set) {
+                TransientWorkingDirectory *wd = &p->working_directory;
+                _cleanup_free_ char *simplified = NULL;
+
+                if (wd->home && wd->path)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "WorkingDirectory: 'home' and 'path' are mutually exclusive");
+                if (!wd->home && !wd->path)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "WorkingDirectory: must specify either 'home' or 'path'");
+
+                if (!wd->home) {
+                        if (!path_is_absolute(wd->path))
+                                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "WorkingDirectory: expects an absolute path");
+                        r = path_simplify_alloc(wd->path, &simplified);
+                        if (r < 0)
+                                return r;
+                        if (!path_is_normalized(simplified))
+                                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "WorkingDirectory: expects a normalized path");
+                }
+
+                free_and_replace(c->working_directory, simplified);
+                c->working_directory_home = wd->home;
+                c->working_directory_missing_ok = wd->missing_ok;
+
+                unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE|UNIT_ESCAPE_SPECIFIERS, "WorkingDirectory",
+                                    "WorkingDirectory=%s%s",
+                                    c->working_directory_missing_ok ? "-" : "",
+                                    c->working_directory_home ? "~" : strempty(c->working_directory));
+        }
+
+        if (p->environment_set) {
+                r = exec_context_apply_environment(u, c, p->environment, UNIT_RUNTIME|UNIT_PRIVATE);
+                if (r == -E2BIG)
+                        return log_debug_errno(r, "Too many environment assignments.");
+                if (r == -EINVAL)
+                        return log_debug_errno(r, "Invalid Environment list.");
+                if (r < 0)
+                        return r;
+        }
+
+        if (p->set_credentials_set) {
+                r = transient_apply_set_credentials(u, c, p->set_credentials, p->n_set_credentials, /* encrypted= */ false);
+                if (r < 0)
+                        return r;
+        }
+
+        if (p->set_credentials_encrypted_set) {
+                r = transient_apply_set_credentials(u, c, p->set_credentials_encrypted, p->n_set_credentials_encrypted, /* encrypted= */ true);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+static int transient_service_apply_properties(Service *s, TransientServiceParameters *sp) {
+        Unit *u = UNIT(ASSERT_PTR(s));
+        int r;
+
         assert(sp);
 
         if (sp->type >= 0) {
@@ -944,22 +1186,27 @@ int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters
                 return varlink_reply_bus_error(link, r, &bus_error);
 
         /* Apply unit-level properties from context */
-        if (p.context.description) {
-                r = unit_set_description(u, p.context.description);
+        r = transient_unit_apply_properties(u, &p.context);
+        if (r < 0)
+                return sd_varlink_error(link, VARLINK_ERROR_UNIT_BAD_SETTING, NULL);
+
+        /* Apply exec-specific properties from context.Exec */
+        ExecContext *c = unit_get_exec_context(u);
+        if (c) {
+                r = transient_exec_context_apply_properties(u, c, &p.context.exec);
                 if (r < 0)
                         return sd_varlink_error(link, VARLINK_ERROR_UNIT_BAD_SETTING, NULL);
-                unit_write_settingf(u, UNIT_RUNTIME|UNIT_ESCAPE_SPECIFIERS, "Description", "Description=%s", p.context.description);
-        }
+        } else if (p.context.exec.present)
+                return sd_varlink_error(link, VARLINK_ERROR_UNIT_TYPE_NOT_SUPPORTED, NULL);
 
         /* Apply service-specific properties from context.Service */
-        if (p.context.service.type >= 0 || p.context.service.n_exec_start > 0 || p.context.service.remain_after_exit >= 0) {
-                if (t != UNIT_SERVICE)
-                        return sd_varlink_error(link, VARLINK_ERROR_UNIT_TYPE_NOT_SUPPORTED, NULL);
-
-                r = transient_service_apply_properties(u, &p.context.service);
+        Service *s = SERVICE(u);
+        if (s) {
+                r = transient_service_apply_properties(s, &p.context.service);
                 if (r < 0)
                         return sd_varlink_error(link, VARLINK_ERROR_UNIT_BAD_SETTING, NULL);
-        }
+        } else if (p.context.service.present)
+                return sd_varlink_error(link, VARLINK_ERROR_UNIT_TYPE_NOT_SUPPORTED, NULL);
 
         unit_add_to_load_queue(u);
         manager_dispatch_load_queue(manager);

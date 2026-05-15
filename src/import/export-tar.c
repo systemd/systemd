@@ -59,7 +59,6 @@ typedef struct TarExport {
         RateLimit progress_ratelimit;
 
         bool eof;
-        bool tried_splice;
 } TarExport;
 
 TarExport *tar_export_unref(TarExport *e) {
@@ -188,27 +187,6 @@ static int tar_export_process(TarExport *e) {
         int r;
 
         assert(e);
-
-        if (!e->tried_splice && compressor_type(e->compress) == COMPRESSION_NONE) {
-
-                l = splice(e->tar_fd, NULL, e->output_fd, NULL, COMPRESS_PIPE_BUFFER_SIZE, 0);
-                if (l < 0) {
-                        if (errno == EAGAIN)
-                                return 0;
-
-                        e->tried_splice = true;
-                } else if (l == 0) {
-                        r = tar_export_finish(e);
-                        goto finish;
-                } else {
-                        e->written_uncompressed += l;
-                        e->written_compressed += l;
-
-                        tar_export_report_progress(e);
-
-                        return 0;
-                }
-        }
 
         while (e->buffer_size <= 0) {
                 uint8_t input[COMPRESS_PIPE_BUFFER_SIZE];

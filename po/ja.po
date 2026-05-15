@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-03-06 03:46+0900\n"
+"POT-Creation-Date: 2026-05-13 01:48+0900\n"
 "PO-Revision-Date: 2025-03-17 03:11+0000\n"
 "Last-Translator: Y T <yi818670@gmail.com>\n"
 "Language-Team: Japanese <https://translate.fedoraproject.org/projects/"
@@ -836,33 +836,54 @@ msgid ""
 msgstr "ローカルに存在する仮想マシンやコンテナを管理するには認証が必要です。"
 
 #: src/machine/org.freedesktop.machine1.policy:95
+msgid "Inspect local virtual machines and containers"
+msgstr "ローカルに存在する仮想マシンやコンテナの精査"
+
+#: src/machine/org.freedesktop.machine1.policy:96
+msgid ""
+"Authentication is required to inspect local virtual machines and containers."
+msgstr "ローカルに存在する仮想マシンやコンテナを精査するには認証が必要です。"
+
+#: src/machine/org.freedesktop.machine1.policy:105
 msgid "Create a local virtual machine or container"
 msgstr "ローカルに存在する仮想マシンやコンテナの作成"
 
-#: src/machine/org.freedesktop.machine1.policy:96
+#: src/machine/org.freedesktop.machine1.policy:106
 msgid ""
 "Authentication is required to create a local virtual machine or container."
 msgstr "ローカルに存在する仮想マシンやコンテナを作成するには認証が必要です。"
 
-#: src/machine/org.freedesktop.machine1.policy:106
+#: src/machine/org.freedesktop.machine1.policy:116
 msgid "Register a local virtual machine or container"
 msgstr "ローカルに存在する仮想マシンやコンテナの登録"
 
-#: src/machine/org.freedesktop.machine1.policy:107
+#: src/machine/org.freedesktop.machine1.policy:117
 msgid ""
 "Authentication is required to register a local virtual machine or container."
 msgstr "ローカルに存在する仮想マシンやコンテナを登録するには認証が必要です。"
 
-#: src/machine/org.freedesktop.machine1.policy:116
+#: src/machine/org.freedesktop.machine1.policy:126
 msgid "Manage local virtual machine and container images"
 msgstr "ローカルに存在する仮想マシンやコンテナのイメージ管理"
 
-#: src/machine/org.freedesktop.machine1.policy:117
+#: src/machine/org.freedesktop.machine1.policy:127
 msgid ""
 "Authentication is required to manage local virtual machine and container "
 "images."
 msgstr ""
 "ローカルに存在する仮想マシンやコンテナのイメージを管理するには認証が必要で"
+"す。"
+
+#: src/machine/org.freedesktop.machine1.policy:137
+msgid "Inspect local virtual machine and container images"
+msgstr "ローカルに存在する仮想マシンやコンテナのイメージの精査"
+
+#: src/machine/org.freedesktop.machine1.policy:138
+msgid ""
+"Authentication is required to inspect local virtual machine and container "
+"images."
+msgstr ""
+"ローカルに存在する仮想マシンやコンテナのイメージを精査するには認証が必要で"
 "す。"
 
 #: src/network/org.freedesktop.network1.policy:22
@@ -1023,11 +1044,11 @@ msgstr "ネットワークインターフェイスを管理するには認証が
 
 #: src/portable/org.freedesktop.portable1.policy:13
 msgid "Inspect a portable service image"
-msgstr "ポータブルサービスイメージの読み込み"
+msgstr "ポータブルサービスイメージの精査"
 
 #: src/portable/org.freedesktop.portable1.policy:14
 msgid "Authentication is required to inspect a portable service image."
-msgstr "ポータブルサービスイメージを読み込むには認証が必要です。"
+msgstr "ポータブルサービスイメージを精査するには認証が必要です。"
 
 #: src/portable/org.freedesktop.portable1.policy:23
 msgid "Attach or detach a portable service image"

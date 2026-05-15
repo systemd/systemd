@@ -28,7 +28,7 @@ static int help(void) {
 
         help_cmdline("cat [OPTIONS...] [FILE...]");
         help_abstract("Show udev rules files.");
-        help_section("Options:");
+        help_section("Options");
         r = table_print_or_warn(options);
         if (r < 0)
                 return r;

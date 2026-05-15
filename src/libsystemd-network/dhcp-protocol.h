@@ -13,6 +13,7 @@
 #include "sd-forward.h"
 #include "sparse-endian.h"
 #include "time-util.h"
+#include "tlv-util.h"
 
 /* RFC 8925 - IPv6-Only Preferred Option for DHCPv4 3.4.
  * MIN_V6ONLY_WAIT: The lower boundary for V6ONLY_WAIT. Value: 300 seconds */
@@ -48,6 +49,13 @@ struct DHCPMessage {
 
 typedef struct DHCPMessage DHCPMessage;
 assert_cc(sizeof(DHCPMessageHeader) == offsetof(DHCPMessage, options));
+
+struct sd_dhcp_message {
+        unsigned n_ref;
+
+        DHCPMessageHeader header;
+        TLV options;
+};
 
 struct DHCPPacket {
         struct iphdr ip;
@@ -122,6 +130,11 @@ enum {
         DHCP_FQDN_FLAG_O = (1 << 1),
         DHCP_FQDN_FLAG_E = (1 << 2),
         DHCP_FQDN_FLAG_N = (1 << 3),
+};
+
+/* For SD_DHCP_RELAY_AGENT_FLAGS sub-option. */
+enum {
+        DHCP_RELAY_AGENT_FLAG_UNICAST = 1 << 0,
 };
 
 DECLARE_STRING_TABLE_LOOKUP_TO_STRING(dhcp_option_code, int);

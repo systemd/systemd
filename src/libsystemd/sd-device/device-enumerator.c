@@ -9,6 +9,7 @@
 #include "device-filter.h"
 #include "device-util.h"
 #include "dirent-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "log.h"
 #include "path-util.h"
@@ -741,7 +742,7 @@ static int enumerator_scan_dir_and_add_devices(
 
                 k = sd_device_new_from_syspath(&device, syspath);
                 if (k < 0) {
-                        if (k != -ENODEV)
+                        if (!ERRNO_IS_NEG_DEVICE_ABSENT(k))
                                 /* this is necessarily racey, so ignore missing devices */
                                 r = k;
 
@@ -836,7 +837,7 @@ static int enumerator_scan_devices_tag(sd_device_enumerator *enumerator, const c
 
                 k = sd_device_new_from_device_id(&device, de->d_name);
                 if (k < 0) {
-                        if (k != -ENODEV)
+                        if (!ERRNO_IS_NEG_DEVICE_ABSENT(k))
                                 /* this is necessarily racy, so ignore missing devices */
                                 r = k;
 
@@ -882,7 +883,7 @@ static int parent_add_child(sd_device_enumerator *enumerator, const char *path, 
         int r;
 
         r = sd_device_new_from_syspath(&device, path);
-        if (r == -ENODEV)
+        if (ERRNO_IS_NEG_DEVICE_ABSENT(r))
                 /* this is necessarily racy, so ignore missing devices */
                 return 0;
         else if (r < 0)

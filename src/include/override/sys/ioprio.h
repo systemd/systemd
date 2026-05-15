@@ -3,12 +3,8 @@
 
 #include <linux/ioprio.h>       /* IWYU pragma: export */
 
-#if !HAVE_IOPRIO_GET
-int missing_ioprio_get(int which, int who);
-#  define ioprio_get missing_ioprio_get
-#endif
+int ioprio_get_shim(int which, int who);
+#define ioprio_get ioprio_get_shim
 
-#if !HAVE_IOPRIO_SET
-int missing_ioprio_set(int which, int who, int ioprio);
-#  define ioprio_set missing_ioprio_set
-#endif
+int ioprio_set_shim(int which, int who, int ioprio);
+#define ioprio_set ioprio_set_shim

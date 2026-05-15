@@ -747,4 +747,134 @@ TEST(write_data_file_atomic_at) {
         ASSERT_OK_ERRNO(rmdir("/tmp/zzz"));
 }
 
+TEST(read_one_line_file_at_xat_fdroot) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_free_ char *fn = NULL, *buf = NULL;
+
+        ASSERT_OK(mkdtemp_malloc("/tmp/test-r1lf-xatfd-XXXXXX", &t));
+        ASSERT_TRUE(path_is_absolute(t));
+
+        ASSERT_NOT_NULL(fn = path_join(t, "hello"));
+        ASSERT_OK(write_string_file(fn, "first line\nsecond line", WRITE_STRING_FILE_CREATE));
+
+        /* XAT_FDROOT is supposed to root the path at the host's "/"; the implementation prepends a "/" so
+         * we pass the path without leading slash. */
+        ASSERT_OK_EQ(read_one_line_file_at(XAT_FDROOT, fn + 1, &buf), (int) STRLEN("first line\n"));
+        ASSERT_STREQ(buf, "first line");
+        buf = mfree(buf);
+
+        /* Sanity check: AT_FDCWD with the absolute path gives the same result. */
+        ASSERT_OK_EQ(read_one_line_file_at(AT_FDCWD, fn, &buf), (int) STRLEN("first line\n"));
+        ASSERT_STREQ(buf, "first line");
+        buf = mfree(buf);
+
+        /* /proc/version should always be readable via XAT_FDROOT (some build envs may restrict it; tolerate
+         * that). */
+        int r = read_one_line_file_at(XAT_FDROOT, "proc/version", &buf);
+        if (!ERRNO_IS_NEG_PRIVILEGE(r)) {
+                ASSERT_OK(r);
+                ASSERT_FALSE(isempty(buf));
+                buf = mfree(buf);
+        }
+
+        /* Non-existent path through XAT_FDROOT should yield -ENOENT. */
+        ASSERT_ERROR(read_one_line_file_at(XAT_FDROOT, "tmp/this/path/really/should/not/exist", &buf), ENOENT);
+
+        /* Now create a Unix socket in the same temp dir, and verify that read_one_line_file_at() returns
+         * -ENXIO when pointed at it via XAT_FDROOT — read_one_line_file_at() does not enable the socket
+         * fallback. */
+        _cleanup_free_ char *sockpath = NULL;
+        ASSERT_NOT_NULL(sockpath = path_join(t, "socket"));
+
+        _cleanup_close_ int listener = -EBADF;
+        ASSERT_OK(listener = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, /* protocol= */ 0));
+
+        union sockaddr_union sa;
+        ASSERT_OK(sockaddr_un_set_path(&sa.un, sockpath));
+        ASSERT_OK_ERRNO(bind(listener, &sa.sa, sockaddr_un_len(&sa.un)));
+        ASSERT_OK_ERRNO(listen(listener, 1));
+
+        ASSERT_ERROR(read_one_line_file_at(XAT_FDROOT, sockpath + 1, &buf), ENXIO);
+
+        /* But read_full_file_full() with READ_FULL_FILE_CONNECT_SOCKET *does* enable the socket fallback,
+         * which routes through xfopenat_unix_socket() and connect_unix_path() — both now teach the
+         * XAT_FDROOT codepath. Use that to exercise the socket open via XAT_FDROOT. */
+        static const char test_sock_str[] = "hello via xat_fdroot socket\n";
+
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        int pr = ASSERT_OK(pidref_safe_fork("(server)", FORK_DEATHSIG_SIGTERM|FORK_LOG, &pidref));
+        if (pr == 0) {
+                _cleanup_close_ int rfd = -EBADF;
+                ASSERT_OK(rfd = accept4(listener, /* addr= */ NULL, /* addrlen= */ NULL, SOCK_CLOEXEC));
+                ASSERT_OK_EQ_ERRNO(write(rfd, test_sock_str, sizeof(test_sock_str) - 1),
+                                   (ssize_t) sizeof(test_sock_str) - 1);
+                _exit(EXIT_SUCCESS);
+        }
+
+        _cleanup_free_ char *data = NULL;
+        size_t size;
+        ASSERT_OK(read_full_file_full(XAT_FDROOT, sockpath + 1,
+                                      /* offset= */ UINT64_MAX, /* size= */ SIZE_MAX,
+                                      READ_FULL_FILE_CONNECT_SOCKET, /* bind_name= */ NULL,
+                                      &data, &size));
+        ASSERT_EQ(size, sizeof(test_sock_str) - 1);
+        ASSERT_STREQ(data, test_sock_str);
+
+        ASSERT_OK(pidref_wait_for_terminate_and_check("(server)", &pidref, WAIT_LOG));
+}
+
+TEST(read_boolean_file) {
+        _cleanup_(unlink_tempfilep) char fn[] = "/tmp/test-read-boolean-file-XXXXXX";
+        _cleanup_close_ int fd = -EBADF, dfd = -EBADF;
+        const char *rel;
+
+        ASSERT_OK(fd = mkostemp_safe(fn));
+
+        ASSERT_OK(write_string_file(fn, "yes", WRITE_STRING_FILE_TRUNCATE));
+        ASSERT_OK_EQ(read_boolean_file(fn), true);
+        ASSERT_OK_EQ(read_boolean_file_at(AT_FDCWD, fn), true);
+
+        ASSERT_OK(write_string_file(fn, "0", WRITE_STRING_FILE_TRUNCATE));
+        ASSERT_OK_EQ(read_boolean_file(fn), false);
+        ASSERT_OK_EQ(read_boolean_file_at(AT_FDCWD, fn), false);
+
+        ASSERT_OK(write_string_file(fn, "true\nignored\n", WRITE_STRING_FILE_TRUNCATE));
+        ASSERT_OK_EQ(read_boolean_file(fn), true);
+
+        ASSERT_OK(write_string_file(fn, "garbage", WRITE_STRING_FILE_TRUNCATE));
+        ASSERT_ERROR(read_boolean_file(fn), EINVAL);
+
+        ASSERT_ERROR(read_boolean_file("/tmp/this-file-better-not-exist-XXX"), ENOENT);
+
+        /* Now test XAT_FDROOT: filename is relative, looked up against "/" */
+        ASSERT_TRUE(path_startswith(fn, "/"));
+        rel = fn + 1;
+
+        ASSERT_OK(write_string_file(fn, "on", WRITE_STRING_FILE_TRUNCATE));
+        ASSERT_OK_EQ(read_boolean_file_at(XAT_FDROOT, rel), true);
+
+        ASSERT_OK(write_string_file(fn, "off", WRITE_STRING_FILE_TRUNCATE));
+        ASSERT_OK_EQ(read_boolean_file_at(XAT_FDROOT, rel), false);
+
+        ASSERT_ERROR(read_boolean_file_at(XAT_FDROOT, "tmp/this-file-better-not-exist-XXX"), ENOENT);
+
+        /* And confirm XAT_FDROOT ignores the cwd: chdir somewhere unrelated, then look up
+         * the same relative-to-/ path. */
+        _cleanup_free_ char *cwd = NULL;
+        ASSERT_OK(safe_getcwd(&cwd));
+        ASSERT_OK_ERRNO(chdir("/usr"));
+
+        ASSERT_OK(write_string_file(fn, "yes", WRITE_STRING_FILE_TRUNCATE));
+        ASSERT_OK_EQ(read_boolean_file_at(XAT_FDROOT, rel), true);
+
+        ASSERT_OK_ERRNO(chdir(cwd));
+
+        /* Also test the dir_fd >= 0 path using an actual fd for /tmp. */
+        ASSERT_OK(dfd = open("/tmp", O_DIRECTORY|O_CLOEXEC));
+        ASSERT_OK(write_string_file(fn, "1", WRITE_STRING_FILE_TRUNCATE));
+        _cleanup_free_ char *bn = NULL;
+        ASSERT_OK(path_extract_filename(fn, &bn));
+        ASSERT_OK_EQ(read_boolean_file_at(dfd, bn), true);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);

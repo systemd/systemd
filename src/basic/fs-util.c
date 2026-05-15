@@ -1136,33 +1136,34 @@ static int openat_with_automount(int dir_fd, const char *path, int open_flags, m
          * does not do that, so we use open_tree() without OPEN_TREE_CLONE which is equivalent to open() with
          * O_PATH except that it does trigger automounts. Some sandboxes reject open_tree() with EPERM or
          * ENOSYS, in which case we fall back to plain openat(): autofs wouldn't work inside a restricted
-         * mount namespace anyway. */
+         * mount namespace anyway. open_tree() only ever returns O_PATH fds, so this helper is for O_PATH
+         * acquisition only. */
 
         static bool can_open_tree = true;
-        int r;
 
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
         assert(path);
+        assert(FLAGS_SET(open_flags, O_PATH));
 
         if (can_open_tree) {
-                r = RET_NERRNO(open_tree(dir_fd, path,
-                                         OPEN_TREE_CLOEXEC |
-                                         (FLAGS_SET(open_flags, O_NOFOLLOW) ? AT_SYMLINK_NOFOLLOW : 0)));
-                if (r >= 0) {
+                int fd = RET_NERRNO(open_tree(dir_fd, path,
+                                              OPEN_TREE_CLOEXEC |
+                                              (FLAGS_SET(open_flags, O_NOFOLLOW) ? AT_SYMLINK_NOFOLLOW : 0)));
+                if (fd >= 0) {
                         /* open_tree() doesn't honor O_DIRECTORY, so enforce it ourselves to match
                          * the openat() fallback's behavior. */
                         if (FLAGS_SET(open_flags, O_DIRECTORY)) {
-                                int q = fd_verify_directory(r);
+                                int q = fd_verify_directory(fd);
                                 if (q < 0) {
-                                        safe_close(r);
+                                        safe_close(fd);
                                         return q;
                                 }
                         }
 
-                        return r;
+                        return fd;
                 }
-                if (r != -EPERM && !ERRNO_IS_NEG_NOT_SUPPORTED(r))
-                        return r;
+                if (fd != -EPERM && !ERRNO_IS_NEG_NOT_SUPPORTED(fd))
+                        return fd;
 
                 can_open_tree = false;
         }
@@ -1178,9 +1179,7 @@ int xopenat_full(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_
         assert(dir_fd >= 0 || IN_SET(dir_fd, AT_FDCWD, XAT_FDROOT));
 
         /* An inode can only be one of a directory, a regular file or a socket at the same time. */
-        assert(!(FLAGS_SET(open_flags, O_DIRECTORY) && FLAGS_SET(xopen_flags, XO_REGULAR)));
-        assert(!(FLAGS_SET(xopen_flags, XO_REGULAR) && FLAGS_SET(xopen_flags, XO_SOCKET)));
-        assert(!(FLAGS_SET(open_flags, O_DIRECTORY) && FLAGS_SET(xopen_flags, XO_SOCKET)));
+        assert(FLAGS_SET(open_flags, O_DIRECTORY) + FLAGS_SET(xopen_flags, XO_REGULAR) + FLAGS_SET(xopen_flags, XO_SOCKET) <= 1);
         /* Sockets cannot be open()ed, only pinned via O_PATH. */
         assert(!FLAGS_SET(xopen_flags, XO_SOCKET) || FLAGS_SET(open_flags, O_PATH));
         /* XO_TRIGGER_AUTOMOUNT requires O_PATH and does not support creating inodes. XO_SUBVOLUME

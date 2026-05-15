@@ -72,12 +72,15 @@ typedef enum QmpDriveFlags {
         QMP_DRIVE_BOOT             = 1u << 4,
         QMP_DRIVE_IO_URING         = 1u << 5,
         QMP_DRIVE_DISCARD_NO_UNREF = 1u << 6,  /* qcow2 only */
+        QMP_DRIVE_REMOVABLE        = 1u << 7,  /* may be detached at runtime via RemoveStorage */
 } QmpDriveFlags;
 
 typedef enum BlockDeviceStateFlags {
-        BLOCK_DEVICE_STATE_BLOCKDEV_ADDED = 1u << 0,
-        BLOCK_DEVICE_STATE_ADD_FAILED     = 1u << 1,  /* first error fired; suppress cascades */
-        BLOCK_DEVICE_STATE_REMOVE_PENDING = 1u << 2,  /* device_del in flight; reject concurrent removes */
+        BLOCK_DEVICE_STATE_BLOCKDEV_ADDED  = 1u << 0,
+        BLOCK_DEVICE_STATE_ADD_FAILED      = 1u << 1,  /* first error fired; suppress cascades */
+        BLOCK_DEVICE_STATE_REMOVE_PENDING  = 1u << 2,  /* device_del in flight; reject concurrent removes */
+        BLOCK_DEVICE_STATE_FILE_NODE_ADDED = 1u << 3,  /* blockdev-add(file) succeeded; teardown must del it */
+        BLOCK_DEVICE_STATE_REPLACE_PENDING = 1u << 4,  /* blockdev-reopen pipeline in flight */
 } BlockDeviceStateFlags;
 
 /* Ref-counted; each of the four add-stage QMP slots holds one ref.
@@ -104,7 +107,10 @@ typedef struct DriveInfo {
         uint64_t counter;          /* internal N used in qmp_node_name / qmp_device_id */
         char *qmp_node_name;       /* "vmspawn-<counter>-storage" */
         char *qmp_device_id;       /* "vmspawn-<counter>-disk" */
+        char *qmp_file_node_name;  /* "vmspawn-<counter>-file-<gen>" — current file-level node */
+        uint64_t file_generation;  /* monotonically bumped per replace ATTEMPT */
         char *fdset_path;          /* "/dev/fdset/N" */
+        uint64_t fdset_id;         /* numeric id matching fdset_path */
         int pcie_port_idx;         /* hotplug port idx held by this drive; -1 once committed or unused */
         BlockDeviceStateFlags state;
         sd_varlink *link;          /* ref'd iff hotplug */
@@ -177,5 +183,14 @@ int vmspawn_qmp_setup_drives(VmspawnQmpBridge *bridge, DriveInfos *drives);
 int vmspawn_qmp_setup_network(VmspawnQmpBridge *bridge, NetworkInfo *network);
 int vmspawn_qmp_setup_virtiofs(VmspawnQmpBridge *bridge, const VirtiofsInfos *virtiofs);
 int vmspawn_qmp_setup_vsock(VmspawnQmpBridge *bridge, VsockInfo *vsock);
+int vmspawn_qmp_add_block_device(VmspawnQmpBridge *bridge, DriveInfo *drive);
 int vmspawn_qmp_remove_block_device(VmspawnQmpBridge *bridge, sd_varlink *link, const char *id);
+/* fd_flags encodes the new fd's properties: only QMP_DRIVE_READ_ONLY and
+ * QMP_DRIVE_BLOCK_DEVICE are caller-controlled; other bits are ignored. */
+int vmspawn_qmp_replace_block_device(
+                VmspawnQmpBridge *bridge,
+                sd_varlink *link,
+                const char *id,
+                int fd,
+                QmpDriveFlags fd_flags);
 int vmspawn_qmp_dispatch_device_deleted(VmspawnQmpBridge *bridge, sd_json_variant *data);

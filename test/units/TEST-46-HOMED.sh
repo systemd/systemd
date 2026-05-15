@@ -586,6 +586,15 @@ EOF
     (! userdbctl ssh-authorized-keys dropin-user --chain '')
     (! SYSTEMD_LOG_LEVEL=debug userdbctl ssh-authorized-keys dropin-user --chain /usr/bin/false)
 
+    # Check that invocations with --chain work as expected
+    userdbctl ssh-authorized-keys --chain dropin-user /bin/echo --asdf | grep -e --asdf
+    userdbctl ssh-authorized-keys dropin-user --chain /bin/echo --asdf | grep -e --asdf
+    userdbctl ssh-authorized-keys dropin-user /bin/echo --chain --asdf | grep -e --asdf
+    userdbctl ssh-authorized-keys --chain dropin-user -- /bin/echo --asdf | grep -e --asdf
+    userdbctl ssh-authorized-keys --chain -- dropin-user /bin/echo --asdf | grep -e --asdf
+    userdbctl --chain -- ssh-authorized-keys dropin-user /bin/echo --asdf | grep -e --asdf
+    (! userdbctl --chain -- ssh-authorized-keys dropin-user -- /bin/echo --asdf)
+
     (! userdbctl '')
     for opt in json multiplexer output synthesize with-dropin with-nss with-varlink; do
         (! userdbctl "--$opt=''")

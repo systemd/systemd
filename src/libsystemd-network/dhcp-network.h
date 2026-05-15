@@ -20,13 +20,11 @@ int dhcp_network_bind_udp_socket(
                 uint16_t port,
                 int ip_service_type);
 int dhcp_network_send_raw_socket(
-                int s,
+                int fd,
                 const union sockaddr_union *link,
-                const void *packet,
-                size_t len);
+                const struct iovec_wrapper *iovw);
 int dhcp_network_send_udp_socket(
-                int s,
+                int fd,
                 be32_t address,
                 uint16_t port,
-                const void *packet,
-                size_t len);
+                const struct iovec_wrapper *iovw);

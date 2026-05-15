@@ -30,12 +30,12 @@ static int help(void) {
         help_cmdline("[OPTIONS…] COMMAND [COMMAND OPTIONS…]");
         help_abstract("Send control commands or test the device manager.");
 
-        help_section("Commands:");
+        help_section("Commands");
         r = table_print_or_warn(verbs);
         if (r < 0)
                 return r;
 
-        help_section("Options:");
+        help_section("Options");
         r = table_print_or_warn(options);
         if (r < 0)
                 return r;

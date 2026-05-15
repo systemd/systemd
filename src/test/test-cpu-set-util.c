@@ -11,7 +11,8 @@
 #define ASSERT_CPUSET_COUNT(c, n)                                       \
         ASSERT_NOT_NULL(c.set);                                         \
         ASSERT_GE(c.allocated, CPU_ALLOC_SIZE(n));                      \
-        ASSERT_EQ(CPU_COUNT_S(c.allocated, c.set), (n))
+        ASSERT_EQ(CPU_COUNT_S(c.allocated, c.set), (n));                \
+        ASSERT_EQ(cpu_set_count(&c), (size_t) (n))
 
 #define ASSERT_CPUSET_ISSET(c, i)                               \
         ASSERT_TRUE(CPU_ISSET_S(i, c.allocated, c.set));
@@ -281,6 +282,13 @@ TEST(cpu_set_add_range) {
 
         ASSERT_OK(cpu_set_add_range(&c, 0, 0));
         ASSERT_OK(cpu_set_add_range(&c, 0, 8191));
+}
+
+TEST(cpus_online) {
+        unsigned n_cpus = 0;
+        ASSERT_OK(cpus_online(&n_cpus));
+        ASSERT_GE(n_cpus, 1U);
+        log_info("Number of CPUs currently online: %u", n_cpus);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

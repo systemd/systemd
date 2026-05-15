@@ -124,6 +124,76 @@ static_assert(__NR_fchmodat2 == systemd_NR_fchmodat2, "");
 #  endif
 #endif
 
+#ifndef __IGNORE_kexec_file_load
+#  if defined(__aarch64__)
+#    define systemd_NR_kexec_file_load 294
+#  elif defined(__alpha__)
+#    define systemd_NR_kexec_file_load -1
+#  elif defined(__arc__) || defined(__tilegx__)
+#    define systemd_NR_kexec_file_load 294
+#  elif defined(__arm__)
+#    define systemd_NR_kexec_file_load 401
+#  elif defined(__i386__)
+#    define systemd_NR_kexec_file_load -1
+#  elif defined(__ia64__)
+#    define systemd_NR_kexec_file_load -1
+#  elif defined(__loongarch_lp64)
+#    define systemd_NR_kexec_file_load 294
+#  elif defined(__m68k__)
+#    define systemd_NR_kexec_file_load -1
+#  elif defined(_MIPS_SIM)
+#    if _MIPS_SIM == _MIPS_SIM_ABI32
+#      define systemd_NR_kexec_file_load -1
+#    elif _MIPS_SIM == _MIPS_SIM_NABI32
+#      define systemd_NR_kexec_file_load -1
+#    elif _MIPS_SIM == _MIPS_SIM_ABI64
+#      define systemd_NR_kexec_file_load -1
+#    else
+#      error "Unknown MIPS ABI"
+#    endif
+#  elif defined(__hppa__)
+#    define systemd_NR_kexec_file_load 355
+#  elif defined(__powerpc__)
+#    define systemd_NR_kexec_file_load 382
+#  elif defined(__riscv)
+#    if __riscv_xlen == 32
+#      define systemd_NR_kexec_file_load 294
+#    elif __riscv_xlen == 64
+#      define systemd_NR_kexec_file_load 294
+#    else
+#      error "Unknown RISC-V ABI"
+#    endif
+#  elif defined(__s390__)
+#    define systemd_NR_kexec_file_load 381
+#  elif defined(__sh__)
+#    define systemd_NR_kexec_file_load -1
+#  elif defined(__sparc__)
+#    define systemd_NR_kexec_file_load -1
+#  elif defined(__x86_64__)
+#    if defined(__ILP32__)
+#      define systemd_NR_kexec_file_load (320 | /* __X32_SYSCALL_BIT */ 0x40000000)
+#    else
+#      define systemd_NR_kexec_file_load 320
+#    endif
+#  elif !defined(missing_arch_template)
+#    warning "kexec_file_load() syscall number is unknown for your architecture"
+#  endif
+
+/* may be an (invalid) negative number due to libseccomp, see PR 13319 */
+#  if defined __NR_kexec_file_load && __NR_kexec_file_load >= 0
+#    if defined systemd_NR_kexec_file_load
+static_assert(__NR_kexec_file_load == systemd_NR_kexec_file_load, "");
+#    endif
+#  else
+#    if defined __NR_kexec_file_load
+#      undef __NR_kexec_file_load
+#    endif
+#    if defined systemd_NR_kexec_file_load && systemd_NR_kexec_file_load >= 0
+#      define __NR_kexec_file_load systemd_NR_kexec_file_load
+#    endif
+#  endif
+#endif
+
 #ifndef __IGNORE_open_tree_attr
 #  if defined(__aarch64__)
 #    define systemd_NR_open_tree_attr 467

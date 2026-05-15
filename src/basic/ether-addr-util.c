@@ -301,3 +301,31 @@ void ether_addr_mark_random(struct ether_addr *addr) {
         addr->ether_addr_octet[0] &= 0xfe;        /* clear multicast bit */
         addr->ether_addr_octet[0] |= 0x02;        /* set local assignment bit (IEEE802) */
 }
+
+int hw_addr_ensure_broadcast(struct hw_addr_data *bcast_addr, uint16_t arp_type) {
+        assert(bcast_addr);
+
+        if (!hw_addr_is_null(bcast_addr))
+                return 0;
+
+        switch (arp_type) {
+        case ARPHRD_ETHER:
+                *bcast_addr = (struct hw_addr_data) {
+                        .length = ETH_ALEN,
+                        .ether = {{ 0xff, 0xff, 0xff, 0xff, 0xff, 0xff }},
+                };
+                return 0;
+        case ARPHRD_INFINIBAND:
+                *bcast_addr = (struct hw_addr_data) {
+                        .length = INFINIBAND_ALEN,
+                        .infiniband = {
+                                0x00, 0xff, 0xff, 0xff, 0xff, 0x12, 0x40, 0x1b,
+                                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                                0xff, 0xff, 0xff, 0xff,
+                        },
+                };
+                return 0;
+        default:
+                return -EAFNOSUPPORT;
+        }
+}

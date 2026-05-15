@@ -54,6 +54,18 @@ DIGEST_MEASURED2="$(echo -n "schnurz" | openssl dgst -sha256 -hex -r | cut -d' '
 DIGEST_EXPECTED2="$(echo "$DIGEST_EXPECTED$DIGEST_MEASURED2" | tr '[:lower:]' '[:upper:]' | basenc --base16 -d | openssl dgst -sha256 -hex -r | cut -d' ' -f1)"
 test "$DIGEST_ACTUAL2" = "$DIGEST_EXPECTED2"
 
+systemd-analyze identify-tpm2
+udevadm test-builtin 'tpm2_id identify' /dev/tpmrm0
+
+# systemd-dissect calls io.systemd.PCRExtend over Varlink to extend the verity NvPCR after activation,
+# but systemd-pcrextend.socket has ConditionSecurity=measured-os which fails when the firmware did not
+# initialize PCRs (e.g. when not booting via a signed UKI). Skip the rest in that case, otherwise the
+# 'diff | grep' below would find no new measurement and fail.
+if ! systemctl is-active --quiet systemd-pcrextend.socket; then
+    echo "systemd-pcrextend.socket not active, skipping verity NvPCR measurement check"
+    exit 0
+fi
+
 mkdir -p /tmp/nvpcr/tree
 touch /tmp/nvpcr/tree/file
 
@@ -103,6 +115,3 @@ systemd-dissect --image-policy='root=signed:=absent+unused' --mtree /var/tmp/nvp
 
 set +o pipefail
 diff /tmp/nvpcr/log-before /run/log/systemd/tpm2-measure.log | grep -F '"content":{"nvIndexName":"verity","string":"verity:'
-
-systemd-analyze identify-tpm2
-udevadm test-builtin 'tpm2_id identify' /dev/tpmrm0

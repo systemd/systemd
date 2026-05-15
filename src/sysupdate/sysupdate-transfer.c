@@ -816,10 +816,13 @@ int transfer_vacuum(
                         continue;
                 }
 
-                /* If this is listed among the protected versions, then let's not remove it */
-                if (strv_contains(t->protected_versions, instance->metadata.version) ||
-                    (extra_protected_version && streq(extra_protected_version, instance->metadata.version))) {
-                        log_debug("Version '%s' is pending/partial but protected, not removing.", instance->metadata.version);
+                /* If this is pending and listed among the protected versions, then let's not remove it.
+                 * In future, we will also want to keep partial protected versions, but that’s only useful
+                 * once we support resuming downloads. */
+                if (instance->is_pending &&
+                    (strv_contains(t->protected_versions, instance->metadata.version) ||
+                     (extra_protected_version && streq(extra_protected_version, instance->metadata.version)))) {
+                        log_debug("Version '%s' is pending but protected, not removing.", instance->metadata.version);
                         i++;
                         continue;
                 }
@@ -1746,6 +1749,10 @@ int transfer_install_instance(
                         r = path_make_relative(parent, link_target, &relative);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to make symlink path '%s' relative to '%s': %m", link_target, parent);
+
+                        r = mkdir_parents(link_path, 0755);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to create directory for current symlink '%s': %m", link_path);
 
                         r = symlink_atomic(relative, link_path);
                         if (r < 0)

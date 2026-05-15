@@ -3162,7 +3162,7 @@ _public_ int sd_journal_wait(sd_journal *j, uint64_t timeout_usec) {
                 if (r < 0)
                         return r;
 
-                /* Server might have done some vacuuming while we weren't watching. Get rid of the deleted
+                /* journald might have done some vacuuming while we weren't watching. Get rid of the deleted
                  * files now so they don't stay around indefinitely. */
                 ORDERED_HASHMAP_FOREACH(f, j->files) {
                         r = journal_file_fstat(f);

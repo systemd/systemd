@@ -32,7 +32,7 @@ static int help(void) {
 
         help_cmdline("[OPTIONS...] DEVICE");
         help_abstract("Video4Linux device identification.");
-        help_section("Options:");
+        help_section("Options");
 
         return table_print_or_warn(options);
 }

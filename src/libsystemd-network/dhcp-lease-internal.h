@@ -12,12 +12,6 @@
 #include "sd-forward.h"
 #include "list.h"
 
-struct sd_dhcp_route {
-        struct in_addr dst_addr;
-        struct in_addr gw_addr;
-        unsigned char dst_prefixlen;
-};
-
 struct sd_dhcp_raw_option {
         LIST_FIELDS(struct sd_dhcp_raw_option, options);
 
@@ -40,11 +34,7 @@ struct sd_dhcp_lease {
         be32_t address;
         be32_t server_address;
         be32_t next_server;
-
-        bool have_subnet_mask;
         be32_t subnet_mask;
-
-        bool have_broadcast;
         be32_t broadcast;
 
         struct in_addr *router;
@@ -98,4 +88,4 @@ int dhcp_lease_set_default_subnet_mask(sd_dhcp_lease *lease);
 int dhcp_lease_set_client_id(sd_dhcp_lease *lease, const sd_dhcp_client_id *client_id);
 
 #define dhcp_lease_unref_and_replace(a, b)                              \
-        unref_and_replace_full(a, b, sd_dhcp_lease_ref, sd_dhcp_lease_unref)
+        free_and_replace_full(a, b, sd_dhcp_lease_unref)

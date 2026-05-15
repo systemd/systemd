@@ -368,6 +368,17 @@ static int tar_import_process(TarImport *i) {
         r = decompressor_push(i->compress, i->buffer, i->buffer_size, tar_import_write, i);
         if (r < 0) {
                 log_error_errno(r, "Failed to decode and write: %m");
+
+                /* Try to check the actual exit code from the child process, to make debugging easier */
+                if (r == -EPIPE && pidref_is_set(&i->tar_pid)) {
+                        int q = pidref_wait_for_terminate_and_check("tar", &i->tar_pid, WAIT_LOG);
+                        pidref_done(&i->tar_pid);
+                        if (q < 0)
+                                r = q;
+                        else if (q != EXIT_SUCCESS)
+                                r = -EPROTO;
+                }
+
                 goto finish;
         }
 

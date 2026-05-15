@@ -487,7 +487,8 @@ int pe_checksum(int fd, uint32_t *ret) {
                         return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Short read from PE file");
 
                 for (size_t i = 0; i < (size_t) n / 2; i++) {
-                        if (off + i >= checksum_offset && off + i < checksum_offset + sizeof(pe_header->optional.CheckSum))
+                        size_t pos = off + i * sizeof(uint16_t);
+                        if (pos >= checksum_offset && pos < checksum_offset + sizeof(pe_header->optional.CheckSum))
                                 continue;
 
                         uint16_t val = le16toh(buf[i]);

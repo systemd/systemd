@@ -21,6 +21,7 @@ typedef enum JournalctlAction {
         ACTION_LIST_NAMESPACES,
         ACTION_FLUSH,
         ACTION_RELINQUISH_VAR,
+        ACTION_SMART_RELINQUISH_VAR,
         ACTION_SYNC,
         ACTION_ROTATE,
         ACTION_VACUUM,

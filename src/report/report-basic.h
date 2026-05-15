@@ -3,7 +3,7 @@
 
 #include "shared-forward.h"
 
-#define FACT_IO_SYSTEMD_BASIC "io.systemd.Basic."
+#define METRIC_IO_SYSTEMD_BASIC_PREFIX "io.systemd.Basic."
 
-int vl_method_list_facts(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata);
-int vl_method_describe_facts(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata);
+int vl_method_list_metrics(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata);
+int vl_method_describe_metrics(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata);

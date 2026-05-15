@@ -499,7 +499,7 @@ static int netns_child_begin(int netns_fd, int *ret_original_netns_fd) {
         if (r < 0)
                 return log_error_errno(r, "Failed to mount sysfs on /sys/: %m");
 
-        /* udev_avaliable() might be called previously and the result may be cached.
+        /* udev_available() might be called previously and the result may be cached.
          * Now, we (re-)mount sysfs. Hence, we need to reset the cache. */
         reset_cached_udev_availability();
 

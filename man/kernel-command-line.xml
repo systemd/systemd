@@ -80,6 +80,17 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>systemd.restrict_filesystem_access=</varname></term>
+        <listitem>
+          <para>Controls the <varname>RestrictFileSystemAccess=</varname> execution enforcement policy. For
+          details, see
+          <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>systemd.mask=</varname></term>
         <term><varname>systemd.wants=</varname></term>
         <term><varname>systemd.debug_shell</varname></term>

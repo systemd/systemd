@@ -19,6 +19,7 @@
 #include "event-util.h"
 #include "hostname-util.h"
 #include "iovec-util.h"
+#include "iovec-wrapper.h"
 #include "memory-util.h"
 #include "network-common.h"
 #include "random-util.h"
@@ -26,7 +27,6 @@
 #include "sort-util.h"
 #include "string-table.h"
 #include "string-util.h"
-#include "strv.h"
 #include "time-util.h"
 #include "web-util.h"
 
@@ -65,7 +65,7 @@ static const uint8_t default_req_opts_anonymize[] = {
         SD_DHCP_OPTION_DOMAIN_NAME,                     /* 15 */
         SD_DHCP_OPTION_ROUTER_DISCOVERY,                /* 31 */
         SD_DHCP_OPTION_STATIC_ROUTE,                    /* 33 */
-        SD_DHCP_OPTION_VENDOR_SPECIFIC,                 /* 43 */
+        SD_DHCP_OPTION_VENDOR_SPECIFIC_INFORMATION,     /* 43 */
         SD_DHCP_OPTION_NETBIOS_NAME_SERVER,             /* 44 */
         SD_DHCP_OPTION_NETBIOS_NODE_TYPE,               /* 46 */
         SD_DHCP_OPTION_NETBIOS_SCOPE,                   /* 47 */
@@ -196,44 +196,55 @@ int sd_dhcp_client_set_mac(
 
         assert_return(client, -EINVAL);
         assert_return(!sd_dhcp_client_is_running(client), -EBUSY);
-        assert_return(IN_SET(arp_type, ARPHRD_ETHER, ARPHRD_INFINIBAND, ARPHRD_RAWIP, ARPHRD_NONE), -EINVAL);
 
-        static const uint8_t default_eth_bcast[6] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff },
-                        default_eth_hwaddr[6] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+        static const uint8_t default_eth_hwaddr[6] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 
         switch (arp_type) {
+        case ARPHRD_ETHER:
+                assert_return(addr_len == ETH_ALEN, -EINVAL);
+                assert_return(hw_addr, -EINVAL);
+                break;
+
+        case ARPHRD_INFINIBAND:
+                assert_return(addr_len == INFINIBAND_ALEN, -EINVAL);
+                assert_return(hw_addr, -EINVAL);
+                break;
+
         case ARPHRD_RAWIP:
         case ARPHRD_NONE:
-                /* Linux cellular modem drivers (e.g. qmi_wwan) present a
-                 * network interface of type ARPHRD_RAWIP(519) or
-                 * ARPHRD_NONE(65534) when in point-to-point mode, but these
-                 * are not valid DHCP hardware-type values.
+                /* Linux cellular modem drivers (e.g. qmi_wwan) present a network interface of type
+                 * ARPHRD_RAWIP(519) or ARPHRD_NONE(65534) when in point-to-point mode, but these are not
+                 * valid DHCP hardware-type values.
                  *
-                 * Apparently, it's best to just pretend that these are ethernet
-                 * devices.  Other approaches have been tried, but resulted in
-                 * incompatibilities with some server software.  See
-                 * https://lore.kernel.org/netdev/cover.1228948072.git.inaky@linux.intel.com/
-                 */
+                 * Apparently, it's best to just pretend that these are ethernet devices. Other approaches
+                 * have been tried, but resulted in incompatibilities with some server software. See
+                 * https://lore.kernel.org/netdev/cover.1228948072.git.inaky@linux.intel.com/ */
                 arp_type = ARPHRD_ETHER;
                 if (addr_len == 0) {
-                        assert_cc(sizeof(default_eth_hwaddr) == ETH_ALEN);
-                        assert_cc(sizeof(default_eth_bcast) == ETH_ALEN);
-                        hw_addr = default_eth_hwaddr;
-                        bcast_addr = default_eth_bcast;
+                        /* If the specified hardware address length is 0, always use the default ones. */
                         addr_len = ETH_ALEN;
+                        hw_addr = default_eth_hwaddr;
+                        bcast_addr = NULL;
+                } else if (addr_len == ETH_ALEN) {
+                        /* If the specified hardware address length is ETH_ALEN, use the default ones when
+                         * unspecified. */
+                        if (!hw_addr)
+                                hw_addr = default_eth_hwaddr;
+                } else {
+                        /* Otherwise, user must specify valid addresses. */
+                        assert_return(hw_addr, -EINVAL);
+                        assert_return(bcast_addr, -EINVAL);
                 }
                 break;
-        }
 
-        assert_return(IN_SET(arp_type, ARPHRD_ETHER, ARPHRD_INFINIBAND), -EINVAL);
-        assert_return(hw_addr, -EINVAL);
-        assert_return(addr_len == (arp_type == ARPHRD_ETHER ? ETH_ALEN : INFINIBAND_ALEN), -EINVAL);
+        default:
+                return -EINVAL;
+        }
 
         client->arp_type = arp_type;
         hw_addr_set(&client->hw_addr, hw_addr, addr_len);
         hw_addr_set(&client->bcast_addr, bcast_addr, bcast_addr ? addr_len : 0);
-
-        return 0;
+        return hw_addr_ensure_broadcast(&client->bcast_addr, arp_type);
 }
 
 int sd_dhcp_client_get_client_id(sd_dhcp_client *client, const sd_dhcp_client_id **ret) {
@@ -433,28 +444,30 @@ int sd_dhcp_client_set_mud_url(
         return free_and_strdup(&client->mudurl, mudurl);
 }
 
-int sd_dhcp_client_set_user_class(
-                sd_dhcp_client *client,
-                char * const *user_class) {
-
-        char **s = NULL;
+int dhcp_client_set_user_class(sd_dhcp_client *client, const struct iovec_wrapper *user_class) {
+        int r;
 
         assert_return(client, -EINVAL);
         assert_return(!sd_dhcp_client_is_running(client), -EBUSY);
-        assert_return(!strv_isempty(user_class), -EINVAL);
 
-        STRV_FOREACH(p, user_class) {
-                size_t n = strlen(*p);
-
-                if (n > 255 || n == 0)
-                        return -EINVAL;
+        if (iovw_isempty(user_class)) {
+                iovw_done_free(&client->user_class);
+                return 0;
         }
 
-        s = strv_copy(user_class);
-        if (!s)
-                return -ENOMEM;
+        _cleanup_(iovw_done_free) struct iovec_wrapper iovw = {};
+        FOREACH_ARRAY(iovec, user_class->iovec, user_class->count) {
+                if (iovec->iov_len == 0 || iovec->iov_len > UINT8_MAX)
+                        return -EINVAL;
 
-        return strv_free_and_replace(client->user_class, s);
+                r = iovw_extend_iov(&iovw, iovec);
+                if (r < 0)
+                        return r;
+        }
+
+        iovw_done_free(&client->user_class);
+        client->user_class = TAKE_STRUCT(iovw);
+        return 0;
 }
 
 int sd_dhcp_client_set_client_port(
@@ -502,39 +515,18 @@ int sd_dhcp_client_set_max_attempts(sd_dhcp_client *client, uint64_t max_attempt
         return 0;
 }
 
-int sd_dhcp_client_add_option(sd_dhcp_client *client, sd_dhcp_option *v) {
-        int r;
+int dhcp_client_set_extra_options(sd_dhcp_client *client, TLV *options) {
+        assert(client);
+        assert(!sd_dhcp_client_is_running(client));
 
-        assert_return(client, -EINVAL);
-        assert_return(!sd_dhcp_client_is_running(client), -EBUSY);
-        assert_return(v, -EINVAL);
-
-        r = ordered_hashmap_ensure_put(&client->extra_options, &dhcp_option_hash_ops, UINT_TO_PTR(v->option), v);
-        if (r < 0)
-                return r;
-
-        sd_dhcp_option_ref(v);
-        return 0;
+        return unref_and_replace_new_ref(client->extra_options, options, tlv_ref, tlv_unref);
 }
 
-int sd_dhcp_client_add_vendor_option(sd_dhcp_client *client, sd_dhcp_option *v) {
-        int r;
+int dhcp_client_set_vendor_options(sd_dhcp_client *client, TLV *options) {
+        assert(client);
+        assert(!sd_dhcp_client_is_running(client));
 
-        assert_return(client, -EINVAL);
-        assert_return(!sd_dhcp_client_is_running(client), -EBUSY);
-        assert_return(v, -EINVAL);
-
-        r = ordered_hashmap_ensure_allocated(&client->vendor_options, &dhcp_option_hash_ops);
-        if (r < 0)
-                return -ENOMEM;
-
-        r = ordered_hashmap_put(client->vendor_options, v, v);
-        if (r < 0)
-                return r;
-
-        sd_dhcp_option_ref(v);
-
-        return 1;
+        return unref_and_replace_new_ref(client->vendor_options, options, tlv_ref, tlv_unref);
 }
 
 int sd_dhcp_client_get_lease(sd_dhcp_client *client, sd_dhcp_lease **ret) {
@@ -912,7 +904,6 @@ static int client_append_fqdn_option(
 }
 
 static int client_append_common_discover_request_options(sd_dhcp_client *client, DHCPPacket *packet, size_t *optoffset, size_t optlen) {
-        sd_dhcp_option *j;
         int r;
 
         assert(client);
@@ -954,26 +945,53 @@ static int client_append_common_discover_request_options(sd_dhcp_client *client,
                         return r;
         }
 
-        if (client->user_class) {
-                r = dhcp_option_append(&packet->dhcp, optlen, optoffset, 0,
-                                       SD_DHCP_OPTION_USER_CLASS,
-                                       /* optlen= */ 0, client->user_class);
-                if (r < 0)
-                        return r;
+        if (!iovw_isempty(&client->user_class)) {
+                size_t sz = iovw_size(&client->user_class) + client->user_class.count;
+                if (sz <= UINT8_MAX) {
+                        _cleanup_free_ uint8_t *buf = new(uint8_t, sz);
+                        if (!buf)
+                                return -ENOMEM;
+
+                        uint8_t *p = buf;
+                        FOREACH_ARRAY(iovec, client->user_class.iovec, client->user_class.count) {
+                                assert(iovec->iov_len > 0 && iovec->iov_len <= UINT8_MAX);
+                                *p++ = iovec->iov_len;
+                                p = mempcpy(p, iovec->iov_base, iovec->iov_len);
+                        }
+
+                        r = dhcp_option_append(&packet->dhcp, optlen, optoffset, 0,
+                                               SD_DHCP_OPTION_USER_CLASS,
+                                               sz, buf);
+                        if (r < 0)
+                                return r;
+                }
         }
 
-        ORDERED_HASHMAP_FOREACH(j, client->extra_options) {
-                r = dhcp_option_append(&packet->dhcp, optlen, optoffset, 0,
-                                       j->option, j->length, j->data);
-                if (r < 0)
-                        return r;
+        if (client->extra_options) {
+                void *key;
+                struct iovec_wrapper *iovw;
+                HASHMAP_FOREACH_KEY(iovw, key, client->extra_options->entries) {
+                        uint32_t tag = PTR_TO_UINT32(key);
+
+                        FOREACH_ARRAY(iov, iovw->iovec, iovw->count) {
+                                r = dhcp_option_append(&packet->dhcp, optlen, optoffset, 0,
+                                               tag, iov->iov_len, iov->iov_base);
+                                if (r < 0)
+                                        return r;
+                        }
+                }
         }
 
-        if (!ordered_hashmap_isempty(client->vendor_options)) {
+        if (!tlv_isempty(client->vendor_options)) {
+                _cleanup_(iovec_done) struct iovec iov = {};
+                r = tlv_build(client->vendor_options, &iov);
+                if (r < 0)
+                        return r;
+
                 r = dhcp_option_append(
                                 &packet->dhcp, optlen, optoffset, 0,
-                                SD_DHCP_OPTION_VENDOR_SPECIFIC,
-                                /* optlen= */ 0, client->vendor_options);
+                                SD_DHCP_OPTION_VENDOR_SPECIFIC_INFORMATION,
+                                iov.iov_len, iov.iov_base);
                 if (r < 0)
                         return r;
         }
@@ -2062,6 +2080,7 @@ int sd_dhcp_client_start(sd_dhcp_client *client) {
         assert_return(client, -EINVAL);
         assert_return(client->event, -EINVAL);
         assert_return(client->ifindex > 0, -EINVAL);
+        assert_return(!hw_addr_is_null(&client->bcast_addr), -EINVAL);
 
         /* If no client identifier exists, construct an RFC 4361-compliant one */
         if (!sd_dhcp_client_id_is_set(&client->client_id)) {
@@ -2281,7 +2300,7 @@ sd_event* sd_dhcp_client_get_event(sd_dhcp_client *client) {
 int sd_dhcp_client_attach_device(sd_dhcp_client *client, sd_device *dev) {
         assert_return(client, -EINVAL);
 
-        return device_unref_and_replace(client->dev, dev);
+        return device_unref_and_replace_new_ref(client->dev, dev);
 }
 
 static sd_dhcp_client* dhcp_client_free(sd_dhcp_client *client) {
@@ -2305,9 +2324,9 @@ static sd_dhcp_client* dhcp_client_free(sd_dhcp_client *client) {
         free(client->hostname);
         free(client->vendor_class_identifier);
         free(client->mudurl);
-        client->user_class = strv_free(client->user_class);
-        ordered_hashmap_free(client->extra_options);
-        ordered_hashmap_free(client->vendor_options);
+        iovw_done_free(&client->user_class);
+        tlv_unref(client->extra_options);
+        tlv_unref(client->vendor_options);
         free(client->ifname);
         return mfree(client);
 }

@@ -3,6 +3,7 @@
 #include "device-path-util.h"
 #include "efi-efivars.h"
 #include "export-vars.h"
+#include "hii.h"
 #include "measure.h"
 #include "part-discovery.h"
 #include "url-discovery.h"
@@ -59,5 +60,14 @@ void export_common_variables(EFI_LOADED_IMAGE_PROTOCOL *loaded_image) {
                 _cleanup_free_ char16_t *s = NULL;
                 s = xasprintf("0x%08x", active_pcr_banks);
                 efivar_set_str16(MAKE_GUID_PTR(LOADER), u"LoaderTpm2ActivePcrBanks", s, 0);
+        }
+
+        /* Report the firmware's currently-active HII keyboard layout (as an RFC 4646 language tag, e.g.
+         * "de-DE"), so the OS can pick a matching console keymap. Best-effort: many firmwares do not
+         * implement the HII database protocol or expose no keyboard layout. */
+        if (efivar_get_raw(MAKE_GUID_PTR(LOADER), u"LoaderKeyboardLayout", /* ret_data= */ NULL, /* ret_size= */ NULL) != EFI_SUCCESS) {
+                _cleanup_free_ char16_t *lang = hii_query_keyboard_layout_language();
+                if (lang)
+                        efivar_set_str16(MAKE_GUID_PTR(LOADER), u"LoaderKeyboardLayout", lang, /* flags= */ 0);
         }
 }

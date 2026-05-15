@@ -29,6 +29,7 @@
 #define EFI_LOADER_FEATURE_TYPE1_UKI_URL           (UINT64_C(1) << 17)
 #define EFI_LOADER_FEATURE_TPM2_ACTIVE_PCR_BANKS   (UINT64_C(1) << 18)
 #define EFI_LOADER_FEATURE_ENTRY_PREFERRED         (UINT64_C(1) << 19)
+#define EFI_LOADER_FEATURE_KEYBOARD_LAYOUT         (UINT64_C(1) << 20)
 
 /* Features of the stub, i.e. systemd-stub */
 #define EFI_STUB_FEATURE_REPORT_BOOT_PARTITION     (UINT64_C(1) << 0)

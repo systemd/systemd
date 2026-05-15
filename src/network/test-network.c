@@ -3,7 +3,7 @@
 #include <arpa/inet.h>
 
 #include "alloc-util.h"
-#include "dhcp-lease-internal.h"
+#include "dhcp-route.h"
 #include "hashmap.h"
 #include "hostname-setup.h"
 #include "network-internal.h"

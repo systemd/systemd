@@ -593,13 +593,13 @@ int bus_machine_method_copy(sd_bus_message *message, void *userdata, sd_bus_erro
                         copy_flags |= COPY_REPLACE;
         }
 
-        if (!path_is_absolute(src))
-                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Source path must be absolute.");
+        if (!path_is_absolute(src) || !path_is_normalized(src))
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Source path must be absolute and normalized.");
 
         if (isempty(dest))
                 dest = src;
-        else if (!path_is_absolute(dest))
-                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Destination path must be absolute.");
+        else if (!path_is_absolute(dest) || !path_is_normalized(dest))
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Destination path must be absolute and normalized.");
 
         if (manager->runtime_scope != RUNTIME_SCOPE_USER) {
                 const char *details[] = {

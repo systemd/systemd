@@ -6,6 +6,7 @@ endif
 
 vmspawn_sources = files(
         'vmspawn.c',
+        'vmspawn-bind-volume.c',
         'vmspawn-qemu-config.c',
         'vmspawn-qmp.c',
         'vmspawn-varlink.c',

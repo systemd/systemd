@@ -287,13 +287,15 @@ int fork_journal_remote(
                 return log_error_errno(r, "Failed to find systemd-socket-activate binary: %m");
 
         _cleanup_free_ char *sd_journal_remote = NULL;
-        r = find_executable_full(
-                        "systemd-journal-remote",
-                        /* root= */ NULL,
-                        STRV_MAKE(LIBEXECDIR),
-                        /* use_path_envvar= */ true,
-                        &sd_journal_remote,
-                        /* ret_fd= */ NULL);
+        r = find_executable("systemd-journal-remote", &sd_journal_remote);
+        if (r == -ENOENT)
+                r = find_executable_full(
+                                "systemd-journal-remote",
+                                /* root= */ NULL,
+                                STRV_MAKE(LIBEXECDIR),
+                                /* use_path_envvar= */ false,
+                                &sd_journal_remote,
+                                /* ret_fd= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to find systemd-journal-remote binary: %m");
 

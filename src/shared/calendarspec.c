@@ -1127,7 +1127,7 @@ static int find_matching_component(
 
         assert(val);
 
-        /* Finds the *earliest* matching time specified by one of the CalendarCompoment items in chain c.
+        /* Finds the *earliest* matching time specified by one of the CalendarComponent items in chain c.
          * If no matches can be found, returns -ENOENT.
          * Otherwise, updates *val to the matching time. 1 is returned if *val was changed, 0 otherwise.
          */

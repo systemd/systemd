@@ -410,7 +410,10 @@ static int context_discover_update_sets_by_flag(Context *c, UpdateSetFlags flags
                                 extra_flags |= UPDATE_PROTECTED;
 
                         /* Partial or pending updates by definition are not incomplete, they’re
-                         * partial/pending instead */
+                         * partial/pending instead. While an individual Instance cannot be both partial and
+                         * pending, an UpdateSet as a whole can contain both partial and pending instances. */
+                        assert(!match || !(match->is_partial && match->is_pending));
+
                         if (match && match->is_partial)
                                 extra_flags = (extra_flags | UPDATE_PARTIAL) & ~UPDATE_INCOMPLETE;
 
@@ -502,8 +505,9 @@ static int context_discover_update_sets_by_flag(Context *c, UpdateSetFlags flags
             c->candidate && strverscmp_improved(c->newest_installed->version, c->candidate->version) >= 0)
                 c->candidate = NULL;
 
-        /* Newest installed is still pending and no candidate is set? Then it becomes the candidate. */
-        if (c->newest_installed && FLAGS_SET(c->newest_installed->flags, UPDATE_PENDING) &&
+        /* Newest installed is still pending or partial and no candidate is set? Then it becomes the candidate. */
+        if (c->newest_installed &&
+            (c->newest_installed->flags & (UPDATE_PENDING|UPDATE_PARTIAL)) &&
             !c->candidate)
                 c->candidate = c->newest_installed;
 
@@ -666,7 +670,7 @@ static int context_show_version(Context *c, const char *version) {
                 Instance *i = *inst;
 
                 if (!i) {
-                        assert(FLAGS_SET(us->flags, UPDATE_INCOMPLETE));
+                        assert(us->flags & (UPDATE_INCOMPLETE|UPDATE_PARTIAL|UPDATE_PENDING));
                         continue;
                 }
 
@@ -1025,9 +1029,7 @@ static int context_acquire(
         if (FLAGS_SET(us->flags, UPDATE_INCOMPLETE))
                 log_info("Selected update '%s' is already installed, but incomplete. Repairing.", us->version);
         else if (FLAGS_SET(us->flags, UPDATE_PARTIAL)) {
-                log_info("Selected update '%s' is already acquired and partially installed. Vacuum it to try installing again.", us->version);
-
-                return 0;
+                return log_error_errno(SYNTHETIC_ERRNO(EUCLEAN), "Selected update '%s' is already acquired and partially installed. Vacuum it to try installing again.", us->version);
         } else if (FLAGS_SET(us->flags, UPDATE_PENDING)) {
                 log_info("Selected update '%s' is already acquired and pending installation.", us->version);
 

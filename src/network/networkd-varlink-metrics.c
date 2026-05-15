@@ -19,7 +19,8 @@
 typedef const char* (*link_metric_extractor_t)(const Link *link);
 
 static int link_metric_build_json(
-                MetricFamilyContext *context,
+                const MetricFamily *mf,
+                sd_varlink *vl,
                 link_metric_extractor_t extractor,
                 void *userdata) {
 
@@ -27,11 +28,12 @@ static int link_metric_build_json(
         Link *link;
         int r;
 
-        assert(context);
+        assert(mf && mf->name);
+        assert(vl);
         assert(extractor);
 
         HASHMAP_FOREACH(link, manager->links_by_index) {
-                r = metric_build_send_string(context, link->ifname, extractor(link), /* fields= */ NULL);
+                r = metric_build_send_string(mf, vl, link->ifname, extractor(link), /* fields= */ NULL);
                 if (r < 0)
                         return r;
         }
@@ -63,50 +65,52 @@ static const char* link_get_oper_state(const Link *l) {
         return link_operstate_to_string(ASSERT_PTR(l)->operstate);
 }
 
-static int link_address_state_build_json(MetricFamilyContext *ctx, void *userdata) {
-        return link_metric_build_json(ctx, link_get_address_state, userdata);
+static int link_address_state_build_json(const MetricFamily *mf, sd_varlink *vl, void *userdata) {
+        return link_metric_build_json(mf, vl, link_get_address_state, userdata);
 }
 
-static int link_admin_state_build_json(MetricFamilyContext *ctx, void *userdata) {
-        return link_metric_build_json(ctx, link_get_admin_state, userdata);
+static int link_admin_state_build_json(const MetricFamily *mf, sd_varlink *vl, void *userdata) {
+        return link_metric_build_json(mf, vl, link_get_admin_state, userdata);
 }
 
-static int link_carrier_state_build_json(MetricFamilyContext *ctx, void *userdata) {
-        return link_metric_build_json(ctx, link_get_carrier_state, userdata);
+static int link_carrier_state_build_json(const MetricFamily *mf, sd_varlink *vl, void *userdata) {
+        return link_metric_build_json(mf, vl, link_get_carrier_state, userdata);
 }
 
-static int link_ipv4_address_state_build_json(MetricFamilyContext *ctx, void *userdata) {
-        return link_metric_build_json(ctx, link_get_ipv4_address_state, userdata);
+static int link_ipv4_address_state_build_json(const MetricFamily *mf, sd_varlink *vl, void *userdata) {
+        return link_metric_build_json(mf, vl, link_get_ipv4_address_state, userdata);
 }
 
-static int link_ipv6_address_state_build_json(MetricFamilyContext *ctx, void *userdata) {
-        return link_metric_build_json(ctx, link_get_ipv6_address_state, userdata);
+static int link_ipv6_address_state_build_json(const MetricFamily *mf, sd_varlink *vl, void *userdata) {
+        return link_metric_build_json(mf, vl, link_get_ipv6_address_state, userdata);
 }
 
-static int link_oper_state_build_json(MetricFamilyContext *ctx, void *userdata) {
-        return link_metric_build_json(ctx, link_get_oper_state, userdata);
+static int link_oper_state_build_json(const MetricFamily *mf, sd_varlink *vl, void *userdata) {
+        return link_metric_build_json(mf, vl, link_get_oper_state, userdata);
 }
 
-static int managed_interfaces_build_json(MetricFamilyContext *context, void *userdata) {
+static int managed_interfaces_build_json(const MetricFamily *mf, sd_varlink *vl, void *userdata) {
         Manager *manager = ASSERT_PTR(userdata);
         Link *link;
         uint64_t count = 0;
 
-        assert(context);
+        assert(mf && mf->name);
+        assert(vl);
 
         HASHMAP_FOREACH(link, manager->links_by_index)
                 if (link->network)
                         count++;
 
-        return metric_build_send_unsigned(context, /* object= */ NULL, count, /* fields= */ NULL);
+        return metric_build_send_unsigned(mf, vl, /* object= */ NULL, count, /* fields= */ NULL);
 }
 
-static int required_for_online_build_json(MetricFamilyContext *context, void *userdata) {
+static int required_for_online_build_json(const MetricFamily *mf, sd_varlink *vl, void *userdata) {
         Manager *manager = ASSERT_PTR(userdata);
         Link *link;
         int r;
 
-        assert(context);
+        assert(mf && mf->name);
+        assert(vl);
 
         HASHMAP_FOREACH(link, manager->links_by_index) {
                 if (!link->network)
@@ -114,7 +118,8 @@ static int required_for_online_build_json(MetricFamilyContext *context, void *us
 
                 if (link->network->required_for_online == 0) {
                         r = metric_build_send_string(
-                                        context,
+                                        mf,
+                                        vl,
                                         link->ifname,
                                         "no",
                                         /* fields= */ NULL);
@@ -127,7 +132,8 @@ static int required_for_online_build_json(MetricFamilyContext *context, void *us
 
                         if (range.min == range.max)
                                 r = metric_build_send_string(
-                                                context,
+                                                mf,
+                                                vl,
                                                 link->ifname,
                                                 min_str,
                                                 /* fields= */ NULL);
@@ -137,7 +143,8 @@ static int required_for_online_build_json(MetricFamilyContext *context, void *us
                                         return -ENOMEM;
 
                                 r = metric_build_send_string(
-                                                context,
+                                                mf,
+                                                vl,
                                                 link->ifname,
                                                 value,
                                                 /* fields= */ NULL);

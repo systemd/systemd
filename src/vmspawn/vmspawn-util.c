@@ -254,7 +254,9 @@ static int get_firmware_search_dirs(char ***ret) {
         /* Search in:
          * - $XDG_CONFIG_HOME/qemu/firmware
          * - /etc/qemu/firmware
-         * - /usr/share/qemu/firmware
+         * - $XDG_DATA_HOME/qemu/firmware (default: ~/.local/share/qemu/firmware)
+         * - each entry in $XDG_DATA_DIRS suffixed with /qemu/firmware
+         *   (default: /usr/local/share/qemu/firmware, /usr/share/qemu/firmware)
          *
          * Prioritising entries in "more specific" directories */
 
@@ -264,9 +266,26 @@ static int get_firmware_search_dirs(char ***ret) {
                 return r;
 
         _cleanup_strv_free_ char **l = NULL;
-        l = strv_new(user_firmware_dir, "/etc/qemu/firmware", "/usr/share/qemu/firmware");
+        l = strv_new(user_firmware_dir, "/etc/qemu/firmware");
         if (!l)
                 return log_oom_debug();
+
+        _cleanup_strv_free_ char **data_dirs = NULL;
+        r = sd_path_lookup_strv(SD_PATH_SEARCH_SHARED, "/qemu/firmware", &data_dirs);
+        if (r < 0)
+                return r;
+
+        r = strv_extend_strv(&l, data_dirs, /* filter_duplicates = */ true);
+        if (r < 0)
+                return log_oom_debug();
+
+        /* Always include /usr/share/qemu/firmware as a final fallback,
+         * even if a custom $XDG_DATA_DIRS replaced it. */
+        r = strv_extend(&l, "/usr/share/qemu/firmware");
+        if (r < 0)
+                return log_oom_debug();
+
+        strv_uniq(l);
 
         *ret = TAKE_PTR(l);
         return 0;
@@ -424,13 +443,8 @@ int find_ovmf_config(
         if (r < 0)
                 return r;
 
-        /* Search in:
-         * - $XDG_CONFIG_HOME/qemu/firmware
-         * - /etc/qemu/firmware
-         * - /usr/share/qemu/firmware
-         *
-         * Prioritising entries in "more specific" directories
-         */
+        /* Search paths are constructed by get_firmware_search_dirs(),
+         * prioritising entries in "more specific" directories. */
 
         r = list_ovmf_config(&conf_files);
         if (r < 0)

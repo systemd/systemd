@@ -811,7 +811,7 @@ static int help(void) {
 
         help_cmdline("info [OPTIONS] [DEVPATH|FILE]");
         help_abstract("Query sysfs or the udev database.");
-        help_section("Options:");
+        help_section("Options");
         r = table_print_or_warn(options);
         if (r < 0)
                 return r;

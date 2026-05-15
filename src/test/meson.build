@@ -141,6 +141,7 @@ simple_tests += files(
         'test-log.c',
         'test-logarithm.c',
         'test-login-util.c',
+        'test-machine-util.c',
         'test-macro.c',
         'test-memfd-util.c',
         'test-memory-util.c',
@@ -255,11 +256,6 @@ executables += [
         },
         test_template + {
                 'sources' : files('test-btrfs.c'),
-                'type' : 'manual',
-        },
-        test_template + {
-                'sources' : files('test-btrfs-physical-offset.c'),
-                'type' : 'manual',
         },
         test_template + {
                 'sources' : files('test-chase-manual.c'),
@@ -346,6 +342,10 @@ executables += [
         test_template + {
                 'sources' : files('test-kexec.c'),
                 'link_with' : [libshared],
+        },
+        test_template + {
+                'sources' : files('test-curl-util.c'),
+                'conditions' : ['HAVE_LIBCURL'],
         },
         test_template + {
                 'sources' : files('test-libcrypt-util.c'),
@@ -490,10 +490,13 @@ executables += [
                 'conditions' : ['ENABLE_UTMP'],
         },
         core_test_template + {
-                'sources' : files('test-varlink-idl-unit.c'),
+                'sources' : files('test-varlink-idl-job.c'),
         },
         core_test_template + {
                 'sources' : files('test-varlink-idl-manager.c'),
+        },
+        core_test_template + {
+                'sources' : files('test-varlink-idl-unit.c'),
         },
         test_template + {
                 'sources' : files('test-varlink-idl-machine.c'),
@@ -535,6 +538,11 @@ executables += [
         core_test_template + {
                 'sources' : files('test-bpf-restrict-fs.c'),
                 'dependencies' : common_test_dependencies,
+        },
+        core_test_template + {
+                'sources' : files('test-bpf-restrict-fsaccess.c'),
+                'dependencies' : common_test_dependencies,
+                'type' : 'manual',
         },
         core_test_template + {
                 'sources' : files('test-bpf-token.c'),

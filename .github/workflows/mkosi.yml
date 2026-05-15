@@ -226,6 +226,15 @@ jobs:
           RAM=4G
           EOF
 
+          # Preferred for cloud/CIs
+          if [ ${{ matrix.distro }} = opensuse ]; then
+              tee -a mkosi/mkosi.local.conf <<EOF
+
+          [Distribution]
+          Mirror=https://cdn.opensuse.org/
+          EOF
+          fi
+
       - name: Generate secure boot key
         run: mkosi --debug genkey
 

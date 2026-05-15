@@ -1,10 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <getopt.h>
 #include <stdlib.h>
 #include <sys/utsname.h>
 #include <unistd.h>
 
+#include "ansi-color.h"
 #include "argv-util.h"
 #include "boot-entry.h"
 #include "bootspec.h"
@@ -22,6 +22,7 @@
 #include "find-esp.h"
 #include "format-table.h"
 #include "fs-util.h"
+#include "help-util.h"
 #include "id128-util.h"
 #include "image-policy.h"
 #include "kernel-config.h"
@@ -29,9 +30,9 @@
 #include "loop-util.h"
 #include "main-func.h"
 #include "mount-util.h"
+#include "options.h"
 #include "parse-argument.h"
 #include "path-util.h"
-#include "pretty-print.h"
 #include "recurse-dir.h"
 #include "rm-rf.h"
 #include "stat-util.h"
@@ -1190,6 +1191,8 @@ static int do_add(
         return context_execute(c);
 }
 
+VERB(verb_add, "add", "[[[KERNEL-VERSION] KERNEL-IMAGE] [INITRD ...]]", 1, VERB_ANY, 0,
+     "Add a kernel and initrd images to the boot partition");
 static int verb_add(int argc, char *argv[], uintptr_t _data, void *userdata) {
         const char *version, *kernel;
         char **initrds;
@@ -1219,6 +1222,8 @@ static int verb_add(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return do_add(&c, version, kernel, initrds);
 }
 
+VERB_NOARG(verb_add_all, "add-all",
+           "Add all kernels found in /usr/lib/modules/");
 static int verb_add_all(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_close_ int fd = -EBADF;
         size_t n = 0;
@@ -1299,16 +1304,18 @@ static int verb_add_all(int argc, char *argv[], uintptr_t _data, void *userdata)
         return ret;
 }
 
-static int run_as_installkernel(int argc, char *argv[]) {
+static int run_as_installkernel(char **args) {
         /* kernel's install.sh invokes us as
          *   /sbin/installkernel <version> <vmlinuz> <map> <installation-dir>
          * We ignore the last two arguments. */
-        if (optind + 2 > argc)
+        if (strv_length(args) < 2)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "'installkernel' command requires at least two arguments.");
 
-        return verb_add(3, STRV_MAKE("add", argv[optind], argv[optind+1]), /* data= */ 0, /* userdata= */ NULL);
+        return verb_add(3, STRV_MAKE("add", args[0], args[1]), /* data= */ 0, /* userdata= */ NULL);
 }
 
+VERB(verb_remove, "remove", "KERNEL-VERSION", 2, VERB_ANY, 0,
+     "Remove a kernel from the boot partition");
 static int verb_remove(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r;
 
@@ -1345,6 +1352,8 @@ static int verb_remove(int argc, char *argv[], uintptr_t _data, void *userdata) 
         return context_execute(&c);
 }
 
+VERB(verb_inspect, "inspect", "[[[KERNEL-VERSION] KERNEL-IMAGE] [INITRD ...]]", 1, VERB_ANY, VERB_DEFAULT,
+     "Print details about the installation");
 static int verb_inspect(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(table_unrefp) Table *t = NULL;
         _cleanup_free_ char *vmlinuz = NULL;
@@ -1458,6 +1467,8 @@ static int verb_inspect(int argc, char *argv[], uintptr_t _data, void *userdata)
         return table_print_with_pager(t, arg_json_format_flags, arg_pager_flags, /* show_header= */ false);
 }
 
+VERB_NOARG(verb_list, "list",
+           "List installed kernels");
 static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_close_ int fd = -EBADF;
         int r;
@@ -1526,128 +1537,87 @@ static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
 }
 
 static int help(void) {
-        _cleanup_free_ char *link = NULL;
+        _cleanup_(table_unrefp) Table *options = NULL, *verbs = NULL;
         int r;
 
-        r = terminal_urlify_man("kernel-install", "8", &link);
+        r = verbs_get_help_table(&verbs);
         if (r < 0)
-                return log_oom();
+                return r;
 
-        printf("%1$s [OPTIONS...] COMMAND ...\n\n"
-               "%5$sAdd and remove kernel and initrd images to and from the boot partition.%6$s\n"
-               "\n%3$sUsage:%4$s\n"
-               "  kernel-install [OPTIONS...] add [[[KERNEL-VERSION] KERNEL-IMAGE] [INITRD ...]]\n"
-               "  kernel-install [OPTIONS...] add-all\n"
-               "  kernel-install [OPTIONS...] remove KERNEL-VERSION\n"
-               "  kernel-install [OPTIONS...] inspect [[[KERNEL-VERSION] KERNEL-IMAGE]\n"
-               "                                      [INITRD ...]]\n"
-               "  kernel-install [OPTIONS...] list\n"
-               "\n%3$sOptions:%4$s\n"
-               "  -h --help                    Show this help\n"
-               "     --version                 Show package version\n"
-               "  -v --verbose                 Increase verbosity\n"
-               "     --esp-path=PATH           Path to the EFI System Partition (ESP)\n"
-               "     --boot-path=PATH          Path to the $BOOT partition\n"
-               "     --make-entry-directory=yes|no|auto\n"
-               "                               Create $BOOT/ENTRY-TOKEN/ directory\n"
-               "     --entry-type=type1|type2|all\n"
-               "                               Operate only on the specified bootloader\n"
-               "                               entry type\n"
-               "     --entry-token=machine-id|os-id|os-image-id|auto|literal:…\n"
-               "                               Entry token to be used for this installation\n"
-               "     --no-pager                Do not pipe inspect output into a pager\n"
-               "     --json=pretty|short|off   Generate JSON output\n"
-               "     --no-legend               Do not show the headers and footers\n"
-               "     --root=PATH               Operate on an alternate filesystem root\n"
-               "     --image=PATH              Operate on disk image as filesystem root\n"
-               "     --image-policy=POLICY     Specify disk image dissection policy\n"
-               "\n"
+        r = option_parser_get_help_table(&options);
+        if (r < 0)
+                return r;
+
+        /* Note: column widths are not synced, because the verbs table is very wide. */
+
+        help_cmdline("[OPTIONS…] COMMAND …");
+        help_abstract("Add and remove kernel and initrd images to and from the boot partition.");
+
+        help_section("Commands");
+        r = table_print_or_warn(verbs);
+        if (r < 0)
+                return r;
+
+        help_section("Options");
+        r = table_print_or_warn(options);
+        if (r < 0)
+                return r;
+
+        printf("\n"
                "This program may also be invoked as 'installkernel':\n"
-               "  installkernel  [OPTIONS...] VERSION VMLINUZ [MAP] [INSTALLATION-DIR]\n"
-               "(The optional arguments are passed by kernel build system, but ignored.)\n"
-               "\n"
-               "See the %2$s for details.\n",
-               program_invocation_short_name,
-               link,
-               ansi_underline(),
-               ansi_normal(),
-               ansi_highlight(),
-               ansi_normal());
+               "  installkernel [OPTIONS...] VERSION VMLINUZ [MAP] [INSTALLATION-DIR]\n"
+               "(The optional arguments are passed by kernel build system, but ignored.)\n");
+
+        help_man_page_reference("kernel-install", "8");
 
         return 0;
 }
 
-static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_NO_LEGEND,
-                ARG_ESP_PATH,
-                ARG_BOOT_PATH,
-                ARG_MAKE_ENTRY_DIRECTORY,
-                ARG_ENTRY_TOKEN,
-                ARG_NO_PAGER,
-                ARG_JSON,
-                ARG_ROOT,
-                ARG_IMAGE,
-                ARG_IMAGE_POLICY,
-                ARG_BOOT_ENTRY_TYPE,
-        };
-        static const struct option options[] = {
-                { "help",                 no_argument,       NULL, 'h'                      },
-                { "version",              no_argument,       NULL, ARG_VERSION              },
-                { "verbose",              no_argument,       NULL, 'v'                      },
-                { "esp-path",             required_argument, NULL, ARG_ESP_PATH             },
-                { "boot-path",            required_argument, NULL, ARG_BOOT_PATH            },
-                { "make-entry-directory", required_argument, NULL, ARG_MAKE_ENTRY_DIRECTORY },
-                { "entry-token",          required_argument, NULL, ARG_ENTRY_TOKEN          },
-                { "no-pager",             no_argument,       NULL, ARG_NO_PAGER             },
-                { "json",                 required_argument, NULL, ARG_JSON                 },
-                { "root",                 required_argument, NULL, ARG_ROOT                 },
-                { "image",                required_argument, NULL, ARG_IMAGE                },
-                { "image-policy",         required_argument, NULL, ARG_IMAGE_POLICY         },
-                { "no-legend",            no_argument,       NULL, ARG_NO_LEGEND            },
-                { "entry-type",           required_argument, NULL, ARG_BOOT_ENTRY_TYPE      },
-                {}
-        };
-        int t, r;
+VERB_COMMON_HELP(help);
 
+static int parse_argv(int argc, char *argv[], char ***remaining_args) {
         assert(argc >= 0);
         assert(argv);
+        assert(remaining_args);
 
-        while ((t = getopt_long(argc, argv, "hv", options, NULL)) >= 0)
-                switch (t) {
-                case 'h':
+        OptionParser opts = { argc, argv };
+        int r;
+
+        FOREACH_OPTION_OR_RETURN(c, &opts)
+                switch (c) {
+
+                OPTION_COMMON_HELP:
                         return help();
 
-                case ARG_VERSION:
+                OPTION_COMMON_VERSION:
                         return version();
 
-                case ARG_NO_LEGEND:
+                OPTION_COMMON_NO_LEGEND:
                         arg_legend = false;
                         break;
 
-                case 'v':
+                OPTION('v', "verbose", NULL, "Increase verbosity"):
                         log_set_max_level(LOG_DEBUG);
                         arg_verbose = true;
                         break;
 
-                case ARG_ESP_PATH:
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_esp_path);
+                OPTION_LONG("esp-path", "PATH", "Path to the EFI System Partition (ESP)"):
+                        r = parse_path_argument(opts.arg, /* suppress_root= */ false, &arg_esp_path);
                         if (r < 0)
-                                return log_oom();
+                                return r;
                         break;
 
-                case ARG_BOOT_PATH:
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_xbootldr_path);
+                OPTION_LONG("boot-path", "PATH", "Path to the $BOOT partition"):
+                        r = parse_path_argument(opts.arg, /* suppress_root= */ false, &arg_xbootldr_path);
                         if (r < 0)
-                                return log_oom();
+                                return r;
                         break;
 
-                case ARG_MAKE_ENTRY_DIRECTORY:
-                        if (streq(optarg, "auto"))
+                OPTION_COMMON_MAKE_ENTRY_DIRECTORY:
+                        if (streq(opts.arg, "auto"))
                                 arg_make_entry_directory = -1;
                         else {
-                                r = parse_boolean_argument("--make-entry-directory=", optarg, NULL);
+                                r = parse_boolean_argument("--make-entry-directory=", opts.arg, NULL);
                                 if (r < 0)
                                         return r;
 
@@ -1655,77 +1625,61 @@ static int parse_argv(int argc, char *argv[]) {
                         }
                         break;
 
-                case ARG_ENTRY_TOKEN:
-                        r = parse_boot_entry_token_type(optarg, &arg_entry_token_type, &arg_entry_token);
+                OPTION_COMMON_ENTRY_TOKEN:
+                        r = parse_boot_entry_token_type(opts.arg, &arg_entry_token_type, &arg_entry_token);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_NO_PAGER:
-                        arg_pager_flags |= PAGER_DISABLE;
-                        break;
-
-                case ARG_JSON:
-                        r = parse_json_argument(optarg, &arg_json_format_flags);
-                        if (r <= 0)
-                                return r;
-                        break;
-
-                case ARG_ROOT:
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_root);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_IMAGE:
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_image);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_IMAGE_POLICY:
-                        r = parse_image_policy_argument(optarg, &arg_image_policy);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_BOOT_ENTRY_TYPE: {
-                        if (isempty(optarg) || streq(optarg, "all")) {
+                OPTION_LONG("entry-type", "TYPE",
+                            "Operate only on the specified bootloader entry type (type1, type2, all)"): {
+                        if (isempty(opts.arg) || streq(opts.arg, "all")) {
                                 arg_boot_entry_type = _BOOT_ENTRY_TYPE_INVALID;
                                 break;
                         }
 
-                        BootEntryType e = boot_entry_type_from_string(optarg);
+                        BootEntryType e = boot_entry_type_from_string(opts.arg);
                         if (e < 0)
-                                return log_error_errno(e, "Invalid entry type: %s", optarg);
+                                return log_error_errno(e, "Invalid entry type: %s", opts.arg);
                         arg_boot_entry_type = e;
                         break;
                 }
 
-                case '?':
-                        return -EINVAL;
+                OPTION_COMMON_NO_PAGER:
+                        arg_pager_flags |= PAGER_DISABLE;
+                        break;
 
-                default:
-                        assert_not_reached();
+                OPTION_COMMON_JSON:
+                        r = parse_json_argument(opts.arg, &arg_json_format_flags);
+                        if (r <= 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("root", "PATH", "Operate on an alternate filesystem root"):
+                        r = parse_path_argument(opts.arg, /* suppress_root= */ false, &arg_root);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("image", "PATH", "Operate on disk image as filesystem root"):
+                        r = parse_path_argument(opts.arg, /* suppress_root= */ false, &arg_image);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("image-policy", "POLICY", "Specify disk image dissection policy"):
+                        r = parse_image_policy_argument(opts.arg, &arg_image_policy);
+                        if (r < 0)
+                                return r;
+                        break;
                 }
 
         if (arg_image && arg_root)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Please specify either --root= or --image=, the combination of both is not supported.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Please specify either --root= or --image=, the combination of both is not supported.");
 
+        *remaining_args = option_parser_get_args(&opts);
         return 1;
-}
-
-static int kernel_install_main(int argc, char *argv[]) {
-        static const Verb verbs[] = {
-                { "add",     1, VERB_ANY, 0,            verb_add     },
-                { "add-all", 1, 1,        0,            verb_add_all },
-                { "remove",  2, VERB_ANY, 0,            verb_remove  },
-                { "inspect", 1, VERB_ANY, VERB_DEFAULT, verb_inspect },
-                { "list",    1, 1,        0,            verb_list    },
-                {}
-        };
-
-        return dispatch_verb(argc, argv, verbs, /* userdata= */ NULL);
 }
 
 static int run(int argc, char* argv[]) {
@@ -1733,7 +1687,8 @@ static int run(int argc, char* argv[]) {
 
         log_setup();
 
-        r = parse_argv(argc, argv);
+        char **args = NULL;
+        r = parse_argv(argc, argv, &args);
         if (r <= 0)
                 return r;
 
@@ -1762,9 +1717,9 @@ static int run(int argc, char* argv[]) {
         }
 
         if (invoked_as(argv, "installkernel"))
-                return run_as_installkernel(argc, argv);
+                return run_as_installkernel(args);
 
-        return kernel_install_main(argc, argv);
+        return dispatch_verb_with_args(args, /* userdata= */ NULL);
 }
 
 DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);

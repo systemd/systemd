@@ -3,14 +3,15 @@
 #include <errno.h>
 #include <stdio.h>
 #include <stdio_ext.h>
-#include <sys/syscall.h>
-#include <unistd.h>
 
-#if !HAVE_RENAMEAT2
-int missing_renameat2(int __oldfd, const char *__old, int __newfd, const char *__new, unsigned __flags) {
-        return syscall(__NR_renameat2, __oldfd, __old, __newfd, __new, __flags);
-}
-#endif
+#include "../libc-shim.h"
+
+DEFINE_SYSCALL_SHIM(renameat2, int,
+                    int, __oldfd,
+                    const char *, __old,
+                    int, __newfd,
+                    const char *, __new,
+                    unsigned, __flags)
 
 #define DEFINE_PUT(func)                                         \
         int func##_check_writable(int c, FILE *stream) {         \

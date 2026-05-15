@@ -744,6 +744,7 @@ const UnitVTable scope_vtable = {
         .can_fail = true,
         .once_only = true,
         .can_set_managed_oom = true,
+        .track_orphaned = true,
 
         .init = scope_init,
         .load = scope_load,

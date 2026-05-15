@@ -370,11 +370,11 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                                 return log_error_errno(arg_class, "Failed to parse --class= argument: %s", opts.arg);
                         break;
 
-                OPTION_LONG("system", NULL, "Operate in per-system mode"):
+                OPTION_COMMON_SYSTEM:
                         arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
                         break;
 
-                OPTION_LONG("user", NULL, "Operate in per-user mode"):
+                OPTION_COMMON_USER:
                         arg_runtime_scope = RUNTIME_SCOPE_USER;
                         break;
                 }

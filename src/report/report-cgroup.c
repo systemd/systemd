@@ -5,6 +5,7 @@
 
 #include "alloc-util.h"
 #include "cgroup-util.h"
+#include "errno-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -16,349 +17,67 @@
 #include "string-util.h"
 #include "time-util.h"
 
-typedef struct CGroupInfo {
-        char *unit;
-        char *path;
-        uint64_t io_rbytes;
-        uint64_t io_rios;
-        int io_stat_cached; /* 0 = not attempted, > 0 = cached, < 0 = -errno */
-        uint64_t cpu_total_nsec;
-        uint64_t cpu_user_nsec;
-        uint64_t cpu_system_nsec;
-        int cpu_stat_cached; /* 0 = not attempted, > 0 = cached, < 0 = -errno */
-} CGroupInfo;
-
-static CGroupInfo *cgroup_info_free(CGroupInfo *info) {
-        if (!info)
-                return NULL;
-        free(info->unit);
-        free(info->path);
-        return mfree(info);
-}
-
-DEFINE_TRIVIAL_CLEANUP_FUNC(CGroupInfo*, cgroup_info_free);
-
-static void cgroup_info_array_free(CGroupInfo **infos, size_t n) {
-        FOREACH_ARRAY(i, infos, n)
-                cgroup_info_free(*i);
-        free(infos);
-}
-
-static void cgroup_context_flush(CGroupContext *ctx) {
-        assert(ctx);
-        cgroup_info_array_free(ctx->cgroups, ctx->n_cgroups);
-        ctx->cgroups = NULL;
-        ctx->n_cgroups = 0;
-        ctx->cache_populated = false;
-}
-
-CGroupContext *cgroup_context_free(CGroupContext *ctx) {
-        if (!ctx)
-                return NULL;
-        cgroup_context_flush(ctx);
-        return mfree(ctx);
-}
-
-static int walk_cgroups_recursive(const char *path, CGroupInfo ***infos, size_t *n_infos) {
-        _cleanup_closedir_ DIR *d = NULL;
-        int r;
-
-        assert(path);
-        assert(infos);
-        assert(n_infos);
-
-        /* Collect any unit cgroup we encounter */
-        _cleanup_free_ char *name = NULL;
-        r = cg_path_get_unit(path, &name);
-        if (r >= 0) {
-                _cleanup_(cgroup_info_freep) CGroupInfo *info = new(CGroupInfo, 1);
-                if (!info)
-                        return log_oom();
-
-                *info = (CGroupInfo) {
-                        .unit = TAKE_PTR(name),
-                        .path = strdup(path),
-                };
-                if (!info->path)
-                        return log_oom();
-
-                if (!GREEDY_REALLOC(*infos, *n_infos + 1))
-                        return log_oom();
-
-                (*infos)[(*n_infos)++] = TAKE_PTR(info);
-                return 0; /* Unit cgroups are leaf nodes for our purposes */
-        }
-
-        /* Stop at delegation boundaries — don't descend into delegated subtrees */
-        r = cg_is_delegated(path);
-        if (r == -ENOENT)
-                return 0;
-        if (r < 0)
-                return log_debug_errno(r, "Failed to check delegation for '%s': %m", path);
-        if (r > 0)
-                return 0;
-
-        r = cg_enumerate_subgroups(path, &d);
-        if (r == -ENOENT)
-                return 0;
-        if (r < 0)
-                return log_debug_errno(r, "Failed to enumerate cgroup '%s': %m", path);
-
-        for (;;) {
-                _cleanup_free_ char *fn = NULL, *child = NULL;
-
-                r = cg_read_subgroup(d, &fn);
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to read subgroup from '%s': %m", path);
-                if (r == 0)
-                        break;
-
-                child = path_join(empty_to_root(path), fn);
-                if (!child)
-                        return log_oom();
-
-                path_simplify(child);
-
-                r = walk_cgroups_recursive(child, infos, n_infos);
-                if (r < 0)
-                        return r;
-        }
-
-        return 0;
-}
-
-static int walk_cgroups(CGroupContext *ctx, CGroupInfo ***ret, size_t *ret_n) {
-        int r;
-
-        assert(ctx);
-        assert(ret);
-        assert(ret_n);
-
-        /* Return cached result if available */
-        if (ctx->cache_populated) {
-                *ret = ctx->cgroups;
-                *ret_n = ctx->n_cgroups;
-                return 0;
-        }
-
-        CGroupInfo **infos = NULL;
-        size_t n_infos = 0;
-        CLEANUP_ARRAY(infos, n_infos, cgroup_info_array_free);
-
-        r = walk_cgroups_recursive("", &infos, &n_infos);
-        if (r < 0)
-                return r;
-
-        ctx->cgroups = TAKE_PTR(infos);
-        ctx->n_cgroups = TAKE_GENERIC(n_infos, size_t, 0);
-        ctx->cache_populated = true;
-
-        *ret = ctx->cgroups;
-        *ret_n = ctx->n_cgroups;
-        return 0;
-}
-
 /* Parse cpu.stat for a cgroup once, extracting usage_usec, user_usec and system_usec
  * in a single read so each scrape only opens the file once per cgroup. */
-static int cpu_stat_parse(
-                const char *cgroup_path,
-                uint64_t *ret_total_nsec,
-                uint64_t *ret_user_nsec,
-                uint64_t *ret_system_nsec) {
-
-        char *values[3] = {};
-        uint64_t total_us, user_us, system_us;
+static int cpu_stat_parse(const char *cgroup_path, uint64_t ret[static 3]) {
+        char* strings[3] = {};
+        CLEANUP_ELEMENTS(strings, free_many_charp);
+        uint64_t values[3];
         int r;
 
         assert(cgroup_path);
-        assert(ret_total_nsec);
-        assert(ret_user_nsec);
-        assert(ret_system_nsec);
 
         r = cg_get_keyed_attribute(
                         cgroup_path,
                         "cpu.stat",
                         STRV_MAKE("usage_usec", "user_usec", "system_usec"),
-                        values);
+                        strings);
         if (r < 0)
                 return r;
 
-        r = safe_atou64(values[0], &total_us);
-        if (r >= 0)
-                r = safe_atou64(values[1], &user_us);
-        if (r >= 0)
-                r = safe_atou64(values[2], &system_us);
+        for (unsigned i = 0; i < 3; i++) {
+                r = safe_atou64(strings[i], &values[i]);
+                if (r < 0)
+                        return r;
+        }
 
-        free_many_charp(values, ELEMENTSOF(values));
-        if (r < 0)
-                return r;
-
-        *ret_total_nsec = total_us * NSEC_PER_USEC;
-        *ret_user_nsec = user_us * NSEC_PER_USEC;
-        *ret_system_nsec = system_us * NSEC_PER_USEC;
+        for (unsigned i = 0; i < 3; i++)
+                ret[i] = values[i] * NSEC_PER_USEC;
         return 0;
 }
 
-static int ensure_cpu_stat_cached(CGroupInfo *info) {
+static int cpu_usage_send(
+                const MetricFamily *mf,
+                sd_varlink *link,
+                const char *path,
+                const char *unit) {
+
+        static const char* const types[] = { "total", "user", "system" };
+        uint64_t values[3];
         int r;
 
-        assert(info);
+        assert(mf && mf->name);
+        assert(link);
+        assert(path);
+        assert(unit);
 
-        if (info->cpu_stat_cached > 0)
-                return 0;
-        if (info->cpu_stat_cached < 0)
-                return info->cpu_stat_cached;
-
-        r = cpu_stat_parse(info->path, &info->cpu_total_nsec, &info->cpu_user_nsec, &info->cpu_system_nsec);
+        r = cpu_stat_parse(path, values);
         if (r < 0) {
                 if (r != -ENOENT)
-                        log_debug_errno(r, "Failed to parse cpu.stat for '%s': %m", info->path);
-                info->cpu_stat_cached = r;
-                return r;
-        }
-
-        info->cpu_stat_cached = 1;
-        return 0;
-}
-
-static int cpu_usage_send_one(
-                MetricFamilyContext *context,
-                const char *unit,
-                uint64_t value_nsec,
-                const char *type) {
-
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *fields = NULL;
-        int r;
-
-        assert(context);
-        assert(unit);
-        assert(type);
-
-        r = sd_json_buildo(&fields, SD_JSON_BUILD_PAIR_STRING("type", type));
-        if (r < 0)
-                return r;
-
-        return metric_build_send_unsigned(context, unit, value_nsec, fields);
-}
-
-static int cpu_usage_build_json(MetricFamilyContext *context, void *userdata) {
-        CGroupContext *ctx = ASSERT_PTR(userdata);
-        CGroupInfo **cgroups;
-        size_t n_cgroups;
-        int r;
-
-        assert(context);
-
-        r = walk_cgroups(ctx, &cgroups, &n_cgroups);
-        if (r < 0)
-                return 0; /* Skip metric on failure */
-
-        FOREACH_ARRAY(c, cgroups, n_cgroups) {
-                if (ensure_cpu_stat_cached(*c) < 0)
-                        continue;
-
-                r = cpu_usage_send_one(context, (*c)->unit, (*c)->cpu_total_nsec, "total");
-                if (r < 0)
-                        return r;
-
-                r = cpu_usage_send_one(context, (*c)->unit, (*c)->cpu_user_nsec, "user");
-                if (r < 0)
-                        return r;
-
-                r = cpu_usage_send_one(context, (*c)->unit, (*c)->cpu_system_nsec, "system");
-                if (r < 0)
-                        return r;
-        }
-
-        return 0;
-}
-
-static int memory_usage_build_json(MetricFamilyContext *context, void *userdata) {
-        CGroupContext *ctx = ASSERT_PTR(userdata);
-        CGroupInfo **cgroups;
-        size_t n_cgroups;
-        int r;
-
-        assert(context);
-
-        r = walk_cgroups(ctx, &cgroups, &n_cgroups);
-        if (r < 0)
+                        log_debug_errno(r, "Failed to read %s/%s, ignoring: %m", path, "cpu.stat");
                 return 0;
+        }
 
-        FOREACH_ARRAY(c, cgroups, n_cgroups) {
-                uint64_t current = 0, limit = UINT64_MAX;
+        for (unsigned i = 0; i < 3; i++) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *fields = NULL;
 
-                r = cg_get_attribute_as_uint64((*c)->path, "memory.current", &current);
-                if (r >= 0) {
-                        /* Walk up the cgroup tree to find the tightest memory limit */
-                        _cleanup_free_ char *path_buf = strdup((*c)->path);
-                        if (!path_buf)
-                                return log_oom();
+                r = sd_json_buildo(&fields, SD_JSON_BUILD_PAIR_STRING("type", types[i]));
+                if (r < 0)
+                        return r;
 
-                        for (char *p = path_buf;;) {
-                                uint64_t high, max;
-
-                                r = cg_get_attribute_as_uint64(p, "memory.max", &max);
-                                if (r >= 0 && max < limit)
-                                        limit = max;
-
-                                r = cg_get_attribute_as_uint64(p, "memory.high", &high);
-                                if (r >= 0 && high < limit)
-                                        limit = high;
-
-                                /* Move to parent */
-                                const char *e;
-                                r = path_find_last_component(p, /* accept_dot_dot= */ false, &e, NULL);
-                                if (r <= 0)
-                                        break;
-                                p[e - p] = '\0';
-                        }
-
-                        if (limit != UINT64_MAX && limit > current) {
-                                _cleanup_(sd_json_variant_unrefp) sd_json_variant *fields = NULL;
-                                r = sd_json_buildo(&fields, SD_JSON_BUILD_PAIR_STRING("type", "available"));
-                                if (r < 0)
-                                        return r;
-
-                                r = metric_build_send_unsigned(
-                                                context,
-                                                (*c)->unit,
-                                                limit - current,
-                                                fields);
-                                if (r < 0)
-                                        return r;
-                        }
-
-                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *fields = NULL;
-                        r = sd_json_buildo(&fields, SD_JSON_BUILD_PAIR_STRING("type", "current"));
-                        if (r < 0)
-                                return r;
-
-                        r = metric_build_send_unsigned(
-                                        context,
-                                        (*c)->unit,
-                                        current,
-                                        fields);
-                        if (r < 0)
-                                return r;
-                }
-
-                uint64_t val;
-                r = cg_get_attribute_as_uint64((*c)->path, "memory.peak", &val);
-                if (r >= 0) {
-                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *fields = NULL;
-                        r = sd_json_buildo(&fields, SD_JSON_BUILD_PAIR_STRING("type", "peak"));
-                        if (r < 0)
-                                return r;
-
-                        r = metric_build_send_unsigned(
-                                        context,
-                                        (*c)->unit,
-                                        val,
-                                        fields);
-                        if (r < 0)
-                                return r;
-                }
+                r = metric_build_send_unsigned(mf, link, unit, values[i], fields);
+                if (r < 0)
+                        return r;
         }
 
         return 0;
@@ -366,22 +85,20 @@ static int memory_usage_build_json(MetricFamilyContext *context, void *userdata)
 
 /* Parse io.stat for a cgroup once, summing both rbytes= and rios= fields in a
  * single pass to avoid reading the file twice. */
-static int io_stat_parse(const char *cgroup_path, uint64_t *ret_rbytes, uint64_t *ret_rios) {
+static int io_stat_parse(const char *cgroup_path, uint64_t ret[static 2]) {
         _cleanup_free_ char *path = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
         uint64_t rbytes = 0, rios = 0;
         int r;
 
-        assert(ret_rbytes);
-        assert(ret_rios);
+        assert(ret);
 
         r = cg_get_path(cgroup_path, "io.stat", &path);
         if (r < 0)
                 return r;
 
-        f = fopen(path, "re");
+        _cleanup_fclose_ FILE *f = fopen(path, "re");
         if (!f)
-                return -errno;
+                return errno_or_else(EIO);
 
         for (;;) {
                 _cleanup_free_ char *line = NULL;
@@ -421,54 +138,34 @@ static int io_stat_parse(const char *cgroup_path, uint64_t *ret_rbytes, uint64_t
                 }
         }
 
-        *ret_rbytes = rbytes;
-        *ret_rios = rios;
+        ret[0] = rbytes;
+        ret[1] = rios;
         return 0;
 }
 
-static int ensure_io_stat_cached(CGroupInfo *info) {
+static int io_read_send(
+                const MetricFamily mf[static 2],
+                sd_varlink *link,
+                const char *path,
+                const char *unit) {
+
+        uint64_t values[2];
         int r;
 
-        assert(info);
+        assert(mf && mf[0].name && mf[1].name);
+        assert(link);
+        assert(path);
+        assert(unit);
 
-        if (info->io_stat_cached > 0)
-                return 0;
-        if (info->io_stat_cached < 0)
-                return info->io_stat_cached;
-
-        r = io_stat_parse(info->path, &info->io_rbytes, &info->io_rios);
+        r = io_stat_parse(path, values);
         if (r < 0) {
                 if (r != -ENOENT)
-                        log_debug_errno(r, "Failed to parse IO stats for '%s': %m", info->path);
-                info->io_stat_cached = r;
-                return r;
+                        log_debug_errno(r, "Failed to read %s/%s, ignoring: %m", path, "io.stat");
+                return 0;
         }
 
-        info->io_stat_cached = 1;
-        return 0;
-}
-
-static int io_read_bytes_build_json(MetricFamilyContext *context, void *userdata) {
-        CGroupContext *ctx = ASSERT_PTR(userdata);
-        CGroupInfo **cgroups;
-        size_t n_cgroups;
-        int r;
-
-        assert(context);
-
-        r = walk_cgroups(ctx, &cgroups, &n_cgroups);
-        if (r < 0)
-                return 0;
-
-        FOREACH_ARRAY(c, cgroups, n_cgroups) {
-                if (ensure_io_stat_cached(*c) < 0)
-                        continue;
-
-                r = metric_build_send_unsigned(
-                                context,
-                                (*c)->unit,
-                                (*c)->io_rbytes,
-                                /* fields= */ NULL);
+        for (unsigned i = 0; i < 2; i++) {
+                r = metric_build_send_unsigned(mf + i, link, unit, values[i], /* fields= */ NULL);
                 if (r < 0)
                         return r;
         }
@@ -476,27 +173,76 @@ static int io_read_bytes_build_json(MetricFamilyContext *context, void *userdata
         return 0;
 }
 
-static int io_read_operations_build_json(MetricFamilyContext *context, void *userdata) {
-        CGroupContext *ctx = ASSERT_PTR(userdata);
-        CGroupInfo **cgroups;
-        size_t n_cgroups;
+static int memory_usage_send(
+                const MetricFamily *mf,
+                sd_varlink *link,
+                const char *path,
+                const char *unit) {
+
+        static const char* const types[] = { "current", "available", "peak" };
+        bool bad[ELEMENTSOF(types)] = {};
+        uint64_t current = 0, limit = UINT64_MAX, peak = 0;
         int r;
 
-        assert(context);
+        assert(mf && mf->name);
+        assert(link);
+        assert(path);
+        assert(unit);
 
-        r = walk_cgroups(ctx, &cgroups, &n_cgroups);
-        if (r < 0)
-                return 0;
+        r = cg_get_attribute_as_uint64(path, "memory.current", &current);
+        if (r < 0) {
+                if (r != -ENOENT)
+                        log_debug_errno(r, "Failed to read %s/%s, ignoring: %m", path, "memory.current");
 
-        FOREACH_ARRAY(c, cgroups, n_cgroups) {
-                if (ensure_io_stat_cached(*c) < 0)
+                bad[0] = bad[1] = true;
+
+        } else {
+                /* Walk up the cgroup tree to find the tightest memory limit */
+                _cleanup_free_ char *path_buf = strdup(path);
+                if (!path_buf)
+                        return log_oom();
+
+                for (char *p = path_buf;;) {
+                        uint64_t high, max;
+
+                        r = cg_get_attribute_as_uint64(p, "memory.max", &max);
+                        if (r >= 0 && max < limit)
+                                limit = max;
+
+                        r = cg_get_attribute_as_uint64(p, "memory.high", &high);
+                        if (r >= 0 && high < limit)
+                                limit = high;
+
+                        /* Move to parent */
+                        const char *e;
+                        r = path_find_last_component(p, /* accept_dot_dot= */ false, &e, NULL);
+                        if (r <= 0)
+                                break;
+                        p[e - p] = '\0';
+                }
+
+                if (limit == UINT64_MAX || limit <= current)
+                        bad[1] = true;
+        }
+
+        r = cg_get_attribute_as_uint64(path, "memory.peak", &peak);
+        if (r < 0) {
+                if (r != -ENOENT)
+                        log_debug_errno(r, "Failed to read %s/%s, ignoring: %m", path, "memory.peak");
+                bad[2] = true;
+        }
+
+        uint64_t values[] = { current, limit - current, peak };
+        for (unsigned i = 0; i < ELEMENTSOF(values); i++) {
+                if (bad[i])
                         continue;
 
-                r = metric_build_send_unsigned(
-                                context,
-                                (*c)->unit,
-                                (*c)->io_rios,
-                                /* fields= */ NULL);
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *fields = NULL;
+                r = sd_json_buildo(&fields, SD_JSON_BUILD_PAIR_STRING("type", types[i]));
+                if (r < 0)
+                        return r;
+
+                r = metric_build_send_unsigned(mf, link, unit, values[i], fields);
                 if (r < 0)
                         return r;
         }
@@ -504,68 +250,145 @@ static int io_read_operations_build_json(MetricFamilyContext *context, void *use
         return 0;
 }
 
-static int tasks_current_build_json(MetricFamilyContext *context, void *userdata) {
-        CGroupContext *ctx = ASSERT_PTR(userdata);
-        CGroupInfo **cgroups;
-        size_t n_cgroups;
+static int tasks_current_send(
+                const MetricFamily *mf,
+                sd_varlink *link,
+                const char *path,
+                const char *unit) {
+
+        uint64_t val;
         int r;
 
-        assert(context);
+        assert(mf && mf->name);
+        assert(link);
+        assert(path);
+        assert(unit);
 
-        r = walk_cgroups(ctx, &cgroups, &n_cgroups);
+        r = cg_get_attribute_as_uint64(path, "pids.current", &val);
+        if (r < 0) {
+                if (r != -ENOENT)
+                        log_debug_errno(r, "Failed to read %s/%s, ignoring: %m", path, "pids.current");
+                return 0;
+        }
+
+        return metric_build_send_unsigned(mf, link, unit, val, /* fields= */ NULL);
+}
+
+static int walk_cgroups(
+                const MetricFamily mf[static 5],
+                sd_varlink *link,
+                const char *path) {
+
+        int r;
+
+        assert(mf && mf[0].name && mf[1].name && mf[2].name && mf[3].name && mf[4].name);
+        assert(mf[0].generate && !mf[1].generate && !mf[2].generate && !mf[3].generate && !mf[4].generate);
+        assert(path);
+
+        _cleanup_free_ char *unit = NULL;
+        r = cg_path_get_unit(path, &unit);
+        if (r >= 0) {
+                r = cpu_usage_send(mf + 0, link, path, unit);
+                if (r < 0)
+                        return r;
+
+                r = io_read_send(mf + 1, link, path, unit);
+                if (r < 0)
+                        return r;
+
+                r = memory_usage_send(mf + 3, link, path, unit);
+                if (r < 0)
+                        return r;
+
+                r = tasks_current_send(mf + 4, link, path, unit);
+                if (r < 0)
+                        return r;
+
+                return 0; /* Unit cgroups are leaf nodes for our purposes */
+        }
+
+        /* Stop at delegation boundaries — don't descend into delegated subtrees */
+        r = cg_is_delegated(path);
+        if (r == -ENOENT)
+                return 0;
         if (r < 0)
+                return log_debug_errno(r, "Failed to check delegation for '%s': %m", path);
+        if (r > 0)
                 return 0;
 
-        FOREACH_ARRAY(c, cgroups, n_cgroups) {
-                uint64_t val;
+        _cleanup_closedir_ DIR *d = NULL;
+        r = cg_enumerate_subgroups(path, &d);
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0)
+                return log_debug_errno(r, "Failed to enumerate cgroup '%s': %m", path);
 
-                r = cg_get_attribute_as_uint64((*c)->path, "pids.current", &val);
+        for (;;) {
+                _cleanup_free_ char *fn = NULL, *child = NULL;
+
+                r = cg_read_subgroup(d, &fn);
                 if (r < 0)
-                        continue;
+                        return log_debug_errno(r, "Failed to read subgroup from '%s': %m", path);
+                if (r == 0)
+                        break;
 
-                r = metric_build_send_unsigned(
-                                context,
-                                (*c)->unit,
-                                val,
-                                /* fields= */ NULL);
+                child = path_join(empty_to_root(path), fn);
+                if (!child)
+                        return log_oom();
+
+                path_simplify(child);
+
+                r = walk_cgroups(mf, link, child);
                 if (r < 0)
                         return r;
         }
 
         return 0;
+}
+
+static int cgroup_stats_send(
+                const MetricFamily mf[static 5],
+                sd_varlink *link,
+                void *userdata) {
+
+        assert(mf);
+        assert(link);
+        assert(!userdata);
+
+        return walk_cgroups(mf, link, "");
 }
 
 static const MetricFamily cgroup_metric_family_table[] = {
         /* Keep metrics ordered alphabetically */
         {
-                .name = METRIC_IO_SYSTEMD_CGROUP_PREFIX "CpuUsage",
-                .description = "Per unit metric: CPU usage in nanoseconds (type=total|user|system)",
-                .type = METRIC_FAMILY_TYPE_COUNTER,
-                .generate = cpu_usage_build_json,
+                METRIC_IO_SYSTEMD_CGROUP_PREFIX "CpuUsage",
+                "Per unit metric: CPU usage in nanoseconds (type=total|user|system)",
+                METRIC_FAMILY_TYPE_COUNTER,
+                .generate = cgroup_stats_send,
         },
         {
-                .name = METRIC_IO_SYSTEMD_CGROUP_PREFIX "IOReadBytes",
-                .description = "Per unit metric: IO bytes read",
-                .type = METRIC_FAMILY_TYPE_COUNTER,
-                .generate = io_read_bytes_build_json,
+                METRIC_IO_SYSTEMD_CGROUP_PREFIX "IOReadBytes",
+                "Per unit metric: IO bytes read",
+                METRIC_FAMILY_TYPE_COUNTER,
+                .generate = NULL,
         },
         {
-                .name = METRIC_IO_SYSTEMD_CGROUP_PREFIX "IOReadOperations",
-                .description = "Per unit metric: IO read operations",
-                .type = METRIC_FAMILY_TYPE_COUNTER,
-                .generate = io_read_operations_build_json,
+                METRIC_IO_SYSTEMD_CGROUP_PREFIX "IOReadOperations",
+                "Per unit metric: IO read operations",
+                METRIC_FAMILY_TYPE_COUNTER,
+                .generate = NULL,
         },
         {
-                .name = METRIC_IO_SYSTEMD_CGROUP_PREFIX "MemoryUsage",
-                .description = "Per unit metric: memory usage in bytes",
-                .type = METRIC_FAMILY_TYPE_GAUGE,
-                .generate = memory_usage_build_json,
+                METRIC_IO_SYSTEMD_CGROUP_PREFIX "MemoryUsage",
+                "Per unit metric: memory usage in bytes",
+                METRIC_FAMILY_TYPE_GAUGE,
+                .generate = NULL,
         },
         {
-                .name = METRIC_IO_SYSTEMD_CGROUP_PREFIX "TasksCurrent",
-                .description = "Per unit metric: current number of tasks",
-                .type = METRIC_FAMILY_TYPE_GAUGE,
-                .generate = tasks_current_build_json,
+                METRIC_IO_SYSTEMD_CGROUP_PREFIX "TasksCurrent",
+                "Per unit metric: current number of tasks",
+                METRIC_FAMILY_TYPE_GAUGE,
+                .generate = NULL,
         },
         {}
 };
@@ -575,12 +398,5 @@ int vl_method_describe_metrics(sd_varlink *link, sd_json_variant *parameters, sd
 }
 
 int vl_method_list_metrics(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
-        CGroupContext *ctx = ASSERT_PTR(userdata);
-        int r;
-
-        r = metrics_method_list(cgroup_metric_family_table, link, parameters, flags, userdata);
-
-        cgroup_context_flush(ctx);
-
-        return r;
+        return metrics_method_list(cgroup_metric_family_table, link, parameters, flags, userdata);
 }

@@ -1974,7 +1974,7 @@ _public_ int sd_json_variant_filter(sd_json_variant **v, char **to_remove) {
                 return r;
 
         json_variant_propagate_sensitive(*v, w);
-        JSON_VARIANT_REPLACE(*v, TAKE_PTR(w));
+        json_variant_unref_and_replace(*v, w);
 
         return (int) n;
 }
@@ -2043,7 +2043,7 @@ _public_ int sd_json_variant_set_field(sd_json_variant **v, const char *field, s
                 return r;
 
         json_variant_propagate_sensitive(*v, w);
-        JSON_VARIANT_REPLACE(*v, TAKE_PTR(w));
+        json_variant_unref_and_replace(*v, w);
 
         return 1;
 }
@@ -2183,7 +2183,7 @@ _public_ int sd_json_variant_merge_object(sd_json_variant **v, sd_json_variant *
 
         json_variant_propagate_sensitive(*v, w);
         json_variant_propagate_sensitive(m, w);
-        JSON_VARIANT_REPLACE(*v, TAKE_PTR(w));
+        json_variant_unref_and_replace(*v, w);
 
         return 1;
 }
@@ -2262,9 +2262,7 @@ _public_ int sd_json_variant_append_array(sd_json_variant **v, sd_json_variant *
         }
 
         json_variant_propagate_sensitive(*v, nv);
-        JSON_VARIANT_REPLACE(*v, TAKE_PTR(nv));
-
-        return 0;
+        return json_variant_unref_and_replace(*v, nv);
 }
 
 _public_ int sd_json_variant_append_arrayb(sd_json_variant **v, ...) {
@@ -2511,7 +2509,7 @@ static int json_variant_set_source(sd_json_variant **v, JsonSource *source, unsi
         w->line = line;
         w->column = column;
 
-        JSON_VARIANT_REPLACE(*v, w);
+        json_variant_unref_and_replace(*v, w);
 
         return 1;
 }
@@ -4545,6 +4543,7 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                         break;
                 }
 
+                case _JSON_BUILD_PAIR_FINITE_USEC_NON_ZERO:
                 case _JSON_BUILD_PAIR_FINITE_USEC: {
                         const char *n;
                         usec_t u;
@@ -4557,7 +4556,9 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                         n = va_arg(ap, const char *);
                         u = va_arg(ap, usec_t);
 
-                        if (u != USEC_INFINITY && current->n_suppress == 0) {
+                        if (u != USEC_INFINITY &&
+                            (command != _JSON_BUILD_PAIR_FINITE_USEC_NON_ZERO || u > 0) &&
+                            current->n_suppress == 0) {
                                 r = sd_json_variant_new_string(&add, n);
                                 if (r < 0)
                                         goto finish;
@@ -5855,7 +5856,7 @@ _public_ int sd_json_variant_sort(sd_json_variant **v) {
         if (!n->sorted) /* Check if this worked. This will fail if there are multiple identical keys used. */
                 return -ENOTUNIQ;
 
-        JSON_VARIANT_REPLACE(*v, TAKE_PTR(n));
+        json_variant_unref_and_replace(*v, n);
 
         return 1;
 }
@@ -5910,7 +5911,7 @@ _public_ int sd_json_variant_normalize(sd_json_variant **v) {
                 goto finish;
         }
 
-        JSON_VARIANT_REPLACE(*v, TAKE_PTR(n));
+        json_variant_unref_and_replace(*v, n);
 
         r = 1;
 

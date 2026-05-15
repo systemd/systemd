@@ -22,7 +22,6 @@
 #include "device-private.h"
 #include "env-file.h"
 #include "env-util.h"
-#include "escape.h"
 #include "extract-word.h"
 #include "fileio.h"
 #include "hashmap.h"
@@ -230,20 +229,7 @@ static void context_read_os_release(Context *c) {
         if (free_and_strdup(&c->data[PROP_OS_PRETTY_NAME], os_release_pretty_name(os_pretty_name, os_name)) < 0)
                 log_oom();
 
-        if (!isempty(os_fancy_name)) {
-                _cleanup_free_ char *unescaped = NULL;
-
-                /* We undo one level of C escapes on this */
-                ssize_t l = cunescape(os_fancy_name, /* flags= */ 0, &unescaped);
-                if (l < 0) {
-                        log_warning_errno(l, "Failed to unescape fancy OS name, ignoring: %m");
-                        os_fancy_name = mfree(os_fancy_name);
-                } else if (!utf8_is_valid(unescaped)) {
-                        log_warning("Unescaped fancy OS name contains invalid UTF-8, ignoring.");
-                        os_fancy_name = mfree(os_fancy_name);
-                } else
-                        free_and_replace(os_fancy_name, unescaped);
-        }
+        unescape_fancy_name(&os_fancy_name);
 
         if (isempty(os_fancy_name)) {
                 free(os_fancy_name); /* free if empty string */

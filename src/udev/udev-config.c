@@ -160,7 +160,7 @@ static int help(void) {
         help_cmdline("[OPTIONS...]");
         help_abstract("Rule-based manager for device events and files.");
 
-        help_section("Options:");
+        help_section("Options");
 
         r = table_print_or_warn(options);
         if (r < 0)

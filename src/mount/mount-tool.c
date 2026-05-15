@@ -1,10 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <getopt.h>
-
 #include "sd-bus.h"
 #include "sd-device.h"
 
+#include "ansi-color.h"
 #include "argv-util.h"
 #include "build.h"
 #include "bus-error.h"
@@ -20,15 +19,16 @@
 #include "format-table.h"
 #include "format-util.h"
 #include "fstab-util.h"
+#include "help-util.h"
 #include "libmount-util.h"
 #include "main-func.h"
 #include "mountpoint-util.h"
+#include "options.h"
 #include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "polkit-agent.h"
-#include "pretty-print.h"
 #include "process-util.h"
 #include "runtime-scope.h"
 #include "stat-util.h"
@@ -108,295 +108,219 @@ static int parse_where(const char *input, char **ret_where) {
         return 0;
 }
 
-static int help(void) {
-        _cleanup_free_ char *link = NULL;
+static int help(char *argv[]) {
+        _cleanup_(table_unrefp) Table *options_common = NULL, *options_mount = NULL;
         int r;
 
-        r = terminal_urlify_man("systemd-mount", "1", &link);
+        r = option_parser_get_help_table(&options_common);
         if (r < 0)
-                return log_oom();
+                return r;
 
-        printf("systemd-mount [OPTIONS...] WHAT [WHERE]\n"
-               "systemd-mount [OPTIONS...] --tmpfs [NAME] WHERE\n"
-               "systemd-mount [OPTIONS...] --list\n"
-               "%1$s [OPTIONS...] %7$sWHAT|WHERE...\n"
-               "\n%5$sEstablish a mount or auto-mount point transiently.%6$s\n"
-               "\n%3$sOptions:%4$s\n"
-               "  -h --help                       Show this help\n"
-               "     --version                    Show package version\n"
-               "     --no-block                   Do not wait until operation finished\n"
-               "     --no-pager                   Do not pipe output into a pager\n"
-               "     --no-legend                  Do not show the headers\n"
-               "  -l --full                       Do not ellipsize output\n"
-               "     --no-ask-password            Do not prompt for password\n"
-               "  -q --quiet                      Suppress information messages during runtime\n"
-               "     --json=pretty|short|off      Generate JSON output\n"
-               "     --user                       Run as user unit\n"
-               "  -H --host=[USER@]HOST           Operate on remote host\n"
-               "  -M --machine=CONTAINER          Operate on local container\n"
-               "     --discover                   Discover mount device metadata\n"
-               "  -t --type=TYPE                  File system type\n"
-               "  -o --options=OPTIONS            Mount options\n"
-               "     --owner=USER                 Add uid= and gid= options for USER\n"
-               "     --fsck=no                    Don't run file system check before mount\n"
-               "     --description=TEXT           Description for unit\n"
-               "  -p --property=NAME=VALUE        Set mount unit property\n"
-               "     --automount=BOOL             Create an automount point\n"
-               "  -A                              Same as --automount=yes\n"
-               "     --timeout-idle-sec=SEC       Specify automount idle timeout\n"
-               "     --automount-property=NAME=VALUE\n"
-               "                                  Set automount unit property\n"
-               "     --bind-device                Bind automount unit to device\n"
-               "     --list                       List mountable block devices\n"
-               "  -u --umount                     Unmount mount points\n"
-               "  -G --collect                    Unload unit after it stopped, even when failed\n"
-               "  -T --tmpfs                      Create a new tmpfs on the mount point\n"
-               "     --canonicalize=BOOL          Controls whether to canonicalize path before\n"
-               "                                  operation\n"
-               "\nSee the %2$s for details.\n",
-               program_invocation_short_name,
-               link,
-               ansi_underline(),
-               ansi_normal(),
-               ansi_highlight(),
-               ansi_normal(),
-               streq(program_invocation_short_name, "systemd-umount") ? "" : "--umount ");
+        if (invoked_as(argv, "systemd-umount")) {
+                help_cmdline("[OPTIONS…] WHAT|WHERE…");
+                help_abstract("Unmount one or more mount points.");
+        } else {
+                help_cmdline("[OPTIONS…] WHAT [WHERE]");
+                help_cmdline("[OPTIONS…] --tmpfs [NAME] WHERE");
+                help_cmdline("[OPTIONS…] --list");
+                help_cmdline("[OPTIONS…] --umount WHAT|WHERE…");
+                help_abstract("Establish a mount or auto-mount point.");
 
+                r = option_parser_get_help_table_group("Mount options", &options_mount);
+                if (r < 0)
+                        return r;
+
+                (void) table_sync_column_widths(0, options_common, options_mount);
+        }
+
+        help_section("Options");
+        r = table_print_or_warn(options_common);
+        if (r < 0)
+                return r;
+
+        if (options_mount) {
+                r = table_print_or_warn(options_mount);
+                if (r < 0)
+                        return r;
+        }
+
+        help_man_page_reference("systemd-mount", "1");
         return 0;
 }
 
-static int parse_argv(int argc, char *argv[]) {
-
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_NO_BLOCK,
-                ARG_NO_PAGER,
-                ARG_NO_LEGEND,
-                ARG_NO_ASK_PASSWORD,
-                ARG_USER,
-                ARG_SYSTEM,
-                ARG_DISCOVER,
-                ARG_MOUNT_TYPE,
-                ARG_MOUNT_OPTIONS,
-                ARG_OWNER,
-                ARG_FSCK,
-                ARG_DESCRIPTION,
-                ARG_TIMEOUT_IDLE,
-                ARG_AUTOMOUNT,
-                ARG_AUTOMOUNT_PROPERTY,
-                ARG_BIND_DEVICE,
-                ARG_LIST,
-                ARG_JSON,
-                ARG_CANONICALIZE,
-        };
-
-        static const struct option options[] = {
-                { "help",               no_argument,       NULL, 'h'                    },
-                { "version",            no_argument,       NULL, ARG_VERSION            },
-                { "no-block",           no_argument,       NULL, ARG_NO_BLOCK           },
-                { "no-pager",           no_argument,       NULL, ARG_NO_PAGER           },
-                { "no-legend",          no_argument,       NULL, ARG_NO_LEGEND          },
-                { "full",               no_argument,       NULL, 'l'                    },
-                { "no-ask-password",    no_argument,       NULL, ARG_NO_ASK_PASSWORD    },
-                { "quiet",              no_argument,       NULL, 'q'                    },
-                { "user",               no_argument,       NULL, ARG_USER               },
-                { "system",             no_argument,       NULL, ARG_SYSTEM             },
-                { "host",               required_argument, NULL, 'H'                    },
-                { "machine",            required_argument, NULL, 'M'                    },
-                { "discover",           no_argument,       NULL, ARG_DISCOVER           },
-                { "type",               required_argument, NULL, 't'                    },
-                { "options",            required_argument, NULL, 'o'                    },
-                { "owner",              required_argument, NULL, ARG_OWNER              },
-                { "fsck",               required_argument, NULL, ARG_FSCK               },
-                { "description",        required_argument, NULL, ARG_DESCRIPTION        },
-                { "property",           required_argument, NULL, 'p'                    },
-                { "automount",          required_argument, NULL, ARG_AUTOMOUNT          },
-                { "timeout-idle-sec",   required_argument, NULL, ARG_TIMEOUT_IDLE       },
-                { "automount-property", required_argument, NULL, ARG_AUTOMOUNT_PROPERTY },
-                { "bind-device",        no_argument,       NULL, ARG_BIND_DEVICE        },
-                { "list",               no_argument,       NULL, ARG_LIST               },
-                { "umount",             no_argument,       NULL, 'u'                    },
-                { "unmount",            no_argument,       NULL, 'u'                    }, /* Compat spelling */
-                { "collect",            no_argument,       NULL, 'G'                    },
-                { "tmpfs",              no_argument,       NULL, 'T'                    },
-                { "json",               required_argument, NULL, ARG_JSON               },
-                { "canonicalize",       required_argument, NULL, ARG_CANONICALIZE       },
-                {},
-        };
-
-        int r, c;
+static int parse_argv(int argc, char *argv[], char ***remaining_args) {
+        int r;
 
         assert(argc >= 0);
         assert(argv);
+        assert(remaining_args);
 
         if (invoked_as(argv, "systemd-umount"))
                 arg_action = ACTION_UMOUNT;
 
-        while ((c = getopt_long(argc, argv, "hqH:M:t:o:p:AuGlT", options, NULL)) >= 0)
+        OptionParser opts = { argc, argv };
 
+        FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
 
-                case 'h':
-                        return help();
+                OPTION_COMMON_HELP:
+                        return help(argv);
 
-                case ARG_VERSION:
+                OPTION_COMMON_VERSION:
                         return version();
 
-                case ARG_NO_BLOCK:
-                        arg_no_block = true;
-                        break;
-
-                case ARG_NO_PAGER:
-                        arg_pager_flags |= PAGER_DISABLE;
-                        break;
-
-                case ARG_NO_LEGEND:
-                        arg_legend = false;
-                        break;
-
-                case 'l':
-                        arg_full = true;
-                        break;
-
-                case ARG_NO_ASK_PASSWORD:
-                        arg_ask_password = false;
-                        break;
-
-                case 'q':
-                        arg_quiet = true;
-                        break;
-
-                case ARG_USER:
+                OPTION_LONG("user", NULL, "Run as user unit"):
                         arg_runtime_scope = RUNTIME_SCOPE_USER;
                         break;
 
-                case ARG_SYSTEM:
+                OPTION_LONG("system", NULL, /* help= */ NULL):
                         arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
                         break;
 
-                case 'H':
+                OPTION_COMMON_HOST:
                         arg_transport = BUS_TRANSPORT_REMOTE;
-                        arg_host = optarg;
+                        arg_host = opts.arg;
                         break;
 
-                case 'M':
-                        r = parse_machine_argument(optarg, &arg_host, &arg_transport);
+                OPTION_COMMON_MACHINE:
+                        r = parse_machine_argument(opts.arg, &arg_host, &arg_transport);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_DISCOVER:
+                OPTION_LONG("canonicalize", "BOOL",
+                            "Whether to canonicalize path before operation"):
+                        r = parse_boolean_argument("--canonicalize=", opts.arg, &arg_canonicalize);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("no-block", NULL, "Do not wait until operation finished"):
+                        arg_no_block = true;
+                        break;
+
+                OPTION_COMMON_NO_PAGER:
+                        arg_pager_flags |= PAGER_DISABLE;
+                        break;
+
+                OPTION_COMMON_NO_LEGEND:
+                        arg_legend = false;
+                        break;
+
+                OPTION('l', "full", NULL, "Do not ellipsize output"):
+                        arg_full = true;
+                        break;
+
+                OPTION_COMMON_NO_ASK_PASSWORD:
+                        arg_ask_password = false;
+                        break;
+
+                OPTION('q', "quiet", NULL, "Suppress informational messages during runtime"):
+                        arg_quiet = true;
+                        break;
+
+                OPTION_COMMON_JSON:
+                        r = parse_json_argument(opts.arg, &arg_json_format_flags);
+                        if (r <= 0)
+                                return r;
+                        break;
+
+                OPTION_GROUP("Mount options"): {}
+
+                OPTION_LONG("discover", NULL, "Discover mount device metadata"):
                         arg_discover = true;
                         break;
 
-                case 't':
-                        r = free_and_strdup_warn(&arg_mount_type, optarg);
+                OPTION('t', "type", "TYPE", "File system type"):
+                        r = free_and_strdup_warn(&arg_mount_type, opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case 'o':
-                        r = free_and_strdup_warn(&arg_mount_options, optarg);
+                OPTION('o', "options", "OPTIONS", "Mount options"):
+                        r = free_and_strdup_warn(&arg_mount_options, opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_OWNER: {
-                        const char *user = optarg;
+                OPTION_LONG("owner", "USER", "Add uid= and gid= options for USER"): {
+                        const char *user = opts.arg;
 
                         r = get_user_creds(&user, &arg_uid, &arg_gid, NULL, NULL, 0);
                         if (r < 0)
                                 return log_error_errno(r,
                                                        r == -EBADMSG ? "UID or GID of user %s are invalid."
                                                                      : "Cannot use \"%s\" as owner: %m",
-                                                       optarg);
+                                                       opts.arg);
                         break;
                 }
 
-                case ARG_FSCK:
-                        r = parse_boolean_argument("--fsck=", optarg, &arg_fsck);
+                OPTION_LONG("fsck", "BOOL", "Run a file system check before mount"):
+                        r = parse_boolean_argument("--fsck=", opts.arg, &arg_fsck);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_DESCRIPTION:
-                        r = free_and_strdup_warn(&arg_description, optarg);
+                OPTION_LONG("description", "TEXT", "Description for unit"):
+                        r = free_and_strdup_warn(&arg_description, opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case 'p':
-                        if (strv_extend(&arg_property, optarg) < 0)
+                OPTION('p', "property", "NAME=VALUE", "Set mount unit property"):
+                        if (strv_extend(&arg_property, opts.arg) < 0)
                                 return log_oom();
-
                         break;
 
-                case 'A':
+                OPTION_SHORT('A', NULL, "Same as --automount=yes"):
                         arg_action = ACTION_AUTOMOUNT;
                         break;
 
-                case ARG_AUTOMOUNT:
-                        r = parse_boolean_argument("--automount=", optarg, NULL);
+                OPTION_LONG("automount", "BOOL", "Create an automount point"):
+                        r = parse_boolean_argument("--automount=", opts.arg, NULL);
                         if (r < 0)
                                 return r;
 
                         arg_action = r ? ACTION_AUTOMOUNT : ACTION_MOUNT;
                         break;
 
-                case ARG_TIMEOUT_IDLE:
-                        r = parse_sec(optarg, &arg_timeout_idle);
+                OPTION_LONG("timeout-idle-sec", "SEC", "Specify automount idle timeout"):
+                        r = parse_sec(opts.arg, &arg_timeout_idle);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse timeout: %s", optarg);
+                                return log_error_errno(r, "Failed to parse timeout: %s", opts.arg);
 
                         arg_timeout_idle_set = true;
                         break;
 
-                case ARG_AUTOMOUNT_PROPERTY:
-                        if (strv_extend(&arg_automount_property, optarg) < 0)
+                OPTION_LONG("automount-property", "NAME=VALUE", "Set automount unit property"):
+                        if (strv_extend(&arg_automount_property, opts.arg) < 0)
                                 return log_oom();
-
                         break;
 
-                case ARG_BIND_DEVICE:
+                OPTION_LONG("bind-device", NULL, "Bind automount unit to device"):
                         arg_bind_device = true;
                         break;
 
-                case ARG_LIST:
+                OPTION_LONG("list", NULL, "List mountable block devices"):
                         arg_action = ACTION_LIST;
                         break;
 
-                case 'u':
+                OPTION('u', "umount", NULL, "Unmount mount points"): {}
+                OPTION_LONG("unmount", NULL, /* help= */ NULL):  /* compat spelling */
                         arg_action = ACTION_UMOUNT;
                         break;
 
-                case 'G':
+                OPTION('G', "collect", NULL, "Unload unit after it stopped, even when failed"):
                         arg_aggressive_gc = true;
                         break;
 
-                case 'T':
+                OPTION('T', "tmpfs", NULL, "Create a new tmpfs on the mount point"):
                         arg_tmpfs = true;
                         break;
-
-                case ARG_JSON:
-                        r = parse_json_argument(optarg, &arg_json_format_flags);
-                        if (r <= 0)
-                                return r;
-
-                        break;
-
-                case ARG_CANONICALIZE:
-                        r = parse_boolean_argument("--canonicalize=", optarg, &arg_canonicalize);
-                        if (r < 0)
-                                return r;
-
-                        break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
                 }
+
+        char **args = option_parser_get_args(&opts);
+        size_t n_args = option_parser_get_n_args(&opts);
 
         if (arg_runtime_scope == RUNTIME_SCOPE_USER) {
                 arg_ask_password = false;
@@ -407,7 +331,7 @@ static int parse_argv(int argc, char *argv[]) {
         }
 
         if (arg_action == ACTION_LIST) {
-                if (optind < argc)
+                if (n_args > 0)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Too many arguments.");
 
@@ -415,22 +339,22 @@ static int parse_argv(int argc, char *argv[]) {
                         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                                "Listing devices only supported locally.");
         } else if (arg_action == ACTION_UMOUNT) {
-                if (optind >= argc)
+                if (n_args == 0)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "At least one argument required.");
 
                 if (arg_transport != BUS_TRANSPORT_LOCAL || !arg_canonicalize)
-                        for (int i = optind; i < argc; i++)
-                                if (!path_is_absolute(argv[i]))
+                        STRV_FOREACH(a, args)
+                                if (!path_is_absolute(*a))
                                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                                "Path must be absolute when operating remotely or when canonicalization is turned off: %s",
-                                                               argv[i]);
+                                                               *a);
         } else {
-                if (optind >= argc)
+                if (n_args == 0)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "At least one argument required.");
 
-                if (argc > optind+2)
+                if (n_args > 2)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "More than two arguments are not allowed.");
 
@@ -439,16 +363,16 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "--discover cannot be used in conjunction with --tmpfs.");
 
-                        if (argc <= optind+1) {
+                        if (n_args == 1) {
                                 arg_mount_what = strdup("tmpfs");
                                 if (!arg_mount_what)
                                         return log_oom();
 
-                                r = parse_where(argv[optind], &arg_mount_where);
+                                r = parse_where(args[0], &arg_mount_where);
                                 if (r < 0)
                                         return r;
                         } else {
-                                arg_mount_what = strdup(argv[optind]);
+                                arg_mount_what = strdup(args[0]);
                                 if (!arg_mount_what)
                                         return log_oom();
                         }
@@ -463,12 +387,12 @@ static int parse_argv(int argc, char *argv[]) {
                                                        arg_mount_type);
                 } else {
                         if (arg_mount_type && !fstype_is_blockdev_backed(arg_mount_type)) {
-                                arg_mount_what = strdup(argv[optind]);
+                                arg_mount_what = strdup(args[0]);
                                 if (!arg_mount_what)
                                         return log_oom();
                         } else {
                                 _cleanup_free_ char *u = NULL;
-                                const char *p = argv[optind];
+                                const char *p = args[0];
 
                                 if (arg_canonicalize) {
                                         u = fstab_node_to_udev_node(p);
@@ -494,8 +418,8 @@ static int parse_argv(int argc, char *argv[]) {
                         }
                 }
 
-                if (argc > optind+1) {
-                        r = parse_where(argv[optind+1], &arg_mount_where);
+                if (n_args >= 2) {
+                        r = parse_where(args[1], &arg_mount_where);
                         if (r < 0)
                                 return r;
                 } else if (!arg_tmpfs)
@@ -524,6 +448,7 @@ static int parse_argv(int argc, char *argv[]) {
                 }
         }
 
+        *remaining_args = args;
         return 1;
 }
 
@@ -1077,18 +1002,18 @@ static int umount_loop(sd_bus *bus, const char *backing_file) {
         return umount_by_device(bus, dev);
 }
 
-static int action_umount(sd_bus *bus, int argc, char **argv) {
+static int action_umount(sd_bus *bus, char **args) {
         int r, ret = 0;
 
         assert(bus);
-        assert(argv);
-        assert(argc > optind);
+        assert(args);
+        assert(!strv_isempty(args));
 
         if (arg_transport != BUS_TRANSPORT_LOCAL || !arg_canonicalize) {
-                for (int i = optind; i < argc; i++) {
+                STRV_FOREACH(arg, args) {
                         _cleanup_free_ char *p = NULL;
 
-                        r = path_simplify_alloc(argv[i], &p);
+                        r = path_simplify_alloc(*arg, &p);
                         if (r < 0)
                                 return r;
 
@@ -1097,10 +1022,10 @@ static int action_umount(sd_bus *bus, int argc, char **argv) {
                 return ret;
         }
 
-        for (int i = optind; i < argc; i++) {
+        STRV_FOREACH(arg, args) {
                 _cleanup_free_ char *u = NULL, *p = NULL;
 
-                u = fstab_node_to_udev_node(argv[i]);
+                u = fstab_node_to_udev_node(*arg);
                 if (!u)
                         return log_oom();
 
@@ -1113,7 +1038,7 @@ static int action_umount(sd_bus *bus, int argc, char **argv) {
 
                 struct stat st;
                 if (fstat(fd, &st) < 0)
-                        return log_error_errno(errno, "Can't stat '%s' (from %s): %m", p, argv[i]);
+                        return log_error_errno(errno, "Can't stat '%s' (from %s): %m", p, *arg);
 
                 r = is_mount_point_at(fd, /* path= */ NULL, /* flags= */ 0);
                 fd = safe_close(fd); /* before continuing make sure the dir is not keeping anything busy */
@@ -1135,7 +1060,7 @@ static int action_umount(sd_bus *bus, int argc, char **argv) {
                         else
                                 r = log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                     "Unknown file type for unmounting: %s (from %s)",
-                                                    p, argv[i]);
+                                                    p, *arg);
                         RET_GATHER(ret, r);
                 }
         }
@@ -1552,11 +1477,12 @@ static int list_devices(void) {
 
 static int run(int argc, char* argv[]) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        char **args = NULL;
         int r;
 
         log_setup();
 
-        r = parse_argv(argc, argv);
+        r = parse_argv(argc, argv, &args);
         if (r <= 0)
                 return r;
 
@@ -1570,7 +1496,7 @@ static int run(int argc, char* argv[]) {
         (void) sd_bus_set_allow_interactive_authorization(bus, arg_ask_password);
 
         if (arg_action == ACTION_UMOUNT)
-                return action_umount(bus, argc, argv);
+                return action_umount(bus, args);
 
         if ((!arg_mount_type || fstype_is_blockdev_backed(arg_mount_type))
             && !path_is_normalized(arg_mount_what))

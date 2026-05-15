@@ -11,19 +11,49 @@ struct iovec_wrapper {
 void iovw_done_free(struct iovec_wrapper *iovw);
 void iovw_done(struct iovec_wrapper *iovw);
 
+struct iovec_wrapper* iovw_free(struct iovec_wrapper *iovw);
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct iovec_wrapper*, iovw_free);
+
+struct iovec_wrapper* iovw_free_free(struct iovec_wrapper *iovw);
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct iovec_wrapper*, iovw_free_free);
+
 int iovw_compare(const struct iovec_wrapper *a, const struct iovec_wrapper *b) _pure_;
 static inline bool iovw_equal(const struct iovec_wrapper *a, const struct iovec_wrapper *b) {
         return iovw_compare(a, b) == 0;
 }
 
-int iovw_put(struct iovec_wrapper *iovw, void *data, size_t len);
-int iovw_put_iov(struct iovec_wrapper *iovw, const struct iovec *iov);
-int iovw_put_iovw(struct iovec_wrapper *iovw, const struct iovec_wrapper *source);
-int iovw_consume(struct iovec_wrapper *iovw, void *data, size_t len);
-int iovw_consume_iov(struct iovec_wrapper *iovw, struct iovec *iov);
-int iovw_extend(struct iovec_wrapper *iovw, const void *data, size_t len);
-int iovw_extend_iov(struct iovec_wrapper *iovw, const struct iovec *iov);
-int iovw_extend_iovw(struct iovec_wrapper *iovw, const struct iovec_wrapper *source);
+int iovw_put_full(struct iovec_wrapper *iovw, bool accept_zero, void *data, size_t len);
+static inline int iovw_put(struct iovec_wrapper *iovw, void *data, size_t len) {
+        return iovw_put_full(iovw, false, data, len);
+}
+int iovw_put_iov_full(struct iovec_wrapper *iovw, bool accept_zero, const struct iovec *iov);
+static inline int iovw_put_iov(struct iovec_wrapper *iovw, const struct iovec *iov) {
+        return iovw_put_iov_full(iovw, false, iov);
+}
+int iovw_put_iovw_full(struct iovec_wrapper *iovw, bool accept_zero, const struct iovec_wrapper *source);
+static inline int iovw_put_iovw(struct iovec_wrapper *iovw, const struct iovec_wrapper *source) {
+        return iovw_put_iovw_full(iovw, false, source);
+}
+int iovw_consume_full(struct iovec_wrapper *iovw, bool accept_zero, void *data, size_t len);
+static inline int iovw_consume(struct iovec_wrapper *iovw, void *data, size_t len) {
+        return iovw_consume_full(iovw, false, data, len);
+}
+int iovw_consume_iov_full(struct iovec_wrapper *iovw, bool accept_zero, struct iovec *iov);
+static inline int iovw_consume_iov(struct iovec_wrapper *iovw, struct iovec *iov) {
+        return iovw_consume_iov_full(iovw, false, iov);
+}
+int iovw_extend_full(struct iovec_wrapper *iovw, bool accept_zero, const void *data, size_t len);
+static inline int iovw_extend(struct iovec_wrapper *iovw, const void *data, size_t len) {
+        return iovw_extend_full(iovw, false, data, len);
+}
+int iovw_extend_iov_full(struct iovec_wrapper *iovw, bool accept_zero, const struct iovec *iov);
+static inline int iovw_extend_iov(struct iovec_wrapper *iovw, const struct iovec *iov) {
+        return iovw_extend_iov_full(iovw, false, iov);
+}
+int iovw_extend_iovw_full(struct iovec_wrapper *iovw, bool accept_zero, const struct iovec_wrapper *source);
+static inline int iovw_extend_iovw(struct iovec_wrapper *iovw, const struct iovec_wrapper *source) {
+        return iovw_extend_iovw_full(iovw, false, source);
+}
 
 static inline bool iovw_isempty(const struct iovec_wrapper *iovw) {
         return !iovw || iovw->count == 0;
@@ -44,3 +74,6 @@ void iovw_rebase(struct iovec_wrapper *iovw, void *old, void *new);
 size_t iovw_size(const struct iovec_wrapper *iovw);
 int iovw_concat(const struct iovec_wrapper *iovw, struct iovec *ret);
 char* iovw_to_cstring(const struct iovec_wrapper *iovw);
+
+int iovec_split(const struct iovec *iov, size_t length_size, struct iovec_wrapper *ret);
+int iovw_merge(const struct iovec_wrapper *iovw, size_t length_size, struct iovec *ret);

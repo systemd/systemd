@@ -772,10 +772,7 @@ static int varlink_sanitize_incoming_parameters(sd_json_variant **v) {
                 r = sd_json_variant_new_object(&empty, NULL, 0);
                 if (r < 0)
                         return r;
-                /* sd_json_variant_unref() is a NOP if *v is NULL */
-                sd_json_variant_unref(*v);
-                *v = TAKE_PTR(empty);
-                return 0;
+                return json_variant_unref_and_replace(*v, empty);
         }
 
         /* Ensure we have an object */

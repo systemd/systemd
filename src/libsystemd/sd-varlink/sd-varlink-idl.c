@@ -389,7 +389,7 @@ static int varlink_idl_format_symbol(
                  * https://github.com/varlink/varlink.github.io/issues/26 – but for now export this as a
                  * comment.
                  *
-                 * Until this is resolved upsteam, consider this comment part of the API (i.e. don't change
+                 * Until this is resolved upstream, consider this comment part of the API (i.e. don't change
                  * only extend). It is used by tools like varlink-http-bridge. */
                 if ((symbol->symbol_flags & (SD_VARLINK_REQUIRES_MORE|SD_VARLINK_SUPPORTS_MORE)) != 0) {
                         fputs(colors[COLOR_COMMENT], f);

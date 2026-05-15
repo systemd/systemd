@@ -3,8 +3,10 @@
 #include <arpa/inet.h>
 #include <stdio.h>
 
+#include "sd-dhcp-lease.h"
+
 #include "alloc-util.h"
-#include "dhcp-lease-internal.h"
+#include "dhcp-route.h"
 #include "dns-resolver-internal.h"
 #include "extract-word.h"
 #include "hexdecoct.h"

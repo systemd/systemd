@@ -153,9 +153,6 @@ int tar_pull_new(
                 .progress_ratelimit = { 100 * USEC_PER_MSEC, 1 },
         };
 
-        p->glue->on_finished = pull_job_curl_on_finished;
-        p->glue->userdata = p;
-
         *ret = TAKE_PTR(p);
 
         return 0;

@@ -166,11 +166,7 @@ static int help(void) {
         help_abstract("Run the specified command in a transient scope or service.");
 
         for (size_t i = 0; i < ELEMENTSOF(groups); i++) {
-                _cleanup_free_ char *title = strjoin(groups[i] ?: "Options", ":");
-                if (!title)
-                        return log_oom();
-
-                help_section(title);
+                help_section(groups[i] ?: "Options");
 
                 r = table_print_or_warn(tables[i]);
                 if (r < 0)
@@ -196,7 +192,7 @@ static int help_sudo_mode(void) {
         help_cmdline("[OPTIONS...] COMMAND [ARGUMENTS...]");
         help_abstract("Elevate privileges interactively.");
 
-        help_section("Options:");
+        help_section("Options");
 
         r = table_print_or_warn(opts_table);
         if (r < 0)
@@ -966,7 +962,7 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                 arg_stdio = isatty_safe(STDIN_FILENO) && isatty_safe(STDOUT_FILENO) && isatty_safe(STDERR_FILENO) ? ARG_STDIO_PTY : ARG_STDIO_DIRECT;
         log_debug("Using %s stdio mode.", arg_stdio == ARG_STDIO_PTY ? "pty" : "direct");
         if (arg_pty_late < 0)
-                arg_pty_late = arg_ask_password; /* for run0 this defaults to on, except if --no-ask-pasword is used */
+                arg_pty_late = arg_ask_password; /* for run0 this defaults to on, except if --no-ask-password is used */
 
         arg_expand_environment = false;
         arg_send_sighup = true;

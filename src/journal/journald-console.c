@@ -12,7 +12,6 @@
 #include "journald-console.h"
 #include "journald-manager.h"
 #include "log.h"
-#include "parse-util.h"
 #include "process-util.h"
 #include "stdio-util.h"
 #include "terminal-util.h"
@@ -22,13 +21,8 @@ static bool prefix_timestamp(void) {
 
         static int cached_printk_time = -1;
 
-        if (_unlikely_(cached_printk_time < 0)) {
-                _cleanup_free_ char *p = NULL;
-
-                cached_printk_time =
-                        read_one_line_file("/sys/module/printk/parameters/time", &p) >= 0
-                        && parse_boolean(p) > 0;
-        }
+        if (_unlikely_(cached_printk_time < 0))
+                cached_printk_time = read_boolean_file("/sys/module/printk/parameters/time") > 0;
 
         return cached_printk_time;
 }

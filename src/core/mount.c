@@ -1171,7 +1171,7 @@ static void mount_enter_mounting(Mount *m) {
          * couldn't support that reasonably: the mounts in /proc/self/mountinfo would not be recognizable to
          * us anymore. */
         fd = chase_and_open_parent(m->where, /* root= */ NULL, CHASE_PROHIBIT_SYMLINKS|CHASE_MKDIR_0755|CHASE_TRIGGER_AUTOFS, &fn);
-        if (fd == -EREMCHG) {
+        if (fd == -ELOOP) {
                 r = unit_log_noncanonical_mount_path(UNIT(m), m->where);
                 goto fail;
         }
@@ -2509,6 +2509,8 @@ const UnitVTable mount_vtable = {
         .can_transient = true,
         .can_fail = true,
         .exclude_from_switch_root_serialization = true,
+        .notify_plymouth = true,
+        .track_orphaned = true,
 
         .init = mount_init,
         .load = mount_load,
@@ -2576,6 +2578,4 @@ const UnitVTable mount_vtable = {
         },
 
         .test_startable = mount_test_startable,
-
-        .notify_plymouth = true,
 };

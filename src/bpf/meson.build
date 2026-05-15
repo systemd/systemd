@@ -311,12 +311,30 @@ endif
 
 conf.set10('HAVE_VMLINUX_H', use_provided_vmlinux_h or use_generated_vmlinux_h)
 
+# 'enum lsm_integrity_type' was added together with the bdev_setintegrity LSM
+# hook in kernel commit 2deeb6c333e5 (v6.5). The generated vmlinux.h reflects
+# the running kernel's BTF; a provided vmlinux.h can be older, so probe.
+have_lsm_integrity_type = false
+if use_generated_vmlinux_h
+        have_lsm_integrity_type = true
+elif use_provided_vmlinux_h
+        have_lsm_integrity_type = cc.compiles(
+                '#include "@0@"\nenum lsm_integrity_type _t;\n'.format(provided_vmlinux_h_path),
+                name : 'enum lsm_integrity_type in vmlinux.h')
+endif
+conf.set10('HAVE_LSM_INTEGRITY_TYPE', have_lsm_integrity_type)
+
 conf.set10('ENABLE_SYSCTL_BPF', conf.get('HAVE_VMLINUX_H') == 1 and libbpf.version().version_compare('>= 0.7'))
 
 bpf_programs = [
         {
                 'source' : files('bind-iface.bpf.c'),
                 'condition' : 'BPF_FRAMEWORK',
+        },
+        {
+                'source' : files('restrict-fsaccess.bpf.c'),
+                'condition' : 'HAVE_LSM_INTEGRITY_TYPE',
+                'depends' : vmlinux_h_dependency,
         },
         {
                 'source' : files('restrict-fs.bpf.c'),

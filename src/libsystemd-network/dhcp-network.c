@@ -7,13 +7,13 @@
 #include <linux/if_infiniband.h>
 #include <linux/if_packet.h>
 #include <net/if_arp.h>
-#include <stdio.h>
 #include <string.h>
 
 #include "dhcp-network.h"
 #include "dhcp-protocol.h"
 #include "ether-addr-util.h"
 #include "fd-util.h"
+#include "iovec-wrapper.h"
 #include "socket-util.h"
 #include "unaligned.h"
 
@@ -244,30 +244,37 @@ int dhcp_network_bind_udp_socket(int ifindex, be32_t address, uint16_t port, int
 }
 
 int dhcp_network_send_raw_socket(
-                int s,
+                int fd,
                 const union sockaddr_union *link,
-                const void *packet,
-                size_t len) {
+                const struct iovec_wrapper *iovw) {
 
-        /* Do not add assert(s >= 0) here, as this is called in fuzz-dhcp-server, and in that case this
-         * function should fail with negative errno. */
+        /* Do not add assert(fd >= 0) here, as this is also called from fuzz-dhcp-server, and in that case
+         * fd is negative and this function should fail with negative errno. */
 
         assert(link);
-        assert(packet);
-        assert(len > 0);
+        assert(!iovw_isempty(iovw));
 
-        if (sendto(s, packet, len, 0, &link->sa, sockaddr_ll_len(&link->ll)) < 0)
+        struct msghdr mh = {
+                .msg_name = (struct sockaddr*) &link->sa,
+                .msg_namelen = sockaddr_ll_len(&link->ll),
+                .msg_iov = iovw->iovec,
+                .msg_iovlen = iovw->count,
+        };
+
+        if (sendmsg(fd, &mh, MSG_NOSIGNAL) < 0)
                 return -errno;
 
         return 0;
 }
 
 int dhcp_network_send_udp_socket(
-                int s,
+                int fd,
                 be32_t address,
                 uint16_t port,
-                const void *packet,
-                size_t len) {
+                const struct iovec_wrapper *iovw) {
+
+        assert(fd >= 0);
+        assert(!iovw_isempty(iovw));
 
         union sockaddr_union dest = {
                 .in.sin_family = AF_INET,
@@ -275,11 +282,14 @@ int dhcp_network_send_udp_socket(
                 .in.sin_addr.s_addr = address,
         };
 
-        assert(s >= 0);
-        assert(packet);
-        assert(len > 0);
+        struct msghdr mh = {
+                .msg_name = &dest.sa,
+                .msg_namelen = sizeof(dest.in),
+                .msg_iov = iovw->iovec,
+                .msg_iovlen = iovw->count,
+        };
 
-        if (sendto(s, packet, len, 0, &dest.sa, sizeof(dest.in)) < 0)
+        if (sendmsg(fd, &mh, MSG_NOSIGNAL) < 0)
                 return -errno;
 
         return 0;

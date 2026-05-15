@@ -321,7 +321,7 @@ int bus_link_method_set_domains(sd_bus_message *message, void *userdata, sd_bus_
         if (r < 0)
                 return r;
 
-        for (;;) {
+        for (unsigned n_names = 0;; n_names++) {
                 _cleanup_free_ char *prefixed = NULL;
                 const char *name;
                 int route_only;
@@ -339,6 +339,8 @@ int bus_link_method_set_domains(sd_bus_message *message, void *userdata, sd_bus_
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid search domain %s", name);
                 if (!route_only && dns_name_is_root(name))
                         return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Root domain is not suitable as search domain");
+                if (n_names >= LINK_SEARCH_DOMAINS_MAX)
+                        return sd_bus_error_set(error, SD_BUS_ERROR_LIMITS_EXCEEDED, "Too many search domains per link");
 
                 if (route_only) {
                         prefixed = strjoin("~", name);
@@ -680,6 +682,9 @@ int bus_link_method_set_dnssec_negative_trust_anchors(sd_bus_message *message, v
         r = sd_bus_message_read_strv(message, &ntas);
         if (r < 0)
                 return r;
+
+        if (strv_length(ntas) > LINK_NEGATIVE_TRUST_ANCHORS_MAX)
+                return sd_bus_error_set(error, SD_BUS_ERROR_LIMITS_EXCEEDED, "Too many negative trust anchors per link");
 
         STRV_FOREACH(i, ntas) {
                 r = dns_name_is_valid(*i);

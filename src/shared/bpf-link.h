@@ -8,6 +8,7 @@
 #include "shared-forward.h"
 
 bool bpf_can_link_program(struct bpf_program *prog);
+bool bpf_can_link_lsm_program(struct bpf_program *prog);
 
 int bpf_serialize_link(FILE *f, FDSet *fds, const char *key, struct bpf_link *link);
 

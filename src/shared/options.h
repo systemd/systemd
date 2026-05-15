@@ -124,12 +124,27 @@ typedef struct Option {
 #define OPTION_COMMON_MACHINE                                           \
         OPTION('M', "machine", "CONTAINER", "Operate on local container")
 
+#define OPTION_COMMON_SYSTEM                                            \
+        OPTION_LONG("system", NULL, "Operate in system mode")
+
+#define OPTION_COMMON_USER                                              \
+        OPTION_LONG("user", NULL, "Operate in per-user mode")
+
 #define OPTION_COMMON_JSON                                              \
         OPTION_LONG("json", "FORMAT", "Generate JSON output (pretty, short, or off)")
 
 #define OPTION_COMMON_LOWERCASE_J                                       \
         OPTION_SHORT('j', NULL,                                         \
                      "Equivalent to --json=pretty (on TTY) or --json=short (otherwise)")
+
+#define OPTION_COMMON_ENTRY_TOKEN                                       \
+        OPTION_LONG("entry-token", "TOKEN",                             \
+                    "Entry token to use for this installation "         \
+                    "(machine-id, os-id, os-image-id, auto, literal:…)")
+
+#define OPTION_COMMON_MAKE_ENTRY_DIRECTORY                              \
+        OPTION_LONG("make-entry-directory",                             \
+                    "BOOL|auto", "Create $BOOT/ENTRY-TOKEN/ directory")
 
 #define OPTION_COMMON_PRIVATE_KEY(purpose)                              \
         OPTION_LONG("private-key", "PATH|URI", purpose)
@@ -194,6 +209,9 @@ typedef struct OptionParser {
         char **argv;                  /* The argv array, possibly reordered. */
         OptionParserMode mode;
         const char *namespace;        /* The namespace, may be NULL. */
+        int log_level_shift;          /* The log level difference from the default of LOG_ERR.
+                                       * Allowed values are -3..4.
+                                       * Use 4 == LOG_DEBUG - LOG_ERR to log at debug level. */
 
         const Option *namespace_start, *namespace_end; /* The range of options that are part of our namespace. */
 

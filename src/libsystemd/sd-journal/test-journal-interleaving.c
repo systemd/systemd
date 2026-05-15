@@ -566,7 +566,7 @@ static void test_sequence_numbers_one(void) {
         if (sd_id128_get_machine(NULL) >= 0) {
                 two = journal_file_offline_close(two);
 
-                /* restart server */
+                /* emulate a system restart */
                 seqnum = 0;
 
                 ASSERT_OK(journal_file_open(-EBADF, "two.journal", O_RDWR, JOURNAL_COMPRESS, 0,

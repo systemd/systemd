@@ -237,8 +237,8 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnNitro*AN*515-47:pvr*
 
 # Nitro AN515-58
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnNitro*AN*515-58:pvr*
- KEYBOARD_KEY_ef=kbdillumup                             # Fn+F10
- KEYBOARD_KEY_f0=kbdillumdown                           # Fn+F9
+ KEYBOARD_KEY_ef=!kbdillumup                            # Fn+F10
+ KEYBOARD_KEY_f0=!kbdillumdown                          # Fn+F9
  KEYBOARD_KEY_8a=micmute                                # Microphone mute button
  KEYBOARD_KEY_55=power
 
@@ -1613,6 +1613,14 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMICRO-STAR*:pnGE60*:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMICRO-STAR*:pnGE70*:*
  KEYBOARD_KEY_c2=ejectcd
 
+# MSI GE76 Raider 10UG uses Fn+F3 for touchpad and Fn+F6 and Fn+F7 
+# for crosshair-mode and gaming-mode respectively but the latter 
+# two were previously not generating any keycodes under Linux
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMicro-Star*:pnGE76Raider10UG:*
+ KEYBOARD_KEY_76=touchpad_toggle
+ KEYBOARD_KEY_f3=prog2
+ KEYBOARD_KEY_8a=prog3
+
 # some MSI models generate ACPI/input events on the LNXVIDEO input devices,
 # plus some extra synthesized ones on atkbd as an echo of actually changing the
 # brightness; so ignore those atkbd ones, to avoid loops
@@ -2178,6 +2186,7 @@ evdev:name:SIPODEV USB Composite Device:dmi:bvn*:bvr*:bd*:svnVIOS:pnLTH17:*
 # Wareus B15 (8AD5A)
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnWareus*:pnB15*:*
  KEYBOARD_KEY_55=fn
+ KEYBOARD_KEY_c1=f21
 
 ###########################################################
 # WeiHeng
@@ -2211,7 +2220,7 @@ evdev:atkbd:dmi:bvnTIMI*:bvr*:bd*:svnTIMI*:pnMiNoteBookPro*:*
 ###########################################################
 
 # X+ piccolo series 81X (Intel N305, possibly more)
-evdev:input:b0011v0001p0001eAB83*
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnX-Plus.tech:pnX+ Piccolo:*
  KEYBOARD_KEY_9c=enter                                  # KP_enter in the main area is wrong
 
 ###########################################################

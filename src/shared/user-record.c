@@ -2374,8 +2374,7 @@ static int remove_self_modifiable_json_fields_common(UserRecord *current, sd_jso
                         return r;
         }
 
-        JSON_VARIANT_REPLACE(*target, TAKE_PTR(v));
-        return 0;
+        return json_variant_unref_and_replace(*target, v);
 }
 
 static int remove_self_modifiable_json_fields(UserRecord *current, UserRecord *h, sd_json_variant **ret) {
@@ -2460,8 +2459,7 @@ static int remove_self_modifiable_json_fields(UserRecord *current, UserRecord *h
                         return r;
         }
 
-        JSON_VARIANT_REPLACE(*ret, TAKE_PTR(v));
-        return 0;
+        return json_variant_unref_and_replace(*ret, v);
 }
 
 int user_record_self_changes_allowed(UserRecord *current, UserRecord *incoming) {
@@ -2489,7 +2487,7 @@ int user_record_self_changes_allowed(UserRecord *current, UserRecord *incoming) 
          *    `selfModifiableFields` fields are unset in their record.
          * 2) This user crafts a request to add the following to their record:
          *    { "memberOf": ["wheel"], "selfModifiableFields": ["memberOf", "selfModifiableFields"] }
-         * 3) We remove the `mebmerOf` and `selfModifiabileFields` fields from `incoming`
+         * 3) We remove the `memberOf` and `selfModifiabileFields` fields from `incoming`
          * 4) `current` and `incoming` compare as equal, so we let the change happen
          * 5) the user has granted themselves administrator privileges
          */

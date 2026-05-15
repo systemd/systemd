@@ -24,12 +24,12 @@ static int help(void) {
 
         help_cmdline("test-builtin [OPTIONS] COMMAND DEVPATH");
         help_abstract("Test a built-in command.");
-        help_section("Options:");
+        help_section("Options");
         r = table_print_or_warn(options);
         if (r < 0)
                 return r;
 
-        help_section("Commands:");
+        help_section("Commands");
         udev_builtin_list();
         return 0;
 }

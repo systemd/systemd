@@ -1616,6 +1616,7 @@ const UnitVTable swap_vtable = {
         .private_section = "Swap",
 
         .can_fail = true,
+        .track_orphaned = true,
 
         .init = swap_init,
         .load = swap_load,
