@@ -38,7 +38,6 @@ CheckOptions:
   # of them related to musl).
   misc-include-cleaner.IgnoreHeaders: '
     endian\.h;
-    getopt\.h;
     sys/stat\.h;
     sys/statvfs\.h;
     sys/syscall\.h;

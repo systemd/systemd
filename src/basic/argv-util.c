@@ -71,7 +71,7 @@ bool argv_looks_like_help(int argc, char **argv) {
         char **l;
 
         /* Scans the command line for indications the user asks for help. This is supposed to be called by
-         * tools that do not implement getopt() style command line parsing because they are not primarily
+         * tools that do not implement getopt()-style command line parsing because they are not primarily
          * user-facing. Detects four ways of asking for help:
          *
          * 1. Passing zero arguments

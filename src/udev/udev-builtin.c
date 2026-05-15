@@ -127,8 +127,6 @@ int udev_builtin_run(UdevEvent *event, UdevBuiltinCommand cmd, const char *comma
         if (r < 0)
                 return r;
 
-        /* we need '0' here to reset the internal state */
-        optind = 0;
         return builtins[cmd]->cmd(event, strv_length(argv), argv);
 }
 
