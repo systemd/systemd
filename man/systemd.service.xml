@@ -463,6 +463,15 @@
         signal, etc.), the unit will be considered failed (and remaining commands will be skipped). Exit code of 0 or
         those matching <varname>SuccessExitStatus=</varname> will continue execution to the next commands.</para>
 
+        <para>Note that an <varname>ExecCondition=</varname> skip is <emphasis>not</emphasis> equivalent to a
+        unit-level <varname>Condition…=</varname> or <varname>Assert…=</varname> check failing. Because
+        <varname>ExecCondition=</varname> runs as part of the activation transition, a skip causes the unit to
+        transition from <constant>active</constant> to <constant>inactive</constant>, and consequently
+        <varname>SuccessAction=</varname> (see
+        <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>) will be
+        honored. By contrast, <varname>Condition…=</varname> directives in the <literal>[Unit]</literal> section
+        prevent activation entirely and therefore do not trigger <varname>SuccessAction=</varname>.</para>
+
         <para>The same recommendations about not running long-running processes in <varname>ExecStartPre=</varname>
         also applies to <varname>ExecCondition=</varname>. <varname>ExecCondition=</varname> will also run the commands
         in <varname>ExecStopPost=</varname>, as part of stopping the service, in the case of any non-zero or abnormal
