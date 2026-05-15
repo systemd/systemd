@@ -8,6 +8,7 @@
 #include <unistd.h>
 
 #include "dirent-util.h"
+#include "dlfcn-util.h"
 #include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -21,6 +22,37 @@
 #include "string-util.h"
 #include "strv.h"
 #include "utf8.h"
+
+static void *libintl_dl = NULL;
+
+DLSYM_PROTOTYPE(dgettext) = NULL;
+
+int dlopen_libintl(int log_level) {
+        /* On glibc, dgettext lives in libc itself and there is no separate libintl. On musl it's in
+         * libintl.so.8 (provided by gettext). Try the standalone library first; fall back to whatever the
+         * dynamic linker already has loaded (which on glibc finds it in libc). */
+
+#ifndef __GLIBC__
+        SD_ELF_NOTE_DLOPEN(
+                "intl",
+                "Support for message translation via gettext",
+                SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
+                "libintl.so.8");
+#endif
+
+        if (sym_dgettext)
+                return 0;
+
+        if (dlopen_many_sym_or_warn(&libintl_dl, "libintl.so.8", LOG_DEBUG, DLSYM_ARG(dgettext)) >= 0)
+                return 1;
+
+        sym_dgettext = (typeof(sym_dgettext)) dlsym(RTLD_DEFAULT, "dgettext");
+        if (!sym_dgettext)
+                return log_full_errno(log_level, SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                      "Cannot resolve dgettext from libc or libintl.so.8.");
+
+        return 1;
+}
 
 static char* normalize_locale(const char *name) {
         const char *e;
