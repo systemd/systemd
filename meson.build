@@ -1133,12 +1133,7 @@ if not libpam.found()
         # Debian older than bookworm and Ubuntu older than 22.10 do not provide the .pc file.
         libpam = cc.find_library('pam', required : feature)
 endif
-libpam_misc = dependency('pam_misc',
-                         required : feature.disabled() ? feature : false)
-if not libpam_misc.found()
-        libpam_misc = cc.find_library('pam_misc', required : feature)
-endif
-conf.set10('HAVE_PAM', libpam.found() and libpam_misc.found())
+conf.set10('HAVE_PAM', libpam.found())
 libpam_cflags = libpam.partial_dependency(includes: true, compile_args: true)
 
 libmicrohttpd = dependency('libmicrohttpd',
@@ -1949,21 +1944,7 @@ pam_template = {
                 libshared_static,
         ],
         'dependencies' : [
-                # Note: our PAM modules also call dlopen_libpam() and use
-                # symbols acquired through that, hence the explicit dep here is
-                # strictly speaking unnecessary. We put it in place anyway,
-                # since for the PAM modules we cannot avoid libpam anyway,
-                # after all they are loaded *by* libpam, and hence there's no
-                # loss in having explicit deps here, but there's a win: it
-                # makes the deps more visible.
-                #
-                # (In case you wonder why we do dlopen_libpam() from the PAM
-                # modules in the first place: that's mostly so that all our PAM
-                # code (regardless if our PAM modules or our PAM consuming
-                # programs) can use the same helpers, which hence go via
-                # dlopen_libpam().
-                libpam_misc,
-                libpam,
+                libpam_cflags,
                 threads,
         ],
         'install' : true,
