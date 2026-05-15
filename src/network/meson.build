@@ -188,7 +188,6 @@ network_fuzz_template = fuzz_template + {
                 libsystemd_network,
         ],
         'objects' : ['systemd-networkd'],
-        'dependencies' : threads,
         'include_directories' : network_includes,
 }
 
@@ -204,7 +203,6 @@ executables += [
                         libsystemd_network,
                         networkd_link_with,
                 ],
-                'dependencies' : threads,
                 'bpf_programs': [
                         'sysctl-monitor',
                 ]
@@ -240,11 +238,9 @@ executables += [
         },
         network_test_template + {
                 'sources' : files('test-network-tables.c'),
-                'dependencies' : threads,
         },
         network_test_template + {
                 'sources' : files('test-network.c'),
-                'dependencies' : threads,
         },
         network_test_template + {
                 'sources' : files('test-networkd-address.c'),
