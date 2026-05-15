@@ -23,6 +23,7 @@
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "uid-range.h"
+#include "unaligned.h"
 #include "user-util.h"
 
 const struct namespace_info namespace_info[_NAMESPACE_TYPE_MAX + 1] = {
@@ -858,6 +859,70 @@ int process_is_owned_by_uid(const PidRef *pidref, uid_t uid) {
 
                 close_and_replace(userns_fd, parent_fd);
         }
+}
+
+int namespace_open_by_id(uint64_t ns_id) {
+        int r;
+
+        /* Looks up a namespace by its unique boot-stable identifier and returns an O_PATH fd to it.
+         * Requires kernel ≥ 6.13.
+         *
+         * Returns -ESTALE if the namespace no longer exists, or if the kernel refuses the lookup
+         * for permission reasons. The latter happens outside the initial user namespace: the
+         * kernel only permits open_by_handle_at() on nsfs when the caller is in the initial user
+         * and pid namespaces with CAP_SYS_ADMIN, with a narrow exception for lookups of the
+         * caller's own user namespace and its ancestors. To avoid conflating "namespace is dead"
+         * with "kernel refused us", we refuse early with -EPERM when we aren't in the initial
+         * user/pid namespace or missing CAP_SYS_ADMIN and let the caller skip the check. */
+
+        if (ns_id == 0)
+                return -EINVAL;
+
+        r = namespace_is_init(NAMESPACE_USER);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -EPERM;
+
+        r = namespace_is_init(NAMESPACE_PID);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -EPERM;
+
+        r = have_effective_cap(CAP_SYS_ADMIN);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -EPERM;
+
+        /* The natural way to write this would be a compound designated initializer:
+         *
+         *         union { ... } fh = {
+         *                 .file_handle.handle_bytes = sizeof(struct nsfs_file_handle),
+         *                 .file_handle.handle_type = FILEID_NSFS,
+         *         };
+         *
+         * but that only zero-initializes the named struct members of struct file_handle.
+         * struct file_handle ends with a flexible array (`unsigned char f_handle[]`), whose
+         * storage comes from the overlapping `space[]` member of the union. Bytes in that storage
+         * are not covered by the partial struct initializer and end up as stack garbage. Zero the
+         * entire union first, then fill in the fields explicitly. */
+
+        union {
+                struct file_handle file_handle;
+                uint8_t space[offsetof(struct file_handle, f_handle) + sizeof(struct nsfs_file_handle)];
+        } fh = {};
+        fh.file_handle.handle_bytes = sizeof(struct nsfs_file_handle);
+        fh.file_handle.handle_type = FILEID_NSFS;
+
+        /* The first 8 bytes of struct nsfs_file_handle (see <linux/nsfs.h>, uapi since kernel v6.18)
+         * are __u64 ns_id; the remaining ns_type/ns_inum fields stay zero so the kernel looks up by
+         * id alone. The kernel made lookup-by-id-only an explicit ABI guarantee in v6.19 via commit
+         * 04173501a69e ("nstree: allow lookup solely based on inode"). */
+        unaligned_write_ne64(fh.file_handle.f_handle, ns_id);
+
+        return RET_NERRNO(open_by_handle_at(FD_NSFS_ROOT, &fh.file_handle, O_PATH|O_CLOEXEC));
 }
 
 int is_idmapping_supported(const char *path) {
