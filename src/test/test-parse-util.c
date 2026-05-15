@@ -2,7 +2,6 @@
 
 #include <linux/netfilter/nf_tables.h>
 #include <locale.h>
-#include <math.h>
 #include <sys/socket.h>
 
 #include "capability-util.h"
@@ -660,7 +659,7 @@ TEST(safe_atod) {
         ASSERT_ERROR(safe_atod("junk", &d), EINVAL);
 
         ASSERT_OK_ZERO(safe_atod("0.2244", &d));
-        assert_se(fabs(d - 0.2244) < 0.000001);
+        assert_se(ABS(d - 0.2244) < 0.000001);
 
         ASSERT_ERROR(safe_atod("0,5", &d), EINVAL);
         ASSERT_ERROR(safe_atod("", &d), EINVAL);
@@ -672,7 +671,7 @@ TEST(safe_atod) {
                 return (void) log_tests_skipped_errno(errno, "locale de_DE.utf8 not found");
 
         ASSERT_OK_ZERO(safe_atod("0.2244", &d));
-        assert_se(fabs(d - 0.2244) < 0.000001);
+        assert_se(ABS(d - 0.2244) < 0.000001);
 
         ASSERT_ERROR(safe_atod("0,5", &d), EINVAL);
         ASSERT_ERROR(safe_atod("", &d), EINVAL);
