@@ -219,12 +219,42 @@ int sd_network_link_get_online_state(int ifindex, char **ret) {
         return network_link_get_string(ifindex, "ONLINE_STATE", ret);
 }
 
+int sd_network_link_get_dhcp_client_state(int ifindex, char **ret) {
+        return network_link_get_string(ifindex, "DHCP_CLIENT_STATE", ret);
+}
+
+int sd_network_link_get_dhcp_lease_timestamp(int ifindex, uint64_t *ret) {
+        _cleanup_free_ char *s = NULL;
+        int r;
+
+        r = network_link_get_string(ifindex, "DHCP_LEASE_TIMESTAMP", &s);
+        if (r < 0)
+                return r;
+
+        return safe_atou64(s, ret);
+}
+
+int sd_network_link_get_dhcp6_client_state(int ifindex, char **ret) {
+        return network_link_get_string(ifindex, "DHCP6_CLIENT_STATE", ret);
+}
+
 int sd_network_link_get_dhcp6_client_iaid_string(int ifindex, char **ret) {
         return network_link_get_string(ifindex, "DHCP6_CLIENT_IAID", ret);
 }
 
 int sd_network_link_get_dhcp6_client_duid_string(int ifindex, char **ret) {
         return network_link_get_string(ifindex, "DHCP6_CLIENT_DUID", ret);
+}
+
+int sd_network_link_get_dhcp6_lease_timestamp(int ifindex, uint64_t *ret) {
+        _cleanup_free_ char *s = NULL;
+        int r;
+
+        r = network_link_get_string(ifindex, "DHCP6_LEASE_TIMESTAMP", &s);
+        if (r < 0)
+                return r;
+
+        return safe_atou64(s, ret);
 }
 
 int sd_network_link_get_required_for_online(int ifindex) {
