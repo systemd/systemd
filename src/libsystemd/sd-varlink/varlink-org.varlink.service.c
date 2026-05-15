@@ -34,7 +34,7 @@ static SD_VARLINK_DEFINE_ERROR(
 
 static SD_VARLINK_DEFINE_ERROR(
                 MethodNotImplemented,
-                SD_VARLINK_FIELD_COMMENT("Name of method that was called but is not implemented."),
+                SD_VARLINK_FIELD_COMMENT("Name of method that was called but is not implemented"),
                 SD_VARLINK_DEFINE_FIELD(method, SD_VARLINK_STRING, 0));
 
 static SD_VARLINK_DEFINE_ERROR(
