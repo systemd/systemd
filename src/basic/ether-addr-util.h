@@ -7,10 +7,6 @@
 
 #include "basic-forward.h"
 
-/* This is MAX_ADDR_LEN as defined in linux/netdevice.h, but net/if_arp.h
- * defines a macro of the same name with a much lower size. */
-#define HW_ADDR_MAX_SIZE 32
-
 struct hw_addr_data {
         size_t length;
         union {
