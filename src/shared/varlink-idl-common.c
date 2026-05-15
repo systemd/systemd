@@ -71,6 +71,21 @@ SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("Run via shell"),
                 SD_VARLINK_DEFINE_FIELD(viaShell, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
 
+SD_VARLINK_DEFINE_STRUCT_TYPE(
+                ExecCommandStatus,
+                SD_VARLINK_FIELD_COMMENT("Process ID"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(PID, ProcessId, 0),
+                SD_VARLINK_FIELD_COMMENT("Timestamp when the process started"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(StartTimestamp, Timestamp, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Timestamp when the process exited"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(ExitTimestamp, Timestamp, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Timestamp when the process was handed off to the executor"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(HandoffTimestamp, Timestamp, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Termination reason (si_code): CLD_EXITED, CLD_KILLED, CLD_DUMPED"),
+                SD_VARLINK_DEFINE_FIELD(Code, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Exit code or signal number (si_status), meaning depends on Code"),
+                SD_VARLINK_DEFINE_FIELD(Status, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
+
 SD_VARLINK_DEFINE_ENUM_TYPE(
                 ExecOutputType,
                 SD_VARLINK_DEFINE_ENUM_VALUE(inherit),

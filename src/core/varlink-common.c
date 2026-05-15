@@ -7,6 +7,8 @@
 #include "cpu-set-util.h"
 #include "execute.h"
 #include "json-util.h"
+#include "pidref.h"
+#include "process-util.h"
 #include "rlimit-util.h"
 #include "varlink-common.h"
 #include "varlink-unit.h"
@@ -154,6 +156,63 @@ int exec_command_list_build_json(sd_json_variant **ret, const char *name, void *
                 r = sd_json_variant_append_array(&v, entry);
                 if (r < 0)
                         return r;
+        }
+
+        *ret = TAKE_PTR(v);
+        return 0;
+}
+
+int exec_command_status_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        ExecStatus *status = ASSERT_PTR(userdata);
+
+        assert(ret);
+
+        if (!pid_is_valid(status->pid)) {
+                *ret = NULL;
+                return 0;
+        }
+
+        return sd_json_buildo(
+                        ret,
+                        /* TODO: replace with a real PidRef once ExecStatus carries one */
+                        SD_JSON_BUILD_PAIR("PID", JSON_BUILD_PIDREF(&PIDREF_MAKE_FROM_PID(status->pid))),
+                        JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL("StartTimestamp", &status->start_timestamp),
+                        JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL("ExitTimestamp", &status->exit_timestamp),
+                        JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL("HandoffTimestamp", &status->handoff_timestamp),
+                        SD_JSON_BUILD_PAIR_CONDITION(status->code > 0, "Code", SD_JSON_BUILD_INTEGER(status->code)),
+                        SD_JSON_BUILD_PAIR_CONDITION(status->code > 0, "Status", SD_JSON_BUILD_INTEGER(status->status)));
+}
+
+/* exec_command_status_list_build_json() is the runtime counterpart of exec_command_list_build_json().
+ * The two arrays are positionally aligned: index N in the status array corresponds to index N in the
+ * command array. Commands that have not yet run produce null entries to preserve alignment. */
+int exec_command_status_list_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        ExecCommand *list = userdata;
+        bool any_ran = false;
+        int r;
+
+        assert(ret);
+
+        LIST_FOREACH(command, c, list) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *entry = NULL;
+
+                r = exec_command_status_build_json(&entry, /* name= */ NULL, &c->exec_status);
+                if (r < 0)
+                        return r;
+
+                if (entry) {
+                        any_ran = true;
+                        r = sd_json_variant_append_array(&v, entry);
+                } else
+                        r = sd_json_variant_append_arrayb(&v, SD_JSON_BUILD_NULL);
+                if (r < 0)
+                        return r;
+        }
+
+        if (!any_ran) {
+                *ret = NULL;
+                return 0;
         }
 
         *ret = TAKE_PTR(v);
