@@ -11,8 +11,8 @@ void rgb_to_hsv(double r, double g, double b,
         assert(g >= 0 && g <= 1);
         assert(b >= 0 && b <= 1);
 
-        double max_color = fmax(r, fmax(g, b));
-        double min_color = fmin(r, fmin(g, b));
+        double max_color = MAX(r, MAX(g, b));
+        double min_color = MIN(r, MIN(g, b));
         double delta = max_color - min_color;
 
         if (ret_v)
@@ -57,7 +57,7 @@ void hsv_to_rgb(double h, double s, double v,
 
         h = fmod(h, 360);
         c = (s / 100.0) * (v / 100.0);
-        x = c * (1 - fabs(fmod(h / 60.0, 2) - 1));
+        x = c * (1 - ABS(xfmod(h / 60.0, 2) - 1));
         m = (v / 100) - c;
 
         if (h >= 0 && h < 60)
