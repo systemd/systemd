@@ -99,6 +99,12 @@
 #define PROJ_ID_MAX UINT32_C(4294967294)
 #define PROJ_ID_CLAMP_INTO_QUOTA_RANGE(id) ((uint32_t) ((id) % (PROJ_ID_MAX - PROJ_ID_MIN + 1)) + PROJ_ID_MIN)
 
+/* Maximum number of SupplementaryGroups= GIDs we add to the userns gid_map for PrivateUsers=self.
+ * Pre-v5.10 kernels cap a single gid_map write at 5 extents (lines); we use at most 2 baseline
+ * lines, leaving 3 for supplementary GIDs. Excess GIDs appear as the kernel's overflow GID inside
+ * the namespace (matching the pre-fix behavior, so this cap never regresses startup). */
+#define USERNS_SUPPLEMENTARY_GIDS_MAX 3u
+
 static int flag_fds(
                 const int fds[],
                 size_t n_socket_fds,
@@ -2382,6 +2388,8 @@ static int setup_private_users(
                 gid_t *gid,         /* unit gid (ditto)            [input+output] */
                 uid_t *outside_uid, /* uid seen from the outside (which is the same as *uid, except of userns is used) */
                 gid_t *outside_gid, /* gid seen from the outside (similar) */
+                const gid_t *supplementary_gids, /* GIDs from SupplementaryGroups= / PAM that must remain visible inside the userns */
+                int n_supplementary_gids,
                 bool allow_setgroups) {
 
         _cleanup_free_ char *uid_map = NULL, *gid_map = NULL;
@@ -2503,9 +2511,11 @@ static int setup_private_users(
 
                 break;
 
-        case PRIVATE_USERS_SELF:
+        case PRIVATE_USERS_SELF: {
                 /* Can only set up multiple mappings with CAP_SETGID. */
-                if (gid_is_valid(*gid) && *gid != saved_gid && have_effective_cap(CAP_SETGID) > 0)
+                bool can_map_more = have_effective_cap(CAP_SETGID) > 0;
+
+                if (gid_is_valid(*gid) && *gid != saved_gid && can_map_more)
                         r = asprintf(&gid_map,
                                      GID_FMT " " GID_FMT " 1\n"     /* Map $OGID → $OGID */
                                      GID_FMT " " GID_FMT " 1\n",    /* Map $GID → $GID */
@@ -2516,7 +2526,38 @@ static int setup_private_users(
                                      saved_gid, saved_gid);
                 if (r < 0)
                         return -ENOMEM;
+
+                /* Also map any SupplementaryGroups= / PAM-derived GIDs to themselves, so the unit
+                 * actually sees those groups inside the user namespace rather than the kernel's
+                 * overflow GID (typically "nobody"). Multi-line maps require CAP_SETGID in the
+                 * parent userns, so we only extend the map when we have it.
+                 *
+                 * The kernel limits a single gid_map write to 5 extents (lines) on kernels older
+                 * than v5.10 (raised to 340 in commit 6397fac4915a). systemd's baseline is v5.4,
+                 * so to avoid regressing units that previously started on older kernels (with
+                 * supplementary groups silently collapsed to the overflow GID), cap how many we
+                 * append here so that, combined with the up-to-two baseline lines, the total stays
+                 * within the pre-v5.10 limit. Excess groups remain visible as the overflow GID
+                 * inside the namespace — the same as pre-fix behavior. */
+                if (can_map_more) {
+                        size_t added = 0;
+
+                        FOREACH_ARRAY(g, supplementary_gids, n_supplementary_gids) {
+                                if (*g == saved_gid || (gid_is_valid(*gid) && *g == *gid))
+                                        continue; /* Already mapped above. */
+                                if (added >= USERNS_SUPPLEMENTARY_GIDS_MAX) {
+                                        log_debug("Skipping further SupplementaryGroups= GIDs in user namespace gid_map (kept first %zu); excess will appear as the overflow GID.",
+                                                  (size_t) USERNS_SUPPLEMENTARY_GIDS_MAX);
+                                        break;
+                                }
+                                r = strextendf(&gid_map, GID_FMT " " GID_FMT " 1\n", *g, *g);
+                                if (r < 0)
+                                        return r;
+                                added++;
+                        }
+                }
                 break;
+        }
 
         default:
                 assert_not_reached();
@@ -5963,6 +6004,23 @@ int exec_invoke(
                 }
         }
 
+        /* Pre-compute the merged supplementary GID list so it can both extend the userns gid_map
+         * (preserving SupplementaryGroups= IDs inside the namespace, see #41994) and feed
+         * enforce_groups() below. Used only when needs_setuid; otherwise the list stays empty. */
+        _cleanup_free_ gid_t *gids_to_enforce = NULL;
+        int ngids_to_enforce = 0;
+        if (needs_setuid) {
+                ngids_to_enforce = merge_gid_lists(gids,
+                                                   ngids,
+                                                   gids_after_pam,
+                                                   ngids_after_pam,
+                                                   &gids_to_enforce);
+                if (ngids_to_enforce < 0) {
+                        *exit_status = EXIT_GROUP;
+                        return log_error_errno(ngids_to_enforce, "Failed to merge group lists. Group membership might be incorrect: %m");
+                }
+        }
+
         if (context->private_bpf != PRIVATE_BPF_NO) {
                 /* To create a BPF token, the bpffs has to be mounted with the fsopen()/fsmount() API.
                  * More specifically, fsopen() must be called within the user namespace, then all the
@@ -6032,6 +6090,8 @@ int exec_invoke(
                                 &gid,
                                 &outside_uid,
                                 &outside_gid,
+                                gids_to_enforce,
+                                ngids_to_enforce,
                                 /* allow_setgroups= */ false);
                 /* If it was requested explicitly and we can't set it up, fail early. Otherwise, continue and let
                  * the actual requested operations fail (or silently continue). */
@@ -6074,19 +6134,6 @@ int exec_invoke(
          * This needs to be done after PrivateDevices=yes setup as device nodes should be owned by the host's root.
          * For non-root in a userns, devices will be owned by the user/group before the group change, and nobody. */
         if (needs_setuid) {
-                _cleanup_free_ gid_t *gids_to_enforce = NULL;
-                int ngids_to_enforce;
-
-                ngids_to_enforce = merge_gid_lists(gids,
-                                                   ngids,
-                                                   gids_after_pam,
-                                                   ngids_after_pam,
-                                                   &gids_to_enforce);
-                if (ngids_to_enforce < 0) {
-                        *exit_status = EXIT_GROUP;
-                        return log_error_errno(ngids_to_enforce, "Failed to merge group lists. Group membership might be incorrect: %m");
-                }
-
                 r = enforce_groups(gid, gids_to_enforce, ngids_to_enforce);
                 if (r < 0) {
                         *exit_status = EXIT_GROUP;
@@ -6128,6 +6175,8 @@ int exec_invoke(
                                 &gid,
                                 &outside_uid,
                                 &outside_gid,
+                                gids_to_enforce,
+                                ngids_to_enforce,
                                 /* allow_setgroups= */ pu == PRIVATE_USERS_FULL);
                 if (r < 0) {
                         *exit_status = EXIT_USER;
