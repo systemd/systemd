@@ -11,8 +11,8 @@ void rgb_to_hsv(double r, double g, double b,
         assert(g >= 0 && g <= 1);
         assert(b >= 0 && b <= 1);
 
-        double max_color = fmax(r, fmax(g, b));
-        double min_color = fmin(r, fmin(g, b));
+        double max_color = MAX(r, MAX(g, b));
+        double min_color = MIN(r, MIN(g, b));
         double delta = max_color - min_color;
 
         if (ret_v)
