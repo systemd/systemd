@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <math.h>
-
 #include "color-util.h"
+#include "math-util.h"
 
 void rgb_to_hsv(double r, double g, double b,
                 double *ret_h, double *ret_s, double *ret_v) {
