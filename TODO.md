@@ -3031,6 +3031,9 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 - whenever we receive fds via SCM_RIGHTS make sure none got dropped due to the
   reception limit the kernel silently enforces.
 
+- after option+verb introspection is added, add a test to verify that the
+  list in proc-cmdline.c matches the actual option list in systemd and shutdown.
+
 - write a document explaining how to write correct udev rules. Mention things
   such as:
   1. do not do lists of vid/pid matches, use hwdb for that

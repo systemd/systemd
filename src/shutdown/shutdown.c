@@ -61,7 +61,9 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argv);
 
         /* The interface is: the verb must stay in argv[1]. Any extra positional arguments
-         * are warned about and ignored. See 4b5d8d0f22ae61ceb45a25391354ba53b43ee992. */
+         * are warned about and ignored. See 4b5d8d0f22ae61ceb45a25391354ba53b43ee992.
+         *
+         * Note: when new options are added here, also add them to the exclusion list in proc-cmdline.c! */
 
         OptionParser opts = { argc, argv, OPTION_PARSER_RETURN_POSITIONAL_ARGS };
         int r;
