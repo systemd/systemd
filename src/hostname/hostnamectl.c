@@ -545,7 +545,7 @@ static int get_hostname_based_on_flag(sd_bus *bus) {
         return get_one_name(bus, attr, NULL);
 }
 
-VERB(verb_show_status, "status", NULL, VERB_ANY, 1, VERB_DEFAULT, "Show current hostname settings");
+VERB_DEFAULT_NOARG(verb_show_status, "status", "Show current hostname settings");
 static int verb_show_status(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_bus *bus = userdata;
         int r;
