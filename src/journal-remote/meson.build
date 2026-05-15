@@ -25,7 +25,6 @@ common_deps = [
         liblz4_cflags,
         libxz_cflags,
         libzstd_cflags,
-        threads,
 ]
 
 executables += [
