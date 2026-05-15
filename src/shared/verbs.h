@@ -60,6 +60,8 @@ typedef struct {
         VERB_SCOPE(scope, d, v, /* a= */ NULL, /* amin= */ VERB_ANY, /* amax= */ 1, /* f= */ 0, h)
 #define VERB_NOARG(d, v, h)                                             \
         VERB_SCOPE_NOARG(static, d, v, h)
+#define VERB_DEFAULT_NOARG(d, v, h)                                     \
+        VERB_SCOPE(static, d, v, /* a= */ NULL, /* amin= */ VERB_ANY, /* amax= */ 1, /* f= */ VERB_DEFAULT, h)
 
 /* Magic entry in the table (which will not be returned) that designates the start of the group <gr>.
  * The macro works as a separator between groups and must be between other VERB* stanzas. */
