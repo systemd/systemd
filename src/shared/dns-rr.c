@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <math.h>
-
 #include "alloc-util.h"
 #include "bitmap.h"
 #include "dns-answer.h"                 /* IWYU pragma: keep */
@@ -13,6 +11,7 @@
 #include "hash-funcs.h"
 #include "hexdecoct.h"
 #include "json-util.h"
+#include "math-util.h"
 #include "memory-util.h"
 #include "siphash24.h"
 #include "string-table.h"
@@ -773,9 +772,9 @@ static char* format_location(uint32_t latitude, uint32_t longitude, uint32_t alt
         int lat = latitude >= 1U<<31 ? (int) (latitude - (1U<<31)) : (int) ((1U<<31) - latitude);
         int lon = longitude >= 1U<<31 ? (int) (longitude - (1U<<31)) : (int) ((1U<<31) - longitude);
         double alt = altitude >= 10000000u ? altitude - 10000000u : -(double)(10000000u - altitude);
-        double siz = (size >> 4) * exp10((double) (size & 0xF));
-        double hor = (horiz_pre >> 4) * exp10((double) (horiz_pre & 0xF));
-        double ver = (vert_pre >> 4) * exp10((double) (vert_pre & 0xF));
+        double siz = (size >> 4) * xexp10i(size & 0xF);
+        double hor = (horiz_pre >> 4) * xexp10i(horiz_pre & 0xF);
+        double ver = (vert_pre >> 4) * xexp10i(vert_pre & 0xF);
 
         if (asprintf(&s, "%d %d %.3f %c %d %d %.3f %c %.2fm %.2fm %.2fm %.2fm",
                      (lat / 60000 / 60),
