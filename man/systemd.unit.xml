@@ -1108,6 +1108,16 @@
         allowed. In user mode, only <option>none</option>, <option>exit</option>, and
         <option>exit-force</option> are allowed. Both options default to <option>none</option>.</para>
 
+        <para>These actions are tied to the unit's state transitions and fire only when the unit actually
+        transitions out of an <constant>active</constant> or <constant>activating</constant> state. As a
+        consequence, <varname>Condition…=</varname> and <varname>Assert…=</varname> directives that fail do
+        <emphasis>not</emphasis> trigger <varname>SuccessAction=</varname> or
+        <varname>FailureAction=</varname>: they prevent activation in the first place, so no state transition
+        occurs. By contrast, the <varname>ExecCondition=</varname> directive in
+        <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        runs as part of activation, so an <varname>ExecCondition=</varname> skip <emphasis>will</emphasis>
+        trigger <varname>SuccessAction=</varname>.</para>
+
         <para>If <option>none</option> is set, no action will be triggered. <option>reboot</option> causes a
         reboot following the normal shutdown procedure (i.e. equivalent to <command>systemctl
         reboot</command>).  <option>reboot-force</option> causes a forced reboot which will terminate all
