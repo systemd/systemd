@@ -1184,22 +1184,14 @@ libqrencode = dependency('libqrencode',
 libqrencode_cflags = libqrencode.partial_dependency(includes: true, compile_args: true)
 conf.set10('HAVE_QRENCODE', libqrencode.found())
 
-feature = get_option('gcrypt')
 libgcrypt = dependency('libgcrypt',
-                       required : feature)
-libgpg_error = dependency('gpg-error',
-                          required : feature)
-
-have = libgcrypt.found() and libgpg_error.found()
-if not have
-        # link to neither of the libs if one is not found
-        libgcrypt = []
-        libgpg_error = []
-        libgcrypt_cflags = []
-else
+                       required : get_option('gcrypt'))
+conf.set10('HAVE_GCRYPT', libgcrypt.found())
+if libgcrypt.found()
         libgcrypt_cflags = libgcrypt.partial_dependency(includes: true, compile_args: true)
+else
+        libgcrypt_cflags = []
 endif
-conf.set10('HAVE_GCRYPT', have)
 
 libgnutls = dependency('gnutls',
                        version : '>= 3.1.4',
