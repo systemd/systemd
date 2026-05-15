@@ -244,7 +244,7 @@ static int manager_adjust_clock(Manager *m, double offset, int leap_sec) {
 
         /* For small deltas, tell the kernel to gradually adjust the system clock to the NTP time, larger
          * deltas are just directly set. */
-        if (fabs(offset) < NTP_MAX_ADJUST) {
+        if (ABS(offset) < NTP_MAX_ADJUST) {
                 tmx = (struct timex) {
                         .modes = ADJ_STATUS | ADJ_NANO | ADJ_OFFSET | ADJ_TIMECONST | ADJ_MAXERROR | ADJ_ESTERROR,
                         .status = STA_PLL,
@@ -346,7 +346,7 @@ static bool manager_sample_spike_detection(Manager *m, double offset, double del
                 return false;
 
         /* always accept offset if we are farther off than the round-trip delay */
-        if (fabs(offset) > delay)
+        if (ABS(offset) > delay)
                 return false;
 
         /* we need a few samples before looking at them */
@@ -354,11 +354,11 @@ static bool manager_sample_spike_detection(Manager *m, double offset, double del
                 return false;
 
         /* do not accept anything worse than the maximum possible error of the best sample */
-        if (fabs(offset) > m->samples[idx_min].delay)
+        if (ABS(offset) > m->samples[idx_min].delay)
                 return true;
 
         /* compare the difference between the current offset to the previous offset and jitter */
-        return fabs(offset - m->samples[idx_cur].offset) > 3 * jitter;
+        return ABS(offset - m->samples[idx_cur].offset) > 3 * jitter;
 }
 
 static void manager_adjust_poll(Manager *m, double offset, bool spike) {
@@ -371,20 +371,20 @@ static void manager_adjust_poll(Manager *m, double offset, bool spike) {
         }
 
         /* set to minimal poll interval */
-        if (!spike && fabs(offset) > NTP_ACCURACY_SEC) {
+        if (!spike && ABS(offset) > NTP_ACCURACY_SEC) {
                 m->poll_interval_usec = m->poll_interval_min_usec;
                 return;
         }
 
         /* increase polling interval */
-        if (fabs(offset) < NTP_ACCURACY_SEC * 0.25) {
+        if (ABS(offset) < NTP_ACCURACY_SEC * 0.25) {
                 if (m->poll_interval_usec < m->poll_interval_max_usec)
                         m->poll_interval_usec *= 2;
                 return;
         }
 
         /* decrease polling interval */
-        if (spike || fabs(offset) > NTP_ACCURACY_SEC * 0.75) {
+        if (spike || ABS(offset) > NTP_ACCURACY_SEC * 0.75) {
                 if (m->poll_interval_usec > m->poll_interval_min_usec)
                         m->poll_interval_usec /= 2;
                 return;
