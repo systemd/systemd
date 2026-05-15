@@ -23,6 +23,7 @@ REENABLE_WARNING
 #include "bus-label.h"
 #include "bus-message.h"
 #include "bus-util.h"
+#include "dlfcn-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "log.h"
@@ -30,6 +31,40 @@ REENABLE_WARNING
 #include "memstream-util.h"
 #include "stat-util.h"
 #include "tests.h"
+
+#if HAVE_GLIB
+static void *glib_dl = NULL;
+static DLSYM_PROTOTYPE(g_dbus_message_new_from_blob) = NULL;
+static DLSYM_PROTOTYPE(g_dbus_message_print)         = NULL;
+static DLSYM_PROTOTYPE(g_free)                       = NULL;
+static DLSYM_PROTOTYPE(g_object_unref)               = NULL;
+
+static int dlopen_glib(void) {
+        return dlopen_many_sym_or_warn(
+                        &glib_dl, "libgio-2.0.so.0", LOG_DEBUG,
+                        DLSYM_ARG(g_dbus_message_new_from_blob),
+                        DLSYM_ARG(g_dbus_message_print),
+                        DLSYM_ARG(g_free),
+                        DLSYM_ARG(g_object_unref));
+}
+#endif
+
+#if HAVE_DBUS
+static void *libdbus_dl = NULL;
+static DLSYM_PROTOTYPE(dbus_error_init)        = NULL;
+static DLSYM_PROTOTYPE(dbus_error_free)        = NULL;
+static DLSYM_PROTOTYPE(dbus_message_demarshal) = NULL;
+static DLSYM_PROTOTYPE(dbus_message_unref)     = NULL;
+
+static int dlopen_libdbus(void) {
+        return dlopen_many_sym_or_warn(
+                        &libdbus_dl, "libdbus-1.so.3", LOG_DEBUG,
+                        DLSYM_ARG(dbus_error_init),
+                        DLSYM_ARG(dbus_error_free),
+                        DLSYM_ARG(dbus_message_demarshal),
+                        DLSYM_ARG(dbus_message_unref));
+}
+#endif
 
 static void test_bus_path_encode_unique(void) {
         _cleanup_free_ char *a = NULL, *b = NULL, *c = NULL, *d = NULL, *e = NULL;
@@ -324,37 +359,33 @@ int main(int argc, char *argv[]) {
 #if HAVE_GLIB
         /* Work-around for asan bug. See c8d980a3e962aba2ea3a4cedf75fa94890a6d746. */
 #if !HAS_FEATURE_ADDRESS_SANITIZER
-        {
+        if (dlopen_glib() >= 0) {
                 GDBusMessage *g;
                 char *p;
 
-#if !defined(GLIB_VERSION_2_36)
-                g_type_init();
-#endif
-
-                g = g_dbus_message_new_from_blob(buffer, sz, 0, NULL);
-                p = g_dbus_message_print(g, 0);
+                g = sym_g_dbus_message_new_from_blob(buffer, sz, 0, NULL);
+                p = sym_g_dbus_message_print(g, 0);
                 log_info("%s", p);
-                g_free(p);
-                g_object_unref(g);
+                sym_g_free(p);
+                sym_g_object_unref(g);
         }
 #endif
 #endif
 
 #if HAVE_DBUS
-        {
+        if (dlopen_libdbus() >= 0) {
                 DBusMessage *w;
                 DBusError error;
 
-                dbus_error_init(&error);
+                sym_dbus_error_init(&error);
 
-                w = dbus_message_demarshal(buffer, sz, &error);
+                w = sym_dbus_message_demarshal(buffer, sz, &error);
                 if (!w)
                         log_error("%s", error.message);
                 else
-                        dbus_message_unref(w);
+                        sym_dbus_message_unref(w);
 
-                dbus_error_free(&error);
+                sym_dbus_error_free(&error);
         }
 #endif
 
