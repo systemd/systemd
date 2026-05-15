@@ -7,4 +7,6 @@ extern const sd_varlink_symbol vl_type_JobType;
 extern const sd_varlink_symbol vl_type_JobState;
 extern const sd_varlink_symbol vl_type_JobResult;
 extern const sd_varlink_symbol vl_type_Job;
+extern const sd_varlink_symbol vl_type_JobContext;
+extern const sd_varlink_symbol vl_type_JobRuntime;
 extern const sd_varlink_interface vl_interface_io_systemd_Job;
