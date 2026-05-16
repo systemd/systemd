@@ -19,8 +19,6 @@ static DLSYM_PROTOTYPE(crypt_gensalt_ra) = missing_crypt_gensalt_ra;
 static DLSYM_PROTOTYPE(crypt_preferred_method) = missing_crypt_preferred_method;
 static DLSYM_PROTOTYPE(crypt_ra) = missing_crypt_ra;
 #else
-static void *libcrypt_dl = NULL;
-
 static DLSYM_PROTOTYPE(crypt_gensalt_ra) = NULL;
 static DLSYM_PROTOTYPE(crypt_preferred_method) = NULL;
 static DLSYM_PROTOTYPE(crypt_ra) = NULL;
@@ -130,6 +128,7 @@ bool looks_like_hashed_password(const char *s) {
 
 int dlopen_libcrypt(int log_level) {
 #if HAVE_LIBCRYPT
+        static void *libcrypt_dl = NULL;
 #ifdef __GLIBC__
         static int cached = 0;
         int r = -ENOENT;

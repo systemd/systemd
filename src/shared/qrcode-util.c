@@ -22,14 +22,13 @@
 #define UNICODE_UPPER_HALF_BLOCK UTF8("▀")
 
 #if HAVE_QRENCODE
-static void *qrcode_dl = NULL;
-
 static DLSYM_PROTOTYPE(QRcode_encodeString) = NULL;
 static DLSYM_PROTOTYPE(QRcode_free) = NULL;
 #endif
 
 int dlopen_qrencode(int log_level) {
 #if HAVE_QRENCODE
+        static void *qrcode_dl = NULL;
         int r;
 
         SD_ELF_NOTE_DLOPEN(
