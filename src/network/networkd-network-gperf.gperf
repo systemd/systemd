@@ -27,6 +27,7 @@ _Pragma("GCC diagnostic ignored \"-Wzero-as-null-pointer-constant\"")
 #include "networkd-dhcp-server.h"
 #include "networkd-dhcp4.h"
 #include "networkd-dhcp6.h"
+#include "networkd-dhcp6-relay.h"
 #include "networkd-dns.h"
 #include "networkd-ipv4ll.h"
 #include "networkd-ipv6-proxy-ndp.h"
@@ -332,6 +333,8 @@ DHCPv6.RapidCommit,                              config_parse_bool,             
 DHCPv6.NetLabel,                                 config_parse_string,                            CONFIG_PARSE_STRING_SAFE,               offsetof(Network, dhcp6_netlabel)
 DHCPv6.SendRelease,                              config_parse_bool,                              0,                                      offsetof(Network, dhcp6_send_release)
 DHCPv6.NFTSet,                                   config_parse_nft_set,                           NFT_SET_PARSE_NETWORK,                  offsetof(Network, dhcp6_nft_set_context)
+DHCPv6Relay.RelayTarget,                         config_parse_in_addr_non_null,                  AF_INET6,                               offsetof(Network, dhcp6_relay_target)
+DHCPv6Relay.InterfaceId,                         config_parse_dhcp6_relay_interface_id,          0,                                      0
 IPv6AcceptRA.UseRedirect,                        config_parse_bool,                              0,                                      offsetof(Network, ndisc_use_redirect)
 IPv6AcceptRA.UseGateway,                         config_parse_bool,                              0,                                      offsetof(Network, ndisc_use_gateway)
 IPv6AcceptRA.UseRoutePrefix,                     config_parse_bool,                              0,                                      offsetof(Network, ndisc_use_route_prefix)
