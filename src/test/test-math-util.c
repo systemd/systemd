@@ -107,4 +107,50 @@ TEST(fp_equal) {
         assert_se(!fp_equal(42 / INFINITY, INFINITY / INFINITY));
 }
 
+TEST(xfmod) {
+        /* Trivial cases */
+        ASSERT_TRUE(fp_equal(xfmod(0.0, 1.0), 0.0));
+        ASSERT_TRUE(fp_equal(xfmod(5.0, 3.0), 2.0));
+        ASSERT_TRUE(fp_equal(xfmod(6.0, 3.0), 0.0));
+
+        /* Sign is preserved from the dividend, matching fmod(3) */
+        ASSERT_TRUE(fp_equal(xfmod(-5.0, 3.0), -2.0));
+        ASSERT_TRUE(fp_equal(xfmod(5.0, -3.0), 2.0));
+        ASSERT_TRUE(fp_equal(xfmod(-5.0, -3.0), -2.0));
+
+        /* No-op when |x| < |y| */
+        ASSERT_TRUE(fp_equal(xfmod(0.7, 6.0), 0.7));
+        ASSERT_TRUE(fp_equal(xfmod(-0.7, 6.0), -0.7));
+
+        /* Typical color-util ranges */
+        ASSERT_TRUE(fp_equal(xfmod(370.0, 360.0), 10.0));
+        ASSERT_TRUE(fp_equal(xfmod(720.0, 360.0), 0.0));
+        ASSERT_TRUE(fp_equal(xfmod(3.5, 2.0), 1.5));
+}
+
+TEST(xexp10i) {
+        /* Table-lookup range: every value is exact in binary64 */
+        ASSERT_TRUE(fp_equal(xexp10i(0), 1.0));
+        ASSERT_TRUE(fp_equal(xexp10i(1), 10.0));
+        ASSERT_TRUE(fp_equal(xexp10i(2), 100.0));
+        ASSERT_TRUE(fp_equal(xexp10i(22), 1e22));
+
+        /* Negative exponents */
+        ASSERT_TRUE(fp_equal(xexp10i(-1), 0.1));
+        ASSERT_TRUE(fp_equal(xexp10i(-3), 0.001));
+
+        /* Beyond the table: result still matches a plain 10.0 multiplication chain (no precision
+         * claim beyond binary64) */
+        ASSERT_TRUE(xexp10i(23) > 0.9e23 && xexp10i(23) < 1.1e23);
+        ASSERT_TRUE(xexp10i(100) > 0.9e100 && xexp10i(100) < 1.1e100);
+
+        /* Overflow saturates to +Inf, underflow to 0 — matching glibc exp10() */
+        ASSERT_TRUE(isinf(xexp10i(400)));
+        ASSERT_TRUE(fp_equal(xexp10i(-400), 0.0));
+
+        /* Pathological inputs must still terminate quickly thanks to the internal cap */
+        ASSERT_TRUE(isinf(xexp10i(INT_MAX)));
+        ASSERT_TRUE(fp_equal(xexp10i(INT_MIN), 0.0));
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);

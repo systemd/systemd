@@ -223,10 +223,8 @@ simple_tests += files(
 
 common_test_dependencies = [
         libmount_cflags,
-        librt,
         libseccomp_cflags,
         libselinux_cflags,
-        threads,
 ]
 
 executables += [
@@ -303,14 +301,13 @@ executables += [
                 ],
         },
         test_template + {
-                # only static linking apart from libdl, to make sure that the
-                # module is linked to all libraries that it uses.
+                # only static linking, to make sure that the module is linked
+                # to all libraries that it uses.
                 'sources' : files('test-dlopen.c'),
                 'link_with' : [
                         libc_wrapper_static,
                         libbasic_static,
                 ],
-                'dependencies' : libdl,
                 'install' : false,
                 'type' : 'manual',
         },
@@ -359,10 +356,7 @@ executables += [
         test_template + {
                 'sources' : files('test-libmount.c'),
                 'conditions' : ['HAVE_LIBMOUNT'],
-                'dependencies' : [
-                        libmount_cflags,
-                        threads,
-                ],
+                'dependencies' : libmount_cflags,
         },
         test_template + {
                 'sources' : files('test-loopback.c'),
@@ -378,7 +372,6 @@ executables += [
         },
         test_template + {
                 'sources' : files('test-pressure.c'),
-                'dependencies' : threads,
         },
         test_template + {
                 'sources' : files('test-mount-util.c'),
@@ -398,17 +391,13 @@ executables += [
         test_template + {
                 'sources' : files('test-nss-hosts.c'),
                 'extract' : files('nss-test-util.c'),
-                'dependencies' : [
-                        libdl,
-                        libseccomp_cflags,
-                ],
+                'dependencies' : libseccomp_cflags,
                 'conditions' : ['ENABLE_NSS'],
                 'timeout' : 120,
         },
         test_template + {
                 'sources' : files('test-nss-users.c'),
                 'objects' : ['test-nss-hosts'],
-                'dependencies' : libdl,
                 'conditions' : ['ENABLE_NSS'],
         },
         test_template + {
@@ -426,7 +415,6 @@ executables += [
         },
         test_template + {
                 'sources' : files('test-process-util.c'),
-                'dependencies' : threads,
         },
         test_template + {
                 'sources' : files('test-progress-bar.c'),
@@ -441,7 +429,6 @@ executables += [
         },
         test_template + {
                 'sources' : files('test-qrcode-util.c'),
-                'dependencies' : libdl,
         },
         test_template + {
                 'sources' : files('test-random-util.c'),
@@ -471,7 +458,6 @@ executables += [
         },
         test_template + {
                 'sources' : files('test-set-disable-mempool.c'),
-                'dependencies' : threads,
         },
         test_template + {
                 'sources' : files('test-sizeof.c'),
@@ -554,7 +540,7 @@ executables += [
         },
         core_test_template + {
                 'sources' : files('test-bpf-token.c'),
-                'dependencies' : common_test_dependencies + libbpf,
+                'dependencies' : common_test_dependencies + libbpf_cflags,
                 'conditions' : ['BPF_FRAMEWORK'],
                 'type' : 'manual',
         },
@@ -603,7 +589,6 @@ executables += [
         },
         core_test_template + {
                 'sources' : files('test-loop-util.c'),
-                'dependencies' : [threads],
                 'parallel' : false,
         },
         core_test_template + {
@@ -611,10 +596,7 @@ executables += [
         },
         core_test_template + {
                 'sources' : files('test-namespace.c'),
-                'dependencies' : [
-                        threads,
-                        libmount_cflags,
-                ],
+                'dependencies' : libmount_cflags,
         },
         core_test_template + {
                 'sources' : files('test-ns.c'),
@@ -632,7 +614,6 @@ executables += [
         },
         core_test_template + {
                 'sources' : files('test-socket-bind.c'),
-                'dependencies' : libdl,
                 'conditions' : ['BPF_FRAMEWORK'],
         },
         core_test_template + {
@@ -666,7 +647,6 @@ executables += [
                         libbasic_static,
                         libsystemd,
                 ],
-                'dependencies' : threads,
         },
         test_template + {
                 'sources' : files('../libudev/test-udev-device-thread.c'),
@@ -675,7 +655,6 @@ executables += [
                         libbasic_static,
                         libudev,
                 ],
-                'dependencies' : threads,
         },
         test_template + {
                 'sources' : files('../libudev/test-libudev.c'),
