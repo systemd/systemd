@@ -92,7 +92,6 @@ jobs:
             tpm2-tss-tcti-device
             tzdata
             util-linux-dev
-            util-linux-login
             util-linux-misc
             utmps-dev
             valgrind-dev
