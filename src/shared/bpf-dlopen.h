@@ -40,6 +40,17 @@ extern DLSYM_PROTOTYPE(bpf_program__attach_cgroup);
 extern DLSYM_PROTOTYPE(bpf_program__attach_lsm);
 extern DLSYM_PROTOTYPE(bpf_program__name);
 extern DLSYM_PROTOTYPE(bpf_program__set_autoload);
+
+/* Available since libbpf 1.5. Always redeclare so DLSYM_PROTOTYPE's typeof() resolves on older
+ * headers; suppress the warning when newer libbpf already declares them. */
+DISABLE_WARNING_REDUNDANT_DECLS;
+/* NOLINTBEGIN(readability-redundant-declaration) */
+struct bpf_token_create_opts;
+extern int bpf_token_create(int bpffs_fd, struct bpf_token_create_opts *opts);
+/* NOLINTEND(readability-redundant-declaration) */
+REENABLE_WARNING;
+extern DLSYM_PROTOTYPE(bpf_token_create);
+
 extern DLSYM_PROTOTYPE(libbpf_set_print);
 extern DLSYM_PROTOTYPE(ring_buffer__epoll_fd);
 extern DLSYM_PROTOTYPE(ring_buffer__free);
