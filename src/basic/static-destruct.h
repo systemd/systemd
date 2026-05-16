@@ -44,6 +44,8 @@ typedef struct StaticDestructor {
         };
 } StaticDestructor;
 
+assert_cc(sizeof(StaticDestructor) % sizeof(void*) == 0);
+
 #define STATIC_DESTRUCTOR_REGISTER(variable, func) \
         _STATIC_DESTRUCTOR_REGISTER(UNIQ, variable, func)
 

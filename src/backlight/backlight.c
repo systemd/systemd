@@ -11,10 +11,11 @@
 #include "device-util.h"
 #include "escape.h"
 #include "fileio.h"
+#include "format-table.h"
+#include "help-util.h"
 #include "main-func.h"
 #include "parse-util.h"
 #include "percent-util.h"
-#include "pretty-print.h"
 #include "reboot-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -23,25 +24,22 @@
 #define PCI_CLASS_GRAPHICS_CARD 0x30000
 
 static int help(void) {
-        _cleanup_free_ char *link = NULL;
+        _cleanup_(table_unrefp) Table *verbs = NULL;
         int r;
 
-        r = terminal_urlify_man("systemd-backlight", "8", &link);
+        r = verbs_get_help_table(&verbs);
         if (r < 0)
-                return log_oom();
+                return r;
 
-        printf("%s save [backlight|leds]:DEVICE\n"
-               "%s load [backlight|leds]:DEVICE\n"
-               "\n%sSave and restore backlight brightness at shutdown and boot.%s\n\n"
-               "  save            Save current brightness\n"
-               "  load            Set brightness to be the previously saved value\n"
-               "\nSee the %s for details.\n",
-               program_invocation_short_name,
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal(),
-               link);
+        help_cmdline("COMMAND [backlight|leds]:DEVICE");
+        help_abstract("Save and restore backlight brightness at shutdown and boot.");
 
+        help_section("Commands");
+        r = table_print_or_warn(verbs);
+        if (r < 0)
+                return r;
+
+        help_man_page_reference("systemd-backlight", "8");
         return 0;
 }
 
@@ -555,6 +553,8 @@ static int device_new_from_arg(const char *s, sd_device **ret) {
         return 1; /* Found. */
 }
 
+VERB(verb_load, "load", "[backlight|leds]:DEVICE", 2, 2, VERB_ONLINE_ONLY,
+     "Set brightness to be the previously saved value");
 static int verb_load(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_device_unrefp) sd_device *device = NULL;
         unsigned max_brightness, brightness, percent;
@@ -605,6 +605,8 @@ static int verb_load(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return 0;
 }
 
+VERB(verb_save, "save", "[backlight|leds]:DEVICE", 2, 2, VERB_ONLINE_ONLY,
+     "Save current brightness");
 static int verb_save(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_device_unrefp) sd_device *device = NULL;
         _cleanup_free_ char *path = NULL;
@@ -647,12 +649,6 @@ static int verb_save(int argc, char *argv[], uintptr_t _data, void *userdata) {
 }
 
 static int run(int argc, char *argv[]) {
-        static const Verb verbs[] = {
-                { "load", 2, 2, VERB_ONLINE_ONLY, verb_load },
-                { "save", 2, 2, VERB_ONLINE_ONLY, verb_save },
-                {}
-        };
-
         log_setup();
 
         if (argv_looks_like_help(argc, argv))
@@ -660,7 +656,7 @@ static int run(int argc, char *argv[]) {
 
         umask(0022);
 
-        return dispatch_verb(argc, argv, verbs, NULL);
+        return dispatch_verb(strv_skip(argv, 1), /* userdata= */ NULL);
 }
 
 DEFINE_MAIN_FUNCTION(run);

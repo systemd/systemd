@@ -7,13 +7,15 @@
 #include "argv-util.h"
 #include "cryptsetup-util.h"
 #include "fileio.h"
+#include "format-table.h"
+#include "help-util.h"
 #include "integrity-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "path-util.h"
-#include "pretty-print.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "strv.h"
 #include "time-util.h"
 #include "verbs.h"
 
@@ -41,21 +43,22 @@ static const char* const dm_integrity_algorithm_table[_INTEGRITY_ALGORITHM_MAX] 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(dm_integrity_algorithm, IntegrityAlgorithm);
 
 static int help(void) {
-        _cleanup_free_ char *link = NULL;
+        _cleanup_(table_unrefp) Table *verbs = NULL;
         int r;
 
-        r = terminal_urlify_man("systemd-integritysetup@.service", "8", &link);
+        r = verbs_get_help_table(&verbs);
         if (r < 0)
-                return log_oom();
+                return r;
 
-        printf("%s attach VOLUME DEVICE [HMAC_KEY_FILE|-] [OPTIONS]\n"
-               "%s detach VOLUME\n\n"
-               "Attach or detach an integrity protected block device.\n"
-               "\nSee the %s for details.\n",
-               program_invocation_short_name,
-               program_invocation_short_name,
-               link);
+        help_cmdline("COMMAND ...");
+        help_abstract("Attach or detach an integrity protected block device.");
 
+        help_section("Commands");
+        r = table_print_or_warn(verbs);
+        if (r < 0)
+                return r;
+
+        help_man_page_reference("systemd-integritysetup@.service", "8");
         return 0;
 }
 
@@ -94,6 +97,8 @@ static const char *integrity_algorithm_select(const void *key_file_buf) {
         return dm_integrity_algorithm_to_string(a);
 }
 
+VERB(verb_attach, "attach", "VOLUME DEVICE [HMAC_KEY_FILE|-] [OPTIONS]", 3, 5, 0,
+     "Attach an integrity protected block device");
 static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
         crypt_status_info status;
@@ -161,6 +166,8 @@ static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) 
         return 0;
 }
 
+VERB(verb_detach, "detach", "VOLUME", 2, 2, 0,
+     "Detach an integrity protected block device");
 static int verb_detach(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
         int r;
@@ -203,13 +210,7 @@ static int run(int argc, char *argv[]) {
 
         umask(0022);
 
-        static const Verb verbs[] = {
-                { "attach", 3, 5, 0, verb_attach },
-                { "detach", 2, 2, 0, verb_detach },
-                {}
-        };
-
-        return dispatch_verb(argc, argv, verbs, NULL);
+        return dispatch_verb(strv_skip(argv, 1), /* userdata= */ NULL);
 }
 
 DEFINE_MAIN_FUNCTION(run);

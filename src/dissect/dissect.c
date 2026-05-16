@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
-#include <getopt.h>
 #include <linux/loop.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -132,11 +131,11 @@ static int help(void) {
         if (r < 0)
                 return log_oom();
 
-        r = option_parser_get_help_table(&options);
+        r = option_parser_get_help_table_ns("systemd-dissect", &options);
         if (r < 0)
                 return r;
 
-        r = option_parser_get_help_table_group("Commands", &commands);
+        r = option_parser_get_help_table_full("systemd-dissect", "Commands", &commands);
         if (r < 0)
                 return r;
 
@@ -230,10 +229,12 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        OptionParser opts = { argc, argv };
+        OptionParser opts = { argc, argv, .namespace = "systemd-dissect" };
 
         FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
+
+                OPTION_NAMESPACE("systemd-dissect"): {}
 
                 OPTION_COMMON_NO_PAGER:
                         arg_pager_flags |= PAGER_DISABLE;
@@ -745,41 +746,45 @@ static int parse_argv(int argc, char *argv[]) {
 static int parse_argv_as_mount_helper(int argc, char *argv[]) {
         const char *options = NULL;
         bool fake = false;
-        int c, r;
+        int r;
 
         /* Implements util-linux "external helper" command line interface, as per mount(8) man page. */
 
-        while ((c = getopt(argc, argv, "sfnvN:o:t:")) >= 0) {
+        OptionParser opts = { argc, argv, .namespace = "mount.ddi" };
+        FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
 
-                case 'f':
+                OPTION_NAMESPACE("mount.ddi"): {}
+
+                OPTION_SHORT('f', NULL, /* help= */ NULL):
                         fake = true;
                         break;
 
-                case 'o':
-                        options = optarg;
+                OPTION_SHORT('o', "OPTIONS", /* help= */ NULL):
+                        options = opts.arg;
                         break;
 
-                case 't':
-                        if (!streq(optarg, "ddi"))
-                                log_debug("Unexpected file system type '%s', ignoring.", optarg);
+                OPTION_SHORT('t', "FSTYPE", /* help= */ NULL):
+                        if (!streq(opts.arg, "ddi"))
+                                log_debug("Unexpected file system type '%s', ignoring.", opts.arg);
                         break;
 
-                case 's': /* sloppy mount options */
-                case 'n': /* aka --no-mtab */
-                case 'v': /* aka --verbose */
-                        log_debug("Ignoring option -%c, not implemented.", c);
+                OPTION_SHORT('s', NULL, /* help= */ NULL): {} /* sloppy mount options */
+                OPTION_SHORT('n', NULL, /* help= */ NULL): {} /* aka --no-mtab */
+                OPTION_SHORT('v', NULL, /* help= */ NULL):    /* aka --verbose */
+                        log_debug("Ignoring option -%c, not implemented.", opts.opt->short_code);
                         break;
 
-                case 'N': /* aka --namespace= */
-                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Option -%c is not implemented, refusing.", c);
-
-                case '?':
-                        return -EINVAL;
+                OPTION_SHORT('N', "NS", /* help= */ NULL): /* aka --namespace= */
+                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                               "Option -%c is not implemented, refusing.",
+                                               opts.opt->short_code);
                 }
-        }
 
-        if (optind + 2 != argc)
+        char **args = option_parser_get_args(&opts);
+        size_t n_args = option_parser_get_n_args(&opts);
+
+        if (n_args != 2)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Expected an image file path and target directory as only argument.");
 
@@ -808,11 +813,11 @@ static int parse_argv_as_mount_helper(int argc, char *argv[]) {
         if (fake)
                 return 0;
 
-        r = parse_path_argument(argv[optind], /* suppress_root= */ false, &arg_image);
+        r = parse_path_argument(args[0], /* suppress_root= */ false, &arg_image);
         if (r < 0)
                 return r;
 
-        r = parse_path_argument(argv[optind+1], /* suppress_root= */ false, &arg_path);
+        r = parse_path_argument(args[1], /* suppress_root= */ false, &arg_path);
         if (r < 0)
                 return r;
 

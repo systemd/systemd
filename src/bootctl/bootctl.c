@@ -917,7 +917,7 @@ static int run(int argc, char *argv[]) {
                         return log_oom();
         }
 
-        return dispatch_verb_with_args(args, NULL);
+        return dispatch_verb(args, NULL);
 }
 
 DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);

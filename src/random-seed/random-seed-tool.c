@@ -362,7 +362,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return version();
                 }
 
-        r = dispatch_verb_with_args(option_parser_get_args(&opts), NULL);
+        r = dispatch_verb(option_parser_get_args(&opts), NULL);
         if (r < 0)
                 return r;
 

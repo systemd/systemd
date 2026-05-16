@@ -519,7 +519,7 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return bus_log_connect_error(r, arg_transport, RUNTIME_SCOPE_SYSTEM);
 
-        return dispatch_verb_with_args(args, bus);
+        return dispatch_verb(args, bus);
 }
 
 DEFINE_MAIN_FUNCTION(run);

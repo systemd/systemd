@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "memory-util.h"
 #include "shared-forward.h"
 
 /* Option namespace/group explanation:
@@ -240,10 +239,10 @@ int option_parse(
 
 /* Iterate over options. Don't forget to handle errors (negative c)! */
 #define FOREACH_OPTION(c, state)                                        \
-        for (int c; (c = option_parse(ALIGN_PTR(__start_SYSTEMD_OPTIONS), __stop_SYSTEMD_OPTIONS, state)) != 0; )
+        for (int c; (c = option_parse(__start_SYSTEMD_OPTIONS, __stop_SYSTEMD_OPTIONS, state)) != 0; )
 
 #define FOREACH_OPTION_OR_RETURN(c, state)                              \
-        for (int c; (c = option_parse(ALIGN_PTR(__start_SYSTEMD_OPTIONS), __stop_SYSTEMD_OPTIONS, state)) != 0; ) \
+        for (int c; (c = option_parse(__start_SYSTEMD_OPTIONS, __stop_SYSTEMD_OPTIONS, state)) != 0; ) \
                 if (c < 0)                                              \
                         return c;                                       \
                 else
@@ -268,7 +267,7 @@ int _option_parser_get_help_table_full(
                 const char *group,
                 Table **ret);
 #define option_parser_get_help_table_full(namespace, group, ret)        \
-        _option_parser_get_help_table_full(ALIGN_PTR(__start_SYSTEMD_OPTIONS), __stop_SYSTEMD_OPTIONS, namespace, group, ret)
+        _option_parser_get_help_table_full(__start_SYSTEMD_OPTIONS, __stop_SYSTEMD_OPTIONS, namespace, group, ret)
 #define option_parser_get_help_table_ns(ns, ret)                        \
         option_parser_get_help_table_full(ns, /* group= */ NULL, ret)
 #define option_parser_get_help_table_group(group, ret)                  \
