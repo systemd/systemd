@@ -11,8 +11,6 @@
 
 #if HAVE_KMOD
 
-static void *libkmod_dl = NULL;
-
 DLSYM_PROTOTYPE(kmod_list_next) = NULL;
 DLSYM_PROTOTYPE(kmod_load_resources) = NULL;
 DLSYM_PROTOTYPE(kmod_module_get_initstate) = NULL;
@@ -173,6 +171,8 @@ int module_setup_context(struct kmod_ctx **ret) {
 
 int dlopen_libkmod(int log_level) {
 #if HAVE_KMOD
+        static void *libkmod_dl = NULL;
+
         SD_ELF_NOTE_DLOPEN(
                         "kmod",
                         "Support for loading kernel modules",
