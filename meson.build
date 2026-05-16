@@ -16,6 +16,7 @@ project('systemd', 'c',
 add_test_setup(
         'default',
         exclude_suites : ['clang-tidy', 'unused-symbols', 'integration-tests'],
+        exe_wrapper : find_program('tools/test-crash-trace.sh'),
         is_default : true,
 )
 
