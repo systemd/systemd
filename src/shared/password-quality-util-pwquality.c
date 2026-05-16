@@ -19,8 +19,6 @@
 #include "string-util.h"
 #include "strv.h"
 
-static void *pwquality_dl = NULL;
-
 static DLSYM_PROTOTYPE(pwquality_check) = NULL;
 static DLSYM_PROTOTYPE(pwquality_default_settings) = NULL;
 static DLSYM_PROTOTYPE(pwquality_free_settings) = NULL;
@@ -156,6 +154,8 @@ int check_password_quality(const char *password, const char *old, const char *us
 
 int dlopen_pwquality(int log_level) {
 #if HAVE_PWQUALITY
+        static void *pwquality_dl = NULL;
+
         SD_ELF_NOTE_DLOPEN(
                         "pwquality",
                         "Support for password quality checks",
