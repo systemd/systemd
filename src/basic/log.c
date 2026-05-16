@@ -87,6 +87,14 @@ bool _log_message_dummy = false; /* Always false */
                 }                                                       \
         } while (false)
 
+void log_prefix_swap(const char **prefix) {
+        assert(prefix);
+
+        const char *prev = log_prefix;
+        log_prefix = *prefix;
+        *prefix = prev;
+}
+
 static void log_close_console(void) {
         /* See comment in log_close_journal() */
         (void) safe_close_above_stdio(TAKE_FD(console_fd));
