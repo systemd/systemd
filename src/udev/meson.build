@@ -122,7 +122,6 @@ udev_dependencies = [
         libblkid_cflags,
         libkmod_cflags,
         libmount_cflags,
-        threads,
 ]
 
 udev_plugin_template = executable_template + {
@@ -138,7 +137,6 @@ udev_common_template = {
         'dependencies' : [
                 libacl_cflags,
                 libblkid_cflags,
-                threads,
         ],
 }
 udev_test_template = test_template + udev_common_template
