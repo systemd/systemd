@@ -11,8 +11,6 @@
 
 #include "fstab-util.h"
 
-static void *libmount_dl = NULL;
-
 DLSYM_PROTOTYPE(mnt_free_iter) = NULL;
 DLSYM_PROTOTYPE(mnt_free_table) = NULL;
 DLSYM_PROTOTYPE(mnt_fs_get_fs_options) = NULL;
@@ -120,6 +118,8 @@ int libmount_is_leaf(
 
 int dlopen_libmount(int log_level) {
 #if HAVE_LIBMOUNT
+        static void *libmount_dl = NULL;
+
         SD_ELF_NOTE_DLOPEN(
                         "mount",
                         "Support for mount enumeration",

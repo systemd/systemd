@@ -17,8 +17,6 @@
 #include "strv.h"
 
 #if HAVE_LIBCRYPTSETUP
-static void *cryptsetup_dl = NULL;
-
 DLSYM_PROTOTYPE(crypt_activate_by_passphrase) = NULL;
 DLSYM_PROTOTYPE(crypt_activate_by_signed_key) = NULL;
 DLSYM_PROTOTYPE(crypt_activate_by_token_pin) = NULL;
@@ -275,6 +273,7 @@ int cryptsetup_get_volume_key_id(
 
 int dlopen_cryptsetup(int log_level) {
 #if HAVE_LIBCRYPTSETUP
+        static void *cryptsetup_dl = NULL;
         int r;
 
         /* libcryptsetup added crypt_reencrypt() in 2.2.0, and marked it obsolete in 2.4.0, replacing it with
