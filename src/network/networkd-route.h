@@ -81,6 +81,7 @@ void route_detach(Route *route);
 
 int route_new(Route **ret);
 int route_new_static(Network *network, const char *filename, unsigned section_line, Route **ret);
+int route_new_static_manager(Manager *manager, const char *filename, unsigned section_line, Route **ret);
 int route_dup(const Route *src, const RouteNextHop *nh, Route **ret);
 
 int route_configure_handler_internal(sd_netlink_message *m, Request *req, Route *route);
@@ -108,12 +109,14 @@ int link_request_route(
                 unsigned *message_counter,
                 route_netlink_handler_t netlink_handler);
 int link_request_static_routes(Link *link, bool only_ipv4);
+int manager_request_static_routes(Manager *manager);
 
 int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Manager *m);
 
 int network_add_ipv4ll_route(Network *network);
 int network_add_default_route_on_device(Network *network);
 void network_drop_invalid_routes(Network *network);
+void manager_drop_invalid_routes(Manager *manager);
 int route_section_verify(Route *route);
 
 DEFINE_NETWORK_CONFIG_STATE_FUNCTIONS(Route, route);
@@ -144,6 +147,11 @@ typedef enum RouteConfParserType {
         ROUTE_METRIC_FASTOPEN_NO_COOKIE,
         _ROUTE_CONF_PARSER_MAX,
         _ROUTE_CONF_PARSER_INVALID = -EINVAL,
+
+        ROUTE_BY_MANAGER           = 1 << 16,
+        ROUTE_SECTION_MASK         = ROUTE_BY_MANAGER - 1,
 } RouteConfParserType;
+
+assert_cc(ROUTE_BY_MANAGER >= _ROUTE_CONF_PARSER_MAX);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_route_section);

@@ -245,6 +245,78 @@
   </refsect1>
 
   <refsect1>
+    <title>[Route] Section Options</title>
+
+    <para>The [Route] section accepts the following settings. Specify multiple [Route] sections to configure
+    multiple routes. These routes are configured at manager startup, before any network interface is configured,
+    and are not bound to any specific network interface. Only reject-type routes (<literal>blackhole</literal>,
+    <literal>prohibit</literal>, and <literal>unreachable</literal>) are supported in this context. These routes
+    persist independently of any interface lifecycle.</para>
+
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>Destination=</varname></term>
+        <listitem>
+          <para>Takes the destination prefix of the route, possibly followed by a slash and the prefix length.
+          If omitted, a full-length host route is assumed. The destination prefix family is used to determine
+          whether to generate an IPv4 or IPv6 route. This setting is mandatory.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Type=</varname></term>
+        <listitem>
+          <para>Specifies the type of the route. Takes one of <literal>blackhole</literal>,
+          <literal>prohibit</literal>, or <literal>unreachable</literal>.</para>
+
+          <para>A <literal>blackhole</literal> route silently discards packets. A
+          <literal>prohibit</literal> route generates an ICMP <literal>communication administratively
+          prohibited</literal> error. An <literal>unreachable</literal> route generates an ICMP
+          <literal>net unreachable</literal> error. This setting is mandatory.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Priority=</varname></term>
+        <listitem>
+          <para>Specifies the priority of the route. Takes an unsigned integer. Defaults to unset, and the
+          kernel's default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Table=</varname></term>
+        <listitem>
+          <para>The table identifier for the route. Takes one of the predefined table names
+          <literal>default</literal>, <literal>main</literal>, and <literal>local</literal>, or an arbitrary
+          unsigned integer in the range 1…4294967295. The table can also be set to the name defined in the
+          <varname>RouteTable=</varname> setting in the [Network] section. Defaults to
+          <literal>main</literal>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Protocol=</varname></term>
+        <listitem>
+          <para>The protocol identifier for the route. Takes a number between 0 and 255 or the
+          special values <literal>kernel</literal>, <literal>boot</literal>, <literal>static</literal>,
+          <literal>ra</literal>, and <literal>dhcp</literal>. Defaults to <literal>static</literal>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
     <title>[DHCPv4] Section Options</title>
 
     <para>This section configures the default configurations of DHCPv4 client. If the DHCPv4 client is
