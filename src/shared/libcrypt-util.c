@@ -16,7 +16,6 @@
 
 #if HAVE_LIBCRYPT
 #ifdef __GLIBC__
-static void *libcrypt_dl = NULL;
 static DLSYM_PROTOTYPE(crypt_gensalt_ra) = NULL;
 static DLSYM_PROTOTYPE(crypt_preferred_method) = NULL;
 static DLSYM_PROTOTYPE(crypt_ra) = NULL;
@@ -132,6 +131,7 @@ bool looks_like_hashed_password(const char *s) {
 int dlopen_libcrypt(int log_level) {
 #if HAVE_LIBCRYPT
 #ifdef __GLIBC__
+        static void *libcrypt_dl = NULL;
         static int cached = 0;
         int r = -ENOENT;
 

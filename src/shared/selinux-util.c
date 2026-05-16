@@ -55,8 +55,6 @@ static int mac_selinux_label_post(int dir_fd, const char *path, bool created) {
         return 0;
 }
 
-static void *libselinux_dl = NULL;
-
 DLSYM_PROTOTYPE(avc_open) = NULL;
 DLSYM_PROTOTYPE(context_free) = NULL;
 DLSYM_PROTOTYPE(context_new) = NULL;
@@ -95,6 +93,8 @@ DLSYM_PROTOTYPE(string_to_security_class) = NULL;
 
 int dlopen_libselinux(int log_level) {
 #if HAVE_SELINUX
+        static void *libselinux_dl = NULL;
+
         SD_ELF_NOTE_DLOPEN(
                         "selinux",
                         "Support for SELinux",
