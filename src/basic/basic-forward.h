@@ -110,10 +110,13 @@ typedef enum UnitNameMangle UnitNameMangle;
 typedef enum UnitType UnitType;
 typedef enum WaitFlags WaitFlags;
 
+typedef struct Fiber Fiber;
+typedef struct FiberOps FiberOps;
 typedef struct Hashmap Hashmap;
 typedef struct HashmapBase HashmapBase;
 typedef struct IteratedCache IteratedCache;
 typedef struct Iterator Iterator;
+typedef struct LogContext LogContext;
 typedef struct OrderedHashmap OrderedHashmap;
 typedef struct OrderedSet OrderedSet;
 typedef struct Set Set;
