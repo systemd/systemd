@@ -34,8 +34,6 @@
 #include "strv.h"
 
 #if HAVE_SECCOMP
-static void *libseccomp_dl = NULL;
-
 DLSYM_PROTOTYPE(seccomp_api_get) = NULL;
 DLSYM_PROTOTYPE(seccomp_arch_add) = NULL;
 DLSYM_PROTOTYPE(seccomp_arch_exist) = NULL;
@@ -2604,6 +2602,8 @@ int seccomp_suppress_sync(void) {
 
 int dlopen_libseccomp(int log_level) {
 #if HAVE_SECCOMP
+        static void *libseccomp_dl = NULL;
+
         SD_ELF_NOTE_DLOPEN(
                         "seccomp",
                         "Support for Seccomp Sandboxes",

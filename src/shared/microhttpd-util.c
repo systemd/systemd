@@ -12,8 +12,6 @@
 #include "strv.h"
 
 #if HAVE_MICROHTTPD
-static void *microhttpd_dl = NULL;
-
 DLSYM_PROTOTYPE(MHD_add_response_header) = NULL;
 DLSYM_PROTOTYPE(MHD_create_response_from_buffer) = NULL;
 DLSYM_PROTOTYPE(MHD_create_response_from_callback) = NULL;
@@ -36,6 +34,8 @@ DLSYM_PROTOTYPE(MHD_stop_daemon) = NULL;
 
 int dlopen_microhttpd(int log_level) {
 #if HAVE_MICROHTTPD
+        static void *microhttpd_dl = NULL;
+
         SD_ELF_NOTE_DLOPEN(
                         "microhttpd",
                         "Support for embedded HTTP server via libmicrohttpd",
