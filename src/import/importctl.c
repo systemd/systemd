@@ -833,7 +833,7 @@ static int verb_export_raw(int argc, char *argv[], uintptr_t _data, void *userda
         return transfer_image_common(bus, m);
 }
 
-VERB(verb_list_transfers, "list-transfers", NULL, VERB_ANY, 1, VERB_DEFAULT, "Show list of transfers in progress");
+VERB_DEFAULT_NOARG(verb_list_transfers, "list-transfers", "Show list of transfers in progress");
 static int verb_list_transfers(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;

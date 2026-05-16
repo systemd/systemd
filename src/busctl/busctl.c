@@ -176,8 +176,7 @@ static void notify_bus_error(const sd_bus_error *error) {
         (void) sd_notifyf(/* unset_environment= */ false, "BUSERROR=%s", error->name);
 }
 
-VERB(verb_list, "list", NULL, VERB_ANY, 1, VERB_DEFAULT,
-     "List bus names");
+VERB_DEFAULT_NOARG(verb_list, "list", "List bus names");
 static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_strv_free_ char **acquired = NULL, **activatable = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
