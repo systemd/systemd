@@ -22,6 +22,7 @@
 #include "network-common.h"
 #include "random-util.h"
 #include "set.h"
+#include "socket-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "time-util.h"
@@ -43,32 +44,6 @@ static const uint8_t default_req_opts[] = {
         SD_DHCP_OPTION_HOST_NAME,
         SD_DHCP_OPTION_DOMAIN_NAME,
         SD_DHCP_OPTION_DOMAIN_NAME_SERVER,
-};
-
-/* RFC7844 section 3:
-   MAY contain the Parameter Request List option.
-   RFC7844 section 3.6:
-   The client intending to protect its privacy SHOULD only request a
-   minimal number of options in the PRL and SHOULD also randomly shuffle
-   the ordering of option codes in the PRL.  If this random ordering
-   cannot be implemented, the client MAY order the option codes in the
-   PRL by option code number (lowest to highest).
-*/
-/* NOTE: using PRL options that Windows 10 RFC7844 implementation uses */
-static const uint8_t default_req_opts_anonymize[] = {
-        SD_DHCP_OPTION_SUBNET_MASK,                     /* 1 */
-        SD_DHCP_OPTION_ROUTER,                          /* 3 */
-        SD_DHCP_OPTION_DOMAIN_NAME_SERVER,              /* 6 */
-        SD_DHCP_OPTION_DOMAIN_NAME,                     /* 15 */
-        SD_DHCP_OPTION_ROUTER_DISCOVERY,                /* 31 */
-        SD_DHCP_OPTION_STATIC_ROUTE,                    /* 33 */
-        SD_DHCP_OPTION_VENDOR_SPECIFIC_INFORMATION,     /* 43 */
-        SD_DHCP_OPTION_NETBIOS_NAME_SERVER,             /* 44 */
-        SD_DHCP_OPTION_NETBIOS_NODE_TYPE,               /* 46 */
-        SD_DHCP_OPTION_NETBIOS_SCOPE,                   /* 47 */
-        SD_DHCP_OPTION_CLASSLESS_STATIC_ROUTE,          /* 121 */
-        SD_DHCP_OPTION_PRIVATE_CLASSLESS_STATIC_ROUTE,  /* 249 */
-        SD_DHCP_OPTION_PRIVATE_PROXY_AUTODISCOVERY,     /* 252 */
 };
 
 static void client_stop(sd_dhcp_client *client, int error);
@@ -97,6 +72,14 @@ int sd_dhcp_client_set_callback(
         client->callback = cb;
         client->userdata = userdata;
 
+        return 0;
+}
+
+int sd_dhcp_client_set_anonymize(sd_dhcp_client *client, int b) {
+        assert_return(client, -EINVAL);
+        assert_return(!sd_dhcp_client_is_running(client), -EBUSY);
+
+        client->anonymize = !!b;
         return 0;
 }
 
@@ -533,7 +516,7 @@ int sd_dhcp_client_get_lease(sd_dhcp_client *client, sd_dhcp_lease **ret) {
         return 0;
 }
 
-int sd_dhcp_client_set_service_type(sd_dhcp_client *client, int type) {
+int sd_dhcp_client_set_ip_service_type(sd_dhcp_client *client, uint8_t type) {
         assert_return(client, -EINVAL);
         assert_return(!sd_dhcp_client_is_running(client), -EBUSY);
 
@@ -546,7 +529,6 @@ int sd_dhcp_client_set_socket_priority(sd_dhcp_client *client, int socket_priori
         assert_return(client, -EINVAL);
         assert_return(!sd_dhcp_client_is_running(client), -EBUSY);
 
-        client->socket_priority_set = true;
         client->socket_priority = socket_priority;
 
         return 0;
@@ -1427,9 +1409,7 @@ static sd_dhcp_client* dhcp_client_free(sd_dhcp_client *client) {
 
 DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_dhcp_client, sd_dhcp_client, dhcp_client_free);
 
-int sd_dhcp_client_new(sd_dhcp_client **ret, int anonymize) {
-        const uint8_t *opts;
-        size_t n_opts;
+int sd_dhcp_client_new(sd_dhcp_client **ret) {
         int r;
 
         assert_return(ret, -EINVAL);
@@ -1444,21 +1424,13 @@ int sd_dhcp_client_new(sd_dhcp_client **ret, int anonymize) {
                 .ifindex = -1,
                 .port = DHCP_PORT_CLIENT,
                 .server_port = DHCP_PORT_SERVER,
-                .anonymize = !!anonymize,
                 .max_discover_attempts = UINT64_MAX,
-                .ip_service_type = -1,
+                .ip_service_type = IPTOS_CLASS_CS6, /* Defaults to CS6 (Internetwork Control). */
+                .socket_priority = tos_to_priority(IPTOS_CLASS_CS6),
         };
-        /* NOTE: this could be moved to a function. */
-        if (anonymize) {
-                n_opts = ELEMENTSOF(default_req_opts_anonymize);
-                opts = default_req_opts_anonymize;
-        } else {
-                n_opts = ELEMENTSOF(default_req_opts);
-                opts = default_req_opts;
-        }
 
-        for (size_t i = 0; i < n_opts; i++) {
-                r = sd_dhcp_client_set_request_option(client, opts[i]);
+        FOREACH_ELEMENT(opt, default_req_opts) {
+                r = sd_dhcp_client_set_request_option(client, *opt);
                 if (r < 0)
                         return r;
         }
