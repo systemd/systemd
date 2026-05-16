@@ -65,7 +65,7 @@ static void test_random_u64_range_one(unsigned mod) {
                           i, count[i], dev,
                           (int) (count[i] / scale), "x");
 
-                assert_se(fabs(dev) < 6); /* 6 sigma is excessive, but this check should be enough to
+                assert_se(ABS(dev) < 6); /* 6 sigma is excessive, but this check should be enough to
                                            * identify catastrophic failure while minimizing false
                                            * positives. */
         }
