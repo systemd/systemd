@@ -8,12 +8,12 @@
 # Emilio Herrera <ehespinosa57@gmail.com>, 2021.
 # Jose Ortuno <jose_ortuno@hotmail.com>, 2025.
 # Javier Francisco <fserrador@gmail.com>, 2025.
-# "Fco. Javier F. Serrador" <fserrador@gmail.com>, 2025.
+# "Fco. Javier F. Serrador" <fserrador@gmail.com>, 2025, 2026.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-03-06 03:46+0900\n"
-"PO-Revision-Date: 2025-11-29 03:49+0000\n"
+"PO-Revision-Date: 2026-05-16 11:59+0000\n"
 "Last-Translator: \"Fco. Javier F. Serrador\" <fserrador@gmail.com>\n"
 "Language-Team: Spanish <https://translate.fedoraproject.org/projects/systemd/"
 "main/es/>\n"
@@ -22,7 +22,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 5.14.3\n"
+"X-Generator: Weblate 2026.5\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -1057,12 +1057,12 @@ msgid "DHCP server sends force renew message"
 msgstr "El servidor DHCP envía un mensaje de renovación forzada"
 
 #: src/network/org.freedesktop.network1.policy:144
-#, fuzzy
-#| msgid "Authentication is required to send force renew message."
 msgid ""
 "Authentication is required to send a force renew message from the DHCP "
 "server."
-msgstr "Necesita autenticarse para enviar el mensaje de renovación forzada."
+msgstr ""
+"Necesita autenticarse para enviar un mensaje de renovación forzada desde el "
+"servidor DHCP."
 
 #: src/network/org.freedesktop.network1.policy:154
 msgid "Renew dynamic addresses"
@@ -1104,11 +1104,11 @@ msgstr ""
 
 #: src/network/org.freedesktop.network1.policy:198
 msgid "Manage network links"
-msgstr ""
+msgstr "Gestionar enlaces de red"
 
 #: src/network/org.freedesktop.network1.policy:199
 msgid "Authentication is required to manage network links."
-msgstr ""
+msgstr "La autenticación está requerida para gestionar enlaces de red."
 
 #: src/portable/org.freedesktop.portable1.policy:13
 msgid "Inspect a portable service image"
