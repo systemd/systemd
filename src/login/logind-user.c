@@ -763,8 +763,14 @@ bool user_may_gc(User *u, bool drop_not_started) {
 
         /* Is this a user that shall stay around forever ("linger")? Before we say "no" to GC'ing for lingering users, let's check
          * if any of the three units that we maintain for this user is still around. If none of them is,
-         * there's no need to keep this user around even if lingering is enabled. */
-        if (user_check_linger_file(u) > 0 && user_unit_active(u))
+         * there's no need to keep this user around even if lingering is enabled.
+         *
+         * Exception: at startup-time GC (drop_not_started=false) the per-user units have not yet been
+         * started by manager_startup(), so requiring user_unit_active() here would unconditionally GC
+         * every lingering user before we get a chance to user_start() them. That breaks after a
+         * soft-reboot, where /run/systemd/users is preserved and feeds lingering users into the GC
+         * queue (cold boot is unaffected because /run is empty). See #41789. */
+        if (user_check_linger_file(u) > 0 && (!drop_not_started || user_unit_active(u)))
                 return false;
 
         /* Check if our job is still pending */
