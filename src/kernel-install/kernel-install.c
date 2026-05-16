@@ -1719,7 +1719,7 @@ static int run(int argc, char* argv[]) {
         if (invoked_as(argv, "installkernel"))
                 return run_as_installkernel(args);
 
-        return dispatch_verb_with_args(args, /* userdata= */ NULL);
+        return dispatch_verb(args, /* userdata= */ NULL);
 }
 
 DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);

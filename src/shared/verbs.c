@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <getopt.h>
-
 #include "env-util.h"
 #include "format-table.h"
 #include "log.h"
@@ -79,7 +77,7 @@ const Verb* verbs_find_verb(const char *name, const Verb verbs[], const Verb ver
         return NULL;
 }
 
-int _dispatch_verb_with_args(char **args, const Verb verbs[], const Verb verbs_end[], void *userdata) {
+int _dispatch_verb(char **args, const Verb verbs[], const Verb verbs_end[], void *userdata) {
         int r;
 
         assert(verbs);
@@ -144,21 +142,6 @@ int _dispatch_verb_with_args(char **args, const Verb verbs[], const Verb verbs_e
 
         assert(left < INT_MAX);  /* args are derived from argc+argv, so their size must fit in an int. */
         return verb->dispatch(left, args, verb->data, userdata);
-}
-
-int dispatch_verb(int argc, char *argv[], const Verb verbs[], void *userdata) {
-        /* getopt wrapper for _dispatch_verb_with_args.
-         * TBD: remove this function when all programs with verbs have been converted. */
-
-        assert(argc >= 0);
-        assert(argv);
-        assert(argc >= optind);
-
-        size_t n = 0;
-        while (verbs[n].verb)
-                n++;
-
-        return _dispatch_verb_with_args(strv_skip(argv, optind), verbs, verbs + n, userdata);
 }
 
 #define VERB_SYNOPSIS_WIDTH_SANE 25

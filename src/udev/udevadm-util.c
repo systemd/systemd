@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
-#include <getopt.h>
-
 #include "sd-bus.h"
 
 #include "alloc-util.h"

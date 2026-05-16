@@ -3048,7 +3048,7 @@ static int run(int argc, char *argv[]) {
                 return EXIT_SUCCESS;
         }
 
-        return dispatch_verb_with_args(args, NULL);
+        return dispatch_verb(args, NULL);
 }
 
 DEFINE_MAIN_FUNCTION(run);

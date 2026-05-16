@@ -1874,7 +1874,7 @@ static int run(int argc, char *argv[]) {
         } else
                 assert_se(unsetenv("SYSTEMD_ONLY_USERDB") == 0);
 
-        return dispatch_verb_with_args(args, NULL);
+        return dispatch_verb(args, NULL);
 }
 
 DEFINE_MAIN_FUNCTION(run);

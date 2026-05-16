@@ -1757,7 +1757,7 @@ static int run(int argc, char *argv[]) {
 
         (void) sd_bus_set_allow_interactive_authorization(bus, true);
 
-        return dispatch_verb_with_args(args, bus);
+        return dispatch_verb(args, bus);
 }
 
 DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);
