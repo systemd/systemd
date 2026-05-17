@@ -1409,12 +1409,19 @@ int dhcp_message_parse(
                 r = tlv_parse(&message->options, &IOVEC_MAKE(message->header.file, sizeof(message->header.file)));
                 if (r < 0)
                         return r;
+
+                /* The content of the overloaded field has been merged into options. Clear it so that the
+                 * field is not re-parsed (which would duplicate the options) and not re-emitted verbatim
+                 * by dhcp_message_build(), ensuring parse/build is idempotent. */
+                memzero(message->header.file, sizeof(message->header.file));
         }
 
         if (FLAGS_SET(overload, DHCP_OVERLOAD_SNAME)) {
                 r = tlv_parse(&message->options, &IOVEC_MAKE(message->header.sname, sizeof(message->header.sname)));
                 if (r < 0)
                         return r;
+
+                memzero(message->header.sname, sizeof(message->header.sname));
         }
 
         *ret = TAKE_PTR(message);
