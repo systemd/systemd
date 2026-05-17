@@ -641,8 +641,41 @@ static int allocate_now(
         r = userns_registry_inode_exists(registry_dir_fd, info->userns_inode);
         if (r < 0)
                 return r;
-        if (r > 0)
-                return -EDEADLK;
+        if (r > 0) {
+                /* The kernel reuses user namespace inodes, so it can happen that an inode arrives here that
+                 * we've previously registered, before our BPF kprobe handler in the manager process got a
+                 * chance to release it. If the existing registry entry carries a kernel namespace ID that
+                 * differs from ours, the old namespace is gone and the inode has been recycled, so clean up
+                 * the stale entry and continue. Otherwise (matching IDs, or no ID recorded), treat it as a
+                 * real collision. */
+                _cleanup_(userns_info_freep) UserNamespaceInfo *existing = NULL;
+
+                r = userns_registry_load_by_userns_inode(registry_dir_fd, info->userns_inode, &existing);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to load existing registry entry for user namespace inode %" PRIu64 ": %m", info->userns_inode);
+
+                if (info->userns_id == 0 || existing->userns_id == 0 || existing->userns_id == info->userns_id)
+                        return -EDEADLK;
+
+                log_debug("Registry entry for user namespace inode %" PRIu64 " refers to a different namespace (id %" PRIu64 " vs %" PRIu64 "), cleaning up stale entry.",
+                          info->userns_inode, existing->userns_id, info->userns_id);
+
+                /* The stale entry's BPF rules will be replaced by our own below. The fdstore entry uses the
+                 * inode as its FDNAME, so the manager will replace it when we send our own FDSTORE
+                 * notification. We still have to clean up the cgroups and netifs that were delegated to the
+                 * previous namespace, plus the registry files themselves. */
+                r = userns_info_remove_cgroups(existing);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to remove cgroups of stale user namespace entry, ignoring: %m");
+
+                r = userns_info_remove_netifs(existing);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to remove netifs of stale user namespace entry, ignoring: %m");
+
+                r = userns_registry_remove(registry_dir_fd, existing);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to remove stale registry entry: %m");
+        }
 
         r = name_is_available(registry_dir_fd, info->name);
         if (r < 0)
