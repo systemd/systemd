@@ -442,16 +442,12 @@ int manager_deserialize(Manager *manager) {
 
         log_debug("Deserializing...");
 
-        _cleanup_fclose_ FILE *f = take_fdopen(&fd, "r");
-        if (!f)
-                return log_debug_errno(errno, "Failed to fdopen() serialization file descriptor: %m");
-
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         unsigned err_line = 0, err_column = 0;
-        r = sd_json_parse_file(
-                        f,
+        r = sd_json_parse_fd(
                         /* path= */ NULL,
-                        /* flags= */ 0,
+                        TAKE_FD(fd),
+                        SD_JSON_PARSE_DONATE_FD,
                         &v,
                         &err_line,
                         &err_column);
