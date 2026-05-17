@@ -816,26 +816,35 @@ def stop_by_pid_file(pid_file):
     rm_f(pid_file)
 
 
-def dnr_v4_instance_data(adn, addrs=None, prio=1, alpns=('dot',), dohpath=None):
-    b = b''
-    pack = lambda c, w=1: struct.pack('>' + '_BH_I'[w], len(c)) + c
-    pyton = lambda n, w=2: struct.pack('>' + '_BH_I'[w], n)
-    ipv4 = ipaddress.IPv4Address
+def pack(c, width=1):
+    # big-endian unsigned char/short/integer
+    fmt = {1: '>B', 2: '>H', 4: '>I'}
+    return struct.pack(fmt[width], c) + c
 
-    class SvcParam(enum.Enum):
-        ALPN = 1
-        DOHPATH = 7
+
+def pyton(n, width=2):
+    fmt = {1: '>B', 2: '>H', 4: '>I'}
+    return struct.pack(fmt[width], n)
+
+
+class SvcParam(enum.Enum):
+    ALPN = 1
+    DOHPATH = 7
+
+
+def dnr_v4_instance_data(adn, addrs=None, prio=1, alpns=('dot',), dohpath=None):
+    ipv4 = ipaddress.IPv4Address
 
     data = pyton(prio)
 
     adn = adn.rstrip('.') + '.'
-    data += pack(b.join(pack(label.encode('ascii')) for label in adn.split('.')))
+    data += pack(b''.join(pack(label.encode('ascii')) for label in adn.split('.')))
 
     if not addrs:  # adn-only mode
         return pack(data, 2)
 
-    data += pack(b.join(ipv4(addr).packed for addr in addrs))
-    data += pyton(SvcParam.ALPN.value) + pack(b.join(pack(alpn.encode('ascii')) for alpn in alpns), 2)
+    data += pack(b''.join(ipv4(addr).packed for addr in addrs))
+    data += pyton(SvcParam.ALPN.value) + pack(b''.join(pack(alpn.encode('ascii')) for alpn in alpns), 2)
     if dohpath is not None:
         data += pyton(SvcParam.DOHPATH.value) + pack(dohpath.encode('utf-8'), 2)
 
@@ -843,25 +852,18 @@ def dnr_v4_instance_data(adn, addrs=None, prio=1, alpns=('dot',), dohpath=None):
 
 
 def dnr_v6_instance_data(adn, addrs=None, prio=1, alpns=('dot',), dohpath=None):
-    b = b''
-    pack = lambda c, w=1: struct.pack('>' + '_BH_I'[w], len(c)) + c
-    pyton = lambda n, w=2: struct.pack('>' + '_BH_I'[w], n)
     ipv6 = ipaddress.IPv6Address
-
-    class SvcParam(enum.Enum):
-        ALPN = 1
-        DOHPATH = 7
 
     data = pyton(prio)
 
     adn = adn.rstrip('.') + '.'
-    data += pack(b.join(pack(label.encode('ascii')) for label in adn.split('.')), 2)
+    data += pack(b''.join(pack(label.encode('ascii')) for label in adn.split('.')), 2)
 
     if not addrs:  # adn-only mode
         return data
 
-    data += pack(b.join(ipv6(addr).packed for addr in addrs), 2)
-    data += pyton(SvcParam.ALPN.value) + pack(b.join(pack(alpn.encode('ascii')) for alpn in alpns), 2)
+    data += pack(b''.join(ipv6(addr).packed for addr in addrs), 2)
+    data += pyton(SvcParam.ALPN.value) + pack(b''.join(pack(alpn.encode('ascii')) for alpn in alpns), 2)
     if dohpath is not None:
         data += pyton(SvcParam.DOHPATH.value) + pack(dohpath.encode('utf-8'), 2)
 
@@ -9736,6 +9738,9 @@ Address={ipv6_address}
 
             check_json(networkctl_json())
 
+        def masq(bs):
+            return ':'.join(f'{b:02x}' for b in bs)
+
         copy_network_unit(
             '25-veth.netdev',
             '25-dhcp-server-veth-peer.network',
@@ -9759,7 +9764,6 @@ Address={ipv6_address}
             adn='dns.google',
             addrs=['2001:4860:4860::8888', '2001:4860:4860::8844'],
         )
-        masq = lambda bs: ':'.join(f'{b:02x}' for b in bs)
         start_dnsmasq(f'--dhcp-option=162,{masq(dnr_v4)}', f'--dhcp-option=option6:144,{masq(dnr_v6)}')
 
         check(self, True, True)

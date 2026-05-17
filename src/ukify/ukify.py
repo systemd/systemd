@@ -1859,6 +1859,17 @@ class ConfigItem:
         args = self._names()
         parser.add_argument(*args, **kwargs)
 
+    def parse_value(self, s: str) -> Any:
+        if self.action == argparse.BooleanOptionalAction:
+            # We need to handle this case separately: the options are called
+            # --foo and --no-foo, and no argument is parsed. But in the config
+            # file, we have Foo=yes or Foo=no.
+            return self.parse_boolean(s)
+        elif self.type:
+            return self.type(s)
+
+        return s
+
     def apply_config(
         self,
         namespace: argparse.Namespace,
@@ -1870,24 +1881,13 @@ class ConfigItem:
         assert f'{section}/{key}' == self.config_key
         dest = self.argparse_dest()
 
-        conv: Callable[[str], Any]
-        if self.action == argparse.BooleanOptionalAction:
-            # We need to handle this case separately: the options are called
-            # --foo and --no-foo, and no argument is parsed. But in the config
-            # file, we have Foo=yes or Foo=no.
-            conv = self.parse_boolean
-        elif self.type:
-            conv = self.type
-        else:
-            conv = lambda s: s
-
         # This is a bit ugly, but --initrd and --devicetree-auto are the only options
         # with multiple args on the command line and a space-separated list in the
         # config file.
         if self.name in ['--initrd', '--devicetree-auto']:
-            value = [conv(v) for v in value.split()]
+            value = [self.parse_value(v) for v in value.split()]
         else:
-            value = conv(value)
+            value = self.parse_value(value)
 
         self.config_push(namespace, group, dest, value)
 
