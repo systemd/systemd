@@ -994,25 +994,25 @@ int parse_elf_object(
         }
 
         if (ret_package_metadata) {
-                _cleanup_fclose_ FILE *json_in = NULL;
-
-                json_in = take_fdopen(&package_metadata_pipe[0], "r");
-                if (!json_in)
-                        return -errno;
-
-                r = sd_json_parse_file(json_in, NULL, 0, &package_metadata, NULL, NULL);
+                r = sd_json_parse_fd(
+                                /* path= */ NULL,
+                                TAKE_FD(package_metadata_pipe[0]),
+                                SD_JSON_PARSE_DONATE_FD,
+                                &package_metadata,
+                                /* reterr_line= */ NULL,
+                                /* reterr_column= */ NULL);
                 if (r < 0 && r != -ENODATA) /* ENODATA: json was empty, so we got nothing, but that's ok */
                         log_warning_errno(r, "Failed to read or parse package metadata, ignoring: %m");
         }
 
         if (ret_dlopen_metadata) {
-                _cleanup_fclose_ FILE *json_in = NULL;
-
-                json_in = take_fdopen(&dlopen_metadata_pipe[0], "r");
-                if (!json_in)
-                        return -errno;
-
-                r = sd_json_parse_file(json_in, NULL, 0, &dlopen_metadata, NULL, NULL);
+                r = sd_json_parse_fd(
+                                /* path= */ NULL,
+                                TAKE_FD(dlopen_metadata_pipe[0]),
+                                SD_JSON_PARSE_DONATE_FD,
+                                &dlopen_metadata,
+                                /* reterr_line= */ NULL,
+                                /* reterr_column= */ NULL);
                 if (r < 0 && r != -ENODATA) /* ENODATA: json was empty, so we got nothing, but that's ok */
                         log_warning_errno(r, "Failed to read or parse dlopen metadata, ignoring: %m");
         }
