@@ -16,13 +16,13 @@ BYTES_PER_LINE = 16
 hwids = ukify.parse_hwid_dir(Path(sys.argv[1]))
 
 print(
-    """/* SPDX-License-Identifier: LGPL-2.1-or-later */
+    '''/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #include <stddef.h>
 #include <stdint.h>
 
 // NOLINTNEXTLINE(misc-use-internal-linkage)
 const uint8_t hwids_section_data[] = {
-    """,
+    ''',
     end='',
 )
 
@@ -34,9 +34,9 @@ for i, b in enumerate(hwids):
         print('')
 
 print(
-    """};
+    '''};
 
 // NOLINTNEXTLINE(misc-use-internal-linkage)
-const size_t hwids_section_len =""",
+const size_t hwids_section_len =''',
     f'{len(hwids)};',
 )

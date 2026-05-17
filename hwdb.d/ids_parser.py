@@ -3,11 +3,24 @@
 
 import re
 import sys
-from pyparsing import (Word, White, Literal, Regex,
-                       LineEnd, SkipTo,
-                       ZeroOrMore, OneOrMore, Combine, Optional, Suppress,
-                       Group, ParserElement,
-                       stringEnd, pythonStyleComment)
+
+from pyparsing import (
+    Combine,
+    Group,
+    LineEnd,
+    Literal,
+    OneOrMore,
+    Optional,
+    ParserElement,
+    Regex,
+    SkipTo,
+    Suppress,
+    White,
+    Word,
+    ZeroOrMore,
+    pythonStyleComment,
+    stringEnd,
+)
 
 EOL = LineEnd().suppress()
 NUM1 = Word('0123456789abcdefABCDEF', exact=1)
@@ -22,7 +35,9 @@ text_eol = lambda name: Regex(r'[^\n]+')(name) + EOL
 
 ParserElement.setDefaultWhitespaceChars(' \n')
 
+
 def klass_grammar():
+    # fmt: off
     klass_line = Literal('C ').suppress() + NUM2('klass') + text_eol('text')
     subclass_line = TAB + NUM2('subclass') + text_eol('text')
     protocol_line = TAB + TAB + NUM2('protocol') + text_eol('name')
@@ -32,9 +47,12 @@ def klass_grammar():
     klass = (klass_line('KLASS') -
              ZeroOrMore(Group(subclass)('SUBCLASSES*')
                         ^ COMMENTLINE.suppress()))
+    # fmt: on
     return klass
 
+
 def usb_ids_grammar():
+    # fmt: off
     vendor_line = NUM4('vendor') + text_eol('text')
     device_line = TAB + NUM4('device') + text_eol('text')
     interface_line = TAB + TAB + NUM4('interface') + NUM4('interface2') + text_eol('text')
@@ -55,11 +73,14 @@ def usb_ids_grammar():
     grammar = OneOrMore(Group(vendor)('VENDORS*')
                         ^ Group(klass)('CLASSES*')
                         ^ other_group.suppress() ^ commentgroup) + stringEnd()
+    # fmt: on
 
     grammar.parseWithTabs()
     return grammar
 
+
 def pci_ids_grammar():
+    # fmt: off
     vendor_line = NUM4('vendor') + text_eol('text')
     device_line = TAB + NUM4('device') + text_eol('text')
     subvendor_line = TAB + TAB + NUM4('a') + White(' ') + NUM4('b') + text_eol('name')
@@ -75,11 +96,14 @@ def pci_ids_grammar():
     grammar = OneOrMore(Group(vendor)('VENDORS*')
                         ^ Group(klass)('CLASSES*')
                         ^ commentgroup) + stringEnd()
+    # fmt: on
 
     grammar.parseWithTabs()
     return grammar
 
+
 def sdio_ids_grammar():
+    # fmt: off
     vendor_line = NUM4('vendor') + text_eol('text')
     device_line = TAB + NUM4('device') + text_eol('text')
     vendor = (vendor_line('VENDOR') +
@@ -91,11 +115,14 @@ def sdio_ids_grammar():
     grammar = OneOrMore(Group(vendor)('VENDORS*')
                         ^ Group(klass)('CLASSES*')
                         ^ commentgroup) + stringEnd()
+    # fmt: on
 
     grammar.parseWithTabs()
     return grammar
 
+
 def oui_grammar(type):
+    # fmt: off
     prefix_line = (Combine(NUM2 - Suppress('-') - NUM2 - Suppress('-') - NUM2)('prefix')
                    - Literal('(hex)') -  text_eol('text'))
     if type == 'small':
@@ -115,24 +142,30 @@ def oui_grammar(type):
     grammar = (Literal('OUI') + text_eol('header')
                + text_eol('header') + text_eol('header') + EMPTYLINE
                + OneOrMore(Group(vendor)('VENDORS*')) + stringEnd())
+    # fmt: on
 
     grammar.parseWithTabs()
     return grammar
 
 
 def header(file, *sources):
-    print('''\
+    sep = ' ' if len(sources) == 1 else '\n#   '
+    joined = sep + sep.join(sources)
+    print(
+        f'''\
 # This file is part of systemd.
 #
-# Data imported from:{}{}'''.format(' ' if len(sources) == 1 else '\n#   ',
-                                    '\n#   '.join(sources)),
-          file=file)
+# Data imported from:{joined}''',
+        file=file,
+    )
+
 
 def add_item(items, key, value):
     if key in items:
         print(f'Ignoring duplicate entry: {key} = "{items[key]}", "{value}"')
     else:
         items[key] = value
+
 
 def usb_vendor_model(p):
     items = {}
@@ -147,18 +180,18 @@ def usb_vendor_model(p):
             text = vendor_dev.text.strip()
             add_item(items, (vendor, device), text)
 
-    with open('20-usb-vendor-model.hwdb', 'wt') as out:
+    with open('20-usb-vendor-model.hwdb', 'w') as out:
         header(out, 'http://www.linux-usb.org/usb.ids')
 
         for key in sorted(items):
             if len(key) == 1:
                 p, n = 'usb:v{}*', 'VENDOR'
             else:
-                p, n = 'usb:v{}p{}*', 'MODEL',
-            print('', p.format(*key),
-                  f' ID_{n}_FROM_DATABASE={items[key]}', sep='\n', file=out)
+                p, n = 'usb:v{}p{}*', 'MODEL'
+            print('', p.format(*key), f' ID_{n}_FROM_DATABASE={items[key]}', sep='\n', file=out)
 
     print(f'Wrote {out.name}')
+
 
 def usb_classes(p):
     items = {}
@@ -182,7 +215,7 @@ def usb_classes(p):
                 if klass != '00' and not re.match(r'(\?|None|Unused)\s*$', text):
                     add_item(items, (klass, subclass, protocol), text)
 
-    with open('20-usb-classes.hwdb', 'wt') as out:
+    with open('20-usb-classes.hwdb', 'w') as out:
         header(out, 'http://www.linux-usb.org/usb.ids')
 
         for key in sorted(items):
@@ -192,10 +225,10 @@ def usb_classes(p):
                 p, n = 'usb:v*p*d*dc{}dsc{}*', 'SUBCLASS'
             else:
                 p, n = 'usb:v*p*d*dc{}dsc{}dp{}*', 'PROTOCOL'
-            print('', p.format(*key),
-                  f' ID_USB_{n}_FROM_DATABASE={items[key]}', sep='\n', file=out)
+            print('', p.format(*key), f' ID_USB_{n}_FROM_DATABASE={items[key]}', sep='\n', file=out)
 
     print(f'Wrote {out.name}')
+
 
 def pci_vendor_model(p):
     items = {}
@@ -215,12 +248,12 @@ def pci_vendor_model(p):
                 sub_model = subvendor_group.b.upper()
                 sub_text = subvendor_group.name.strip()
                 if sub_text.startswith(text):
-                    sub_text = sub_text[len(text):].lstrip()
+                    sub_text = sub_text[len(text) :].lstrip()
                 if sub_text:
                     sub_text = f' ({sub_text})'
                 add_item(items, (vendor, device, sub_vendor, sub_model), text + sub_text)
 
-    with open('20-pci-vendor-model.hwdb', 'wt') as out:
+    with open('20-pci-vendor-model.hwdb', 'w') as out:
         header(out, 'http://pci-ids.ucw.cz/v2.2/pci.ids')
 
         for key in sorted(items):
@@ -230,10 +263,10 @@ def pci_vendor_model(p):
                 p, n = 'pci:v0000{}d0000{}*', 'MODEL'
             else:
                 p, n = 'pci:v0000{}d0000{}sv0000{}sd0000{}*', 'MODEL'
-            print('', p.format(*key),
-                  f' ID_{n}_FROM_DATABASE={items[key]}', sep='\n', file=out)
+            print('', p.format(*key), f' ID_{n}_FROM_DATABASE={items[key]}', sep='\n', file=out)
 
     print(f'Wrote {out.name}')
+
 
 def pci_classes(p):
     items = {}
@@ -253,7 +286,7 @@ def pci_classes(p):
                 text = protocol_group.name.strip()
                 add_item(items, (klass, subclass, protocol), text)
 
-    with open('20-pci-classes.hwdb', 'wt') as out:
+    with open('20-pci-classes.hwdb', 'w') as out:
         header(out, 'http://pci-ids.ucw.cz/v2.2/pci.ids')
 
         for key in sorted(items):
@@ -263,10 +296,10 @@ def pci_classes(p):
                 p, n = 'pci:v*d*sv*sd*bc{}sc{}*', 'SUBCLASS'
             else:
                 p, n = 'pci:v*d*sv*sd*bc{}sc{}i{}*', 'INTERFACE'
-            print('', p.format(*key),
-                  f' ID_PCI_{n}_FROM_DATABASE={items[key]}', sep='\n', file=out)
+            print('', p.format(*key), f' ID_PCI_{n}_FROM_DATABASE={items[key]}', sep='\n', file=out)
 
     print(f'Wrote {out.name}')
+
 
 def sdio_vendor_model(p):
     items = {}
@@ -281,7 +314,7 @@ def sdio_vendor_model(p):
             text = device_group.text.strip()
             add_item(items, (vendor, device), text)
 
-    with open('20-sdio-vendor-model.hwdb', 'wt') as out:
+    with open('20-sdio-vendor-model.hwdb', 'w') as out:
         header(out, 'hwdb.d/sdio.ids')
 
         for key in sorted(items):
@@ -289,10 +322,10 @@ def sdio_vendor_model(p):
                 p, n = 'sdio:c*v{}*', 'VENDOR'
             else:
                 p, n = 'sdio:c*v{}d{}*', 'MODEL'
-            print('', p.format(*key),
-                  f' ID_{n}_FROM_DATABASE={items[key]}', sep='\n', file=out)
+            print('', p.format(*key), f' ID_{n}_FROM_DATABASE={items[key]}', sep='\n', file=out)
 
     print(f'Wrote {out.name}')
+
 
 def sdio_classes(p):
     items = {}
@@ -302,15 +335,20 @@ def sdio_classes(p):
         text = klass_group.text.strip()
         add_item(items, klass, text)
 
-    with open('20-sdio-classes.hwdb', 'wt') as out:
+    with open('20-sdio-classes.hwdb', 'w') as out:
         header(out, 'hwdb.d/sdio.ids')
 
         for klass in sorted(items):
-            print(f'',
-                  f'sdio:c{klass}v*d*',
-                  f' ID_SDIO_CLASS_FROM_DATABASE={items[klass]}', sep='\n', file=out)
+            print(
+                '',
+                f'sdio:c{klass}v*d*',
+                f' ID_SDIO_CLASS_FROM_DATABASE={items[klass]}',
+                sep='\n',
+                file=out,
+            )
 
     print(f'Wrote {out.name}')
+
 
 # MAC Address Block Large/Medium/Small
 # Large  MA-L 24/24 bit (OUI)
@@ -338,18 +376,19 @@ def oui(p1, p2, p3):
             key = prefix + start if end else prefix
             add_item(items, key, text)
 
-    with open('20-OUI.hwdb', 'wt') as out:
-        header(out,
-               'https://services13.ieee.org/RST/standards-ra-web/rest/assignments/download/?registry=MA-L&format=txt',
-               'https://services13.ieee.org/RST/standards-ra-web/rest/assignments/download/?registry=MA-M&format=txt',
-               'https://services13.ieee.org/RST/standards-ra-web/rest/assignments/download/?registry=MA-S&format=txt')
+    with open('20-OUI.hwdb', 'w') as out:
+        header(
+            out,
+            'https://services13.ieee.org/RST/standards-ra-web/rest/assignments/download/?registry=MA-L&format=txt',
+            'https://services13.ieee.org/RST/standards-ra-web/rest/assignments/download/?registry=MA-M&format=txt',
+            'https://services13.ieee.org/RST/standards-ra-web/rest/assignments/download/?registry=MA-S&format=txt',
+        )
 
         for pattern in sorted(items):
-            print(f'',
-                  f'OUI:{pattern}*',
-                  f' ID_OUI_FROM_DATABASE={items[pattern]}', sep='\n', file=out)
+            print('', f'OUI:{pattern}*', f' ID_OUI_FROM_DATABASE={items[pattern]}', sep='\n', file=out)
 
     print(f'Wrote {out.name}')
+
 
 if __name__ == '__main__':
     args = sys.argv[1:]

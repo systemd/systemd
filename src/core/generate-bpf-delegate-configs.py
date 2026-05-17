@@ -30,12 +30,12 @@ with open(header) as file:
     enumName = ''
 
     if output == 'doc':
-        print("""\
+        print('''\
 <?xml version="1.0"?>
 <!DOCTYPE bpf-delegates PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
 <para>
-""")
+''')
 
     for line in file:
         line = line.strip()

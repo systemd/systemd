@@ -11,14 +11,15 @@ def extract_interfaces_xml(output_dir, executable):
     # as glibc looks at /proc/self/exe when resolving RPATH
     env = os.environ.copy()
     if not os.path.exists('/proc/self'):
-        env["LD_ORIGIN_PATH"] = executable.parent.as_posix()
+        env['LD_ORIGIN_PATH'] = executable.parent.as_posix()
 
     proc = run(
         args=[executable.absolute(), '--bus-introspect', 'list'],
         stdout=PIPE,
         env=env,
         check=True,
-        universal_newlines=True)
+        text=True,
+    )
 
     interface_names = (x.split()[1] for x in proc.stdout.splitlines())
 
@@ -28,19 +29,25 @@ def extract_interfaces_xml(output_dir, executable):
             stdout=PIPE,
             env=env,
             check=True,
-            universal_newlines=True)
+            text=True,
+        )
 
         interface_file_name = output_dir / (interface_name + '.xml')
         interface_file_name.write_text(proc.stdout)
         interface_file_name.chmod(0o644)
 
+
 def main():
     parser = ArgumentParser()
-    parser.add_argument('output',
-                        type=Path)
-    parser.add_argument('executables',
-                        nargs='+',
-                        type=Path)
+    parser.add_argument(
+        'output',
+        type=Path,
+    )
+    parser.add_argument(
+        'executables',
+        nargs='+',
+        type=Path,
+    )
 
     args = parser.parse_args()
 
@@ -49,6 +56,7 @@ def main():
     args.output.chmod(mode=0o755)
     for exe in args.executables:
         extract_interfaces_xml(args.output, exe)
+
 
 if __name__ == '__main__':
     main()

@@ -63,16 +63,21 @@ jobs:
       - name: Run ruff format
         run: |
           mkosi box -- ruff --version
-          if ! mkosi box -- ruff format --check src/core/generate-bpf-delegate-configs.py src/boot/generate-hwids-section.py src/test/generate-sym-test.py src/ukify/ukify.py test/integration-tests/integration-test-wrapper.py
+          if ! mkosi box -- ruff format --check
           then
               echo "Please run 'ruff format' on the above files or apply the diffs below manually"
-              mkosi box -- ruff format --check --quiet --diff src/core/generate-bpf-delegate-configs.py src/boot/generate-hwids-section.py src/test/generate-sym-test.py src/ukify/ukify.py test/integration-tests/integration-test-wrapper.py
+              mkosi box -- ruff format --check --quiet --diff
           fi
 
       - name: Run ruff check
         run: |
           mkosi box -- ruff --version
-          mkosi box -- ruff check src/core/generate-bpf-delegate-configs.py src/boot/generate-hwids-section.py src/test/generate-sym-test.py src/ukify/ukify.py test/integration-tests/integration-test-wrapper.py
+          if ! mkosi box -- ruff check
+          then
+              echo "Please fix the errors shown by 'ruff check' on the above files or add noqa comments where appropriate."
+              echo "Diffs for fixes that can be programmatically generated are shown below:"
+              mkosi box -- ruff check --diff
+          fi
 
       - name: Configure meson
         run: mkosi box -- env CC=clang CXX=clang++ meson setup build

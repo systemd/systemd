@@ -49,7 +49,7 @@
 #    if defined(__ILP32__)
 #    else
 #    endif
-#  elif !defined(missing_arch_template)
+#  else
 #    warning "Current architecture is missing from the template"
 #    define missing_arch_template 1
 #  endif
