@@ -7,6 +7,7 @@
         _networkctl_cmds=(
             'list:List existing links'
             'status:Show information about the specified links'
+            'dhcp-lease:Show DHCP lease'
             'lldp:Show Link Layer Discovery Protocol status'
             'label:Show address labels'
             'delete:Delete virtual netdevs'
@@ -26,7 +27,7 @@
             local -a _links
             cmd="${${_networkctl_cmds[(r)$words[1]:*]%%:*}}"
             case $cmd in
-                (list|status|up|down|cat|edit|lldp|delete|renew|forcerenew|reconfigure)
+                (list|status|dhcp-lease|up|down|cat|edit|lldp|delete|renew|forcerenew|reconfigure)
                     for link in ${(f)"$(_call_program links networkctl list --no-legend)"}; do _links+=($link[(w)2]:$link); done
                     if [[ -n "$_links" ]]; then
                         _describe -t links 'links' _links $( [[ $cmd == (edit|cat) ]] && print -- -P@ )
