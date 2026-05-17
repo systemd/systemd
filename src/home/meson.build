@@ -67,11 +67,7 @@ executables += [
                 'dbus' : true,
                 'sources' : systemd_homed_sources,
                 'extract' : systemd_homed_extract_sources,
-                'dependencies' : [
-                        libm,
-                        libopenssl_cflags,
-                        threads,
-                ],
+                'dependencies' : libopenssl_cflags,
         },
         libexec_template + {
                 'name' : 'systemd-homework',
@@ -82,7 +78,6 @@ executables += [
                         libfdisk_cflags,
                         libopenssl_cflags,
                         libp11kit_cflags,
-                        threads,
                 ],
         },
         executable_template + {
@@ -92,10 +87,8 @@ executables += [
                 'extract' : homectl_extract,
                 'objects' : ['systemd-homed'],
                 'dependencies' : [
-                        libdl,
                         libopenssl_cflags,
                         libp11kit_cflags,
-                        threads,
                 ],
         },
         test_template + {
@@ -114,12 +107,6 @@ modules += [
                 'name' : 'pam_systemd_home',
                 'conditions' : ['HAVE_PAM'],
                 'sources' : pam_systemd_home_sources,
-                'dependencies' : [
-                        libintl,
-                        libpam_misc,
-                        libpam,
-                        threads,
-                ],
                 'version-script' : meson.current_source_dir() / 'pam_systemd_home.sym',
         },
 ]
