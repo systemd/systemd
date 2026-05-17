@@ -1197,6 +1197,10 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO:pn21LG:pvr*
  KEYBOARD_KEY_0a=!9
  KEYBOARD_KEY_0b=!0
 
+# Lenovo LOQ 15IRX9 (83DV)
+evdev:atkbd:dmi:*:svnLENOVO:pn*:pvrLOQ15IRX9:*
+ KEYBOARD_KEY_81=prog1 # Fn+F9; Lenovo Vantage key
+
 # Lenovo Legion Go Translated
 evdev:name:AT Translated Set 2 keyboard:dmi:*:svnLENOVO:pn83E1:*
 # Lenovo Legion Go S Translated
