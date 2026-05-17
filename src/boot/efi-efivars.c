@@ -106,7 +106,7 @@ EFI_STATUS efivar_get_str16(const EFI_GUID *vendor, const char16_t *name, char16
         val = xmalloc(size + sizeof(char16_t));
 
         memcpy(val, buf, size);
-        val[size / sizeof(char16_t) - 1] = 0; /* NUL terminate */
+        val[size / sizeof(char16_t)] = 0; /* NUL terminate */
 
         *ret = val;
         return EFI_SUCCESS;
