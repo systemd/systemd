@@ -11,7 +11,7 @@ def main() -> int:
 
     sep = sys.argv.index('--')
     sources = sys.argv[1:sep]
-    command = sys.argv[sep + 1:]
+    command = sys.argv[sep + 1 :]
 
     db_path = os.path.join(build_root, 'compile_commands.json')
     try:
@@ -24,11 +24,13 @@ def main() -> int:
     db = [entry for entry in db if entry['file'] not in sources_set]
 
     for source in sources:
-        db.append({
-            'directory': build_root,
-            'file': source,
-            'arguments': [source if a == '@INPUT@' else a for a in command],
-        })
+        db.append(
+            {
+                'directory': build_root,
+                'file': source,
+                'arguments': [source if a == '@INPUT@' else a for a in command],
+            }
+        )
 
     with open(db_path, 'w') as f:
         json.dump(db, f, indent=2)
