@@ -89,6 +89,9 @@ int dhcp_message_parse(
                 const struct hw_addr_data *hw_addr,
                 sd_dhcp_message **ret);
 
+size_t dhcp_message_payload_size(sd_dhcp_message *message);
+size_t dhcp_message_packet_size(sd_dhcp_message *message);
+
 int dhcp_message_build(sd_dhcp_message *message, struct iovec_wrapper *ret);
 
 int dhcp_message_build_json(sd_dhcp_message *message, sd_json_variant **ret);
