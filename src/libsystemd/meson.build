@@ -150,9 +150,7 @@ libsystemd_static = static_library(
         c_args : libsystemd_c_args,
         link_with : [libc_wrapper_static,
                      libbasic_static],
-        dependencies : [threads,
-                        libm,
-                        librt,
+        dependencies : [libm,
                         userspace],
         build_by_default : false)
 
@@ -203,51 +201,42 @@ simple_tests += files(
 libsystemd_tests += [
         {
                 'sources' : files('sd-bus/test-bus-address.c'),
-                'dependencies' : threads
         },
         {
                 'sources' : files('sd-bus/test-bus-benchmark.c'),
-                'dependencies' : threads,
                 'type' : 'manual',
         },
         {
                 'sources' : files('sd-bus/test-bus-chat.c'),
-                'dependencies' : threads,
         },
         {
                 'sources' : files('sd-bus/test-bus-cleanup.c'),
-                'dependencies' : [threads, libseccomp_cflags],
+                'dependencies' : libseccomp_cflags,
         },
         {
                 'sources' : files('sd-bus/test-bus-marshal.c'),
                 'dependencies' : [
-                        libdbus,
-                        libgio,
-                        libglib,
-                        libgobject,
+                        libdbus_cflags,
+                        libgio_cflags,
+                        libglib_cflags,
+                        libgobject_cflags,
                         libm,
-                        threads,
                 ],
         },
         {
                 'sources' : files('sd-bus/test-bus-objects.c'),
-                'dependencies' : threads,
         },
         {
                 'sources' : files('sd-bus/test-bus-peersockaddr.c'),
-                'dependencies' : threads,
         },
         {
                 'sources' : files('sd-bus/test-bus-queue-ref-cycle.c'),
-                'dependencies' : threads,
         },
         {
                 'sources' : files('sd-bus/test-bus-server.c'),
-                'dependencies' : threads,
         },
         {
                 'sources' : files('sd-bus/test-bus-signature.c'),
-                'dependencies' : threads,
         },
         {
                 'sources' : files('sd-bus/test-bus-track.c'),
@@ -255,12 +244,11 @@ libsystemd_tests += [
         },
         {
                 'sources' : files('sd-bus/test-bus-watch-bind.c'),
-                'dependencies' : threads,
                 'timeout' : 120,
         },
         {
                 'sources' : files('sd-device/test-sd-device.c'),
-                'dependencies' : [threads, libmount_cflags],
+                'dependencies' : libmount_cflags,
         },
         {
                 'sources' : files('sd-event/test-event.c'),
@@ -288,16 +276,13 @@ libsystemd_tests += [
         },
         {
                 'sources' : files('sd-resolve/test-resolve.c'),
-                'dependencies' : threads,
                 'timeout' : 120,
         },
         {
                 'sources' : files('sd-varlink/test-varlink.c'),
-                'dependencies' : threads,
         },
         {
                 'sources' : files('sd-varlink/test-varlink-idl.c'),
-                'dependencies' : threads,
         },
 ]
 
