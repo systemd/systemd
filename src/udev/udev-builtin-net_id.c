@@ -402,7 +402,7 @@ static int parse_hotplug_slot_from_function_id(sd_device *dev, int slots_dirfd, 
 
         r = safe_atou64(attr, &function_id);
         if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to parse function_id, ignoring: %s", attr);
+                return log_device_debug_errno(dev, r, "Failed to parse function_id, ignoring: '%s'", attr);
 
         if (function_id <= 0 || function_id > UINT32_MAX)
                 return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL),
@@ -414,7 +414,7 @@ static int parse_hotplug_slot_from_function_id(sd_device *dev, int slots_dirfd, 
                                               "PCI slot path is too long, ignoring.");
 
         if (faccessat(slots_dirfd, filename, F_OK, 0) < 0)
-                return log_device_debug_errno(dev, errno, "Cannot access %s under pci slots, ignoring: %m", filename);
+                return log_device_debug_errno(dev, errno, "Cannot access '%s' under pci slots, ignoring: %m", filename);
 
         *ret = (uint32_t) function_id;
         return 1; /* Found. We should ignore domain part. */
@@ -714,11 +714,11 @@ static int names_vio(UdevEvent *event, const char *prefix) {
 
         if (r != 8)
                 return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL),
-                                              "VIO bus ID and slot ID have invalid length: %s", s);
+                                              "VIO bus ID and slot ID have invalid length: '%s'", s);
 
         if (!in_charset(s, HEXDIGITS))
                 return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL),
-                                              "VIO bus ID and slot ID contain invalid characters: %s", s);
+                                              "VIO bus ID and slot ID contain invalid characters: '%s'", s);
 
         /* Parse only slot ID (the last 4 hexdigits). */
         r = safe_atou_full(s + 4, 16, &slotid);
@@ -775,7 +775,7 @@ static int names_platform(UdevEvent *event, const char *prefix) {
 
         if (!in_charset(vendor, validchars))
                 return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL),
-                                              "Platform vendor contains invalid characters: %s", vendor);
+                                              "Platform vendor contains invalid characters: '%s'", vendor);
 
         ascii_strlower(vendor);
 
@@ -885,14 +885,14 @@ static int names_devicetree_alias_prefix(UdevEvent *event, const char *prefix, c
                         r = safe_atou(alias_index, &i);
                         if (r < 0)
                                 return log_device_debug_errno(dev, r,
-                                                "Could not get index of alias %s: %m", alias);
+                                                "Could not get index of alias '%s': %m", alias);
                         conflict = alias_prefix;
                 }
 
                 /* ...but make sure we don't have an alias conflict */
                 if (i == 0 && device_get_sysattr_value_filtered(aliases_dev, conflict, NULL) >= 0)
                         return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EEXIST),
-                                        "DeviceTree alias conflict: %s and %s both exist.",
+                                        "DeviceTree alias conflict: '%s' and '%s' both exist.",
                                         alias_prefix, alias_prefix_0);
 
                 char str[ALTIFNAMSIZ];
@@ -1128,7 +1128,7 @@ static int names_ccw(UdevEvent *event, const char *prefix) {
          */
         bus_id_len = strlen(bus_id);
         if (!IN_SET(bus_id_len, 8, 9))
-                return log_device_debug_errno(cdev, SYNTHETIC_ERRNO(EINVAL), "Invalid bus_id: %s", bus_id);
+                return log_device_debug_errno(cdev, SYNTHETIC_ERRNO(EINVAL), "Invalid bus_id: '%s'", bus_id);
 
         /* Strip leading zeros from the bus id for aesthetic purposes. This
          * keeps the ccw names stable, yet much shorter in general case of
@@ -1290,7 +1290,7 @@ static int names_xen(UdevEvent *event, const char *prefix) {
 
         p = startswith(vif, "vif-");
         if (!p)
-                return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL), "Invalid vif name: %s.", vif);
+                return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL), "Invalid vif name: '%s'.", vif);
 
         r = safe_atou_full(p, SAFE_ATO_REFUSE_PLUS_MINUS | SAFE_ATO_REFUSE_LEADING_ZERO |
                            SAFE_ATO_REFUSE_LEADING_WHITESPACE | 10, &id);
