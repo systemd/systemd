@@ -31,7 +31,6 @@
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
-#include "utf8.h"
 
 int device_new_aux(sd_device **ret) {
         sd_device *device;
@@ -92,15 +91,13 @@ static bool property_is_valid(const char *key, const char *value) {
         if (isempty(key) || !in_charset(key, ALPHANUMERICAL "_."))
                 return false;
 
-        /* an empty value means unset the property, hence that's fine. */
-        if (isempty(value))
-                return true;
-
-        /* refuse invalid UTF8 and control characters */
-        if (!utf8_is_valid(value) || string_has_cc(value, /* ok= */ NULL))
-                return false;
-
-        return true;
+        /* An empty value means unset the property, hence that's fine. Refuse invalid UTF8 and control
+         * characters, especially newlines. */
+        return string_is_safe(value,
+                              STRING_ALLOW_EMPTY |
+                              STRING_ALLOW_BACKSLASHES |
+                              STRING_ALLOW_QUOTES |
+                              STRING_ALLOW_GLOBS);
 }
 
 int device_add_property_aux(sd_device *device, const char *key, const char *value, bool db) {
