@@ -180,12 +180,14 @@
                 UNIQ_T(A, aq) > UNIQ_T(B, bq) ? UNIQ_T(A, aq) : UNIQ_T(B, bq); \
         })
 
-#ifdef __clang__
-#  define ABS(a) __builtin_llabs(a)
-#else
-#  define ABS(a) __builtin_imaxabs(a)
-#endif
-assert_cc(sizeof(long long) == sizeof(intmax_t));
+#define ABS(a) _Generic((a),                                            \
+                float:              __builtin_fabsf((float) (a)),       \
+                double:             __builtin_fabs((double) (a)),       \
+                long double:        __builtin_fabsl((long double) (a)), \
+                unsigned long long: (a),                                \
+                unsigned long:      (a),                                \
+                unsigned int:       (a),                                \
+                default:            __builtin_llabs((long long) (a)))
 
 #define IS_UNSIGNED_INTEGER_TYPE(type) \
         (__builtin_types_compatible_p(typeof(type), unsigned char) ||   \
