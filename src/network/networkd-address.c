@@ -2478,6 +2478,9 @@ int network_drop_invalid_addresses(Network *network) {
                 assert(r > 0);
         }
 
+        /* Detach duplicated entries now. */
+        duplicated_addresses = set_free(duplicated_addresses);
+
         r = network_adjust_dhcp_server(network, &addresses);
         if (r < 0)
                 return r;
