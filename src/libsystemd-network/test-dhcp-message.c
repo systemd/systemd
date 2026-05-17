@@ -212,6 +212,7 @@ static void verify_send_udp(sd_dhcp_message *message, uint32_t xid, const struct
                 .msg_iovlen = 1,
         };
         ssize_t len = ASSERT_OK_ERRNO(recvmsg_safe(socket_fd[1], &msg, MSG_DONTWAIT));
+        ASSERT_EQ((size_t) len, dhcp_message_payload_size(message));
 
         _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *m = NULL;
         ASSERT_OK(dhcp_message_parse(
@@ -255,6 +256,7 @@ static void verify_send_raw(sd_dhcp_message *message, uint32_t xid, const struct
                 .msg_iovlen = 1,
         };
         ssize_t len = ASSERT_OK_ERRNO(recvmsg_safe(socket_fd[1], &msg, MSG_DONTWAIT));
+        ASSERT_EQ((size_t) len, dhcp_message_packet_size(message));
 
         struct iovec payload;
         ASSERT_OK(udp_packet_verify(
@@ -497,6 +499,7 @@ TEST(dhcp_message) {
 
         _cleanup_(iovec_done) struct iovec joined = {};
         ASSERT_OK(iovw_concat(&iovw, &joined));
+        ASSERT_EQ(joined.iov_len, dhcp_message_payload_size(m));
 
         _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *m2 = NULL;
         ASSERT_OK(dhcp_message_parse(
