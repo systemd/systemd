@@ -78,6 +78,12 @@ CHANGES WITH 261 in spe:
           configuration extensions merged from the main system itself cannot be
           used to modify the resources which are used in the early boot.
 
+        Changes in systemd-networkd and networkctl:
+
+        * A new 'networkctl dhcp-lease INTERFACE' command has been added to
+          dump acquired DHCP leases. This may be useful for inspecting the
+          DHCP options provided by the server.
+
 CHANGES WITH 260:
 
         Feature Removals and Incompatible Changes:
