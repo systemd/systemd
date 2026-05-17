@@ -5,7 +5,6 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fdset.h"
-#include "fileio.h"
 #include "json-util.h"
 #include "log.h"
 #include "luo.h"
@@ -17,23 +16,23 @@
 #include "unit-name.h"
 
 static int luo_read_mapping(int session_fd, sd_json_variant **ret) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-        _cleanup_close_ int mapping_fd = -EBADF;
-        _cleanup_fclose_ FILE *f = NULL;
         int r;
 
         assert(session_fd >= 0);
         assert(ret);
 
-        mapping_fd = luo_session_retrieve_fd(session_fd, LUO_MAPPING_INDEX);
+        _cleanup_close_ int mapping_fd = luo_session_retrieve_fd(session_fd, LUO_MAPPING_INDEX);
         if (mapping_fd < 0)
                 return log_warning_errno(mapping_fd, "Failed to retrieve LUO mapping fd (fd_index 0): %m");
 
-        r = fdopen_independent(mapping_fd, "r", &f);
-        if (r < 0)
-                return log_warning_errno(r, "Failed to open LUO mapping fd for reading: %m");
-
-        r = sd_json_parse_file(f, "luo-mapping", SD_JSON_PARSE_MUST_BE_OBJECT, &v, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        r = sd_json_parse_fd(
+                        "luo-mapping",
+                        mapping_fd,
+                        SD_JSON_PARSE_MUST_BE_OBJECT|SD_JSON_PARSE_REOPEN_FD,
+                        &v,
+                        /* reterr_line= */ NULL,
+                        /* reterr_column= */ NULL);
         if (r < 0)
                 return log_warning_errno(r, "Failed to parse LUO mapping JSON: %m");
 
