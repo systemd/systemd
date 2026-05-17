@@ -33,67 +33,67 @@ int sd_dhcp_lease_get_timestamp(sd_dhcp_lease *lease, clockid_t clock, uint64_t 
         assert_return(lease, -EINVAL);
         assert_return(TRIPLE_TIMESTAMP_HAS_CLOCK(clock), -EOPNOTSUPP);
         assert_return(clock_supported(clock), -EOPNOTSUPP);
-        assert_return(ret, -EINVAL);
 
         if (!triple_timestamp_is_set(&lease->timestamp))
                 return -ENODATA;
 
-        *ret = triple_timestamp_by_clock(&lease->timestamp, clock);
+        if (ret)
+                *ret = triple_timestamp_by_clock(&lease->timestamp, clock);
         return 0;
 }
 
-int sd_dhcp_lease_get_address(sd_dhcp_lease *lease, struct in_addr *addr) {
+int sd_dhcp_lease_get_address(sd_dhcp_lease *lease, struct in_addr *ret) {
         assert_return(lease, -EINVAL);
-        assert_return(addr, -EINVAL);
 
-        if (lease->address == 0)
+        if (lease->address == INADDR_ANY)
                 return -ENODATA;
 
-        addr->s_addr = lease->address;
+        if (ret)
+                ret->s_addr = lease->address;
         return 0;
 }
 
-int sd_dhcp_lease_get_broadcast(sd_dhcp_lease *lease, struct in_addr *addr) {
+int sd_dhcp_lease_get_broadcast(sd_dhcp_lease *lease, struct in_addr *ret) {
         assert_return(lease, -EINVAL);
-        assert_return(addr, -EINVAL);
 
         if (lease->broadcast == INADDR_ANY)
                 return -ENODATA;
 
-        addr->s_addr = lease->broadcast;
+        if (ret)
+                ret->s_addr = lease->broadcast;
         return 0;
 }
 
 int sd_dhcp_lease_get_lifetime(sd_dhcp_lease *lease, uint64_t *ret) {
         assert_return(lease, -EINVAL);
-        assert_return(ret, -EINVAL);
 
         if (lease->lifetime <= 0)
                 return -ENODATA;
 
-        *ret = lease->lifetime;
+        if (ret)
+                *ret = lease->lifetime;
         return 0;
 }
 
 int sd_dhcp_lease_get_t1(sd_dhcp_lease *lease, uint64_t *ret) {
         assert_return(lease, -EINVAL);
-        assert_return(ret, -EINVAL);
 
         if (lease->t1 <= 0)
                 return -ENODATA;
 
-        *ret = lease->t1;
+        if (ret)
+                *ret = lease->t1;
         return 0;
 }
 
 int sd_dhcp_lease_get_t2(sd_dhcp_lease *lease, uint64_t *ret) {
         assert_return(lease, -EINVAL);
-        assert_return(ret, -EINVAL);
 
         if (lease->t2 <= 0)
                 return -ENODATA;
 
-        *ret = lease->t2;
+        if (ret)
+                *ret = lease->t2;
         return 0;
 }
 
@@ -106,7 +106,7 @@ int sd_dhcp_lease_get_t2(sd_dhcp_lease *lease, uint64_t *ret) {
                 usec_t t, timestamp;                                    \
                 int r;                                                  \
                                                                         \
-                assert_return(ret, -EINVAL);                            \
+                assert_return(lease, -EINVAL);                          \
                                                                         \
                 r = sd_dhcp_lease_get_##name(lease, &t);                \
                 if (r < 0)                                              \
@@ -116,7 +116,8 @@ int sd_dhcp_lease_get_t2(sd_dhcp_lease *lease, uint64_t *ret) {
                 if (r < 0)                                              \
                         return r;                                       \
                                                                         \
-                *ret = usec_add(t, timestamp);                          \
+                if (ret)                                                \
+                        *ret = usec_add(t, timestamp);                  \
                 return 0;                                               \
         }
 
@@ -124,21 +125,21 @@ DEFINE_GET_TIMESTAMP(lifetime);
 DEFINE_GET_TIMESTAMP(t1);
 DEFINE_GET_TIMESTAMP(t2);
 
-int sd_dhcp_lease_get_mtu(sd_dhcp_lease *lease, uint16_t *mtu) {
+int sd_dhcp_lease_get_mtu(sd_dhcp_lease *lease, uint16_t *ret) {
         assert_return(lease, -EINVAL);
-        assert_return(mtu, -EINVAL);
 
         if (lease->mtu <= 0)
                 return -ENODATA;
 
-        *mtu = lease->mtu;
+        if (ret)
+                *ret = lease->mtu;
         return 0;
 }
 
 int sd_dhcp_lease_get_servers(
                 sd_dhcp_lease *lease,
                 sd_dhcp_lease_server_type_t what,
-                const struct in_addr **addr) {
+                const struct in_addr **ret) {
 
         assert_return(lease, -EINVAL);
         assert_return(what >= 0, -EINVAL);
@@ -147,30 +148,30 @@ int sd_dhcp_lease_get_servers(
         if (lease->servers[what].size <= 0)
                 return -ENODATA;
 
-        if (addr)
-                *addr = lease->servers[what].addr;
+        if (ret)
+                *ret = lease->servers[what].addr;
 
         return (int) lease->servers[what].size;
 }
 
-int sd_dhcp_lease_get_dns(sd_dhcp_lease *lease, const struct in_addr **addr) {
-        return sd_dhcp_lease_get_servers(lease, SD_DHCP_LEASE_DNS, addr);
+int sd_dhcp_lease_get_dns(sd_dhcp_lease *lease, const struct in_addr **ret) {
+        return sd_dhcp_lease_get_servers(lease, SD_DHCP_LEASE_DNS, ret);
 }
-int sd_dhcp_lease_get_ntp(sd_dhcp_lease *lease, const struct in_addr **addr) {
-        return sd_dhcp_lease_get_servers(lease, SD_DHCP_LEASE_NTP, addr);
+int sd_dhcp_lease_get_ntp(sd_dhcp_lease *lease, const struct in_addr **ret) {
+        return sd_dhcp_lease_get_servers(lease, SD_DHCP_LEASE_NTP, ret);
 }
-int sd_dhcp_lease_get_sip(sd_dhcp_lease *lease, const struct in_addr **addr) {
-        return sd_dhcp_lease_get_servers(lease, SD_DHCP_LEASE_SIP, addr);
+int sd_dhcp_lease_get_sip(sd_dhcp_lease *lease, const struct in_addr **ret) {
+        return sd_dhcp_lease_get_servers(lease, SD_DHCP_LEASE_SIP, ret);
 }
 
-int sd_dhcp_lease_get_domainname(sd_dhcp_lease *lease, const char **domainname) {
+int sd_dhcp_lease_get_domainname(sd_dhcp_lease *lease, const char **ret) {
         assert_return(lease, -EINVAL);
-        assert_return(domainname, -EINVAL);
 
         if (!lease->domainname)
                 return -ENODATA;
 
-        *domainname = lease->domainname;
+        if (ret)
+                *ret = lease->domainname;
         return 0;
 }
 
@@ -187,45 +188,45 @@ int sd_dhcp_lease_get_hostname(sd_dhcp_lease *lease, const char **ret) {
 
 int sd_dhcp_lease_get_captive_portal(sd_dhcp_lease *lease, const char **ret) {
         assert_return(lease, -EINVAL);
-        assert_return(ret, -EINVAL);
 
         if (!lease->captive_portal)
                 return -ENODATA;
 
-        *ret = lease->captive_portal;
+        if (ret)
+                *ret = lease->captive_portal;
         return 0;
 }
 
-int sd_dhcp_lease_get_dnr(sd_dhcp_lease *lease, sd_dns_resolver **ret_resolvers) {
+int sd_dhcp_lease_get_dnr(sd_dhcp_lease *lease, sd_dns_resolver **ret) {
         assert_return(lease, -EINVAL);
-        assert_return(ret_resolvers, -EINVAL);
 
         if (!lease->dnr)
                 return -ENODATA;
 
-        *ret_resolvers = lease->dnr;
+        if (ret)
+                *ret = lease->dnr;
         return lease->n_dnr;
 }
 
-int sd_dhcp_lease_get_router(sd_dhcp_lease *lease, const struct in_addr **addr) {
+int sd_dhcp_lease_get_router(sd_dhcp_lease *lease, const struct in_addr **ret) {
         assert_return(lease, -EINVAL);
-        assert_return(addr, -EINVAL);
 
         if (lease->router_size <= 0)
                 return -ENODATA;
 
-        *addr = lease->router;
+        if (ret)
+                *ret = lease->router;
         return (int) lease->router_size;
 }
 
-int sd_dhcp_lease_get_netmask(sd_dhcp_lease *lease, struct in_addr *addr) {
+int sd_dhcp_lease_get_netmask(sd_dhcp_lease *lease, struct in_addr *ret) {
         assert_return(lease, -EINVAL);
-        assert_return(addr, -EINVAL);
 
         if (lease->subnet_mask == INADDR_ANY)
                 return -ENODATA;
 
-        addr->s_addr = lease->subnet_mask;
+        if (ret)
+                ret->s_addr = lease->subnet_mask;
         return 0;
 }
 
@@ -257,14 +258,14 @@ int sd_dhcp_lease_get_prefix(sd_dhcp_lease *lease, struct in_addr *ret_prefix, u
         return 0;
 }
 
-int sd_dhcp_lease_get_server_identifier(sd_dhcp_lease *lease, struct in_addr *addr) {
+int sd_dhcp_lease_get_server_identifier(sd_dhcp_lease *lease, struct in_addr *ret) {
         assert_return(lease, -EINVAL);
-        assert_return(addr, -EINVAL);
 
-        if (lease->server_address == 0)
+        if (lease->server_address == INADDR_ANY)
                 return -ENODATA;
 
-        addr->s_addr = lease->server_address;
+        if (ret)
+                ret->s_addr = lease->server_address;
         return 0;
 }
 
@@ -306,19 +307,16 @@ int sd_dhcp_lease_get_classless_routes(sd_dhcp_lease *lease, sd_dhcp_route ***re
         return dhcp_lease_get_routes(lease->classless_routes, lease->n_classless_routes, ret);
 }
 
-int sd_dhcp_lease_get_search_domains(sd_dhcp_lease *lease, char ***domains) {
-        size_t r;
-
+int sd_dhcp_lease_get_search_domains(sd_dhcp_lease *lease, char ***ret) {
         assert_return(lease, -EINVAL);
-        assert_return(domains, -EINVAL);
 
-        r = strv_length(lease->search_domains);
-        if (r > 0) {
-                *domains = lease->search_domains;
-                return (int) r;
-        }
+        size_t n = strv_length(lease->search_domains);
+        if (n == 0)
+                return -ENODATA;
 
-        return -ENODATA;
+        if (ret)
+                *ret = lease->search_domains;
+        return (int) n;
 }
 
 int sd_dhcp_lease_get_6rd(
@@ -352,7 +350,7 @@ int sd_dhcp_lease_has_6rd(sd_dhcp_lease *lease) {
         return lease && lease->sixrd_n_br_addresses > 0;
 }
 
-static sd_dhcp_lease *dhcp_lease_free(sd_dhcp_lease *lease) {
+static sd_dhcp_lease* dhcp_lease_free(sd_dhcp_lease *lease) {
         assert(lease);
 
         sd_dhcp_message_unref(lease->message);
@@ -393,12 +391,12 @@ int dhcp_lease_new(sd_dhcp_lease **ret) {
 
 int sd_dhcp_lease_get_timezone(sd_dhcp_lease *lease, const char **ret) {
         assert_return(lease, -EINVAL);
-        assert_return(ret, -EINVAL);
 
         if (!lease->timezone)
                 return -ENODATA;
 
-        *ret = lease->timezone;
+        if (ret)
+                *ret = lease->timezone;
         return 0;
 }
 

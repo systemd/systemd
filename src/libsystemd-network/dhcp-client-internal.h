@@ -30,6 +30,8 @@ DECLARE_STRING_TABLE_LOOKUP_TO_STRING(dhcp_state, DHCPState);
 struct sd_dhcp_client {
         unsigned n_ref;
 
+        int socket_fd; /* socket fd set externally, used by unit tests */
+
         DHCPState state;
         sd_event *event;
         int event_priority;
@@ -42,7 +44,6 @@ struct sd_dhcp_client {
 
         uint16_t port;
         uint16_t server_port;
-        union sockaddr_union link;
         sd_event_source *receive_message;
         bool request_broadcast;
         Set *req_opts;
