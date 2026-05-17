@@ -11,7 +11,6 @@
 #include "alloc-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
-#include "fileio.h"
 #include "json-util.h"
 #include "log.h"
 #include "luo-util.h"
@@ -118,7 +117,6 @@ int luo_session_finish(int session_fd) {
 int luo_parse_serialization(sd_json_variant **ret, int **ret_fds, size_t *ret_n_fds) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *root = NULL;
         _cleanup_free_ int *fd_list = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
         size_t n_fds = 0;
         int serialize_fd = -EBADF, r;
 
@@ -139,11 +137,13 @@ int luo_parse_serialization(sd_json_variant **ret, int **ret_fds, size_t *ret_n_
                 return log_warning_errno(serialize_fd,
                                          "Failed to parse SYSTEMD_LUO_SERIALIZE_FD='%s': %m", luo_fd_str);
 
-        r = fdopen_independent(serialize_fd, "r", &f);
-        if (r < 0)
-                return log_warning_errno(r, "Failed to open LUO serialization fd %d: %m", serialize_fd);
-
-        r = sd_json_parse_file(f, /* path= */ NULL, SD_JSON_PARSE_MUST_BE_OBJECT, &root, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
+        r = sd_json_parse_fd(
+                        /* path= */ NULL,
+                        serialize_fd,
+                        SD_JSON_PARSE_MUST_BE_OBJECT|SD_JSON_PARSE_REOPEN_FD,
+                        &root,
+                        /* reterr_line= */ NULL,
+                        /* reterr_column= */ NULL);
         if (r < 0)
                 return log_warning_errno(r, "Failed to parse LUO serialization JSON: %m");
 
