@@ -46,6 +46,7 @@ extern DLSYM_PROTOTYPE(crypt_keyslot_destroy);
 extern DLSYM_PROTOTYPE(crypt_keyslot_max);
 extern DLSYM_PROTOTYPE(crypt_keyslot_status);
 extern DLSYM_PROTOTYPE(crypt_load);
+extern DLSYM_PROTOTYPE(crypt_logf);
 extern DLSYM_PROTOTYPE(crypt_metadata_locking);
 extern DLSYM_PROTOTYPE(crypt_persistent_flags_get);
 extern DLSYM_PROTOTYPE(crypt_persistent_flags_set);
