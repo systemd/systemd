@@ -4,8 +4,20 @@
 #include "sd-dhcp-client-id.h"
 #include "sd-forward.h"
 
-#include "sparse-endian.h"
+#include "dhcp-protocol.h"
 #include "tlv-util.h"
+
+typedef struct DHCPServerData {
+        struct in_addr *addr;
+        size_t size;
+} DHCPServerData;
+
+struct sd_dhcp_message {
+        unsigned n_ref;
+
+        DHCPMessageHeader header;
+        TLV options;
+};
 
 typedef struct sd_dhcp_message sd_dhcp_message;
 
@@ -88,6 +100,9 @@ int dhcp_message_parse(
                 uint16_t arp_type,
                 const struct hw_addr_data *hw_addr,
                 sd_dhcp_message **ret);
+
+size_t dhcp_message_payload_size(sd_dhcp_message *message);
+size_t dhcp_message_packet_size(sd_dhcp_message *message);
 
 int dhcp_message_build(sd_dhcp_message *message, struct iovec_wrapper *ret);
 
