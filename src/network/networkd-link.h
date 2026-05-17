@@ -143,6 +143,7 @@ typedef struct Link {
         bool bridge_vlan_set:1;
         bool bearer_configured:1;
 
+        sd_dhcp_relay_interface *dhcp_relay_interface;
         sd_dhcp_server *dhcp_server;
 
         sd_ndisc *ndisc;
