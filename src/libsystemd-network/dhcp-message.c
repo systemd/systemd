@@ -1428,6 +1428,16 @@ int dhcp_message_parse(
         return 0;
 }
 
+size_t dhcp_message_payload_size(sd_dhcp_message *message) {
+        assert(message);
+
+        return MAX(size_add(sizeof(DHCPMessageHeader), tlv_size(&message->options)), BOOTP_MESSAGE_SIZE);
+}
+
+size_t dhcp_message_packet_size(sd_dhcp_message *message) {
+        return size_add(sizeof(struct iphdr) + sizeof(struct udphdr), dhcp_message_payload_size(message));
+}
+
 int dhcp_message_build(sd_dhcp_message *message, struct iovec_wrapper *ret) {
         int r;
 
