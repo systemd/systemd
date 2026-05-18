@@ -135,7 +135,8 @@ typedef struct sd_varlink_server {
 
         LIST_HEAD(VarlinkServerSocket, sockets);
 
-        Hashmap *methods;              /* Fully qualified symbol name of a method → VarlinkMethod */
+        Hashmap *methods;              /* Fully qualified symbol name of a method → sd_varlink_method_t */
+        Hashmap *fiber_methods;        /* Fully qualified symbol name of a fiber method → sd_varlink_method_t */
         Hashmap *interfaces;           /* Fully qualified interface name → VarlinkInterface* */
         Hashmap *symbols;              /* Fully qualified symbol name of method/error → VarlinkSymbol* */
         sd_varlink_connect_t connect_callback;
