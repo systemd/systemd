@@ -17,7 +17,8 @@
 #include "assert-util.h"                /* IWYU pragma: export */
 #include "cleanup-util.h"               /* IWYU pragma: export */
 #include "macro.h"                      /* IWYU pragma: export */
-#include "string-table-fundamental.h"   /* IWYU pragma: export */
+
+#include "../fundamental/string-table.h"   /* IWYU pragma: export */
 
 /* Generic types */
 

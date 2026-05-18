@@ -4,7 +4,6 @@
 
 #include "selinux-util.h"
 #include "tmpfile-util.h"
-#include "tmpfile-util-label.h"
 
 int fopen_temporary_at_label(
                 int dir_fd,

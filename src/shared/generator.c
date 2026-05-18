@@ -14,7 +14,7 @@
 #include "generator.h"
 #include "initrd-util.h"
 #include "log.h"
-#include "mkdir-label.h"
+#include "mkdir.h"
 #include "mountpoint-util.h"
 #include "parse-util.h"
 #include "path-util.h"

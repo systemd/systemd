@@ -12,8 +12,8 @@ libefitest = static_library(
         ),
         build_by_default : false,
         include_directories : [
-                basic_includes,
                 include_directories('.'),
+                basic_includes,
         ],
         implicit_include_directories : false,
         dependencies : userspace)
@@ -164,8 +164,8 @@ configure_file(
 ############################################################
 
 efi_includes = [
-        fundamental_include,
         include_directories('.'),
+        fundamental_include,
         version_include,
 ]
 

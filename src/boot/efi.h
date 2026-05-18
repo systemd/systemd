@@ -9,11 +9,12 @@
 #include <stddef.h>                     /* IWYU pragma: export */
 #include <stdint.h>                     /* IWYU pragma: export */
 
-#include "assert-fundamental.h"         /* IWYU pragma: export */
-#include "cleanup-fundamental.h"        /* IWYU pragma: export */
-#include "efi-fundamental.h"            /* IWYU pragma: export */
-#include "macro-fundamental.h"          /* IWYU pragma: export */
-#include "string-table-fundamental.h"   /* IWYU pragma: export */
+#include "assert-util.h"                /* IWYU pragma: export */
+#include "cleanup-util.h"               /* IWYU pragma: export */
+#include "macro.h"                      /* IWYU pragma: export */
+#include "string-table.h"               /* IWYU pragma: export */
+
+#include "../fundamental/efi.h"         /* IWYU pragma: export */
 
 #if SD_BOOT
 /* uchar.h/wchar.h are not suitable for freestanding environments. */
