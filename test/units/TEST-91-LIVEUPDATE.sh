@@ -92,7 +92,7 @@ EOF
     mkdir -p /run/systemd/nspawn
     cat >/run/systemd/nspawn/fdstore.nspawn <<EOF
 [Exec]
-KillSignal=SIGKILL
+KillSignal=SIGTERM
 EOF
     n_nspawn_fds=$(systemctl show -P NFileDescriptorStore systemd-nspawn@fdstore.service)
     test "${n_nspawn_fds}" -ge 2
@@ -138,6 +138,78 @@ EOF
     n_fds=$(systemctl show -P NFileDescriptorStore TEST-91-LIVEUPDATE-late-zerofds.service)
     test "$n_fds" -eq 0
     systemctl start TEST-91-LIVEUPDATE-late-zerofds.service
+
+    # Verify that with FileDescriptorStorePreserve=on-success the fdstore is
+    # discarded once the unit enters the permanent failed state, while still
+    # being preserved across the transitionary failed states that precede
+    # each automated auto-restart attempt. Use Restart=on-failure with
+    # StartLimitBurst=2 so the manager runs the helper twice before
+    # giving up. The helper:
+    #   - on the first attempt pushes an fd into the fdstore, becomes ready,
+    #     and then crashes,
+    #   - on subsequent attempts asserts that the previously stored fd is
+    #     handed back via $LISTEN_FDS (proving the fdstore survived the
+    #     auto-restart) and then crashes again.
+    # When the start-limit is hit the unit lands in the permanent failed
+    # state, at which point the fdstore must be empty.
+    cat >/run/TEST-91-LIVEUPDATE-failure.sh <<'EOF'
+#!/usr/bin/env bash
+set -eux
+state_file=/run/TEST-91-LIVEUPDATE-failure.attempt
+attempt=$(cat "$state_file" 2>/dev/null || echo 0)
+attempt=$((attempt + 1))
+echo "$attempt" > "$state_file"
+if [[ "$attempt" -eq 1 ]]; then
+    systemd-notify --fd=0 --fdname=mem </dev/zero
+else
+    # On any restart attempt the fdstore must have been preserved across the
+    # transitionary failed state and handed back to us via $LISTEN_FDS. Drop a
+    # marker file when the invariant is broken so the outer test can detect it.
+    if [[ "${LISTEN_FDS:-0}" -lt 1 ]]; then
+        touch /run/TEST-91-LIVEUPDATE-failure.preserve-broken
+    fi
+fi
+systemd-notify --ready
+# Give PID 1 a chance to process the FDSTORE=1/READY=1 notifications before
+# we exit, so the fdstore add is observed by the manager.
+sleep 0.5
+exit 1
+EOF
+    chmod +x /run/TEST-91-LIVEUPDATE-failure.sh
+    rm -f /run/TEST-91-LIVEUPDATE-failure.attempt \
+          /run/TEST-91-LIVEUPDATE-failure.preserve-broken
+    cat >/run/systemd/system/TEST-91-LIVEUPDATE-failure.service <<EOF
+[Unit]
+StartLimitIntervalSec=60
+StartLimitBurst=2
+[Service]
+Type=notify
+NotifyAccess=all
+FileDescriptorStoreMax=4
+FileDescriptorStorePreserve=on-success
+Restart=on-failure
+RestartSec=100ms
+ExecStart=/run/TEST-91-LIVEUPDATE-failure.sh
+EOF
+    systemctl daemon-reload
+    systemctl start TEST-91-LIVEUPDATE-failure.service || true
+    timeout 60s bash -c \
+        "until [[ \"\$(systemctl show -P ActiveState TEST-91-LIVEUPDATE-failure.service)\" == failed ]]; do sleep 0.5; done"
+    # Sanity: the helper ran more than once, proving the fdstore was preserved
+    # across at least one auto-restart attempt.
+    test "$(cat /run/TEST-91-LIVEUPDATE-failure.attempt)" -ge 2
+    # And the in-flight preservation invariant must hold for every restart.
+    test ! -e /run/TEST-91-LIVEUPDATE-failure.preserve-broken
+    # And the fdstore must be empty now that the permanent failed state was
+    # reached, since FileDescriptorStorePreserve=on-success is set.
+    n_fds=$(systemctl show -P NFileDescriptorStore TEST-91-LIVEUPDATE-failure.service)
+    test "$n_fds" -eq 0
+    systemctl reset-failed TEST-91-LIVEUPDATE-failure.service
+    rm -f /run/systemd/system/TEST-91-LIVEUPDATE-failure.service \
+          /run/TEST-91-LIVEUPDATE-failure.sh \
+          /run/TEST-91-LIVEUPDATE-failure.attempt \
+          /run/TEST-91-LIVEUPDATE-failure.preserve-broken
+    systemctl daemon-reload
 else
     # Create memfds with known content and push them to our fd store.
     # Also request a LUO session, store a memfd in it, and push the session fd to the fd store.
@@ -170,7 +242,7 @@ EOF
     mkdir -p /run/systemd/nspawn
     cat >/run/systemd/nspawn/fdstore.nspawn <<EOF
 [Exec]
-KillSignal=SIGKILL
+KillSignal=SIGTERM
 EOF
 
     systemctl start systemd-nspawn@fdstore.service

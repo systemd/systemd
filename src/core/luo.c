@@ -204,7 +204,7 @@ int manager_luo_serialize_fd_stores(Manager *m, FILE **ret_f, FDSet **ret_fds) {
 
                 s = SERVICE(u);
 
-                if (s->fd_store_preserve_mode != EXEC_PRESERVE_YES)
+                if (!IN_SET(s->fd_store_preserve_mode, EXEC_PRESERVE_YES, EXEC_PRESERVE_ON_SUCCESS))
                         continue;
 
                 if (!s->fd_store)
