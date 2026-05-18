@@ -36,3 +36,10 @@ static const char *const firmware_table[_FIRMWARE_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(firmware, Firmware);
+
+static const char *const confidential_computing_table[_CC_MAX] = {
+        [CC_NO] = "no",
+        [CC_AMD_SEV_SNP] = "sev-snp",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(confidential_computing, ConfidentialComputing);
