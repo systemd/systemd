@@ -163,177 +163,6 @@ static uint64_t pull_job_content_length_effective(PullJob *j) {
         return j->content_length;
 }
 
-static int pull_job_curl_on_finished(CurlSlot *slot, CURL *curl, CURLcode result, void *userdata) {
-        PullJob *j = ASSERT_PTR(userdata);
-        char *scheme = NULL;
-        CURLcode code;
-        int r;
-
-        if (IN_SET(j->state, PULL_JOB_DONE, PULL_JOB_FAILED))
-                return 0;
-
-        code = sym_curl_easy_getinfo(curl, CURLINFO_SCHEME, &scheme);
-        if (code != CURLE_OK || !scheme)
-                return pull_job_finish(j, log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to retrieve URL scheme."));
-
-        if (strcaseeq(scheme, "FILE") && result == CURLE_FILE_COULDNT_READ_FILE && j->on_not_found) {
-                _cleanup_free_ char *new_url = NULL;
-
-                /* This resource wasn't found, but the implementer wants to maybe let us know a new URL, query for it. */
-                r = j->on_not_found(j, &new_url);
-                if (r < 0)
-                        return pull_job_finish(j, r);
-                if (r > 0) { /* A new url to use */
-                        assert(new_url);
-
-                        r = pull_job_restart(j, new_url);
-                        if (r < 0)
-                                return pull_job_finish(j, r);
-
-                        return 0;
-                }
-
-                /* if this didn't work, handle like any other error below */
-        }
-
-        if (result != CURLE_OK)
-                return pull_job_finish(j, log_error_errno(SYNTHETIC_ERRNO(EIO), "Transfer failed: %s", sym_curl_easy_strerror(result)));
-
-        if (STRCASE_IN_SET(scheme, "HTTP", "HTTPS")) {
-                long status;
-
-                code = sym_curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &status);
-                if (code != CURLE_OK)
-                        return pull_job_finish(j, log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to retrieve response code: %s", sym_curl_easy_strerror(code)));
-
-                if (http_status_etag_exists(status)) {
-                        log_info("Image already downloaded. Skipping download.");
-                        j->etag_exists = true;
-                        return pull_job_finish(j, 0);
-                } else if (http_status_need_authentication(status)) {
-                        log_info("Access to image requires authentication.");
-                        return pull_job_finish(j, -ENOKEY);
-                } else if (status >= 300) {
-
-                        if (status == 404 && j->on_not_found) {
-                                _cleanup_free_ char *new_url = NULL;
-
-                                /* This resource wasn't found, but the implementer wants to maybe let us know a new URL, query for it. */
-                                r = j->on_not_found(j, &new_url);
-                                if (r < 0)
-                                        return pull_job_finish(j, r);
-
-                                if (r > 0) { /* A new url to use */
-                                        assert(new_url);
-
-                                        r = pull_job_restart(j, new_url);
-                                        if (r < 0)
-                                                return pull_job_finish(j, r);
-
-                                        code = sym_curl_easy_getinfo(curl_slot_get_easy(j->slot), CURLINFO_RESPONSE_CODE, &status);
-                                        if (code != CURLE_OK)
-                                                return pull_job_finish(j, log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to retrieve response code: %s", sym_curl_easy_strerror(code)));
-
-                                        if (status == 0)
-                                                return 0;
-                                }
-                        }
-
-                        return pull_job_finish(j, log_notice_errno(
-                                        status == 404 ? SYNTHETIC_ERRNO(ENOMEDIUM) : SYNTHETIC_ERRNO(EIO), /* Make the most common error recognizable */
-                                        "HTTP request to %s failed with code %li.", j->url, status));
-                } else if (status < 200)
-                        return pull_job_finish(j, log_error_errno(SYNTHETIC_ERRNO(EIO), "HTTP request to %s finished with unexpected code %li.", j->url, status));
-        }
-
-        if (j->state != PULL_JOB_RUNNING)
-                return pull_job_finish(j, log_error_errno(SYNTHETIC_ERRNO(EIO), "Premature connection termination."));
-
-        uint64_t cl = pull_job_content_length_effective(j);
-        if (cl != UINT64_MAX &&
-            cl != j->written_compressed)
-                return pull_job_finish(j, log_error_errno(SYNTHETIC_ERRNO(EIO), "Download truncated."));
-
-        if (j->checksum_ctx) {
-                unsigned checksum_len;
-
-                iovec_done(&j->checksum);
-                j->checksum.iov_base = malloc(EVP_MAX_MD_SIZE);
-                if (!j->checksum.iov_base)
-                        return pull_job_finish(j, log_oom());
-
-                r = sym_EVP_DigestFinal_ex(j->checksum_ctx, j->checksum.iov_base, &checksum_len);
-                if (r == 0)
-                        return pull_job_finish(j, log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to get checksum."));
-                assert(checksum_len <= EVP_MAX_MD_SIZE);
-                j->checksum.iov_len = checksum_len;
-
-                if (DEBUG_LOGGING) {
-                        _cleanup_free_ char *h = hexmem(j->checksum.iov_base, j->checksum.iov_len);
-                        if (!h)
-                                return pull_job_finish(j, log_oom());
-
-                        log_debug("%s of %s is %s.", sym_EVP_MD_CTX_get0_name(j->checksum_ctx), pull_job_description(j), h);
-                }
-
-                if (iovec_is_set(&j->expected_checksum) &&
-                    !iovec_equal(&j->checksum, &j->expected_checksum))
-                        return pull_job_finish(j, log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Checksum of downloaded resource does not match expected checksum, yikes."));
-        }
-
-        /* Do a couple of finishing disk operations, but only if we are the sole owner of the file (i.e. no
-         * offset is specified, which indicates we only own the file partially) */
-
-        if (j->disk_fd >= 0) {
-
-                if (S_ISREG(j->disk_stat.st_mode)) {
-
-                        if (j->offset == UINT64_MAX) {
-
-                                if (j->written_compressed > 0) {
-                                        /* Make sure the file size is right, in case the file was sparse and
-                                         * we just moved to the last part. */
-                                        if (ftruncate(j->disk_fd, j->written_uncompressed) < 0)
-                                                return pull_job_finish(j, log_error_errno(errno, "Failed to truncate file: %m"));
-                                }
-
-                                if (j->etag)
-                                        (void) fsetxattr(j->disk_fd, "user.source_etag", j->etag, strlen(j->etag), 0);
-                                if (j->url)
-                                        (void) fsetxattr(j->disk_fd, "user.source_url", j->url, strlen(j->url), 0);
-
-                                if (j->mtime != 0) {
-                                        struct timespec ut;
-
-                                        timespec_store(&ut, j->mtime);
-
-                                        if (futimens(j->disk_fd, (struct timespec[]) { ut, ut }) < 0)
-                                                log_debug_errno(errno, "Failed to adjust atime/mtime of created image, ignoring: %m");
-
-                                        r = fd_setcrtime(j->disk_fd, j->mtime);
-                                        if (r < 0)
-                                                log_debug_errno(r, "Failed to adjust crtime of created image, ignoring: %m");
-                                }
-                        }
-
-                        if (j->sync) {
-                                r = fsync_full(j->disk_fd);
-                                if (r < 0)
-                                        return pull_job_finish(j, log_error_errno(r, "Failed to synchronize file to disk: %m"));
-                        }
-
-                } else if (S_ISBLK(j->disk_stat.st_mode) && j->sync) {
-
-                        if (fsync(j->disk_fd) < 0)
-                                return pull_job_finish(j, log_error_errno(errno, "Failed to synchronize block device: %m"));
-                }
-        }
-
-        log_info("Acquired %s for %s.", FORMAT_BYTES(j->written_uncompressed), pull_job_description(j));
-
-        return pull_job_finish(j, 0);
-}
-
 static int pull_job_write_uncompressed(const void *p, size_t sz, void *userdata) {
         PullJob *j = ASSERT_PTR(userdata);
         bool too_much = false;
@@ -470,18 +299,12 @@ static int pull_job_open_disk(PullJob *j) {
         return 0;
 }
 
-static int pull_job_detect_compression(PullJob *j) {
+static int pull_job_begin_running(PullJob *j) {
         int r;
 
         assert(j);
-
-        r = decompressor_detect(&j->compress, j->payload.iov_base, j->payload.iov_len);
-        if (r < 0)
-                return log_error_errno(r, "Failed to initialize compressor: %m");
-        if (r == 0)
-                return 0;
-
-        log_debug("Stream is compressed: %s", compression_to_string(compressor_type(j->compress)));
+        assert(j->state == PULL_JOB_ANALYZING);
+        assert(j->compress);
 
         r = pull_job_open_disk(j);
         if (r < 0)
@@ -497,6 +320,207 @@ static int pull_job_detect_compression(PullJob *j) {
                 return r;
 
         return 0;
+}
+
+static int pull_job_curl_on_finished(CurlSlot *slot, CURL *curl, CURLcode result, void *userdata) {
+        PullJob *j = ASSERT_PTR(userdata);
+        char *scheme = NULL;
+        CURLcode code;
+        int r;
+
+        if (IN_SET(j->state, PULL_JOB_DONE, PULL_JOB_FAILED))
+                return 0;
+
+        code = sym_curl_easy_getinfo(curl, CURLINFO_SCHEME, &scheme);
+        if (code != CURLE_OK || !scheme)
+                return pull_job_finish(j, log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to retrieve URL scheme."));
+
+        if (strcaseeq(scheme, "FILE") && result == CURLE_FILE_COULDNT_READ_FILE && j->on_not_found) {
+                _cleanup_free_ char *new_url = NULL;
+
+                /* This resource wasn't found, but the implementer wants to maybe let us know a new URL, query for it. */
+                r = j->on_not_found(j, &new_url);
+                if (r < 0)
+                        return pull_job_finish(j, r);
+                if (r > 0) { /* A new url to use */
+                        assert(new_url);
+
+                        r = pull_job_restart(j, new_url);
+                        if (r < 0)
+                                return pull_job_finish(j, r);
+
+                        return 0;
+                }
+
+                /* if this didn't work, handle like any other error below */
+        }
+
+        if (result != CURLE_OK)
+                return pull_job_finish(j, log_error_errno(SYNTHETIC_ERRNO(EIO), "Transfer failed: %s", sym_curl_easy_strerror(result)));
+
+        if (STRCASE_IN_SET(scheme, "HTTP", "HTTPS")) {
+                long status;
+
+                code = sym_curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &status);
+                if (code != CURLE_OK)
+                        return pull_job_finish(j, log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to retrieve response code: %s", sym_curl_easy_strerror(code)));
+
+                if (http_status_etag_exists(status)) {
+                        log_info("Image already downloaded. Skipping download.");
+                        j->etag_exists = true;
+                        return pull_job_finish(j, 0);
+                } else if (http_status_need_authentication(status)) {
+                        log_info("Access to image requires authentication.");
+                        return pull_job_finish(j, -ENOKEY);
+                } else if (status >= 300) {
+
+                        if (status == 404 && j->on_not_found) {
+                                _cleanup_free_ char *new_url = NULL;
+
+                                /* This resource wasn't found, but the implementer wants to maybe let us know a new URL, query for it. */
+                                r = j->on_not_found(j, &new_url);
+                                if (r < 0)
+                                        return pull_job_finish(j, r);
+
+                                if (r > 0) { /* A new url to use */
+                                        assert(new_url);
+
+                                        r = pull_job_restart(j, new_url);
+                                        if (r < 0)
+                                                return pull_job_finish(j, r);
+
+                                        code = sym_curl_easy_getinfo(curl_slot_get_easy(j->slot), CURLINFO_RESPONSE_CODE, &status);
+                                        if (code != CURLE_OK)
+                                                return pull_job_finish(j, log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to retrieve response code: %s", sym_curl_easy_strerror(code)));
+
+                                        if (status == 0)
+                                                return 0;
+                                }
+                        }
+
+                        return pull_job_finish(j, log_notice_errno(
+                                        status == 404 ? SYNTHETIC_ERRNO(ENOMEDIUM) : SYNTHETIC_ERRNO(EIO), /* Make the most common error recognizable */
+                                        "HTTP request to %s failed with code %li.", j->url, status));
+                } else if (status < 200)
+                        return pull_job_finish(j, log_error_errno(SYNTHETIC_ERRNO(EIO), "HTTP request to %s finished with unexpected code %li.", j->url, status));
+        }
+
+        if (j->state == PULL_JOB_ANALYZING) {
+                /* When curl finished the download while we were still looking for a compression magic
+                 * header the content isn't compressed but should be written out as is. */
+                assert(result == CURLE_OK);
+
+                r = decompressor_force_off(&j->compress);
+                if (r < 0)
+                        return pull_job_finish(j, r);
+
+                r = pull_job_begin_running(j);
+                if (r < 0)
+                        return pull_job_finish(j, r);
+        }
+
+        if (j->state != PULL_JOB_RUNNING)
+                return pull_job_finish(j, log_error_errno(SYNTHETIC_ERRNO(EIO), "Premature connection termination."));
+
+        uint64_t cl = pull_job_content_length_effective(j);
+        if (cl != UINT64_MAX &&
+            cl != j->written_compressed)
+                return pull_job_finish(j, log_error_errno(SYNTHETIC_ERRNO(EIO), "Download truncated."));
+
+        if (j->checksum_ctx) {
+                unsigned checksum_len;
+
+                iovec_done(&j->checksum);
+                j->checksum.iov_base = malloc(EVP_MAX_MD_SIZE);
+                if (!j->checksum.iov_base)
+                        return pull_job_finish(j, log_oom());
+
+                r = sym_EVP_DigestFinal_ex(j->checksum_ctx, j->checksum.iov_base, &checksum_len);
+                if (r == 0)
+                        return pull_job_finish(j, log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to get checksum."));
+                assert(checksum_len <= EVP_MAX_MD_SIZE);
+                j->checksum.iov_len = checksum_len;
+
+                if (DEBUG_LOGGING) {
+                        _cleanup_free_ char *h = hexmem(j->checksum.iov_base, j->checksum.iov_len);
+                        if (!h)
+                                return pull_job_finish(j, log_oom());
+
+                        log_debug("%s of %s is %s.", sym_EVP_MD_CTX_get0_name(j->checksum_ctx), pull_job_description(j), h);
+                }
+
+                if (iovec_is_set(&j->expected_checksum) &&
+                    !iovec_equal(&j->checksum, &j->expected_checksum))
+                        return pull_job_finish(j, log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Checksum of downloaded resource does not match expected checksum, yikes."));
+        }
+
+        /* Do a couple of finishing disk operations, but only if we are the sole owner of the file (i.e. no
+         * offset is specified, which indicates we only own the file partially) */
+
+        if (j->disk_fd >= 0) {
+
+                if (S_ISREG(j->disk_stat.st_mode)) {
+
+                        if (j->offset == UINT64_MAX) {
+
+                                if (j->written_compressed > 0) {
+                                        /* Make sure the file size is right, in case the file was sparse and
+                                         * we just moved to the last part. */
+                                        if (ftruncate(j->disk_fd, j->written_uncompressed) < 0)
+                                                return pull_job_finish(j, log_error_errno(errno, "Failed to truncate file: %m"));
+                                }
+
+                                if (j->etag)
+                                        (void) fsetxattr(j->disk_fd, "user.source_etag", j->etag, strlen(j->etag), 0);
+                                if (j->url)
+                                        (void) fsetxattr(j->disk_fd, "user.source_url", j->url, strlen(j->url), 0);
+
+                                if (j->mtime != 0) {
+                                        struct timespec ut;
+
+                                        timespec_store(&ut, j->mtime);
+
+                                        if (futimens(j->disk_fd, (struct timespec[]) { ut, ut }) < 0)
+                                                log_debug_errno(errno, "Failed to adjust atime/mtime of created image, ignoring: %m");
+
+                                        r = fd_setcrtime(j->disk_fd, j->mtime);
+                                        if (r < 0)
+                                                log_debug_errno(r, "Failed to adjust crtime of created image, ignoring: %m");
+                                }
+                        }
+
+                        if (j->sync) {
+                                r = fsync_full(j->disk_fd);
+                                if (r < 0)
+                                        return pull_job_finish(j, log_error_errno(r, "Failed to synchronize file to disk: %m"));
+                        }
+
+                } else if (S_ISBLK(j->disk_stat.st_mode) && j->sync) {
+
+                        if (fsync(j->disk_fd) < 0)
+                                return pull_job_finish(j, log_error_errno(errno, "Failed to synchronize block device: %m"));
+                }
+        }
+
+        log_info("Acquired %s for %s.", FORMAT_BYTES(j->written_uncompressed), pull_job_description(j));
+
+        return pull_job_finish(j, 0);
+}
+
+static int pull_job_detect_compression(PullJob *j) {
+        int r;
+
+        assert(j);
+
+        r = decompressor_detect(&j->compress, j->payload.iov_base, j->payload.iov_len);
+        if (r < 0)
+                return log_error_errno(r, "Failed to initialize compressor: %m");
+        if (r == 0)
+                return 0;
+
+        log_debug("Stream is compressed: %s", compression_to_string(compressor_type(j->compress)));
+
+        return pull_job_begin_running(j);
 }
 
 static size_t pull_job_write_callback(void *contents, size_t size, size_t nmemb, void *userdata) {
