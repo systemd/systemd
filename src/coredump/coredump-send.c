@@ -57,7 +57,7 @@ int coredump_send(CoredumpContext *context) {
                                          * what we want to send, and the second one contains
                                          * the trailing dots. */
                                         copy[0] = *iovec;
-                                        copy[1] = IOVEC_MAKE(((const char[]){'.', '.', '.'}), 3);
+                                        copy[1] = IOVEC_MAKE_STRING("...");
 
                                         mh.msg_iov = copy;
                                         mh.msg_iovlen = 2;
