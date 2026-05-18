@@ -176,7 +176,9 @@ static int manager_runtime_build_json(sd_json_variant **ret, const char *name, v
                 JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL("GeneratorsFinishTimestamp", &m->timestamps[MANAGER_TIMESTAMP_GENERATORS_FINISH]),
                 JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL("UnitsLoadStartTimestamp", &m->timestamps[MANAGER_TIMESTAMP_UNITS_LOAD_START]),
                 JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL("UnitsLoadFinishTimestamp", &m->timestamps[MANAGER_TIMESTAMP_UNITS_LOAD_FINISH]),
-                JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL("UnitsLoadTimestamp", &m->timestamps[MANAGER_TIMESTAMP_UNITS_LOAD]),
+                JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL("UnitsLoadTimestamp", &m->timestamps[MANAGER_TIMESTAMP_UNITS_RELOAD_START]),
+                JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL("UnitsReloadStartTimestamp", &m->timestamps[MANAGER_TIMESTAMP_UNITS_RELOAD_START]),
+                JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL("UnitsReloadFinishTimestamp", &m->timestamps[MANAGER_TIMESTAMP_UNITS_RELOAD_FINISH]),
                 JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL("InitRDSecurityStartTimestamp", &m->timestamps[MANAGER_TIMESTAMP_INITRD_SECURITY_START]),
                 JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL("InitRDSecurityFinishTimestamp", &m->timestamps[MANAGER_TIMESTAMP_INITRD_SECURITY_FINISH]),
                 JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL("InitRDGeneratorsStartTimestamp", &m->timestamps[MANAGER_TIMESTAMP_INITRD_GENERATORS_START]),
@@ -194,7 +196,8 @@ static int manager_runtime_build_json(sd_json_variant **ret, const char *name, v
                 SD_JSON_BUILD_PAIR_STRING("SystemState", manager_state_to_string(manager_state(m))),
                 SD_JSON_BUILD_PAIR_UNSIGNED("ExitCode", m->return_value),
                 SD_JSON_BUILD_PAIR_UNSIGNED("SoftRebootsCount", m->soft_reboots_count),
-                SD_JSON_BUILD_PAIR_UNSIGNED("ReloadCount", m->reload_count));
+                SD_JSON_BUILD_PAIR_UNSIGNED("ReloadCount", m->reload_count),
+                JSON_BUILD_PAIR_FINITE_USEC("LastReloadUSec", manager_get_last_reload_usec(m)));
 }
 
 int vl_method_describe_manager(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
