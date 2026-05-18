@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-03-06 03:46+0900\n"
+"POT-Creation-Date: 2026-05-18 12:18+0100\n"
 "PO-Revision-Date: 2026-04-11 19:58+0000\n"
 "Last-Translator: joo es <jonnyse@users.noreply.translate.fedoraproject.org>\n"
 "Language-Team: Arabic <https://translate.fedoraproject.org/projects/systemd/"
@@ -801,32 +801,51 @@ msgid ""
 msgstr "الاستيثاق مطلوب لإدارة الأجهزة الافتراضية والحاويات المحلية."
 
 #: src/machine/org.freedesktop.machine1.policy:95
+msgid "Inspect local virtual machines and containers"
+msgstr ""
+
+#: src/machine/org.freedesktop.machine1.policy:96
+msgid ""
+"Authentication is required to inspect local virtual machines and containers."
+msgstr ""
+
+#: src/machine/org.freedesktop.machine1.policy:105
 msgid "Create a local virtual machine or container"
 msgstr "أنشئ جهازًا افتراضيًا محليًا أو حاوية"
 
-#: src/machine/org.freedesktop.machine1.policy:96
+#: src/machine/org.freedesktop.machine1.policy:106
 msgid ""
 "Authentication is required to create a local virtual machine or container."
 msgstr "الاستيثاق مطلوب لإنشاء جهاز افتراضي محلي أو حاوية."
 
-#: src/machine/org.freedesktop.machine1.policy:106
+#: src/machine/org.freedesktop.machine1.policy:116
 msgid "Register a local virtual machine or container"
 msgstr "سجّل جهازًا افتراضيًا محليًا أو حاوية"
 
-#: src/machine/org.freedesktop.machine1.policy:107
+#: src/machine/org.freedesktop.machine1.policy:117
 msgid ""
 "Authentication is required to register a local virtual machine or container."
 msgstr "الاستيثاق مطلوب لتسجيل جهاز افتراضي محلي أو حاوية."
 
-#: src/machine/org.freedesktop.machine1.policy:116
+#: src/machine/org.freedesktop.machine1.policy:126
 msgid "Manage local virtual machine and container images"
 msgstr "أدر الأجهزة الافتراضية وصور الحاويات المحلية"
 
-#: src/machine/org.freedesktop.machine1.policy:117
+#: src/machine/org.freedesktop.machine1.policy:127
 msgid ""
 "Authentication is required to manage local virtual machine and container "
 "images."
 msgstr "الاستيثاق مطلوب لإدارة الأجهزة الافتراضية وصور الحاويات المحلية."
+
+#: src/machine/org.freedesktop.machine1.policy:137
+msgid "Inspect local virtual machine and container images"
+msgstr ""
+
+#: src/machine/org.freedesktop.machine1.policy:138
+msgid ""
+"Authentication is required to inspect local virtual machine and container "
+"images."
+msgstr ""
 
 #: src/network/org.freedesktop.network1.policy:22
 msgid "Set NTP servers"
