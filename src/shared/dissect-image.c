@@ -446,7 +446,7 @@ static int partition_is_luks2_integrity(int part_fd, uint64_t offset, uint64_t s
         if (be64toh(header.hdr_len) <= LUKS2_FIXED_HDR_SIZE || offset > UINT64_MAX - be64toh(header.hdr_len))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid LUKS header length: %" PRIu64 ".", be64toh(header.hdr_len));
 
-        if (be64toh(header.hdr_len) - LUKS2_FIXED_HDR_SIZE > (uint64_t) SSIZE_MAX)
+        if (be64toh(header.hdr_len) - LUKS2_FIXED_HDR_SIZE > 16U * 1024U * 1024U)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "LUKS header JSON area too large: %" PRIu64 ".", be64toh(header.hdr_len));
 
         json_len = be64toh(header.hdr_len) - LUKS2_FIXED_HDR_SIZE;
