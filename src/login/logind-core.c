@@ -447,7 +447,7 @@ int manager_get_user_by_pid(Manager *m, pid_t pid, User **ret) {
         return !!u;
 }
 
-int manager_get_idle_hint(Manager *m, dual_timestamp *t) {
+bool manager_get_idle_hint(Manager *m, dual_timestamp *ret_timestamp) {
         Session *s;
         bool idle_hint;
         dual_timestamp ts;
@@ -458,19 +458,16 @@ int manager_get_idle_hint(Manager *m, dual_timestamp *t) {
          * unreasonable large idle periods starting with the Unix epoch. */
         ts = m->init_ts;
 
-        idle_hint = !manager_is_inhibited(m, INHIBIT_IDLE, t, /* flags= */ 0, UID_INVALID, NULL);
+        idle_hint = !manager_is_inhibited(m, INHIBIT_IDLE, /* since= */ NULL, /* flags= */ 0, UID_INVALID, NULL);
 
         HASHMAP_FOREACH(s, m->sessions) {
                 dual_timestamp k;
-                int ih;
+                bool ih;
 
                 if (!SESSION_CLASS_CAN_IDLE(s->class))
                         continue;
 
                 ih = session_get_idle_hint(s, &k);
-                if (ih < 0)
-                        return ih;
-
                 if (!ih) {
                         if (!idle_hint) {
                                 if (k.monotonic < ts.monotonic)
@@ -486,8 +483,8 @@ int manager_get_idle_hint(Manager *m, dual_timestamp *t) {
                 }
         }
 
-        if (t)
-                *t = ts;
+        if (ret_timestamp)
+                *ret_timestamp = ts;
 
         return idle_hint;
 }
