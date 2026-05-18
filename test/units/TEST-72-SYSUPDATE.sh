@@ -552,4 +552,28 @@ EOF
 done
 done
 
+# Make sure the processing of compressed streams still handles uncompressed streams shorter than
+# COMPRESSION_MAGIC_BYTES_MAX correctly.
+rm -rf "$CONFIGDIR" "$WORKDIR/blobs"
+mkdir -p "$CONFIGDIR" "$WORKDIR/blobs"
+printf 'xx' >"$WORKDIR/source/tiny-v1.bin"
+(cd "$WORKDIR/source" && sha256sum tiny-v1.bin >SHA256SUMS)
+cat >"$CONFIGDIR/01-tiny-url.transfer" <<EOF
+[Source]
+Type=url-file
+Path=file://$WORKDIR/source
+MatchPattern=tiny-@v.bin
+
+[Target]
+Type=regular-file
+Path=$WORKDIR/blobs
+MatchPattern=tiny-@v.bin
+InstancesMax=1
+EOF
+"$SYSUPDATE" --verify=no update
+cmp "$WORKDIR/source/tiny-v1.bin" "$WORKDIR/blobs/tiny-v1.bin"
+rm "$CONFIGDIR/01-tiny-url.transfer"
+rm "$WORKDIR/source/tiny-v1.bin"
+rm "$WORKDIR/source/SHA256SUMS"
+
 touch /testok

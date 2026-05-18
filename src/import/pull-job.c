@@ -299,6 +299,29 @@ static int pull_job_open_disk(PullJob *j) {
         return 0;
 }
 
+static int pull_job_begin_running(PullJob *j) {
+        int r;
+
+        assert(j);
+        assert(j->state == PULL_JOB_ANALYZING);
+        assert(j->compress);
+
+        r = pull_job_open_disk(j);
+        if (r < 0)
+                return r;
+
+        /* Now, take the payload we read so far, and decompress it */
+        _cleanup_(iovec_done) struct iovec stub = TAKE_STRUCT(j->payload);
+
+        j->state = PULL_JOB_RUNNING;
+
+        r = pull_job_write_compressed(j, &stub);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 static int pull_job_curl_on_finished(CurlSlot *slot, CURL *curl, CURLcode result, void *userdata) {
         PullJob *j = ASSERT_PTR(userdata);
         char *scheme = NULL;
@@ -380,6 +403,20 @@ static int pull_job_curl_on_finished(CurlSlot *slot, CURL *curl, CURLcode result
                                         "HTTP request to %s failed with code %li.", j->url, status));
                 } else if (status < 200)
                         return pull_job_finish(j, log_error_errno(SYNTHETIC_ERRNO(EIO), "HTTP request to %s finished with unexpected code %li.", j->url, status));
+        }
+
+        if (j->state == PULL_JOB_ANALYZING) {
+                /* When curl finished the download while we were still looking for a compression magic
+                 * header the content isn't compressed but should be written out as is. */
+                assert(result == CURLE_OK);
+
+                r = decompressor_force_off(&j->compress);
+                if (r < 0)
+                        return pull_job_finish(j, r);
+
+                r = pull_job_begin_running(j);
+                if (r < 0)
+                        return pull_job_finish(j, r);
         }
 
         if (j->state != PULL_JOB_RUNNING)
@@ -483,20 +520,7 @@ static int pull_job_detect_compression(PullJob *j) {
 
         log_debug("Stream is compressed: %s", compression_to_string(compressor_type(j->compress)));
 
-        r = pull_job_open_disk(j);
-        if (r < 0)
-                return r;
-
-        /* Now, take the payload we read so far, and decompress it */
-        _cleanup_(iovec_done) struct iovec stub = TAKE_STRUCT(j->payload);
-
-        j->state = PULL_JOB_RUNNING;
-
-        r = pull_job_write_compressed(j, &stub);
-        if (r < 0)
-                return r;
-
-        return 0;
+        return pull_job_begin_running(j);
 }
 
 static size_t pull_job_write_callback(void *contents, size_t size, size_t nmemb, void *userdata) {
