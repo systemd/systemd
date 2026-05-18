@@ -3442,8 +3442,8 @@ static int context_copy_from_one(Context *context, const char *src) {
                 if (!np->copy_blocks_path)
                         return log_oom();
 
-                np->copy_blocks_fd = fcntl(fd, F_DUPFD_CLOEXEC, 3);
-                if (np->copy_blocks_fd < 0)
+                np->copy_blocks_fd = r = RET_NERRNO(fcntl(fd, F_DUPFD_CLOEXEC, 3));
+                if (r < 0)
                         return log_error_errno(r, "Failed to duplicate file descriptor of %s: %m", src);
 
                 np->copy_blocks_offset = start;
