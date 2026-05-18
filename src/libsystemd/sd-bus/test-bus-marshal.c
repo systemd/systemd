@@ -233,17 +233,16 @@ static void test_bus_nested_variant_depth_limit(void) {
         size_t padded_fields = ALIGN8(fields_size);
         size_t total = sizeof(BusMessageHeader) + padded_fields;
 
-        void *buf = malloc0(total);
-        assert_se(buf);
+        void *buf = ASSERT_PTR(malloc0(total));
 
         BusMessageHeader *h = buf;
-        h->endian = BUS_NATIVE_ENDIAN;
-        h->type = SD_BUS_MESSAGE_METHOD_CALL;
-        h->flags = 0;
-        h->version = 1;
-        h->body_size = 0;
-        h->serial = 1;
-        h->fields_size = (uint32_t) fields_size;
+        *h = (BusMessageHeader) {
+                .endian = BUS_NATIVE_ENDIAN,
+                .type = SD_BUS_MESSAGE_METHOD_CALL,
+                .version = 1,
+                .serial = 1,
+                .fields_size = (uint32_t) fields_size,
+        };
 
         uint8_t *p = (uint8_t *) buf + sizeof(BusMessageHeader);
 

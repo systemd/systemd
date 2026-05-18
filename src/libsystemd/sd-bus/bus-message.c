@@ -3915,7 +3915,7 @@ static int message_skip_fields(
         assert(signature);
 
         if (depth >= BUS_CONTAINER_DEPTH)
-                return -EBADMSG;
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "Maximum container nesting depth reached, refusing.");
 
         original_index = *ri;
 
