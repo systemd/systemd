@@ -218,10 +218,13 @@ static inline bool ERRNO_IS_NEG_DEVICE_ABSENT_OR_EMPTY(intmax_t r) {
 }
 _DEFINE_ABS_WRAPPER(DEVICE_ABSENT_OR_EMPTY);
 
-/* Quite often we want to handle cases where the backing FS doesn't support extended attributes at all and
- * where it simply doesn't have the requested xattr the same way */
+/* Quite often we want to handle cases where the backing FS doesn't support extended attributes at all,
+ * where the path component carrying the xattr is missing, and where it simply doesn't have the requested
+ * xattr the same way. Note that getxattr(2) does not enumerate -ENOENT in its own error list, but inherits
+ * it via stat(2) (see ERRORS in getxattr(2)) for the path-component-missing case. */
 static inline bool ERRNO_IS_NEG_XATTR_ABSENT(intmax_t r) {
         return r == -ENODATA ||
+                r == -ENOENT ||
                 ERRNO_IS_NEG_NOT_SUPPORTED(r);
 }
 _DEFINE_ABS_WRAPPER(XATTR_ABSENT);
