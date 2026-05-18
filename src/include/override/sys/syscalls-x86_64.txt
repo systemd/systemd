@@ -359,6 +359,7 @@ riscv_flush_icache
 riscv_hwprobe
 rmdir	84
 rseq	334
+rseq_slice_yield	471
 rt_sigaction	13
 rt_sigpending	127
 rt_sigprocmask	14
