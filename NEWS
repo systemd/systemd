@@ -87,7 +87,7 @@ CHANGES WITH 261 in spe:
           recognized.
 
         * An IMDS subsystem has been added. Specifically, there's now
-          systemd-imdsd which provides a local Varliknk IPC API that makes IMDS
+          systemd-imdsd which provides a local Varlink IPC API that makes IMDS
           services accessible locally. It provides both a relatively low-level
           interface for querying arbitrary fields, and a higher level interface
           for querying certain well-known keys in a generic way (which maps to
@@ -95,7 +95,10 @@ CHANGES WITH 261 in spe:
           into the boot transaction automatically if a supported cloud is
           recognized via the systemd-imds-generator functionality. This permits
           implementation of truly generic images, that can interact with IMDS
-          if available, but operate without if not.l
+          if available, but operate without if not. A tool systemd-imds acts as
+          a client to systemd-imdsd and imports various IMDS provided fields
+          into local system credentials, which can then be consumed by later
+          services. The acquired IMDS is measured before being imported.
 
         * Networking to cloud IMDS services may be locked down for recognized
           clouds. This is recommended for secure installations, but typically
@@ -109,10 +112,14 @@ CHANGES WITH 261 in spe:
           each successfully completed daemon-reload, and it is reset on
           daemon-reexec.
 
-        * A new ConditionSecurity=measured-os condition has been added that
-          checks whether the system was booted with measured-boot semantics
-          (i.e. via systemd-stub or an equivalent verified-boot mechanism
-          that measured the OS to the TPM).
+        * A new ConditionSecurity=measured-os unit condition has been added
+          that checks whether the system was booted with measured-boot
+          semantics (i.e. via systemd-stub or an equivalent verified-boot
+          mechanism that measured the OS to the TPM). This is very similar to
+          the pre-existing ConditionSecurity=measured-uki however is a more
+          generic as it can also cover environments where the firmware/UKI does
+          not have a TPM but the OS has (which is for example the case if the
+          TPM is implemented purely in software).
 
         * A new unit setting CPUSetPartition= has been added that allows
           configuring the cpuset cgroup partition type (e.g. "root",
@@ -463,10 +470,6 @@ CHANGES WITH 261 in spe:
           command as a Varlink server, and a new '--upgrade' option
           (along with '--exec') to consume the protocol upgrade API.
 
-        * A new JsonStream transport-layer module has been added for
-          consumers building higher-level JSON-over-stream protocols on
-          top of sd-json.
-
         * sd-path now exposes an XDG 'projects' user directory.
 
         * sd-device gained a number of helpers, including
@@ -535,6 +538,25 @@ CHANGES WITH 261 in spe:
         * systemd-vconsole-setup will now gracefully handle if the
           setfont/loadkeys tools are not installed, and skip operation cleanly
           in that case.
+
+        * sd_json_parse() (and related calls) now supports a pair of new flags
+          SD_JSON_PARSE_MUST_BE_OBJECT and SD_JSON_PARSE_MUST_BE_ARRAY. If
+          specified this flags cause the parser to failure if the top-level
+          parsed JSON variant is not an object/array.
+
+        * A new service systemd-tpm2-swtpm.service has been added that can run
+          the IBM "swtpm" as a software TPM, for use as (optional) automatic
+          fallback for systems that lack a physical TPM but where TPM
+          functionality should be made available nonetheless. (This
+          functionality must be enabled via systemd.tpm2_software_fallback= on
+          the kernel command line.) Of course a software TPM running as part of
+          a system's userspace does not provide a security posture in any way
+          equivalent to that of a discrete hardware TPM, however in various
+          usecase it might still be preferable over having no TPM functionality
+          at all. The software TPM uses a key derived from the new "boot
+          secret" functionality for encryption, and stores its state in the
+          disk's TPM. This provides at least some protection, and reasonable
+          persistancy from initrd on.
 
 CHANGES WITH 260:
 
