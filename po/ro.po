@@ -8,7 +8,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-03-06 03:46+0900\n"
+"POT-Creation-Date: 2026-05-18 12:18+0100\n"
 "PO-Revision-Date: 2026-05-09 05:59+0000\n"
 "Last-Translator: Petru Rebeja <petru@rebeja.eu>\n"
 "Language-Team: Romanian <https://translate.fedoraproject.org/projects/"
@@ -924,11 +924,20 @@ msgstr ""
 "containere."
 
 #: src/machine/org.freedesktop.machine1.policy:95
+msgid "Inspect local virtual machines and containers"
+msgstr ""
+
+#: src/machine/org.freedesktop.machine1.policy:96
+msgid ""
+"Authentication is required to inspect local virtual machines and containers."
+msgstr ""
+
+#: src/machine/org.freedesktop.machine1.policy:105
 #, fuzzy
 msgid "Create a local virtual machine or container"
 msgstr "Gestionează mașini virtuale locale și containere"
 
-#: src/machine/org.freedesktop.machine1.policy:96
+#: src/machine/org.freedesktop.machine1.policy:106
 #, fuzzy
 msgid ""
 "Authentication is required to create a local virtual machine or container."
@@ -936,12 +945,12 @@ msgstr ""
 "Autentificarea este necesară pentru a gestiona mașini virtuale locale și "
 "containere."
 
-#: src/machine/org.freedesktop.machine1.policy:106
+#: src/machine/org.freedesktop.machine1.policy:116
 #, fuzzy
 msgid "Register a local virtual machine or container"
 msgstr "Gestionează mașini virtuale locale și containere"
 
-#: src/machine/org.freedesktop.machine1.policy:107
+#: src/machine/org.freedesktop.machine1.policy:117
 #, fuzzy
 msgid ""
 "Authentication is required to register a local virtual machine or container."
@@ -949,18 +958,28 @@ msgstr ""
 "Autentificarea este necesară pentru a gestiona mașini virtuale locale și "
 "containere."
 
-#: src/machine/org.freedesktop.machine1.policy:116
+#: src/machine/org.freedesktop.machine1.policy:126
 msgid "Manage local virtual machine and container images"
 msgstr ""
 "Gestionează imaginile pentru mașinile virtuale locale și pentru containere"
 
-#: src/machine/org.freedesktop.machine1.policy:117
+#: src/machine/org.freedesktop.machine1.policy:127
 msgid ""
 "Authentication is required to manage local virtual machine and container "
 "images."
 msgstr ""
 "Autentificarea este necesară pentru a gestiona imagini de mașini virtuale "
 "locale și de containere."
+
+#: src/machine/org.freedesktop.machine1.policy:137
+msgid "Inspect local virtual machine and container images"
+msgstr ""
+
+#: src/machine/org.freedesktop.machine1.policy:138
+msgid ""
+"Authentication is required to inspect local virtual machine and container "
+"images."
+msgstr ""
 
 #: src/network/org.freedesktop.network1.policy:22
 msgid "Set NTP servers"
@@ -1077,7 +1096,6 @@ msgstr "Serverul DHCP trimite mesaje de reînnoire forțată"
 
 #: src/network/org.freedesktop.network1.policy:144
 #, fuzzy
-#| msgid "Authentication is required to send force renew message."
 msgid ""
 "Authentication is required to send a force renew message from the DHCP "
 "server."

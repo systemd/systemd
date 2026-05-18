@@ -16,7 +16,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-03-06 03:46+0900\n"
+"POT-Creation-Date: 2026-05-18 12:18+0100\n"
 "PO-Revision-Date: 2026-04-28 08:59+0000\n"
 "Last-Translator: Dark Cronyx <darkcronyx@protonmail.com>\n"
 "Language-Team: German <https://translate.fedoraproject.org/projects/systemd/"
@@ -949,38 +949,57 @@ msgstr ""
 "erforderlich."
 
 #: src/machine/org.freedesktop.machine1.policy:95
+msgid "Inspect local virtual machines and containers"
+msgstr ""
+
+#: src/machine/org.freedesktop.machine1.policy:96
+msgid ""
+"Authentication is required to inspect local virtual machines and containers."
+msgstr ""
+
+#: src/machine/org.freedesktop.machine1.policy:105
 msgid "Create a local virtual machine or container"
 msgstr "Lokale virtuelle Maschinen oder Container erstellen"
 
-#: src/machine/org.freedesktop.machine1.policy:96
+#: src/machine/org.freedesktop.machine1.policy:106
 msgid ""
 "Authentication is required to create a local virtual machine or container."
 msgstr ""
 "Legitimierung ist zum Erstellen einer lokalen virtuellen Maschine oder eines "
 "Containers erforderlich."
 
-#: src/machine/org.freedesktop.machine1.policy:106
+#: src/machine/org.freedesktop.machine1.policy:116
 msgid "Register a local virtual machine or container"
 msgstr "Lokale virtuelle Maschinen oder Container registrieren"
 
-#: src/machine/org.freedesktop.machine1.policy:107
+#: src/machine/org.freedesktop.machine1.policy:117
 msgid ""
 "Authentication is required to register a local virtual machine or container."
 msgstr ""
 "Legitimierung ist für die Registrierung einer lokalen virtuellen Maschine "
 "oder eines Containers erforderlich."
 
-#: src/machine/org.freedesktop.machine1.policy:116
+#: src/machine/org.freedesktop.machine1.policy:126
 msgid "Manage local virtual machine and container images"
 msgstr "Lokale virtuelle Maschinen und Containerabbilder verwalten"
 
-#: src/machine/org.freedesktop.machine1.policy:117
+#: src/machine/org.freedesktop.machine1.policy:127
 msgid ""
 "Authentication is required to manage local virtual machine and container "
 "images."
 msgstr ""
 "Legitimierung ist zum Verwalten lokaler virtueller Maschinen und "
 "Containerabbildern erforderlich."
+
+#: src/machine/org.freedesktop.machine1.policy:137
+msgid "Inspect local virtual machine and container images"
+msgstr ""
+
+#: src/machine/org.freedesktop.machine1.policy:138
+msgid ""
+"Authentication is required to inspect local virtual machine and container "
+"images."
+msgstr ""
 
 #: src/network/org.freedesktop.network1.policy:22
 msgid "Set NTP servers"

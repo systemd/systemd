@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-03-06 03:46+0900\n"
+"POT-Creation-Date: 2026-05-18 12:18+0100\n"
 "PO-Revision-Date: 2023-06-03 15:48+0000\n"
 "Last-Translator: Asier Sarasua Garmendia <asier.sarasua@gmail.com>\n"
 "Language-Team: Basque <https://translate.fedoraproject.org/projects/systemd/"
@@ -814,33 +814,52 @@ msgid ""
 msgstr ""
 
 #: src/machine/org.freedesktop.machine1.policy:95
-msgid "Create a local virtual machine or container"
+msgid "Inspect local virtual machines and containers"
 msgstr ""
 
 #: src/machine/org.freedesktop.machine1.policy:96
+msgid ""
+"Authentication is required to inspect local virtual machines and containers."
+msgstr ""
+
+#: src/machine/org.freedesktop.machine1.policy:105
+msgid "Create a local virtual machine or container"
+msgstr ""
+
+#: src/machine/org.freedesktop.machine1.policy:106
 #, fuzzy
 msgid ""
 "Authentication is required to create a local virtual machine or container."
 msgstr "Autentifikazioa behar da makina-informazio lokala ezartzeko."
 
-#: src/machine/org.freedesktop.machine1.policy:106
+#: src/machine/org.freedesktop.machine1.policy:116
 #, fuzzy
 msgid "Register a local virtual machine or container"
 msgstr "Autentifikazioa behar da makina-informazio lokala ezartzeko."
 
-#: src/machine/org.freedesktop.machine1.policy:107
+#: src/machine/org.freedesktop.machine1.policy:117
 #, fuzzy
 msgid ""
 "Authentication is required to register a local virtual machine or container."
 msgstr "Autentifikazioa behar da makina-informazio lokala ezartzeko."
 
-#: src/machine/org.freedesktop.machine1.policy:116
+#: src/machine/org.freedesktop.machine1.policy:126
 msgid "Manage local virtual machine and container images"
 msgstr ""
 
-#: src/machine/org.freedesktop.machine1.policy:117
+#: src/machine/org.freedesktop.machine1.policy:127
 msgid ""
 "Authentication is required to manage local virtual machine and container "
+"images."
+msgstr ""
+
+#: src/machine/org.freedesktop.machine1.policy:137
+msgid "Inspect local virtual machine and container images"
+msgstr ""
+
+#: src/machine/org.freedesktop.machine1.policy:138
+msgid ""
+"Authentication is required to inspect local virtual machine and container "
 "images."
 msgstr ""
 
@@ -954,9 +973,6 @@ msgstr ""
 
 #: src/network/org.freedesktop.network1.policy:144
 #, fuzzy
-#| msgid ""
-#| "Authentication is required to send the entered passphrase back to the "
-#| "system."
 msgid ""
 "Authentication is required to send a force renew message from the DHCP "
 "server."
