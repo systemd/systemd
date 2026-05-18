@@ -18,12 +18,14 @@
 #include "manager.h"
 #include "path-util.h"
 #include "pidref.h"
+#include "process-util.h"
 #include "selinux-access.h"
 #include "service.h"
 #include "set.h"
 #include "strv.h"
 #include "unit-name.h"
 #include "unit.h"
+#include "user-util.h"
 #include "varlink-automount.h"
 #include "varlink-cgroup.h"
 #include "varlink-common.h"
@@ -696,6 +698,11 @@ typedef struct TransientExecContextParameters {
         bool set_credentials_encrypted_set;
         TransientSetCredential *set_credentials_encrypted;
         size_t n_set_credentials_encrypted;
+
+        const char *user;
+        const char *group;
+        char **supplementary_groups;
+        int nice;        /* INT_MAX means unset */
 } TransientExecContextParameters;
 
 static void transient_set_credential_array_free(TransientSetCredential *items, size_t n) {
@@ -707,6 +714,7 @@ static void transient_set_credential_array_free(TransientSetCredential *items, s
 static void transient_exec_context_parameters_done(TransientExecContextParameters *p) {
         assert(p);
         strv_free(p->environment);
+        strv_free(p->supplementary_groups);
         transient_set_credential_array_free(p->set_credentials, p->n_set_credentials);
         transient_set_credential_array_free(p->set_credentials_encrypted, p->n_set_credentials_encrypted);
 }
@@ -873,12 +881,16 @@ static int dispatch_transient_set_credential_encrypted(const char *name, sd_json
 }
 
 static int dispatch_transient_exec_context(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
-        /* Key names compatible with D-Bus property names */
+        /* Key names compatible with D-Bus property names. */
         static const sd_json_dispatch_field exec_dispatch[] = {
-                { "WorkingDirectory",       SD_JSON_VARIANT_OBJECT,        dispatch_transient_working_directory,      0, 0 },
-                { "Environment",            _SD_JSON_VARIANT_TYPE_INVALID, dispatch_transient_environment,            0, 0 },
-                { "SetCredential",          SD_JSON_VARIANT_ARRAY,         dispatch_transient_set_credential,         0, 0 },
-                { "SetCredentialEncrypted", SD_JSON_VARIANT_ARRAY,         dispatch_transient_set_credential_encrypted, 0, 0 },
+                { "Environment",            _SD_JSON_VARIANT_TYPE_INVALID, dispatch_transient_environment,              0,                                                              0             },
+                { "Group",                  SD_JSON_VARIANT_STRING,        json_dispatch_const_user_group_name,         offsetof(TransientExecContextParameters, group),                SD_JSON_RELAX },
+                { "Nice",                   SD_JSON_VARIANT_INTEGER,       sd_json_dispatch_int32,                      offsetof(TransientExecContextParameters, nice),                 0             },
+                { "SetCredential",          SD_JSON_VARIANT_ARRAY,         dispatch_transient_set_credential,           0,                                                              0             },
+                { "SetCredentialEncrypted", SD_JSON_VARIANT_ARRAY,         dispatch_transient_set_credential_encrypted, 0,                                                              0             },
+                { "SupplementaryGroups",    SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_strv,                       offsetof(TransientExecContextParameters, supplementary_groups), 0             },
+                { "User",                   SD_JSON_VARIANT_STRING,        json_dispatch_const_user_group_name,         offsetof(TransientExecContextParameters, user),                 SD_JSON_RELAX },
+                { "WorkingDirectory",       SD_JSON_VARIANT_OBJECT,        dispatch_transient_working_directory,        0,                                                              0             },
                 {}
         };
 
@@ -1037,6 +1049,55 @@ static int transient_exec_context_apply_properties(Unit *u, ExecContext *c, Tran
                         return r;
         }
 
+        /* User/Group names already validated by json_dispatch_const_user_group_name() in the dispatch table. */
+        if (p->user) {
+                r = free_and_strdup(&c->user, empty_to_null(p->user));
+                if (r < 0)
+                        return r;
+
+                unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE|UNIT_ESCAPE_SPECIFIERS, "User",
+                                    "User=%s", p->user);
+        }
+
+        if (p->group) {
+                r = free_and_strdup(&c->group, empty_to_null(p->group));
+                if (r < 0)
+                        return r;
+
+                unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE|UNIT_ESCAPE_SPECIFIERS, "Group",
+                                    "Group=%s", p->group);
+        }
+
+        if (p->supplementary_groups) {
+                _cleanup_free_ char *joined = NULL;
+
+                STRV_FOREACH(g, p->supplementary_groups)
+                        if (!isempty(*g) && !valid_user_group_name(*g, VALID_USER_ALLOW_NUMERIC|VALID_USER_RELAX))
+                                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Invalid supplementary group name: %s", *g);
+
+                r = strv_extend_strv(&c->supplementary_groups, p->supplementary_groups, /* filter_duplicates= */ true);
+                if (r < 0)
+                        return r;
+
+                joined = strv_join(p->supplementary_groups, " ");
+                if (!joined)
+                        return -ENOMEM;
+
+                unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE|UNIT_ESCAPE_SPECIFIERS, "SupplementaryGroups",
+                                    "SupplementaryGroups=%s", joined);
+        }
+
+        if (p->nice != INT_MAX) {
+                if (!nice_is_valid(p->nice))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid Nice= value: %i", p->nice);
+
+                c->nice = p->nice;
+                c->nice_set = true;
+
+                unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE, "Nice", "Nice=%i", p->nice);
+        }
+
         return 0;
 }
 
@@ -1136,6 +1197,7 @@ int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters
                 .notify_unit_changes = -1,
                 .context.service.type = _SERVICE_TYPE_INVALID,
                 .context.service.remain_after_exit = -1,
+                .context.exec.nice = INT_MAX,
         };
         Manager *manager = ASSERT_PTR(userdata);
         const char *bad_field = NULL;
