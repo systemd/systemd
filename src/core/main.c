@@ -3161,10 +3161,6 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
                 ListenFDsTag, listen_fds_tag_free);
 
 static int parse_listen_fds_mapping(int mapping_fd, Hashmap **ret_index_to_tag) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *root = NULL;
-        _cleanup_hashmap_free_ Hashmap *index_to_tag = NULL;
-        const char *unit_id;
-        sd_json_variant *fds_json;
         int r;
 
         assert(mapping_fd >= 0);
@@ -3175,16 +3171,20 @@ static int parse_listen_fds_mapping(int mapping_fd, Hashmap **ret_index_to_tag) 
          * Returns a hashmap keyed by stringified index ("1", "2", ...) with ListenFDsTag* values
          * carrying the resolved (unit_id, original fdname, upstream index). */
 
-        _cleanup_fclose_ FILE *f = NULL;
-        r = fdopen_independent(mapping_fd, "r", &f);
-        if (r < 0)
-                return log_warning_errno(r, "Failed to open fdstore-mapping memfd: %m");
-
-        r = sd_json_parse_file(f, "fdstore-mapping", SD_JSON_PARSE_MUST_BE_OBJECT, &root,
-                               /* reterr_line= */ NULL, /* reterr_column= */ NULL);
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *root = NULL;
+        r = sd_json_parse_fd(
+                        "fdstore-mapping",
+                        mapping_fd,
+                        SD_JSON_PARSE_MUST_BE_OBJECT|SD_JSON_PARSE_REOPEN_FD,
+                        &root,
+                        /* reterr_line= */ NULL,
+                        /* reterr_column= */ NULL);
         if (r < 0)
                 return log_warning_errno(r, "Failed to parse fdstore-mapping JSON: %m");
 
+        _cleanup_hashmap_free_ Hashmap *index_to_tag = NULL;
+        sd_json_variant *fds_json;
+        const char *unit_id;
         JSON_VARIANT_OBJECT_FOREACH(unit_id, fds_json, root) {
                 sd_json_variant *entry;
 
