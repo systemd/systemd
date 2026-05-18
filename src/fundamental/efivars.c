@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "efivars-fundamental.h"
+#include "efivars.h"
 
 static const sd_char * const table[_SECURE_BOOT_MAX] = {
         [SECURE_BOOT_UNSUPPORTED] = STR_C("unsupported"),

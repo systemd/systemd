@@ -2,11 +2,11 @@
 
 #include "efi-efivars.h"
 #include "efi-log.h"
-#include "memory-util-fundamental.h"
+#include "memory-util.h"
 #include "proto/rng.h"
 #include "random-seed.h"
 #include "secure-boot.h"
-#include "sha256-fundamental.h"
+#include "sha256.h"
 #include "util.h"
 
 #define RANDOM_MAX_SIZE_MIN (32U)

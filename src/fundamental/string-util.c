@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "macro-fundamental.h"
-#include "string-util-fundamental.h"
+#include "macro.h"
+#include "string-util.h"
 
 sd_char *startswith_internal(const sd_char *s, const sd_char *prefix) {
         size_t l;

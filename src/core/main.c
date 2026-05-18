@@ -78,7 +78,7 @@
 #include "manager.h"
 #include "manager-dump.h"
 #include "manager-serialize.h"
-#include "mkdir-label.h"
+#include "mkdir.h"
 #include "mount-setup.h"
 #include "mount-util.h"
 #include "options.h"

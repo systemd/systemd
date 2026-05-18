@@ -17,7 +17,7 @@
 #include "kbd-util.h"
 #include "localed-util.h"
 #include "log.h"
-#include "mkdir-label.h"
+#include "mkdir.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"

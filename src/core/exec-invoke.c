@@ -53,7 +53,7 @@
 #include "libmount-util.h"
 #include "manager.h"
 #include "memfd-util.h"
-#include "mkdir-label.h"
+#include "mkdir.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
 #include "mstack.h"

@@ -40,7 +40,7 @@
 #include "strv.h"
 #include "sync-util.h"
 #include "time-util.h"
-#include "tmpfile-util-label.h"
+#include "tmpfile-util.h"
 #include "uid-classification.h"
 #include "uid-range.h"
 #include "user-util.h"
