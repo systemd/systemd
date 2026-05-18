@@ -436,12 +436,20 @@
             <entry>64 hexadecimal characters</entry>
             <entry>The SHA256 hash of the compressed file; not useful for <constant>url-file</constant> or <constant>url-tar</constant> where the SHA256 hash is already included in the manifest file anyway</entry>
           </row>
+
+          <row>
+            <entry><literal>@W/</literal></entry>
+            <entry>Optional path into subdirectory, only allowed at the start</entry>
+            <entry>Normalized relative path with slashes</entry>
+            <entry>Valid only at the start of a source <varname>MatchPattern=</varname> this matches any number of nested subdirectories or none, meaning only the basenames get matched against the rest of the pattern. The rest after <literal>@W/</literal> must not contain further slashes. Rejected on target <varname>MatchPattern=</varname> and for the sources <varname>Type=directory</varname> and <varname>Type=subvolume</varname>.</entry>
+          </row>
         </tbody>
       </tgroup>
     </table>
 
     <para>Of these wildcards only <literal>@v</literal> must be present in a valid pattern, all other
-    wildcards are optional. Each wildcard may be used at most once in each pattern. A typical wildcard
+    wildcards are optional. Each wildcard may be used at most once in each pattern; the
+    <literal>@W/</literal> entry can only be at the start of the pattern. A typical wildcard
     matching a file system source image could be <literal>MatchPattern=foobar_@v.raw.xz</literal>, i.e. any file
     whose name begins with <literal>foobar_</literal>, followed by a version ID and suffixed by
     <literal>.raw.xz</literal>.</para>
@@ -629,10 +637,21 @@
         wildcard, so that a version identifier may be extracted from the filename. All other wildcards are
         optional.</para>
 
-        <para>If the source type is <constant>regular-file</constant> or <constant>directory</constant>, the
-        pattern may contain slash characters. In this case, it will match the file or directory in
-        corresponding subdirectory. For example <literal>MatchPattern=foo_@v/bar.efi</literal> will match
-        <literal>bar.efi</literal> in directory <literal>foo_1</literal>. </para>
+        <para>The pattern may contain slash characters. In this case, it will match the file or directory in
+        the corresponding subdirectory. For example <literal>MatchPattern=foo_@v/bar.efi</literal> will match
+        <literal>bar.efi</literal> in directory <literal>foo_1</literal>. For <constant>url-file</constant>
+        and <constant>url-tar</constant> sources, the corresponding <filename>SHA256SUMS</filename> manifest
+        may then list entries as subpaths such as <literal>foo_1/bar.efi</literal>; such entries are fetched
+        from the matching subpath of the source URL. Manifest entries with absolute paths or
+        <literal>..</literal> components are rejected.</para>
+
+        <para>A <literal>@W/</literal> prefix on a source <varname>MatchPattern=</varname> matches any number
+        of subdirectories and will in result only match the basename against the rest of the pattern. For
+        <constant>url-file</constant> and <constant>url-tar</constant> sources, <filename>SHA256SUMS</filename>
+        entries may then list the file under any subpath and the subpath is still used to construct the actual
+        download URL. The pattern after <literal>@W/</literal> must not contain further slashes.
+        The prefix is not accepted on target patterns or for the source <varname>Type=directory</varname> and
+        <varname>Type=subvolume</varname>.</para>
 
         <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>

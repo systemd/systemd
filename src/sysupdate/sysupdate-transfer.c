@@ -306,6 +306,7 @@ static int config_parse_resource_pattern(
                 void *userdata) {
 
         char ***patterns = ASSERT_PTR(data);
+        bool is_source = ltype == 1; /* 0: Target, 1: Source */
         int r;
 
         assert(rvalue);
@@ -317,6 +318,7 @@ static int config_parse_resource_pattern(
 
         for (;;) {
                 _cleanup_free_ char *word = NULL, *resolved = NULL;
+                const char *body;
 
                 r = extract_first_word(&rvalue, &word, NULL, EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_RELAX);
                 if (r < 0) {
@@ -334,7 +336,21 @@ static int config_parse_resource_pattern(
                         return 0;
                 }
 
-                if (!pattern_valid(resolved))
+                /* A "@W/" prefix on a source MatchPattern= means "match the rest against the
+                 * basename" thus the remainder must not itself contain slashes.
+                 * Target patterns can not use it. */
+                body = startswith(resolved, "@W/");
+                if (body) {
+                        if (!is_source)
+                                return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
+                                                  "'@W/' prefix is only supported in a source MatchPattern=, refusing: %s", resolved);
+                        if (strchr(body, '/'))
+                                return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
+                                                  "The pattern after a '@W/' prefix must not contain further slashes, refusing: %s", resolved);
+                }
+
+                /* The "@W/" prefix is not allowed in the remainder and pattern_valid will catch this. */
+                if (!pattern_valid(body ?: resolved))
                         return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
                                           "MatchPattern= string is not valid, refusing: %s", resolved);
 
@@ -513,7 +529,7 @@ int transfer_read_definition(Transfer *t, const char *path, const char **dirs, H
                 { "Source",      "Type",                    config_parse_resource_type,        0, &t->source.type             },
                 { "Source",      "Path",                    config_parse_resource_path,        0, &t->source                  },
                 { "Source",      "PathRelativeTo",          config_parse_resource_path_relto,  0, &t->source.path_relative_to },
-                { "Source",      "MatchPattern",            config_parse_resource_pattern,     0, &t->source.patterns         },
+                { "Source",      "MatchPattern",            config_parse_resource_pattern,     1, &t->source.patterns         },
                 { "Target",      "Type",                    config_parse_resource_type,        0, &t->target.type             },
                 { "Target",      "Path",                    config_parse_resource_path,        0, &t->target                  },
                 { "Target",      "PathRelativeTo",          config_parse_resource_path_relto,  0, &t->target.path_relative_to },
@@ -639,6 +655,12 @@ int transfer_read_definition(Transfer *t, const char *path, const char **dirs, H
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
                                   "Source specification lacks MatchPattern=.");
 
+        if (IN_SET(t->source.type, RESOURCE_DIRECTORY, RESOURCE_SUBVOLUME))
+                STRV_FOREACH(p, t->source.patterns)
+                        if (startswith(*p, "@W/"))
+                                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
+                                                  "MatchPattern= with '@W/' prefix is not supported for source Type=directory and Type=subvolume, refusing.");
+
         if (!t->target.path && !t->target.path_auto)
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
                                   "Target specification lacks Path= field.");
@@ -654,6 +676,14 @@ int transfer_read_definition(Transfer *t, const char *path, const char **dirs, H
                 t->target.patterns = strv_copy(t->source.patterns);
                 if (!t->target.patterns)
                         return log_oom();
+
+                /* Strip any "@W/" prefix when inheriting from source because it's only used for finding and
+                 * not to replicate the same directory layout at the target, so we don't support it there. */
+                STRV_FOREACH(p, t->target.patterns) {
+                        const char *body = startswith(*p, "@W/");
+                        if (body)
+                                memmove(*p, body, strlen(body) + 1);
+                }
         }
 
         if (t->current_symlink && !RESOURCE_IS_FILESYSTEM(t->target.type) && !path_is_absolute(t->current_symlink))
