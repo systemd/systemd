@@ -699,7 +699,7 @@ int service_add_fd_store(Service *s, int fd_in, const char *name, bool do_poll, 
          * unit and the original fdname. This way fdstore persistence chains all the way up to whichever
          * entity is ultimately responsible for surviving across kexec/restart, regardless of fdname
          * length or charset constraints. */
-        if (propagate_upstream && s->fd_store_preserve_mode == EXEC_PRESERVE_YES) {
+        if (propagate_upstream && IN_SET(s->fd_store_preserve_mode, EXEC_PRESERVE_YES, EXEC_PRESERVE_ON_SUCCESS)) {
                 Manager *m = ASSERT_PTR(UNIT(s)->manager);
                 char idx_str[STRLEN(SERVICE_FDSTORE_SUB_FDNAME_PREFIX) + DECIMAL_STR_MAX(uint64_t)];
 
@@ -721,7 +721,7 @@ int service_add_fd_store(Service *s, int fd_in, const char *name, bool do_poll, 
         LIST_PREPEND(fd_store, s->fd_store, TAKE_PTR(fs));
         s->n_fd_store++;
 
-        if (propagate_upstream && s->fd_store_preserve_mode == EXEC_PRESERVE_YES)
+        if (propagate_upstream && IN_SET(s->fd_store_preserve_mode, EXEC_PRESERVE_YES, EXEC_PRESERVE_ON_SUCCESS))
                 /* Refresh the JSON mapping memfd so the supervisor can resolve the new index. Do this
                  * after LIST_PREPEND so the new entry is visible to the helper. */
                 (void) service_propagate_fd_store_mapping_upstream(UNIT(s)->manager);
@@ -876,7 +876,7 @@ static int service_attach_external_fd_to_fdstore(Unit *u, int fd, const char *fd
         if (r > 0 &&
             s->state == SERVICE_DEAD &&
             s->deserialized_state == SERVICE_DEAD &&
-            s->fd_store_preserve_mode == EXEC_PRESERVE_YES) {
+            IN_SET(s->fd_store_preserve_mode, EXEC_PRESERVE_YES, EXEC_PRESERVE_ON_SUCCESS)) {
                 service_set_state(s, SERVICE_DEAD_RESOURCES_PINNED);
                 s->deserialized_state = SERVICE_DEAD_RESOURCES_PINNED;
         }
@@ -2350,7 +2350,7 @@ static bool service_will_restart(Unit *u) {
 static ServiceState service_determine_dead_state(Service *s) {
         assert(s);
 
-        return SERVICE_FD_STORE_POPULATED(s) && s->fd_store_preserve_mode == EXEC_PRESERVE_YES ? SERVICE_DEAD_RESOURCES_PINNED : SERVICE_DEAD;
+        return SERVICE_FD_STORE_POPULATED(s) && IN_SET(s->fd_store_preserve_mode, EXEC_PRESERVE_YES, EXEC_PRESERVE_ON_SUCCESS) ? SERVICE_DEAD_RESOURCES_PINNED : SERVICE_DEAD;
 }
 
 static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) {
@@ -2454,7 +2454,8 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
         unit_destroy_runtime_data(UNIT(s), &s->exec_context, /* destroy_runtime_dir= */ true);
 
         /* Also get rid of the fd store, if that's configured. */
-        if (s->fd_store_preserve_mode == EXEC_PRESERVE_NO)
+        if (s->fd_store_preserve_mode == EXEC_PRESERVE_NO ||
+            (s->fd_store_preserve_mode == EXEC_PRESERVE_ON_SUCCESS && s->state == SERVICE_FAILED))
                 service_release_fd_store(s);
 
         /* Get rid of the IPC bits of the user */
@@ -6119,7 +6120,8 @@ static void service_release_resources(Unit *u) {
         service_release_extra_fds(s);
         s->root_directory_fd = asynchronous_close(s->root_directory_fd);
 
-        if (s->fd_store_preserve_mode != EXEC_PRESERVE_YES)
+        if (IN_SET(s->fd_store_preserve_mode, EXEC_PRESERVE_NO, EXEC_PRESERVE_RESTART) ||
+            (s->fd_store_preserve_mode == EXEC_PRESERVE_ON_SUCCESS && s->state == SERVICE_FAILED))
                 service_release_fd_store(s);
 
         if (s->state == SERVICE_DEAD_RESOURCES_PINNED && !SERVICE_FD_STORE_POPULATED(s))
