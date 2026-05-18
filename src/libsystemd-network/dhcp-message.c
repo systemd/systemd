@@ -1342,6 +1342,11 @@ static int dhcp_message_verify_header(
         if (iov->iov_len < sizeof(DHCPMessageHeader))
                 return -EBADMSG;
 
+        /* DHCP travels over UDP, so anything larger than the maximum UDP payload cannot be a valid
+         * message and would also be impossible to rebuild as a UDP packet. */
+        if (iov->iov_len > UDP_PAYLOAD_MAX_SIZE)
+                return -EBADMSG;
+
         const DHCPMessageHeader *header = iov->iov_base;
 
         if (!IN_SET(header->op, BOOTREQUEST, BOOTREPLY))
