@@ -5119,6 +5119,7 @@ static int manager_dispatch_pidref_transport_fd(sd_event_source *source, int fd,
 
         if (n != sizeof(child_pid)) {
                 log_warning("Got pidref message of unexpected size %zi (expected %zu), ignoring.", n, sizeof(child_pid));
+                cmsg_close_all(&msghdr);
                 return 0;
         }
 
@@ -5137,6 +5138,8 @@ static int manager_dispatch_pidref_transport_fd(sd_event_source *source, int fd,
                         child_pidfd = *CMSG_TYPED_DATA(cmsg, int);
                 }
         }
+
+        /* From this point on, the fds are owned by our local variables. Call cmsg_close_all no more. */
 
         /* Verify and set parent pidref. */
         if (!ucred || !pid_is_valid(ucred->pid)) {
