@@ -65,9 +65,9 @@ CHANGES WITH 261 in spe:
           preserved and passed down to the unit after kexec. Units must set
           'FileDescriptorStorePreserve=yes' in order to enable this feature.
 
-        * User session managers now supports persisting user unit's FD Stores
+        * User session managers now support persisting user units' FD Stores
           by receiving FDs via the notify socket, and passing them down via
-          $SLISTEN_FDS when the user session is restarted, when the
+          $LISTEN_FDS when the user session is restarted, when the
           'FileDescriptorStorePreserve=yes' and 'FileDescriptorStoreMax='
           options are set in the user@.service unit. Combined with the LUO
           support, this lets user units persist state (e.g.: memfds) across
@@ -94,7 +94,7 @@ CHANGES WITH 261 in spe:
           pressure events for the corresponding cgroup.
 
         * A new RestrictFileSystemAccess= setting has been added that uses a
-          BPF LSM program to restrict execution to only binares that are
+          BPF LSM program to restrict execution to only binaries that are
           stored on a signed and verified dm-verity protected filesystem.
 
         * The io.systemd.Unit.StartTransient Varlink method has been extended
@@ -274,7 +274,7 @@ CHANGES WITH 261 in spe:
 
         * systemd-nspawn now supports persisting the payload's system manager
           FD Store by receiving FDs via the notify socket, and passing them
-          down via $SLISTEN_FDS when the container is restarted, when the
+          down via $LISTEN_FDS when the container is restarted, when the
           'FileDescriptorStorePreserve=yes' and 'FileDescriptorStoreMax='
           options are set in the unit inside which systemd-nspawn is running.
           Combined with the LUO support in PID1, this lets containers persist
