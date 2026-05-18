@@ -6,7 +6,7 @@
 #else
 #  include <errno.h>
 #endif
-#include "string-util-fundamental.h"
+#include "string-util.h"
 
 /* Features of the loader, i.e. systemd-boot */
 #define EFI_LOADER_FEATURE_CONFIG_TIMEOUT          (UINT64_C(1) << 0)

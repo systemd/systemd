@@ -1725,11 +1725,11 @@ libsystemd_includes = [basic_includes, include_directories(
         'src/libsystemd/sd-varlink')]
 
 includes = [
-        libsystemd_includes,
         include_directories(
                 'src/shared',
                 'src/bpf',
         ),
+        libsystemd_includes,
 ]
 
 subdir('po')

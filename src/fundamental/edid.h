@@ -10,7 +10,7 @@
 #  include <uchar.h>
 #endif
 
-#include "macro-fundamental.h"
+#include "macro.h"
 
 /* EDID structure, version 1.4 */
 typedef struct EdidHeader {
