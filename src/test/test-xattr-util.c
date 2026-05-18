@@ -46,6 +46,16 @@ TEST(getxattr_at_malloc) {
         r = getxattr_at_malloc(fd, "usr", "user.idontexist", 0, &value, /* ret_size= */ NULL);
         ASSERT_TRUE(ERRNO_IS_NEG_XATTR_ABSENT(r));
 
+        /* A non-existent path component must also be treated as xattr-absent. The kernel
+         * returns -ENOENT in this case, which is inherited from stat(2)'s error list
+         * (see ERRORS in getxattr(2)). Without this, callers that semantically just want
+         * to know "is the xattr there?" end up logging spurious errors for paths that
+         * are simply gone — e.g. journald reading a unit's cgroup xattr after the
+         * cgroup directory has been torn down. */
+        r = getxattr_at_malloc(fd, "this-path-does-not-exist-XXXXXX", "user.idontexist",
+                               0, &value, /* ret_size= */ NULL);
+        ASSERT_TRUE(ERRNO_IS_NEG_XATTR_ABSENT(r));
+
         safe_close(fd);
         ASSERT_OK_ERRNO(fd = open(x, O_PATH|O_CLOEXEC));
         ASSERT_OK(getxattr_at_malloc(fd, NULL, "user.foo", 0, &value, /* ret_size= */ NULL));
