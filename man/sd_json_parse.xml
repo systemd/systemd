@@ -22,9 +22,13 @@
     <refname>sd_json_parse_with_source_continue</refname>
     <refname>sd_json_parse_file</refname>
     <refname>sd_json_parse_file_at</refname>
+    <refname>sd_json_parse_fd</refname>
     <refname>SD_JSON_PARSE_SENSITIVE</refname>
     <refname>SD_JSON_PARSE_MUST_BE_OBJECT</refname>
     <refname>SD_JSON_PARSE_MUST_BE_ARRAY</refname>
+    <refname>SD_JSON_PARSE_SEEK0</refname>
+    <refname>SD_JSON_PARSE_DONATE_FD</refname>
+    <refname>SD_JSON_PARSE_REOPEN_FD</refname>
 
     <refpurpose>Parse JSON strings and files into JSON variant objects</refpurpose>
   </refnamediv>
@@ -91,6 +95,16 @@
         <paramdef>unsigned *<parameter>reterr_line</parameter></paramdef>
         <paramdef>unsigned *<parameter>reterr_column</parameter></paramdef>
       </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_json_parse_fd</function></funcdef>
+        <paramdef>const char *<parameter>path</parameter></paramdef>
+        <paramdef>int <parameter>fd</parameter></paramdef>
+        <paramdef>sd_json_parse_flags_t <parameter>flags</parameter></paramdef>
+        <paramdef>sd_json_variant **<parameter>ret</parameter></paramdef>
+        <paramdef>unsigned *<parameter>reterr_line</parameter></paramdef>
+        <paramdef>unsigned *<parameter>reterr_column</parameter></paramdef>
+      </funcprototype>
     </funcsynopsis>
   </refsynopsisdiv>
 
@@ -146,6 +160,16 @@
     against the current working directory, which is the default behaviour of
     <function>sd_json_parse_file()</function>.</para>
 
+    <para><function>sd_json_parse_fd()</function> reads and parses a JSON value from the file referenced by
+    the file descriptor <parameter>fd</parameter>. By default the file descriptor is internally duplicated
+    and the caller's descriptor is left untouched (the current file offset will be shared with the original
+    file descriptor however); the JSON text is read starting at the descriptor's current file offset. This
+    behaviour may be modified via the <constant>SD_JSON_PARSE_SEEK0</constant>,
+    <constant>SD_JSON_PARSE_DONATE_FD</constant> and <constant>SD_JSON_PARSE_REOPEN_FD</constant> flags, see
+    below. The <parameter>path</parameter> argument is not used to open anything in this case; it is only
+    recorded as source information in the resulting JSON variant (see above) and may be passed as
+    <constant>NULL</constant>.</para>
+
     <para>The <parameter>flags</parameter> argument is a bitmask of zero or more of the following
     flags:</para>
 
@@ -176,6 +200,44 @@
         <listitem><para>Requires that the top-level JSON value be a JSON array (i.e. <literal>[…]</literal>).
         If the top-level value is an object, string, number, boolean, or null, parsing fails with
         <constant>-EINVAL</constant>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><constant>SD_JSON_PARSE_SEEK0</constant></term>
+
+        <listitem><para>Before reading, seek the input to its beginning (i.e. file offset 0). This flag has
+        no effect when parsing from a string. When used together with
+        <constant>SD_JSON_PARSE_REOPEN_FD</constant> in <function>sd_json_parse_fd()</function> it is
+        redundant, since a freshly reopened file descriptor starts at offset 0 anyway.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><constant>SD_JSON_PARSE_DONATE_FD</constant></term>
+
+        <listitem><para>Only has an effect on <function>sd_json_parse_fd()</function>. If set, ownership of
+        the file descriptor passed in <parameter>fd</parameter> is transferred into the call: the descriptor
+        is consumed and closed before the function returns, including in the error path. If not set (the
+        default), the caller retains ownership of <parameter>fd</parameter> and the function operates on an
+        internally duplicated descriptor instead. This flag may not be combined with
+        <constant>SD_JSON_PARSE_REOPEN_FD</constant>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><constant>SD_JSON_PARSE_REOPEN_FD</constant></term>
+
+        <listitem><para>Only has an effect on <function>sd_json_parse_fd()</function>. If set, the file
+        descriptor passed in <parameter>fd</parameter> is reopened (read-only) before reading, instead of
+        being duplicated. This is primarily useful to obtain an independent file offset (positioned at the
+        beginning of the file) and a clean, read-only access mode, even if the original descriptor was opened
+        differently (for example with <constant>O_PATH</constant>). The caller retains ownership of the
+        original descriptor, which is left untouched. This flag may not be combined with
+        <constant>SD_JSON_PARSE_DONATE_FD</constant>.</para>
 
         <xi:include href="version-info.xml" xpointer="v261"/></listitem>
       </varlistentry>
@@ -232,6 +294,11 @@
     <function>sd_json_parse_with_source_continue()</function>,
     <function>sd_json_parse_file()</function>, and
     <function>sd_json_parse_file_at()</function> were added in version 257.</para>
+
+    <para><function>sd_json_parse_fd()</function> and the <constant>SD_JSON_PARSE_MUST_BE_OBJECT</constant>,
+    <constant>SD_JSON_PARSE_MUST_BE_ARRAY</constant>, <constant>SD_JSON_PARSE_SEEK0</constant>,
+    <constant>SD_JSON_PARSE_DONATE_FD</constant> and <constant>SD_JSON_PARSE_REOPEN_FD</constant> flags were
+    added in version 261.</para>
   </refsect1>
 
   <refsect1>

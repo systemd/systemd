@@ -12,6 +12,7 @@
 #include "errno-util.h"
 #include "escape.h"
 #include "ether-addr-util.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "float.h"
 #include "hexdecoct.h"
@@ -3502,9 +3503,12 @@ _public_ int sd_json_parse_file_at(
         _cleanup_free_ char *text = NULL;
         int r;
 
-        if (f)
+        if (f) {
+                if (FLAGS_SET(flags, SD_JSON_PARSE_SEEK0) && fseek(f, /* offset= */ 0, SEEK_SET) < 0)
+                        return -errno;
+
                 r = read_full_stream(f, &text, NULL);
-        else
+        } else
                 r = read_full_file_full(dir_fd, path, UINT64_MAX, SIZE_MAX, 0, NULL, &text, NULL);
         if (r < 0)
                 return r;
@@ -3521,6 +3525,44 @@ _public_ int sd_json_parse_file(
                 unsigned *reterr_column) {
 
         return sd_json_parse_file_at(f, AT_FDCWD, path, flags, ret, reterr_line, reterr_column);
+}
+
+_public_ int sd_json_parse_fd(
+                const char *path,
+                int fd,
+                sd_json_parse_flags_t flags,
+                sd_json_variant **ret,
+                unsigned *reterr_line,
+                unsigned *reterr_column) {
+
+        int r;
+
+        assert_return(fd >= 0, -EBADF);
+
+        _cleanup_close_ int our_fd = -EBADF;
+        if (FLAGS_SET(flags, SD_JSON_PARSE_REOPEN_FD)) {
+                assert_return(!FLAGS_SET(flags, SD_JSON_PARSE_DONATE_FD), -EINVAL);
+
+                our_fd = fd_reopen(fd, O_RDONLY|O_CLOEXEC);
+                if (our_fd < 0)
+                        return our_fd;
+
+                /* If we reopened the thing the file offset will be at the beginning anyway */
+                flags &= ~SD_JSON_PARSE_SEEK0;
+        } else if (FLAGS_SET(flags, SD_JSON_PARSE_DONATE_FD))
+                our_fd = fd;
+        else {
+                our_fd = fcntl(fd, F_DUPFD_CLOEXEC, 3);
+                if (our_fd < 0)
+                        return -errno;
+        }
+
+        _cleanup_fclose_ FILE *f = NULL;
+        r = take_fdopen_unlocked(&our_fd, "r", &f);
+        if (r < 0)
+                return r;
+
+        return sd_json_parse_file(f, path, flags, ret, reterr_line, reterr_column);
 }
 
 char *json_underscorify(char *p) {
