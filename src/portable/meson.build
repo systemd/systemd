@@ -32,7 +32,6 @@ executables += [
                         libcryptsetup_cflags,
                         libmount_cflags,
                         libselinux_cflags,
-                        threads,
                 ],
         },
         executable_template + {
@@ -40,7 +39,6 @@ executables += [
                 'public' : true,
                 'sources' : files('portablectl.c'),
                 'link_with' : portabled_link_with,
-                'dependencies' : threads,
         },
 ]
 

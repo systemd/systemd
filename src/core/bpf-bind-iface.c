@@ -12,7 +12,7 @@
 
 #if BPF_FRAMEWORK
 /* libbpf, clang, llvm and bpftool compile time dependencies are satisfied */
-#include "bpf-dlopen.h"
+#include "bpf-util.h"
 #include "bpf-link.h"
 #include "bind-iface-skel.h"
 
