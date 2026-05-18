@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "hexdecoct.h"
-#include "sha1-fundamental.h"
+#include "sha1.h"
 #include "tests.h"
 
 static void sha1_process_string(const char *key, struct sha1_ctx *ctx) {

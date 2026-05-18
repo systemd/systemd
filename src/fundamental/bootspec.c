@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "bootspec-fundamental.h"
+#include "bootspec.h"
 
 bool bootspec_pick_name_version_sort_key(
                 const sd_char *os_pretty_name,

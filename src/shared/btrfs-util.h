@@ -3,8 +3,9 @@
 
 #include "sd-id128.h"
 
-#include "btrfs.h"      /* IWYU pragma: export */
 #include "shared-forward.h"
+
+#include "../basic/btrfs-util.h"      /* IWYU pragma: export */
 
 typedef struct BtrfsSubvolInfo {
         uint64_t subvol_id;

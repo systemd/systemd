@@ -40,7 +40,7 @@
 #include "load-fragment.h"
 #include "log.h"
 #include "logarithm.h"
-#include "mkdir-label.h"
+#include "mkdir.h"
 #include "manager.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
