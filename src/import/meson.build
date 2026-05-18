@@ -17,7 +17,6 @@ executables += [
                         'import-common.c',
                         'qcow2-util.c',
                 ),
-                'dependencies' : threads,
         },
         libexec_template + {
                 'name' : 'systemd-pull',
