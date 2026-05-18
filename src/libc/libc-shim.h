@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <dlfcn.h>
 #include <errno.h>
 #include <sys/syscall.h>
 #include <unistd.h>
@@ -35,21 +36,38 @@
 #define _SHIM_NAME_8(t, n, ...) n, _SHIM_NAME_7(__VA_ARGS__)
 #define _SHIM_NAME(...) _SHIM_CAT(_SHIM_NAME_, _SHIM_PAIRS(__VA_ARGS__))(__VA_ARGS__)
 
-/* Defines a wrapper that calls the libc symbol if available at runtime, or falls back to the
- * corresponding direct syscall otherwise. The libc symbol is redeclared as a weak reference so the
- * binary still loads on libc versions that don't provide it. Each parameter is passed as type,
- * name pairs (flat).
+/* The shim resolves the libc symbol via dlsym(RTLD_DEFAULT) at DSO-load time using a constructor
+ * and caches the result in a file-scope static. Constructors run single-threaded before main() and
+ * before any signal handler can fire, so the cached pointer needs no atomics: subsequent reads from
+ * any thread observe the value stored during init. Resolving eagerly also keeps dlsym() out of
+ * contexts where it is not async-signal-safe (signal handlers, between fork() and exec()).
  *
- * The weak reference is bound to the libc symbol via an __asm__("label") rename so that the bare
- * libc identifier never appears as a C token. This matters because override/musl headers
- * sometimes #define the libc name to redirect it to the _shim variant — without the rename the
- * caller would have to #undef each name before invoking the macro. # and ## operators don't
- * macro-expand their operands, so the parameter "func" stays a literal token everywhere. */
+ * The asm barrier after dlsym() is load-bearing: without it, when LTO determines the cache store
+ * is dead (because no caller of func##_shim survives DCE) the compiler is free to tail-call
+ * dlsym() (jmp dlsym@plt). Under glibc, dlsym reads __builtin_return_address(0) to find its
+ * caller's link map; with a tail call that read lands inside ld.so's call_init(), the resulting
+ * link map has no l_scope, and _dl_lookup_symbol_x SIGSEGVs. Filed upstream in glibc by
+ * https://sourceware.org/bugzilla/show_bug.cgi?id=34156. The barrier keeps us working on
+ * unpatched libc.
+ *
+ * Each reference to `func` in the macro body is positioned as an operand of `#` or `##` so the
+ * override headers (e.g. "#define openat2 openat2_shim") don't rewrite the token before pasting or
+ * stringification. For the same reason the resolution logic isn't extracted into a helper macro —
+ * passing `func` to a nested macro would expand it as a regular argument and re-trigger the
+ * override.
+ *
+ * Defines a wrapper that calls the libc symbol if available at runtime, or falls back to the
+ * corresponding direct syscall otherwise. Each parameter is passed as type, name pairs (flat). */
 #define DEFINE_SYSCALL_SHIM(func, ret, ...)                                                          \
-        extern typeof(func##_shim) func##_libc_weak __asm__(#func) __attribute__((__weak__));        \
+        static typeof(&func##_shim) func##_shim_cache;                                               \
+        __attribute__((constructor)) static void func##_shim_init(void) {                            \
+                void *p = dlsym(RTLD_DEFAULT, #func);                                                \
+                __asm__ volatile("" ::: "memory");                                                   \
+                func##_shim_cache = (typeof(&func##_shim)) p;                                        \
+        }                                                                                            \
         ret func##_shim(_SHIM_DECL(__VA_ARGS__)) {                                                   \
-                if (func##_libc_weak)                                                                \
-                        return func##_libc_weak(_SHIM_NAME(__VA_ARGS__));                            \
+                if (func##_shim_cache)                                                               \
+                        return func##_shim_cache(_SHIM_NAME(__VA_ARGS__));                           \
                 return syscall(__NR_##func, _SHIM_NAME(__VA_ARGS__));                                \
         }
 
@@ -57,20 +75,30 @@
  * by returning the positive errno value directly (posix_spawn-family convention). If the libc symbol
  * is missing at runtime, ENOSYS is returned. */
 #define DEFINE_LIBC_SHIM(func, ret, ...)                                                             \
-        extern typeof(func##_shim) func##_libc_weak __asm__(#func) __attribute__((__weak__));        \
+        static typeof(&func##_shim) func##_shim_cache;                                               \
+        __attribute__((constructor)) static void func##_shim_init(void) {                            \
+                void *p = dlsym(RTLD_DEFAULT, #func);                                                \
+                __asm__ volatile("" ::: "memory");                                                   \
+                func##_shim_cache = (typeof(&func##_shim)) p;                                        \
+        }                                                                                            \
         ret func##_shim(_SHIM_DECL(__VA_ARGS__)) {                                                   \
-                if (func##_libc_weak)                                                                \
-                        return func##_libc_weak(_SHIM_NAME(__VA_ARGS__));                            \
+                if (func##_shim_cache)                                                               \
+                        return func##_shim_cache(_SHIM_NAME(__VA_ARGS__));                           \
                 return ENOSYS;                                                                       \
         }
 
 /* Like DEFINE_LIBC_SHIM but for libc helpers that report errors via errno + -1 return value. If the
  * libc symbol is missing at runtime, errno is set to ENOSYS and -1 is returned. */
 #define DEFINE_LIBC_ERRNO_SHIM(func, ret, ...)                                                       \
-        extern typeof(func##_shim) func##_libc_weak __asm__(#func) __attribute__((__weak__));        \
+        static typeof(&func##_shim) func##_shim_cache;                                               \
+        __attribute__((constructor)) static void func##_shim_init(void) {                            \
+                void *p = dlsym(RTLD_DEFAULT, #func);                                                \
+                __asm__ volatile("" ::: "memory");                                                   \
+                func##_shim_cache = (typeof(&func##_shim)) p;                                        \
+        }                                                                                            \
         ret func##_shim(_SHIM_DECL(__VA_ARGS__)) {                                                   \
-                if (func##_libc_weak)                                                                \
-                        return func##_libc_weak(_SHIM_NAME(__VA_ARGS__));                            \
+                if (func##_shim_cache)                                                               \
+                        return func##_shim_cache(_SHIM_NAME(__VA_ARGS__));                           \
                 errno = ENOSYS;                                                                      \
                 return -1;                                                                           \
         }

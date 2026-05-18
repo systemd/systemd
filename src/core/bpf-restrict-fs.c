@@ -15,7 +15,7 @@
 
 #if BPF_FRAMEWORK
 /* libbpf, clang and llc compile time dependencies are satisfied */
-#include "bpf-dlopen.h"
+#include "bpf-util.h"
 #include "bpf-link.h"
 #include "restrict-fs-skel.h"
 

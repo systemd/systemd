@@ -5,7 +5,7 @@
 
 #include "sd-daemon.h"
 
-#include "bpf-dlopen.h"
+#include "bpf-util.h"
 #if HAVE_VMLINUX_H
 #include "bpf-link.h"
 #include "userns-restrict-skel.h"
