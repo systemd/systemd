@@ -4,10 +4,10 @@
 
 #include "efi-log.h"
 #include "efi-string.h"
-#include "memory-util-fundamental.h"
+#include "memory-util.h"
 #include "proto/device-path.h"
 #include "proto/simple-text-io.h"
-#include "string-util-fundamental.h"
+#include "string-util.h"
 #include "util.h"
 #include "version.h"
 

@@ -3,7 +3,7 @@
 
 #include "sd-json.h"
 
-#include "string-table-fundamental.h"
+#include "string-table.h"
 #include "string-util.h"
 
 /* This closely follows the kernel's inode type naming, i.e. is supposed to be a subset of what

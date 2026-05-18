@@ -15,7 +15,7 @@
 #include "glob-util.h"
 #include "inotify-util.h"
 #include "manager.h"
-#include "mkdir-label.h"
+#include "mkdir.h"
 #include "path.h"
 #include "path-util.h"
 #include "serialize.h"

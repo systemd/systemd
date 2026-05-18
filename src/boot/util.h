@@ -2,7 +2,7 @@
 #pragma once
 
 #include "efi.h"
-#include "memory-util-fundamental.h"
+#include "memory-util.h"
 
 #if SD_BOOT
 

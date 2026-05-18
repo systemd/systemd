@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "memory-util-fundamental.h"
+#include "memory-util.h"
 
 bool memeqbyte(uint8_t byte, const void *data, size_t length) {
         assert(data || length == 0);

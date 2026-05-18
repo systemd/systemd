@@ -4,7 +4,8 @@
 #include <string.h>
 
 #include "basic-forward.h"
-#include "memory-util-fundamental.h" /* IWYU pragma: export */
+
+#include "../fundamental/memory-util.h" /* IWYU pragma: export */
 
 size_t page_size(void) _pure_;
 #define PAGE_ALIGN(l)          ALIGN_TO(l, page_size())
