@@ -61,8 +61,8 @@ static void test_tokenizer_one(const char *data, ...) {
 
                         d = va_arg(ap, double);
 
-                        assert_se(fabs(d - v.real) < 1e-10 ||
-                                  fabs((d - v.real) / v.real) < 1e-10);
+                        assert_se(ABS(d - v.real) < 1e-10 ||
+                                  ABS((d - v.real) / v.real) < 1e-10);
 
                 } else if (t == JSON_TOKEN_INTEGER) {
                         int64_t i;
@@ -243,7 +243,7 @@ static void test_2(sd_json_variant *v) {
 
         /* has thisisaverylongproperty */
         p = sd_json_variant_by_key(v, "thisisaverylongproperty");
-        assert_se(p && sd_json_variant_type(p) == SD_JSON_VARIANT_REAL && fabs(sd_json_variant_real(p) - 1.27) < 0.001);
+        assert_se(p && sd_json_variant_type(p) == SD_JSON_VARIANT_REAL && ABS(sd_json_variant_real(p) - 1.27) < 0.001);
 }
 
 static void test_zeroes(sd_json_variant *v) {
@@ -753,14 +753,14 @@ static void test_float_match(sd_json_variant *v) {
         assert_se(sd_json_variant_is_array(v));
         assert_se(sd_json_variant_elements(v) == 11);
         assert_se(!iszero_safe(sd_json_variant_real(sd_json_variant_by_index(v, 0))));
-        assert_se(fabs(1.0 - (DBL_MIN / sd_json_variant_real(sd_json_variant_by_index(v, 0)))) <= delta);
+        assert_se(ABS(1.0 - (DBL_MIN / sd_json_variant_real(sd_json_variant_by_index(v, 0)))) <= delta);
         assert_se(!iszero_safe(sd_json_variant_real(sd_json_variant_by_index(v, 1))));
-        assert_se(fabs(1.0 - (DBL_MAX / sd_json_variant_real(sd_json_variant_by_index(v, 1)))) <= delta);
+        assert_se(ABS(1.0 - (DBL_MAX / sd_json_variant_real(sd_json_variant_by_index(v, 1)))) <= delta);
         assert_se(sd_json_variant_is_null(sd_json_variant_by_index(v, 2))); /* nan is not supported by json → null */
         assert_se(sd_json_variant_is_null(sd_json_variant_by_index(v, 3))); /* +inf is not supported by json → null */
         assert_se(sd_json_variant_is_null(sd_json_variant_by_index(v, 4))); /* -inf is not supported by json → null */
         assert_se(sd_json_variant_is_null(sd_json_variant_by_index(v, 5)) ||
-                  fabs(1.0 - (HUGE_VAL / sd_json_variant_real(sd_json_variant_by_index(v, 5)))) <= delta); /* HUGE_VAL might be +inf, but might also be something else */
+                  ABS(1.0 - (HUGE_VAL / sd_json_variant_real(sd_json_variant_by_index(v, 5)))) <= delta); /* HUGE_VAL might be +inf, but might also be something else */
         assert_se(sd_json_variant_is_real(sd_json_variant_by_index(v, 6)) &&
                   sd_json_variant_is_integer(sd_json_variant_by_index(v, 6)) &&
                   sd_json_variant_integer(sd_json_variant_by_index(v, 6)) == 0);
@@ -773,11 +773,11 @@ static void test_float_match(sd_json_variant *v) {
         assert_se(sd_json_variant_is_real(sd_json_variant_by_index(v, 9)) &&
                   !sd_json_variant_is_integer(sd_json_variant_by_index(v, 9)));
         assert_se(!iszero_safe(sd_json_variant_real(sd_json_variant_by_index(v, 9))));
-        assert_se(fabs(1.0 - (DBL_MIN / 2 / sd_json_variant_real(sd_json_variant_by_index(v, 9)))) <= delta);
+        assert_se(ABS(1.0 - (DBL_MIN / 2 / sd_json_variant_real(sd_json_variant_by_index(v, 9)))) <= delta);
         assert_se(sd_json_variant_is_real(sd_json_variant_by_index(v, 10)) &&
                   !sd_json_variant_is_integer(sd_json_variant_by_index(v, 10)));
         assert_se(!iszero_safe(sd_json_variant_real(sd_json_variant_by_index(v, 10))));
-        assert_se(fabs(1.0 - (-DBL_MIN / 2 / sd_json_variant_real(sd_json_variant_by_index(v, 10)))) <= delta);
+        assert_se(ABS(1.0 - (-DBL_MIN / 2 / sd_json_variant_real(sd_json_variant_by_index(v, 10)))) <= delta);
 }
 
 TEST(float) {
@@ -1143,8 +1143,8 @@ TEST(json_dispatch_double) {
                                 /* flags= */ 0,
                                 &data) >= 0);
 
-        assert_se(fabs(data.x1 - 0.5) < 0.01);
-        assert_se(fabs(data.x2 + 0.5) < 0.01);
+        assert_se(ABS(data.x1 - 0.5) < 0.01);
+        assert_se(ABS(data.x2 + 0.5) < 0.01);
         assert_se(isinf(data.x3));
         assert_se(data.x3 > 0);
         assert_se(isinf(data.x4));

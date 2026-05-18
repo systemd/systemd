@@ -36,13 +36,11 @@ executables += [
                         liblz4_cflags,
                         libxz_cflags,
                         libzstd_cflags,
-                        threads,
                 ],
         },
         test_template + {
                 'sources' : files('test-machine-tables.c'),
                 'objects' : ['systemd-machined'],
-                'dependencies': threads,
         },
 ]
 
