@@ -123,7 +123,10 @@ This behavior can be modified via the
 [`FileDescriptorStorePreserve=`](https://www.freedesktop.org/software/systemd/man/latest/systemd.service.html#FileDescriptorStorePreserve=)
 setting in service unit files. If set to `yes` the fdstore will be kept as long
 as the service definition is loaded into memory by the service manager, i.e. as
-long as at least one other loaded unit has a reference to it.
+long as at least one other loaded unit has a reference to it. If set to
+`on-success` the behaviour is the same as `yes`, except that the fdstore is
+discarded once the service enters the permanent `failed` state, i.e. after all
+automated restart attempts driven by `Restart=` have been exhausted.
 
 The `systemctl clean --what=fdstore …` command may be used to explicitly clear
 the fdstore of a service. This is only allowed when the service is fully
