@@ -360,6 +360,25 @@ static void manager_release_userns_by_inode(Manager *m, uint64_t inode) {
                 log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r,
                                "Failed to find userns for inode %" PRIu64 ", ignoring: %m", inode);
 
+        /* The kernel reuses user namespace inodes, and our BPF death notification can race with a worker
+         * reusing this inode for a freshly registered user namespace. If the registry entry carries a
+         * kernel namespace ID and that namespace is still alive, the entry has been replaced and we must
+         * not touch any of the state, otherwise we'd tear down the brand-new namespace's BPF rules, fdstore
+         * entry and registry files. */
+        if (userns_info && userns_info->userns_id != 0) {
+                _cleanup_close_ int probe_fd = namespace_open_by_id(userns_info->userns_id);
+                if (probe_fd >= 0) {
+                        log_debug("Skipping release of user namespace inode %" PRIu64 ": registry entry refers to a still-alive namespace (id %" PRIu64 "), entry was replaced after a recycled inode.",
+                                  inode, userns_info->userns_id);
+                        return;
+                }
+                if (probe_fd != -ESTALE &&
+                    !ERRNO_IS_NEG_PRIVILEGE(probe_fd) &&
+                    !ERRNO_IS_NEG_NOT_SUPPORTED(probe_fd))
+                        log_debug_errno(probe_fd, "Failed to probe liveness of user namespace %" PRIu64 " (id %" PRIu64 "), proceeding with release: %m",
+                                        inode, userns_info->userns_id);
+        }
+
         if (DEBUG_LOGGING) {
                 if (userns_info && uid_is_valid(userns_info->start_uid))
                         log_debug("Removing user namespace mapping %" PRIu64 " for UID " UID_FMT ".", inode, userns_info->start_uid);
