@@ -214,10 +214,6 @@ static int dhcp_server_process_discover(sd_dhcp_server *server, DHCPRequest *req
 
         log_dhcp_server(server, "DISCOVER (0x%x)", be32toh(req->message->xid));
 
-        if (server->pool_size == 0)
-                /* no pool allocated */
-                return 0;
-
         /* for now pick a random free address from the pool */
         if (static_lease) {
                 sd_dhcp_server_lease *l = hashmap_get(server->bound_leases_by_address, UINT32_TO_PTR(static_lease->address));
