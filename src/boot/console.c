@@ -6,7 +6,7 @@
 #include "efi-string.h"
 #include "proto/graphics-output.h"
 #include "proto/pci-io.h"
-#include "string-util-fundamental.h"
+#include "string-util.h"
 #include "util.h"
 
 #define SYSTEM_FONT_WIDTH 8

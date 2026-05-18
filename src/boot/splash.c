@@ -4,7 +4,7 @@
 #include "logarithm.h"
 #include "proto/graphics-output.h"
 #include "splash.h"
-#include "unaligned-fundamental.h"
+#include "unaligned.h"
 #include "util.h"
 
 struct bmp_file {

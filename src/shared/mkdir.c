@@ -4,7 +4,7 @@
 
 #include "errno-util.h"
 #include "label-util.h"         /* IWYU pragma: keep */
-#include "mkdir-label.h"
+#include "mkdir.h"
 #include "selinux-util.h"
 #include "smack-util.h"
 

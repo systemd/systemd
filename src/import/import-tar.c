@@ -20,7 +20,7 @@
 #include "install-file.h"
 #include "io-util.h"
 #include "log.h"
-#include "mkdir-label.h"
+#include "mkdir.h"
 #include "path-util.h"
 #include "pidref.h"
 #include "pretty-print.h"

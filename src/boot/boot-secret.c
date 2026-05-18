@@ -4,7 +4,7 @@
 #include "efi-efivars.h"
 #include "efi-log.h"
 #include "random-seed.h"
-#include "sha256-fundamental.h"
+#include "sha256.h"
 #include "util.h"
 
 #define BOOT_SECRET_MIXIN_PATH u"\\loader\\boot-secret-mixin"

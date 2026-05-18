@@ -16,7 +16,7 @@
 #include "limits-util.h"
 #include "log.h"
 #include "main-func.h"
-#include "mkdir-label.h"
+#include "mkdir.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
 #include "path-util.h"

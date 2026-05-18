@@ -3,7 +3,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
-#include "btrfs.h"
+#include "btrfs-util.h"
 #include "chase.h"
 #include "errno-util.h"
 #include "fd-util.h"
