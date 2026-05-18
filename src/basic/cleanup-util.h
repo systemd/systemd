@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "assert-fundamental.h"
-#include "cleanup-fundamental.h" /* IWYU pragma: export */
+#include "../fundamental/assert-util.h"
+#include "../fundamental/cleanup-util.h" /* IWYU pragma: export */
 
 typedef void (*free_func_t)(void *p);
 typedef void* (*mfree_func_t)(void *p);

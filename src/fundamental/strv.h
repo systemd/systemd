@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "macro-fundamental.h"
-#include "string-util-fundamental.h"
+#include "macro.h"
+#include "string-util.h"
 
 #define _STRV_FOREACH(s, l, i)                                          \
         for (typeof(*(l)) *s, *i = (l); (s = i) && *i; i++)

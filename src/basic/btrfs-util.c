@@ -5,7 +5,7 @@
 #include <sys/stat.h>
 
 #include "alloc-util.h"
-#include "btrfs.h"
+#include "btrfs-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fs-util.h"

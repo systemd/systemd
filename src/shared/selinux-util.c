@@ -21,7 +21,7 @@
 
 #include "alloc-util.h"
 #include "fd-util.h"
-#include "label.h"
+#include "label-util.h"
 #include "path-util.h"
 #include "string-util.h"
 #include "time-util.h"

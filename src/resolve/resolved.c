@@ -12,7 +12,7 @@
 #include "label-util.h"
 #include "log.h"
 #include "main-func.h"
-#include "mkdir-label.h"
+#include "mkdir.h"
 #include "resolved-bus.h"
 #include "resolved-manager.h"
 #include "resolved-resolv-conf.h"

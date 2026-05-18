@@ -26,7 +26,7 @@
 #include "machined-dbus.h"
 #include "machined-varlink.h"
 #include "main-func.h"
-#include "mkdir-label.h"
+#include "mkdir.h"
 #include "operation.h"
 #include "path-lookup.h"
 #include "service-util.h"

@@ -8,8 +8,8 @@
 #  include <string.h>
 #endif
 
-#include "assert-fundamental.h"         /* IWYU pragma: keep */
-#include "macro-fundamental.h"
+#include "assert-util.h"         /* IWYU pragma: keep */
+#include "macro.h"
 
 /* What is interpreted as whitespace? */
 #define WHITESPACE          " \t\n\r"

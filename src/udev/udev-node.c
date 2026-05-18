@@ -20,7 +20,7 @@
 #include "hashmap.h"
 #include "hexdecoct.h"
 #include "label-util.h"
-#include "mkdir-label.h"
+#include "mkdir.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "selinux-util.h"

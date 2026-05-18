@@ -16,7 +16,7 @@
 #include "hexdecoct.h"
 #include "io-util.h"
 #include "iovec-util.h"
-#include "label.h"
+#include "label-util.h"
 #include "log.h"
 #include "mkdir.h"
 #include "nulstr-util.h"
