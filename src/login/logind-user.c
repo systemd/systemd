@@ -24,7 +24,7 @@
 #include "logind-seat.h"
 #include "logind-user.h"
 #include "logind-user-dbus.h"
-#include "mkdir-label.h"
+#include "mkdir.h"
 #include "parse-util.h"
 #include "percent-util.h"
 #include "serialize.h"

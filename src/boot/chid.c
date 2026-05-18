@@ -15,7 +15,6 @@
  */
 
 #include "chid.h"
-#include "chid-fundamental.h"
 #include "edid.h"
 #if SD_BOOT
 #include "efi-log.h"

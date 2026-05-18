@@ -7,7 +7,7 @@
 #include "fd-util.h"
 #include "fs-util.h"
 #include "log.h"
-#include "mkdir-label.h"
+#include "mkdir.h"
 #include "parse-util.h"
 #include "selinux-util.h"
 #include "smack-util.h"

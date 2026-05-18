@@ -82,8 +82,8 @@ modified for use with systemd
 #  include <string.h>
 #endif
 
-#include "memory-util-fundamental.h"
-#include "sha1-fundamental.h"
+#include "memory-util.h"
+#include "sha1.h"
 
 #define SHA1_DIGEST_SIZE 20
 

@@ -5,7 +5,7 @@
 #include "alloc-util.h"
 #include "dirent-util.h"
 #include "efi-api.h"
-#include "efi-fundamental.h"
+#include "efi.h"
 #include "efivars.h"
 #include "fd-util.h"
 #include "fileio.h"

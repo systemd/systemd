@@ -12,7 +12,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
-#include "btrfs.h"
+#include "btrfs-util.h"
 #include "chattr-util.h"
 #include "copy.h"
 #include "dirent-util.h"
