@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-03-06 03:46+0900\n"
+"POT-Creation-Date: 2026-05-18 12:18+0100\n"
 "PO-Revision-Date: 2026-04-03 19:58+0000\n"
 "Last-Translator: Marek Adamski "
 "<maradam@users.noreply.translate.fedoraproject.org>\n"
@@ -908,38 +908,57 @@ msgstr ""
 "wirtualnymi i kontenerami."
 
 #: src/machine/org.freedesktop.machine1.policy:95
+msgid "Inspect local virtual machines and containers"
+msgstr ""
+
+#: src/machine/org.freedesktop.machine1.policy:96
+msgid ""
+"Authentication is required to inspect local virtual machines and containers."
+msgstr ""
+
+#: src/machine/org.freedesktop.machine1.policy:105
 msgid "Create a local virtual machine or container"
 msgstr "Utworzenie lokalnej maszyny wirtualnej lub kontenera"
 
-#: src/machine/org.freedesktop.machine1.policy:96
+#: src/machine/org.freedesktop.machine1.policy:106
 msgid ""
 "Authentication is required to create a local virtual machine or container."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby utworzyć lokalną maszynę wirtualną lub "
 "kontener."
 
-#: src/machine/org.freedesktop.machine1.policy:106
+#: src/machine/org.freedesktop.machine1.policy:116
 msgid "Register a local virtual machine or container"
 msgstr "Rejestracja lokalnej maszyny wirtualnej lub kontenera"
 
-#: src/machine/org.freedesktop.machine1.policy:107
+#: src/machine/org.freedesktop.machine1.policy:117
 msgid ""
 "Authentication is required to register a local virtual machine or container."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby zarejestrować lokalną maszynę wirtualną "
 "lub kontener."
 
-#: src/machine/org.freedesktop.machine1.policy:116
+#: src/machine/org.freedesktop.machine1.policy:126
 msgid "Manage local virtual machine and container images"
 msgstr "Zarządzanie lokalnymi obrazami maszyn wirtualnych i kontenerów"
 
-#: src/machine/org.freedesktop.machine1.policy:117
+#: src/machine/org.freedesktop.machine1.policy:127
 msgid ""
 "Authentication is required to manage local virtual machine and container "
 "images."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby zarządzać lokalnymi obrazami maszyn "
 "wirtualnych i kontenerów."
+
+#: src/machine/org.freedesktop.machine1.policy:137
+msgid "Inspect local virtual machine and container images"
+msgstr ""
+
+#: src/machine/org.freedesktop.machine1.policy:138
+msgid ""
+"Authentication is required to inspect local virtual machine and container "
+"images."
+msgstr ""
 
 #: src/network/org.freedesktop.network1.policy:22
 msgid "Set NTP servers"
@@ -1058,8 +1077,8 @@ msgid ""
 "Authentication is required to send a force renew message from the DHCP "
 "server."
 msgstr ""
-"Wymagane jest uwierzytelnienie, aby wysłać komunikat wymuszonego odnowienia z"
-" serwera DHCP."
+"Wymagane jest uwierzytelnienie, aby wysłać komunikat wymuszonego odnowienia "
+"z serwera DHCP."
 
 #: src/network/org.freedesktop.network1.policy:154
 msgid "Renew dynamic addresses"
