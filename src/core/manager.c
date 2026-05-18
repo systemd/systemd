@@ -2076,6 +2076,12 @@ static void manager_ready(Manager *m) {
 
         /* After having loaded everything, do the final round of catching up with what might have changed */
 
+        /* Mark the end of the current reload-cycle, but only if we are actually in one. On cold boot
+         * manager_reloading_start() is not called, so the start timestamp stays 0; in that case we leave
+         * the finish timestamp at 0 too so both fields consistently mean "no reload-cycle has run yet". */
+        if (m->timestamps[MANAGER_TIMESTAMP_UNITS_RELOAD_START].monotonic != 0)
+                dual_timestamp_now(m->timestamps + MANAGER_TIMESTAMP_UNITS_RELOAD_FINISH);
+
         m->objective = MANAGER_OK; /* Tell everyone we are up now */
 
         /* It might be safe to log to the journal now and connect to dbus */
@@ -2105,6 +2111,18 @@ void manager_reloading_stopp(Manager **m) {
                 assert((*m)->n_reloading > 0);
                 (*m)->n_reloading--;
         }
+}
+
+usec_t manager_get_last_reload_usec(Manager *m) {
+        assert(m);
+
+        usec_t start = m->timestamps[MANAGER_TIMESTAMP_UNITS_RELOAD_START].monotonic;
+        usec_t finish = m->timestamps[MANAGER_TIMESTAMP_UNITS_RELOAD_FINISH].monotonic;
+
+        if (start == 0 || finish == 0 || finish < start)
+                return USEC_INFINITY;
+
+        return finish - start;
 }
 
 static int manager_make_runtime_dir(Manager *m) {
@@ -5431,6 +5449,7 @@ static const char* const manager_timestamp_table[_MANAGER_TIMESTAMP_MAX] = {
         [MANAGER_TIMESTAMP_UNITS_LOAD_START]         = "units-load-start",
         [MANAGER_TIMESTAMP_UNITS_LOAD_FINISH]        = "units-load-finish",
         [MANAGER_TIMESTAMP_UNITS_RELOAD_START]       = "units-reload-start",
+        [MANAGER_TIMESTAMP_UNITS_RELOAD_FINISH]      = "units-reload-finish",
         [MANAGER_TIMESTAMP_INITRD_SECURITY_START]    = "initrd-security-start",
         [MANAGER_TIMESTAMP_INITRD_SECURITY_FINISH]   = "initrd-security-finish",
         [MANAGER_TIMESTAMP_INITRD_GENERATORS_START]  = "initrd-generators-start",
