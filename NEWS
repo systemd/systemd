@@ -53,6 +53,12 @@ CHANGES WITH 261 in spe:
           changed to restrict socket address families to AF_INET, AF_INET6 and
           AF_UNIX.
 
+        * The experimental "systemd-sysupdated" D-Bus API is going to be
+          removed again in the next release. The plan is that in its place
+          clients should directly talk to systemd-sysupdate (i.e. the backend
+          of "systemd-sysupdated") via Varlink IPC. The "updatectl" tool will
+          be reworked along these lines.
+
         Changes in the system and service manager:
 
         * PID1 now supports the kernel's Live Update Orchestration (LUO) /
@@ -72,6 +78,30 @@ CHANGES WITH 261 in spe:
           options are set in the user@.service unit. Combined with the LUO
           support, this lets user units persist state (e.g.: memfds) across
           not only user session restarts, but also kexec reboots.
+
+        * The hardware database now contains a new database hwdb.d/40-imds.hwdb
+          that recognizes various established public clouds by their SMBIOS
+          information, and provides information how to reach local IMDS
+          functionality on the node. Currently, Amazon EC2, Microsoft Azure,
+          Google Compute Engine, Hetzner, Oracle Cloud, Scaleway are
+          recognized.
+
+        * An IMDS subsystem has been added. Specifically, there's now
+          systemd-imdsd which provides a local Varliknk IPC API that makes IMDS
+          services accessible locally. It provides both a relatively low-level
+          interface for querying arbitrary fields, and a higher level interface
+          for querying certain well-known keys in a generic way (which maps to
+          various cloud specific keys via the hwdb). The service can be pulled
+          into the boot transaction automatically if a supported cloud is
+          recognized via the systemd-imds-generator functionality. This permits
+          implementation of truly generic images, that can interact with IMDS
+          if available, but operate without if not.l
+
+        * Networking to cloud IMDS services may be locked down for recognized
+          clouds. This is recommended for secure installations, but typically
+          conflicts with traditional IMDS clients such as cloud-init, which
+          require direct IMDS access. The new meson option "-Dimds-network="
+          can be used to change the default mode to "locked" at build-time.
 
         * The manager exposes a new ReloadCount property on its D-Bus and
           Varlink interfaces (org.freedesktop.systemd1.Manager and
@@ -97,7 +127,7 @@ CHANGES WITH 261 in spe:
           BPF LSM program to restrict execution to only binaries that are
           stored on a signed and verified dm-verity protected filesystem.
 
-        * The io.systemd.Unit.StartTransient Varlink method has been extended
+        * The io.systemd.Unit.StartTransient() Varlink method has been extended
           to accept SetCredentials, SetCredentialsEncrypted, Environment and
           WorkingDirectory fields, on par with what is already possible via
           the legacy D-Bus interface.
@@ -123,16 +153,15 @@ CHANGES WITH 261 in spe:
         * A new tmpfiles.d/root.conf has been added that sets permissions
           on the root directory (/) to 0555.
 
-        * systemd-tmpfiles gained a new --inline option to accept
-          tmpfiles.d directives on the command line.
+        * systemd-tmpfiles gained a new --inline switch which permits passing
+          tmpfiles.d/ directives directly on the command line rather than via a
+          configuration file or STDIN. This is similar to the switch of the
+          same name to systemd-sysusers.
 
         * New directive types 'k/K' have been added to systemd-tmpfiles for
           setting file capabilities.
 
-        * systemd-firstboot can now set the static hostname from a system
-          credential (firstboot.hostname).
-
-        Changes in systemd-sysext and systemd-confext:
+        Changes in systemd-sysext/systemd-confext:
 
         * New initrd services systemd-sysext-sysroot.service and
           systemd-confext-sysroot.service are provided. These services are
@@ -178,8 +207,13 @@ CHANGES WITH 261 in spe:
           settings are now supported to allow overriding the default caches
           sizes for the respective protocols.
 
-        * Additional local resource records may now be defined via drop-in
-          configuration files, complementing the existing global definitions.
+        * systemd-resolved will now read additional DNS resource record
+          definitions to resolve locally from JSON drop-in files in
+          {/etc,/run,/usr/local/lib,/usr/lib}/systemd/resolve/static.d/. This
+          is a generalization of /etc/hosts in a way, but is supposed to be
+          more flexible (i.e. other RR types than just A/AAAA + PTR can be
+          configured, even if right now not too many are hooked up yet) and
+          follow the usual drop-in pattern that avoids ownership conflicts.
 
         * Insecure DNSSEC answers using unsupported signature or digest
           algorithms are now correctly accepted as insecure, rather than
@@ -202,11 +236,18 @@ CHANGES WITH 261 in spe:
 
         Changes in systemd-boot, systemd-stub, bootctl, ukify and BLS:
 
-        * A new "boot secret" mechanism has been added: systemd-boot can
-          provision a per-system secret in an EFI variable that is locked
-          down so that the OS cannot read it back. This allows the boot
-          loader to attest its identity to the booted system without giving
-          the system the means to impersonate it on systems without a TPM2.
+        * systemd-stub will now maintain a "boot secret" and pass it to the OS
+          in the /.extra/boot-secret file in the initrd. This boot secret is
+          derived from a persistent EFI variable that is not accessible by the
+          OS (i.e. only accessible in the UEFI environment). The EFI variable
+          is automatically initialized to a randomly generated value if not set
+          yet. It is intended to be used for certain fallback codepaths in case
+          a local TPM is not available, but an UEFI environment is. If a TPM is
+          available, it's highly recommended to use it as a better source of
+          per-system key material, but in absence of a TPM it often might be an
+          acceptable fallback for local, persistent key material. Applications
+          should never use the key as-is, but derive their own key from it,
+          through hashing.
 
         * systemd-stub now auto-detects the active EFI serial console
           device and appends an appropriate "console=" parameter to the
@@ -244,8 +285,10 @@ CHANGES WITH 261 in spe:
         * A new BlockDeviceReplace= setting allows partitions to
           atomically replace the contents of an existing block device.
 
-        * A new --grain-size= command line option overrides the alignment
-          granularity used when placing partitions.
+        * systemd-repart now supports a new --grain-size= switch to explicitly
+          select the desired "grain" size (i.e. alignment granularity) when
+          placing partitions. It defaults to 4K (as before), but can now be set
+          to any other power of 2 larger than the sector size.
 
         * A new --el-torito= command line option causes a minimal El
           Torito boot catalog to be written for EFI boot on hybrid ISO
@@ -296,8 +339,16 @@ CHANGES WITH 261 in spe:
           etc.); a PTY is now provided for the native console mode, and
           headless console operation is supported.
 
-        * systemd-vmspawn gained a new --efi-nvram-template= option that
-          selects the EFI variable store template.
+        * systemd-vmspawn gained a new switch --efi-nvram-state= for
+          controlling whether and where to persist the EFI variable NVRAM
+          between VM invocations. It's modelled after --tpm-state= in
+          behaviour.
+
+        * systemd-vmspawn's TPM logic will now ensure to install an
+          endorsement certificate.
+
+        * systemd-vmspawn's --console= switch gained a new value "headless" to
+          spawn a VM in truly headless mode, i.e without a console or display.
 
         * systemd-vmspawn gained a new --firmware-features= option that
           enables or disables individual firmware features (with a
@@ -306,11 +357,10 @@ CHANGES WITH 261 in spe:
         * systemd-vmspawn now supports direct kernel boot without UEFI
           firmware.
 
-        * systemd-vmspawn gained support for new disk types 'nvme',
-          'virtio-scsi' and 'scsi-cd' (for ISO/CD-ROM images).
-
-        * systemd-vmspawn now exposes a QMP-to-Varlink bridge that makes
-          the running QEMU instance reachable to other tools at runtime.
+        * systemd-vmspawn gained support for a new --image-disk-type= switch
+          for selecting the block storage type (virtio-blk, virtio-scsi, nvme)
+          for block devices exposed to the VM. The --extra-drive= switch
+          optionally can configure this too now.
 
         * The io.systemd.MachineInstance Varlink interface gained
           AddStorage(), RemoveStorage() and ReplaceStorage() methods for
@@ -465,6 +515,26 @@ CHANGES WITH 261 in spe:
           dependencies from all binaries.
 
         * The unused dependency on libgpg-error has been dropped.
+
+        * systemd-firstboot will now honour a new "firstboot.hostname" system
+          credential for persistently setting the system hostname on first
+          boot. This is different from the pre-existing "system.hostname" which
+          sets the hostname on boot the credential is passed on only, and which
+          is not made persistent.
+
+        * systemd-hostnamed now provides a D-Bus API to acquire arbitrary
+          fields from /etc/machine-info.
+
+        * systemd-hostnamed is now available in early boot too (i.e. before
+          basic.target). Note that D-Bus only becomes available later, and it
+          hence can only be contacted via Varlink that early.
+
+        * JSON user database records may now optionally carry a birth date
+          field. homectl gained a new switch --birth-date= to set it.
+
+        * systemd-vconsole-setup will now gracefully handle if the
+          setfont/loadkeys tools are not installed, and skip operation cleanly
+          in that case.
 
 CHANGES WITH 260:
 
