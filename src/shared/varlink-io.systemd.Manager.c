@@ -155,6 +155,10 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(UnitsLoadFinishTimestamp, Timestamp, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Timestamp when the manager last started loading units"),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(UnitsLoadTimestamp, Timestamp, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Timestamp when the manager last started a reload-cycle (alias of UnitsLoadTimestamp)"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(UnitsReloadStartTimestamp, Timestamp, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Timestamp when the manager last finished a reload-cycle"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(UnitsReloadFinishTimestamp, Timestamp, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Timestamp when the manager started uploading security policies to the kernel in the initrd"),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(InitRDSecurityStartTimestamp, Timestamp, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Timestamp when the manager finished uploading security policies to the kernel in the initrd"),
@@ -190,7 +194,9 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("Encodes how many soft-reboots were successfully completed"),
                 SD_VARLINK_DEFINE_FIELD(SoftRebootsCount, SD_VARLINK_INT, 0),
                 SD_VARLINK_FIELD_COMMENT("Number of successfully completed configuration reloads"),
-                SD_VARLINK_DEFINE_FIELD(ReloadCount, SD_VARLINK_INT, 0));
+                SD_VARLINK_DEFINE_FIELD(ReloadCount, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("Microsecond duration of the most recent successful reload-cycle; absent until first reload"),
+                SD_VARLINK_DEFINE_FIELD(LastReloadUSec, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_METHOD(
                 Describe,

@@ -2340,7 +2340,7 @@ static int invoke_main_loop(
                                 m->objective = MANAGER_OK;
                         else
                                 log_info("Reloading finished in " USEC_FMT " ms.",
-                                         usec_sub_unsigned(now(CLOCK_MONOTONIC), m->timestamps[MANAGER_TIMESTAMP_UNITS_RELOAD_START].monotonic) / USEC_PER_MSEC);
+                                         manager_get_last_reload_usec(m) / USEC_PER_MSEC);
 
                         continue;
                 }
