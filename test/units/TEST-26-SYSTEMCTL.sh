@@ -656,6 +656,26 @@ timeout 30 bash -c "until systemctl is-active varlink-transient-cred.service; do
 grep '^secret-value$' "$CRED_OUTPUT" >/dev/null
 rm -f "$CRED_OUTPUT"
 
+# Exec.User, Exec.Group, Exec.SupplementaryGroups, Exec.Nice
+# The nobody group is different on different distros so resolve here.
+NOBODY_GROUP=$(id -gn nobody)
+defer_transient_cleanup varlink-transient-ids.service
+ids_payload=$(jq -cn --arg g "$NOBODY_GROUP" \
+    '{context:{ID:"varlink-transient-ids.service",
+               Exec:{User:"nobody",Group:$g,SupplementaryGroups:[$g],Nice:5},
+               Service:{Type:"oneshot",RemainAfterExit:true,
+                        ExecStart:[{path:"/bin/true"}]}}}')
+result=$(varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient "$ids_payload")
+echo "$result" | jq -e '.context.Exec.User == "nobody"'
+echo "$result" | jq --arg g "$NOBODY_GROUP" -e '.context.Exec.Group == $g'
+echo "$result" | jq --arg g "$NOBODY_GROUP" -e '.context.Exec.SupplementaryGroups == [$g]'
+echo "$result" | jq -e '.context.Exec.Nice == 5'
+timeout 30 bash -c 'until systemctl is-active varlink-transient-ids.service; do sleep 0.5; done'
+systemctl show -P User varlink-transient-ids.service | grep '^nobody$' >/dev/null
+systemctl show -P Group varlink-transient-ids.service | grep "^${NOBODY_GROUP}$" >/dev/null
+systemctl show -P SupplementaryGroups varlink-transient-ids.service | grep "${NOBODY_GROUP}" >/dev/null
+systemctl show -P Nice varlink-transient-ids.service | grep '^5$' >/dev/null
+
 # Error cases: verify specific varlink error types
 set +o pipefail
 varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
@@ -677,6 +697,14 @@ varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
 defer_transient_cleanup varlink-transient-bad-env.service
 varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
     '{"context":{"ID":"varlink-transient-bad-env.service","Exec":{"Environment":["not_an_env_var"]},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' |& grep "io.systemd.Unit.BadUnitSetting"
+# Invalid User= name is rejected
+defer_transient_cleanup varlink-transient-bad-user.service
+varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+    '{"context":{"ID":"varlink-transient-bad-user.service","Exec":{"User":"bad/user"},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' |& grep "io.systemd.Unit.BadUnitSetting"
+# Out-of-range Nice= value is rejected
+defer_transient_cleanup varlink-transient-bad-nice.service
+varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+    '{"context":{"ID":"varlink-transient-bad-nice.service","Exec":{"Nice":100},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' |& grep "io.systemd.Unit.BadUnitSetting"
 # Invalid credential ID
 defer_transient_cleanup varlink-transient-bad-cred-id.service
 varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
@@ -690,8 +718,17 @@ varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
     '{"context":{"ID":"varlink-transient-exec.slice","Exec":{"WorkingDirectory":{"path":"/tmp","missingOK":false}}}}' |& grep "io.systemd.Unit.UnitTypeNotSupported"
 # Unknown field in Exec is rejected as PropertyNotSupported
 defer_transient_cleanup varlink-transient-unknown-exec.service
-varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
-    '{"context":{"ID":"varlink-transient-unknown-exec.service","Exec":{"RootDirectory":"/tmp"},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' |& grep "io.systemd.Unit.PropertyNotSupported"
+unsupported_exec=$(varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+    '{"context":{"ID":"varlink-transient-unknown-exec.service","Exec":{"RootDirectory":"/tmp"},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' 2>&1 || true)
+echo "$unsupported_exec" | grep "io.systemd.Unit.PropertyNotSupported"
+echo "$unsupported_exec" | grep "Exec.RootDirectory"
+# Service field declared in the IDL but not yet settable at creation is rejected as PropertyNotSupported,
+# and the offending sub-property is identified
+defer_transient_cleanup varlink-transient-unknown-service.service
+unsupported_service=$(varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+    '{"context":{"ID":"varlink-transient-unknown-service.service","Service":{"Type":"oneshot","Restart":"always","ExecStart":[{"path":"/bin/true"}]}}}' 2>&1 || true)
+echo "$unsupported_service" | grep "io.systemd.Unit.PropertyNotSupported"
+echo "$unsupported_service" | grep "Service.Restart"
 set -o pipefail
 
 transient_cleanup
