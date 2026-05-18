@@ -336,7 +336,7 @@ systemd-dissect --shift /home/testuser/.local/state/machines/fdstore foreign
 run0 -u testuser mkdir -p .config/systemd/nspawn/
 run0 -u testuser -i "cat >.config/systemd/nspawn/fdstore.nspawn <<EOF
 [Exec]
-KillSignal=SIGKILL
+KillSignal=SIGTERM
 EOF"
 
 run0 -u testuser mkdir -p ".config/systemd/user/systemd-nspawn@fdstore.service.d/"

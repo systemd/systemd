@@ -92,7 +92,7 @@ EOF
     mkdir -p /run/systemd/nspawn
     cat >/run/systemd/nspawn/fdstore.nspawn <<EOF
 [Exec]
-KillSignal=SIGKILL
+KillSignal=SIGTERM
 EOF
     n_nspawn_fds=$(systemctl show -P NFileDescriptorStore systemd-nspawn@fdstore.service)
     test "${n_nspawn_fds}" -ge 2
@@ -170,7 +170,7 @@ EOF
     mkdir -p /run/systemd/nspawn
     cat >/run/systemd/nspawn/fdstore.nspawn <<EOF
 [Exec]
-KillSignal=SIGKILL
+KillSignal=SIGTERM
 EOF
 
     systemctl start systemd-nspawn@fdstore.service
