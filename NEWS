@@ -13,6 +13,14 @@ CHANGES WITH 261 in spe:
           attestation environments which use hardware CC registers and not the
           TPM quote.
 
+        New features:
+
+        Changes in systemd-networkd and networkctl:
+
+        * The DHCPv4 client gained support to save, load and configure leases
+          in non-volatile storage. Options to use expired leases, with custom
+          settings have also been included.
+
 CHANGES WITH 260:
 
         Feature Removals and Incompatible Changes:
