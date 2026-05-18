@@ -2640,6 +2640,56 @@ MultiPathRoute=2001:db8::1@eth0</programlisting>
       <!-- How to use the DHCP lease -->
 
       <varlistentry>
+        <term><varname>PersistLeases=</varname></term>
+        <listitem>
+          <para>Takes a boolean or one of "no", "yes", "yes-with-expired". When "yes", the DHCP Client
+          will load and save valid leases of the configured interface in the persistent storage
+          /var/lib/systemd/network/dhcp-client-leases, with interface names as lease file name.
+          When "yes-with-expired", the DHCP Client will do the same as above, with interfaces
+          being assigned and configured with previous expired lease as well. In order to mitigate IP
+          conflicts, the lifetime of the expired lease is default at 120s. DHCP Renewal will still
+          be broadcast during this period to acquire a valid lease when possible. Can be
+          used in conjunction with one of <varname>ExpiredLeaseExtensionLifetime=</varname> and
+          <varname>ExpiredLeaseExtensionFuzz=</varname> or both. When "no", the DHCP Client will not load
+          or save leases, and will function as normal, but old lease files aren't removed, so take care
+          when toggling this setting. This is intended to be used in environments where there is some level
+          of control over dhcp infrastructure.
+          Defaults to unset.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ExpiredLeaseExtensionLifetime=</varname></term>
+        <listitem>
+          <para>To be used in conjunction with <varname>PersistLeases=yes-with-expired</varname>. Allows custom
+          lifetime value for expired leases. The minimum allowed is 120s and maximum 240s. Lease will be renewed
+          periodically at this value, till new DHCP ACK. If unspecified, lifetime is set at 120s.
+
+          Defaults to unset.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ExpiredLeaseExtensionFuzz=</varname></term>
+        <listitem>
+          <para>To be used in conjunction with <varname>PersistLeases=yes-with-expired</varname>. Allows custom
+          fuzzing of the lifetime value for expired leases. This is needed in order to avoid a
+          <ulink url="https://en.wikipedia.org/wiki/Thundering_herd_problem">Thundering herd problem</ulink>.
+          A percentage value that will randomise the lifetime value used in <varname>ExpiredLeaseExtensionLifetime=</varname>
+          within a range of 60s to 300s, depending on the values chosen. The minimum for this option is 0% and maximum is 50%.
+          A higher value will result in a larger selection pool. If unspecified, fuzzing is set at 0%.
+
+          Defaults to unset.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>Label=</varname></term>
         <listitem>
           <para>Specifies the label for the IPv4 address received from the DHCP server. The label must
