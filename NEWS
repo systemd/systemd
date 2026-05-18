@@ -21,10 +21,11 @@ CHANGES WITH 261 in spe:
 
         * systemd-nspawn's --user= option has been renamed to --uid=. The -u
           short option continues to work. The old --user NAME and --user=NAME
-          form (with and without "=") are still accepted but deprecated; a warning
-          is emitted suggesting --uid=NAME. The --user option (without an argument)
-          has been repurposed as a standalone switch (without argument) to select
-          the user service manager scope, matching --system.
+          form (with and without "=") are still accepted but deprecated; a
+          warning is emitted suggesting --uid=NAME. The --user option (without
+          an argument) has been repurposed as a standalone switch (without
+          argument) to select the user service manager scope, matching
+          --system.
 
         * Several configuration fields in the io.systemd.Unit varlink interface
           that were previously exposed as plain strings have been converted to
@@ -52,37 +53,418 @@ CHANGES WITH 261 in spe:
           changed to restrict socket address families to AF_INET, AF_INET6 and
           AF_UNIX.
 
-        New features:
+        Changes in the system and service manager:
 
-        * A new tmpfiles.d/root.conf has been added that sets permissions
-          on the root directory (/) to 0555
+        * PID1 now supports the kernel's Live Update Orchestration (LUO) /
+          Kexec Handover (KHO) systems when present and enabled. System units'
+          FD Stores are now preserved through kexec, and units will get back
+          stashed (named) file descriptors after kexec, if the kernel supports
+          the FD type (at the time of writing only memfds are supported).
+          Units can also create their own LUO Sessions by talking to the kernel
+          directly, and store them in their FD Stores, and those will be also
+          preserved and passed down to the unit after kexec. Units must set
+          'FileDescriptorStorePreserve=yes' in order to enable this feature.
 
-        * Networking to cloud IMDS services may be locked down for recognized
-          clouds. This is recommended for secure installations, but typically
-          conflicts with traditional IMDS clients such as cloud-init, which
-          require direct IMDS access. The new meson option "-Dimds-network="
-          can be used to change the default mode to "locked" at build-time.
+        * User session managers now supports persisting user unit's FD Stores
+          by receiving FDs via the notify socket, and passing them down via
+          $SLISTEN_FDS when the user session is restarted, when the
+          'FileDescriptorStorePreserve=yes' and 'FileDescriptorStoreMax='
+          options are set in the user@.service unit. Combined with the LUO
+          support, this lets user units persist state (e.g.: memfds) across
+          not only user session restarts, but also kexec reboots.
 
         * The manager exposes a new ReloadCount property on its D-Bus and
           Varlink interfaces (org.freedesktop.systemd1.Manager and
           io.systemd.Manager respectively). The counter increments after
-          each successfully completed daemon-reload. It is not preserved
-          across daemon-reexec.
+          each successfully completed daemon-reload, and it is reset on
+          daemon-reexec.
 
-        Changes in systemd-sysext/systemd-confext:
+        * A new ConditionSecurity=measured-os condition has been added that
+          checks whether the system was booted with measured-boot semantics
+          (i.e. via systemd-stub or an equivalent verified-boot mechanism
+          that measured the OS to the TPM).
+
+        * A new unit setting CPUSetPartition= has been added that allows
+          configuring the cpuset cgroup partition type (e.g. "root",
+          "isolated", "member") for a service.
+
+        * Two new optional sd_notify() messages have been introduced that
+          allow services to be notified of I/O and CPU pressure events from
+          PSI (Pressure Stall Information). The system manager forwards
+          pressure events for the corresponding cgroup.
+
+        * A new RestrictFileSystemAccess= setting has been added that uses a
+          BPF LSM program to restrict execution to only binares that are
+          stored on a signed and verified dm-verity protected filesystem.
+
+        * The io.systemd.Unit.StartTransient Varlink method has been extended
+          to accept SetCredentials, SetCredentialsEncrypted, Environment and
+          WorkingDirectory fields, on par with what is already possible via
+          the legacy D-Bus interface.
+
+        * A new set of Varlink methods has been added to the
+          io.systemd.Manager interface to request system shutdown:
+          PowerOff(), Reboot(), SoftReboot(), Halt() and Kexec(). These
+          complement the existing D-Bus interfaces.
+
+        * The io.systemd.Manager.ListUnitsByNames() Varlink method allows
+          querying multiple units in one call and supports a result limit.
+
+        * A new DefaultMemoryZSwapWriteback= manager setting has been added
+          that provides a system-wide default for the existing
+          MemoryZSwapWriteback= per-unit setting.
+
+        * A new io.systemd.Job Varlink interface exposes information about
+          pending and running manager jobs.
+
+        Changes in systemd-tmpfiles, systemd-sysusers and similar early-boot
+        tools:
+
+        * A new tmpfiles.d/root.conf has been added that sets permissions
+          on the root directory (/) to 0555.
+
+        * systemd-tmpfiles gained a new --inline option to accept
+          tmpfiles.d directives on the command line.
+
+        * New directive types 'k/K' have been added to systemd-tmpfiles for
+          setting file capabilities.
+
+        * systemd-firstboot can now set the static hostname from a system
+          credential (firstboot.hostname).
+
+        Changes in systemd-sysext and systemd-confext:
 
         * New initrd services systemd-sysext-sysroot.service and
           systemd-confext-sysroot.service are provided. These services are
-          used to merge system and configuration extensions for the main system
-          from the initrd. This overcomes the limitation that system and
-          configuration extensions merged from the main system itself cannot be
-          used to modify the resources which are used in the early boot.
+          used to merge system and configuration extensions for the main
+          system from the initrd. This overcomes the limitation that system
+          and configuration extensions merged from the main system itself
+          cannot be used to modify the resources which are used in the
+          early boot.
+
+        * A kernel command line kill switch is now honored that disables
+          systemd-sysext and systemd-confext merging entirely.
 
         Changes in systemd-networkd and networkctl:
 
         * A new 'networkctl dhcp-lease INTERFACE' command has been added to
           dump acquired DHCP leases. This may be useful for inspecting the
           DHCP options provided by the server.
+
+        * systemd-networkd implements the io.systemd.service.Reload() Varlink
+          method, and exposes new io.systemd.Network.Link.Describe(),
+          Reconfigure(), Renew() and ForceRenew() methods. 'networkctl' now
+          uses these Varlink methods in preference to the legacy D-Bus API
+          where possible.
+
+        * A new IPv4SrcValidMark= setting has been added to .network files.
+
+        * The VRF.Table= setting now accepts symbolic route table names (as
+          configured via RouteTable= in networkd.conf) in addition to
+          numeric table IDs.
+
+        * New DHCPServerPoolSize= and DHCPServerPoolOffset= properties have
+          been added to the D-Bus interface, mirroring the existing
+          configuration file options.
+
+        * The DHCPv4 server gained support for serving the SIP server option
+          (RFC 3361) to clients.
+
+        * The Varlink Describe() output now reports interface bit rates.
+
+        Changes in systemd-resolved:
+
+        * New 'DNSCacheSize=', 'MulticastDNSCacheSize=' and 'LLMNRCacheSize='
+          settings are now supported to allow overriding the default caches
+          sizes for the respective protocols.
+
+        * Additional local resource records may now be defined via drop-in
+          configuration files, complementing the existing global definitions.
+
+        * Insecure DNSSEC answers using unsupported signature or digest
+          algorithms are now correctly accepted as insecure, rather than
+          being rejected outright.
+
+        * When StaleRetentionSec= is set, the resolver no longer flushes its
+          cache on server switch or re-probe, keeping potentially useful
+          stale entries available.
+
+        * /etc/hosts entries are now re-read on reload (SIGHUP / D-Bus
+          Reload / Varlink Reload).
+
+        Changes in systemd-udevd, hwdb and udev rules:
+
+        * The DMI ID device (/sys/class/dmi/id) is now tagged so that
+          early-boot consumers can reliably order against it.
+
+        * A new hwdb database describes basic IMDS endpoints for known
+          cloud providers (see also systemd-imdsd above).
+
+        Changes in systemd-boot, systemd-stub, bootctl, ukify and BLS:
+
+        * A new "boot secret" mechanism has been added: systemd-boot can
+          provision a per-system secret in an EFI variable that is locked
+          down so that the OS cannot read it back. This allows the boot
+          loader to attest its identity to the booted system without giving
+          the system the means to impersonate it on systems without a TPM2.
+
+        * systemd-stub now auto-detects the active EFI serial console
+          device and appends an appropriate "console=" parameter to the
+          kernel command line, simplifying serial-console UKI deployments.
+
+        * A new "extra" type-1 Boot Loader Specification stanza is parsed
+          and used to deliver additional initrds to a UKI without modifying
+          its contents. The generic "addon" handling has been generalized
+          so that all UKI sidecar artifacts (initrds, command-line
+          overlays, devicetree blobs, etc.) follow the same lookup rules.
+
+        * systemd-boot will never auto-boot a non-default UKI profile,
+          preventing accidental boots into alternative profiles after a
+          single timeout expiry.
+
+        * El Torito CDROM boot catalog partition UUIDs are now discovered
+          and exposed via the same mechanism as GPT/MBR partitions,
+          enabling unified ISO image dissection.
+
+        * bootctl gained a new 'link' verb (with a matching Varlink API)
+          that installs a UKI on the ESP by symlinking it from
+          /usr/lib/modules/ instead of copying. A new
+          '--print-efi-architecture' option prints the EFI architecture
+          identifier of the running system, which is useful from packaging
+          scripts.
+
+        Changes in systemd-repart:
+
+        * A new EncryptKDF= setting controls the KDF used for LUKS2
+          partitions (e.g. argon2id, argon2i, pbkdf2).
+
+        * A new VolumeName= setting allows specifying the LUKS2 volume
+          name independently of the on-disk partition label.
+
+        * A new BlockDeviceReplace= setting allows partitions to
+          atomically replace the contents of an existing block device.
+
+        * A new --grain-size= command line option overrides the alignment
+          granularity used when placing partitions.
+
+        * A new --el-torito= command line option causes a minimal El
+          Torito boot catalog to be written for EFI boot on hybrid ISO
+          images.
+
+        * --shrink now uses mkfs.btrfs's native minimal-filesystem support
+          when available.
+
+        * A new persistent activation flag for LUKS2 partitions causes the
+          allow-discards option to be persisted in the LUKS2 header.
+
+        Changes in systemd-sysupdate:
+
+        * Partial-and-pending UpdateSet states are now correctly recognized
+          in additional code paths, and partial versions may be returned
+          as the next candidate as well as targeted by vacuuming.
+
+        * systemd-sysupdate now emits READY=1 via sd_notify() after the
+          install step completes, allowing for tighter integration with
+          orchestration tooling.
+
+        * systemd-sysupdate is now installed in /usr/bin/ alongside the
+          other user-facing tools, as it is no longer considered experimental.
+
+        Changes in systemd-nspawn, systemd-vmspawn, systemd-machined:
+
+        * systemd-nspawn now supports persisting the payload's system manager
+          FD Store by receiving FDs via the notify socket, and passing them
+          down via $SLISTEN_FDS when the container is restarted, when the
+          'FileDescriptorStorePreserve=yes' and 'FileDescriptorStoreMax='
+          options are set in the unit inside which systemd-nspawn is running.
+          Combined with the LUO support in PID1, this lets containers persist
+          state (e.g.: memfds) across not only container restarts, but also
+          kexec reboots.
+
+        * systemd-nspawn gained new --forward-journal= and
+          --forward-journal-NAME= options to forward journal entries from
+          the payload to specified journal sockets.
+
+        * systemd-vmspawn gained a new --bind-volume= option that binds host
+          paths into the VM.
+
+        * systemd-vmspawn gained a new --cxl= option that configures CXL
+          memory devices and adds support for memory hotplug.
+
+        * systemd-vmspawn gained a new --console-transport= option that
+          controls how the VM console is presented (PTY, native, headless,
+          etc.); a PTY is now provided for the native console mode, and
+          headless console operation is supported.
+
+        * systemd-vmspawn gained a new --efi-nvram-template= option that
+          selects the EFI variable store template.
+
+        * systemd-vmspawn gained a new --firmware-features= option that
+          enables or disables individual firmware features (with a
+          "~feature" prefix for negation).
+
+        * systemd-vmspawn now supports direct kernel boot without UEFI
+          firmware.
+
+        * systemd-vmspawn gained support for new disk types 'nvme',
+          'virtio-scsi' and 'scsi-cd' (for ISO/CD-ROM images).
+
+        * systemd-vmspawn now exposes a QMP-to-Varlink bridge that makes
+          the running QEMU instance reachable to other tools at runtime.
+
+        * The io.systemd.MachineInstance Varlink interface gained
+          AddStorage(), RemoveStorage() and ReplaceStorage() methods for
+          runtime storage manipulation, implemented by systemd-vmspawn.
+
+        * systemd-vmspawn now pre-allocates PCIe root ports to allow PCIe
+          device hotplug, with multifunction packing where supported.
+
+        * systemd-vmspawn now uses the QEMU built-in vdagent (clipboard,
+          resolution sync) instead of spicevmc.
+
+        * systemd-vmspawn now searches XDG_DATA_DIRS for QEMU firmware
+          descriptors.
+
+        * systemd-vmspawn gained a new --print-profiles command that falls
+          back to a non-JSON representation when the output is not JSON.
+
+        * systemd-vmspawn's --grow-image now detects and rejects qcow2
+          images, where the operation is not supported.
+
+        * systemd-vmspawn now propagates the host TERM environment variable
+          into the VM.
+
+        * A new 'storagectl' command line tool and an accompanying
+          io.systemd.StorageProvider Varlink interface have been added,
+          alongside the new generic providers systemd-storage-fs@.service and
+          systemd-storage-block@.service. These allow exposing storage
+          resources (filesystems, block devices) in a unified manner for use
+          as managed user storage.
+
+        * systemd-machined Machine.List/Register output now includes a
+          'controlAddress' field describing the manager's bus address,
+          where known.
+
+        * Querying metadata of registered machines is now gated behind
+          dedicated polkit actions
+          (org.freedesktop.machine1.inspect-machines and inspect-images).
+
+        * machinectl gained 'bind-volume' / 'unbind-volume' verbs to
+          manage runtime bind mounts of host paths into running machines,
+          and new verbs to control the lifecycle of VMs (pause, resume,
+          power-off, etc.) via the io.systemd.MachineInstance Varlink
+          interface.
+
+        Changes in systemd-coredump and coredumpctl:
+
+        * 'coredumpctl info' has gained JSON output (--json=).
+
+        * The crashing thread's TID and name are now captured and
+          recorded alongside the existing PID/comm metadata.
+
+        Changes in systemd-logind:
+
+        * A new io.systemd.Shutdown Varlink interface has been introduced
+          to request system shutdown. The peer connection identifier of
+          the requester is logged.
+
+        Changes in systemd-creds, systemd-cryptsetup and
+        systemd-cryptenroll:
+
+        * systemd-creds only locks against the public-key TPM2 PCR when
+          booting on UEFI firmware that supports TPMs, avoiding spurious
+          errors on systems without TPM.
+
+        * libcryptsetup is now loaded via dlopen() in the cryptsetup
+          binaries, eliminating the hard runtime dependency for systems that do
+          not actually use it.
+
+        Changes in libsystemd:
+
+        * A new public 'sd-dlopen' header-only API has been added that
+          provides macros (SD_ELF_NOTE_DLOPEN()) for annotating dlopen'd
+          dependencies via the UAPI.12 ELF metadata specification
+          (https://uapi-group.org/specifications/specs/elf_dlopen_metadata/).
+          This header is licensed under MIT-0 to facilitate embedding it
+          directly in other projects.
+
+        * A new 'sd_json_parse_fd' API is now available to facilitate parsing
+          FDs out of Varlink connections.
+
+        * sd-varlink gained a protocol upgrade mechanism, exposed via the
+          new sd_varlink_call_and_upgrade() and
+          sd_varlink_reply_and_upgrade() API. Internally the upgrade fd
+          handling and MSG_PEEK semantics for upgradable sockets have
+          been reworked, and the upgrade API always returns two file
+          descriptors.
+
+        * The 'ret' argument of sd_varlink_idl_parse() is now optional.
+
+        * sd-varlink's per-UID connection limit has been scaled down to
+          128.
+
+        * Enumeration types have been introduced throughout the
+          well-known Varlink interfaces: ManagedOOMMode in
+          io.systemd.oom; class and whom in io.systemd.Machine;
+          configuration, scheduling and mount settings in
+          io.systemd.Unit; configuration settings in io.systemd.Manager.
+
+        * varlinkctl gained a new 'serve' verb that wraps an arbitrary
+          command as a Varlink server, and a new '--upgrade' option
+          (along with '--exec') to consume the protocol upgrade API.
+
+        * A new JsonStream transport-layer module has been added for
+          consumers building higher-level JSON-over-stream protocols on
+          top of sd-json.
+
+        * sd-path now exposes an XDG 'projects' user directory.
+
+        * sd-device gained a number of helpers, including
+          sd_device_get_sysattr_safe_string(), sd_device_get_sysattr_u8(),
+          and sd_device_get_sysattr_u16().
+
+        Other changes:
+
+        * A new systemd-imdsd service has been introduced that makes cloud
+          Instance Metadata Service (IMDS) data accessible locally. It is
+          accompanied by a 'systemd-imds' client tool, a generator that hooks
+          IMDS retrieval into cloud guests, a hwdb database describing basic
+          IMDS endpoints for known clouds (including AWS, Azure, Google
+          Cloud, Oracle Cloud, Tencent Cloud and Alibaba ECS), and TPM
+          measurements of the retrieved data so that IMDS-provided values can
+          be used as attestation inputs. Networking to cloud IMDS services
+          may also be locked down for recognized clouds; the new meson option
+          "-Dimds-network=" can change the default mode to "locked" at build
+          time. This is recommended for secure installations, but typically
+          conflicts with traditional IMDS clients such as cloud-init, which
+          require direct IMDS access.
+
+        * The systemd-report framework introduced in v260 has been
+          substantially extended. Basic system metrics
+          (PhysicalMemoryBytes, CPUsOnline) are now provided by a new
+          systemd-report-basic@.service that is enabled by default via its
+          report-basic.socket activation unit. Per-cgroup metrics (CPU time,
+          etc.) and per-service metrics are exposed through dedicated Varlink
+          services. systemd-report gained the ability to upload collected
+          reports via a "varlink socket directory" of HTTP destinations, and
+          to inject custom HTTP headers when doing so.
+
+        * 'systemctl kexec' gained a new --kernel-cmdline= argument that
+          overrides the kernel command line for kexec invocations.
+
+        * 'systemctl kexec' now prefers invoking the 'kexec_file_load' system
+          call directly, and uses the 'kexec' binary only as a fallback if
+          that is not available, so that on most systems the dependency on
+          'kexec-tools' is no longer necessary.
+
+        * fstab-generator now supports swap on network block devices.
+
+        * libgnutls, libmicrohttpd, libcurl, libcrypto, libssl, libfdisk
+          and libcryptsetup are now consistently loaded via dlopen()
+          throughout the code base, further reducing the set of mandatory
+          dependencies from all binaries.
+
+        * The unused dependency on libgpg-error has been dropped.
 
 CHANGES WITH 260:
 
