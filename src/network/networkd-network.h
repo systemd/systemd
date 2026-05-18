@@ -12,6 +12,7 @@
 #include "network-util.h"
 #include "networkd-bridge-vlan.h"
 #include "networkd-dhcp-common.h"
+#include "networkd-dhcp-relay.h"
 #include "networkd-dhcp-server.h"
 #include "networkd-dhcp4.h"
 #include "networkd-dhcp6.h"
@@ -206,17 +207,23 @@ typedef struct Network {
         bool dhcp6_send_release;
         NFTSetContext dhcp6_nft_set_context;
 
+        /* DHCP Relay Agent Support */
+        DHCPRelayInterfaceMode dhcp_relay_interface_mode;
+        Address *dhcp_relay_agent_address;
+        struct in_addr dhcp_relay_agent_address_in_addr;
+        struct in_addr dhcp_relay_gateway_address;
+        struct iovec dhcp_relay_circuit_id;
+        struct iovec dhcp_relay_vss;
+        TLV dhcp_relay_extra_options;
+        int dhcp_relay_interface_priority;
+
         /* DHCP Server Support */
         bool dhcp_server;
-        bool dhcp_server_bind_to_interface;
         unsigned char dhcp_server_address_prefixlen;
         struct in_addr dhcp_server_address_in_addr;
         const Address *dhcp_server_address;
         int dhcp_server_uplink_index;
         char *dhcp_server_uplink_name;
-        struct in_addr dhcp_server_relay_target;
-        char *dhcp_server_relay_agent_circuit_id;
-        char *dhcp_server_relay_agent_remote_id;
         NetworkDHCPServerEmitAddress dhcp_server_emit[_SD_DHCP_LEASE_SERVER_TYPE_MAX];
         bool dhcp_server_emit_router;
         struct in_addr dhcp_server_router;

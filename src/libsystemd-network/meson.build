@@ -5,11 +5,13 @@ libsystemd_network_sources = files(
         'dhcp-client-send.c',
         'dhcp-message.c',
         'dhcp-message-dump.c',
-        'dhcp-network.c',
-        'dhcp-option.c',
-        'dhcp-packet.c',
         'dhcp-protocol.c',
+        'dhcp-relay-downstream.c',
+        'dhcp-relay-interface.c',
+        'dhcp-relay-upstream.c',
         'dhcp-route.c',
+        'dhcp-server-request.c',
+        'dhcp-server-send.c',
         'dhcp6-network.c',
         'dhcp6-option.c',
         'dhcp6-protocol.c',
@@ -25,6 +27,7 @@ libsystemd_network_sources = files(
         'sd-dhcp-client.c',
         'sd-dhcp-duid.c',
         'sd-dhcp-lease.c',
+        'sd-dhcp-relay.c',
         'sd-dhcp-server-lease.c',
         'sd-dhcp-server.c',
         'sd-dhcp6-client.c',
@@ -90,7 +93,7 @@ executables += [
                 'sources' : files('test-dhcp-message.c'),
         },
         network_test_template + {
-                'sources' : files('test-dhcp-option.c'),
+                'sources' : files('test-dhcp-relay.c'),
         },
         network_test_template + {
                 'sources' : files('test-dhcp-server.c'),
@@ -130,13 +133,13 @@ executables += [
                 'sources' : files('fuzz-dhcp-client.c'),
         },
         network_fuzz_template + {
+                'sources' : files('fuzz-dhcp-relay.c'),
+        },
+        network_fuzz_template + {
                 'sources' : files('fuzz-dhcp6-client.c'),
         },
         network_fuzz_template + {
                 'sources' : files('fuzz-dhcp-server.c'),
-        },
-        network_fuzz_template + {
-                'sources' : files('fuzz-dhcp-server-relay.c'),
         },
         network_fuzz_template + {
                 'sources' : files('fuzz-lldp-rx.c'),
