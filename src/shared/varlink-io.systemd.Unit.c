@@ -25,7 +25,8 @@ SD_VARLINK_DEFINE_ENUM_TYPE(
                 ExecPreserveMode,
                 SD_VARLINK_DEFINE_ENUM_VALUE(no),
                 SD_VARLINK_DEFINE_ENUM_VALUE(yes),
-                SD_VARLINK_DEFINE_ENUM_VALUE(restart));
+                SD_VARLINK_DEFINE_ENUM_VALUE(restart),
+                SD_VARLINK_DEFINE_ENUM_VALUE(on_success));
 
 SD_VARLINK_DEFINE_ENUM_TYPE(
                 ExecKeyringMode,
