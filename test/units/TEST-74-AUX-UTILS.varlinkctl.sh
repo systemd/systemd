@@ -204,6 +204,14 @@ varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Manager.Describe '{}'
 varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Manager.Reload '{}'
 # This will disconnect and fail, as the manager reexec and drops connections
 varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Manager.Reexecute '{}' ||:
+# Wait for the manager to finish re-exec before proceeding — the user manager
+# tests below use systemd-run which requires a functional PID 1.
+for _ in {1..10}; do
+    if systemctl is-system-running 2>/dev/null | grep -qE 'running|degraded'; then
+        break
+    fi
+    sleep 1
+done
 
 # test io.systemd.Manager in user manager
 testuser_uid=$(id -u testuser)
