@@ -606,7 +606,8 @@ CHANGES WITH 261 in spe:
           can hence only be contacted via Varlink that early.
 
         * JSON user database records may now optionally carry a birth date
-          field. homectl gained a new switch --birth-date= to set it.
+          field to close the gap with LDAP/OpenID/FreeIPA/etc. homectl gained
+          a new switch --birth-date= to set it.
 
         * systemd-vconsole-setup will now gracefully handle the case where the
           setfont/loadkeys tools are not installed, and skip operation cleanly
@@ -1400,6 +1401,12 @@ CHANGES WITH 259:
           login shell and supplementary groups memberships when interactive
           firstboot operation is requested. The invocation in
           systemd-homed-firstboot.service now turns both off by default.
+
+        * systemd-homed's fscrypt backend gained a new key sealing format that
+          aims to be more future-proof and robust against advances in brute
+          forcing techniques. Compatibiilty with the existing format is maintained,
+          but new enrollments will happen with the new format. Users enrolling
+          new systems must thus take care in not downgrading to an older version.
 
         systemd-boot/systemd-stub:
 
