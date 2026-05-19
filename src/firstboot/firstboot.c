@@ -293,9 +293,12 @@ static int prompt_locale(int rfd, sd_varlink **mute_console_link) {
         } else {
                 print_welcome(rfd, mute_console_link);
 
+                _cleanup_free_ char *prefill = NULL;
+                (void) locale_lang_from_efi(&prefill, LOCALE_REQUIRE_INSTALLED|LOCALE_SUPPRESS_EN_US);
+
                 r = prompt_loop("Please enter the new system locale name or number",
                                 GLYPH_WORLD,
-                                /* prefill= */ NULL,
+                                prefill,
                                 locales,
                                 /* accepted= */ NULL,
                                 /* ellipsize_percentage= */ 60,
