@@ -18,8 +18,6 @@
 #include "time-util.h"
 #include "version.h"
 
-static void *curl_dl = NULL;
-
 DLSYM_PROTOTYPE(curl_easy_cleanup) = NULL;
 DLSYM_PROTOTYPE(curl_easy_getinfo) = NULL;
 DLSYM_PROTOTYPE(curl_easy_init) = NULL;
@@ -604,6 +602,8 @@ int curl_append_to_header(struct curl_slist **list, char **headers) {
 
 int dlopen_curl(int log_level) {
 #if HAVE_LIBCURL
+        static void *curl_dl = NULL;
+
         SD_ELF_NOTE_DLOPEN(
                         "curl",
                         "Support for downloading and uploading files over HTTP",

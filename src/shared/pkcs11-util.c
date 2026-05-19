@@ -43,8 +43,6 @@ bool pkcs11_uri_valid(const char *uri) {
 
 #if HAVE_P11KIT
 
-static void *p11kit_dl = NULL;
-
 DLSYM_PROTOTYPE(p11_kit_module_get_name) = NULL;
 DLSYM_PROTOTYPE(p11_kit_modules_finalize_and_release) = NULL;
 DLSYM_PROTOTYPE(p11_kit_modules_load_and_initialize) = NULL;
@@ -1807,6 +1805,8 @@ static int list_callback(
 
 int dlopen_p11kit(int log_level) {
 #if HAVE_P11KIT
+        static void *p11kit_dl = NULL;
+
         SD_ELF_NOTE_DLOPEN(
                         "p11-kit",
                         "Support for PKCS11 hardware tokens",

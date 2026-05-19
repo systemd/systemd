@@ -40,8 +40,6 @@
 #include "unaligned.h"
 
 #if HAVE_XZ
-static void *lzma_dl = NULL;
-
 static DLSYM_PROTOTYPE(lzma_code) = NULL;
 static DLSYM_PROTOTYPE(lzma_easy_encoder) = NULL;
 static DLSYM_PROTOTYPE(lzma_end) = NULL;
@@ -62,8 +60,6 @@ static inline void lzma_end_wrapper(lzma_stream *ls) {
 #endif
 
 #if HAVE_LZ4
-static void *lz4_dl = NULL;
-
 static DLSYM_PROTOTYPE(LZ4F_compressBegin) = NULL;
 static DLSYM_PROTOTYPE(LZ4F_compressBound) = NULL;
 static DLSYM_PROTOTYPE(LZ4F_compressEnd) = NULL;
@@ -86,8 +82,6 @@ static const LZ4F_preferences_t lz4_preferences = {
 #endif
 
 #if HAVE_ZSTD
-static void *zstd_dl = NULL;
-
 static DLSYM_PROTOTYPE(ZSTD_CCtx_setParameter) = NULL;
 static DLSYM_PROTOTYPE(ZSTD_compress) = NULL;
 static DLSYM_PROTOTYPE(ZSTD_compressStream2) = NULL;
@@ -120,8 +114,6 @@ static int zstd_ret_to_errno(size_t ret) {
 #endif
 
 #if HAVE_ZLIB
-static void *zlib_dl = NULL;
-
 static DLSYM_PROTOTYPE(deflateInit2_) = NULL;
 static DLSYM_PROTOTYPE(deflate) = NULL;
 static DLSYM_PROTOTYPE(deflateEnd) = NULL;
@@ -139,8 +131,6 @@ static inline void inflateEnd_wrapper(z_stream *s) {
 #endif
 
 #if HAVE_BZIP2
-static void *bzip2_dl = NULL;
-
 static DLSYM_PROTOTYPE(BZ2_bzCompressInit) = NULL;
 static DLSYM_PROTOTYPE(BZ2_bzCompress) = NULL;
 static DLSYM_PROTOTYPE(BZ2_bzCompressEnd) = NULL;
@@ -286,6 +276,8 @@ Compression compression_detect_from_magic(const uint8_t data[static COMPRESSION_
 
 int dlopen_xz(int log_level) {
 #if HAVE_XZ
+        static void *lzma_dl = NULL;
+
         SD_ELF_NOTE_DLOPEN(
                         "lzma",
                         "Support lzma compression in journal and coredump files",
@@ -309,6 +301,8 @@ int dlopen_xz(int log_level) {
 
 int dlopen_lz4(int log_level) {
 #if HAVE_LZ4
+        static void *lz4_dl = NULL;
+
         SD_ELF_NOTE_DLOPEN(
                         "lz4",
                         "Support lz4 compression in journal and coredump files",
@@ -341,6 +335,8 @@ int dlopen_lz4(int log_level) {
 
 int dlopen_zstd(int log_level) {
 #if HAVE_ZSTD
+        static void *zstd_dl = NULL;
+
         SD_ELF_NOTE_DLOPEN(
                         "zstd",
                         "Support zstd compression in journal and coredump files",
@@ -374,6 +370,8 @@ int dlopen_zstd(int log_level) {
 
 int dlopen_zlib(int log_level) {
 #if HAVE_ZLIB
+        static void *zlib_dl = NULL;
+
         SD_ELF_NOTE_DLOPEN(
                         "zlib",
                         "Support gzip compression and decompression",
@@ -397,6 +395,8 @@ int dlopen_zlib(int log_level) {
 
 int dlopen_bzip2(int log_level) {
 #if HAVE_BZIP2
+        static void *bzip2_dl = NULL;
+
         SD_ELF_NOTE_DLOPEN(
                         "bzip2",
                         "Support bzip2 compression and decompression",
