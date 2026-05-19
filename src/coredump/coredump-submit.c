@@ -33,7 +33,7 @@
 #include "journal-send.h"
 #include "json-util.h"
 #include "log.h"
-#include "mkdir-label.h"
+#include "mkdir.h"
 #include "namespace-util.h"
 #include "path-util.h"
 #include "process-util.h"

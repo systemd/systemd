@@ -12,8 +12,8 @@
 
 #include "efi-log.h"
 #include "linux.h"
-#include "macro-fundamental.h"
-#include "memory-util-fundamental.h"
+#include "macro.h"
+#include "memory-util.h"
 #include "util.h"
 
 #define KERNEL_SECTOR_SIZE 512u

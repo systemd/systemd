@@ -18,7 +18,7 @@
 #include "install-file.h"
 #include "io-util.h"
 #include "log.h"
-#include "mkdir-label.h"
+#include "mkdir.h"
 #include "pretty-print.h"
 #include "qcow2-util.h"
 #include "ratelimit.h"

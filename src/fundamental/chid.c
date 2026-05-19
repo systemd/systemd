@@ -24,10 +24,10 @@
 #define strlen16 char16_strlen
 #endif
 
-#include "chid-fundamental.h"
-#include "macro-fundamental.h"
-#include "memory-util-fundamental.h"
-#include "sha1-fundamental.h"
+#include "chid.h"
+#include "macro.h"
+#include "memory-util.h"
+#include "sha1.h"
 
 static void get_chid(
                 const char16_t *const smbios_fields[static _CHID_SMBIOS_FIELDS_MAX],

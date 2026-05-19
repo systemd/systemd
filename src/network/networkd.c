@@ -10,7 +10,7 @@
 #include "capability-util.h"
 #include "daemon-util.h"
 #include "main-func.h"
-#include "mkdir-label.h"
+#include "mkdir.h"
 #include "networkd-conf.h"
 #include "networkd-manager.h"
 #include "networkd-manager-bus.h"

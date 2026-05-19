@@ -27,10 +27,10 @@
 #  include <string.h>
 #endif
 
-#include "assert-fundamental.h"
-#include "memory-util-fundamental.h"
-#include "sha256-fundamental.h"
-#include "unaligned-fundamental.h"
+#include "assert-util.h"
+#include "memory-util.h"
+#include "sha256.h"
+#include "unaligned.h"
 
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 # define SWAP(n)                                                        \

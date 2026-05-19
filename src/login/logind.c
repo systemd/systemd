@@ -35,7 +35,7 @@
 #include "logind-utmp.h"
 #include "logind-varlink.h"
 #include "main-func.h"
-#include "mkdir-label.h"
+#include "mkdir.h"
 #include "parse-util.h"
 #include "process-util.h"
 #include "service-util.h"

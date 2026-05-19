@@ -7,14 +7,14 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
-#include "btrfs.h"
+#include "btrfs-util.h"
 #include "chattr-util.h"
 #include "dirent-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "hostname-util.h"
-#include "label.h"
+#include "label-util.h"
 #include "lock-util.h"
 #include "log.h"
 #include "mkdir.h"

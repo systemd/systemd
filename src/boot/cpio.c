@@ -2,9 +2,9 @@
 
 #include "cpio.h"
 #include "efi-log.h"
-#include "iovec-util-fundamental.h"
+#include "iovec-util.h"
 #include "measure.h"
-#include "string-util-fundamental.h"
+#include "string-util.h"
 #include "tpm2-pcr.h"
 #include "util.h"
 

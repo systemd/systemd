@@ -4,7 +4,7 @@
 #include "bitfield.h"
 #include "iovec-util.h"
 #include "shared-forward.h"
-#include "sha256-fundamental.h"
+#include "sha256.h"
 
 typedef enum TPM2Flags {
         TPM2_FLAGS_USE_PIN     = 1 << 0,

@@ -4,7 +4,7 @@
 
 #include "errno-util.h"
 #include "generator-setup.h"
-#include "mkdir-label.h"
+#include "mkdir.h"
 #include "path-lookup.h"
 #include "rm-rf.h"
 

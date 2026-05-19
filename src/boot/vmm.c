@@ -4,7 +4,7 @@
 #  include <cpuid.h>
 #endif
 
-#include "confidential-virt-fundamental.h"
+#include "confidential-virt.h"
 #include "device-path-util.h"
 #include "drivers.h"
 #include "efi-string.h"
