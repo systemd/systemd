@@ -374,6 +374,7 @@ static int config_parse_resource_path(
                 const char *rvalue,
                 void *data,
                 void *userdata) {
+
         _cleanup_free_ char *resolved = NULL;
         Resource *rr = ASSERT_PTR(data);
         Transfer *t = ASSERT_PTR(userdata);
@@ -503,6 +504,43 @@ static int config_parse_partition_flags(
         return 0;
 }
 
+static int config_parse_resource_manifest_path(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Transfer *t = ASSERT_PTR(userdata);
+        char **path = ASSERT_PTR(data);
+        int r;
+
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                *path = mfree(*path);
+                return 0;
+        }
+
+        _cleanup_free_ char *resolved = NULL;
+        r = specifier_printf(rvalue, PATH_MAX-1, system_and_tmp_specifier_table, t->context->root, /* userdata= */ NULL, &resolved);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to expand specifiers in ManifestPath=, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        /* Note that we don't validate the path as URL here, because we want to stay close to
+         * config_parse_resource_path() semantics. */
+
+        return free_and_replace(*path, resolved);
+}
+
 static bool transfer_decide_if_enabled(Transfer *t, Hashmap *known_features) {
         assert(t);
 
@@ -616,6 +654,16 @@ static int transfer_finalize(Transfer *t, const char *origin, unsigned line, Has
                                   "Manifest format '%s' not supported for source specifications, refusing.",
                                   manifest_format_to_string(t->source.manifest_format));
 
+        if (t->source.manifest_path) {
+                if (!RESOURCE_IS_URL(t->source.type))
+                        return log_syntax(NULL, LOG_ERR, origin, line, SYNTHETIC_ERRNO(EINVAL),
+                                          "ManifestPath= is only supported for URL sources: %s", t->source.path);
+
+                if (!http_url_is_valid(t->source.manifest_path) && !file_url_is_valid(t->source.manifest_path))
+                        return log_syntax(NULL, LOG_ERR, origin, line, SYNTHETIC_ERRNO(EINVAL),
+                                          "Manifest path is not a valid HTTP or HTTPS URL: %s", t->source.manifest_path);
+        }
+
         if (strv_isempty(t->source.patterns))
                 return log_syntax(NULL, LOG_ERR, origin, line, SYNTHETIC_ERRNO(EINVAL),
                                   "Source specification lacks MatchPattern=.");
@@ -683,6 +731,7 @@ int transfer_read_definition(Transfer *t, const char *path, const char **dirs, H
                 { "Source",      "PathRelativeTo",          config_parse_resource_path_relto,          0,                    &t->source.path_relative_to },
                 { "Source",      "MatchPattern",            config_parse_resource_pattern,             MATCH_PATTERN_SOURCE, &t->source.patterns         },
                 { "Source",      "ManifestFormat",          config_parse_resource_manifest_format,     0,                    &t->source.manifest_format  },
+                { "Source",      "ManifestPath",            config_parse_resource_manifest_path,       0,                    &t->source.manifest_path    },
                 { "Target",      "Type",                    config_parse_resource_type,                0,                    &t->target.type             },
                 { "Target",      "Path",                    config_parse_resource_path,                0,                    &t->target                  },
                 { "Target",      "PathRelativeTo",          config_parse_resource_path_relto,          0,                    &t->target.path_relative_to },
@@ -901,6 +950,7 @@ static int dispatch_transfer_source(const char *name, sd_json_variant *variant, 
                 { "pathRelativeTo", SD_JSON_VARIANT_STRING, dispatch_path_relative_to, offsetof(Transfer, source.path_relative_to), SD_JSON_NULLABLE },
                 { "matchPattern",   SD_JSON_VARIANT_ARRAY,  dispatch_source_patterns,  offsetof(Transfer, source),                  SD_JSON_MANDATORY },
                 { "manifestFormat", SD_JSON_VARIANT_STRING, dispatch_manifest_format,  offsetof(Transfer, source.manifest_format),  SD_JSON_NULLABLE },
+                { "manifestPath",   SD_JSON_VARIANT_STRING, sd_json_dispatch_string,   offsetof(Transfer, source.manifest_path),    SD_JSON_NULLABLE },
                 {},
         };
 

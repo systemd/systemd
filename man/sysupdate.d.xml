@@ -703,6 +703,22 @@
 
         <xi:include href="version-info.xml" xpointer="v263"/></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>ManifestPath=</varname></term>
+
+        <listitem><para>Specifies the URL of the manifest file for <constant>url-file</constant> and
+        <constant>url-tar</constant> sources explicitly. If not specified, the manifest is acquired from the
+        URL specified in <varname>Path=</varname> suffixed with the manifest file name, see above. If
+        specified, the manifest is acquired from this URL instead, and its detached signature file from the
+        same URL suffixed with <filename>.gpg</filename>. This is useful if the manifest is not served from
+        the same directory as the payload files, which are still acquired relative to
+        <varname>Path=</varname>, following the file names listed in the manifest. Must be a HTTP/HTTPS URL.
+        Specifiers are expanded, see below. This option is only supported for
+        <constant>url-file</constant> and <constant>url-tar</constant> sources.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
