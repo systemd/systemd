@@ -1632,6 +1632,69 @@ TEST(access_mode) {
                                   &mm), ERANGE);
 }
 
+TEST(job_id) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+
+        ASSERT_OK(sd_json_parse("{\"a\": 1, \"b\": 4294967295, \"c\": null}",
+                                /* flags= */ 0,
+                                &v,
+                                /* reterr_line= */ NULL,
+                                /* reterr_column= */ NULL));
+
+        struct {
+                uint32_t a, b, c;
+        } data = { 99, 99, 99 };
+
+        ASSERT_OK(sd_json_dispatch(
+                                  v,
+                                  (const sd_json_dispatch_field[]) {
+                                          { "a", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_job_id, voffsetof(data, a), 0 },
+                                          { "b", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_job_id, voffsetof(data, b), 0 },
+                                          { "c", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_job_id, voffsetof(data, c), 0 },
+                                          {},
+                                  },
+                                  /* flags= */ 0,
+                                  &data));
+
+        ASSERT_EQ(data.a, UINT32_C(1));
+        ASSERT_EQ(data.b, UINT32_MAX);
+        ASSERT_EQ(data.c, UINT32_C(0));
+
+        /* Zero is not a valid job ID */
+        sd_json_variant_unrefp(&v);
+        ASSERT_OK(sd_json_parse("{\"a\": 0}",
+                                /* flags= */ 0,
+                                &v,
+                                /* reterr_line= */ NULL,
+                                /* reterr_column= */ NULL));
+
+        ASSERT_ERROR(sd_json_dispatch(
+                                  v,
+                                  (const sd_json_dispatch_field[]) {
+                                          { "a", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_job_id, voffsetof(data, a), 0 },
+                                          {},
+                                  },
+                                  /* flags= */ 0,
+                                  &data), EINVAL);
+
+        /* Negative values are not valid */
+        sd_json_variant_unrefp(&v);
+        ASSERT_OK(sd_json_parse("{\"a\": -1}",
+                                /* flags= */ 0,
+                                &v,
+                                /* reterr_line= */ NULL,
+                                /* reterr_column= */ NULL));
+
+        ASSERT_ERROR(sd_json_dispatch(
+                                  v,
+                                  (const sd_json_dispatch_field[]) {
+                                          { "a", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_job_id, voffsetof(data, a), 0 },
+                                          {},
+                                  },
+                                  /* flags= */ 0,
+                                  &data), EINVAL);
+}
+
 static void test_json_variant_compare_one(const char *a, const char *b, int expected) {
         int r;
 
