@@ -187,6 +187,11 @@ static int pty_forward_done(PTYForward *f, int rcode) {
         if (f->done)
                 return 0;
 
+        log_info("pty_forward_done: rcode=%d stdin_hangup=%d stdout_hangup=%d master_hangup=%d "
+                 "in_buffer_full=%zu out_buffer_write_len=%zu",
+                 rcode, f->stdin_hangup, f->stdout_hangup, f->master_hangup,
+                 f->in_buffer_full, f->out_buffer_write_len);
+
         e = sd_event_ref(f->event);
 
         f->done = true;
