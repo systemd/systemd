@@ -31,13 +31,14 @@ REENABLE_WARNING
 #include "tests.h"
 
 #if HAVE_GLIB
-static void *glib_dl = NULL;
 static DLSYM_PROTOTYPE(g_dbus_message_new_from_blob) = NULL;
 static DLSYM_PROTOTYPE(g_dbus_message_print)         = NULL;
 static DLSYM_PROTOTYPE(g_free)                       = NULL;
 static DLSYM_PROTOTYPE(g_object_unref)               = NULL;
 
 static int dlopen_glib(void) {
+        static void *glib_dl = NULL;
+
         return dlopen_many_sym_or_warn(
                         &glib_dl, "libgio-2.0.so.0", LOG_DEBUG,
                         DLSYM_ARG(g_dbus_message_new_from_blob),
@@ -48,13 +49,14 @@ static int dlopen_glib(void) {
 #endif
 
 #if HAVE_DBUS
-static void *libdbus_dl = NULL;
 static DLSYM_PROTOTYPE(dbus_error_init)        = NULL;
 static DLSYM_PROTOTYPE(dbus_error_free)        = NULL;
 static DLSYM_PROTOTYPE(dbus_message_demarshal) = NULL;
 static DLSYM_PROTOTYPE(dbus_message_unref)     = NULL;
 
 static int dlopen_libdbus(void) {
+        static void *libdbus_dl = NULL;
+
         return dlopen_many_sym_or_warn(
                         &libdbus_dl, "libdbus-1.so.3", LOG_DEBUG,
                         DLSYM_ARG(dbus_error_init),
