@@ -5,4 +5,7 @@ Description=Create some memory pressure
 [Service]
 MemoryHigh=12M
 Slice=TEST-55-OOMD-workload.slice
-ExecStart=stress-ng --timeout 3m --vm 10 --vm-bytes 200M --vm-keep
+# Pin --vm-method to a portable method (zero-one): the default 'all' cycles
+# through methods, including newer ones using AVX-512 instructions that SIGILL
+# on CPUs without AVX-512 (e.g. AMD Zen 1-3), making the test flaky.
+ExecStart=stress-ng --timeout 3m --vm 10 --vm-bytes 200M --vm-keep --vm-method=zero-one

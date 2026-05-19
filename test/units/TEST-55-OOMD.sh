@@ -365,11 +365,14 @@ EOF
 
     systemctl reload systemd-oomd.service
 
-    # Run a transient service with OOMRules=testrule that generates memory pressure
+    # Run a transient service with OOMRules=testrule that generates memory pressure.
+    # Pin --vm-method to a portable method (zero-one): the default 'all' cycles
+    # through every method, including newer ones using AVX-512 instructions that
+    # SIGILL on CPUs without AVX-512 (e.g. AMD Zen 1-3), making the test flaky.
     (! systemd-run --wait --unit=TEST-55-OOMD-testrules \
         -p MemoryHigh=3M \
         -p OOMRules=testrule \
-        stress-ng --timeout 3m --vm 10 --vm-bytes 50M --vm-keep)
+        stress-ng --timeout 3m --vm 10 --vm-bytes 50M --vm-keep --vm-method=zero-one)
 
     # Verify in the journal that the rule triggered
     journalctl --sync
@@ -454,10 +457,14 @@ EOF
 
     # Start the unit without --wait so we can check mid-run state. The
     # stress-ng timeout bounds the test if anything goes wrong.
+    # Pin --vm-method to a portable method (zero-one): the default 'all' cycles
+    # through every method, including newer ones using AVX-512 instructions that
+    # SIGILL on CPUs without AVX-512 (e.g. AMD Zen 1-3) and would cause stress-ng
+    # to exit before the 6 s wait below elapses, failing the ActiveState check.
     systemd-run --unit=TEST-55-OOMD-slowrule \
         -p MemoryHigh=3M \
         -p OOMRules=slowrule \
-        stress-ng --timeout 15s --vm 10 --vm-bytes 50M --vm-keep
+        stress-ng --timeout 15s --vm 10 --vm-bytes 50M --vm-keep --vm-method=zero-one
 
     # Wait long enough for oomd's 1s rule-check loop to evaluate the condition
     # many times. With LastingSec=1h the kill must not fire.
