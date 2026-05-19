@@ -585,6 +585,7 @@ typedef enum CoredumpField {
         COREDUMP_FIELD_UID,
         COREDUMP_FIELD_GID,
         COREDUMP_FIELD_SGNL,
+        COREDUMP_FIELD_CODE,
         COREDUMP_FIELD_EXE,
         COREDUMP_FIELD_COMM,
         COREDUMP_FIELD_CMDLINE,
@@ -615,6 +616,7 @@ static const char* const coredump_field_table[_COREDUMP_FIELD_MAX] = {
         [COREDUMP_FIELD_UID]              = "COREDUMP_UID",
         [COREDUMP_FIELD_GID]              = "COREDUMP_GID",
         [COREDUMP_FIELD_SGNL]             = "COREDUMP_SIGNAL",
+        [COREDUMP_FIELD_CODE]             = "COREDUMP_CODE",
         [COREDUMP_FIELD_EXE]              = "COREDUMP_EXE",
         [COREDUMP_FIELD_COMM]             = "COREDUMP_COMM",
         [COREDUMP_FIELD_CMDLINE]          = "COREDUMP_CMDLINE",
@@ -770,9 +772,23 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
                 int sig;
                 const char *name = f.normal_coredump ? "Signal" : "Reason";
 
-                if (f.normal_coredump && safe_atoi(f.fields[COREDUMP_FIELD_SGNL], &sig) >= 0)
-                        fprintf(file, "        %s: %s (%s)\n", name, f.fields[COREDUMP_FIELD_SGNL], signal_to_string(sig));
-                else
+                if (f.normal_coredump && safe_atoi(f.fields[COREDUMP_FIELD_SGNL], &sig) >= 0) {
+                        fprintf(file, "        %s: %s (%s)", name, f.fields[COREDUMP_FIELD_SGNL], signal_to_string(sig));
+
+                        if (f.fields[COREDUMP_FIELD_CODE]) {
+                                int n;
+                                const char *s;
+
+                                if (safe_atoi(f.fields[COREDUMP_FIELD_CODE], &n) >= 0)
+                                        s = signal_code_to_string(sig, n);
+                                else
+                                        s = NULL;
+
+                                fprintf(file, " si_code: %s", s ?: f.fields[COREDUMP_FIELD_CODE]);
+                        }
+
+                        fputc('\n', file);
+                } else
                         fprintf(file, "        %s: %s\n", name, f.fields[COREDUMP_FIELD_SGNL]);
         }
 
@@ -893,7 +909,8 @@ static int print_info_json(FILE *file, sd_journal *j) {
         pid_t pid_as_int = 0, tid_as_int = 0;
         uid_t uid_as_int = UID_INVALID, owner_uid_as_int = UID_INVALID;
         gid_t gid_as_int = GID_INVALID;
-        int sig_as_int = 0;
+        int sig_as_int = 0, code_as_int = 0;
+        bool code_is_valid = false;
         usec_t ts = USEC_INFINITY;
         int r;
 
@@ -916,6 +933,8 @@ static int print_info_json(FILE *file, sd_journal *j) {
                 (void) parse_uid(f.fields[COREDUMP_FIELD_OWNER_UID], &owner_uid_as_int);
         if (f.normal_coredump && f.fields[COREDUMP_FIELD_SGNL])
                 (void) safe_atoi(f.fields[COREDUMP_FIELD_SGNL], &sig_as_int);
+        if (f.normal_coredump && f.fields[COREDUMP_FIELD_CODE])
+                code_is_valid = safe_atoi(f.fields[COREDUMP_FIELD_CODE], &code_as_int) >= 0;
         if (f.fields[COREDUMP_FIELD_TIMESTAMP])
                 (void) safe_atou64(f.fields[COREDUMP_FIELD_TIMESTAMP], &ts);
 
@@ -932,6 +951,8 @@ static int print_info_json(FILE *file, sd_journal *j) {
                 SD_JSON_BUILD_PAIR_CONDITION(f.normal_coredump && sig_as_int > 0, "Signal", SD_JSON_BUILD_INTEGER(sig_as_int)),
                 SD_JSON_BUILD_PAIR_CONDITION(f.normal_coredump && sig_as_int > 0 && !!signal_to_string(sig_as_int), "SignalName", SD_JSON_BUILD_STRING(signal_to_string(sig_as_int))),
                 SD_JSON_BUILD_PAIR_CONDITION(f.normal_coredump && sig_as_int <= 0 && !!f.fields[COREDUMP_FIELD_SGNL], "Signal", SD_JSON_BUILD_STRING(f.fields[COREDUMP_FIELD_SGNL])),
+                SD_JSON_BUILD_PAIR_CONDITION(f.normal_coredump && code_is_valid, "SignalCode", SD_JSON_BUILD_INTEGER(code_as_int)),
+                SD_JSON_BUILD_PAIR_CONDITION(f.normal_coredump && !code_is_valid && !!f.fields[COREDUMP_FIELD_CODE], "SignalCode", SD_JSON_BUILD_STRING(f.fields[COREDUMP_FIELD_CODE])),
                 SD_JSON_BUILD_PAIR_CONDITION(!f.normal_coredump && !!f.fields[COREDUMP_FIELD_SGNL], "Reason", SD_JSON_BUILD_STRING(f.fields[COREDUMP_FIELD_SGNL])),
                 SD_JSON_BUILD_PAIR_CONDITION(ts != USEC_INFINITY, "Timestamp", SD_JSON_BUILD_UNSIGNED(ts)),
                 SD_JSON_BUILD_PAIR_CONDITION(ts == USEC_INFINITY && !!f.fields[COREDUMP_FIELD_TIMESTAMP], "Timestamp", SD_JSON_BUILD_STRING(f.fields[COREDUMP_FIELD_TIMESTAMP])),
