@@ -2463,8 +2463,15 @@ static int dns_packet_extract_question(DnsPacket *p, DnsQuestion **ret_question)
                 if (!keys)
                         return log_oom();
 
-                r = set_reserve(keys, n * 2); /* Higher multipliers give slightly higher efficiency through
-                                               * hash collisions, but the gains quickly drop off after 2. */
+                /* Pre-allocate the question hashmap, but cap the pre-allocation to a number of questions the
+                 * packet can realistically contain. That is, pick the minimal value from the claimed number
+                 * of questions (n) and a maximum number of potential questions the remaining packet data can
+                 * actually contain: p->size - p->rindex are the remaining unread bytes in the packet, and 5U
+                 * is the minimum size of each question - 1 (QNAME) + 2 (QTYPE) + 2 (QCLASS).
+                 *
+                 * Note for the multiplication: higher multipliers give slightly higher efficiency through
+                 * hash collisions, but the gains quickly drop off after 2. */
+                r = set_reserve(keys, MIN(n, (p->size - p->rindex) / 5U) * 2);
                 if (r < 0)
                         return r;
 
@@ -2510,7 +2517,12 @@ static int dns_packet_extract_answer(DnsPacket *p, DnsAnswer **ret_answer) {
         if (n == 0)
                 return 0;
 
-        answer = dns_answer_new(n);
+        /* Pre-allocate the answer hashmap, but cap the pre-allocation to a number of RRs the packet can
+         * realistically contain. That is, pick the minimal value from the claimed number of RRs (n) and a
+         * maximum number of potential RRs the remaining packet data can actually contain: p->size -
+         * p->rindex are the remaining unread bytes in the packet, and the 11U is the minimum size of each RR
+         * - 1 (NAME) + 2 (TYPE) + 2 (CLASS) + 4 (TTL) + 2 (RDLENGTH). */
+        answer = dns_answer_new(MIN(n, (p->size - p->rindex) / 11U));
         if (!answer)
                 return -ENOMEM;
 
