@@ -584,11 +584,9 @@ static int change_uid_gid(const CoredumpContext *context) {
         gid_t gid = context->gid;
 
         if (uid_is_system(uid)) {
-                const char *user = "systemd-coredump";
-
-                r = get_user_creds(&user, &uid, &gid, NULL, NULL, 0);
+                r = get_user_creds("systemd-coredump", /* flags= */ 0, NULL, &uid, &gid, NULL, NULL);
                 if (r < 0) {
-                        log_warning_errno(r, "Cannot resolve %s user. Proceeding to dump core as root: %m", user);
+                        log_warning_errno(r, "Cannot resolve systemd-coredump user. Proceeding to dump core as root: %m");
                         uid = gid = 0;
                 }
         }

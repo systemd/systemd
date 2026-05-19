@@ -344,13 +344,11 @@ static int scope_enter_start_chown(Scope *s) {
                 gid_t gid = GID_INVALID;
 
                 if (!isempty(s->user)) {
-                        const char *user = s->user;
-
-                        r = get_user_creds(&user, &uid, &gid, NULL, NULL, 0);
+                        r = get_user_creds(s->user, /* flags= */ 0, NULL, &uid, &gid, NULL, NULL);
                         if (r < 0) {
                                 log_unit_error_errno(UNIT(s), r,
                                                      "Failed to resolve user '%s': %s",
-                                                     user, STRERROR_USER(r));
+                                                     s->user, STRERROR_USER(r));
                                 _exit(EXIT_USER);
                         }
                 }
