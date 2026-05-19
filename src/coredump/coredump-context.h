@@ -42,6 +42,7 @@ typedef enum MetadataField {
         META_UNIT,
         META_PROC_AUXV,
         META_THREAD_NAME,
+        META_CODE, /* code of signal causing dump (eg: 2 for SEGV_ACCERR). Since v7.1. */
         _META_MAX,
         _META_INVALID = -EINVAL,
 } MetadataField;
@@ -51,6 +52,7 @@ struct CoredumpContext {
         uid_t uid;         /* META_ARGV_UID */
         gid_t gid;         /* META_ARGV_GID */
         int signo;         /* META_ARGV_SIGNAL */
+        int code;          /* META_CODE */
         usec_t timestamp;  /* META_ARGV_TIMESTAMP */
         uint64_t rlimit;   /* META_ARGV_RLIMIT */
         char *hostname;    /* META_ARGV_HOSTNAME */
@@ -63,6 +65,7 @@ struct CoredumpContext {
         size_t auxv_size;  /* META_PROC_AUXV */
         char *thread_name; /* META_THREAD_NAME */
         bool got_pidfd;    /* META_ARGV_PIDFD */
+        bool got_code;     /* META_CODE */
         bool same_pidns;
         bool forwarded;
         int input_fd;
