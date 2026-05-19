@@ -31,3 +31,10 @@ int locale_setup(char ***environment);
 
 const char* etc_locale_conf(void);
 const char* etc_vconsole_conf(void);
+
+typedef enum LocaleLangFromEfiFlags {
+        LOCALE_REQUIRE_INSTALLED = 1 << 0,
+        LOCALE_SUPPRESS_EN_US    = 1 << 1,
+} LocaleLangFromEfiFlags;
+
+int locale_lang_from_efi(char **ret, LocaleLangFromEfiFlags flags);
