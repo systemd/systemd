@@ -41,6 +41,7 @@
 #include "fs-util.h"
 #include "gpt.h"
 #include "group-record.h"
+#include "help-util.h"
 #include "hexdecoct.h"
 #include "hostname-setup.h"
 #include "hostname-util.h"
@@ -222,14 +223,9 @@ STATIC_DESTRUCTOR_REGISTER(arg_bind_user_shell, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_bind_user_groups, strv_freep);
 
 static int help(void) {
-        _cleanup_free_ char *link = NULL;
         int r;
 
         pager_open(arg_pager_flags);
-
-        r = terminal_urlify_man("systemd-vmspawn", "1", &link);
-        if (r < 0)
-                return log_oom();
 
         static const char* const groups[] = {
                 NULL,
@@ -257,21 +253,18 @@ static int help(void) {
         (void) table_sync_column_widths(0, tables[0], tables[1], tables[2], tables[3], tables[4],
                                         tables[5], tables[6], tables[7], tables[8], tables[9], tables[10]);
 
-        printf("%s [OPTIONS...] [ARGUMENTS...]\n\n"
-               "%sSpawn a command or OS in a virtual machine.%s\n",
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal());
+        help_cmdline("[OPTIONS...] [ARGUMENTS...]");
+        help_abstract("Spawn a command or OS in a virtual machine.");
 
         for (size_t i = 0; i < ELEMENTSOF(groups); i++) {
-                printf("\n%s%s:%s\n", ansi_underline(), groups[i] ?: "Options", ansi_normal());
+                help_section(groups[i] ?: "Options");
 
                 r = table_print_or_warn(tables[i]);
                 if (r < 0)
                         return r;
         }
 
-        printf("\nSee the %s for details.\n", link);
+        help_man_page_reference("systemd-vmspawn", "1");
         return 0;
 }
 
