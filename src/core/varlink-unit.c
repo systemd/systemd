@@ -1187,15 +1187,19 @@ int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters
 
         /* Apply unit-level properties from context */
         r = transient_unit_apply_properties(u, &p.context);
-        if (r < 0)
+        if (r == -EINVAL)
                 return sd_varlink_error(link, VARLINK_ERROR_UNIT_BAD_SETTING, NULL);
+        if (r < 0)
+                return sd_varlink_error_errno(link, r);
 
         /* Apply exec-specific properties from context.Exec */
         ExecContext *c = unit_get_exec_context(u);
         if (c) {
                 r = transient_exec_context_apply_properties(u, c, &p.context.exec);
-                if (r < 0)
+                if (r == -EINVAL)
                         return sd_varlink_error(link, VARLINK_ERROR_UNIT_BAD_SETTING, NULL);
+                if (r < 0)
+                        return sd_varlink_error_errno(link, r);
         } else if (p.context.exec.present)
                 return sd_varlink_error(link, VARLINK_ERROR_UNIT_TYPE_NOT_SUPPORTED, NULL);
 
@@ -1203,8 +1207,10 @@ int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters
         Service *s = SERVICE(u);
         if (s) {
                 r = transient_service_apply_properties(s, &p.context.service);
-                if (r < 0)
+                if (r == -EINVAL)
                         return sd_varlink_error(link, VARLINK_ERROR_UNIT_BAD_SETTING, NULL);
+                if (r < 0)
+                        return sd_varlink_error_errno(link, r);
         } else if (p.context.service.present)
                 return sd_varlink_error(link, VARLINK_ERROR_UNIT_TYPE_NOT_SUPPORTED, NULL);
 
