@@ -580,7 +580,7 @@ static int prompt_touch_variables(void) {
         _cleanup_free_ char *reply = NULL;
         r = prompt_loop("Type 'yes' to register OS installation in firmware variables of the local system, 'no' otherwise",
                         GLYPH_ROCKET,
-                        /* prefill= */ NULL,
+                        /* prefill= */ "yes",
                         /* menu= */ l,
                         /* accepted= */ l,
                         /* ellipsize_percentage= */ 20,
