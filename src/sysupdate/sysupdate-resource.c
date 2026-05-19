@@ -464,7 +464,8 @@ static int download_manifest(
         return 0;
 }
 
-static int process_magic_file(
+static int sha256sums_process_magic_file(
+                size_t line_nr,
                 const char *fn,
                 const struct iovec *hash) {
 
@@ -472,6 +473,14 @@ static int process_magic_file(
 
         assert(fn);
         assert(iovec_is_set(hash));
+
+        /* Magic files can't be in subdirectories */
+        if (is_path(fn)) {
+                if (startswith(last_path_component(fn), "BEST-BEFORE-"))
+                        log_warning("Ignoring best-before marker '%s' in subdirectory at manifest line %zu.", fn, line_nr);
+
+                return 0;
+        }
 
         /* Validates "BEST-BEFORE-*" magic files we find in SHA256SUMS manifests. For now we ignore the
          * contents of such files (which might change one day), and only look at the file name.
@@ -520,54 +529,22 @@ static int process_magic_file(
         return 1; /* we processed this line, don't use for pattern matching */
 }
 
-static int resource_load_from_web(
+static int sha256sums_process(
                 Resource *rr,
-                bool verify,
-                Hashmap **web_cache) {
+                const struct iovec *manifest) {
 
-        _cleanup_(iovec_done) struct iovec buf = {};
-        struct iovec manifest = {};
-        size_t left = 0, line_nr = 1;
-        WebCacheItem *ci;
-        const char *p;
         int r;
 
         assert(rr);
-        POINTER_MAY_BE_NULL(web_cache);
+        assert(manifest);
 
-        /* Key the cache by the URL of the manifest itself, not the one of the resource, as the former
-         * depends on ManifestPath= too. */
-        _cleanup_free_ char *manifest_url = NULL;
-        r = resource_manifest_url(rr, &manifest_url);
-        if (r < 0)
-                return r;
-
-        ci = web_cache ? web_cache_get_item(*web_cache, manifest_url, verify) : NULL;
-        if (ci) {
-                log_debug("Manifest web cache hit for %s.", manifest_url);
-
-                manifest = IOVEC_MAKE(ci->data, ci->size);
-        } else {
-                log_debug("Manifest web cache miss for %s.", manifest_url);
-
-                r = download_manifest(
-                                rr->manifest_format,
-                                manifest_url,
-                                verify,
-                                &buf);
-                if (r < 0)
-                        return r;
-
-                manifest = buf;
-        }
-
-        if (memchr(manifest.iov_base, 0, manifest.iov_len))
+        if (memchr(manifest->iov_base, 0, manifest->iov_len))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Manifest file has embedded NUL byte, refusing.");
-        if (!utf8_is_valid_n(manifest.iov_base, manifest.iov_len))
+        if (!utf8_is_valid_n(manifest->iov_base, manifest->iov_len))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Manifest file is not valid UTF-8, refusing.");
 
-        p = manifest.iov_base;
-        left = manifest.iov_len;
+        const char *p = manifest->iov_base;
+        size_t left = manifest->iov_len, line_nr = 1;
 
         while (left > 0) {
                 _cleanup_(instance_metadata_destroy) InstanceMetadata extracted_fields = INSTANCE_METADATA_NULL;
@@ -621,11 +598,7 @@ static int resource_load_from_web(
                 if (string_has_cc(fn, NULL))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Filename contains control characters at manifest line %zu, refusing.", line_nr);
 
-                /* Magic files can't be in subdirectories */
-                if (strchr(fn, '/') && startswith(last_path_component(fn), "BEST-BEFORE-"))
-                        log_warning("Ignoring best-before marker '%s' in subdirectory at manifest line %zu.", fn, line_nr);
-
-                r = process_magic_file(fn, &h);
+                r = sha256sums_process_magic_file(line_nr, fn, &h);
                 if (r < 0)
                         return r;
                 if (r == 0) {
@@ -668,6 +641,47 @@ static int resource_load_from_web(
 
                 line_nr++;
         }
+
+        return 0;
+}
+
+static int resource_load_from_web(
+                Resource *rr,
+                bool verify,
+                Hashmap **web_cache) {
+
+        _cleanup_(iovec_done) struct iovec buf = {};
+        struct iovec manifest = {};
+        int r;
+
+        assert(rr);
+        POINTER_MAY_BE_NULL(web_cache);
+
+        /* Key the cache by the URL of the manifest itself, not the one of the resource, as the former
+         * depends on ManifestPath= too. */
+        _cleanup_free_ char *manifest_url = NULL;
+        r = resource_manifest_url(rr, &manifest_url);
+        if (r < 0)
+                return r;
+
+        WebCacheItem *ci = web_cache ? web_cache_get_item(*web_cache, manifest_url, verify) : NULL;
+        if (ci) {
+                log_debug("Manifest web cache hit for %s.", manifest_url);
+
+                manifest = IOVEC_MAKE(ci->data, ci->size);
+        } else {
+                log_debug("Manifest web cache miss for %s.", manifest_url);
+
+                r = download_manifest(rr->manifest_format, manifest_url, verify, &buf);
+                if (r < 0)
+                        return r;
+
+                manifest = buf;
+        }
+
+        r = sha256sums_process(rr, &manifest);
+        if (r < 0)
+                return r;
 
         if (!ci && web_cache) {
                 r = web_cache_add_item(web_cache, manifest_url, verify, manifest.iov_base, manifest.iov_len);
