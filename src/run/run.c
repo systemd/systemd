@@ -2571,7 +2571,7 @@ static int start_transient_scope(sd_bus *bus) {
         if (arg_exec_group) {
                 gid_t gid;
 
-                r = get_group_creds(&arg_exec_group, &gid, 0);
+                r = get_group_creds(arg_exec_group, /* flags= */ 0, /* ret_name= */ NULL, &gid);
                 if (r < 0)
                         return log_error_errno(r, "Failed to resolve group '%s': %s",
                                                arg_exec_group, STRERROR_GROUP(r));
@@ -2615,10 +2615,9 @@ static int start_transient_scope(sd_bus *bus) {
                 if (r < 0)
                         return log_oom();
 
-                if (!arg_exec_group) {
-                        if (setresgid(gid, gid, gid) < 0)
-                                return log_error_errno(errno, "Failed to change GID to " GID_FMT ": %m", gid);
-                }
+                if (!arg_exec_group &&
+                    setresgid(gid, gid, gid) < 0)
+                        return log_error_errno(errno, "Failed to change GID to " GID_FMT ": %m", gid);
 
                 if (setresuid(uid, uid, uid) < 0)
                         return log_error_errno(errno, "Failed to change UID to " UID_FMT ": %m", uid);

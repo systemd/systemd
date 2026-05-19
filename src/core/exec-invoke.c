@@ -902,26 +902,6 @@ static int get_fixed_user(
         return 0;
 }
 
-static int get_fixed_group(
-                const char *group_or_gid,
-                const char **ret_groupname,
-                gid_t *ret_gid) {
-
-        int r;
-
-        assert(group_or_gid);
-        assert(ret_groupname);
-
-        r = get_group_creds(&group_or_gid, ret_gid, /* flags= */ 0);
-        if (r < 0)
-                return r;
-
-        /* group_or_gid is normalized by get_group_creds to groupname */
-        *ret_groupname = group_or_gid;
-
-        return 0;
-}
-
 static int get_supplementary_groups(
                 const ExecContext *c,
                 const char *user,
@@ -989,8 +969,7 @@ static int get_supplementary_groups(
                 if (k >= ngroups_max)
                         return -E2BIG;
 
-                const char *g = *i;
-                r = get_group_creds(&g, l_gids + k, /* flags= */ 0);
+                r = get_group_creds(*i, /* flags= */ 0, /* ret_name= */ NULL, l_gids + k);
                 if (r < 0)
                         return r;
 
@@ -5182,7 +5161,7 @@ int exec_invoke(
 
         _cleanup_strv_free_ char **our_env = NULL, **pass_env = NULL, **joined_exec_search_path = NULL, **accum_env = NULL;
         int r;
-        const char *username = NULL, *groupname = NULL;
+        const char *username = NULL;
         _cleanup_free_ char *home_buffer = NULL, *own_user = NULL;
         _cleanup_(free_pressure_paths) char *pressure_path[_PRESSURE_RESOURCE_MAX] = {};
         const char *pwent_home = NULL, *shell = NULL;
@@ -5454,11 +5433,11 @@ int exec_invoke(
                 }
 
                 if (context->group) {
-                        r = get_fixed_group(context->group, &groupname, &gid);
+                        r = get_group_creds(context->group, /* flags= */ 0, /* ret_name= */ NULL, &gid);
                         if (r < 0) {
                                 *exit_status = EXIT_GROUP;
                                 log_error_errno(r, "Failed to determine credentials for group '%s': %s",
-                                                u, STRERROR_GROUP(r));
+                                                context->group, STRERROR_GROUP(r));
                                 return ERRNO_IS_NEG_BAD_ACCOUNT(r) ? -EINVAL : r;  /* Suppress confusing errno */
                         }
                 }
