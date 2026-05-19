@@ -171,7 +171,7 @@ static int read_definitions(
         return 0;
 }
 
-static int context_read_definitions(Context *c, const char* node, bool requires_enabled_transfers) {
+static int context_read_definitions(Context *c, const char* node, bool requires_enabled_transfers, bool requires_any_transfers) {
         _cleanup_strv_free_ char **dirs = NULL;
         int r;
 
@@ -244,7 +244,8 @@ static int context_read_definitions(Context *c, const char* node, bool requires_
                         log_warning("As of v257, transfer definitions should have the '.transfer' extension.");
         }
 
-        if (c->n_transfers + (requires_enabled_transfers ? 0 : c->n_disabled_transfers) == 0) {
+        if (requires_any_transfers &&
+            c->n_transfers + (requires_enabled_transfers ? 0 : c->n_disabled_transfers) == 0) {
                 if (arg_component)
                         return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
                                                "No transfer definitions for component '%s' found.",
@@ -925,7 +926,7 @@ static int context_vacuum(
         return 0;
 }
 
-static int context_make_offline(Context **ret, const char *node, bool requires_enabled_transfers) {
+static int context_make_offline(Context **ret, const char *node, bool requires_enabled_transfers, bool requires_any_transfers) {
         _cleanup_(context_freep) Context* context = NULL;
         int r;
 
@@ -938,7 +939,7 @@ static int context_make_offline(Context **ret, const char *node, bool requires_e
         if (!context)
                 return log_oom();
 
-        r = context_read_definitions(context, node, requires_enabled_transfers);
+        r = context_read_definitions(context, node, requires_enabled_transfers, requires_any_transfers);
         if (r < 0)
                 return r;
 
@@ -959,7 +960,7 @@ static int context_make_online(Context **ret, const char *node) {
         /* Like context_make_offline(), but also communicates with the update source looking for new
          * versions (as long as --offline is not specified on the command line). */
 
-        r = context_make_offline(&context, node, /* requires_enabled_transfers= */ true);
+        r = context_make_offline(&context, node, /* requires_enabled_transfers= */ true, /* requires_any_transfers= */ true);
         if (r < 0)
                 return r;
 
@@ -1365,7 +1366,8 @@ static int verb_features(int argc, char *argv[], uintptr_t _data, void *userdata
         if (r < 0)
                 return r;
 
-        r = context_make_offline(&context, loop_device ? loop_device->node : NULL, /* requires_enabled_transfers= */ false);
+        r = context_make_offline(&context, loop_device ? loop_device->node : NULL,
+                                 /* requires_enabled_transfers= */ false, /* requires_any_transfers= */ true);
         if (r < 0)
                 return r;
 
@@ -1633,7 +1635,8 @@ static int verb_vacuum(int argc, char *argv[], uintptr_t _data, void *userdata) 
         if (r < 0)
                 return r;
 
-        r = context_make_offline(&context, loop_device ? loop_device->node : NULL, /* requires_enabled_transfers= */ false);
+        r = context_make_offline(&context, loop_device ? loop_device->node : NULL,
+                                 /* requires_enabled_transfers= */ false, /* requires_any_transfers= */ true);
         if (r < 0)
                 return r;
 
@@ -1655,7 +1658,8 @@ static int verb_pending_or_reboot(int argc, char *argv[], uintptr_t _data, void 
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "The --root=/--image= switches may not be combined with the '%s' operation.", argv[0]);
 
-        r = context_make_offline(&context, /* node= */ NULL, /* requires_enabled_transfers= */ true);
+        r = context_make_offline(&context, /* node= */ NULL,
+                                 /* requires_enabled_transfers= */ true, /* requires_any_transfers= */ true);
         if (r < 0)
                 return r;
 
