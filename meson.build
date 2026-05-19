@@ -978,25 +978,13 @@ endif
 
 #####################################################################
 
-threads = dependency('threads')
-librt = cc.find_library('rt')
 libm = cc.find_library('m')
-libdl = cc.find_library('dl')
 
-# On some distributions that use musl (e.g. Alpine), libintl.h may be provided by gettext rather than musl.
-# In that case, we need to explicitly link with libintl.so.
-if cc.has_function('dgettext',
-                   prefix : '''#include <libintl.h>''',
-                   args : '-D_GNU_SOURCE')
-        libintl = []
-else
-        libintl = cc.find_library('intl')
-        if not cc.has_function('dgettext',
-                               prefix : '''#include <libintl.h>''',
-                               args : '-D_GNU_SOURCE',
-                               dependencies : libintl)
-                error('dgettext() not found')
-        endif
+# Header presence check only — dgettext itself is resolved via dlopen_libintl() at runtime, so we never
+# link against libintl. On glibc dgettext lives in libc; on musl gettext-dev provides libintl.h alongside
+# libintl.so.8 which we dlopen() if present.
+if not cc.has_header('libintl.h')
+        error('libintl.h not found (install gettext / gettext-dev)')
 endif
 
 # On some architectures, libatomic is required. But on some installations,
@@ -1133,12 +1121,7 @@ if not libpam.found()
         # Debian older than bookworm and Ubuntu older than 22.10 do not provide the .pc file.
         libpam = cc.find_library('pam', required : feature)
 endif
-libpam_misc = dependency('pam_misc',
-                         required : feature.disabled() ? feature : false)
-if not libpam_misc.found()
-        libpam_misc = cc.find_library('pam_misc', required : feature)
-endif
-conf.set10('HAVE_PAM', libpam.found() and libpam_misc.found())
+conf.set10('HAVE_PAM', libpam.found())
 libpam_cflags = libpam.partial_dependency(includes: true, compile_args: true)
 
 libmicrohttpd = dependency('libmicrohttpd',
@@ -1324,11 +1307,15 @@ libgobject = dependency('gobject-2.0',
 libgio =     dependency('gio-2.0',
                         required : get_option('glib'))
 conf.set10('HAVE_GLIB', libglib.found() and libgobject.found() and libgio.found())
+libglib_cflags = libglib.partial_dependency(includes: true, compile_args: true)
+libgobject_cflags = libgobject.partial_dependency(includes: true, compile_args: true)
+libgio_cflags = libgio.partial_dependency(includes: true, compile_args: true)
 
 libdbus = dependency('dbus-1',
                      version : '>= 1.3.2',
                      required : get_option('dbus'))
 conf.set10('HAVE_DBUS', libdbus.found())
+libdbus_cflags = libdbus.partial_dependency(includes: true, compile_args: true)
 
 dbusdatadir = libdbus.get_variable(pkgconfig: 'datadir', default_value: datadir) / 'dbus-1'
 
@@ -1704,14 +1691,13 @@ system_includes = [
         ),
 ]
 
-if get_option('libc') == 'musl'
-        system_include_args = [
-                '-isystem', meson.project_build_root()  / 'src/include/musl',
-                '-isystem', meson.project_source_root() / 'src/include/musl',
-        ] + system_include_args
+libc_include_dir = 'src/include' / get_option('libc')
+system_include_args = [
+        '-isystem', meson.project_build_root()  / libc_include_dir,
+        '-isystem', meson.project_source_root() / libc_include_dir,
+] + system_include_args
 
-        system_includes += include_directories('src/include/musl', is_system : true)
-endif
+system_includes += include_directories(libc_include_dir, is_system : true)
 
 basic_includes = [
         include_directories(
@@ -1768,9 +1754,7 @@ libsystemd = shared_library(
         link_with : [libc_wrapper_static,
                      libbasic_static],
         link_whole : [libsystemd_static],
-        dependencies : [librt,
-                        threads,
-                        userspace],
+        dependencies : [userspace],
         link_depends : libsystemd_sym,
         install : true,
         install_tag: 'libsystemd',
@@ -1789,14 +1773,11 @@ if static_libsystemd != 'false'
                 install_tag: 'libsystemd',
                 install_dir : libdir,
                 pic : static_libsystemd_pic,
-                dependencies : [libdl,
-                                libgcrypt_cflags,
+                dependencies : [libgcrypt_cflags,
                                 liblz4_cflags,
                                 libm,
-                                librt,
                                 libxz_cflags,
                                 libzstd_cflags,
-                                threads,
                                 userspace],
                 c_args : libsystemd_c_args + (static_libsystemd_pic ? [] : ['-fno-PIC']))
 
@@ -1814,8 +1795,7 @@ libudev = shared_library(
                      '-Wl,--version-script=' + libudev_sym_path],
         link_with : [libsystemd_static],
         link_whole : libudev_basic,
-        dependencies : [threads,
-                        userspace],
+        dependencies : [userspace],
         link_depends : libudev_sym,
         install : true,
         install_tag: 'libudev',
@@ -1932,10 +1912,6 @@ nss_template = {
                 libshared_static,
                 libbasic_static,
         ],
-        'dependencies' : [
-                librt,
-                threads,
-        ],
         'install' : true,
         'install_tag' : 'nss',
         'install_dir' : libdir,
@@ -1948,24 +1924,7 @@ pam_template = {
                 libsystemd_static,
                 libshared_static,
         ],
-        'dependencies' : [
-                # Note: our PAM modules also call dlopen_libpam() and use
-                # symbols acquired through that, hence the explicit dep here is
-                # strictly speaking unnecessary. We put it in place anyway,
-                # since for the PAM modules we cannot avoid libpam anyway,
-                # after all they are loaded *by* libpam, and hence there's no
-                # loss in having explicit deps here, but there's a win: it
-                # makes the deps more visible.
-                #
-                # (In case you wonder why we do dlopen_libpam() from the PAM
-                # modules in the first place: that's mostly so that all our PAM
-                # code (regardless if our PAM modules or our PAM consuming
-                # programs) can use the same helpers, which hence go via
-                # dlopen_libpam().
-                libpam_misc,
-                libpam,
-                threads,
-        ],
+        'dependencies' : libpam_cflags,
         'install' : true,
         'install_tag' : 'pam',
         'install_dir' : pamlibdir,

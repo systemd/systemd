@@ -92,7 +92,7 @@ static int do_mprotect_exec(const char *path) {
 }
 
 #if BPF_FRAMEWORK && HAVE_LSM_INTEGRITY_TYPE
-#include "bpf-dlopen.h"
+#include "bpf-util.h"
 #include "restrict-fsaccess-skel.h"
 
 static struct restrict_fsaccess_bpf *restrict_fsaccess_bpf_free(struct restrict_fsaccess_bpf *obj) {

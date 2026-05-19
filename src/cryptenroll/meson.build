@@ -22,7 +22,6 @@ executables += [
                 'sources' : systemd_cryptenroll_sources,
                 'dependencies' : [
                         libcryptsetup_cflags,
-                        libdl,
                         libfido2_cflags,
                         libopenssl_cflags,
                         libp11kit_cflags,
