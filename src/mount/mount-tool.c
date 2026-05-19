@@ -244,17 +244,14 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                                 return r;
                         break;
 
-                OPTION_LONG("owner", "USER", "Add uid= and gid= options for USER"): {
-                        const char *user = opts.arg;
-
-                        r = get_user_creds(&user, &arg_uid, &arg_gid, NULL, NULL, 0);
+                OPTION_LONG("owner", "USER", "Add uid= and gid= options for USER"):
+                        r = get_user_creds(opts.arg, /* flags= */ 0, NULL, &arg_uid, &arg_gid, NULL, NULL);
                         if (r < 0)
                                 return log_error_errno(r,
                                                        r == -EBADMSG ? "UID or GID of user %s are invalid."
                                                                      : "Cannot use \"%s\" as owner: %m",
                                                        opts.arg);
                         break;
-                }
 
                 OPTION_LONG("fsck", "BOOL", "Run a file system check before mount"):
                         r = parse_boolean_argument("--fsck=", opts.arg, &arg_fsck);

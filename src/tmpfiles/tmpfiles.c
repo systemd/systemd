@@ -3771,7 +3771,7 @@ static int find_uid(const char *user, uid_t *ret_uid, Hashmap **cache) {
 
         /* Second: pass to NSS if we are running "online" */
         if (!arg_root)
-                return get_user_creds(&user, ret_uid, NULL, NULL, NULL, 0);
+                return get_user_creds(user, /* flags= */ 0, NULL, ret_uid, NULL, NULL, NULL);
 
         /* Third, synthesize "root" unconditionally */
         if (streq(user, "root")) {
