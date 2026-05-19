@@ -11,8 +11,6 @@
 
 #include "fileio.h"
 
-static void *libapparmor_dl = NULL;
-
 DLSYM_PROTOTYPE(aa_change_onexec) = NULL;
 DLSYM_PROTOTYPE(aa_change_profile) = NULL;
 DLSYM_PROTOTYPE(aa_features_new_from_kernel) = NULL;
@@ -48,6 +46,8 @@ bool mac_apparmor_use(void) {
 
 int dlopen_libapparmor(int log_level) {
 #if HAVE_APPARMOR
+        static void *libapparmor_dl = NULL;
+
         SD_ELF_NOTE_DLOPEN(
                         "apparmor",
                         "Support for AppArmor policies",

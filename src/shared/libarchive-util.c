@@ -9,8 +9,6 @@
 #include "user-util.h"                  /* IWYU pragma: keep */
 
 #if HAVE_LIBARCHIVE
-static void *libarchive_dl = NULL;
-
 DLSYM_PROTOTYPE(archive_entry_acl_add_entry) = NULL;
 DLSYM_PROTOTYPE(archive_entry_acl_next) = NULL;
 DLSYM_PROTOTYPE(archive_entry_acl_reset) = NULL;
@@ -79,6 +77,7 @@ DLSYM_PROTOTYPE(archive_write_set_format_pax) = NULL;
 
 int dlopen_libarchive(int log_level) {
 #if HAVE_LIBARCHIVE
+        static void *libarchive_dl = NULL;
         int r;
 
         SD_ELF_NOTE_DLOPEN(
