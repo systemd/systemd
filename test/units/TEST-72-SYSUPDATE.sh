@@ -552,6 +552,35 @@ EOF
 done
 done
 
+# Regression test for https://github.com/systemd/systemd/issues/41501 — check
+# that a ‘default’ component is only listed by sysupdate if it’s fully configured
+mv "$CONFIGDIR" "$CONFIGDIR.backup"
+mkdir -p /run/sysupdate.some-component.d
+tee /run/sysupdate.some-component.d/portable.transfer << EOF
+[Transfer]
+ChangeLog=https://example.com/changelog/@v
+Verify=no
+
+[Source]
+Type=url-tar
+Path=https://example.com/does-not-matter/@v.tar.xz
+MatchPattern=some-component_@v-portable.tar.xz
+
+[Target]
+Type=directory
+Path=/var/lib/portables
+MatchPattern=some-component_@v
+CurrentSymlink=some-component
+EOF
+"$SYSUPDATE" --json=short components | grep -F '{"default":false,"components":["some-component"]}' >/dev/null
+mkdir /run/sysupdate.d
+"$SYSUPDATE" --json=short components | grep -F '{"default":false,"components":["some-component"]}' >/dev/null
+
+# Clean up regression test
+rmdir /run/sysupdate.d
+rm -rf /run/sysupdate.some-component.d
+mv "$CONFIGDIR.backup" "$CONFIGDIR"
+
 # Make sure the processing of compressed streams still handles uncompressed streams shorter than
 # COMPRESSION_MAGIC_BYTES_MAX correctly.
 rm -rf "$CONFIGDIR" "$WORKDIR/blobs"
