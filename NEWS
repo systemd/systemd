@@ -843,6 +843,11 @@ CHANGES WITH 260:
         * Persistent network interface naming has bee extended to MCTP devices
           with the "mc" prefix.
 
+        * Persistent network interface naming has been extended to auxiliary
+          sub-function (SF) network devices (such as mlx5_core SFs), using an
+          "S<sfnum>" suffix appended to the parent PCI function's name (e.g.
+          "enp193s0f0S88").
+
         * The minimum backlight brightness value used when restoring backlight
           levels at boot has been lowered from 5% to 1%. This lower value
           should be sufficient to avoid blacked-out displays, but allows user
