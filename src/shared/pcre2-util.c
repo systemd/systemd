@@ -8,8 +8,6 @@
 #include "pcre2-util.h"
 
 #if HAVE_PCRE2
-static void *pcre2_dl = NULL;
-
 DLSYM_PROTOTYPE(pcre2_match_data_create) = NULL;
 DLSYM_PROTOTYPE(pcre2_match_data_free) = NULL;
 DLSYM_PROTOTYPE(pcre2_code_free) = NULL;
@@ -30,6 +28,8 @@ const struct hash_ops pcre2_code_hash_ops_free = {};
 
 int dlopen_pcre2(int log_level) {
 #if HAVE_PCRE2
+        static void *pcre2_dl = NULL;
+
         SD_ELF_NOTE_DLOPEN(
                         "pcre2",
                         "Support for regular expressions",
@@ -127,7 +127,7 @@ int pattern_matches_and_log(pcre2_code *compiled_pattern, const char *message, s
         assert(message);
         /* pattern_compile_and_log() must be called before this function is called and that function already
          * dlopens pcre2 so we can assert on it being available here. */
-        assert(pcre2_dl);
+        assert(sym_pcre2_match);
 
         md = sym_pcre2_match_data_create(1, NULL);
         if (!md)

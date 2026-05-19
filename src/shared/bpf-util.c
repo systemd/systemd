@@ -78,7 +78,14 @@ static int bpf_print_func(enum libbpf_print_level level, const char *fmt, va_lis
 
 int dlopen_bpf(int log_level) {
         static void *bpf_dl = NULL;
-        int r;
+        static int cached = 0;
+        int r = -ENOENT;
+
+        if (bpf_dl)
+                return 1; /* Already loaded */
+
+        if (cached < 0)
+                return cached; /* Already tried, and failed. */
 
         SD_ELF_NOTE_DLOPEN(
                         "bpf",
@@ -135,8 +142,8 @@ int dlopen_bpf(int log_level) {
         }
         REENABLE_WARNING;
         if (r < 0)
-                return log_full_errno(in_initrd() ? LOG_DEBUG : log_level, SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                      "Neither libbpf.so.1 nor libbpf.so.0 are installed, cgroup BPF features disabled.");
+                return cached = log_full_errno(in_initrd() ? LOG_DEBUG : log_level, r,
+                                               "Neither libbpf.so.1 nor libbpf.so.0 are installed, cgroup BPF features disabled.");
 
         /* Version-specific symbols: bpf_create_map exists only in libbpf < 1.0; bpf_map_create and
          * bpf_object__next_map only in 0.7+. bpf_token_create only in 1.5+. Unresolved prototypes keep
