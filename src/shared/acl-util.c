@@ -17,8 +17,6 @@
 #include "user-util.h"
 
 #if HAVE_ACL
-static void *libacl_dl = NULL;
-
 DLSYM_PROTOTYPE(acl_add_perm);
 DLSYM_PROTOTYPE(acl_calc_mask);
 DLSYM_PROTOTYPE(acl_copy_entry);
@@ -49,6 +47,8 @@ DLSYM_PROTOTYPE(acl_to_any_text);
 
 int dlopen_libacl(int log_level) {
 #if HAVE_ACL
+        static void *libacl_dl = NULL;
+
         SD_ELF_NOTE_DLOPEN(
                         "acl",
                         "Support for file Access Control Lists (ACLs)",

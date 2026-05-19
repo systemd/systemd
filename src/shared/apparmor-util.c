@@ -11,8 +11,6 @@
 
 #include "fileio.h"
 
-static void *libapparmor_dl = NULL;
-
 DLSYM_PROTOTYPE(aa_change_onexec) = NULL;
 DLSYM_PROTOTYPE(aa_change_profile) = NULL;
 DLSYM_PROTOTYPE(aa_features_new_from_kernel) = NULL;
