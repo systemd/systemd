@@ -26,6 +26,7 @@
 #include "format-table.h"
 #include "fs-util.h"
 #include "glyph-util.h"
+#include "help-util.h"
 #include "hostname-util.h"
 #include "image-policy.h"
 #include "kbd-util.h"
@@ -293,8 +294,12 @@ static int prompt_locale(int rfd, sd_varlink **mute_console_link) {
         } else {
                 print_welcome(rfd, mute_console_link);
 
+                _cleanup_free_ char *prefill = NULL;
+                (void) locale_lang_from_efi(&prefill, LOCALE_REQUIRE_INSTALLED|LOCALE_SUPPRESS_EN_US);
+
                 r = prompt_loop("Please enter the new system locale name or number",
                                 GLYPH_WORLD,
+                                prefill,
                                 locales,
                                 /* accepted= */ NULL,
                                 /* ellipsize_percentage= */ 60,
@@ -312,6 +317,7 @@ static int prompt_locale(int rfd, sd_varlink **mute_console_link) {
 
                 r = prompt_loop("Please enter the new system message locale name or number",
                                 GLYPH_WORLD,
+                                /* prefill= */ NULL,
                                 locales,
                                 /* accepted= */ NULL,
                                 /* ellipsize_percentage= */ 60,
@@ -454,9 +460,13 @@ static int prompt_keymap(int rfd, sd_varlink **mute_console_link) {
 
         print_welcome(rfd, mute_console_link);
 
+        _cleanup_free_ char *prefill = NULL;
+        (void) vconsole_keymap_from_efi(&prefill);
+
         return prompt_loop(
                         "Please enter the new keymap name or number",
                         GLYPH_KEYBOARD,
+                        prefill,
                         kmaps,
                         /* accepted= */ NULL,
                         /* ellipsize_percentage= */ 60,
@@ -573,6 +583,7 @@ static int prompt_timezone(int rfd, sd_varlink **mute_console_link) {
         return prompt_loop(
                         "Please enter the new timezone name or number",
                         GLYPH_CLOCK,
+                        /* prefill= */ NULL,
                         zones,
                         /* accepted= */ NULL,
                         /* ellipsize_percentage= */ 30,
@@ -680,6 +691,7 @@ static int prompt_hostname(int rfd, sd_varlink **mute_console_link) {
 
         r = prompt_loop("Please enter the new hostname",
                         GLYPH_LABEL,
+                        /* prefill= */ NULL,
                         /* menu= */ NULL,
                         /* accepted= */ NULL,
                         /* ellipsize_percentage= */ 100,
@@ -888,6 +900,7 @@ static int prompt_root_shell(int rfd, sd_varlink **mute_console_link) {
         return prompt_loop(
                         "Please enter the new root shell",
                         GLYPH_SHELL,
+                        /* prefill= */ NULL,
                         /* menu= */ NULL,
                         /* accepted= */ NULL,
                         /* ellipsize_percentage= */ 0,
@@ -1240,29 +1253,22 @@ static int process_reset(int rfd) {
 }
 
 static int help(void) {
-        _cleanup_free_ char *link = NULL;
         _cleanup_(table_unrefp) Table *options = NULL;
         int r;
-
-        r = terminal_urlify_man("systemd-firstboot", "1", &link);
-        if (r < 0)
-                return log_oom();
 
         r = option_parser_get_help_table(&options);
         if (r < 0)
                 return r;
 
-        printf("%s [OPTIONS...]\n\n"
-               "%sConfigures basic settings of the system.%s\n\n",
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal());
+        help_cmdline("[OPTIONS...]");
+        help_abstract("Configures basic settings of the system.");
+        help_section("Options");
 
         r = table_print_or_warn(options);
         if (r < 0)
                 return r;
 
-        printf("\nSee the %s for details.\n", link);
+        help_man_page_reference("systemd-firstboot", "1");
         return 0;
 }
 

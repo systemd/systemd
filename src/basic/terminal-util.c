@@ -283,6 +283,7 @@ static void clear_by_backspace(size_t n) {
 
 int ask_string_full(
                 char **ret,
+                const char *prefill,
                 GetCompletionsCallback get_completions,
                 void *userdata,
                 const char *text, ...) {
@@ -296,8 +297,17 @@ int ask_string_full(
         _cleanup_free_ char *string = NULL;
         size_t n = 0;
 
-        if (get_completions) {
-                /* Figure out what string to preselect the query with */
+        if (prefill) {
+                /* Prefill query with explicit data if specified */
+
+                string = strdup(prefill);
+                if (!string)
+                        return -ENOMEM;
+
+                n = strlen(string);
+
+        } else if (get_completions) {
+                /* Otherwise, figure out what string to preselect the query with */
                 _cleanup_strv_free_ char **completions = NULL;
                 r = get_completions("", GET_COMPLETIONS_PRESELECT, &completions, userdata);
                 if (r < 0)

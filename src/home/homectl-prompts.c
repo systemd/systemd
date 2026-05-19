@@ -117,6 +117,7 @@ int prompt_groups(const char *username, char ***ret_groups) {
                 _cleanup_free_ char *s = NULL;
                 r = ask_string_full(
                                 &s,
+                                /* prefill= */ NULL,
                                 group_completion_callback,
                                 &available,
                                 "%s Please enter an auxiliary group for user %s (empty to continue, \"list\" to list available groups): ",
@@ -231,6 +232,7 @@ int prompt_shell(const char *username, char **ret_shell) {
         return prompt_loop(
                         q,
                         GLYPH_SHELL,
+                        /* prefill= */ NULL,
                         /* menu= */ NULL,
                         /* accepted= */ NULL,
                         /* ellipsize_percentage= */ 0,
