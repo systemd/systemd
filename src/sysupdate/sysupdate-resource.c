@@ -43,6 +43,7 @@ void resource_destroy(Resource *rr) {
         assert(rr);
 
         free(rr->path);
+        free(rr->manifest_path);
         strv_free(rr->patterns);
 
         for (size_t i = 0; i < rr->n_instances; i++)
@@ -361,35 +362,56 @@ static int resource_load_from_blockdev(Resource *rr) {
         return 0;
 }
 
+static int resource_manifest_url(Resource *rr, char **ret) {
+        int r;
+
+        assert(rr);
+        assert(rr->manifest_format == MANIFEST_FORMAT_SHA256SUMS);
+        assert(ret);
+
+        /* Returns the URL to acquire the manifest from: either the one explicitly configured, or the
+         * default file name for the manifest format, below the resource's URL. */
+
+        if (rr->manifest_path) {
+                r = strdup_to(ret, rr->manifest_path);
+                if (r < 0)
+                        return log_oom();
+
+                return 0;
+        }
+
+        r = import_url_append_component(rr->path, "SHA256SUMS", ret);
+        if (r < 0)
+                return log_error_errno(r, "Failed to append SHA256SUMS to URL: %m");
+
+        return 0;
+}
+
 static int download_manifest(
                 ManifestFormat manifest_format,
-                const char *url,
+                const char *manifest_url,
                 bool verify_signature,
                 char **ret_buffer,
                 size_t *ret_size) {
 
-        _cleanup_free_ char *buffer = NULL, *suffixed_url = NULL;
+        _cleanup_free_ char *buffer = NULL;
         _cleanup_close_pair_ int pfd[2] = EBADF_PAIR;
         _cleanup_fclose_ FILE *manifest = NULL;
         size_t size = 0;
         int r;
 
         assert(manifest_format == MANIFEST_FORMAT_SHA256SUMS);
-        assert(url);
+        assert(manifest_url);
         assert(ret_buffer);
         assert(ret_size);
 
         /* Download a SHA256SUMS file as manifest */
 
-        r = import_url_append_component(url, "SHA256SUMS", &suffixed_url);
-        if (r < 0)
-                return log_error_errno(r, "Failed to append SHA256SUMS to URL: %m");
-
         if (pipe2(pfd, O_CLOEXEC) < 0)
                 return log_error_errno(errno, "Failed to allocate pipe: %m");
 
         log_info("%s Acquiring manifest file %s%s", glyph(GLYPH_DOWNLOAD),
-                 suffixed_url, glyph(GLYPH_ELLIPSIS));
+                 manifest_url, glyph(GLYPH_ELLIPSIS));
 
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         r = pidref_safe_fork_full(
@@ -408,7 +430,7 @@ static int download_manifest(
                         "raw",
                         "--direct",                        /* just download the specified URL, don't download anything else */
                         "--verify", verify_signature ? "signature" : "no", /* verify the manifest file */
-                        suffixed_url,
+                        manifest_url,
                         "-",                               /* write to stdout */
                         NULL
                 };
@@ -520,16 +542,28 @@ static int resource_load_from_web(
         assert(rr);
         POINTER_MAY_BE_NULL(web_cache);
 
-        ci = web_cache ? web_cache_get_item(*web_cache, rr->path, verify) : NULL;
+        /* Key the cache by the URL of the manifest itself, not the one of the resource, as the former
+         * depends on ManifestPath= too. */
+        _cleanup_free_ char *manifest_url = NULL;
+        r = resource_manifest_url(rr, &manifest_url);
+        if (r < 0)
+                return r;
+
+        ci = web_cache ? web_cache_get_item(*web_cache, manifest_url, verify) : NULL;
         if (ci) {
-                log_debug("Manifest web cache hit for %s.", rr->path);
+                log_debug("Manifest web cache hit for %s.", manifest_url);
 
                 manifest = (char*) ci->data;
                 manifest_size = ci->size;
         } else {
-                log_debug("Manifest web cache miss for %s.", rr->path);
+                log_debug("Manifest web cache miss for %s.", manifest_url);
 
-                r = download_manifest(rr->manifest_format, rr->path, verify, &buf, &manifest_size);
+                r = download_manifest(
+                                rr->manifest_format,
+                                manifest_url,
+                                verify,
+                                &buf,
+                                &manifest_size);
                 if (r < 0)
                         return r;
 
@@ -645,11 +679,11 @@ static int resource_load_from_web(
         }
 
         if (!ci && web_cache) {
-                r = web_cache_add_item(web_cache, rr->path, verify, manifest, manifest_size);
+                r = web_cache_add_item(web_cache, manifest_url, verify, manifest, manifest_size);
                 if (r < 0)
-                        log_debug_errno(r, "Failed to add manifest '%s' to cache, ignoring: %m", rr->path);
+                        log_debug_errno(r, "Failed to add manifest '%s' to cache, ignoring: %m", manifest_url);
                 else
-                        log_debug("Added manifest '%s' to cache.", rr->path);
+                        log_debug("Added manifest '%s' to cache.", manifest_url);
         }
 
         return 0;
