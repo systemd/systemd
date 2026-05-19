@@ -704,7 +704,7 @@ static int add_mount(
                 if (r < 0) {
                         if (r != -EOPNOTSUPP)
                                 return r;
-                } else {
+                } else if (r > 0) {
                         r = generator_hook_up_quotaon(dest, where, target_unit);
                         if (r < 0)
                                 return r;
