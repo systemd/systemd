@@ -724,8 +724,88 @@ static int maybe_start_stop_restart(sd_bus *bus, const char *path, const char *m
         return 0;
 }
 
+static int maybe_start_stop_restart_units(
+                sd_bus *bus,
+                char * const *names,
+                const char *job_type,
+                BusWaitForJobs *wait) {
+
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        const char *method;
+        int r;
+
+        assert(bus);
+        assert(STR_IN_SET(job_type, "start", "stop", "restart"));
+
+        if (!arg_now || strv_isempty(names))
+                return 0;
+
+        /* Prefer the new EnqueueUnitsJobs() method which submits all units in a single transaction.
+         * Falls back to per-unit calls on older managers (UnknownMethod) or when the new method rejects
+         * something about the request (InvalidArgs). */
+        r = bus_message_new_method_call(bus, &m, bus_systemd_mgr, "EnqueueUnitsJobs");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append_strv(m, (char**) names);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append(m, "sst", job_type, "replace", UINT64_C(0));
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_call(bus, m, 0, &error, &reply);
+        if (r >= 0) {
+                r = sd_bus_message_enter_container(reply, 'a', "(uosos)");
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                for (;;) {
+                        const char *path, *unit_id, *jt;
+                        uint32_t id;
+
+                        r = sd_bus_message_read(reply, "(uosos)", &id, &path, &unit_id, NULL, &jt);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+                        if (r == 0)
+                                break;
+
+                        if (!arg_quiet)
+                                log_info("Queued %s to call %s on portable service %s.", path, jt, unit_id);
+
+                        if (wait) {
+                                r = bus_wait_for_jobs_add(wait, path);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to watch %s job to call %s on %s: %m",
+                                                               path, jt, unit_id);
+                        }
+                }
+
+                return sd_bus_message_exit_container(reply);
+        }
+
+        if (!sd_bus_error_has_names(&error, SD_BUS_ERROR_UNKNOWN_METHOD, SD_BUS_ERROR_INVALID_ARGS))
+                return log_error_errno(r, "Failed to enqueue jobs for portable services: %s",
+                                       bus_error_message(&error, r));
+
+        log_debug_errno(r, "EnqueueUnitsJobs() not supported (%s), falling back to per-unit calls.",
+                        bus_error_message(&error, r));
+
+        method = streq(job_type, "start") ? "StartUnit" :
+                 streq(job_type, "stop")  ? "StopUnit"  :
+                                            "RestartUnit";
+
+        STRV_FOREACH(name, names)
+                (void) maybe_start_stop_restart(bus, *name, method, wait);
+
+        return 0;
+}
+
 static int maybe_enable_start(sd_bus *bus, sd_bus_message *reply) {
         _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *wait = NULL;
+        _cleanup_strv_free_ char **start_names = NULL;
         int r;
 
         if (!arg_enable && !arg_now)
@@ -755,13 +835,23 @@ static int maybe_enable_start(sd_bus *bus, sd_bus_message *reply) {
 
                 if (STR_IN_SET(type, "symlink", "copy") && is_portable_managed(path)) {
                         (void) maybe_enable_disable(bus, path, true);
-                        (void) maybe_start_stop_restart(bus, path, "StartUnit", wait);
+
+                        _cleanup_free_ char *name = NULL;
+                        r = path_extract_filename(path, &name);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to extract file name from '%s': %m", path);
+
+                        r = strv_consume(&start_names, TAKE_PTR(name));
+                        if (r < 0)
+                                return log_oom();
                 }
         }
 
         r = sd_bus_message_exit_container(reply);
         if (r < 0)
                 return r;
+
+        (void) maybe_start_stop_restart_units(bus, start_names, "start", wait);
 
         if (!arg_no_block) {
                 r = bus_wait_for_jobs(wait, arg_quiet, NULL);
@@ -774,6 +864,7 @@ static int maybe_enable_start(sd_bus *bus, sd_bus_message *reply) {
 
 static int maybe_stop_enable_restart(sd_bus *bus, sd_bus_message *reply) {
         _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *wait = NULL;
+        _cleanup_strv_free_ char **stop_names = NULL, **restart_names = NULL;
         int r;
 
         if (!arg_enable && !arg_now)
@@ -804,13 +895,24 @@ static int maybe_stop_enable_restart(sd_bus *bus, sd_bus_message *reply) {
                 if (r == 0)
                         break;
 
-                if (streq(type, "unlink") && is_portable_managed(path))
-                        (void) maybe_start_stop_restart(bus, path, "StopUnit", wait);
+                if (streq(type, "unlink") && is_portable_managed(path) && arg_now) {
+                        _cleanup_free_ char *name = NULL;
+
+                        r = path_extract_filename(path, &name);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to extract file name from '%s': %m", path);
+
+                        r = strv_consume(&stop_names, TAKE_PTR(name));
+                        if (r < 0)
+                                return log_oom();
+                }
         }
 
         r = sd_bus_message_exit_container(reply);
         if (r < 0)
                 return r;
+
+        (void) maybe_start_stop_restart_units(bus, stop_names, "stop", wait);
 
         /* Then we get a list of units that were either added or changed, so that we can
          * enable them and/or restart them if the user asked us to. */
@@ -829,13 +931,23 @@ static int maybe_stop_enable_restart(sd_bus *bus, sd_bus_message *reply) {
 
                 if (STR_IN_SET(type, "symlink", "copy") && is_portable_managed(path)) {
                         (void) maybe_enable_disable(bus, path, true);
-                        (void) maybe_start_stop_restart(bus, path, "RestartUnit", wait);
+
+                        _cleanup_free_ char *name = NULL;
+                        r = path_extract_filename(path, &name);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to extract file name from '%s': %m", path);
+
+                        r = strv_consume(&restart_names, TAKE_PTR(name));
+                        if (r < 0)
+                                return log_oom();
                 }
         }
 
         r = sd_bus_message_exit_container(reply);
         if (r < 0)
                 return r;
+
+        (void) maybe_start_stop_restart_units(bus, restart_names, "restart", wait);
 
         if (!arg_no_block) {
                 r = bus_wait_for_jobs(wait, arg_quiet, NULL);
@@ -940,7 +1052,6 @@ static int maybe_stop_disable_clean(sd_bus *bus, char *image, char *argv[]) {
                 if (r < 0)
                         return bus_log_parse_error(r);
 
-                (void) maybe_start_stop_restart(bus, name, "StopUnit", wait);
                 (void) maybe_enable_disable(bus, name, false);
 
                 r = strv_extend(&units, name);
@@ -951,6 +1062,8 @@ static int maybe_stop_disable_clean(sd_bus *bus, char *image, char *argv[]) {
         r = sd_bus_message_exit_container(reply);
         if (r < 0)
                 return bus_log_parse_error(r);
+
+        (void) maybe_start_stop_restart_units(bus, units, "stop", wait);
 
         /* Stopping must always block or the detach will fail if the unit is still running */
         r = bus_wait_for_jobs(wait, arg_quiet, NULL);
