@@ -41,8 +41,7 @@ TEST_RET(add_acls_for_user) {
         ASSERT_OK_ZERO_ERRNO(system(cmd));
 
         if (getuid() == 0 && !userns_has_single_user()) {
-                const char *nobody = NOBODY_USER_NAME;
-                r = get_user_creds(&nobody, &uid, NULL, NULL, NULL, 0);
+                r = get_user_creds(NOBODY_USER_NAME, /* flags= */ 0, NULL, &uid, NULL, NULL, NULL);
                 if (r < 0)
                         uid = 0;
         } else
