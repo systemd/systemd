@@ -5,7 +5,7 @@ CHANGES WITH 261 in spe:
         Announcements of Future Feature Removals and Incompatible Changes:
 
         * systemd-logind's integration with the UAPI.1 Boot Loader
-          Specification (which allows systemctl reboot --boot-loader-entry=
+          Specification (which allows the systemctl reboot --boot-loader-entry=
           switch to work) so far has supported a special directory
           /run/boot-loader-entries/ which allowed defining boot loader entries
           outside of the ESP/XBOOTLDR partition for compatibility with legacy
@@ -21,7 +21,7 @@ CHANGES WITH 261 in spe:
 
         * systemd-nspawn's --user= option has been renamed to --uid=. The -u
           short option continues to work. The old --user NAME and --user=NAME
-          form (with and without "=") are still accepted but deprecated; a
+          forms (with and without "=") are still accepted but deprecated; a
           warning is emitted suggesting --uid=NAME. The --user option (without
           an argument) has been repurposed as a standalone switch to select
           the user service manager scope, matching --system.
@@ -36,9 +36,9 @@ CHANGES WITH 261 in spe:
           Affected enum types: ExecInputType, ExecOutputType, ProtectHome,
           CGroupController, CollectMode, EmergencyAction, JobMode.
 
-        * It was discovered that systemd-stub does not measure all the events
-          it measures to the TPM also to the hardware CC registers (e.g. Intel
-          TDX RTMRs) using EFI_CC_MEASUREMENT_PROTOCOL. In particular,
+        * It was discovered that some of the events systemd-stub measures to
+          the TPM were not also measured to the hardware CC registers (e.g.
+          Intel TDX RTMRs) via EFI_CC_MEASUREMENT_PROTOCOL. In particular,
           devicetree, initrd, ucode addons and the UKI profile were only
           measured to the TPM. The missing measurements for CC have now been
           added; however, this changes the expected register values. This
@@ -87,7 +87,7 @@ CHANGES WITH 261 in spe:
 
         * User session managers now support persisting user units' FD Stores
           by receiving FDs via the notify socket, and passing them down via
-          $LISTEN_FDS when the user session is restarted, when the
+          $LISTEN_FDS when the user session is restarted, if the
           'FileDescriptorStorePreserve=yes' and 'FileDescriptorStoreMax='
           options are set in the user@.service unit. Combined with the LUO
           support, this lets user units persist state (e.g.: memfds) across
@@ -105,7 +105,7 @@ CHANGES WITH 261 in spe:
 
         * A new RestrictFileSystemAccess= setting has been added that uses a
           BPF LSM program to restrict execution to only binaries that are
-          stored on a signed and verified dm-verity protected filesystem.
+          stored on a signed and verified dm-verity-protected filesystem.
 
         * The io.systemd.Unit.StartTransient() Varlink method has been added
           for invoking service units transiently.
@@ -142,7 +142,7 @@ CHANGES WITH 261 in spe:
           is inserted in the last part of shutdown, in order to avoid tight
           boot loops.
 
-        IMDS (Cloud "Instance Metadata Service") Subsystem:
+        New IMDS (Cloud "Instance Metadata Service") Subsystem:
 
         * The hardware database now contains a new database hwdb.d/40-imds.hwdb
           that recognizes various established public clouds by their SMBIOS
@@ -154,7 +154,7 @@ CHANGES WITH 261 in spe:
         * An IMDS subsystem has been added. Specifically, there's now
           systemd-imdsd which provides a local Varlink IPC API that makes IMDS
           services accessible to local programs. It provides both a relatively
-          low-level interface for querying arbitrary fields, and a higher level
+          low-level interface for querying arbitrary fields, and a higher-level
           interface for querying certain well-known keys in a generic way
           (which maps to various cloud-specific keys via the hwdb). The service
           can be pulled into the boot transaction automatically if a supported
@@ -162,7 +162,7 @@ CHANGES WITH 261 in spe:
           functionality. This permits implementation of truly generic images
           that can interact with IMDS if available, but operate without if
           not. A tool systemd-imds acts as a client to systemd-imdsd and
-          imports various IMDS provided fields into local system credentials,
+          imports various IMDS-provided fields into local system credentials,
           which can then be consumed by later services. The acquired IMDS data
           is measured before being imported.
 
@@ -170,9 +170,9 @@ CHANGES WITH 261 in spe:
           clouds. This is recommended for secure installations, but typically
           conflicts with traditional IMDS clients such as cloud-init, which
           require direct IMDS access. The new meson option "-Dimds-network="
-          can be used to change the default mode to "locked" at build-time.
+          can be used to change the default mode to "locked" at build time.
 
-        TPM Subsystem:
+        Changes in the TPM Subsystem:
 
         * A new ConditionSecurity=measured-os unit condition has been added
           that checks whether the system was booted with measured-boot
@@ -184,7 +184,7 @@ CHANGES WITH 261 in spe:
           TPM is implemented purely in software).
 
         * A new service systemd-tpm2-swtpm.service has been added that can run
-          the IBM "swtpm" as a software TPM, for use as (optional) automatic
+          the IBM "swtpm" as a software TPM, for use as an (optional) automatic
           fallback for systems that lack a physical TPM but where TPM
           functionality should be made available nonetheless. (This
           functionality must be enabled via systemd.tpm2_software_fallback= on
@@ -223,8 +223,8 @@ CHANGES WITH 261 in spe:
           cannot be used to modify the resources which are used in the
           early boot.
 
-        * A kernel command line kill switch that disables systemd-sysext and
-          systemd-confext merging entirely is now honoured.
+        * A kernel command line kill switch that entirely disables
+          systemd-sysext and systemd-confext merging is now honoured.
 
         Changes in systemd-networkd and networkctl:
 
@@ -288,9 +288,9 @@ CHANGES WITH 261 in spe:
           GPT partition table is detected for a sector size different from the
           native sector size of the device. (This typically happens if a Hybrid
           ISO9660/GPT disk image is booted as CDROM, where the native sector
-          size is 2048 but the GPT header uses 512 sector size). If this
+          size is 2048 but the GPT header uses a 512-byte sector size). If this
           happens then a systemd-loop@.service instance is automatically pulled
-          in via an udev rule that generates a loopback block device from the
+          in via a udev rule that generates a loopback block device from the
           discovered block device, exposing the device with the corrected
           sector size. Or in other words: booting a fully valid GPT disk image
           on a block device with a non-matching sector size will now just work,
@@ -328,7 +328,7 @@ CHANGES WITH 261 in spe:
           keyboard will be automatically detected and set up without requiring
           user intervention.
 
-        * A new "extra" type-1 Boot Loader Specification stanza is parsed and
+        * A new "extra" Type #1 Boot Loader Specification stanza is parsed and
           used to deliver additional resources to a UKI without modifying its
           contents. This may be used to pass confext DDIs, sysext DDIs or
           encrypted credentials to a UKI kernel. The generic "addon" handling
@@ -402,7 +402,7 @@ CHANGES WITH 261 in spe:
 
         * systemd-nspawn now supports persisting the payload's system manager
           FD Store by receiving FDs via the notify socket, and passing them
-          down via $LISTEN_FDS when the container is restarted, when the
+          down via $LISTEN_FDS when the container is restarted, if the
           'FileDescriptorStorePreserve=yes' and 'FileDescriptorStoreMax='
           options are set in the unit inside which systemd-nspawn is running.
           Combined with the LUO support in PID1, this lets containers persist
@@ -507,7 +507,7 @@ CHANGES WITH 261 in spe:
           binaries, eliminating the hard runtime dependency for systems that do
           not actually use it.
 
-        Dynamic Linking:
+        Changes in Dynamic Linking:
 
         * libgnutls, libmicrohttpd, libcurl, libcrypto, libssl, libfdisk
           and libcryptsetup are now consistently loaded via dlopen()
