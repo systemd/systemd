@@ -3,12 +3,15 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "fd-util.h"
+#include "fileio.h"
 #include "format-util.h"
 #include "log.h"
 #include "memory-util.h"
 #include "path-util.h"
 #include "string-util.h"
 #include "tests.h"
+#include "tmpfile-util.h"
 #include "user-util.h"
 
 static void test_uid_to_name_one(uid_t uid, const char *name) {
@@ -445,6 +448,152 @@ TEST(mangle_gecos) {
         test_mangle_gecos_one("\n--wüff-wäff-wöff::", " --wüff-wäff-wöff  ");
         test_mangle_gecos_one("\xc3\x28", " (");
         test_mangle_gecos_one("\xe2\x28\xa1", " ( ");
+}
+
+TEST(lookup_pwent_in_files) {
+        _cleanup_(unlink_tempfilep) char fn[] = "/tmp/test-user-util-passwd-XXXXXX";
+        _cleanup_fclose_ FILE *f = NULL;
+
+        ASSERT_OK(fmkostemp_safe(fn, "w", &f));
+        ASSERT_OK(write_string_stream(
+                                f,
+                                "testuser1:x:1234:5678:Test User 1:/home/test1:/bin/sh\n"
+                                "testuser2:x:5678:9999:Test User 2:/home/test2:/bin/bash\n",
+                                /* flags= */ 0));
+        ASSERT_OK(fflush_and_check(f));
+
+        char **files = STRV_MAKE(fn);
+
+        /* Lookup by name */
+        _cleanup_free_ struct passwd *pw = NULL;
+        ASSERT_OK(lookup_pwent_in_files(files, "testuser1", UID_INVALID, &pw));
+        ASSERT_STREQ(pw->pw_name, "testuser1");
+        ASSERT_EQ(pw->pw_uid, 1234u);
+        ASSERT_EQ(pw->pw_gid, 5678u);
+        ASSERT_STREQ(pw->pw_gecos, "Test User 1");
+        ASSERT_STREQ(pw->pw_dir, "/home/test1");
+        ASSERT_STREQ(pw->pw_shell, "/bin/sh");
+        pw = mfree(pw);
+
+        ASSERT_OK(lookup_pwent_in_files(STRV_MAKE(fn, fn, fn, fn), "testuser2", UID_INVALID, &pw));
+        ASSERT_STREQ(pw->pw_name, "testuser2");
+        ASSERT_EQ(pw->pw_uid, 5678u);
+        ASSERT_STREQ(pw->pw_shell, "/bin/bash");
+        pw = mfree(pw);
+
+        /* Caller doesn't care about contents */
+        ASSERT_OK(lookup_pwent_in_files(files, "testuser1", UID_INVALID, /* ret= */ NULL));
+
+        /* Missing entry */
+        ASSERT_ERROR(lookup_pwent_in_files(files, "nosuchuser", UID_INVALID, /* ret= */ NULL), ESRCH);
+        ASSERT_ERROR(lookup_pwent_in_files(files, "nosuchuser", UID_INVALID, &pw), ESRCH);
+        ASSERT_NULL(pw);
+
+        /* Lookup by uid */
+        ASSERT_OK(lookup_pwent_in_files(files, /* name= */ NULL, 1234, &pw));
+        ASSERT_STREQ(pw->pw_name, "testuser1");
+        pw = mfree(pw);
+
+        ASSERT_OK(lookup_pwent_in_files(files, /* name= */ NULL, 5678, &pw));
+        ASSERT_STREQ(pw->pw_name, "testuser2");
+        pw = mfree(pw);
+
+        /* Missing uid */
+        ASSERT_ERROR(lookup_pwent_in_files(files, /* name= */ NULL, 424242, &pw), ESRCH);
+        ASSERT_ERROR(lookup_pwent_in_files(files, /* name= */ NULL, 424242, NULL), ESRCH);
+
+        /* Non-existent file in the list is skipped */
+        ASSERT_OK(lookup_pwent_in_files(
+                                STRV_MAKE("/nonexistent-dir/passwd", fn),
+                                "testuser1",
+                                UID_INVALID,
+                                &pw));
+        ASSERT_STREQ(pw->pw_name, "testuser1");
+        pw = mfree(pw);
+
+        /* All files missing → -ESRCH */
+        ASSERT_ERROR(lookup_pwent_in_files(
+                                     STRV_MAKE("/nonexistent-dir/passwd"),
+                                     "testuser1",
+                                     UID_INVALID,
+                                     &pw), ESRCH);
+
+        /* First match wins: same name in two files, but the first file's entry should be picked */
+        _cleanup_(unlink_tempfilep) char fn2[] = "/tmp/test-user-util-passwd2-XXXXXX";
+        _cleanup_fclose_ FILE *f2 = NULL;
+
+        ASSERT_OK(fmkostemp_safe(fn2, "w", &f2));
+        ASSERT_OK(write_string_stream(
+                                f2,
+                                "testuser1:x:111:222:First:/h/first:/bin/zsh\n",
+                                /* flags= */ 0));
+        ASSERT_OK(fflush_and_check(f2));
+
+        ASSERT_OK(lookup_pwent_in_files(
+                                  STRV_MAKE(fn2, fn),
+                                  "testuser1",
+                                  UID_INVALID,
+                                  &pw));
+        ASSERT_EQ(pw->pw_uid, 111u);
+        ASSERT_STREQ(pw->pw_gecos, "First");
+}
+
+TEST(lookup_grent_in_files) {
+        _cleanup_(unlink_tempfilep) char fn[] = "/tmp/test-user-util-group-XXXXXX";
+        _cleanup_fclose_ FILE *f = NULL;
+
+        ASSERT_OK(fmkostemp_safe(fn, "w", &f));
+        ASSERT_OK(write_string_stream(
+                                f,
+                                "testgroup1:x:100:testuser1,testuser2\n"
+                                "testgroup2:x:200:\n",
+                                /* flags= */ 0));
+        ASSERT_OK(fflush_and_check(f));
+
+        char **files = STRV_MAKE(fn);
+
+        /* Lookup by name */
+        _cleanup_free_ struct group *gr = NULL;
+        ASSERT_OK(lookup_grent_in_files(files, "testgroup1", GID_INVALID, &gr));
+        ASSERT_STREQ(gr->gr_name, "testgroup1");
+        ASSERT_EQ(gr->gr_gid, 100u);
+        ASSERT_STREQ(gr->gr_mem[0], "testuser1");
+        ASSERT_STREQ(gr->gr_mem[1], "testuser2");
+        ASSERT_NULL(gr->gr_mem[2]);
+        gr = mfree(gr);
+
+        ASSERT_OK(lookup_grent_in_files(files, "testgroup2", GID_INVALID, &gr));
+        ASSERT_STREQ(gr->gr_name, "testgroup2");
+        ASSERT_EQ(gr->gr_gid, 200u);
+        ASSERT_NULL(gr->gr_mem[0]);
+        gr = mfree(gr);
+
+        /* Caller doesn't care about contents */
+        ASSERT_OK(lookup_grent_in_files(files, "testgroup1", GID_INVALID, /* ret= */ NULL));
+
+        /* Missing entry */
+        ASSERT_ERROR(lookup_grent_in_files(files, "nosuchgroup", GID_INVALID, &gr), ESRCH);
+        ASSERT_NULL(gr);
+
+        /* Lookup by gid */
+        ASSERT_OK(lookup_grent_in_files(files, /* name= */ NULL, 100, &gr));
+        ASSERT_STREQ(gr->gr_name, "testgroup1");
+        gr = mfree(gr);
+
+        ASSERT_OK(lookup_grent_in_files(files, /* name= */ NULL, 200, &gr));
+        ASSERT_STREQ(gr->gr_name, "testgroup2");
+        gr = mfree(gr);
+
+        /* Missing gid */
+        ASSERT_ERROR(lookup_grent_in_files(files, /* name= */ NULL, 424242, &gr), ESRCH);
+
+        /* Non-existent file is skipped */
+        ASSERT_OK(lookup_grent_in_files(
+                                STRV_MAKE("/nonexistent-dir/group", fn),
+                                "testgroup1",
+                                GID_INVALID,
+                                &gr));
+        ASSERT_STREQ(gr->gr_name, "testgroup1");
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);
