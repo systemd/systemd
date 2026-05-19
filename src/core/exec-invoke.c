@@ -877,31 +877,6 @@ restore_stdio:
         return r;
 }
 
-static int get_fixed_user(
-                const char *user_or_uid,
-                bool prefer_nss,
-                const char **ret_username,
-                uid_t *ret_uid,
-                gid_t *ret_gid,
-                const char **ret_home,
-                const char **ret_shell) {
-
-        int r;
-
-        assert(user_or_uid);
-        assert(ret_username);
-
-        r = get_user_creds(&user_or_uid, ret_uid, ret_gid, ret_home, ret_shell,
-                           USER_CREDS_CLEAN|(prefer_nss ? USER_CREDS_PREFER_NSS : 0));
-        if (r < 0)
-                return r;
-
-        /* user_or_uid is normalized by get_user_creds to username */
-        *ret_username = user_or_uid;
-
-        return 0;
-}
-
 static int get_supplementary_groups(
                 const ExecContext *c,
                 const char *user,
@@ -2015,6 +1990,7 @@ static int build_environment(
                 char ***ret) {
 
         _cleanup_strv_free_ char **e = NULL;
+        _cleanup_free_ char *_username = NULL, *_home = NULL, *_shell = NULL;
         size_t n = 0;
         pid_t exec_pid;
         int r;
@@ -2079,12 +2055,16 @@ static int build_environment(
         if (!username && !c->dynamic_user && p->runtime_scope == RUNTIME_SCOPE_SYSTEM) {
                 assert(!c->user);
 
-                r = get_fixed_user("root", /* prefer_nss= */ false, &username, NULL, NULL, &home, &shell);
+                r = get_user_creds("root", USER_CREDS_CLEAN, &_username, NULL, NULL, &_home, &_shell);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to determine credentials for user root: %s",
                                         STRERROR_USER(r));
                         return ERRNO_IS_NEG_BAD_ACCOUNT(r) ? -EINVAL : r;  /* Suppress confusing errno */
                 }
+
+                username = _username;
+                home = _home;
+                shell = _shell;
         }
 
         bool set_user_login_env = exec_context_get_set_login_environment(c);
@@ -4347,16 +4327,13 @@ static int send_user_lookup(
         return 0;
 }
 
-static int acquire_home(const ExecContext *c, const char **home, char **ret_buf) {
-        int r;
-
+static int acquire_home(const ExecContext *c, char **home) {
         assert(c);
         assert(home);
-        assert(ret_buf);
 
         /* If WorkingDirectory=~ is set, try to acquire a usable home directory. */
 
-        if (*home) /* Already acquired from get_fixed_user()? */
+        if (*home) /* Already acquired from get_user_creds()? */
                 return 0;
 
         if (!c->working_directory_home)
@@ -4365,12 +4342,7 @@ static int acquire_home(const ExecContext *c, const char **home, char **ret_buf)
         if (c->dynamic_user || (c->user && is_this_me(c->user) <= 0))
                 return -EADDRNOTAVAIL;
 
-        r = get_home_dir(ret_buf);
-        if (r < 0)
-                return r;
-
-        *home = *ret_buf;
-        return 1;
+        return get_home_dir(home);
 }
 
 static int compile_suggested_paths(const ExecContext *c, const ExecParameters *p, char ***ret) {
@@ -5162,9 +5134,8 @@ int exec_invoke(
         _cleanup_strv_free_ char **our_env = NULL, **pass_env = NULL, **joined_exec_search_path = NULL, **accum_env = NULL;
         int r;
         const char *username = NULL;
-        _cleanup_free_ char *home_buffer = NULL, *own_user = NULL;
+        _cleanup_free_ char *pwent_home = NULL, *shell = NULL, *_own_user = NULL, *_username = NULL;
         _cleanup_(free_pressure_paths) char *pressure_path[_PRESSURE_RESOURCE_MAX] = {};
-        const char *pwent_home = NULL, *shell = NULL;
         dev_t journal_stream_dev = 0;
         ino_t journal_stream_ino = 0;
         bool needs_sandboxing,          /* Do we need to set up full sandboxing? (i.e. all namespacing, all MAC stuff, caps, yadda yadda */
@@ -5400,36 +5371,40 @@ int exec_invoke(
                         username = runtime->dynamic_creds->user->name;
 
         } else {
-                const char *u;
-
                 if (context->user)
-                        u = context->user;
+                        username = context->user;
                 else if (context->pam_name || FLAGS_SET(command->flags, EXEC_COMMAND_VIA_SHELL)) {
                         /* If PAM is enabled but no user name is explicitly selected, then use our own one. */
-                        own_user = getusername_malloc();
-                        if (!own_user) {
+                        username = _own_user = getusername_malloc();
+                        if (!username) {
                                 *exit_status = EXIT_USER;
                                 return log_oom();
                         }
-                        u = own_user;
-                } else
-                        u = NULL;
+                }
 
-                if (u) {
+                if (username) {
                         /* We can't use nss unconditionally for root without risking deadlocks if some IPC services
                          * will be started by pid1 and are ordered after us. But if SetLoginEnvironment= is
                          * enabled *explicitly* (i.e. no exec_context_get_set_login_environment() here),
                          * or PAM shall be invoked, let's consult NSS even for root, so that the user
                          * gets accurate $SHELL in session(-like) contexts. */
-                        r = get_fixed_user(u,
-                                           /* prefer_nss= */ context->set_login_environment > 0 || context->pam_name,
-                                           &username, &uid, &gid, &pwent_home, &shell);
+                        bool prefer_nss = context->set_login_environment > 0 || context->pam_name;
+
+                        r = get_user_creds(username,
+                                           USER_CREDS_CLEAN|(prefer_nss ? USER_CREDS_PREFER_NSS : 0),
+                                           &_username,
+                                           &uid,
+                                           &gid,
+                                           &pwent_home,
+                                           &shell);
                         if (r < 0) {
                                 *exit_status = EXIT_USER;
                                 log_error_errno(r, "Failed to determine credentials for user '%s': %s",
-                                                u, STRERROR_USER(r));
+                                                username, STRERROR_USER(r));
                                 return ERRNO_IS_NEG_BAD_ACCOUNT(r) ? -EINVAL : r;  /* Suppress confusing errno */
                         }
+
+                        username = _username;
                 }
 
                 if (context->group) {
@@ -5460,7 +5435,7 @@ int exec_invoke(
                 params->user_lookup_fd = safe_close(params->user_lookup_fd);
         }
 
-        r = acquire_home(context, &pwent_home, &home_buffer);
+        r = acquire_home(context, &pwent_home);
         if (r < 0) {
                 *exit_status = EXIT_CHDIR;
                 return log_error_errno(r, "Failed to determine $HOME for the invoking user: %m");

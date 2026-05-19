@@ -2581,19 +2581,18 @@ static int start_transient_scope(sd_bus *bus) {
         }
 
         if (arg_exec_user) {
-                const char *un = arg_exec_user, *home, *shell;
+                _cleanup_free_ char *user = NULL, *home = NULL, *shell = NULL;
                 uid_t uid;
                 gid_t gid;
 
-                r = get_user_creds(&un, &uid, &gid, &home, &shell,
-                                   USER_CREDS_CLEAN|USER_CREDS_SUPPRESS_PLACEHOLDER|USER_CREDS_PREFER_NSS);
+                r = get_user_creds(arg_exec_user,
+                                   USER_CREDS_CLEAN|USER_CREDS_SUPPRESS_PLACEHOLDER|USER_CREDS_PREFER_NSS,
+                                   &user, &uid, &gid, &home, &shell);
                 if (r < 0)
                         return log_error_errno(r, "Failed to resolve user '%s': %s",
                                                arg_exec_user, STRERROR_USER(r));
 
-                r = free_and_strdup_warn(&arg_exec_user, un);
-                if (r < 0)
-                        return r;
+                free_and_replace(arg_exec_user, user);
 
                 if (home) {
                         r = strv_extendf(&user_env, "HOME=%s", home);

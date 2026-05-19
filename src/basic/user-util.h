@@ -62,7 +62,13 @@ typedef enum UserCredsFlags {
         USER_CREDS_SUPPRESS_PLACEHOLDER = 1 << 3,  /* suppress home and/or shell fields if value is placeholder (root/empty/nologin) */
 } UserCredsFlags;
 
-int get_user_creds(const char **username, uid_t *ret_uid, gid_t *ret_gid, const char **ret_home, const char **ret_shell, UserCredsFlags flags);
+int get_user_creds(
+                const char *username,
+                UserCredsFlags flags,
+                char **ret_username,
+                uid_t *ret_uid, gid_t *ret_gid,
+                char **ret_home,
+                char **ret_shell);
 int get_group_creds(const char *groupname, UserCredsFlags flags, char **ret_name, gid_t *ret_gid);
 
 char* uid_to_name(uid_t uid);

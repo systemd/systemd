@@ -988,15 +988,14 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         else if (streq(opts.arg, "self"))
                                 arg_uid = getuid();
                         else {
-                                const char *name = opts.arg;
-
                                 r = get_user_creds(
-                                                &name,
+                                                opts.arg,
+                                                /* flags= */ 0,
+                                                /* ret_username= */ NULL,
                                                 &arg_uid,
                                                 /* ret_gid= */ NULL,
                                                 /* ret_home= */ NULL,
-                                                /* ret_shell= */ NULL,
-                                                /* flags= */ 0);
+                                                /* ret_shell= */ NULL);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to resolve user '%s': %s",
                                                                opts.arg, STRERROR_USER(r));
