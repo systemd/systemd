@@ -17,6 +17,7 @@
 #include "efivars.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "locale-setup.h"
 #include "log.h"
 #include "pager.h"
 #include "pretty-print.h"
@@ -501,6 +502,18 @@ int verb_status(int argc, char *argv[], uintptr_t _data, void *userdata) {
                         errno = -k;
                         printf("  Boot into FW: %sfailed%s (%m)\n", ansi_highlight_red(), ansi_normal());
                 }
+
+                _cleanup_free_ char *lang = NULL;
+                k = locale_lang_from_efi(&lang, /* flags= */ 0);
+                if (k > 0)
+                        printf(" Platform Lang: %s\n", lang);
+                else if (k == 0)
+                        printf(" Platform Lang: n/a\n");
+                else {
+                        errno = -k;
+                        printf(" Platform Lang: %sfailed%s (%m)\n", ansi_highlight_red(), ansi_normal());
+                }
+
                 printf("\n");
 
                 if (loader) {
