@@ -42,6 +42,7 @@ void resource_destroy(Resource *rr) {
         assert(rr);
 
         free(rr->path);
+        free(rr->manifest_path);
         strv_free(rr->patterns);
 
         for (size_t i = 0; i < rr->n_instances; i++)
@@ -362,6 +363,7 @@ static int resource_load_from_blockdev(Resource *rr) {
 
 static int download_manifest(
                 ManifestFormat manifest_format,
+                const char *manifest_url,
                 const char *url,
                 bool verify_signature,
                 char **ret_buffer,
@@ -380,15 +382,19 @@ static int download_manifest(
 
         /* Download a SHA256SUMS file as manifest */
 
-        r = import_url_append_component(url, "SHA256SUMS", &suffixed_url);
-        if (r < 0)
-                return log_error_errno(r, "Failed to append SHA256SUMS to URL: %m");
+        if (!manifest_url) {
+                r = import_url_append_component(url, "SHA256SUMS", &suffixed_url);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to append SHA256SUMS to URL: %m");
+
+                manifest_url = suffixed_url;
+        }
 
         if (pipe2(pfd, O_CLOEXEC) < 0)
                 return log_error_errno(errno, "Failed to allocate pipe: %m");
 
         log_info("%s Acquiring manifest file %s%s", glyph(GLYPH_DOWNLOAD),
-                 suffixed_url, glyph(GLYPH_ELLIPSIS));
+                 manifest_url, glyph(GLYPH_ELLIPSIS));
 
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         r = pidref_safe_fork_full(
@@ -407,7 +413,7 @@ static int download_manifest(
                         "raw",
                         "--direct",                        /* just download the specified URL, don't download anything else */
                         "--verify", verify_signature ? "signature" : "no", /* verify the manifest file */
-                        suffixed_url,
+                        manifest_url,
                         "-",                               /* write to stdout */
                         NULL
                 };
@@ -534,7 +540,13 @@ static int resource_load_from_web(
         } else {
                 log_debug("Manifest web cache miss for %s.", rr->path);
 
-                r = download_manifest(rr->manifest_format, rr->path, verify, &buf, &manifest_size);
+                r = download_manifest(
+                                rr->manifest_format,
+                                rr->manifest_path,
+                                rr->path,
+                                verify,
+                                &buf,
+                                &manifest_size);
                 if (r < 0)
                         return r;
 
