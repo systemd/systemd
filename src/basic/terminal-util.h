@@ -95,8 +95,8 @@ typedef enum GetCompletionsFlags {
 } GetCompletionsFlags;
 
 typedef int (*GetCompletionsCallback)(const char *key, GetCompletionsFlags flags, char ***ret_list, void *userdata);
-int ask_string_full(char **ret, GetCompletionsCallback get_completions, void *userdata, const char *text, ...) _printf_(4, 5);
-#define ask_string(ret, text, ...) ask_string_full(ret, NULL, NULL, text, ##__VA_ARGS__)
+int ask_string_full(char **ret, const char *prefill, GetCompletionsCallback get_completions, void *userdata, const char *text, ...) _printf_(5, 6);
+#define ask_string(ret, text, ...) ask_string_full(ret, NULL, NULL, NULL, text, ##__VA_ARGS__)
 
 bool any_key_to_proceed(void);
 int show_menu(char **x, size_t n_columns, size_t column_width, unsigned ellipsize_percentage, const char *grey_prefix, bool with_numbers);
