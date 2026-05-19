@@ -456,10 +456,13 @@ static int prompt_keymap(int rfd, sd_varlink **mute_console_link) {
 
         print_welcome(rfd, mute_console_link);
 
+        _cleanup_free_ char *prefill = NULL;
+        (void) vconsole_keymap_from_efi(&prefill);
+
         return prompt_loop(
                         "Please enter the new keymap name or number",
                         GLYPH_KEYBOARD,
-                        /* prefill= */ NULL,
+                        prefill,
                         kmaps,
                         /* accepted= */ NULL,
                         /* ellipsize_percentage= */ 60,
