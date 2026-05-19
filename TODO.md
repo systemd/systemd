@@ -128,6 +128,10 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 ## Features
 
+- do not pull dbus daemon/broker anymore, instead lazy activate it. Given how
+  the Varlinkifcation has progressed various non-desktop usescase might not
+  need D-Bus running at all anymore.
+
 - Reuse the LoaderKeyboardLayout EFI variable/find_vconsole_keymap_for_bcp47()
   to pre-select kbd layout in systemd-firstboot. (Right now it's only used in
   vconsole-setup as fallback).
