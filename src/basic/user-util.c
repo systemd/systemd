@@ -352,91 +352,75 @@ int get_user_creds(
         return 0;
 }
 
-static int synthesize_group_creds(
-                const char **groupname,
-                gid_t *ret_gid) {
-
+static int synthesize_group_creds(const char *groupname, char **ret_name, gid_t *ret_gid) {
         assert(groupname);
-        assert(*groupname);
 
-        if (STR_IN_SET(*groupname, "root", "0")) {
-                *groupname = "root";
+        gid_t id;
+        const char *n;
+        int r;
 
-                if (ret_gid)
-                        *ret_gid = 0;
+        if (STR_IN_SET(groupname, "root", "0")) {
+                id = 0;
+                n = "root";
+        } else if (STR_IN_SET(groupname, NOBODY_GROUP_NAME, "65534") &&
+                   synthesize_nobody()) {
+                id = GID_NOBODY;
+                n = NOBODY_GROUP_NAME;
+        } else
+                return -ENOMEDIUM;
 
-                return 0;
-        }
-
-        if (STR_IN_SET(*groupname, NOBODY_GROUP_NAME, "65534") &&
-            synthesize_nobody()) {
-                *groupname = NOBODY_GROUP_NAME;
-
-                if (ret_gid)
-                        *ret_gid = GID_NOBODY;
-
-                return 0;
-        }
-
-        return -ENOMEDIUM;
+        r = strdup_to_full(ret_name, n);
+        if (r < 0)
+                return r;
+        if (ret_gid)
+                *ret_gid = id;
+        return 0;
 }
 
-int get_group_creds(const char **groupname, gid_t *ret_gid, UserCredsFlags flags) {
-        bool patch_groupname = false;
-        struct group *g;
+int get_group_creds(const char *groupname, UserCredsFlags flags, char **ret_name, gid_t *ret_gid) {
+        _cleanup_free_ struct group *gr = NULL;
         gid_t id;
         int r;
 
         assert(groupname);
-        assert(*groupname);
 
         if (!FLAGS_SET(flags, USER_CREDS_PREFER_NSS)) {
-                r = synthesize_group_creds(groupname, ret_gid);
+                r = synthesize_group_creds(groupname, ret_name, ret_gid);
                 if (r >= 0)
                         return 0;
                 if (r != -ENOMEDIUM) /* not a groupname we can synthesize */
                         return r;
         }
 
-        if (parse_gid(*groupname, &id) >= 0) {
-                errno = 0;
-                g = getgrgid(id);
-
-                if (g)
-                        patch_groupname = true;
+        if (parse_gid(groupname, &id) >= 0) {
+                r = getgrgid_malloc(id, &gr);
+                if (r >= 0)
+                        groupname = gr->gr_name;
                 else if (FLAGS_SET(flags, USER_CREDS_ALLOW_MISSING)) {
                         if (ret_gid)
                                 *ret_gid = id;
-
+                        if (ret_name)
+                                *ret_name = NULL;
                         return 0;
                 }
-        } else {
-                errno = 0;
-                g = getgrnam(*groupname);
-        }
+        } else
+                r = getgrnam_malloc(groupname, &gr);
 
-        if (!g) {
-                /* getgrnam() may fail with ENOENT if /etc/group is missing.
-                 * For us that is equivalent to the name not being defined. */
-                r = IN_SET(errno, 0, ENOENT) ? -ESRCH : -errno;
-
-                if (FLAGS_SET(flags, USER_CREDS_PREFER_NSS))
-                        if (synthesize_group_creds(groupname, ret_gid) >= 0)
-                                return 0;
-
+        if (r < 0) {
+                if (FLAGS_SET(flags, USER_CREDS_PREFER_NSS) &&
+                    synthesize_group_creds(groupname, ret_name, ret_gid) >= 0)
+                        return 0;
                 return r;
         }
 
-        if (ret_gid) {
-                if (!gid_is_valid(g->gr_gid))
-                        return -EBADMSG;
+        if (ret_gid && !gid_is_valid(gr->gr_gid))
+                return -EBADMSG;
 
-                *ret_gid = g->gr_gid;
-        }
-
-        if (patch_groupname)
-                *groupname = g->gr_name;
-
+        r = strdup_to_full(ret_name, groupname);
+        if (r < 0)
+                return r;
+        if (ret_gid)
+                *ret_gid = gr->gr_gid;
         return 0;
 }
 
@@ -521,7 +505,7 @@ int in_group(const char *name) {
         int r;
         gid_t gid;
 
-        r = get_group_creds(&name, &gid, 0);
+        r = get_group_creds(name, /* flags= */ 0, /* ret_name= */ NULL, &gid);
         if (r < 0)
                 return r;
 

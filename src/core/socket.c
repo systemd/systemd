@@ -2057,13 +2057,11 @@ static int socket_chown(Socket *s, PidRef *ret_pid) {
                 }
 
                 if (!isempty(s->group)) {
-                        const char *group = s->group;
-
-                        r = get_group_creds(&group, &gid, 0);
+                        r = get_group_creds(s->group, /* flags= */ 0, /* ret_name= */ NULL, &gid);
                         if (r < 0) {
                                 log_unit_error_errno(UNIT(s), r,
                                                      "Failed to resolve group '%s': %s",
-                                                     group, STRERROR_GROUP(r));
+                                                     s->group, STRERROR_GROUP(r));
                                 _exit(EXIT_GROUP);
                         }
                 }

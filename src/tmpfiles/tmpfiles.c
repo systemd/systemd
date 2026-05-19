@@ -3796,7 +3796,7 @@ static int find_gid(const char *group, gid_t *ret_gid, Hashmap **cache) {
 
         /* Second: pass to NSS if we are running "online" */
         if (!arg_root)
-                return get_group_creds(&group, ret_gid, 0);
+                return get_group_creds(group, /* flags= */ 0, /* ret_name= */ NULL, ret_gid);
 
         /* Third, synthesize "root" unconditionally */
         if (streq(group, "root")) {
