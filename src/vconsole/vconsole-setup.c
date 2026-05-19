@@ -15,7 +15,6 @@
 
 #include "alloc-util.h"
 #include "creds-util.h"
-#include "efivars.h"
 #include "env-file.h"
 #include "errno-util.h"
 #include "fd-util.h"
@@ -76,25 +75,15 @@ static void context_merge_config(
 
 static int context_read_efi(Context *c) {
         _cleanup_(context_done) Context v = {};
-        _cleanup_free_ char *tag = NULL;
         int r;
 
         assert(c);
 
-        if (!is_efi_boot())
-                return 0;
-
-        r = efi_get_variable_string(EFI_LOADER_VARIABLE_STR("LoaderKeyboardLayout"), &tag);
-        if (r == -ENOENT)
-                return 0;
+        r = vconsole_keymap_from_efi(&v.keymap);
         if (r < 0)
-                return log_debug_errno(r, "Failed to read LoaderKeyboardLayout EFI variable, ignoring: %m");
-
-        r = find_vconsole_keymap_for_bcp47(tag, &v.keymap);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to look up vconsole keymap for firmware tag '%s', ignoring: %m", tag);
+                return r;
         if (r == 0) {
-                log_debug("No vconsole keymap matches firmware-provided keyboard layout '%s', ignoring.", tag);
+                log_debug("No vconsole keymap matches firmware-provided keyboard layout, ignoring.");
                 return 0;
         }
 

@@ -4,6 +4,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "efivars.h"
 #include "env-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
@@ -653,6 +654,32 @@ int find_vconsole_keymap_for_bcp47(const char *tag, char **ret) {
         log_debug("Found vconsole keymap '%s' for BCP 47 tag '%s' (primary subtag match).", fallback, tag);
         *ret = TAKE_PTR(fallback);
         return 1;
+}
+
+int vconsole_keymap_from_efi(char **ret) {
+        int r;
+
+        assert(ret);
+
+        if (!is_efi_boot()) {
+                *ret = NULL;
+                return 0;
+        }
+
+        _cleanup_free_ char *tag = NULL;
+        r = efi_get_variable_string(EFI_LOADER_VARIABLE_STR("LoaderKeyboardLayout"), &tag);
+        if (r == -ENOENT) {
+                *ret = NULL;
+                return 0;
+        }
+        if (r < 0)
+                return log_debug_errno(r, "Failed to read LoaderKeyboardLayout EFI variable: %m");
+
+        r = find_vconsole_keymap_for_bcp47(tag, ret);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to look up vconsole keymap for firmware tag '%s': %m", tag);
+
+        return r;
 }
 
 int vconsole_serialize(const VCContext *vc, const X11Context *xc, char ***env) {
