@@ -2944,14 +2944,17 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 config.vsock.cid = child_cid;
         }
 
-        /* -cpu stays on cmdline since not all flags are supported in config */
-        r = strv_extend_many(&cmdline, "-cpu",
+        /* -cpu stays on cmdline since not all flags are supported in config. SNP needs a stable,
+         * named CPU model so the launch measurement is reproducible across hosts; EPYC-v4 is the
+         * baseline that covers all SNP-capable processors (Milan and later). */
+        const char *cpu_model =
 #ifdef __x86_64__
-                             "max,hv_relaxed,hv-vapic,hv-time"
+                arg_confidential_computing == COCO_AMD_SEV_SNP ? "EPYC-v4"
+                                                             : "max,hv_relaxed,hv-vapic,hv-time";
 #else
-                             "max"
+                "max";
 #endif
-        );
+        r = strv_extend_many(&cmdline, "-cpu", cpu_model);
         if (r < 0)
                 return log_oom();
 
