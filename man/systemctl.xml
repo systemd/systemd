@@ -418,6 +418,13 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           <listitem>
             <para>Start (activate) one or more units specified on the command line.</para>
 
+            <para>When more than one unit is specified, the units are enqueued in a single job transaction.
+            This ensures that ordering dependencies (<varname>After=</varname>/<varname>Before=</varname>)
+            configured between the listed units are honored, regardless of the order in which they are given
+            on the command line. The same applies to <command>stop</command>, <command>restart</command> and
+            the reload/restart variants below. If a single transaction cannot be put together, separate
+            transactions will be submitted separately instead as a fallback.</para>
+
             <para>Note that unit glob patterns expand to names of units currently in memory. Units which are
             not active and are not in a failed state usually are not in memory, and will not be matched by
             any pattern. In addition, in case of instantiated units, systemd is often unaware of the instance
