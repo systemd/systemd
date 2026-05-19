@@ -36,7 +36,7 @@
 #include "label-util.h"
 #include "list.h"
 #include "main-func.h"
-#include "mkdir-label.h"
+#include "mkdir.h"
 #include "options.h"
 #include "ordered-set.h"
 #include "parse-argument.h"

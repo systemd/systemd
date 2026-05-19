@@ -2,7 +2,8 @@
 #pragma once
 
 #include "basic-forward.h"
-#include "strv-fundamental.h"   /* IWYU pragma: export */
+
+#include "../fundamental/strv.h"   /* IWYU pragma: export */
 
 char* strv_find(char * const *l, const char *name) _pure_;
 char* strv_find_case(char * const *l, const char *name) _pure_;

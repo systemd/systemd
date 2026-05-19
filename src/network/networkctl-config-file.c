@@ -14,7 +14,7 @@
 #include "extract-word.h"
 #include "fd-util.h"
 #include "log.h"
-#include "mkdir-label.h"
+#include "mkdir.h"
 #include "netlink-util.h"
 #include "network-util.h"
 #include "networkctl.h"

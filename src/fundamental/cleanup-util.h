@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "assert-fundamental.h"
+#include "assert-util.h"
 
 /* A wrapper for 'func' to return void.
  * Only useful when a void-returning function is required by some API. */

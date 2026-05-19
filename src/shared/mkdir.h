@@ -2,7 +2,8 @@
 #pragma once
 
 #include "shared-forward.h"
-#include "mkdir.h"
+
+#include "../basic/mkdir.h"      /* IWYU pragma: export */
 
 int mkdirat_label(int dirfd, const char *path, mode_t mode);
 

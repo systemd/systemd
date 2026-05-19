@@ -39,7 +39,7 @@
 #include "logind-user.h"
 #include "logind-user-dbus.h"
 #include "logind-varlink.h"
-#include "mkdir-label.h"
+#include "mkdir.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
