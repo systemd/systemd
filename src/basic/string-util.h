@@ -5,7 +5,8 @@
 
 #include "alloc-util.h"
 #include "basic-forward.h"
-#include "string-util-fundamental.h" /* IWYU pragma: export */
+
+#include "../fundamental/string-util.h" /* IWYU pragma: export */
 
 static inline char* strstr_ptr_internal(const char *haystack, const char *needle) {
         if (!haystack || !needle)

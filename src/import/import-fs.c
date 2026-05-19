@@ -17,7 +17,7 @@
 #include "install-file.h"
 #include "log.h"
 #include "main-func.h"
-#include "mkdir-label.h"
+#include "mkdir.h"
 #include "options.h"
 #include "parse-argument.h"
 #include "path-util.h"

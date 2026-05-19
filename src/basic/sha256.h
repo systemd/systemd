@@ -3,7 +3,8 @@
 #pragma once
 
 #include "basic-forward.h"
-#include "sha256-fundamental.h" /* IWYU pragma: export */
+
+#include "../fundamental/sha256.h" /* IWYU pragma: export */
 
 int sha256_fd(int fd, uint64_t max_size, uint8_t ret[static SHA256_DIGEST_SIZE]);
 

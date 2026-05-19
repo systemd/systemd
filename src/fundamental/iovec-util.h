@@ -5,8 +5,8 @@
 #include <sys/uio.h>
 #endif
 
-#include "assert-fundamental.h"         /* IWYU pragma: keep */
-#include "macro-fundamental.h"
+#include "assert-util.h"         /* IWYU pragma: keep */
+#include "macro.h"
 
 #if SD_BOOT
 /* struct iovec is a POSIX userspace construct. Let's introduce it also in EFI mode, it's just so useful */

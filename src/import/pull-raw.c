@@ -15,7 +15,7 @@
 #include "install-file.h"
 #include "iovec-util.h"
 #include "log.h"
-#include "mkdir-label.h"
+#include "mkdir.h"
 #include "pull-common.h"
 #include "pull-job.h"
 #include "pull-raw.h"

@@ -2,7 +2,8 @@
 #pragma once
 
 #include "shared-forward.h"
-#include "label.h"      /* IWYU pragma: export */
+
+#include "../basic/label-util.h"      /* IWYU pragma: export */
 
 typedef enum LabelFixFlags {
         LABEL_IGNORE_ENOENT = 1 << 0,

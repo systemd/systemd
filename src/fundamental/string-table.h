@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "macro-fundamental.h"
+#include "macro.h"
 
 #define DECLARE_STRING_TABLE_LOOKUP_TO_STRING(name, type) \
         const char* name##_to_string(type i) _const_

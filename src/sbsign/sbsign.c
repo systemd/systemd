@@ -9,7 +9,7 @@
 #include "build.h"
 #include "copy.h"
 #include "crypto-util.h"
-#include "efi-fundamental.h"
+#include "efi.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-table.h"

@@ -21,7 +21,7 @@
 #include "hashmap.h"
 #include "libmount-util.h"
 #include "log.h"
-#include "mkdir-label.h"
+#include "mkdir.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
 #include "namespace-util.h"

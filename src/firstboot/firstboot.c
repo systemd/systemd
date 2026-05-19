@@ -54,7 +54,7 @@
 #include "strv.h"
 #include "terminal-util.h"
 #include "time-util.h"
-#include "tmpfile-util-label.h"
+#include "tmpfile-util.h"
 #include "user-util.h"
 #include "vconsole-util.h"
 
