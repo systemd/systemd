@@ -711,6 +711,18 @@ static int builtin_path_id(UdevEvent *event, int argc, char *argv[]) {
                                 path_prepend(&path, "serio-%s", sysnum);
                                 parent = skip_subsystem(parent, "serio");
                         }
+                } else if (device_in_subsystem(parent, "auxiliary") > 0) {
+                        unsigned sfnum;
+
+                        /* sfnum is the user-defined sub-function number (devlink port add ...
+                         * sfnum N). Prepend it so an SF leaf device gets an ID_PATH distinct
+                         * from its parent PF/VF; aux devices without 'sfnum' emit no token to
+                         * preserve pre-patch ID_PATH values. */
+                        if (device_get_sysattr_unsigned(parent, "sfnum", &sfnum) >= 0) {
+                                path_prepend(&path, "sf-%u", sfnum);
+                                if (compat_path)
+                                        path_prepend(&compat_path, "sf-%u", sfnum);
+                        }
                 } else if (device_in_subsystem(parent, "pci") > 0) {
                         path_prepend(&path, "pci-%s", sysname);
                         if (compat_path)

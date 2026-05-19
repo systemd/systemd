@@ -170,6 +170,7 @@
           <term><varname>ID_NET_NAME_SLOT=</varname><replaceable>prefix</replaceable>[<constant>P</constant><replaceable>domain</replaceable>]<constant>s</constant><replaceable>slot</replaceable>[<constant>f</constant><replaceable>function</replaceable>][<constant>n</constant><replaceable>port_name</replaceable>|<constant>d</constant><replaceable>dev_port</replaceable>]<constant>u</constant><replaceable>port</replaceable>…[<constant>c</constant><replaceable>config</replaceable>][<constant>i</constant><replaceable>interface</replaceable>]</term>
           <term><varname>ID_NET_NAME_SLOT=</varname><replaceable>prefix</replaceable>[<constant>P</constant><replaceable>domain</replaceable>]<constant>s</constant><replaceable>slot</replaceable>[<constant>f</constant><replaceable>function</replaceable>][<constant>n</constant><replaceable>port_name</replaceable>|<constant>d</constant><replaceable>dev_port</replaceable>]<constant>v</constant><replaceable>slot</replaceable></term>
           <term><varname>ID_NET_NAME_SLOT=</varname><replaceable>prefix</replaceable>[<constant>P</constant><replaceable>domain</replaceable>]<constant>s</constant><replaceable>slot</replaceable>[<constant>f</constant><replaceable>function</replaceable>][<constant>n</constant><replaceable>port_name</replaceable>|<constant>d</constant><replaceable>dev_port</replaceable>]<constant>r</constant><replaceable>slot</replaceable></term>
+          <term><varname>ID_NET_NAME_SLOT=</varname><replaceable>prefix</replaceable>[<constant>P</constant><replaceable>domain</replaceable>]<constant>s</constant><replaceable>slot</replaceable>[<constant>f</constant><replaceable>function</replaceable>][<constant>n</constant><replaceable>port_name</replaceable>|<constant>d</constant><replaceable>dev_port</replaceable>]<constant>S</constant><replaceable>sfnum</replaceable></term>
 
           <listitem><para>This property describes the slot position. Different schemes are used depending on
           the bus type, as described in the table below. In case of USB, BCMA, and SR-VIO devices, the full
@@ -222,6 +223,11 @@
                   <entry>… <constant>r</constant><replaceable>slot</replaceable></entry>
                   <entry>SR-IOV slot number</entry>
                 </row>
+
+                <row>
+                  <entry>… <constant>S</constant><replaceable>sfnum</replaceable></entry>
+                  <entry>Auxiliary sub-function (SF) number</entry>
+                </row>
               </tbody>
             </tgroup>
           </table>
@@ -247,6 +253,20 @@
           is linked to the particular representor, with any leading zeros removed. The physical port
           name and the bus number are ignored.</para>
 
+          <para>Auxiliary sub-function (SF) network devices, where the network device's parent is an
+          auxiliary device exposing a <constant>sfnum</constant> sysfs attribute (currently mlx5_core SFs),
+          are named based on the underlying PCI function (the PF, or for VF-SF the PF behind the VF),
+          with a suffix of <constant>S</constant> and the user-defined sub-function number from
+          <constant>sfnum</constant>. This is analogous to how SR-IOV virtual function devices are named
+          with a <constant>v</constant> suffix.</para>
+
+          <para>If the SF's parent PCI function is itself an SR-IOV virtual function (VF-SF), the
+          name is rooted at the PF and both suffixes are chained, with the <constant>v</constant>
+          suffix preceding the <constant>S</constant> suffix
+          (e.g. <literal>enp193s0f0v0S88</literal>). The PF, the VF, and the SF therefore form a
+          stable, hierarchical sequence regardless of the VF's underlying PCI bus/device/function
+          numbering.</para>
+
           <para>In some configurations a parent PCI bridge of a given network controller may be associated
           with a slot. In such case we do not generate this device property to avoid possible naming conflicts.</para>
 
@@ -262,6 +282,7 @@
           <term><varname>ID_NET_NAME_PATH=</varname><replaceable>prefix</replaceable>[<constant>P</constant><replaceable>domain</replaceable>]<constant>p</constant><replaceable>bus</replaceable><constant>s</constant><replaceable>slot</replaceable>[<constant>f</constant><replaceable>function</replaceable>][<constant>n</constant><replaceable>phys_port_name</replaceable>|<constant>d</constant><replaceable>dev_port</replaceable>]</term>
           <term><varname>ID_NET_NAME_PATH=</varname><replaceable>prefix</replaceable>[<constant>P</constant><replaceable>domain</replaceable>]<constant>p</constant><replaceable>bus</replaceable><constant>s</constant><replaceable>slot</replaceable>[<constant>f</constant><replaceable>function</replaceable>][<constant>n</constant><replaceable>phys_port_name</replaceable>|<constant>d</constant><replaceable>dev_port</replaceable>]<constant>b</constant><replaceable>number</replaceable></term>
           <term><varname>ID_NET_NAME_PATH=</varname><replaceable>prefix</replaceable>[<constant>P</constant><replaceable>domain</replaceable>]<constant>p</constant><replaceable>bus</replaceable><constant>s</constant><replaceable>slot</replaceable>[<constant>f</constant><replaceable>function</replaceable>][<constant>n</constant><replaceable>phys_port_name</replaceable>|<constant>d</constant><replaceable>dev_port</replaceable>]<constant>u</constant><replaceable>port</replaceable>…[<constant>c</constant><replaceable>config</replaceable>][<constant>i</constant><replaceable>interface</replaceable>]</term>
+          <term><varname>ID_NET_NAME_PATH=</varname><replaceable>prefix</replaceable>[<constant>P</constant><replaceable>domain</replaceable>]<constant>p</constant><replaceable>bus</replaceable><constant>s</constant><replaceable>slot</replaceable>[<constant>f</constant><replaceable>function</replaceable>][<constant>n</constant><replaceable>phys_port_name</replaceable>|<constant>d</constant><replaceable>dev_port</replaceable>]<constant>S</constant><replaceable>sfnum</replaceable></term>
 
           <listitem><para>This property describes the device installation location. Different schemes are
           used depending on the bus type, as described in the table below. For BCMA and USB devices, PCI path
@@ -308,6 +329,11 @@
                 <row>
                   <entry>… <constant>u</constant><replaceable>port</replaceable>… [<constant>c</constant><replaceable>config</replaceable>] [<constant>i</constant><replaceable>interface</replaceable>]</entry>
                   <entry>USB port number chain</entry>
+                </row>
+
+                <row>
+                  <entry>… <constant>S</constant><replaceable>sfnum</replaceable></entry>
+                  <entry>Auxiliary sub-function (SF) number</entry>
                 </row>
 
               </tbody>
@@ -573,6 +599,22 @@
           prefix.</para>
 
           <xi:include href="version-info.xml" xpointer="v260"/>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>v261</constant></term>
+
+          <listitem><para>Stable names are now generated for auxiliary sub-function (SF) network devices
+          (such as <literal>mlx5_core</literal> SFs). The name is built from the parent PCI Physical Function's
+          path with an <literal>S<replaceable>sfnum</replaceable></literal> suffix, where
+          <replaceable>sfnum</replaceable> is the user-defined SF number (the value passed to
+          <command>devlink port add … sfnum <replaceable>N</replaceable></command>, exposed by the kernel as
+          the <constant>sfnum</constant> sysfs attribute on the auxiliary device). This is analogous to the
+          <literal>v<replaceable>N</replaceable></literal> suffix used for SR-IOV virtual functions; for SFs
+          hosted on SR-IOV VFs (VF-SF), the two suffixes are chained on top of the PF's base name.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/>
           </listitem>
         </varlistentry>
       </variablelist>
