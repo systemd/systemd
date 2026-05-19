@@ -1725,6 +1725,7 @@ static int component_name_valid(const char *c) {
 VERB_NOARG(verb_components, "components",
            "Show list of components");
 static int verb_components(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        _cleanup_(context_freep) Context* context = NULL;
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
         _cleanup_set_free_ Set *names = NULL;
@@ -1734,6 +1735,11 @@ static int verb_components(int argc, char *argv[], uintptr_t _data, void *userda
         assert(argc <= 1);
 
         r = process_image(/* ro= */ false, &mounted_dir, &loop_device);
+        if (r < 0)
+                return r;
+
+        r = context_make_offline(&context, loop_device ? loop_device->node : NULL,
+                                 /* requires_enabled_transfers= */ false, /* requires_any_transfers= */ false);
         if (r < 0)
                 return r;
 
@@ -1751,7 +1757,6 @@ static int verb_components(int argc, char *argv[], uintptr_t _data, void *userda
                 ConfFile *e = *i;
 
                 if (streq(e->filename, "sysupdate.d")) {
-                        has_default_component = true;
                         continue;
                 }
 
@@ -1778,6 +1783,14 @@ static int verb_components(int argc, char *argv[], uintptr_t _data, void *userda
                         return log_error_errno(r, "Failed to add component '%s' to set: %m", n);
                 TAKE_PTR(n);
         }
+
+        /* Does the system have at least one transfer file in /etc/sysupdate.d, which can be considered a
+         * TARGET_HOST? See target_get_argument() in sysupdated.c */
+        has_default_component = (!arg_definitions &&
+                                 !arg_component &&
+                                 !arg_root &&
+                                 !arg_image &&
+                                 context->n_transfers > 0);
 
         /* We use simple free() rather than strv_free() here, since set_free() will free the strings for us */
         _cleanup_free_ char **z = set_get_strv(names);
