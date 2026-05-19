@@ -1090,6 +1090,87 @@ const char* get_home_root(void) {
         return "/home";
 }
 
+static int copy_struct_passwd(const struct passwd *pw, struct passwd **ret) {
+        assert(pw);
+        assert(ret);
+
+        size_t need_bytes = sizeof(struct passwd)
+                + strlen_ptr(pw->pw_name) + 1
+                + strlen_ptr(pw->pw_passwd) + 1
+                + strlen_ptr(pw->pw_gecos) + 1
+                + strlen_ptr(pw->pw_dir) + 1
+                + strlen_ptr(pw->pw_shell) + 1;
+
+        char *buf = malloc(need_bytes);
+        if (!buf)
+                return -ENOMEM;
+
+        struct passwd *newpw = (struct passwd *) buf;
+
+        /* The layout in our buffer:
+         * struct passwd, and then individual strings. */
+        char *p = buf + sizeof(struct passwd);
+
+        newpw->pw_name = p;
+        p = stpcpy(p, strempty(pw->pw_name)) + 1;
+
+        newpw->pw_passwd = p;
+        p = stpcpy(p, strempty(pw->pw_passwd)) + 1;
+
+        newpw->pw_uid = pw->pw_uid;
+        newpw->pw_gid = pw->pw_gid;
+
+        newpw->pw_gecos = p;
+        p = stpcpy(p, strempty(pw->pw_gecos)) + 1;
+
+        newpw->pw_dir = p;
+        p = stpcpy(p, strempty(pw->pw_dir)) + 1;
+
+        newpw->pw_shell = p;
+        p = stpcpy(p, strempty(pw->pw_shell)) + 1;
+
+        *ret = newpw;
+        return 0;
+}
+
+/* Iterate the given list of passwd-format files looking for an entry matching the predicate (by
+ * name if 'name' is non-NULL and by 'uid' if valid). Returns -ESRCH if no entry is found. */
+int lookup_pwent_in_files(
+                char * const *files,
+                const char *name,
+                uid_t uid,
+                struct passwd **ret) {
+
+        int r;
+
+        assert(files);
+        assert(name || uid_is_valid(uid));
+
+        STRV_FOREACH(fname, files) {
+                _cleanup_fclose_ FILE *f = NULL;
+                struct passwd *pw;
+
+                r = fopen_unlocked(*fname, "re", &f);
+                if (r == -ENOENT)
+                        continue;
+                if (r < 0)
+                        return r;
+
+                while ((r = fgetpwent_sane(f, &pw)) > 0) {
+                        if (name && !streq_ptr(pw->pw_name, name))
+                                continue;
+                        if (uid_is_valid(uid) && pw->pw_uid != uid)
+                                continue;
+                        if (ret)
+                                return copy_struct_passwd(pw, ret);
+                        return 0;
+                }
+                if (r < 0)
+                        return r;
+        }
+
+        return -ESRCH;
+}
 static size_t getpw_buffer_size(void) {
         long bufsize = sysconf(_SC_GETPW_R_SIZE_MAX);
         return bufsize <= 0 ? 4096U : (size_t) bufsize;
@@ -1186,6 +1267,84 @@ int getpwuid_malloc(uid_t uid, struct passwd **ret) {
                         return -ENOMEM;
                 bufsize *= 2;
         }
+}
+
+static int copy_struct_group(const struct group *gr, struct group **ret) {
+        assert(gr);
+        assert(ret);
+
+        size_t need_bytes = sizeof(struct group)
+                + strlen_ptr(gr->gr_name) + 1
+                + strlen_ptr(gr->gr_passwd) + 1,
+                n_mem = 0;
+        STRV_FOREACH(s, gr->gr_mem) {
+                need_bytes += sizeof(char*) + strlen(*s) + 1;
+                n_mem++;
+        }
+        need_bytes += sizeof(char*);  /* NULL terminator for gr_mem */
+
+        char *buf = malloc(need_bytes);
+        if (!buf)
+                return -ENOMEM;
+
+        struct group *newgr = (struct group *) buf;
+
+        /* The layout in our buffer:
+         * struct group, ->gr_mem pointers terminated by NULL, ->gr_name, ->gr_passwd, ->gr_mem items */
+        /* The ->gr_mem array is first, because it needs alignment. */
+        assert_cc(sizeof(struct group) % alignof(char*) == 0);
+
+        char *p = buf + sizeof(struct group) + (n_mem + 1) * sizeof(char*);
+
+        newgr->gr_name = p;
+        p = stpcpy(p, strempty(gr->gr_name)) + 1;
+
+        newgr->gr_passwd = p;
+        p = stpcpy(p, strempty(gr->gr_passwd)) + 1;
+
+        newgr->gr_gid = gr->gr_gid;
+
+        newgr->gr_mem = (char**) (buf + sizeof(struct group));
+        for (size_t i = 0; i < n_mem; i++) {
+                newgr->gr_mem[i] = p;
+                p = stpcpy(p, gr->gr_mem[i]) + 1;
+        }
+        newgr->gr_mem[n_mem] = NULL;
+
+        *ret = newgr;
+        return 0;
+}
+
+/* See lookup_pwent_in_files() for the analogous passwd-file version. */
+int lookup_grent_in_files(
+                char * const *files,
+                const char *name,
+                gid_t gid,
+                struct group **ret) {
+
+        int r;
+
+        assert(files);
+        assert(name || gid_is_valid(gid));
+
+        STRV_FOREACH(fname, files) {
+                _cleanup_fclose_ FILE *f = NULL;
+                struct group *gr;
+
+                r = fopen_unlocked(*fname, "re", &f);
+                if (r == -ENOENT)
+                        continue;
+                if (r < 0)
+                        return r;
+
+                while ((r = fgetgrent_sane(f, &gr)) > 0)
+                        if (name ? streq_ptr(gr->gr_name, name) : gr->gr_gid == gid)
+                                return ret ? copy_struct_group(gr, ret) : 0;
+                if (r < 0)
+                        return r;
+        }
+
+        return -ESRCH;
 }
 
 static size_t getgr_buffer_size(void) {

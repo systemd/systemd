@@ -173,6 +173,17 @@ static inline bool hashed_password_is_locked_or_invalid(const char *password) {
  */
 #define PASSWORD_UNPROVISIONED "!unprovisioned"
 
+int lookup_pwent_in_files(
+                char * const *files,
+                const char *name,
+                uid_t uid,
+                struct passwd **ret);
+int lookup_grent_in_files(
+                char * const *files,
+                const char *name,
+                gid_t gid,
+                struct group **ret);
+
 int getpwuid_malloc(uid_t uid, struct passwd **ret);
 int getpwnam_malloc(const char *name, struct passwd **ret);
 
