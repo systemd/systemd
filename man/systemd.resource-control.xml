@@ -1127,7 +1127,7 @@ BindNetworkInterface=vrf-mgmt
           <command>systemctl daemon-reload</command> can be used to refill the sets.</para>
 
           <para>Example:
-          <programlisting>[Unit]
+          <programlisting>[Service]
 NFTSet=cgroup:inet:filter:my_service user:inet:filter:serviceuser
 </programlisting>
           Corresponding NFT rules:
