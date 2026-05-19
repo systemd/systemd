@@ -2733,6 +2733,7 @@ static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) 
                 _cleanup_(iovec_done_erase) struct iovec discovered_key_data = {};
                 const struct iovec *key_data = NULL;
                 TokenType token_type = determine_token_type();
+                bool passphrase_from_cache = false;
 
                 log_debug("Beginning attempt %u to unlock.", tries);
 
@@ -2769,6 +2770,7 @@ static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) 
                                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No passphrase or recovery key registered.");
                                 }
 
+                                passphrase_from_cache = use_cached_passphrase;
                                 r = get_password(
                                                 volume,
                                                 source,
@@ -2816,6 +2818,12 @@ static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) 
 
                 if (try_discover_key) {
                         try_discover_key = false;
+                        if (passphrase_from_cache) {
+                                /* Discard the stale cached passphrase so the next iteration prompts
+                                 * the user; don't count this silent attempt against tries=. */
+                                passwords = strv_free_erase(passwords);
+                                tries--;
+                        }
                         continue;
                 }
 
@@ -2826,6 +2834,9 @@ static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) 
 
                 if (passwords) {
                         passwords = strv_free_erase(passwords);
+                        /* Don't count the cached keyring attempt against tries= — the user never saw a prompt */
+                        if (passphrase_from_cache)
+                                tries--;
                         continue;
                 }
 
