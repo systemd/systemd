@@ -53,11 +53,6 @@
 #include "virt.h"
 
 #if HAVE_TPM2
-static void *libtss2_esys_dl = NULL;
-static void *libtss2_rc_dl = NULL;
-static void *libtss2_mu_dl = NULL;
-static void *libtss2_tcti_device_dl = NULL;
-
 static DLSYM_PROTOTYPE(Esys_Create) = NULL;
 static DLSYM_PROTOTYPE(Esys_CreateLoaded) = NULL;
 static DLSYM_PROTOTYPE(Esys_CreatePrimary) = NULL;
@@ -126,6 +121,7 @@ static DLSYM_PROTOTYPE(Tss2_MU_UINT32_Marshal) = NULL;
 static DLSYM_PROTOTYPE(Tss2_RC_Decode) = NULL;
 
 static int dlopen_tpm2_esys(int log_level) {
+        static void *libtss2_esys_dl = NULL;
         int r;
 
         SD_ELF_NOTE_DLOPEN(
@@ -192,6 +188,8 @@ static int dlopen_tpm2_esys(int log_level) {
 }
 
 static int dlopen_tpm2_rc(int log_level) {
+        static void *libtss2_rc_dl = NULL;
+
         SD_ELF_NOTE_DLOPEN(
                         "tpm",
                         "Support for TPM",
@@ -204,6 +202,8 @@ static int dlopen_tpm2_rc(int log_level) {
 }
 
 static int dlopen_tpm2_mu(int log_level) {
+        static void *libtss2_mu_dl = NULL;
+
         SD_ELF_NOTE_DLOPEN(
                         "tpm",
                         "Support for TPM",
@@ -234,6 +234,8 @@ static int dlopen_tpm2_mu(int log_level) {
 }
 
 static int dlopen_tpm2_tcti_device(int log_level) {
+        static void *libtss2_tcti_device_dl = NULL;
+
         /* The "device" TCTI is the most relevant one, let's also load it explicitly on dlopen_tpm2(), even
          * if we don't resolve any symbols here. */
 

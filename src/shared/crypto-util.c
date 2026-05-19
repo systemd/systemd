@@ -37,8 +37,6 @@ struct OpenSSLAskPasswordUI {
 #endif
 };
 
-static void *libcrypto_dl = NULL;
-
 static DLSYM_PROTOTYPE(ASN1_INTEGER_dup) = NULL;
 static DLSYM_PROTOTYPE(ASN1_INTEGER_free) = NULL;
 static DLSYM_PROTOTYPE(ASN1_INTEGER_set) = NULL;
@@ -336,6 +334,8 @@ DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(UI_METHOD*, sym_UI_destroy_method, UI_de
 
 int dlopen_libcrypto(int log_level) {
 #if HAVE_OPENSSL
+        static void *libcrypto_dl = NULL;
+
         SD_ELF_NOTE_DLOPEN(
                         "libcrypto",
                         "Support for cryptographic operations",

@@ -23,8 +23,6 @@
 #define FIDO_ERR_UV_BLOCKED 0x3c
 #endif
 
-static void *libfido2_dl = NULL;
-
 DLSYM_PROTOTYPE(fido_assert_allow_cred) = NULL;
 DLSYM_PROTOTYPE(fido_assert_free) = NULL;
 DLSYM_PROTOTYPE(fido_assert_hmac_secret_len) = NULL;
@@ -82,6 +80,7 @@ static void fido_log_propagate_handler(const char *s) {
 
 int dlopen_libfido2(int log_level) {
 #if HAVE_LIBFIDO2
+        static void *libfido2_dl = NULL;
         int r;
 
         SD_ELF_NOTE_DLOPEN(
