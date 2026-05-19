@@ -295,6 +295,7 @@ static int prompt_locale(int rfd, sd_varlink **mute_console_link) {
 
                 r = prompt_loop("Please enter the new system locale name or number",
                                 GLYPH_WORLD,
+                                /* prefill= */ NULL,
                                 locales,
                                 /* accepted= */ NULL,
                                 /* ellipsize_percentage= */ 60,
@@ -312,6 +313,7 @@ static int prompt_locale(int rfd, sd_varlink **mute_console_link) {
 
                 r = prompt_loop("Please enter the new system message locale name or number",
                                 GLYPH_WORLD,
+                                /* prefill= */ NULL,
                                 locales,
                                 /* accepted= */ NULL,
                                 /* ellipsize_percentage= */ 60,
@@ -457,6 +459,7 @@ static int prompt_keymap(int rfd, sd_varlink **mute_console_link) {
         return prompt_loop(
                         "Please enter the new keymap name or number",
                         GLYPH_KEYBOARD,
+                        /* prefill= */ NULL,
                         kmaps,
                         /* accepted= */ NULL,
                         /* ellipsize_percentage= */ 60,
@@ -573,6 +576,7 @@ static int prompt_timezone(int rfd, sd_varlink **mute_console_link) {
         return prompt_loop(
                         "Please enter the new timezone name or number",
                         GLYPH_CLOCK,
+                        /* prefill= */ NULL,
                         zones,
                         /* accepted= */ NULL,
                         /* ellipsize_percentage= */ 30,
@@ -680,6 +684,7 @@ static int prompt_hostname(int rfd, sd_varlink **mute_console_link) {
 
         r = prompt_loop("Please enter the new hostname",
                         GLYPH_LABEL,
+                        /* prefill= */ NULL,
                         /* menu= */ NULL,
                         /* accepted= */ NULL,
                         /* ellipsize_percentage= */ 100,
@@ -888,6 +893,7 @@ static int prompt_root_shell(int rfd, sd_varlink **mute_console_link) {
         return prompt_loop(
                         "Please enter the new root shell",
                         GLYPH_SHELL,
+                        /* prefill= */ NULL,
                         /* menu= */ NULL,
                         /* accepted= */ NULL,
                         /* ellipsize_percentage= */ 0,
