@@ -169,7 +169,7 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           persist-credentials: false
-      - uses: systemd/mkosi@9a28ad20bbea61894ea7b971d318a71f4374cf3b
+      - uses: systemd/mkosi@77fce77807a9a92bc37edc8f1c967102e6236d94
 
       # Freeing up disk space with rm -rf can take multiple minutes. Since we don't need the extra free space
       # immediately, we remove the files in the background. However, we first move them to a different location
@@ -317,6 +317,10 @@ jobs:
             --no-stdsplit \
             --num-processes "$(($(nproc) - 1))" \
             "${MAX_LINES[@]}"
+
+      - name: Fix journal ownership
+        if: failure() && (github.repository == 'systemd/systemd' || github.repository == 'systemd/systemd-stable')
+        run: sudo chown -R "$(id -u):$(id -g)" build/test/journal build/meson-logs
 
       - name: Archive failed test journals
         uses: actions/upload-artifact@v7
