@@ -391,22 +391,17 @@ static int download_manifest(
                 ManifestFormat manifest_format,
                 const char *manifest_url,
                 bool verify_signature,
-                char **ret_buffer,
-                size_t *ret_size) {
+                struct iovec *ret) {
 
-        _cleanup_free_ char *buffer = NULL;
-        _cleanup_close_pair_ int pfd[2] = EBADF_PAIR;
-        _cleanup_fclose_ FILE *manifest = NULL;
-        size_t size = 0;
         int r;
 
         assert(manifest_format == MANIFEST_FORMAT_SHA256SUMS);
         assert(manifest_url);
-        assert(ret_buffer);
-        assert(ret_size);
+        assert(ret);
 
         /* Download a SHA256SUMS file as manifest */
 
+        _cleanup_close_pair_ int pfd[2] = EBADF_PAIR;
         if (pipe2(pfd, O_CLOEXEC) < 0)
                 return log_error_errno(errno, "Failed to allocate pipe: %m");
 
@@ -447,13 +442,13 @@ static int download_manifest(
          * us as it runs. We thus need to check the return value of the process *before* parsing, to be
          * reasonably safe. */
 
-        manifest = fdopen(pfd[0], "r");
-        if (!manifest)
-                return log_error_errno(errno, "Failed to allocate FILE object for manifest file: %m");
+        _cleanup_fclose_ FILE *manifest = NULL;
+        r = take_fdopen_unlocked(pfd+0, "r", &manifest);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate FILE object for manifest file: %m");
 
-        TAKE_FD(pfd[0]);
-
-        r = read_full_stream(manifest, &buffer, &size);
+        _cleanup_(iovec_done) struct iovec buffer = {};
+        r = read_full_stream(manifest, (char**) &buffer.iov_base, &buffer.iov_len);
         if (r < 0)
                 return log_error_errno(r, "Failed to read manifest file from child: %m");
 
@@ -465,9 +460,7 @@ static int download_manifest(
         if (r != 0)
                 return -EPROTO;
 
-        *ret_buffer = TAKE_PTR(buffer);
-        *ret_size = size;
-
+        *ret = TAKE_STRUCT(buffer);
         return 0;
 }
 
@@ -532,11 +525,11 @@ static int resource_load_from_web(
                 bool verify,
                 Hashmap **web_cache) {
 
-        size_t manifest_size = 0, left = 0;
-        _cleanup_free_ char *buf = NULL;
-        const char *manifest, *p;
-        size_t line_nr = 1;
+        _cleanup_(iovec_done) struct iovec buf = {};
+        struct iovec manifest = {};
+        size_t left = 0, line_nr = 1;
         WebCacheItem *ci;
+        const char *p;
         int r;
 
         assert(rr);
@@ -553,8 +546,7 @@ static int resource_load_from_web(
         if (ci) {
                 log_debug("Manifest web cache hit for %s.", manifest_url);
 
-                manifest = (char*) ci->data;
-                manifest_size = ci->size;
+                manifest = IOVEC_MAKE(ci->data, ci->size);
         } else {
                 log_debug("Manifest web cache miss for %s.", manifest_url);
 
@@ -562,21 +554,20 @@ static int resource_load_from_web(
                                 rr->manifest_format,
                                 manifest_url,
                                 verify,
-                                &buf,
-                                &manifest_size);
+                                &buf);
                 if (r < 0)
                         return r;
 
                 manifest = buf;
         }
 
-        if (memchr(manifest, 0, manifest_size))
+        if (memchr(manifest.iov_base, 0, manifest.iov_len))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Manifest file has embedded NUL byte, refusing.");
-        if (!utf8_is_valid_n(manifest, manifest_size))
+        if (!utf8_is_valid_n(manifest.iov_base, manifest.iov_len))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Manifest file is not valid UTF-8, refusing.");
 
-        p = manifest;
-        left = manifest_size;
+        p = manifest.iov_base;
+        left = manifest.iov_len;
 
         while (left > 0) {
                 _cleanup_(instance_metadata_destroy) InstanceMetadata extracted_fields = INSTANCE_METADATA_NULL;
@@ -679,7 +670,7 @@ static int resource_load_from_web(
         }
 
         if (!ci && web_cache) {
-                r = web_cache_add_item(web_cache, manifest_url, verify, manifest, manifest_size);
+                r = web_cache_add_item(web_cache, manifest_url, verify, manifest.iov_base, manifest.iov_len);
                 if (r < 0)
                         log_debug_errno(r, "Failed to add manifest '%s' to cache, ignoring: %m", manifest_url);
                 else
