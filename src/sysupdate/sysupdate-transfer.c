@@ -649,7 +649,7 @@ static int transfer_finalize(Transfer *t, const char *origin, unsigned line, Has
                                                   "Source path is not a valid HTTP, HTTPS, file, or provider URL: %s", t->source.path);
         }
 
-        if (t->source.manifest_format != MANIFEST_FORMAT_SHA256SUMS)
+        if (!IN_SET(t->source.manifest_format, MANIFEST_FORMAT_SHA256SUMS, MANIFEST_FORMAT_UAPI16))
                 return log_syntax(NULL, LOG_ERR, origin, line, SYNTHETIC_ERRNO(EINVAL),
                                   "Manifest format '%s' not supported for source specifications, refusing.",
                                   manifest_format_to_string(t->source.manifest_format));

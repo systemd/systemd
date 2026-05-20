@@ -4,6 +4,8 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "sd-json.h"
+
 #include "alloc-util.h"
 #include "blockdev-util.h"
 #include "build-path.h"
@@ -23,9 +25,11 @@
 #include "import-util.h"
 #include "iovec-util.h"
 #include "os-util.h"
+#include "json-util.h"
 #include "path-util.h"
 #include "pidref.h"
 #include "process-util.h"
+#include "sha256.h"
 #include "sort-util.h"
 #include "stat-util.h"
 #include "string-table.h"
@@ -36,6 +40,7 @@
 #include "sysupdate-pattern.h"
 #include "sysupdate-resource.h"
 #include "time-util.h"
+#include "uapi16-manifest.h"
 #include "utf8.h"
 
 void resource_destroy(Resource *rr) {
@@ -361,6 +366,17 @@ static int resource_load_from_blockdev(Resource *rr) {
         return 0;
 }
 
+static const char *resource_manifest_filename_table[_MANIFEST_FORMAT_MAX] = {
+        [MANIFEST_FORMAT_SHA256SUMS] = "SHA256SUMS",
+        [MANIFEST_FORMAT_UAPI16]     = UAPI16_MANIFEST_FILENAME,
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(resource_manifest_filename, ManifestFormat);
+
+static bool resource_manifest_has_inline_signatures(ManifestFormat style) {
+        return style == MANIFEST_FORMAT_UAPI16;
+}
+
 static int download_manifest(
                 ManifestFormat manifest_format,
                 const char *manifest_url,
@@ -370,17 +386,17 @@ static int download_manifest(
 
         int r;
 
-        assert(manifest_format == MANIFEST_FORMAT_SHA256SUMS);
+        assert(IN_SET(manifest_format, MANIFEST_FORMAT_SHA256SUMS, MANIFEST_FORMAT_UAPI16));
         assert(base_url);
         assert(ret);
 
-        /* Download a SHA256SUMS file as manifest */
+        /* Download a SHA256SUMS/Uapi16Manifest file as manifest */
 
         _cleanup_free_ char *suffixed_url = NULL;
         if (!manifest_url) {
-                r = import_url_append_component(base_url, "SHA256SUMS", &suffixed_url);
+                r = import_url_append_component(base_url, resource_manifest_filename_to_string(manifest_format), &suffixed_url);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to append SHA256SUMS to URL: %m");
+                        return log_error_errno(r, "Failed to append '%s' to URL '%s': %m", resource_manifest_filename_to_string(manifest_format), base_url);
 
                 manifest_url = suffixed_url;
         }
@@ -408,7 +424,7 @@ static int download_manifest(
                         SYSTEMD_PULL_PATH,
                         "raw",
                         "--direct",                        /* just download the specified URL, don't download anything else */
-                        "--verify", verify_signature ? "signature" : "no", /* verify the manifest file */
+                        "--verify", verify_signature && !resource_manifest_has_inline_signatures(manifest_format) ? "signature" : "no", /* verify the manifest file */
                         manifest_url,
                         "-",                               /* write to stdout */
                         NULL
@@ -634,6 +650,175 @@ static int sha256sums_process(
         return 0;
 }
 
+static int instance_copy_uapi16(Instance *instance, const Uapi16Object *object) {
+        assert(instance);
+        assert(object);
+
+        /* We verified earlier that these fields are definitely set in the UAPI 16 objects */
+        assert(object->type == S_IFREG);
+        assert(iovec_is_set(&object->sha256));
+        assert(object->size != UINT64_MAX);
+
+        if (instance->metadata.sha256sum_set) {
+                if (memcmp_nn(instance->metadata.sha256sum, SHA256_DIGEST_SIZE, object->sha256.iov_base, object->sha256.iov_len) != 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "SHA256 sum parsed from filename and manifest don't match, refusing.");
+        } else {
+                assert(object->sha256.iov_len == SHA256_DIGEST_SIZE);
+                memcpy(instance->metadata.sha256sum, object->sha256.iov_base, SHA256_DIGEST_SIZE);
+                instance->metadata.sha256sum_set = true;
+        }
+
+        if (instance->metadata.size != UINT64_MAX) {
+                if (instance->metadata.size != object->size)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Size parsed from filename and manifest don't match, refusing.");
+        } else
+                instance->metadata.size = object->size;
+
+        if (instance->metadata.mode == MODE_INVALID)
+                instance->metadata.mode = object->mode;
+        if (instance->metadata.mtime == USEC_INFINITY && object->mtime_nsec < (NSEC_INFINITY / NSEC_PER_USEC) * NSEC_PER_USEC)
+                instance->metadata.mtime = object->mtime_nsec / NSEC_PER_USEC;
+        if (!instance->metadata.partition_uuid_set && object->gpt_uuid_set) {
+                instance->metadata.partition_uuid = object->gpt_uuid;
+                instance->metadata.partition_uuid_set = true;
+        }
+
+        if (!instance->metadata.partition_flags_set && object->gpt_flags_set) {
+                instance->metadata.partition_flags = object->gpt_flags;
+                instance->metadata.partition_flags_set = true;
+        }
+
+        if (instance->metadata.no_auto < 0 && object->gpt_no_auto >= 0)
+                instance->metadata.no_auto = object->gpt_no_auto;
+        if (instance->metadata.growfs < 0 && object->gpt_growfs >= 0)
+                instance->metadata.growfs = object->gpt_growfs;
+        if (instance->metadata.read_only < 0 && object->read_only >= 0)
+                instance->metadata.read_only = object->read_only;
+
+        return 0;
+}
+
+static int uapi16_process(
+                Resource *rr,
+                const struct iovec *manifest) {
+
+        int r;
+
+        assert(rr);
+        assert(manifest);
+
+        const char *p = manifest->iov_base;
+        size_t left = manifest->iov_len;
+
+        bool trailer_seen = false;
+        size_t n_objects = 0;
+        for (;; n_objects++) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+                r = json_seq_extract(&p, &left, SD_JSON_PARSE_MUST_BE_OBJECT, /* eol= */ true, &v);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to extract JSON-SEQ object from stream: %m");
+                if (r == 0)
+                        break;
+
+                if (trailer_seen)
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Manifest contains data after the trailer object, refusing.");
+
+                sd_json_variant *mt = sd_json_variant_by_key(v, "mediaType");
+                if (n_objects > 0 && mt && sd_json_variant_is_string(mt)) {
+                        /* File objects usually carry no media type at all. The trailer object ends the
+                         * manifest. Other objects of unknown media type are skipped, as the specification
+                         * requires. */
+                        if (streq(sd_json_variant_string(mt), UAPI16_TRAILER_MEDIA_TYPE)) {
+                                log_debug("Encountered trailer object in manifest.");
+                                trailer_seen = true;
+                                continue;
+                        }
+
+                        if (!streq(sd_json_variant_string(mt), UAPI16_MANIFEST_MEDIA_TYPE)) {
+                                log_debug("Ignoring object of unknown media type '%s' in manifest.", sd_json_variant_string(mt));
+                                continue;
+                        }
+                }
+
+                _cleanup_(uapi16_object_done) Uapi16Object object = UAPI16_OBJECT_NULL;
+                r = dispatch_uapi16_object(v, n_objects, SD_JSON_ALLOW_EXTENSIONS|SD_JSON_LOG, &object);
+                if (r < 0)
+                        return r;
+
+                /* Honour validity properties, but otherwise ignore intro object */
+                if (n_objects == 0) {
+                        r = uapi16_object_check_validity(&object);
+                        if (r < 0) {
+                                if (verify_freshness())
+                                        return log_error_errno(r, "Manifest file marked invalid: %m");
+
+                                log_warning_errno(r, "Manifest file marked invalid, but freshness checks disabled, proceeding.");
+                        }
+
+                        continue;
+                }
+
+                /* Ignore non-regular files */
+                if (!S_ISREG(object.type)) {
+                        log_debug("Skipping file '%s' as it is not a regular file.", object.name);
+                        continue;
+                }
+
+                /* Ignore non-matching partition types */
+                if (object.gpt_type_uuid_set && rr->partition_type_set && !sd_id128_equal(object.gpt_type_uuid, rr->partition_type.uuid))
+                        continue;
+
+                r = uapi16_object_check_validity(&object);
+                if (r < 0) {
+                        if (verify_freshness()) {
+                                log_warning_errno(r, "File '%s' marked invalid, skipping: %m", object.name);
+                                continue;
+                        }
+
+                        log_warning_errno(r, "File '%s' marked invalid, but freshness checks disabled, proceeding.", object.name);
+                }
+
+                if (object.size == UINT64_MAX) {
+                        log_warning_errno(SYNTHETIC_ERRNO(EBADMSG), "File '%s' lacks a size, skipping.", object.name);
+                        continue;
+                }
+
+                if (!iovec_is_set(&object.sha256)) {
+                        log_warning_errno(SYNTHETIC_ERRNO(EBADMSG), "File '%s' lacks a SHA256 digest, skipping.", object.name);
+                        continue;
+                }
+
+                _cleanup_(instance_metadata_destroy) InstanceMetadata extracted_fields = INSTANCE_METADATA_NULL;
+                r = pattern_match_many(rr->patterns, object.name, &extracted_fields);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to match pattern: %m");
+                if (r != PATTERN_MATCH_YES)
+                        continue;
+
+                _cleanup_free_ char *path = NULL;
+                r = import_url_append_component(rr->path, object.name, &path);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to build instance URL: %m");
+
+                Instance *instance;
+                r = resource_add_instance(rr, path, &extracted_fields, &instance);
+                if (r < 0)
+                        return r;
+
+                /* Now copy the fields from the manifest into our instances logic */
+                r = instance_copy_uapi16(instance, &object);
+                if (r < 0)
+                        return r;
+        }
+
+        if (n_objects == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Manifest contains no objects, refusing.");
+        if (!trailer_seen)
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Manifest lacks trailer object, file is incomplete, refusing.");
+
+        return 0;
+}
+
 static int resource_load_from_web(
                 Resource *rr,
                 bool verify,
@@ -661,7 +846,19 @@ static int resource_load_from_web(
                 manifest = buf;
         }
 
-        r = sha256sums_process(rr, &manifest);
+        switch (rr->manifest_format) {
+
+        case MANIFEST_FORMAT_SHA256SUMS:
+                r = sha256sums_process(rr, &manifest);
+                break;
+
+        case MANIFEST_FORMAT_UAPI16:
+                r = uapi16_process(rr, &manifest);
+                break;
+
+        default:
+                assert_not_reached();
+        }
         if (r < 0)
                 return r;
 
