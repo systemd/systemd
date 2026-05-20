@@ -302,3 +302,5 @@ char *json_underscorify(char *p);
 char *json_dashify(char *p);
 
 int json_variant_compare(sd_json_variant *a, sd_json_variant *b);
+
+int json_seq_extract(const char **p, size_t *left, sd_json_parse_flags_t flags, bool eol, sd_json_variant **ret);

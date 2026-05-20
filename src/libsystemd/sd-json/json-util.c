@@ -1085,3 +1085,78 @@ int json_dispatch_address_family(const char *name, sd_json_variant *variant, sd_
         *family = k;
         return 0;
 }
+
+int json_seq_extract(
+                const char **p,
+                size_t *left,
+                sd_json_parse_flags_t flags,
+                bool eol,
+                sd_json_variant **ret) {
+
+        int r;
+
+        /* Parses a JSON-SEQ object from a stream. p/left are supposed to point to the data to parse, and are
+         * moved ahead/decremented for every object we read.
+         *
+         * If 'eol' is true the buffer is assumed to contain the end of the stream, i.e. an object that is not
+         * terminated by a record separator is parsed as the last object of the stream. If 'eol' is false
+         * such an object is considered incomplete instead, and 0 is returned with *ret set to NULL, without
+         * consuming anything, so that callers can read more data and try again.
+         *
+         * Empty (or whitespace-only) records are silently skipped, as suggested by RFC 7464.
+         *
+         * Note: for now this aborts whenever an object is encountered in the sequence that doesn't parse
+         * correctly. */
+
+        assert(p);
+        assert(left);
+        assert(ret);
+
+        for (;;) {
+                const char *q = *p;
+                size_t l = *left;
+
+                if (l <= 0) {
+                        *ret = NULL;
+                        return 0; /* Last item in stream */
+                }
+
+                if (*q != 0x1E) /* ASCII RS */
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "Found byte 0x%02x instead of expected record separator.", (uint8_t) *q);
+
+                q++, l--;
+
+                const char *e = memchr(q, 0x1E, l);
+                if (!e && !eol) {
+                        *ret = NULL;
+                        return 0; /* Incomplete object, wait for more data */
+                }
+
+                size_t m = e ? (size_t) (e - q) : l;
+
+                if (memchr(q, 0, m))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "Found embedded NUL byte in JSON-SEQ stream, refusing.");
+
+                _cleanup_free_ char *s = memdup_suffix0(q, m);
+                if (!s)
+                        return log_oom_debug();
+
+                if (isempty(strstrip(s))) {
+                        /* Skip empty records */
+                        *p = q + m;
+                        *left = l - m;
+                        continue;
+                }
+
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+                r = sd_json_parse(s, flags, &v, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to parse JSON-SEQ object: %m");
+
+                *p = q + m;
+                *left = l - m;
+
+                *ret = TAKE_PTR(v);
+                return 1;
+        }
+}
