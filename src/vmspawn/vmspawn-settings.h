@@ -42,6 +42,13 @@ typedef enum Firmware {
         _FIRMWARE_INVALID = -EINVAL,
 } Firmware;
 
+typedef enum ConfidentialComputing {
+        COCO_NO,
+        COCO_AMD_SEV_SNP,
+        _COCO_MAX,
+        _COCO_INVALID = -EINVAL,
+} ConfidentialComputing;
+
 typedef enum SettingsMask {
         SETTING_START_MODE        = UINT64_C(1) << 0,
         SETTING_MACHINE_ID        = UINT64_C(1) << 6,
@@ -55,3 +62,4 @@ typedef enum SettingsMask {
 DECLARE_STRING_TABLE_LOOKUP(console_mode, ConsoleMode);
 DECLARE_STRING_TABLE_LOOKUP(console_transport, ConsoleTransport);
 DECLARE_STRING_TABLE_LOOKUP(firmware, Firmware);
+DECLARE_STRING_TABLE_LOOKUP(confidential_computing, ConfidentialComputing);
