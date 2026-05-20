@@ -73,6 +73,9 @@ CHANGES WITH 261 in spe:
           effectively means live upgrades from versions older than v247 are not
           supported anymore.
 
+        * Required version of musl (when built with -Dlibc=musl) has been raised
+          from 1.2.5 to 1.2.6.
+
         Changes in the system and service manager:
 
         * PID1 now supports the kernel's Live Update Orchestration (LUO) /
