@@ -448,6 +448,20 @@ static int download_manifest(
         return 0;
 }
 
+static bool verify_freshness(void) {
+        static int cache = -1;
+        int r;
+
+        if (cache >= 0)
+                return cache;
+
+        r = secure_getenv_bool("SYSTEMD_SYSUPDATE_VERIFY_FRESHNESS");
+        if (r < 0 && r != -ENXIO)
+                log_debug_errno(r, "Failed to parse $SYSTEMD_SYSUPDATE_VERIFY_FRESHNESS, ignoring: %m");
+
+        return (cache = r != 0);
+}
+
 static int sha256sums_process_magic_file(
                 size_t line_nr,
                 const char *fn,
@@ -499,11 +513,7 @@ static int sha256sums_process_magic_file(
         if (best_before < nw) {
                 /* We are past the best before date! Yikes! */
 
-                r = secure_getenv_bool("SYSTEMD_SYSUPDATE_VERIFY_FRESHNESS");
-                if (r < 0 && r != -ENXIO)
-                        log_debug_errno(r, "Failed to parse $SYSTEMD_SYSUPDATE_VERIFY_FRESHNESS, ignoring: %m");
-
-                if (r == 0) {
+                if (!verify_freshness()) {
                         log_warning("Best before marker indicates out-of-date file list, but told to ignore this, hence ignoring (%s < %s).",
                                     FORMAT_TIMESTAMP(best_before), FORMAT_TIMESTAMP(nw));
                         return 1; /* we processed this line, don't use for pattern matching */
