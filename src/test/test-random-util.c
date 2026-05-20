@@ -1,9 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <math.h>
-
 #include "hexdecoct.h"
 #include "log.h"
+#include "math-util.h"
 #include "memory-util.h"
 #include "random-util.h"
 #include "terminal-util.h"
@@ -60,7 +59,7 @@ static void test_random_u64_range_one(unsigned mod) {
         double exp = (double) TOTAL / mod;
 
         for (size_t i = 0; i < mod; i++) {
-                double dev = (count[i] - exp) / sqrt(exp * (mod > 1 ? mod - 1 : 1) / mod);
+                double dev = (count[i] - exp) / xsqrt(exp * (mod > 1 ? mod - 1 : 1) / mod);
                 log_debug("%02zu: %5u (%+.3f)%*s",
                           i, count[i], dev,
                           (int) (count[i] / scale), "x");

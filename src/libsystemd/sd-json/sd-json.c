@@ -362,15 +362,12 @@ _public_ int sd_json_variant_new_real(sd_json_variant **ret, double d) {
 
         assert_return(ret, -EINVAL);
 
-        r = fpclassify(d);
-        switch (r) {
-        case FP_NAN:
-        case FP_INFINITE:
+        if (xisnan(d) || xisinf(d)) {
                 /* JSON doesn't know NaN, +Infinity or -Infinity. Let's silently convert to 'null'. */
                 *ret = JSON_VARIANT_MAGIC_NULL;
                 return 0;
-
-        case FP_ZERO:
+        }
+        if (iszero_safe(d)) {
                 *ret = JSON_VARIANT_MAGIC_ZERO_REAL;
                 return 0;
         }

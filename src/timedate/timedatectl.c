@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <locale.h>
-#include <math.h>
 #include <stdlib.h>
 
 #include "sd-bus.h"
@@ -19,6 +18,7 @@
 #include "in-addr-util.h"
 #include "log.h"
 #include "main-func.h"
+#include "math-util.h"
 #include "options.h"
 #include "pager.h"
 #include "parse-argument.h"
@@ -490,7 +490,7 @@ static int print_ntp_status_info(NTPStatusInfo *i) {
                 return table_log_add_error(r);
 
         r = table_add_cell_stringf(table, NULL, "%s (%" PRIi32 ")",
-                                   FORMAT_TIMESPAN(DIV_ROUND_UP((nsec_t) (exp2(i->precision) * NSEC_PER_SEC), NSEC_PER_USEC), 0),
+                                   FORMAT_TIMESPAN(DIV_ROUND_UP((nsec_t) (xexp2i(i->precision) * NSEC_PER_SEC), NSEC_PER_USEC), 0),
                                    i->precision);
         if (r < 0)
                 return table_log_add_error(r);

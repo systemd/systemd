@@ -425,6 +425,11 @@ possible_common_cc_flags = [
         '-fstack-protector',
         '-fstack-protector-strong',
         '-fstrict-flex-arrays=3',
+        # We don't read errno from any libm call, and the math-errno fallback
+        # forces a DT_NEEDED on libm via the cold error path even when the hot
+        # path is a single hardware instruction (sqrtsd, etc.). Drop it so the
+        # builtins lower to pure hardware instructions.
+        '-fno-math-errno',
         '--param=ssp-buffer-size=4',
 ]
 
@@ -978,8 +983,6 @@ if default_user_path != ''
 endif
 
 #####################################################################
-
-libm = cc.find_library('m')
 
 # Header presence check only — dgettext itself is resolved via dlopen_libintl() at runtime, so we never
 # link against libintl. On glibc dgettext lives in libc; on musl gettext-dev provides libintl.h alongside
