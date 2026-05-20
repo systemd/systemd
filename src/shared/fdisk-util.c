@@ -16,8 +16,6 @@
 #include "parse-util.h"
 #include "string-util.h"
 
-static void *fdisk_dl = NULL;
-
 DLSYM_PROTOTYPE(fdisk_add_partition) = NULL;
 DLSYM_PROTOTYPE(fdisk_apply_table) = NULL;
 DLSYM_PROTOTYPE(fdisk_ask_get_type) = NULL;
@@ -83,6 +81,8 @@ DLSYM_PROTOTYPE(fdisk_write_disklabel) = NULL;
 
 int dlopen_fdisk(int log_level) {
 #if HAVE_LIBFDISK
+        static void *fdisk_dl = NULL;
+
         SD_ELF_NOTE_DLOPEN(
                         "fdisk",
                         "Support for reading and writing partition tables",

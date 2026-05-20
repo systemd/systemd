@@ -38,9 +38,6 @@
 
 #if HAVE_ELFUTILS
 
-static void *dw_dl = NULL;
-static void *elf_dl = NULL;
-
 /* libdw symbols */
 static DLSYM_PROTOTYPE(dwarf_attr_integrate) = NULL;
 static DLSYM_PROTOTYPE(dwarf_diename) = NULL;
@@ -96,6 +93,7 @@ static DLSYM_PROTOTYPE(gelf_getnote) = NULL;
 
 int dlopen_dw(int log_level) {
 #if HAVE_ELFUTILS
+        static void *dw_dl = NULL;
         int r;
 
         SD_ELF_NOTE_DLOPEN(
@@ -161,6 +159,7 @@ bool dlopen_dw_has_dwfl_set_sysroot(void) {
 
 int dlopen_elf(int log_level) {
 #if HAVE_ELFUTILS
+        static void *elf_dl = NULL;
         int r;
 
         SD_ELF_NOTE_DLOPEN(
