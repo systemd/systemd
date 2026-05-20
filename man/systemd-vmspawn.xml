@@ -323,33 +323,6 @@
         </varlistentry>
 
         <varlistentry>
-          <term><option>-n</option></term>
-          <term><option>--network-tap</option></term>
-
-          <listitem>
-            <para>Create a TAP device to network with the virtual machine.</para>
-
-            <para>Note: root privileges are required to use TAP networking.
-            Additionally,
-            <citerefentry><refentrytitle>systemd-networkd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-            must be running and correctly set up on the host to provision the host interface. The relevant
-            <literal>.network</literal> file can be found at
-            <filename>/usr/lib/systemd/network/80-vm-vt.network</filename>.
-            </para>
-
-            <xi:include href="version-info.xml" xpointer="v255"/>
-          </listitem>
-        </varlistentry>
-
-        <varlistentry>
-          <term><option>--network-user-mode</option></term>
-
-          <listitem><para>Use user mode networking.</para>
-
-          <xi:include href="version-info.xml" xpointer="v255"/></listitem>
-        </varlistentry>
-
-        <varlistentry>
           <term><option>--firmware=<replaceable>PATH</replaceable></option></term>
 
           <listitem><para>Selects which firmware to use in the VM. Takes one of <literal>auto</literal>,
@@ -426,6 +399,39 @@
           that defaults to false.)</para>
 
           <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2>
+      <title>Networking Options</title>
+
+      <variablelist>
+        <varlistentry>
+          <term><option>-n</option></term>
+          <term><option>--network-tap</option></term>
+
+          <listitem>
+            <para>Create a TAP device to network with the virtual machine.</para>
+
+            <para>Note: root privileges are required to use TAP networking.
+            Additionally,
+            <citerefentry><refentrytitle>systemd-networkd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+            must be running and correctly set up on the host to provision the host interface. The relevant
+            <literal>.network</literal> file can be found at
+            <filename>/usr/lib/systemd/network/80-vm-vt.network</filename>.
+            </para>
+
+            <xi:include href="version-info.xml" xpointer="v255"/>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--network-user-mode</option></term>
+
+          <listitem><para>Use user mode networking.</para>
+
+          <xi:include href="version-info.xml" xpointer="v255"/></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>

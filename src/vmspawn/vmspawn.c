@@ -231,6 +231,7 @@ static int help(void) {
                 NULL,
                 "Image",
                 "Host Configuration",
+                "Networking",
                 "Execution",
                 "System Identity",
                 "Properties",
@@ -254,7 +255,7 @@ static int help(void) {
         (void) table_sync_column_widths(
                         0, tables[0], tables[1], tables[2], tables[3], tables[4],
                         tables[5], tables[6], tables[7], tables[8], tables[9], tables[10],
-                        tables[11]);
+                        tables[11], tables[12]);
 
         help_cmdline("[OPTIONS...] [ARGUMENTS...]");
         help_abstract("Spawn a command or OS in a virtual machine.");
@@ -539,14 +540,6 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
-                OPTION('n', "network-tap", NULL, "Create a TAP device for networking"):
-                        arg_network_stack = NETWORK_STACK_TAP;
-                        break;
-
-                OPTION_LONG("network-user-mode", NULL, "Use user mode networking"):
-                        arg_network_stack = NETWORK_STACK_USER;
-                        break;
-
                 OPTION_LONG("secure-boot", "BOOL|auto", "Enable searching for firmware supporting SecureBoot"): {
                         int b;
 
@@ -656,6 +649,16 @@ static int parse_argv(int argc, char *argv[]) {
                         }
                         break;
                 }
+
+                OPTION_GROUP("Networking"): {}
+
+                OPTION('n', "network-tap", NULL, "Create a TAP device for networking"):
+                        arg_network_stack = NETWORK_STACK_TAP;
+                        break;
+
+                OPTION_LONG("network-user-mode", NULL, "Use user mode networking"):
+                        arg_network_stack = NETWORK_STACK_USER;
+                        break;
 
                 OPTION_GROUP("Execution"): {}
 
