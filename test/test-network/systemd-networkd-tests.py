@@ -1122,7 +1122,6 @@ def tear_down_common():
     stop_dnsmasq()
     stop_isc_dhcpd()
     stop_radvd()
-    stop_modem_manager_mock()
 
     # 2. remove modules
     call_quiet('rmmod netdevsim')
@@ -9603,6 +9602,7 @@ class NetworkdWWANTests(unittest.TestCase, Utilities):
         setup_common()
 
     def tearDown(self):
+        stop_modem_manager_mock()
         tear_down_common()
 
     def test_wwan_ipv4v6_static(self):
