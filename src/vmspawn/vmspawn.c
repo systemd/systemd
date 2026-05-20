@@ -393,6 +393,23 @@ static int parse_argv(int argc, char *argv[]) {
                                                        "Invalid image disk type: %s", opts.arg);
                         break;
 
+                OPTION_LONG("discard-disk", "BOOL", "Control processing of discard requests"):
+                        r = parse_boolean_argument("--discard-disk=", opts.arg, &arg_discard_disk);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION('G', "grow-image", "BYTES", "Grow image file to specified size in bytes"):
+                        if (isempty(opts.arg)) {
+                                arg_grow_image = 0;
+                                break;
+                        }
+
+                        r = parse_size(opts.arg, 1024, &arg_grow_image);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --grow-image= parameter: %s", opts.arg);
+                        break;
+
                 OPTION_GROUP("Host Configuration"): {}
 
                 OPTION_LONG("cpus", "CPUS", "Configure number of CPUs in guest"): {}
@@ -636,23 +653,6 @@ static int parse_argv(int argc, char *argv[]) {
                         }
                         break;
                 }
-
-                OPTION_LONG("discard-disk", "BOOL", "Control processing of discard requests"):
-                        r = parse_boolean_argument("--discard-disk=", opts.arg, &arg_discard_disk);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                OPTION('G', "grow-image", "BYTES", "Grow image file to specified size in bytes"):
-                        if (isempty(opts.arg)) {
-                                arg_grow_image = 0;
-                                break;
-                        }
-
-                        r = parse_size(opts.arg, 1024, &arg_grow_image);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse --grow-image= parameter: %s", opts.arg);
-                        break;
 
                 OPTION_GROUP("Execution"): {}
 

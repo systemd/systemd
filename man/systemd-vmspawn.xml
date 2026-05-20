@@ -105,6 +105,18 @@
         </varlistentry>
 
         <varlistentry>
+          <term><option>-x</option></term>
+          <term><option>--ephemeral</option></term>
+
+          <listitem><para>If specified, the VM is run with a temporary snapshot of its file system that is removed
+          immediately when the VM terminates. Only works with <option>--image=</option> currently.
+
+          Note that <option>--ephemeral</option> will not work with <option>--extra-drive=</option>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><option>-i</option></term>
           <term><option>--image=</option></term>
 
@@ -139,15 +151,25 @@
         </varlistentry>
 
         <varlistentry>
-          <term><option>-x</option></term>
-          <term><option>--ephemeral</option></term>
+          <term><option>--discard-disk=<replaceable>BOOL</replaceable></option></term>
 
-          <listitem><para>If specified, the VM is run with a temporary snapshot of its file system that is removed
-          immediately when the VM terminates. Only works with <option>--image=</option> currently.
+          <listitem><para>Controls whether qemu processes discard requests from the VM.
+          This prevents long running VMs from using more disk space than required.
+          This is enabled by default.</para>
 
-          Note that <option>--ephemeral</option> will not work with <option>--extra-drive=</option>.</para>
+          <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+        </varlistentry>
 
-          <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+        <varlistentry>
+          <term><option>--grow-image=<replaceable>BYTES</replaceable></option></term>
+          <term><option>-G <replaceable>BYTES</replaceable></option></term>
+
+          <listitem><para>Grows the image file specified by <option>--image=</option> to the specified size
+          in bytes if it is smaller. Executes no operation if no image file is used or the image file is
+          already as large or larger than requested. The specified size accepts the usual K, M, G suffixes
+          (to the base of 1024). Specified values are rounded up to multiples of 4096.</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>
@@ -364,16 +386,6 @@
         </varlistentry>
 
         <varlistentry>
-          <term><option>--discard-disk=<replaceable>BOOL</replaceable></option></term>
-
-          <listitem><para>Controls whether qemu processes discard requests from the VM.
-          This prevents long running VMs from using more disk space than required.
-          This is enabled by default.</para>
-
-          <xi:include href="version-info.xml" xpointer="v256"/></listitem>
-        </varlistentry>
-
-        <varlistentry>
           <term><option>--secure-boot=<replaceable>BOOL</replaceable></option></term>
 
           <listitem><para>Configure whether to search for firmware which supports Secure Boot. Takes a
@@ -383,18 +395,6 @@
           removes <literal>secure-boot</literal> from both the included and excluded feature lists.</para>
 
           <xi:include href="version-info.xml" xpointer="v255"/></listitem>
-        </varlistentry>
-
-        <varlistentry>
-          <term><option>--grow-image=<replaceable>BYTES</replaceable></option></term>
-          <term><option>-G <replaceable>BYTES</replaceable></option></term>
-
-          <listitem><para>Grows the image file specified by <option>--image=</option> to the specified size
-          in bytes if it is smaller. Executes no operation if no image file is used or the image file is
-          already as large or larger than requested. The specified size accepts the usual K, M, G suffixes
-          (to the base of 1024). Specified values are rounded up to multiples of 4096.</para>
-
-          <xi:include href="version-info.xml" xpointer="v258"/></listitem>
         </varlistentry>
 
         <varlistentry>
