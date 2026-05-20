@@ -9,6 +9,7 @@
 #include "sd-json.h"
 
 #include "alloc-util.h"
+#include "ansi-color.h"
 #include "build.h"
 #include "bus-common-errors.h"
 #include "bus-error.h"
@@ -18,6 +19,7 @@
 #include "bus-util.h"
 #include "errno-util.h"
 #include "format-table.h"
+#include "help-util.h"
 #include "hostname-setup.h"
 #include "hostname-util.h"
 #include "log.h"
@@ -26,7 +28,6 @@
 #include "os-util.h"
 #include "parse-argument.h"
 #include "polkit-agent.h"
-#include "pretty-print.h"
 #include "runtime-scope.h"
 #include "string-util.h"
 #include "time-util.h"
@@ -720,13 +721,8 @@ static int verb_get_or_set_location(int argc, char *argv[], uintptr_t _data, voi
 }
 
 static int help(void) {
-        _cleanup_free_ char *link = NULL;
         _cleanup_(table_unrefp) Table *options = NULL, *verbs = NULL;
         int r;
-
-        r = terminal_urlify_man("hostnamectl", "1", &link);
-        if (r < 0)
-                return log_oom();
 
         r = option_parser_get_help_table(&options);
         if (r < 0)
@@ -738,22 +734,20 @@ static int help(void) {
 
         (void) table_sync_column_widths(0, options, verbs);
 
-        printf("%s [OPTIONS...] COMMAND ...\n"
-               "\n%sQuery or change system hostname.%s\n"
-               "\nCommands:\n",
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal());
+        help_cmdline("[OPTIONS...] COMMAND ...");
+        help_abstract("Query or change system hostname.");
+
+        help_section("Commands");
         r = table_print_or_warn(verbs);
         if (r < 0)
                 return r;
 
-        printf("\nOptions:\n");
+        help_section("Options");
         r = table_print_or_warn(options);
         if (r < 0)
                 return r;
 
-        printf("\nSee the %s for details.\n", link);
+        help_man_page_reference("hostnamectl", "1");
         return 0;
 }
 
