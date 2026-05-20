@@ -162,6 +162,7 @@ static Firmware arg_firmware_type = _FIRMWARE_INVALID;
 static bool arg_firmware_describe = false;
 static Set *arg_firmware_features_include = NULL;
 static Set *arg_firmware_features_exclude = NULL;
+static ConfidentialComputing arg_confidential_computing = CC_NO;
 static char *arg_forward_journal = NULL;
 static uint64_t arg_forward_journal_max_use = UINT64_MAX;
 static uint64_t arg_forward_journal_keep_free = UINT64_MAX;
@@ -634,6 +635,14 @@ static int parse_argv(int argc, char *argv[]) {
                                 if (r < 0)
                                         return log_oom();
                         }
+                        break;
+                }
+
+                OPTION_LONG("confidential-computing", "no|sev-snp", "Run the guest as a confidential VM"): {
+                        ConfidentialComputing cc = confidential_computing_from_string(opts.arg);
+                        if (cc < 0)
+                                return log_error_errno(cc, "Unknown --confidential-computing= value: %s", opts.arg);
+                        arg_confidential_computing = cc;
                         break;
                 }
 
@@ -2589,7 +2598,11 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 use_kvm = r;
         }
 
-        if (arg_firmware_type == FIRMWARE_UEFI) {
+        if (arg_confidential_computing == CC_AMD_SEV_SNP && !use_kvm)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "--confidential-computing=sev-snp requires KVM, but KVM is not available.");
+
+        if (arg_firmware_type == FIRMWARE_UEFI && arg_confidential_computing != CC_AMD_SEV_SNP) {
                 if (arg_firmware)
                         r = load_ovmf_config(arg_firmware, &ovmf_config);
                 else
@@ -2663,13 +2676,19 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         if (r < 0)
                 return r;
 
+        if (arg_confidential_computing == CC_AMD_SEV_SNP) {
+                r = qemu_config_key(config_file, "kernel-irqchip", "split");
+                if (r < 0)
+                        return r;
+        }
+
         if (ovmf_config && ARCHITECTURE_SUPPORTS_SMM) {
                 r = qemu_config_key(config_file, "smm", on_off(ovmf_config->supports_sb));
                 if (r < 0)
                         return r;
         }
 
-        if (ARCHITECTURE_SUPPORTS_CXL) {
+        if (ARCHITECTURE_SUPPORTS_CXL && arg_confidential_computing == CC_NO) {
                 r = qemu_config_key(config_file, "cxl", "on");
                 if (r < 0)
                         return r;
@@ -2683,6 +2702,12 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
         if (ARCHITECTURE_SUPPORTS_HPET) {
                 r = qemu_config_key(config_file, "hpet", "off");
+                if (r < 0)
+                        return r;
+        }
+
+        if (arg_confidential_computing == CC_AMD_SEV_SNP) {
+                r = qemu_config_key(config_file, "confidential-guest-support", "snp0");
                 if (r < 0)
                         return r;
         }
@@ -2719,11 +2744,13 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         if (r < 0)
                 return r;
 
-        r = qemu_config_section(config_file, "device", "balloon0",
-                                "driver", "virtio-balloon",
-                                "free-page-reporting", "on");
-        if (r < 0)
-                return r;
+        if (arg_confidential_computing == CC_NO) {
+                r = qemu_config_section(config_file, "device", "balloon0",
+                                        "driver", "virtio-balloon",
+                                        "free-page-reporting", "on");
+                if (r < 0)
+                        return r;
+        }
 
         if (ARCHITECTURE_SUPPORTS_VMGENID) {
                 sd_id128_t vmgenid;
@@ -2877,6 +2904,22 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return r;
         }
 
+        if (arg_confidential_computing == CC_AMD_SEV_SNP) {
+                /* SNP marks encrypted guest pages via the "C-bit" in the page table entry. On all
+                 * SNP-capable processors (Milan and later) the C-bit lives at bit 51, which reduces
+                 * the usable guest physical address space by one bit.
+                 * Embed the hashes of kernel, initrd and cmdline into the firmware
+                 * so they are covered by the launch measurement and the guest's
+                 * boot chain starts from a measured state. */
+                r = qemu_config_section(config_file, "object", "snp0",
+                                        "qom-type", "sev-snp-guest",
+                                        "cbitpos", "51",
+                                        "reduced-phys-bits", "1",
+                                        "kernel-hashes", "on");
+                if (r < 0)
+                        return r;
+        }
+
         unsigned child_cid = arg_vsock_cid;
         if (use_vsock) {
                 config.vsock.fd = TAKE_FD(vhost_device_fd);
@@ -2894,14 +2937,17 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 config.vsock.cid = child_cid;
         }
 
-        /* -cpu stays on cmdline since not all flags are supported in config */
-        r = strv_extend_many(&cmdline, "-cpu",
+        /* -cpu stays on cmdline since not all flags are supported in config. SNP needs a stable,
+         * named CPU model so the launch measurement is reproducible across hosts; EPYC-v4 is the
+         * baseline that covers all SNP-capable processors (Milan and later). */
+        const char *cpu_model =
 #ifdef __x86_64__
-                             "max,hv_relaxed,hv-vapic,hv-time"
+                arg_confidential_computing == CC_AMD_SEV_SNP ? "EPYC-v4"
+                                                             : "max,hv_relaxed,hv-vapic,hv-time";
 #else
-                             "max"
+                "max";
 #endif
-        );
+        r = strv_extend_many(&cmdline, "-cpu", cpu_model);
         if (r < 0)
                 return log_oom();
 
@@ -3032,9 +3078,15 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         }
 
         _cleanup_(unlink_and_freep) char *ovmf_vars = NULL;
-        r = cmdline_add_ovmf(config_file, ovmf_config, &ovmf_vars);
-        if (r < 0)
-                return r;
+        if (arg_confidential_computing != CC_NO) {
+                r = strv_extend_many(&cmdline, "-bios", arg_firmware);
+                if (r < 0)
+                        return r;
+        } else {
+                r = cmdline_add_ovmf(config_file, ovmf_config, &ovmf_vars);
+                if (r < 0)
+                        return r;
+        }
 
         if (arg_linux) {
                 r = strv_extend_many(&cmdline, "-kernel", arg_linux);
@@ -4008,6 +4060,43 @@ static int verify_arguments(void) {
         if (arg_grow_image && arg_image_format == IMAGE_FORMAT_QCOW2)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "--grow-image is not supported for qcow2 images, use 'qemu-img resize FILE SIZE'.");
+
+        if (arg_confidential_computing == CC_AMD_SEV_SNP) {
+                if (native_architecture() != ARCHITECTURE_X86_64)
+                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                               "--confidential-computing=sev-snp is only supported on x86_64.");
+                if (arg_kvm == 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "--confidential-computing=sev-snp requires KVM, remove --kvm=no.");
+                if (arg_firmware_type != FIRMWARE_UEFI)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "--confidential-computing can't be used with %s firmware",
+                                               firmware_to_string(arg_firmware_type));
+                /* SNP can't use pflash + NVRAM split, so the firmware-descriptor
+                 * machinery doesn't apply. Require an explicit raw .fd path and
+                 * use it verbatim with -bios later. */
+                if (!arg_firmware)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "--confidential-computing=sev-snp requires --firmware=PATH "
+                                               "pointing at a raw SNP-built OVMF .fd binary.");
+                log_debug("Using raw SNP firmware at %s (no NVRAM, no Secure Boot).", arg_firmware);
+                if (set_contains(arg_firmware_features_include, "secure-boot"))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "--secure-boot=yes cannot be combined with --confidential-computing.");
+                if (arg_credentials.n_credentials != 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "SMBIOS credentials aren't trusted by the confidential computing guest and will be rejected.");
+                if (arg_tpm > 0)
+                        log_warning("TPM can't be trusted by the confidential computing guest");
+                /* kernel-hashes=on only covers what QEMU itself loads via -kernel/-initrd/-append.
+                 * Without --linux= the kernel and initrd come off disk via OVMF and aren't part
+                 * of the launch measurement, leaving the guest unattestable in any meaningful
+                 * way. Require direct kernel boot so the boot chain starts from a measured state. */
+                if (!arg_linux)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "--confidential-computing=sev-snp requires --linux= "
+                                               "so kernel, initrd and cmdline are covered by the launch measurement.");
+        }
 
         return 0;
 }
