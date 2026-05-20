@@ -6871,14 +6871,35 @@ class NetworkdRATests(unittest.TestCase, Utilities):
         self.wait_route('veth99', r'2002:da8:1:1:1a:2b:3c:4d nhid [0-9]* via fe80::1 proto redirect', ipv='-6', timeout_sec=10)
         self.wait_route('veth99', r'2002:da8:1:2:1a:2b:3c:4d nhid [0-9]* via fe80::2 proto redirect', ipv='-6', timeout_sec=10)
 
+        print('### before sending NA without router flag')
+        output = check_output('ip -6 route show dev veth99')
+        print(output)
+        self.assertIn('2002:da8:1::/64 proto ra', output)
+        self.assertIn('2002:da8:2::/64 proto ra', output)
+        self.assertRegex(output, 'default .* proto ra')
+        self.assertRegex(output, '2002:da8:1:1:1a:2b:3c:4d .* proto redirect')
+        self.assertRegex(output, '2002:da8:1:2:1a:2b:3c:4d .* proto redirect')
+        self.assertIn('2002:da8:1:3:1a:2b:3c:4d proto redirect', output)
+
         # Send Neighbor Advertisement without the router flag to announce the default router is not available anymore.
         # Then, verify that all redirect routes and the default route are dropped.
         output = check_output('ip -6 address show dev veth-peer scope link')
         veth_peer_ipv6ll = re.search('fe80:[:0-9a-f]*', output).group()
         print(f'veth-peer IPv6LL address: {veth_peer_ipv6ll}')
         check_output(f'{test_ndisc_send} --interface veth-peer --type neighbor-advertisement --target-address {veth_peer_ipv6ll} --is-router no')
-        self.wait_route_dropped('veth99', 'proto ra', ipv='-6', timeout_sec=10)
+        self.wait_route_dropped('veth99', 'default .* proto ra', ipv='-6', timeout_sec=10)
         self.wait_route_dropped('veth99', 'proto redirect', ipv='-6', timeout_sec=10)
+
+        # Check if the non-default routes are unchanged, and others are actually dropped.
+        print('### after sending NA without router flag')
+        output = check_output('ip -6 route show dev veth99')
+        print(output)
+        self.assertIn('2002:da8:1::/64 proto ra', output)
+        self.assertIn('2002:da8:2::/64 proto ra', output)
+        self.assertNotRegex(output, 'default .* proto ra')
+        self.assertNotRegex(output, '2002:da8:1:1:1a:2b:3c:4d .* proto redirect')
+        self.assertNotRegex(output, '2002:da8:1:2:1a:2b:3c:4d .* proto redirect')
+        self.assertNotIn('2002:da8:1:3:1a:2b:3c:4d proto redirect', output)
 
         # Check if sd-radv refuses RS from the same interface.
         # See https://github.com/systemd/systemd/pull/32267#discussion_r1566721306
