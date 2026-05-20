@@ -52,14 +52,18 @@ static int open_test_subvol(char **ret_path) {
         return fd;
 }
 
-TEST(info) {
+TEST_RET(info) {
         _cleanup_(rm_rf_subvolume_and_freep) char *dir = NULL;
         _cleanup_close_ int dir_fd = ASSERT_OK(open_test_subvol(&dir));
         BtrfsSubvolInfo info;
         BtrfsQuotaInfo quota;
         int r;
 
-        ASSERT_OK(btrfs_subvol_get_info_fd(dir_fd, 0, &info));
+        r = btrfs_subvol_get_info_fd(dir_fd, 0, &info);
+        if (r == -ENOTTY)
+                return log_tests_skipped("BTRFS_IOC_GET_SUBVOL_INFO not supported "
+                                         "(missing 32-bit compat handler in kernel?)");
+        ASSERT_OK(r);
         log_info("otime: %s", FORMAT_TIMESTAMP(info.otime));
         log_info("read-only (search): %s", yes_no(info.read_only));
 
@@ -75,6 +79,8 @@ TEST(info) {
 
         r = ASSERT_OK(btrfs_subvol_get_read_only_fd(dir_fd));
         log_info("read-only (ioctl): %s", yes_no(r));
+
+        return EXIT_SUCCESS;
 }
 
 TEST(subvol) {
