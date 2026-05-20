@@ -128,6 +128,8 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 ## Features
 
+- systemd-report: implement signing via callout varlink dir
+
 - add tooling for generating dictionary-based hostnames
 
 - do not pull dbus daemon/broker anymore, instead lazy activate it. Given how
