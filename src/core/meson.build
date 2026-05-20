@@ -1,5 +1,26 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+systemd_sources = files(
+        'main.c',
+        'crash-handler.c',
+        'clock-warp.c',
+        'kmod-setup.c',
+        'apparmor-setup.c',
+        'ima-setup.c',
+        'ipe-setup.c',
+        'smack-setup.c',
+        'efi-random.c',
+)
+
+if conf.get('HAVE_SELINUX') == 1
+        systemd_sources += files('selinux-setup.c')
+endif
+
+systemd_executor_sources = files(
+        'executor.c',
+        'exec-invoke.c',
+)
+
 libcore_sources = files(
         'audit-fd.c',
         'automount.c',
@@ -167,27 +188,6 @@ libcore = shared_library(
         link_with : libshared,
         install : true,
         install_dir : pkglibdir)
-
-systemd_sources = files(
-        'main.c',
-        'crash-handler.c',
-        'clock-warp.c',
-        'kmod-setup.c',
-        'apparmor-setup.c',
-        'ima-setup.c',
-        'ipe-setup.c',
-        'smack-setup.c',
-        'efi-random.c',
-)
-
-if conf.get('HAVE_SELINUX') == 1
-        systemd_sources += files('selinux-setup.c')
-endif
-
-systemd_executor_sources = files(
-        'executor.c',
-        'exec-invoke.c',
-)
 
 executor_libs = get_option('link-executor-shared') ? \
         [
