@@ -2192,4 +2192,49 @@ TEST(json_dispatch_in_addr_data) {
         ASSERT_EQ(data.addr.family, AF_INET6);
 }
 
+TEST(json_seq_extract) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *a = NULL, *b = NULL, *c = NULL;
+        _cleanup_free_ char *s = NULL;
+        sd_json_variant *v;
+
+        ASSERT_OK(sd_json_buildo(&a, SD_JSON_BUILD_PAIR_STRING("foo", "bar")));
+        ASSERT_OK(sd_json_build(&b, SD_JSON_BUILD_ARRAY(SD_JSON_BUILD_UNSIGNED(4711), SD_JSON_BUILD_BOOLEAN(true))));
+        ASSERT_OK(sd_json_build(&c, SD_JSON_BUILD_STRING("waldo")));
+
+        FOREACH_ARGUMENT(v, a, b, c) {
+                _cleanup_free_ char *f = NULL;
+
+                ASSERT_OK(sd_json_variant_format(v, SD_JSON_FORMAT_SEQ, &f));
+                ASSERT_NOT_NULL(strextend(&s, f));
+        }
+
+        /* Without EOL the last object is incomplete, and must be left in the buffer */
+        const char *p = s;
+        size_t left = strlen(s);
+        FOREACH_ARGUMENT(v, a, b) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *x = NULL;
+
+                ASSERT_OK_POSITIVE(json_seq_extract(&p, &left, /* flags= */ 0, /* eol= */ false, &x));
+                ASSERT_TRUE(sd_json_variant_equal(x, v));
+        }
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *y = NULL;
+        ASSERT_OK_ZERO(json_seq_extract(&p, &left, /* flags= */ 0, /* eol= */ false, &y));
+        ASSERT_NULL(y);
+
+        /* With EOL it is parsed as the final object */
+        ASSERT_OK_POSITIVE(json_seq_extract(&p, &left, /* flags= */ 0, /* eol= */ true, &y));
+        ASSERT_TRUE(sd_json_variant_equal(y, c));
+        ASSERT_EQ(left, 0U);
+
+        y = sd_json_variant_unref(y);
+        ASSERT_OK_ZERO(json_seq_extract(&p, &left, /* flags= */ 0, /* eol= */ true, &y));
+        ASSERT_NULL(y);
+
+        /* Garbage instead of a record separator is refused */
+        p = "{}";
+        left = strlen(p);
+        ASSERT_ERROR(json_seq_extract(&p, &left, /* flags= */ 0, /* eol= */ true, &y), EBADMSG);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
