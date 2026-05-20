@@ -11035,7 +11035,7 @@ if __name__ == '__main__':
     if build_dir:
         test_ndisc_send = os.path.normpath(os.path.join(build_dir, 'test-ndisc-send'))
     else:
-        test_ndisc_send = '/usr/lib/tests/test-ndisc-send'
+        test_ndisc_send = '/usr/lib/systemd/tests/unit-tests/manucal/test-ndisc-send'
 
     if build_dir:
         test_modem_manager_mock = os.path.normpath(os.path.join(build_dir, 'test-modem-manager-mock'))
