@@ -14,6 +14,7 @@ typedef enum PromptFlags {
 
 int prompt_loop(const char *text,
                 Glyph emoji,
+                const char *prefill,
                 char **menu,
                 char **accepted,
                 unsigned ellipsize_percentage,

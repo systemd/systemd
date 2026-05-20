@@ -60,6 +60,7 @@ static int get_completions(
 int prompt_loop(
                 const char *text,
                 Glyph emoji,
+                const char *prefill,     /* if non-NULL: prefill prompt with this string */
                 char **menu,             /* if non-NULL: choices to suggest */
                 char **accepted,         /* if non-NULL: choices to accept (should be a superset of 'menu') */
                 unsigned ellipsize_percentage,
@@ -116,6 +117,7 @@ int prompt_loop(
                 _cleanup_free_ char *p = NULL;
                 r = ask_string_full(
                                 &p,
+                                prefill,
                                 get_completions,
                                 &(CompletionData) { menu, accepted },
                                 "%s%s%s%s: ",
