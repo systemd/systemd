@@ -1176,7 +1176,7 @@ static usec_t calculate_expired_lease_lifetime_fuzzed(Link *link) {
         return min_lifetime + random_u64_range(2 * range + 1);
 }
 
-static int dhcp4_validate_saved_lease(Link *link, sd_dhcp_lease *lease) {
+static int dhcp_validate_saved_lease(Link *link, sd_dhcp_lease *lease) {
         usec_t lifetime, timestamp_realtime, expiration_realtime;
         usec_t now_realtime;
         usec_t remaining_lifetime;
@@ -1235,38 +1235,22 @@ static int dhcp4_validate_saved_lease(Link *link, sd_dhcp_lease *lease) {
         return 1;
 }
 
-static int dhcp4_load_saved_lease(Link *link) {
+static int dhcp_load_saved_lease(Link *link) {
         _cleanup_(sd_dhcp_lease_unrefp) sd_dhcp_lease *lease = NULL;
-        _cleanup_free_ char *lease_file = NULL;
-        _cleanup_free_ char * lease_path = NULL;
-        int dir_fd;
         int r;
 
         assert(link);
         assert(link->network);
 
-        r = link_get_dhcp_client_lease_path(link, &dir_fd, &lease_file);
-        if (IN_SET(r, -EBUSY, 0))
-                /* persistent storage not avaiable/not configured, ignore */
-                return r;
-        if (r < 0)
-                return log_link_debug_errno(link, r, "Failed to get saved lease path: %m");
-
-        if (dir_fd >= 0) {
-                lease_path = path_join("/var/lib/systemd/network/", lease_file);
-                if (!lease_path)
-                        return -ENOMEM;
-        }
-
         /* Load lease from file */
-        r = dhcp_lease_load(&lease, lease_path);
+        r = sd_dhcp_client_load_lease(link->dhcp_client, &lease);
         if (r == -ENOENT)
                 return log_link_debug_errno(link, r, "No saved DHCP lease found.");
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to load saved DHCP lease: %m");
 
         /* check if saved lease is expired */
-        r = dhcp4_validate_saved_lease(link, lease);
+        r = dhcp_validate_saved_lease(link, lease);
         if (r <= 0)
                 return r;
 
@@ -1323,19 +1307,17 @@ static int dhcp_configure_with_saved_lease(Link* link) {
         assert(link);
 
         r = link_get_dhcp_client_lease_path(link, &dir_fd, &lease_file);
+        if (r == -EBUSY)
+                return 0; /* persistent storage is not ready */
         if (r < 0)
                 return log_link_debug_errno(link, r, "Failed to get saved lease path, ignoring: %m");
-
-        r = mkdirat_parents(dir_fd, lease_file, 0755);
-        if (r < 0)
-                return log_link_warning_errno(link, r, "Failed to create parent directory for saved lease: %m");
 
         r = sd_dhcp_client_set_lease_file(link->dhcp_client, dir_fd, lease_file);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to set lease file: %m");
 
         /*load saved lease, before transitioning client */
-        r = dhcp4_load_saved_lease(link);
+        r = dhcp_load_saved_lease(link);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to load saved lease: %m");
         if (r == 0)
@@ -1483,6 +1465,7 @@ static int dhcp4_handler(sd_dhcp_client *client, int event, void *userdata) {
                                 r = dhcp4_request_address_and_routes(link, false);
                                 if (r < 0)
                                         return log_link_warning_errno(link, r, "Failed to configure extended lease: %m");
+
                                 return 0;
                         }
 

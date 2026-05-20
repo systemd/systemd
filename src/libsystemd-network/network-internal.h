@@ -24,8 +24,15 @@ struct sd_dhcp_lease;
 void serialize_dhcp_routes(FILE *f, const char *key, struct sd_dhcp_route **routes, size_t size);
 int deserialize_dhcp_routes(struct sd_dhcp_route **ret, size_t *ret_size, const char *string);
 
+int dhcp_lease_save_at(sd_dhcp_lease *lease, int dir_fd, const char *lease_file);
+static inline int dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
+                        return dhcp_lease_save_at(lease, AT_FDCWD, lease_file);
+}
+
+int dhcp_lease_load_at(int dir_fd, const char *lease_file, sd_dhcp_lease **ret);
+static inline int dhcp_lease_load(const char *lease_file, sd_dhcp_lease **ret) {
+                        return dhcp_lease_load_at(AT_FDCWD, lease_file, ret);
+}
+
 /* It is not necessary to add deserialize_dhcp_option(). Use unhexmem() instead. */
 int serialize_dhcp_option(FILE *f, const char *key, const void *data, size_t size);
-
-int dhcp_lease_save(sd_dhcp_lease *lease, int dir_fd, const char *lease_file);
-int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file);

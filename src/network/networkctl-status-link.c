@@ -296,7 +296,7 @@ static int link_status_one(
         char lease_file[STRLEN("/run/systemd/netif/leases/") + DECIMAL_STR_MAX(int)];
         xsprintf(lease_file, "/run/systemd/netif/leases/%i", info->ifindex);
 
-        (void) dhcp_lease_load(&lease, lease_file);
+        (void) dhcp_lease_load(lease_file, &lease);
 
         r = format_config_files(&network_dropins, network);
         if (r < 0)

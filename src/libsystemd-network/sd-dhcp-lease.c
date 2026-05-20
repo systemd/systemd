@@ -19,6 +19,7 @@
 #include "in-addr-util.h"
 #include "iovec-util.h"
 #include "json-util.h"
+#include "mkdir.h"
 #include "network-common.h"
 #include "network-internal.h"
 #include "sort-util.h"
@@ -1593,7 +1594,7 @@ static int dhcp_lease_append_json(sd_dhcp_lease *lease, sd_json_variant **ret) {
         return 0;
 }
 
-int dhcp_lease_save(sd_dhcp_lease *lease, int dir_fd, const char *lease_file) {
+int dhcp_lease_save_at(sd_dhcp_lease *lease, int dir_fd, const char *lease_file) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         _cleanup_(unlink_and_freep) char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
@@ -1603,11 +1604,13 @@ int dhcp_lease_save(sd_dhcp_lease *lease, int dir_fd, const char *lease_file) {
         assert(lease_file);
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
 
-
         r = dhcp_lease_append_json(lease, &v);
-
         if (r < 0)
                 return r;
+
+        r = mkdirat_parents(dir_fd, lease_file, 0755);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to create parent directory for saved lease: %m");
 
         r = fopen_temporary_at(dir_fd, lease_file, &f, &temp_path);
         if (r < 0)
@@ -1881,7 +1884,7 @@ static int json_dispatch_timespan(const char *name, sd_json_variant *variant, sd
         return parse_sec(s, usec);
 }
 
-int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
+int dhcp_lease_load_at(int dir_fd, const char *lease_file, sd_dhcp_lease **ret) {
         _cleanup_(sd_dhcp_lease_unrefp) sd_dhcp_lease *lease = NULL;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         unsigned line = 0, column = 0;
@@ -1890,8 +1893,9 @@ int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
         assert(lease_file);
         assert(ret);
 
-        r = sd_json_parse_file(
+        r = sd_json_parse_file_at(
                         /* f= */ NULL,
+                        dir_fd,
                         lease_file,
                         /* flags= */ SD_JSON_PARSE_MUST_BE_OBJECT,
                         &v,

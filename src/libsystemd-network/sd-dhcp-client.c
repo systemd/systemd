@@ -26,6 +26,7 @@
 #include "iovec-util.h"
 #include "memory-util.h"
 #include "network-common.h"
+#include "network-internal.h"
 #include "path-util.h"
 #include "random-util.h"
 #include "set.h"
@@ -2649,6 +2650,34 @@ int sd_dhcp_client_set_lease_file(sd_dhcp_client *client, int dir_fd, const char
         close_and_replace(client->lease_dir_fd, fd);
 
         return 0;
+}
+
+int sd_dhcp_client_load_lease(sd_dhcp_client *client, sd_dhcp_lease **ret) {
+        _cleanup_(sd_dhcp_lease_unrefp) sd_dhcp_lease *lease = NULL;
+        int r;
+
+        assert(client);
+        assert(client->lease_dir_fd >= 0 || client->lease_dir_fd == AT_FDCWD);
+        assert(client->lease_file);
+        assert(ret);
+
+        r = dhcp_lease_load_at(client->lease_dir_fd, client->lease_file, &lease);
+
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(lease);
+
+        return 0;
+}
+
+int sd_dhcp_client_save_lease(sd_dhcp_client *client) {
+        assert(client);
+
+        if (!client->lease_file)
+                return 0;
+
+        return dhcp_lease_save_at(client->lease, client->lease_dir_fd, client->lease_file);
 }
 
 int sd_dhcp_client_update_lease_lifetime(sd_dhcp_client *client, sd_dhcp_lease *lease, uint64_t lifetime) {
