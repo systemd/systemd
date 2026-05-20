@@ -1022,9 +1022,9 @@ cmp "$MP/payload/mp-v1.bin" "$MP/target/mp-v1.bin"
 # there is none
 sed 's|^ManifestPath=.*|&\nManifestPath=|' "$MP/definitions/01-mp.transfer" >"$MP/bad-definitions/01-mp.transfer"
 (! "$SYSUPDATE" --definitions="$MP/bad-definitions" --verify=no list)
-# Only SHA256SUMS manifests are supported for now
-sed 's|^ManifestFormat=.*|ManifestFormat=uapi16|' "$MP/definitions/01-mp.transfer" >"$MP/bad-definitions/01-mp.transfer"
-(! "$SYSUPDATE" --definitions="$MP/bad-definitions" --verify=no list) |& grep -F "Manifest format 'uapi16' not supported" >/dev/null
+# Only SHA256SUMS and UAPI.16 manifests are supported
+sed 's|^ManifestFormat=.*|ManifestFormat=mtree|' "$MP/definitions/01-mp.transfer" >"$MP/bad-definitions/01-mp.transfer"
+(! "$SYSUPDATE" --definitions="$MP/bad-definitions" --verify=no list) |& grep -F "Manifest format 'mtree' not supported" >/dev/null
 # ManifestPath= must be a URL, and is only supported for URL sources
 sed 's|^ManifestPath=.*|ManifestPath=/foo/SHA256SUMS|' "$MP/definitions/01-mp.transfer" >"$MP/bad-definitions/01-mp.transfer"
 (! "$SYSUPDATE" --definitions="$MP/bad-definitions" --verify=no list) |& grep -F "Manifest path is not a valid" >/dev/null
