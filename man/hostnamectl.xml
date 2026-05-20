@@ -165,6 +165,32 @@
         <xi:include href="version-info.xml" xpointer="v249"/>
         </listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><command>tags</command> [<replaceable>TAG</replaceable>…]</term>
+
+        <listitem><para>If no argument is given, print the machine tags currently configured, as a
+        colon-separated list. If one or more <replaceable>TAG</replaceable> arguments are provided then the
+        command replaces the configured tags with the specified ones. Each argument may itself be a
+        colon-separated list of tags, so that the tags may be specified either as multiple arguments or as a
+        single colon-separated argument, or any combination thereof. Duplicate tags are removed and the
+        resulting list is sorted before being stored. To remove all tags, invoke the command with a single
+        empty string argument.</para>
+
+        <para>Machine tags are short labels that may be used to classify and group machines for management
+        purposes, for example to identify the role a machine plays in a deployment, the fleet or
+        organizational unit it belongs to, or any other administrator-defined attribute. Each individual tag
+        must be 1…255 characters long and consist only of ASCII alphanumeric characters,
+        <literal>-</literal> and <literal>.</literal>. The tags are stored in the <varname>TAGS=</varname>
+        field of <filename>/etc/machine-info</filename>; see
+        <citerefentry><refentrytitle>machine-info</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+        details. They may also be matched against with the
+        <varname>ConditionMachineTag=</varname>/<varname>AssertMachineTag=</varname> unit settings, see
+        <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
