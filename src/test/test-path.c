@@ -98,25 +98,13 @@ static int _check_states(unsigned line,
                          service_state_to_string(service->state),
                          service_result_to_string(service->result));
 
+                /* We may fail to start the service for reasons which are not under our control: cgroup
+                 * setup denied, permission limits, resource exhaustion, etc. RESOURCES is terminal here
+                 * for path units that don't auto-retry (PathChanged, PathModified) — they'd just sit in
+                 * the failure state until the test timeout. Skip rather than wait. */
                 if (service->state == SERVICE_FAILED &&
-                    (service->main_exec_status.status == EXIT_CGROUP || service->result == SERVICE_FAILURE_RESOURCES)) {
-                        const char *ci = ci_environment();
-
-                        /* On a general purpose system we may fail to start the service for reasons which are
-                         * not under our control: permission limits, resource exhaustion, etc. Let's skip the
-                         * test in those cases. On developer machines we require proper setup. */
-                        if (!ci)
-                                return log_notice_errno(SYNTHETIC_ERRNO(ECANCELED),
-                                                        "Failed to start service %s, aborting test: %s/%s",
-                                                        UNIT(service)->id,
-                                                        service_state_to_string(service->state),
-                                                        service_result_to_string(service->result));
-
-                        /* On Salsa we can't setup cgroups so the unit always fails. The test checks if it
-                         * can but continues if it cannot at the beginning, but on Salsa it fails here. */
-                        if (streq(ci, "salsa-ci"))
-                                exit(EXIT_TEST_SKIP);
-                }
+                    (service->main_exec_status.status == EXIT_CGROUP || service->result == SERVICE_FAILURE_RESOURCES))
+                        exit(EXIT_TEST_SKIP);
 
                 /* SERVICE_FAILURE_START_LIMIT_HIT is terminal: the unit won't recover without an explicit
                  * reset, so further looping is pointless. Abort the subtest rather than burning the 30s
