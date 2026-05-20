@@ -649,8 +649,13 @@ void varlink_job_send_removed_signal(Job *j) {
                         SD_JSON_BUILD_PAIR_CALLBACK("runtime", unit_runtime_build_json, j->unit),
                         SD_JSON_BUILD_PAIR_CALLBACK("job", job_build_json, j));
 
+        /* Only drop the unit change subscription if it belongs to this very method call. A unit can carry
+         * two jobs at the same time (the regular one and a NOP one), which may be watched by two different
+         * connections, and the one finishing here must not tear down the other one's subscription. */
+        if (j->unit->varlink_unit_change == j->varlink)
+                j->unit->varlink_unit_change = sd_varlink_unref(j->unit->varlink_unit_change);
+
         j->varlink = sd_varlink_unref(j->varlink);
-        j->unit->varlink_unit_change = sd_varlink_unref(j->unit->varlink_unit_change);
 }
 
 typedef struct TransientExecCommandItem {
@@ -1804,16 +1809,20 @@ static int varlink_reply_or_watch_unit_job(
                                 SD_JSON_BUILD_PAIR_CALLBACK("runtime", unit_runtime_build_json, u),
                                 SD_JSON_BUILD_PAIR_CALLBACK("job", job_build_json, j));
 
-        /* Streaming: always attach to the job for the final reply, and optionally to the unit for state
-         * change notifications. j->varlink owns the stream lifetime, u->varlink_unit_change is just a flag
-         * to also send unit state notifications along the way. */
-        assert(!j->varlink);
+        /* Streaming: attach to the job for the final reply, and optionally to the unit for state change
+         * notifications. j->varlink owns the stream lifetime, u->varlink_unit_change is just a flag to
+         * also send unit state notifications along the way.
+         *
+         * Because jobs coalesce, a concurrent streaming request may map onto a job (or unit) that is
+         * already being watched by another connection. Only a single streaming subscriber is supported,
+         * so reject the second one instead of clobbering the first. */
+        if (j->varlink || (notify_unit_changes && u->varlink_unit_change))
+                return sd_varlink_error(link, VARLINK_ERROR_UNIT_ALREADY_BEING_WATCHED, NULL);
+
         j->varlink = sd_varlink_ref(link);
         j->varlink_notify_job_changes = notify_job_changes;
-        if (notify_unit_changes) {
-                assert(!u->varlink_unit_change);
+        if (notify_unit_changes)
                 u->varlink_unit_change = sd_varlink_ref(link);
-        }
 
         /* Send initial job state notification if requested. Unit state change notifications are not sent
          * here; they will arrive via varlink_unit_send_change_signal() when the unit actually transitions,
