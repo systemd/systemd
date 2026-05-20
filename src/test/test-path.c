@@ -118,6 +118,17 @@ static int _check_states(unsigned line,
                                 exit(EXIT_TEST_SKIP);
                 }
 
+                /* SERVICE_FAILURE_START_LIMIT_HIT is terminal: the unit won't recover without an explicit
+                 * reset, so further looping is pointless. Abort the subtest rather than burning the 30s
+                 * timeout. */
+                if (service->state == SERVICE_FAILED &&
+                    service->result == SERVICE_FAILURE_START_LIMIT_HIT)
+                        return log_notice_errno(SYNTHETIC_ERRNO(ECANCELED),
+                                                "Failed to start service %s, aborting test: %s/%s",
+                                                UNIT(service)->id,
+                                                service_state_to_string(service->state),
+                                                service_result_to_string(service->result));
+
                 if (n >= end) {
                         log_error("Test timeout when testing %s", UNIT(path)->id);
                         exit(EXIT_FAILURE);
