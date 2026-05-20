@@ -3,6 +3,7 @@
 #include "alloc-util.h"
 #include "log.h"
 #include "sysupdate-instance.h"
+#include "uapi16-manifest.h"
 
 void instance_metadata_destroy(InstanceMetadata *m) {
         assert(m);

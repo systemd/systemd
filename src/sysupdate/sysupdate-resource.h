@@ -79,7 +79,7 @@ typedef struct Resource {
         char **patterns;
         GptPartitionType partition_type;
         bool partition_type_set;
-        ManifestFormat manifest_format;  /* Only MANIFEST_FORMAT_SHA256SUMS for now */
+        ManifestFormat manifest_format;  /* MANIFEST_FORMAT_SHA256SUMS or MANIFEST_FORMAT_UAPI16 */
         char *manifest_path;
 
         /* All instances of this resource we found */
@@ -94,7 +94,11 @@ void resource_destroy(Resource *rr);
 
 bool resource_has_glob_directory_pattern(Resource *rr);
 
-int resource_load_instances(Resource *rr, bool verify, Hashmap **web_cache);
+int resource_load_instances(
+                Resource *rr,
+                bool verify,
+                Hashmap **web_cache,
+                const GptPartitionType *match_partition_type);
 
 Instance* resource_find_instance(Resource *rr, const char *version);
 
