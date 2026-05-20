@@ -12,6 +12,7 @@
 #include "alloc-util.h"
 #include "ansi-color.h"
 #include "env-util.h"
+#include "errno-list.h"
 #include "errno-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
@@ -726,6 +727,12 @@ static int do_shovel(PTYForward *f) {
                                 /* Note that EIO on the master device might be caused by vhangup() or
                                  * temporary closing of everything on the other side, we treat it like EAGAIN
                                  * here and try again, unless vhangup() is honored. */
+
+                                if (IN_SET(errno, EIO, EPIPE, ECONNRESET))
+                                        log_info("ptyfwd master read: errno=%s read_from_master=%d "
+                                                 "vhangup_honored=%d flags=0x%x",
+                                                 ERRNO_NAME(errno), f->read_from_master,
+                                                 pty_forward_vhangup_honored(f), f->flags);
 
                                 if (errno == EAGAIN || (errno == EIO && !pty_forward_vhangup_honored(f)))
                                         f->master_readable = false;
