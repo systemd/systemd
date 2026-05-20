@@ -682,37 +682,55 @@ varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
     '{"context":{"ID":"varlink-transient-exists.service","Service":{"ExecStart":[{"path":"/usr/bin/sleep","arguments":["/usr/bin/sleep","infinity"]}]}}}' |& grep "io.systemd.Unit.UnitExists"
 varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
     '{"context":{"ID":"varlink-transient-test.target","Description":"test"}}' |& grep "io.systemd.Unit.UnitTypeNotSupported"
+# Apply-time and dispatch-time validation errors both surface as
+# org.varlink.service.InvalidParameter, with the offending field name in the
+# response parameters. Use --graceful to treat the expected error as success
+# so jq can assert on the dumped parameters JSON directly.
+expect_invalid_parameter() {
+    local payload="$1" field="$2"
+    varlinkctl call --graceful=org.varlink.service.InvalidParameter \
+                    "$MANAGER_SOCKET" io.systemd.Unit.StartTransient "$payload" \
+        | jq -e --arg f "$field" '.parameter == $f' >/dev/null
+}
 defer_transient_cleanup varlink-transient-bad.service
-varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
-    '{"context":{"ID":"varlink-transient-bad.service","Service":{"Type":"simple"}}}' |& grep "io.systemd.Unit.BadUnitSetting"
+expect_invalid_parameter \
+    '{"context":{"ID":"varlink-transient-bad.service","Service":{"Type":"simple"}}}' \
+    "context"
 # Invalid ExecStart path: exercises filename_or_absolute_path_is_valid() in transient_service_apply_properties()
 defer_transient_cleanup varlink-transient-badpath.service
-varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
-    '{"context":{"ID":"varlink-transient-badpath.service","Service":{"Type":"simple","ExecStart":[{"path":""}]}}}' |& grep "io.systemd.Unit.BadUnitSetting"
+expect_invalid_parameter \
+    '{"context":{"ID":"varlink-transient-badpath.service","Service":{"Type":"simple","ExecStart":[{"path":""}]}}}' \
+    "Service.ExecStart"
 # Relative WorkingDirectory path is rejected
 defer_transient_cleanup varlink-transient-bad-wd.service
-varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
-    '{"context":{"ID":"varlink-transient-bad-wd.service","Exec":{"WorkingDirectory":{"path":"relative/path","missingOK":false}},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' |& grep "io.systemd.Unit.BadUnitSetting"
+expect_invalid_parameter \
+    '{"context":{"ID":"varlink-transient-bad-wd.service","Exec":{"WorkingDirectory":{"path":"relative/path","missingOK":false}},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' \
+    "Exec.WorkingDirectory"
 # Malformed environment entry (not KEY=VALUE)
 defer_transient_cleanup varlink-transient-bad-env.service
-varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
-    '{"context":{"ID":"varlink-transient-bad-env.service","Exec":{"Environment":["not_an_env_var"]},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' |& grep "io.systemd.Unit.BadUnitSetting"
+expect_invalid_parameter \
+    '{"context":{"ID":"varlink-transient-bad-env.service","Exec":{"Environment":["not_an_env_var"]},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' \
+    "Exec.Environment"
 # Invalid User= name is rejected at JSON dispatch time as a parameter error
 defer_transient_cleanup varlink-transient-bad-user.service
-varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
-    '{"context":{"ID":"varlink-transient-bad-user.service","Exec":{"User":"bad/user"},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' |& grep "Invalid argument"
+expect_invalid_parameter \
+    '{"context":{"ID":"varlink-transient-bad-user.service","Exec":{"User":"bad/user"},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' \
+    "context"
 # Out-of-range Nice= value is rejected
 defer_transient_cleanup varlink-transient-bad-nice.service
-varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
-    '{"context":{"ID":"varlink-transient-bad-nice.service","Exec":{"Nice":100},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' |& grep "io.systemd.Unit.BadUnitSetting"
+expect_invalid_parameter \
+    '{"context":{"ID":"varlink-transient-bad-nice.service","Exec":{"Nice":100},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' \
+    "Exec.Nice"
 # Invalid credential ID
 defer_transient_cleanup varlink-transient-bad-cred-id.service
-varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
-    '{"context":{"ID":"varlink-transient-bad-cred-id.service","Exec":{"SetCredential":[{"id":"bad/id","value":"YWJj"}]},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' |& grep "io.systemd.Unit.BadUnitSetting"
+expect_invalid_parameter \
+    '{"context":{"ID":"varlink-transient-bad-cred-id.service","Exec":{"SetCredential":[{"id":"bad/id","value":"YWJj"}]},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' \
+    "Exec.SetCredential"
 # Invalid base64 value for credential (rejected at JSON dispatch time as a parameter error)
 defer_transient_cleanup varlink-transient-bad-cred-value.service
-varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
-    '{"context":{"ID":"varlink-transient-bad-cred-value.service","Exec":{"SetCredential":[{"id":"mycred","value":"!!!not_base64!!!"}]},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' |& grep "Invalid argument"
+expect_invalid_parameter \
+    '{"context":{"ID":"varlink-transient-bad-cred-value.service","Exec":{"SetCredential":[{"id":"mycred","value":"!!!not_base64!!!"}]},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' \
+    "context"
 # Exec on a unit type without an exec context (.slice) is rejected
 varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
     '{"context":{"ID":"varlink-transient-exec.slice","Exec":{"WorkingDirectory":{"path":"/tmp","missingOK":false}}}}' |& grep "io.systemd.Unit.UnitTypeNotSupported"
