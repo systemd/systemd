@@ -103,9 +103,10 @@ STATIC_DESTRUCTOR_REGISTER(arg_root_shell, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_kernel_cmdline, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 
+static bool welcome_done = false;
+
 static void print_welcome(int rfd, sd_varlink **mute_console_link) {
         _cleanup_free_ char *pretty_name = NULL, *os_name = NULL, *ansi_color = NULL, *fancy_name = NULL;
-        static bool done = false;
         const char *pn, *ac;
         int r;
 
@@ -122,7 +123,7 @@ static void print_welcome(int rfd, sd_varlink **mute_console_link) {
         if (!arg_welcome)
                 return;
 
-        if (done) {
+        if (welcome_done) {
                 putchar('\n'); /* Add some breathing room between multiple prompts */
                 return;
         }
@@ -158,7 +159,7 @@ static void print_welcome(int rfd, sd_varlink **mute_console_link) {
         }
         printf("Please configure the system!\n\n");
 
-        done = true;
+        welcome_done = true;
 }
 
 static int should_configure(int dir_fd, const char *filename) {
@@ -1562,6 +1563,15 @@ static int reload_vconsole(sd_bus **bus) {
         return 0;
 }
 
+static void end_marker(void) {
+
+        if (!welcome_done)
+                return;
+
+        printf("\n%sExiting first boot settings tool.%s\n\n", ansi_grey(), ansi_normal());
+        fflush(stdout);
+}
+
 static int run(int argc, char *argv[]) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
@@ -1627,6 +1637,7 @@ static int run(int argc, char *argv[]) {
         }
 
         LOG_SET_PREFIX(arg_image ?: arg_root);
+        DEFER_VOID_CALL(end_marker);
         DEFER_VOID_CALL(chrome_hide);
 
         /* We check these conditions here instead of in parse_argv() so that we can take the root directory
