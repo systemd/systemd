@@ -490,6 +490,51 @@ TEST(bind_mount_submounts) {
         }
 }
 
+TEST(get_sub_mounts) {
+        _cleanup_(rm_rf_physical_and_freep) char *a = NULL;
+        int r;
+
+        CHECK_PRIV;
+
+        assert_se(mkdtemp_malloc(NULL, &a) >= 0);
+
+        r = ASSERT_OK(pidref_safe_fork("(get-sub-mounts)", FORK_COMMON_FLAGS, NULL));
+        if (r == 0) {
+                _cleanup_free_ char *outer = NULL, *inner = NULL;
+                SubMount *mounts = NULL;
+                size_t n = 0;
+
+                CLEANUP_ARRAY(mounts, n, sub_mount_array_free);
+
+                /* Reproduces the layout that triggered the assertion crash in systemd-sysext on
+                 * Flatcar (https://github.com/flatcar/Flatcar/issues/2111): a mount nested inside
+                 * another mount under a sysext hierarchy. The dedup pass must keep only the outer
+                 * entry (the inner is covered by the outer's recursive open_tree() clone) and
+                 * compact the array — leaving NULL entries behind would crash the consumer. */
+
+                assert_se(outer = path_join(a, "outer"));
+                assert_se(mkdir(outer, 0755) >= 0);
+                ASSERT_OK(mount_nofollow_verbose(LOG_INFO, "tmpfs", outer, "tmpfs", 0, NULL));
+
+                assert_se(inner = path_join(outer, "inner"));
+                assert_se(mkdir(inner, 0755) >= 0);
+                ASSERT_OK(mount_nofollow_verbose(LOG_INFO, "tmpfs", inner, "tmpfs", 0, NULL));
+
+                ASSERT_OK(get_sub_mounts(a, &mounts, &n));
+
+                /* Only the outer entry should survive dedup; the inner is implied by the outer's
+                 * recursive clone. */
+                ASSERT_EQ(n, 1u);
+                ASSERT_NOT_NULL(mounts[0].path);
+                ASSERT_STREQ(mounts[0].path, outer);
+                ASSERT_OK(mounts[0].mount_fd);
+
+                ASSERT_OK(umount_recursive(a, 0));
+
+                _exit(EXIT_SUCCESS);
+        }
+}
+
 TEST(path_is_network_fs_harder) {
         _cleanup_close_ int dir_fd = -EBADF;
         int r;
