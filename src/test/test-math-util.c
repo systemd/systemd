@@ -5,6 +5,15 @@
 #include "math-util.h"
 #include "tests.h"
 
+/* Computed at runtime via a noinline + volatile combination so the result crosses the function ABI
+ * boundary at the FPU's current precision (80-bit on i386/x87). Used to probe fp_equal's handling
+ * of excess precision — see https://gcc.gnu.org/bugzilla/show_bug.cgi?id=323 for why
+ * -fexcess-precision=standard doesn't fully cover the caller side of a function return on x87. */
+static double _noinline_ one_tenth_via_division(void) {
+        volatile double ten = 10.0;
+        return 1.0 / ten;
+}
+
 TEST(iszero_safe) {
         /* zeros */
         assert_se(iszero_safe(0.0));
@@ -105,6 +114,8 @@ TEST(fp_equal) {
         assert_se( fp_equal(0, 1 / INFINITY));
         assert_se( fp_equal(42 / INFINITY, 1 / -INFINITY));
         assert_se(!fp_equal(42 / INFINITY, INFINITY / INFINITY));
+
+        assert_se( fp_equal(one_tenth_via_division(), 0.1));
 }
 
 TEST(xexp10i) {
