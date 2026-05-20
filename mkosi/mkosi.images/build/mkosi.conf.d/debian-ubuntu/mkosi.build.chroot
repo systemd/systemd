@@ -40,12 +40,6 @@ if [[ -d "$SRCDIR/debian/patches" ]]; then
     mount --bind /tmp/patches "$SRCDIR/debian/patches"
 fi
 
-# mode=developer enables -Wl,--compress-debug-sections=zstd in meson.build, which dwz cannot process.
-cp "$SRCDIR/debian/rules" /tmp/rules
-chmod +x /tmp/rules
-printf '\noverride_dh_dwz:\n' >>/tmp/rules
-mount --bind /tmp/rules "$SRCDIR/debian/rules"
-
 # While the build directory can be specified through DH_OPTIONS, the default one is hardcoded everywhere so
 # we have to use that. Because it is architecture dependent, we query it using dpkg-architecture first.
 DEB_HOST_GNU_TYPE="$(dpkg-architecture --query DEB_HOST_GNU_TYPE)"
