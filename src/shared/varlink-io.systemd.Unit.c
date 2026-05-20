@@ -1931,6 +1931,26 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 SD_VARLINK_FIELD_COMMENT("Runtime information of the unit"),
                 SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(runtime, UnitRuntime, 0));
 
+static SD_VARLINK_DEFINE_METHOD_FULL(
+                EnqueueJob,
+                SD_VARLINK_SUPPORTS_MORE,
+                SD_VARLINK_FIELD_COMMENT("The unit name to operate on."),
+                SD_VARLINK_DEFINE_INPUT(name, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("The job type to enqueue."),
+                SD_VARLINK_DEFINE_INPUT_BY_TYPE(jobType, JobType, 0),
+                SD_VARLINK_FIELD_COMMENT("Job mode. Defaults to replace."),
+                SD_VARLINK_DEFINE_INPUT_BY_TYPE(mode, JobMode, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("If true and 'more' is set, stream job state change notifications. Defaults to false."),
+                SD_VARLINK_DEFINE_INPUT(notifyJobChanges, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("If true and 'more' is set, stream unit runtime notifications on state changes. Defaults to false."),
+                SD_VARLINK_DEFINE_INPUT(notifyUnitChanges, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Unit context. Set in the final reply."),
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(context, UnitContext, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Unit runtime state. Set in the final reply and in intermediate notifications when notifyUnitChanges is true."),
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(runtime, UnitRuntime, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The enqueued job. Set in the final reply and in intermediate notifications when notifyJobChanges is true."),
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(job, Job, SD_VARLINK_NULLABLE));
+
 static SD_VARLINK_DEFINE_ERROR(
                 NoSuchUnit,
                 SD_VARLINK_DEFINE_FIELD(parameter, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
@@ -1980,6 +2000,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 "io.systemd.Unit",
                 SD_VARLINK_SYMBOL_COMMENT("List units"),
                 &vl_method_List,
+                SD_VARLINK_SYMBOL_COMMENT("Enqueue a job for a unit"),
+                &vl_method_EnqueueJob,
                 SD_VARLINK_SYMBOL_COMMENT("Set unit properties"),
                 &vl_method_SetProperties,
                 SD_VARLINK_SYMBOL_COMMENT("Create a transient unit and start it"),

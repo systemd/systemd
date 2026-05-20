@@ -435,6 +435,7 @@ int manager_setup_varlink_server(Manager *m) {
                         "io.systemd.Manager.KExec", vl_method_kexec,
                         "io.systemd.Manager.SoftReboot", vl_method_soft_reboot,
                         "io.systemd.Unit.List", vl_method_list_units,
+                        "io.systemd.Unit.EnqueueJob", vl_method_enqueue_unit_job,
                         "io.systemd.Unit.SetProperties", vl_method_set_unit_properties,
                         "io.systemd.Unit.StartTransient", vl_method_start_transient_unit,
                         "io.systemd.service.Ping", varlink_method_ping,
