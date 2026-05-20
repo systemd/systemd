@@ -77,6 +77,68 @@ timer_params=$(jq -cn --arg name "$timer_id" '{name: $name}')
 varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List "$timer_params" | jq -e '.context.Timer'
 varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List "$timer_params" | jq -e '.runtime.Timer'
 
+# test io.systemd.Unit.EnqueueJob
+
+at_exit() {
+    systemctl stop varlink-test-enqueue.service 2>/dev/null || true
+    rm -f /run/systemd/system/varlink-test-enqueue.service
+    rm -f /tmp/enqueue-result.json
+    systemctl daemon-reload
+}
+trap at_exit EXIT
+
+cat >/run/systemd/system/varlink-test-enqueue.service <<UNIT
+[Service]
+Type=oneshot
+ExecStart=true
+RemainAfterExit=yes
+UNIT
+systemctl daemon-reload
+
+wait_for_active() {
+    for _ in {1..10}; do
+        systemctl is-active "$1" 2>/dev/null && return 0
+        sleep 1
+    done
+    return 1
+}
+
+wait_for_inactive() {
+    for _ in {1..10}; do
+        (! systemctl is-active "$1" 2>/dev/null) && return 0
+        sleep 1
+    done
+    return 1
+}
+
+# Enqueue a start job (non-streaming) and verify the response contains all expected fields
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.EnqueueJob '{"name": "varlink-test-enqueue.service", "jobType": "start"}' > /tmp/enqueue-result.json
+jq -e '.job.Id' /tmp/enqueue-result.json
+jq -e '.context' /tmp/enqueue-result.json
+jq -e '.runtime' /tmp/enqueue-result.json
+wait_for_active varlink-test-enqueue.service
+
+# Enqueue a stop job and verify response
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.EnqueueJob '{"name": "varlink-test-enqueue.service", "jobType": "stop"}' | jq -e '.job.JobType == "stop"'
+wait_for_inactive varlink-test-enqueue.service
+
+# Test with explicit mode
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.EnqueueJob '{"name": "varlink-test-enqueue.service", "jobType": "start", "mode": "fail"}' | jq -e '.job.Id'
+wait_for_active varlink-test-enqueue.service
+
+# Test restart
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.EnqueueJob '{"name": "varlink-test-enqueue.service", "jobType": "restart"}' | jq -e '.job.JobType == "restart"'
+wait_for_active varlink-test-enqueue.service
+
+# Streaming mode: enqueue and watch until job completes (streaming waits for job to finish)
+systemctl stop varlink-test-enqueue.service
+varlinkctl call --collect /run/systemd/io.systemd.Manager io.systemd.Unit.EnqueueJob '{"name": "varlink-test-enqueue.service", "jobType": "start", "notifyJobChanges": true}' | jq -e '.[].job'
+systemctl is-active varlink-test-enqueue.service
+
+# Error cases
+(! varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.EnqueueJob '{"name": "non-existent.service", "jobType": "start"}')
+(! varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.EnqueueJob '{"name": "invalid-unit-name", "jobType": "start"}')
+
 # test io.systemd.Unit in user manager
 testuser_uid=$(id -u testuser)
 systemd-run --wait --pipe --user --machine testuser@ \
