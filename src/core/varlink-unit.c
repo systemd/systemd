@@ -976,7 +976,12 @@ static int transient_apply_set_credentials(
         return 0;
 }
 
-static int transient_exec_context_apply_properties(Unit *u, ExecContext *c, TransientExecContextParameters *p) {
+static int transient_exec_context_apply_properties(
+                Unit *u,
+                ExecContext *c,
+                TransientExecContextParameters *p,
+                const char **reterr_field) {
+
         int r;
 
         assert(u);
@@ -987,23 +992,35 @@ static int transient_exec_context_apply_properties(Unit *u, ExecContext *c, Tran
                 TransientWorkingDirectory *wd = &p->working_directory;
                 _cleanup_free_ char *simplified = NULL;
 
-                if (wd->home && wd->path)
+                if (wd->home && wd->path) {
+                        if (reterr_field)
+                                *reterr_field = "Exec.WorkingDirectory";
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "WorkingDirectory: 'home' and 'path' are mutually exclusive");
-                if (!wd->home && !wd->path)
+                }
+                if (!wd->home && !wd->path) {
+                        if (reterr_field)
+                                *reterr_field = "Exec.WorkingDirectory";
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "WorkingDirectory: must specify either 'home' or 'path'");
+                }
 
                 if (!wd->home) {
-                        if (!path_is_absolute(wd->path))
+                        if (!path_is_absolute(wd->path)) {
+                                if (reterr_field)
+                                        *reterr_field = "Exec.WorkingDirectory";
                                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "WorkingDirectory: expects an absolute path");
+                        }
                         r = path_simplify_alloc(wd->path, &simplified);
                         if (r < 0)
                                 return r;
-                        if (!path_is_normalized(simplified))
+                        if (!path_is_normalized(simplified)) {
+                                if (reterr_field)
+                                        *reterr_field = "Exec.WorkingDirectory";
                                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "WorkingDirectory: expects a normalized path");
+                        }
                 }
 
                 free_and_replace(c->working_directory, simplified);
@@ -1018,22 +1035,29 @@ static int transient_exec_context_apply_properties(Unit *u, ExecContext *c, Tran
 
         if (p->environment_set) {
                 r = exec_context_apply_environment(u, c, p->environment, UNIT_RUNTIME|UNIT_PRIVATE);
-                if (r == -E2BIG)
-                        return log_debug_errno(r, "Too many environment assignments.");
-                if (r == -EINVAL)
-                        return log_debug_errno(r, "Invalid Environment list.");
+                if (IN_SET(r, -E2BIG, -EINVAL)) {
+                        if (reterr_field)
+                                *reterr_field = "Exec.Environment";
+                        /* Convert E2BIG into EINVAL to ensure upper layers get the right error context */
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               r == -E2BIG ? "Too many environment assignments." : "Invalid Environment list.");
+                }
                 if (r < 0)
                         return r;
         }
 
         if (p->set_credentials_set) {
                 r = transient_apply_set_credentials(u, c, p->set_credentials, p->n_set_credentials, /* encrypted= */ false);
+                if (r == -EINVAL && reterr_field)
+                        *reterr_field = "Exec.SetCredential";
                 if (r < 0)
                         return r;
         }
 
         if (p->set_credentials_encrypted_set) {
                 r = transient_apply_set_credentials(u, c, p->set_credentials_encrypted, p->n_set_credentials_encrypted, /* encrypted= */ true);
+                if (r == -EINVAL && reterr_field)
+                        *reterr_field = "Exec.SetCredentialEncrypted";
                 if (r < 0)
                         return r;
         }
@@ -1062,9 +1086,12 @@ static int transient_exec_context_apply_properties(Unit *u, ExecContext *c, Tran
                 _cleanup_free_ char *joined = NULL;
 
                 STRV_FOREACH(g, p->supplementary_groups)
-                        if (!isempty(*g) && !valid_user_group_name(*g, VALID_USER_ALLOW_NUMERIC|VALID_USER_RELAX))
+                        if (!valid_user_group_name(*g, VALID_USER_ALLOW_NUMERIC|VALID_USER_RELAX)) {
+                                if (reterr_field)
+                                        *reterr_field = "Exec.SupplementaryGroups";
                                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Invalid supplementary group name: %s", *g);
+                        }
 
                 r = strv_extend_strv(&c->supplementary_groups, p->supplementary_groups, /* filter_duplicates= */ true);
                 if (r < 0)
@@ -1079,8 +1106,11 @@ static int transient_exec_context_apply_properties(Unit *u, ExecContext *c, Tran
         }
 
         if (p->nice != INT_MAX) {
-                if (!nice_is_valid(p->nice))
+                if (!nice_is_valid(p->nice)) {
+                        if (reterr_field)
+                                *reterr_field = "Exec.Nice";
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid Nice= value: %i", p->nice);
+                }
 
                 c->nice = p->nice;
                 c->nice_set = true;
@@ -1091,7 +1121,7 @@ static int transient_exec_context_apply_properties(Unit *u, ExecContext *c, Tran
         return 0;
 }
 
-static int transient_service_apply_properties(Service *s, TransientServiceParameters *sp) {
+static int transient_service_apply_properties(Service *s, TransientServiceParameters *sp, const char **reterr_field) {
         Unit *u = UNIT(ASSERT_PTR(s));
         int r;
 
@@ -1111,8 +1141,11 @@ static int transient_service_apply_properties(Service *s, TransientServiceParame
                 _cleanup_(exec_command_freep) ExecCommand *c = NULL;
                 _cleanup_strv_free_ char **argv = NULL;
 
-                if (!filename_or_absolute_path_is_valid(item->path))
+                if (!filename_or_absolute_path_is_valid(item->path)) {
+                        if (reterr_field)
+                                *reterr_field = "Service.ExecStart";
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid ExecStart path: %s", item->path);
+                }
 
                 if (!strv_isempty(item->arguments)) {
                         argv = strv_copy(item->arguments);
@@ -1243,16 +1276,17 @@ int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters
         /* Apply unit-level properties from context */
         r = transient_unit_apply_properties(u, &p.context);
         if (r == -EINVAL)
-                return sd_varlink_error(link, VARLINK_ERROR_UNIT_BAD_SETTING, NULL);
+                return sd_varlink_error_invalid_parameter_name(link, "context");
         if (r < 0)
                 return sd_varlink_error_errno(link, r);
 
         /* Apply exec-specific properties from context.Exec */
         ExecContext *c = unit_get_exec_context(u);
         if (c) {
-                r = transient_exec_context_apply_properties(u, c, &p.context.exec);
+                bad_field = NULL;
+                r = transient_exec_context_apply_properties(u, c, &p.context.exec, &bad_field);
                 if (r == -EINVAL)
-                        return sd_varlink_error(link, VARLINK_ERROR_UNIT_BAD_SETTING, NULL);
+                        return sd_varlink_error_invalid_parameter_name(link, bad_field ?: "Exec");
                 if (r < 0)
                         return sd_varlink_error_errno(link, r);
         } else if (p.context.exec.present)
@@ -1261,9 +1295,10 @@ int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters
         /* Apply service-specific properties from context.Service */
         Service *s = SERVICE(u);
         if (s) {
-                r = transient_service_apply_properties(s, &p.context.service);
+                bad_field = NULL;
+                r = transient_service_apply_properties(s, &p.context.service, &bad_field);
                 if (r == -EINVAL)
-                        return sd_varlink_error(link, VARLINK_ERROR_UNIT_BAD_SETTING, NULL);
+                        return sd_varlink_error_invalid_parameter_name(link, bad_field ?: "Service");
                 if (r < 0)
                         return sd_varlink_error_errno(link, r);
         } else if (p.context.service.present)
@@ -1273,7 +1308,7 @@ int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters
         manager_dispatch_load_queue(manager);
 
         if (u->load_state == UNIT_BAD_SETTING)
-                return sd_varlink_error(link, VARLINK_ERROR_UNIT_BAD_SETTING, NULL);
+                return sd_varlink_error_invalid_parameter_name(link, "context");
         if (!UNIT_IS_LOAD_COMPLETE(u->load_state))
                 return sd_varlink_error(link, VARLINK_ERROR_UNIT_NO_SUCH_UNIT, NULL);
 
