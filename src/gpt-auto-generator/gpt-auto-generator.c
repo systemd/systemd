@@ -2,8 +2,6 @@
 
 #include <sys/file.h>
 
-#include "sd-id128.h"
-
 #include "alloc-util.h"
 #include "blockdev-util.h"
 #include "device-util.h"
