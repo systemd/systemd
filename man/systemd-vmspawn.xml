@@ -105,6 +105,18 @@
         </varlistentry>
 
         <varlistentry>
+          <term><option>-x</option></term>
+          <term><option>--ephemeral</option></term>
+
+          <listitem><para>If specified, the VM is run with a temporary snapshot of its file system that is removed
+          immediately when the VM terminates. Only works with <option>--image=</option> currently.
+
+          Note that <option>--ephemeral</option> will not work with <option>--extra-drive=</option>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><option>-i</option></term>
           <term><option>--image=</option></term>
 
@@ -139,15 +151,25 @@
         </varlistentry>
 
         <varlistentry>
-          <term><option>-x</option></term>
-          <term><option>--ephemeral</option></term>
+          <term><option>--discard-disk=<replaceable>BOOL</replaceable></option></term>
 
-          <listitem><para>If specified, the VM is run with a temporary snapshot of its file system that is removed
-          immediately when the VM terminates. Only works with <option>--image=</option> currently.
+          <listitem><para>Controls whether qemu processes discard requests from the VM.
+          This prevents long running VMs from using more disk space than required.
+          This is enabled by default.</para>
 
-          Note that <option>--ephemeral</option> will not work with <option>--extra-drive=</option>.</para>
+          <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+        </varlistentry>
 
-          <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+        <varlistentry>
+          <term><option>--grow-image=<replaceable>BYTES</replaceable></option></term>
+          <term><option>-G <replaceable>BYTES</replaceable></option></term>
+
+          <listitem><para>Grows the image file specified by <option>--image=</option> to the specified size
+          in bytes if it is smaller. Executes no operation if no image file is used or the image file is
+          already as large or larger than requested. The specified size accepts the usual K, M, G suffixes
+          (to the base of 1024). Specified values are rounded up to multiples of 4096.</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>
@@ -270,59 +292,13 @@
         </varlistentry>
 
         <varlistentry>
-          <term><option>--linux=<replaceable>PATH</replaceable></option></term>
+          <term><option>--secure-boot=<replaceable>BOOL</replaceable></option></term>
 
-          <listitem>
-            <para>Set the linux kernel image to use for direct kernel boot.
-            If a directory type image is used and <option>--linux=</option> was omitted, vmspawn will search for boot loader entries
-            according to the
-            <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">UAPI.1 Boot Loader Specification</ulink> assuming
-            XBOOTLDR to be located at /boot and ESP to be /efi respectively.
-            If no kernel was installed into the image then the image will fail to boot.</para>
-
-            <xi:include href="version-info.xml" xpointer="v256"/>
-          </listitem>
-        </varlistentry>
-
-        <varlistentry>
-          <term><option>--initrd=<replaceable>PATH</replaceable></option></term>
-
-          <listitem>
-            <para>Set the initrd to use for direct kernel boot.
-            If the <option>--linux=</option> supplied is a
-            <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">UAPI.1 Boot Loader Specification</ulink>
-            Type #2 entry, then this argument is not required.
-            If no initrd was installed into the image then the image will fail to boot.</para>
-
-            <para><option>--initrd=</option> can be specified multiple times and vmspawn will merge them together.</para>
-
-            <xi:include href="version-info.xml" xpointer="v256"/>
-          </listitem>
-        </varlistentry>
-
-        <varlistentry>
-          <term><option>-n</option></term>
-          <term><option>--network-tap</option></term>
-
-          <listitem>
-            <para>Create a TAP device to network with the virtual machine.</para>
-
-            <para>Note: root privileges are required to use TAP networking.
-            Additionally,
-            <citerefentry><refentrytitle>systemd-networkd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-            must be running and correctly set up on the host to provision the host interface. The relevant
-            <literal>.network</literal> file can be found at
-            <filename>/usr/lib/systemd/network/80-vm-vt.network</filename>.
-            </para>
-
-            <xi:include href="version-info.xml" xpointer="v255"/>
-          </listitem>
-        </varlistentry>
-
-        <varlistentry>
-          <term><option>--network-user-mode</option></term>
-
-          <listitem><para>Use user mode networking.</para>
+          <listitem><para>Configure whether to search for firmware which supports Secure Boot. Takes a
+          boolean or <literal>auto</literal>. Setting this to yes is equivalent to
+          <option>--firmware-features=secure-boot</option> and setting this to no is equivalent to
+          <option>--firmware-features=~secure-boot</option>. Setting this to <literal>auto</literal>
+          removes <literal>secure-boot</literal> from both the included and excluded feature lists.</para>
 
           <xi:include href="version-info.xml" xpointer="v255"/></listitem>
         </varlistentry>
@@ -362,39 +338,75 @@
 
           <xi:include href="version-info.xml" xpointer="v261"/></listitem>
         </varlistentry>
+      </variablelist>
+    </refsect2>
 
+    <refsect2>
+      <title>Networking Options</title>
+
+      <variablelist>
         <varlistentry>
-          <term><option>--discard-disk=<replaceable>BOOL</replaceable></option></term>
+          <term><option>-n</option></term>
+          <term><option>--network-tap</option></term>
 
-          <listitem><para>Controls whether qemu processes discard requests from the VM.
-          This prevents long running VMs from using more disk space than required.
-          This is enabled by default.</para>
+          <listitem>
+            <para>Create a TAP device to network with the virtual machine.</para>
 
-          <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+            <para>Note: root privileges are required to use TAP networking.
+            Additionally,
+            <citerefentry><refentrytitle>systemd-networkd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+            must be running and correctly set up on the host to provision the host interface. The relevant
+            <literal>.network</literal> file can be found at
+            <filename>/usr/lib/systemd/network/80-vm-vt.network</filename>.
+            </para>
+
+            <xi:include href="version-info.xml" xpointer="v255"/>
+          </listitem>
         </varlistentry>
 
         <varlistentry>
-          <term><option>--secure-boot=<replaceable>BOOL</replaceable></option></term>
+          <term><option>--network-user-mode</option></term>
 
-          <listitem><para>Configure whether to search for firmware which supports Secure Boot. Takes a
-          boolean or <literal>auto</literal>. Setting this to yes is equivalent to
-          <option>--firmware-features=secure-boot</option> and setting this to no is equivalent to
-          <option>--firmware-features=~secure-boot</option>. Setting this to <literal>auto</literal>
-          removes <literal>secure-boot</literal> from both the included and excluded feature lists.</para>
+          <listitem><para>Use user mode networking.</para>
 
           <xi:include href="version-info.xml" xpointer="v255"/></listitem>
         </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2>
+      <title>Execution Options</title>
+
+      <variablelist>
+        <varlistentry>
+          <term><option>--linux=<replaceable>PATH</replaceable></option></term>
+
+          <listitem>
+            <para>Set the linux kernel image to use for direct kernel boot.
+            If a directory type image is used and <option>--linux=</option> was omitted, vmspawn will search for boot loader entries
+            according to the
+            <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">UAPI.1 Boot Loader Specification</ulink> assuming
+            XBOOTLDR to be located at /boot and ESP to be /efi respectively.
+            If no kernel was installed into the image then the image will fail to boot.</para>
+
+            <xi:include href="version-info.xml" xpointer="v256"/>
+          </listitem>
+        </varlistentry>
 
         <varlistentry>
-          <term><option>--grow-image=<replaceable>BYTES</replaceable></option></term>
-          <term><option>-G <replaceable>BYTES</replaceable></option></term>
+          <term><option>--initrd=<replaceable>PATH</replaceable></option></term>
 
-          <listitem><para>Grows the image file specified by <option>--image=</option> to the specified size
-          in bytes if it is smaller. Executes no operation if no image file is used or the image file is
-          already as large or larger than requested. The specified size accepts the usual K, M, G suffixes
-          (to the base of 1024). Specified values are rounded up to multiples of 4096.</para>
+          <listitem>
+            <para>Set the initrd to use for direct kernel boot.
+            If the <option>--linux=</option> supplied is a
+            <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">UAPI.1 Boot Loader Specification</ulink>
+            Type #2 entry, then this argument is not required.
+            If no initrd was installed into the image then the image will fail to boot.</para>
 
-          <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+            <para><option>--initrd=</option> can be specified multiple times and vmspawn will merge them together.</para>
+
+            <xi:include href="version-info.xml" xpointer="v256"/>
+          </listitem>
         </varlistentry>
 
         <varlistentry>
@@ -684,7 +696,7 @@
     </refsect2>
 
     <refsect2>
-      <title>Integration Options</title>
+      <title>Logging Options</title>
 
       <variablelist>
         <varlistentry>
@@ -716,6 +728,13 @@
           <xi:include href="version-info.xml" xpointer="v261"/></listitem>
         </varlistentry>
 
+      </variablelist>
+    </refsect2>
+
+    <refsect2>
+      <title>SSH Options</title>
+
+      <variablelist>
         <varlistentry>
           <term><option>--pass-ssh-key=<replaceable>BOOL</replaceable></option></term>
 
