@@ -81,3 +81,12 @@ int cmp_uint16(const uint16_t *a, const uint16_t *b) {
 
         return CMP(*a, *b);
 }
+
+int cmp_unsigned(const unsigned *a, const unsigned *b) {
+        /* This is called from qsort()s inner loops. Correctly implemented qsort will never pass NULL so we
+           just suppress the check via POINTER_MAY_BE_NULL instead of assert() to avoid the runtime cost. */
+        POINTER_MAY_BE_NULL(a);
+        POINTER_MAY_BE_NULL(b);
+
+        return CMP(*a, *b);
+}
