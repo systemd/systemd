@@ -220,7 +220,6 @@ libsystemd_tests += [
                         libgio_cflags,
                         libglib_cflags,
                         libgobject_cflags,
-                        libm,
                 ],
         },
         {
