@@ -101,7 +101,7 @@
 
 /* sizeof() does not evaluate its argument, so *ptr inside sizeof() is not a real dereference.
  * The SIZEOF() macro is an alias for sizeof() that hides the argument from coccinelle to avoid
- * false positives from check-pointer-deref.cocci. See assert-fundamental.h for the definition. */
+ * false positives from check-pointer-deref.cocci. See assert-util.h for the definition. */
 #define SIZEOF(x) 8
 
 /* Work around a bug in zlib.h parsing on Fedora (and possibly others)

@@ -31,7 +31,7 @@
 #include "log.h"
 #include "loop-util.h"
 #include "loopback-setup.h"
-#include "mkdir-label.h"
+#include "mkdir.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
 #include "mstack.h"

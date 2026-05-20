@@ -169,7 +169,7 @@ else
                               libshared_static]
 endif
 
-network_includes = [libsystemd_network_includes, include_directories(['.', 'netdev', 'tc'])]
+network_includes = [include_directories(['.', 'netdev', 'tc']), libsystemd_network_includes]
 
 network_test_template = test_template + {
         'conditions' : ['ENABLE_NETWORKD'],

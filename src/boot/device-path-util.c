@@ -2,7 +2,7 @@
 
 #include "device-path-util.h"
 #include "efi-string.h"
-#include "string-util-fundamental.h"
+#include "string-util.h"
 #include "util.h"
 
 static const EFI_DEVICE_PATH *device_path_find_end_node(const EFI_DEVICE_PATH *dp) {

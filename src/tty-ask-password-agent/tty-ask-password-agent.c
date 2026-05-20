@@ -28,7 +28,7 @@
 #include "inotify-util.h"
 #include "io-util.h"
 #include "main-func.h"
-#include "mkdir-label.h"
+#include "mkdir.h"
 #include "options.h"
 #include "path-util.h"
 #include "pidref.h"

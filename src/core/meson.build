@@ -138,7 +138,7 @@ generated_sources += [load_fragment_gperf_c, load_fragment_gperf_nulstr_c, bpf_d
 libcore_sources += [load_fragment_gperf_c, load_fragment_gperf_nulstr_c, bpf_delegate_configs_inc]
 libcore_build_dir = meson.current_build_dir()
 libcore_name = 'systemd-core-@0@'.format(shared_lib_tag)
-core_includes = [includes, include_directories('.')]
+core_includes = [include_directories('.'), includes]
 
 libcore_static = static_library(
         libcore_name,

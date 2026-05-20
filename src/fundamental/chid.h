@@ -2,13 +2,11 @@
 
 #pragma once
 
-#if SD_BOOT
-#  include "efi.h"
-#else
+#include "efi.h"
+
+#if !SD_BOOT
 #  include <uchar.h>
 #endif
-
-#include "efi-fundamental.h"
 
 #define CHID_TYPES_MAX 18
 /* Any chids starting from EXTRA_CHID_BASE are non-standard and are subject to change and renumeration at any time */
