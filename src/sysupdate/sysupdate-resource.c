@@ -37,6 +37,7 @@
 #include "sysupdate-pattern.h"
 #include "sysupdate-resource.h"
 #include "time-util.h"
+#include "uapi16-manifest.h"
 #include "utf8.h"
 
 void resource_destroy(Resource *rr) {
@@ -362,11 +363,22 @@ static int resource_load_from_blockdev(Resource *rr) {
         return 0;
 }
 
+static const char* const resource_manifest_filename_table[_MANIFEST_FORMAT_MAX] = {
+        [MANIFEST_FORMAT_SHA256SUMS] = "SHA256SUMS",
+        [MANIFEST_FORMAT_UAPI16]     = UAPI16_MANIFEST_FILENAME,
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(resource_manifest_filename, ManifestFormat);
+
+static bool resource_manifest_has_inline_signatures(ManifestFormat style) {
+        return style == MANIFEST_FORMAT_UAPI16;
+}
+
 static int resource_manifest_url(Resource *rr, char **ret) {
         int r;
 
         assert(rr);
-        assert(rr->manifest_format == MANIFEST_FORMAT_SHA256SUMS);
+        assert(IN_SET(rr->manifest_format, MANIFEST_FORMAT_SHA256SUMS, MANIFEST_FORMAT_UAPI16));
         assert(ret);
 
         /* Returns the URL to acquire the manifest from: either the one explicitly configured, or the
@@ -380,9 +392,10 @@ static int resource_manifest_url(Resource *rr, char **ret) {
                 return 0;
         }
 
-        r = import_url_append_component(rr->path, "SHA256SUMS", ret);
+        const char *fn = resource_manifest_filename_to_string(rr->manifest_format);
+        r = import_url_append_component(rr->path, fn, ret);
         if (r < 0)
-                return log_error_errno(r, "Failed to append SHA256SUMS to URL: %m");
+                return log_error_errno(r, "Failed to append '%s' to URL '%s': %m", fn, rr->path);
 
         return 0;
 }
@@ -395,11 +408,11 @@ static int download_manifest(
 
         int r;
 
-        assert(manifest_format == MANIFEST_FORMAT_SHA256SUMS);
+        assert(IN_SET(manifest_format, MANIFEST_FORMAT_SHA256SUMS, MANIFEST_FORMAT_UAPI16));
         assert(manifest_url);
         assert(ret);
 
-        /* Download a SHA256SUMS file as manifest */
+        /* Download a SHA256SUMS/Uapi16Manifest file as manifest */
 
         _cleanup_close_pair_ int pfd[2] = EBADF_PAIR;
         if (pipe2(pfd, O_CLOEXEC) < 0)
@@ -424,7 +437,7 @@ static int download_manifest(
                         SYSTEMD_PULL_PATH,
                         "raw",
                         "--direct",                        /* just download the specified URL, don't download anything else */
-                        "--verify", verify_signature ? "signature" : "no", /* verify the manifest file */
+                        "--verify", verify_signature && !resource_manifest_has_inline_signatures(manifest_format) ? "signature" : "no", /* verify the manifest file */
                         manifest_url,
                         "-",                               /* write to stdout */
                         NULL
@@ -644,6 +657,157 @@ static int sha256sums_process(
         return 0;
 }
 
+static int instance_copy_uapi16(Instance *instance, const Uapi16Object *object) {
+        assert(instance);
+        assert(object);
+
+        /* We verified earlier that these fields are definitely set in the UAPI 16 objects */
+        assert(object->type == S_IFREG);
+        assert(iovec_is_set(&object->sha256));
+        assert(object->size != UINT64_MAX);
+
+        if (instance->metadata.sha256sum_set) {
+                if (memcmp_nn(instance->metadata.sha256sum, SHA256_DIGEST_SIZE, object->sha256.iov_base, object->sha256.iov_len) != 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "SHA256 sum parsed from filename and manifest don't match, refusing.");
+        } else {
+                assert(object->sha256.iov_len == SHA256_DIGEST_SIZE);
+                memcpy(instance->metadata.sha256sum, object->sha256.iov_base, SHA256_DIGEST_SIZE);
+                instance->metadata.sha256sum_set = true;
+        }
+
+        if (instance->metadata.size != UINT64_MAX) {
+                if (instance->metadata.size != object->size)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Size parsed from filename and manifest don't match, refusing.");
+        } else
+                instance->metadata.size = object->size;
+
+        if (instance->metadata.mode == MODE_INVALID)
+                instance->metadata.mode = object->mode;
+        if (instance->metadata.mtime == USEC_INFINITY && object->mtime_nsec < (NSEC_INFINITY / NSEC_PER_USEC) * NSEC_PER_USEC)
+                instance->metadata.mtime = object->mtime_nsec / NSEC_PER_USEC;
+        if (!instance->metadata.partition_uuid_set && object->gpt_uuid_set) {
+                instance->metadata.partition_uuid = object->gpt_uuid;
+                instance->metadata.partition_uuid_set = true;
+        }
+
+        if (!instance->metadata.partition_flags_set && object->gpt_flags_set) {
+                instance->metadata.partition_flags = object->gpt_flags;
+                instance->metadata.partition_flags_set = true;
+        }
+
+        if (instance->metadata.no_auto < 0 && object->gpt_no_auto >= 0)
+                instance->metadata.no_auto = object->gpt_no_auto;
+        if (instance->metadata.growfs < 0 && object->gpt_growfs >= 0)
+                instance->metadata.growfs = object->gpt_growfs;
+        if (instance->metadata.read_only < 0 && object->read_only >= 0)
+                instance->metadata.read_only = object->read_only;
+
+        return 0;
+}
+
+typedef struct Uapi16ProcessContext {
+        Resource *resource;
+} Uapi16ProcessContext;
+
+static int uapi16_process_object(Uapi16Object *object, size_t index, void *userdata) {
+        Uapi16ProcessContext *pc = ASSERT_PTR(userdata);
+        Resource *rr = ASSERT_PTR(pc->resource);
+        int r;
+
+        assert(object);
+
+        /* Honour validity properties, but otherwise ignore intro object */
+        if (index == 0) {
+                r = uapi16_object_check_validity(object);
+                if (r < 0) {
+                        if (verify_freshness())
+                                return log_error_errno(r, "Manifest file marked invalid: %m");
+
+                        log_warning_errno(r, "Manifest file marked invalid, but freshness checks disabled, proceeding.");
+                }
+
+                return 0;
+        }
+
+        /* Ignore non-regular files */
+        if (!S_ISREG(object->type)) {
+                log_debug("Skipping file '%s' as it is not a regular file.", object->name);
+                return 0;
+        }
+
+        /* Ignore non-matching partition types */
+        if (object->gpt_type_uuid_set && rr->partition_type_set && !sd_id128_equal(object->gpt_type_uuid, rr->partition_type.uuid))
+                return 0;
+
+        r = uapi16_object_check_validity(object);
+        if (r < 0) {
+                if (verify_freshness()) {
+                        log_warning_errno(r, "File '%s' marked invalid, skipping: %m", object->name);
+                        return 0;
+                }
+
+                log_warning_errno(r, "File '%s' marked invalid, but freshness checks disabled, proceeding.", object->name);
+        }
+
+        if (object->size == UINT64_MAX) {
+                log_warning_errno(SYNTHETIC_ERRNO(EBADMSG), "File '%s' lacks a size, skipping.", object->name);
+                return 0;
+        }
+
+        if (!iovec_is_set(&object->sha256)) {
+                log_warning_errno(SYNTHETIC_ERRNO(EBADMSG), "File '%s' lacks a SHA256 digest, skipping.", object->name);
+                return 0;
+        }
+
+        /* Refuse "%" for the same reason as in sha256sums_process() */
+        if (strchr(object->name, '%')) {
+                log_warning_errno(SYNTHETIC_ERRNO(EBADMSG), "File '%s' contains a '%%' character, skipping.", object->name);
+                return 0;
+        }
+
+        _cleanup_(instance_metadata_destroy) InstanceMetadata extracted_fields = INSTANCE_METADATA_NULL;
+        r = pattern_match_many(rr->patterns, object->name, &extracted_fields);
+        if (r < 0)
+                return log_error_errno(r, "Failed to match pattern: %m");
+        if (!IN_SET(r, PATTERN_MATCH_YES, PATTERN_MATCH_YES_AND_RETRY))
+                return 0;
+
+        _cleanup_free_ char *path = NULL;
+        r = import_url_append_component(rr->path, object->name, &path);
+        if (r < 0)
+                return log_error_errno(r, "Failed to build instance URL: %m");
+
+        Instance *instance;
+        r = resource_add_instance(rr, path, &extracted_fields, &instance);
+        if (r < 0)
+                return r;
+
+        /* Now copy the fields from the manifest into our instances logic */
+        return instance_copy_uapi16(instance, object);
+}
+
+static int uapi16_process(
+                Resource *rr,
+                const struct iovec *manifest) {
+
+        assert(rr);
+        assert(manifest);
+
+        if (!iovec_is_set(manifest))
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Manifest is empty, refusing.");
+
+        _cleanup_fclose_ FILE *f = fmemopen_unlocked(manifest->iov_base, manifest->iov_len, "r");
+        if (!f)
+                return log_error_errno(errno, "Failed to open manifest buffer as stream: %m");
+
+        return uapi16_manifest_read(
+                        f,
+                        uapi16_process_object,
+                        &(Uapi16ProcessContext) {
+                                .resource = rr,
+                        });
+}
+
 static int resource_load_from_web(
                 Resource *rr,
                 bool verify,
@@ -657,7 +821,7 @@ static int resource_load_from_web(
         POINTER_MAY_BE_NULL(web_cache);
 
         /* Key the cache by the URL of the manifest itself, not the one of the resource, as the former
-         * depends on ManifestPath= too. */
+         * depends on ManifestFormat= and ManifestPath= too. */
         _cleanup_free_ char *manifest_url = NULL;
         r = resource_manifest_url(rr, &manifest_url);
         if (r < 0)
@@ -678,7 +842,19 @@ static int resource_load_from_web(
                 manifest = buf;
         }
 
-        r = sha256sums_process(rr, &manifest);
+        switch (rr->manifest_format) {
+
+        case MANIFEST_FORMAT_SHA256SUMS:
+                r = sha256sums_process(rr, &manifest);
+                break;
+
+        case MANIFEST_FORMAT_UAPI16:
+                r = uapi16_process(rr, &manifest);
+                break;
+
+        default:
+                assert_not_reached();
+        }
         if (r < 0)
                 return r;
 
