@@ -1342,6 +1342,62 @@ int vl_method_enqueue_unit_job(sd_varlink *link, sd_json_variant *parameters, sd
         return varlink_unit_enqueue_job_and_reply(link, flags, &p, userdata);
 }
 
+static int vl_method_unit_job_generic(
+                sd_varlink *link,
+                sd_json_variant *parameters,
+                sd_varlink_method_flags_t flags,
+                JobType job_type,
+                bool reload_if_possible,
+                void *userdata) {
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "name",              SD_JSON_VARIANT_STRING,  json_dispatch_const_unit_name, offsetof(EnqueueJobParameters, name),                SD_JSON_MANDATORY },
+                { "mode",              SD_JSON_VARIANT_STRING,  dispatch_job_mode,             offsetof(EnqueueJobParameters, mode),                0                 },
+                { "notifyJobChanges",  SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate,     offsetof(EnqueueJobParameters, notify_job_changes),  0                 },
+                { "notifyUnitChanges", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate,     offsetof(EnqueueJobParameters, notify_unit_changes), 0                 },
+                {}
+        };
+
+        EnqueueJobParameters p = {
+                .job_type = job_type,
+                .mode = JOB_REPLACE,
+                .reload_if_possible = reload_if_possible,
+                .notify_job_changes = -1,
+                .notify_unit_changes = -1,
+        };
+        int r;
+
+        assert(link);
+        assert(parameters);
+        assert(job_type >= 0 && job_type < _JOB_TYPE_MAX);
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        return varlink_unit_enqueue_job_and_reply(link, flags, &p, userdata);
+}
+
+int vl_method_start_unit(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        return vl_method_unit_job_generic(link, parameters, flags, JOB_START, /* reload_if_possible= */ false, userdata);
+}
+
+int vl_method_stop_unit(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        return vl_method_unit_job_generic(link, parameters, flags, JOB_STOP, /* reload_if_possible= */ false, userdata);
+}
+
+int vl_method_restart_unit(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        return vl_method_unit_job_generic(link, parameters, flags, JOB_RESTART, /* reload_if_possible= */ false, userdata);
+}
+
+int vl_method_reload_unit(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        return vl_method_unit_job_generic(link, parameters, flags, JOB_RELOAD, /* reload_if_possible= */ false, userdata);
+}
+
+int vl_method_reload_or_restart_unit(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        return vl_method_unit_job_generic(link, parameters, flags, JOB_RESTART, /* reload_if_possible= */ true, userdata);
+}
+
 int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         static const sd_json_dispatch_field dispatch_table[] = {
                 { "context",            SD_JSON_VARIANT_OBJECT,  dispatch_transient_context, 0,                                                       SD_JSON_MANDATORY },
