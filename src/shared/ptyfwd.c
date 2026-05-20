@@ -4,6 +4,7 @@
 #include <signal.h>
 #include <string.h>
 #include <sys/ioctl.h>
+#include <sys/sysmacros.h>
 #include <termios.h>
 #include <unistd.h>
 
@@ -865,6 +866,12 @@ static int on_stdin_event(sd_event_source *e, int fd, uint32_t revents, void *us
         assert(fd >= 0);
         assert(fd == f->input_fd);
 
+        log_info("ptyfwd on_stdin_event: fd=%d revents=0x%x (in=%d out=%d err=%d hup=%d rdhup=%d pri=%d)",
+                 fd, revents,
+                 !!(revents & EPOLLIN), !!(revents & EPOLLOUT),
+                 !!(revents & EPOLLERR), !!(revents & EPOLLHUP),
+                 !!(revents & EPOLLRDHUP), !!(revents & EPOLLPRI));
+
         if (revents & (EPOLLIN|EPOLLHUP))
                 f->stdin_readable = true;
 
@@ -993,6 +1000,20 @@ int pty_forward_new(
                         f->input_fd = STDIN_FILENO;
                 } else
                         f->close_input_fd = true;
+
+                struct stat input_st = {};
+                const char *input_kind = "?";
+                if (fstat(f->input_fd, &input_st) >= 0) {
+                        if (S_ISCHR(input_st.st_mode))       input_kind = "chr";
+                        else if (S_ISREG(input_st.st_mode))  input_kind = "reg";
+                        else if (S_ISFIFO(input_st.st_mode)) input_kind = "fifo";
+                        else if (S_ISSOCK(input_st.st_mode)) input_kind = "sock";
+                        else if (S_ISDIR(input_st.st_mode))  input_kind = "dir";
+                }
+                log_info("ptyfwd input_fd=%d kind=%s rdev=%lu:%lu close_input_fd=%d isatty=%d",
+                         f->input_fd, input_kind,
+                         (unsigned long) major(input_st.st_rdev), (unsigned long) minor(input_st.st_rdev),
+                         f->close_input_fd, isatty_safe(f->input_fd));
 
                 f->output_fd = fd_reopen_propagate_append_and_position(
                                 STDOUT_FILENO, O_WRONLY|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
