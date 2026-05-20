@@ -205,8 +205,7 @@ REQUIREMENTS:
           CONFIG_MEMCG
 
         glibc >= 2.34
-        musl >= 1.2.5 with fde29c04adbab9d5b081bf6717b5458188647f1c
-                (required when building systemd with -Dlibc=musl)
+        musl >= 1.2.6 (required when building systemd with -Dlibc=musl)
         libxcrypt >= 4.4.0 (optional)
         libmount >= 2.30 (from util-linux)
                 (util-linux *must* be built without --enable-libmount-support-mtab)
