@@ -7,6 +7,7 @@
 #include <string.h>
 #include <sys/mount.h>
 #include <sys/stat.h>
+#include <sys/sysmacros.h>
 #include <unistd.h>
 
 #include "sd-bus.h"
@@ -1285,6 +1286,9 @@ fallback:
 static int on_child_exit(sd_event_source *s, const siginfo_t *si, void *userdata) {
         assert(s);
         assert(si);
+
+        log_info("on_child_exit: pid=" PID_FMT " si_code=%d si_status=%d",
+                 si->si_pid, si->si_code, si->si_status);
 
         /* Let's first do some logging about the exit status of the child. */
 
@@ -3828,6 +3832,23 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         _cleanup_(osc_context_closep) sd_id128_t osc_context_id = SD_ID128_NULL;
         _cleanup_(pty_forward_freep) PTYForward *forward = NULL;
         if (master >= 0) {
+                struct stat stdin_st = {};
+                const char *stdin_kind = "?";
+                _cleanup_free_ char *stdin_link = NULL;
+
+                if (fstat(STDIN_FILENO, &stdin_st) >= 0) {
+                        if (S_ISCHR(stdin_st.st_mode))       stdin_kind = "chr";
+                        else if (S_ISREG(stdin_st.st_mode))  stdin_kind = "reg";
+                        else if (S_ISFIFO(stdin_st.st_mode)) stdin_kind = "fifo";
+                        else if (S_ISSOCK(stdin_st.st_mode)) stdin_kind = "sock";
+                        else if (S_ISDIR(stdin_st.st_mode))  stdin_kind = "dir";
+                }
+                (void) readlink_malloc("/proc/self/fd/0", &stdin_link);
+                log_info("vmspawn STDIN_FILENO: kind=%s rdev=%u:%u isatty=%d link=%s",
+                         stdin_kind,
+                         major(stdin_st.st_rdev), minor(stdin_st.st_rdev),
+                         isatty_safe(STDIN_FILENO), strna(stdin_link));
+
                 r = pty_forward_new(event, master, ptyfwd_flags, &forward);
                 if (r < 0)
                         return log_error_errno(r, "Failed to create PTY forwarder: %m");

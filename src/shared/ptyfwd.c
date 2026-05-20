@@ -12,6 +12,7 @@
 #include "alloc-util.h"
 #include "ansi-color.h"
 #include "env-util.h"
+#include "errno-list.h"
 #include "errno-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
@@ -186,6 +187,11 @@ static int pty_forward_done(PTYForward *f, int rcode) {
 
         if (f->done)
                 return 0;
+
+        log_info("pty_forward_done: rcode=%d stdin_hangup=%d stdout_hangup=%d master_hangup=%d "
+                 "in_buffer_full=%zu out_buffer_write_len=%zu",
+                 rcode, f->stdin_hangup, f->stdout_hangup, f->master_hangup,
+                 f->in_buffer_full, f->out_buffer_write_len);
 
         e = sd_event_ref(f->event);
 
@@ -722,6 +728,12 @@ static int do_shovel(PTYForward *f) {
                                  * temporary closing of everything on the other side, we treat it like EAGAIN
                                  * here and try again, unless vhangup() is honored. */
 
+                                if (IN_SET(errno, EIO, EPIPE, ECONNRESET))
+                                        log_info("ptyfwd master read: errno=%s read_from_master=%d "
+                                                 "vhangup_honored=%d flags=0x%x",
+                                                 ERRNO_NAME(errno), f->read_from_master,
+                                                 pty_forward_vhangup_honored(f), f->flags);
+
                                 if (errno == EAGAIN || (errno == EIO && !pty_forward_vhangup_honored(f)))
                                         f->master_readable = false;
                                 else if (IN_SET(errno, EPIPE, ECONNRESET, EIO)) {
@@ -852,6 +864,12 @@ static int on_stdin_event(sd_event_source *e, int fd, uint32_t revents, void *us
         assert(e == f->stdin_event_source);
         assert(fd >= 0);
         assert(fd == f->input_fd);
+
+        log_info("ptyfwd on_stdin_event: fd=%d revents=0x%x (in=%d out=%d err=%d hup=%d rdhup=%d pri=%d)",
+                 fd, revents,
+                 !!(revents & EPOLLIN), !!(revents & EPOLLOUT),
+                 !!(revents & EPOLLERR), !!(revents & EPOLLHUP),
+                 !!(revents & EPOLLRDHUP), !!(revents & EPOLLPRI));
 
         if (revents & (EPOLLIN|EPOLLHUP))
                 f->stdin_readable = true;
