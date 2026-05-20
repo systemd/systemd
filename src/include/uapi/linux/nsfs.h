@@ -53,9 +53,6 @@ enum init_ns_ino {
 	TIME_NS_INIT_INO	= 0xEFFFFFFAU,
 	NET_NS_INIT_INO		= 0xEFFFFFF9U,
 	MNT_NS_INIT_INO		= 0xEFFFFFF8U,
-#ifdef __KERNEL__
-	MNT_NS_ANON_INO		= 0xEFFFFFF7U,
-#endif
 };
 
 struct nsfs_file_handle {
@@ -76,9 +73,6 @@ enum init_ns_id {
 	TIME_NS_INIT_ID		= 6ULL,
 	NET_NS_INIT_ID		= 7ULL,
 	MNT_NS_INIT_ID		= 8ULL,
-#ifdef __KERNEL__
-	NS_LAST_INIT_ID		= MNT_NS_INIT_ID,
-#endif
 };
 
 enum ns_type {
