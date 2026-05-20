@@ -15,11 +15,13 @@
 #include "unit.h"
 #include "varlink.h"
 #include "varlink-dynamic-user.h"
+#include "varlink-io.systemd.Job.h"
 #include "varlink-io.systemd.ManagedOOM.h"
 #include "varlink-io.systemd.Manager.h"
 #include "varlink-io.systemd.Unit.h"
 #include "varlink-io.systemd.UserDatabase.h"
 #include "varlink-io.systemd.service.h"
+#include "varlink-job.h"
 #include "varlink-manager.h"
 #include "varlink-metrics.h"
 #include "varlink-serialize.h"
@@ -411,6 +413,7 @@ int manager_setup_varlink_server(Manager *m) {
 
         r = sd_varlink_server_add_interface_many(
                         s,
+                        &vl_interface_io_systemd_Job,
                         &vl_interface_io_systemd_Manager,
                         &vl_interface_io_systemd_Unit,
                         &vl_interface_io_systemd_service);
@@ -419,6 +422,9 @@ int manager_setup_varlink_server(Manager *m) {
 
         r = sd_varlink_server_bind_method_many(
                         s,
+                        "io.systemd.Job.List", vl_method_list_jobs,
+                        "io.systemd.Job.Cancel", vl_method_cancel_job,
+                        "io.systemd.Job.ClearAll", vl_method_clear_all_jobs,
                         "io.systemd.Manager.Describe", vl_method_describe_manager,
                         "io.systemd.Manager.Reexecute", vl_method_reexecute_manager,
                         "io.systemd.Manager.Reload", vl_method_reload_manager,

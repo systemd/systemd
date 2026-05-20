@@ -28,6 +28,7 @@
 #include "varlink-cgroup.h"
 #include "varlink-common.h"
 #include "varlink-execute.h"
+#include "varlink-job.h"
 #include "varlink-kill.h"
 #include "varlink-mount.h"
 #include "varlink-path.h"
@@ -616,18 +617,6 @@ void varlink_unit_send_change_signal(Unit *u) {
         (void) sd_varlink_notifybo(
                         u->varlink_unit_change,
                         SD_JSON_BUILD_PAIR_CALLBACK("runtime", unit_runtime_build_json, u));
-}
-
-static int job_build_json(sd_json_variant **ret, const char *name, void *userdata) {
-        Job *j = ASSERT_PTR(userdata);
-
-        /* Note that "Result" is suppressed until the job reaches JOB_FINISHED. */
-        return sd_json_buildo(
-                        ASSERT_PTR(ret),
-                        SD_JSON_BUILD_PAIR_INTEGER("Id", j->id),
-                        JSON_BUILD_PAIR_ENUM("JobType", job_type_to_string(j->type)),
-                        JSON_BUILD_PAIR_ENUM("State", job_state_to_string(j->state)),
-                        JSON_BUILD_PAIR_STRING_NON_EMPTY_UNDERSCORIFY("Result", job_result_to_string(j->result)));
 }
 
 void varlink_job_send_change_signal(Job *j) {
