@@ -523,24 +523,6 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_efi_nvram_state_mode = STATE_PATH;
                         break;
 
-                OPTION_LONG("linux", "PATH", "Specify the linux kernel for direct kernel boot"):
-                        r = parse_path_argument(opts.arg, /* suppress_root= */ false, &arg_linux);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                OPTION_LONG("initrd", "PATH", "Specify the initrd for direct kernel boot"): {
-                        _cleanup_free_ char *initrd_path = NULL;
-                        r = parse_path_argument(opts.arg, /* suppress_root= */ false, &initrd_path);
-                        if (r < 0)
-                                return r;
-
-                        r = strv_consume(&arg_initrds, TAKE_PTR(initrd_path));
-                        if (r < 0)
-                                return log_oom();
-                        break;
-                }
-
                 OPTION_LONG("secure-boot", "BOOL|auto", "Enable searching for firmware supporting SecureBoot"): {
                         int b;
 
@@ -670,6 +652,24 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 OPTION_GROUP("Execution"): {}
+
+                OPTION_LONG("linux", "PATH", "Specify the linux kernel for direct kernel boot"):
+                        r = parse_path_argument(opts.arg, /* suppress_root= */ false, &arg_linux);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("initrd", "PATH", "Specify the initrd for direct kernel boot"): {
+                        _cleanup_free_ char *initrd_path = NULL;
+                        r = parse_path_argument(opts.arg, /* suppress_root= */ false, &initrd_path);
+                        if (r < 0)
+                                return r;
+
+                        r = strv_consume(&arg_initrds, TAKE_PTR(initrd_path));
+                        if (r < 0)
+                                return log_oom();
+                        break;
+                }
 
                 OPTION('s', "smbios11", "STRING", "Pass an arbitrary SMBIOS Type #11 string to the VM"):
                         if (isempty(opts.arg)) {
