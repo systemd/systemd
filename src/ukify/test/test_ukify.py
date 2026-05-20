@@ -464,6 +464,10 @@ def kernel_initrd():
     # enough.
     linux = items[-1]
 
+    # On some setups we might not have read permissions
+    if not os.access(linux, os.R_OK):
+        return None
+
     # We don't look _into_ the initrd. Any file is OK.
     return ['--linux', linux, '--initrd', ukify.__file__]
 
