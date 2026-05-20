@@ -10,8 +10,19 @@
 #define iszero_safe(x) (fpclassify(x) == FP_ZERO)
 
 /* To avoid x == y and triggering compile warning -Wfloat-equal. This returns false if one of the argument is
- * NaN or infinity. One of the argument must be a floating point. */
-#define fp_equal(x, y) iszero_safe((x) - (y))
+ * NaN or infinity. One of the argument must be a floating point.
+ *
+ * The volatile temporaries force a memory roundtrip, truncating any excess precision (e.g. x87's
+ * 80-bit long double) down to the declared type. -fexcess-precision=standard doesn't fully cover
+ * this on x87 — a function return value carried in ST(0) can still arrive at the caller in 80-bit
+ * precision (see gcc PR#323), so a value that should compare equal to a same-magnitude literal
+ * picks up extra mantissa bits and doesn't. The memory store-and-reload is the one operation
+ * guaranteed to truncate. */
+#define fp_equal(x, y) __extension__ ({                                 \
+                volatile double _fp_x = (x);                            \
+                volatile double _fp_y = (y);                            \
+                iszero_safe(_fp_x - _fp_y);                             \
+        })
 
 /* 10^n. Exact for |n| ≤ 22; otherwise multiplies and may accumulate rounding error. Saturates to
  * 0.0 or +Inf outside binary64's exponent range; large |n| is capped internally so untrusted
