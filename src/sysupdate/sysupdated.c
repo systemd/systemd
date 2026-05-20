@@ -595,19 +595,19 @@ static int job_method_cancel(sd_bus_message *msg, void *userdata, sd_bus_error *
         case JOB_LIST:
         case JOB_DESCRIBE:
         case JOB_CHECK_NEW:
-                action = "org.freedesktop.sysupdate1.check";
+                action = "org.freedesktop.sysupdate1.cancel-check";
                 break;
 
         case JOB_ACQUIRE:
         case JOB_INSTALL:
                 if (j->version)
-                        action = "org.freedesktop.sysupdate1.update-to-version";
+                        action = "org.freedesktop.sysupdate1.cancel-update-to-version";
                 else
-                        action = "org.freedesktop.sysupdate1.update";
+                        action = "org.freedesktop.sysupdate1.cancel-update";
                 break;
 
         case JOB_VACUUM:
-                action = "org.freedesktop.sysupdate1.vacuum";
+                action = "org.freedesktop.sysupdate1.cancel-vacuum";
                 break;
 
         case JOB_DESCRIBE_FEATURE:
