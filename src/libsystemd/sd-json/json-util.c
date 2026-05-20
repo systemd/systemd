@@ -412,7 +412,11 @@ int json_dispatch_const_filename(const char *name, sd_json_variant *variant, sd_
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
 
         const char *filename = sd_json_variant_string(variant);
-        if (!filename_is_valid(filename))
+
+        /* If the "strict" flag is set we are more restrictive and refuse CCs and non-UTF8 */
+        if (!(FLAGS_SET(flags, SD_JSON_STRICT) ?
+              string_is_safe(filename, STRING_FILENAME|STRING_ALLOW_BACKSLASHES|STRING_ALLOW_QUOTES|STRING_ALLOW_GLOBS) :
+              filename_is_valid(filename)))
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a valid file name.", strna(name));
 
         *n = filename;

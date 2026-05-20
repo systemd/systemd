@@ -939,17 +939,17 @@ int transfer_from_json(Transfer *t, sd_json_variant *v, const char *origin, Hash
          * from, for logging purposes. */
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "id",                SD_JSON_VARIANT_STRING,  json_dispatch_filename,    offsetof(Transfer, id),                 SD_JSON_MANDATORY },
-                { "minVersion",        SD_JSON_VARIANT_STRING,  json_dispatch_version,     offsetof(Transfer, min_version),        SD_JSON_NULLABLE },
-                { "maxVersion",        SD_JSON_VARIANT_STRING,  json_dispatch_version,     offsetof(Transfer, max_version),        SD_JSON_NULLABLE },
-                { "protectVersion",    SD_JSON_VARIANT_ARRAY,   json_dispatch_versions,    offsetof(Transfer, protected_versions), SD_JSON_NULLABLE },
-                { "verify",            SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate, offsetof(Transfer, verify),             SD_JSON_NULLABLE },
-                { "changeLog",         SD_JSON_VARIANT_ARRAY,   json_dispatch_http_urls,   offsetof(Transfer, changelog),          SD_JSON_NULLABLE },
-                { "appStream",         SD_JSON_VARIANT_ARRAY,   json_dispatch_http_urls,   offsetof(Transfer, appstream),          SD_JSON_NULLABLE },
-                { "features",          SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_strv,     offsetof(Transfer, features),           SD_JSON_NULLABLE },
-                { "requisiteFeatures", SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_strv,     offsetof(Transfer, requisite_features), SD_JSON_NULLABLE },
-                { "source",            SD_JSON_VARIANT_OBJECT,  dispatch_transfer_source,  0,                                      SD_JSON_MANDATORY },
-                { "target",            SD_JSON_VARIANT_OBJECT,  dispatch_transfer_target,  0,                                      SD_JSON_MANDATORY },
+                { "id",                SD_JSON_VARIANT_STRING,  json_dispatch_filename,    offsetof(Transfer, id),                 SD_JSON_MANDATORY|SD_JSON_STRICT },
+                { "minVersion",        SD_JSON_VARIANT_STRING,  json_dispatch_version,     offsetof(Transfer, min_version),        SD_JSON_NULLABLE                 },
+                { "maxVersion",        SD_JSON_VARIANT_STRING,  json_dispatch_version,     offsetof(Transfer, max_version),        SD_JSON_NULLABLE                 },
+                { "protectVersion",    SD_JSON_VARIANT_ARRAY,   json_dispatch_versions,    offsetof(Transfer, protected_versions), SD_JSON_NULLABLE                 },
+                { "verify",            SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate, offsetof(Transfer, verify),             SD_JSON_NULLABLE                 },
+                { "changeLog",         SD_JSON_VARIANT_ARRAY,   json_dispatch_http_urls,   offsetof(Transfer, changelog),          SD_JSON_NULLABLE                 },
+                { "appStream",         SD_JSON_VARIANT_ARRAY,   json_dispatch_http_urls,   offsetof(Transfer, appstream),          SD_JSON_NULLABLE                 },
+                { "features",          SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_strv,     offsetof(Transfer, features),           SD_JSON_NULLABLE                 },
+                { "requisiteFeatures", SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_strv,     offsetof(Transfer, requisite_features), SD_JSON_NULLABLE                 },
+                { "source",            SD_JSON_VARIANT_OBJECT,  dispatch_transfer_source,  0,                                      SD_JSON_MANDATORY                },
+                { "target",            SD_JSON_VARIANT_OBJECT,  dispatch_transfer_target,  0,                                      SD_JSON_MANDATORY                },
                 {},
         };
 
