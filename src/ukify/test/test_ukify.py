@@ -456,6 +456,9 @@ def kernel_initrd():
     items = sorted(glob.glob('/lib/modules/*/vmlinuz'))
     if not items:
         items = sorted(glob.glob('/boot/vmlinuz*'))
+    # Drop entries we cannot read (e.g. /boot/vmlinuz.old with mode 0600 on
+    # GitHub-hosted runners), the test opens the file later and would fail.
+    items = [p for p in items if os.access(p, os.R_OK)]
     if not items:
         return None
 

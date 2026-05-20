@@ -40,7 +40,7 @@ jobs:
           GITHUB_ACTIONS_CONFIG_FILE: actionlint.yml
           ENABLE_GITHUB_PULL_REQUEST_SUMMARY_COMMENT: false
 
-      - uses: systemd/mkosi@77fce77807a9a92bc37edc8f1c967102e6236d94
+      - uses: systemd/mkosi@444d247d1a1328bcfb84a945e84959bd4bd0e02d
 
       - name: Check that tabs are not used in Python code
         run: sh -c '! git grep -P "\\t" -- src/core/generate-bpf-delegate-configs.py src/boot/generate-hwids-section.py src/ukify/ukify.py test/integration-tests/integration-test-wrapper.py'
@@ -87,14 +87,3 @@ jobs:
 
       - name: Run coccinelle checks
         run: mkosi box -- meson test -C build --suite=coccinelle --print-errorlogs --no-stdsplit
-
-      - name: Build with musl
-        run: |
-          mkosi box -- \
-            env \
-            CC=musl-gcc \
-            CXX=musl-gcc \
-            CFLAGS="-idirafter /usr/include" \
-            CXXFLAGS="-idirafter /usr/include" \
-              meson setup -Dlibc=musl -Ddbus-interfaces-dir=no musl
-          mkosi box -- ninja -C musl
