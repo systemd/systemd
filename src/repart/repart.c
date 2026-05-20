@@ -11389,7 +11389,13 @@ static int vl_method_run(
                 return r;
 
         if (p.node) {
-                context->node = TAKE_PTR(p.node);
+                /* Canonicalize the node path so that partition device paths refer to kernel-created nodes
+                 * rather than udev-created symlinks (e.g. /dev/vda1 instead of .../foo-part1) that may not
+                 * yet exist right after BLKPG_ADD_PARTITION. */
+                r = acquire_root_devno(p.node, NULL, O_CLOEXEC|context_open_mode(context),
+                                       &context->node, &context->backing_fd);
+                if (r < 0)
+                        return r;
 
                 r = context_load_partition_table(context);
                 if (r == -EHWPOISON)
