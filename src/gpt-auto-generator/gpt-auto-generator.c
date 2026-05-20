@@ -1075,7 +1075,6 @@ static int add_early_esp_mount(void) {
 }
 
 static int process_loader_partitions(DissectedPartition *esp, DissectedPartition *xbootldr) {
-        sd_id128_t loader_uuid;
         int r;
 
         assert(esp);
@@ -1093,35 +1092,6 @@ static int process_loader_partitions(DissectedPartition *esp, DissectedPartition
         if (r < 0)
                 log_debug_errno(r, "Failed to check fstab existing paths, ignoring: %m");
 
-        if (!is_efi_boot()) {
-                log_debug("Not an EFI boot, skipping loader partition UUID check.");
-                goto mount;
-        }
-
-        /* Let's check if LoaderDevicePartUUID points to either ESP or XBOOTLDR. We prefer it pointing
-         * to the ESP, but we accept XBOOTLDR too. If it points to neither of them, don't mount any
-         * loader partitions, since they are not the ones used for booting. */
-
-        r = efi_loader_get_device_part_uuid(&loader_uuid);
-        if (r == -ENOENT) {
-                log_debug_errno(r, "EFI loader partition unknown, skipping ESP and XBOOTLDR mounts.");
-                return 0;
-        }
-        if (r < 0)
-                return log_debug_errno(r, "Failed to read loader partition UUID, ignoring: %m");
-
-        if (esp->found && sd_id128_equal(esp->uuid, loader_uuid))
-                goto mount;
-
-        if (xbootldr->found && sd_id128_equal(xbootldr->uuid, loader_uuid)) {
-                log_debug("LoaderDevicePartUUID points to XBOOTLDR partition.");
-                goto mount;
-        }
-
-        log_debug("LoaderDevicePartUUID points to neither ESP nor XBOOTLDR, ignoring.");
-        return 0;
-
-mount:
         r = 0;
 
         if (xbootldr->found)
