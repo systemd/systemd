@@ -30,6 +30,7 @@
 #include "polkit-agent.h"
 #include "runtime-scope.h"
 #include "string-util.h"
+#include "strv.h"
 #include "time-util.h"
 #include "verbs.h"
 
@@ -50,6 +51,7 @@ typedef struct StatusInfo {
         const char *chassis_asset_tag;
         const char *deployment;
         const char *location;
+        char **tags;
         const char *kernel_name;
         const char *kernel_release;
         const char *os_pretty_name;
@@ -193,6 +195,18 @@ static int print_status_info(StatusInfo *i) {
                 r = table_add_many(table,
                                    TABLE_FIELD, "Location",
                                    TABLE_STRING, i->location);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        if (!strv_isempty(i->tags)) {
+                _cleanup_free_ char *j = strv_join(i->tags, ":");
+                if (!j)
+                        return log_oom();
+
+                r = table_add_many(table,
+                                   TABLE_FIELD, "Tags",
+                                   TABLE_STRING, j);
                 if (r < 0)
                         return table_log_add_error(r);
         }
@@ -412,8 +426,14 @@ static int get_one_name(sd_bus *bus, const char* attr, char **ret) {
         return 0;
 }
 
+static void status_info_done(StatusInfo *info) {
+        assert(info);
+
+        info->tags = strv_free(info->tags);
+}
+
 static int show_all_names(sd_bus *bus) {
-        StatusInfo info = {
+        _cleanup_(status_info_done) StatusInfo info = {
                 .vsock_cid = VMADDR_CID_ANY,
                 .os_support_end = USEC_INFINITY,
                 .firmware_date = USEC_INFINITY,
@@ -428,6 +448,7 @@ static int show_all_names(sd_bus *bus) {
                 { "ChassisAssetTag",             "s",  NULL,          offsetof(StatusInfo, chassis_asset_tag)},
                 { "Deployment",                  "s",  NULL,          offsetof(StatusInfo, deployment)       },
                 { "Location",                    "s",  NULL,          offsetof(StatusInfo, location)         },
+                { "Tags",                        "as", NULL,          offsetof(StatusInfo, tags)             },
                 { "KernelName",                  "s",  NULL,          offsetof(StatusInfo, kernel_name)      },
                 { "KernelRelease",               "s",  NULL,          offsetof(StatusInfo, kernel_release)   },
                 { "OperatingSystemPrettyName",   "s",  NULL,          offsetof(StatusInfo, os_pretty_name)   },
@@ -718,6 +739,64 @@ VERB(verb_get_or_set_location, "set-location", "NAME", 2, 2, 0, NULL); /* obsole
 static int verb_get_or_set_location(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return argc == 1 ? get_one_name(userdata, "Location", NULL) :
                            set_simple_string(userdata, "location", "SetLocation", argv[1]);
+}
+
+VERB(verb_get_or_set_tags, "tags", "[TAG …]", VERB_ANY, VERB_ANY, 0, "Get/set machine tags for host");
+static int verb_get_or_set_tags(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        sd_bus *bus = ASSERT_PTR(userdata);
+        int r;
+
+        if (argc == 1) {
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+
+                _cleanup_free_ char *j = NULL;
+                r = bus_get_property(bus, bus_hostname, "Tags", &error, &reply, "as");
+                if (r < 0) {
+                        if (!sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_PROPERTY))
+                                return log_error_errno(r, "Could not get property: %s", bus_error_message(&error, r));
+
+                        /* Old hostnamed didn't know the tags concept, hence such a machine has no tags. */
+                } else {
+                        _cleanup_strv_free_ char **l = NULL;
+                        r = sd_bus_message_read_strv(reply, &l);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        j = strv_join(l, ":");
+                        if (!j)
+                                return log_oom();
+                }
+
+                printf("%s\n", strempty(j));
+                return 0;
+        }
+
+        _cleanup_strv_free_ char **l = NULL;
+        for (int i = 1; i < argc; i++) {
+                r = strv_split_and_extend(&l, argv[i], ":", /* filter_duplicates= */ true);
+                if (r < 0)
+                        return log_oom();
+        }
+
+        strv_sort(l);
+
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        r = bus_message_new_method_call(bus, &m, bus_hostname, "SetTags");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append_strv(m, l);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_call(bus, m, /* usec= */ 0, &error, /* ret_reply= */ NULL);
+        if (r < 0)
+                return log_error_errno(r, "Could not set tags: %s", bus_error_message(&error, r));
+
+        return 0;
 }
 
 static int help(void) {
