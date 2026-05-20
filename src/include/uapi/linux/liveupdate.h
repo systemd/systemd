@@ -8,8 +8,8 @@
  * Pasha Tatashin <pasha.tatashin@soleen.com>
  */
 
-#ifndef _UAPI_LIVEUPDATE_H
-#define _UAPI_LIVEUPDATE_H
+#ifndef _LIVEUPDATE_H
+#define _LIVEUPDATE_H
 
 #include <linux/ioctl.h>
 #include <linux/types.h>
@@ -213,4 +213,4 @@ struct liveupdate_session_finish {
 #define LIVEUPDATE_SESSION_FINISH					\
 	_IO(LIVEUPDATE_IOCTL_TYPE, LIVEUPDATE_CMD_SESSION_FINISH)
 
-#endif /* _UAPI_LIVEUPDATE_H */
+#endif /* _LIVEUPDATE_H */
