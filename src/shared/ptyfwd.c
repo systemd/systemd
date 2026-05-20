@@ -4,6 +4,7 @@
 #include <signal.h>
 #include <string.h>
 #include <sys/ioctl.h>
+#include <sys/sysmacros.h>
 #include <termios.h>
 #include <unistd.h>
 
@@ -12,6 +13,7 @@
 #include "alloc-util.h"
 #include "ansi-color.h"
 #include "env-util.h"
+#include "errno-list.h"
 #include "errno-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
@@ -186,6 +188,11 @@ static int pty_forward_done(PTYForward *f, int rcode) {
 
         if (f->done)
                 return 0;
+
+        log_info("pty_forward_done: rcode=%d stdin_hangup=%d stdout_hangup=%d master_hangup=%d "
+                 "in_buffer_full=%zu out_buffer_write_len=%zu",
+                 rcode, f->stdin_hangup, f->stdout_hangup, f->master_hangup,
+                 f->in_buffer_full, f->out_buffer_write_len);
 
         e = sd_event_ref(f->event);
 
@@ -722,6 +729,12 @@ static int do_shovel(PTYForward *f) {
                                  * temporary closing of everything on the other side, we treat it like EAGAIN
                                  * here and try again, unless vhangup() is honored. */
 
+                                if (IN_SET(errno, EIO, EPIPE, ECONNRESET))
+                                        log_info("ptyfwd master read: errno=%s read_from_master=%d "
+                                                 "vhangup_honored=%d flags=0x%x",
+                                                 ERRNO_NAME(errno), f->read_from_master,
+                                                 pty_forward_vhangup_honored(f), f->flags);
+
                                 if (errno == EAGAIN || (errno == EIO && !pty_forward_vhangup_honored(f)))
                                         f->master_readable = false;
                                 else if (IN_SET(errno, EPIPE, ECONNRESET, EIO)) {
@@ -853,6 +866,12 @@ static int on_stdin_event(sd_event_source *e, int fd, uint32_t revents, void *us
         assert(fd >= 0);
         assert(fd == f->input_fd);
 
+        log_info("ptyfwd on_stdin_event: fd=%d revents=0x%x (in=%d out=%d err=%d hup=%d rdhup=%d pri=%d)",
+                 fd, revents,
+                 !!(revents & EPOLLIN), !!(revents & EPOLLOUT),
+                 !!(revents & EPOLLERR), !!(revents & EPOLLHUP),
+                 !!(revents & EPOLLRDHUP), !!(revents & EPOLLPRI));
+
         if (revents & (EPOLLIN|EPOLLHUP))
                 f->stdin_readable = true;
 
@@ -981,6 +1000,20 @@ int pty_forward_new(
                         f->input_fd = STDIN_FILENO;
                 } else
                         f->close_input_fd = true;
+
+                struct stat input_st = {};
+                const char *input_kind = "?";
+                if (fstat(f->input_fd, &input_st) >= 0) {
+                        if (S_ISCHR(input_st.st_mode))       input_kind = "chr";
+                        else if (S_ISREG(input_st.st_mode))  input_kind = "reg";
+                        else if (S_ISFIFO(input_st.st_mode)) input_kind = "fifo";
+                        else if (S_ISSOCK(input_st.st_mode)) input_kind = "sock";
+                        else if (S_ISDIR(input_st.st_mode))  input_kind = "dir";
+                }
+                log_info("ptyfwd input_fd=%d kind=%s rdev=%lu:%lu close_input_fd=%d isatty=%d",
+                         f->input_fd, input_kind,
+                         (unsigned long) major(input_st.st_rdev), (unsigned long) minor(input_st.st_rdev),
+                         f->close_input_fd, isatty_safe(f->input_fd));
 
                 f->output_fd = fd_reopen_propagate_append_and_position(
                                 STDOUT_FILENO, O_WRONLY|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
