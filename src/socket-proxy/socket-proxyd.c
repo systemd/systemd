@@ -362,6 +362,14 @@ static int resolve_remote(Connection *c) {
                 return connection_start(c, &sa.sa, sa_len);
         }
 
+        if (startswith(arg_remote_host, "vsock:")) {
+                SocketAddress address;
+                r = socket_address_parse_vsock(&address, arg_remote_host);
+                if (r < 0)
+                        return log_debug_errno(r, "Can't parse '%s' as a VSOCK address, refusing: %m", arg_remote_host);
+                return connection_start(c, &address.sockaddr.sa, address.size);
+        };
+
         service = strrchr(arg_remote_host, ':');
         if (service) {
                 node = strndupa_safe(arg_remote_host,
