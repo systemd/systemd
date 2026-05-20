@@ -30,9 +30,6 @@ static int property_get_leases(
         if (!s)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Link %s has no DHCP server.", l->ifname);
 
-        if (sd_dhcp_server_is_in_relay_mode(s))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Link %s has DHCP relay agent active.", l->ifname);
-
         r = sd_bus_message_open_container(reply, 'a', "(uayayayayt)");
         if (r < 0)
                 return r;
@@ -58,7 +55,7 @@ static int property_get_leases(
                 if (r < 0)
                         return r;
 
-                r = sd_bus_message_append_array(reply, 'y', &lease->chaddr, sizeof(lease->chaddr));
+                r = sd_bus_message_append_array(reply, 'y', &lease->hw_addr.bytes, lease->hw_addr.length);
                 if (r < 0)
                         return r;
 
@@ -82,15 +79,12 @@ static int property_get_pool_size(
                 sd_bus_message *reply,
                 void *userdata,
                 sd_bus_error *error) {
+
         Link *l = ASSERT_PTR(userdata);
-        sd_dhcp_server *s;
-        uint32_t v;
 
         assert(reply);
 
-        s = l->dhcp_server;
-        v = s && !sd_dhcp_server_is_in_relay_mode(s) ? s->pool_size : UINT32_MAX;
-
+        uint32_t v = l->dhcp_server ? l->dhcp_server->pool_size : UINT32_MAX;
         return sd_bus_message_append_basic(reply, 'u', &v);
 }
 
@@ -102,15 +96,12 @@ static int property_get_pool_offset(
                 sd_bus_message *reply,
                 void *userdata,
                 sd_bus_error *error) {
+
         Link *l = ASSERT_PTR(userdata);
-        sd_dhcp_server *s;
-        uint32_t v;
 
         assert(reply);
 
-        s = l->dhcp_server;
-        v = s && !sd_dhcp_server_is_in_relay_mode(s) ? s->pool_offset : UINT32_MAX;
-
+        uint32_t v = l->dhcp_server ? l->dhcp_server->pool_offset : UINT32_MAX;
         return sd_bus_message_append_basic(reply, 'u', &v);
 }
 
