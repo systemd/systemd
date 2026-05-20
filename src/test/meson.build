@@ -407,7 +407,6 @@ executables += [
         },
         test_template + {
                 'sources' : files('test-parse-util.c'),
-                'dependencies' : libm,
         },
         test_template + {
                 'sources' : files('test-shift-uid.c'),
@@ -432,7 +431,6 @@ executables += [
         },
         test_template + {
                 'sources' : files('test-random-util.c'),
-                'dependencies' : libm,
                 'timeout' : 120,
         },
         test_template + {
