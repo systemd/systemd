@@ -9525,7 +9525,7 @@ if __name__ == '__main__':
     if build_dir:
         test_ndisc_send = os.path.normpath(os.path.join(build_dir, 'test-ndisc-send'))
     else:
-        test_ndisc_send = '/usr/lib/tests/test-ndisc-send'
+        test_ndisc_send = '/usr/lib/systemd/tests/unit-tests/manual/test-ndisc-send'
 
     if asan_options:
         env.update({'ASAN_OPTIONS': asan_options})
