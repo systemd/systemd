@@ -4,17 +4,16 @@
 #include "sd-varlink.h"
 
 #include "alloc-util.h"
-#include "ansi-color.h"
 #include "build.h"
 #include "chase.h"
 #include "dirent-util.h"
 #include "format-table.h"
+#include "help-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "options.h"
 #include "parse-argument.h"
 #include "path-lookup.h"
-#include "pretty-print.h"
 #include "recurse-dir.h"
 #include "report.h"
 #include "runtime-scope.h"
@@ -735,14 +734,9 @@ static int verb_list_sources(int argc, char *argv[], uintptr_t _data, void *user
 }
 
 static int help(void) {
-        _cleanup_free_ char *link = NULL;
-        _cleanup_(table_unrefp) Table *verbs = NULL, *options = NULL;
         int r;
 
-        r = terminal_urlify_man("systemd-report", "1", &link);
-        if (r < 0)
-                return log_oom();
-
+        _cleanup_(table_unrefp) Table *verbs = NULL, *options = NULL;
         r = verbs_get_help_table(&verbs);
         if (r < 0)
                 return r;
@@ -753,26 +747,21 @@ static int help(void) {
 
         (void) table_sync_column_widths(0, options, verbs);
 
-        printf("%s [OPTIONS...] COMMAND ...\n"
-               "\n%sAcquire metrics from local sources.%s\n"
-               "\n%sCommands:%s\n",
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal(),
-               ansi_underline(),
-               ansi_normal());
+        help_cmdline("[OPTIONS...] COMMAND ...");
+        help_abstract("Acquire metrics from local sources.");
+        help_section("Commands");
+
         r = table_print_or_warn(verbs);
         if (r < 0)
                 return r;
 
-        printf("\n%sOptions:%s\n",
-               ansi_underline(),
-               ansi_normal());
+        help_section("Options");
+
         r = table_print_or_warn(options);
         if (r < 0)
                 return r;
 
-        printf("\nSee the %s for details.\n", link);
+        help_man_page_reference("systemd-report", "1");
         return 0;
 }
 
