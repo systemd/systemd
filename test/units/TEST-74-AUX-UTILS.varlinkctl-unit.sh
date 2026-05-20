@@ -174,6 +174,43 @@ systemctl stop varlink-test-slow.service 2>/dev/null || true
 rm -f /run/systemd/system/varlink-test-slow.service
 systemctl daemon-reload
 
+# test io.systemd.Unit.Start/Stop/Restart/Reload/ReloadOrRestart
+systemctl stop varlink-test-enqueue.service 2>/dev/null || true
+(! systemctl is-active varlink-test-enqueue.service)
+
+# Start
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.Start '{"name": "varlink-test-enqueue.service"}' | jq -e '.job.JobType == "start"'
+wait_for_active varlink-test-enqueue.service
+
+# Restart (unit is active due to RemainAfterExit)
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.Restart '{"name": "varlink-test-enqueue.service"}' | jq -e '.job.JobType == "restart"'
+wait_for_active varlink-test-enqueue.service
+
+# Stop
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.Stop '{"name": "varlink-test-enqueue.service"}' | jq -e '.job.JobType == "stop"'
+wait_for_inactive varlink-test-enqueue.service
+
+# Reload (oneshot doesn't support reload, expect failure)
+(! varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.Reload '{"name": "varlink-test-enqueue.service"}')
+
+# ReloadOrRestart (oneshot doesn't support reload, so this becomes restart)
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.ReloadOrRestart '{"name": "varlink-test-enqueue.service"}' | jq -e '.job'
+wait_for_active varlink-test-enqueue.service
+
+# Start with explicit mode
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.Start '{"name": "varlink-test-enqueue.service", "mode": "replace"}' | jq -e '.job'
+
+# Streaming mode (streaming waits for job to finish)
+systemctl stop varlink-test-enqueue.service 2>/dev/null || true
+varlinkctl call --collect /run/systemd/io.systemd.Manager io.systemd.Unit.Start '{"name": "varlink-test-enqueue.service", "notifyJobChanges": true}' | jq -e '.[].job'
+systemctl is-active varlink-test-enqueue.service
+
+# Error: non-existent unit
+(! varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.Start '{"name": "non-existent.service"}')
+
+# Error: invalid unit name
+(! varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.Start '{"name": "invalid-unit-name"}')
+
 # test io.systemd.Unit in user manager
 testuser_uid=$(id -u testuser)
 systemd-run --wait --pipe --user --machine testuser@ \
