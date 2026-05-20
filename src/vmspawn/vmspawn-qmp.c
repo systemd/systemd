@@ -178,13 +178,6 @@ static int on_qmp_complete(
                 if (bridge->setup_done)
                         return 0;
 
-                /* QMP disconnect at boot: let on_child_exit drive the loop exit so the
-                 * PTY forwarder can drain QEMU's stderr and we capture the actual exit
-                 * status. Calling sd_event_exit here races SIGCHLD and wins, hiding
-                 * QEMU's diagnostic. */
-                if (ERRNO_IS_DISCONNECT(error))
-                        return 0;
-
                 return sd_event_exit(qmp_client_get_event(client), error);
         }
 
@@ -730,12 +723,6 @@ static int drive_info_add_fail(DriveInfo *d, int error, const char *error_desc) 
         log_error_errno(error, "Block device '%s' setup failed: %s",
                         strna(ref->id), strna(error_desc));
 
-        /* QMP disconnect at boot: let on_child_exit drive the loop exit so the PTY
-         * forwarder can drain QEMU's stderr and we capture the actual exit status.
-         * Calling sd_event_exit here races SIGCHLD and wins, hiding QEMU's diagnostic. */
-        if (ERRNO_IS_DISCONNECT(error))
-                return 0;
-
         /* Boot-time (link == NULL) is always fatal — even for late-arriving ephemeral replies. */
         return sd_event_exit(qmp_client_get_event(ref->bridge->qmp), error);
 }
@@ -870,13 +857,8 @@ static int on_scsi_controller_complete(
                 bridge->scsi_controller_port_idx = -1;
                 bridge->scsi_controller_created = false;
                 log_warning("virtio-scsi-pci controller setup failed: %s", strna(error_desc));
-                if (!bridge->setup_done) {
-                        /* See on_qmp_complete: defer to on_child_exit on disconnect so
-                         * QEMU's stderr and exit status reach the log. */
-                        if (ERRNO_IS_DISCONNECT(error))
-                                return 0;
+                if (!bridge->setup_done)
                         return sd_event_exit(qmp_client_get_event(client), error);
-                }
         }
 
         return 0;
@@ -1952,12 +1934,6 @@ static int on_cont_complete(
 
         if (error < 0) {
                 log_error_errno(error, "Failed to resume QEMU execution: %s", strna(error_desc));
-
-                /* See on_qmp_complete: defer to on_child_exit on disconnect so QEMU's
-                 * stderr and exit status reach the log. */
-                if (ERRNO_IS_DISCONNECT(error))
-                        return 0;
-
                 return sd_event_exit(qmp_client_get_event(client), error);
         }
 
