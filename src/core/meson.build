@@ -1,8 +1,31 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+systemd_sources = files(
+        'apparmor-setup.c',
+        'clock-warp.c',
+        'crash-handler.c',
+        'efi-random.c',
+        'ima-setup.c',
+        'import-creds.c',
+        'ipe-setup.c',
+        'kmod-setup.c',
+        'main.c',
+        'smack-setup.c',
+)
+
+if conf.get('HAVE_SELINUX') == 1
+        systemd_sources += files('selinux-setup.c')
+endif
+
+systemd_executor_sources = files(
+        'executor.c',
+        'exec-invoke.c',
+)
+
 libcore_sources = files(
         'audit-fd.c',
         'automount.c',
+        'bpf-bind-iface.c',
         'bpf-devices.c',
         'bpf-firewall.c',
         'bpf-foreign.c',
@@ -10,7 +33,6 @@ libcore_sources = files(
         'bpf-restrict-fsaccess.c',
         'bpf-restrict-ifaces.c',
         'bpf-socket-bind.c',
-        'bpf-bind-iface.c',
         'cgroup.c',
         'dbus-automount.c',
         'dbus-cgroup.c',
@@ -38,7 +60,6 @@ libcore_sources = files(
         'execute.c',
         'execute-serialize.c',
         'generator-setup.c',
-        'import-creds.c',
         'job.c',
         'kill.c',
         'load-dropin.c',
@@ -167,27 +188,6 @@ libcore = shared_library(
         link_with : libshared,
         install : true,
         install_dir : pkglibdir)
-
-systemd_sources = files(
-        'main.c',
-        'crash-handler.c',
-        'clock-warp.c',
-        'kmod-setup.c',
-        'apparmor-setup.c',
-        'ima-setup.c',
-        'ipe-setup.c',
-        'smack-setup.c',
-        'efi-random.c',
-)
-
-if conf.get('HAVE_SELINUX') == 1
-        systemd_sources += files('selinux-setup.c')
-endif
-
-systemd_executor_sources = files(
-        'executor.c',
-        'exec-invoke.c',
-)
 
 executor_libs = get_option('link-executor-shared') ? \
         [
