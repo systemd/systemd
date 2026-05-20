@@ -1219,6 +1219,7 @@ def tear_down_common():
     # 3. remove network namespace
     call_quiet('ip netns del ns99')
     call_quiet('ip netns del ns-bridge')
+    call_quiet('ip netns del ns-relay')
     call_quiet('ip netns del ns-server')
 
     # 4. remove links
@@ -8153,7 +8154,7 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
         self.wait_online('veth-peer:routable')
 
         for _ in range(10):
-            output = check_output(*networkctl_cmd, '-n', '0', 'status', 'veth-peer', env=env)
+            output = networkctl_status('veth-peer')
             if 'Offered DHCP leases: 192.168.5.' in output:
                 break
             time.sleep(0.2)
@@ -8360,11 +8361,22 @@ class NetworkdDHCPServerRelayAgentTests(unittest.TestCase, Utilities):
         tear_down_common()
 
     def test_relay_agent(self):
+        check_output('ip netns add ns-server')
+        check_output('ip link add server type veth peer server-peer')
+        check_output('ip link set server netns ns-server')
+        check_output('ip netns exec ns-server ip link set server up')
+        check_output('ip netns exec ns-server ip address add 192.0.2.1/24 dev server')
+
+        start_dnsmasq(
+            namespace='ns-server',
+            interface='server',
+            ipv4_range='198.51.100.100,198.51.100.109',
+            ipv4_router='198.51.100.10',
+        )
+
         copy_network_unit(
             '25-agent-veth-client.netdev',
-            '25-agent-veth-server.netdev',
             '25-agent-client.network',
-            '25-agent-server.network',
             '25-agent-client-peer.network',
             '25-agent-server-peer.network',
         )
@@ -8374,7 +8386,7 @@ class NetworkdDHCPServerRelayAgentTests(unittest.TestCase, Utilities):
 
         output = networkctl_status('client')
         print(output)
-        self.assertRegex(output, r'Address: 192.168.5.150 \(DHCPv4 via 192.168.5.1\)')
+        self.assertRegex(output, r'Address: 198\.51\.100\.10[0-9] \(DHCPv4 via 192\.0\.2\.1\)')
 
     def test_relay_agent_on_bridge(self):
         copy_network_unit(
@@ -8388,7 +8400,121 @@ class NetworkdDHCPServerRelayAgentTests(unittest.TestCase, Utilities):
         self.wait_online('bridge-relay:routable', 'client-peer:enslaved')
 
         # For issue #30763.
-        self.check_networkd_log('bridge-relay: DHCPv4 server: STARTED')
+        self.check_networkd_log('bridge-relay: Relaying DHCPv4 messages')
+
+    def test_sd_dhcp_relay(self):
+        check_output('ip netns add ns-relay')
+        check_output('ip netns add ns-server')
+
+        check_output('ip link add relay-down type veth peer client')
+        check_output('ip link set relay-down netns ns-relay')
+        check_output('ip netns exec ns-relay ip link set relay-down up')
+
+        check_output('ip link add relay-up type veth peer server')
+        check_output('ip link set relay-up netns ns-relay')
+        check_output('ip netns exec ns-relay ip link set relay-up up')
+
+        check_output('ip link set server netns ns-server')
+        check_output('ip netns exec ns-server ip link set server up')
+        check_output('ip netns exec ns-server ip address add 192.0.2.1/24 dev server')
+
+        with tempfile.TemporaryDirectory() as tmp:
+            conf_dir = pathlib.Path(tmp) / 'run/systemd/networkd.conf.d'
+            unit_dir = pathlib.Path(tmp) / 'run/systemd/network'
+            netif_dir = pathlib.Path(tmp) / 'run/systemd/netif'
+            mkdir_p(conf_dir)
+            mkdir_p(unit_dir)
+            mkdir_p(netif_dir)
+
+            shutil.chown(netif_dir, user='systemd-network', group='systemd-network')
+
+            cp(pathlib.Path(networkd_ci_temp_dir) / '25-dhcp-relay.conf', conf_dir)
+            cp(pathlib.Path(networkd_ci_temp_dir) / '25-dhcp-relay-downstream.network', unit_dir)
+            cp(pathlib.Path(networkd_ci_temp_dir) / '25-dhcp-relay-upstream.network', unit_dir)
+
+            cmd = [
+                'systemd-run',
+                '--unit=networkd-test-dhcp-relay.service',
+                '--service-type=notify-reload',
+                '-p', 'User=systemd-network',
+                '-p', 'FileDescriptorStoreMax=512',
+                '-p', 'AmbientCapabilities=CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_NET_BROADCAST CAP_NET_RAW CAP_BPF CAP_SYS_ADMIN',
+                '-p', 'CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_NET_BROADCAST CAP_NET_RAW CAP_BPF CAP_SYS_ADMIN',
+                '-p', f'BindPaths={conf_dir}:/run/systemd/networkd.conf.d',
+                '-p', f'BindPaths={unit_dir}:/run/systemd/network',
+                '-p', f'BindPaths={netif_dir}:/run/systemd/netif',
+                '-p', 'TemporaryFileSystem=/run/dbus',
+                '-p', 'TemporaryFileSystem=/run/systemd/report',
+                '-p', 'TemporaryFileSystem=/run/systemd/resolve.hook',
+                '-p', 'TemporaryFileSystem=/var/lib/systemd/network',
+                '-p', 'TemporaryFileSystem=/etc/systemd/network',
+                '-p', 'TemporaryFileSystem=/usr/lib/systemd/network',
+                '-p', 'ReadOnlyPaths=/sys',
+                '-p', 'NetworkNamespacePath=/run/netns/ns-relay',
+            ]  # fmt: skip
+            if enable_debug:
+                cmd += ['-p', 'Environment=SYSTEMD_LOG_LEVEL=debug']
+            if asan_options:
+                cmd += ['-p', f'Environment=ASAN_OPTIONS="{asan_options}"']
+            if lsan_options:
+                cmd += ['-p', f'Environment=LSAN_OPTIONS="{lsan_options}"']
+            if ubsan_options:
+                cmd += ['-p', f'Environment=UBSAN_OPTIONS="{ubsan_options}"']
+            if asan_options or lsan_options or ubsan_options:
+                cmd += ['-p', 'TimeoutStopFailureMode=abort']
+            if use_valgrind:
+                cmd += [
+                    '-p', 'Environment=SYSTEMD_MEMPOOL=0',
+                    '-p', 'PrivateTmp=yes',
+                ]  # fmt: skip
+                cmd += valgrind_cmd.split() + [networkd_bin]
+            else:
+                cmd += [networkd_bin]
+
+            try:
+                check_output(*cmd, env=env)
+
+                start_dnsmasq(
+                    namespace='ns-server',
+                    interface='server',
+                    ipv4_range='198.51.100.100,198.51.100.109',
+                    ipv4_router='198.51.100.10',
+                )
+
+                copy_network_unit('25-dhcp-client-simple.network')
+                start_networkd()
+                self.wait_online('client:routable')
+
+                print('## ip -4 address show dev client scope global')
+                output = check_output('ip -4 address show dev client scope global')
+                print(output)
+                self.assertRegex(output, r'198\.51\.100\.10[0-9]/24')
+
+                print('## ip -4 route show dev client')
+                output = check_output('ip -4 route show dev client')
+                print(output)
+                # fmt: off
+                self.assertRegex(output, r'default via 198\.51\.100\.10 proto dhcp src 198\.51\.100\.10[0-9]')
+                self.assertRegex(output, r'198\.51\.100\.0/24 proto kernel scope link src 198\.51\.100\.10[0-9]')
+                self.assertRegex(output, r'198\.51\.100\.10 proto dhcp scope link src 198\.51\.100\.10[0-9]')
+                # fmt: on
+
+                print('## dnsmasq log')
+                output = read_dnsmasq_log_file()
+                print(output)
+                # The option 82 is logged as agent-info since dnsmasq-2.92, otherwise logged as agent-id.
+                self.assertRegex(output, r'option: 82 (agent-id|agent-info)')
+
+                print('## journal of networkd-test-dhcp-relay.service')
+                check_output('journalctl --sync')
+                output = check_output('journalctl --no-hostname --output=short-monotonic --unit=networkd-test-dhcp-relay.service -I')  # fmt: skip
+                self.assertIn('relay-down: DHCPv4 relay: Received BOOTREQUEST', output)
+                self.assertIn('relay-up: DHCPv4 relay: Forwarded BOOTREQUEST', output)
+                self.assertIn('relay-up: DHCPv4 relay: Received BOOTREPLY', output)
+                self.assertIn('relay-down: DHCPv4 relay: Forwarded BOOTREPLY', output)
+            finally:
+                call_quiet('systemctl stop networkd-test-dhcp-relay.service')
+                call_quiet('systemctl reset-failed networkd-test-dhcp-relay.service')
 
 
 class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
