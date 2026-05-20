@@ -8,6 +8,7 @@
 #include "sd-varlink.h"
 
 #include "alloc-util.h"
+#include "ansi-color.h"
 #include "ask-password-api.h"
 #include "build.h"
 #include "bus-error.h"
@@ -26,6 +27,7 @@
 #include "format-table.h"
 #include "fs-util.h"
 #include "glyph-util.h"
+#include "help-util.h"
 #include "hostname-util.h"
 #include "image-policy.h"
 #include "kbd-util.h"
@@ -44,7 +46,6 @@
 #include "password-quality-util.h"
 #include "path-util.h"
 #include "plymouth-util.h"
-#include "pretty-print.h"
 #include "proc-cmdline.h"
 #include "prompt-util.h"
 #include "runtime-scope.h"
@@ -1252,29 +1253,22 @@ static int process_reset(int rfd) {
 }
 
 static int help(void) {
-        _cleanup_free_ char *link = NULL;
         _cleanup_(table_unrefp) Table *options = NULL;
         int r;
-
-        r = terminal_urlify_man("systemd-firstboot", "1", &link);
-        if (r < 0)
-                return log_oom();
 
         r = option_parser_get_help_table(&options);
         if (r < 0)
                 return r;
 
-        printf("%s [OPTIONS...]\n\n"
-               "%sConfigures basic settings of the system.%s\n\n",
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal());
+        help_cmdline("[OPTIONS...]");
+        help_abstract("Configures basic settings of the system.");
+        help_section("Options");
 
         r = table_print_or_warn(options);
         if (r < 0)
                 return r;
 
-        printf("\nSee the %s for details.\n", link);
+        help_man_page_reference("systemd-firstboot", "1");
         return 0;
 }
 
