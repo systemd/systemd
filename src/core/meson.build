@@ -1,15 +1,15 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 systemd_sources = files(
-        'main.c',
-        'crash-handler.c',
-        'clock-warp.c',
-        'kmod-setup.c',
         'apparmor-setup.c',
+        'clock-warp.c',
+        'crash-handler.c',
+        'efi-random.c',
         'ima-setup.c',
         'ipe-setup.c',
+        'kmod-setup.c',
+        'main.c',
         'smack-setup.c',
-        'efi-random.c',
 )
 
 if conf.get('HAVE_SELINUX') == 1
@@ -24,6 +24,7 @@ systemd_executor_sources = files(
 libcore_sources = files(
         'audit-fd.c',
         'automount.c',
+        'bpf-bind-iface.c',
         'bpf-devices.c',
         'bpf-firewall.c',
         'bpf-foreign.c',
@@ -31,7 +32,6 @@ libcore_sources = files(
         'bpf-restrict-fsaccess.c',
         'bpf-restrict-ifaces.c',
         'bpf-socket-bind.c',
-        'bpf-bind-iface.c',
         'cgroup.c',
         'dbus-automount.c',
         'dbus-cgroup.c',
