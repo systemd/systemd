@@ -3009,6 +3009,7 @@ static int create_interactively(void) {
 
         r = prompt_loop("Please enter user name to create",
                         GLYPH_IDCARD,
+                        /* prefill= */ NULL,
                         /* menu= */ NULL,
                         /* accepted= */ NULL,
                         /* ellipsize_percentage= */ 60,
