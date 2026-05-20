@@ -292,6 +292,18 @@
         </varlistentry>
 
         <varlistentry>
+          <term><option>--secure-boot=<replaceable>BOOL</replaceable></option></term>
+
+          <listitem><para>Configure whether to search for firmware which supports Secure Boot. Takes a
+          boolean or <literal>auto</literal>. Setting this to yes is equivalent to
+          <option>--firmware-features=secure-boot</option> and setting this to no is equivalent to
+          <option>--firmware-features=~secure-boot</option>. Setting this to <literal>auto</literal>
+          removes <literal>secure-boot</literal> from both the included and excluded feature lists.</para>
+
+          <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><option>--firmware=<replaceable>PATH</replaceable></option></term>
 
           <listitem><para>Selects which firmware to use in the VM. Takes one of <literal>auto</literal>,
@@ -325,18 +337,6 @@
           firmware features.</para>
 
           <xi:include href="version-info.xml" xpointer="v261"/></listitem>
-        </varlistentry>
-
-        <varlistentry>
-          <term><option>--secure-boot=<replaceable>BOOL</replaceable></option></term>
-
-          <listitem><para>Configure whether to search for firmware which supports Secure Boot. Takes a
-          boolean or <literal>auto</literal>. Setting this to yes is equivalent to
-          <option>--firmware-features=secure-boot</option> and setting this to no is equivalent to
-          <option>--firmware-features=~secure-boot</option>. Setting this to <literal>auto</literal>
-          removes <literal>secure-boot</literal> from both the included and excluded feature lists.</para>
-
-          <xi:include href="version-info.xml" xpointer="v255"/></listitem>
         </varlistentry>
 
         <varlistentry>
