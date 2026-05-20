@@ -5,6 +5,7 @@
 #include "sd-bus.h"
 #include "sd-varlink.h"
 
+#include "ansi-color.h"
 #include "ask-password-api.h"
 #include "bitfield.h"
 #include "build.h"
@@ -2979,6 +2980,11 @@ static int username_is_ok(const char *name, void *userdata) {
         return false;
 }
 
+static void end_marker(void) {
+        printf("\n%sExiting user account creation tool.%s\n\n", ansi_grey(), ansi_normal());
+        fflush(stdout);
+}
+
 static int create_interactively(void) {
         _cleanup_free_ char *username = NULL;
         int r;
@@ -2999,6 +3005,7 @@ static int create_interactively(void) {
         if (arg_chrome)
                 chrome_show("Create a User Account", /* bottom= */ NULL);
 
+        DEFER_VOID_CALL(end_marker);
         DEFER_VOID_CALL(chrome_hide);
 
         if (emoji_enabled()) {

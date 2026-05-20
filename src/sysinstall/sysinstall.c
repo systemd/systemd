@@ -1249,6 +1249,15 @@ static int settle_definitions(void) {
         return 0;
 }
 
+static void end_marker(void) {
+
+        if (!arg_welcome)
+                return;
+
+        printf("\n%sExiting first boot settings tool.%s\n\n", ansi_grey(), ansi_normal());
+        fflush(stdout);
+}
+
 static int run(int argc, char *argv[]) {
         int r;
 
@@ -1275,6 +1284,7 @@ static int run(int argc, char *argv[]) {
                         chrome_show("Operating System Installer", /* bottom= */ NULL);
         }
 
+        DEFER_VOID_CALL(end_marker);
         DEFER_VOID_CALL(chrome_hide);
 
         _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *repart_link = NULL;
