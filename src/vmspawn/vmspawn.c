@@ -1282,15 +1282,6 @@ fallback:
         return sd_event_exit(sd_event_source_get_event(s), 0);
 }
 
-static int on_pty_hangup(PTYForward *f, int rcode, void *userdata) {
-        /* Default pty_forward_done() behaviour is sd_event_exit(0) on hangup, which races
-         * SIGCHLD: when QEMU dies during boot setup the PTY peer is closed, hangup wins, the
-         * loop returns 0, and we never log the actual exit status via on_child_exit. Keep the
-         * loop running so on_child_exit can pick up WEXITED for the QEMU pidref. */
-        log_debug("PTY hung up (rcode=%d); waiting for on_child_exit.", rcode);
-        return 0;
-}
-
 static int on_child_exit(sd_event_source *s, const siginfo_t *si, void *userdata) {
         assert(s);
         assert(si);
@@ -3843,9 +3834,6 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 r = pty_forward_new(event, master, ptyfwd_flags, &forward);
                 if (r < 0)
                         return log_error_errno(r, "Failed to create PTY forwarder: %m");
-
-                /* Don't let PTY hangup exit the loop ahead of on_child_exit — see on_pty_hangup. */
-                pty_forward_set_hangup_handler(forward, on_pty_hangup, /* userdata= */ NULL);
 
                 if (!FLAGS_SET(ptyfwd_flags, PTY_FORWARD_DUMB_TERMINAL)) {
                         if (!terminal_is_dumb()) {
