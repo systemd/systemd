@@ -1204,6 +1204,53 @@ static int transient_service_apply_properties(Service *s, TransientServiceParame
         return 0;
 }
 
+static int varlink_reply_unit_job(
+                sd_varlink *link,
+                sd_varlink_method_flags_t flags,
+                Unit *u,
+                Job *j,
+                bool notify_job_changes,
+                bool notify_unit_changes) {
+
+        assert(link);
+        assert(u);
+        assert(j);
+
+        /* Non-streaming, or fire-and-forget (no notification flags set): return full unit context
+         * and runtime, plus the job object so the caller can correlate with later state. */
+        if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE) || (!notify_job_changes && !notify_unit_changes))
+                return sd_varlink_replybo(
+                                link,
+                                SD_JSON_BUILD_PAIR_CALLBACK("context", unit_context_build_json, u),
+                                SD_JSON_BUILD_PAIR_CALLBACK("runtime", unit_runtime_build_json, u),
+                                SD_JSON_BUILD_PAIR_CALLBACK("job", job_build_json, j));
+
+        /* Streaming: attach to the job for the final reply, and optionally to the unit for state change
+         * notifications. j->varlink owns the stream lifetime, u->varlink_unit_change is just a flag to
+         * also send unit state notifications along the way.
+         *
+         * Because jobs coalesce, a concurrent streaming request may map onto a job (or unit) that is
+         * already being watched by another connection. Only a single streaming subscriber is supported,
+         * so reject the second one instead of clobbering the first. */
+        if (j->varlink || (notify_unit_changes && u->varlink_unit_change))
+                return sd_varlink_error(link, VARLINK_ERROR_UNIT_JOB_ALREADY_BEING_WATCHED, NULL);
+
+        j->varlink = sd_varlink_ref(link);
+        j->varlink_notify_job_changes = notify_job_changes;
+        if (notify_unit_changes)
+                u->varlink_unit_change = sd_varlink_ref(link);
+
+        /* Send initial job state notification if requested. Unit state change notifications are not sent
+         * here; they will arrive via varlink_unit_send_change_signal() when the unit actually transitions,
+         * matching D-Bus PropertiesChanged behavior. */
+        if (notify_job_changes)
+                return sd_varlink_notifybo(
+                                link,
+                                SD_JSON_BUILD_PAIR_CALLBACK("job", job_build_json, j));
+
+        return 0;
+}
+
 int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         static const sd_json_dispatch_field dispatch_table[] = {
                 { "context",            SD_JSON_VARIANT_OBJECT,  dispatch_transient_context, 0,                                                       SD_JSON_MANDATORY },
@@ -1324,38 +1371,7 @@ int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters
         if (r < 0)
                 return varlink_reply_bus_error(link, r, &bus_error);
 
-        bool notify_job = p.notify_job_changes > 0;
-        bool notify_unit = p.notify_unit_changes > 0;
-
-        /* Non-streaming, or fire-and-forget (no notification flags set): return full unit context
-         * and runtime, plus the job object so the caller can correlate with later state. */
-        if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE) || (!notify_job && !notify_unit))
-                return sd_varlink_replybo(
-                                link,
-                                SD_JSON_BUILD_PAIR_CALLBACK("context", unit_context_build_json, u),
-                                SD_JSON_BUILD_PAIR_CALLBACK("runtime", unit_runtime_build_json, u),
-                                SD_JSON_BUILD_PAIR_CALLBACK("job", job_build_json, j));
-
-        /* Streaming: always attach to the job for the final reply, and optionally to the unit for state
-         * change notifications. j->varlink owns the stream lifetime, u->varlink_unit_change is just a flag
-         * to also send unit state notifications along the way. */
-        assert(!j->varlink);
-        j->varlink = sd_varlink_ref(link);
-        j->varlink_notify_job_changes = notify_job;
-        if (notify_unit) {
-                assert(!u->varlink_unit_change);
-                u->varlink_unit_change = sd_varlink_ref(link);
-        }
-
-        /* Send initial job state notification if requested. Unit state change notifications are not sent
-         * here; they will arrive via varlink_unit_send_change_signal() when the unit actually transitions,
-         * matching D-Bus PropertiesChanged behavior. */
-        if (notify_job)
-                return sd_varlink_notifybo(
-                                link,
-                                SD_JSON_BUILD_PAIR_CALLBACK("job", job_build_json, j));
-
-        return 0;
+        return varlink_reply_unit_job(link, flags, u, j, p.notify_job_changes > 0, p.notify_unit_changes > 0);
 }
 
 typedef struct UnitSetPropertiesParameters {

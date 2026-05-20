@@ -1946,6 +1946,7 @@ static SD_VARLINK_DEFINE_ERROR(
 static SD_VARLINK_DEFINE_ERROR(UnitExists);
 static SD_VARLINK_DEFINE_ERROR(UnitTypeNotSupported);
 static SD_VARLINK_DEFINE_ERROR(BadUnitSetting);
+static SD_VARLINK_DEFINE_ERROR(JobAlreadyBeingWatched);
 
 static SD_VARLINK_DEFINE_METHOD_FULL(
                 StartTransient,
@@ -2149,4 +2150,6 @@ SD_VARLINK_DEFINE_INTERFACE(
                 SD_VARLINK_SYMBOL_COMMENT("This unit type does not support transient units"),
                 &vl_error_UnitTypeNotSupported,
                 SD_VARLINK_SYMBOL_COMMENT("The unit file content contains invalid settings"),
-                &vl_error_BadUnitSetting);
+                &vl_error_BadUnitSetting,
+                SD_VARLINK_SYMBOL_COMMENT("The job or unit is already being watched by another streaming connection"),
+                &vl_error_JobAlreadyBeingWatched);
