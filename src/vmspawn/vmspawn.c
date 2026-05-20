@@ -236,7 +236,8 @@ static int help(void) {
                 "Properties",
                 "User Namespacing",
                 "Mounts",
-                "Integration",
+                "Logging",
+                "SSH",
                 "Input/Output",
                 "Credentials",
         };
@@ -250,8 +251,10 @@ static int help(void) {
                         return r;
         }
 
-        (void) table_sync_column_widths(0, tables[0], tables[1], tables[2], tables[3], tables[4],
-                                        tables[5], tables[6], tables[7], tables[8], tables[9], tables[10]);
+        (void) table_sync_column_widths(
+                        0, tables[0], tables[1], tables[2], tables[3], tables[4],
+                        tables[5], tables[6], tables[7], tables[8], tables[9], tables[10],
+                        tables[11]);
 
         help_cmdline("[OPTIONS...] [ARGUMENTS...]");
         help_abstract("Spawn a command or OS in a virtual machine.");
@@ -830,7 +833,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_oom();
                         break;
 
-                OPTION_GROUP("Integration"): {}
+                OPTION_GROUP("Logging"): {}
 
                 OPTION_LONG("forward-journal", "FILE|DIR", "Forward the VM's journal to the host"):
                         r = parse_path_argument(opts.arg, /* suppress_root= */ false, &arg_forward_journal);
@@ -861,6 +864,8 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse --forward-journal-max-files= value: %s", opts.arg);
                         break;
+
+                OPTION_GROUP("SSH"): {}
 
                 OPTION_LONG("pass-ssh-key", "BOOL", "Create an SSH key to access the VM"):
                         r = parse_boolean_argument("--pass-ssh-key=", opts.arg, &arg_pass_ssh_key);
