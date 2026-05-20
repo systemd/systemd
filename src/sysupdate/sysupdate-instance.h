@@ -3,13 +3,16 @@
 
 #include "sd-id128.h"
 
+#include <sys/uio.h>
+
 #include "sha256.h"
 #include "sysupdate-forward.h"
 #include "sysupdate-partition.h"
+#include "uapi16-manifest.h"
 
 typedef struct InstanceMetadata {
-        /* Various bits of metadata for each instance, that is either derived from the filename/GPT label or
-         * from metadata of the file/partition itself */
+        /* Various bits of metadata for each instance, that is either derived from the filename/GPT label,
+         * from metadata of the file/partition itself or from the manifest */
         char *version;
         sd_id128_t partition_uuid;
         bool partition_uuid_set;
@@ -49,6 +52,11 @@ struct Instance {
         char *path;  /* includes the `.sysupdate.partial.` (etc.) prefix, if applicable */
         PartitionInfo partition_info;
 
+        /* The sources we can acquire the resource from (for web backed sources) */
+        Uapi16Contents *sources;
+        size_t n_sources;
+
+        /* The current state of this instance */
         bool is_partial;
         bool is_pending;
 };
