@@ -4,15 +4,6 @@
 #include <stdio.h>
 #include <stdio_ext.h>
 
-#include "../libc-shim.h"
-
-DEFINE_SYSCALL_SHIM(renameat2, int,
-                    int, __oldfd,
-                    const char *, __old,
-                    int, __newfd,
-                    const char *, __new,
-                    unsigned, __flags)
-
 #define DEFINE_PUT(func)                                         \
         int func##_check_writable(int c, FILE *stream) {         \
                 if (!__fwritable(stream)) {                      \
