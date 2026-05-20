@@ -865,6 +865,12 @@ static int on_stdin_event(sd_event_source *e, int fd, uint32_t revents, void *us
         assert(fd >= 0);
         assert(fd == f->input_fd);
 
+        log_info("ptyfwd on_stdin_event: fd=%d revents=0x%x (in=%d out=%d err=%d hup=%d rdhup=%d pri=%d)",
+                 fd, revents,
+                 !!(revents & EPOLLIN), !!(revents & EPOLLOUT),
+                 !!(revents & EPOLLERR), !!(revents & EPOLLHUP),
+                 !!(revents & EPOLLRDHUP), !!(revents & EPOLLPRI));
+
         if (revents & (EPOLLIN|EPOLLHUP))
                 f->stdin_readable = true;
 
