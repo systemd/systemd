@@ -8154,7 +8154,7 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
         self.wait_online('veth-peer:routable')
 
         for _ in range(10):
-            output = check_output(*networkctl_cmd, '-n', '0', 'status', 'veth-peer', env=env)
+            output = networkctl_status('veth-peer')
             if 'Offered DHCP leases: 192.168.5.' in output:
                 break
             time.sleep(0.2)
