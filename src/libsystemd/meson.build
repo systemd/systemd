@@ -150,8 +150,7 @@ libsystemd_static = static_library(
         c_args : libsystemd_c_args,
         link_with : [libc_wrapper_static,
                      libbasic_static],
-        dependencies : [libm,
-                        userspace],
+        dependencies : [userspace],
         build_by_default : false)
 
 libsystemd_dir_path = meson.current_source_dir()
@@ -220,7 +219,6 @@ libsystemd_tests += [
                         libgio_cflags,
                         libglib_cflags,
                         libgobject_cflags,
-                        libm,
                 ],
         },
         {
@@ -272,7 +270,6 @@ libsystemd_tests += [
         },
         {
                 'sources' : files('sd-json/test-json.c'),
-                'dependencies' : libm,
         },
         {
                 'sources' : files('sd-resolve/test-resolve.c'),
