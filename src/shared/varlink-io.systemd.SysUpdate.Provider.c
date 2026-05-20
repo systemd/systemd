@@ -53,7 +53,9 @@ static SD_VARLINK_DEFINE_ENUM_TYPE(
 static SD_VARLINK_DEFINE_ENUM_TYPE(
                 ManifestFormat,
                 SD_VARLINK_FIELD_COMMENT("A SHA256SUMS file, see ManifestFormat=sha256sums in sysupdate.d(5)."),
-                SD_VARLINK_DEFINE_ENUM_VALUE(sha256sums));
+                SD_VARLINK_DEFINE_ENUM_VALUE(sha256sums),
+                SD_VARLINK_FIELD_COMMENT("A UAPI.16 manifest, see ManifestFormat=uapi16 in sysupdate.d(5)."),
+                SD_VARLINK_DEFINE_ENUM_VALUE(uapi16));
 
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 TransferSource,
