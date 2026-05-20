@@ -1295,6 +1295,9 @@ static int on_child_exit(sd_event_source *s, const siginfo_t *si, void *userdata
         assert(s);
         assert(si);
 
+        log_info("on_child_exit: pid=" PID_FMT " si_code=%d si_status=%d",
+                 si->si_pid, si->si_code, si->si_status);
+
         /* Let's first do some logging about the exit status of the child. */
 
         int ret;

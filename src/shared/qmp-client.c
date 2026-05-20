@@ -8,6 +8,7 @@
 #include "hash-funcs.h"
 #include "json-stream.h"
 #include "json-util.h"
+#include "log.h"
 #include "qmp-client.h"
 #include "set.h"
 #include "siphash24.h"
@@ -395,6 +396,9 @@ static bool qmp_client_handle_disconnect(QmpClient *c) {
 
         if (c->state == QMP_CLIENT_DISCONNECTED)
                 return false;
+
+        log_info("qmp_client_handle_disconnect: state=%d pending_slots=%u",
+                 c->state, set_size(c->slots));
 
         c->state = QMP_CLIENT_DISCONNECTED;
 
