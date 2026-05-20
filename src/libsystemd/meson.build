@@ -220,7 +220,6 @@ libsystemd_tests += [
                         libgio_cflags,
                         libglib_cflags,
                         libgobject_cflags,
-                        libm,
                 ],
         },
         {
@@ -272,7 +271,6 @@ libsystemd_tests += [
         },
         {
                 'sources' : files('sd-json/test-json.c'),
-                'dependencies' : libm,
         },
         {
                 'sources' : files('sd-resolve/test-resolve.c'),

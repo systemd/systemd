@@ -25,7 +25,6 @@ Version = tuple[int, int]
 # (e.g. libc.musl-x86_64.so.1, libc.musl-aarch64.so.1).
 LIBC_LIB_PREFIXES: tuple[str, ...] = (
     'libc.so.',
-    'libm.so.',
     'libresolv.so.',
     'libc.musl-',
 )

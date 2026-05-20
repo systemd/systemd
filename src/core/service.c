@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <linux/audit.h>        /* IWYU pragma: keep */
-#include <math.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -35,6 +34,7 @@
 #include "image-policy.h"
 #include "log.h"
 #include "manager.h"
+#include "math-util.h"
 #include "memfd-util.h"
 #include "mount-util.h"
 #include "namespace.h"
@@ -391,9 +391,17 @@ usec_t service_restart_usec_next(const Service *s) {
          *   r_i : i-th restart usec (value),
          *   r_n : maximum restart usec (s->restart_max_delay_usec),
          *   i : index of the next step (n_restarts_next - 1)
-         *   n : num maximum steps (s->restart_steps) */
-        return (usec_t) (s->restart_usec * powl((long double) s->restart_max_delay_usec / s->restart_usec,
-                                                (long double) (n_restarts_next - 1) / s->restart_steps));
+         *   n : num maximum steps (s->restart_steps)
+         *
+         * Decompose the rational exponent: r_i = r_0 · step^i where step = (r_n/r_0)^(1/n). Compute
+         * step via double_nth_root() and then accumulate by repeated multiplication; this avoids
+         * pulling in libm's powl() (the last libm caller in the tree). */
+        double ratio = (double) s->restart_max_delay_usec / (double) s->restart_usec;
+        double step = double_nth_root(ratio, s->restart_steps);
+        double result = (double) s->restart_usec;
+        for (unsigned i = 0; i < n_restarts_next - 1; i++)
+                result *= step;
+        return (usec_t) result;
 }
 
 static void service_extend_event_source_timeout(Service *s, sd_event_source *source, usec_t extended) {

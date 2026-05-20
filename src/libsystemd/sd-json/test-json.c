@@ -25,6 +25,10 @@
 #include "tests.h"
 #include "tmpfile-util.h"
 
+/* We rely on <math.h>'s HUGE_VAL being identical to +Inf on all targets we support, which is why
+ * test_float() exercises only INFINITY. Pin that invariant here at compile time. */
+assert_cc(__builtin_huge_val() == INFINITY);
+
 static void test_tokenizer_one(const char *data, ...) {
         unsigned line = 0, column = 0;
         void *state = NULL;
@@ -353,7 +357,7 @@ TEST(build) {
         a = sd_json_variant_unref(a);
         b = sd_json_variant_unref(b);
 
-        assert_se(sd_json_build(&a, SD_JSON_BUILD_REAL(M_PI)) >= 0);
+        assert_se(sd_json_build(&a, SD_JSON_BUILD_REAL(1.234567890123456)) >= 0);
 
         s = mfree(s);
         assert_se(sd_json_variant_format(a, 0, &s) >= 0);
@@ -751,7 +755,7 @@ static void test_float_match(sd_json_variant *v) {
         const double delta = 0.0001;
 
         assert_se(sd_json_variant_is_array(v));
-        assert_se(sd_json_variant_elements(v) == 11);
+        assert_se(sd_json_variant_elements(v) == 10);
         assert_se(!iszero_safe(sd_json_variant_real(sd_json_variant_by_index(v, 0))));
         assert_se(ABS(1.0 - (DBL_MIN / sd_json_variant_real(sd_json_variant_by_index(v, 0)))) <= delta);
         assert_se(!iszero_safe(sd_json_variant_real(sd_json_variant_by_index(v, 1))));
@@ -759,25 +763,23 @@ static void test_float_match(sd_json_variant *v) {
         assert_se(sd_json_variant_is_null(sd_json_variant_by_index(v, 2))); /* nan is not supported by json → null */
         assert_se(sd_json_variant_is_null(sd_json_variant_by_index(v, 3))); /* +inf is not supported by json → null */
         assert_se(sd_json_variant_is_null(sd_json_variant_by_index(v, 4))); /* -inf is not supported by json → null */
-        assert_se(sd_json_variant_is_null(sd_json_variant_by_index(v, 5)) ||
-                  ABS(1.0 - (HUGE_VAL / sd_json_variant_real(sd_json_variant_by_index(v, 5)))) <= delta); /* HUGE_VAL might be +inf, but might also be something else */
+        assert_se(sd_json_variant_is_real(sd_json_variant_by_index(v, 5)) &&
+                  sd_json_variant_is_integer(sd_json_variant_by_index(v, 5)) &&
+                  sd_json_variant_integer(sd_json_variant_by_index(v, 5)) == 0);
         assert_se(sd_json_variant_is_real(sd_json_variant_by_index(v, 6)) &&
                   sd_json_variant_is_integer(sd_json_variant_by_index(v, 6)) &&
-                  sd_json_variant_integer(sd_json_variant_by_index(v, 6)) == 0);
+                  sd_json_variant_integer(sd_json_variant_by_index(v, 6)) == 10);
         assert_se(sd_json_variant_is_real(sd_json_variant_by_index(v, 7)) &&
                   sd_json_variant_is_integer(sd_json_variant_by_index(v, 7)) &&
-                  sd_json_variant_integer(sd_json_variant_by_index(v, 7)) == 10);
+                  sd_json_variant_integer(sd_json_variant_by_index(v, 7)) == -10);
         assert_se(sd_json_variant_is_real(sd_json_variant_by_index(v, 8)) &&
-                  sd_json_variant_is_integer(sd_json_variant_by_index(v, 8)) &&
-                  sd_json_variant_integer(sd_json_variant_by_index(v, 8)) == -10);
+                  !sd_json_variant_is_integer(sd_json_variant_by_index(v, 8)));
+        assert_se(!iszero_safe(sd_json_variant_real(sd_json_variant_by_index(v, 8))));
+        assert_se(ABS(1.0 - (DBL_MIN / 2 / sd_json_variant_real(sd_json_variant_by_index(v, 8)))) <= delta);
         assert_se(sd_json_variant_is_real(sd_json_variant_by_index(v, 9)) &&
                   !sd_json_variant_is_integer(sd_json_variant_by_index(v, 9)));
         assert_se(!iszero_safe(sd_json_variant_real(sd_json_variant_by_index(v, 9))));
-        assert_se(ABS(1.0 - (DBL_MIN / 2 / sd_json_variant_real(sd_json_variant_by_index(v, 9)))) <= delta);
-        assert_se(sd_json_variant_is_real(sd_json_variant_by_index(v, 10)) &&
-                  !sd_json_variant_is_integer(sd_json_variant_by_index(v, 10)));
-        assert_se(!iszero_safe(sd_json_variant_real(sd_json_variant_by_index(v, 10))));
-        assert_se(ABS(1.0 - (-DBL_MIN / 2 / sd_json_variant_real(sd_json_variant_by_index(v, 10)))) <= delta);
+        assert_se(ABS(1.0 - (-DBL_MIN / 2 / sd_json_variant_real(sd_json_variant_by_index(v, 9)))) <= delta);
 }
 
 TEST(float) {
@@ -790,7 +792,6 @@ TEST(float) {
                                              SD_JSON_BUILD_REAL(NAN),
                                              SD_JSON_BUILD_REAL(INFINITY),
                                              SD_JSON_BUILD_REAL(-INFINITY),
-                                             SD_JSON_BUILD_REAL(HUGE_VAL),
                                              SD_JSON_BUILD_REAL(0),
                                              SD_JSON_BUILD_REAL(10),
                                              SD_JSON_BUILD_REAL(-10),
@@ -1145,14 +1146,14 @@ TEST(json_dispatch_double) {
 
         assert_se(ABS(data.x1 - 0.5) < 0.01);
         assert_se(ABS(data.x2 + 0.5) < 0.01);
-        assert_se(isinf(data.x3));
+        assert_se(xisinf(data.x3));
         assert_se(data.x3 > 0);
-        assert_se(isinf(data.x4));
+        assert_se(xisinf(data.x4));
         assert_se(data.x4 < 0);
-        assert_se(isnan(data.x5));
-        assert_se(isinf(data.x6));
+        assert_se(xisnan(data.x5));
+        assert_se(xisinf(data.x6));
         assert_se(data.x6 > 0);
-        assert_se(isinf(data.x7));
+        assert_se(xisinf(data.x7));
         assert_se(data.x7 < 0);
 }
 
