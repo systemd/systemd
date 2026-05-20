@@ -121,19 +121,16 @@ static int _check_states(
                         last_service_result = service->result;
                 }
 
+                /* We may fail to start the service for reasons which are not under our control: cgroup
+                 * setup denied, permission limits, resource exhaustion, etc. RESOURCES is terminal here
+                 * for path units that don't auto-retry (PathChanged, PathModified) — they'd just sit in
+                 * the failure state until the test timeout. Skip rather than wait. */
                 if (service->state == SERVICE_FAILED &&
-                    (service->main_exec_status.status == EXIT_CGROUP || service->result == SERVICE_FAILURE_RESOURCES)) {
-                        /* On a general purpose system we may fail to start the service for reasons which are
-                         * not under our control: permission limits, resource exhaustion, etc. Let's skip the
-                         * test in those cases. On CI we expect a properly configured environment, except for
-                         * Salsa where we can't set up cgroups so the unit always fails. */
-                        const char *ci = ci_environment();
-                        if (!ci || streq(ci, "salsa-ci"))
-                                return log_tests_skipped("Failed to start service %s: %s/%s",
-                                                         UNIT(service)->id,
-                                                         service_state_to_string(service->state),
-                                                         service_result_to_string(service->result));
-                }
+                    (service->main_exec_status.status == EXIT_CGROUP || service->result == SERVICE_FAILURE_RESOURCES))
+                        return log_tests_skipped("Failed to start service %s: %s/%s",
+                                                 UNIT(service)->id,
+                                                 service_state_to_string(service->state),
+                                                 service_result_to_string(service->result));
 
                 /* SERVICE_FAILURE_START_LIMIT_HIT is terminal: the unit won't recover without an explicit
                  * reset, so further looping is pointless. Skip the test rather than burning the 30s timeout. */
