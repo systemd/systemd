@@ -4321,7 +4321,7 @@ int match_job_removed(sd_bus_message *message, void *userdata, sd_bus_error *err
                 /* If the user is stopping, we're tracking stop jobs here. So don't send reply. */
                 if (!user->stopping) {
                         char **user_job;
-                        FOREACH_ARGUMENT(user_job, &user->runtime_dir_job, &user->service_manager_job)
+                        FOREACH_ARGUMENT(user_job, &user->runtime_dir_job, &user->service_manager_job, &user->measure_job)
                                 if (streq_ptr(path, *user_job)) {
                                         *user_job = mfree(*user_job);
 
