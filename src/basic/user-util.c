@@ -1360,6 +1360,67 @@ int sysconf_ngroups_max(void) {
         return ngroups_max;
 }
 
+ssize_t lookup_groups_in_files(
+                char * const *files,
+                const char *name,
+                gid_t gid,
+                gid_t **ret) {
+
+        _cleanup_free_ gid_t *arr = NULL;
+        ssize_t n_arr = 0;
+        int r;
+
+        assert(files);
+        assert(name);
+        assert(gid_is_valid(gid));
+
+        int ngroups_max = sysconf_ngroups_max();
+        if (ngroups_max < 0)
+                return ngroups_max;
+
+        if (!GREEDY_REALLOC(arr, n_arr + 1))
+                return -ENOMEM;
+        arr[n_arr++] = gid;
+
+        STRV_FOREACH(fname, files) {
+                _cleanup_fclose_ FILE *f = NULL;
+                struct group *gr;
+
+                r = fopen_unlocked(*fname, "re", &f);
+                if (r == -ENOENT)
+                        continue;
+                if (r < 0)
+                        return r;
+
+                while ((r = fgetgrent_sane(f, &gr)) > 0) {
+                        if (gid == gr->gr_gid)
+                                continue;
+
+                        /* Deduplicate groups, in case the group is doubly defined in the same or
+                         * different files. */
+                        if (gid_list_has(arr, n_arr, gr->gr_gid))
+                                continue;
+
+                        if (!strv_contains(gr->gr_mem, name))
+                                continue;
+
+                        /* Do not allow more than _SC_NGROUPS_MAX. */
+                        if (n_arr >= ngroups_max)
+                                return -ENOBUFS;
+
+                        if (!GREEDY_REALLOC(arr, n_arr + 1))
+                                return -ENOMEM;
+                        arr[n_arr++] = gr->gr_gid;
+                }
+                if (r < 0)
+                        return r;
+        }
+
+        if (ret)
+                *ret = TAKE_PTR(arr);
+        return n_arr;
+}
+
 static size_t getgr_buffer_size(void) {
         long bufsize = sysconf(_SC_GETGR_R_SIZE_MAX);
         return bufsize <= 0 ? 4096U : (size_t) bufsize;
