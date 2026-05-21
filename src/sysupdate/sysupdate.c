@@ -173,6 +173,7 @@ static int read_definitions(
 
 typedef enum ReadDefinitionsFlags {
         READ_DEFINITIONS_REQUIRES_ENABLED_TRANSFERS = 1 << 0,
+        READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS     = 1 << 1,
 } ReadDefinitionsFlags;
 
 static int context_read_definitions(Context *c, const char* node, ReadDefinitionsFlags flags) {
@@ -248,7 +249,8 @@ static int context_read_definitions(Context *c, const char* node, ReadDefinition
                         log_warning("As of v257, transfer definitions should have the '.transfer' extension.");
         }
 
-        if (c->n_transfers + ((flags & READ_DEFINITIONS_REQUIRES_ENABLED_TRANSFERS) ? 0 : c->n_disabled_transfers) == 0) {
+        if ((flags & READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS) &&
+            c->n_transfers + ((flags & READ_DEFINITIONS_REQUIRES_ENABLED_TRANSFERS) ? 0 : c->n_disabled_transfers) == 0) {
                 if (arg_component)
                         return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
                                                "No transfer definitions for component '%s' found.",
@@ -963,7 +965,8 @@ static int context_make_online(Context **ret, const char *node) {
         /* Like context_make_offline(), but also communicates with the update source looking for new
          * versions (as long as --offline is not specified on the command line). */
 
-        r = context_make_offline(&context, node, READ_DEFINITIONS_REQUIRES_ENABLED_TRANSFERS);
+        r = context_make_offline(&context, node,
+                                 READ_DEFINITIONS_REQUIRES_ENABLED_TRANSFERS | READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS);
         if (r < 0)
                 return r;
 
@@ -1369,7 +1372,8 @@ static int verb_features(int argc, char *argv[], uintptr_t _data, void *userdata
         if (r < 0)
                 return r;
 
-        r = context_make_offline(&context, loop_device ? loop_device->node : NULL, 0);
+        r = context_make_offline(&context, loop_device ? loop_device->node : NULL,
+                                 READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS);
         if (r < 0)
                 return r;
 
@@ -1637,7 +1641,8 @@ static int verb_vacuum(int argc, char *argv[], uintptr_t _data, void *userdata) 
         if (r < 0)
                 return r;
 
-        r = context_make_offline(&context, loop_device ? loop_device->node : NULL, 0);
+        r = context_make_offline(&context, loop_device ? loop_device->node : NULL,
+                                 READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS);
         if (r < 0)
                 return r;
 
@@ -1659,7 +1664,8 @@ static int verb_pending_or_reboot(int argc, char *argv[], uintptr_t _data, void 
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "The --root=/--image= switches may not be combined with the '%s' operation.", argv[0]);
 
-        r = context_make_offline(&context, /* node= */ NULL, READ_DEFINITIONS_REQUIRES_ENABLED_TRANSFERS);
+        r = context_make_offline(&context, /* node= */ NULL,
+                                 READ_DEFINITIONS_REQUIRES_ENABLED_TRANSFERS | READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS);
         if (r < 0)
                 return r;
 
