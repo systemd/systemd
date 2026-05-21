@@ -183,6 +183,11 @@ int lookup_grent_in_files(
                 const char *name,
                 gid_t gid,
                 struct group **ret);
+ssize_t lookup_groups_in_files(
+                char * const *files,
+                const char *name,
+                gid_t gid,
+                gid_t **ret);
 
 int getpwuid_malloc(uid_t uid, struct passwd **ret);
 int getpwnam_malloc(const char *name, struct passwd **ret);
