@@ -159,8 +159,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 - sysupdate: add concept for enabling/disabling specific components explicitly,
   just like features.
 
-- machine-info: add a TAGS concept that can be used to categorize a machine
-
 - udev: add a MACHINE_TAGS field, that augments /etc/machine-info configured
   tags.
 
@@ -179,13 +177,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 - pcrextend: we should measure something when we enter developer mode, by some
   definition of developer mode.
-
-- /etc/machine-info should have a concept of a "role" that we can put a machine
-  into, which can be consumed by sysupdate and similar. A role should be
-  something we can set once (i.e. the initial setting should be protected by
-  polkit and be somewhat loosely access control, and later settings should use a
-  different/tougher polkit authorization, so that people can implement a
-  no-way-back mechanism)
 
 - firstboot: optionally accept credentials at firstboot without authentication
 
@@ -787,11 +778,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 - sysext: make systemd-{sys,conf}ext-sysroot.service work in the split `/var`
   configuration.
-
-- introduce a concept of /etc/machine-info "TAGS=" field that allows tagging
-  machines with zero, one or more roles, states or other forms of
-  categorization. Then, add a way of using this in sysupdate to automatically
-  enable certain transfers, one for each role.
 
 - sd-varlink: add fully async modes of the protocol upgrade stuff
 
