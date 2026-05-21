@@ -1165,6 +1165,9 @@ int lookup_pwent_in_files(
 
         return -ESRCH;
 }
+
+#if !BUILD_STATIC
+
 static size_t getpw_buffer_size(void) {
         long bufsize = sysconf(_SC_GETPW_R_SIZE_MAX);
         return bufsize <= 0 ? 4096U : (size_t) bufsize;
@@ -1176,15 +1179,25 @@ static bool errno_is_user_doesnt_exist(int error) {
         return IN_SET(abs(error), ENOENT, ESRCH, EBADF, EPERM);
 }
 
+#endif
+
 int getpwnam_malloc(const char *name, struct passwd **ret) {
+        /* For static builds use a very simplistic implementation that looks at 'passwd' in /etc/
+         * and /usr/lib/, and for non-static builds use NSS. The first matching entry wins. The
+         * same logic is implemented in getpwnam_malloc, getpwuid_malloc, getgrnam_malloc, and
+         * getgrgid_malloc. */
+
+        if (isempty(name))
+                return -EINVAL;
+
+#if BUILD_STATIC
+        return lookup_pwent_in_files(PASSWD_FILES, name, UID_INVALID, ret);
+#else
         size_t bufsize = getpw_buffer_size();
         int r;
 
         /* A wrapper around getpwnam_r() that allocates the necessary buffer on the heap. The caller must
-         * free() the returned structures! */
-
-        if (isempty(name))
-                return -EINVAL;
+         * free() the returned structure! */
 
         for (;;) {
                 _cleanup_free_ void *buf = NULL;
@@ -1220,14 +1233,18 @@ int getpwnam_malloc(const char *name, struct passwd **ret) {
                         return -ENOMEM;
                 bufsize *= 2;
         }
+#endif
 }
 
 int getpwuid_malloc(uid_t uid, struct passwd **ret) {
-        size_t bufsize = getpw_buffer_size();
-        int r;
-
         if (!uid_is_valid(uid))
                 return -EINVAL;
+
+#if BUILD_STATIC
+        return lookup_pwent_in_files(PASSWD_FILES, /* name= */ NULL, uid, ret);
+#else
+        size_t bufsize = getpw_buffer_size();
+        int r;
 
         for (;;) {
                 _cleanup_free_ void *buf = NULL;
@@ -1261,6 +1278,7 @@ int getpwuid_malloc(uid_t uid, struct passwd **ret) {
                         return -ENOMEM;
                 bufsize *= 2;
         }
+#endif
 }
 
 static int copy_struct_group(const struct group *gr, struct group **ret) {
@@ -1415,17 +1433,24 @@ ssize_t lookup_groups_in_files(
         return n_arr;
 }
 
+#if !BUILD_STATIC
+
 static size_t getgr_buffer_size(void) {
         long bufsize = sysconf(_SC_GETGR_R_SIZE_MAX);
         return bufsize <= 0 ? 4096U : (size_t) bufsize;
 }
 
-int getgrnam_malloc(const char *name, struct group **ret) {
-        size_t bufsize = getgr_buffer_size();
-        int r;
+#endif
 
+int getgrnam_malloc(const char *name, struct group **ret) {
         if (isempty(name))
                 return -EINVAL;
+
+#if BUILD_STATIC
+        return lookup_grent_in_files(GROUP_FILES, name, GID_INVALID, ret);
+#else
+        size_t bufsize = getgr_buffer_size();
+        int r;
 
         for (;;) {
                 _cleanup_free_ void *buf = NULL;
@@ -1459,14 +1484,18 @@ int getgrnam_malloc(const char *name, struct group **ret) {
                         return -ENOMEM;
                 bufsize *= 2;
         }
+#endif
 }
 
 int getgrgid_malloc(gid_t gid, struct group **ret) {
-        size_t bufsize = getgr_buffer_size();
-        int r;
-
         if (!gid_is_valid(gid))
                 return -EINVAL;
+
+#if BUILD_STATIC
+        return lookup_grent_in_files(GROUP_FILES, /* name= */ NULL, gid, ret);
+#else
+        size_t bufsize = getgr_buffer_size();
+        int r;
 
         for (;;) {
                 _cleanup_free_ void *buf = NULL;
@@ -1500,4 +1529,5 @@ int getgrgid_malloc(gid_t gid, struct group **ret) {
                         return -ENOMEM;
                 bufsize *= 2;
         }
+#endif
 }

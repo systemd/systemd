@@ -80,6 +80,8 @@ conf.set10('SD_BOOT', false)
 
 conf.set10('SYSTEMD_MULTICALL_BINARY', get_option('systemd-multicall-binary'))
 
+conf.set10('BUILD_STATIC', get_option('build-static'))
+
 # Create a title-less summary section early, so it ends up first in the output.
 # More items are added later after they have been detected.
 summary({
