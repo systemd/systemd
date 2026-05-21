@@ -82,6 +82,41 @@ AAA_LINE="$(echo "$SETUP_LOG" | grep -n "Setting up NvPCR 'aaa'" | cut -d: -f1)"
 ZZZ_LINE="$(echo "$SETUP_LOG" | grep -n "Setting up NvPCR 'zzz'" | cut -d: -f1)"
 test "$ZZZ_LINE" -lt "$AAA_LINE"
 
+# Test the --login= mode and the 'login' NvPCR, used in production by systemd-pcrlogin@.service.
+if [[ -f /usr/lib/nvpcr/login.nvpcr ]]; then
+    login_nvpcr_value() {
+        systemd-analyze nvpcrs login --json=pretty | jq -r '.[] | select(.name=="login") | .value'
+    }
+
+    # Extract the most recently measured word for the 'login' NvPCR from the event log.
+    login_last_word() {
+        jq --seq --slurp -r '[.[] | select(.content.nvIndexName=="login") | .content.string] | last' </run/log/systemd/tpm2-measure.log
+    }
+
+    # Measure root's user record. This lazily initializes the 'login' NvPCR if it isn't already.
+    "$SD_PCREXTEND" --login=root
+
+    # The 'login' NvPCR must now exist and carry a non-empty value.
+    LOGIN_DIGEST1="$(login_nvpcr_value)"
+    test -n "$LOGIN_DIGEST1"
+    test "$LOGIN_DIGEST1" != "null"
+
+    # A matching event log entry must be present (the word is "login:<name>:<canonical json>").
+    grep -F '"nvIndexName":"login","string":"login:root:' /run/log/systemd/tpm2-measure.log >/dev/null
+    LOGIN_WORD_BY_NAME="$(login_last_word)"
+
+    # Looking the same user up by numeric UID must yield the identical measured word
+    # (systemd-pcrextend uses USERDB_PARSE_NUMERIC, and systemd-pcrlogin@.service is instanced by UID).
+    "$SD_PCREXTEND" --login=0
+    LOGIN_WORD_BY_UID="$(login_last_word)"
+    test "$LOGIN_WORD_BY_NAME" = "$LOGIN_WORD_BY_UID"
+
+    # Direct tool invocations always re-extend (the once-per-boot guarantee lives in the unit's
+    # RemainAfterExit=yes, not in the tool), so the NvPCR value must have advanced.
+    LOGIN_DIGEST2="$(login_nvpcr_value)"
+    test "$LOGIN_DIGEST2" != "$LOGIN_DIGEST1"
+fi
+
 systemd-analyze identify-tpm2
 udevadm test-builtin 'tpm2_id identify' /dev/tpmrm0
 
