@@ -5430,7 +5430,7 @@ int exec_invoke(
                         own_user = getusername_malloc();
                         if (!own_user) {
                                 *exit_status = EXIT_USER;
-                                return log_error_errno(r, "Failed to determine my own user ID: %m");
+                                return log_oom();
                         }
                         u = own_user;
                 } else
