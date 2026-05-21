@@ -26,7 +26,7 @@ assert(rpm.execute("{{SYSTEMD_UPDATE_HELPER_PATH}}", "user-reload-restart"))
 -- executed.
 assert(rpm.execute("{{SYSTEMD_UPDATE_HELPER_PATH}}", "system-reload"))
 
-%transfiletriggerpostun -P 1000100 -p <lua> -- {{SYSTEM_DATA_UNIT_DIR}}/ /etc/systemd/system/
+%transfiletriggerpostun -P 1000099 -p <lua> -- {{USER_DATA_UNIT_DIR}}/ /etc/systemd/user/
 -- Execute daemon-reload in user managers.
 assert(rpm.execute("{{SYSTEMD_UPDATE_HELPER_PATH}}", "user-reload"))
 
