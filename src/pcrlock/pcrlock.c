@@ -744,6 +744,23 @@ static int event_log_record_extract_firmware_description(EventLogRecord *rec) {
                                 break;
                         }
 
+                        /* SMBIOS structures measured by sd-boot/sd-stub. The tagged event payload is just a
+                         * constant identifying string ("smbios:typeN"), hence don't show it. */
+                        case SMBIOS_TYPE1_EVENT_TAG_ID:
+                                if (!strextend_with_separator(&rec->description, ", ", "systemd: SMBIOS system information (type 1)"))
+                                        return log_oom();
+                                break;
+
+                        case SMBIOS_TYPE2_EVENT_TAG_ID:
+                                if (!strextend_with_separator(&rec->description, ", ", "systemd: SMBIOS baseboard information (type 2)"))
+                                        return log_oom();
+                                break;
+
+                        case SMBIOS_TYPE11_EVENT_TAG_ID:
+                                if (!strextend_with_separator(&rec->description, ", ", "systemd: SMBIOS OEM strings (type 11)"))
+                                        return log_oom();
+                                break;
+
                         default: {
                                 _cleanup_free_ char *s = NULL;
 
