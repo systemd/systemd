@@ -1147,6 +1147,7 @@ manpages = [
   ['systemd-pcrextend',
    'systemd-pcrfs-root.service',
    'systemd-pcrfs@.service',
+   'systemd-pcrlogin@.service',
    'systemd-pcrmachine.service',
    'systemd-pcrnvdone.service',
    'systemd-pcrosseparator.service',

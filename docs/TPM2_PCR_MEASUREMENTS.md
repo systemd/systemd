@@ -260,6 +260,23 @@ colon-separated strings, identifying the file system type, UUID, label as well
 as the GPT partition entry UUID, entry type UUID and entry label (in UTF-8,
 without trailing NUL bytes).
 
+### NvPCR `login` (base+3), user logins
+
+The `systemd-pcrlogin@.service` service (a per-UID template unit started by
+`systemd-logind.service` on a user's first login of the current boot) will
+measure that user's record into the `login` NvPCR. Each user is measured exactly
+once per boot (the unit is `Type=oneshot`/`RemainAfterExit=yes` and is never
+stopped again), so the NvPCR forms an append-only record of which user
+identities were activated during the current boot. Note that its value is
+inherently dynamic: it depends on *which* users log in and *in which order*.
+
+→ **Measured hash** covers the string "login:", suffixed by the (escaped)
+user name, a colon, and the user's record reduced to its `regular`, `perMachine`
+and `binding` sections (i.e. with the `privileged`, `secret`, `status` and
+`signature` sections stripped), normalized and serialized to canonical,
+single-line JSON. Example string:
+`login:lennart:{"userName":"lennart","uid":1000,…}`.
+
 ### PCR 9, NvPCR initialization separator
 
 After completion of `systemd-tpm2-setup.service` (which initializes all NvPCRs
