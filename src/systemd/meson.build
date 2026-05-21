@@ -29,6 +29,7 @@ _not_installed_headers = [
         'sd-dhcp-duid.h',
         'sd-dhcp-lease.h',
         'sd-dhcp-protocol.h',
+        'sd-dhcp-relay.h',
         'sd-dhcp-server-lease.h',
         'sd-dhcp-server.h',
         'sd-dhcp6-client.h',
