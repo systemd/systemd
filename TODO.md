@@ -1757,8 +1757,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 - maybe: in PID1, when we detect we run in an initrd, make superblock read-only
   early on, but provide opt-out via kernel cmdline.
 
-- measure all log-in attempts into a new nvpcr
-
 - measure credentials picked up from SMBIOS to some suitable PCR
 
 - measure GPT and LUKS headers somewhere when we use them (i.e. in
@@ -1923,8 +1921,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   and use it for validating DDIs and credentials. Maybe upload it to the kernel
   keyring, so that the kernel does this validation for us for verity and kernel
   modules
-
-- on first login of a user, measure its identity to some nvpcr
 
 - on shutdown: move utmp, wall, audit logic all into PID 1 (or logind?)
 
