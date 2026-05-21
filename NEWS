@@ -166,6 +166,10 @@ CHANGES WITH 261 in spe:
           is inserted in the last part of shutdown, in order to avoid tight
           boot loops.
 
+        * The FileDescriptorStorePreserve= unit setting can now take a new option
+          'on-success', which preserves the FD Store when the unit is stopped,
+          but only if it exited successfully, and discards it otherwise.
+
         New IMDS (Cloud "Instance Metadata Service") Subsystem:
 
         * The hardware database now contains a new database hwdb.d/40-imds.hwdb
