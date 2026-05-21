@@ -180,6 +180,15 @@ static int trie_fnmatch_f(sd_hwdb *hwdb, const struct trie_node_f *node, size_t 
         const char *prefix;
         int err;
 
+        assert(hwdb);
+        assert(node);
+
+        /* Ensure the prefix is within bounds */
+        uint64_t prefix_off = le64toh(node->prefix_off);
+        if (prefix_off >= (uint64_t) hwdb->st.st_size ||
+            p >= (uint64_t) hwdb->st.st_size - prefix_off)
+                return -EINVAL;
+
         prefix = trie_string(hwdb, node->prefix_off);
         len = strlen(prefix + p);
         linebuf_add(buf, prefix + p, len);
