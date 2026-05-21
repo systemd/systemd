@@ -10,7 +10,6 @@
 
 #include "dhcp-client-id-internal.h"
 #include "dhcp-message.h"
-#include "dhcp-option.h"
 
 struct sd_dhcp_lease {
         unsigned n_ref;
