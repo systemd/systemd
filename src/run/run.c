@@ -2571,7 +2571,7 @@ static int start_transient_scope(sd_bus *bus) {
         if (arg_exec_group) {
                 gid_t gid;
 
-                r = get_group_creds(&arg_exec_group, &gid, 0);
+                r = get_group_creds(arg_exec_group, /* flags= */ 0, /* ret_name= */ NULL, &gid);
                 if (r < 0)
                         return log_error_errno(r, "Failed to resolve group '%s': %s",
                                                arg_exec_group, STRERROR_GROUP(r));
@@ -2581,19 +2581,18 @@ static int start_transient_scope(sd_bus *bus) {
         }
 
         if (arg_exec_user) {
-                const char *un = arg_exec_user, *home, *shell;
+                _cleanup_free_ char *user = NULL, *home = NULL, *shell = NULL;
                 uid_t uid;
                 gid_t gid;
 
-                r = get_user_creds(&un, &uid, &gid, &home, &shell,
-                                   USER_CREDS_CLEAN|USER_CREDS_SUPPRESS_PLACEHOLDER|USER_CREDS_PREFER_NSS);
+                r = get_user_creds(arg_exec_user,
+                                   USER_CREDS_CLEAN|USER_CREDS_SUPPRESS_PLACEHOLDER|USER_CREDS_PREFER_NSS,
+                                   &user, &uid, &gid, &home, &shell);
                 if (r < 0)
                         return log_error_errno(r, "Failed to resolve user '%s': %s",
                                                arg_exec_user, STRERROR_USER(r));
 
-                r = free_and_strdup_warn(&arg_exec_user, un);
-                if (r < 0)
-                        return r;
+                free_and_replace(arg_exec_user, user);
 
                 if (home) {
                         r = strv_extendf(&user_env, "HOME=%s", home);
@@ -2615,10 +2614,9 @@ static int start_transient_scope(sd_bus *bus) {
                 if (r < 0)
                         return log_oom();
 
-                if (!arg_exec_group) {
-                        if (setresgid(gid, gid, gid) < 0)
-                                return log_error_errno(errno, "Failed to change GID to " GID_FMT ": %m", gid);
-                }
+                if (!arg_exec_group &&
+                    setresgid(gid, gid, gid) < 0)
+                        return log_error_errno(errno, "Failed to change GID to " GID_FMT ": %m", gid);
 
                 if (setresuid(uid, uid, uid) < 0)
                         return log_error_errno(errno, "Failed to change UID to " UID_FMT ": %m", uid);
