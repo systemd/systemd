@@ -13,6 +13,7 @@
 #include "build-path.h"
 #include "common-signal.h"
 #include "env-util.h"
+#include "errno-util.h"
 #include "event-util.h"
 #include "fd-util.h"
 #include "format-util.h"
@@ -34,7 +35,6 @@
 #include "time-util.h"
 #include "umask-util.h"
 #include "unaligned.h"
-#include "user-util.h"
 #include "userns-registry.h"
 #include "userns-restrict.h"
 
@@ -313,40 +313,8 @@ static int start_workers(Manager *m, bool explicit_request) {
         return 0;
 }
 
-static void manager_release_userns_bpf(Manager *m, uint64_t inode) {
-#if HAVE_VMLINUX_H
-        int r;
-
-        assert(m);
-
-        if (inode == 0)
-                return;
-
-        assert(m->userns_restrict_bpf);
-
-        r = userns_restrict_reset_by_inode(m->userns_restrict_bpf, inode);
-        if (r < 0)
-                return (void) log_warning_errno(r, "Failed to remove namespace inode from BPF map, ignoring: %m");
-#endif
-}
-
-static void manager_release_userns_fds(Manager *m, uint64_t inode) {
-        int r;
-
-        assert(m);
-        assert(inode != 0);
-
-        r = sd_notifyf(/* unset_environment= */ false,
-                       "FDSTOREREMOVE=1\n"
-                       "FDNAME=userns-%" PRIu64 "\n", inode);
-        if (r < 0)
-                log_warning_errno(r, "Failed to send fd store removal message, ignoring: %m");
-}
-
 static void manager_release_userns_by_inode(Manager *m, uint64_t inode) {
-        _cleanup_(userns_info_freep) UserNamespaceInfo *userns_info = NULL;
         _cleanup_close_ int lock_fd = -EBADF;
-        int r;
 
         assert(m);
         assert(inode != 0);
@@ -355,40 +323,20 @@ static void manager_release_userns_by_inode(Manager *m, uint64_t inode) {
         if (lock_fd < 0)
                 return (void) log_error_errno(lock_fd, "Failed to lock registry: %m");
 
-        r = userns_registry_load_by_userns_inode(m->registry_fd, inode, &userns_info);
-        if (r < 0)
-                log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r,
-                               "Failed to find userns for inode %" PRIu64 ", ignoring: %m", inode);
+        release_userns_by_inode(m->userns_restrict_bpf, m->registry_fd, inode);
+}
 
-        if (DEBUG_LOGGING) {
-                if (userns_info && uid_is_valid(userns_info->start_uid))
-                        log_debug("Removing user namespace mapping %" PRIu64 " for UID " UID_FMT ".", inode, userns_info->start_uid);
-                else
-                        log_debug("Removing user namespace mapping %" PRIu64 ".", inode);
-        }
+static void manager_release_userns_by_info(Manager *m, UserNamespaceInfo *info) {
+        _cleanup_close_ int lock_fd = -EBADF;
 
-        /* Remove the BPF rules */
-        manager_release_userns_bpf(m, inode);
+        assert(m);
+        assert(info);
 
-        /* Remove the resources from the fdstore */
-        manager_release_userns_fds(m, inode);
+        lock_fd = userns_registry_lock(m->registry_fd);
+        if (lock_fd < 0)
+                return (void) log_error_errno(lock_fd, "Failed to lock registry: %m");
 
-        /* And finally remove the resources file from disk */
-        if (userns_info) {
-                /* Remove the cgroups of this userns */
-                r = userns_info_remove_cgroups(userns_info);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to remove cgroups of user namespace, ignoring: %m");
-
-                /* Remove the netifs of this userns */
-                r = userns_info_remove_netifs(userns_info);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to remove netifs of user namespace, ignoring: %m");
-
-                r = userns_registry_remove(m->registry_fd, userns_info);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to remove user namespace '%s', ignoring.", userns_info->name);
-        }
+        release_userns_by_info(m->userns_restrict_bpf, m->registry_fd, info);
 }
 
 static int manager_scan_registry(Manager *m, Set **registry_inodes) {
@@ -691,7 +639,7 @@ int manager_startup(Manager *m) {
 
                 log_debug("Registry entry for user namespace %" PRIu64 " (id %" PRIu64 ") refers to a dead namespace, removing.",
                           inode, userns_info->userns_id);
-                manager_release_userns_by_inode(m, inode);
+                manager_release_userns_by_info(m, userns_info);
         }
 
         r = manager_make_listen_socket(m);
