@@ -23,6 +23,7 @@
 #include "service.h"
 #include "set.h"
 #include "strv.h"
+#include "syslog-util.h"
 #include "unit-name.h"
 #include "unit.h"
 #include "user-util.h"
@@ -691,8 +692,23 @@ typedef struct TransientExecContextParameters {
         const char *user;
         const char *group;
         char **supplementary_groups;
+        int log_level_max; /* numeric syslog level, -1 = absent */
         bool nice_set;
         int nice;
+        bool oom_score_adjust_set;
+        int oom_score_adjust;
+        bool umask_set;
+        uint32_t umask;
+        /* Tristate bools: -1 = absent, 0/1 = no/yes. */
+        int dynamic_user;
+        int ignore_sigpipe;
+        int lock_personality;
+        int memory_deny_write_execute;
+        int no_new_privileges;
+        int remove_ipc;
+        int restrict_realtime;
+        int restrict_suid_sgid;
+        int root_ephemeral;
 } TransientExecContextParameters;
 
 static void transient_set_credential_array_free(TransientSetCredential *items, size_t n) {
@@ -824,8 +840,10 @@ static int dispatch_transient_working_directory(const char *name, sd_json_varian
                 return primitive_dispatch(name, variant, flags, &p->field); \
         }
 
-DEFINE_TRANSIENT_EXEC_SETTABLE(environment, sd_json_dispatch_strv);
-DEFINE_TRANSIENT_EXEC_SETTABLE(nice,        sd_json_dispatch_int32);
+DEFINE_TRANSIENT_EXEC_SETTABLE(environment,      sd_json_dispatch_strv);
+DEFINE_TRANSIENT_EXEC_SETTABLE(nice,             sd_json_dispatch_int32);
+DEFINE_TRANSIENT_EXEC_SETTABLE(oom_score_adjust, sd_json_dispatch_int32);
+DEFINE_TRANSIENT_EXEC_SETTABLE(umask,            sd_json_dispatch_uint32);
 
 static int dispatch_transient_set_credential_array(
                 sd_json_variant *variant,
@@ -987,9 +1005,29 @@ static int apply_exec_environment(Unit *u, ExecContext *c, TransientExecContextP
         return r;
 }
 
-static int apply_exec_nice(Unit *u, ExecContext *c, TransientExecContextParameters *p) {
-        assert(p);
+static int apply_exec_log_level_max(Unit *u, ExecContext *c, TransientExecContextParameters *p) {
+        _cleanup_free_ char *s = NULL;
+        int r;
+
         assert(c);
+        assert(p);
+
+        if (p->log_level_max < 0) /* -1 = absent (json_dispatch_log_level validated the value) */
+                return 0;
+
+        c->log_level_max = p->log_level_max;
+
+        r = log_level_to_string_alloc(p->log_level_max, &s);
+        if (r < 0)
+                return r;
+
+        unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE, "LogLevelMax", "LogLevelMax=%s", s);
+        return 0;
+}
+
+static int apply_exec_nice(Unit *u, ExecContext *c, TransientExecContextParameters *p) {
+        assert(c);
+        assert(p);
 
         if (!p->nice_set)
                 return 0;
@@ -1001,6 +1039,25 @@ static int apply_exec_nice(Unit *u, ExecContext *c, TransientExecContextParamete
         c->nice_set = true;
 
         unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE, "Nice", "Nice=%i", p->nice);
+        return 0;
+}
+
+static int apply_exec_oom_score_adjust(Unit *u, ExecContext *c, TransientExecContextParameters *p) {
+        assert(c);
+        assert(p);
+
+        if (!p->oom_score_adjust_set)
+                return 0;
+
+        if (!oom_score_adjust_is_valid(p->oom_score_adjust))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Invalid OOMScoreAdjust= value: %i", p->oom_score_adjust);
+
+        c->oom_score_adjust = p->oom_score_adjust;
+        c->oom_score_adjust_set = true;
+
+        unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE, "OOMScoreAdjust",
+                            "OOMScoreAdjust=%i", p->oom_score_adjust);
         return 0;
 }
 
@@ -1024,6 +1081,7 @@ static int apply_exec_supplementary_groups(Unit *u, ExecContext *c, TransientExe
         _cleanup_free_ char *joined = NULL;
         int r;
 
+        assert(c);
         assert(p);
 
         if (!p->supplementary_groups)
@@ -1047,11 +1105,31 @@ static int apply_exec_supplementary_groups(Unit *u, ExecContext *c, TransientExe
         return 0;
 }
 
+static int apply_exec_umask(Unit *u, ExecContext *c, TransientExecContextParameters *p) {
+        assert(c);
+        assert(p);
+
+        if (!p->umask_set)
+                return 0;
+
+        /* mode_t bits beyond 07777 are reserved/meaningless; reject so a caller passing a stray
+         * negative or out-of-range int fails clearly instead of having the kernel silently mask it. */
+        if (p->umask > 07777)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Invalid UMask= value: %#" PRIo32, p->umask);
+
+        c->umask = (mode_t) p->umask;
+
+        unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE, "UMask", "UMask=%04" PRIo32, p->umask);
+        return 0;
+}
+
 static int apply_exec_working_directory(Unit *u, ExecContext *c, TransientExecContextParameters *p) {
         _cleanup_free_ char *simplified = NULL;
         TransientWorkingDirectory *wd = &p->working_directory;
         int r;
 
+        assert(c);
         assert(p);
 
         if (!p->working_directory_set)
@@ -1059,7 +1137,6 @@ static int apply_exec_working_directory(Unit *u, ExecContext *c, TransientExecCo
 
         if (wd->home && wd->path)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
-        assert(c);
                                        "WorkingDirectory: 'home' and 'path' are mutually exclusive");
         if (!wd->home && !wd->path)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -1095,6 +1172,7 @@ static int apply_exec_working_directory(Unit *u, ExecContext *c, TransientExecCo
         static int apply_exec_##field(Unit *u, ExecContext *c, TransientExecContextParameters *p) { \
                 int r;                                                  \
                                                                         \
+                assert(c);                                              \
                 assert(p);                                              \
                                                                         \
                 if (!p->field)                                          \
@@ -1102,7 +1180,6 @@ static int apply_exec_working_directory(Unit *u, ExecContext *c, TransientExecCo
                                                                         \
                 r = free_and_strdup(&c->field, p->field);               \
                 if (r < 0)                                              \
-                assert(c);                                              \
                         return r;                                       \
                                                                         \
                 unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE|UNIT_ESCAPE_SPECIFIERS, JsonName, \
@@ -1112,6 +1189,31 @@ static int apply_exec_working_directory(Unit *u, ExecContext *c, TransientExecCo
 
 DEFINE_APPLY_EXEC_STRING(user,  "User");
 DEFINE_APPLY_EXEC_STRING(group, "Group");
+
+/* Generate an apply fn for an exec-context tristate bool: copy the parsed value to ExecContext and
+ * write the corresponding "Name=yes/no" line, skipping if the caller didn't set the field.
+ * Used for the sandbox bool batch where parse and apply are entirely mechanical. */
+#define DEFINE_APPLY_EXEC_TRISTATE_BOOL(field, JsonName)                \
+        static int apply_exec_##field(Unit *u, ExecContext *c, TransientExecContextParameters *p) { \
+                assert(c);                                              \
+                assert(p);                                              \
+                if (p->field < 0)                                       \
+                        return 0;                                       \
+                c->field = p->field;                                    \
+                unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE, JsonName, \
+                                    JsonName "=%s", yes_no(p->field));  \
+                return 0;                                               \
+        }
+
+DEFINE_APPLY_EXEC_TRISTATE_BOOL(dynamic_user,              "DynamicUser");
+DEFINE_APPLY_EXEC_TRISTATE_BOOL(ignore_sigpipe,            "IgnoreSIGPIPE");
+DEFINE_APPLY_EXEC_TRISTATE_BOOL(lock_personality,          "LockPersonality");
+DEFINE_APPLY_EXEC_TRISTATE_BOOL(memory_deny_write_execute, "MemoryDenyWriteExecute");
+DEFINE_APPLY_EXEC_TRISTATE_BOOL(no_new_privileges,         "NoNewPrivileges");
+DEFINE_APPLY_EXEC_TRISTATE_BOOL(remove_ipc,                "RemoveIPC");
+DEFINE_APPLY_EXEC_TRISTATE_BOOL(restrict_realtime,         "RestrictRealtime");
+DEFINE_APPLY_EXEC_TRISTATE_BOOL(restrict_suid_sgid,        "RestrictSUIDSGID");
+DEFINE_APPLY_EXEC_TRISTATE_BOOL(root_ephemeral,            "RootEphemeral");
 
 /* Per-property descriptor for fields of the Exec context.
  *
@@ -1124,6 +1226,8 @@ DEFINE_APPLY_EXEC_STRING(group, "Group");
  *   apply         - Writes the parsed value to ExecContext. Returns 0 on success (whether or not
  *                   the property was set), <0 on error. -EINVAL is mapped to err_field by the
  *                   central loop.
+ *   tristate      - If true, the int at parse_offset is initialized to -1 (absent sentinel) by
+ *                   transient_exec_context_parameters_init(). Defaults to false.
  */
 typedef struct TransientExecProperty {
         const char *json_name;
@@ -1133,12 +1237,20 @@ typedef struct TransientExecProperty {
         size_t parse_offset;
         sd_json_dispatch_flags_t json_flags;
         int (*apply)(Unit *u, ExecContext *c, TransientExecContextParameters *p);
+        bool tristate;
 } TransientExecProperty;
 
 /* Property descriptors for the Exec object. Ordered to match src/shared/varlink-io.systemd.Unit.c so related
  * fields (e.g. User/Group) stay close. JSON keys match the D-Bus property names. */
 #define EXEC_PROPERTY(json, type, dispatch_fn, parse_offset, json_flags, apply_fn) \
         { json, "Exec." json, type, dispatch_fn, parse_offset, json_flags, apply_fn }
+
+/* Tristate-bool property: parsed via sd_json_dispatch_tristate into an int (-1 = absent).
+ * Sets .tristate=true so transient_exec_context_parameters_init() seeds the int to -1 before
+ * dispatch. */
+#define EXEC_PROPERTY_TRISTATE_BOOL(json, field)                                          \
+        { json, "Exec." json, SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate,         \
+          offsetof(TransientExecContextParameters, field), 0, apply_exec_##field, true }
 
 /* String property: dispatched into a const char* field and applied via the matching
  * DEFINE_APPLY_EXEC_STRING() function. dispatch_fn/json_flags vary per field (e.g. User/Group use
@@ -1149,16 +1261,44 @@ typedef struct TransientExecProperty {
 
 static const TransientExecProperty exec_properties[] = {
         EXEC_PROPERTY              ("WorkingDirectory",       SD_JSON_VARIANT_OBJECT,        dispatch_transient_working_directory,        0,                                                                       0,             apply_exec_working_directory),
+        EXEC_PROPERTY_TRISTATE_BOOL("RootEphemeral",          root_ephemeral),
         EXEC_PROPERTY_STRING       ("User",                   user,  json_dispatch_const_user_group_name, SD_JSON_RELAX),
         EXEC_PROPERTY_STRING       ("Group",                  group, json_dispatch_const_user_group_name, SD_JSON_RELAX),
+        EXEC_PROPERTY_TRISTATE_BOOL("DynamicUser",            dynamic_user),
         EXEC_PROPERTY              ("SupplementaryGroups",    SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_strv,                       offsetof(TransientExecContextParameters, supplementary_groups),          0,             apply_exec_supplementary_groups),
+        EXEC_PROPERTY_TRISTATE_BOOL("NoNewPrivileges",        no_new_privileges),
+        EXEC_PROPERTY              ("UMask",                  SD_JSON_VARIANT_INTEGER,       dispatch_transient_umask,                    0,                                                                       0,             apply_exec_umask),
+        EXEC_PROPERTY              ("OOMScoreAdjust",         SD_JSON_VARIANT_INTEGER,       dispatch_transient_oom_score_adjust,         0,                                                                       0,             apply_exec_oom_score_adjust),
+        EXEC_PROPERTY_TRISTATE_BOOL("IgnoreSIGPIPE",          ignore_sigpipe),
         EXEC_PROPERTY              ("Nice",                   SD_JSON_VARIANT_INTEGER,       dispatch_transient_nice,                     0,                                                                       0,             apply_exec_nice),
+        EXEC_PROPERTY_TRISTATE_BOOL("LockPersonality",        lock_personality),
+        EXEC_PROPERTY_TRISTATE_BOOL("MemoryDenyWriteExecute", memory_deny_write_execute),
+        EXEC_PROPERTY_TRISTATE_BOOL("RestrictRealtime",       restrict_realtime),
+        EXEC_PROPERTY_TRISTATE_BOOL("RestrictSUIDSGID",       restrict_suid_sgid),
+        EXEC_PROPERTY_TRISTATE_BOOL("RemoveIPC",              remove_ipc),
         EXEC_PROPERTY              ("Environment",            _SD_JSON_VARIANT_TYPE_INVALID, dispatch_transient_environment,              0,                                                                       0,             apply_exec_environment),
+        EXEC_PROPERTY              ("LogLevelMax",            _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_log_level,                     offsetof(TransientExecContextParameters, log_level_max),                 0,             apply_exec_log_level_max),
         EXEC_PROPERTY              ("SetCredential",          SD_JSON_VARIANT_ARRAY,         dispatch_transient_set_credential,           0,                                                                       0,             apply_exec_set_credential),
         EXEC_PROPERTY              ("SetCredentialEncrypted", SD_JSON_VARIANT_ARRAY,         dispatch_transient_set_credential_encrypted, 0,                                                                       0,             apply_exec_set_credential_encrypted),
 };
 #undef EXEC_PROPERTY
+#undef EXEC_PROPERTY_TRISTATE_BOOL
 #undef EXEC_PROPERTY_STRING
+
+/* Tristate-bool fields default to -1 (= absent). Default-zeroed slots would look "explicitly false"
+ * to the apply path. Initialize all tristate fields here so adding a new tristate property only
+ * requires a new exec_properties[] row, never a fresh designated initializer at the call site.
+ * The .tristate descriptor flag drives the loop -- mirrors the .cleanup hook used on the Service
+ * side, and avoids fragile dispatch-function-pointer equality checks. */
+static void transient_exec_context_parameters_init(TransientExecContextParameters *p) {
+        assert(p);
+
+        p->log_level_max = -1; /* 0 (LOG_EMERG) is valid, so "absent" can't be the zero default */
+
+        FOREACH_ELEMENT(prop, exec_properties)
+                if (prop->tristate)
+                        *(int*) ((uint8_t*) p + prop->parse_offset) = -1;
+}
 
 static int dispatch_transient_exec_context(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         /* Build dispatch table only once, its constant. */
@@ -1178,6 +1318,9 @@ static int dispatch_transient_exec_context(const char *name, sd_json_variant *va
                         };
                 exec_dispatch_set = true;
         }
+
+        /* Some fields (like tristate) must be initialized as their "undefined" is eg. "-1" */
+        transient_exec_context_parameters_init(&p->exec);
 
         p->exec.present = true;
         return sd_json_dispatch_full(variant, exec_dispatch, /* bad= */ NULL, /* flags= */ 0, &p->exec, &p->bad_exec_field);
@@ -1323,6 +1466,13 @@ int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters
                                         link,
                                         "io.systemd.Unit.PropertyNotSupported",
                                         SD_JSON_BUILD_PAIR_STRING("property", p.unsupported_property));
+                /* Report the precise sub-field rather than the opaque "context" parent. */
+                if (streq_ptr(bad_field, "context")) {
+                        if (!isempty(p.context.bad_exec_field))
+                                return sd_varlink_error_invalid_parameter_name(link, strjoina("Exec.", p.context.bad_exec_field));
+                        if (!isempty(p.context.bad_service_field))
+                                return sd_varlink_error_invalid_parameter_name(link, strjoina("Service.", p.context.bad_service_field));
+                }
                 if (bad_field)
                         return sd_varlink_error_invalid_parameter_name(link, bad_field);
                 return r;
@@ -1360,7 +1510,9 @@ int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters
         if (r < 0)
                 return sd_varlink_error_errno(link, r);
 
-        /* Apply context.Exec only when an Exec object was sent, and only to unit types with an exec context. */
+        /* Apply context.Exec only when an Exec object was actually sent. The tristate bool fields are
+         * seeded to -1 ("absent") during Exec dispatch; without an Exec object they stay 0, which the
+         * apply functions would misread as "explicitly false" and write out bogus FooBar=no lines. */
         if (p.context.exec.present) {
                 ExecContext *c = unit_get_exec_context(u);
                 if (!c)
