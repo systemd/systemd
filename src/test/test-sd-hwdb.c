@@ -1,11 +1,18 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <fcntl.h>
+#include <unistd.h>
+
 #include "sd-hwdb.h"
 
 #include "errno-util.h"
+#include "fd-util.h"
 #include "hwdb-internal.h"
 #include "nulstr-util.h"
+#include "path-util.h"
+#include "rm-rf.h"
 #include "tests.h"
+#include "tmpfile-util.h"
 
 TEST(failed_enumerate) {
         _cleanup_(sd_hwdb_unrefp) sd_hwdb *hwdb = NULL;
@@ -67,6 +74,66 @@ TEST(sd_hwdb_new_from_path) {
         }
 
         assert_se(r >= 0);
+}
+
+TEST(sd_hwdb_seek_rejects_invalid_fnmatch_prefix) {
+        _cleanup_(rm_rf_physical_and_freep) char *tmp = NULL;
+        _cleanup_(sd_hwdb_unrefp) sd_hwdb *hwdb = NULL;
+        _cleanup_free_ char *path = NULL;
+
+        struct invalid_hwdb {
+                struct trie_header_f header;
+                struct trie_node_f root_node;
+                struct trie_child_entry_f child1;
+                struct trie_node_f mid_node;
+                struct trie_child_entry_f child2;
+                struct trie_node_f crash_node;
+                char strings[STRLEN("usb:") + 1];
+        } _packed_ data = {
+                .header = {
+                        .signature = HWDB_SIG,
+                        .tool_version = htole64(PROJECT_VERSION),
+                        .file_size = htole64(sizeof(struct invalid_hwdb)),
+                        .header_size = htole64(sizeof(struct trie_header_f)),
+                        .node_size = htole64(sizeof(struct trie_node_f)),
+                        .child_entry_size = htole64(sizeof(struct trie_child_entry_f)),
+                        .value_entry_size = htole64(sizeof(struct trie_value_entry_f)),
+                        .nodes_root_off = htole64(offsetof(struct invalid_hwdb, root_node)),
+                        .nodes_len = htole64(offsetof(struct invalid_hwdb, strings) - offsetof(struct invalid_hwdb, root_node)),
+                        .strings_len = htole64(STRLEN("usb:") + 1),
+                },
+                .root_node = {
+                        .prefix_off = htole64(offsetof(struct invalid_hwdb, strings)),
+                        .children_count = 1,
+                },
+                .child1 = {
+                        .c = 'v',
+                        .child_off = htole64(offsetof(struct invalid_hwdb, mid_node)),
+                },
+                .mid_node = {
+                        .prefix_off = htole64(offsetof(struct invalid_hwdb, strings) + STRLEN("usb:")),
+                        .children_count = 1,
+                },
+                .child2 = {
+                        .c = '*',
+                        .child_off = htole64(offsetof(struct invalid_hwdb, crash_node)),
+                },
+                .crash_node = {
+                        .prefix_off = htole64(0xDEAD0000),
+                },
+                .strings = "usb:",
+        };
+
+        ASSERT_OK(mkdtemp_malloc(NULL, &tmp));
+        ASSERT_NOT_NULL(path = path_join(tmp, "hwdb.bin"));
+
+        _cleanup_close_ int fd = open(path, O_WRONLY|O_CREAT|O_CLOEXEC|O_TRUNC, 0644);
+        ASSERT_OK_ERRNO(fd);
+        assert_se(write(fd, &data, sizeof(data)) == (ssize_t) sizeof(data));
+        fd = safe_close(fd);
+
+        ASSERT_OK(sd_hwdb_new_from_path(path, &hwdb));
+        ASSERT_ERROR(sd_hwdb_seek(hwdb, "usb:v*"), EINVAL);
 }
 
 static int intro(void) {
