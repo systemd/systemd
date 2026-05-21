@@ -40,6 +40,8 @@ option('static-libudev', type : 'combo',
        description : 'install a static library for libudev')
 option('standalone-binaries', type : 'boolean', value : false,
        description : 'also build standalone versions of supported binaries')
+option('build-static', type : 'boolean', value : false,
+       description : 'also build static versions of supported binaries')
 
 option('sysvinit-path', type : 'string', value : '/etc/init.d', deprecated : true,
        description : 'This option is deprecated and will be removed in a future release')

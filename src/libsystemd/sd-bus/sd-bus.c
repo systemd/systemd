@@ -827,6 +827,10 @@ static int parse_unix_address(sd_bus *b, const char **p, char **guid) {
 }
 
 static int parse_tcp_address(sd_bus *b, const char **p, char **guid) {
+#if BUILD_STATIC
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                               "tcp:// connections are not supported in static builds");
+#else
         _cleanup_free_ char *host = NULL, *port = NULL, *family = NULL;
         int r;
         struct addrinfo *result, hints = {
@@ -889,6 +893,7 @@ static int parse_tcp_address(sd_bus *b, const char **p, char **guid) {
         b->is_local = false;
 
         return 0;
+#endif
 }
 
 static int parse_exec_address(sd_bus *b, const char **p, char **guid) {

@@ -81,6 +81,8 @@ conf.set10('SD_BOOT', false)
 link_executor_shared = get_option('link-executor-shared')
 conf.set10('BUILD_EXECUTOR_SINGLE', link_executor_shared == 'single')
 
+conf.set10('BUILD_STATIC', get_option('build-static'))
+
 # Create a title-less summary section early, so it ends up first in the output.
 # More items are added later after they have been detected.
 summary({
