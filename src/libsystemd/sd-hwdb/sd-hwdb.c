@@ -180,9 +180,18 @@ static int trie_fnmatch_f(sd_hwdb *hwdb, const struct trie_node_f *node, size_t 
         const char *prefix;
         int err;
 
+        assert(hwdb);
+        assert(node);
+
+        /* Ensure the prefix is within bounds */
+        uint64_t file_size = hwdb->st.st_size, prefix_off = le64toh(node->prefix_off);
+        if (prefix_off >= file_size || p >= file_size - prefix_off)
+                return -EINVAL;
+
         prefix = trie_string(hwdb, node->prefix_off);
-        len = strlen(prefix + p);
-        linebuf_add(buf, prefix + p, len);
+        len = strnlen(prefix + p, file_size - prefix_off - p);
+        if (!linebuf_add(buf, prefix + p, len))
+                return -EINVAL;
 
         for (i = 0; i < node->children_count; i++) {
                 const struct trie_child_entry_f *child = trie_node_child(hwdb, node, i);
