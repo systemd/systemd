@@ -60,6 +60,8 @@ typedef struct Timer {
         bool on_timezone_change;
         bool fixed_random_delay;
         bool defer_reactivation;
+        bool catch_up; /* Trigger immediately if the next activation time is in the past, which may happen after
+                        * daemon-reload. Not to be confused with 'persistent'. */
 
         char *stamp_path;
 } Timer;

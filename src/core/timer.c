@@ -44,6 +44,7 @@ static void timer_init(Unit *u) {
         t->next_elapse_realtime = USEC_INFINITY;
         t->accuracy_usec = u->manager->defaults.timer_accuracy_usec;
         t->remain_after_elapse = true;
+        t->catch_up = true;
 }
 
 void timer_free_values(Timer *t) {
@@ -481,6 +482,13 @@ static void timer_enter_waiting(Timer *t, bool time_change) {
                         r = calendar_spec_next_usec(v->calendar_spec, b, &v->next_elapse);
                         if (r < 0)
                                 continue;
+
+                        if (!t->catch_up && v->next_elapse <= ts.realtime) {
+                                /* Don't catch up with past events */
+                                r = calendar_spec_next_usec(v->calendar_spec, ts.realtime, &v->next_elapse);
+                                if (r < 0)
+                                        continue;
+                        }
 
                         v->next_elapse += random_offset;
 
