@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "dhcp-message.h"
+#include "dhcp-forward.h"
 
 typedef enum {
         DUMP_DHCP_MESSAGE_LEGEND = 1 << 0,

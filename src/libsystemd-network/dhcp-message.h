@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-dhcp-client-id.h"
-#include "sd-forward.h"
-
+#include "dhcp-forward.h"
 #include "dhcp-protocol.h"
 #include "tlv-util.h"
 

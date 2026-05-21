@@ -5,8 +5,8 @@
 
 #include "sd-event.h"
 
-#include "dhcp-protocol.h"
-#include "dhcp-relay-internal.h"  /* IWYU pragma: keep */
+#include "dhcp-message.h"
+#include "dhcp-relay-internal.h"
 #include "ether-addr-util.h"
 #include "fd-util.h"
 #include "hashmap.h"

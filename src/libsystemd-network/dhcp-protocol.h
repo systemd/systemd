@@ -7,8 +7,7 @@
 
 #include "sd-dhcp-protocol.h"  /* IWYU pragma: export */
 
-#include "sd-forward.h"
-#include "sparse-endian.h"
+#include "dhcp-forward.h"
 #include "time-util.h"
 
 /* RFC 8925 - IPv6-Only Preferred Option for DHCPv4 3.4.

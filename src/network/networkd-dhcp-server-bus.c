@@ -4,6 +4,7 @@
 
 #include "alloc-util.h"
 #include "bus-object.h"
+#include "dhcp-server-internal.h"
 #include "dhcp-server-lease-internal.h"
 #include "hashmap.h"
 #include "networkd-dhcp-server-bus.h"

@@ -9,6 +9,7 @@
 #include "in-addr-util.h"
 #include "iovec-util.h"
 #include "prioq.h"
+#include "tlv-util.h"
 
 static sd_dhcp_relay* dhcp_relay_free(sd_dhcp_relay *relay) {
         if (!relay)

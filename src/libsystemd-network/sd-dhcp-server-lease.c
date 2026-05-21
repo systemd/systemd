@@ -6,7 +6,9 @@
 #include "sd-event.h"
 
 #include "alloc-util.h"
+#include "dhcp-server-internal.h"
 #include "dhcp-server-lease-internal.h"
+#include "dhcp-server-request.h"
 #include "dns-domain.h"
 #include "errno-util.h"
 #include "fd-util.h"
