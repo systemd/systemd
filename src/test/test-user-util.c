@@ -596,4 +596,38 @@ TEST(lookup_grent_in_files) {
         ASSERT_STREQ(gr->gr_name, "testgroup1");
 }
 
+TEST(lookup_groups_in_files) {
+        _cleanup_(unlink_tempfilep) char fn[] = "/tmp/test-user-util-group-XXXXXX";
+        _cleanup_fclose_ FILE *f = NULL;
+
+        ASSERT_OK(fmkostemp_safe(fn, "w", &f));
+        ASSERT_OK(write_string_stream(
+                                f,
+                                "testgroup1:x:100:testuser1,testuser2\n"
+                                "testgroup2:x:200:testuser1\n"
+                                "testgroup3:x:300:\n"
+                                "testgroup4:x:400:root,somebody,testuser1\n",
+                                /* flags= */ 0));
+        ASSERT_OK(fflush_and_check(f));
+
+        char **files = STRV_MAKE(fn);
+
+        /* Lookup by name */
+        _cleanup_free_ gid_t *arr = NULL;
+
+        ASSERT_EQ(lookup_groups_in_files(files, "testuser1", 100, &arr), 3);
+        gid_t exp1[] = { 100, 200, 400 };
+        ASSERT_EQ(memcmp(arr, exp1, sizeof(exp1)), 0);
+        arr = mfree(arr);
+
+        ASSERT_EQ(lookup_groups_in_files(files, "testuser1", 0, &arr), 4);
+        gid_t exp2[] = { 0, 100, 200, 400 };
+        ASSERT_EQ(memcmp(arr, exp2, sizeof(exp2)), 0);
+        arr = mfree(arr);
+
+        ASSERT_EQ(lookup_groups_in_files(files, "testuser3", 300, &arr), 1);
+        gid_t exp3[] = { 300 };
+        ASSERT_EQ(memcmp(arr, exp3, sizeof(exp3)), 0);
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);
