@@ -1353,6 +1353,19 @@ int lookup_grent_in_files(
         return -ESRCH;
 }
 
+int sysconf_ngroups_max(void) {
+        /* Query sysconf _SC_NGROUPS_MAX. Returns an int because the expected value is 64k
+         * and later on this is used as an int with various glibc consumers. */
+
+        errno = 0;
+        long ngroups_max = sysconf(_SC_NGROUPS_MAX);
+        if (ngroups_max <= 0)
+                return errno_or_else(EOPNOTSUPP);
+        if (ngroups_max > INT_MAX)
+                return -ERANGE;
+        return ngroups_max;
+}
+
 static size_t getgr_buffer_size(void) {
         long bufsize = sysconf(_SC_GETGR_R_SIZE_MAX);
         return bufsize <= 0 ? 4096U : (size_t) bufsize;

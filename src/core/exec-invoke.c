@@ -917,14 +917,9 @@ static int get_supplementary_groups(
                 return 0;
         }
 
-        /*
-         * If SupplementaryGroups= was passed then NGROUPS_MAX has to
-         * be positive, otherwise fail.
-         */
-        errno = 0;
-        long ngroups_max = sysconf(_SC_NGROUPS_MAX);
-        if (ngroups_max <= 0)
-                return errno_or_else(EOPNOTSUPP);
+        int ngroups_max = sysconf_ngroups_max();
+        if (ngroups_max < 0)
+                return ngroups_max;
 
         _cleanup_free_ gid_t *l_gids = new(gid_t, ngroups_max);
         if (!l_gids)
