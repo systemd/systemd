@@ -2059,6 +2059,25 @@
         </varlistentry>
 
         <varlistentry>
+          <term><varname>ConditionMachineTag=</varname></term>
+
+          <listitem><para><varname>ConditionMachineTag=</varname> may be used to match against the tags
+          assigned to the local machine. Machine tags are short labels that classify and group machines for
+          management purposes; they are configured in the <varname>TAGS=</varname> field of
+          <citerefentry><refentrytitle>machine-info</refentrytitle><manvolnum>5</manvolnum></citerefentry> and
+          may be queried and changed with the <command>tags</command> command of
+          <citerefentry><refentrytitle>hostnamectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>. The
+          argument is a single tag pattern, which is compared against each of the configured tags using
+          shell-style globbing (<literal>*</literal>, <literal>?</literal>, <literal>[]</literal>). The
+          condition is satisfied if at least one of the configured tags matches the pattern. The test may be
+          negated by prepending an exclamation mark, in which case it is satisfied if none of the configured
+          tags matches.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><varname>ConditionMemoryPressure=</varname></term>
           <term><varname>ConditionCPUPressure=</varname></term>
           <term><varname>ConditionIOPressure=</varname></term>
@@ -2126,6 +2145,7 @@
           <term><varname>AssertCPUs=</varname></term>
           <term><varname>AssertCPUFeature=</varname></term>
           <term><varname>AssertOSRelease=</varname></term>
+          <term><varname>AssertMachineTag=</varname></term>
           <term><varname>AssertMemoryPressure=</varname></term>
           <term><varname>AssertCPUPressure=</varname></term>
           <term><varname>AssertIOPressure=</varname></term>

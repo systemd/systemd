@@ -56,6 +56,7 @@ node /org/freedesktop/hostname1 {
                     in  b interactive);
       SetLocation(in  s location,
                   in  b interactive);
+      SetTags(in  as tags);
       GetProductUUID(in  b interactive,
                      out ay uuid);
       GetHardwareSerial(out s serial);
@@ -73,6 +74,7 @@ node /org/freedesktop/hostname1 {
       readonly s Chassis = '...';
       readonly s Deployment = '...';
       readonly s Location = '...';
+      readonly as Tags = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s KernelName = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -142,6 +144,8 @@ node /org/freedesktop/hostname1 {
 
     <variablelist class="dbus-method" generated="True" extra-ref="SetLocation()"/>
 
+    <variablelist class="dbus-method" generated="True" extra-ref="SetTags()"/>
+
     <variablelist class="dbus-method" generated="True" extra-ref="GetProductUUID()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="GetHardwareSerial()"/>
@@ -167,6 +171,8 @@ node /org/freedesktop/hostname1 {
     <variablelist class="dbus-property" generated="True" extra-ref="Deployment"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Location"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="Tags"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="KernelName"/>
 
@@ -268,6 +274,15 @@ node /org/freedesktop/hostname1 {
     configure the chassis type if it could not be auto-detected. Set this property to the empty string to
     reenable the automatic detection of the chassis type from firmware information.</para>
 
+    <para>The <varname>Tags</varname> property exposes a list of <emphasis>machine tags</emphasis>: short
+    labels that may be used to classify and group machines for management purposes, for example to identify
+    the role a machine plays in a deployment, the fleet or organizational unit it belongs to, or any other
+    administrator-defined attribute. Each individual tag is 1…255 characters long and consists only of the
+    ASCII alphanumeric characters, <literal>-</literal> and <literal>.</literal>. The tags are stored as a
+    colon-separated list in the <varname>TAGS=</varname> field of <filename>/etc/machine-info</filename>, see
+    <citerefentry><refentrytitle>machine-info</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+    details. If no tags are configured this property is the empty list.</para>
+
     <para>Note that <filename>systemd-hostnamed</filename> starts only on request and terminates after a
     short idle period. This effectively means that <function>PropertyChanged</function> messages are not sent
     out for changes made directly on the files (as in: administrator edits the files with vi). This is
@@ -365,8 +380,13 @@ node /org/freedesktop/hostname1 {
       deployment environment), and <varname>Location</varname> (physical system location), respectively.
       </para>
 
+      <para><function>SetTags()</function> sets the machine tags exposed by the <varname>Tags</varname>
+      property. It takes a list of strings, each of which must be a valid machine tag (1…255 ASCII
+      alphanumeric characters, <literal>-</literal> and <literal>.</literal>). Passing an empty list removes
+      the <varname>TAGS=</varname> field from <filename>/etc/machine-info</filename>.</para>
+
       <para><varname>PrettyHostname</varname>, <varname>IconName</varname>, <varname>Chassis</varname>,
-      <varname>Deployment</varname>, and <varname>Location</varname> are stored in
+      <varname>Deployment</varname>, <varname>Location</varname>, and <varname>Tags</varname> are stored in
       <filename>/etc/machine-info</filename>. See
       <citerefentry><refentrytitle>machine-info</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
       the semantics of those settings.</para>
@@ -400,8 +420,8 @@ node /org/freedesktop/hostname1 {
       <interfacename>org.freedesktop.hostname1.set-hostname</interfacename>. For
       <function>SetStaticHostname()</function> and <function>SetPrettyHostname()</function> it is
       <interfacename>org.freedesktop.hostname1.set-static-hostname</interfacename>. For
-      <function>SetIconName()</function>, <function>SetChassis()</function>, <function>SetDeployment()</function>
-      and <function>SetLocation()</function> it is
+      <function>SetIconName()</function>, <function>SetChassis()</function>, <function>SetDeployment()</function>,
+      <function>SetLocation()</function> and <function>SetTags()</function> it is
       <interfacename>org.freedesktop.hostname1.set-machine-info</interfacename>.</para>
     </refsect2>
   </refsect1>
@@ -505,7 +525,8 @@ node /org/freedesktop/hostname1 {
       <varname>OperatingSystemImageVersion</varname>, <varname>HardwareSKU</varname>, and
       <varname>HardwareVersion</varname> were added in version 258.</para>
       <para><varname>OperatingSystemFancyName</varname> was added in version 260.</para>
-      <para><function>GetMachineInfo()</function> was added in version 261.</para>
+      <para><function>GetMachineInfo()</function>, <varname>Tags</varname> and
+      <function>SetTags()</function> were added in version 261.</para>
     </refsect2>
   </refsect1>
 

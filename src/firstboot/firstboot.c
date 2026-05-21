@@ -67,6 +67,7 @@ static char *arg_keymap = NULL;
 static char *arg_timezone = NULL;
 static char *arg_hostname = NULL;
 static sd_id128_t arg_machine_id = {};
+static char **arg_machine_tags = NULL;
 static char *arg_root_password = NULL;
 static char *arg_root_shell = NULL;
 static char *arg_kernel_cmdline = NULL;
@@ -98,6 +99,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_locale_messages, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_keymap, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_timezone, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_hostname, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_machine_tags, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root_password, erase_and_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root_shell, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_kernel_cmdline, freep);
@@ -778,6 +780,71 @@ static int process_machine_id(int rfd) {
         return 0;
 }
 
+static int process_machine_tags(int rfd) {
+        int r;
+
+        assert(rfd >= 0);
+
+        _cleanup_free_ char *f = NULL;
+        _cleanup_close_ int pfd = chase_and_open_parent_at(
+                        /* root_fd= */ rfd,
+                        /* dir_fd= */ rfd,
+                        "/etc/machine-info",
+                        CHASE_MKDIR_0755|CHASE_WARN|CHASE_NOFOLLOW,
+                        &f);
+        if (pfd < 0)
+                return log_error_errno(pfd, "Failed to chase /etc/machine-info parent: %m");
+
+        r = should_configure(pfd, f);
+        if (r == 0)
+                log_debug("Found /etc/machine-info, assuming machine tags have been configured.");
+        if (r <= 0)
+                return r;
+
+        if (!arg_machine_tags) {
+                _cleanup_free_ char *tags = NULL;
+                r = read_credential("firstboot.machine-tags", (void**) &tags, /* ret_size= */ NULL);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to read credential firstboot.machine-tags, ignoring: %m");
+                else {
+                        _cleanup_strv_free_ char **l = NULL;
+                        r = machine_tags_from_string(tags, /* graceful= */ false, &l);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to parse machine tags '%s', ignoring credential: %m", tags);
+                        else {
+                                strv_free_and_replace(arg_machine_tags, l);
+                                log_debug("Acquired machine tags list from credentials.");
+                        }
+                }
+        }
+
+        /* NB: We do not prompt for machine tags, at least not for now */
+
+        if (!arg_machine_tags) {
+                log_debug("Initialization of machine tags was not requested, skipping.");
+                return 0;
+        }
+
+        _cleanup_free_ char *j = strv_join(arg_machine_tags, ":");
+        if (!j)
+                return log_oom();
+
+        _cleanup_free_ char *c = strjoin("TAGS=\"", j, "\"\n");
+        if (!c)
+                return log_oom();
+
+        r = write_string_file_at(
+                        pfd,
+                        "machine-info",
+                        c,
+                        WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_SYNC|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_LABEL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write /etc/machine-info: %m");
+
+        log_info("/etc/machine-info written.");
+        return 0;
+}
+
 static int prompt_root_password(int rfd, sd_varlink **mute_console_link) {
         const char *msg1, *msg2;
         int r;
@@ -1363,6 +1430,16 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_error_errno(r, "Failed to parse machine id %s.", opts.arg);
                         break;
 
+                OPTION_LONG("machine-tags", "TAG[:…]", "Set machine tags"): {
+                        _cleanup_strv_free_ char **tags = NULL;
+                        r = machine_tags_from_string(opts.arg, /* graceful= */ false, &tags);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse machine tags '%s': %m", opts.arg);
+
+                        strv_free_and_replace(arg_machine_tags, tags);
+                        break;
+                }
+
                 OPTION_LONG("root-password", "PASSWORD", "Set root password from plaintext password"):
                         r = free_and_strdup_warn(&arg_root_password, opts.arg);
                         if (r < 0)
@@ -1690,6 +1767,10 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         r = process_machine_id(rfd);
+        if (r < 0)
+                return r;
+
+        r = process_machine_tags(rfd);
         if (r < 0)
                 return r;
 
