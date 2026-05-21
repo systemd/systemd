@@ -18,11 +18,12 @@
 ***/
 
 #include <netinet/in.h>
-#include <sys/uio.h>
 
 #include "_sd-common.h"
 
 _SD_BEGIN_DECLARATIONS;
+
+struct iovec;
 
 typedef struct sd_event sd_event;
 typedef struct sd_dhcp_relay sd_dhcp_relay;
