@@ -23,6 +23,7 @@
 #include "parse-util.h"
 #include "pretty-print.h"
 #include "set.h"
+#include "sort-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tmpfile-util.h"
@@ -434,6 +435,26 @@ static int setup_nvpcr_one(
         return 0;
 }
 
+typedef struct NvPCREntry {
+        const char *name;       /* points into the strv 'l' in setup_nvpcr() */
+        uint64_t priority;
+} NvPCREntry;
+
+static int nvpcr_entry_compare(const NvPCREntry *a, const NvPCREntry *b) {
+        int r;
+
+        assert(a);
+        assert(b);
+
+        /* Lower priority value means more important, hence allocate it first. Break ties by name
+         * (ascending) so the resulting order is fully deterministic. */
+        r = CMP(a->priority, b->priority);
+        if (r != 0)
+                return r;
+
+        return strcmp(a->name, b->name);
+}
+
 static int setup_nvpcr(void) {
         _cleanup_(setup_nvpcr_context_done) SetupNvPCRContext c = {};
         int r;
@@ -448,8 +469,33 @@ static int setup_nvpcr(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to find .nvpcr files: %m");
 
+        /* Pair each NvPCR name with its allocation priority, then sort, so that we allocate the most
+         * important NvPCRs first. This matters when the TPM's NV index space is too small to fit all of
+         * them: we then degrade gracefully, skipping the least important NvPCRs. */
+        size_t n = strv_length(l);
+        NvPCREntry *entries = new(NvPCREntry, n);
+        if (!entries)
+                return log_oom();
+
+        for (size_t i = 0; i < n; i++) {
+                uint64_t priority = TPM2_NVPCR_PRIORITY_DEFAULT;
+
+                r = tpm2_nvpcr_get_index(l[i], /* ret_nv_index= */ NULL, &priority);
+                if (r < 0)
+                        /* If we can't read the definition, assume the default priority and let the
+                         * per-NvPCR error path in setup_nvpcr_one() report the actual problem. */
+                        log_warning_errno(r, "Failed to read priority of NvPCR '%s', assuming default priority %" PRIu64 ": %m", l[i], priority);
+
+                entries[i] = (NvPCREntry) {
+                        .name = l[i],
+                        .priority = priority,
+                };
+        }
+
+        typesafe_qsort(entries, n, nvpcr_entry_compare);
+
         int ret = 0;
-        STRV_FOREACH(i, l) {
+        FOREACH_ARRAY(e, entries, n) {
                 if (!c.tpm2_context) {
                         /* Inability to contact the TPM shall be fatal for us */
                         r = tpm2_context_new_or_warn(arg_tpm2_device, &c.tpm2_context);
@@ -457,8 +503,10 @@ static int setup_nvpcr(void) {
                                 return r;
                 }
 
+                log_debug("Setting up NvPCR '%s' (priority %" PRIu64 ").", e->name, e->priority);
+
                 /* But if we fail to initialize some NvPCR, we go on */
-                RET_GATHER(ret, setup_nvpcr_one(&c, *i));
+                RET_GATHER(ret, setup_nvpcr_one(&c, e->name));
         }
 
         if (c.n_already > 0 && c.n_anchored == 0 && !arg_early)
