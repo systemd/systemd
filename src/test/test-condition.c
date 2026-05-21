@@ -34,6 +34,7 @@
 #include "rm-rf.h"
 #include "selinux-util.h"
 #include "smack-util.h"
+#include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
@@ -241,6 +242,85 @@ TEST(condition_test_host) {
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_HOST, hostname, false, false)));
         ASSERT_OK_POSITIVE(condition_test(condition, environ));
         condition_free(condition);
+}
+
+TEST(condition_test_fraction) {
+        Condition *condition;
+        int r;
+
+        /* The 0%/100% boundaries are deterministic and short-circuit before the machine ID is even
+         * read, so these run everywhere. */
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_FRACTION, "0%", /* trigger= */ false, /* negate= */ false)));
+        ASSERT_OK_ZERO(condition_test(condition, environ));
+        condition_free(condition);
+
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_FRACTION, "100%", /* trigger= */ false, /* negate= */ false)));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        condition_free(condition);
+
+        /* A tag does not change the boundary behaviour. */
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_FRACTION, "sometag 0%", /* trigger= */ false, /* negate= */ false)));
+        ASSERT_OK_ZERO(condition_test(condition, environ));
+        condition_free(condition);
+
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_FRACTION, "sometag 100%", /* trigger= */ false, /* negate= */ false)));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        condition_free(condition);
+
+        /* Negation flips the boundaries. */
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_FRACTION, "100%", /* trigger= */ false, /* negate= */ true)));
+        ASSERT_OK_ZERO(condition_test(condition, environ));
+        condition_free(condition);
+
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_FRACTION, "0%", /* trigger= */ false, /* negate= */ true)));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        condition_free(condition);
+
+        /* Malformed values must propagate an error rather than silently passing or failing. */
+        FOREACH_STRING(bad,
+                       "",                  /* empty */
+                       "abc",               /* not a number */
+                       "30",                /* missing percent sign */
+                       "30 %",              /* percent token is just '%' */
+                       "150%",              /* out of range */
+                       "tag 30% extra",     /* trailing garbage */
+                       "a b 30%") {         /* unquoted multi-word tag → trailing garbage */
+                ASSERT_NOT_NULL((condition = condition_new(CONDITION_FRACTION, bad, /* trigger= */ false, /* negate= */ false)));
+                ASSERT_FAIL(condition_test(condition, environ));
+                condition_free(condition);
+        }
+
+        sd_id128_t id;
+        r = sd_id128_get_machine(&id);
+        if (ERRNO_IS_NEG_MACHINE_ID_UNSET(r))
+                return (void) log_tests_skipped("/etc/machine-id missing");
+        ASSERT_OK(r);
+
+        /* Distribution check: for a fixed machine ID, varying the tag spreads results uniformly, so
+         * about PERCENT of the tags match. This is the statistical dual of the production scenario,
+         * where the tag is fixed and the machine ID varies across a fleet, and it also pins down the
+         * direction of the comparison (a higher percentage matches more, not fewer). The result is
+         * deterministic for a given machine ID, and the slack is many standard deviations wide, so
+         * this does not flake. */
+        static const unsigned percentages[] = { 1, 20, 50, 80 };
+        FOREACH_ELEMENT(pct, percentages) {
+                const unsigned n = 10000, slack = 3 * n / 100;  /* ±3 percentage points */
+                unsigned match = 0;
+
+                for (unsigned i = 0; i < n; i++) {
+                        char param[64];
+                        xsprintf(param, "tag-%u %u%%", i, *pct);
+
+                        ASSERT_NOT_NULL((condition = condition_new(CONDITION_FRACTION, param, /* trigger= */ false, /* negate= */ false)));
+                        r = ASSERT_OK(condition_test(condition, environ));
+                        match += r > 0;
+                        condition_free(condition);
+                }
+
+                unsigned expected = *pct * n / 100;
+                ASSERT_TRUE(match + slack >= expected);
+                ASSERT_TRUE(expected + slack >= match);
+        }
 }
 
 TEST(condition_test_architecture) {
