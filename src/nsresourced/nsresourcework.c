@@ -390,14 +390,18 @@ static int uid_is_available(int registry_dir_fd, uid_t candidate, int parent_use
         r = userns_registry_uid_exists(registry_dir_fd, candidate);
         if (r < 0)
                 return r;
-        if (r > 0)
+        if (r > 0) {
+                log_debug("UID " UID_FMT " unavailable: already registered in userns registry.", candidate);
                 return false;
+        }
 
         r = userns_registry_gid_exists(registry_dir_fd, (gid_t) candidate);
         if (r < 0)
                 return r;
-        if (r > 0)
+        if (r > 0) {
+                log_debug("UID " UID_FMT " unavailable: GID already registered in userns registry.", candidate);
                 return false;
+        }
 
         /* Also check delegation files. If parent_userns_inode is set and matches the delegation's userns
          * inode, the UID is available because the parent owns that delegation. */
@@ -410,8 +414,11 @@ static int uid_is_available(int registry_dir_fd, uid_t candidate, int parent_use
                 if (r < 0)
                         return r;
 
-                if (delegation.userns_inode != parent_userns_inode)
+                if (delegation.userns_inode != parent_userns_inode) {
+                        log_debug("UID " UID_FMT " unavailable: delegated to userns inode %" PRIu64 " (parent is %" PRIu64 ").",
+                                  candidate, delegation.userns_inode, parent_userns_inode);
                         return false;
+                }
 
                 /* The parent userns owns this delegation, so the UID is available for nested allocation */
                 log_debug("UID " UID_FMT " is delegated by parent userns inode %" PRIu64 ", available for nested allocation.",
@@ -427,8 +434,11 @@ static int uid_is_available(int registry_dir_fd, uid_t candidate, int parent_use
                 if (r < 0)
                         return r;
 
-                if (delegation.userns_inode != parent_userns_inode)
+                if (delegation.userns_inode != parent_userns_inode) {
+                        log_debug("UID " UID_FMT " unavailable: GID delegated to userns inode %" PRIu64 " (parent is %" PRIu64 ").",
+                                  candidate, delegation.userns_inode, parent_userns_inode);
                         return false;
+                }
 
                 /* The parent userns owns this delegation, so the UID is available for nested allocation */
                 log_debug("UID " UID_FMT " is delegated by parent userns inode %" PRIu64 ", available for nested allocation.",
@@ -447,14 +457,18 @@ static int uid_is_available(int registry_dir_fd, uid_t candidate, int parent_use
                  * nsresourced user namespace, but not in the nspawn user namespace). */
 
                 r = userdb_by_uid(candidate, /* match= */ NULL, USERDB_AVOID_MULTIPLEXER, /* ret= */ NULL);
-                if (r >= 0)
+                if (r >= 0) {
+                        log_debug("UID " UID_FMT " unavailable: known to userdb.", candidate);
                         return false;
+                }
                 if (r != -ESRCH)
                         return r;
 
                 r = groupdb_by_gid(candidate, /* match= */ NULL, USERDB_AVOID_MULTIPLEXER, /* ret= */ NULL);
-                if (r >= 0)
+                if (r >= 0) {
+                        log_debug("UID " UID_FMT " unavailable: GID known to groupdb.", candidate);
                         return false;
+                }
                 if (r != -ESRCH)
                         return r;
         }
@@ -661,6 +675,12 @@ static int allocate_now(
         r = uid_range_load_userns_by_fd(parent_userns_fd, UID_RANGE_USERNS_INSIDE, &candidates);
         if (r < 0)
                 return log_debug_errno(r, "Failed to read userns UID range: %m");
+
+        log_debug("Parent user namespace exposes %zu UID range(s) inside:", uid_range_entries(candidates));
+        if (DEBUG_LOGGING)
+                FOREACH_ARRAY(e, candidates->entries, candidates->n_entries)
+                        log_debug("  " UID_FMT "…" UID_FMT " (size " UID_FMT ")",
+                                  e->start, e->start + e->nr - 1, e->nr);
 
         _cleanup_close_ int lock_fd = -EBADF;
         lock_fd = userns_registry_lock(registry_dir_fd);
@@ -1287,6 +1307,10 @@ static int vl_method_allocate_user_range(sd_varlink *link, sd_json_variant *para
         if (parent_userns_fd < 0)
                 return log_debug_errno(errno, "Failed to get parent user namespace: %m");
 
+        struct stat parent_st;
+        if (DEBUG_LOGGING && fstat(parent_userns_fd, &parent_st) < 0)
+                return log_debug_errno(errno, "Failed to fstat() parent user namespace fd: %m");
+
         r = sd_varlink_get_peer_uid(link, &peer_uid);
         if (r < 0)
                 return r;
@@ -1294,6 +1318,15 @@ static int vl_method_allocate_user_range(sd_varlink *link, sd_json_variant *para
         r = sd_varlink_get_peer_gid(link, &peer_gid);
         if (r < 0)
                 return r;
+
+        log_debug("Processing AllocateUserRange request: name='%s' type=%s peer=" UID_FMT ":" GID_FMT
+                  " userns=" INO_FMT " parent_userns=" INO_FMT
+                  " size=%" PRIu32 " delegates=%" PRIu32 " mapForeign=%s",
+                  userns_name,
+                  p.type == ALLOCATE_USER_RANGE_SELF ? "self" : "managed",
+                  peer_uid, peer_gid,
+                  userns_st.st_ino, parent_st.st_ino,
+                  p.size, p.delegate_container_ranges, yes_no(p.map_foreign));
 
         const char *polkit_details[] = {
                 "name", userns_name,
