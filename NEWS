@@ -397,6 +397,10 @@ CHANGES WITH 261 in spe:
 
         * bootctl's 'unlink' verb is now also accessible via a Varlink API.
 
+        * bootctl now stores the existing systemd-boot binary as a fallback when
+          installing a new version, and installs a fallback UEFI boot entry, to
+          allow a system to recover from a non-working version being installed.
+
         Changes in systemd-repart:
 
         * A new EncryptKDF= setting controls the KDF used for LUKS2
