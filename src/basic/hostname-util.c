@@ -253,3 +253,61 @@ int machine_spec_valid(const char *s) {
 
         return true;
 }
+
+bool machine_tag_is_valid(const char *s) {
+        size_t n = strlen_ptr(s);
+        if (n <= 0 || n >= 256)
+                return false;
+
+        return in_charset(s, ALPHANUMERICAL "-.");
+}
+
+bool machine_tag_list_is_valid(char **l) {
+        STRV_FOREACH(i, l)
+                if (!machine_tag_is_valid(*i))
+                        return false;
+
+        return true;
+}
+
+int machine_tags_from_string(const char *s, bool graceful, char ***ret) {
+        int r;
+
+        assert(ret);
+
+        /* Parses the colon-separated TAGS= machine-info field into a sorted, deduplicated strv. Each tag is
+         * validated: if 'graceful' is true invalid tags are silently dropped, otherwise an invalid tag makes
+         * us fail with -EINVAL. The result is NULL if no (valid) tags remain. */
+
+        if (isempty(s)) {
+                *ret = NULL;
+                return 0;
+        }
+
+        _cleanup_strv_free_ char **l = strv_split(s, ":");
+        if (!l)
+                return -ENOMEM;
+
+        strv_sort_uniq(l);
+
+        if (!graceful) {
+                if (!machine_tag_list_is_valid(l))
+                        return -EINVAL;
+
+                *ret = strv_isempty(l) ? NULL : TAKE_PTR(l);
+                return 0;
+        }
+
+        _cleanup_strv_free_ char **cleaned = NULL;
+        STRV_FOREACH(i, l) {
+                if (!machine_tag_is_valid(*i))
+                        continue;
+
+                r = strv_extend(&cleaned, *i);
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(cleaned);
+        return 0;
+}
