@@ -16,6 +16,7 @@ static int add_nvpcr_to_table(Tpm2Context **c, Table *t, const char *name) {
 
         _cleanup_free_ char *h = NULL;
         uint32_t nv_index = 0;
+        uint64_t priority = 0;
         if (c) {
                 if (!*c) {
                         r = tpm2_context_new_or_warn(/* device= */ NULL, c);
@@ -24,7 +25,7 @@ static int add_nvpcr_to_table(Tpm2Context **c, Table *t, const char *name) {
                 }
 
                 _cleanup_(iovec_done) struct iovec digest = {};
-                r = tpm2_nvpcr_read(*c, /* session= */ NULL, name, &digest, &nv_index);
+                r = tpm2_nvpcr_read(*c, /* session= */ NULL, name, &digest, &nv_index, &priority);
                 if (r < 0)
                         return log_error_errno(r, "Failed to read NvPCR '%s': %m", name);
                 if (r > 0) { /* set? */
@@ -33,7 +34,7 @@ static int add_nvpcr_to_table(Tpm2Context **c, Table *t, const char *name) {
                                 return log_oom();
                 }
         } else {
-                r = tpm2_nvpcr_get_index(name, &nv_index);
+                r = tpm2_nvpcr_get_index(name, &nv_index, &priority);
                 if (r < 0)
                         return log_error_errno(r, "Failed to get NV index of NvPCR '%s': %m", name);
         }
@@ -42,6 +43,7 @@ static int add_nvpcr_to_table(Tpm2Context **c, Table *t, const char *name) {
                         t,
                         TABLE_STRING, name,
                         TABLE_UINT32_HEX_0x, nv_index,
+                        TABLE_UINT64, priority,
                         TABLE_STRING, h);
         if (r < 0)
                 return table_log_add_error(r);
@@ -61,16 +63,17 @@ int verb_nvpcrs(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (!have_tpm2)
                 log_notice("System lacks full TPM2 support, not showing NvPCR state.");
 
-        table = table_new("name", "nvindex", "value");
+        table = table_new("name", "nvindex", "priority", "value");
         if (!table)
                 return log_oom();
 
         (void) table_set_align_percent(table, table_get_cell(table, 0, 1), 100);
+        (void) table_set_align_percent(table, table_get_cell(table, 0, 2), 100);
         table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
-        (void) table_set_sort(table, (size_t) 0);
+        (void) table_set_sort(table, (size_t) 2, (size_t) 0);
 
         if (!have_tpm2)
-                (void) table_hide_column_from_display(table, (size_t) 2);
+                (void) table_hide_column_from_display(table, (size_t) 3);
 
         if (strv_isempty(strv_skip(argv, 1))) {
                 _cleanup_strv_free_ char **l = NULL;
