@@ -159,6 +159,10 @@ static inline bool hashed_password_is_locked_or_invalid(const char *password) {
         return password && password[0] != '$';
 }
 
+/* Places where we will try to load account data from */
+#define PASSWD_FILES STRV_MAKE("/etc/passwd", "/usr/lib/passwd")
+#define GROUP_FILES STRV_MAKE("/etc/group", "/usr/lib/group")
+
 /* A locked *and* invalid password for "struct spwd"'s .sp_pwdp and "struct passwd"'s .pw_passwd field */
 #define PASSWORD_LOCKED_AND_INVALID "!*"
 
