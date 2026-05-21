@@ -1054,7 +1054,7 @@ TEST(condition_test_group) {
         ASSERT_OK_POSITIVE(r);
         condition_free(condition);
 
-        ngroups_max = ASSERT_OK_ERRNO(sysconf(_SC_NGROUPS_MAX));
+        ngroups_max = ASSERT_OK(sysconf_ngroups_max());
         ASSERT_GT(ngroups_max, 0);
 
         gids = newa(gid_t, ngroups_max);

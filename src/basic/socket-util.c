@@ -39,6 +39,7 @@
 #include "strv.h"
 #include "sysctl-util.h"
 #include "tmpfile-util.h"
+#include "user-util.h"
 #include "xattr-util.h"
 
 #if ENABLE_IDN
@@ -914,7 +915,7 @@ int getpeergroups(int fd, gid_t **ret) {
         assert(fd >= 0);
         assert(ret);
 
-        long ngroups_max = sysconf(_SC_NGROUPS_MAX);
+        int ngroups_max = sysconf_ngroups_max();
         if (ngroups_max > 0)
                 n = MAX(n, sizeof(gid_t) * (socklen_t) ngroups_max);
 
