@@ -13,7 +13,6 @@
 #include "path-lookup.h"
 #include "path-util.h"
 #include "string-util.h"
-#include "strv-fundamental.h"
 #include "strv.h"
 #include "systemctl.h"
 #include "systemctl-daemon-reload.h"

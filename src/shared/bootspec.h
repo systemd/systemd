@@ -4,6 +4,8 @@
 
 #include "shared-forward.h"
 
+#include "../fundamental/bootspec.h"   /* IWYU pragma: export */
+
 typedef enum BootEntryType {
         BOOT_ENTRY_TYPE1,     /* Boot Loader Specification Type #1 entries: *.conf files */
         BOOT_ENTRY_TYPE2,     /* Boot Loader Specification Type #2 entries: *.efi files (UKIs) */

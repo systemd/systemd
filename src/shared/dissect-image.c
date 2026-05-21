@@ -47,7 +47,7 @@
 #include "json-util.h"
 #include "libmount-util.h"
 #include "loop-util.h"
-#include "mkdir-label.h"
+#include "mkdir.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
 #include "namespace-util.h"

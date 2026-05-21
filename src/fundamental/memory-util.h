@@ -9,8 +9,8 @@
 #  include <string.h>
 #endif
 
-#include "assert-fundamental.h" /* IWYU pragma: keep */
-#include "macro-fundamental.h"
+#include "assert-util.h" /* IWYU pragma: keep */
+#include "macro.h"
 
 #define memzero(x, l)                                           \
         ({                                                      \

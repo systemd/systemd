@@ -1715,7 +1715,7 @@ basic_includes = [
         version_include,
 ]
 
-libsystemd_includes = [basic_includes, include_directories(
+libsystemd_includes = [include_directories(
         'src/libsystemd/sd-bus',
         'src/libsystemd/sd-common',
         'src/libsystemd/sd-device',
@@ -1728,14 +1728,14 @@ libsystemd_includes = [basic_includes, include_directories(
         'src/libsystemd/sd-network',
         'src/libsystemd/sd-path',
         'src/libsystemd/sd-resolve',
-        'src/libsystemd/sd-varlink')]
+        'src/libsystemd/sd-varlink'), basic_includes]
 
 includes = [
-        libsystemd_includes,
         include_directories(
                 'src/shared',
                 'src/bpf',
         ),
+        libsystemd_includes,
 ]
 
 subdir('po')

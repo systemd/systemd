@@ -2,7 +2,7 @@
 #pragma once
 
 #include "efi.h"
-#include "iovec-util-fundamental.h"
+#include "iovec-util.h"
 #include "util.h"
 
 EFI_STATUS initrd_register(
