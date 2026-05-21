@@ -638,6 +638,12 @@ CHANGES WITH 261 in spe:
           basic.target). Note that D-Bus only becomes available later, and it
           can hence only be contacted via Varlink that early.
 
+        * systemd-hostnamed and /etc/machine-info now support a new Tags= key,
+          which can be used to tag a machine with an arbitrary set of strings.
+          Units can match on these tags via the new ConditionMachineTag= setting,
+          and systemd-firstboot can set the tags via command line parameters or
+          credentials.
+
         * JSON user database records may now optionally carry a birth date
           field to close the gap with LDAP/OpenID/FreeIPA/etc. homectl gained
           a new switch --birth-date= to set it.
