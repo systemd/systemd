@@ -1433,6 +1433,50 @@ ssize_t lookup_groups_in_files(
         return n_arr;
 }
 
+int getgrouplist_malloc(const char *user, gid_t gid, gid_t **ret) {
+#if BUILD_STATIC
+        return lookup_groups_in_files(GROUP_FILES, user, gid, ret);
+#else
+        int ngroups_max = sysconf_ngroups_max();
+        if (ngroups_max < 0)
+                return ngroups_max;
+
+        _cleanup_free_ gid_t *gids = new(gid_t, ngroups_max);
+        if (!gids)
+                return -ENOMEM;
+
+        int k = ngroups_max;
+        if (getgrouplist(user, gid, gids, &k) < 0)
+                return -EIO;  /* getgrouplist does not set errno */
+
+        if (ret)
+                *ret = TAKE_PTR(gids);
+        return k;
+#endif
+}
+
+int initgroups_wrapper(const char *user, gid_t gid) {
+#if BUILD_STATIC
+        _cleanup_free_ gid_t *groups = NULL;
+        int r, n_groups;
+
+        n_groups = getgrouplist_malloc(user, gid, &groups);
+        if (n_groups <= 0)
+                return n_groups;
+
+        /* Try to set the maximum number of groups the kernel can handle. This is what glibc does. */
+        for (; n_groups > 0; n_groups--) {
+                r = RET_NERRNO(setgroups(n_groups, groups));
+                if (r != -EINVAL)
+                        break;
+        }
+
+        return r;
+#else
+        return RET_NERRNO(initgroups(user, gid));
+#endif
+}
+
 #if !BUILD_STATIC
 
 static size_t getgr_buffer_size(void) {
