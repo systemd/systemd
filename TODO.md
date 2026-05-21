@@ -1226,12 +1226,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 - in pid1: include ExecStart= cmdlines (and other Exec*= cmdlines) in polkit
   request, so that policies can match against command lines.
 
-- in sd-boot and sd-stub measure the SMBIOS vendor strings to some PCR (at
-  least some subset of them that look like systemd stuff), because apparently
-  some firmware does not, but systemd honours it. avoid duplicate measurement
-  by sd-boot and sd-stub by adding LoaderFeatures/StubFeatures flag for this,
-  so that sd-stub can avoid it if sd-boot already did it.
-
 - in sd-id128: also parse UUIDs in RFC4122 URN syntax (i.e. chop off urn:uuid: prefix)
 
 - in sd-stub: optionally add support for a new PE section .keyring or so that
@@ -1758,8 +1752,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   early on, but provide opt-out via kernel cmdline.
 
 - measure all log-in attempts into a new nvpcr
-
-- measure credentials picked up from SMBIOS to some suitable PCR
 
 - measure GPT and LUKS headers somewhere when we use them (i.e. in
   systemd-gpt-auto-generator/systemd-repart and in systemd-cryptsetup?)
