@@ -1414,6 +1414,69 @@ TEST(condition_test_os_release) {
         condition_free(condition);
 }
 
+TEST(condition_test_machine_tag) {
+        Condition *condition;
+
+        /* etc_machine_info() caches the path on first use, so redirect it before anything reads it and
+         * rewrite the same file (truncating) for each scenario rather than switching paths. */
+        _cleanup_free_ char *saved = NULL;
+        ASSERT_OK(free_and_strdup(&saved, getenv("SYSTEMD_ETC_MACHINE_INFO")));
+
+        _cleanup_(rm_rf_physical_and_freep) char *d = NULL;
+        ASSERT_OK(mkdtemp_malloc(NULL, &d));
+
+        _cleanup_free_ char *f = path_join(d, "machine-info");
+        ASSERT_NOT_NULL(f);
+        ASSERT_OK_ERRNO(setenv("SYSTEMD_ETC_MACHINE_INFO", f, /* overwrite= */ true));
+
+        ASSERT_OK(write_string_file(f, "TAGS=\"webserver:frontend:berlin\"\n",
+                                    WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_TRUNCATE));
+
+        /* Exact match */
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_MACHINE_TAG, "webserver", /* trigger= */ false, /* negate= */ false)));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        condition_free(condition);
+
+        /* Glob match */
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_MACHINE_TAG, "front*", /* trigger= */ false, /* negate= */ false)));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        condition_free(condition);
+
+        /* No match */
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_MACHINE_TAG, "database", /* trigger= */ false, /* negate= */ false)));
+        ASSERT_OK_ZERO(condition_test(condition, environ));
+        condition_free(condition);
+
+        /* Negation matches when the tag is absent, ... */
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_MACHINE_TAG, "database", /* trigger= */ false, /* negate= */ true)));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        condition_free(condition);
+
+        /* ... and does not match when the tag is present */
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_MACHINE_TAG, "webserver", /* trigger= */ false, /* negate= */ true)));
+        ASSERT_OK_ZERO(condition_test(condition, environ));
+        condition_free(condition);
+
+        /* Invalid tags in the file are ignored (matching the Tags D-Bus property) */
+        ASSERT_OK(write_string_file(f, "TAGS=\"in valid:good\"\n",
+                                    WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_TRUNCATE));
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_MACHINE_TAG, "in valid", /* trigger= */ false, /* negate= */ false)));
+        ASSERT_OK_ZERO(condition_test(condition, environ));
+        condition_free(condition);
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_MACHINE_TAG, "good", /* trigger= */ false, /* negate= */ false)));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        condition_free(condition);
+
+        /* No tags configured at all → never matches */
+        ASSERT_OK(write_string_file(f, "PRETTY_HOSTNAME=\"x\"\n",
+                                    WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_TRUNCATE));
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_MACHINE_TAG, "webserver", /* trigger= */ false, /* negate= */ false)));
+        ASSERT_OK_ZERO(condition_test(condition, environ));
+        condition_free(condition);
+
+        ASSERT_OK(set_unset_env("SYSTEMD_ETC_MACHINE_INFO", saved, /* overwrite= */ true));
+}
+
 TEST(condition_test_psi) {
         Condition *condition;
         CGroupMask mask;
