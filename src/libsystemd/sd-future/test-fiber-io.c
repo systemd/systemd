@@ -1385,4 +1385,86 @@ TEST(fiber_io_connect_blocking) {
         ASSERT_OK(sd_future_result(f));
 }
 
+typedef struct ShutdownIOCtx {
+        int sockfd[2];
+        size_t *bytes_transferred;
+} ShutdownIOCtx;
+
+static int shutdown_writer_fiber(void *userdata) {
+        ShutdownIOCtx *ctx = ASSERT_PTR(userdata);
+        char buf[256];
+
+        memset(buf, 'W', sizeof(buf));
+
+        /* Loop sending until cancelled. The buffer is on the fiber's stack: any io_uring SQE
+         * targeting it must be drained before this stack frame unwinds, otherwise the kernel could
+         * write/read freed memory. */
+        for (;;) {
+                ssize_t n = sd_fiber_write(ctx->sockfd[0], buf, sizeof(buf));
+                if (n < 0)
+                        return (int) n;
+        }
+}
+
+static int shutdown_reader_fiber(void *userdata) {
+        ShutdownIOCtx *ctx = ASSERT_PTR(userdata);
+        char buf[256];
+
+        for (;;) {
+                ssize_t n = sd_fiber_read(ctx->sockfd[1], buf, sizeof(buf));
+                if (n < 0)
+                        return (int) n;
+                *ctx->bytes_transferred += (size_t) n;
+        }
+}
+
+static int on_shutdown_timer(sd_event_source *s, uint64_t usec, void *userdata) {
+        return sd_event_exit(sd_event_source_get_event(s), 0);
+}
+
+/* Test: a bunch of fibers actively doing I/O on socketpairs with stack-allocated buffers, and a
+ * timer fires sd_event_exit() while that work is in progress. All fibers must unwind cleanly —
+ * their stack-resident buffers must not be touched by the kernel after the stack is gone. */
+TEST(fiber_io_shutdown_during_work) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        ASSERT_OK(sd_event_new(&e));
+
+        sd_future *readers[4] = {}, *writers[4] = {};
+        CLEANUP_ELEMENTS(readers, sd_future_unref_array_clear);
+        CLEANUP_ELEMENTS(writers, sd_future_unref_array_clear);
+
+        ShutdownIOCtx ctxs[ELEMENTSOF(readers)];
+        size_t bytes_transferred = 0;
+
+        for (size_t i = 0; i < ELEMENTSOF(readers); i++) {
+                ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, ctxs[i].sockfd));
+                ctxs[i].bytes_transferred = &bytes_transferred;
+                ASSERT_OK(sd_fiber_new(e, "shutdown-reader", shutdown_reader_fiber, &ctxs[i], NULL, &readers[i]));
+                ASSERT_OK(sd_fiber_new(e, "shutdown-writer", shutdown_writer_fiber, &ctxs[i], NULL, &writers[i]));
+        }
+
+        /* Fire after a short delay so the fibers get a chance to actually transfer some bytes
+         * before we tear the loop down. */
+        _cleanup_(sd_event_source_unrefp) sd_event_source *timer = NULL;
+        ASSERT_OK(sd_event_add_time_relative(e, &timer, CLOCK_MONOTONIC, 50 * USEC_PER_MSEC, 0,
+                                             on_shutdown_timer, NULL));
+
+        ASSERT_OK(sd_event_loop(e));
+
+        /* The fibers should have actually moved data before shutdown — otherwise the test isn't
+         * exercising the "shutdown during in-flight I/O" path it claims to. */
+        ASSERT_GT(bytes_transferred, 0u);
+
+        /* Both reader and writer loop forever until cancelled, so each must report ECANCELED.
+         * fiber_free() (run via the cleanup arrays at scope exit) additionally asserts each fiber
+         * reached FIBER_STATE_COMPLETED, catching any fiber that failed to unwind. */
+        for (size_t i = 0; i < ELEMENTSOF(readers); i++) {
+                ASSERT_ERROR(sd_future_result(readers[i]), ECANCELED);
+                ASSERT_ERROR(sd_future_result(writers[i]), ECANCELED);
+        }
+
+        for (size_t i = 0; i < ELEMENTSOF(readers); i++)
+                safe_close_pair(ctxs[i].sockfd);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
