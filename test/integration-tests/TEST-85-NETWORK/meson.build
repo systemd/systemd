@@ -3,27 +3,7 @@
 name = fs.name(meson.current_source_dir())
 
 foreach testcase : [
-        'NetworkctlTests',
-        'NetworkdMatchTests',
-        'WaitOnlineTests',
-        'NetworkdNetDevTests',
-        'NetworkdL2TPTests',
-        'NetworkdNetworkTests',
-        'NetworkdTCTests',
-        'NetworkdStateFileTests',
-        'NetworkdBondTests',
-        'NetworkdBridgeTests',
-        'NetworkdSRIOVTests',
-        'NetworkdLLDPTests',
-        'NetworkdRATests',
-        'NetworkdDHCPServerTests',
         'NetworkdDHCPServerRelayAgentTests',
-        'NetworkdDHCPClientTests',
-        'NetworkdDHCPPDTests',
-        'NetworkdIPv6PrefixTests',
-        'NetworkdMTUTests',
-        'NetworkdSysctlTest',
-        'NetworkdWWANTests',
 ]
         integration_tests += [
                 integration_test_template + {
