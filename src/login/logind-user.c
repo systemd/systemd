@@ -10,6 +10,7 @@
 #include "bus-locator.h"
 #include "bus-util.h"
 #include "clean-ipc.h"
+#include "efi-loader.h"
 #include "env-file.h"
 #include "errno-util.h"
 #include "escape.h"
@@ -84,6 +85,10 @@ int user_new(Manager *m, UserRecord *ur, User **ret) {
         if (r < 0)
                 return r;
 
+        r = unit_name_build("systemd-pcrlogin", lu, ".service", &u->measure_unit);
+        if (r < 0)
+                return r;
+
         r = hashmap_put(m->users, UID_TO_PTR(ur->uid), u);
         if (r < 0)
                 return r;
@@ -97,6 +102,10 @@ int user_new(Manager *m, UserRecord *ur, User **ret) {
                 return r;
 
         r = hashmap_put(m->user_units, u->service_manager_unit, u);
+        if (r < 0)
+                return r;
+
+        r = hashmap_put(m->user_units, u->measure_unit, u);
         if (r < 0)
                 return r;
 
@@ -118,15 +127,21 @@ User *user_free(User *u) {
 
         if (u->service_manager_unit) {
                 (void) hashmap_remove_value(u->manager->user_units, u->service_manager_unit, u);
-                free(u->service_manager_job);
                 free(u->service_manager_unit);
         }
+        free(u->service_manager_job);
 
         if (u->runtime_dir_unit) {
                 (void) hashmap_remove_value(u->manager->user_units, u->runtime_dir_unit, u);
-                free(u->runtime_dir_job);
                 free(u->runtime_dir_unit);
         }
+        free(u->runtime_dir_job);
+
+        if (u->measure_unit) {
+                (void) hashmap_remove_value(u->manager->user_units, u->measure_unit, u);
+                free(u->measure_unit);
+        }
+        free(u->measure_job);
 
         if (u->slice) {
                 (void) hashmap_remove_value(u->manager->user_units, u->slice, u);
@@ -177,6 +192,7 @@ static int user_save_internal(User *u) {
         env_file_fputs_assignment(f, "RUNTIME=", u->runtime_path);
         env_file_fputs_assignment(f, "RUNTIME_DIR_JOB=", u->runtime_dir_job);
         env_file_fputs_assignment(f, "SERVICE_JOB=", u->service_manager_job);
+        env_file_fputs_assignment(f, "MEASURE_JOB=", u->measure_job);
         if (u->display)
                 env_file_fputs_assignment(f, "DISPLAY=", u->display->id);
 
@@ -303,6 +319,7 @@ int user_load(User *u) {
         r = parse_env_file(NULL, u->state_file,
                            "RUNTIME_DIR_JOB",        &u->runtime_dir_job,
                            "SERVICE_JOB",            &u->service_manager_job,
+                           "MEASURE_JOB",            &u->measure_job,
                            "STOPPING",               &stopping,
                            "REALTIME",               &realtime,
                            "MONOTONIC",              &monotonic,
@@ -354,6 +371,39 @@ static int user_start_runtime_dir(User *u) {
                 return log_full_errno(sd_bus_error_has_name(&error, BUS_ERROR_UNIT_MASKED) ? LOG_DEBUG : LOG_ERR,
                                       r, "Failed to start user service '%s': %s",
                                       u->runtime_dir_unit, bus_error_message(&error, r));
+
+        return 0;
+}
+
+static int user_start_measure(User *u) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        int r;
+
+        assert(u);
+        assert(!u->stopping);
+        assert(u->manager);
+        assert(u->measure_unit);
+
+        /* Measures the user's record into the 'login' TPM2 NvPCR on the first login of this boot. This is
+         * strictly best-effort: a measurement failure must never block the login (simply bcause NvPCRs might
+         * not be available). Unlike the runtime-dir and service-manager units, this one is started but never
+         * stopped (see user_stop_service()): it is a Type=oneshot/RemainAfterExit unit living in
+         * system.slice that stays active until reboot, so a later re-login's StartUnit is a no-op and every
+         * user is measured exactly once per boot.
+         *
+         * Only bother if we're actually running in measured-OS mode. The unit itself also carries
+         * ConditionSecurity=measured-os, but checking here avoids queuing a no-op job on every first login
+         * on systems that don't measure the OS */
+        if (efi_measured_os(LOG_DEBUG) <= 0)
+                return 0;
+
+        u->measure_job = mfree(u->measure_job);
+
+        r = manager_start_unit(u->manager, u->measure_unit, &error, &u->measure_job);
+        if (r < 0)
+                return log_full_errno(sd_bus_error_has_name(&error, BUS_ERROR_UNIT_MASKED) ? LOG_DEBUG : LOG_WARNING,
+                                      r, "Failed to start user measurement service '%s', ignoring: %s",
+                                      u->measure_unit, bus_error_message(&error, r));
 
         return 0;
 }
@@ -511,6 +561,14 @@ int user_start(User *u) {
 
                 /* Set slice parameters */
                 (void) user_update_slice(u);
+
+                /* Measure the user record into the 'login' NvPCR. We do this *before* starting the runtime dir
+                 * (and, further below, the service manager): manager_start_unit() is synchronous, so by the
+                 * time those units are enqueued the measurement's start job already exists, and their
+                 * After=systemd-pcrlogin@%i.service ordering then guarantees the measurement completes before
+                 * the user's session becomes available. Best-effort and never stopped again, so each user is
+                 * measured exactly once per boot. */
+                (void) user_start_measure(u);
 
                 (void) user_start_runtime_dir(u);
         }
