@@ -14,6 +14,7 @@
 #include "iovec-util.h"
 #include "linux.h"
 #include "measure.h"
+#include "measure-smbios.h"
 #include "memory-util.h"
 #include "part-discovery.h"
 #include "pe.h"
@@ -116,6 +117,7 @@ static void export_stub_variables(EFI_LOADED_IMAGE_PROTOCOL *loaded_image, unsig
                 EFI_STUB_FEATURE_MULTI_PROFILE_UKI |        /* We grok the "@1" profile command line argument */
                 EFI_STUB_FEATURE_REPORT_STUB_PARTITION |    /* We set StubDevicePartUUID + StubImageIdentifier */
                 EFI_STUB_FEATURE_REPORT_URL |               /* We set StubDeviceURL + LoaderDeviceURL */
+                EFI_STUB_FEATURE_SMBIOS_MEASURED |          /* We measure SMBIOS data into PCR 1 */
                 0;
 
         assert(loaded_image);
@@ -1251,6 +1253,10 @@ static EFI_STATUS run(EFI_HANDLE image) {
 
         export_common_variables(loaded_image);
         export_stub_variables(loaded_image, profile);
+
+        /* Measure SMBIOS data into PCR 1, unless sd-boot already did so in the same boot (tracked via
+         * the LoaderPcrSMBIOS EFI variable). */
+        measure_smbios();
 
         /* First load the base device tree, then fix it up using addons - global first, then per-UKI. */
         install_embedded_devicetree(loaded_image, sections, &dt_state);

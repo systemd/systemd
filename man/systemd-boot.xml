@@ -623,6 +623,19 @@ extra       /6a9857a393724b7a981ebb5b8495b9ea/1.2.3/baz.confext.raw</programlist
       </varlistentry>
 
       <varlistentry>
+        <term><varname>LoaderPcrSMBIOS</varname></term>
+
+        <listitem><para>The PCR register index select SMBIOS structures are measured into — type 1
+        (system information, with the volatile "Wake-up Type" field zeroed out), type 2 (baseboard
+        information) and type 11 (OEM strings). Formatted as decimal ASCII string (e.g.
+        <literal>1</literal>). Set by the boot loader if a measurement was successfully completed, and remains
+        unset otherwise. (Note that <command>systemd-stub</command> performs the same measurement when booted
+        directly, bypassing the boot loader.)</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>LoaderImageIdentifier</varname></term>
 
         <listitem><para>The file system path to the EFI executable of the boot loader for the current boot,
