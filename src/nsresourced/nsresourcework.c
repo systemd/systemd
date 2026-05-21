@@ -390,14 +390,18 @@ static int uid_is_available(int registry_dir_fd, uid_t candidate, int parent_use
         r = userns_registry_uid_exists(registry_dir_fd, candidate);
         if (r < 0)
                 return r;
-        if (r > 0)
+        if (r > 0) {
+                log_debug("UID " UID_FMT " unavailable: already registered in userns registry.", candidate);
                 return false;
+        }
 
         r = userns_registry_gid_exists(registry_dir_fd, (gid_t) candidate);
         if (r < 0)
                 return r;
-        if (r > 0)
+        if (r > 0) {
+                log_debug("UID " UID_FMT " unavailable: GID already registered in userns registry.", candidate);
                 return false;
+        }
 
         /* Also check delegation files. If parent_userns_inode is set and matches the delegation's userns
          * inode, the UID is available because the parent owns that delegation. */
@@ -410,8 +414,11 @@ static int uid_is_available(int registry_dir_fd, uid_t candidate, int parent_use
                 if (r < 0)
                         return r;
 
-                if (delegation.userns_inode != parent_userns_inode)
+                if (delegation.userns_inode != parent_userns_inode) {
+                        log_debug("UID " UID_FMT " unavailable: delegated to userns inode %" PRIu64 " (parent is %" PRIu64 ").",
+                                  candidate, delegation.userns_inode, parent_userns_inode);
                         return false;
+                }
 
                 /* The parent userns owns this delegation, so the UID is available for nested allocation */
                 log_debug("UID " UID_FMT " is delegated by parent userns inode %" PRIu64 ", available for nested allocation.",
@@ -427,8 +434,11 @@ static int uid_is_available(int registry_dir_fd, uid_t candidate, int parent_use
                 if (r < 0)
                         return r;
 
-                if (delegation.userns_inode != parent_userns_inode)
+                if (delegation.userns_inode != parent_userns_inode) {
+                        log_debug("UID " UID_FMT " unavailable: GID delegated to userns inode %" PRIu64 " (parent is %" PRIu64 ").",
+                                  candidate, delegation.userns_inode, parent_userns_inode);
                         return false;
+                }
 
                 /* The parent userns owns this delegation, so the UID is available for nested allocation */
                 log_debug("UID " UID_FMT " is delegated by parent userns inode %" PRIu64 ", available for nested allocation.",
@@ -447,14 +457,18 @@ static int uid_is_available(int registry_dir_fd, uid_t candidate, int parent_use
                  * nsresourced user namespace, but not in the nspawn user namespace). */
 
                 r = userdb_by_uid(candidate, /* match= */ NULL, USERDB_AVOID_MULTIPLEXER, /* ret= */ NULL);
-                if (r >= 0)
+                if (r >= 0) {
+                        log_debug("UID " UID_FMT " unavailable: known to userdb.", candidate);
                         return false;
+                }
                 if (r != -ESRCH)
                         return r;
 
                 r = groupdb_by_gid(candidate, /* match= */ NULL, USERDB_AVOID_MULTIPLEXER, /* ret= */ NULL);
-                if (r >= 0)
+                if (r >= 0) {
+                        log_debug("UID " UID_FMT " unavailable: GID known to groupdb.", candidate);
                         return false;
+                }
                 if (r != -ESRCH)
                         return r;
         }
