@@ -1174,6 +1174,10 @@ def networkctl_reload():
     networkctl('reload')
 
 
+def networkctl_dhcp_lease(*args):
+    return networkctl('dhcp-lease', *args)
+
+
 def resolvectl(*args):
     return check_output(*(resolvectl_cmd + list(args)), env=env)
 
@@ -1210,7 +1214,6 @@ def tear_down_common():
     stop_dnsmasq()
     stop_isc_dhcpd()
     stop_radvd()
-    stop_modem_manager_mock()
 
     # 2. remove modules
     call_quiet('rmmod netdevsim')
@@ -8769,6 +8772,43 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertIn('client provides name: test-hostname', output)
         self.assertIn('26:mtu', output)
 
+        print('### networkctl dhcp-lease')
+        output = networkctl_dhcp_lease('veth99')
+        print(output)
+        # header
+        self.assertIn('Hardware Type: ETHER', output)
+        self.assertIn('Hardware Address: 12:34:56:78:9a:bc', output)
+        self.assertIn(f'Client Address: {address1}', output)
+        self.assertIn('Server Address: 192.168.5.1', output)
+        # options
+        self.assertRegex(output, r'1 subnet mask *255\.255\.255\.0')
+        self.assertRegex(output, r'3 router *192\.168\.5\.1')
+        self.assertRegex(output, r'6 domain name server *192\.168\.5\.6\n *192\.168\.5\.7')
+        self.assertRegex(output, r'26 MTU size *1492')
+        self.assertRegex(output, r'28 broadcast address *192\.168\.5\.255')
+        self.assertRegex(output, r'51 lease time *2min')
+        self.assertRegex(output, r'53 message type *5')
+        self.assertRegex(output, r'54 server identifier *192\.168\.5\.1')
+        self.assertRegex(output, r'119 domain search *example\.com')
+        self.assertRegex(output, r'120 SIP server *192\.168\.5\.21\n *192\.168\.5\.22')
+        # extra arguments
+        output = networkctl_dhcp_lease('veth99', '1')
+        print(output)
+        self.assertRegex(output, r'1 subnet mask *255\.255\.255\.0')
+        output = networkctl_dhcp_lease('veth99', '1:auto')
+        print(output)
+        self.assertRegex(output, r'1 subnet mask *255\.255\.255\.0')
+        output = networkctl_dhcp_lease('veth99', '1:hex')
+        print(output)
+        self.assertRegex(output, 'CODE *NAME *DATA')
+        self.assertRegex(output, r'1 subnet mask *ff:ff:ff:00')
+        output = networkctl_dhcp_lease('veth99', '1:hex', '--no-legend')
+        print(output)
+        self.assertNotIn('CODE', output)
+        self.assertNotIn('NAME', output)
+        self.assertNotIn('DATA', output)
+        self.assertRegex(output, r'1 subnet mask *ff:ff:ff:00')
+
         # change address range, DNS servers, and Domains
         stop_dnsmasq()
         start_dnsmasq(
@@ -8877,6 +8917,26 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertIn(f'DHCPDISCOVER(veth-peer) {address1} 12:34:56:78:9a:bc', output)
         self.assertIn('client provides name: test-hostname', output)
         self.assertIn('26:mtu', output)
+
+        print('### networkctl dhcp-lease')
+        output = networkctl_dhcp_lease('veth99')
+        print(output)
+        # header
+        self.assertIn('Hardware Type: ETHER', output)
+        self.assertIn('Hardware Address: 12:34:56:78:9a:bc', output)
+        self.assertIn(f'Client Address: {address2}', output)
+        self.assertIn('Server Address: 192.168.5.1', output)
+        # options
+        self.assertRegex(output, r'1 subnet mask *255\.255\.255\.0')
+        self.assertRegex(output, r'3 router *192\.168\.5\.1')
+        self.assertRegex(output, r'6 domain name server *192\.168\.5\.1\n *192\.168\.5\.7\n *192\.168\.5\.8')
+        self.assertRegex(output, r'26 MTU size *1492')
+        self.assertRegex(output, r'28 broadcast address *192\.168\.5\.255')
+        self.assertRegex(output, r'51 lease time *2min')
+        self.assertRegex(output, r'53 message type *5')
+        self.assertRegex(output, r'54 server identifier *192\.168\.5\.1')
+        self.assertRegex(output, r'119 domain search *foo\.example\.com')
+        self.assertRegex(output, r'120 SIP server *192\.168\.5\.23\n *192\.168\.5\.24')
 
         self.check_netlabel('veth99', r'192\.168\.5\.0/24')
 
@@ -10884,6 +10944,7 @@ class NetworkdWWANTests(unittest.TestCase, Utilities):
         setup_common()
 
     def tearDown(self):
+        stop_modem_manager_mock()
         tear_down_common()
 
     def test_wwan_ipv4v6_static(self):
