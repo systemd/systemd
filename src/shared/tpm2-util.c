@@ -6702,6 +6702,7 @@ static const char* tpm2_userspace_event_type_table[_TPM2_USERSPACE_EVENT_TYPE_MA
         [TPM2_EVENT_DM_VERITY]       = "dm-verity",
         [TPM2_EVENT_IMDS_USERDATA]   = "imds-userdata",
         [TPM2_EVENT_OS_SEPARATOR]    = "os-separator",
+        [TPM2_EVENT_LOGIN]           = "login",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(tpm2_userspace_event_type, Tpm2UserspaceEventType);

@@ -2,6 +2,7 @@
 
 #include "sd-device.h"
 #include "sd-id128.h"
+#include "sd-json.h"
 #include "sd-varlink.h"
 
 #include "alloc-util.h"
@@ -22,6 +23,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "tpm2-pcr.h"
+#include "user-record.h"
 
 static int device_get_file_system_word(
                 sd_device *d,
@@ -180,6 +182,58 @@ int pcrextend_product_id_word(char **ret) {
                 return log_error_errno(r, "Failed to acquire product ID: %m");
         else
                 word = strjoin("product-id:", SD_ID128_TO_STRING(pid));
+        if (!word)
+                return log_oom();
+
+        *ret = TAKE_PTR(word);
+        return 0;
+}
+
+int pcrextend_login_word(UserRecord *ur, char **ret) {
+        int r;
+
+        assert(ur);
+        assert(ret);
+
+        /* Reduce the user record to the sections that make up its stable, host-specific identity, and turn
+         * that into a word to measure into the 'login' NvPCR. We deliberately keep the 'regular',
+         * 'perMachine' and 'binding' sections (the portable identity plus how it is realized on *this*
+         * host), but drop 'privileged' (so password hash churn doesn't perturb the NvPCR), 'secret' and
+         * 'status' (transient) and 'signature' (so the scheme is identical for signed and unsigned records).
+         * Only 'regular' is required, the others are merely allowed, so plain NSS users reduce cleanly. */
+        UserRecordLoadFlags mask =
+                USER_RECORD_REQUIRE_REGULAR |
+                USER_RECORD_ALLOW_PER_MACHINE |
+                USER_RECORD_ALLOW_BINDING |
+                USER_RECORD_STRIP_PRIVILEGED |
+                USER_RECORD_STRIP_SECRET |
+                USER_RECORD_STRIP_STATUS |
+                USER_RECORD_STRIP_SIGNATURE |
+                USER_RECORD_PERMISSIVE;
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        r = user_group_record_mangle(ur->json, mask, &v, /* ret_mask= */ NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to reduce user record of '%s': %m", ur->user_name);
+
+        /* Normalize so the serialization is canonical (stable key order) regardless of how the record was
+         * assembled by the various userdb backends. */
+        r = sd_json_variant_normalize(&v);
+        if (r < 0)
+                return log_error_errno(r, "Failed to normalize user record of '%s': %m", ur->user_name);
+
+        /* Format to compact, single-line JSON (no SD_JSON_FORMAT_NEWLINE), so the measured word stays on one
+         * line and the colon-separated word structure is unambiguous. */
+        _cleanup_free_ char *text = NULL;
+        r = sd_json_variant_format(v, /* flags= */ 0, &text);
+        if (r < 0)
+                return log_error_errno(r, "Failed to format user record of '%s': %m", ur->user_name);
+
+        _cleanup_free_ char *name_escaped = xescape(ur->user_name, ":"); /* Avoid ambiguity around ":" */
+        if (!name_escaped)
+                return log_oom();
+
+        _cleanup_free_ char *word = strjoin("login:", name_escaped, ":", text);
         if (!word)
                 return log_oom();
 
