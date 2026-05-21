@@ -408,6 +408,7 @@ int verb_status(int argc, char *argv[], uintptr_t _data, void *userdata) {
                         { EFI_LOADER_FEATURE_TYPE1_UKI_URL,           "Support Type #1 uki-url field"           },
                         { EFI_LOADER_FEATURE_TPM2_ACTIVE_PCR_BANKS,   "Loader reports active TPM2 PCR banks"    },
                         { EFI_LOADER_FEATURE_KEYBOARD_LAYOUT,         "Loader reports firmware keyboard layout" },
+                        { EFI_LOADER_FEATURE_SMBIOS_MEASURED,         "Loader measures SMBIOS information"      },
                 };
                 static const struct {
                         uint64_t flag;
@@ -425,6 +426,7 @@ int verb_status(int argc, char *argv[], uintptr_t _data, void *userdata) {
                         { EFI_STUB_FEATURE_CMDLINE_SMBIOS,            "Pick up .cmdline from SMBIOS Type 11"                        },
                         { EFI_STUB_FEATURE_DEVICETREE_ADDONS,         "Pick up .dtb from addons"                                    },
                         { EFI_STUB_FEATURE_MULTI_PROFILE_UKI,         "Stub understands profile selector"                           },
+                        { EFI_STUB_FEATURE_SMBIOS_MEASURED,           "Stub measures SMBIOS information"                            },
                 };
                 _cleanup_free_ char *fw_type = NULL, *fw_info = NULL, *loader = NULL, *loader_path = NULL, *stub = NULL, *stub_path = NULL,
                         *current_entry = NULL, *oneshot_entry = NULL, *preferred_entry = NULL, *default_entry = NULL, *sysfail_entry = NULL,
