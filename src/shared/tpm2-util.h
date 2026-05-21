@@ -158,11 +158,16 @@ typedef enum Tpm2UserspaceEventType {
 DECLARE_STRING_TABLE_LOOKUP(tpm2_userspace_event_type, Tpm2UserspaceEventType);
 
 int tpm2_pcr_extend_bytes(Tpm2Context *c, char **banks, unsigned pcr_index, const struct iovec *data, const struct iovec *secret, Tpm2UserspaceEventType event_type, const char *description);
-int tpm2_nvpcr_get_index(const char *name, uint32_t *ret);
+
+/* Default allocation priority for NvPCRs that do not specify one explicitly. Lower values are more
+ * important and are allocated first when the TPM's NV index space is constrained. */
+#define TPM2_NVPCR_PRIORITY_DEFAULT UINT64_C(1000)
+
+int tpm2_nvpcr_get_index(const char *name, uint32_t *ret_nv_index, uint64_t *ret_priority);
 int tpm2_nvpcr_extend_bytes(Tpm2Context *c, const Tpm2Handle *session, const char *name, const struct iovec *data, const struct iovec *secret, Tpm2UserspaceEventType event_type, const char *description);
 int tpm2_nvpcr_acquire_anchor_secret(struct iovec *ret, bool sync_secondary);
 int tpm2_nvpcr_initialize(Tpm2Context *c, const Tpm2Handle *session, const char *name, const struct iovec *anchor_secret);
-int tpm2_nvpcr_read(Tpm2Context *c, const Tpm2Handle *session, const char *name, struct iovec *ret, uint32_t *ret_nv_index);
+int tpm2_nvpcr_read(Tpm2Context *c, const Tpm2Handle *session, const char *name, struct iovec *ret, uint32_t *ret_nv_index, uint64_t *ret_priority);
 
 uint32_t tpm2_tpms_pcr_selection_to_mask(const TPMS_PCR_SELECTION *s);
 void tpm2_tpms_pcr_selection_from_mask(uint32_t mask, TPMI_ALG_HASH hash, TPMS_PCR_SELECTION *ret);
