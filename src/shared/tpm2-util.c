@@ -6991,6 +6991,7 @@ typedef struct NvPCRData {
         char *name;
         uint16_t algorithm;
         uint32_t nv_index;
+        uint64_t priority;
 } NvPCRData;
 
 static void nvpcr_data_done(NvPCRData *d) {
@@ -7030,11 +7031,13 @@ static int nvpcr_data_load(const char *name, NvPCRData *ret) {
                 { "name",      SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,      offsetof(NvPCRData, name),      SD_JSON_MANDATORY },
                 { "algorithm", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_tpm2_algorithm, offsetof(NvPCRData, algorithm), 0                 },
                 { "nvIndex",   _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint32,      offsetof(NvPCRData, nv_index),  SD_JSON_MANDATORY },
+                { "priority",  _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,      offsetof(NvPCRData, priority),  0                 },
                 {},
         };
 
         _cleanup_(nvpcr_data_done) NvPCRData p = {
                 .algorithm = TPM2_ALG_SHA256,
+                .priority = TPM2_NVPCR_PRIORITY_DEFAULT,
         };
         r = sd_json_dispatch(v, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &p);
         if (r < 0)
@@ -7047,7 +7050,7 @@ static int nvpcr_data_load(const char *name, NvPCRData *ret) {
         return 0;
 }
 
-int tpm2_nvpcr_get_index(const char *name, uint32_t *ret) {
+int tpm2_nvpcr_get_index(const char *name, uint32_t *ret_nv_index, uint64_t *ret_priority) {
         int r;
 
         _cleanup_(nvpcr_data_done) NvPCRData p = {};
@@ -7055,8 +7058,10 @@ int tpm2_nvpcr_get_index(const char *name, uint32_t *ret) {
         if (r < 0)
                 return r;
 
-        if (ret)
-                *ret = p.nv_index;
+        if (ret_nv_index)
+                *ret_nv_index = p.nv_index;
+        if (ret_priority)
+                *ret_priority = p.priority;
 
         return 0;
 }
@@ -7748,7 +7753,8 @@ int tpm2_nvpcr_read(
                 const Tpm2Handle *session,
                 const char *name,
                 struct iovec *ret_value,
-                uint32_t *ret_nv_index) {
+                uint32_t *ret_nv_index,
+                uint64_t *ret_priority) {
 
 #if HAVE_OPENSSL
         int r;
@@ -7775,6 +7781,8 @@ int tpm2_nvpcr_read(
                 *ret_value = (struct iovec) {};
                 if (ret_nv_index)
                         *ret_nv_index = p.nv_index;
+                if (ret_priority)
+                        *ret_priority = p.priority;
 
                 return 0;
         }
@@ -7811,6 +7819,8 @@ int tpm2_nvpcr_read(
 
         if (ret_nv_index)
                 *ret_nv_index = p.nv_index;
+        if (ret_priority)
+                *ret_priority = p.priority;
 
         return r;
 #else /* HAVE_OPENSSL */

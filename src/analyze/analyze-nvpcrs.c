@@ -16,6 +16,7 @@ static int add_nvpcr_to_table(Tpm2Context **c, Table *t, const char *name) {
 
         _cleanup_free_ char *h = NULL;
         uint32_t nv_index = 0;
+        uint64_t priority = 0;
         if (c) {
                 if (!*c) {
                         r = tpm2_context_new_or_warn(/* device= */ NULL, c);
@@ -24,7 +25,7 @@ static int add_nvpcr_to_table(Tpm2Context **c, Table *t, const char *name) {
                 }
 
                 _cleanup_(iovec_done) struct iovec digest = {};
-                r = tpm2_nvpcr_read(*c, /* session= */ NULL, name, &digest, &nv_index);
+                r = tpm2_nvpcr_read(*c, /* session= */ NULL, name, &digest, &nv_index, &priority);
                 if (r < 0)
                         return log_error_errno(r, "Failed to read NvPCR '%s': %m", name);
                 if (r > 0) { /* set? */
@@ -33,7 +34,7 @@ static int add_nvpcr_to_table(Tpm2Context **c, Table *t, const char *name) {
                                 return log_oom();
                 }
         } else {
-                r = tpm2_nvpcr_get_index(name, &nv_index);
+                r = tpm2_nvpcr_get_index(name, &nv_index, &priority);
                 if (r < 0)
                         return log_error_errno(r, "Failed to get NV index of NvPCR '%s': %m", name);
         }
