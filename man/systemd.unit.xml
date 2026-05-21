@@ -1468,6 +1468,38 @@
         </varlistentry>
 
         <varlistentry>
+          <term><varname>ConditionFraction=</varname></term>
+
+          <listitem><para><varname>ConditionFraction=</varname> may be used to enable a unit on a stable,
+          pseudo-random subset of a fleet of machines. It is primarily useful for staged rollouts: the same
+          unit (or drop-in) is distributed to every machine in a fleet, but only the configured fraction of
+          them will actually have it enabled. The decision is derived locally from the machine ID (see
+          <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>), so
+          it requires no central coordination and is stable over time: a given machine always lands on the
+          same side of the threshold.</para>
+
+          <para>The argument consists of an optional <replaceable>tag</replaceable> followed by a percentage,
+          separated by whitespace, for example <literal>30%</literal> or
+          <literal>myrollout 30%</literal>. The percentage may include up to two decimal places (e.g.
+          <literal>0.5%</literal>). The condition is satisfied on approximately the configured percentage of
+          all machines; <literal>0%</literal> matches no machine and <literal>100%</literal> matches every
+          machine.</para>
+
+          <para>The optional tag is an arbitrary string (not containing whitespace) that is mixed into the
+          derivation, so that independent rollouts select <emphasis>independent</emphasis> subsets of the
+          fleet. Without it, all untagged <varname>ConditionFraction=</varname> checks would select the very
+          same machines (the same machines would always be picked first). Use distinct tags for unrelated
+          rollouts, and a shared tag to deliberately target the same machines across several units.</para>
+
+          <para>The test may be negated by prepending an exclamation mark, in which case it is satisfied on the
+          complementary fraction of machines (e.g. <literal>!myrollout 30%</literal> matches the other ≈70%).
+          If the machine ID cannot be determined, the condition fails.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><varname>ConditionKernelCommandLine=</varname></term>
 
           <listitem><para><varname>ConditionKernelCommandLine=</varname> may be used to check whether a
@@ -2065,6 +2097,7 @@
           <term><varname>AssertArchitecture=</varname></term>
           <term><varname>AssertVirtualization=</varname></term>
           <term><varname>AssertHost=</varname></term>
+          <term><varname>AssertFraction=</varname></term>
           <term><varname>AssertKernelCommandLine=</varname></term>
           <term><varname>AssertKernelVersion=</varname></term>
           <term><varname>AssertVersion=</varname></term>
