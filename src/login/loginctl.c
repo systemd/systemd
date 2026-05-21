@@ -1184,7 +1184,7 @@ static int verb_show_user(int argc, char *argv[], uintptr_t _data, void *userdat
                 const char *path;
                 uid_t uid;
 
-                r = get_user_creds((const char**) (argv+i), &uid, NULL, NULL, NULL, 0);
+                r = get_user_creds(argv[i], /* flags= */ 0, NULL, &uid, NULL, NULL, NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to look up user %s: %m", argv[i]);
 
@@ -1244,7 +1244,7 @@ static int verb_enable_linger(int argc, char *argv[], uintptr_t _data, void *use
                 if (isempty(argv[i]))
                         uid = UID_INVALID;
                 else {
-                        r = get_user_creds((const char**) (argv+i), &uid, NULL, NULL, NULL, 0);
+                        r = get_user_creds(argv[i], /* flags= */ 0, NULL, &uid, NULL, NULL, NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to look up user %s: %m", argv[i]);
                 }
@@ -1279,9 +1279,7 @@ static int verb_terminate_user(int argc, char *argv[], uintptr_t _data, void *us
                 if (isempty(argv[i]))
                         uid = getuid();
                 else {
-                        const char *u = argv[i];
-
-                        r = get_user_creds(&u, &uid, NULL, NULL, NULL, 0);
+                        r = get_user_creds(argv[i], /* flags= */ 0, NULL, &uid, NULL, NULL, NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to look up user %s: %m", argv[i]);
                 }
@@ -1314,9 +1312,7 @@ static int verb_kill_user(int argc, char *argv[], uintptr_t _data, void *userdat
                 if (isempty(argv[i]))
                         uid = getuid();
                 else {
-                        const char *u = argv[i];
-
-                        r = get_user_creds(&u, &uid, NULL, NULL, NULL, 0);
+                        r = get_user_creds(argv[i], /* flags= */ 0, NULL, &uid, NULL, NULL, NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to look up user %s: %m", argv[i]);
                 }

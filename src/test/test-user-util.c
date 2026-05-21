@@ -287,8 +287,7 @@ TEST(valid_shell) {
 }
 
 static void test_get_user_creds_one(const char *id, const char *name, uid_t uid, gid_t gid, const char *home, const char *shell) {
-        const char *rhome = NULL;
-        const char *rshell = NULL;
+        _cleanup_free_ char *rname = NULL, *rhome = NULL, *rshell = NULL;
         uid_t ruid = UID_INVALID;
         gid_t rgid = GID_INVALID;
         int r;
@@ -296,15 +295,15 @@ static void test_get_user_creds_one(const char *id, const char *name, uid_t uid,
         log_info("/* %s(\"%s\", \"%s\", "UID_FMT", "GID_FMT", \"%s\", \"%s\") */",
                  __func__, id, name, uid, gid, home, shell);
 
-        r = get_user_creds(&id, &ruid, &rgid, &rhome, &rshell, 0);
+        r = get_user_creds(id, /* flags= */ 0, &rname, &ruid, &rgid, &rhome, &rshell);
         log_info_errno(r, "got \"%s\", "UID_FMT", "GID_FMT", \"%s\", \"%s\": %m",
-                       id, ruid, rgid, strnull(rhome), strnull(rshell));
+                       strnull(rname), ruid, rgid, strnull(rhome), strnull(rshell));
         if (!synthesize_nobody() && streq(name, NOBODY_USER_NAME)) {
                 log_info("(skipping detailed tests because nobody is not synthesized)");
                 return;
         }
         ASSERT_OK(r);
-        ASSERT_STREQ(id, name);
+        ASSERT_STREQ(rname, name);
         ASSERT_EQ(ruid, uid);
         ASSERT_EQ(rgid, gid);
         ASSERT_TRUE(path_equal(rhome, home));
@@ -317,21 +316,22 @@ TEST(get_user_creds) {
         test_get_user_creds_one("65534", NOBODY_USER_NAME, UID_NOBODY, GID_NOBODY, "/", NOLOGIN);
 }
 
-static void test_get_group_creds_one(const char *id, const char *name, gid_t gid) {
+static void test_get_group_creds_one(const char *id, const char *expected_name, gid_t expected_gid) {
         gid_t rgid = GID_INVALID;
+        _cleanup_free_ char *rnam = NULL;
         int r;
 
-        log_info("/* %s(\"%s\", \"%s\", "GID_FMT") */", __func__, id, name, gid);
+        log_info("/* %s(\"%s\", \"%s\", "GID_FMT") */", __func__, id, expected_name, expected_gid);
 
-        r = get_group_creds(&id, &rgid, 0);
-        log_info_errno(r, "got \"%s\", "GID_FMT": %m", id, rgid);
-        if (!synthesize_nobody() && streq(name, NOBODY_GROUP_NAME)) {
+        r = get_group_creds(id, /* flags= */ 0, &rnam, &rgid);
+        log_info_errno(r, "→ \"%s\", "GID_FMT": %m", strnull(rnam), rgid);
+        if (!synthesize_nobody() && streq(expected_name, NOBODY_GROUP_NAME)) {
                 log_info("(skipping detailed tests because nobody is not synthesized)");
                 return;
         }
         ASSERT_OK(r);
-        ASSERT_STREQ(id, name);
-        ASSERT_EQ(rgid, gid);
+        ASSERT_STREQ(rnam, expected_name);
+        ASSERT_EQ(rgid, expected_gid);
 }
 
 TEST(get_group_creds) {

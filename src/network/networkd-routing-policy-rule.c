@@ -1492,7 +1492,7 @@ static int config_parse_routing_policy_rule_uid_range(
 
         assert(rvalue);
 
-        if (get_user_creds(&rvalue, &p->start, NULL, NULL, NULL, 0) >= 0) {
+        if (get_user_creds(rvalue, /* flags= */ 0, NULL, &p->start, NULL, NULL, NULL) >= 0) {
                 p->end = p->start;
                 return 1;
         }

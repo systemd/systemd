@@ -430,8 +430,7 @@ static int condition_test_user(Condition *c, char **env) {
         if (streq(username, c->parameter))
                 return 1;
 
-        const char *u = c->parameter;
-        r = get_user_creds(&u, &id, NULL, NULL, NULL, USER_CREDS_ALLOW_MISSING);
+        r = get_user_creds(c->parameter, USER_CREDS_ALLOW_MISSING, NULL, &id, NULL, NULL, NULL);
         if (r < 0)
                 return 0;
 

@@ -3771,7 +3771,7 @@ static int find_uid(const char *user, uid_t *ret_uid, Hashmap **cache) {
 
         /* Second: pass to NSS if we are running "online" */
         if (!arg_root)
-                return get_user_creds(&user, ret_uid, NULL, NULL, NULL, 0);
+                return get_user_creds(user, /* flags= */ 0, NULL, ret_uid, NULL, NULL, NULL);
 
         /* Third, synthesize "root" unconditionally */
         if (streq(user, "root")) {
@@ -3796,7 +3796,7 @@ static int find_gid(const char *group, gid_t *ret_gid, Hashmap **cache) {
 
         /* Second: pass to NSS if we are running "online" */
         if (!arg_root)
-                return get_group_creds(&group, ret_gid, 0);
+                return get_group_creds(group, /* flags= */ 0, /* ret_name= */ NULL, ret_gid);
 
         /* Third, synthesize "root" unconditionally */
         if (streq(group, "root")) {
