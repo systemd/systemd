@@ -58,7 +58,22 @@ away there's a naming concept, so that nvindexes are referenced by name string
 rather than number.
 
 NvPCRs are defined in little JSON snippets in `/usr/lib/nvpcr/*.nvpcr`, that
-match up index number and name, as well as pick a hash algorithm.
+match up index number and name, as well as pick a hash algorithm. The recognized
+fields are:
+
+* `name` — the NvPCR name (string), which must match the file name (without the
+  `.nvpcr` suffix). Mandatory.
+* `nvIndex` — the fixed TPM2 NV index handle (number) to allocate for this NvPCR.
+  Mandatory.
+* `algorithm` — the hash algorithm to use (string), e.g. `sha256` (the default).
+* `priority` — an unsigned integer allocation priority, defaulting to `1000`.
+  Lower values are considered more important and are allocated first. This only
+  affects the order in which `systemd-tpm2-setup.service` attempts allocation at
+  boot: if the TPM's NV index space is too small to fit all NvPCRs, the most
+  important ones (lowest `priority` value) win the available space, and the
+  least important ones are skipped gracefully rather than the allocation failing
+  arbitrarily. Ties are broken by name. Priority does not affect the NV index,
+  the algorithm, or anything measured into the NvPCR.
 
 There's one complication: these NV indexes (like any NV indexes) can be deleted
 by anyone with access to the TPM, and then be recreated. This could be used to
