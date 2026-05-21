@@ -183,11 +183,15 @@ int lookup_grent_in_files(
                 const char *name,
                 gid_t gid,
                 struct group **ret);
+
+int sysconf_ngroups_max(void);
 ssize_t lookup_groups_in_files(
                 char * const *files,
                 const char *name,
                 gid_t gid,
                 gid_t **ret);
+int getgrouplist_malloc(const char *user, gid_t gid, gid_t **ret);
+int initgroups_wrapper(const char *user, gid_t gid);
 
 int getpwuid_malloc(uid_t uid, struct passwd **ret);
 int getpwnam_malloc(const char *name, struct passwd **ret);
