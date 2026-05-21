@@ -56,3 +56,12 @@ enum {
 
 /* The tag used for EV_EVENT_TAG event log records covering the selected UKI profile */
 #define UKI_PROFILE_EVENT_TAG_ID UINT32_C(0x13aed6db)
+
+/* The tag used for EV_EVENT_TAG event log records covering the SMBIOS type 1 (system information) structure */
+#define SMBIOS_TYPE1_EVENT_TAG_ID UINT32_C(0xd5cb7cbc)
+
+/* The tag used for EV_EVENT_TAG event log records covering the SMBIOS type 2 (baseboard information) structure */
+#define SMBIOS_TYPE2_EVENT_TAG_ID UINT32_C(0xe0d47bc8)
+
+/* The tag used for EV_EVENT_TAG event log records covering SMBIOS type 11 (OEM strings) structures */
+#define SMBIOS_TYPE11_EVENT_TAG_ID UINT32_C(0xc0b3bd23)
