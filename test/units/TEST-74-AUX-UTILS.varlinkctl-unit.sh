@@ -253,6 +253,17 @@ systemctl show -P UMask varlink-transient-procctl.service | grep '^0022$' >/dev/
 systemctl show -P NoNewPrivileges varlink-transient-procctl.service | grep '^yes$' >/dev/null
 systemctl show -P MemoryDenyWriteExecute varlink-transient-procctl.service | grep '^yes$' >/dev/null
 
+# Exec.RootHashPath / Exec.RootHashSignaturePath: the unit-file directive must be
+# "RootHash=" / "RootHashSignature=" (not the JSON name), otherwise the next daemon-reload
+# would drop the setting as an unknown key.
+defer_transient_cleanup varlink-transient-roothash.service
+varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+    '{"context":{"ID":"varlink-transient-roothash.service","Exec":{"RootHashPath":"/etc/hostname","RootHashSignaturePath":"/etc/machine-id"},"Service":{"Type":"oneshot","RemainAfterExit":true,"ExecStart":[{"path":"/bin/true"}]}}}' >/dev/null
+fragment=$(systemctl show -P FragmentPath varlink-transient-roothash.service)
+test -n "$fragment"
+grep '^RootHash=/etc/hostname$'          "$fragment" >/dev/null
+grep '^RootHashSignature=/etc/machine-id$' "$fragment" >/dev/null
+
 # Error cases: verify specific varlink error types
 set +o pipefail
 varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
@@ -303,6 +314,11 @@ defer_transient_cleanup varlink-transient-bad-oom.service
 expect_invalid_parameter \
     '{"context":{"ID":"varlink-transient-bad-oom.service","Exec":{"OOMScoreAdjust":9999},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' \
     "Exec.OOMScoreAdjust"
+# Relative RootDirectory path is rejected
+defer_transient_cleanup varlink-transient-bad-rd.service
+expect_invalid_parameter \
+    '{"context":{"ID":"varlink-transient-bad-rd.service","Exec":{"RootDirectory":"relative/path"},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' \
+    "Exec.RootDirectory"
 # Invalid credential ID
 defer_transient_cleanup varlink-transient-bad-cred-id.service
 expect_invalid_parameter \
@@ -319,9 +335,9 @@ varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
 # Unknown field in Exec is rejected as PropertyNotSupported
 defer_transient_cleanup varlink-transient-unknown-exec.service
 unsupported_exec=$(varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
-    '{"context":{"ID":"varlink-transient-unknown-exec.service","Exec":{"RootDirectory":"/tmp"},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' 2>&1 || true)
+    '{"context":{"ID":"varlink-transient-unknown-exec.service","Exec":{"AmbientCapabilities":["cap_net_raw"]},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' 2>&1 || true)
 echo "$unsupported_exec" | grep "io.systemd.Unit.PropertyNotSupported"
-echo "$unsupported_exec" | grep "Exec.RootDirectory"
+echo "$unsupported_exec" | grep "Exec.AmbientCapabilities"
 # Service field declared in the IDL but not yet settable at creation is rejected as PropertyNotSupported,
 # and the offending sub-property is identified
 defer_transient_cleanup varlink-transient-unknown-service.service
