@@ -1018,6 +1018,14 @@ else
 endif
 conf.set10('HAVE_LIBCRYPT', have)
 
+# musl declares the ucontext.h functions but does not implement them; the fiber bootstrap in
+# src/libsystemd/sd-future/fiber.c relies on them, so on musl we have to link to libucontext.
+if get_option('libc') == 'musl'
+        libucontext = dependency('libucontext')
+else
+        libucontext = []
+endif
+
 bpf_framework = get_option('bpf-framework')
 bpf_compiler = get_option('bpf-compiler')
 libbpf = dependency('libbpf',
@@ -1721,6 +1729,7 @@ libsystemd_includes = [include_directories(
         'src/libsystemd/sd-common',
         'src/libsystemd/sd-device',
         'src/libsystemd/sd-event',
+        'src/libsystemd/sd-future',
         'src/libsystemd/sd-hwdb',
         'src/libsystemd/sd-id128',
         'src/libsystemd/sd-journal',
@@ -1761,7 +1770,7 @@ libsystemd = shared_library(
         link_with : [libc_wrapper_static,
                      libbasic_static],
         link_whole : [libsystemd_static],
-        dependencies : [userspace],
+        dependencies : [libucontext, userspace],
         link_depends : libsystemd_sym,
         install : true,
         install_tag: 'libsystemd',
@@ -1783,6 +1792,7 @@ if static_libsystemd != 'false'
                 dependencies : [libgcrypt_cflags,
                                 liblz4_cflags,
                                 libm,
+                                libucontext,
                                 libxz_cflags,
                                 libzstd_cflags,
                                 userspace],

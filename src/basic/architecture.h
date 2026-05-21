@@ -242,4 +242,10 @@ Architecture uname_architecture(void);
 #  error "Please register your architecture here!"
 #endif
 
+#if defined(__hppa__) || defined(__hppa64__)
+#  define STACK_GROWS_UP 1
+#else
+#  define STACK_GROWS_UP 0
+#endif
+
 DECLARE_STRING_TABLE_LOOKUP(architecture, Architecture);

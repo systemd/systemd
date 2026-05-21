@@ -66,6 +66,8 @@ size_t log_context_num_contexts(void);
 /* Returns the number of fields in all attached log contexts. */
 size_t log_context_num_fields(void);
 
+void log_context_swap(LogContext **log_context, size_t *num_fields);
+
 void _reset_log_level(int *saved_log_level);
 
 #define _LOG_CONTEXT_SET_LOG_LEVEL(level, l) \
