@@ -17,6 +17,7 @@
 #include "iovec-util.h"
 #include "line-edit.h"
 #include "measure.h"
+#include "measure-smbios.h"
 #include "memory-util.h"
 #include "part-discovery.h"
 #include "pe.h"
@@ -3267,6 +3268,7 @@ static void export_loader_variables(
                 EFI_LOADER_FEATURE_TYPE1_UKI_URL |
                 EFI_LOADER_FEATURE_TPM2_ACTIVE_PCR_BANKS |
                 EFI_LOADER_FEATURE_KEYBOARD_LAYOUT |
+                EFI_LOADER_FEATURE_SMBIOS_MEASURED |
                 0;
 
         assert(loaded_image);
@@ -3433,6 +3435,10 @@ static EFI_STATUS run(EFI_HANDLE image) {
 
         export_common_variables(loaded_image);
         export_loader_variables(loaded_image, init_usec);
+
+        /* Measure SMBIOS data into PCR 1. This is done early, and suppressed if sd-stub later runs in
+         * the same boot (and vice versa), via the LoaderPcrSMBIOS EFI variable. */
+        measure_smbios();
 
         (void) load_drivers(image, loaded_image, root_dir);
 
