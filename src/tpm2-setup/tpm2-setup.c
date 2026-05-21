@@ -386,7 +386,8 @@ static int setup_srk(void) {
 typedef struct SetupNvPCRContext {
         Tpm2Context *tpm2_context;
         struct iovec anchor_secret;
-        size_t n_already, n_anchored, n_failed;
+        size_t n_already, n_anchored, n_failed, n_skipped;
+        bool nv_space_exhausted; /* Set once the TPM ran out of NV index space, so we skip the rest. */
         Set *done;
 } SetupNvPCRContext;
 
@@ -410,6 +411,15 @@ static int setup_nvpcr_one(
         if (set_contains(c->done, name))
                 return 0;
 
+        /* If the TPM already ran out of NV index space, don't even try to allocate further NvPCRs. As
+         * NvPCRs are processed in order of priority (most important first), everything still pending is
+         * less important than what already didn't fit. */
+        if (c->nv_space_exhausted) {
+                log_debug("TPM NV index space already exhausted, skipping allocation of NvPCR '%s'.", name);
+                c->n_skipped++;
+                return 0;
+        }
+
         r = tpm2_nvpcr_initialize(c->tpm2_context, /* session= */ NULL, name, &c->anchor_secret);
         if (r == -EUNATCH) {
                 assert(!iovec_is_set(&c->anchor_secret));
@@ -430,9 +440,13 @@ static int setup_nvpcr_one(
                                         LOG_MESSAGE_ID(SD_MESSAGE_TPM_NVPCR_UNSUPPORTED_STR));
         }
         if (r == -ENOSPC) {
-                c->n_failed++;
-                return log_struct_errno(LOG_ERR, r,
-                                        LOG_MESSAGE("The TPM's NV index space is exhausted, unable to allocate NvPCR '%s': %m", name),
+                /* The TPM's NV index space is exhausted. Remember this so we skip the remaining (less
+                 * important) NvPCRs, and report it gracefully at the end rather than failing the boot.
+                 * Logged at notice level, not error. */
+                c->nv_space_exhausted = true;
+                c->n_skipped++;
+                return log_struct_errno(LOG_NOTICE, r,
+                                        LOG_MESSAGE("The TPM's NV index space is exhausted, skipping allocation of NvPCR '%s' and any less important ones: %m", name),
                                         LOG_MESSAGE_ID(SD_MESSAGE_TPM_NVINDEX_EXHAUSTED_STR));
         }
         if (r < 0) {
@@ -484,6 +498,9 @@ static int setup_nvpcr(void) {
                  * yet. Hence, let's explicitly do so now, to catch up. */
                 RET_GATHER(ret, tpm2_nvpcr_acquire_anchor_secret(/* ret= */ NULL, /* sync_secondary= */ true));
 
+        if (c.nv_space_exhausted)
+                log_notice("Skipped %zu lowest-priority NvPCR(s) because the TPM's NV index space is exhausted, proceeding anyway.", c.n_skipped);
+
         if (c.n_failed > 0)
                 log_warning("%zu NvPCRs failed to initialize, proceeding anyway.", c.n_failed);
 
@@ -494,7 +511,7 @@ static int setup_nvpcr(void) {
                         log_info("%zu NvPCRs initialized. (%zu NvPCRs were already initialized.)", c.n_anchored, c.n_already);
         } else if (c.n_already > 0)
                 log_info("%zu NvPCRs already initialized.", c.n_already);
-        else if (c.n_failed == 0)
+        else if (c.n_failed == 0 && c.n_skipped == 0)
                 log_debug("No NvPCRs defined, nothing initialized.");
 
         /* Turn some errors into recognizable ones, which we can catch with
