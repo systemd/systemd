@@ -232,12 +232,14 @@ static int help(void) {
                 NULL,
                 "Image",
                 "Host Configuration",
+                "Networking",
                 "Execution",
                 "System Identity",
                 "Properties",
                 "User Namespacing",
                 "Mounts",
-                "Integration",
+                "Logging",
+                "SSH",
                 "Input/Output",
                 "Credentials",
         };
@@ -251,8 +253,10 @@ static int help(void) {
                         return r;
         }
 
-        (void) table_sync_column_widths(0, tables[0], tables[1], tables[2], tables[3], tables[4],
-                                        tables[5], tables[6], tables[7], tables[8], tables[9], tables[10]);
+        (void) table_sync_column_widths(
+                        0, tables[0], tables[1], tables[2], tables[3], tables[4],
+                        tables[5], tables[6], tables[7], tables[8], tables[9], tables[10],
+                        tables[11], tables[12]);
 
         help_cmdline("[OPTIONS...] [ARGUMENTS...]");
         help_abstract("Spawn a command or OS in a virtual machine.");
@@ -394,6 +398,23 @@ static int parse_argv(int argc, char *argv[]) {
                                                        "Invalid image disk type: %s", opts.arg);
                         break;
 
+                OPTION_LONG("discard-disk", "BOOL", "Control processing of discard requests"):
+                        r = parse_boolean_argument("--discard-disk=", opts.arg, &arg_discard_disk);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION('G', "grow-image", "BYTES", "Grow image file to specified size in bytes"):
+                        if (isempty(opts.arg)) {
+                                arg_grow_image = 0;
+                                break;
+                        }
+
+                        r = parse_size(opts.arg, 1024, &arg_grow_image);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --grow-image= parameter: %s", opts.arg);
+                        break;
+
                 OPTION_GROUP("Host Configuration"): {}
 
                 OPTION_LONG("cpus", "CPUS", "Configure number of CPUs in guest"): {}
@@ -500,32 +521,6 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
 
                         arg_efi_nvram_state_mode = STATE_PATH;
-                        break;
-
-                OPTION_LONG("linux", "PATH", "Specify the linux kernel for direct kernel boot"):
-                        r = parse_path_argument(opts.arg, /* suppress_root= */ false, &arg_linux);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                OPTION_LONG("initrd", "PATH", "Specify the initrd for direct kernel boot"): {
-                        _cleanup_free_ char *initrd_path = NULL;
-                        r = parse_path_argument(opts.arg, /* suppress_root= */ false, &initrd_path);
-                        if (r < 0)
-                                return r;
-
-                        r = strv_consume(&arg_initrds, TAKE_PTR(initrd_path));
-                        if (r < 0)
-                                return log_oom();
-                        break;
-                }
-
-                OPTION('n', "network-tap", NULL, "Create a TAP device for networking"):
-                        arg_network_stack = NETWORK_STACK_TAP;
-                        break;
-
-                OPTION_LONG("network-user-mode", NULL, "Use user mode networking"):
-                        arg_network_stack = NETWORK_STACK_USER;
                         break;
 
                 OPTION_LONG("secure-boot", "BOOL|auto", "Enable searching for firmware supporting SecureBoot"): {
@@ -646,24 +641,35 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
-                OPTION_LONG("discard-disk", "BOOL", "Control processing of discard requests"):
-                        r = parse_boolean_argument("--discard-disk=", opts.arg, &arg_discard_disk);
+                OPTION_GROUP("Networking"): {}
+
+                OPTION('n', "network-tap", NULL, "Create a TAP device for networking"):
+                        arg_network_stack = NETWORK_STACK_TAP;
+                        break;
+
+                OPTION_LONG("network-user-mode", NULL, "Use user mode networking"):
+                        arg_network_stack = NETWORK_STACK_USER;
+                        break;
+
+                OPTION_GROUP("Execution"): {}
+
+                OPTION_LONG("linux", "PATH", "Specify the linux kernel for direct kernel boot"):
+                        r = parse_path_argument(opts.arg, /* suppress_root= */ false, &arg_linux);
                         if (r < 0)
                                 return r;
                         break;
 
-                OPTION('G', "grow-image", "BYTES", "Grow image file to specified size in bytes"):
-                        if (isempty(opts.arg)) {
-                                arg_grow_image = 0;
-                                break;
-                        }
-
-                        r = parse_size(opts.arg, 1024, &arg_grow_image);
+                OPTION_LONG("initrd", "PATH", "Specify the initrd for direct kernel boot"): {
+                        _cleanup_free_ char *initrd_path = NULL;
+                        r = parse_path_argument(opts.arg, /* suppress_root= */ false, &initrd_path);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --grow-image= parameter: %s", opts.arg);
-                        break;
+                                return r;
 
-                OPTION_GROUP("Execution"): {}
+                        r = strv_consume(&arg_initrds, TAKE_PTR(initrd_path));
+                        if (r < 0)
+                                return log_oom();
+                        break;
+                }
 
                 OPTION('s', "smbios11", "STRING", "Pass an arbitrary SMBIOS Type #11 string to the VM"):
                         if (isempty(opts.arg)) {
@@ -839,7 +845,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_oom();
                         break;
 
-                OPTION_GROUP("Integration"): {}
+                OPTION_GROUP("Logging"): {}
 
                 OPTION_LONG("forward-journal", "FILE|DIR", "Forward the VM's journal to the host"):
                         r = parse_path_argument(opts.arg, /* suppress_root= */ false, &arg_forward_journal);
@@ -870,6 +876,8 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse --forward-journal-max-files= value: %s", opts.arg);
                         break;
+
+                OPTION_GROUP("SSH"): {}
 
                 OPTION_LONG("pass-ssh-key", "BOOL", "Create an SSH key to access the VM"):
                         r = parse_boolean_argument("--pass-ssh-key=", opts.arg, &arg_pass_ssh_key);
