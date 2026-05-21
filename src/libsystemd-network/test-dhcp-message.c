@@ -8,7 +8,6 @@
 #include "dhcp-client-id-internal.h"
 #include "dhcp-message.h"
 #include "dhcp-message-dump.h"
-#include "dhcp-protocol.h"
 #include "dhcp-route.h"
 #include "dns-packet.h"
 #include "dns-resolver-internal.h"

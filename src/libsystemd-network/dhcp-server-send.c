@@ -4,6 +4,7 @@
 
 #include "dhcp-server-internal.h"
 #include "dhcp-server-lease-internal.h"
+#include "dhcp-server-request.h"
 #include "dhcp-server-send.h"
 #include "errno-util.h"
 #include "fd-util.h"
