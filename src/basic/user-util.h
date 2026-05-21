@@ -173,6 +173,8 @@ static inline bool hashed_password_is_locked_or_invalid(const char *password) {
  */
 #define PASSWORD_UNPROVISIONED "!unprovisioned"
 
+int sysconf_ngroups_max(void);
+
 int lookup_pwent_in_files(
                 char * const *files,
                 const char *name,
