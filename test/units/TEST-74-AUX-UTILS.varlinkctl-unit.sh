@@ -239,6 +239,21 @@ systemctl show -P Group varlink-transient-ids.service | grep "^${NOBODY_GROUP}$"
 systemctl show -P SupplementaryGroups varlink-transient-ids.service | grep "${NOBODY_GROUP}" >/dev/null
 systemctl show -P Nice varlink-transient-ids.service | grep '^5$' >/dev/null
 
+# Exec.OOMScoreAdjust, Exec.UMask, Exec.NoNewPrivileges, Exec.MemoryDenyWriteExecute, Exec.LogLevelMax
+# (int+validator, mode_t, two tristate-bool shapes, plus the numeric log level)
+defer_transient_cleanup varlink-transient-procctl.service
+result=$(varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+    '{"context":{"ID":"varlink-transient-procctl.service","Exec":{"OOMScoreAdjust":250,"UMask":18,"NoNewPrivileges":true,"MemoryDenyWriteExecute":true,"LogLevelMax":6},"Service":{"Type":"oneshot","RemainAfterExit":true,"ExecStart":[{"path":"/bin/true"}]}}}')
+echo "$result" | jq -e '.context.Exec.OOMScoreAdjust == 250'
+echo "$result" | jq -e '.context.Exec.UMask == 18'
+echo "$result" | jq -e '.context.Exec.NoNewPrivileges == true'
+timeout 30 bash -c 'until systemctl is-active varlink-transient-procctl.service; do sleep 0.5; done'
+systemctl show -P OOMScoreAdjust varlink-transient-procctl.service | grep '^250$' >/dev/null
+systemctl show -P UMask varlink-transient-procctl.service | grep '^0022$' >/dev/null
+systemctl show -P NoNewPrivileges varlink-transient-procctl.service | grep '^yes$' >/dev/null
+systemctl show -P MemoryDenyWriteExecute varlink-transient-procctl.service | grep '^yes$' >/dev/null
+systemctl show -P LogLevelMax varlink-transient-procctl.service | grep '^6$' >/dev/null
+
 # Error cases: verify specific varlink error types
 set +o pipefail
 varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
@@ -274,26 +289,36 @@ defer_transient_cleanup varlink-transient-bad-env.service
 expect_invalid_parameter \
     '{"context":{"ID":"varlink-transient-bad-env.service","Exec":{"Environment":["not_an_env_var"]},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' \
     "Exec.Environment"
-# Invalid User= name is rejected at JSON dispatch time as a parameter error
+# Invalid User= name is rejected at JSON dispatch time, reported as the precise Exec.User field
 defer_transient_cleanup varlink-transient-bad-user.service
 expect_invalid_parameter \
     '{"context":{"ID":"varlink-transient-bad-user.service","Exec":{"User":"bad/user"},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' \
-    "context"
+    "Exec.User"
 # Out-of-range Nice= value is rejected
 defer_transient_cleanup varlink-transient-bad-nice.service
 expect_invalid_parameter \
     '{"context":{"ID":"varlink-transient-bad-nice.service","Exec":{"Nice":100},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' \
     "Exec.Nice"
+# Out-of-range OOMScoreAdjust= value is rejected
+defer_transient_cleanup varlink-transient-bad-oom.service
+expect_invalid_parameter \
+    '{"context":{"ID":"varlink-transient-bad-oom.service","Exec":{"OOMScoreAdjust":9999},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' \
+    "Exec.OOMScoreAdjust"
+# Out-of-range LogLevelMax= value is rejected with the precise field name
+defer_transient_cleanup varlink-transient-bad-loglevel.service
+expect_invalid_parameter \
+    '{"context":{"ID":"varlink-transient-bad-loglevel.service","Exec":{"LogLevelMax":999},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' \
+    "Exec.LogLevelMax"
 # Invalid credential ID
 defer_transient_cleanup varlink-transient-bad-cred-id.service
 expect_invalid_parameter \
     '{"context":{"ID":"varlink-transient-bad-cred-id.service","Exec":{"SetCredential":[{"id":"bad/id","value":"YWJj"}]},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' \
     "Exec.SetCredential"
-# Invalid base64 value for credential (rejected at JSON dispatch time as a parameter error)
+# Invalid base64 value for credential is rejected at JSON dispatch time, reported as Exec.SetCredential
 defer_transient_cleanup varlink-transient-bad-cred-value.service
 expect_invalid_parameter \
     '{"context":{"ID":"varlink-transient-bad-cred-value.service","Exec":{"SetCredential":[{"id":"mycred","value":"!!!not_base64!!!"}]},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' \
-    "context"
+    "Exec.SetCredential"
 # Exec on a unit type without an exec context (.slice) is rejected
 varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
     '{"context":{"ID":"varlink-transient-exec.slice","Exec":{"WorkingDirectory":{"path":"/tmp","missingOK":false}}}}' |& grep "io.systemd.Unit.UnitTypeNotSupported"
