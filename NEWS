@@ -225,6 +225,10 @@ CHANGES WITH 261 in spe:
           disk's ESP. This provides at least some protection, and reasonable
           persistency from initrd on.
 
+        * systemd-boot and systemd-stub will now measure SMBIOS Type 1, Type 2
+          and Type 11 in PCR 1, since some firmwares do not measure them, even
+          though they are supposed to.
+
         Changes in systemd-tmpfiles and systemd-sysusers:
 
         * A new tmpfiles.d/root.conf has been added that sets permissions on
