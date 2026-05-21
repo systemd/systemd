@@ -73,6 +73,27 @@ CHANGES WITH 261 in spe:
           effectively means live upgrades from versions older than v247 are not
           supported anymore.
 
+        * systemd-networkd gained a new sd-dhcp-relay backend for DHCP relay
+          agent support. As part of this change, the following [DHCPServer]
+          settings are deprecated:
+          - BindToInterface=
+          - RelayTarget=
+          - RelayAgentCircuitId=
+          - RelayAgentRemoteId=
+          They are replaced by DHCPRelay= in [Network], along with new
+          [DHCPRelay] section settings in .network files:
+          - AgentAddress=
+          - GatewayAddress=
+          - CircuitId=
+          - VirtualSubnetSelection=
+          - ExtraOption=
+          - InterfacePriority=
+          and in networkd.conf:
+          - ServerAddress=
+          - OverrideServerIdentifier=
+          - RemoteId=
+          - ExtraOption=
+
         * Required version of musl (when built with -Dlibc=musl) has been raised
           from 1.2.5 to 1.2.6.
 
