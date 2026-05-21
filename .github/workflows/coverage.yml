@@ -129,7 +129,7 @@ jobs:
 
       - name: Fix journal ownership
         if: failure() && (github.repository == 'systemd/systemd' || github.repository == 'systemd/systemd-stable')
-        run: sudo chown -R "$(id -u):$(id -g)" build/test/journal build/meson-logs
+        run: sudo chown -R "$(id -u):$(id -g)" build/test/journal build/meson-logs || true
 
       - name: Archive failed test journals
         uses: actions/upload-artifact@v7
