@@ -2045,25 +2045,21 @@ static int socket_chown(Socket *s, PidRef *ret_pid) {
                 /* Child */
 
                 if (!isempty(s->user)) {
-                        const char *user = s->user;
-
-                        r = get_user_creds(&user, &uid, &gid, NULL, NULL, 0);
+                        r = get_user_creds(s->user, /* flags= */ 0, NULL, &uid, &gid, NULL, NULL);
                         if (r < 0) {
                                 log_unit_error_errno(UNIT(s), r,
                                                      "Failed to resolve user '%s': %s",
-                                                     user, STRERROR_USER(r));
+                                                     s->user, STRERROR_USER(r));
                                 _exit(EXIT_USER);
                         }
                 }
 
                 if (!isempty(s->group)) {
-                        const char *group = s->group;
-
-                        r = get_group_creds(&group, &gid, 0);
+                        r = get_group_creds(s->group, /* flags= */ 0, /* ret_name= */ NULL, &gid);
                         if (r < 0) {
                                 log_unit_error_errno(UNIT(s), r,
                                                      "Failed to resolve group '%s': %s",
-                                                     group, STRERROR_GROUP(r));
+                                                     s->group, STRERROR_GROUP(r));
                                 _exit(EXIT_GROUP);
                         }
                 }
