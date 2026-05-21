@@ -61,6 +61,7 @@ typedef enum ExecPreserveMode {
         EXEC_PRESERVE_NO,
         EXEC_PRESERVE_YES,
         EXEC_PRESERVE_RESTART,
+        EXEC_PRESERVE_ON_SUCCESS,
         _EXEC_PRESERVE_MODE_MAX,
         _EXEC_PRESERVE_MODE_INVALID = -EINVAL,
 } ExecPreserveMode;

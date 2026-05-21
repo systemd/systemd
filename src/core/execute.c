@@ -3182,9 +3182,10 @@ static const char* const exec_utmp_mode_table[_EXEC_UTMP_MODE_MAX] = {
 DEFINE_STRING_TABLE_LOOKUP(exec_utmp_mode, ExecUtmpMode);
 
 static const char* const exec_preserve_mode_table[_EXEC_PRESERVE_MODE_MAX] = {
-        [EXEC_PRESERVE_NO]      = "no",
-        [EXEC_PRESERVE_YES]     = "yes",
-        [EXEC_PRESERVE_RESTART] = "restart",
+        [EXEC_PRESERVE_NO]         = "no",
+        [EXEC_PRESERVE_YES]        = "yes",
+        [EXEC_PRESERVE_RESTART]    = "restart",
+        [EXEC_PRESERVE_ON_SUCCESS] = "on-success",
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(exec_preserve_mode, ExecPreserveMode, EXEC_PRESERVE_YES);

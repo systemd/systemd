@@ -336,14 +336,14 @@ systemd-dissect --shift /home/testuser/.local/state/machines/fdstore foreign
 run0 -u testuser mkdir -p .config/systemd/nspawn/
 run0 -u testuser -i "cat >.config/systemd/nspawn/fdstore.nspawn <<EOF
 [Exec]
-KillSignal=SIGKILL
+KillSignal=SIGTERM
 EOF"
 
 run0 -u testuser mkdir -p ".config/systemd/user/systemd-nspawn@fdstore.service.d/"
 run0 -u testuser -i "cat >.config/systemd/user/systemd-nspawn@fdstore.service.d/fdstore.conf <<EOF
 [Service]
 FileDescriptorStoreMax=8
-FileDescriptorStorePreserve=yes
+FileDescriptorStorePreserve=on-success
 EOF"
 run0 -u testuser systemctl --user daemon-reload
 
@@ -362,7 +362,7 @@ timeout 30s bash -c \
 n_user_at_fds=$(systemctl show -P NFileDescriptorStore "user@${TESTUSER_UID}.service")
 test "${n_user_at_fds}" -ge 2
 
-# 3) Stop the nspawn service: payload is gone but FileDescriptorStorePreserve=yes
+# 3) Stop the nspawn service: payload is gone but FileDescriptorStorePreserve=on-success
 # must keep the fds in the user-side fdstore (and propagated copy in PID 1).
 run0 -u testuser systemctl --user stop systemd-nspawn@fdstore.service
 n_nspawn_fds=$(run0 -u testuser systemctl --user show -P NFileDescriptorStore systemd-nspawn@fdstore.service)
@@ -388,7 +388,21 @@ timeout 30s bash -c \
 run0 -u testuser systemctl --user start systemd-nspawn@fdstore.service
 run0 -u testuser systemctl is-active --user systemd-nspawn@fdstore.service
 
-run0 -u testuser systemctl --user stop systemd-nspawn@fdstore.service
+# 7) Failure case: with FileDescriptorStorePreserve=on-success, the fdstore must
+# be dropped once the unit enters the permanent failed state (i.e. once all
+# automated restart attempts driven by Restart= are exhausted). The
+# systemd-nspawn@.service template doesn't set Restart=, so killing the inner
+# payload with SIGKILL forces the unit straight into 'failed'.
+timeout 30s bash -c \
+    "until [[ \"\$(run0 -u testuser systemctl --user show -P NFileDescriptorStore systemd-nspawn@fdstore.service)\" -ge 2 ]]; do sleep 0.5; done"
+run0 -u testuser systemctl --user kill --kill-whom=all -s SIGKILL systemd-nspawn@fdstore.service
+timeout 30s bash -c \
+    "until [[ \"\$(run0 -u testuser systemctl --user show -P ActiveState systemd-nspawn@fdstore.service)\" == failed ]]; do sleep 0.5; done"
+# The fdstore must be discarded once the failed state is reached.
+assert_eq "$(run0 -u testuser systemctl --user show -P NFileDescriptorStore systemd-nspawn@fdstore.service)" 0
+assert_eq "$(run0 -u testuser systemctl --user show -P SubState systemd-nspawn@fdstore.service)" failed
+run0 -u testuser systemctl --user reset-failed systemd-nspawn@fdstore.service
+
 machinectl terminate fdstore 2>/dev/null || true
 
 loginctl disable-linger testuser

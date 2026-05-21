@@ -6,6 +6,7 @@
  *
  * This binary is intentionally linked against libsystemd only so that it can go in the minimal image. */
 
+#include <signal.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -26,6 +27,10 @@ static void closep(int *fd) {
 
         close(*fd);
         *fd = -EBADF;
+}
+
+static _Noreturn void exit_handler(int sig) {
+        _exit(EXIT_SUCCESS);
 }
 
 static int push_one(const char *fdname, const char *content) {
@@ -159,8 +164,16 @@ int main(int argc, char *argv[]) {
         if (r != EXIT_SUCCESS)
                 return r;
 
-        /* On success, become sleep so if we are a container payload it can stay alive. */
-        execlp("sleep", "sleep", "infinity", (char *) NULL);
-        fprintf(stderr, "execlp(sleep) failed: %m\n");
-        return EXIT_FAILURE;
+        /* On success, stay alive so if we are a container payload we keep it running. Install handlers
+         * for the signals an outer supervisor may use to terminate us, so we exit cleanly (with status 0)
+         * and the container service ends up in 'inactive' rather than 'failed'. */
+        struct sigaction sa = { .sa_handler = exit_handler };
+        if (sigaction(SIGTERM, &sa, /* __oact= */ NULL) < 0 ||
+            sigaction(SIGINT, &sa, /* __oact= */ NULL) < 0) {
+                fprintf(stderr, "Failed to install signal handlers: %m\n");
+                return EXIT_FAILURE;
+        }
+
+        for (;;)
+                pause();
 }
