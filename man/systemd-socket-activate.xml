@@ -172,6 +172,7 @@
         <term><varname>$SYSTEMD_LOG_TIME</varname></term>
         <term><varname>$SYSTEMD_LOG_COLOR</varname></term>
         <term><varname>$SYSTEMD_LOG_LOCATION</varname></term>
+        <term><varname>$SYSTEMD_LOG_EXECUTABLE</varname></term>
 
         <listitem><para>Same as in
         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
