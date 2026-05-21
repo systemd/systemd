@@ -665,6 +665,20 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>LoaderPcrSMBIOS</varname></term>
+
+        <listitem><para>The PCR register index select SMBIOS structures are measured into — type 1
+        (system information, with the volatile "Wake-up Type" field zeroed out), type 2 (baseboard
+        information) and type 11 (OEM strings). Formatted as decimal ASCII string (e.g.
+        <literal>1</literal>). This variable is set if a measurement was successfully completed, and remains
+        unset otherwise. <command>systemd-stub</command> performs this measurement only if it has not already
+        been done in the same boot (e.g. by the boot loader), as indicated by this variable being set
+        already.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>LoaderBootSecret</varname></term>
 
         <listitem><para>A non-volatile EFI variable only accessible from the pre-boot environment
