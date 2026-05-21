@@ -8,6 +8,7 @@
 #include "sd-varlink.h"
 
 #include "alloc-util.h"
+#include "ansi-color.h"
 #include "ask-password-api.h"
 #include "bitfield.h"
 #include "blockdev-util.h"
@@ -29,7 +30,9 @@
 #include "format-table.h"
 #include "format-util.h"
 #include "fs-util.h"
+#include "glyph-util.h"
 #include "gpt.h"
+#include "help-util.h"
 #include "hexdecoct.h"
 #include "initrd-util.h"
 #include "json-util.h"
@@ -45,7 +48,6 @@
 #include "pcrextend-util.h"
 #include "pcrlock-firmware.h"
 #include "pe-binary.h"
-#include "pretty-print.h"
 #include "proc-cmdline.h"
 #include "recovery-key.h"
 #include "sort-util.h"
@@ -5149,13 +5151,8 @@ static int verb_lock_raw(int argc, char *argv[], uintptr_t _data, void *userdata
 }
 
 static int help(void) {
-        _cleanup_free_ char *link = NULL;
         _cleanup_(table_unrefp) Table *commands = NULL, *protections = NULL, *options = NULL;
         int r;
-
-        r = terminal_urlify_man("systemd-pcrlock", "8", &link);
-        if (r < 0)
-                return log_oom();
 
         r = verbs_get_help_table(&commands);
         if (r < 0)
@@ -5171,28 +5168,25 @@ static int help(void) {
 
         (void) table_sync_column_widths(0, commands, protections, options);
 
-        printf("%s  [OPTIONS...] COMMAND ...\n"
-               "\n%sManage a TPM2 PCR lock.%s\n",
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal());
+        help_cmdline("[OPTIONS...] COMMAND ...");
+        help_abstract("Manage a TPM2 PCR lock.");
 
-        printf("\n%sCommands:%s\n", ansi_underline(), ansi_normal());
+        help_section("Commands");
         r = table_print_or_warn(commands);
         if (r < 0)
                 return r;
 
-        printf("\n%sProtections:%s\n", ansi_underline(), ansi_normal());
+        help_section("Protections");
         r = table_print_or_warn(protections);
         if (r < 0)
                 return r;
 
-        printf("\n%sOptions:%s\n", ansi_underline(), ansi_normal());
+        help_section("Options");
         r = table_print_or_warn(options);
         if (r < 0)
                 return r;
 
-        printf("\nSee the %s for details.\n", link);
+        help_man_page_reference("systemd-pcrlock", "8");
         return 0;
 }
 
