@@ -1757,8 +1757,7 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return bus_log_connect_error(r, arg_transport, RUNTIME_SCOPE_SYSTEM);
 
-        if (arg_transport == BUS_TRANSPORT_LOCAL)
-                polkit_agent_open();
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         (void) sd_bus_set_allow_interactive_authorization(bus, arg_ask_password);
 
