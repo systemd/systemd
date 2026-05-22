@@ -3,6 +3,7 @@
 #include <fcntl.h>
 #include <sys/utsname.h>
 
+#include "sd-device.h"
 #include "sd-id128.h"
 #include "sd-json.h"
 #include "sd-varlink.h"
@@ -348,6 +349,59 @@ static int smbios_generate(const MetricFamily *mf, sd_varlink *link, void *userd
         return 0;
 }
 
+static int tpm2_generate(const MetricFamily *mf, sd_varlink *link, void *userdata) {
+        enum {
+                TPM2_FIELD_MANUFACTURER,
+                TPM2_FIELD_VENDOR_STRING,
+                _TPM2_FIELD_MAX,
+        };
+
+        /* The udev properties set by the 'tpm2_id' builtin on the tpmrm device. The order must match the
+         * metric family table entries below. */
+        static const char* const tpm2_properties[_TPM2_FIELD_MAX] = {
+                [TPM2_FIELD_MANUFACTURER]  = "ID_TPM2_MANUFACTURER",
+                [TPM2_FIELD_VENDOR_STRING] = "ID_TPM2_VENDOR_STRING",
+        };
+
+        int r;
+
+        assert(mf && mf->name);
+        assert(link);
+
+        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        r = sd_device_new_from_subsystem_sysname(&dev, "tpmrm", "tpmrm0");
+        if (r < 0) {
+                log_full_errno(ERRNO_IS_NEG_DEVICE_ABSENT(r) ? LOG_DEBUG : LOG_WARNING, r,
+                               "Failed to open tpmrm0 device, ignoring: %m");
+                return 0;
+        }
+
+        for (size_t i = 0; i < _TPM2_FIELD_MAX; i++) {
+                const char *v;
+
+                r = sd_device_get_property_value(dev, tpm2_properties[i], &v);
+                if (r < 0) {
+                        log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r,
+                                       "Failed to read TPM2 property '%s', ignoring: %m", tpm2_properties[i]);
+                        continue;
+                }
+
+                if (isempty(v))
+                        continue;
+
+                r = metric_build_send_string(
+                                mf + i,
+                                link,
+                                /* object= */ NULL,
+                                v,
+                                /* fields= */ NULL);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 static int confidential_virtualization_generate(const MetricFamily *mf, sd_varlink *link, void *userdata) {
         assert(mf && mf->name);
         assert(link);
@@ -507,6 +561,19 @@ static const MetricFamily metric_family_table[] = {
         SMBIOS_STANDARD_FIELD("chassis_serial"),
         SMBIOS_STANDARD_FIELD("chassis_asset_tag"),
         /* Keep those ↑ in sync with smbios_generate(). */
+        {
+                METRIC_IO_SYSTEMD_BASIC_PREFIX "TPM2.Manufacturer",
+                "TPM2 device manufacturer (ID_TPM2_MANUFACTURER property of the tpmrm0 device)",
+                METRIC_FAMILY_TYPE_STRING,
+                .generate = tpm2_generate,
+        },
+        {
+                METRIC_IO_SYSTEMD_BASIC_PREFIX "TPM2.VendorString",
+                "TPM2 device vendor string (ID_TPM2_VENDOR_STRING property of the tpmrm0 device)",
+                METRIC_FAMILY_TYPE_STRING,
+                .generate = NULL,
+        },
+        /* Keep those ↑ in sync with tpm2_generate(). */
         {
                 METRIC_IO_SYSTEMD_BASIC_PREFIX "Virtualization",
                 "Virtualization type",
