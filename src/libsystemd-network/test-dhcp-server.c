@@ -95,6 +95,7 @@ TEST(dhcp_server_handle_message) {
                 .header.hlen = ETHER_ADDR_LEN,
                 .header.xid = htobe32(0x12345678),
                 .header.chaddr = { 'A', 'B', 'C', 'D', 'E', 'F' },
+                .header.magic = htobe32(DHCP_MAGIC_COOKIE),
                 .option_type.code = SD_DHCP_OPTION_MESSAGE_TYPE,
                 .option_type.length = 1,
                 .option_type.type = DHCP_DISCOVER,
@@ -141,14 +142,14 @@ TEST(dhcp_server_handle_message) {
         test.option_type.code = 0;
         test.option_type.length = 0;
         test.option_type.type = 0;
-        ASSERT_ERROR(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL), ENOMSG);
+        ASSERT_ERROR(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL), ENODATA);
         test.option_type.code = SD_DHCP_OPTION_MESSAGE_TYPE;
         test.option_type.length = 1;
         test.option_type.type = DHCP_DISCOVER;
         ASSERT_OK_EQ(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL), DHCP_OFFER);
 
         test.header.op = 0;
-        ASSERT_OK_ZERO(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL));
+        ASSERT_ERROR(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL), EBADMSG);
         test.header.op = BOOTREQUEST;
         ASSERT_OK_EQ(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL), DHCP_OFFER);
 
@@ -163,8 +164,10 @@ TEST(dhcp_server_handle_message) {
         test.header.hlen = ETHER_ADDR_LEN;
         ASSERT_OK_EQ(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL), DHCP_OFFER);
 
+        /* DHCPREQUEST (init-boot) without requested IP */
         test.option_type.type = DHCP_REQUEST;
-        ASSERT_OK_ZERO(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL));
+        ASSERT_ERROR(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL), ENODATA);
+
         test.option_requested_ip.code = SD_DHCP_OPTION_REQUESTED_IP_ADDRESS;
         test.option_requested_ip.length = 4;
         test.option_requested_ip.address = htobe32(0x12345678);
