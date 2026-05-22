@@ -2905,6 +2905,10 @@ static int context_notify(
                                 JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("progress", percent, UINT_MAX));
                 if (r < 0)
                         log_debug_errno(r, "Failed to send varlink notify progress notification, ignoring: %m");
+
+                r = sd_varlink_flush(c->link);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to flush varlink notify progress notification, ignoring: %m");
         }
 
         return 0;
