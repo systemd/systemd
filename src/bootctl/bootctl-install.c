@@ -462,13 +462,13 @@ static int version_check(int fd_from, const char *from, int fd_to, const char *t
         if (r == -ESRCH)
                 return log_notice_errno(r, "Source file \"%s\" does not carry version information!", from);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to get file version of '%s': %m", from);
 
         r = get_file_version(fd_to, &b);
         if (r == -ESRCH)
                 return log_info_errno(r, "Skipping \"%s\", it's owned by another boot loader (no version info found).", to);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to get file version of '%s': %m", to);
         if (compare_product(a, b) != 0)
                 return log_info_errno(SYNTHETIC_ERRNO(ESRCH),
                                       "Skipping \"%s\", it's owned by another boot loader.", to);
@@ -1806,6 +1806,8 @@ static int remove_boot_efi(InstallContext *c) {
                         return log_oom();
 
                 fd = xopenat_full(dirfd(d), de->d_name, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY|O_NOFOLLOW, XO_REGULAR, /* mode= */ MODE_INVALID);
+                if (fd == -ENOENT)
+                        continue;
                 if (fd < 0)
                         return log_error_errno(fd, "Failed to open '%s' for reading: %m", z);
 
@@ -1821,8 +1823,10 @@ static int remove_boot_efi(InstallContext *c) {
                 r = get_file_version(fd, &v);
                 if (r == -ESRCH)
                         continue;  /* No version information */
-                if (r < 0)
-                        return r;
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to get file version of '%s' skipping: %m", de->d_name);
+                        continue;
+                }
                 if (!startswith(v, "systemd-boot "))
                         continue;
 
