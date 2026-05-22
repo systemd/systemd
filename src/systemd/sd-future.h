@@ -59,6 +59,11 @@ _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_future, sd_future_unref);
 void sd_future_unref_array_clear(sd_future *array[], size_t n);
 void sd_future_unref_array(sd_future *array[], size_t n);
 
+sd_future* sd_future_cancel_unref(sd_future *f);
+_SD_DEFINE_POINTER_CLEANUP_FUNC(sd_future, sd_future_cancel_unref);
+void sd_future_cancel_unref_array_clear(sd_future *array[], size_t n);
+void sd_future_cancel_unref_array(sd_future *array[], size_t n);
+
 sd_future* sd_future_cancel_wait_unref(sd_future *f);
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_future, sd_future_cancel_wait_unref);
 void sd_future_cancel_wait_unref_array_clear(sd_future *array[], size_t n);

@@ -488,7 +488,7 @@ static int method_callbacks_run(
                                 .userdata = u,
                         };
 
-                        _cleanup_(sd_future_unrefp) sd_future *f = NULL;
+                        _cleanup_(sd_future_cancel_unrefp) sd_future *f = NULL;
                         r = sd_fiber_new(bus->event, c->member, bus_fiber_entry, d, bus_fiber_data_destroy, &f);
                         if (r < 0)
                                 return bus_maybe_reply_error(m, r, NULL);

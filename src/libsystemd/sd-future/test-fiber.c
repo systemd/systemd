@@ -992,6 +992,232 @@ TEST(fiber_timeout_nested) {
         ASSERT_EQ(fired, 2);
 }
 
+/* Test: sd_future_cancel_wait_unref() loops on cancel + await until the future actually
+ * resolves, even if an outer SD_FIBER_TIMEOUT interrupts the await early. The stubborn
+ * future below requires multiple cancels to resolve, so a single cancel + interrupted await
+ * leaves it pending — only the loop in sd_future_cancel_wait_unref() can drive it to
+ * resolution. */
+typedef struct StubbornFuture {
+        unsigned cancels_received;
+        unsigned cancels_needed;
+        unsigned *external_counter;
+} StubbornFuture;
+
+static void* stubborn_alloc(void) {
+        return new0(StubbornFuture, 1);
+}
+
+static void stubborn_free(sd_future *f) {
+        free(sd_future_get_private(f));
+}
+
+static int stubborn_cancel(sd_future *f) {
+        StubbornFuture *sf = ASSERT_PTR(sd_future_get_private(f));
+        sf->cancels_received++;
+        if (sf->external_counter)
+                *sf->external_counter = sf->cancels_received;
+        if (sf->cancels_received >= sf->cancels_needed)
+                return sd_future_resolve(f, -ECANCELED);
+        return 0;
+}
+
+static const sd_future_ops stubborn_future_ops = {
+        .size = sizeof(sd_future_ops),
+        .alloc = stubborn_alloc,
+        .free = stubborn_free,
+        .cancel = stubborn_cancel,
+};
+
+static int cancel_wait_loops_fiber(void *userdata) {
+        unsigned *cancel_count = ASSERT_PTR(userdata);
+        sd_future *f = NULL;
+        int r;
+
+        r = sd_future_new(&stubborn_future_ops, &f);
+        if (r < 0)
+                return r;
+
+        StubbornFuture *sf = sd_future_get_private(f);
+        sf->cancels_needed = 2;
+        sf->external_counter = cancel_count;
+
+        /* Short timeout interrupts the first await before the future resolves. The loop in
+         * sd_future_cancel_wait_unref() must call cancel a second time to drive the
+         * stubborn future to resolution. */
+        SD_FIBER_TIMEOUT(5 * USEC_PER_MSEC);
+        sd_future_cancel_wait_unref(f);
+        return 0;
+}
+
+TEST(fiber_cancel_wait_unref_loops_until_resolved) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_OK(sd_event_set_exit_on_idle(e, true));
+
+        unsigned cancel_count = 0;
+        _cleanup_(sd_future_unrefp) sd_future *f = NULL;
+        ASSERT_OK(sd_fiber_new(e, "stubborn", cancel_wait_loops_fiber, &cancel_count, NULL, &f));
+
+        ASSERT_OK(sd_event_loop(e));
+        /* Loop must have called cancel at least twice — once before the timeout interrupted
+         * the await, then again on the next iteration to actually resolve the future. */
+        ASSERT_GE(cancel_count, 2u);
+}
+
+/* Test: sd_fiber_resume() called on a running (not suspended) fiber queues the value rather than
+ * discarding it; the next fiber_swap() (here sd_fiber_suspend()) returns it without round-tripping
+ * through the event loop. If the swap actually yielded, this test would hang because nothing else
+ * is wired up to resume the fiber. */
+static int resume_queue_while_running_fiber(void *userdata) {
+        int r;
+
+        r = sd_fiber_resume(sd_fiber_get_current(), 42);
+        if (r < 0)
+                return r;
+
+        r = sd_fiber_suspend();
+        if (r != 42)
+                return -EBADF;
+
+        /* sd_fiber_yield() must also drain a queued value when it's set. */
+        r = sd_fiber_resume(sd_fiber_get_current(), -EPIPE);
+        if (r < 0)
+                return r;
+
+        r = sd_fiber_yield();
+        if (r != -EPIPE)
+                return -EBADF;
+
+        return 0;
+}
+
+TEST(fiber_resume_queues_while_running) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_OK(sd_event_set_exit_on_idle(e, true));
+
+        _cleanup_(sd_future_unrefp) sd_future *f = NULL;
+        ASSERT_OK(sd_fiber_new(e, "resume-queue", resume_queue_while_running_fiber, NULL, NULL, &f));
+
+        ASSERT_OK(sd_event_loop(e));
+        ASSERT_OK(sd_future_result(f));
+}
+
+/* Test: a timeout that fires during sd_future_cancel_wait_unref()'s internal await must not be
+ * swallowed — cancel_wait_unref re-queues it via sd_fiber_resume() so the calling fiber's next
+ * suspend observes -ETIME. */
+static int cancel_wait_propagates_timeout_fiber(void *userdata) {
+        unsigned *cancel_count = ASSERT_PTR(userdata);
+        sd_future *f = NULL;
+        int r;
+
+        r = sd_future_new(&stubborn_future_ops, &f);
+        if (r < 0)
+                return r;
+
+        StubbornFuture *sf = sd_future_get_private(f);
+        sf->cancels_needed = 2;
+        sf->external_counter = cancel_count;
+
+        SD_FIBER_TIMEOUT(5 * USEC_PER_MSEC);
+        sd_future_cancel_wait_unref(f);
+
+        /* The timeout that interrupted the await inside cancel_wait_unref was re-queued; this
+         * suspend consumes it. */
+        return sd_fiber_suspend();
+}
+
+TEST(fiber_cancel_wait_unref_propagates_timeout) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_OK(sd_event_set_exit_on_idle(e, true));
+
+        unsigned cancel_count = 0;
+        _cleanup_(sd_future_unrefp) sd_future *f = NULL;
+        ASSERT_OK(sd_fiber_new(e, "propagate-timeout", cancel_wait_propagates_timeout_fiber, &cancel_count, NULL, &f));
+
+        ASSERT_OK(sd_event_loop(e));
+        ASSERT_ERROR(sd_future_result(f), ETIME);
+        ASSERT_GE(cancel_count, 2u);
+}
+
+/* Test: a cancellation of the calling fiber that lands while the fiber is suspended inside
+ * sd_future_cancel_wait_unref()'s internal await must not be swallowed — cancel_wait_unref
+ * re-queues it via sd_fiber_resume() so the next suspend on this fiber observes -ECANCELED. */
+static int cancel_wait_propagates_cancellation_fiber(void *userdata) {
+        unsigned *cancel_count = ASSERT_PTR(userdata);
+        sd_future *f = NULL;
+        int r;
+
+        r = sd_future_new(&stubborn_future_ops, &f);
+        if (r < 0)
+                return r;
+
+        StubbornFuture *sf = sd_future_get_private(f);
+        sf->cancels_needed = 2;
+        sf->external_counter = cancel_count;
+
+        sd_future_cancel_wait_unref(f);
+
+        /* If cancel_wait_unref had silently swallowed our cancellation, this suspend would
+         * actually park the fiber and the event loop would idle-exit without ever resolving the
+         * future — the assertion in the caller would then trip on a still-PENDING future. */
+        return sd_fiber_suspend();
+}
+
+TEST(fiber_cancel_wait_unref_propagates_cancellation_from_main) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_OK(sd_event_set_exit_on_idle(e, true));
+
+        unsigned cancel_count = 0;
+        _cleanup_(sd_future_unrefp) sd_future *f = NULL;
+        ASSERT_OK(sd_fiber_new(e, "propagate-cancel", cancel_wait_propagates_cancellation_fiber, &cancel_count, NULL, &f));
+
+        /* One iteration drives the fiber through its first cancel + await inside
+         * cancel_wait_unref, leaving it suspended waiting for the stubborn future. */
+        ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+
+        /* Cancel from outside any fiber. The fiber is still suspended inside cancel_wait_unref's
+         * await — this queues -ECANCELED on it and re-arms its defer source. */
+        ASSERT_OK_POSITIVE(sd_future_cancel(f));
+
+        ASSERT_OK(sd_event_loop(e));
+        ASSERT_ERROR(sd_future_result(f), ECANCELED);
+        ASSERT_GE(cancel_count, 2u);
+}
+
+typedef struct {
+        sd_future *target;
+} PeerCancellerData;
+
+static int peer_canceller_fiber(void *userdata) {
+        PeerCancellerData *data = ASSERT_PTR(userdata);
+        return sd_future_cancel(data->target);
+}
+
+TEST(fiber_cancel_wait_unref_propagates_cancellation_from_peer_fiber) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_OK(sd_event_set_exit_on_idle(e, true));
+
+        unsigned cancel_count = 0;
+        _cleanup_(sd_future_unrefp) sd_future *target = NULL, *canceller = NULL;
+        ASSERT_OK(sd_fiber_new(e, "target", cancel_wait_propagates_cancellation_fiber, &cancel_count, NULL, &target));
+        ASSERT_OK(sd_future_set_priority(target, 0));
+
+        /* Lower-priority canceller runs after target has reached cancel_wait_unref's await and
+         * suspended; it cancels target from within a fiber dispatch. */
+        PeerCancellerData data = { .target = target };
+        ASSERT_OK(sd_fiber_new(e, "canceller", peer_canceller_fiber, &data, NULL, &canceller));
+        ASSERT_OK(sd_future_set_priority(canceller, 1));
+
+        ASSERT_OK(sd_event_loop(e));
+        ASSERT_OK(sd_future_result(canceller));
+        ASSERT_ERROR(sd_future_result(target), ECANCELED);
+        ASSERT_GE(cancel_count, 2u);
+}
+
 /* Test: signal mask is per-thread, not per-fiber. Changes one fiber makes via pthread_sigmask
  * must be visible to other fibers on the same thread, both while the modifying fiber is
  * suspended and after it resumes. The fiber switch (sigsetjmp/siglongjmp with savesigs=0)
