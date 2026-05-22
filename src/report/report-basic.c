@@ -9,6 +9,7 @@
 
 #include "alloc-util.h"
 #include "architecture.h"
+#include "confidential-virt.h"
 #include "cpu-set-util.h"
 #include "env-file.h"
 #include "errno-util.h"
@@ -351,6 +352,22 @@ static int smbios_generate(const MetricFamily *mf, sd_varlink *link, void *userd
         return 0;
 }
 
+static int confidential_virtualization_generate(const MetricFamily *mf, sd_varlink *link, void *userdata) {
+        assert(mf && mf->name);
+        assert(link);
+
+        ConfidentialVirtualization cv = detect_confidential_virtualization();
+        if (cv < 0)
+                return cv;
+
+        return metric_build_send_string(
+                        mf,
+                        link,
+                        /* object= */ NULL,
+                        confidential_virtualization_to_string(cv),
+                        /* fields= */ NULL);
+}
+
 static int virtualization_generate(const MetricFamily *mf, sd_varlink *link, void *userdata) {
         assert(mf && mf->name);
         assert(link);
@@ -404,6 +421,12 @@ static const MetricFamily metric_family_table[] = {
                 "Current boot ID",
                 METRIC_FAMILY_TYPE_STRING,
                 .generate = boot_id_generate,
+        },
+        {
+                METRIC_IO_SYSTEMD_BASIC_PREFIX "ConfidentialVirtualization",
+                "Confidential computing technology",
+                METRIC_FAMILY_TYPE_STRING,
+                .generate = confidential_virtualization_generate,
         },
         {
                 METRIC_IO_SYSTEMD_BASIC_PREFIX "CPUsOnline",
