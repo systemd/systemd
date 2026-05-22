@@ -10,6 +10,8 @@
 
 extern const struct hash_ops event_source_hash_ops;
 
+sd_event* event_resolve(sd_event *e);
+
 int event_reset_time(
                 sd_event *e,
                 sd_event_source **s,
