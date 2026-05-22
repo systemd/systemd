@@ -1417,8 +1417,8 @@ static int dissect_image(
 
                                         r = acquire_sig_for_roothash(
                                                         fd,
-                                                        start * 512,
-                                                        size * 512,
+                                                        (uint64_t) start * 512,
+                                                        (uint64_t) size * 512,
                                                         &root_hash,
                                                         /* ret_root_hash_sig= */ NULL);
                                         if (r < 0)
