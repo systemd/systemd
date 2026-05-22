@@ -1192,6 +1192,30 @@ TEST(fiber_poll_zero_fds_no_timeout) {
         ASSERT_ERROR(sd_future_result(f), EINVAL);
 }
 
+static int poll_all_entries_skipped_fiber(void *userdata) {
+        int *pipefd = ASSERT_PTR(userdata);
+        struct pollfd negative = { .fd = -1, .events = POLLIN };
+        struct pollfd no_events = { .fd = pipefd[0] };
+
+        ASSERT_ERROR(sd_fiber_ppoll(&negative, 1, /* timeout= */ NULL, /* sigmask= */ NULL), EINVAL);
+        ASSERT_ERROR(sd_fiber_ppoll(&no_events, 1, /* timeout= */ NULL, /* sigmask= */ NULL), EINVAL);
+        return 0;
+}
+
+TEST(fiber_poll_all_entries_skipped) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_future_unrefp) sd_future *f = NULL;
+        _cleanup_close_pair_ int pipefd[2] = EBADF_PAIR;
+
+        ASSERT_OK_ERRNO(pipe2(pipefd, O_NONBLOCK | O_CLOEXEC));
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_OK(sd_event_set_exit_on_idle(e, true));
+        ASSERT_OK(sd_fiber_new(e, "poll-all-skipped", poll_all_entries_skipped_fiber, pipefd,
+                               /* destroy= */ NULL, &f));
+        ASSERT_OK(sd_event_loop(e));
+        ASSERT_OK_ZERO(sd_future_result(f));
+}
+
 /* Test: poll with negative fd (should be ignored) */
 static int poll_negative_fd_fiber(void *userdata) {
         int *pipefd = userdata;
