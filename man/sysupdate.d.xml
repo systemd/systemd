@@ -446,6 +446,14 @@
     whose name begins with <literal>foobar_</literal>, followed by a version ID and suffixed by
     <literal>.raw.xz</literal>.</para>
 
+    <para>A source <varname>MatchPattern=</varname> may additionally be prefixed with
+    <literal>**/</literal>. It can not contain <literal>**/</literal> anywhere else nor further
+    subdirectories in the rest of the pattern. This prefix matches any number of nested subdirectories or
+    none, meaning only the basenames get matched against the rest of the pattern. The <literal>**/</literal>
+    prefix is not a wildcard like those in the table above because it captures nothing and can't be used in
+    a target <varname>MatchPattern=</varname>. It's also not supported for the source types
+    <constant>directory</constant> and <constant>subvolume</constant>.</para>
+
     <para>Do not confuse the <literal>@</literal> pattern matching wildcard prefix with the
     <literal>%</literal> specifier expansion prefix. The former encapsulate a variable part of a match
     pattern string, the latter are simple shortcuts that are expanded while the drop-in files are
@@ -629,10 +637,21 @@
         wildcard, so that a version identifier may be extracted from the filename. All other wildcards are
         optional.</para>
 
-        <para>If the source type is <constant>regular-file</constant> or <constant>directory</constant>, the
-        pattern may contain slash characters. In this case, it will match the file or directory in
-        corresponding subdirectory. For example <literal>MatchPattern=foo_@v/bar.efi</literal> will match
-        <literal>bar.efi</literal> in directory <literal>foo_1</literal>. </para>
+        <para>The pattern may contain slash characters. In this case, it will match the file or directory in
+        the corresponding subdirectory. For example <literal>MatchPattern=foo_@v/bar.efi</literal> will match
+        <literal>bar.efi</literal> in directory <literal>foo_1</literal>. For <constant>url-file</constant>
+        and <constant>url-tar</constant> sources, the corresponding <filename>SHA256SUMS</filename> manifest
+        may then list entries as subpaths such as <literal>foo_1/bar.efi</literal>; such entries are fetched
+        from the matching subpath of the source URL. Manifest entries with absolute paths or
+        <literal>..</literal> components are rejected.</para>
+
+        <para>A <literal>**/</literal> prefix on a source <varname>MatchPattern=</varname> matches any number
+        of subdirectories and will in result only match the basename against the rest of the pattern. For
+        <constant>url-file</constant> and <constant>url-tar</constant> sources, <filename>SHA256SUMS</filename>
+        entries may then list the file under any subpath and the subpath is still used to construct the actual
+        download URL. The pattern after <literal>**/</literal> must not contain further slashes.
+        The prefix is not accepted on target patterns or for the source <varname>Type=directory</varname> and
+        <varname>Type=subvolume</varname>.</para>
 
         <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
