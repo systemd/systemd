@@ -58,7 +58,7 @@ int sd_radv_attach_event(sd_radv *ra, sd_event *event, int64_t priority) {
         else {
                 r = sd_event_default(&ra->event);
                 if (r < 0)
-                        return 0;
+                        return r;
         }
 
         ra->event_priority = priority;

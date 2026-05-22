@@ -137,7 +137,7 @@ int sd_ndisc_attach_event(sd_ndisc *nd, sd_event *event, int64_t priority) {
         else {
                 r = sd_event_default(&nd->event);
                 if (r < 0)
-                        return 0;
+                        return r;
         }
 
         nd->event_priority = priority;
