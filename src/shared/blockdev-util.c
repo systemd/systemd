@@ -642,15 +642,9 @@ int path_get_whole_disk(const char *path, bool backing, dev_t *ret) {
         return fd_get_whole_disk(fd, backing, ret);
 }
 
-int block_device_add_partition(
-                int fd,
-                const char *name,
-                int nr,
-                uint64_t start,
-                uint64_t size) {
+int block_device_add_partition(int fd, int nr, uint64_t start, uint64_t size) {
 
         assert(fd >= 0);
-        assert(name);
         assert(nr > 0);
 
         struct blkpg_partition bp = {
@@ -665,21 +659,12 @@ int block_device_add_partition(
                 .datalen = sizeof(bp),
         };
 
-        if (strlen(name) >= sizeof(bp.devname))
-                return -EINVAL;
-
-        strcpy(bp.devname, name);
-
         return RET_NERRNO(ioctl(fd, BLKPG, &ba));
 }
 
-int block_device_remove_partition(
-                int fd,
-                const char *name,
-                int nr) {
+int block_device_remove_partition(int fd, int nr) {
 
         assert(fd >= 0);
-        assert(name);
         assert(nr > 0);
 
         struct blkpg_partition bp = {
@@ -691,11 +676,6 @@ int block_device_remove_partition(
                 .data = &bp,
                 .datalen = sizeof(bp),
         };
-
-        if (strlen(name) >= sizeof(bp.devname))
-                return -EINVAL;
-
-        strcpy(bp.devname, name);
 
         return RET_NERRNO(ioctl(fd, BLKPG, &ba));
 }
@@ -824,7 +804,7 @@ int block_device_remove_all_partitions(sd_device *dev, int fd) {
                 if (r < 0 && r != -ENOENT)
                         log_debug_errno(r, "Failed to forget btrfs device %s, ignoring: %m", devname);
 
-                r = block_device_remove_partition(fd, devname, nr);
+                r = block_device_remove_partition(fd, nr);
                 if (r == -ENODEV) {
                         log_debug("Kernel removed partition %s before us, ignoring", devname);
                         continue;
