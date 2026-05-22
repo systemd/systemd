@@ -523,9 +523,6 @@ CHANGES WITH 261 in spe:
         * systemd-vmspawn now uses the QEMU built-in vdagent (clipboard,
           resolution sync) instead of spicevmc.
 
-        * systemd-vmspawn gained a new --print-profiles command that falls
-          back to a non-JSON representation when the output is not JSON.
-
         * systemd-vmspawn's --grow-image now detects and rejects qcow2
           images, where the operation is not supported.
 
@@ -533,7 +530,7 @@ CHANGES WITH 261 in spe:
           into the VM.
 
         * systemd-vmspawn gained support for a new --coco= switch for enabling
-          Confidential Comuting. Currently, it only supports AMD SEV-SNP.
+          Confidential Computing. Currently, it only supports AMD SEV-SNP.
 
         * A new 'storagectl' command line tool and an accompanying
           io.systemd.StorageProvider Varlink interface have been added,
@@ -564,10 +561,10 @@ CHANGES WITH 261 in spe:
           recorded alongside the existing PID/comm metadata.
 
         * systemd-coredump will now pick up a new field COREDUMP_CODE= for all
-          coredumps that happen. This is a kernel provided field that contains
-          details about the reason for the coredump, with various details
-          depending on the architecture. "coredumpctl info" has been updated in
-          order to be able to decode this new field.
+          coredumps that happen. This is a field provided by kernel 7.1 that
+          contains details about the reason for the coredump, with various
+          details depending on the architecture. "coredumpctl info" has been
+          updated in order to be able to decode this new field.
 
         Changes in systemd-creds, systemd-cryptsetup and
         systemd-cryptenroll:
