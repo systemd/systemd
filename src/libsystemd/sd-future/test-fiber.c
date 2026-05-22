@@ -817,7 +817,7 @@ TEST(fiber_floating) {
         ASSERT_EQ(counter, 2);
 }
 
-static int drop_extra_ref(sd_future *f) {
+static int drop_extra_ref(sd_future *f, void *userdata) {
         /* Drop an extra ref the test installed before the callback fires. After this returns, the
          * floating self-ref is the only thing keeping the future alive — exercising the path where
          * the floating unref in fiber_run() is the last unref. */
@@ -836,9 +836,10 @@ TEST(fiber_floating_callback_drops_ref) {
 
         ASSERT_OK(sd_fiber_set_floating(f, true));
 
-        /* Bump the ref for the callback to drop, then install the callback. */
+        /* Bump the ref for the callback to drop, then install the callback (floating slot,
+         * lifetime bound to f). */
         sd_future_ref(f);
-        ASSERT_OK(sd_future_set_callback(f, drop_extra_ref, NULL));
+        ASSERT_OK(sd_future_add_callback(f, /* ret_slot= */ NULL, drop_extra_ref, NULL));
 
         /* Drop our handle. Refs remaining: floating self-ref + the extra ref the callback will drop. */
         f = sd_future_unref(f);

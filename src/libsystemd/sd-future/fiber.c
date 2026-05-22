@@ -798,7 +798,7 @@ int sd_fiber_sleep(uint64_t usec) {
         if (r < 0)
                 return r;
 
-        return sd_fiber_suspend();
+        return sd_fiber_await(timer);
 }
 
 int sd_fiber_await(sd_future *target) {
@@ -819,12 +819,16 @@ int sd_fiber_await(sd_future *target) {
         if (sd_event_get_state(fiber->event) == SD_EVENT_FINISHED)
                 return -ECANCELED;
 
-        _cleanup_(sd_future_cancel_wait_unrefp) sd_future *wait = NULL;
-        r = sd_future_new_wait(target, &wait);
+        _cleanup_(sd_future_slot_unrefp) sd_future_slot *slot = NULL;
+        r = sd_future_add_callback(target, &slot, sd_future_resume_callback, f);
         if (r < 0)
                 return r;
 
-        return sd_fiber_suspend();
+        r = sd_fiber_suspend();
+        if (r < 0)
+                return r;
+
+        return sd_future_result(target);
 }
 
 sd_future* sd_fiber_timeout(uint64_t timeout) {
@@ -836,7 +840,7 @@ sd_future* sd_fiber_timeout(uint64_t timeout) {
         if (timeout == USEC_INFINITY)
                 return NULL;
 
-        sd_future *timer;
+        _cleanup_(sd_future_cancel_wait_unrefp) sd_future *timer = NULL;
         r = future_new_time_relative(
                         fiber->event,
                         CLOCK_MONOTONIC,
@@ -848,5 +852,12 @@ sd_future* sd_fiber_timeout(uint64_t timeout) {
                 return NULL; /* On allocation failure no timer is armed and the scope becomes a no-op.
                               * Errors here are rare; if the caller cares they can compare to NULL. */
 
-        return timer;
+        /* The whole point of SD_FIBER_TIMEOUT is to wake the calling fiber when the deadline
+         * fires (so a later sd_fiber_suspend / sd_fiber_await returns -ETIME from this timer's
+         * resolve). Install a floating resume callback bound to the timer's lifetime. */
+        r = sd_future_add_callback(timer, /* ret_slot= */ NULL, sd_future_resume_callback, sd_fiber_get_current());
+        if (r < 0)
+                return NULL;
+
+        return TAKE_PTR(timer);
 }
