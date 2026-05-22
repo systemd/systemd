@@ -84,7 +84,7 @@ int future_new_io(sd_event *e, int fd, uint32_t events, sd_future **ret) {
         if (IN_SET(sd_event_get_state(e), SD_EVENT_EXITING, SD_EVENT_FINISHED))
                 return -ECANCELED;
 
-        _cleanup_(sd_future_unrefp) sd_future *f = NULL;
+        _cleanup_(sd_future_cancel_unrefp) sd_future *f = NULL;
         r = sd_future_new(&io_future_ops, &f);
         if (r < 0)
                 return r;
@@ -200,7 +200,7 @@ static int future_new_time_internal(
         if (IN_SET(sd_event_get_state(e), SD_EVENT_EXITING, SD_EVENT_FINISHED))
                 return -ECANCELED;
 
-        _cleanup_(sd_future_unrefp) sd_future *f = NULL;
+        _cleanup_(sd_future_cancel_unrefp) sd_future *f = NULL;
         r = sd_future_new(&time_future_ops, &f);
         if (r < 0)
                 return r;

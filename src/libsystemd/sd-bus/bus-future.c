@@ -64,7 +64,7 @@ int bus_call_future(sd_bus *bus, sd_bus_message *m, uint64_t usec, sd_future **r
         assert(m);
         assert(ret);
 
-        _cleanup_(sd_future_unrefp) sd_future *f = NULL;
+        _cleanup_(sd_future_cancel_unrefp) sd_future *f = NULL;
         r = sd_future_new(&bus_future_ops, &f);
         if (r < 0)
                 return r;
