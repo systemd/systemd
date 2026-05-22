@@ -29,11 +29,24 @@
             a user at the console, and rpm-ostree (generally) needs an "administrative user" at the computer.
             Without this default, distributions hoping to use sysupdate as an update mechanism will have to
             set the policy to it anyhow.
+
+            Cancellation actions are always allowed by default, as the user can typically pull the plug on
+            the computer to prevent an action completing anyway.
         -->
 
         <action id="org.freedesktop.sysupdate1.check">
                 <description gettext-domain="systemd">Check for system updates</description>
                 <message gettext-domain="systemd">Authentication is required to check for system updates.</message>
+                <defaults>
+                        <allow_any>auth_admin</allow_any>
+                        <allow_inactive>auth_admin</allow_inactive>
+                        <allow_active>yes</allow_active>
+                </defaults>
+        </action>
+
+        <action id="org.freedesktop.sysupdate1.cancel-check">
+                <description gettext-domain="systemd">Cancel checking for system updates</description>
+                <message gettext-domain="systemd">Authentication is required to cancel checking for system updates.</message>
                 <defaults>
                         <allow_any>auth_admin</allow_any>
                         <allow_inactive>auth_admin</allow_inactive>
@@ -51,6 +64,16 @@
                 </defaults>
         </action>
 
+        <action id="org.freedesktop.sysupdate1.cancel-update">
+                <description gettext-domain="systemd">Cancel installing system updates</description>
+                <message gettext-domain="systemd">Authentication is required to cancel installing system updates.</message>
+                <defaults>
+                        <allow_any>auth_admin</allow_any>
+                        <allow_inactive>auth_admin</allow_inactive>
+                        <allow_active>yes</allow_active>
+                </defaults>
+        </action>
+
         <action id="org.freedesktop.sysupdate1.update-to-version">
                 <description gettext-domain="systemd">Install specific system version</description>
                 <message gettext-domain="systemd">Authentication is required to update the system to a specific (possibly old) version.</message>
@@ -61,13 +84,33 @@
                 </defaults>
         </action>
 
+        <action id="org.freedesktop.sysupdate1.cancel-update-to-version">
+                <description gettext-domain="systemd">Cancel installing specific system version</description>
+                <message gettext-domain="systemd">Authentication is required to cancel updating the system to a specific (possibly old) version.</message>
+                <defaults>
+                        <allow_any>auth_admin</allow_any>
+                        <allow_inactive>auth_admin</allow_inactive>
+                        <allow_active>yes</allow_active>
+                </defaults>
+        </action>
+
         <action id="org.freedesktop.sysupdate1.vacuum">
-                <description gettext-domain="systemd">Cleanup old system updates</description>
-                <message gettext-domain="systemd">Authentication is required to cleanup old system updates.</message>
+                <description gettext-domain="systemd">Clean up old system updates</description>
+                <message gettext-domain="systemd">Authentication is required to clean up old system updates.</message>
                 <defaults>
                         <allow_any>auth_admin</allow_any>
                         <allow_inactive>auth_admin</allow_inactive>
                         <allow_active>auth_admin_keep</allow_active>
+                </defaults>
+        </action>
+
+        <action id="org.freedesktop.sysupdate1.cancel-vacuum">
+                <description gettext-domain="systemd">Cancel cleaning up old system updates</description>
+                <message gettext-domain="systemd">Authentication is required to cancel cleanup of old system updates.</message>
+                <defaults>
+                        <allow_any>auth_admin</allow_any>
+                        <allow_inactive>auth_admin</allow_inactive>
+                        <allow_active>yes</allow_active>
                 </defaults>
         </action>
 
