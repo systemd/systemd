@@ -67,6 +67,16 @@ if grep -qw luo_nboot=1 /proc/cmdline; then
     # Verify that the fd store of the main test service survived the kexec.
     /usr/lib/systemd/tests/unit-tests/manual/test-luo check
 
+    # Negative path: a unit stored a child LUO session named like PID 1's own
+    # ("systemd") on the first boot. PID 1's serialize step must have refused to
+    # serialize that fd store entry (anti-hijack guard in
+    # manager_luo_serialize_fd_stores()), so it must NOT have been restored here.
+    /usr/lib/systemd/tests/unit-tests/manual/test-luo check-hijack
+    n_hijack_fds=$(systemctl show -P NFileDescriptorStore TEST-91-LIVEUPDATE-hijack.service)
+    assert_eq "${n_hijack_fds}" "0"
+    rm -f /run/systemd/system/TEST-91-LIVEUPDATE-hijack.service
+    systemctl daemon-reload
+
     # Verify that the user manager also preserved its FD store
     n_user_at_fds=$(systemctl show -P NFileDescriptorStore "${TESTUSER_USER_SVC}")
     test "${n_user_at_fds}" -ge 3
@@ -248,6 +258,15 @@ EOF
     systemctl start systemd-nspawn@fdstore.service
     timeout 30s bash -c \
         "until [[ \"\$(systemctl show -P NFileDescriptorStore systemd-nspawn@fdstore.service)\" -ge 2 ]]; do sleep 0.5; done"
+
+    # Negative path: store a fd store entry that holds a child LUO session named
+    # like PID 1's own ("systemd"). On kexec PID 1 must refuse to serialize it
+    # (anti-hijack guard), so it must not be restored on the next boot.
+    write_late_unit system TEST-91-LIVEUPDATE-hijack \
+        "/usr/lib/systemd/tests/unit-tests/manual/test-luo store-hijack"
+    systemctl start TEST-91-LIVEUPDATE-hijack.service
+    timeout 30s bash -c \
+        "until [[ \"\$(systemctl show -P NFileDescriptorStore TEST-91-LIVEUPDATE-hijack.service)\" -ge 1 ]]; do sleep 0.5; done"
 
     # Write and start each late unit with distinct session name prefixes
     # to avoid collisions in the LUO session namespace.
