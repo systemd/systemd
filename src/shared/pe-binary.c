@@ -200,7 +200,7 @@ int pe_read_section_data(
 
         size_t n = le32toh(section->VirtualSize);
         if (n > MIN(max_size, (size_t) SSIZE_MAX))
-                return -E2BIG;
+                return -EBADMSG;
 
         _cleanup_free_ void *data = malloc(n+1);
         if (!data)
@@ -210,7 +210,7 @@ int pe_read_section_data(
         if (ss < 0)
                 return -errno;
         if ((size_t) ss != n)
-                return -EIO;
+                return -EBADMSG;
 
         if (ret_size)
                 *ret_size = n;
