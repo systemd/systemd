@@ -551,7 +551,7 @@ static const MetricFamily metric_family_table[] = {
         },
         SMBIOS_STANDARD_FIELD("SystemProductName"),
         SMBIOS_STANDARD_FIELD("SystemVersion"),
-        SMBIOS_STANDARD_FIELD("SystemSerialNumber"),
+        SMBIOS_STANDARD_FIELD("SystemSKUNumber"),
         SMBIOS_STANDARD_FIELD("SystemFamily"),
         SMBIOS_STANDARD_FIELD("SystemSerialNumber"),
         SMBIOS_STANDARD_FIELD("SystemUUID"),
