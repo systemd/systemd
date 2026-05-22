@@ -229,6 +229,9 @@ CHANGES WITH 261 in spe:
           and Type 11 in PCR 1, since some firmwares do not measure them, even
           though they are supposed to.
 
+        * A new systemd-pcrlogin@.service service will now measure a minimized
+          user record into the new 'login' NvPCR upon first login.
+
         Changes in systemd-tmpfiles and systemd-sysusers:
 
         * A new tmpfiles.d/root.conf has been added that sets permissions on
@@ -548,6 +551,12 @@ CHANGES WITH 261 in spe:
           binaries, eliminating the hard runtime dependency for systems that do
           not actually use it.
 
+        * systemd-cryptenroll now defaults to sealing the LUKS2 key using
+          RSA-OAEP with SHA-256 (or SHA-1 if the hardware doesn't support it),
+          in order to make the setup more robust against theoretical future
+          brute force attacks. Existing PKCS#1 v1.5 enrollment remain supported
+          by systemd-cryptsetup for backward compatibility.
+
         Changes in Dynamic Linking:
 
         * libgnutls, libmicrohttpd, libcurl, libcrypto, libssl, libfdisk
@@ -615,13 +624,14 @@ CHANGES WITH 261 in spe:
 
         * The systemd-report framework introduced in v260 has been
           substantially extended. Basic system metrics
-          (PhysicalMemoryBytes, CPUsOnline) are now provided by a new
-          systemd-report-basic@.service that is enabled by default via its
-          report-basic.socket activation unit. Per-cgroup metrics (CPU time,
-          etc.) and per-service metrics are exposed through dedicated Varlink
-          services. systemd-report gained the ability to upload collected
-          reports via a Varlink socket directory or HTTP destinations, and
-          to inject custom HTTP headers when doing so.
+          (PhysicalMemoryBytes, CPUsOnline, SMBIOS fields, /etc/machine-info
+          fields, Confidential Computing vendor info, TPM2 vendor info) are
+          now provided by a new systemd-report-basic@.service that is enabled
+          by default via its report-basic.socket activation unit. Per-cgroup
+          metrics (CPU time, etc.) and per-service metrics are exposed through
+          dedicated Varlink services. systemd-report gained the ability to
+          upload collected reports via a Varlink socket directory or HTTP
+          destinations, and to inject custom HTTP headers when doing so.
 
         * 'systemctl kexec' gained a new --kernel-cmdline= argument that
           overrides the kernel command line for kexec invocations.
