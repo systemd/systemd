@@ -171,7 +171,12 @@ static int read_definitions(
         return 0;
 }
 
-static int context_read_definitions(Context *c, const char* node, bool requires_enabled_transfers) {
+typedef enum ReadDefinitionsFlags {
+        READ_DEFINITIONS_REQUIRES_ENABLED_TRANSFERS = 1 << 0,
+        READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS     = 1 << 1,
+} ReadDefinitionsFlags;
+
+static int context_read_definitions(Context *c, const char* node, ReadDefinitionsFlags flags) {
         _cleanup_strv_free_ char **dirs = NULL;
         int r;
 
@@ -244,7 +249,8 @@ static int context_read_definitions(Context *c, const char* node, bool requires_
                         log_warning("As of v257, transfer definitions should have the '.transfer' extension.");
         }
 
-        if (c->n_transfers + (requires_enabled_transfers ? 0 : c->n_disabled_transfers) == 0) {
+        if (FLAGS_SET(flags, READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS) &&
+            c->n_transfers + (FLAGS_SET(flags, READ_DEFINITIONS_REQUIRES_ENABLED_TRANSFERS) ? 0 : c->n_disabled_transfers) == 0) {
                 if (arg_component)
                         return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
                                                "No transfer definitions for component '%s' found.",
@@ -925,7 +931,7 @@ static int context_vacuum(
         return 0;
 }
 
-static int context_make_offline(Context **ret, const char *node, bool requires_enabled_transfers) {
+static int context_make_offline(Context **ret, const char *node, ReadDefinitionsFlags read_definitions_flags) {
         _cleanup_(context_freep) Context* context = NULL;
         int r;
 
@@ -938,7 +944,7 @@ static int context_make_offline(Context **ret, const char *node, bool requires_e
         if (!context)
                 return log_oom();
 
-        r = context_read_definitions(context, node, requires_enabled_transfers);
+        r = context_read_definitions(context, node, read_definitions_flags);
         if (r < 0)
                 return r;
 
@@ -959,7 +965,8 @@ static int context_make_online(Context **ret, const char *node) {
         /* Like context_make_offline(), but also communicates with the update source looking for new
          * versions (as long as --offline is not specified on the command line). */
 
-        r = context_make_offline(&context, node, /* requires_enabled_transfers= */ true);
+        r = context_make_offline(&context, node,
+                                 READ_DEFINITIONS_REQUIRES_ENABLED_TRANSFERS | READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS);
         if (r < 0)
                 return r;
 
@@ -1365,7 +1372,8 @@ static int verb_features(int argc, char *argv[], uintptr_t _data, void *userdata
         if (r < 0)
                 return r;
 
-        r = context_make_offline(&context, loop_device ? loop_device->node : NULL, /* requires_enabled_transfers= */ false);
+        r = context_make_offline(&context, loop_device ? loop_device->node : NULL,
+                                 READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS);
         if (r < 0)
                 return r;
 
@@ -1633,7 +1641,8 @@ static int verb_vacuum(int argc, char *argv[], uintptr_t _data, void *userdata) 
         if (r < 0)
                 return r;
 
-        r = context_make_offline(&context, loop_device ? loop_device->node : NULL, /* requires_enabled_transfers= */ false);
+        r = context_make_offline(&context, loop_device ? loop_device->node : NULL,
+                                 READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS);
         if (r < 0)
                 return r;
 
@@ -1655,7 +1664,8 @@ static int verb_pending_or_reboot(int argc, char *argv[], uintptr_t _data, void 
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "The --root=/--image= switches may not be combined with the '%s' operation.", argv[0]);
 
-        r = context_make_offline(&context, /* node= */ NULL, /* requires_enabled_transfers= */ true);
+        r = context_make_offline(&context, /* node= */ NULL,
+                                 READ_DEFINITIONS_REQUIRES_ENABLED_TRANSFERS | READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS);
         if (r < 0)
                 return r;
 
@@ -1721,6 +1731,7 @@ static int component_name_valid(const char *c) {
 VERB_NOARG(verb_components, "components",
            "Show list of components");
 static int verb_components(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        _cleanup_(context_freep) Context* context = NULL;
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
         _cleanup_set_free_ Set *names = NULL;
@@ -1730,6 +1741,10 @@ static int verb_components(int argc, char *argv[], uintptr_t _data, void *userda
         assert(argc <= 1);
 
         r = process_image(/* ro= */ false, &mounted_dir, &loop_device);
+        if (r < 0)
+                return r;
+
+        r = context_make_offline(&context, loop_device ? loop_device->node : NULL, 0);
         if (r < 0)
                 return r;
 
@@ -1747,7 +1762,6 @@ static int verb_components(int argc, char *argv[], uintptr_t _data, void *userda
                 ConfFile *e = *i;
 
                 if (streq(e->filename, "sysupdate.d")) {
-                        has_default_component = true;
                         continue;
                 }
 
@@ -1774,6 +1788,14 @@ static int verb_components(int argc, char *argv[], uintptr_t _data, void *userda
                         return log_error_errno(r, "Failed to add component '%s' to set: %m", n);
                 TAKE_PTR(n);
         }
+
+        /* Does the system have at least one transfer file in /etc/sysupdate.d, which can be considered a
+         * TARGET_HOST? See target_get_argument() in sysupdated.c */
+        has_default_component = (!arg_definitions &&
+                                 !arg_component &&
+                                 !arg_root &&
+                                 !arg_image &&
+                                 context->n_transfers > 0);
 
         /* We use simple free() rather than strv_free() here, since set_free() will free the strings for us */
         _cleanup_free_ char **z = set_get_strv(names);
