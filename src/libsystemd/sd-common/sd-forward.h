@@ -76,12 +76,6 @@ typedef enum sd_lldp_multicast_mode_t sd_lldp_multicast_mode_t;
 typedef enum sd_ndisc_event_t sd_ndisc_event_t;
 
 typedef struct sd_ipv4ll sd_ipv4ll;
-typedef struct sd_dhcp_client sd_dhcp_client;
-typedef struct sd_dhcp_lease sd_dhcp_lease;
-typedef struct sd_dhcp_route sd_dhcp_route;
-typedef struct sd_dhcp_relay sd_dhcp_relay;
-typedef struct sd_dhcp_relay_interface sd_dhcp_relay_interface;
-typedef struct sd_dhcp_server sd_dhcp_server;
 typedef struct sd_dns_resolver sd_dns_resolver;
 typedef struct sd_ndisc sd_ndisc;
 typedef struct sd_radv sd_radv;

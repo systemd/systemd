@@ -4,13 +4,11 @@
 #include "sd-dhcp-client.h"
 
 #include "dhcp-client-id-internal.h"
+#include "dhcp-forward.h"
 #include "dhcp-protocol.h"
 #include "ether-addr-util.h"
 #include "iovec-wrapper.h"
 #include "network-common.h"
-#include "sd-forward.h"
-#include "socket-util.h"
-#include "tlv-util.h"
 
 struct sd_dhcp_client {
         unsigned n_ref;

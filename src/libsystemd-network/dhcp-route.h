@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-forward.h"
+#include <netinet/in.h>
 
-#include "in-addr-util.h"  /* IWYU pragma: keep */
+#include "dhcp-forward.h"   /* IWYU pragma: export */
 
 struct sd_dhcp_route {
         struct in_addr dst_addr;

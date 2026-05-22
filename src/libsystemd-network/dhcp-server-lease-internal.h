@@ -4,10 +4,8 @@
 #include "sd-dhcp-server-lease.h"
 
 #include "dhcp-client-id-internal.h"
-#include "dhcp-server-internal.h"
-#include "dhcp-server-request.h"
+#include "dhcp-forward.h"
 #include "ether-addr-util.h"
-#include "sd-forward.h"
 
 typedef struct sd_dhcp_server_lease {
         unsigned n_ref;

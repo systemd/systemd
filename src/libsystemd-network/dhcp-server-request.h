@@ -1,13 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-dhcp-server-lease.h"
-
 #include "dhcp-client-id-internal.h"
-#include "dhcp-message.h"
+#include "dhcp-forward.h"
 #include "ether-addr-util.h"
-#include "sd-forward.h"
-#include "sparse-endian.h"
 #include "time-util.h"
 
 typedef struct DHCPRequest {

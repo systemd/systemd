@@ -1,13 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <netinet/in.h>
+#include <sys/uio.h>
+
 #include "sd-dhcp-relay.h"
 
-#include "dhcp-message.h"
-#include "ether-addr-util.h"
+#include "dhcp-forward.h"
 #include "network-common.h"
-#include "sd-forward.h"
-#include "tlv-util.h"
 
 #define DHCP_RELAY_IFINDEX_UNBOUND (-100)
 

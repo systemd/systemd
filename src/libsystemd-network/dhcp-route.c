@@ -2,7 +2,7 @@
 
 #include "sd-dhcp-lease.h"
 
-#include "dhcp-route.h"  /* IWYU pragma: keep */
+#include "dhcp-route.h"
 
 int sd_dhcp_route_get_destination(sd_dhcp_route *route, struct in_addr *ret) {
         assert_return(route, -EINVAL);
