@@ -1,8 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <linux/magic.h>
+#include <linux/nsfs.h>
+#include <sys/ioctl.h>
 #include <unistd.h>
 
+#include "sd-daemon.h"
 #include "sd-json.h"
 #include "sd-netlink.h"
 
@@ -23,6 +26,7 @@
 #include "uid-classification.h"
 #include "user-util.h"
 #include "userns-registry.h"
+#include "userns-restrict.h"
 
 int userns_registry_open_fd(void) {
         int fd;
@@ -368,23 +372,6 @@ int userns_registry_name_exists(int dir_fd, const char *name) {
         return true;
 }
 
-int userns_registry_inode_exists(int dir_fd, uint64_t inode) {
-        _cleanup_free_ char *fn = NULL;
-
-        assert(dir_fd >= 0);
-
-        if (inode <= 0)
-                return -EINVAL;
-
-        if (asprintf(&fn, "i%" PRIu64 ".userns", inode) < 0)
-                return -ENOMEM;
-
-        if (faccessat(dir_fd, fn, F_OK, AT_SYMLINK_NOFOLLOW) < 0)
-                return errno == ENOENT ? false : -errno;
-
-        return true;
-}
-
 int userns_registry_load_by_start_uid(int dir_fd, uid_t start, UserNamespaceInfo **ret) {
         _cleanup_(userns_info_freep) UserNamespaceInfo *userns_info = NULL;
         _cleanup_close_ int registry_fd = -EBADF;
@@ -482,6 +469,97 @@ int userns_registry_load_by_userns_inode(int dir_fd, uint64_t inode, UserNamespa
                 *ret = TAKE_PTR(userns_info);
 
         return 0;
+}
+
+static void release_userns_inode_resources(struct userns_restrict_bpf *bpf, uint64_t inode) {
+        int r;
+
+        assert(inode != 0);
+
+        if (bpf) {
+                r = userns_restrict_reset_by_inode(bpf, inode);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to remove namespace inode from BPF map, ignoring: %m");
+        }
+
+        r = sd_notifyf(/* unset_environment= */ false,
+                       "FDSTOREREMOVE=1\n"
+                       "FDNAME=userns-%" PRIu64 "\n", inode);
+        if (r < 0)
+                log_warning_errno(r, "Failed to send fd store removal message, ignoring: %m");
+}
+
+void userns_registry_release_by_info(struct userns_restrict_bpf *bpf, int dir_fd, UserNamespaceInfo *info) {
+        int r;
+
+        assert(dir_fd >= 0);
+        assert(info);
+        assert(info->userns_inode != 0);
+
+        if (DEBUG_LOGGING) {
+                if (uid_is_valid(info->start_uid))
+                        log_debug("Removing user namespace mapping %" PRIu64 " for UID " UID_FMT ".", info->userns_inode, info->start_uid);
+                else
+                        log_debug("Removing user namespace mapping %" PRIu64 ".", info->userns_inode);
+        }
+
+        release_userns_inode_resources(bpf, info->userns_inode);
+
+        r = userns_info_remove_cgroups(info);
+        if (r < 0)
+                log_warning_errno(r, "Failed to remove cgroups of user namespace, ignoring: %m");
+
+        r = userns_info_remove_netifs(info);
+        if (r < 0)
+                log_warning_errno(r, "Failed to remove netifs of user namespace, ignoring: %m");
+
+        r = userns_registry_remove(dir_fd, info);
+        if (r < 0)
+                log_warning_errno(r, "Failed to remove user namespace '%s', ignoring.", info->name);
+}
+
+void userns_registry_release_by_userns_inode(struct userns_restrict_bpf *bpf, int dir_fd, uint64_t inode) {
+        _cleanup_(userns_info_freep) UserNamespaceInfo *userns_info = NULL;
+        int r;
+
+        assert(dir_fd >= 0);
+        assert(inode != 0);
+
+        r = userns_registry_load_by_userns_inode(dir_fd, inode, &userns_info);
+        if (r >= 0)
+                return userns_registry_release_by_info(bpf, dir_fd, userns_info);
+
+        log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r,
+                       "Failed to find userns for inode %" PRIu64 ", ignoring: %m", inode);
+        log_debug("Removing user namespace mapping %" PRIu64 ".", inode);
+
+        /* No registry entry — still clean up the inode-keyed kernel resources (BPF map allowlist and
+         * fdstore fd), which can outlive a missing registry record. */
+        release_userns_inode_resources(bpf, inode);
+}
+
+int userns_info_verify_fd(int userns_fd, const UserNamespaceInfo *info) {
+        uint64_t live_id;
+
+        assert(userns_fd >= 0);
+        assert(info);
+
+        /* Verifies that userns_fd refers to the same user namespace described by info, distinguishing a
+         * live namespace from a different one that happens to have inherited the same inode after the
+         * original was destroyed. Returns 0 on match (also when the check cannot be performed because
+         * the stored or live id is unavailable on older kernels), -ESTALE on mismatch, or another
+         * negative errno on unexpected failure. */
+
+        if (info->userns_id == 0)
+                return 0;
+
+        if (ioctl(userns_fd, NS_GET_ID, &live_id) < 0) {
+                if (ERRNO_IS_IOCTL_NOT_SUPPORTED(errno))
+                        return 0;
+                return -errno;
+        }
+
+        return live_id == info->userns_id ? 0 : -ESTALE;
 }
 
 int userns_registry_load_by_name(int dir_fd, const char *name, UserNamespaceInfo **ret) {
