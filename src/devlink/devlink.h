@@ -121,8 +121,8 @@ extern const DevlinkVTable * const devlink_vtable[_DEVLINK_KIND_MAX];
                 log_internal(__level, __devlink_macro_error, file, line, func, "%s", __buf); \
         })
 
-Devlink *devlink_unref(Devlink *devlink);
-Devlink *devlink_ref(Devlink *devlink);
+Devlink *devlink_unref(Devlink *p);
+Devlink *devlink_ref(Devlink *p);
 DEFINE_TRIVIAL_DESTRUCTOR(devlink_destroy_callback, Devlink, devlink_unref);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Devlink*, devlink_unref);
 
@@ -143,7 +143,7 @@ void devlink_expected_removal_set(Devlink *devlink);
 void devlink_expected_removal_clear(Devlink *devlink);
 
 /* gperf */
-const struct ConfigPerfItem* devlink_gperf_lookup(const char *key, GPERF_LEN_TYPE length);
+const struct ConfigPerfItem* devlink_gperf_lookup(const char *str, GPERF_LEN_TYPE length);
 
 #define log_devlink_full_errno_zerook(cont, level, error, ...)                      \
         ({                                                                          \

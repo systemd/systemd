@@ -70,8 +70,8 @@ int devlink_match_copy(
                 const DevlinkMatch *src,
                 DevlinkMatchSet matchset);
 int devlink_match_duplicate(
-                DevlinkMatch *x,
-                const DevlinkMatch *y,
+                DevlinkMatch *dst,
+                const DevlinkMatch *src,
                 DevlinkMatchSet matchset);
 void devlink_match_genl_read(
                 sd_netlink_message *message,

@@ -16,7 +16,7 @@ const char* devlink_match_bit_to_string(DevlinkMatchBit bit) {
         return devlink_match_bit_position_to_string(__builtin_ctz(bit));
 }
 
-const DevlinkMatchVTable * const devlink_match_vtable[] = {
+static const DevlinkMatchVTable * const devlink_match_vtable[] = {
 };
 
 #define DEVLINK_MATCH_VTABLE_SIZE ELEMENTSOF(devlink_match_vtable)

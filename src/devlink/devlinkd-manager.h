@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-bus.h"
 #include "sd-event.h"
+#include "sd-forward.h"
 #include "sd-netlink.h"
 #include "hashmap.h"
 
