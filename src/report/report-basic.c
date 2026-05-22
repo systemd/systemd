@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <fcntl.h>
 #include <sys/utsname.h>
 
 #include "sd-id128.h"
@@ -10,6 +11,9 @@
 #include "architecture.h"
 #include "cpu-set-util.h"
 #include "env-file.h"
+#include "errno-util.h"
+#include "fd-util.h"
+#include "fileio.h"
 #include "hostname-setup.h"
 #include "hostname-util.h"
 #include "limits-util.h"
@@ -17,6 +21,7 @@
 #include "metrics.h"
 #include "os-util.h"
 #include "report-basic.h"
+#include "string-util.h"
 #include "virt.h"
 
 static int architecture_generate(const MetricFamily *mf, sd_varlink *link, void *userdata) {
@@ -245,6 +250,107 @@ static int machine_info_generate(const MetricFamily *mf, sd_varlink *link, void 
         return 0;
 }
 
+static int smbios_generate(const MetricFamily *mf, sd_varlink *link, void *userdata) {
+        enum {
+                SMBIOS_FIELD_SYS_VENDOR,
+                SMBIOS_FIELD_PRODUCT_NAME,
+                SMBIOS_FIELD_PRODUCT_VERSION,
+                SMBIOS_FIELD_PRODUCT_SKU,
+                SMBIOS_FIELD_PRODUCT_FAMILY,
+                SMBIOS_FIELD_PRODUCT_SERIAL,
+                SMBIOS_FIELD_PRODUCT_UUID,
+                SMBIOS_FIELD_BOARD_VENDOR,
+                SMBIOS_FIELD_BOARD_NAME,
+                SMBIOS_FIELD_BOARD_VERSION,
+                SMBIOS_FIELD_BOARD_SERIAL,
+                SMBIOS_FIELD_BOARD_ASSET_TAG,
+                SMBIOS_FIELD_BIOS_VENDOR,
+                SMBIOS_FIELD_BIOS_VERSION,
+                SMBIOS_FIELD_BIOS_DATE,
+                SMBIOS_FIELD_CHASSIS_TYPE,
+                SMBIOS_FIELD_CHASSIS_VENDOR,
+                SMBIOS_FIELD_CHASSIS_SERIAL,
+                SMBIOS_FIELD_CHASSIS_ASSET_TAG,
+                _SMBIOS_FIELD_MAX,
+        };
+
+        /* The sysfs attribute names exposed by the kernel below /sys/class/dmi/id/. The order must match the
+         * SMBIOS_STANDARD_FIELD() entries in the metric family table below. */
+        static const char* const smbios_files[_SMBIOS_FIELD_MAX] = {
+                /* SMBIOS Type 1 */
+                [SMBIOS_FIELD_SYS_VENDOR]        = "sys_vendor",
+                [SMBIOS_FIELD_PRODUCT_NAME]      = "product_name",
+                [SMBIOS_FIELD_PRODUCT_VERSION]   = "product_version",
+                [SMBIOS_FIELD_PRODUCT_SKU]       = "product_sku",
+                [SMBIOS_FIELD_PRODUCT_FAMILY]    = "product_family",
+                [SMBIOS_FIELD_PRODUCT_SERIAL]    = "product_serial",
+                [SMBIOS_FIELD_PRODUCT_UUID]      = "product_uuid",
+                /* SMBIOS Type 2 */
+                [SMBIOS_FIELD_BOARD_VENDOR]      = "board_vendor",
+                [SMBIOS_FIELD_BOARD_NAME]        = "board_name",
+                [SMBIOS_FIELD_BOARD_VERSION]     = "board_version",
+                [SMBIOS_FIELD_BOARD_SERIAL]      = "board_serial",
+                [SMBIOS_FIELD_BOARD_ASSET_TAG]   = "board_asset_tag",
+                /* SMBIOS Type 0 */
+                [SMBIOS_FIELD_BIOS_VENDOR]       = "bios_vendor",
+                [SMBIOS_FIELD_BIOS_VERSION]      = "bios_version",
+                [SMBIOS_FIELD_BIOS_DATE]         = "bios_date",
+                /* SMBIOS Type 3 */
+                [SMBIOS_FIELD_CHASSIS_TYPE]      = "chassis_type",
+                [SMBIOS_FIELD_CHASSIS_VENDOR]    = "chassis_vendor",
+                [SMBIOS_FIELD_CHASSIS_SERIAL]    = "chassis_serial",
+                [SMBIOS_FIELD_CHASSIS_ASSET_TAG] = "chassis_asset_tag",
+        };
+
+        int r;
+
+        assert(mf && mf->name);
+        assert(link);
+
+        /* Reports the fundamental SMBIOS/DMI identification fields. Some of these (serial numbers, asset
+         * tags, the system UUID) are privacy sensitive and only readable by root — if we lack the
+         * privileges to read them we simply skip them. */
+
+        _cleanup_close_ int dir_fd = open("/sys/class/dmi/id", O_RDONLY|O_DIRECTORY|O_CLOEXEC);
+        if (dir_fd < 0) {
+                log_full_errno(ERRNO_IS_DEVICE_ABSENT(errno) ? LOG_DEBUG : LOG_WARNING, errno,
+                               "Failed to open /sys/class/dmi/id/, ignoring: %m");
+                return 0;
+        }
+
+        for (size_t i = 0; i < _SMBIOS_FIELD_MAX; i++) {
+                _cleanup_free_ char *buf = NULL;
+
+                r = read_virtual_file_at(dir_fd, smbios_files[i], /* max_size= */ SIZE_MAX, &buf, /* ret_size= */ NULL);
+                if (r < 0) {
+                        log_full_errno(r == -ENOENT || ERRNO_IS_NEG_PRIVILEGE(r) ? LOG_DEBUG : LOG_WARNING, r,
+                                       "Failed to read SMBIOS field '%s', ignoring: %m", smbios_files[i]);
+                        continue;
+                }
+
+                delete_trailing_chars(buf, NEWLINE);
+
+                if (isempty(buf))
+                        continue;
+
+                if (!string_is_safe(buf, STRING_ALLOW_BACKSLASHES|STRING_ALLOW_QUOTES|STRING_ALLOW_GLOBS)) {
+                        log_debug("SMBIOS field '%s' contains unsafe characters, ignoring.", smbios_files[i]);
+                        continue;
+                }
+
+                r = metric_build_send_string(
+                                mf + i,
+                                link,
+                                /* object= */ NULL,
+                                buf,
+                                /* fields= */ NULL);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 static int virtualization_generate(const MetricFamily *mf, sd_varlink *link, void *userdata) {
         assert(mf && mf->name);
         assert(link);
@@ -273,6 +379,14 @@ static int virtualization_generate(const MetricFamily *mf, sd_varlink *link, voi
         {                                                               \
                 METRIC_IO_SYSTEMD_BASIC_PREFIX "MachineInfo." name,     \
                 "Machine identification (" name "= field from machine-info)", \
+                METRIC_FAMILY_TYPE_STRING,                              \
+                .generate = NULL,                                       \
+        }
+
+#define SMBIOS_STANDARD_FIELD(name)                                     \
+        {                                                               \
+                METRIC_IO_SYSTEMD_BASIC_PREFIX "SMBIOS." name,          \
+                "Firmware/hardware identification (" name " field from SMBIOS/DMI)", \
                 METRIC_FAMILY_TYPE_STRING,                              \
                 .generate = NULL,                                       \
         }
@@ -349,6 +463,34 @@ static const MetricFamily metric_family_table[] = {
                 METRIC_FAMILY_TYPE_GAUGE,
                 .generate = physical_memory_generate,
         },
+        {
+                /* NB: Here we use the naming of the field as per SMBIOS specification, i.e. undo the weird
+                 * renaming that Linux did on the fields. When new fields are added here, please make sure to
+                 * check the specification again for naming them. */
+                METRIC_IO_SYSTEMD_BASIC_PREFIX "SMBIOS.SystemManufacturer",
+                "Firmware/hardware identification (SystemManufacturer field from SMBIOS/DMI)",
+                METRIC_FAMILY_TYPE_STRING,
+                .generate = smbios_generate,
+        },
+        SMBIOS_STANDARD_FIELD("SystemProductName"),
+        SMBIOS_STANDARD_FIELD("SystemVersion"),
+        SMBIOS_STANDARD_FIELD("SystemSKUNumber"),
+        SMBIOS_STANDARD_FIELD("SystemFamily"),
+        SMBIOS_STANDARD_FIELD("SystemSerialNumber"),
+        SMBIOS_STANDARD_FIELD("SystemUUID"),
+        SMBIOS_STANDARD_FIELD("BaseBoardManufacturer"),
+        SMBIOS_STANDARD_FIELD("BaseBoardProduct"),
+        SMBIOS_STANDARD_FIELD("BaseBoardVersion"),
+        SMBIOS_STANDARD_FIELD("BaseBoardSerial"),
+        SMBIOS_STANDARD_FIELD("BaseBoardAssetTag"),
+        SMBIOS_STANDARD_FIELD("FirmwareVendor"),
+        SMBIOS_STANDARD_FIELD("FirmwareVersion"),
+        SMBIOS_STANDARD_FIELD("FirmwareReleaseDate"),
+        SMBIOS_STANDARD_FIELD("ChassisType"),
+        SMBIOS_STANDARD_FIELD("ChassisManufacturer"),
+        SMBIOS_STANDARD_FIELD("ChassisSerialNumber"),
+        SMBIOS_STANDARD_FIELD("ChassisAssetTagNumber"),
+        /* Keep those ↑ in sync with smbios_generate(). */
         {
                 METRIC_IO_SYSTEMD_BASIC_PREFIX "Virtualization",
                 "Virtualization type",
