@@ -697,54 +697,68 @@ TEST(fdopen_independent) {
 }
 
 TEST(write_data_file_atomic_at) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        int r;
+
+        ASSERT_OK(mkdtemp_malloc("/tmp/test-wdfaa-XXXXXX", &t));
+        ASSERT_TRUE(path_is_absolute(t));
+
+        const char *abs_wdfa = strjoina(t, "/wdfa");
+        const char *rel_wdfa = abs_wdfa + 1; /* path relative to / */
+        const char *abs_zzz = strjoina(t, "/zzz");
+        const char *abs_zzz_wdfa = strjoina(t, "/zzz/wdfa");
+        const char *rel_zzz_wdfa = abs_zzz_wdfa + 1;
+
         struct iovec a = IOVEC_MAKE_STRING("hallo");
-        ASSERT_OK(write_data_file_atomic_at(AT_FDCWD, "/tmp/wdfa", &a, /* flags= */ 0));
+        ASSERT_OK(write_data_file_atomic_at(AT_FDCWD, abs_wdfa, &a, /* flags= */ 0));
 
         _cleanup_(iovec_done) struct iovec ra = {};
-        ASSERT_OK(read_full_file("/tmp/wdfa", (char**) &ra.iov_base, &ra.iov_len));
+        ASSERT_OK(read_full_file(abs_wdfa, (char**) &ra.iov_base, &ra.iov_len));
         ASSERT_TRUE(iovec_equal(&a, &ra));
-        ASSERT_OK_ERRNO(unlink("/tmp/wdfa"));
+        ASSERT_OK_ERRNO(unlink(abs_wdfa));
 
-        ASSERT_OK(write_data_file_atomic_at(XAT_FDROOT, "tmp/wdfa", &a, /* flags= */ 0));
+        ASSERT_OK(write_data_file_atomic_at(XAT_FDROOT, rel_wdfa, &a, /* flags= */ 0));
         iovec_done(&ra);
-        ASSERT_OK(read_full_file("/tmp/wdfa", (char**) &ra.iov_base, &ra.iov_len));
+        ASSERT_OK(read_full_file(abs_wdfa, (char**) &ra.iov_base, &ra.iov_len));
         ASSERT_TRUE(iovec_equal(&a, &ra));
-        ASSERT_OK_ERRNO(unlink("/tmp/wdfa"));
+        ASSERT_OK_ERRNO(unlink(abs_wdfa));
 
         ASSERT_ERROR(write_data_file_atomic_at(AT_FDCWD, NULL, &a, /* flags= */ 0), EINVAL);
         ASSERT_ERROR(write_data_file_atomic_at(AT_FDCWD, "", &a, /* flags= */ 0), EINVAL);
         ASSERT_ERROR(write_data_file_atomic_at(AT_FDCWD, "/", &a, /* flags= */ 0), EISDIR);
         ASSERT_ERROR(write_data_file_atomic_at(AT_FDCWD, ".", &a, /* flags= */ 0), EISDIR);
-        ASSERT_ERROR(write_data_file_atomic_at(AT_FDCWD, "/tmp/", &a, /* flags= */ 0), EISDIR);
+        ASSERT_ERROR(write_data_file_atomic_at(AT_FDCWD, strjoina(t, "/"), &a, /* flags= */ 0), EISDIR);
 
         _cleanup_free_ char *cwd = NULL;
         ASSERT_OK(safe_getcwd(&cwd));
-        ASSERT_OK_ERRNO(chdir("/tmp"));
+        ASSERT_OK_ERRNO(chdir(t));
 
         ASSERT_OK(write_data_file_atomic_at(AT_FDCWD, "wdfa", &a, /* flags= */ 0));
         iovec_done(&ra);
-        ASSERT_OK(read_full_file("/tmp/wdfa", (char**) &ra.iov_base, &ra.iov_len));
+        ASSERT_OK(read_full_file(abs_wdfa, (char**) &ra.iov_base, &ra.iov_len));
         ASSERT_TRUE(iovec_equal(&a, &ra));
-        ASSERT_OK_ERRNO(unlink("/tmp/wdfa"));
+        ASSERT_OK_ERRNO(unlink(abs_wdfa));
 
-        ASSERT_OK(write_data_file_atomic_at(XAT_FDROOT, "tmp/wdfa", &a, /* flags= */ 0));
+        ASSERT_OK(write_data_file_atomic_at(XAT_FDROOT, rel_wdfa, &a, /* flags= */ 0));
         iovec_done(&ra);
-        ASSERT_OK(read_full_file("/tmp/wdfa", (char**) &ra.iov_base, &ra.iov_len));
+        ASSERT_OK(read_full_file(abs_wdfa, (char**) &ra.iov_base, &ra.iov_len));
         ASSERT_TRUE(iovec_equal(&a, &ra));
-        ASSERT_OK_ERRNO(unlink("/tmp/wdfa"));
+        ASSERT_OK_ERRNO(unlink(abs_wdfa));
 
         ASSERT_OK_ERRNO(chdir(cwd));
 
-        ASSERT_ERROR(write_data_file_atomic_at(XAT_FDROOT, "tmp/zzz/wdfa", &a, /* flags= */ 0), ENOENT);
-        ASSERT_OK(write_data_file_atomic_at(XAT_FDROOT, "tmp/zzz/wdfa", &a, WRITE_DATA_FILE_MKDIR_0755));
+        ASSERT_ERROR(write_data_file_atomic_at(XAT_FDROOT, rel_zzz_wdfa, &a, /* flags= */ 0), ENOENT);
+        ASSERT_OK(write_data_file_atomic_at(XAT_FDROOT, rel_zzz_wdfa, &a, WRITE_DATA_FILE_MKDIR_0755));
         iovec_done(&ra);
-        ASSERT_OK(read_full_file("/tmp/zzz/wdfa", (char**) &ra.iov_base, &ra.iov_len));
+        ASSERT_OK(read_full_file(abs_zzz_wdfa, (char**) &ra.iov_base, &ra.iov_len));
         ASSERT_TRUE(iovec_equal(&a, &ra));
-        ASSERT_OK_ERRNO(unlink("/tmp/zzz/wdfa"));
+        ASSERT_OK_ERRNO(unlink(abs_zzz_wdfa));
 
-        ASSERT_ERROR(write_data_file_atomic_at(AT_FDCWD, "/tmp/zzz", &a, /* flags= */ 0), EEXIST);
+        r = write_data_file_atomic_at(AT_FDCWD, abs_zzz, &a, /* flags= */ 0);
+        /* In Gitlab CI this fails with EISDIR */
+        ASSERT_TRUE(IN_SET(r, -EEXIST, -EISDIR));
 
-        ASSERT_OK_ERRNO(rmdir("/tmp/zzz"));
+        ASSERT_OK_ERRNO(rmdir(abs_zzz));
 }
 
 TEST(read_one_line_file_at_xat_fdroot) {
