@@ -1,0 +1,335 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="sd_varlink_connect_address" xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>sd_varlink_connect_address</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_varlink_connect_address</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_varlink_connect_address</refname>
+    <refname>sd_varlink_connect_exec</refname>
+    <refname>sd_varlink_connect_url</refname>
+    <refname>sd_varlink_connect_fd</refname>
+    <refname>sd_varlink_connect_fd_pair</refname>
+
+    <refpurpose>Create a Varlink connection object and connect it to a service</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-varlink.h&gt;</funcsynopsisinfo>
+
+      <funcsynopsisinfo>struct ucred; /* defined in &lt;sys/socket.h&gt; */</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>int <function>sd_varlink_connect_address</function></funcdef>
+        <paramdef>sd_varlink **<parameter>ret</parameter></paramdef>
+        <paramdef>const char *<parameter>address</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_varlink_connect_exec</function></funcdef>
+        <paramdef>sd_varlink **<parameter>ret</parameter></paramdef>
+        <paramdef>const char *<parameter>command</parameter></paramdef>
+        <paramdef>char **<parameter>argv</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_varlink_connect_url</function></funcdef>
+        <paramdef>sd_varlink **<parameter>ret</parameter></paramdef>
+        <paramdef>const char *<parameter>url</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_varlink_connect_fd</function></funcdef>
+        <paramdef>sd_varlink **<parameter>ret</parameter></paramdef>
+        <paramdef>int <parameter>fd</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_varlink_connect_fd_pair</function></funcdef>
+        <paramdef>sd_varlink **<parameter>ret</parameter></paramdef>
+        <paramdef>int <parameter>input_fd</parameter></paramdef>
+        <paramdef>int <parameter>output_fd</parameter></paramdef>
+        <paramdef>const struct ucred *<parameter>override_ucred</parameter></paramdef>
+      </funcprototype>
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para>These five functions allocate a new client-side Varlink connection object and connect it to a
+    Varlink service. They differ only in how the service to talk to is specified. On success, a reference to
+    the new connection object is returned in <parameter>ret</parameter>; the caller owns this reference and
+    must eventually release it with
+    <citerefentry><refentrytitle>sd_varlink_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>sd_varlink_close_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    or
+    <citerefentry><refentrytitle>sd_varlink_flush_close_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
+
+    <para>All five functions return immediately; none of them blocks waiting for the connection to be fully
+    established. For socket-based connections the actual <function>connect()</function> may still be in
+    progress when the function returns (see below); the connection object handles the completion
+    transparently.</para>
+
+    <para>The returned connection object is not attached to any event loop. There are three ways to drive it:
+    attach it to an
+    <citerefentry><refentrytitle>sd-event</refentrytitle><manvolnum>3</manvolnum></citerefentry> loop with
+    <citerefentry><refentrytitle>sd_varlink_attach_event</refentrytitle><manvolnum>3</manvolnum></citerefentry>;
+    run its I/O manually via
+    <citerefentry><refentrytitle>sd_varlink_process</refentrytitle><manvolnum>3</manvolnum></citerefentry> and
+    <citerefentry><refentrytitle>sd_varlink_wait</refentrytitle><manvolnum>3</manvolnum></citerefentry>; or
+    simply issue blocking method calls. In particular it is perfectly fine to follow any of these connection
+    functions directly with a synchronous, blocking call such as
+    <citerefentry><refentrytitle>sd_varlink_call</refentrytitle><manvolnum>3</manvolnum></citerefentry>, which
+    internally drives the connection (including completing a still-pending
+    <function>connect()</function>) and returns once the reply has been received. In that case no explicit
+    event loop integration or manual processing is required.</para>
+
+    <para><function>sd_varlink_connect_address()</function> connects to an <constant>AF_UNIX</constant>
+    stream socket whose address is given as a string in <parameter>address</parameter>. The address must
+    begin either with <literal>/</literal> (to reference a socket in the file system) or with
+    <literal>@</literal> (to reference a socket in the abstract namespace, with the remainder of the string
+    used as the abstract name). It must be at least two characters long. No other forms are accepted (in
+    particular, relative paths are refused). Abstract namespace names that embed <constant>NUL</constant>
+    bytes cannot be expressed through this interface. If a file system socket path is too long to fit into a
+    <structname>sockaddr_un</structname> structure, the connection is established transparently via an
+    <constant>O_PATH</constant> indirection, so overlong paths work.</para>
+
+    <para><function>sd_varlink_connect_exec()</function> forks off a child process and speaks the Varlink
+    protocol with it over a connected <constant>AF_UNIX</constant> <constant>SOCK_STREAM</constant> socket
+    pair. <parameter>command</parameter> is the program to execute; it is looked up in <varname>$PATH</varname>
+    in the usual way (i.e. via <citerefentry
+    project='man-pages'><refentrytitle>execvp</refentrytitle><manvolnum>3</manvolnum></citerefentry>).
+    <parameter>argv</parameter> is the argument vector (a <constant>NULL</constant>-terminated string array)
+    to pass to the child as its <varname>argv[]</varname>; if it is <constant>NULL</constant> or empty, an
+    argument vector consisting of just <parameter>command</parameter> is synthesized. The connected socket is
+    handed to the child as file descriptor 3 using the
+    <citerefentry><refentrytitle>sd_listen_fds</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    protocol, i.e. the child is invoked with <varname>$LISTEN_FDS</varname> set to
+    <literal>1</literal>, <varname>$LISTEN_FDNAMES</varname> set to <literal>varlink</literal>, and the
+    appropriate <varname>$LISTEN_PID</varname> (and, where available, <varname>$LISTEN_PIDFDID</varname>)
+    variables. The <parameter>command</parameter> and <parameter>argv</parameter> strings are copied into the
+    connection object, so the caller may free or modify them once the function returns.</para>
+
+    <para><function>sd_varlink_connect_url()</function> is a higher-level interface that parses a service
+    address string with a leading scheme and dispatches to the appropriate transport. Despite the name, these
+    strings are <emphasis>not</emphasis> Internet URLs in the sense of the relevant RFCs. The following schemes
+    are understood natively:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><literal>unix:</literal><replaceable>PATH</replaceable></term>
+        <listitem><para>Connects to an <constant>AF_UNIX</constant> socket, equivalent to passing
+        <replaceable>PATH</replaceable> to <function>sd_varlink_connect_address()</function>.
+        <replaceable>PATH</replaceable> must either be an absolute, normalized file system path, or begin with
+        <literal>@</literal> for an abstract namespace socket (for which no path normalization checks are
+        applied).</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><literal>exec:</literal><replaceable>PATH</replaceable></term>
+        <listitem><para>Forks off the executable at <replaceable>PATH</replaceable>, equivalent to passing it
+        to <function>sd_varlink_connect_exec()</function> with no extra arguments. <replaceable>PATH</replaceable>
+        must be an absolute, normalized path.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><literal>ssh:</literal><replaceable>HOST</replaceable><literal>:</literal><replaceable>PATH</replaceable></term>
+        <term><literal>ssh-unix:</literal><replaceable>HOST</replaceable><literal>:</literal><replaceable>PATH</replaceable></term>
+        <listitem><para>Connects to an <constant>AF_UNIX</constant> socket at the absolute, normalized path
+        <replaceable>PATH</replaceable> on the remote SSH host <replaceable>HOST</replaceable>. This relies on
+        OpenSSH 9.4 or newer on the server side. Abstract namespace sockets are not supported for this
+        transport. <literal>ssh:</literal> and <literal>ssh-unix:</literal> are synonyms.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><literal>ssh-exec:</literal><replaceable>HOST</replaceable><literal>:</literal><replaceable>COMMAND</replaceable></term>
+        <listitem><para>Invokes <replaceable>COMMAND</replaceable> (a command line, split on whitespace with
+        shell-style quoting and unescaping) on the remote SSH host <replaceable>HOST</replaceable> and speaks
+        the Varlink protocol over its standard input and output.</para></listitem>
+      </varlistentry>
+    </variablelist>
+
+    <para>If the scheme is none of the above but is otherwise a syntactically valid URL scheme,
+    <function>sd_varlink_connect_url()</function> looks for a <emphasis>bridge helper</emphasis> binary of that
+    name in the directory configured via <varname>$SYSTEMD_VARLINK_BRIDGES_DIR</varname> (see below). If found
+    and executable, it is invoked like an <literal>exec:</literal> transport, with the complete, unmodified URL
+    passed as its sole command line argument. This allows additional transports to be plugged in out of tree.</para>
+
+    <para>For the natively supported schemes, URL parameterization using <literal>;</literal>,
+    <literal>?</literal> or <literal>#</literal> is rejected (these are reserved for possible future use). A
+    <literal>vsock:</literal> scheme is not currently supported.</para>
+
+    <para><function>sd_varlink_connect_fd()</function> turns an already existing, already connected file
+    descriptor <parameter>fd</parameter> into a Varlink connection. The descriptor is used for both reading and
+    writing. It may refer to a connected stream socket, but also to a pipe or other bidirectional file
+    descriptor.</para>
+
+    <para><function>sd_varlink_connect_fd_pair()</function> is like
+    <function>sd_varlink_connect_fd()</function>, but accepts a separate <parameter>input_fd</parameter> (used
+    for reading from the peer) and <parameter>output_fd</parameter> (used for writing to the peer). This is
+    useful when the two directions are backed by different descriptors, for example a pair of pipes, or the
+    standard output and standard input of a co-process. The two descriptors may also be identical, which is
+    exactly what <function>sd_varlink_connect_fd()</function> does internally. If
+    <parameter>override_ucred</parameter> is non-<constant>NULL</constant>, the peer credentials reported for
+    the connection (as returned e.g. by
+    <citerefentry><refentrytitle>sd_varlink_get_peer_uid</refentrytitle><manvolnum>3</manvolnum></citerefentry>)
+    are taken from the supplied <structname>ucred</structname> structure instead of being queried from the
+    socket via <constant>SO_PEERCRED</constant>. This is primarily useful when the descriptors are not sockets
+    (and hence carry no kernel-supplied peer credentials), or when the credentials need to be overridden for
+    other reasons. If <parameter>override_ucred</parameter> is <constant>NULL</constant>, peer credentials are
+    determined from the socket as usual.</para>
+
+    <para><function>sd_varlink_connect_fd()</function> and <function>sd_varlink_connect_fd_pair()</function> take
+    over ownership of the descriptors passed to them: the descriptors are closed automatically when the
+    connection object is freed, and the caller must not close them itself. On failure ownership remains with
+    the caller.</para>
+
+    <para>The connection objects created by <function>sd_varlink_connect_exec()</function>, and by the
+    <literal>exec:</literal>, <literal>ssh:</literal>/<literal>ssh-unix:</literal>,
+    <literal>ssh-exec:</literal> and bridge-helper paths of <function>sd_varlink_connect_url()</function>,
+    are bound to the lifetime of the spawned child process.  When such a connection object is freed, the
+    associated child process is sent <constant>SIGTERM</constant> and reaped. The child is also configured to
+    receive <constant>SIGTERM</constant> if the calling process dies.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>On success, these functions return a non-negative integer and store a pointer to the new connection
+    object in <parameter>ret</parameter>. On failure, they return a negative errno-style error code and leave
+    <parameter>ret</parameter> unchanged.</para>
+
+    <refsect2>
+      <title>Errors</title>
+
+      <para>Returned errors may indicate the following problems:</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
+
+          <listitem><para>A required argument is <constant>NULL</constant>, or the supplied address, command,
+          or URL is malformed. This includes addresses that do not begin with <literal>/</literal> or
+          <literal>@</literal>, abstract namespace names that do not fit into a
+          <structname>sockaddr_un</structname> structure, and — for
+          <function>sd_varlink_connect_url()</function> — file system paths that are not absolute or not
+          normalized.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-EBADF</constant></term>
+
+          <listitem><para>For <function>sd_varlink_connect_fd()</function> and
+          <function>sd_varlink_connect_fd_pair()</function>: a supplied file descriptor is
+          negative.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-EPROTONOSUPPORT</constant></term>
+
+          <listitem><para>For <function>sd_varlink_connect_url()</function>: the URL contains no
+          <literal>:</literal> separator, uses an unsupported scheme for which no bridge helper binary is
+          available, or makes use of the reserved <literal>;</literal>, <literal>?</literal> or
+          <literal>#</literal> URL parameterization characters with a natively supported
+          scheme.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ENOMEM</constant></term>
+
+          <listitem><para>Memory allocation failed.</para></listitem>
+        </varlistentry>
+      </variablelist>
+
+      <para>In addition, these functions may propagate any error returned by the underlying system calls they
+      use, such as <citerefentry
+      project='man-pages'><refentrytitle>socket</refentrytitle><manvolnum>2</manvolnum></citerefentry>,
+      <citerefentry project='man-pages'><refentrytitle>connect</refentrytitle><manvolnum>2</manvolnum></citerefentry>,
+      <citerefentry project='man-pages'><refentrytitle>fork</refentrytitle><manvolnum>2</manvolnum></citerefentry>,
+      <citerefentry project='man-pages'><refentrytitle>pipe</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+      and the various execution helpers.</para>
+    </refsect2>
+  </refsect1>
+
+  <xi:include href="libsystemd-pkgconfig.xml" />
+
+  <refsect1>
+    <title>Environment</title>
+
+    <variablelist class='environment-variables'>
+      <varlistentry>
+        <term><varname>$SYSTEMD_SSH</varname></term>
+
+        <listitem><para>Used by the <literal>ssh:</literal>/<literal>ssh-unix:</literal> and
+        <literal>ssh-exec:</literal> transports of <function>sd_varlink_connect_url()</function> to override
+        the <command>ssh</command> binary to invoke. May be a plain file name (looked up in
+        <varname>$PATH</varname>) or an absolute path.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>$SYSTEMD_VARLINK_BRIDGES_DIR</varname></term>
+
+        <listitem><para>Overrides the directory in which
+        <function>sd_varlink_connect_url()</function> looks up bridge helper binaries for non-native URL
+        schemes. Defaults to <filename>/usr/lib/systemd/varlink-bridges/</filename>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Files</title>
+
+    <variablelist>
+      <varlistentry>
+        <term><filename>/usr/lib/systemd/varlink-bridges/</filename></term>
+
+        <listitem><para>Default directory searched for bridge helper binaries when
+        <function>sd_varlink_connect_url()</function> encounters a URL with a scheme that is not natively
+        supported. See
+        <citerefentry><refentrytitle>sd-varlink</refentrytitle><manvolnum>3</manvolnum></citerefentry> for
+        details.</para></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>History</title>
+    <para><function>sd_varlink_connect_address()</function>,
+    <function>sd_varlink_connect_exec()</function>, <function>sd_varlink_connect_url()</function>,
+    <function>sd_varlink_connect_fd()</function> and <function>sd_varlink_connect_fd_pair()</function> were
+    added in version 257.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd-varlink</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd_varlink_attach_event</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd_varlink_call</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd_varlink_send</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd_varlink_is_connected</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd_listen_fds</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>
