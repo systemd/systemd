@@ -329,6 +329,19 @@ TEST(qmp_call) {
         run_qmp_test(mock_qmp_call_fiber, qmp_client_call_fiber);
 }
 
+TEST(qmp_call_future_without_event) {
+        _cleanup_(qmp_client_unrefp) QmpClient *client = NULL;
+        _cleanup_(sd_future_cancel_unrefp) sd_future *f = NULL;
+        _cleanup_close_pair_ int fds[2] = EBADF_PAIR;
+
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0, fds));
+        ASSERT_OK(qmp_client_connect_fd(&client, TAKE_FD(fds[0])));
+        ASSERT_NULL(qmp_client_get_event(client));
+
+        ASSERT_ERROR(ASSERT_RETURN_EXPECTED(qmp_client_call_future(client, "query-status", /* args= */ NULL, &f)), ENOPKG);
+        ASSERT_NULL(f);
+}
+
 static int mock_qmp_call_disconnect_fiber(void *userdata) {
         _cleanup_(json_stream_done) JsonStream s = {};
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *stop_cmd = NULL;
@@ -352,6 +365,84 @@ static int qmp_client_call_disconnect_fiber(void *userdata) {
 
 TEST(qmp_call_disconnect) {
         run_qmp_test(mock_qmp_call_disconnect_fiber, qmp_client_call_disconnect_fiber);
+}
+
+typedef struct QmpInterruptedCall {
+        int fd;
+        sd_future *caller;
+        int error;
+} QmpInterruptedCall;
+
+static int mock_qmp_call_interrupted_fiber(void *userdata) {
+        QmpInterruptedCall *c = ASSERT_PTR(userdata);
+        _cleanup_(json_stream_done) JsonStream s = {};
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *stop_cmd = NULL, *cont_cmd = NULL;
+
+        mock_qmp_init(&s, c->fd);
+        mock_qmp_handshake(&s);
+        mock_qmp_query_status_running(&s);
+
+        sd_json_variant *stop_id = mock_qmp_expect(&s, "stop", &stop_cmd);
+        if (c->error == ECANCELED)
+                ASSERT_OK(sd_future_cancel(c->caller));
+        else if (c->error == EBUSY)
+                ASSERT_OK(sd_fiber_resume(c->caller, 42));
+
+        /* Wait until the client has abandoned stop and issued another call. Delivering the late
+         * reply first must not wake the new wait or touch the cancelled call's freed future. */
+        sd_json_variant *cont_id = mock_qmp_expect(&s, "cont", &cont_cmd);
+        mock_qmp_reply(&s, stop_id, /* reply_data= */ NULL);
+        mock_qmp_reply(&s, cont_id, /* reply_data= */ NULL);
+        return 0;
+}
+
+static int qmp_client_call_interrupted_fiber(void *userdata) {
+        int error = *(int*) ASSERT_PTR(userdata);
+        _cleanup_(qmp_client_unrefp) QmpClient *client = NULL;
+        _cleanup_(sd_future_cancel_wait_unrefp) sd_future *mock = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *result = NULL;
+        _cleanup_free_ char *error_desc = NULL;
+        _cleanup_close_pair_ int fds[2] = EBADF_PAIR;
+
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0, fds));
+        ASSERT_OK(qmp_client_connect_fd(&client, TAKE_FD(fds[0])));
+        ASSERT_OK(qmp_client_attach_event(client, sd_fiber_get_event(), SD_EVENT_PRIORITY_NORMAL));
+        QmpInterruptedCall c = { .fd = TAKE_FD(fds[1]), .caller = sd_fiber_get_current(), .error = error };
+        ASSERT_OK(sd_fiber_new(sd_fiber_get_event(), "interrupted-mock", mock_qmp_call_interrupted_fiber,
+                               &c, /* destroy= */ NULL, &mock));
+
+        /* Finish the handshake before testing interruption of a command awaiting its reply. */
+        ASSERT_OK_POSITIVE(qmp_client_call(client, "query-status", /* args= */ NULL,
+                                          /* ret_result= */ NULL, /* reterr_error_desc= */ NULL));
+        {
+                SD_FIBER_TIMEOUT(error == ETIME ? 0 : USEC_INFINITY);
+                ASSERT_ERROR(qmp_client_call(client, "stop", /* args= */ NULL, &result, &error_desc), error);
+        }
+        ASSERT_NULL(result);
+        ASSERT_NULL(error_desc);
+
+        ASSERT_OK_POSITIVE(qmp_client_call(client, "cont", /* args= */ NULL, &result, &error_desc));
+        ASSERT_NOT_NULL(result);
+        ASSERT_NULL(error_desc);
+        ASSERT_OK_ZERO(sd_fiber_await(mock));
+        ASSERT_OK_ZERO(sd_fiber_yield());
+        ASSERT_OK(sd_event_exit(sd_fiber_get_event(), 0));
+        return 0;
+}
+
+TEST(qmp_call_interrupted) {
+        int error;
+
+        FOREACH_ARGUMENT(error, ECANCELED, ETIME, EBUSY) {
+                _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+                _cleanup_(sd_future_unrefp) sd_future *caller = NULL;
+
+                ASSERT_OK(sd_event_new(&e));
+                ASSERT_OK(sd_fiber_new(e, "interrupted-client", qmp_client_call_interrupted_fiber,
+                                       &error, /* destroy= */ NULL, &caller));
+                ASSERT_OK(sd_event_loop(e));
+                ASSERT_OK_ZERO(sd_future_result(caller));
+        }
 }
 
 static int mock_qmp_fd_fiber(void *userdata) {
