@@ -9,6 +9,7 @@
 
 [Unit]
 Description=CGroup Report Service
+Documentation=man:systemd-report(1)
 DefaultDependencies=no
 Conflicts=shutdown.target
 Before=shutdown.target
