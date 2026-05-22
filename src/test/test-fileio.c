@@ -697,6 +697,8 @@ TEST(fdopen_independent) {
 }
 
 TEST(write_data_file_atomic_at) {
+        int r;
+
         struct iovec a = IOVEC_MAKE_STRING("hallo");
         ASSERT_OK(write_data_file_atomic_at(AT_FDCWD, "/tmp/wdfa", &a, /* flags= */ 0));
 
@@ -742,7 +744,9 @@ TEST(write_data_file_atomic_at) {
         ASSERT_TRUE(iovec_equal(&a, &ra));
         ASSERT_OK_ERRNO(unlink("/tmp/zzz/wdfa"));
 
-        ASSERT_ERROR(write_data_file_atomic_at(AT_FDCWD, "/tmp/zzz", &a, /* flags= */ 0), EEXIST);
+        r = write_data_file_atomic_at(AT_FDCWD, "/tmp/zzz", &a, /* flags= */ 0);
+        /* In Gitlab CI this fails with EISDIR */
+        ASSERT_TRUE(IN_SET(r, -EEXIST, -EISDIR));
 
         ASSERT_OK_ERRNO(rmdir("/tmp/zzz"));
 }
