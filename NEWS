@@ -691,6 +691,43 @@ CHANGES WITH 261 in spe:
           OOM policy handling, and may be defined in /etc/systemd/oomd/rules.d/
           and then enabled on a service unit via the new OOMRule= option.
 
+        Contributions from: A S Alam, Adam Dinwoodie, Adrian Wannenmacher,
+        Aleksa Sarai, Alyssa Ross, Ambareesh Balaji, Américo Monteiro,
+        Andreas K. Hüttel, Antonio Alvarez Feijoo, Arif Budiman,
+        Aritra Basu, Arnout Engelen, Artem Proskurnev, Balázs Meskó,
+        Bone NI, Bret Comnes, Chris Down, Chris Hofer, Christian Brauner,
+        Christian Goeschel Ndjomouo, Christian Hesse, Claude Opus 4.6,
+        Clayton Craft, Cynthia, Daan De Meyer, Dan Anderson, Dark Cronyx,
+        David Santamaría Rogado, David Tardon, Diego Viola, Dirga Yuza,
+        Dmitry Konishchev, Duncan Overbruck, Dylan M. Taylor,
+        Emanuele Rocca, Fco. Javier F. Serrador, Felix Pehla, Franck Bui,
+        Frantisek Sumsal, Hadi Chokr, Heran Yang, Ivan Kruglov,
+        Ivan Shapovalov, Jan Kuparinen, Jim Spentzos, Jiri Pirko,
+        Jonas Dreßler, Jonas Rebmann, Jonathan Davies,
+        José Miguel Sarasola, João Taveira Araújo, Jörg Behrmann,
+        Kai Lüke, Kajus Naujokaitis, Kit Dallege, Lennart Poettering,
+        LevitatingBusinessMan (Rein Fernhout),
+        Luan Vitor Simião Oliveira, Luan Vitor Simião oliveira,
+        Luca Boccassi, Luna Jernberg, Marek Adamski, Massii Aqvayli,
+        Matheus Afonso Martins Moreira, Matteo Croce, Max Chernoff,
+        Michael Ferrari, Michael Vogt, Michal Rybecky, Michal Sekletár,
+        Mike Yuan, Milan Kyselica, Morten Linderud, Nandakumar Raghavan,
+        Nick Rosbrook, Nikolas Kyx, Nita Vesa, Oblivionsage, Oğuz Ersen,
+        Patrick Rohr, Patrick Wicki, Paul Meyer, Pavel Borecki,
+        Petru Rebeja, Philip Withnall, Quentin Deslandes,
+        Rafael Fontenelle, RiskoZS, Robin Ebert, Rocker Zhang,
+        Ronan Pigott, Samuel Dainard, Sebastian Bernardt,
+        Sergei Trofimovich, Simon Lucido, Simon de Vlieger, Simran Singh,
+        Sriman Achanta, Stephane Chazelas, Temuri Doghonadze,
+        Tobias Heider, Tobias Stoeckmann, Todd Zullinger, TristanInSec,
+        Valentin David, Vincent Mihalkovic, Vitaly Kuznetsov,
+        Walter McKelvie, Yaping Li, Yu Watanabe, Yuri Chornoivan,
+        Zbigniew Jędrzejewski-Szmek, albertescanes, azureuser, drhydroxide,
+        favilances, fecet, glemco, hschloss, ipv6, ishwarbb, joo es, kakolla,
+        kostich, mukunda katta, noxiouz, r-vdp, roib, rusty-snake, seaeunlee,
+        ssahani, vlefebvre, Дамјан Георгиевски, наб,
+        我超厉害, 김인수
+
 CHANGES WITH 260:
 
         Feature Removals and Incompatible Changes:
