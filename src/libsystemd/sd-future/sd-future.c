@@ -1,5 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdarg.h>
+
+#include "sd-event.h"
 #include "sd-future.h"
 
 #include "alloc-util.h"
@@ -8,16 +11,34 @@
 #include "macro.h"
 #include "set.h"
 
+struct sd_future_slot {
+        unsigned n_ref;
+
+        /* Back-pointer to the future the slot is attached to.
+         *
+         * Ref ownership is asymmetric (same trick as sd_bus_slot/bus->slots): when the slot
+         * is non-floating the SLOT owns a ref on the future; when floating, the FUTURE owns
+         * a ref on the slot. So `slots` is always a borrowed pointer collection regardless. */
+        sd_future *future;
+        bool floating;
+
+        sd_future_func_t callback;
+        void *userdata;
+
+        /* When `future` is already RESOLVED at sd_future_add_callback time and we're on a
+         * fiber, the slot can't ride on `future`'s normal slot-dispatch (that path is in the
+         * past). Instead the slot owns a dedicated defer event source that fires on the next
+         * loop tick and invokes `callback` directly via slot_defer_handler. NULL otherwise. */
+        sd_event_source *defer_source;
+};
+
 struct sd_future {
         unsigned n_ref;
 
         int state;
         int result;
 
-        Set *waiters;
-
-        sd_future_func_t callback;
-        void *userdata;
+        Set *slots;
 
         const sd_future_ops *ops;
 
@@ -27,11 +48,23 @@ struct sd_future {
         void *private;
 };
 
-static int fiber_resume_trampoline(sd_future *f) {
+static int dispatch_slot(sd_future_slot *s, sd_future *f) {
+        /* Single funnel for invoking a slot's callback and tearing down its floating-side
+         * ref. Used by sd_future_resolve's slot-dispatch loop (where `f` is the future
+         * being resolved) and by slot_defer_handler (where `f` is the slot's own future,
+         * already RESOLVED, and the defer source just provides the one-tick delay). */
+        bool floating = s->floating; /* capture: non-floating s may be freed by callback */
+        int r = s->callback(f, s->userdata);
+        if (floating)
+                sd_future_slot_unref(s);
+        return r;
+}
+
+int sd_future_resume_callback(sd_future *f, void *userdata) {
         /* The future's result is what the fiber should resume with. Impls choose the value at
          * resolution time — e.g. a deadline timer resolves with -ETIME, a wait future resolves
          * with the target's result, a normal IO/sleep future resolves with 0 on success. */
-        return sd_fiber_resume(sd_future_get_userdata(f), sd_future_result(f));
+        return sd_fiber_resume(userdata, sd_future_result(f));
 }
 
 int sd_future_resolve(sd_future *f, int result) {
@@ -42,39 +75,42 @@ int sd_future_resolve(sd_future *f, int result) {
         if (f->state != SD_FUTURE_PENDING)
                 return 0;
 
-        /* Hold a self-ref across callback/waiter dispatch: callbacks (e.g. bus_fiber_resolved()
-         * dropping the tracking-set's ref) may legitimately release what would otherwise be the
-         * last reference, and we still access f->waiters below. The cleanup unrefs at scope exit,
-         * which is when freeing is safe again. */
+        /* Hold a self-ref across callback dispatch: callbacks may legitimately release what
+         * would otherwise be the last reference, and we still access f->slots below. The
+         * cleanup unrefs at scope exit, which is when freeing is safe again. */
         _unused_ _cleanup_(sd_future_unrefp) sd_future *self = sd_future_ref(f);
 
         f->state = SD_FUTURE_RESOLVED;
         f->result = result;
 
-        if (f->callback)
-                RET_GATHER(r, f->callback(f));
-
-        /* We'd like the set to not be modified while iterating over it, hence take ownership over it in
-         * a local variable. Otherwise code invoked via sd_future_resolve() could try to modify the set while
-         * we're iterating over it (for example wait_future_free()). */
-        Set *waiters = TAKE_PTR(f->waiters);
-        sd_future *w;
-        SET_FOREACH(w, waiters)
-                RET_GATHER(r, sd_future_resolve(w, result));
-
-        set_free(waiters);
+        /* Take ownership of the dispatch set so callbacks can mutate it (including freeing
+         * their own slot) without invalidating iteration. Non-floating slots keep their
+         * back-pointer to `f` — they may still be inspected by callbacks (e.g.
+         * sd_future_group walks its slot vector to gather child results), and a later
+         * user-side sd_future_slot_unref finds f->slots NULL and skips set_remove
+         * harmlessly. Floating slots get torn down here: the user has no handle on them,
+         * so their callback can't have unref'd them, and dropping the future's claim
+         * frees them. */
+        Set *slots = TAKE_PTR(f->slots);
+        sd_future_slot *s;
+        SET_FOREACH(s, slots)
+                RET_GATHER(r, dispatch_slot(s, f));
+        set_free(slots);
 
         return r;
 }
 
 static sd_future* sd_future_free(sd_future *f) {
-        if (!f)
-                return NULL;
-
-        if (f->state == SD_FUTURE_PENDING)
-                sd_future_resolve(f, -ECANCELED);
-
-        set_free(f->waiters);
+        /* Any slot still in f->slots at this point must be floating: non-floating slots own
+         * a ref on f, so if any existed we wouldn't have reached free. Tear the floating
+         * ones down by dropping the ref the future was holding on them. */
+        Set *slots = TAKE_PTR(f->slots);
+        sd_future_slot *s;
+        SET_FOREACH(s, slots) {
+                assert(s->floating);
+                sd_future_slot_unref(s);
+        }
+        set_free(slots);
 
         if (f->ops->free)
                 f->ops->free(f);
@@ -82,7 +118,28 @@ static sd_future* sd_future_free(sd_future *f) {
         return mfree(f);
 }
 
-DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_future, sd_future, sd_future_free);
+DEFINE_TRIVIAL_REF_FUNC(sd_future, sd_future);
+
+sd_future* sd_future_unref(sd_future *p) {
+        if (!p)
+                return NULL;
+
+        assert(p->n_ref > 0);
+
+        /* If we're about to drop the last reference and the future is still PENDING,
+         * resolve it first so registered callbacks fire while we still have a ref —
+         * sd_future_resolve takes a self-ref to survive callback-driven unrefs, which
+         * relies on n_ref > 0. Doing the resolve here (instead of in sd_future_free)
+         * keeps that invariant intact. */
+        if (p->n_ref == 1 && p->state == SD_FUTURE_PENDING)
+                sd_future_resolve(p, -ECANCELED);
+
+        if (--p->n_ref > 0)
+                return NULL;
+
+        return sd_future_free(p);
+}
+
 DEFINE_POINTER_ARRAY_CLEAR_FUNC(sd_future*, sd_future_unref);
 DEFINE_POINTER_ARRAY_FREE_FUNC(sd_future*, sd_future_unref);
 
@@ -153,14 +210,6 @@ int sd_future_new(const sd_future_ops *ops, sd_future **ret) {
                 return -ENOMEM;
         }
 
-        /* If we're being created on a fiber, default the callback to resuming that fiber on resolve —
-         * this is almost always what you want, and it saves the usual set_callback boilerplate before
-         * sd_fiber_suspend(). Callers that want different behavior can override with
-         * sd_future_set_callback(). */
-        sd_future *fiber = sd_fiber_get_current();
-        if (fiber)
-                (void) sd_future_set_callback(f, fiber_resume_trampoline, fiber);
-
         *ret = f;
         return 0;
 }
@@ -176,11 +225,6 @@ int sd_future_result(sd_future *f) {
         return f->result;
 }
 
-void* sd_future_get_userdata(sd_future *f) {
-        assert_return(f, NULL);
-        return f->userdata;
-}
-
 void* sd_future_get_private(sd_future *f) {
         assert_return(f, NULL);
         return f->private;
@@ -191,11 +235,106 @@ const sd_future_ops* sd_future_get_ops(sd_future *f) {
         return f->ops;
 }
 
-int sd_future_set_callback(sd_future *f, sd_future_func_t callback, void *userdata) {
-        assert_return(f, -EINVAL);
+sd_future* sd_future_slot_get_future(sd_future_slot *s) {
+        assert_return(s, NULL);
+        return s->future;
+}
 
-        f->callback = callback;
-        f->userdata = userdata;
+static sd_future_slot* sd_future_slot_free(sd_future_slot *s) {
+        if (!s)
+                return NULL;
+
+        if (s->future) {
+                set_remove(s->future->slots, s);
+                if (!s->floating)
+                        sd_future_unref(s->future);
+        }
+
+        sd_event_source_disable_unref(s->defer_source);
+
+        return mfree(s);
+}
+
+DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_future_slot, sd_future_slot, sd_future_slot_free);
+
+static int slot_defer_handler(sd_event_source *src, void *userdata) {
+        sd_future_slot *s = ASSERT_PTR(userdata);
+        return dispatch_slot(s, s->future);
+}
+
+int sd_future_add_callback(sd_future *f, sd_future_slot **ret_slot, sd_future_func_t callback, void *userdata) {
+        int r;
+
+        assert_return(f, -EINVAL);
+        assert_return(callback, -EINVAL);
+
+        if (f->state == SD_FUTURE_RESOLVED && !sd_fiber_is_running()) {
+                /* Inline: run synchronously now. Hand back a no-op slot so callers have a
+                 * uniform "got a slot" handle to manage. */
+                r = callback(f, userdata);
+                if (r < 0)
+                        return r;
+
+                if (ret_slot) {
+                        sd_future_slot *s = new(sd_future_slot, 1);
+                        if (!s)
+                                return -ENOMEM;
+
+                        *s = (sd_future_slot) {
+                                .n_ref = 1,
+                        };
+
+                        *ret_slot = s;
+                }
+
+                return 0;
+        }
+
+        sd_future_slot *s = new(sd_future_slot, 1);
+        if (!s)
+                return -ENOMEM;
+
+        *s = (sd_future_slot) {
+                .n_ref = 1,
+                .future = f,
+                .floating = ret_slot == NULL,
+                .callback = callback,
+                .userdata = userdata,
+        };
+
+        if (f->state == SD_FUTURE_RESOLVED) {
+                /* Future already resolved, but we prefer to not invoke the callback inline if possible to
+                 * make sure the callback always runs in the same environment (not on the current fiber). To
+                 * make this work we use a defer event source instead which invokes the callback on the next
+                 * tick. */
+                r = sd_event_add_defer(sd_fiber_get_event(), &s->defer_source, slot_defer_handler, s);
+                if (r < 0) {
+                        free(s);
+                        return r;
+                }
+
+                int64_t priority;
+                r = sd_fiber_get_priority(&priority);
+                if (r >= 0)
+                        (void) sd_event_source_set_priority(s->defer_source, priority);
+        } else {
+                r = set_ensure_put(&f->slots, &trivial_hash_ops, s);
+                if (r < 0) {
+                        sd_future_slot_unref(s);
+                        return r;
+                }
+        }
+
+        /* Asymmetric ownership: non-floating slot owns the future; floating slot is owned
+         * by the future (avoids a refcount cycle in both directions). For the defer-source
+         * path, slot_defer_handler drops the floating slot's ref after firing. */
+        if (s->floating)
+                sd_future_slot_ref(s);
+        else {
+                sd_future_ref(f);
+                *ret_slot = s;
+        }
+
         return 0;
 }
 
@@ -224,59 +363,4 @@ int sd_future_cancel(sd_future *f) {
         f->userdata = NULL;
 
         return f->ops->cancel(f);
-}
-
-typedef struct WaitFuture {
-        sd_future *target;
-} WaitFuture;
-
-static void* wait_future_alloc(void) {
-        return new0(WaitFuture, 1);
-}
-
-static void wait_future_free(sd_future *f) {
-        WaitFuture *wf = ASSERT_PTR(sd_future_get_private(ASSERT_PTR(f)));
-
-        set_remove(wf->target->waiters, f);
-        sd_future_unref(wf->target);
-        free(wf);
-}
-
-static int wait_future_cancel(sd_future *f) {
-        WaitFuture *wf = ASSERT_PTR(sd_future_get_private(ASSERT_PTR(f)));
-
-        set_remove(wf->target->waiters, f);
-        return sd_future_resolve(f, -ECANCELED);
-}
-
-static const sd_future_ops wait_future_ops = {
-        .size = sizeof(sd_future_ops),
-        .alloc = wait_future_alloc,
-        .free = wait_future_free,
-        .cancel = wait_future_cancel,
-};
-
-int sd_future_new_wait(sd_future *target, sd_future **ret) {
-        int r;
-
-        assert_return(target, -EINVAL);
-        assert_return(ret, -EINVAL);
-
-        _cleanup_(sd_future_unrefp) sd_future *f = NULL;
-        r = sd_future_new(&wait_future_ops, &f);
-        if (r < 0)
-                return r;
-
-        WaitFuture *wf = sd_future_get_private(f);
-        wf->target = sd_future_ref(target);
-
-        if (target->state == SD_FUTURE_RESOLVED)
-                r = sd_future_resolve(f, target->result);
-        else
-                r = set_ensure_put(&target->waiters, &trivial_hash_ops, f);
-        if (r < 0)
-                return r;
-
-        *ret = TAKE_PTR(f);
-        return 0;
 }
