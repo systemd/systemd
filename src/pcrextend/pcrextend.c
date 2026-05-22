@@ -10,12 +10,12 @@
 #include "efi-loader.h"
 #include "escape.h"
 #include "format-table.h"
+#include "help-util.h"
 #include "json-util.h"
 #include "main-func.h"
 #include "options.h"
 #include "parse-argument.h"
 #include "pcrextend-util.h"
-#include "pretty-print.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
@@ -44,36 +44,25 @@ STATIC_DESTRUCTOR_REGISTER(arg_nvpcr_name, freep);
 #define EXTENSION_STRING_SAFE_LIMIT 1024
 
 static int help(void) {
-        _cleanup_free_ char *link = NULL;
         _cleanup_(table_unrefp) Table *options = NULL;
         int r;
-
-        r = terminal_urlify_man("systemd-pcrextend", "8", &link);
-        if (r < 0)
-                return log_oom();
 
         r = option_parser_get_help_table(&options);
         if (r < 0)
                 return r;
 
-        printf("%1$s  [OPTIONS...] WORD\n"
-               "%1$s  [OPTIONS...] --file-system=PATH\n"
-               "%1$s  [OPTIONS...] --machine-id\n"
-               "%1$s  [OPTIONS...] --product-id\n"
-               "\n%2$sExtend a TPM2 PCR with boot phase, machine ID, or file system ID.%3$s\n",
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal());
+        help_cmdline("[OPTIONS...] WORD");
+        help_cmdline("[OPTIONS...] --file-system=PATH");
+        help_cmdline("[OPTIONS...] --machine-id");
+        help_cmdline("[OPTIONS...] --product-id");
+        help_abstract("Extend a TPM2 PCR with boot phase, machine ID, or file system ID.");
 
-        printf("\n%sOptions:%s\n",
-               ansi_underline(),
-               ansi_normal());
-
+        help_section("Options");
         r = table_print_or_warn(options);
         if (r < 0)
                 return r;
 
-        printf("\nSee the %s for details.\n", link);
+        help_man_page_reference("systemd-pcrextend", "8");
         return 0;
 }
 
