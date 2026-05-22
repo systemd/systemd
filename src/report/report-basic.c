@@ -9,7 +9,9 @@
 #include "alloc-util.h"
 #include "architecture.h"
 #include "cpu-set-util.h"
+#include "env-file.h"
 #include "hostname-setup.h"
+#include "hostname-util.h"
 #include "limits-util.h"
 #include "log.h"
 #include "metrics.h"
@@ -198,6 +200,51 @@ static int os_release_generate(const MetricFamily mf[static _FIELD_MAX - 1], sd_
         return 0;
 }
 
+static int machine_info_generate(const MetricFamily *mf, sd_varlink *link, void *userdata) {
+        enum {
+                MACHINE_INFO_FIELD_PRETTY_HOSTNAME,
+                MACHINE_INFO_FIELD_DEPLOYMENT,
+                MACHINE_INFO_FIELD_LOCATION,
+                MACHINE_INFO_FIELD_TAGS,
+                _MACHINE_INFO_FIELD_MAX,
+        };
+
+        char* values[_MACHINE_INFO_FIELD_MAX] = {};
+        CLEANUP_ELEMENTS(values, free_many_charp);
+        int r;
+
+        assert(mf && mf->name);
+        assert(link);
+
+        r = parse_env_file(/* f= */ NULL, etc_machine_info(),
+                           "PRETTY_HOSTNAME", &values[MACHINE_INFO_FIELD_PRETTY_HOSTNAME],
+                           "DEPLOYMENT",      &values[MACHINE_INFO_FIELD_DEPLOYMENT],
+                           "LOCATION",        &values[MACHINE_INFO_FIELD_LOCATION],
+                           "TAGS",            &values[MACHINE_INFO_FIELD_TAGS]);
+        if (r < 0) {
+                log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r,
+                               "Failed to read machine-info file, ignoring: %m");
+                return 0;
+        }
+
+        for (size_t i = 0; i < _MACHINE_INFO_FIELD_MAX; i++) {
+                const char *v = values[i];
+                if (!v)
+                        continue;
+
+                r = metric_build_send_string(
+                                mf + i,
+                                link,
+                                /* object= */ NULL,
+                                v,
+                                /* fields= */ NULL);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 static int virtualization_generate(const MetricFamily *mf, sd_varlink *link, void *userdata) {
         assert(mf && mf->name);
         assert(link);
@@ -218,6 +265,14 @@ static int virtualization_generate(const MetricFamily *mf, sd_varlink *link, voi
         {                                                               \
                 METRIC_IO_SYSTEMD_BASIC_PREFIX "OSRelease." name,       \
                 "Operating system identification (" name "= field from os-release)", \
+                METRIC_FAMILY_TYPE_STRING,                              \
+                .generate = NULL,                                       \
+        }
+
+#define MACHINE_INFO_STANDARD_FIELD(name)                               \
+        {                                                               \
+                METRIC_IO_SYSTEMD_BASIC_PREFIX "MachineInfo." name,     \
+                "Machine identification (" name "= field from machine-info)", \
                 METRIC_FAMILY_TYPE_STRING,                              \
                 .generate = NULL,                                       \
         }
@@ -260,6 +315,16 @@ static const MetricFamily metric_family_table[] = {
                 METRIC_FAMILY_TYPE_STRING,
                 .generate = machine_id_generate,
         },
+        {
+                METRIC_IO_SYSTEMD_BASIC_PREFIX "MachineInfo.PRETTY_HOSTNAME",
+                "Pretty hostname (PRETTY_HOSTNAME= field from machine-info)",
+                METRIC_FAMILY_TYPE_STRING,
+                .generate = machine_info_generate,
+        },
+        MACHINE_INFO_STANDARD_FIELD("DEPLOYMENT"),
+        MACHINE_INFO_STANDARD_FIELD("LOCATION"),
+        MACHINE_INFO_STANDARD_FIELD("TAGS"),
+        /* Keep those ↑ in sync with machine_info_generate(). */
         {
                 METRIC_IO_SYSTEMD_BASIC_PREFIX "OSRelease.NAME",
                 "Operating system human-readable name (PRETTY_NAME= or NAME= field from os-release)",
