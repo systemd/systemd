@@ -10,17 +10,19 @@
 #include "efi-loader.h"
 #include "escape.h"
 #include "format-table.h"
+#include "help-util.h"
 #include "json-util.h"
 #include "main-func.h"
 #include "options.h"
 #include "parse-argument.h"
 #include "pcrextend-util.h"
-#include "pretty-print.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tpm2-pcr.h"
 #include "tpm2-util.h"
+#include "user-record.h"
+#include "userdb.h"
 #include "varlink-io.systemd.PCRExtend.h"
 #include "varlink-util.h"
 
@@ -30,6 +32,7 @@ static char **arg_banks = NULL;
 static char *arg_file_system = NULL;
 static bool arg_machine_id = false;
 static bool arg_product_id = false;
+static UserRecord *arg_login = NULL;
 static uint32_t arg_pcr_mask = 0;
 static char *arg_nvpcr_name = NULL;
 static bool arg_varlink = false;
@@ -40,40 +43,31 @@ STATIC_DESTRUCTOR_REGISTER(arg_banks, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_device, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_file_system, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_nvpcr_name, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_login, user_record_unrefp);
 
 #define EXTENSION_STRING_SAFE_LIMIT 1024
 
 static int help(void) {
-        _cleanup_free_ char *link = NULL;
         _cleanup_(table_unrefp) Table *options = NULL;
         int r;
-
-        r = terminal_urlify_man("systemd-pcrextend", "8", &link);
-        if (r < 0)
-                return log_oom();
 
         r = option_parser_get_help_table(&options);
         if (r < 0)
                 return r;
 
-        printf("%1$s  [OPTIONS...] WORD\n"
-               "%1$s  [OPTIONS...] --file-system=PATH\n"
-               "%1$s  [OPTIONS...] --machine-id\n"
-               "%1$s  [OPTIONS...] --product-id\n"
-               "\n%2$sExtend a TPM2 PCR with boot phase, machine ID, or file system ID.%3$s\n",
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal());
+        help_cmdline("[OPTIONS...] WORD");
+        help_cmdline("[OPTIONS...] --file-system=PATH");
+        help_cmdline("[OPTIONS...] --machine-id");
+        help_cmdline("[OPTIONS...] --product-id");
+        help_cmdline("[OPTIONS...] --login=UID|USER");
+        help_abstract("Extend a TPM2 PCR with boot phase, machine ID, file system ID or user record.");
 
-        printf("\n%sOptions:%s\n",
-               ansi_underline(),
-               ansi_normal());
-
+        help_section("Options");
         r = table_print_or_warn(options);
         if (r < 0)
                 return r;
 
-        printf("\nSee the %s for details.\n", link);
+        help_man_page_reference("systemd-pcrextend", "8");
         return 0;
 }
 
@@ -169,6 +163,19 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         arg_product_id = true;
                         break;
 
+                OPTION_LONG("login", "UID|USER",
+                            "Measure a user's record into NvPCR 'login'"): {
+                        _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
+
+                        r = userdb_by_name(opts.arg, /* match= */ NULL, USERDB_PARSE_NUMERIC|USERDB_SUPPRESS_SHADOW, &ur);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to look up user '%s': %m", opts.arg);
+
+                        user_record_unref(arg_login);
+                        arg_login = TAKE_PTR(ur);
+                        break;
+                }
+
                 OPTION_LONG("early", NULL,
                             "Run in early boot mode, without access to /var/"):
                         arg_early = true;
@@ -185,8 +192,8 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         break;
                 }
 
-        if (!!arg_file_system + arg_machine_id + arg_product_id > 1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--file-system=, --machine-id, --product-id may not be combined.");
+        if (!!arg_file_system + arg_machine_id + arg_product_id + !!arg_login > 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--file-system=, --machine-id, --product-id, --login= may not be combined.");
 
         if (arg_pcr_mask != 0 && arg_nvpcr_name)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--pcr= and --nvpcr= may not be combined.");
@@ -199,10 +206,13 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         else if (arg_pcr_mask == 0 && !arg_nvpcr_name) {
                 arg_pcr_mask =
                         (arg_file_system || arg_machine_id) ? INDEX_TO_MASK(uint32_t, TPM2_PCR_SYSTEM_IDENTITY) : /* → PCR 15 */
-                                           !arg_product_id  ? INDEX_TO_MASK(uint32_t, TPM2_PCR_KERNEL_BOOT) :     /* → PCR 11 */
-                                                              0;
+                              (arg_product_id || arg_login) ? 0 :                                                 /* → NvPCR */
+                                                              INDEX_TO_MASK(uint32_t, TPM2_PCR_KERNEL_BOOT);      /* → PCR 11 */
 
-                r = free_and_strdup_warn(&arg_nvpcr_name, arg_product_id ? "hardware" : NULL);
+                r = free_and_strdup_warn(&arg_nvpcr_name,
+                                         arg_product_id  ? "hardware" :
+                                         arg_login       ? "login" :
+                                                           NULL);
                 if (r < 0)
                         return r;
         }
@@ -496,6 +506,17 @@ static int run(int argc, char *argv[]) {
                         return r;
 
                 event = TPM2_EVENT_PRODUCT_ID;
+
+        } else if (arg_login) {
+
+                if (n_args != 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Expected no argument.");
+
+                r = pcrextend_login_word(arg_login, &word);
+                if (r < 0)
+                        return r;
+
+                event = TPM2_EVENT_LOGIN;
         } else {
                 if (n_args != 1)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Expected a single argument.");
