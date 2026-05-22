@@ -32,7 +32,8 @@ struct timespec;
 typedef struct sd_event sd_event;
 typedef struct sd_future sd_future;
 typedef struct sd_future_ops sd_future_ops;
-typedef int (*sd_future_func_t)(sd_future *f);
+typedef struct sd_future_slot sd_future_slot;
+typedef int (*sd_future_func_t)(sd_future *f, void *userdata);
 typedef int (*sd_fiber_func_t)(void *userdata);
 typedef _sd_destroy_t sd_fiber_destroy_t;
 
@@ -50,15 +51,26 @@ __extension__ typedef enum _SD_ENUM_TYPE_S64(sd_future_state_t) {
         _SD_ENUM_FORCE_S64(SD_FUTURE_STATE)
 } sd_future_state_t;
 
-int sd_future_new(const sd_future_ops *ops, sd_future **ret);
+int sd_future_new(sd_event *e, const sd_future_ops *ops, sd_future **ret);
 int sd_future_cancel(sd_future *f);
 int sd_future_resolve(sd_future *f, int result);
 
+/* A future must be RESOLVED before its last reference is released; dropping the last reference to a
+ * PENDING future is a programming error that aborts the process. Use sd_future_cancel_unref() when
+ * cancellation resolves synchronously, or sd_future_cancel_wait_unref() from a fiber when it must
+ * wait for resolution. Plain sd_future_unref() does not cancel the future. */
 _SD_DECLARE_TRIVIAL_REF_UNREF_FUNC(sd_future);
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_future, sd_future_unref);
 void sd_future_unref_array_clear(sd_future *array[], size_t n);
 void sd_future_unref_array(sd_future *array[], size_t n);
 
+sd_future* sd_future_cancel_unref(sd_future *f);
+_SD_DEFINE_POINTER_CLEANUP_FUNC(sd_future, sd_future_cancel_unref);
+void sd_future_cancel_unref_array_clear(sd_future *array[], size_t n);
+void sd_future_cancel_unref_array(sd_future *array[], size_t n);
+
+/* Cancel and release the caller's reference after resolution. The target must not be the calling
+ * fiber. Asynchronous cancellation must be awaited from a fiber on the same event loop. */
 sd_future* sd_future_cancel_wait_unref(sd_future *f);
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_future, sd_future_cancel_wait_unref);
 void sd_future_cancel_wait_unref_array_clear(sd_future *array[], size_t n);
@@ -66,14 +78,52 @@ void sd_future_cancel_wait_unref_array(sd_future *array[], size_t n);
 
 int sd_future_state(sd_future *f);
 int sd_future_result(sd_future *f);
-void* sd_future_get_userdata(sd_future *f);
 void* sd_future_get_private(sd_future *f);
 const sd_future_ops* sd_future_get_ops(sd_future *f);
+sd_event* sd_future_get_event(sd_future *f);
 
-int sd_future_set_callback(sd_future *f, sd_future_func_t callback, void *userdata);
+int sd_future_add_callback(sd_future *f, sd_future_slot **ret_slot, sd_future_func_t callback, void *userdata);
+
+int sd_future_new_defer(sd_event *e, int result, sd_future **ret);
+
+_SD_DECLARE_TRIVIAL_REF_UNREF_FUNC(sd_future_slot);
+_SD_DEFINE_POINTER_CLEANUP_FUNC(sd_future_slot, sd_future_slot_unref);
+
+sd_future* sd_future_slot_get_future(sd_future_slot *s);
+
 int sd_future_set_priority(sd_future *f, int64_t priority);
 
-int sd_future_new_wait(sd_future *target, sd_future **ret);
+/* Group policies select an outcome as follows:
+ * WAIT_ALL: first child error, or 0 once every child succeeds.
+ * WAIT_ALL | IGNORE_ERRORS: wait for every child, then return the first error or 0.
+ * WAIT_ANY: a successful child's result if any have succeeded, otherwise the first child error.
+ * WAIT_ANY | IGNORE_ERRORS: wait for a success, or for every child to fail; return that success or
+ *                         the first error, respectively.
+ * "First" means insertion order among the children already resolved when the outcome is selected.
+ * Once selected, the outcome is final: remaining children are cancelled, and the group resolves only
+ * after every child has finished. IGNORE_ERRORS also suppresses cancellation of the parent fiber;
+ * it does not turn an unsuccessful group result into success. Empty groups stay pending until cancelled. */
+__extension__ typedef enum _SD_ENUM_TYPE_S64(sd_future_group_policy_t) {
+        SD_FUTURE_GROUP_WAIT_ALL      = 0,
+        SD_FUTURE_GROUP_WAIT_ANY      = 1 << 0,
+        SD_FUTURE_GROUP_IGNORE_ERRORS = 1 << 1,
+        _SD_FUTURE_GROUP_POLICY_MASK = SD_FUTURE_GROUP_WAIT_ANY | SD_FUTURE_GROUP_IGNORE_ERRORS,
+        _SD_ENUM_FORCE_S64(SD_FUTURE_GROUP_POLICY)
+} sd_future_group_policy_t;
+
+/* The calling fiber becomes the parent only if it belongs to e. Unless IGNORE_ERRORS is set, a child
+ * error cancels the parent if it is not awaiting the group with sd_fiber_await(). Explicit group
+ * cancellation does not cancel the parent. */
+int sd_future_group_new(sd_event *e, sd_future **ret);
+int sd_future_group_set_policy(sd_future *f, uint64_t policy);
+/* The group and all its children must belong to the same event loop. Adding a child takes a new
+ * reference; it does not consume the caller's reference. To hand ownership to the group, release the
+ * caller's reference with sd_future_unref(), not a cancellation cleanup helper. */
+int sd_future_group_add(sd_future *f, sd_future *child);
+int sd_future_group_add_many_internal(sd_future *f, ...) _sd_sentinel_;
+#define sd_future_group_add_many(f, ...) sd_future_group_add_many_internal(f, __VA_ARGS__, NULL)
+/* NULL is treated as an empty group. */
+size_t sd_future_group_size(sd_future *f);
 
 int sd_fiber_new(sd_event *e, const char *name, sd_fiber_func_t func, void *userdata, sd_fiber_destroy_t destroy, sd_future **ret);
 
@@ -87,6 +137,11 @@ sd_event* sd_fiber_get_event(void);
 
 int sd_fiber_yield(void);
 int sd_fiber_sleep(uint64_t usec);
+/* Return the target's result on completion, or a wait error if the calling fiber is interrupted or
+ * the wait fails. An interrupted wait does not imply that the target has resolved; once it has,
+ * sd_future_result() gives its outcome independently of the wait's return value. An already-resolved
+ * target returns its result without consuming a pending interruption. The target must belong to the
+ * calling fiber's event loop. */
 int sd_fiber_await(sd_future *target);
 int sd_fiber_suspend(void);
 int sd_fiber_resume(sd_future *f, int result);
