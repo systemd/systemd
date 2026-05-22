@@ -1507,7 +1507,7 @@ int sd_dhcp6_client_attach_event(sd_dhcp6_client *client, sd_event *event, int64
         else {
                 r = sd_event_default(&client->event);
                 if (r < 0)
-                        return 0;
+                        return r;
         }
 
         client->event_priority = priority;
