@@ -36,7 +36,7 @@ static int dispatch_dns_server(const char *name, sd_json_variant *variant, sd_js
         static const sd_json_dispatch_field dns_server_dispatch_table[] = {
                 { "address",       SD_JSON_VARIANT_ARRAY,         json_dispatch_byte_array_iovec, offsetof(DNSServer, addr),        SD_JSON_MANDATORY },
                 { "addressString", _SD_JSON_VARIANT_TYPE_INVALID, NULL,                           0,                                0                 },
-                { "family",        SD_JSON_VARIANT_UNSIGNED,      sd_json_dispatch_uint,          offsetof(DNSServer, family),      SD_JSON_MANDATORY },
+                { "family",        SD_JSON_VARIANT_INTEGER,       json_dispatch_address_family,   offsetof(DNSServer, family),      SD_JSON_MANDATORY },
                 { "port",          SD_JSON_VARIANT_UNSIGNED,      sd_json_dispatch_uint16,        offsetof(DNSServer, port),        0                 },
                 { "ifindex",       SD_JSON_VARIANT_UNSIGNED,      json_dispatch_ifindex,          offsetof(DNSServer, ifindex),     SD_JSON_RELAX     },
                 { "name",          SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,        offsetof(DNSServer, server_name), 0                 },
@@ -177,12 +177,12 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
 
 static int dispatch_dns_scope(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         static const sd_json_dispatch_field dns_scope_dispatch_table[] = {
-                { "protocol",   SD_JSON_VARIANT_STRING,   sd_json_dispatch_string, offsetof(DNSScope, protocol),               SD_JSON_MANDATORY },
-                { "family",     SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint,   offsetof(DNSScope, family),                 0                 },
-                { "ifname",     SD_JSON_VARIANT_STRING,   sd_json_dispatch_string, offsetof(DNSScope, ifname),                 0                 },
-                { "ifindex",    SD_JSON_VARIANT_UNSIGNED, json_dispatch_ifindex,   offsetof(DNSScope, ifindex),                SD_JSON_RELAX     },
-                { "dnssec",     SD_JSON_VARIANT_STRING,   sd_json_dispatch_string, offsetof(DNSScope, dnssec_mode_str),        0                 },
-                { "dnsOverTLS", SD_JSON_VARIANT_STRING,   sd_json_dispatch_string, offsetof(DNSScope, dns_over_tls_mode_str),  0                 },
+                { "protocol",   SD_JSON_VARIANT_STRING,   sd_json_dispatch_string,      offsetof(DNSScope, protocol),              SD_JSON_MANDATORY },
+                { "family",     SD_JSON_VARIANT_INTEGER,  json_dispatch_address_family, offsetof(DNSScope, family),                SD_JSON_RELAX     },
+                { "ifname",     SD_JSON_VARIANT_STRING,   sd_json_dispatch_string,      offsetof(DNSScope, ifname),                0                 },
+                { "ifindex",    SD_JSON_VARIANT_UNSIGNED, json_dispatch_ifindex,        offsetof(DNSScope, ifindex),               SD_JSON_RELAX     },
+                { "dnssec",     SD_JSON_VARIANT_STRING,   sd_json_dispatch_string,      offsetof(DNSScope, dnssec_mode_str),       0                 },
+                { "dnsOverTLS", SD_JSON_VARIANT_STRING,   sd_json_dispatch_string,      offsetof(DNSScope, dns_over_tls_mode_str), 0                 },
                 {},
         };
         DNSScope **ret = ASSERT_PTR(userdata);
