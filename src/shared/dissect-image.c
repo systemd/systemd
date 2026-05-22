@@ -750,7 +750,7 @@ static int acquire_sig_for_roothash(
 
         ssize_t n = pread(fd, buf, partition_size, partition_offset);
         if (n < 0)
-                return -ENOMEM;
+                return -errno;
         if ((uint64_t) n != partition_size)
                 return -EIO;
 
