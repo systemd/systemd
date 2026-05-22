@@ -5086,7 +5086,7 @@ int mountfsd_make_directory(
 
         _cleanup_close_ int fd = open(parent, O_DIRECTORY|O_CLOEXEC);
         if (fd < 0)
-                return log_error_errno(r, "Failed to open '%s': %m", parent);
+                return log_error_errno(errno, "Failed to open '%s': %m", parent);
 
         return mountfsd_make_directory_fd(fd, dirname, flags, ret_directory_fd);
 }
