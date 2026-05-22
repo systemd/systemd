@@ -972,7 +972,7 @@ static int qmp_client_call_suspend(
         if (r < 0)
                 return r;
 
-        r = sd_fiber_suspend();
+        r = sd_fiber_await(call);
 
         /* If the future isn't resolved, the suspend was interrupted before a reply arrived (fiber
          * cancelled, fiber-wide SD_FIBER_TIMEOUT scope expired, …). There's no reply to extract,
