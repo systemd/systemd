@@ -170,6 +170,21 @@ CHANGES WITH 261 in spe:
           'on-success', which preserves the FD Store when the unit is stopped,
           but only if it exited successfully, and discards it otherwise.
 
+        * The service manager now implements a new Varlink interface
+          io.systemd.Job for listing/cancelling any queued jobs.
+
+        * A new knob ConditionFraction= enables scheduling of units on a
+          specified fraction of the fleet of systems only. It takes a "tag"
+          string and a percentage. The system's machine ID is hashed together
+          with the tag into a 32bit integer, and the result is compared with
+          the percentage of 2^32. If below, the condition is true, otherwise
+          false. This allows staged rollout of services: if multiple systems
+          are provisioned with the same units only roughly the specified
+          percentage of systems will run the service, the rest will not.
+
+        * A new knob ConditionMachineTag= allows conditioning a unit based on
+          per-mach "tag" strings, as configured in /etc/machine-info, see below.
+
         New IMDS (Cloud "Instance Metadata Service") Subsystem:
 
         * The hardware database now contains a new database hwdb.d/40-imds.hwdb
@@ -229,8 +244,11 @@ CHANGES WITH 261 in spe:
           and Type 11 in PCR 1, since some firmwares do not measure them, even
           though they are supposed to.
 
-        * A new systemd-pcrlogin@.service service will now measure a minimized
-          user record into the new 'login' NvPCR upon first login.
+        * systemd-tpm2-setup.service will now allocate NvPCRs in an orer
+          configurable via the "priority" field of their definining JSON
+          object. As NV index space is very constrained, it's essential to
+          allocate them in the order of relevance, so that the least relevant
+          NvPCRs are dropped, and the most relevant NvPCRs kept.
 
         Changes in systemd-tmpfiles and systemd-sysusers:
 
@@ -287,6 +305,8 @@ CHANGES WITH 261 in spe:
           (RFC 3361) to clients.
 
         * The Varlink Describe() output now reports interface bit rates.
+
+        * .link files gained knobs to control IRQ affinity.
 
         Changes in systemd-resolved:
 
@@ -363,10 +383,10 @@ CHANGES WITH 261 in spe:
         * systemd-stub will now query the firmware's keyboard mapping and pass
           it to the OS via the LoaderKeyboardLayout EFI variable. This variable
           is then used by systemd-vconsole-setup as a fallback keyboard mapping
-          if no mapping is explicitly configured otherwise. On modern laptops this
-          means there's a good chance that the keyboard mapping of the built-in
-          keyboard will be automatically detected and set up without requiring
-          user intervention.
+          if no mapping is explicitly configured otherwise. On modern laptops
+          this means there's a good chance that the keyboard mapping of the
+          built-in keyboard will be automatically detected and set up without
+          requiring user intervention.
 
         * A new "extra" Type #1 Boot Loader Specification stanza is parsed and
           used to deliver additional resources to a UKI without modifying its
@@ -512,6 +532,9 @@ CHANGES WITH 261 in spe:
         * systemd-vmspawn now propagates the host TERM environment variable
           into the VM.
 
+        * systemd-vmspawn gained support for a new --coco= switch for enabling
+          Confidential Comuting. Currently, it only supports AMD SEV-SNP.
+
         * A new 'storagectl' command line tool and an accompanying
           io.systemd.StorageProvider Varlink interface have been added,
           alongside the new generic providers systemd-storage-fs@.service and
@@ -540,6 +563,12 @@ CHANGES WITH 261 in spe:
         * The crashing thread's TID and name are now captured and
           recorded alongside the existing PID/comm metadata.
 
+        * systemd-coredump will now pick up a new field COREDUMP_CODE= for all
+          coredumps that happen. This is a kernel provided field that contains
+          details about the reason for the coredump, with various details
+          depending on the architecture. "coredumpctl info" has been updated in
+          order to be able to decode this new field.
+
         Changes in systemd-creds, systemd-cryptsetup and
         systemd-cryptenroll:
 
@@ -566,9 +595,29 @@ CHANGES WITH 261 in spe:
 
         * The unused dependency on libgpg-error has been dropped.
 
-        → This means all direct shared library linking against external
-          libraries has now been replaced by dlopen()-based linking, with the
-          sole exception of libc.
+        │ This means all direct shared library linking against external       │
+        │ libraries has now been replaced by dlopen()-based linking, with the │
+        │ sole exception of libc.                                             │
+
+        Changes related to Varlink:
+
+        * sd-varlink gained a new call sd_varlink_set_sentinel() that
+          simplifies generating responses to method calls that have "more" set.
+
+        * sd-varlink gained a new call sd_varlink_call_and_upgrade() that
+          permits calling a method call with the Varlink "upgrade" feature
+          enabled, i.e. that allows switching from Varlink to a different
+          protocol. varlinkctl acquired a new --upgrade switch to expose this
+          functionality. A new call sd_varlink_reply_and_upgrade() supports
+          "upgrade" mode on the server side.
+
+        * The 'ret' argument of sd_varlink_idl_parse() is now optional.
+
+        * sd-varlink's per-UID connection limit has been reduced to 128.
+
+        * varlinkctl gained a new 'serve' verb that wraps an arbitrary
+          command as a Varlink server, and a new '--upgrade' option
+          (along with '--exec') to consume the protocol upgrade API.
 
         Changes in libsystemd:
 
@@ -591,20 +640,6 @@ CHANGES WITH 261 in spe:
           file offset to 0 when parsing via sd_json_parse_file() or
           sd_json_parse_fd().
 
-        * sd-varlink gained a new call sd_varlink_set_sentinel() that
-          simplifies generating responses to method calls that have "more" set.
-
-        * sd-varlink gained a new call sd_varlink_call_and_upgrade() that
-          permits calling a method call with the Varlink "upgrade" feature
-          enabled, i.e. that allows switching from Varlink to a different
-          protocol. varlinkctl acquired a new --upgrade switch to expose this
-          functionality. A new call sd_varlink_reply_and_upgrade() supports
-          "upgrade" mode on the server side.
-
-        * The 'ret' argument of sd_varlink_idl_parse() is now optional.
-
-        * sd-varlink's per-UID connection limit has been reduced to 128.
-
         * sd-event gained native support for CPU and IO pressure events, in
           addition to the pre-existing support for memory pressure events. This
           is useful for slowing down or pausing worker threads or so if CPU or
@@ -612,42 +647,7 @@ CHANGES WITH 261 in spe:
 
         * sd-path now exposes the XDG 'projects' user directory.
 
-        Other changes:
-
-        * A new io.systemd.Shutdown Varlink interface has been introduced
-          to request system shutdown. The peer connection identifier of
-          the requester is logged.
-
-        * varlinkctl gained a new 'serve' verb that wraps an arbitrary
-          command as a Varlink server, and a new '--upgrade' option
-          (along with '--exec') to consume the protocol upgrade API.
-
-        * The systemd-report framework introduced in v260 has been
-          substantially extended. Basic system metrics
-          (PhysicalMemoryBytes, CPUsOnline, SMBIOS fields, /etc/machine-info
-          fields, Confidential Computing vendor info, TPM2 vendor info) are
-          now provided by a new systemd-report-basic@.service that is enabled
-          by default via its report-basic.socket activation unit. Per-cgroup
-          metrics (CPU time, etc.) and per-service metrics are exposed through
-          dedicated Varlink services. systemd-report gained the ability to
-          upload collected reports via a Varlink socket directory or HTTP
-          destinations, and to inject custom HTTP headers when doing so.
-
-        * 'systemctl kexec' gained a new --kernel-cmdline= argument that
-          overrides the kernel command line for kexec invocations.
-
-        * 'systemctl kexec' now prefers invoking the 'kexec_file_load()' system
-          call directly, and uses the 'kexec' binary only as a fallback if that
-          is not available, so that on most systems the dependency on
-          'kexec-tools' is no longer necessary.
-
-        * fstab-generator now supports swap on network block devices.
-
-        * systemd-firstboot will now honour a new "firstboot.hostname" system
-          credential for persistently setting the system hostname on first
-          boot. This is different from the pre-existing "system.hostname",
-          which sets the hostname only for the boot the credential is passed
-          on, and which is not made persistent.
+        Changes in systemd-hostnamed:
 
         * systemd-hostnamed now provides a D-Bus API to acquire arbitrary
           fields from /etc/machine-info.
@@ -661,6 +661,53 @@ CHANGES WITH 261 in spe:
           Units can match on these tags via the new ConditionMachineTag= setting,
           and systemd-firstboot can set the tags via command line parameters or
           credentials.
+
+        Changes in systemd-logind:
+
+        * A new systemd-pcrlogin@.service service will now measure a minimized
+          user record into the new 'login' NvPCR upon first login.
+
+        * A new io.systemd.Shutdown Varlink interface has been introduced
+          to request system shutdown. The peer connection identifier of
+          the requester is logged.
+
+        Changes related to kexec:
+
+        * 'systemctl kexec' gained a new --kernel-cmdline= argument that
+          overrides the kernel command line for kexec invocations.
+
+        * 'systemctl kexec' now prefers invoking the 'kexec_file_load()' system
+          call directly, and uses the 'kexec' binary only as a fallback if that
+          is not available, so that on most systems the dependency on
+          'kexec-tools' is no longer necessary.
+
+        Changes in systemd-firstboot:
+
+        * systemd-firstboot will now pre-fill the input prompts for keyboard
+          and local with the corresponding settings from the firmware if
+          supported. There's a good chance, this means on recent hardware you
+          can just keep hitting Enter in the prompts and will nonetheless get
+          the right keyboard mapping set up. bootctl will show this data too,
+          if available.
+
+        * systemd-firstboot will now honour a new "firstboot.hostname" system
+          credential for persistently setting the system hostname on first
+          boot. This is different from the pre-existing "system.hostname",
+          which sets the hostname only for the boot the credential is passed
+          on, and which is not made persistent.
+
+        Other changes:
+
+        * The systemd-report framework introduced in v260 has been
+          substantially extended. Basic system metrics
+          (PhysicalMemoryBytes, CPUsOnline, SMBIOS fields, /etc/machine-info
+          fields, Confidential Computing vendor info, TPM2 vendor info) are
+          now provided by a new systemd-report-basic@.service that is enabled
+          by default via its report-basic.socket activation unit. Per-cgroup
+          metrics (CPU time, etc.) and per-service metrics are exposed through
+          dedicated Varlink services. systemd-report gained the ability to
+          upload collected reports via a Varlink socket directory or HTTP
+          destinations, and to inject custom HTTP headers when doing so.
 
         * JSON user database records may now optionally carry a birth date
           field to close the gap with LDAP/OpenID/FreeIPA/etc. homectl gained
@@ -690,6 +737,10 @@ CHANGES WITH 261 in spe:
         * systemd-oomd gained support for OOM rulesets. These allow fine-tuning
           OOM policy handling, and may be defined in /etc/systemd/oomd/rules.d/
           and then enabled on a service unit via the new OOMRule= option.
+
+        * systemd-socket-proxy now optionally implements the "PROXY protocol
+          v1", as defined by "haproxy". See the new --proxy-protocol= switch
+          for details.
 
         Contributions from: A S Alam, Adam Dinwoodie, Adrian Wannenmacher,
         Aleksa Sarai, Alyssa Ross, Ambareesh Balaji, Américo Monteiro,
