@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/loop.h>
 #include <locale.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -35,7 +36,9 @@
 #include "loop-util.h"
 #include "machine-credential.h"
 #include "main-func.h"
+#include "mkdir.h"
 #include "mount-util.h"
+#include "namespace-util.h"
 #include "options.h"
 #include "os-util.h"
 #include "parse-argument.h"
@@ -822,6 +825,8 @@ static int invoke_repart(
         return 0;
 }
 
+
+
 static int prompt_erase(
                 bool can_add,
                 int *ret_erase) {
@@ -1511,7 +1516,7 @@ static const ImagePolicy image_policy = {
         .n_policies = 4,
         .policies = {
                 /* We mount / and /usr/ so that we can get access to /etc/machine-id and /etc/kernel/ */
-                { PARTITION_ROOT,     PARTITION_POLICY_VERITY|PARTITION_POLICY_SIGNED|PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_ABSENT },
+                { PARTITION_ROOT,     PARTITION_POLICY_VERITY|PARTITION_POLICY_SIGNED|PARTITION_POLICY_ENCRYPTED|PARTITION_POLICY_ABSENT },
                 { PARTITION_USR,      PARTITION_POLICY_VERITY|PARTITION_POLICY_SIGNED|PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_ABSENT },
                 { PARTITION_ESP,      PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_ABSENT },
                 { PARTITION_XBOOTLDR, PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_ABSENT },
@@ -1630,6 +1635,118 @@ static int vl_method_list_candidate_devices(
                         return log_error_errno(r, "Failed to wait for varlink connection events: %m");
         }
 
+        return 0;
+}
+
+
+static int mount_image_privately(
+                const char *image,
+                const ImagePolicy *policy,
+                DissectImageFlags flags,
+                char **ret_directory,
+                int *ret_dir_fd,
+                LoopDevice **ret_loop_device) {
+
+        _cleanup_(verity_settings_done) VeritySettings verity = VERITY_SETTINGS_DEFAULT;
+        _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
+        _cleanup_(dissected_image_unrefp) DissectedImage *dissected_image = NULL;
+        _cleanup_free_ char *dir = NULL;
+        int r;
+
+        /* Mounts an OS image at a temporary place, inside a newly created mount namespace of our own. This
+         * is used by tools such as systemd-tmpfiles or systemd-firstboot to operate on some disk image
+         * easily. */
+
+        assert(image);
+        assert(ret_loop_device);
+
+        /* We intend to mount this right-away, hence add the partitions if needed and pin them. */
+        flags |= DISSECT_IMAGE_ADD_PARTITION_DEVICES |
+                DISSECT_IMAGE_PIN_PARTITION_DEVICES;
+
+        r = verity_settings_load(&verity, image, NULL, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to load root hash data: %m");
+
+        r = loop_device_make_by_path(
+                        image,
+                        FLAGS_SET(flags, DISSECT_IMAGE_DEVICE_READ_ONLY) ? O_RDONLY : -1,
+                        /* sector_size= */ UINT32_MAX,
+                        FLAGS_SET(flags, DISSECT_IMAGE_NO_PARTITION_TABLE) ? 0 : LO_FLAGS_PARTSCAN,
+                        LOCK_SH,
+                        &d);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set up loopback device for %s: %m", image);
+
+        r = dissect_loop_device_and_warn(
+                        d,
+                        &verity,
+                        /* mount_options= */ NULL,
+                        policy,
+                        /* image_filter= */ NULL,
+                        flags,
+                        &dissected_image);
+        if (r < 0)
+                return r;
+
+        r = dissected_image_load_verity_sig_partition(dissected_image, d->fd, &verity);
+        if (r < 0)
+                return r;
+
+        r = dissected_image_guess_verity_roothash(dissected_image, &verity);
+        if (r < 0)
+                return r;
+
+        r = dissected_image_decrypt(dissected_image, /* root= */ NULL, /* passphrase= */ "", &verity, policy, flags);
+        if (r < 0)
+                return r;
+
+        r = detach_mount_namespace();
+        if (r < 0)
+                return log_error_errno(r, "Failed to detach mount namespace: %m");
+
+        r = mkdir_p("/run/systemd/mount-rootfs", 0555);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create mount point: %m");
+
+        r = dissected_image_mount_and_warn(
+                        dissected_image,
+                        "/run/systemd/mount-rootfs",
+                        /* uid_shift= */ UID_INVALID,
+                        /* uid_range= */ UID_INVALID,
+                        /* userns_fd= */ -EBADF,
+                        flags);
+        if (r < 0)
+                return r;
+
+        r = loop_device_flock(d, LOCK_UN);
+        if (r < 0)
+                return r;
+
+        r = dissected_image_relinquish(dissected_image);
+        if (r < 0)
+                return log_error_errno(r, "Failed to relinquish DM and loopback block devices: %m");
+
+        if (ret_directory) {
+                dir = strdup("/run/systemd/mount-rootfs");
+                if (!dir)
+                        return log_oom();
+        }
+
+        if (ret_dir_fd) {
+                _cleanup_close_ int dir_fd = -EBADF;
+
+                dir_fd = open("/run/systemd/mount-rootfs", O_CLOEXEC|O_DIRECTORY);
+                if (dir_fd < 0)
+                        return log_error_errno(errno, "Failed to open mount point directory: %m");
+
+                *ret_dir_fd = TAKE_FD(dir_fd);
+        }
+
+        if (ret_directory)
+                *ret_directory = TAKE_PTR(dir);
+
+        *ret_loop_device = TAKE_PTR(d);
         return 0;
 }
 
@@ -1845,7 +1962,7 @@ static int vl_method_run(
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_freep) char *root_dir = NULL;
         _cleanup_close_ int root_fd = -EBADF;
-        r = mount_image_privately_interactively(
+        r = mount_image_privately(
                         context->node,
                         &image_policy,
                         DISSECT_IMAGE_REQUIRE_ROOT | DISSECT_IMAGE_RELAX_VAR_CHECK |
