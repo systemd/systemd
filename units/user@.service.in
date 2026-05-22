@@ -11,7 +11,9 @@
 Description=User Manager for UID %i
 Documentation=man:user@.service(5)
 BindsTo=user-runtime-dir@%i.service
-After=systemd-logind.service user-runtime-dir@%i.service dbus.service systemd-oomd.service
+# Order after the user record measurement (see user-runtime-dir@.service), so the user's record is measured
+# into the 'login' TPM2 NvPCR before the user manager starts. Ordering only, so login is never blocked on it.
+After=systemd-logind.service user-runtime-dir@%i.service dbus.service systemd-oomd.service systemd-pcrlogin@%i.service
 IgnoreOnIsolate=yes
 
 [Service]
