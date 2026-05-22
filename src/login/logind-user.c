@@ -17,6 +17,7 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "hashmap.h"
+#include "json-util.h"
 #include "limits-util.h"
 #include "logind-session.h"
 #include "logind.h"
@@ -621,7 +622,7 @@ int user_finalize(User *u) {
         return r;
 }
 
-int user_get_idle_hint(User *u, dual_timestamp *t) {
+bool user_get_idle_hint(User *u, dual_timestamp *ret_timestamp) {
         bool idle_hint = true;
         dual_timestamp ts = DUAL_TIMESTAMP_NULL;
 
@@ -629,15 +630,12 @@ int user_get_idle_hint(User *u, dual_timestamp *t) {
 
         LIST_FOREACH(sessions_by_user, s, u->sessions) {
                 dual_timestamp k;
-                int ih;
+                bool ih;
 
                 if (!SESSION_CLASS_CAN_IDLE(s->class))
                         continue;
 
                 ih = session_get_idle_hint(s, &k);
-                if (ih < 0)
-                        return ih;
-
                 if (!ih) {
                         if (!idle_hint) {
                                 if (k.monotonic < ts.monotonic)
@@ -647,14 +645,13 @@ int user_get_idle_hint(User *u, dual_timestamp *t) {
                                 ts = k;
                         }
                 } else if (idle_hint) {
-
                         if (k.monotonic > ts.monotonic)
                                 ts = k;
                 }
         }
 
-        if (t)
-                *t = ts;
+        if (ret_timestamp)
+                *ret_timestamp = ts;
 
         return idle_hint;
 }
@@ -963,6 +960,77 @@ void user_update_last_session_timer(User *u) {
                 log_debug("Last session of user '%s' logged out, terminating user context in %s.",
                           u->user_record->user_name,
                           FORMAT_TIMESPAN(user_stop_delay, USEC_PER_MSEC));
+}
+
+static int user_sessions_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        User *u = ASSERT_PTR(userdata);
+        int r;
+
+        assert(ret);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        LIST_FOREACH(sessions_by_user, session, u->sessions) {
+                r = sd_json_variant_append_arrayb(&v, SD_JSON_BUILD_STRING(session->id));
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(v);
+        return 0;
+}
+
+static int user_context_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        User *u = ASSERT_PTR(userdata);
+
+        assert(ret);
+        assert(u->user_record);
+
+        int linger = user_check_linger_file(u);
+        if (linger == -ENOMEM)
+                return linger;
+        if (linger < 0)
+                log_warning_errno(linger,
+                                  "Failed to check linger file for user '%s', assuming disabled: %m",
+                                  u->user_record->user_name);
+
+        return sd_json_buildo(
+                        ret,
+                        SD_JSON_BUILD_PAIR_UNSIGNED("UID", u->user_record->uid),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("GID", u->user_record->gid),
+                        SD_JSON_BUILD_PAIR_STRING("Name", u->user_record->user_name),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("Linger", linger > 0),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("Service", u->service_manager_unit),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("Slice", u->slice),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("RuntimePath", u->runtime_path));
+}
+
+static int user_runtime_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        User *u = ASSERT_PTR(userdata);
+
+        assert(ret);
+
+        dual_timestamp idle_ts;
+        bool idle = user_get_idle_hint(u, &idle_ts);
+
+        return sd_json_buildo(
+                        ret,
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("Display", u->display ? u->display->id : NULL),
+                        JSON_BUILD_PAIR_ENUM("State", user_state_to_string(user_get_state(u))),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("Sessions", user_sessions_build_json, u),
+                        JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL("Timestamp", &u->timestamp),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("IdleHint", idle),
+                        SD_JSON_BUILD_PAIR_CONDITION(idle, "IdleSinceHint", JSON_BUILD_DUAL_TIMESTAMP(&idle_ts)));
+}
+
+int user_build_json(User *u, sd_json_variant **ret) {
+        assert(u);
+        assert(u->user_record);
+        assert(ret);
+
+        return sd_json_buildo(
+                        ret,
+                        SD_JSON_BUILD_PAIR_CALLBACK("context", user_context_build_json, u),
+                        SD_JSON_BUILD_PAIR_CALLBACK("runtime", user_runtime_build_json, u));
 }
 
 static const char* const user_state_table[_USER_STATE_MAX] = {
