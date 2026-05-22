@@ -5,8 +5,11 @@
  * or verifies everything after kexec.
  *
  * Usage:
- *   test-luo store - create memfds and a LUO session, push all to the fd store
- *   test-luo check - verify fd store content and LUO session memfd after kexec
+ *   test-luo store        - create memfds and a LUO session, push all to the fd store
+ *   test-luo check        - verify fd store content and LUO session memfd after kexec
+ *   test-luo store-hijack - store a fd store entry holding a child LUO session named like
+ *                           PID 1's own ("systemd"), to exercise the serialize-side anti-hijack guard
+ *   test-luo check-hijack - verify the hijacking session fd was NOT serialized/restored after kexec
  */
 
 #include <stdlib.h>
@@ -29,6 +32,14 @@
 #define TEST_DATA_2 "liveupdate-test-data-2"
 #define SESSION_MEMFD_DATA "luo-session-memfd-test-data"
 #define SESSION_MEMFD_TOKEN UINT64_C(42)
+
+/* Name PID 1 reserves for its own LUO session (must match LUO_SESSION_NAME). A unit that tries to
+ * preserve a child session under this name is an attempt to hijack PID 1's namespace, and the
+ * serialize-side guard in manager_luo_serialize_fd_stores() must refuse to serialize it. */
+#define HIJACK_SESSION_NAME LUO_SESSION_NAME
+#define HIJACK_FDNAME "hijackfd"
+#define HIJACK_MEMFD_DATA "luo-hijack-memfd-test-data"
+#define HIJACK_MEMFD_TOKEN UINT64_C(99)
 
 static int do_store(const char *prefix) {
         _cleanup_close_ int fd1 = -EBADF, fd2 = -EBADF;
@@ -234,9 +245,90 @@ static int do_check(const char *prefix) {
         return 0;
 }
 
+static int do_store_hijack(void) {
+        int r;
+
+        /* Create a child LUO session named exactly like PID 1's own session, put a memfd in it, and push the
+         * session fd into our fd store. On kexec, PID 1's manager_luo_serialize_fd_stores() must detect the
+         * reserved session name and refuse to serialize this entry (anti-hijack guard). */
+        _cleanup_close_ int device_fd = -EBADF, session_fd = -EBADF, session_memfd = -EBADF;
+
+        device_fd = luo_open_device();
+        if (device_fd < 0)
+                return log_error_errno(device_fd, "Failed to open /dev/liveupdate: %m");
+
+        session_fd = luo_create_session(device_fd, HIJACK_SESSION_NAME);
+        if (session_fd < 0)
+                return log_error_errno(session_fd, "Failed to create hijacking LUO session '%s': %m", HIJACK_SESSION_NAME);
+
+        session_memfd = memfd_new_and_seal("hijack-test", HIJACK_MEMFD_DATA, strlen(HIJACK_MEMFD_DATA));
+        if (session_memfd < 0)
+                return log_error_errno(session_memfd, "Failed to create hijack session memfd: %m");
+
+        r = luo_session_preserve_fd(session_fd, session_memfd, HIJACK_MEMFD_TOKEN);
+        if (r < 0)
+                return log_error_errno(r, "Failed to preserve memfd in hijack session: %m");
+
+        r = sd_pid_notify_with_fds(0, /* unset_environment= */ false, "FDSTORE=1\nFDNAME=" HIJACK_FDNAME, &session_fd, 1);
+        if (r < 0)
+                return log_error_errno(r, "Failed to store hijack session fd in fd store: %m");
+        TAKE_FD(session_fd);
+
+        log_info("Stored hijacking LUO session '%s' with memfd in fd store.", HIJACK_SESSION_NAME);
+
+        /* Wait for PID 1 to actually process the FDSTORE notification before we exit, otherwise
+         * the cgroup-based pidref to unit lookup may fail once we're gone, and the fd ends up closed. */
+        r = sd_notify_barrier(0, 5 * USEC_PER_SEC);
+        if (r < 0)
+                return log_error_errno(r, "Failed to wait for notification barrier: %m");
+
+        return 0;
+}
+
+static int do_check_hijack(void) {
+        _cleanup_strv_free_ char **names = NULL;
+        const char *e;
+        size_t n_fds;
+        int r;
+
+        /* The hijacking session fd ("hijackfd") must NOT have survived kexec: PID 1 refused to serialize it
+         * because its session name infringes PID 1's reserved namespace. So it must be absent from
+         * LISTEN_FDNAMES here. */
+        e = getenv("LISTEN_FDS");
+        if (!e) {
+                log_info("No LISTEN_FDS set after kexec, hijack fd correctly not restored.");
+                return 0;
+        }
+
+        r = safe_atozu(e, &n_fds);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse LISTEN_FDS='%s': %m", e);
+
+        e = getenv("LISTEN_FDNAMES");
+        if (!e) {
+                if (n_fds == 0) {
+                        log_info("No fds restored after kexec, hijack fd correctly not restored.");
+                        return 0;
+                }
+                return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "LISTEN_FDS=%zu but no LISTEN_FDNAMES set", n_fds);
+        }
+
+        names = strv_split(e, ":");
+        if (!names)
+                return log_oom();
+
+        if (strv_contains(names, HIJACK_FDNAME))
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "Hijacking session fd '%s' was restored after kexec, anti-hijack guard failed!",
+                                       HIJACK_FDNAME);
+
+        log_info("Verified hijacking session fd '%s' was not restored after kexec.", HIJACK_FDNAME);
+        return 0;
+}
+
 static int run(int argc, char *argv[]) {
         if (argc < 2 || argc > 3)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Usage: %s store|check [PREFIX]", argv[0]);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Usage: %s store|check|store-hijack|check-hijack [PREFIX]", argv[0]);
 
         const char *prefix = argc > 2 ? argv[2] : "luosession";
 
@@ -244,6 +336,10 @@ static int run(int argc, char *argv[]) {
                 return do_store(prefix);
         if (streq(argv[1], "check"))
                 return do_check(prefix);
+        if (streq(argv[1], "store-hijack"))
+                return do_store_hijack();
+        if (streq(argv[1], "check-hijack"))
+                return do_check_hijack();
 
         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown command: %s", argv[1]);
 }
