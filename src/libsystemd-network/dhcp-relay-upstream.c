@@ -5,7 +5,6 @@
 #include "sd-event.h"
 
 #include "dhcp-message.h"
-#include "dhcp-protocol.h"
 #include "dhcp-relay-internal.h"
 #include "hashmap.h"
 #include "in-addr-util.h"

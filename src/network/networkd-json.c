@@ -7,6 +7,7 @@
 #include "sd-dhcp6-client.h"
 
 #include "dhcp-lease-internal.h"         /* IWYU pragma: keep */
+#include "dhcp-server-internal.h"
 #include "dhcp-server-lease-internal.h"
 #include "dhcp6-lease-internal.h"
 #include "extract-word.h"

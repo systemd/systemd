@@ -5,7 +5,6 @@
 #include "alloc-util.h"
 #include "dhcp-client-id-internal.h"
 #include "dhcp-message.h"
-#include "dhcp-protocol.h"
 #include "dhcp-route.h"
 #include "dns-def.h"
 #include "dns-domain.h"

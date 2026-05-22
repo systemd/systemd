@@ -14,7 +14,6 @@
 
 #include "dhcp-client-internal.h"
 #include "dhcp-message.h"
-#include "dhcp-protocol.h"
 #include "ether-addr-util.h"
 #include "fd-util.h"
 #include "hashmap.h"
@@ -24,6 +23,7 @@
 #include "ip-util.h"
 #include "log.h"
 #include "set.h"
+#include "socket-util.h"
 #include "strv.h"
 #include "tests.h"
 
