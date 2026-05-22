@@ -905,7 +905,7 @@ int qmp_client_call_future(
         assert(command);
         assert(ret);
 
-        _cleanup_(sd_future_unrefp) sd_future *f = NULL;
+        _cleanup_(sd_future_cancel_unrefp) sd_future *f = NULL;
         r = sd_future_new(&qmp_call_future_ops, &f);
         if (r < 0)
                 return r;
