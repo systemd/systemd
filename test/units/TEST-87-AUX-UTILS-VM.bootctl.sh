@@ -113,6 +113,48 @@ testcase_bootctl_basic() {
     basic_tests
 }
 
+cleanup_file_version() {
+    if [[ -n "${FILE_VERSION_GARBAGE:-}" ]]; then
+        rm -f "$FILE_VERSION_GARBAGE"
+        unset FILE_VERSION_GARBAGE
+    fi
+    restore_esp
+}
+
+testcase_bootctl_file_version() {
+    # Exercise get_file_version() (src/bootctl/bootctl-util.c), which reads the
+    # version marker that systemd-boot/-stub store in their ".sdmagic" PE
+    # section, e.g. "#### LoaderInfo: systemd-boot 257 ####". 'bootctl status'
+    # surfaces the inner part next to each .efi file it finds in the ESP, e.g.
+    # ".../systemd-bootx64.efi (systemd-boot 257)".
+
+    backup_esp
+    trap cleanup_file_version RETURN ERR
+
+    bootctl install
+
+    local ESP
+    ESP="$(bootctl --print-esp-path)"
+
+    # The freshly installed systemd-boot binary must be listed with the version
+    # extracted from its ".sdmagic" section.
+    bootctl status | grep -E "systemd-boot[a-z0-9]*\.efi \(systemd-boot [^)]+\)" >/dev/null
+
+    # A non-PE/non-systemd file must be handled gracefully (get_file_version()
+    # returns -ESRCH): it is still listed, but without a version annotation, and
+    # 'bootctl status' must not fail.
+    FILE_VERSION_GARBAGE="$ESP/EFI/systemd/not-a-loader.efi"
+    echo "this is not a PE binary" >"$FILE_VERSION_GARBAGE"
+
+    local status
+    status="$(bootctl status)"
+    grep -F "not-a-loader.efi" <<<"$status" >/dev/null
+    (! grep -E "not-a-loader\.efi .*\(" <<<"$status" >/dev/null)
+
+    rm -f "$FILE_VERSION_GARBAGE"
+    unset FILE_VERSION_GARBAGE
+}
+
 cleanup_image() (
     set +e
 
