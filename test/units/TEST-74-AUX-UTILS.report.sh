@@ -62,6 +62,46 @@ id1="$(varlinkctl call --more /run/systemd/report/io.systemd.Basic io.systemd.Me
 id2="$(. /etc/os-release; echo "$ID")"
 [ "$id1" = "$id2" ]
 
+# test io.systemd.Basic.MachineInfo.* metrics, sourced from /etc/machine-info
+if [ -e /etc/machine-info ]; then
+    MACHINE_INFO_BACKUP="$(mktemp)"
+    cp /etc/machine-info "$MACHINE_INFO_BACKUP"
+    MACHINE_INFO_EXISTED=1
+else
+    MACHINE_INFO_EXISTED=0
+fi
+
+restore_machine_info() {
+    set +e
+    if [ "$MACHINE_INFO_EXISTED" = 1 ]; then
+        cp "$MACHINE_INFO_BACKUP" /etc/machine-info
+        rm -f "$MACHINE_INFO_BACKUP"
+    else
+        rm -f /etc/machine-info
+    fi
+    set -e
+}
+trap restore_machine_info EXIT
+
+cat >/etc/machine-info <<EOF
+PRETTY_HOSTNAME="Test Machine"
+DEPLOYMENT=test
+LOCATION="Test Lab, Rack 3"
+TAGS=foo:bar:baz
+EOF
+
+# The metric source re-reads /etc/machine-info on every call, so no service restart is needed.
+machine_info_metrics="$(varlinkctl call --more /run/systemd/report/io.systemd.Basic io.systemd.Metrics.List {})"
+machine_info_value() { echo "$machine_info_metrics" | jq --seq -r "select(.name == \"$1\") | .value"; }
+
+[ "$(machine_info_value io.systemd.Basic.MachineInfo.PRETTY_HOSTNAME)" = "Test Machine" ]
+[ "$(machine_info_value io.systemd.Basic.MachineInfo.DEPLOYMENT)" = "test" ]
+[ "$(machine_info_value io.systemd.Basic.MachineInfo.LOCATION)" = "Test Lab, Rack 3" ]
+[ "$(machine_info_value io.systemd.Basic.MachineInfo.TAGS)" = "foo:bar:baz" ]
+
+restore_machine_info
+trap - EXIT
+
 # Test HTTP upload (plain http)
 FAKE_SERVER=/usr/lib/systemd/tests/integration-tests/TEST-74-AUX-UTILS/TEST-74-AUX-UTILS.units/fake-report-server.py
 CERTDIR=$(mktemp -d)
