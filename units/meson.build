@@ -24,6 +24,10 @@ units = [
           'conditions' : ['HAVE_LIBCRYPTSETUP'],
           'symlinks' : ['sysinit.target.wants/'],
         },
+        {
+          'file' : 'clonesetup.target',
+          'symlinks' : ['sysinit.target.wants/'],
+        },
         { 'file' : 'debug-shell.service.in' },
         {
           'file' : 'dev-hugepages.mount',

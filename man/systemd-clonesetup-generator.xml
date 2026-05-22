@@ -1,0 +1,50 @@
+<?xml version="1.0"?>
+<!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+<refentry id="systemd-clonesetup-generator" xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-clonesetup-generator</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-clonesetup-generator</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-clonesetup-generator</refname>
+    <refpurpose>Unit generator for <filename>/etc/clonetab</filename></refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>/usr/lib/systemd/system-generators/systemd-clonesetup-generator</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><filename>systemd-clonesetup-generator</filename> is a generator that translates
+    <filename>/etc/clonetab</filename> into native systemd units early at boot and when
+    configuration of the system manager is reloaded. This will create
+    <citerefentry><refentrytitle>systemd-clonesetup@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    units as necessary.</para>
+
+    <para><filename>systemd-clonesetup-generator</filename> implements
+    <citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>clonetab</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-clonesetup@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry project='die-net'><refentrytitle>dmsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>
