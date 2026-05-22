@@ -13,17 +13,6 @@
 #include "sparse-endian.h"
 #include "tlv-util.h"
 
-typedef enum DHCPRawOption {
-        DHCP_RAW_OPTION_DATA_UINT8,
-        DHCP_RAW_OPTION_DATA_UINT16,
-        DHCP_RAW_OPTION_DATA_UINT32,
-        DHCP_RAW_OPTION_DATA_STRING,
-        DHCP_RAW_OPTION_DATA_IPV4ADDRESS,
-        DHCP_RAW_OPTION_DATA_IPV6ADDRESS,
-        _DHCP_RAW_OPTION_DATA_MAX,
-        _DHCP_RAW_OPTION_DATA_INVALID,
-} DHCPRawOption;
-
 typedef struct sd_dhcp_server {
         unsigned n_ref;
 
