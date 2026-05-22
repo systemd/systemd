@@ -6,9 +6,65 @@
 #include "sd-event.h"
 #include "sd-future.h"
 
+#include "event-future.h"
 #include "fd-util.h"
 #include "tests.h"
 #include "time-util.h"
+
+TEST(future_group_add_event) {
+        bool timer;
+
+        FOREACH_ARGUMENT(timer, false, true) {
+                _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+                _cleanup_(sd_future_unrefp) sd_future *group = NULL;
+                _cleanup_close_pair_ int pipefd[2] = EBADF_PAIR;
+                size_t size;
+
+                ASSERT_OK(sd_event_new(&e));
+                ASSERT_OK(sd_future_group_new(e, &group));
+                ASSERT_OK(sd_future_group_set_policy(group, SD_FUTURE_GROUP_WAIT_ANY));
+
+                if (timer)
+                        ASSERT_OK(future_group_add_time_relative(group, CLOCK_MONOTONIC, 0, 1, 42));
+                else {
+                        ASSERT_OK_ERRNO(pipe2(pipefd, O_CLOEXEC | O_NONBLOCK));
+                        ASSERT_OK(future_group_add_io(group, pipefd[0], EPOLLIN));
+                        ASSERT_OK_ZERO(sd_event_run(e, 0));
+                        ASSERT_OK_EQ_ERRNO(write(pipefd[1], "X", 1), 1);
+                }
+
+                ASSERT_OK(sd_future_group_size(group, &size));
+                ASSERT_EQ(size, 1U);
+
+                /* The helper must leave the child alive and uncancelled, with the group owning its
+                 * only reference, until its event fires. */
+                ASSERT_OK(sd_event_set_exit_on_idle(e, true));
+                ASSERT_OK(sd_event_loop(e));
+                ASSERT_EQ(sd_future_result(group), timer ? 42 : (int) EPOLLIN);
+        }
+}
+
+TEST(future_group_add_event_failure) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_future_unrefp) sd_future *group = NULL;
+        _cleanup_close_pair_ int pipefd[2] = EBADF_PAIR;
+        char c;
+
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_OK(sd_future_group_new(e, &group));
+        ASSERT_OK(sd_future_cancel(group));
+        ASSERT_OK_ERRNO(pipe2(pipefd, O_CLOEXEC | O_NONBLOCK));
+        ASSERT_OK_EQ_ERRNO(write(pipefd[1], "X", 1), 1);
+
+        ASSERT_ERROR(ASSERT_RETURN_EXPECTED(future_group_add_io(group, pipefd[0], EPOLLIN)), ESTALE);
+        ASSERT_ERROR(ASSERT_RETURN_EXPECTED(future_group_add_time_relative(group, CLOCK_MONOTONIC, 0, 1, 42)), ESTALE);
+
+        /* Rejected children must leave no enabled sources behind, and releasing the IO child's
+         * duplicate fd must not close the caller's fd. */
+        ASSERT_OK_ZERO(sd_event_run(e, 0));
+        ASSERT_OK_EQ_ERRNO(read(pipefd[0], &c, 1), 1);
+        ASSERT_EQ(c, 'X');
+}
 
 static int timer_callback(sd_event_source *s, uint64_t usec, void *userdata) {
         int *count = ASSERT_PTR(userdata);
