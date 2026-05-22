@@ -87,32 +87,42 @@ DEFINE_POINTER_ARRAY_CLEAR_FUNC(sd_future*, sd_future_unref);
 DEFINE_POINTER_ARRAY_FREE_FUNC(sd_future*, sd_future_unref);
 
 sd_future* sd_future_cancel_wait_unref(sd_future *f) {
-        int r;
+        int r, q = 0;
 
         if (!f)
                 return NULL;
 
-        /* We have to be able to suspend until the fiber we're waiting for finishes, and that's only
-         * possible if we're running on a fiber ourselves. */
+        /* We have to be able to suspend until the future we're waiting for finishes, and that's
+         * only possible if we're running on a fiber ourselves. */
         if (!sd_fiber_is_running())
                 return sd_future_unref(f);
 
-        r = sd_future_cancel(f);
-        if (r < 0)
-                log_debug_errno(r, "Failed to cancel future, ignoring: %m");
+        for (;;) {
+                r = sd_future_cancel(f);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to cancel future, ignoring: %m");
 
-        if (f->state == SD_FUTURE_PENDING) {
-                /* Fast path: when f's resolve callback already targets the current fiber (the default for
-                 * futures created on this fiber), we can suspend directly and let the existing trampoline
-                 * wake us up — no need to allocate a wait future just to learn about the resolution.
-                 * Otherwise fall back to sd_fiber_await() which sets up an explicit waiter. */
-                if (f->callback == fiber_resume_trampoline && f->userdata == sd_fiber_get_current())
-                        r = sd_fiber_suspend();
-                else
-                        r = sd_fiber_await(f);
-                if (r < 0 && r != -ECANCELED)
-                        log_debug_errno(r, "Failed to wait for future to finish, ignoring: %m");
+                if (sd_future_state(f) != SD_FUTURE_PENDING)
+                        break;
+
+                r = sd_fiber_await(f);
+                if (r < 0) {
+                        if (r != -ECANCELED)
+                                log_debug_errno(r, "Failed to wait for future to finish, ignoring: %m");
+                        /* The await was interrupted by something targeting the calling fiber (a
+                         * cancellation, an outer SD_FIBER_TIMEOUT firing, …). We have to keep looping
+                         * until `f` actually resolves so unref is safe, so we can't honor it inline
+                         * — but we mustn't drop it either. Remember the most recent one and re-queue
+                         * it on the fiber once just before we return. */
+                        q = r;
+                }
+
+                if (sd_future_state(f) != SD_FUTURE_PENDING)
+                        break;
         }
+
+        if (q < 0)
+                (void) sd_fiber_resume(sd_fiber_get_current(), q);
 
         return sd_future_unref(f);
 }
@@ -203,6 +213,15 @@ int sd_future_cancel(sd_future *f) {
 
         if (f->state == SD_FUTURE_RESOLVED)
                 return 0;
+
+        /* Drop the auto-set fiber-resume callback (see sd_future_new()) before handing off to the
+         * impl's cancel op. The caller of sd_future_cancel() is by definition disposing of this
+         * future — typically from inside a cleanup path on the awaiting fiber — and a callback
+         * that re-queues a wakeup on that already-running fiber would short-circuit the next
+         * suspend inside sd_future_cancel_wait_unref()'s loop or pollute the queued cancellation
+         * signal of an outer scope. */
+        f->callback = NULL;
+        f->userdata = NULL;
 
         return f->ops->cancel(f);
 }
