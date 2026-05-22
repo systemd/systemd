@@ -10,7 +10,6 @@
 #include "sd-event.h"
 #include "sd-future.h"
 
-#include "alloc-util.h"
 #include "errno-util.h"
 #include "event-future.h"
 #include "fd-util.h"
@@ -51,7 +50,7 @@ static ssize_t fiber_io_operation(
         if (r < 0)
                 return r;
 
-        r = sd_fiber_suspend();
+        r = sd_fiber_await(io);
         if (r < 0)
                 return r;
 
@@ -230,7 +229,7 @@ int sd_fiber_connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 
         /* future_new_io resolves with the revents mask on success; translate any positive value
          * (e.g. POLLOUT) back to the connect(2) success status. */
-        r = sd_fiber_suspend();
+        r = sd_fiber_await(io);
         return r > 0 ? 0 : r;
 }
 
@@ -395,17 +394,18 @@ int sd_fiber_ppoll(struct pollfd *fds, size_t n_fds, const struct timespec *time
         if (zero_timeout || r != 0) /* Either error or some fds are ready */
                 return r;
 
-        sd_future **futures = NULL;
-        CLEANUP_ARRAY(futures, n_fds, sd_future_cancel_wait_unref_array);
+        /* Use a WAIT_ANY group: the first child (an fd readiness or the timer) to settle resolves
+         * the group, which cancels its siblings on the spot. The user-supplied event mask is in
+         * poll() bits (struct pollfd), so translate to epoll bits. */
+        _cleanup_(sd_future_cancel_wait_unrefp) sd_future *group = NULL;
+        r = sd_future_group_new(e, &group);
+        if (r < 0)
+                return r;
 
-        futures = new0(sd_future*, n_fds);
-        if (!futures)
-                return -ENOMEM;
+        r = sd_future_group_set_policy(group, SD_FUTURE_GROUP_WAIT_ANY);
+        if (r < 0)
+                return r;
 
-        /* Set up I/O event sources for all valid fds. POLL* and EPOLL* share their bit values (see
-         * EPOLL_POLL_COMMON_MASK in io-util.h), so we can pass the user-supplied event mask through
-         * to either backend without translation. */
-        size_t n_io_futures = 0;
         for (size_t i = 0; i < n_fds; i++) {
                 if (fds[i].fd < 0)
                         continue;
@@ -414,11 +414,16 @@ int sd_fiber_ppoll(struct pollfd *fds, size_t n_fds, const struct timespec *time
                 if (events == 0)
                         continue;
 
-                r = future_new_io(e, fds[i].fd, events, &futures[i]);
+                _cleanup_(sd_future_cancel_wait_unrefp) sd_future *io = NULL;
+                r = future_new_io(e, fds[i].fd, events, &io);
                 if (r < 0)
                         return r;
 
-                n_io_futures++;
+                r = sd_future_group_add(group, io);
+                if (r < 0)
+                        return r;
+
+                io = sd_future_unref(io);
         }
 
         /* A timeout that overflows usec_t saturates to USEC_INFINITY in timespec_load(); treat that
@@ -427,14 +432,19 @@ int sd_fiber_ppoll(struct pollfd *fds, size_t n_fds, const struct timespec *time
          * wait a very long time. */
         usec_t usec = timeout ? timespec_load(timeout) : USEC_INFINITY;
 
+        size_t size;
+        r = sd_future_group_size(group, &size);
+        if (r < 0)
+                return r;
+
         /* If every fd was skipped (negative or empty event mask) and we'd have no timer, there's
          * nothing that could ever wake the fiber up — same situation as n_fds == 0 && !timeout,
          * just not detectable upfront. Refuse rather than suspend forever. */
-        if (n_io_futures == 0 && usec == USEC_INFINITY)
+        if (size == 0 && usec == USEC_INFINITY)
                 return -EINVAL;
 
-        _cleanup_(sd_future_cancel_wait_unrefp) sd_future *timer = NULL;
         if (usec != USEC_INFINITY) {
+                _cleanup_(sd_future_cancel_wait_unrefp) sd_future *timer = NULL;
                 r = future_new_time_relative(
                                 e,
                                 CLOCK_MONOTONIC,
@@ -444,9 +454,15 @@ int sd_fiber_ppoll(struct pollfd *fds, size_t n_fds, const struct timespec *time
                                 &timer);
                 if (r < 0)
                         return r;
+
+                r = sd_future_group_add(group, timer);
+                if (r < 0)
+                        return r;
+
+                timer = sd_future_unref(timer);
         }
 
-        r = sd_fiber_suspend();
+        r = sd_future_group_await(group);
         if (r < 0 && r != -ETIME)
                 return r;
 
@@ -457,14 +473,10 @@ int sd_fiber_ppoll(struct pollfd *fds, size_t n_fds, const struct timespec *time
         if (n != 0)
                 return n;
 
-        /* No fds ready: distinguish our own timer from an external -ETIME. */
-        if (timer && sd_future_state(timer) == SD_FUTURE_RESOLVED)
-                return 0;
-
-        /* An IO future resolved with a revents mask (r > 0) but the readiness was already consumed
-         * by the time we swept — report 0 rather than leaking the bitmask as a (bogus) ppoll fd
-         * count to the caller. */
-        if (r > 0)
+        /* No fds ready. The group's result is the winning child's result: 0 means the timer
+         * (created with result=0) fired; r > 0 means an IO future fired (revents mask) but the
+         * readiness was already drained when we swept. Both map to "0 fds ready". */
+        if (r >= 0)
                 return 0;
 
         return r;
