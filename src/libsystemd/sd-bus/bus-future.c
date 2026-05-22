@@ -64,8 +64,8 @@ int bus_call_future(sd_bus *bus, sd_bus_message *m, uint64_t usec, sd_future **r
         assert(m);
         assert(ret);
 
-        _cleanup_(sd_future_unrefp) sd_future *f = NULL;
-        r = sd_future_new(&bus_future_ops, &f);
+        _cleanup_(sd_future_cancel_unrefp) sd_future *f = NULL;
+        r = sd_future_new(sd_bus_get_event(bus), &bus_future_ops, &f);
         if (r < 0)
                 return r;
 
@@ -122,7 +122,7 @@ int bus_call_suspend(
         if (r < 0)
                 return sd_bus_error_set_errno(reterr_error, r);
 
-        r = sd_fiber_suspend();
+        r = sd_fiber_await(f);
 
         /* If the future isn't resolved, the suspend was interrupted before a reply arrived (fiber
          * cancelled, fiber-wide SD_FIBER_TIMEOUT scope expired, …). There's no reply to extract,
