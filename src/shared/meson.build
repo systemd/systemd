@@ -137,6 +137,7 @@ shared_sources = files(
         'machine-util.c',
         'macvlan-util.c',
         'main-func.c',
+        'math-util.c',
         'metrics.c',
         'microhttpd-util.c',
         'mkdir.c',

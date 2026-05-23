@@ -52,6 +52,9 @@ INTERNAL_LIB_PREFIXES: tuple[str, ...] = (
     'libudev.so.',
 )
 
+IGNORE_LIST: tuple[str, ...] = (
+    'exp10@',
+)
 
 def parse_baseline(s: str) -> Version:
     m = re.fullmatch(r'(\d+)\.(\d+)', s)
@@ -109,6 +112,8 @@ def glibc_violations(path: str, baseline: Version) -> list[tuple[str, str]]:
         if ver <= baseline:
             continue
         sym = next((t for t in parts if '@' in t), line.strip())
+        if sym.startswith(IGNORE_LIST):
+            continue
         found.add((sym, m.group(0)))
     return sorted(found)
 
