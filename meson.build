@@ -1764,6 +1764,8 @@ libsystemd = shared_library(
         include_directories : libsystemd_includes,
         implicit_include_directories : false,
         link_args : ['-shared',
+                     # Force linking against libm, to avoid crashing programs due to glibc weak symbols shenanigans
+                     '-Wl,--push-state,--no-as-needed,-lm,--pop-state',
                      # Make sure our library is never deleted from memory, so that our open logging fds don't leak on dlopen/dlclose cycles.
                      '-z', 'nodelete',
                      '-Wl,--version-script=' + libsystemd_sym_path],
