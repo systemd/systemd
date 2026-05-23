@@ -410,7 +410,7 @@ int sd_fiber_ppoll(struct pollfd *fds, size_t n_fds, const struct timespec *time
                 if (fds[i].fd < 0)
                         continue;
 
-                uint32_t events = fds[i].events & EPOLL_POLL_COMMON_MASK;
+                uint32_t events = poll_events_to_epoll(fds[i].events);
                 if (events == 0)
                         continue;
 
