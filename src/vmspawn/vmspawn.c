@@ -46,6 +46,7 @@
 #include "hostname-setup.h"
 #include "hostname-util.h"
 #include "id128-util.h"
+#include "initrd-cpio.h"
 #include "kernel-image.h"
 #include "log.h"
 #include "machine-bind-user.h"
@@ -57,8 +58,8 @@
 #include "namespace-util.h"
 #include "netif-util.h"
 #include "nsresource.h"
-#include "osc-context.h"
 #include "options.h"
+#include "osc-context.h"
 #include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"
@@ -3412,26 +3413,6 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 }
         }
 
-        char *initrd = NULL;
-        _cleanup_(rm_rf_physical_and_freep) char *merged_initrd = NULL;
-        size_t n_initrds = strv_length(arg_initrds);
-
-        if (n_initrds == 1)
-                initrd = arg_initrds[0];
-        else if (n_initrds > 1) {
-                r = merge_initrds(&merged_initrd);
-                if (r < 0)
-                        return r;
-
-                initrd = merged_initrd;
-        }
-
-        if (initrd) {
-                r = strv_extend_many(&cmdline, "-initrd", initrd);
-                if (r < 0)
-                        return log_oom();
-        }
-
         if (arg_forward_journal) {
                 _cleanup_free_ char *listen_address = NULL;
                 if (asprintf(&listen_address, "vsock:2:%u", child_cid) < 0)
@@ -3528,9 +3509,55 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return log_error_errno(r, "Failed to add VSOCK credential: %m");
         }
 
-        r = cmdline_add_credentials(&cmdline, smbios_dir_fd, smbios_dir);
-        if (r < 0)
-                return r;
+        /* When direct-kernel-booting with a user-supplied initrd, deliver credentials by appending a
+         * cpio archive to that initrd (mirroring what systemd-stub does for ESP credentials). This
+         * avoids the SMBIOS type-11 size limits and works on architectures without SMBIOS; under
+         * --coco=sev-snp it additionally ensures credentials are covered by the launch measurement
+         * via "kernel-hashes=on". The path is gated on a user-supplied initrd because PID1's
+         * import_credentials_boot() only fires from initramfs PID1. Without a systemd-aware initrd
+         * the cpio bytes would never be read. Must run after all credential-mutating calls above so
+         * the cpio captures the complete set. */
+        bool use_initrd_cpio = arg_linux &&
+                               arg_linux_image_type != KERNEL_IMAGE_TYPE_UKI &&
+                               !strv_isempty(arg_initrds) &&
+                               arg_credentials.n_credentials > 0;
+
+        _cleanup_(unlink_and_freep) char *credentials_cpio_path = NULL;
+        if (use_initrd_cpio) {
+                r = initrd_cpio_credentials_to_tempfile(&arg_credentials, &credentials_cpio_path);
+                if (r < 0)
+                        return r;
+                r = strv_extend(&arg_initrds, credentials_cpio_path);
+                if (r < 0)
+                        return log_oom();
+        }
+
+        char *initrd = NULL;
+        _cleanup_(rm_rf_physical_and_freep) char *merged_initrd = NULL;
+        size_t n_initrds = strv_length(arg_initrds);
+
+        if (n_initrds == 1)
+                initrd = arg_initrds[0];
+        else if (n_initrds > 1) {
+                r = merge_initrds(&merged_initrd);
+                if (r < 0)
+                        return r;
+
+                initrd = merged_initrd;
+        }
+
+        if (initrd) {
+                r = strv_extend_many(&cmdline, "-initrd", initrd);
+                if (r < 0)
+                        return log_oom();
+        }
+
+        /* Only use SMBIOS/fw_cfg/cmdline to deliver credentials if initrd path can't be used. */
+        if (!use_initrd_cpio) {
+                r = cmdline_add_credentials(&cmdline, smbios_dir_fd, smbios_dir);
+                if (r < 0)
+                        return r;
+        }
 
         r = cmdline_add_kernel_cmdline(&cmdline, smbios_dir_fd, smbios_dir);
         if (r < 0)
@@ -4091,9 +4118,6 @@ static int verify_arguments(void) {
                 if (set_contains(arg_firmware_features_include, "secure-boot"))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "--secure-boot=yes cannot be combined with --coco.");
-                if (arg_credentials.n_credentials != 0)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "SMBIOS credentials aren't trusted by the confidential computing guest and will be rejected.");
                 if (arg_tpm > 0)
                         log_warning("TPM can't be trusted by the confidential computing guest");
                 /* kernel-hashes=on only covers what QEMU itself loads via -kernel/-initrd/-append.
