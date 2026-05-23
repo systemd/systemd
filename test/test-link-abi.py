@@ -10,6 +10,7 @@
 """
 
 import argparse
+import platform
 import re
 import subprocess
 import sys
@@ -139,6 +140,12 @@ def needed_violations(path: str) -> list[str]:
 
 
 def main() -> int:
+    # When a new architecture is added the symbols will be versioned after the version of glibc at the time
+    # the architecture was added, so the versions checked here are only valid for x86-64
+    if platform.machine() != 'x86_64':
+        print(f'Skipping: ABI checks only run on x86_64 (current: {platform.machine()}).')
+        return 77
+
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument(
         '--baseline',
