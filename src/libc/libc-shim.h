@@ -102,3 +102,25 @@
                 errno = ENOSYS;                                                                      \
                 return -1;                                                                           \
         }
+
+/* Like DEFINE_LIBC_ERRNO_SHIM but with an explicit string for the libc symbol name to dlsym. This is
+ * needed for functions whose libc symbol is renamed via __asm__() in the header (e.g. when glibc
+ * redirects time-related calls to their __*_time64 aliases on 32-bit systems built with
+ * _TIME_BITS=64) since dlsym() doesn't see those header-level renames, so the caller has to spell out
+ * the actual ABI symbol name that matches the struct layout the compiler picked. We can't forward to
+ * DEFINE_LIBC_ERRNO_SHIM since passing `func` as a regular argument would let the override-header
+ * #define rewrite the token (e.g. `epoll_pwait2` to `epoll_pwait2_shim`) before the inner macro
+ * could paste it, so we duplicate the body and keep every `func` reference behind `#` or `##`. */
+#define DEFINE_LIBC_ERRNO_SHIM_NAMED(func, sym_name, ret, ...)                                       \
+        static typeof(&func##_shim) func##_shim_cache;                                               \
+        __attribute__((constructor)) static void func##_shim_init(void) {                            \
+                void *p = dlsym(RTLD_DEFAULT, sym_name);                                             \
+                __asm__ volatile("" ::: "memory");                                                   \
+                func##_shim_cache = (typeof(&func##_shim)) p;                                        \
+        }                                                                                            \
+        ret func##_shim(_SHIM_DECL(__VA_ARGS__)) {                                                   \
+                if (func##_shim_cache)                                                               \
+                        return func##_shim_cache(_SHIM_NAME(__VA_ARGS__));                           \
+                errno = ENOSYS;                                                                      \
+                return -1;                                                                           \
+        }
