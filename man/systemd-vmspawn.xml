@@ -352,13 +352,15 @@
           SNP-capable hardware and firmware. <option>--firmware=</option> must point to a raw SNP-built
           OVMF <filename>.fd</filename> image; the standard pflash + NVRAM split is not supported under
           SNP, so the firmware is loaded via QEMU's <option>-bios</option> and Secure Boot is
-          unavailable. SMBIOS credentials passed via <option>--set-credential=</option> or
-          <option>--load-credential=</option> are rejected because they are outside the SNP launch
-          measurement. Direct kernel boot via <option>--linux=</option> is required so that the
-          kernel, initrd and command line are hashed into the launch measurement
-          (<literal>kernel-hashes=on</literal>); booting the kernel off the disk image via the
-          firmware would leave it outside the measurement. A vTPM, if attached via
-          <option>--tpm=</option>, must be treated as untrusted by the guest.</para>
+          unavailable. Direct kernel boot via <option>--linux=</option> is required so that the kernel,
+          initrd and command line are hashed into the launch measurement
+          (<literal>kernel-hashes=on</literal>); booting the kernel off the disk image via the firmware
+          would leave it outside the measurement. Credentials passed via <option>--set-credential=</option>
+          or <option>--load-credential=</option> use the initrd cpio path described in the credentials
+          section below, which under SNP additionally places them inside the launch measurement; the
+          SMBIOS and fw_cfg channels are not used because they are unmeasured and would be discarded by
+          PID1 in the guest. A vTPM, if attached via <option>--tpm=</option>, must be treated as untrusted
+          by the guest.</para>
 
           <xi:include href="version-info.xml" xpointer="v261"/></listitem>
         </varlistentry>
@@ -859,10 +861,21 @@
           embed a <constant>NUL</constant> byte). Note that the invoking shell might already apply unescaping
           once, hence this might require double escaping!</para>
 
-          <para>Credentials are preferably passed to the VM via SMBIOS Type 11 strings or QEMU fw_cfg files.
-          If neither mechanism is available, credentials are passed on the kernel command line using
-          <varname>systemd.set_credential_binary=</varname> which is not a confidential channel. Do not use
-          this for passing secrets to the VM in that case.</para>
+          <para>When direct-kernel-booting (<option>--linux=</option> naming a bare kernel image and
+          <option>--initrd=</option> naming an initrd), credentials are packaged into a cpio archive
+          containing <filename>.extra/credentials/<replaceable>ID</replaceable>.cred</filename> entries and
+          appended to the initrd that QEMU loads. PID1 in the initramfs imports them at boot, identical to
+          how <command>systemd-stub</command> delivers ESP credentials. This avoids the size limits of the
+          SMBIOS Type 11 channel and works on architectures without SMBIOS. Under <option>--coco=sev-snp</option>
+          it additionally ensures the credentials are covered by the launch measurement. Note that the initrd
+          cpio path requires a systemd-aware initramfs: PID1 must run inside the initramfs to pick up the
+          credentials before <command>switch_root</command>.</para>
+
+          <para>When direct kernel boot is not in use (or when no initrd is provided), credentials are
+          delivered via SMBIOS Type 11 strings or QEMU fw_cfg files. If neither mechanism is available,
+          credentials are passed on the kernel command line using
+          <varname>systemd.set_credential_binary=</varname> which is not a confidential channel. Do not
+          use this for passing secrets to the VM in that case.</para>
 
           <xi:include href="version-info.xml" xpointer="v255"/></listitem>
         </varlistentry>
