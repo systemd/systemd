@@ -90,9 +90,17 @@
 /* Like DEFINE_LIBC_SHIM but for libc helpers that report errors via errno + -1 return value. If the
  * libc symbol is missing at runtime, errno is set to ENOSYS and -1 is returned. */
 #define DEFINE_LIBC_ERRNO_SHIM(func, ret, ...)                                                       \
+        DEFINE_LIBC_ERRNO_SHIM_NAMED(func, #func, ret, __VA_ARGS__)
+
+/* Like DEFINE_LIBC_ERRNO_SHIM but with an explicit string for the libc symbol name to dlsym. This is
+ * needed for functions whose libc symbol is renamed via __asm__() in the header (e.g. when glibc
+ * redirects time-related calls to their __*_time64 aliases on 32-bit systems built with
+ * _TIME_BITS=64) since dlsym() doesn't see those header-level renames, so the caller has to spell out
+ * the actual ABI symbol name that matches the struct layout the compiler picked. */
+#define DEFINE_LIBC_ERRNO_SHIM_NAMED(func, sym_name, ret, ...)                                       \
         static typeof(&func##_shim) func##_shim_cache;                                               \
         __attribute__((constructor)) static void func##_shim_init(void) {                            \
-                void *p = dlsym(RTLD_DEFAULT, #func);                                                \
+                void *p = dlsym(RTLD_DEFAULT, sym_name);                                             \
                 __asm__ volatile("" ::: "memory");                                                   \
                 func##_shim_cache = (typeof(&func##_shim)) p;                                        \
         }                                                                                            \
