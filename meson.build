@@ -1764,6 +1764,11 @@ libsystemd = shared_library(
         include_directories : libsystemd_includes,
         implicit_include_directories : false,
         link_args : ['-shared',
+                     # Force linking against libm, even though it's not required anymore because due to
+                     # Hyrum's Law binaries linking against libsystemd depend on it linking against libm to
+                     # pull in libm for other libraries that use symbols from libm but don't link against
+                     # it. IOW, shenanigans.
+                     '-Wl,--push-state,--no-as-needed,-lm,--pop-state',
                      # Make sure our library is never deleted from memory, so that our open logging fds don't leak on dlopen/dlclose cycles.
                      '-z', 'nodelete',
                      '-Wl,--version-script=' + libsystemd_sym_path],
