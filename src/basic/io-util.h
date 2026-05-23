@@ -3,11 +3,12 @@
 
 #include "basic-forward.h"
 
-/* The intersection of poll() and epoll_wait() event masks. Linux defines POLL* and EPOLL* with the
- * same numeric values for these — see the assert_cc()s in io-util.c — so this mask can be used
- * interchangeably as a `revents` (poll) or `events` (epoll) bitset. */
-#define EPOLL_POLL_COMMON_MASK \
-        (EPOLLIN | EPOLLOUT | EPOLLERR | EPOLLHUP | EPOLLPRI | EPOLLRDHUP)
+/* On most architectures POLL* and EPOLL* share numeric values, but sparc allocates POLLRDHUP at
+ * 0x800 while EPOLLRDHUP is 0x2000 everywhere. Always go through these helpers when crossing
+ * between poll() and epoll() event masks. Bits outside the mapped set (EPOLLET, EPOLLONESHOT,
+ * POLLNVAL, …) are dropped. */
+uint32_t poll_events_to_epoll(uint32_t events);
+uint32_t epoll_events_to_poll(uint32_t events);
 
 int flush_fd(int fd);
 
