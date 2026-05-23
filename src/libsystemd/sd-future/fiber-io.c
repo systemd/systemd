@@ -402,15 +402,15 @@ int sd_fiber_ppoll(struct pollfd *fds, size_t n_fds, const struct timespec *time
         if (!futures)
                 return -ENOMEM;
 
-        /* Set up I/O event sources for all valid fds. POLL* and EPOLL* share their bit values (see
-         * EPOLL_POLL_COMMON_MASK in io-util.h), so we can pass the user-supplied event mask through
-         * to either backend without translation. */
+        /* Set up I/O event sources for all valid fds. POLL* and EPOLL* don't share their bit values
+         * universally (notably POLLRDHUP differs from EPOLLRDHUP on sparc), so translate via
+         * poll_events_to_epoll() rather than passing the user-supplied mask through unchanged. */
         size_t n_io_futures = 0;
         for (size_t i = 0; i < n_fds; i++) {
                 if (fds[i].fd < 0)
                         continue;
 
-                uint32_t events = fds[i].events & EPOLL_POLL_COMMON_MASK;
+                uint32_t events = poll_events_to_epoll(fds[i].events);
                 if (events == 0)
                         continue;
 
