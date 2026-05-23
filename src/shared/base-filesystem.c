@@ -117,6 +117,8 @@ static const BaseFilesystem table[] = {
         /* powerpc64-linux-gnu */
 #  else
         /* powerpc-linux-gnu */
+        /* No /lib32 or /lib64 on powerpc. The linker is /usr/lib/powerpc-linux-gnu/ld.so.1. */
+#       define KNOW_LIB64_DIRS 1
 #  endif
 #elif defined(__riscv)
 #  if __riscv_xlen == 32
