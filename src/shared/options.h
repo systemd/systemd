@@ -29,7 +29,12 @@ typedef enum OptionFlags {
         OPTION_HELP_ENTRY_VERBATIM = 1U << 6,  /* Same, but use the long_code in the first column as written */
 } OptionFlags;
 
-typedef struct Option {
+/* Note: the alignment attribute must match the one applied to each variable via _alignptr_ in
+ * _OPTION() below. Otherwise the struct's sizeof and the actual stride between consecutive entries
+ * placed in the SYSTEMD_OPTIONS section would not match on architectures where the natural
+ * alignment of the struct is smaller than sizeof(void*) (e.g. m68k). That would cause the
+ * pointer-arithmetic-based iteration over the section to read from padding bytes. */
+typedef struct _alignptr_ Option {
         int id;
         OptionFlags flags;
         char short_code;
@@ -38,6 +43,7 @@ typedef struct Option {
         uintptr_t data;
         const char *help;
 } Option;
+assert_cc(sizeof(Option) % sizeof(void*) == 0);
 
 #define _OPTION(counter, fl, sc, lc, mv, d, h)                          \
         _section_("SYSTEMD_OPTIONS")                                    \
