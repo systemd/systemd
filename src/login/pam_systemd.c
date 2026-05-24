@@ -1747,6 +1747,57 @@ static int close_osc_context(pam_handle_t *pamh, bool debug) {
         return PAM_SUCCESS;
 }
 
+static int acquire_inhibit_lock(
+                pam_handle_t *pamh,
+                const char *inhibit_what,
+                const char *inhibit_why,
+                bool debug) {
+
+        _cleanup_(pam_bus_data_disconnectp) PamBusData *d = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        const char *service = NULL;
+        int r;
+
+        assert(pamh);
+        assert(inhibit_what);
+
+        r = pam_acquire_bus_connection(pamh, "pam-systemd", debug, &bus, &d);
+        if (r != PAM_SUCCESS)
+                return r;
+
+        (void) sym_pam_get_item(pamh, PAM_SERVICE, (const void **) &service);
+
+        r = bus_call_method(bus, bus_login_mgr, "Inhibit", &error, &reply, "ssss",
+                            inhibit_what,
+                            service ?: "pam_systemd",
+                            inhibit_why ?: "Active PAM session",
+                            "block");
+        if (r < 0) {
+                sym_pam_syslog(pamh, LOG_ERR, "Failed to acquire inhibit lock: %s", bus_error_message(&error, r));
+                return PAM_SESSION_ERR;
+        }
+
+        int raw_fd;
+        r = sd_bus_message_read_basic(reply, SD_BUS_TYPE_UNIX_FD, &raw_fd);
+        if (r < 0)
+                return pam_bus_log_parse_error(pamh, r);
+
+        _cleanup_close_ int fd = fcntl(raw_fd, F_DUPFD_CLOEXEC, 3);
+        if (fd < 0)
+                return pam_syslog_errno(pamh, LOG_ERR, errno, "Failed to dup inhibit lock fd: %m");
+
+        r = sym_pam_set_data(pamh, "systemd.inhibit-fd", FD_TO_PTR(fd), pam_cleanup_close);
+        if (r != PAM_SUCCESS)
+                return pam_syslog_pam_error(pamh, LOG_ERR, r,
+                                            "Failed to store inhibit lock fd: @PAMERR@");
+        TAKE_FD(fd);
+
+        pam_debug_syslog(pamh, debug, "Acquired inhibit lock for '%s'.", inhibit_what);
+        return PAM_SUCCESS;
+}
+
 _public_ PAM_EXTERN int pam_sm_open_session(
                 pam_handle_t *pamh,
                 int flags,
@@ -1828,6 +1879,12 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         if (r != PAM_SUCCESS)
                 return r;
 
+        if (inhibit_what) {
+                r = acquire_inhibit_lock(pamh, inhibit_what, inhibit_why, debug);
+                if (r != PAM_SUCCESS)
+                        return r;
+        }
+
         r = import_shell_credentials(pamh, debug);
         if (r != PAM_SUCCESS)
                 return r;
@@ -1879,6 +1936,8 @@ _public_ PAM_EXTERN int pam_sm_close_session(
         pam_debug_syslog(pamh, debug, "pam-systemd: shutting down...");
 
         (void) close_osc_context(pamh, debug);
+
+        (void) sym_pam_set_data(pamh, "systemd.inhibit-fd", NULL, NULL);
 
         id = sym_pam_getenv(pamh, "XDG_SESSION_ID");
         if (id) {
