@@ -286,11 +286,12 @@ void unregister_machine_with_fallback_and_log(
         }
 
         if (r < 0)
-                log_notice_errno(r, "Failed to unregister machine in %s context, ignoring: %m",
-                                 machine_registration_scope_string(
-                                                 ctx->registered_system && ctx->registered_user ? _RUNTIME_SCOPE_INVALID :
-                                                 ctx->registered_system ? RUNTIME_SCOPE_SYSTEM : RUNTIME_SCOPE_USER,
-                                                 !failed_system, !failed_user));
+                log_full_errno(r == -ENXIO ? LOG_DEBUG : LOG_INFO, /* Might have already been noticed and unregistered by machined itself */
+                               r, "Failed to unregister machine in %s context, ignoring: %m",
+                               machine_registration_scope_string(
+                                                ctx->registered_system && ctx->registered_user ? _RUNTIME_SCOPE_INVALID :
+                                                ctx->registered_system ? RUNTIME_SCOPE_SYSTEM : RUNTIME_SCOPE_USER,
+                                                !failed_system, !failed_user));
 }
 
 int unregister_machine(sd_bus *bus, const char *machine_name, RuntimeScope scope) {
