@@ -117,6 +117,8 @@ static int parse_argv(
                 const char **type,
                 const char **desktop,
                 const char **area,
+                const char **inhibit_what,
+                const char **inhibit_why,
                 bool *debug,
                 uint64_t *default_capability_bounding_set,
                 uint64_t *default_capability_ambient_set) {
@@ -148,6 +150,12 @@ static int parse_argv(
                                 sym_pam_syslog(pamh, LOG_WARNING, "Area name specified among PAM module parameters is not valid, ignoring: %s", p);
                         else if (area)
                                 *area = p;
+                } else if ((p = startswith(argv[i], "inhibit="))) {
+                        if (inhibit_what)
+                                *inhibit_what = p;
+                } else if ((p = startswith(argv[i], "inhibit-why="))) {
+                        if (inhibit_why)
+                                *inhibit_why = p;
 
                 } else if (streq(argv[i], "debug")) {
                         if (debug)
@@ -1755,7 +1763,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         pam_log_setup();
 
         uint64_t default_capability_bounding_set = CAP_MASK_UNSET, default_capability_ambient_set = CAP_MASK_UNSET;
-        const char *class_pam = NULL, *type_pam = NULL, *desktop_pam = NULL, *area_pam = NULL;
+        const char *class_pam = NULL, *type_pam = NULL, *desktop_pam = NULL, *area_pam = NULL, *inhibit_what = NULL, *inhibit_why = NULL;
         bool debug = false;
         if (parse_argv(pamh,
                        argc, argv,
@@ -1763,6 +1771,8 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                        &type_pam,
                        &desktop_pam,
                        &area_pam,
+                       &inhibit_what,
+                       &inhibit_why,
                        &debug,
                        &default_capability_bounding_set,
                        &default_capability_ambient_set) < 0)
@@ -1859,6 +1869,8 @@ _public_ PAM_EXTERN int pam_sm_close_session(
                        /* type= */ NULL,
                        /* desktop= */ NULL,
                        /* area= */ NULL,
+                       /* inhibit_what= */ NULL,
+                       /* inhibit_why= */ NULL,
                        &debug,
                        /* default_capability_bounding_set= */ NULL,
                        /* default_capability_ambient_set= */ NULL) < 0)
