@@ -38,10 +38,17 @@ conf.set_quoted('PROJECT_VERSION_STR', project_major_version,
         description: 'Stringified project version (used where a simple string is expected)')
 conf.set_quoted('PROJECT_VERSION_FULL', meson.project_version(), description : 'Full project version')
 
-relative_source_path = run_command('realpath',
-                                   '--relative-to=@0@'.format(meson.project_build_root()),
-                                   meson.project_source_root(),
-                                   check : true).stdout().strip()
+fs = import('fs')
+
+if meson.version().version_compare('>=1.3.0')
+        relative_source_path = fs.relative_to(meson.project_source_root(),
+                                              meson.project_build_root())
+else
+        relative_source_path = run_command('realpath',
+                                           '--relative-to=@0@'.format(meson.project_build_root()),
+                                           meson.project_source_root(),
+                                           check : true).stdout().strip()
+endif
 conf.set_quoted('RELATIVE_SOURCE_PATH', relative_source_path)
 
 conf.set10('BUILD_MODE_DEVELOPER', get_option('mode') == 'developer',
@@ -80,7 +87,6 @@ summary({
 
 #####################################################################
 
-fs = import('fs')
 if get_option('split-bin') == 'auto'
         split_bin = not fs.is_symlink('/usr/sbin')
 else
