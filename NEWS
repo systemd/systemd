@@ -97,6 +97,15 @@ CHANGES WITH 261 in spe:
         * Required version of musl (when built with -Dlibc=musl) has been raised
           from 1.2.5 to 1.2.6.
 
+        * libsystemd is no longer guaranteed to be linked against libm. Whether
+          the dependency is recorded depends on whether the compiler chooses to
+          emit builtins for all calls to libm symbols. Consumers that rely on
+          libsystemd transitively pulling in libm should link against it
+          themselves. If forcing a link against libm is required as a
+          workaround, '-Wl,--push-state,--no-as-needed,-lm,--pop-state' can be
+          added to the link flags, or passed to meson via
+          '-Dc_link_args=-Wl,--push-state,--no-as-needed,-lm,--pop-state'.
+
         Changes in the system and service manager:
 
         * PID1 now supports the kernel's Live Update Orchestration (LUO) /
