@@ -36,7 +36,8 @@ typedef struct SimpleCleanup {
         free_func_t destroy;
 } SimpleCleanup;
 
-typedef struct StaticDestructor {
+/* Note: see the comment on struct Option in options.h for why _alignptr_ is required here. */
+typedef struct _alignptr_ StaticDestructor {
         StaticDestructorType type;
         union {
                 SimpleCleanup simple;
