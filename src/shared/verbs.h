@@ -11,7 +11,8 @@ typedef enum VerbFlags {
         VERB_GROUP_MARKER = 1 << 2,  /* Fake verb entry to separate groups */
 } VerbFlags;
 
-typedef struct {
+/* Note: see the comment on struct Option in options.h for why _alignptr_ is required here. */
+typedef struct _alignptr_ {
         const char *verb;
         unsigned min_args, max_args;
         VerbFlags flags;
@@ -20,6 +21,7 @@ typedef struct {
         const char *argspec;
         const char *help;
 } Verb;
+assert_cc(sizeof(Verb) % sizeof(void*) == 0);
 
 #define _VERB_DATA(d, v, a, amin, amax, f, dat, h)                      \
         _section_("SYSTEMD_VERBS")                                      \
