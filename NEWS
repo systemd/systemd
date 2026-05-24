@@ -17,6 +17,12 @@ CHANGES WITH 261 in spe:
           related interfaces, in order to simplify our codebase. Support for
           UAPI.1 is – of course – kept in place.
 
+        * The experimental "systemd-sysupdated" D-Bus API is going to be
+          removed in the next release. The plan is that in its place
+          clients should directly talk to systemd-sysupdate (i.e. the backend
+          of "systemd-sysupdated") via Varlink IPC. The "updatectl" tool will
+          be reworked along these lines.
+
         Feature Removals and Incompatible Changes:
 
         * systemd-nspawn's --user= option has been renamed to --uid=. The -u
@@ -51,12 +57,6 @@ CHANGES WITH 261 in spe:
           This is currently opt-in. In a future version, the default will be
           changed to restrict socket address families to AF_INET, AF_INET6 and
           AF_UNIX.
-
-        * The experimental "systemd-sysupdated" D-Bus API is going to be
-          removed in the next release. The plan is that in its place
-          clients should directly talk to systemd-sysupdate (i.e. the backend
-          of "systemd-sysupdated") via Varlink IPC. The "updatectl" tool will
-          be reworked along these lines.
 
         * A new service unit "systemd-pcrosseparator.service" will now measure
           a new separator measurement during early userspace into PCRs 0-7, 9,
@@ -101,9 +101,12 @@ CHANGES WITH 261 in spe:
           the dependency is recorded depends on whether the compiler chooses to
           emit builtins for all calls to libm symbols. Consumers that rely on
           libsystemd transitively pulling in libm should link against it
-          themselves. If forcing a link against libm is required as a
-          workaround, '-Wl,--push-state,--no-as-needed,-lm,--pop-state' can be
-          added to the link flags, or passed to meson via
+          themselves. There is at least one known case that is still unsolved:
+          rsyslog crashes on launch due to libfastjson using libm without linking
+          to it, which was previously masked because libsystemd linked to it. If
+          forcing a link against libm is required as a workaround,
+          '-Wl,--push-state,--no-as-needed,-lm,--pop-state' can be added to the
+          link flags, or passed to systemd's meson build options via
           '-Dc_link_args=-Wl,--push-state,--no-as-needed,-lm,--pop-state'.
 
         Changes in the system and service manager:
