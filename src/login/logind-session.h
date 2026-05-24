@@ -219,3 +219,5 @@ int session_send_create_reply(Session *s, const sd_bus_error *error);
 
 bool session_is_self(const char *name);
 bool session_is_auto(const char *name);
+
+int session_build_json(Session *s, sd_json_variant **ret);
