@@ -130,12 +130,15 @@ if want_tests != 'false'
         foreach _, exe : executables_by_name
                 link_abi_targets += exe
         endforeach
-        test('test-link-abi',
-             files('test-link-abi.py'),
-             args : link_abi_targets,
-             depends : link_abi_targets,
-             suite : 'dist',
-             timeout : 120)
+
+        if conf.get('BUILD_MODE_DEVELOPER') == 1
+                test('test-link-abi',
+                     files('test-link-abi.py'),
+                     args : link_abi_targets,
+                     depends : link_abi_targets,
+                     suite : 'dist',
+                     timeout : 120)
+        endif
 endif
 
 ############################################################
