@@ -13,13 +13,23 @@
 #include "io-util.h"
 #include "time-util.h"
 
-/* EPOLL_POLL_COMMON_MASK in io-util.h treats POLL* and EPOLL* as interchangeable; verify it. */
-assert_cc((uint32_t) POLLIN    == EPOLLIN);
-assert_cc((uint32_t) POLLOUT   == EPOLLOUT);
-assert_cc((uint32_t) POLLERR   == EPOLLERR);
-assert_cc((uint32_t) POLLHUP   == EPOLLHUP);
-assert_cc((uint32_t) POLLPRI   == EPOLLPRI);
-assert_cc((uint32_t) POLLRDHUP == EPOLLRDHUP);
+uint32_t poll_events_to_epoll(uint32_t events) {
+        return (events & POLLIN    ? EPOLLIN    : 0) |
+               (events & POLLOUT   ? EPOLLOUT   : 0) |
+               (events & POLLPRI   ? EPOLLPRI   : 0) |
+               (events & POLLERR   ? EPOLLERR   : 0) |
+               (events & POLLHUP   ? EPOLLHUP   : 0) |
+               (events & POLLRDHUP ? EPOLLRDHUP : 0);
+}
+
+uint32_t epoll_events_to_poll(uint32_t events) {
+        return (events & EPOLLIN    ? POLLIN    : 0) |
+               (events & EPOLLOUT   ? POLLOUT   : 0) |
+               (events & EPOLLPRI   ? POLLPRI   : 0) |
+               (events & EPOLLERR   ? POLLERR   : 0) |
+               (events & EPOLLHUP   ? POLLHUP   : 0) |
+               (events & EPOLLRDHUP ? POLLRDHUP : 0);
+}
 
 int flush_fd(int fd) {
         int count = 0;
