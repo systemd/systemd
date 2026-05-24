@@ -10,8 +10,10 @@
 #include "sd-bus.h"
 #include "sd-event.h"
 
+#include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-wait-for-jobs.h"
+#include "cgroup-util.h"
 #include "event-util.h"
 #include "fd-util.h"
 #include "format-util.h"
@@ -164,6 +166,27 @@ TEST(fake_io_pressure) {
 
 /* Shared infrastructure for real pressure tests */
 
+static int controller_supported_on_unit(sd_bus *bus, const char *unit_path, CGroupMask controller) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_free_ char *cg = NULL;
+        CGroupMask mask;
+        int r;
+
+        r = sd_bus_get_property_string(bus, "org.freedesktop.systemd1", unit_path,
+                                       "org.freedesktop.systemd1.Unit", "ControlGroup", &error, &cg);
+        if (r < 0)
+                return log_notice_errno(r, "Failed to read ControlGroup property: %s", bus_error_message(&error, r));
+
+        if (isempty(cg))
+                return -ENODATA;
+
+        r = cg_mask_supported_subtree(cg, &mask);
+        if (r < 0)
+                return log_notice_errno(r, "Failed to read supported controllers for %s: %m", cg);
+
+        return FLAGS_SET(mask, controller);
+}
+
 struct real_pressure_context {
         sd_event_source *pid;
 };
@@ -307,6 +330,10 @@ TEST(real_memory_pressure) {
         _cleanup_free_ char *uo = NULL;
         ASSERT_NOT_NULL(uo = unit_dbus_path_from_name(scope));
 
+        r = controller_supported_on_unit(bus, uo, CGROUP_MASK_MEMORY);
+        if (r <= 0)
+                return (void) log_tests_skipped("memory controller not available on scope");
+
         uint64_t mcurrent = UINT64_MAX;
         ASSERT_OK(sd_bus_get_property_trivial(bus, "org.freedesktop.systemd1", uo, "org.freedesktop.systemd1.Scope", "MemoryCurrent", &error, 't', &mcurrent));
 
@@ -441,6 +468,13 @@ TEST(real_cpu_pressure) {
         ASSERT_OK_ZERO(sd_event_source_set_cpu_pressure_period(es, 70 * USEC_PER_MSEC, 2 * USEC_PER_SEC));
         ASSERT_OK(sd_event_source_set_enabled(es, SD_EVENT_ONESHOT));
 
+        _cleanup_free_ char *uo = NULL;
+        ASSERT_NOT_NULL(uo = unit_dbus_path_from_name(scope));
+
+        r = controller_supported_on_unit(bus, uo, CGROUP_MASK_CPU);
+        if (r <= 0)
+                return (void) log_tests_skipped("cpu controller not available on scope");
+
         m = sd_bus_message_unref(m);
 
         ASSERT_OK(bus_message_new_method_call(bus, &m, bus_systemd_mgr, "SetUnitProperties"));
@@ -569,6 +603,13 @@ TEST(real_io_pressure) {
         ASSERT_OK_POSITIVE(sd_event_source_set_io_pressure_period(es, 70 * USEC_PER_MSEC, 2 * USEC_PER_SEC));
         ASSERT_OK_ZERO(sd_event_source_set_io_pressure_period(es, 70 * USEC_PER_MSEC, 2 * USEC_PER_SEC));
         ASSERT_OK(sd_event_source_set_enabled(es, SD_EVENT_ONESHOT));
+
+        _cleanup_free_ char *uo = NULL;
+        ASSERT_NOT_NULL(uo = unit_dbus_path_from_name(scope));
+
+        r = controller_supported_on_unit(bus, uo, CGROUP_MASK_IO);
+        if (r <= 0)
+                return (void) log_tests_skipped("io controller not available on scope");
 
         m = sd_bus_message_unref(m);
 
