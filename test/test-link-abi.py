@@ -86,15 +86,16 @@ def is_libc(name: str) -> bool:
     return name.startswith(LIBC_LIB_PREFIXES)
 
 
-def glibc_violations(path: str, baseline: Version) -> list[tuple[str, str]]:
-    """Return a sorted list of (symbol, "GLIBC_X.Y") pairs above the baseline."""
+def glibc_imports(path: str) -> list[tuple[str, str, Version]]:
+    """Return a sorted list of (symbol, "GLIBC_X.Y", version) triples for every
+    imported GLIBC-versioned symbol referenced by ``path``."""
     out = subprocess.check_output(
         ['readelf', '-W', '--dyn-syms', path],
         text=True,
         stderr=subprocess.DEVNULL,
     )
 
-    found: set[tuple[str, str]] = set()
+    found: set[tuple[str, str, Version]] = set()
     for line in out.splitlines():
         m = GLIBC_RE.search(line)
         if not m:
@@ -106,10 +107,8 @@ def glibc_violations(path: str, baseline: Version) -> list[tuple[str, str]]:
         if len(parts) < 8 or parts[6] != 'UND':
             continue
         ver: Version = (int(m.group(1)), int(m.group(2)))
-        if ver <= baseline:
-            continue
         sym = next((t for t in parts if '@' in t), line.strip())
-        found.add((sym, m.group(0)))
+        found.add((sym, m.group(0), ver))
     return sorted(found)
 
 
@@ -150,23 +149,53 @@ def main() -> int:
     args = ap.parse_args()
 
     baseline: Version = args.baseline
-    checked = 0
-    failed = 0
+
+    # First pass: collect all imports and NEEDED entries so we can derive an
+    # effective baseline before reporting any violations.
+    imports: dict[str, list[tuple[str, str, Version]]] = {}
+    needed: dict[str, list[str]] = {}
     for path in args.paths:
         if not is_elf(path):
             # Some inputs passed by meson may be scripts or non-ELF
             # generators; silently skip those rather than fail.
             continue
-        checked += 1
+        imports[path] = glibc_imports(path)
+        needed[path] = needed_violations(path)
 
-        glibc_bad = glibc_violations(path, baseline)
-        needed_bad = needed_violations(path)
+    # On architectures where glibc support was added after our baseline (e.g.
+    # loongarch64, introduced in glibc 2.36), every imported symbol will be
+    # tagged with a version newer than the baseline, so the baseline check
+    # would spuriously fail. Detect this by taking the minimum version observed
+    # across all binaries: if it exceeds the baseline, treat that minimum as
+    # the effective baseline instead.
+    observed = [v for syms in imports.values() for _, _, v in syms]
+    effective_baseline = baseline
+    if observed:
+        observed_min = min(observed)
+        if observed_min > baseline:
+            effective_baseline = observed_min
+            print(
+                f'Note: lowest observed GLIBC import is '
+                f'GLIBC_{observed_min[0]}.{observed_min[1]}, newer than the requested baseline '
+                f'GLIBC_{baseline[0]}.{baseline[1]}; assuming this architecture has no older '
+                f'symbols available and using GLIBC_{effective_baseline[0]}.{effective_baseline[1]} '
+                f'as the effective baseline.',
+                file=sys.stderr,
+            )
+
+    failed = 0
+    for path, syms in imports.items():
+        glibc_bad = sorted({(sym, ver_str) for sym, ver_str, ver in syms if ver > effective_baseline})
+        needed_bad = needed[path]
 
         if glibc_bad or needed_bad:
             failed += 1
             print(f'{path}:', file=sys.stderr)
         if glibc_bad:
-            print(f'  imports symbols newer than GLIBC_{baseline[0]}.{baseline[1]}:', file=sys.stderr)
+            print(
+                f'  imports symbols newer than GLIBC_{effective_baseline[0]}.{effective_baseline[1]}:',
+                file=sys.stderr,
+            )
             for sym, ver_str in glibc_bad:
                 print(f'    {sym} ({ver_str})', file=sys.stderr)
         if needed_bad:
@@ -174,7 +203,8 @@ def main() -> int:
             for name in needed_bad:
                 print(f'    {name}', file=sys.stderr)
 
-    baseline_str = f'GLIBC_{baseline[0]}.{baseline[1]}'
+    checked = len(imports)
+    baseline_str = f'GLIBC_{effective_baseline[0]}.{effective_baseline[1]}'
     if failed:
         print(f'\nFAIL: {failed} of {checked} ELF objects failed the ABI checks.', file=sys.stderr)
         return 1
