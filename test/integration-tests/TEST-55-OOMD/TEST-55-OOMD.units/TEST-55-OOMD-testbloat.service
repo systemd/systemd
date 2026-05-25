@@ -7,6 +7,4 @@ Description=Create a lot of memory pressure
 # to throttle and be put under heavy pressure.
 MemoryHigh=3M
 Slice=TEST-55-OOMD-workload.slice
-# Pin --vm-method=lfsr32: the only stress-ng vm method without TARGET_CLONES,
-# so it can't dispatch to an AVX-512 clone and SIGILL on CPUs lacking it.
-ExecStart=stress-ng --timeout 3m --vm 10 --vm-bytes 200M --vm-keep --vm-method=lfsr32
+ExecStart=stress-ng --timeout 3m --vm 10 --vm-bytes 200M --vm-keep

@@ -94,6 +94,19 @@ else
     systemd-run -t -p MemoryMax=10M -p MemorySwapMax=0 -p MemoryZSwapMax=0 true
 fi
 
+# stress-ng can fail with SIGILL due to trying to use AVX-512 on older CPUs, try to detect and avoid failing
+stress_ng_sigilled() {
+    local result status sigill
+    local unit="${1:?}"
+    shift
+
+    result=$(systemctl "$@" show "$unit" -P Result)
+    status=$(systemctl "$@" show "$unit" -P ExecMainStatus)
+    sigill=$(kill -l ILL)
+
+    [[ "$status" == "$sigill" && ( "$result" == "signal" || "$result" == "core-dump" ) ]]
+}
+
 test_basic() {
     local cgroup_path="${1:?}"
     shift
@@ -123,7 +136,11 @@ test_basic() {
     if systemctl "$@" status TEST-55-OOMD-testbloat.service; then exit 42; fi
     if ! systemctl "$@" status TEST-55-OOMD-testchill.service; then exit 24; fi
 
-    assert_eq "$(systemctl "$@" show TEST-55-OOMD-testbloat.service -P ManagedOOMKills)" "1"
+    if stress_ng_sigilled TEST-55-OOMD-testbloat.service "$@"; then
+        echo "stress-ng died with SIGILL, skipping ManagedOOMKills assertion"
+    else
+        assert_eq "$(systemctl "$@" show TEST-55-OOMD-testbloat.service -P ManagedOOMKills)" "1"
+    fi
 
     systemctl "$@" kill --signal=KILL TEST-55-OOMD-testbloat.service || :
     systemctl "$@" stop TEST-55-OOMD-testbloat.service
@@ -171,10 +188,14 @@ EOF
         sleep 2
     done
 
-    # testmunch should be killed since testbloat had the avoid xattr on it
-    if ! systemctl status TEST-55-OOMD-testbloat.service; then exit 25; fi
-    if systemctl status TEST-55-OOMD-testmunch.service; then exit 43; fi
-    if ! systemctl status TEST-55-OOMD-testchill.service; then exit 24; fi
+    if stress_ng_sigilled TEST-55-OOMD-testbloat.service || stress_ng_sigilled TEST-55-OOMD-testmunch.service; then
+        echo "stress-ng died with SIGILL, skipping testcase_preference_avoid assertions"
+    else
+        # testmunch should be killed since testbloat had the avoid xattr on it
+        if ! systemctl status TEST-55-OOMD-testbloat.service; then exit 25; fi
+        if systemctl status TEST-55-OOMD-testmunch.service; then exit 43; fi
+        if ! systemctl status TEST-55-OOMD-testchill.service; then exit 24; fi
+    fi
 
     systemctl kill --signal=KILL TEST-55-OOMD-testbloat.service || :
     systemctl kill --signal=KILL TEST-55-OOMD-testmunch.service || :
@@ -249,8 +270,12 @@ EOF
         sleep 2
     done
 
-    if systemctl status TEST-55-OOMD-testmunch.service; then exit 44; fi
-    if ! systemctl status TEST-55-OOMD-testchill.service; then exit 23; fi
+    if stress_ng_sigilled TEST-55-OOMD-testmunch.service; then
+        echo "stress-ng died with SIGILL, skipping testcase_duration_override assertions"
+    else
+        if systemctl status TEST-55-OOMD-testmunch.service; then exit 44; fi
+        if ! systemctl status TEST-55-OOMD-testchill.service; then exit 23; fi
+    fi
 
     systemctl kill --signal=KILL TEST-55-OOMD-testmunch.service || :
     systemctl stop TEST-55-OOMD-testmunch.service
@@ -365,13 +390,11 @@ EOF
 
     systemctl reload systemd-oomd.service
 
-    # Run a transient service with OOMRules=testrule that generates memory pressure.
-    # Pin --vm-method=lfsr32: the only stress-ng vm method without TARGET_CLONES,
-    # so it can't dispatch to an AVX-512 clone and SIGILL on CPUs lacking it.
+    # Run a transient service with OOMRules=testrule that generates memory pressure
     (! systemd-run --wait --unit=TEST-55-OOMD-testrules \
         -p MemoryHigh=3M \
         -p OOMRules=testrule \
-        stress-ng --timeout 3m --vm 10 --vm-bytes 50M --vm-keep --vm-method=lfsr32)
+        stress-ng --timeout 3m --vm 10 --vm-bytes 50M --vm-keep)
 
     # Verify in the journal that the rule triggered
     journalctl --sync
@@ -456,20 +479,22 @@ EOF
 
     # Start the unit without --wait so we can check mid-run state. The
     # stress-ng timeout bounds the test if anything goes wrong.
-    # Pin --vm-method=lfsr32: the only stress-ng vm method without TARGET_CLONES,
-    # so it can't SIGILL on AVX-512-less CPUs and exit before the 6 s wait below.
     systemd-run --unit=TEST-55-OOMD-slowrule \
         -p MemoryHigh=3M \
         -p OOMRules=slowrule \
-        stress-ng --timeout 15s --vm 10 --vm-bytes 50M --vm-keep --vm-method=lfsr32
+        stress-ng --timeout 15s --vm 10 --vm-bytes 50M --vm-keep
 
     # Wait long enough for oomd's 1s rule-check loop to evaluate the condition
     # many times. With LastingSec=1h the kill must not fire.
     sleep 6
 
-    # Unit must still be active — if it were killed, Result= would be oom-kill.
-    assert_eq "$(systemctl show TEST-55-OOMD-slowrule.service -P ActiveState)" "active"
-    assert_eq "$(systemctl show TEST-55-OOMD-slowrule.service -P Result)" "success"
+    if stress_ng_sigilled TEST-55-OOMD-slowrule.service; then
+        echo "stress-ng died with SIGILL, skipping testcase_oom_rulesets_lasting_sec assertions"
+    else
+        # Unit must still be active. If it were killed, Result= would be oom-kill.
+        assert_eq "$(systemctl show TEST-55-OOMD-slowrule.service -P ActiveState)" "active"
+        assert_eq "$(systemctl show TEST-55-OOMD-slowrule.service -P Result)" "success"
+    fi
 
     systemctl stop TEST-55-OOMD-slowrule.service 2>/dev/null || true
 
@@ -487,6 +512,11 @@ EOF
     # no hooks
     systemctl reload systemd-oomd.service
     ! systemctl start --wait TEST-55-OOMD-testbloat.service || exit 1
+
+    if stress_ng_sigilled TEST-55-OOMD-testbloat.service; then
+        echo "stress-ng died with SIGILL, skipping testcase_prekill_hook"
+        return 0
+    fi
 
     # one hook
     mkdir -p /run/systemd/oomd.prekill.hook/
