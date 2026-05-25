@@ -17,12 +17,12 @@ fi
 rc=0
 "$@" || rc=$?
 
-# Replay only on actual crash signals (128 + signal): SIGILL=132, SIGABRT=134,
-# SIGBUS=135, SIGFPE=136, SIGSEGV=139. SIGTERM/SIGKILL/SIGPIPE/SIGALRM mean the
-# test was killed by the environment (timeout, etc.), not that it crashed —
-# replaying those just makes gdb hit the same kill.
+# Replay only on actual crash signals (128 + signal).
+# SIGTERM/SIGKILL/SIGPIPE/SIGALRM mean the test was killed by the environment
+# (timeout, etc.), and not that it really crashed, so it is not useful to
+# replay it under gdb.
 case "$rc" in
-    132|134|135|136|139)
+    $((128 + $(kill -l ILL)))|$((128 + $(kill -l ABRT)))|$((128 + $(kill -l BUS)))|$((128 + $(kill -l FPE)))|$((128 + $(kill -l SEGV))))
         if command -v gdb >/dev/null 2>&1; then
             echo "===== exit $rc — replaying under gdb =====" >&2
             style_args=()
