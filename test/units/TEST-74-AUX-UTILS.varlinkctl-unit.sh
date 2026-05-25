@@ -33,8 +33,8 @@ test -n "$automount_id"
 automount_params=$(jq -cn --arg name "$automount_id" '{name: $name}')
 varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List "$automount_params" | jq -e '.context.Automount'
 varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List "$automount_params" | jq -e '.runtime.Automount'
-# test for MountContext/Runtime
-mount_id=$(varlinkctl call --collect /run/systemd/io.systemd.Manager io.systemd.Unit.List '{}' | jq -r '.[] | select(.context.Type == "mount" and .runtime.LoadState == "loaded") .context.ID // empty' | tail -n 1)
+# test for MountContext/Runtime (skip volatile run-user-*.mount to avoid GC race)
+mount_id=$(varlinkctl call --collect /run/systemd/io.systemd.Manager io.systemd.Unit.List '{}' | jq -r '.[] | select(.context.Type == "mount" and .runtime.LoadState == "loaded" and (.context.ID | startswith("run-user-") | not)) .context.ID // empty' | tail -n 1)
 test -n "$mount_id"
 mount_params=$(jq -cn --arg name "$mount_id" '{name: $name}')
 varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List "$mount_params" | jq -e '.context.Mount'
@@ -45,14 +45,14 @@ test -n "$path_id"
 path_params=$(jq -cn --arg name "$path_id" '{name: $name}')
 varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List "$path_params" | jq -e '.context.Path'
 varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List "$path_params" | jq -e '.runtime.Path'
-# test for ServiceContext/Runtime
-service_id=$(varlinkctl call --collect /run/systemd/io.systemd.Manager io.systemd.Unit.List '{}' | jq -r '.[] | select(.context.Type == "service" and .runtime.LoadState == "loaded") .context.ID // empty' | tail -n 1)
+# test for ServiceContext/Runtime (skip volatile user@*/user-runtime-dir@* to avoid GC race)
+service_id=$(varlinkctl call --collect /run/systemd/io.systemd.Manager io.systemd.Unit.List '{}' | jq -r '.[] | select(.context.Type == "service" and .runtime.LoadState == "loaded" and (.context.ID | test("^(user|user-runtime-dir)@") | not)) .context.ID // empty' | tail -n 1)
 test -n "$service_id"
 service_params=$(jq -cn --arg name "$service_id" '{name: $name}')
 varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List "$service_params" | jq -e '.context.Service'
 varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List "$service_params" | jq -e '.runtime.Service'
-# test for ScopeContext/Runtime
-scope_id=$(varlinkctl call --collect /run/systemd/io.systemd.Manager io.systemd.Unit.List '{}' | jq -r '.[] | select(.context.Type == "scope" and .runtime.LoadState == "loaded") .context.ID // empty' | tail -n 1)
+# test for ScopeContext/Runtime (skip volatile session-*.scope to avoid GC race)
+scope_id=$(varlinkctl call --collect /run/systemd/io.systemd.Manager io.systemd.Unit.List '{}' | jq -r '.[] | select(.context.Type == "scope" and .runtime.LoadState == "loaded" and (.context.ID | startswith("session-") | not)) .context.ID // empty' | tail -n 1)
 test -n "$scope_id"
 scope_params=$(jq -cn --arg name "$scope_id" '{name: $name}')
 varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List "$scope_params" | jq -e '.context.Scope'
