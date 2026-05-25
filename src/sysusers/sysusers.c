@@ -821,7 +821,7 @@ static int write_temporary_group(
                 r = putgrent_with_members(c, &n, group);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add new group \"%s\" to temporary group file: %m",
-                                               gr->gr_name);
+                                               n.gr_name);
 
                 group_changed = true;
         }
