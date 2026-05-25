@@ -1638,8 +1638,16 @@ static int apply_syscall_filter(const ExecContext *c, const ExecParameters *p) {
                 action = negative_action;
         }
 
-        /* Sending over exec_fd or handoff_timestamp_fd requires write() syscall. */
+        /* Sending over exec_fd or handoff_timestamp_fd requires write() syscall.
+         *
+         * Note: this mutates c->syscall_filter despite the 'const ExecContext *c' qualifier.
+         * That is intentional and safe here because apply_syscall_filter() runs only in the
+         * post-fork child, which holds a private copy of the address space; the hashmap
+         * change is never visible to the manager process. */
         if (p->exec_fd >= 0 || p->handoff_timestamp_fd >= 0) {
+                if (c->syscall_allow_list)
+                        log_debug("SystemCallFilter= allow-list in effect; adding 'write' syscall required for exec handoff.");
+
                 r = seccomp_filter_set_add_by_name(c->syscall_filter, c->syscall_allow_list, "write");
                 if (r < 0)
                         return r;
@@ -4133,11 +4141,21 @@ static int apply_root_directory(
         assert(exit_status);
 
         if (params->flags & EXEC_APPLY_CHROOT)
-                if (!needs_mount_ns && context->root_directory)
+                if (!needs_mount_ns && context->root_directory) {
                         if (chroot(runtime->ephemeral_copy ?: context->root_directory) < 0) {
                                 *exit_status = EXIT_CHROOT;
                                 return -errno;
                         }
+
+                        /* chroot(2) changes only the process root, not cwd. Move cwd into the new root
+                         * immediately so that a subsequent apply_working_directory() failure that is
+                         * silently ignored via working_directory_missing_ok cannot leave cwd pointing
+                         * at a pre-chroot dentry outside the new root. */
+                        if (chdir("/") < 0) {
+                                *exit_status = EXIT_CHROOT;
+                                return -errno;
+                        }
+                }
 
         return 0;
 }
