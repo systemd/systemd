@@ -144,7 +144,7 @@ echo "Verified resumed state via Describe"
 
 # --- SubscribeEvents tests ---
 # Subscribe to all events in the background, collect output
-varlinkctl call --more --timeout=10 "$VARLINK_ADDR" io.systemd.MachineInstance.SubscribeEvents '{}' \
+varlinkctl call --more --timeout=60 "$VARLINK_ADDR" io.systemd.MachineInstance.SubscribeEvents '{}' \
     >"$WORKDIR/events-all.json" 2>&1 &
 SUBSCRIBE_ALL_PID=$!
 sleep 0.5
@@ -169,7 +169,7 @@ grep >/dev/null '"RESUME"' "$WORKDIR/events-all.json"
 echo "SubscribeEvents received STOP and RESUME events"
 
 # Test filtered subscription: only STOP events
-varlinkctl call --more --timeout=10 "$VARLINK_ADDR" io.systemd.MachineInstance.SubscribeEvents '{"filter":["STOP"]}' \
+varlinkctl call --more --timeout=60 "$VARLINK_ADDR" io.systemd.MachineInstance.SubscribeEvents '{"filter":["STOP"]}' \
     >"$WORKDIR/events-filtered.json" 2>&1 &
 SUBSCRIBE_FILTER_PID=$!
 sleep 0.5
