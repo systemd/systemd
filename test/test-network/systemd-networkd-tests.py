@@ -245,6 +245,22 @@ def compare_kernel_version(min_kernel_version):
     return version.parse(kver) >= version.parse(min_kernel_version)
 
 
+def networkd_has_sysctl_monitor_bpf():
+    """Check whether systemd-networkd was built with ENABLE_SYSCTL_BPF support."""
+    if not networkd_bin:
+        return False
+    try:
+        output = subprocess.run(
+            [networkd_bin, '--version'],
+            capture_output=True,
+            text=True,
+            check=False,
+        ).stdout
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return '+BTF' in output.split()
+
+
 def copy_network_unit(*units, copy_dropins=True):
     """
     Copy networkd unit files into the testbed.
@@ -11052,6 +11068,10 @@ class NetworkdSysctlTest(unittest.TestCase, Utilities):
     @unittest.skipUnless(
         compare_kernel_version('6.12'),
         reason='On kernels <= 6.12, bpf_current_task_under_cgroup() is not available for program types BPF_PROG_TYPE_CGROUP_SYSCTL',
+    )
+    @unittest.skipUnless(
+        networkd_has_sysctl_monitor_bpf(),
+        reason='systemd-networkd was built without ENABLE_SYSCTL_BPF support (HAVE_VMLINUX_H=0)',
     )
     def test_sysctl_monitor(self):
         copy_network_unit('12-dummy.network', '12-dummy.netdev', '12-dummy.link')
