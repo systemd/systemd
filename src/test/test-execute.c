@@ -1027,11 +1027,6 @@ static void test_exec_dynamicuser(Manager *m) {
                 return;
         }
 
-        if (strstr_ptr(ci_environment(), "github-actions")) {
-                log_notice("%s: skipping test on GH Actions because of systemd/systemd#10337", __func__);
-                return;
-        }
-
         int status = can_unshare ? 0 : EXIT_NAMESPACE;
 
         test(m, "exec-dynamicuser-fixeduser.service", status, CLD_EXITED);
@@ -1616,10 +1611,6 @@ TEST(run_tests_unprivileged) {
 static int intro(void) {
         int r;
 
-#if HAS_FEATURE_ADDRESS_SANITIZER
-        if (strstr_ptr(ci_environment(), "travis") || strstr_ptr(ci_environment(), "github-actions"))
-                return log_tests_skipped("Running on Travis CI/GH Actions under ASan, see https://github.com/systemd/systemd/issues/10696");
-#endif
         /* It is needed otherwise cgroup creation fails */
         if (geteuid() != 0 || have_effective_cap(CAP_SYS_ADMIN) <= 0)
                 return log_tests_skipped("not privileged");
