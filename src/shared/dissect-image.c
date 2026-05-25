@@ -750,7 +750,7 @@ static int acquire_sig_for_roothash(
 
         ssize_t n = pread(fd, buf, partition_size, partition_offset);
         if (n < 0)
-                return -ENOMEM;
+                return -errno;
         if ((uint64_t) n != partition_size)
                 return -EIO;
 
@@ -1447,8 +1447,8 @@ static int dissect_image(
 
                                         r = acquire_sig_for_roothash(
                                                         fd,
-                                                        start * 512,
-                                                        size * 512,
+                                                        (uint64_t) start * 512,
+                                                        (uint64_t) size * 512,
                                                         &root_hash,
                                                         /* ret_root_hash_sig= */ NULL);
                                         if (r < 0)
@@ -5609,7 +5609,7 @@ int mountfsd_make_directory(
 
         _cleanup_close_ int fd = open(parent, O_DIRECTORY|O_CLOEXEC);
         if (fd < 0)
-                return log_debug_errno(r, "Failed to open '%s': %m", parent);
+                return log_debug_errno(errno, "Failed to open '%s': %m", parent);
 
         return mountfsd_make_directory_fd(vl, fd, dirname, mode, flags, ret_directory_fd);
 }
