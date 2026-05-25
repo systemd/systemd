@@ -166,14 +166,15 @@ TEST(fake_io_pressure) {
 
 /* Shared infrastructure for real pressure tests */
 
-static int controller_supported_on_unit(sd_bus *bus, const char *unit_path, CGroupMask controller) {
+static int controller_supported_on_unit(sd_bus *bus, const char *unit_name, const char *unit_path, CGroupMask controller) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *cg = NULL;
         CGroupMask mask;
         int r;
 
         r = sd_bus_get_property_string(bus, "org.freedesktop.systemd1", unit_path,
-                                       "org.freedesktop.systemd1.Unit", "ControlGroup", &error, &cg);
+                                       unit_dbus_interface_from_name(unit_name), "ControlGroup",
+                                       &error, &cg);
         if (r < 0)
                 return log_notice_errno(r, "Failed to read ControlGroup property: %s", bus_error_message(&error, r));
 
@@ -291,7 +292,7 @@ TEST(real_memory_pressure) {
         ASSERT_OK(bus_wait_for_jobs_one(w, object, /* flags= */ BUS_WAIT_JOBS_LOG_ERROR, /* extra_args= */ NULL));
 
         _cleanup_free_ char *uo = ASSERT_NOT_NULL(unit_dbus_path_from_name(scope));
-        r = controller_supported_on_unit(bus, uo, CGROUP_MASK_MEMORY);
+        r = controller_supported_on_unit(bus, scope, uo, CGROUP_MASK_MEMORY);
         if (r <= 0)
                 return (void) log_tests_skipped("Memory controller not available on scope");
 
@@ -434,7 +435,7 @@ TEST(real_cpu_pressure) {
         ASSERT_OK(bus_wait_for_jobs_one(w, object, /* flags= */ BUS_WAIT_JOBS_LOG_ERROR, /* extra_args= */ NULL));
 
         _cleanup_free_ char *uo = ASSERT_NOT_NULL(unit_dbus_path_from_name(scope));
-        r = controller_supported_on_unit(bus, uo, CGROUP_MASK_CPU);
+        r = controller_supported_on_unit(bus, scope, uo, CGROUP_MASK_CPU);
         if (r <= 0)
                 return (void) log_tests_skipped("CPU controller not available on scope");
 
@@ -568,7 +569,7 @@ TEST(real_io_pressure) {
         ASSERT_OK(bus_wait_for_jobs_one(w, object, /* flags= */ BUS_WAIT_JOBS_LOG_ERROR, /* extra_args= */ NULL));
 
         _cleanup_free_ char *uo = ASSERT_NOT_NULL(unit_dbus_path_from_name(scope));
-        r = controller_supported_on_unit(bus, uo, CGROUP_MASK_IO);
+        r = controller_supported_on_unit(bus, scope, uo, CGROUP_MASK_IO);
         if (r <= 0)
                 return (void) log_tests_skipped("IO controller not available on scope");
 
