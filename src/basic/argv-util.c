@@ -29,13 +29,15 @@ void save_argc_argv(int argc, char **argv) {
 }
 
 bool invoked_as(char *argv[], const char *token) {
-        if (!argv || isempty(argv[0]))
+        const char *progname = secure_getenv("SYSTEMD_INVOKED_AS");
+
+        if (!progname && argv)
+                progname = argv[0];
+
+        if (isempty(progname) || isempty(token))
                 return false;
 
-        if (isempty(token))
-                return false;
-
-        return strstr(last_path_component(argv[0]), token);
+        return strstr(last_path_component(progname), token);
 }
 
 bool invoked_by_systemd(void) {

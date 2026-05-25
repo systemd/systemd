@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdlib.h>
+
 #include "alloc-util.h"
 #include "ansi-color.h"
 #include "help-util.h"
@@ -25,12 +27,15 @@
  *   options.[ch] APIs. */
 
 void help_cmdline(const char *arguments) {
+        const char *progname =
+                secure_getenv("SYSTEMD_INVOKED_AS") ?: program_invocation_short_name;
+
         assert(arguments);
 
         printf("%s>%s %s %s\n",
                ansi_grey(),
                ansi_normal(),
-               program_invocation_short_name,
+               progname,
                arguments);
 }
 
