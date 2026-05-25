@@ -13,7 +13,7 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-05-18 12:18+0100\n"
-"PO-Revision-Date: 2026-05-16 11:59+0000\n"
+"PO-Revision-Date: 2026-05-25 20:01+0000\n"
 "Last-Translator: \"Fco. Javier F. Serrador\" <fserrador@gmail.com>\n"
 "Language-Team: Spanish <https://translate.fedoraproject.org/projects/systemd/"
 "main/es/>\n"
@@ -917,12 +917,14 @@ msgstr ""
 
 #: src/machine/org.freedesktop.machine1.policy:95
 msgid "Inspect local virtual machines and containers"
-msgstr ""
+msgstr "Inspecciona máquinas virtuales locales y contenedores"
 
 #: src/machine/org.freedesktop.machine1.policy:96
 msgid ""
 "Authentication is required to inspect local virtual machines and containers."
 msgstr ""
+"La autenticación está requerida para inspeccionar máquinas virtuales locales "
+"y contenedores."
 
 #: src/machine/org.freedesktop.machine1.policy:105
 msgid "Create a local virtual machine or container"
@@ -957,13 +959,15 @@ msgstr ""
 
 #: src/machine/org.freedesktop.machine1.policy:137
 msgid "Inspect local virtual machine and container images"
-msgstr ""
+msgstr "Inspecciona máquina virtual local e imágenes de contenedor"
 
 #: src/machine/org.freedesktop.machine1.policy:138
 msgid ""
 "Authentication is required to inspect local virtual machine and container "
 "images."
 msgstr ""
+"La autenticación está requerida para inspeccionar máquina virtual local e "
+"imágenes de contenedor."
 
 #: src/network/org.freedesktop.network1.policy:22
 msgid "Set NTP servers"
