@@ -37,36 +37,39 @@ SD_VARLINK_DEFINE_ENUM_TYPE(
                 SD_VARLINK_FIELD_COMMENT("The special session of the service manager for the root user"),
                 SD_VARLINK_DEFINE_ENUM_VALUE(manager_early));
 
+#define VARLINK_DEFINE_SESSION_FIELDS(direction)                                           \
+        SD_VARLINK_FIELD_COMMENT("Numeric UNIX UID of the user owning this session"),      \
+        SD_VARLINK_DEFINE_##direction(UID, SD_VARLINK_INT, 0),                             \
+        SD_VARLINK_FIELD_COMMENT("PID of the session leader"),                             \
+        SD_VARLINK_DEFINE_##direction_BY_TYPE(PID, ProcessId, SD_VARLINK_NULLABLE),        \
+        SD_VARLINK_FIELD_COMMENT("The type of the session"),                               \
+        SD_VARLINK_DEFINE_##direction_BY_TYPE(Type, SessionType, 0),                       \
+        SD_VARLINK_FIELD_COMMENT("The class of the session"),                              \
+        SD_VARLINK_DEFINE_##direction_BY_TYPE(Class, SessionClass, 0),                     \
+        SD_VARLINK_FIELD_COMMENT("PAM service name"),                                      \
+        SD_VARLINK_DEFINE_##direction(Service, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),    \
+        SD_VARLINK_FIELD_COMMENT("Desktop identifier"),                                    \
+        SD_VARLINK_DEFINE_##direction(Desktop, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),    \
+        SD_VARLINK_FIELD_COMMENT("Seat this session is assigned to"),                      \
+        SD_VARLINK_DEFINE_##direction(Seat, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),       \
+        SD_VARLINK_FIELD_COMMENT("Virtual terminal number of the session, if applicable"), \
+        SD_VARLINK_DEFINE_##direction(VTNr, SD_VARLINK_INT, SD_VARLINK_NULLABLE),          \
+        SD_VARLINK_FIELD_COMMENT("TTY device of the session"),                             \
+        SD_VARLINK_DEFINE_##direction(TTY, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),        \
+        SD_VARLINK_FIELD_COMMENT("X11 display of the session"),                            \
+        SD_VARLINK_DEFINE_##direction(Display, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),    \
+        SD_VARLINK_FIELD_COMMENT("Whether this is a remote session"),                      \
+        SD_VARLINK_DEFINE_##direction(Remote, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),       \
+        SD_VARLINK_FIELD_COMMENT("Remote host, if this is a remote session"),              \
+        SD_VARLINK_DEFINE_##direction(RemoteHost, SD_VARLINK_STRING, SD_VARLINK_NULLABLE), \
+        SD_VARLINK_FIELD_COMMENT("Remote user, if this is a remote session"),              \
+        SD_VARLINK_DEFINE_##direction(RemoteUser, SD_VARLINK_STRING, SD_VARLINK_NULLABLE), \
+        SD_VARLINK_FIELD_COMMENT("Device paths this session has special access to"),       \
+        SD_VARLINK_DEFINE_##direction(ExtraDeviceAccess, SD_VARLINK_STRING, SD_VARLINK_NULLABLE|SD_VARLINK_ARRAY)
+
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SessionContext,
-                SD_VARLINK_FIELD_COMMENT("Numeric UNIX UID of the user owning this session"),
-                SD_VARLINK_DEFINE_FIELD(UID, SD_VARLINK_INT, 0),
-                SD_VARLINK_FIELD_COMMENT("PID of the session leader"),
-                SD_VARLINK_DEFINE_FIELD_BY_TYPE(PID, ProcessId, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("The type of the session"),
-                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Type, SessionType, 0),
-                SD_VARLINK_FIELD_COMMENT("The class of the session"),
-                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Class, SessionClass, 0),
-                SD_VARLINK_FIELD_COMMENT("PAM service name"),
-                SD_VARLINK_DEFINE_FIELD(Service, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("Desktop identifier"),
-                SD_VARLINK_DEFINE_FIELD(Desktop, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("Seat this session is assigned to"),
-                SD_VARLINK_DEFINE_FIELD(Seat, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("Virtual terminal number of the session, if applicable"),
-                SD_VARLINK_DEFINE_FIELD(VTNr, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("TTY device of the session"),
-                SD_VARLINK_DEFINE_FIELD(TTY, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("X11 display of the session"),
-                SD_VARLINK_DEFINE_FIELD(Display, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("Whether this is a remote session"),
-                SD_VARLINK_DEFINE_FIELD(Remote, SD_VARLINK_BOOL, 0),
-                SD_VARLINK_FIELD_COMMENT("Remote host, if this is a remote session"),
-                SD_VARLINK_DEFINE_FIELD(RemoteHost, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("Remote user, if this is a remote session"),
-                SD_VARLINK_DEFINE_FIELD(RemoteUser, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("Device paths this session has special access to"),
-                SD_VARLINK_DEFINE_FIELD(ExtraDeviceAccess, SD_VARLINK_STRING, SD_VARLINK_NULLABLE|SD_VARLINK_ARRAY));
+                VARLINK_DEFINE_SESSION_FIELDS(FIELD));
 
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SessionRuntime,
@@ -95,35 +98,7 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
 
 static SD_VARLINK_DEFINE_METHOD(
                 CreateSession,
-                SD_VARLINK_FIELD_COMMENT("Numeric UNIX UID of the user this session shall be owned by"),
-                SD_VARLINK_DEFINE_INPUT(UID, SD_VARLINK_INT, 0),
-                SD_VARLINK_FIELD_COMMENT("Process that shall become the leader of the session. If null defaults to the IPC client."),
-                SD_VARLINK_DEFINE_INPUT_BY_TYPE(PID, ProcessId, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("PAM service name of the program requesting the session"),
-                SD_VARLINK_DEFINE_INPUT(Service, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("The type of the session"),
-                SD_VARLINK_DEFINE_INPUT_BY_TYPE(Type, SessionType, 0),
-                SD_VARLINK_FIELD_COMMENT("The class of the session"),
-                SD_VARLINK_DEFINE_INPUT_BY_TYPE(Class, SessionClass, 0),
-                SD_VARLINK_FIELD_COMMENT("An identifier for the chosen desktop"),
-                SD_VARLINK_DEFINE_INPUT(Desktop, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("The name of the seat to assign this session to"),
-                SD_VARLINK_DEFINE_INPUT(Seat, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("The virtual terminal number to assign this session to"),
-                SD_VARLINK_DEFINE_INPUT(VTNr, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("The TTY device to assign this session to, if applicable"),
-                SD_VARLINK_DEFINE_INPUT(TTY, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("The X11 display for this session"),
-                SD_VARLINK_DEFINE_INPUT(Display, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("If true this is a remote session"),
-                SD_VARLINK_DEFINE_INPUT(Remote, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("User name on the remote site, if known"),
-                SD_VARLINK_DEFINE_INPUT(RemoteUser, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("Host name of the remote host"),
-                SD_VARLINK_DEFINE_INPUT(RemoteHost, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("List of additional hardware devices that this session is granted access to."
-                                         "For every $ID in the list, this adds access for all devices tagged with \"xaccess-$ID\" in udev."),
-                SD_VARLINK_DEFINE_INPUT(ExtraDeviceAccess, SD_VARLINK_STRING, SD_VARLINK_NULLABLE|SD_VARLINK_ARRAY),
+                VARLINK_DEFINE_SESSION_FIELDS(INPUT),
                 SD_VARLINK_FIELD_COMMENT("The identifier string of the session of the user."),
                 SD_VARLINK_DEFINE_OUTPUT(Id, SD_VARLINK_STRING, 0),
                 SD_VARLINK_FIELD_COMMENT("The runtime path ($XDG_RUNTIME_DIR) of the user."),
