@@ -156,7 +156,7 @@ varlinkctl call "$VARLINK_ADDR" io.systemd.MachineInstance.Resume '{}'
 sleep 0.5
 
 # Kill the subscriber and check output
-kill "$SUBSCRIBE_ALL_PID" 2>/dev/null; wait "$SUBSCRIBE_ALL_PID" 2>/dev/null || true
+{ kill "$SUBSCRIBE_ALL_PID" 2>/dev/null && wait "$SUBSCRIBE_ALL_PID" 2>/dev/null; } || :
 cat "$WORKDIR/events-all.json"
 
 # Verify initial READY event
@@ -180,7 +180,7 @@ sleep 0.2
 varlinkctl call "$VARLINK_ADDR" io.systemd.MachineInstance.Resume '{}'
 sleep 0.5
 
-kill "$SUBSCRIBE_FILTER_PID" 2>/dev/null; wait "$SUBSCRIBE_FILTER_PID" 2>/dev/null || true
+{ kill "$SUBSCRIBE_FILTER_PID" 2>/dev/null && wait "$SUBSCRIBE_FILTER_PID" 2>/dev/null; } || :
 cat "$WORKDIR/events-filtered.json"
 
 # Should have STOP but not RESUME
