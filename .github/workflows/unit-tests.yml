@@ -66,7 +66,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: systemd/mkosi@1f811f0524be3096872e79161c8e6ab3e7c2bb1f
+      - uses: systemd/mkosi@3e15f6734a3455a008c3617f89a6c5010d5bb9bf
 
       - name: Install apk
         # ubuntu-24.04 doesn't package apk, so fetch the official statically-linked binary from
