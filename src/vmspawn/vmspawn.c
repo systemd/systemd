@@ -12,6 +12,7 @@
 #include "sd-bus.h"
 #include "sd-daemon.h"
 #include "sd-event.h"
+#include "sd-future.h"
 #include "sd-id128.h"
 #include "sd-varlink.h"
 
@@ -95,6 +96,7 @@
 #include "vmspawn-qmp.h"
 #include "vmspawn-scope.h"
 #include "vmspawn-settings.h"
+#include "vmspawn-suspend.h"
 #include "vmspawn-util.h"
 #include "vmspawn-varlink.h"
 
@@ -2565,13 +2567,17 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
         polkit_agent_open();
 
-        /* Registration always happens on the system bus */
+        /* Registration always happens on the system bus, and the suspend handler also wants
+         * it so we can subscribe to logind's PrepareForSleep signal — try unconditionally,
+         * but only treat a failure as fatal when something else actually needs the bus. */
+        bool system_bus_required = arg_register != 0 || arg_runtime_scope == RUNTIME_SCOPE_SYSTEM;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *system_bus = NULL;
-        if (arg_register != 0 || arg_runtime_scope == RUNTIME_SCOPE_SYSTEM) {
-                r = sd_bus_default_system(&system_bus);
-                if (r < 0)
+        r = sd_bus_default_system(&system_bus);
+        if (r < 0) {
+                if (system_bus_required)
                         return log_error_errno(r, "Failed to open system bus: %m");
-
+                log_warning_errno(r, "Failed to open system bus, suspend handling disabled: %m");
+        } else {
                 r = sd_bus_set_close_on_exit(system_bus, false);
                 if (r < 0)
                         return log_error_errno(r, "Failed to disable close-on-exit behaviour: %m");
@@ -3751,6 +3757,31 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         if (r < 0)
                 return r;
 
+        /* The suspend handler fiber needs the system bus attached to the event loop. Attach
+         * both buses here so the wiring stays in one place. */
+        if (system_bus) {
+                r = sd_bus_attach_event(system_bus, event, 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to attach system bus to event loop: %m");
+        }
+
+        if (user_bus) {
+                r = sd_bus_attach_event(user_bus, event, 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to attach user bus to event loop: %m");
+        }
+
+        /* Pause the VM around host suspend so the guest's monotonic clock doesn't jump
+         * forward by the suspend duration (which would trip every WatchdogSec deadline
+         * inside the guest as soon as the host wakes back up). Skipped when there's no
+         * system bus to talk to logind on. The handler runs as a floating fiber owned by
+         * the event loop. */
+        if (system_bus) {
+                r = vmspawn_suspend_handler_new(system_bus, bridge);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to start suspend handler: %m");
+        }
+
         TAKE_PTR(bridge);
 
         if (!arg_keep_unit) {
@@ -3844,18 +3875,6 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         polkit_agent_close();
 
         _cleanup_(sd_event_source_unrefp) sd_event_source *notify_event_source = NULL;
-
-        if (system_bus) {
-                r = sd_bus_attach_event(system_bus, event, 0);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to attach system bus to event loop: %m");
-        }
-
-        if (user_bus) {
-                r = sd_bus_attach_event(user_bus, event, 0);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to attach user bus to event loop: %m");
-        }
 
         int exit_status = INT_MAX;
         if (use_vsock) {

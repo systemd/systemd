@@ -2876,9 +2876,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 - **vmspawn:**
   - --ephemeral support
   - --read-only support
-  - automatically suspend/resume the VM if the host suspends. Use logind
-    suspend inhibitor to implement this. request clean suspend by generating
-    suspend key presses.
   - support for "real" networking via "-n" and --network-bridge=
   - translate SIGTERM to clean ACPI shutdown event
   - implement hotkeys ^]^]r and ^]^]p like nspawn
