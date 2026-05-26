@@ -2282,7 +2282,8 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse refresh timeout: %s", opts.arg);
                         if (t < REFRESH_USEC_MIN) {
-                                log_warning("Increasing specified refresh time to %s, lower values are not supported.", FORMAT_TIMESPAN(REFRESH_USEC_MIN, 0));
+                                log_info("Increasing specified refresh time to %s, lower values are not supported.",
+                                         FORMAT_TIMESPAN(REFRESH_USEC_MIN, 0));
                                 arg_refresh_usec = REFRESH_USEC_MIN;
                         } else
                                 arg_refresh_usec = t;
@@ -2855,7 +2856,7 @@ static int credential_server_info(void) {
                 _cleanup_free_ char *s = NULL;
 
                 r = read_credential(i->name, (void**) &s, /* ret_size= */ NULL);
-                if (r == -ENOENT)
+                if (IN_SET(r, -ENOENT, -ENXIO))
                         continue;
                 if (r < 0) {
                         log_warning_errno(r, "Failed to read credential '%s', ignoring: %m", i->name);
@@ -2878,7 +2879,7 @@ static int credential_server_info(void) {
 
                 _cleanup_free_ char *s = NULL;
                 r = read_credential(n, (void**) &s, /* ret_size= */ NULL);
-                if (r == -ENOENT)
+                if (IN_SET(r, -ENOENT, -ENXIO))
                         continue;
                 if (r < 0) {
                         log_warning_errno(r, "Failed to read credential '%s', ignoring: %m", n);
@@ -2893,7 +2894,7 @@ static int credential_server_info(void) {
 
         union in_addr_union u;
         r = read_credential_ip_address("imds.address_ipv4", AF_INET, &u);
-        if (r < 0 && r != -ENOENT)
+        if (r < 0 && !IN_SET(r, -ENOENT, -ENXIO))
                 log_warning_errno(r, "Failed read IPv4 address from credential 'imds.address_ipv4', ignoring: %m");
         if (r >= 0) {
                 arg_address_ipv4 = u.in;
@@ -2901,7 +2902,7 @@ static int credential_server_info(void) {
         }
 
         r = read_credential_ip_address("imds.address_ipv6", AF_INET6, &u);
-        if (r < 0 && r != -ENOENT)
+        if (r < 0 && !IN_SET(r, -ENOENT, -ENXIO))
                 log_warning_errno(r, "Failed read IPv6 address from credential 'imds.address_ipv6', ignoring: %m");
         if (r >= 0) {
                 arg_address_ipv6 = u.in6;
@@ -2915,7 +2916,7 @@ static int credential_server_info(void) {
 
                 _cleanup_free_ char *s = NULL;
                 r = read_credential(n, (void**) &s, /* ret_size= */ NULL);
-                if (r == -ENOENT)
+                if (IN_SET(r, -ENOENT, -ENXIO))
                         continue;
                 if (r < 0) {
                         log_warning_errno(r, "Failed to read credential '%s', ignoring: %m", n);
