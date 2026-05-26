@@ -10,6 +10,8 @@
  *   test-luo store-hijack - store a fd store entry holding a child LUO session named like
  *                           PID 1's own ("systemd"), to exercise the serialize-side anti-hijack guard
  *   test-luo check-hijack - verify the hijacking session fd was NOT serialized/restored after kexec
+ *   test-luo name-canary  - assert the kernel still exposes LUO session names in the anon_inode path
+ *                           format that fd_get_luo_session_name() and the anti-hijack guard depend on
  */
 
 #include <stdlib.h>
@@ -18,6 +20,7 @@
 
 #include "sd-daemon.h"
 
+#include "alloc-util.h"
 #include "fd-util.h"
 #include "log.h"
 #include "luo-util.h"
@@ -326,9 +329,50 @@ static int do_check_hijack(void) {
         return 0;
 }
 
+static int do_name_canary(void) {
+        _cleanup_close_ int device_fd = -EBADF, session_fd = -EBADF;
+        _cleanup_free_ char *got = NULL;
+        static const char name[] = "luo-name-canary";
+        int r;
+
+        /* Canary for the kernel ABI that LUO session-name detection relies on. The kernel exposes a
+         * session's name only through the anon_inode path string ("anon_inode:[luo_session] <name>"), which
+         * fd_get_luo_session_name() parses. If that format ever changes, fd_is_luo_session() silently stops
+         * recognizing sessions — the serialize-side anti-hijack guard stops firing and service-owned child
+         * sessions get mis-serialized. Assert the round-trip here so such a kernel change fails loudly.
+         * This exercises both entry points the production code uses (fd_is_luo_session() and the name
+         * read-back); the reserved-name ("systemd") path itself stays covered by the store-hijack/
+         * check-hijack round-trip across kexec. */
+
+        device_fd = luo_open_device();
+        if (device_fd < 0)
+                return log_error_errno(device_fd, "Failed to open /dev/liveupdate: %m");
+
+        session_fd = luo_create_session(device_fd, name);
+        if (session_fd < 0)
+                return log_error_errno(session_fd, "Failed to create LUO session '%s': %m", name);
+
+        r = fd_is_luo_session(session_fd);
+        if (r < 0)
+                return log_error_errno(r, "fd_is_luo_session() failed on a real LUO session: %m");
+        if (r == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "fd_is_luo_session() returned false for a real LUO session fd; the anon_inode name format may have changed.");
+
+        r = fd_get_luo_session_name(session_fd, &got);
+        if (r < 0)
+                return log_error_errno(r, "fd_get_luo_session_name() failed on a real LUO session: %m");
+        if (!streq(got, name))
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "LUO session name round-trip mismatch: created '%s', read back '%s'.", name, got);
+
+        log_info("Verified LUO session name round-trip: '%s'.", got);
+        return 0;
+}
+
 static int run(int argc, char *argv[]) {
         if (argc < 2 || argc > 3)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Usage: %s store|check|store-hijack|check-hijack [PREFIX]", argv[0]);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Usage: %s store|check|store-hijack|check-hijack|name-canary [PREFIX]", argv[0]);
 
         const char *prefix = argc > 2 ? argv[2] : "luosession";
 
@@ -340,6 +384,8 @@ static int run(int argc, char *argv[]) {
                 return do_store_hijack();
         if (streq(argv[1], "check-hijack"))
                 return do_check_hijack();
+        if (streq(argv[1], "name-canary"))
+                return do_name_canary();
 
         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown command: %s", argv[1]);
 }
