@@ -24,6 +24,7 @@
 #include "errno-util.h"
 #include "escape.h"
 #include "event-util.h"
+#include "exit-status.h"
 #include "fd-util.h"
 #include "format-ifname.h"
 #include "format-table.h"
@@ -63,7 +64,7 @@
  * https://docs.hetzner.cloud/reference/cloud#description/server-metadata
  *
  * Some notes:
- *   - IMDS service are heavily rate limited, and hence we want to centralize requests in one place and cache
+ *   - IMDS service are heavily rate-limited, and hence we want to centralize requests in one place and cache
  *   - In order to isolate IMDS access this expects that traffic to the IMDS address 169.254.169.254 is
  *     generally prohibited (via a prohibit route), but our service uses fwmark 0x7FFF0815, which (via source
  *     routing) can bypass this route.
@@ -1852,6 +1853,8 @@ static int cmdline_run(void) {
         /* Process the request when invoked via the command line (i.e. not via Varlink) */
 
         r = imds_configured(LOG_ERR);
+        if (r == -EOPNOTSUPP)
+                return EXIT_NOTCONFIGURED;
         if (r < 0)
                 return r;
 
