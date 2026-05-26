@@ -4,6 +4,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "sd-daemon.h"
 #include "sd-varlink.h"
 
 #include "alloc-util.h"
@@ -13,6 +14,7 @@
 #include "build-path.h"
 #include "chase.h"
 #include "conf-files.h"
+#include "bus-polkit.h"
 #include "constants.h"
 #include "efi-loader.h"
 #include "efivars.h"
@@ -25,6 +27,7 @@
 #include "fs-util.h"
 #include "glyph-util.h"
 #include "help-util.h"
+#include "hashmap.h"
 #include "image-policy.h"
 #include "json-util.h"
 #include "locale-setup.h"
@@ -39,9 +42,11 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "prompt-util.h"
+#include "string-table.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "varlink-util.h"
+#include "varlink-io.systemd.Sysinstall.h"
 
 static char *arg_node = NULL;
 static bool arg_welcome = true;
@@ -58,11 +63,119 @@ static bool arg_copy_keymap = true;
 static bool arg_copy_timezone = true;
 static bool arg_chrome = true;
 static bool arg_mute_console = false;
+static bool arg_varlink = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_node, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_definitions, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_kernel_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_credentials, machine_credential_context_done);
+
+typedef enum ProgressPhase {
+        PROGRESS_VALIDATE_BLOCK_DEVICE,
+        PROGRESS_LOAD_CREDENTIALS,
+        PROGRESS_ENCRYPT_CREDENTIALS,
+
+        /* The same progress phases as repart */
+        PROGRESS_LOADING_DEFINITIONS,
+        PROGRESS_LOADING_TABLE,
+        PROGRESS_OPENING_COPY_BLOCK_SOURCES,
+        PROGRESS_ACQUIRING_PARTITION_LABELS,
+        PROGRESS_MINIMIZING,
+        PROGRESS_PLACING,
+        PROGRESS_WIPING_DISK,
+        PROGRESS_WIPING_PARTITION,
+        PROGRESS_COPYING_PARTITION,
+        PROGRESS_FORMATTING_PARTITION,
+        PROGRESS_ADJUSTING_PARTITION,
+        PROGRESS_WRITING_TABLE,
+        PROGRESS_REREADING_TABLE,
+
+        PROGRESS_MOUNT_PARTITIONS,
+        PROGRESS_INSTALL_KERNEL,
+        PROGRESS_INSTALL_BOOTLOADER,
+        PROGRESS_UNMOUNT_PARTITIONS,
+        _PROGRESS_PHASE_MAX,
+        _PROGRESS_PHASE_INVALID = -EINVAL,
+} ProgressPhase;
+
+static const char *progress_phase_table[_PROGRESS_PHASE_MAX] = {
+        [PROGRESS_VALIDATE_BLOCK_DEVICE]      = "validate-block-device",
+        [PROGRESS_LOAD_CREDENTIALS]           = "load-credentials",
+        [PROGRESS_ENCRYPT_CREDENTIALS]        = "encrypt-credentials",
+
+        [PROGRESS_LOADING_DEFINITIONS]        = "loading-definitions",
+        [PROGRESS_LOADING_TABLE]              = "loading-table",
+        [PROGRESS_OPENING_COPY_BLOCK_SOURCES] = "opening-copy-block-sources",
+        [PROGRESS_ACQUIRING_PARTITION_LABELS] = "acquiring-partition-labels",
+        [PROGRESS_MINIMIZING]                 = "minimizing",
+        [PROGRESS_PLACING]                    = "placing",
+        [PROGRESS_WIPING_DISK]                = "wiping-disk",
+        [PROGRESS_WIPING_PARTITION]           = "wiping-partition",
+        [PROGRESS_COPYING_PARTITION]          = "copying-partition",
+        [PROGRESS_FORMATTING_PARTITION]       = "formatting-partition",
+        [PROGRESS_ADJUSTING_PARTITION]        = "adjusting-partition",
+        [PROGRESS_WRITING_TABLE]              = "writing-table",
+        [PROGRESS_REREADING_TABLE]            = "rereading-table",
+
+        [PROGRESS_MOUNT_PARTITIONS]           = "mount-partitions",
+        [PROGRESS_INSTALL_KERNEL]             = "install-kernel",
+        [PROGRESS_INSTALL_BOOTLOADER]         = "install-bootloader",
+        [PROGRESS_UNMOUNT_PARTITIONS]         = "unmount-partitions",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(progress_phase, ProgressPhase);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(progress_phase, ProgressPhase);
+
+typedef struct Context {
+        bool copy_locale;
+        bool copy_keymap;
+        bool copy_timezone;
+        char **definitions;
+        bool dry_run;
+        bool erase;
+        char *node;
+        char *kernel_image;
+        bool variables;
+
+        uint64_t min_size, current_size, need_free;
+        char *repart_error;
+
+        sd_varlink *link; /* If 'more' is used on the Varlink call, we'll send progress info over this link */
+} Context;
+
+static Context* context_new(void) {
+
+        Context *context = new(Context, 1);
+        if (!context)
+                return NULL;
+
+        *context = (Context) {
+                .min_size = UINT64_MAX,
+                .current_size = UINT64_MAX,
+                .need_free = UINT64_MAX,
+        };
+
+        return context;
+}
+
+static Context* context_free(Context *context) {
+        if (!context)
+                return NULL;
+
+        strv_free(context->definitions);
+
+        free(context->node);
+
+        free(context->kernel_image);
+
+        free(context->repart_error);
+
+        context->link = sd_varlink_unref(context->link);
+
+        return mfree(context);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(Context*, context_free);
 
 static int help(void) {
         int r;
@@ -208,6 +321,13 @@ static int parse_argv(int argc, char *argv[]) {
                 arg_node = strdup(args[0]);
                 if (!arg_node)
                         return log_oom();
+        }
+
+        r = sd_varlink_invocation(SD_VARLINK_ALLOW_ACCEPT);
+        if (r < 0)
+                return log_error_errno(r, "Failed to check if invoked in Varlink mode: %m");
+        if (r > 0) {
+                arg_varlink = true;
         }
 
         return 1;
@@ -403,6 +523,184 @@ static int prompt_block_device(sd_varlink **repart_link, char **ret_node) {
         return 0;
 }
 
+static int context_notify_progress(
+                Context *context,
+                ProgressPhase phase,
+                const char *object,
+                unsigned percent) {
+
+        int r;
+
+        assert(context);
+        assert(phase >= 0);
+        assert(phase < _PROGRESS_PHASE_MAX);
+
+        /* Send progress information, via sd_notify() and via varlink (if client asked for it by setting "more" flag) */
+
+        _cleanup_free_ char *n = NULL;
+        if (asprintf(&n,
+                     "STATUS=Phase %1$s\n"
+                     "X_SYSTEMD_PHASE=%1$s",
+                     progress_phase_to_string(phase)) < 0)
+                return log_oom_debug();
+
+        if (percent != UINT_MAX)
+                if (strextendf(&n, "\nX_SYSTEMD_PHASE_PROGRESS=%u", percent) < 0)
+                        return log_oom_debug();
+
+        r = sd_notify(/* unset_environment= */ false, n);
+        if (r < 0)
+                log_debug_errno(r, "Failed to send sd_notify() progress notification, ignoring: %m");
+
+        if (context->link) {
+                r = sd_varlink_notifybo(
+                                context->link,
+                                JSON_BUILD_PAIR_ENUM("phase", progress_phase_to_string(phase)),
+                                JSON_BUILD_PAIR_STRING_NON_EMPTY("object", object),
+                                JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("progress", percent, UINT_MAX));
+                if (r < 0)
+                        log_debug_errno(r, "Failed to send varlink notify progress notification, ignoring: %m");
+
+                r = sd_varlink_flush(context->link);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to flush varlink notify progress notification, ignoring: %m");
+        }
+
+        return 0;
+}
+
+static int handle_repart_reply(
+                sd_varlink *link,
+                sd_json_variant *reply,
+                const char *error_id,
+                sd_varlink_reply_flags_t flags,
+                void *userdata) {
+
+        Context *context = userdata;
+        int r;
+
+        assert(context);
+
+        struct {
+                uint64_t min_size;
+                uint64_t current_size;
+                uint64_t need_free;
+
+                char *phase;
+                char *object;
+                unsigned progress;
+        } p = {
+                .min_size = UINT64_MAX,
+                .current_size = UINT64_MAX,
+                .need_free = UINT64_MAX,
+                .progress = UINT_MAX,
+        };
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "minimalSizeBytes", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64, voffsetof(p, min_size),     0 },
+                { "currentSizeBytes", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64, voffsetof(p, current_size), 0 },
+                { "needFreeBytes",    _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64, voffsetof(p, need_free),    0 },
+                { "phase",            _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_string, voffsetof(p, phase),        0 },
+                { "object",           _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_string, voffsetof(p, object),       0 },
+                { "progress",         _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,   voffsetof(p, progress),     0 },
+                {}
+        };
+
+        r = sd_json_dispatch(reply, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &p);
+        if (r < 0)
+                return r;
+
+        context->min_size = p.min_size;
+        context->current_size = p.current_size;
+        context->need_free = p.need_free;
+
+        if (error_id) {
+                context->repart_error = strdup(error_id);
+                if (!context->repart_error)
+                        return log_oom();
+
+                if (!(streq(error_id, "io.systemd.Repart.InsufficientFreeSpace") ||
+                      streq(error_id, "io.systemd.Repart.DiskTooSmall") ||
+                      streq(error_id, "io.systemd.Repart.ConflictingDiskLabelPresent"))) {
+
+                        r = sd_varlink_error_to_errno(error_id, reply); /* If this is a system errno style error, output it with %m */
+                        if (r != -EBADR)
+                                log_error_errno(r, "Failed to issue io.systemd.Repart.Run() varlink call: %m");
+                        else
+                                log_error_errno(r, "Failed to issue io.systemd.Repart.Run() varlink call: %s", error_id);
+                }
+        }
+
+        if (p.phase) {
+                ProgressPhase phase = progress_phase_from_string(json_dashify(p.phase));
+                if (phase < 0)
+                        log_warning_errno(phase, "Failed to parse progress phase sent by io.systemd.Repart.Run() varlink call: %m");
+                else
+                        (void) context_notify_progress(context, phase, p.object, p.progress);
+        }
+
+        return 0;
+}
+
+static int context_invoke_repart(
+                Context *context,
+                sd_varlink **link) {
+
+        int r;
+
+        assert(link);
+
+        r = connect_to_repart(link);
+        if (r < 0) {
+                return r;
+        }
+
+        /* Seeding the partitions might be very slow, disable timeout */
+        r = sd_varlink_set_relative_timeout(*link, UINT64_MAX);
+        if (r < 0)
+                return log_error_errno(r, "Failed to disable IPC timeout: %m");
+
+        sd_varlink_set_userdata(*link, context);
+
+        r = sd_varlink_bind_reply(*link, handle_repart_reply);
+        if (r < 0) {
+                return log_error_errno(r, "Failed to bind repart reply callback: %m");
+        }
+
+        r = sd_varlink_observebo(
+                        *link,
+                        "io.systemd.Repart.Run",
+                        SD_JSON_BUILD_PAIR_STRING("node", context->node),
+                        SD_JSON_BUILD_PAIR_STRING("empty", context->erase ? "force" : "allow"),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("dryRun", false),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!context->definitions, "definitions", SD_JSON_BUILD_STRV(context->definitions)),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("deferPartitionsEmpty", true),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("deferPartitionsFactoryReset", true));
+        if (r < 0) {
+                return log_error_errno(r, "Failed to issue io.systemd.Repart.Run() varlink call: %m");
+        }
+
+        for (;;) {
+                r = sd_varlink_is_idle(*link);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to check if varlink connection is idle: %m");
+                if (r > 0)
+                        break;
+
+                r = sd_varlink_process(*link);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to process varlink connection: %m");
+                if (r != 0)
+                        continue;
+
+                r = sd_varlink_wait(*link, USEC_INFINITY);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to wait for varlink connection events: %m");
+        }
+
+        return 0;
+}
+
 static int read_space_metrics(
                 sd_json_variant *v,
                 uint64_t *min_size,
@@ -447,6 +745,8 @@ static int invoke_repart(
                 const char *node,
                 bool erase,
                 bool dry_run,
+                char **definitions,
+                char **ret_error,
                 uint64_t *min_size,        /* initialized both on success and error */
                 uint64_t *current_size,    /* ditto */
                 uint64_t *need_free) {     /* ditto */
@@ -481,7 +781,7 @@ static int invoke_repart(
                         SD_JSON_BUILD_PAIR_STRING("node", node),
                         SD_JSON_BUILD_PAIR_STRING("empty", erase ? "force" : "allow"),
                         SD_JSON_BUILD_PAIR_BOOLEAN("dryRun", dry_run),
-                        SD_JSON_BUILD_PAIR_CONDITION(!!arg_definitions, "definitions", SD_JSON_BUILD_STRV(arg_definitions)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!definitions, "definitions", SD_JSON_BUILD_STRV(definitions)),
                         SD_JSON_BUILD_PAIR_BOOLEAN("deferPartitionsEmpty", true),
                         SD_JSON_BUILD_PAIR_BOOLEAN("deferPartitionsFactoryReset", true));
         if (r < 0) {
@@ -489,6 +789,9 @@ static int invoke_repart(
                 return log_error_errno(r, "Failed to issue io.systemd.Repart.Run() varlink call: %m");
         }
         if (error_id) {
+                if (ret_error)
+                        *ret_error = strdup(error_id);
+
                 if (streq(error_id, "io.systemd.Repart.InsufficientFreeSpace")) {
                         (void) read_space_metrics(reply, min_size, current_size, need_free);
                         return log_full_errno(
@@ -656,6 +959,8 @@ static int validate_run(sd_varlink **repart_link, const char *node) {
                                 node,
                                 try_erase,
                                 /* dry_run= */ true,
+                                arg_definitions,
+                                /* ret_error= */ NULL,
                                 &min_size,
                                 &current_size,
                                 &need_free);
@@ -894,6 +1199,7 @@ static int connect_to_bootctl(sd_varlink **link) {
 
 static int invoke_bootctl_install(
                 sd_varlink **link,
+                bool variables,
                 const char *root_dir,
                 int root_fd) {
         int r;
@@ -919,7 +1225,7 @@ static int invoke_bootctl_install(
                         SD_JSON_BUILD_PAIR_STRING("operation", "new"),
                         SD_JSON_BUILD_PAIR_INTEGER("rootFileDescriptor", fd_idx),
                         SD_JSON_BUILD_PAIR_STRING("rootDirectory", root_dir),
-                        SD_JSON_BUILD_PAIR_BOOLEAN("touchVariables", arg_touch_variables));
+                        SD_JSON_BUILD_PAIR_BOOLEAN("touchVariables", variables));
         if (r < 0)
                 return r;
 
@@ -928,6 +1234,7 @@ static int invoke_bootctl_install(
 
 static int invoke_bootctl_link(
                 sd_varlink **link,
+                const char *kernel_image,
                 const char *root_dir,
                 int root_fd,
                 char **encrypted_credentials) {
@@ -961,16 +1268,16 @@ static int invoke_bootctl_link(
 
         _cleanup_free_ char *kernel_filename = NULL;
         _cleanup_close_ int kernel_fd = -EBADF;
-        if (arg_kernel_image) {
-                r = path_extract_filename(arg_kernel_image, &kernel_filename);
+        if (kernel_image) {
+                r = path_extract_filename(kernel_image, &kernel_filename);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to extract filename from kernel path '%s': %m", arg_kernel_image);
+                        return log_error_errno(r, "Failed to extract filename from kernel path '%s': %m", kernel_image);
                 if (r == O_DIRECTORY)
-                        return log_error_errno(SYNTHETIC_ERRNO(EISDIR), "Kernel path '%s' refers to directory, must be regular file, refusing.", arg_kernel_image);
+                        return log_error_errno(SYNTHETIC_ERRNO(EISDIR), "Kernel path '%s' refers to directory, must be regular file, refusing.", kernel_image);
 
-                kernel_fd = xopenat_full(XAT_FDROOT, arg_kernel_image, O_RDONLY|O_CLOEXEC, XO_REGULAR, MODE_INVALID);
+                kernel_fd = xopenat_full(XAT_FDROOT, kernel_image, O_RDONLY|O_CLOEXEC, XO_REGULAR, MODE_INVALID);
                 if (kernel_fd < 0)
-                        return log_error_errno(kernel_fd, "Failed to open kernel image '%s': %m", arg_kernel_image);
+                        return log_error_errno(kernel_fd, "Failed to open kernel image '%s': %m", kernel_image);
 
         } else {
                 r = find_current_kernel(&kernel_filename, &kernel_fd);
@@ -1032,14 +1339,11 @@ static int maybe_reboot(void) {
         return 0;
 }
 
-static int read_credential_locale(void) {
+static int read_credential_locale(MachineCredentialContext *credentials) {
         int r;
 
-        if (!arg_copy_locale)
-                return 0;
-
-        if (machine_credential_find(&arg_credentials, "firstboot.locale") ||
-            machine_credential_find(&arg_credentials, "firstboot.locale-messages"))
+        if (machine_credential_find(credentials, "firstboot.locale") ||
+            machine_credential_find(credentials, "firstboot.locale-messages"))
                 return 0;
 
         /* For the main locale we check the two env vars, and if neither is there, we use LC_NUMERIC, since
@@ -1047,14 +1351,14 @@ static int read_credential_locale(void) {
          * separate setting after all */
         const char *l = getenv("LC_ALL") ?: getenv("LANG") ?: setlocale(LC_NUMERIC, NULL);
         if (l) {
-                r = machine_credential_add(&arg_credentials, "firstboot.locale", l, /* size= */ SIZE_MAX);
+                r = machine_credential_add(credentials, "firstboot.locale", l, /* size= */ SIZE_MAX);
                 if (r < 0)
                         return log_oom();
         }
 
         const char *m = setlocale(LC_MESSAGES, NULL);
         if (m && !streq_ptr(m, l)) {
-                r = machine_credential_add(&arg_credentials, "firstboot.locale-messages", m, /* size= */ SIZE_MAX);
+                r = machine_credential_add(credentials, "firstboot.locale-messages", m, /* size= */ SIZE_MAX);
                 if (r < 0)
                         return log_oom();
         }
@@ -1062,13 +1366,10 @@ static int read_credential_locale(void) {
         return 0;
 }
 
-static int read_credential_keymap(void) {
+static int read_credential_keymap(MachineCredentialContext *credentials) {
         int r;
 
-        if (!arg_copy_keymap)
-                return 0;
-
-        if (machine_credential_find(&arg_credentials, "firstboot.keymap"))
+        if (machine_credential_find(credentials, "firstboot.keymap"))
                 return 0;
 
         _cleanup_free_ char *keymap = NULL;
@@ -1080,7 +1381,7 @@ static int read_credential_keymap(void) {
                 return log_error_errno(r, "Failed to parse '%s': %m", etc_vconsole_conf());
 
         if (!isempty(keymap)) {
-                r = machine_credential_add(&arg_credentials, "firstboot.keymap", keymap, /* size= */ SIZE_MAX);
+                r = machine_credential_add(credentials, "firstboot.keymap", keymap, /* size= */ SIZE_MAX);
                 if (r < 0)
                         return log_oom();
         }
@@ -1088,13 +1389,10 @@ static int read_credential_keymap(void) {
         return 0;
 }
 
-static int read_credential_timezone(void) {
+static int read_credential_timezone(MachineCredentialContext *credentials) {
         int r;
 
-        if (!arg_copy_timezone)
-                return 0;
-
-        if (machine_credential_find(&arg_credentials, "firstboot.timezone"))
+        if (machine_credential_find(credentials, "firstboot.timezone"))
                 return 0;
 
         _cleanup_free_ char *tz = NULL;
@@ -1102,7 +1400,7 @@ static int read_credential_timezone(void) {
         if (r < 0)
                 log_warning_errno(r, "Failed to read timezone, skipping timezone propagation: %m");
         else {
-                r = machine_credential_add(&arg_credentials, "firstboot.timezone", tz, /* size= */ SIZE_MAX);
+                r = machine_credential_add(credentials, "firstboot.timezone", tz, /* size= */ SIZE_MAX);
                 if (r < 0)
                         return log_oom();
         }
@@ -1110,20 +1408,26 @@ static int read_credential_timezone(void) {
         return 0;
 }
 
-static int read_credentials(void) {
+static int read_credentials(MachineCredentialContext *credentials, bool copy_locale, bool copy_keymap, bool copy_timezone) {
         int r;
 
-        r = read_credential_locale();
-        if (r < 0)
-                return r;
+        if (copy_locale) {
+                r = read_credential_locale(credentials);
+                if (r < 0)
+                        return r;
+        }
 
-        r = read_credential_keymap();
-        if (r < 0)
-                return r;
+        if (copy_keymap) {
+                r = read_credential_keymap(credentials);
+                if (r < 0)
+                        return r;
+        }
 
-        r = read_credential_timezone();
-        if (r < 0)
-                return r;
+        if (copy_timezone) {
+                r = read_credential_timezone(credentials);
+                if (r < 0)
+                        return r;
+        }
 
         return 0;
 }
@@ -1194,13 +1498,13 @@ static int encrypt_one_credential(sd_varlink **link, const MachineCredential *in
         return 0;
 }
 
-static int encrypt_credentials(sd_varlink **link, char ***encrypted) {
+static int encrypt_credentials(sd_varlink **link, MachineCredentialContext credentials, char ***encrypted) {
         int r;
 
         assert(link);
         assert(encrypted);
 
-        FOREACH_ARRAY(cred, arg_credentials.credentials, arg_credentials.n_credentials) {
+        FOREACH_ARRAY(cred, credentials.credentials, credentials.n_credentials) {
                 r = encrypt_one_credential(link, cred, encrypted);
                 if (r < 0)
                         return r;
@@ -1221,11 +1525,13 @@ static const ImagePolicy image_policy = {
         .default_flags = PARTITION_POLICY_IGNORE,
 };
 
-static int settle_definitions(void) {
+static int settle_definitions(char ***definitions) {
+
         int r;
 
-        if (arg_definitions)
+        if (*definitions) {
                 return 0;
+        }
 
         /* If /usr/lib/repart.sysinstall.d/ is populated, use it, otherwise use the regular definition
          * files */
@@ -1241,10 +1547,367 @@ static int settle_definitions(void) {
                 return log_error_errno(r, "Failed to enumerate *.conf files: %m");
 
         if (!strv_isempty(files)) {
-                arg_definitions = strv_copy(CONF_PATHS_STRV("repart.sysinstall.d"));
-                if (!arg_definitions)
+                *definitions = strv_copy(CONF_PATHS_STRV("repart.sysinstall.d"));
+                if (*definitions)
                         return log_oom();
         }
+
+        return 0;
+}
+
+static int fetch_candidate_devices_reply(
+                sd_varlink *repart_link,
+                sd_json_variant *reply,
+                const char *error_id,
+                sd_varlink_reply_flags_t flags,
+                void *userdata) {
+        sd_varlink *link = ASSERT_PTR(userdata);
+
+        if (error_id) {
+                if (streq(error_id, "io.systemd.Repart.NoCandidateDevices"))
+                        return sd_varlink_set_sentinel(link, "io.systemd.Sysinstall.NoCandidateDevices");
+
+                return sd_varlink_set_sentinel(link, error_id);
+        }
+
+        if (FLAGS_SET(flags, SD_VARLINK_REPLY_CONTINUES))
+                return sd_varlink_notify(link, reply);
+        else
+                return sd_varlink_reply(link, reply);
+}
+
+static int vl_method_list_candidate_devices(
+                sd_varlink *link,
+                sd_json_variant *parameters,
+                sd_varlink_method_flags_t flags,
+                void *userdata) {
+        int r;
+        _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *repart_link = NULL;
+
+        Hashmap **polkit_registry = ASSERT_PTR(userdata);
+
+        assert(FLAGS_SET(flags, SD_VARLINK_METHOD_MORE));
+
+        r = varlink_verify_polkit_async(
+                        link,
+                        /* bus= */ NULL,
+                        "io.systemd.sysinstall.ListCandidateDevices",
+                        /* details= */ NULL,
+                        polkit_registry);
+        if (r <= 0)
+                return r;
+
+        r = connect_to_repart(&repart_link);
+        if (r < 0)
+                return r;
+
+        sd_varlink_set_userdata(repart_link, link);
+
+        r = sd_varlink_bind_reply(repart_link, fetch_candidate_devices_reply);
+        if (r < 0)
+                return r;
+
+        r = sd_varlink_observebo(
+                        repart_link,
+                        "io.systemd.Repart.ListCandidateDevices",
+                        SD_JSON_BUILD_PAIR_BOOLEAN("ignoreRoot", true));
+
+        if (r < 0) {
+                return log_error_errno(
+                                r,
+                                "Failed to issue io.systemd.Repart.ListCandidateDevices() varlink call: %m");
+        }
+
+        for (;;) {
+                r = sd_varlink_is_idle(repart_link);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to check if varlink connection is idle: %m");
+                if (r > 0)
+                        break;
+
+                r = sd_varlink_process(repart_link);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to process varlink connection: %m");
+                if (r != 0)
+                        continue;
+
+                r = sd_varlink_wait(repart_link, USEC_INFINITY);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to wait for varlink connection events: %m");
+        }
+
+        return 0;
+}
+
+typedef struct RunParameters {
+        char *node;
+        bool dry_run;
+        char **definitions;
+        bool erase;
+        bool variables;
+        char *kernel_image;
+        bool copy_locale;
+        bool copy_keymap;
+        bool copy_timezone;
+        char **set_credentials;
+        char **load_credentials;
+} RunParameters;
+
+static void run_parameters_done(RunParameters *p) {
+        assert(p);
+
+        p->node = mfree(p->node);
+        p->definitions = strv_free(p->definitions);
+        p->kernel_image = mfree(p->kernel_image);
+        p->set_credentials = strv_free(p->set_credentials);
+        p->load_credentials = strv_free(p->load_credentials);
+}
+
+static int vl_method_run(
+                sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "node",            SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,  offsetof(RunParameters, node),             SD_JSON_NULLABLE                  },
+                { "dryRun",          SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(RunParameters, dry_run),          SD_JSON_MANDATORY                 },
+                { "definitions",     SD_JSON_VARIANT_ARRAY,   json_dispatch_strv_path,  offsetof(RunParameters, definitions),      SD_JSON_NULLABLE | SD_JSON_STRICT },
+                { "erase",           SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(RunParameters, erase),            SD_JSON_MANDATORY                 },
+                { "variables",       SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(RunParameters, variables),        SD_JSON_NULLABLE                  },
+                { "kernelImage",     SD_JSON_VARIANT_STRING,  json_dispatch_path,       offsetof(RunParameters, kernel_image),     SD_JSON_NULLABLE | SD_JSON_STRICT },
+                { "copyLocale",      SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(RunParameters, copy_locale),      SD_JSON_NULLABLE                  },                 
+                { "copyKeymap",      SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(RunParameters, copy_keymap),      SD_JSON_NULLABLE                  },
+                { "copyTimezone",    SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(RunParameters, copy_timezone),    SD_JSON_NULLABLE                  },
+                { "setCredentials",  SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_strv,    offsetof(RunParameters, set_credentials),  SD_JSON_NULLABLE | SD_JSON_STRICT },
+                { "loadCredentials", SD_JSON_VARIANT_ARRAY,   json_dispatch_strv_path,  offsetof(RunParameters, load_credentials), SD_JSON_NULLABLE | SD_JSON_STRICT },
+                {}
+        };
+
+        int r;
+
+        assert(link);
+
+        Hashmap **polkit_registry = ASSERT_PTR(userdata);
+
+        r = varlink_verify_polkit_async(
+                        link,
+                        /* bus= */ NULL,
+                        "io.systemd.sysinstall.Run",
+                        /* details= */ NULL,
+                        polkit_registry);
+        if (r <= 0)
+                return r;
+
+        _cleanup_(run_parameters_done) RunParameters p = {};
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        /* If no device node is specified, this is a dry run. Refuse if the caller claims otherwise. */
+        if (!p.node && !p.dry_run)
+                return sd_varlink_error_invalid_parameter_name(link, "dryRun");
+
+        _cleanup_(context_freep) Context* context = NULL;
+        context = context_new();
+        if (!context)
+                return log_oom();
+
+        context->dry_run = p.dry_run;
+        context->erase = p.erase;
+        context->variables = p.variables;
+        context->copy_locale = p.copy_locale;
+        context->copy_keymap = p.copy_keymap;
+        context->copy_timezone = p.copy_timezone;
+
+        if (p.definitions) {
+                context->definitions = TAKE_PTR(p.definitions);
+        } else {
+                r = settle_definitions(&context->definitions);
+                if (r < 0)
+                        return r;
+        }
+
+        if (p.node) {
+                context->node = TAKE_PTR(p.node);
+        }
+
+        if (p.kernel_image) {
+                context->kernel_image = TAKE_PTR(p.kernel_image);
+        }
+
+        _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *repart_link = NULL;
+
+        if (context->dry_run) {
+                r = invoke_repart(
+                                &repart_link,
+                                context->node,
+                                context->erase,
+                                /* dry_run= */ true,
+                                context->definitions,
+                                &context->repart_error,
+                                &context->min_size,
+                                &context->current_size,
+                                &context->need_free);
+                if (r < 0) {
+                        if (context->repart_error) {
+                                const char *sysinstall_error = NULL;
+
+                                if (streq(context->repart_error, "io.systemd.Repart.InsufficientFreeSpace"))
+                                        sysinstall_error = "io.systemd.Sysinstall.InsufficientFreeSpace";
+                                if (streq(context->repart_error, "io.systemd.Repart.DiskTooSmall"))
+                                        sysinstall_error = "io.systemd.Sysinstall.DiskTooSmall";
+                                if (streq(context->repart_error, "io.systemd.Repart.ConflictingDiskLabelPresent"))
+                                        sysinstall_error = "io.systemd.Sysinstall.ConflictingDiskLabelPresent";
+
+                                if (sysinstall_error) {
+                                        return sd_varlink_errorbo(
+                                                        link,
+                                                        sysinstall_error,
+                                                        JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("currentSizeBytes", context->current_size, UINT64_MAX),
+                                                        JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("needFreeBytes", context->need_free, UINT64_MAX),
+                                                        JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("minimalSizeBytes", context->min_size, UINT64_MAX));
+                                }
+                        }
+
+                        return r;
+                } else {
+                        return sd_varlink_replybo(
+                                        link,
+                                        JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("currentSizeBytes", context->current_size, UINT64_MAX),
+                                        JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("needFreeBytes", context->need_free, UINT64_MAX),
+                                        JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("minimalSizeBytes", context->min_size, UINT64_MAX));
+                }
+        }
+
+        if (FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
+                context->link = sd_varlink_ref(link);
+
+        (void) context_notify_progress(context, PROGRESS_LOAD_CREDENTIALS, /* object= */ NULL, UINT_MAX);
+
+        _cleanup_(machine_credential_context_done) MachineCredentialContext credentials = {};
+
+        STRV_FOREACH(credential, p.set_credentials) {
+                r = machine_credential_set(&credentials, *credential);
+                if (r < 0)
+                        return r;
+        }
+
+        STRV_FOREACH(credential, p.load_credentials) {
+                r = machine_credential_load(&credentials, *credential);
+                if (r < 0)
+                        return r;
+        }
+
+        r = read_credentials(&credentials, context->copy_locale, context->copy_keymap, context->copy_timezone);
+        if (r < 0)
+                return r;
+
+        (void) context_notify_progress(context, PROGRESS_ENCRYPT_CREDENTIALS, /* object= */ NULL, UINT_MAX);
+
+        _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *creds_link = NULL;
+        _cleanup_strv_free_ char **encrypted_credentials = NULL;
+        r = encrypt_credentials(&creds_link, credentials, &encrypted_credentials);
+        if (r < 0)
+                return r;
+
+        /* Do the main part of the installation */
+        r = context_invoke_repart(context, &repart_link);
+        if (r < 0) {
+                return r;
+        }
+
+        if (context->repart_error) {
+                const char *sysinstall_error = NULL;
+
+                if (streq(context->repart_error, "io.systemd.Repart.InsufficientFreeSpace"))
+                        sysinstall_error = "io.systemd.Sysinstall.InsufficientFreeSpace";
+                if (streq(context->repart_error, "io.systemd.Repart.DiskTooSmall"))
+                        sysinstall_error = "io.systemd.Sysinstall.DiskTooSmall";
+                if (streq(context->repart_error, "io.systemd.Repart.ConflictingDiskLabelPresent"))
+                        sysinstall_error = "io.systemd.Sysinstall.ConflictingDiskLabelPresent";
+
+                if (sysinstall_error) {
+                        return sd_varlink_errorbo(
+                                        link,
+                                        sysinstall_error,
+                                        JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("currentSizeBytes", context->current_size, UINT64_MAX),
+                                        JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("needFreeBytes", context->need_free, UINT64_MAX),
+                                        JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("minimalSizeBytes", context->min_size, UINT64_MAX));
+                } else {
+                        return r;
+                }
+        }
+
+        (void) context_notify_progress(context, PROGRESS_MOUNT_PARTITIONS, /* object= */ NULL, UINT_MAX);
+
+        _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
+        _cleanup_(umount_and_freep) char *root_dir = NULL;
+        _cleanup_close_ int root_fd = -EBADF;
+        r = mount_image_privately_interactively(
+                        context->node,
+                        &image_policy,
+                        DISSECT_IMAGE_REQUIRE_ROOT | DISSECT_IMAGE_RELAX_VAR_CHECK |
+                        DISSECT_IMAGE_ALLOW_USERSPACE_VERITY | DISSECT_IMAGE_DISCARD_ANY |
+                        DISSECT_IMAGE_GPT_ONLY | DISSECT_IMAGE_FSCK |
+                        DISSECT_IMAGE_USR_NO_ROOT | DISSECT_IMAGE_ADD_PARTITION_DEVICES |
+                        DISSECT_IMAGE_PIN_PARTITION_DEVICES,
+                        &root_dir,
+                        &root_fd,
+                        &loop_device);
+        if (r < 0)
+                return log_error_errno(r, "Failed to mount new image: %m");
+
+        (void) context_notify_progress(context, PROGRESS_INSTALL_KERNEL, /* object= */ NULL, UINT_MAX);
+
+        _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *bootctl_link = NULL;
+        r = invoke_bootctl_link(&bootctl_link, context->kernel_image, root_dir, root_fd, encrypted_credentials);
+        if (r < 0)
+                return r;
+
+        (void) context_notify_progress(context, PROGRESS_INSTALL_BOOTLOADER, /* object= */ NULL, UINT_MAX);
+
+        r = invoke_bootctl_install(&bootctl_link, context->variables, root_dir, root_fd);
+        if (r < 0)
+                return r;
+
+        (void) context_notify_progress(context, PROGRESS_UNMOUNT_PARTITIONS, /* object= */ NULL, UINT_MAX);
+
+        root_fd = safe_close(root_fd);
+        r = umount_recursive(root_dir, /* flags= */ 0);
+        if (r < 0)
+                log_warning_errno(r, "Failed to unmount target disk, proceeding anyway: %m");
+        loop_device = loop_device_unref(loop_device);
+        sync();
+
+        return sd_varlink_reply(link, NULL);
+}
+
+static int vl_server(void) {
+        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *varlink_server = NULL;
+        _cleanup_hashmap_free_ Hashmap *polkit_registry = NULL;
+        int r;
+
+        /* Invocation as Varlink service */
+
+        r = varlink_server_new(
+                        &varlink_server,
+                        SD_VARLINK_SERVER_INHERIT_USERDATA,
+                        /* userdata= */ &polkit_registry);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate Varlink server: %m");
+
+        r = sd_varlink_server_add_interface(varlink_server, &vl_interface_io_systemd_Sysinstall);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add Varlink interface: %m");
+
+        r = sd_varlink_server_bind_method_many(
+                        varlink_server,
+                        "io.systemd.Sysinstall.ListCandidateDevices", vl_method_list_candidate_devices,
+                        "io.systemd.Sysinstall.Run",                  vl_method_run);
+        if (r < 0)
+                return log_error_errno(r, "Failed to bind Varlink methods: %m");
+
+        r = sd_varlink_server_loop_auto(varlink_server);
+        if (r < 0)
+                return log_error_errno(r, "Failed to run Varlink event loop: %m");
 
         return 0;
 }
@@ -1269,7 +1932,10 @@ static int run(int argc, char *argv[]) {
 
         log_setup();
 
-        r = settle_definitions();
+        if (arg_varlink)
+                return vl_server();
+
+        r = settle_definitions(&arg_definitions);
         if (r < 0)
                 return r;
 
@@ -1304,6 +1970,8 @@ static int run(int argc, char *argv[]) {
                                 /* node= */ NULL,
                                 /* erase= */ true,
                                 /* dry_run= */ true,
+                                arg_definitions,
+                                /* ret_error= */ NULL,
                                 &min_size,
                                 /* current_size= */ NULL,
                                 /* need_free= */ NULL);
@@ -1337,7 +2005,7 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        r = read_credentials();
+        r = read_credentials(&arg_credentials, arg_copy_locale, arg_copy_keymap, arg_copy_timezone);
         if (r < 0)
                 return r;
 
@@ -1361,7 +2029,7 @@ static int run(int argc, char *argv[]) {
 
         _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *creds_link = NULL;
         _cleanup_strv_free_ char **encrypted_credentials = NULL;
-        r = encrypt_credentials(&creds_link, &encrypted_credentials);
+        r = encrypt_credentials(&creds_link, arg_credentials, &encrypted_credentials);
         if (r < 0)
                 return r;
 
@@ -1374,6 +2042,8 @@ static int run(int argc, char *argv[]) {
                         arg_node,
                         arg_erase,
                         /* dry_run= */ false,
+                        arg_definitions,
+                        /* ret_error= */ NULL,
                         /* min_size= */ NULL,
                         /* current_size= */ NULL,
                         /* need_free= */ NULL);
@@ -1408,14 +2078,14 @@ static int run(int argc, char *argv[]) {
                    emoji_enabled() ? glyph(GLYPH_COMPUTER_DISK) : "", emoji_enabled() ? " " : "");
 
         _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *bootctl_link = NULL;
-        r = invoke_bootctl_link(&bootctl_link, root_dir, root_fd, encrypted_credentials);
+        r = invoke_bootctl_link(&bootctl_link, arg_kernel_image, root_dir, root_fd, encrypted_credentials);
         if (r < 0)
                 return r;
 
         log_notice("%s%sInstalling boot loader...",
                    emoji_enabled() ? glyph(GLYPH_COMPUTER_DISK) : "", emoji_enabled() ? " " : "");
 
-        r = invoke_bootctl_install(&bootctl_link, root_dir, root_fd);
+        r = invoke_bootctl_install(&bootctl_link, arg_touch_variables, root_dir, root_fd);
         if (r < 0)
                 return r;
 
