@@ -105,7 +105,7 @@ jobs:
             --exclude "*.gperf" \
             --output-file build/test/coverage/initial.coverage-info \
             --base-directory src/ \
-            --ignore-errors source \
+            --ignore-errors source,inconsistent \
             --no-external \
             --substitute "s#src/src#src#g"
 
