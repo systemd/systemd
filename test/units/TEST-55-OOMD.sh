@@ -62,6 +62,12 @@ cat >/run/systemd/system/-.slice.d/99-oomd-test.conf <<EOF
 ManagedOOMSwap=auto
 EOF
 
+mkdir -p /run/systemd/system/system.slice.d/
+cat >/run/systemd/system/system.slice.d/99-oomd-test.conf <<EOF
+[Slice]
+ManagedOOMMemoryPressure=auto
+EOF
+
 mkdir -p /run/systemd/system/user@.service.d/
 cat >/run/systemd/system/user@.service.d/99-oomd-test.conf <<EOF
 [Service]
