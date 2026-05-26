@@ -10,7 +10,6 @@ on:
   pull_request:
     branches:
       - main
-      - v[0-9]+-stable
     paths:
       - .github/workflows/coverage.yml
       - test/integration-tests/integration-test-wrapper.py
