@@ -80,6 +80,11 @@ swap_reported="$(basic_value io.systemd.Basic.SwapBytes)"
 swap_expected=$(( $(awk '/^SwapTotal:/ { print $2; found=1 } END { if (!found) print 0 }' /proc/meminfo) * 1024 ))
 [ "$swap_reported" = "$swap_expected" ]
 
+# io.systemd.Manager.Version should be non-empty and match what `systemctl --version` reports
+metrics_version="$(varlinkctl call --more /run/systemd/report/io.systemd.Manager io.systemd.Metrics.List {} | jq --seq -r 'select(.name == "io.systemd.Manager.Version") | .value')"
+[ -n "$metrics_version" ]
+systemctl --version | grep -F "($metrics_version)" >/dev/null
+
 # test io.systemd.Basic.MachineInfo.* metrics, sourced from /etc/machine-info
 if [ -e /etc/machine-info ]; then
     MACHINE_INFO_BACKUP="$(mktemp)"
