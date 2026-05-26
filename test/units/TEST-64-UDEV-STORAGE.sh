@@ -1376,6 +1376,32 @@ testcase_mdadm_lvm() {
 udevadm settle
 lsblk -a
 
+# This test often fails because the VM reboots (eg: kernel panic) and the previous state is left unclean.
+# Do the cleanups at the beginning too, to try and reduce flakiness.
+mdadm --stop --scan || :
+for _dm in /dev/mapper/encbtrfs[0-3] /dev/mapper/encdisk[0-3] /dev/mapper/lvmluksmap; do
+    [[ -e "$_dm" ]] || continue
+    cryptsetup close "$_dm" || :
+done
+unset _dm
+for _vg in $(lvm vgs --noheadings -o vg_name 2>/dev/null \
+                 | awk '$1 ~ /^(MyTestGroup|iscsi_lvm|mdmirpar_vg)/ {print $1}'); do
+    lvm vgchange -an "$_vg" || :
+done
+unset _vg
+udevadm settle --timeout=30
+_stale_devs=()
+for _d in /dev/disk/by-id/scsi-0systemd_foobar_deadbeef*; do
+    [[ -e "$_d" ]] && _stale_devs+=("$_d")
+done
+if (( ${#_stale_devs[@]} > 0 )); then
+    # shellcheck disable=SC2046
+    mdadm -v --zero-superblock --force $(readlink -f "${_stale_devs[@]}") || :
+    wipefs --all "${_stale_devs[@]}" || :
+fi
+unset _d _stale_devs
+udevadm settle --timeout=30
+
 echo "Check if all symlinks under /dev/disk/ are valid (pre-test)"
 helper_check_device_symlinks
 
