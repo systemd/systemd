@@ -62,6 +62,11 @@ id1="$(varlinkctl call --more /run/systemd/report/io.systemd.Basic io.systemd.Me
 id2="$(. /etc/os-release; echo "$ID")"
 [ "$id1" = "$id2" ]
 
+# io.systemd.Basic.SystemdVersion should match io.systemd.Manager.Describe.runtime.Version
+basic_version="$(varlinkctl call --more /run/systemd/report/io.systemd.Basic io.systemd.Metrics.List {} | jq --seq -r 'select(.name == "io.systemd.Basic.SystemdVersion") | .value')"
+manager_version="$(varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Manager.Describe '{}' | jq -r '.runtime.Version')"
+[ "$basic_version" = "$manager_version" ]
+
 # test io.systemd.Basic.MachineInfo.* metrics, sourced from /etc/machine-info
 if [ -e /etc/machine-info ]; then
     MACHINE_INFO_BACKUP="$(mktemp)"

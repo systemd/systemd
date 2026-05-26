@@ -24,6 +24,7 @@
 #include "os-util.h"
 #include "report-basic.h"
 #include "string-util.h"
+#include "version.h"
 #include "virt.h"
 
 static int architecture_generate(const MetricFamily *mf, sd_varlink *link, void *userdata) {
@@ -406,6 +407,18 @@ static int tpm2_generate(const MetricFamily *mf, sd_varlink *link, void *userdat
         return 0;
 }
 
+static int systemd_version_generate(const MetricFamily *mf, sd_varlink *link, void *userdata) {
+        assert(mf && mf->name);
+        assert(link);
+
+        return metric_build_send_string(
+                        mf,
+                        link,
+                        /* object= */ NULL,
+                        GIT_VERSION,
+                        /* fields= */ NULL);
+}
+
 static int confidential_virtualization_generate(const MetricFamily *mf, sd_varlink *link, void *userdata) {
         assert(mf && mf->name);
         assert(link);
@@ -568,6 +581,12 @@ static const MetricFamily metric_family_table[] = {
         SMBIOS_STANDARD_FIELD("ChassisSerialNumber"),
         SMBIOS_STANDARD_FIELD("ChassisAssetTagNumber"),
         /* Keep those ↑ in sync with smbios_generate(). */
+        {
+                METRIC_IO_SYSTEMD_BASIC_PREFIX "SystemdVersion",
+                "Version of the running systemd",
+                METRIC_FAMILY_TYPE_STRING,
+                .generate = systemd_version_generate,
+        },
         {
                 METRIC_IO_SYSTEMD_BASIC_PREFIX "TPM2.Manufacturer",
                 "TPM2 device manufacturer (ID_TPM2_MANUFACTURER property of the tpmrm0 device)",
