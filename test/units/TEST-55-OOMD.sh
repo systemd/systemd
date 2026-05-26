@@ -19,6 +19,20 @@ if [[ -s /skipped ]]; then
     exit 77
 fi
 
+# stress-ng can fail with SIGILL because GCC's target_clones / ifunc resolver
+# picks an AVX-512 variant of a stressor function based on CPUID, even when
+# the actual CPU (e.g. in some VMs) does not implement AVX-512
+STRESS_NG_BROKEN=0
+stress_ng_preflight_out=$(mktemp)
+if ! timeout --kill-after=5s 10s stress-ng --timeout 2s --vm 4 --vm-bytes 10M --vm-keep \
+        >"$stress_ng_preflight_out" 2>&1; then
+    if grep -E "caught SIG(ILL|SEGV|BUS|FPE)" "$stress_ng_preflight_out" >/dev/null; then
+        STRESS_NG_BROKEN=1
+    fi
+fi
+rm -f "$stress_ng_preflight_out"
+unset stress_ng_preflight_out
+
 # Activate swap file if we are in a VM
 if systemd-detect-virt --vm --quiet; then
     swapoff --all
@@ -94,22 +108,11 @@ else
     systemd-run -t -p MemoryMax=10M -p MemorySwapMax=0 -p MemoryZSwapMax=0 true
 fi
 
-# stress-ng can fail with SIGILL due to trying to use AVX-512 on older CPUs, try to detect and avoid failing
-stress_ng_sigilled() {
-    local result status sigill
-    local unit="${1:?}"
-    shift
-
-    result=$(systemctl "$@" show "$unit" -P Result)
-    status=$(systemctl "$@" show "$unit" -P ExecMainStatus)
-    sigill=$(kill -l ILL)
-
-    [[ "$status" == "$sigill" && ( "$result" == "signal" || "$result" == "core-dump" ) ]]
-}
-
 test_basic() {
     local cgroup_path="${1:?}"
     shift
+
+    [[ "$STRESS_NG_BROKEN" == "1" ]] && { echo "stress-ng is broken on this host, skipping ${FUNCNAME[0]}"; return 0; }
 
     systemctl "$@" start TEST-55-OOMD-testchill.service
     systemctl "$@" status TEST-55-OOMD-testchill.service
@@ -136,11 +139,7 @@ test_basic() {
     if systemctl "$@" status TEST-55-OOMD-testbloat.service; then exit 42; fi
     if ! systemctl "$@" status TEST-55-OOMD-testchill.service; then exit 24; fi
 
-    if stress_ng_sigilled TEST-55-OOMD-testbloat.service "$@"; then
-        echo "stress-ng died with SIGILL, skipping ManagedOOMKills assertion"
-    else
-        assert_eq "$(systemctl "$@" show TEST-55-OOMD-testbloat.service -P ManagedOOMKills)" "1"
-    fi
+    assert_eq "$(systemctl "$@" show TEST-55-OOMD-testbloat.service -P ManagedOOMKills)" "1"
 
     systemctl "$@" kill --signal=KILL TEST-55-OOMD-testbloat.service || :
     systemctl "$@" stop TEST-55-OOMD-testbloat.service
@@ -169,6 +168,8 @@ testcase_preference_avoid() {
         return 0
     fi
 
+    [[ "$STRESS_NG_BROKEN" == "1" ]] && { echo "stress-ng is broken on this host, skipping ${FUNCNAME[0]}"; return 0; }
+
     mkdir -p /run/systemd/system/TEST-55-OOMD-testbloat.service.d/
     cat >/run/systemd/system/TEST-55-OOMD-testbloat.service.d/99-managed-oom-preference.conf <<EOF
 [Service]
@@ -188,14 +189,10 @@ EOF
         sleep 2
     done
 
-    if stress_ng_sigilled TEST-55-OOMD-testbloat.service || stress_ng_sigilled TEST-55-OOMD-testmunch.service; then
-        echo "stress-ng died with SIGILL, skipping testcase_preference_avoid assertions"
-    else
-        # testmunch should be killed since testbloat had the avoid xattr on it
-        if ! systemctl status TEST-55-OOMD-testbloat.service; then exit 25; fi
-        if systemctl status TEST-55-OOMD-testmunch.service; then exit 43; fi
-        if ! systemctl status TEST-55-OOMD-testchill.service; then exit 24; fi
-    fi
+    # testmunch should be killed since testbloat had the avoid xattr on it
+    if ! systemctl status TEST-55-OOMD-testbloat.service; then exit 25; fi
+    if systemctl status TEST-55-OOMD-testmunch.service; then exit 43; fi
+    if ! systemctl status TEST-55-OOMD-testchill.service; then exit 24; fi
 
     systemctl kill --signal=KILL TEST-55-OOMD-testbloat.service || :
     systemctl kill --signal=KILL TEST-55-OOMD-testmunch.service || :
@@ -234,6 +231,8 @@ EOF
 
 testcase_duration_override() {
     # Verify memory pressure duration can be overridden to non-zero values
+    [[ "$STRESS_NG_BROKEN" == "1" ]] && { echo "stress-ng is broken on this host, skipping ${FUNCNAME[0]}"; return 0; }
+
     mkdir -p /run/systemd/system/TEST-55-OOMD-testmunch.service.d/
     cat >/run/systemd/system/TEST-55-OOMD-testmunch.service.d/99-duration-test.conf <<EOF
 [Service]
@@ -270,12 +269,8 @@ EOF
         sleep 2
     done
 
-    if stress_ng_sigilled TEST-55-OOMD-testmunch.service; then
-        echo "stress-ng died with SIGILL, skipping testcase_duration_override assertions"
-    else
-        if systemctl status TEST-55-OOMD-testmunch.service; then exit 44; fi
-        if ! systemctl status TEST-55-OOMD-testchill.service; then exit 23; fi
-    fi
+    if systemctl status TEST-55-OOMD-testmunch.service; then exit 44; fi
+    if ! systemctl status TEST-55-OOMD-testchill.service; then exit 23; fi
 
     systemctl kill --signal=KILL TEST-55-OOMD-testmunch.service || :
     systemctl stop TEST-55-OOMD-testmunch.service
@@ -379,6 +374,8 @@ EOF
 }
 
 testcase_oom_rulesets() {
+    [[ "$STRESS_NG_BROKEN" == "1" ]] && { echo "stress-ng is broken on this host, skipping ${FUNCNAME[0]}"; return 0; }
+
     # Create a ruleset that triggers on any memory pressure with no delay
     mkdir -p /run/systemd/oomd/rules.d/
     cat >/run/systemd/oomd/rules.d/testrule.oomrule <<'EOF'
@@ -467,6 +464,8 @@ testcase_oom_rulesets_lasting_sec() {
     # Baseline proof: with the same workload but LastingSec=0 (testcase_oom_rulesets
     # above) oomd kills the unit within a couple of seconds, so an active unit after
     # ~6 s demonstrates LastingSec is being respected.
+    [[ "$STRESS_NG_BROKEN" == "1" ]] && { echo "stress-ng is broken on this host, skipping ${FUNCNAME[0]}"; return 0; }
+
     mkdir -p /run/systemd/oomd/rules.d/
     cat >/run/systemd/oomd/rules.d/slowrule.oomrule <<'EOF'
 [Rule]
@@ -488,13 +487,9 @@ EOF
     # many times. With LastingSec=1h the kill must not fire.
     sleep 6
 
-    if stress_ng_sigilled TEST-55-OOMD-slowrule.service; then
-        echo "stress-ng died with SIGILL, skipping testcase_oom_rulesets_lasting_sec assertions"
-    else
-        # Unit must still be active. If it were killed, Result= would be oom-kill.
-        assert_eq "$(systemctl show TEST-55-OOMD-slowrule.service -P ActiveState)" "active"
-        assert_eq "$(systemctl show TEST-55-OOMD-slowrule.service -P Result)" "success"
-    fi
+    # Unit must still be active — if it were killed, Result= would be oom-kill.
+    assert_eq "$(systemctl show TEST-55-OOMD-slowrule.service -P ActiveState)" "active"
+    assert_eq "$(systemctl show TEST-55-OOMD-slowrule.service -P Result)" "success"
 
     systemctl stop TEST-55-OOMD-slowrule.service 2>/dev/null || true
 
@@ -504,6 +499,8 @@ EOF
 }
 
 testcase_prekill_hook() {
+    [[ "$STRESS_NG_BROKEN" == "1" ]] && { echo "stress-ng is broken on this host, skipping ${FUNCNAME[0]}"; return 0; }
+
     cat >/run/systemd/oomd.conf.d/99-oomd-prekill-test.conf <<'EOF'
 [OOM]
 PrekillHookTimeoutSec=3s
@@ -512,11 +509,6 @@ EOF
     # no hooks
     systemctl reload systemd-oomd.service
     ! systemctl start --wait TEST-55-OOMD-testbloat.service || exit 1
-
-    if stress_ng_sigilled TEST-55-OOMD-testbloat.service; then
-        echo "stress-ng died with SIGILL, skipping testcase_prekill_hook"
-        return 0
-    fi
 
     # one hook
     mkdir -p /run/systemd/oomd.prekill.hook/
