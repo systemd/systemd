@@ -226,6 +226,15 @@ revert:
         }
         (void) device_add_property(dev, "ID_RENAMING", NULL);
 
+        /* When rename_netif() returns an error, the caller bails out of event_execute_rules() before
+         * device_update_db(dev) is called. Without persisting 'dev' here we would leave the on-disk
+         * database holding only the (stale) cloned state, dropping every property that udev rules added
+         * to the device during this event (e.g. ENV{}= assignments alongside the failing NAME=).
+         * In the -EBUSY case (r == 0) the caller continues normally and will write the DB itself, so
+         * only persist here when we're actually about to bail out. */
+        if (r < 0)
+                (void) device_update_db(dev);
+
         return r;
 }
 
