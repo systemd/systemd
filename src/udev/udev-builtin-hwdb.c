@@ -40,9 +40,10 @@ int udev_builtin_hwdb_lookup(
                         continue;
 
                 r = udev_builtin_add_property(event, key, value);
-                if (r < 0)
+                if (r == -ENOMEM)
                         return r;
-                n++;
+                if (r >= 0)
+                        n++;
         }
         return n;
 }
