@@ -10,6 +10,7 @@
 #include "unit-def.h"
 #include "unit.h"
 #include "varlink-metrics.h"
+#include "version.h"
 
 static int active_timestamp_build_json(const MetricFamily *mf, sd_varlink *vl, void *userdata) {
         Manager *manager = ASSERT_PTR(userdata);
@@ -82,6 +83,18 @@ static int inactive_exit_timestamp_build_json(const MetricFamily *mf, sd_varlink
         }
 
         return 0;
+}
+
+static int systemd_version_build_json(const MetricFamily *mf, sd_varlink *vl, void *userdata) {
+        assert(mf && mf->name);
+        assert(vl);
+
+        return metric_build_send_string(
+                        mf,
+                        vl,
+                        /* object= */ NULL,
+                        GIT_VERSION,
+                        /* fields= */ NULL);
 }
 
 static int state_change_timestamp_build_json(const MetricFamily *mf, sd_varlink *vl, void *userdata) {
@@ -431,6 +444,12 @@ static const MetricFamily metric_family_table[] = {
                 .description = "Overall system state",
                 .type = METRIC_FAMILY_TYPE_STRING,
                 .generate = system_state_build_json,
+        },
+        {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "SystemdVersion",
+                .description = "Version of systemd",
+                .type = METRIC_FAMILY_TYPE_STRING,
+                .generate = systemd_version_build_json,
         },
         {
                 .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "UnitActiveState",
