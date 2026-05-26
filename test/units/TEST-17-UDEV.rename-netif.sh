@@ -100,7 +100,7 @@ timeout 30 bash -c 'while [[ "$(systemctl show --property=ActiveState --value /s
 # cleanup
 ip link del hoge
 
-# shellcheck disable=SC2317
+# shellcheck disable=SC2317,SC2329
 teardown_netif_renaming_conflict() {
     set +ex
 
@@ -180,5 +180,59 @@ EOF
 }
 
 test_netif_renaming_conflict
+
+# shellcheck disable=SC2317,SC2329
+teardown_netif_renaming_keeps_properties() {
+    set +ex
+
+    rm -f /run/udev/rules.d/50-testsuite.rules
+    udevadm control --reload --timeout=30
+
+    ip link del rename-src 2>/dev/null || :
+    ip link del rename-dst 2>/dev/null || :
+}
+
+test_netif_renaming_keeps_properties() {
+    trap teardown_netif_renaming_keeps_properties RETURN
+
+    cat >/run/udev/rules.d/50-testsuite.rules <<EOF
+ACTION!="add", GOTO="end"
+SUBSYSTEM!="net", GOTO="end"
+
+OPTIONS="log_level=debug"
+
+# Set properties before, during, and after a rename to a name that is already
+# taken. The rename will fail with -EEXIST, but the property assignments must
+# persist.
+KERNEL=="rename-src", ENV{ID_TEST_PROP_BEFORE}="before"
+KERNEL=="rename-src", ENV{ID_TEST_PROP_DURING}="during", NAME="rename-dst"
+KERNEL=="rename-src", ENV{ID_TEST_PROP_AFTER}="after"
+
+LABEL="end"
+EOF
+
+    udevadm control --log-priority=debug --reload --timeout=30
+
+    # Pre-create the conflicting target so the rename is guaranteed to fail.
+    ip link add rename-dst type dummy
+    udevadm wait --timeout=30 --settle /sys/devices/virtual/net/rename-dst
+
+    ip link add rename-src type dummy
+    udevadm wait --timeout=30 --settle /sys/devices/virtual/net/rename-src
+
+    # Sanity check: the rename did fail and the original interface still exists.
+    [[ -d /sys/devices/virtual/net/rename-src ]]
+
+    # The properties set by the rule alongside NAME= must be present in the udev
+    # database even though the rename itself failed. Check one assigned before,
+    # one assigned on the same line as the failing NAME= token, and one
+    # assigned after.
+    info="$(udevadm info /sys/devices/virtual/net/rename-src)"
+    assert_in "ID_TEST_PROP_BEFORE=before" "$info"
+    assert_in "ID_TEST_PROP_DURING=during" "$info"
+    assert_in "ID_TEST_PROP_AFTER=after" "$info"
+}
+
+test_netif_renaming_keeps_properties
 
 exit 0
