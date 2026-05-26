@@ -498,6 +498,7 @@ executables += [
         test_template + {
                 'sources' : files('test-varlink-idl-login.c'),
                 'objects' : ['systemd-logind'],
+                'conditions' : ['ENABLE_LOGIND'],
         },
         test_template + {
                 'sources' : files('test-watchdog.c'),
