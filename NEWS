@@ -257,10 +257,10 @@ CHANGES WITH 261 in spe:
           though they are supposed to.
 
         * systemd-tpm2-setup.service will now allocate NvPCRs in an orer
-          configurable via the "priority" field of their definining JSON
-          object. As NV index space is very constrained, it's essential to
-          allocate them in the order of relevance, so that the least relevant
-          NvPCRs are dropped, and the most relevant NvPCRs kept.
+          configurable via the "priority" field of their defining JSON object.
+          As NV index space is very constrained, it's essential to allocate them
+          in the order of relevance, so that the least relevant NvPCRs are
+          dropped, and the most relevant NvPCRs kept.
 
         Changes in systemd-tmpfiles and systemd-sysusers:
 
