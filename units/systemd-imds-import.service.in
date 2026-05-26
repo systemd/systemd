@@ -19,8 +19,6 @@ Before=sysinit.target systemd-firstboot.service
 Conflicts=shutdown.target
 Before=shutdown.target
 
-ConditionPathExists=/etc/initrd-release
-
 [Service]
 Type=oneshot
 RemainAfterExit=yes
