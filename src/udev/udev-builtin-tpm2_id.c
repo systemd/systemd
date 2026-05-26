@@ -35,14 +35,18 @@ static int builtin_tpm2_id(UdevEvent *event, int argc, char *argv[]) {
 
         if (!isempty(info.manufacturer)) {
                 r = udev_builtin_add_property(event, "ID_TPM2_MANUFACTURER", info.manufacturer);
+                if (r == -ENOMEM)
+                        return log_oom();
                 if (r < 0)
-                        return log_device_error_errno(dev, r, "Failed to set field: %m");
+                        log_device_warning_errno(dev, r, "Failed to set ID_TPM2_MANUFACTURER property, ignoring: %m");
         }
 
         if (!isempty(info.vendor_string)) {
                 r = udev_builtin_add_property(event, "ID_TPM2_VENDOR_STRING", info.vendor_string);
+                if (r == -ENOMEM)
+                        return log_oom();
                 if (r < 0)
-                        return log_device_error_errno(dev, r, "Failed to set field: %m");
+                        log_device_warning_errno(dev, r, "Failed to set ID_TPM2_VENDOR_STRING property, ignoring: %m");
         }
 
         _cleanup_free_ char *m = NULL;
@@ -51,8 +55,10 @@ static int builtin_tpm2_id(UdevEvent *event, int argc, char *argv[]) {
                 return log_device_error_errno(dev, r, "Failed to get modalias string for TPM2 device: %m");
 
         r = udev_builtin_add_property(event, "ID_TPM2_MODALIAS", m);
+        if (r == -ENOMEM)
+                return log_oom();
         if (r < 0)
-                return log_device_error_errno(dev, r, "Failed to set field: %m");
+                log_device_warning_errno(dev, r, "Failed to set ID_TPM2_MODALIAS property, ignoring: %m");
 
         return 0;
 }
