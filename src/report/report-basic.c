@@ -24,6 +24,8 @@
 #include "os-util.h"
 #include "report-basic.h"
 #include "string-util.h"
+#include "time-util.h"
+#include "version.h"
 #include "virt.h"
 
 static int architecture_generate(const MetricFamily *mf, sd_varlink *link, void *userdata) {
@@ -74,6 +76,42 @@ static int hostname_generate(const MetricFamily *mf, sd_varlink *link, void *use
                         /* object= */ NULL,
                         hostname,
                         /* fields= */ NULL);
+}
+
+enum {
+        FIELD_KERNEL_TIMESTAMP_REALTIME,
+        FIELD_KERNEL_TIMESTAMP_MONOTONIC,
+        _FIELD_KERNEL_TIMESTAMP_MAX,
+};
+
+static int kernel_timestamp_generate(const MetricFamily *mf, sd_varlink *link, void *userdata) {
+        assert(mf && mf->name);
+        assert(link);
+
+        /* Use the same kernel_timestamp as PID1 in src/core/main.c:main() */
+        dual_timestamp kernel_timestamp = DUAL_TIMESTAMP_NULL;
+        dual_timestamp_from_monotonic(&kernel_timestamp, 0);
+
+        const usec_t values[_FIELD_KERNEL_TIMESTAMP_MAX] = {
+                [FIELD_KERNEL_TIMESTAMP_REALTIME]  = kernel_timestamp.realtime,
+                [FIELD_KERNEL_TIMESTAMP_MONOTONIC] = kernel_timestamp.monotonic,
+        };
+
+        for (size_t i = 0; i < _FIELD_KERNEL_TIMESTAMP_MAX; i++) {
+                if (values[i] == USEC_INFINITY)
+                        continue;
+
+                int r = metric_build_send_unsigned(
+                                mf + i,
+                                link,
+                                /* object= */ NULL,
+                                values[i],
+                                /* fields= */ NULL);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
 }
 
 static int kernel_version_generate(const MetricFamily *mf, sd_varlink *link, void *userdata) {
@@ -406,6 +444,18 @@ static int tpm2_generate(const MetricFamily *mf, sd_varlink *link, void *userdat
         return 0;
 }
 
+static int systemd_version_generate(const MetricFamily *mf, sd_varlink *link, void *userdata) {
+        assert(mf && mf->name);
+        assert(link);
+
+        return metric_build_send_string(
+                        mf,
+                        link,
+                        /* object= */ NULL,
+                        GIT_VERSION,
+                        /* fields= */ NULL);
+}
+
 static int confidential_virtualization_generate(const MetricFamily *mf, sd_varlink *link, void *userdata) {
         assert(mf && mf->name);
         assert(link);
@@ -495,6 +545,19 @@ static const MetricFamily metric_family_table[] = {
                 .generate = hostname_generate,
         },
         {
+                METRIC_IO_SYSTEMD_BASIC_PREFIX "KernelTimestamp.Realtime",
+                "CLOCK_REALTIME microseconds at which the kernel started (CLOCK_MONOTONIC == 0)",
+                METRIC_FAMILY_TYPE_GAUGE,
+                .generate = kernel_timestamp_generate,
+        },
+        {
+                METRIC_IO_SYSTEMD_BASIC_PREFIX "KernelTimestamp.Monotonic",
+                "CLOCK_MONOTONIC microseconds at which the kernel started (always 0)",
+                METRIC_FAMILY_TYPE_GAUGE,
+                .generate = NULL,
+        },
+        /* Keep those ↑ in sync with kernel_timestamp_generate(). */
+        {
                 METRIC_IO_SYSTEMD_BASIC_PREFIX "KernelVersion",
                 "Kernel version",
                 METRIC_FAMILY_TYPE_STRING,
@@ -568,6 +631,12 @@ static const MetricFamily metric_family_table[] = {
         SMBIOS_STANDARD_FIELD("ChassisSerialNumber"),
         SMBIOS_STANDARD_FIELD("ChassisAssetTagNumber"),
         /* Keep those ↑ in sync with smbios_generate(). */
+        {
+                METRIC_IO_SYSTEMD_BASIC_PREFIX "SystemdVersion",
+                "Version of the running systemd",
+                METRIC_FAMILY_TYPE_STRING,
+                .generate = systemd_version_generate,
+        },
         {
                 METRIC_IO_SYSTEMD_BASIC_PREFIX "TPM2.Manufacturer",
                 "TPM2 device manufacturer (ID_TPM2_MANUFACTURER property of the tpmrm0 device)",

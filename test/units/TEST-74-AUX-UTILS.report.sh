@@ -50,6 +50,11 @@ varlinkctl list-methods /run/systemd/report/io.systemd.Network
 varlinkctl --more call /run/systemd/report/io.systemd.Network io.systemd.Metrics.List {}
 varlinkctl --more call /run/systemd/report/io.systemd.Network io.systemd.Metrics.Describe {}
 
+# io.systemd.Network.Address: at least the loopback address should be reported on 'lo'
+net_metrics="$(varlinkctl call --more --json=short /run/systemd/report/io.systemd.Network io.systemd.Metrics.List {})"
+echo "$net_metrics" | grep '"name":"io.systemd.Network.Address"' | grep '"object":"lo"' | grep '"value":"127.0.0.1/8"' >/dev/null
+echo "$net_metrics" | grep '"name":"io.systemd.Network.Address"' | grep '"object":"lo"' | grep '"family":"ipv4"' >/dev/null
+
 # test io.systemd.Basic Metrics
 # ensure the socket is running, as some distros don't enable it by default
 systemctl start systemd-report-basic.socket
@@ -61,6 +66,18 @@ varlinkctl --more call /run/systemd/report/io.systemd.Basic io.systemd.Metrics.D
 id1="$(varlinkctl call --more /run/systemd/report/io.systemd.Basic io.systemd.Metrics.List {} | jq --seq -r 'select(.name == "io.systemd.Basic.OSRelease.ID") | .value')"
 id2="$(. /etc/os-release; echo "$ID")"
 [ "$id1" = "$id2" ]
+
+# io.systemd.Basic.SystemdVersion should match io.systemd.Manager.Describe.runtime.Version
+basic_version="$(varlinkctl call --more /run/systemd/report/io.systemd.Basic io.systemd.Metrics.List {} | jq --seq -r 'select(.name == "io.systemd.Basic.SystemdVersion") | .value')"
+manager_version="$(varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Manager.Describe '{}' | jq -r '.runtime.Version')"
+[ "$basic_version" = "$manager_version" ]
+
+# io.systemd.Basic.KernelTimestamp.Monotonic is always 0; Realtime is > 0.
+basic_metrics="$(varlinkctl call --more /run/systemd/report/io.systemd.Basic io.systemd.Metrics.List {})"
+kts_monotonic="$(echo "$basic_metrics" | jq --seq -r 'select(.name == "io.systemd.Basic.KernelTimestamp.Monotonic") | .value | tostring')"
+kts_realtime="$(echo "$basic_metrics" | jq --seq -r 'select(.name == "io.systemd.Basic.KernelTimestamp.Realtime") | .value | tostring')"
+[ "$kts_monotonic" = "0" ]
+[ "$kts_realtime" -gt 0 ]
 
 # test io.systemd.Basic.MachineInfo.* metrics, sourced from /etc/machine-info
 if [ -e /etc/machine-info ]; then
