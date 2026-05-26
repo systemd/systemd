@@ -12,6 +12,7 @@ vmspawn_sources = files(
         'vmspawn-varlink.c',
         'vmspawn-settings.c',
         'vmspawn-scope.c',
+        'vmspawn-suspend.c',
         'vmspawn-mount.c',
 )
 vmspawn_extract_sources = files(
