@@ -50,6 +50,17 @@ varlinkctl list-methods /run/systemd/report/io.systemd.Network
 varlinkctl --more call /run/systemd/report/io.systemd.Network io.systemd.Metrics.List {}
 varlinkctl --more call /run/systemd/report/io.systemd.Network io.systemd.Metrics.Describe {}
 
+varlinkctl --more --json=short call /run/systemd/report/io.systemd.Network io.systemd.Metrics.Describe {} | grep '"name":"io.systemd.Network.Address"' >/dev/null
+# we do not send "lo"
+net_metrics="$(varlinkctl call --more --json=short /run/systemd/report/io.systemd.Network io.systemd.Metrics.List {})"
+(! echo "$net_metrics" | grep '"name":"io.systemd.Network.Address"' | grep '"object":"lo"' >/dev/null)
+# add a scratch address and check that it shows up.
+ip address add 192.0.2.1/32 dev lo
+timeout 30 bash -c 'until varlinkctl call --more --json=short /run/systemd/report/io.systemd.Network io.systemd.Metrics.List {} | grep -F "192.0.2.1/32" >/dev/null; do sleep .5; done'
+net_metrics="$(varlinkctl call --more --json=short /run/systemd/report/io.systemd.Network io.systemd.Metrics.List {})"
+echo "$net_metrics" | grep '"name":"io.systemd.Network.Address"' | grep '"object":"lo"' | grep '"value":"192.0.2.1/32"' | grep '"family":"ipv4"' >/dev/null
+ip address del 192.0.2.1/32 dev lo
+
 # test io.systemd.Basic Metrics
 # ensure the socket is running, as some distros don't enable it by default
 systemctl start systemd-report-basic.socket
