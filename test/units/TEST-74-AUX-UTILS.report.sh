@@ -62,6 +62,11 @@ id1="$(varlinkctl call --more /run/systemd/report/io.systemd.Basic io.systemd.Me
 id2="$(. /etc/os-release; echo "$ID")"
 [ "$id1" = "$id2" ]
 
+# io.systemd.Manager.Version should be non-empty and match what `systemctl --version` reports
+metrics_version="$(varlinkctl call --more /run/systemd/report/io.systemd.Manager io.systemd.Metrics.List {} | jq --seq -r 'select(.name == "io.systemd.Manager.Version") | .value')"
+[ -n "$metrics_version" ]
+systemctl --version | grep -F "($metrics_version)" >/dev/null
+
 # test io.systemd.Basic.MachineInfo.* metrics, sourced from /etc/machine-info
 if [ -e /etc/machine-info ]; then
     MACHINE_INFO_BACKUP="$(mktemp)"
