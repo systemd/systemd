@@ -23,6 +23,10 @@ fi
 # Ensure user units can also manage sessions
 chmod 666 /dev/liveupdate
 
+# Canary: assert the kernel still exposes LUO session names in the format the session-name
+# detection (and hence the serialize-side anti-hijack guard) depends on. Runs on every boot.
+/usr/lib/systemd/tests/unit-tests/manual/test-luo name-canary
+
 TESTUSER_UID=$(id -u testuser)
 TESTUSER_USER_SVC="user@${TESTUSER_UID}.service"
 
