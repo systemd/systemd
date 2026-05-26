@@ -21,3 +21,8 @@ After=sys-devices-virtual-dmi-id.device
 ExecStart={{LIBEXECDIR}}/systemd-imdsd --setup-network
 Type=oneshot
 RemainAfterExit=yes
+
+# The tool returns EXIT_NOTCONFIGURED if the configuration required for basic
+# operation is not found. Do not treat this as error, because the service can
+# be started on generic systems that do not have complete IMDS support.
+SuccessExitStatus=NOTCONFIGURED

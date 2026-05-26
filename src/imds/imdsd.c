@@ -24,6 +24,7 @@
 #include "errno-util.h"
 #include "escape.h"
 #include "event-util.h"
+#include "exit-status.h"
 #include "fd-util.h"
 #include "format-ifname.h"
 #include "format-table.h"
@@ -63,7 +64,7 @@
  * https://docs.hetzner.cloud/reference/cloud#description/server-metadata
  *
  * Some notes:
- *   - IMDS service are heavily rate limited, and hence we want to centralize requests in one place and cache
+ *   - IMDS service are heavily rate-limited, and hence we want to centralize requests in one place and cache
  *   - In order to isolate IMDS access this expects that traffic to the IMDS address 169.254.169.254 is
  *     generally prohibited (via a prohibit route), but our service uses fwmark 0x7FFF0815, which (via source
  *     routing) can bypass this route.
@@ -1851,7 +1852,9 @@ static int cmdline_run(void) {
 
         /* Process the request when invoked via the command line (i.e. not via Varlink) */
 
-        r = imds_configured(LOG_ERR);
+        r = imds_configured(LOG_INFO);
+        if (r == -EOPNOTSUPP)
+                return EXIT_NOTCONFIGURED;
         if (r < 0)
                 return r;
 
@@ -2279,7 +2282,8 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse refresh timeout: %s", opts.arg);
                         if (t < REFRESH_USEC_MIN) {
-                                log_warning("Increasing specified refresh time to %s, lower values are not supported.", FORMAT_TIMESPAN(REFRESH_USEC_MIN, 0));
+                                log_info("Increasing specified refresh time to %s, lower values are not supported.",
+                                         FORMAT_TIMESPAN(REFRESH_USEC_MIN, 0));
                                 arg_refresh_usec = REFRESH_USEC_MIN;
                         } else
                                 arg_refresh_usec = t;
@@ -2852,7 +2856,7 @@ static int credential_server_info(void) {
                 _cleanup_free_ char *s = NULL;
 
                 r = read_credential(i->name, (void**) &s, /* ret_size= */ NULL);
-                if (r == -ENOENT)
+                if (IN_SET(r, -ENOENT, -ENXIO))
                         continue;
                 if (r < 0) {
                         log_warning_errno(r, "Failed to read credential '%s', ignoring: %m", i->name);
@@ -2875,7 +2879,7 @@ static int credential_server_info(void) {
 
                 _cleanup_free_ char *s = NULL;
                 r = read_credential(n, (void**) &s, /* ret_size= */ NULL);
-                if (r == -ENOENT)
+                if (IN_SET(r, -ENOENT, -ENXIO))
                         continue;
                 if (r < 0) {
                         log_warning_errno(r, "Failed to read credential '%s', ignoring: %m", n);
@@ -2890,7 +2894,7 @@ static int credential_server_info(void) {
 
         union in_addr_union u;
         r = read_credential_ip_address("imds.address_ipv4", AF_INET, &u);
-        if (r < 0 && r != -ENOENT)
+        if (r < 0 && !IN_SET(r, -ENOENT, -ENXIO))
                 log_warning_errno(r, "Failed read IPv4 address from credential 'imds.address_ipv4', ignoring: %m");
         if (r >= 0) {
                 arg_address_ipv4 = u.in;
@@ -2898,7 +2902,7 @@ static int credential_server_info(void) {
         }
 
         r = read_credential_ip_address("imds.address_ipv6", AF_INET6, &u);
-        if (r < 0 && r != -ENOENT)
+        if (r < 0 && !IN_SET(r, -ENOENT, -ENXIO))
                 log_warning_errno(r, "Failed read IPv6 address from credential 'imds.address_ipv6', ignoring: %m");
         if (r >= 0) {
                 arg_address_ipv6 = u.in6;
@@ -2912,7 +2916,7 @@ static int credential_server_info(void) {
 
                 _cleanup_free_ char *s = NULL;
                 r = read_credential(n, (void**) &s, /* ret_size= */ NULL);
-                if (r == -ENOENT)
+                if (IN_SET(r, -ENOENT, -ENXIO))
                         continue;
                 if (r < 0) {
                         log_warning_errno(r, "Failed to read credential '%s', ignoring: %m", n);
