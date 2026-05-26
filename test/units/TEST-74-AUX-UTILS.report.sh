@@ -50,6 +50,11 @@ varlinkctl list-methods /run/systemd/report/io.systemd.Network
 varlinkctl --more call /run/systemd/report/io.systemd.Network io.systemd.Metrics.List {}
 varlinkctl --more call /run/systemd/report/io.systemd.Network io.systemd.Metrics.Describe {}
 
+# io.systemd.Network.Address: at least the loopback address should be reported on 'lo'
+net_metrics="$(varlinkctl call --more --json=short /run/systemd/report/io.systemd.Network io.systemd.Metrics.List {})"
+echo "$net_metrics" | grep '"name":"io.systemd.Network.Address"' | grep '"object":"lo"' | grep '"value":"127.0.0.1/8"' >/dev/null
+echo "$net_metrics" | grep '"name":"io.systemd.Network.Address"' | grep '"object":"lo"' | grep '"family":"ipv4"' >/dev/null
+
 # test io.systemd.Basic Metrics
 # ensure the socket is running, as some distros don't enable it by default
 systemctl start systemd-report-basic.socket
