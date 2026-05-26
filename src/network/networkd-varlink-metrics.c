@@ -1,18 +1,25 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <net/if.h>
+
 #include "sd-json.h"
 #include "sd-varlink.h"
 
+#include "af-list.h"
 #include "alloc-util.h"
 #include "argv-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "hashmap.h"
+#include "in-addr-util.h"
 #include "metrics.h"
 #include "network-util.h"
+#include "networkd-address.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
+#include "networkd-route-util.h"
 #include "networkd-varlink-metrics.h"
+#include "set.h"
 
 #define METRIC_IO_SYSTEMD_NETWORK_PREFIX "io.systemd.Network."
 
@@ -63,6 +70,52 @@ static const char* link_get_ipv6_address_state(const Link *l) {
 
 static const char* link_get_oper_state(const Link *l) {
         return link_operstate_to_string(ASSERT_PTR(l)->operstate);
+}
+
+static int link_addresses_build_json(const MetricFamily *mf, sd_varlink *vl, void *userdata) {
+        Manager *manager = ASSERT_PTR(userdata);
+        Link *link;
+        int r;
+
+        assert(mf && mf->name);
+        assert(vl);
+
+        HASHMAP_FOREACH(link, manager->links_by_index) {
+                Address *a;
+
+                SET_FOREACH(a, link->addresses) {
+                        if (!address_is_ready(a))
+                                continue;
+
+                        /* Remove localhost address (127.0.0.1 and ::1) */
+                        if (link->flags & IFF_LOOPBACK && in_addr_is_localhost_one(a->family, &a->in_addr) > 0)
+                                continue;
+
+                        _cleanup_free_ char *scope = NULL;
+                        r = route_scope_to_string_alloc(a->scope, &scope);
+                        if (r < 0)
+                                return r;
+
+                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *fields = NULL;
+                        r = sd_json_buildo(
+                                        &fields,
+                                        SD_JSON_BUILD_PAIR_STRING("family", af_to_ipv4_ipv6(a->family)),
+                                        SD_JSON_BUILD_PAIR_STRING("scope", scope));
+                        if (r < 0)
+                                return r;
+
+                        r = metric_build_send_string(
+                                        mf,
+                                        vl,
+                                        link->ifname,
+                                        IN_ADDR_PREFIX_TO_STRING(a->family, &a->in_addr, a->prefixlen),
+                                        fields);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        return 0;
 }
 
 static int link_address_state_build_json(const MetricFamily *mf, sd_varlink *vl, void *userdata) {
@@ -159,6 +212,12 @@ static int required_for_online_build_json(const MetricFamily *mf, sd_varlink *vl
 
 /* Keep metrics ordered alphabetically */
 static const MetricFamily network_metric_family_table[] = {
+        {
+                .name = METRIC_IO_SYSTEMD_NETWORK_PREFIX "Address",
+                .description = "Per interface metric: configured IP address in CIDR notation",
+                .type = METRIC_FAMILY_TYPE_STRING,
+                .generate = link_addresses_build_json,
+        },
         {
                 .name = METRIC_IO_SYSTEMD_NETWORK_PREFIX "AddressState",
                 .description = "Per interface metric: address state",
