@@ -4986,8 +4986,13 @@ static int merge_settings(Settings *settings, const char *path) {
 
         if (!FLAGS_SET(arg_settings_mask, SETTING_BIND_USER_SHELL) &&
             settings->bind_user_shell_set) {
-                free_and_replace(arg_bind_user_shell, settings->bind_user_shell);
-                arg_bind_user_shell_copy = settings->bind_user_shell_copy;
+
+                if (!arg_settings_trusted)
+                        log_warning("Ignoring bind user shell setting, file %s is not trusted.", path);
+                else {
+                        free_and_replace(arg_bind_user_shell, settings->bind_user_shell);
+                        arg_bind_user_shell_copy = settings->bind_user_shell_copy;
+                }
         }
 
         if ((arg_settings_mask & SETTING_NOTIFY_READY) == 0 &&
