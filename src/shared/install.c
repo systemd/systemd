@@ -55,6 +55,7 @@ static const char *const preset_action_past_tense_table[_PRESET_ACTION_MAX] = {
         [PRESET_ENABLE]  = "enabled",
         [PRESET_DISABLE] = "disabled",
         [PRESET_IGNORE]  = "ignored",
+        [PRESET_MASK]    = "masked",
 };
 
 DEFINE_STRING_TABLE_LOOKUP_TO_STRING(preset_action_past_tense, PresetAction);
@@ -3439,6 +3440,18 @@ static int read_presets(RuntimeScope scope, const char *root_dir, UnitFilePreset
                                         .pattern = pattern,
                                         .action = PRESET_IGNORE,
                                 };
+
+                        } else if ((parameter = first_word(line, "mask"))) {
+                                char *pattern;
+
+                                pattern = strdup(parameter);
+                                if (!pattern)
+                                        return -ENOMEM;
+
+                                rule = (UnitFilePresetRule) {
+                                        .pattern = pattern,
+                                        .action = PRESET_MASK,
+                                };
                         }
 
                         if (rule.action != 0) {
@@ -3551,6 +3564,10 @@ static int query_presets(const char *name, const UnitFilePresets *presets, char 
                 log_debug("Preset files say ignore %s.", name);
                 return PRESET_IGNORE;
 
+        case PRESET_MASK:
+                log_debug("Preset files say mask %s.", name);
+                return PRESET_MASK;
+
         default:
                 assert_not_reached();
         }
@@ -3624,6 +3641,7 @@ static int preset_prepare_one(
                 InstallContext *plus,
                 InstallContext *minus,
                 LookupPaths *lp,
+                const char *config_path,
                 const char *name,
                 const UnitFilePresets *presets,
                 InstallChange **changes,
@@ -3670,6 +3688,13 @@ static int preset_prepare_one(
                 r = install_info_discover(minus, lp, name, SEARCH_FOLLOW_CONFIG_SYMLINKS,
                                           &info, changes, n_changes);
 
+        else if (r == PRESET_MASK) {
+                _cleanup_free_ char *path = path_make_absolute(name, config_path);
+                if (!path)
+                        return -ENOMEM;
+                r = create_symlink(lp, "/dev/null", path, false, changes, n_changes);
+        }
+
         return r;
 }
 
@@ -3705,7 +3730,7 @@ int unit_file_preset(
                 return r;
 
         STRV_FOREACH(name, names) {
-                r = preset_prepare_one(scope, &plus, &minus, &lp, *name, &presets, changes, n_changes);
+                r = preset_prepare_one(scope, &plus, &minus, &lp, config_path, *name, &presets, changes, n_changes);
                 if (r < 0 && !ERRNO_IS_NEG_UNIT_ISSUE(r))
                         return r;
         }
@@ -3763,7 +3788,7 @@ int unit_file_preset_all(
                         if (!IN_SET(de->d_type, DT_LNK, DT_REG))
                                 continue;
 
-                        r = preset_prepare_one(scope, &plus, &minus, &lp, de->d_name, &presets, changes, n_changes);
+                        r = preset_prepare_one(scope, &plus, &minus, &lp, config_path, de->d_name, &presets, changes, n_changes);
                         if (r < 0 && !ERRNO_IS_NEG_UNIT_ISSUE(r))
                                 return r;
                 }
