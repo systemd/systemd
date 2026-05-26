@@ -23,3 +23,8 @@ Before=shutdown.target
 Type=oneshot
 RemainAfterExit=yes
 ExecStart={{LIBEXECDIR}}/systemd-imds --import
+
+# The tool returns EXIT_NOTCONFIGURED if the configuration required for basic
+# operation is not found. Do not treat this as error, because the service can
+# be started on generic systems that do not have complete IMDS support.
+SuccessExitStatus=NOTCONFIGURED
