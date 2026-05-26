@@ -97,6 +97,58 @@ static int systemd_version_build_json(const MetricFamily *mf, sd_varlink *vl, vo
                         /* fields= */ NULL);
 }
 
+static int boot_timestamp_build_json(
+                const MetricFamily *mf,
+                sd_varlink *vl,
+                const dual_timestamp *t,
+                bool with_monotonic) {
+
+        int r;
+
+        assert(mf && mf->name);
+        assert(vl);
+        assert(t);
+
+        if (timestamp_is_set(t->realtime)) {
+                r = metric_build_send_unsigned(
+                                mf,  /* the .Realtime metric family entry */
+                                vl,
+                                /* object= */ NULL,
+                                t->realtime,
+                                /* fields= */ NULL);
+                if (r < 0)
+                        return r;
+        }
+
+        if (with_monotonic && timestamp_is_set(t->monotonic)) {
+                r = metric_build_send_unsigned(
+                                mf + 1,  /* the .Monotonic sibling is the next entry */
+                                vl,
+                                /* object= */ NULL,
+                                t->monotonic,
+                                /* fields= */ NULL);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+static int kernel_timestamp_build_json(const MetricFamily *mf, sd_varlink *vl, void *userdata) {
+        Manager *manager = ASSERT_PTR(userdata);
+        return boot_timestamp_build_json(mf, vl, &manager->timestamps[MANAGER_TIMESTAMP_KERNEL], /* with_monotonic= */ false);
+}
+
+static int userspace_timestamp_build_json(const MetricFamily *mf, sd_varlink *vl, void *userdata) {
+        Manager *manager = ASSERT_PTR(userdata);
+        return boot_timestamp_build_json(mf, vl, &manager->timestamps[MANAGER_TIMESTAMP_USERSPACE], /* with_monotonic= */ true);
+}
+
+static int finish_timestamp_build_json(const MetricFamily *mf, sd_varlink *vl, void *userdata) {
+        Manager *manager = ASSERT_PTR(userdata);
+        return boot_timestamp_build_json(mf, vl, &manager->timestamps[MANAGER_TIMESTAMP_FINISH], /* with_monotonic= */ true);
+}
+
 static int state_change_timestamp_build_json(const MetricFamily *mf, sd_varlink *vl, void *userdata) {
         Manager *manager = ASSERT_PTR(userdata);
         Unit *unit;
@@ -404,6 +456,19 @@ static const MetricFamily metric_family_table[] = {
                 .generate = active_timestamp_build_json,
         },
         {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "FinishTimestamp.Realtime",
+                .description = "CLOCK_REALTIME microseconds at which userspace finished booting",
+                .type = METRIC_FAMILY_TYPE_GAUGE,
+                .generate = finish_timestamp_build_json,
+        },
+        {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "FinishTimestamp.Monotonic",
+                .description = "CLOCK_MONOTONIC microseconds at which userspace finished booting",
+                .type = METRIC_FAMILY_TYPE_GAUGE,
+                .generate = NULL,
+        },
+        /* Keep those ↑ in sync with finish_timestamp_build_json(). */
+        {
                 .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "InactiveExitTimestamp",
                 .description = "Per unit metric: timestamp when the unit last exited the inactive state in microseconds; 0 indicates the transition has not occurred",
                 .type = METRIC_FAMILY_TYPE_GAUGE,
@@ -414,6 +479,12 @@ static const MetricFamily metric_family_table[] = {
                 .description = "Number of jobs currently queued",
                 .type = METRIC_FAMILY_TYPE_GAUGE,
                 .generate = jobs_queued_build_json,
+        },
+        {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "KernelTimestamp.Realtime",
+                .description = "CLOCK_REALTIME microseconds at which the kernel started (CLOCK_MONOTONIC == 0)",
+                .type = METRIC_FAMILY_TYPE_GAUGE,
+                .generate = kernel_timestamp_build_json,
         },
         {
                 .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "NRestarts",
@@ -487,6 +558,19 @@ static const MetricFamily metric_family_table[] = {
                 .type = METRIC_FAMILY_TYPE_GAUGE,
                 .generate = units_total_build_json,
         },
+        {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "UserspaceTimestamp.Realtime",
+                .description = "CLOCK_REALTIME microseconds at which userspace was reached",
+                .type = METRIC_FAMILY_TYPE_GAUGE,
+                .generate = userspace_timestamp_build_json,
+        },
+        {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "UserspaceTimestamp.Monotonic",
+                .description = "CLOCK_MONOTONIC microseconds at which userspace was reached",
+                .type = METRIC_FAMILY_TYPE_GAUGE,
+                .generate = NULL,
+        },
+        /* Keep those ↑ in sync with userspace_timestamp_build_json(). */
         {}
 };
 
