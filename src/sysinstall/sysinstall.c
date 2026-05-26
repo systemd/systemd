@@ -12,9 +12,9 @@
 #include "blockdev-list.h"
 #include "build.h"
 #include "build-path.h"
+#include "bus-polkit.h"
 #include "chase.h"
 #include "conf-files.h"
-#include "bus-polkit.h"
 #include "constants.h"
 #include "efi-loader.h"
 #include "efivars.h"
@@ -26,8 +26,8 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "glyph-util.h"
-#include "help-util.h"
 #include "hashmap.h"
+#include "help-util.h"
 #include "image-policy.h"
 #include "json-util.h"
 #include "locale-setup.h"
@@ -125,57 +125,6 @@ static const char *progress_phase_table[_PROGRESS_PHASE_MAX] = {
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(progress_phase, ProgressPhase);
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(progress_phase, ProgressPhase);
-
-typedef struct Context {
-        bool copy_locale;
-        bool copy_keymap;
-        bool copy_timezone;
-        char **definitions;
-        bool dry_run;
-        bool erase;
-        char *node;
-        char *kernel_image;
-        bool variables;
-
-        uint64_t min_size, current_size, need_free;
-        char *repart_error;
-
-        sd_varlink *link; /* If 'more' is used on the Varlink call, we'll send progress info over this link */
-} Context;
-
-static Context* context_new(void) {
-
-        Context *context = new(Context, 1);
-        if (!context)
-                return NULL;
-
-        *context = (Context) {
-                .min_size = UINT64_MAX,
-                .current_size = UINT64_MAX,
-                .need_free = UINT64_MAX,
-        };
-
-        return context;
-}
-
-static Context* context_free(Context *context) {
-        if (!context)
-                return NULL;
-
-        strv_free(context->definitions);
-
-        free(context->node);
-
-        free(context->kernel_image);
-
-        free(context->repart_error);
-
-        context->link = sd_varlink_unref(context->link);
-
-        return mfree(context);
-}
-
-DEFINE_TRIVIAL_CLEANUP_FUNC(Context*, context_free);
 
 static int help(void) {
         int r;
@@ -523,15 +472,38 @@ static int prompt_block_device(sd_varlink **repart_link, char **ret_node) {
         return 0;
 }
 
-static int context_notify_progress(
-                Context *context,
+static const char* repart_to_sysinstall_error_id(const char *error_id) {
+
+        if (error_id == NULL)
+                return NULL;
+
+        if (streq(error_id, "io.systemd.Repart.InsufficientFreeSpace"))
+                return "io.systemd.Sysinstall.InsufficientFreeSpace";
+        if (streq(error_id, "io.systemd.Repart.DiskTooSmall"))
+                return "io.systemd.Sysinstall.DiskTooSmall";
+        if (streq(error_id, "io.systemd.Repart.ConflictingDiskLabelPresent"))
+                return "io.systemd.Sysinstall.ConflictingDiskLabelPresent";
+
+        return NULL;
+}
+
+typedef struct RepartResult {
+        uint64_t *min_size;
+        uint64_t *current_size;
+        uint64_t *need_free;
+        char **error_id;
+        int ret;
+        sd_varlink *output_link;
+} RepartResult;
+
+static int notify_progress(
+                sd_varlink *link,
                 ProgressPhase phase,
                 const char *object,
                 unsigned percent) {
 
         int r;
 
-        assert(context);
         assert(phase >= 0);
         assert(phase < _PROGRESS_PHASE_MAX);
 
@@ -552,16 +524,16 @@ static int context_notify_progress(
         if (r < 0)
                 log_debug_errno(r, "Failed to send sd_notify() progress notification, ignoring: %m");
 
-        if (context->link) {
+        if (link) {
                 r = sd_varlink_notifybo(
-                                context->link,
+                                link,
                                 JSON_BUILD_PAIR_ENUM("phase", progress_phase_to_string(phase)),
                                 JSON_BUILD_PAIR_STRING_NON_EMPTY("object", object),
                                 JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("progress", percent, UINT_MAX));
                 if (r < 0)
                         log_debug_errno(r, "Failed to send varlink notify progress notification, ignoring: %m");
 
-                r = sd_varlink_flush(context->link);
+                r = sd_varlink_flush(link);
                 if (r < 0)
                         log_debug_errno(r, "Failed to flush varlink notify progress notification, ignoring: %m");
         }
@@ -576,18 +548,18 @@ static int handle_repart_reply(
                 sd_varlink_reply_flags_t flags,
                 void *userdata) {
 
-        Context *context = userdata;
+        RepartResult *result = userdata;
         int r;
 
-        assert(context);
+        assert(result);
 
         struct {
                 uint64_t min_size;
                 uint64_t current_size;
                 uint64_t need_free;
 
-                char *phase;
-                char *object;
+                const char *phase;
+                const char *object;
                 unsigned progress;
         } p = {
                 .min_size = UINT64_MAX,
@@ -600,24 +572,24 @@ static int handle_repart_reply(
                 { "minimalSizeBytes", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64, voffsetof(p, min_size),     0 },
                 { "currentSizeBytes", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64, voffsetof(p, current_size), 0 },
                 { "needFreeBytes",    _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64, voffsetof(p, need_free),    0 },
-                { "phase",            _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_string, voffsetof(p, phase),        0 },
-                { "object",           _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_string, voffsetof(p, object),       0 },
+                { "phase",            _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_const_string, voffsetof(p, phase),        0 },
+                { "object",           _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_const_string, voffsetof(p, object),       0 },
                 { "progress",         _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,   voffsetof(p, progress),     0 },
                 {}
         };
 
         r = sd_json_dispatch(reply, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &p);
         if (r < 0)
-                return r;
+                return result->ret = r;
 
-        context->min_size = p.min_size;
-        context->current_size = p.current_size;
-        context->need_free = p.need_free;
+        *result->min_size = p.min_size;
+        *result->current_size = p.current_size;
+        *result->need_free = p.need_free;
 
         if (error_id) {
-                context->repart_error = strdup(error_id);
-                if (!context->repart_error)
-                        return log_oom();
+                *result->error_id = strdup(error_id);
+                if (!*result->error_id)
+                        return result->ret = log_oom();
 
                 if (!(streq(error_id, "io.systemd.Repart.InsufficientFreeSpace") ||
                       streq(error_id, "io.systemd.Repart.DiskTooSmall") ||
@@ -625,26 +597,34 @@ static int handle_repart_reply(
 
                         r = sd_varlink_error_to_errno(error_id, reply); /* If this is a system errno style error, output it with %m */
                         if (r != -EBADR)
-                                log_error_errno(r, "Failed to issue io.systemd.Repart.Run() varlink call: %m");
-                        else
-                                log_error_errno(r, "Failed to issue io.systemd.Repart.Run() varlink call: %s", error_id);
+                                return result->ret = log_error_errno(r, "Failed to issue io.systemd.Repart.Run() varlink call: %m");
+
+                        return result->ret = log_error_errno(r, "Failed to issue io.systemd.Repart.Run() varlink call: %s", error_id);
                 }
         }
 
         if (p.phase) {
-                ProgressPhase phase = progress_phase_from_string(json_dashify(p.phase));
+                ProgressPhase phase = progress_phase_from_string(json_dashify((char *) p.phase));
                 if (phase < 0)
                         log_warning_errno(phase, "Failed to parse progress phase sent by io.systemd.Repart.Run() varlink call: %m");
                 else
-                        (void) context_notify_progress(context, phase, p.object, p.progress);
+                        (void) notify_progress(result->output_link, phase, p.object, p.progress);
         }
 
-        return 0;
+        return result->ret = 0;
 }
 
-static int context_invoke_repart(
-                Context *context,
-                sd_varlink **link) {
+static int invoke_repart_with_progress(
+                sd_varlink **link,
+                const char *node,
+                bool erase,
+                bool dry_run,
+                char **definitions,
+                sd_varlink *output_link,
+                char **ret_error_id,
+                uint64_t *min_size,        /* initialized both on success and error */
+                uint64_t *current_size,    /* ditto */
+                uint64_t *need_free) {     /* ditto */
 
         int r;
 
@@ -660,7 +640,15 @@ static int context_invoke_repart(
         if (r < 0)
                 return log_error_errno(r, "Failed to disable IPC timeout: %m");
 
-        sd_varlink_set_userdata(*link, context);
+         RepartResult result = {
+                .min_size = min_size,
+                .current_size = current_size,
+                .need_free = need_free,
+                .error_id = ret_error_id,
+                .output_link = output_link,
+        };
+
+        sd_varlink_set_userdata(*link, &result);
 
         r = sd_varlink_bind_reply(*link, handle_repart_reply);
         if (r < 0) {
@@ -670,10 +658,10 @@ static int context_invoke_repart(
         r = sd_varlink_observebo(
                         *link,
                         "io.systemd.Repart.Run",
-                        SD_JSON_BUILD_PAIR_STRING("node", context->node),
-                        SD_JSON_BUILD_PAIR_STRING("empty", context->erase ? "force" : "allow"),
-                        SD_JSON_BUILD_PAIR_BOOLEAN("dryRun", false),
-                        SD_JSON_BUILD_PAIR_CONDITION(!!context->definitions, "definitions", SD_JSON_BUILD_STRV(context->definitions)),
+                        SD_JSON_BUILD_PAIR_STRING("node", node),
+                        SD_JSON_BUILD_PAIR_STRING("empty", erase ? "force" : "allow"),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("dryRun", dry_run),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!definitions, "definitions", SD_JSON_BUILD_STRV(definitions)),
                         SD_JSON_BUILD_PAIR_BOOLEAN("deferPartitionsEmpty", true),
                         SD_JSON_BUILD_PAIR_BOOLEAN("deferPartitionsFactoryReset", true));
         if (r < 0) {
@@ -698,7 +686,7 @@ static int context_invoke_repart(
                         return log_error_errno(r, "Failed to wait for varlink connection events: %m");
         }
 
-        return 0;
+        return result.ret;
 }
 
 static int read_space_metrics(
@@ -1705,82 +1693,53 @@ static int vl_method_run(
         if (!p.node && !p.dry_run)
                 return sd_varlink_error_invalid_parameter_name(link, "dryRun");
 
-        _cleanup_(context_freep) Context* context = NULL;
-        context = context_new();
-        if (!context)
-                return log_oom();
-
-        context->dry_run = p.dry_run;
-        context->erase = p.erase;
-        context->variables = p.variables;
-        context->copy_locale = p.copy_locale;
-        context->copy_keymap = p.copy_keymap;
-        context->copy_timezone = p.copy_timezone;
-
-        if (p.definitions) {
-                context->definitions = TAKE_PTR(p.definitions);
-        } else {
-                r = settle_definitions(&context->definitions);
-                if (r < 0)
-                        return r;
-        }
-
-        if (p.node) {
-                context->node = TAKE_PTR(p.node);
-        }
-
-        if (p.kernel_image) {
-                context->kernel_image = TAKE_PTR(p.kernel_image);
-        }
+        r = settle_definitions(&p.definitions);
+        if (r < 0)
+                return r;
 
         _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *repart_link = NULL;
 
-        if (context->dry_run) {
+        if (p.dry_run || p.node == NULL) {
+                _cleanup_free_ char *repart_error = NULL;
+                uint64_t min_size = UINT64_MAX, current_size = UINT64_MAX, need_free = UINT64_MAX;
+
                 r = invoke_repart(
                                 &repart_link,
-                                context->node,
-                                context->erase,
+                                p.node,
+                                p.erase,
                                 /* dry_run= */ true,
-                                context->definitions,
-                                &context->repart_error,
-                                &context->min_size,
-                                &context->current_size,
-                                &context->need_free);
+                                p.definitions,
+                                &repart_error,
+                                &min_size,
+                                &current_size,
+                                &need_free);
                 if (r < 0) {
-                        if (context->repart_error) {
-                                const char *sysinstall_error = NULL;
+                        const char *sysinstall_error = repart_to_sysinstall_error_id(repart_error);
 
-                                if (streq(context->repart_error, "io.systemd.Repart.InsufficientFreeSpace"))
-                                        sysinstall_error = "io.systemd.Sysinstall.InsufficientFreeSpace";
-                                if (streq(context->repart_error, "io.systemd.Repart.DiskTooSmall"))
-                                        sysinstall_error = "io.systemd.Sysinstall.DiskTooSmall";
-                                if (streq(context->repart_error, "io.systemd.Repart.ConflictingDiskLabelPresent"))
-                                        sysinstall_error = "io.systemd.Sysinstall.ConflictingDiskLabelPresent";
-
-                                if (sysinstall_error) {
-                                        return sd_varlink_errorbo(
-                                                        link,
-                                                        sysinstall_error,
-                                                        JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("currentSizeBytes", context->current_size, UINT64_MAX),
-                                                        JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("needFreeBytes", context->need_free, UINT64_MAX),
-                                                        JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("minimalSizeBytes", context->min_size, UINT64_MAX));
-                                }
+                        if (sysinstall_error) {
+                                return sd_varlink_errorbo(
+                                                link,
+                                                sysinstall_error,
+                                                JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("currentSizeBytes", current_size, UINT64_MAX),
+                                                JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("needFreeBytes", need_free, UINT64_MAX),
+                                                JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("minimalSizeBytes", min_size, UINT64_MAX));
                         }
 
                         return r;
                 } else {
                         return sd_varlink_replybo(
                                         link,
-                                        JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("currentSizeBytes", context->current_size, UINT64_MAX),
-                                        JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("needFreeBytes", context->need_free, UINT64_MAX),
-                                        JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("minimalSizeBytes", context->min_size, UINT64_MAX));
+                                        JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("currentSizeBytes", current_size, UINT64_MAX),
+                                        JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("needFreeBytes", need_free, UINT64_MAX),
+                                        JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("minimalSizeBytes", min_size, UINT64_MAX));
                 }
         }
 
+        sd_varlink *output_link = NULL;
         if (FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
-                context->link = sd_varlink_ref(link);
+                output_link = link;
 
-        (void) context_notify_progress(context, PROGRESS_LOAD_CREDENTIALS, /* object= */ NULL, UINT_MAX);
+        (void) notify_progress(output_link, PROGRESS_LOAD_CREDENTIALS, /* object= */ NULL, UINT_MAX);
 
         _cleanup_(machine_credential_context_done) MachineCredentialContext credentials = {};
 
@@ -1796,11 +1755,11 @@ static int vl_method_run(
                         return r;
         }
 
-        r = read_credentials(&credentials, context->copy_locale, context->copy_keymap, context->copy_timezone);
+        r = read_credentials(&credentials, p.copy_locale, p.copy_keymap, p.copy_timezone);
         if (r < 0)
                 return r;
 
-        (void) context_notify_progress(context, PROGRESS_ENCRYPT_CREDENTIALS, /* object= */ NULL, UINT_MAX);
+        (void) notify_progress(output_link, PROGRESS_ENCRYPT_CREDENTIALS, /* object= */ NULL, UINT_MAX);
 
         _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *creds_link = NULL;
         _cleanup_strv_free_ char **encrypted_credentials = NULL;
@@ -1809,40 +1768,40 @@ static int vl_method_run(
                 return r;
 
         /* Do the main part of the installation */
-        r = context_invoke_repart(context, &repart_link);
+        _cleanup_free_ char *repart_error = NULL;
+        uint64_t min_size = UINT64_MAX, current_size = UINT64_MAX, need_free = UINT64_MAX;
+
+        r = invoke_repart_with_progress(
+                        &repart_link,
+                        p.node,
+                        p.erase,
+                        /* dry_run= */ true,
+                        p.definitions,
+                        link,
+                        &repart_error,
+                        &min_size,
+                        &current_size,
+                        &need_free);
         if (r < 0) {
-                return r;
-        }
+                const char *sysinstall_error = repart_to_sysinstall_error_id(repart_error);
 
-        if (context->repart_error) {
-                const char *sysinstall_error = NULL;
-
-                if (streq(context->repart_error, "io.systemd.Repart.InsufficientFreeSpace"))
-                        sysinstall_error = "io.systemd.Sysinstall.InsufficientFreeSpace";
-                if (streq(context->repart_error, "io.systemd.Repart.DiskTooSmall"))
-                        sysinstall_error = "io.systemd.Sysinstall.DiskTooSmall";
-                if (streq(context->repart_error, "io.systemd.Repart.ConflictingDiskLabelPresent"))
-                        sysinstall_error = "io.systemd.Sysinstall.ConflictingDiskLabelPresent";
-
-                if (sysinstall_error) {
+                if (sysinstall_error)
                         return sd_varlink_errorbo(
                                         link,
                                         sysinstall_error,
-                                        JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("currentSizeBytes", context->current_size, UINT64_MAX),
-                                        JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("needFreeBytes", context->need_free, UINT64_MAX),
-                                        JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("minimalSizeBytes", context->min_size, UINT64_MAX));
-                } else {
-                        return r;
-                }
+                                        JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("currentSizeBytes", current_size, UINT64_MAX),
+                                        JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("needFreeBytes", need_free, UINT64_MAX),
+                                        JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("minimalSizeBytes", min_size, UINT64_MAX));
+                return r;
         }
 
-        (void) context_notify_progress(context, PROGRESS_MOUNT_PARTITIONS, /* object= */ NULL, UINT_MAX);
+        (void) notify_progress(output_link, PROGRESS_MOUNT_PARTITIONS, /* object= */ NULL, UINT_MAX);
 
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_freep) char *root_dir = NULL;
         _cleanup_close_ int root_fd = -EBADF;
         r = mount_image_privately_interactively(
-                        context->node,
+                        p.node,
                         &image_policy,
                         DISSECT_IMAGE_REQUIRE_ROOT | DISSECT_IMAGE_RELAX_VAR_CHECK |
                         DISSECT_IMAGE_ALLOW_USERSPACE_VERITY | DISSECT_IMAGE_DISCARD_ANY |
@@ -1855,20 +1814,20 @@ static int vl_method_run(
         if (r < 0)
                 return log_error_errno(r, "Failed to mount new image: %m");
 
-        (void) context_notify_progress(context, PROGRESS_INSTALL_KERNEL, /* object= */ NULL, UINT_MAX);
+        (void) notify_progress(output_link, PROGRESS_INSTALL_KERNEL, /* object= */ NULL, UINT_MAX);
 
         _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *bootctl_link = NULL;
-        r = invoke_bootctl_link(&bootctl_link, context->kernel_image, root_dir, root_fd, encrypted_credentials);
+        r = invoke_bootctl_link(&bootctl_link, p.kernel_image, root_dir, root_fd, encrypted_credentials);
         if (r < 0)
                 return r;
 
-        (void) context_notify_progress(context, PROGRESS_INSTALL_BOOTLOADER, /* object= */ NULL, UINT_MAX);
+        (void) notify_progress(output_link, PROGRESS_INSTALL_BOOTLOADER, /* object= */ NULL, UINT_MAX);
 
-        r = invoke_bootctl_install(&bootctl_link, context->variables, root_dir, root_fd);
+        r = invoke_bootctl_install(&bootctl_link, p.variables, root_dir, root_fd);
         if (r < 0)
                 return r;
 
-        (void) context_notify_progress(context, PROGRESS_UNMOUNT_PARTITIONS, /* object= */ NULL, UINT_MAX);
+        (void) notify_progress(output_link, PROGRESS_UNMOUNT_PARTITIONS, /* object= */ NULL, UINT_MAX);
 
         root_fd = safe_close(root_fd);
         r = umount_recursive(root_dir, /* flags= */ 0);
