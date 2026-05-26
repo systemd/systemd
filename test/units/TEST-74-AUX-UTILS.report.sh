@@ -67,6 +67,13 @@ basic_version="$(varlinkctl call --more /run/systemd/report/io.systemd.Basic io.
 manager_version="$(varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Manager.Describe '{}' | jq -r '.runtime.Version')"
 [ "$basic_version" = "$manager_version" ]
 
+# io.systemd.Basic.KernelTimestamp.Monotonic is always 0; Realtime is > 0.
+basic_metrics="$(varlinkctl call --more /run/systemd/report/io.systemd.Basic io.systemd.Metrics.List {})"
+kts_monotonic="$(echo "$basic_metrics" | jq --seq -r 'select(.name == "io.systemd.Basic.KernelTimestamp.Monotonic") | .value | tostring')"
+kts_realtime="$(echo "$basic_metrics" | jq --seq -r 'select(.name == "io.systemd.Basic.KernelTimestamp.Realtime") | .value | tostring')"
+[ "$kts_monotonic" = "0" ]
+[ "$kts_realtime" -gt 0 ]
+
 # test io.systemd.Basic.MachineInfo.* metrics, sourced from /etc/machine-info
 if [ -e /etc/machine-info ]; then
     MACHINE_INFO_BACKUP="$(mktemp)"
