@@ -85,6 +85,19 @@ metrics_version="$(varlinkctl call --more /run/systemd/report/io.systemd.Manager
 [ -n "$metrics_version" ]
 systemctl --version | grep -F "($metrics_version)" >/dev/null
 
+# Boot timeline timestamps. The kernel CLOCK_MONOTONIC is 0 by definition, so only its realtime is
+# reported; userspace reports both realtime and monotonic. We don't check FinishTimestamp here:
+# the test runs as a service, so manager_check_finished() typically hasn't fired yet and the
+# timestamp is unset (the metric is then suppressed). Likewise KernelTimestamp is cleared when
+# systemd runs inside a container (see main.c), so the metric is suppressed there too.
+manager_metrics="$(varlinkctl call --more /run/systemd/report/io.systemd.Manager io.systemd.Metrics.List {})"
+metric_value() { echo "$manager_metrics" | jq --seq -r "select(.name == \"io.systemd.Manager.$1\") | .value | tostring"; }
+if ! systemd-detect-virt --quiet --container; then
+    [ "$(metric_value KernelTimestamp.Realtime)" -gt 0 ]
+fi
+[ "$(metric_value UserspaceTimestamp.Realtime)" -gt 0 ]
+[ "$(metric_value UserspaceTimestamp.Monotonic)" -gt 0 ]
+
 # test io.systemd.Basic.MachineInfo.* metrics, sourced from /etc/machine-info
 if [ -e /etc/machine-info ]; then
     MACHINE_INFO_BACKUP="$(mktemp)"
