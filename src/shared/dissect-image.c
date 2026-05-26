@@ -5298,6 +5298,9 @@ int mountfsd_mount_image_fd(
                 };
         }
 
+        if (!di)
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "Partition list is empty.");
+
         di->single_file_system = p.single_file_system;
         di->image_size = p.image_size;
         di->sector_size = p.sector_size;
