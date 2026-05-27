@@ -10,6 +10,7 @@ executables += [
                 'public' : true,
                 'extract' : files(
                         'repart.c',
+                        'repart-list-candidate-devices.c',
                         'iso9660.c',
                 ),
                 'dependencies' : [
