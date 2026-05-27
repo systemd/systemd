@@ -18,46 +18,44 @@
 
 static char *runtime_dir = NULL;
 
-static int setup_test(Manager **m) {
-        char **tests_path = STRV_MAKE("exists", "existsglobFOOBAR", "changed", "modified", "unit",
-                                      "directorynotempty", "makedirectory");
-        _cleanup_(manager_freep) Manager *tmp = NULL;
+static int setup_test(Manager **ret) {
         int r;
-
-        ASSERT_NOT_NULL(m);
 
         r = enter_cgroup_subroot(NULL);
         if (r == -ENOMEDIUM)
                 return log_tests_skipped("cgroupfs not available");
 
-        r = manager_new(RUNTIME_SCOPE_USER, MANAGER_TEST_RUN_BASIC, &tmp);
+        _cleanup_(manager_freep) Manager *m = NULL;
+        r = manager_new(RUNTIME_SCOPE_USER, MANAGER_TEST_RUN_BASIC, &m);
         if (manager_errno_skip_test(r))
                 return log_tests_skipped_errno(r, "manager_new");
         ASSERT_OK(r);
-        ASSERT_OK(manager_startup(tmp, NULL, NULL, NULL, NULL));
+        ASSERT_OK(manager_startup(m, NULL, NULL, NULL, NULL));
 
-        STRV_FOREACH(test_path, tests_path) {
-                _cleanup_free_ char *p = NULL;
+        FOREACH_STRING(s,
+                       "exists",
+                       "existsglobFOOBAR",
+                       "changed",
+                       "modified",
+                       "unit",
+                       "directorynotempty",
+                       "makedirectory") {
 
-                p = strjoin("/tmp/test-path_", *test_path);
-                ASSERT_NOT_NULL(p);
-
+                _cleanup_free_ char *p = ASSERT_NOT_NULL(strjoin("/tmp/test-path_", s));
                 (void) rm_rf(p, REMOVE_ROOT|REMOVE_PHYSICAL);
         }
 
-        *m = TAKE_PTR(tmp);
+        *ret = TAKE_PTR(m);
         return 0;
 }
 
-static Service *service_for_path(Manager *m, Path *path, const char *service_name) {
-        _cleanup_free_ char *tmp = NULL;
-        Unit *service_unit = NULL;
-
+static Service* service_for_path(Manager *m, Path *path, const char *service_name) {
         ASSERT_NOT_NULL(m);
         ASSERT_NOT_NULL(path);
 
+        Unit *service_unit;
         if (!service_name) {
-                tmp = ASSERT_NOT_NULL(strreplace(UNIT(path)->id, ".path", ".service"));
+                _cleanup_free_ char *tmp = ASSERT_NOT_NULL(strreplace(UNIT(path)->id, ".path", ".service"));
                 service_unit = manager_get_unit(m, tmp);
         } else
                 service_unit = manager_get_unit(m, service_name);
