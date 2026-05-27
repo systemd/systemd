@@ -13,6 +13,11 @@
 #include "string-table.h"
 #include "string-util.h"
 
+/* Cap on the (VirtualSize - SizeOfRawData) zero-padding the UKI hasher
+ * will produce for a single section.  Any value beyond this is treated as
+ * a malformed PE — bounds the hash work an attacker can drive (#42344). */
+#define UKI_HASH_VIRTUAL_SIZE_PADDING_MAX (64U * 1024U * 1024U)
+
 /* Note: none of these function change the file position of the provided fd, as they use pread() */
 
 bool pe_header_is_64bit(const PeHeader *h) {
@@ -160,6 +165,7 @@ int pe_load_sections(
                 IMAGE_SECTION_HEADER **ret_sections) {
 
         _cleanup_free_ IMAGE_SECTION_HEADER *sections = NULL;
+        struct stat st;
         size_t nos;
         ssize_t n;
 
@@ -181,6 +187,28 @@ int pe_load_sections(
                 return log_debug_errno(errno, "Failed to read section table: %m");
         if ((size_t) n != sizeof(IMAGE_SECTION_HEADER) * nos)
                 return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "Short read while reading section table.");
+
+        /* The section's raw bytes must fit inside the file.  This is the
+         * fundamental invariant the parser relies on later (pe_hash, uki_hash,
+         * pe_read_section_data, ...); reject obvious malformations early so
+         * downstream loops don't get driven by attacker-controlled sizes. */
+        if (fstat(fd, &st) < 0)
+                return log_debug_errno(errno, "Failed to stat PE file: %m");
+
+        FOREACH_ARRAY(section, sections, nos) {
+                uint64_t prd = le32toh(section->PointerToRawData);
+                uint64_t srd = le32toh(section->SizeOfRawData);
+                uint64_t end;
+
+                /* SizeOfRawData == 0 is legitimate (BSS-like, uninitialised) —
+                 * PointerToRawData is then meaningless and not used as an offset. */
+                if (srd == 0)
+                        continue;
+
+                if (!ADD_SAFE(&end, prd, srd) || end > (uint64_t) st.st_size)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                               "PE section raw data exceeds file size.");
+        }
 
         if (ret_sections)
                 *ret_sections = TAKE_PTR(sections);
@@ -577,6 +605,16 @@ int uki_hash(int fd,
                 if (le32toh(section->SizeOfRawData) < le32toh(section->VirtualSize)) {
                         uint8_t zeroes[1024] = {};
                         size_t remaining = le32toh(section->VirtualSize) - le32toh(section->SizeOfRawData);
+
+                        /* Bound the zero-padding hash work.  An attacker can otherwise
+                         * set VirtualSize close to UINT32_MAX with SizeOfRawData = 0,
+                         * driving ~4 GiB of SHA-256 work per section on a tiny file
+                         * (issue #42344 — wedges the parser for >10 s on 382 B). */
+                        if (remaining > UKI_HASH_VIRTUAL_SIZE_PADDING_MAX)
+                                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                                       "Section VirtualSize exceeds SizeOfRawData by %zu bytes (cap %zu); refusing to hash.",
+                                                       remaining,
+                                                       (size_t) UKI_HASH_VIRTUAL_SIZE_PADDING_MAX);
 
                         while (remaining > 0) {
                                 size_t sz = MIN(sizeof(zeroes), remaining);
