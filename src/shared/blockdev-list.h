@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "basic-forward.h"
 #include "shared-forward.h"
 
 typedef enum BlockDevListFlags {
@@ -13,6 +14,12 @@ typedef enum BlockDevListFlags {
         BLOCKDEV_LIST_METADATA                   = 1 << 6, /* Fill in model, vendor, subsystem, read_only */
         BLOCKDEV_LIST_IGNORE_READ_ONLY           = 1 << 7, /* Ignore read-only block devices */
 } BlockDevListFlags;
+
+/* The "dynamic" filters – ones the kernel can flip at runtime via sysattrs on a live device.
+ * Useful for callers that want to distinguish "device is hard-filtered (never interesting)" from
+ * "device just transitioned in or out of the candidate set". */
+#define BLOCKDEV_LIST_DYNAMIC_FILTERS_MASK \
+        (BLOCKDEV_LIST_IGNORE_EMPTY | BLOCKDEV_LIST_IGNORE_READ_ONLY)
 
 typedef struct BlockDevice {
         char *node;
@@ -31,7 +38,29 @@ typedef struct BlockDevice {
                 .read_only = -1,          \
         }
 
+/* Return values of blockdev_list_one(). Not its own type – returned as int. */
+enum {
+        BLOCKDEV_LIST_MATCH_NO,       /* Hard-filtered out by a static filter (subsystem, ZRAM,
+                                       * IGNORE_ROOT, REQUIRE_PARTITION_SCANNING, REQUIRE_LUKS, …). */
+        BLOCKDEV_LIST_MATCH_YES,      /* Passes all filters. */
+        BLOCKDEV_LIST_MATCH_FILTERED, /* Passes the static filters; fails at least one dynamic filter
+                                       * (IGNORE_EMPTY, IGNORE_READ_ONLY). */
+        BLOCKDEV_LIST_MATCH_SKIPPED,  /* Filter evaluation hit an unexpected error (failed sysattr
+                                       * read, missing devname, …). Callers should typically treat
+                                       * this like _FILTERED (device not currently a candidate),
+                                       * but distinguishing it makes the soft failure visible
+                                       * rather than silently swallowed inside blockdev_list_one(). */
+};
+
 void block_device_done(BlockDevice *d);
 void block_device_array_free(BlockDevice *d, size_t n_devices);
+
+int blockdev_list_get_root_devnos(BlockDevListFlags flags, dev_t *ret_root, dev_t *ret_whole_root);
+int blockdev_list_one(
+                sd_device *dev,
+                BlockDevListFlags flags,
+                dev_t root_devno,
+                dev_t whole_root_devno,
+                BlockDevice *ret);
 
 int blockdev_list(BlockDevListFlags flags, BlockDevice **ret_devices, size_t *ret_n_devices);
