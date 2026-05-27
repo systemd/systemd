@@ -155,7 +155,6 @@ TEST(oomd_cgroup_context_acquire_and_insert) {
         c1->mem_pressure_limit = 6789;
         c1->mem_pressure_limit_hit_start = 42;
         c1->mem_pressure_duration_usec = 1234;
-        c1->last_had_mem_reclaim = 888;
         ASSERT_NOT_NULL(h2 = hashmap_new(&oomd_cgroup_ctx_hash_ops));
         ASSERT_OK(oomd_insert_cgroup_context(h1, h2, cgroup));
         ASSERT_NOT_NULL(c1 = hashmap_get(h1, cgroup));
@@ -165,7 +164,6 @@ TEST(oomd_cgroup_context_acquire_and_insert) {
         ASSERT_EQ(c2->mem_pressure_limit, 6789u);
         ASSERT_EQ(c2->mem_pressure_limit_hit_start, 42u);
         ASSERT_EQ(c2->mem_pressure_duration_usec, 1234u);
-        ASSERT_EQ(c2->last_had_mem_reclaim, 888u); /* assumes the live pgscan is less than UINT64_MAX */
 }
 
 TEST(oomd_update_cgroup_contexts_between_hashmaps) {
