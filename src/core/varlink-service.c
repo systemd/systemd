@@ -118,6 +118,7 @@ int service_context_build_json(sd_json_variant **ret, const char *name, void *us
                         JSON_BUILD_PAIR_FINITE_USEC("RestartUSec", s->restart_usec),
                         JSON_BUILD_PAIR_UNSIGNED_NON_ZERO("RestartSteps", s->restart_steps),
                         JSON_BUILD_PAIR_FINITE_USEC_NON_ZERO("RestartMaxDelayUSec", s->restart_max_delay_usec),
+                        JSON_BUILD_PAIR_FINITE_USEC_NON_ZERO("RestartRandomizedDelayUSec", s->restart_randomized_delay_usec),
                         JSON_BUILD_PAIR_FINITE_USEC("TimeoutStartUSec", s->timeout_start_usec),
                         JSON_BUILD_PAIR_FINITE_USEC("TimeoutStopUSec", s->timeout_stop_usec),
                         JSON_BUILD_PAIR_ENUM("TimeoutStartFailureMode", service_timeout_failure_mode_to_string(s->timeout_start_failure_mode)),
