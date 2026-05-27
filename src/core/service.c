@@ -396,6 +396,22 @@ usec_t service_restart_usec_next(const Service *s) {
                                                 (long double) (n_restarts_next - 1) / s->restart_steps));
 }
 
+static usec_t service_restart_usec_next_jittered(Service *s) {
+        usec_t delay;
+
+        assert(s);
+
+        /* The deterministic (possibly exponentially backed-off) delay, plus, if RestartRandomizedDelaySec= is
+         * set, a uniformly distributed random value in [0, RestartRandomizedDelaySec) on top. This breaks up
+         * the restart times of many simultaneously failing instances to avoid a thundering herd. */
+        delay = service_restart_usec_next(s);
+
+        if (s->restart_randomized_delay_usec == 0)
+                return delay;
+
+        return usec_add(delay, random_u64_range(s->restart_randomized_delay_usec));
+}
+
 static void service_extend_event_source_timeout(Service *s, sd_event_source *source, usec_t extended) {
         usec_t current;
         int r;
@@ -1282,6 +1298,7 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sRestartSec: %s\n"
                 "%sRestartSteps: %u\n"
                 "%sRestartMaxDelaySec: %s\n"
+                "%sRestartRandomizedDelaySec: %s\n"
                 "%sTimeoutStartSec: %s\n"
                 "%sTimeoutStopSec: %s\n"
                 "%sTimeoutStartFailureMode: %s\n"
@@ -1289,6 +1306,7 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, FORMAT_TIMESPAN(s->restart_usec, USEC_PER_SEC),
                 prefix, s->restart_steps,
                 prefix, FORMAT_TIMESPAN(s->restart_max_delay_usec, USEC_PER_SEC),
+                prefix, FORMAT_TIMESPAN(s->restart_randomized_delay_usec, USEC_PER_SEC),
                 prefix, FORMAT_TIMESPAN(s->timeout_start_usec, USEC_PER_SEC),
                 prefix, FORMAT_TIMESPAN(s->timeout_stop_usec, USEC_PER_SEC),
                 prefix, service_timeout_failure_mode_to_string(s->timeout_start_failure_mode),
@@ -2408,7 +2426,7 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
                 if (s->restart_mode != SERVICE_RESTART_MODE_DIRECT)
                         service_set_state(s, restart_state);
 
-                restart_usec_next = service_restart_usec_next(s);
+                restart_usec_next = service_restart_usec_next_jittered(s);
 
                 r = service_arm_timer(s, /* relative= */ true, restart_usec_next);
                 if (r < 0) {
