@@ -636,4 +636,11 @@ static int outro(void) {
         return 0;
 }
 
-DEFINE_TEST_MAIN_FULL(LOG_DEBUG, NULL, outro);
+static int intro(void) {
+        if (strstr_ptr(ci_environment(), "autopkgtest"))
+                return log_tests_skipped("test hangs on autopkgtest, skipping");
+
+        return EXIT_SUCCESS;
+}
+
+DEFINE_TEST_MAIN_FULL(LOG_DEBUG, intro, outro);
