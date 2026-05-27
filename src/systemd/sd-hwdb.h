@@ -29,10 +29,10 @@ sd_hwdb *sd_hwdb_unref(sd_hwdb *hwdb);
 int sd_hwdb_new(sd_hwdb **ret);
 int sd_hwdb_new_from_path(const char *path, sd_hwdb **ret);
 
-int sd_hwdb_get(sd_hwdb *hwdb, const char *modalias, const char *key, const char **value);
+int sd_hwdb_get(sd_hwdb *hwdb, const char *modalias, const char *key, const char **ret);
 
 int sd_hwdb_seek(sd_hwdb *hwdb, const char *modalias);
-int sd_hwdb_enumerate(sd_hwdb *hwdb, const char **key, const char **value);
+int sd_hwdb_enumerate(sd_hwdb *hwdb, const char **ret_key, const char **ret_value);
 
 /* the inverse condition avoids ambiguity of dangling 'else' after the macro */
 #define SD_HWDB_FOREACH_PROPERTY(hwdb, modalias, key, value)            \
