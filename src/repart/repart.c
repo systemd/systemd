@@ -6216,6 +6216,8 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
                         return log_oom();
         }
 
+        bool copy_ownership = fstype_can_ownership(p->format);
+
         /* copy_tree_at() automatically copies the permissions of source directories to target directories if
          * it created them. However, the root directory is created by us, so we have to manually take care
          * that it is initialized. We use the first source directory targeting "/" as the metadata source for
@@ -6237,11 +6239,15 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
                         return log_error_errno(sfd, "Failed to open source file '%s%s': %m", strempty(arg_copy_source), line->source);
 
                 (void) copy_xattr(sfd, NULL, rfd, NULL, COPY_ALL_XATTRS);
-                (void) copy_access(sfd, rfd);
+                if (copy_ownership)
+                        (void) copy_access(sfd, rfd);
                 (void) copy_times(sfd, rfd, 0);
 
                 break;
         }
+
+        uid_t uid = copy_ownership ? UID_INVALID : getuid();
+        gid_t gid = copy_ownership ? GID_INVALID : getgid();
 
         FOREACH_ARRAY(line, copy_files, n_copy_files) {
                 _cleanup_hashmap_free_ Hashmap *denylist = NULL;
@@ -6299,14 +6305,14 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
                                 r = copy_tree_at(
                                                 sfd, ".",
                                                 pfd, fn,
-                                                UID_INVALID, GID_INVALID,
+                                                uid, gid,
                                                 line->flags,
                                                 denylist, subvolumes_by_source_inode);
                         } else
                                 r = copy_tree_at(
                                                 sfd, ".",
                                                 tfd, ".",
-                                                UID_INVALID, GID_INVALID,
+                                                uid, gid,
                                                 line->flags,
                                                 denylist, subvolumes_by_source_inode);
                         if (r < 0)
@@ -6353,7 +6359,8 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
                                 return log_error_errno(r, "Failed to copy '%s' to '%s%s': %m", line->source, strempty(arg_copy_source), line->target);
 
                         (void) copy_xattr(sfd, NULL, tfd, NULL, COPY_ALL_XATTRS);
-                        (void) copy_access(sfd, tfd);
+                        if (copy_ownership)
+                                (void) copy_access(sfd, tfd);
                         (void) copy_times(sfd, tfd, 0);
 
                         if (ts != USEC_INFINITY) {
