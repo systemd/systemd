@@ -1822,6 +1822,37 @@ int vsock_get_local_cid(unsigned *ret) {
         return 0;
 }
 
+int vsock_open_or_warn(int *ret) {
+        int fd = RET_NERRNO(socket(AF_VSOCK, SOCK_STREAM|SOCK_CLOEXEC, 0));
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(fd))
+                log_debug_errno(fd, "AF_VSOCK is not available, ignoring: %m");
+        else if (fd < 0)
+                return log_error_errno(fd, "Unable to test if AF_VSOCK is available: %m");
+
+        if (ret)
+                *ret = fd;
+        else
+                close(fd);
+
+        return fd >= 0;
+}
+
+int vsock_get_local_cid_or_warn(unsigned *ret) {
+        int r;
+
+        r = vsock_get_local_cid(ret);
+        if (ERRNO_IS_NEG_DEVICE_ABSENT(r) || r == -EADDRNOTAVAIL) {
+                if (ERRNO_IS_NEG_DEVICE_ABSENT(r))
+                        log_debug_errno(r, "/dev/vsock is not available (even though AF_VSOCK is), ignoring: %m");
+                if (ret)
+                        *ret = 0;  /* bogus value */
+                return 0;
+        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to query host's AF_VSOCK CID: %m");
+        return 1;
+}
+
 int netlink_socket_get_multicast_groups(int fd, size_t *ret_len, uint32_t **ret_groups) {
         _cleanup_free_ uint32_t *groups = NULL;
         socklen_t len = 0, old_len;
