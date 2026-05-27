@@ -548,6 +548,22 @@ bool fstype_can_fmask_dmask(const char *fstype) {
         return streq(fstype, "vfat") || (mount_option_supported(fstype, "fmask", "0177") > 0 && mount_option_supported(fstype, "dmask", "0077") > 0);
 }
 
+bool fstype_can_ownership(const char *fstype) {
+        /* File systems which are not known to not support uid/gid ownership.
+         * For some types, this can be a bit murky. So just exclude the ones that for sure
+         * don't support with the current implementations in Linux. */
+
+        return !STR_IN_SET(ASSERT_PTR(fstype),
+                           "adfs",
+                           "exfat",
+                           "fat",
+                           "hfs",
+                           "hpfs",
+                           "msdos",
+                           "ntfs",
+                           "vfat");
+}
+
 bool fstype_can_uid_gid(const char *fstype) {
         /* All file systems that have a uid=/gid= mount option that fixates the owners of all files and
          * directories, current and future. Note that this does *not* ask the kernel via

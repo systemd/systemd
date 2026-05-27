@@ -58,6 +58,7 @@ bool fstype_is_api_vfs(const char *fstype);
 bool fstype_is_blockdev_backed(const char *fstype);
 bool fstype_is_ro(const char *fsype);
 bool fstype_can_discard(const char *fstype);
+bool fstype_can_ownership(const char *fstype);
 bool fstype_can_uid_gid(const char *fstype);
 bool fstype_can_fmask_dmask(const char *fstype);
 
