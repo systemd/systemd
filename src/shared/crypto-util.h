@@ -92,6 +92,7 @@ extern DLSYM_PROTOTYPE(BIO_new);
 extern DLSYM_PROTOTYPE(BIO_s_mem);
 extern DLSYM_PROTOTYPE(BIO_write);
 extern DLSYM_PROTOTYPE(BN_bin2bn);
+extern DLSYM_PROTOTYPE(BN_bn2bin);
 extern DLSYM_PROTOTYPE(BN_bn2nativepad);
 extern DLSYM_PROTOTYPE(BN_CTX_free);
 extern DLSYM_PROTOTYPE(BN_CTX_new);
@@ -116,6 +117,9 @@ extern DLSYM_PROTOTYPE(EC_POINT_new);
 extern DLSYM_PROTOTYPE(EC_POINT_oct2point);
 extern DLSYM_PROTOTYPE(EC_POINT_point2oct);
 extern DLSYM_PROTOTYPE(ECDSA_SIG_free);
+extern DLSYM_PROTOTYPE(ECDSA_SIG_get0_r);
+extern DLSYM_PROTOTYPE(ECDSA_SIG_get0_s);
+extern DLSYM_PROTOTYPE(d2i_ECDSA_SIG);
 extern DLSYM_PROTOTYPE(ERR_clear_error);
 extern DLSYM_PROTOTYPE(ERR_error_string_n);
 extern DLSYM_PROTOTYPE(ERR_error_string);
@@ -402,6 +406,8 @@ int openssl_load_x509_certificate(
                 const char *certificate_source,
                 const char *certificate,
                 X509 **ret);
+
+int openssl_load_private_key_from_file(const char *path, EVP_PKEY **ret);
 
 int openssl_load_private_key(
                 KeySourceType private_key_source_type,

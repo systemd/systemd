@@ -8,3 +8,4 @@
 typedef struct Machine Machine;
 typedef struct Manager Manager;
 typedef struct Operation Operation;
+typedef struct SshAgentConnection SshAgentConnection;

@@ -57,8 +57,8 @@
 #include "namespace-util.h"
 #include "netif-util.h"
 #include "nsresource.h"
-#include "osc-context.h"
 #include "options.h"
+#include "osc-context.h"
 #include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"
@@ -76,6 +76,7 @@
 #include "signal-util.h"
 #include "snapshot-util.h"
 #include "socket-util.h"
+#include "ssh-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
@@ -176,7 +177,7 @@ static ExtraDriveContext arg_extra_drives = {};
 static BindVolumes arg_bind_volumes = {};
 static char *arg_background = NULL;
 static bool arg_pass_ssh_key = true;
-static char *arg_ssh_key_type = NULL;
+static OpenSSHKeyType arg_ssh_key_type = OPENSSH_KEY_TYPE_ED25519;
 static bool arg_discard_disk = true;
 static DiskType arg_image_disk_type = DISK_TYPE_VIRTIO_BLK;
 static struct ether_addr arg_network_provided_mac = {};
@@ -213,7 +214,6 @@ STATIC_DESTRUCTOR_REGISTER(arg_kernel_cmdline_extra, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_extra_drives, extra_drive_context_done);
 STATIC_DESTRUCTOR_REGISTER(arg_bind_volumes, bind_volumes_done);
 STATIC_DESTRUCTOR_REGISTER(arg_background, freep);
-STATIC_DESTRUCTOR_REGISTER(arg_ssh_key_type, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_smbios11, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm_state_path, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_efi_nvram_template, freep);
@@ -887,16 +887,13 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG("ssh-key-type", "TYPE", "Choose what type of SSH key to pass"):
                         if (isempty(opts.arg)) {
-                                arg_ssh_key_type = mfree(arg_ssh_key_type);
+                                arg_ssh_key_type = OPENSSH_KEY_TYPE_ED25519;
                                 break;
                         }
 
-                        if (!string_is_safe(opts.arg, STRING_ALLOW_GLOBS))
+                        arg_ssh_key_type = openssh_key_keygen_type_from_string(opts.arg);
+                        if (arg_ssh_key_type < 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid value for --ssh-key-type=: %s", opts.arg);
-
-                        r = free_and_strdup_warn(&arg_ssh_key_type, opts.arg);
-                        if (r < 0)
-                                return r;
                         break;
 
                 OPTION_GROUP("Input/Output"): {}
@@ -2031,52 +2028,6 @@ static int merge_initrds(char **ret) {
         }
 
         *ret = TAKE_PTR(merged_initrd);
-        return 0;
-}
-
-static int generate_ssh_keypair(const char *key_path, const char *key_type) {
-        _cleanup_free_ char *ssh_keygen = NULL;
-        _cleanup_strv_free_ char **cmdline = NULL;
-        int r;
-
-        assert(key_path);
-
-        r = find_executable("ssh-keygen", &ssh_keygen);
-        if (r < 0)
-                return log_error_errno(r, "Failed to find ssh-keygen: %m");
-
-        cmdline = strv_new(ssh_keygen, "-f", key_path, /* don't encrypt the key */ "-N", "");
-        if (!cmdline)
-                return log_oom();
-
-        if (key_type) {
-                r = strv_extend_many(&cmdline, "-t", key_type);
-                if (r < 0)
-                        return log_oom();
-        }
-
-        if (DEBUG_LOGGING) {
-                _cleanup_free_ char *joined = quote_command_line(cmdline, SHELL_ESCAPE_EMPTY);
-                if (!joined)
-                        return log_oom();
-
-                log_debug("Executing: %s", joined);
-        }
-
-        r = pidref_safe_fork_full(
-                        ssh_keygen,
-                        (int[]) { -EBADF, -EBADF, STDERR_FILENO },
-                        /* except_fds= */ NULL, /* n_except_fds= */ 0,
-                        FORK_WAIT|FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE|FORK_REARRANGE_STDIO|FORK_REOPEN_LOG,
-                        /* ret= */ NULL);
-        if (r < 0)
-                return r;
-        if (r == 0) {
-                execv(ssh_keygen, cmdline);
-                log_error_errno(errno, "Failed to execve %s: %m", ssh_keygen);
-                _exit(EXIT_FAILURE);
-        }
-
         return 0;
 }
 
@@ -3467,7 +3418,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
         if (arg_pass_ssh_key) {
                 _cleanup_free_ char *scope_prefix = NULL, *privkey_path = NULL, *pubkey_path = NULL;
-                const char *key_type = arg_ssh_key_type ?: "ed25519";
+                const char *key_type = openssh_key_keygen_type_to_string(arg_ssh_key_type);
 
                 r = unit_name_to_prefix(unit, &scope_prefix);
                 if (r < 0)
@@ -3481,9 +3432,9 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 if (!pubkey_path)
                         return log_oom();
 
-                r = generate_ssh_keypair(privkey_path, key_type);
+                r = openssh_key_generate(privkey_path, arg_ssh_key_type);
                 if (r < 0)
-                        return r;
+                        return log_error_errno(r, "Failed to generate SSH keypair at %s: %m", privkey_path);
 
                 ssh_private_key_path = TAKE_PTR(privkey_path);
                 ssh_public_key_path = TAKE_PTR(pubkey_path);
