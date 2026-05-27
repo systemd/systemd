@@ -420,11 +420,13 @@ executables += [
         },
         test_template + {
                 'sources' : files('test-qmp-client.c'),
+                'io_uring' : true,
         },
         test_template + {
                 'sources' : files('test-qmp-client-qemu.c'),
                 'objects' : ['systemd-vmspawn'],
                 'conditions' : ['ENABLE_VMSPAWN'],
+                'io_uring' : true,
         },
         test_template + {
                 'sources' : files('test-qrcode-util.c'),

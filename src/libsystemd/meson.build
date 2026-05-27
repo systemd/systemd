@@ -186,13 +186,11 @@ libsystemd_pc = custom_target(
 
 simple_tests += files(
         'sd-bus/test-bus-creds.c',
-        'sd-bus/test-bus-fiber.c',
         'sd-bus/test-bus-introspect.c',
         'sd-bus/test-bus-match.c',
         'sd-bus/test-bus-vtable.c',
         'sd-device/test-device-util.c',
         'sd-device/test-sd-device-monitor.c',
-        'sd-event/test-event-future.c',
         'sd-future/test-fiber.c',
         'sd-future/test-fiber-io.c',
         'sd-future/test-fiber-ops.c',
@@ -225,6 +223,11 @@ libsystemd_tests += [
         },
         {
                 'sources' : files('sd-bus/test-bus-chat.c'),
+                'io_uring' : true,
+        },
+        {
+                'sources' : files('sd-bus/test-bus-fiber.c'),
+                'io_uring' : true,
         },
         {
                 'sources' : files('sd-bus/test-bus-cleanup.c'),
@@ -241,15 +244,18 @@ libsystemd_tests += [
         },
         {
                 'sources' : files('sd-bus/test-bus-objects.c'),
+                'io_uring' : true,
         },
         {
                 'sources' : files('sd-bus/test-bus-peersockaddr.c'),
+                'io_uring' : true,
         },
         {
                 'sources' : files('sd-bus/test-bus-queue-ref-cycle.c'),
         },
         {
                 'sources' : files('sd-bus/test-bus-server.c'),
+                'io_uring' : true,
         },
         {
                 'sources' : files('sd-bus/test-bus-signature.c'),
@@ -257,10 +263,12 @@ libsystemd_tests += [
         {
                 'sources' : files('sd-bus/test-bus-track.c'),
                 'dependencies' : libseccomp_cflags,
+                'io_uring' : true,
         },
         {
                 'sources' : files('sd-bus/test-bus-watch-bind.c'),
                 'timeout' : 120,
+                'io_uring' : true,
         },
         {
                 'sources' : files('sd-device/test-sd-device.c'),
@@ -269,6 +277,11 @@ libsystemd_tests += [
         {
                 'sources' : files('sd-event/test-event.c'),
                 'timeout' : 120,
+                'io_uring' : true,
+        },
+        {
+                'sources' : files('sd-event/test-event-future.c'),
+                'io_uring' : true,
         },
         {
                 'sources' : files('sd-journal/test-journal-enum.c'),
@@ -296,9 +309,11 @@ libsystemd_tests += [
         },
         {
                 'sources' : files('sd-varlink/test-varlink.c'),
+                'io_uring' : true,
         },
         {
                 'sources' : files('sd-varlink/test-varlink-idl.c'),
+                'io_uring' : true,
         },
 ]
 
