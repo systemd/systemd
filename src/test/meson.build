@@ -400,6 +400,10 @@ executables += [
                 'conditions' : ['HAVE_OPENSSL'],
         },
         test_template + {
+                'sources' : files('test-pe-binary.c'),
+                'dependencies' : libopenssl,
+        },
+        test_template + {
                 'sources' : files('test-parse-util.c'),
                 'dependencies' : libm,
         },
