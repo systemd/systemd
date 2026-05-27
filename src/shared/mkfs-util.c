@@ -39,18 +39,18 @@ int mkfs_exists(const char *fstype) {
         return true;
 }
 
-static int mkfs_find_or_warn(const char *fstype, bool have_root, char **ret) {
+int mkfs_find_or_warn(const char *fstype, int have_root, char **ret) {
         int r;
 
         assert(fstype);
 
-        if (fstype_is_ro(fstype) && !have_root)
+        if (fstype_is_ro(fstype) && have_root == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Cannot generate read-only filesystem %s without a source tree.", fstype);
 
         const char *bin = NULL;
         if (streq(fstype, "swap")) {
-                if (have_root)
+                if (have_root > 0)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "A swap filesystem can't be populated, refusing");
                 bin = "mkswap";
@@ -70,7 +70,7 @@ static int mkfs_find_or_warn(const char *fstype, bool have_root, char **ret) {
                 return 0;
         }
 
-        if (have_root && !mkfs_supports_root_option(fstype))
+        if (have_root > 0 && !mkfs_supports_root_option(fstype))
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                        "Populating with source tree is not supported for %s", fstype);
         r = mkfs_exists(fstype);

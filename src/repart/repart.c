@@ -7364,6 +7364,42 @@ static void context_btrfs_replace_back(Context *context) {
         }
 }
 
+static int check_mkfs(const Context *context) {
+        int r;
+
+        assert(context);
+
+        LIST_FOREACH(partitions, p, context->partitions) {
+                if (p->dropped)
+                        continue;
+
+                if (PARTITION_EXISTS(p)) /* Never format existing partitions */
+                        continue;
+
+                if (!p->format)
+                        continue;
+
+                if (partition_defer(context, p))
+                        continue;
+
+                /* For offline signing case */
+                if (!set_isempty(arg_verity_settings) && partition_designator_is_verity_sig(p->type.designator))
+                        continue;
+
+                /* Minimized partitions will use the copy blocks logic so skip those here. */
+                if (p->copy_blocks_fd >= 0)
+                        continue;
+
+                /* We don't yet quite know if have_root= will be true, so just pass -1 which
+                 * means "not sure". */
+                r = mkfs_find_or_warn(p->format, /* have_root= */ -1, /* ret= */ NULL);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 static int context_mkfs(Context *context) {
         int r;
 
@@ -11673,6 +11709,10 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
         context->from_scratch = r > 0; /* Starting from scratch */
+
+        r = check_mkfs(context);
+        if (r < 0)
+                return r;
 
         if (arg_can_factory_reset) {
                 r = context_can_factory_reset(context);
