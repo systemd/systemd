@@ -429,6 +429,8 @@ libshared_static = static_library(
         c_args : ['-fvisibility=default'],
         build_by_default : false)
 
+simple_fuzzers += files('fuzz-pe-binary.c')
+
 libshared = shared_library(
         libshared_name,
         include_directories : includes,
