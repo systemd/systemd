@@ -396,6 +396,13 @@ usec_t service_restart_usec_next(const Service *s) {
                                                 (long double) (n_restarts_next - 1) / s->restart_steps));
 }
 
+static usec_t service_restart_usec_next_jittered(const Service *s) {
+        assert(s);
+
+        /* Single helper for the restart timer and the deadline reconstructed at coldplug so they can't drift */
+        return usec_add(service_restart_usec_next(s), s->restart_randomized_delay_chosen_usec);
+}
+
 static void service_extend_event_source_timeout(Service *s, sd_event_source *source, usec_t extended) {
         usec_t current;
         int r;
@@ -978,6 +985,11 @@ static int service_verify(Service *s) {
                 s->restart_usec = s->restart_max_delay_usec;
         }
 
+        if (s->restart_randomized_delay_usec == USEC_INFINITY) {
+                log_unit_warning(UNIT(s), "RestartRandomizedDelaySec= cannot be infinity, ignoring.");
+                s->restart_randomized_delay_usec = 0;
+        }
+
         if (s->refresh_on_reload_set && s->refresh_on_reload_flags != _SERVICE_REFRESH_ON_RELOAD_ALL) {
                 if (FLAGS_SET(s->refresh_on_reload_flags, SERVICE_RELOAD_EXTENSIONS))
                         service_can_reload_extensions(s, /* warn = */ true);
@@ -1282,6 +1294,7 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sRestartSec: %s\n"
                 "%sRestartSteps: %u\n"
                 "%sRestartMaxDelaySec: %s\n"
+                "%sRestartRandomizedDelaySec: %s\n"
                 "%sTimeoutStartSec: %s\n"
                 "%sTimeoutStopSec: %s\n"
                 "%sTimeoutStartFailureMode: %s\n"
@@ -1289,6 +1302,7 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, FORMAT_TIMESPAN(s->restart_usec, USEC_PER_SEC),
                 prefix, s->restart_steps,
                 prefix, FORMAT_TIMESPAN(s->restart_max_delay_usec, USEC_PER_SEC),
+                prefix, FORMAT_TIMESPAN(s->restart_randomized_delay_usec, USEC_PER_SEC),
                 prefix, FORMAT_TIMESPAN(s->timeout_start_usec, USEC_PER_SEC),
                 prefix, FORMAT_TIMESPAN(s->timeout_stop_usec, USEC_PER_SEC),
                 prefix, service_timeout_failure_mode_to_string(s->timeout_start_failure_mode),
@@ -1635,7 +1649,8 @@ static usec_t service_coldplug_timeout(Service *s) {
                 return usec_add(UNIT(s)->state_change_timestamp.monotonic, service_timeout_abort_usec(s));
 
         case SERVICE_AUTO_RESTART:
-                return usec_add(UNIT(s)->inactive_enter_timestamp.monotonic, service_restart_usec_next(s));
+                return usec_add(UNIT(s)->inactive_enter_timestamp.monotonic,
+                                service_restart_usec_next_jittered(s));
 
         case SERVICE_CLEANING:
                 return usec_add(UNIT(s)->state_change_timestamp.monotonic, s->exec_context.timeout_clean_usec);
@@ -2408,7 +2423,11 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
                 if (s->restart_mode != SERVICE_RESTART_MODE_DIRECT)
                         service_set_state(s, restart_state);
 
-                restart_usec_next = service_restart_usec_next(s);
+                /* Do the randomized restart delay once and remember it so that it's stable across daemon-reload */
+                s->restart_randomized_delay_chosen_usec = s->restart_randomized_delay_usec > 0 ?
+                        random_u64_range(s->restart_randomized_delay_usec) : 0;
+
+                restart_usec_next = service_restart_usec_next_jittered(s);
 
                 r = service_arm_timer(s, /* relative= */ true, restart_usec_next);
                 if (r < 0) {
@@ -2428,7 +2447,9 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
                                 log_unit_notice(UNIT(s), "Service dead, subsequent restarts will be executed with debug level logging.");
                 }
 
-                log_unit_debug(UNIT(s), "Next restart interval calculated as: %s", FORMAT_TIMESPAN(restart_usec_next, 0));
+                log_unit_debug(UNIT(s), "Next restart interval calculated as: %s (randomized delay: %s)",
+                               FORMAT_TIMESPAN(restart_usec_next, 0),
+                               FORMAT_TIMESPAN(s->restart_randomized_delay_chosen_usec, 0));
 
                 service_set_state(s, SERVICE_AUTO_RESTART);
         } else {
@@ -3634,6 +3655,7 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
         (void) serialize_bool(f, "bus-name-good", s->bus_name_good);
 
         (void) serialize_item_format(f, "n-restarts", "%u", s->n_restarts);
+        (void) serialize_usec(f, "restart-randomized-delay-chosen-usec", s->restart_randomized_delay_chosen_usec);
         (void) serialize_bool(f, "forbid-restart", s->forbid_restart);
 
         service_serialize_exec_command(u, f, s->control_command);
@@ -4086,6 +4108,9 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                 r = safe_atou(value, &s->n_restarts);
                 if (r < 0)
                         log_unit_debug_errno(u, r, "Failed to parse serialized restart counter '%s': %m", value);
+
+        } else if (streq(key, "restart-randomized-delay-chosen-usec")) {
+                (void) deserialize_usec(value, &s->restart_randomized_delay_chosen_usec);
 
         } else if (streq(key, "forbid-restart")) {
                 r = parse_boolean(value);
