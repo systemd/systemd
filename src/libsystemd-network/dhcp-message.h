@@ -1,11 +1,21 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-dhcp-client-id.h"
-#include "sd-forward.h"
-
-#include "sparse-endian.h"
+#include "dhcp-forward.h"
+#include "dhcp-protocol.h"
 #include "tlv-util.h"
+
+typedef struct DHCPServerData {
+        struct in_addr *addr;
+        size_t size;
+} DHCPServerData;
+
+struct sd_dhcp_message {
+        unsigned n_ref;
+
+        DHCPMessageHeader header;
+        TLV options;
+};
 
 typedef struct sd_dhcp_message sd_dhcp_message;
 

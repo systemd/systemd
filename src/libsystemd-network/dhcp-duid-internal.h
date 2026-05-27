@@ -4,9 +4,8 @@
 #include "sd-dhcp-duid.h"
 #include "sd-id128.h"
 
+#include "dhcp-forward.h"
 #include "ether-addr-util.h"
-#include "sd-forward.h"
-#include "sparse-endian.h"
 
 #define SYSTEMD_PEN    43793
 

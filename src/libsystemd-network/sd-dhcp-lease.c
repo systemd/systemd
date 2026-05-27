@@ -10,8 +10,7 @@
 #include "alloc-util.h"
 #include "dhcp-client-internal.h"
 #include "dhcp-lease-internal.h"
-#include "dhcp-option.h"
-#include "dhcp-route.h"  /* IWYU pragma: keep */
+#include "dhcp-route.h"
 #include "dns-resolver-internal.h"
 #include "in-addr-util.h"
 #include "ip-util.h"

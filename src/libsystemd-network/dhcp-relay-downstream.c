@@ -5,7 +5,6 @@
 #include "sd-event.h"
 
 #include "dhcp-message.h"
-#include "dhcp-protocol.h"
 #include "dhcp-relay-internal.h"
 #include "errno-util.h"
 #include "ether-addr-util.h"

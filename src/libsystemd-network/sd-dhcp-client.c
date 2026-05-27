@@ -26,6 +26,7 @@
 #include "socket-util.h"
 #include "string-util.h"
 #include "time-util.h"
+#include "tlv-util.h"
 #include "web-util.h"
 
 #define MAX_MAC_ADDR_LEN CONST_MAX(INFINIBAND_ALEN, ETH_ALEN)
