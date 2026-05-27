@@ -302,4 +302,5 @@ endif
 simple_fuzzers += files(
         'sd-bus/fuzz-bus-match.c',
         'sd-bus/fuzz-bus-message.c',
+        'sd-hwdb/fuzz-hwdb.c',
 )
