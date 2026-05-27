@@ -402,6 +402,10 @@ executables += [
                 'conditions' : ['HAVE_OPENSSL'],
         },
         test_template + {
+                'sources' : files('test-pe-binary.c'),
+                'dependencies' : libopenssl,
+        },
+        test_template + {
                 'sources' : files('test-pkcs7-util.c'),
                 'dependencies' : libopenssl,
                 'conditions' : ['HAVE_OPENSSL'],
