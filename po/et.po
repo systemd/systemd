@@ -2,13 +2,14 @@
 #
 # H A <contact+fedora@hen.ee>, 2022, 2025.
 # Henri Aunin <contact+fedora@hen.ee>, 2025, 2026.
-# Priit Jõerüüt <jrtkbfdr@users.noreply.translate.fedoraproject.org>, 2025.
+# Priit Jõerüüt <jrtkbfdr@users.noreply.translate.fedoraproject.org>, 2025, 2026.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-05-18 12:18+0100\n"
 "PO-Revision-Date: 2026-05-27 13:01+0000\n"
-"Last-Translator: Henri Aunin <contact+fedora@hen.ee>\n"
+"Last-Translator: Priit Jõerüüt "
+"<jrtkbfdr@users.noreply.translate.fedoraproject.org>\n"
 "Language-Team: Estonian <https://translate.fedoraproject.org/projects/"
 "systemd/main/et/>\n"
 "Language: et\n"
@@ -424,8 +425,7 @@ msgstr "Luba rakendustel takistada süsteemi välja lülitamist"
 #: src/login/org.freedesktop.login1.policy:23
 msgid ""
 "Authentication is required for an application to inhibit system shutdown."
-msgstr ""
-"Autentimine on vajalik, et rakendus takistaks süsteemi välja lülitamist."
+msgstr "Autentimine on vajalik, et rakendus takistaks süsteemi seiskamist."
 
 #: src/login/org.freedesktop.login1.policy:33
 msgid "Allow applications to delay system shutdown"
@@ -433,8 +433,7 @@ msgstr "Luba rakendustel viivitada süsteemi välja lülitamist"
 
 #: src/login/org.freedesktop.login1.policy:34
 msgid "Authentication is required for an application to delay system shutdown."
-msgstr ""
-"Autentimine on vajalik, et rakendus viivitaks süsteemi välja lülitamist."
+msgstr "Autentimine on vajalik, et rakendus viivitaks süsteemi seiskamist."
 
 #: src/login/org.freedesktop.login1.policy:44
 msgid "Allow applications to inhibit system sleep"
