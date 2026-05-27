@@ -144,6 +144,9 @@ static int dnssec_rsa_verify(
         if (*(uint8_t*) dnskey->dnskey.key == 0) {
                 /* exponent is > 255 bytes long */
 
+                if (dnskey->dnskey.key_size < 3)
+                        return -EINVAL;
+
                 exponent = (uint8_t*) dnskey->dnskey.key + 3;
                 exponent_size =
                         ((size_t) (((uint8_t*) dnskey->dnskey.key)[1]) << 8) |
