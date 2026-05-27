@@ -2695,6 +2695,7 @@ static const BusProperty service_properties[] = {
         { "GuessMainPID",                          bus_append_parse_boolean                      },
         { "RestartSec",                            bus_append_parse_sec_rename                   },
         { "RestartMaxDelaySec",                    bus_append_parse_sec_rename                   },
+        { "RestartRandomizedDelaySec",             bus_append_parse_sec_rename                   },
         { "TimeoutStartSec",                       bus_append_parse_sec_rename                   },
         { "TimeoutStopSec",                        bus_append_parse_sec_rename                   },
         { "TimeoutAbortSec",                       bus_append_parse_sec_rename                   },
