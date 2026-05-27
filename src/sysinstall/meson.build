@@ -8,3 +8,8 @@ executables += [
                 'sources' : files('sysinstall.c'),
         },
 ]
+
+if conf.get('ENABLE_SYSINSTALL') == 1
+        install_data('io.systemd.sysinstall.policy',
+                     install_dir : polkitpolicydir)
+endif
