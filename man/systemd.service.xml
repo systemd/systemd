@@ -643,6 +643,22 @@ RestartMaxDelaySec=160s</programlisting>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>RestartRandomizedDelaySec=</varname></term>
+        <listitem><para>Delay automatic restarts by a randomly selected, evenly distributed amount of time
+        between 0 and the specified time value, added on top of the delay otherwise configured via
+        <varname>RestartSec=</varname> (and <varname>RestartSteps=</varname>/<varname>RestartMaxDelaySec=</varname>,
+        if used). Takes a value in the same format as <varname>RestartSec=</varname>. Defaults to 0, indicating
+        that no randomized delay shall be applied.</para>
+
+        <para>This setting is useful to stretch out the restarts of similarly configured service instances that
+        fail at the same time, to prevent them from restarting simultaneously and possibly resulting in
+        resource congestion. It is the restart-side analogue of <varname>RandomizedDelaySec=</varname> in
+        <citerefentry><refentrytitle>systemd.timer</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>TimeoutStartSec=</varname></term>
         <listitem><para>Configures the time to wait for start-up. If a daemon service does not signal
         start-up completion within the configured time, the service will be considered failed and will be
