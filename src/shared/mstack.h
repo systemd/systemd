@@ -7,6 +7,8 @@
 typedef enum MStackFlags {
         MSTACK_MKDIR  = 1 << 0, /* when mounting, create top-level inode to mount on top */
         MSTACK_RDONLY = 1 << 1,
+        MSTACK_DEFER_MOUNT  = 1 << 2,
+        MSTACK_BINDS_RDONLY = 1 << 3, /* Ensure bind@ mounts are read-only only if explicitly requested */
 } MStackFlags;
 
 typedef enum MStackMountType {
@@ -52,7 +54,9 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(MStack*, mstack_free);
 
 int mstack_load(const char *dir, int dir_fd, MStack **ret);
 int mstack_open_images(MStack *mstack, sd_varlink *mountfsd_link, int userns_fd, const ImagePolicy *image_policy, const ImageFilter *image_filter, MStackFlags flags);
+bool mstack_has_writable_layers(MStack *mstack, MStackFlags flags);
 int mstack_make_mounts(MStack *mstack, const char *temp_mount_dir, MStackFlags flags);
+int mstack_apply_bind_mounts(MStack *mstack, int root_fd, const char *where, MStackFlags flags);
 int mstack_bind_mounts(MStack *mstack, const char *where, int where_fd, MStackFlags flags, int *ret_root_fd);
 
 /* The four calls above in one */
