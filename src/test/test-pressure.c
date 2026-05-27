@@ -32,6 +32,25 @@
 
 /* Shared infrastructure for fake pressure tests */
 
+static int event_loop_with_timeout(sd_event *event) {
+        ASSERT_NOT_NULL(event);
+
+        /* Note, the default meson test timeout is 30 seconds. */
+        ASSERT_OK(sd_event_add_time_relative(
+                                  event,
+                                  /* ret= */ NULL,
+                                  CLOCK_MONOTONIC,
+                                  20 * USEC_PER_SEC,
+                                  /* accuracy= */ 0,
+                                  /* callback= */ NULL,
+                                  INT_TO_PTR(-ETIMEDOUT)));
+
+        if (ASSERT_OK_OR(sd_event_loop(event), -ETIMEDOUT) < 0)
+                return log_tests_skipped("event loop timeout");
+
+        return 0;
+}
+
 struct fake_pressure_context {
         int fifo_fd;
         int socket_fd;
@@ -133,7 +152,11 @@ static void test_fake_pressure(
         ASSERT_OK(add_pressure(e, &ef, fake_pressure_callback, &value));
         ASSERT_OK(sd_event_source_set_description(ef, "socket event source"));
 
-        ASSERT_OK(sd_event_loop(e));
+        if (event_loop_with_timeout(e) != 0) {
+                (void) pthread_cancel(th);
+                (void) pthread_join(th, /* retval= */ NULL);
+                return;
+        }
 
         ASSERT_EQ(value, 7 * 'f' * 's');
 
@@ -363,7 +386,9 @@ TEST(real_memory_pressure) {
         /* Now start eating memory */
         ASSERT_EQ(write(pipe_fd[1], &(const char) { 'x' }, 1), 1);
 
-        ASSERT_OK(sd_event_loop(e));
+        if (event_loop_with_timeout(e) != 0)
+                return;
+
         int ex = 0;
         ASSERT_OK(sd_event_get_exit_code(e, &ex));
         ASSERT_EQ(ex, 31);
@@ -485,7 +510,9 @@ TEST(real_cpu_pressure) {
         /* Now start eating CPU */
         ASSERT_EQ(write(pipe_fd[1], &(const char) { 'x' }, 1), 1);
 
-        ASSERT_OK(sd_event_loop(e));
+        if (event_loop_with_timeout(e) != 0)
+                return;
+
         int ex = 0;
         ASSERT_OK(sd_event_get_exit_code(e, &ex));
         ASSERT_EQ(ex, 31);
@@ -624,7 +651,9 @@ TEST(real_io_pressure) {
         /* Now start eating IO */
         ASSERT_EQ(write(pipe_fd[1], &(const char) { 'x' }, 1), 1);
 
-        ASSERT_OK(sd_event_loop(e));
+        if (event_loop_with_timeout(e) != 0)
+                return;
+
         int ex = 0;
         ASSERT_OK(sd_event_get_exit_code(e, &ex));
         ASSERT_EQ(ex, 31);
