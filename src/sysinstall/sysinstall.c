@@ -604,7 +604,8 @@ static int handle_repart_reply(
         }
 
         if (p.phase) {
-                ProgressPhase phase = progress_phase_from_string(json_dashify((char *) p.phase));
+                _cleanup_free_ char *phase_name = json_dashify(strdup(p.phase));
+                ProgressPhase phase = progress_phase_from_string(phase_name);
                 if (phase < 0)
                         log_warning_errno(phase, "Failed to parse progress phase sent by io.systemd.Repart.Run() varlink call: %m");
                 else
@@ -1777,7 +1778,7 @@ static int vl_method_run(
                         p.erase,
                         /* dry_run= */ true,
                         p.definitions,
-                        link,
+                        output_link,
                         &repart_error,
                         &min_size,
                         &current_size,
