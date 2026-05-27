@@ -404,19 +404,22 @@ static void timer_enter_waiting(Timer *t, bool time_change) {
                          * this was triggered, schedule the job based relative to that. If we don't,
                          * just start from the activation time or realtime.
                          *
-                         * Unless we have a real last-trigger time, we subtract the random_offset because
-                         * any event that elapsed within the last random_offset has actually been delayed
-                         * and thus hasn't truly elapsed yet. */
+                         * We always subtract random_offset from the base time because
+                         * calendar_spec_next_usec() finds the next calendar event, and then we add the
+                         * offset back afterwards (see below). The base time needs to be in "pre-offset"
+                         * space so the next calendar match is computed correctly. Without this, a timer
+                         * that fires late (e.g. persistent catch-up) would skip the next scheduled
+                         * activation. */
 
                         if (t->defer_reactivation &&
                             dual_timestamp_is_set(&trigger->inactive_enter_timestamp)) {
                                 if (dual_timestamp_is_set(&t->last_trigger))
                                         b = MAX(trigger->inactive_enter_timestamp.realtime,
-                                                t->last_trigger.realtime);
+                                                t->last_trigger.realtime) - random_offset;
                                 else
-                                        b = trigger->inactive_enter_timestamp.realtime;
+                                        b = trigger->inactive_enter_timestamp.realtime - random_offset;
                         } else if (dual_timestamp_is_set(&t->last_trigger)) {
-                                b = t->last_trigger.realtime;
+                                b = t->last_trigger.realtime - random_offset;
 
                                 /* Check if the last_trigger timestamp is older than the current machine
                                  * boot. If so, this means the timestamp came from a stamp file of a
