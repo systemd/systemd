@@ -687,7 +687,7 @@ int mstack_open_images(
         return 0;
 }
 
-static int mstack_has_writable_layers(MStack *mstack, MStackFlags flags) {
+bool mstack_has_writable_layers(MStack *mstack, MStackFlags flags) {
         assert(mstack);
 
         if (FLAGS_SET(flags, MSTACK_RDONLY))
@@ -991,6 +991,101 @@ int mstack_make_mounts(
         return 0;
 }
 
+/* Extracted to make it reusable for mstack deferred binds. */
+static int mstack_apply_attr(int dfd, MStackMountType mount_type, bool writable, MStackFlags flags) {
+        /* ROBIND is always read-only.
+         * ROOT is read-only if writable is false (due to MSTACK_RDONLY or no write layers).
+         * BIND is read-only if and only if MSTACK_BINDS_RDONLY (--read-only flag)
+         * is explicitly set. */
+        bool rdonly = mount_type == MSTACK_ROBIND ||
+                      (mount_type == MSTACK_ROOT && !writable) ||
+                      (mount_type == MSTACK_BIND && FLAGS_SET(flags, MSTACK_BINDS_RDONLY));
+
+        /* Do not use AT_RECURSIVE on the ROOT mount to avoid recursively overwriting
+         * attributes of bind mounts (like bind@) attached inside it earlier. */
+        int attr_flags = AT_EMPTY_PATH | (mount_type == MSTACK_ROOT ? 0 : AT_RECURSIVE);
+
+        if (mount_setattr(dfd, "", attr_flags,
+                          &(struct mount_attr) {
+                                  .attr_set = rdonly ? MOUNT_ATTR_RDONLY : 0,
+                                  .attr_clr = rdonly ? 0 : MOUNT_ATTR_RDONLY,
+                          }, sizeof(struct mount_attr)) < 0)
+                return log_debug_errno(errno, "Failed to set mount attributes: %m");
+
+        return 0;
+}
+
+static int mstack_apply_propagation(int dfd) {
+        if (mount_setattr(dfd, "", AT_EMPTY_PATH|AT_RECURSIVE,
+                          &(struct mount_attr) {
+                                  .propagation = MS_SHARED,
+                          }, sizeof(struct mount_attr)) < 0)
+                return log_debug_errno(errno, "Failed to set mount propagation: %m");
+
+        return 0;
+}
+
+/* Extracted to make it reusable for mstack deferred binds. */
+int mstack_apply_bind_mounts(
+                MStack *mstack,
+                int root_fd,
+                const char *where,
+                MStackFlags flags) {
+        int r;
+
+        assert(mstack);
+        assert(root_fd >= 0);
+        assert(where);
+
+        bool writable = mstack_has_writable_layers(mstack, flags);
+
+        FOREACH_ARRAY(m, mstack->mounts, mstack->n_mounts) {
+                if (!IN_SET(m->mount_type, MSTACK_BIND, MSTACK_ROBIND) ||
+                    m == mstack->root_mount)
+                        continue;
+
+                assert(m->mount_fd >= 0);
+
+                _cleanup_close_ int subdir_fd = -EBADF;
+
+                /* Do not use CHASE_PROHIBIT_SYMLINKS here to allow resolving common
+                 * compatibility symbolic links (e.g. /var/run -> /run),
+                 * to allow binds go through symlinks, it's useful for container workloads.
+                 * This is safe because root_fd is passed as the root directory boundary,
+                 * and chaseat() enforces this as a hard boundary,
+                 * preventing path resolution from escaping the container rootfs. */
+                r = chaseat(root_fd, root_fd, m->where, CHASE_MKDIR_0755|CHASE_MUST_BE_DIRECTORY, /* ret_path= */ NULL, &subdir_fd);
+                if (r == -EROFS)
+                        return log_error_errno(r, "Failed to create mount point directory '%s': root is read-only. "
+                                        "Add an rw/ directory to the .mstack/, use --volatile= to provide a writable root layer, "
+                                        "or pre-create bind mount target directory in the base layer: %m", m->where);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to open mount point inode '%s': %m", m->where);
+
+                if (move_mount(m->mount_fd, "", subdir_fd, "", MOVE_MOUNT_F_EMPTY_PATH|MOVE_MOUNT_T_EMPTY_PATH) < 0)
+                        return log_debug_errno(errno, "Failed to attach bind mount to '%s' subdir: %m", m->where);
+
+                /* Set mount attributes on each bind mount fd after attaching it.
+                 * For the non-deferred path (called from mstack_bind_mounts()), this is
+                 * redundant since mstack_bind_mounts() applies a recursive mount_setattr()
+                 * on root_fd afterward - but mount_setattr() is idempotent so it's harmless.
+                 * For the deferred path (called from apply_deferred_mstack_bind_mounts()),
+                 * this is the only place attributes are set on these mounts since the
+                 * recursive root_fd call already happened before they were attached. */
+                r = mstack_apply_attr(m->mount_fd, m->mount_type, writable, flags);
+                if (r < 0)
+                        return r;
+
+                r = mstack_apply_propagation(m->mount_fd);
+                if (r < 0)
+                        return r;
+
+                log_debug("Attached mstack '%s/' mount to '%s%s/'.", m->where, where, m->where);
+        }
+
+        return 0;
+}
+
 int mstack_bind_mounts(
                 MStack *mstack,
                 const char *where,
@@ -1001,6 +1096,8 @@ int mstack_bind_mounts(
         int r;
 
         assert(mstack);
+
+        bool writable = mstack_has_writable_layers(mstack, flags);
 
         _cleanup_close_ int _where_fd = -EBADF;
         if (where_fd == AT_FDCWD) {
@@ -1042,36 +1139,24 @@ int mstack_bind_mounts(
                 log_debug("Attached mstack '/usr/' mount to '%s/usr/'.", where);
         }
 
-        FOREACH_ARRAY(m, mstack->mounts, mstack->n_mounts) {
-
-                if (!IN_SET(m->mount_type, MSTACK_BIND, MSTACK_ROBIND) ||
-                    m == mstack->root_mount)
-                        continue;
-
-                assert(m->mount_fd >= 0);
-
-                _cleanup_close_ int subdir_fd = -EBADF;
-                r = chaseat(root_fd, root_fd, m->where, CHASE_PROHIBIT_SYMLINKS|CHASE_MKDIR_0755|CHASE_MUST_BE_DIRECTORY, /* ret_path= */ NULL, &subdir_fd);
+        /* Apply binds according to filter, deferring some or all if volatile is in use. */
+        if (!FLAGS_SET(flags, MSTACK_DEFER_MOUNT)) {
+                r = mstack_apply_bind_mounts(mstack, root_fd, where, flags);
                 if (r < 0)
-                        return log_debug_errno(r, "Failed to open mount point inode '%s': %m", m->where);
-
-                if (move_mount(m->mount_fd, "", subdir_fd, "", MOVE_MOUNT_F_EMPTY_PATH|MOVE_MOUNT_T_EMPTY_PATH) < 0)
-                        return log_debug_errno(errno, "Failed to attach bind mount to '%s' subdir: %m", m->where);
-
-                log_debug("Attached mstack '%s/' mount to '%s/%s/'.", m->where, where, m->where);
+                        return r;
         }
+
+        r = mstack_apply_attr(root_fd, MSTACK_ROOT, writable, flags);
+        if (r < 0)
+                return r;
 
         /* If we have a tmpfs root, the above might have created mount point inodes. Hence we left the tmpfs
          * writable for that. Let's fix that now. Also, let's enable propagation for the future. (Reminder:
          * we disconnect propagation from the host, but we *want* propagation by default for everything
          * created further down the tree. Hence we'll set MS_SHARED here right-away.) */
-        if (mount_setattr(root_fd, "", AT_EMPTY_PATH|AT_RECURSIVE,
-                          &(struct mount_attr) {
-                                  .attr_set = FLAGS_SET(flags, MSTACK_RDONLY) ? MOUNT_ATTR_RDONLY : 0,
-                                  .attr_clr = FLAGS_SET(flags, MSTACK_RDONLY) ? 0 : MOUNT_ATTR_RDONLY,
-                                  .propagation = MS_SHARED,
-                          }, sizeof(struct mount_attr)) < 0)
-                return log_debug_errno(errno, "Failed to mark root bind mount read-only: %m");
+        r = mstack_apply_propagation(root_fd);
+        if (r < 0)
+                return r;
 
         if (ret_root_fd)
                 *ret_root_fd = TAKE_FD(root_fd);
