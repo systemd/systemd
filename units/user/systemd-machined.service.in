@@ -11,8 +11,8 @@
 Description=Virtual Machine and Container Registration Service
 Documentation=man:systemd-machined.service(8)
 Documentation=man:org.freedesktop.machine1(5)
-Wants=machine.slice
-After=machine.slice
+Wants=machine.slice systemd-machined-ssh-agent.socket
+After=machine.slice systemd-machined-ssh-agent.socket
 
 [Service]
 BusName=org.freedesktop.machine1
