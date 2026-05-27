@@ -587,24 +587,41 @@ static int handle_repart_reply(
         *result->need_free = p.need_free;
 
         if (error_id) {
-                *result->error_id = strdup(error_id);
-                if (!*result->error_id)
-                        return result->ret = log_oom();
-
-                if (!(streq(error_id, "io.systemd.Repart.InsufficientFreeSpace") ||
-                      streq(error_id, "io.systemd.Repart.DiskTooSmall") ||
-                      streq(error_id, "io.systemd.Repart.ConflictingDiskLabelPresent"))) {
-
-                        r = sd_varlink_error_to_errno(error_id, reply); /* If this is a system errno style error, output it with %m */
-                        if (r != -EBADR)
-                                return result->ret = log_error_errno(r, "Failed to issue io.systemd.Repart.Run() varlink call: %m");
-
-                        return result->ret = log_error_errno(r, "Failed to issue io.systemd.Repart.Run() varlink call: %s", error_id);
+                if (result->error_id) {
+                        *result->error_id = strdup(error_id);
+                        if (!*result->error_id)
+                                return result->ret = log_oom();
                 }
+
+                if (streq(error_id, "io.systemd.Repart.InsufficientFreeSpace")) {
+                        return result->ret = log_full_errno(
+                                        LOG_DEBUG,
+                                        SYNTHETIC_ERRNO(ENOSPC),
+                                        "Not enough free space on disk, cannot install.");
+                }
+                if (streq(error_id, "io.systemd.Repart.DiskTooSmall")) {
+                        return result->ret = log_full_errno(
+                                        LOG_DEBUG,
+                                        SYNTHETIC_ERRNO(E2BIG),
+                                        "Disk too small for installation, cannot install.");
+                }
+
+                if (streq(error_id, "io.systemd.Repart.ConflictingDiskLabelPresent"))
+                        return result->ret = log_full_errno(
+                                        LOG_DEBUG,
+                                        SYNTHETIC_ERRNO(EHWPOISON),
+                                        "A conflicting disk label is already present on the target disk, cannot install unless disk is erased.");
+
+                r = sd_varlink_error_to_errno(error_id, reply); /* If this is a system errno style error, output it with %m */
+                if (r != -EBADR)
+                        return result->ret = log_error_errno(r, "Failed to issue io.systemd.Repart.Run() varlink call: %m");
+
+                return result->ret = log_error_errno(r, "Failed to issue io.systemd.Repart.Run() varlink call: %s", error_id);
         }
 
         if (p.phase) {
-                ProgressPhase phase = progress_phase_from_string(json_dashify((char *) p.phase));
+                _cleanup_free_ char *phase_name = json_dashify(strdup(p.phase));
+                ProgressPhase phase = progress_phase_from_string(phase_name);
                 if (phase < 0)
                         log_warning_errno(phase, "Failed to parse progress phase sent by io.systemd.Repart.Run() varlink call: %m");
                 else
@@ -777,8 +794,11 @@ static int invoke_repart(
                 return log_error_errno(r, "Failed to issue io.systemd.Repart.Run() varlink call: %m");
         }
         if (error_id) {
-                if (ret_error)
+                if (ret_error) {
                         *ret_error = strdup(error_id);
+                        if (!*ret_error)
+                                return log_oom();
+                }
 
                 if (streq(error_id, "io.systemd.Repart.InsufficientFreeSpace")) {
                         (void) read_space_metrics(reply, min_size, current_size, need_free);
@@ -1775,9 +1795,9 @@ static int vl_method_run(
                         &repart_link,
                         p.node,
                         p.erase,
-                        /* dry_run= */ true,
+                        /* dry_run= */ false,
                         p.definitions,
-                        link,
+                        output_link,
                         &repart_error,
                         &min_size,
                         &current_size,
