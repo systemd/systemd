@@ -528,7 +528,6 @@ int pull_verify(ImportVerify verify,
                 PullJob *verity_job) {
 
         _cleanup_free_ char *fn = NULL;
-        VerificationStyle style;
         PullJob *verify_job;
         int r;
 
@@ -576,11 +575,6 @@ int pull_verify(ImportVerify verify,
                 return 0;
 
         assert(verify_job);
-
-        r = verification_style_from_url(verify_job->url, &style);
-        if (r < 0)
-                return log_error_errno(r, "Failed to determine verification style from URL '%s': %m", verify_job->url);
-
         assert(signature_job);
         assert(signature_job->state == PULL_JOB_DONE);
 
