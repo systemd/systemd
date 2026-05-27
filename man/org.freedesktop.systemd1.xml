@@ -2837,6 +2837,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       readonly u RestartSteps = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t RestartMaxDelayUSec = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly t RestartRandomizedDelayUSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t RestartUSecNext = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -3567,6 +3569,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <!--property RestartMaxDelayUSec is not documented!-->
 
+    <!--property RestartRandomizedDelayUSec is not documented!-->
+
     <!--property RestartUSecNext is not documented!-->
 
     <!--property TimeoutStartFailureMode is not documented!-->
@@ -4200,6 +4204,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <variablelist class="dbus-property" generated="True" extra-ref="RestartSteps"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="RestartMaxDelayUSec"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="RestartRandomizedDelayUSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="RestartUSecNext"/>
 
@@ -12840,6 +12846,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>IOPressureWatch</varname>,
       <varname>CPUSetPartition</varname>, and
       <varname>OOMRules</varname> were added in version 261.</para>
+      <para><varname>RestartRandomizedDelayUSec</varname> was added in version 262.</para>
     </refsect2>
     <refsect2>
       <title>Socket Unit Objects</title>
