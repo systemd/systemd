@@ -164,6 +164,7 @@ simple_tests += files(
         'test-parse-helpers.c',
         'test-path-lookup.c',
         'test-path-util.c',
+        'test-pe-binary.c',
         'test-percent-util.c',
         'test-pidref.c',
         'test-pretty-print.c',
