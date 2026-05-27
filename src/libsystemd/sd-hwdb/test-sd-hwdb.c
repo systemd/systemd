@@ -76,17 +76,16 @@ TEST(sd_hwdb_new_from_path) {
         assert_se(r >= 0);
 }
 
-static sd_hwdb *hwdb_new_from_blob(const void *data, size_t size) {
+static sd_hwdb* hwdb_new_from_blob(const void *data, size_t size) {
         _cleanup_(rm_rf_physical_and_freep) char *tmp = NULL;
         _cleanup_(sd_hwdb_unrefp) sd_hwdb *hwdb = NULL;
-        _cleanup_free_ char *path = NULL;
         _cleanup_close_ int fd = -EBADF;
 
         ASSERT_OK(mkdtemp_malloc(/* template= */ NULL, &tmp));
-        ASSERT_NOT_NULL(path = path_join(tmp, "hwdb.bin"));
+        _cleanup_free_ char *path = ASSERT_NOT_NULL(path_join(tmp, "hwdb.bin"));
 
         fd = ASSERT_OK_ERRNO(open(path, O_WRONLY|O_CREAT|O_CLOEXEC|O_TRUNC, 0644));
-        assert_se(write(fd, data, size) == (ssize_t) size);
+        ASSERT_OK_EQ_ERRNO(write(fd, data, size), (ssize_t) size);
         fd = safe_close(fd);
 
         ASSERT_OK(sd_hwdb_new_from_path(path, &hwdb));
@@ -146,7 +145,7 @@ TEST(sd_hwdb_seek_rejects_invalid_fnmatch_child_node) {
                 .strings = "usb:",
         };
 
-        hwdb = hwdb_new_from_blob(&data, sizeof(data));
+        hwdb = ASSERT_NOT_NULL(hwdb_new_from_blob(&data, sizeof(data)));
 
         ASSERT_ERROR(sd_hwdb_seek(hwdb, "usb:vx"), EBADMSG);
 }
@@ -197,7 +196,7 @@ TEST(sd_hwdb_seek_rejects_invalid_fnmatch_prefix) {
                 .strings = "usb:",
         };
 
-        hwdb = hwdb_new_from_blob(&data, sizeof(data));
+        hwdb = ASSERT_NOT_NULL(hwdb_new_from_blob(&data, sizeof(data)));
 
         ASSERT_ERROR(sd_hwdb_seek(hwdb, "usb:v*"), EBADMSG);
 }
@@ -227,7 +226,7 @@ TEST(sd_hwdb_seek_rejects_invalid_search_prefix) {
                 },
         };
 
-        hwdb = hwdb_new_from_blob(&data, sizeof(data));
+        hwdb = ASSERT_NOT_NULL(hwdb_new_from_blob(&data, sizeof(data)));
 
         ASSERT_ERROR(sd_hwdb_seek(hwdb, "usb:v1234"), EBADMSG);
 }
@@ -255,7 +254,7 @@ TEST(sd_hwdb_seek_rejects_truncated_children_array) {
                 },
         };
 
-        hwdb = hwdb_new_from_blob(&data, sizeof(data));
+        hwdb = ASSERT_NOT_NULL(hwdb_new_from_blob(&data, sizeof(data)));
 
         ASSERT_ERROR(sd_hwdb_seek(hwdb, "x"), EBADMSG);
 }
@@ -292,7 +291,7 @@ TEST(sd_hwdb_seek_rejects_invalid_property_key) {
                 .strings = "usb\0value",
         };
 
-        hwdb = hwdb_new_from_blob(&data, sizeof(data));
+        hwdb = ASSERT_NOT_NULL(hwdb_new_from_blob(&data, sizeof(data)));
 
         ASSERT_ERROR(sd_hwdb_seek(hwdb, "usb"), EBADMSG);
 }

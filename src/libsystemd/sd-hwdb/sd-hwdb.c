@@ -80,12 +80,10 @@ static const struct trie_value_entry_f *trie_node_value(sd_hwdb *hwdb, const str
         return (const struct trie_value_entry_f *)base;
 }
 
-static const void *hwdb_at(sd_hwdb *hwdb, uint64_t off, uint64_t size) {
-        uint64_t file_size;
-
+static const void* hwdb_at(sd_hwdb *hwdb, uint64_t off, uint64_t size) {
         assert(hwdb);
 
-        file_size = (uint64_t) hwdb->st.st_size;
+        uint64_t file_size = hwdb->st.st_size;
 
         if (off > file_size)
                 return NULL;
@@ -95,17 +93,14 @@ static const void *hwdb_at(sd_hwdb *hwdb, uint64_t off, uint64_t size) {
         return (const uint8_t*) hwdb->map + off;
 }
 
-static const struct trie_node_f *trie_node_from_off(sd_hwdb *hwdb, le64_t off) {
-        uint64_t offset, node_size, child_entry_size, value_entry_size;
-        uint64_t children_bytes, values_bytes, total;
-        const struct trie_node_f *node;
-
+static const struct trie_node_f* trie_node_from_off(sd_hwdb *hwdb, le64_t off) {
         assert(hwdb);
+        assert(hwdb->head);
 
-        offset = le64toh(off);
-        node_size = le64toh(hwdb->head->node_size);
-        child_entry_size = le64toh(hwdb->head->child_entry_size);
-        value_entry_size = le64toh(hwdb->head->value_entry_size);
+        uint64_t offset = le64toh(off);
+        uint64_t node_size = le64toh(hwdb->head->node_size);
+        uint64_t child_entry_size = le64toh(hwdb->head->child_entry_size);
+        uint64_t value_entry_size = le64toh(hwdb->head->value_entry_size);
 
         if (node_size < sizeof(struct trie_node_f))
                 return NULL;
@@ -114,17 +109,18 @@ static const struct trie_node_f *trie_node_from_off(sd_hwdb *hwdb, le64_t off) {
         if (value_entry_size < sizeof(struct trie_value_entry_f))
                 return NULL;
 
-        node = hwdb_at(hwdb, offset, node_size);
+        const struct trie_node_f *node = hwdb_at(hwdb, offset, node_size);
         if (!node)
                 return NULL;
 
-        if (__builtin_mul_overflow((uint64_t) node->children_count, child_entry_size, &children_bytes))
+        uint64_t children_bytes, values_bytes, total;
+        if (!MUL_SAFE(&children_bytes, (uint64_t) node->children_count, child_entry_size))
                 return NULL;
-        if (__builtin_mul_overflow(le64toh(node->values_count), value_entry_size, &values_bytes))
+        if (!MUL_SAFE(&values_bytes, le64toh(node->values_count), value_entry_size))
                 return NULL;
-        if (__builtin_add_overflow(node_size, children_bytes, &total))
+        if (!ADD_SAFE(&total, node_size, children_bytes))
                 return NULL;
-        if (__builtin_add_overflow(total, values_bytes, &total))
+        if (!ADD_SAFE(&total, total, values_bytes))
                 return NULL;
 
         if (!hwdb_at(hwdb, offset, total))
@@ -133,22 +129,19 @@ static const struct trie_node_f *trie_node_from_off(sd_hwdb *hwdb, le64_t off) {
         return node;
 }
 
-static const char *trie_string(sd_hwdb *hwdb, le64_t off) {
-        uint64_t file_size, offset;
-        const char *p;
-
+static const char* trie_string(sd_hwdb *hwdb, le64_t off) {
         assert(hwdb);
 
-        file_size = (uint64_t) hwdb->st.st_size;
-        offset = le64toh(off);
+        uint64_t file_size = hwdb->st.st_size;
+        uint64_t offset = le64toh(off);
 
-        if (offset >= file_size)
-                return NULL;
-
-        p = hwdb_at(hwdb, offset, 1);
+        const char *p = hwdb_at(hwdb, offset, /* size= */ 1);
         if (!p)
                 return NULL;
-        if (!memchr(p, '\0', (size_t) (file_size - offset)))
+
+        /* Clamp to SIZE_MAX so memchr()'s size_t arg cannot truncate on 32-bit. */
+        size_t avail = (size_t) MIN(file_size - offset, (uint64_t) SIZE_MAX);
+        if (!memchr(p, '\0', avail))
                 return NULL;
 
         return p;
@@ -168,16 +161,9 @@ static const struct trie_node_f *node_lookup_f(sd_hwdb *hwdb, const struct trie_
         search.c = c;
         child = bsearch(&search, (const char *)node + le64toh(hwdb->head->node_size), node->children_count,
                         le64toh(hwdb->head->child_entry_size), trie_children_cmp_f);
-        if (child) {
-                const struct trie_node_f *next;
-
-                next = trie_node_from_off(hwdb, child->child_off);
+        if (child)
                 /* Treat corrupt child offsets like lookup misses. */
-                if (!next)
-                        return NULL;
-
-                return next;
-        }
+                return trie_node_from_off(hwdb, child->child_off);
 
         return NULL;
 }
@@ -472,7 +458,7 @@ static int properties_prepare(sd_hwdb *hwdb, const char *modalias) {
         return trie_search_f(hwdb, modalias);
 }
 
-_public_ int sd_hwdb_get(sd_hwdb *hwdb, const char *modalias, const char *key, const char **_value) {
+_public_ int sd_hwdb_get(sd_hwdb *hwdb, const char *modalias, const char *key, const char **ret) {
         const struct trie_value_entry_f *entry;
         const char *value;
         int r;
@@ -480,7 +466,7 @@ _public_ int sd_hwdb_get(sd_hwdb *hwdb, const char *modalias, const char *key, c
         assert_return(hwdb, -EINVAL);
         assert_return(hwdb->f, -EINVAL);
         assert_return(modalias, -EINVAL);
-        assert_return(_value, -EINVAL);
+        assert_return(ret, -EINVAL);
 
         r = properties_prepare(hwdb, modalias);
         if (r < 0)
@@ -494,7 +480,7 @@ _public_ int sd_hwdb_get(sd_hwdb *hwdb, const char *modalias, const char *key, c
         if (!value)
                 return -EBADMSG;
 
-        *_value = value;
+        *ret = value;
 
         return 0;
 }
@@ -516,14 +502,14 @@ _public_ int sd_hwdb_seek(sd_hwdb *hwdb, const char *modalias) {
         return 0;
 }
 
-_public_ int sd_hwdb_enumerate(sd_hwdb *hwdb, const char **key, const char **value) {
+_public_ int sd_hwdb_enumerate(sd_hwdb *hwdb, const char **ret_key, const char **ret_value) {
         const struct trie_value_entry_f *entry;
         const char *v;
         const void *k;
 
         assert_return(hwdb, -EINVAL);
-        assert_return(key, -EINVAL);
-        assert_return(value, -EINVAL);
+        assert_return(ret_key, -EINVAL);
+        assert_return(ret_value, -EINVAL);
 
         if (hwdb->properties_modified)
                 return -EAGAIN;
@@ -535,8 +521,8 @@ _public_ int sd_hwdb_enumerate(sd_hwdb *hwdb, const char **key, const char **val
         if (!v)
                 return -EBADMSG;
 
-        *key = k;
-        *value = v;
+        *ret_key = k;
+        *ret_value = v;
 
         return 1;
 }

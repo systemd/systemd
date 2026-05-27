@@ -21,6 +21,7 @@
 
 #include "fd-util.h"
 #include "fuzz.h"
+#include "tests.h"
 #include "tmpfile-util.h"
 
 #define MAX_ENUMERATE 1024
@@ -34,7 +35,7 @@ static const char * const modaliases[] = {
 };
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
-        _cleanup_(unlink_tempfilep) char filename[] = "/tmp/fuzz-hwdb-bin.XXXXXX";
+        _cleanup_(unlink_tempfilep) char filename[] = "/tmp/fuzz-hwdb.XXXXXX";
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_(sd_hwdb_unrefp) sd_hwdb *hwdb = NULL;
 
@@ -43,10 +44,10 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         fuzz_setup_logging();
 
-        assert_se(fmkostemp_safe(filename, "r+", &f) == 0);
+        ASSERT_OK(fmkostemp_safe(filename, "r+", &f));
         if (size != 0)
-                assert_se(fwrite(data, size, 1, f) == 1);
-        fflush(f);
+                ASSERT_OK_EQ_ERRNO((ssize_t) fwrite(data, size, 1, f), (ssize_t) 1);
+        ASSERT_OK_EQ_ERRNO(fflush(f), 0);
 
         if (sd_hwdb_new_from_path(filename, &hwdb) < 0)
                 return 0;
