@@ -9,8 +9,9 @@ executables += [
                 'name' : 'systemd-repart',
                 'public' : true,
                 'extract' : files(
-                        'repart.c',
                         'iso9660.c',
+                        'repart.c',
+                        'repart-list-candidate-devices.c',
                 ),
                 'dependencies' : [
                         libblkid_cflags,
