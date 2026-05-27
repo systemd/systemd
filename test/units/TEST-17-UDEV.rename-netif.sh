@@ -181,6 +181,7 @@ EOF
 
 test_netif_renaming_conflict
 
+# shellcheck disable=SC2317
 teardown_netif_renaming_keeps_properties() {
     set +ex
 
