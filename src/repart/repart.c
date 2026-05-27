@@ -1269,7 +1269,7 @@ static uint64_t partition_max_padding(const Partition *p) {
         return p->suppressing ? MIN(p->padding_max, p->suppressing->padding_max) : p->padding_max;
 }
 
-static uint64_t partition_min_size_with_padding(Context *context, const Partition *p) {
+static uint64_t partition_min_size_with_padding(const Context *context, const Partition *p) {
         uint64_t sz;
 
         /* Calculate the disk space we need for this partition plus any free space coming after it. This
@@ -1300,7 +1300,7 @@ static uint64_t free_area_available(const FreeArea *a) {
         return a->size - a->allocated;
 }
 
-static uint64_t free_area_current_end(Context *context, const FreeArea *a) {
+static uint64_t free_area_current_end(const Context *context, const FreeArea *a) {
         assert(context);
         assert(a);
 
@@ -1316,7 +1316,7 @@ static uint64_t free_area_current_end(Context *context, const FreeArea *a) {
         return round_up_size(a->after->offset + a->after->current_size, context->grain_size) + free_area_available(a);
 }
 
-static uint64_t free_area_min_end(Context *context, const FreeArea *a) {
+static uint64_t free_area_min_end(const Context *context, const FreeArea *a) {
         assert(context);
         assert(a);
 
@@ -1330,7 +1330,7 @@ static uint64_t free_area_min_end(Context *context, const FreeArea *a) {
         return round_up_size(a->after->offset + partition_min_size_with_padding(context, a->after), context->grain_size);
 }
 
-static uint64_t free_area_available_for_new_partitions(Context *context, const FreeArea *a) {
+static uint64_t free_area_available_for_new_partitions(const Context *context, const FreeArea *a) {
         assert(context);
         assert(a);
 
@@ -1349,7 +1349,7 @@ static int free_area_compare(FreeArea *const *a, FreeArea *const*b, Context *con
                    free_area_available_for_new_partitions(context, *b));
 }
 
-static uint64_t charge_size(Context *context, uint64_t total, uint64_t amount) {
+static uint64_t charge_size(const Context *context, uint64_t total, uint64_t amount) {
         assert(context);
         /* Subtract the specified amount from total, rounding up to multiple of 4K if there's room */
         assert(amount <= total);
@@ -1478,7 +1478,7 @@ static uint32_t partition_padding_weight(const Partition *p) {
         return p->suppressing ? p->suppressing->padding_weight : p->padding_weight;
 }
 
-static int context_sum_weights(Context *context, FreeArea *a, uint64_t *ret) {
+static int context_sum_weights(const Context *context, const FreeArea *a, uint64_t *ret) {
         uint64_t weight_sum = 0;
 
         assert(context);
@@ -1542,8 +1542,8 @@ typedef enum GrowPartitionPhase {
 } GrowPartitionPhase;
 
 static bool context_grow_partitions_phase(
-                Context *context,
-                FreeArea *a,
+                const Context *context,
+                const FreeArea *a,
                 GrowPartitionPhase phase,
                 uint64_t *span,
                 uint64_t *weight_sum) {
@@ -4926,7 +4926,7 @@ static int context_discard_gap_after(Context *context, Partition *p) {
         return 0;
 }
 
-static bool partition_defer(Context *c, const Partition *p) {
+static bool partition_defer(const Context *c, const Partition *p) {
         assert(c);
         assert(p);
 
