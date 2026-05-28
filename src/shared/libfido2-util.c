@@ -743,6 +743,8 @@ int fido2_generate_hmac_hash(
                 const char *user_icon,
                 const char *askpw_icon,
                 const char *askpw_credential,
+                AskPasswordFlags askpw_flags,
+                const char *pin,
                 Fido2EnrollFlags lock_with,
                 int cred_alg,
                 const struct iovec *salt,
@@ -917,28 +919,38 @@ int fido2_generate_hmac_hash(
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Token asks for PIN but doesn't advertise 'clientPin' feature.");
 
-                AskPasswordFlags askpw_flags = ASK_PASSWORD_ACCEPT_CACHED;
+                AskPasswordFlags pin_askpw_flags = askpw_flags | ASK_PASSWORD_ACCEPT_CACHED;
 
                 for (;;) {
-                        _cleanup_strv_free_erase_ char **pin = NULL;
-                        AskPasswordRequest req = {
-                                .tty_fd = -EBADF,
-                                .message = _("Please enter security token PIN:"),
-                                .icon = askpw_icon,
-                                .keyring = "fido2-pin",
-                                .credential = askpw_credential,
-                                .until = USEC_INFINITY,
-                                .hup_fd = -EBADF,
-                        };
+                        _cleanup_strv_free_erase_ char **pins = NULL;
 
-                        r = ask_password_auto(&req, askpw_flags, &pin);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to acquire user PIN: %m");
+                        if (pin) {
+                                /* A PIN was supplied by the caller: use it directly, don't prompt. */
+                                pins = strv_new(pin);
+                                if (!pins)
+                                        return log_oom();
+                        } else if (FLAGS_SET(askpw_flags, ASK_PASSWORD_HEADLESS))
+                                return log_error_errno(SYNTHETIC_ERRNO(ENOPKG), "PIN querying disabled via 'headless' option.");
+                        else {
+                                AskPasswordRequest req = {
+                                        .tty_fd = -EBADF,
+                                        .message = _("Please enter security token PIN:"),
+                                        .icon = askpw_icon,
+                                        .keyring = "fido2-pin",
+                                        .credential = askpw_credential,
+                                        .until = USEC_INFINITY,
+                                        .hup_fd = -EBADF,
+                                };
 
-                        askpw_flags &= ~ASK_PASSWORD_ACCEPT_CACHED;
+                                r = ask_password_auto(&req, pin_askpw_flags, &pins);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to acquire user PIN: %m");
+
+                                pin_askpw_flags &= ~ASK_PASSWORD_ACCEPT_CACHED;
+                        }
 
                         r = FIDO_ERR_PIN_INVALID;
-                        STRV_FOREACH(i, pin) {
+                        STRV_FOREACH(i, pins) {
                                 if (isempty(*i)) {
                                         log_notice("PIN may not be empty.");
                                         continue;
@@ -956,6 +968,11 @@ int fido2_generate_hmac_hash(
                         }
 
                         if (r != FIDO_ERR_PIN_INVALID)
+                                break;
+
+                        /* A caller-supplied PIN that's wrong won't get better by retrying: fail instead of
+                         * looping forever (we'd never prompt). */
+                        if (pin)
                                 break;
 
                         log_notice("PIN incorrect, please try again.");
