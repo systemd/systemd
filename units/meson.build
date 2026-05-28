@@ -304,6 +304,14 @@ units = [
           'symlinks' : ['sockets.target.wants/'],
         },
         {
+          'file' : 'systemd-sysupdate-notify-bootctl@.service',
+          'conditions' : ['ENABLE_BOOTLOADER'],
+        },
+        {
+          'file' : 'systemd-sysupdate-notify-bootctl.socket',
+          'conditions' : ['ENABLE_BOOTLOADER'],
+        },
+        {
           'file' : 'systemd-confext.service',
           'conditions' : ['ENABLE_SYSEXT'],
         },
