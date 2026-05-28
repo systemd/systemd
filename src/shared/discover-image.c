@@ -957,6 +957,7 @@ int image_find(RuntimeScope scope,
                                 _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
                                 r = path_pick(root,
                                               rfd,
+                                              rfd,
                                               fname_path, /* This has to be the unresolved entry with the .v suffix */
                                               &filter,
                                               /* n_filters= */ 1,
@@ -1177,6 +1178,7 @@ int image_discover(
 
                                         _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
                                         r = path_pick(root,
+                                                      rfd,
                                                       rfd,
                                                       fname_path, /* This has to be the unresolved entry with the .v suffix */
                                                       &filter,
