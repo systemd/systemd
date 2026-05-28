@@ -15,11 +15,9 @@
 #include "string-util.h"
 
 int load_volume_key_fido2(
+                const EnrollContext *c,
                 struct crypt_device *cd,
-                const char *cd_node,
-                const char *device,
-                void *ret_vk,
-                size_t *ret_vks) {
+                struct iovec *ret_vk) {
 
 #if HAVE_LIBFIDO2
         _cleanup_(erase_and_freep) void *decrypted_key = NULL;
@@ -28,19 +26,19 @@ int load_volume_key_fido2(
         ssize_t passphrase_size;
         int r;
 
+        assert_se(c);
+        assert_se(c->node);
         assert_se(cd);
-        assert_se(cd_node);
         assert_se(ret_vk);
-        assert_se(ret_vks);
 
         r = acquire_fido2_key_auto(
                         cd,
-                        cd_node,
-                        cd_node,
-                        device,
+                        c->node,
+                        c->node,
+                        c->unlock_fido2_device,
                         /* until= */ 0,
                         "cryptenroll.fido2-pin",
-                        ASK_PASSWORD_PUSH_CACHE|ASK_PASSWORD_ACCEPT_CACHED,
+                        ASK_PASSWORD_PUSH_CACHE|ASK_PASSWORD_ACCEPT_CACHED|(c->interactive ? 0 : ASK_PASSWORD_HEADLESS),
                         &decrypted_key,
                         &decrypted_key_size);
         if (r == -EAGAIN)
@@ -57,8 +55,8 @@ int load_volume_key_fido2(
         r = sym_crypt_volume_key_get(
                         cd,
                         CRYPT_ANY_SLOT,
-                        ret_vk,
-                        ret_vks,
+                        ret_vk->iov_base,
+                        &ret_vk->iov_len,
                         passphrase,
                         passphrase_size);
         if (r < 0)
@@ -71,13 +69,9 @@ int load_volume_key_fido2(
 }
 
 int enroll_fido2(
+                const EnrollContext *c,
                 struct crypt_device *cd,
-                const struct iovec *volume_key,
-                const char *device,
-                Fido2EnrollFlags lock_with,
-                int cred_alg,
-                const char *salt_file,
-                bool parameters_in_header) {
+                const struct iovec *volume_key) {
 
 #if HAVE_LIBFIDO2
         _cleanup_(iovec_done_erase) struct iovec salt = {};
@@ -88,20 +82,22 @@ int enroll_fido2(
         size_t cid_size, secret_size;
         _cleanup_free_ void *cid = NULL;
         ssize_t base64_encoded_size;
+        Fido2EnrollFlags lock_with;     /* receives the flags actually locked with, see below */
         const char *node, *un;
         int r, keyslot;
 
+        assert_se(c);
         assert_se(cd);
         assert_se(iovec_is_set(volume_key));
-        assert_se(device);
+        assert_se(c->fido2_device);
 
         assert_se(node = sym_crypt_get_device_name(cd));
 
         un = strempty(sym_crypt_get_uuid(cd));
 
-        if (salt_file)
+        if (c->fido2_salt_file)
                 r = fido2_read_salt_file(
-                                salt_file,
+                                c->fido2_salt_file,
                                 /* offset= */ UINT64_MAX,
                                 /* client= */ "cryptenroll",
                                 /* node= */ un,
@@ -112,7 +108,7 @@ int enroll_fido2(
                 return r;
 
         r = fido2_generate_hmac_hash(
-                        device,
+                        c->fido2_device,
                         /* rp_id= */ "io.systemd.cryptsetup",
                         /* rp_name= */ "Encrypted Volume",
                         /* user_id= */ un, strlen(un), /* We pass the user ID and name as the same: the disk's UUID if we have it */
@@ -121,8 +117,10 @@ int enroll_fido2(
                         /* user_icon= */ NULL,
                         /* askpw_icon= */ "drive-harddisk",
                         /* askpw_credential= */ "cryptenroll.fido2-pin",
-                        lock_with,
-                        cred_alg,
+                        c->interactive ? 0 : ASK_PASSWORD_HEADLESS,
+                        c->fido2_pin,
+                        c->fido2_lock_with,
+                        c->fido2_cred_alg != 0 ? c->fido2_cred_alg : COSE_ES256,
                         &salt,
                         &cid, &cid_size,
                         &secret, &secret_size,
@@ -150,7 +148,7 @@ int enroll_fido2(
         if (keyslot < 0)
                 return log_error_errno(keyslot, "Failed to add new FIDO2 key to %s: %m", node);
 
-        if (parameters_in_header) {
+        if (c->fido2_parameters_in_header) {
                 if (asprintf(&keyslot_as_string, "%i", keyslot) < 0)
                         return log_oom();
 

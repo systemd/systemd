@@ -117,6 +117,8 @@ int fido2_generate_hmac_hash(
                 const char *user_icon,
                 const char *askpw_icon,
                 const char *askpw_credential,
+                AskPasswordFlags askpw_flags,
+                const char *pin,
                 Fido2EnrollFlags lock_with,
                 int cred_alg,
                 const struct iovec *salt,
