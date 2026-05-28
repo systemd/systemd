@@ -36,6 +36,10 @@ typedef enum WipeScope {
 DECLARE_STRING_TABLE_LOOKUP(enroll_type, EnrollType);
 DECLARE_STRING_TABLE_LOOKUP(luks2_token_type, EnrollType);
 
+/* Maps the enroll type named 'name' (command line spelling) to its (1U << EnrollType) bitmask, or returns a
+ * negative errno if the name is unknown. Callers merge the returned mask into their own accumulator. */
+int enroll_type_mask_from_string(const char *name);
+
 /* A single bag of parameters consumed by the enrollment helpers. Populated either from the command line
  * (see enroll_context_from_args() in cryptenroll.c), from a Varlink request (see cryptenroll-varlink.c),
  * or by the interactive wizard (see cryptenroll-interactive.c). Owns all strings/arrays it points to. */
