@@ -289,6 +289,11 @@ executables += [
                 'conditions' : ['HAVE_OPENSSL'],
         },
         test_template + {
+                'sources' : files('test-openssh-key.c'),
+                'dependencies' : libopenssl_cflags,
+                'conditions' : ['HAVE_OPENSSL'],
+        },
+        test_template + {
                 'sources' : files('test-display-quota.c'),
                 'type' : 'manual',
         },

@@ -15,7 +15,7 @@
 #include "options.h"
 #include "parse-argument.h"
 #include "pretty-print.h"
-#include "ssh-util.h"
+#include "socket-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tmpfile-util.h"
