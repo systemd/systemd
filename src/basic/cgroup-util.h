@@ -142,7 +142,7 @@ int cg_read_subgroup(DIR *d, char **ret);
 typedef int (*cg_kill_log_func_t)(const PidRef *pid, int sig, void *userdata);
 
 int cg_kill(const char *path, int sig, CGroupFlags flags, Set *killed_pids, cg_kill_log_func_t log_kill, void *userdata);
-int cg_kill_kernel_sigkill(const char *path);
+int cg_kill_kernel_sigkill(const char *path, uint64_t *ret_n_pids_killed);
 int cg_kill_recursive(const char *path, int sig, CGroupFlags flags, Set *killed_pids, cg_kill_log_func_t log_kill, void *userdata);
 
 int cg_split_spec(const char *spec, char **ret_controller, char **ret_path);
