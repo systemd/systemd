@@ -18,46 +18,44 @@
 
 static char *runtime_dir = NULL;
 
-static int setup_test(Manager **m) {
-        char **tests_path = STRV_MAKE("exists", "existsglobFOOBAR", "changed", "modified", "unit",
-                                      "directorynotempty", "makedirectory");
-        _cleanup_(manager_freep) Manager *tmp = NULL;
+static int setup_test(Manager **ret) {
         int r;
-
-        ASSERT_NOT_NULL(m);
 
         r = enter_cgroup_subroot(NULL);
         if (r == -ENOMEDIUM)
                 return log_tests_skipped("cgroupfs not available");
 
-        r = manager_new(RUNTIME_SCOPE_USER, MANAGER_TEST_RUN_BASIC, &tmp);
+        _cleanup_(manager_freep) Manager *m = NULL;
+        r = manager_new(RUNTIME_SCOPE_USER, MANAGER_TEST_RUN_BASIC, &m);
         if (manager_errno_skip_test(r))
                 return log_tests_skipped_errno(r, "manager_new");
         ASSERT_OK(r);
-        ASSERT_OK(manager_startup(tmp, NULL, NULL, NULL, NULL));
+        ASSERT_OK(manager_startup(m, NULL, NULL, NULL, NULL));
 
-        STRV_FOREACH(test_path, tests_path) {
-                _cleanup_free_ char *p = NULL;
+        FOREACH_STRING(s,
+                       "exists",
+                       "existsglobFOOBAR",
+                       "changed",
+                       "modified",
+                       "unit",
+                       "directorynotempty",
+                       "makedirectory") {
 
-                p = strjoin("/tmp/test-path_", *test_path);
-                ASSERT_NOT_NULL(p);
-
+                _cleanup_free_ char *p = ASSERT_NOT_NULL(strjoin("/tmp/test-path_", s));
                 (void) rm_rf(p, REMOVE_ROOT|REMOVE_PHYSICAL);
         }
 
-        *m = TAKE_PTR(tmp);
+        *ret = TAKE_PTR(m);
         return 0;
 }
 
-static Service *service_for_path(Manager *m, Path *path, const char *service_name) {
-        _cleanup_free_ char *tmp = NULL;
-        Unit *service_unit = NULL;
-
+static Service* service_for_path(Manager *m, Path *path, const char *service_name) {
         ASSERT_NOT_NULL(m);
         ASSERT_NOT_NULL(path);
 
+        Unit *service_unit;
         if (!service_name) {
-                tmp = ASSERT_NOT_NULL(strreplace(UNIT(path)->id, ".path", ".service"));
+                _cleanup_free_ char *tmp = ASSERT_NOT_NULL(strreplace(UNIT(path)->id, ".path", ".service"));
                 service_unit = manager_get_unit(m, tmp);
         } else
                 service_unit = manager_get_unit(m, service_name);
@@ -65,19 +63,6 @@ static Service *service_for_path(Manager *m, Path *path, const char *service_nam
 
         return SERVICE(service_unit);
 }
-
-/* Define a test that gets a freshly-initialized Manager passed as `m`. The body returns 0 on
- * success or EXIT_TEST_SKIP to skip; the wrapper hands the value back to the test framework. */
-#define PATH_TEST(name)                                                  \
-        static int test_##name##_body(Manager *m);                       \
-        TEST_RET(name) {                                                 \
-                _cleanup_(manager_freep) Manager *m = NULL;              \
-                int r = setup_test(&m);                                  \
-                if (r != 0)                                              \
-                        return r;                                        \
-                return test_##name##_body(m);                            \
-        }                                                                \
-        static int test_##name##_body(Manager *m)
 
 static int _check_states(
                 unsigned line,
@@ -155,16 +140,20 @@ static int _check_states(
                         return _r;                              \
         } while (0)
 
-PATH_TEST(path_exists) {
+TEST_RET(path_exists) {
         const char *test_path = "/tmp/test-path_exists";
-        Unit *unit = NULL;
-        Path *path = NULL;
-        Service *service = NULL;
+        int r;
 
+        _cleanup_(manager_freep) Manager *m = NULL;
+        r = setup_test(&m);
+        if (r != 0)
+                return r;
+
+        Unit *unit;
         ASSERT_OK(manager_load_startable_unit_or_warn(m, "path-exists.path", NULL, &unit));
 
-        path = PATH(unit);
-        service = service_for_path(m, path, NULL);
+        Path *path = PATH(unit);
+        Service *service = service_for_path(m, path, NULL);
 
         ASSERT_OK(unit_start(unit, NULL));
         check_states(m, path, service, PATH_WAITING, SERVICE_DEAD);
@@ -184,16 +173,20 @@ PATH_TEST(path_exists) {
         return 0;
 }
 
-PATH_TEST(path_existsglob) {
+TEST_RET(path_existsglob) {
         const char *test_path = "/tmp/test-path_existsglobFOOBAR";
-        Unit *unit = NULL;
-        Path *path = NULL;
-        Service *service = NULL;
+        int r;
 
+        _cleanup_(manager_freep) Manager *m = NULL;
+        r = setup_test(&m);
+        if (r != 0)
+                return r;
+
+        Unit *unit;
         ASSERT_OK(manager_load_startable_unit_or_warn(m, "path-existsglob.path", NULL, &unit));
 
-        path = PATH(unit);
-        service = service_for_path(m, path, NULL);
+        Path *path = PATH(unit);
+        Service *service = service_for_path(m, path, NULL);
 
         ASSERT_OK(unit_start(unit, NULL));
         check_states(m, path, service, PATH_WAITING, SERVICE_DEAD);
@@ -213,17 +206,20 @@ PATH_TEST(path_existsglob) {
         return 0;
 }
 
-PATH_TEST(path_changed) {
+TEST_RET(path_changed) {
         const char *test_path = "/tmp/test-path_changed";
-        FILE *f;
-        Unit *unit = NULL;
-        Path *path = NULL;
-        Service *service = NULL;
+        int r;
 
+        _cleanup_(manager_freep) Manager *m = NULL;
+        r = setup_test(&m);
+        if (r != 0)
+                return r;
+
+        Unit *unit;
         ASSERT_OK(manager_load_startable_unit_or_warn(m, "path-changed.path", NULL, &unit));
 
-        path = PATH(unit);
-        service = service_for_path(m, path, NULL);
+        Path *path = PATH(unit);
+        Service *service = service_for_path(m, path, NULL);
 
         ASSERT_OK(unit_start(unit, NULL));
         check_states(m, path, service, PATH_WAITING, SERVICE_DEAD);
@@ -235,8 +231,7 @@ PATH_TEST(path_changed) {
         ASSERT_OK(unit_stop(UNIT(service)));
         check_states(m, path, service, PATH_WAITING, SERVICE_DEAD);
 
-        f = ASSERT_NOT_NULL(fopen(test_path, "w"));
-        fclose(f);
+        fclose(ASSERT_NOT_NULL(fopen(test_path, "w")));
 
         check_states(m, path, service, PATH_RUNNING, SERVICE_RUNNING);
 
@@ -248,17 +243,20 @@ PATH_TEST(path_changed) {
         return 0;
 }
 
-PATH_TEST(path_modified) {
-        _cleanup_fclose_ FILE *f = NULL;
+TEST_RET(path_modified) {
         const char *test_path = "/tmp/test-path_modified";
-        Unit *unit = NULL;
-        Path *path = NULL;
-        Service *service = NULL;
+        int r;
 
+        _cleanup_(manager_freep) Manager *m = NULL;
+        r = setup_test(&m);
+        if (r != 0)
+                return r;
+
+        Unit *unit;
         ASSERT_OK(manager_load_startable_unit_or_warn(m, "path-modified.path", NULL, &unit));
 
-        path = PATH(unit);
-        service = service_for_path(m, path, NULL);
+        Path *path = PATH(unit);
+        Service *service = service_for_path(m, path, NULL);
 
         ASSERT_OK(unit_start(unit, NULL));
         check_states(m, path, service, PATH_WAITING, SERVICE_DEAD);
@@ -270,7 +268,7 @@ PATH_TEST(path_modified) {
         ASSERT_OK(unit_stop(UNIT(service)));
         check_states(m, path, service, PATH_WAITING, SERVICE_DEAD);
 
-        f = ASSERT_NOT_NULL(fopen(test_path, "w"));
+        _cleanup_fclose_ FILE *f = ASSERT_NOT_NULL(fopen(test_path, "w"));
         fputs("test", f);
 
         check_states(m, path, service, PATH_RUNNING, SERVICE_RUNNING);
@@ -283,16 +281,20 @@ PATH_TEST(path_modified) {
         return 0;
 }
 
-PATH_TEST(path_unit) {
+TEST_RET(path_unit) {
         const char *test_path = "/tmp/test-path_unit";
-        Unit *unit = NULL;
-        Path *path = NULL;
-        Service *service = NULL;
+        int r;
 
+        _cleanup_(manager_freep) Manager *m = NULL;
+        r = setup_test(&m);
+        if (r != 0)
+                return r;
+
+        Unit *unit;
         ASSERT_OK(manager_load_startable_unit_or_warn(m, "path-unit.path", NULL, &unit));
 
-        path = PATH(unit);
-        service = service_for_path(m, path, "path-mycustomunit.service");
+        Path *path = PATH(unit);
+        Service *service = service_for_path(m, path, "path-mycustomunit.service");
 
         ASSERT_OK(unit_start(unit, NULL));
         check_states(m, path, service, PATH_WAITING, SERVICE_DEAD);
@@ -308,16 +310,20 @@ PATH_TEST(path_unit) {
         return 0;
 }
 
-PATH_TEST(path_directorynotempty) {
+TEST_RET(path_directorynotempty) {
         const char *test_file, *test_path = "/tmp/test-path_directorynotempty/";
-        Unit *unit = NULL;
-        Path *path = NULL;
-        Service *service = NULL;
+        int r;
 
+        _cleanup_(manager_freep) Manager *m = NULL;
+        r = setup_test(&m);
+        if (r != 0)
+                return r;
+
+        Unit *unit;
         ASSERT_OK(manager_load_startable_unit_or_warn(m, "path-directorynotempty.path", NULL, &unit));
 
-        path = PATH(unit);
-        service = service_for_path(m, path, NULL);
+        Path *path = PATH(unit);
+        Service *service = service_for_path(m, path, NULL);
 
         ASSERT_FAIL(access(test_path, F_OK));
 
@@ -344,11 +350,16 @@ PATH_TEST(path_directorynotempty) {
         return 0;
 }
 
-PATH_TEST(path_makedirectory_directorymode) {
+TEST_RET(path_makedirectory_directorymode) {
         const char *test_path = "/tmp/test-path_makedirectory/";
-        Unit *unit = NULL;
-        struct stat s;
+        int r;
 
+        _cleanup_(manager_freep) Manager *m = NULL;
+        r = setup_test(&m);
+        if (r != 0)
+                return r;
+
+        Unit *unit;
         ASSERT_OK(manager_load_startable_unit_or_warn(m, "path-makedirectory.path", NULL, &unit));
 
         ASSERT_FAIL(access(test_path, F_OK));
@@ -359,6 +370,7 @@ PATH_TEST(path_makedirectory_directorymode) {
         ASSERT_OK_ERRNO(access(test_path, F_OK));
 
         /* Check the mode we specified with DirectoryMode=0744 */
+        struct stat s;
         ASSERT_OK_ERRNO(stat(test_path, &s));
         ASSERT_EQ((mode_t) (s.st_mode & S_IRWXU), (mode_t) 0700);
         ASSERT_EQ((mode_t) (s.st_mode & S_IRWXG), (mode_t) 0040);

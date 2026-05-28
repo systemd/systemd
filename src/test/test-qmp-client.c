@@ -151,20 +151,6 @@ static void run_qmp_test(sd_fiber_func_t mock_fn, sd_fiber_func_t client_fn) {
         ASSERT_OK(sd_future_result(mock_f));
 }
 
-/* Define a test whose body runs as the client fiber on an event loop shared with `mock_fn`.
- * The body receives `QmpClient *client` as its argument. */
-#define QMP_TEST(name, mock_fn)                                                \
-        static int test_##name##_body(QmpClient *client);                      \
-        static int test_##name##_fiber(void *userdata) {                       \
-                int r = test_##name##_body(userdata);                          \
-                ASSERT_OK(sd_event_exit(sd_fiber_get_event(), 0));             \
-                return r;                                                      \
-        }                                                                      \
-        TEST(name) {                                                           \
-                run_qmp_test(mock_fn, test_##name##_fiber);                    \
-        }                                                                      \
-        static int test_##name##_body(QmpClient *client)
-
 static int mock_qmp_basic_fiber(void *userdata) {
         _cleanup_(json_stream_done) JsonStream s = {};
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *stop_event = NULL;
@@ -201,7 +187,8 @@ static int test_event_callback(
         return 0;
 }
 
-QMP_TEST(qmp_client_basic, mock_qmp_basic_fiber) {
+static int qmp_client_basic_fiber(void *userdata) {
+        QmpClient *client = ASSERT_NOT_NULL(userdata);
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *result = NULL;
         _cleanup_free_ char *error_desc = NULL;
         bool event_received = false;
@@ -220,7 +207,12 @@ QMP_TEST(qmp_client_basic, mock_qmp_basic_fiber) {
         ASSERT_OK_POSITIVE(qmp_client_call(client, "cont", NULL, NULL, NULL));
 
         ASSERT_TRUE(event_received);
+        ASSERT_OK(sd_event_exit(sd_fiber_get_event(), 0));
         return 0;
+}
+
+TEST(qmp_basic) {
+        run_qmp_test(mock_qmp_basic_fiber, qmp_client_basic_fiber);
 }
 
 static int mock_qmp_eof_fiber(void *userdata) {
@@ -232,10 +224,16 @@ static int mock_qmp_eof_fiber(void *userdata) {
         return 0;
 }
 
-QMP_TEST(qmp_client_eof, mock_qmp_eof_fiber) {
+static int qmp_client_eof_fiber(void *userdata) {
+        QmpClient *client = ASSERT_NOT_NULL(userdata);
         int r = qmp_client_call(client, "query-status", NULL, NULL, NULL);
         ASSERT_TRUE(ERRNO_IS_NEG_DISCONNECT(r));
+        ASSERT_OK(sd_event_exit(sd_fiber_get_event(), 0));
         return 0;
+}
+
+TEST(qmp_eof) {
+        run_qmp_test(mock_qmp_eof_fiber, qmp_client_eof_fiber);
 }
 
 static int mock_qmp_call_fiber(void *userdata) {
@@ -250,7 +248,8 @@ static int mock_qmp_call_fiber(void *userdata) {
         return 0;
 }
 
-QMP_TEST(qmp_client_call, mock_qmp_call_fiber) {
+static int qmp_client_call_fiber(void *userdata) {
+        QmpClient *client = ASSERT_NOT_NULL(userdata);
         _cleanup_(sd_future_cancel_wait_unrefp) sd_future *f = NULL;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *result = NULL;
         _cleanup_free_ char *error_desc = NULL;
@@ -286,7 +285,12 @@ QMP_TEST(qmp_client_call, mock_qmp_call_fiber) {
         /* qmp_client_call() also surfaces QMP errors as -EIO, regardless of whether the caller
          * passed ret_error_desc. */
         ASSERT_ERROR(qmp_client_call(client, "stop", NULL, NULL, NULL), EIO);
+        ASSERT_OK(sd_event_exit(sd_fiber_get_event(), 0));
         return 0;
+}
+
+TEST(qmp_call) {
+        run_qmp_test(mock_qmp_call_fiber, qmp_client_call_fiber);
 }
 
 static int mock_qmp_call_disconnect_fiber(void *userdata) {
@@ -302,10 +306,16 @@ static int mock_qmp_call_disconnect_fiber(void *userdata) {
         return 0;
 }
 
-QMP_TEST(qmp_client_call_disconnect, mock_qmp_call_disconnect_fiber) {
+static int qmp_client_call_disconnect_fiber(void *userdata) {
+        QmpClient *client = ASSERT_NOT_NULL(userdata);
         int r = qmp_client_call(client, "stop", NULL, NULL, NULL);
         ASSERT_TRUE(ERRNO_IS_NEG_DISCONNECT(r));
+        ASSERT_OK(sd_event_exit(sd_fiber_get_event(), 0));
         return 0;
+}
+
+TEST(qmp_call_disconnect) {
+        run_qmp_test(mock_qmp_call_disconnect_fiber, qmp_client_call_disconnect_fiber);
 }
 
 static int mock_qmp_fd_fiber(void *userdata) {
@@ -336,7 +346,8 @@ static int mock_qmp_fd_fiber(void *userdata) {
         return 0;
 }
 
-QMP_TEST(qmp_client_invoke_with_fd, mock_qmp_fd_fiber) {
+static int qmp_client_invoke_with_fd_fiber(void *userdata) {
+        QmpClient *client = ASSERT_NOT_NULL(userdata);
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *args = NULL;
         _cleanup_close_ int fd_to_pass = -EBADF;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *result = NULL;
@@ -349,7 +360,12 @@ QMP_TEST(qmp_client_invoke_with_fd, mock_qmp_fd_fiber) {
                                            QMP_CLIENT_ARGS_FD(args, TAKE_FD(fd_to_pass)),
                                            &result, NULL));
         ASSERT_NOT_NULL(result);
+        ASSERT_OK(sd_event_exit(sd_fiber_get_event(), 0));
         return 0;
+}
+
+TEST(qmp_invoke_with_fd) {
+        run_qmp_test(mock_qmp_fd_fiber, qmp_client_invoke_with_fd_fiber);
 }
 
 static int on_dead_peer_reply(
@@ -433,7 +449,8 @@ static int tripwire_callback(
         return 0;
 }
 
-QMP_TEST(qmp_client_invoke_slot_lifecycle, mock_qmp_slot_fiber) {
+static int qmp_client_invoke_slot_lifecycle_fiber(void *userdata) {
+        QmpClient *client = ASSERT_NOT_NULL(userdata);
         _cleanup_(qmp_slot_unrefp) QmpSlot *slot = NULL;
 
         ASSERT_OK(qmp_client_invoke(client, &slot, "query-status", NULL, nop_callback, NULL));
@@ -447,10 +464,16 @@ QMP_TEST(qmp_client_invoke_slot_lifecycle, mock_qmp_slot_fiber) {
 
         /* Explicit out-of-order unref exercises the already-disconnected path in qmp_slot_free(). */
         slot = qmp_slot_unref(slot);
+        ASSERT_OK(sd_event_exit(sd_fiber_get_event(), 0));
         return 0;
 }
 
-QMP_TEST(qmp_client_invoke_slot_cancel, mock_qmp_slot_fiber) {
+TEST(qmp_invoke_slot_lifecycle) {
+        run_qmp_test(mock_qmp_slot_fiber, qmp_client_invoke_slot_lifecycle_fiber);
+}
+
+static int qmp_client_invoke_slot_cancel_fiber(void *userdata) {
+        QmpClient *client = ASSERT_NOT_NULL(userdata);
         QmpSlot *slot = NULL;
         bool fired = false;
 
@@ -463,7 +486,12 @@ QMP_TEST(qmp_client_invoke_slot_cancel, mock_qmp_slot_fiber) {
         ASSERT_OK_POSITIVE(qmp_client_call(client, "stop", NULL, NULL, NULL));
 
         ASSERT_FALSE(fired);
+        ASSERT_OK(sd_event_exit(sd_fiber_get_event(), 0));
         return 0;
+}
+
+TEST(qmp_invoke_slot_cancel) {
+        run_qmp_test(mock_qmp_slot_fiber, qmp_client_invoke_slot_cancel_fiber);
 }
 
 TEST(qmp_schema_has_member) {
