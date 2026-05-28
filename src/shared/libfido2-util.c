@@ -746,6 +746,8 @@ int fido2_generate_hmac_hash(
                 const char *user_icon,
                 const char *askpw_icon,
                 const char *askpw_credential,
+                AskPasswordFlags askpw_flags,
+                const char *pin,
                 Fido2EnrollFlags lock_with,
                 int cred_alg,
                 const struct iovec *salt,
@@ -920,48 +922,57 @@ int fido2_generate_hmac_hash(
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Token asks for PIN but doesn't advertise 'clientPin' feature.");
 
-                AskPasswordFlags askpw_flags = ASK_PASSWORD_ACCEPT_CACHED;
+                AskPasswordFlags pin_askpw_flags = askpw_flags | ASK_PASSWORD_ACCEPT_CACHED;
 
                 for (;;) {
-                        _cleanup_strv_free_erase_ char **pin = NULL;
-                        _cleanup_free_ char *ask_pin_msg = NULL;
-                        int pin_retries = -1;
+                        _cleanup_strv_free_erase_ char **pins = NULL;
 
-                        r = sym_fido_dev_get_retry_count(d, &pin_retries);
-                        if (r != FIDO_OK) {
-                                log_warning("Failed to obtain number of retries before lock-out for PIN "
-                                            "authentication, ignoring: %s", sym_fido_strerr(r));
-                                pin_retries = -1;
-                        }
-
-                        if (pin_retries >= 0) {
-                                ask_pin_msg = asprintf_safe(_("Please enter security token PIN "
-                                                            "(remaining attempts before lock-out: %d):"),
-                                                            pin_retries);
-                                if (!ask_pin_msg)
+                        if (pin) {
+                                /* A PIN was supplied by the caller: use it directly, don't prompt. */
+                                pins = strv_new(pin);
+                                if (!pins)
                                         return log_oom();
+                        } else if (FLAGS_SET(askpw_flags, ASK_PASSWORD_HEADLESS))
+                                return log_error_errno(SYNTHETIC_ERRNO(ENOPKG), "PIN querying disabled via 'headless' option.");
+                        else {
+                                int pin_retries = -1;
+                                r = sym_fido_dev_get_retry_count(d, &pin_retries);
+                                if (r != FIDO_OK) {
+                                        log_warning("Failed to obtain number of retries before lock-out for PIN "
+                                                    "authentication, ignoring: %s", sym_fido_strerr(r));
+                                        pin_retries = -1;
+                                }
+
+                                _cleanup_free_ char *ask_pin_msg = NULL;
+                                if (pin_retries >= 0) {
+                                        ask_pin_msg = asprintf_safe(_("Please enter security token PIN "
+                                                                      "(remaining attempts before lock-out: %d):"),
+                                                                    pin_retries);
+                                        if (!ask_pin_msg)
+                                                return log_oom();
+                                }
+
+                                AskPasswordRequest req = {
+                                        .tty_fd = -EBADF,
+                                        .message = pin_retries >= 0
+                                                   ? ask_pin_msg
+                                                   : _("Please enter security token PIN:"),
+                                        .icon = askpw_icon,
+                                        .keyring = "fido2-pin",
+                                        .credential = askpw_credential,
+                                        .until = USEC_INFINITY,
+                                        .hup_fd = -EBADF,
+                                };
+
+                                r = ask_password_auto(&req, pin_askpw_flags, &pins);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to acquire user PIN: %m");
+
+                                pin_askpw_flags &= ~ASK_PASSWORD_ACCEPT_CACHED;
                         }
-
-                        AskPasswordRequest req = {
-                                .tty_fd = -EBADF,
-                                .message = pin_retries >= 0
-                                        ? ask_pin_msg
-                                        : _("Please enter security token PIN:"),
-                                .icon = askpw_icon,
-                                .keyring = "fido2-pin",
-                                .credential = askpw_credential,
-                                .until = USEC_INFINITY,
-                                .hup_fd = -EBADF,
-                        };
-
-                        r = ask_password_auto(&req, askpw_flags, &pin);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to acquire user PIN: %m");
-
-                        askpw_flags &= ~ASK_PASSWORD_ACCEPT_CACHED;
 
                         r = FIDO_ERR_PIN_INVALID;
-                        STRV_FOREACH(i, pin) {
+                        STRV_FOREACH(i, pins) {
                                 if (isempty(*i)) {
                                         log_notice("PIN may not be empty.");
                                         continue;
@@ -981,6 +992,11 @@ int fido2_generate_hmac_hash(
                         if (r != FIDO_ERR_PIN_INVALID)
                                 break;
 
+                        /* A caller-supplied PIN that's wrong won't get better by retrying: fail instead of
+                         * looping forever (we'd never prompt). */
+                        if (pin)
+                                break;
+
                         log_notice("PIN incorrect, please try again.");
                 }
         }
@@ -996,6 +1012,9 @@ int fido2_generate_hmac_hash(
         if (r == FIDO_ERR_UNSUPPORTED_ALGORITHM)
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                        "Token doesn't support credential algorithm %s.", fido2_algorithm_to_string(cred_alg));
+        if (r == FIDO_ERR_PIN_INVALID)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "PIN incorrect.");
         if (r != FIDO_OK)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO),
                                        "Failed to generate FIDO2 credential: %s", sym_fido_strerr(r));
