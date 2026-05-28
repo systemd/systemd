@@ -406,8 +406,9 @@ int cg_kill_recursive(
         return ret;
 }
 
-int cg_kill_kernel_sigkill(const char *path) {
+int cg_kill_kernel_sigkill(const char *path, uint64_t *ret_n_pids_killed) {
         _cleanup_free_ char *killfile = NULL;
+        uint64_t n_pids = UINT64_MAX;
         int r;
 
         /* Kills the cgroup at `path` directly by writing to its cgroup.kill file.  This sends SIGKILL to all
@@ -422,9 +423,21 @@ int cg_kill_kernel_sigkill(const char *path) {
         if (r < 0)
                 return r;
 
+        if (ret_n_pids_killed) {
+                /* This is not and cannot be atomic so there is a chance the counter might not be accurate
+                 * if a process starts/stops between this read and the next write, but this is used for
+                 * informational purposes so that's ok. */
+                r = cg_get_attribute_as_uint64(path, "pids.current", &n_pids);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to read pids.current from cgroup '%s', ignoring: %m", path);
+        }
+
         r = write_string_file(killfile, "1", WRITE_STRING_FILE_DISABLE_BUFFER);
         if (r < 0)
                 return log_debug_errno(r, "Failed to write to cgroup.kill for cgroup '%s': %m", path);
+
+        if (ret_n_pids_killed)
+                *ret_n_pids_killed = n_pids;
 
         return 0;
 }
