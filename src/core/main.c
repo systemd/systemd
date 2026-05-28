@@ -3,6 +3,7 @@
 #include <fcntl.h>
 #include <linux/oom.h>
 #include <linux/vt.h>
+#include <sched.h>
 #include <stdlib.h>
 #include <sys/mount.h>
 #include <sys/prctl.h>
@@ -3456,6 +3457,12 @@ int main(int argc, char *argv[]) {
         if (getpid_cached() == 1) {
                 /* When we run as PID 1 force system mode */
                 arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
+
+                /* The Linux kernel creates PID 1 and all kernel threads with CLONE_FS by default,
+                 * meaning they share fs_struct (umask, root, pwd). Unshare it so our umask(0) below
+                 * (and any later umask changes) don't race with kernel threads. */
+                if (unshare(CLONE_FS) < 0)
+                        log_warning_errno(errno, "Failed to unshare fs_struct, ignoring: %m");
 
                 /* Disable the umask logic */
                 umask(0);
