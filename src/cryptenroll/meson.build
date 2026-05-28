@@ -12,6 +12,7 @@ systemd_cryptenroll_sources = files(
         'cryptenroll-pkcs11.c',
         'cryptenroll-recovery.c',
         'cryptenroll-tpm2.c',
+        'cryptenroll-varlink.c',
         'cryptenroll-wipe.c',
 )
 
@@ -28,3 +29,6 @@ executables += [
                 ],
         },
 ]
+
+install_data('io.systemd.cryptenroll.policy',
+             install_dir : polkitpolicydir)
