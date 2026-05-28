@@ -249,24 +249,36 @@ int oomd_sort_cgroup_contexts(Hashmap *h, oomd_compare_t compare_func, const cha
 }
 
 int oomd_cgroup_kill(Manager *m, OomdCGroupContext *ctx, bool recurse, const char *reason) {
-        _cleanup_set_free_ Set *pids_killed = NULL;
+        size_t n_pids_killed = UINT64_MAX;
         int r;
 
         assert(ctx);
         assert(!m || reason);
 
-        pids_killed = set_new(NULL);
-        if (!pids_killed)
-                return -ENOMEM;
-
         r = increment_oomd_xattr(ctx->path, "user.oomd_ooms", 1);
         if (r < 0)
                 log_debug_errno(r, "Failed to set user.oomd_ooms before kill: %m");
 
-        if (recurse)
-                r = cg_kill_recursive(ctx->path, SIGKILL, CGROUP_IGNORE_SELF, pids_killed, log_kill, NULL);
-        else
-                r = cg_kill(ctx->path, SIGKILL, CGROUP_IGNORE_SELF, pids_killed, log_kill, NULL);
+        if (recurse) {
+                r = cg_kill_kernel_sigkill(ctx->path, &n_pids_killed);
+                if (r == -EOPNOTSUPP) {
+                        _cleanup_set_free_ Set *pids_killed = set_new(/* hash_ops= */ NULL);
+                        if (!pids_killed)
+                                return -ENOMEM;
+
+                        r = cg_kill_recursive(ctx->path, SIGKILL, CGROUP_IGNORE_SELF, pids_killed, log_kill, /* user_data= */ NULL);
+                        if (r >= 0)
+                                n_pids_killed = set_size(pids_killed);
+                }
+        } else {
+                _cleanup_set_free_ Set *pids_killed = set_new(/* hash_ops= */ NULL);
+                if (!pids_killed)
+                        return -ENOMEM;
+
+                r = cg_kill(ctx->path, SIGKILL, CGROUP_IGNORE_SELF, pids_killed, log_kill, /* user_data= */ NULL);
+                if (r >= 0)
+                        n_pids_killed = set_size(pids_killed);
+        }
 
         /* The cgroup could have been cleaned up after we have sent SIGKILL to all of the processes, but before
          * we could do one last iteration of cgroup.procs to check. Or the service unit could have exited and
@@ -277,12 +289,13 @@ int oomd_cgroup_kill(Manager *m, OomdCGroupContext *ctx, bool recurse, const cha
         else if (r < 0)
                 return r;
 
-        if (set_isempty(pids_killed))
+        if (n_pids_killed == 0)
                 log_debug("Nothing killed when attempting to kill %s", ctx->path);
-
-        r = increment_oomd_xattr(ctx->path, "user.oomd_kill", set_size(pids_killed));
-        if (r < 0)
-                log_debug_errno(r, "Failed to set user.oomd_kill on kill: %m");
+        else if (n_pids_killed != UINT64_MAX) {
+                r = increment_oomd_xattr(ctx->path, "user.oomd_kill", n_pids_killed);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to set user.oomd_kill on kill: %m");
+        }
 
         /* send dbus signal */
         if (m)
@@ -294,7 +307,7 @@ int oomd_cgroup_kill(Manager *m, OomdCGroupContext *ctx, bool recurse, const cha
                                           ctx->path,
                                           reason);
 
-        return !set_isempty(pids_killed);
+        return n_pids_killed > 0 && n_pids_killed != UINT64_MAX;
 }
 
 static void oomd_kill_state_free(OomdKillState *ks) {
