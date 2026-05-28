@@ -14,6 +14,15 @@
 # specification for the shell prompt. For details see:
 # https://uapi-group.org/specifications/specs/osc_context/
 
+# This file is "activated" through systemd-tmpfiles which links it into
+# /etc/profile.d/. To disable this, remove the
+# /etc/profile.d/80-systemd-osc-context.sh symlink and mask the
+# 20-systemd-osc-context.conf snippet (as root):
+#
+#   test -h /etc/profile.d/80-systemd-osc-context.sh && \
+#     rm -v /etc/profile.d/80-systemd-osc-context.sh && \
+#     ln -s /dev/null /etc/tmpfiles.d/20-systemd-osc-context.conf
+
 # Not bash?
 [ -n "${BASH_VERSION:-}" ] || return 0
 
