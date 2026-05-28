@@ -50,6 +50,11 @@ varlinkctl list-methods /run/systemd/report/io.systemd.Network
 varlinkctl --more call /run/systemd/report/io.systemd.Network io.systemd.Metrics.List {}
 varlinkctl --more call /run/systemd/report/io.systemd.Network io.systemd.Metrics.Describe {}
 
+# io.systemd.Network.Address: at least the loopback address should be reported on 'lo'
+net_metrics="$(varlinkctl call --more --json=short /run/systemd/report/io.systemd.Network io.systemd.Metrics.List {})"
+echo "$net_metrics" | grep '"name":"io.systemd.Network.Address"' | grep '"object":"lo"' | grep '"value":"127.0.0.1/8"' >/dev/null
+echo "$net_metrics" | grep '"name":"io.systemd.Network.Address"' | grep '"object":"lo"' | grep '"family":"ipv4"' >/dev/null
+
 # test io.systemd.Basic Metrics
 # ensure the socket is running, as some distros don't enable it by default
 systemctl start systemd-report-basic.socket
@@ -61,6 +66,21 @@ varlinkctl --more call /run/systemd/report/io.systemd.Basic io.systemd.Metrics.D
 id1="$(varlinkctl call --more /run/systemd/report/io.systemd.Basic io.systemd.Metrics.List {} | jq --seq -r 'select(.name == "io.systemd.Basic.OSRelease.ID") | .value')"
 id2="$(. /etc/os-release; echo "$ID")"
 [ "$id1" = "$id2" ]
+
+# io.systemd.Manager.SystemdVersion should be non-empty and match what `systemctl --version` reports
+metrics_version="$(varlinkctl call --more /run/systemd/report/io.systemd.Manager io.systemd.Metrics.List {} | jq --seq -r 'select(.name == "io.systemd.Manager.SystemdVersion") | .value')"
+[ -n "$metrics_version" ]
+systemctl --version | grep -F "($metrics_version)" >/dev/null
+
+# Boot timeline timestamps. The kernel CLOCK_MONOTONIC is 0 by definition, so only its realtime is
+# reported; userspace reports both realtime and monotonic. We don't check FinishTimestamp here:
+# the test runs as a service, so manager_check_finished() typically hasn't fired yet and the
+# timestamp is unset (the metric is then suppressed).
+manager_metrics="$(varlinkctl call --more /run/systemd/report/io.systemd.Manager io.systemd.Metrics.List {})"
+metric_value() { echo "$manager_metrics" | jq --seq -r "select(.name == \"io.systemd.Manager.$1\") | .value | tostring"; }
+[ "$(metric_value KernelTimestamp.Realtime)" -gt 0 ]
+[ "$(metric_value UserspaceTimestamp.Realtime)" -gt 0 ]
+[ "$(metric_value UserspaceTimestamp.Monotonic)" -gt 0 ]
 
 # test io.systemd.Basic.MachineInfo.* metrics, sourced from /etc/machine-info
 if [ -e /etc/machine-info ]; then
