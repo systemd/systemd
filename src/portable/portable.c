@@ -822,7 +822,7 @@ static int extract_image_and_extensions(
          * get a simple image name, which would make vpick error out. */
         if (path_is_absolute(name_or_path)) {
                 r = path_pick(/* toplevel_path= */ NULL,
-                              /* toplevel_fd= */ AT_FDCWD,
+                              /* root_fd= */ AT_FDCWD, /* dir_fd= */ AT_FDCWD,
                               name_or_path,
                               pick_filter_image_any,
                               ELEMENTSOF(pick_filter_image_any),
@@ -861,7 +861,7 @@ static int extract_image_and_extensions(
 
                         if (path_is_absolute(*p)) {
                                 r = path_pick(/* toplevel_path= */ NULL,
-                                              /* toplevel_fd= */ AT_FDCWD,
+                                              /* root_fd= */ AT_FDCWD, /* dir_fd= */ AT_FDCWD,
                                               *p,
                                               pick_filter_image_any,
                                               ELEMENTSOF(pick_filter_image_any),
@@ -2202,7 +2202,7 @@ static bool marker_matches_images(const char *marker, const char *name_or_path, 
                                 return log_debug_errno(r, "Failed to extract image name from %s, ignoring: %m", image);
 
                         r = path_pick(/* toplevel_path= */ NULL,
-                                      /* toplevel_fd= */ AT_FDCWD,
+                                      /* root_fd= */ AT_FDCWD, /* dir_fd= */ AT_FDCWD,
                                       *image_name_or_path,
                                       pick_filter_image_any,
                                       ELEMENTSOF(pick_filter_image_any),
