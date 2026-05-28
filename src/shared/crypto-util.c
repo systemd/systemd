@@ -1259,50 +1259,6 @@ int kdf_hkdf_sha256(
         return 0;
 }
 
-int rsa_encrypt_bytes(
-                EVP_PKEY *pkey,
-                const void *decrypted_key,
-                size_t decrypted_key_size,
-                void **ret_encrypt_key,
-                size_t *ret_encrypt_key_size) {
-
-        _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx = NULL;
-        _cleanup_free_ void *b = NULL;
-        size_t l;
-        int r;
-
-        assert(ret_encrypt_key);
-        assert(ret_encrypt_key_size);
-
-        r = dlopen_libcrypto(LOG_DEBUG);
-        if (r < 0)
-                return r;
-
-        ctx = sym_EVP_PKEY_CTX_new(pkey, NULL);
-        if (!ctx)
-                return log_openssl_errors("Failed to allocate public key context");
-
-        if (sym_EVP_PKEY_encrypt_init(ctx) <= 0)
-                return log_openssl_errors("Failed to initialize public key context");
-
-        if (sym_EVP_PKEY_CTX_set_rsa_padding(ctx, RSA_PKCS1_PADDING) <= 0)
-                return log_openssl_errors("Failed to configure PKCS#1 padding");
-
-        if (sym_EVP_PKEY_encrypt(ctx, NULL, &l, decrypted_key, decrypted_key_size) <= 0)
-                return log_openssl_errors("Failed to determine encrypted key size");
-
-        b = malloc(l);
-        if (!b)
-                return -ENOMEM;
-
-        if (sym_EVP_PKEY_encrypt(ctx, b, &l, decrypted_key, decrypted_key_size) <= 0)
-                return log_openssl_errors("Failed to determine encrypted key size");
-
-        *ret_encrypt_key = TAKE_PTR(b);
-        *ret_encrypt_key_size = l;
-        return 0;
-}
-
 /* Encrypt the key data using RSA-OAEP with the provided label and specified digest algorithm. Returns 0 on
  * success, -EOPNOTSUPP if the digest algorithm is not supported, or < 0 for any other error. */
 int rsa_oaep_encrypt_bytes(
@@ -2510,6 +2466,35 @@ int openssl_extract_public_key(EVP_PKEY *private_key, EVP_PKEY **ret) {
                 return -EIO;
 
         return 0;
+}
+#endif
+
+#if !HAVE_OPENSSL
+int kdf_argon2id_derive(
+                const void *pass,
+                size_t passlen,
+                const void *salt,
+                size_t saltlen,
+                uint64_t memcost,
+                uint32_t iterations,
+                uint32_t lanes,
+                size_t derive_size,
+                void **ret) {
+
+        return -EOPNOTSUPP;
+}
+
+int kdf_hkdf_sha256(
+                const void *key,
+                size_t key_size,
+                const void *salt,
+                size_t salt_size,
+                const void *info,
+                size_t info_size,
+                size_t derive_size,
+                void **ret) {
+
+        return -EOPNOTSUPP;
 }
 #endif
 
