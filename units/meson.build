@@ -304,6 +304,10 @@ units = [
           'symlinks' : ['sockets.target.wants/'],
         },
         {
+          'file' : 'systemd-sysupdate-notify-bootctl.socket',
+          'conditions' : ['ENABLE_BOOTLOADER'],
+        },
+        {
           'file' : 'systemd-confext.service',
           'conditions' : ['ENABLE_SYSEXT'],
         },
@@ -691,6 +695,10 @@ units = [
           'symlinks' : ['sockets.target.wants/'],
         },
         {
+          'file' : 'systemd-sysupdate-notify-pcrlock.socket',
+          'conditions' : ['ENABLE_BOOTLOADER', 'HAVE_OPENSSL', 'HAVE_TPM2'],
+        },
+        {
           'file' : 'systemd-portabled.service.in',
           'conditions' : ['ENABLE_PORTABLED'],
           'symlinks' : ['dbus-org.freedesktop.portable1.service'],
@@ -778,6 +786,10 @@ units = [
           'file' : 'systemd-sysext.socket',
           'conditions' : ['ENABLE_SYSEXT'],
           'symlinks' : ['sockets.target.wants/'],
+        },
+        {
+          'file' : 'systemd-sysupdate-notify-sysext.socket',
+          'conditions' : ['ENABLE_SYSEXT'],
         },
         {
           'file' : 'systemd-sysext@.service',

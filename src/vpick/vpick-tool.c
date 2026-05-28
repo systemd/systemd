@@ -238,7 +238,7 @@ static int run(int argc, char *argv[]) {
 
                 _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
                 r = path_pick(/* toplevel_path= */ NULL,
-                              /* toplevel_fd= */ AT_FDCWD,
+                              /* root_fd= */ AT_FDCWD, /* dir_fd= */ AT_FDCWD,
                               p,
                               &(PickFilter) {
                                       .basename = arg_filter_basename,

@@ -3719,7 +3719,7 @@ static int pin_rootfs(
                 _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
 
                 r = path_pick(/* toplevel_path= */ NULL,
-                              /* toplevel_fd= */ AT_FDCWD,
+                              /* root_fd= */ AT_FDCWD, /* dir_fd= */ AT_FDCWD,
                               context->root_image,
                               pick_filter_image_raw,
                               ELEMENTSOF(pick_filter_image_raw),
@@ -3760,7 +3760,7 @@ static int pin_rootfs(
                 _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
 
                 r = path_pick(/* toplevel_path= */ NULL,
-                              /* toplevel_fd= */ AT_FDCWD,
+                              /* root_fd= */ AT_FDCWD, /* dir_fd= */ AT_FDCWD,
                               context->root_directory,
                               pick_filter_image_dir,
                               ELEMENTSOF(pick_filter_image_dir),
@@ -3789,7 +3789,7 @@ static int pin_rootfs(
                 _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
 
                 r = path_pick(/* toplevel_path= */ NULL,
-                              /* toplevel_fd= */ AT_FDCWD,
+                              /* root_fd= */ AT_FDCWD, /* dir_fd= */ AT_FDCWD,
                               context->root_mstack,
                               pick_filter_image_mstack,
                               /* n_filters= */ 1,
