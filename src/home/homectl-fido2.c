@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
+#include "ask-password-api.h" /* IWYU pragma: keep */
 #include "errno-util.h"
 #include "fido2-util.h"
 #include "hexdecoct.h"
@@ -174,6 +175,8 @@ int identity_add_fido2_parameters(
                         /* user_icon= */ NULL,
                         /* askpw_icon= */ "user-home",
                         /* askpw_credential= */ "home.token-pin",
+                        /* askpw_flags= */ 0,
+                        /* pin= */ NULL,
                         lock_with,
                         cred_alg,
                         &salt,
