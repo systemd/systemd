@@ -339,6 +339,11 @@ units = [
           'file' : 'systemd-cryptenroll@.service',
           'conditions' : ['HAVE_LIBCRYPTSETUP'],
         },
+        {
+          'file' : 'systemd-cryptenroll-firstboot.service',
+          'conditions' : ['HAVE_LIBCRYPTSETUP'],
+          'symlinks' : ['initrd.target.wants/'],
+        },
         { 'file' : 'systemd-exit.service' },
         { 'file' : 'systemd-factory-reset@.service.in' },
         {
