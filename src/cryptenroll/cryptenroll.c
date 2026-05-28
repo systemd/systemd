@@ -16,6 +16,7 @@
 #include "cryptenroll-pkcs11.h"
 #include "cryptenroll-recovery.h"
 #include "cryptenroll-tpm2.h"
+#include "cryptenroll-varlink.h"
 #include "cryptenroll-wipe.h"
 #include "cryptsetup-util.h"
 #include "extract-word.h"
@@ -725,7 +726,7 @@ static int load_volume_key_keyfile(
         return r;
 }
 
-static int prepare_luks(
+int prepare_luks(
                 const EnrollContext *c,
                 struct crypt_device **ret_cd,
                 struct iovec *ret_volume_key) {
@@ -848,13 +849,80 @@ static int enroll_context_from_args(EnrollContext *c) {
         return 0;
 }
 
+int enroll_now(
+                const EnrollContext *c,
+                struct crypt_device *cd,
+                const struct iovec *volume_key,
+                char **ret_recovery_key) {
+
+        int slot, slot_to_wipe = -1, r;
+
+        assert(c);
+        assert(cd);
+        assert(iovec_is_set(volume_key));
+
+        switch (c->enroll_type) {
+
+        case ENROLL_PASSWORD:
+                return enroll_password(c, cd, volume_key);
+
+        case ENROLL_RECOVERY:
+                return enroll_recovery(c, cd, volume_key, ret_recovery_key);
+
+        case ENROLL_PKCS11:
+                return enroll_pkcs11(c, cd, volume_key);
+
+        case ENROLL_FIDO2:
+                return enroll_fido2(c, cd, volume_key);
+
+        case ENROLL_TPM2:
+                slot = enroll_tpm2(c, cd, volume_key, &slot_to_wipe);
+                if (slot < 0)
+                        return slot;
+
+                if (slot_to_wipe >= 0) {
+                        assert(slot != slot_to_wipe);
+
+                        /* Updating the PIN on an existing enrollment: wipe just that one slot. This is an
+                         * internal one-off wipe, unrelated to the user's wipe selection, so use a throwaway
+                         * context referencing a single explicit slot. */
+                        _cleanup_(enroll_context_done) EnrollContext wipe_ctx = ENROLL_CONTEXT_NULL;
+                        wipe_ctx.wipe_slots = newdup(int, &slot_to_wipe, 1);
+                        if (!wipe_ctx.wipe_slots)
+                                return log_oom();
+
+                        wipe_ctx.n_wipe_slots = 1;
+
+                        r = wipe_slots(&wipe_ctx, cd, /* ret_wiped_slots= */ NULL, /* ret_n_wiped_slots= */ NULL);
+                        if (r < 0)
+                                return r;
+                }
+
+                return slot;
+
+        default:
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Operation not implemented yet.");
+        }
+}
+
 static int run(int argc, char *argv[]) {
         _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
         _cleanup_(iovec_done_erase) struct iovec vk = {};
         _cleanup_(enroll_context_done) EnrollContext c = ENROLL_CONTEXT_NULL;
-        int slot, slot_to_wipe, r;
+        int slot, r;
 
         log_setup();
+
+        /* A delicious drop of snake oil */
+        (void) safe_mlockall(MCL_CURRENT|MCL_FUTURE|MCL_ONFAULT);
+
+        /* If invoked as a Varlink service, hand off to the Varlink server and don't process the command
+         * line any further. */
+        r = sd_varlink_invocation(SD_VARLINK_ALLOW_ACCEPT);
+        if (r < 0)
+                return log_error_errno(r, "Failed to check if invoked in Varlink mode: %m");
+        if (r > 0)
+                return cryptenroll_varlink_server();
 
         r = parse_argv(argc, argv);
         if (r <= 0)
@@ -864,73 +932,35 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        /* A delicious drop of snake oil */
-        (void) safe_mlockall(MCL_CURRENT|MCL_FUTURE|MCL_ONFAULT);
-
         r = enroll_context_from_args(&c);
         if (r < 0)
                 return r;
 
-        if (c.enroll_type < 0)
-                r = prepare_luks(&c, &cd, /* ret_volume_key= */ NULL); /* No need to unlock device if we don't need the volume key because we don't need to enroll anything */
-        else
-                r = prepare_luks(&c, &cd, &vk);
-        if (r < 0)
-                return r;
+        /* If we are called without anything to enroll, we just need the LUKS device, not the volume key. */
+        if (c.enroll_type < 0) {
+                r = prepare_luks(&c, &cd, /* ret_volume_key= */ NULL);
+                if (r < 0)
+                        return r;
 
-        switch (c.enroll_type) {
-
-        case ENROLL_PASSWORD:
-                slot = enroll_password(&c, cd, &vk);
-                break;
-
-        case ENROLL_RECOVERY:
-                slot = enroll_recovery(&c, cd, &vk, /* ret_recovery_key= */ NULL);
-                break;
-
-        case ENROLL_PKCS11:
-                slot = enroll_pkcs11(&c, cd, &vk);
-                break;
-
-        case ENROLL_FIDO2:
-                slot = enroll_fido2(&c, cd, &vk);
-                break;
-
-        case ENROLL_TPM2:
-                slot = enroll_tpm2(&c, cd, &vk, &slot_to_wipe);
-
-                if (slot >= 0 && slot_to_wipe >= 0) {
-                        assert(slot != slot_to_wipe);
-
-                        /* Updating PIN on an existing enrollment: wipe just that one slot. This is an
-                         * internal one-off wipe that is unrelated to the user's wipe selection, so use a
-                         * throwaway context referencing a single explicit slot. */
-                        EnrollContext wipe_ctx = ENROLL_CONTEXT_NULL;
-                        wipe_ctx.wipe_slots = &slot_to_wipe;
-                        wipe_ctx.n_wipe_slots = 1;
-
-                        r = wipe_slots(&wipe_ctx, cd);
-                        if (r < 0)
-                                return r;
-                }
-                break;
-        case _ENROLL_TYPE_INVALID:
                 /* List enrolled slots if we are called without anything to enroll or wipe */
                 if (!wipe_requested())
                         return list_enrolled(cd);
 
                 /* Only slot wiping selected */
-                return wipe_slots(&c, cd);
-
-        default:
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Operation not implemented yet.");
+                return wipe_slots(&c, cd, /* ret_wiped_slots= */ NULL, /* ret_n_wiped_slots= */ NULL);
         }
+
+        r = prepare_luks(&c, &cd, &vk);
+        if (r < 0)
+                return r;
+
+        slot = enroll_now(&c, cd, &vk, /* ret_recovery_key= */ NULL);
         if (slot < 0)
                 return slot;
 
         /* After we completed enrolling, remove user selected slots (keeping the one we just added) */
         c.wipe_except_slot = slot;
-        r = wipe_slots(&c, cd);
+        r = wipe_slots(&c, cd, /* ret_wiped_slots= */ NULL, /* ret_n_wiped_slots= */ NULL);
         if (r < 0)
                 return r;
 
