@@ -35,6 +35,7 @@ enable systemd-report-basic.socket
 enable systemd-report-cgroup.socket
 enable systemd-resolved.service
 enable systemd-sysext.service
+enable systemd-sysupdate-notify-bootctl.socket
 enable systemd-sysupdate-notify-pcrlock.socket
 enable systemd-timesyncd.service
 enable systemd-tpm2-clear.service
