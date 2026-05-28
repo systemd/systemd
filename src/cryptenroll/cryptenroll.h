@@ -110,3 +110,12 @@ typedef struct EnrollContext {
         }
 
 void enroll_context_done(EnrollContext *c);
+
+/* Opens & loads the LUKS2 superblock of c->node, refuses homed-managed volumes, and (if ret_volume_key is
+ * non-NULL) unlocks it according to c->unlock_type, returning the volume key. Defined in cryptenroll.c. */
+int prepare_luks(const EnrollContext *c, struct crypt_device **ret_cd, struct iovec *ret_volume_key);
+
+/* Dispatches to the enroll_*() helper matching c->enroll_type and returns the keyslot the new credential
+ * was added to. For ENROLL_RECOVERY the generated key is returned via ret_recovery_key (if non-NULL).
+ * Defined in cryptenroll.c, shared by the command line and Varlink code paths. */
+int enroll_now(const EnrollContext *c, struct crypt_device *cd, const struct iovec *volume_key, char **ret_recovery_key);
