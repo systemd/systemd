@@ -15,9 +15,12 @@
 #include "blkid-util.h"
 #include "blockdev-util.h"
 #include "build.h"
+#include "bus-common-errors.h"
+#include "bus-locator.h"
 #include "bus-polkit.h"
 #include "bus-unit-util.h"
 #include "bus-util.h"
+#include "bus-wait-for-jobs.h"
 #include "capability-util.h"
 #include "chase.h"
 #include "conf-parser.h"
@@ -57,12 +60,14 @@
 #include "rm-rf.h"
 #include "runtime-scope.h"
 #include "selinux-util.h"
+#include "set.h"
 #include "sort-util.h"
 #include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
+#include "unit-name.h"
 #include "varlink-io.systemd.sysext.h"
 #include "varlink-util.h"
 #include "verbs.h"
@@ -289,16 +294,60 @@ static int is_our_mount_point(
         return true;
 }
 
-static int need_reload(
-                ImageClass image_class,
-                char **hierarchies,
-                bool no_reload) {
-
-        /* Parse the mounted images to find out if we need to reload the daemon. */
+static int split_unit_string(const char *s, const char *field, const char *extension, Set **units) {
+        _cleanup_strv_free_ char **split = NULL;
         int r;
 
-        if (no_reload)
-                return false;
+        assert(field);
+        assert(extension);
+        assert(units);
+
+        if (isempty(s))
+                return 0;
+
+        split = strv_split(s, /* separators= whitespace */ NULL);
+        if (!split)
+                return log_oom();
+
+        STRV_FOREACH(u, split) {
+                if (!unit_name_is_valid(*u, UNIT_NAME_PLAIN|UNIT_NAME_INSTANCE)) {
+                        log_warning("Invalid unit name '%s' in %s= of %s, ignoring.", *u, field, extension);
+                        continue;
+                }
+
+                r = set_put_strdup(units, *u);
+                if (r < 0)
+                        return log_oom();
+        }
+
+        return 0;
+}
+
+static int get_extension_release_metadata(
+                ImageClass image_class,
+                char **hierarchies,
+                bool no_reload,
+                bool *ret_need_reload,
+                Set **ret_restart_units,
+                Set **ret_reload_or_restart_units) {
+
+        /* Parse the mounted images to find out if we need to reload the daemon, and which units to
+         * restart or reload-or-restart afterwards. */
+        _cleanup_set_free_ Set *restart_units = NULL, *reload_or_restart_units = NULL;
+        bool need_to_reload = false;
+        int r;
+
+        if (no_reload || !isempty(arg_root)) {
+                /* With --root= we'd be talking to the host service manager about extensions merged
+                 * into a foreign root, which is never what we want. */
+                if (ret_need_reload)
+                        *ret_need_reload = false;
+                if (ret_restart_units)
+                        *ret_restart_units = NULL;
+                if (ret_reload_or_restart_units)
+                        *ret_reload_or_restart_units = NULL;
+                return 0;
+        }
 
         STRV_FOREACH(p, hierarchies) {
                 _cleanup_free_ char *f = NULL, *buf = NULL, *resolved = NULL;
@@ -334,8 +383,7 @@ static int need_reload(
 
                 STRV_FOREACH(extension, mounted_extensions) {
                         _cleanup_strv_free_ char **extension_release = NULL;
-                        const char *extension_reload_manager = NULL;
-                        int b;
+                        const char *value;
 
                         r = load_extension_release_pairs(arg_root, image_class, *extension, /* relax_extension_release_check= */ true, &extension_release);
                         if (r < 0) {
@@ -343,23 +391,50 @@ static int need_reload(
                                 continue;
                         }
 
-                        extension_reload_manager = strv_env_pairs_get(extension_release, "EXTENSION_RELOAD_MANAGER");
-                        if (isempty(extension_reload_manager))
-                                continue;
-
-                        b = parse_boolean(extension_reload_manager);
-                        if (b < 0) {
-                                log_warning_errno(b, "Failed to parse the extension metadata to know if the manager needs to be reloaded, ignoring: %m");
-                                continue;
+                        value = strv_env_pairs_get(extension_release, "EXTENSION_RELOAD_MANAGER");
+                        if (!isempty(value)) {
+                                int b = parse_boolean(value);
+                                if (b < 0)
+                                        log_warning_errno(b, "Failed to parse EXTENSION_RELOAD_MANAGER= of %s, ignoring: %m", *extension);
+                                else if (b)
+                                        need_to_reload = true;
                         }
 
-                        if (b)
-                                /* If at least one extension wants a reload, we reload. */
-                                return true;
+                        if (ret_restart_units) {
+                                value = strv_env_pairs_get(extension_release, "EXTENSION_RESTART_UNITS");
+                                r = split_unit_string(value, "EXTENSION_RESTART_UNITS", *extension, &restart_units);
+                                if (r < 0)
+                                        return r;
+                                if (!isempty(value))
+                                        /* Listing units to restart implies a manager reload because a unit
+                                         * shipped (and later removed) by the extension would otherwise not
+                                         * be visible to the manager when RestartUnit/StopUnit is issued. */
+                                        need_to_reload = true;
+                        }
+
+                        if (ret_reload_or_restart_units) {
+                                value = strv_env_pairs_get(extension_release, "EXTENSION_RELOAD_OR_RESTART_UNITS");
+                                r = split_unit_string(value, "EXTENSION_RELOAD_OR_RESTART_UNITS", *extension, &reload_or_restart_units);
+                                if (r < 0)
+                                        return r;
+                                if (!isempty(value))
+                                        need_to_reload = true;
+                        }
                 }
         }
 
-        return false;
+        /* If a unit is listed in both, restart takes precedence over reload-or-restart. */
+        const char *u;
+        SET_FOREACH(u, restart_units)
+                free(set_remove(reload_or_restart_units, u));
+
+        if (ret_need_reload)
+                *ret_need_reload = need_to_reload;
+        if (ret_restart_units)
+                *ret_restart_units = TAKE_PTR(restart_units);
+        if (ret_reload_or_restart_units)
+                *ret_reload_or_restart_units = TAKE_PTR(reload_or_restart_units);
+        return 0;
 }
 
 static int move_submounts(const char *src, const char *dst) {
@@ -423,6 +498,77 @@ static int daemon_reload(void) {
                 return log_error_errno(r, "Failed to get D-Bus connection: %m");
 
         return bus_service_manager_reload(bus);
+}
+
+static int dispatch_unit_method(sd_bus *bus, BusWaitForJobs *w, Set *units, const char *method) {
+        const char *unit;
+        int r;
+
+        assert(bus);
+        assert(w);
+        assert(method);
+
+        /* Issue the given method for each unit and wait for the jobs to complete. Fall back to StopUnit
+         * when the call reports that the unit's file is gone, e.g., on unmerge when the unit was part of
+         * the extension, because otherwise the running service is leaked. */
+
+        SET_FOREACH(unit, units) {
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+                const char *m = method, *job;
+
+                r = bus_call_method(bus, bus_systemd_mgr, m, &error, &reply, "ss", unit, "replace");
+                if (r < 0 && sd_bus_error_has_names(&error, BUS_ERROR_NO_SUCH_UNIT, BUS_ERROR_LOAD_FAILED)) {
+                        sd_bus_error_free(&error);
+                        m = "StopUnit";
+                        r = bus_call_method(bus, bus_systemd_mgr, m, &error, &reply, "ss", unit, "replace");
+                        if (r < 0 && sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_UNIT)) {
+                                log_debug("Unit '%s' is already gone, nothing to stop.", unit);
+                                continue;
+                        }
+                }
+                if (r < 0) {
+                        log_warning("Failed to %s unit '%s': %s", m, unit, bus_error_message(&error, r));
+                        continue;
+                }
+
+                r = sd_bus_message_read(reply, "o", &job);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                r = bus_wait_for_jobs_one(w, job, BUS_WAIT_JOBS_LOG_ERROR, /* extra_args= */ NULL);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to wait for %s job of unit '%s', ignoring: %m", m, unit);
+        }
+
+        return 0;
+}
+
+static int restart_units(Set *restart_units, Set *reload_or_restart_units) {
+         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+         _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
+        int r;
+
+        if (set_isempty(restart_units) && set_isempty(reload_or_restart_units))
+                return 0;
+
+        r = bus_connect_system_systemd(&bus);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get D-Bus connection: %m");
+
+        r = bus_wait_for_jobs_new(bus, &w);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set up job watcher: %m");
+
+        r = dispatch_unit_method(bus, w, restart_units, "RestartUnit");
+        if (r < 0)
+                return r;
+
+        r = dispatch_unit_method(bus, w, reload_or_restart_units, "ReloadOrRestartUnit");
+        if (r < 0)
+                return r;
+
+        return 0;
 }
 
 static int append_overlayfs_path_option(
@@ -1673,15 +1819,15 @@ static int unmerge(
                 char **hierarchies,
                 bool no_reload) {
 
+        _cleanup_set_free_ Set *units_to_restart = NULL, *units_to_reload_or_restart = NULL;
         bool need_to_reload;
         int r;
 
         (void) DLOPEN_LIBMOUNT(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED);
 
-        r = need_reload(image_class, hierarchies, no_reload);
+        r = get_extension_release_metadata(image_class, hierarchies, no_reload, &need_to_reload, &units_to_restart, &units_to_reload_or_restart);
         if (r < 0)
                 return r;
-        need_to_reload = r > 0;
 
         r = pidref_safe_fork(
                         "(sd-unmerge)",
@@ -1705,6 +1851,11 @@ static int unmerge(
                 if (r < 0)
                         return r;
         }
+
+        /* The sets will be empty when opted out */
+        r = restart_units(units_to_restart, units_to_reload_or_restart);
+        if (r < 0)
+                return r;
 
         return 0;
 }
@@ -2293,14 +2444,21 @@ static int merge(ImageClass image_class,
         if (r > 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EPROTO), "Failed to merge hierarchies");
 
-        r = need_reload(image_class, hierarchies, no_reload);
+        _cleanup_set_free_ Set *units_to_restart = NULL, *units_to_reload_or_restart = NULL;
+        bool need_to_reload;
+        r = get_extension_release_metadata(image_class, hierarchies, no_reload, &need_to_reload, &units_to_restart, &units_to_reload_or_restart);
         if (r < 0)
                 return r;
-        if (r > 0) {
+        if (need_to_reload) {
                 r = daemon_reload();
                 if (r < 0)
                         return r;
         }
+
+        /* The sets will be empty when opted out */
+        r = restart_units(units_to_restart, units_to_reload_or_restart);
+        if (r < 0)
+                return r;
 
         return 1;
 }
