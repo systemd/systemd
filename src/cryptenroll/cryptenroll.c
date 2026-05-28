@@ -23,6 +23,7 @@
 #include "cryptsetup-util.h"
 #include "extract-word.h"
 #include "format-table.h"
+#include "help-util.h"
 #include "initrd-util.h"
 #include "libfido2-util.h"
 #include "log.h"
@@ -33,8 +34,6 @@
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "pkcs11-util.h"
-#include "proc-cmdline.h"
-#include "pretty-print.h"
 #include "process-util.h"
 #include "prompt-util.h"
 #include "string-table.h"
@@ -324,14 +323,7 @@ static int parse_prompt_suppress(const char *arg) {
 }
 
 static int help(void) {
-        _cleanup_free_ char *link = NULL;
         int r;
-
-        pager_open(arg_pager_flags);
-
-        r = terminal_urlify_man("systemd-cryptenroll", "1", &link);
-        if (r < 0)
-                return log_oom();
 
         static const char* const groups[] = {
                 NULL,
@@ -353,21 +345,20 @@ static int help(void) {
 
         (void) table_sync_column_widths(0, tables[0], tables[1], tables[2], tables[3], tables[4], tables[5]);
 
-        printf("%s [OPTIONS...] [BLOCK-DEVICE]\n\n"
-               "%sEnroll a security token or authentication credential to a LUKS volume.%s\n",
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal());
+        pager_open(arg_pager_flags);
+
+        help_cmdline("[OPTIONS...] [BLOCK-DEVICE]");
+        help_abstract("Enroll a security token or authentication credential to a LUKS volume.");
 
         for (size_t i = 0; i < ELEMENTSOF(groups); i++) {
-                printf("\n%s%s:%s\n", ansi_underline(), groups[i] ?: "Options", ansi_normal());
+                help_section(groups[i] ?: "Options");
 
                 r = table_print_or_warn(tables[i]);
                 if (r < 0)
                         return r;
         }
 
-        printf("\nSee the %s for details.\n", link);
+        help_man_page_reference("systemd-cryptenroll", "1");
         return 0;
 }
 
