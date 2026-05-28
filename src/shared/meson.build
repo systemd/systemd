@@ -221,6 +221,7 @@ shared_sources = files(
         'varlink-io.systemd.AskPassword.c',
         'varlink-io.systemd.BootControl.c',
         'varlink-io.systemd.Credentials.c',
+        'varlink-io.systemd.CryptEnroll.c',
         'varlink-io.systemd.FactoryReset.c',
         'varlink-io.systemd.Hostname.c',
         'varlink-io.systemd.Import.c',
