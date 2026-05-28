@@ -48,7 +48,7 @@ int btrfs_subvol_make(int dir_fd, const char *path) {
         _cleanup_close_ int fd = -EBADF;
         int r;
 
-        assert(dir_fd >= 0 || IN_SET(dir_fd, AT_FDCWD, XAT_FDROOT));
+        assert(wildcard_fd_is_valid(dir_fd));
         assert(!isempty(path));
 
         r = extract_subvolume_name(path, &subvolume);

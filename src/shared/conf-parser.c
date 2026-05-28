@@ -603,7 +603,7 @@ static int normalize_root_fd(const char *root, int *root_fd, int *ret_opened_fd)
         /* Normalizes a root dir specification: if root_fd is already valid, keep it. Otherwise, we open the
          * specified dir */
 
-        if (*root_fd >= 0 || IN_SET(*root_fd, AT_FDCWD, XAT_FDROOT)) {
+        if (wildcard_fd_is_valid(*root_fd)) {
                 *ret_opened_fd = -EBADF;
                 return 0;
         }

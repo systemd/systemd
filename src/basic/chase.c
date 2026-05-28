@@ -62,7 +62,7 @@ static int chase_openat2(int root_fd, int dir_fd, const char *path, ChaseFlags c
         int r;
 
         assert(path);
-        assert(dir_fd >= 0 || IN_SET(dir_fd, AT_FDCWD, XAT_FDROOT));
+        assert(wildcard_fd_is_valid(dir_fd));
 
         if (!can_openat2)
                 return -EOPNOTSUPP;
@@ -241,8 +241,8 @@ int chaseat(int root_fd, int dir_fd, const char *path, ChaseFlags flags, char **
         assert(!FLAGS_SET(flags, CHASE_PREFIX_ROOT));
         assert(!FLAGS_SET(flags, CHASE_STEP|CHASE_EXTRACT_FILENAME));
         assert(!FLAGS_SET(flags, CHASE_NO_AUTOFS|CHASE_TRIGGER_AUTOFS));
-        assert(dir_fd >= 0 || IN_SET(dir_fd, AT_FDCWD, XAT_FDROOT));
-        assert(root_fd >= 0 || IN_SET(root_fd, AT_FDCWD, XAT_FDROOT));
+        assert(wildcard_fd_is_valid(dir_fd));
+        assert(wildcard_fd_is_valid(root_fd));
         /* AT_FDCWD for dir_fd is only allowed when there is no chroot boundary: otherwise the current
          * working directory might live outside root_fd's subtree. */
         assert(dir_fd != AT_FDCWD || IN_SET(root_fd, AT_FDCWD, XAT_FDROOT));

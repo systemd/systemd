@@ -130,7 +130,7 @@ int inspect_kernel_full(
         _cleanup_close_ int fd = -EBADF;
         int r;
 
-        assert(dir_fd >= 0 || IN_SET(dir_fd, AT_FDCWD, XAT_FDROOT));
+        assert(wildcard_fd_is_valid(dir_fd));
 
         fd = xopenat(dir_fd, filename, O_RDONLY|O_CLOEXEC);
         if (fd < 0)
