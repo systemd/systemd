@@ -1374,7 +1374,7 @@ int seccomp_parse_syscall_filter(
                         if (!FLAGS_SET(flags, SECCOMP_PARSE_PERMISSIVE))
                                 return r;
 
-                        log_syntax(unit, FLAGS_SET(flags, SECCOMP_PARSE_LOG) ? LOG_WARNING : LOG_DEBUG, filename, line, r,
+                        log_syntax(unit, FLAGS_SET(flags, SECCOMP_PARSE_LOG) ? LOG_INFO : LOG_DEBUG, filename, line, r,
                                    "System call %s cannot be resolved as libseccomp is not available, ignoring: %m", name);
                         return 0;
                 }
