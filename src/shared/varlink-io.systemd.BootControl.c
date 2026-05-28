@@ -185,6 +185,27 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_FIELD_COMMENT("The IDs of the created boot loader entries."),
                 SD_VARLINK_DEFINE_OUTPUT(ids, SD_VARLINK_STRING, SD_VARLINK_ARRAY));
 
+static SD_VARLINK_DEFINE_METHOD(
+                LinkAuto,
+                SD_VARLINK_FIELD_COMMENT("Index into array of file descriptors passed along with this message, pointing to file descriptor to root file system to operate on"),
+                SD_VARLINK_DEFINE_INPUT(rootFileDescriptor, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Root directory to operate relative to. If both this and rootFileDescriptor is specified, this is purely informational. If only this is specified, it is what will be used."),
+                SD_VARLINK_DEFINE_INPUT(rootDirectory, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Selects how to identify boot entries"),
+                SD_VARLINK_DEFINE_INPUT_BY_TYPE(bootEntryTokenType, BootEntryTokenType, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The entry title for the newly created boot menu entry"),
+                SD_VARLINK_DEFINE_INPUT(entryTitle, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The entry version for the newly created boot menu entry"),
+                SD_VARLINK_DEFINE_INPUT(entryVersion, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The commit number for the newly created boot menu entry"),
+                SD_VARLINK_DEFINE_INPUT(entryCommit, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("What to set the triesLeft counter of the boot menu entry to initially."),
+                SD_VARLINK_DEFINE_INPUT(triesLeft, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("How much space to always keep free on ESP/XBOOTLDR. Defaults to 1 MiB"),
+                SD_VARLINK_DEFINE_INPUT(keepFree, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The IDs of the created boot loader entries."),
+                SD_VARLINK_DEFINE_OUTPUT(ids, SD_VARLINK_STRING, SD_VARLINK_ARRAY));
+
 static SD_VARLINK_DEFINE_ERROR(
                 RebootToFirmwareNotSupported);
 
@@ -233,6 +254,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_Unlink,
                 SD_VARLINK_SYMBOL_COMMENT("Install a kernel as boot menu item"),
                 &vl_method_Link,
+                SD_VARLINK_SYMBOL_COMMENT("Like Link(), but automatically discovers the UKI and extra resources staged below /var/lib/systemd/uki/"),
+                &vl_method_LinkAuto,
                 SD_VARLINK_SYMBOL_COMMENT("SetRebootToFirmware() and GetRebootToFirmware() return this if the firmware does not actually support the reboot-to-firmware-UI concept."),
                 &vl_error_RebootToFirmwareNotSupported,
                 SD_VARLINK_SYMBOL_COMMENT("No boot entry defined."),
