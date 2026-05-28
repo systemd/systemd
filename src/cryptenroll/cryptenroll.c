@@ -9,8 +9,10 @@
 #include "blockdev-list.h"
 #include "blockdev-util.h"
 #include "build.h"
+#include "cleanup-util.h"
 #include "cryptenroll.h"
 #include "cryptenroll-fido2.h"
+#include "cryptenroll-interactive.h"
 #include "cryptenroll-list.h"
 #include "cryptenroll-password.h"
 #include "cryptenroll-pkcs11.h"
@@ -21,6 +23,7 @@
 #include "cryptsetup-util.h"
 #include "extract-word.h"
 #include "format-table.h"
+#include "initrd-util.h"
 #include "libfido2-util.h"
 #include "log.h"
 #include "main-func.h"
@@ -30,10 +33,13 @@
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "pkcs11-util.h"
+#include "proc-cmdline.h"
 #include "pretty-print.h"
 #include "process-util.h"
+#include "prompt-util.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "terminal-util.h"
 #include "tpm2-pcr.h"
 #include "tpm2-util.h"
 
@@ -63,6 +69,10 @@ static int *arg_wipe_slots = NULL;
 static size_t arg_n_wipe_slots = 0;
 static WipeScope arg_wipe_slots_scope = WIPE_EXPLICIT;
 static unsigned arg_wipe_slots_mask = 0; /* Bitmask of (1U << EnrollType), for wiping all slots of specific types */
+static bool arg_firstboot = false;
+static bool arg_chrome = true;
+static bool arg_mute_console = false;
+static unsigned arg_prompt_suppress_mask = 0; /* Bitmask of (1U << EnrollType): if any such slot exists, --firstboot does nothing */
 static Fido2EnrollFlags arg_fido2_lock_with = FIDO2ENROLL_PIN | FIDO2ENROLL_UP;
 #if HAVE_LIBFIDO2
 static int arg_fido2_cred_alg = COSE_ES256;
@@ -113,6 +123,20 @@ static const char *const luks2_token_type_table[_ENROLL_TYPE_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(luks2_token_type, EnrollType);
 
+static int enroll_type_mask_from_string(const char *name) {
+        assert(name);
+
+        /* Maps an enroll type name (command line spelling) to its (1U << EnrollType) bitmask, or returns a
+         * negative errno if the name is not a known type. Callers merge the returned mask into their own
+         * accumulator. Shared by the various places that parse type lists into a bitmask. */
+
+        EnrollType t = enroll_type_from_string(name);
+        if (t < 0)
+                return -EINVAL;
+
+        return 1 << t;
+}
+
 void enroll_context_done(EnrollContext *c) {
         if (!c)
                 return;
@@ -137,6 +161,53 @@ void enroll_context_done(EnrollContext *c) {
         c->link = sd_varlink_unref(c->link);
 }
 
+static int resolve_default_node(const char *path, char **ret) {
+        int r;
+
+        /* Resolves the path of the underlying LUKS2 block device of the file system at the given mount
+         * point, i.e. the raw partition behind the dm-crypt mapping that file system sits on. Returns
+         * -ENXIO if the file system is not backed by a (single) LUKS2 device. Logs only at debug level, so
+         * the caller can try the next candidate path. */
+
+        assert(path);
+        assert(ret);
+
+        dev_t devno;
+        r = get_block_device(path, &devno);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to determine block device backing %s: %m", path);
+        if (r == 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENXIO),
+                                       "File system %s is not backed by a (single) whole block device.", path);
+
+        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        r = sd_device_new_from_devnum(&dev, 'b', devno);
+        if (r < 0)
+                return log_debug_errno(r, "Unable to access backing block device for %s: %m", path);
+
+        const char *dm_uuid;
+        r = sd_device_get_property_value(dev, "DM_UUID", &dm_uuid);
+        if (r == -ENOENT)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENXIO), "Backing block device of %s is not a DM device.", path);
+        if (r < 0)
+                return log_debug_errno(r, "Unable to query DM_UUID udev property of backing block device for %s: %m", path);
+
+        if (!startswith(dm_uuid, "CRYPT-LUKS2-"))
+                return log_debug_errno(SYNTHETIC_ERRNO(ENXIO), "Block device backing %s is not a LUKS2 device.", path);
+
+        _cleanup_(sd_device_unrefp) sd_device *origin = NULL;
+        r = block_device_get_originating(dev, &origin, /* recursive= */ false);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get originating device of LUKS2 device backing %s: %m", path);
+
+        const char *dp;
+        r = sd_device_get_devname(origin, &dp);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get device path for LUKS2 device backing %s: %m", path);
+
+        return strdup_to(ret, dp);
+}
+
 static int determine_default_node(void) {
         int r;
 
@@ -154,47 +225,30 @@ static int determine_default_node(void) {
          * Or to say this differently: it makes sense to support well systems with /var/ being on /. It also
          * makes sense to support well systems with them being separate, and /var/ being variable and
          * persistent. But any other kind of system appears much less interesting to support, and in that
-         * case people should just specify the device name explicitly. */
+         * case people should just specify the device name explicitly.
+         *
+         * When invoked from the initrd the host's file systems are not mounted at their final location yet,
+         * but below /sysroot/, hence look there instead. */
 
-        dev_t devno;
-        r = get_block_device("/var", &devno);
-        if (r < 0)
-                return log_error_errno(r, "Failed to determine block device backing /var/: %m");
-        if (r == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(ENXIO),
-                                       "File system /var/ is on not backed by a (single) whole block device.");
+        const char *candidates[2];
+        size_t n_candidates = 0;
 
-        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
-        r = sd_device_new_from_devnum(&dev, 'b', devno);
-        if (r < 0)
-                return log_error_errno(r, "Unable to access backing block device for /var/: %m");
+        if (in_initrd()) {
+                candidates[n_candidates++] = "/sysroot/var";
+                candidates[n_candidates++] = "/sysroot";
+        } else
+                candidates[n_candidates++] = "/var";
 
-        const char *dm_uuid;
-        r = sd_device_get_property_value(dev, "DM_UUID", &dm_uuid);
-        if (r == -ENOENT)
-                return log_error_errno(r, "Backing block device of /var/ is not a DM device: %m");
-        if (r < 0)
-                return log_error_errno(r, "Unable to query DM_UUID udev property of backing block device for /var/: %m");
+        FOREACH_ARRAY(path, candidates, n_candidates) {
+                r = resolve_default_node(*path, &arg_node);
+                if (r >= 0) {
+                        log_info("No device specified, defaulting to '%s' (backing %s).", arg_node, *path);
+                        return 0;
+                }
+        }
 
-        if (!startswith(dm_uuid, "CRYPT-LUKS2-"))
-                return log_error_errno(SYNTHETIC_ERRNO(ENXIO), "Block device backing /var/ is not a LUKS2 device.");
-
-        _cleanup_(sd_device_unrefp) sd_device *origin = NULL;
-        r = block_device_get_originating(dev, &origin, /* recursive= */ false);
-        if (r < 0)
-                return log_error_errno(r, "Failed to get originating device of LUKS2 device backing /var/: %m");
-
-        const char *dp;
-        r = sd_device_get_devname(origin, &dp);
-        if (r < 0)
-                return log_error_errno(r, "Failed to get device path for LUKS2 device backing /var/: %m");
-
-        r = free_and_strdup_warn(&arg_node, dp);
-        if (r < 0)
-                return r;
-
-        log_info("No device specified, defaulting to '%s'.", arg_node);
-        return 0;
+        return log_error_errno(SYNTHETIC_ERRNO(ENXIO),
+                               "Failed to automatically determine a LUKS2 block device to operate on, please specify one explicitly.");
 }
 
 static int parse_wipe_slot(const char *arg) {
@@ -217,21 +271,15 @@ static int parse_wipe_slot(const char *arg) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse slot list: %s", arg);
 
+                int mask;
+
                 if (streq(slot, "all"))
                         arg_wipe_slots_scope = WIPE_ALL;
                 else if (streq(slot, "empty")) {
                         if (arg_wipe_slots_scope != WIPE_ALL) /* if "all" was specified before, that wins */
                                 arg_wipe_slots_scope = WIPE_EMPTY_PASSPHRASE;
-                } else if (streq(slot, "password"))
-                        arg_wipe_slots_mask |= 1U << ENROLL_PASSWORD;
-                else if (streq(slot, "recovery"))
-                        arg_wipe_slots_mask |= 1U << ENROLL_RECOVERY;
-                else if (streq(slot, "pkcs11"))
-                        arg_wipe_slots_mask |= 1U << ENROLL_PKCS11;
-                else if (streq(slot, "fido2"))
-                        arg_wipe_slots_mask |= 1U << ENROLL_FIDO2;
-                else if (streq(slot, "tpm2"))
-                        arg_wipe_slots_mask |= 1U << ENROLL_TPM2;
+                } else if ((mask = enroll_type_mask_from_string(slot)) >= 0)
+                        arg_wipe_slots_mask |= mask;
                 else {
                         unsigned n;
 
@@ -246,6 +294,32 @@ static int parse_wipe_slot(const char *arg) {
 
                         arg_wipe_slots[arg_n_wipe_slots++] = (int) n;
                 }
+        }
+}
+
+static int parse_prompt_suppress(const char *arg) {
+        int r;
+
+        assert(arg);
+
+        /* Parses a comma-separated list of the slot types the --firstboot wizard knows how to enroll. If a
+         * slot of any listed type already exists on the volume, the wizard does nothing. */
+
+        for (const char *p = arg;;) {
+                _cleanup_free_ char *type = NULL;
+                int mask;
+
+                r = extract_first_word(&p, &type, ",", EXTRACT_DONT_COALESCE_SEPARATORS);
+                if (r == 0)
+                        return 0;
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse type list: %s", arg);
+
+                mask = enroll_type_mask_from_string(type);
+                if (mask < 0)
+                        return log_error_errno(mask, "Unknown slot type: %s", type);
+
+                arg_prompt_suppress_mask |= mask;
         }
 }
 
@@ -328,6 +402,32 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_LONG("wipe-slot", "SLOT1,SLOT2,…",
                             "Wipe specified slots"):
                         r = parse_wipe_slot(opts.arg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("firstboot", NULL,
+                            "Interactively enroll a credential (first-boot wizard)"):
+                        arg_firstboot = true;
+                        break;
+
+                OPTION_LONG("prompt-suppress", "TYPE1,TYPE2,…",
+                            "Skip the --firstboot wizard if a slot of any listed type exists"):
+                        r = parse_prompt_suppress(opts.arg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("chrome", "BOOL",
+                            "In first-boot mode, don't show colour bar at top and bottom of terminal"):
+                        r = parse_boolean_argument("--chrome=", opts.arg, &arg_chrome);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("mute-console", "BOOL",
+                            "In first-boot mode, tell kernel/PID 1 to not write to the console while running"):
+                        r = parse_boolean_argument("--mute-console=", opts.arg, &arg_mute_console);
                         if (r < 0)
                                 return r;
                         break;
@@ -624,6 +724,17 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (option_parser_get_n_args(&opts) > 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Too many arguments, refusing.");
+
+        if (arg_firstboot) {
+                if (arg_enroll_type >= 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "--firstboot may not be combined with an explicit enrollment type, refusing.");
+                if (wipe_requested())
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "--firstboot may not be combined with --wipe-slot=, refusing.");
+        } else if (arg_prompt_suppress_mask != 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--prompt-suppress= is only useful together with --firstboot, refusing.");
 
         const char *arg = option_parser_get_arg(&opts, 0);
         if (arg)
@@ -932,8 +1043,27 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        /* If we are called without anything to enroll, we just need the LUKS device, not the volume key. */
-        if (c.enroll_type < 0) {
+        _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *mute_console_link = NULL;
+
+        /* Ensure the interactive chrome (drawn by cryptenroll_run_interactive() in --firstboot mode) is
+         * always torn down on exit; chrome_hide() is a no-op if no chrome was shown. */
+        DEFER_VOID_CALL(chrome_hide);
+
+        if (arg_firstboot) {
+                assert(c.enroll_type < 0);
+
+                r = cryptenroll_run_interactive(
+                                &c,
+                                arg_prompt_suppress_mask,
+                                arg_chrome,
+                                arg_mute_console ? &mute_console_link : NULL);
+                if (r <= 0)
+                        return r;
+
+                assert(c.enroll_type >= 0);
+
+        } else if (c.enroll_type < 0) {
+                /* If we are called without anything to enroll, we just need the LUKS device, not the volume key. */
                 r = prepare_luks(&c, &cd, /* ret_volume_key= */ NULL);
                 if (r < 0)
                         return r;
@@ -948,19 +1078,27 @@ static int run(int argc, char *argv[]) {
 
         r = prepare_luks(&c, &cd, &vk);
         if (r < 0)
-                return r;
+                goto finish;
 
         slot = enroll_now(&c, cd, &vk, /* ret_recovery_key= */ NULL);
-        if (slot < 0)
-                return slot;
+        if (slot < 0) {
+                r = slot;
+                goto finish;
+        }
 
         /* After we completed enrolling, remove user selected slots (keeping the one we just added) */
         c.wipe_except_slot = slot;
         r = wipe_slots(&c, cd, /* ret_wiped_slots= */ NULL, /* ret_n_wiped_slots= */ NULL);
         if (r < 0)
-                return r;
+                goto finish;
 
-        return 0;
+        r = 0;
+
+finish:
+        if (arg_firstboot)
+                (void) any_key_to_proceed();
+
+        return r;
 }
 
 DEFINE_MAIN_FUNCTION(run);
