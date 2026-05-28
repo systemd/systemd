@@ -170,7 +170,7 @@ int open_os_release_at(int rfd, char **ret_path, int *ret_fd) {
         const char *e;
         int r;
 
-        assert(rfd >= 0 || IN_SET(rfd, AT_FDCWD, XAT_FDROOT));
+        assert(wildcard_fd_is_valid(rfd));
 
         e = secure_getenv("SYSTEMD_OS_RELEASE");
         if (e)
@@ -227,7 +227,7 @@ int open_extension_release_at(
         const char *p;
         int r;
 
-        assert(rfd >= 0 || IN_SET(rfd, AT_FDCWD, XAT_FDROOT));
+        assert(wildcard_fd_is_valid(rfd));
         assert(!extension || (image_class >= 0 && image_class < _IMAGE_CLASS_MAX));
 
         if (!extension)
@@ -372,7 +372,7 @@ static int parse_extension_release_atv(
         _cleanup_free_ char *p = NULL;
         int r;
 
-        assert(rfd >= 0 || IN_SET(rfd, AT_FDCWD, XAT_FDROOT));
+        assert(wildcard_fd_is_valid(rfd));
 
         r = open_extension_release_at(rfd, image_class, extension, relax_extension_release_check, &p, &fd);
         if (r < 0)
@@ -391,7 +391,7 @@ int parse_extension_release_at_sentinel(
         va_list ap;
         int r;
 
-        assert(rfd >= 0 || IN_SET(rfd, AT_FDCWD, XAT_FDROOT));
+        assert(wildcard_fd_is_valid(rfd));
 
         va_start(ap, extension);
         r = parse_extension_release_atv(rfd, image_class, extension, relax_extension_release_check, ap);

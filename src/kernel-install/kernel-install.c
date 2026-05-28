@@ -153,7 +153,7 @@ static int context_copy(const Context *source, Context *ret) {
 
         assert(source);
         assert(ret);
-        assert(source->rfd >= 0 || source->rfd == AT_FDCWD || source->rfd == XAT_FDROOT);
+        assert(wildcard_fd_is_valid(source->rfd));
 
         _cleanup_(context_done) Context copy = (Context) {
                 .rfd = source->rfd,

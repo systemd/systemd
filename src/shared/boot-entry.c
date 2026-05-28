@@ -21,7 +21,7 @@ static int entry_token_load_one(int rfd, const char *dir, BootEntryTokenType *ty
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
-        assert(rfd >= 0 || IN_SET(rfd, AT_FDCWD, XAT_FDROOT));
+        assert(wildcard_fd_is_valid(rfd));
         assert(dir);
         assert(type);
         assert(*type == BOOT_ENTRY_TOKEN_AUTO);
@@ -57,7 +57,7 @@ static int entry_token_load_one(int rfd, const char *dir, BootEntryTokenType *ty
 static int entry_token_load(int rfd, const char *conf_root, BootEntryTokenType *type, char **token) {
         int r;
 
-        assert(rfd >= 0 || IN_SET(rfd, AT_FDCWD, XAT_FDROOT));
+        assert(wildcard_fd_is_valid(rfd));
         assert(type);
         assert(*type == BOOT_ENTRY_TOKEN_AUTO);
         assert(token);
@@ -97,7 +97,7 @@ static int entry_token_from_os_release(int rfd, BootEntryTokenType *type, char *
         _cleanup_free_ char *id = NULL, *image_id = NULL;
         int r;
 
-        assert(rfd >= 0 || IN_SET(rfd, AT_FDCWD, XAT_FDROOT));
+        assert(wildcard_fd_is_valid(rfd));
         assert(type);
         assert(IN_SET(*type, BOOT_ENTRY_TOKEN_AUTO, BOOT_ENTRY_TOKEN_OS_IMAGE_ID, BOOT_ENTRY_TOKEN_OS_ID));
         assert(token);
@@ -150,7 +150,7 @@ int boot_entry_token_ensure_at(
 
         int r;
 
-        assert(rfd >= 0 || IN_SET(rfd, AT_FDCWD, XAT_FDROOT));
+        assert(wildcard_fd_is_valid(rfd));
         assert(type);
         assert(token);
 

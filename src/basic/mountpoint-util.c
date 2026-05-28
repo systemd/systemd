@@ -242,7 +242,7 @@ struct file_handle* file_handle_dup(const struct file_handle *fh) {
 int is_mount_point_at(int dir_fd, const char *path, int flags) {
         int r;
 
-        assert(dir_fd >= 0 || IN_SET(dir_fd, AT_FDCWD, XAT_FDROOT));
+        assert(wildcard_fd_is_valid(dir_fd));
         assert((flags & ~AT_SYMLINK_FOLLOW) == 0);
 
         if (path_equal(path, "/"))
@@ -306,7 +306,7 @@ static int path_get_mnt_id_at_internal(int dir_fd, const char *path, bool unique
         struct statx sx;
         int r;
 
-        assert(dir_fd >= 0 || IN_SET(dir_fd, AT_FDCWD, XAT_FDROOT));
+        assert(wildcard_fd_is_valid(dir_fd));
         assert(ret);
 
         r = xstatx(dir_fd, path,

@@ -109,7 +109,7 @@ int btrfs_get_block_device_at_full(int dir_fd, const char *path, uint64_t *ret_d
          * ret - the returned block device
          */
 
-        assert(dir_fd >= 0 || IN_SET(dir_fd, AT_FDCWD, XAT_FDROOT));
+        assert(wildcard_fd_is_valid(dir_fd));
 
         fd = xopenat(dir_fd, path, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
         if (fd < 0)

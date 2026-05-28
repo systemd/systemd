@@ -420,7 +420,7 @@ int read_one_line_file_at(int dir_fd, const char *filename, char **ret) {
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
-        assert(dir_fd >= 0 || IN_SET(dir_fd, AT_FDCWD, XAT_FDROOT));
+        assert(wildcard_fd_is_valid(dir_fd));
         assert(filename);
         assert(ret);
 
@@ -435,7 +435,7 @@ int read_boolean_file_at(int dir_fd, const char *filename) {
         _cleanup_free_ char *s = NULL;
         int r;
 
-        assert(dir_fd >= 0 || IN_SET(dir_fd, AT_FDCWD, XAT_FDROOT));
+        assert(wildcard_fd_is_valid(dir_fd));
         assert(filename);
 
         r = read_one_line_file_at(dir_fd, filename, &s);
@@ -1024,7 +1024,7 @@ static int xfopenat_regular(int dir_fd, const char *path, const char *mode, int 
 
         /* A combination of fopen() with openat() */
 
-        assert(dir_fd >= 0 || IN_SET(dir_fd, AT_FDCWD, XAT_FDROOT));
+        assert(wildcard_fd_is_valid(dir_fd));
         assert(mode);
         assert(ret);
 
@@ -1071,7 +1071,7 @@ static int xfopenat_unix_socket(int dir_fd, const char *path, const char *bind_n
         FILE *f;
         int r;
 
-        assert(dir_fd >= 0 || IN_SET(dir_fd, AT_FDCWD, XAT_FDROOT));
+        assert(wildcard_fd_is_valid(dir_fd));
         assert(ret);
 
         sk = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0);
@@ -1119,7 +1119,7 @@ int xfopenat_full(
         FILE *f = NULL;  /* avoid false maybe-uninitialized warning */
         int r;
 
-        assert(dir_fd >= 0 || IN_SET(dir_fd, AT_FDCWD, XAT_FDROOT));
+        assert(wildcard_fd_is_valid(dir_fd));
         assert(mode);
         assert(ret);
 
@@ -1689,7 +1689,7 @@ int write_data_file_atomic_at(
 
         int r;
 
-        assert(dir_fd >= 0 || IN_SET(dir_fd, AT_FDCWD, XAT_FDROOT));
+        assert(wildcard_fd_is_valid(dir_fd));
 
         /* This is a cousin of write_string_file_atomic(), but operates with arbitrary struct iovec binary
          * data (rather than strings), works without FILE* streams, and does direct syscalls instead. */
