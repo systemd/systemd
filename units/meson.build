@@ -796,6 +796,14 @@ units = [
           'symlinks' : ['sockets.target.wants/'],
         },
         {
+          'file' : 'systemd-sysupdate-notify-sysext@.service',
+          'conditions' : ['ENABLE_SYSEXT'],
+        },
+        {
+          'file' : 'systemd-sysupdate-notify-sysext.socket',
+          'conditions' : ['ENABLE_SYSEXT'],
+        },
+        {
           'file' : 'systemd-sysext@.service',
           'conditions' : ['ENABLE_SYSEXT'],
         },
