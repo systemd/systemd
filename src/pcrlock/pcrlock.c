@@ -61,6 +61,7 @@
 #include "unit-name.h"
 #include "utf8.h"
 #include "varlink-io.systemd.PCRLock.h"
+#include "varlink-io.systemd.SysUpdate.Notify.h"
 #include "varlink-util.h"
 #include "verbs.h"
 
@@ -5467,6 +5468,27 @@ static int vl_method_remove_policy(sd_varlink *link, sd_json_variant *parameters
         return sd_varlink_reply(link, NULL);
 }
 
+static int vl_method_on_completed_update(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        int r;
+
+        assert(link);
+
+        /* Triggered by systemd-sysupdate after an update completed. We deliberately ignore all parameters
+         * (we don't even dispatch them) and simply recompute the PCR policy unconditionally, since the set
+         * of measured components might have changed. */
+
+        /* Only honour update notifications if they come from root */
+        r = varlink_check_privileged_peer(link);
+        if (r < 0)
+                return r;
+
+        r = make_policy(/* force= */ false, /* recovery_pin_mode= */ RECOVERY_PIN_HIDE);
+        if (r < 0)
+                return r;
+
+        return sd_varlink_reply(link, NULL);
+}
+
 static int run(int argc, char *argv[]) {
         int r;
 
@@ -5496,15 +5518,19 @@ static int run(int argc, char *argv[]) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to allocate Varlink server: %m");
 
-                r = sd_varlink_server_add_interface(varlink_server, &vl_interface_io_systemd_PCRLock);
+                r = sd_varlink_server_add_interface_many(
+                                varlink_server,
+                                &vl_interface_io_systemd_PCRLock,
+                                &vl_interface_io_systemd_SysUpdate_Notify);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to add Varlink interface: %m");
+                        return log_error_errno(r, "Failed to add Varlink interfaces: %m");
 
                 r = sd_varlink_server_bind_method_many(
                                 varlink_server,
-                                "io.systemd.PCRLock.ReadEventLog", vl_method_read_event_log,
-                                "io.systemd.PCRLock.MakePolicy",   vl_method_make_policy,
-                                "io.systemd.PCRLock.RemovePolicy", vl_method_remove_policy);
+                                "io.systemd.PCRLock.ReadEventLog",                  vl_method_read_event_log,
+                                "io.systemd.PCRLock.MakePolicy",                    vl_method_make_policy,
+                                "io.systemd.PCRLock.RemovePolicy",                  vl_method_remove_policy,
+                                "io.systemd.SysUpdate.Notify.OnCompletedUpdate",    vl_method_on_completed_update);
                 if (r < 0)
                         return log_error_errno(r, "Failed to bind Varlink methods: %m");
 

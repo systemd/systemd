@@ -38,6 +38,7 @@ enable systemd-report-sign-plain.socket
 enable systemd-report.socket
 enable systemd-resolved.service
 enable systemd-sysext.service
+enable systemd-sysupdate-notify-pcrlock.socket
 enable systemd-timesyncd.service
 enable systemd-tpm2-clear.service
 enable systemd-userdbd.socket
