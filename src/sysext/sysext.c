@@ -63,6 +63,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
+#include "varlink-io.systemd.SysUpdate.Notify.h"
 #include "varlink-io.systemd.sysext.h"
 #include "varlink-util.h"
 #include "verbs.h"
@@ -2740,6 +2741,45 @@ static int vl_method_refresh(sd_varlink *link, sd_json_variant *parameters, sd_v
         return sd_varlink_reply(link, NULL);
 }
 
+static int refresh_class(ImageClass image_class) {
+        _cleanup_strv_free_ char **hierarchies = NULL;
+        int r;
+
+        r = parse_env_extension_hierarchies(&hierarchies, image_class_info[image_class].name_env);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine %s hierarchies: %m", image_class_info[image_class].short_identifier);
+
+        return refresh(image_class, hierarchies, arg_force, arg_no_reload, arg_always_refresh, arg_noexec);
+}
+
+static int vl_method_on_completed_update(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        int r;
+
+        assert(link);
+
+        /* Only honour update notifications if they come from root */
+        uid_t uid;
+        r = sd_varlink_get_peer_uid(link, &uid);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get peer UID: %m");
+        if (uid != 0)
+                return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, NULL);
+
+        /* Triggered by systemd-sysupdate after an update completed. We deliberately ignore all parameters
+         * (we don't even dispatch them). This method is reached through the sysext socket, but a single
+         * notification refreshes both image classes, so freshly downloaded sysexts and confexts are both
+         * picked up, equivalent to "systemd-sysext refresh" plus "systemd-confext refresh". We attempt both
+         * classes and only fail afterwards, so a problem with one does not prevent refreshing the other. */
+
+        r = 0;
+        RET_GATHER(r, refresh_class(IMAGE_SYSEXT));
+        RET_GATHER(r, refresh_class(IMAGE_CONFEXT));
+        if (r < 0)
+                return r;
+
+        return sd_varlink_reply(link, NULL);
+}
+
 VERB_NOARG(verb_list, "list", "List installed extensions");
 static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_hashmap_free_ Hashmap *images = NULL;
@@ -3026,16 +3066,20 @@ static int run(int argc, char *argv[]) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to allocate Varlink server: %m");
 
-                r = sd_varlink_server_add_interface(varlink_server, &vl_interface_io_systemd_sysext);
+                r = sd_varlink_server_add_interface_many(
+                                varlink_server,
+                                &vl_interface_io_systemd_sysext,
+                                &vl_interface_io_systemd_SysUpdate_Notify);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to add Varlink interface: %m");
+                        return log_error_errno(r, "Failed to add Varlink interfaces: %m");
 
                 r = sd_varlink_server_bind_method_many(
                                 varlink_server,
                                 "io.systemd.sysext.Merge", vl_method_merge,
                                 "io.systemd.sysext.Unmerge", vl_method_unmerge,
                                 "io.systemd.sysext.Refresh", vl_method_refresh,
-                                "io.systemd.sysext.List", vl_method_list);
+                                "io.systemd.sysext.List", vl_method_list,
+                                "io.systemd.SysUpdate.Notify.OnCompletedUpdate", vl_method_on_completed_update);
                 if (r < 0)
                         return log_error_errno(r, "Failed to bind Varlink methods: %m");
 
