@@ -213,6 +213,47 @@ int prompt_loop(
         }
 }
 
+static int boolean_is_valid(const char *name, void *userdata) {
+        return parse_boolean(name) >= 0;
+}
+
+int prompt_loop_yes_no(const char *question, bool def, bool *ret) {
+        int r;
+
+        assert(question);
+        assert(ret);
+
+        char **l = STRV_MAKE("yes", "no");
+
+        _cleanup_free_ char *reply = NULL;
+        r = prompt_loop(question,
+                        GLYPH_WARNING_SIGN,
+                        /* prefill= */ def ? "yes" : "no",
+                        /* menu= */ l,
+                        /* accepted= */ NULL,
+                        /* ellipsize_percentage= */ 20,
+                        /* n_columns= */ 2,
+                        /* column_width= */ 40,
+                        /* is_valid= */ boolean_is_valid,
+                        /* refresh= */ NULL,
+                        /* userdata= */ NULL,
+                        PROMPT_SHOW_MENU|PROMPT_MAY_SKIP|PROMPT_HIDE_MENU_HINT|PROMPT_HIDE_SKIP_HINT,
+                        &reply);
+        if (r < 0)
+                return r;
+        if (r == 0) { /* Skipped (empty input): fall back to the default. */
+                *ret = def;
+                return 0;
+        }
+
+        r = parse_boolean(reply);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse reply: %s", reply);
+
+        *ret = r;
+        return 1;
+}
+
 /* Default: bright white on blue background */
 #define ANSI_COLOR_CHROME "\x1B[0;44;1;37m"
 
