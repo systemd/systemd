@@ -1621,7 +1621,7 @@ int connect_unix_path(int fd, int dir_fd, const char *path) {
         _cleanup_close_ int inode_fd = -EBADF;
 
         assert(fd >= 0);
-        assert(IN_SET(dir_fd, AT_FDCWD, XAT_FDROOT) || dir_fd >= 0);
+        assert(wildcard_fd_is_valid(dir_fd));
 
         /* Connects to the specified AF_UNIX socket in the file system. Works around the 108 byte size limit
          * in sockaddr_un, by going via O_PATH if needed. This hence works for any kind of path. */
