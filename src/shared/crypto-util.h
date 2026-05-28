@@ -403,3 +403,7 @@ OpenSSLAskPasswordUI* openssl_ask_password_ui_free(OpenSSLAskPasswordUI *ui);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(OpenSSLAskPasswordUI*, openssl_ask_password_ui_free, NULL);
 
 #endif
+
+int kdf_argon2id_derive(const void *pass, size_t passlen, const void *salt, size_t saltlen, uint64_t memcost, uint32_t iterations, uint32_t lanes, size_t derive_size, void **ret);
+
+int kdf_hkdf_sha256(const void *key, size_t key_size, const void *salt, size_t salt_size, const void *info, size_t info_size, size_t derive_size, void **ret);

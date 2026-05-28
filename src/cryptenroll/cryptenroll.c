@@ -49,6 +49,10 @@ static char *arg_tpm2_device_key = NULL;
 static Tpm2PCRValue *arg_tpm2_hash_pcr_values = NULL;
 static size_t arg_tpm2_n_hash_pcr_values = 0;
 static bool arg_tpm2_pin = false;
+static bool arg_tpm2_argon2id = false;
+static uint64_t arg_tpm2_argon2id_memcost = 65536;
+static uint32_t arg_tpm2_argon2id_iterations = 8;
+static uint32_t arg_tpm2_argon2id_parallelism = 4;
 static char *arg_tpm2_public_key = NULL;
 static bool arg_tpm2_load_public_key = true;
 static uint32_t arg_tpm2_public_key_pcr_mask = 0;
@@ -278,6 +282,7 @@ static int parse_argv(int argc, char *argv[]) {
 
         OptionParser opts = { argc, argv };
         int r;
+        uint64_t u64;
 
         FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
@@ -577,6 +582,39 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
                         break;
+
+                OPTION_LONG("tpm2-with-argon2id", "BOOL",
+                            "Whether to use Argon2id password hardening with TPM2"):
+                        r = parse_boolean_argument("--tpm2-with-argon2id=", opts.arg, &arg_tpm2_argon2id);
+                        if (r < 0)
+                                return r;
+                        if (arg_tpm2_argon2id)
+                                arg_tpm2_pin = true;
+                        break;
+
+                OPTION_LONG("tpm2-argon2id-memory", "KILOBYTES",
+                            "Argon2id memory cost in kilobytes (default: 65536 = 64MB)"):
+                        r = safe_atou64(opts.arg, &u64);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --tpm2-argon2id-memory=: %s", opts.arg);
+                        if (u64 == 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Argon2id memory must be at least 1KB.");
+                        arg_tpm2_argon2id_memcost = u64;
+                        break;
+
+                OPTION_LONG("tpm2-argon2id-iterations", "NUM",
+                            "Argon2id iteration count (default: 8)"):
+                        r = safe_atou(opts.arg, &arg_tpm2_argon2id_iterations);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --tpm2-argon2id-iterations=: %s", opts.arg);
+                        break;
+
+                OPTION_LONG("tpm2-argon2id-parallelism", "NUM",
+                            "Argon2id parallelism/lane count (default: 4)"):
+                        r = safe_atou(opts.arg, &arg_tpm2_argon2id_parallelism);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --tpm2-argon2id-parallelism=: %s", opts.arg);
+                        break;
                 }
 
         if (option_parser_get_n_args(&opts) > 1)
@@ -813,7 +851,7 @@ static int run(int argc, char *argv[]) {
                 break;
 
         case ENROLL_TPM2:
-                slot = enroll_tpm2(cd, &vk, arg_tpm2_device, arg_tpm2_seal_key_handle, arg_tpm2_device_key, arg_tpm2_hash_pcr_values, arg_tpm2_n_hash_pcr_values, arg_tpm2_public_key, arg_tpm2_load_public_key, arg_tpm2_public_key_pcr_mask, arg_tpm2_signature, arg_tpm2_pin, arg_tpm2_pcrlock, &slot_to_wipe);
+                slot = enroll_tpm2(cd, &vk, arg_tpm2_device, arg_tpm2_seal_key_handle, arg_tpm2_device_key, arg_tpm2_hash_pcr_values, arg_tpm2_n_hash_pcr_values, arg_tpm2_public_key, arg_tpm2_load_public_key, arg_tpm2_public_key_pcr_mask, arg_tpm2_signature, arg_tpm2_pin, arg_tpm2_pcrlock, arg_tpm2_argon2id, arg_tpm2_argon2id_memcost, arg_tpm2_argon2id_iterations, arg_tpm2_argon2id_parallelism, &slot_to_wipe);
 
                 if (slot >= 0 && slot_to_wipe >= 0) {
                         assert(slot != slot_to_wipe);
