@@ -3506,13 +3506,18 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
                 /* on distros that provide their own sshd@.service file we need to provide a dropin which
                  * picks up our public key credential */
+                /* sshd reads AuthorizedKeysFile after dropping to the authenticating user's UID, so the
+                 * 0400 credential file under %d/ is unreadable for non-root users. Materialize a 0444
+                 * copy in a RuntimeDirectory so the ephemeral key works for any user. */
                 r = machine_credential_add(
                                 &arg_credentials,
                                 "systemd.unit-dropin.sshd-vsock@.service",
                                 "[Service]\n"
+                                "ExecStartPre=systemd-tmpfiles --create --inline 'f^ /run/sshd-vsock-%i/authorized_keys 0444 root root - ssh.ephemeral-authorized_keys-all'\n"
                                 "ExecStart=\n"
-                                "ExecStart=-sshd -i -o 'AuthorizedKeysFile=%d/ssh.ephemeral-authorized_keys-all .ssh/authorized_keys'\n"
-                                "ImportCredential=ssh.ephemeral-authorized_keys-all\n",
+                                "ExecStart=-sshd -i -o 'AuthorizedKeysFile=/run/sshd-vsock-%i/authorized_keys .ssh/authorized_keys'\n"
+                                "ImportCredential=ssh.ephemeral-authorized_keys-all\n"
+                                "RuntimeDirectory=sshd-vsock-%i\n",
                                 SIZE_MAX);
                 if (r < 0)
                         return log_error_errno(r, "Failed to set credential systemd.unit-dropin.sshd-vsock@.service: %m");
