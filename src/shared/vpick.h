@@ -45,8 +45,9 @@ void pick_result_done(PickResult *p);
 
 int pick_result_compare(const PickResult *a, const PickResult *b, PickFlags flags);
 
-int path_pick(const char *toplevel_path,
-              int toplevel_fd,
+int path_pick(const char *root_path,
+              int root_fd,
+              int dir_fd,
               const char *path,
               const PickFilter filters[],
               size_t n_filters,
