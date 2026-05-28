@@ -3,6 +3,7 @@
 #include "alloc-util.h"
 #include "ask-password-api.h"
 #include "cryptenroll-fido2.h"
+#include "cryptenroll-varlink.h"
 #include "cryptsetup-fido2.h"
 #include "cryptsetup-util.h"
 #include "fido2-util.h"
@@ -106,6 +107,10 @@ int enroll_fido2(
                 r = fido2_generate_salt(&salt);
         if (r < 0)
                 return r;
+
+        /* If we are operating over a Varlink connection that requested progress reports, let the client
+         * know a token touch is imminent before we enter the (blocking) FIDO2 operations below. */
+        (void) enroll_context_notify_state(c, "touch");
 
         r = fido2_generate_hmac_hash(
                         c->fido2_device,

@@ -12,6 +12,7 @@ systemd_cryptenroll_sources = files(
         'cryptenroll-pkcs11.c',
         'cryptenroll-recovery.c',
         'cryptenroll-tpm2.c',
+        'cryptenroll-varlink.c',
         'cryptenroll-wipe.c',
 )
 
