@@ -39,7 +39,7 @@ typedef struct Manager {
         Hashmap *workers;
         LIST_HEAD(Event, events);
         Event *last_event;
-        char *cgroup;
+        char *workers_cgroup;
 
         UdevRules *rules;
         Hashmap *properties;
