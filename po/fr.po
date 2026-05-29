@@ -1472,15 +1472,15 @@ msgstr ""
 
 #: src/shared/libfido2-util.c:497 src/shared/libfido2-util.c:554
 msgid "Please confirm presence on security token to unlock."
-msgstr ""
+msgstr "Veuillez confirmer votre présence sur la clef de sécurité pour le déverrouillage."
 
 #: src/shared/libfido2-util.c:513
 msgid "Please verify user on security token to unlock."
-msgstr ""
+msgstr "Veuillez confirmer l'utilisateur sur la clef de sécurité pour le déverrouillage."
 
 #: src/shared/libfido2-util.c:926
 msgid "Please enter security token PIN:"
-msgstr ""
+msgstr "Veuillez entrer le code PIN de la clef de sécurité:"
 
 #~ msgid "Cleanup old system updates"
 #~ msgstr "Nettoyer les anciennes mises à jour système"
