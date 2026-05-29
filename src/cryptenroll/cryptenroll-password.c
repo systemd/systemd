@@ -7,11 +7,50 @@
 #include "env-util.h"
 #include "errno-util.h"
 #include "escape.h"
+#include "fileio.h"
 #include "iovec-util.h"
 #include "log.h"
 #include "password-quality-util.h"
 #include "string-util.h"
 #include "strv.h"
+
+int load_volume_key_keyfile(
+                const EnrollContext *c,
+                struct crypt_device *cd,
+                struct iovec *ret_vk) {
+
+        _cleanup_(erase_and_freep) char *password = NULL;
+        size_t password_len;
+        int r;
+
+        assert_se(c);
+        assert_se(cd);
+        assert_se(ret_vk);
+
+        r = read_full_file_full(
+                        AT_FDCWD,
+                        c->unlock_keyfile,
+                        UINT64_MAX,
+                        SIZE_MAX,
+                        READ_FULL_FILE_SECURE|READ_FULL_FILE_WARN_WORLD_READABLE|READ_FULL_FILE_CONNECT_SOCKET,
+                        NULL,
+                        &password,
+                        &password_len);
+        if (r < 0)
+                return log_error_errno(r, "Reading keyfile %s failed: %m", c->unlock_keyfile);
+
+        r = sym_crypt_volume_key_get(
+                        cd,
+                        CRYPT_ANY_SLOT,
+                        ret_vk->iov_base,
+                        &ret_vk->iov_len,
+                        password,
+                        password_len);
+        if (r < 0)
+                return log_error_errno(r, "Unlocking via keyfile failed: %m");
+
+        return r;
+}
 
 int load_volume_key_password(
                 const EnrollContext *c,
