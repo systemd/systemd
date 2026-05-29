@@ -1058,6 +1058,27 @@ int qmp_client_call(
         return 1;
 }
 
+int qmp_client_call_and_log(
+                QmpClient *c,
+                const char *command,
+                QmpClientArgs *args,
+                sd_json_variant **ret_result) {
+
+        _cleanup_free_ char *desc = NULL;
+        int r;
+
+        assert(c);
+        assert(command);
+
+        r = qmp_client_call(c, command, args, ret_result, &desc);
+        if (r == -EIO && desc)
+                return log_error_errno(r, "QMP command %s failed: %s", command, desc);
+        if (r < 0)
+                return log_error_errno(r, "Failed to issue QMP command %s: %m", command);
+
+        return 0;
+}
+
 void qmp_client_bind_event(QmpClient *c, qmp_event_callback_t callback, void *userdata) {
         assert(c);
         c->event_callback = callback;
