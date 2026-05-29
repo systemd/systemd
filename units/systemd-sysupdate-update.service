@@ -9,7 +9,7 @@
 
 [Unit]
 Description=Automatic System Update
-Documentation=man:systemd-sysupdate.service(8)
+Documentation=man:systemd-sysupdate-update.service(8)
 Wants=network-online.target
 After=network-online.target
 ConditionVirtualization=!container
@@ -18,6 +18,8 @@ ConditionVirtualization=!container
 Type=simple
 NotifyAccess=main
 ExecStart=systemd-sysupdate update --cleanup=yes
+
+# Keep this sandboxing synchronised with systemd-sysupdate@.service
 CapabilityBoundingSet=CAP_CHOWN CAP_FOWNER CAP_FSETID CAP_MKNOD CAP_SETFCAP CAP_SYS_ADMIN CAP_SETPCAP CAP_DAC_OVERRIDE CAP_LINUX_IMMUTABLE
 NoNewPrivileges=yes
 MemoryDenyWriteExecute=yes
@@ -31,4 +33,4 @@ SystemCallArchitectures=native
 LockPersonality=yes
 
 [Install]
-Also=systemd-sysupdate.timer
+Also=systemd-sysupdate-update.timer
