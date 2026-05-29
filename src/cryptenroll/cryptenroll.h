@@ -20,6 +20,7 @@ typedef enum UnlockType {
         UNLOCK_FIDO2,
         UNLOCK_TPM2,
         UNLOCK_EMPTY,
+        UNLOCK_HEADLESS,
         _UNLOCK_TYPE_MAX,
         _UNLOCK_TYPE_INVALID = -EINVAL,
 } UnlockType;
