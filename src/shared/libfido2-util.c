@@ -14,6 +14,7 @@
 #include "glyph-util.h"
 #include "iovec-util.h"
 #include "plymouth-util.h"
+#include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "unistd.h"
@@ -57,6 +58,7 @@ DLSYM_PROTOTYPE(fido_dev_close) = NULL;
 DLSYM_PROTOTYPE(fido_dev_free) = NULL;
 DLSYM_PROTOTYPE(fido_dev_get_assert) = NULL;
 DLSYM_PROTOTYPE(fido_dev_get_cbor_info) = NULL;
+DLSYM_PROTOTYPE(fido_dev_get_retry_count) = NULL;
 DLSYM_PROTOTYPE(fido_dev_info_free) = NULL;
 DLSYM_PROTOTYPE(fido_dev_info_manifest) = NULL;
 DLSYM_PROTOTYPE(fido_dev_info_manufacturer_string) = NULL;
@@ -759,7 +761,7 @@ int fido2_generate_hmac_hash(
         _cleanup_free_ char *cid_copy = NULL;
         size_t cid_size, secret_size;
         const void *cid, *secret;
-        int r;
+        int r, pin_retries = -1;
 
         assert(device);
         assert(ret_cid);
@@ -920,9 +922,17 @@ int fido2_generate_hmac_hash(
 
                 for (;;) {
                         _cleanup_strv_free_erase_ char **pin = NULL;
+                        r = sym_fido_dev_get_retry_count(d, &pin_retries);
+                        if (r != FIDO_OK)
+                                log_warning("Failed to obtain number of retries before lock out for PIN "
+                                                "authentication.");
+
                         AskPasswordRequest req = {
                                 .tty_fd = -EBADF,
-                                .message = "Please enter security token PIN:",
+                                .message = pin_retries >= 0 ?
+                                        asprintf_safe("Please enter security token PIN "
+                                        "(remaining attempts before lock-out: %d):", pin_retries)
+                                        : "Please enter security token PIN: ",
                                 .icon = askpw_icon,
                                 .keyring = "fido2-pin",
                                 .credential = askpw_credential,
