@@ -10,6 +10,7 @@ Host .host machine/.host
 # Make sure machine/* can be used to connect to local machines registered in machined.
 #
 Host unix/* unix%* vsock/* vsock%* vsock-mux/* vsock-mux%* machine/* machine%*
+        User root
         ProxyCommand {{LIBEXECDIR}}/systemd-ssh-proxy %h %p
         ProxyUseFdpass yes
         CheckHostIP no
