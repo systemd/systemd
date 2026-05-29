@@ -15,6 +15,7 @@
 #include "iovec-util.h"
 #include "locale-util.h"
 #include "plymouth-util.h"
+#include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "unistd.h"
@@ -58,6 +59,7 @@ DLSYM_PROTOTYPE(fido_dev_close) = NULL;
 DLSYM_PROTOTYPE(fido_dev_free) = NULL;
 DLSYM_PROTOTYPE(fido_dev_get_assert) = NULL;
 DLSYM_PROTOTYPE(fido_dev_get_cbor_info) = NULL;
+DLSYM_PROTOTYPE(fido_dev_get_retry_count) = NULL;
 DLSYM_PROTOTYPE(fido_dev_info_free) = NULL;
 DLSYM_PROTOTYPE(fido_dev_info_manifest) = NULL;
 DLSYM_PROTOTYPE(fido_dev_info_manufacturer_string) = NULL;
@@ -126,6 +128,7 @@ int dlopen_libfido2(int log_level) {
                         DLSYM_ARG(fido_dev_free),
                         DLSYM_ARG(fido_dev_get_assert),
                         DLSYM_ARG(fido_dev_get_cbor_info),
+                        DLSYM_ARG(fido_dev_get_retry_count),
                         DLSYM_ARG(fido_dev_info_free),
                         DLSYM_ARG(fido_dev_info_manifest),
                         DLSYM_ARG(fido_dev_info_manufacturer_string),
@@ -921,9 +924,30 @@ int fido2_generate_hmac_hash(
 
                 for (;;) {
                         _cleanup_strv_free_erase_ char **pin = NULL;
+                        _cleanup_free_ char *ask_pin_msg = NULL;
+                        int pin_retries = -1;
+
+                        r = sym_fido_dev_get_retry_count(d, &pin_retries);
+                        if (r != FIDO_OK) {
+                                log_warning("Failed to obtain number of retries before lock-out for PIN "
+                                            "authentication, ignoring: %s", sym_fido_strerr(r));
+                                pin_retries = -1;
+                        }
+
+                        if (pin_retries >= 0) {
+                                ask_pin_msg = asprintf_safe(_("Please enter security token PIN "
+                                                            "(remaining attempts before lock-out: %d):"),
+                                                            pin_retries);
+
+                                if (!ask_pin_msg)
+                                        return log_oom();
+                        }
+
                         AskPasswordRequest req = {
                                 .tty_fd = -EBADF,
-                                .message = _("Please enter security token PIN:"),
+                                .message = pin_retries >= 0
+                                        ? ask_pin_msg
+                                        : _("Please enter security token PIN:"),
                                 .icon = askpw_icon,
                                 .keyring = "fido2-pin",
                                 .credential = askpw_credential,
