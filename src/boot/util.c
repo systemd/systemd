@@ -272,6 +272,28 @@ EFI_STATUS get_file_info(EFI_FILE *handle, EFI_FILE_INFO **ret, size_t *ret_size
         return EFI_SUCCESS;
 }
 
+EFI_STATUS get_volume_ro(EFI_FILE *handle, bool *ret) {
+        size_t size = offsetof(EFI_FILE_SYSTEM_INFO, VolumeLabel) + 256U * sizeof(char16_t);
+        _cleanup_free_ EFI_FILE_SYSTEM_INFO *fsi = NULL;
+        EFI_STATUS err;
+
+        assert(handle);
+        assert(ret);
+
+        fsi = xmalloc(size);
+        err = handle->GetInfo(handle, MAKE_GUID_PTR(EFI_FILE_SYSTEM_INFO), &size, fsi);
+        if (err == EFI_BUFFER_TOO_SMALL) {
+                free(fsi);
+                fsi = xmalloc(size);  /* GetInfo tells us the required size, let's use that now */
+                err = handle->GetInfo(handle, MAKE_GUID_PTR(EFI_FILE_SYSTEM_INFO), &size, fsi);
+        }
+        if (err != EFI_SUCCESS)
+                return err;
+
+        *ret = fsi->ReadOnly;
+        return EFI_SUCCESS;
+}
+
 EFI_STATUS readdir(
                 EFI_FILE *handle,
                 EFI_FILE_INFO **buffer,

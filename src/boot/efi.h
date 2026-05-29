@@ -130,6 +130,7 @@ typedef uint64_t EFI_PHYSICAL_ADDRESS;
  * keep the GUID definitions in line with the UEFI spec. */
 #define EFI_GLOBAL_VARIABLE_GUID EFI_GLOBAL_VARIABLE
 #define EFI_FILE_INFO_GUID EFI_FILE_INFO_ID
+#define EFI_FILE_SYSTEM_INFO_GUID EFI_FILE_SYSTEM_INFO_ID
 
 #define EFI_CUSTOM_MODE_ENABLE_GUID \
         GUID_DEF(0xc076ec0c, 0x7028, 0x4399, 0xa0, 0x72, 0x71, 0xee, 0x5c, 0x44, 0x8b, 0x9f)
