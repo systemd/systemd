@@ -17,6 +17,7 @@
 #include "bus-object.h"
 #include "bus-polkit.h"
 #include "bus-util.h"
+#include "common-signal.h"
 #include "constants.h"
 #include "daemon-util.h"
 #include "device-private.h"
@@ -2673,6 +2674,14 @@ static int run(int argc, char *argv[]) {
         r = sd_event_set_signal_exit(context.event, true);
         if (r < 0)
                 return log_error_errno(r, "Failed to install SIGINT/SIGTERM handlers: %m");
+
+        r = sd_event_add_signal(context.event, /* ret= */ NULL, (SIGRTMIN+18)|SD_EVENT_SIGNAL_PROCMASK, sigrtmin18_handler, /* userdata= */ NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to install SIGRTMIN+18 handler: %m");
+
+        r = sd_event_add_memory_pressure(context.event, /* ret= */ NULL, /* callback= */ NULL, /* userdata= */ NULL);
+        if (r < 0)
+                log_debug_errno(r, "Failed to allocate memory pressure event source, ignoring: %m");
 
         r = connect_bus(&context);
         if (r < 0)
