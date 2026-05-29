@@ -65,6 +65,20 @@ const Specifier specifier_table[] = {
 };
 
 typedef struct Context {
+        /* Parameters/Command line arguments: */
+        char *definitions;
+        bool sync;
+        uint64_t instances_max;
+        char *root;
+        char *image;
+        bool reboot;
+        char *component;
+        int verify;
+        ImagePolicy *image_policy;
+        bool offline;
+        char *transfer_source;
+
+        /* Loaded state: */
         LoopDevice *loop_device;
         char *mounted_dir;
 
@@ -85,7 +99,11 @@ typedef struct Context {
 } Context;
 
 #define CONTEXT_NULL \
-        (Context) {}
+        (Context) { \
+                .sync = true, \
+                .instances_max = UINT64_MAX, \
+                .verify = -1, \
+        }
 
 static void context_done(Context *c) {
         assert(c);
@@ -111,6 +129,49 @@ static void context_done(Context *c) {
         c->n_update_sets = 0;
 
         c->web_cache = hashmap_free(c->web_cache);
+
+        c->definitions = mfree(c->definitions);
+        c->root = mfree(c->root);
+        c->image = mfree(c->image);
+        c->component = mfree(c->component);
+        c->image_policy = image_policy_free(c->image_policy);
+        c->transfer_source = mfree(c->transfer_source);
+}
+
+static int context_from_cmdline(Context *ret) {
+        assert(ret);
+
+        _cleanup_(context_done) Context context = CONTEXT_NULL;
+
+        context.instances_max = arg_instances_max;
+        context.sync = arg_sync;
+        context.reboot = arg_reboot;
+        context.verify = arg_verify;
+        context.offline = arg_offline;
+
+        if (strdup_to(&context.definitions, arg_definitions) < 0)
+                return log_oom();
+
+        if (strdup_to(&context.root, arg_root) < 0)
+                return log_oom();
+
+        if (strdup_to(&context.image, arg_image) < 0)
+                return log_oom();
+
+        if (strdup_to(&context.component, arg_component) < 0)
+                return log_oom();
+
+        if (strdup_to(&context.transfer_source, arg_transfer_source) < 0)
+                return log_oom();
+
+        if (arg_image_policy) {
+                context.image_policy = image_policy_copy(arg_image_policy);
+                if (!context.image_policy)
+                        return log_oom();
+        }
+
+        *ret = TAKE_GENERIC(context, Context, CONTEXT_NULL);
+        return 0;
 }
 
 static DEFINE_POINTER_ARRAY_FREE_FUNC(Transfer*, transfer_free);
@@ -134,7 +195,7 @@ static int read_definitions(
         assert(dirs);
         assert(suffix);
 
-        r = conf_files_list_strv_full(suffix, arg_root,
+        r = conf_files_list_strv_full(suffix, c->root,
                                       CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED|CONF_FILES_WARN,
                                       dirs, &files, &n_files);
         if (r < 0)
@@ -153,7 +214,7 @@ static int read_definitions(
                 if (r < 0)
                         return r;
 
-                r = transfer_resolve_paths(t, arg_root, node);
+                r = transfer_resolve_paths(t, c->root, node);
                 if (r < 0)
                         return r;
 
@@ -184,9 +245,9 @@ static int context_read_definitions(Context *c, const char* node, ReadDefinition
 
         assert(c);
 
-        if (arg_definitions)
-                dirs = strv_new(arg_definitions);
-        else if (arg_component) {
+        if (c->definitions)
+                dirs = strv_new(c->definitions);
+        else if (c->component) {
                 char **l = CONF_PATHS_STRV("");
                 size_t i = 0;
 
@@ -197,7 +258,7 @@ static int context_read_definitions(Context *c, const char* node, ReadDefinition
                 STRV_FOREACH(dir, l) {
                         char *j;
 
-                        j = strjoin(*dir, "sysupdate.", arg_component, ".d");
+                        j = strjoin(*dir, "sysupdate.", c->component, ".d");
                         if (!j)
                                 return log_oom();
 
@@ -213,7 +274,7 @@ static int context_read_definitions(Context *c, const char* node, ReadDefinition
 
         CLEANUP_ARRAY(files, n_files, conf_file_free_array);
 
-        r = conf_files_list_strv_full(".feature", arg_root,
+        r = conf_files_list_strv_full(".feature", c->root,
                                       CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED|CONF_FILES_WARN,
                                       (const char**) dirs, &files, &n_files);
         if (r < 0)
@@ -253,10 +314,10 @@ static int context_read_definitions(Context *c, const char* node, ReadDefinition
 
         if (FLAGS_SET(flags, READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS) &&
             c->n_transfers + (FLAGS_SET(flags, READ_DEFINITIONS_REQUIRES_ENABLED_TRANSFERS) ? 0 : c->n_disabled_transfers) == 0) {
-                if (arg_component)
+                if (c->component)
                         return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
                                                "No transfer definitions for component '%s' found.",
-                                               arg_component);
+                                               c->component);
 
                 return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
                                        "No transfer definitions found.");
@@ -277,7 +338,7 @@ static int context_load_installed_instances(Context *c) {
 
                 r = resource_load_instances(
                                 &t->target,
-                                arg_verify >= 0 ? arg_verify : t->verify,
+                                c->verify >= 0 ? c->verify : t->verify,
                                 &c->web_cache);
                 if (r < 0)
                         return r;
@@ -288,7 +349,7 @@ static int context_load_installed_instances(Context *c) {
 
                 r = resource_load_instances(
                                 &t->target,
-                                arg_verify >= 0 ? arg_verify : t->verify,
+                                c->verify >= 0 ? c->verify : t->verify,
                                 &c->web_cache);
                 if (r < 0)
                         return r;
@@ -309,7 +370,7 @@ static int context_load_available_instances(Context *c) {
 
                 r = resource_load_instances(
                                 &t->source,
-                                arg_verify >= 0 ? arg_verify : t->verify,
+                                c->verify >= 0 ? c->verify : t->verify,
                                 &c->web_cache);
                 if (r < 0)
                         return r;
@@ -533,7 +594,7 @@ static int context_discover_update_sets(Context *c) {
         if (r < 0)
                 return r;
 
-        if (!arg_offline) {
+        if (!c->offline) {
                 log_info("Determining available update sets%s", glyph(GLYPH_ELLIPSIS));
 
                 r = context_discover_update_sets_by_flag(c, UPDATE_AVAILABLE);
@@ -947,16 +1008,16 @@ static int process_image(
 
         assert(c);
 
-        if (!arg_image)
+        if (!c->image)
                 return 0;
 
-        assert(!arg_root);
+        assert(!c->root);
         assert(!c->mounted_dir);
         assert(!c->loop_device);
 
         r = mount_image_privately_interactively(
-                        arg_image,
-                        arg_image_policy,
+                        c->image,
+                        c->image_policy,
                         (FLAGS_SET(flags, PROCESS_IMAGE_READ_ONLY) ? DISSECT_IMAGE_READ_ONLY : 0) |
                         DISSECT_IMAGE_FSCK |
                         DISSECT_IMAGE_MKDIR |
@@ -972,8 +1033,8 @@ static int process_image(
         if (r < 0)
                 return r;
 
-        arg_root = strdup(mounted_dir);
-        if (!arg_root)
+        c->root = strdup(mounted_dir);
+        if (!c->root)
                 return log_oom();
 
         c->mounted_dir = TAKE_PTR(mounted_dir);
@@ -1018,7 +1079,7 @@ static int context_load_online(Context *context, ProcessImageFlags process_image
         if (r < 0)
                 return r;
 
-        if (!arg_offline) {
+        if (!context->offline) {
                 r = context_load_available_instances(context);
                 if (r < 0)
                         return r;
@@ -1138,7 +1199,7 @@ static int context_acquire(
         if (r < 0)
                 return r;
 
-        if (arg_sync)
+        if (c->sync)
                 sync();
 
         (void) sd_notifyf(/* unset_environment= */ false,
@@ -1163,7 +1224,7 @@ static int context_acquire(
                         return r;
         }
 
-        if (arg_sync)
+        if (c->sync)
                 sync();
 
         return 1;
@@ -1270,7 +1331,7 @@ static int context_install(
                     !inst->is_pending)
                         continue;
 
-                r = transfer_install_instance(t, inst, arg_root);
+                r = transfer_install_instance(t, inst, c->root);
                 if (r < 0)
                         return r;
         }
@@ -1296,6 +1357,10 @@ static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
         assert(argc <= 2);
         version = argc >= 2 ? argv[1] : NULL;
+
+        r = context_from_cmdline(&context);
+        if (r < 0)
+                return r;
 
         r = context_load_online(&context, PROCESS_IMAGE_READ_ONLY);
         if (r < 0)
@@ -1361,6 +1426,10 @@ static int verb_features(int argc, char *argv[], uintptr_t _data, void *userdata
 
         assert(argc <= 2);
         feature_id = argc >= 2 ? argv[1] : NULL;
+
+        r = context_from_cmdline(&context);
+        if (r < 0)
+                return r;
 
         r = context_load_offline(&context, PROCESS_IMAGE_READ_ONLY,
                                  READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS);
@@ -1489,6 +1558,10 @@ static int verb_check_new(int argc, char *argv[], uintptr_t _data, void *userdat
 
         assert(argc <= 1);
 
+        r = context_from_cmdline(&context);
+        if (r < 0)
+                return r;
+
         r = context_load_online(&context, PROCESS_IMAGE_READ_ONLY);
         if (r < 0)
                 return r;
@@ -1533,14 +1606,18 @@ static int verb_update_impl(int argc, char **argv, UpdateActionFlags action_flag
         assert(argc <= 2);
         version = argc >= 2 ? argv[1] : NULL;
 
-        if (arg_instances_max < 2)
+        r = context_from_cmdline(&context);
+        if (r < 0)
+                return r;
+
+        if (context.instances_max < 2)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                       "The --instances-max argument must be >= 2 while updating");
 
-        if (arg_reboot) {
+        if (context.reboot) {
                 /* If automatic reboot on completion is requested, let's first determine the currently booted image */
 
-                r = parse_os_release(arg_root, "IMAGE_VERSION", &booted_version);
+                r = parse_os_release(context.root, "IMAGE_VERSION", &booted_version);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse /etc/os-release: %m");
                 if (!booted_version)
@@ -1563,7 +1640,7 @@ static int verb_update_impl(int argc, char **argv, UpdateActionFlags action_flag
         if (r < 0)
                 return r;
 
-        if (r > 0 && arg_reboot) {
+        if (r > 0 && context.reboot) {
                 assert(applied);
                 assert(booted_version);
 
@@ -1609,7 +1686,11 @@ static int verb_vacuum(int argc, char *argv[], uintptr_t _data, void *userdata) 
 
         assert(argc <= 1);
 
-        if (arg_instances_max < 1)
+        r = context_from_cmdline(&context);
+        if (r < 0)
+                return r;
+
+        if (context.instances_max < 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                       "The --instances-max argument must be >= 1 while vacuuming");
 
@@ -1632,7 +1713,11 @@ static int verb_pending_or_reboot(int argc, char *argv[], uintptr_t _data, void 
 
         assert(argc == 1);
 
-        if (arg_image || arg_root)
+        r = context_from_cmdline(&context);
+        if (r < 0)
+                return r;
+
+        if (context.image || context.root)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "The --root=/--image= switches may not be combined with the '%s' operation.", argv[0]);
 
@@ -1653,8 +1738,8 @@ static int verb_pending_or_reboot(int argc, char *argv[], uintptr_t _data, void 
         if (!context.newest_installed)
                 return log_error_errno(SYNTHETIC_ERRNO(ENODATA), "Couldn't find any suitable installed versions.");
 
-        r = parse_os_release(arg_root, "IMAGE_VERSION", &booted_version);
-        if (r < 0) /* yes, arg_root is NULL here, but we have to pass something, and it's a lot more readable
+        r = parse_os_release(context.root, "IMAGE_VERSION", &booted_version);
+        if (r < 0) /* yes, context.root is NULL here, but we have to pass something, and it's a lot more readable
                     * if we see what the first argument is about */
                 return log_error_errno(r, "Failed to parse /etc/os-release: %m");
         if (!booted_version)
@@ -1714,6 +1799,10 @@ static int verb_components(int argc, char *argv[], uintptr_t _data, void *userda
 
         assert(argc <= 1);
 
+        r = context_from_cmdline(&context);
+        if (r < 0)
+                return r;
+
         r = context_load_offline(&context, /* process_image_flags= */ 0, /* read_definitions_flags= */ 0);
         if (r < 0)
                 return r;
@@ -1723,7 +1812,7 @@ static int verb_components(int argc, char *argv[], uintptr_t _data, void *userda
 
         CLEANUP_ARRAY(directories, n_directories, conf_file_free_array);
 
-        r = conf_files_list_strv_full(".d", arg_root, CONF_FILES_DIRECTORY|CONF_FILES_WARN,
+        r = conf_files_list_strv_full(".d", context.root, CONF_FILES_DIRECTORY|CONF_FILES_WARN,
                                       (const char * const *) CONF_PATHS_STRV(""), &directories, &n_directories);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate directories: %m");
@@ -1761,10 +1850,10 @@ static int verb_components(int argc, char *argv[], uintptr_t _data, void *userda
 
         /* Does the system have at least one transfer file in /etc/sysupdate.d, which can be considered a
          * TARGET_HOST? See target_get_argument() in sysupdated.c */
-        has_default_component = (!arg_definitions &&
-                                 !arg_component &&
-                                 !arg_root &&
-                                 !arg_image &&
+        has_default_component = (!context.definitions &&
+                                 !context.component &&
+                                 !context.root &&
+                                 !context.image &&
                                  context.n_transfers > 0);
 
         /* We use simple free() rather than strv_free() here, since set_free() will free the strings for us */
