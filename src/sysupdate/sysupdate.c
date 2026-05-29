@@ -11,6 +11,7 @@
 #include "bus-polkit.h"
 #include "conf-files.h"
 #include "constants.h"
+#include "discover-image.h"
 #include "dissect-image.h"
 #include "env-util.h"
 #include "errno-util.h"
@@ -31,6 +32,7 @@
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "pretty-print.h"
+#include "runtime-scope.h"
 #include "sort-util.h"
 #include "specifier.h"
 #include "string-util.h"
@@ -39,6 +41,7 @@
 #include "sysupdate-cleanup.h"
 #include "sysupdate-feature.h"
 #include "sysupdate-instance.h"
+#include "sysupdate-target.h"
 #include "sysupdate-transfer.h"
 #include "sysupdate-update-set.h"
 #include "sysupdate-util.h"
@@ -84,6 +87,7 @@ const Specifier specifier_table[] = {
                 .verify = -1, \
                 .cleanup = -1, \
                 .installdb_fd = -EBADF, \
+                .target_identifier.class = _TARGET_CLASS_INVALID, \
         }
 
 void context_done(Context *c) {
@@ -119,6 +123,8 @@ void context_done(Context *c) {
         c->component = mfree(c->component);
         c->image_policy = image_policy_free(c->image_policy);
         c->transfer_source = mfree(c->transfer_source);
+
+        target_identifier_done(&c->target_identifier);
 }
 
 static int context_from_cmdline(Context *ret) {
@@ -1047,6 +1053,8 @@ static int process_image(
         return 0;
 }
 
+static int context_list_components(Context *context, char ***component_names, bool *has_default_component);
+
 static int context_load_offline(
                 Context *context,
                 ProcessImageFlags process_image_flags,
@@ -1101,6 +1109,144 @@ static int context_load_online(
                 return r;
 
         return 0;
+}
+
+static bool image_type_can_sysupdate(ImageType image_type) {
+        switch (image_type) {
+        case IMAGE_DIRECTORY:
+        case IMAGE_SUBVOLUME:
+        case IMAGE_RAW:
+        case IMAGE_BLOCK:
+                return true;
+
+        /* systemd-sysupdate doesn't support mstack images yet */
+        case IMAGE_MSTACK:
+        default:
+                return false;
+        }
+}
+
+static int context_load_paths_from_image(Context *context, Image *image) {
+        assert(context);
+        assert(image);
+
+        assert(!context->root);
+        assert(!context->image);
+
+        switch (image->type) {
+        case IMAGE_DIRECTORY:
+        case IMAGE_SUBVOLUME:
+                context->root = strdup(image->path);
+                if (!context->root)
+                        return log_oom();
+                return 0;
+        case IMAGE_RAW:
+        case IMAGE_BLOCK:
+                context->image = strdup(image->path);
+                if (!context->image)
+                        return log_oom();
+                return 0;
+        default:
+                assert_not_reached();
+        }
+}
+
+/* Load a Context to point to the target given by the TargetIdentifier. The TargetIdentifier will have been
+ * syntactically validated by dispatch_target_identifier(), but might still point to components which don’t
+ * exist, images which the user isn’t privileged to access, etc. This function validates the TargetIdentifier
+ * against an enumerated list of known targets, which are safe to update without additional permissions. */
+static int context_load_online_from_target(Context *context, ProcessImageFlags process_image_flags) {
+        int r;
+
+        assert(context);
+        assert(context->target_identifier.class != _TARGET_CLASS_INVALID);
+
+        /* These shouldn’t have been set up some other way first */
+        assert(!context->component);
+        assert(!context->root);
+        assert(!context->image);
+
+        switch (context->target_identifier.class) {
+        case TARGET_MACHINE:
+        case TARGET_PORTABLE:
+        case TARGET_SYSEXT:
+        case TARGET_CONFEXT: {
+                _cleanup_hashmap_free_ Hashmap *images = NULL;
+                Image *image, *selected_image = NULL;
+
+                /* These are all image-based target classes, so first find the corresponding image. */
+                r = image_discover(RUNTIME_SCOPE_SYSTEM, (ImageClass) context->target_identifier.class, NULL, &images);
+                if (r < 0)
+                        return r;
+
+                HASHMAP_FOREACH(image, images) {
+                        bool have = false;
+                        _cleanup_(context_done) Context image_context = CONTEXT_NULL;
+
+                        if (image_is_host(image))
+                                continue; /* We already enroll the host ourselves */
+
+                        if (!image_type_can_sysupdate(image->type))
+                                continue;
+
+                        if (!streq(image->name, context->target_identifier.name))
+                                continue;
+
+                        r = context_load_paths_from_image(&image_context, image);
+                        if (r < 0)
+                                return r;
+
+                        /* Load the components in a separate Context specific to the given Image before
+                         * committing to loading that state to the main Context. */
+                        r = context_load_offline(&image_context, 0, 0);
+                        if (r < 0)
+                                return r;
+
+                        r = context_list_components(&image_context, /* component_names= */ NULL, &have);
+                        if (r < 0)
+                                return r;
+                        if (!have) {
+                                log_debug("Skipping %s because it has no default component", image->path);
+                                continue;
+                        }
+
+                        /* This is the match we were looking for */
+                        selected_image = image;
+                        break;
+                }
+
+                if (!selected_image)
+                        return -ENOENT;
+
+                r = context_load_paths_from_image(context, selected_image);
+                if (r < 0)
+                        return r;
+
+                break;
+        }
+        case TARGET_HOST:
+                /* No additional setup needed */
+                break;
+        case TARGET_COMPONENT: {
+                _cleanup_strv_free_ char **component_names = NULL;
+
+                r = context_list_components(context, &component_names, /* has_default_component= */ NULL);
+                if (r < 0)
+                        return r;
+
+                if (!strv_contains(component_names, context->target_identifier.name))
+                        return -ENOENT;
+
+                context->component = strdup(context->target_identifier.name);
+                if (!context->component)
+                        return log_oom();
+                break;
+        }
+        default:
+                assert_not_reached();
+        }
+
+        return context_load_online(context, process_image_flags);
 }
 
 static int context_on_acquire_progress(const Transfer *t, const Instance *inst, unsigned percentage) {
@@ -1437,6 +1583,31 @@ static int context_install(
         return 1;
 }
 
+static JSON_DISPATCH_ENUM_DEFINE(dispatch_target_class, TargetClass, target_class_from_string);
+
+static int dispatch_target_identifier(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        TargetIdentifier *t = ASSERT_PTR(userdata);
+        static const sd_json_dispatch_field dispatch[] = {
+                { "class", SD_JSON_VARIANT_STRING, dispatch_target_class,   voffsetof(*t, class), SD_JSON_MANDATORY },
+                { "name",  SD_JSON_VARIANT_STRING, sd_json_dispatch_string, voffsetof(*t, name),  SD_JSON_NULLABLE  },
+                {}
+        };
+        int r;
+
+        r = sd_json_dispatch(variant, dispatch, flags, t);
+        if (r < 0)
+                return r;
+
+        /* Name is mandatory unless class is `host` */
+        if ((t->class == TARGET_HOST) != (!t->name))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(ENXIO), "Target name does not match class.");
+
+        if (t->class == TARGET_COMPONENT && !component_name_valid(t->name))
+                        return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "Component name invalid: %s", t->name);
+
+        return 0;
+}
+
 static int verify_polkit(Context *context, sd_varlink *link, const char *action, const char **details) {
         int r;
         Server *s = ASSERT_PTR(sd_varlink_get_userdata(ASSERT_PTR(link)));
@@ -1715,6 +1886,52 @@ static int verb_check_new(int argc, char *argv[], uintptr_t _data, void *userdat
         }
 
         return EXIT_SUCCESS;
+}
+
+static int vl_method_check_new(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        _cleanup_(context_done) Context context = CONTEXT_NULL;
+        int r;
+
+        assert(link);
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "target", SD_JSON_VARIANT_OBJECT, dispatch_target_identifier, voffsetof(context, target_identifier), SD_JSON_MANDATORY },
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {},
+        };
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &context);
+        if (r != 0)
+                return r;
+
+        r = verify_polkit(&context, link, "org.freedesktop.sysupdate1.check",
+                        (const char**) STRV_MAKE(
+                                        "class", target_class_to_string(context.target_identifier.class),
+                                        "offline", "0",
+                                        context.target_identifier.name ? "name" : NULL, context.target_identifier.name));
+        if (r <= 0)
+                return r;
+
+        if (getenv_bool("SYSTEMD_SYSUPDATE_NO_VERIFY") > 0)
+                context.verify = 0;
+
+        /* CheckNew is always online */
+        context.offline = false;
+
+        r = context_load_online_from_target(&context, PROCESS_IMAGE_READ_ONLY);
+        if (r == -ENOENT)
+                return sd_varlink_error(link, "io.systemd.SysUpdate.NoSuchTarget", NULL);
+        else if (r < 0)
+                return r;
+
+        if (context.candidate)
+                r = sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_STRING("available", context.candidate->version));
+        else
+                r = sd_varlink_error(link, "io.systemd.SysUpdate.NoUpdateNeeded", NULL);
+        if (r < 0)
+                return r;
+
+        return 0;
 }
 
 typedef enum {
@@ -2293,7 +2510,8 @@ static int vl_server(void) {
                 return log_error_errno(r, "Failed to add Varlink interface: %m");
 
         r = sd_varlink_server_bind_method_many(
-                        varlink_server);
+                        varlink_server,
+                        "io.systemd.SysUpdate.CheckNew", vl_method_check_new);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind Varlink method: %m");
 
