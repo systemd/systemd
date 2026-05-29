@@ -500,8 +500,8 @@ EOF
 		"raw_size" : 33554432,
 		"size" : "-> 32M",
 		"old_padding" : 0,
-		"raw_padding" : 0,
-		"padding" : "-> 0B",
+		"raw_padding" : 70234112,
+		"padding" : "-> 66.9M",
 		"activity" : "create",
 		"drop-in_files" : [
 			"$defs/root.conf.d/override1.conf",
@@ -577,8 +577,8 @@ EOF
 		"raw_size" : 33554432,
 		"size" : "-> 32M",
 		"old_padding" : 0,
-		"raw_padding" : 0,
-		"padding" : "-> 0B",
+		"raw_padding" : 36679680,
+		"padding" : "-> 34.9M",
 		"activity" : "create"
 	}
 ]
@@ -2221,6 +2221,48 @@ EOF
     assert_eq "$(udevadm info --query=property --property=DEVNAME --value "${encrypted_device}")" "${loop}p2"
     grep -q tada "${btrfs_mntpoint_plain}/magic-plain"
     grep -q tada "${btrfs_mntpoint_encrypted}/magic-encrypted"
+}
+
+testcase_insert_into_gap() {
+    local defs imgs output
+
+    defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
+    imgs="$(mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs'" RETURN
+    chmod 0755 "$defs"
+
+    echo "*** Inserting a new partition into a gap between two existing partitions ***"
+
+    truncate -s 71M "$imgs/gap.img"
+    sfdisk "$imgs/gap.img" <<EOF
+label: gpt
+size=10M, type=${esp_guid}, name="part-a",
+start=60M, size=10M, type=${root_guid}, name="part-c",
+EOF
+
+    tee "$defs/new.conf" <<EOF
+[Partition]
+Type=usr
+Label=part-b
+SizeMinBytes=10M
+SizeMaxBytes=10M
+EOF
+
+    systemd-repart --offline="$OFFLINE" \
+                   --definitions="$defs" \
+                   --seed="$seed" \
+                   --dry-run=no \
+                   "$imgs/gap.img"
+
+    output=$(sfdisk --dump "$imgs/gap.img")
+
+    assert_in "$imgs/gap.img1 : start=        2048, size=       20480," "$output"
+    assert_in "$imgs/gap.img2 : start=      122880, size=       20480," "$output"
+
+    # New partition B must start at the beginning of the gap (after A), not at
+    # the end (before C).
+    assert_in "$imgs/gap.img3 : start=       22528, size=       20480, type=$usr_guid, uuid=$usr_uuid, name=\"part-b\"" "$output"
 }
 
 OFFLINE="yes"
