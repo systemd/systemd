@@ -398,8 +398,8 @@ static int dynamic_user_realize(
 
         r = dynamic_user_pop(d, &num, &uid_lock_fd);
         if (r < 0) {
-                int new_uid_lock_fd;
-                uid_t new_uid;
+                int new_uid_lock_fd = -EBADF; /* avoid false maybe-uninitialized warning */
+                uid_t new_uid = UID_INVALID; /* avoid false maybe-uninitialized warning */
 
                 if (r != -EAGAIN)
                         return r;
@@ -506,7 +506,7 @@ static int dynamic_user_realize(
 
 int dynamic_user_current(DynamicUser *d, uid_t *ret) {
         _cleanup_close_ int lock_fd = -EBADF;
-        uid_t uid;
+        uid_t uid = UID_INVALID; /* avoid false maybe-uninitialized warning */
         int r;
 
         assert(d);
@@ -550,7 +550,7 @@ static DynamicUser* dynamic_user_unref(DynamicUser *d) {
 
 static int dynamic_user_close(DynamicUser *d) {
         _cleanup_close_ int lock_fd = -EBADF;
-        uid_t uid;
+        uid_t uid = UID_INVALID; /* avoid false maybe-uninitialized warning */
         int r;
 
         /* Release the user ID, by releasing the lock on it, and emptying the storage socket. After this the
