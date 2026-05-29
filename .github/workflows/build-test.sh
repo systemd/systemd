@@ -96,6 +96,9 @@ if [[ -n "$CROSS_ARCH" ]]; then
         armhf)
             triplet=arm-linux-gnueabihf
             ;;
+        riscv64)
+            triplet=riscv64-linux-gnu
+            ;;
         *)
             fatal "Unsupported cross architecture: $CROSS_ARCH"
             ;;
