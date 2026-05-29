@@ -57,6 +57,7 @@ extern DLSYM_PROTOTYPE(fido_dev_close);
 extern DLSYM_PROTOTYPE(fido_dev_free);
 extern DLSYM_PROTOTYPE(fido_dev_get_assert);
 extern DLSYM_PROTOTYPE(fido_dev_get_cbor_info);
+extern DLSYM_PROTOTYPE(fido_dev_get_retry_count);
 extern DLSYM_PROTOTYPE(fido_dev_info_free);
 extern DLSYM_PROTOTYPE(fido_dev_info_manifest);
 extern DLSYM_PROTOTYPE(fido_dev_info_manufacturer_string);
