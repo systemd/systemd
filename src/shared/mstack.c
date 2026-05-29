@@ -139,7 +139,7 @@ static int mstack_load_one(MStack *mstack, const char *dir, int dir_fd, const ch
                         };
 
                         _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
-                        r = path_pick(dir, dir_fd, fname, &filter, /* n_filters= */ 1, PICK_ARCHITECTURE, &result);
+                        r = path_pick(dir, dir_fd, dir_fd, fname, &filter, /* n_filters= */ 1, PICK_ARCHITECTURE, &result);
                         if (r < 0)
                                 return log_debug_errno(r, "Failed to resolve '%s' directory: %m", fname);
                         if (r == 0)

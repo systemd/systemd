@@ -176,8 +176,9 @@ static int errno_from_mode(uint32_t type_mask, mode_t found) {
 }
 
 static int pin_choice(
-                const char *toplevel_path,
-                int toplevel_fd,
+                const char *root_path,
+                int root_fd,
+                int dir_fd,
                 const char *inode_path,
                 int _inode_fd, /* we always take ownership of the fd, even on failure */
                 unsigned tries_left,
@@ -190,14 +191,15 @@ static int pin_choice(
         _cleanup_free_ char *resolved_path = NULL;
         int r;
 
-        assert(wildcard_fd_is_valid(toplevel_fd));
+        assert(wildcard_fd_is_valid(root_fd));
+        assert(wildcard_fd_is_valid(dir_fd));
         assert(inode_path);
         assert(filter);
         assert(ret);
 
         if (inode_fd < 0 || FLAGS_SET(flags, PICK_RESOLVE)) {
-                r = chaseat(toplevel_fd,
-                            toplevel_fd,
+                r = chaseat(root_fd,
+                            dir_fd,
                             inode_path,
                             /* flags= */ 0,
                             FLAGS_SET(flags, PICK_RESOLVE) ? &resolved_path : NULL,
@@ -212,11 +214,11 @@ static int pin_choice(
         struct stat st;
         if (fstat(inode_fd, &st) < 0)
                 return log_debug_errno(errno, "Failed to stat discovered inode '%s%s': %m",
-                                       empty_to_root(toplevel_path), skip_leading_slash(inode_path));
+                                       empty_to_root(root_path), skip_leading_slash(inode_path));
 
         if (filter->type_mask != 0 && !BIT_SET(filter->type_mask, IFTODT(st.st_mode))) {
                 log_debug("Inode '%s/%s' has wrong type, found '%s'.",
-                          empty_to_root(toplevel_path), skip_leading_slash(inode_path),
+                          empty_to_root(root_path), skip_leading_slash(inode_path),
                           inode_type_to_string(st.st_mode));
                 *ret = PICK_RESULT_NULL;
                 return 0;
@@ -311,8 +313,9 @@ static bool architecture_matches(const PickFilter *filter, Architecture a) {
 }
 
 static int make_choice(
-                const char *toplevel_path,
-                int toplevel_fd,
+                const char *root_path,
+                int root_fd,
+                int dir_fd,
                 const char *inode_path,
                 int _inode_fd, /* we always take ownership of the fd, even on failure */
                 const PickFilter *filter,
@@ -322,13 +325,14 @@ static int make_choice(
         _cleanup_close_ int inode_fd = TAKE_FD(_inode_fd);
         int r;
 
-        assert(wildcard_fd_is_valid(toplevel_fd));
+        assert(wildcard_fd_is_valid(root_fd));
+        assert(wildcard_fd_is_valid(dir_fd));
         assert(inode_path);
         assert(filter);
         assert(ret);
 
         if (inode_fd < 0) {
-                r = chaseat(toplevel_fd, toplevel_fd, inode_path, /* flags= */ 0, NULL, &inode_fd);
+                r = chaseat(root_fd, dir_fd, inode_path, /* flags= */ 0, NULL, &inode_fd);
                 if (r < 0)
                         return r;
         }
@@ -345,18 +349,19 @@ static int make_choice(
                         return log_oom_debug();
 
                 _cleanup_close_ int object_fd = -EBADF;
-                r = chaseat(toplevel_fd, toplevel_fd, p, /* flags= */ 0, &object_path, &object_fd);
+                r = chaseat(root_fd, dir_fd, p, /* flags= */ 0, &object_path, &object_fd);
                 if (r == -ENOENT) {
                         *ret = PICK_RESULT_NULL;
                         return 0;
                 }
                 if (r < 0)
                         return log_debug_errno(r, "Failed to open '%s/%s': %m",
-                                               empty_to_root(toplevel_path), skip_leading_slash(p));
+                                               empty_to_root(root_path), skip_leading_slash(p));
 
                 return pin_choice(
-                                toplevel_path,
-                                toplevel_fd,
+                                root_path,
+                                root_fd,
+                                dir_fd,
                                 FLAGS_SET(flags, PICK_RESOLVE) ? object_path : p,
                                 TAKE_FD(object_fd), /* unconditionally pass ownership of the fd */
                                 /* tries_left= */ UINT_MAX,
@@ -371,16 +376,16 @@ static int make_choice(
         /* Underspecified, so we do our enumeration dance */
 
         /* Convert O_PATH to a regular directory fd */
-        _cleanup_close_ int dir_fd = fd_reopen(inode_fd, O_DIRECTORY|O_RDONLY|O_CLOEXEC);
-        if (dir_fd < 0)
-                return log_debug_errno(dir_fd, "Failed to reopen '%s/%s' as directory: %m",
-                                       empty_to_root(toplevel_path), skip_leading_slash(inode_path));
+        _cleanup_close_ int enumerate_fd = fd_reopen(inode_fd, O_DIRECTORY|O_RDONLY|O_CLOEXEC);
+        if (enumerate_fd < 0)
+                return log_debug_errno(enumerate_fd, "Failed to reopen '%s/%s' as directory: %m",
+                                       empty_to_root(root_path), skip_leading_slash(inode_path));
 
         _cleanup_free_ DirectoryEntries *de = NULL;
-        r = readdir_all(dir_fd, 0, &de);
+        r = readdir_all(enumerate_fd, 0, &de);
         if (r < 0)
                 return log_debug_errno(r, "Failed to read directory '%s/%s': %m",
-                                       empty_to_root(toplevel_path), skip_leading_slash(inode_path));
+                                       empty_to_root(root_path), skip_leading_slash(inode_path));
 
         _cleanup_(pick_result_done) PickResult best = PICK_RESULT_NULL;
 
@@ -457,8 +462,9 @@ static int make_choice(
                         return log_oom_debug();
 
                 _cleanup_(pick_result_done) PickResult found = PICK_RESULT_NULL;
-                r = pin_choice(toplevel_path,
-                               toplevel_fd,
+                r = pin_choice(root_path,
+                               root_fd,
+                               dir_fd,
                                p,
                                /* _inode_fd= */ -EBADF,
                                found_tries_left,
@@ -501,8 +507,9 @@ static int make_choice(
 }
 
 static int path_pick_one(
-                const char *toplevel_path,
-                int toplevel_fd,
+                const char *root_path,
+                int root_fd,
+                int dir_fd,
                 const char *path,
                 const PickFilter *filter,
                 PickFlags flags,
@@ -513,7 +520,8 @@ static int path_pick_one(
         uint32_t filter_type_mask;
         int r;
 
-        assert(wildcard_fd_is_valid(toplevel_fd));
+        assert(wildcard_fd_is_valid(root_fd));
+        assert(wildcard_fd_is_valid(dir_fd));
         assert(path);
         assert(filter);
         assert(ret);
@@ -537,8 +545,9 @@ static int path_pick_one(
         /* Explicit basename specified, then shortcut things and do .v mode regardless of the path name. */
         if (filter->basename)
                 return make_choice(
-                                toplevel_path,
-                                toplevel_fd,
+                                root_path,
+                                root_fd,
+                                dir_fd,
                                 path,
                                 /* inode_fd= */ -EBADF,
                                 filter,
@@ -623,8 +632,9 @@ static int path_pick_one(
         }
 
         return make_choice(
-                        toplevel_path,
-                        toplevel_fd,
+                        root_path,
+                        root_fd,
+                        dir_fd,
                         enumeration_path,
                         /* inode_fd= */ -EBADF,
                         &(const PickFilter) {
@@ -640,8 +650,9 @@ static int path_pick_one(
 bypass:
         /* Don't make any choice, but just use the passed path literally */
         return pin_choice(
-                        toplevel_path,
-                        toplevel_fd,
+                        root_path,
+                        root_fd,
+                        dir_fd,
                         path,
                         /* inode_fd= */ -EBADF,
                         /* tries_left= */ UINT_MAX,
@@ -651,8 +662,9 @@ bypass:
                         ret);
 }
 
-int path_pick(const char *toplevel_path,
-              int toplevel_fd,
+int path_pick(const char *root_path,
+              int root_fd,
+              int dir_fd,
               const char *path,
               const PickFilter filters[],
               size_t n_filters,
@@ -662,7 +674,8 @@ int path_pick(const char *toplevel_path,
         _cleanup_(pick_result_done) PickResult best = PICK_RESULT_NULL;
         int r;
 
-        assert(wildcard_fd_is_valid(toplevel_fd));
+        assert(wildcard_fd_is_valid(root_fd));
+        assert(wildcard_fd_is_valid(dir_fd));
         assert(path);
         assert(filters || n_filters == 0);
         assert(ret);
@@ -671,7 +684,7 @@ int path_pick(const char *toplevel_path,
         for (size_t i = 0; i < n_filters; i++) {
                 _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
 
-                r = path_pick_one(toplevel_path, toplevel_fd, path, &filters[i], flags, &result);
+                r = path_pick_one(root_path, root_fd, dir_fd, path, &filters[i], flags, &result);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -717,8 +730,9 @@ int path_pick_update_warn(
 
         /* This updates the first argument if needed! */
 
-        r = path_pick(/* toplevel_path= */ NULL,
-                      /* toplevel_fd= */ AT_FDCWD,
+        r = path_pick(/* root_path= */ NULL,
+                      /* root_fd= */ AT_FDCWD,
+                      /* dir_fd= */ AT_FDCWD,
                       *path,
                       filters,
                       n_filters,
