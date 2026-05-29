@@ -54,6 +54,7 @@ static int config_parse_url_specifiers(
                 void *data,
                 void *userdata) {
         char **s = ASSERT_PTR(data);
+        const char *root = ASSERT_PTR(userdata);
         _cleanup_free_ char *resolved = NULL;
         int r;
 
@@ -64,7 +65,7 @@ static int config_parse_url_specifiers(
                 return 0;
         }
 
-        r = specifier_printf(rvalue, NAME_MAX, specifier_table, arg_root, NULL, &resolved);
+        r = specifier_printf(rvalue, NAME_MAX, specifier_table, root, NULL, &resolved);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to expand specifiers in %s=, ignoring: %s", lvalue, rvalue);
@@ -80,7 +81,7 @@ static int config_parse_url_specifiers(
         return free_and_replace(*s, resolved);
 }
 
-int feature_read_definition(Feature *f, const char *path, const char *const *dirs) {
+int feature_read_definition(Feature *f, const char *root, const char *path, const char *const *dirs) {
         assert(f);
 
         ConfigTableItem table[] = {
@@ -105,12 +106,12 @@ int feature_read_definition(Feature *f, const char *path, const char *const *dir
                         STRV_MAKE_CONST(path),
                         dirs,
                         strjoina(filename, ".d"),
-                        arg_root,
+                        root,
                         /* root_fd= */ -EBADF,
                         "Feature\0",
                         config_item_table_lookup, table,
                         CONFIG_PARSE_WARN,
-                        /* userdata= */ NULL,
+                        (void *) root,
                         /* stats_by_path= */ NULL,
                         /* drop_in_files= */ NULL);
         if (r < 0)

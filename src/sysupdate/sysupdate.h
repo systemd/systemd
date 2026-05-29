@@ -5,8 +5,22 @@
 #include "sysupdate-forward.h"
 
 typedef struct Context {
+        /* Parameters/Command line arguments: */
+        char *definitions;
+        bool sync;
+        uint64_t instances_max;
+        char *root;
+        char *image;
+        bool reboot;
+        int cleanup;
         char *component;
+        bool component_all;
+        int verify;
+        ImagePolicy *image_policy;
+        bool offline;
+        char *transfer_source;
 
+        /* Loaded state: */
         LoopDevice *loop_device;
         char *mounted_dir;
 
@@ -29,10 +43,5 @@ typedef struct Context {
 } Context;
 
 void context_done(Context *c);
-
-extern bool arg_sync;
-extern uint64_t arg_instances_max;
-extern char *arg_root;
-extern char *arg_transfer_source;
 
 extern const Specifier specifier_table[];
