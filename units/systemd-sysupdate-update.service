@@ -9,7 +9,7 @@
 
 [Unit]
 Description=Automatic System Update
-Documentation=man:systemd-sysupdate.service(8)
+Documentation=man:systemd-sysupdate-update.service(8)
 Wants=network-online.target
 After=network-online.target
 ConditionVirtualization=!container
@@ -31,4 +31,4 @@ SystemCallArchitectures=native
 LockPersonality=yes
 
 [Install]
-Also=systemd-sysupdate.timer
+Also=systemd-sysupdate-update.timer

@@ -3,6 +3,7 @@
 #include <unistd.h>
 
 #include "sd-daemon.h"
+#include "sd-varlink.h"
 
 #include "build.h"
 #include "conf-files.h"
@@ -12,6 +13,7 @@
 #include "glyph-util.h"
 #include "hexdecoct.h"
 #include "image-policy.h"
+#include "json-util.h"
 #include "loop-util.h"
 #include "main-func.h"
 #include "mount-util.h"
@@ -34,6 +36,8 @@
 #include "sysupdate-update-set.h"
 #include "sysupdate-util.h"
 #include "utf8.h"
+#include "varlink-io.systemd.Sysupdate.h"
+#include "varlink-util.h"
 #include "verbs.h"
 
 static char *arg_definitions = NULL;
@@ -50,6 +54,7 @@ static int arg_verify = -1;
 static ImagePolicy *arg_image_policy = NULL;
 static bool arg_offline = false;
 char *arg_transfer_source = NULL;
+static bool arg_varlink = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_definitions, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
@@ -2066,8 +2071,40 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
         if (arg_definitions && arg_component)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "The --definitions= and --component= switches may not be combined.");
 
+        r = sd_varlink_invocation(SD_VARLINK_ALLOW_ACCEPT);
+        if (r < 0)
+                return log_error_errno(r, "Failed to check if invoked in Varlink mode: %m");
+        if (r > 0)
+                arg_varlink = true;
+
         *remaining_args = option_parser_get_args(&opts);
         return 1;
+}
+
+static int vl_server(void) {
+        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *varlink_server = NULL;
+        int r;
+
+        r = varlink_server_new(&varlink_server,
+                               SD_VARLINK_SERVER_ACCOUNT_UID,
+                               /* userdata= */ NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate Varlink server: %m");
+
+        r = sd_varlink_server_add_interface(varlink_server, &vl_interface_io_systemd_Sysupdate);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add Varlink interface: %m");
+
+        r = sd_varlink_server_bind_method_many(
+                varlink_server);
+        if (r < 0)
+                return log_error_errno(r, "Failed to bind Varlink method: %m");
+
+        r = sd_varlink_server_loop_auto(varlink_server);
+        if (r < 0)
+                return log_error_errno(r, "Failed to run Varlink event loop: %m");
+
+        return 0;
 }
 
 static int run(int argc, char *argv[]) {
@@ -2079,6 +2116,9 @@ static int run(int argc, char *argv[]) {
         r = parse_argv(argc, argv, &args);
         if (r <= 0)
                 return r;
+
+        if (arg_varlink)
+                return vl_server(); /* Invocation as Varlink service */
 
         return dispatch_verb(args, NULL);
 }
