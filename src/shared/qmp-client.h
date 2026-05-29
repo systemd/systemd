@@ -75,6 +75,12 @@ int qmp_client_call(
                 sd_json_variant **ret_result,
                 char **reterr_error_desc);
 
+int qmp_client_call_and_log(
+                QmpClient *client,
+                const char *command,
+                QmpClientArgs *args,
+                sd_json_variant **ret_result);
+
 int qmp_client_call_future(
                 QmpClient *client,
                 const char *command,
