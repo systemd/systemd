@@ -2333,7 +2333,7 @@ static void retroactively_stop_dependencies(Unit *u) {
 
 void unit_start_on_termination_deps(Unit *u, UnitDependencyAtom atom) {
         const char *dependency_name = NULL;
-        JobMode job_mode;
+        JobMode job_mode = _JOB_MODE_INVALID;
         unsigned n_jobs = 0;
         int r;
 
