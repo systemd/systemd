@@ -168,6 +168,7 @@ typedef int (*compare_pointer_func_t)(const void *a, const void *b);
 void sort_pointer_array(void **array, size_t n_members, compare_pointer_func_t compare);
 
 EFI_STATUS get_file_info(EFI_FILE *handle, EFI_FILE_INFO **ret, size_t *ret_size);
+EFI_STATUS get_volume_ro(EFI_FILE *handle, bool *ret);
 EFI_STATUS readdir(EFI_FILE *handle, EFI_FILE_INFO **buffer, size_t *buffer_size);
 
 bool is_ascii(const char16_t *f);
@@ -263,3 +264,7 @@ char16_t *get_extra_dir(const EFI_DEVICE_PATH *file_path);
 #endif
 
 char16_t *url_replace_last_component(const char16_t *url, const char16_t *filename);
+
+static inline bool EFI_STATUS_IS_WRITE_REFUSED(EFI_STATUS status) {
+        return IN_SET(status, EFI_WRITE_PROTECTED, EFI_DEVICE_ERROR, EFI_ACCESS_DENIED);
+}

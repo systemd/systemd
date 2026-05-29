@@ -132,6 +132,17 @@ EFI_STATUS process_random_seed(EFI_FILE *root_dir) {
 
         validate_sha256();
 
+        /* If the volume is read-only we cannot update the random seed, but if we cannot update it, then we
+         * really don't want to use it since it would be the same on every boot. */
+        bool volume_ro;
+        err = get_volume_ro(root_dir, &volume_ro);
+        if (err != EFI_SUCCESS)
+                log_debug_status(err, "Failed to determine if volume is read-only, assuming not: %m");
+        else if (volume_ro) {
+                log_debug("Volume is read-only, not updating random seed.");
+                return EFI_SUCCESS;
+        }
+
         /* hash = LABEL || sizeof(input1) || input1 || ... || sizeof(inputN) || inputN */
         sha256_init_ctx(&hash);
 
@@ -193,20 +204,24 @@ EFI_STATUS process_random_seed(EFI_FILE *root_dir) {
                         EFI_FILE_MODE_READ | EFI_FILE_MODE_WRITE,
                         0);
         if (err == EFI_NOT_FOUND && seeded_by_efi) {
+
                 /* If the file does not exist, but we are reasonably well seeded, create the seed file */
-                created = true;
                 err = root_dir->Open(
                                 root_dir,
                                 &handle,
                                 (char16_t *) u"\\loader\\random-seed",
                                 EFI_FILE_MODE_READ | EFI_FILE_MODE_WRITE | EFI_FILE_MODE_CREATE,
                                 0);
-        }
-        if (err != EFI_SUCCESS) {
-                if (!IN_SET(err, EFI_NOT_FOUND, EFI_WRITE_PROTECTED))
-                        log_error_status(err, "Failed to open random seed file: %m");
-                return err;
-        }
+                if (err != EFI_SUCCESS)
+                        return log_full(err,
+                                        EFI_STATUS_IS_WRITE_REFUSED(err) ? LOG_DEBUG : LOG_ERR,
+                                        "Failed to open random seed file: %m");
+                created = true;
+
+        } else if (err != EFI_SUCCESS)
+                return log_full(err,
+                                err == EFI_NOT_FOUND || EFI_STATUS_IS_WRITE_REFUSED(err) ? LOG_DEBUG : LOG_ERR,
+                                "Failed to open random seed file: %m");
 
         if (!created) {
                 err = get_file_info(handle, &info, /* ret_size= */ NULL);
@@ -280,12 +295,16 @@ EFI_STATUS process_random_seed(EFI_FILE *root_dir) {
                 wsize = info->FileSize - size;
                 err = handle->Write(handle, &wsize, seed /* All zeros now */);
                 if (err != EFI_SUCCESS)
-                        return log_error_status(err, "Failed to write random seed file: %m");
+                        return log_full(err,
+                                        EFI_STATUS_IS_WRITE_REFUSED(err) ? LOG_DEBUG : LOG_ERR,
+                                        "Failed to write random seed file: %m");
                 if (wsize != info->FileSize - size)
                         return log_error_status(EFI_PROTOCOL_ERROR, "Short write on random seed file.");
                 err = handle->Flush(handle);
                 if (err != EFI_SUCCESS)
-                        return log_error_status(err, "Failed to flush random seed file: %m");
+                        return log_full(err,
+                                        EFI_STATUS_IS_WRITE_REFUSED(err) ? LOG_DEBUG : LOG_ERR,
+                                        "Failed to flush random seed file: %m");
                 err = handle->SetPosition(handle, 0);
                 if (err != EFI_SUCCESS)
                         return log_error_status(err, "Failed to seek to beginning of random seed file: %m");
@@ -301,16 +320,21 @@ EFI_STATUS process_random_seed(EFI_FILE *root_dir) {
                  * flimsy. So instead we rely on userspace eventually truncating this when it writes a new
                  * seed. For now the best we do is zero it. */
         }
+
         /* Update the random seed on disk before we use it */
         wsize = size;
         err = handle->Write(handle, &wsize, random_bytes);
         if (err != EFI_SUCCESS)
-                return log_error_status(err, "Failed to write random seed file: %m");
+                return log_full(err,
+                                EFI_STATUS_IS_WRITE_REFUSED(err) ? LOG_DEBUG : LOG_ERR,
+                                "Failed to write random seed file: %m");
         if (wsize != size)
                 return log_error_status(EFI_PROTOCOL_ERROR, "Short write on random seed file.");
         err = handle->Flush(handle);
         if (err != EFI_SUCCESS)
-                return log_error_status(err, "Failed to flush random seed file: %m");
+                return log_full(err,
+                                EFI_STATUS_IS_WRITE_REFUSED(err) ? LOG_DEBUG : LOG_ERR,
+                                "Failed to flush random seed file: %m");
 
         err = BS->AllocatePool(EfiACPIReclaimMemory,
                                offsetof(struct linux_efi_random_seed, seed) + DESIRED_SEED_SIZE,
