@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-18 12:18+0100\n"
+"POT-Creation-Date: 2026-05-29 23:54+0200\n"
 "PO-Revision-Date: 2024-06-03 00:35+0000\n"
 "Last-Translator: Scrambled 777 <weblate.scrambled777@simplelogin.com>\n"
 "Language-Team: Hindi <https://translate.fedoraproject.org/projects/systemd/"
@@ -149,7 +149,7 @@ msgstr ""
 msgid "Authentication is required to manage signing keys for home directories."
 msgstr "सिस्टम सेवाओं या अन्य यूनिटों को प्रबंधित करने के लिए प्रमाणीकरण आवश्यक है।"
 
-#: src/home/pam_systemd_home.c:330
+#: src/home/pam_systemd_home.c:327
 #, c-format
 msgid ""
 "Home of user %s is currently absent, please plug in the necessary storage "
@@ -158,29 +158,29 @@ msgstr ""
 "उपयोक्ता %s का होम वर्तमान में अनुपस्थित है, कृपया आवश्यक स्टोरेज उपकरण या बैकअप फाइल "
 "सिस्टम प्लग इन करें।"
 
-#: src/home/pam_systemd_home.c:335
+#: src/home/pam_systemd_home.c:332
 #, c-format
 msgid "Too frequent login attempts for user %s, try again later."
 msgstr "उपयोक्ता %s के लिए बहुत बार लॉगिन प्रयास, बाद में पुनः प्रयास करें।"
 
-#: src/home/pam_systemd_home.c:347
+#: src/home/pam_systemd_home.c:344
 msgid "Password: "
 msgstr "पासवर्ड: "
 
-#: src/home/pam_systemd_home.c:349
+#: src/home/pam_systemd_home.c:346
 #, c-format
 msgid "Password incorrect or not sufficient for authentication of user %s."
 msgstr "पासवर्ड गलत है या उपयोक्ता %s के प्रमाणीकरण के लिए पर्याप्त नहीं है।"
 
-#: src/home/pam_systemd_home.c:350
+#: src/home/pam_systemd_home.c:347
 msgid "Sorry, try again: "
 msgstr "क्षमा करें, पुनः प्रयास करें: "
 
-#: src/home/pam_systemd_home.c:372
+#: src/home/pam_systemd_home.c:369
 msgid "Recovery key: "
 msgstr "पुनर्प्राप्ति कुंजी: "
 
-#: src/home/pam_systemd_home.c:374
+#: src/home/pam_systemd_home.c:371
 #, c-format
 msgid ""
 "Password/recovery key incorrect or not sufficient for authentication of user "
@@ -188,20 +188,20 @@ msgid ""
 msgstr ""
 "पासवर्ड/पुनर्प्राप्ति कुंजी गलत है या उपयोक्ता %s के प्रमाणीकरण के लिए पर्याप्त नहीं है।"
 
-#: src/home/pam_systemd_home.c:375
+#: src/home/pam_systemd_home.c:372
 msgid "Sorry, reenter recovery key: "
 msgstr "क्षमा करें, पुनर्प्राप्ति कुंजी पुनः दर्ज करें: "
 
-#: src/home/pam_systemd_home.c:395
+#: src/home/pam_systemd_home.c:392
 #, c-format
 msgid "Security token of user %s not inserted."
 msgstr "उपयोक्ता %s का सुरक्षा टोकन सम्मिलित नहीं किया गया।"
 
-#: src/home/pam_systemd_home.c:396 src/home/pam_systemd_home.c:399
+#: src/home/pam_systemd_home.c:393 src/home/pam_systemd_home.c:396
 msgid "Try again with password: "
 msgstr "पासवर्ड के साथ पुनः प्रयास करें: "
 
-#: src/home/pam_systemd_home.c:398
+#: src/home/pam_systemd_home.c:395
 #, c-format
 msgid ""
 "Password incorrect or not sufficient, and configured security token of user "
@@ -210,26 +210,26 @@ msgstr ""
 "पासवर्ड गलत है या पर्याप्त नहीं है, और उपयोक्ता %s का विन्यस्त किया गया सुरक्षा टोकन "
 "सम्मिलित नहीं किया गया है।"
 
-#: src/home/pam_systemd_home.c:418
+#: src/home/pam_systemd_home.c:415
 msgid "Security token PIN: "
 msgstr "सुरक्षा टोकन PIN: "
 
-#: src/home/pam_systemd_home.c:435
+#: src/home/pam_systemd_home.c:432
 #, c-format
 msgid "Please authenticate physically on security token of user %s."
 msgstr "कृपया उपयोक्ता %s के सुरक्षा टोकन पर भौतिक रूप से प्रमाणित करें।"
 
-#: src/home/pam_systemd_home.c:446
+#: src/home/pam_systemd_home.c:443
 #, c-format
 msgid "Please confirm presence on security token of user %s."
 msgstr "कृपया उपयोक्ता %s के सुरक्षा टोकन पर उपस्थिति की पुष्टि करें।"
 
-#: src/home/pam_systemd_home.c:457
+#: src/home/pam_systemd_home.c:454
 #, c-format
 msgid "Please verify user on security token of user %s."
 msgstr "कृपया उपयोक्ता %s के सुरक्षा टोकन पर उपयोक्ता को सत्यापित करें।"
 
-#: src/home/pam_systemd_home.c:466
+#: src/home/pam_systemd_home.c:463
 msgid ""
 "Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
 "insertion might suffice.)"
@@ -237,75 +237,75 @@ msgstr ""
 "सुरक्षा टोकन PIN बंद है, कृपया पहले खोलें। (संकेत: हटाना और पुनः सम्मिलित करना पर्याप्त हो "
 "सकता है।)"
 
-#: src/home/pam_systemd_home.c:474
+#: src/home/pam_systemd_home.c:471
 #, c-format
 msgid "Security token PIN incorrect for user %s."
 msgstr "उपयोक्ता %s के लिए सुरक्षा टोकन PIN गलत है।"
 
-#: src/home/pam_systemd_home.c:475 src/home/pam_systemd_home.c:494
-#: src/home/pam_systemd_home.c:513
+#: src/home/pam_systemd_home.c:472 src/home/pam_systemd_home.c:491
+#: src/home/pam_systemd_home.c:510
 msgid "Sorry, retry security token PIN: "
 msgstr "क्षमा करें, सुरक्षा टोकन PIN का पुन: प्रयास करें: "
 
-#: src/home/pam_systemd_home.c:493
+#: src/home/pam_systemd_home.c:490
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
 msgstr "उपयोक्ता %s का सुरक्षा टोकन PIN गलत है (केवल कुछ प्रयास शेष हैं!)"
 
-#: src/home/pam_systemd_home.c:512
+#: src/home/pam_systemd_home.c:509
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
 msgstr "उपयोक्ता %s का सुरक्षा टोकन PIN गलत है (केवल एक प्रयास शेष है!)"
 
-#: src/home/pam_systemd_home.c:679
+#: src/home/pam_systemd_home.c:676
 #, c-format
 msgid "Home of user %s is currently not active, please log in locally first."
 msgstr "उपयोक्ता %s का होम वर्तमान में सक्रिय नहीं है, कृपया पहले स्थानीय रूप से लॉगिन करें।"
 
-#: src/home/pam_systemd_home.c:681
+#: src/home/pam_systemd_home.c:678
 #, c-format
 msgid "Home of user %s is currently locked, please unlock locally first."
 msgstr "उपयोक्ता %s का होम फिलहाल बंद है, कृपया पहले स्थानीय स्तर पर खोलें।"
 
-#: src/home/pam_systemd_home.c:715
+#: src/home/pam_systemd_home.c:712
 #, c-format
 msgid "Too many unsuccessful login attempts for user %s, refusing."
 msgstr "उपयोक्ता %s के लिए बहुत सारे असफल लॉगिन प्रयास, अस्वीकार कर रहे हैं।"
 
-#: src/home/pam_systemd_home.c:1012
+#: src/home/pam_systemd_home.c:1021
 msgid "User record is blocked, prohibiting access."
 msgstr "उपयोक्ता रिकॉर्ड अवरुद्ध कर दिया गया है, पहुंच पर रोक लगा दी गई है।"
 
-#: src/home/pam_systemd_home.c:1016
+#: src/home/pam_systemd_home.c:1025
 msgid "User record is not valid yet, prohibiting access."
 msgstr "उपयोक्ता रिकॉर्ड अभी तक मान्य नहीं है, पहुंच प्रतिबंधित है।"
 
-#: src/home/pam_systemd_home.c:1020
+#: src/home/pam_systemd_home.c:1029
 msgid "User record is not valid anymore, prohibiting access."
 msgstr "उपयोक्ता रिकॉर्ड अब मान्य नहीं है, पहुंच पर रोक लगा दी गई है।"
 
-#: src/home/pam_systemd_home.c:1025 src/home/pam_systemd_home.c:1074
+#: src/home/pam_systemd_home.c:1034 src/home/pam_systemd_home.c:1083
 msgid "User record not valid, prohibiting access."
 msgstr "उपयोक्ता रिकॉर्ड मान्य नहीं है, पहुंच प्रतिबंधित है।"
 
-#: src/home/pam_systemd_home.c:1035
+#: src/home/pam_systemd_home.c:1044
 #, c-format
 msgid "Too many logins, try again in %s."
 msgstr "बहुत अधिक लॉगिन, %s में पुनः प्रयास करें।"
 
-#: src/home/pam_systemd_home.c:1046
+#: src/home/pam_systemd_home.c:1055
 msgid "Password change required."
 msgstr "पासवर्ड परिवर्तन आवश्यक है।"
 
-#: src/home/pam_systemd_home.c:1050
+#: src/home/pam_systemd_home.c:1059
 msgid "Password expired, change required."
 msgstr "पासवर्ड समाप्त हो गया, परिवर्तन आवश्यक है।"
 
-#: src/home/pam_systemd_home.c:1056
+#: src/home/pam_systemd_home.c:1065
 msgid "Password is expired, but can't change, refusing login."
 msgstr "पासवर्ड समाप्त हो गया है, लेकिन बदल नहीं सकता, लॉगिन करने से इंकार कर रहा है।"
 
-#: src/home/pam_systemd_home.c:1060
+#: src/home/pam_systemd_home.c:1069
 msgid "Password will expire soon, please change."
 msgstr "पासवर्ड जल्द ही समाप्त हो जाएगा, कृपया बदलें।"
 
@@ -1157,49 +1157,98 @@ msgstr ""
 msgid "Authentication is required to reset statistics."
 msgstr "NTP सेटिंग्स को रीसेट करने के लिए प्रमाणीकरण आवश्यक है।"
 
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:35
+#: src/resolve/org.freedesktop.resolve1.policy:209
+msgid "Flush DNS caches"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:210
+msgid "Authentication is required to flush DNS caches."
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:220
+msgid "Reset server features"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:221
+msgid "Authentication is required to reset server features."
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:38
 msgid "Check for system updates"
 msgstr ""
 
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:36
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:39
 #, fuzzy
 msgid "Authentication is required to check for system updates."
 msgstr "सिस्टम समय निर्धारित करने के लिए प्रमाणीकरण आवश्यक है।"
 
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:45
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:48
+msgid "Cancel checking for system updates"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:49
+msgid "Authentication is required to cancel checking for system updates."
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:58
 msgid "Install system updates"
 msgstr ""
 
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:46
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:59
 #, fuzzy
 msgid "Authentication is required to install system updates."
 msgstr "सिस्टम समय निर्धारित करने के लिए प्रमाणीकरण आवश्यक है।"
 
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:55
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:68
+msgid "Cancel installing system updates"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:69
+msgid "Authentication is required to cancel installing system updates."
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:78
 msgid "Install specific system version"
 msgstr ""
 
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:56
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:79
 #, fuzzy
 msgid ""
 "Authentication is required to update the system to a specific (possibly old) "
 "version."
 msgstr "सिस्टम समयक्षेत्र निर्धारित करने के लिए प्रमाणीकरण आवश्यक है।"
 
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:65
-msgid "Cleanup old system updates"
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:88
+msgid "Cancel installing specific system version"
 msgstr ""
 
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:66
-#, fuzzy
-msgid "Authentication is required to cleanup old system updates."
-msgstr "सिस्टम समय निर्धारित करने के लिए प्रमाणीकरण आवश्यक है।"
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:89
+msgid ""
+"Authentication is required to cancel updating the system to a specific "
+"(possibly old) version."
+msgstr ""
 
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:75
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:98
+msgid "Clean up old system updates"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:99
+msgid "Authentication is required to clean up old system updates."
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:108
+msgid "Cancel cleaning up old system updates"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:109
+msgid "Authentication is required to cancel cleanup of old system updates."
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:118
 msgid "Manage optional features"
 msgstr ""
 
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:76
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:119
 #, fuzzy
 msgid "Authentication is required to manage optional features."
 msgstr "सक्रिय सत्रों, उपयोक्ताओं और सीटों को प्रबंधित करने के लिए प्रमाणीकरण आवश्यक है।"
@@ -1291,3 +1340,15 @@ msgstr "'$(unit)' से जुड़ी फाइलों और निर्�
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr "'$(unit)' यूनिट की प्रक्रियाओं को जमाने या पिघलाने के लिए प्रमाणीकरण आवश्यक है।"
+
+#: src/shared/libfido2-util.c:497 src/shared/libfido2-util.c:554
+msgid "Please confirm presence on security token to unlock."
+msgstr ""
+
+#: src/shared/libfido2-util.c:513
+msgid "Please verify user on security token to unlock."
+msgstr ""
+
+#, fuzzy
+#~ msgid "Authentication is required to cleanup old system updates."
+#~ msgstr "सिस्टम समय निर्धारित करने के लिए प्रमाणीकरण आवश्यक है।"

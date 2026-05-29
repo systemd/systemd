@@ -16,7 +16,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-18 12:18+0100\n"
+"POT-Creation-Date: 2026-05-29 23:54+0200\n"
 "PO-Revision-Date: 2026-04-28 08:59+0000\n"
 "Last-Translator: Dark Cronyx <darkcronyx@protonmail.com>\n"
 "Language-Team: German <https://translate.fedoraproject.org/projects/systemd/"
@@ -184,7 +184,7 @@ msgstr ""
 "Legitimierung ist notwendig für die Verwaltung von Signierschlüsseln von "
 "Benutzerverzeichnissen."
 
-#: src/home/pam_systemd_home.c:330
+#: src/home/pam_systemd_home.c:327
 #, c-format
 msgid ""
 "Home of user %s is currently absent, please plug in the necessary storage "
@@ -193,31 +193,31 @@ msgstr ""
 "Das Benutzerverzeichnis von %s ist nicht verfügbar. Bitte hängen Sie das "
 "benötigte Speichermedium oder Dateisystem ein."
 
-#: src/home/pam_systemd_home.c:335
+#: src/home/pam_systemd_home.c:332
 #, c-format
 msgid "Too frequent login attempts for user %s, try again later."
 msgstr ""
 "Zu viele Anmeldeversuche für Benutzer %s, versuchen Sie es später noch "
 "einmal."
 
-#: src/home/pam_systemd_home.c:347
+#: src/home/pam_systemd_home.c:344
 msgid "Password: "
 msgstr "Passwort: "
 
-#: src/home/pam_systemd_home.c:349
+#: src/home/pam_systemd_home.c:346
 #, c-format
 msgid "Password incorrect or not sufficient for authentication of user %s."
 msgstr "Falsches Passwort oder unzureichende Authentifizierung für Nutzer %s."
 
-#: src/home/pam_systemd_home.c:350
+#: src/home/pam_systemd_home.c:347
 msgid "Sorry, try again: "
 msgstr "Entschuldigung, bitte erneut probieren: "
 
-#: src/home/pam_systemd_home.c:372
+#: src/home/pam_systemd_home.c:369
 msgid "Recovery key: "
 msgstr "Wiederherstellungsschlüssel: "
 
-#: src/home/pam_systemd_home.c:374
+#: src/home/pam_systemd_home.c:371
 #, c-format
 msgid ""
 "Password/recovery key incorrect or not sufficient for authentication of user "
@@ -226,20 +226,20 @@ msgstr ""
 "Passwort/Wiederherstellungsschlüssel nicht korrekt oder unzureichend um %s "
 "zu authentifizieren."
 
-#: src/home/pam_systemd_home.c:375
+#: src/home/pam_systemd_home.c:372
 msgid "Sorry, reenter recovery key: "
 msgstr "Bitte Wiederherstellungsschlüssel erneut eingeben: "
 
-#: src/home/pam_systemd_home.c:395
+#: src/home/pam_systemd_home.c:392
 #, c-format
 msgid "Security token of user %s not inserted."
 msgstr "Sicherheitstoken für Benutzer %s nicht eingesteckt."
 
-#: src/home/pam_systemd_home.c:396 src/home/pam_systemd_home.c:399
+#: src/home/pam_systemd_home.c:393 src/home/pam_systemd_home.c:396
 msgid "Try again with password: "
 msgstr "Bitte noch einmal mit Passwort versuchen: "
 
-#: src/home/pam_systemd_home.c:398
+#: src/home/pam_systemd_home.c:395
 #, c-format
 msgid ""
 "Password incorrect or not sufficient, and configured security token of user "
@@ -248,27 +248,27 @@ msgstr ""
 "Passwort falsch oder unzureichend und konfigurierter Sicherheitstoken für "
 "Benutzer %s nicht eingesteckt."
 
-#: src/home/pam_systemd_home.c:418
+#: src/home/pam_systemd_home.c:415
 msgid "Security token PIN: "
 msgstr "PIN des Sicherheitstokens: "
 
-#: src/home/pam_systemd_home.c:435
+#: src/home/pam_systemd_home.c:432
 #, c-format
 msgid "Please authenticate physically on security token of user %s."
 msgstr "Bitte physisch auf Sicherheitstoken für Benutzer %s authentifizieren."
 
-#: src/home/pam_systemd_home.c:446
+#: src/home/pam_systemd_home.c:443
 #, c-format
 msgid "Please confirm presence on security token of user %s."
 msgstr "Bitte Präsenz auf Sicherheitstoken für %s bestätigen."
 
-#: src/home/pam_systemd_home.c:457
+#: src/home/pam_systemd_home.c:454
 #, c-format
 msgid "Please verify user on security token of user %s."
 msgstr ""
 "Bitte Benutzer anhand des Sicherheitstokens von Benutzer %s verifizieren."
 
-#: src/home/pam_systemd_home.c:466
+#: src/home/pam_systemd_home.c:463
 msgid ""
 "Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
 "insertion might suffice.)"
@@ -276,80 +276,80 @@ msgstr ""
 "Sicherheitstoken PIN ist gesperrt, bitte entsperren (Hinweis: Entfernen und "
 "neu einstecken könnte genügen.)"
 
-#: src/home/pam_systemd_home.c:474
+#: src/home/pam_systemd_home.c:471
 #, c-format
 msgid "Security token PIN incorrect for user %s."
 msgstr "Sicherheitstoken PIN nicht korrekt für %s."
 
-#: src/home/pam_systemd_home.c:475 src/home/pam_systemd_home.c:494
-#: src/home/pam_systemd_home.c:513
+#: src/home/pam_systemd_home.c:472 src/home/pam_systemd_home.c:491
+#: src/home/pam_systemd_home.c:510
 msgid "Sorry, retry security token PIN: "
 msgstr "Entschuldigung, bitte Sicherheitstoken PIN erneut probieren: "
 
-#: src/home/pam_systemd_home.c:493
+#: src/home/pam_systemd_home.c:490
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
 msgstr "Sicherheitstoken PIN für %s falsch (nur ein paar Versuche übrig!)"
 
-#: src/home/pam_systemd_home.c:512
+#: src/home/pam_systemd_home.c:509
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
 msgstr "Sicherheitstoken PIN für %s falsch (nur noch ein Versuch übrig!)"
 
-#: src/home/pam_systemd_home.c:679
+#: src/home/pam_systemd_home.c:676
 #, c-format
 msgid "Home of user %s is currently not active, please log in locally first."
 msgstr ""
 "Persönlicher Ordner von %s ist aktuell nicht aktiv. Bitte zuerst lokal "
 "anmelden."
 
-#: src/home/pam_systemd_home.c:681
+#: src/home/pam_systemd_home.c:678
 #, c-format
 msgid "Home of user %s is currently locked, please unlock locally first."
 msgstr ""
 "Persönlicher Ordner von %s ist aktuell gesperrt. Bitte zuerst lokal "
 "entsperren."
 
-#: src/home/pam_systemd_home.c:715
+#: src/home/pam_systemd_home.c:712
 #, c-format
 msgid "Too many unsuccessful login attempts for user %s, refusing."
 msgstr "Zu viele erfolglose Anmeldeversuche für %s, lehne ab."
 
-#: src/home/pam_systemd_home.c:1012
+#: src/home/pam_systemd_home.c:1021
 msgid "User record is blocked, prohibiting access."
 msgstr "Benutzerdaten sind blockiert, Zugriff verweigert."
 
-#: src/home/pam_systemd_home.c:1016
+#: src/home/pam_systemd_home.c:1025
 msgid "User record is not valid yet, prohibiting access."
 msgstr "Benutzerdaten sind noch nicht gültig, Zugriff verweigert."
 
-#: src/home/pam_systemd_home.c:1020
+#: src/home/pam_systemd_home.c:1029
 msgid "User record is not valid anymore, prohibiting access."
 msgstr "Benutzerdaten nicht mehr gültig, Zugriff verweigert."
 
-#: src/home/pam_systemd_home.c:1025 src/home/pam_systemd_home.c:1074
+#: src/home/pam_systemd_home.c:1034 src/home/pam_systemd_home.c:1083
 msgid "User record not valid, prohibiting access."
 msgstr "Benutzerdaten nicht gültig, Zugriff verweigert."
 
-#: src/home/pam_systemd_home.c:1035
+#: src/home/pam_systemd_home.c:1044
 #, c-format
 msgid "Too many logins, try again in %s."
 msgstr "Zu viele Anmeldungen, bitte erneut in %s probieren."
 
-#: src/home/pam_systemd_home.c:1046
+#: src/home/pam_systemd_home.c:1055
 msgid "Password change required."
 msgstr "Passwortänderung erforderlich."
 
-#: src/home/pam_systemd_home.c:1050
+#: src/home/pam_systemd_home.c:1059
 msgid "Password expired, change required."
 msgstr "Passwort abgelaufen, Änderung erforderlich."
 
-#: src/home/pam_systemd_home.c:1056
+#: src/home/pam_systemd_home.c:1065
 msgid "Password is expired, but can't change, refusing login."
 msgstr ""
 "Passwort ist abgelaufen, aber ändern nicht möglich, verweigere Anmeldung."
 
-#: src/home/pam_systemd_home.c:1060
+#: src/home/pam_systemd_home.c:1069
 msgid "Password will expire soon, please change."
 msgstr "Passwort wird demnächst ablaufen, bitte ändern."
 
@@ -1280,28 +1280,60 @@ msgstr "Statistik zurücksetzen"
 msgid "Authentication is required to reset statistics."
 msgstr "Legitimierung ist zum Zurücksetzen der Statistik erforderlich."
 
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:35
+#: src/resolve/org.freedesktop.resolve1.policy:209
+msgid "Flush DNS caches"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:210
+msgid "Authentication is required to flush DNS caches."
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:220
+msgid "Reset server features"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:221
+msgid "Authentication is required to reset server features."
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:38
 msgid "Check for system updates"
 msgstr "Auf Systemaktualisierungen prüfen"
 
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:36
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:39
 msgid "Authentication is required to check for system updates."
 msgstr "Legitimierung ist zum Prüfen auf Systemaktualisierungen erforderlich."
 
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:45
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:48
+msgid "Cancel checking for system updates"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:49
+msgid "Authentication is required to cancel checking for system updates."
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:58
 msgid "Install system updates"
 msgstr "Systemaktualisierungen installieren"
 
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:46
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:59
 msgid "Authentication is required to install system updates."
 msgstr ""
 "Legitimierung ist zum Installieren von Systemaktualisierungen erforderlich."
 
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:55
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:68
+msgid "Cancel installing system updates"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:69
+msgid "Authentication is required to cancel installing system updates."
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:78
 msgid "Install specific system version"
 msgstr "Spezifische Systemversion installieren"
 
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:56
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:79
 msgid ""
 "Authentication is required to update the system to a specific (possibly old) "
 "version."
@@ -1309,21 +1341,38 @@ msgstr ""
 "Legitimierung ist zum Aktualisieren des Systems auf eine bestimmte "
 "(möglicherweise alte) Version erforderlich."
 
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:65
-msgid "Cleanup old system updates"
-msgstr "Alte Systemaktualisierungen bereinigen"
-
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:66
-msgid "Authentication is required to cleanup old system updates."
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:88
+msgid "Cancel installing specific system version"
 msgstr ""
-"Legitimierung ist zum Bereinigen alter Systemaktualisierungen erforderlich."
 
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:75
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:89
+msgid ""
+"Authentication is required to cancel updating the system to a specific "
+"(possibly old) version."
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:98
+msgid "Clean up old system updates"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:99
+msgid "Authentication is required to clean up old system updates."
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:108
+msgid "Cancel cleaning up old system updates"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:109
+msgid "Authentication is required to cancel cleanup of old system updates."
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:118
 msgid "Manage optional features"
 msgstr "Optionale Funktionen verwalten"
 
 # https://www.freedesktop.org/software/systemd/man/sd-login.html
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:76
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:119
 msgid "Authentication is required to manage optional features."
 msgstr "Legitimierung ist zur Verwaltung optionaler Funktionen erforderlich."
 
@@ -1424,6 +1473,22 @@ msgid ""
 msgstr ""
 "Authentifizierung ist erforderlich um Prozesse der »$(unit)« Einheit "
 "einzufrieren oder aufzutauen."
+
+#: src/shared/libfido2-util.c:497 src/shared/libfido2-util.c:554
+msgid "Please confirm presence on security token to unlock."
+msgstr ""
+
+#: src/shared/libfido2-util.c:513
+msgid "Please verify user on security token to unlock."
+msgstr ""
+
+#~ msgid "Cleanup old system updates"
+#~ msgstr "Alte Systemaktualisierungen bereinigen"
+
+#~ msgid "Authentication is required to cleanup old system updates."
+#~ msgstr ""
+#~ "Legitimierung ist zum Bereinigen alter Systemaktualisierungen "
+#~ "erforderlich."
 
 #~ msgid "Authentication is required to kill '$(unit)'."
 #~ msgstr "Legitimierung ist zum Eliminieren von »$(unit)« notwendig."

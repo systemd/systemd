@@ -9,7 +9,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-18 12:18+0100\n"
+"POT-Creation-Date: 2026-05-29 23:54+0200\n"
 "PO-Revision-Date: 2026-05-01 00:59+0000\n"
 "Last-Translator: Jim Spentzos <jimspentzos2000@gmail.com>\n"
 "Language-Team: Greek <https://translate.fedoraproject.org/projects/systemd/"
@@ -167,7 +167,7 @@ msgstr ""
 "Απαιτείται ταυτοποίηση για τη διαχείριση κλειδιών υπογραφής για αρχικούς "
 "καταλόγους."
 
-#: src/home/pam_systemd_home.c:330
+#: src/home/pam_systemd_home.c:327
 #, c-format
 msgid ""
 "Home of user %s is currently absent, please plug in the necessary storage "
@@ -176,32 +176,32 @@ msgstr ""
 "Ο αρχικός κατάλογος του χρήστη %s απουσιάζει, παρακαλούμε συνδέστε την "
 "απαραίτητη συσκευή αποθήκευσης ή το σύστημα αρχείων υποστήριξης."
 
-#: src/home/pam_systemd_home.c:335
+#: src/home/pam_systemd_home.c:332
 #, c-format
 msgid "Too frequent login attempts for user %s, try again later."
 msgstr ""
 "Πολύ συχνές προσπάθειες σύνδεσης για τον χρήστη %s, δοκιμάστε ξανά αργότερα."
 
-#: src/home/pam_systemd_home.c:347
+#: src/home/pam_systemd_home.c:344
 msgid "Password: "
 msgstr "Κωδικός πρόσβασης: "
 
-#: src/home/pam_systemd_home.c:349
+#: src/home/pam_systemd_home.c:346
 #, c-format
 msgid "Password incorrect or not sufficient for authentication of user %s."
 msgstr ""
 "Ο κωδικός πρόσβασης είναι εσφαλμένος ή ανεπαρκής για την ταυτοποίηση του "
 "χρήστη %s."
 
-#: src/home/pam_systemd_home.c:350
+#: src/home/pam_systemd_home.c:347
 msgid "Sorry, try again: "
 msgstr "Συγγνώμη, δοκιμάστε ξανά: "
 
-#: src/home/pam_systemd_home.c:372
+#: src/home/pam_systemd_home.c:369
 msgid "Recovery key: "
 msgstr "Κλειδί ανάκτησης: "
 
-#: src/home/pam_systemd_home.c:374
+#: src/home/pam_systemd_home.c:371
 #, c-format
 msgid ""
 "Password/recovery key incorrect or not sufficient for authentication of user "
@@ -210,20 +210,20 @@ msgstr ""
 "Ο κωδικός πρόσβασης ή το κλειδί ανάκτησης είναι εσφαλμένα ή ανεπαρκή για την "
 "ταυτοποίηση του χρήστη %s."
 
-#: src/home/pam_systemd_home.c:375
+#: src/home/pam_systemd_home.c:372
 msgid "Sorry, reenter recovery key: "
 msgstr "Συγγνώμη, εισαγάγετε ξανά το κλειδί ανάκτησης: "
 
-#: src/home/pam_systemd_home.c:395
+#: src/home/pam_systemd_home.c:392
 #, c-format
 msgid "Security token of user %s not inserted."
 msgstr "Το διακριτικό ασφαλείας του χρήστη %s δεν έχει εισαχθεί."
 
-#: src/home/pam_systemd_home.c:396 src/home/pam_systemd_home.c:399
+#: src/home/pam_systemd_home.c:393 src/home/pam_systemd_home.c:396
 msgid "Try again with password: "
 msgstr "Δοκιμάστε ξανά με κωδικό πρόσβασης: "
 
-#: src/home/pam_systemd_home.c:398
+#: src/home/pam_systemd_home.c:395
 #, c-format
 msgid ""
 "Password incorrect or not sufficient, and configured security token of user "
@@ -232,30 +232,30 @@ msgstr ""
 "Ο κωδικός πρόσβασης είναι εσφαλμένος ή ανεπαρκής, και το ρυθμισμένο "
 "διακριτικό ασφαλείας του χρήστη %s δεν έχει εισαχθεί."
 
-#: src/home/pam_systemd_home.c:418
+#: src/home/pam_systemd_home.c:415
 msgid "Security token PIN: "
 msgstr "PIN διακριτικού ασφαλείας: "
 
-#: src/home/pam_systemd_home.c:435
+#: src/home/pam_systemd_home.c:432
 #, c-format
 msgid "Please authenticate physically on security token of user %s."
 msgstr ""
 "Παρακαλούμε ταυτοποιηθείτε φυσικά στο διακριτικό ασφαλείας του χρήστη %s."
 
-#: src/home/pam_systemd_home.c:446
+#: src/home/pam_systemd_home.c:443
 #, c-format
 msgid "Please confirm presence on security token of user %s."
 msgstr ""
 "Παρακαλούμε επιβεβαιώστε την παρουσία σας στο διακριτικό ασφαλείας του "
 "χρήστη %s."
 
-#: src/home/pam_systemd_home.c:457
+#: src/home/pam_systemd_home.c:454
 #, c-format
 msgid "Please verify user on security token of user %s."
 msgstr ""
 "Παρακαλούμε επαληθεύστε τον χρήστη στο διακριτικό ασφαλείας του χρήστη %s."
 
-#: src/home/pam_systemd_home.c:466
+#: src/home/pam_systemd_home.c:463
 msgid ""
 "Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
 "insertion might suffice.)"
@@ -263,85 +263,85 @@ msgstr ""
 "Το PIN του διακριτικού ασφαλείας είναι κλειδωμένο, παρακαλούμε ξεκλειδώστε "
 "το πρώτα. (Συμβουλή: Η αφαίρεση και επανεισαγωγή ίσως αρκεί.)"
 
-#: src/home/pam_systemd_home.c:474
+#: src/home/pam_systemd_home.c:471
 #, c-format
 msgid "Security token PIN incorrect for user %s."
 msgstr "Το PIN του διακριτικού ασφαλείας είναι εσφαλμένο για τον χρήστη %s."
 
-#: src/home/pam_systemd_home.c:475 src/home/pam_systemd_home.c:494
-#: src/home/pam_systemd_home.c:513
+#: src/home/pam_systemd_home.c:472 src/home/pam_systemd_home.c:491
+#: src/home/pam_systemd_home.c:510
 msgid "Sorry, retry security token PIN: "
 msgstr "Συγγνώμη, προσπαθήστε ξανά το PIN του διακριτικού ασφαλείας: "
 
-#: src/home/pam_systemd_home.c:493
+#: src/home/pam_systemd_home.c:490
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
 msgstr ""
 "Το PIN διακριτικού ασφαλείας του χρήστη %s είναι εσφαλμένο (απέμειναν "
 "ελάχιστες προσπάθειες!)"
 
-#: src/home/pam_systemd_home.c:512
+#: src/home/pam_systemd_home.c:509
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
 msgstr ""
 "Το PIN διακριτικού ασφαλείας του χρήστη %s είναι εσφαλμένο (απέμεινε μόνο "
 "μία προσπάθεια!)"
 
-#: src/home/pam_systemd_home.c:679
+#: src/home/pam_systemd_home.c:676
 #, c-format
 msgid "Home of user %s is currently not active, please log in locally first."
 msgstr ""
 "Ο αρχικός κατάλογος του χρήστη %s δεν είναι ενεργός, παρακαλούμε συνδεθείτε "
 "τοπικά πρώτα."
 
-#: src/home/pam_systemd_home.c:681
+#: src/home/pam_systemd_home.c:678
 #, c-format
 msgid "Home of user %s is currently locked, please unlock locally first."
 msgstr ""
 "Ο αρχικός κατάλογος του χρήστη %s είναι κλειδωμένος, παρακαλούμε ξεκλειδώστε "
 "τοπικά πρώτα."
 
-#: src/home/pam_systemd_home.c:715
+#: src/home/pam_systemd_home.c:712
 #, c-format
 msgid "Too many unsuccessful login attempts for user %s, refusing."
 msgstr ""
 "Πάρα πολλές αποτυχημένες προσπάθειες σύνδεσης για τον χρήστη %s, άρνηση."
 
-#: src/home/pam_systemd_home.c:1012
+#: src/home/pam_systemd_home.c:1021
 msgid "User record is blocked, prohibiting access."
 msgstr "Η εγγραφή χρήστη είναι αποκλεισμένη, απαγορεύεται η πρόσβαση."
 
-#: src/home/pam_systemd_home.c:1016
+#: src/home/pam_systemd_home.c:1025
 msgid "User record is not valid yet, prohibiting access."
 msgstr "Η εγγραφή χρήστη δεν είναι ακόμη έγκυρη, απαγορεύεται η πρόσβαση."
 
-#: src/home/pam_systemd_home.c:1020
+#: src/home/pam_systemd_home.c:1029
 msgid "User record is not valid anymore, prohibiting access."
 msgstr "Η εγγραφή χρήστη δεν είναι πλέον έγκυρη, απαγορεύεται η πρόσβαση."
 
-#: src/home/pam_systemd_home.c:1025 src/home/pam_systemd_home.c:1074
+#: src/home/pam_systemd_home.c:1034 src/home/pam_systemd_home.c:1083
 msgid "User record not valid, prohibiting access."
 msgstr "Η εγγραφή χρήστη δεν είναι έγκυρη, απαγορεύεται η πρόσβαση."
 
-#: src/home/pam_systemd_home.c:1035
+#: src/home/pam_systemd_home.c:1044
 #, c-format
 msgid "Too many logins, try again in %s."
 msgstr "Πάρα πολλές συνδέσεις, δοκιμάστε ξανά σε %s."
 
-#: src/home/pam_systemd_home.c:1046
+#: src/home/pam_systemd_home.c:1055
 msgid "Password change required."
 msgstr "Απαιτείται αλλαγή κωδικού πρόσβασης."
 
-#: src/home/pam_systemd_home.c:1050
+#: src/home/pam_systemd_home.c:1059
 msgid "Password expired, change required."
 msgstr "Ο κωδικός πρόσβασης έληξε, απαιτείται αλλαγή."
 
-#: src/home/pam_systemd_home.c:1056
+#: src/home/pam_systemd_home.c:1065
 msgid "Password is expired, but can't change, refusing login."
 msgstr ""
 "Ο κωδικός πρόσβασης έληξε αλλά δεν μπορεί να αλλαχθεί, άρνηση σύνδεσης."
 
-#: src/home/pam_systemd_home.c:1060
+#: src/home/pam_systemd_home.c:1069
 msgid "Password will expire soon, please change."
 msgstr "Ο κωδικός πρόσβασης θα λήξει σύντομα, παρακαλούμε αλλάξτε τον."
 
@@ -1253,27 +1253,59 @@ msgstr "Επαναφορά στατιστικών"
 msgid "Authentication is required to reset statistics."
 msgstr "Απαιτείται ταυτοποίηση για την επαναφορά των στατιστικών."
 
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:35
+#: src/resolve/org.freedesktop.resolve1.policy:209
+msgid "Flush DNS caches"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:210
+msgid "Authentication is required to flush DNS caches."
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:220
+msgid "Reset server features"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:221
+msgid "Authentication is required to reset server features."
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:38
 msgid "Check for system updates"
 msgstr "Έλεγχος για ενημερώσεις συστήματος"
 
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:36
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:39
 msgid "Authentication is required to check for system updates."
 msgstr "Απαιτείται ταυτοποίηση για τον έλεγχο ενημερώσεων συστήματος."
 
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:45
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:48
+msgid "Cancel checking for system updates"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:49
+msgid "Authentication is required to cancel checking for system updates."
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:58
 msgid "Install system updates"
 msgstr "Εγκατάσταση ενημερώσεων συστήματος"
 
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:46
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:59
 msgid "Authentication is required to install system updates."
 msgstr "Απαιτείται ταυτοποίηση για την εγκατάσταση ενημερώσεων συστήματος."
 
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:55
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:68
+msgid "Cancel installing system updates"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:69
+msgid "Authentication is required to cancel installing system updates."
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:78
 msgid "Install specific system version"
 msgstr "Εγκατάσταση συγκεκριμένης έκδοσης συστήματος"
 
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:56
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:79
 msgid ""
 "Authentication is required to update the system to a specific (possibly old) "
 "version."
@@ -1281,20 +1313,37 @@ msgstr ""
 "Απαιτείται ταυτοποίηση για την ενημέρωση του συστήματος σε μια συγκεκριμένη "
 "(πιθανώς παλιά) έκδοση."
 
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:65
-msgid "Cleanup old system updates"
-msgstr "Εκκαθάριση παλαιών ενημερώσεων συστήματος"
-
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:66
-msgid "Authentication is required to cleanup old system updates."
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:88
+msgid "Cancel installing specific system version"
 msgstr ""
-"Απαιτείται ταυτοποίηση για την εκκαθάριση παλαιών ενημερώσεων συστήματος."
 
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:75
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:89
+msgid ""
+"Authentication is required to cancel updating the system to a specific "
+"(possibly old) version."
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:98
+msgid "Clean up old system updates"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:99
+msgid "Authentication is required to clean up old system updates."
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:108
+msgid "Cancel cleaning up old system updates"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:109
+msgid "Authentication is required to cancel cleanup of old system updates."
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:118
 msgid "Manage optional features"
 msgstr "Διαχείριση προαιρετικών χαρακτηριστικών"
 
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:76
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:119
 msgid "Authentication is required to manage optional features."
 msgstr "Απαιτείται ταυτοποίηση για τη διαχείριση προαιρετικών χαρακτηριστικών."
 
@@ -1394,6 +1443,21 @@ msgid ""
 msgstr ""
 "Απαιτείται ταυτοποίηση για την παύση (freeze) ή την επαναφορά (thaw) των "
 "διεργασιών της μονάδας '$(unit)'."
+
+#: src/shared/libfido2-util.c:497 src/shared/libfido2-util.c:554
+msgid "Please confirm presence on security token to unlock."
+msgstr ""
+
+#: src/shared/libfido2-util.c:513
+msgid "Please verify user on security token to unlock."
+msgstr ""
+
+#~ msgid "Cleanup old system updates"
+#~ msgstr "Εκκαθάριση παλαιών ενημερώσεων συστήματος"
+
+#~ msgid "Authentication is required to cleanup old system updates."
+#~ msgstr ""
+#~ "Απαιτείται ταυτοποίηση για την εκκαθάριση παλαιών ενημερώσεων συστήματος."
 
 #, fuzzy
 #~ msgid "Authentication is required to kill '$(unit)'."
