@@ -503,6 +503,7 @@ units = [
           'file' : 'systemd-machine-id-commit.service',
           'symlinks' : ['sysinit.target.wants/'],
         },
+        { 'file' : 'systemd-machine-tag@.service' },
         {
           'file' : 'systemd-machined.service.in',
           'conditions' : ['ENABLE_MACHINED'],

@@ -57,6 +57,8 @@ node /org/freedesktop/hostname1 {
       SetLocation(in  s location,
                   in  b interactive);
       SetTags(in  as tags);
+      AddAndRemoveTags(in  as add,
+                       in  as remove);
       GetProductUUID(in  b interactive,
                      out ay uuid);
       GetHardwareSerial(out s serial);
@@ -145,6 +147,8 @@ node /org/freedesktop/hostname1 {
     <variablelist class="dbus-method" generated="True" extra-ref="SetLocation()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="SetTags()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="AddAndRemoveTags()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="GetProductUUID()"/>
 
@@ -385,6 +389,13 @@ node /org/freedesktop/hostname1 {
       alphanumeric characters, <literal>-</literal> and <literal>.</literal>). Passing an empty list removes
       the <varname>TAGS=</varname> field from <filename>/etc/machine-info</filename>.</para>
 
+      <para><function>AddAndRemoveTags()</function> incrementally updates the <varname>Tags</varname>
+      property instead of replacing it. It takes two lists of machine tags: the tags in <varname>add</varname>
+      are added to the current list, and the tags in <varname>remove</varname> are dropped from it (the
+      resulting list is <varname>(current ∪ add) \ remove</varname>, sorted and deduplicated). This is useful
+      when several independent agents each manage a subset of the tags without racing on a read-modify-write
+      of the full list. Each tag must be a valid machine tag, as for <function>SetTags()</function>.</para>
+
       <para><varname>PrettyHostname</varname>, <varname>IconName</varname>, <varname>Chassis</varname>,
       <varname>Deployment</varname>, <varname>Location</varname>, and <varname>Tags</varname> are stored in
       <filename>/etc/machine-info</filename>. See
@@ -421,7 +432,8 @@ node /org/freedesktop/hostname1 {
       <function>SetStaticHostname()</function> and <function>SetPrettyHostname()</function> it is
       <interfacename>org.freedesktop.hostname1.set-static-hostname</interfacename>. For
       <function>SetIconName()</function>, <function>SetChassis()</function>, <function>SetDeployment()</function>,
-      <function>SetLocation()</function> and <function>SetTags()</function> it is
+      <function>SetLocation()</function>, <function>SetTags()</function> and
+      <function>AddAndRemoveTags()</function> it is
       <interfacename>org.freedesktop.hostname1.set-machine-info</interfacename>.</para>
     </refsect2>
   </refsect1>
@@ -527,6 +539,7 @@ node /org/freedesktop/hostname1 {
       <para><varname>OperatingSystemFancyName</varname> was added in version 260.</para>
       <para><function>GetMachineInfo()</function>, <varname>Tags</varname> and
       <function>SetTags()</function> were added in version 261.</para>
+      <para><function>AddAndRemoveTags()</function> was added in version 262.</para>
     </refsect2>
   </refsect1>
 
