@@ -8,6 +8,14 @@ CHANGES WITH 262:
           the symlink target. Previously, these were only expanded in the
           source.
 
+        * As part of changes to systemd-sysupdate, the existing
+          "systemd-sysupdate.service" and "systemd-sysupdate.timer" units –
+          which periodically ran "systemd-sysupdate" to update the host system –
+          have been renamed to "systemd-sysupdate-update.service" and
+          "systemd-sysupdate-update.timer" respectively. Compatibility symlinks
+          have been provided. This clears the way for a new
+          "systemd-sysupdate@.service" unit for varlink activation of sysupdate.
+
 CHANGES WITH 261:
 
         Announcements of Future Feature Removals and Incompatible Changes:

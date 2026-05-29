@@ -849,12 +849,23 @@ units = [
           'conditions' : ['ENABLE_SYSUPDATE'],
         },
         {
-          'file' : 'systemd-sysupdate.service',
+          'file' : 'systemd-sysupdate-update.service',
+          'conditions' : ['ENABLE_SYSUPDATE'],
+          'symlinks' : ['systemd-sysupdate.service'],  # compatibility after rename
+        },
+        {
+          'file' : 'systemd-sysupdate@.service',
           'conditions' : ['ENABLE_SYSUPDATE'],
         },
         {
-          'file' : 'systemd-sysupdate.timer',
+          'file' : 'systemd-sysupdate.socket',
           'conditions' : ['ENABLE_SYSUPDATE'],
+          'symlinks' : ['sockets.target.wants/'],
+        },
+        {
+          'file' : 'systemd-sysupdate-update.timer',
+          'conditions' : ['ENABLE_SYSUPDATE'],
+          'symlinks' : ['systemd-sysupdate.timer'],  # compatibility after rename
         },
         {
           'file' : 'systemd-sysupdated.service.in',

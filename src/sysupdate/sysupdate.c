@@ -2,11 +2,13 @@
 
 #include <unistd.h>
 
+#include "sd-bus.h"
 #include "sd-daemon.h"
 #include "sd-json.h"
 #include "sd-varlink.h"
 
 #include "build.h"
+#include "bus-polkit.h"
 #include "conf-files.h"
 #include "constants.h"
 #include "dissect-image.h"
@@ -19,6 +21,7 @@
 #include "help-util.h"
 #include "hexdecoct.h"
 #include "image-policy.h"
+#include "json-util.h"
 #include "loop-util.h"
 #include "main-func.h"
 #include "mount-util.h"
@@ -39,6 +42,7 @@
 #include "sysupdate-transfer.h"
 #include "sysupdate-update-set.h"
 #include "sysupdate-util.h"
+#include "varlink-io.systemd.SysUpdate.h"
 #include "varlink-util.h"
 #include "verbs.h"
 
@@ -58,6 +62,7 @@ static int arg_verify = -1;
 static ImagePolicy *arg_image_policy = NULL;
 static bool arg_offline = false;
 static char *arg_transfer_source = NULL;
+static bool arg_varlink = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_definitions, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
@@ -152,6 +157,25 @@ static int context_from_cmdline(Context *ret) {
 
         *ret = TAKE_GENERIC(context, Context, CONTEXT_NULL);
         return 0;
+}
+
+/* Stores any long-running server state which needs to persist between varlink calls, such as state for
+ * pending polkit requests */
+typedef struct Server {
+        sd_bus *system_bus;
+        Hashmap *polkit_registry;
+} Server;
+
+#define SERVER_NULL \
+        (Server) { \
+                /* all fields fine with being initialised to NULL */ \
+        }
+
+static void server_done(Server *s) {
+        assert(s);
+
+        s->polkit_registry = hashmap_free(s->polkit_registry);
+        s->system_bus = sd_bus_flush_close_unref(s->system_bus);
 }
 
 static DEFINE_POINTER_ARRAY_FREE_FUNC(Transfer*, transfer_free);
@@ -1413,6 +1437,29 @@ static int context_install(
         return 1;
 }
 
+static int verify_polkit(Context *context, sd_varlink *link, const char *action, const char **details) {
+        int r;
+        Server *s = ASSERT_PTR(sd_varlink_get_userdata(ASSERT_PTR(link)));
+
+        assert(context);
+
+        if (!s->system_bus) {
+                r = sd_bus_open_system_with_description(&s->system_bus, "sysupdate-system");
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get system bus connection: %m");
+
+                r = sd_bus_attach_event(s->system_bus, sd_varlink_get_event(link), SD_EVENT_PRIORITY_NORMAL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to attach system bus to event loop: %m");
+        }
+
+        return varlink_verify_polkit_async(link,
+                        s->system_bus,
+                        action,
+                        details,
+                        &s->polkit_registry);
+}
+
 VERB(verb_list, "list", "[VERSION]", VERB_ANY, 2, VERB_DEFAULT,
      "Show installed and available versions");
 static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
@@ -2220,8 +2267,41 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
         if (arg_definitions && arg_component)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "The --definitions= and --component= switches may not be combined.");
 
+        r = sd_varlink_invocation(SD_VARLINK_ALLOW_ACCEPT);
+        if (r < 0)
+                return log_error_errno(r, "Failed to check if invoked in Varlink mode: %m");
+        if (r > 0)
+                arg_varlink = true;
+
         *remaining_args = option_parser_get_args(&opts);
         return 1;
+}
+
+static int vl_server(void) {
+        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *varlink_server = NULL;
+        _cleanup_(server_done) Server server = SERVER_NULL;
+        int r;
+
+        r = varlink_server_new(&varlink_server,
+                               SD_VARLINK_SERVER_ACCOUNT_UID|SD_VARLINK_SERVER_INHERIT_USERDATA,
+                               &server);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate Varlink server: %m");
+
+        r = sd_varlink_server_add_interface(varlink_server, &vl_interface_io_systemd_SysUpdate);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add Varlink interface: %m");
+
+        r = sd_varlink_server_bind_method_many(
+                        varlink_server);
+        if (r < 0)
+                return log_error_errno(r, "Failed to bind Varlink method: %m");
+
+        r = sd_varlink_server_loop_auto(varlink_server);
+        if (r < 0)
+                return log_error_errno(r, "Failed to run Varlink event loop: %m");
+
+        return 0;
 }
 
 static int run(int argc, char *argv[]) {
@@ -2233,6 +2313,9 @@ static int run(int argc, char *argv[]) {
         r = parse_argv(argc, argv, &args);
         if (r <= 0)
                 return r;
+
+        if (arg_varlink)
+                return vl_server(); /* Invocation as Varlink service */
 
         return dispatch_verb(args, NULL);
 }
