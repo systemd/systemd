@@ -203,12 +203,18 @@ static int trie_fnmatch_f(sd_hwdb *hwdb, const struct trie_node_f *node, size_t 
                 linebuf_rem_char(buf);
         }
 
-        if (le64toh(node->values_count) && fnmatch(linebuf_get(buf), search, 0) == 0)
-                for (i = 0; i < le64toh(node->values_count); i++) {
-                        err = hwdb_add_property(hwdb, trie_node_value(hwdb, node, i));
-                        if (err < 0)
-                                return err;
-                }
+        if (le64toh(node->values_count) != 0) {
+                const char *line = linebuf_get(buf);
+                if (!line)
+                        return -EBADMSG;
+
+                if (fnmatch(line, search, 0) == 0)
+                        for (i = 0; i < le64toh(node->values_count); i++) {
+                                err = hwdb_add_property(hwdb, trie_node_value(hwdb, node, i));
+                                if (err < 0)
+                                        return err;
+                        }
+        }
 
         linebuf_rem(buf, len);
         return 0;
