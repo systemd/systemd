@@ -18,6 +18,7 @@ ARGS=(
     "--optimization=3 -Dfexecve=true -Dstandalone-binaries=true -Dstatic-libsystemd=true -Dstatic-libudev=true"
     "-Db_ndebug=true"
 )
+# Packages that are always native (i.e.: tools that run on the host) go in this list
 PACKAGES=(
     cryptsetup-bin
     expect
@@ -27,6 +28,26 @@ PACKAGES=(
     isc-dhcp-client
     itstool
     kbd
+    linux-tools-generic
+    mold
+    mount
+    net-tools
+    python3-evdev
+    python3-jinja2
+    python3-lxml
+    python3-pefile
+    python3-pip
+    python3-pyelftools
+    python3-pyparsing
+    python3-setuptools
+    quota
+    strace
+    unifont
+    util-linux
+    zstd
+)
+# Packages that are needed for the target architecture (i.e.: libraries) go in this list
+DEVEL_PACKAGES=(
     libarchive-dev
     libblkid-dev
     libbpf-dev
@@ -47,38 +68,48 @@ PACKAGES=(
     libxkbcommon-dev
     libxtables-dev
     libzstd-dev
-    linux-tools-generic
-    mold
-    mount
-    net-tools
-    python3-evdev
-    python3-jinja2
-    python3-lxml
-    python3-pefile
-    python3-pip
-    python3-pyelftools
-    python3-pyparsing
-    python3-setuptools
-    quota
-    strace
-    unifont
-    util-linux
-    zstd
 )
 FEATURES=()
 COMPILER="${COMPILER:?}"
 COMPILER_VERSION="${COMPILER_VERSION:?}"
 LINKER="${LINKER:?}"
 RELEASE="$(lsb_release -cs)"
+CROSS_ARCH="${CROSS_ARCH:-}"
+CROSS_FILE=()
 
-if [ "$(uname -m)" = "aarch64" ] || [ "$(uname -m)" = "x86_64" ]; then
-    PACKAGES+=(libxen-dev)
+if [[ -z "$CROSS_ARCH" ]] && [[ "$(uname -m)" =~ ^(aarch64|x86_64)$ ]]; then
+    DEVEL_PACKAGES+=(libxen-dev)
 fi
+
+# If CROSS_ARCH is set, append :<arch> to the packages so they get installed for the target
+PACKAGES+=("${DEVEL_PACKAGES[@]/%/${CROSS_ARCH:+:$CROSS_ARCH}}")
 
 # Note: As we use postfixed clang/gcc binaries, we need to override $AR
 #       as well, otherwise meson falls back to ar from binutils which
 #       doesn't work with LTO
-if [[ "$COMPILER" == clang ]]; then
+if [[ -n "$CROSS_ARCH" ]]; then
+    if [[ "$COMPILER" != gcc ]]; then
+        fatal "$CROSS_ARCH cross builds are only supported with gcc"
+    fi
+
+    case "$CROSS_ARCH" in
+        armhf)
+            triplet=arm-linux-gnueabihf
+            ;;
+        *)
+            fatal "Unsupported cross architecture: $CROSS_ARCH"
+            ;;
+    esac
+
+    CC="$triplet-gcc"
+    CXX="$triplet-g++"
+    AR="$triplet-gcc-ar"
+    CFLAGS="-Wno-maybe-uninitialized"
+    CXXFLAGS=""
+    CROSS_FILE=(--cross-file ".github/workflows/$CROSS_ARCH-gcc.cross")
+    FEATURES+=(-Ddbus-interfaces-dir=no -Dsbat-distro=)
+    PACKAGES+=("crossbuild-essential-$CROSS_ARCH")
+elif [[ "$COMPILER" == clang ]]; then
     CC="clang-$COMPILER_VERSION"
     CXX="clang++-$COMPILER_VERSION"
     AR="llvm-ar-$COMPILER_VERSION"
@@ -137,8 +168,11 @@ else
         sudo sed -i "s/Types: deb/Types: deb deb-src/g" "$f"
     done
 fi
+if [[ -n "$CROSS_ARCH" ]]; then
+    sudo dpkg --add-architecture "$CROSS_ARCH"
+fi
 sudo apt-get -y update
-sudo apt-get -y build-dep systemd
+sudo apt-get -y build-dep systemd ${CROSS_ARCH:+--host-architecture=$CROSS_ARCH}
 sudo apt-get -y install "${PACKAGES[@]}"
 # Install more or less recent meson and ninja with pip, since the distro versions don't
 # always support all the features we need (like --optimization=). Since the build-dep
@@ -179,6 +213,7 @@ for args in "${ARGS[@]}"; do
                -Dtests=unsafe -Dslow-tests=true -Dfuzz-tests=true --werror \
                -Dnobody-group=nogroup -Ddebug=false \
                "${FEATURES[@]}" \
+               "${CROSS_FILE[@]}" \
                $args build; then
 
         cat build/meson-logs/meson-log.txt
