@@ -17,3 +17,26 @@ int bus_call_suspend(
                 uint64_t usec,
                 sd_bus_error *reterr_error,
                 sd_bus_message **ret_reply);
+
+/* Subscribe to a bus signal and push every matching message into a new channel. Closing or freeing
+ * the channel removes the match. If the channel is full, the signal is dropped with a warning. If
+ * AddMatch fails, the channel is closed and sd_channel_pop() returns -EPIPE. */
+int bus_signal_channel_new(
+                sd_bus *bus,
+                const char *sender,
+                const char *path,
+                const char *interface,
+                const char *member,
+                size_t capacity,
+                sd_channel **ret);
+
+/* Like bus_signal_channel_new(), but backed by sd_channel_new_conflated(). A new signal replaces
+ * the signal that is still buffered, so a consumer only sees the most recent signal. Use this when
+ * only the latest state matters, for example for a state-change notification. */
+int bus_signal_channel_new_conflated(
+                sd_bus *bus,
+                const char *sender,
+                const char *path,
+                const char *interface,
+                const char *member,
+                sd_channel **ret);

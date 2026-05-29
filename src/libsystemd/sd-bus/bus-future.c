@@ -6,6 +6,7 @@
 #include "bus-future.h"
 #include "bus-internal.h"
 #include "bus-message.h"
+#include "log.h"
 
 typedef struct BusFuture {
         sd_bus_slot *slot;
@@ -103,6 +104,128 @@ int future_get_bus_reply(sd_future *f, sd_bus_error *reterr_error, sd_bus_messag
                 *ret_reply = sd_bus_message_ref(reply);
 
         return 1;
+}
+
+static void bus_signal_channel_item_destroy(void *p) {
+        sd_bus_message_unref(p);
+}
+
+static void bus_signal_channel_slot_destroy(void *p) {
+        sd_bus_slot_unref(p);
+}
+
+static int bus_signal_channel_handler(sd_bus_message *m, void *userdata, sd_bus_error *reterr_error) {
+        sd_channel *c = ASSERT_PTR(userdata);
+        int r;
+
+        /* sd-bus only keeps `m` alive while the callback runs, so the channel needs its own reference.
+         * sd_channel_try_push() only takes ownership of the reference if it succeeds. */
+        sd_bus_message *ref = sd_bus_message_ref(m);
+        r = sd_channel_try_push(c, ref);
+        if (r >= 0)
+                return 0;
+
+        sd_bus_message_unref(ref);
+        if (r == -ENOBUFS)
+                log_warning("Bus signal channel full, dropping signal.");
+        else
+                log_warning_errno(r, "Failed to enqueue bus signal, dropping: %m");
+        return 0;
+}
+
+static int bus_signal_channel_install_handler(sd_bus_message *m, void *userdata, sd_bus_error *reterr_error) {
+        sd_channel *c = ASSERT_PTR(userdata);
+
+        if (sd_bus_message_is_method_error(m, /* name= */ NULL)) {
+                log_warning("AddMatch failed for bus signal channel: %s",
+                            sd_bus_message_get_error(m)->message);
+                (void) sd_channel_close(c);
+        }
+        return 0;
+}
+
+static int bus_signal_channel_attach_match(
+                sd_bus *bus,
+                sd_channel *c,
+                const char *sender,
+                const char *path,
+                const char *interface,
+                const char *member) {
+
+        int r;
+
+        assert(bus);
+        assert(c);
+
+        /* The match callback gets the channel pointer without a reference. The channel releases the match
+         * slot when it is closed or freed, so the callback never runs with a freed channel. */
+        _cleanup_(sd_bus_slot_unrefp) sd_bus_slot *slot = NULL;
+        r = sd_bus_match_signal_async(bus, &slot, sender, path, interface, member,
+                                      bus_signal_channel_handler,
+                                      bus_signal_channel_install_handler,
+                                      c);
+        if (r < 0)
+                return r;
+
+        r = sd_channel_set_slot(c, slot, bus_signal_channel_slot_destroy);
+        if (r < 0)
+                return r;
+
+        TAKE_PTR(slot);
+        return 0;
+}
+
+int bus_signal_channel_new(
+                sd_bus *bus,
+                const char *sender,
+                const char *path,
+                const char *interface,
+                const char *member,
+                size_t capacity,
+                sd_channel **ret) {
+
+        int r;
+
+        assert(bus);
+        assert(ret);
+
+        _cleanup_(sd_channel_unrefp) sd_channel *c = NULL;
+        r = sd_channel_new(sd_bus_get_event(bus), capacity, SD_CHANNEL_OVERFLOW_WAIT, bus_signal_channel_item_destroy, &c);
+        if (r < 0)
+                return r;
+
+        r = bus_signal_channel_attach_match(bus, c, sender, path, interface, member);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(c);
+        return 0;
+}
+
+int bus_signal_channel_new_conflated(
+                sd_bus *bus,
+                const char *sender,
+                const char *path,
+                const char *interface,
+                const char *member,
+                sd_channel **ret) {
+
+        int r;
+
+        assert(bus);
+        assert(ret);
+
+        _cleanup_(sd_channel_unrefp) sd_channel *c = NULL;
+        r = sd_channel_new_conflated(sd_bus_get_event(bus), bus_signal_channel_item_destroy, &c);
+        if (r < 0)
+                return r;
+
+        r = bus_signal_channel_attach_match(bus, c, sender, path, interface, member);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(c);
+        return 0;
 }
 
 int bus_call_suspend(
