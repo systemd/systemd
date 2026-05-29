@@ -29,12 +29,14 @@ struct sockaddr;
 struct msghdr;
 struct timespec;
 
+typedef struct sd_channel sd_channel;
 typedef struct sd_event sd_event;
 typedef struct sd_future sd_future;
 typedef struct sd_future_ops sd_future_ops;
 typedef int (*sd_future_func_t)(sd_future *f);
 typedef int (*sd_fiber_func_t)(void *userdata);
 typedef _sd_destroy_t sd_fiber_destroy_t;
+typedef _sd_destroy_t sd_channel_destroy_t;
 
 struct sd_future_ops {
         size_t size;
@@ -103,6 +105,28 @@ sd_future* sd_fiber_timeout(uint64_t timeout);
                        *_SD_CONCATENATE(_sd_fto_b_, uniq) = (sd_future*) (uintptr_t) 1;                                                                         \
              _SD_CONCATENATE(_sd_fto_b_, uniq);                                                                                                                 \
              _SD_CONCATENATE(_sd_fto_b_, uniq) = NULL)
+
+/* Bounded MPMC channel of void* items. A channel buffers up to `capacity` items; sends
+ * block (via their future) when the channel is full, receives block when empty. The
+ * destroy callback (if non-NULL) is invoked on every item still owned by the channel
+ * when its last ref is dropped, on items left in cancelled-or-dropped sender futures,
+ * and on values delivered to receiver futures that were never extracted. */
+
+int sd_channel_new(sd_event *e, size_t capacity, sd_channel_destroy_t destroy, sd_channel **ret);
+int sd_channel_send(sd_channel *c, void *item, sd_future **ret);
+int sd_channel_recv(sd_channel *c, sd_future **ret);
+int sd_channel_recv_get(sd_future *f, void **ret);
+int sd_channel_try_push(sd_channel *c, void *item);
+int sd_channel_try_pop(sd_channel *c, void **ret);
+int sd_channel_push(sd_channel *c, void *item);
+int sd_channel_pop(sd_channel *c, void **ret);
+int sd_channel_pop_latest(sd_channel *c, void **ret);
+
+int sd_channel_close(sd_channel *c);
+int sd_channel_set_slot(sd_channel *c, void *slot, sd_channel_destroy_t destroy);
+
+_SD_DECLARE_TRIVIAL_REF_UNREF_FUNC(sd_channel);
+_SD_DEFINE_POINTER_CLEANUP_FUNC(sd_channel, sd_channel_unref);
 
 /* Fiber I/O operations - use sd-event for non-blocking I/O when in fiber context */
 ssize_t sd_fiber_read(int fd, void *buf, size_t count);
