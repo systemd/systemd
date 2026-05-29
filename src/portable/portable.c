@@ -821,8 +821,9 @@ static int extract_image_and_extensions(
         /* If we get a path, then check if it can be resolved with vpick. We need this as we might just
          * get a simple image name, which would make vpick error out. */
         if (path_is_absolute(name_or_path)) {
-                r = path_pick(/* toplevel_path= */ NULL,
-                              /* toplevel_fd= */ AT_FDCWD,
+                r = path_pick(/* root_path= */ NULL,
+                              /* root_fd= */ AT_FDCWD,
+                              /* dir_fd= */ AT_FDCWD,
                               name_or_path,
                               pick_filter_image_any,
                               ELEMENTSOF(pick_filter_image_any),
@@ -860,8 +861,9 @@ static int extract_image_and_extensions(
                         const char *path = *p;
 
                         if (path_is_absolute(*p)) {
-                                r = path_pick(/* toplevel_path= */ NULL,
-                                              /* toplevel_fd= */ AT_FDCWD,
+                                r = path_pick(/* root_path= */ NULL,
+                                              /* root_fd= */ AT_FDCWD,
+                                              /* dir_fd= */ AT_FDCWD,
                                               *p,
                                               pick_filter_image_any,
                                               ELEMENTSOF(pick_filter_image_any),
@@ -2201,8 +2203,9 @@ static bool marker_matches_images(const char *marker, const char *name_or_path, 
                         if (r < 0)
                                 return log_debug_errno(r, "Failed to extract image name from %s, ignoring: %m", image);
 
-                        r = path_pick(/* toplevel_path= */ NULL,
-                                      /* toplevel_fd= */ AT_FDCWD,
+                        r = path_pick(/* root_path= */ NULL,
+                                      /* root_fd= */ AT_FDCWD,
+                                      /* dir_fd= */ AT_FDCWD,
                                       *image_name_or_path,
                                       pick_filter_image_any,
                                       ELEMENTSOF(pick_filter_image_any),
