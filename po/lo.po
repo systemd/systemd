@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-18 12:18+0100\n"
+"POT-Creation-Date: 2026-05-30 00:14+0200\n"
 "PO-Revision-Date: 2026-05-12 06:16+0000\n"
 "Last-Translator: Bone NI <bounkirdni@gmail.com>\n"
 "Language-Team: Lao <https://translate.fedoraproject.org/projects/systemd/"
@@ -145,82 +145,82 @@ msgstr "ຈັດການຄີການລົງລາຍເຊັນຂອງ
 msgid "Authentication is required to manage signing keys for home directories."
 msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຈັດການຄີການລົງລາຍເຊັນສຳລັບໂຟນເດີໂຮມ."
 
-#: src/home/pam_systemd_home.c:330
+#: src/home/pam_systemd_home.c:327
 #, c-format
 msgid ""
 "Home of user %s is currently absent, please plug in the necessary storage "
 "device or backing file system."
 msgstr "ພື້ນທີ່ໂຮມຂອງຜູ້ໃຊ້ %s ບໍ່ມີຢູ່ໃນຕອນນີ້, ກະລຸນາສຽບອຸປະກອນເກັບຂໍ້ມູນທີ່ຈຳເປັນ ຫຼື ລະບົບໄຟລ໌ສຳຮອງ."
 
-#: src/home/pam_systemd_home.c:335
+#: src/home/pam_systemd_home.c:332
 #, c-format
 msgid "Too frequent login attempts for user %s, try again later."
 msgstr "ມີການພະຍາຍາມເຂົ້າສູ່ລະບົບສຳລັບຜູ້ໃຊ້ %s ຫຼາຍເກີນໄປ, ກະລຸນາລອງໃໝ່ພາຍຫຼັງ."
 
-#: src/home/pam_systemd_home.c:347
+#: src/home/pam_systemd_home.c:344
 msgid "Password: "
 msgstr "ລະຫັດຜ່ານ: "
 
-#: src/home/pam_systemd_home.c:349
+#: src/home/pam_systemd_home.c:346
 #, c-format
 msgid "Password incorrect or not sufficient for authentication of user %s."
 msgstr "ລະຫັດຜ່ານບໍ່ຖືກຕ້ອງ ຫຼື ບໍ່ພຽງພໍສຳລັບການຢືນຢັນຕົວຕົນຂອງຜູ້ໃຊ້ %s."
 
-#: src/home/pam_systemd_home.c:350
+#: src/home/pam_systemd_home.c:347
 msgid "Sorry, try again: "
 msgstr "ຂໍອະໄພ, ກະລຸນາລອງໃໝ່: "
 
-#: src/home/pam_systemd_home.c:372
+#: src/home/pam_systemd_home.c:369
 msgid "Recovery key: "
 msgstr "ລະຫັດກູ້ຄືນ: "
 
-#: src/home/pam_systemd_home.c:374
+#: src/home/pam_systemd_home.c:371
 #, c-format
 msgid ""
 "Password/recovery key incorrect or not sufficient for authentication of user "
 "%s."
 msgstr "ລະຫັດຜ່ານ/ລະຫັດກູ້ຄືນ ບໍ່ຖືກຕ້ອງ ຫຼື ບໍ່ພຽງພໍສຳລັບການຢືນຢັນຕົວຕົນຂອງຜູ້ໃຊ້ %s."
 
-#: src/home/pam_systemd_home.c:375
+#: src/home/pam_systemd_home.c:372
 msgid "Sorry, reenter recovery key: "
 msgstr "ຂໍອະໄພ, ກະລຸນາປ້ອນລະຫັດກູ້ຄືນໃໝ່: "
 
-#: src/home/pam_systemd_home.c:395
+#: src/home/pam_systemd_home.c:392
 #, c-format
 msgid "Security token of user %s not inserted."
 msgstr "ບໍ່ໄດ້ສຽບໂທເຄັນຄວາມປອດໄພຂອງຜູ້ໃຊ້ %s."
 
-#: src/home/pam_systemd_home.c:396 src/home/pam_systemd_home.c:399
+#: src/home/pam_systemd_home.c:393 src/home/pam_systemd_home.c:396
 msgid "Try again with password: "
 msgstr "ລອງໃໝ່ດ້ວຍລະຫັດຜ່ານ: "
 
-#: src/home/pam_systemd_home.c:398
+#: src/home/pam_systemd_home.c:395
 #, c-format
 msgid ""
 "Password incorrect or not sufficient, and configured security token of user "
 "%s not inserted."
 msgstr "ລະຫັດຜ່ານບໍ່ຖືກຕ້ອງ ຫຼື ບໍ່ພຽງພໍ, ແລະ ບໍ່ໄດ້ສຽບໂທເຄັນຄວາມປອດໄພທີ່ຕັ້ງຄ່າໄວ້ຂອງຜູ້ໃຊ້ %s."
 
-#: src/home/pam_systemd_home.c:418
+#: src/home/pam_systemd_home.c:415
 msgid "Security token PIN: "
 msgstr "ລະຫັດ PIN ຂອງໂທເຄັນຄວາມປອດໄພ: "
 
-#: src/home/pam_systemd_home.c:435
+#: src/home/pam_systemd_home.c:432
 #, c-format
 msgid "Please authenticate physically on security token of user %s."
 msgstr "ກະລຸນາຢືນຢັນຕົວຕົນດ້ວຍຕົນເອງທີ່ໂທເຄັນຄວາມປອດໄພຂອງຜູ້ໃຊ້ %s."
 
-#: src/home/pam_systemd_home.c:446
+#: src/home/pam_systemd_home.c:443
 #, c-format
 msgid "Please confirm presence on security token of user %s."
 msgstr "ກະລຸນາຢືນຢັນການມີຕົວຕົນຢູ່ທີ່ໂທເຄັນຄວາມປອດໄພຂອງຜູ້ໃຊ້ %s."
 
-#: src/home/pam_systemd_home.c:457
+#: src/home/pam_systemd_home.c:454
 #, c-format
 msgid "Please verify user on security token of user %s."
 msgstr "ກະລຸນາກວດສອບຜູ້ໃຊ້ຢູ່ທີ່ໂທເຄັນຄວາມປອດໄພຂອງຜູ້ໃຊ້ %s."
 
-#: src/home/pam_systemd_home.c:466
+#: src/home/pam_systemd_home.c:463
 msgid ""
 "Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
 "insertion might suffice.)"
@@ -228,75 +228,75 @@ msgstr ""
 "ລະຫັດ PIN ຂອງໂທເຄັນຄວາມປອດໄພຖືກລັອກ, ກະລຸນາປົດລັອກກ່ອນ. (ຄຳແນະນຳ: "
 "ການຖອດອອກແລ້ວສຽບເຂົ້າໃໝ່ອາດຊ່ວຍໄດ້.)"
 
-#: src/home/pam_systemd_home.c:474
+#: src/home/pam_systemd_home.c:471
 #, c-format
 msgid "Security token PIN incorrect for user %s."
 msgstr "ລະຫັດ PIN ຂອງໂທເຄັນຄວາມປອດໄພບໍ່ຖືກຕ້ອງສຳລັບຜູ້ໃຊ້ %s."
 
-#: src/home/pam_systemd_home.c:475 src/home/pam_systemd_home.c:494
-#: src/home/pam_systemd_home.c:513
+#: src/home/pam_systemd_home.c:472 src/home/pam_systemd_home.c:491
+#: src/home/pam_systemd_home.c:510
 msgid "Sorry, retry security token PIN: "
 msgstr "ຂໍອະໄພ, ລອງປ້ອນ PIN ຂອງໂທເຄັນຄວາມປອດໄພໃໝ່: "
 
-#: src/home/pam_systemd_home.c:493
+#: src/home/pam_systemd_home.c:490
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
 msgstr "ລະຫັດ PIN ຂອງໂທເຄັນຄວາມປອດໄພຂອງຜູ້ໃຊ້ %s ບໍ່ຖືກຕ້ອງ (ເຫຼືອການພະຍາຍາມອີກບໍ່ເທົ່າໃດຄັ້ງ!)"
 
-#: src/home/pam_systemd_home.c:512
+#: src/home/pam_systemd_home.c:509
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
 msgstr "ລະຫັດ PIN ຂອງໂທເຄັນຄວາມປອດໄພຂອງຜູ້ໃຊ້ %s ບໍ່ຖືກຕ້ອງ (ເຫຼືອການພະຍາຍາມອີກພຽງຄັ້ງດຽວ!)"
 
-#: src/home/pam_systemd_home.c:679
+#: src/home/pam_systemd_home.c:676
 #, c-format
 msgid "Home of user %s is currently not active, please log in locally first."
 msgstr "ພື້ນທີ່ໂຮມຂອງຜູ້ໃຊ້ %s ຍັງບໍ່ທັນເປີດໃຊ້ງານ, ກະລຸນາເຂົ້າສູ່ລະບົບໂດຍກົງຢູ່ເຄື່ອງກ່ອນ."
 
-#: src/home/pam_systemd_home.c:681
+#: src/home/pam_systemd_home.c:678
 #, c-format
 msgid "Home of user %s is currently locked, please unlock locally first."
 msgstr "ພື້ນທີ່ໂຮມຂອງຜູ້ໃຊ້ %s ຖືກລັອກຢູ່, ກະລຸນາປົດລັອກໂດຍກົງຢູ່ເຄື່ອງກ່ອນ."
 
-#: src/home/pam_systemd_home.c:715
+#: src/home/pam_systemd_home.c:712
 #, c-format
 msgid "Too many unsuccessful login attempts for user %s, refusing."
 msgstr "ມີການພະຍາຍາມເຂົ້າສູ່ລະບົບບໍ່ສຳເລັດຫຼາຍເກີນໄປສຳລັບຜູ້ໃຊ້ %s, ຂໍປະຕິເສດ."
 
-#: src/home/pam_systemd_home.c:1012
+#: src/home/pam_systemd_home.c:1021
 msgid "User record is blocked, prohibiting access."
 msgstr "ຂໍ້ມູນຜູ້ໃຊ້ຖືກບລັອກ, ຫ້າມເຂົ້າເຖິງ."
 
-#: src/home/pam_systemd_home.c:1016
+#: src/home/pam_systemd_home.c:1025
 msgid "User record is not valid yet, prohibiting access."
 msgstr "ຂໍ້ມູນຜູ້ໃຊ້ຍັງບໍ່ທັນມີຜົນໃຊ້ງານ, ຫ້າມເຂົ້າເຖິງ."
 
-#: src/home/pam_systemd_home.c:1020
+#: src/home/pam_systemd_home.c:1029
 msgid "User record is not valid anymore, prohibiting access."
 msgstr "ຂໍ້ມູນຜູ້ໃຊ້ບໍ່ມີຜົນໃຊ້ງານອີກຕໍ່ໄປ, ຫ້າມເຂົ້າເຖິງ."
 
-#: src/home/pam_systemd_home.c:1025 src/home/pam_systemd_home.c:1074
+#: src/home/pam_systemd_home.c:1034 src/home/pam_systemd_home.c:1083
 msgid "User record not valid, prohibiting access."
 msgstr "ຂໍ້ມູນຜູ້ໃຊ້ບໍ່ຖືກຕ້ອງ, ຫ້າມເຂົ້າເຖິງ."
 
-#: src/home/pam_systemd_home.c:1035
+#: src/home/pam_systemd_home.c:1044
 #, c-format
 msgid "Too many logins, try again in %s."
 msgstr "ເຂົ້າສູ່ລະບົບຫຼາຍເກີນໄປ, ລອງໃໝ່ໃນອີກ %s."
 
-#: src/home/pam_systemd_home.c:1046
+#: src/home/pam_systemd_home.c:1055
 msgid "Password change required."
 msgstr "ຈຳເປັນຕ້ອງປ່ຽນລະຫັດຜ່ານ."
 
-#: src/home/pam_systemd_home.c:1050
+#: src/home/pam_systemd_home.c:1059
 msgid "Password expired, change required."
 msgstr "ລະຫັດຜ່ານໝົດອາຍຸ, ຈຳເປັນຕ້ອງປ່ຽນໃໝ່."
 
-#: src/home/pam_systemd_home.c:1056
+#: src/home/pam_systemd_home.c:1065
 msgid "Password is expired, but can't change, refusing login."
 msgstr "ລະຫັດຜ່ານໝົດອາຍຸ ແຕ່ບໍ່ສາມາດປ່ຽນໄດ້, ຂໍປະຕິເສດການເຂົ້າສູ່ລະບົບ."
 
-#: src/home/pam_systemd_home.c:1060
+#: src/home/pam_systemd_home.c:1069
 msgid "Password will expire soon, please change."
 msgstr "ລະຫັດຜ່ານຈະໝົດອາຍຸໃນໄວໆນີ້, ກະລຸນາປ່ຽນໃໝ່."
 
@@ -1094,45 +1094,95 @@ msgstr "ຕັ້ງຄ່າສະຖິຕິຄືນໃໝ່"
 msgid "Authentication is required to reset statistics."
 msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຕັ້ງຄ່າສະຖິຕິຄືນໃໝ່."
 
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:35
+#: src/resolve/org.freedesktop.resolve1.policy:209
+msgid "Flush DNS caches"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:210
+msgid "Authentication is required to flush DNS caches."
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:220
+msgid "Reset server features"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:221
+msgid "Authentication is required to reset server features."
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:38
 msgid "Check for system updates"
 msgstr "ກວດສອບການອັບເດດລະບົບ"
 
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:36
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:39
 msgid "Authentication is required to check for system updates."
 msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອກວດສອບການອັບເດດລະບົບ."
 
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:45
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:48
+msgid "Cancel checking for system updates"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:49
+msgid "Authentication is required to cancel checking for system updates."
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:58
 msgid "Install system updates"
 msgstr "ຕິດຕັ້ງການອັບເດດລະບົບ"
 
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:46
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:59
 msgid "Authentication is required to install system updates."
 msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຕິດຕັ້ງການອັບເດດລະບົບ."
 
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:55
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:68
+msgid "Cancel installing system updates"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:69
+msgid "Authentication is required to cancel installing system updates."
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:78
 msgid "Install specific system version"
 msgstr "ຕິດຕັ້ງລະບົບເວີຊັນສະເພາະ"
 
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:56
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:79
 msgid ""
 "Authentication is required to update the system to a specific (possibly old) "
 "version."
 msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອອັບເດດລະບົບເປັນເວີຊັນສະເພາະ (ເຊິ່ງອາດຈະເປັນເວີຊັນເກົ່າ)."
 
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:65
-msgid "Cleanup old system updates"
-msgstr "ລ້າງການອັບເດດລະບົບເກົ່າ"
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:88
+msgid "Cancel installing specific system version"
+msgstr ""
 
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:66
-msgid "Authentication is required to cleanup old system updates."
-msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອລ້າງການອັບເດດລະບົບເກົ່າ."
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:89
+msgid ""
+"Authentication is required to cancel updating the system to a specific "
+"(possibly old) version."
+msgstr ""
 
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:75
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:98
+msgid "Clean up old system updates"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:99
+msgid "Authentication is required to clean up old system updates."
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:108
+msgid "Cancel cleaning up old system updates"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:109
+msgid "Authentication is required to cancel cleanup of old system updates."
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:118
 msgid "Manage optional features"
 msgstr "ຈັດການຄຸນສົມບັດເສີມ"
 
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:76
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:119
 msgid "Authentication is required to manage optional features."
 msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຈັດການຄຸນສົມບັດເສີມ."
 
@@ -1219,3 +1269,21 @@ msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr ""
 "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອແຊ່ແຂງ (freeze) ຫຼື ປົດແຊ່ແຂງ (thaw) ໂພຣເຊສຂອງໜ່ວຍງານ '$(unit)'."
+
+#: src/shared/libfido2-util.c:497 src/shared/libfido2-util.c:554
+msgid "Please confirm presence on security token to unlock."
+msgstr ""
+
+#: src/shared/libfido2-util.c:513
+msgid "Please verify user on security token to unlock."
+msgstr ""
+
+#: src/shared/libfido2-util.c:926
+msgid "Please enter security token PIN:"
+msgstr ""
+
+#~ msgid "Cleanup old system updates"
+#~ msgstr "ລ້າງການອັບເດດລະບົບເກົ່າ"
+
+#~ msgid "Authentication is required to cleanup old system updates."
+#~ msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອລ້າງການອັບເດດລະບົບເກົ່າ."
