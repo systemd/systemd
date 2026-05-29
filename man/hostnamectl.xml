@@ -177,6 +177,14 @@
         resulting list is sorted before being stored. To remove all tags, invoke the command with a single
         empty string argument.</para>
 
+        <para>Alternatively, each argument may be prefixed with <literal>+</literal> or <literal>-</literal>
+        to incrementally update the configured tags rather than replacing them: an argument prefixed with
+        <literal>+</literal> adds all of its (colon-separated) tags to the list, one prefixed with
+        <literal>-</literal> removes them. For example, <command>hostnamectl tags +foo:bar -quux:ooo</command>
+        adds the tags <literal>foo</literal> and <literal>bar</literal> and removes <literal>quux</literal>
+        and <literal>ooo</literal>. The prefix applies to the whole argument, i.e. to every tag listed within
+        it. Prefixed and unprefixed arguments may not be combined in a single invocation.</para>
+
         <para>Machine tags are short labels that may be used to classify and group machines for management
         purposes, for example to identify the role a machine plays in a deployment, the fleet or
         organizational unit it belongs to, or any other administrator-defined attribute. Each individual tag
