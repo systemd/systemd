@@ -613,29 +613,14 @@ static int prompt_confirm(void) {
 
         putchar('\n');
 
-        char **l = STRV_MAKE("yes", "no");
-
-        _cleanup_free_ char *reply = NULL;
-        r = prompt_loop(arg_summary ? "Please type 'yes' to confirm the choices above and begin the installation" :
-                                      "Please type 'yes' to begin the installation",
-                        GLYPH_WARNING_SIGN,
-                        /* prefill= */ NULL,
-                        /* menu= */ l,
-                        /* accepted= */ l,
-                        /* ellipsize_percentage= */ 20,
-                        /* n_columns= */ 2,
-                        /* column_width= */ 40,
-                        /* is_valid= */ NULL,
-                        /* refresh= */ NULL,
-                        /* userdata= */ NULL,
-                        PROMPT_SHOW_MENU|PROMPT_MAY_SKIP|PROMPT_HIDE_MENU_HINT|PROMPT_HIDE_SKIP_HINT,
-                        &reply);
+        bool yes;
+        r = prompt_loop_yes_no(arg_summary ? "Please type 'yes' to confirm the choices above and begin the installation" :
+                                             "Please type 'yes' to begin the installation",
+                               /* def= */ false,
+                               &yes);
         if (r < 0)
                 return r;
-        if (r == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(ECANCELED), "Installation cancelled.");
-
-        if (!streq(reply, "yes"))
+        if (!yes)
                 return log_error_errno(SYNTHETIC_ERRNO(ECANCELED), "Installation not confirmed, cancelling.");
 
         return 0;
