@@ -15,7 +15,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-18 12:18+0100\n"
+"POT-Creation-Date: 2026-05-21 12:51+0200\n"
 "PO-Revision-Date: 2026-03-10 15:58+0000\n"
 "Last-Translator: Jesse Guo <jesseguotech@outlook.com>\n"
 "Language-Team: Chinese (Simplified) <https://translate.fedoraproject.org/"
@@ -159,157 +159,157 @@ msgstr "管理家目录的签名密钥"
 msgid "Authentication is required to manage signing keys for home directories."
 msgstr "管理家目录的签名密钥需要认证。"
 
-#: src/home/pam_systemd_home.c:330
+#: src/home/pam_systemd_home.c:327
 #, c-format
 msgid ""
 "Home of user %s is currently absent, please plug in the necessary storage "
 "device or backing file system."
 msgstr "用户 %s 的家目录当前不存在，请插入必要的存储设备或下层文件系统。"
 
-#: src/home/pam_systemd_home.c:335
+#: src/home/pam_systemd_home.c:332
 #, c-format
 msgid "Too frequent login attempts for user %s, try again later."
 msgstr "用户 %s 的登录尝试过于频繁，请稍后重试。"
 
-#: src/home/pam_systemd_home.c:347
+#: src/home/pam_systemd_home.c:344
 msgid "Password: "
 msgstr "密码： "
 
-#: src/home/pam_systemd_home.c:349
+#: src/home/pam_systemd_home.c:346
 #, c-format
 msgid "Password incorrect or not sufficient for authentication of user %s."
 msgstr "用户 %s 的密码不正确或不足以完成认证。"
 
-#: src/home/pam_systemd_home.c:350
+#: src/home/pam_systemd_home.c:347
 msgid "Sorry, try again: "
 msgstr "抱歉，请重试： "
 
-#: src/home/pam_systemd_home.c:372
+#: src/home/pam_systemd_home.c:369
 msgid "Recovery key: "
 msgstr "恢复密钥： "
 
-#: src/home/pam_systemd_home.c:374
+#: src/home/pam_systemd_home.c:371
 #, c-format
 msgid ""
 "Password/recovery key incorrect or not sufficient for authentication of user "
 "%s."
 msgstr "用户 %s 的密码/恢复密钥不正确或不足以完成认证。"
 
-#: src/home/pam_systemd_home.c:375
+#: src/home/pam_systemd_home.c:372
 msgid "Sorry, reenter recovery key: "
 msgstr "抱歉，请重新输入恢复密钥： "
 
-#: src/home/pam_systemd_home.c:395
+#: src/home/pam_systemd_home.c:392
 #, c-format
 msgid "Security token of user %s not inserted."
 msgstr "用户 %s 的安全令牌未插入。"
 
-#: src/home/pam_systemd_home.c:396 src/home/pam_systemd_home.c:399
+#: src/home/pam_systemd_home.c:393 src/home/pam_systemd_home.c:396
 msgid "Try again with password: "
 msgstr "请使用密码重试： "
 
-#: src/home/pam_systemd_home.c:398
+#: src/home/pam_systemd_home.c:395
 #, c-format
 msgid ""
 "Password incorrect or not sufficient, and configured security token of user "
 "%s not inserted."
 msgstr "密码不正确或无效，且用户 %s 配置的安全令牌未插入。"
 
-#: src/home/pam_systemd_home.c:418
+#: src/home/pam_systemd_home.c:415
 msgid "Security token PIN: "
 msgstr "安全令牌 PIN： "
 
-#: src/home/pam_systemd_home.c:435
+#: src/home/pam_systemd_home.c:432
 #, c-format
 msgid "Please authenticate physically on security token of user %s."
 msgstr "请在用户 %s 的安全令牌上进行物理认证。"
 
-#: src/home/pam_systemd_home.c:446
+#: src/home/pam_systemd_home.c:443
 #, c-format
 msgid "Please confirm presence on security token of user %s."
 msgstr "请确认安全令牌上存在用户 %s。"
 
-#: src/home/pam_systemd_home.c:457
+#: src/home/pam_systemd_home.c:454
 #, c-format
 msgid "Please verify user on security token of user %s."
 msgstr "请验证用户 %s 的安全令牌上的用户。"
 
-#: src/home/pam_systemd_home.c:466
+#: src/home/pam_systemd_home.c:463
 msgid ""
 "Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
 "insertion might suffice.)"
 msgstr ""
 "安全令牌 PIN 已经锁定，请先将其解锁。（提示：移除并重新插入可能就行。）"
 
-#: src/home/pam_systemd_home.c:474
+#: src/home/pam_systemd_home.c:471
 #, c-format
 msgid "Security token PIN incorrect for user %s."
 msgstr "用户 %s 的安全令牌 PIN 不正确。"
 
-#: src/home/pam_systemd_home.c:475 src/home/pam_systemd_home.c:494
-#: src/home/pam_systemd_home.c:513
+#: src/home/pam_systemd_home.c:472 src/home/pam_systemd_home.c:491
+#: src/home/pam_systemd_home.c:510
 msgid "Sorry, retry security token PIN: "
 msgstr "抱歉，请重试安全令牌 PIN： "
 
-#: src/home/pam_systemd_home.c:493
+#: src/home/pam_systemd_home.c:490
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
 msgstr "用户 %s 的安全令牌 PIN 不正确（仅剩几次重试机会！）"
 
-#: src/home/pam_systemd_home.c:512
+#: src/home/pam_systemd_home.c:509
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
 msgstr "用户 %s 的安全令牌 PIN 不正确（仅剩一次重试机会！）"
 
-#: src/home/pam_systemd_home.c:679
+#: src/home/pam_systemd_home.c:676
 #, c-format
 msgid "Home of user %s is currently not active, please log in locally first."
 msgstr "用户 %s 的家目录目前未激活，请先在本地登录。"
 
-#: src/home/pam_systemd_home.c:681
+#: src/home/pam_systemd_home.c:678
 #, c-format
 msgid "Home of user %s is currently locked, please unlock locally first."
 msgstr "用户 %s 的家目录目前已锁定，请先在本地解锁。"
 
-#: src/home/pam_systemd_home.c:715
+#: src/home/pam_systemd_home.c:712
 #, c-format
 msgid "Too many unsuccessful login attempts for user %s, refusing."
 msgstr "用户 %s 有过多不成功的登录尝试，已拒绝登录。"
 
-#: src/home/pam_systemd_home.c:1012
+#: src/home/pam_systemd_home.c:1021
 msgid "User record is blocked, prohibiting access."
 msgstr "用户记录已阻止，禁止访问。"
 
-#: src/home/pam_systemd_home.c:1016
+#: src/home/pam_systemd_home.c:1025
 msgid "User record is not valid yet, prohibiting access."
 msgstr "用户记录尚未生效，禁止访问。"
 
-#: src/home/pam_systemd_home.c:1020
+#: src/home/pam_systemd_home.c:1029
 msgid "User record is not valid anymore, prohibiting access."
 msgstr "用户记录不再有效，禁止访问。"
 
-#: src/home/pam_systemd_home.c:1025 src/home/pam_systemd_home.c:1074
+#: src/home/pam_systemd_home.c:1034 src/home/pam_systemd_home.c:1083
 msgid "User record not valid, prohibiting access."
 msgstr "用户记录无效，禁止访问。"
 
-#: src/home/pam_systemd_home.c:1035
+#: src/home/pam_systemd_home.c:1044
 #, c-format
 msgid "Too many logins, try again in %s."
 msgstr "过多登录请求，请在 %s 后重试。"
 
-#: src/home/pam_systemd_home.c:1046
+#: src/home/pam_systemd_home.c:1055
 msgid "Password change required."
 msgstr "必须更改密码。"
 
-#: src/home/pam_systemd_home.c:1050
+#: src/home/pam_systemd_home.c:1059
 msgid "Password expired, change required."
 msgstr "密码已过期，必须更改密码。"
 
-#: src/home/pam_systemd_home.c:1056
+#: src/home/pam_systemd_home.c:1065
 msgid "Password is expired, but can't change, refusing login."
 msgstr "密码已经过期，但无法修改，拒绝登录。"
 
-#: src/home/pam_systemd_home.c:1060
+#: src/home/pam_systemd_home.c:1069
 msgid "Password will expire soon, please change."
 msgstr "密码将在不久后过期，请及时修改。"
 
@@ -1115,45 +1115,95 @@ msgstr "重置统计信息"
 msgid "Authentication is required to reset statistics."
 msgstr "重置统计信息需要认证。"
 
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:35
+#: src/resolve/org.freedesktop.resolve1.policy:209
+msgid "Flush DNS caches"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:210
+msgid "Authentication is required to flush DNS caches."
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:220
+msgid "Reset server features"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:221
+msgid "Authentication is required to reset server features."
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:38
 msgid "Check for system updates"
 msgstr "检查系统更新"
 
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:36
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:39
 msgid "Authentication is required to check for system updates."
 msgstr "检查系统更新需要认证。"
 
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:45
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:48
+msgid "Cancel checking for system updates"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:49
+msgid "Authentication is required to cancel checking for system updates."
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:58
 msgid "Install system updates"
 msgstr "安装系统更新"
 
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:46
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:59
 msgid "Authentication is required to install system updates."
 msgstr "安装系统更新需要认证。"
 
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:55
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:68
+msgid "Cancel installing system updates"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:69
+msgid "Authentication is required to cancel installing system updates."
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:78
 msgid "Install specific system version"
 msgstr "安装指定系统版本"
 
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:56
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:79
 msgid ""
 "Authentication is required to update the system to a specific (possibly old) "
 "version."
 msgstr "将系统更新至指定版本 (可能为旧版本) 需要认证。"
 
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:65
-msgid "Cleanup old system updates"
-msgstr "清理旧的系统更新"
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:88
+msgid "Cancel installing specific system version"
+msgstr ""
 
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:66
-msgid "Authentication is required to cleanup old system updates."
-msgstr "清理旧的系统更新需要认证。"
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:89
+msgid ""
+"Authentication is required to cancel updating the system to a specific "
+"(possibly old) version."
+msgstr ""
 
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:75
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:98
+msgid "Clean up old system updates"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:99
+msgid "Authentication is required to clean up old system updates."
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:108
+msgid "Cancel cleaning up old system updates"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:109
+msgid "Authentication is required to cancel cleanup of old system updates."
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:118
 msgid "Manage optional features"
 msgstr "管理可选功能"
 
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:76
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:119
 msgid "Authentication is required to manage optional features."
 msgstr "管理可选功能需要身份验证。"
 
@@ -1239,3 +1289,9 @@ msgstr "删除与 '$(unit)' 关联的文件和目录需要认证。"
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr "冻结或解冻 '$(unit)' 单元进程需要认证。"
+
+#~ msgid "Cleanup old system updates"
+#~ msgstr "清理旧的系统更新"
+
+#~ msgid "Authentication is required to cleanup old system updates."
+#~ msgstr "清理旧的系统更新需要认证。"
