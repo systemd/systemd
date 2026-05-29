@@ -1355,6 +1355,61 @@ static int context_install(
         return 1;
 }
 
+static int dispatch_image_policy(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        _cleanup_(image_policy_freep) ImagePolicy *q = NULL;
+        ImagePolicy **p = ASSERT_PTR(userdata);
+        int r;
+
+        assert(p);
+
+        if (sd_json_variant_is_null(variant)) {
+                *p = image_policy_free(*p);
+                return 0;
+        }
+
+        if (!sd_json_variant_is_string(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
+
+        r = image_policy_from_string(sd_json_variant_string(variant), /* graceful= */ false, &q);
+        if (r < 0)
+                return json_log(variant, flags, r, "JSON field '%s' is not a valid image policy.", strna(name));
+
+        image_policy_free(*p);
+        *p = TAKE_PTR(q);
+        return 0;
+}
+
+static int dispatch_configuration(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        Context *c = ASSERT_PTR(userdata);
+        int r;
+        static const sd_json_dispatch_field dispatch[] = {
+                { "rootDirectory",  SD_JSON_VARIANT_STRING,  json_dispatch_path,        voffsetof(*c, root),            SD_JSON_NULLABLE },
+                { "component",      SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,   voffsetof(*c, component),       SD_JSON_NULLABLE },
+                { "definitions",    SD_JSON_VARIANT_STRING,  json_dispatch_path,        voffsetof(*c, definitions),     SD_JSON_NULLABLE },
+                { "image",          SD_JSON_VARIANT_STRING,  json_dispatch_path,        voffsetof(*c, image),           SD_JSON_NULLABLE },
+                { "imagePolicy",    SD_JSON_VARIANT_STRING,  dispatch_image_policy,     voffsetof(*c, image_policy),    SD_JSON_NULLABLE },
+                { "verify",         SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate, voffsetof(*c, verify),          SD_JSON_NULLABLE },
+                { "offline",        SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool,  voffsetof(*c, offline),         SD_JSON_NULLABLE },
+                { "transferSource", SD_JSON_VARIANT_STRING,  json_dispatch_path,        voffsetof(*c, transfer_source), SD_JSON_NULLABLE },
+                {}
+        };
+
+        if (FLAGS_SET(flags, SD_JSON_NULLABLE) && sd_json_variant_is_null(variant))
+                return 0;
+
+        r = sd_json_dispatch(variant, dispatch, flags, c);
+        if (r < 0)
+                return r;
+
+        if (c->image && c->root)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "The `root` and `image` fields may not be combined.");
+
+        if (c->definitions && c->component)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "The `definitions` and `component` fields may not be combined.");
+
+        return 0;
+}
+
 VERB(verb_list, "list", "[VERSION]", VERB_ANY, 2, VERB_DEFAULT,
      "Show installed and available versions");
 static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
@@ -1597,6 +1652,35 @@ static int verb_check_new(int argc, char *argv[], uintptr_t _data, void *userdat
         }
 
         return EXIT_SUCCESS;
+}
+
+static int vl_method_check_new(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        _cleanup_(context_done) Context context = CONTEXT_NULL;
+        int r;
+
+        assert(link);
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "configuration", SD_JSON_VARIANT_OBJECT, dispatch_configuration, 0, SD_JSON_NULLABLE },
+                {},
+        };
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &context);
+        if (r != 0)
+                return r;
+
+        r = context_load_online(&context, PROCESS_IMAGE_READ_ONLY);
+        if (r < 0)
+                return r;
+
+        if (context.candidate)
+                r = sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_STRING("available", context.candidate->version));
+        else
+                r = sd_varlink_error(link, "io.systemd.Sysupdate.NoUpdateNeeded", NULL);
+        if (r < 0)
+                return r;
+
+        return 0;
 }
 
 typedef enum {
@@ -2106,7 +2190,8 @@ static int vl_server(void) {
                 return log_error_errno(r, "Failed to add Varlink interface: %m");
 
         r = sd_varlink_server_bind_method_many(
-                varlink_server);
+                varlink_server,
+                "io.systemd.Sysupdate.CheckNew", vl_method_check_new);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind Varlink method: %m");
 
