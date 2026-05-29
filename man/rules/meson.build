@@ -1256,6 +1256,8 @@ manpages = [
   '8',
   ['systemd-sysupdate-reboot.service',
    'systemd-sysupdate-reboot.timer',
+   'systemd-sysupdate-update.service',
+   'systemd-sysupdate-update.timer',
    'systemd-sysupdate.service',
    'systemd-sysupdate.timer'],
   'ENABLE_SYSUPDATE'],

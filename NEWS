@@ -109,6 +109,14 @@ CHANGES WITH 261:
           link flags, or passed to systemd's meson build options via
           '-Dc_link_args=-Wl,--push-state,--no-as-needed,-lm,--pop-state'.
 
+        * As part of changes to systemd-sysupdate, the existing
+          `systemd-sysupdate.service` and `systemd-sysupdate.timer` units –
+          which periodically ran `systemd-sysupdate` to update the host system –
+          have been renamed to `systemd-sysupdate-update.service` and
+          `systemd-sysupdate-update.timer` respectively. Compatibility symlinks
+          have been provided. This clears the way for a new
+          `systemd-sysupdate@.service` unit for varlink activation of sysupdate.
+
         Changes in the system and service manager:
 
         * PID1 now supports the kernel's Live Update Orchestration (LUO) /
