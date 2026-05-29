@@ -317,6 +317,18 @@
 
         <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><option>--unlock-headless</option></term>
+
+        <listitem><para>Try the unlock mechanisms suitable for headless operation in turn, without requiring
+        any interactive input. If a TPM2 device is available the volume is unlocked via TPM2, and otherwise
+        (or if TPM2 unlocking fails) an empty password is attempted. This is primarily useful in automated
+        provisioning scenarios where a volume is first set up with a TPM2 enrollment or an empty password and
+        a stronger unlock mechanism shall be enrolled subsequently.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 

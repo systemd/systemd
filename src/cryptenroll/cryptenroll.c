@@ -397,6 +397,14 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
+                OPTION_LONG("unlock-headless", NULL, "Try the 'headless' unlock mechanisms in turn"):
+                        if (arg_unlock_type != UNLOCK_PASSWORD)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Multiple unlock methods specified at once, refusing.");
+
+                        arg_unlock_type = UNLOCK_HEADLESS;
+                        break;
+
                 OPTION_GROUP("Simple Enrollment"): {}
 
                 OPTION_LONG("password", NULL,
@@ -756,6 +764,21 @@ int prepare_luks(
 
         case UNLOCK_TPM2:
                 r = load_volume_key_tpm2(c, cd, &vk);
+                break;
+
+        case UNLOCK_HEADLESS:
+                if (tpm2_is_mostly_supported()) {
+                        log_info("TPM2 support available, trying unlocking via TPM2…");
+
+                        r = load_volume_key_tpm2(c, cd, &vk);
+                        if (r >= 0)
+                                break;
+
+                        log_info("TPM2 unlocking didn't work, trying unlocking via empty password…");
+                } else
+                        log_info("TPM2 support not available, trying unlocking via empty password…");
+
+                r = load_volume_key_empty(c, cd, &vk);
                 break;
 
         default:
