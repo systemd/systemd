@@ -6,7 +6,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-21 12:51+0200\n"
+"POT-Creation-Date: 2026-05-30 00:14+0200\n"
 "PO-Revision-Date: 2026-03-23 06:58+0000\n"
 "Last-Translator: Arif Budiman <arifpedia@gmail.com>\n"
 "Language-Team: Indonesian <https://translate.fedoraproject.org/projects/"
@@ -1376,6 +1376,18 @@ msgid ""
 msgstr ""
 "Otentikasi diperlukan untuk membekukan atau melanjutkan proses dari unit '$"
 "(unit)'."
+
+#: src/shared/libfido2-util.c:497 src/shared/libfido2-util.c:554
+msgid "Please confirm presence on security token to unlock."
+msgstr ""
+
+#: src/shared/libfido2-util.c:513
+msgid "Please verify user on security token to unlock."
+msgstr ""
+
+#: src/shared/libfido2-util.c:926
+msgid "Please enter security token PIN:"
+msgstr ""
 
 #~ msgid "Cleanup old system updates"
 #~ msgstr "Bersihkan pembaruan sistem lama"

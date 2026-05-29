@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-21 12:51+0200\n"
+"POT-Creation-Date: 2026-05-30 00:14+0200\n"
 "PO-Revision-Date: 2026-05-12 06:16+0000\n"
 "Last-Translator: Bone NI <bounkirdni@gmail.com>\n"
 "Language-Team: Lao <https://translate.fedoraproject.org/projects/systemd/"
@@ -1269,6 +1269,18 @@ msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr ""
 "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອແຊ່ແຂງ (freeze) ຫຼື ປົດແຊ່ແຂງ (thaw) ໂພຣເຊສຂອງໜ່ວຍງານ '$(unit)'."
+
+#: src/shared/libfido2-util.c:497 src/shared/libfido2-util.c:554
+msgid "Please confirm presence on security token to unlock."
+msgstr ""
+
+#: src/shared/libfido2-util.c:513
+msgid "Please verify user on security token to unlock."
+msgstr ""
+
+#: src/shared/libfido2-util.c:926
+msgid "Please enter security token PIN:"
+msgstr ""
 
 #~ msgid "Cleanup old system updates"
 #~ msgstr "ລ້າງການອັບເດດລະບົບເກົ່າ"

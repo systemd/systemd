@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-21 12:51+0200\n"
+"POT-Creation-Date: 2026-05-30 00:14+0200\n"
 "PO-Revision-Date: 2025-09-28 10:07+0000\n"
 "Last-Translator: kanitha chim <kchim@redhat.com>\n"
 "Language-Team: Khmer (Central) <https://translate.fedoraproject.org/projects/"
@@ -1285,6 +1285,18 @@ msgstr "ការផ្ទៀងផ្ទាត់គឺតម្រូវឱ្
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr "ការផ្ទៀងផ្ទាត់គឺតម្រូវឱ្យបង្កក ឬរលាយដំណើរការនៃឯកតា '$(unit)'។"
+
+#: src/shared/libfido2-util.c:497 src/shared/libfido2-util.c:554
+msgid "Please confirm presence on security token to unlock."
+msgstr ""
+
+#: src/shared/libfido2-util.c:513
+msgid "Please verify user on security token to unlock."
+msgstr ""
+
+#: src/shared/libfido2-util.c:926
+msgid "Please enter security token PIN:"
+msgstr ""
 
 #~ msgid "Cleanup old system updates"
 #~ msgstr "សម្អាតបច្ចុប្បន្នភាពប្រព័ន្ធចាស់"
