@@ -2229,6 +2229,87 @@ static int vl_method_describe(sd_varlink *link, sd_json_variant *parameters, sd_
         return sd_varlink_reply(link, v);
 }
 
+typedef struct SetTagsParameters {
+        char **set;
+        char **add;
+        char **remove;
+} SetTagsParameters;
+
+static void set_tags_parameters_done(SetTagsParameters *p) {
+        assert(p);
+
+        strv_free(p->set);
+        strv_free(p->add);
+        strv_free(p->remove);
+}
+
+static int vl_method_set_tags(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "set",    SD_JSON_VARIANT_ARRAY, sd_json_dispatch_strv, offsetof(SetTagsParameters, set),    SD_JSON_NULLABLE },
+                { "add",    SD_JSON_VARIANT_ARRAY, sd_json_dispatch_strv, offsetof(SetTagsParameters, add),    SD_JSON_NULLABLE },
+                { "remove", SD_JSON_VARIANT_ARRAY, sd_json_dispatch_strv, offsetof(SetTagsParameters, remove), SD_JSON_NULLABLE },
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {}
+        };
+
+        Context *c = ASSERT_PTR(userdata);
+        int r;
+
+        assert(link);
+        assert(parameters);
+
+        _cleanup_(set_tags_parameters_done) SetTagsParameters p = {};
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        /* Both an absent 'set' field and an explicit null map to a NULL strv after dispatching, but only the
+         * former should keep the current tags — an explicit (possibly empty) 'set' resets the list. Hence
+         * check for the field's presence separately. */
+        bool reset = sd_json_variant_by_key(parameters, "set");
+
+        if (reset && !machine_tag_list_is_valid(p.set))
+                return sd_varlink_error_invalid_parameter_name(link, "set");
+        if (!machine_tag_list_is_valid(p.add))
+                return sd_varlink_error_invalid_parameter_name(link, "add");
+        if (!machine_tag_list_is_valid(p.remove))
+                return sd_varlink_error_invalid_parameter_name(link, "remove");
+
+        context_read_machine_info(c);
+
+        _cleanup_strv_free_ char **current = NULL;
+        r = machine_tags_from_string(c->data[PROP_TAGS], /* graceful= */ true, &current);
+        if (r < 0)
+                return r;
+
+        /* Use either the explicitly specified tag list or the current one as the basis, then apply the
+         * additions and removals on top. */
+        _cleanup_strv_free_ char **tags = NULL;
+        r = machine_tags_add_remove(reset ? p.set : current, p.add, p.remove, &tags);
+        if (r == -E2BIG)
+                return sd_varlink_error_invalid_parameter_name(link, "add");
+        if (r < 0)
+                return r;
+
+        if (strv_equal(tags, current))
+                return sd_varlink_reply(link, NULL);
+
+        r = varlink_verify_polkit_async(
+                        link,
+                        c->bus,
+                        "org.freedesktop.hostname1.set-machine-info",
+                        /* details= */ NULL,
+                        &c->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        r = context_store_tags(c, tags);
+        if (r < 0)
+                return r;
+
+        return sd_varlink_reply(link, NULL);
+}
+
 static int connect_varlink(Context *c) {
         int r;
 
@@ -2253,6 +2334,7 @@ static int connect_varlink(Context *c) {
         r = sd_varlink_server_bind_method_many(
                         c->varlink_server,
                         "io.systemd.Hostname.Describe",      vl_method_describe,
+                        "io.systemd.Hostname.SetTags",       vl_method_set_tags,
                         "io.systemd.service.Ping",           varlink_method_ping,
                         "io.systemd.service.SetLogLevel",    varlink_method_set_log_level,
                         "io.systemd.service.GetEnvironment", varlink_method_get_environment);

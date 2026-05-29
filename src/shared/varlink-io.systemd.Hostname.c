@@ -44,7 +44,19 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_DEFINE_OUTPUT(ProductUUID, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_OUTPUT(VSockCID, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
 
+static SD_VARLINK_DEFINE_METHOD(
+                SetTags,
+                SD_VARLINK_FIELD_COMMENT("If specified, the machine tag list is first reset to exactly these tags, before the 'add' and 'remove' fields are applied. If null, the current tag list is used as basis instead."),
+                SD_VARLINK_DEFINE_INPUT(set, SD_VARLINK_STRING, SD_VARLINK_NULLABLE|SD_VARLINK_ARRAY),
+                SD_VARLINK_FIELD_COMMENT("Machine tags to add to the list."),
+                SD_VARLINK_DEFINE_INPUT(add, SD_VARLINK_STRING, SD_VARLINK_NULLABLE|SD_VARLINK_ARRAY),
+                SD_VARLINK_FIELD_COMMENT("Machine tags to remove from the list."),
+                SD_VARLINK_DEFINE_INPUT(remove, SD_VARLINK_STRING, SD_VARLINK_NULLABLE|SD_VARLINK_ARRAY),
+                VARLINK_DEFINE_POLKIT_INPUT);
+
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_Hostname,
                 "io.systemd.Hostname",
-                &vl_method_Describe);
+                &vl_method_Describe,
+                SD_VARLINK_SYMBOL_COMMENT("Edits the machine tag list: optionally resets it to 'set', then adds 'add' and removes 'remove'."),
+                &vl_method_SetTags);
