@@ -29,6 +29,15 @@ static SD_VARLINK_DEFINE_ENUM_TYPE(
                 SD_VARLINK_FIELD_COMMENT("Always create a new partition table, potentially overwriting an existing table"),
                 SD_VARLINK_DEFINE_ENUM_VALUE(force));
 
+static SD_VARLINK_DEFINE_ENUM_TYPE(
+                BlockDeviceAction,
+                SD_VARLINK_FIELD_COMMENT("The device is currently present and a candidate. Emitted both during the initial enumeration and for live uevents (any action other than 'remove' is propagated as 'add', including the synthesized transitions when a device becomes empty or read-only and a relevant ignore* input is in effect)."),
+                SD_VARLINK_DEFINE_ENUM_VALUE(add),
+                SD_VARLINK_FIELD_COMMENT("The device is no longer a candidate, either because the kernel reported a remove event, or because a dynamic filter (ignoreEmpty/ignoreReadOnly) flipped it out of the candidate set. Clients should drop the device identified by 'node'. It is permitted (and harmless) to receive a 'remove' for a device the client never saw an 'add' for; clients should ignore these silently."),
+                SD_VARLINK_DEFINE_ENUM_VALUE(remove),
+                SD_VARLINK_FIELD_COMMENT("Sentinel sent exactly once in subscribe mode, after the initial enumeration is complete. Everything that follows reflects live uevents. Carries no other fields."),
+                SD_VARLINK_DEFINE_ENUM_VALUE(ready));
+
 static SD_VARLINK_DEFINE_METHOD_FULL(
                 Run,
                 SD_VARLINK_SUPPORTS_MORE,
@@ -64,8 +73,12 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 SD_VARLINK_DEFINE_INPUT(ignoreRoot, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Control whether to include block devices with zero size in the list, i.e. typically block devices without any inserted medium. Defaults to false, i.e. empty block devices are included."),
                 SD_VARLINK_DEFINE_INPUT(ignoreEmpty, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("The device node path of the block device."),
-                SD_VARLINK_DEFINE_OUTPUT(node, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("If true, keep the call open after the initial enumeration and stream live add/remove notifications as block-subsystem uevents arrive. The end of the initial enumeration is marked by exactly one notification with action='ready' and no other fields. Defaults to false."),
+                SD_VARLINK_DEFINE_INPUT(subscribe, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Discriminator field. Only set in subscribe mode. 'add' carries the full device record, 'remove' carries only node, 'ready' carries no other fields and is sent once after the initial enumeration."),
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(action, BlockDeviceAction, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The device node path of the block device. Identifies the device on 'remove' too."),
+                SD_VARLINK_DEFINE_OUTPUT(node, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("List of symlinks pointing to the device node, if any."),
                 SD_VARLINK_DEFINE_OUTPUT(symlinks, SD_VARLINK_STRING, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The Linux kernel disk sequence number identifying the medium."),
@@ -106,6 +119,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_type_EmptyMode,
                 SD_VARLINK_SYMBOL_COMMENT("Progress phase identifiers. Note that we might add more phases here, and thus identifiers. Frontends can choose to display the phase to the user in some human readable form, or not do that, but if they do it and they receive a notification for a so far unknown phase, they should just ignore it."),
                 &vl_type_ProgressPhase,
+                SD_VARLINK_SYMBOL_COMMENT("Discriminator on streamed ListCandidateDevices replies in subscribe mode."),
+                &vl_type_BlockDeviceAction,
 
                 SD_VARLINK_SYMBOL_COMMENT("Invoke the actual repartitioning operation, either in dry-run mode or for real. If invoked with 'more' enabled will report progress, otherwise will just report completion."),
                 &vl_method_Run,
