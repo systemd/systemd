@@ -20,7 +20,6 @@
 #include "cryptenroll-wipe.h"
 #include "cryptsetup-util.h"
 #include "extract-word.h"
-#include "fileio.h"
 #include "format-table.h"
 #include "libfido2-util.h"
 #include "log.h"
@@ -686,44 +685,6 @@ static int check_for_homed(struct crypt_device *cd) {
         }
 
         return 0;
-}
-
-static int load_volume_key_keyfile(
-                const EnrollContext *c,
-                struct crypt_device *cd,
-                struct iovec *ret_vk) {
-
-        _cleanup_(erase_and_freep) char *password = NULL;
-        size_t password_len;
-        int r;
-
-        assert_se(c);
-        assert_se(cd);
-        assert_se(ret_vk);
-
-        r = read_full_file_full(
-                        AT_FDCWD,
-                        c->unlock_keyfile,
-                        UINT64_MAX,
-                        SIZE_MAX,
-                        READ_FULL_FILE_SECURE|READ_FULL_FILE_WARN_WORLD_READABLE|READ_FULL_FILE_CONNECT_SOCKET,
-                        NULL,
-                        &password,
-                        &password_len);
-        if (r < 0)
-                return log_error_errno(r, "Reading keyfile %s failed: %m", c->unlock_keyfile);
-
-        r = sym_crypt_volume_key_get(
-                        cd,
-                        CRYPT_ANY_SLOT,
-                        ret_vk->iov_base,
-                        &ret_vk->iov_len,
-                        password,
-                        password_len);
-        if (r < 0)
-                return log_error_errno(r, "Unlocking via keyfile failed: %m");
-
-        return r;
 }
 
 int prepare_luks(
