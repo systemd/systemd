@@ -3,6 +3,7 @@
 
 #include "specifier.h"
 #include "sysupdate-forward.h"
+#include "sysupdate-target.h"
 
 typedef struct Context {
         /* Parameters/Command line arguments: */
@@ -40,6 +41,8 @@ typedef struct Context {
         Hashmap *web_cache; /* Cache for downloaded resources, keyed by URL */
 
         int installdb_fd;
+
+        TargetIdentifier target_identifier;
 } Context;
 
 void context_done(Context *c);
