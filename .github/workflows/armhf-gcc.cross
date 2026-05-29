@@ -1,0 +1,21 @@
+[binaries]
+c = 'arm-linux-gnueabihf-gcc'
+cpp = 'arm-linux-gnueabihf-g++'
+ar = 'arm-linux-gnueabihf-gcc-ar'
+nm = 'arm-linux-gnueabihf-gcc-nm'
+strip = 'arm-linux-gnueabihf-strip'
+pkgconfig = 'pkg-config'
+
+[properties]
+needs_exe_wrapper = false
+pkg_config_libdir = '/usr/lib/arm-linux-gnueabihf/pkgconfig:/usr/share/pkgconfig'
+c_args = ['-O2', '-pipe', '-g', '-feliminate-unused-debug-types']
+c_link_args = ['-fuse-ld=bfd', '-Wl,-O1', '-Wl,--hash-style=gnu', '-Wl,--as-needed', '-Wl,-z,relro,-z,now,-z,noexecstack']
+cpp_args = []
+cpp_link_args = ['-fuse-ld=bfd', '-Wl,-O1', '-Wl,--hash-style=gnu', '-Wl,--as-needed', '-Wl,-z,relro,-z,now,-z,noexecstack']
+
+[host_machine]
+system = 'linux'
+cpu_family = 'arm'
+cpu = 'armv7'
+endian = 'little'
