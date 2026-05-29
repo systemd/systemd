@@ -140,6 +140,17 @@ EFI_STATUS process_random_seed(EFI_FILE *root_dir) {
 
         validate_sha256();
 
+        /* If the volume is read-only we cannot update the random seed, but if we cannot update it, then we
+         * really don't want to use it since it would be the same on every boot. */
+        bool volume_ro;
+        err = get_volume_ro(root_dir, &volume_ro);
+        if (err != EFI_SUCCESS)
+                log_debug_status(err, "Failed to determine if volume is read-only, assuming not: %m");
+        else if (volume_ro) {
+                log_debug("Volume is read-only, not updating random seed.");
+                return EFI_SUCCESS;
+        }
+
         /* hash = LABEL || sizeof(input1) || input1 || ... || sizeof(inputN) || inputN */
         sha256_init_ctx(&hash);
 
