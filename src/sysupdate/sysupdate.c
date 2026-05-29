@@ -72,46 +72,39 @@ const Specifier specifier_table[] = {
         {}
 };
 
-Context* context_free(Context *c) {
-        if (!c)
-                return NULL;
+#define CONTEXT_NULL \
+        (Context) { \
+                .installdb_fd = -EBADF, \
+        }
 
-        free(c->component);
+void context_done(Context *c) {
+        assert(c);
+
+        c->component = mfree(c->component);
 
         c->mounted_dir = umount_and_rmdir_and_free(c->mounted_dir);
         c->loop_device = loop_device_unref(c->loop_device);
 
         FOREACH_ARRAY(tr, c->transfers, c->n_transfers)
                 transfer_free(*tr);
-        free(c->transfers);
+        c->transfers = mfree(c->transfers);
+        c->n_transfers = 0;
 
         FOREACH_ARRAY(tr, c->disabled_transfers, c->n_disabled_transfers)
                 transfer_free(*tr);
-        free(c->disabled_transfers);
+        c->disabled_transfers = mfree(c->disabled_transfers);
+        c->n_disabled_transfers = 0;
 
-        hashmap_free(c->features);
+        c->features = hashmap_free(c->features);
 
         FOREACH_ARRAY(us, c->update_sets, c->n_update_sets)
                 update_set_free(*us);
-        free(c->update_sets);
+        c->update_sets = mfree(c->update_sets);
+        c->n_update_sets = 0;
 
-        hashmap_free(c->web_cache);
+        c->web_cache = hashmap_free(c->web_cache);
 
-        safe_close(c->installdb_fd);
-
-        return mfree(c);
-}
-
-static Context* context_new(void) {
-        Context *c = new(Context, 1);
-        if (!c)
-                return NULL;
-
-        *c = (Context) {
-                .installdb_fd = -EBADF,
-        };
-
-        return c;
+        c->installdb_fd = safe_close(c->installdb_fd);
 }
 
 static DEFINE_POINTER_ARRAY_FREE_FUNC(Transfer*, transfer_free);
@@ -983,22 +976,17 @@ static int process_image(
         return 0;
 }
 
-static int context_make_offline(
-                Context **ret,
+static int context_load_offline(
+                Context *context,
                 const char *component,
                 ProcessImageFlags process_image_flags,
                 ReadDefinitionsFlags read_definitions_flags) {
-        _cleanup_(context_freep) Context* context = NULL;
         int r;
 
-        assert(ret);
+        assert(context);
 
-        /* Allocates a context object and initializes everything we can initialize offline, i.e. without
+        /* Sets up a context object and initializes everything we can initialize offline, i.e. without
          * checking on the update source (i.e. the Internet) what versions are available */
-
-        context = context_new();
-        if (!context)
-                return log_oom();
 
         r = free_and_strdup_warn(&context->component, component);
         if (r < 0)
@@ -1016,25 +1004,22 @@ static int context_make_offline(
         if (r < 0)
                 return r;
 
-        *ret = TAKE_PTR(context);
         return 0;
 }
 
-static int context_make_online(
-                Context **ret,
+static int context_load_online(
+                Context *context,
                 const char *component,
                 ProcessImageFlags process_image_flags) {
-
-        _cleanup_(context_freep) Context* context = NULL;
         int r;
 
-        assert(ret);
+        assert(context);
 
-        /* Like context_make_offline(), but also communicates with the update source looking for new
+        /* Like context_load_offline(), but also communicates with the update source looking for new
          * versions (as long as --offline is not specified on the command line). */
 
-        r = context_make_offline(
-                        &context,
+        r = context_load_offline(
+                        context,
                         component,
                         process_image_flags,
                         READ_DEFINITIONS_REQUIRES_ENABLED_TRANSFERS|READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS);
@@ -1051,7 +1036,6 @@ static int context_make_online(
         if (r < 0)
                 return r;
 
-        *ret = TAKE_PTR(context);
         return 0;
 }
 
@@ -1392,7 +1376,7 @@ static int context_install(
 VERB(verb_list, "list", "[VERSION]", VERB_ANY, 2, VERB_DEFAULT,
      "Show installed and available versions");
 static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(context_freep) Context* context = NULL;
+        _cleanup_(context_done) Context context = CONTEXT_NULL;
         _cleanup_strv_free_ char **appstream_urls = NULL;
         const char *version;
         int r;
@@ -1403,7 +1387,7 @@ static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (arg_component_all)
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--component-all currently not supported for '%s'.", argv[0]);
 
-        r = context_make_online(
+        r = context_load_online(
                         &context,
                         arg_component,
                         PROCESS_IMAGE_READ_ONLY);
@@ -1411,16 +1395,16 @@ static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 return r;
 
         if (version)
-                return context_show_version(context, version);
+                return context_show_version(&context, version);
         else if (!sd_json_format_enabled(arg_json_format_flags))
-                return context_show_table(context);
+                return context_show_table(&context);
         else {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
                 _cleanup_strv_free_ char **versions = NULL;
                 const char *current = NULL;
                 bool current_is_pending = false;
 
-                FOREACH_ARRAY(update_set, context->update_sets, context->n_update_sets) {
+                FOREACH_ARRAY(update_set, context.update_sets, context.n_update_sets) {
                         UpdateSet *us = *update_set;
 
                         if (FLAGS_SET(us->flags, UPDATE_INSTALLED) &&
@@ -1434,7 +1418,7 @@ static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
                                 return log_oom();
                 }
 
-                FOREACH_ARRAY(tr, context->transfers, context->n_transfers)
+                FOREACH_ARRAY(tr, context.transfers, context.n_transfers)
                         STRV_FOREACH(appstream_url, (*tr)->appstream) {
                                 /* Avoid duplicates */
                                 if (strv_contains(appstream_urls, *appstream_url))
@@ -1462,7 +1446,7 @@ static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
 VERB(verb_features, "features", "[FEATURE]", VERB_ANY, 2, 0,
      "Show optional features");
 static int verb_features(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(context_freep) Context* context = NULL;
+        _cleanup_(context_done) Context context = CONTEXT_NULL;
         _cleanup_(table_unrefp) Table *table = NULL;
         const char *feature_id;
         Feature *f;
@@ -1474,7 +1458,7 @@ static int verb_features(int argc, char *argv[], uintptr_t _data, void *userdata
         if (arg_component_all)
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--component-all currently not supported for '%s'.", argv[0]);
 
-        r = context_make_offline(
+        r = context_load_offline(
                         &context,
                         arg_component,
                         PROCESS_IMAGE_READ_ONLY,
@@ -1485,7 +1469,7 @@ static int verb_features(int argc, char *argv[], uintptr_t _data, void *userdata
         if (feature_id) {
                 _cleanup_strv_free_ char **transfers = NULL;
 
-                f = hashmap_get(context->features, feature_id);
+                f = hashmap_get(context.features, feature_id);
                 if (!f)
                         return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
                                                "Optional feature not found: %s",
@@ -1495,7 +1479,7 @@ static int verb_features(int argc, char *argv[], uintptr_t _data, void *userdata
                 if (!table)
                         return log_oom();
 
-                FOREACH_ARRAY(tr, context->transfers, context->n_transfers) {
+                FOREACH_ARRAY(tr, context.transfers, context.n_transfers) {
                         Transfer *t = *tr;
 
                         if (!strv_contains(t->features, f->id) && !strv_contains(t->requisite_features, f->id))
@@ -1506,7 +1490,7 @@ static int verb_features(int argc, char *argv[], uintptr_t _data, void *userdata
                                 return log_oom();
                 }
 
-                FOREACH_ARRAY(tr, context->disabled_transfers, context->n_disabled_transfers) {
+                FOREACH_ARRAY(tr, context.disabled_transfers, context.n_disabled_transfers) {
                         Transfer *t = *tr;
 
                         if (!strv_contains(t->features, f->id) && !strv_contains(t->requisite_features, f->id))
@@ -1561,7 +1545,7 @@ static int verb_features(int argc, char *argv[], uintptr_t _data, void *userdata
                 if (!table)
                         return log_oom();
 
-                HASHMAP_FOREACH(f, context->features) {
+                HASHMAP_FOREACH(f, context.features) {
                         r = table_add_many(table,
                                            TABLE_BOOLEAN_CHECKMARK, f->enabled,
                                            TABLE_SET_COLOR, ansi_highlight_green_red(f->enabled),
@@ -1578,7 +1562,7 @@ static int verb_features(int argc, char *argv[], uintptr_t _data, void *userdata
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
                 _cleanup_strv_free_ char **features = NULL;
 
-                HASHMAP_FOREACH(f, context->features) {
+                HASHMAP_FOREACH(f, context.features) {
                         r = strv_extend(&features, f->id);
                         if (r < 0)
                                 return log_oom();
@@ -1599,7 +1583,7 @@ static int verb_features(int argc, char *argv[], uintptr_t _data, void *userdata
 VERB_NOARG(verb_check_new, "check-new",
            "Check if there's a new version available");
 static int verb_check_new(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(context_freep) Context* context = NULL;
+        _cleanup_(context_done) Context context = CONTEXT_NULL;
         int r;
 
         assert(argc <= 1);
@@ -1607,7 +1591,7 @@ static int verb_check_new(int argc, char *argv[], uintptr_t _data, void *userdat
         if (arg_component_all)
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--component-all currently not supported for '%s'.", argv[0]);
 
-        r = context_make_online(
+        r = context_load_online(
                         &context,
                         arg_component,
                         PROCESS_IMAGE_READ_ONLY);
@@ -1615,17 +1599,17 @@ static int verb_check_new(int argc, char *argv[], uintptr_t _data, void *userdat
                 return r;
 
         if (!sd_json_format_enabled(arg_json_format_flags)) {
-                if (!context->candidate) {
+                if (!context.candidate) {
                         log_debug("No candidate found.");
                         return EXIT_FAILURE;
                 }
 
-                puts(context->candidate->version);
+                puts(context.candidate->version);
         } else {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
 
-                if (context->candidate)
-                        r = sd_json_buildo(&json, SD_JSON_BUILD_PAIR_STRING("available", context->candidate->version));
+                if (context.candidate)
+                        r = sd_json_buildo(&json, SD_JSON_BUILD_PAIR_STRING("available", context.candidate->version));
                 else
                         r = sd_json_buildo(&json, SD_JSON_BUILD_PAIR_NULL("available"));
                 if (r < 0)
@@ -1645,7 +1629,7 @@ typedef enum {
 } UpdateActionFlags;
 
 static int verb_update_impl(int argc, char **argv, UpdateActionFlags action_flags) {
-        _cleanup_(context_freep) Context* context = NULL;
+        _cleanup_(context_done) Context context = CONTEXT_NULL;
         _cleanup_free_ char *booted_version = NULL;
         UpdateSet *applied = NULL;
         const char *version;
@@ -1674,7 +1658,7 @@ static int verb_update_impl(int argc, char **argv, UpdateActionFlags action_flag
         bool installed = false;
         int ret = 0;
 
-        r = context_make_online(
+        r = context_load_online(
                         &context,
                         arg_component,
                         /* process_image_flags= */ 0);
@@ -1686,14 +1670,14 @@ static int verb_update_impl(int argc, char **argv, UpdateActionFlags action_flag
                 RET_GATHER(ret, r);
         } else {
                 if (action_flags & UPDATE_ACTION_ACQUIRE)
-                        r = context_acquire(context, version);
+                        r = context_acquire(&context, version);
                 else
-                        r = context_process_partial_and_pending(context, version);
+                        r = context_process_partial_and_pending(&context, version);
                 if (r < 0)
                         return r;
 
                 if (FLAGS_SET(action_flags, UPDATE_ACTION_INSTALL) && r > 0) { /* installation of update indicated */
-                        r = context_install(context, version, &applied);
+                        r = context_install(&context, version, &applied);
                         if (r < 0)
                                 return r;
 
@@ -1708,12 +1692,12 @@ static int verb_update_impl(int argc, char **argv, UpdateActionFlags action_flag
                         if (f < 0 && f != -ENXIO)
                                 log_debug_errno(f, "Failed to parse $SYSTEMD_SYSUPDATE_FORCE_NOTIFY, ignoring: %m");
                         if (f > 0)
-                                (void) context_notify_subscribers(context, /* us= */ NULL);
+                                (void) context_notify_subscribers(&context, /* us= */ NULL);
                 }
         }
 
         if (arg_cleanup > 0)
-                RET_GATHER(ret, installdb_cleanup_component(context));
+                RET_GATHER(ret, installdb_cleanup_component(&context));
 
         if (installed) {
                 /* We installed something, yay */
@@ -1757,7 +1741,7 @@ static int verb_acquire(int argc, char *argv[], uintptr_t _data, void *userdata)
 VERB_NOARG(verb_vacuum, "vacuum",
            "Make room, by deleting old versions");
 static int verb_vacuum(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(context_freep) Context* context = NULL;
+        _cleanup_(context_done) Context context = CONTEXT_NULL;
         int r;
 
         assert(argc <= 1);
@@ -1769,7 +1753,7 @@ static int verb_vacuum(int argc, char *argv[], uintptr_t _data, void *userdata) 
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                       "The --instances-max argument must be >= 1 while vacuuming");
 
-        r = context_make_offline(
+        r = context_load_offline(
                         &context,
                         arg_component,
                         /* process_image_flags= */ 0,
@@ -1777,7 +1761,7 @@ static int verb_vacuum(int argc, char *argv[], uintptr_t _data, void *userdata) 
         if (r < 0)
                 return r;
 
-        return context_vacuum(context, 0, NULL);
+        return context_vacuum(&context, 0, NULL);
 }
 
 VERB(verb_pending_or_reboot, "pending", NULL, 1, 1, 0,
@@ -1785,7 +1769,7 @@ VERB(verb_pending_or_reboot, "pending", NULL, 1, 1, 0,
 VERB(verb_pending_or_reboot, "reboot", NULL, 1, 1, 0,
      "Reboot if a newer version is installed than booted");
 static int verb_pending_or_reboot(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(context_freep) Context* context = NULL;
+        _cleanup_(context_done) Context context = CONTEXT_NULL;
         _cleanup_free_ char *booted_version = NULL;
         int r;
 
@@ -1799,7 +1783,7 @@ static int verb_pending_or_reboot(int argc, char *argv[], uintptr_t _data, void 
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "The --component= and --component-all switches may not be combined with the '%s' operation, which only applies to the booted OS version.", argv[0]);
 
-        r = context_make_offline(
+        r = context_load_offline(
                         &context,
                         arg_component,
                         /* process_image_flags= */ 0,
@@ -1809,10 +1793,10 @@ static int verb_pending_or_reboot(int argc, char *argv[], uintptr_t _data, void 
 
         log_info("Determining installed update sets%s", glyph(GLYPH_ELLIPSIS));
 
-        r = context_discover_update_sets_by_flag(context, UPDATE_INSTALLED);
+        r = context_discover_update_sets_by_flag(&context, UPDATE_INSTALLED);
         if (r < 0)
                 return r;
-        if (!context->newest_installed)
+        if (!context.newest_installed)
                 return log_error_errno(SYNTHETIC_ERRNO(ENODATA), "Couldn't find any suitable installed versions.");
 
         r = parse_os_release(arg_root, "IMAGE_VERSION", &booted_version);
@@ -1822,10 +1806,10 @@ static int verb_pending_or_reboot(int argc, char *argv[], uintptr_t _data, void 
         if (!booted_version)
                 return log_error_errno(SYNTHETIC_ERRNO(ENODATA), "/etc/os-release lacks IMAGE_VERSION= field.");
 
-        r = strverscmp_improved(context->newest_installed->version, booted_version);
+        r = strverscmp_improved(context.newest_installed->version, booted_version);
         if (r > 0) {
                 log_notice("Newest installed version '%s' is newer than booted version '%s'.%s",
-                           context->newest_installed->version, booted_version,
+                           context.newest_installed->version, booted_version,
                            streq(argv[0], "pending") ? " Reboot recommended." : "");
 
                 if (streq(argv[0], "reboot"))
@@ -1834,10 +1818,10 @@ static int verb_pending_or_reboot(int argc, char *argv[], uintptr_t _data, void 
                 return EXIT_SUCCESS;
         } else if (r == 0)
                 log_info("Newest installed version '%s' matches booted version '%s'.",
-                         context->newest_installed->version, booted_version);
+                         context.newest_installed->version, booted_version);
         else
                 log_warning("Newest installed version '%s' is older than booted version '%s'.",
-                            context->newest_installed->version, booted_version);
+                            context.newest_installed->version, booted_version);
 
         if (streq(argv[0], "pending")) /* When called as 'pending' tell the caller via failure exit code that there's nothing newer installed */
                 return EXIT_FAILURE;
@@ -1848,7 +1832,7 @@ static int verb_pending_or_reboot(int argc, char *argv[], uintptr_t _data, void 
 VERB_NOARG(verb_components, "components",
            "Show list of components");
 static int verb_components(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(context_freep) Context* context = NULL;
+        _cleanup_(context_done) Context context = CONTEXT_NULL;
         bool has_default_component = false;
         int r;
 
@@ -1857,7 +1841,7 @@ static int verb_components(int argc, char *argv[], uintptr_t _data, void *userda
         if (arg_component_all)
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--component-all currently not supported for '%s'.", argv[0]);
 
-        r = context_make_offline(
+        r = context_load_offline(
                         &context,
                         arg_component,
                         /* process_image_flags= */ 0,
@@ -1873,10 +1857,10 @@ static int verb_components(int argc, char *argv[], uintptr_t _data, void *userda
         /* Does the system have at least one transfer file in /etc/sysupdate.d, which can be considered a
          * TARGET_HOST? See target_get_argument() in sysupdated.c */
         has_default_component = (!arg_definitions &&
-                                 !context->component &&
+                                 !context.component &&
                                  !arg_root &&
                                  !arg_image &&
-                                 context->n_transfers > 0);
+                                 context.n_transfers > 0);
 
         if (!sd_json_format_enabled(arg_json_format_flags)) {
                 if (!has_default_component && strv_isempty(z)) {
@@ -1908,7 +1892,7 @@ static int verb_components(int argc, char *argv[], uintptr_t _data, void *userda
 
 VERB_NOARG(verb_cleanup, "cleanup", "Clean up orphaned files");
 static int verb_cleanup(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(context_freep) Context* context = NULL;
+        _cleanup_(context_done) Context context = CONTEXT_NULL;
         int r;
 
         assert(argc <= 1);
@@ -1916,7 +1900,7 @@ static int verb_cleanup(int argc, char *argv[], uintptr_t _data, void *userdata)
         if (arg_cleanup == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invocation of 'cleanup' with --cleanup=no is contradictory, refusing.");
 
-        r = context_make_offline(
+        r = context_load_offline(
                         &context,
                         arg_component,
                         /* process_image_flags= */ 0,
@@ -1925,7 +1909,7 @@ static int verb_cleanup(int argc, char *argv[], uintptr_t _data, void *userdata)
                 return r;
 
         int ret = 0;
-        RET_GATHER(ret, installdb_cleanup_component(context));
+        RET_GATHER(ret, installdb_cleanup_component(&context));
 
         if (arg_component_all) {
                 _cleanup_strv_free_ char **z = NULL;
@@ -1934,9 +1918,9 @@ static int verb_cleanup(int argc, char *argv[], uintptr_t _data, void *userdata)
                         return log_error_errno(r, "Failed to enumerate components: %m");
 
                 STRV_FOREACH(i, z) {
-                        _cleanup_(context_freep) Context* component_context = NULL;
+                        _cleanup_(context_done) Context component_context = CONTEXT_NULL;
 
-                        r = context_make_offline(
+                        r = context_load_offline(
                                         &component_context,
                                         *i,
                                         /* process_image_flags= */ 0,
@@ -1944,7 +1928,7 @@ static int verb_cleanup(int argc, char *argv[], uintptr_t _data, void *userdata)
                         if (r < 0)
                                 return r;
 
-                        RET_GATHER(ret, installdb_cleanup_component(component_context));
+                        RET_GATHER(ret, installdb_cleanup_component(&component_context));
                 }
         }
 

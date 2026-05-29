@@ -28,8 +28,7 @@ typedef struct Context {
         int installdb_fd;
 } Context;
 
-Context* context_free(Context *c);
-DEFINE_TRIVIAL_CLEANUP_FUNC(Context*, context_free);
+void context_done(Context *c);
 
 extern bool arg_sync;
 extern uint64_t arg_instances_max;
