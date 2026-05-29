@@ -42,6 +42,9 @@ jobs:
           - env: { COMPILER: "gcc",   COMPILER_VERSION: "13", LINKER: "bfd", CROSS_ARCH: "armhf"  }
             runner: [ ubuntu-24.04-arm ]
             python-version: ''
+          - env: { COMPILER: "gcc",   COMPILER_VERSION: "13", LINKER: "bfd", CROSS_ARCH: "riscv64"  }
+            runner: [ ubuntu-24.04-arm ]
+            python-version: ''
           - env: { COMPILER: "clang", COMPILER_VERSION: "18", LINKER: "lld"  }
             runner: [ ubuntu-24.04-s390x ]
             python-version: ''
