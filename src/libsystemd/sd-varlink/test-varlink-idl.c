@@ -45,6 +45,7 @@
 #include "varlink-io.systemd.Resolve.Hook.h"
 #include "varlink-io.systemd.Resolve.Monitor.h"
 #include "varlink-io.systemd.StorageProvider.h"
+#include "varlink-io.systemd.Sysupdate.h"
 #include "varlink-io.systemd.Udev.h"
 #include "varlink-io.systemd.Unit.h"
 #include "varlink-io.systemd.UserDatabase.h"
@@ -214,6 +215,7 @@ TEST(parse_format) {
                 &vl_interface_io_systemd_Resolve_Hook,
                 &vl_interface_io_systemd_Resolve_Monitor,
                 &vl_interface_io_systemd_StorageProvider,
+                &vl_interface_io_systemd_Sysupdate,
                 &vl_interface_io_systemd_Udev,
                 &vl_interface_io_systemd_Unit,
                 &vl_interface_io_systemd_UserDatabase,
