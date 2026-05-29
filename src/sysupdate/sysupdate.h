@@ -7,6 +7,9 @@
 typedef struct Context {
         char *component;
 
+        LoopDevice *loop_device;
+        char *mounted_dir;
+
         Transfer **transfers;
         size_t n_transfers;
 

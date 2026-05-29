@@ -78,6 +78,9 @@ Context* context_free(Context *c) {
 
         free(c->component);
 
+        c->mounted_dir = umount_and_rmdir_and_free(c->mounted_dir);
+        c->loop_device = loop_device_unref(c->loop_device);
+
         FOREACH_ARRAY(tr, c->transfers, c->n_transfers)
                 transfer_free(*tr);
         free(c->transfers);
@@ -931,10 +934,59 @@ static int context_vacuum(
         return 0;
 }
 
+typedef enum ProcessImageFlags {
+        PROCESS_IMAGE_READ_ONLY = 1 << 0,
+} ProcessImageFlags;
+
+static int process_image(
+                Context *c,
+                ProcessImageFlags flags) {
+
+        _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
+        _cleanup_(umount_and_freep) char *mounted_dir = NULL;
+        int r;
+
+        assert(c);
+
+        if (!arg_image)
+                return 0;
+
+        assert(!arg_root);
+        assert(!c->mounted_dir);
+        assert(!c->loop_device);
+
+        r = mount_image_privately_interactively(
+                        arg_image,
+                        arg_image_policy,
+                        (FLAGS_SET(flags, PROCESS_IMAGE_READ_ONLY) ? DISSECT_IMAGE_READ_ONLY : 0) |
+                        DISSECT_IMAGE_FSCK |
+                        DISSECT_IMAGE_MKDIR |
+                        DISSECT_IMAGE_GROWFS |
+                        DISSECT_IMAGE_RELAX_VAR_CHECK |
+                        DISSECT_IMAGE_USR_NO_ROOT |
+                        DISSECT_IMAGE_GENERIC_ROOT |
+                        DISSECT_IMAGE_REQUIRE_ROOT |
+                        DISSECT_IMAGE_ALLOW_USERSPACE_VERITY,
+                        &mounted_dir,
+                        /* ret_dir_fd= */ NULL,
+                        &loop_device);
+        if (r < 0)
+                return r;
+
+        arg_root = strdup(mounted_dir);
+        if (!arg_root)
+                return log_oom();
+
+        c->mounted_dir = TAKE_PTR(mounted_dir);
+        c->loop_device = TAKE_PTR(loop_device);
+
+        return 0;
+}
+
 static int context_make_offline(
                 Context **ret,
-                const char *node,
                 const char *component,
+                ProcessImageFlags process_image_flags,
                 ReadDefinitionsFlags read_definitions_flags) {
         _cleanup_(context_freep) Context* context = NULL;
         int r;
@@ -952,7 +1004,11 @@ static int context_make_offline(
         if (r < 0)
                 return r;
 
-        r = context_read_definitions(context, node, read_definitions_flags);
+        r = process_image(context, process_image_flags);
+        if (r < 0)
+                return r;
+
+        r = context_read_definitions(context, context->loop_device ? context->loop_device->node : NULL, read_definitions_flags);
         if (r < 0)
                 return r;
 
@@ -966,8 +1022,8 @@ static int context_make_offline(
 
 static int context_make_online(
                 Context **ret,
-                const char *node,
-                const char *component) {
+                const char *component,
+                ProcessImageFlags process_image_flags) {
 
         _cleanup_(context_freep) Context* context = NULL;
         int r;
@@ -979,8 +1035,8 @@ static int context_make_online(
 
         r = context_make_offline(
                         &context,
-                        node,
                         component,
+                        process_image_flags,
                         READ_DEFINITIONS_REQUIRES_ENABLED_TRANSFERS|READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS);
         if (r < 0)
                 return r;
@@ -1333,56 +1389,9 @@ static int context_install(
         return 1;
 }
 
-static int process_image(
-                bool ro,
-                char **ret_mounted_dir,
-                LoopDevice **ret_loop_device) {
-
-        _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
-        _cleanup_(umount_and_freep) char *mounted_dir = NULL;
-        int r;
-
-        assert(ret_mounted_dir);
-        assert(ret_loop_device);
-
-        if (!arg_image)
-                return 0;
-
-        assert(!arg_root);
-
-        r = mount_image_privately_interactively(
-                        arg_image,
-                        arg_image_policy,
-                        (ro ? DISSECT_IMAGE_READ_ONLY : 0) |
-                        DISSECT_IMAGE_FSCK |
-                        DISSECT_IMAGE_MKDIR |
-                        DISSECT_IMAGE_GROWFS |
-                        DISSECT_IMAGE_RELAX_VAR_CHECK |
-                        DISSECT_IMAGE_USR_NO_ROOT |
-                        DISSECT_IMAGE_GENERIC_ROOT |
-                        DISSECT_IMAGE_REQUIRE_ROOT |
-                        DISSECT_IMAGE_ALLOW_USERSPACE_VERITY,
-                        &mounted_dir,
-                        /* ret_dir_fd= */ NULL,
-                        &loop_device);
-        if (r < 0)
-                return r;
-
-        arg_root = strdup(mounted_dir);
-        if (!arg_root)
-                return log_oom();
-
-        *ret_mounted_dir = TAKE_PTR(mounted_dir);
-        *ret_loop_device = TAKE_PTR(loop_device);
-
-        return 0;
-}
-
 VERB(verb_list, "list", "[VERSION]", VERB_ANY, 2, VERB_DEFAULT,
      "Show installed and available versions");
 static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
-        _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
         _cleanup_(context_freep) Context* context = NULL;
         _cleanup_strv_free_ char **appstream_urls = NULL;
         const char *version;
@@ -1394,14 +1403,10 @@ static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (arg_component_all)
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--component-all currently not supported for '%s'.", argv[0]);
 
-        r = process_image(/* ro= */ true, &mounted_dir, &loop_device);
-        if (r < 0)
-                return r;
-
         r = context_make_online(
                         &context,
-                        loop_device ? loop_device->node : NULL,
-                        arg_component);
+                        arg_component,
+                        PROCESS_IMAGE_READ_ONLY);
         if (r < 0)
                 return r;
 
@@ -1457,8 +1462,6 @@ static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
 VERB(verb_features, "features", "[FEATURE]", VERB_ANY, 2, 0,
      "Show optional features");
 static int verb_features(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
-        _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
         _cleanup_(context_freep) Context* context = NULL;
         _cleanup_(table_unrefp) Table *table = NULL;
         const char *feature_id;
@@ -1471,14 +1474,10 @@ static int verb_features(int argc, char *argv[], uintptr_t _data, void *userdata
         if (arg_component_all)
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--component-all currently not supported for '%s'.", argv[0]);
 
-        r = process_image(/* ro= */ true, &mounted_dir, &loop_device);
-        if (r < 0)
-                return r;
-
         r = context_make_offline(
                         &context,
-                        loop_device ? loop_device->node : NULL,
                         arg_component,
+                        PROCESS_IMAGE_READ_ONLY,
                         READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS);
         if (r < 0)
                 return r;
@@ -1600,8 +1599,6 @@ static int verb_features(int argc, char *argv[], uintptr_t _data, void *userdata
 VERB_NOARG(verb_check_new, "check-new",
            "Check if there's a new version available");
 static int verb_check_new(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
-        _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
         _cleanup_(context_freep) Context* context = NULL;
         int r;
 
@@ -1610,14 +1607,10 @@ static int verb_check_new(int argc, char *argv[], uintptr_t _data, void *userdat
         if (arg_component_all)
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--component-all currently not supported for '%s'.", argv[0]);
 
-        r = process_image(/* ro= */ true, &mounted_dir, &loop_device);
-        if (r < 0)
-                return r;
-
         r = context_make_online(
                         &context,
-                        loop_device ? loop_device->node : NULL,
-                        arg_component);
+                        arg_component,
+                        PROCESS_IMAGE_READ_ONLY);
         if (r < 0)
                 return r;
 
@@ -1652,8 +1645,6 @@ typedef enum {
 } UpdateActionFlags;
 
 static int verb_update_impl(int argc, char **argv, UpdateActionFlags action_flags) {
-        _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
-        _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
         _cleanup_(context_freep) Context* context = NULL;
         _cleanup_free_ char *booted_version = NULL;
         UpdateSet *applied = NULL;
@@ -1680,18 +1671,13 @@ static int verb_update_impl(int argc, char **argv, UpdateActionFlags action_flag
                         return log_error_errno(SYNTHETIC_ERRNO(ENODATA), "/etc/os-release lacks IMAGE_VERSION field.");
         }
 
-        r = process_image(/* ro= */ false, &mounted_dir, &loop_device);
-        if (r < 0)
-                return r;
-
-        const char *node = loop_device ? loop_device->node : NULL;
         bool installed = false;
         int ret = 0;
 
         r = context_make_online(
                         &context,
-                        node,
-                        arg_component);
+                        arg_component,
+                        /* process_image_flags= */ 0);
         if (r < 0) {
                 if (r != -ENOENT)
                         return r;
@@ -1727,7 +1713,7 @@ static int verb_update_impl(int argc, char **argv, UpdateActionFlags action_flag
         }
 
         if (arg_cleanup > 0)
-                RET_GATHER(ret, installdb_cleanup_component(node, arg_component));
+                RET_GATHER(ret, installdb_cleanup_component(context));
 
         if (installed) {
                 /* We installed something, yay */
@@ -1771,8 +1757,6 @@ static int verb_acquire(int argc, char *argv[], uintptr_t _data, void *userdata)
 VERB_NOARG(verb_vacuum, "vacuum",
            "Make room, by deleting old versions");
 static int verb_vacuum(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
-        _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
         _cleanup_(context_freep) Context* context = NULL;
         int r;
 
@@ -1785,14 +1769,10 @@ static int verb_vacuum(int argc, char *argv[], uintptr_t _data, void *userdata) 
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                       "The --instances-max argument must be >= 1 while vacuuming");
 
-        r = process_image(/* ro= */ false, &mounted_dir, &loop_device);
-        if (r < 0)
-                return r;
-
         r = context_make_offline(
                         &context,
-                        loop_device ? loop_device->node : NULL,
                         arg_component,
+                        /* process_image_flags= */ 0,
                         READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS);
         if (r < 0)
                 return r;
@@ -1821,8 +1801,8 @@ static int verb_pending_or_reboot(int argc, char *argv[], uintptr_t _data, void 
 
         r = context_make_offline(
                         &context,
-                        /* node= */ NULL,
                         arg_component,
+                        /* process_image_flags= */ 0,
                         READ_DEFINITIONS_REQUIRES_ENABLED_TRANSFERS|READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS);
         if (r < 0)
                 return r;
@@ -1869,8 +1849,6 @@ VERB_NOARG(verb_components, "components",
            "Show list of components");
 static int verb_components(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(context_freep) Context* context = NULL;
-        _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
-        _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
         bool has_default_component = false;
         int r;
 
@@ -1879,14 +1857,10 @@ static int verb_components(int argc, char *argv[], uintptr_t _data, void *userda
         if (arg_component_all)
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--component-all currently not supported for '%s'.", argv[0]);
 
-        r = process_image(/* ro= */ false, &mounted_dir, &loop_device);
-        if (r < 0)
-                return r;
-
         r = context_make_offline(
                         &context,
-                        loop_device ? loop_device->node : NULL,
                         arg_component,
+                        /* process_image_flags= */ 0,
                         /* read_definitions_flags= */ 0);
         if (r < 0)
                 return r;
@@ -1942,18 +1916,10 @@ static int verb_cleanup(int argc, char *argv[], uintptr_t _data, void *userdata)
         if (arg_cleanup == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invocation of 'cleanup' with --cleanup=no is contradictory, refusing.");
 
-        _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
-        _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
-        r = process_image(/* ro= */ false, &mounted_dir, &loop_device);
-        if (r < 0)
-                return r;
-
-        const char *node = loop_device ? loop_device->node : NULL;
-
         r = context_make_offline(
                         &context,
-                        node,
                         arg_component,
+                        /* process_image_flags= */ 0,
                         /* read_definitions_flags= */ 0);
         if (r < 0)
                 return r;
@@ -1972,8 +1938,8 @@ static int verb_cleanup(int argc, char *argv[], uintptr_t _data, void *userdata)
 
                         r = context_make_offline(
                                         &component_context,
-                                        node,
                                         *i,
+                                        /* process_image_flags= */ 0,
                                         /* read_definitions_flags= */ 0);
                         if (r < 0)
                                 return r;
