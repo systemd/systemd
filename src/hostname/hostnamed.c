@@ -1585,6 +1585,52 @@ static int method_set_location(sd_bus_message *m, void *userdata, sd_bus_error *
         return set_machine_info(userdata, m, PROP_LOCATION, method_set_location, error);
 }
 
+static int context_store_tags(Context *c, char **tags) {
+        int r;
+
+        assert(c);
+
+        /* Persists the given machine tags (which must already be validated, sorted and deduplicated) to
+         * /etc/machine-info and emits a PropertiesChanged signal on the Tags property. */
+
+        if (strv_isempty(tags))
+                c->data[PROP_TAGS] = mfree(c->data[PROP_TAGS]);
+        else {
+                _cleanup_free_ char *j = strv_join(tags, ":");
+                if (!j)
+                        return log_oom();
+
+                free_and_replace(c->data[PROP_TAGS], j);
+        }
+
+        r = context_write_data_machine_info(c);
+        if (r < 0)
+                return r;
+
+        log_info("Changed tags to '%s'", strempty(c->data[PROP_TAGS]));
+
+        (void) sd_bus_emit_properties_changed(
+                        c->bus,
+                        "/org/freedesktop/hostname1",
+                        "org.freedesktop.hostname1",
+                        "Tags",
+                        NULL);
+
+        return 0;
+}
+
+static int bus_error_from_tags_write(sd_bus_error *error, int r) {
+        assert(error);
+        assert(r < 0);
+
+        log_error_errno(r, "Failed to write machine info: %m");
+        if (ERRNO_IS_PRIVILEGE(r))
+                return sd_bus_error_set(error, BUS_ERROR_FILE_IS_PROTECTED, "Not allowed to update /etc/machine-info.");
+        if (r == -EROFS)
+                return sd_bus_error_set(error, BUS_ERROR_READ_ONLY_FILESYSTEM, "/etc/machine-info is in a read-only filesystem.");
+        return sd_bus_error_set_errnof(error, r, "Failed to write machine info: %m");
+}
+
 static int method_set_tags(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         Context *c = ASSERT_PTR(userdata);
         int r;
@@ -1610,7 +1656,12 @@ static int method_set_tags(sd_bus_message *m, void *userdata, sd_bus_error *erro
 
         context_read_machine_info(c);
 
-        if (streq_ptr(empty_to_null(j), empty_to_null(c->data[PROP_TAGS])))
+        _cleanup_strv_free_ char **current = NULL;
+        r = machine_tags_from_string(c->data[PROP_TAGS], /* graceful= */ true, &current);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse current machine tags: %m");
+
+        if (strv_equal(current, tags))
                 return sd_bus_reply_method_return(m, NULL);
 
         r = bus_verify_polkit_async_full(
@@ -1626,29 +1677,98 @@ static int method_set_tags(sd_bus_message *m, void *userdata, sd_bus_error *erro
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        if (strv_isempty(tags))
-                c->data[PROP_TAGS] = mfree(c->data[PROP_TAGS]);
-        else
-                free_and_replace(c->data[PROP_TAGS], j);
+        r = context_store_tags(c, tags);
+        if (r < 0)
+                return bus_error_from_tags_write(error, r);
 
-        r = context_write_data_machine_info(c);
-        if (r < 0) {
-                log_error_errno(r, "Failed to write machine info: %m");
-                if (ERRNO_IS_PRIVILEGE(r))
-                        return sd_bus_error_set(error, BUS_ERROR_FILE_IS_PROTECTED, "Not allowed to update /etc/machine-info.");
-                if (r == -EROFS)
-                        return sd_bus_error_set(error, BUS_ERROR_READ_ONLY_FILESYSTEM, "/etc/machine-info is in a read-only filesystem.");
-                return sd_bus_error_set_errnof(error, r, "Failed to write machine info: %m");
+        return sd_bus_reply_method_return(m, NULL);
+}
+
+static int machine_tags_add_remove(char * const *base, char * const *add, char * const *remove, char ***ret) {
+        int r;
+
+        assert(ret);
+
+        /* Computes the resulting machine tag list when adding 'add' to and removing 'remove' from the 'base'
+         * list, i.e. (base ∪ add) \ remove, sorted and deduplicated. Shared by the D-Bus AddAndRemoveTags()
+         * and Varlink SetTags() implementations. */
+
+        _cleanup_strv_free_ char **tags = strv_copy(base);
+        if (!tags)
+                return -ENOMEM;
+
+        r = strv_extend_strv(&tags, add, /* filter_duplicates= */ true);
+        if (r < 0)
+                return r;
+
+        strv_remove_strv(tags, remove);
+
+        strv_sort_uniq(tags);
+
+        if (strv_length(tags) > MACHINE_TAGS_MAX)
+                return -E2BIG;
+
+        *ret = TAKE_PTR(tags);
+        return 0;
+}
+
+static int method_add_and_remove_tags(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        Context *c = ASSERT_PTR(userdata);
+        int r;
+
+        assert(m);
+
+        _cleanup_strv_free_ char **add = NULL, **remove = NULL;
+        r = sd_bus_message_read_strv(m, &add);
+        if (r < 0)
+                return r;
+        r = sd_bus_message_read_strv(m, &remove);
+        if (r < 0)
+                return r;
+
+        if (!machine_tag_list_is_valid(add)) {
+                _cleanup_free_ char *j = strv_join(add, ":");
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid tags to add '%s'", strna(j));
+        }
+        if (!machine_tag_list_is_valid(remove)) {
+                _cleanup_free_ char *j = strv_join(remove, ":");
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid tags to remove '%s'", strna(j));
         }
 
-        log_info("Changed tags to '%s'", strempty(c->data[PROP_TAGS]));
+        context_read_machine_info(c);
 
-        (void) sd_bus_emit_properties_changed(
-                        sd_bus_message_get_bus(m),
-                        "/org/freedesktop/hostname1",
-                        "org.freedesktop.hostname1",
-                        "Tags",
-                        NULL);
+        /* Start from the current tags, add the requested ones, then drop the ones to be removed. */
+        _cleanup_strv_free_ char **current = NULL;
+        r = machine_tags_from_string(c->data[PROP_TAGS], /* graceful= */ true, &current);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse current machine tags: %m");
+
+        _cleanup_strv_free_ char **tags = NULL;
+        r = machine_tags_add_remove(current, add, remove, &tags);
+        if (r == -E2BIG)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Too many machine tags specified.");
+        if (r < 0)
+                return log_oom();
+
+        if (strv_equal(current, tags))
+                return sd_bus_reply_method_return(m, NULL);
+
+        r = bus_verify_polkit_async_full(
+                        m,
+                        "org.freedesktop.hostname1.set-machine-info",
+                        /* details= */ NULL,
+                        /* good_user= */ UID_INVALID,
+                        /* flags= */ 0,
+                        &c->polkit_registry,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
+
+        r = context_store_tags(c, tags);
+        if (r < 0)
+                return bus_error_from_tags_write(error, r);
 
         return sd_bus_reply_method_return(m, NULL);
 }
@@ -2008,6 +2128,11 @@ static const sd_bus_vtable hostname_vtable[] = {
                                 SD_BUS_ARGS("as", tags),
                                 SD_BUS_NO_RESULT,
                                 method_set_tags,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("AddAndRemoveTags",
+                                SD_BUS_ARGS("as", add, "as", remove),
+                                SD_BUS_NO_RESULT,
+                                method_add_and_remove_tags,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("GetProductUUID",
                                 SD_BUS_ARGS("b", interactive),
