@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-21 12:51+0200\n"
+"POT-Creation-Date: 2026-05-30 00:14+0200\n"
 "PO-Revision-Date: 2024-06-03 00:35+0000\n"
 "Last-Translator: Scrambled 777 <weblate.scrambled777@simplelogin.com>\n"
 "Language-Team: Hindi <https://translate.fedoraproject.org/projects/systemd/"
@@ -1340,6 +1340,18 @@ msgstr "'$(unit)' से जुड़ी फाइलों और निर्�
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr "'$(unit)' यूनिट की प्रक्रियाओं को जमाने या पिघलाने के लिए प्रमाणीकरण आवश्यक है।"
+
+#: src/shared/libfido2-util.c:497 src/shared/libfido2-util.c:554
+msgid "Please confirm presence on security token to unlock."
+msgstr ""
+
+#: src/shared/libfido2-util.c:513
+msgid "Please verify user on security token to unlock."
+msgstr ""
+
+#: src/shared/libfido2-util.c:926
+msgid "Please enter security token PIN:"
+msgstr ""
 
 #, fuzzy
 #~ msgid "Authentication is required to cleanup old system updates."

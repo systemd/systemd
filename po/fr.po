@@ -11,7 +11,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-21 12:51+0200\n"
+"POT-Creation-Date: 2026-05-30 00:14+0200\n"
 "PO-Revision-Date: 2026-03-07 01:58+0000\n"
 "Last-Translator: Léane GRASSER <leane.grasser@proton.me>\n"
 "Language-Team: French <https://translate.fedoraproject.org/projects/systemd/"
@@ -1469,6 +1469,18 @@ msgid ""
 msgstr ""
 "Une authentification est requise pour geler ou dégeler les processus de "
 "l'unité '$(unit)'."
+
+#: src/shared/libfido2-util.c:497 src/shared/libfido2-util.c:554
+msgid "Please confirm presence on security token to unlock."
+msgstr ""
+
+#: src/shared/libfido2-util.c:513
+msgid "Please verify user on security token to unlock."
+msgstr ""
+
+#: src/shared/libfido2-util.c:926
+msgid "Please enter security token PIN:"
+msgstr ""
 
 #~ msgid "Cleanup old system updates"
 #~ msgstr "Nettoyer les anciennes mises à jour système"
