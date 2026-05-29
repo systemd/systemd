@@ -77,14 +77,14 @@ static int context_installdb_acquire_fd(Context *c, bool make) {
 
         c->installdb_fd = chase_and_open(
                         p,
-                        arg_root,
+                        c->root,
                         flags,
                         O_DIRECTORY|O_CLOEXEC|(make ? O_CREAT : 0),
                         /* ret_path= */ NULL);
         if (c->installdb_fd == -ENOENT && !make)
                 return 0;
         if (c->installdb_fd < 0)
-                return log_error_errno(c->installdb_fd, "Failed to open install database '%s%s': %m", empty_or_root(arg_root) ? "" : arg_root, p);
+                return log_error_errno(c->installdb_fd, "Failed to open install database '%s%s': %m", empty_or_root(c->root) ? "" : c->root, p);
 
         return 1;
 }
@@ -128,8 +128,8 @@ int context_installdb_record(
         if (strv_isempty(patterns))
                 return 0;
 
-        /* The provided path comes with arg_root prefixed. Strip it here again */
-        const char *p = arg_root ? ASSERT_PTR(path_startswith(path, arg_root)) : path;
+        /* The provided path comes with c->root prefixed. Strip it here again */
+        const char *p = c->root ? ASSERT_PTR(path_startswith(path, c->root)) : path;
 
         r = context_installdb_acquire_fd(c, /* make= */ true);
         if (r < 0)
@@ -336,7 +336,7 @@ static int context_installdb_process_entry(
 
         /* NB: We set CHASE_PROHIBIT_SYMLINKS because the path was normalized by the writer of the entry
          * already, and if it isn't anymore, then something is fishy. */
-        _cleanup_close_ int dir_fd = chase_and_open(path, arg_root, CHASE_MUST_BE_DIRECTORY|CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, O_DIRECTORY|O_CLOEXEC, /* ret_path= */ NULL);
+        _cleanup_close_ int dir_fd = chase_and_open(path, c->root, CHASE_MUST_BE_DIRECTORY|CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, O_DIRECTORY|O_CLOEXEC, /* ret_path= */ NULL);
         if (dir_fd == -ENOENT) {
                 log_debug("Install database path '%s' does not exist, expunging database entry.", path);
                 return 0;
@@ -399,14 +399,15 @@ int installdb_cleanup_component(Context *context) {
         return ret;
 }
 
-int installdb_list_components(char ***ret) {
+int installdb_list_components(Context *context, char ***ret) {
         int r;
 
+        assert(context);
         assert(ret);
 
         _cleanup_close_ int dir_fd = chase_and_open(
                         "/var/lib/systemd/sysupdate",
-                        arg_root,
+                        context->root,
                         CHASE_MUST_BE_DIRECTORY|CHASE_PREFIX_ROOT,
                         O_DIRECTORY|O_CLOEXEC,
                         /* ret_path= */ NULL);
