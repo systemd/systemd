@@ -29,6 +29,7 @@ struct sockaddr;
 struct msghdr;
 struct timespec;
 
+typedef struct sd_channel sd_channel;
 typedef struct sd_event sd_event;
 typedef struct sd_future sd_future;
 typedef struct sd_future_ops sd_future_ops;
@@ -36,6 +37,7 @@ typedef struct sd_future_slot sd_future_slot;
 typedef int (*sd_future_func_t)(sd_future *f, void *userdata);
 typedef int (*sd_fiber_func_t)(void *userdata);
 typedef _sd_destroy_t sd_fiber_destroy_t;
+typedef _sd_destroy_t sd_channel_destroy_t;
 
 struct sd_future_ops {
         size_t size;
@@ -180,6 +182,55 @@ _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_future, sd_fiber_timeout_unref);
                        *_SD_CONCATENATE(_sd_fto_b_, uniq) = (sd_future*) (uintptr_t) 1;                                                                         \
              _SD_CONCATENATE(_sd_fto_b_, uniq);                                                                                                                 \
              _SD_CONCATENATE(_sd_fto_b_, uniq) = NULL)
+
+/* A channel buffers up to `capacity` items of type void*. An item must not be NULL. A receive waits on
+ * its future while the channel is empty. The overflow policy controls the behavior of a send while the
+ * channel is full:
+ *
+ *   SD_CHANNEL_OVERFLOW_WAIT: the send waits on its future until a receive frees a slot.
+ *   SD_CHANNEL_OVERFLOW_DROP_OLDEST: the channel destroys its oldest item to make room, and the
+ *                                    send succeeds immediately.
+ *   SD_CHANNEL_OVERFLOW_DROP_LATEST: the channel destroys the item being sent, and the send
+ *                                    succeeds immediately.
+ *
+ * sd_channel_try_push() only takes ownership of the item if it succeeds. sd_channel_send() and
+ * sd_channel_push() always take ownership of the item, and the channel destroys the item if the send
+ * fails. With SD_CHANNEL_OVERFLOW_DROP_LATEST, the channel can destroy the item even though the send
+ * succeeds.
+ *
+ * The channel calls the destroy callback, if set, on every item that it owns and that nobody
+ * received: items still buffered when the last reference is dropped, items of failed sends, items
+ * that a receive future got but the caller never took with sd_channel_recv_get(), and items dropped by
+ * the overflow policy. */
+
+__extension__ typedef enum _SD_ENUM_TYPE_S64(sd_channel_overflow_t) {
+        SD_CHANNEL_OVERFLOW_WAIT        = 0,
+        SD_CHANNEL_OVERFLOW_DROP_OLDEST = 1,
+        SD_CHANNEL_OVERFLOW_DROP_LATEST = 2,
+        _SD_ENUM_FORCE_S64(SD_CHANNEL_OVERFLOW)
+} sd_channel_overflow_t;
+
+int sd_channel_new(sd_event *e, size_t capacity, sd_channel_overflow_t overflow, sd_channel_destroy_t destroy, sd_channel **ret);
+
+/* sd_channel_new_conflated() creates a channel with capacity 1 and SD_CHANNEL_OVERFLOW_DROP_OLDEST.
+ * A send never waits. The channel holds only the most recent item and destroys each item that a newer
+ * one replaces. */
+int sd_channel_new_conflated(sd_event *e, sd_channel_destroy_t destroy, sd_channel **ret);
+int sd_channel_send(sd_channel *c, void *item, sd_future **ret);
+int sd_channel_recv(sd_channel *c, sd_future **ret);
+/* sd_channel_recv_get() returns the future's result if that is negative, and 1 with the received item
+ * otherwise. As with sd_future_result(), the future has to be resolved. */
+int sd_channel_recv_get(sd_future *f, void **ret);
+int sd_channel_try_push(sd_channel *c, void *item);
+int sd_channel_try_pop(sd_channel *c, void **ret);
+int sd_channel_push(sd_channel *c, void *item);
+int sd_channel_pop(sd_channel *c, void **ret);
+
+int sd_channel_close(sd_channel *c);
+int sd_channel_set_slot(sd_channel *c, void *slot, sd_channel_destroy_t destroy);
+
+_SD_DECLARE_TRIVIAL_REF_UNREF_FUNC(sd_channel);
+_SD_DEFINE_POINTER_CLEANUP_FUNC(sd_channel, sd_channel_unref);
 
 /* Fiber I/O operations - use sd-event for non-blocking I/O when in fiber context */
 ssize_t sd_fiber_read(int fd, void *buf, size_t count);
