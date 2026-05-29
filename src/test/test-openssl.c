@@ -133,7 +133,7 @@ static const struct {
 };
 
 TEST(digest_size) {
-        size_t size;
+        size_t size = 0;  /* avoid false maybe-uninitialized warning */
 
         FOREACH_ELEMENT(t, digest_size_table) {
                 assert(openssl_digest_size(t->alg, &size) >= 0);
