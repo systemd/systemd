@@ -563,6 +563,7 @@ executables += [
         core_test_template + {
                 'sources' : files('test-execute.c'),
                 'dependencies' : common_test_dependencies,
+                'type' : meson.is_cross_build() ? 'manual' : '',
                 'timeout' : 360,
         },
         core_test_template + {
