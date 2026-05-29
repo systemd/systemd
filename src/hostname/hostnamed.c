@@ -37,7 +37,6 @@
 #include "nulstr-util.h"
 #include "os-util.h"
 #include "parse-util.h"
-#include "path-util.h"
 #include "service-util.h"
 #include "socket-util.h"
 #include "stat-util.h"
@@ -542,7 +541,7 @@ static int get_firmware_date(Context *c, usec_t *ret) {
         return 0;
 }
 
-static const char* valid_chassis(const char *chassis) {
+static const char* chassis_is_valid(const char *chassis) {
         assert(chassis);
 
         return nulstr_get(
@@ -559,10 +558,29 @@ static const char* valid_chassis(const char *chassis) {
                         chassis);
 }
 
-static bool valid_deployment(const char *deployment) {
+static bool deployment_is_valid(const char *deployment) {
         assert(deployment);
 
-        return in_charset(deployment, VALID_DEPLOYMENT_CHARS);
+        return !isempty(deployment) &&
+                in_charset(deployment, VALID_DEPLOYMENT_CHARS);
+}
+
+static bool pretty_hostname_is_valid(const char *pretty_hostname) {
+        assert(pretty_hostname);
+
+        return string_is_safe(pretty_hostname, STRING_ALLOW_BACKSLASHES|STRING_ALLOW_QUOTES|STRING_ALLOW_GLOBS);
+}
+
+static bool icon_name_is_valid(const char *icon_name) {
+        assert(icon_name);
+
+        return string_is_safe(icon_name, STRING_FILENAME);
+}
+
+static bool location_is_valid(const char *location) {
+        assert(location);
+
+        return string_is_safe(location, STRING_ALLOW_BACKSLASHES|STRING_ALLOW_QUOTES|STRING_ALLOW_GLOBS);
 }
 
 static const char* fallback_chassis_by_virtualization(void) {
@@ -711,7 +729,7 @@ static const char* fallback_chassis_by_device_tree(Context *c) {
          *
          * https://github.com/devicetree-org/devicetree-specification/blob/master/source/chapter3-devicenodes.rst */
 
-        chassis = valid_chassis(type);
+        chassis = chassis_is_valid(type);
         if (!chassis)
                 log_debug("Invalid device-tree chassis type \"%s\", ignoring.", type);
         return chassis;
@@ -1519,15 +1537,15 @@ static int set_machine_info(Context *c, sd_bus_message *m, int prop, sd_bus_mess
                 /* The icon name might ultimately be used as file
                  * name, so better be safe than sorry */
 
-                if (prop == PROP_ICON_NAME && !filename_is_valid(name))
+                if (prop == PROP_ICON_NAME && !icon_name_is_valid(name))
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid icon name '%s'", name);
-                if (prop == PROP_PRETTY_HOSTNAME && string_has_cc(name, NULL))
+                if (prop == PROP_PRETTY_HOSTNAME && !pretty_hostname_is_valid(name))
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid pretty hostname '%s'", name);
-                if (prop == PROP_CHASSIS && !valid_chassis(name))
+                if (prop == PROP_CHASSIS && !chassis_is_valid(name))
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid chassis '%s'", name);
-                if (prop == PROP_DEPLOYMENT && !valid_deployment(name))
+                if (prop == PROP_DEPLOYMENT && !deployment_is_valid(name))
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid deployment '%s'", name);
-                if (prop == PROP_LOCATION && string_has_cc(name, NULL))
+                if (prop == PROP_LOCATION && !location_is_valid(name))
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid location '%s'", name);
         }
 
@@ -2392,7 +2410,7 @@ static int vl_set_machine_info(sd_varlink *link, sd_json_variant *parameters, vo
         switch (prop) {
 
         case PROP_PRETTY_HOSTNAME:
-                if (name && string_has_cc(name, NULL))
+                if (name && !pretty_hostname_is_valid(name))
                         return sd_varlink_error_invalid_parameter_name(link, "newValue");
                 bus_property = "PrettyHostname";
                 human_name = "pretty hostname";
@@ -2403,28 +2421,28 @@ static int vl_set_machine_info(sd_varlink *link, sd_json_variant *parameters, vo
 
         case PROP_ICON_NAME:
                 /* The icon name might ultimately be used as file name, so better be safe than sorry. */
-                if (name && !filename_is_valid(name))
+                if (name && !icon_name_is_valid(name))
                         return sd_varlink_error_invalid_parameter_name(link, "newValue");
                 bus_property = "IconName";
                 human_name = "icon name";
                 break;
 
         case PROP_CHASSIS:
-                if (name && !valid_chassis(name))
+                if (name && !chassis_is_valid(name))
                         return sd_varlink_error_invalid_parameter_name(link, "newValue");
                 bus_property = "Chassis";
                 human_name = "chassis";
                 break;
 
         case PROP_DEPLOYMENT:
-                if (name && !valid_deployment(name))
+                if (name && !deployment_is_valid(name))
                         return sd_varlink_error_invalid_parameter_name(link, "newValue");
                 bus_property = "Deployment";
                 human_name = "deployment";
                 break;
 
         case PROP_LOCATION:
-                if (name && string_has_cc(name, NULL))
+                if (name && !location_is_valid(name))
                         return sd_varlink_error_invalid_parameter_name(link, "newValue");
                 bus_property = "Location";
                 human_name = "location";
