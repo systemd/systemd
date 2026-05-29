@@ -5027,6 +5027,41 @@ static int unit_kill_context_one(
         return !is_alien;
 }
 
+typedef struct PidsMaxRestore {
+        const char *cgroup_path;
+        uint64_t max;
+        Unit *unit;
+} PidsMaxRestore;
+
+static void pids_max_restore(PidsMaxRestore *p) {
+        int r;
+
+        assert(p);
+        assert(p->unit);
+
+        if (!p->cgroup_path)
+                return;
+
+        char buf[DECIMAL_STR_MAX(uint64_t) + 1];
+        const char *value;
+        if (p->max == CGROUP_LIMIT_MAX)
+                value = "max";
+        else {
+                xsprintf(buf, "%" PRIu64, p->max);
+                value = buf;
+        }
+
+        r = cg_set_attribute(p->cgroup_path, "pids.max", value);
+        if (r < 0)
+                log_unit_full_errno(p->unit,
+                                    IN_SET(r, -EAGAIN, -ESRCH, -ENODATA) ? LOG_DEBUG : LOG_WARNING,
+                                    r,
+                                    "Failed to restore pids.max to %s for control group %s, ignoring: %m",
+                                    value, empty_to_root(p->cgroup_path));
+
+        p->cgroup_path = NULL;
+}
+
 int unit_kill_context(Unit *u, KillOperation k) {
         bool wait_for_exit = false, send_sighup;
         cg_kill_log_func_t log_func = NULL;
@@ -5063,7 +5098,33 @@ int unit_kill_context(Unit *u, KillOperation k) {
         CGroupRuntime *crt = unit_get_cgroup_runtime(u);
         if (crt && crt->cgroup_path &&
             (c->kill_mode == KILL_CONTROL_GROUP || (c->kill_mode == KILL_MIXED && k == KILL_KILL))) {
+                _cleanup_(pids_max_restore) PidsMaxRestore state = {
+                        .unit = u,
+                };
                 _cleanup_set_free_ Set *pid_set = NULL;
+
+                /* Stop more processes from being spawned when zapping the cgroup. Restore previous state
+                 * before returning. */
+                if (sig == SIGKILL) {
+                        r = cg_get_attribute_as_uint64(crt->cgroup_path, "pids.max", &state.max);
+                        if (r < 0)
+                                log_unit_full_errno(u,
+                                                    IN_SET(r, -EAGAIN, -ESRCH, -ENODATA) ? LOG_DEBUG : LOG_WARNING,
+                                                    r,
+                                                    "Failed to read pids.max for control group %s, ignoring: %m",
+                                                    empty_to_root(crt->cgroup_path));
+                        else {
+                                r = cg_set_attribute(crt->cgroup_path, "pids.max", "0");
+                                if (r < 0)
+                                        log_unit_full_errno(u,
+                                                            IN_SET(r, -EAGAIN, -ESRCH, -ENOENT) ? LOG_DEBUG : LOG_WARNING,
+                                                            r,
+                                                            "Failed to set pids.max to 0 for control group %s, ignoring: %m",
+                                                            empty_to_root(crt->cgroup_path));
+                                else
+                                        state.cgroup_path = crt->cgroup_path;
+                        }
+                }
 
                 /* Exclude the main/control pids from being killed via the cgroup */
                 r = unit_pid_set(u, &pid_set);
