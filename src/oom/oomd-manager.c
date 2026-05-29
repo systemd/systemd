@@ -88,6 +88,11 @@ static int process_managed_oom_message(Manager *m, uid_t uid, sd_json_variant *p
                 if (r < 0)
                         continue;
 
+                if (!STR_IN_SET(message.property, "ManagedOOMSwap", "ManagedOOMMemoryPressure")) {
+                        log_debug("Ignoring ManagedOOM cgroup message with invalid property: %s", message.property);
+                        continue;
+                }
+
                 if (uid != 0) {
                         uid_t cg_uid;
 
