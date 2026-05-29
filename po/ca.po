@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-21 12:51+0200\n"
+"POT-Creation-Date: 2026-05-29 23:54+0200\n"
 "PO-Revision-Date: 2026-05-25 20:01+0000\n"
 "Last-Translator: naly zzwd <xeanhort007@gmail.com>\n"
 "Language-Team: Catalan <https://translate.fedoraproject.org/projects/systemd/"
@@ -1430,6 +1430,14 @@ msgid ""
 msgstr ""
 "Es requereix autenticació per congelar o descongelar els processos de la "
 "unitat '$(unit)'."
+
+#: src/shared/libfido2-util.c:497 src/shared/libfido2-util.c:554
+msgid "Please confirm presence on security token to unlock."
+msgstr ""
+
+#: src/shared/libfido2-util.c:513
+msgid "Please verify user on security token to unlock."
+msgstr ""
 
 #~ msgid "Cleanup old system updates"
 #~ msgstr "Neteja les actualitzacions antigues del sistema"

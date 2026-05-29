@@ -8,7 +8,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-21 12:51+0200\n"
+"POT-Creation-Date: 2026-05-29 23:54+0200\n"
 "PO-Revision-Date: 2026-05-19 16:01+0000\n"
 "Last-Translator: Yuri Chornoivan <yurchor@ukr.net>\n"
 "Language-Team: Ukrainian <https://translate.fedoraproject.org/projects/"
@@ -1424,6 +1424,14 @@ msgid ""
 msgstr ""
 "Для замороження або розмороження процесів модуля «$(unit)» слід пройти "
 "розпізнавання."
+
+#: src/shared/libfido2-util.c:497 src/shared/libfido2-util.c:554
+msgid "Please confirm presence on security token to unlock."
+msgstr ""
+
+#: src/shared/libfido2-util.c:513
+msgid "Please verify user on security token to unlock."
+msgstr ""
 
 #~ msgid "Cleanup old system updates"
 #~ msgstr "Вилучення застарілих оновлень системи"

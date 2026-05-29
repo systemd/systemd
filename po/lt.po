@@ -6,7 +6,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-21 12:51+0200\n"
+"POT-Creation-Date: 2026-05-29 23:54+0200\n"
 "PO-Revision-Date: 2025-02-28 08:38+0000\n"
 "Last-Translator: Justinas Kairys <j.kairys@proton.me>\n"
 "Language-Team: Lithuanian <https://translate.fedoraproject.org/projects/"
@@ -1437,6 +1437,14 @@ msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr ""
 "Norint siųsti UNIX signalą į \"$(unit)\" procesus, reikia nustatyti tapatybę."
+
+#: src/shared/libfido2-util.c:497 src/shared/libfido2-util.c:554
+msgid "Please confirm presence on security token to unlock."
+msgstr ""
+
+#: src/shared/libfido2-util.c:513
+msgid "Please verify user on security token to unlock."
+msgstr ""
 
 #, fuzzy
 #~ msgid "Authentication is required to cleanup old system updates."
