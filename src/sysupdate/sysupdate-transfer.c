@@ -1190,7 +1190,7 @@ int transfer_acquire_instance(Transfer *t, Instance *i, TransferProgress cb, voi
                  * download. */
 
                 if (!i->metadata.sha256sum_set)
-                        return log_error_errno(r, "SHA256 checksum not known for download '%s', refusing.", i->path);
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "SHA256 checksum not known for download '%s', refusing.", i->path);
 
                 digest = hexmem(i->metadata.sha256sum, sizeof(i->metadata.sha256sum));
                 if (!digest)
