@@ -263,3 +263,7 @@ char16_t *get_extra_dir(const EFI_DEVICE_PATH *file_path);
 #endif
 
 char16_t *url_replace_last_component(const char16_t *url, const char16_t *filename);
+
+static inline bool EFI_STATUS_IS_WRITE_REFUSED(EFI_STATUS status) {
+        return IN_SET(status, EFI_WRITE_PROTECTED, EFI_DEVICE_ERROR, EFI_ACCESS_DENIED);
+}
