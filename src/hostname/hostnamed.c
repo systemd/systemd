@@ -1348,7 +1348,7 @@ static int property_get_vsock_cid(
         return sd_bus_message_append(reply, "u", (uint32_t) local_cid);
 }
 
-static int validate_and_substitute_hostname(const char *name, char **ret_substituted, sd_bus_error *error) {
+static int validate_and_substitute_hostname(const char *name, char **ret_substituted) {
         int r;
 
         assert(ret_substituted);
@@ -1367,10 +1367,22 @@ static int validate_and_substitute_hostname(const char *name, char **ret_substit
                 return log_error_errno(r, "Failed to substitute wildcards in hostname: %m");
 
         if (!hostname_is_valid(substituted, 0))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid hostname '%s'", name);
+                return -EUCLEAN;
 
         *ret_substituted = TAKE_PTR(substituted);
         return 1;
+}
+
+static int bus_validate_and_substitute_hostname(const char *name, char **ret_substituted, sd_bus_error *error) {
+        int r;
+
+        assert(ret_substituted);
+
+        r = validate_and_substitute_hostname(name, ret_substituted);
+        if (r == -EUCLEAN)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid hostname '%s'", name);
+
+        return r;
 }
 
 static int method_set_hostname(sd_bus_message *m, void *userdata, sd_bus_error *error) {
@@ -1390,7 +1402,7 @@ static int method_set_hostname(sd_bus_message *m, void *userdata, sd_bus_error *
          * we might want to adjust hostname source information even if the actual hostname is unchanged. */
 
         _cleanup_free_ char *substituted = NULL;
-        r = validate_and_substitute_hostname(name, &substituted, error);
+        r = bus_validate_and_substitute_hostname(name, &substituted, error);
         if (r < 0)
                 return r;
 
@@ -1441,7 +1453,7 @@ static int method_set_static_hostname(sd_bus_message *m, void *userdata, sd_bus_
                 return sd_bus_reply_method_return(m, NULL);
 
         _cleanup_free_ char *substituted = NULL;
-        r = validate_and_substitute_hostname(name, &substituted, error);
+        r = bus_validate_and_substitute_hostname(name, &substituted, error);
         if (r < 0)
                 return r;
 
@@ -2234,6 +2246,252 @@ static int vl_method_describe(sd_varlink *link, sd_json_variant *parameters, sd_
         return sd_varlink_reply(link, v);
 }
 
+static int vl_validate_and_substitute_hostname(sd_varlink *link, const char *name, char **ret_substituted) {
+        int r;
+
+        assert(link);
+        assert(ret_substituted);
+
+        r = validate_and_substitute_hostname(name, ret_substituted);
+        if (r == -EUCLEAN)
+                return sd_varlink_error_invalid_parameter_name(link, "newValue");
+
+        return r;
+}
+
+static int vl_method_set_hostname(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "newValue", SD_JSON_VARIANT_STRING, sd_json_dispatch_string, 0, SD_JSON_NULLABLE },
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {}
+        };
+
+        Context *c = ASSERT_PTR(userdata);
+        int r;
+
+        assert(link);
+        assert(parameters);
+
+        _cleanup_free_ char *value = NULL;
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &value);
+        if (r != 0)
+                return r;
+
+        const char *name = empty_to_null(value);
+
+        /* We always go through with the procedure below without comparing to the current hostname, because
+         * we might want to adjust hostname source information even if the actual hostname is unchanged. */
+
+        _cleanup_free_ char *substituted = NULL;
+        r = vl_validate_and_substitute_hostname(link, name, &substituted);
+        if (r < 0)
+                return r;
+
+        name = substituted;
+
+        r = varlink_verify_polkit_async(
+                        link,
+                        c->bus,
+                        "org.freedesktop.hostname1.set-hostname",
+                        /* details= */ NULL,
+                        &c->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        context_read_etc_hostname(c);
+
+        r = context_update_kernel_hostname(c, name);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                (void) sd_bus_emit_properties_changed(c->bus,
+                                                      "/org/freedesktop/hostname1", "org.freedesktop.hostname1",
+                                                      "Hostname", "HostnameSource", NULL);
+
+        return sd_varlink_reply(link, NULL);
+}
+
+static int vl_method_set_static_hostname(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "newValue", SD_JSON_VARIANT_STRING, sd_json_dispatch_string, 0, SD_JSON_NULLABLE },
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {}
+        };
+
+        Context *c = ASSERT_PTR(userdata);
+        int r;
+
+        assert(link);
+        assert(parameters);
+
+        _cleanup_free_ char *value = NULL;
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &value);
+        if (r != 0)
+                return r;
+
+        const char *name = empty_to_null(value);
+
+        context_read_etc_hostname(c);
+
+        if (streq_ptr(name, c->data[PROP_STATIC_HOSTNAME]))
+                return sd_varlink_reply(link, NULL);
+
+        _cleanup_free_ char *substituted = NULL;
+        r = vl_validate_and_substitute_hostname(link, name, &substituted);
+        if (r < 0)
+                return r;
+
+        r = varlink_verify_polkit_async(
+                        link,
+                        c->bus,
+                        "org.freedesktop.hostname1.set-static-hostname",
+                        /* details= */ NULL,
+                        &c->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        r = free_and_strdup_warn(&c->data[PROP_STATIC_HOSTNAME], name);
+        if (r < 0)
+                return r;
+
+        free_and_replace(c->data[PROP_STATIC_HOSTNAME_SUBSTITUTED_WILDCARDS], substituted);
+
+        r = context_write_data_static_hostname(c);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write static hostname: %m");
+
+        r = context_update_kernel_hostname(c, /* transient_hostname= */ NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set hostname: %m");
+
+        (void) sd_bus_emit_properties_changed(c->bus,
+                                              "/org/freedesktop/hostname1", "org.freedesktop.hostname1",
+                                              "StaticHostname", "Hostname", "HostnameSource", NULL);
+
+        return sd_varlink_reply(link, NULL);
+}
+
+static int vl_set_machine_info(sd_varlink *link, sd_json_variant *parameters, void *userdata, HostProperty prop) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "newValue", SD_JSON_VARIANT_STRING, sd_json_dispatch_string, 0, SD_JSON_NULLABLE },
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {}
+        };
+
+        Context *c = ASSERT_PTR(userdata);
+        int r;
+
+        assert(link);
+        assert(parameters);
+
+        _cleanup_free_ char *value = NULL;
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &value);
+        if (r != 0)
+                return r;
+
+        const char *name = empty_to_null(value),
+                *polkit_action = "org.freedesktop.hostname1.set-machine-info",
+                *bus_property, *human_name;
+
+        switch (prop) {
+
+        case PROP_PRETTY_HOSTNAME:
+                if (name && string_has_cc(name, NULL))
+                        return sd_varlink_error_invalid_parameter_name(link, "newValue");
+                bus_property = "PrettyHostname";
+                human_name = "pretty hostname";
+                /* Since the pretty hostname should always be changed at the same time as the static one, use
+                 * the same policy action for both... */
+                polkit_action = "org.freedesktop.hostname1.set-static-hostname";
+                break;
+
+        case PROP_ICON_NAME:
+                /* The icon name might ultimately be used as file name, so better be safe than sorry. */
+                if (name && !filename_is_valid(name))
+                        return sd_varlink_error_invalid_parameter_name(link, "newValue");
+                bus_property = "IconName";
+                human_name = "icon name";
+                break;
+
+        case PROP_CHASSIS:
+                if (name && !valid_chassis(name))
+                        return sd_varlink_error_invalid_parameter_name(link, "newValue");
+                bus_property = "Chassis";
+                human_name = "chassis";
+                break;
+
+        case PROP_DEPLOYMENT:
+                if (name && !valid_deployment(name))
+                        return sd_varlink_error_invalid_parameter_name(link, "newValue");
+                bus_property = "Deployment";
+                human_name = "deployment";
+                break;
+
+        case PROP_LOCATION:
+                if (name && string_has_cc(name, NULL))
+                        return sd_varlink_error_invalid_parameter_name(link, "newValue");
+                bus_property = "Location";
+                human_name = "location";
+                break;
+
+        default:
+                assert_not_reached();
+        }
+
+        context_read_machine_info(c);
+
+        if (streq_ptr(name, c->data[prop]))
+                return sd_varlink_reply(link, NULL);
+
+        r = varlink_verify_polkit_async(
+                        link,
+                        c->bus,
+                        polkit_action,
+                        /* details= */ NULL,
+                        &c->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        r = free_and_strdup_warn(&c->data[prop], name);
+        if (r < 0)
+                return r;
+
+        r = context_write_data_machine_info(c);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write machine info: %m");
+
+        log_info("Changed %s to '%s'", human_name, strna(c->data[prop]));
+
+        (void) sd_bus_emit_properties_changed(
+                        c->bus,
+                        "/org/freedesktop/hostname1",
+                        "org.freedesktop.hostname1",
+                        bus_property,
+                        NULL);
+
+        return sd_varlink_reply(link, NULL);
+}
+
+static int vl_method_set_pretty_hostname(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        return vl_set_machine_info(link, parameters, userdata, PROP_PRETTY_HOSTNAME);
+}
+
+static int vl_method_set_icon_name(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        return vl_set_machine_info(link, parameters, userdata, PROP_ICON_NAME);
+}
+
+static int vl_method_set_chassis(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        return vl_set_machine_info(link, parameters, userdata, PROP_CHASSIS);
+}
+
+static int vl_method_set_deployment(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        return vl_set_machine_info(link, parameters, userdata, PROP_DEPLOYMENT);
+}
+
+static int vl_method_set_location(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        return vl_set_machine_info(link, parameters, userdata, PROP_LOCATION);
+}
+
 typedef struct SetTagsParameters {
         char **set;
         char **add;
@@ -2338,11 +2596,18 @@ static int connect_varlink(Context *c) {
 
         r = sd_varlink_server_bind_method_many(
                         c->varlink_server,
-                        "io.systemd.Hostname.Describe",      vl_method_describe,
-                        "io.systemd.Hostname.SetTags",       vl_method_set_tags,
-                        "io.systemd.service.Ping",           varlink_method_ping,
-                        "io.systemd.service.SetLogLevel",    varlink_method_set_log_level,
-                        "io.systemd.service.GetEnvironment", varlink_method_get_environment);
+                        "io.systemd.Hostname.Describe",          vl_method_describe,
+                        "io.systemd.Hostname.SetHostname",       vl_method_set_hostname,
+                        "io.systemd.Hostname.SetStaticHostname", vl_method_set_static_hostname,
+                        "io.systemd.Hostname.SetPrettyHostname", vl_method_set_pretty_hostname,
+                        "io.systemd.Hostname.SetIconName",       vl_method_set_icon_name,
+                        "io.systemd.Hostname.SetChassis",        vl_method_set_chassis,
+                        "io.systemd.Hostname.SetDeployment",     vl_method_set_deployment,
+                        "io.systemd.Hostname.SetLocation",       vl_method_set_location,
+                        "io.systemd.Hostname.SetTags",           vl_method_set_tags,
+                        "io.systemd.service.Ping",               varlink_method_ping,
+                        "io.systemd.service.SetLogLevel",        varlink_method_set_log_level,
+                        "io.systemd.service.GetEnvironment",     varlink_method_get_environment);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind Varlink method calls: %m");
 
