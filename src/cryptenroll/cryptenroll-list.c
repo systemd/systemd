@@ -11,21 +11,17 @@
 #include "log.h"
 #include "parse-util.h"
 
-struct keyslot_metadata {
-        int slot;
-        const char *type;
-};
-
-int list_enrolled(struct crypt_device *cd) {
-        _cleanup_free_ struct keyslot_metadata *keyslot_metadata = NULL;
-        _cleanup_(table_unrefp) Table *t = NULL;
-        size_t n_keyslot_metadata = 0;
+int collect_enrolled_slots(struct crypt_device *cd, EnrolledSlot **ret, size_t *ret_n) {
+        _cleanup_free_ EnrolledSlot *slots = NULL;
+        size_t n_slots = 0;
         int slot_max, r;
-        TableCell *cell;
 
         assert(cd);
+        assert(ret);
+        assert(ret_n);
 
-        /* First step, find out all currently used slots */
+        /* First step, find out all currently used slots. A slot without an associated token is a bare
+         * passphrase slot, hence default to ENROLL_PASSWORD. */
         assert_se((slot_max = sym_crypt_keyslot_max(CRYPT_LUKS2)) > 0);
         for (int slot = 0; slot < slot_max; slot++) {
                 crypt_keyslot_info status;
@@ -34,11 +30,12 @@ int list_enrolled(struct crypt_device *cd) {
                 if (!IN_SET(status, CRYPT_SLOT_ACTIVE, CRYPT_SLOT_ACTIVE_LAST))
                         continue;
 
-                if (!GREEDY_REALLOC(keyslot_metadata, n_keyslot_metadata+1))
+                if (!GREEDY_REALLOC(slots, n_slots + 1))
                         return log_oom();
 
-                keyslot_metadata[n_keyslot_metadata++] = (struct keyslot_metadata) {
+                slots[n_slots++] = (EnrolledSlot) {
                         .slot = slot,
+                        .type = ENROLL_PASSWORD,
                 };
         }
 
@@ -46,7 +43,6 @@ int list_enrolled(struct crypt_device *cd) {
          * token they are assigned to */
         for (int token = 0; token < sym_crypt_token_max(CRYPT_LUKS2); token++) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-                const char *type;
                 sd_json_variant *w, *z;
                 EnrollType et;
 
@@ -64,11 +60,7 @@ int list_enrolled(struct crypt_device *cd) {
                         continue;
                 }
 
-                et = luks2_token_type_from_string(sd_json_variant_string(w));
-                if (et < 0)
-                        type = "other";
-                else
-                        type = enroll_type_to_string(et);
+                et = luks2_token_type_from_string(sd_json_variant_string(w)); /* _ENROLL_TYPE_INVALID for unrecognized type */
 
                 w = sd_json_variant_by_key(v, "keyslots");
                 if (!w || !sd_json_variant_is_array(w)) {
@@ -90,19 +82,40 @@ int list_enrolled(struct crypt_device *cd) {
                                 continue;
                         }
 
-                        for (size_t i = 0; i < n_keyslot_metadata; i++) {
-                                if ((unsigned) keyslot_metadata[i].slot != u)
+                        FOREACH_ARRAY(s, slots, n_slots) {
+                                if ((unsigned) s->slot != u)
                                         continue;
 
-                                if (keyslot_metadata[i].type) /* Slot claimed multiple times? */
-                                        keyslot_metadata[i].type = POINTER_MAX;
+                                if (s->conflict) /* Already marked as claimed multiple times. */
+                                        break;
+
+                                if (s->type != ENROLL_PASSWORD) /* Slot already claimed by another token? */
+                                        s->conflict = true;
                                 else
-                                        keyslot_metadata[i].type = type;
+                                        s->type = et;
                         }
                 }
         }
 
-        /* Finally, create a table out of it all */
+        *ret = TAKE_PTR(slots);
+        *ret_n = n_slots;
+        return 0;
+}
+
+int list_enrolled(struct crypt_device *cd) {
+        _cleanup_free_ EnrolledSlot *slots = NULL;
+        _cleanup_(table_unrefp) Table *t = NULL;
+        size_t n_slots;
+        int r;
+        TableCell *cell;
+
+        assert(cd);
+
+        r = collect_enrolled_slots(cd, &slots, &n_slots);
+        if (r < 0)
+                return r;
+
+        /* Create a table out of it all */
         t = table_new("slot", "type");
         if (!t)
                 return log_oom();
@@ -110,12 +123,20 @@ int list_enrolled(struct crypt_device *cd) {
         assert_se(cell = table_get_cell(t, 0, 0));
         (void) table_set_align_percent(t, cell, 100);
 
-        for (size_t i = 0; i < n_keyslot_metadata; i++) {
+        FOREACH_ARRAY(s, slots, n_slots) {
+                const char *type;
+
+                if (s->conflict)
+                        type = "conflict";
+                else if (s->type < 0)
+                        type = "other"; /* token of unrecognized type */
+                else
+                        type = enroll_type_to_string(s->type);
+
                 r = table_add_many(
                                 t,
-                                TABLE_INT, keyslot_metadata[i].slot,
-                                TABLE_STRING, keyslot_metadata[i].type == POINTER_MAX ? "conflict" :
-                                              keyslot_metadata[i].type ?: "password");
+                                TABLE_INT, s->slot,
+                                TABLE_STRING, type);
                 if (r < 0)
                         return table_log_add_error(r);
         }

@@ -36,7 +36,7 @@ static int uri_set_private_class(const char *uri, char **ret_uri) {
 }
 #endif
 
-int enroll_pkcs11(struct crypt_device *cd, const struct iovec *volume_key,const char *uri) {
+int enroll_pkcs11(const EnrollContext *c, struct crypt_device *cd, const struct iovec *volume_key) {
 #if HAVE_P11KIT && HAVE_OPENSSL
         _cleanup_(erase_and_freep) void *decrypted_key = NULL;
         _cleanup_(erase_and_freep) char *base64_encoded = NULL;
@@ -50,18 +50,19 @@ int enroll_pkcs11(struct crypt_device *cd, const struct iovec *volume_key,const 
         const char *node;
         int r;
 
+        assert_se(c);
         assert_se(cd);
         assert_se(iovec_is_set(volume_key));
-        assert_se(uri);
+        assert_se(c->pkcs11_token_uri);
 
         assert_se(node = sym_crypt_get_device_name(cd));
 
         r = pkcs11_acquire_public_key(
-                        uri,
+                        c->pkcs11_token_uri,
                         "volume enrollment operation",
                         "drive-harddisk",
                         "cryptenroll.pkcs11-pin",
-                        /* askpw_flags= */ 0,
+                        c->interactive ? 0 : ASK_PASSWORD_HEADLESS,
                         &pkey,
                         &rsa_padding,
                         /* ret_pin_used= */ NULL);
@@ -100,14 +101,14 @@ int enroll_pkcs11(struct crypt_device *cd, const struct iovec *volume_key,const 
         /* Change 'type=cert' or 'type=public' in the provided URI to 'type=private' before storing in
            a LUKS2 header. This allows users to use output of some PKCS#11 tools directly without
            modifications. */
-        r = uri_set_private_class(uri, &private_uri);
+        r = uri_set_private_class(c->pkcs11_token_uri, &private_uri);
         if (r < 0)
                 return r;
 
         r = sd_json_buildo(&v,
                            SD_JSON_BUILD_PAIR("type", JSON_BUILD_CONST_STRING("systemd-pkcs11")),
                            SD_JSON_BUILD_PAIR("keyslots", SD_JSON_BUILD_ARRAY(SD_JSON_BUILD_STRING(keyslot_as_string))),
-                           SD_JSON_BUILD_PAIR_STRING("pkcs11-uri", private_uri ?: uri),
+                           SD_JSON_BUILD_PAIR_STRING("pkcs11-uri", private_uri ?: c->pkcs11_token_uri),
                            SD_JSON_BUILD_PAIR_BASE64("pkcs11-key", saved_key, saved_key_size),
                            SD_JSON_BUILD_PAIR_CONDITION(rsa_padding > PKCS11_RSA_PADDING_PKCS1V15,
                                                         "pkcs11-padding", SD_JSON_BUILD_STRING(pkcs11_rsa_padding_to_string(rsa_padding))));
