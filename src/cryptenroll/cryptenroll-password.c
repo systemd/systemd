@@ -14,6 +14,30 @@
 #include "string-util.h"
 #include "strv.h"
 
+int load_volume_key_empty(
+                const EnrollContext *c,
+                struct crypt_device *cd,
+                struct iovec *ret_vk) {
+
+        int r;
+
+        assert_se(c);
+        assert_se(cd);
+        assert_se(ret_vk);
+
+        r = sym_crypt_volume_key_get(
+                        cd,
+                        CRYPT_ANY_SLOT,
+                        ret_vk->iov_base,
+                        &ret_vk->iov_len,
+                        "",
+                        0);
+        if (r < 0)
+                return log_error_errno(r, "Provided empty password did not work: %m");
+
+        return r;
+}
+
 int load_volume_key_keyfile(
                 const EnrollContext *c,
                 struct crypt_device *cd,

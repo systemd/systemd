@@ -334,6 +334,14 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_GROUP("Unlocking"): {}
 
+                OPTION_LONG("unlock-empty", NULL, "Use an empty password to unlock the volume"):
+                        if (arg_unlock_type != UNLOCK_PASSWORD)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Multiple unlock methods specified at once, refusing.");
+
+                        arg_unlock_type = UNLOCK_EMPTY;
+                        break;
+
                 OPTION_LONG("unlock-key-file", "PATH",
                             "Use a file to unlock the volume"):
                         if (arg_unlock_type != UNLOCK_PASSWORD)
@@ -729,6 +737,10 @@ int prepare_luks(
         vk.iov_len = (size_t) r;
 
         switch (c->unlock_type) {
+
+        case UNLOCK_EMPTY:
+                r = load_volume_key_empty(c, cd, &vk);
+                break;
 
         case UNLOCK_PASSWORD:
                 r = load_volume_key_password(c, cd, &vk);

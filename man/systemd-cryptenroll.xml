@@ -271,6 +271,16 @@
 
     <variablelist>
       <varlistentry>
+        <term><option>--unlock-empty</option></term>
+
+        <listitem><para>Use an empty password/passphrase to unlock the volume, instead of reading one from
+        stdin. This is useful to unlock volumes that are currently protected by an empty password, in order to
+        enroll a different, stronger unlock mechanism.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--unlock-key-file=<replaceable>PATH</replaceable></option></term>
 
         <listitem><para>Use a file instead of a password/passphrase read from stdin to unlock the volume.
