@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "sd-dlopen.h"
+
 #include "errno-util.h"
 #include "shared-forward.h"
 
@@ -155,6 +157,17 @@ int parse_syscall_and_errno(const char *in, char **name, int *error);
 
 int seccomp_suppress_sync(void);
 
+#define LIBSECCOMP_NOTE(priority)                                       \
+        SD_ELF_NOTE_DLOPEN("seccomp",                                   \
+                           "Support for Seccomp Sandboxes",             \
+                           priority,                                    \
+                           "libseccomp.so.2")
+
+#define DLOPEN_LIBSECCOMP(log_level, priority)                          \
+        ({                                                              \
+                LIBSECCOMP_NOTE(priority);                              \
+                dlopen_libseccomp(log_level);                           \
+        })
 #else
 
 static inline bool is_seccomp_available(void) {
@@ -162,6 +175,7 @@ static inline bool is_seccomp_available(void) {
 }
 
 
+#define DLOPEN_LIBSECCOMP(log_level, priority) dlopen_libseccomp(log_level)
 #endif
 
 int dlopen_libseccomp(int log_level);

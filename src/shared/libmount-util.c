@@ -120,11 +120,7 @@ int dlopen_libmount(int log_level) {
 #if HAVE_LIBMOUNT
         static void *libmount_dl = NULL;
 
-        SD_ELF_NOTE_DLOPEN(
-                        "mount",
-                        "Support for mount enumeration",
-                        SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED,
-                        "libmount.so.1");
+        LIBMOUNT_NOTE(SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
 
         return dlopen_many_sym_or_warn(
                         &libmount_dl,
