@@ -107,7 +107,7 @@ static int do_attach(void) {
         struct stat st;
         int r;
 
-        r = dlopen_bpf(LOG_ERR);
+        r = DLOPEN_BPF(LOG_ERR, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
         if (r < 0)
                 return log_error_errno(r, "Failed to dlopen libbpf: %m");
 

@@ -466,7 +466,7 @@ static int setup_microhttpd_server(RemoteServer *s,
 #if HAVE_MICROHTTPD
         int r;
 
-        r = dlopen_microhttpd(LOG_ERR);
+        r = DLOPEN_MICROHTTPD(LOG_ERR, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED);
         if (r < 0)
                 return r;
 
