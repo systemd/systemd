@@ -69,6 +69,17 @@
       fields are imported into the local credential store, where they are used to configure and parameterize
       the system. For details see below.</para></listitem>
     </itemizedlist>
+
+    <para>In addition, when invoked as a Varlink service (i.e. via socket activation through
+    <filename>systemd-imds-metrics.socket</filename>), <command>systemd-imds</command> acts as an
+    <constant>io.systemd.Metrics</constant> provider for
+    <citerefentry><refentrytitle>systemd-report</refentrytitle><manvolnum>1</manvolnum></citerefentry>. It
+    exposes the detected cloud vendor and the well-known <literal>hostname</literal>,
+    <literal>region</literal>, <literal>zone</literal>, <literal>ipv4-public</literal> and
+    <literal>ipv6-public</literal> fields as metrics in the <literal>io.systemd.InstanceMetadata.</literal>
+    namespace. The data is acquired on demand from
+    <citerefentry><refentrytitle>systemd-imdsd@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+    benefiting from its local cache.</para>
   </refsect1>
 
   <refsect1>
@@ -167,6 +178,7 @@
       <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd-imdsd@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd-imds-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-report</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd.system-credentials</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
     </simplelist></para>
   </refsect1>
