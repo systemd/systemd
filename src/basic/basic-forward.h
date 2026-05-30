@@ -70,6 +70,7 @@ struct fdisk_context;
 struct fdisk_table;
 struct crypt_device;
 
+typedef struct bignum_st BIGNUM;
 typedef struct buf_mem_st BUF_MEM;
 typedef struct evp_pkey_st EVP_PKEY;
 typedef struct evp_md_st EVP_MD;
