@@ -18,6 +18,8 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "hexdecoct.h"
+#include "imds-tool.h"
+#include "imds-tool-metrics.h"
 #include "imds-util.h"
 #include "in-addr-util.h"
 #include "io-util.h"
@@ -232,7 +234,7 @@ static int acquire_imds_key(
         return 1;
 }
 
-static int acquire_imds_key_as_string(
+int acquire_imds_key_as_string(
                 sd_varlink *link,
                 ImdsWellKnown wk,
                 const char *key,
@@ -292,14 +294,11 @@ static int acquire_imds_key_as_ip_address(
         return 1;
 }
 
-static int action_summary(sd_varlink *link) {
+int acquire_imds_vendor(sd_varlink *link, char **ret) {
         int r;
 
         assert(link);
-
-        _cleanup_(table_unrefp) Table *table = table_new_vertical();
-        if (!table)
-                return log_oom();
+        assert(ret);
 
         const char *error_id = NULL;
         sd_json_variant *reply = NULL;
@@ -311,17 +310,48 @@ static int action_summary(sd_varlink *link) {
                         &error_id);
         if (r < 0)
                 return log_error_errno(r, "Failed to issue io.systemd.InstanceMetadata.GetVendorInfo(): %m");
-        if (error_id)
+        if (error_id) {
+                if (streq(error_id, "io.systemd.InstanceMetadata.NotSupported")) {
+                        *ret = NULL;
+                        return 0;
+                }
+
                 return log_error_errno(sd_varlink_error_to_errno(error_id, reply), "Failed to issue io.systemd.InstanceMetadata.GetVendorInfo(): %s", error_id);
+        }
 
         const char *vendor = NULL;
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "vendor",    SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, 0, 0 },
+                { "vendor", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, 0, 0 },
                 {}
         };
         r = sd_json_dispatch(reply, dispatch_table, SD_JSON_ALLOW_EXTENSIONS|SD_JSON_LOG, &vendor);
         if (r < 0)
                 return r;
+        if (isempty(vendor)) {
+                *ret = NULL;
+                return 0;
+        }
+
+        if (strdup_to_full(ret, vendor) < 0)
+                return log_oom();
+
+        return 1;
+}
+
+static int action_summary(sd_varlink *link) {
+        int r;
+
+        assert(link);
+
+        _cleanup_(table_unrefp) Table *table = table_new_vertical();
+        if (!table)
+                return log_oom();
+
+        _cleanup_free_ char *vendor = NULL;
+        r = acquire_imds_vendor(link, &vendor);
+        if (r < 0)
+                return r;
+
         if (vendor) {
                 r = table_add_many(table,
                                    TABLE_FIELD, "Vendor",
@@ -820,14 +850,10 @@ static int action_import(sd_varlink *link) {
         return RET_GATHER(ret, import_credentials(data.iov_base));
 }
 
-static int run(int argc, char* argv[]) {
+int connect_imdsd(sd_varlink **ret) {
         int r;
 
-        log_setup();
-
-        r = parse_argv(argc, argv);
-        if (r <= 0)
-                return r;
+        assert(ret);
 
         _cleanup_(sd_varlink_unrefp) sd_varlink *link = NULL;
         r = sd_varlink_connect_address(&link, "/run/systemd/io.systemd.InstanceMetadata");
@@ -849,6 +875,33 @@ static int run(int argc, char* argv[]) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to connect to imdsd service: %m");
         }
+
+        *ret = TAKE_PTR(link);
+        return 0;
+}
+
+static int run(int argc, char* argv[]) {
+        int r;
+
+        log_setup();
+
+        /* When invoked as a Varlink service (socket activation) we act as an io.systemd.Metrics provider
+         * and run a server loop. The metric generators connect to systemd-imdsd on demand, so we never open
+         * a one-shot connection here. */
+        r = sd_varlink_invocation(SD_VARLINK_ALLOW_ACCEPT);
+        if (r < 0)
+                return log_error_errno(r, "Failed to check if invoked in Varlink mode: %m");
+        if (r > 0)
+                return imds_metrics_run();
+
+        r = parse_argv(argc, argv);
+        if (r <= 0)
+                return r;
+
+        _cleanup_(sd_varlink_unrefp) sd_varlink *link = NULL;
+        r = connect_imdsd(&link);
+        if (r < 0)
+                return r;
 
         switch (arg_action) {
 
