@@ -234,7 +234,7 @@ static int resource_load_from_blockdev(Resource *rr) {
 
         assert(rr);
 
-        r = dlopen_fdisk(LOG_DEBUG);
+        r = DLOPEN_FDISK(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
         if (r < 0)
                 return r;
 
