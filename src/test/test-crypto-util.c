@@ -367,28 +367,28 @@ TEST(kdf_hkdf_derive) {
         check_hkdf_derive(
                 "SHA512",
                 "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
-                /* salt= */ NULL,
+                /* hex_salt= */ NULL,
                 fscrypt_info_hex,
                 "69d7f347a3ca7bfa3e0c1d84e476d050");
 
         check_hkdf_derive(
                 "SHA512",
                 "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f",
-                /* salt= */ NULL,
+                /* hex_salt= */ NULL,
                 fscrypt_info_hex,
                 "8699c2c53707405da5aba5ae4d8583c0");
 
         check_hkdf_derive(
                 "SHA512",
                 "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
-                /* salt= */ NULL,
+                /* hex_salt= */ NULL,
                 fscrypt_info_hex,
                 "37d7d76a59400083289c185526730d34");
 
         check_hkdf_derive(
                 "SHA512",
                 "73797374656d642d686f6d6564207632207465737420766563746f72206b65790000000000000000000000000000000000000000000000000000000000000000",
-                /* salt= */ NULL,
+                /* hex_salt= */ NULL,
                 fscrypt_info_hex,
                 "ab8550968fca25b08222de0ffb7b2986");
 }
