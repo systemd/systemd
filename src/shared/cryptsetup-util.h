@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "sd-dlopen.h"
+
 #include "dlfcn-util.h"
 #include "shared-forward.h"
 
@@ -89,6 +91,20 @@ int cryptsetup_add_token_json(struct crypt_device *cd, sd_json_variant *v);
 int cryptsetup_get_volume_key_prefix(struct crypt_device *cd, const char *volume_name, char **ret);
 int cryptsetup_get_volume_key_id(struct crypt_device *cd, const char *volume_name, const void *volume_key,
                                  size_t volume_key_size,  char **ret);
+
+#define CRYPTSETUP_NOTE(priority)                                       \
+        SD_ELF_NOTE_DLOPEN("cryptsetup",                                \
+                           "Support for disk encryption, integrity, and authentication", \
+                           priority,                                    \
+                           "libcryptsetup.so.12")
+
+#define DLOPEN_CRYPTSETUP(log_level, priority)                          \
+        ({                                                              \
+                CRYPTSETUP_NOTE(priority);                              \
+                dlopen_cryptsetup(log_level);                           \
+        })
+#else
+#define DLOPEN_CRYPTSETUP(log_level, priority) dlopen_cryptsetup(log_level)
 #endif
 
 int dlopen_cryptsetup(int log_level);
