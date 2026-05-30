@@ -334,6 +334,65 @@ TEST(kdf_ss_derive) {
                 "30EB1A1E9DEA7DE4DDB8F3FDF50A01E30581D606C1228D98AFF691DF743AC2EE9D99EFD2AE1946C079AA18C9524877FA65D5065F0DAED058AB3416AF80EB2B73");
 }
 
+static void check_hkdf_derive(
+                const char *digest,
+                const char *hex_key,
+                const char *hex_salt,
+                const char *hex_info,
+                const char *hex_expected) {
+
+        DEFINE_HEX_PTR(key, hex_key);
+        DEFINE_HEX_PTR(salt, hex_salt);
+        DEFINE_HEX_PTR(info, hex_info);
+        DEFINE_HEX_PTR(expected, hex_expected);
+
+        _cleanup_free_ void *derived = NULL;
+        assert_se(kdf_hkdf_derive(digest, key, key_len, salt, salt_len, info, info_len, expected_len, &derived) >= 0);
+        assert_se(memcmp_nn(derived, expected_len, expected, expected_len) == 0);
+}
+
+TEST(kdf_hkdf_derive) {
+        /* RFC 5869, Appendix A.1: basic HKDF-SHA256 test vector. */
+        check_hkdf_derive(
+                "SHA256",
+                "0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b",
+                "000102030405060708090a0b0c",
+                "f0f1f2f3f4f5f6f7f8f9",
+                "3cb25f25faacd57a90434f64d0362f2a2d2d0a90cf1a5a4c5db02d56ecc4c5bf34007208d5b887185865");
+
+        /* fscrypt v2 master-key identifier derivation: HKDF-SHA512 with empty salt and info
+         * "fscrypt\x00\x01". Mirrors the kernel construction in fs/crypto/hkdf.c. */
+        const char *fscrypt_info_hex = "667363727970740001";
+
+        check_hkdf_derive(
+                "SHA512",
+                "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+                /* salt= */ NULL,
+                fscrypt_info_hex,
+                "69d7f347a3ca7bfa3e0c1d84e476d050");
+
+        check_hkdf_derive(
+                "SHA512",
+                "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f",
+                /* salt= */ NULL,
+                fscrypt_info_hex,
+                "8699c2c53707405da5aba5ae4d8583c0");
+
+        check_hkdf_derive(
+                "SHA512",
+                "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+                /* salt= */ NULL,
+                fscrypt_info_hex,
+                "37d7d76a59400083289c185526730d34");
+
+        check_hkdf_derive(
+                "SHA512",
+                "73797374656d642d686f6d6564207632207465737420766563746f72206b65790000000000000000000000000000000000000000000000000000000000000000",
+                /* salt= */ NULL,
+                fscrypt_info_hex,
+                "ab8550968fca25b08222de0ffb7b2986");
+}
+
 static void check_cipher(
                 const char *alg,
                 size_t bits,
