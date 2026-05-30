@@ -108,7 +108,7 @@ int manager_install_sysctl_monitor(Manager *manager) {
 
         assert(manager);
 
-        r = dlopen_bpf(LOG_DEBUG);
+        r = DLOPEN_BPF(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
         if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
                 return log_debug_errno(r, "sysctl monitor disabled, as BPF support is not available.");
         if (r < 0)

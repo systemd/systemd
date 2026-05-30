@@ -3690,7 +3690,7 @@ int main(int argc, char *argv[]) {
         }
 
         /* Building without libmount is allowed, but if it is compiled in, then we must be able to load it */
-        r = dlopen_libmount(LOG_DEBUG);
+        r = DLOPEN_LIBMOUNT(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED);
         if (r < 0 && !ERRNO_IS_NEG_NOT_SUPPORTED(r)) {
                 error_message = "Failed to load libmount.so";
                 goto finish;
