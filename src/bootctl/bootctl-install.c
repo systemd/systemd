@@ -1082,7 +1082,7 @@ static int install_secure_boot_auto_enroll(InstallContext *c) {
         if (!c->secure_boot_certificate || !c->secure_boot_private_key)
                 return 0;
 
-        r = dlopen_libcrypto(LOG_DEBUG);
+        r = DLOPEN_LIBCRYPTO(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
         if (r < 0)
                 return r;
 
