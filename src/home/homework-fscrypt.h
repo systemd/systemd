@@ -10,3 +10,5 @@ int home_create_fscrypt(UserRecord *h, HomeSetup *setup, char **effective_passwo
 int home_passwd_fscrypt(UserRecord *h, HomeSetup *setup, const PasswordCache *cache, char **effective_passwords);
 
 int home_flush_keyring_fscrypt(UserRecord *h);
+
+int compute_fscrypt_key_identifier_v2(const void *key, size_t key_size, uint8_t ret_identifier[static FSCRYPT_KEY_IDENTIFIER_SIZE]);
