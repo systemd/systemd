@@ -106,7 +106,7 @@ rm_rf_sshbindir() {
 trap rm_rf_sshbindir EXIT
 
 # Create a fake "ssh" binary that validates everything works as expected if invoked for the "ssh-unix:" Varlink transport
-cat > "$SSHBINDIR"/ssh <<'EOF'
+cat >"$SSHBINDIR"/ssh <<'EOF'
 #!/usr/bin/env bash
 
 set -xe
@@ -122,7 +122,7 @@ chmod +x "$SSHBINDIR"/ssh
 SYSTEMD_SSH="$SSHBINDIR/ssh" varlinkctl info ssh-unix:foobar:/run/systemd/journal/io.systemd.journal
 
 # Now build another fake "ssh" binary that does the same for "ssh-exec:"
-cat > "$SSHBINDIR"/ssh <<'EOF'
+cat >"$SSHBINDIR"/ssh <<'EOF'
 #!/usr/bin/env bash
 
 set -xe

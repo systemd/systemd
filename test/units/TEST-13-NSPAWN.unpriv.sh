@@ -64,7 +64,7 @@ EOF
 loginctl enable-linger testuser
 
 run0 -u testuser mkdir -p .config/systemd/nspawn/
-run0 -u testuser -i "echo -e \"[Exec]\nKillSignal=SIGKILL\n\" > .config/systemd/nspawn/zurps.nspawn"
+run0 -u testuser -i "echo -e \"[Exec]\nKillSignal=SIGKILL\n\" >.config/systemd/nspawn/zurps.nspawn"
 run0 -u testuser systemctl start --user systemd-nspawn@zurps.service
 
 machinectl status zurps
@@ -191,14 +191,14 @@ run0 -u testuser mkdir /var/tmp/image-tar
 run0 -u testuser importctl --user export-tar zurps /var/tmp/image-tar/kurps.tar.gz -m
 run0 -u testuser importctl --user import-tar /var/tmp/image-tar/kurps.tar.gz -m
 
-run0 -u testuser -i "echo -e \"[Exec]\nKillSignal=SIGKILL\n\" > .config/systemd/nspawn/kurps.nspawn"
+run0 -u testuser -i "echo -e \"[Exec]\nKillSignal=SIGKILL\n\" >.config/systemd/nspawn/kurps.nspawn"
 run0 -u testuser systemctl start --user systemd-nspawn@kurps.service
 machinectl terminate kurps
 
-run0 -u testuser -D /var/tmp/image-tar/ bash -c 'sha256sum kurps.tar.gz > SHA256SUMS'
+run0 -u testuser -D /var/tmp/image-tar/ bash -c 'sha256sum kurps.tar.gz >SHA256SUMS'
 run0 -u testuser importctl --user pull-tar file:///var/tmp/image-tar/kurps.tar.gz nurps --verify=checksum -m
 
-run0 -u testuser -i "echo -e \"[Exec]\nKillSignal=SIGKILL\n\" > .config/systemd/nspawn/nurps.nspawn"
+run0 -u testuser -i "echo -e \"[Exec]\nKillSignal=SIGKILL\n\" >.config/systemd/nspawn/nurps.nspawn"
 run0 -u testuser systemctl start --user systemd-nspawn@nurps.service
 machinectl terminate nurps
 
@@ -231,7 +231,7 @@ assert_in 'wamms' "$(run0 -u testuser machinectl --user list-images)"
 run0 -u testuser machinectl --user image-status wamms
 run0 -u testuser machinectl --user show-image wamms
 
-run0 -u testuser -i "echo -e \"[Exec]\nKillSignal=SIGKILL\n\" > .config/systemd/nspawn/wamms.nspawn"
+run0 -u testuser -i "echo -e \"[Exec]\nKillSignal=SIGKILL\n\" >.config/systemd/nspawn/wamms.nspawn"
 run0 -u testuser systemctl start --user systemd-nspawn@wamms.service
 
 run0 -u testuser systemctl stop --user systemd-nspawn@zurps.service
