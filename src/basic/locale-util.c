@@ -39,11 +39,7 @@ int dlopen_libintl(int log_level) {
 #else
         static void *libintl_dl = NULL;
 
-        SD_ELF_NOTE_DLOPEN(
-                        "intl",
-                        "Support for message translation via gettext",
-                        SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
-                        "libintl.so.8");
+        LIBINTL_NOTE(SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED);
 
         return dlopen_many_sym_or_warn(
                         &libintl_dl,

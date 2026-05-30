@@ -99,11 +99,7 @@ int dlopen_libblkid(int log_level) {
 #if HAVE_BLKID
         static void *libblkid_dl = NULL;
 
-        SD_ELF_NOTE_DLOPEN(
-                        "blkid",
-                        "Support for block device identification",
-                        SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED,
-                        "libblkid.so.1");
+        LIBBLKID_NOTE(SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
 
         return dlopen_many_sym_or_warn(
                         &libblkid_dl,
