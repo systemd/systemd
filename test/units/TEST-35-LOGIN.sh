@@ -694,7 +694,7 @@ session optional   pam_systemd.so default-capability-ambient-set=CAP_CHOWN,CAP_K
 session required   pam_unix.so
 EOF
 
-    cat > "$SCRIPT" <<'EOF'
+    cat >"$SCRIPT" <<'EOF'
 #!/usr/bin/env bash
 set -ex
 typeset -i AMB MASK

@@ -1507,7 +1507,7 @@ testcase_link_journal_host() {
     root="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.link-journal.XXX)"
     create_dummy_container "$root"
 
-    systemd-id128 new > "$root"/etc/machine-id
+    systemd-id128 new >"$root"/etc/machine-id
 
     hoge="/var/log/journal/$(cat "$root"/etc/machine-id)/"
     mkdir -p "$hoge"
