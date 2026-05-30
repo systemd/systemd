@@ -9,7 +9,7 @@ bool bpf_can_link_program(struct bpf_program *prog) {
 
         assert(prog);
 
-        if (dlopen_bpf(LOG_DEBUG) < 0)
+        if (DLOPEN_BPF(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED) < 0)
                 return false;
 
         /* Pass invalid cgroup fd intentionally. */
@@ -24,7 +24,7 @@ bool bpf_can_link_lsm_program(struct bpf_program *prog) {
 
         assert(prog);
 
-        if (dlopen_bpf(LOG_DEBUG) < 0)
+        if (DLOPEN_BPF(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED) < 0)
                 return false;
 
         link = sym_bpf_program__attach_lsm(prog);
