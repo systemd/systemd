@@ -1123,6 +1123,76 @@ int kdf_kb_hmac_derive(
         return 0;
 }
 
+/* Perform HKDF (RFC 5869). Salt and info may be NULL/zero. The derive_size parameter specifies how many
+ * bytes are derived (must be ≤ 255 × HashLen).
+ *
+ * For more details see: https://www.openssl.org/docs/manmaster/man7/EVP_KDF-HKDF.html */
+int kdf_hkdf_derive(
+                const char *digest,
+                const void *key,
+                size_t key_size,
+                const void *salt,
+                size_t salt_size,
+                const void *info,
+                size_t info_size,
+                size_t derive_size,
+                void **ret) {
+
+        int r;
+
+        assert(digest);
+        assert(key || key_size == 0);
+        assert(salt || salt_size == 0);
+        assert(info || info_size == 0);
+        assert(derive_size > 0);
+        assert(ret);
+
+        r = dlopen_libcrypto(LOG_DEBUG);
+        if (r < 0)
+                return r;
+
+        _cleanup_(EVP_KDF_freep) EVP_KDF *kdf = sym_EVP_KDF_fetch(NULL, "HKDF", NULL);
+        if (!kdf)
+                return log_openssl_errors("Failed to create new EVP_KDF");
+
+        _cleanup_(EVP_KDF_CTX_freep) EVP_KDF_CTX *ctx = sym_EVP_KDF_CTX_new(kdf);
+        if (!ctx)
+                return log_openssl_errors("Failed to create new EVP_KDF_CTX");
+
+        _cleanup_(OSSL_PARAM_BLD_freep) OSSL_PARAM_BLD *bld = sym_OSSL_PARAM_BLD_new();
+        if (!bld)
+                return log_openssl_errors("Failed to create new OSSL_PARAM_BLD");
+
+        if (!sym_OSSL_PARAM_BLD_push_utf8_string(bld, OSSL_KDF_PARAM_DIGEST, (char*) digest, 0))
+                return log_openssl_errors("Failed to add HKDF OSSL_KDF_PARAM_DIGEST");
+
+        if (!sym_OSSL_PARAM_BLD_push_octet_string(bld, OSSL_KDF_PARAM_KEY, (char*) key, key_size))
+                return log_openssl_errors("Failed to add HKDF OSSL_KDF_PARAM_KEY");
+
+        if (salt)
+                if (!sym_OSSL_PARAM_BLD_push_octet_string(bld, OSSL_KDF_PARAM_SALT, (char*) salt, salt_size))
+                        return log_openssl_errors("Failed to add HKDF OSSL_KDF_PARAM_SALT");
+
+        if (info)
+                if (!sym_OSSL_PARAM_BLD_push_octet_string(bld, OSSL_KDF_PARAM_INFO, (char*) info, info_size))
+                        return log_openssl_errors("Failed to add HKDF OSSL_KDF_PARAM_INFO");
+
+        _cleanup_(OSSL_PARAM_freep) OSSL_PARAM *params = sym_OSSL_PARAM_BLD_to_param(bld);
+        if (!params)
+                return log_openssl_errors("Failed to build HKDF OSSL_PARAM");
+
+        _cleanup_free_ void *buf = malloc(derive_size);
+        if (!buf)
+                return log_oom_debug();
+
+        if (sym_EVP_KDF_derive(ctx, buf, derive_size, params) <= 0)
+                return log_openssl_errors("OpenSSL HKDF derive failed");
+
+        *ret = TAKE_PTR(buf);
+
+        return 0;
+}
+
 int rsa_oaep_encrypt_bytes(
                 const EVP_PKEY *pkey,
                 const char *digest_alg,
