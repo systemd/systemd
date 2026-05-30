@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <linux/fscrypt.h>
+
 #include "homework-forward.h"
 
 int home_setup_fscrypt(UserRecord *h, HomeSetup *setup, const PasswordCache *cache);

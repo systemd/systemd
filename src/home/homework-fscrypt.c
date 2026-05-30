@@ -1078,7 +1078,7 @@ static int fscrypt_create_policy_v2(
 
         /* Install the master key first so the kernel can compute & report back the identifier; we then
          * apply that identifier to the policy. */
-        r = fscrypt_v2_ioctl_add(dir_fd, /* identifier= */ NULL, volume_key, volume_key_size);
+        r = fscrypt_v2_ioctl_add(dir_fd, /* expected_identifier= */ NULL, volume_key, volume_key_size);
         if (r < 0)
                 return r;
 
