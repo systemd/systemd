@@ -31,7 +31,7 @@ trap cleanup EXIT
 rules="/run/udev/rules.d/99-test-17.global-property.rules"
 
 mkdir -p "${rules%/*}"
-cat > "$rules" <<'EOF'
+cat >"$rules" <<'EOF'
 ENV{FOO}=="?*", ENV{PROP_FOO}="$env{FOO}"
 ENV{BAR}=="?*", ENV{PROP_BAR}="$env{BAR}"
 EOF
