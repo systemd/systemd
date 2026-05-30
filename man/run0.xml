@@ -82,6 +82,7 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>-p</option></term>
         <term><option>--property=</option></term>
 
         <listitem><para>Sets a property of the service unit that is created. This option takes an assignment
