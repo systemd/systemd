@@ -168,7 +168,7 @@ bool bpf_restrict_fsaccess_supported(void) {
 
         if (supported >= 0)
                 return supported;
-        if (dlopen_bpf(LOG_WARNING) < 0)
+        if (DLOPEN_BPF(LOG_WARNING, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED) < 0)
                 return (supported = false);
 
         r = lsm_supported("bpf");
@@ -338,7 +338,7 @@ static int restrict_fsaccess_validate_deserialized_fds(Manager *m) {
 
         assert(m);
 
-        r = dlopen_bpf(LOG_WARNING);
+        r = DLOPEN_BPF(LOG_WARNING, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
         if (r < 0)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                        "bpf-restrict-fsaccess: Failed to load libbpf for FD validation, aborting.");
