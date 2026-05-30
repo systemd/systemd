@@ -1016,12 +1016,12 @@ testcase_fscrypt() {
             bash -c 'keyctl link @u @s; eval "$1"' -- "$2"
     }
 
-    fscrypt_run0 fsfsfs1234 'echo "hello fscrypt" > /home/fscrypttest/file1'
+    fscrypt_run0 fsfsfs1234 'echo "hello fscrypt" >/home/fscrypttest/file1'
     [[ "$(fscrypt_run0 fsfsfs1234 'cat /home/fscrypttest/file1')" == "hello fscrypt" ]]
     fscrypt_run0 fsfsfs1234 'mkdir /home/fscrypttest/subdir'
     fscrypt_run0 fsfsfs1234 'dd if=/dev/urandom of=/home/fscrypttest/subdir/blob bs=4096 count=8 status=none'
     fscrypt_run0 fsfsfs1234 'cp /home/fscrypttest/subdir/blob /home/fscrypttest/subdir/blob.copy && cmp /home/fscrypttest/subdir/blob /home/fscrypttest/subdir/blob.copy'
-    fscrypt_run0 fsfsfs1234 'echo appended >> /home/fscrypttest/file1 && grep -F appended /home/fscrypttest/file1 >/dev/null'
+    fscrypt_run0 fsfsfs1234 'echo appended >>/home/fscrypttest/file1 && grep -F appended /home/fscrypttest/file1 >/dev/null'
     fscrypt_run0 fsfsfs1234 'rm /home/fscrypttest/subdir/blob.copy && test ! -e /home/fscrypttest/subdir/blob.copy'
 
     systemctl stop user@"$(id -u fscrypttest)".service 2>/dev/null || true

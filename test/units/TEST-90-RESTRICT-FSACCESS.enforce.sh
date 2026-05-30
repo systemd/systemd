@@ -119,7 +119,7 @@ HELPER_PID=$!
 while IFS= read -r -t 60 line <&3; do
     echo "$line"
     [[ "$line" == LINK_IDS=* ]] && break
-done > /tmp/restrict-fsaccess-attach.out
+done >/tmp/restrict-fsaccess-attach.out
 
 VERITY_MAP_ID=$(sed -n 's/^VERITY_MAP_ID=//p' /tmp/restrict-fsaccess-attach.out)
 BSS_MAP_ID=$(sed -n 's/^BSS_MAP_ID=//p' /tmp/restrict-fsaccess-attach.out)
