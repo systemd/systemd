@@ -63,33 +63,47 @@ extern "C" {
 #define SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED "recommended"
 #define SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED   "suggested"
 
-#define _SD_ELF_NOTE_DLOPEN(json, variable_name)                               \
-        __attribute__((used, section(".note.dlopen"))) _Alignas(sizeof(uint32_t)) static const struct { \
-                struct {                                                        \
-                        uint32_t n_namesz, n_descsz, n_type;                    \
-                } nhdr;                                                         \
-                char name[sizeof(SD_ELF_NOTE_DLOPEN_VENDOR)];                   \
-                _Alignas(sizeof(uint32_t)) char dlopen_json[sizeof(json)];      \
-        } variable_name = {                                                     \
-                .nhdr = {                                                       \
-                        .n_namesz = sizeof(SD_ELF_NOTE_DLOPEN_VENDOR),          \
-                        .n_descsz = sizeof(json),                               \
-                        .n_type   = SD_ELF_NOTE_DLOPEN_TYPE,                    \
-                },                                                              \
-                .name = SD_ELF_NOTE_DLOPEN_VENDOR,                              \
-                .dlopen_json = json,                                            \
-        }
+/* The json argument is a C string containing already backslash-escaped double quotes (i.e. the bytes
+ * [{\"feature\"...), so that once it is pasted into the assembler's .asciz directive the assembler decodes
+ * them back to plain quotes. The note is emitted into a COMDAT group keyed on the payload itself, which
+ * makes byte-identical notes fold to a single copy: the assembler folds duplicates within a translation
+ * unit (via the .ifndef guard) and the linker folds them across translation units (via the COMDAT group).
+ * This way a binary that triggers the same optional dependency from multiple call sites ends up with just
+ * one note for it. The n_type value below must match SD_ELF_NOTE_DLOPEN_TYPE (it is spelled out as a
+ * literal here as it cannot be expanded inside the assembler string). The section is also marked with the
+ * SHF_GNU_RETAIN ("R") flag so that linker garbage collection (--gc-sections) does not drop the note. The
+ * section type is given as "%note" rather than "@note" because on some architectures (e.g. 32-bit ARM) "@"
+ * is the assembler comment character; "%note" is accepted on all ELF targets. */
+#define _SD_ELF_NOTE_DLOPEN(json)                                                                      \
+        __asm__ (                                                                                      \
+                ".ifndef \"sd_dlopen:" json "\"\n"                                                     \
+                ".set \"sd_dlopen:" json "\", 1\n"                                                     \
+                ".pushsection .note.dlopen, \"aGR\", %note, \"sd_dlopen:" json "\", comdat\n"          \
+                ".balign 4\n"         /* notes require 4-byte alignment for the header and fields */   \
+                ".long 884f - 883f\n" /* n_namesz: byte length of the vendor name (label 883->884) */  \
+                ".long 882f - 881f\n" /* n_descsz: byte length of the JSON payload (label 881->882) */ \
+                ".long 0x407c0c0a\n"  /* n_type: must match SD_ELF_NOTE_DLOPEN_TYPE */                 \
+                "883:\n"              /* start of vendor name */                                       \
+                ".asciz \"" SD_ELF_NOTE_DLOPEN_VENDOR "\"\n"                                           \
+                "884:\n"              /* end of vendor name */                                         \
+                ".balign 4\n"                                                                          \
+                "881:\n"              /* start of JSON payload */                                      \
+                ".asciz \"" json "\"\n"                                                                \
+                "882:\n"              /* end of JSON payload */                                        \
+                ".balign 4\n"                                                                          \
+                ".popsection\n"                                                                        \
+                ".endif\n")
 
-#define _SD_SONAME_ARRAY1(a) "[\"" a "\"]"
-#define _SD_SONAME_ARRAY2(a, b) "[\"" a "\",\"" b "\"]"
-#define _SD_SONAME_ARRAY3(a, b, c) "[\"" a "\",\"" b "\",\"" c "\"]"
-#define _SD_SONAME_ARRAY4(a, b, c, d) "[\"" a "\",\"" b "\",\"" c "\",\"" d "\"]"
-#define _SD_SONAME_ARRAY5(a, b, c, d, e) "[\"" a "\",\"" b "\",\"" c "\",\"" d "\",\"" e "\"]"
+#define _SD_SONAME_ARRAY1(a) "[\\\"" a "\\\"]"
+#define _SD_SONAME_ARRAY2(a, b) "[\\\"" a "\\\",\\\"" b "\\\"]"
+#define _SD_SONAME_ARRAY3(a, b, c) "[\\\"" a "\\\",\\\"" b "\\\",\\\"" c "\\\"]"
+#define _SD_SONAME_ARRAY4(a, b, c, d) "[\\\"" a "\\\",\\\"" b "\\\",\\\"" c "\\\",\\\"" d "\\\"]"
+#define _SD_SONAME_ARRAY5(a, b, c, d, e) "[\\\"" a "\\\",\\\"" b "\\\",\\\"" c "\\\",\\\"" d "\\\",\\\"" e "\\\"]"
 #define _SD_SONAME_ARRAY_GET(_1,_2,_3,_4,_5,NAME,...) NAME
 #define _SD_SONAME_ARRAY(...) _SD_SONAME_ARRAY_GET(__VA_ARGS__, _SD_SONAME_ARRAY5, _SD_SONAME_ARRAY4, _SD_SONAME_ARRAY3, _SD_SONAME_ARRAY2, _SD_SONAME_ARRAY1)(__VA_ARGS__)
 
 #define SD_ELF_NOTE_DLOPEN(feature, description, priority, ...) \
-        _SD_ELF_NOTE_DLOPEN("[{\"feature\":\"" feature "\",\"description\":\"" description "\",\"priority\":\"" priority "\",\"soname\":" _SD_SONAME_ARRAY(__VA_ARGS__) "}]", _SD_PASTE(_sd_elf_note_dlopen_, _SD_UNIQ))
+        _SD_ELF_NOTE_DLOPEN("[{\\\"feature\\\":\\\"" feature "\\\",\\\"description\\\":\\\"" description "\\\",\\\"priority\\\":\\\"" priority "\\\",\\\"soname\\\":" _SD_SONAME_ARRAY(__VA_ARGS__) "}]")
 
 #ifdef __cplusplus
 }
