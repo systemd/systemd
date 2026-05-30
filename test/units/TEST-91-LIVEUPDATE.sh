@@ -174,7 +174,7 @@ set -eux
 state_file=/run/TEST-91-LIVEUPDATE-failure.attempt
 attempt=$(cat "$state_file" 2>/dev/null || echo 0)
 attempt=$((attempt + 1))
-echo "$attempt" > "$state_file"
+echo "$attempt" >"$state_file"
 if [[ "$attempt" -eq 1 ]]; then
     systemd-notify --fd=0 --fdname=mem </dev/zero
 else
@@ -244,8 +244,8 @@ else
 
     # Exercise the FD-store preservation chain across a kexec for a privileged
     # nspawn container managed as a system service:
-    #   payload (inside container) -> systemd-nspawn@fdstore.service fdstore
-    #   -> LUO -> after kexec PID 1 restores the fdstore -> systemd-nspawn ->
+    #   payload (inside container) → systemd-nspawn@fdstore.service fdstore
+    #   → LUO → after kexec PID 1 restores the fdstore → systemd-nspawn →
     #   payload verifies content matches.
     create_dummy_container /var/lib/machines/fdstore
     cat >/var/lib/machines/fdstore/sbin/init <<'EOF'

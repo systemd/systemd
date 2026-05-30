@@ -101,7 +101,7 @@ EOF
 cat /var/tmp/pull-oci-test/v2/ocicombo/manifests/latest
 jq < /var/tmp/pull-oci-test/v2/ocicombo/manifests/latest
 
-cat > /usr/lib/systemd/oci-registry/registry.localfile.oci-registry <<EOF
+cat >/usr/lib/systemd/oci-registry/registry.localfile.oci-registry <<EOF
 {
         "defaultProtocol" : "file",
         "overrideRegistry" : "/var/tmp/pull-oci-test"
