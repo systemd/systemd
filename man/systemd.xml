@@ -1026,11 +1026,11 @@
         <term><varname>4</varname></term>
         <term><varname>5</varname></term>
 
-        <listitem><para>Boot into the specified legacy SysV runlevel.
+        <listitem><para>Shortcuts to boot into specific targets:
         <varname>2</varname>, <varname>3</varname>, and <varname>4</varname> are equivalent to
         <varname>systemd.unit=multi-user.target</varname>; and <varname>5</varname> is equivalent to
-        <varname>systemd.unit=graphical.target</varname>, and provided for compatibility reasons and to be
-        easier to type.</para>
+        <varname>systemd.unit=graphical.target</varname>. Those shortcuts were initially provided
+        for compatibility with SysV, but are retained for convenience.</para>
 
         <xi:include href="version-info.xml" xpointer="v186"/></listitem>
       </varlistentry>
