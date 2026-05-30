@@ -87,7 +87,7 @@ def run(args):
         console.sendline('root')
         console.expect('bash.*# ', 10)
 
-        console.sendline('> /testok')
+        console.sendline('>/testok')
 
         logger.info("power off")
         console.sendline('poweroff')

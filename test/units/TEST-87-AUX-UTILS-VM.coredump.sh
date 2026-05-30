@@ -84,7 +84,7 @@ if cgroupfs_supports_user_xattrs; then
     mkdir -p "/run/systemd/system/systemd-nspawn@$CONTAINER.service.d"
     # Bind-mounting /etc into the container kinda defeats the purpose of --volatile=,
     # but we need the ASan-related overrides scattered across /etc
-    cat > "/run/systemd/system/systemd-nspawn@$CONTAINER.service.d/override.conf" <<EOF
+    cat >"/run/systemd/system/systemd-nspawn@$CONTAINER.service.d/override.conf" <<EOF
 [Service]
 ExecStart=
 ExecStart=systemd-nspawn --quiet --link-journal=try-guest --keep-unit --machine=%i --boot \
