@@ -1015,7 +1015,8 @@ if systemd-analyze --version | grep -F "+ELFUTILS" >/dev/null; then
 
     # For some unknown reason the .note.dlopen sections are removed when building with sanitizers, so only
     # run this test if we're not running under sanitizers.
-    if [[ ! -v ASAN_OPTIONS ]]; then
+    # Also the linker removes them on CentOS 9 as binutils < 2.36 does not support the SHF_GNU_RETAIN flag
+    if [[ ! -v ASAN_OPTIONS ]] && ( . /etc/os-release; [ "$ID" != "centos" ] || systemd-analyze compare-versions "$VERSION_ID" ge 10 ); then
         shared="$(ldd /lib/systemd/systemd | grep shared | cut -d' ' -f3)"
         systemd-analyze dlopen-metadata "$shared"
         systemd-analyze dlopen-metadata --json=short "$shared"
