@@ -81,7 +81,7 @@ static int http_upload_collected(Context *context, sd_json_variant *report) {
         _cleanup_free_ char *json = NULL;
         int r;
 
-        r = dlopen_curl(LOG_DEBUG);
+        r = DLOPEN_CURL(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED);
         if (r < 0)
                 return r;
 

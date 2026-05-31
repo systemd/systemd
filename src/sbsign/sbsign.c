@@ -425,7 +425,7 @@ static int verb_sign(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(iovec_done) struct iovec signed_attributes_signature = {};
         int r;
 
-        r = dlopen_libcrypto(LOG_ERR);
+        r = DLOPEN_LIBCRYPTO(LOG_ERR, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED);
         if (r < 0)
                 return r;
 
