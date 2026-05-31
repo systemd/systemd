@@ -879,7 +879,7 @@ static int run(int argc, char **argv) {
         if (r <= 0)
                 return r;
 
-        r = dlopen_curl(LOG_DEBUG);
+        r = DLOPEN_CURL(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED);
         if (r < 0)
                 return r;
 
