@@ -66,7 +66,8 @@ static int parse_caps(
         assert(value);
 
         if (value[0] == '\0') {
-                *caps = 0;
+                if (caps)
+                        *caps = 0;
                 return 0;
         }
 
