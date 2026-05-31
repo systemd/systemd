@@ -159,13 +159,15 @@ testcase_mount_ratelimit() {
     # If the infra is slow we might not enter the rate limit state; in that case skip the exit check.
     journalctl --sync
     if timeout 2m bash -c "journalctl -u init.scope --since='$ts' -n all --follow | grep -m 1 -q -F '(mount-monitor-dispatch) entered rate limit'"; then
-        journalctl --sync
-        timeout 2m bash -c "journalctl -u init.scope --since='$ts' -n all --follow | grep -m 1 -q -F '(mount-monitor-dispatch) left rate limit'"
+        # We entered the rate limit state. Verify that the manager leaves it again on its own and
+        # processes the pending mount table changes, i.e. that all the mount units we unmounted above are
+        # cleaned up automatically, without daemon-reload.
+        timeout 2m bash -c 'while systemctl list-units -t mount tmp-meow* | grep tmp-meow >/dev/null; do sleep 1; done'
+    else
+        # We never entered the rate limit state (e.g. on slow infra), so the recovery path above is not
+        # being exercised. Just make sure the mount units are cleaned up, nudging the manager if needed.
+        timeout 2m bash -c 'while systemctl list-units -t mount tmp-meow* | grep tmp-meow >/dev/null; do systemctl daemon-reload; sleep 10; done'
     fi
-
-    # Verify that the mount units are always cleaned up at the end.
-    # Give some time for units to settle so we don't race between exiting the rate limit state and cleaning up the units.
-    timeout 2m bash -c 'while systemctl list-units -t mount tmp-meow* | grep tmp-meow >/dev/null; do systemctl daemon-reload; sleep 10; done'
 }
 
 mkdir -p /run/systemd/journald.conf.d
