@@ -89,6 +89,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "pidfd-util.h"
+#include "pretty-print.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
 #include "random-util.h"
@@ -1004,6 +1005,31 @@ static void set_manager_settings(Manager *m) {
         m->restrict_filesystem_access = arg_restrict_filesystem_access;
 }
 
+static int redirect_telinit(char *argv[], char **args) {
+        /* Check if we are invoked through the legacy interface, where init would be symlinked as telinit
+         * and allow users to call 'init 0' and such. If we detect such use, tell the user that this is not
+         * supported anymore. */
+
+        if (getpid_cached() == 1 || !invoked_as(argv, "init"))
+                return 0;
+
+        /* Check if the user specified one of the telinit commands in args. */
+        if (!strv_overlap(args,
+                          STRV_MAKE("0", "1", "2", "3", "4", "5", "6",
+                                    "s", "S", "q", "Q", "u", "U")))
+                return 0;
+
+        _cleanup_free_ char *a = NULL, *b = NULL, *c = NULL;
+        (void) terminal_urlify_man_full("shutdown", "8", /* suffix= */ NULL, &a);
+        (void) terminal_urlify_man_full("reboot", "8", /* suffix= */ NULL, &b);
+        (void) terminal_urlify_man_full("systemctl", "1", /* suffix= */ NULL, &c);
+
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                               "Program 'systemd' called as 'init' with a legacy telinit command.\n"
+                               "Call %s, %s, or %s instead.",
+                               strnull(a), strnull(b), strnull(c));
+}
+
 static int parse_argv(int argc, char *argv[]) {
         bool user_arg_seen = false;
         int r;
@@ -1233,6 +1259,10 @@ static int parse_argv(int argc, char *argv[]) {
                         /* In PID1, silently terminate option parsing. */
                         return 0;
                 }
+
+        r = redirect_telinit(argv, option_parser_get_args(&opts));
+        if (r < 0)
+                return r;
 
         if (option_parser_get_n_args(&opts) > 0 && getpid_cached() != 1)
                 /* Hmm, when we aren't run as init system let's complain about excess arguments */
