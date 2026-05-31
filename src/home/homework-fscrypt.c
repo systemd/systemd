@@ -394,9 +394,11 @@ int home_flush_keyring_fscrypt(UserRecord *h) {
         assert_se(ip = user_record_image_path(h));
 
         _cleanup_close_ int dir_fd = open(ip, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
-        if (dir_fd < 0)
-                return log_debug_errno(errno,
-                                       "Failed to open home directory %s to flush keyring, ignoring: %m", ip);
+        if (dir_fd < 0) {
+                log_debug_errno(errno,
+                                "Failed to open home directory %s to flush keyring, skipping: %m", ip);
+                return 0;
+        }
 
         r = fscrypt_policy_get(dir_fd, &spec);
         if (r == FSCRYPT_POLICY_V2)
@@ -1076,17 +1078,21 @@ static int fscrypt_create_policy_v2(
         assert(volume_key_size > 0);
         assert(ret_spec);
 
-        /* Install the master key first so the kernel can compute & report back the identifier; we then
-         * apply that identifier to the policy. */
-        r = fscrypt_v2_ioctl_add(dir_fd, /* expected_identifier= */ NULL, volume_key, volume_key_size);
+        /* Derive the identifier locally first so we know what to remove on failure paths below, and so
+         * fscrypt_v2_ioctl_add can verify the kernel agrees with us. */
+        r = compute_fscrypt_key_identifier_v2(volume_key, volume_key_size, policy_v2.master_key_identifier);
         if (r < 0)
                 return r;
 
-        if (compute_fscrypt_key_identifier_v2(volume_key, volume_key_size, policy_v2.master_key_identifier) < 0)
-                return -EIO;
+        r = fscrypt_v2_ioctl_add(dir_fd, policy_v2.master_key_identifier, volume_key, volume_key_size);
+        if (r < 0)
+                return r;
 
-        if (ioctl(dir_fd, FS_IOC_SET_ENCRYPTION_POLICY, &policy_v2) < 0)
-                return -errno;
+        if (ioctl(dir_fd, FS_IOC_SET_ENCRYPTION_POLICY, &policy_v2) < 0) {
+                r = -errno;
+                (void) fscrypt_v2_ioctl_remove(dir_fd, policy_v2.master_key_identifier);
+                return r;
+        }
 
         ret_spec->type = FSCRYPT_KEY_SPEC_TYPE_IDENTIFIER;
         memcpy(ret_spec->u.identifier, policy_v2.master_key_identifier, FSCRYPT_KEY_IDENTIFIER_SIZE);

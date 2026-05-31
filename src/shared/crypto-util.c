@@ -1141,7 +1141,8 @@ int kdf_hkdf_derive(
         int r;
 
         assert(digest);
-        assert(key || key_size == 0);
+        assert(key);
+        assert(key_size > 0);
         assert(salt || salt_size == 0);
         assert(info || info_size == 0);
         assert(derive_size > 0);
