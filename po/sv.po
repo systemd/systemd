@@ -6,7 +6,7 @@
 # Josef Andersson <l10nl18nsweja@gmail.com>, 2015, 2017.
 # Göran Uddeborg <goeran@uddeborg.se>, 2020, 2021, 2024.
 # Luna Jernberg <bittin@reimu.nl>, 2020, 2023, 2024, 2025.
-# Anders Jonsson <anders.jonsson@norsjovallen.se>, 2022, 2024.
+# Anders Jonsson <anders.jonsson@norsjovallen.se>, 2022, 2024, 2026.
 # Weblate Translation Memory <noreply-mt-weblate-translation-memory@weblate.org>, 2024.
 # Daniel Nylander <po@danielnylander.se>, 2026.
 # Luna Jernberg <droidbittin@gmail.com>, 2026.
@@ -15,7 +15,7 @@ msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-05-30 00:13+0200\n"
 "PO-Revision-Date: 2026-05-31 10:01+0000\n"
-"Last-Translator: Luna Jernberg <droidbittin@gmail.com>\n"
+"Last-Translator: Anders Jonsson <anders.jonsson@norsjovallen.se>\n"
 "Language-Team: Swedish <https://translate.fedoraproject.org/projects/systemd/"
 "main/sv/>\n"
 "Language: sv\n"
@@ -1199,7 +1199,7 @@ msgstr "Autentisering krävs för att återställa statistik."
 
 #: src/resolve/org.freedesktop.resolve1.policy:209
 msgid "Flush DNS caches"
-msgstr "Töm DNS-cacher"
+msgstr "Töm DNS-cachar"
 
 #: src/resolve/org.freedesktop.resolve1.policy:210
 msgid "Authentication is required to flush DNS caches."
