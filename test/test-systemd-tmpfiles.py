@@ -160,6 +160,13 @@ def test_valid_specifiers(*, user):
                  xdg_cache_home if user else '/var/cache',
                  user=user)  # fmt: skip
 
+    xdg_data_home = os.getenv('XDG_DATA_HOME')
+    if xdg_data_home is None and user:
+        xdg_data_home = os.path.join(home, '.local/share')
+    test_content('f {} - - - - %D',
+                 xdg_data_home if user else '/usr/share',
+                 user=user)  # fmt: skip
+
     test_content('f {} - - - - %L',
                  os.path.join(xdg_state_home, 'log') if user else '/var/log',
                  user=user)  # fmt: skip

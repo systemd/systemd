@@ -205,6 +205,7 @@ typedef enum DirectoryType {
         DIRECTORY_STATE,
         DIRECTORY_CACHE,
         DIRECTORY_LOGS,
+        DIRECTORY_SHARED,
         _DIRECTORY_TYPE_MAX,
 } DirectoryType;
 
@@ -293,6 +294,7 @@ static int specifier_directory(
                 [DIRECTORY_STATE] =   { SD_PATH_SYSTEM_STATE_PRIVATE      },
                 [DIRECTORY_CACHE] =   { SD_PATH_SYSTEM_STATE_CACHE        },
                 [DIRECTORY_LOGS] =    { SD_PATH_SYSTEM_STATE_LOGS         },
+                [DIRECTORY_SHARED] =  { SD_PATH_SYSTEM_SHARED             },
         };
 
         static const struct table_entry paths_user[] = {
@@ -300,6 +302,7 @@ static int specifier_directory(
                 [DIRECTORY_STATE] =   { SD_PATH_USER_STATE_PRIVATE        },
                 [DIRECTORY_CACHE] =   { SD_PATH_USER_STATE_CACHE          },
                 [DIRECTORY_LOGS] =    { SD_PATH_USER_STATE_PRIVATE, "log" },
+                [DIRECTORY_SHARED] =  { SD_PATH_USER_SHARED               },
         };
 
         const struct table_entry *paths;
@@ -3907,6 +3910,7 @@ static int parse_line(
                 { 'h', specifier_user_home,       NULL },
 
                 { 'C', specifier_directory,       UINT_TO_PTR(DIRECTORY_CACHE)   },
+                { 'D', specifier_directory,       UINT_TO_PTR(DIRECTORY_SHARED)  },
                 { 'L', specifier_directory,       UINT_TO_PTR(DIRECTORY_LOGS)    },
                 { 'S', specifier_directory,       UINT_TO_PTR(DIRECTORY_STATE)   },
                 { 't', specifier_directory,       UINT_TO_PTR(DIRECTORY_RUNTIME) },
