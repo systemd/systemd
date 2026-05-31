@@ -17,6 +17,7 @@
 #include "format-table.h"
 #include "format-util.h"
 #include "fs-util.h"
+#include "help-util.h"
 #include "hexdecoct.h"
 #include "imds-tool.h"
 #include "imds-tool-metrics.h"
@@ -30,7 +31,6 @@
 #include "options.h"
 #include "parse-argument.h"
 #include "pcrextend-util.h"
-#include "pretty-print.h"
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
@@ -52,29 +52,22 @@ static bool arg_refresh_usec_set = false;
 STATIC_DESTRUCTOR_REGISTER(arg_key, freep);
 
 static int help(void) {
-        _cleanup_free_ char *link = NULL;
         _cleanup_(table_unrefp) Table *options = NULL;
         int r;
-
-        r = terminal_urlify_man("systemd-imds", "1", &link);
-        if (r < 0)
-                return log_oom();
 
         r = option_parser_get_help_table(&options);
         if (r < 0)
                 return r;
 
-        printf("%s [OPTIONS...] [KEY]\n"
-               "\n%sIMDS data acquisition.%s\n\n",
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal());
+        help_cmdline("[OPTIONS...] [KEY]");
+        help_abstract("IMDS data acquisition.");
 
+        help_section("Options");
         r = table_print_or_warn(options);
         if (r < 0)
                 return r;
 
-        printf("\nSee the %s for details.\n", link);
+        help_man_page_reference("systemd-imds", "1");
         return 0;
 }
 
