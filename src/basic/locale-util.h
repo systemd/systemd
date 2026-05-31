@@ -4,6 +4,8 @@
 #include <libintl.h>    /* IWYU pragma: export */
 #include <locale.h>     /* IWYU pragma: export */
 
+#include "sd-dlopen.h"
+
 #include "basic-forward.h"
 #include "dlfcn-util.h"
 
@@ -13,6 +15,15 @@
 extern DLSYM_PROTOTYPE(dgettext) __attribute__((format_arg(2)));
 
 int dlopen_libintl(int log_level);
+
+#define DLOPEN_LIBINTL(log_level, priority)                             \
+        ({                                                              \
+                SD_ELF_NOTE_DLOPEN("intl",                              \
+                                   "Support for message translation via gettext", \
+                                   priority,                            \
+                                   "libintl.so.8");                     \
+                dlopen_libintl(log_level);                              \
+        })
 
 typedef enum LocaleVariable {
         /* We don't list LC_ALL here on purpose. People should be
