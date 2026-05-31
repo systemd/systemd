@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "sd-event.h"
+#include "sd-future.h"
 #include "sd-varlink.h"
 
 #include "dirent-util.h"
@@ -12,6 +13,7 @@
 #include "iovec-util.h"
 #include "json-util.h"
 #include "ratelimit.h"
+#include "resolved-fiber-util.h"
 #include "resolved-hook.h"
 #include "resolved-manager.h"
 #include "set.h"
@@ -458,9 +460,9 @@ struct HookQuery {
         /* Candidates for a reply, i.e, one entry for each hook */
         LIST_HEAD(HookQueryCandidate, candidates);
 
-        /* Completion callback to invoke */
-        void (*complete)(HookQuery *q, int answer_rcode, DnsAnswer *answer, void *userdata);
-        void *userdata;
+        sd_future *completion_future;
+        int completion_result;
+        bool completed;
 };
 
 /* Encapsulates the state of a hook query to one specific hook */
@@ -498,11 +500,81 @@ HookQuery* hook_query_free(HookQuery *hq) {
         dns_question_unref(hq->question_idna);
         dns_answer_unref(hq->answer);
         hook_unref(hq->answer_hook);
+        if (hq->completion_future)
+                (void) sd_future_resolve(hq->completion_future, -ECANCELED);
+        hq->completion_future = sd_future_unref(hq->completion_future);
 
         return mfree(hq);
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(HookQuery*, hook_query_free);
+static int hook_query_complete(HookQuery *hq, int result) {
+        assert(hq);
+
+        if (hq->completed)
+                return 0;
+
+        hq->completed = true;
+        hq->completion_result = result;
+        if (hq->completion_future)
+                (void) sd_future_resolve(hq->completion_future, result);
+
+        return 0;
+}
+
+void hook_query_abort(HookQuery *hq) {
+        if (!hq)
+                return;
+
+        (void) hook_query_complete(hq, -ECANCELED);
+}
+
+int hook_query_get_completion_future(HookQuery *hq, sd_future **ret) {
+        int r;
+
+        assert(hq);
+        assert(ret);
+
+        if (!hq->completion_future) {
+                r = resolved_future_new(&hq->completion_future);
+                if (r < 0)
+                        return r;
+
+                if (hq->completed)
+                        (void) sd_future_resolve(hq->completion_future, hq->completion_result);
+        }
+
+        *ret = sd_future_ref(hq->completion_future);
+        return 0;
+}
+
+int hook_query_await(HookQuery *hq) {
+        _cleanup_(sd_future_unrefp) sd_future *f = NULL;
+        int r;
+
+        assert(hq);
+
+        r = hook_query_get_completion_future(hq, &f);
+        if (r < 0)
+                return r;
+
+        return sd_fiber_await(f);
+}
+
+int hook_query_get_result(HookQuery *hq, int *ret_rcode, DnsAnswer **ret_answer) {
+        assert(hq);
+        assert(ret_rcode);
+        assert(ret_answer);
+
+        if (hq->completion_result < 0)
+                return hq->completion_result;
+
+        if (hq->answer_rcode < 0)
+                return -ENODATA;
+
+        *ret_rcode = hq->answer_rcode;
+        *ret_answer = dns_answer_ref(hq->answer);
+        return 0;
+}
 
 static void hook_query_ready(HookQuery *hq) {
         assert(hq);
@@ -516,12 +588,7 @@ static void hook_query_ready(HookQuery *hq) {
 
         if (!done)
                 return;
-
-        /* The complete() callback quite likely will destroy 'hq', which might be what keeps the answer
-         * object alive. Let's take an explicit ref here hence, so that it definitely remains alive for the
-         * whole callback lifetime */
-        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = dns_answer_ref(hq->answer);
-        hq->complete(hq, hq->answer_rcode, answer, hq->userdata);
+        (void) hook_query_complete(hq, hq->answer_rcode >= 0 ? hq->answer_rcode : -ENODATA);
 }
 
 static int dispatch_rcode(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
@@ -806,8 +873,6 @@ int manager_hook_query(
                 Manager *m,
                 DnsQuestion *question_idna,
                 DnsQuestion *question_utf8,
-                HookCompleteCallback complete_cb,
-                void *userdata,
                 HookQuery **ret) {
 
         int r;
@@ -857,8 +922,7 @@ int manager_hook_query(
                                 .question_idna = dns_question_ref(question_idna),
                                 .question_utf8 = dns_question_ref(question_utf8),
                                 .answer_rcode = -1,
-                                .complete = complete_cb,
-                                .userdata = userdata,
+                                .completion_result = -ENODATA,
                         };
                 }
 

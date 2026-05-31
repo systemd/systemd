@@ -2,6 +2,7 @@
 #pragma once
 
 #include "list.h"
+#include "sd-future.h"
 #include "resolved-def.h"
 #include "resolved-dns-dnssec.h"
 #include "resolved-dns-server.h"
@@ -76,6 +77,7 @@ typedef struct DnsTransaction {
         usec_t start_usec;
         usec_t next_attempt_after;
         sd_event_source *timeout_event_source;
+        sd_future *completion_future;
         unsigned n_attempts;
 
         /* UDP connection logic, if we need it */
@@ -147,6 +149,8 @@ DnsTransaction* dns_transaction_gc(DnsTransaction *t);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsTransaction*, dns_transaction_gc);
 
 int dns_transaction_go(DnsTransaction *t);
+int dns_transaction_get_completion_future(DnsTransaction *t, sd_future **ret);
+int dns_transaction_await(DnsTransaction *t);
 
 void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypted);
 void dns_transaction_complete(DnsTransaction *t, DnsTransactionState state);

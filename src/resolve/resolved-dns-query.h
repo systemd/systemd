@@ -4,6 +4,7 @@
 #include "dns-packet.h"
 #include "in-addr-util.h"
 #include "list.h"
+#include "sd-future.h"
 #include "resolved-dns-browse-services.h"
 #include "resolved-dns-transaction.h"
 #include "resolved-forward.h"
@@ -20,6 +21,7 @@ typedef struct DnsQueryCandidate {
 
         Set *transactions;
         sd_event_source *timeout_event_source;
+        sd_future *completion_future;
 
         LIST_FIELDS(DnsQueryCandidate, candidates_by_query);
         LIST_FIELDS(DnsQueryCandidate, candidates_by_scope);
@@ -59,11 +61,13 @@ typedef struct DnsQuery {
          * auxiliary A+AAAA queries. This pointer always points from the auxiliary queries back to the
          * TXT+SRV query. */
         int auxiliary_result;
+        char *auxiliary_name;
         DnsQuery *auxiliary_for;
         LIST_HEAD(DnsQuery, auxiliary_queries);
 
         LIST_HEAD(DnsQueryCandidate, candidates);
         sd_event_source *timeout_event_source;
+        sd_future *completion_future;
 
         /* Discovered data */
         DnsAnswer *answer;
@@ -113,9 +117,6 @@ typedef struct DnsQuery {
         /* Pending query to any installed hooks */
         HookQuery *hook_query;
 
-        /* Completion callback */
-        void (*complete)(DnsQuery* q);
-
         sd_bus_track *bus_track;
 
         LIST_FIELDS(DnsQuery, queries);
@@ -134,6 +135,8 @@ DECLARE_TRIVIAL_REF_UNREF_FUNC(DnsQueryCandidate, dns_query_candidate);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsQueryCandidate*, dns_query_candidate_unref);
 
 void dns_query_candidate_notify(DnsQueryCandidate *c);
+int dns_query_candidate_get_completion_future(DnsQueryCandidate *c, sd_future **ret);
+int dns_query_candidate_await(DnsQueryCandidate *c);
 
 int dns_query_new(Manager *m, DnsQuery **ret, DnsQuestion *question_utf8, DnsQuestion *question_idna, DnsPacket *question_bypass, int ifindex, uint64_t flags);
 DnsQuery *dns_query_free(DnsQuery *q);
@@ -142,6 +145,8 @@ int dns_query_make_auxiliary(DnsQuery *q, DnsQuery *auxiliary_for);
 
 int dns_query_go(DnsQuery *q);
 void dns_query_ready(DnsQuery *q);
+int dns_query_get_completion_future(DnsQuery *q, sd_future **ret);
+int dns_query_await(DnsQuery *q);
 
 int dns_query_process_cname_one(DnsQuery *q);
 int dns_query_process_cname_many(DnsQuery *q);
