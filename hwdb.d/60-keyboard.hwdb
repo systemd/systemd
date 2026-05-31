@@ -960,6 +960,15 @@ evdev:name:Huawei WMI hotkeys:dmi:bvn*:bvr*:bd*:svnHUAWEI*:pnEUL-WX9:*
  KEYBOARD_KEY_282=unknown                               # Brightness Up, also emitted by acpi-video, ignore
 
 ###########################################################
+# Infinix
+###########################################################
+
+# Infinix Y3 Max YL-613
+evdev:atkbd:dmi:*:svnInfinix:*pnY3Max:*
+ KEYBOARD_KEY_64=prog1                                   # Power Boost key (top-right corner)
+ KEYBOARD_KEY_76=f21                                     # Fn+F8 Touchpad toggle, sends Ctrl+Meta+f21
+
+###########################################################
 # IBM
 ###########################################################
 
