@@ -2604,11 +2604,7 @@ int dlopen_libseccomp(int log_level) {
 #if HAVE_SECCOMP
         static void *libseccomp_dl = NULL;
 
-        SD_ELF_NOTE_DLOPEN(
-                        "seccomp",
-                        "Support for Seccomp Sandboxes",
-                        SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED,
-                        "libseccomp.so.2");
+        LIBSECCOMP_NOTE(SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
 
         return dlopen_many_sym_or_warn(
                         &libseccomp_dl,

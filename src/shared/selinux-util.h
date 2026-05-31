@@ -3,6 +3,8 @@
 
 #include <sys/socket.h>
 
+#include "sd-dlopen.h"
+
 #include "shared-forward.h"
 
 #if HAVE_SELINUX
@@ -50,12 +52,25 @@ extern DLSYM_PROTOTYPE(string_to_security_class);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(char*, sym_freecon, freeconp, NULL);
 
+#define LIBSELINUX_NOTE(priority)                                       \
+        SD_ELF_NOTE_DLOPEN("selinux",                                   \
+                           "Support for SELinux",                       \
+                           priority,                                    \
+                           "libselinux.so.1")
+
+#define DLOPEN_LIBSELINUX(log_level, priority)                          \
+        ({                                                              \
+                LIBSELINUX_NOTE(priority);                              \
+                dlopen_libselinux(log_level);                           \
+        })
 #else
 
 
 static inline void freeconp(char **p) {
         assert(*p == NULL);
 }
+
+#define DLOPEN_LIBSELINUX(log_level, priority) dlopen_libselinux(log_level)
 #endif
 
 int dlopen_libselinux(int log_level);

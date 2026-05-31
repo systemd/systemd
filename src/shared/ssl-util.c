@@ -36,11 +36,7 @@ int dlopen_libssl(int log_level) {
 #if HAVE_OPENSSL
         static void *libssl_dl = NULL;
 
-        SD_ELF_NOTE_DLOPEN(
-                        "libssl",
-                        "Support for TLS",
-                        SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
-                        "libssl.so.3");
+        LIBSSL_NOTE(SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED);
 
         return dlopen_many_sym_or_warn(
                         &libssl_dl,

@@ -3,6 +3,8 @@
 
 #include <syslog.h>
 
+#include "sd-dlopen.h"
+
 #if HAVE_LIBBPF
 
 #include <bpf/bpf.h>    /* IWYU pragma: export */
@@ -88,6 +90,19 @@ static inline int compat_bpf_map_create(
  * we understand. */
 int bpf_get_error_translated(const void *ptr);
 
+#define BPF_NOTE(priority)                                              \
+        SD_ELF_NOTE_DLOPEN("bpf",                                       \
+                           "Support firewalling and sandboxing with BPF", \
+                           priority,                                    \
+                           "libbpf.so.1", "libbpf.so.0")
+
+#define DLOPEN_BPF(log_level, priority)                                 \
+        ({                                                              \
+                BPF_NOTE(priority);                                     \
+                dlopen_bpf(log_level);                                  \
+        })
+#else
+#define DLOPEN_BPF(log_level, priority) dlopen_bpf(log_level)
 #endif
 
 int dlopen_bpf(int log_level);
