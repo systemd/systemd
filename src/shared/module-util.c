@@ -173,11 +173,7 @@ int dlopen_libkmod(int log_level) {
 #if HAVE_KMOD
         static void *libkmod_dl = NULL;
 
-        SD_ELF_NOTE_DLOPEN(
-                        "kmod",
-                        "Support for loading kernel modules",
-                        SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED,
-                        "libkmod.so.2");
+        LIBKMOD_NOTE(SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
 
         return dlopen_many_sym_or_warn(
                         &libkmod_dl,

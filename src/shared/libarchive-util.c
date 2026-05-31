@@ -80,11 +80,7 @@ int dlopen_libarchive(int log_level) {
         static void *libarchive_dl = NULL;
         int r;
 
-        SD_ELF_NOTE_DLOPEN(
-                        "archive",
-                        "Support for decompressing archive files",
-                        SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
-                        "libarchive.so.13");
+        LIBARCHIVE_NOTE(SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED);
 
         r = dlopen_many_sym_or_warn(
                         &libarchive_dl,

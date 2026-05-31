@@ -1,11 +1,24 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "sd-dlopen.h"
+
 #include "shared-forward.h"
 
 int dlopen_microhttpd(int log_level);
 
 #if HAVE_MICROHTTPD
+#define MICROHTTPD_NOTE(priority)                                       \
+        SD_ELF_NOTE_DLOPEN("microhttpd",                                \
+                           "Support for embedded HTTP server via libmicrohttpd", \
+                           priority,                                    \
+                           "libmicrohttpd.so.12")
+
+#define DLOPEN_MICROHTTPD(log_level, priority)                          \
+        ({                                                              \
+                MICROHTTPD_NOTE(priority);                              \
+                dlopen_microhttpd(log_level);                           \
+        })
 
 #include <microhttpd.h>
 
@@ -134,4 +147,6 @@ int setup_gnutls_logger(char **categories);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(struct MHD_Daemon*, sym_MHD_stop_daemon, MHD_stop_daemonp, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(struct MHD_Response*, sym_MHD_destroy_response, MHD_destroy_responsep, NULL);
 
+#else
+#define DLOPEN_MICROHTTPD(log_level, priority) dlopen_microhttpd(log_level)
 #endif
