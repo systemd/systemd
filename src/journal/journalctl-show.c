@@ -258,7 +258,18 @@ static int show(Context *c) {
                                 return log_error_errno(r, "Failed to get MESSAGE field: %m");
                         }
 
-                        assert_se(message = startswith(message, "MESSAGE="));
+                        message = startswith(message, "MESSAGE=");
+                        if (!message) {
+                                /* The data object doesn't carry the expected field prefix, e.g. because
+                                 * the journal file is corrupted. Skip over it instead of aborting. */
+                                log_notice("MESSAGE field does not start with \"MESSAGE=\", skipping.");
+
+                                if (!arg_reverse)
+                                        c->until_safe = false;
+
+                                c->need_seek = true;
+                                continue;
+                        }
 
                         r = pattern_matches_and_log(arg_compiled_pattern, message,
                                                     len - strlen("MESSAGE="), highlight);
