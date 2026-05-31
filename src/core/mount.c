@@ -2408,7 +2408,7 @@ static int mount_test_startable(Unit *u) {
 }
 
 static bool mount_supported(void) {
-        return dlopen_libmount(LOG_DEBUG) >= 0;
+        return DLOPEN_LIBMOUNT(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED) >= 0;
 }
 
 static int mount_subsystem_ratelimited(Manager *m) {

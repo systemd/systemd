@@ -11,7 +11,7 @@ static int run(int argc, char *argv[]) {
 #if HAVE_LIBBPF
         int r;
 
-        r = dlopen_bpf(LOG_ERR);
+        r = DLOPEN_BPF(LOG_ERR, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
         if (r < 0)
                 return r;
 
