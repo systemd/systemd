@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-future.h"
+
 #include "af-list.h"
 #include "alloc-util.h"
 #include "dns-domain.h"
@@ -78,29 +80,45 @@ static usec_t mdns_maintenance_jitter(uint32_t ttl) {
         return random_u64_range(2 * ttl * USEC_PER_SEC / 100);
 }
 
-static void mdns_maintenance_query_complete(DnsQuery *q) {
+static void mdns_query_fiber_destroy(void *userdata) {
+        dns_query_free(userdata);
+}
+
+static int mdns_spawn_query_fiber(DnsQuery *q, const char *name, sd_fiber_func_t func) {
+        assert(q);
+        assert(q->manager);
+
+        return sd_fiber_new(q->manager->event, name, func, q, mdns_query_fiber_destroy, /* ret= */ NULL);
+}
+
+static int mdns_maintenance_query_fiber(void *userdata) {
+        DnsQuery *query = ASSERT_PTR(userdata);
         _cleanup_(dns_service_browser_unrefp) DnsServiceBrowser *sb = NULL;
-        _cleanup_(dns_query_freep) DnsQuery *query = q;
-        DnssdDiscoveredService *service = NULL;
+        _cleanup_(dnssd_discovered_service_unrefp) DnssdDiscoveredService *service = NULL;
         int r;
 
-        assert(query);
         assert(query->manager);
 
+        r = dns_query_await(query);
+        if (r < 0)
+                return r;
+
         if (query->state != DNS_TRANSACTION_SUCCESS)
-                return;
+                return 0;
+
+        sb = dns_service_browser_ref(query->service_browser_request);
+        if (!sb)
+                return 0;
 
         service = dnssd_discovered_service_ref(query->dnsservice_request);
         if (!service)
-                return;
-
-        sb = dns_service_browser_ref(service->service_browser);
-        if (!sb)
-                return;
+                return 0;
 
         r = mdns_browser_revisit_cache(sb, query->answer_family);
         if (r < 0)
-                return (void) log_error_errno(r, "Failed to revisit cache for family %s: %m", af_to_name(query->answer_family));
+                log_error_errno(r, "Failed to revisit cache for family %s: %m", af_to_name(query->answer_family));
+
+        return 0;
 }
 
 static int mdns_maintenance_query(sd_event_source *s, uint64_t usec, void *userdata) {
@@ -125,9 +143,9 @@ static int mdns_maintenance_query(sd_event_source *s, uint64_t usec, void *userd
         if (r < 0)
                 return log_error_errno(r, "Failed to create mDNS query for maintenance: %m");
 
-        q->complete = mdns_maintenance_query_complete;
         q->varlink_request = sd_varlink_ref(service->service_browser->link);
         q->dnsservice_request = dnssd_discovered_service_ref(service);
+        q->service_browser_request = dns_service_browser_ref(service->service_browser);
 
         /* Schedule the next maintenance query based on the TTL */
         usec_t next_time = mdns_maintenance_next_time(service->until, service->rr->ttl, service->rr_ttl_state);
@@ -150,6 +168,10 @@ static int mdns_maintenance_query(sd_event_source *s, uint64_t usec, void *userd
         r = dns_query_go(q);
         if (r < 0)
                 return log_error_errno(r, "Failed to send mDNS maintenance query: %m");
+
+        r = mdns_spawn_query_fiber(q, "mdns-maintenance-query", mdns_maintenance_query_fiber);
+        if (r < 0)
+                return log_error_errno(r, "Failed to spawn mDNS maintenance query fiber: %m");
 
         TAKE_PTR(q);
         return 0;
@@ -593,24 +615,29 @@ int mdns_notify_browsers_unsolicited_updates(Manager *m, DnsAnswer *answer, int 
         return 0;
 }
 
-static void mdns_browse_service_query_complete(DnsQuery *q) {
+static int mdns_browse_service_query_fiber(void *userdata) {
+        DnsQuery *query = ASSERT_PTR(userdata);
         _cleanup_(dns_service_browser_unrefp) DnsServiceBrowser *sb = NULL;
-        _cleanup_(dns_query_freep) DnsQuery *query = q;
         int r;
 
-        assert(query);
         assert(query->manager);
 
+        r = dns_query_await(query);
+        if (r < 0)
+                return r;
+
         if (query->state != DNS_TRANSACTION_SUCCESS)
-                return;
+                return 0;
 
         sb = dns_service_browser_ref(query->service_browser_request);
         if (!sb)
-                return;
+                return 0;
 
         r = mdns_browser_revisit_cache(sb, query->answer_family);
-        if (r < 0)
-                return (void) log_error_errno(r, "Failed to revisit cache for service browser: %m");
+        if (r < 0) {
+                log_error_errno(r, "Failed to revisit cache for service browser: %m");
+                return 0;
+        }
 
         /* When the query is answered from cache, we only get answers for one
          * answer_family i.e. either ipv4 or ipv6. We need to perform another
@@ -618,8 +645,10 @@ static void mdns_browse_service_query_complete(DnsQuery *q) {
         if (query->answer_query_flags == SD_RESOLVED_FROM_CACHE) {
                 r = mdns_browser_revisit_cache(sb, query->answer_family == AF_INET ? AF_INET6 : AF_INET);
                 if (r < 0)
-                        return (void) log_error_errno(r, "Failed to revisit cache for service browser: %m");
+                        log_error_errno(r, "Failed to revisit cache for service browser: %m");
         }
+
+        return 0;
 }
 
 static int mdns_next_query_schedule(sd_event_source *s, uint64_t usec, void *userdata) {
@@ -643,7 +672,6 @@ static int mdns_next_query_schedule(sd_event_source *s, uint64_t usec, void *use
         if (r < 0)
                 return log_error_errno(r, "Failed to create new DNS query: %m");
 
-        q->complete = mdns_browse_service_query_complete;
         q->service_browser_request = dns_service_browser_ref(sb);
         q->varlink_request = sd_varlink_ref(sb->link);
         sd_varlink_set_userdata(sb->link, q);
@@ -670,6 +698,10 @@ static int mdns_next_query_schedule(sd_event_source *s, uint64_t usec, void *use
                         /* force_reset= */ true);
         if (r < 0)
                 return log_error_errno(r, "Failed to reset event time for next query schedule: %m");
+
+        r = mdns_spawn_query_fiber(q, "mdns-browse-service-query", mdns_browse_service_query_fiber);
+        if (r < 0)
+                return log_error_errno(r, "Failed to spawn mDNS browse service query fiber: %m");
 
         TAKE_PTR(q);
 
