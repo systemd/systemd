@@ -14,7 +14,7 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-05-30 00:13+0200\n"
-"PO-Revision-Date: 2026-05-19 16:01+0000\n"
+"PO-Revision-Date: 2026-05-31 10:01+0000\n"
 "Last-Translator: Luna Jernberg <droidbittin@gmail.com>\n"
 "Language-Team: Swedish <https://translate.fedoraproject.org/projects/systemd/"
 "main/sv/>\n"
@@ -1199,19 +1199,19 @@ msgstr "Autentisering krävs för att återställa statistik."
 
 #: src/resolve/org.freedesktop.resolve1.policy:209
 msgid "Flush DNS caches"
-msgstr ""
+msgstr "Töm DNS-cacher"
 
 #: src/resolve/org.freedesktop.resolve1.policy:210
 msgid "Authentication is required to flush DNS caches."
-msgstr ""
+msgstr "Autentisering krävs för att tömma DNS-cacheminnen."
 
 #: src/resolve/org.freedesktop.resolve1.policy:220
 msgid "Reset server features"
-msgstr ""
+msgstr "Återställ serverfunktioner"
 
 #: src/resolve/org.freedesktop.resolve1.policy:221
 msgid "Authentication is required to reset server features."
-msgstr ""
+msgstr "Autentisering krävs för att återställa serverfunktioner."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:38
 msgid "Check for system updates"
@@ -1223,11 +1223,11 @@ msgstr "Autentisering krävs för att kontrollera systemuppgraderingar."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:48
 msgid "Cancel checking for system updates"
-msgstr ""
+msgstr "Avbryt sökandet efter systemuppdateringar"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:49
 msgid "Authentication is required to cancel checking for system updates."
-msgstr ""
+msgstr "Autentisering krävs för att avbryta sökandet efter systemuppdateringar."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:58
 msgid "Install system updates"
@@ -1239,11 +1239,12 @@ msgstr "Autentisering krävs för att installera systemuppdateringar."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:68
 msgid "Cancel installing system updates"
-msgstr ""
+msgstr "Avbryt installationen av systemuppdateringar"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:69
 msgid "Authentication is required to cancel installing system updates."
 msgstr ""
+"Autentisering krävs för att avbryta installationen av systemuppdateringar."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:78
 msgid "Install specific system version"
@@ -1259,29 +1260,32 @@ msgstr ""
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:88
 msgid "Cancel installing specific system version"
-msgstr ""
+msgstr "Avbryt installationen av en specifik systemversion"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:89
 msgid ""
 "Authentication is required to cancel updating the system to a specific "
 "(possibly old) version."
 msgstr ""
+"Autentisering krävs för att avbryta uppdateringen av systemet till en "
+"specifik (möjligen gammal) version."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:98
 msgid "Clean up old system updates"
-msgstr ""
+msgstr "Rensa upp gamla systemuppdateringar"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:99
 msgid "Authentication is required to clean up old system updates."
-msgstr ""
+msgstr "Autentisering krävs för att rensa upp gamla systemuppdateringar."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:108
 msgid "Cancel cleaning up old system updates"
-msgstr ""
+msgstr "Avbryt rensningen av gamla systemuppdateringar"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:109
 msgid "Authentication is required to cancel cleanup of old system updates."
 msgstr ""
+"Autentisering krävs för att avbryta rensningen av gamla systemuppdateringar."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:118
 msgid "Manage optional features"
@@ -1391,15 +1395,15 @@ msgstr ""
 
 #: src/shared/libfido2-util.c:497 src/shared/libfido2-util.c:554
 msgid "Please confirm presence on security token to unlock."
-msgstr ""
+msgstr "Bekräfta närvaro på säkerhetstoken för att låsa upp."
 
 #: src/shared/libfido2-util.c:513
 msgid "Please verify user on security token to unlock."
-msgstr ""
+msgstr "Verifiera användare med säkerhetstoken för att låsa upp."
 
 #: src/shared/libfido2-util.c:926
 msgid "Please enter security token PIN:"
-msgstr ""
+msgstr "Ange PIN-koden för säkerhetstoken:"
 
 #~ msgid "Cleanup old system updates"
 #~ msgstr "Rensa gamla systemuppdateringar"
