@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-05-30 00:13+0200\n"
-"PO-Revision-Date: 2026-05-19 16:01+0000\n"
+"PO-Revision-Date: 2026-05-31 10:01+0000\n"
 "Last-Translator: Américo Monteiro <a_monteiro@gmx.com>\n"
 "Language-Team: Portuguese <https://translate.fedoraproject.org/projects/"
 "systemd/main/pt/>\n"
@@ -1229,19 +1229,19 @@ msgstr "É necessária autenticação para reiniciar estatísticas."
 
 #: src/resolve/org.freedesktop.resolve1.policy:209
 msgid "Flush DNS caches"
-msgstr ""
+msgstr "Despejar caches de DNS"
 
 #: src/resolve/org.freedesktop.resolve1.policy:210
 msgid "Authentication is required to flush DNS caches."
-msgstr ""
+msgstr "É requerida autenticação para limpar as caches de DNS."
 
 #: src/resolve/org.freedesktop.resolve1.policy:220
 msgid "Reset server features"
-msgstr ""
+msgstr "Reiniciar as funcionalidades do servidor"
 
 #: src/resolve/org.freedesktop.resolve1.policy:221
 msgid "Authentication is required to reset server features."
-msgstr ""
+msgstr "É requerida autenticação para reiniciar as funcionalidades do servidor."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:38
 msgid "Check for system updates"
@@ -1253,11 +1253,13 @@ msgstr "É necessária autenticação para verificar atualizações do sistema."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:48
 msgid "Cancel checking for system updates"
-msgstr ""
+msgstr "Cancelar a verificação por atualizações do sistema"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:49
 msgid "Authentication is required to cancel checking for system updates."
 msgstr ""
+"É requerida autenticação para cancelar a verificação por atualizações do "
+"sistema."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:58
 msgid "Install system updates"
@@ -1269,11 +1271,13 @@ msgstr "É necessária autenticação para instalar atualizações do sistema."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:68
 msgid "Cancel installing system updates"
-msgstr ""
+msgstr "Cancelar a instalação de atualizações do sistema"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:69
 msgid "Authentication is required to cancel installing system updates."
 msgstr ""
+"É requerida autenticação para cancelar a instalação de atualizações do "
+"sistema."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:78
 msgid "Install specific system version"
@@ -1289,29 +1293,33 @@ msgstr ""
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:88
 msgid "Cancel installing specific system version"
-msgstr ""
+msgstr "Cancelar o instalar de versão de sistema específica"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:89
 msgid ""
 "Authentication is required to cancel updating the system to a specific "
 "(possibly old) version."
 msgstr ""
+"É requerida autenticação para cancelar a atualização do sistema para uma "
+"versão específica (possivelmente antiga)."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:98
 msgid "Clean up old system updates"
-msgstr ""
+msgstr "Limpar atualizações de sistema antigas"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:99
 msgid "Authentication is required to clean up old system updates."
-msgstr ""
+msgstr "É requerida autenticação para limpar atualizações de sistema antigas."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:108
 msgid "Cancel cleaning up old system updates"
-msgstr ""
+msgstr "Cancelar o limpar de atualizações de sistema antigas"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:109
 msgid "Authentication is required to cancel cleanup of old system updates."
 msgstr ""
+"É requerida autenticação para cancelar o limpar de atualizações de sistema "
+"antigas."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:118
 msgid "Manage optional features"
@@ -1420,14 +1428,16 @@ msgstr ""
 #: src/shared/libfido2-util.c:497 src/shared/libfido2-util.c:554
 msgid "Please confirm presence on security token to unlock."
 msgstr ""
+"Por favor confirme a presença em testemunho de segurança para desbloquear."
 
 #: src/shared/libfido2-util.c:513
 msgid "Please verify user on security token to unlock."
 msgstr ""
+"Por favor verifique utilizador em testemunho de segurança para desbloquear."
 
 #: src/shared/libfido2-util.c:926
 msgid "Please enter security token PIN:"
-msgstr ""
+msgstr "Por favor insira PIN de testemunho de segurança:"
 
 #~ msgid "Cleanup old system updates"
 #~ msgstr "Limpar atualizações de sistema antigas"

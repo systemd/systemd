@@ -9,7 +9,7 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-05-30 00:13+0200\n"
-"PO-Revision-Date: 2026-05-21 15:01+0000\n"
+"PO-Revision-Date: 2026-05-31 10:01+0000\n"
 "Last-Translator: 김인수 <simmon@nplob.com>\n"
 "Language-Team: Korean <https://translate.fedoraproject.org/projects/systemd/"
 "main/ko/>\n"
@@ -1134,19 +1134,19 @@ msgstr "통계를 재설정하려면 인증이 필요합니다."
 
 #: src/resolve/org.freedesktop.resolve1.policy:209
 msgid "Flush DNS caches"
-msgstr ""
+msgstr "DNS 캐쉬 동기화"
 
 #: src/resolve/org.freedesktop.resolve1.policy:210
 msgid "Authentication is required to flush DNS caches."
-msgstr ""
+msgstr "인증은 DNS 캐쉬 동기화가 필요합니다."
 
 #: src/resolve/org.freedesktop.resolve1.policy:220
 msgid "Reset server features"
-msgstr ""
+msgstr "서버 기능을 초기화합니다"
 
 #: src/resolve/org.freedesktop.resolve1.policy:221
 msgid "Authentication is required to reset server features."
-msgstr ""
+msgstr "인증은 서버 기능을 초기화하는 데 필요합니다."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:38
 msgid "Check for system updates"
@@ -1158,11 +1158,11 @@ msgstr "시스템 최신화를 점검하려면 인증이 필요합니다."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:48
 msgid "Cancel checking for system updates"
-msgstr ""
+msgstr "시스템 최신화를 위해 점검하기를 취소합니다"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:49
 msgid "Authentication is required to cancel checking for system updates."
-msgstr ""
+msgstr "인증은 시스템 최신화를 위해 점검하기를 취소해야 합니다."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:58
 msgid "Install system updates"
@@ -1174,11 +1174,11 @@ msgstr "시스템 최신화로 설치하려면 인증이 필요합니다."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:68
 msgid "Cancel installing system updates"
-msgstr ""
+msgstr "시스템 최신화 설치하기를 취소합니다"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:69
 msgid "Authentication is required to cancel installing system updates."
-msgstr ""
+msgstr "인증은 시스템 최신화 설치하기를 취소해야 합니다."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:78
 msgid "Install specific system version"
@@ -1193,29 +1193,31 @@ msgstr ""
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:88
 msgid "Cancel installing specific system version"
-msgstr ""
+msgstr "지정된 시스템 버전 설치하기를 취소합니다"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:89
 msgid ""
 "Authentication is required to cancel updating the system to a specific "
 "(possibly old) version."
 msgstr ""
+"시스템을 지정된 (아마도 오래된) 버전으로 최신화하기를 취소하려면 인증이 "
+"필요합니다."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:98
 msgid "Clean up old system updates"
-msgstr ""
+msgstr "오래된 시스템 최신화를 정리합니다"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:99
 msgid "Authentication is required to clean up old system updates."
-msgstr ""
+msgstr "오래된 시스템 최신화를 정리하려면 인증이 필요합니다."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:108
 msgid "Cancel cleaning up old system updates"
-msgstr ""
+msgstr "오래된 최신화 정리하기를 취소합니다"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:109
 msgid "Authentication is required to cancel cleanup of old system updates."
-msgstr ""
+msgstr "오래된 시스템 최신화 정리를 취소하려면 인증이 필요합니다."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:118
 msgid "Manage optional features"
@@ -1313,15 +1315,15 @@ msgstr "'$(unit)'단위의 처리를 동결 또는 해제하려면 인증이 필
 
 #: src/shared/libfido2-util.c:497 src/shared/libfido2-util.c:554
 msgid "Please confirm presence on security token to unlock."
-msgstr ""
+msgstr "잠금 해제하려면 보안 토큰의 존재를 확인하세요."
 
 #: src/shared/libfido2-util.c:513
 msgid "Please verify user on security token to unlock."
-msgstr ""
+msgstr "잠금 해제하려면 보안 토큰에서 사용자를 확인하세요."
 
 #: src/shared/libfido2-util.c:926
 msgid "Please enter security token PIN:"
-msgstr ""
+msgstr "보안 토큰 PIN을 입력하세요:"
 
 #~ msgid "Cleanup old system updates"
 #~ msgstr "오래된 시스템 최신화 정리"
