@@ -27,6 +27,11 @@
     <entry>Operating system build ID</entry>
     <entry>The operating system build identifier of the running system, as read from the <varname>BUILD_ID=</varname> field of <filename>/etc/os-release</filename>. If not set, resolves to an empty string. See <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry> for more information.</entry>
   </row>
+  <row id='D'>
+    <entry><literal>%D</literal></entry>
+    <entry>Shared data directory</entry>
+    <entry>This is either <filename>/usr/share/</filename> (for the system manager) or the path <literal>$XDG_DATA_HOME</literal> resolves to (for user managers).</entry>
+  </row>
   <row id='H'>
     <entry><literal>%H</literal></entry>
     <entry>Host name</entry>
