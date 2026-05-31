@@ -552,6 +552,17 @@ evdev:input:b0003v256Cp006B*
  EVDEV_ABS_36=::42
 
 #########################################
+# Infinix
+#########################################
+
+# Infinix Y3 Max YL-613
+evdev:name:SYNA3602:00 093A:35ED Touchpad:dmi:*svnInfinix:*pnY3Max**
+ EVDEV_ABS_00=::12
+ EVDEV_ABS_01=::12
+ EVDEV_ABS_35=::12
+ EVDEV_ABS_36=::12
+
+#########################################
 # Lenovo
 #########################################
 
