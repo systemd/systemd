@@ -11,7 +11,7 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-05-30 00:13+0200\n"
-"PO-Revision-Date: 2026-05-19 16:01+0000\n"
+"PO-Revision-Date: 2026-06-01 10:40+0000\n"
 "Last-Translator: Oğuz Ersen <oguz@ersen.moe>\n"
 "Language-Team: Turkish <https://translate.fedoraproject.org/projects/systemd/"
 "main/tr/>\n"
@@ -20,7 +20,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
-"X-Generator: Weblate 2026.5\n"
+"X-Generator: Weblate 2026.6\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -1251,19 +1251,19 @@ msgstr "İstatistikleri sıfırlamak için kimlik doğrulaması gereklidir."
 
 #: src/resolve/org.freedesktop.resolve1.policy:209
 msgid "Flush DNS caches"
-msgstr ""
+msgstr "DNS önbelleklerini temizle"
 
 #: src/resolve/org.freedesktop.resolve1.policy:210
 msgid "Authentication is required to flush DNS caches."
-msgstr ""
+msgstr "DNS önbelleklerini temizlemek için kimlik doğrulaması gereklidir."
 
 #: src/resolve/org.freedesktop.resolve1.policy:220
 msgid "Reset server features"
-msgstr ""
+msgstr "Sunucu özelliklerini sıfırla"
 
 #: src/resolve/org.freedesktop.resolve1.policy:221
 msgid "Authentication is required to reset server features."
-msgstr ""
+msgstr "Sunucu özelliklerini sıfırlamak için kimlik doğrulaması gereklidir."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:38
 msgid "Check for system updates"
@@ -1275,11 +1275,13 @@ msgstr "Sistem güncellemelerini denetlemek için kimlik doğrulaması gereklidi
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:48
 msgid "Cancel checking for system updates"
-msgstr ""
+msgstr "Sistem güncellemelerini denetlemeyi iptal et"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:49
 msgid "Authentication is required to cancel checking for system updates."
 msgstr ""
+"Sistem güncellemelerini denetlemeyi iptal etmek için kimlik doğrulaması "
+"gereklidir."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:58
 msgid "Install system updates"
@@ -1291,11 +1293,13 @@ msgstr "Sistem güncellemelerini kurmak için kimlik doğrulaması gereklidir."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:68
 msgid "Cancel installing system updates"
-msgstr ""
+msgstr "Sistem güncellemelerini kurmayı iptal et"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:69
 msgid "Authentication is required to cancel installing system updates."
 msgstr ""
+"Sistem güncellemelerini kurmayı iptal etmek için kimlik doğrulaması "
+"gereklidir."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:78
 msgid "Install specific system version"
@@ -1311,29 +1315,34 @@ msgstr ""
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:88
 msgid "Cancel installing specific system version"
-msgstr ""
+msgstr "Belirli bir sistem sürümünü kurmayı iptal et"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:89
 msgid ""
 "Authentication is required to cancel updating the system to a specific "
 "(possibly old) version."
 msgstr ""
+"Sistemi belirli bir (muhtemelen eski) sürüme güncellemeyi iptal etmek için "
+"kimlik doğrulaması gereklidir."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:98
 msgid "Clean up old system updates"
-msgstr ""
+msgstr "Eski sistem güncellemelerini temizle"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:99
 msgid "Authentication is required to clean up old system updates."
 msgstr ""
+"Eski sistem güncellemelerini temizlemek için kimlik doğrulaması gereklidir."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:108
 msgid "Cancel cleaning up old system updates"
-msgstr ""
+msgstr "Eski sistem güncellemelerini temizlemeyi iptal et"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:109
 msgid "Authentication is required to cancel cleanup of old system updates."
 msgstr ""
+"Eski sistem güncellemelerini temizlemeyi iptal etmek için kimlik doğrulaması "
+"gereklidir."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:118
 msgid "Manage optional features"
@@ -1443,15 +1452,15 @@ msgstr ""
 
 #: src/shared/libfido2-util.c:497 src/shared/libfido2-util.c:554
 msgid "Please confirm presence on security token to unlock."
-msgstr ""
+msgstr "Kilidi açmak için lütfen güvenlik belirtecinin varlığını doğrulayın."
 
 #: src/shared/libfido2-util.c:513
 msgid "Please verify user on security token to unlock."
-msgstr ""
+msgstr "Kilidi açmak için lütfen güvenlik belirteçinde kullanıcıyı doğrulayın."
 
 #: src/shared/libfido2-util.c:926
 msgid "Please enter security token PIN:"
-msgstr ""
+msgstr "Lütfen güvenlik belirteci kodunu girin:"
 
 #~ msgid "Cleanup old system updates"
 #~ msgstr "Eski sistem güncellemelerini temizle"

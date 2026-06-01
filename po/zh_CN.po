@@ -12,12 +12,13 @@
 # Hang Li <dabao1955@163.com>, 2025.
 # Jesse Guo <jesseguotech@outlook.com>, 2025, 2026.
 # Zongyuan He <lovenemesis@gmail.com>, 2025.
+# Poesty Li <poesty7450@gmail.com>, 2026.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-05-30 00:13+0200\n"
-"PO-Revision-Date: 2026-03-10 15:58+0000\n"
-"Last-Translator: Jesse Guo <jesseguotech@outlook.com>\n"
+"PO-Revision-Date: 2026-06-01 10:40+0000\n"
+"Last-Translator: Poesty Li <poesty7450@gmail.com>\n"
 "Language-Team: Chinese (Simplified) <https://translate.fedoraproject.org/"
 "projects/systemd/main/zh_CN/>\n"
 "Language: zh_CN\n"
@@ -25,7 +26,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
-"X-Generator: Weblate 5.16.2\n"
+"X-Generator: Weblate 2026.6\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -102,7 +103,7 @@ msgstr "核验家区域的凭证"
 #: src/home/org.freedesktop.home1.policy:34
 msgid ""
 "Authentication is required to check credentials against a user's home area."
-msgstr "需要身份验证方可将凭证与用户的主目录区域进行比对。"
+msgstr "需要身份验证方可将凭证与用户的家目录区域进行比对。"
 
 #: src/home/org.freedesktop.home1.policy:43
 msgid "Update a home area"
@@ -813,12 +814,12 @@ msgstr "管理本地虚拟机和容器需要认证。"
 
 #: src/machine/org.freedesktop.machine1.policy:95
 msgid "Inspect local virtual machines and containers"
-msgstr ""
+msgstr "检查本地虚拟机和容器"
 
 #: src/machine/org.freedesktop.machine1.policy:96
 msgid ""
 "Authentication is required to inspect local virtual machines and containers."
-msgstr ""
+msgstr "需要认证才能检查本地虚拟机和容器。"
 
 #: src/machine/org.freedesktop.machine1.policy:105
 msgid "Create a local virtual machine or container"
@@ -850,13 +851,13 @@ msgstr "管理本地的虚拟机和容器镜像需要认证。"
 
 #: src/machine/org.freedesktop.machine1.policy:137
 msgid "Inspect local virtual machine and container images"
-msgstr ""
+msgstr "检查本地虚拟机和容器镜像"
 
 #: src/machine/org.freedesktop.machine1.policy:138
 msgid ""
 "Authentication is required to inspect local virtual machine and container "
 "images."
-msgstr ""
+msgstr "需要认证才能检查本地虚拟机和容器镜像。"
 
 #: src/network/org.freedesktop.network1.policy:22
 msgid "Set NTP servers"
@@ -1117,19 +1118,19 @@ msgstr "重置统计信息需要认证。"
 
 #: src/resolve/org.freedesktop.resolve1.policy:209
 msgid "Flush DNS caches"
-msgstr ""
+msgstr "清除 DNS 缓存"
 
 #: src/resolve/org.freedesktop.resolve1.policy:210
 msgid "Authentication is required to flush DNS caches."
-msgstr ""
+msgstr "需要认证才能清除 DNS 缓存。"
 
 #: src/resolve/org.freedesktop.resolve1.policy:220
 msgid "Reset server features"
-msgstr ""
+msgstr "重置服务器功能"
 
 #: src/resolve/org.freedesktop.resolve1.policy:221
 msgid "Authentication is required to reset server features."
-msgstr ""
+msgstr "需要认证才能重置服务器功能。"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:38
 msgid "Check for system updates"
@@ -1141,11 +1142,11 @@ msgstr "检查系统更新需要认证。"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:48
 msgid "Cancel checking for system updates"
-msgstr ""
+msgstr "取消检查系统更新"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:49
 msgid "Authentication is required to cancel checking for system updates."
-msgstr ""
+msgstr "需要认证才能取消检查系统更新。"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:58
 msgid "Install system updates"
@@ -1157,11 +1158,11 @@ msgstr "安装系统更新需要认证。"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:68
 msgid "Cancel installing system updates"
-msgstr ""
+msgstr "取消安装系统更新"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:69
 msgid "Authentication is required to cancel installing system updates."
-msgstr ""
+msgstr "需要认证才能取消安装系统更新。"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:78
 msgid "Install specific system version"
@@ -1175,29 +1176,29 @@ msgstr "将系统更新至指定版本 (可能为旧版本) 需要认证。"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:88
 msgid "Cancel installing specific system version"
-msgstr ""
+msgstr "取消安装特定系统版本"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:89
 msgid ""
 "Authentication is required to cancel updating the system to a specific "
 "(possibly old) version."
-msgstr ""
+msgstr "需要认证才能取消将系统更新到特定（可能是旧的）版本。"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:98
 msgid "Clean up old system updates"
-msgstr ""
+msgstr "清理旧的系统更新"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:99
 msgid "Authentication is required to clean up old system updates."
-msgstr ""
+msgstr "需要认证才能清理旧的系统更新。"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:108
 msgid "Cancel cleaning up old system updates"
-msgstr ""
+msgstr "取消清理旧的系统更新"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:109
 msgid "Authentication is required to cancel cleanup of old system updates."
-msgstr ""
+msgstr "需要认证才能取消清理旧的系统更新。"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:118
 msgid "Manage optional features"
@@ -1292,15 +1293,15 @@ msgstr "冻结或解冻 '$(unit)' 单元进程需要认证。"
 
 #: src/shared/libfido2-util.c:497 src/shared/libfido2-util.c:554
 msgid "Please confirm presence on security token to unlock."
-msgstr ""
+msgstr "请确认安全令牌上的存在以解锁。"
 
 #: src/shared/libfido2-util.c:513
 msgid "Please verify user on security token to unlock."
-msgstr ""
+msgstr "请在安全令牌上验证用户以解锁。"
 
 #: src/shared/libfido2-util.c:926
 msgid "Please enter security token PIN:"
-msgstr ""
+msgstr "请输入安全令牌 PIN："
 
 #~ msgid "Cleanup old system updates"
 #~ msgstr "清理旧的系统更新"
