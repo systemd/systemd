@@ -25,6 +25,28 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("Name of the target, unique within a class."),
                 SD_VARLINK_DEFINE_FIELD(name, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
 
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                Feature,
+                SD_VARLINK_FIELD_COMMENT("Identifier for the feature."),
+                SD_VARLINK_DEFINE_FIELD(id, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("A short human readable description of the feature."),
+                SD_VARLINK_DEFINE_FIELD(description, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("A URL to documentation for the feature."),
+                SD_VARLINK_DEFINE_FIELD(documentation, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("A URL to an AppStream catalog XML file describing the feature."),
+                SD_VARLINK_DEFINE_FIELD(appstream, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Whether the feature is enabled."),
+                SD_VARLINK_DEFINE_FIELD(isEnabled, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("Array of IDs of the transfers (including currently disabled ones) which are controlled by this feature."),
+                SD_VARLINK_DEFINE_FIELD(transfers, SD_VARLINK_STRING, SD_VARLINK_NULLABLE|SD_VARLINK_ARRAY));
+
+static SD_VARLINK_DEFINE_METHOD(
+                ListFeatures,
+                SD_VARLINK_FIELD_COMMENT("Target to list features for."),
+                SD_VARLINK_DEFINE_INPUT_BY_TYPE(target, TargetIdentifier, 0),
+                SD_VARLINK_FIELD_COMMENT("The configured features."),
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(features, Feature, SD_VARLINK_ARRAY));
+
 static SD_VARLINK_DEFINE_METHOD(
                 CheckNew,
                 SD_VARLINK_FIELD_COMMENT("Target to check for updates for."),
@@ -42,6 +64,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 SD_VARLINK_INTERFACE_COMMENT("APIs to manage system updates"),
 
                 /* Methods */
+                SD_VARLINK_SYMBOL_COMMENT("Show optional features"),
+                &vl_method_ListFeatures,
                 SD_VARLINK_SYMBOL_COMMENT("Check if there’s a new version available"),
                 &vl_method_CheckNew,
 
@@ -50,6 +74,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_type_TargetClass,
                 SD_VARLINK_SYMBOL_COMMENT("Identifier for a component of the system (i.e. the host itself, a sysext, a confext, etc.) that can be updated by systemd-sysupdate(8)."),
                 &vl_type_TargetIdentifier,
+                SD_VARLINK_SYMBOL_COMMENT("Type containing a configured sysupdate feature."),
+                &vl_type_Feature,
 
                 /* Errors */
                 SD_VARLINK_SYMBOL_COMMENT("Error indicating that no update is currently available to update to."),
