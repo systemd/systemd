@@ -94,6 +94,28 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   }
   ```
 
+- Braces in `if` blocks are not required to be symmetric. Write this:
+
+  ```c
+  if (foobar)
+          waldo();
+  else {
+          foo();
+          bar();
+  }
+  ```
+
+  instead of this:
+
+  ```c
+  if (foobar) {
+          waldo();
+  } else {
+          foo();
+          bar();
+  }
+  ```
+
 - Do not write `foo ()`, write `foo()`.
 
 - `else` blocks should generally start on the same line as the closing `}`:
