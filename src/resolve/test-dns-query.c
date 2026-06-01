@@ -701,6 +701,74 @@ TEST(dns_query_string_request_address) {
 }
 
 /* ================================================================
+ * dns_scope_good_domain()
+ * ================================================================ */
+
+TEST(dns_scope_good_domain_ignores_disabled_mdns_link) {
+        Manager manager = {
+                .mdns_support = RESOLVE_SUPPORT_YES,
+        };
+        Link link = {
+                .manager = &manager,
+                .ifindex = 42,
+                .mdns_support = RESOLVE_SUPPORT_NO,
+        };
+        DnsScope scope = {
+                .manager = &manager,
+                .origin = DNS_SCOPE_LINK,
+                .protocol = DNS_PROTOCOL_MDNS,
+                .family = AF_INET,
+                .link = &link,
+        };
+        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
+        _cleanup_(dns_query_freep) DnsQuery *query = NULL;
+
+        ASSERT_OK(dns_question_new_address(&question, AF_INET, "printer.local", false));
+        ASSERT_OK(dns_query_new(
+                        &manager,
+                        &query,
+                        question,
+                        NULL,
+                        NULL,
+                        link.ifindex,
+                        SD_RESOLVED_FLAGS_MAKE(DNS_PROTOCOL_MDNS, AF_INET, false, false)));
+
+        ASSERT_EQ(dns_scope_good_domain(&scope, query, query->flags), DNS_SCOPE_NO);
+}
+
+TEST(dns_scope_good_domain_ignores_disabled_llmnr_link) {
+        Manager manager = {
+                .llmnr_support = RESOLVE_SUPPORT_YES,
+        };
+        Link link = {
+                .manager = &manager,
+                .ifindex = 43,
+                .llmnr_support = RESOLVE_SUPPORT_NO,
+        };
+        DnsScope scope = {
+                .manager = &manager,
+                .origin = DNS_SCOPE_LINK,
+                .protocol = DNS_PROTOCOL_LLMNR,
+                .family = AF_INET,
+                .link = &link,
+        };
+        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
+        _cleanup_(dns_query_freep) DnsQuery *query = NULL;
+
+        ASSERT_OK(dns_question_new_address(&question, AF_INET, "printer", false));
+        ASSERT_OK(dns_query_new(
+                        &manager,
+                        &query,
+                        question,
+                        NULL,
+                        NULL,
+                        link.ifindex,
+                        SD_RESOLVED_FLAGS_MAKE(DNS_PROTOCOL_LLMNR, AF_INET, false, false)));
+
+        ASSERT_EQ(dns_scope_good_domain(&scope, query, query->flags), DNS_SCOPE_NO);
+}
+
+/* ================================================================
  * dns_query_go()
  * ================================================================ */
 
