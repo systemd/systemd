@@ -169,11 +169,9 @@ static int get_pin(char **ret_pin_str, TPM2Flags *ret_flags) {
 #endif
 
 int load_volume_key_tpm2(
+                const EnrollContext *c,
                 struct crypt_device *cd,
-                const char *cd_node,
-                const char *device,
-                void *ret_vk,
-                size_t *ret_vks) {
+                struct iovec *ret_vk) {
 
 #if HAVE_TPM2
         _cleanup_(iovec_done_erase) struct iovec decrypted_key = {};
@@ -181,10 +179,10 @@ int load_volume_key_tpm2(
         ssize_t passphrase_size;
         int r;
 
+        assert_se(c);
+        assert_se(c->node);
         assert_se(cd);
-        assert_se(cd_node);
         assert_se(ret_vk);
-        assert_se(ret_vks);
 
         bool found_some = false;
         int token = 0; /* first token to look at */
@@ -235,8 +233,8 @@ int load_volume_key_tpm2(
                 found_some = true;
 
                 r = acquire_tpm2_key(
-                                cd_node,
-                                device,
+                                c->node,
+                                c->unlock_tpm2_device,
                                 hash_pcr_mask,
                                 pcr_bank,
                                 &pubkey,
@@ -275,8 +273,8 @@ int load_volume_key_tpm2(
         r = sym_crypt_volume_key_get(
                         cd,
                         CRYPT_ANY_SLOT,
-                        ret_vk,
-                        ret_vks,
+                        ret_vk->iov_base,
+                        &ret_vk->iov_len,
                         passphrase,
                         passphrase_size);
         if (r < 0)
@@ -288,19 +286,9 @@ int load_volume_key_tpm2(
 #endif
 }
 
-int enroll_tpm2(struct crypt_device *cd,
+int enroll_tpm2(const EnrollContext *c,
+                struct crypt_device *cd,
                 const struct iovec *volume_key,
-                const char *device,
-                uint32_t seal_key_handle,
-                const char *device_key,
-                Tpm2PCRValue *hash_pcr_values,
-                size_t n_hash_pcr_values,
-                const char *pcr_pubkey_path,
-                bool load_pcr_pubkey,
-                uint32_t pubkey_pcr_mask,
-                const char *signature_path,
-                bool use_pin,
-                const char *pcrlock_path,
                 int *ret_slot_to_wipe) {
 
 #if HAVE_TPM2
@@ -314,6 +302,8 @@ int enroll_tpm2(struct crypt_device *cd,
         int r, keyslot, slot_to_wipe = -1;
         TPM2Flags flags = 0;
         uint16_t primary_alg = 0;
+        /* Mutable copy: cleared on the no-public-key fallback paths below. */
+        uint32_t pubkey_pcr_mask = c->tpm2_public_key_pcr_mask;
         uint8_t binary_salt[SHA256_DIGEST_SIZE] = {};
         /*
          * erase the salt, we'd rather attempt to not have this in a coredump
@@ -323,15 +313,16 @@ int enroll_tpm2(struct crypt_device *cd,
          */
         CLEANUP_ERASE(binary_salt);
 
+        assert(c);
         assert(cd);
         assert(iovec_is_set(volume_key));
-        assert(tpm2_pcr_values_valid(hash_pcr_values, n_hash_pcr_values));
-        assert(TPM2_PCR_MASK_VALID(pubkey_pcr_mask));
+        assert(tpm2_pcr_values_valid(c->tpm2_hash_pcr_values, c->tpm2_n_hash_pcr_values));
+        assert(TPM2_PCR_MASK_VALID(c->tpm2_public_key_pcr_mask));
         assert(ret_slot_to_wipe);
 
         assert_se(node = sym_crypt_get_device_name(cd));
 
-        if (use_pin) {
+        if (c->tpm2_pin) {
                 r = get_pin(&pin_str, &flags);
                 if (r < 0)
                         return r;
@@ -354,10 +345,10 @@ int enroll_tpm2(struct crypt_device *cd,
         }
 
         TPM2B_PUBLIC public = {};
-        if (pcr_pubkey_path || load_pcr_pubkey) {
-                r = tpm2_load_pcr_public_key(pcr_pubkey_path, &pubkey.iov_base, &pubkey.iov_len);
+        if (c->tpm2_public_key || c->tpm2_load_public_key) {
+                r = tpm2_load_pcr_public_key(c->tpm2_public_key, &pubkey.iov_base, &pubkey.iov_len);
                 if (r < 0) {
-                        if (pcr_pubkey_path || signature_path || r != -ENOENT)
+                        if (c->tpm2_public_key || c->tpm2_signature || r != -ENOENT)
                                 return log_error_errno(r, "Failed to read TPM PCR public key: %m");
 
                         log_debug_errno(r, "Failed to read TPM2 PCR public key, proceeding without: %m");
@@ -367,11 +358,11 @@ int enroll_tpm2(struct crypt_device *cd,
                         if (r < 0)
                                 return log_error_errno(r, "Could not convert public key to TPM2B_PUBLIC: %m");
 
-                        if (signature_path) {
+                        if (c->tpm2_signature) {
                                 /* Also try to load the signature JSON object, to verify that our enrollment will work.
                                  * This is optional however, skip it if it's not explicitly provided. */
 
-                                r = tpm2_load_pcr_signature(signature_path, &signature_json);
+                                r = tpm2_load_pcr_signature(c->tpm2_signature, &signature_json);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to read TPM PCR signature: %m");
                         }
@@ -379,15 +370,15 @@ int enroll_tpm2(struct crypt_device *cd,
         } else
                 pubkey_pcr_mask = 0;
 
-        bool any_pcr_value_specified = tpm2_pcr_values_has_any_values(hash_pcr_values, n_hash_pcr_values);
+        bool any_pcr_value_specified = tpm2_pcr_values_has_any_values(c->tpm2_hash_pcr_values, c->tpm2_n_hash_pcr_values);
 
         _cleanup_(tpm2_pcrlock_policy_done) Tpm2PCRLockPolicy pcrlock_policy = {};
-        if (pcrlock_path) {
-                r = tpm2_pcrlock_policy_load(pcrlock_path, &pcrlock_policy);
+        if (c->tpm2_pcrlock) {
+                r = tpm2_pcrlock_policy_load(c->tpm2_pcrlock, &pcrlock_policy);
                 if (r < 0)
                         return r;
                 if (r == 0)
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "Couldn't find pcrlock policy %s.", pcrlock_path);
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "Couldn't find pcrlock policy %s.", c->tpm2_pcrlock);
 
                 any_pcr_value_specified = true;
                 flags |= TPM2_FLAGS_USE_PCRLOCK;
@@ -395,23 +386,23 @@ int enroll_tpm2(struct crypt_device *cd,
 
         _cleanup_(tpm2_context_unrefp) Tpm2Context *tpm2_context = NULL;
         TPM2B_PUBLIC device_key_public = {};
-        if (device_key) {
-                r = tpm2_load_public_key_file(device_key, &device_key_public);
+        if (c->tpm2_device_key) {
+                r = tpm2_load_public_key_file(c->tpm2_device_key, &device_key_public);
                 if (r < 0)
                         return r;
 
-                if (!tpm2_pcr_values_has_all_values(hash_pcr_values, n_hash_pcr_values))
+                if (!tpm2_pcr_values_has_all_values(c->tpm2_hash_pcr_values, c->tpm2_n_hash_pcr_values))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Must provide all PCR values when using TPM2 device key.");
 
                 primary_alg = device_key_public.publicArea.type;
         } else {
-                r = tpm2_context_new_or_warn(device, &tpm2_context);
+                r = tpm2_context_new_or_warn(c->tpm2_device, &tpm2_context);
                 if (r < 0)
                         return r;
 
-                if (!tpm2_pcr_values_has_all_values(hash_pcr_values, n_hash_pcr_values)) {
-                        r = tpm2_pcr_read_missing_values(tpm2_context, hash_pcr_values, n_hash_pcr_values);
+                if (!tpm2_pcr_values_has_all_values(c->tpm2_hash_pcr_values, c->tpm2_n_hash_pcr_values)) {
+                        r = tpm2_pcr_read_missing_values(tpm2_context, c->tpm2_hash_pcr_values, c->tpm2_n_hash_pcr_values);
                         if (r < 0)
                                 return log_error_errno(r, "Could not read pcr values: %m");
                 }
@@ -420,10 +411,10 @@ int enroll_tpm2(struct crypt_device *cd,
         uint16_t hash_pcr_bank = 0;
         uint32_t hash_pcr_mask = 0;
 
-        if (n_hash_pcr_values > 0) {
+        if (c->tpm2_n_hash_pcr_values > 0) {
                 size_t hash_count;
 
-                r = tpm2_pcr_values_hash_count(hash_pcr_values, n_hash_pcr_values, &hash_count);
+                r = tpm2_pcr_values_hash_count(c->tpm2_hash_pcr_values, c->tpm2_n_hash_pcr_values, &hash_count);
                 if (r < 0)
                         return log_error_errno(r, "Could not get hash count: %m");
 
@@ -431,12 +422,12 @@ int enroll_tpm2(struct crypt_device *cd,
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Multiple PCR banks selected.");
 
                 /* If we use a literal PCR value policy, derive the bank to use from the algorithm specified on the hash values */
-                hash_pcr_bank = hash_pcr_values[0].hash;
-                r = tpm2_pcr_values_to_mask(hash_pcr_values, n_hash_pcr_values, hash_pcr_bank, &hash_pcr_mask);
+                hash_pcr_bank = c->tpm2_hash_pcr_values[0].hash;
+                r = tpm2_pcr_values_to_mask(c->tpm2_hash_pcr_values, c->tpm2_n_hash_pcr_values, hash_pcr_bank, &hash_pcr_mask);
                 if (r < 0)
                         return log_error_errno(r, "Could not get hash mask: %m");
 
-        } else if (pubkey_pcr_mask != 0 && !device_key) {
+        } else if (pubkey_pcr_mask != 0 && !c->tpm2_device_key) {
 
                 /* If no literal PCR value policy is used, then let's determine the mask to use automatically
                  * from the measurements of the TPM. */
@@ -461,21 +452,21 @@ int enroll_tpm2(struct crypt_device *cd,
 
         /* If both PCR public key unlock and pcrlock unlock is selected, then we create the one for PCR public key unlock first. */
         r = tpm2_calculate_sealing_policy(
-                        hash_pcr_values,
-                        n_hash_pcr_values,
+                        c->tpm2_hash_pcr_values,
+                        c->tpm2_n_hash_pcr_values,
                         iovec_is_set(&pubkey) ? &public : NULL,
-                        use_pin,
-                        pcrlock_path && !iovec_is_set(&pubkey) ? &pcrlock_policy : NULL,
+                        c->tpm2_pin,
+                        c->tpm2_pcrlock && !iovec_is_set(&pubkey) ? &pcrlock_policy : NULL,
                         policy_hash + 0);
         if (r < 0)
                 return r;
 
-        if (pcrlock_path && iovec_is_set(&pubkey)) {
+        if (c->tpm2_pcrlock && iovec_is_set(&pubkey)) {
                 r = tpm2_calculate_sealing_policy(
-                                hash_pcr_values,
-                                n_hash_pcr_values,
+                                c->tpm2_hash_pcr_values,
+                                c->tpm2_n_hash_pcr_values,
                                 /* public= */ NULL, /* This one is off now */
-                                use_pin,
+                                c->tpm2_pin,
                                 &pcrlock_policy,    /* And this one on instead. */
                                 policy_hash + 1);
                 if (r < 0)
@@ -488,7 +479,7 @@ int enroll_tpm2(struct crypt_device *cd,
         size_t n_blobs = 0;
         CLEANUP_ARRAY(blobs, n_blobs, iovec_array_free);
 
-        if (device_key) {
+        if (c->tpm2_device_key) {
                 if (n_policy_hash > 1)
                         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                                "Combined signed PCR policies and pcrlock policies cannot be calculated offline, currently.");
@@ -500,7 +491,7 @@ int enroll_tpm2(struct crypt_device *cd,
                 n_blobs = 1;
 
                 r = tpm2_calculate_seal(
-                                seal_key_handle,
+                                c->tpm2_seal_key_handle,
                                 &device_key_public,
                                 /* attributes= */ NULL,
                                 /* secret= */ NULL,
@@ -511,7 +502,7 @@ int enroll_tpm2(struct crypt_device *cd,
                                 &srk);
         } else
                 r = tpm2_seal(tpm2_context,
-                              seal_key_handle,
+                              c->tpm2_seal_key_handle,
                               policy_hash,
                               n_policy_hash,
                               pin_str,
@@ -534,7 +525,7 @@ int enroll_tpm2(struct crypt_device *cd,
                 log_debug_errno(r, "PCR policy hash not yet enrolled, enrolling now.");
         else if (r < 0)
                 return r;
-        else if (use_pin) {
+        else if (c->tpm2_pin) {
                 log_debug("This PCR set is already enrolled, re-enrolling anyway to update PIN.");
                 slot_to_wipe = r;
         } else {
@@ -544,7 +535,7 @@ int enroll_tpm2(struct crypt_device *cd,
         }
 
         /* If possible, verify the sealed data object. */
-        if ((!iovec_is_set(&pubkey) || signature_json) && !any_pcr_value_specified && !device_key) {
+        if ((!iovec_is_set(&pubkey) || signature_json) && !any_pcr_value_specified && !c->tpm2_device_key) {
                 _cleanup_(iovec_done_erase) struct iovec secret2 = {};
 
                 log_debug("Unsealing for verification...");
@@ -555,7 +546,7 @@ int enroll_tpm2(struct crypt_device *cd,
                                 pubkey_pcr_mask,
                                 signature_json,
                                 pin_str,
-                                pcrlock_path ? &pcrlock_policy : NULL,
+                                c->tpm2_pcrlock ? &pcrlock_policy : NULL,
                                 primary_alg,
                                 blobs,
                                 n_blobs,
@@ -600,9 +591,9 @@ int enroll_tpm2(struct crypt_device *cd,
                         n_blobs,
                         policy_hash_as_iovec,
                         n_policy_hash,
-                        use_pin ? &IOVEC_MAKE(binary_salt, sizeof(binary_salt)) : NULL,
+                        c->tpm2_pin ? &IOVEC_MAKE(binary_salt, sizeof(binary_salt)) : NULL,
                         &srk,
-                        pcrlock_path ? &pcrlock_policy.nv_handle : NULL,
+                        c->tpm2_pcrlock ? &pcrlock_policy.nv_handle : NULL,
                         flags,
                         &v);
         if (r < 0)
