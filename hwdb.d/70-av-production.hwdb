@@ -235,6 +235,10 @@ usb:v17CCp1210*
 usb:v17CCp1130*
  ID_AV_PRODUCTION_CONTROLLER=1
 
+# Traktor MX2
+usb:v17CCp2420*
+ ID_AV_PRODUCTION_CONTROLLER=1
+
 ####################
 # Pioneer
 ####################
