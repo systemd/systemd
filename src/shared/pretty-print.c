@@ -177,11 +177,11 @@ int terminal_urlify_path(const char *path, const char *text, char **ret) {
         return terminal_urlify(url, text, ret);
 }
 
-int terminal_urlify_man(const char *page, const char *section, char **ret) {
+int terminal_urlify_man_full(const char *page, const char *section, const char *suffix, char **ret) {
         const char *url, *text;
 
         url = strjoina("man:", page, "(", section, ")");
-        text = strjoina(page, "(", section, ") man page");
+        text = strjoina(page, "(", section, ")", suffix);
 
         return terminal_urlify(url, text, ret);
 }
