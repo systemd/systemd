@@ -948,6 +948,12 @@ ImagePolicy* image_policy_free(ImagePolicy *p) {
         return mfree(p);
 }
 
+ImagePolicy* image_policy_copy(ImagePolicy *p) {
+        assert(p);
+
+        return memdup(p, offsetof(ImagePolicy, policies) + sizeof(PartitionPolicy) * p->n_policies);
+}
+
 int image_policy_ignore_designators(const ImagePolicy *p, const PartitionDesignator table[], size_t n_table, ImagePolicy **ret) {
         assert(p);
         assert(table || n_table == 0);

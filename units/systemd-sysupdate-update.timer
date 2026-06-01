@@ -9,7 +9,7 @@
 
 [Unit]
 Description=Automatic System Update
-Documentation=man:systemd-sysupdate.service(8)
+Documentation=man:systemd-sysupdate-update.service(8)
 
 # For containers we assume that the manager will handle updates. And we likely
 # can't even access our backing block device anyway.
