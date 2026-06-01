@@ -994,7 +994,6 @@
       <varlistentry>
         <term><varname>emergency</varname></term>
         <term><varname>rd.emergency</varname></term>
-        <term><varname>-b</varname></term>
 
         <listitem><para>Boot into emergency mode. Those options are equivalent to
         <varname>systemd.unit=emergency.target</varname> or
@@ -1008,8 +1007,6 @@
         <term><varname>rescue</varname></term>
         <term><varname>rd.rescue</varname></term>
         <term><varname>single</varname></term>
-        <term><varname>s</varname></term>
-        <term><varname>S</varname></term>
         <term><varname>1</varname></term>
 
         <listitem><para>Boot into rescue mode. Those options are equivalent to either
@@ -1021,16 +1018,13 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>2</varname></term>
         <term><varname>3</varname></term>
-        <term><varname>4</varname></term>
         <term><varname>5</varname></term>
 
-        <listitem><para>Shortcuts to boot into specific targets:
-        <varname>2</varname>, <varname>3</varname>, and <varname>4</varname> are equivalent to
-        <varname>systemd.unit=multi-user.target</varname>; and <varname>5</varname> is equivalent to
-        <varname>systemd.unit=graphical.target</varname>. Those options were initially provided
-        for compatibility with SysV, but are retained as convenient shortcuts.</para>
+        <listitem><para>Shortcuts to boot into specific targets: <varname>3</varname> is equivalent to
+        <varname>systemd.unit=multi-user.target</varname> and <varname>5</varname> is equivalent to
+        <varname>systemd.unit=graphical.target</varname>. Those options were initially provided for
+        compatibility with SysV, but are retained as convenient shortcuts.</para>
 
         <xi:include href="version-info.xml" xpointer="v186"/></listitem>
       </varlistentry>
