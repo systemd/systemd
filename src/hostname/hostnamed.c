@@ -828,7 +828,7 @@ static int context_write_data_static_hostname(Context *c) {
 
         if (isempty(c->data[PROP_STATIC_HOSTNAME])) {
                 if (unlink(etc_hostname()) < 0 && errno != ENOENT)
-                        return -errno;
+                        return log_error_errno(errno, "Failed to remove '%s': %m", etc_hostname());
 
                 TAKE_PTR(s);
                 return 0;
@@ -836,7 +836,7 @@ static int context_write_data_static_hostname(Context *c) {
 
         r = write_string_file(etc_hostname(), c->data[PROP_STATIC_HOSTNAME], WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_LABEL);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to write '%s': %m", etc_hostname());
 
         TAKE_PTR(s);
         return 0;
@@ -863,19 +863,18 @@ static int context_write_data_machine_info(Context *c) {
 
         r = load_env_file(NULL, etc_machine_info(), &l);
         if (r < 0 && r != -ENOENT)
-                return r;
+                return log_error_errno(r, "Failed to read '%s': %m", etc_machine_info());
 
         for (HostProperty p = _PROP_MACHINE_INFO_SETTABLE_FIRST; p <= _PROP_MACHINE_INFO_SETTABLE_LAST; p++) {
                 assert(name[p]);
 
-                r = strv_env_assign(&l, name[p], empty_to_null(c->data[p]));
-                if (r < 0)
-                        return r;
+                if (strv_env_assign(&l, name[p], empty_to_null(c->data[p])) < 0)
+                        return log_oom();
         }
 
         if (strv_isempty(l)) {
                 if (unlink(etc_machine_info()) < 0 && errno != ENOENT)
-                        return -errno;
+                        return log_error_errno(errno, "Failed to unlink '%s': %m", etc_machine_info());
 
                 TAKE_PTR(s);
                 return 0;
@@ -888,7 +887,7 @@ static int context_write_data_machine_info(Context *c) {
                         l,
                         WRITE_ENV_FILE_LABEL);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to write '%s': %m", etc_machine_info());
 
         TAKE_PTR(s);
         return 0;
@@ -1466,7 +1465,6 @@ static int method_set_static_hostname(sd_bus_message *m, void *userdata, sd_bus_
 
         r = context_write_data_static_hostname(c);
         if (r < 0) {
-                log_error_errno(r, "Failed to write static hostname: %m");
                 if (ERRNO_IS_PRIVILEGE(r))
                         return sd_bus_error_set(error, BUS_ERROR_FILE_IS_PROTECTED, "Not allowed to update /etc/hostname.");
                 if (r == -EROFS)
@@ -1475,10 +1473,8 @@ static int method_set_static_hostname(sd_bus_message *m, void *userdata, sd_bus_
         }
 
         r = context_update_kernel_hostname(c, /* transient_hostname= */ NULL);
-        if (r < 0) {
-                log_error_errno(r, "Failed to set hostname: %m");
+        if (r < 0)
                 return sd_bus_error_set_errnof(error, r, "Failed to set hostname: %m");
-        }
 
         (void) sd_bus_emit_properties_changed(sd_bus_message_get_bus(m),
                                               "/org/freedesktop/hostname1", "org.freedesktop.hostname1",
@@ -1544,7 +1540,6 @@ static int set_machine_info(Context *c, sd_bus_message *m, int prop, sd_bus_mess
 
         r = context_write_data_machine_info(c);
         if (r < 0) {
-                log_error_errno(r, "Failed to write machine info: %m");
                 if (ERRNO_IS_PRIVILEGE(r))
                         return sd_bus_error_set(error, BUS_ERROR_FILE_IS_PROTECTED, "Not allowed to update /etc/machine-info.");
                 if (r == -EROFS)
