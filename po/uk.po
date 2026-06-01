@@ -9,7 +9,7 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-05-30 00:13+0200\n"
-"PO-Revision-Date: 2026-05-31 10:01+0000\n"
+"PO-Revision-Date: 2026-06-01 10:40+0000\n"
 "Last-Translator: Yuri Chornoivan <yurchor@ukr.net>\n"
 "Language-Team: Ukrainian <https://translate.fedoraproject.org/projects/"
 "systemd/main/uk/>\n"
@@ -19,7 +19,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=3; plural=n%10==1 && n%100!=11 ? 0 : n%10>=2 && "
 "n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2;\n"
-"X-Generator: Weblate 2026.5\n"
+"X-Generator: Weblate 2026.6\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -1304,22 +1304,26 @@ msgid ""
 "Authentication is required to cancel updating the system to a specific "
 "(possibly old) version."
 msgstr ""
+"Для скасування оновлення системи до певної (можливо, застарілої) версії слід "
+"пройти розпізнавання."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:98
 msgid "Clean up old system updates"
-msgstr ""
+msgstr "Вилучення застарілих оновлень системи"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:99
 msgid "Authentication is required to clean up old system updates."
-msgstr ""
+msgstr "Для вилучення застарілих оновлень системи слід пройти розпізнавання."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:108
 msgid "Cancel cleaning up old system updates"
-msgstr ""
+msgstr "Скасування вилучення застарілих оновлень системи"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:109
 msgid "Authentication is required to cancel cleanup of old system updates."
 msgstr ""
+"Для скасування вилучення застарілих оновлень системи слід пройти "
+"розпізнавання."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:118
 msgid "Manage optional features"
@@ -1427,15 +1431,17 @@ msgstr ""
 
 #: src/shared/libfido2-util.c:497 src/shared/libfido2-util.c:554
 msgid "Please confirm presence on security token to unlock."
-msgstr ""
+msgstr "Будь ласка, підтвердьте наявність на жетоні захисту для розблокування."
 
 #: src/shared/libfido2-util.c:513
 msgid "Please verify user on security token to unlock."
 msgstr ""
+"Будь ласка, підтвердьте ідентичність користувача на жетоні захисту для "
+"розблокування."
 
 #: src/shared/libfido2-util.c:926
 msgid "Please enter security token PIN:"
-msgstr ""
+msgstr "Будь ласка, введіть PIN жетона захисту:"
 
 #~ msgid "Cleanup old system updates"
 #~ msgstr "Вилучення застарілих оновлень системи"
