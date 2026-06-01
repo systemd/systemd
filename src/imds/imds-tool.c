@@ -224,7 +224,7 @@ static int acquire_imds_key(
                 { "data", SD_JSON_VARIANT_STRING, json_dispatch_unbase64_iovec, 0, SD_JSON_MANDATORY },
                 {},
         };
-        r = sd_json_dispatch(reply, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &data);
+        r = sd_json_dispatch(reply, dispatch_table, SD_JSON_ALLOW_EXTENSIONS|SD_JSON_LOG, &data);
         if (r < 0)
                 return r;
 
@@ -257,7 +257,7 @@ static int acquire_imds_key_as_string(
         _cleanup_free_ char *s = NULL;
         r = make_cstring(data.iov_base, data.iov_len, MAKE_CSTRING_REFUSE_TRAILING_NUL, &s);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to turn IMDS data into a C string: %m");
 
         *ret = TAKE_PTR(s);
         return 1;
@@ -287,7 +287,7 @@ static int acquire_imds_key_as_ip_address(
 
         r = in_addr_from_string(family, s, ret);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to parse IP address '%s': %m", s);
 
         return 1;
 }
@@ -319,7 +319,7 @@ static int action_summary(sd_varlink *link) {
                 { "vendor",    SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, 0, 0 },
                 {}
         };
-        r = sd_json_dispatch(reply, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &vendor);
+        r = sd_json_dispatch(reply, dispatch_table, SD_JSON_ALLOW_EXTENSIONS|SD_JSON_LOG, &vendor);
         if (r < 0)
                 return r;
         if (vendor) {
@@ -489,9 +489,9 @@ static int import_credentials(const char *text) {
         r = sd_json_parse(e, /* flags= */ 0, &j, &line, &column);
         if (r < 0) {
                 if (line > 0)
-                        log_syntax(/* unit= */ NULL, LOG_WARNING, /* filename= */ NULL, line, r, "JSON parse failure.");
+                        log_syntax(/* unit= */ NULL, LOG_WARNING, /* filename= */ NULL, line, r, "JSON parse failure, ignoring user data");
                 else
-                        log_error_errno(r, "Failed to parse IMDS userdata JSON: %m");
+                        log_warning_errno(r, "Failed to parse IMDS userdata JSON, ignoring user data: %m");
                 return 0;
         }
 
