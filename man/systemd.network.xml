@@ -165,6 +165,7 @@
       <xi:include href="systemd.link.xml" xpointer="credential" />
       <xi:include href="systemd.link.xml" xpointer="architecture" />
       <xi:include href="systemd.link.xml" xpointer="firmware" />
+      <xi:include href="systemd.link.xml" xpointer="machine-tag" />
     </variablelist>
   </refsect1>
 
