@@ -1201,6 +1201,8 @@ int link_address_update_rtnl(LinkAddress *a, sd_netlink_message *m) {
         (void) sd_rtnl_message_addr_get_prefixlen(m, &a->prefixlen);
         (void) sd_rtnl_message_addr_get_scope(m, &a->scope);
 
+        link_read_settings(a->link);
+
         link_allocate_scopes(a->link);
         link_add_rrs(a->link, false);
 
