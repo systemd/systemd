@@ -855,7 +855,7 @@ static int context_write_data_static_hostname(Context *c) {
 
         r = write_string_file(etc_hostname(), c->data[PROP_STATIC_HOSTNAME], WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_LABEL);
         if (r < 0)
-                return log_error_errno(errno, "Failed to write '%s': %m", etc_hostname());
+                return log_error_errno(r, "Failed to write '%s': %m", etc_hostname());
 
         TAKE_PTR(s);
         return 0;
