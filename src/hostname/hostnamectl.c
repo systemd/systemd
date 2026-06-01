@@ -772,25 +772,75 @@ static int verb_get_or_set_tags(int argc, char *argv[], uintptr_t _data, void *u
                 return 0;
         }
 
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_strv_free_ char **plain = NULL, **add = NULL, **remove = NULL;
+        bool prefixed = false, unprefixed = false;
         for (int i = 1; i < argc; i++) {
-                r = strv_split_and_extend(&l, argv[i], ":", /* filter_duplicates= */ true);
-                if (r < 0)
+                const char *e = argv[i];
+                char ***dest;
+
+                /* The first character of each argument selects the mode for all (colon-separated) tags in
+                 * that argument: a leading '+' adds them, a leading '-' removes them, and otherwise the
+                 * argument lists tags to set verbatim. Setting and adding/removing may not be mixed. */
+                if (e[0] == '+') {
+                        dest = &add;
+                        e++;
+                        prefixed = true;
+                } else if (e[0] == '-') {
+                        dest = &remove;
+                        e++;
+                        prefixed = true;
+                } else {
+                        dest = &plain;
+                        unprefixed = true;
+                }
+
+                if (isempty(e)) {
+                        if (dest == &plain && !*dest) {
+                                *dest = new0(char*, 1);
+                                if (!*dest)
+                                        return log_oom();
+                        }
+                } else if (strv_split_and_extend(dest, e, ":", /* filter_duplicates= */ true) < 0)
                         return log_oom();
         }
 
-        strv_sort(l);
+        if (prefixed && unprefixed)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Plain tags may not be combined with '+'/'-' prefixed tags.");
 
         (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
-        r = bus_message_new_method_call(bus, &m, bus_hostname, "SetTags");
-        if (r < 0)
-                return bus_log_create_error(r);
 
-        r = sd_bus_message_append_strv(m, l);
-        if (r < 0)
-                return bus_log_create_error(r);
+        if (!prefixed) {
+                /* No prefixes used: replace the whole tag list with the given tags (possibly empty, which
+                 * clears all tags). */
+                strv_sort(plain);
+
+                r = bus_message_new_method_call(bus, &m, bus_hostname, "SetTags");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_append_strv(m, plain);
+                if (r < 0)
+                        return bus_log_create_error(r);
+        } else {
+                /* Prefixes used: incrementally add and/or remove tags. */
+                strv_sort(add);
+                strv_sort(remove);
+
+                r = bus_message_new_method_call(bus, &m, bus_hostname, "AddAndRemoveTags");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_append_strv(m, add);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_append_strv(m, remove);
+                if (r < 0)
+                        return bus_log_create_error(r);
+        }
 
         r = sd_bus_call(bus, m, /* usec= */ 0, &error, /* ret_reply= */ NULL);
         if (r < 0)
