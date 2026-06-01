@@ -311,17 +311,34 @@ def convert_sections(
     file: elffile.ELFFile,
     opt: PeOptionalHeader,
 ) -> list[PeSection]:
-    last_vma = (0, 0)
+    last_pe = (0, 0)  # (virtual_address, virtual_size) of previous PE section
+    last_elf = (0, 0)  # (vma, size) of original ELF section (for overlap detection)
     sections = []
 
     for pe_s in iter_copy_sections(file):
-        # Truncate the VMA to the nearest page and insert appropriate padding. This should not
-        # cause any overlap as this is pretty much how ELF *segments* are loaded/mmapped anyways.
-        # The ELF sections inside should also be properly aligned as we reuse the ELF VMA layout
-        # for the PE image.
         vma = pe_s.VirtualAddress
+        original_data_size = len(pe_s.data)
         pe_s.VirtualAddress = align_down(vma, SECTION_ALIGNMENT)
-        pe_s.data = bytearray(vma - pe_s.VirtualAddress) + pe_s.data
+
+        # If this section would overlap the previous one after align_down,
+        # check if the *original* ELF sections also overlap. If they don't,
+        # this is just an alignment artifact (e.g. binutils 2.42) and we can
+        # safely place the section after the previous PE one. If the original
+        # ELF sections *do* overlap, this is a genuine problem (e.g. missing
+        # -z separate-code) and we let BadSectionError report it below.
+        if sections and pe_s.VirtualAddress < sum(last_pe):
+            # Check if original ELF sections also overlap (without align_down).
+            if vma >= sum(last_elf):
+                # Original ELF sections don't overlap - this is just an
+                # alignment artifact. Place section after previous one.
+                pe_s.VirtualAddress = next_section_address(sections)
+            # else: original ELF sections overlap - let BadSectionError fire
+
+        # Add padding only if the adjusted address is before the original ELF VMA.
+        # If we had to align up, don't add extra padding - the section data
+        # simply starts at the new (higher) address.
+        if pe_s.VirtualAddress <= vma:
+            pe_s.data = bytearray(vma - pe_s.VirtualAddress) + pe_s.data
 
         pe_s.VirtualSize = len(pe_s.data)
         pe_s.SizeOfRawData = align_to(len(pe_s.data), FILE_ALIGNMENT)
@@ -332,11 +349,12 @@ def convert_sections(
         }[pe_s.Characteristics]
 
         # This can happen if not building with '-z separate-code'.
-        if pe_s.VirtualAddress < sum(last_vma):
+        if pe_s.VirtualAddress < sum(last_pe):
             raise BadSectionError(
-                f'Section {pe_s.Name.decode()!r} @{pe_s.VirtualAddress:#x} overlaps previous section @{last_vma[0]:#x}+{last_vma[1]:#x}=@{sum(last_vma):#x}'
+                f'Section {pe_s.Name.decode()!r} @{pe_s.VirtualAddress:#x} overlaps previous section @{last_pe[0]:#x}+{last_pe[1]:#x}=@{sum(last_pe):#x}'
             )
-        last_vma = (pe_s.VirtualAddress, pe_s.VirtualSize)
+        last_pe = (pe_s.VirtualAddress, pe_s.VirtualSize)
+        last_elf = (vma, original_data_size)
 
         if pe_s.Name == b'.text':
             opt.BaseOfCode = pe_s.VirtualAddress
