@@ -128,6 +128,17 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 ## Features
 
+- now that the kernel supports xattrs on sockets: mark varlink entrypoint
+  sockets, server side of varlink sockets, and client sides of valrink sockets
+  with distinct xattrs to make them recognizable (similar maybe for our other
+  protocols, such as syslog, journal native entry point). For entrypoints might
+  require new .socket unit setting.
+
+- implement "varlinkctl trace" or so, that watches socket traffic on a group of
+  processes (select by pid, select by cgroup, select by all machine), and shows
+  traffic of all sockets marked via the new varlink socket xattrs. Use BPF for
+  all of that of course.
+
 - systemd-report: implement signing via callout varlink dir
 
 - add tooling for generating dictionary-based hostnames
