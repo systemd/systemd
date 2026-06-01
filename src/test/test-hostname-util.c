@@ -132,6 +132,10 @@ TEST(machine_tag_is_valid) {
         assert_se(!machine_tag_is_valid("fööbar"));    /* non-ASCII */
         assert_se(!machine_tag_is_valid("foo/bar"));
         assert_se(!machine_tag_is_valid("foo_bar"));
+        assert_se(!machine_tag_is_valid("-foo"));
+        assert_se(!machine_tag_is_valid("foo-"));
+        assert_se(!machine_tag_is_valid(".foo"));
+        assert_se(!machine_tag_is_valid("foo."));
 
         /* Length boundary: 255 characters is fine, 256 is too long */
         _cleanup_free_ char *max = strrep("a", 255), *over = strrep("a", 256);
