@@ -68,7 +68,7 @@ int userns_restrict_install(
         if (r == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "bpf-lsm not supported, can't lock down user namespace.");
 
-        r = dlopen_bpf(LOG_DEBUG);
+        r = DLOPEN_BPF(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
         if (r < 0)
                 return r;
 

@@ -1258,7 +1258,7 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        r = dlopen_microhttpd(LOG_ERR);
+        r = DLOPEN_MICROHTTPD(LOG_ERR, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED);
         if (r < 0)
                 return r;
 

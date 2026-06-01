@@ -17,11 +17,7 @@ DLSYM_PROTOTYPE(idn2_to_unicode_8z8z) = NULL;
 
 int dlopen_idn(int log_level) {
 #if HAVE_LIBIDN2
-        SD_ELF_NOTE_DLOPEN(
-                        "idn",
-                        "Support for internationalized domain names",
-                        SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
-                        "libidn2.so.0");
+        IDN_NOTE(SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED);
 
         return dlopen_many_sym_or_warn(
                         &idn_dl, "libidn2.so.0", log_level,

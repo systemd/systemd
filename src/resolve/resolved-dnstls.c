@@ -397,11 +397,11 @@ int dnstls_manager_init(Manager *manager) {
 
         assert(manager);
 
-        r = dlopen_libcrypto(LOG_WARNING);
+        r = DLOPEN_LIBCRYPTO(LOG_WARNING, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED);
         if (r < 0)
                 return r;
 
-        r = dlopen_libssl(LOG_WARNING);
+        r = DLOPEN_LIBSSL(LOG_WARNING, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED);
         if (r < 0)
                 return r;
 

@@ -17,7 +17,7 @@ int mac_selinux_setup(bool *loaded_policy) {
 
         assert(loaded_policy);
 
-        r = dlopen_libselinux(LOG_DEBUG);
+        r = DLOPEN_LIBSELINUX(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
         if (r < 0)
                 return 0;
 
