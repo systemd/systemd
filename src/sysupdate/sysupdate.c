@@ -2056,6 +2056,96 @@ static int verb_enable_feature(int argc, char *argv[], uintptr_t _data, void *us
         return 0;
 }
 
+static int feature_to_json(Context *context, const Feature *f, sd_json_variant **ret) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        int r;
+
+        assert(context);
+        assert(f);
+        assert(ret);
+
+        r = sd_json_variant_merge_objectbo(
+                        &v,
+                        SD_JSON_BUILD_PAIR_STRING("id", f->id),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("description", f->description),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("documentation", f->documentation),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("appstream", f->appstream),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("isEnabled", f->enabled));
+        if (r < 0)
+                return log_oom();
+
+        _cleanup_strv_free_ char **transfers = NULL;
+
+        r = context_get_transfers_for_feature(context, &transfers, f->id);
+        if (r < 0)
+                return r;
+
+        r = sd_json_variant_merge_objectbo(
+                        &v,
+                        JSON_BUILD_PAIR_STRV_NON_EMPTY("transfers", transfers));
+        if (r < 0)
+                return log_oom();
+
+        *ret = TAKE_PTR(v);
+        return 1;
+}
+
+static int vl_method_list_features(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        _cleanup_(context_done) Context context = CONTEXT_NULL;
+        Feature *f;
+        int r;
+
+        assert(link);
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "target", SD_JSON_VARIANT_OBJECT, dispatch_target_identifier, voffsetof(context, target_identifier), SD_JSON_MANDATORY },
+                {},
+        };
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &context);
+        if (r != 0)
+                return r;
+
+        /* Listing features doesn’t require a polkit check */
+
+        if (getenv_bool("SYSTEMD_SYSUPDATE_NO_VERIFY") > 0)
+                context.verify = false;
+
+        /* ListFeatures is always online */
+        context.offline = false;
+
+        r = context_load_online_from_target(
+                        &context,
+                        PROCESS_IMAGE_READ_ONLY,
+                        READ_DEFINITIONS_REQUIRES_ENABLED_TRANSFERS|
+                        READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS);
+        if (r < 0)
+                return r;
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *l = NULL;
+
+        HASHMAP_FOREACH(f, context.features) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+
+                r = feature_to_json(&context, f, &v);
+                if (r < 0)
+                        return r;
+
+                r = sd_json_variant_append_array(&l, v);
+                if (r < 0)
+                        return r;
+        }
+
+        if (!l) {
+                r = sd_json_variant_new_array(&l, NULL, 0);
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_varlink_replybo(link,
+                        SD_JSON_BUILD_PAIR_VARIANT("features", l));
+}
+
 VERB_NOARG(verb_check_new, "check-new",
            "Check if there's a new version available");
 static int verb_check_new(int argc, char *argv[], uintptr_t _data, void *userdata) {
@@ -2858,7 +2948,8 @@ static int vl_server(void) {
 
         r = sd_varlink_server_bind_method_many(
                         varlink_server,
-                        "io.systemd.SysUpdate.CheckNew", vl_method_check_new);
+                        "io.systemd.SysUpdate.CheckNew",     vl_method_check_new,
+                        "io.systemd.SysUpdate.ListFeatures", vl_method_list_features);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind Varlink method: %m");
 

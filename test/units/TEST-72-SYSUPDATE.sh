@@ -461,8 +461,16 @@ EOF
     verify_version_current "$blockdev" "$sector_size" v5 2
 
     # Now let's try enabling an optional feature
-    "$SYSUPDATE" features | grep "optional"
-    "$SYSUPDATE" features optional | grep "99-optional"
+    if [[ "$client" == "sysupdate-cli" ]]; then
+        "$SYSUPDATE" features | grep "optional"
+        "$SYSUPDATE" features optional | grep "99-optional"
+    elif [[ "$client" == "varlink" ]]; then
+        [[ $(varlinkctl call "$VARLINK_SOCKET" io.systemd.SysUpdate.ListFeatures '{"target":{"class":"host"}}' | jq -r '.features[] | select(.id=="optional") | .description') == "Optional Feature" ]]
+        varlinkctl call "$VARLINK_SOCKET" io.systemd.SysUpdate.ListFeatures '{"target":{"class":"host"}}' | jq -r '.features[] | select(.id=="optional") | .transfers' | grep "99-optional"
+    else
+        exit 1
+    fi
+
     test ! -f "$WORKDIR/xbootldr/EFI/Linux/uki_v5.efi.extra.d/optional.efi"
     mkdir "$CONFIGDIR/optional.feature.d"
     echo -e "[Feature]\nEnabled=true" > "$CONFIGDIR/optional.feature.d/enable.conf"
@@ -674,8 +682,15 @@ Path=$WORKDIR/blobs
 MatchPattern=tiny-@v.bin
 InstancesMax=1
 EOF
+
 "$SYSUPDATE" --verify=no update
 cmp "$WORKDIR/source/tiny-v1.bin" "$WORKDIR/blobs/tiny-v1.bin"
+
+# Test that listing features when none are configured gives an empty list.
+"$SYSUPDATE" features |& grep "No features." >/dev/null
+[[ $(varlinkctl call "$VARLINK_SOCKET" io.systemd.SysUpdate.ListFeatures '{"target":{"class":"host"}}' | jq -r '.features') == "[]" ]]
+
+# Cleanup
 rm "$CONFIGDIR/01-tiny-url.transfer"
 rm "$WORKDIR/source/tiny-v1.bin"
 rm "$WORKDIR/source/SHA256SUMS"
