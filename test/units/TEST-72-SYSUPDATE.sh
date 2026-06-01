@@ -121,6 +121,14 @@ new_version() {
     fi
 }
 
+check_no_new_update_available() {
+    (! "$SYSUPDATE" --verify=no check-new)
+}
+
+check_new_update_available() {
+    "$SYSUPDATE" --verify=no check-new
+}
+
 update_now() {
     local update_type="${1:?}"
     local checks="${2:-}"
@@ -135,7 +143,7 @@ update_now() {
     # repairing an installation), so that can be overridden via the local.
 
     if [[ "$checks" != "no-checks" ]]; then
-        "$SYSUPDATE" --verify=no check-new
+        check_new_update_available
     fi
 
     if [[ "$update_type" == "monolithic" ]]; then
@@ -159,7 +167,7 @@ update_now() {
     fi
 
     if [[ "$checks" != "no-checks" ]]; then
-        (! "$SYSUPDATE" --verify=no check-new)
+        check_no_new_update_available
     fi
 }
 
@@ -394,7 +402,7 @@ EOF
     new_version "$sector_size" v4
     rm "$WORKDIR/source/uki-extra-v4.efi"
     update_checksums
-    (! "$SYSUPDATE" --verify=no check-new)
+    check_no_new_update_available
 
     # Create a fifth version, that's complete on the server side. We should
     # completely skip the incomplete v4 and install v5 instead.
@@ -429,7 +437,7 @@ EOF
 
     # And now let's disable it and make sure it gets cleaned up
     rm -r "$CONFIGDIR/optional.feature.d"
-    (! "$SYSUPDATE" --verify=no check-new)
+    check_no_new_update_available
     "$SYSUPDATE" vacuum
     "$SYSUPDATE" --offline list v5 | grep -v "incomplete" >/dev/null
     verify_version "$blockdev" "$sector_size" v3 1
@@ -441,7 +449,7 @@ EOF
     new_version "$sector_size" v6
     if [[ -x "$UPDATECTL" ]]; then
         systemctl start systemd-sysupdated
-        "$SYSUPDATE" --verify=no check-new
+        check_new_update_available
         "$UPDATECTL" update |& tee "$WORKDIR"/updatectl-update-6
         grep "Done" "$WORKDIR"/updatectl-update-6
         (! grep "Already up-to-date" "$WORKDIR"/updatectl-update-6)
@@ -451,7 +459,7 @@ EOF
     fi
     # User-facing updatectl returns 0 if there's no updates, so use the low-level
     # utility to make sure we did upgrade
-    (! "$SYSUPDATE" --verify=no check-new )
+    check_no_new_update_available
     verify_version_current "$blockdev" "$sector_size" v6 1
     verify_version "$blockdev" "$sector_size" v5 2
 
