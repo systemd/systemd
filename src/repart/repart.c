@@ -477,6 +477,7 @@ typedef struct Partition {
 
         uint64_t partno;
         uint64_t offset;
+        uint64_t configured_offset; /* UINT64_MAX = auto-placed */
 
         struct fdisk_partition *current_partition;
         struct fdisk_partition *new_partition;
@@ -774,6 +775,7 @@ static Partition *partition_new(Context *c) {
                 .padding_max = UINT64_MAX,
                 .partno = UINT64_MAX,
                 .offset = UINT64_MAX,
+                .configured_offset = UINT64_MAX,
                 .copy_blocks_fd = -EBADF,
                 .copy_blocks_offset = UINT64_MAX,
                 .copy_blocks_size = UINT64_MAX,
@@ -1404,6 +1406,10 @@ static bool context_allocate_partitions(Context *context, uint64_t *ret_largest_
                         continue;
                 }
 
+                /* Pinned partitions have an explicit offset; skip free-area allocation for them. */
+                if (p->configured_offset != UINT64_MAX)
+                        continue;
+
                 /* For new partitions, see if there's a free area big enough */
                 for (size_t i = 0; i < context->n_free_areas; i++) {
                         a = context->free_areas[i];
@@ -1746,6 +1752,18 @@ static int context_grow_partitions(Context *context) {
                 if (p->dropped)
                         continue;
 
+                /* Pinned new partitions (OffsetBytes=) are not in any free area; their size
+                 * is fixed to SizeMinBytes= since there is no free space to grow into. */
+                if (!PARTITION_EXISTS(p) && p->configured_offset != UINT64_MAX) {
+                        if (p->new_size == UINT64_MAX) {
+                                assert(p->size_min != UINT64_MAX);
+                                p->new_size = p->size_min;
+                        }
+                        if (p->new_padding == UINT64_MAX)
+                                p->new_padding = 0;
+                        continue;
+                }
+
                 if (!PARTITION_EXISTS(p) || p->padding_area) {
                         /* The algorithm above must have initialized this already */
                         assert(p->new_size != UINT64_MAX);
@@ -1783,6 +1801,22 @@ static void context_place_partitions(Context *context) {
 
         assert(context);
 
+        /* First pass: place partitions with an explicit OffsetBytes= at their pinned location.
+         * These bypass grain-size rounding entirely — the offset is exact as configured. */
+        LIST_FOREACH(partitions, p, context->partitions) {
+                if (p->configured_offset == UINT64_MAX)
+                        continue;
+                if (p->dropped || PARTITION_IS_FOREIGN(p) || PARTITION_SUPPRESSED(p))
+                        continue;
+                if (PARTITION_EXISTS(p))
+                        continue; /* Already have an offset from the on-disk table. */
+
+                assert(p->new_size != UINT64_MAX);
+                p->offset = p->configured_offset;
+                p->partno = find_first_unused_partno(context);
+        }
+
+        /* Second pass: auto-place the remaining partitions in free areas (unchanged behavior). */
         for (size_t i = 0; i < context->n_free_areas; i++) {
                 FreeArea *a = context->free_areas[i];
                 uint64_t left;
@@ -1982,6 +2016,36 @@ static int config_parse_size4096(
                 log_syntax(unit, LOG_NOTICE, filename, line, r, "Rounded %s= size %" PRIu64 " %s %" PRIu64 ", a multiple of 4096.",
                            lvalue, parsed, glyph(GLYPH_ARROW_RIGHT), *sz);
 
+        return 0;
+}
+
+static int config_parse_offset_bytes(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        uint64_t *offset = ASSERT_PTR(data), parsed;
+        int r;
+
+        assert(rvalue);
+
+        r = parse_size(rvalue, 1024, &parsed);
+        if (r < 0)
+                return log_syntax(unit, LOG_ERR, filename, line, r,
+                                  "Failed to parse offset value: %s", rvalue);
+
+        if (parsed == 0)
+                return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
+                                  "OffsetBytes= must not be zero.");
+
+        *offset = parsed;
         return 0;
 }
 
@@ -2932,6 +2996,7 @@ static int partition_read_definition(
                 { "Partition", "SizeMaxBytes",             config_parse_size4096,          1,                                  &p->size_max                },
                 { "Partition", "PaddingMinBytes",          config_parse_size4096,         -1,                                  &p->padding_min             },
                 { "Partition", "PaddingMaxBytes",          config_parse_size4096,          1,                                  &p->padding_max             },
+                { "Partition", "OffsetBytes",              config_parse_offset_bytes,      0,                                  &p->configured_offset       },
                 { "Partition", "FactoryReset",             config_parse_bool,              0,                                  &p->factory_reset           },
                 { "Partition", "CopyBlocks",               config_parse_copy_blocks,       0,                                  p                           },
                 { "Partition", "Format",                   config_parse_fstype,            0,                                  &p->format                  },
@@ -3766,6 +3831,7 @@ static int context_load_partition_table(Context *context) {
         sd_id128_t disk_uuid;
         size_t n_partitions;
         uint64_t grainsz, fs_secsz = DEFAULT_FILESYSTEM_SECTOR_SIZE;
+        uint64_t min_configured_offset = UINT64_MAX, pinned_region_end = 0;
         int r;
 
         assert(context);
@@ -3887,6 +3953,35 @@ static int context_load_partition_table(Context *context) {
 
         log_debug("Sector size of device is %lu bytes. Using default filesystem sector size of %" PRIu64 " and grain size of %" PRIu64 ".", secsz, fs_secsz, grainsz);
 
+        /* Pre-scan for partitions with explicit OffsetBytes= so we can configure libfdisk before
+         * creating the GPT label (first_usable_lba is fixed at fdisk_create_disklabel time). */
+        LIST_FOREACH(partitions, p, context->partitions) {
+                if (p->configured_offset == UINT64_MAX)
+                        continue;
+                if (p->dropped || PARTITION_IS_FOREIGN(p))
+                        continue;
+
+                if (p->configured_offset % secsz != 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Configured offset %" PRIu64 " for partition %s is not a multiple of "
+                                               "the sector size %lu, refusing.",
+                                               p->configured_offset, p->definition_path, secsz);
+
+                if (p->size_min == UINT64_MAX)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Partition %s has OffsetBytes= set but no SizeMinBytes=, refusing.",
+                                               p->definition_path);
+
+                min_configured_offset = MIN(min_configured_offset, p->configured_offset);
+
+                uint64_t end;
+                if (!ADD_SAFE(&end, p->configured_offset, p->size_min))
+                        return log_error_errno(SYNTHETIC_ERRNO(EOVERFLOW),
+                                               "Partition %s OffsetBytes= + SizeMinBytes= overflows, refusing.",
+                                               p->definition_path);
+                pinned_region_end = MAX(pinned_region_end, end);
+        }
+
         switch (context->empty) {
 
         case EMPTY_REFUSE:
@@ -3931,6 +4026,14 @@ static int context_load_partition_table(Context *context) {
         }
 
         if (from_scratch) {
+                /* Lower first_lba before creating the GPT so libfdisk initializes
+                 * first_usable_lba in the GPT header correctly. */
+                if (min_configured_offset != UINT64_MAX) {
+                        log_debug("Lowering first LBA to %" PRIu64 " to accommodate pinned partition.",
+                                  min_configured_offset / secsz);
+                        (void) sym_fdisk_set_first_lba(c, min_configured_offset / secsz);
+                }
+
                 r = sym_fdisk_create_disklabel(c, "gpt");
                 if (r < 0)
                         return log_error_errno(r, "Failed to create GPT disk label: %m");
@@ -4104,14 +4207,22 @@ add_initial_free_area:
 
         assert(last_lba >= first_lba);
 
+        /* auto_start is where auto-placed partitions begin: after grain-rounding first_lba up,
+         * then skipping past any pinned partitions that occupy the beginning of the usable area. */
+        uint64_t auto_start;
+
         if (left_boundary == UINT64_MAX) {
                 /* No partitions at all? Then the whole disk is up for grabs. */
 
                 first_lba = round_up_size(first_lba, grainsz);
                 last_lba = round_down_size(last_lba, grainsz);
 
-                if (last_lba > first_lba) {
-                        r = context_add_free_area(context, last_lba - first_lba, NULL);
+                auto_start = pinned_region_end > 0
+                        ? MAX(first_lba, round_up_size(pinned_region_end, grainsz))
+                        : first_lba;
+
+                if (last_lba > auto_start) {
+                        r = context_add_free_area(context, last_lba - auto_start, NULL);
                         if (r < 0)
                                 return r;
                 }
@@ -4123,14 +4234,18 @@ add_initial_free_area:
                 left_boundary = round_down_size(left_boundary, grainsz);
                 last_lba = round_down_size(last_lba, grainsz);
 
-                if (left_boundary > first_lba) {
-                        r = context_add_free_area(context, left_boundary - first_lba, NULL);
+                auto_start = pinned_region_end > 0
+                        ? MAX(first_lba, round_up_size(pinned_region_end, grainsz))
+                        : first_lba;
+
+                if (left_boundary > auto_start) {
+                        r = context_add_free_area(context, left_boundary - auto_start, NULL);
                         if (r < 0)
                                 return r;
                 }
         }
 
-        context->start = first_lba;
+        context->start = auto_start;
         context->end = last_lba;
         context->total = nsectors;
         context->sector_size = secsz;
