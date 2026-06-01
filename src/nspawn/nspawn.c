@@ -6146,9 +6146,9 @@ static int run(int argc, char *argv[]) {
         if (arg_cleanup)
                 return do_cleanup();
 
-        (void) dlopen_libmount(LOG_DEBUG);
-        (void) dlopen_libseccomp(LOG_DEBUG);
-        (void) dlopen_libselinux(LOG_DEBUG);
+        (void) DLOPEN_LIBMOUNT(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
+        (void) DLOPEN_LIBSECCOMP(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
+        (void) DLOPEN_LIBSELINUX(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
 
         r = cg_has_legacy();
         if (r < 0)
