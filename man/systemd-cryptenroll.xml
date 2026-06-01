@@ -271,6 +271,16 @@
 
     <variablelist>
       <varlistentry>
+        <term><option>--unlock-empty</option></term>
+
+        <listitem><para>Use an empty password/passphrase to unlock the volume, instead of reading one from
+        stdin. This is useful to unlock volumes that are currently protected by an empty password, in order to
+        enroll a different, stronger unlock mechanism.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--unlock-key-file=<replaceable>PATH</replaceable></option></term>
 
         <listitem><para>Use a file instead of a password/passphrase read from stdin to unlock the volume.
@@ -307,6 +317,18 @@
 
         <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><option>--unlock-headless</option></term>
+
+        <listitem><para>Try the unlock mechanisms suitable for headless operation in turn, without requiring
+        any interactive input. If a TPM2 device is available the volume is unlocked via TPM2, and otherwise
+        (or if TPM2 unlocking fails) an empty password is attempted. This is primarily useful in automated
+        provisioning scenarios where a volume is first set up with a TPM2 enrollment or an empty password and
+        a stronger unlock mechanism shall be enrolled subsequently.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
@@ -336,6 +358,43 @@
         </para>
 
         <xi:include href="version-info.xml" xpointer="v248"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Interactive Enrollment</title>
+
+    <para>The following options are understood that drive an interactive enrollment wizard, intended to be
+    run on first boot (similar in spirit to
+    <citerefentry><refentrytitle>systemd-firstboot</refentrytitle><manvolnum>1</manvolnum></citerefentry>):</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>--firstboot</option></term>
+
+        <listitem><para>Run an interactive wizard that lets the user enroll a passphrase, a recovery key, or a
+        FIDO2 security token (one menu entry per suitable token currently plugged in). If credentials of any
+        of these types are already enrolled, the wizard additionally offers to wipe them. Pressing enter at
+        the top-level menu leaves the volume unchanged. This option may not be combined with an explicit
+        enrollment type or with <option>--wipe-slot=</option>. As with the other commands, the volume to
+        operate on is the one backing <filename>/var/</filename> if none is specified. Honours the
+        <varname>systemd.firstboot=</varname> kernel command line option.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--prompt-suppress=<replaceable>TYPE</replaceable>…</option></term>
+
+        <listitem><para>Takes a comma-separated list of slot types, out of <literal>password</literal>,
+        <literal>recovery</literal>, <literal>pkcs11</literal>, <literal>fido2</literal> and
+        <literal>tpm2</literal>. Only useful together with <option>--firstboot</option>: if a slot of any of
+        the listed types is already enrolled on the volume, the wizard does nothing and exits successfully.
+        This is useful to hook the wizard into the boot process while ensuring it stays quiet once suitable
+        credentials have been set up.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
