@@ -843,6 +843,9 @@ DnsScopeMatch dns_scope_good_domain(
         case DNS_PROTOCOL_MDNS: {
                 DnsScopeMatch m;
 
+                if (s->link && link_get_mdns_support(s->link) == RESOLVE_SUPPORT_NO)
+                        return DNS_SCOPE_NO;
+
                 m = match_link_local_reverse_lookups(domain);
                 if (m >= 0)
                         return m;
@@ -865,6 +868,9 @@ DnsScopeMatch dns_scope_good_domain(
 
         case DNS_PROTOCOL_LLMNR: {
                 DnsScopeMatch m;
+
+                if (s->link && link_get_llmnr_support(s->link) == RESOLVE_SUPPORT_NO)
+                        return DNS_SCOPE_NO;
 
                 m = match_link_local_reverse_lookups(domain);
                 if (m >= 0)

@@ -1582,6 +1582,9 @@ DnsScope* manager_find_scope_from_protocol(Manager *m, int ifindex, DnsProtocol 
 
         switch (protocol) {
         case DNS_PROTOCOL_LLMNR:
+                if (link_get_llmnr_support(l) == RESOLVE_SUPPORT_NO)
+                        return NULL;
+
                 if (family == AF_INET)
                         return l->llmnr_ipv4_scope;
                 else if (family == AF_INET6)
@@ -1590,6 +1593,9 @@ DnsScope* manager_find_scope_from_protocol(Manager *m, int ifindex, DnsProtocol 
                 break;
 
         case DNS_PROTOCOL_MDNS:
+                if (link_get_mdns_support(l) == RESOLVE_SUPPORT_NO)
+                        return NULL;
+
                 if (family == AF_INET)
                         return l->mdns_ipv4_scope;
                 else if (family == AF_INET6)

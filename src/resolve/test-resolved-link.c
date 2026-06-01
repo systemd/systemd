@@ -336,4 +336,44 @@ TEST(link_allocate_scopes_mdns_ipv6) {
         ASSERT_EQ(env.link->mdns_ipv6_scope->family, AF_INET6);
 }
 
+TEST(manager_find_scope_ignores_disabled_llmnr_link) {
+        _cleanup_(link_alloc_env_teardown) LinkAllocEnv env = {};
+
+        link_alloc_env_setup(&env, AF_INET, DNS_SERVER_LINK);
+
+        env.link->flags |= IFF_MULTICAST;
+        env.link->llmnr_support = RESOLVE_SUPPORT_YES;
+        env.manager.llmnr_support = RESOLVE_SUPPORT_YES;
+
+        link_allocate_scopes(env.link);
+
+        ASSERT_NOT_NULL(env.link->llmnr_ipv4_scope);
+        ASSERT_TRUE(manager_find_scope_from_protocol(&env.manager, env.ifindex, DNS_PROTOCOL_LLMNR, AF_INET) ==
+                    env.link->llmnr_ipv4_scope);
+
+        env.link->llmnr_support = RESOLVE_SUPPORT_NO;
+
+        ASSERT_NULL(manager_find_scope_from_protocol(&env.manager, env.ifindex, DNS_PROTOCOL_LLMNR, AF_INET));
+}
+
+TEST(manager_find_scope_ignores_disabled_mdns_link) {
+        _cleanup_(link_alloc_env_teardown) LinkAllocEnv env = {};
+
+        link_alloc_env_setup(&env, AF_INET, DNS_SERVER_LINK);
+
+        env.link->flags |= IFF_MULTICAST;
+        env.link->mdns_support = RESOLVE_SUPPORT_YES;
+        env.manager.mdns_support = RESOLVE_SUPPORT_YES;
+
+        link_allocate_scopes(env.link);
+
+        ASSERT_NOT_NULL(env.link->mdns_ipv4_scope);
+        ASSERT_TRUE(manager_find_scope_from_protocol(&env.manager, env.ifindex, DNS_PROTOCOL_MDNS, AF_INET) ==
+                    env.link->mdns_ipv4_scope);
+
+        env.link->mdns_support = RESOLVE_SUPPORT_NO;
+
+        ASSERT_NULL(manager_find_scope_from_protocol(&env.manager, env.ifindex, DNS_PROTOCOL_MDNS, AF_INET));
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG)
