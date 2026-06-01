@@ -1267,7 +1267,7 @@ static int parse_acl_cond_exec(
         assert(cond_exec);
         assert(ret);
 
-        r = dlopen_libacl(LOG_DEBUG);
+        r = DLOPEN_LIBACL(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
         if (r < 0)
                 return r;
 
@@ -1386,7 +1386,7 @@ static int path_set_acl(
 
         assert(c);
 
-        r = dlopen_libacl(LOG_DEBUG);
+        r = DLOPEN_LIBACL(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
         if (r < 0)
                 return r;
 

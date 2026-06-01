@@ -49,11 +49,7 @@ int dlopen_libacl(int log_level) {
 #if HAVE_ACL
         static void *libacl_dl = NULL;
 
-        SD_ELF_NOTE_DLOPEN(
-                        "acl",
-                        "Support for file Access Control Lists (ACLs)",
-                        SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED,
-                        "libacl.so.1");
+        LIBACL_NOTE(SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
 
         return dlopen_many_sym_or_warn(
                         &libacl_dl,
