@@ -259,6 +259,12 @@ bool machine_tag_is_valid(const char *s) {
         if (n <= 0 || n >= 256)
                 return false;
 
+        /* Don't allow "-" and "." as first or last char. (This is load-bearing, we want that "+"/"-" can be
+         * used as prefix for adding/removing tags from the list). */
+        if (strchr("-.", s[0]) ||
+            strchr("-.", s[n-1]))
+                return false;
+
         return in_charset(s, ALPHANUMERICAL "-.");
 }
 
