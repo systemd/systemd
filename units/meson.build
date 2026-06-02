@@ -799,6 +799,7 @@ units = [
         {
           'file' : 'systemd-sysupdate-update.service',
           'conditions' : ['ENABLE_SYSUPDATE'],
+          'symlinks' : ['systemd-sysupdate.service'],  # compatibility after rename
         },
         {
           'file' : 'systemd-sysupdate@.service',
@@ -812,6 +813,7 @@ units = [
         {
           'file' : 'systemd-sysupdate-update.timer',
           'conditions' : ['ENABLE_SYSUPDATE'],
+          'symlinks' : ['systemd-sysupdate.timer'],  # compatibility after rename
         },
         {
           'file' : 'systemd-sysupdated.service.in',

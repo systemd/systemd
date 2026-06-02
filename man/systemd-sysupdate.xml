@@ -22,6 +22,11 @@
     <refname>systemd-sysupdate-update.timer</refname>
     <refname>systemd-sysupdate-reboot.service</refname>
     <refname>systemd-sysupdate-reboot.timer</refname>
+
+    <!-- Compatibility symlinks for old names of systemd-sysupdate-update.{service,timer} -->
+    <refname>systemd-sysupdate.service</refname>
+    <refname>systemd-sysupdate.timer</refname>
+
     <refpurpose>Automatically Update OS or Other Resources</refpurpose>
   </refnamediv>
 
