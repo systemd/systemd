@@ -2,6 +2,8 @@
 
 #include "crypto-util.h"
 #include "hexdecoct.h"
+#include "iovec-util.h"
+#include "random-util.h"
 #include "tests.h"
 #include "tpm2-util.h"
 #include "virt.h"
@@ -1309,6 +1311,81 @@ static void check_seal_unseal(Tpm2Context *c) {
         }
 }
 
+static void check_nv_index_read(Tpm2Context *c) {
+        int r;
+        uint8_t payload[1031];
+
+        assert(c);
+
+        TEST_LOG_FUNC();
+
+        random_bytes(payload, sizeof(payload));
+        struct iovec data = IOVEC_MAKE(payload, sizeof(payload));
+
+        /* Test chunked reads first by mocking c->max_nv_buffer_size with several values that are less than
+         * the payload size and the TPM's reported size for TPM2_PT_NV_BUFFER_MAX. */
+        TPM2_HANDLE nv_index = 0;
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *nv_handle = NULL;
+        r = tpm2_define_data_nv_index(c, /* session= */ NULL, /* requested_nv_index= */ 0, &data, &nv_index, &nv_handle);
+        if (r < 0) {
+                /* Could fail because the index size is greater than the value of TPM2_PT_NV_INDEX_MAX, or
+                 * there isn't enough space available. */
+                log_notice_errno(r, "Could not allocate NV index, skipping NV index read test: %m");
+                return;
+        }
+        ASSERT_NE(nv_index, 0U);
+        ASSERT_NOT_NULL(nv_handle);
+
+        uint16_t saved_max_nv_buffer_size = c->max_nv_buffer_size;
+
+        static const uint16_t chunk_sizes[] = { 128, 256, 512, 1024 };
+        FOREACH_ELEMENT(cs, chunk_sizes) {
+                if (*cs >= saved_max_nv_buffer_size)
+                        continue;
+
+                c->max_nv_buffer_size = *cs;
+
+                _cleanup_(iovec_done) struct iovec value = {};
+                ASSERT_OK_ZERO(tpm2_read_nv_index(c, /* session= */ NULL, nv_index, nv_handle, &value));
+                ASSERT_TRUE(iovec_equal(&value, &data));
+        }
+
+        c->max_nv_buffer_size = saved_max_nv_buffer_size;
+
+        ASSERT_OK_ZERO(tpm2_undefine_nv_index(c, /* session= */ NULL, nv_index, nv_handle));
+        nv_index = 0;
+        nv_handle = tpm2_handle_free(nv_handle);
+
+        /* Test reading of a payload with the size of the reported TPM2_PT_NV_BUFFER_MAX. */
+        _cleanup_free_ void *payload2 = malloc(c->max_nv_buffer_size);
+        ASSERT_NOT_NULL(payload2);
+        random_bytes(payload2, c->max_nv_buffer_size);
+        struct iovec data2 = IOVEC_MAKE(payload2, c->max_nv_buffer_size);
+        ASSERT_OK_ZERO(tpm2_define_data_nv_index(c, /* session= */ NULL, /* requested_nv_index= */ 0, &data2, &nv_index, &nv_handle));
+        ASSERT_NE(nv_index, 0U);
+        ASSERT_NOT_NULL(nv_handle);
+
+        _cleanup_(iovec_done) struct iovec value = {};
+        ASSERT_OK_ZERO(tpm2_read_nv_index(c, /* session= */ NULL, nv_index, nv_handle, &value));
+        ASSERT_TRUE(iovec_equal(&value, &data2));
+
+        ASSERT_OK_ZERO(tpm2_undefine_nv_index(c, /* session= */ NULL, nv_index, nv_handle));
+        nv_index = 0;
+        nv_handle = tpm2_handle_free(nv_handle);
+        iovec_done(&value);
+
+        /* Test reading of a payload which is smaller than the reported size of TPM2_PT_NV_BUFFER_MAX. */
+        data.iov_len = 36;
+        ASSERT_OK_ZERO(tpm2_define_data_nv_index(c, /* session= */ NULL, /* requested_nv_index= */ 0, &data, &nv_index, &nv_handle));
+        ASSERT_NE(nv_index, 0U);
+        ASSERT_NOT_NULL(nv_handle);
+
+        ASSERT_OK_ZERO(tpm2_read_nv_index(c, /* session= */ NULL, nv_index, nv_handle, &value));
+        ASSERT_TRUE(iovec_equal(&value, &data));
+
+        ASSERT_OK_ZERO(tpm2_undefine_nv_index(c, /* session= */ NULL, nv_index, nv_handle));
+}
+
 TEST_RET(tests_which_require_tpm) {
         _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
         int r = 0;
@@ -1322,6 +1399,7 @@ TEST_RET(tests_which_require_tpm) {
         check_best_srk_template(c);
         check_get_or_create_srk(c);
         check_seal_unseal(c);
+        check_nv_index_read(c);
 
 #if HAVE_OPENSSL
         r = check_calculate_seal(c);
