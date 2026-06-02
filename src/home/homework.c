@@ -514,7 +514,7 @@ int home_setup(
                 break;
 
         case USER_FSCRYPT:
-                r = home_setup_fscrypt(h, setup, cache);
+                r = home_setup_fscrypt(h, flags, setup, cache);
                 break;
 
         case USER_CIFS:
