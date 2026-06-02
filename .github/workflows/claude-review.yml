@@ -192,6 +192,9 @@ jobs:
         env:
           CLAUDE_CODE_DISABLE_BACKGROUND_TASKS: "1"
           CLAUDE_CODE_USE_BEDROCK: "1"
+          # Pin the `opus` alias (used by the review subagents) to 4.8 so they
+          # don't silently resolve to an older model the Bedrock alias points at.
+          ANTHROPIC_DEFAULT_OPUS_MODEL: us.anthropic.claude-opus-4-8
         run: |
           mkdir -p ~/.claude
 
@@ -379,8 +382,8 @@ jobs:
           PROMPT
 
           claude \
-            --model us.anthropic.claude-opus-4-6-v1 \
-            --effort max \
+            --model us.anthropic.claude-opus-4-8 \
+            --effort xhigh \
             --max-turns 200 \
             --setting-sources user \
             --output-format stream-json \
