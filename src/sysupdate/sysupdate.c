@@ -1885,10 +1885,36 @@ static int verb_pending_or_reboot(int argc, char *argv[], uintptr_t _data, void 
         return EXIT_SUCCESS;
 }
 
+static int context_list_components(Context *context, char ***component_names, bool *has_default_component) {
+        int r;
+
+        assert(context);
+
+        _cleanup_strv_free_ char **z = NULL;
+        r = get_component_list(context->root, &z);
+        if (r < 0)
+                return r;
+
+        if (component_names)
+                *component_names = TAKE_PTR(z);
+
+        /* Does the system have at least one transfer file in /etc/sysupdate.d, which can be considered a
+         * TARGET_HOST? See target_get_argument() in sysupdated.c */
+        if (has_default_component)
+                *has_default_component = (!context->definitions &&
+                                          !context->component &&
+                                          !context->root &&
+                                          !context->image &&
+                                          context->n_transfers > 0);
+
+        return 0;
+}
+
 VERB_NOARG(verb_components, "components",
            "Show list of components");
 static int verb_components(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(context_done) Context context = CONTEXT_NULL;
+        _cleanup_strv_free_ char **component_names = NULL;
         bool has_default_component = false;
         int r;
 
@@ -1908,21 +1934,12 @@ static int verb_components(int argc, char *argv[], uintptr_t _data, void *userda
         if (r < 0)
                 return r;
 
-        _cleanup_strv_free_ char **z = NULL;
-        r = get_component_list(context.root, &z);
+        r = context_list_components(&context, &component_names, &has_default_component);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate components: %m");
 
-        /* Does the system have at least one transfer file in /etc/sysupdate.d, which can be considered a
-         * TARGET_HOST? See target_get_argument() in sysupdated.c */
-        has_default_component = (!context.definitions &&
-                                 !context.component &&
-                                 !context.root &&
-                                 !context.image &&
-                                 context.n_transfers > 0);
-
         if (!sd_json_format_enabled(arg_json_format_flags)) {
-                if (!has_default_component && strv_isempty(z)) {
+                if (!has_default_component && strv_isempty(component_names)) {
                         log_info("No components defined.");
                         return 0;
                 }
@@ -1931,13 +1948,13 @@ static int verb_components(int argc, char *argv[], uintptr_t _data, void *userda
                         printf("%s<default>%s\n",
                                ansi_highlight(), ansi_normal());
 
-                STRV_FOREACH(i, z)
+                STRV_FOREACH(i, component_names)
                         puts(*i);
         } else {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
 
                 r = sd_json_buildo(&json, SD_JSON_BUILD_PAIR_BOOLEAN("default", has_default_component),
-                                          SD_JSON_BUILD_PAIR_STRV("components", z));
+                                          SD_JSON_BUILD_PAIR_STRV("components", component_names));
                 if (r < 0)
                         return log_error_errno(r, "Failed to create JSON: %m");
 
