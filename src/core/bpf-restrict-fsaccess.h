@@ -1,8 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <sys/sysmacros.h>
-
 #include "core-forward.h"
 #include "macro.h"
 #include "shared-forward.h"
@@ -32,12 +30,6 @@ enum {
 
 /* Maximum number of dm-verity devices tracked in the BPF hash map. */
 #define DMVERITY_DEVICES_MAX (16U*1024U)
-
-/* Convert userspace dev_t (from stat()) to kernel dev_t encoding (MKDEV).
- * stat() returns new_encode_dev(s_dev); the BPF program reads s_dev directly
- * which uses MKDEV(major, minor) = (major << 20) | minor. */
-#define STAT_DEV_TO_KERNEL(dev) \
-        ((uint32_t)major(dev) << 20 | (uint32_t)minor(dev))
 
 /* Mirrors the BPF program's .bss section layout for read-modify-write via
  * bpf_map_lookup_elem/bpf_map_update_elem on the serialized .bss map FD. */
