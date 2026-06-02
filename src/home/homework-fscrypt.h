@@ -3,7 +3,7 @@
 
 #include "homework-forward.h"
 
-int home_setup_fscrypt(UserRecord *h, HomeSetup *setup, const PasswordCache *cache);
+int home_setup_fscrypt(UserRecord *h, HomeSetupFlags flags, HomeSetup *setup, const PasswordCache *cache);
 
 int home_create_fscrypt(UserRecord *h, HomeSetup *setup, char **effective_passwords, UserRecord **ret_home);
 
