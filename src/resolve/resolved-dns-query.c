@@ -320,6 +320,10 @@ int dns_query_candidate_await(DnsQueryCandidate *c) {
 
         assert(c);
 
+        DnsTransactionState state = dns_query_candidate_state(c);
+        if (!DNS_TRANSACTION_IS_LIVE(state))
+                return state;
+
         r = dns_query_candidate_get_completion_future(c, &f);
         if (r < 0)
                 return r;
@@ -882,7 +886,13 @@ int dns_query_await(DnsQuery *q) {
                 if (r < 0)
                         return r;
 
-                return sd_fiber_await(f);
+                r = sd_fiber_await(f);
+                if (r < 0)
+                        return r;
+                if (DNS_TRANSACTION_IS_LIVE(q->state))
+                        continue;
+
+                return q->state;
         }
 }
 

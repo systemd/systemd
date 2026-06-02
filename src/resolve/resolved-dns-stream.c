@@ -641,6 +641,9 @@ int dns_stream_await(DnsStream *s) {
 
         assert(s);
 
+        if (s->completed)
+                return s->completion_result;
+
         r = dns_stream_get_completion_future(s, &f);
         if (r < 0)
                 return r;

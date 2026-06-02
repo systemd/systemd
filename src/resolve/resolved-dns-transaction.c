@@ -501,6 +501,9 @@ int dns_transaction_await(DnsTransaction *t) {
 
         assert(t);
 
+        if (!DNS_TRANSACTION_IS_LIVE(t->state))
+                return t->state;
+
         r = dns_transaction_get_completion_future(t, &f);
         if (r < 0)
                 return r;

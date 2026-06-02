@@ -553,6 +553,9 @@ int hook_query_await(HookQuery *hq) {
 
         assert(hq);
 
+        if (hq->completed)
+                return hq->completion_result;
+
         r = hook_query_get_completion_future(hq, &f);
         if (r < 0)
                 return r;

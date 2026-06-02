@@ -847,6 +847,70 @@ TEST(fiber_floating_callback_drops_ref) {
         ASSERT_EQ(counter, 2);
 }
 
+typedef struct DetachedChildContext {
+        unsigned parent_done;
+        unsigned child_started;
+        unsigned child_done;
+} DetachedChildContext;
+
+static int detached_child_fiber(void *userdata) {
+        DetachedChildContext *ctx = ASSERT_PTR(userdata);
+        int r;
+
+        ctx->child_started++;
+
+        r = sd_fiber_yield();
+        if (r < 0)
+                return r;
+
+        ctx->child_done++;
+        return 0;
+}
+
+static int detached_parent_fiber(void *userdata) {
+        DetachedChildContext *ctx = ASSERT_PTR(userdata);
+        int r;
+
+        r = sd_fiber_new(
+                        sd_fiber_get_event(),
+                        "detached-child",
+                        detached_child_fiber,
+                        userdata,
+                        /* destroy= */ NULL,
+                        /* ret= */ NULL);
+        if (r < 0)
+                return r;
+
+        ctx->parent_done++;
+        return 0;
+}
+
+TEST(fiber_detached_child_does_not_resume_parent) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_OK(sd_event_set_exit_on_idle(e, true));
+
+        DetachedChildContext ctx = {};
+        sd_future *parent = NULL;
+        ASSERT_OK(sd_fiber_new(
+                        e,
+                        "detached-parent",
+                        detached_parent_fiber,
+                        &ctx,
+                        /* destroy= */ NULL,
+                        &parent));
+
+        ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+        ASSERT_OK(sd_future_result(parent));
+        ASSERT_EQ(ctx.parent_done, 1u);
+
+        parent = sd_future_unref(parent);
+
+        ASSERT_OK(sd_event_loop(e));
+        ASSERT_EQ(ctx.child_started, 1u);
+        ASSERT_EQ(ctx.child_done, 1u);
+}
+
 TEST(fiber_floating_toggle) {
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
         ASSERT_OK(sd_event_new(&e));

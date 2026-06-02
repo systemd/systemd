@@ -99,7 +99,6 @@ typedef struct DnsQuery {
         sd_varlink *varlink_request;
         int request_family;
         union in_addr_union request_address;
-        unsigned block_all_complete;
         char *request_address_string;
 
         /* DNS stub information */

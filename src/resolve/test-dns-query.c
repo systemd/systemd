@@ -277,6 +277,7 @@ typedef struct QueryAwaitContext {
 static int query_await_fiber(void *userdata) {
         QueryAwaitContext *ctx = ASSERT_PTR(userdata);
 
+        ctx->result = -ENOTRECOVERABLE;
         ctx->result = dns_query_await(ctx->query);
         return ctx->result;
 }
@@ -302,6 +303,40 @@ TEST(dns_query_completion_future_await) {
         ASSERT_EQ(sd_future_state(fiber), SD_FUTURE_PENDING);
         ASSERT_OK(dns_query_get_completion_future(query, &completion));
         ASSERT_NULL(sd_future_get_userdata(completion));
+
+        dns_query_complete(query, DNS_TRANSACTION_ABORTED);
+
+        ASSERT_OK(sd_event_loop(event));
+        ASSERT_EQ(ctx.result, DNS_TRANSACTION_ABORTED);
+        ASSERT_EQ(sd_future_result(fiber), DNS_TRANSACTION_ABORTED);
+}
+
+TEST(dns_query_completion_future_await_spurious_resume) {
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        Manager manager = {};
+        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
+        _cleanup_(dns_query_freep) DnsQuery *query = NULL;
+        _cleanup_(sd_future_unrefp) sd_future *fiber = NULL;
+        QueryAwaitContext ctx = {};
+
+        ASSERT_OK(sd_event_new(&event));
+        ASSERT_OK(sd_event_set_exit_on_idle(event, true));
+        manager.event = event;
+
+        ASSERT_OK(dns_question_new_address(&question, AF_INET, "www.example.com", false));
+        ASSERT_OK(dns_query_new(&manager, &query, question, NULL, NULL, 1, 0));
+        query->state = DNS_TRANSACTION_PENDING;
+        ctx.query = query;
+
+        ASSERT_OK(sd_fiber_new(event, "query-await-spurious-resume", query_await_fiber, &ctx, NULL, &fiber));
+        ASSERT_OK_POSITIVE(sd_event_run(event, 0));
+        ASSERT_EQ(sd_future_state(fiber), SD_FUTURE_PENDING);
+        ASSERT_EQ(ctx.result, -ENOTRECOVERABLE);
+
+        ASSERT_OK(sd_fiber_resume(fiber, DNS_TRANSACTION_PENDING));
+        ASSERT_OK_POSITIVE(sd_event_run(event, 0));
+        ASSERT_EQ(sd_future_state(fiber), SD_FUTURE_PENDING);
+        ASSERT_EQ(ctx.result, -ENOTRECOVERABLE);
 
         dns_query_complete(query, DNS_TRANSACTION_ABORTED);
 
