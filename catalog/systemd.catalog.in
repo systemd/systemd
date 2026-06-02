@@ -825,6 +825,21 @@ Automatic SRK enrollment on TPMs in such scenarios is not supported. In order
 to unset the PIN/password protection on the owner hierarchy issue a command
 like the following: 'tpm2_changeauth -c o -p <OLDPW> ""'.
 
+-- 8d813b6becf04b859d99760cbb56dff1
+Subject: Authorization failure while attempting to enroll EK into TPM
+Defined-By: systemd
+Support: %SUPPORT_URL%
+Documentation: man:systemd-tpm2-setup.service(8)
+
+An authorization failure occurred while attempting to enroll an Endorsement Key
+(EK) on the Trusted Platform Module (TPM). Most likely this means that a
+PIN/Password (authValue) has been set on the Owner and/or Endorsement hierarchy
+of the TPM.
+
+Automatic EK enrollment on TPMs in such scenarios is not supported. In order
+to unset the PIN/password protection on the owner or endorsement hierarchy,
+issue a command like the following: 'tpm2_changeauth -c <o,e> -p <OLDPW> ""'.
+
 -- 9cf56b8baf9546cf9478783a8de42113
 Subject: A foreign process changed a sysctl systemd-networkd manages
 Defined-By: systemd
