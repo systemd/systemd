@@ -1684,6 +1684,37 @@ static int context_install(
         return 1;
 }
 
+static int context_get_transfers_for_feature(Context *context, char ***transfers, const char *feature_id) {
+        int r;
+
+        assert(context);
+        assert(feature_id);
+
+        FOREACH_ARRAY(tr, context->transfers, context->n_transfers) {
+                Transfer *t = *tr;
+
+                if (!strv_contains(t->features, feature_id) && !strv_contains(t->requisite_features, feature_id))
+                        continue;
+
+                r = strv_extend(transfers, t->id);
+                if (r < 0)
+                        return log_oom();
+        }
+
+        FOREACH_ARRAY(tr, context->disabled_transfers, context->n_disabled_transfers) {
+                Transfer *t = *tr;
+
+                if (!strv_contains(t->features, feature_id) && !strv_contains(t->requisite_features, feature_id))
+                        continue;
+
+                r = strv_extend(transfers, t->id);
+                if (r < 0)
+                        return log_oom();
+        }
+
+        return 0;
+}
+
 static JSON_DISPATCH_ENUM_DEFINE(dispatch_target_class, TargetClass, target_class_from_string);
 
 static int dispatch_target_identifier(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
@@ -1846,27 +1877,9 @@ static int verb_features(int argc, char *argv[], uintptr_t _data, void *userdata
                 if (!table)
                         return log_oom();
 
-                FOREACH_ARRAY(tr, context.transfers, context.n_transfers) {
-                        Transfer *t = *tr;
-
-                        if (!strv_contains(t->features, f->id) && !strv_contains(t->requisite_features, f->id))
-                                continue;
-
-                        r = strv_extend(&transfers, t->id);
-                        if (r < 0)
-                                return log_oom();
-                }
-
-                FOREACH_ARRAY(tr, context.disabled_transfers, context.n_disabled_transfers) {
-                        Transfer *t = *tr;
-
-                        if (!strv_contains(t->features, f->id) && !strv_contains(t->requisite_features, f->id))
-                                continue;
-
-                        r = strv_extend(&transfers, t->id);
-                        if (r < 0)
-                                return log_oom();
-                }
+                r = context_get_transfers_for_feature(&context, &transfers, f->id);
+                if (r < 0)
+                        return r;
 
                 r = table_add_many(table,
                                    TABLE_FIELD, "Name",
