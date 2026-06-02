@@ -5209,6 +5209,12 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as Symlinks = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly a(ss) XAttrEntryPoint = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly a(ss) XAttrListen = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly a(ss) XAttrAccept = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly i Mark = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly u MaxConnections = ...;
@@ -6580,6 +6586,12 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
 
     <variablelist class="dbus-property" generated="True" extra-ref="Symlinks"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="XAttrEntryPoint"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="XAttrListen"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="XAttrAccept"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="Mark"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MaxConnections"/>
@@ -7263,6 +7275,17 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       <para><varname>FlushPending</varname> specifies whether to flush the socket
       just before entering the listening state. This setting only applies to sockets with
       <varname>Accept=</varname> set to <literal>no</literal>.</para>
+
+      <para><varname>XAttrEntryPoint</varname>, <varname>XAttrListen</varname> and
+      <varname>XAttrAccept</varname> each contain a list of extended attributes (as
+      <literal><replaceable>NAME</replaceable></literal>/<literal><replaceable>VALUE</replaceable></literal>
+      pairs) to set on socket inodes. <varname>XAttrEntryPoint</varname> applies to the file-system inode an
+      <constant>AF_UNIX</constant> socket is bound to, <varname>XAttrListen</varname> applies to the listening
+      socket, and <varname>XAttrAccept</varname> applies to connection sockets accepted off the listening
+      socket. See the <varname>XAttrEntryPoint=</varname>, <varname>XAttrListen=</varname> and
+      <varname>XAttrAccept=</varname> settings in
+      <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+      details.</para>
     </refsect2>
   </refsect1>
 
@@ -12940,6 +12963,9 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>IOPressureWatch</varname>,
       <varname>CPUSetPartition</varname>, and
       <varname>OOMRules</varname> were added in version 261.</para>
+      <para><varname>XAttrEntryPoint</varname>,
+      <varname>XAttrListen</varname>, and
+      <varname>XAttrAccept</varname> were added in version 262.</para>
     </refsect2>
     <refsect2>
       <title>Mount Unit Objects</title>
