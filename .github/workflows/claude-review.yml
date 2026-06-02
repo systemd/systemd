@@ -429,10 +429,21 @@ jobs:
 
           ## Review result
 
-          Produce your review result as structured output. The fields are:
+          Produce your review result with a single `StructuredOutput` call that
+          contains all of these fields together:
           - `summary`: The markdown summary for the tracking comment.
           - `comments`: Array of review comments (same schema as the reviewer output above).
           - `resolve`: REST API IDs of review comment threads to resolve.
+
+          `comments` and `resolve` are required — include them in the same call even
+          when they are empty (`[]`). Never emit a call with `summary` alone; a call
+          missing `comments` is rejected and wastes a full retry. Build `comments`
+          first, then write `summary` from it, then emit everything in one call.
+
+          Keep `summary` concise: each checkbox is a short title, `path:line`, and a
+          one-line explanation — the detailed reasoning belongs in the matching
+          `comments` entry, not the summary. Do not restate full findings prose in
+          the summary.
           PROMPT
 
           claude \
