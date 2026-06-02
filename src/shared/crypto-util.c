@@ -281,6 +281,7 @@ static DLSYM_PROTOTYPE(X509_get_issuer_name) = NULL;
 DLSYM_PROTOTYPE(X509_get_pubkey) = NULL;
 static DLSYM_PROTOTYPE(X509_get_signature_info) = NULL;
 DLSYM_PROTOTYPE(X509_get_subject_name) = NULL;
+DLSYM_PROTOTYPE(X509_get0_pubkey) = NULL;
 DLSYM_PROTOTYPE(X509_gmtime_adj) = NULL;
 DLSYM_PROTOTYPE(d2i_ASN1_OCTET_STRING) = NULL;
 DLSYM_PROTOTYPE(d2i_ECPKParameters) = NULL;
@@ -608,6 +609,8 @@ int dlopen_libcrypto(int log_level) {
                         DLSYM_ARG(X509_get_pubkey),
                         DLSYM_ARG(X509_get_signature_info),
                         DLSYM_ARG(X509_get_subject_name),
+                        DLSYM_ARG(X509_get0_pubkey),
+                        DLSYM_ARG(X509_get0_serialNumber),
                         DLSYM_ARG(X509_gmtime_adj),
                         DLSYM_ARG(d2i_ASN1_OCTET_STRING),
                         DLSYM_ARG(d2i_ECPKParameters),
