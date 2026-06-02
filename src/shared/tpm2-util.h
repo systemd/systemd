@@ -89,6 +89,7 @@ typedef struct Tpm2Context {
         TPM2_ECC_CURVE *capability_ecc_curves;
         size_t n_capability_ecc_curves;
         TPML_PCR_SELECTION capability_pcrs;
+        uint16_t max_nv_buffer_size;
 } Tpm2Context;
 
 int tpm2_context_new(const char *device, Tpm2Context **ret_context);
