@@ -1152,7 +1152,16 @@ static int check_device_is_fido2_with_hmac_secret(
 
         r = verify_features(d, path, LOG_DEBUG, ret_has_rk, ret_has_client_pin, ret_has_up, ret_has_uv, ret_has_always_uv);
         if (r == -ENODEV) { /* Not a FIDO2 device, or not implementing 'hmac-secret' */
-                *ret_has_rk = *ret_has_client_pin = *ret_has_up = *ret_has_uv = *ret_has_always_uv = false;
+                if (ret_has_rk)
+                        *ret_has_rk = false;
+                if (ret_has_client_pin)
+                        *ret_has_client_pin = false;
+                if (ret_has_up)
+                        *ret_has_up = false;
+                if (ret_has_uv)
+                        *ret_has_uv = false;
+                if (ret_has_always_uv)
+                        *ret_has_always_uv = false;
                 return false;
         }
         if (r < 0)
