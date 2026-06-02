@@ -251,6 +251,7 @@ extern DLSYM_PROTOTYPE(X509_VERIFY_PARAM_set1_host);
 extern DLSYM_PROTOTYPE(X509_VERIFY_PARAM_set1_ip);
 extern DLSYM_PROTOTYPE(X509_VERIFY_PARAM_set_hostflags);
 extern DLSYM_PROTOTYPE(X509_free);
+extern DLSYM_PROTOTYPE(X509_get0_pubkey);
 extern DLSYM_PROTOTYPE(X509_get_pubkey);
 extern DLSYM_PROTOTYPE(X509_get_subject_name);
 extern DLSYM_PROTOTYPE(X509_gmtime_adj);
