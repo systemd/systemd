@@ -52,6 +52,7 @@
 #include "unit.h"
 #include "unit-name.h"
 #include "user-util.h"
+#include "xattr-util.h"
 
 typedef struct SocketPeer {
         unsigned n_ref;
@@ -209,6 +210,10 @@ static void socket_done(Unit *u) {
         s->smack_ip_out = mfree(s->smack_ip_out);
 
         strv_free(s->symlinks);
+
+        strv_free(s->xattr_entrypoint);
+        strv_free(s->xattr_listen);
+        strv_free(s->xattr_accept);
 
         s->user = mfree(s->user);
         s->group = mfree(s->group);
@@ -1510,7 +1515,9 @@ static int socket_address_listen_do(
                         s->directory_mode,
                         s->socket_mode,
                         selinux_label,
-                        s->smack);
+                        s->smack,
+                        s->xattr_entrypoint,
+                        s->xattr_listen);
 }
 
 #define log_address_error_errno(u, address, error, fmt)          \
@@ -3181,7 +3188,7 @@ shortcut:
 
 static int socket_dispatch_io(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
         SocketPort *p = ASSERT_PTR(userdata);
-        int cfd = -EBADF;
+        int cfd = -EBADF, r;
 
         assert(fd >= 0);
 
@@ -3207,6 +3214,13 @@ static int socket_dispatch_io(sd_event_source *source, int fd, uint32_t revents,
                         return 0;
                 if (cfd < 0)
                         goto fail;
+
+                if (socket_xattr_supported() > 0)
+                        STRV_FOREACH_PAIR(name, value, p->socket->xattr_accept) {
+                                r = xsetxattr(cfd, /* path= */ NULL, /* at_flags= */ 0, *name, *value);
+                                if (r < 0)
+                                        log_debug_errno(r, "Failed to set extended attribute '%s' on accepted socket, ignoring: %m", *name);
+                        }
 
                 socket_apply_socket_options(p->socket, p, cfd);
         }

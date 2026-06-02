@@ -1467,6 +1467,25 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
 
                         return 1;
 
+                } else if (contents[0] == SD_BUS_TYPE_STRUCT_BEGIN &&
+                           STR_IN_SET(name, "XAttrEntryPoint", "XAttrListen", "XAttrAccept")) {
+                        const char *xname, *xvalue;
+
+                        r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "(ss)");
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        while ((r = sd_bus_message_read(m, "(ss)", &xname, &xvalue)) > 0)
+                                bus_print_property_valuef(name, expected_value, flags, "%s=%s", xname, xvalue);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        r = sd_bus_message_exit_container(m);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        return 1;
+
                 } else if (contents[0] == SD_BUS_TYPE_STRUCT_BEGIN && streq(name, "TimersMonotonic")) {
                         const char *base;
                         uint64_t v, next_elapse;
