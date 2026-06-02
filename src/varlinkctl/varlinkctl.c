@@ -16,6 +16,7 @@
 #include "fileio.h"
 #include "format-table.h"
 #include "format-util.h"
+#include "help-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "memfd-util.h"
@@ -71,13 +72,8 @@ STATIC_DESTRUCTOR_REGISTER(arg_graceful, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_push_fds, push_fds_done);
 
 static int help(void) {
-        _cleanup_free_ char *link = NULL;
         _cleanup_(table_unrefp) Table *options = NULL, *verbs = NULL;
         int r;
-
-        r = terminal_urlify_man("varlinkctl", "1", &link);
-        if (r < 0)
-                return log_oom();
 
         r = option_parser_get_help_table(&options);
         if (r < 0)
@@ -91,18 +87,16 @@ static int help(void) {
 
         pager_open(arg_pager_flags);
 
-        printf("%s [OPTIONS...] COMMAND ...\n\n"
-               "%sIntrospect Varlink Services.%s\n"
-               "\nCommands:\n",
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal());
+        help_cmdline("[OPTIONS...] COMMAND ...");
+        help_abstract("Introspect Varlink Services.");
+
+        help_section("Commands");
 
         r = table_print_or_warn(verbs);
         if (r < 0)
                 return r;
 
-        printf("\nOptions:\n");
+        help_section("Options");
 
         r = table_print_or_warn(options);
         if (r < 0)
@@ -112,7 +106,7 @@ static int help(void) {
                "  %s --exec call ADDRESS METHOD PARAMS -- CMDLINE…\n",
                program_invocation_short_name);
 
-        printf("\nSee the %s for details.\n", link);
+        help_man_page_reference("varlinkctl", "1");
         return 0;
 }
 
