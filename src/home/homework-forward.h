@@ -9,3 +9,4 @@ typedef enum HomeSetupFlags HomeSetupFlags;
 
 typedef struct PasswordCache PasswordCache;
 typedef struct HomeSetup HomeSetup;
+typedef struct FscryptV2KeyUndo FscryptV2KeyUndo;
