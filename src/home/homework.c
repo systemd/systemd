@@ -459,6 +459,11 @@ int home_setup_done(HomeSetup *setup) {
 
         setup->key_serial = keyring_unlink(setup->key_serial);
 
+        /* Roll back a v2 fscrypt master key that home_setup_fscrypt() installed but that no activated
+         * home ended up owning (passwd/update/resize of an inactive home, or any error path). On the
+         * activation path home_activate_directory() disarms this first, so the live home keeps its key. */
+        fscrypt_v2_key_undo_done(&setup->fscrypt_v2_key_undo);
+
         setup->undo_mount = false;
         setup->undo_dm = false;
         setup->do_offline_fitrim = false;
@@ -514,7 +519,7 @@ int home_setup(
                 break;
 
         case USER_FSCRYPT:
-                r = home_setup_fscrypt(h, setup, cache);
+                r = home_setup_fscrypt(h, flags, setup, cache);
                 break;
 
         case USER_CIFS:
