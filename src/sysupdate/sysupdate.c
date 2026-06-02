@@ -983,7 +983,7 @@ static int process_image(
                 ProcessImageFlags flags) {
 
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
-        _cleanup_(umount_and_freep) char *mounted_dir = NULL;
+        _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
         int r;
 
         assert(c);
