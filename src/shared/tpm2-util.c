@@ -1113,6 +1113,33 @@ static int tpm2_read_public(
         return 0;
 }
 
+static int tpm2_read_nv_public(
+                Tpm2Context *c,
+                const Tpm2Handle *session,
+                const Tpm2Handle *handle,
+                TPM2B_NV_PUBLIC **ret_nv_public,
+                TPM2B_NAME **ret_name) {
+
+        TSS2_RC rc;
+
+        assert(c);
+        assert(handle);
+
+        rc = sym_Esys_NV_ReadPublic(
+                        c->esys_context,
+                        handle->esys_handle,
+                        session ? session->esys_handle : ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        ret_nv_public,
+                        ret_name);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to read NV public info: %s", sym_Tss2_RC_Decode(rc));
+
+        return 0;
+}
+
 /* Create a Tpm2Handle object that references a pre-existing handle in the TPM, at the handle index provided.
  * This should be used only for persistent, transient, or NV handles; and the handle must already exist in
  * the TPM at the specified handle index. The handle index should not be 0. Returns 1 if found, 0 if the
@@ -1122,9 +1149,7 @@ int tpm2_index_to_handle(
                 Tpm2Context *c,
                 TPM2_HANDLE index,
                 const Tpm2Handle *session,
-                TPM2B_PUBLIC **ret_public,
                 TPM2B_NAME **ret_name,
-                TPM2B_NAME **ret_qname,
                 Tpm2Handle **ret_handle) {
 
         TSS2_RC rc;
@@ -1165,12 +1190,8 @@ int tpm2_index_to_handle(
                         return r;
                 if (r == 0) {
                         log_debug("TPM handle 0x%08" PRIx32 " not populated.", index);
-                        if (ret_public)
-                                *ret_public = NULL;
                         if (ret_name)
                                 *ret_name = NULL;
-                        if (ret_qname)
-                                *ret_qname = NULL;
                         if (ret_handle)
                                 *ret_handle = NULL;
                         return 0;
@@ -1197,12 +1218,109 @@ int tpm2_index_to_handle(
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                        "Failed to read public info: %s", sym_Tss2_RC_Decode(rc));
 
-        if (ret_public || ret_name || ret_qname) {
-                r = tpm2_read_public(c, session, handle, ret_public, ret_name, ret_qname);
+        if (ret_name) {
+                r = tpm2_get_name(c, handle, ret_name);
                 if (r < 0)
                         return r;
         }
 
+        if (ret_handle)
+                *ret_handle = TAKE_PTR(handle);
+
+        return 1;
+}
+
+/* Create a Tpm2Handle object that references a pre-existing persistent or transient object in the TPM, at
+ * the handle index provided. The handle index should not be 0. Returns 1 if found, 0 if the index is empty,
+ * or < 0 on error. Also see tpm2_get_srk() below; the SRK is a commonly used persistent Tpm2Handle. */
+int tpm2_object_index_to_handle(
+                Tpm2Context *c,
+                TPM2_HANDLE index,
+                const Tpm2Handle *session,
+                TPM2B_PUBLIC **ret_public,
+                TPM2B_NAME **ret_name,
+                TPM2B_NAME **ret_qname,
+                Tpm2Handle **ret_handle) {
+
+        int r;
+
+        assert(c);
+
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *handle = NULL;
+        _cleanup_(Esys_Freep) TPM2B_NAME *name = NULL;
+        r = tpm2_index_to_handle(c, index, session, &name, &handle);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                if (ret_public)
+                        *ret_public = NULL;
+                if (ret_name)
+                        *ret_name = NULL;
+                if (ret_qname)
+                        *ret_qname = NULL;
+                if (ret_handle)
+                        *ret_handle = NULL;
+                return 0;
+        }
+
+        if (ret_public || ret_qname) {
+                sym_Esys_Free(name);
+                name = NULL;
+
+                r = tpm2_read_public(c, session, handle, ret_public, &name, ret_qname);
+                if (r < 0)
+                        return r;
+        }
+
+        if (ret_name)
+                *ret_name = TAKE_PTR(name);
+        if (ret_handle)
+                *ret_handle = TAKE_PTR(handle);
+
+        return 1;
+}
+
+/* Create a Tpm2Handle object that references a pre-existing NV index in the TPM, at the handle index
+ * provided. The handle index should not be 0. Returns 1 if found, 0 if the index is empty, or < 0 on
+ * error. */
+int tpm2_nv_index_to_handle(
+                Tpm2Context *c,
+                TPM2_HANDLE index,
+                const Tpm2Handle *session,
+                TPM2B_NV_PUBLIC **ret_nv_public,
+                TPM2B_NAME **ret_name,
+                Tpm2Handle **ret_handle) {
+
+        int r;
+
+        assert(c);
+
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *handle = NULL;
+        _cleanup_(Esys_Freep) TPM2B_NAME *name = NULL;
+        r = tpm2_index_to_handle(c, index, session, &name, &handle);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                if (ret_nv_public)
+                        *ret_nv_public = NULL;
+                if (ret_name)
+                        *ret_name = NULL;
+                if (ret_handle)
+                        *ret_handle = NULL;
+                return 0;
+        }
+
+        if (ret_nv_public) {
+                sym_Esys_Free(name);
+                name = NULL;
+
+                r = tpm2_read_nv_public(c, session, handle, ret_nv_public, &name);
+                if (r < 0)
+                        return r;
+        }
+
+        if (ret_name)
+                *ret_name = TAKE_PTR(name);
         if (ret_handle)
                 *ret_handle = TAKE_PTR(handle);
 
@@ -1555,7 +1673,7 @@ int tpm2_get_srk(
                 TPM2B_NAME **ret_qname,
                 Tpm2Handle **ret_handle) {
 
-        return tpm2_index_to_handle(c, TPM2_SRK_HANDLE, session, ret_public, ret_name, ret_qname, ret_handle);
+        return tpm2_object_index_to_handle(c, TPM2_SRK_HANDLE, session, ret_public, ret_name, ret_qname, ret_handle);
 }
 
 /* Get the SRK, creating one if needed. Returns 1 if a new SRK was created and persisted, 0 if an SRK already
@@ -5637,7 +5755,7 @@ int tpm2_seal(Tpm2Context *c,
                         if (r < 0)
                                 return r;
                 } else if (IN_SET(TPM2_HANDLE_TYPE(seal_key_handle), TPM2_HT_TRANSIENT, TPM2_HT_PERSISTENT)) {
-                        r = tpm2_index_to_handle(
+                        r = tpm2_object_index_to_handle(
                                         c,
                                         seal_key_handle,
                                         /* session= */ NULL,
@@ -6258,33 +6376,18 @@ static int tpm2_define_nvpcr_nv_index(
 
                 new_handle = tpm2_handle_free(new_handle);
 
-                r = tpm2_index_to_handle(
+                _cleanup_(Esys_Freep) TPM2B_NV_PUBLIC *nv_public_real = NULL;
+                r = tpm2_nv_index_to_handle(
                                 c,
                                 nv_index,
                                 session,
-                                /* ret_public= */ NULL,
+                                &nv_public_real,
                                 /* ret_name= */ NULL,
-                                /* ret_qname= */ NULL,
                                 &new_handle);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to acquire handle to existing NV index 0x%" PRIu32 ".", nv_index);
 
                 log_debug("Successfully acquired handle to existing NV index 0x%" PRIx32 ".", nv_index);
-
-                _cleanup_(Esys_Freep) TPM2B_NV_PUBLIC *nv_public_real = NULL;
-                rc = sym_Esys_NV_ReadPublic(
-                                c->esys_context,
-                                /* nvIndex= */ new_handle->esys_handle,
-                                /* shandle1= */ ESYS_TR_NONE,
-                                /* shandle2= */ ESYS_TR_NONE,
-                                /* shandle3= */ ESYS_TR_NONE,
-                                &nv_public_real,
-                                /* ret_nv_name= */ NULL);
-                if (rc != TSS2_RC_SUCCESS)
-                        return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                               "Failed read public data of nvindex 0x%x: %s", nv_index, sym_Tss2_RC_Decode(rc));
-
-                log_debug("Read public info for nvindex 0x%x.", nv_index);
 
                 if (nv_public_real->size < endoffsetof_field(TPMS_NV_PUBLIC, attributes) + sizeof_field(TPMS_NV_PUBLIC, dataSize) ||
                     nv_public_real->nvPublic.nvIndex != public_info.nvPublic.nvIndex ||
@@ -6364,23 +6467,17 @@ int tpm2_read_nv_index(
                 struct iovec *ret_value) {
 
         TPM2_RC rc;
+        int r;
 
         assert(c);
         assert(nv_index);
         assert(nv_handle);
 
         _cleanup_(Esys_Freep) TPM2B_NV_PUBLIC *nv_public = NULL;
-        rc = sym_Esys_NV_ReadPublic(
-                        c->esys_context,
-                        /* nvIndex= */ nv_handle->esys_handle,
-                        /* shandle1= */ ESYS_TR_NONE,
-                        /* shandle2= */ ESYS_TR_NONE,
-                        /* shandle3= */ ESYS_TR_NONE,
-                        &nv_public,
-                        /* ret_nv_name= */ NULL);
-        if (rc != TSS2_RC_SUCCESS)
-                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                       "Failed read public data of nvindex 0x%x: %s", nv_index, sym_Tss2_RC_Decode(rc));
+
+        r = tpm2_read_nv_public(c, /* session= */ NULL, nv_handle, &nv_public, /* ret_name= */ NULL);
+        if (r < 0)
+                return r;
 
         log_debug("Read public info for nvindex 0x%x, value size is %zu", nv_index, (size_t) nv_public->nvPublic.dataSize);
 
@@ -7136,9 +7233,7 @@ int tpm2_nvpcr_extend_bytes(
                         c,
                         p.nv_index,
                         session,
-                        /* ret_public= */ NULL,
                         /* ret_name= */ NULL,
-                        /* ret_qname= */ NULL,
                         &nv_handle);
         if (r < 0)
                 return log_debug_errno(r, "Failed to acquire handle to NV index 0x%" PRIu32 ".", p.nv_index);
@@ -7793,9 +7888,7 @@ int tpm2_nvpcr_read(
                         c,
                         p.nv_index,
                         session,
-                        /* ret_public= */ NULL,
                         /* ret_name= */ NULL,
-                        /* ret_qname= */ NULL,
                         &nv_handle);
         if (r < 0)
                 return log_debug_errno(r, "Failed to acquire handle to NV index 0x%" PRIu32 ".", p.nv_index);
