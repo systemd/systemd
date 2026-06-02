@@ -506,7 +506,7 @@ static int builtin_blkid(UdevEvent *event, int argc, char *argv[]) {
         int64_t offset = 0;
         int r;
 
-        r = dlopen_libblkid(LOG_DEBUG);
+        r = DLOPEN_LIBBLKID(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED);
         if (r < 0)
                 return log_device_debug_errno(dev, r, "blkid not available: %m");
 

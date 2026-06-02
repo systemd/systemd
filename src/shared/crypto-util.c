@@ -336,11 +336,7 @@ int dlopen_libcrypto(int log_level) {
 #if HAVE_OPENSSL
         static void *libcrypto_dl = NULL;
 
-        SD_ELF_NOTE_DLOPEN(
-                        "libcrypto",
-                        "Support for cryptographic operations",
-                        SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
-                        "libcrypto.so.3");
+        LIBCRYPTO_NOTE(SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED);
 
         return dlopen_many_sym_or_warn(
                         &libcrypto_dl,

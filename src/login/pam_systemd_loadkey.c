@@ -19,7 +19,7 @@ _public_ PAM_EXTERN int pam_sm_authenticate(
 
         assert(pamh);
 
-        r = dlopen_libpam(LOG_DEBUG);
+        r = DLOPEN_LIBPAM(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED);
         if (r < 0)
                 return PAM_SERVICE_ERR;
 

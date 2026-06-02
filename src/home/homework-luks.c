@@ -146,7 +146,7 @@ static int probe_file_system_by_fd(
         assert(ret_fstype);
         assert(ret_uuid);
 
-        r = dlopen_libblkid(LOG_DEBUG);
+        r = DLOPEN_LIBBLKID(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
         if (r < 0)
                 return r;
 
@@ -529,7 +529,7 @@ static int acquire_open_luks_device(
         assert(setup);
         assert(!setup->crypt_device);
 
-        r = dlopen_cryptsetup(LOG_DEBUG);
+        r = DLOPEN_CRYPTSETUP(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
         if (r < 0)
                 return r;
 
@@ -684,7 +684,7 @@ static int luks_validate(
         assert(ret_size);
         assert(sector_size > 0);
 
-        r = dlopen_libblkid(LOG_DEBUG);
+        r = DLOPEN_LIBBLKID(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
         if (r < 0)
                 return r;
 
@@ -805,7 +805,7 @@ static int crypt_device_to_evp_cipher(struct crypt_device *cd, const EVP_CIPHER 
         assert(cd);
         assert(ret);
 
-        r = dlopen_libcrypto(LOG_ERR);
+        r = DLOPEN_LIBCRYPTO(LOG_ERR, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
         if (r < 0)
                 return r;
 
@@ -1293,7 +1293,7 @@ int home_setup_luks(
         assert(setup);
         assert(user_record_storage(h) == USER_LUKS);
 
-        r = dlopen_cryptsetup(LOG_DEBUG);
+        r = DLOPEN_CRYPTSETUP(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
         if (r < 0)
                 return r;
 
@@ -1594,7 +1594,7 @@ int home_activate_luks(
         assert(setup);
         assert(ret_home);
 
-        r = dlopen_cryptsetup(LOG_DEBUG);
+        r = DLOPEN_CRYPTSETUP(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
         if (r < 0)
                 return r;
 
@@ -2211,11 +2211,11 @@ int home_create_luks(
         assert(setup->image_fd < 0);
         assert(ret_home);
 
-        r = dlopen_fdisk(LOG_DEBUG);
+        r = DLOPEN_FDISK(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
         if (r < 0)
                 return r;
 
-        r = dlopen_cryptsetup(LOG_DEBUG);
+        r = DLOPEN_CRYPTSETUP(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
         if (r < 0)
                 return r;
 
@@ -3250,11 +3250,11 @@ int home_resize_luks(
         assert(user_record_storage(h) == USER_LUKS);
         assert(setup);
 
-        r = dlopen_fdisk(LOG_DEBUG);
+        r = DLOPEN_FDISK(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
         if (r < 0)
                 return r;
 
-        r = dlopen_cryptsetup(LOG_DEBUG);
+        r = DLOPEN_CRYPTSETUP(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
         if (r < 0)
                 return r;
 
@@ -3712,7 +3712,7 @@ int home_passwd_luks(
         assert(user_record_storage(h) == USER_LUKS);
         assert(setup);
 
-        r = dlopen_cryptsetup(LOG_DEBUG);
+        r = DLOPEN_CRYPTSETUP(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
         if (r < 0)
                 return r;
 
