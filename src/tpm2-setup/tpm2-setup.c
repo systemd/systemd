@@ -55,7 +55,7 @@ static int help(void) {
                 return r;
 
         printf("%s [OPTIONS...]\n"
-               "\n%sSet up the TPM2 Storage Root Key (SRK), and initialize NvPCRs.%s\n"
+               "\n%sSet up the TPM2 Storage Root Key (SRK) and Endorsement Key (EK), and initialize NvPCRs.%s\n"
                "\n%sOptions:%s\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -555,6 +555,36 @@ static int setup_nvpcr(void) {
         return ret;
 }
 
+static int setup_ek(void) {
+        _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
+        int r;
+
+        /* We don't need to create an EK during the early phase. */
+        if (arg_early) {
+                log_debug("Skipping EK setup in early boot phase.");
+                return 0;
+        }
+
+        r = tpm2_context_new_or_warn(arg_tpm2_device, &c);
+        if (r < 0)
+                return r;
+
+        r = tpm2_get_or_create_ek(c, /* session= */ NULL, /* ret_public= */ NULL, /* ret_name= */ NULL, /* ret_qname= */ NULL, /* ret_handle= */ NULL);
+        if (r == -EDEADLK) {
+                log_struct_errno(LOG_INFO, r,
+                                 LOG_MESSAGE("Insufficient permissions to access TPM, not generating EK."),
+                                 LOG_MESSAGE_ID(SD_MESSAGE_EK_ENROLLMENT_NEEDS_AUTHORIZATION_STR));
+                return EX_PROTOCOL; /* Special return value which means "Insufficient permissions to access TPM,
+                                     * cannot generate EK". This isn't really an error when called at boot. */
+        }
+        if (r == -EOPNOTSUPP)
+                return EX_UNAVAILABLE; /* eg, no valid EK certificate. */
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 static int run(int argc, char *argv[]) {
         int r;
 
@@ -579,15 +609,20 @@ static int run(int argc, char *argv[]) {
 
         umask(0022);
 
-        /* Execute both jobs, and then return unlisted errors preferably, and listed errors
+        /* Execute all jobs, and then return unlisted errors preferably, and listed errors
          * (i.e. EX_UNAVAILABLE, EX_CANTCREAT, EX_PROTOCOL) otherwise. */
         r = setup_srk();
-        int k = setup_nvpcr();
+        int j = setup_nvpcr();
+        int k = setup_ek();
         if (r < 0)
                 return r;
+        if (j < 0)
+                return j;
         if (k < 0)
                 return k;
-        return r != EXIT_SUCCESS ? r : k;
+        if (r != EXIT_SUCCESS)
+                return r;
+        return j != EXIT_SUCCESS ? j : k;
 }
 
 DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);
