@@ -39,7 +39,279 @@
 #include "user-util.h"
 #include "xattr-util.h"
 
-static int fscrypt_unlink_key(UserRecord *h) {
+/* fscrypt policy versions
+ *
+ * v1 is the legacy policy. The kernel binds keys via the calling process's keyring, which means access is
+ * effectively per-process: files opened in containers, bind-mounted into other namespaces, or read by users
+ * other than the one that unlocked the home will fail with ENOKEY until they are first read from a context
+ * that has the key (issue #18280).
+ *
+ * v2 (Linux 5.4+) routes keys through the filesystem keyring instead, via FS_IOC_ADD_ENCRYPTION_KEY /
+ * FS_IOC_REMOVE_ENCRYPTION_KEY ioctls. Once added, the key is visible to every process accessing the
+ * filesystem, which fixes the bind-mount / container case. New homes default to v2; existing v1 homes
+ * keep working but stay on v1 (see home_setup_fscrypt for the on-disk format and unlock details). */
+
+static void compute_fscrypt_key_descriptor_v1(
+                const struct iovec *key,
+                uint8_t ret_descriptor[static FSCRYPT_KEY_DESCRIPTOR_SIZE]) {
+
+        uint8_t hashed[512 / 8] = {}, hashed2[512 / 8] = {};
+
+        assert(iovec_is_set(key));
+        assert(ret_descriptor);
+
+        CLEANUP_ERASE(hashed);
+        CLEANUP_ERASE(hashed2);
+
+        /* v1 descriptor: first 8 bytes of SHA-512(SHA-512(key)). Matches the e4crypt-style derivation. */
+
+        assert_se(sym_SHA512(key->iov_base, key->iov_len, hashed) == hashed);
+        assert_se(sym_SHA512(hashed, sizeof(hashed), hashed2) == hashed2);
+
+        assert_cc(sizeof(hashed2) >= FSCRYPT_KEY_DESCRIPTOR_SIZE);
+
+        memcpy(ret_descriptor, hashed2, FSCRYPT_KEY_DESCRIPTOR_SIZE);
+}
+
+static int compute_fscrypt_key_identifier_v2(
+                const struct iovec *key,
+                uint8_t ret_identifier[static FSCRYPT_KEY_IDENTIFIER_SIZE]) {
+
+        /* HKDF-SHA512 with empty salt and info string "fscrypt\0\x01" (\x01 ==
+         * HKDF_CONTEXT_KEY_IDENTIFIER). Mirrors the kernel computation in fs/crypto/hkdf.c. */
+
+        static const uint8_t fscrypt_hkdf_info[] = {
+                'f', 's', 'c', 'r', 'y', 'p', 't', 0x00,
+                0x01,   /* HKDF_CONTEXT_KEY_IDENTIFIER */
+        };
+        _cleanup_(iovec_done_erase) struct iovec derived = {};
+        int r;
+
+        assert(iovec_is_set(key));
+        assert(ret_identifier);
+
+        r = kdf_hkdf_derive(
+                        "SHA512",
+                        key,
+                        /* salt= */ NULL,
+                        &IOVEC_MAKE((void*) fscrypt_hkdf_info, sizeof(fscrypt_hkdf_info)),
+                        FSCRYPT_KEY_IDENTIFIER_SIZE,
+                        &derived);
+        if (r < 0)
+                return log_error_errno(r, "Failed to derive fscrypt v2 key identifier: %m");
+
+        assert(derived.iov_len == FSCRYPT_KEY_IDENTIFIER_SIZE);
+        memcpy(ret_identifier, derived.iov_base, FSCRYPT_KEY_IDENTIFIER_SIZE);
+        return 0;
+}
+
+/* Returns >0 if 'key' is the master key matching 'spec', 0 if not, <0 on error. */
+static int fscrypt_key_spec_matches(
+                const struct fscrypt_key_specifier *spec,
+                const struct iovec *key) {
+
+        int r;
+
+        assert(spec);
+        assert(iovec_is_set(key));
+
+        switch (spec->type) {
+
+        case FSCRYPT_KEY_SPEC_TYPE_DESCRIPTOR: {
+                uint8_t descriptor[FSCRYPT_KEY_DESCRIPTOR_SIZE];
+
+                compute_fscrypt_key_descriptor_v1(key, descriptor);
+                return memcmp(descriptor, spec->u.descriptor, FSCRYPT_KEY_DESCRIPTOR_SIZE) == 0;
+        }
+
+        case FSCRYPT_KEY_SPEC_TYPE_IDENTIFIER: {
+                uint8_t identifier[FSCRYPT_KEY_IDENTIFIER_SIZE];
+
+                r = compute_fscrypt_key_identifier_v2(key, identifier);
+                if (r < 0)
+                        return r;
+
+                return memcmp(identifier, spec->u.identifier, FSCRYPT_KEY_IDENTIFIER_SIZE) == 0;
+        }
+
+        default:
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Unexpected fscrypt key specifier type %u.", spec->type);
+        }
+}
+
+static int fscrypt_v1_keyring_add(
+                const uint8_t descriptor[static FSCRYPT_KEY_DESCRIPTOR_SIZE],
+                const struct iovec *volume_key,
+                key_serial_t where,
+                key_serial_t *ret_serial) {
+
+        _cleanup_free_ char *hex = NULL;
+        const char *description;
+        struct fscrypt_key key;
+        key_serial_t serial;
+
+        assert(descriptor);
+        assert(iovec_is_set(volume_key));
+
+        if (volume_key->iov_len > sizeof(key.raw))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Volume key too long.");
+
+        hex = hexmem(descriptor, FSCRYPT_KEY_DESCRIPTOR_SIZE);
+        if (!hex)
+                return log_oom();
+
+        description = strjoina(FSCRYPT_KEY_DESC_PREFIX, hex);
+
+        key = (struct fscrypt_key) {
+                .size = volume_key->iov_len,
+        };
+        memcpy(key.raw, volume_key->iov_base, volume_key->iov_len);
+
+        CLEANUP_ERASE(key);
+
+        serial = add_key("logon", description, &key, sizeof(key), where);
+        if (serial < 0)
+                return log_error_errno(errno, "Failed to install master key in keyring: %m");
+
+        log_debug("Uploaded fscrypt v1 master key to keyring %" PRIi32 ".", (int32_t) where);
+        if (ret_serial)
+                *ret_serial = serial;
+        return 0;
+}
+
+static int fscrypt_v2_ioctl_remove(int dir_fd, const uint8_t identifier[static FSCRYPT_KEY_IDENTIFIER_SIZE]);
+
+/* If 'expected_identifier' is non-NULL, the kernel-computed identifier is compared against it and the call
+ * fails (with the key removed again) when they disagree. Returns -ENOTTY/-EOPNOTSUPP silently so callers
+ * can probe for v2 support; every other failure is logged at error level. */
+static int fscrypt_v2_ioctl_add(
+                int dir_fd,
+                const uint8_t *expected_identifier,
+                const struct iovec *volume_key) {
+
+        _cleanup_free_ struct fscrypt_add_key_arg *arg = NULL;
+        size_t arg_size;
+
+        assert(dir_fd >= 0);
+        assert(iovec_is_set(volume_key));
+
+        if (volume_key->iov_len > FSCRYPT_MAX_KEY_SIZE)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Volume key too long.");
+
+        arg_size = sizeof(*arg) + volume_key->iov_len;
+        arg = malloc0(arg_size);
+        if (!arg)
+                return log_oom();
+
+        CLEANUP_ERASE_PTR(&arg, arg_size);
+
+        arg->key_spec.type = FSCRYPT_KEY_SPEC_TYPE_IDENTIFIER;
+        arg->raw_size = volume_key->iov_len;
+        memcpy(arg->raw, volume_key->iov_base, volume_key->iov_len);
+
+        if (ioctl(dir_fd, FS_IOC_ADD_ENCRYPTION_KEY, arg) < 0) {
+                if (ERRNO_IS_NOT_SUPPORTED(errno))
+                        return -errno; /* silent: caller may be probing for v2 support */
+                return log_error_errno(errno, "FS_IOC_ADD_ENCRYPTION_KEY failed: %m");
+        }
+
+        if (expected_identifier &&
+            memcmp(arg->key_spec.u.identifier, expected_identifier, FSCRYPT_KEY_IDENTIFIER_SIZE) != 0) {
+                /* Roll back the unrelated key we just installed. */
+                (void) fscrypt_v2_ioctl_remove(dir_fd, arg->key_spec.u.identifier);
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "Kernel-computed fscrypt v2 identifier did not match policy.");
+        }
+
+        log_debug("Added fscrypt v2 master key to filesystem keyring.");
+        return 0;
+}
+
+static int fscrypt_v2_ioctl_remove(
+                int dir_fd,
+                const uint8_t identifier[static FSCRYPT_KEY_IDENTIFIER_SIZE]) {
+
+        struct fscrypt_remove_key_arg arg = {
+                .key_spec.type = FSCRYPT_KEY_SPEC_TYPE_IDENTIFIER,
+        };
+
+        assert(dir_fd >= 0);
+        assert(identifier);
+
+        memcpy(arg.key_spec.u.identifier, identifier, FSCRYPT_KEY_IDENTIFIER_SIZE);
+
+        if (ioctl(dir_fd, FS_IOC_REMOVE_ENCRYPTION_KEY, &arg) < 0) {
+                if (errno == ENOKEY) /* already gone */
+                        return 0;
+                return log_error_errno(errno, "FS_IOC_REMOVE_ENCRYPTION_KEY failed: %m");
+        }
+
+        if (arg.removal_status_flags & FSCRYPT_KEY_REMOVAL_STATUS_FLAG_FILES_BUSY)
+                log_debug("fscrypt v2 master key removal reported files still in use; "
+                          "encrypted contents will be inaccessible once the last reference goes away.");
+        if (arg.removal_status_flags & FSCRYPT_KEY_REMOVAL_STATUS_FLAG_OTHER_USERS)
+                log_debug("fscrypt v2 master key is still claimed by other users.");
+
+        return 0;
+}
+
+/* RAII rollback for v2 master-key installation. Once armed via fscrypt_v2_key_undo_set(), removes
+ * the key from the filesystem keyring on scope exit. v2 keys live in the kernel filesystem keyring
+ * and persist until an explicit FS_IOC_REMOVE_ENCRYPTION_KEY, so any home setup or create operation
+ * that bails after FS_IOC_ADD_ENCRYPTION_KEY succeeded must roll back or the key lingers, visible
+ * to every process on the filesystem, until the next successful deactivation. (v1 keys land in the
+ * per-thread keyring and are reclaimed when the homework process exits, so they need no rollback.)
+ *
+ * The dir fd is dup'd at arm time and the duped fd is what gets used for the rollback ioctl, so the
+ * rollback target is fixed to the filesystem superblock at arming time (no path re-resolution, no
+ * TOCTOU on rename/mount changes between arm and done). Disarm by calling fscrypt_v2_key_undo_disarm()
+ * after the live home owns the key. */
+typedef struct FscryptV2KeyUndo {
+        int dir_fd;
+        uint8_t identifier[FSCRYPT_KEY_IDENTIFIER_SIZE];
+} FscryptV2KeyUndo;
+
+#define FSCRYPT_V2_KEY_UNDO_INIT { .dir_fd = -EBADF }
+
+static void fscrypt_v2_key_undo_done(FscryptV2KeyUndo *u) {
+        assert(u);
+
+        if (u->dir_fd < 0)
+                return;
+
+        (void) fscrypt_v2_ioctl_remove(u->dir_fd, u->identifier);
+        u->dir_fd = safe_close(u->dir_fd);
+}
+
+static void fscrypt_v2_key_undo_disarm(FscryptV2KeyUndo *u) {
+        assert(u);
+        u->dir_fd = safe_close(u->dir_fd);
+}
+
+static int fscrypt_v2_key_undo_set(
+                FscryptV2KeyUndo *u,
+                int dir_fd,
+                const struct fscrypt_key_specifier *spec) {
+
+        assert(u);
+        assert(dir_fd >= 0);
+        assert(spec);
+        assert(u->dir_fd < 0); /* not already armed */
+
+        if (spec->type != FSCRYPT_KEY_SPEC_TYPE_IDENTIFIER)
+                return 0; /* v1: nothing to roll back */
+
+        int duped = fcntl(dir_fd, F_DUPFD_CLOEXEC, 3);
+        if (duped < 0)
+                return log_error_errno(errno, "Failed to dup directory fd for fscrypt v2 rollback: %m");
+
+        u->dir_fd = duped;
+        memcpy(u->identifier, spec->u.identifier, FSCRYPT_KEY_IDENTIFIER_SIZE);
+        return 0;
+}
+
+static int fscrypt_v1_keyring_unlink_all(UserRecord *h) {
         _cleanup_free_ void *keyring = NULL;
         size_t keyring_size = 0, n_keys = 0;
         int r;
@@ -63,9 +335,9 @@ static int fscrypt_unlink_key(UserRecord *h) {
         n_keys = keyring_size / sizeof(key_serial_t);
         assert(keyring_size % sizeof(key_serial_t) == 0);
 
-        /* Find any key with a description starting with 'fscrypt:' and unlink it. We need to iterate as we
-         * store the key with a description that uses the hash of the secret key, that we do not have when
-         * we are deactivating. */
+        /* Find any key with a description starting with FSCRYPT_KEY_DESC_PREFIX and unlink it. We need to
+         * iterate as we store the key with a description that uses the hash of the secret key, that we do
+         * not have when we are deactivating. */
         FOREACH_ARRAY(key, ((key_serial_t *) keyring), n_keys) {
                 _cleanup_free_ char *description = NULL;
                 char *d;
@@ -85,7 +357,7 @@ static int fscrypt_unlink_key(UserRecord *h) {
                                         *key,
                                         description);
 
-                if (!startswith(d + 1, "fscrypt:"))
+                if (!startswith(d + 1, FSCRYPT_KEY_DESC_PREFIX))
                         continue;
 
                 r = keyctl(KEYCTL_UNLINK, *key, KEY_SPEC_USER_KEYRING, 0, 0);
@@ -106,7 +378,73 @@ static int fscrypt_unlink_key(UserRecord *h) {
         return 0;
 }
 
+/* Reads the fscrypt policy on dir_fd into ret_spec, returning the policy version (1 or 2) or:
+ *   -ENODATA: the directory is not encrypted
+ *   -ENOLINK: the filesystem does not support fscrypt
+ * Both of these are returned silently (so callers can probe), every other failure is logged. */
+static int fscrypt_policy_get(int dir_fd, struct fscrypt_key_specifier *ret_spec) {
+        struct fscrypt_get_policy_ex_arg ex = {
+                .policy_size = sizeof(ex.policy),
+        };
+
+        assert(dir_fd >= 0);
+        assert(ret_spec);
+
+        if (ioctl(dir_fd, FS_IOC_GET_ENCRYPTION_POLICY_EX, &ex) >= 0) {
+                if (ex.policy.version == FSCRYPT_POLICY_V1) {
+                        *ret_spec = (struct fscrypt_key_specifier) {
+                                .type = FSCRYPT_KEY_SPEC_TYPE_DESCRIPTOR,
+                        };
+                        memcpy(ret_spec->u.descriptor, ex.policy.v1.master_key_descriptor,
+                               FSCRYPT_KEY_DESCRIPTOR_SIZE);
+                        return FSCRYPT_POLICY_V1;
+                }
+                if (ex.policy.version == FSCRYPT_POLICY_V2) {
+                        *ret_spec = (struct fscrypt_key_specifier) {
+                                .type = FSCRYPT_KEY_SPEC_TYPE_IDENTIFIER,
+                        };
+                        memcpy(ret_spec->u.identifier, ex.policy.v2.master_key_identifier,
+                               FSCRYPT_KEY_IDENTIFIER_SIZE);
+                        return FSCRYPT_POLICY_V2;
+                }
+
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Unsupported fscrypt policy version %u.", ex.policy.version);
+        }
+        /* Both ENODATA and the "fscrypt unsupported" errno return silently; see the function header. */
+        if (errno == ENODATA)
+                return -ENODATA;
+        /* ENOTTY here is ambiguous: it can mean either "kernel too old to know FS_IOC_GET_ENCRYPTION_POLICY_EX
+         * (added in Linux 4.17)" or "filesystem has no fscrypt ioctls at all". Fall through to the legacy
+         * ioctl to disambiguate — if the kernel/fs really has no fscrypt support, the legacy ioctl will
+         * also fail and we'll map that to -ENOLINK below. Check this BEFORE ERRNO_IS_NOT_SUPPORTED, which
+         * also matches ENOTTY and would otherwise short-circuit the fallback. */
+        if (errno != ENOTTY) {
+                if (ERRNO_IS_NOT_SUPPORTED(errno))
+                        return -ENOLINK;
+                return log_error_errno(errno, "FS_IOC_GET_ENCRYPTION_POLICY_EX failed: %m");
+        }
+
+        /* Kernel too old to support the _EX ioctl. Fall back to the legacy variant, which only knows v1. */
+        struct fscrypt_policy_v1 v1 = {};
+        if (ioctl(dir_fd, FS_IOC_GET_ENCRYPTION_POLICY, &v1) < 0) {
+                /* Same silent-return contract as above. */
+                if (errno == ENODATA)
+                        return -ENODATA;
+                if (ERRNO_IS_NOT_SUPPORTED(errno))
+                        return -ENOLINK;
+                return log_error_errno(errno, "FS_IOC_GET_ENCRYPTION_POLICY failed: %m");
+        }
+
+        *ret_spec = (struct fscrypt_key_specifier) {
+                .type = FSCRYPT_KEY_SPEC_TYPE_DESCRIPTOR,
+        };
+        memcpy(ret_spec->u.descriptor, v1.master_key_descriptor, FSCRYPT_KEY_DESCRIPTOR_SIZE);
+        return FSCRYPT_POLICY_V1;
+}
+
 int home_flush_keyring_fscrypt(UserRecord *h) {
+        const char *ip;
         int r;
 
         assert(h);
@@ -115,6 +453,25 @@ int home_flush_keyring_fscrypt(UserRecord *h) {
         if (!uid_is_valid(h->uid))
                 return 0;
 
+        assert_se(ip = user_record_image_path(h));
+
+        /* For v2 policies the key lives in the filesystem keyring, removed via ioctl on a dir fd. For
+         * everything else (v1, ENODATA, ENOLINK, or failure to even open the directory) the safe
+         * fallback is the v1 user-keyring walk below, which is a no-op when nothing matches. Reaching
+         * the walk also keeps prior behaviour: stale v1 entries get reaped even if the image
+         * directory has gone away. */
+        _cleanup_close_ int dir_fd = open(ip, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
+        if (dir_fd >= 0) {
+                struct fscrypt_key_specifier spec;
+
+                r = fscrypt_policy_get(dir_fd, &spec);
+                if (r == FSCRYPT_POLICY_V2)
+                        return fscrypt_v2_ioctl_remove(dir_fd, spec.u.identifier);
+                if (r < 0 && !IN_SET(r, -ENODATA, -ENOLINK))
+                        log_debug_errno(r, "Failed to read fscrypt policy of %s, falling back to v1 keyring walk: %m", ip);
+        } else
+                log_debug_errno(errno, "Failed to open %s, falling back to v1 keyring walk: %m", ip);
+
         r = pidref_safe_fork(
                         "(sd-delkey)",
                         FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT|FORK_REOPEN_LOG,
@@ -122,7 +479,7 @@ int home_flush_keyring_fscrypt(UserRecord *h) {
         if (r < 0)
                 return r;
         if (r == 0) {
-                if (fscrypt_unlink_key(h) < 0)
+                if (fscrypt_v1_keyring_unlink_all(h) < 0)
                         _exit(EXIT_FAILURE);
                 _exit(EXIT_SUCCESS);
         }
@@ -130,67 +487,11 @@ int home_flush_keyring_fscrypt(UserRecord *h) {
         return 0;
 }
 
-static int fscrypt_upload_volume_key(
-                const uint8_t key_descriptor[static FS_KEY_DESCRIPTOR_SIZE],
-                const void *volume_key,
-                size_t volume_key_size,
-                key_serial_t where) {
-
-        _cleanup_free_ char *hex = NULL;
-        const char *description;
-        struct fscrypt_key key;
-        key_serial_t serial;
-
-        assert(key_descriptor);
-        assert(volume_key);
-        assert(volume_key_size > 0);
-
-        if (volume_key_size > sizeof(key.raw))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Volume key too long.");
-
-        hex = hexmem(key_descriptor, FS_KEY_DESCRIPTOR_SIZE);
-        if (!hex)
-                return log_oom();
-
-        description = strjoina("fscrypt:", hex);
-
-        key = (struct fscrypt_key) {
-                .size = volume_key_size,
-        };
-        memcpy(key.raw, volume_key, volume_key_size);
-
-        CLEANUP_ERASE(key);
-
-        /* Upload to the kernel */
-        serial = add_key("logon", description, &key, sizeof(key), where);
-        if (serial < 0)
-                return log_error_errno(errno, "Failed to install master key in keyring: %m");
-
-        log_info("Uploaded encryption key to kernel.");
-
-        return 0;
-}
-
-static void calculate_key_descriptor(
-                const void *key,
-                size_t key_size,
-                uint8_t ret_key_descriptor[static FS_KEY_DESCRIPTOR_SIZE]) {
-
-        uint8_t hashed[512 / 8] = {}, hashed2[512 / 8] = {};
-
-        /* Derive the key descriptor from the volume key via double SHA512, in order to be compatible with e4crypt */
-
-        assert_se(sym_SHA512(key, key_size, hashed) == hashed);
-        assert_se(sym_SHA512(hashed, sizeof(hashed), hashed2) == hashed2);
-
-        assert_cc(sizeof(hashed2) >= FS_KEY_DESCRIPTOR_SIZE);
-
-        memcpy(ret_key_descriptor, hashed2, FS_KEY_DESCRIPTOR_SIZE);
-}
-
-/* fscrypt slot wrapping
+/* fscrypt key-slot on-disk wrapping
  *
- * Two on-disk formats are supported. New slots are always written in v2, which improves offline security.
+ * Two on-disk slot formats are supported. These are independent of the kernel fscrypt policy version: the
+ * slot is just a password-encrypted blob holding the master key. New slots are always written in v2, which
+ * improves offline security.
  *
  *   v1 (legacy, read-only):
  *      <salt_b64>:<ciphertext_b64>
@@ -213,12 +514,11 @@ static int fscrypt_slot_try_v1(
                 const char *password,
                 const void *salt, size_t salt_size,
                 const void *encrypted, size_t encrypted_size,
-                const uint8_t match_key_descriptor[static FS_KEY_DESCRIPTOR_SIZE],
+                const struct fscrypt_key_specifier *match,
                 struct iovec *ret_decrypted) {
 
         _cleanup_(EVP_CIPHER_CTX_freep) EVP_CIPHER_CTX *context = NULL;
         _cleanup_(erase_and_freep) void *decrypted = NULL;
-        uint8_t key_descriptor[FS_KEY_DESCRIPTOR_SIZE];
         int decrypted_size_out1, decrypted_size_out2;
         uint8_t derived[512 / 8] = {};
         size_t decrypted_size;
@@ -230,7 +530,7 @@ static int fscrypt_slot_try_v1(
         assert(salt_size > 0);
         assert(encrypted);
         assert(encrypted_size > 0);
-        assert(match_key_descriptor);
+        assert(match);
 
         r = DLOPEN_LIBCRYPTO(LOG_ERR, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
         if (r < 0)
@@ -287,14 +587,11 @@ static int fscrypt_slot_try_v1(
         assert((size_t) decrypted_size_out1 + (size_t) decrypted_size_out2 < decrypted_size);
         decrypted_size = (size_t) decrypted_size_out1 + (size_t) decrypted_size_out2;
 
-        calculate_key_descriptor(decrypted, decrypted_size, key_descriptor);
-
-        if (memcmp(key_descriptor, match_key_descriptor, FS_KEY_DESCRIPTOR_SIZE) != 0)
-                return -ENOANO; /* don't log here */
-
-        r = fscrypt_upload_volume_key(key_descriptor, decrypted, decrypted_size, KEY_SPEC_THREAD_KEYRING);
+        r = fscrypt_key_spec_matches(match, &IOVEC_MAKE(decrypted, decrypted_size));
         if (r < 0)
                 return r;
+        if (r == 0)
+                return -ENOANO; /* don't log here */
 
         if (ret_decrypted) {
                 ret_decrypted->iov_base = TAKE_PTR(decrypted);
@@ -311,12 +608,11 @@ static int fscrypt_slot_try_v2(
                 const struct iovec *iv,
                 const struct iovec *encrypted,
                 const struct iovec *tag,
-                const uint8_t match_key_descriptor[static FS_KEY_DESCRIPTOR_SIZE],
+                const struct fscrypt_key_specifier *match,
                 struct iovec *ret_decrypted) {
 
         _cleanup_(EVP_CIPHER_CTX_freep) EVP_CIPHER_CTX *context = NULL;
         _cleanup_(erase_and_freep) void *decrypted = NULL;
-        uint8_t key_descriptor[FS_KEY_DESCRIPTOR_SIZE];
         int decrypted_size_out1 = 0, decrypted_size_out2 = 0;
         uint8_t derived[512 / 8] = {};
         size_t decrypted_size;
@@ -329,7 +625,7 @@ static int fscrypt_slot_try_v2(
         assert(iovec_is_set(iv));
         assert(iovec_is_set(encrypted));
         assert(iovec_is_set(tag));
-        assert(match_key_descriptor);
+        assert(match);
 
         r = DLOPEN_LIBCRYPTO(LOG_ERR, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
         if (r < 0)
@@ -385,16 +681,14 @@ static int fscrypt_slot_try_v2(
         assert((size_t) decrypted_size_out1 + (size_t) decrypted_size_out2 <= decrypted_size);
         decrypted_size = (size_t) decrypted_size_out1 + (size_t) decrypted_size_out2;
 
-        calculate_key_descriptor(decrypted, decrypted_size, key_descriptor);
-
-        if (memcmp(key_descriptor, match_key_descriptor, FS_KEY_DESCRIPTOR_SIZE) != 0)
-                /* Authenticated decryption succeeded but the resulting volume key does not match the policy
-                 * descriptor. Treat as a non-match (e.g. leftover slot from a different fscrypt setup). */
-                return -ENOANO;
-
-        r = fscrypt_upload_volume_key(key_descriptor, decrypted, decrypted_size, KEY_SPEC_THREAD_KEYRING);
+        r = fscrypt_key_spec_matches(match, &IOVEC_MAKE(decrypted, decrypted_size));
         if (r < 0)
                 return r;
+        if (r == 0)
+                /* Authenticated decryption succeeded but the resulting volume key does not match the policy
+                 * descriptor/identifier. Treat as a non-match (e.g. leftover slot from a different fscrypt
+                 * setup). */
+                return -ENOANO;
 
         if (ret_decrypted) {
                 ret_decrypted->iov_base = TAKE_PTR(decrypted);
@@ -407,7 +701,7 @@ static int fscrypt_slot_try_v2(
 static int fscrypt_slot_try_one(
                 const char *password,
                 const char *xattr_value, size_t xattr_size,
-                const uint8_t match_key_descriptor[static FS_KEY_DESCRIPTOR_SIZE],
+                const struct fscrypt_key_specifier *match,
                 struct iovec *ret_decrypted) {
 
         _cleanup_free_ void *salt = NULL, *iv = NULL, *encrypted = NULL, *tag = NULL;
@@ -419,7 +713,7 @@ static int fscrypt_slot_try_one(
         assert(password);
         assert(xattr_value);
         assert(xattr_size > 0);
-        assert(match_key_descriptor);
+        assert(match);
 
         body = memory_startswith(xattr_value, xattr_size, "$v2:");
         if (!body) {
@@ -441,7 +735,7 @@ static int fscrypt_slot_try_one(
                 return fscrypt_slot_try_v1(password,
                                            salt, salt_size,
                                            encrypted, encrypted_size,
-                                           match_key_descriptor,
+                                           match,
                                            ret_decrypted);
         }
 
@@ -497,7 +791,7 @@ static int fscrypt_slot_try_one(
                                 &IOVEC_MAKE(iv, iv_size),
                                 &IOVEC_MAKE(encrypted, encrypted_size),
                                 &IOVEC_MAKE(tag, tag_size),
-                                match_key_descriptor,
+                                match,
                                 &decrypted);
         if (r < 0)
                 return r;
@@ -511,13 +805,13 @@ static int fscrypt_slot_try_one(
 static int fscrypt_slot_try_many(
                 char **passwords,
                 const char *xattr_value, size_t xattr_size,
-                const uint8_t match_key_descriptor[static FS_KEY_DESCRIPTOR_SIZE],
+                const struct fscrypt_key_specifier *match,
                 struct iovec *ret_decrypted) {
 
         int r;
 
         STRV_FOREACH(i, passwords) {
-                r = fscrypt_slot_try_one(*i, xattr_value, xattr_size, match_key_descriptor, ret_decrypted);
+                r = fscrypt_slot_try_one(*i, xattr_value, xattr_size, match, ret_decrypted);
                 if (r != -ENOANO)
                         return r;
         }
@@ -567,7 +861,7 @@ static int fscrypt_setup(
                         r = fscrypt_slot_try_many(
                                         list,
                                         value, vsize,
-                                        setup->fscrypt_key_descriptor,
+                                        &setup->fscrypt_key_spec,
                                         ret_volume_key);
                         if (r >= 0)
                                 return 0;
@@ -579,13 +873,86 @@ static int fscrypt_setup(
         return log_error_errno(SYNTHETIC_ERRNO(ENOKEY), "Failed to set up home directory with provided passwords.");
 }
 
+static int fscrypt_install_master_key(
+                UserRecord *h,
+                HomeSetup *setup,
+                const struct iovec *volume_key) {
+
+        int r;
+
+        assert(h);
+        assert(setup);
+        assert(setup->root_fd >= 0);
+        assert(iovec_is_set(volume_key));
+
+        switch (setup->fscrypt_key_spec.type) {
+
+        case FSCRYPT_KEY_SPEC_TYPE_DESCRIPTOR:
+                /* Thread keyring upload for the current process, plus a forked uid-drop to install into
+                 * the user's session keyring so user processes can also read encrypted files. */
+                r = fscrypt_v1_keyring_add(
+                                setup->fscrypt_key_spec.u.descriptor,
+                                volume_key,
+                                KEY_SPEC_THREAD_KEYRING,
+                                /* ret_serial= */ NULL);
+                if (r < 0)
+                        return r;
+
+                if (uid_is_valid(h->uid)) {
+                        r = pidref_safe_fork(
+                                        "(sd-addkey)",
+                                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT|FORK_REOPEN_LOG,
+                                        /* ret= */ NULL);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to install encryption key in user's keyring: %m");
+                        if (r == 0) {
+                                r = fully_set_uid_gid(h->uid, user_record_gid(h), /* supplementary_gids= */ NULL, /* n_supplementary_gids= */ 0);
+                                if (r < 0) {
+                                        log_error_errno(r, "Failed to change UID/GID to " UID_FMT "/" GID_FMT ": %m",
+                                                        h->uid, user_record_gid(h));
+                                        _exit(EXIT_FAILURE);
+                                }
+
+                                r = fscrypt_v1_keyring_add(
+                                                setup->fscrypt_key_spec.u.descriptor,
+                                                volume_key,
+                                                KEY_SPEC_USER_KEYRING,
+                                                /* ret_serial= */ NULL);
+                                if (r < 0)
+                                        _exit(EXIT_FAILURE);
+
+                                _exit(EXIT_SUCCESS);
+                        }
+                }
+                return 0;
+
+        case FSCRYPT_KEY_SPEC_TYPE_IDENTIFIER:
+                /* fscrypt_v2_ioctl_add logs hard errors at error level itself; on the unlock path the
+                 * -ENOTTY/-EOPNOTSUPP probe contract shouldn't even apply since the policy is already
+                 * on disk, so any such error here means the kernel/fs lost v2 support since the home
+                 * was created. Surface it. */
+                r = fscrypt_v2_ioctl_add(
+                                setup->root_fd,
+                                setup->fscrypt_key_spec.u.identifier,
+                                volume_key);
+                if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                        return log_error_errno(r, "Kernel rejected fscrypt v2 key install on existing v2 home: %m");
+                return r;
+
+        default:
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Unexpected fscrypt key specifier type %u.",
+                                       setup->fscrypt_key_spec.type);
+        }
+}
+
 int home_setup_fscrypt(
                 UserRecord *h,
                 HomeSetup *setup,
                 const PasswordCache *cache) {
 
         _cleanup_(iovec_done_erase) struct iovec volume_key = {};
-        struct fscrypt_policy policy = {};
+        _cleanup_(fscrypt_v2_key_undo_done) FscryptV2KeyUndo v2_key_undo = FSCRYPT_V2_KEY_UNDO_INIT;
         const char *ip;
         int r;
 
@@ -600,17 +967,21 @@ int home_setup_fscrypt(
         if (setup->root_fd < 0)
                 return log_error_errno(errno, "Failed to open home directory: %m");
 
-        if (ioctl(setup->root_fd, FS_IOC_GET_ENCRYPTION_POLICY, &policy) < 0) {
-                if (errno == ENODATA)
-                        return log_error_errno(errno, "Home directory %s is not encrypted.", ip);
-                if (ERRNO_IS_NOT_SUPPORTED(errno)) {
-                        log_error_errno(errno, "File system does not support fscrypt: %m");
-                        return -ENOLINK; /* make recognizable */
-                }
-                return log_error_errno(errno, "Failed to acquire encryption policy of %s: %m", ip);
-        }
+        /* fscrypt has v1 and v2 policy versions with different on-disk formats, and no in-place upgrade:
+         * v1 binds the master key by an 8-byte descriptor (truncated double SHA-512), v2 by a 16-byte
+         * identifier (HKDF-SHA512). The version is baked into the existing policy, so we read it here and
+         * unlock via the matching code path: add_key() on the thread keyring for v1, the
+         * FS_IOC_ADD_ENCRYPTION_KEY ioctl for v2. A v1 home cannot be unlocked with v2 calls (and vice
+         * versa), independent of kernel version. New homes default to v2 (see home_create_fscrypt). */
+        r = fscrypt_policy_get(setup->root_fd, &setup->fscrypt_key_spec);
+        if (r == -ENODATA)
+                return log_error_errno(r, "Home directory %s is not encrypted.", ip);
+        if (r == -ENOLINK)
+                return log_error_errno(r, "File system does not support fscrypt.");
+        if (r < 0)
+                return r;
 
-        memcpy(setup->fscrypt_key_descriptor, policy.master_key_descriptor, FS_KEY_DESCRIPTOR_SIZE);
+        log_debug("Detected fscrypt policy v%i on %s.", r == FSCRYPT_POLICY_V2 ? 2 : 1, ip);
 
         r = fscrypt_setup(
                         cache,
@@ -620,35 +991,17 @@ int home_setup_fscrypt(
         if (r < 0)
                 return r;
 
-        /* Also install the access key in the user's own keyring */
+        r = fscrypt_install_master_key(h, setup, &volume_key);
+        if (r < 0)
+                return r;
 
-        if (uid_is_valid(h->uid)) {
-                r = pidref_safe_fork(
-                                "(sd-addkey)",
-                                FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT|FORK_REOPEN_LOG,
-                                /* ret= */ NULL);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to install encryption key in user's keyring: %m");
-                if (r == 0) {
-                        /* Child */
-
-                        r = fully_set_uid_gid(h->uid, user_record_gid(h), /* supplementary_gids= */ NULL, /* n_supplementary_gids= */ 0);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to change UID/GID to " UID_FMT "/" GID_FMT ": %m", h->uid, user_record_gid(h));
-                                _exit(EXIT_FAILURE);
-                        }
-
-                        r = fscrypt_upload_volume_key(
-                                        setup->fscrypt_key_descriptor,
-                                        volume_key.iov_base,
-                                        volume_key.iov_len,
-                                        KEY_SPEC_USER_KEYRING);
-                        if (r < 0)
-                                _exit(EXIT_FAILURE);
-
-                        _exit(EXIT_SUCCESS);
-                }
-        }
+        /* Arm v2 master-key rollback in case any of the steps below fails. The duped fd captures the
+         * filesystem superblock at this exact point, so subsequent bind-mounts, rename(), or close+reopen
+         * on setup->root_fd don't affect where the rollback lands. Disarmed at the very end once setup
+         * is complete and the live home owns the key. */
+        r = fscrypt_v2_key_undo_set(&v2_key_undo, setup->root_fd, &setup->fscrypt_key_spec);
+        if (r < 0)
+                return r;
 
         /* We'll bind mount the image directory to a new mount point where we'll start adjusting it. Only
          * once that's complete we'll move the thing to its final place eventually. */
@@ -677,13 +1030,13 @@ int home_setup_fscrypt(
         if (setup->root_fd < 0)
                 return log_error_errno(errno, "Failed to open home directory: %m");
 
+        fscrypt_v2_key_undo_disarm(&v2_key_undo); /* setup complete: live home now owns the v2 key */
         return 0;
 }
 
 static int fscrypt_slot_set(
                 int root_fd,
-                const void *volume_key,
-                size_t volume_key_size,
+                const struct iovec *volume_key,
                 const char *password,
                 uint32_t nr) {
 
@@ -699,6 +1052,10 @@ static int fscrypt_slot_set(
         const EVP_CIPHER *cc;
         size_t encrypted_size;
         ssize_t ss;
+
+        assert(root_fd >= 0);
+        assert(iovec_is_set(volume_key));
+        assert(password);
 
         r = DLOPEN_LIBCRYPTO(LOG_ERR, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
         if (r < 0)
@@ -740,14 +1097,14 @@ static int fscrypt_slot_set(
         if (sym_EVP_EncryptInit_ex(context, /* type= */ NULL, /* impl= */ NULL, derived, iv) != 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to set encryption key/IV.");
 
-        if (!ADD_SAFE(&encrypted_size, volume_key_size, (size_t) sym_EVP_CIPHER_get_block_size(cc)))
+        if (!ADD_SAFE(&encrypted_size, volume_key->iov_len, (size_t) sym_EVP_CIPHER_get_block_size(cc)))
                 return log_error_errno(SYNTHETIC_ERRNO(EOVERFLOW), "Encrypted buffer size would overflow.");
 
         encrypted = malloc(encrypted_size);
         if (!encrypted)
                 return log_oom();
 
-        if (sym_EVP_EncryptUpdate(context, (uint8_t*) encrypted, &encrypted_size_out1, volume_key, volume_key_size) != 1)
+        if (sym_EVP_EncryptUpdate(context, (uint8_t*) encrypted, &encrypted_size_out1, volume_key->iov_base, volume_key->iov_len) != 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to encrypt volume key.");
 
         assert((size_t) encrypted_size_out1 <= encrypted_size);
@@ -791,6 +1148,84 @@ static int fscrypt_slot_set(
         return 0;
 }
 
+static int fscrypt_create_policy_v2(
+                int dir_fd,
+                const struct iovec *volume_key,
+                struct fscrypt_key_specifier *ret_spec) {
+
+        struct fscrypt_policy_v2 policy_v2 = {
+                .version = FSCRYPT_POLICY_V2,
+                .contents_encryption_mode = FSCRYPT_MODE_AES_256_XTS,
+                .filenames_encryption_mode = FSCRYPT_MODE_AES_256_CTS,
+                .flags = FSCRYPT_POLICY_FLAGS_PAD_32,
+        };
+        int r;
+
+        assert(dir_fd >= 0);
+        assert(iovec_is_set(volume_key));
+        assert(ret_spec);
+
+        /* Derive the identifier locally first so we know what to remove on failure paths below, and so
+         * fscrypt_v2_ioctl_add can verify the kernel agrees with us. */
+        r = compute_fscrypt_key_identifier_v2(volume_key, policy_v2.master_key_identifier);
+        if (r < 0)
+                return r;
+
+        r = fscrypt_v2_ioctl_add(dir_fd, policy_v2.master_key_identifier, volume_key);
+        if (r < 0)
+                return r;
+
+        r = RET_NERRNO(ioctl(dir_fd, FS_IOC_SET_ENCRYPTION_POLICY, &policy_v2));
+        if (r < 0) {
+                (void) fscrypt_v2_ioctl_remove(dir_fd, policy_v2.master_key_identifier);
+                return r;
+        }
+
+        ret_spec->type = FSCRYPT_KEY_SPEC_TYPE_IDENTIFIER;
+        memcpy(ret_spec->u.identifier, policy_v2.master_key_identifier, FSCRYPT_KEY_IDENTIFIER_SIZE);
+        return 0;
+}
+
+static int fscrypt_create_policy_v1(
+                int dir_fd,
+                const struct iovec *volume_key,
+                struct fscrypt_key_specifier *ret_spec) {
+
+        struct fscrypt_policy_v1 policy_v1 = {
+                .version = FSCRYPT_POLICY_V1,
+                .contents_encryption_mode = FSCRYPT_MODE_AES_256_XTS,
+                .filenames_encryption_mode = FSCRYPT_MODE_AES_256_CTS,
+                .flags = FSCRYPT_POLICY_FLAGS_PAD_32,
+        };
+        key_serial_t serial;
+        int r;
+
+        assert(dir_fd >= 0);
+        assert(iovec_is_set(volume_key));
+        assert(ret_spec);
+
+        compute_fscrypt_key_descriptor_v1(volume_key, policy_v1.master_key_descriptor);
+
+        r = fscrypt_v1_keyring_add(
+                        policy_v1.master_key_descriptor,
+                        volume_key,
+                        KEY_SPEC_THREAD_KEYRING,
+                        &serial);
+        if (r < 0)
+                return r;
+
+        r = RET_NERRNO(ioctl(dir_fd, FS_IOC_SET_ENCRYPTION_POLICY, &policy_v1));
+        if (r < 0) {
+                if (keyctl(KEYCTL_UNLINK, serial, KEY_SPEC_THREAD_KEYRING, 0, 0) < 0)
+                        log_debug_errno(errno, "Failed to roll back fscrypt v1 master key from thread keyring, ignoring: %m");
+                return r;
+        }
+
+        ret_spec->type = FSCRYPT_KEY_SPEC_TYPE_DESCRIPTOR;
+        memcpy(ret_spec->u.descriptor, policy_v1.master_key_descriptor, FSCRYPT_KEY_DESCRIPTOR_SIZE);
+        return 0;
+}
+
 int home_create_fscrypt(
                 UserRecord *h,
                 HomeSetup *setup,
@@ -799,10 +1234,10 @@ int home_create_fscrypt(
 
         _cleanup_(rm_rf_physical_and_freep) char *temporary = NULL;
         _cleanup_(user_record_unrefp) UserRecord *new_home = NULL;
-        _cleanup_(erase_and_freep) void *volume_key = NULL;
+        _cleanup_(iovec_done_erase) struct iovec volume_key = {};
+        _cleanup_(fscrypt_v2_key_undo_done) FscryptV2KeyUndo v2_key_undo = FSCRYPT_V2_KEY_UNDO_INIT;
         _cleanup_close_ int mount_fd = -EBADF;
-        struct fscrypt_policy policy = {};
-        size_t volume_key_size = 512 / 8;
+        struct fscrypt_key_specifier parent_spec;
         _cleanup_free_ char *d = NULL;
         uint32_t nr = 0;
         const char *ip;
@@ -838,47 +1273,54 @@ int home_create_fscrypt(
         if (setup->root_fd < 0)
                 return log_error_errno(errno, "Failed to open temporary home directory: %m");
 
-        if (ioctl(setup->root_fd, FS_IOC_GET_ENCRYPTION_POLICY, &policy) < 0) {
-                if (ERRNO_IS_NOT_SUPPORTED(errno)) {
-                        log_error_errno(errno, "File system does not support fscrypt: %m");
-                        return -ENOLINK; /* make recognizable */
-                }
-                if (errno != ENODATA)
-                        return log_error_errno(errno, "Failed to get fscrypt policy of directory: %m");
-        } else
-                return log_error_errno(SYNTHETIC_ERRNO(EBUSY), "Parent of %s already encrypted, refusing.", d);
+        /* Refuse if the parent directory is already encrypted (we'd inherit its policy). The v1-only
+         * FS_IOC_GET_ENCRYPTION_POLICY ioctl returns EINVAL on v2-encrypted dirs, so use the helper
+         * that understands both. */
+        r = fscrypt_policy_get(setup->root_fd, &parent_spec);
+        if (r >= 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EBUSY), "Parent of %s already encrypted, refusing.", temporary);
+        if (r == -ENOLINK) {
+                log_error_errno(r, "File system does not support fscrypt.");
+                return r; /* propagate -ENOLINK for caller recognition */
+        }
+        if (r != -ENODATA)
+                return r;
 
-        volume_key = malloc(volume_key_size);
-        if (!volume_key)
+        volume_key.iov_len = 512 / 8;
+        volume_key.iov_base = malloc(volume_key.iov_len);
+        if (!volume_key.iov_base)
                 return log_oom();
 
-        r = crypto_random_bytes(volume_key, volume_key_size);
+        r = crypto_random_bytes(volume_key.iov_base, volume_key.iov_len);
         if (r < 0)
                 return log_error_errno(r, "Failed to acquire volume key: %m");
 
-        log_info("Generated volume key of size %zu.", volume_key_size);
+        log_info("Generated volume key of size %zu.", volume_key.iov_len);
 
-        policy = (struct fscrypt_policy) {
-                .contents_encryption_mode = FS_ENCRYPTION_MODE_AES_256_XTS,
-                .filenames_encryption_mode = FS_ENCRYPTION_MODE_AES_256_CTS,
-                .flags = FS_POLICY_FLAGS_PAD_32,
-        };
+        /* Default to v2 (Linux 5.4+), fall back to v1 only when the kernel/fs truly does not understand
+         * the FS_IOC_ADD_ENCRYPTION_KEY ioctl. Anything else (e.g. -EINVAL from SET_POLICY, which can mean
+         * "directory not empty" or "conflicting flags") is a real failure and must propagate. See the
+         * policy version comment at the top of the file for why we prefer v2. */
+        r = fscrypt_create_policy_v2(setup->root_fd, &volume_key, &setup->fscrypt_key_spec);
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(r)) {
+                log_notice_errno(r, "Kernel does not support fscrypt v2 policies, falling back to v1.");
+                r = fscrypt_create_policy_v1(setup->root_fd, &volume_key, &setup->fscrypt_key_spec);
+        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to set fscrypt policy on directory: %m");
 
-        calculate_key_descriptor(volume_key, volume_key_size, policy.master_key_descriptor);
-
-        r = fscrypt_upload_volume_key(policy.master_key_descriptor, volume_key, volume_key_size, KEY_SPEC_THREAD_KEYRING);
+        /* Arm v2 master-key rollback using a dup of the temporary-dir fd. The duped fd pins the
+         * filesystem superblock, so rename(temporary, ip) and the close+reopen via mount_fd below
+         * have no effect on where the rollback removes the key from. */
+        r = fscrypt_v2_key_undo_set(&v2_key_undo, setup->root_fd, &setup->fscrypt_key_spec);
         if (r < 0)
                 return r;
 
-        log_info("Uploaded volume key to kernel.");
-
-        if (ioctl(setup->root_fd, FS_IOC_SET_ENCRYPTION_POLICY, &policy) < 0)
-                return log_error_errno(errno, "Failed to set fscrypt policy on directory: %m");
-
-        log_info("Encryption policy set.");
+        log_info("Encryption policy set (v%i).",
+                 setup->fscrypt_key_spec.type == FSCRYPT_KEY_SPEC_TYPE_IDENTIFIER ? 2 : 1);
 
         STRV_FOREACH(i, effective_passwords) {
-                r = fscrypt_slot_set(setup->root_fd, volume_key, volume_key_size, *i, nr);
+                r = fscrypt_slot_set(setup->root_fd, &volume_key, *i, nr);
                 if (r < 0)
                         return r;
 
@@ -941,6 +1383,7 @@ int home_create_fscrypt(
                 return log_error_errno(errno, "Failed to rename %s to %s: %m", temporary, ip);
 
         temporary = mfree(temporary);
+        fscrypt_v2_key_undo_disarm(&v2_key_undo); /* setup complete: live home now owns the v2 key */
 
         log_info("Everything completed.");
 
@@ -972,7 +1415,7 @@ int home_passwd_fscrypt(
                 return r;
 
         STRV_FOREACH(p, effective_passwords) {
-                r = fscrypt_slot_set(setup->root_fd, volume_key.iov_base, volume_key.iov_len, *p, slot);
+                r = fscrypt_slot_set(setup->root_fd, &volume_key, *p, slot);
                 if (r < 0)
                         return r;
 
