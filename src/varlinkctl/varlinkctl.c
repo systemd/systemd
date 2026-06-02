@@ -1,25 +1,34 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/unix_diag.h>
+#include <netinet/tcp.h>
 #include <stdlib.h>
+#include <sys/socket.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
 #include "sd-daemon.h"
+#include "sd-netlink.h"
 #include "sd-varlink.h"
 
 #include "build.h"
 #include "bus-util.h"
 #include "chase.h"
+#include "devnum-util.h"
 #include "env-util.h"
+#include "errno-list.h"
+#include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-table.h"
 #include "format-util.h"
+#include "fs-util.h"
 #include "help-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "memfd-util.h"
+#include "netlink-sock-diag.h"
 #include "options.h"
 #include "pager.h"
 #include "parse-argument.h"
@@ -33,6 +42,7 @@
 #include "recurse-dir.h"
 #include "runtime-scope.h"
 #include "socket-forward.h"
+#include "socket-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
@@ -41,6 +51,7 @@
 #include "varlink-util.h"
 #include "verbs.h"
 #include "version.h"
+#include "xattr-util.h"
 
 typedef struct PushFds {
         int *fds;
@@ -1148,6 +1159,181 @@ static int verb_list_registry(int argc, char *argv[], uintptr_t _data, void *use
                         printf("No services registered.\n");
                 else
                         printf("\n%zu registered services listed.\n", table_get_rows(table) - 1);
+        }
+
+        return 0;
+}
+
+VERB_NOARG(verb_list_sockets, "list-sockets", "List listening Varlink entrypoint sockets");
+static int verb_list_sockets(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        int r;
+
+        assert(argc <= 1);
+
+        /* Enumerates listening, file-system bound AF_UNIX SOCK_STREAM sockets via the sock_diag netlink API,
+         * and lists those that are marked as Varlink entrypoints (i.e. carry the "user.varlink" xattr set to
+         * "entrypoint").  */
+
+        r = socket_xattr_supported();
+        if (r < 0)
+                return log_error_errno(r, "Failed to check of S_IFSOCK inodes support xattrs: %m");
+        if (r == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "This kernel does not support extended attributes on socket inodes, cannot enumerate Varlink sockets.");
+
+        _cleanup_(sd_netlink_unrefp) sd_netlink *nl = NULL;
+        r = sd_sock_diag_socket_open(&nl);
+        if (r < 0)
+                return log_error_errno(r, "Failed to open sock_diag netlink socket: %m");
+
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+        r = sd_sock_diag_message_new_unix_dump(nl, &req, 1U << TCP_LISTEN, UDIAG_SHOW_NAME|UDIAG_SHOW_VFS);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate AF_UNIX socket dump request: %m");
+
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *reply = NULL;
+        r = sd_netlink_call(nl, req, /* timeout= */ 0, &reply);
+        if (r < 0)
+                return log_error_errno(r, "Failed to issue AF_UNIX socket dump: %m");
+
+        _cleanup_(table_unrefp) Table *table = table_new("path", "access");
+        if (!table)
+                return log_oom();
+
+        (void) table_set_sort(table, (size_t) 0);
+
+        for (sd_netlink_message *m = reply; m; m = sd_netlink_message_next(m)) {
+
+                r = sd_netlink_message_get_errno(m);
+                if (r < 0) {
+                        log_warning_errno(r, "Error in AF_UNIX socket dump entry, ignoring: %m");
+                        continue;
+                }
+
+                struct unix_diag_msg udm;
+                r = sd_sock_diag_message_get_unix(m, &udm);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to read AF_UNIX socket dump header, ignoring: %m");
+                        continue;
+                }
+
+                /* We only care about listening stream sockets. The kernel already filtered by state, but
+                 * there's no way to filter by type in the request, so we do that here (and double check the
+                 * state for good measure). */
+                if (udm.udiag_type != SOCK_STREAM)
+                        continue;
+                if (udm.udiag_state != TCP_LISTEN)
+                        continue;
+
+                /* Read the bound name. This is not NUL terminated on the wire, hence read it as raw data. */
+                _cleanup_free_ void *name = NULL;
+                size_t name_size = 0;
+                r = sd_netlink_message_read_data(m, UNIX_DIAG_NAME, &name_size, &name);
+                if (r == -ENODATA) /* unnamed socket */
+                        continue;
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read AF_UNIX socket name: %m");
+
+                /* Safely turn the raw, not necessarily NUL-terminated, name into a C string. This also
+                 * rejects any name with embedded NUL bytes. */
+                _cleanup_free_ char *path = NULL;
+                r = make_cstring(name, name_size, MAKE_CSTRING_ALLOW_TRAILING_NUL, &path);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to convert AF_UNIX socket name to string, skipping: %m");
+                        continue;
+                }
+                if (!path_is_absolute(path)) {
+                        log_debug("Got non-absolute AF_UNIX socket path '%s', skipping.", path);
+                        continue;
+                }
+
+                /* The kernel also reports the backing VFS inode/device, but only for file-system bound
+                 * sockets. We require it, both as a filter and to validate the path below. */
+                _cleanup_free_ void *vfs = NULL;
+                size_t vfs_size = 0;
+                r = sd_netlink_message_read_data(m, UNIX_DIAG_VFS, &vfs_size, &vfs);
+                if (r == -ENODATA)
+                        continue; /* not fs bound */
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read AF_UNIX socket VFS data: %m");
+                if (vfs_size != sizeof(struct unix_diag_vfs)) {
+                        log_warning("Got AF_UNIX socket VFS data of unexpected size, skipping.");
+                        continue;
+                }
+                const struct unix_diag_vfs *uv = vfs;
+
+                /* Validate the path the kernel reported: open it (without following a final-component
+                 * symlink), and verify it really is a socket whose inode and backing device match what
+                 * netlink told us. This guards against the path having been unlinked/replaced in the
+                 * meantime, so that we only ever read xattrs off the right inode. */
+                _cleanup_close_ int fd = open(path, O_PATH|O_CLOEXEC|O_NOFOLLOW);
+                if (fd < 0) {
+                        log_debug_errno(errno, "Failed to open reported AF_UNIX socket path '%s', skipping: %m", path);
+                        continue;
+                }
+
+                struct stat st;
+                if (fstat(fd, &st) < 0) {
+                        log_debug_errno(errno, "Failed to stat reported AF_UNIX socket path '%s', skipping: %m", path);
+                        continue;
+                }
+
+                if (!S_ISSOCK(st.st_mode)) {
+                        log_debug("Reported AF_UNIX socket path '%s' is not a socket, skipping.", path);
+                        continue;
+                }
+
+                if (st.st_ino != uv->udiag_vfs_ino) {
+                        log_debug("Inode of reported AF_UNIX socket path '%s' does not match netlink data, skipping.", path);
+                        continue;
+                }
+
+                /* udiag_vfs_dev carries the kernel-internal dev_t encoding, which differs from the userspace
+                 * dev_t in st_dev — hence translate before comparing. */
+                if (STAT_DEV_TO_KERNEL(st.st_dev) != uv->udiag_vfs_dev) {
+                        log_debug("Backing device of reported AF_UNIX socket path '%s' does not match netlink data, skipping.", path);
+                        continue;
+                }
+
+                /* The path is validated now, hence we may safely read the Varlink role xattr off the fd. We
+                 * only list sockets that are marked as Varlink entrypoints. */
+                _cleanup_free_ char *role = NULL;
+                r = fgetxattr_malloc(fd, "user.varlink", &role, /* ret_size= */ NULL);
+                if (r < 0) {
+                        if (!ERRNO_IS_NEG_XATTR_ABSENT(r))
+                                log_debug_errno(r, "Failed to read 'user.varlink' xattr of '%s', skipping: %m", path);
+                        continue;
+                }
+                if (!streq(role, "entrypoint"))
+                        continue;
+
+                _cleanup_free_ char *no = NULL;
+                r = access_fd(fd, W_OK);
+                if (r < 0) {
+                        no = strjoin("No (", ERRNO_NAME(r), ")");
+                        if (!no)
+                                return log_oom();
+                }
+
+                r = table_add_many(
+                                table,
+                                TABLE_PATH, path,
+                                TABLE_STRING, no ?: "yes",
+                                TABLE_SET_COLOR, ansi_highlight_green_red(!no));
+                if (r < 0)
+                        return r;
+        }
+
+        if (!table_isempty(table) || sd_json_format_enabled(arg_json_format_flags)) {
+                r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, /* show_header= */ true);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to output table: %m");
+        }
+
+        if (arg_legend && !sd_json_format_enabled(arg_json_format_flags)) {
+                if (table_isempty(table))
+                        printf("No sockets found.\n");
+                else
+                        printf("\n%zu entrypoint sockets listed.\n", table_get_rows(table) - 1);
         }
 
         return 0;
