@@ -25,6 +25,7 @@
 #include "mountpoint-util.h"
 #include "nulstr-util.h"
 #include "path-util.h"
+#include "recurse-dir.h"
 #include "rm-rf.h"
 #include "selinux-util.h"
 #include "signal-util.h"
@@ -1107,13 +1108,20 @@ static int fd_copy_directory(
                 goto finish;
         }
 
-        FOREACH_DIRENT_ALL(de, d, return -errno) {
+        /* Walk children in deterministic (alphabetical) order. The natural readdir() order depends on the
+         * source filesystem's directory storage (e.g. ext4 dir hash) and varies across hosts, which leaks
+         * into the destination when it records entries in insertion order (e.g. vfat). Sorting here keeps
+         * copy_tree() reproducible regardless of the source filesystem layout. */
+        _cleanup_free_ DirectoryEntries *des = NULL;
+        r = readdir_all(dirfd(d), RECURSE_DIR_SORT, &des);
+        if (r < 0)
+                return r;
+
+        FOREACH_ARRAY(i, des->entries, des->n_entries) {
+                struct dirent *de = *i;
                 const char *child_display_path = NULL;
                 _cleanup_free_ char *dp = NULL;
                 struct stat buf;
-
-                if (dot_or_dot_dot(de->d_name))
-                        continue;
 
                 r = look_for_signals(copy_flags);
                 if (r < 0)
