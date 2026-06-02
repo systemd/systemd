@@ -1838,30 +1838,17 @@ static int component_name_valid(const char *c) {
         return filename_is_valid(j);
 }
 
-VERB_NOARG(verb_components, "components",
-           "Show list of components");
-static int verb_components(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(context_done) Context context = CONTEXT_NULL;
+static int context_list_components(Context *context, char ***component_names, bool *has_default_component) {
         _cleanup_set_free_ Set *names = NULL;
-        bool has_default_component = false;
-        int r;
-
-        assert(argc <= 1);
-
-        r = context_from_cmdline(&context);
-        if (r < 0)
-                return r;
-
-        r = context_load_offline(&context, /* process_image_flags= */ 0, /* read_definitions_flags= */ 0);
-        if (r < 0)
-                return r;
-
         ConfFile **directories = NULL;
         size_t n_directories = 0;
+        int r;
+
+        assert(context);
 
         CLEANUP_ARRAY(directories, n_directories, conf_file_free_array);
 
-        r = conf_files_list_strv_full(".d", context.root, CONF_FILES_DIRECTORY|CONF_FILES_WARN,
+        r = conf_files_list_strv_full(".d", context->root, CONF_FILES_DIRECTORY|CONF_FILES_WARN,
                                       (const char * const *) CONF_PATHS_STRV(""), &directories, &n_directories);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate directories: %m");
@@ -1899,21 +1886,50 @@ static int verb_components(int argc, char *argv[], uintptr_t _data, void *userda
 
         /* Does the system have at least one transfer file in /etc/sysupdate.d, which can be considered a
          * TARGET_HOST? See target_get_argument() in sysupdated.c */
-        has_default_component = (!context.definitions &&
-                                 !context.component &&
-                                 !context.root &&
-                                 !context.image &&
-                                 context.n_transfers > 0);
+        if (has_default_component)
+                *has_default_component = (!context->definitions &&
+                                          !context->component &&
+                                          !context->root &&
+                                          !context->image &&
+                                          context->n_transfers > 0);
 
-        /* We use simple free() rather than strv_free() here, since set_free() will free the strings for us */
-        _cleanup_free_ char **z = set_get_strv(names);
+        /* Convert to a sorted strv for output */
+        _cleanup_strv_free_ char **z = set_to_strv(&names);
         if (!z)
                 return log_oom();
 
         strv_sort(z);
 
+        if (component_names)
+                *component_names = TAKE_PTR(z);
+
+        return 0;
+}
+
+VERB_NOARG(verb_components, "components",
+           "Show list of components");
+static int verb_components(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        _cleanup_(context_done) Context context = CONTEXT_NULL;
+        _cleanup_strv_free_ char **component_names = NULL;
+        bool has_default_component = false;
+        int r;
+
+        assert(argc <= 1);
+
+        r = context_from_cmdline(&context);
+        if (r < 0)
+                return r;
+
+        r = context_load_offline(&context, 0, 0);
+        if (r < 0)
+                return r;
+
+        r = context_list_components(&context, &component_names, &has_default_component);
+        if (r < 0)
+                return r;
+
         if (!sd_json_format_enabled(arg_json_format_flags)) {
-                if (!has_default_component && set_isempty(names)) {
+                if (!has_default_component && strv_isempty(component_names)) {
                         log_info("No components defined.");
                         return 0;
                 }
@@ -1922,13 +1938,13 @@ static int verb_components(int argc, char *argv[], uintptr_t _data, void *userda
                         printf("%s<default>%s\n",
                                ansi_highlight(), ansi_normal());
 
-                STRV_FOREACH(i, z)
+                STRV_FOREACH(i, component_names)
                         puts(*i);
         } else {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
 
                 r = sd_json_buildo(&json, SD_JSON_BUILD_PAIR_BOOLEAN("default", has_default_component),
-                                          SD_JSON_BUILD_PAIR_STRV("components", z));
+                                          SD_JSON_BUILD_PAIR_STRV("components", component_names));
                 if (r < 0)
                         return log_error_errno(r, "Failed to create JSON: %m");
 
