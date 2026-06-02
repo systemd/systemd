@@ -37,6 +37,8 @@
 #include "path-util.h"
 #include "pretty-print.h"
 #include "runtime-scope.h"
+#include "set.h"
+#include "siphash24.h"
 #include "sort-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -1247,6 +1249,146 @@ static int context_load_paths_from_image(Context *context, Image *image) {
         default:
                 assert_not_reached();
         }
+}
+
+static void target_identifier_hash_func(const TargetIdentifier *t, struct siphash *state) {
+        assert(t);
+
+        siphash24_compress_typesafe(t->class, state);
+        siphash24_compress_string(t->name, state);
+}
+
+static int target_identifier_compare_func(const TargetIdentifier *x, const TargetIdentifier *y) {
+        int r;
+
+        assert(x);
+        assert(y);
+
+        r = CMP(x->class, y->class);
+        if (r != 0)
+                return r;
+
+        return strcmp(x->name, y->name);
+}
+
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(target_identifier_hash_ops,
+                                              TargetIdentifier, target_identifier_hash_func, target_identifier_compare_func,
+                                              TargetIdentifier, target_identifier_free);
+
+static int enumerate_image_class(RuntimeScope runtime_scope, TargetClass class, Set **targets) {
+        _cleanup_hashmap_free_ Hashmap *images = NULL;
+        Image *image;
+        int r;
+
+        r = image_discover(runtime_scope, (ImageClass) class, NULL, &images);
+        if (r < 0)
+                return r;
+
+        HASHMAP_FOREACH(image, images) {
+                _cleanup_(target_identifier_freep) TargetIdentifier *t = NULL;
+                bool have = false;
+                _cleanup_(context_done) Context image_context = CONTEXT_NULL;
+
+                if (image_is_host(image))
+                        continue; /* We already enroll the host ourselves */
+
+                if (!image_type_can_sysupdate(image->type))
+                        continue;
+
+                r = context_load_paths_from_image(&image_context, image);
+                if (r < 0)
+                        return r;
+
+                /* Load the components in a separate Context specific to the given Image before
+                 * committing to loading that state to the main Context. */
+                r = context_load_offline(
+                                &image_context,
+                                PROCESS_IMAGE_READ_ONLY,
+                                /* read_definitions_flags= */ 0);
+                if (r < 0)
+                        return r;
+
+                r = context_list_components(&image_context, /* ret_component_names= */ NULL, &have);
+                if (r < 0)
+                        return r;
+                if (!have) {
+                        log_debug("Skipping %s because it has no default component", image->path);
+                        continue;
+                }
+
+                r = target_identifier_new(class, image->name, &t);
+                if (r < 0)
+                        return r;
+
+                r = set_ensure_consume(targets, &target_identifier_hash_ops, TAKE_PTR(t));
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+static int context_enumerate_components(Context *context, Set **targets) {
+        _cleanup_strv_free_ char **component_names = NULL;
+        bool have_default_component;
+        int r;
+
+        assert(context);
+
+        r = context_list_components(context, &component_names, &have_default_component);
+        if (r < 0)
+                return r;
+
+        if (have_default_component) {
+                _cleanup_(target_identifier_freep) TargetIdentifier *t = NULL;
+
+                r = target_identifier_new(TARGET_HOST, "host", &t);
+                if (r < 0)
+                        return r;
+
+                r = set_ensure_consume(targets, &target_identifier_hash_ops, TAKE_PTR(t));
+                if (r < 0)
+                        return r;
+        }
+
+        STRV_FOREACH(component, component_names) {
+                _cleanup_(target_identifier_freep) TargetIdentifier *t = NULL;
+
+                r = target_identifier_new(TARGET_COMPONENT, *component, &t);
+                if (r < 0)
+                        return r;
+
+                r = set_ensure_consume(targets, &target_identifier_hash_ops, TAKE_PTR(t));
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+static int context_enumerate_targets(Context *context, Set **targets) {
+        static const TargetClass discoverable_classes[] = {
+                TARGET_MACHINE,
+                TARGET_PORTABLE,
+                TARGET_SYSEXT,
+                TARGET_CONFEXT,
+        };
+        int r;
+
+        assert(context);
+
+        FOREACH_ARRAY(class, discoverable_classes, ELEMENTSOF(discoverable_classes)) {
+                r = enumerate_image_class(RUNTIME_SCOPE_SYSTEM, *class, targets);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to enumerate %ss, ignoring: %m",
+                                          target_class_to_string(*class));
+        }
+
+        r = context_enumerate_components(context, targets);
+        if (r < 0)
+                log_warning_errno(r, "Failed to enumerate components, ignoring: %m");
+
+        return 0;
 }
 
 /* Load a Context to point to the target given by the TargetIdentifier. The TargetIdentifier will have been
@@ -2644,6 +2786,67 @@ static int verb_components(int argc, char *argv[], uintptr_t _data, void *userda
         return 0;
 }
 
+static int vl_method_list_targets(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        _cleanup_(context_done) Context context = CONTEXT_NULL;
+        _cleanup_set_free_ Set *targets = NULL;
+        int r;
+
+        assert(link);
+
+        r = sd_varlink_dispatch(link, parameters, NULL, NULL);
+        if (r != 0)
+                return r;
+
+        /* Listing targets doesn’t require a polkit check */
+
+        if (getenv_bool("SYSTEMD_SYSUPDATE_NO_VERIFY") > 0)
+                context.verify = false;
+
+        /* ListTargets is always offline */
+        context.offline = true;
+
+        r = context_load_offline(
+                        &context,
+                        PROCESS_IMAGE_READ_ONLY,
+                        /* read_definitions_flags= */ 0);
+        if (r < 0)
+                return r;
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *l = NULL;
+
+        r = context_enumerate_targets(&context, &targets);
+        if (r < 0)
+                return r;
+
+        /* Sort to ensure consistent ordering */
+        size_t n;
+        _cleanup_free_ TargetIdentifier **sorted = NULL;
+        r = set_dump_sorted(targets, (void***) &sorted, &n);
+        if (r < 0)
+                return log_oom();
+
+        FOREACH_ARRAY(p, sorted, n) {
+                TargetIdentifier *target_identifier = *p;
+                const char *name = (target_identifier->class != TARGET_HOST) ? target_identifier->name : NULL;
+
+                r = sd_json_variant_append_arraybo(&l,
+                                SD_JSON_BUILD_PAIR_OBJECT("id",
+                                                JSON_BUILD_PAIR_ENUM("class", target_class_to_string(target_identifier->class)),
+                                                SD_JSON_BUILD_PAIR_STRING("name", name)));
+                if (r < 0)
+                        return r;
+        }
+
+        if (!l) {
+                r = sd_json_variant_new_array(&l, NULL, 0);
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_varlink_replybo(link,
+                        SD_JSON_BUILD_PAIR_VARIANT("targets", l));
+}
+
 VERB(verb_enable_component, "enable-component", "COMPONENT…", 2, VERB_ANY, 0,
      "Enable component");
 VERB(verb_enable_component, "disable-component", "COMPONENT…", 2, VERB_ANY, 0,
@@ -2944,7 +3147,8 @@ static int vl_server(void) {
         r = sd_varlink_server_bind_method_many(
                         varlink_server,
                         "io.systemd.SysUpdate.CheckNew",     vl_method_check_new,
-                        "io.systemd.SysUpdate.ListFeatures", vl_method_list_features);
+                        "io.systemd.SysUpdate.ListFeatures", vl_method_list_features,
+                        "io.systemd.SysUpdate.ListTargets",  vl_method_list_targets);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind Varlink method: %m");
 
