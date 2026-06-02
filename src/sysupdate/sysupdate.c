@@ -1975,7 +1975,16 @@ static int verb_features(int argc, char *argv[], uintptr_t _data, void *userdata
                                 return table_log_add_error(r);
                 }
 
-                return table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, arg_legend);
+                r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, arg_legend);
+                if (r < 0)
+                        return r;
+
+                if (arg_legend) {
+                        if (table_isempty(table))
+                                log_info("No features.");
+                        else
+                                printf("\n%zu features listed.\n", table_get_rows(table) - 1);
+                }
         } else {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
                 _cleanup_strv_free_ char **features = NULL;
