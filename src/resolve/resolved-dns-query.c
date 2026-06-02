@@ -882,7 +882,13 @@ int dns_query_await(DnsQuery *q) {
                 if (r < 0)
                         return r;
 
-                return sd_fiber_await(f);
+                r = sd_fiber_await(f);
+                if (r < 0)
+                        return r;
+                if (DNS_TRANSACTION_IS_LIVE(q->state))
+                        continue;
+
+                return q->state;
         }
 }
 
