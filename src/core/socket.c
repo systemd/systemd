@@ -210,6 +210,10 @@ static void socket_done(Unit *u) {
 
         strv_free(s->symlinks);
 
+        strv_free(s->xattr_entrypoint);
+        strv_free(s->xattr_listen);
+        strv_free(s->xattr_accept);
+
         s->user = mfree(s->user);
         s->group = mfree(s->group);
 
@@ -1510,7 +1514,9 @@ static int socket_address_listen_do(
                         s->directory_mode,
                         s->socket_mode,
                         selinux_label,
-                        s->smack);
+                        s->smack,
+                        s->xattr_entrypoint,
+                        s->xattr_listen);
 }
 
 #define log_address_error_errno(u, address, error, fmt)          \
