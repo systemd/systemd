@@ -7,6 +7,7 @@ set -o pipefail
 
 SYSUPDATE=/usr/bin/systemd-sysupdate
 SYSUPDATED=/lib/systemd/systemd-sysupdated
+VARLINK_SOCKET=/run/systemd/io.systemd.Sysupdate
 SECTOR_SIZES=(512 4096)
 WORKDIR="$(mktemp -d /var/tmp/test-72-XXXXXX)"
 CONFIGDIR="/run/sysupdate.d"
@@ -32,8 +33,8 @@ if [[ ! -e /dev/loop-control ]]; then
     SECTOR_SIZES=(512)
 fi
 
-# Set up sysupdated drop-in pointing at the correct definitions and setting
-# no verification of images.
+# Set up sysupdated and varlink drop-ins pointing at the correct definitions and
+# setting no verification of images.
 mkdir -p /run/systemd/system/systemd-sysupdated.service.d
 cat >/run/systemd/system/systemd-sysupdated.service.d/override.conf<<EOF
 [Service]
@@ -41,6 +42,15 @@ Environment=SYSTEMD_SYSUPDATE_NO_VERIFY=1
 Environment=SYSTEMD_ESP_PATH=${SYSTEMD_ESP_PATH}
 Environment=SYSTEMD_XBOOTLDR_PATH=${SYSTEMD_XBOOTLDR_PATH}
 EOF
+
+mkdir -p /run/systemd/system/systemd-sysupdate@.service.d
+cat >/run/systemd/system/systemd-sysupdate@.service.d/override.conf<<EOF
+[Service]
+Environment=SYSTEMD_SYSUPDATE_NO_VERIFY=1
+Environment=SYSTEMD_ESP_PATH=${SYSTEMD_ESP_PATH}
+Environment=SYSTEMD_XBOOTLDR_PATH=${SYSTEMD_XBOOTLDR_PATH}
+EOF
+
 systemctl daemon-reload
 
 at_exit() {
@@ -114,9 +124,34 @@ new_version() {
     fi
 }
 
+check_no_new_update_available() {
+    local client="${1:?}"
+
+    if [[ "$client" == "sysupdate-cli" ]]; then
+        (! "$SYSUPDATE" --verify=no check-new)
+    elif [[ "$client" == "varlink" ]]; then
+        (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Sysupdate.CheckNew '{"configuration":{"verify":false}}') |& grep io.systemd.Sysupdate.NoUpdateNeeded >/dev/null
+    else
+        exit 1
+    fi
+}
+
+check_new_update_available() {
+    local client="${1:?}"
+
+    if [[ "$client" == "sysupdate-cli" ]]; then
+        "$SYSUPDATE" --verify=no check-new
+    elif [[ "$client" == "varlink" ]]; then
+        varlinkctl call "$VARLINK_SOCKET" io.systemd.Sysupdate.CheckNew '{"configuration":{"verify":false}}' | grep available
+    else
+        exit 1
+    fi
+}
+
 update_now() {
     local update_type="${1:?}"
-    local checks="${2:-}"
+    local client="${2:?}"
+    local checks="${3:-}"
 
     # Update to newest version. First there should be an update ready, then we
     # do the update, and then there should not be any ready anymore
@@ -128,7 +163,7 @@ update_now() {
     # repairing an installation), so that can be overridden via the local.
 
     if [[ "$checks" != "no-checks" ]]; then
-        "$SYSUPDATE" --verify=no check-new
+        check_new_update_available "$client"
     fi
 
     if [[ "$update_type" == "monolithic" ]]; then
@@ -152,7 +187,7 @@ update_now() {
     fi
 
     if [[ "$checks" != "no-checks" ]]; then
-        (! "$SYSUPDATE" --verify=no check-new)
+        check_no_new_update_available "$client"
     fi
 }
 
@@ -201,6 +236,7 @@ verify_object_fields() {
 }
 
 for sector_size in "${SECTOR_SIZES[@]}"; do
+for client in sysupdate-cli varlink; do
 for update_type in monolithic split-offline split updatectl; do
     # Disk size of:
     # - 1MB for GPT
@@ -364,18 +400,18 @@ EOF
 
     # Install initial version and verify
     new_version "$sector_size" v1
-    update_now "$update_type"
+    update_now "$update_type" "$client"
     verify_version_current "$blockdev" "$sector_size" v1 1
 
     # Create second version, update and verify that it is added
     new_version "$sector_size" v2
-    update_now "$update_type"
+    update_now "$update_type" "$client"
     verify_version "$blockdev" "$sector_size" v1 1
     verify_version_current "$blockdev" "$sector_size" v2 2
 
     # Create third version, update and verify it replaced the first version
     new_version "$sector_size" v3
-    update_now "$update_type"
+    update_now "$update_type" "$client"
     verify_version_current "$blockdev" "$sector_size" v3 1
     verify_version "$blockdev" "$sector_size" v2 2
     test ! -f "$WORKDIR/xbootldr/EFI/Linux/uki_v1+3-0.efi"
@@ -387,12 +423,12 @@ EOF
     new_version "$sector_size" v4
     rm "$WORKDIR/source/uki-extra-v4.efi"
     update_checksums
-    (! "$SYSUPDATE" --verify=no check-new)
+    check_no_new_update_available "$client"
 
     # Create a fifth version, that's complete on the server side. We should
     # completely skip the incomplete v4 and install v5 instead.
     new_version "$sector_size" v5
-    update_now "$update_type"
+    update_now "$update_type" "$client"
     verify_version "$blockdev" "$sector_size" v3 1
     verify_version_current "$blockdev" "$sector_size" v5 2
 
@@ -402,7 +438,7 @@ EOF
     # Always do this as a monolithic update for the repair to work.
     rm -r "$WORKDIR/xbootldr/EFI/Linux/uki_v5.efi.extra.d"
     "$SYSUPDATE" --offline list v5 | grep "incomplete" >/dev/null
-    update_now "monolithic"
+    update_now "monolithic" "$client"
     "$SYSUPDATE" --offline list v5 | grep -v "incomplete" >/dev/null
     verify_version "$blockdev" "$sector_size" v3 1
     verify_version_current "$blockdev" "$sector_size" v5 2
@@ -414,7 +450,7 @@ EOF
     mkdir "$CONFIGDIR/optional.feature.d"
     echo -e "[Feature]\nEnabled=true" > "$CONFIGDIR/optional.feature.d/enable.conf"
     "$SYSUPDATE" --offline list v5 | grep "incomplete" >/dev/null
-    update_now "$update_type"
+    update_now "$update_type" "$client"
     "$SYSUPDATE" --offline list v5 | grep -v "incomplete" >/dev/null
     verify_version "$blockdev" "$sector_size" v3 1
     verify_version_current "$blockdev" "$sector_size" v5 2
@@ -422,7 +458,7 @@ EOF
 
     # And now let's disable it and make sure it gets cleaned up
     rm -r "$CONFIGDIR/optional.feature.d"
-    (! "$SYSUPDATE" --verify=no check-new)
+    check_no_new_update_available "$client"
     "$SYSUPDATE" vacuum
     "$SYSUPDATE" --offline list v5 | grep -v "incomplete" >/dev/null
     verify_version "$blockdev" "$sector_size" v3 1
@@ -434,17 +470,17 @@ EOF
     new_version "$sector_size" v6
     if $have_updatectl; then
         systemctl start systemd-sysupdated
-        "$SYSUPDATE" --verify=no check-new
+        check_new_update_available "$client"
         updatectl update |& tee "$WORKDIR"/updatectl-update-6
         grep "Done" "$WORKDIR"/updatectl-update-6
         (! grep "Already up-to-date" "$WORKDIR"/updatectl-update-6)
     else
         # If no updatectl, gracefully fall back to systemd-sysupdate
-        update_now "$update_type"
+        update_now "$update_type" "$client"
     fi
     # User-facing updatectl returns 0 if there's no updates, so use the low-level
     # utility to make sure we did upgrade
-    (! "$SYSUPDATE" --verify=no check-new )
+    check_no_new_update_available "$client"
     verify_version_current "$blockdev" "$sector_size" v6 1
     verify_version "$blockdev" "$sector_size" v5 2
 
@@ -497,7 +533,7 @@ MatchPattern=dir-@v
 InstancesMax=3
 EOF
 
-    update_now "$update_type"
+    update_now "$update_type" "$client"
     verify_version "$blockdev" "$sector_size" v6 1
     verify_version_current "$blockdev" "$sector_size" v7 2
 
@@ -520,7 +556,7 @@ EOF
     # (what .transfer files were called before v257)
     for i in "$CONFIGDIR/"*.conf; do echo mv "$i" "${i%.conf}.transfer"; done
     new_version "$sector_size" v8
-    update_now "$update_type"
+    update_now "$update_type" "$client"
     verify_version_current "$blockdev" "$sector_size" v8 1
     verify_version "$blockdev" "$sector_size" v7 2
 
@@ -530,11 +566,11 @@ EOF
     # Vacuum the partial version, regenerate it on the server, try updating
     # again and it should succeed.
     new_version "$sector_size" v9 "corrupt-checksum"
-    (! update_now "$update_type")
+    (! update_now "$update_type" "$client")
     "$SYSUPDATE" --offline list v9 | grep "partial" >/dev/null
     verify_version_current "$blockdev" "$sector_size" v8 1
     # don’t verify the other part of the block device as it’s in an indeterminate state
-    (! update_now "$update_type" "no-checks") |& tee "$WORKDIR"/update_now-9
+    (! update_now "$update_type" "$client" "no-checks") |& tee "$WORKDIR"/update_now-9
     cat "$WORKDIR"/update_now-9
     grep "is already acquired and partially installed. Vacuum it to try installing again." "$WORKDIR"/update_now-9
     "$SYSUPDATE" --offline vacuum |& grep "Removing old partial" >/dev/null
@@ -542,13 +578,14 @@ EOF
     # don’t verify the other part of the block device as it’s in an indeterminate state
     "$SYSUPDATE" --verify=no list v9 | grep "candidate" >/dev/null
     new_version "$sector_size" v9
-    update_now "$update_type"
+    update_now "$update_type" "$client"
     verify_version "$blockdev" "$sector_size" v8 1
     verify_version_current "$blockdev" "$sector_size" v9 2
 
     # Cleanup
     [[ -b "$blockdev" ]] && losetup --detach "$blockdev"
     rm "$BACKING_FILE"
+done
 done
 done
 
