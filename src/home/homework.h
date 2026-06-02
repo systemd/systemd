@@ -9,6 +9,21 @@
 #include "homework-forward.h"
 #include "user-record-util.h"
 
+/* RAII rollback state for a v2 fscrypt master-key installation. v2 keys live in the persistent
+ * filesystem keyring (removed only via FS_IOC_REMOVE_ENCRYPTION_KEY), so any setup that installs one
+ * but then tears the home back down instead of activating it must remove the key again, or it lingers
+ * filesystem-wide until the next deactivation or reboot. Armed by home_setup_fscrypt(), fired by
+ * home_setup_done() on every teardown/error path, and disarmed only once a home stays active (see
+ * home_activate_directory()). 'dir_fd' is a dup taken at arm time so the removal target is pinned to
+ * the superblock and unaffected by later rename()/mount changes. (v1 keys go to the per-thread keyring
+ * and die with the homework process, so they need none of this.) */
+typedef struct FscryptV2KeyUndo {
+        int dir_fd;
+        uint8_t identifier[FSCRYPT_KEY_IDENTIFIER_SIZE];
+} FscryptV2KeyUndo;
+
+#define FSCRYPT_V2_KEY_UNDO_INIT { .dir_fd = -EBADF }
+
 typedef struct HomeSetup {
         char *dm_name;   /* "home-<username>" */
         char *dm_node;   /* "/dev/mapper/home-<username>" */
@@ -21,7 +36,8 @@ typedef struct HomeSetup {
         sd_id128_t found_luks_uuid;
         sd_id128_t found_fs_uuid;
 
-        uint8_t fscrypt_key_descriptor[FS_KEY_DESCRIPTOR_SIZE];
+        struct fscrypt_key_specifier fscrypt_key_spec;
+        FscryptV2KeyUndo fscrypt_v2_key_undo;
 
         void *volume_key;
         size_t volume_key_size;
@@ -47,6 +63,7 @@ typedef struct HomeSetup {
         {                                               \
                 .root_fd = -EBADF,                      \
                 .image_fd = -EBADF,                     \
+                .fscrypt_v2_key_undo = FSCRYPT_V2_KEY_UNDO_INIT, \
                 .partition_offset = UINT64_MAX,         \
                 .partition_size = UINT64_MAX,           \
                 .key_serial = -1,                       \
