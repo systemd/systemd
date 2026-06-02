@@ -56,3 +56,9 @@ static inline bool devnum_is_zero(dev_t d) {
 
 #define DEVNUM_TO_PTR(u) ((void*) (uintptr_t) (u))
 #define PTR_TO_DEVNUM(p) ((dev_t) ((uintptr_t) (p)))
+
+/* Convert a userspace dev_t (as returned by stat()) to the kernel's internal dev_t encoding. stat() returns
+ * new_encode_dev(s_dev), while various kernel interfaces (e.g. the BPF sb helpers, or unix_diag's
+ * udiag_vfs_dev) report s_dev directly, which uses MKDEV(major, minor) = (major << 20) | minor. */
+#define STAT_DEV_TO_KERNEL(dev) \
+        ((uint32_t) major(dev) << 20 | (uint32_t) minor(dev))
