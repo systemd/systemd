@@ -298,7 +298,7 @@ TEST(namespace_open_by_id) {
          * the kernel restricts open_by_handle_at() on nsfs to the initial userns and pidns and to
          * CAP_SYS_ADMIN. */
         _cleanup_close_ int opened = namespace_open_by_id(ns_id);
-        if (opened == -EPERM)
+        if (IN_SET(opened, -EPERM, -ESTALE))
                 return (void) log_tests_skipped("not in initial user namespace or missing CAP_SYS_ADMIN");
         if (IN_SET(opened, -EOPNOTSUPP, -EINVAL))
                 return (void) log_tests_skipped("nsfs lookup by ns_id is not supported by this kernel");
