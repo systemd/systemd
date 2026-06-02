@@ -126,6 +126,10 @@ typedef struct Socket {
 
         char **symlinks;
 
+        char **xattr_entrypoint;
+        char **xattr_listen;
+        char **xattr_accept;
+
         bool accept;
         bool remove_on_stop;
         bool writable;
