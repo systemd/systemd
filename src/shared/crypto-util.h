@@ -253,6 +253,7 @@ extern DLSYM_PROTOTYPE(X509_VERIFY_PARAM_set_hostflags);
 extern DLSYM_PROTOTYPE(X509_free);
 extern DLSYM_PROTOTYPE(X509_get_pubkey);
 extern DLSYM_PROTOTYPE(X509_get_subject_name);
+extern DLSYM_PROTOTYPE(X509_get0_pubkey);
 extern DLSYM_PROTOTYPE(X509_gmtime_adj);
 extern DLSYM_PROTOTYPE(d2i_ASN1_OCTET_STRING);
 extern DLSYM_PROTOTYPE(d2i_ECPKParameters);
