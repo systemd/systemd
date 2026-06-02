@@ -68,10 +68,25 @@
     <literal>${<replaceable>FOO</replaceable>:+<replaceable>ALTERNATE_VALUE</replaceable>}</literal>
     to expand to <replaceable>ALTERNATE_VALUE</replaceable> as long as
     <literal>${<replaceable>FOO</replaceable>}</literal> would have expanded to a non-empty value.
-    No other elements of shell syntax are supported.</para>
+    You can escape a literal dollar sign <literal>$</literal> by doubling it, as in
+    <literal>$$</literal>.</para>
 
-    <para>Each <replaceable>KEY</replaceable> must be a valid variable name. Empty lines
-    and lines beginning with the comment character <literal>#</literal> are ignored.</para>
+    <para>You may optionally enclose the the right hand side of assignments in pairs of either
+    <constant>'</constant>single quotes<constant>'</constant> or <constant>"</constant>double
+    quotes<constant>"</constant>; these will be stripped from the value before saving it. Using
+    either quoting style does not affect variable expansion, and is optional even if the value
+    contains non-trailing space characters. Backslash characters <literal>\</literal> can be used to
+    escape newline characters, leading and trailing whitespace characters, and other backslash
+    characters <literal>\</literal>; in all other contexts, they are discarded by the parser.</para>
+
+    <para>Leading and trailing whitespace characters are stripped from both the left and right hand
+    sides of the assignment. To preserve such spaces in the value, you can either enclose the entire
+    value in quotes, or escape the space characters with backslashes. You can use these same
+    techniques to include literal newlines in the value as well.</para>
+
+    <para>Each <replaceable>KEY</replaceable> must be a valid variable name. Empty lines and lines
+    beginning with the comment characters <literal>#</literal> or <literal>;</literal> are ignored.
+    No other elements of shell syntax are supported.</para>
 
     <refsect2>
       <title>Example</title>
