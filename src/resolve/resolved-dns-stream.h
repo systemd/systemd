@@ -3,6 +3,7 @@
 
 #include "dns-packet.h"
 #include "list.h"
+#include "sd-future.h"
 #include "resolved-dnstls.h"
 #include "resolved-forward.h"
 #include "socket-util.h"
@@ -68,6 +69,8 @@ typedef struct DnsStream {
 
         sd_event_source *io_event_source;
         sd_event_source *timeout_event_source;
+        sd_future *completion_future;
+        int completion_result;
 
         be16_t write_size, read_size;
         DnsPacket *write_packet, *read_packet;
@@ -75,7 +78,6 @@ typedef struct DnsStream {
         OrderedSet *write_queue;
 
         int (*on_packet)(DnsStream *s, DnsPacket *p);
-        int (*complete)(DnsStream *s, int error);
 
         LIST_HEAD(DnsTransaction, transactions); /* when used by the transaction logic */
         DnsServer *server;                       /* when used by the transaction logic */
@@ -83,6 +85,7 @@ typedef struct DnsStream {
 
         /* used when DNS-over-TLS is enabled */
         bool encrypted:1;
+        bool completed:1;
 
         DnsStubListenerExtra *stub_listener_extra;
 
@@ -97,7 +100,6 @@ int dns_stream_new(
                 int fd,
                 const union sockaddr_union *tfo_address,
                 int (on_packet)(DnsStream*, DnsPacket*),
-                int (complete)(DnsStream*, int), /* optional */
                 usec_t connect_timeout_usec);
 #if ENABLE_DNS_OVER_TLS
 int dns_stream_connect_tls(DnsStream *s, void *tls_session);
@@ -107,6 +109,8 @@ DECLARE_TRIVIAL_REF_UNREF_FUNC(DnsStream, dns_stream);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsStream*, dns_stream_unref);
 
 int dns_stream_write_packet(DnsStream *s, DnsPacket *p);
+int dns_stream_get_completion_future(DnsStream *s, sd_future **ret);
+int dns_stream_await(DnsStream *s);
 ssize_t dns_stream_writev(DnsStream *s, const struct iovec *iov, size_t iovcnt, int flags);
 
 static inline bool DNS_STREAM_QUEUED(DnsStream *s) {

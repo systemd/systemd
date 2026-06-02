@@ -23,6 +23,7 @@
 #include "resolved-dns-stream.h"
 #include "resolved-dns-transaction.h"
 #include "resolved-dnstls.h"
+#include "resolved-fiber-util.h"
 #include "resolved-link.h"
 #include "resolved-llmnr.h"
 #include "resolved-manager.h"
@@ -125,6 +126,9 @@ DnsTransaction* dns_transaction_free(DnsTransaction *t) {
 
         dns_transaction_close_connection(t, true);
         dns_transaction_stop_timeout(t);
+        if (t->completion_future)
+                (void) sd_future_resolve(t->completion_future, -ECANCELED);
+        t->completion_future = sd_future_unref(t->completion_future);
 
         dns_packet_unref(t->sent);
         dns_transaction_reset_answer(t);
@@ -451,6 +455,9 @@ void dns_transaction_complete(DnsTransaction *t, DnsTransactionState state) {
          * transaction isn't freed while we are still looking at it */
         t->block_gc++;
 
+        if (t->completion_future)
+                (void) sd_future_resolve(t->completion_future, state);
+
         SET_FOREACH_MOVE(c, t->notify_query_candidates_done, t->notify_query_candidates)
                 dns_query_candidate_notify(c);
         SWAP_TWO(t->notify_query_candidates, t->notify_query_candidates_done);
@@ -467,6 +474,41 @@ void dns_transaction_complete(DnsTransaction *t, DnsTransactionState state) {
 
         t->block_gc--;
         dns_transaction_gc(t);
+}
+
+int dns_transaction_get_completion_future(DnsTransaction *t, sd_future **ret) {
+        int r;
+
+        assert(t);
+        assert(ret);
+
+        if (!t->completion_future) {
+                r = resolved_future_new(&t->completion_future);
+                if (r < 0)
+                        return r;
+
+                if (!DNS_TRANSACTION_IS_LIVE(t->state))
+                        (void) sd_future_resolve(t->completion_future, t->state);
+        }
+
+        *ret = sd_future_ref(t->completion_future);
+        return 0;
+}
+
+int dns_transaction_await(DnsTransaction *t) {
+        _cleanup_(sd_future_unrefp) sd_future *f = NULL;
+        int r;
+
+        assert(t);
+
+        if (!DNS_TRANSACTION_IS_LIVE(t->state))
+                return t->state;
+
+        r = dns_transaction_get_completion_future(t, &f);
+        if (r < 0)
+                return r;
+
+        return sd_fiber_await(f);
 }
 
 static void dns_transaction_complete_errno(DnsTransaction *t, int error) {
@@ -665,6 +707,43 @@ static int on_stream_complete(DnsStream *s, int error) {
         return 0;
 }
 
+static void on_stream_complete_fiber_destroy(void *userdata) {
+        dns_stream_unref(userdata);
+}
+
+static int on_stream_complete_fiber(void *userdata) {
+        DnsStream *s = ASSERT_PTR(userdata);
+        int r;
+
+        r = dns_stream_await(s);
+        if (r == -ECANCELED)
+                return 0;
+
+        return on_stream_complete(s, r < 0 ? -r : 0);
+}
+
+static int dns_transaction_watch_stream(DnsStream *s) {
+        _cleanup_(sd_future_unrefp) sd_future *completion = NULL;
+        DnsStream *ref;
+        int r;
+
+        assert(s);
+        assert(s->manager);
+
+        r = dns_stream_get_completion_future(s, &completion);
+        if (r < 0)
+                return r;
+
+        ref = dns_stream_ref(s);
+        r = sd_fiber_new(s->manager->event, "dns-transaction-stream-complete", on_stream_complete_fiber, ref, on_stream_complete_fiber_destroy, NULL);
+        if (r < 0) {
+                dns_stream_unref(ref);
+                return r;
+        }
+
+        return 0;
+}
+
 static int on_stream_packet(DnsStream *s, DnsPacket *p) {
         DnsTransaction *t;
 
@@ -774,7 +853,7 @@ static int dns_transaction_emit_tcp(DnsTransaction *t) {
                         return fd;
 
                 r = dns_stream_new(t->scope->manager, &s, type, t->scope->protocol, fd, &sa,
-                                   on_stream_packet, on_stream_complete, stream_timeout_usec);
+                                   on_stream_packet, stream_timeout_usec);
                 if (r < 0)
                         return r;
 
@@ -791,16 +870,20 @@ static int dns_transaction_emit_tcp(DnsTransaction *t) {
                 }
 #endif
 
+                /* The interface index is difficult to determine if we are
+                 * connecting to the local host, hence fill this in right away
+                 * instead of determining it from the socket */
+                s->ifindex = dns_scope_ifindex(t->scope);
+
+                r = dns_transaction_watch_stream(s);
+                if (r < 0)
+                        return r;
+
                 if (t->server) {
                         dns_server_unref_stream(t->server);
                         s->server = dns_server_ref(t->server);
                         t->server->stream = dns_stream_ref(s);
                 }
-
-                /* The interface index is difficult to determine if we are
-                 * connecting to the local host, hence fill this in right away
-                 * instead of determining it from the socket */
-                s->ifindex = dns_scope_ifindex(t->scope);
         }
 
         t->stream = TAKE_PTR(s);

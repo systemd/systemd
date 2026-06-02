@@ -703,6 +703,10 @@ int sd_fiber_new(sd_event *e, const char *name, sd_fiber_func_t func, void *user
         if (ret)
                 *ret = TAKE_PTR(f);
         else {
+                r = sd_future_set_callback(f, /* callback= */ NULL, /* userdata= */ NULL);
+                if (r < 0)
+                        return r;
+
                 /* Fire-and-forget: the fiber is guaranteed to resolve (via completion, cancellation, or
                  * the event loop exit handler), so making the future floating cleans it up. */
                 r = sd_fiber_set_floating(f, true);
