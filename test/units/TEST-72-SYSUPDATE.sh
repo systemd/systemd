@@ -647,8 +647,11 @@ MatchPattern=some-component_@v
 CurrentSymlink=some-component
 EOF
 "$SYSUPDATE" --json=short components | grep -F '{"default":false,"components":["some-component"]}' >/dev/null
+varlinkctl call "$VARLINK_SOCKET" io.systemd.SysUpdate.ListTargets | grep -v 'host' >/dev/null
 mkdir /run/sysupdate.d
 "$SYSUPDATE" --json=short components | grep -F '{"default":false,"components":["some-component"]}' >/dev/null
+varlinkctl call "$VARLINK_SOCKET" io.systemd.SysUpdate.ListTargets | grep -v 'host' >/dev/null
+[[ $(varlinkctl call "$VARLINK_SOCKET" io.systemd.SysUpdate.ListTargets | jq -r '.targets[0].id.name') == "some-component" ]]
 
 # Regression test for https://github.com/systemd/systemd/issues/42330 — the
 # 'pending'/'reboot' verbs and the '--reboot' switch compare the newest installed
@@ -1206,5 +1209,9 @@ EOF
 }
 
 test_signature_verification
+
+# Test that listing components/targets when none are configured gives an empty list.
+"$SYSUPDATE" components |& grep "No components defined." >/dev/null
+[[ $(varlinkctl call "$VARLINK_SOCKET" io.systemd.SysUpdate.ListTargets | jq -r '.targets') == "[]" ]]
 
 touch /testok
