@@ -3,6 +3,7 @@
 #include <fcntl.h>
 #include <linux/magic.h>
 #include <linux/nsfs.h>
+#include <linux/sockios.h>
 #include <sched.h>
 #include <sys/ioctl.h>
 #include <sys/mount.h>
@@ -410,11 +411,41 @@ int are_our_namespaces(int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, 
         return true;
 }
 
+int network_namespace_is_init(int fd) {
+        struct stat a, b;
+
+        /* This works only when privileged. */
+
+        if (stat("/proc/1/ns/net", &a) < 0)
+                return -errno;
+
+        if (fd >= 0) {
+                _cleanup_close_ int netns = ioctl(fd, SIOCGSKNS);
+                if (netns < 0)
+                        return -errno;
+
+                if (fstat(netns, &b) < 0)
+                        return -errno;
+        } else {
+                if (stat("/proc/self/ns/net", &b) < 0)
+                        return -errno;
+        }
+
+        return stat_inode_same(&a, &b);
+}
+
 int namespace_is_init(NamespaceType type) {
         int r;
 
         assert(type >= 0);
         assert(type < _NAMESPACE_TYPE_MAX);
+
+        if (type == NAMESPACE_NET) {
+                r = network_namespace_is_init(/* fd= */ -EBADF);
+                if (ERRNO_IS_NEG_PRIVILEGE(r))
+                        return -EBADR; /* Cannot answer this question */
+                return r;
+        }
 
         if (namespace_info[type].root_inode == 0)
                 return -EBADR; /* Cannot answer this question */

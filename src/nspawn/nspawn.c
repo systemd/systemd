@@ -125,6 +125,7 @@
 #include "sysctl-util.h"
 #include "terminal-util.h"
 #include "tmpfile-util.h"
+#include "udev-util.h"
 #include "uid-classification.h"
 #include "umask-util.h"
 #include "unit-name.h"
@@ -6037,8 +6038,6 @@ static int initialize_rlimits(void) {
 }
 
 static int cant_be_in_netns(void) {
-        _cleanup_close_ int fd = -EBADF;
-        struct ucred ucred;
         int r;
 
         /* Check if we are in the same netns as udev. If we aren't, then device monitoring (and thus waiting
@@ -6048,28 +6047,17 @@ static int cant_be_in_netns(void) {
         if (!arg_image) /* only matters if --image= us used, i.e. we actually need to use loopback devices */
                 return 0;
 
-        fd = socket(AF_UNIX, SOCK_SEQPACKET|SOCK_NONBLOCK|SOCK_CLOEXEC, 0);
-        if (fd < 0)
-                return log_error_errno(errno, "Failed to allocate udev control socket: %m");
-
-        r = connect_unix_path(fd, AT_FDCWD, "/run/udev/control");
-        if (r == -ENOENT || ERRNO_IS_NEG_DISCONNECT(r))
+        if (!udev_available())
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                       "Sorry, but --image= requires access to the host's /run/ hierarchy, since we need access to udev.");
+                                "Sorry, but --image= requires that systemd-udevd is running.");
+
+        r = network_namespace_is_init(/* fd= */ -EBADF);
         if (ERRNO_IS_NEG_PRIVILEGE(r)) {
-                log_debug_errno(r, "Can't connect to udev control socket, assuming we are in same netns.");
+                log_debug_errno(r, "Failed to check if we are in the main network namespace, assuming so, ignoring: %m");
                 return 0;
         }
         if (r < 0)
-                return log_error_errno(r, "Failed to connect socket to udev control socket: %m");
-
-        r = getpeercred(fd, &ucred);
-        if (r < 0)
-                return log_error_errno(r, "Failed to determine peer of udev control socket: %m");
-
-        r = in_same_namespace(ucred.pid, 0, NAMESPACE_NET);
-        if (r < 0)
-                return log_error_errno(r, "Failed to determine network namespace of udev: %m");
+                return log_error_errno(r, "Failed to check if we are in the main network namespace: %m");
         if (r == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                        "Sorry, but --image= is only supported in the main network namespace, since we need access to udev/AF_NETLINK.");
