@@ -52,6 +52,7 @@ int fd_is_namespace(int fd, NamespaceType type);
 int is_our_namespace(int fd, NamespaceType type);
 int are_our_namespaces(int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int root_fd);
 
+int network_namespace_is_init(int fd);
 int namespace_is_init(NamespaceType type);
 
 int pidref_in_same_namespace(PidRef *pid1, PidRef *pid2, NamespaceType type);

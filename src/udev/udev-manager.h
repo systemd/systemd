@@ -45,7 +45,6 @@ typedef struct Manager {
         Hashmap *properties;
 
         sd_device_monitor *monitor;
-        UdevCtrl *ctrl;
         sd_varlink_server *varlink_server;
 
         char *worker_notify_socket_path;
