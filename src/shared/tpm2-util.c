@@ -162,6 +162,7 @@ static DLSYM_PROTOTYPE(Tss2_MU_TPM2B_NV_PUBLIC_Unmarshal) = NULL;
 static DLSYM_PROTOTYPE(Tss2_MU_TPMS_ECC_POINT_Marshal) = NULL;
 static DLSYM_PROTOTYPE(Tss2_MU_TPMT_HA_Marshal) = NULL;
 static DLSYM_PROTOTYPE(Tss2_MU_TPMT_PUBLIC_Marshal) = NULL;
+static DLSYM_PROTOTYPE(Tss2_MU_TPMT_PUBLIC_Unmarshal) = NULL;
 static DLSYM_PROTOTYPE(Tss2_MU_UINT32_Marshal) = NULL;
 
 static DLSYM_PROTOTYPE(Tss2_RC_Decode) = NULL;
@@ -264,6 +265,7 @@ static int dlopen_tpm2_mu(int log_level) {
                         DLSYM_ARG(Tss2_MU_TPMS_ECC_POINT_Marshal),
                         DLSYM_ARG(Tss2_MU_TPMT_HA_Marshal),
                         DLSYM_ARG(Tss2_MU_TPMT_PUBLIC_Marshal),
+                        DLSYM_ARG(Tss2_MU_TPMT_PUBLIC_Unmarshal),
                         DLSYM_ARG(Tss2_MU_UINT32_Marshal));
 }
 
@@ -1488,6 +1490,8 @@ static int tpm2_persist_handle(
 
                         return 1;
                 }
+                if (rc == TPM2_RC_BAD_AUTH)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EDEADLK), "Authorization failure while attempting to persist handle.");
                 if (rc != TPM2_RC_NV_DEFINED)
                         return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                                "Failed to persist handle: %s", sym_Tss2_RC_Decode(rc));
@@ -1780,6 +1784,7 @@ int tpm2_get_or_create_srk(
         r = tpm2_create_primary(
                         c,
                         session,
+                        ESYS_TR_RH_OWNER,
                         &template,
                         /* sensitive= */ NULL,
                         /* ret_public= */ NULL,
@@ -1803,6 +1808,591 @@ int tpm2_get_or_create_srk(
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "SRK we just persisted couldn't be found.");
 
         return 1; /* > 0 → SRK newly set up */
+}
+
+static bool has_expected_ek_cert_attributes(const TPM2B_NV_PUBLIC *nv_pub) {
+        /* Determine whether the supplied NV index has the expected attributes for an EK certificate. These
+         * attributes are defined in the "TCG PC Client Platform TPM Profile Specification for TPM 2.0" spec,
+         * section 4.6.3.1 (Preprovisioned EK Certificates).
+         *
+         * TPMA_NV_OWNERREAD isn't required because some TPMs ship EK certs with only TPMA_NV_AUTHREAD.
+         *
+         * https://trustedcomputinggroup.org/resource/pc-client-platform-tpm-profile-ptp-specification/ */
+        if ((nv_pub->nvPublic.attributes & TPMA_NV_TPM2_NT_MASK) != (TPM2_NT_ORDINARY << TPMA_NV_TPM2_NT_SHIFT))
+                return false;
+
+        TPMA_NV expected_clear_attrs =
+                TPMA_NV_AUTHWRITE |
+                TPMA_NV_OWNERWRITE |
+                TPMA_NV_GLOBALLOCK |
+                TPMA_NV_CLEAR_STCLEAR |
+                TPMA_NV_ORDERLY |
+                TPMA_NV_READ_STCLEAR;
+        TPMA_NV expected_set_attrs =
+                TPMA_NV_PLATFORMCREATE |
+                TPMA_NV_AUTHREAD |
+                TPMA_NV_NO_DA;
+        return (((nv_pub->nvPublic.attributes & expected_set_attrs) == expected_set_attrs) &&
+                ((nv_pub->nvPublic.attributes & expected_clear_attrs) == 0));
+}
+
+/* A mapping of each EK profile to the NV index handle where the corresponding EK certificate is expected to
+ * be stored. Each EK profile has a dedicated NV index. See the "TCG EK Credential Profile for TPM Family
+ * 2.0" spec, sections 2.2.2.4 (low range) and 2.2.2.5 (high range).
+ *
+ * https://trustedcomputinggroup.org/resource/http-trustedcomputinggroup-org-wp-content-uploads-tcg-ek-credential-profile/ */
+static const TPM2_HANDLE ek_cert_nv_indexes[_TPM2_EK_TEMPLATE_MAX] = {
+        [TPM2_EK_TEMPLATE_RSA_2048_LEGACY]      = 0x01C00002,
+        [TPM2_EK_TEMPLATE_ECC_NIST_P256_LEGACY] = 0x01C0000A,
+        [TPM2_EK_TEMPLATE_RSA_2048]             = 0x01C00012,
+        [TPM2_EK_TEMPLATE_ECC_NIST_P256]        = 0x01C00014,
+        [TPM2_EK_TEMPLATE_ECC_NIST_P384]        = 0x01C00016,
+        [TPM2_EK_TEMPLATE_RSA_3072]             = 0x01C0001C,
+};
+
+#if HAVE_OPENSSL
+
+static const char* const ek_template_names[_TPM2_EK_TEMPLATE_MAX] = {
+        [TPM2_EK_TEMPLATE_RSA_2048_LEGACY]      = "RSA 2048 (L-1)",
+        [TPM2_EK_TEMPLATE_ECC_NIST_P256_LEGACY] = "ECC NIST P256 (L-2)",
+        [TPM2_EK_TEMPLATE_RSA_2048]             = "RSA 2048 (H-1)",
+        [TPM2_EK_TEMPLATE_ECC_NIST_P256]        = "ECC NIST P256 (H-2)",
+        [TPM2_EK_TEMPLATE_ECC_NIST_P384]        = "ECC NIST P384 (H-3)",
+        [TPM2_EK_TEMPLATE_RSA_3072]             = "RSA 3072 (H-6)",
+};
+
+/* Read the EK certificate from its NV index for the specified EK profile. This returns 1 if there is a
+ * valid certificate, 0 if no valid NV index exists, or < 0 if an error occurs. Note that this doesn't check
+ * that the obtained certificate has the expected public key algorithm. */
+static int tpm2_read_ek_cert(
+                Tpm2Context *c,
+                const Tpm2Handle *session,
+                Tpm2EKTemplateProfile profile,
+                X509 **ret_cert) {
+
+        int r;
+
+        assert(c);
+        assert(profile >= 0);
+        assert(profile < _TPM2_EK_TEMPLATE_MAX);
+        assert(ret_cert);
+
+        r = dlopen_libcrypto(LOG_DEBUG);
+        if (r < 0)
+                return r;
+
+        TPM2_HANDLE cert_index = ek_cert_nv_indexes[profile];
+
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *cert_handle = NULL;
+        _cleanup_(Esys_Freep) TPM2B_NV_PUBLIC *cert_nvpub = NULL;
+        r = tpm2_nv_index_to_handle(c, cert_index, session, &cert_nvpub, /* ret_name= */ NULL, &cert_handle);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                *ret_cert = NULL;
+                return r;
+        }
+
+        /* Ignore any NV index that doesn't have the expected attributes, to ensure that we don't generate
+         * erroneous errors if we encounter some arbitrary owner-created index. */
+        if (!has_expected_ek_cert_attributes(cert_nvpub)) {
+                *ret_cert = NULL;
+                return 0;
+        }
+
+        _cleanup_(iovec_done) struct iovec cert_data = {};
+        r = tpm2_read_nv_index(c, session, cert_index, cert_handle, &cert_data);
+        if (r < 0)
+                return r;
+
+        const unsigned char *p = cert_data.iov_base;
+        _cleanup_(X509_freep) X509 *cert = sym_d2i_X509(NULL, &p, (long) cert_data.iov_len);
+        if (!cert)
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "Failed to parse EK certificate for template '%s' from NV index 0x%08" PRIx32 ": %s",
+                                       ek_template_names[profile], cert_index, sym_ERR_error_string(sym_ERR_get_error(), NULL));
+
+        *ret_cert = TAKE_PTR(cert);
+        return 1;
+}
+
+#endif
+
+/* Obtain a custom EK template for the specified EK profile. The "TCG EK Credential Profile for TPM Family
+ * 2.0" spec details how a TPM manufacturer can certify endorsement keys with templates that differ from the
+ * default ones by storing a template in a NV index. Returns 1 if there is a custom template, 0 if there is
+ * no custom template, or < 0 if an error occurred.
+ *
+ * https://trustedcomputinggroup.org/resource/http-trustedcomputinggroup-org-wp-content-uploads-tcg-ek-credential-profile/ */
+static int tpm2_get_custom_ek_template(
+                Tpm2Context *c,
+                const Tpm2Handle *session,
+                Tpm2EKTemplateProfile profile,
+                TPMT_PUBLIC *ret_template) {
+
+        int r;
+
+        assert(c);
+        assert(profile >= 0);
+        assert(profile < _TPM2_EK_TEMPLATE_MAX);
+        assert(ret_template);
+
+        TPM2_HANDLE cert_index = ek_cert_nv_indexes[profile];
+
+        /* Handle 0x01c00012 is the start of the "High Range" EK certs, with those lower than this being the
+         * legacy "Low Range" ones. Low range certs can have an optional nonce as well as a custom template.
+         * High range certs can only have a custom template, defined at the next subsequent (odd) NV index.
+         * See sections 2.2.2.4 and 2.2.2.5 of the "TCG EK Credential Profile for TPM Family 2.0" spec. */
+        TPM2_HANDLE template_index = cert_index >= 0x01C00012 ? cert_index + 1 : cert_index + 2;
+        TPM2_HANDLE nonce_index = cert_index >= 0x01C00012 ? 0 : cert_index + 1;
+
+        /* First check if there is a custom EK template NV index defined. */
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *template_handle = NULL;
+        _cleanup_(Esys_Freep) TPM2B_NV_PUBLIC *template_nvpub = NULL;
+        r = tpm2_nv_index_to_handle(c, template_index, session, &template_nvpub, /* ret_name= */ NULL, &template_handle);
+        if (r < 0)
+                return r;
+        if (r > 0 && !has_expected_ek_cert_attributes(template_nvpub))
+                /* Ignore this NV index because it doesn't have the expected attributes. */
+                template_handle = tpm2_handle_free(template_handle);
+
+        /* Now check if there is a nonce NV index defined. Table 1 of the "TCG EK Credential Profile for TPM
+         * Family 2.0" spec suggests this combination (EKnonce without EKtemplate) must not appear, but
+         * apparently this configuration did ship with Intel PTT. */
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *nonce_handle = NULL;
+        _cleanup_(Esys_Freep) TPM2B_NV_PUBLIC *nonce_nvpub = NULL;
+        if (nonce_index != 0) {
+                r = tpm2_nv_index_to_handle(c, nonce_index, session, &nonce_nvpub, /* ret_name= */ NULL, &nonce_handle);
+                if (r < 0)
+                        return r;
+                if (r > 0 && !has_expected_ek_cert_attributes(nonce_nvpub))
+                        /* Ignore this NV index because it doesn't have the expected attributes. */
+                        nonce_handle = tpm2_handle_free(nonce_handle);
+        }
+
+        if (!template_handle && !nonce_handle) {
+                /* There is no custom template. */
+                *ret_template = (TPMT_PUBLIC){};
+                return 0;
+        }
+
+        TPMT_PUBLIC template = {};
+        if (template_handle) {
+                _cleanup_(iovec_done) struct iovec template_data = {};
+                r = tpm2_read_nv_index(c, session, template_index, template_handle, &template_data);
+                if (r < 0)
+                        return r;
+
+                size_t offset = 0;
+                TSS2_RC rc = sym_Tss2_MU_TPMT_PUBLIC_Unmarshal(template_data.iov_base, template_data.iov_len, &offset, &template);
+                if (rc != TSS2_RC_SUCCESS)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "Failed to unmarshal EK template from NV index 0x%08" PRIx32 ": %s",
+                                               template_index, sym_Tss2_RC_Decode(rc));
+                if (offset != template_data.iov_len)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                               "Garbage at end of custom template data.");
+        } else
+                tpm2_get_default_ek_template(profile, &template);
+
+        if (nonce_handle) {
+                /* We have a nonce. Section 2.2.2.6 of the "TCG EK Credential Profile for TPM Family 2.0"
+                 * spec explains how to construct the template from this. */
+                _cleanup_(iovec_done) struct iovec nonce_data = {};
+                r = tpm2_read_nv_index(c, session, nonce_index, nonce_handle, &nonce_data);
+                if (r < 0)
+                        return r;
+
+                zero(template.unique);
+
+                switch (profile) {
+                case TPM2_EK_TEMPLATE_RSA_2048_LEGACY:
+                        /* For the RSA-2048 (L-1) template, set unique.rsa to the nonce and append zero
+                         * bytes to pad it to a size of 256-bytes. */
+                        if (nonce_data.iov_len > 256)
+                                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                                       "Invalid RSA EK nonce length from NV index 0x%08" PRIx32, nonce_index);
+
+                        template.unique.rsa.size = 256;
+                        memcpy_safe(template.unique.rsa.buffer, nonce_data.iov_base, nonce_data.iov_len);
+                        break;
+                case TPM2_EK_TEMPLATE_ECC_NIST_P256_LEGACY:
+                        /* For the ECC NIST P256 (L-2) template, set unique.ecc.x to the nonce and append
+                         * zero bytes to pad it to a size of 32-bytes. Set unique.ecc.y to 32-bytes of
+                         * zeroes. */
+                        if (nonce_data.iov_len > 32)
+                                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                                       "Invalid ECC EK nonce length from NV index 0x%08" PRIx32, nonce_index);
+
+                        template.unique.ecc.x.size = template.unique.ecc.y.size = 32;
+                        memcpy_safe(template.unique.ecc.x.buffer, nonce_data.iov_base, nonce_data.iov_len);
+                        break;
+                default:
+                        assert_not_reached();
+                }
+        }
+
+        *ret_template = template;
+        return 1;
+}
+
+/* This is the default authorization policy for low-range endorsement keys. It is:
+ *
+ * TPM2_PolicySecret(TPM_RH_ENDORSEMENT).
+ *
+ * See section 5.3 of the "TCG EK Credential Profile for TPM Family 2.0" spec. */
+#define TPM2_EK_AUTH_POLICY_A                                   \
+        { .size = TPM2_SHA256_DIGEST_SIZE,                      \
+          .buffer = {                                           \
+                0x83, 0x71, 0x97, 0x67, 0x44, 0x84, 0xB3, 0xF8, \
+                0x1A, 0x90, 0xCC, 0x8D, 0x46, 0xA5, 0xD7, 0x24, \
+                0xFD, 0x52, 0xD7, 0x6E, 0x06, 0x52, 0x0B, 0x64, \
+                0xF2, 0xA1, 0xDA, 0x1B, 0x33, 0x14, 0x69, 0xAA, \
+          },                                                    \
+        }
+
+/* This is the default SHA-256 authorization policy for high-range endorsement keys. High-range EKs
+ * define a policy that permits the privacy administrator to delegate admin usage of the endorsement key via
+ * TPM2_PolicyAuthorizeNV. There is one NV index defined per name algorithm. These and their public
+ * attributes are specified in secion A.1 of the "TCG EK Credential Profile for TPM Family 2.0" spec.
+ *
+ * This policy is:
+ *
+ * TPM2_PolicySecret(TPM_RH_ENDORSEMENT) OR TPM2_PolicyAuthorizeNV(0x01C07F01). */
+#define TPM2_EK_AUTH_POLICY_B_SHA256                            \
+        { .size = TPM2_SHA256_DIGEST_SIZE,                      \
+          .buffer = {                                           \
+                0xCA, 0x3D, 0x0A, 0x99, 0xA2, 0xB9, 0x39, 0x06, \
+                0xF7, 0xA3, 0x34, 0x24, 0x14, 0xEF, 0xCF, 0xB3, \
+                0xA3, 0x85, 0xD4, 0x4C, 0xD1, 0xFD, 0x45, 0x90, \
+                0x89, 0xD1, 0x9B, 0x50, 0x71, 0xC0, 0xB7, 0xA0, \
+          },                                                    \
+        }
+
+/* This is the default SHA-384 authorization policy for high-range endorsement keys. High-range EKs
+ * define a policy that permits the privacy administrator to delegate admin usage of the endorsement key via
+ * TPM2_PolicyAuthorizeNV. There is one NV index defined per name algorithm. These and their public
+ * attributes are specified in secion A.1 of the "TCG EK Credential Profile for TPM Family 2.0" spec.
+ *
+ * This policy is:
+ *
+ * TPM2_PolicySecret(TPM_RH_ENDORSEMENT) OR TPM2_PolicyAuthorizeNV(0x01C07F02). */
+#define TPM2_EK_AUTH_POLICY_B_SHA384                            \
+        { .size = TPM2_SHA384_DIGEST_SIZE,                      \
+          .buffer = {                                           \
+                0xB2, 0x6E, 0x7D, 0x28, 0xD1, 0x1A, 0x50, 0xBC, \
+                0x53, 0xD8, 0x82, 0xBC, 0xF5, 0xFD, 0x3A, 0x1A, \
+                0x07, 0x41, 0x48, 0xBB, 0x35, 0xD3, 0xB4, 0xE4, \
+                0xCB, 0x1C, 0x0A, 0xD9, 0xBD, 0xE4, 0x19, 0xCA, \
+                0xCB, 0x47, 0xBA, 0x09, 0x69, 0x96, 0x46, 0x15, \
+                0x0F, 0x9F, 0xC0, 0x00, 0xF3, 0xF8, 0x0E, 0x12  \
+          },                                                    \
+        }
+
+/* Get the default Endorsement Key (EK) template for the specified EK profile.
+ *
+ * EK template values are defined in the "TCG EK Credential Profile for TPM Family 2.0" spec in sections
+ * 5.3 (low-range) and 5.4 (high-range). There are multiple templates for both RSA and ECC keys, with varying
+ * key sizes or curves. The high-range also defines templates for storage and signing keys, although we only
+ * support storage EKs. There are templates for PQC algorithms, although these aren't supported here yet. The
+ * supported templates are the storage RSA and ECC templates required by the "TCG PC Client Platform TPM
+ * Profile (PTP)" spec.
+ *
+ * https://trustedcomputinggroup.org/resource/http-trustedcomputinggroup-org-wp-content-uploads-tcg-ek-credential-profile
+ * https://trustedcomputinggroup.org/resource/pc-client-platform-tpm-profile-ptp-specification/ */
+void tpm2_get_default_ek_template(Tpm2EKTemplateProfile profile, TPMT_PUBLIC *ret_template) {
+        assert(profile >= 0);
+        assert(profile < _TPM2_EK_TEMPLATE_MAX);
+        assert(ret_template);
+
+        static const TPMA_OBJECT attributes_a =
+                TPMA_OBJECT_FIXEDTPM |
+                TPMA_OBJECT_FIXEDPARENT |
+                TPMA_OBJECT_SENSITIVEDATAORIGIN |
+                TPMA_OBJECT_ADMINWITHPOLICY |
+                TPMA_OBJECT_RESTRICTED |
+                TPMA_OBJECT_DECRYPT;
+
+        static const TPMA_OBJECT attributes_b = attributes_a | TPMA_OBJECT_USERWITHAUTH;
+
+        static const struct {
+                TPMI_ALG_PUBLIC alg;
+                TPMI_ALG_HASH name_alg;
+                TPMA_OBJECT attrs;
+                TPM2B_DIGEST auth_policy;
+                union {
+                        TPMI_RSA_KEY_BITS rsa_key_bits;
+                        TPMI_ECC_CURVE ecc_curve_id;
+                } asym;
+                TPMU_PUBLIC_ID unique;
+                TPMI_AES_KEY_BITS sym_key_bits;
+        } template_params[_TPM2_EK_TEMPLATE_MAX] = {
+                [TPM2_EK_TEMPLATE_RSA_2048_LEGACY] = {
+                        .alg = TPM2_ALG_RSA,
+                        .name_alg = TPM2_ALG_SHA256,
+                        .attrs = attributes_a,
+                        .auth_policy = TPM2_EK_AUTH_POLICY_A,
+                        .asym.rsa_key_bits = 2048,
+                        .unique.rsa.size = 256,
+                        .sym_key_bits = 128,
+                },
+                [TPM2_EK_TEMPLATE_ECC_NIST_P256_LEGACY] = {
+                        .alg = TPM2_ALG_ECC,
+                        .name_alg = TPM2_ALG_SHA256,
+                        .attrs = attributes_a,
+                        .auth_policy = TPM2_EK_AUTH_POLICY_A,
+                        .asym.ecc_curve_id = TPM2_ECC_NIST_P256,
+                        .unique.ecc.x.size = 32,
+                        .unique.ecc.y.size = 32,
+                        .sym_key_bits = 128,
+                },
+                [TPM2_EK_TEMPLATE_RSA_2048] = {
+                        .alg = TPM2_ALG_RSA,
+                        .name_alg = TPM2_ALG_SHA256,
+                        .attrs = attributes_b,
+                        .auth_policy = TPM2_EK_AUTH_POLICY_B_SHA256,
+                        .asym.rsa_key_bits = 2048,
+                        .unique.rsa.size = 0,
+                        .sym_key_bits = 128,
+                },
+                [TPM2_EK_TEMPLATE_ECC_NIST_P256] = {
+                        .alg = TPM2_ALG_ECC,
+                        .name_alg = TPM2_ALG_SHA256,
+                        .attrs = attributes_b,
+                        .auth_policy = TPM2_EK_AUTH_POLICY_B_SHA256,
+                        .asym.ecc_curve_id = TPM2_ECC_NIST_P256,
+                        .unique.ecc.x.size = 0,
+                        .unique.ecc.y.size = 0,
+                        .sym_key_bits = 128,
+                },
+                [TPM2_EK_TEMPLATE_ECC_NIST_P384] = {
+                        .alg = TPM2_ALG_ECC,
+                        .name_alg = TPM2_ALG_SHA384,
+                        .attrs = attributes_b,
+                        .auth_policy = TPM2_EK_AUTH_POLICY_B_SHA384,
+                        .asym.ecc_curve_id = TPM2_ECC_NIST_P384,
+                        .unique.ecc.x.size = 0,
+                        .unique.ecc.y.size = 0,
+                        .sym_key_bits = 256,
+                },
+                [TPM2_EK_TEMPLATE_RSA_3072] = {
+                        .alg = TPM2_ALG_RSA,
+                        .name_alg = TPM2_ALG_SHA384,
+                        .attrs = attributes_b,
+                        .auth_policy = TPM2_EK_AUTH_POLICY_B_SHA384,
+                        .asym.rsa_key_bits = 3072,
+                        .unique.rsa.size = 0,
+                        .sym_key_bits = 256,
+                },
+        };
+
+        const typeof(template_params[0]) *params = &template_params[profile];
+
+        TPMT_PUBLIC template = {
+                .type = params->alg,
+                .nameAlg = params->name_alg,
+                .objectAttributes = params->attrs,
+                .authPolicy = params->auth_policy,
+                .parameters.asymDetail = (TPMS_ASYM_PARMS){
+                        .symmetric = (TPMT_SYM_DEF_OBJECT){
+                                .algorithm = TPM2_ALG_AES,
+                                .keyBits.aes = params->sym_key_bits,
+                                .mode.aes = TPM2_ALG_CFB,
+                        },
+                        .scheme.scheme = TPM2_ALG_NULL,
+                },
+                .unique = params->unique,
+        };
+
+        switch (template.type) {
+        case TPM2_ALG_RSA:
+                template.parameters.rsaDetail.keyBits = params->asym.rsa_key_bits;
+                break;
+        case TPM2_ALG_ECC:
+                template.parameters.eccDetail.curveID = params->asym.ecc_curve_id;
+                template.parameters.eccDetail.kdf.scheme = TPM2_ALG_NULL;
+                break;
+        default:
+                assert_not_reached();
+        }
+
+        *ret_template = template;
+}
+
+/* Get the Endorsement Key (EK) template for the specified EK profile.
+ *
+ * EK template values are defined in the "TCG EK Credential Profile for TPM Family 2.0" spec in sections
+ * 5.3 (low-range) and 5.4 (high-range). There are multiple templates for both RSA and ECC keys, with varying
+ * key sizes or curves. The high-range also defines templates for storage and signing keys, although we only
+ * support storage EKs. There are templates for PQC algorithms, although these aren't supported here yet. The
+ * supported templates are the storage RSA and ECC templates required by the "TCG PC Client Platform TPM
+ * Profile (PTP)" spec.
+ *
+ * This will return a custom template for the specified profile if one is defined, else it will return the
+ * default template. Returns 0 on success, or < 0 if an error occurred.
+ *
+ * https://trustedcomputinggroup.org/resource/http-trustedcomputinggroup-org-wp-content-uploads-tcg-ek-credential-profile
+ * https://trustedcomputinggroup.org/resource/pc-client-platform-tpm-profile-ptp-specification/ */
+int tpm2_get_ek_template(
+                Tpm2Context *c,
+                const Tpm2Handle *session,
+                Tpm2EKTemplateProfile profile,
+                TPMT_PUBLIC *ret_template) {
+
+        int r;
+
+        r = tpm2_get_custom_ek_template(c, session, profile, ret_template);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                tpm2_get_default_ek_template(profile, ret_template);
+
+        return 0;
+}
+
+/* Get the EK. Returns 1 if found, 0 if there is no EK, or < 0 on error. Also see
+ * tpm2_get_or_create_ek() below. */
+int tpm2_get_ek(
+                Tpm2Context *c,
+                const Tpm2Handle *session,
+                TPM2B_PUBLIC **ret_public,
+                TPM2B_NAME **ret_name,
+                TPM2B_NAME **ret_qname,
+                Tpm2Handle **ret_handle) {
+
+        return tpm2_object_index_to_handle(c, TPM2_EK_HANDLE, session, ret_public, ret_name, ret_qname, ret_handle);
+}
+
+/* Get the EK, creating one if needed. This tries each of the supported templates in order of preference,
+ * and will persist and return an EK created with the first template that has an EK certificate, and where
+ * the created EK matches the certificate's public key.
+ *
+ * Returns 1 if a new EK was created and persisted, 0 if an EK already exists, or < 0 on error. */
+int tpm2_get_or_create_ek(
+                Tpm2Context *c,
+                const Tpm2Handle *session,
+                TPM2B_PUBLIC **ret_public,
+                TPM2B_NAME **ret_name,
+                TPM2B_NAME **ret_qname,
+                Tpm2Handle **ret_handle) {
+
+#if HAVE_OPENSSL
+        int r;
+
+        r = dlopen_libcrypto(LOG_DEBUG);
+        if (r < 0)
+                return r;
+
+        r = tpm2_get_ek(c, session, ret_public, ret_name, ret_qname, ret_handle);
+        if (r < 0)
+                return r;
+        if (r == 1)
+                return 0; /* 0 → EK already set up */
+
+        /* No EK, create and persist one */
+        static const Tpm2EKTemplateProfile profile_preferences[] = {
+                TPM2_EK_TEMPLATE_ECC_NIST_P384,
+                TPM2_EK_TEMPLATE_ECC_NIST_P256,
+                TPM2_EK_TEMPLATE_RSA_3072,
+                TPM2_EK_TEMPLATE_RSA_2048,
+                TPM2_EK_TEMPLATE_ECC_NIST_P256_LEGACY,
+                TPM2_EK_TEMPLATE_RSA_2048_LEGACY,
+        };
+
+        FOREACH_ELEMENT(p, profile_preferences) {
+                Tpm2EKTemplateProfile profile = *p;
+
+                log_debug("Trying to create EK with template '%s'", ek_template_names[profile]);
+
+                /* Check if there is a certificate for this profile. */
+                _cleanup_(X509_freep) X509 *cert = NULL;
+                r = tpm2_read_ek_cert(c, session, profile, &cert);
+                if (r == -EBADMSG)
+                        continue; /* Certificate populated but invalid. */
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        continue; /* No certificate populated. */
+
+                EVP_PKEY *cert_pkey = sym_X509_get0_pubkey(cert);
+                if (!cert_pkey) {
+                        log_debug("Skipping EK creation with template '%s': cannot get EKcert public key", ek_template_names[profile]);
+                        continue;
+                }
+
+                /* Obtain the template for this profile. */
+                TPM2B_PUBLIC template = {
+                        .size = sizeof(TPMT_PUBLIC),
+                };
+                r = tpm2_get_ek_template(c, session, profile, &template.publicArea);
+                if (r == -EBADMSG)
+                        continue; /* Custom template or nonce is invalid. */
+                if (r < 0)
+                        return r;
+
+                /* Check that this profile is supported. */
+                if (!tpm2_supports_alg(c, template.publicArea.type)) {
+                        log_debug("Skipping EK creation with template '%s': unsupported object type", ek_template_names[profile]);
+                        continue;
+                }
+                if (!tpm2_supports_tpmt_public(c, &template.publicArea)) {
+                        log_debug("Skipping EK creation with template '%s': unsupported template", ek_template_names[profile]);
+                        continue;
+                }
+                if (template.publicArea.type == TPM2_ALG_ECC && !tpm2_supports_ecc_curve(c, template.publicArea.parameters.eccDetail.curveID)) {
+                        log_debug("Skipping EK creation with template '%s': unsupported curve", ek_template_names[profile]);
+                        continue;
+                }
+
+                /* Create the transient EK now. */
+                _cleanup_(tpm2_handle_freep) Tpm2Handle *transient_handle = NULL;
+                r = tpm2_create_primary(
+                                c,
+                                session,
+                                ESYS_TR_RH_ENDORSEMENT,
+                                &template,
+                                /* sensitive= */ NULL,
+                                /* ret_public= */ NULL,
+                                &transient_handle);
+                if (r < 0)
+                        return r;
+
+                _cleanup_(Esys_Freep) TPM2B_PUBLIC *public = NULL;
+                r = tpm2_read_public(c, session, transient_handle, &public, /* ret_name= */ NULL, /* ret_qname= */ NULL);
+                if (r < 0)
+                        return r;
+
+                /* Check that the created EK has a public key that matches the one in the certificate. */
+                _cleanup_(EVP_PKEY_freep) EVP_PKEY *tpm_pkey = NULL;
+                r = tpm2_tpm2b_public_to_openssl_pkey(public, &tpm_pkey);
+                if (r < 0)
+                        return r;
+
+                if (sym_EVP_PKEY_eq(tpm_pkey, cert_pkey) != 1) {
+                        log_debug("EK created with template '%s' does not match EKcert public key", ek_template_names[profile]);
+                        continue;
+                }
+
+                /* We've created a valid EK that is consistent with the supplied certificate, so persist this
+                 * one and return it. */
+                r = tpm2_persist_handle(c, transient_handle, session, TPM2_EK_HANDLE, /* ret_persistent_handle= */ NULL);
+                if (r < 0)
+                        return r;
+
+                r = tpm2_get_ek(c, session, ret_public, ret_name, ret_qname, ret_handle);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        /* This should never happen. */
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "EK we just persisted couldn't be found.");
+
+                return 1; /* > 0 → EK newly set up */
+        }
+
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                               "TPM does not support any EK algorithm.");
+#else
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "OpenSSL support is disabled.");
+#endif
 }
 
 /* Utility functions for TPMS_PCR_SELECTION. */
@@ -2482,6 +3072,7 @@ static int tpm2_get_policy_digest(
 int tpm2_create_primary(
                 Tpm2Context *c,
                 const Tpm2Handle *session,
+                ESYS_TR hierarchy,
                 const TPM2B_PUBLIC *template,
                 const TPM2B_SENSITIVE_CREATE *sensitive,
                 TPM2B_PUBLIC **ret_public,
@@ -2506,7 +3097,7 @@ int tpm2_create_primary(
         _cleanup_(Esys_Freep) TPM2B_PUBLIC *public = NULL;
         rc = sym_Esys_CreatePrimary(
                         c->esys_context,
-                        ESYS_TR_RH_OWNER,
+                        hierarchy,
                         session ? session->esys_handle : ESYS_TR_PASSWORD,
                         ESYS_TR_NONE,
                         ESYS_TR_NONE,
@@ -5893,6 +6484,7 @@ int tpm2_seal(Tpm2Context *c,
                 r = tpm2_create_primary(
                                 c,
                                 /* session= */ NULL,
+                                ESYS_TR_RH_OWNER,
                                 &template,
                                 /* sensitive= */ NULL,
                                 /* ret_public= */ NULL,
@@ -6058,6 +6650,7 @@ int tpm2_unseal(Tpm2Context *c,
                 r = tpm2_create_primary(
                                 c,
                                 /* session= */ NULL,
+                                ESYS_TR_RH_OWNER,
                                 &template,
                                 /* sensitive= */ NULL,
                                 /* ret_public= */ NULL,
