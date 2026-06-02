@@ -46,7 +46,7 @@ REQUIREMENTS:
                      ≥ 5.2 for cgroup freezer and new mount API
                      ≥ 5.3 for bounded loops in BPF program, keyring namespacing,
                                and nexthop support
-                     ≥ 5.4 for pidfd and signed Verity images
+                     ≥ 5.4 for pidfd, signed Verity images, and fscrypt v2 policies
                      ≥ 5.6 for getrandom() GRND_INSECURE
                      ≥ 5.7 for CLONE_INTO_CGROUP, cgroup2fs memory_recursiveprot option,
                                BPF links and the BPF LSM hook
