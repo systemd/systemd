@@ -141,6 +141,9 @@ TEST(recursive) {
 }
 
 TEST(quota) {
+        if (!slow_tests_enabled())
+                return (void) log_tests_skipped("slow tests are disabled");
+
         _cleanup_(rm_rf_subvolume_and_freep) char *dir = NULL;
         _cleanup_close_ int dir_fd = ASSERT_OK(open_test_subvol(&dir));
         BtrfsQuotaInfo quota;
