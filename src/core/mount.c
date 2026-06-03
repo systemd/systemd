@@ -2451,22 +2451,22 @@ static void mount_process_fanotify_attach(Manager *m, struct libmnt_fs *fs) {
 
 static void mount_process_fanotify_detach(Manager *m, struct libmnt_fs *fs) {
         _cleanup_free_ char *e = NULL;
-        const char *path, *device;
         Mount *mount;
 
         assert(m);
         assert(fs);
 
-        sym_mnt_fs_fetch_statmount(fs, 0);
-
-        path   = sym_mnt_fs_get_target(fs);
-        device = sym_mnt_fs_get_source(fs);
-
-        /* Try ID-based lookup first — works even if mount was moved before
-         * the detach event was processed. Fall back to path if ID unknown. */
+        /* Try ID-based lookup first — no statmount needed, the uniq_id comes
+         * directly from the fanotify event. This avoids a statmount() syscall
+         * that would fail anyway since the mount is already gone. */
         mount = mount_find_by_uniq_id(m, sym_mnt_fs_get_uniq_id(fs));
 
-        if (!mount && path) {
+        if (!mount) {
+                /* Fall back to path-based lookup — this may trigger statmount()
+                 * inside libmount, which may fail for already-detached mounts. */
+                const char *path = sym_mnt_fs_get_target(fs);
+                if (!path)
+                        return;
                 if (unit_name_from_path(path, ".mount", &e) < 0)
                         return;
 
@@ -2478,10 +2478,8 @@ static void mount_process_fanotify_detach(Manager *m, struct libmnt_fs *fs) {
         if (!mount)
                 return;
 
-        if (mount->from_proc_self_mountinfo &&
-            mount->parameters_proc_self_mountinfo.what &&
-            device)
-                device_found_node(m, device, DEVICE_NOT_FOUND, DEVICE_FOUND_MOUNT);
+        if (mount->parameters_proc_self_mountinfo.what)
+                device_found_node(m, mount->parameters_proc_self_mountinfo.what, DEVICE_NOT_FOUND, DEVICE_FOUND_MOUNT);
 
         mount->from_proc_self_mountinfo = false;
         mount->uniq_id = 0;
@@ -2517,12 +2515,18 @@ static int mount_process_fanotify_events(Manager *m) {
                         struct libmnt_fs *fs = m->mount_fanotify_fs;
 
                         while (sym_mnt_monitor_event_next_fs(m->mount_monitor, fs) == 0) {
-                                if (sym_mnt_fs_is_moved(fs))
-                                        /* Mount moved to a new location. The mount ID is
-                                         * preserved across moves, but we don't track IDs per
-                                         * unit yet, so fall back to full rescan. */
-                                        rescan = true;
-                                else if (sym_mnt_fs_is_detached(fs))
+                                if (sym_mnt_fs_is_moved(fs)) {
+                                        /* Mount moved — the uniq_id is preserved across
+                                         * moves. Find the old unit by ID and detach it,
+                                         * then attach at the new path. If the old unit
+                                         * can't be found by ID (e.g. from initial scan),
+                                         * fall back to full rescan for cleanup. */
+                                        if (mount_find_by_uniq_id(m, sym_mnt_fs_get_uniq_id(fs)))
+                                                mount_process_fanotify_detach(m, fs);
+                                        else
+                                                rescan = true;
+                                        mount_process_fanotify_attach(m, fs);
+                                } else if (sym_mnt_fs_is_detached(fs))
                                         mount_process_fanotify_detach(m, fs);
                                 else
                                         mount_process_fanotify_attach(m, fs);
