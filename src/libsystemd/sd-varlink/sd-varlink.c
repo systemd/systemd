@@ -39,6 +39,7 @@
 #include "varlink-io.systemd.h"
 #include "varlink-org.varlink.service.h"
 #include "varlink-util.h"
+#include "xattr-util.h"
 
 #define VARLINK_DEFAULT_CONNECTIONS_MAX 4096U
 #define VARLINK_DEFAULT_CONNECTIONS_PER_UID_MAX 128U
@@ -154,6 +155,33 @@ static int varlink_new(sd_varlink **ret) {
         return 0;
 }
 
+static int mark_varlink_socket(int fd, const char *path, const char *role) {
+        int r;
+
+        assert(wildcard_fd_is_valid(fd));
+        assert(role);
+
+        /* We define four roles:
+         *
+         *    1. "client"     → this socket was created via socket()+connect()     [sockfs]
+         *    2. "server"     → this socket was created via accept()               [sockfs]
+         *    3. "listen"     → this socket was created via socket()+listen()      [sockfs]
+         *    4. "entrypoint" → this is the entrypoint socket inode                [not sockfs]
+         */
+
+        r = socket_xattr_supported(); /* Let's check for the feature directly, to make use of the cache */
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -EOPNOTSUPP;
+
+        r = xsetxattr(fd, path, AT_EMPTY_PATH, "user.varlink", role);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to set 'user.varlink' to role: %m");
+
+        return 0;
+}
+
 _public_ int sd_varlink_connect_address(sd_varlink **ret, const char *address) {
         _cleanup_(sd_varlink_unrefp) sd_varlink *v = NULL;
         int r;
@@ -169,14 +197,31 @@ _public_ int sd_varlink_connect_address(sd_varlink **ret, const char *address) {
         if (r < 0)
                 return r;
 
+        (void) mark_varlink_socket(v->stream.input_fd, /* path= */ NULL, "client");
+
         varlink_set_state(v, VARLINK_IDLE_CLIENT);
 
         *ret = TAKE_PTR(v);
         return 0;
 }
 
-_public_ int sd_varlink_connect_exec(sd_varlink **ret, const char *_command, char **_argv) {
+static int varlink_socketpair(int *ret_client_fd, int *ret_server_fd) {
+        assert(ret_client_fd);
+        assert(ret_server_fd);
+
         _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
+        if (socketpair(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0, pair) < 0)
+                return log_debug_errno(errno, "Failed to allocate AF_UNIX socket pair: %m");
+
+        (void) mark_varlink_socket(pair[0], /* path= */ NULL, "client");
+        (void) mark_varlink_socket(pair[1], /* path= */ NULL, "server");
+
+        *ret_client_fd = TAKE_FD(pair[0]);
+        *ret_server_fd = TAKE_FD(pair[1]);
+        return 0;
+}
+
+_public_ int sd_varlink_connect_exec(sd_varlink **ret, const char *_command, char **_argv) {
         _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
         _cleanup_free_ char *command = NULL;
         _cleanup_strv_free_ char **argv = NULL;
@@ -200,17 +245,19 @@ _public_ int sd_varlink_connect_exec(sd_varlink **ret, const char *_command, cha
 
         log_debug("Forking off Varlink child process '%s'.", command);
 
-        if (socketpair(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0, pair) < 0)
-                return log_debug_errno(errno, "Failed to allocate AF_UNIX socket pair: %m");
+        _cleanup_close_ int client_fd = -EBADF, server_fd = -EBADF;
+        r = varlink_socketpair(&client_fd, &server_fd);
+        if (r < 0)
+                return r;
 
-        r = fd_nonblock(pair[1], false);
+        r = fd_nonblock(server_fd, false);
         if (r < 0)
                 return log_debug_errno(r, "Failed to disable O_NONBLOCK for varlink socket: %m");
 
         r = pidref_safe_fork_full(
                         "(sd-vlexec)",
                         /* stdio_fds= */ NULL,
-                        /* except_fds= */ (int[]) { pair[1] },
+                        /* except_fds= */ (int[]) { server_fd },
                         /* n_except_fds= */ 1,
                         FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_PACK_FDS|FORK_CLOEXEC_OFF|FORK_REOPEN_LOG|FORK_DEATHSIG_SIGTERM|FORK_RLIMIT_NOFILE_SAFE,
                         &pidref);
@@ -249,14 +296,14 @@ _public_ int sd_varlink_connect_exec(sd_varlink **ret, const char *_command, cha
                 _exit(EXIT_FAILURE);
         }
 
-        pair[1] = safe_close(pair[1]);
+        server_fd = safe_close(server_fd);
 
         sd_varlink *v;
         r = varlink_new(&v);
         if (r < 0)
                 return log_debug_errno(r, "Failed to create varlink object: %m");
 
-        int conn_fd = TAKE_FD(pair[0]);
+        int conn_fd = TAKE_FD(client_fd);
         r = json_stream_attach_fds(&v->stream, conn_fd, conn_fd);
         if (r < 0)
                 return r;
@@ -280,7 +327,6 @@ static int ssh_path(const char **ret) {
 }
 
 static int varlink_connect_ssh_unix(sd_varlink **ret, const char *where) {
-        _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
         _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
         int r;
 
@@ -316,12 +362,14 @@ static int varlink_connect_ssh_unix(sd_varlink **ret, const char *where) {
 
         log_debug("Forking off SSH child process '%s -W %s %s'.", ssh, p, h);
 
-        if (socketpair(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0, pair) < 0)
-                return log_debug_errno(errno, "Failed to allocate AF_UNIX socket pair: %m");
+        _cleanup_close_ int client_fd = -EBADF, server_fd = -EBADF;
+        r = varlink_socketpair(&client_fd, &server_fd);
+        if (r < 0)
+                return r;
 
         r = pidref_safe_fork_full(
                         "(sd-vlssh)",
-                        /* stdio_fds= */ (int[]) { pair[1], pair[1], STDERR_FILENO },
+                        /* stdio_fds= */ (int[]) { server_fd, server_fd, STDERR_FILENO },
                         /* except_fds= */ NULL,
                         /* n_except_fds= */ 0,
                         FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REOPEN_LOG|FORK_RLIMIT_NOFILE_SAFE|FORK_REARRANGE_STDIO,
@@ -336,14 +384,14 @@ static int varlink_connect_ssh_unix(sd_varlink **ret, const char *where) {
                 _exit(EXIT_FAILURE);
         }
 
-        pair[1] = safe_close(pair[1]);
+        server_fd = safe_close(server_fd);
 
         sd_varlink *v;
         r = varlink_new(&v);
         if (r < 0)
                 return log_debug_errno(r, "Failed to create varlink object: %m");
 
-        int conn_fd = TAKE_FD(pair[0]);
+        int conn_fd = TAKE_FD(client_fd);
         r = json_stream_attach_fds(&v->stream, conn_fd, conn_fd);
         if (r < 0)
                 return r;
@@ -561,6 +609,8 @@ _public_ int sd_varlink_connect_fd_pair(sd_varlink **ret, int input_fd, int outp
         r = json_stream_connect_fd_pair(&v->stream, input_fd, output_fd);
         if (r < 0)
                 return r;
+
+        (void) mark_varlink_socket(v->stream.input_fd, /* path= */ NULL, "client");
 
         if (override_ucred)
                 json_stream_set_peer_ucred(&v->stream, override_ucred);
@@ -3283,6 +3333,8 @@ _public_ int sd_varlink_server_add_connection_pair(
                 }
         }
 
+        (void) mark_varlink_socket(input_fd, /* path= */ NULL, "server");
+
         if (ret)
                 *ret = v;
 
@@ -3393,8 +3445,17 @@ _public_ int sd_varlink_server_listen_fd(sd_varlink_server *s, int fd) {
         if (r < 0)
                 return r;
 
+        (void) mark_varlink_socket(ss->fd, /* path= */ NULL, "listen");
+
         LIST_PREPEND(sockets, s->sockets, TAKE_PTR(ss));
         return 0;
+}
+
+static mode_t default_listen_mode(sd_varlink_server_flags_t flags) {
+        /* NB: we use 0644 rather than 0600 here, because it's the "w" flag that controls connect()
+         * privileges, but leaving the "r" flag on allows others to read our xattrs, which is good because it
+         * makes our sockets recognizable as varlink, even if not connectible. */
+        return FLAGS_SET(flags, SD_VARLINK_SERVER_ROOT_ONLY|SD_VARLINK_SERVER_MYSELF_ONLY) ? 0644 : 0666;
 }
 
 _public_ int sd_varlink_server_listen_address(sd_varlink_server *s, const char *address, mode_t m) {
@@ -3406,6 +3467,12 @@ _public_ int sd_varlink_server_listen_address(sd_varlink_server *s, const char *
 
         assert_return(s, -EINVAL);
         assert_return(address, -EINVAL);
+
+        /* NB: we resolve m being MODE_INVALID before checking SD_VARLINK_SERVER_MODE_MKDIR_0755, since that
+         * flag is not defined for MODE_INVALID (if we'd check we'd see it always set...) */
+        if (m == MODE_INVALID)
+                m = default_listen_mode(s->flags);
+
         assert_return((m & ~(0777|SD_VARLINK_SERVER_MODE_MKDIR_0755)) == 0, -EINVAL);
 
         /* Validate that the definition of our flag doesn't collide with the official mode_t bits. Thankfully
@@ -3440,6 +3507,8 @@ _public_ int sd_varlink_server_listen_address(sd_varlink_server *s, const char *
                 r = RET_NERRNO(bind(fd, &sockaddr.sa, sockaddr_len));
         if (r < 0)
                 return r;
+
+        (void) mark_varlink_socket(AT_FDCWD, address, "entrypoint");
 
         if (listen(fd, SOMAXCONN_DELUXE) < 0)
                 return -errno;
@@ -3576,7 +3645,7 @@ _public_ int sd_varlink_server_listen_auto(sd_varlink_server *s) {
                 if (streq(e, "-"))
                         r = sd_varlink_server_add_connection_stdio(s, /* ret= */ NULL);
                 else
-                        r = sd_varlink_server_listen_address(s, e, FLAGS_SET(s->flags, SD_VARLINK_SERVER_ROOT_ONLY) ? 0600 : 0666);
+                        r = sd_varlink_server_listen_address(s, e, default_listen_mode(s->flags));
                 if (r < 0)
                         return r;
 
