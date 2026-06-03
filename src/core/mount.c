@@ -1967,7 +1967,11 @@ static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
                 if (set_put_strdup_full(&devices, &path_hash_ops_free, device) != 0)
                         device_found_node(m, device, DEVICE_FOUND_MOUNT, DEVICE_FOUND_MOUNT);
 
-                (void) mount_setup_unit(m, device, path, options, fstype, /* uniq_id= */ 0, set_flags);
+                uint64_t uniq_id = 0;
+                if (m->mount_use_fanotify && sym_mnt_id_from_path)
+                        (void) sym_mnt_id_from_path(path, &uniq_id, NULL);
+
+                (void) mount_setup_unit(m, device, path, options, fstype, uniq_id, set_flags);
         }
 
         return 0;

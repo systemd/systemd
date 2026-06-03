@@ -55,6 +55,7 @@ DLSYM_PROTOTYPE(mnt_unref_statmnt) = NULL;
 DLSYM_PROTOTYPE(mnt_fs_refer_statmnt) = NULL;
 DLSYM_PROTOTYPE(mnt_fs_fetch_statmount) = NULL;
 DLSYM_PROTOTYPE(mnt_fs_get_uniq_id) = NULL;
+DLSYM_PROTOTYPE(mnt_id_from_path) = NULL;
 DLSYM_PROTOTYPE(mnt_fs_is_attached) = NULL;
 DLSYM_PROTOTYPE(mnt_fs_is_detached) = NULL;
 DLSYM_PROTOTYPE(mnt_fs_is_moved) = NULL;
@@ -203,6 +204,7 @@ int dlopen_libmount_fanotify(int log_level) {
                         DLSYM_ARG(mnt_fs_refer_statmnt),
                         DLSYM_ARG(mnt_fs_fetch_statmount),
                         DLSYM_ARG(mnt_fs_get_uniq_id),
+                        DLSYM_ARG(mnt_id_from_path),
                         DLSYM_ARG(mnt_fs_is_attached),
                         DLSYM_ARG(mnt_fs_is_detached),
                         DLSYM_ARG(mnt_fs_is_moved));
