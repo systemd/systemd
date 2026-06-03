@@ -569,10 +569,10 @@ int pkcs11_token_read_public_key(
 
                 _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx = sym_EVP_PKEY_CTX_new_from_name(NULL, "EC", NULL);
                 if (!ctx)
-                        return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to create an EVP_PKEY_CTX for EC.");
+                        return log_openssl_errors(LOG_DEBUG, "Failed to create an EVP_PKEY_CTX for EC.");
 
                 if (sym_EVP_PKEY_fromdata_init(ctx) != 1)
-                        return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to init an EVP_PKEY_CTX for EC.");
+                        return log_openssl_errors(LOG_DEBUG, "Failed to init an EVP_PKEY_CTX for EC.");
 
                 OSSL_PARAM ec_params[8] = {
                         /* We need to drop the const from the data param, because ec_params is
@@ -613,7 +613,7 @@ int pkcs11_token_read_public_key(
                                 return log_oom_debug();
 
                         if (sym_EC_GROUP_get_curve(group, bn_p, bn_a, bn_b, bnctx) != 1)
-                                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to extract EC parameters from EC_GROUP.");
+                                return log_openssl_errors(LOG_DEBUG, "Failed to extract EC parameters from EC_GROUP.");
 
                         order_size = sym_BN_num_bytes(bn_order);
                         p_size = sym_BN_num_bytes(bn_p);
@@ -640,12 +640,12 @@ int pkcs11_token_read_public_key(
                             sym_BN_bn2nativepad(bn_p, p, p_size) <= 0 ||
                             sym_BN_bn2nativepad(bn_a, a, a_size) <= 0 ||
                             sym_BN_bn2nativepad(bn_b, b, b_size) <= 0 )
-                                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to store EC parameters in native byte order.");
+                                return log_openssl_errors(LOG_DEBUG, "Failed to store EC parameters in native byte order.");
 
                         const EC_POINT *point_gen = sym_EC_GROUP_get0_generator(group);
                         generator_size = sym_EC_POINT_point2oct(group, point_gen, POINT_CONVERSION_UNCOMPRESSED, NULL, 0, bnctx);
                         if (generator_size == 0)
-                                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to determine size of a EC generator.");
+                                return log_openssl_errors(LOG_DEBUG, "Failed to determine size of a EC generator.");
 
                         generator = malloc(generator_size);
                         if (!generator)
@@ -653,7 +653,7 @@ int pkcs11_token_read_public_key(
 
                         generator_size = sym_EC_POINT_point2oct(group, point_gen, POINT_CONVERSION_UNCOMPRESSED, generator, generator_size, bnctx);
                         if (generator_size == 0)
-                                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to convert a EC generator to octet string.");
+                                return log_openssl_errors(LOG_DEBUG, "Failed to convert a EC generator to octet string.");
 
                         ec_params[1] = sym_OSSL_PARAM_construct_utf8_string(OSSL_PKEY_PARAM_EC_FIELD_TYPE, (char*)field_type, strlen(field_type));
                         ec_params[2] = sym_OSSL_PARAM_construct_octet_string(OSSL_PKEY_PARAM_EC_GENERATOR, generator, generator_size);
@@ -665,7 +665,7 @@ int pkcs11_token_read_public_key(
                 }
 
                 if (sym_EVP_PKEY_fromdata(ctx, &pkey, EVP_PKEY_PUBLIC_KEY, ec_params) != 1)
-                        return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to create EVP_PKEY from EC parameters.");
+                        return log_openssl_errors(LOG_DEBUG, "Failed to create EVP_PKEY from EC parameters.");
                 break;
         }
         default:
@@ -725,7 +725,7 @@ int pkcs11_token_read_x509_certificate(
 
         _cleanup_free_ char *t = sym_X509_NAME_oneline(name, NULL, 0);
         if (!t)
-                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to format X.509 subject name as string.");
+                return log_openssl_errors(LOG_DEBUG, "Failed to format X.509 subject name as string.");
 
         log_debug("Using X.509 certificate issued for '%s'.", t);
 
@@ -1050,7 +1050,7 @@ static int ecc_convert_to_compressed(
 
         compressed_point_size = sym_EC_POINT_point2oct(group, point, POINT_CONVERSION_COMPRESSED, NULL, 0, bnctx);
         if (compressed_point_size == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to determine size of a compressed EC point");
+                return log_openssl_errors(LOG_ERR, "Failed to determine size of a compressed EC point");
 
         compressed_point = malloc(compressed_point_size);
         if (!compressed_point)
@@ -1058,7 +1058,7 @@ static int ecc_convert_to_compressed(
 
         compressed_point_size = sym_EC_POINT_point2oct(group, point, POINT_CONVERSION_COMPRESSED, compressed_point, compressed_point_size, bnctx);
         if (compressed_point_size == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to convert a EC point to compressed format");
+                return log_openssl_errors(LOG_ERR, "Failed to convert a EC point to compressed format");
 
         *ret_compressed_point = TAKE_PTR(compressed_point);
         *ret_compressed_point_size = compressed_point_size;
@@ -1826,7 +1826,7 @@ static int pkcs11_acquire_public_key_callback(
 
                 pkey = sym_X509_get_pubkey(cert);
                 if (!pkey)
-                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to extract public key from X.509 certificate.");
+                        return log_openssl_errors(LOG_ERR, "Failed to extract public key from X.509 certificate.");
         }
 success:
         /* Let's read some random data off the token and write it to the kernel pool before we generate our

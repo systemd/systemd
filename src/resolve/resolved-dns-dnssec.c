@@ -62,6 +62,17 @@ static int rr_compare(DnsResourceRecord * const *a, DnsResourceRecord * const *b
         return CMP(DNS_RESOURCE_RECORD_RDATA_SIZE(x), DNS_RESOURCE_RECORD_RDATA_SIZE(y));
 }
 
+/* The DNSSEC verification and digest helpers below reserve -EOPNOTSUPP to mean "this algorithm or digest
+ * is not supported (or is disabled by host policy)" — a condition their callers deliberately treat as an
+ * insecure-but-accepted result (DNSSEC_UNSUPPORTED_ALGORITHM and friends). Once an algorithm has been
+ * established as supported, a low-level OpenSSL failure during the actual computation can nonetheless
+ * translate to -EOPNOTSUPP (e.g. an OpenSSL provider pushing ERR_R_UNSUPPORTED, ERR_R_FETCH_FAILED, or
+ * ERR_R_DISABLED under FIPS or similar). Such a failure must fail closed, so collapse it onto -EIO and
+ * keep -EOPNOTSUPP exclusively for the genuine unsupported-algorithm signal. */
+static int dnssec_verify_errno(int r) {
+        return r == -EOPNOTSUPP ? -EIO : r;
+}
+
 static int dnssec_rsa_verify_raw(
                 const EVP_MD *hash_algorithm,
                 const void *signature, size_t signature_size,
@@ -80,18 +91,18 @@ static int dnssec_rsa_verify_raw(
 
         e = sym_BN_bin2bn(exponent, exponent_size, NULL);
         if (!e)
-                return -EIO;
+                return log_openssl_errors(LOG_DEBUG, "Failed to convert RSA exponent to BIGNUM");
 
         m = sym_BN_bin2bn(modulus, modulus_size, NULL);
         if (!m)
-                return -EIO;
+                return log_openssl_errors(LOG_DEBUG, "Failed to convert RSA modulus to BIGNUM");
 
         rpubkey = sym_RSA_new();
         if (!rpubkey)
                 return -ENOMEM;
 
         if (sym_RSA_set0_key(rpubkey, m, e, NULL) <= 0)
-                return -EIO;
+                return log_openssl_errors(LOG_DEBUG, "Failed to set RSA public key");
         e = m = NULL;
 
         if ((size_t) sym_RSA_size(rpubkey) != signature_size)
@@ -102,25 +113,24 @@ static int dnssec_rsa_verify_raw(
                 return -ENOMEM;
 
         if (sym_EVP_PKEY_assign_RSA(epubkey, sym_RSAPublicKey_dup(rpubkey)) <= 0)
-                return -EIO;
+                return log_openssl_errors(LOG_DEBUG, "Failed to assign RSA public key");
 
         ctx = sym_EVP_PKEY_CTX_new(epubkey, NULL);
         if (!ctx)
                 return -ENOMEM;
 
         if (sym_EVP_PKEY_verify_init(ctx) <= 0)
-                return -EIO;
+                return log_openssl_errors(LOG_DEBUG, "Failed to initialize RSA signature verification");
 
         if (sym_EVP_PKEY_CTX_set_rsa_padding(ctx, RSA_PKCS1_PADDING) <= 0)
-                return -EIO;
+                return log_openssl_errors(LOG_DEBUG, "Failed to set RSA padding");
 
         if (sym_EVP_PKEY_CTX_set_signature_md(ctx, hash_algorithm) <= 0)
-                return -EIO;
+                return log_openssl_errors(LOG_DEBUG, "Failed to set RSA signature digest");
 
         r = sym_EVP_PKEY_verify(ctx, signature, signature_size, data, data_size);
         if (r < 0)
-                return log_debug_errno(SYNTHETIC_ERRNO(EIO),
-                                       "Signature verification failed: 0x%lx", sym_ERR_get_error());
+                return log_openssl_errors(LOG_DEBUG, "Signature verification failed");
 
         REENABLE_WARNING;
         return r;
@@ -219,30 +229,28 @@ static int dnssec_ecdsa_verify_raw(
                 return -ENOMEM;
 
         if (sym_EC_POINT_oct2point(ec_group, p, key, key_size, bctx) <= 0)
-                return -EIO;
+                return log_openssl_errors(LOG_DEBUG, "Failed to parse EC public key point");
 
         eckey = sym_EC_KEY_new();
         if (!eckey)
                 return -ENOMEM;
 
         if (sym_EC_KEY_set_group(eckey, ec_group) <= 0)
-                return -EIO;
+                return log_openssl_errors(LOG_DEBUG, "Failed to set EC group");
 
         if (sym_EC_KEY_set_public_key(eckey, p) <= 0)
-                return log_debug_errno(SYNTHETIC_ERRNO(EIO),
-                                       "EC_KEY_set_public_key failed: 0x%lx", sym_ERR_get_error());
+                return log_openssl_errors(LOG_DEBUG, "EC_KEY_set_public_key failed");
 
         if (sym_EC_KEY_check_key(eckey) != 1)
-                return log_debug_errno(SYNTHETIC_ERRNO(EIO),
-                                       "EC_KEY_check_key failed: 0x%lx", sym_ERR_get_error());
+                return log_openssl_errors(LOG_DEBUG, "EC_KEY_check_key failed");
 
         r = sym_BN_bin2bn(signature_r, signature_r_size, NULL);
         if (!r)
-                return -EIO;
+                return log_openssl_errors(LOG_DEBUG, "Failed to convert ECDSA signature r to BIGNUM");
 
         s = sym_BN_bin2bn(signature_s, signature_s_size, NULL);
         if (!s)
-                return -EIO;
+                return log_openssl_errors(LOG_DEBUG, "Failed to convert ECDSA signature s to BIGNUM");
 
         /* TODO: We should eventually use the EVP API once it supports ECDSA signature verification */
 
@@ -251,13 +259,12 @@ static int dnssec_ecdsa_verify_raw(
                 return -ENOMEM;
 
         if (sym_ECDSA_SIG_set0(sig, r, s) <= 0)
-                return -EIO;
+                return log_openssl_errors(LOG_DEBUG, "Failed to set ECDSA signature");
         r = s = NULL;
 
         k = sym_ECDSA_do_verify(data, data_size, sig, eckey);
         if (k < 0)
-                return log_debug_errno(SYNTHETIC_ERRNO(EIO),
-                                       "Signature verification failed: 0x%lx", sym_ERR_get_error());
+                return log_openssl_errors(LOG_DEBUG, "Signature verification failed");
 
         REENABLE_WARNING;
         return k;
@@ -327,8 +334,7 @@ static int dnssec_eddsa_verify_raw(
 
         evkey = sym_EVP_PKEY_new_raw_public_key(EVP_PKEY_ED25519, NULL, key, key_size);
         if (!evkey)
-                return log_debug_errno(SYNTHETIC_ERRNO(EIO),
-                                       "EVP_PKEY_new_raw_public_key failed: 0x%lx", sym_ERR_get_error());
+                return log_openssl_errors(LOG_DEBUG, "EVP_PKEY_new_raw_public_key failed");
 
         pctx = sym_EVP_PKEY_CTX_new(evkey, NULL);
         if (!pctx)
@@ -343,12 +349,11 @@ static int dnssec_eddsa_verify_raw(
 
         /* One might be tempted to use EVP_PKEY_verify_init, but see Ed25519(7ssl). */
         if (sym_EVP_DigestVerifyInit(ctx, &pctx, NULL, NULL, evkey) <= 0)
-                return -EIO;
+                return log_openssl_errors(LOG_DEBUG, "Failed to initialize EdDSA verification");
 
         r = sym_EVP_DigestVerify(ctx, signature, signature_size, data, data_size);
         if (r < 0)
-                return log_debug_errno(SYNTHETIC_ERRNO(EIO),
-                                       "Signature verification failed: 0x%lx", sym_ERR_get_error());
+                return log_openssl_errors(LOG_DEBUG, "Signature verification failed");
 
         return r;
 }
@@ -631,11 +636,13 @@ static int dnssec_rrset_verify_sig(
 
         switch (rrsig->rrsig.algorithm) {
         case DNSSEC_ALGORITHM_ED25519:
-                return dnssec_eddsa_verify(
+                /* The algorithm is supported, so a -EOPNOTSUPP from the actual verification is a hard
+                 * crypto failure, not an unsupported-algorithm condition: fail closed. */
+                return dnssec_verify_errno(dnssec_eddsa_verify(
                                 rrsig->rrsig.algorithm,
                                 sig_data, sig_size,
                                 rrsig,
-                                dnskey);
+                                dnskey));
         case DNSSEC_ALGORITHM_ED448:
                 return -EOPNOTSUPP;
         default:
@@ -654,10 +661,10 @@ static int dnssec_rrset_verify_sig(
                         return -EOPNOTSUPP;
 
                 if (sym_EVP_DigestUpdate(ctx, sig_data, sig_size) <= 0)
-                        return -EIO;
+                        return dnssec_verify_errno(log_openssl_errors(LOG_DEBUG, "Failed to update digest"));
 
                 if (sym_EVP_DigestFinal_ex(ctx, hash, &hash_size) <= 0)
-                        return -EIO;
+                        return dnssec_verify_errno(log_openssl_errors(LOG_DEBUG, "Failed to finalize digest"));
 
                 assert(hash_size > 0);
         }
@@ -668,20 +675,20 @@ static int dnssec_rrset_verify_sig(
         case DNSSEC_ALGORITHM_RSASHA1_NSEC3_SHA1:
         case DNSSEC_ALGORITHM_RSASHA256:
         case DNSSEC_ALGORITHM_RSASHA512:
-                return dnssec_rsa_verify(
+                return dnssec_verify_errno(dnssec_rsa_verify(
                                 md_algorithm,
                                 hash, hash_size,
                                 rrsig,
-                                dnskey);
+                                dnskey));
 
         case DNSSEC_ALGORITHM_ECDSAP256SHA256:
         case DNSSEC_ALGORITHM_ECDSAP384SHA384:
-                return dnssec_ecdsa_verify(
+                return dnssec_verify_errno(dnssec_ecdsa_verify(
                                 md_algorithm,
                                 rrsig->rrsig.algorithm,
                                 hash, hash_size,
                                 rrsig,
-                                dnskey);
+                                dnskey));
 
         default:
                 assert_not_reached();
@@ -1116,7 +1123,7 @@ int dnssec_verify_dnskey_by_ds(DnsResourceRecord *dnskey, DnsResourceRecord *ds,
                 return -EOPNOTSUPP;
 
         if (sym_EVP_DigestUpdate(ctx, wire_format, encoded_length) <= 0)
-                return -EIO;
+                return dnssec_verify_errno(log_openssl_errors(LOG_DEBUG, "Failed to update digest"));
 
         if (mask_revoke)
                 md_add_uint16(ctx, dnskey->dnskey.flags & ~DNSKEY_FLAG_REVOKE);
@@ -1130,10 +1137,10 @@ int dnssec_verify_dnskey_by_ds(DnsResourceRecord *dnskey, DnsResourceRecord *ds,
         if (r <= 0)
                 return r;
         if (sym_EVP_DigestUpdate(ctx, dnskey->dnskey.key, dnskey->dnskey.key_size) <= 0)
-                return -EIO;
+                return dnssec_verify_errno(log_openssl_errors(LOG_DEBUG, "Failed to update digest"));
 
         if (sym_EVP_DigestFinal_ex(ctx, result, NULL) <= 0)
-                return -EIO;
+                return dnssec_verify_errno(log_openssl_errors(LOG_DEBUG, "Failed to finalize digest"));
 
         return memcmp(result, ds->ds.digest, ds->ds.digest_size) == 0;
 }
@@ -1240,24 +1247,24 @@ int dnssec_nsec3_hash(DnsResourceRecord *nsec3, const char *name, void *ret) {
                 return r;
 
         if (sym_EVP_DigestUpdate(ctx, wire_format, r) <= 0)
-                return -EIO;
+                return dnssec_verify_errno(log_openssl_errors(LOG_DEBUG, "Failed to update digest"));
         if (sym_EVP_DigestUpdate(ctx, nsec3->nsec3.salt, nsec3->nsec3.salt_size) <= 0)
-                return -EIO;
+                return dnssec_verify_errno(log_openssl_errors(LOG_DEBUG, "Failed to update digest"));
 
         uint8_t result[EVP_MAX_MD_SIZE];
         if (sym_EVP_DigestFinal_ex(ctx, result, NULL) <= 0)
-                return -EIO;
+                return dnssec_verify_errno(log_openssl_errors(LOG_DEBUG, "Failed to finalize digest"));
 
         for (unsigned k = 0; k < nsec3->nsec3.iterations; k++) {
                 if (sym_EVP_DigestInit_ex(ctx, algorithm, NULL) <= 0)
                         return -EOPNOTSUPP;
                 if (sym_EVP_DigestUpdate(ctx, result, hash_size) <= 0)
-                        return -EIO;
+                        return dnssec_verify_errno(log_openssl_errors(LOG_DEBUG, "Failed to update digest"));
                 if (sym_EVP_DigestUpdate(ctx, nsec3->nsec3.salt, nsec3->nsec3.salt_size) <= 0)
-                        return -EIO;
+                        return dnssec_verify_errno(log_openssl_errors(LOG_DEBUG, "Failed to update digest"));
 
                 if (sym_EVP_DigestFinal_ex(ctx, result, NULL) <= 0)
-                        return -EIO;
+                        return dnssec_verify_errno(log_openssl_errors(LOG_DEBUG, "Failed to finalize digest"));
         }
 
         memcpy(ret, result, hash_size);

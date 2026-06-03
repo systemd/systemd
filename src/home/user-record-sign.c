@@ -123,9 +123,14 @@ int user_record_verify(UserRecord *ur, EVP_PKEY *public_key) {
                         return -ENOMEM;
 
                 if (sym_EVP_DigestVerifyInit(md_ctx, NULL, NULL, NULL, public_key) <= 0)
-                        return -EIO;
+                        return log_openssl_errors(LOG_DEBUG, "Failed to initialize signature verification");
 
                 if (sym_EVP_DigestVerify(md_ctx, signature, signature_size, (uint8_t*) text, strlen(text)) <= 0) {
+                        /* A bad signature is an expected outcome here (counted as n_bad), but it may leave
+                         * entries in the thread-local OpenSSL error queue. Clear them so a later iteration's
+                         * failure — or an unrelated caller on this thread — translates its own error rather
+                         * than this stale one. */
+                        sym_ERR_clear_error();
                         n_bad++;
                         continue;
                 }
