@@ -69,6 +69,7 @@ extern DLSYM_PROTOTYPE(mnt_unref_statmnt);
 extern DLSYM_PROTOTYPE(mnt_fs_refer_statmnt);
 extern DLSYM_PROTOTYPE(mnt_fs_fetch_statmount);
 extern DLSYM_PROTOTYPE(mnt_fs_get_uniq_id);
+extern DLSYM_PROTOTYPE(mnt_id_from_path);
 extern DLSYM_PROTOTYPE(mnt_fs_is_attached);
 extern DLSYM_PROTOTYPE(mnt_fs_is_detached);
 extern DLSYM_PROTOTYPE(mnt_fs_is_moved);
