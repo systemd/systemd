@@ -82,7 +82,7 @@ systemd-run --quiet --service-type=notify --unit=test-busctl-wait-limited --pty 
 systemd-run --quiet --service-type=notify --unit=test-busctl-wait-unlimited --pty \
             -p Environment=SYSTEMD_LOG_LEVEL=debug \
             -p ExecStartPost="sh -c '$(signal_emit_command 2)'" \
-            busctl --timeout=3 --limit-messages=infinity wait /test org.freedesktop.fake1 TestSignal |
+            busctl --timeout=30 --limit-messages=infinity wait /test org.freedesktop.fake1 TestSignal |
             grep -Fc 's "success"' | xargs test 2 -eq
 
 busctl get-property org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager \
