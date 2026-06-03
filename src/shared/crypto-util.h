@@ -336,6 +336,14 @@ static inline void sk_X509_free_allp(STACK_OF(X509) **sk) {
         sym_sk_X509_pop_free(*sk, sym_X509_free);
 }
 
+int log_openssl_errors_internal(int level, const char *file, int line, const char *func, const char *format, ...) _printf_(5, 6);
+
+/* Logs `format` at `level`, suffixed with each error from the OpenSSL thread-local error queue (or
+ * "No OpenSSL errors." when it is empty), and returns a negative errno derived from the last error
+ * (-EIO when the queue is empty or the reason isn't recognized). */
+#define log_openssl_errors(level, format, ...)                          \
+        log_openssl_errors_internal(level, PROJECT_FILE, __LINE__, __func__, format, ##__VA_ARGS__)
+
 int openssl_pubkey_from_pem(const void *pem, size_t pem_size, EVP_PKEY **ret);
 int openssl_pubkey_to_pem(EVP_PKEY *pkey, char **ret);
 
