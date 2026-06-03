@@ -602,6 +602,12 @@ CHANGES WITH 261 in spe:
           throughout the codebase, further reducing the set of mandatory
           dependencies from all binaries.
 
+        * Individual binaries now also embed the dlopen ELF metadata note
+          (https://uapi-group.org/specifications/specs/elf_dlopen_metadata/) for
+          their dlopen() dependencies, which allows packaging tools to reliably
+          discover the set of optional dependencies of a binary, as opposed to
+          having the note only on the libsystemd-shared.so ELF object as before.
+
         * The unused dependency on libgpg-error has been dropped.
 
         │ This means all direct shared library linking against external       │
