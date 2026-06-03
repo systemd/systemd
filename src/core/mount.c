@@ -1980,6 +1980,13 @@ static void mount_shutdown(Manager *m) {
                 sym_mnt_unref_monitor(m->mount_monitor);
                 m->mount_monitor = NULL;
         }
+
+        if (m->mount_fanotify_fs) {
+                sym_mnt_unref_fs(m->mount_fanotify_fs);
+                m->mount_fanotify_fs = NULL;
+        }
+
+        m->mount_use_fanotify = false;
 }
 
 static void mount_handoff_timestamp(
