@@ -3451,6 +3451,13 @@ _public_ int sd_varlink_server_listen_fd(sd_varlink_server *s, int fd) {
         return 0;
 }
 
+static mode_t default_listen_mode(sd_varlink_server_flags_t flags) {
+        /* NB: we use 0644 rather than 0600 here, because it's the "w" flag that controls connect()
+         * privileges, but leaving the "r" flag on allows others to read our xattrs, which is good because it
+         * makes our sockets recognizable as varlink, even if not connectible. */
+        return (flags & (SD_VARLINK_SERVER_ROOT_ONLY|SD_VARLINK_SERVER_MYSELF_ONLY)) != 0 ? 0644 : 0666;
+}
+
 _public_ int sd_varlink_server_listen_address(sd_varlink_server *s, const char *address, mode_t m) {
         _cleanup_(varlink_server_socket_freep) VarlinkServerSocket *ss = NULL;
         union sockaddr_union sockaddr;
@@ -3460,6 +3467,12 @@ _public_ int sd_varlink_server_listen_address(sd_varlink_server *s, const char *
 
         assert_return(s, -EINVAL);
         assert_return(address, -EINVAL);
+
+        /* NB: we resolve m being MODE_INVALID before checking SD_VARLINK_SERVER_MODE_MKDIR_0755, since that
+         * flag is not defined for MODE_INVALID (if we'd check we'd see it always set...) */
+        if (m == MODE_INVALID)
+                m = default_listen_mode(s->flags);
+
         assert_return((m & ~(0777|SD_VARLINK_SERVER_MODE_MKDIR_0755)) == 0, -EINVAL);
 
         /* Validate that the definition of our flag doesn't collide with the official mode_t bits. Thankfully
@@ -3635,7 +3648,7 @@ _public_ int sd_varlink_server_listen_auto(sd_varlink_server *s) {
                 if (streq(e, "-"))
                         r = sd_varlink_server_add_connection_stdio(s, /* ret= */ NULL);
                 else
-                        r = sd_varlink_server_listen_address(s, e, FLAGS_SET(s->flags, SD_VARLINK_SERVER_ROOT_ONLY) ? 0600 : 0666);
+                        r = sd_varlink_server_listen_address(s, e, default_listen_mode(s->flags));
                 if (r < 0)
                         return r;
 
