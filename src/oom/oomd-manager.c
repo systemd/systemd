@@ -84,6 +84,11 @@ static int process_managed_oom_message(Manager *m, uid_t uid, sd_json_variant *p
                 if (r < 0)
                         continue;
 
+                if (!path_is_normalized(empty_to_root(message.path))) {
+                        log_debug("Received non-normalized cgroup path '%s', ignoring.", message.path);
+                        continue;
+                }
+
                 if (uid != 0) {
                         uid_t cg_uid;
 
