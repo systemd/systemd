@@ -218,7 +218,7 @@ on-the-fly by `systemd-stub`).
 
 ### PCR 9, NvPCR Initializations
 
-The `systemd-tpm2-setup.service` service initializes any NvPCRs defined via
+The `systemd-tpm2-setup-early.service` service initializes any NvPCRs defined via
 `*.nvpcr` files. For each initialized NvPCR it will measure an event into PCR
 9.
 
@@ -277,8 +277,8 @@ without trailing NUL bytes).
 
 ### PCR 9, NvPCR initialization separator
 
-After completion of `systemd-tpm2-setup.service` (which initializes all NvPCRs
-and measures their initial state) at arly boot the `systemd-pcrnvdone.service`
+After completion of `systemd-tpm2-setup-early.service` (which initializes all NvPCRs
+and measures their initial state) at early boot the `systemd-pcrnvdone.service`
 service will measure a separator event into PCR 9, isolating the early-boot
 NvPCR initializations from any later additions.
 
