@@ -105,7 +105,12 @@
 
         <para>Use <literal>bind:…</literal> to bind mount another directory as operating system root
         filesystems (added in v258). Expects an absolute path name referencing an existing directory within the initrd's file
-        hierarchy to boot into.</para>
+        hierarchy to boot into. Since the resulting root file system is supposed to behave like a regular OS
+        root, the bind mount is established with the <option>dev</option>, <option>suid</option> and
+        <option>exec</option> options (i.e. the <option>nodev</option>, <option>nosuid</option> and
+        <option>noexec</option> flags that would otherwise be inherited from the file system the source
+        directory resides on, such as <filename>/run/</filename>, are cleared), unless overridden via
+        <varname>rootflags=</varname>.</para>
 
         <para>Set to <literal>off</literal> to turn off mounting of a root file system.</para>
 
