@@ -18,7 +18,7 @@ char* get_default_hostname_raw(void) {
 
         const char *e = secure_getenv("SYSTEMD_DEFAULT_HOSTNAME");
         if (e) {
-                if (hostname_is_valid(e, VALID_HOSTNAME_QUESTION_MARK))
+                if (hostname_is_valid(e, VALID_HOSTNAME_QUESTION_MARK|VALID_HOSTNAME_WORD_TOKEN))
                         return strdup(e);
 
                 log_debug("Invalid hostname in $SYSTEMD_DEFAULT_HOSTNAME, ignoring: %s", e);
@@ -29,7 +29,7 @@ char* get_default_hostname_raw(void) {
         if (r < 0)
                 log_debug_errno(r, "Failed to parse os-release, ignoring: %m");
         else if (f) {
-                if (hostname_is_valid(f, VALID_HOSTNAME_QUESTION_MARK))
+                if (hostname_is_valid(f, VALID_HOSTNAME_QUESTION_MARK|VALID_HOSTNAME_WORD_TOKEN))
                         return TAKE_PTR(f);
 
                 log_debug("Invalid hostname in os-release, ignoring: %s", f);
@@ -82,7 +82,9 @@ bool hostname_is_valid(const char *s, ValidHostnameFlags flags) {
                         hyphen = true;
 
                 } else {
-                        if (!valid_ldh_char(*p) && (*p != '?' || !FLAGS_SET(flags, VALID_HOSTNAME_QUESTION_MARK)))
+                        if (!valid_ldh_char(*p) &&
+                            (*p != '?' || !FLAGS_SET(flags, VALID_HOSTNAME_QUESTION_MARK)) &&
+                            (*p != '$' || !FLAGS_SET(flags, VALID_HOSTNAME_WORD_TOKEN)))
                                 return false;
 
                         dot = false;
@@ -124,7 +126,7 @@ char* hostname_cleanup(char *s) {
                         dot = false;
                         hyphen = true;
 
-                } else if (valid_ldh_char(*p) || *p == '?') {
+                } else if (valid_ldh_char(*p) || IN_SET(*p, '?', '$')) {
                         *(d++) = *p;
                         dot = false;
                         hyphen = false;
