@@ -2372,10 +2372,157 @@ static int mount_process_proc_self_mountinfo(Manager *m) {
 }
 
 #if HAVE_LIBMOUNT
+static void mount_process_fanotify_attach(Manager *m, struct libmnt_fs *fs) {
+        const char *device, *path, *options, *fstype;
+
+        assert(m);
+        assert(fs);
+
+        if (sym_mnt_fs_fetch_statmount(fs, 0) < 0)
+                return;
+
+        device  = sym_mnt_fs_get_source(fs);
+        path    = sym_mnt_fs_get_target(fs);
+        options = sym_mnt_fs_get_options(fs);
+        fstype  = sym_mnt_fs_get_fstype(fs);
+
+        if (!device || !path)
+                return;
+
+        device_found_node(m, device, DEVICE_FOUND_MOUNT, DEVICE_FOUND_MOUNT);
+        (void) mount_setup_unit(m, device, path, options, fstype, /* set_flags= */ true);
+
+        _cleanup_free_ char *e = NULL;
+        if (unit_name_from_path(path, ".mount", &e) < 0)
+                return;
+
+        Unit *u = manager_get_unit(m, e);
+        if (!u)
+                return;
+
+        Mount *mount = MOUNT(u);
+
+        if (mount->proc_flags & (MOUNT_PROC_JUST_MOUNTED|MOUNT_PROC_JUST_CHANGED)) {
+                switch (mount->state) {
+
+                case MOUNT_DEAD:
+                case MOUNT_FAILED:
+                        (void) unit_acquire_invocation_id(u);
+                        mount_cycle_clear(mount);
+                        mount_enter_mounted(mount, MOUNT_SUCCESS);
+                        break;
+
+                case MOUNT_MOUNTING:
+                        mount_set_state(mount, MOUNT_MOUNTING_DONE);
+                        break;
+
+                default:
+                        mount_set_state(mount, mount->state);
+                }
+
+                unit_add_to_dbus_queue(u);
+        }
+
+        mount->proc_flags = 0;
+}
+
+static void mount_process_fanotify_detach(Manager *m, struct libmnt_fs *fs) {
+        _cleanup_free_ char *e = NULL;
+        const char *path, *device;
+        Unit *u;
+        Mount *mount;
+
+        assert(m);
+        assert(fs);
+
+        sym_mnt_fs_fetch_statmount(fs, 0);
+
+        path   = sym_mnt_fs_get_target(fs);
+        device = sym_mnt_fs_get_source(fs);
+
+        if (!path)
+                return;
+
+        if (unit_name_from_path(path, ".mount", &e) < 0)
+                return;
+
+        u = manager_get_unit(m, e);
+        if (!u)
+                return;
+
+        mount = MOUNT(u);
+
+        if (mount->from_proc_self_mountinfo &&
+            mount->parameters_proc_self_mountinfo.what &&
+            device)
+                device_found_node(m, device, DEVICE_NOT_FOUND, DEVICE_FOUND_MOUNT);
+
+        mount->from_proc_self_mountinfo = false;
+        assert_se(update_parameters_proc_self_mountinfo(mount, NULL, NULL, NULL) >= 0);
+
+        switch (mount->state) {
+
+        case MOUNT_MOUNTED:
+                mount_cycle_clear(mount);
+                mount_enter_dead(mount, MOUNT_SUCCESS, /* flush_result= */ true);
+                break;
+
+        case MOUNT_MOUNTING_DONE:
+                mount_set_state(mount, MOUNT_MOUNTING);
+                break;
+
+        default:
+                ;
+        }
+}
+
+static int mount_process_fanotify_events(Manager *m) {
+        bool rescan = false;
+        const char *filename;
+        int type;
+
+        assert(m);
+        assert(m->mount_monitor);
+
+        while (sym_mnt_monitor_next_change(m->mount_monitor, &filename, &type) == 0) {
+
+                if (type == MNT_MONITOR_TYPE_FANOTIFY) {
+                        struct libmnt_fs *fs = m->mount_fanotify_fs;
+
+                        while (sym_mnt_monitor_event_next_fs(m->mount_monitor, fs) == 0) {
+                                if (sym_mnt_fs_is_moved(fs))
+                                        /* Mount moved to a new location. The mount ID is
+                                         * preserved across moves, but we don't track IDs per
+                                         * unit yet, so fall back to full rescan. */
+                                        rescan = true;
+                                else if (sym_mnt_fs_is_detached(fs))
+                                        mount_process_fanotify_detach(m, fs);
+                                else
+                                        mount_process_fanotify_attach(m, fs);
+
+                                sym_mnt_reset_fs(fs);
+                        }
+                } else
+                        rescan = true;
+        }
+
+        sym_mnt_monitor_event_cleanup(m->mount_monitor);
+
+        if (rescan)
+                (void) mount_load_proc_self_mountinfo(m, true);
+
+        manager_dispatch_load_queue(m);
+
+        return 0;
+}
+
 static int mount_dispatch_io(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
 
         assert(revents & EPOLLIN);
+
+        if (m->mount_use_fanotify)
+                return mount_process_fanotify_events(m);
 
         return mount_process_proc_self_mountinfo(m);
 }
