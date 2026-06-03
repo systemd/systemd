@@ -150,6 +150,9 @@ acpi:FTSC*:
 acpi:FUJI*:
  ID_VENDOR_FROM_DATABASE=Fujitsu Limited
 
+acpi:GHIP*:
+ ID_VENDOR_FROM_DATABASE=Green Hippo
+
 acpi:GHSW*:
  ID_VENDOR_FROM_DATABASE=Green Hills Software
 
