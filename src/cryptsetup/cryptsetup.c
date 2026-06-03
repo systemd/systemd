@@ -2639,6 +2639,9 @@ static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) 
         /* A delicious drop of snake oil */
         (void) safe_mlockall(MCL_CURRENT|MCL_FUTURE|MCL_ONFAULT);
 
+        /* Only erase key files explicitly configured on the command line, never the ones we
+         * auto-discover in /etc/cryptsetup-keys.d/ and /run/cryptsetup-keys.d/: those are shared
+         * resources not owned by an individual volume. (key_file is NULL when auto-discovery is used.) */
         if (key_file && arg_keyfile_erase)
                 destroy_key_file = key_file; /* let's get this baby erased when we leave */
 
