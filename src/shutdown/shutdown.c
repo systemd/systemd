@@ -340,7 +340,12 @@ static void sleep_until_minimum_uptime(void) {
                 r = safe_atou64(e, &minimum_uptime_usec);
                 if (r < 0)
                         log_warning_errno(r, "Failed to parse $MINIMUM_UPTIME_USEC, ignoring: %s", e);
-        }
+        } else if (detect_virtualization() != VIRTUALIZATION_NONE)
+                /* Enforce the minimum uptime, but don't bother with it in containers/VMs, since – unlike on
+                 * bare metal – the screen output isn't flushed out immediately when we reboot (as real PC
+                 * firmwares do). But skip only if there wasn't an explicit configuration, to let users
+                 * override this. */
+                return;
 
         if (minimum_uptime_usec <= 0) /* turned off? */
                 return;
@@ -635,11 +640,7 @@ int main(int argc, char *argv[]) {
 
         notify_supervisor();
 
-        /* Enforce the minimum uptime, but don't bother with it in containers, since – unlike on bare metal
-         * and VMs – the screen output isn't flushed out immediately when we reboot (as OVMF or real PC
-         * firmwares do) */
-        if (!in_container)
-                sleep_until_minimum_uptime();
+        sleep_until_minimum_uptime();
 
         if (streq(arg_verb, "exit")) {
                 if (in_container) {
