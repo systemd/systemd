@@ -268,3 +268,5 @@ int socket_get_cookie(int fd, uint64_t *ret);
 void cmsg_close_all(struct msghdr *mh);
 
 int tos_to_priority(uint8_t tos);
+
+int socket_xattr_supported(void);

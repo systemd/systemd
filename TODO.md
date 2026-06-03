@@ -126,6 +126,8 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 - remove any trace of "cpuacct" cgroup controller, it's a cgroupv1 thing.
   similar "devices"
 
+- drop socket_xattr_supported() once our baseline is kernel 7.0
+
 ## Features
 
 - bootctl set-tries for setting retry counters on boot entries
