@@ -168,18 +168,121 @@ static int finalize_credentials_dir(const char *dir, const char *envvar) {
         return 0;
 }
 
-static int import_credentials_boot(void) {
-        _cleanup_(import_credentials_context_done) ImportCredentialsContext context = {
+static int import_credentials_from_initrd_path(
+                ImportCredentialsContext *context,
+                const char *source_path,
+                const char *target_dir,
+                bool with_mount) {
+
+        int r;
+        _cleanup_free_ DirectoryEntries *de = NULL;
+        _cleanup_close_ int source_dir_fd = -EBADF;
+
+        source_dir_fd = open(source_path, O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
+        if (source_dir_fd < 0) {
+                if (errno == ENOENT) {
+                        log_debug("No credentials passed via %s.", source_path);
+                        return 0;
+                }
+
+                log_warning_errno(errno, "Failed to open '%s', ignoring: %m", source_path);
+                return 0;
+        }
+
+        r = readdir_all(source_dir_fd, RECURSE_DIR_SORT|RECURSE_DIR_IGNORE_DOT, &de);
+        if (r < 0) {
+                log_warning_errno(r, "Failed to read '%s' contents, ignoring: %m", source_path);
+                return 0;
+        }
+
+        FOREACH_ARRAY(i, de->entries, de->n_entries) {
+                const struct dirent *d = *i;
+                _cleanup_close_ int cfd = -EBADF, nfd = -EBADF;
+                _cleanup_free_ char *n = NULL;
+                const char *e;
+                struct stat st;
+
+                e = endswith(d->d_name, ".cred");
+                if (!e)
+                        continue;
+
+                /* drop .cred suffix (which we want in the ESP sidecar dir, but not for our internal
+                 * processing) */
+                n = strndup(d->d_name, e - d->d_name);
+                if (!n)
+                        return log_oom();
+
+                if (!credential_name_valid(n)) {
+                        log_warning("Credential '%s' has invalid name, ignoring.", d->d_name);
+                        continue;
+                }
+
+                cfd = openat(source_dir_fd, d->d_name, O_RDONLY|O_CLOEXEC);
+                if (cfd < 0) {
+                        log_warning_errno(errno, "Failed to open %s, ignoring: %m", d->d_name);
+                        continue;
+                }
+
+                if (fstat(cfd, &st) < 0) {
+                        log_warning_errno(errno, "Failed to stat %s, ignoring: %m", d->d_name);
+                        continue;
+                }
+
+                r = stat_verify_regular(&st);
+                if (r < 0) {
+                        log_warning_errno(r, "Credential file %s is not a regular file, ignoring: %m", d->d_name);
+                        continue;
+                }
+
+                if (!credential_size_ok(context, n, st.st_size))
+                        continue;
+
+                r = acquire_credential_directory(context, target_dir, with_mount);
+                if (r < 0)
+                        return r;
+
+                nfd = open_credential_file_for_write(context->target_dir_fd, target_dir, n);
+                if (nfd == -EEXIST)
+                        continue;
+                if (nfd < 0)
+                        return nfd;
+
+                r = copy_bytes(cfd, nfd, st.st_size, 0);
+                if (r < 0) {
+                        (void) unlinkat(context->target_dir_fd, n, 0);
+                        return log_error_errno(r, "Failed to create credential '%s': %m", n);
+                }
+
+                context->size_sum += st.st_size;
+                context->n_credentials++;
+
+                log_debug("Successfully copied boot credential '%s'.", n);
+        }
+
+        return 0;
+}
+
+static int import_credentials_boot(ImportCredentialsContext *system_ctx) {
+        _cleanup_(import_credentials_context_done) ImportCredentialsContext encrypted_ctx = {
                 .target_dir_fd = -EBADF,
         };
+        unsigned n_system_before;
         int r;
 
-        /* systemd-stub will wrap sidecar *.cred files from the UEFI kernel image directory into initrd
-         * cpios, so that they unpack into /.extra/. We'll pick them up from there and copy them into /run/
-         * so that we can access them during the entire runtime (note that the initrd file system is erased
-         * during the initrd → host transition). Note that these credentials originate from an untrusted
-         * source (i.e. the ESP typically) and thus need to be authenticated later. We thus put them in a
-         * directory separate from the usual credentials which are from a trusted source. */
+        assert(system_ctx);
+
+        /* The initrd may contain two flavours of credentials placed under /.extra/, copied
+         * across the initrd → host transition before the initrd tmpfs is erased:
+         *
+         *  - /.extra/credentials/ and /.extra/global_credentials/ — placed by systemd-stub
+         *    from the EFI System Partition. Trust model: untrusted, because the ESP can
+         *    be mounted and edited offline. They are routed into the @encrypted bucket
+         *    where consumers must authenticate them before use (via LoadCredentialEncrypted=).
+         *
+         *  - /.extra/system_credentials/ — placed by host-side producers that take responsibility
+         *    for the trust (e.g. systemd-vmspawn when its cpio is covered by the SEV-SNP launch
+         *    measurement or when the host is the trust root in non-confidential setups). Routed
+         *    into the @system bucket where consumers can use them directly via LoadCredential=. */
 
         if (!in_initrd())
                 return 0;
@@ -187,99 +290,35 @@ static int import_credentials_boot(void) {
         FOREACH_STRING(p,
                        "/.extra/credentials/", /* specific to this boot menu */
                        "/.extra/global_credentials/") { /* boot partition wide */
-
-                _cleanup_free_ DirectoryEntries *de = NULL;
-                _cleanup_close_ int source_dir_fd = -EBADF;
-
-                source_dir_fd = open(p, O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
-                if (source_dir_fd < 0) {
-                        if (errno == ENOENT) {
-                                log_debug("No credentials passed via %s.", p);
-                                continue;
-                        }
-
-                        log_warning_errno(errno, "Failed to open '%s', ignoring: %m", p);
-                        continue;
-                }
-
-                r = readdir_all(source_dir_fd, RECURSE_DIR_SORT|RECURSE_DIR_IGNORE_DOT, &de);
-                if (r < 0) {
-                        log_warning_errno(r, "Failed to read '%s' contents, ignoring: %m", p);
-                        continue;
-                }
-
-                FOREACH_ARRAY(i, de->entries, de->n_entries) {
-                        const struct dirent *d = *i;
-                        _cleanup_close_ int cfd = -EBADF, nfd = -EBADF;
-                        _cleanup_free_ char *n = NULL;
-                        const char *e;
-                        struct stat st;
-
-                        e = endswith(d->d_name, ".cred");
-                        if (!e)
-                                continue;
-
-                        /* drop .cred suffix (which we want in the ESP sidecar dir, but not for our internal
-                         * processing) */
-                        n = strndup(d->d_name, e - d->d_name);
-                        if (!n)
-                                return log_oom();
-
-                        if (!credential_name_valid(n)) {
-                                log_warning("Credential '%s' has invalid name, ignoring.", d->d_name);
-                                continue;
-                        }
-
-                        cfd = openat(source_dir_fd, d->d_name, O_RDONLY|O_CLOEXEC);
-                        if (cfd < 0) {
-                                log_warning_errno(errno, "Failed to open %s, ignoring: %m", d->d_name);
-                                continue;
-                        }
-
-                        if (fstat(cfd, &st) < 0) {
-                                log_warning_errno(errno, "Failed to stat %s, ignoring: %m", d->d_name);
-                                continue;
-                        }
-
-                        r = stat_verify_regular(&st);
-                        if (r < 0) {
-                                log_warning_errno(r, "Credential file %s is not a regular file, ignoring: %m", d->d_name);
-                                continue;
-                        }
-
-                        if (!credential_size_ok(&context, n, st.st_size))
-                                continue;
-
-                        r = acquire_credential_directory(&context, ENCRYPTED_SYSTEM_CREDENTIALS_DIRECTORY, /* with_mount= */ false);
-                        if (r < 0)
-                                return r;
-
-                        nfd = open_credential_file_for_write(context.target_dir_fd, ENCRYPTED_SYSTEM_CREDENTIALS_DIRECTORY, n);
-                        if (nfd == -EEXIST)
-                                continue;
-                        if (nfd < 0)
-                                return nfd;
-
-                        r = copy_bytes(cfd, nfd, st.st_size, 0);
-                        if (r < 0) {
-                                (void) unlinkat(context.target_dir_fd, n, 0);
-                                return log_error_errno(r, "Failed to create credential '%s': %m", n);
-                        }
-
-                        context.size_sum += st.st_size;
-                        context.n_credentials++;
-
-                        log_debug("Successfully copied boot credential '%s'.", n);
-                }
+                r = import_credentials_from_initrd_path(
+                        &encrypted_ctx, p,
+                        ENCRYPTED_SYSTEM_CREDENTIALS_DIRECTORY,
+                        /* with_mount= */ false);
+                if (r < 0)
+                        return r;
         }
 
-        if (context.n_credentials > 0) {
-                log_debug("Imported %u credentials from boot loader.", context.n_credentials);
+        n_system_before = system_ctx->n_credentials;
+
+        r = import_credentials_from_initrd_path(
+                system_ctx, "/.extra/system_credentials/",
+                SYSTEM_CREDENTIALS_DIRECTORY,
+                /* with_mount= */ true);
+        if (r < 0)
+                return r;
+
+        if (encrypted_ctx.n_credentials > 0) {
+                log_debug("Imported %u encrypted credentials from boot loader.", encrypted_ctx.n_credentials);
 
                 r = finalize_credentials_dir(ENCRYPTED_SYSTEM_CREDENTIALS_DIRECTORY, "ENCRYPTED_CREDENTIALS_DIRECTORY");
                 if (r < 0)
                         return r;
         }
+
+        if (system_ctx->n_credentials > n_system_before)
+                log_debug("Imported %u trusted credentials from boot loader.", system_ctx->n_credentials - n_system_before);
+
+        /* The @system credentials directory is shared with import_credentials_trusted(); the caller finalizes. */
 
         return 0;
 }
@@ -701,28 +740,27 @@ static int import_credentials_initrd(ImportCredentialsContext *c) {
         return 0;
 }
 
-static int import_credentials_trusted(void) {
-        _cleanup_(import_credentials_context_done) ImportCredentialsContext c = {
-                .target_dir_fd = -EBADF,
-        };
-        int r, ret = 0;
+static int import_credentials_trusted(ImportCredentialsContext *c) {
+        unsigned n_before;
+        int ret = 0;
+
+        assert(c);
 
         /* This is invoked during early boot when no credentials have been imported so far. (Specifically, if
          * the $CREDENTIALS_DIRECTORY or $ENCRYPTED_CREDENTIALS_DIRECTORY environment variables are not set
          * yet.) */
 
-        RET_GATHER(ret, import_credentials_qemu(&c));
-        RET_GATHER(ret, import_credentials_smbios(&c));
-        RET_GATHER(ret, import_credentials_proc_cmdline(&c));
-        RET_GATHER(ret, import_credentials_initrd(&c));
+        n_before = c->n_credentials;
 
-        if (c.n_credentials > 0) {
-                log_debug("Imported %u credentials from kernel command line/smbios/fw_cfg/initrd.", c.n_credentials);
+        RET_GATHER(ret, import_credentials_qemu(c));
+        RET_GATHER(ret, import_credentials_smbios(c));
+        RET_GATHER(ret, import_credentials_proc_cmdline(c));
+        RET_GATHER(ret, import_credentials_initrd(c));
 
-                r = finalize_credentials_dir(SYSTEM_CREDENTIALS_DIRECTORY, "CREDENTIALS_DIRECTORY");
-                if (r < 0)
-                        return r;
-        }
+        if (c->n_credentials > n_before)
+                log_debug("Imported %u credentials from kernel command line/smbios/fw_cfg/initrd.", c->n_credentials - n_before);
+
+        /* The @system credentials directory is shared with import_credentials_boot(); the caller finalizes. */
 
         return ret;
 }
@@ -884,6 +922,9 @@ int import_credentials(void) {
                 RET_GATHER(r, merge_credentials_trusted(received_creds_dir));
 
         } else {
+                _cleanup_(import_credentials_context_done) ImportCredentialsContext system_ctx = {
+                        .target_dir_fd = -EBADF,
+                };
                 bool import;
 
                 r = proc_cmdline_get_bool("systemd.import_credentials", PROC_CMDLINE_STRIP_RD_PREFIX|PROC_CMDLINE_TRUE_WHEN_MISSING, &import);
@@ -894,8 +935,12 @@ int import_credentials(void) {
                         return 0;
                 }
 
-                r = import_credentials_boot();
-                RET_GATHER(r, import_credentials_trusted());
+                /* System credential context is share so a single CREDENTIALS_TOTAL_SIZE_MAX is enforced. */
+                r = import_credentials_boot(&system_ctx);
+                RET_GATHER(r, import_credentials_trusted(&system_ctx));
+
+                if (system_ctx.n_credentials > 0)
+                        RET_GATHER(r, finalize_credentials_dir(SYSTEM_CREDENTIALS_DIRECTORY, "CREDENTIALS_DIRECTORY"));
         }
 
         report_credentials();
