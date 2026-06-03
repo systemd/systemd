@@ -1872,6 +1872,7 @@ static int mount_setup_unit(
                 const char *where,
                 const char *options,
                 const char *fstype,
+                uint64_t uniq_id,
                 bool set_flags) {
 
         _cleanup_free_ char *e = NULL;
@@ -1917,6 +1918,8 @@ static int mount_setup_unit(
                 r = mount_setup_new_unit(m, e, what, where, options, fstype, &flags, &u);
         if (r < 0)
                 return log_warning_errno(r, "Failed to set up mount unit for '%s': %m", where);
+
+        MOUNT(u)->uniq_id = uniq_id;
 
         /* If the mount changed properties or state, let's notify our clients */
         if (flags & (MOUNT_PROC_JUST_CHANGED|MOUNT_PROC_JUST_MOUNTED))
@@ -1964,7 +1967,7 @@ static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
                 if (set_put_strdup_full(&devices, &path_hash_ops_free, device) != 0)
                         device_found_node(m, device, DEVICE_FOUND_MOUNT, DEVICE_FOUND_MOUNT);
 
-                (void) mount_setup_unit(m, device, path, options, fstype, set_flags);
+                (void) mount_setup_unit(m, device, path, options, fstype, /* uniq_id= */ 0, set_flags);
         }
 
         return 0;
@@ -2379,6 +2382,19 @@ static int mount_process_proc_self_mountinfo(Manager *m) {
 }
 
 #if HAVE_LIBMOUNT
+static Mount *mount_find_by_uniq_id(Manager *m, uint64_t uniq_id) {
+        if (uniq_id == 0)
+                return NULL;
+
+        LIST_FOREACH(units_by_type, u, m->units_by_type[UNIT_MOUNT]) {
+                Mount *mount = MOUNT(u);
+                if (mount->uniq_id == uniq_id)
+                        return mount;
+        }
+
+        return NULL;
+}
+
 static void mount_process_fanotify_attach(Manager *m, struct libmnt_fs *fs) {
         const char *device, *path, *options, *fstype;
 
@@ -2397,7 +2413,7 @@ static void mount_process_fanotify_attach(Manager *m, struct libmnt_fs *fs) {
                 return;
 
         device_found_node(m, device, DEVICE_FOUND_MOUNT, DEVICE_FOUND_MOUNT);
-        (void) mount_setup_unit(m, device, path, options, fstype, /* set_flags= */ true);
+        (void) mount_setup_unit(m, device, path, options, fstype, sym_mnt_fs_get_uniq_id(fs), /* set_flags= */ true);
 
         _cleanup_free_ char *e = NULL;
         if (unit_name_from_path(path, ".mount", &e) < 0)
@@ -2436,7 +2452,6 @@ static void mount_process_fanotify_attach(Manager *m, struct libmnt_fs *fs) {
 static void mount_process_fanotify_detach(Manager *m, struct libmnt_fs *fs) {
         _cleanup_free_ char *e = NULL;
         const char *path, *device;
-        Unit *u;
         Mount *mount;
 
         assert(m);
@@ -2447,17 +2462,21 @@ static void mount_process_fanotify_detach(Manager *m, struct libmnt_fs *fs) {
         path   = sym_mnt_fs_get_target(fs);
         device = sym_mnt_fs_get_source(fs);
 
-        if (!path)
-                return;
+        /* Try ID-based lookup first — works even if mount was moved before
+         * the detach event was processed. Fall back to path if ID unknown. */
+        mount = mount_find_by_uniq_id(m, sym_mnt_fs_get_uniq_id(fs));
 
-        if (unit_name_from_path(path, ".mount", &e) < 0)
-                return;
+        if (!mount && path) {
+                if (unit_name_from_path(path, ".mount", &e) < 0)
+                        return;
 
-        u = manager_get_unit(m, e);
-        if (!u)
-                return;
+                Unit *u = manager_get_unit(m, e);
+                if (u)
+                        mount = MOUNT(u);
+        }
 
-        mount = MOUNT(u);
+        if (!mount)
+                return;
 
         if (mount->from_proc_self_mountinfo &&
             mount->parameters_proc_self_mountinfo.what &&
@@ -2465,6 +2484,7 @@ static void mount_process_fanotify_detach(Manager *m, struct libmnt_fs *fs) {
                 device_found_node(m, device, DEVICE_NOT_FOUND, DEVICE_FOUND_MOUNT);
 
         mount->from_proc_self_mountinfo = false;
+        mount->uniq_id = 0;
         assert_se(update_parameters_proc_self_mountinfo(mount, NULL, NULL, NULL) >= 0);
 
         switch (mount->state) {
