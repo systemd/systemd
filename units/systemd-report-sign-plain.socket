@@ -28,6 +28,9 @@ SocketMode=0666
 Accept=yes
 MaxConnectionsPerSource=16
 RemoveOnStop=yes
+XAttrEntryPoint=user.varlink=entrypoint
+XAttrListen=user.varlink=listen
+XAttrAccept=user.varlink=server
 
 [Install]
 WantedBy=sockets.target

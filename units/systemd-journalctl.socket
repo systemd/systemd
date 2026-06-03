@@ -19,6 +19,9 @@ ListenStream=/run/systemd/io.systemd.JournalAccess
 Symlinks=/run/varlink/registry/io.systemd.JournalAccess
 FileDescriptorName=varlink
 SocketGroup=systemd-journal
-SocketMode=0660
+SocketMode=0664
 Accept=yes
 MaxConnectionsPerSource=16
+XAttrEntryPoint=user.varlink=entrypoint
+XAttrListen=user.varlink=listen
+XAttrAccept=user.varlink=server
