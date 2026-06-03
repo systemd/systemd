@@ -126,13 +126,9 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 - remove any trace of "cpuacct" cgroup controller, it's a cgroupv1 thing.
   similar "devices"
 
-## Features
+- drop socket_xattr_supported() once our baseline is kernel 7.0
 
-- now that the kernel supports xattrs on sockets: mark varlink entrypoint
-  sockets, server side of varlink sockets, and client sides of valrink sockets
-  with distinct xattrs to make them recognizable (similar maybe for our other
-  protocols, such as syslog, journal native entry point). For entrypoints might
-  require new .socket unit setting.
+## Features
 
 - implement "varlinkctl trace" or so, that watches socket traffic on a group of
   processes (select by pid, select by cgroup, select by all machine), and shows
