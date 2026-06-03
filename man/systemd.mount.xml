@@ -284,6 +284,22 @@
         <xi:include href="version-info.xml" xpointer="v220"/></listitem>
        </varlistentry>
 
+       <varlistentry>
+         <term><option>x-systemd.onfailure=</option></term>
+
+         <listitem><para>In the generated mount unit, configures an
+	 <varname>OnFailure=</varname> dependency. The argument should be a unit name.
+         This option may be specified more than once. See <varname>OnFailure=</varname> in
+         <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+         for details.</para>
+
+         <para>Note that this option always applies to the generated mount
+         unit only, regardless of whether <option>x-systemd.automount</option>
+         has been specified.</para>
+
+         <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+       </varlistentry>
+
       <varlistentry>
         <term><option>x-systemd.graceful-option=</option></term>
 
