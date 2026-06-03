@@ -23,3 +23,5 @@ ListenStream=/run/systemd/io.systemd.Import
 Symlinks=/run/varlink/registry/io.systemd.Import
 FileDescriptorName=varlink
 SocketMode=0666
+XAttrEntryPoint=user.varlink=entrypoint
+XAttrListen=user.varlink=listen

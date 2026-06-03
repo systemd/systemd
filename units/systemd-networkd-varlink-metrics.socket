@@ -20,6 +20,8 @@ ListenStream=/run/systemd/report/io.systemd.Network
 FileDescriptorName=varlink-metrics
 SocketMode=0666
 Service=systemd-networkd.service
+XAttrEntryPoint=user.varlink=entrypoint
+XAttrListen=user.varlink=listen
 
 [Install]
 WantedBy=sockets.target
