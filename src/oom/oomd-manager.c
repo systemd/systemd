@@ -10,6 +10,7 @@
 #include "bus-object.h"
 #include "bus-util.h"
 #include "cgroup-util.h"
+#include "chase.h"
 #include "constants.h"
 #include "daemon-util.h"
 #include "fd-util.h"
@@ -74,6 +75,8 @@ static int process_managed_oom_message(Manager *m, uid_t uid, sd_json_variant *p
                 _cleanup_(managed_oom_message_destroy) ManagedOOMMessage message = {
                         .duration = USEC_INFINITY,
                 };
+                _cleanup_free_ char *chased_path = NULL;
+                const char *path;
                 OomdCGroupContext *ctx;
                 Hashmap *monitor_hm;
                 loadavg_t limit;
@@ -88,12 +91,33 @@ static int process_managed_oom_message(Manager *m, uid_t uid, sd_json_variant *p
                 if (r < 0)
                         continue;
 
+                /* Validate the full path, which means we need to prefix it */
+                r = chase(message.path,
+                          "/sys/fs/cgroup/",
+                          CHASE_PREFIX_ROOT | CHASE_NO_AUTOFS | CHASE_PROHIBIT_SYMLINKS | CHASE_NOFOLLOW | CHASE_MUST_BE_DIRECTORY,
+                          &chased_path,
+                          /* ret_fd= */ NULL);
+                if (r == -ENOENT && message.mode == MANAGED_OOM_AUTO)
+                        /* Special case: if we are removing a ref, then the cgroup might not exist */
+                        path = message.path;
+                else if (r < 0) {
+                        log_debug_errno(r, "Failed to resolve cgroup path '%s', ignoring: %m", message.path);
+                        continue;
+                } else {
+                        /* And then cut the prefix, as the rest expects it relative to /sys/fs/cgroup */
+                        path = path_startswith(chased_path, "/sys/fs/cgroup");
+                        if (!path) {
+                                log_debug("Resolved cgroup path '%s' is outside of /sys/fs/cgroup, ignoring.", chased_path);
+                                continue;
+                        }
+                }
+
                 if (uid != 0) {
                         uid_t cg_uid;
 
-                        r = cg_path_get_owner_uid(message.path, &cg_uid);
+                        r = cg_path_get_owner_uid(path, &cg_uid);
                         if (r < 0) {
-                                log_debug_errno(r, "Failed to get cgroup %s owner uid: %m", message.path);
+                                log_debug_errno(r, "Failed to get cgroup %s owner uid: %m", path);
                                 continue;
                         }
 
@@ -117,7 +141,7 @@ static int process_managed_oom_message(Manager *m, uid_t uid, sd_json_variant *p
                 }
 
                 if (message.mode == MANAGED_OOM_AUTO) {
-                        (void) oomd_cgroup_context_unref(hashmap_remove(monitor_hm, empty_to_root(message.path)));
+                        (void) oomd_cgroup_context_unref(hashmap_remove(monitor_hm, empty_to_root(path)));
 
                         /* Clean up start_times entries for this cgroup across all rulesets
                          * to prevent stale timers from causing premature action triggers
@@ -126,7 +150,7 @@ static int process_managed_oom_message(Manager *m, uid_t uid, sd_json_variant *p
                                 OomdRuleset *ruleset;
                                 HASHMAP_FOREACH(ruleset, m->rulesets) {
                                         _cleanup_free_ char *key = NULL;
-                                        free(hashmap_remove2(ruleset->start_times, empty_to_root(message.path), (void **) &key));
+                                        free(hashmap_remove2(ruleset->start_times, empty_to_root(path), (void **) &key));
                                 }
                         }
 
@@ -156,16 +180,16 @@ static int process_managed_oom_message(Manager *m, uid_t uid, sd_json_variant *p
                         /* Avoid re-reading memory.pressure/pgscan/etc. on every OOMRules update for a
                          * cgroup we already track — fetch the existing context first and only acquire
                          * a fresh one if the cgroup is new. */
-                        ctx = hashmap_get(monitor_hm, empty_to_root(message.path));
+                        ctx = hashmap_get(monitor_hm, empty_to_root(path));
                         if (!ctx) {
-                                r = oomd_insert_cgroup_context(NULL, monitor_hm, message.path);
+                                r = oomd_insert_cgroup_context(NULL, monitor_hm, path);
                                 if (r == -ENOMEM)
                                         return r;
                                 if (r < 0) {
                                         log_debug_errno(r, "Failed to insert message, ignoring: %m");
                                         continue;
                                 }
-                                ctx = hashmap_get(monitor_hm, empty_to_root(message.path));
+                                ctx = hashmap_get(monitor_hm, empty_to_root(path));
                         }
 
                         if (ctx) {
@@ -178,7 +202,7 @@ static int process_managed_oom_message(Manager *m, uid_t uid, sd_json_variant *p
                                         if (!dropped)
                                                 continue;
                                         _cleanup_free_ char *key = NULL;
-                                        free(hashmap_remove2(dropped->start_times, empty_to_root(message.path), (void**) &key));
+                                        free(hashmap_remove2(dropped->start_times, empty_to_root(path), (void**) &key));
                                 }
 
                                 strv_free_and_replace(ctx->rules, message.rules);
@@ -199,7 +223,7 @@ static int process_managed_oom_message(Manager *m, uid_t uid, sd_json_variant *p
                         continue;
                 }
 
-                r = oomd_insert_cgroup_context(NULL, monitor_hm, message.path);
+                r = oomd_insert_cgroup_context(NULL, monitor_hm, path);
                 if (r == -ENOMEM)
                         return r;
                 if (r < 0 && r != -EEXIST)
@@ -207,7 +231,7 @@ static int process_managed_oom_message(Manager *m, uid_t uid, sd_json_variant *p
 
                 /* Always update the limit in case it was changed. For non-memory pressure detection the value is
                  * ignored so always updating it here is not a problem. */
-                ctx = hashmap_get(monitor_hm, empty_to_root(message.path));
+                ctx = hashmap_get(monitor_hm, empty_to_root(path));
                 if (ctx) {
                         ctx->mem_pressure_limit = limit;
                         ctx->mem_pressure_duration_usec = duration;
