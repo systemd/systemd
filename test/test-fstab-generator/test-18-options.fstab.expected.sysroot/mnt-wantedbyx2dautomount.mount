@@ -10,5 +10,5 @@ After=blockdev@dev-sdx17.target
 
 [Mount]
 What=/dev/sdx17
-Where=/mnt/wantedby
+Where=/mnt/wantedby-automount
 Options=x-systemd.wanted-by=foo.service,x-systemd.automount
