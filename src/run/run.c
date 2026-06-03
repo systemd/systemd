@@ -1679,13 +1679,14 @@ static int run_context_reconnect(RunContext *c) {
         return run_context_update(c);
 
 retry_timer:
-        log_warning_errno(r, "Failed to reconnect, retrying in 2s: %m");
+        log_warning_errno(r, "Failed to reconnect, retrying in %s: %m",
+                          FORMAT_TIMESPAN(BUS_RECONNECT_USEC, USEC_PER_SEC));
 
         r = event_reset_time_relative(
                         c->event,
                         &c->retry_timer,
                         CLOCK_MONOTONIC,
-                        2 * USEC_PER_SEC, /* accuracy= */ 0,
+                        BUS_RECONNECT_USEC, /* accuracy= */ 0,
                         on_retry_timer, c,
                         SD_EVENT_PRIORITY_NORMAL,
                         "retry-timeout",

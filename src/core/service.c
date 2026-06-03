@@ -607,6 +607,7 @@ static void service_done(Unit *u) {
         service_stop_watchdog(s);
 
         s->timer_event_source = sd_event_source_disable_unref(s->timer_event_source);
+        s->bus_name_grace_event_source = sd_event_source_disable_unref(s->bus_name_grace_event_source);
         s->exec_fd_event_source = sd_event_source_disable_unref(s->exec_fd_event_source);
 
         s->bus_name_pid_lookup_slot = sd_bus_slot_unref(s->bus_name_pid_lookup_slot);
@@ -1547,6 +1548,9 @@ static void service_set_state(Service *s, ServiceState state) {
                     SERVICE_AUTO_RESTART,
                     SERVICE_CLEANING))
                 s->timer_event_source = sd_event_source_disable_unref(s->timer_event_source);
+
+        if (state != SERVICE_RUNNING)
+                s->bus_name_grace_event_source = sd_event_source_disable_unref(s->bus_name_grace_event_source);
 
         if (!SERVICE_STATE_WITH_MAIN_PROCESS(state)) {
                 service_unwatch_main_pid(s);
@@ -5667,7 +5671,24 @@ static int bus_name_pid_lookup_callback(sd_bus_message *reply, void *userdata, s
         return 1;
 }
 
-static void service_bus_name_owner_change(Unit *u, const char *new_owner) {
+/* If the broker kicks the bucket then pid1 reconnects and requeries every watched name, which races with the
+ * client being able to reconnect and acquire its name again. So to avoid tearing down the service while it
+ * is doing its best to do that, wait a bit if this is reported during a post-reconnect refresh. If it
+ * happens on a live connection, there's no grace. */
+static int service_dispatch_bus_name_grace(sd_event_source *source, usec_t usec, void *userdata) {
+        Service *s = ASSERT_PTR(userdata);
+
+        s->bus_name_grace_event_source = sd_event_source_disable_unref(s->bus_name_grace_event_source);
+
+        if (s->state == SERVICE_RUNNING && !s->bus_name_good) {
+                log_unit_warning(UNIT(s), "D-Bus name %s still not owned after grace period, stopping.", s->bus_name);
+                service_enter_running(s, SERVICE_SUCCESS);
+        }
+
+        return 0;
+}
+
+static void service_bus_name_owner_change(Unit *u, const char *new_owner, bool from_signal) {
         Service *s = ASSERT_PTR(SERVICE(u));
         int r;
 
@@ -5680,9 +5701,25 @@ static void service_bus_name_owner_change(Unit *u, const char *new_owner) {
 
         if (s->type == SERVICE_DBUS) {
                 /* service_enter_running() will figure out what to do */
-                if (s->state == SERVICE_RUNNING)
-                        service_enter_running(s, SERVICE_SUCCESS);
-                else if (s->state == SERVICE_START && new_owner)
+                if (s->state == SERVICE_RUNNING) {
+                        if (new_owner || from_signal) {
+                                /* This isn't a broker restart, so the service really crashed or released its
+                                 * name on the bus */
+                                s->bus_name_grace_event_source = sd_event_source_disable_unref(s->bus_name_grace_event_source);
+                                service_enter_running(s, SERVICE_SUCCESS);
+                        } else if (!s->bus_name_grace_event_source) {
+                                /* broker just restarted, give the poor service a moment to recombobulate */
+                                r = unit_arm_timer(u, &s->bus_name_grace_event_source, /* relative= */ true,
+                                                   BUS_RECONNECT_USEC, service_dispatch_bus_name_grace);
+                                if (r < 0) {
+                                        log_unit_warning_errno(u, r, "Failed to arm D-Bus name grace timer, stopping now: %m");
+                                        service_enter_running(s, SERVICE_SUCCESS);
+                                } else
+                                        log_unit_debug(u, "D-Bus name %s not owned after bus reconnect; deferring stop for grace period.", s->bus_name);
+                        }
+                        /* ...otherwise the grace is already pending and there's still no owner, so let the
+                         * timer do its thing */
+                } else if (s->state == SERVICE_START && new_owner)
                         service_enter_start_post(s);
 
         } else if (new_owner && pick_up_pid_from_bus_name(s)) {
