@@ -45,9 +45,23 @@ static int strv_extend_strv_utf8_only(char ***dst, char **src, bool filter_dupli
         return strv_extend_strv(dst, t, filter_duplicates);
 }
 
+static int nss_add_valid_alias(char ***aliases, const char *name, const char *alias_name) {
+        assert(aliases);
+        assert(name);
+
+        if (isempty(alias_name) || streq_ptr(alias_name, name))
+                return 0;
+
+        if (!valid_user_group_name(alias_name, VALID_USER_RELAX))
+                return 0;
+
+        return strv_extend(aliases, alias_name);
+}
+
 int nss_passwd_to_user_record(
                 const struct passwd *pwd,
                 const struct spwd *spwd,
+                const char *alias_name,
                 UserRecord **ret) {
 
         _cleanup_(user_record_unrefp) UserRecord *hr = NULL;
@@ -66,6 +80,10 @@ int nss_passwd_to_user_record(
                 return -ENOMEM;
 
         r = free_and_strdup(&hr->user_name, pwd->pw_name);
+        if (r < 0)
+                return r;
+
+        r = nss_add_valid_alias(&hr->aliases, hr->user_name, alias_name);
         if (r < 0)
                 return r;
 
@@ -150,6 +168,7 @@ int nss_passwd_to_user_record(
         r = sd_json_buildo(
                         &hr->json,
                         SD_JSON_BUILD_PAIR_STRING("userName", hr->user_name),
+                        JSON_BUILD_PAIR_STRV_NON_EMPTY("aliases", hr->aliases),
                         SD_JSON_BUILD_PAIR_UNSIGNED("uid", hr->uid),
                         SD_JSON_BUILD_PAIR_UNSIGNED("gid", user_record_gid(hr)),
                         SD_JSON_BUILD_PAIR_CONDITION(!!hr->real_name, "realName", SD_JSON_BUILD_STRING(hr->real_name)),
@@ -240,7 +259,7 @@ int nss_user_record_by_name(
         } else
                 incomplete = true;
 
-        r = nss_passwd_to_user_record(result, sresult, ret);
+        r = nss_passwd_to_user_record(result, sresult, name, ret);
         if (r < 0)
                 return r;
 
@@ -274,7 +293,7 @@ int nss_user_record_by_uid(
         } else
                 incomplete = true;
 
-        r = nss_passwd_to_user_record(result, sresult, ret);
+        r = nss_passwd_to_user_record(result, sresult, /* alias_name= */ NULL, ret);
         if (r < 0)
                 return r;
 
@@ -286,6 +305,7 @@ int nss_user_record_by_uid(
 int nss_group_to_group_record(
                 const struct group *grp,
                 const struct sgrp *sgrp,
+                const char *alias_name,
                 GroupRecord **ret) {
 
         _cleanup_(group_record_unrefp) GroupRecord *g = NULL;
@@ -306,6 +326,10 @@ int nss_group_to_group_record(
         g->group_name = strdup(grp->gr_name);
         if (!g->group_name)
                 return -ENOMEM;
+
+        r = nss_add_valid_alias(&g->aliases, g->group_name, alias_name);
+        if (r < 0)
+                return r;
 
         r = strv_extend_strv_utf8_only(&g->members, grp->gr_mem, false);
         if (r < 0)
@@ -332,6 +356,7 @@ int nss_group_to_group_record(
         r = sd_json_buildo(
                         &g->json,
                         SD_JSON_BUILD_PAIR_STRING("groupName", g->group_name),
+                        JSON_BUILD_PAIR_STRV_NON_EMPTY("aliases", g->aliases),
                         SD_JSON_BUILD_PAIR_UNSIGNED("gid", g->gid),
                         SD_JSON_BUILD_PAIR_CONDITION(!strv_isempty(g->members), "members", SD_JSON_BUILD_STRV(g->members)),
                         SD_JSON_BUILD_PAIR_CONDITION(!strv_isempty(g->hashed_password), "privileged", SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR_STRV("hashedPassword", g->hashed_password))),
@@ -412,7 +437,7 @@ int nss_group_record_by_name(
         } else
                 incomplete = true;
 
-        r = nss_group_to_group_record(result, sresult, ret);
+        r = nss_group_to_group_record(result, sresult, name, ret);
         if (r < 0)
                 return r;
 
@@ -446,7 +471,7 @@ int nss_group_record_by_gid(
         } else
                 incomplete = true;
 
-        r = nss_group_to_group_record(result, sresult, ret);
+        r = nss_group_to_group_record(result, sresult, /* alias_name= */ NULL, ret);
         if (r < 0)
                 return r;
 
