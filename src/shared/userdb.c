@@ -1124,7 +1124,7 @@ static int userdb_iterator_get_one(UserDBIterator *iterator, UserRecord **ret) {
                                 incomplete = true;
                         }
 
-                        r = nss_passwd_to_user_record(pw, r >= 0 ? &spwd : NULL, ret);
+                        r = nss_passwd_to_user_record(pw, r >= 0 ? &spwd : NULL, /* alias_name= */ NULL, ret);
                         if (r < 0)
                                 return r;
 
@@ -1570,7 +1570,7 @@ static int groupdb_iterator_get_one(UserDBIterator *iterator, GroupRecord **ret)
                                 incomplete = true;
                         }
 
-                        r = nss_group_to_group_record(gr, r >= 0 ? &sgrp : NULL, ret);
+                        r = nss_group_to_group_record(gr, r >= 0 ? &sgrp : NULL, /* alias_name= */ NULL, ret);
                         if (r < 0)
                                 return r;
 
