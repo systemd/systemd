@@ -1259,7 +1259,14 @@ CHANGES WITH 260:
           suppress any operation in case no images where added, removed or
           changed. To force a umount/mount operation in this case (i.e. get
           back to the status quo ante) a new --always-refresh= option has been
-          added.
+          added. Note that the change detection identifies extensions by
+          identity (verity hash, or else by file handle/inode, mount ID,
+          creation time and modification time), and does not look at their
+          contents. In particular, for directory-based extensions, adding,
+          removing or modifying files inside the directory (or touching the
+          directory itself) is not detected, and such a refresh is suppressed
+          by default. Use --always-refresh=yes to force a refresh in these
+          cases.
 
         * systemd-oomd acquired "prekill hook" functionality, permitting other
           system components to synchronously hook into the OOM killing logic,
