@@ -15,7 +15,7 @@ Conflicts=shutdown.target
 After=systemd-tpm2-setup-early.service systemd-tpm2-setup.service
 Before=sysinit.target cryptsetup-pre.target cryptsetup.target shutdown.target
 ConditionSecurity=measured-os
-ConditionPathExists=!/etc/initrd-release
+ConditionPathExists=/etc/initrd-release
 FailureAction=reboot-force
 
 [Service]
