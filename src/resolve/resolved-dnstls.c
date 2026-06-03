@@ -89,7 +89,7 @@ int dnstls_stream_connect_tls(DnsStream *stream, DnsServer *server) {
         sym_SSL_set_connect_state(s);
         r = sym_SSL_set_session(s, server->dnstls_data.session);
         if (r == 0)
-                return -EIO;
+                return openssl_to_errno(sym_ERR_get_error());
         sym_SSL_set_bio(s, TAKE_PTR(rb), TAKE_PTR(wb));
 
         if (server->manager->dns_over_tls_mode == DNS_OVER_TLS_YES) {
@@ -407,23 +407,17 @@ int dnstls_manager_init(Manager *manager) {
 
         manager->dnstls_data.ctx = sym_SSL_CTX_new(sym_TLS_client_method());
         if (!manager->dnstls_data.ctx)
-                return log_warning_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                         "Failed to create SSL context: %s",
-                                         sym_ERR_error_string(sym_ERR_get_error(), NULL));
+                return log_openssl_errors(LOG_WARNING, "Failed to create SSL context");
 
         r = sym_SSL_CTX_set_min_proto_version(manager->dnstls_data.ctx, TLS1_2_VERSION);
         if (r == 0)
-                return log_warning_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                         "Failed to set protocol version on SSL context: %s",
-                                         sym_ERR_error_string(sym_ERR_get_error(), NULL));
+                return log_openssl_errors(LOG_WARNING, "Failed to set protocol version on SSL context");
 
         (void) sym_SSL_CTX_set_options(manager->dnstls_data.ctx, SSL_OP_NO_COMPRESSION);
 
         r = sym_SSL_CTX_set_default_verify_paths(manager->dnstls_data.ctx);
         if (r == 0)
-                return log_warning_errno(SYNTHETIC_ERRNO(EIO),
-                                         "Failed to load system trust store: %s",
-                                         sym_ERR_error_string(sym_ERR_get_error(), NULL));
+                return log_openssl_errors(LOG_WARNING, "Failed to load system trust store");
         return 0;
 }
 
