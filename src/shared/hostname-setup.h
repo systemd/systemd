@@ -22,7 +22,13 @@ int read_etc_hostname(const char *path, bool substitute_wildcards, char **ret);
 void hostname_update_source_hint(const char *hostname, HostnameSource source);
 int hostname_setup(bool really);
 
-int hostname_substitute_wildcards(char *name);
+int hostname_substitute_wildcards(const char *name, char **ret);
+
+/* Persistent location for the words picked once per machine for the %v/%a/%n hostname tokens */
+#define HOSTNAME_PICKED_WORDS_PATH "/var/lib/systemd/hostname-words-picked"
+
+/* Pick one word per class and persist it to HOSTNAME_PICKED_WORDS_PATH, so the %v/%a/%n tokens stay stable */
+int hostname_persist_picked_words(void);
 
 char* get_default_hostname(void);
 

@@ -10,8 +10,11 @@
 #include "hostname-setup.h"
 #include "hostname-util.h"
 #include "id128-util.h"
+#include "path-util.h"
 #include "pidref.h"
 #include "process-util.h"
+#include "rm-rf.h"
+#include "string-util.h"
 #include "tests.h"
 #include "tmpfile-util.h"
 
@@ -86,22 +89,67 @@ TEST(hostname_substitute_wildcards) {
                 return (void) log_tests_skipped_errno(r, "skipping wildcard hostname tests, no machine ID defined");
 
         _cleanup_free_ char *buf = NULL;
-        ASSERT_NOT_NULL((buf = strdup("")));
-        ASSERT_OK(hostname_substitute_wildcards(buf));
+        ASSERT_OK(hostname_substitute_wildcards("", &buf));
         ASSERT_STREQ(buf, "");
         ASSERT_NULL(buf = mfree(buf));
 
-        ASSERT_NOT_NULL((buf = strdup("hogehoge")));
-        ASSERT_OK(hostname_substitute_wildcards(buf));
+        ASSERT_OK(hostname_substitute_wildcards("hogehoge", &buf));
         ASSERT_STREQ(buf, "hogehoge");
         ASSERT_NULL(buf = mfree(buf));
 
-        ASSERT_NOT_NULL((buf = strdup("hoge??hoge??foo?")));
-        ASSERT_OK(hostname_substitute_wildcards(buf));
+        ASSERT_OK(hostname_substitute_wildcards("hoge??hoge??foo?", &buf));
         log_debug("hostname_substitute_wildcards(\"hoge??hoge??foo?\"): → \"%s\"", buf);
         ASSERT_EQ(fnmatch("hoge??hoge??foo?", buf, /* flags= */ 0), 0);
         ASSERT_TRUE(hostname_is_valid(buf, /* flags= */ 0));
         ASSERT_NULL(buf = mfree(buf));
+
+        /* '%%' is an escaped literal percent */
+        ASSERT_OK(hostname_substitute_wildcards("a%%b", &buf));
+        ASSERT_STREQ(buf, "a%b");
+        ASSERT_NULL(buf = mfree(buf));
+
+        /* Unknown specifier is rejected */
+        ASSERT_ERROR(hostname_substitute_wildcards("foo-%z", &buf), EINVAL);
+}
+
+TEST(hostname_substitute_wildcards_words) {
+        _cleanup_(rm_rf_physical_and_freep) char *d = NULL;
+        int r;
+
+        r = sd_id128_get_machine(NULL);
+        if (ERRNO_IS_NEG_MACHINE_ID_UNSET(r))
+                return (void) log_tests_skipped_errno(r, "skipping word hostname tests, no machine ID defined");
+
+        ASSERT_OK(mkdtemp_malloc("/tmp/hostname-words.XXXXXX", &d));
+
+        _cleanup_free_ char *adj = path_join(d, "adjectives"), *nouns = path_join(d, "nouns");
+        ASSERT_NOT_NULL(adj);
+        ASSERT_NOT_NULL(nouns);
+        ASSERT_OK(write_string_file(adj, "happy\nsad\n# comment\n\njolly\n", WRITE_STRING_FILE_CREATE));
+        ASSERT_OK(write_string_file(nouns, "octopus\nfalcon\nINVALID_WORD!\nbadger\n", WRITE_STRING_FILE_CREATE));
+        ASSERT_OK(setenv("SYSTEMD_HOSTNAME_WORDS_PATH", d, /* overwrite= */ true));
+
+        _cleanup_free_ char *a = NULL, *b = NULL;
+        ASSERT_OK(hostname_substitute_wildcards("%a-%n", &a));
+        log_debug("hostname_substitute_wildcards(\"%%a-%%n\"): → \"%s\"", a);
+        ASSERT_TRUE(hostname_is_valid(a, /* flags= */ 0));
+
+        /* Fully deterministic: same machine ID + same lists → same name */
+        ASSERT_OK(hostname_substitute_wildcards("%a-%n", &b));
+        ASSERT_STREQ(a, b);
+
+        /* One word per class: repeated same-class tokens resolve to the same word. */
+        _cleanup_free_ char *one = NULL, *aa = NULL, *expected = NULL;
+        ASSERT_OK(hostname_substitute_wildcards("%a", &one));
+        ASSERT_OK(hostname_substitute_wildcards("%a-%a", &aa));
+        ASSERT_NOT_NULL((expected = strjoin(one, "-", one)));
+        ASSERT_STREQ(aa, expected);
+
+        /* Missing list → error (caller falls back to built-in hostname) */
+        _cleanup_free_ char *e = NULL;
+        ASSERT_ERROR(hostname_substitute_wildcards("%v-foo", &e), ENOENT);
+
+        ASSERT_OK(unsetenv("SYSTEMD_HOSTNAME_WORDS_PATH"));
 }
 
 TEST(hostname_setup) {

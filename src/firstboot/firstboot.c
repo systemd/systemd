@@ -28,6 +28,7 @@
 #include "fs-util.h"
 #include "glyph-util.h"
 #include "help-util.h"
+#include "hostname-setup.h"
 #include "hostname-util.h"
 #include "image-policy.h"
 #include "kbd-util.h"
@@ -744,6 +745,21 @@ static int process_hostname(int rfd, sd_varlink **mute_console_link) {
                 return log_error_errno(r, "Failed to write /etc/hostname: %m");
 
         log_info("/etc/hostname written.");
+        return 0;
+}
+
+static int process_hostname_words(void) {
+        int r;
+
+        /* Pick the adverb/adjective/noun words exactly once at boot, then used the cached
+           version. */
+        if (arg_root || arg_image)
+                return 0;
+
+        r = hostname_persist_picked_words();
+        if (r < 0)
+                return log_warning_errno(r, "Failed to pick hostname words, ignoring: %m");
+
         return 0;
 }
 
@@ -1771,6 +1787,11 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         r = process_machine_tags(rfd);
+        if (r < 0)
+                return r;
+
+        /* After the machine ID is finalized: pick the hostname words once so they never move. */
+        r = process_hostname_words();
         if (r < 0)
                 return r;
 

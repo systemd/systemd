@@ -22,6 +22,10 @@ at_exit() {
         rm -rf /etc/otherpath
     fi
 
+    rm -f /var/lib/systemd/hostname-words-picked
+    rm -f /etc/systemd/hostname-words/{adverbs,adjectives,nouns}
+    rmdir /etc/systemd/hostname-words 2>/dev/null || :
+
     restore_locale
 }
 
@@ -323,3 +327,44 @@ grep -q "LANG=no_NO.UTF-8" "${ROOT}/etc/otherpath/locale.conf"
 grep -q "KEYMAP=no" "${ROOT}/etc/otherpath/vconsole.conf"
 grep -q "weirdpaths2" "${ROOT}/etc/otherpath/hostname"
 [[ "$(readlink "${ROOT}/etc/otherpath/localtime")" = "../../usr/share/zoneinfo/Europe/Oslo" ]]
+
+# systemd-firstboot picks the %v/%a/%n hostname-words (see hostname(5)) exactly once and persists them to
+# /var/lib/systemd/hostname-words-picked, so the derived name stays stable even if the word lists change
+# afterwards. The pick derives from *this* machine's ID and is intentionally skipped under --root/--image,
+# so unlike the tests above it must run against the live (disposable) testbed.
+PICKED=/var/lib/systemd/hostname-words-picked
+WORDS=/etc/systemd/hostname-words
+
+mkdir -p "$WORDS"
+printf 'quietly\nloudly\n'  >"$WORDS/adverbs"
+printf 'happy\nsad\n'       >"$WORDS/adjectives"
+printf 'octopus\nfalcon\n'  >"$WORDS/nouns"
+rm -f "$PICKED"
+
+# First run: one word per class is picked and persisted.
+systemd-firstboot --welcome=no </dev/null
+test -f "$PICKED"
+grep -Eq '^adverb=.'    "$PICKED"
+grep -Eq '^adjective=.' "$PICKED"
+grep -Eq '^noun=.'      "$PICKED"
+
+# The picked words must come from the lists we installed.
+grep -Fxq "$(sed -n 's/^adverb=//p'    "$PICKED")" "$WORDS/adverbs"
+grep -Fxq "$(sed -n 's/^adjective=//p' "$PICKED")" "$WORDS/adjectives"
+grep -Fxq "$(sed -n 's/^noun=//p'      "$PICKED")" "$WORDS/nouns"
+
+picked_before="$(cat "$PICKED")"
+
+# Replace the lists entirely. A re-run must NOT re-pick (already persisted), so the name stays stable
+# regardless of the now-completely-different lists.
+printf 'swiftly\nslowly\n' >"$WORDS/adverbs"
+printf 'brave\nshy\n'      >"$WORDS/adjectives"
+printf 'badger\notter\n'   >"$WORDS/nouns"
+
+systemd-firstboot --welcome=no </dev/null
+test "$(cat "$PICKED")" = "$picked_before"
+
+# Only after dropping the persisted pick is a fresh one taken, now from the changed lists.
+rm -f "$PICKED"
+systemd-firstboot --welcome=no </dev/null
+grep -Fxq "$(sed -n 's/^noun=//p' "$PICKED")" "$WORDS/nouns"
