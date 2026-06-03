@@ -119,8 +119,7 @@ static int dnssec_rsa_verify_raw(
 
         r = sym_EVP_PKEY_verify(ctx, signature, signature_size, data, data_size);
         if (r < 0)
-                return log_debug_errno(SYNTHETIC_ERRNO(EIO),
-                                       "Signature verification failed: 0x%lx", sym_ERR_get_error());
+                return log_openssl_errors(LOG_DEBUG, "Signature verification failed");
 
         REENABLE_WARNING;
         return r;
@@ -229,12 +228,10 @@ static int dnssec_ecdsa_verify_raw(
                 return -EIO;
 
         if (sym_EC_KEY_set_public_key(eckey, p) <= 0)
-                return log_debug_errno(SYNTHETIC_ERRNO(EIO),
-                                       "EC_KEY_set_public_key failed: 0x%lx", sym_ERR_get_error());
+                return log_openssl_errors(LOG_DEBUG, "EC_KEY_set_public_key failed");
 
         if (sym_EC_KEY_check_key(eckey) != 1)
-                return log_debug_errno(SYNTHETIC_ERRNO(EIO),
-                                       "EC_KEY_check_key failed: 0x%lx", sym_ERR_get_error());
+                return log_openssl_errors(LOG_DEBUG, "EC_KEY_check_key failed");
 
         r = sym_BN_bin2bn(signature_r, signature_r_size, NULL);
         if (!r)
@@ -256,8 +253,7 @@ static int dnssec_ecdsa_verify_raw(
 
         k = sym_ECDSA_do_verify(data, data_size, sig, eckey);
         if (k < 0)
-                return log_debug_errno(SYNTHETIC_ERRNO(EIO),
-                                       "Signature verification failed: 0x%lx", sym_ERR_get_error());
+                return log_openssl_errors(LOG_DEBUG, "Signature verification failed");
 
         REENABLE_WARNING;
         return k;
@@ -327,8 +323,7 @@ static int dnssec_eddsa_verify_raw(
 
         evkey = sym_EVP_PKEY_new_raw_public_key(EVP_PKEY_ED25519, NULL, key, key_size);
         if (!evkey)
-                return log_debug_errno(SYNTHETIC_ERRNO(EIO),
-                                       "EVP_PKEY_new_raw_public_key failed: 0x%lx", sym_ERR_get_error());
+                return log_openssl_errors(LOG_DEBUG, "EVP_PKEY_new_raw_public_key failed");
 
         pctx = sym_EVP_PKEY_CTX_new(evkey, NULL);
         if (!pctx)
@@ -347,8 +342,7 @@ static int dnssec_eddsa_verify_raw(
 
         r = sym_EVP_DigestVerify(ctx, signature, signature_size, data, data_size);
         if (r < 0)
-                return log_debug_errno(SYNTHETIC_ERRNO(EIO),
-                                       "Signature verification failed: 0x%lx", sym_ERR_get_error());
+                return log_openssl_errors(LOG_DEBUG, "Signature verification failed");
 
         return r;
 }

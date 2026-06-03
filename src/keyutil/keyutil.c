@@ -379,9 +379,7 @@ static int verb_pkcs7(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 sym_ASN1_STRING_set0(pkcs7->d.sign->contents->d.data, TAKE_PTR(content), content_len);
         } else
                 if (sym_PKCS7_set_detached(pkcs7, true) == 0)
-                        return log_error_errno(SYNTHETIC_ERRNO(EIO),
-                                               "Failed to set PKCS#7 detached attribute: %s",
-                                               sym_ERR_error_string(sym_ERR_get_error(), NULL));
+                        return log_openssl_errors(LOG_ERR, "Failed to set PKCS#7 detached attribute");
 
         /* Add PKCS1 signature to PKCS7_SIGNER_INFO */
         sym_ASN1_STRING_set0(signer_info->enc_digest, TAKE_PTR(pkcs1), pkcs1_len);
@@ -393,8 +391,7 @@ static int verb_pkcs7(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 return log_error_errno(r, "Failed to open temporary file: %m");
 
         if (!sym_i2d_PKCS7_fp(output, pkcs7))
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to write PKCS#7 file: %s",
-                                       sym_ERR_error_string(sym_ERR_get_error(), NULL));
+                return log_openssl_errors(LOG_ERR, "Failed to write PKCS#7 file");
 
         r = flink_tmpfile(output, tmp, arg_output, LINK_TMPFILE_REPLACE|LINK_TMPFILE_SYNC);
         if (r < 0)
