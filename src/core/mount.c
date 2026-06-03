@@ -2070,6 +2070,51 @@ static int mount_on_ratelimit_expire(sd_event_source *s, void *userdata) {
 }
 #endif
 
+static bool mount_monitor_is_fanotify_usable(void) {
+        if (dlopen_libmount_fanotify(LOG_DEBUG) < 0)
+                return false;
+
+        /* mnt_monitor_enable_fanotify() only allocates data structures; the actual
+         * fanotify_init(FAN_REPORT_MNT) syscall happens inside mnt_monitor_get_fd().
+         * Use a throwaway probe monitor to test kernel support. */
+        _cleanup_(mnt_unref_monitorp) struct libmnt_monitor *probe = sym_mnt_new_monitor();
+        if (!probe)
+                return false;
+
+        if (sym_mnt_monitor_enable_fanotify(probe, 1, -1) < 0)
+                return false;
+
+        return sym_mnt_monitor_get_fd(probe) >= 0;
+}
+
+static int mount_monitor_init_fanotify(Manager *m) {
+        struct libmnt_statmnt *stmnt;
+        int r;
+
+        assert(m);
+        assert(m->mount_monitor);
+
+        r = sym_mnt_monitor_enable_fanotify(m->mount_monitor, 1, -1);
+        if (r < 0)
+                return r;
+
+        m->mount_fanotify_fs = sym_mnt_new_fs();
+        if (!m->mount_fanotify_fs)
+                return -ENOMEM;
+
+        stmnt = sym_mnt_new_statmnt();
+        if (!stmnt) {
+                sym_mnt_unref_fs(m->mount_fanotify_fs);
+                m->mount_fanotify_fs = NULL;
+                return -ENOMEM;
+        }
+
+        sym_mnt_fs_refer_statmnt(m->mount_fanotify_fs, stmnt);
+        sym_mnt_unref_statmnt(stmnt);
+
+        return 0;
+}
+
 static void mount_enumerate(Manager *m) {
         assert(m);
         assert(unit_type_supported(UNIT_MOUNT));
@@ -2082,6 +2127,7 @@ static void mount_enumerate(Manager *m) {
         if (!m->mount_monitor) {
                 usec_t mount_rate_limit_interval = 1 * USEC_PER_SEC;
                 unsigned mount_rate_limit_burst = 5;
+                bool use_fanotify;
                 int fd;
 
                 m->mount_monitor = sym_mnt_new_monitor();
@@ -2090,10 +2136,22 @@ static void mount_enumerate(Manager *m) {
                         goto fail;
                 }
 
-                r = sym_mnt_monitor_enable_kernel(m->mount_monitor, 1);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to enable watching of kernel mount events: %m");
-                        goto fail;
+                use_fanotify = mount_monitor_is_fanotify_usable();
+
+                if (use_fanotify) {
+                        r = mount_monitor_init_fanotify(m);
+                        if (r < 0) {
+                                log_warning_errno(r, "Failed to initialize fanotify mount monitoring, falling back to inotify: %m");
+                                use_fanotify = false;
+                        }
+                }
+
+                if (!use_fanotify) {
+                        r = sym_mnt_monitor_enable_kernel(m->mount_monitor, 1);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to enable watching of kernel mount events: %m");
+                                goto fail;
+                        }
                 }
 
                 r = sym_mnt_monitor_enable_userspace(m->mount_monitor, 1, NULL);
@@ -2149,6 +2207,9 @@ static void mount_enumerate(Manager *m) {
                 }
 
                 (void) sd_event_source_set_description(m->mount_event_source, "mount-monitor-dispatch");
+
+                m->mount_use_fanotify = use_fanotify;
+                log_debug("Using %s for mount monitoring.", use_fanotify ? "fanotify" : "inotify");
         }
 
         r = mount_load_proc_self_mountinfo(m, false);
