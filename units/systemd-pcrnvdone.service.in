@@ -11,11 +11,12 @@
 Description=TPM PCR NvPCR Initialization Separator
 Documentation=man:systemd-pcrnvdone.service(8)
 DefaultDependencies=no
-Conflicts=shutdown.target
-After=systemd-tpm2-setup-early.service systemd-tpm2-setup.service
-Before=sysinit.target cryptsetup-pre.target cryptsetup.target shutdown.target
+Conflicts=shutdown.target initrd-switch-root.target
+After=tpm2.target
+After=systemd-tpm2-setup-early.service
+Before=sysinit.target cryptsetup-pre.target cryptsetup.target shutdown.target initrd-switch-root.target
 ConditionSecurity=measured-uki
-ConditionPathExists=!/etc/initrd-release
+ConditionPathExists=/etc/initrd-release
 FailureAction=reboot-force
 
 [Service]
