@@ -12,6 +12,7 @@
 #include "sd-bus.h"
 #include "sd-daemon.h"
 #include "sd-event.h"
+#include "sd-future.h"
 #include "sd-id128.h"
 #include "sd-varlink.h"
 
@@ -57,8 +58,8 @@
 #include "namespace-util.h"
 #include "netif-util.h"
 #include "nsresource.h"
-#include "osc-context.h"
 #include "options.h"
+#include "osc-context.h"
 #include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"
@@ -76,6 +77,7 @@
 #include "signal-util.h"
 #include "snapshot-util.h"
 #include "socket-util.h"
+#include "ssh-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
@@ -95,6 +97,7 @@
 #include "vmspawn-qmp.h"
 #include "vmspawn-scope.h"
 #include "vmspawn-settings.h"
+#include "vmspawn-suspend.h"
 #include "vmspawn-util.h"
 #include "vmspawn-varlink.h"
 
@@ -176,7 +179,7 @@ static ExtraDriveContext arg_extra_drives = {};
 static BindVolumes arg_bind_volumes = {};
 static char *arg_background = NULL;
 static bool arg_pass_ssh_key = true;
-static char *arg_ssh_key_type = NULL;
+static OpenSSHKeyType arg_ssh_key_type = OPENSSH_KEY_TYPE_ED25519;
 static bool arg_discard_disk = true;
 static DiskType arg_image_disk_type = DISK_TYPE_VIRTIO_BLK;
 static struct ether_addr arg_network_provided_mac = {};
@@ -213,7 +216,6 @@ STATIC_DESTRUCTOR_REGISTER(arg_kernel_cmdline_extra, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_extra_drives, extra_drive_context_done);
 STATIC_DESTRUCTOR_REGISTER(arg_bind_volumes, bind_volumes_done);
 STATIC_DESTRUCTOR_REGISTER(arg_background, freep);
-STATIC_DESTRUCTOR_REGISTER(arg_ssh_key_type, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_smbios11, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm_state_path, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_efi_nvram_template, freep);
@@ -887,16 +889,13 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG("ssh-key-type", "TYPE", "Choose what type of SSH key to pass"):
                         if (isempty(opts.arg)) {
-                                arg_ssh_key_type = mfree(arg_ssh_key_type);
+                                arg_ssh_key_type = OPENSSH_KEY_TYPE_ED25519;
                                 break;
                         }
 
-                        if (!string_is_safe(opts.arg, STRING_ALLOW_GLOBS))
+                        arg_ssh_key_type = openssh_key_keygen_type_from_string(opts.arg);
+                        if (arg_ssh_key_type < 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid value for --ssh-key-type=: %s", opts.arg);
-
-                        r = free_and_strdup_warn(&arg_ssh_key_type, opts.arg);
-                        if (r < 0)
-                                return r;
                         break;
 
                 OPTION_GROUP("Input/Output"): {}
@@ -2034,52 +2033,6 @@ static int merge_initrds(char **ret) {
         return 0;
 }
 
-static int generate_ssh_keypair(const char *key_path, const char *key_type) {
-        _cleanup_free_ char *ssh_keygen = NULL;
-        _cleanup_strv_free_ char **cmdline = NULL;
-        int r;
-
-        assert(key_path);
-
-        r = find_executable("ssh-keygen", &ssh_keygen);
-        if (r < 0)
-                return log_error_errno(r, "Failed to find ssh-keygen: %m");
-
-        cmdline = strv_new(ssh_keygen, "-f", key_path, /* don't encrypt the key */ "-N", "");
-        if (!cmdline)
-                return log_oom();
-
-        if (key_type) {
-                r = strv_extend_many(&cmdline, "-t", key_type);
-                if (r < 0)
-                        return log_oom();
-        }
-
-        if (DEBUG_LOGGING) {
-                _cleanup_free_ char *joined = quote_command_line(cmdline, SHELL_ESCAPE_EMPTY);
-                if (!joined)
-                        return log_oom();
-
-                log_debug("Executing: %s", joined);
-        }
-
-        r = pidref_safe_fork_full(
-                        ssh_keygen,
-                        (int[]) { -EBADF, -EBADF, STDERR_FILENO },
-                        /* except_fds= */ NULL, /* n_except_fds= */ 0,
-                        FORK_WAIT|FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE|FORK_REARRANGE_STDIO|FORK_REOPEN_LOG,
-                        /* ret= */ NULL);
-        if (r < 0)
-                return r;
-        if (r == 0) {
-                execv(ssh_keygen, cmdline);
-                log_error_errno(errno, "Failed to execve %s: %m", ssh_keygen);
-                _exit(EXIT_FAILURE);
-        }
-
-        return 0;
-}
-
 static int grow_image(const char *path, uint64_t size) {
         int r;
 
@@ -2565,13 +2518,17 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
         polkit_agent_open();
 
-        /* Registration always happens on the system bus */
+        /* Registration always happens on the system bus, and the suspend handler also wants
+         * it so we can subscribe to logind's PrepareForSleep signal — try unconditionally,
+         * but only treat a failure as fatal when something else actually needs the bus. */
+        bool system_bus_required = arg_register != 0 || arg_runtime_scope == RUNTIME_SCOPE_SYSTEM;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *system_bus = NULL;
-        if (arg_register != 0 || arg_runtime_scope == RUNTIME_SCOPE_SYSTEM) {
-                r = sd_bus_default_system(&system_bus);
-                if (r < 0)
+        r = sd_bus_default_system(&system_bus);
+        if (r < 0) {
+                if (system_bus_required)
                         return log_error_errno(r, "Failed to open system bus: %m");
-
+                log_warning_errno(r, "Failed to open system bus, suspend handling disabled: %m");
+        } else {
                 r = sd_bus_set_close_on_exit(system_bus, false);
                 if (r < 0)
                         return log_error_errno(r, "Failed to disable close-on-exit behaviour: %m");
@@ -3467,7 +3424,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
         if (arg_pass_ssh_key) {
                 _cleanup_free_ char *scope_prefix = NULL, *privkey_path = NULL, *pubkey_path = NULL;
-                const char *key_type = arg_ssh_key_type ?: "ed25519";
+                const char *key_type = openssh_key_keygen_type_to_string(arg_ssh_key_type);
 
                 r = unit_name_to_prefix(unit, &scope_prefix);
                 if (r < 0)
@@ -3481,9 +3438,9 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 if (!pubkey_path)
                         return log_oom();
 
-                r = generate_ssh_keypair(privkey_path, key_type);
+                r = openssh_key_generate(privkey_path, arg_ssh_key_type);
                 if (r < 0)
-                        return r;
+                        return log_error_errno(r, "Failed to generate SSH keypair at %s: %m", privkey_path);
 
                 ssh_private_key_path = TAKE_PTR(privkey_path);
                 ssh_public_key_path = TAKE_PTR(pubkey_path);
@@ -3751,6 +3708,31 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         if (r < 0)
                 return r;
 
+        /* The suspend handler fiber needs the system bus attached to the event loop. Attach
+         * both buses here so the wiring stays in one place. */
+        if (system_bus) {
+                r = sd_bus_attach_event(system_bus, event, 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to attach system bus to event loop: %m");
+        }
+
+        if (user_bus) {
+                r = sd_bus_attach_event(user_bus, event, 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to attach user bus to event loop: %m");
+        }
+
+        /* Pause the VM around host suspend so the guest's monotonic clock doesn't jump
+         * forward by the suspend duration (which would trip every WatchdogSec deadline
+         * inside the guest as soon as the host wakes back up). Skipped when there's no
+         * system bus to talk to logind on. The handler runs as a floating fiber owned by
+         * the event loop. */
+        if (system_bus) {
+                r = vmspawn_suspend_handler_new(system_bus, bridge);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to start suspend handler: %m");
+        }
+
         TAKE_PTR(bridge);
 
         if (!arg_keep_unit) {
@@ -3844,18 +3826,6 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         polkit_agent_close();
 
         _cleanup_(sd_event_source_unrefp) sd_event_source *notify_event_source = NULL;
-
-        if (system_bus) {
-                r = sd_bus_attach_event(system_bus, event, 0);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to attach system bus to event loop: %m");
-        }
-
-        if (user_bus) {
-                r = sd_bus_attach_event(user_bus, event, 0);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to attach user bus to event loop: %m");
-        }
 
         int exit_status = INT_MAX;
         if (use_vsock) {

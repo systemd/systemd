@@ -1,5 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#if HAVE_LIBURING
+#include <liburing/io_uring.h>
+#endif
+
 #include "sd-event.h"
 #include "sd-future.h"
 
@@ -84,8 +88,8 @@ int future_new_io(sd_event *e, int fd, uint32_t events, sd_future **ret) {
         if (IN_SET(sd_event_get_state(e), SD_EVENT_EXITING, SD_EVENT_FINISHED))
                 return -ECANCELED;
 
-        _cleanup_(sd_future_unrefp) sd_future *f = NULL;
-        r = sd_future_new(&io_future_ops, &f);
+        _cleanup_(sd_future_cancel_unrefp) sd_future *f = NULL;
+        r = sd_future_new(e, &io_future_ops, &f);
         if (r < 0)
                 return r;
 
@@ -118,6 +122,87 @@ int future_new_io(sd_event *e, int fd, uint32_t events, sd_future **ret) {
                         return r;
 
                 r = sd_event_source_set_priority(iof->source, priority);
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(f);
+        return 0;
+}
+
+typedef struct DeferFuture {
+        sd_event_source *source;
+        int result;
+} DeferFuture;
+
+static void* defer_future_alloc(void) {
+        return new0(DeferFuture, 1);
+}
+
+static void defer_future_free(sd_future *f) {
+        DeferFuture *df = ASSERT_PTR(sd_future_get_private(ASSERT_PTR(f)));
+
+        sd_event_source_disable_unref(df->source);
+        free(df);
+}
+
+static int defer_future_cancel(sd_future *f) {
+        DeferFuture *df = ASSERT_PTR(sd_future_get_private(ASSERT_PTR(f)));
+        int r;
+
+        r = sd_event_source_set_enabled(df->source, SD_EVENT_OFF);
+        RET_GATHER(r, sd_future_resolve(f, -ECANCELED));
+        return r;
+}
+
+static int defer_future_set_priority(sd_future *f, int64_t priority) {
+        DeferFuture *df = ASSERT_PTR(sd_future_get_private(ASSERT_PTR(f)));
+        return sd_event_source_set_priority(df->source, priority);
+}
+
+static const sd_future_ops defer_future_ops = {
+        .size = sizeof(sd_future_ops),
+        .alloc = defer_future_alloc,
+        .free = defer_future_free,
+        .cancel = defer_future_cancel,
+        .set_priority = defer_future_set_priority,
+};
+
+static int defer_handler(sd_event_source *s, void *userdata) {
+        sd_future *f = ASSERT_PTR(userdata);
+        DeferFuture *df = ASSERT_PTR(sd_future_get_private(f));
+        return sd_future_resolve(f, df->result);
+}
+
+int sd_future_new_defer(sd_event *e, int result, sd_future **ret) {
+        int r;
+
+        assert_return(e, -EINVAL);
+        assert_return(ret, -EINVAL);
+
+        if (IN_SET(sd_event_get_state(e), SD_EVENT_EXITING, SD_EVENT_FINISHED))
+                return -ECANCELED;
+
+        _cleanup_(sd_future_cancel_unrefp) sd_future *f = NULL;
+        r = sd_future_new(e, &defer_future_ops, &f);
+        if (r < 0)
+                return r;
+
+        DeferFuture *df = sd_future_get_private(f);
+        df->result = result;
+
+        r = sd_event_add_defer(e, &df->source, defer_handler, f);
+        if (r < 0)
+                return r;
+
+        if (sd_fiber_is_running()) {
+                int64_t priority;
+
+                r = sd_fiber_get_priority(&priority);
+                if (r < 0)
+                        return r;
+
+                r = sd_event_source_set_priority(df->source, priority);
                 if (r < 0)
                         return r;
         }
@@ -200,8 +285,8 @@ static int future_new_time_internal(
         if (IN_SET(sd_event_get_state(e), SD_EVENT_EXITING, SD_EVENT_FINISHED))
                 return -ECANCELED;
 
-        _cleanup_(sd_future_unrefp) sd_future *f = NULL;
-        r = sd_future_new(&time_future_ops, &f);
+        _cleanup_(sd_future_cancel_unrefp) sd_future *f = NULL;
+        r = sd_future_new(e, &time_future_ops, &f);
         if (r < 0)
                 return r;
 
@@ -234,6 +319,98 @@ int future_new_time(sd_event *e, clockid_t clock, uint64_t usec, uint64_t accura
 
 int future_new_time_relative(sd_event *e, clockid_t clock, uint64_t usec, uint64_t accuracy, int result, sd_future **ret) {
         return future_new_time_internal(sd_event_add_time_relative, e, clock, usec, accuracy, result, ret);
+}
+
+/* Wraps an io_uring SQE submission as a future. Unlike IoFuture/TimeFuture, the cancel op does NOT
+ * resolve the future: it only enqueues a cancel SQE on the slot. The future resolves later, when the
+ * io_uring callback fires with the original CQE (which arrives with res = -ECANCELED if the kernel
+ * honored our cancellation). This is required because user buffers referenced by the SQE may not be
+ * reclaimed until the kernel is done with them. Used with sd_future_cancel_wait_unref(), which suspends
+ * the fiber until the future resolves — guaranteeing stack unwind happens after the kernel completes. */
+typedef struct IOUringFuture {
+        sd_event_slot *slot;
+        int32_t cqe_res;
+        uint32_t cqe_flags;
+} IOUringFuture;
+
+static void* io_uring_future_alloc(void) {
+        return new0(IOUringFuture, 1);
+}
+
+static void io_uring_future_free(sd_future *f) {
+        IOUringFuture *uf = ASSERT_PTR(sd_future_get_private(ASSERT_PTR(f)));
+        sd_event_slot_unref(uf->slot);
+        free(uf);
+}
+
+static int io_uring_future_cancel(sd_future *f) {
+        IOUringFuture *uf = ASSERT_PTR(sd_future_get_private(ASSERT_PTR(f)));
+        return sd_event_slot_cancel(uf->slot);
+}
+
+static int io_uring_future_set_priority(sd_future *f, int64_t priority) {
+        IOUringFuture *uf = ASSERT_PTR(sd_future_get_private(ASSERT_PTR(f)));
+        return sd_event_slot_set_priority(uf->slot, priority);
+}
+
+static const sd_future_ops io_uring_future_ops = {
+        .size = sizeof(sd_future_ops),
+        .alloc = io_uring_future_alloc,
+        .free = io_uring_future_free,
+        .cancel = io_uring_future_cancel,
+        .set_priority = io_uring_future_set_priority,
+};
+
+static int io_uring_future_handler(sd_event_slot *s, int32_t res, uint32_t flags, void *userdata) {
+        sd_future *f = ASSERT_PTR(userdata);
+        IOUringFuture *uf = ASSERT_PTR(sd_future_get_private(f));
+
+        uf->cqe_res = res;
+        uf->cqe_flags = flags;
+
+#if HAVE_LIBURING
+        if (FLAGS_SET(flags, IORING_CQE_F_MORE))
+                return 0;
+#endif
+
+        return sd_future_resolve(f, res);
+}
+
+int future_new_io_uring_sqe(sd_event *e, struct io_uring_sqe **ret_sqe, sd_future **ret) {
+        int r;
+
+        assert(e);
+        assert(ret_sqe);
+        assert(ret);
+
+        if (IN_SET(sd_event_get_state(e), SD_EVENT_EXITING, SD_EVENT_FINISHED))
+                return -ECANCELED;
+
+        _cleanup_(sd_future_cancel_unrefp) sd_future *f = NULL;
+        r = sd_future_new(e, &io_uring_future_ops, &f);
+        if (r < 0)
+                return r;
+
+        IOUringFuture *uf = sd_future_get_private(f);
+
+        r = sd_event_add_io_uring_sqe(e, &uf->slot, ret_sqe, io_uring_future_handler, f);
+        if (r < 0)
+                return r;
+
+        if (sd_fiber_is_running()) {
+                int64_t priority;
+
+                r = sd_fiber_get_priority(&priority);
+                if (r < 0)
+                        return r;
+
+                r = sd_event_slot_set_priority(uf->slot, priority);
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(f);
+        return 0;
 }
 
 int event_run_suspend(sd_event *e, uint64_t timeout) {
@@ -271,13 +448,29 @@ int event_run_suspend(sd_event *e, uint64_t timeout) {
         if (fd < 0)
                 return fd;
 
+        /* Wait for the inner-loop fd to become readable OR (optionally) the timeout to fire. */
+        _cleanup_(sd_future_cancel_wait_unrefp) sd_future *group = NULL;
+        r = sd_future_group_new(outer, &group);
+        if (r < 0)
+                return r;
+
+        r = sd_future_group_set_policy(group, SD_FUTURE_GROUP_WAIT_ANY);
+        if (r < 0)
+                return r;
+
         _cleanup_(sd_future_cancel_wait_unrefp) sd_future *io = NULL;
         r = future_new_io(outer, fd, EPOLLIN, &io);
         if (r < 0)
                 return r;
 
-        _cleanup_(sd_future_cancel_wait_unrefp) sd_future *timer = NULL;
+        r = sd_future_group_add(group, io);
+        if (r < 0)
+                return r;
+
+        io = sd_future_unref(io);
+
         if (timeout != USEC_INFINITY) {
+                _cleanup_(sd_future_cancel_wait_unrefp) sd_future *timer = NULL;
                 r = future_new_time_relative(
                                 outer,
                                 CLOCK_MONOTONIC,
@@ -287,9 +480,15 @@ int event_run_suspend(sd_event *e, uint64_t timeout) {
                                 &timer);
                 if (r < 0)
                         return r;
+
+                r = sd_future_group_add(group, timer);
+                if (r < 0)
+                        return r;
+
+                timer = sd_future_unref(timer);
         }
 
-        r = sd_fiber_suspend();
+        r = sd_future_group_await(group);
         if (r < 0)
                 return r;
 

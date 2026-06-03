@@ -999,7 +999,7 @@ static int run(int argc, char *argv[]) {
                                 (arg_action == ACTION_UPDATE_CATALOG ? DISSECT_IMAGE_FSCK|DISSECT_IMAGE_GROWFS : DISSECT_IMAGE_READ_ONLY) |
                                 DISSECT_IMAGE_ALLOW_USERSPACE_VERITY,
                                 &mounted_dir,
-                                /* ret_dir_fd= */ NULL,
+                                /* ret_iref= */ NULL,
                                 &loop_device);
                 if (r < 0)
                         return r;

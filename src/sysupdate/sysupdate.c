@@ -1269,7 +1269,7 @@ static int process_image(
                         DISSECT_IMAGE_REQUIRE_ROOT |
                         DISSECT_IMAGE_ALLOW_USERSPACE_VERITY,
                         &mounted_dir,
-                        /* ret_dir_fd= */ NULL,
+                        /* ret_iref= */ NULL,
                         &loop_device);
         if (r < 0)
                 return r;

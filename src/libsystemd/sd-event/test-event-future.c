@@ -1,11 +1,16 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
+#if HAVE_LIBURING
+#include <liburing.h>
+#endif
+#include <sys/socket.h>
 #include <unistd.h>
 
 #include "sd-event.h"
 #include "sd-future.h"
 
+#include "event-future.h"
 #include "fd-util.h"
 #include "tests.h"
 #include "time-util.h"
@@ -354,5 +359,104 @@ TEST(sd_event_run_timer) {
         ASSERT_OK(sd_event_loop(outer));
         ASSERT_OK_ZERO(sd_future_result(f));
 }
+
+#if HAVE_LIBURING
+static int io_uring_future_fiber(void *userdata) {
+        int *got = ASSERT_PTR(userdata);
+        struct io_uring_sqe *sqe;
+        sd_event *e = sd_fiber_get_event();
+        int r;
+
+        _cleanup_(sd_future_cancel_wait_unrefp) sd_future *f = NULL;
+        r = future_new_io_uring_sqe(e, &sqe, &f);
+        if (r < 0)
+                return r;
+
+        io_uring_prep_nop(sqe);
+
+        r = sd_fiber_await(f);
+        if (r < 0)
+                return r;
+
+        *got = sd_future_result(f);
+        return sd_event_exit(e, 0);
+}
+
+TEST(io_uring_future_nop) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        int r;
+
+        ASSERT_OK(sd_event_new(&e));
+
+        r = sd_event_set_io_uring_enabled(e, 1);
+        if (r == -EOPNOTSUPP)
+                return (void) log_tests_skipped("io_uring backend unavailable");
+        ASSERT_OK(r);
+
+        _cleanup_(sd_future_unrefp) sd_future *fiber = NULL;
+        int got = INT32_MAX;
+        ASSERT_OK(sd_fiber_new(e, "uring-fiber", io_uring_future_fiber, &got, /* destroy= */ NULL, &fiber));
+        ASSERT_OK(sd_fiber_set_floating(fiber, 1));
+
+        ASSERT_OK(sd_event_loop(e));
+        ASSERT_EQ(got, 0);
+}
+
+struct io_uring_recv_state {
+        int fd;
+        char buf[16];
+        int got;
+};
+
+static int io_uring_future_recv_fiber(void *userdata) {
+        struct io_uring_recv_state *st = ASSERT_PTR(userdata);
+        struct io_uring_sqe *sqe;
+        sd_event *e = sd_fiber_get_event();
+        int r;
+
+        _cleanup_(sd_future_cancel_wait_unrefp) sd_future *f = NULL;
+        r = future_new_io_uring_sqe(e, &sqe, &f);
+        if (r < 0)
+                return r;
+
+        io_uring_prep_recv(sqe, st->fd, st->buf, sizeof(st->buf), 0);
+
+        r = sd_fiber_await(f);
+        if (r < 0)
+                return r;
+
+        st->got = sd_future_result(f);
+        return sd_event_exit(e, 0);
+}
+
+TEST(io_uring_future_socket_recv) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        int r;
+
+        ASSERT_OK(sd_event_new(&e));
+
+        r = sd_event_set_io_uring_enabled(e, 1);
+        if (r == -EOPNOTSUPP)
+                return (void) log_tests_skipped("io_uring backend unavailable");
+        ASSERT_OK(r);
+
+        _cleanup_close_pair_ int sv[2] = EBADF_PAIR;
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM, 0, sv));
+
+        struct io_uring_recv_state st = { .fd = sv[0], .got = INT32_MAX };
+
+        static const char payload[] = "hello";
+        ASSERT_OK_EQ_ERRNO(write(sv[1], payload, sizeof(payload)), (ssize_t) sizeof(payload));
+
+        _cleanup_(sd_future_unrefp) sd_future *fiber = NULL;
+        ASSERT_OK(sd_fiber_new(e, "uring-recv-fiber", io_uring_future_recv_fiber, &st, /* destroy= */ NULL, &fiber));
+        ASSERT_OK(sd_fiber_set_floating(fiber, 1));
+
+        ASSERT_OK(sd_event_loop(e));
+
+        ASSERT_EQ(st.got, (int) sizeof(payload));
+        ASSERT_STREQ(st.buf, payload);
+}
+#endif
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

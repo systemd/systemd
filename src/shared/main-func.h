@@ -34,3 +34,14 @@ int exit_failure_if_nonzero(int result) _const_;
  * Note: "true" means failure! */
 #define DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(impl)                \
         _DEFINE_MAIN_FUNCTION(, impl(argc, argv), exit_failure_if_nonzero)
+
+typedef int (*main_fiber_func_t)(int argc, char *argv[]);
+
+/* Build an sd_event with exit-on-idle enabled, spawn impl as a fiber on it, and run the event loop.
+ * Structured concurrency does the rest — when impl returns it must have cancelled and cleaned up
+ * everything it spawned, leaving the loop idle so it terminates on its own. The future's result
+ * (i.e. impl's return value) is then propagated to the caller. */
+int run_main_fiber(int argc, char *argv[], main_fiber_func_t func);
+
+#define DEFINE_MAIN_FUNCTION_FIBER(impl)                                \
+        _DEFINE_MAIN_FUNCTION(, run_main_fiber(argc, argv, impl), exit_failure_if_negative)

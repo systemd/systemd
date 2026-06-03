@@ -1233,6 +1233,12 @@ libfido2 = dependency('libfido2',
 libfido2_cflags = libfido2.partial_dependency(includes: true, compile_args: true)
 conf.set10('HAVE_LIBFIDO2', libfido2.found())
 
+liburing = dependency('liburing',
+                      version : '>= 2.3',
+                      required : get_option('liburing'))
+liburing_cflags = liburing.partial_dependency(includes: true, compile_args: true)
+conf.set10('HAVE_LIBURING', liburing.found())
+
 tpm2 = dependency('tss2-esys tss2-rc tss2-mu tss2-tcti-device',
                   required : get_option('tpm2'))
 tpm2_cflags = tpm2.partial_dependency(includes: true, compile_args: true)
@@ -2077,6 +2083,7 @@ subdir('src/tmpfiles')
 subdir('src/tpm2-setup')
 subdir('src/tty-ask-password-agent')
 subdir('src/update-done')
+subdir('src/update-helper')
 subdir('src/update-utmp')
 subdir('src/user-sessions')
 subdir('src/userdb')
@@ -2149,7 +2156,7 @@ foreach dict : executables
                 if key in ['name', 'dbus', 'public', 'conditions', 'type', 'suite',
                            'timeout', 'parallel', 'objects', 'sources', 'extract',
                            'include_directories', 'build_by_default', 'install',
-                           'bpf_programs']
+                           'bpf_programs', 'io_uring']
                         continue
                 endif
 
@@ -2252,6 +2259,14 @@ foreach dict : executables
                              timeout : dict.get('timeout', 30),
                              suite : suite,
                              is_parallel : dict.get('parallel', true))
+
+                        if dict.get('io_uring', false)
+                                test(name + '-io-uring', exe,
+                                     env : test_env + {'SYSTEMD_EVENT_IO_URING' : '1'},
+                                     timeout : dict.get('timeout', 30),
+                                     suite : suite,
+                                     is_parallel : dict.get('parallel', true))
+                        endif
                 endif
         endif
 
@@ -2800,6 +2815,7 @@ foreach tuple : [
         ['libfdisk'],
         ['libfido2'],
         ['libidn2'],
+        ['liburing'],
         ['microhttpd'],
         ['openssl'],
         ['p11kit'],

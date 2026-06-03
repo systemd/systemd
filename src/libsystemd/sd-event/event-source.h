@@ -37,12 +37,19 @@ typedef enum EventSourceType {
 typedef enum WakeupType {
         WAKEUP_NONE,
         WAKEUP_EVENT_SOURCE, /* either I/O or pidfd wakeup */
+        WAKEUP_EVENT_SLOT,   /* sd_event_slot, used for io_uring SQE submissions */
         WAKEUP_CLOCK_DATA,
         WAKEUP_SIGNAL_DATA,
         WAKEUP_INOTIFY_DATA,
         _WAKEUP_TYPE_MAX,
         _WAKEUP_TYPE_INVALID = -EINVAL,
 } WakeupType;
+
+/* Read the WakeupType discriminator from any object that starts with one (sd_event_source, sd_event_slot,
+ * struct clock_data, struct signal_data, struct inotify_data). */
+static inline WakeupType pending_kind(const void *p) {
+        return *(const WakeupType *) p;
+}
 
 typedef struct inode_data InodeData;
 typedef struct inotify_data InotifyData;
@@ -51,6 +58,12 @@ struct sd_event_source {
         WakeupType wakeup;
 
         unsigned n_ref;
+        /* Refs held by the io_uring backend on behalf of armed POLL_ADD SQEs (also counted in n_ref
+         * above). Usually 0 or 1; transiently 2 when EPOLL_CTL_MOD has both the cancel of the old
+         * POLL_ADD and the new POLL_ADD inflight. When n_ref drops to io_uring_inflight the user has
+         * dropped their last live ref — the trigger to disconnect the source so the kernel cancels
+         * its POLL_ADDs and the resulting terminal CQEs drain the rest. */
+        unsigned io_uring_inflight;
 
         sd_event *event;
         void *userdata;
@@ -76,6 +89,12 @@ struct sd_event_source {
         sd_event_handler_t ratelimit_expire_callback;
 
         LIST_FIELDS(sd_event_source, sources);
+
+#if HAVE_LIBURING
+        /* Pointer to a POLL_ADD SQE that hasn't been submitted to the kernel yet (NULL otherwise). */
+        struct io_uring_sqe *pending_sqe;
+        LIST_FIELDS(sd_event_source, pending_source_sqes);
+#endif
 
         RateLimit rate_limit;
 
@@ -171,6 +190,8 @@ struct clock_data {
 struct signal_data {
         WakeupType wakeup;
 
+        unsigned n_ref;
+
         /* For each priority we maintain one signal fd, so that we
          * only have to dequeue a single event per priority at a
          * time. */
@@ -218,6 +239,8 @@ struct inode_data {
 /* A structure encapsulating an inotify fd */
 struct inotify_data {
         WakeupType wakeup;
+
+        unsigned n_ref;
 
         /* For each priority we maintain one inotify fd, so that we only have to dequeue a single event per priority at
          * a time */

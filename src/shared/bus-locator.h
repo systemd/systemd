@@ -35,4 +35,5 @@ int bus_get_property_strv(sd_bus *bus, const BusLocator *locator, const char *me
 int bus_set_property(sd_bus *bus, const BusLocator *locator, const char *member, sd_bus_error *reterr_error, const char *type, ...);
 int bus_match_signal(sd_bus *bus, sd_bus_slot **ret_slot, const BusLocator *locator, const char *member, sd_bus_message_handler_t callback, void *userdata);
 int bus_match_signal_async(sd_bus *bus, sd_bus_slot **ret_slot, const BusLocator *locator, const char *member, sd_bus_message_handler_t callback, sd_bus_message_handler_t install_callback, void *userdata);
+int bus_match_signal_channel(sd_bus *bus, const BusLocator *locator, const char *member, size_t capacity, sd_channel **ret);
 int bus_message_new_method_call(sd_bus *bus, sd_bus_message **ret, const BusLocator *locator, const char *member);

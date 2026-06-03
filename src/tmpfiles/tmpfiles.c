@@ -4928,7 +4928,7 @@ static int run(int argc, char *argv[]) {
                                 DISSECT_IMAGE_GROWFS |
                                 DISSECT_IMAGE_ALLOW_USERSPACE_VERITY,
                                 &mounted_dir,
-                                /* ret_dir_fd= */ NULL,
+                                /* ret_iref= */ NULL,
                                 &loop_device);
                 if (r < 0)
                         return r;
