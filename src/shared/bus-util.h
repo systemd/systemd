@@ -6,6 +6,8 @@
 #include "log.h"
 #include "shared-forward.h"
 
+#define BUS_RECONNECT_USEC (2 * USEC_PER_SEC)
+
 typedef enum BusTransport {
         BUS_TRANSPORT_LOCAL,
         BUS_TRANSPORT_REMOTE,
