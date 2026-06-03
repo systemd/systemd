@@ -551,7 +551,7 @@ int vmspawn_varlink_setup(
         if (!listen_address)
                 return log_oom();
 
-        r = sd_varlink_server_listen_address(ctx->varlink_server, listen_address, 0600);
+        r = sd_varlink_server_listen_address(ctx->varlink_server, listen_address, 0644);
         if (r < 0)
                 return log_error_errno(r, "Failed to listen on %s: %m", listen_address);
 
