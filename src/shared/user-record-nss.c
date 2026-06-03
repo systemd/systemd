@@ -220,6 +220,7 @@ int nss_user_record_by_name(
 
         _cleanup_free_ char *sbuf = NULL;
         _cleanup_free_ struct passwd *result = NULL;
+        _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
         bool incomplete = false;
         struct spwd spwd, *sresult = NULL;
         int r;
@@ -240,12 +241,20 @@ int nss_user_record_by_name(
         } else
                 incomplete = true;
 
-        r = nss_passwd_to_user_record(result, sresult, ret);
+        r = nss_passwd_to_user_record(result, sresult, &ur);
         if (r < 0)
                 return r;
 
+        if (!streq(name, result->pw_name)) {
+                r = strv_extend(&ur->aliases, name);
+                if (r < 0)
+                        return r;
+        }
+
+        ur->incomplete = incomplete;
+
         if (ret)
-                (*ret)->incomplete = incomplete;
+                *ret = TAKE_PTR(ur);
         return 0;
 }
 
