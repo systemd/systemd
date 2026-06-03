@@ -12,3 +12,17 @@ int bus_call_suspend(
                 uint64_t usec,
                 sd_bus_error *reterr_error,
                 sd_bus_message **ret_reply);
+
+/* Subscribe to a bus signal and feed every match into a freshly-allocated channel as
+ * sd_bus_message refs. The channel owns the bus match slot via sd_channel_set_slot, so
+ * sd_channel_close (or the final unref) tears down the subscription automatically.
+ * capacity bounds the buffer; overflow signals are logged and dropped. If the async
+ * AddMatch fails, the channel is closed so consumers see -EPIPE. */
+int bus_signal_channel_new(
+                sd_bus *bus,
+                const char *sender,
+                const char *path,
+                const char *interface,
+                const char *member,
+                size_t capacity,
+                sd_channel **ret);

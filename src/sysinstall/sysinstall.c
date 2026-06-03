@@ -26,6 +26,7 @@
 #include "glyph-util.h"
 #include "help-util.h"
 #include "image-policy.h"
+#include "iref.h"
 #include "json-util.h"
 #include "locale-setup.h"
 #include "log.h"
@@ -1385,7 +1386,7 @@ static int run(int argc, char *argv[]) {
 
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_freep) char *root_dir = NULL;
-        _cleanup_close_ int root_fd = -EBADF;
+        _cleanup_(iref_unrefp) InodeRef *root = NULL;
         r = mount_image_privately_interactively(
                         arg_node,
                         &image_policy,
@@ -1399,7 +1400,7 @@ static int run(int argc, char *argv[]) {
                         DISSECT_IMAGE_ADD_PARTITION_DEVICES |
                         DISSECT_IMAGE_PIN_PARTITION_DEVICES,
                         &root_dir,
-                        &root_fd,
+                        &root,
                         &loop_device);
         if (r < 0)
                 return log_error_errno(r, "Failed to mount new image: %m");
@@ -1408,21 +1409,21 @@ static int run(int argc, char *argv[]) {
                    emoji_enabled() ? glyph(GLYPH_COMPUTER_DISK) : "", emoji_enabled() ? " " : "");
 
         _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *bootctl_link = NULL;
-        r = invoke_bootctl_link(&bootctl_link, root_dir, root_fd, encrypted_credentials);
+        r = invoke_bootctl_link(&bootctl_link, root_dir, iref_fd(root), encrypted_credentials);
         if (r < 0)
                 return r;
 
         log_notice("%s%sInstalling boot loader...",
                    emoji_enabled() ? glyph(GLYPH_COMPUTER_DISK) : "", emoji_enabled() ? " " : "");
 
-        r = invoke_bootctl_install(&bootctl_link, root_dir, root_fd);
+        r = invoke_bootctl_install(&bootctl_link, root_dir, iref_fd(root));
         if (r < 0)
                 return r;
 
         log_notice("%s%sUnmounting partitions...",
                    emoji_enabled() ? glyph(GLYPH_COMPUTER_DISK) : "", emoji_enabled() ? " " : "");
 
-        root_fd = safe_close(root_fd);
+        root = iref_unref(root);
         r = umount_recursive(root_dir, /* flags= */ 0);
         if (r < 0)
                 log_warning_errno(r, "Failed to unmount target disk, proceeding anyway: %m");

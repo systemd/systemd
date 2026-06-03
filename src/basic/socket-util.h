@@ -262,6 +262,8 @@ int socket_address_equal_unix(const char *a, const char *b);
 #define SOMAXCONN_DELUXE INT_MAX
 
 int vsock_get_local_cid(unsigned *ret);
+int vsock_open_or_warn(int *ret);
+int vsock_get_local_cid_or_warn(unsigned *ret);
 
 int netlink_socket_get_multicast_groups(int fd, size_t *ret_len, uint32_t **ret_groups);
 

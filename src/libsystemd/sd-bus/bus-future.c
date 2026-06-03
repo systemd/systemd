@@ -7,6 +7,7 @@
 #include "bus-future.h"
 #include "bus-internal.h"
 #include "bus-message.h"
+#include "log.h"
 
 typedef struct BusFuture {
         sd_bus_slot *slot;
@@ -64,8 +65,8 @@ int bus_call_future(sd_bus *bus, sd_bus_message *m, uint64_t usec, sd_future **r
         assert(m);
         assert(ret);
 
-        _cleanup_(sd_future_unrefp) sd_future *f = NULL;
-        r = sd_future_new(&bus_future_ops, &f);
+        _cleanup_(sd_future_cancel_unrefp) sd_future *f = NULL;
+        r = sd_future_new(sd_bus_get_event(bus), &bus_future_ops, &f);
         if (r < 0)
                 return r;
 
@@ -104,6 +105,90 @@ int future_get_bus_reply(sd_future *f, sd_bus_error *reterr_error, sd_bus_messag
         return 1;
 }
 
+static void bus_signal_channel_item_destroy(void *p) {
+        sd_bus_message_unref(p);
+}
+
+static void bus_signal_channel_slot_destroy(void *p) {
+        sd_bus_slot_unref(p);
+}
+
+static int bus_signal_channel_handler(sd_bus_message *m, void *userdata, sd_bus_error *reterr_error) {
+        sd_channel *c = ASSERT_PTR(userdata);
+        int r;
+
+        /* Take a fresh ref for the channel — sd-bus retains ownership of `m` for the duration
+         * of the callback only. The channel's destroy callback will drop this ref whether the
+         * message is consumed or freed with the channel. */
+        sd_bus_message *ref = sd_bus_message_ref(m);
+        r = sd_channel_try_push(c, ref);
+        if (r >= 0)
+                return 0;
+
+        sd_bus_message_unref(ref);
+        if (r == -ENOBUFS)
+                log_warning("Bus signal channel full, dropping signal.");
+        else
+                log_warning_errno(r, "Failed to enqueue bus signal, dropping: %m");
+        return 0;
+}
+
+static int bus_signal_channel_install_handler(sd_bus_message *m, void *userdata, sd_bus_error *reterr_error) {
+        sd_channel *c = ASSERT_PTR(userdata);
+
+        /* If AddMatch fails the subscription is dead — close the channel so consumers see
+         * -EPIPE on the next pop instead of waiting forever. close() runs slot_destroy too,
+         * cleaning up the (already-broken) slot we're about to forget about. */
+        if (sd_bus_message_is_method_error(m, /* name= */ NULL)) {
+                log_warning("AddMatch failed for bus signal channel: %s",
+                            sd_bus_message_get_error(m)->message);
+                sd_channel_close(c);
+        }
+        return 0;
+}
+
+int bus_signal_channel_new(
+                sd_bus *bus,
+                const char *sender,
+                const char *path,
+                const char *interface,
+                const char *member,
+                size_t capacity,
+                sd_channel **ret) {
+
+        int r;
+
+        assert(bus);
+        assert(ret);
+
+        _cleanup_(sd_channel_unrefp) sd_channel *c = NULL;
+        r = sd_channel_new(sd_bus_get_event(bus), capacity, bus_signal_channel_item_destroy, &c);
+        if (r < 0)
+                return r;
+
+        /* The match callback's userdata is a borrowed channel pointer. Safe because the
+         * channel owns the slot (set_slot below) — when the channel is freed it tears down
+         * the slot first, so no callback can fire on a dangling channel. */
+        _cleanup_(sd_bus_slot_unrefp) sd_bus_slot *slot = NULL;
+        r = sd_bus_match_signal_async(bus, &slot, sender, path, interface, member,
+                                      bus_signal_channel_handler,
+                                      bus_signal_channel_install_handler,
+                                      c);
+        if (r < 0)
+                return r;
+
+        /* Hand the slot to the channel. From here on, dropping the channel (close or final
+         * unref) is what unsubscribes. */
+        r = sd_channel_set_slot(c, slot, bus_signal_channel_slot_destroy);
+        if (r < 0)
+                return r;
+
+        TAKE_PTR(slot);
+
+        *ret = TAKE_PTR(c);
+        return 0;
+}
+
 int bus_call_suspend(
                 sd_bus *bus,
                 sd_bus_message *m,
@@ -122,7 +207,7 @@ int bus_call_suspend(
         if (r < 0)
                 return sd_bus_error_set_errno(reterr_error, r);
 
-        r = sd_fiber_suspend();
+        r = sd_fiber_await(f);
 
         /* If the future isn't resolved, the suspend was interrupted before a reply arrived (fiber
          * cancelled, fiber-wide SD_FIBER_TIMEOUT scope expired, …). There's no reply to extract,

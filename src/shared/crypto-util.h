@@ -92,6 +92,7 @@ extern DLSYM_PROTOTYPE(BIO_new);
 extern DLSYM_PROTOTYPE(BIO_s_mem);
 extern DLSYM_PROTOTYPE(BIO_write);
 extern DLSYM_PROTOTYPE(BN_bin2bn);
+extern DLSYM_PROTOTYPE(BN_bn2bin);
 extern DLSYM_PROTOTYPE(BN_bn2nativepad);
 extern DLSYM_PROTOTYPE(BN_CTX_free);
 extern DLSYM_PROTOTYPE(BN_CTX_new);
@@ -116,6 +117,9 @@ extern DLSYM_PROTOTYPE(EC_POINT_new);
 extern DLSYM_PROTOTYPE(EC_POINT_oct2point);
 extern DLSYM_PROTOTYPE(EC_POINT_point2oct);
 extern DLSYM_PROTOTYPE(ECDSA_SIG_free);
+extern DLSYM_PROTOTYPE(ECDSA_SIG_get0_r);
+extern DLSYM_PROTOTYPE(ECDSA_SIG_get0_s);
+extern DLSYM_PROTOTYPE(d2i_ECDSA_SIG);
 extern DLSYM_PROTOTYPE(ERR_clear_error);
 extern DLSYM_PROTOTYPE(ERR_error_string_n);
 extern DLSYM_PROTOTYPE(ERR_error_string);
@@ -336,6 +340,14 @@ static inline void sk_X509_free_allp(STACK_OF(X509) **sk) {
         sym_sk_X509_pop_free(*sk, sym_X509_free);
 }
 
+int log_openssl_errors_internal(int level, const char *file, int line, const char *func, const char *format, ...) _printf_(5, 6);
+
+/* Logs `format` at `level`, suffixed with each error from the OpenSSL thread-local error queue (or
+ * "No OpenSSL errors." when it is empty), and returns a negative errno derived from the last error
+ * (-EIO when the queue is empty or the reason isn't recognized). */
+#define log_openssl_errors(level, format, ...)                          \
+        log_openssl_errors_internal(level, PROJECT_FILE, __LINE__, __func__, format, ##__VA_ARGS__)
+
 int openssl_pubkey_from_pem(const void *pem, size_t pem_size, EVP_PKEY **ret);
 int openssl_pubkey_to_pem(EVP_PKEY *pkey, char **ret);
 
@@ -402,6 +414,8 @@ int openssl_load_x509_certificate(
                 const char *certificate_source,
                 const char *certificate,
                 X509 **ret);
+
+int openssl_load_private_key_from_file(const char *path, EVP_PKEY **ret);
 
 int openssl_load_private_key(
                 KeySourceType private_key_source_type,
