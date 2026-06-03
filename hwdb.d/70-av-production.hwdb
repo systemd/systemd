@@ -122,6 +122,13 @@ usb:v0FD9p0084*
 usb:v0FD9p0086*
  ID_AV_PRODUCTION_CONTROLLER=1
 
+################
+# Griffin
+################
+# PowerMate
+usb:v077Dp0410*
+ ID_AV_PRODUCTION_CONTROLLER=1
+
 #############################
 # Hercules (Guillemot Corp)
 #############################
