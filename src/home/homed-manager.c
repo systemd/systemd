@@ -1338,7 +1338,7 @@ static int manager_load_key_pair(Manager *m) {
 
         m->private_key = sym_PEM_read_PrivateKey(f, NULL, NULL, NULL);
         if (!m->private_key)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to load private key pair");
+                return log_openssl_errors(LOG_ERR, "Failed to load private key pair");
 
         log_info("Successfully loaded private key pair.");
 
@@ -1358,15 +1358,15 @@ static int manager_generate_key_pair(Manager *m) {
 
         ctx = sym_EVP_PKEY_CTX_new_id(EVP_PKEY_ED25519, NULL);
         if (!ctx)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to allocate Ed25519 key generation context.");
+                return log_openssl_errors(LOG_ERR, "Failed to allocate Ed25519 key generation context.");
 
         if (sym_EVP_PKEY_keygen_init(ctx) <= 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to initialize Ed25519 key generation context.");
+                return log_openssl_errors(LOG_ERR, "Failed to initialize Ed25519 key generation context.");
 
         log_info("Generating key pair for signing local user identity records.");
 
         if (sym_EVP_PKEY_keygen(ctx, &m->private_key) <= 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to generate Ed25519 key pair");
+                return log_openssl_errors(LOG_ERR, "Failed to generate Ed25519 key pair");
 
         log_info("Successfully created Ed25519 key pair.");
 
@@ -1378,7 +1378,7 @@ static int manager_generate_key_pair(Manager *m) {
                 return log_error_errno(r, "Failed to open key file for writing: %m");
 
         if (sym_PEM_write_PUBKEY(fpublic, m->private_key) <= 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to write public key.");
+                return log_openssl_errors(LOG_ERR, "Failed to write public key.");
 
         (void) fchmod(fileno(fpublic), 0444); /* Make public key world readable */
 
@@ -1394,7 +1394,7 @@ static int manager_generate_key_pair(Manager *m) {
                 return log_error_errno(r, "Failed to open key file for writing: %m");
 
         if (sym_PEM_write_PrivateKey(fprivate, m->private_key, NULL, NULL, 0, NULL, NULL) <= 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to write private key pair.");
+                return log_openssl_errors(LOG_ERR, "Failed to write private key pair.");
 
         (void) fchmod(fileno(fprivate), 0400); /* Make private key root readable */
 
@@ -1497,7 +1497,7 @@ static int manager_load_public_key_one(Manager *m, const char *path) {
 
         pkey = sym_PEM_read_PUBKEY(f, &pkey, NULL, NULL);
         if (!pkey)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to parse public key file %s.", path);
+                return log_openssl_errors(LOG_ERR, "Failed to parse public key file %s.", path);
 
         r = hashmap_ensure_put(&m->public_keys, &public_key_hash_ops, fn, pkey);
         if (r < 0)
