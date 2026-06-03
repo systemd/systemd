@@ -32,6 +32,7 @@ static GroupRecord *group_record_free(GroupRecord *g) {
                 return NULL;
 
         free(g->group_name);
+        strv_free(g->aliases);
         free(g->realm);
         free(g->group_name_and_realm_auto);
         free(g->description);
@@ -176,6 +177,7 @@ int group_record_load(
 
         static const sd_json_dispatch_field group_dispatch_table[] = {
                 { "groupName",      SD_JSON_VARIANT_STRING,        json_dispatch_user_group_name,  offsetof(GroupRecord, group_name),       SD_JSON_RELAX  },
+                { "aliases",        SD_JSON_VARIANT_ARRAY,         json_dispatch_user_group_list,  offsetof(GroupRecord, aliases),          SD_JSON_RELAX  },
                 { "realm",          SD_JSON_VARIANT_STRING,        json_dispatch_realm,            offsetof(GroupRecord, realm),            0              },
                 { "uuid",           SD_JSON_VARIANT_STRING,        sd_json_dispatch_id128,         offsetof(GroupRecord, uuid),             0              },
                 { "description",    SD_JSON_VARIANT_STRING,        json_dispatch_gecos,            offsetof(GroupRecord, description),      0              },
@@ -345,6 +347,9 @@ bool group_record_matches_group_name(const GroupRecord *g, const char *group_nam
         if (streq_ptr(g->group_name_and_realm_auto, group_name))
                 return true;
 
+        if (strv_contains(g->aliases, group_name))
+                return true;
+
         return false;
 }
 
@@ -370,7 +375,8 @@ bool group_record_match(GroupRecord *h, const UserDBMatch *match) {
                         h->description,
                 };
 
-                if (!user_name_fuzzy_match(names, ELEMENTSOF(names), match->fuzzy_names))
+                if (!user_name_fuzzy_match(names, ELEMENTSOF(names), match->fuzzy_names) &&
+                    !user_name_fuzzy_match((const char**) h->aliases, strv_length(h->aliases), match->fuzzy_names))
                         return false;
         }
 
