@@ -10,6 +10,7 @@ typedef struct GroupRecord {
         bool incomplete;
 
         char *group_name;
+        char **aliases;
         char *realm;
         char *group_name_and_realm_auto;
         sd_id128_t uuid;
