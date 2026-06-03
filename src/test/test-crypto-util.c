@@ -93,7 +93,9 @@ TEST(invalid) {
         _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = NULL;
 
         DEFINE_HEX_PTR(key, "2d2d2d2d2d424547494e205055424c4943204b45592d2d2d2d2d0a4d466b7b");
-        assert_se(openssl_pubkey_from_pem(key, key_len, &pkey) == -EIO);
+        /* OpenSSL's decoder reports ERR_R_UNSUPPORTED for this garbage, which openssl_to_errno() maps
+         * to -EOPNOTSUPP. */
+        ASSERT_ERROR(openssl_pubkey_from_pem(key, key_len, &pkey), EOPNOTSUPP);
         ASSERT_NULL(pkey);
 }
 
