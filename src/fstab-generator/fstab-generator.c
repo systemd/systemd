@@ -425,6 +425,34 @@ static int write_mounts_for(
         return 0;
 }
 
+static int write_on_failure(FILE *f, const char *where, const char *opts) {
+        _cleanup_strv_free_ char **units = NULL;
+        int r;
+
+        assert(f);
+
+        if (isempty(opts))
+                return 0;
+
+        r = fstab_filter_options(opts,
+                                 "x-systemd.onfailure\0",
+                                 NULL,
+                                 NULL,
+                                 &units,
+                                 NULL);
+        if (r < 0)
+                return log_error_errno(r,
+                                       "Failed to parse x-systemd.onfailure= for '%s': %m",
+                                       where);
+        if (r == 0)
+                return 0;
+
+        STRV_FOREACH(u, units)
+                fprintf(f, "OnFailure=%s\n", *u);
+
+        return 0;
+}
+
 static int write_extra_dependencies(FILE *f, const char *where, const char *opts) {
         int r;
 
@@ -456,6 +484,10 @@ static int write_extra_dependencies(FILE *f, const char *where, const char *opts
 
         r = write_mounts_for(f, where, opts,
                              "x-systemd.wants-mounts-for\0", "WantsMountsFor");
+        if (r < 0)
+                return r;
+
+        r = write_on_failure(f, where, opts);
         if (r < 0)
                 return r;
 

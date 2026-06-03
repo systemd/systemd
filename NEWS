@@ -4,6 +4,10 @@ CHANGES WITH 261 in spe:
 
         Announcements of Future Feature Removals and Incompatible Changes:
 
+        * systemd-fstab-generator now supports the x-systemd.onfailure= mount
+          option for configuring OnFailure= dependencies on generated
+          mount units.
+
         * systemd-logind's integration with the UAPI.1 Boot Loader
           Specification (which allows the systemctl reboot --boot-loader-entry=
           switch to work) so far has supported a special directory
