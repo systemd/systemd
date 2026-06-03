@@ -43,6 +43,22 @@ DLSYM_PROTOTYPE(mnt_table_parse_stream) = NULL;
 DLSYM_PROTOTYPE(mnt_table_parse_swaps) = NULL;
 DLSYM_PROTOTYPE(mnt_unref_monitor) = NULL;
 
+/* Optional fanotify monitor symbols */
+DLSYM_PROTOTYPE(mnt_monitor_enable_fanotify) = NULL;
+DLSYM_PROTOTYPE(mnt_monitor_event_cleanup) = NULL;
+DLSYM_PROTOTYPE(mnt_monitor_event_next_fs) = NULL;
+DLSYM_PROTOTYPE(mnt_new_fs) = NULL;
+DLSYM_PROTOTYPE(mnt_unref_fs) = NULL;
+DLSYM_PROTOTYPE(mnt_reset_fs) = NULL;
+DLSYM_PROTOTYPE(mnt_new_statmnt) = NULL;
+DLSYM_PROTOTYPE(mnt_unref_statmnt) = NULL;
+DLSYM_PROTOTYPE(mnt_fs_refer_statmnt) = NULL;
+DLSYM_PROTOTYPE(mnt_fs_fetch_statmount) = NULL;
+DLSYM_PROTOTYPE(mnt_fs_get_uniq_id) = NULL;
+DLSYM_PROTOTYPE(mnt_fs_is_attached) = NULL;
+DLSYM_PROTOTYPE(mnt_fs_is_detached) = NULL;
+DLSYM_PROTOTYPE(mnt_fs_is_moved) = NULL;
+
 int libmount_parse_full(
                 const char *path,
                 FILE *source,
@@ -157,6 +173,39 @@ int dlopen_libmount(int log_level) {
                         DLSYM_ARG(mnt_table_parse_stream),
                         DLSYM_ARG(mnt_table_parse_swaps),
                         DLSYM_ARG(mnt_unref_monitor));
+#else
+        return log_full_errno(log_level, SYNTHETIC_ERRNO(EOPNOTSUPP),
+                              "libmount support is not compiled in.");
+#endif
+}
+
+int dlopen_libmount_fanotify(int log_level) {
+#if HAVE_LIBMOUNT
+        static void *libmount_fanotify_dl = NULL;
+        int r;
+
+        r = dlopen_libmount(log_level);
+        if (r < 0)
+                return r;
+
+        return dlopen_many_sym_or_warn(
+                        &libmount_fanotify_dl,
+                        "libmount.so.1",
+                        log_level,
+                        DLSYM_ARG(mnt_monitor_enable_fanotify),
+                        DLSYM_ARG(mnt_monitor_event_cleanup),
+                        DLSYM_ARG(mnt_monitor_event_next_fs),
+                        DLSYM_ARG(mnt_new_fs),
+                        DLSYM_ARG(mnt_unref_fs),
+                        DLSYM_ARG(mnt_reset_fs),
+                        DLSYM_ARG(mnt_new_statmnt),
+                        DLSYM_ARG(mnt_unref_statmnt),
+                        DLSYM_ARG(mnt_fs_refer_statmnt),
+                        DLSYM_ARG(mnt_fs_fetch_statmount),
+                        DLSYM_ARG(mnt_fs_get_uniq_id),
+                        DLSYM_ARG(mnt_fs_is_attached),
+                        DLSYM_ARG(mnt_fs_is_detached),
+                        DLSYM_ARG(mnt_fs_is_moved));
 #else
         return log_full_errno(log_level, SYNTHETIC_ERRNO(EOPNOTSUPP),
                               "libmount support is not compiled in.");
