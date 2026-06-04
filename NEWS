@@ -16,6 +16,11 @@ CHANGES WITH 262:
           have been provided. This clears the way for a new
           "systemd-sysupdate@.service" unit for varlink activation of sysupdate.
 
+        * The legacy socket for controlling systemd-udevd has been removed, and
+          udevadm now unconditionally uses Varlink IPC. The legacy UNIX socket
+          /run/udev/control, which is sometimes used to check whether udevd is
+          running, has been replaced with a symlink to the Varlink socket.
+
 CHANGES WITH 261:
 
         Announcements of Future Feature Removals and Incompatible Changes:
