@@ -953,6 +953,39 @@ TEST(calculate_policy_authorize) {
         assert_se(digest_check(&d, "2a5b705e83f949c27ac4d2e79e54fb5fb0a60f0b37bbd54a0ee1022ba00d3628"));
 }
 
+TEST(make_policy_authorize_tbs_data) {
+        _cleanup_(iovec_done) struct iovec tbs = {};
+
+        DEFINE_HEX_PTR(digest, "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef");
+        TPM2B_DIGEST d = TPM2B_DIGEST_MAKE(digest, digest_len);
+
+        /* Without a policy reference the to-be-signed data is just the approved policy digest. */
+        assert_se(tpm2_make_policy_authorize_tbs_data(&d, NULL, &tbs) == 0);
+        assert_se(tbs.iov_len == d.size);
+        assert_se(memcmp(tbs.iov_base, d.buffer, d.size) == 0);
+        iovec_done(&tbs);
+
+        /* An empty (zero-length) policy reference behaves the same as no reference. */
+        TPM2B_NONCE empty = {};
+        assert_se(tpm2_make_policy_authorize_tbs_data(&d, &empty, &tbs) == 0);
+        assert_se(tbs.iov_len == d.size);
+        assert_se(memcmp(tbs.iov_base, d.buffer, d.size) == 0);
+        iovec_done(&tbs);
+
+        /* A non-empty policy reference is appended to the approved policy digest, in that order. */
+        DEFINE_HEX_PTR(ref, "cafebabedeadbeef");
+        TPM2B_NONCE n = TPM2B_NONCE_MAKE(ref, ref_len);
+        assert_se(tpm2_make_policy_authorize_tbs_data(&d, &n, &tbs) == 0);
+        assert_se(tbs.iov_len == d.size + n.size);
+        assert_se(memcmp(tbs.iov_base, d.buffer, d.size) == 0);
+        assert_se(memcmp((const uint8_t*) tbs.iov_base + d.size, n.buffer, n.size) == 0);
+        iovec_done(&tbs);
+
+        /* A policy reference longer than a SHA256 digest is rejected. */
+        TPM2B_NONCE too_long = { .size = TPM2_SHA256_DIGEST_SIZE + 1 };
+        assert_se(tpm2_make_policy_authorize_tbs_data(&d, &too_long, &tbs) == -EINVAL);
+}
+
 TEST(calculate_policy_pcr) {
         TPM2B_DIGEST d, dN[16];
 
@@ -1165,6 +1198,7 @@ static void calculate_seal_and_unseal(
                         /* hash_pcr_mask= */ 0,
                         /* pcr_bank= */ 0,
                         /* pubkey= */ NULL,
+                        /* pubkey_policy_ref = */ NULL,
                         /* pubkey_pcr_mask= */ 0,
                         /* signature= */ NULL,
                         /* pin= */ NULL,
@@ -1252,6 +1286,7 @@ static void check_seal_unseal_for_handle(Tpm2Context *c, TPM2_HANDLE handle) {
                         /* hash_pcr_mask= */ 0,
                         /* pcr_bank= */ 0,
                         /* pubkey= */ NULL,
+                        /* pubkey_policy_ref= */ NULL,
                         /* pubkey_pcr_mask= */ 0,
                         /* signature= */ NULL,
                         /* pin= */ NULL,
