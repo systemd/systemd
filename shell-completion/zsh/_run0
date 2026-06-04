@@ -49,6 +49,7 @@ local -a args=(
     '(--chdir -D -i --same-root-dir)'{--chdir=,-D+}'[Run within the specified working directory]:directory:_files -/'
     '(-k --reset-timestamp)'{-k,--reset-timestamp}'[Revoke temporary authorization for this terminal]'
     '(-K --remove-timestamp)'{-K,--remove-timestamp}'[Revoke temporary authorizations for this user]'
+    '(-v --validate)'{-v,--validate}'[Request authorization from polkit]'
     '(-i)'--via-shell"[Invoke command via target user's login shell]"
     '(--via-shell --chdir -D --same-root-dir)'-i"[Shortcut for --via-shell --chdir='~']"
     '*--setenv=[Set the specified environment variable in the session]:environment variable:_parameters -g "*export*" -S = -q'
