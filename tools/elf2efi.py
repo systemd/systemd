@@ -315,13 +315,23 @@ def convert_sections(
     sections = []
 
     for pe_s in iter_copy_sections(file):
-        # Truncate the VMA to the nearest page and insert appropriate padding. This should not
-        # cause any overlap as this is pretty much how ELF *segments* are loaded/mmapped anyways.
-        # The ELF sections inside should also be properly aligned as we reuse the ELF VMA layout
-        # for the PE image.
+        # For the first section, align down to the nearest page. For subsequent
+        # sections, align up from the previous section's end to avoid overlaps.
+        # This avoids issues where certain binutils versions (e.g. 2.42) produce
+        # ELF section layouts where naive per-section align_down would cause
+        # overlapping PE sections.
         vma = pe_s.VirtualAddress
-        pe_s.VirtualAddress = align_down(vma, SECTION_ALIGNMENT)
-        pe_s.data = bytearray(vma - pe_s.VirtualAddress) + pe_s.data
+        if last_vma == (0, 0):
+            pe_s.VirtualAddress = align_down(vma, SECTION_ALIGNMENT)
+        else:
+            pe_s.VirtualAddress = align_to(sum(last_vma), SECTION_ALIGNMENT)
+        # Add padding as needed: if our adjusted address is before the original
+        # ELF VMA, pad to reach it. If adjusted is after, add extra padding to
+        # reach the new aligned address.
+        if pe_s.VirtualAddress <= vma:
+            pe_s.data = bytearray(vma - pe_s.VirtualAddress) + pe_s.data
+        else:
+            pe_s.data = bytearray(pe_s.VirtualAddress - vma) + pe_s.data
 
         pe_s.VirtualSize = len(pe_s.data)
         pe_s.SizeOfRawData = align_to(len(pe_s.data), FILE_ALIGNMENT)
