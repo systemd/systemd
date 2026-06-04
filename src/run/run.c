@@ -78,6 +78,7 @@ static bool arg_wait = false;
 static bool arg_default_command = false;
 static bool arg_remove_timestamp = false;
 static bool arg_reset_timestamp = false;
+static bool arg_validate = false;
 static const char *arg_unit = NULL;
 static char *arg_description = NULL;
 static char *arg_slice = NULL;
@@ -839,6 +840,10 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                         arg_remove_timestamp = true;
                         break;
 
+                OPTION('v', "validate", NULL, "Request temporary authorization from polkit"):
+                        arg_validate = true;
+                        break;
+
                 OPTION('u', "user", "USER", "Run as system user"):
                         r = free_and_strdup_warn(&arg_exec_user, opts.arg);
                         if (r < 0)
@@ -984,6 +989,9 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
         _cleanup_strv_free_ char **l = NULL;
         char **args = option_parser_get_args(&opts);
         if (!strv_isempty(args)) {
+                if (arg_validate)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                        "Option '--validate' cannot be used with a command");
                 l = strv_copy(args);
                 if (!l)
                         return log_oom();
@@ -3142,6 +3150,23 @@ static int revoke_temporary_authorizations(sd_bus *bus) {
         return 0;
 }
 
+static int polkit_validate(sd_bus *bus) {
+        PolkitFlags flags = POLKIT_ALWAYS_QUERY;
+        int r;
+
+        if (arg_ask_password)
+                flags |= POLKIT_ALLOW_INTERACTIVE;
+
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+        r = polkit_check_authorization(bus, (uint32_t) (flags & _POLKIT_MASK_PUBLIC), NULL);
+        if (r < 0)
+                return r;
+        if (r == 0) /* not authorized */
+                return 1;
+
+        return 0;
+}
+
 static int run(int argc, char* argv[]) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
@@ -3231,6 +3256,8 @@ static int run(int argc, char* argv[]) {
                         return 0;
         }
 
+        if (arg_validate)
+                return polkit_validate(bus);
         if (arg_scope)
                 return start_transient_scope(bus);
         if (arg_path_property)
