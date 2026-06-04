@@ -69,54 +69,71 @@ if want_tests == 'false'
         subdir_done()
 endif
 
-opts = [['c'],
-        ['c', '-ansi'],
-        ['c', '-std=iso9899:1990'], # C90
-        ['c', '-std=iso9899:1999'], # C99
-        ['c', '-std=iso9899:2011']] # C11
+# An empty string means "the compiler default", i.e. no explicit standard flag.
+c_stds = ['',
+          '-ansi',
+          '-std=iso9899:1990', # C90
+          '-std=iso9899:1999', # C99
+          '-std=iso9899:2011'] # C11
 
-foreach opt : ['-std=iso9899:2018', # C17
+foreach std : ['-std=iso9899:2018', # C17
                '-std=iso9899:2024', # C23
               ]
-        if cc.has_argument(opt)
-                opts += [['c', opt]]
+        if cc.has_argument(std)
+                c_stds += std
         endif
 endforeach
 
+cxx_stds = []
 if cxx_cmd != ''
-        opts += [['c++'],
-                 ['c++', '-std=c++98'],
-                 ['c++', '-std=c++11']]
+        cxx_stds += ['',
+                     '-std=c++98',
+                     '-std=c++11']
 
-        foreach opt : ['-std=c++14',
+        foreach std : ['-std=c++14',
                        '-std=c++17',
                        '-std=c++20',
                        '-std=c++23',
                        '-std=c++26',
                       ]
-                if cxx.has_argument(opt)
-                        opts += [['c++', opt]]
+                if cxx.has_argument(std)
+                        cxx_stds += std
                 endif
         endforeach
 endif
 
-foreach header : _systemd_headers + _not_installed_headers + [libudev_h_path]
-        foreach opt : opts
-                std_name = opt.length() == 2 ? '_'.join(opt[1].split(':')) : ''
-                test('cc-' + fs.name(header) + '_' + opt[0] + std_name,
-                     env,
-                     suite : 'headers',
-                     args : [cc.cmd_array(),
-                             '-c',
-                             '-x', opt,
-                             '-Wall',
-                             '-Wextra',
-                             '-Werror',
-                             '-pedantic',
-                             '-Wno-long-long',
-                             '-Wno-variadic-macros',
-                             '-include', meson.current_source_dir() / header,
-                             '-o/dev/null',
-                             '/dev/null'])
-        endforeach
+# Run all the (header, language, standard) checks in a single test instead of generating one
+# meson test per combination, of which there are hundreds.
+header_check_args = []
+foreach arg : cc.cmd_array()
+        header_check_args += '--cc=' + arg
 endforeach
+if cxx_cmd != ''
+        foreach arg : cxx.cmd_array()
+                header_check_args += '--cxx=' + arg
+        endforeach
+endif
+foreach std : c_stds
+        header_check_args += '--c-std=' + std
+endforeach
+foreach std : cxx_stds
+        header_check_args += '--cxx-std=' + std
+endforeach
+foreach arg : ['-Wall',
+               '-Wextra',
+               '-Werror',
+               '-pedantic',
+               '-Wno-long-long',
+               '-Wno-variadic-macros',
+              ]
+        header_check_args += '--common-arg=' + arg
+endforeach
+foreach header : _systemd_headers + _not_installed_headers + [libudev_h_path]
+        header_check_args += meson.current_source_dir() / header
+endforeach
+
+test('cc-headers',
+     files('test-compile-headers.py'),
+     suite : 'headers',
+     args : header_check_args,
+     timeout : 120)
