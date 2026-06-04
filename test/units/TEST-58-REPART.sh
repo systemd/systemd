@@ -2149,7 +2149,7 @@ testcase_block_device_replace() {
 
     local defs imgs btrfs_mntpoint_plain btrfs_mntpoint_encrypted
     local loop loop_btrfs_plain loop_btrfs_encrypted
-    local encrypted_device
+    local dm_btrfs_encrypted encrypted_device
 
     btrfs_mntpoint_plain="$(mktemp --directory "/tmp/test-repart.btrfs-mntpoint-plain.XXXXXXXXXX")"
     btrfs_mntpoint_encrypted="$(mktemp --directory "/tmp/test-repart.btrfs-mntpoint-encrypted.XXXXXXXXXX")"
@@ -2216,7 +2216,13 @@ EOF
                    "${loop}"
 
     assert_eq "$(findmnt "${btrfs_mntpoint_plain}" -o SOURCE -n)" "${loop}p1"
-    assert_eq "$(findmnt "${btrfs_mntpoint_encrypted}" -o SOURCE -n)" "/dev/mapper/btrfs-replace-encrypted"
+    dm_btrfs_encrypted="$(findmnt "${btrfs_mntpoint_encrypted}" -o SOURCE -n)"
+    if [[ "$dm_btrfs_encrypted" != "/dev/mapper/btrfs-replace-encrypted" ]]; then
+        # When libdevmapper is built without UDEV_SYNC_SUPPORT (e.g. on Alpine/postmarketOS),
+        # it creates a device node under /dev/mapper/ instead of relying on udev to create a symlink.
+        # In this case, verify that both device nodes refer to the same underlying device.
+        assert_eq "$(stat -c %Hr:%Lr "$dm_btrfs_encrypted")" "$(stat -c %Hr:%Lr /dev/mapper/btrfs-replace-encrypted)"
+    fi
     encrypted_device="/sys/dev/block/$(dmsetup table /dev/mapper/btrfs-replace-encrypted | cut -d" " -f7)"
     assert_eq "$(udevadm info --query=property --property=DEVNAME --value "${encrypted_device}")" "${loop}p2"
     grep -q tada "${btrfs_mntpoint_plain}/magic-plain"
