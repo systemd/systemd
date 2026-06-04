@@ -1951,7 +1951,7 @@ EOF
     touch "$imgs/empty-password"
 
     # the expectation for hmac-sha256 is 'integrity: hmac(sha256)'
-    cryptsetup luksDump "${loop}p1" | grep -q "integrity: $(echo "$1" | sed -r 's/^hmac-(.*)$/hmac(\1)/')"
+    cryptsetup luksDump "${loop}p1" | grep "integrity: $(echo "$1" | sed -r 's/^hmac-(.*)$/hmac(\1)/')" >/dev/null
 
     cryptsetup open --type=luks2 --key-file="$imgs/empty-password" "${loop}p1" "$volume"
     dmsetup status > "$dmstatus"
