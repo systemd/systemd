@@ -3578,7 +3578,7 @@ static int signal_name_owner_changed_install_handler(sd_bus_message *message, vo
         u->get_name_owner_slot = sd_bus_slot_unref(u->get_name_owner_slot);
 
         if (UNIT_VTABLE(u)->bus_name_owner_change)
-                UNIT_VTABLE(u)->bus_name_owner_change(u, NULL);
+                UNIT_VTABLE(u)->bus_name_owner_change(u, NULL, /* from_signal= */ true);
 
         return 0;
 }
@@ -3597,7 +3597,7 @@ static int signal_name_owner_changed(sd_bus_message *message, void *userdata, sd
         }
 
         if (UNIT_VTABLE(u)->bus_name_owner_change)
-                UNIT_VTABLE(u)->bus_name_owner_change(u, empty_to_null(new_owner));
+                UNIT_VTABLE(u)->bus_name_owner_change(u, empty_to_null(new_owner), /* from_signal= */ true);
 
         return 0;
 }
@@ -3630,8 +3630,11 @@ static int get_name_owner_handler(sd_bus_message *message, void *userdata, sd_bu
                 assert(!isempty(new_owner));
         }
 
+        /* Given we're in a GetNameOwner() refresh, which we issue right after (re)connecting to the broker,
+         * a NULL owner here may simply mean the owning client is still getting its bearings, so treat it as
+         * non-definitive and worth waiting a bit for. */
         if (UNIT_VTABLE(u)->bus_name_owner_change)
-                UNIT_VTABLE(u)->bus_name_owner_change(u, new_owner);
+                UNIT_VTABLE(u)->bus_name_owner_change(u, new_owner, /* from_signal= */ false);
 
         return 0;
 }
