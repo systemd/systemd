@@ -2959,11 +2959,47 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         if (r < 0)
                 return log_oom();
 
-        _cleanup_close_ int master = -EBADF;
+        _cleanup_close_ int master = -EBADF, console_in = -EBADF, console_out = -EBADF, console_err = -EBADF;
         PTYForwardFlags ptyfwd_flags = 0;
         switch (arg_console_mode) {
 
         case CONSOLE_NATIVE:
+                /* The non-interactive native console needs no terminal handling, so we'd rather let QEMU's
+                 * stdio chardev write the guest console straight into our inherited stdout. QEMU puts
+                 * O_NONBLOCK on its stdio though, so we hand it private copies of our stdin/stdout/stderr to
+                 * keep that flag off the file descriptions we (and our parent) share. Reopening only works
+                 * for fds that have a path in /proc/self/fd; sockets don't (open() yields ENXIO), so if any
+                 * of the three can't be reopened we fall through to the PTY path below. */
+                console_in  = fd_reopen(STDIN_FILENO,  O_RDONLY|O_CLOEXEC);
+                console_out = fd_reopen(STDOUT_FILENO, O_WRONLY|O_CLOEXEC);
+                console_err = fd_reopen(STDERR_FILENO, O_WRONLY|O_CLOEXEC);
+                if (console_in >= 0 && console_out >= 0 && console_err >= 0) {
+                        r = strv_extend_many(&cmdline, "-nographic", "-nodefaults");
+                        if (r < 0)
+                                return log_oom();
+
+                        /* mux=on keeps the QEMU monitor reachable via Ctrl-a c; signal=off stops QEMU from
+                         * installing terminal/signal handling on our stdio. */
+                        r = qemu_config_section(config_file, "chardev", "console",
+                                                "backend", "stdio",
+                                                "mux", "on",
+                                                "signal", "off");
+                        if (r < 0)
+                                return r;
+
+                        r = qemu_config_section(config_file, "mon", "mon0",
+                                                "chardev", "console");
+                        if (r < 0)
+                                return r;
+
+                        break;
+                }
+
+                /* Reopening failed (e.g. our stdio is a socket): drop any partial fds and use a PTY. */
+                console_in = safe_close(console_in);
+                console_out = safe_close(console_out);
+                console_err = safe_close(console_err);
+
                 /* Use a PTY instead of chardev stdio to prevent QEMU from setting O_NONBLOCK on
                  * our stdio file descriptions (see qemu's chardev/char-stdio.c and char-fd.c).
                  * Use PTY_FORWARD_DUMB_TERMINAL|PTY_FORWARD_TRANSPARENT so the forwarder just
@@ -3676,14 +3712,28 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return log_error_errno(child_pty, "Failed to open PTY slave: %m");
         }
 
+        /* QEMU's stdio comes either from the PTY slave (PTY console path) or from the private copies of our
+         * stdin/stdout/stderr we reopened above (stdio console path). */
+        int stdio_fds[3];
+        const int *stdio_fdsp = NULL;
+        if (child_pty >= 0) {
+                stdio_fds[0] = stdio_fds[1] = stdio_fds[2] = child_pty;
+                stdio_fdsp = stdio_fds;
+        } else if (console_out >= 0) {
+                stdio_fds[0] = console_in;
+                stdio_fds[1] = console_out;
+                stdio_fds[2] = console_err;
+                stdio_fdsp = stdio_fds;
+        }
+
         /* SIGTERM, not SIGKILL — let QEMU flush state on error-path early exits. */
         _cleanup_(pidref_done_sigterm_wait) PidRef child_pidref = PIDREF_NULL;
         r = pidref_safe_fork_full(
                         qemu_binary,
-                        child_pty >= 0 ? (const int[]) { child_pty, child_pty, child_pty } : NULL,
+                        stdio_fdsp,
                         pass_fds, n_pass_fds,
                         FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_CLOEXEC_OFF|FORK_RLIMIT_NOFILE_SAFE|
-                        (child_pty >= 0 ? FORK_REARRANGE_STDIO : 0),
+                        (stdio_fdsp ? FORK_REARRANGE_STDIO : 0),
                         &child_pidref);
         if (r < 0)
                 return r;
@@ -3701,6 +3751,9 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
         /* Close QEMU's end of the QMP socketpair in the parent. We don't need it anymore. */
         child_pty = safe_close(child_pty);
+        console_in = safe_close(console_in);
+        console_out = safe_close(console_out);
+        console_err = safe_close(console_err);
         bridge_fds[1] = safe_close(bridge_fds[1]);
 
         r = prepare_device_info(runtime_dir, &config);
