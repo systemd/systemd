@@ -78,6 +78,7 @@ static bool arg_wait = false;
 static bool args_default_command = false;
 static bool arg_remove_tmpauth = false;
 static bool arg_reset_tmpauth = false;
+static bool arg_validate = false;
 static const char *arg_unit = NULL;
 static char *arg_description = NULL;
 static char *arg_slice = NULL;
@@ -837,6 +838,10 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
 
                 OPTION('K', "remove-timestamp", NULL, "Revoke all temporary authorizations"):
                         arg_remove_tmpauth = true;
+                        break;
+
+                OPTION('v', "validate", NULL, "Renew temporary authorization"):
+                        arg_validate = true;
                         break;
 
                 OPTION('u', "user", "USER", "Run as system user"):
@@ -3215,6 +3220,14 @@ static int run(int argc, char* argv[]) {
                         return r;
                 if (r > 0 && tmpauthz_id != NULL)
                         revoke_temporary_authorization_by_id(bus, tmpauthz_id);
+                if (args_default_command)
+                        return 0;
+        } else if (arg_validate) {
+                _cleanup_free_ char *tmpauthz_id = NULL;
+                r = polkit_check_authorization(bus, POLKIT_ALWAYS_QUERY | POLKIT_ALLOW_INTERACTIVE,
+                                &tmpauthz_id);
+                if (r < 0)
+                        return r;
                 if (args_default_command)
                         return 0;
         }
