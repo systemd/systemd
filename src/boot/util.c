@@ -560,7 +560,8 @@ Pages xmalloc_aligned_pages(
         if (alignment <= 1)
                 alignment = EFI_PAGE_SIZE;
 
-        assert(ISPOWEROF2(alignment));
+        /* The over-alignment maths needs a power of 2; callers must sanitize untrusted values themselves. */
+        assert_se(ISPOWEROF2(alignment));
 
         if (alignment <= EFI_PAGE_SIZE) {
                 assert_se(BS->AllocatePages(type, memory_type, n_pages, &aligned) == EFI_SUCCESS);
