@@ -527,7 +527,7 @@ sensor:modalias:acpi:BMI0160:*:dmi:*:svnGPD:pnG1619-04:*    # Win Max 2
  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
 
 sensor:modalias:acpi:MXC6655:*:dmi:*:svnGPD:pnG1688-08:*    # MicroPC 2
- ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, -1
+ ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, -1
 
 #########################################
 # Hometech
