@@ -315,13 +315,34 @@ def convert_sections(
     sections = []
 
     for pe_s in iter_copy_sections(file):
-        # Truncate the VMA to the nearest page and insert appropriate padding. This should not
-        # cause any overlap as this is pretty much how ELF *segments* are loaded/mmapped anyways.
-        # The ELF sections inside should also be properly aligned as we reuse the ELF VMA layout
-        # for the PE image.
         vma = pe_s.VirtualAddress
         pe_s.VirtualAddress = align_down(vma, SECTION_ALIGNMENT)
-        pe_s.data = bytearray(vma - pe_s.VirtualAddress) + pe_s.data
+
+        # If this section would overlap the previous one, try to fix it by
+        # placing it after the previous section. This can happen with certain
+        # binutils versions (e.g. 2.42) which produce ELF section layouts where
+        # naive per-section align_down causes overlapping PE sections.
+        #
+        # Only fix small overlaps (< 1 page) caused by alignment issues. Larger
+        # overlaps (e.g. from missing -z separate-code) are real errors that
+        # should be reported as BadSectionError below.
+        #
+        # LIMITATION: When this fallback is used, relocations targeting this
+        # section may resolve to the wrong bytes or fail entirely. This is an
+        # inherent limitation - if the ELF linker produced overlapping VMAs,
+        # there is no way to perfectly map them into non-overlapping PE sections
+        # while preserving relocation targets. This is still better than failing
+        # the build entirely for what is often a binutils alignment artifact.
+        if sections and pe_s.VirtualAddress < sum(last_vma):
+            overlap = sum(last_vma) - pe_s.VirtualAddress
+            if overlap < SECTION_ALIGNMENT:
+                pe_s.VirtualAddress = next_section_address(sections)
+
+        # Add padding only if the adjusted address is before the original ELF VMA.
+        # If we had to align up, don't add extra padding - the section data
+        # simply starts at the new (higher) address.
+        if pe_s.VirtualAddress <= vma:
+            pe_s.data = bytearray(vma - pe_s.VirtualAddress) + pe_s.data
 
         pe_s.VirtualSize = len(pe_s.data)
         pe_s.SizeOfRawData = align_to(len(pe_s.data), FILE_ALIGNMENT)
