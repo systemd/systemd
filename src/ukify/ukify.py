@@ -1762,6 +1762,8 @@ class ConfigItem:
         old = getattr(namespace, dest, [])
         if old is None:
             old = []
+        if not isinstance(value, list):
+            value = [value]
         setattr(namespace, dest, value + old)
 
     @staticmethod
@@ -2016,6 +2018,7 @@ CONFIG_ITEMS = [
         default=[],
         action='append',
         config_key='UKI/SBAT',
+        config_push=ConfigItem.config_list_prepend,
     ),
     ConfigItem(
         '--pcrpkey',
