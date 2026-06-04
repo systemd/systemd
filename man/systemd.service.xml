@@ -305,11 +305,16 @@
           <itemizedlist>
             <listitem><para>If set to <option>main</option> (the default), the service manager
             will consider the unit stopped when the main process, which is determined according to the
-            <varname>Type=</varname>, exits. Consequently, it cannot be used with
+            <varname>Type=</varname>, exits. Note that oneshot services have no main process,
+            so <varname>ExitType=</varname><option>main</option> cannot be used with
             <varname>Type=</varname><option>oneshot</option>.</para></listitem>
 
             <listitem><para>If set to <option>cgroup</option>, the service will be considered running as long as at
-            least one process in the cgroup has not exited.</para></listitem>
+            least one process in the cgroup has not exited. Note that
+            <varname>ExitType=</varname><option>cgroup</option> cannot be used with
+            <varname>Type=</varname><option>oneshot</option> either, as oneshot services have no main
+            process to track and the cgroup is empty as soon as all processes of the service
+            exit.</para></listitem>
           </itemizedlist>
 
           <para>It is generally recommended to use <varname>ExitType=</varname><option>main</option> when a service has
