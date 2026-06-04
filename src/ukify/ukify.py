@@ -1762,6 +1762,8 @@ class ConfigItem:
         old = getattr(namespace, dest, [])
         if old is None:
             old = []
+        if not isinstance(value, list):
+            value = [value]
         setattr(namespace, dest, value + old)
 
     @staticmethod
