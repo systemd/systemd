@@ -402,11 +402,17 @@ testcase_check_default_inaccessible_paths() {
     # Taken from src/nspawn/nspawn-mount.c:mount_all()
     inaccessible_paths=(
         "/proc/kallsyms"
-        "/proc/kcore"
         "/proc/keys"
         "/proc/sysrq-trigger"
         "/proc/timer_list"
     )
+
+    # /proc/kcore may not exist on some kernels, e.g. Alpine/postmarketOS.
+    if [[ -e /proc/kcore ]]; then
+        inaccessible_paths+=(
+            "/proc/kcore"
+        )
+    fi
 
     root="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.default_inaccessible_paths.XXX)"
     container="$(basename "$root")"
