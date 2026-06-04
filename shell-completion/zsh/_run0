@@ -37,7 +37,7 @@ _run0_slices() {
 }
 
 local -a args=(
-    '--no-ask-password[Do not query the user for authentication]'
+    '(-n --non-interactive --no-ask-password)'{-n,--non-interactive,--no-ask-password}'[Do not query the user for authentication]'
     '--unit=[Use this unit name instead of an automatically generated one]'
     {'*--property=','*-p+'}'[Sets a property on the service unit created]:property:_run0_unit_properties'
     '--description=[Provide a description for the service unit]:TEXT'
