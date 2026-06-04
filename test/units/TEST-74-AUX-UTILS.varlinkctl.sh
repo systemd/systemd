@@ -203,7 +203,7 @@ varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Manager.Reexecute '{}
 # Wait for the manager to finish re-exec before proceeding — the user manager
 # tests below use systemd-run which requires a functional PID 1.
 for _ in {1..10}; do
-    if systemctl is-system-running 2>/dev/null | grep -qE 'running|degraded'; then
+    if systemctl is-system-running 2>/dev/null | grep -E 'running|degraded' >/dev/null; then
         break
     fi
     sleep 1
