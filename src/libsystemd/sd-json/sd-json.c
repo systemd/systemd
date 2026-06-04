@@ -5359,7 +5359,7 @@ _public_ int sd_json_dispatch_full(
         for (const sd_json_dispatch_field *p = table; p && p->name; p++) {
                 sd_json_dispatch_flags_t merged_flags = p->flags | flags;
 
-                if ((merged_flags & SD_JSON_MANDATORY) && !found[p-table]) {
+                if ((p->flags & SD_JSON_MANDATORY) && !found[p-table]) {
                         json_log(v, merged_flags, 0, "Missing object field '%s'.", p->name);
 
                         if ((merged_flags & SD_JSON_PERMISSIVE))

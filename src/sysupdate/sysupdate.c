@@ -3,15 +3,20 @@
 #include <unistd.h>
 
 #include "sd-daemon.h"
+#include "sd-varlink.h"
 
 #include "build.h"
+#include "bus-polkit.h"
 #include "conf-files.h"
 #include "constants.h"
+#include "discover-image.h"
 #include "dissect-image.h"
+#include "env-util.h"
 #include "format-table.h"
 #include "glyph-util.h"
 #include "hexdecoct.h"
 #include "image-policy.h"
+#include "json-util.h"
 #include "loop-util.h"
 #include "main-func.h"
 #include "mount-util.h"
@@ -22,6 +27,8 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
+#include "runtime-scope.h"
+#include "sd-bus.h"
 #include "set.h"
 #include "sort-util.h"
 #include "specifier.h"
@@ -30,10 +37,13 @@
 #include "sysupdate.h"
 #include "sysupdate-feature.h"
 #include "sysupdate-instance.h"
+#include "sysupdate-target.h"
 #include "sysupdate-transfer.h"
 #include "sysupdate-update-set.h"
 #include "sysupdate-util.h"
 #include "utf8.h"
+#include "varlink-io.systemd.Sysupdate.h"
+#include "varlink-util.h"
 #include "verbs.h"
 
 static char *arg_definitions = NULL;
@@ -50,6 +60,7 @@ static int arg_verify = -1;
 static ImagePolicy *arg_image_policy = NULL;
 static bool arg_offline = false;
 char *arg_transfer_source = NULL;
+static bool arg_varlink = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_definitions, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
@@ -65,6 +76,23 @@ const Specifier specifier_table[] = {
 };
 
 typedef struct Context {
+        /* Parameters/Command line arguments: */
+        char *definitions;
+        bool sync;
+        uint64_t instances_max;
+        char *root;
+        char *image;
+        bool reboot;
+        char *component;
+        int verify;
+        ImagePolicy *image_policy;
+        bool offline;
+        char *transfer_source;
+
+        /* Loaded state: */
+        LoopDevice *loop_device;
+        char *mounted_dir;
+
         Transfer **transfers;
         size_t n_transfers;
 
@@ -79,36 +107,93 @@ typedef struct Context {
         UpdateSet *newest_installed, *candidate;
 
         Hashmap *web_cache; /* Cache for downloaded resources, keyed by URL */
+
+        TargetIdentifier target_identifier;
+
+        sd_bus *system_bus;
+        Hashmap *polkit_registry;
 } Context;
 
-static Context* context_free(Context *c) {
-        if (!c)
-                return NULL;
+#define CONTEXT_NULL \
+        (Context) { \
+                .sync = true, \
+                .instances_max = UINT64_MAX, \
+                .verify = -1, \
+                .target_identifier.class = _TARGET_CLASS_INVALID, \
+        }
+
+static void context_done(Context *c) {
+        assert(c);
+
+        umount_and_rmdir_and_freep(&c->mounted_dir);
+        loop_device_unrefp(&c->loop_device);
 
         FOREACH_ARRAY(tr, c->transfers, c->n_transfers)
                 transfer_free(*tr);
-        free(c->transfers);
+        c->transfers = mfree(c->transfers);
+        c->n_transfers = 0;
 
         FOREACH_ARRAY(tr, c->disabled_transfers, c->n_disabled_transfers)
                 transfer_free(*tr);
-        free(c->disabled_transfers);
+        c->disabled_transfers = mfree(c->disabled_transfers);
+        c->n_disabled_transfers = 0;
 
-        hashmap_free(c->features);
+        c->features = hashmap_free(c->features);
 
         FOREACH_ARRAY(us, c->update_sets, c->n_update_sets)
                 update_set_free(*us);
-        free(c->update_sets);
+        c->update_sets = mfree(c->update_sets);
+        c->n_update_sets = 0;
 
-        hashmap_free(c->web_cache);
+        c->web_cache = hashmap_free(c->web_cache);
 
-        return mfree(c);
+        c->definitions = mfree(c->definitions);
+        c->root = mfree(c->root);
+        c->image = mfree(c->image);
+        c->component = mfree(c->component);
+        c->image_policy = image_policy_free(c->image_policy);
+        c->transfer_source = mfree(c->transfer_source);
+
+        target_identifier_done(&c->target_identifier);
+
+        c->polkit_registry = hashmap_free(c->polkit_registry);
+        c->system_bus = sd_bus_flush_close_unref(c->system_bus);
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(Context*, context_free);
+static int context_from_cmdline(Context *ret) {
+        assert(ret);
 
-static Context* context_new(void) {
-        /* For now, no fields to initialize non-zero */
-        return new0(Context, 1);
+        _cleanup_(context_done) Context context = CONTEXT_NULL;
+
+        context.instances_max = arg_instances_max;
+        context.sync = arg_sync;
+        context.reboot = arg_reboot;
+        context.verify = arg_verify;
+        context.offline = arg_offline;
+
+        if (strdup_to(&context.definitions, arg_definitions) < 0)
+                return log_oom();
+
+        if (strdup_to(&context.root, arg_root) < 0)
+                return log_oom();
+
+        if (strdup_to(&context.image, arg_image) < 0)
+                return log_oom();
+
+        if (strdup_to(&context.component, arg_component) < 0)
+                return log_oom();
+
+        if (strdup_to(&context.transfer_source, arg_transfer_source) < 0)
+                return log_oom();
+
+        if (arg_image_policy) {
+                context.image_policy = image_policy_copy(arg_image_policy);
+                if (!context.image_policy)
+                        return log_oom();
+        }
+
+        *ret = TAKE_GENERIC(context, Context, CONTEXT_NULL);
+        return 0;
 }
 
 static DEFINE_POINTER_ARRAY_FREE_FUNC(Transfer*, transfer_free);
@@ -132,7 +217,7 @@ static int read_definitions(
         assert(dirs);
         assert(suffix);
 
-        r = conf_files_list_strv_full(suffix, arg_root,
+        r = conf_files_list_strv_full(suffix, c->root,
                                       CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED|CONF_FILES_WARN,
                                       dirs, &files, &n_files);
         if (r < 0)
@@ -151,7 +236,7 @@ static int read_definitions(
                 if (r < 0)
                         return r;
 
-                r = transfer_resolve_paths(t, arg_root, node);
+                r = transfer_resolve_paths(t, c->root, node);
                 if (r < 0)
                         return r;
 
@@ -182,9 +267,9 @@ static int context_read_definitions(Context *c, const char* node, ReadDefinition
 
         assert(c);
 
-        if (arg_definitions)
-                dirs = strv_new(arg_definitions);
-        else if (arg_component) {
+        if (c->definitions)
+                dirs = strv_new(c->definitions);
+        else if (c->component) {
                 char **l = CONF_PATHS_STRV("");
                 size_t i = 0;
 
@@ -195,7 +280,7 @@ static int context_read_definitions(Context *c, const char* node, ReadDefinition
                 STRV_FOREACH(dir, l) {
                         char *j;
 
-                        j = strjoin(*dir, "sysupdate.", arg_component, ".d");
+                        j = strjoin(*dir, "sysupdate.", c->component, ".d");
                         if (!j)
                                 return log_oom();
 
@@ -211,7 +296,7 @@ static int context_read_definitions(Context *c, const char* node, ReadDefinition
 
         CLEANUP_ARRAY(files, n_files, conf_file_free_array);
 
-        r = conf_files_list_strv_full(".feature", arg_root,
+        r = conf_files_list_strv_full(".feature", c->root,
                                       CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED|CONF_FILES_WARN,
                                       (const char**) dirs, &files, &n_files);
         if (r < 0)
@@ -251,10 +336,10 @@ static int context_read_definitions(Context *c, const char* node, ReadDefinition
 
         if (FLAGS_SET(flags, READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS) &&
             c->n_transfers + (FLAGS_SET(flags, READ_DEFINITIONS_REQUIRES_ENABLED_TRANSFERS) ? 0 : c->n_disabled_transfers) == 0) {
-                if (arg_component)
+                if (c->component)
                         return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
                                                "No transfer definitions for component '%s' found.",
-                                               arg_component);
+                                               c->component);
 
                 return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
                                        "No transfer definitions found.");
@@ -275,7 +360,7 @@ static int context_load_installed_instances(Context *c) {
 
                 r = resource_load_instances(
                                 &t->target,
-                                arg_verify >= 0 ? arg_verify : t->verify,
+                                c->verify >= 0 ? c->verify : t->verify,
                                 &c->web_cache);
                 if (r < 0)
                         return r;
@@ -286,7 +371,7 @@ static int context_load_installed_instances(Context *c) {
 
                 r = resource_load_instances(
                                 &t->target,
-                                arg_verify >= 0 ? arg_verify : t->verify,
+                                c->verify >= 0 ? c->verify : t->verify,
                                 &c->web_cache);
                 if (r < 0)
                         return r;
@@ -307,7 +392,7 @@ static int context_load_available_instances(Context *c) {
 
                 r = resource_load_instances(
                                 &t->source,
-                                arg_verify >= 0 ? arg_verify : t->verify,
+                                c->verify >= 0 ? c->verify : t->verify,
                                 &c->web_cache);
                 if (r < 0)
                         return r;
@@ -531,7 +616,7 @@ static int context_discover_update_sets(Context *c) {
         if (r < 0)
                 return r;
 
-        if (!arg_offline) {
+        if (!c->offline) {
                 log_info("Determining available update sets%s", glyph(GLYPH_ELLIPSIS));
 
                 r = context_discover_update_sets_by_flag(c, UPDATE_AVAILABLE);
@@ -931,20 +1016,73 @@ static int context_vacuum(
         return 0;
 }
 
-static int context_make_offline(Context **ret, const char *node, ReadDefinitionsFlags read_definitions_flags) {
-        _cleanup_(context_freep) Context* context = NULL;
+static int process_image(
+                Context *c,
+                bool ro) {
+
+        _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
+        _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
         int r;
 
-        assert(ret);
+        assert(c);
 
-        /* Allocates a context object and initializes everything we can initialize offline, i.e. without
-         * checking on the update source (i.e. the Internet) what versions are available */
+        if (!c->image)
+                return 0;
 
-        context = context_new();
-        if (!context)
+        assert(!c->root);
+        assert(!c->mounted_dir);
+        assert(!c->loop_device);
+
+        r = mount_image_privately_interactively(
+                        c->image,
+                        c->image_policy,
+                        (ro ? DISSECT_IMAGE_READ_ONLY : 0) |
+                        DISSECT_IMAGE_FSCK |
+                        DISSECT_IMAGE_MKDIR |
+                        DISSECT_IMAGE_GROWFS |
+                        DISSECT_IMAGE_RELAX_VAR_CHECK |
+                        DISSECT_IMAGE_USR_NO_ROOT |
+                        DISSECT_IMAGE_GENERIC_ROOT |
+                        DISSECT_IMAGE_REQUIRE_ROOT |
+                        DISSECT_IMAGE_ALLOW_USERSPACE_VERITY,
+                        &mounted_dir,
+                        /* ret_dir_fd= */ NULL,
+                        &loop_device);
+        if (r < 0)
+                return r;
+
+        c->root = strdup(mounted_dir);
+        if (!c->root)
                 return log_oom();
 
-        r = context_read_definitions(context, node, read_definitions_flags);
+        c->mounted_dir = TAKE_PTR(mounted_dir);
+        c->loop_device = TAKE_PTR(loop_device);
+
+        return 0;
+}
+
+static int context_list_components(Context *context, char ***component_names, bool *has_default_component);
+
+typedef enum ProcessImageFlags {
+        PROCESS_IMAGE_READ_ONLY = 1 << 0,
+        PROCESS_IMAGE_SKIP      = 1 << 1,
+} ProcessImageFlags;
+
+static int context_load_offline(Context *context, ProcessImageFlags process_image_flags, ReadDefinitionsFlags read_definitions_flags) {
+        int r;
+
+        assert(context);
+
+        /* Sets up a context object and initializes everything we can initialize offline, i.e. without
+         * checking on the update source (i.e. the Internet) what versions are available */
+
+        if (!FLAGS_SET(process_image_flags, PROCESS_IMAGE_SKIP)) {
+                r = process_image(context, FLAGS_SET(process_image_flags, PROCESS_IMAGE_READ_ONLY));
+                if (r < 0)
+                        return r;
+        }
+
+        r = context_read_definitions(context, context->loop_device ? context->loop_device->node : NULL, read_definitions_flags);
         if (r < 0)
                 return r;
 
@@ -952,25 +1090,23 @@ static int context_make_offline(Context **ret, const char *node, ReadDefinitions
         if (r < 0)
                 return r;
 
-        *ret = TAKE_PTR(context);
         return 0;
 }
 
-static int context_make_online(Context **ret, const char *node) {
-        _cleanup_(context_freep) Context* context = NULL;
+static int context_load_online(Context *context, ProcessImageFlags process_image_flags) {
         int r;
 
-        assert(ret);
+        assert(context);
 
-        /* Like context_make_offline(), but also communicates with the update source looking for new
+        /* Like context_load_offline(), but also communicates with the update source looking for new
          * versions (as long as --offline is not specified on the command line). */
 
-        r = context_make_offline(&context, node,
+        r = context_load_offline(context, process_image_flags,
                                  READ_DEFINITIONS_REQUIRES_ENABLED_TRANSFERS | READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS);
         if (r < 0)
                 return r;
 
-        if (!arg_offline) {
+        if (!context->offline) {
                 r = context_load_available_instances(context);
                 if (r < 0)
                         return r;
@@ -980,8 +1116,85 @@ static int context_make_online(Context **ret, const char *node) {
         if (r < 0)
                 return r;
 
-        *ret = TAKE_PTR(context);
         return 0;
+}
+
+static int context_load_online_from_target(Context *context, ProcessImageFlags process_image_flags, const TargetIdentifier *target_identifier) {
+        int r;
+
+        assert(context);
+        assert(target_identifier);
+
+        /* These shouldn’t have been set up some other way first */
+        assert(!context->component);
+        assert(!context->root);
+        assert(!context->image);
+
+        switch(target_identifier->class) {
+        case TARGET_MACHINE:
+        case TARGET_PORTABLE:
+        case TARGET_SYSEXT:
+        case TARGET_CONFEXT: {
+                _cleanup_hashmap_free_ Hashmap *images = NULL;
+                Image *image, *selected_image = NULL;
+
+                /* These are all image-based target classes, so first find the corresponding image. */
+                r = image_discover(RUNTIME_SCOPE_SYSTEM, (ImageClass) target_identifier->class, NULL, &images);
+                if (r < 0)
+                        return r;
+
+                HASHMAP_FOREACH(image, images) {
+                        bool have = false;
+
+                        if (image_is_host(image))
+                                continue; /* We already enroll the host ourselves */
+
+                        if (image->type == IMAGE_MSTACK)
+                                continue; /* systemd-sysupdate doesn't support mstack images yet */
+
+                        r = context_list_components(context, NULL, &have);
+                        if (r < 0)
+                                return r;
+                        if (!have) {
+                                log_debug("Skipping %s because it has no default component", image->path);
+                                continue;
+                        }
+
+                        if (strcmp(image->name, target_identifier->name) == 0) {
+                                selected_image = image;
+                                break;
+                        }
+                }
+
+                if (!selected_image)
+                        return -ENOENT;
+
+                if (IN_SET(selected_image->type, IMAGE_DIRECTORY, IMAGE_SUBVOLUME)) {
+                        context->root = strdup(selected_image->path);
+                        if (!context->root)
+                                return log_oom();
+                } else if (IN_SET(selected_image->type, IMAGE_RAW, IMAGE_BLOCK)) {
+                        context->image = strdup(selected_image->path);
+                        if (!context->image)
+                                return log_oom();
+                } else {
+                        assert_not_reached();
+                }
+                break;
+        }
+        case TARGET_HOST:
+                /* No additional setup needed */
+                break;
+        case TARGET_COMPONENT:
+                context->component = strdup(target_identifier->name);
+                if (!context->component)
+                        return log_oom();
+                break;
+        default:
+                assert_not_reached();
+        }
+
+        return context_load_online(context, process_image_flags);
 }
 
 static int context_on_acquire_progress(const Transfer *t, const Instance *inst, unsigned percentage) {
@@ -1091,7 +1304,7 @@ static int context_acquire(
         if (r < 0)
                 return r;
 
-        if (arg_sync)
+        if (c->sync)
                 sync();
 
         (void) sd_notifyf(/* unset_environment= */ false,
@@ -1116,7 +1329,7 @@ static int context_acquire(
                         return r;
         }
 
-        if (arg_sync)
+        if (c->sync)
                 sync();
 
         return 1;
@@ -1223,7 +1436,7 @@ static int context_install(
                     !inst->is_pending)
                         continue;
 
-                r = transfer_install_instance(t, inst, arg_root);
+                r = transfer_install_instance(t, inst, c->root);
                 if (r < 0)
                         return r;
         }
@@ -1239,57 +1452,50 @@ static int context_install(
         return 1;
 }
 
-static int process_image(
-                bool ro,
-                char **ret_mounted_dir,
-                LoopDevice **ret_loop_device) {
+static JSON_DISPATCH_ENUM_DEFINE(dispatch_target_class, TargetClass, target_class_from_string);
 
-        _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
-        _cleanup_(umount_and_freep) char *mounted_dir = NULL;
+static int dispatch_target_identifier(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        TargetIdentifier *t = ASSERT_PTR(userdata);
         int r;
+        static const sd_json_dispatch_field dispatch[] = {
+                { "class", SD_JSON_VARIANT_STRING, dispatch_target_class,   voffsetof(*t, class), SD_JSON_MANDATORY },
+                { "name",  SD_JSON_VARIANT_STRING, sd_json_dispatch_string, voffsetof(*t, name),  0 },
+                {}
+        };
 
-        assert(ret_mounted_dir);
-        assert(ret_loop_device);
-
-        if (!arg_image)
-                return 0;
-
-        assert(!arg_root);
-
-        r = mount_image_privately_interactively(
-                        arg_image,
-                        arg_image_policy,
-                        (ro ? DISSECT_IMAGE_READ_ONLY : 0) |
-                        DISSECT_IMAGE_FSCK |
-                        DISSECT_IMAGE_MKDIR |
-                        DISSECT_IMAGE_GROWFS |
-                        DISSECT_IMAGE_RELAX_VAR_CHECK |
-                        DISSECT_IMAGE_USR_NO_ROOT |
-                        DISSECT_IMAGE_GENERIC_ROOT |
-                        DISSECT_IMAGE_REQUIRE_ROOT |
-                        DISSECT_IMAGE_ALLOW_USERSPACE_VERITY,
-                        &mounted_dir,
-                        /* ret_dir_fd= */ NULL,
-                        &loop_device);
+        r = sd_json_dispatch(variant, dispatch, flags, t);
         if (r < 0)
                 return r;
 
-        arg_root = strdup(mounted_dir);
-        if (!arg_root)
-                return log_oom();
-
-        *ret_mounted_dir = TAKE_PTR(mounted_dir);
-        *ret_loop_device = TAKE_PTR(loop_device);
+        /* Name is mandatory unless class is `host` */
+        if ((t->class == TARGET_HOST) != (!t->name)) {
+                json_log(variant, flags, 0, "Target name does not match class.");
+                return -ENXIO;
+        }
 
         return 0;
+}
+
+static int verify_polkit(Context *context, sd_varlink *link, const char *action, const char **details) {
+        int r;
+
+        if (!context->system_bus) {
+                r = sd_bus_open_system_with_description(&context->system_bus, "sysupdate-system");
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get system bus connection: %m");
+        }
+
+        return varlink_verify_polkit_async(link,
+                        context->system_bus,
+                        action,
+                        details,
+                        &context->polkit_registry);
 }
 
 VERB(verb_list, "list", "[VERSION]", VERB_ANY, 2, VERB_DEFAULT,
      "Show installed and available versions");
 static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
-        _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
-        _cleanup_(context_freep) Context* context = NULL;
+        _cleanup_(context_done) Context context = CONTEXT_NULL;
         _cleanup_strv_free_ char **appstream_urls = NULL;
         const char *version;
         int r;
@@ -1297,25 +1503,25 @@ static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
         assert(argc <= 2);
         version = argc >= 2 ? argv[1] : NULL;
 
-        r = process_image(/* ro= */ true, &mounted_dir, &loop_device);
+        r = context_from_cmdline(&context);
         if (r < 0)
                 return r;
 
-        r = context_make_online(&context, loop_device ? loop_device->node : NULL);
+        r = context_load_online(&context, PROCESS_IMAGE_READ_ONLY);
         if (r < 0)
                 return r;
 
         if (version)
-                return context_show_version(context, version);
+                return context_show_version(&context, version);
         else if (!sd_json_format_enabled(arg_json_format_flags))
-                return context_show_table(context);
+                return context_show_table(&context);
         else {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
                 _cleanup_strv_free_ char **versions = NULL;
                 const char *current = NULL;
                 bool current_is_pending = false;
 
-                FOREACH_ARRAY(update_set, context->update_sets, context->n_update_sets) {
+                FOREACH_ARRAY(update_set, context.update_sets, context.n_update_sets) {
                         UpdateSet *us = *update_set;
 
                         if (FLAGS_SET(us->flags, UPDATE_INSTALLED) &&
@@ -1329,7 +1535,7 @@ static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
                                 return log_oom();
                 }
 
-                FOREACH_ARRAY(tr, context->transfers, context->n_transfers)
+                FOREACH_ARRAY(tr, context.transfers, context.n_transfers)
                         STRV_FOREACH(appstream_url, (*tr)->appstream) {
                                 /* Avoid duplicates */
                                 if (strv_contains(appstream_urls, *appstream_url))
@@ -1357,9 +1563,7 @@ static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
 VERB(verb_features, "features", "[FEATURE]", VERB_ANY, 2, 0,
      "Show optional features");
 static int verb_features(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
-        _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
-        _cleanup_(context_freep) Context* context = NULL;
+        _cleanup_(context_done) Context context = CONTEXT_NULL;
         _cleanup_(table_unrefp) Table *table = NULL;
         const char *feature_id;
         Feature *f;
@@ -1368,11 +1572,11 @@ static int verb_features(int argc, char *argv[], uintptr_t _data, void *userdata
         assert(argc <= 2);
         feature_id = argc >= 2 ? argv[1] : NULL;
 
-        r = process_image(/* ro= */ true, &mounted_dir, &loop_device);
+        r = context_from_cmdline(&context);
         if (r < 0)
                 return r;
 
-        r = context_make_offline(&context, loop_device ? loop_device->node : NULL,
+        r = context_load_offline(&context, PROCESS_IMAGE_READ_ONLY,
                                  READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS);
         if (r < 0)
                 return r;
@@ -1380,7 +1584,7 @@ static int verb_features(int argc, char *argv[], uintptr_t _data, void *userdata
         if (feature_id) {
                 _cleanup_strv_free_ char **transfers = NULL;
 
-                f = hashmap_get(context->features, feature_id);
+                f = hashmap_get(context.features, feature_id);
                 if (!f)
                         return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
                                                "Optional feature not found: %s",
@@ -1390,7 +1594,7 @@ static int verb_features(int argc, char *argv[], uintptr_t _data, void *userdata
                 if (!table)
                         return log_oom();
 
-                FOREACH_ARRAY(tr, context->transfers, context->n_transfers) {
+                FOREACH_ARRAY(tr, context.transfers, context.n_transfers) {
                         Transfer *t = *tr;
 
                         if (!strv_contains(t->features, f->id) && !strv_contains(t->requisite_features, f->id))
@@ -1401,7 +1605,7 @@ static int verb_features(int argc, char *argv[], uintptr_t _data, void *userdata
                                 return log_oom();
                 }
 
-                FOREACH_ARRAY(tr, context->disabled_transfers, context->n_disabled_transfers) {
+                FOREACH_ARRAY(tr, context.disabled_transfers, context.n_disabled_transfers) {
                         Transfer *t = *tr;
 
                         if (!strv_contains(t->features, f->id) && !strv_contains(t->requisite_features, f->id))
@@ -1456,7 +1660,7 @@ static int verb_features(int argc, char *argv[], uintptr_t _data, void *userdata
                 if (!table)
                         return log_oom();
 
-                HASHMAP_FOREACH(f, context->features) {
+                HASHMAP_FOREACH(f, context.features) {
                         r = table_add_many(table,
                                            TABLE_BOOLEAN_CHECKMARK, f->enabled,
                                            TABLE_SET_COLOR, ansi_highlight_green_red(f->enabled),
@@ -1473,7 +1677,7 @@ static int verb_features(int argc, char *argv[], uintptr_t _data, void *userdata
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
                 _cleanup_strv_free_ char **features = NULL;
 
-                HASHMAP_FOREACH(f, context->features) {
+                HASHMAP_FOREACH(f, context.features) {
                         r = strv_extend(&features, f->id);
                         if (r < 0)
                                 return log_oom();
@@ -1494,33 +1698,31 @@ static int verb_features(int argc, char *argv[], uintptr_t _data, void *userdata
 VERB_NOARG(verb_check_new, "check-new",
            "Check if there's a new version available");
 static int verb_check_new(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
-        _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
-        _cleanup_(context_freep) Context* context = NULL;
+        _cleanup_(context_done) Context context = CONTEXT_NULL;
         int r;
 
         assert(argc <= 1);
 
-        r = process_image(/* ro= */ true, &mounted_dir, &loop_device);
+        r = context_from_cmdline(&context);
         if (r < 0)
                 return r;
 
-        r = context_make_online(&context, loop_device ? loop_device->node : NULL);
+        r = context_load_online(&context, PROCESS_IMAGE_READ_ONLY);
         if (r < 0)
                 return r;
 
         if (!sd_json_format_enabled(arg_json_format_flags)) {
-                if (!context->candidate) {
+                if (!context.candidate) {
                         log_debug("No candidate found.");
                         return EXIT_FAILURE;
                 }
 
-                puts(context->candidate->version);
+                puts(context.candidate->version);
         } else {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
 
-                if (context->candidate)
-                        r = sd_json_buildo(&json, SD_JSON_BUILD_PAIR_STRING("available", context->candidate->version));
+                if (context.candidate)
+                        r = sd_json_buildo(&json, SD_JSON_BUILD_PAIR_STRING("available", context.candidate->version));
                 else
                         r = sd_json_buildo(&json, SD_JSON_BUILD_PAIR_NULL("available"));
                 if (r < 0)
@@ -1534,15 +1736,57 @@ static int verb_check_new(int argc, char *argv[], uintptr_t _data, void *userdat
         return EXIT_SUCCESS;
 }
 
+static int vl_method_check_new(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        _cleanup_(context_done) Context context = CONTEXT_NULL;
+        int r;
+
+        assert(link);
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "target", SD_JSON_VARIANT_OBJECT, dispatch_target_identifier, voffsetof(context, target_identifier), SD_JSON_MANDATORY },
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {},
+        };
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &context);
+        if (r != 0)
+                return r;
+
+        r = verify_polkit(&context, link, "org.freedesktop.sysupdate1.check",
+                        (const char**) STRV_MAKE(
+                                        "class", target_class_to_string(context.target_identifier.class),
+                                        "name", context.target_identifier.name,
+                                        "offline", "0"));
+        if (r <= 0)
+                return r;
+
+        if (getenv_bool("SYSTEMD_SYSUPDATE_NO_VERIFY") > 0)
+                context.verify = false;
+
+        /* CheckNew is always online */
+        context.offline = false;
+
+        r = context_load_online_from_target(&context, PROCESS_IMAGE_READ_ONLY, &context.target_identifier);
+        if (r < 0)
+                return r;
+
+        if (context.candidate)
+                r = sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_STRING("available", context.candidate->version));
+        else
+                r = sd_varlink_error(link, "io.systemd.Sysupdate.NoUpdateNeeded", NULL);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 typedef enum {
         UPDATE_ACTION_ACQUIRE = 1 << 0,
         UPDATE_ACTION_INSTALL = 1 << 1,
 } UpdateActionFlags;
 
 static int verb_update_impl(int argc, char **argv, UpdateActionFlags action_flags) {
-        _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
-        _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
-        _cleanup_(context_freep) Context* context = NULL;
+        _cleanup_(context_done) Context context = CONTEXT_NULL;
         _cleanup_free_ char *booted_version = NULL;
         UpdateSet *applied = NULL;
         const char *version;
@@ -1551,41 +1795,41 @@ static int verb_update_impl(int argc, char **argv, UpdateActionFlags action_flag
         assert(argc <= 2);
         version = argc >= 2 ? argv[1] : NULL;
 
-        if (arg_instances_max < 2)
+        r = context_from_cmdline(&context);
+        if (r < 0)
+                return r;
+
+        if (context.instances_max < 2)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                       "The --instances-max argument must be >= 2 while updating");
 
-        if (arg_reboot) {
+        if (context.reboot) {
                 /* If automatic reboot on completion is requested, let's first determine the currently booted image */
 
-                r = parse_os_release(arg_root, "IMAGE_VERSION", &booted_version);
+                r = parse_os_release(context.root, "IMAGE_VERSION", &booted_version);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse /etc/os-release: %m");
                 if (!booted_version)
                         return log_error_errno(SYNTHETIC_ERRNO(ENODATA), "/etc/os-release lacks IMAGE_VERSION field.");
         }
 
-        r = process_image(/* ro= */ false, &mounted_dir, &loop_device);
-        if (r < 0)
-                return r;
-
-        r = context_make_online(&context, loop_device ? loop_device->node : NULL);
+        r = context_load_online(&context, 0);
         if (r < 0)
                 return r;
 
         if (action_flags & UPDATE_ACTION_ACQUIRE)
-                r = context_acquire(context, version);
+                r = context_acquire(&context, version);
         else
-                r = context_process_partial_and_pending(context, version);
+                r = context_process_partial_and_pending(&context, version);
         if (r < 0)
                 return r;  /* error */
 
         if (action_flags & UPDATE_ACTION_INSTALL && r > 0)  /* update needed */
-                r = context_install(context, version, &applied);
+                r = context_install(&context, version, &applied);
         if (r < 0)
                 return r;
 
-        if (r > 0 && arg_reboot) {
+        if (r > 0 && context.reboot) {
                 assert(applied);
                 assert(booted_version);
 
@@ -1626,27 +1870,25 @@ static int verb_acquire(int argc, char *argv[], uintptr_t _data, void *userdata)
 VERB_NOARG(verb_vacuum, "vacuum",
            "Make room, by deleting old versions");
 static int verb_vacuum(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
-        _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
-        _cleanup_(context_freep) Context* context = NULL;
+        _cleanup_(context_done) Context context = CONTEXT_NULL;
         int r;
 
         assert(argc <= 1);
 
-        if (arg_instances_max < 1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                      "The --instances-max argument must be >= 1 while vacuuming");
-
-        r = process_image(/* ro= */ false, &mounted_dir, &loop_device);
+        r = context_from_cmdline(&context);
         if (r < 0)
                 return r;
 
-        r = context_make_offline(&context, loop_device ? loop_device->node : NULL,
+        if (context.instances_max < 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                      "The --instances-max argument must be >= 1 while vacuuming");
+
+        r = context_load_offline(&context, 0,
                                  READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS);
         if (r < 0)
                 return r;
 
-        return context_vacuum(context, 0, NULL);
+        return context_vacuum(&context, 0, NULL);
 }
 
 VERB(verb_pending_or_reboot, "pending", NULL, 1, 1, 0,
@@ -1654,40 +1896,44 @@ VERB(verb_pending_or_reboot, "pending", NULL, 1, 1, 0,
 VERB(verb_pending_or_reboot, "reboot", NULL, 1, 1, 0,
      "Reboot if a newer version is installed than booted");
 static int verb_pending_or_reboot(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(context_freep) Context* context = NULL;
+        _cleanup_(context_done) Context context = CONTEXT_NULL;
         _cleanup_free_ char *booted_version = NULL;
         int r;
 
         assert(argc == 1);
 
-        if (arg_image || arg_root)
+        r = context_from_cmdline(&context);
+        if (r < 0)
+                return r;
+
+        if (context.image || context.root)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "The --root=/--image= switches may not be combined with the '%s' operation.", argv[0]);
 
-        r = context_make_offline(&context, /* node= */ NULL,
+        r = context_load_offline(&context, PROCESS_IMAGE_SKIP,
                                  READ_DEFINITIONS_REQUIRES_ENABLED_TRANSFERS | READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS);
         if (r < 0)
                 return r;
 
         log_info("Determining installed update sets%s", glyph(GLYPH_ELLIPSIS));
 
-        r = context_discover_update_sets_by_flag(context, UPDATE_INSTALLED);
+        r = context_discover_update_sets_by_flag(&context, UPDATE_INSTALLED);
         if (r < 0)
                 return r;
-        if (!context->newest_installed)
+        if (!context.newest_installed)
                 return log_error_errno(SYNTHETIC_ERRNO(ENODATA), "Couldn't find any suitable installed versions.");
 
-        r = parse_os_release(arg_root, "IMAGE_VERSION", &booted_version);
-        if (r < 0) /* yes, arg_root is NULL here, but we have to pass something, and it's a lot more readable
+        r = parse_os_release(context.root, "IMAGE_VERSION", &booted_version);
+        if (r < 0) /* yes, context.root is NULL here, but we have to pass something, and it's a lot more readable
                     * if we see what the first argument is about */
                 return log_error_errno(r, "Failed to parse /etc/os-release: %m");
         if (!booted_version)
                 return log_error_errno(SYNTHETIC_ERRNO(ENODATA), "/etc/os-release lacks IMAGE_VERSION= field.");
 
-        r = strverscmp_improved(context->newest_installed->version, booted_version);
+        r = strverscmp_improved(context.newest_installed->version, booted_version);
         if (r > 0) {
                 log_notice("Newest installed version '%s' is newer than booted version '%s'.%s",
-                           context->newest_installed->version, booted_version,
+                           context.newest_installed->version, booted_version,
                            streq(argv[0], "pending") ? " Reboot recommended." : "");
 
                 if (streq(argv[0], "reboot"))
@@ -1696,10 +1942,10 @@ static int verb_pending_or_reboot(int argc, char *argv[], uintptr_t _data, void 
                 return EXIT_SUCCESS;
         } else if (r == 0)
                 log_info("Newest installed version '%s' matches booted version '%s'.",
-                         context->newest_installed->version, booted_version);
+                         context.newest_installed->version, booted_version);
         else
                 log_warning("Newest installed version '%s' is older than booted version '%s'.",
-                            context->newest_installed->version, booted_version);
+                            context.newest_installed->version, booted_version);
 
         if (streq(argv[0], "pending")) /* When called as 'pending' tell the caller via failure exit code that there's nothing newer installed */
                 return EXIT_FAILURE;
@@ -1728,32 +1974,19 @@ static int component_name_valid(const char *c) {
         return filename_is_valid(j);
 }
 
-VERB_NOARG(verb_components, "components",
-           "Show list of components");
-static int verb_components(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(context_freep) Context* context = NULL;
-        _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
-        _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
+static int context_list_components(Context *context, char ***component_names, bool *has_default_component)
+{
         _cleanup_set_free_ Set *names = NULL;
-        bool has_default_component = false;
-        int r;
-
-        assert(argc <= 1);
-
-        r = process_image(/* ro= */ false, &mounted_dir, &loop_device);
-        if (r < 0)
-                return r;
-
-        r = context_make_offline(&context, loop_device ? loop_device->node : NULL, 0);
-        if (r < 0)
-                return r;
-
         ConfFile **directories = NULL;
         size_t n_directories = 0;
+        int r;
+
+        assert(context);
+        assert(has_default_component);
 
         CLEANUP_ARRAY(directories, n_directories, conf_file_free_array);
 
-        r = conf_files_list_strv_full(".d", arg_root, CONF_FILES_DIRECTORY|CONF_FILES_WARN,
+        r = conf_files_list_strv_full(".d", context->root, CONF_FILES_DIRECTORY|CONF_FILES_WARN,
                                       (const char * const *) CONF_PATHS_STRV(""), &directories, &n_directories);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate directories: %m");
@@ -1791,21 +2024,49 @@ static int verb_components(int argc, char *argv[], uintptr_t _data, void *userda
 
         /* Does the system have at least one transfer file in /etc/sysupdate.d, which can be considered a
          * TARGET_HOST? See target_get_argument() in sysupdated.c */
-        has_default_component = (!arg_definitions &&
-                                 !arg_component &&
-                                 !arg_root &&
-                                 !arg_image &&
-                                 context->n_transfers > 0);
+        *has_default_component = (!context->definitions &&
+                                  !context->component &&
+                                  !context->root &&
+                                  !context->image &&
+                                  context->n_transfers > 0);
 
-        /* We use simple free() rather than strv_free() here, since set_free() will free the strings for us */
-        _cleanup_free_ char **z = set_get_strv(names);
+        /* Convert to a sorted strv for output */
+        _cleanup_strv_free_ char **z = set_to_strv(&names);
         if (!z)
                 return log_oom();
 
         strv_sort(z);
 
+        if (component_names)
+                *component_names = TAKE_PTR(z);
+
+        return 0;
+}
+
+VERB_NOARG(verb_components, "components",
+           "Show list of components");
+static int verb_components(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        _cleanup_(context_done) Context context = CONTEXT_NULL;
+        _cleanup_strv_free_ char **component_names = NULL;
+        bool has_default_component = false;
+        int r;
+
+        assert(argc <= 1);
+
+        r = context_from_cmdline(&context);
+        if (r < 0)
+                return r;
+
+        r = context_load_offline(&context, 0, 0);
+        if (r < 0)
+                return r;
+
+        r = context_list_components(&context, &component_names, &has_default_component);
+        if (r < 0)
+                return r;
+
         if (!sd_json_format_enabled(arg_json_format_flags)) {
-                if (!has_default_component && set_isempty(names)) {
+                if (!has_default_component && strv_isempty(component_names)) {
                         log_info("No components defined.");
                         return 0;
                 }
@@ -1814,13 +2075,13 @@ static int verb_components(int argc, char *argv[], uintptr_t _data, void *userda
                         printf("%s<default>%s\n",
                                ansi_highlight(), ansi_normal());
 
-                STRV_FOREACH(i, z)
+                STRV_FOREACH(i, component_names)
                         puts(*i);
         } else {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
 
                 r = sd_json_buildo(&json, SD_JSON_BUILD_PAIR_BOOLEAN("default", has_default_component),
-                                          SD_JSON_BUILD_PAIR_STRV("components", z));
+                                          SD_JSON_BUILD_PAIR_STRV("components", component_names));
                 if (r < 0)
                         return log_error_errno(r, "Failed to create JSON: %m");
 
@@ -2018,8 +2279,41 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
         if (arg_definitions && arg_component)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "The --definitions= and --component= switches may not be combined.");
 
+        r = sd_varlink_invocation(SD_VARLINK_ALLOW_ACCEPT);
+        if (r < 0)
+                return log_error_errno(r, "Failed to check if invoked in Varlink mode: %m");
+        if (r > 0)
+                arg_varlink = true;
+
         *remaining_args = option_parser_get_args(&opts);
         return 1;
+}
+
+static int vl_server(void) {
+        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *varlink_server = NULL;
+        int r;
+
+        r = varlink_server_new(&varlink_server,
+                               SD_VARLINK_SERVER_ACCOUNT_UID,
+                               /* userdata= */ NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate Varlink server: %m");
+
+        r = sd_varlink_server_add_interface(varlink_server, &vl_interface_io_systemd_Sysupdate);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add Varlink interface: %m");
+
+        r = sd_varlink_server_bind_method_many(
+                varlink_server,
+                "io.systemd.Sysupdate.CheckNew", vl_method_check_new);
+        if (r < 0)
+                return log_error_errno(r, "Failed to bind Varlink method: %m");
+
+        r = sd_varlink_server_loop_auto(varlink_server);
+        if (r < 0)
+                return log_error_errno(r, "Failed to run Varlink event loop: %m");
+
+        return 0;
 }
 
 static int run(int argc, char *argv[]) {
@@ -2031,6 +2325,9 @@ static int run(int argc, char *argv[]) {
         r = parse_argv(argc, argv, &args);
         if (r <= 0)
                 return r;
+
+        if (arg_varlink)
+                return vl_server(); /* Invocation as Varlink service */
 
         return dispatch_verb(args, NULL);
 }
