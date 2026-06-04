@@ -136,6 +136,9 @@ static int service_dispatch_inotify_io(sd_event_source *source, int fd, uint32_t
 static int service_dispatch_timer(sd_event_source *source, usec_t usec, void *userdata);
 static int service_dispatch_watchdog(sd_event_source *source, usec_t usec, void *userdata);
 static int service_dispatch_exec_io(sd_event_source *source, int fd, uint32_t events, void *userdata);
+static int service_dispatch_bus_name_grace(sd_event_source *source, usec_t usec, void *userdata);
+
+#define SERVICE_BUS_NAME_GRACE_USEC (2 * USEC_PER_SEC)
 
 static void service_enter_signal(Service *s, ServiceState state, ServiceResult f);
 
@@ -607,6 +610,7 @@ static void service_done(Unit *u) {
         service_stop_watchdog(s);
 
         s->timer_event_source = sd_event_source_disable_unref(s->timer_event_source);
+        s->bus_name_grace_event_source = sd_event_source_disable_unref(s->bus_name_grace_event_source);
         s->exec_fd_event_source = sd_event_source_disable_unref(s->exec_fd_event_source);
 
         s->bus_name_pid_lookup_slot = sd_bus_slot_unref(s->bus_name_pid_lookup_slot);
@@ -1547,6 +1551,9 @@ static void service_set_state(Service *s, ServiceState state) {
                     SERVICE_AUTO_RESTART,
                     SERVICE_CLEANING))
                 s->timer_event_source = sd_event_source_disable_unref(s->timer_event_source);
+
+        if (state != SERVICE_RUNNING)
+                s->bus_name_grace_event_source = sd_event_source_disable_unref(s->bus_name_grace_event_source);
 
         if (!SERVICE_STATE_WITH_MAIN_PROCESS(state)) {
                 service_unwatch_main_pid(s);
@@ -2612,13 +2619,10 @@ static void service_enter_stop(Service *s, ServiceResult f) {
                 service_enter_signal(s, SERVICE_STOP_SIGTERM, SERVICE_SUCCESS);
 }
 
-static bool service_good(Service *s) {
+static bool service_good_except_bus_name(Service *s) {
         int main_pid_ok;
 
         assert(s);
-
-        if (s->type == SERVICE_DBUS && !s->bus_name_good)
-                return false;
 
         main_pid_ok = main_pid_good(s);
         if (main_pid_ok > 0) /* It's alive */
@@ -2631,6 +2635,15 @@ static bool service_good(Service *s) {
          * instead. */
 
         return cgroup_good(s) != 0;
+}
+
+static bool service_good(Service *s) {
+        assert(s);
+
+        if (s->type == SERVICE_DBUS && !s->bus_name_good)
+                return false;
+
+        return service_good_except_bus_name(s);
 }
 
 static void service_enter_running(Service *s, ServiceResult f) {
@@ -2647,6 +2660,8 @@ static void service_enter_running(Service *s, ServiceResult f) {
                 service_enter_signal(s, SERVICE_STOP_SIGTERM, f);
         else if (service_good(s)) {
 
+                s->bus_name_grace_event_source = sd_event_source_disable_unref(s->bus_name_grace_event_source);
+
                 /* If there are any queued up sd_notify() notifications, process them now */
                 if (s->notify_state == NOTIFY_RELOADING)
                         service_enter_reload_by_notify(s);
@@ -2662,6 +2677,25 @@ static void service_enter_running(Service *s, ServiceResult f) {
                                 return;
                         }
                 }
+
+        } else if (s->type == SERVICE_DBUS && !s->bus_name_good && service_good_except_bus_name(s)) {
+
+                /* The name has vanished. This might mean the broker has kicked the bucket and the service
+                 * has not reconnected yet, because in that case we usually know earlier since we get
+                 * notified immediately when dbus.service is running again. Give the service a moment to try
+                 * and recombobulate. */
+                r = unit_arm_timer(UNIT(s), &s->bus_name_grace_event_source, /* relative= */ true,
+                                   SERVICE_BUS_NAME_GRACE_USEC, service_dispatch_bus_name_grace);
+                if (r < 0) {
+                        log_unit_warning_errno(UNIT(s), r, "Failed to arm D-Bus name grace timer, stopping: %m");
+                        service_enter_stop(s, SERVICE_SUCCESS);
+                        return;
+                }
+
+                log_unit_debug(UNIT(s), "D-Bus name %s not owned after bus reconnect; deferring stop for grace period.", s->bus_name);
+
+                if (s->state != SERVICE_RUNNING)
+                        service_set_state(s, SERVICE_RUNNING);
 
         } else if (s->remain_after_exit)
                 service_set_state(s, SERVICE_EXITED);
@@ -5667,7 +5701,20 @@ static int bus_name_pid_lookup_callback(sd_bus_message *reply, void *userdata, s
         return 1;
 }
 
-static void service_bus_name_owner_change(Unit *u, const char *new_owner) {
+static int service_dispatch_bus_name_grace(sd_event_source *source, usec_t usec, void *userdata) {
+        Service *s = ASSERT_PTR(userdata);
+
+        s->bus_name_grace_event_source = sd_event_source_disable_unref(s->bus_name_grace_event_source);
+
+        if (s->state == SERVICE_RUNNING && !s->bus_name_good) {
+                log_unit_warning(UNIT(s), "D-Bus name %s still not owned after grace period, stopping.", s->bus_name);
+                service_enter_stop(s, SERVICE_SUCCESS);
+        }
+
+        return 0;
+}
+
+static void service_bus_name_owner_change(Unit *u, const char *new_owner, bool from_signal) {
         Service *s = ASSERT_PTR(SERVICE(u));
         int r;
 
@@ -5679,10 +5726,13 @@ static void service_bus_name_owner_change(Unit *u, const char *new_owner) {
         s->bus_name_good = new_owner;
 
         if (s->type == SERVICE_DBUS) {
-                /* service_enter_running() will figure out what to do */
-                if (s->state == SERVICE_RUNNING)
-                        service_enter_running(s, SERVICE_SUCCESS);
-                else if (s->state == SERVICE_START && new_owner)
+                if (s->state == SERVICE_RUNNING) {
+                        if (!new_owner && from_signal)
+                                /* The service explicitly crashed or dropped its name. */
+                                service_enter_stop(s, SERVICE_SUCCESS);
+                        else
+                                service_enter_running(s, SERVICE_SUCCESS);
+                } else if (s->state == SERVICE_START && new_owner)
                         service_enter_start_post(s);
 
         } else if (new_owner && pick_up_pid_from_bus_name(s)) {
