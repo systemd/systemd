@@ -11,6 +11,7 @@ int acquire_luks2_key(
                 uint32_t pcr_mask,
                 uint16_t pcr_bank,
                 const struct iovec *pubkey,
+                const char *pubkey_policy_ref,
                 uint32_t pubkey_pcr_mask,
                 const char *signature_path,
                 const char *pin,
