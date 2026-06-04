@@ -18,6 +18,7 @@ ConditionPathIsReadWrite=/sys
 Service=systemd-udevd.service
 ListenStream=/run/udev/io.systemd.Udev
 Symlinks=/run/varlink/registry/io.systemd.Udev
+Symlinks=/run/udev/control
 FileDescriptorName=varlink
 SocketMode=0600
 RemoveOnStop=yes
