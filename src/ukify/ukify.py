@@ -2013,6 +2013,7 @@ CONFIG_ITEMS = [
         default=[],
         action='append',
         config_key='UKI/SBAT',
+        config_push=ConfigItem.config_list_prepend,
     ),
     ConfigItem(
         '--pcrpkey',
