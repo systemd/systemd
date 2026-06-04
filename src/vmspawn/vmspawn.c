@@ -151,7 +151,7 @@ static int arg_tpm = -1;
 static char *arg_linux = NULL;
 static KernelImageType arg_linux_image_type = _KERNEL_IMAGE_TYPE_INVALID;
 static char **arg_initrds = NULL;
-static ConsoleMode arg_console_mode = CONSOLE_INTERACTIVE;
+static ConsoleMode arg_console_mode = _CONSOLE_MODE_INVALID;
 static ConsoleTransport arg_console_transport = CONSOLE_TRANSPORT_VIRTIO;
 static NetworkStack arg_network_stack = NETWORK_STACK_NONE;
 static MachineCredentialContext arg_credentials = {};
@@ -4210,6 +4210,13 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
+        /* If no console mode was explicitly requested, pick a sensible default: an interactive terminal
+         * when both our stdin and stdout are TTYs, otherwise the native console which (when our stdio isn't
+         * a TTY) hands QEMU our stdio directly without going through the pty-forwarder. */
+        if (arg_console_mode < 0)
+                arg_console_mode = isatty_safe(STDIN_FILENO) && isatty_safe(STDOUT_FILENO) ?
+                                   CONSOLE_INTERACTIVE : CONSOLE_NATIVE;
+
         if (!arg_quiet && arg_console_mode != CONSOLE_GUI) {
                 _cleanup_free_ char *u = NULL;
                 const char *vm_path = arg_image ?: arg_directory;
@@ -4221,7 +4228,7 @@ static int run(int argc, char *argv[]) {
                 if (arg_console_mode == CONSOLE_INTERACTIVE)
                         log_info("%s %sPress %sCtrl-]%s three times within 1s to kill VM.%s",
                                  glyph(GLYPH_LIGHT_SHADE), ansi_grey(), ansi_highlight(), ansi_grey(), ansi_normal());
-                else if (arg_console_mode == CONSOLE_NATIVE)
+                else if (arg_console_mode == CONSOLE_NATIVE && isatty_safe(STDIN_FILENO))
                         log_info("%s %sPress %sCtrl-a x%s to kill VM.%s",
                                  glyph(GLYPH_LIGHT_SHADE), ansi_grey(), ansi_highlight(), ansi_grey(), ansi_normal());
         }
