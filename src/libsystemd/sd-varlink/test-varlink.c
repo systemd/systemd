@@ -452,6 +452,78 @@ TEST(invalid_parameter) {
         ASSERT_OK(sd_event_loop(e));
 }
 
+typedef struct MandatoryTypeWithOptionalField {
+        const char *mandatory;
+        const char *optional;
+} MandatoryTypeWithOptionalField;
+
+static int dispatch_mandatory_type_with_optional_field(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        MandatoryTypeWithOptionalField *m = ASSERT_PTR(userdata);
+        static const sd_json_dispatch_field dispatch[] = {
+                { "mandatory", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, voffsetof(*m, mandatory), SD_JSON_MANDATORY },
+                { "optional",  SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, voffsetof(*m, optional), 0 },
+                {}
+        };
+
+        return sd_json_dispatch(variant, dispatch, flags, m);
+}
+
+static int method_mandatory_type_with_optional_field(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        MandatoryTypeWithOptionalField m = { NULL, NULL };
+        int r;
+
+        sd_json_dispatch_field table[] = {
+                { "mandatoryField", SD_JSON_VARIANT_OBJECT, dispatch_mandatory_type_with_optional_field, 0, SD_JSON_MANDATORY },
+                {}
+        };
+
+        r = sd_varlink_dispatch(link, parameters, table, &m);
+        if (r != 0)
+                return r;
+
+        _cleanup_free_ char *sum = strjoin(m.mandatory, "+", m.optional);
+        if (!sum)
+                return log_oom();
+
+        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_STRING("result", sum));
+}
+
+static int reply_valid_hi(sd_varlink *link, sd_json_variant *parameters, const char *error_id, sd_varlink_reply_flags_t flags, void *userdata) {
+        ASSERT_NULL(error_id);
+        ASSERT_STREQ(sd_json_variant_string(sd_json_variant_by_key(parameters, "result")), "hi+");
+        ASSERT_OK(sd_event_exit(sd_varlink_get_event(link), EXIT_SUCCESS));
+        return 0;
+}
+
+TEST(mandatory_type_with_optional_field) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        ASSERT_OK(sd_event_default(&e));
+
+        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
+        ASSERT_OK(sd_varlink_server_new(&s, 0));
+
+        ASSERT_OK(sd_varlink_server_attach_event(s, e, 0));
+
+        ASSERT_OK(sd_varlink_server_bind_method(s, "foo.mytest.MandatoryTypeWithOptionalField", method_mandatory_type_with_optional_field));
+
+        int connfd[2];
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM|SOCK_NONBLOCK|SOCK_CLOEXEC, 0, connfd));
+        ASSERT_OK(sd_varlink_server_add_connection(s, connfd[0], /* ret= */ NULL));
+
+        _cleanup_(sd_varlink_unrefp) sd_varlink *c = NULL;
+        ASSERT_OK(sd_varlink_connect_fd(&c, connfd[1]));
+
+        ASSERT_OK(sd_varlink_attach_event(c, e, 0));
+
+        ASSERT_OK(sd_varlink_bind_reply(c, reply_valid_hi));
+
+        ASSERT_OK(sd_varlink_invokebo(c, "foo.mytest.MandatoryTypeWithOptionalField",
+                                      SD_JSON_BUILD_PAIR_OBJECT("mandatoryField",
+                                                                SD_JSON_BUILD_PAIR_STRING("mandatory", "hi"))));
+
+        ASSERT_OK(sd_event_loop(e));
+}
+
 static int method_with_error_sentinel(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         /* Set an error sentinel and return without sending a reply. The sentinel error should be sent automatically. */
         ASSERT_OK(sd_varlink_set_sentinel(link, "io.test.SentinelError"));
