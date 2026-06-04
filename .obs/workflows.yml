@@ -14,6 +14,38 @@ ci:
         source_project: system:systemd
         source_package: systemd
         target_project: system:systemd:ci
+    # Also prepare some images, but disabled by default to avoid wasting cpu/disk
+    - link_package:
+        source_project: system:systemd
+        source_package: particleos-debian
+        target_project: system:systemd:ci
+    - link_package:
+        source_project: system:systemd
+        source_package: particleos-debian-arm
+        target_project: system:systemd:ci
+    - link_package:
+        source_project: system:systemd
+        source_package: particleos-fedora
+        target_project: system:systemd:ci
+    - link_package:
+        source_project: system:systemd
+        source_package: uki-debian
+        target_project: system:systemd:ci
+    - link_package:
+        source_project: system:systemd
+        source_package: uki-fedora
+        target_project: system:systemd:ci
+    - set_flags:
+        flags:
+          # First disable all builds (including images linked in above)
+          - type: build
+            status: disable
+            project: system:systemd:ci
+          # Then enable systemd package builds only, so that images stay disabled
+          - type: build
+            status: enable
+            project: system:systemd:ci
+            package: systemd
   filters:
     event: pull_request
     branches:
