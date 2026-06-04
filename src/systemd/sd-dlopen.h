@@ -68,7 +68,7 @@ extern "C" {
 #define _SD_ELF_NOTE_DLOPEN(json)                                                                                               \
         __asm__ (                                                                                                               \
                 ".ifndef \"sd_dlopen:" json "\"\n"                                                                              \
-                ".set \"sd_dlopen:" json "\", 1\n"                                                                              \
+                ".equ \"sd_dlopen:" json "\", 1\n" /* guard tag, avoid using 'set' as it breaks builds on alpha */              \
                 ".pushsection .note.dlopen, \"" _SD_ELF_NOTE_DLOPEN_SECTION_FLAGS "\", %note, \"sd_dlopen:" json "\", comdat\n" \
                 ".balign 4\n"         /* notes require 4-byte alignment for the header and fields */                            \
                 ".long 884f - 883f\n" /* n_namesz: byte length of the vendor name (label 883->884) */                           \
