@@ -38,6 +38,7 @@ _run0() {
         --setenv --background
     )
     local OPTS="${opts_with_values[*]} -h --help -V --version --no-ask-password --slice-inherit --empower"
+    OPTS="${OPTS[*]} -k --reset-timestamp -K --remove-timestamp -v --validate -n --non-interactive"
 
     local i
     for (( i=1; i <= COMP_CWORD; i++ )); do
