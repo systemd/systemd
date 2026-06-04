@@ -60,6 +60,14 @@ EOF
 cat debian/changelog >>/tmp/changelog
 mount --bind /tmp/changelog "$PWD/debian/changelog"
 
+cp debian/udev.install /tmp/.
+sed -i -e '/sockets\.target\.wants\/systemd-udevd-control\.socket/d' /tmp/udev.install
+mount --bind /tmp/udev.install "$PWD/debian/udev.install"
+
+cp debian/udev.manpages /tmp/.
+sed -i -e '/systemd-udevd-control\.socket\.8/d' /tmp/udev.manpages
+mount --bind /tmp/udev.manpages "$PWD/debian/udev.manpages"
+
 DEB_BUILD_PROFILES="$(awk '$1=$1' <<<"\
     $( ((WITH_TESTS)) || echo nocheck) \
     $( ((WITH_DOCS)) || echo nodoc) \
