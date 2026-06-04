@@ -302,7 +302,9 @@ int tpm2_pcrlock_search_file(const char *path, FILE **ret_file, char **ret_path)
 int tpm2_pcrlock_policy_load(const char *path, Tpm2PCRLockPolicy *ret_policy);
 int tpm2_pcrlock_policy_from_credentials(const struct iovec *srk, const struct iovec *nv, Tpm2PCRLockPolicy *ret);
 
-int tpm2_index_to_handle(Tpm2Context *c, TPM2_HANDLE index, const Tpm2Handle *session, TPM2B_PUBLIC **ret_public, TPM2B_NAME **ret_name, TPM2B_NAME **ret_qname, Tpm2Handle **ret_handle);
+int tpm2_index_to_handle(Tpm2Context *c, TPM2_HANDLE index, const Tpm2Handle *session, TPM2B_NAME **ret_name, Tpm2Handle **ret_handle);
+int tpm2_object_index_to_handle(Tpm2Context *c, TPM2_HANDLE index, const Tpm2Handle *session, TPM2B_PUBLIC **ret_public, TPM2B_NAME **ret_name, TPM2B_NAME **ret_qname, Tpm2Handle **ret_handle);
+int tpm2_nv_index_to_handle(Tpm2Context *c, TPM2_HANDLE index, const Tpm2Handle *session, TPM2B_NV_PUBLIC **ret_nv_public, TPM2B_NAME **ret_name, Tpm2Handle **ret_handle);
 int tpm2_index_from_handle(Tpm2Context *c, const Tpm2Handle *handle, TPM2_HANDLE *ret_index);
 
 int tpm2_pcr_read(Tpm2Context *c, const TPML_PCR_SELECTION *pcr_selection, Tpm2PCRValue **ret_pcr_values, size_t *ret_n_pcr_values);
