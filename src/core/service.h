@@ -224,6 +224,7 @@ typedef struct Service {
         bool exec_fd_hot:1;
 
         char *bus_name;
+        sd_event_source *bus_name_grace_event_source;
 
         char *status_text;
         char *status_bus_error;
