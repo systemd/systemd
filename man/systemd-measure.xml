@@ -277,6 +277,31 @@
         <xi:include href="version-info.xml" xpointer="v253"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--policyref=<replaceable>STRING</replaceable></option></term>
+
+        <listitem><para>When generating a PCR JSON signature (via the <command>sign</command> command), bind
+        the generated signatures to the specified policy reference. The policy reference is an opaque string
+        that is included in the data that is signed, and is also incorporated into the authorization policy of
+        any TPM2 resource that is locked against these signatures (via the
+        <constant>TPM2_PolicyAuthorize</constant> assertion). As a result, a signed policy is only accepted
+        for a resource whose authorization policy was created with the same policy reference, even if another
+        signed policy was produced with the same signing key.</para>
+
+        <para>This can be used together with <option>--phase=</option> and <option>--append=</option> to bind
+        signatures for different boot phases to different policy references, so that a single signing key can
+        produce signatures that are each scoped to an individual phase or combination of phases. The
+        corresponding policy reference is selected when locking a resource, for example via the
+        <option>--tpm2-public-key-policyref=</option> option of
+        <citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        and
+        <citerefentry><refentrytitle>systemd-repart</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+        <para>The length of the policy reference is limited to 32 bytes.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="json" />
       <xi:include href="standard-options.xml" xpointer="no-pager" />
       <xi:include href="standard-options.xml" xpointer="help" />
