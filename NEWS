@@ -1,5 +1,14 @@
 systemd System and Service Manager
 
+CHANGES WITH 262 in spe:
+
+        Feature Removals and Incompatible Changes:
+
+        * The legacy socket for controlling systemd-udevd has been removed, and
+          udevadm now unconditionally uses Varlink IPC. The legacy UNIX socket
+          /run/udev/control, which is sometimes used to check whether udevd is
+          running, has been replaced with a symlink to the Varlink socket.
+
 CHANGES WITH 261 in spe:
 
         Announcements of Future Feature Removals and Incompatible Changes:
