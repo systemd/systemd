@@ -510,6 +510,7 @@ executables += [
         core_test_template + {
                 'sources' : files('test-bpf-restrict-fsaccess.c'),
                 'dependencies' : common_test_dependencies,
+                'bpf_programs' : ['restrict-fsaccess'],
                 'type' : 'manual',
         },
         core_test_template + {
