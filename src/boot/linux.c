@@ -160,14 +160,14 @@ EFI_STATUS linux_exec(
                 const struct iovec *initrd) {
 
         size_t kernel_size_in_memory = 0;
-        uint32_t compat_entry_point, entry_point;
+        uint32_t compat_entry_point, entry_point, section_alignment;
         EFI_STATUS err;
 
         assert(parent_image);
         assert(iovec_is_set(kernel));
         assert(iovec_is_valid(initrd));
 
-        err = pe_kernel_info(kernel->iov_base, &entry_point, &compat_entry_point, &kernel_size_in_memory);
+        err = pe_kernel_info(kernel->iov_base, &entry_point, &compat_entry_point, &kernel_size_in_memory, &section_alignment);
 #if defined(__i386__) || defined(__x86_64__)
         if (err == EFI_UNSUPPORTED)
                 /* Kernel is too old to support LINUX_INITRD_MEDIA_GUID, try the deprecated EFI handover
@@ -264,9 +264,17 @@ EFI_STATUS linux_exec(
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Cannot read sections: %m");
 
-        /* Do we need to ensure under 4gb address on x86? */
-        _cleanup_pages_ Pages loaded_kernel_pages = xmalloc_pages(
-                        AllocateAnyPages, EfiLoaderCode, EFI_SIZE_TO_PAGES(kernel_size_in_memory), 0);
+        /* Honor the PE SectionAlignment (SZ_64K on arm64): if _text is not aligned the kernel's EFI stub
+         * reallocates and copies the image, which can fail with EFI_OUT_OF_RESOURCES on memory-constrained
+         * firmware. When alignment <= EFI_PAGE_SIZE (e.g. x86_64) xmalloc_aligned_pages() reduces to a
+         * plain AllocatePages() with no extra over-allocation. pe_kernel_info() already sanitized a
+         * non-conforming SectionAlignment to plain page alignment. */
+        _cleanup_pages_ Pages loaded_kernel_pages = xmalloc_aligned_pages(
+                        AllocateAnyPages,
+                        EfiLoaderCode,
+                        EFI_SIZE_TO_PAGES(kernel_size_in_memory),
+                        section_alignment,
+                        /* addr= */ 0);
 
         uint8_t* loaded_kernel = PHYSICAL_ADDRESS_TO_POINTER(loaded_kernel_pages.addr);
         FOREACH_ARRAY(h, headers, n_headers) {
