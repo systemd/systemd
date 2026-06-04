@@ -35,7 +35,7 @@ _run0() {
     local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
     local opts_with_values=(
         --machine --unit --property --description --slice -u --user -g --group --nice -D --chdir
-        --setenv --background
+        --setenv --background -k --reset-timestamp -K --remove-timestamp -v --validate
     )
     local OPTS="${opts_with_values[*]} -h --help -V --version --no-ask-password --slice-inherit --empower"
 
