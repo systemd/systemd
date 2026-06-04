@@ -32,6 +32,7 @@
 #include "escape.h"
 #include "ether-addr-util.h"
 #include "event-util.h"
+#include "exit-status.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -1313,18 +1314,22 @@ static int on_child_exit(sd_event_source *s, const siginfo_t *si, void *userdata
                         log_error("Child process " PID_FMT " died with a failure exit status %i.", si->si_pid, si->si_status);
 
                 ret = si->si_status;
-        } else if (si->si_code == CLD_KILLED)
-                ret = log_error_errno(SYNTHETIC_ERRNO(EPROTO),
-                                      "Child process " PID_FMT " was killed by signal %s.",
-                                      si->si_pid, signal_to_string(si->si_status));
-        else if (si->si_code == CLD_DUMPED)
-                ret = log_error_errno(SYNTHETIC_ERRNO(EPROTO),
-                                      "Child process " PID_FMT " dumped core by signal %s.",
-                                      si->si_pid, signal_to_string(si->si_status));
-        else
-                ret = log_error_errno(SYNTHETIC_ERRNO(EPROTO),
-                                      "Got unexpected exit code %i from child.",
-                                      si->si_code);
+        } else {
+                /* QEMU (or an auxiliary process) died abnormally, e.g. it crashed or was killed by the
+                 * OOM killer. Propagate this as EXIT_EXCEPTION (in line with bash signalling an
+                 * abnormal exit) rather than as a generic event loop failure, so that the caller can
+                 * tell a crashed VMM apart from the exit status reported by the VM itself. */
+                if (si->si_code == CLD_KILLED)
+                        log_error("Child process " PID_FMT " was killed by signal %s.",
+                                  si->si_pid, signal_to_string(si->si_status));
+                else if (si->si_code == CLD_DUMPED)
+                        log_error("Child process " PID_FMT " dumped core by signal %s.",
+                                  si->si_pid, signal_to_string(si->si_status));
+                else
+                        log_error("Got unexpected exit code %i from child.", si->si_code);
+
+                ret = EXIT_EXCEPTION;
+        }
 
         /* Regardless of whether the main qemu process or an auxiliary process died, let's exit either way
          * as it's very likely that the main qemu process won't be able to operate properly anymore if one
@@ -3991,16 +3996,27 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         unregister_machine_with_fallback_and_log(&machine_ctx, arg_machine);
 
         if (use_vsock) {
-                if (exit_status == INT_MAX) {
-                        log_debug("Couldn't retrieve inner EXIT_STATUS from VSOCK");
+                if (exit_status != INT_MAX) {
+                        if (exit_status != 0)
+                                log_warning("Non-zero exit code received: %d", exit_status);
+                        return exit_status;
+                }
+
+                /* The VM never reported its exit status to us over VSOCK. If QEMU nonetheless exited
+                 * cleanly we have no better information to go on, so report success. But if QEMU exited
+                 * abnormally (it crashed, was OOM-killed, …) before the VM could report its status, we
+                 * must not silently claim success: surface it as EXIT_EXCEPTION instead so that e.g. the
+                 * integration test harness can tell a crashed VMM apart from a passing test. */
+                if (r == 0) {
+                        log_debug("Couldn't retrieve inner EXIT_STATUS from VSOCK, but QEMU exited cleanly.");
                         return EXIT_SUCCESS;
                 }
-                if (exit_status != 0)
-                        log_warning("Non-zero exit code received: %d", exit_status);
-                return exit_status;
+
+                log_warning("QEMU exited with status %d before the VM reported its exit status over VSOCK, treating as failure.", r);
+                return EXIT_EXCEPTION;
         }
 
-        return 0;
+        return r;
 }
 
 static int determine_names(void) {
