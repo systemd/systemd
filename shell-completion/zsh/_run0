@@ -47,6 +47,8 @@ local -a args=(
     '(--group -g)'{--group=,-g+}'[Switch to the specified group]:group:_groups'
     '--nice=[Run with specified nice level]:nice value'
     '(--chdir -D -i --same-root-dir)'{--chdir=,-D+}'[Run within the specified working directory]:directory:_files -/'
+    '(-k --reset-timestamp)'{-k,--reset-timestamp}'[Revoke temporary authorization for this terminal]'
+    '(-K --remove-timestamp)'{-K,--remove-timestamp}'[Revoke temporary authorizations for this user]'
     '(-i)'--via-shell"[Invoke command via target user's login shell]"
     '(--via-shell --chdir -D --same-root-dir)'-i"[Shortcut for --via-shell --chdir='~']"
     '*--setenv=[Set the specified environment variable in the session]:environment variable:_parameters -g "*export*" -S = -q'
