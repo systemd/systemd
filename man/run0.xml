@@ -188,6 +188,17 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>-v</option></term>
+        <term><option>--validate</option></term>
+
+        <listitem><para>Request authorization from polkit. Can be used to create a temporary authorization
+        without running a command.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--via-shell</option></term>
 
         <listitem><para>Invokes the target user's login shell and runs the specified command (if any) via it.</para>
