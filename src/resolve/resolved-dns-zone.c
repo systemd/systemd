@@ -521,7 +521,14 @@ static bool dns_zone_item_probe_reply_is_conflict(DnsZoneItem *i) {
          * Per RFC 6762 section 8.2 a record only conflicts with one we are probing for if it carries the
          * same name but *different* rdata; a record with rdata identical to ours is explicitly not a
          * conflict. The steady-state path (dns_zone_check_conflicts()) already honors this via
-         * dns_zone_get(); the probe path should too. */
+         * dns_zone_get(); the probe path should too.
+         *
+         * We treat a record as ours if we publish it on *any* local interface, not just the one this probe
+         * runs on. resolved keeps a separate mDNS zone per interface; if the host is multi-homed and an
+         * mDNS reflector is bridging mDNS between its links, our own announcement on one link can come back
+         * on another carrying that other link's address, and would otherwise look foreign to the receiving
+         * scope's zone. This mirrors how mDNSResponder's conflict check (FindRRSet) ignores the InterfaceID.
+         * See manager_mdns_record_is_ours(). */
 
         DNS_ANSWER_FOREACH(rr, i->probe_transaction->answer) {
                 /* Only consider records carrying the name we are probing for. */
@@ -532,8 +539,8 @@ static bool dns_zone_item_probe_reply_is_conflict(DnsZoneItem *i) {
                 if (dns_resource_key_is_dnssd_ptr(rr->key))
                         continue;
 
-                /* If we own this exact record ourselves, it's ours, not a conflict. */
-                if (dns_zone_get(&i->scope->zone, rr))
+                /* If we publish this record on any of our interfaces, it's ours (possibly reflected). */
+                if (manager_mdns_record_is_ours(i->scope->manager, rr))
                         continue;
 
                 /* A record on our name that we do not own: a genuine, foreign conflict. */
