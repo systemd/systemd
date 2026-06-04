@@ -19,7 +19,8 @@ run_with_cred_compare() (
     trap "rm -f '$log_file'" RETURN
 
     set -o pipefail
-    systemd-run -p SetCredential="$cred" --wait --pipe -- systemd-creds "$@" | tee "$log_file"
+    # This has been observed to get stuck under ASAN, so add a timeout as precaution
+    timeout 120 systemd-run -p SetCredential="$cred" --wait --pipe -- systemd-creds "$@" | tee "$log_file"
     diff "$log_file" <(echo -ne "$exp")
 )
 
