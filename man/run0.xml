@@ -168,6 +168,26 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>-k</option></term>
+        <term><option>--reset-timestamp</option></term>
+
+        <listitem><para>Revokes temporary polkit authorization for this terminal, if present.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-K</option></term>
+        <term><option>--remove-timestamp</option></term>
+
+        <listitem><para>Revokes all temporary polkit authorizations for this user session.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--via-shell</option></term>
 
         <listitem><para>Invokes the target user's login shell and runs the specified command (if any) via it.</para>
