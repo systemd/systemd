@@ -75,6 +75,29 @@ class Summary:
         )
 
 
+def probe_run(name: str, when: str) -> None:
+    # FIXME: Temporary diagnostic for the arch (vm=1) CI job running out of space in /run. Logs /run
+    # usage and the top consumers before/after each VM so we can see what accumulates across tests.
+    try:
+        usage = shutil.disk_usage('/run')
+    except OSError:
+        return
+
+    print(
+        f'PROBE {when} {name}: /run used={usage.used // 1024 // 1024}M '
+        f'free={usage.free // 1024 // 1024}M total={usage.total // 1024 // 1024}M',
+        file=sys.stderr,
+        flush=True,
+    )
+
+    top = subprocess.run(
+        ['sh', '-c', 'du -xshc /run/* /run/.[!.]* 2>/dev/null | sort -h | tail -n 12'],
+        stdout=subprocess.PIPE,
+        text=True,
+    ).stdout
+    print(f'PROBE {when} {name}: top /run consumers:\n{top}', file=sys.stderr, flush=True)
+
+
 def process_coredumps(args: argparse.Namespace, journal_file: Path) -> bool:
     # Collect executable paths of all coredumps and filter out the expected ones.
 
@@ -597,6 +620,11 @@ def main() -> None:
         ),
         '--credential', f'systemd.unit-dropin.{args.unit}={shlex.quote(dropin)}',
         '--runtime-network=none',
+        # In CI there's no terminal attached to drain the console, so systemd-vmspawn forwards it through a
+        # PTY on which QEMU does blocking writes. Under heavy console output (e.g. shell trace logging) the
+        # PTY buffer fills up and the guest's vCPU stalls, freezing the VM. The journal is forwarded over
+        # VSOCK regardless, so just disable the console entirely when running non-interactively.
+        *(['--console=headless'] if not sys.stdin.isatty() else []),
         *([f'--qemu-args=-rtc base={rtc}'] if rtc else []),
         *args.mkosi_args,
         '--firmware', firmware,
@@ -632,6 +660,8 @@ def main() -> None:
         ),
     ]  # fmt: skip
 
+    probe_run(args.name, 'before')
+
     try:
         result = subprocess.run(cmd)
 
@@ -656,6 +686,8 @@ def main() -> None:
             )
     except KeyboardInterrupt:
         result = subprocess.CompletedProcess(args=cmd, returncode=-signal.SIGINT)
+
+    probe_run(args.name, 'after')
 
     coredumps = process_coredumps(args, journal_file)
 
