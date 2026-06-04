@@ -709,7 +709,11 @@ int dnssec_verify_rrset(
         assert(dnskey);
         assert(result);
 
+#if ENABLE_DNS_OVER_TLS
+        r = DLOPEN_LIBCRYPTO(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED);
+#else
         r = DLOPEN_LIBCRYPTO(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
+#endif
         if (r < 0)
                 return r;
 
@@ -1066,7 +1070,11 @@ int dnssec_verify_dnskey_by_ds(DnsResourceRecord *dnskey, DnsResourceRecord *ds,
         assert(dnskey);
         assert(ds);
 
+#if ENABLE_DNS_OVER_TLS
+        r = DLOPEN_LIBCRYPTO(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED);
+#else
         r = DLOPEN_LIBCRYPTO(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
+#endif
         if (r < 0)
                 return r;
 
@@ -1206,7 +1214,11 @@ int dnssec_nsec3_hash(DnsResourceRecord *nsec3, const char *name, void *ret) {
         assert(name);
         assert(ret);
 
+#if ENABLE_DNS_OVER_TLS
+        r = DLOPEN_LIBCRYPTO(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED);
+#else
         r = DLOPEN_LIBCRYPTO(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
+#endif
         if (r < 0)
                 return r;
 
