@@ -69,6 +69,7 @@ int acquire_tpm2_key(
                 uint32_t hash_pcr_mask,
                 uint16_t pcr_bank,
                 const struct iovec *pubkey,
+                const char *pubkey_policy_ref,
                 uint32_t pubkey_pcr_mask,
                 const char *signature_path,
                 const char *pcrlock_path,
@@ -160,6 +161,7 @@ int acquire_tpm2_key(
                                 hash_pcr_mask,
                                 pcr_bank,
                                 pubkey,
+                                pubkey_policy_ref,
                                 pubkey_pcr_mask,
                                 signature_json,
                                 /* pin= */ NULL,
@@ -212,6 +214,7 @@ int acquire_tpm2_key(
                                 hash_pcr_mask,
                                 pcr_bank,
                                 pubkey,
+                                pubkey_policy_ref,
                                 pubkey_pcr_mask,
                                 signature_json,
                                 b64_salted_pin,
@@ -250,6 +253,7 @@ int find_tpm2_auto_data(
                 uint32_t *ret_hash_pcr_mask,
                 uint16_t *ret_pcr_bank,
                 struct iovec *ret_pubkey,
+                char **ret_pubkey_policy_ref,
                 uint32_t *ret_pubkey_pcr_mask,
                 uint16_t *ret_primary_alg,
                 struct iovec **ret_blobs,
@@ -270,6 +274,7 @@ int find_tpm2_auto_data(
         assert(ret_hash_pcr_mask);
         assert(ret_pcrlock_nv);
         assert(ret_pubkey);
+        assert(ret_pubkey_policy_ref);
         assert(ret_pubkey_pcr_mask);
         assert(ret_primary_alg);
         assert(ret_blobs);
@@ -285,6 +290,7 @@ int find_tpm2_auto_data(
 
         for (token = start_token; token < sym_crypt_token_max(CRYPT_LUKS2); token++) {
                 _cleanup_(iovec_done) struct iovec pubkey = {}, salt = {}, srk = {}, pcrlock_nv = {};
+                _cleanup_free_ char *pubkey_policy_ref = NULL;
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
                 struct iovec *blobs = NULL, *policy_hash = NULL;
                 size_t n_blobs = 0, n_policy_hash = 0;
@@ -308,6 +314,7 @@ int find_tpm2_auto_data(
                                 &hash_pcr_mask,
                                 &pcr_bank,
                                 &pubkey,
+                                &pubkey_policy_ref,
                                 &pubkey_pcr_mask,
                                 &primary_alg,
                                 &blobs,
@@ -332,6 +339,7 @@ int find_tpm2_auto_data(
                         *ret_hash_pcr_mask = hash_pcr_mask;
                         *ret_pcr_bank = pcr_bank;
                         *ret_pubkey = TAKE_STRUCT(pubkey);
+                        *ret_pubkey_policy_ref = TAKE_PTR(pubkey_policy_ref);
                         *ret_pubkey_pcr_mask = pubkey_pcr_mask;
                         *ret_primary_alg = primary_alg;
                         *ret_blobs = TAKE_PTR(blobs);
