@@ -357,6 +357,15 @@
         </listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>-n</option></term>
+        <term><option>--non-interactive</option></term>
+
+        <listitem><para>Equivalent to <option>--no-ask-password</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="no-ask-password" />
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
