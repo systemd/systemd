@@ -8,3 +8,14 @@ rebuild:
     branches:
       only:
         - main
+ci:
+  steps:
+    - branch_package:
+        source_project: system:systemd
+        source_package: systemd
+        target_project: system:systemd:ci
+  filters:
+    event: pull_request
+    branches:
+      only:
+        - main
