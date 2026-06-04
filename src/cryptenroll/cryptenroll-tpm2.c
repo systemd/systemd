@@ -191,6 +191,7 @@ int load_volume_key_tpm2(
 
         for (;;) {
                 _cleanup_(iovec_done) struct iovec pubkey = {}, salt = {}, srk = {}, pcrlock_nv = {};
+                _cleanup_free_ char *pubkey_policy_ref = NULL;
                 struct iovec *blobs = NULL, *policy_hash = NULL;
                 size_t n_blobs = 0, n_policy_hash = 0;
                 uint32_t hash_pcr_mask, pubkey_pcr_mask;
@@ -208,6 +209,7 @@ int load_volume_key_tpm2(
                                 &hash_pcr_mask,
                                 &pcr_bank,
                                 &pubkey,
+                                &pubkey_policy_ref,
                                 &pubkey_pcr_mask,
                                 &primary_alg,
                                 &blobs,
@@ -240,6 +242,7 @@ int load_volume_key_tpm2(
                                 hash_pcr_mask,
                                 pcr_bank,
                                 &pubkey,
+                                pubkey_policy_ref,
                                 pubkey_pcr_mask,
                                 /* signature_path= */ NULL,
                                 /* pcrlock_path= */ NULL,
@@ -297,6 +300,7 @@ int enroll_tpm2(struct crypt_device *cd,
                 size_t n_hash_pcr_values,
                 const char *pcr_pubkey_path,
                 bool load_pcr_pubkey,
+                const char *pubkey_policy_ref,
                 uint32_t pubkey_pcr_mask,
                 const char *signature_path,
                 bool use_pin,
@@ -354,6 +358,7 @@ int enroll_tpm2(struct crypt_device *cd,
         }
 
         TPM2B_PUBLIC public = {};
+        TPM2B_NONCE pubkey_policy_ref_tpm2b = {};
         if (pcr_pubkey_path || load_pcr_pubkey) {
                 r = tpm2_load_pcr_public_key(pcr_pubkey_path, &pubkey.iov_base, &pubkey.iov_len);
                 if (r < 0) {
@@ -374,6 +379,15 @@ int enroll_tpm2(struct crypt_device *cd,
                                 r = tpm2_load_pcr_signature(signature_path, &signature_json);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to read TPM PCR signature: %m");
+                        }
+
+                        if (pubkey_policy_ref) {
+                                size_t n = strlen(pubkey_policy_ref);
+                                r = TPM2B_NONCE_CHECK_SIZE(n);
+                                if (r < 0)
+                                        return log_error_errno(r, "Policy reference argument size %lu is too large.", n);
+
+                                pubkey_policy_ref_tpm2b = TPM2B_NONCE_MAKE(pubkey_policy_ref, n);
                         }
                 }
         } else
@@ -464,6 +478,7 @@ int enroll_tpm2(struct crypt_device *cd,
                         hash_pcr_values,
                         n_hash_pcr_values,
                         iovec_is_set(&pubkey) ? &public : NULL,
+                        iovec_is_set(&pubkey) ? &pubkey_policy_ref_tpm2b : NULL,
                         use_pin,
                         pcrlock_path && !iovec_is_set(&pubkey) ? &pcrlock_policy : NULL,
                         policy_hash + 0);
@@ -475,6 +490,7 @@ int enroll_tpm2(struct crypt_device *cd,
                                 hash_pcr_values,
                                 n_hash_pcr_values,
                                 /* public= */ NULL, /* This one is off now */
+                                /* pubkey_policy_ref= */ NULL,
                                 use_pin,
                                 &pcrlock_policy,    /* And this one on instead. */
                                 policy_hash + 1);
@@ -552,6 +568,7 @@ int enroll_tpm2(struct crypt_device *cd,
                                 hash_pcr_mask,
                                 hash_pcr_bank,
                                 &pubkey,
+                                pubkey_policy_ref,
                                 pubkey_pcr_mask,
                                 signature_json,
                                 pin_str,
@@ -594,6 +611,7 @@ int enroll_tpm2(struct crypt_device *cd,
                         hash_pcr_mask,
                         hash_pcr_bank,
                         &pubkey,
+                        pubkey_policy_ref,
                         pubkey_pcr_mask,
                         primary_alg,
                         blobs,

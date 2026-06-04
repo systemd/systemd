@@ -44,6 +44,7 @@ _public_ int cryptsetup_token_open_pin(
 
         _cleanup_(erase_and_freep) char *base64_encoded = NULL, *pin_string = NULL;
         _cleanup_(iovec_done) struct iovec pubkey = {}, salt = {}, srk = {}, pcrlock_nv = {};
+        _cleanup_free_ char *pubkey_policy_ref = NULL;
         _cleanup_(iovec_done_erase) struct iovec decrypted_key = {};
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         uint32_t hash_pcr_mask, pubkey_pcr_mask;
@@ -92,6 +93,7 @@ _public_ int cryptsetup_token_open_pin(
                         &hash_pcr_mask,
                         &pcr_bank,
                         &pubkey,
+                        &pubkey_policy_ref,
                         &pubkey_pcr_mask,
                         &primary_alg,
                         &blobs,
@@ -113,6 +115,7 @@ _public_ int cryptsetup_token_open_pin(
                         hash_pcr_mask,
                         pcr_bank,
                         &pubkey,
+                        pubkey_policy_ref,
                         pubkey_pcr_mask,
                         params.signature_path,
                         pin_string,
@@ -181,7 +184,7 @@ _public_ void cryptsetup_token_dump(
                 struct crypt_device *cd /* is always LUKS2 context */,
                 const char *json /* validated 'systemd-tpm2' token if cryptsetup_token_validate is defined */) {
 
-        _cleanup_free_ char *hash_pcrs_str = NULL, *pubkey_pcrs_str = NULL, *pubkey_str = NULL;
+        _cleanup_free_ char *hash_pcrs_str = NULL, *pubkey_pcrs_str = NULL, *pubkey_str = NULL, *pubkey_policy_ref = NULL;
         _cleanup_(iovec_done) struct iovec pubkey = {}, salt = {}, srk = {}, pcrlock_nv = {};
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         uint32_t hash_pcr_mask, pubkey_pcr_mask;
@@ -209,6 +212,7 @@ _public_ void cryptsetup_token_dump(
                         &hash_pcr_mask,
                         &pcr_bank,
                         &pubkey,
+                        &pubkey_policy_ref,
                         &pubkey_pcr_mask,
                         &primary_alg,
                         &blobs,
@@ -237,6 +241,7 @@ _public_ void cryptsetup_token_dump(
         crypt_log(cd, "\ttpm2-hash-pcrs:   %s\n", strna(hash_pcrs_str));
         crypt_log(cd, "\ttpm2-pcr-bank:    %s\n", strna(tpm2_hash_alg_to_string(pcr_bank)));
         crypt_log(cd, "\ttpm2-pubkey:" CRYPT_DUMP_LINE_SEP "%s\n", pubkey_str);
+        crypt_log(cd, "\ttpm2-pubkey-ref:  %s\n", pubkey_policy_ref);
         crypt_log(cd, "\ttpm2-pubkey-pcrs: %s\n", strna(pubkey_pcrs_str));
         if (primary_alg != 0)
                 crypt_log(cd, "\ttpm2-primary-alg: %s\n", strna(tpm2_asym_alg_to_string(primary_alg)));
