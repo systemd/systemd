@@ -138,6 +138,9 @@ static int service_dispatch_inotify_io(sd_event_source *source, int fd, uint32_t
 static int service_dispatch_timer(sd_event_source *source, usec_t usec, void *userdata);
 static int service_dispatch_watchdog(sd_event_source *source, usec_t usec, void *userdata);
 static int service_dispatch_exec_io(sd_event_source *source, int fd, uint32_t events, void *userdata);
+static int service_dispatch_bus_name_grace(sd_event_source *source, usec_t usec, void *userdata);
+
+#define SERVICE_BUS_NAME_GRACE_USEC (2 * USEC_PER_SEC)
 
 static void service_enter_signal(Service *s, ServiceState state, ServiceResult f);
 
@@ -211,6 +214,7 @@ static void service_init(Unit *u) {
 
         s->oom_policy = _OOM_POLICY_INVALID;
         s->reload_begin_usec = USEC_INFINITY;
+        s->revalidate_runtime_remaining_usec = USEC_INFINITY;
         s->reload_signal = SIGHUP;
 
         s->fd_store_preserve_mode = EXEC_PRESERVE_RESTART;
@@ -609,6 +613,7 @@ static void service_done(Unit *u) {
         service_stop_watchdog(s);
 
         s->timer_event_source = sd_event_source_disable_unref(s->timer_event_source);
+        s->bus_name_grace_event_source = sd_event_source_disable_unref(s->bus_name_grace_event_source);
         s->exec_fd_event_source = sd_event_source_disable_unref(s->exec_fd_event_source);
 
         s->bus_name_pid_lookup_slot = sd_bus_slot_unref(s->bus_name_pid_lookup_slot);
@@ -1550,6 +1555,9 @@ static void service_set_state(Service *s, ServiceState state) {
                     SERVICE_CLEANING))
                 s->timer_event_source = sd_event_source_disable_unref(s->timer_event_source);
 
+        if (state != SERVICE_RUNNING_REVALIDATING)
+                s->bus_name_grace_event_source = sd_event_source_disable_unref(s->bus_name_grace_event_source);
+
         if (!SERVICE_STATE_WITH_MAIN_PROCESS(state)) {
                 service_unwatch_main_pid(s);
                 s->main_command = NULL;
@@ -1661,6 +1669,15 @@ static int service_coldplug(Unit *u) {
         r = service_arm_timer(s, /* relative= */ false, service_coldplug_timeout(s));
         if (r < 0)
                 return r;
+
+        if (s->deserialized_state == SERVICE_RUNNING_REVALIDATING) {
+                /* The bus name grace timer isn't serialized, so re-arm it here. */
+                r = unit_arm_timer(UNIT(s), &s->bus_name_grace_event_source, /* relative= */ false,
+                                   usec_add(UNIT(s)->state_change_timestamp.monotonic, SERVICE_BUS_NAME_GRACE_USEC),
+                                   service_dispatch_bus_name_grace);
+                if (r < 0)
+                        return r;
+        }
 
         if (pidref_is_set(&s->main_pid) &&
             pidref_is_unwaited(&s->main_pid) > 0 &&
@@ -2614,13 +2631,10 @@ static void service_enter_stop(Service *s, ServiceResult f) {
                 service_enter_signal(s, SERVICE_STOP_SIGTERM, SERVICE_SUCCESS);
 }
 
-static bool service_good(Service *s) {
+static bool service_good_except_bus_name(Service *s) {
         int main_pid_ok;
 
         assert(s);
-
-        if (s->type == SERVICE_DBUS && !s->bus_name_good)
-                return false;
 
         main_pid_ok = main_pid_good(s);
         if (main_pid_ok > 0) /* It's alive */
@@ -2633,6 +2647,24 @@ static bool service_good(Service *s) {
          * instead. */
 
         return cgroup_good(s) != 0;
+}
+
+static bool service_good(Service *s) {
+        assert(s);
+
+        if (s->type == SERVICE_DBUS && !s->bus_name_good)
+                return false;
+
+        return service_good_except_bus_name(s);
+}
+
+static void service_enter_exited_or_stop(Service *s) {
+        assert(s);
+
+        if (s->remain_after_exit)
+                service_set_state(s, SERVICE_EXITED);
+        else
+                service_enter_stop(s, SERVICE_SUCCESS);
 }
 
 static void service_enter_running(Service *s, ServiceResult f) {
@@ -2657,7 +2689,14 @@ static void service_enter_running(Service *s, ServiceResult f) {
                 else {
                         service_set_state(s, SERVICE_RUNNING);
 
-                        r = service_arm_timer(s, /* relative= */ false, service_running_timeout(s));
+                        /* We're resuming, so restore the timer budget. */
+                        usec_t remaining = s->revalidate_runtime_remaining_usec;
+                        s->revalidate_runtime_remaining_usec = USEC_INFINITY;
+
+                        if (remaining != USEC_INFINITY)
+                                r = service_arm_timer(s, /* relative= */ true, remaining);
+                        else
+                                r = service_arm_timer(s, /* relative= */ false, service_running_timeout(s));
                         if (r < 0) {
                                 log_unit_warning_errno(UNIT(s), r, "Failed to install timer: %m");
                                 service_enter_running(s, SERVICE_FAILURE_RESOURCES);
@@ -2665,10 +2704,36 @@ static void service_enter_running(Service *s, ServiceResult f) {
                         }
                 }
 
-        } else if (s->remain_after_exit)
-                service_set_state(s, SERVICE_EXITED);
-        else
-                service_enter_stop(s, SERVICE_SUCCESS);
+        } else if (s->type == SERVICE_DBUS && !s->bus_name_good && service_good_except_bus_name(s)) {
+
+                /* If we're already revalidating, just keep waiting on the timer we armed on the way in, so a
+                 * flapping broker that reconnects repeatedly can't keep pushing the deadline out. */
+                if (s->state == SERVICE_RUNNING_REVALIDATING)
+                        return;
+
+                log_unit_warning(UNIT(s),
+                                 "D-Bus name %s vanished (possibly from an unsupported broker restart), giving it %s to return.",
+                                 s->bus_name,
+                                 FORMAT_TIMESPAN(SERVICE_BUS_NAME_GRACE_USEC, USEC_PER_SEC));
+
+                r = unit_arm_timer(UNIT(s), &s->bus_name_grace_event_source, /* relative= */ true,
+                                   SERVICE_BUS_NAME_GRACE_USEC, service_dispatch_bus_name_grace);
+                if (r < 0) {
+                        log_unit_warning_errno(UNIT(s), r, "Failed to arm D-Bus name grace timer: %m");
+                        service_enter_stop(s, SERVICE_FAILURE_RESOURCES);
+                        return;
+                }
+
+                if (s->state == SERVICE_RUNNING && s->runtime_max_usec != USEC_INFINITY) {
+                        usec_t deadline;
+                        if (sd_event_source_get_time(s->timer_event_source, &deadline) >= 0)
+                                s->revalidate_runtime_remaining_usec = usec_sub_unsigned(deadline, now(CLOCK_MONOTONIC));
+                }
+
+                service_set_state(s, SERVICE_RUNNING_REVALIDATING);
+
+        } else
+                service_enter_exited_or_stop(s);
 }
 
 static void service_enter_start_post(Service *s) {
@@ -3375,6 +3440,7 @@ static int service_start(Unit *u) {
         s->result = SERVICE_SUCCESS;
         s->reload_result = SERVICE_SUCCESS;
         s->reload_begin_usec = USEC_INFINITY;
+        s->revalidate_runtime_remaining_usec = USEC_INFINITY;
 
         s->status_text = mfree(s->status_text);
         s->status_errno = 0;
@@ -3739,6 +3805,7 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
                 (void) serialize_usec(f, "watchdog-override-usec", s->watchdog_override_usec);
 
         (void) serialize_usec(f, "reload-begin-usec", s->reload_begin_usec);
+        (void) serialize_usec(f, "revalidate-runtime-remaining-usec", s->revalidate_runtime_remaining_usec);
 
         if (s->refreshed_mask > 0) {
                 _cleanup_strv_free_ char **l = NULL;
@@ -4171,6 +4238,8 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
 
         } else if (streq(key, "reload-begin-usec"))
                 (void) deserialize_usec(value, &s->reload_begin_usec);
+        else if (streq(key, "revalidate-runtime-remaining-usec"))
+                (void) deserialize_usec(value, &s->revalidate_runtime_remaining_usec);
         else if (streq(key, "refreshed-mask")) {
                 r = service_refresh_on_reload_from_string_many(value, &s->refreshed_mask);
                 if (r < 0)
@@ -5256,7 +5325,7 @@ static void service_notify_message_process_state(Service *s, char * const *tags)
         if (strv_contains(tags, "STOPPING=1")) {
                 s->notify_state = NOTIFY_STOPPING;
 
-                if (IN_SET(s->state, SERVICE_RUNNING,
+                if (IN_SET(s->state, SERVICE_RUNNING, SERVICE_RUNNING_REVALIDATING,
                                      SERVICE_REFRESH_EXTENSIONS, SERVICE_REFRESH_CREDENTIALS,
                                      SERVICE_RELOAD_SIGNAL, SERVICE_RELOAD_NOTIFY))
                         service_enter_stop_by_notify(s);
@@ -5354,7 +5423,7 @@ static void service_notify_message(
 
         r = service_notify_message_parse_new_pid(u, tags, fds, &new_main_pid);
         if (r > 0 &&
-            IN_SET(s->state, SERVICE_START, SERVICE_START_POST, SERVICE_RUNNING,
+            IN_SET(s->state, SERVICE_START, SERVICE_START_POST, SERVICE_RUNNING, SERVICE_RUNNING_REVALIDATING,
                              SERVICE_REFRESH_EXTENSIONS, SERVICE_REFRESH_CREDENTIALS,
                              SERVICE_RELOAD, SERVICE_RELOAD_SIGNAL, SERVICE_RELOAD_NOTIFY, SERVICE_RELOAD_POST,
                              SERVICE_STOP, SERVICE_STOP_SIGTERM) &&
@@ -5498,7 +5567,7 @@ static void service_notify_message(
         }
 
         /* Interpret RESTART_RESET=1 */
-        if (strv_contains(tags, "RESTART_RESET=1") && IN_SET(s->state, SERVICE_RUNNING, SERVICE_STOP)) {
+        if (strv_contains(tags, "RESTART_RESET=1") && IN_SET(s->state, SERVICE_RUNNING, SERVICE_RUNNING_REVALIDATING, SERVICE_STOP)) {
                 log_unit_struct(u, LOG_NOTICE,
                                 LOG_UNIT_MESSAGE(u, "Got RESTART_RESET=1, resetting restart counter from %u.", s->n_restarts),
                                 LOG_ITEM("N_RESTARTS=0"),
@@ -5673,7 +5742,19 @@ static int bus_name_pid_lookup_callback(sd_bus_message *reply, void *userdata, s
         return 1;
 }
 
-static void service_bus_name_owner_change(Unit *u, const char *new_owner) {
+static int service_dispatch_bus_name_grace(sd_event_source *source, usec_t usec, void *userdata) {
+        Service *s = ASSERT_PTR(SERVICE(userdata));
+
+        assert(source == s->bus_name_grace_event_source);
+        assert(s->state == SERVICE_RUNNING_REVALIDATING);
+
+        log_unit_warning(UNIT(s), "D-Bus name %s still not owned after grace period, giving up.", s->bus_name);
+        service_enter_exited_or_stop(s);
+
+        return 0;
+}
+
+static void service_bus_name_owner_change(Unit *u, const char *new_owner, bool from_signal) {
         Service *s = ASSERT_PTR(SERVICE(u));
         int r;
 
@@ -5685,10 +5766,12 @@ static void service_bus_name_owner_change(Unit *u, const char *new_owner) {
         s->bus_name_good = new_owner;
 
         if (s->type == SERVICE_DBUS) {
-                /* service_enter_running() will figure out what to do */
-                if (s->state == SERVICE_RUNNING)
-                        service_enter_running(s, SERVICE_SUCCESS);
-                else if (s->state == SERVICE_START && new_owner)
+                if (IN_SET(s->state, SERVICE_RUNNING, SERVICE_RUNNING_REVALIDATING)) {
+                        if (!new_owner && from_signal)
+                                service_enter_exited_or_stop(s);
+                        else
+                                service_enter_running(s, SERVICE_SUCCESS);
+                } else if (s->state == SERVICE_START && new_owner)
                         service_enter_start_post(s);
 
         } else if (new_owner && pick_up_pid_from_bus_name(s)) {
