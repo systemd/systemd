@@ -11268,6 +11268,47 @@ static int context_ponder(Context *context) {
                                        FORMAT_BYTES(largest_free_area));
         }
 
+        /* Now that we know which new partition goes into which free area, reorder
+         * the partitions list so that the list is in the right order. */
+        {
+                LIST_HEAD(Partition, new_partitions) = NULL;
+                LIST_HEAD(Partition, existing_partitions) = NULL;
+
+                LIST_FOREACH_WITH_NEXT(partitions, p, n, context->partitions)
+                        if (p->allocated_to_area) {
+                                LIST_REMOVE(partitions, context->partitions, p);
+                                LIST_APPEND(partitions, new_partitions, p);
+                        } else {
+                                LIST_REMOVE(partitions, context->partitions, p);
+                                LIST_APPEND(partitions, existing_partitions, p);
+                        }
+
+                /* First sort existing partitions by their offset */
+                while (existing_partitions) {
+                        Partition *p = LIST_POP(partitions, existing_partitions);
+                        Partition *cursor = NULL;
+
+                        LIST_FOREACH(partitions, q, context->partitions)
+                                if (p->offset > q->offset)
+                                        cursor = q;
+
+                        LIST_INSERT_AFTER(partitions, context->partitions, cursor, p);
+                }
+
+                while (new_partitions) {
+                        Partition *p = LIST_POP(partitions, new_partitions);
+                        FreeArea *a = p->allocated_to_area;
+                        Partition *cursor = a->after;
+
+                        /* Advance past partitions of this area that we already inserted */
+                        LIST_FOREACH(partitions, q, context->partitions)
+                                if (q->allocated_to_area == a)
+                                        cursor = q;
+
+                        LIST_INSERT_AFTER(partitions, context->partitions, cursor, p);
+                }
+        }
+
         LIST_FOREACH(partitions, p, context->partitions) {
                 if (!p->supplement_for)
                         continue;
