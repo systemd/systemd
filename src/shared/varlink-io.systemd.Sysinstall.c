@@ -16,6 +16,16 @@ static SD_VARLINK_DEFINE_ENUM_TYPE(
                 SD_VARLINK_DEFINE_ENUM_VALUE(install_bootloader),
                 SD_VARLINK_DEFINE_ENUM_VALUE(unmount_partitions));
 
+static SD_VARLINK_DEFINE_ENUM_TYPE(
+                DeviceFit,
+
+                SD_VARLINK_DEFINE_ENUM_VALUE(enough_free_space),
+                SD_VARLINK_DEFINE_ENUM_VALUE(insufficent_free_space),
+                SD_VARLINK_DEFINE_ENUM_VALUE(disk_too_small),
+                SD_VARLINK_DEFINE_ENUM_VALUE(conflicting_disk_label_present));
+
+
+
 static SD_VARLINK_DEFINE_METHOD_FULL(
                 Run,
                 SD_VARLINK_SUPPORTS_MORE,
@@ -57,6 +67,8 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
 
 static SD_VARLINK_DEFINE_METHOD(
                 ListCandidateDevices,
+                SD_VARLINK_FIELD_COMMENT("Path to directory containing definition files."),
+                SD_VARLINK_DEFINE_INPUT(definitions, SD_VARLINK_STRING, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The device node path of the block device."),
                 SD_VARLINK_DEFINE_OUTPUT(node, SD_VARLINK_STRING, 0),
                 SD_VARLINK_FIELD_COMMENT("List of symlinks pointing to the device node, if any."),

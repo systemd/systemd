@@ -94,6 +94,24 @@ static const char *progress_phase_table[_PROGRESS_PHASE_MAX] = {
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(progress_phase, ProgressPhase);
 
+typedef enum DeviceFit {
+        ENOUGH_FREE_SPACE,
+        INSUFFICENT_FREE_SPACE,
+        DISK_TOO_SMALL,
+        CONFLICTING_DISK_LABEL_PRESENT,
+        _DEVICE_FIT_MAX,
+        _DEVICE_FIT_INVALID = -EINVAL,
+} DeviceFit;
+
+static const char *device_fit_table[_DEVICE_FIT_MAX] = {
+        [ENOUGH_FREE_SPACE]                   = "enough-free-space",
+        [INSUFFICENT_FREE_SPACE]              = "insufficent-free-space",
+        [DISK_TOO_SMALL]                      = "disk-too-small",
+        [CONFLICTING_DISK_LABEL_PRESENT]      = "conflicting-disk-label-present",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(device_fit, DeviceFit);
+
 typedef struct SysinsatllContext {
         bool copy_locale;
         bool copy_keymap;
@@ -1624,7 +1642,7 @@ static int sysinstall_context_run(SysinstallContext *context) {
 typedef struct ListCandidateDevicesContext {
         char **definitions;
 
-        sd_varlink *repart_link; /* Second repart connection to do dry run on each node */
+        sd_varlink *repart_link; /* A second repart connection to perform a dry run on each node */
 
         sd_varlink *link;
 } ListCandidateDevicesContext;
@@ -1654,6 +1672,33 @@ static ListCandidateDevicesContext* list_candidate_devices_context_free(ListCand
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(ListCandidateDevicesContext*, list_candidate_devices_context_free);
 
+static void vl_on_disconnect(sd_varlink_server *server, sd_varlink *link, void *userdata) {
+        assert(server);
+        assert(link);
+
+        sd_varlink *repart_link = sd_varlink_set_userdata(link, NULL);
+        if (repart_link) {
+                list_candidate_devices_context_free(sd_varlink_set_userdata(repart_link, NULL));
+                sd_varlink_flush_close_unref(repart_link);
+        }
+}
+
+typedef struct DevicesResponse {
+        const char *node;
+        char **symlinks;
+        uint64_t diskseq;
+        uint64_t size;
+        const char *model;
+        const char *vendor;
+        const char *subsystem;
+} DevicesResponse;
+
+static void devices_response_done(DevicesResponse *p) {
+        assert(p);
+
+        p->symlinks = strv_free(p->symlinks);
+}
+
 static int fetch_candidate_devices_reply(
                 sd_varlink *repart_link,
                 sd_json_variant *reply,
@@ -1667,43 +1712,31 @@ static int fetch_candidate_devices_reply(
 
         if (error_id) {
                 if (streq(error_id, "io.systemd.Repart.NoCandidateDevices"))
-                        return sd_varlink_set_sentinel(context->link, "io.systemd.Sysinstall.NoCandidateDevices");
+                        return sd_varlink_error(context->link, "io.systemd.Sysinstall.NoCandidateDevices", NULL);
 
-                return sd_varlink_set_sentinel(context->link, error_id);
+                return sd_varlink_error(context->link, error_id, NULL);
         }
 
-        // TODO: we need to free symlinks
-        struct {
-                const char *node;
-                char **symlinks;
-                uint64_t diskseq;
-                uint64_t size;
-                const char *model;
-                const char *vendor;
-                const char *subsystem;
-        } p = {
-                .diskseq = UINT64_MAX,
-                .size = UINT64_MAX,
-        };
-
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "node",      SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, voffsetof(p, node),      0 },
-                { "symlinks",  SD_JSON_VARIANT_ARRAY,  sd_json_dispatch_strv,         voffsetof(p, symlinks),  0 },
-                { "diskseq",   _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,       voffsetof(p, diskseq),   0 },
-                { "sizeBytes", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,       voffsetof(p, size),      0 },
-                { "model",     SD_JSON_VARIANT_STRING,      sd_json_dispatch_const_string, voffsetof(p, model),     0 },
-                { "vendor",    SD_JSON_VARIANT_STRING,      sd_json_dispatch_const_string, voffsetof(p, vendor),    0 },
-                { "subsystem", SD_JSON_VARIANT_STRING,      sd_json_dispatch_const_string, voffsetof(p, subsystem), 0 },
+                { "node",      SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(DevicesResponse, node),      0 },
+                { "symlinks",  SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_strv,         offsetof(DevicesResponse, symlinks),  0 },
+                { "diskseq",   _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,       offsetof(DevicesResponse, diskseq),   0 },
+                { "sizeBytes", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,       offsetof(DevicesResponse, size),      0 },
+                { "model",     SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(DevicesResponse, model),     0 },
+                { "vendor",    SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(DevicesResponse, vendor),    0 },
+                { "subsystem", SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(DevicesResponse, subsystem), 0 },
                 {}
         };
 
+        _cleanup_(devices_response_done) DevicesResponse p = {
+                .diskseq = UINT64_MAX,
+                .size = UINT64_MAX,
+        };
         r = sd_json_dispatch(reply, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &p);
         if (r < 0)
                 return r;
 
         uint64_t min_size = UINT64_MAX, current_size = UINT64_MAX, need_free = UINT64_MAX;
-
-        // TODO: maybe this should be async
         r = invoke_repart(
                         &context->repart_link,
                         p.node,
@@ -1714,16 +1747,19 @@ static int fetch_candidate_devices_reply(
                         &current_size,
                         &need_free);
 
-        const char *evaluation = NULL;
+        DeviceFit fit;
         if (r < 0) {
                 if (r == -ENOSPC)
-                        evaluation = "InsufficientFreeSpace";
+                        fit = INSUFFICENT_FREE_SPACE;
                 else if (r == -E2BIG)
-                        evaluation = "DiskTooSmall";
+                        fit = DISK_TOO_SMALL;
                 else if (r == -EHWPOISON)
-                        evaluation = "ConflictingDiskLabelPresent";
+                        fit = CONFLICTING_DISK_LABEL_PRESENT;
+
                 else
                         return r;
+        } else {
+                fit = ENOUGH_FREE_SPACE;
         }
 
         r = sd_json_buildo(&v,
@@ -1734,8 +1770,7 @@ static int fetch_candidate_devices_reply(
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("model", p.model),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("vendor", p.vendor),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("subsystem", p.subsystem),
-                        // TODO: is this a good name? for the repart dry run result
-                        SD_JSON_BUILD_PAIR_STRING("evaluation", evaluation),
+                        JSON_BUILD_PAIR_ENUM("fit", device_fit_to_string(fit)),
                         JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("currentSizeBytes", current_size, UINT64_MAX),
                         JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("needFreeBytes", need_free, UINT64_MAX),
                         JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("minimalSizeBytes", min_size, UINT64_MAX));
@@ -1809,8 +1844,6 @@ static int vl_method_list_candidate_devices(
         if (r < 0)
                 return r;
 
-        sd_varlink_set_userdata(repart_link, TAKE_PTR(context));
-
         r = sd_varlink_attach_event(repart_link, event, SD_EVENT_PRIORITY_NORMAL);
         if (r < 0)
                 return log_error_errno(
@@ -1832,7 +1865,12 @@ static int vl_method_list_candidate_devices(
                                 "Failed to issue io.systemd.Repart.ListCandidateDevices() varlink call: %m");
         }
 
-        // The repart link is freed on_disconnect
+        r = sd_varlink_server_bind_disconnect(varlink_server, vl_on_disconnect);
+        if (r < 0)
+                return r;
+
+        // The repart link and context is freed in vl_on_disconnect()
+        sd_varlink_set_userdata(repart_link, TAKE_PTR(context));
         sd_varlink_set_userdata(link, TAKE_PTR(repart_link));
 
         return 0;
@@ -1946,17 +1984,6 @@ static int vl_method_run(
         return sysinstall_context_run(&context);
 }
 
-static void vl_on_disconnect(sd_varlink_server *server, sd_varlink *link, void *userdata) {
-        assert(server);
-        assert(link);
-
-        sd_varlink *repart_link = sd_varlink_set_userdata(link, NULL);
-        if (repart_link) {
-                list_candidate_devices_context_free(sd_varlink_set_userdata(repart_link, NULL));
-                sd_varlink_flush_close_unref(repart_link);
-        }
-}
-
 static int vl_server(void) {
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *varlink_server = NULL;
         _cleanup_hashmap_free_ Hashmap *polkit_registry = NULL;
@@ -1981,10 +2008,6 @@ static int vl_server(void) {
                         "io.systemd.Sysinstall.Run",                  vl_method_run);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind Varlink methods: %m");
-
-        r = sd_varlink_server_bind_disconnect(varlink_server, vl_on_disconnect);
-        if (r < 0)
-                return r;
 
         r = sd_varlink_server_loop_auto(varlink_server);
         if (r < 0)
