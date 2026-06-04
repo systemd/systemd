@@ -8,6 +8,7 @@ systemd_sysupdate_sources = files(
         'sysupdate-partition.c',
         'sysupdate-pattern.c',
         'sysupdate-resource.c',
+        'sysupdate-target.c',
         'sysupdate-transfer.c',
         'sysupdate-update-set.c',
         'sysupdate.c',
@@ -37,7 +38,7 @@ executables += [
                 'name' : 'systemd-sysupdated',
                 'dbus' : true,
                 'conditions' : ['ENABLE_SYSUPDATED'],
-                'sources' : files('sysupdated.c'),
+                'sources' : files('sysupdated.c', 'sysupdate-target.c'),
         },
         executable_template + {
                 'name' : 'updatectl',
