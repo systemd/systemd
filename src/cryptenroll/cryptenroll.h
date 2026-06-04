@@ -77,6 +77,7 @@ typedef struct EnrollContext {
         bool tpm2_pin;
         char *tpm2_public_key;
         bool tpm2_load_public_key;
+        char *tpm2_public_key_policyref;
         uint32_t tpm2_public_key_pcr_mask;
         char *tpm2_signature;
         char *tpm2_pcrlock;

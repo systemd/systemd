@@ -193,6 +193,7 @@ static char *arg_tpm2_device_key = NULL;
 static Tpm2PCRValue *arg_tpm2_hash_pcr_values = NULL;
 static size_t arg_tpm2_n_hash_pcr_values = 0;
 static char *arg_tpm2_public_key = NULL;
+static char *arg_tpm2_public_key_policyref = NULL;
 static uint32_t arg_tpm2_public_key_pcr_mask = 0;
 static char *arg_tpm2_pcrlock = NULL;
 static bool arg_split = false;
@@ -235,6 +236,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_tpm2_device, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_device_key, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_hash_pcr_values, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_public_key, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_tpm2_public_key_policyref, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_pcrlock, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_filter_partitions, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_defer_partitions, freep);
@@ -5714,6 +5716,7 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                                 pcr_values,
                                 n_pcr_values,
                                 iovec_is_set(&pubkey) ? &public : NULL,
+                                iovec_is_set(&pubkey) ? arg_tpm2_public_key_policyref : NULL,
                                 /* use_pin= */ false,
                                 arg_tpm2_pcrlock && !iovec_is_set(&pubkey) ? &pcrlock_policy : NULL,
                                 policy_hash + 0);
@@ -5725,6 +5728,7 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                                         pcr_values,
                                         n_pcr_values,
                                         /* public= */ NULL,      /* Turn this one off for the 2nd shard */
+                                        /* pubkey_policy_ref= */ NULL,
                                         /* use_pin= */ false,
                                         &pcrlock_policy,         /* But turn this one on */
                                         policy_hash + 1);
@@ -5801,6 +5805,7 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                                 hash_pcr_mask,
                                 hash_pcr_bank,
                                 &pubkey,
+                                arg_tpm2_public_key_policyref,
                                 arg_tpm2_public_key_pcr_mask,
                                 /* primary_alg= */ 0,
                                 blobs,
@@ -10478,6 +10483,13 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
 
+                        break;
+
+                OPTION_LONG("tpm2-public-key-policyref", "STRING",
+                            "Enroll signed TPM2 PCR policy with the specified policy reference"):
+                        r = free_and_strdup_warn(&arg_tpm2_public_key_policyref, opts.arg);
+                        if (r < 0)
+                                return r;
                         break;
 
                 OPTION_LONG("tpm2-public-key-pcrs", "PCR1+PCR2+…",

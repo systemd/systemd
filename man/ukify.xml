@@ -723,6 +723,25 @@
 
           <xi:include href="version-info.xml" xpointer="v253"/></listitem>
         </varlistentry>
+
+        <varlistentry>
+          <term><varname>PolicyRef=<replaceable>STRING</replaceable></varname></term>
+          <term><varname>--policyref=<replaceable>STRING</replaceable></varname></term>
+
+          <listitem><para>A policy reference to bind the generated signature to.</para>
+
+          <para>The policy reference is an opaque string that is included in the data that is signed, and is
+          also incorporated into the authorization policy of any TPM2 resource that is locked against these
+          signatures (via the <constant>TPM2_PolicyAuthorize</constant> assertion). As a result, a signed
+          policy is only accepted for a resource whose authorization policy was created with the same
+          policy reference. Signed policies created with a different policy reference are rejected, even if
+          they are produced with the same signing key.</para>
+
+          <para>On the command line, when this argument is present, it must appear the same number of times as
+          the <option>--pcr-private-key=</option> option. </para>
+
+          <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+        </varlistentry>
       </variablelist>
     </refsect2>
   </refsect1>
