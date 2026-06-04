@@ -292,6 +292,7 @@ class UkifyConfig:
     pcrsig: Union[str, Path, None]
     join_pcrsig: Optional[Path]
     phase_path_groups: Optional[list[str]]
+    policyrefs: Optional[list[str]]
     policy_digest: bool
     profile: Optional[str]
     sb_cert: Union[str, Path, None]
@@ -697,7 +698,7 @@ def check_cert_and_keys_nonexistent(opts: UkifyConfig) -> None:
     # Raise if any of the keys and certs are found on disk
     paths: Iterator[Union[str, Path, None]] = itertools.chain(
         (opts.sb_key, opts.sb_cert),
-        *((priv_key, pub_key, cert) for priv_key, pub_key, cert, _ in key_path_groups(opts)),
+        *((priv_key, pub_key, cert) for priv_key, pub_key, cert, _, _ in key_path_groups(opts)),
     )
     for path in paths:
         if path and Path(path).exists():
@@ -735,7 +736,7 @@ def combine_signatures(pcrsigs: list[dict[str, str]]) -> str:
     return json.dumps(combined)
 
 
-def key_path_groups(opts: UkifyConfig) -> Iterator[tuple[str, Optional[str], Optional[str], Optional[str]]]:
+def key_path_groups(opts: UkifyConfig) -> Iterator[tuple[str, Optional[str], Optional[str], Optional[str], Optional[str]]]:
     if not opts.pcr_private_keys:
         return
 
@@ -743,12 +744,14 @@ def key_path_groups(opts: UkifyConfig) -> Iterator[tuple[str, Optional[str], Opt
     pub_keys = opts.pcr_public_keys or []
     certs = opts.pcr_certificates or []
     pp_groups = opts.phase_path_groups or []
+    policyrefs = opts.policyrefs or []
 
     yield from itertools.zip_longest(
         opts.pcr_private_keys,
         pub_keys[:n_priv],
         certs[:n_priv],
         pp_groups[:n_priv],
+        policyrefs[:n_priv],
         fillvalue=None,
     )
 
@@ -870,7 +873,7 @@ def call_systemd_measure(uki: UKI, opts: UkifyConfig, profile_start: int = 0) ->
                 *(f'--bank={bank}' for bank in banks),
             ]
 
-            for priv_key, pub_key, cert, group in key_path_groups(opts):
+            for priv_key, pub_key, cert, group, ref in key_path_groups(opts):
                 extra = [f'--private-key={priv_key}']
                 if opts.signing_engine is not None:
                     assert pub_key or cert
@@ -895,6 +898,8 @@ def call_systemd_measure(uki: UKI, opts: UkifyConfig, profile_start: int = 0) ->
                     extra += [f'--certificate-source=provider:{opts.certificate_provider}']
 
                 extra += [f'--phase={phase_path}' for phase_path in group or ()]
+                if ref is not None:
+                    extra += [f'--policyref={ref}']
 
                 print('+', shell_join(cmd + extra), file=sys.stderr)  # type: ignore
                 output = subprocess.check_output(cmd + extra, text=True)  # type: ignore
@@ -1674,7 +1679,7 @@ def generate_keys(opts: UkifyConfig) -> None:
 
         work = True
 
-    for priv_key, pub_key, _, _ in key_path_groups(opts):
+    for priv_key, pub_key, _, _, _ in key_path_groups(opts):
         priv_key_pem, pub_key_pem = generate_priv_pub_key_pair()
 
         print(f'Writing private key for PCR signing to {priv_key}', file=sys.stderr)
@@ -2201,6 +2206,15 @@ CONFIG_ITEMS = [
         config_push=ConfigItem.config_set_group,
     ),
     ConfigItem(
+        '--policyref',
+        dest='policyrefs',
+        metavar='STRING',
+        action='append',
+        help='policy references to bind signatures to',
+        config_key='PCRSignature:/PolicyRef',
+        config_push=ConfigItem.config_set_group,
+    ),
+    ConfigItem(
         '--tools',
         type=Path,
         action='append',
@@ -2396,6 +2410,7 @@ def finalize_options(opts: argparse.Namespace) -> None:
     n_pcr_pub = None if opts.pcr_public_keys is None else len(opts.pcr_public_keys)
     n_pcr_priv = None if opts.pcr_private_keys is None else len(opts.pcr_private_keys)
     n_phase_path_groups = None if opts.phase_path_groups is None else len(opts.phase_path_groups)
+    n_policyrefs = None if opts.policyrefs is None else len(opts.policyrefs)
     if opts.policy_digest and n_pcr_priv is not None:
         raise ValueError('--pcr-private-key= cannot be specified with --policy-digest')
     if (
@@ -2412,6 +2427,8 @@ def finalize_options(opts: argparse.Namespace) -> None:
         raise ValueError('--pcr-public-key= and --pcr-certificate= cannot be used at the same time')
     if n_phase_path_groups is not None and n_phase_path_groups != n_pcr_priv:
         raise ValueError('--phases= specifications must match --pcr-private-key=')
+    if n_policyrefs is not None and n_policyrefs != n_pcr_priv:
+        raise ValueError('--policyref= specifications must match --pcr-private-key=')
 
     opts.cmdline = resolve_at_path(opts.cmdline)
 

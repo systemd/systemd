@@ -962,6 +962,7 @@ int encrypt_credential_and_warn(
                                 tpm2_hash_pcr_values,
                                 tpm2_n_hash_pcr_values,
                                 iovec_is_set(&pubkey) ? &public : NULL,
+                                /* pubkey_policy_ref= */ NULL,
                                 /* use_pin= */ false,
                                 /* pcrlock_policy= */ NULL,
                                 &tpm2_policy);
@@ -1378,6 +1379,7 @@ int decrypt_credential_and_warn(
                                 le64toh(t->pcr_mask),
                                 le16toh(t->pcr_bank),
                                 z ? &IOVEC_MAKE(z->data, le32toh(z->size)) : NULL,
+                                /* pubkey_policy_ref= */ NULL,
                                 z ? le64toh(z->pcr_mask) : 0,
                                 signature_json,
                                 /* pin= */ NULL,
