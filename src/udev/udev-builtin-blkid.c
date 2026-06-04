@@ -458,6 +458,12 @@ static int probe_gpt_boot_disk_needs_loop(UdevEvent *event, int fd) {
                         return log_device_debug_errno(dev, r, "Failed to check if partition scanning is enabled: %m");
                 if (r > 0)
                         return 0;
+
+                r = device_sysname_startswith(dev, "dm-");
+                if (r < 0)
+                        return log_device_debug_errno(dev, r, "Failed to check sysname: %m");
+                if (r > 0)
+                        return 0;
         }
 
         if (sector_size_mismatch)
