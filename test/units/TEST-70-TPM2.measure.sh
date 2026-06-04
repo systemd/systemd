@@ -175,4 +175,22 @@ systemd-cryptsetup detach test-volume2
 "$SD_MEASURE" sign --current "${MEASURE_BANKS[@]}" --private-key="/tmp/pcrsign-private.pem" --public-key="/tmp/pcrsign-public.pem" --phase=quux:waldo --append="/tmp/pcrsign.sig6" >"/tmp/pcrsign.sig7"
 cmp "/tmp/pcrsign.sig5" "/tmp/pcrsign.sig7"
 
+# Enroll a keyslot bound to a policyref
+systemd-cryptenroll --wipe-slot=tpm2 "$IMAGE"
+systemd-cryptenroll --unlock-key-file=/tmp/passphrase --tpm2-device=auto --tpm2-public-key="/tmp/pcrsign-public.pem" --tpm2-public-key-policyref="foo" "$IMAGE"
+
+# Unlocking should fail initially as there is no signature for this policyref
+(! SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=0 systemd-cryptsetup attach test-volume2 "$IMAGE" - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig2",headless=1)
+(! SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=1 systemd-cryptsetup attach test-volume2 "$IMAGE" - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig2",headless=1)
+
+# Create a signature for a new phase with the enrolled policyref
+"$SD_MEASURE" sign --current "${MEASURE_BANKS[@]}" --private-key="/tmp/pcrsign-private.pem" --public-key="/tmp/pcrsign-public.pem" --phase=quux:waldo:foo --append="/tmp/pcrsign.sig7" >"/tmp/pcrsign.sig8"
+(! cmp "/tmp/pcrsign.sig7" "/tmp/pcrsign.sig8")
 rm -f "$IMAGE"
+
+# Unlocking should work now
+SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=0 systemd-cryptsetup attach test-volume2 "$IMAGE" - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig8",headless=1
+SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=0 systemd-cryptsetup detach test-volume2
+
+SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=1 systemd-cryptsetup attach test-volume2 "$IMAGE" - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig8",headless=1
+SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=1 systemd-cryptsetup detach test-volume2

@@ -3421,6 +3421,7 @@ static int find_signature(
                 const TPML_PCR_SELECTION *pcr_selection,
                 const void *fp,
                 size_t fp_size,
+                const char *policy_ref,
                 const void *policy,
                 size_t policy_size,
                 void *ret_signature,
@@ -3455,7 +3456,8 @@ static int find_signature(
         /* Now iterate through all signatures known for this bank */
         JSON_VARIANT_ARRAY_FOREACH(i, b) {
                 _cleanup_free_ void *fpj_data = NULL, *polj_data = NULL;
-                sd_json_variant *maskj, *fpj, *sigj, *polj;
+                const char *refj_data = NULL;
+                sd_json_variant *maskj, *fpj, *sigj, *polj, *refj;
                 size_t fpj_size, polj_size;
                 uint32_t parsed_mask;
 
@@ -3485,6 +3487,16 @@ static int find_signature(
 
                 if (memcmp_nn(fp, fp_size, fpj_data, fpj_size) != 0)
                         continue; /* Not for this public key */
+
+                refj = sd_json_variant_by_key(i, "ref");
+                if (refj) {
+                        refj_data = sd_json_variant_string(refj);
+                        if (!refj_data)
+                                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Policy reference is not a string.");
+                }
+
+                if (!streq_ptr(policy_ref, refj_data))
+                        continue;
 
                 /* Finally, check if this is for the PCR policy we expect this to be */
                 polj = sd_json_variant_by_key(i, "pol");
@@ -4150,7 +4162,7 @@ int tpm2_policy_pcr(
 /* Extend 'digest' with the PolicyAuthorize calculated hash. */
 int tpm2_calculate_policy_authorize(
                 const TPM2B_PUBLIC *public,
-                const TPM2B_DIGEST *policy_ref,
+                const TPM2B_NONCE *policy_ref,
                 TPM2B_DIGEST *digest) {
 
         TPM2_CC command = TPM2_CC_PolicyAuthorize;
@@ -4206,11 +4218,35 @@ int tpm2_calculate_policy_authorize(
         return 0;
 }
 
+static void tpm2_make_policy_ref(const char *policy_ref, TPM2B_NONCE *ret_policy_ref) {
+        assert(ret_policy_ref);
+        assert(SHA256_DIGEST_SIZE <= sizeof(ret_policy_ref->buffer));
+
+        /* A policy reference is represented by the TPM2B_NONCE type, which has a maximum size equivalent
+         * to the largest digest supported by the TPM. Because of this, digest the policy reference string.
+         * As we don't know what the maximum digest size supported by the TPM is when publishing a
+         * signed policy, we pick SHA256 which is universally supported on PC-Client devices. Ideally the
+         * algorithm ID would be prepended to the digest, but we don't know if the TPM2B_NONCE type can
+         * accomodate this. For this reason, the digest algorithm here should match the one used to create
+         * the approved digest for the corresponding policy, which is always SHA256 at the moment.
+         *
+         * Note that we return a policy ref size of 0 if no string is supplied in order to maintain
+         * backwards compatibility with previous systemd releases. */
+        if (!policy_ref) {
+                ret_policy_ref->size = 0;
+                return;
+        }
+
+        memcpy_safe(ret_policy_ref->buffer, SHA256_DIRECT(policy_ref, strlen(policy_ref)), SHA256_DIGEST_SIZE);
+        ret_policy_ref->size = SHA256_DIGEST_SIZE;
+}
+
 static int tpm2_policy_authorize(
                 Tpm2Context *c,
                 const Tpm2Handle *session,
                 TPML_PCR_SELECTION *pcr_selection,
                 const TPM2B_PUBLIC *public,
+                const char *policy_ref,
                 const void *fp,
                 size_t fp_size,
                 sd_json_variant *signature_json,
@@ -4258,6 +4294,7 @@ static int tpm2_policy_authorize(
                                 signature_json,
                                 pcr_selection,
                                 fp, fp_size,
+                                policy_ref,
                                 approved_policy->buffer,
                                 approved_policy->size,
                                 &signature_raw,
@@ -4308,6 +4345,9 @@ static int tpm2_policy_authorize(
                 check_ticket = &check_ticket_null;
         }
 
+        TPM2B_NONCE policy_ref_tpm2b;
+        tpm2_make_policy_ref(policy_ref, &policy_ref_tpm2b);
+
         rc = sym_Esys_PolicyAuthorize(
                         c->esys_context,
                         session->esys_handle,
@@ -4315,7 +4355,7 @@ static int tpm2_policy_authorize(
                         ESYS_TR_NONE,
                         ESYS_TR_NONE,
                         approved_policy,
-                        /* policyRef= */ &(const TPM2B_NONCE) {},
+                        &policy_ref_tpm2b,
                         pubkey_name,
                         check_ticket);
         if (rc != TSS2_RC_SUCCESS)
@@ -4330,6 +4370,7 @@ int tpm2_calculate_sealing_policy(
                 const Tpm2PCRValue *pcr_values,
                 size_t n_pcr_values,
                 const TPM2B_PUBLIC *public,
+                const char *pubkey_policy_ref,
                 bool use_pin,
                 const Tpm2PCRLockPolicy *pcrlock_policy,
                 TPM2B_DIGEST *digest) {
@@ -4346,7 +4387,9 @@ int tpm2_calculate_sealing_policy(
                 return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Policies that combined signed PCR and pcrlock are not supported.");
 
         if (public) {
-                r = tpm2_calculate_policy_authorize(public, NULL, digest);
+                TPM2B_NONCE policy_ref;
+                tpm2_make_policy_ref(pubkey_policy_ref, &policy_ref);
+                r = tpm2_calculate_policy_authorize(public, &policy_ref, digest);
                 if (r < 0)
                         return r;
         }
@@ -4387,6 +4430,7 @@ static int tpm2_build_sealing_policy(
                 uint32_t hash_pcr_mask,
                 uint16_t pcr_bank,
                 const TPM2B_PUBLIC *public,
+                const char *pubkey_policy_ref,
                 const void *fp,
                 size_t fp_size,
                 uint32_t pubkey_pcr_mask,
@@ -4400,6 +4444,7 @@ static int tpm2_build_sealing_policy(
         assert(c);
         assert(session);
         assert(pubkey_pcr_mask == 0 || public);
+        assert(!pubkey_policy_ref || public);
 
         log_debug("Building sealing policy.");
 
@@ -4417,7 +4462,7 @@ static int tpm2_build_sealing_policy(
         if (pubkey_pcr_mask != 0) {
                 TPML_PCR_SELECTION pcr_selection;
                 tpm2_tpml_pcr_selection_from_mask(pubkey_pcr_mask, (TPMI_ALG_HASH)pcr_bank, &pcr_selection);
-                r = tpm2_policy_authorize(c, session, &pcr_selection, public, fp, fp_size, signature_json, NULL);
+                r = tpm2_policy_authorize(c, session, &pcr_selection, public, pubkey_policy_ref, fp, fp_size, signature_json, NULL);
                 if (r < 0)
                         return r;
         }
@@ -5550,6 +5595,32 @@ int tpm2_calculate_seal(
 #endif
 }
 
+int tpm2_make_policy_authorize_tbs_data(
+                const TPM2B_DIGEST *approved_digest,
+                const char *policy_ref_data,
+                struct iovec *ret_tbs_data) {
+
+        TPM2B_NONCE policy_ref;
+
+        assert(approved_digest);
+        assert(ret_tbs_data);
+
+        tpm2_make_policy_ref(policy_ref_data, &policy_ref);
+
+        /* The data to be signed for a TPM2_PolicyAuthorize() is the concatenation of the approved policy
+         * digest and the policy reference, as per TPM2 Spec Part 3, 23.16. */
+        _cleanup_(iovec_done) struct iovec tbs_data = {};
+
+        if (!iovec_append(&tbs_data, &IOVEC_MAKE(approved_digest->buffer, approved_digest->size)))
+                return log_oom_debug();
+
+        if (!iovec_append(&tbs_data, &IOVEC_MAKE(policy_ref.buffer, policy_ref.size)))
+                return log_oom_debug();
+
+        *ret_tbs_data = TAKE_STRUCT(tbs_data);
+        return 0;
+}
+
 int tpm2_seal(Tpm2Context *c,
               uint32_t seal_key_handle,
               const TPM2B_DIGEST policy[],
@@ -5775,6 +5846,7 @@ int tpm2_unseal(Tpm2Context *c,
                 uint32_t hash_pcr_mask,
                 uint16_t pcr_bank,
                 const struct iovec *pubkey,
+                const char *pubkey_policy_ref,
                 uint32_t pubkey_pcr_mask,
                 sd_json_variant *signature,
                 const char *pin,
@@ -5808,6 +5880,7 @@ int tpm2_unseal(Tpm2Context *c,
         assert(n_blobs > 0);
         assert(blobs);
         assert(iovec_is_valid(pubkey));
+        assert(!pubkey_policy_ref || iovec_is_set(pubkey));
         assert(ret_secret);
 
         assert(TPM2_PCR_MASK_VALID(hash_pcr_mask));
@@ -5949,6 +6022,7 @@ int tpm2_unseal(Tpm2Context *c,
                                         hash_pcr_mask,
                                         pcr_bank,
                                         shard == 0 && iovec_is_set(pubkey) ? &pubkey_tpm2b : NULL,
+                                        shard == 0 ? pubkey_policy_ref : NULL,
                                         fp.iov_base, fp.iov_len,
                                         shard == 0 ? pubkey_pcr_mask : 0,
                                         signature,
@@ -8738,6 +8812,7 @@ int tpm2_make_luks2_json(
                 uint32_t hash_pcr_mask,
                 uint16_t pcr_bank,
                 const struct iovec *pubkey,
+                const char *pubkey_policy_ref,
                 uint32_t pubkey_pcr_mask,
                 uint16_t primary_alg,
                 const struct iovec blobs[],
@@ -8755,6 +8830,7 @@ int tpm2_make_luks2_json(
         int r;
 
         assert(iovec_is_valid(pubkey));
+        assert(!pubkey_policy_ref || iovec_is_set(pubkey));
         assert(n_blobs >= 1);
         assert(n_policy_hash >= 1);
 
@@ -8798,6 +8874,7 @@ int tpm2_make_luks2_json(
                         SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(flags, TPM2_FLAGS_USE_PCRLOCK), "tpm2_pcrlock", SD_JSON_BUILD_BOOLEAN(true)),
                         SD_JSON_BUILD_PAIR_CONDITION(pubkey_pcr_mask != 0, "tpm2_pubkey_pcrs", SD_JSON_BUILD_VARIANT(pkmj)),
                         SD_JSON_BUILD_PAIR_CONDITION(iovec_is_set(pubkey), "tpm2_pubkey", JSON_BUILD_IOVEC_BASE64(pubkey)),
+                        SD_JSON_BUILD_PAIR_CONDITION(pubkey_policy_ref != NULL, "tpm2_pubkey_ref", SD_JSON_BUILD_STRING(pubkey_policy_ref)),
                         SD_JSON_BUILD_PAIR_CONDITION(iovec_is_set(salt), "tpm2_salt", JSON_BUILD_IOVEC_BASE64(salt)),
                         SD_JSON_BUILD_PAIR_CONDITION(iovec_is_set(srk), "tpm2_srk", JSON_BUILD_IOVEC_BASE64(srk)),
                         SD_JSON_BUILD_PAIR_CONDITION(iovec_is_set(pcrlock_nv), "tpm2_pcrlock_nv", JSON_BUILD_IOVEC_BASE64(pcrlock_nv)));
@@ -8873,6 +8950,7 @@ int tpm2_parse_luks2_json(
                 uint32_t *ret_hash_pcr_mask,
                 uint16_t *ret_pcr_bank,
                 struct iovec *ret_pubkey,
+                char **ret_pubkey_policy_ref,
                 uint32_t *ret_pubkey_pcr_mask,
                 uint16_t *ret_primary_alg,
                 struct iovec **ret_blobs,
@@ -8885,6 +8963,7 @@ int tpm2_parse_luks2_json(
                 TPM2Flags *ret_flags) {
 
         _cleanup_(iovec_done) struct iovec pubkey = {}, salt = {}, srk = {}, pcrlock_nv = {};
+        _cleanup_free_ char *pubkey_ref = NULL;
         uint32_t hash_pcr_mask = 0, pubkey_pcr_mask = 0;
         uint16_t primary_alg = 0;
         uint16_t pcr_bank = UINT16_MAX; /* default: pick automatically */
@@ -9007,6 +9086,16 @@ int tpm2_parse_luks2_json(
         } else if (pubkey_pcr_mask != 0)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Public key PCR mask set, but not public key included in JSON data, refusing.");
 
+        w = sd_json_variant_by_key(v, "tpm2_pubkey_ref");
+        if (w) {
+                const char *s = sd_json_variant_string(w);
+                if (!s)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Public key policy reference is not a string.");
+                pubkey_ref = strdup(s);
+                if (!pubkey_ref)
+                        return log_oom_debug();
+        }
+
         w = sd_json_variant_by_key(v, "tpm2_srk");
         if (w) {
                 r = json_variant_unbase64_iovec(w, &srk);
@@ -9029,6 +9118,8 @@ int tpm2_parse_luks2_json(
                 *ret_pcr_bank = pcr_bank;
         if (ret_pubkey)
                 *ret_pubkey = TAKE_STRUCT(pubkey);
+        if (ret_pubkey_policy_ref)
+                *ret_pubkey_policy_ref = TAKE_PTR(pubkey_ref);
         if (ret_pubkey_pcr_mask)
                 *ret_pubkey_pcr_mask = pubkey_pcr_mask;
         if (ret_primary_alg)
