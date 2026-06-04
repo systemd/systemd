@@ -1555,6 +1555,37 @@ bool manager_packet_from_local_address(Manager *m, DnsPacket *p) {
         return !!manager_find_link_address(m, p->family, &p->sender);
 }
 
+bool manager_mdns_record_is_ours(Manager *m, DnsResourceRecord *rr) {
+        assert(m);
+        assert(rr);
+
+        /* Checks whether the given record is one we publish ourselves on *any* local interface.
+         *
+         * resolved keeps a separate mDNS zone per interface (per DnsScope, keyed by the arrival ifindex).
+         * On a multi-homed host with an mDNS reflector bridging mDNS between its links, a record we publish
+         * on one link can come back on another carrying that other link's address, and so look foreign to
+         * the receiving scope's zone. To recognize such records as ours regardless of the interface they
+         * arrive on, we consult all scopes' zones here. This mirrors how mDNSResponder's conflict check
+         * (FindRRSet) ignores the InterfaceID. */
+
+        /* Address records: short-circuit via the set of addresses actually configured on our links. This
+         * also covers the window before the corresponding address RR has been entered into a zone. */
+        if (rr->key->type == DNS_TYPE_A &&
+            manager_find_link_address(m, AF_INET, &(union in_addr_union) { .in = rr->a.in_addr }))
+                return true;
+        if (rr->key->type == DNS_TYPE_AAAA &&
+            manager_find_link_address(m, AF_INET6, &(union in_addr_union) { .in6 = rr->aaaa.in6_addr }))
+                return true;
+
+        /* Any record type: is an identical record (same name, type, class, and rdata) published in any
+         * scope's zone? */
+        LIST_FOREACH(scopes, s, m->dns_scopes)
+                if (dns_zone_get(&s->zone, rr))
+                        return true;
+
+        return false;
+}
+
 bool manager_packet_from_our_transaction(Manager *m, DnsPacket *p) {
         DnsTransaction *t;
 

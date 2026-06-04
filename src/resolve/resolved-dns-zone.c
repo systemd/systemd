@@ -509,6 +509,47 @@ void dns_zone_item_conflict(DnsZoneItem *i) {
                 manager_next_hostname(i->scope->manager);
 }
 
+static bool dns_zone_item_probe_reply_is_conflict(DnsZoneItem *i) {
+        DnsResourceRecord *rr;
+
+        assert(i);
+        assert(i->probe_transaction);
+
+        /* Checks whether the reply that completed our probe transaction actually represents a conflict,
+         * i.e. carries a record on our name that we do not own ourselves.
+         *
+         * Per RFC 6762 section 8.2 a record only conflicts with one we are probing for if it carries the
+         * same name but *different* rdata; a record with rdata identical to ours is explicitly not a
+         * conflict. The steady-state path (dns_zone_check_conflicts()) already honors this via
+         * dns_zone_get(); the probe path should too.
+         *
+         * We treat a record as ours if we publish it on *any* local interface, not just the one this probe
+         * runs on. resolved keeps a separate mDNS zone per interface; if the host is multi-homed and an
+         * mDNS reflector is bridging mDNS between its links, our own announcement on one link can come back
+         * on another carrying that other link's address, and would otherwise look foreign to the receiving
+         * scope's zone. This mirrors how mDNSResponder's conflict check (FindRRSet) ignores the InterfaceID.
+         * See manager_mdns_record_is_ours(). */
+
+        DNS_ANSWER_FOREACH(rr, i->probe_transaction->answer) {
+                /* Only consider records carrying the name we are probing for. */
+                if (dns_name_equal(dns_resource_key_name(rr->key), dns_resource_key_name(i->rr->key)) <= 0)
+                        continue;
+
+                /* DNS-SD service enumeration PTRs are shared, never unique, hence never conflict. */
+                if (dns_resource_key_is_dnssd_ptr(rr->key))
+                        continue;
+
+                /* If we publish this record on any of our interfaces, it's ours (possibly reflected). */
+                if (manager_mdns_record_is_ours(i->scope->manager, rr))
+                        continue;
+
+                /* A record on our name that we do not own: a genuine, foreign conflict. */
+                return true;
+        }
+
+        return false;
+}
+
 void dns_zone_item_notify(DnsZoneItem *i) {
         assert(i);
         assert(i->probe_transaction);
@@ -531,8 +572,17 @@ void dns_zone_item_notify(DnsZoneItem *i) {
                  * and defend it. */
 
                 if (!IN_SET(i->state, DNS_ZONE_ITEM_ESTABLISHED, DNS_ZONE_ITEM_VERIFYING)) {
-                        log_debug("Got a successful probe for not yet established RR, we lost.");
-                        we_lost = true;
+                        /* For mDNS, a probe reply that consists solely of records we already own is not a
+                         * conflict (RFC 6762 section 8.2) — most commonly it is our own announcement
+                         * reflected back to us by an mDNS reflector. Only give up the name if the reply
+                         * carries a foreign record on our name. */
+                        if (i->probe_transaction->scope->protocol == DNS_PROTOCOL_MDNS &&
+                            !dns_zone_item_probe_reply_is_conflict(i))
+                                log_debug("Got a successful probe reply for not yet established RR, but it only contains records we own; not a conflict.");
+                        else {
+                                log_debug("Got a successful probe for not yet established RR, we lost.");
+                                we_lost = true;
+                        }
                 } else if (i->probe_transaction->scope->protocol == DNS_PROTOCOL_LLMNR) {
                         assert(i->probe_transaction->received);
                         we_lost = memcmp(&i->probe_transaction->received->sender, &i->probe_transaction->received->destination, FAMILY_ADDRESS_SIZE(i->probe_transaction->received->family)) < 0;
