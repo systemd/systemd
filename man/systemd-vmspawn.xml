@@ -798,7 +798,9 @@
 
           <listitem><para>Configures how to set up the console of the VM. Takes one of
           <literal>interactive</literal>, <literal>read-only</literal>, <literal>native</literal>,
-          <literal>gui</literal>, <literal>headless</literal>. Defaults to <literal>interactive</literal>.
+          <literal>gui</literal>, <literal>headless</literal>. If not specified, defaults to
+          <literal>interactive</literal> when both standard input and standard output are connected to a
+          terminal, and to <literal>native</literal> otherwise.
           <literal>interactive</literal> provides an interactive terminal interface to the VM.
           <literal>read-only</literal> is similar, but is strictly read-only, i.e. does not accept any input
           from the user. <literal>native</literal> also provides a TTY-based interface, but uses qemu native
