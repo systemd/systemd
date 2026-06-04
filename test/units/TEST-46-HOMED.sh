@@ -54,12 +54,6 @@ systemctl kill -sUSR1 systemd-homed
 testcase_basic() {
     local TMP_SKEL
 
-    . /etc/os-release
-    if [[ "${ID_LIKE:-}" == alpine ]] && ! systemd-detect-virt -cq; then
-        # luks seems to be broken on alpine/postmarketos.
-        return 0
-    fi
-
     TMP_SKEL=$(mktemp -d)
     echo hogehoge >"$TMP_SKEL"/hoge
 
@@ -274,12 +268,6 @@ testcase_basic() {
 }
 
 testcase_blob() {
-    . /etc/os-release
-    if [[ "${ID_LIKE:-}" == alpine ]] && ! systemd-detect-virt -cq; then
-        # luks seems to be broken on alpine/postmarketos.
-        return 0
-    fi
-
     # blob directory tests
     # See docs/USER_RECORD_BLOB_DIRS.md
     checkblob() {
