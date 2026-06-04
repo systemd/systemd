@@ -8279,12 +8279,6 @@ E0D000-E0DFFF     (base 16)		MyDefence A/S
 				Norresundby  NJ  9400
 				DK
 
-8C-1F-64   (hex)		Talleres de Escoriaza SAU
-955000-955FFF     (base 16)		Talleres de Escoriaza SAU
-				Barrio Ventas 35, Irun
-				Irun  Gipuzkoa  20305
-				ES
-
 8C-1F-64   (hex)		Osec
 8EF000-8EFFFF     (base 16)		Osec
 				netwerk 120
@@ -8296,12 +8290,6 @@ ABA000-ABAFFF     (base 16)		FLUGCOM GmbH
 				Lyoner str. 15
 				Frankfurt am Main  Hessen  60528
 				DE
-
-8C-1F-64   (hex)		Power Electronics Espana, S.L.
-82C000-82CFFF     (base 16)		Power Electronics Espana, S.L.
-				RONDA DEL CAMP DE AVIACIO, NO. 4 CARRASES INDUSTRIAL ESTATE
-				LLÍRIA   Valencia  46160 
-				ES
 
 8C-1F-64   (hex)		Power Electronics Espana, S.L.
 362000-362FFF     (base 16)		Power Electronics Espana, S.L.
@@ -8339,11 +8327,53 @@ FE3000-FE3FFF     (base 16)		Power Electronics Espana, S.L.
 				LLÍRIA   Valencia  46160 
 				ES
 
+8C-1F-64   (hex)		Talleres de Escoriaza SAU
+955000-955FFF     (base 16)		Talleres de Escoriaza SAU
+				Barrio Ventas 35, Irun
+				Irun  Gipuzkoa  20305
+				ES
+
+8C-1F-64   (hex)		WAVEBAND TECHNOLOGIES PVT LIMITED
+36D000-36DFFF     (base 16)		WAVEBAND TECHNOLOGIES PVT LIMITED
+				103, VISHAL TOWER, JANAKPURI DISTRICT CENTRE, 
+				NEW DELHI  DELHI  110058
+				IN
+
+8C-1F-64   (hex)		Vitaltrace PTY LTD
+5CA000-5CAFFF     (base 16)		Vitaltrace PTY LTD
+				43 Action Road
+				Malaga  WA  6090
+				AU
+
+8C-1F-64   (hex)		Power Electronics Espana, S.L.
+82C000-82CFFF     (base 16)		Power Electronics Espana, S.L.
+				RONDA DEL CAMP DE AVIACIO, NO. 4 CARRASES INDUSTRIAL ESTATE
+				LLÍRIA   Valencia  46160 
+				ES
+
 70-B3-D5   (hex)		Power Electronics Espana, S.L.
 B56000-B56FFF     (base 16)		Power Electronics Espana, S.L.
 				RONDA DEL CAMP DE AVIACIO, NO. 4 CARRASES INDUSTRIAL ESTATE
 				LLÍRIA   Valencia  46160 
 				ES
+
+8C-1F-64   (hex)		Pionierkraft GmbH
+6C7000-6C7FFF     (base 16)		Pionierkraft GmbH
+				Osterwaldstr. 10 - D13
+				Munich  Bavaria  80805
+				DE
+
+8C-1F-64   (hex)		Brightwell Dosing ltd
+C7F000-C7FFFF     (base 16)		Brightwell Dosing ltd
+				Avis Way
+				Newhaven  East Sussex  BN9 0DU
+				GB
+
+8C-1F-64   (hex)		ACE TECH
+0DE000-0DEFFF     (base 16)		ACE TECH
+				57, Hyeoksinsandan 3-gil, Wanggok-myeon, Naju-si, Jeollanam-do, Republic of Korea
+				Naju-si  Jeollanam-do  58296
+				KR
 
 8C-1F-64   (hex)		Jacobs Technology, Inc.
 A98000-A98FFF     (base 16)		Jacobs Technology, Inc.
@@ -16760,30 +16790,6 @@ C2E000-C2EFFF     (base 16)		ICS SOLUTIONS INC.
 				Domène  Isère  38420
 				FR
 
-8C-1F-64   (hex)		XPS ELETRONICA LTDA
-F7B000-F7BFFF     (base 16)		XPS ELETRONICA LTDA
-				AVENIDA JAÇANÃ, 470/474 - VILA NELSON
-				SÃO PAULO  SÃO PAULO  02273-001
-				BR
-
-8C-1F-64   (hex)		Power Electronics Espana, S.L.
-C83000-C83FFF     (base 16)		Power Electronics Espana, S.L.
-				RONDA DEL CAMP DE AVIACIO, NO. 4 CARRASES INDUSTRIAL ESTATE
-				LLÍRIA   Valencia  46160 
-				ES
-
-8C-1F-64   (hex)		Power Electronics Espana, S.L.
-E80000-E80FFF     (base 16)		Power Electronics Espana, S.L.
-				RONDA DEL CAMP DE AVIACIO, NO. 4 CARRASES INDUSTRIAL ESTATE
-				LLÍRIA   Valencia  46160 
-				ES
-
-8C-1F-64   (hex)		Power Electronics Espana, S.L.
-0D8000-0D8FFF     (base 16)		Power Electronics Espana, S.L.
-				RONDA DEL CAMP DE AVIACIO, NO. 4 CARRASES INDUSTRIAL ESTATE
-				LLÍRIA   Valencia  46160 
-				ES
-
 70-B3-D5   (hex)		Power Electronics Espana, S.L.
 AB2000-AB2FFF     (base 16)		Power Electronics Espana, S.L.
 				RONDA DEL CAMP DE AVIACIO, NO. 4 CARRASES INDUSTRIAL ESTATE
@@ -16801,6 +16807,72 @@ EB8000-EB8FFF     (base 16)		Power Electronics Espana, S.L.
 				RONDA DEL CAMP DE AVIACIO, NO. 4 CARRASES INDUSTRIAL ESTATE
 				LLÍRIA   Valencia  46160 
 				ES
+
+8C-1F-64   (hex)		Power Electronics Espana, S.L.
+E80000-E80FFF     (base 16)		Power Electronics Espana, S.L.
+				RONDA DEL CAMP DE AVIACIO, NO. 4 CARRASES INDUSTRIAL ESTATE
+				LLÍRIA   Valencia  46160 
+				ES
+
+8C-1F-64   (hex)		Power Electronics Espana, S.L.
+0D8000-0D8FFF     (base 16)		Power Electronics Espana, S.L.
+				RONDA DEL CAMP DE AVIACIO, NO. 4 CARRASES INDUSTRIAL ESTATE
+				LLÍRIA   Valencia  46160 
+				ES
+
+8C-1F-64   (hex)		Power Electronics Espana, S.L.
+C83000-C83FFF     (base 16)		Power Electronics Espana, S.L.
+				RONDA DEL CAMP DE AVIACIO, NO. 4 CARRASES INDUSTRIAL ESTATE
+				LLÍRIA   Valencia  46160 
+				ES
+
+8C-1F-64   (hex)		XPS ELETRONICA LTDA
+F7B000-F7BFFF     (base 16)		XPS ELETRONICA LTDA
+				AVENIDA JAÇANÃ, 470/474 - VILA NELSON
+				SÃO PAULO  SÃO PAULO  02273-001
+				BR
+
+8C-1F-64   (hex)		YUYAMA MFG Co.,Ltd
+906000-906FFF     (base 16)		YUYAMA MFG Co.,Ltd
+				1-4-30
+				MEISHINGUCHI,TOYONAKA  OSAKA  561-0841
+				JP
+
+8C-1F-64   (hex)		Real Random
+4B1000-4B1FFF     (base 16)		Real Random
+				570 S. Barfield Dr
+				Marco Island  FL  34145-5921
+				US
+
+8C-1F-64   (hex)		Integer.pl S.A.
+D57000-D57FFF     (base 16)		Integer.pl S.A.
+				Wielicka 28
+				Krakow    30-552
+				PL
+
+8C-1F-64   (hex)		Editech Co., Ltd.
+430000-430FFF     (base 16)		Editech Co., Ltd.
+				 #601 Anyang Sk V1 Center 25-32
+				Dongan-Gu, Anyang-Si  Gyeonggi-do  14118
+				KR
+
+8C-1F-64   (hex)		Rational Production srl Unipersonale
+98E000-98EFFF     (base 16)		Rational Production srl Unipersonale
+				Via L. Galvani 7/H
+				Albano S. Alessandro  Bergamo  24061
+				IT
+
+8C-1F-64   (hex)		SPACE CREATORS ALLIANCE Inc.
+D33000-D33FFF     (base 16)		SPACE CREATORS ALLIANCE Inc.
+				75 Waseda
+				Shinjuku  Tokyo  162-0042
+				JP
+
+8C-1F-64   (hex)		ADITUS GmbH
+7F7000-7F7FFF     (base 16)		ADITUS GmbH
+				Straße der Nationen 5
+				Hannover    30539
+				DE
 
 8C-1F-64   (hex)		Vision Systems Safety Tech
 E6F000-E6FFFF     (base 16)		Vision Systems Safety Tech
@@ -25250,17 +25322,17 @@ A6C000-A6CFFF     (base 16)		Arctic Instruments Oy
 				Opfikon    8152
 				CH
 
-8C-1F-64   (hex)		Skylark Lasers
-B33000-B33FFF     (base 16)		Skylark Lasers
-				Phase One, Ratho park, 88 Glasgow Rd, Ratho Station, Newbridge
-				Edinburgh    EH28 8PP
-				GB
-
 8C-1F-64   (hex)		Möbus Engineering GmbH
 9EE000-9EEFFF     (base 16)		Möbus Engineering GmbH
 				Adam-Opel-Straße 3
 				Trebur  Hessen  65468
 				DE
+
+8C-1F-64   (hex)		Skylark Lasers
+B33000-B33FFF     (base 16)		Skylark Lasers
+				Phase One, Ratho park, 88 Glasgow Rd, Ratho Station, Newbridge
+				Edinburgh    EH28 8PP
+				GB
 
 70-B3-D5   (hex)		Power Electronics Espana, S.L.
 148000-148FFF     (base 16)		Power Electronics Espana, S.L.
@@ -25291,6 +25363,24 @@ B33000-B33FFF     (base 16)		Skylark Lasers
 				RONDA DEL CAMP DE AVIACIO, NO. 4 CARRASES INDUSTRIAL ESTATE
 				LLÍRIA   Valencia  46160 
 				ES
+
+8C-1F-64   (hex)		Potter Electric Signal Co LLC
+89F000-89FFFF     (base 16)		Potter Electric Signal Co LLC
+				1609 Park 370 Place
+				Hazelwood  MO  63043
+				US
+
+8C-1F-64   (hex)		Digilube Systems Inc
+3C3000-3C3FFF     (base 16)		Digilube Systems Inc
+				216 E Mill St
+				Springboro  OH  45066
+				US
+
+8C-1F-64   (hex)		Preston Industries dba PolyScience
+975000-975FFF     (base 16)		Preston Industries dba PolyScience
+				6600 W. Touhy Ave
+				Niles  IL  60714-4588
+				US
 
 8C-1F-64   (hex)		Flow Power
 82B000-82BFFF     (base 16)		Flow Power
@@ -33636,18 +33726,6 @@ F4C000-F4CFFF     (base 16)		Polytech A/S
 				DK
 
 70-B3-D5   (hex)		Power Electronics Espana, S.L.
-4CD000-4CDFFF     (base 16)		Power Electronics Espana, S.L.
-				RONDA DEL CAMP DE AVIACIO, NO. 4 CARRASES INDUSTRIAL ESTATE
-				LLÍRIA   Valencia  46160 
-				ES
-
-70-B3-D5   (hex)		Power Electronics Espana, S.L.
-BDB000-BDBFFF     (base 16)		Power Electronics Espana, S.L.
-				RONDA DEL CAMP DE AVIACIO, NO. 4 CARRASES INDUSTRIAL ESTATE
-				LLÍRIA   Valencia  46160 
-				ES
-
-70-B3-D5   (hex)		Power Electronics Espana, S.L.
 2A9000-2A9FFF     (base 16)		Power Electronics Espana, S.L.
 				RONDA DEL CAMP DE AVIACIO, NO. 4 CARRASES INDUSTRIAL ESTATE
 				LLÍRIA   Valencia  46160 
@@ -33664,6 +33742,30 @@ F4F000-F4FFFF     (base 16)		Power Electronics Espana, S.L.
 				RONDA DEL CAMP DE AVIACIO, NO. 4 CARRASES INDUSTRIAL ESTATE
 				LLÍRIA   Valencia  46160 
 				ES
+
+70-B3-D5   (hex)		Power Electronics Espana, S.L.
+4CD000-4CDFFF     (base 16)		Power Electronics Espana, S.L.
+				RONDA DEL CAMP DE AVIACIO, NO. 4 CARRASES INDUSTRIAL ESTATE
+				LLÍRIA   Valencia  46160 
+				ES
+
+70-B3-D5   (hex)		Power Electronics Espana, S.L.
+BDB000-BDBFFF     (base 16)		Power Electronics Espana, S.L.
+				RONDA DEL CAMP DE AVIACIO, NO. 4 CARRASES INDUSTRIAL ESTATE
+				LLÍRIA   Valencia  46160 
+				ES
+
+8C-1F-64   (hex)		GENIUS SPORTS
+DD0000-DD0FFF     (base 16)		GENIUS SPORTS
+				VIA ELETTRICISTA 10
+				BOLOGNA  BOLOGNA  40138
+				IT
+
+8C-1F-64   (hex)		ZTZ Services International
+4BD000-4BDFFF     (base 16)		ZTZ Services International
+				655 NW 128th Street
+				North Miami  FL  33168
+				US
 
 8C-1F-64   (hex)		Mobileye
 D63000-D63FFF     (base 16)		Mobileye
@@ -36931,12 +37033,6 @@ F88000-F88FFF     (base 16)		ODAWARAKIKI AUTO-MACHINE MFG.CO.,LTD
 				1-11-3 Nakacho
 				Odawara  Kanagawa  250-0005
 				JP
-
-70-B3-D5   (hex)		SODAQ
-ADC000-ADCFFF     (base 16)		SODAQ
-				Laapersveld 75
-				Hilversum  -  1213 VB
-				NL
 
 70-B3-D5   (hex)		Beijing HuaLian Technology Co, Ltd.
 623000-623FFF     (base 16)		Beijing HuaLian Technology Co, Ltd.
@@ -40241,12 +40337,6 @@ C9B000-C9BFFF     (base 16)		J.M. Voith SE & Co. KG
 				Heidenheim    89522
 				DE
 
-8C-1F-64   (hex)		Blue Ocean UG
-B01000-B01FFF     (base 16)		Blue Ocean UG
-				Bruhl 62
-				Leipzig    04109
-				DE
-
 8C-1F-64   (hex)		hiSky SCS Ltd
 C1B000-C1BFFF     (base 16)		hiSky SCS Ltd
 				Haamal 24
@@ -41915,35 +42005,23 @@ EC5000-EC5FFF     (base 16)		Stanley Black & Decker Engineered Fastening (Nanton
 				Sacramento    95811
 				US
 
-8C-1F-64   (hex)		Scenario Automation
-EC3000-EC3FFF     (base 16)		Scenario Automation
-				Rua Paulo Elias, 216
-				São Carlos  São Paulo  13564400
-				BR
-
 8C-1F-64   (hex)		VNET Corp.
 C77000-C77FFF     (base 16)		VNET Corp.
 				B-1202, 128, Beobwon-ro, Songpa-gu
 				Seoul    05854
 				KR
 
+8C-1F-64   (hex)		Scenario Automation
+EC3000-EC3FFF     (base 16)		Scenario Automation
+				Rua Paulo Elias, 216
+				São Carlos  São Paulo  13564400
+				BR
+
 8C-1F-64   (hex)		Private
 182000-182FFF     (base 16)		Private
 
-8C-1F-64   (hex)		swiss electronic creation GmbH
-8BB000-8BBFFF     (base 16)		swiss electronic creation GmbH
-				Allmendstrasse 29
-				Fehraltorf    8320
-				CH
-
 8C-1F-64   (hex)		Power Electronics Espana, S.L.
-5E1000-5E1FFF     (base 16)		Power Electronics Espana, S.L.
-				RONDA DEL CAMP DE AVIACIO, NO. 4 CARRASES INDUSTRIAL ESTATE
-				LLÍRIA   Valencia  46160 
-				ES
-
-8C-1F-64   (hex)		Power Electronics Espana, S.L.
-1CA000-1CAFFF     (base 16)		Power Electronics Espana, S.L.
+602000-602FFF     (base 16)		Power Electronics Espana, S.L.
 				RONDA DEL CAMP DE AVIACIO, NO. 4 CARRASES INDUSTRIAL ESTATE
 				LLÍRIA   Valencia  46160 
 				ES
@@ -41961,7 +42039,49 @@ C2F000-C2FFFF     (base 16)		Power Electronics Espana, S.L.
 				ES
 
 8C-1F-64   (hex)		Power Electronics Espana, S.L.
-602000-602FFF     (base 16)		Power Electronics Espana, S.L.
+5E1000-5E1FFF     (base 16)		Power Electronics Espana, S.L.
 				RONDA DEL CAMP DE AVIACIO, NO. 4 CARRASES INDUSTRIAL ESTATE
 				LLÍRIA   Valencia  46160 
 				ES
+
+8C-1F-64   (hex)		Power Electronics Espana, S.L.
+1CA000-1CAFFF     (base 16)		Power Electronics Espana, S.L.
+				RONDA DEL CAMP DE AVIACIO, NO. 4 CARRASES INDUSTRIAL ESTATE
+				LLÍRIA   Valencia  46160 
+				ES
+
+8C-1F-64   (hex)		swiss electronic creation GmbH
+8BB000-8BBFFF     (base 16)		swiss electronic creation GmbH
+				Allmendstrasse 29
+				Fehraltorf    8320
+				CH
+
+8C-1F-64   (hex)		SEORIM TECHNOLOGY
+F82000-F82FFF     (base 16)		SEORIM TECHNOLOGY
+				145, Gasan digital 1-ro Acehighend 3rd #Room904
+				Geumcheon-gu  Seoul  08506
+				KR
+
+8C-1F-64   (hex)		Sedna
+AEB000-AEBFFF     (base 16)		Sedna
+				35 Angus Crescent
+				Edenvale  Gauteng  1609
+				ZA
+
+70-B3-D5   (hex)		SODAQ
+ADC000-ADCFFF     (base 16)		SODAQ
+				Bussumerstraat 34
+				Hilversum  -  1211 BL
+				NL
+
+8C-1F-64   (hex)		Terranova Industries UG (haftungsbeschränkt)
+B01000-B01FFF     (base 16)		Terranova Industries UG (haftungsbeschränkt)
+				Kurt-Günther-Straße 22
+				Leipzig    04317
+				DE
+
+8C-1F-64   (hex)		REO AG
+974000-974FFF     (base 16)		REO AG
+				Brühlerstr. 100
+				Solingen    42657
+				DE

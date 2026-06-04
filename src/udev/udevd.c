@@ -58,11 +58,11 @@ int run_udevd(int argc, char *argv[]) {
                 return log_error_errno(r, "Failed to create /run/udev: %m");
 
         /* Load some shared libraries before we fork any workers */
-        (void) dlopen_libacl(LOG_DEBUG);
-        (void) dlopen_libblkid(LOG_DEBUG);
-        (void) dlopen_libkmod(LOG_DEBUG);
-        (void) dlopen_libmount(LOG_DEBUG);
-        (void) dlopen_tpm2(LOG_DEBUG);
+        (void) DLOPEN_LIBACL(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
+        (void) DLOPEN_LIBBLKID(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
+        (void) DLOPEN_LIBKMOD(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
+        (void) DLOPEN_LIBMOUNT(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
+        (void) DLOPEN_TPM2(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
 
         if (arg_daemonize) {
                 pid_t pid;

@@ -38,7 +38,7 @@ _public_ int cryptsetup_token_open_pin(
         assert(pin || pin_size == 0);
         assert(token >= 0);
 
-        r = dlopen_cryptsetup(LOG_DEBUG);
+        r = DLOPEN_CRYPTSETUP(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED);
         if (r < 0)
                 return r;
 
@@ -103,7 +103,7 @@ _public_ void cryptsetup_token_dump(
 
         assert(json);
 
-        if (dlopen_cryptsetup(LOG_DEBUG) < 0)
+        if (DLOPEN_CRYPTSETUP(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED) < 0)
                 return;
 
         r = parse_luks2_fido2_data(cd, json, &rp_id, &salt, &salt_size, &cid, &cid_size, &required);
@@ -170,7 +170,7 @@ _public_ int cryptsetup_token_validate(
 
         assert(json);
 
-        r = dlopen_cryptsetup(LOG_DEBUG);
+        r = DLOPEN_CRYPTSETUP(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED);
         if (r < 0)
                 return r;
 
