@@ -34,6 +34,7 @@
 static char *arg_sections[_UNIFIED_SECTION_MAX] = {};
 static char **arg_banks = NULL;
 static char *arg_tpm2_device = NULL;
+static char *arg_policyref = NULL;
 static char *arg_private_key = NULL;
 static KeySourceType arg_private_key_source_type = OPENSSL_KEY_SOURCE_FILE;
 static char *arg_private_key_source = NULL;
@@ -49,6 +50,7 @@ static char *arg_append = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_banks, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_device, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_policyref, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_private_key, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_private_key_source, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_public_key, freep);
@@ -206,6 +208,13 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         free_and_replace(arg_tpm2_device, device);
                         break;
                 }
+
+                OPTION_LONG("policyref", "STRING",
+                            "Set a policyref and include this in the signatures"):
+                        r = free_and_strdup_warn(&arg_policyref, opts.arg);
+                        if (r < 0)
+                                return r;
+                        break;
 
                 OPTION_COMMON_PRIVATE_KEY("Private key (PEM) to sign with"):
                         r = free_and_strdup_warn(&arg_private_key, opts.arg);
@@ -915,6 +924,7 @@ static int build_policy_digest(bool sign) {
         _cleanup_(openssl_ask_password_ui_freep) OpenSSLAskPasswordUI *ui = NULL;
         _cleanup_(EVP_PKEY_freep) EVP_PKEY *privkey = NULL, *pubkey = NULL;
         _cleanup_(X509_freep) X509 *certificate = NULL;
+        TPM2B_NONCE policy_ref = {};
         size_t n;
         int r;
 
@@ -925,6 +935,14 @@ static int build_policy_digest(bool sign) {
         if (sign && !arg_private_key)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "No private key specified, use --private-key=.");
+
+        if (arg_policyref) {
+                size_t l = strlen(arg_policyref);
+                if (l > TPM2_SHA256_DIGEST_SIZE)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--policyref argument size %lu is too large.", l);
+
+                policy_ref = TPM2B_NONCE_MAKE(arg_policyref, l);
+        }
 
         assert(!strv_isempty(arg_banks));
         assert(!strv_isempty(arg_phase));
@@ -1047,7 +1065,12 @@ static int build_policy_digest(bool sign) {
                                 /* We always use SHA256 for signing currently. Regardless of the bank. */
                                 const EVP_MD *sha256 = ASSERT_PTR(sym_EVP_get_digestbyname("sha256"));
 
-                                r = digest_and_sign(sha256, privkey, pcr_policy_digest.buffer, pcr_policy_digest.size, &sig, &ss);
+                                _cleanup_(iovec_done) struct iovec tbs_data = {};
+                                r = tpm2_make_policy_authorize_tbs_data(&pcr_policy_digest, &policy_ref, &tbs_data);
+                                if (r < 0)
+                                        return r;
+
+                                r = digest_and_sign(sha256, privkey, tbs_data.iov_base, tbs_data.iov_len, &sig, &ss);
                                 if (r == -EADDRNOTAVAIL)
                                         return log_error_errno(r, "Hash algorithm '%s' not available while signing. (Maybe OS security policy disables this algorithm?)", sym_EVP_MD_get0_name(p->md));
                                 if (r < 0)
@@ -1071,6 +1094,7 @@ static int build_policy_digest(bool sign) {
                         r = sd_json_buildo(&bv,
                                            SD_JSON_BUILD_PAIR_VARIANT("pcrs", a),                                                   /* PCR mask */
                                            SD_JSON_BUILD_PAIR_CONDITION(pubkey_fp_size > 0, "pkfp", SD_JSON_BUILD_HEX(pubkey_fp, pubkey_fp_size)), /* SHA256 fingerprint of public key (DER) used for the signature */
+                                           SD_JSON_BUILD_PAIR_CONDITION(policy_ref.size > 0, "ref", SD_JSON_BUILD_STRING(arg_policyref)), /* TPM2 policy reference */
                                            SD_JSON_BUILD_PAIR_HEX("pol", pcr_policy_digest.buffer, pcr_policy_digest.size),         /* TPM2 policy hash that is signed */
                                            SD_JSON_BUILD_PAIR_CONDITION(ss > 0, "sig", SD_JSON_BUILD_BASE64(sig, ss)));                            /* signature data */
                         if (r < 0)
