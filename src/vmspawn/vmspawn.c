@@ -151,7 +151,7 @@ static int arg_tpm = -1;
 static char *arg_linux = NULL;
 static KernelImageType arg_linux_image_type = _KERNEL_IMAGE_TYPE_INVALID;
 static char **arg_initrds = NULL;
-static ConsoleMode arg_console_mode = CONSOLE_INTERACTIVE;
+static ConsoleMode arg_console_mode = _CONSOLE_MODE_INVALID;
 static ConsoleTransport arg_console_transport = CONSOLE_TRANSPORT_VIRTIO;
 static NetworkStack arg_network_stack = NETWORK_STACK_NONE;
 static MachineCredentialContext arg_credentials = {};
@@ -2950,20 +2950,56 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
          * baseline that covers all SNP-capable processors (Milan and later). */
         const char *cpu_model =
 #ifdef __x86_64__
-                arg_confidential_computing == COCO_AMD_SEV_SNP ? "EPYC-v4"
-                                                             : "max,hv_relaxed,hv-vapic,hv-time";
+                arg_confidential_computing == COCO_AMD_SEV_SNP ? "EPYC-v4" :
+                use_kvm ? "host" : "max";
 #else
-                "max";
+                use_kvm ? "host" : "max";
 #endif
         r = strv_extend_many(&cmdline, "-cpu", cpu_model);
         if (r < 0)
                 return log_oom();
 
-        _cleanup_close_ int master = -EBADF;
+        _cleanup_close_ int master = -EBADF, console_in = -EBADF, console_out = -EBADF, console_err = -EBADF;
         PTYForwardFlags ptyfwd_flags = 0;
         switch (arg_console_mode) {
 
         case CONSOLE_NATIVE:
+                /* The non-interactive native console needs no terminal handling, so we'd rather let QEMU's
+                 * stdio chardev write the guest console straight into our inherited stdout. QEMU puts
+                 * O_NONBLOCK on its stdio though, so we hand it private copies of our stdin/stdout/stderr to
+                 * keep that flag off the file descriptions we (and our parent) share. Reopening only works
+                 * for fds that have a path in /proc/self/fd; sockets don't (open() yields ENXIO), so if any
+                 * of the three can't be reopened we fall through to the PTY path below. */
+                console_in  = fd_reopen(STDIN_FILENO,  O_RDONLY|O_CLOEXEC);
+                console_out = fd_reopen(STDOUT_FILENO, O_WRONLY|O_CLOEXEC);
+                console_err = fd_reopen(STDERR_FILENO, O_WRONLY|O_CLOEXEC);
+                if (console_in >= 0 && console_out >= 0 && console_err >= 0) {
+                        r = strv_extend_many(&cmdline, "-nographic", "-nodefaults");
+                        if (r < 0)
+                                return log_oom();
+
+                        /* mux=on keeps the QEMU monitor reachable via Ctrl-a c; signal=off stops QEMU from
+                         * installing terminal/signal handling on our stdio. */
+                        r = qemu_config_section(config_file, "chardev", "console",
+                                                "backend", "stdio",
+                                                "mux", "on",
+                                                "signal", "off");
+                        if (r < 0)
+                                return r;
+
+                        r = qemu_config_section(config_file, "mon", "mon0",
+                                                "chardev", "console");
+                        if (r < 0)
+                                return r;
+
+                        break;
+                }
+
+                /* Reopening failed (e.g. our stdio is a socket): drop any partial fds and use a PTY. */
+                console_in = safe_close(console_in);
+                console_out = safe_close(console_out);
+                console_err = safe_close(console_err);
+
                 /* Use a PTY instead of chardev stdio to prevent QEMU from setting O_NONBLOCK on
                  * our stdio file descriptions (see qemu's chardev/char-stdio.c and char-fd.c).
                  * Use PTY_FORWARD_DUMB_TERMINAL|PTY_FORWARD_TRANSPARENT so the forwarder just
@@ -3683,14 +3719,28 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return log_error_errno(child_pty, "Failed to open PTY slave: %m");
         }
 
+        /* QEMU's stdio comes either from the PTY slave (PTY console path) or from the private copies of our
+         * stdin/stdout/stderr we reopened above (stdio console path). */
+        int stdio_fds[3];
+        const int *stdio_fdsp = NULL;
+        if (child_pty >= 0) {
+                stdio_fds[0] = stdio_fds[1] = stdio_fds[2] = child_pty;
+                stdio_fdsp = stdio_fds;
+        } else if (console_out >= 0) {
+                stdio_fds[0] = console_in;
+                stdio_fds[1] = console_out;
+                stdio_fds[2] = console_err;
+                stdio_fdsp = stdio_fds;
+        }
+
         /* SIGTERM, not SIGKILL — let QEMU flush state on error-path early exits. */
         _cleanup_(pidref_done_sigterm_wait) PidRef child_pidref = PIDREF_NULL;
         r = pidref_safe_fork_full(
                         qemu_binary,
-                        child_pty >= 0 ? (const int[]) { child_pty, child_pty, child_pty } : NULL,
+                        stdio_fdsp,
                         pass_fds, n_pass_fds,
                         FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_CLOEXEC_OFF|FORK_RLIMIT_NOFILE_SAFE|
-                        (child_pty >= 0 ? FORK_REARRANGE_STDIO : 0),
+                        (stdio_fdsp ? FORK_REARRANGE_STDIO : 0),
                         &child_pidref);
         if (r < 0)
                 return r;
@@ -3708,6 +3758,9 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
         /* Close QEMU's end of the QMP socketpair in the parent. We don't need it anymore. */
         child_pty = safe_close(child_pty);
+        console_in = safe_close(console_in);
+        console_out = safe_close(console_out);
+        console_err = safe_close(console_err);
         bridge_fds[1] = safe_close(bridge_fds[1]);
 
         r = prepare_device_info(runtime_dir, &config);
@@ -4164,6 +4217,13 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
+        /* If no console mode was explicitly requested, pick a sensible default: an interactive terminal
+         * when both our stdin and stdout are TTYs, otherwise the native console which (when our stdio isn't
+         * a TTY) hands QEMU our stdio directly without going through the pty-forwarder. */
+        if (arg_console_mode < 0)
+                arg_console_mode = isatty_safe(STDIN_FILENO) && isatty_safe(STDOUT_FILENO) ?
+                                   CONSOLE_INTERACTIVE : CONSOLE_NATIVE;
+
         if (!arg_quiet && arg_console_mode != CONSOLE_GUI) {
                 _cleanup_free_ char *u = NULL;
                 const char *vm_path = arg_image ?: arg_directory;
@@ -4175,7 +4235,7 @@ static int run(int argc, char *argv[]) {
                 if (arg_console_mode == CONSOLE_INTERACTIVE)
                         log_info("%s %sPress %sCtrl-]%s three times within 1s to kill VM.%s",
                                  glyph(GLYPH_LIGHT_SHADE), ansi_grey(), ansi_highlight(), ansi_grey(), ansi_normal());
-                else if (arg_console_mode == CONSOLE_NATIVE)
+                else if (arg_console_mode == CONSOLE_NATIVE && isatty_safe(STDIN_FILENO))
                         log_info("%s %sPress %sCtrl-a x%s to kill VM.%s",
                                  glyph(GLYPH_LIGHT_SHADE), ansi_grey(), ansi_highlight(), ansi_grey(), ansi_normal());
         }
