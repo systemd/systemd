@@ -4,10 +4,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/mount.h>
+#include <sys/pidfd.h>
 #include <sys/resource.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "sd-bus-protocol.h"
 #include "sd-bus.h"
 #include "sd-daemon.h"
 #include "sd-event.h"
@@ -21,6 +23,7 @@
 #include "bus-locator.h"
 #include "bus-map-properties.h"
 #include "bus-message-util.h"
+#include "bus-polkit.h"
 #include "bus-unit-util.h"
 #include "bus-util.h"
 #include "bus-wait-for-jobs.h"
@@ -72,6 +75,10 @@ static bool arg_scope = false;
 static bool arg_remain_after_exit = false;
 static bool arg_no_block = false;
 static bool arg_wait = false;
+static bool args_default_command = false;
+static bool arg_remove_tmpauth = false;
+static bool arg_reset_tmpauth = false;
+static bool arg_validate = false;
 static const char *arg_unit = NULL;
 static char *arg_description = NULL;
 static char *arg_slice = NULL;
@@ -825,6 +832,18 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                         arg_slice_inherit = true;
                         break;
 
+                OPTION('k', "reset-timestamp", NULL, "Revoke temporary authorization"):
+                        arg_reset_tmpauth = true;
+                        break;
+
+                OPTION('K', "remove-timestamp", NULL, "Revoke all temporary authorizations"):
+                        arg_remove_tmpauth = true;
+                        break;
+
+                OPTION('v', "validate", NULL, "Renew temporary authorization"):
+                        arg_validate = true;
+                        break;
+
                 OPTION('u', "user", "USER", "Run as system user"):
                         r = free_and_strdup_warn(&arg_exec_user, opts.arg);
                         if (r < 0)
@@ -976,6 +995,7 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
         } else if (!arg_via_shell) {
                 const char *e;
 
+                args_default_command = true;
                 e = strv_env_get(arg_environment, "SHELL");
                 if (e) {
                         arg_exec_path = strdup(e);
@@ -2855,6 +2875,274 @@ static bool shall_make_executable_absolute(void) {
         return true;
 }
 
+static int polkit_check_authorization(sd_bus *bus, PolkitFlags flags, char **tmpauthz_id) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        pid_t pid;
+        _cleanup_close_ int pidfd;
+        bool is_authorized, is_challenge;
+        int r;
+
+        assert(bus);
+        assert(tmpauthz_id);
+
+        r = sd_bus_message_new_method_call(bus, &m,
+                        "org.freedesktop.PolicyKit1",
+                        "/org/freedesktop/PolicyKit1/Authority",
+                        "org.freedesktop.PolicyKit1.Authority",
+                        "CheckAuthorization");
+        if (r < 0)
+                bus_log_create_error(r);
+
+        pid = getpid();
+
+        /* Polkit requires pidfd to honor temporary authorizations */
+        pidfd = pidfd_open(pid, 0);
+        if (pidfd < 0)
+                return log_debug_errno(pidfd, "pidfd_open failed: %m");
+
+        r = sd_bus_message_append(m, "(sa{sv})s", "unix-process", 4, "pid", "u", getpid(),
+                        "start-time", "t", 0, "uid", "i", geteuid(), "pidfd", "h", pidfd,
+                        "org.freedesktop.systemd1.manage-units");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append(m, "a{ss}us", 0, flags, NULL);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_call(bus, m, 0, &error, &reply);
+        if (r < 0)
+                return log_error_errno(r, "Failed to check authorization: %s", bus_error_message(&error, r));
+
+        r = sd_bus_message_enter_container(reply, 'r', "bba{ss}");
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        r = sd_bus_message_read(reply, "bb", &is_authorized, &is_challenge);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        r = sd_bus_message_enter_container(reply, 'a', "{ss}");
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        for (;;) {
+                const char *key, *value;
+                r = sd_bus_message_enter_container(reply, 'e', "ss");
+                if (r < 0)
+                        return bus_log_parse_error(r);
+                if (r == 0)
+                        break;
+
+                r = sd_bus_message_read(reply, "ss", &key, &value);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                if (streq(key, "polkit.temporary_authorization_id"))
+                        *tmpauthz_id = strdup(value);
+
+                r = sd_bus_message_exit_container(reply);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+        }
+
+        r = sd_bus_message_exit_container(reply);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        return is_authorized;
+}
+
+static int revoke_temporary_authorization_by_id(sd_bus *bus, const char *id) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        int r;
+
+        assert(bus);
+        assert(id);
+
+        r = sd_bus_message_new_method_call(bus, &m,
+                        "org.freedesktop.PolicyKit1",
+                        "/org/freedesktop/PolicyKit1/Authority",
+                        "org.freedesktop.PolicyKit1.Authority",
+                        "RevokeTemporaryAuthorizationById");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append(m, "s", id);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        log_debug("Revoking temporary authorization %s", id);
+        r = sd_bus_call(bus, m, 0, &error, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to revoke temporary authorization %s: %s",
+                                id, bus_error_message(&error, r));
+
+        return 0;
+}
+
+static int polkit_subject_is_good_surrogate(sd_bus_message *m) {
+        const char *kind = NULL;
+        pid_t pid = 0;
+        uint64_t start_time = 0;
+        uid_t uid = -1;
+        int pidfd = -EBADF;
+        int r;
+
+        r = sd_bus_message_enter_container(m, 'r', "sa{sv}");
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        r = sd_bus_message_read(m, "s", &kind);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        r = sd_bus_message_enter_container(m, 'a', "{sv}");
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        for (;;) {
+                const char *key;
+                char type;
+                const char *contents;
+
+                r = sd_bus_message_enter_container(m, 'e', "sv");
+                if (r < 0)
+                        return bus_log_parse_error(r);
+                if (r == 0)
+                        break;
+
+                r = sd_bus_message_read(m, "s", &key);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                r = sd_bus_message_peek_type(m, &type, &contents);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                if (streq(key, "pid")) {
+                        if (*contents != SD_BUS_TYPE_UINT32)
+                                return bus_log_parse_error(SYNTHETIC_ERRNO(EINVAL));
+                        r = sd_bus_message_read(m, "v", "u", &pid);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+                } else if (streq(key, "start-time")) {
+                        if (*contents != SD_BUS_TYPE_UINT64)
+                                return bus_log_parse_error(SYNTHETIC_ERRNO(EINVAL));
+                        r = sd_bus_message_read(m, "v", "t", &start_time);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+                } else if (streq(key, "uid")) {
+                        if (*contents != SD_BUS_TYPE_INT32)
+                                return bus_log_parse_error(SYNTHETIC_ERRNO(EINVAL));
+                        r = sd_bus_message_read(m, "v", "i", &uid);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+                } else if (streq(key, "pidfd")) {
+                        if (*contents != SD_BUS_TYPE_UNIX_FD)
+                                return bus_log_parse_error(SYNTHETIC_ERRNO(EINVAL));
+                        r = sd_bus_message_read(m, "v", "h", &pidfd);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+                } else {
+                        r = sd_bus_message_read(m, "v", contents, NULL);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+                }
+
+                r = sd_bus_message_exit_container(m);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+        }
+
+        r = sd_bus_message_exit_container(m); /* a(sa{sv}) */
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        r = sd_bus_message_exit_container(m); /* (a(sa{sv})) */
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        return uid != (uid_t) -1 && uid == geteuid();
+}
+
+static int revoke_temporary_authorizations(sd_bus *bus) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        char *session_id = NULL;
+        int r;
+
+        assert(bus);
+
+        session_id = getenv("XDG_SESSION_ID");
+        if (session_id == NULL)
+                return -EINVAL;
+
+        r = sd_bus_message_new_method_call(bus, &m,
+                        "org.freedesktop.PolicyKit1",
+                        "/org/freedesktop/PolicyKit1/Authority",
+                        "org.freedesktop.PolicyKit1.Authority",
+                        "EnumerateTemporaryAuthorizations");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append(m, "(sa{sv})", "unix-session", 1, "session-id", "s", session_id);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_call(bus, m, 0, &error, &reply);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enumerate temporary authorizations: %s",
+                                bus_error_message(&error, r));
+
+        r = sd_bus_message_enter_container(reply, 'a', "(ss(sa{sv})tt)");
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        for (;;) {
+                const char *id = NULL;
+                const char *action_id = NULL;
+
+                r = sd_bus_message_enter_container(reply, 'r', "ss(sa{sv})tt");
+                if (r < 0)
+                        return bus_log_parse_error(r);
+                if (r == 0)
+                        break;
+
+                r = sd_bus_message_read(reply, "ss", &id, &action_id);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                if (streq(action_id, "org.freedesktop.systemd1.manage-units")) {
+                        if (polkit_subject_is_good_surrogate(reply)) {
+                                r = revoke_temporary_authorization_by_id(bus, id);
+                                if (r < 0)
+                                        return log_debug_errno(r,
+                                                        "Failed to revoke temporary authorization %s: %m", id);
+                        }
+                } else {
+                        r = sd_bus_message_skip(reply, "(sa{sv})");
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+                }
+
+                r = sd_bus_message_skip(reply, "tt");
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                r = sd_bus_message_exit_container(reply);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+        }
+
+        return 0;
+}
+
 static int run(int argc, char* argv[]) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
@@ -2918,6 +3206,31 @@ static int run(int argc, char* argv[]) {
         r = connect_bus(&bus);
         if (r < 0)
                 return r;
+
+        if (arg_remove_tmpauth) {
+                r = revoke_temporary_authorizations(bus);
+                if (r < 0)
+                        return r;
+                if (args_default_command)
+                        return 0;
+        } else if (arg_reset_tmpauth) {
+                _cleanup_free_ char *tmpauthz_id = NULL;
+                r = polkit_check_authorization(bus, POLKIT_ALWAYS_QUERY, &tmpauthz_id);
+                if (r < 0)
+                        return r;
+                if (r > 0 && tmpauthz_id != NULL)
+                        revoke_temporary_authorization_by_id(bus, tmpauthz_id);
+                if (args_default_command)
+                        return 0;
+        } else if (arg_validate) {
+                _cleanup_free_ char *tmpauthz_id = NULL;
+                r = polkit_check_authorization(bus, POLKIT_ALWAYS_QUERY | POLKIT_ALLOW_INTERACTIVE,
+                                &tmpauthz_id);
+                if (r < 0)
+                        return r;
+                if (args_default_command)
+                        return 0;
+        }
 
         if (arg_scope)
                 return start_transient_scope(bus);
