@@ -233,6 +233,7 @@ static const char* const service_state_table[_SERVICE_STATE_MAX] = {
         [SERVICE_START]                      = "start",
         [SERVICE_START_POST]                 = "start-post",
         [SERVICE_RUNNING]                    = "running",
+        [SERVICE_RUNNING_REVALIDATING]       = "running-revalidating",
         [SERVICE_EXITED]                     = "exited",
         [SERVICE_REFRESH_EXTENSIONS]         = "refresh-extensions",
         [SERVICE_REFRESH_CREDENTIALS]        = "refresh-credentials",
