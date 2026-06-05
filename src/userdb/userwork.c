@@ -176,10 +176,10 @@ static int vl_method_get_user_record(sd_varlink *link, sd_json_variant *paramete
         if (r < 0)
                 return r;
 
-        if (uid_is_valid(p.uid))
-                r = userdb_by_uid(p.uid, &p.match, userdb_flags, &hr);
-        else if (p.name)
+        if (p.name)
                 r = userdb_by_name(p.name, &p.match, userdb_flags, &hr);
+        else if (uid_is_valid(p.uid))
+                r = userdb_by_uid(p.uid, &p.match, userdb_flags, &hr);
         else {
                 _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
 
@@ -317,10 +317,10 @@ static int vl_method_get_group_record(sd_varlink *link, sd_json_variant *paramet
         if (r < 0)
                 return r;
 
-        if (gid_is_valid(p.gid))
-                r = groupdb_by_gid(p.gid, &p.match, userdb_flags, &g);
-        else if (p.name)
+        if (p.name)
                 r = groupdb_by_name(p.name, &p.match, userdb_flags, &g);
+        else if (gid_is_valid(p.gid))
+                r = groupdb_by_gid(p.gid, &p.match, userdb_flags, &g);
         else {
                 _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
 
@@ -360,7 +360,7 @@ static int vl_method_get_group_record(sd_varlink *link, sd_json_variant *paramet
                 return sd_varlink_error(link, "io.systemd.UserDatabase.ServiceNotAvailable", NULL);
         }
 
-        if ((uid_is_valid(p.gid) && g->gid != p.gid) ||
+        if ((gid_is_valid(p.gid) && g->gid != p.gid) ||
             (p.name && !group_record_matches_group_name(g, p.name)))
                 return sd_varlink_error(link, "io.systemd.UserDatabase.ConflictingRecordFound", NULL);
 
