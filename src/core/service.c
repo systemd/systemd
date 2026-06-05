@@ -73,6 +73,7 @@ static const UnitActiveState state_translation_table[_SERVICE_STATE_MAX] = {
         [SERVICE_START]                      = UNIT_ACTIVATING,
         [SERVICE_START_POST]                 = UNIT_ACTIVATING,
         [SERVICE_RUNNING]                    = UNIT_ACTIVE,
+        [SERVICE_RUNNING_REVALIDATING]       = UNIT_ACTIVE,
         [SERVICE_EXITED]                     = UNIT_ACTIVE,
         [SERVICE_REFRESH_EXTENSIONS]         = UNIT_REFRESHING,
         [SERVICE_REFRESH_CREDENTIALS]        = UNIT_REFRESHING,
@@ -107,6 +108,7 @@ static const UnitActiveState state_translation_table_idle[_SERVICE_STATE_MAX] = 
         [SERVICE_START]                      = UNIT_ACTIVE,
         [SERVICE_START_POST]                 = UNIT_ACTIVE,
         [SERVICE_RUNNING]                    = UNIT_ACTIVE,
+        [SERVICE_RUNNING_REVALIDATING]       = UNIT_ACTIVE,
         [SERVICE_EXITED]                     = UNIT_ACTIVE,
         [SERVICE_REFRESH_EXTENSIONS]         = UNIT_REFRESHING,
         [SERVICE_REFRESH_CREDENTIALS]        = UNIT_REFRESHING,
@@ -149,7 +151,7 @@ static void service_set_state(Service *s, ServiceState state);
 static bool SERVICE_STATE_WITH_MAIN_PROCESS(ServiceState state) {
         return IN_SET(state,
                       SERVICE_START, SERVICE_START_POST,
-                      SERVICE_RUNNING,
+                      SERVICE_RUNNING, SERVICE_RUNNING_REVALIDATING,
                       SERVICE_REFRESH_EXTENSIONS, SERVICE_REFRESH_CREDENTIALS,
                       SERVICE_RELOAD, SERVICE_RELOAD_SIGNAL, SERVICE_RELOAD_NOTIFY, SERVICE_RELOAD_POST,
                       SERVICE_MOUNTING,
@@ -171,7 +173,7 @@ static bool SERVICE_STATE_WITH_CONTROL_PROCESS(ServiceState state) {
 static bool SERVICE_STATE_WITH_WATCHDOG(ServiceState state) {
         return IN_SET(state,
                       SERVICE_START_POST,
-                      SERVICE_RUNNING,
+                      SERVICE_RUNNING, SERVICE_RUNNING_REVALIDATING,
                       SERVICE_REFRESH_EXTENSIONS, SERVICE_REFRESH_CREDENTIALS,
                       SERVICE_RELOAD, SERVICE_RELOAD_SIGNAL, SERVICE_RELOAD_NOTIFY, SERVICE_RELOAD_POST,
                       SERVICE_MOUNTING);
@@ -3491,6 +3493,7 @@ static int service_stop(Unit *u) {
                 return 0;
 
         case SERVICE_RUNNING:
+        case SERVICE_RUNNING_REVALIDATING:
         case SERVICE_EXITED:
                 service_enter_stop(s, SERVICE_SUCCESS);
                 return 1;
@@ -3509,7 +3512,7 @@ static int service_stop(Unit *u) {
 static int service_reload(Unit *u) {
         Service *s = ASSERT_PTR(SERVICE(u));
 
-        assert(IN_SET(s->state, SERVICE_RUNNING, SERVICE_EXITED));
+        assert(IN_SET(s->state, SERVICE_RUNNING, SERVICE_RUNNING_REVALIDATING, SERVICE_EXITED));
 
         s->reload_result = SERVICE_SUCCESS;
         s->refreshed_mask = 0;
@@ -4403,6 +4406,7 @@ static void service_notify_cgroup_empty_event(Unit *u) {
                 break;
 
         case SERVICE_RUNNING:
+        case SERVICE_RUNNING_REVALIDATING:
                 /* service_enter_running() will figure out what to do */
                 service_enter_running(s, SERVICE_SUCCESS);
                 break;
@@ -4464,6 +4468,7 @@ static void service_notify_cgroup_oom_event(Unit *u, bool managed_oom) {
 
         case SERVICE_EXITED:
         case SERVICE_RUNNING:
+        case SERVICE_RUNNING_REVALIDATING:
                 if (s->oom_policy == OOM_STOP)
                         service_enter_stop(s, SERVICE_FAILURE_OOM_KILL);
                 else if (s->oom_policy == OOM_KILL)
@@ -4628,6 +4633,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
 
                                         _fallthrough_;
                                 case SERVICE_RUNNING:
+                                case SERVICE_RUNNING_REVALIDATING:
                                         service_enter_running(s, f);
                                         break;
 
@@ -5805,6 +5811,7 @@ static bool service_needs_console(Unit *u) {
                       SERVICE_START,
                       SERVICE_START_POST,
                       SERVICE_RUNNING,
+                      SERVICE_RUNNING_REVALIDATING,
                       SERVICE_REFRESH_EXTENSIONS,
                       SERVICE_REFRESH_CREDENTIALS,
                       SERVICE_RELOAD,
