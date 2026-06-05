@@ -27,6 +27,8 @@
     <refname>systemd-pcrfs-root.service</refname>
     <refname>systemd-pcrfs@.service</refname>
     <refname>systemd-pcrnvdone.service</refname>
+    <refname>systemd-pcrphase-factory-reset.service</refname>
+    <refname>systemd-pcrphase-storage-target-mode.service</refname>
     <refname>systemd-pcrextend</refname>
     <refpurpose>Measure boot phases, machine ID, product UUID, user records and file system identity into TPM PCRs and NvPCRs</refpurpose>
   </refnamediv>
@@ -42,6 +44,8 @@
     <para><filename>systemd-pcrfs-root.service</filename></para>
     <para><filename>systemd-pcrfs@.service</filename></para>
     <para><filename>systemd-pcrnvdone.service</filename></para>
+    <para><filename>systemd-pcrphase-factory-reset.service</filename></para>
+    <para><filename>systemd-pcrphase-storage-target-mode.service</filename></para>
     <para><filename>/usr/lib/systemd/systemd-pcrextend</filename> <optional><replaceable>STRING</replaceable></optional></para>
   </refsynopsisdiv>
 
