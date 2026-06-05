@@ -22,6 +22,8 @@ ConditionPathExists=/proc/pressure/memory
 ListenStream=/run/systemd/oom/io.systemd.ManagedOOM
 SocketMode=0666
 RemoveOnStop=yes
+XAttrEntryPoint=user.varlink=entrypoint
+XAttrListen=user.varlink=listen
 
 [Install]
 WantedBy=sockets.target

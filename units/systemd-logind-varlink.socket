@@ -17,3 +17,5 @@ Symlinks=/run/varlink/registry/io.systemd.Login /run/varlink/registry/io.systemd
 FileDescriptorName=varlink
 SocketMode=0666
 Service=systemd-logind.service
+XAttrEntryPoint=user.varlink=entrypoint
+XAttrListen=user.varlink=listen
