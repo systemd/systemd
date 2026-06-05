@@ -30,3 +30,6 @@ executables += [
                 ],
         },
 ]
+
+install_data('io.systemd.cryptenroll.policy',
+             install_dir : polkitpolicydir)
