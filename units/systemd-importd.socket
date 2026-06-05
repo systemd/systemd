@@ -22,4 +22,6 @@ Before=shutdown.target
 ListenStream=/run/systemd/io.systemd.Import
 Symlinks=/run/varlink/registry/io.systemd.Import
 FileDescriptorName=varlink
-SocketMode=0666
+SocketMode=0644
+XAttrEntryPoint=user.varlink=entrypoint
+XAttrListen=user.varlink=listen

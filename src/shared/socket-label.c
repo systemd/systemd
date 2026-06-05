@@ -14,7 +14,9 @@
 #include "socket-label.h"
 #include "socket-util.h"
 #include "string-table.h"
+#include "strv.h"
 #include "umask-util.h"
+#include "xattr-util.h"
 
 static const char* const socket_address_bind_ipv6_only_table[_SOCKET_ADDRESS_BIND_IPV6_ONLY_MAX] = {
         [SOCKET_ADDRESS_DEFAULT]   = "default",
@@ -48,7 +50,9 @@ int socket_address_listen(
                 mode_t directory_mode,
                 mode_t socket_mode,
                 const char *selinux_label,
-                const char *smack_label) {
+                const char *smack_label,
+                char **xattr_entrypoint,
+                char **xattr_listen) {
 
         _cleanup_close_ int fd = -EBADF;
         const char *p;
@@ -119,6 +123,13 @@ int socket_address_listen(
         if (r < 0)
                 return r;
 
+        if (socket_xattr_supported() > 0)
+                STRV_FOREACH_PAIR(name, value, xattr_listen) {
+                        r = xsetxattr(fd, /* path= */ NULL, AT_EMPTY_PATH, *name, *value);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to set extended attribute '%s' on socket, ignoring: %m", *name);
+                }
+
         p = socket_address_get_path(a);
         if (p) {
                 /* Create parents */
@@ -138,11 +149,19 @@ int socket_address_listen(
                         if (r < 0)
                                 return r;
                 }
+
                 if (smack_label) {
                         r = mac_smack_apply(p, SMACK_ATTR_ACCESS, smack_label);
                         if (r < 0)
                                 log_warning_errno(r, "Failed to apply SMACK label for socket path, ignoring: %m");
                 }
+
+                if (socket_xattr_supported() > 0)
+                        STRV_FOREACH_PAIR(name, value, xattr_entrypoint) {
+                                r = xsetxattr(AT_FDCWD, p, /* at_flags= */ 0, *name, *value);
+                                if (r < 0)
+                                        log_debug_errno(r, "Failed to set extended attribute '%s' on socket, ignoring: %m", *name);
+                        }
         } else {
                 if (bind(fd, &a->sockaddr.sa, a->size) < 0)
                         return -errno;
