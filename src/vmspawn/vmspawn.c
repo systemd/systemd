@@ -27,11 +27,13 @@
 #include "capability-util.h"
 #include "common-signal.h"
 #include "copy.h"
+#include "dirent-util.h"
 #include "discover-image.h"
 #include "dissect-image.h"
 #include "escape.h"
 #include "ether-addr-util.h"
 #include "event-util.h"
+#include "exit-status.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -68,6 +70,7 @@
 #include "polkit-agent.h"
 #include "pretty-print.h"
 #include "process-util.h"
+#include "qmp-client.h"
 #include "ptyfwd.h"
 #include "random-util.h"
 #include "rm-rf.h"
@@ -83,6 +86,7 @@
 #include "swtpm-util.h"
 #include "sync-util.h"
 #include "terminal-util.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 #include "uid-classification.h"
 #include "unit-name.h"
@@ -151,7 +155,7 @@ static int arg_tpm = -1;
 static char *arg_linux = NULL;
 static KernelImageType arg_linux_image_type = _KERNEL_IMAGE_TYPE_INVALID;
 static char **arg_initrds = NULL;
-static ConsoleMode arg_console_mode = CONSOLE_INTERACTIVE;
+static ConsoleMode arg_console_mode = _CONSOLE_MODE_INVALID;
 static ConsoleTransport arg_console_transport = CONSOLE_TRANSPORT_VIRTIO;
 static NetworkStack arg_network_stack = NETWORK_STACK_NONE;
 static MachineCredentialContext arg_credentials = {};
@@ -1313,18 +1317,22 @@ static int on_child_exit(sd_event_source *s, const siginfo_t *si, void *userdata
                         log_error("Child process " PID_FMT " died with a failure exit status %i.", si->si_pid, si->si_status);
 
                 ret = si->si_status;
-        } else if (si->si_code == CLD_KILLED)
-                ret = log_error_errno(SYNTHETIC_ERRNO(EPROTO),
-                                      "Child process " PID_FMT " was killed by signal %s.",
-                                      si->si_pid, signal_to_string(si->si_status));
-        else if (si->si_code == CLD_DUMPED)
-                ret = log_error_errno(SYNTHETIC_ERRNO(EPROTO),
-                                      "Child process " PID_FMT " dumped core by signal %s.",
-                                      si->si_pid, signal_to_string(si->si_status));
-        else
-                ret = log_error_errno(SYNTHETIC_ERRNO(EPROTO),
-                                      "Got unexpected exit code %i from child.",
-                                      si->si_code);
+        } else {
+                /* QEMU (or an auxiliary process) died abnormally, e.g. it crashed or was killed by the
+                 * OOM killer. Propagate this as EXIT_EXCEPTION (in line with bash signalling an
+                 * abnormal exit) rather than as a generic event loop failure, so that the caller can
+                 * tell a crashed VMM apart from the exit status reported by the VM itself. */
+                if (si->si_code == CLD_KILLED)
+                        log_error("Child process " PID_FMT " was killed by signal %s.",
+                                  si->si_pid, signal_to_string(si->si_status));
+                else if (si->si_code == CLD_DUMPED)
+                        log_error("Child process " PID_FMT " dumped core by signal %s.",
+                                  si->si_pid, signal_to_string(si->si_status));
+                else
+                        log_error("Got unexpected exit code %i from child.", si->si_code);
+
+                ret = EXIT_EXCEPTION;
+        }
 
         /* Regardless of whether the main qemu process or an auxiliary process died, let's exit either way
          * as it's very likely that the main qemu process won't be able to operate properly anymore if one
@@ -2544,6 +2552,128 @@ static int prepare_device_info(const char *runtime_dir, MachineConfig *c) {
         return assign_pcie_ports(c);
 }
 
+/* QEMU liveness probe. Unlike a VM whose devices are all on the QEMU command line and which then runs
+ * autonomously, a vmspawn VM is driven through QMP for its entire life, so it depends on QEMU's main loop
+ * staying responsive. If that main loop wedges (e.g. it blocks while holding the BQL), every vCPU stalls and
+ * the whole guest freezes silently — the guest clock stops, VSOCK dies, and the only outward sign is that the
+ * caller eventually hits its own timeout, with no clue why. To catch this we periodically fire a trivial QMP
+ * query-status (which QEMU answers from its main loop); if no reply arrives within a deadline we dump QEMU's
+ * per-thread kernel state and exit with EXIT_EXCEPTION so the caller can retry/skip instead of hanging.
+ *
+ * Note this deliberately does NOT catch a guest-internal hang (vCPUs spinning inside the guest while QEMU's
+ * main loop stays healthy): there query-status keeps replying, which is itself the useful signal that the
+ * freeze is guest-side rather than QEMU-side. */
+
+#define QEMU_LIVENESS_PROBE_INTERVAL_USEC (10 * USEC_PER_SEC)
+#define QEMU_LIVENESS_PROBE_DEADLINE_USEC (60 * USEC_PER_SEC)
+
+typedef struct QemuLivenessProbe {
+        QmpClient *qmp;
+        sd_event *event;
+        const PidRef *qemu;
+        usec_t last_reply_usec;
+        bool outstanding;
+} QemuLivenessProbe;
+
+static void dump_qemu_thread_state(const PidRef *qemu) {
+        if (!pidref_is_set(qemu))
+                return;
+
+        _cleanup_free_ char *task_dir = NULL;
+        if (asprintf(&task_dir, "/proc/" PID_FMT "/task", qemu->pid) < 0)
+                return (void) log_oom();
+
+        _cleanup_closedir_ DIR *d = opendir(task_dir);
+        if (!d)
+                return (void) log_warning_errno(errno, "Failed to open %s to dump QEMU thread state, ignoring: %m", task_dir);
+
+        log_error("Dumping QEMU (" PID_FMT ") thread state:", qemu->pid);
+
+        FOREACH_DIRENT(de, d, break) {
+                _cleanup_free_ char *comm = NULL, *wchan = NULL, *syscall_line = NULL, *stack = NULL, *p = NULL;
+
+                if (asprintf(&p, "%s/%s/comm", task_dir, de->d_name) >= 0)
+                        (void) read_one_line_file(p, &comm);
+                p = mfree(p);
+                if (asprintf(&p, "%s/%s/wchan", task_dir, de->d_name) >= 0)
+                        (void) read_one_line_file(p, &wchan);
+                p = mfree(p);
+                if (asprintf(&p, "%s/%s/syscall", task_dir, de->d_name) >= 0)
+                        (void) read_one_line_file(p, &syscall_line);
+                p = mfree(p);
+
+                log_error("  thread %s (%s): wchan=%s syscall=%s",
+                          de->d_name, strna(comm),
+                          isempty(wchan) ? "?" : wchan,
+                          isempty(syscall_line) ? "?" : syscall_line);
+
+                if (asprintf(&p, "%s/%s/stack", task_dir, de->d_name) >= 0 &&
+                    read_full_virtual_file(p, &stack, /* ret_size= */ NULL) >= 0 && !isempty(stack))
+                        log_error("  kernel stack:\n%s", strstrip(stack));
+                p = mfree(p);
+        }
+}
+
+static int on_sigusr2_dump_qemu(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
+        /* Manual trigger: SIGUSR2 dumps QEMU's per-thread state, for poking a VM that looks stuck without
+         * waiting for (or instead of relying on) the liveness probe's deadline. */
+        dump_qemu_thread_state(ASSERT_PTR(userdata));
+        return 0;
+}
+
+static int on_qemu_liveness_reply(
+                QmpClient *client,
+                sd_json_variant *result,
+                const char *error_desc,
+                int error,
+                void *userdata) {
+
+        QemuLivenessProbe *probe = ASSERT_PTR(userdata);
+
+        /* Any reply at all (even an error reply) proves QEMU's main loop is still dispatching QMP. */
+        probe->outstanding = false;
+        probe->last_reply_usec = now(CLOCK_MONOTONIC);
+        return 0;
+}
+
+static int on_qemu_liveness_tick(sd_event_source *s, uint64_t usec, void *userdata) {
+        QemuLivenessProbe *probe = ASSERT_PTR(userdata);
+        int r;
+
+        /* If the QMP connection is gone QEMU has exited (or is exiting); on_child_exit() will end the event
+         * loop, so there's nothing left to probe and a missing reply doesn't mean the main loop is wedged. */
+        if (qmp_client_is_disconnected(probe->qmp))
+                return 0;
+
+        usec_t n = now(CLOCK_MONOTONIC);
+
+        if (probe->outstanding && n > probe->last_reply_usec + QEMU_LIVENESS_PROBE_DEADLINE_USEC) {
+                log_error("QEMU did not answer a QMP query-status for %s — its main loop appears wedged "
+                          "(every vCPU is stalled). Treating the VM as crashed.",
+                          FORMAT_TIMESPAN(n - probe->last_reply_usec, USEC_PER_SEC));
+                dump_qemu_thread_state(probe->qemu);
+                return sd_event_exit(probe->event, EXIT_EXCEPTION);
+        }
+
+        if (!probe->outstanding) {
+                r = qmp_client_invoke(probe->qmp, /* ret_slot= */ NULL, "query-status", /* args= */ NULL,
+                                      on_qemu_liveness_reply, probe);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to issue QMP liveness probe, ignoring: %m");
+                else
+                        probe->outstanding = true;
+        }
+
+        r = sd_event_source_set_time(s, n + QEMU_LIVENESS_PROBE_INTERVAL_USEC);
+        if (r < 0)
+                return log_error_errno(r, "Failed to re-arm QEMU liveness timer: %m");
+        r = sd_event_source_set_enabled(s, SD_EVENT_ONESHOT);
+        if (r < 0)
+                return log_error_errno(r, "Failed to re-enable QEMU liveness timer: %m");
+
+        return 0;
+}
+
 static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         _cleanup_(ovmf_config_freep) OvmfConfig *ovmf_config = NULL;
         _cleanup_free_ char *qemu_binary = NULL, *mem = NULL;
@@ -2950,20 +3080,56 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
          * baseline that covers all SNP-capable processors (Milan and later). */
         const char *cpu_model =
 #ifdef __x86_64__
-                arg_confidential_computing == COCO_AMD_SEV_SNP ? "EPYC-v4"
-                                                             : "max,hv_relaxed,hv-vapic,hv-time";
+                arg_confidential_computing == COCO_AMD_SEV_SNP ? "EPYC-v4" :
+                use_kvm ? "host" : "max";
 #else
-                "max";
+                use_kvm ? "host" : "max";
 #endif
         r = strv_extend_many(&cmdline, "-cpu", cpu_model);
         if (r < 0)
                 return log_oom();
 
-        _cleanup_close_ int master = -EBADF;
+        _cleanup_close_ int master = -EBADF, console_in = -EBADF, console_out = -EBADF, console_err = -EBADF;
         PTYForwardFlags ptyfwd_flags = 0;
         switch (arg_console_mode) {
 
         case CONSOLE_NATIVE:
+                /* The non-interactive native console needs no terminal handling, so we'd rather let QEMU's
+                 * stdio chardev write the guest console straight into our inherited stdout. QEMU puts
+                 * O_NONBLOCK on its stdio though, so we hand it private copies of our stdin/stdout/stderr to
+                 * keep that flag off the file descriptions we (and our parent) share. Reopening only works
+                 * for fds that have a path in /proc/self/fd; sockets don't (open() yields ENXIO), so if any
+                 * of the three can't be reopened we fall through to the PTY path below. */
+                console_in  = fd_reopen_propagate_append_and_position(STDIN_FILENO,  O_RDONLY|O_CLOEXEC);
+                console_out = fd_reopen_propagate_append_and_position(STDOUT_FILENO, O_WRONLY|O_CLOEXEC);
+                console_err = fd_reopen_propagate_append_and_position(STDERR_FILENO, O_WRONLY|O_CLOEXEC);
+                if (console_in >= 0 && console_out >= 0 && console_err >= 0) {
+                        r = strv_extend_many(&cmdline, "-nographic", "-nodefaults");
+                        if (r < 0)
+                                return log_oom();
+
+                        /* mux=on keeps the QEMU monitor reachable via Ctrl-a c; signal=off stops QEMU from
+                         * installing terminal/signal handling on our stdio. */
+                        r = qemu_config_section(config_file, "chardev", "console",
+                                                "backend", "stdio",
+                                                "mux", "on",
+                                                "signal", "off");
+                        if (r < 0)
+                                return r;
+
+                        r = qemu_config_section(config_file, "mon", "mon0",
+                                                "chardev", "console");
+                        if (r < 0)
+                                return r;
+
+                        break;
+                }
+
+                /* Reopening failed (e.g. our stdio is a socket): drop any partial fds and use a PTY. */
+                console_in = safe_close(console_in);
+                console_out = safe_close(console_out);
+                console_err = safe_close(console_err);
+
                 /* Use a PTY instead of chardev stdio to prevent QEMU from setting O_NONBLOCK on
                  * our stdio file descriptions (see qemu's chardev/char-stdio.c and char-fd.c).
                  * Use PTY_FORWARD_DUMB_TERMINAL|PTY_FORWARD_TRANSPARENT so the forwarder just
@@ -3683,14 +3849,28 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return log_error_errno(child_pty, "Failed to open PTY slave: %m");
         }
 
+        /* QEMU's stdio comes either from the PTY slave (PTY console path) or from the private copies of our
+         * stdin/stdout/stderr we reopened above (stdio console path). */
+        int stdio_fds[3];
+        const int *stdio_fdsp = NULL;
+        if (child_pty >= 0) {
+                stdio_fds[0] = stdio_fds[1] = stdio_fds[2] = child_pty;
+                stdio_fdsp = stdio_fds;
+        } else if (console_in >= 0 && console_out >= 0 && console_err >= 0) {
+                stdio_fds[0] = console_in;
+                stdio_fds[1] = console_out;
+                stdio_fds[2] = console_err;
+                stdio_fdsp = stdio_fds;
+        }
+
         /* SIGTERM, not SIGKILL — let QEMU flush state on error-path early exits. */
         _cleanup_(pidref_done_sigterm_wait) PidRef child_pidref = PIDREF_NULL;
         r = pidref_safe_fork_full(
                         qemu_binary,
-                        child_pty >= 0 ? (const int[]) { child_pty, child_pty, child_pty } : NULL,
+                        stdio_fdsp,
                         pass_fds, n_pass_fds,
                         FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_CLOEXEC_OFF|FORK_RLIMIT_NOFILE_SAFE|
-                        (child_pty >= 0 ? FORK_REARRANGE_STDIO : 0),
+                        (stdio_fdsp ? FORK_REARRANGE_STDIO : 0),
                         &child_pidref);
         if (r < 0)
                 return r;
@@ -3708,6 +3888,9 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
         /* Close QEMU's end of the QMP socketpair in the parent. We don't need it anymore. */
         child_pty = safe_close(child_pty);
+        console_in = safe_close(console_in);
+        console_out = safe_close(console_out);
+        console_err = safe_close(console_err);
         bridge_fds[1] = safe_close(bridge_fds[1]);
 
         r = prepare_device_info(runtime_dir, &config);
@@ -3750,6 +3933,10 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         r = vmspawn_qmp_start(bridge);
         if (r < 0)
                 return r;
+
+        /* The bridge (and the QmpClient it owns) stays alive via the event loop after this point; grab a
+         * handle to the QMP client now for the liveness probe below. */
+        QmpClient *liveness_qmp = vmspawn_qmp_bridge_get_qmp(bridge);
 
         /* Varlink server for VM control */
         _cleanup_(vmspawn_varlink_context_freep) VmspawnVarlinkContext *varlink_ctx = NULL;
@@ -3888,6 +4075,9 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
         (void) sd_event_add_signal(event, NULL, (SIGRTMIN+18) | SD_EVENT_SIGNAL_PROCMASK, sigrtmin18_handler, NULL);
 
+        /* SIGUSR2 dumps QEMU's per-thread state on demand (see on_sigusr2_dump_qemu()). */
+        (void) sd_event_add_signal(event, NULL, SIGUSR2 | SD_EVENT_SIGNAL_PROCMASK, on_sigusr2_dump_qemu, &child_pidref);
+
         r = sd_event_add_memory_pressure(event, NULL, NULL, NULL);
         if (r < 0)
                 log_debug_errno(r, "Failed to allocate memory pressure event source, ignoring: %m");
@@ -3896,6 +4086,25 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         r = event_add_child_pidref(event, /* ret= */ NULL, &child_pidref, WEXITED, on_child_exit, /* userdata= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to watch qemu process: %m");
+
+        /* Periodically probe QEMU's QMP main loop so a wedged VM fails fast (and dumps diagnostics) instead of
+         * silently hanging until the caller's timeout. See QemuLivenessProbe above. */
+        QemuLivenessProbe liveness_probe = {
+                .qmp = liveness_qmp,
+                .event = event,
+                .qemu = &child_pidref,
+                .last_reply_usec = now(CLOCK_MONOTONIC),
+        };
+        _cleanup_(sd_event_source_unrefp) sd_event_source *liveness_source = NULL;
+        if (liveness_qmp) {
+                r = sd_event_add_time_relative(event, &liveness_source, CLOCK_MONOTONIC,
+                                               QEMU_LIVENESS_PROBE_INTERVAL_USEC, /* accuracy= */ USEC_PER_SEC,
+                                               on_qemu_liveness_tick, &liveness_probe);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to arm QEMU liveness probe: %m");
+
+                (void) sd_event_source_set_description(liveness_source, "vmspawn-qemu-liveness");
+        }
 
         _cleanup_(osc_context_closep) sd_id128_t osc_context_id = SD_ID128_NULL;
         _cleanup_(pty_forward_freep) PTYForward *forward = NULL;
@@ -3938,16 +4147,27 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         unregister_machine_with_fallback_and_log(&machine_ctx, arg_machine);
 
         if (use_vsock) {
-                if (exit_status == INT_MAX) {
-                        log_debug("Couldn't retrieve inner EXIT_STATUS from VSOCK");
+                if (exit_status != INT_MAX) {
+                        if (exit_status != 0)
+                                log_warning("Non-zero exit code received: %d", exit_status);
+                        return exit_status;
+                }
+
+                /* The VM never reported its exit status to us over VSOCK. If QEMU nonetheless exited
+                 * cleanly we have no better information to go on, so report success. But if QEMU exited
+                 * abnormally (it crashed, was OOM-killed, …) before the VM could report its status, we
+                 * must not silently claim success: surface it as EXIT_EXCEPTION instead so that e.g. the
+                 * integration test harness can tell a crashed VMM apart from a passing test. */
+                if (r == 0) {
+                        log_debug("Couldn't retrieve inner EXIT_STATUS from VSOCK, but QEMU exited cleanly.");
                         return EXIT_SUCCESS;
                 }
-                if (exit_status != 0)
-                        log_warning("Non-zero exit code received: %d", exit_status);
-                return exit_status;
+
+                log_warning("QEMU exited with status %d before the VM reported its exit status over VSOCK, treating as failure.", r);
+                return EXIT_EXCEPTION;
         }
 
-        return 0;
+        return r;
 }
 
 static int determine_names(void) {
@@ -4164,6 +4384,13 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
+        /* If no console mode was explicitly requested, pick a sensible default: an interactive terminal
+         * when both our stdin and stdout are TTYs, otherwise the native console which (when our stdio isn't
+         * a TTY) hands QEMU our stdio directly without going through the pty-forwarder. */
+        if (arg_console_mode < 0)
+                arg_console_mode = isatty_safe(STDIN_FILENO) && isatty_safe(STDOUT_FILENO) ?
+                                   CONSOLE_INTERACTIVE : CONSOLE_NATIVE;
+
         if (!arg_quiet && arg_console_mode != CONSOLE_GUI) {
                 _cleanup_free_ char *u = NULL;
                 const char *vm_path = arg_image ?: arg_directory;
@@ -4175,7 +4402,7 @@ static int run(int argc, char *argv[]) {
                 if (arg_console_mode == CONSOLE_INTERACTIVE)
                         log_info("%s %sPress %sCtrl-]%s three times within 1s to kill VM.%s",
                                  glyph(GLYPH_LIGHT_SHADE), ansi_grey(), ansi_highlight(), ansi_grey(), ansi_normal());
-                else if (arg_console_mode == CONSOLE_NATIVE)
+                else if (arg_console_mode == CONSOLE_NATIVE && isatty_safe(STDIN_FILENO))
                         log_info("%s %sPress %sCtrl-a x%s to kill VM.%s",
                                  glyph(GLYPH_LIGHT_SHADE), ansi_grey(), ansi_highlight(), ansi_grey(), ansi_normal());
         }
