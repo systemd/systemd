@@ -2956,7 +2956,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         const char *cpu_model =
 #ifdef __x86_64__
                 arg_confidential_computing == COCO_AMD_SEV_SNP ? "EPYC-v4" :
-                use_kvm ? "host,hv_relaxed,hv-vapic,hv-time" : "max";
+                use_kvm ? "host" : "max";
 #else
                 use_kvm ? "host" : "max";
 #endif
