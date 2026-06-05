@@ -186,6 +186,8 @@ class PeSection(LittleEndianStructure):
     def __init__(self) -> None:
         super().__init__()
         self.data = bytearray()
+        self.elf_vma = 0  # Original ELF VMA before any PE alignment
+        self.elf_size = 0  # Original ELF size before any padding
 
 
 N_DATA_DIRECTORY_ENTRIES = 16
@@ -296,12 +298,12 @@ def iter_copy_sections(file: elffile.ELFFile) -> typing.Iterator[PeSection]:
         if pe_s:
             # Insert padding to properly align the section.
             pad_len = elf_s['sh_addr'] - pe_s.VirtualAddress - len(pe_s.data)
-            pe_s.data += bytearray(pad_len) + elf_s.data()
+            pe_s.data += bytearray(pad_len) + bytearray(elf_s.data())
         else:
             pe_s = PeSection()
             pe_s.VirtualAddress = elf_s['sh_addr']
             pe_s.Characteristics = rwx
-            pe_s.data = elf_s.data()
+            pe_s.data = bytearray(elf_s.data())
 
     if pe_s:
         yield pe_s
@@ -311,17 +313,30 @@ def convert_sections(
     file: elffile.ELFFile,
     opt: PeOptionalHeader,
 ) -> list[PeSection]:
-    last_vma = (0, 0)
+    last_pe = (0, 0)  # (virtual_address, virtual_size) of previous PE section
     sections = []
 
     for pe_s in iter_copy_sections(file):
-        # Truncate the VMA to the nearest page and insert appropriate padding. This should not
-        # cause any overlap as this is pretty much how ELF *segments* are loaded/mmapped anyways.
-        # The ELF sections inside should also be properly aligned as we reuse the ELF VMA layout
-        # for the PE image.
         vma = pe_s.VirtualAddress
+        original_data_size = len(pe_s.data)
         pe_s.VirtualAddress = align_down(vma, SECTION_ALIGNMENT)
-        pe_s.data = bytearray(vma - pe_s.VirtualAddress) + pe_s.data
+
+        # Per-section align_down can cause overlapping sections with some
+        # binutils versions (e.g. 2.42) that place sections close together.
+        # If this happens, place the section after the previous one.
+        if sections and pe_s.VirtualAddress < sum(last_pe):
+            pe_s.VirtualAddress = next_section_address(sections)
+
+        # Add padding before section data if the PE address is lower than the
+        # original ELF VMA. When the section is moved forward (VirtualAddress
+        # > vma), we don't add padding at the front - the data simply starts
+        # at the higher PE address. Relocation lookups use the original ELF
+        # range (vma, vma + original_data_size) to find the target.
+        if pe_s.VirtualAddress < vma:
+            pe_s.data = bytearray(vma - pe_s.VirtualAddress) + pe_s.data
+
+        pe_s.elf_vma = vma
+        pe_s.elf_size = original_data_size
 
         pe_s.VirtualSize = len(pe_s.data)
         pe_s.SizeOfRawData = align_to(len(pe_s.data), FILE_ALIGNMENT)
@@ -331,12 +346,12 @@ def convert_sections(
             PE_CHARACTERISTICS_R: b'.rodata',
         }[pe_s.Characteristics]
 
-        # This can happen if not building with '-z separate-code'.
-        if pe_s.VirtualAddress < sum(last_vma):
+        # Defensive check - next_section_address should guarantee this never fires
+        if pe_s.VirtualAddress < sum(last_pe):
             raise BadSectionError(
-                f'Section {pe_s.Name.decode()!r} @{pe_s.VirtualAddress:#x} overlaps previous section @{last_vma[0]:#x}+{last_vma[1]:#x}=@{sum(last_vma):#x}'
+                f'Section {pe_s.Name.decode()!r} @{pe_s.VirtualAddress:#x} overlaps previous section @{last_pe[0]:#x}+{last_pe[1]:#x}=@{sum(last_pe):#x}'
             )
-        last_vma = (pe_s.VirtualAddress, pe_s.VirtualSize)
+        last_pe = (pe_s.VirtualAddress, pe_s.VirtualSize)
 
         if pe_s.Name == b'.text':
             opt.BaseOfCode = pe_s.VirtualAddress
@@ -369,13 +384,36 @@ def copy_sections(
 
         pe_s = PeSection()
         pe_s.Name = name.encode()
-        pe_s.data = elf_s.data()
+        pe_s.data = bytearray(elf_s.data())
         pe_s.VirtualAddress = next_section_address(sections)
         pe_s.VirtualSize = len(elf_s.data())
         pe_s.SizeOfRawData = align_to(len(elf_s.data()), FILE_ALIGNMENT)
         pe_s.Characteristics = PE_CHARACTERISTICS_R
+        pe_s.elf_vma = pe_s.VirtualAddress  # These sections follow PE layout
+        pe_s.elf_size = len(elf_s.data())
         opt.SizeOfInitializedData += pe_s.VirtualSize
         sections.append(pe_s)
+
+
+def find_section_by_elf_vma(sections: list[PeSection], vma: int) -> typing.Optional[PeSection]:
+    """Find the section that contains the given ELF VMA.
+
+    Returns None if the VMA doesn't fall within any section's original ELF range.
+    This can happen for non-ELF sections like .reloc or external symbol targets.
+    """
+    matches = [pe_s for pe_s in sections if pe_s.elf_vma <= vma < pe_s.elf_vma + pe_s.elf_size]
+    return matches[0] if len(matches) == 1 else None
+
+
+def pe_offset_from_elf_vma(pe_s: PeSection, vma: int) -> int:
+    """Convert an ELF VMA to the corresponding offset within the PE section data.
+
+    Accounts for pre-padding that may be added during align_down, as well as
+    sections that were moved forward to resolve alignment artifacts.
+    """
+    data_offset = vma - pe_s.elf_vma
+    pre_padding = max(pe_s.elf_vma - pe_s.VirtualAddress, 0)
+    return pre_padding + data_offset
 
 
 def apply_elf_relative_relocation(
@@ -384,13 +422,13 @@ def apply_elf_relative_relocation(
     sections: list[PeSection],
     addend_size: int,
 ) -> None:
-    [target] = [
-        pe_s
-        for pe_s in sections
-        if pe_s.VirtualAddress <= reloc['r_offset'] < pe_s.VirtualAddress + len(pe_s.data)
-    ]
+    # reloc['r_offset'] is the original ELF VMA of the relocation site.
+    target = find_section_by_elf_vma(sections, reloc['r_offset'])
+    if target is None:
+        raise BadSectionError(f'Relocation at 0x{reloc["r_offset"]:x} not within any section')
 
-    addend_offset = reloc['r_offset'] - target.VirtualAddress
+    # Offset within the section data (for writing the patched value)
+    addend_offset = pe_offset_from_elf_vma(target, reloc['r_offset'])
 
     if reloc.is_RELA():
         addend = reloc['r_addend']
@@ -398,6 +436,19 @@ def apply_elf_relative_relocation(
         addend = target.data[addend_offset : addend_offset + addend_size]
         addend = int.from_bytes(addend, byteorder='little')
 
+    # R_X86_64_RELATIVE and similar relocations store the target virtual
+    # address as the addend. If the target section was moved as part of
+    # alignment artifact resolution, we need to adjust the addend to
+    # reflect the new PE address.
+    target_s = find_section_by_elf_vma(sections, addend)
+    if target_s is not None:
+        # The addend points within a known section. Adjust it to reflect
+        # any movement of that section in the PE layout.
+        delta = target_s.VirtualAddress - target_s.elf_vma
+        addend += delta
+
+    # The final relocated value is the adjusted target address plus the
+    # PE image base (which will be applied by the firmware/loader).
     value = (image_base + addend).to_bytes(addend_size, byteorder='little')
     target.data[addend_offset : addend_offset + addend_size] = value
 
@@ -435,12 +486,20 @@ def convert_elf_reloc_table(
             apply_elf_relative_relocation(reloc, elf_image_base, sections, file.elfclass // 8)
 
             # Now that the ELF relocation has been applied, we can create a PE relocation.
-            block_rva = reloc['r_offset'] & ~0xFFF
+            # The PE RVA must point to the actual location in the PE image, accounting
+            # for section movement and pre-padding.
+            target = find_section_by_elf_vma(sections, reloc['r_offset'])
+            if target is None:
+                raise BadSectionError(f'Relocation site 0x{reloc["r_offset"]:x} not within any section')
+            addend_offset = pe_offset_from_elf_vma(target, reloc['r_offset'])
+            pe_rva = target.VirtualAddress + addend_offset
+
+            block_rva = pe_rva & ~0xFFF
             if block_rva not in pe_reloc_blocks:
                 pe_reloc_blocks[block_rva] = PeRelocationBlock(block_rva)
 
             entry = PeRelocationEntry()
-            entry.Offset = reloc['r_offset'] & 0xFFF
+            entry.Offset = pe_rva & 0xFFF
             # REL_BASED_HIGHLOW or REL_BASED_DIR64
             entry.Type = 3 if file.elfclass == 32 else 10
             pe_reloc_blocks[block_rva].entries.append(entry)
@@ -529,6 +588,8 @@ def convert_elf_relocations(
     pe_reloc_s.VirtualAddress = next_section_address(sections)
     pe_reloc_s.VirtualSize = len(data)
     pe_reloc_s.SizeOfRawData = align_to(len(data), FILE_ALIGNMENT)
+    pe_reloc_s.elf_vma = pe_reloc_s.VirtualAddress  # No ELF equivalent, use PE address
+    pe_reloc_s.elf_size = len(data)
     # CNT_INITIALIZED_DATA|MEM_READ|MEM_DISCARDABLE
     pe_reloc_s.Characteristics = 0x42000040
 
