@@ -76,15 +76,6 @@ jobs:
 
       - uses: systemd/mkosi@60ed8c964f8d98aa4b325f381c4b3bc6de91a0b7
 
-      - name: Install apk
-        # ubuntu-24.04 doesn't package apk, so fetch the official statically-linked binary from
-        # upstream so mkosi can use it to populate the postmarketOS tools tree.
-        run: |
-          sudo curl -fsSL -o /usr/local/bin/apk \
-              https://gitlab.alpinelinux.org/api/v4/projects/5/packages/generic/v3.0.6/x86_64/apk.static
-          echo 'f1489e05bace7d7dd0a687fcd38d50b585ac660af4231668b123649bef3718c4  /usr/local/bin/apk' | sha256sum --check
-          sudo chmod +x /usr/local/bin/apk
-
       - name: Build tools tree
         run: |
           tee mkosi/mkosi.local.conf <<EOF
