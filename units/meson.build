@@ -789,6 +789,15 @@ units = [
           'symlinks' : ['system-install.target.wants/'],
         },
         {
+          'file' : 'systemd-sysinstall.socket',
+          'conditions' : ['ENABLE_SYSINSTALL'],
+          'symlinks' : ['sockets.target.wants/'],
+        },
+        {
+          'file' : 'systemd-sysinstall@.service',
+          'conditions' : ['ENABLE_SYSINSTALL'],
+        },
+        {
           'file' : 'systemd-sysupdate-reboot.service',
           'conditions' : ['ENABLE_SYSUPDATE'],
         },
