@@ -27,6 +27,7 @@
 #include "capability-util.h"
 #include "common-signal.h"
 #include "copy.h"
+#include "dirent-util.h"
 #include "discover-image.h"
 #include "dissect-image.h"
 #include "escape.h"
@@ -69,6 +70,7 @@
 #include "polkit-agent.h"
 #include "pretty-print.h"
 #include "process-util.h"
+#include "qmp-client.h"
 #include "ptyfwd.h"
 #include "random-util.h"
 #include "rm-rf.h"
@@ -84,6 +86,7 @@
 #include "swtpm-util.h"
 #include "sync-util.h"
 #include "terminal-util.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 #include "uid-classification.h"
 #include "unit-name.h"
@@ -2549,6 +2552,128 @@ static int prepare_device_info(const char *runtime_dir, MachineConfig *c) {
         return assign_pcie_ports(c);
 }
 
+/* QEMU liveness probe. Unlike a VM whose devices are all on the QEMU command line and which then runs
+ * autonomously, a vmspawn VM is driven through QMP for its entire life, so it depends on QEMU's main loop
+ * staying responsive. If that main loop wedges (e.g. it blocks while holding the BQL), every vCPU stalls and
+ * the whole guest freezes silently — the guest clock stops, VSOCK dies, and the only outward sign is that the
+ * caller eventually hits its own timeout, with no clue why. To catch this we periodically fire a trivial QMP
+ * query-status (which QEMU answers from its main loop); if no reply arrives within a deadline we dump QEMU's
+ * per-thread kernel state and exit with EXIT_EXCEPTION so the caller can retry/skip instead of hanging.
+ *
+ * Note this deliberately does NOT catch a guest-internal hang (vCPUs spinning inside the guest while QEMU's
+ * main loop stays healthy): there query-status keeps replying, which is itself the useful signal that the
+ * freeze is guest-side rather than QEMU-side. */
+
+#define QEMU_LIVENESS_PROBE_INTERVAL_USEC (10 * USEC_PER_SEC)
+#define QEMU_LIVENESS_PROBE_DEADLINE_USEC (60 * USEC_PER_SEC)
+
+typedef struct QemuLivenessProbe {
+        QmpClient *qmp;
+        sd_event *event;
+        const PidRef *qemu;
+        usec_t last_reply_usec;
+        bool outstanding;
+} QemuLivenessProbe;
+
+static void dump_qemu_thread_state(const PidRef *qemu) {
+        if (!pidref_is_set(qemu))
+                return;
+
+        _cleanup_free_ char *task_dir = NULL;
+        if (asprintf(&task_dir, "/proc/" PID_FMT "/task", qemu->pid) < 0)
+                return (void) log_oom();
+
+        _cleanup_closedir_ DIR *d = opendir(task_dir);
+        if (!d)
+                return (void) log_warning_errno(errno, "Failed to open %s to dump QEMU thread state, ignoring: %m", task_dir);
+
+        log_error("Dumping QEMU (" PID_FMT ") thread state:", qemu->pid);
+
+        FOREACH_DIRENT(de, d, break) {
+                _cleanup_free_ char *comm = NULL, *wchan = NULL, *syscall_line = NULL, *stack = NULL, *p = NULL;
+
+                if (asprintf(&p, "%s/%s/comm", task_dir, de->d_name) >= 0)
+                        (void) read_one_line_file(p, &comm);
+                p = mfree(p);
+                if (asprintf(&p, "%s/%s/wchan", task_dir, de->d_name) >= 0)
+                        (void) read_one_line_file(p, &wchan);
+                p = mfree(p);
+                if (asprintf(&p, "%s/%s/syscall", task_dir, de->d_name) >= 0)
+                        (void) read_one_line_file(p, &syscall_line);
+                p = mfree(p);
+
+                log_error("  thread %s (%s): wchan=%s syscall=%s",
+                          de->d_name, strna(comm),
+                          isempty(wchan) ? "?" : wchan,
+                          isempty(syscall_line) ? "?" : syscall_line);
+
+                if (asprintf(&p, "%s/%s/stack", task_dir, de->d_name) >= 0 &&
+                    read_full_virtual_file(p, &stack, /* ret_size= */ NULL) >= 0 && !isempty(stack))
+                        log_error("  kernel stack:\n%s", strstrip(stack));
+                p = mfree(p);
+        }
+}
+
+static int on_sigusr2_dump_qemu(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
+        /* Manual trigger: SIGUSR2 dumps QEMU's per-thread state, for poking a VM that looks stuck without
+         * waiting for (or instead of relying on) the liveness probe's deadline. */
+        dump_qemu_thread_state(ASSERT_PTR(userdata));
+        return 0;
+}
+
+static int on_qemu_liveness_reply(
+                QmpClient *client,
+                sd_json_variant *result,
+                const char *error_desc,
+                int error,
+                void *userdata) {
+
+        QemuLivenessProbe *probe = ASSERT_PTR(userdata);
+
+        /* Any reply at all (even an error reply) proves QEMU's main loop is still dispatching QMP. */
+        probe->outstanding = false;
+        probe->last_reply_usec = now(CLOCK_MONOTONIC);
+        return 0;
+}
+
+static int on_qemu_liveness_tick(sd_event_source *s, uint64_t usec, void *userdata) {
+        QemuLivenessProbe *probe = ASSERT_PTR(userdata);
+        int r;
+
+        /* If the QMP connection is gone QEMU has exited (or is exiting); on_child_exit() will end the event
+         * loop, so there's nothing left to probe and a missing reply doesn't mean the main loop is wedged. */
+        if (qmp_client_is_disconnected(probe->qmp))
+                return 0;
+
+        usec_t n = now(CLOCK_MONOTONIC);
+
+        if (probe->outstanding && n > probe->last_reply_usec + QEMU_LIVENESS_PROBE_DEADLINE_USEC) {
+                log_error("QEMU did not answer a QMP query-status for %s — its main loop appears wedged "
+                          "(every vCPU is stalled). Treating the VM as crashed.",
+                          FORMAT_TIMESPAN(n - probe->last_reply_usec, USEC_PER_SEC));
+                dump_qemu_thread_state(probe->qemu);
+                return sd_event_exit(probe->event, EXIT_EXCEPTION);
+        }
+
+        if (!probe->outstanding) {
+                r = qmp_client_invoke(probe->qmp, /* ret_slot= */ NULL, "query-status", /* args= */ NULL,
+                                      on_qemu_liveness_reply, probe);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to issue QMP liveness probe, ignoring: %m");
+                else
+                        probe->outstanding = true;
+        }
+
+        r = sd_event_source_set_time(s, n + QEMU_LIVENESS_PROBE_INTERVAL_USEC);
+        if (r < 0)
+                return log_error_errno(r, "Failed to re-arm QEMU liveness timer: %m");
+        r = sd_event_source_set_enabled(s, SD_EVENT_ONESHOT);
+        if (r < 0)
+                return log_error_errno(r, "Failed to re-enable QEMU liveness timer: %m");
+
+        return 0;
+}
+
 static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         _cleanup_(ovmf_config_freep) OvmfConfig *ovmf_config = NULL;
         _cleanup_free_ char *qemu_binary = NULL, *mem = NULL;
@@ -3802,6 +3927,10 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         if (r < 0)
                 return r;
 
+        /* The bridge (and the QmpClient it owns) stays alive via the event loop after this point; grab a
+         * handle to the QMP client now for the liveness probe below. */
+        QmpClient *liveness_qmp = vmspawn_qmp_bridge_get_qmp(bridge);
+
         /* Varlink server for VM control */
         _cleanup_(vmspawn_varlink_context_freep) VmspawnVarlinkContext *varlink_ctx = NULL;
         _cleanup_free_ char *control_address = NULL;
@@ -3939,6 +4068,9 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
         (void) sd_event_add_signal(event, NULL, (SIGRTMIN+18) | SD_EVENT_SIGNAL_PROCMASK, sigrtmin18_handler, NULL);
 
+        /* SIGUSR2 dumps QEMU's per-thread state on demand (see on_sigusr2_dump_qemu()). */
+        (void) sd_event_add_signal(event, NULL, SIGUSR2 | SD_EVENT_SIGNAL_PROCMASK, on_sigusr2_dump_qemu, &child_pidref);
+
         r = sd_event_add_memory_pressure(event, NULL, NULL, NULL);
         if (r < 0)
                 log_debug_errno(r, "Failed to allocate memory pressure event source, ignoring: %m");
@@ -3947,6 +4079,25 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         r = event_add_child_pidref(event, /* ret= */ NULL, &child_pidref, WEXITED, on_child_exit, /* userdata= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to watch qemu process: %m");
+
+        /* Periodically probe QEMU's QMP main loop so a wedged VM fails fast (and dumps diagnostics) instead of
+         * silently hanging until the caller's timeout. See QemuLivenessProbe above. */
+        QemuLivenessProbe liveness_probe = {
+                .qmp = liveness_qmp,
+                .event = event,
+                .qemu = &child_pidref,
+                .last_reply_usec = now(CLOCK_MONOTONIC),
+        };
+        _cleanup_(sd_event_source_unrefp) sd_event_source *liveness_source = NULL;
+        if (liveness_qmp) {
+                r = sd_event_add_time_relative(event, &liveness_source, CLOCK_MONOTONIC,
+                                               QEMU_LIVENESS_PROBE_INTERVAL_USEC, /* accuracy= */ USEC_PER_SEC,
+                                               on_qemu_liveness_tick, &liveness_probe);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to arm QEMU liveness probe: %m");
+
+                (void) sd_event_source_set_description(liveness_source, "vmspawn-qemu-liveness");
+        }
 
         _cleanup_(osc_context_closep) sd_id128_t osc_context_id = SD_ID128_NULL;
         _cleanup_(pty_forward_freep) PTYForward *forward = NULL;
