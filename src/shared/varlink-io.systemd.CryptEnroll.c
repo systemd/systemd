@@ -26,7 +26,7 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 SD_VARLINK_SUPPORTS_MORE,
                 SD_VARLINK_FIELD_COMMENT("Path to the LUKS2 block device or image to operate on."),
                 SD_VARLINK_DEFINE_INPUT(node, SD_VARLINK_STRING, 0),
-                SD_VARLINK_FIELD_COMMENT("Which kind of credential to enroll. Only 'password', 'recovery_key' and 'fido2' may be enrolled via this interface; 'pkcs11' and 'tpm2' are rejected with an InvalidParameter error."),
+                SD_VARLINK_FIELD_COMMENT("Which kind of credential to enroll. Only 'password', 'recovery_key' and 'fido2' may be enrolled via this interface for now; 'pkcs11' and 'tpm2' are rejected with an InvalidParameter error, currently."),
                 SD_VARLINK_DEFINE_INPUT_BY_TYPE(mechanism, EnrollMechanism, 0),
 
                 SD_VARLINK_FIELD_COMMENT("How to unlock the volume for the enrollment operation is inferred from which of the following fields are set: setting unlockPassword unlocks via that password, unlockKeyFile/unlockKeyFileDescriptorIndex via a key file, unlockFido2Device via FIDO2, unlockTpm2Device via TPM2. Exactly one must be set."),
