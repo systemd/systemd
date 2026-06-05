@@ -125,7 +125,6 @@ typedef struct Socket {
         SocketResult clean_result;
 
         char **symlinks;
-        char **xattrs;
 
         bool accept;
         bool remove_on_stop;
