@@ -4315,6 +4315,15 @@ static int context_dump_partitions(Context *context) {
         (void) table_set_align_percent(t, table_get_cell(t, 0, 11), 100);
         (void) table_set_align_percent(t, table_get_cell(t, 0, 12), 100);
 
+        size_t n_partitions = 0;
+        LIST_FOREACH(partitions, p, context->partitions) {
+                if (p->dropped)
+                        continue;
+
+                n_partitions++;
+        }
+
+        size_t cur_n_partition = 0;
         LIST_FOREACH(partitions, p, context->partitions) {
                 _cleanup_free_ char *size_change = NULL, *padding_change = NULL, *partname = NULL, *rh = NULL;
                 char uuid_buffer[SD_ID128_UUID_STRING_MAX];
@@ -4322,6 +4331,8 @@ static int context_dump_partitions(Context *context) {
 
                 if (p->dropped)
                         continue;
+
+                cur_n_partition++;
 
                 if (p->current_size == UINT64_MAX)
                         activity = "create";
@@ -4363,10 +4374,10 @@ static int context_dump_partitions(Context *context) {
                                 TABLE_UINT64, p->offset,
                                 TABLE_UINT64, p->current_size == UINT64_MAX ? 0 : p->current_size,
                                 TABLE_UINT64, p->new_size,
-                                TABLE_STRING, size_change, TABLE_SET_COLOR, !p->partitions_next && sum_size > 0 ? ansi_underline() : NULL,
+                                TABLE_STRING, size_change, TABLE_SET_COLOR, cur_n_partition == n_partitions && sum_size > 0 ? ansi_underline() : NULL,
                                 TABLE_UINT64, p->current_padding == UINT64_MAX ? 0 : p->current_padding,
                                 TABLE_UINT64, p->new_padding,
-                                TABLE_STRING, padding_change, TABLE_SET_COLOR, !p->partitions_next && sum_padding > 0 ? ansi_underline() : NULL,
+                                TABLE_STRING, padding_change, TABLE_SET_COLOR, cur_n_partition == n_partitions && sum_padding > 0 ? ansi_underline() : NULL,
                                 TABLE_STRING, activity ?: "unchanged",
                                 TABLE_STRING, rh,
                                 TABLE_STRV, p->drop_in_files,
@@ -11242,6 +11253,57 @@ static int determine_auto_size(
         return 0;
 }
 
+static void context_sort_partitions(Context *context) {
+        assert(context);
+
+        Partition *p;
+        LIST_HEAD(Partition, new_partitions) = NULL;
+        LIST_HEAD(Partition, existing_partitions) = NULL;
+        LIST_HEAD(Partition, dropped_partitions) = NULL;
+
+        while ((p = LIST_POP(partitions, context->partitions))) {
+                if (p->allocated_to_area)
+                        LIST_APPEND(partitions, new_partitions, p);
+                else if (p->dropped)
+                        LIST_APPEND(partitions, dropped_partitions, p);
+                else
+                        LIST_APPEND(partitions, existing_partitions, p);
+        }
+
+        /* First sort existing partitions by their offset */
+        while ((p = LIST_POP(partitions, existing_partitions))) {
+                Partition *cursor = NULL;
+
+                assert(p->offset != UINT64_MAX);
+
+                LIST_FOREACH(partitions, q, context->partitions)
+                        if (p->offset > q->offset)
+                                cursor = q;
+
+                LIST_INSERT_AFTER(partitions, context->partitions, cursor, p);
+        }
+
+        /* Then insert the partitions we'll newly create in the free areas */
+        while ((p = LIST_POP(partitions, new_partitions))) {
+                FreeArea *a = p->allocated_to_area;
+                Partition *cursor = a->after;
+
+                /* Advance past partitions of this area that we already inserted */
+                LIST_FOREACH(partitions, q, context->partitions)
+                        if (q->allocated_to_area == a)
+                                cursor = q;
+
+                LIST_INSERT_AFTER(partitions, context->partitions, cursor, p);
+        }
+
+        /* Finally append any dropped partitions to the end of the list */
+        while ((p = LIST_POP(partitions, dropped_partitions))) {
+                assert(p->offset == UINT64_MAX);
+
+                LIST_APPEND(partitions, context->partitions, p);
+        }
+}
+
 static int context_ponder(Context *context) {
         int r;
 
@@ -11285,6 +11347,10 @@ static int context_ponder(Context *context) {
                         log_info("Couldn't allocate partitions with %s merged into %s, using supplement verbatim.",
                                  p->definition_path, p->supplement_for->definition_path);
         }
+
+        /* Now that we know which new partition goes into which free area, reorder
+         * the partitions list so that the list is in the right order. */
+        context_sort_partitions(context);
 
         /* Now assign free space according to the weight logic */
         r = context_grow_partitions(context);
