@@ -21,7 +21,6 @@
 #  include <openssl/kdf.h>
 #  include <openssl/provider.h>
 #  include <openssl/store.h>
-#  include <openssl/thread.h>
 
 #  if !defined(OPENSSL_NO_ENGINE) && !defined(OPENSSL_NO_DEPRECATED_3_0)
 #    include <openssl/engine.h>
@@ -30,6 +29,12 @@
 #  ifndef OPENSSL_NO_UI_CONSOLE
 #    include <openssl/ui.h>
 #  endif
+
+/* Forward declarations for OpenSSL thread pool API (optional, available in OpenSSL >= 3.2). These
+ * are resolved at runtime via DLSYM_OPTIONAL later. */
+int OSSL_set_max_threads(OSSL_LIB_CTX *ctx, uint64_t max_threads);
+uint64_t OSSL_get_max_threads(OSSL_LIB_CTX *ctx);
+uint32_t OSSL_get_thread_support_flags(void);
 
 struct OpenSSLAskPasswordUI {
         AskPasswordRequest request;
@@ -343,7 +348,9 @@ int dlopen_libcrypto(int log_level) {
 
         LIBCRYPTO_NOTE(SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED);
 
-        return dlopen_many_sym_or_warn(
+        int r;
+
+        r = dlopen_many_sym_or_warn(
                         &libcrypto_dl,
                         "libcrypto.so.3",
                         log_level,
@@ -546,9 +553,6 @@ int dlopen_libcrypto(int log_level) {
                         DLSYM_ARG(OSSL_PARAM_BLD_push_uint),
                         DLSYM_ARG(OSSL_PARAM_BLD_push_utf8_string),
                         DLSYM_ARG(OSSL_PARAM_BLD_to_param),
-                        DLSYM_ARG(OSSL_set_max_threads),
-                        DLSYM_ARG(OSSL_get_max_threads),
-                        DLSYM_ARG(OSSL_get_thread_support_flags),
                         DLSYM_ARG(OSSL_PARAM_construct_BN),
                         DLSYM_ARG(OSSL_PARAM_construct_end),
                         DLSYM_ARG(OSSL_PARAM_construct_octet_string),
@@ -626,6 +630,17 @@ int dlopen_libcrypto(int log_level) {
                         DLSYM_ARG(X509_VERIFY_PARAM_set_hostflags),
                         DLSYM_ARG(X509_VERIFY_PARAM_set1_host),
                         DLSYM_ARG(X509_VERIFY_PARAM_set1_ip));
+        if (r < 0)
+                return r;
+
+        /* Optional thread pool API (OpenSSL >= 3.2). These symbols are resolved at runtime — if the
+         * running libcrypto doesn't provide them, the function pointers stay NULL and threading is
+         * skipped in kdf_argon2id_derive(). */
+        DLSYM_OPTIONAL(libcrypto_dl, OSSL_set_max_threads);
+        DLSYM_OPTIONAL(libcrypto_dl, OSSL_get_max_threads);
+        DLSYM_OPTIONAL(libcrypto_dl, OSSL_get_thread_support_flags);
+
+        return 0;
 #else
         return log_full_errno(log_level, SYNTHETIC_ERRNO(EOPNOTSUPP),
                               "libcrypto support is not compiled in.");
@@ -1165,7 +1180,7 @@ int kdf_argon2id_derive(
         if (!buf)
                 return log_oom_debug();
 
-        if (params && params->lanes > 1)
+        if (params && params->lanes > 1 && sym_OSSL_set_max_threads)
                 if (!sym_OSSL_set_max_threads(NULL, params->lanes))
                         return log_openssl_errors("Failed to set Argon2id thread pool size");
 
@@ -1192,7 +1207,7 @@ int kdf_argon2id_derive(
                 if (!sym_OSSL_PARAM_BLD_push_uint(bld, "lanes", params->lanes))
                         return log_openssl_errors("Failed to add ARGON2ID lanes");
 
-                if (params->lanes > 1)
+                if (params->lanes > 1 && sym_OSSL_set_max_threads)
                         if (!sym_OSSL_PARAM_BLD_push_uint(bld, "threads", params->lanes))
                                 return log_openssl_errors("Failed to add ARGON2ID threads");
         }
@@ -1204,7 +1219,7 @@ int kdf_argon2id_derive(
         if (sym_EVP_KDF_derive(ctx, buf, derive_size, openssl_params) <= 0)
                 return log_openssl_errors("OpenSSL ARGON2ID derive failed");
 
-        if (params && params->lanes > 1)
+        if (params && params->lanes > 1 && sym_OSSL_set_max_threads)
                 sym_OSSL_set_max_threads(NULL, 0);
 
         ret->iov_base = TAKE_PTR(buf);
