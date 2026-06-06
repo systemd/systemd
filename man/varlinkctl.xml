@@ -84,6 +84,18 @@
     <cmdsynopsis>
       <command>varlinkctl</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">list-registry</arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis>
+      <command>varlinkctl</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">list-sockets</arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis>
+      <command>varlinkctl</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
       <arg choice="plain">validate-idl</arg>
       <arg choice="opt"><replaceable>FILE</replaceable></arg>
     </cmdsynopsis>
@@ -219,6 +231,23 @@
         <filename>/run/varlink/registry/</filename>, see below.)</para>
 
         <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>list-sockets</command></term>
+
+        <listitem><para>Shows a list of listening <constant>AF_UNIX</constant> stream sockets on the local
+        system that are marked as Varlink entrypoints, along with whether the calling user has write (i.e.
+        connect) access to each of them. A socket is considered a Varlink entrypoint if its inode carries the
+        <varname>user.varlink</varname> extended attribute set to <literal>entrypoint</literal>.</para>
+
+        <para>Sockets are enumerated via the kernel's <constant>sock_diag</constant> netlink interface, and
+        hence this is not restricted to sockets in <filename>/run/varlink/registry/</filename> (as
+        <command>list-registry</command> is), but covers all file-system bound listening Varlink sockets,
+        regardless of their location. This requires kernel support for extended attributes on socket inodes,
+        which is available since Linux 7.0.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
       </varlistentry>
 
       <varlistentry>
