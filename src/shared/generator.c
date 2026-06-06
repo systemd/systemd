@@ -922,7 +922,12 @@ int generator_write_cryptsetup_unit_section(FILE *f, const char *source) {
         fprintf(f,
                 "\n"
                 "DefaultDependencies=no\n"
-                "After=cryptsetup-pre.target systemd-udevd-kernel.socket systemd-tpm2-setup-early.service\n"
+                /* The ordering against systemd-udevd.service is mostly about shutdown, not startup: on stop
+                 * the device is detached via a device-mapper ioctl that carries a udev cookie, and we block in
+                 * dm_udev_wait() until udev releases it (see 95-dm-notify.rules). Ordering After= it means we
+                 * are stopped first, while udevd is still around to service that cookie; otherwise during
+                 * soft-reboot/shutdown udevd may exit first and the detach hangs until the job timeout. */
+                "After=cryptsetup-pre.target systemd-udevd-kernel.socket systemd-udevd.service systemd-tpm2-setup-early.service\n"
                 "Before=blockdev@dev-mapper-%%i.target\n"
                 "Wants=blockdev@dev-mapper-%%i.target\n"
                 "IgnoreOnIsolate=true\n");
@@ -994,7 +999,11 @@ int generator_write_veritysetup_unit_section(FILE *f, const char *source) {
         fprintf(f,
                 "DefaultDependencies=no\n"
                 "IgnoreOnIsolate=true\n"
-                "After=veritysetup-pre.target systemd-udevd-kernel.socket\n"
+                /* The systemd-udevd.service ordering is mostly about shutdown, not startup: on stop the dm
+                 * device is detached via an ioctl carrying a udev cookie that blocks in dm_udev_wait() until
+                 * udev releases it (95-dm-notify.rules). Stopping before udevd keeps it around to service the
+                 * cookie; otherwise during soft-reboot/shutdown udevd may exit first and the detach hangs. */
+                "After=veritysetup-pre.target systemd-udevd-kernel.socket systemd-udevd.service\n"
                 "Before=blockdev@dev-mapper-%%i.target\n"
                 "Wants=blockdev@dev-mapper-%%i.target\n");
 
