@@ -542,7 +542,7 @@ typedef struct Partition {
         RateLimit progress_ratelimit;
 
         char *supplement_for_name;
-        struct Partition *supplement_for, *supplement_target_for;
+        struct Partition *supplement_for, *supplemented_by;
         struct Partition *suppressing;
 
         struct Partition *siblings[_VERITY_MODE_MAX];
@@ -796,23 +796,23 @@ static Partition *partition_new(Context *c) {
 static void partition_unlink_supplement(Partition *p) {
         assert(p);
 
-        assert(!p->supplement_for || !p->supplement_target_for); /* Can't be both */
+        assert(!p->supplement_for || !p->supplemented_by); /* Can't be both */
 
-        if (p->supplement_target_for) {
-                assert(p->supplement_target_for->supplement_for == p);
+        if (p->supplemented_by) {
+                assert(p->supplemented_by->supplement_for == p);
 
-                p->supplement_target_for->supplement_for = NULL;
+                p->supplemented_by->supplement_for = NULL;
         }
 
         if (p->supplement_for) {
-                assert(p->supplement_for->supplement_target_for == p);
+                assert(p->supplement_for->supplemented_by == p);
                 assert(!p->supplement_for->suppressing || p->supplement_for->suppressing == p);
 
-                p->supplement_for->supplement_target_for = p->supplement_for->suppressing = NULL;
+                p->supplement_for->supplemented_by = p->supplement_for->suppressing = NULL;
         }
 
         p->supplement_for_name = mfree(p->supplement_for_name);
-        p->supplement_target_for = p->supplement_for = p->suppressing = NULL;
+        p->supplemented_by = p->supplement_for = p->suppressing = NULL;
 }
 
 static Partition* partition_free(Partition *p) {
@@ -3676,7 +3676,7 @@ static int context_read_definitions(Context *context) {
                                           "PaddingMinBytes= larger than PaddingMaxBytes= when merged with SupplementFor= target.");
 
                 p->supplement_for = tgt;
-                tgt->suppressing = tgt->supplement_target_for = p;
+                tgt->suppressing = tgt->supplemented_by = p;
         }
 
         return 0;
