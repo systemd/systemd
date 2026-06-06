@@ -16,7 +16,9 @@
 #include "cryptenroll-tpm2.h"
 #include "cryptenroll-wipe.h"
 #include "cryptsetup-util.h"
+#include "cpu-set-util.h"
 #include "extract-word.h"
+#include "limits-util.h"
 #include "fileio.h"
 #include "format-table.h"
 #include "libfido2-util.h"
@@ -31,6 +33,7 @@
 #include "process-util.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "time-util.h"
 #include "tpm2-pcr.h"
 #include "tpm2-util.h"
 
@@ -49,6 +52,8 @@ static char *arg_tpm2_device_key = NULL;
 static Tpm2PCRValue *arg_tpm2_hash_pcr_values = NULL;
 static size_t arg_tpm2_n_hash_pcr_values = 0;
 static bool arg_tpm2_pin = false;
+static bool arg_tpm2_argon2id = false;
+static Argon2IdParameters arg_tpm2_argon2id_params = ARGON2ID_PARAMETERS_DEFAULT;
 static char *arg_tpm2_public_key = NULL;
 static bool arg_tpm2_load_public_key = true;
 static uint32_t arg_tpm2_public_key_pcr_mask = 0;
@@ -576,6 +581,47 @@ static int parse_argv(int argc, char *argv[]) {
                         r = parse_boolean_argument("--tpm2-with-pin=", opts.arg, &arg_tpm2_pin);
                         if (r < 0)
                                 return r;
+                        if (arg_tpm2_pin)
+                                arg_tpm2_argon2id = true;
+                        break;
+
+                OPTION_LONG("tpm2-with-argon2id", "BOOL",
+                            "Whether to use Argon2id password hardening with TPM2 (default: yes if --tpm2-with-pin= is used)"):
+                        r = parse_boolean_argument("--tpm2-with-argon2id=", opts.arg, &arg_tpm2_argon2id);
+                        if (r < 0)
+                                return r;
+                        if (arg_tpm2_argon2id)
+                                arg_tpm2_pin = true;
+                        break;
+
+                OPTION_LONG("tpm2-argon2id-memory", "BYTES",
+                            "Argon2id memory cost in bytes (default: 64M)"): {
+                        uint64_t mem;
+                        r = parse_size(opts.arg, 1024, &mem);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --tpm2-argon2id-memory=: %s", opts.arg);
+                        if (mem == 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Argon2id memory must be non-zero.");
+                        arg_tpm2_argon2id_params.memcost_bytes = mem;
+                        break;
+                }
+
+                OPTION_LONG("tpm2-argon2id-iterations", "NUM",
+                            "Argon2id iteration count (default: 8)"):
+                        r = safe_atou(opts.arg, &arg_tpm2_argon2id_params.iterations);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --tpm2-argon2id-iterations=: %s", opts.arg);
+                        if (arg_tpm2_argon2id_params.iterations == 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Argon2id iterations must be non-zero.");
+                        break;
+
+                OPTION_LONG("tpm2-argon2id-parallelism", "NUM",
+                            "Argon2id parallelism/lane count (default: 4)"):
+                        r = safe_atou(opts.arg, &arg_tpm2_argon2id_params.lanes);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --tpm2-argon2id-parallelism=: %s", opts.arg);
+                        if (arg_tpm2_argon2id_params.lanes == 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Argon2id parallelism must be non-zero.");
                         break;
                 }
 
@@ -769,12 +815,60 @@ static int prepare_luks(
         return 0;
 }
 
+static void argon2id_parameters_init_defaults(Argon2IdParameters *p) {
+        assert(p);
+
+        *p = ARGON2ID_PARAMETERS_DEFAULT;
+
+        unsigned n_cpus;
+        if (cpus_online(&n_cpus) >= 0)
+                p->lanes = n_cpus;
+
+        uint64_t mem = physical_memory_scale(1, 8);
+        if (mem > 0 && mem != UINT64_MAX)
+                p->memcost_bytes = mem;
+}
+
+static void argon2id_parameters_benchmark_iterations(Argon2IdParameters *p) {
+        static const usec_t target_time = 2000 * USEC_PER_MSEC;
+
+        struct iovec password = IOVEC_MAKE_STRING("benchmark");
+        struct iovec salt = IOVEC_MAKE_STRING("benchmark-salt");
+        struct iovec result = {};
+
+        Argon2IdParameters bench_params = *p;
+        bench_params.iterations = 1;
+
+        usec_t start = now(CLOCK_MONOTONIC);
+        int r = kdf_argon2id_derive(&password, &salt, &bench_params, 64, &result);
+        usec_t elapsed = now(CLOCK_MONOTONIC) - start;
+        if (r < 0) {
+                log_debug_errno(r, "Argon2id benchmark failed, using default iterations: %m");
+                return;
+        }
+
+        if (elapsed == 0)
+                p->iterations = 10000;
+        else {
+                p->iterations = CLAMP(target_time / elapsed, 1U, 10000U);
+
+                if (elapsed > target_time)
+                        log_notice("Argon2id benchmark: 1 iteration with %"PRIu64" MiB "
+                                   "took %"PRIu64"ms. Unlock may be slow. "
+                                   "Use --tpm2-argon2id-memory= to reduce memory cost.",
+                                   p->memcost_bytes / 1024 / 1024, elapsed / USEC_PER_MSEC);
+        }
+}
+
 static int run(int argc, char *argv[]) {
         _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
         _cleanup_(iovec_done_erase) struct iovec vk = {};
         int slot, slot_to_wipe, r;
 
         log_setup();
+
+        argon2id_parameters_init_defaults(&arg_tpm2_argon2id_params);
+        argon2id_parameters_benchmark_iterations(&arg_tpm2_argon2id_params);
 
         r = parse_argv(argc, argv);
         if (r <= 0)
@@ -813,7 +907,7 @@ static int run(int argc, char *argv[]) {
                 break;
 
         case ENROLL_TPM2:
-                slot = enroll_tpm2(cd, &vk, arg_tpm2_device, arg_tpm2_seal_key_handle, arg_tpm2_device_key, arg_tpm2_hash_pcr_values, arg_tpm2_n_hash_pcr_values, arg_tpm2_public_key, arg_tpm2_load_public_key, arg_tpm2_public_key_pcr_mask, arg_tpm2_signature, arg_tpm2_pin, arg_tpm2_pcrlock, &slot_to_wipe);
+                slot = enroll_tpm2(cd, &vk, arg_tpm2_device, arg_tpm2_seal_key_handle, arg_tpm2_device_key, arg_tpm2_hash_pcr_values, arg_tpm2_n_hash_pcr_values, arg_tpm2_public_key, arg_tpm2_load_public_key, arg_tpm2_public_key_pcr_mask, arg_tpm2_signature, arg_tpm2_pin, arg_tpm2_pcrlock, arg_tpm2_argon2id, &arg_tpm2_argon2id_params, &slot_to_wipe);
 
                 if (slot >= 0 && slot_to_wipe >= 0) {
                         assert(slot != slot_to_wipe);
