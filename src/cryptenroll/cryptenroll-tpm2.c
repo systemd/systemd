@@ -196,8 +196,7 @@ int load_volume_key_tpm2(
                 size_t n_blobs = 0, n_policy_hash = 0;
                 uint32_t hash_pcr_mask, pubkey_pcr_mask;
                 uint16_t pcr_bank, primary_alg;
-                uint64_t argon2id_memcost = 0;
-                uint32_t argon2id_iterations = 0, argon2id_lanes = 0;
+                Argon2IdParameters ap = {};
                 TPM2Flags tpm2_flags;
                 int keyslot;
 
@@ -223,9 +222,7 @@ int load_volume_key_tpm2(
                                 &tpm2_flags,
                                 &keyslot,
                                 &token,
-                                &argon2id_memcost,
-                                &argon2id_iterations,
-                                &argon2id_lanes);
+                                &ap);
                 if (r == -ENXIO)
                         return log_full_errno(LOG_NOTICE,
                                               SYNTHETIC_ERRNO(EAGAIN),
@@ -263,9 +260,7 @@ int load_volume_key_tpm2(
                                 "cryptenroll.tpm2-pin",
                                 /* askpw_flags= */ 0,
                                 &decrypted_key,
-                                argon2id_memcost,
-                                argon2id_iterations,
-                                argon2id_lanes);
+                                tpm2_flags & TPM2_FLAGS_USE_ARGON2ID ? &ap : NULL);
                 if (IN_SET(r, -EACCES, -ENOLCK))
                         return log_notice_errno(SYNTHETIC_ERRNO(EAGAIN), "TPM2 PIN unlock failed");
                 if (r != -EPERM)
@@ -311,9 +306,7 @@ int enroll_tpm2(struct crypt_device *cd,
                 bool use_pin,
                 const char *pcrlock_path,
                 bool argon2id,
-                uint64_t argon2id_memcost,
-                uint32_t argon2id_iterations,
-                uint32_t argon2id_lanes,
+                const Argon2IdParameters *argon2id_params,
                 int *ret_slot_to_wipe) {
 
 #if HAVE_TPM2
@@ -355,16 +348,16 @@ int enroll_tpm2(struct crypt_device *cd,
                         if (r < 0)
                                 return log_error_errno(r, "Failed to acquire random salt: %m");
 
-                        _cleanup_(erase_and_freep) void *derived = NULL;
+                        _cleanup_(iovec_done_erase) struct iovec derived = {};
                         r = kdf_argon2id_derive(
-                                        pin_str, strlen(pin_str),
-                                        binary_salt, sizeof(binary_salt),
-                                        argon2id_memcost, argon2id_iterations, argon2id_lanes,
-                                        64, &derived);
+                                        &IOVEC_MAKE(pin_str, strlen(pin_str)),
+                                        &IOVEC_MAKE(binary_salt, sizeof(binary_salt)),
+                                        argon2id_params,
+                                        /* derive_size= */ 64, &derived);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to perform Argon2id: %m");
 
-                        uint8_t *derived_bytes = derived;
+                        uint8_t *derived_bytes = derived.iov_base;
 
                         /* Key1 = first 32 bytes, stored for final HKDF derivation */
                         key1 = memdup(derived_bytes, 32);
@@ -619,20 +612,19 @@ int enroll_tpm2(struct crypt_device *cd,
         }
 
         if (FLAGS_SET(flags, TPM2_FLAGS_USE_ARGON2ID)) {
-                _cleanup_(erase_and_freep) void *final_key = NULL;
+                _cleanup_(iovec_done_erase) struct iovec final_key = {};
                 r = kdf_hkdf_sha256(
-                                key1, 32,
-                                secret.iov_base, secret.iov_len,
-                                "systemd-tpm2-argon2id-lock", strlen("systemd-tpm2-argon2id-lock"),
-                                32, &final_key);
+                                &IOVEC_MAKE(key1, 32),
+                                &secret,
+                                &IOVEC_MAKE_STRING("systemd-tpm2-argon2id-lock"),
+                                /* derive_size= */ 32, &final_key);
                 if (r < 0)
                         return log_error_errno(r, "Failed to derive final volume key via HKDF: %m");
 
-                base64_encoded_size = base64mem(final_key, 32, &base64_encoded);
-        } else {
+                base64_encoded_size = base64mem(final_key.iov_base, final_key.iov_len, &base64_encoded);
+        } else
                 /* let's base64 encode the key to use, for compat with homed (and it's easier to every type it in by keyboard, if that might end up being necessary. */
                 base64_encoded_size = base64mem(secret.iov_base, secret.iov_len, &base64_encoded);
-        }
         if (base64_encoded_size < 0)
                 return log_error_errno(base64_encoded_size, "Failed to base64 encode secret key: %m");
 
@@ -665,9 +657,7 @@ int enroll_tpm2(struct crypt_device *cd,
                         &srk,
                         pcrlock_path ? &pcrlock_policy.nv_handle : NULL,
                         flags,
-                        argon2id_memcost,
-                        argon2id_iterations,
-                        argon2id_lanes,
+                        argon2id_params,
                         &v);
         if (r < 0)
                 return log_error_errno(r, "Failed to prepare TPM2 JSON token object: %m");

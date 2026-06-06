@@ -3,6 +3,7 @@
 
 #include <sys/uio.h>
 
+#include "crypto-util.h"
 #include "shared-forward.h"
 
 int acquire_tpm2_key(
@@ -30,9 +31,7 @@ int acquire_tpm2_key(
                 const char *askpw_credential,
                 AskPasswordFlags askpw_flags,
                 struct iovec *ret_decrypted_key,
-                uint64_t argon2id_memcost,
-                uint32_t argon2id_iterations,
-                uint32_t argon2id_lanes);
+                const Argon2IdParameters *argon2id_params);
 
 int find_tpm2_auto_data(
                 struct crypt_device *cd,
@@ -53,6 +52,4 @@ int find_tpm2_auto_data(
                 TPM2Flags *ret_flags,
                 int *ret_keyslot,
                 int *ret_token,
-                uint64_t *ret_argon2id_memcost,
-                uint32_t *ret_argon2id_iterations,
-                uint32_t *ret_argon2id_lanes);
+                Argon2IdParameters *ret_argon2id_params);

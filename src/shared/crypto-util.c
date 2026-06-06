@@ -21,6 +21,7 @@
 #  include <openssl/kdf.h>
 #  include <openssl/provider.h>
 #  include <openssl/store.h>
+#  include <openssl/thread.h>
 
 #  if !defined(OPENSSL_NO_ENGINE) && !defined(OPENSSL_NO_DEPRECATED_3_0)
 #    include <openssl/engine.h>
@@ -203,6 +204,9 @@ static DLSYM_PROTOTYPE(OSSL_PARAM_BLD_push_octet_string) = NULL;
 static DLSYM_PROTOTYPE(OSSL_PARAM_BLD_push_uint) = NULL;
 static DLSYM_PROTOTYPE(OSSL_PARAM_BLD_push_utf8_string) = NULL;
 static DLSYM_PROTOTYPE(OSSL_PARAM_BLD_to_param) = NULL;
+static DLSYM_PROTOTYPE(OSSL_set_max_threads) = NULL;
+static DLSYM_PROTOTYPE(OSSL_get_max_threads) = NULL;
+static DLSYM_PROTOTYPE(OSSL_get_thread_support_flags) = NULL;
 DLSYM_PROTOTYPE(OSSL_PARAM_construct_BN) = NULL;
 DLSYM_PROTOTYPE(OSSL_PARAM_construct_end) = NULL;
 DLSYM_PROTOTYPE(OSSL_PARAM_construct_octet_string) = NULL;
@@ -542,6 +546,9 @@ int dlopen_libcrypto(int log_level) {
                         DLSYM_ARG(OSSL_PARAM_BLD_push_uint),
                         DLSYM_ARG(OSSL_PARAM_BLD_push_utf8_string),
                         DLSYM_ARG(OSSL_PARAM_BLD_to_param),
+                        DLSYM_ARG(OSSL_set_max_threads),
+                        DLSYM_ARG(OSSL_get_max_threads),
+                        DLSYM_ARG(OSSL_get_thread_support_flags),
                         DLSYM_ARG(OSSL_PARAM_construct_BN),
                         DLSYM_ARG(OSSL_PARAM_construct_end),
                         DLSYM_ARG(OSSL_PARAM_construct_octet_string),
@@ -1125,20 +1132,16 @@ int kdf_kb_hmac_derive(
  *
  * For more details see: https://docs.openssl.org/master/man7/EVP_KDF-ARGON2/ */
 int kdf_argon2id_derive(
-                const void *pass,
-                size_t passlen,
-                const void *salt,
-                size_t saltlen,
-                uint64_t memcost,
-                uint32_t iterations,
-                uint32_t lanes,
+                const struct iovec *password,
+                const struct iovec *salt,
+                const Argon2IdParameters *params,
                 size_t derive_size,
-                void **ret) {
+                struct iovec *ret) {
 
         int r;
 
-        assert(pass || passlen == 0);
-        assert(salt || saltlen == 0);
+        assert(!password || password->iov_len > 0);
+        assert(!salt || salt->iov_len > 0);
         assert(derive_size > 0);
         assert(ret);
 
@@ -1146,7 +1149,7 @@ int kdf_argon2id_derive(
         if (r < 0)
                 return r;
 
-        _cleanup_(EVP_KDF_freep) EVP_KDF *kdf = sym_EVP_KDF_fetch(NULL, "ARGON2ID", NULL);
+        _cleanup_(EVP_KDF_freep) EVP_KDF *kdf = sym_EVP_KDF_fetch(/* propq= */ NULL, "ARGON2ID", /* propq= */ NULL);
         if (!kdf)
                 return log_openssl_errors("Failed to create new EVP_KDF for ARGON2ID");
 
@@ -1162,31 +1165,50 @@ int kdf_argon2id_derive(
         if (!buf)
                 return log_oom_debug();
 
-        if (pass)
-                if (!sym_OSSL_PARAM_BLD_push_octet_string(bld, "pass", (char*) pass, passlen))
+        if (params && params->lanes > 1)
+                if (!sym_OSSL_set_max_threads(NULL, params->lanes))
+                        return log_openssl_errors("Failed to set Argon2id thread pool size");
+
+        if (password)
+                if (!sym_OSSL_PARAM_BLD_push_octet_string(bld, "pass", password->iov_base, password->iov_len))
                         return log_openssl_errors("Failed to add ARGON2ID pass");
 
         if (salt)
-                if (!sym_OSSL_PARAM_BLD_push_octet_string(bld, "salt", (char*) salt, saltlen))
+                if (!sym_OSSL_PARAM_BLD_push_octet_string(bld, "salt", salt->iov_base, salt->iov_len))
                         return log_openssl_errors("Failed to add ARGON2ID salt");
 
-        if (!sym_OSSL_PARAM_BLD_push_uint(bld, "memcost", (unsigned) memcost))
-                return log_openssl_errors("Failed to add ARGON2ID memcost");
+        if (params) {
+                uint64_t memcost_kb = params->memcost_bytes / 1024;
 
-        if (!sym_OSSL_PARAM_BLD_push_uint(bld, "iter", iterations))
-                return log_openssl_errors("Failed to add ARGON2ID iter");
+                if (memcost_kb > UINT_MAX)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Argon2id memory cost too large: %"PRIu64" bytes", params->memcost_bytes);
 
-        if (!sym_OSSL_PARAM_BLD_push_uint(bld, "lanes", lanes))
-                return log_openssl_errors("Failed to add ARGON2ID lanes");
+                if (!sym_OSSL_PARAM_BLD_push_uint(bld, "memcost", (unsigned) memcost_kb))
+                        return log_openssl_errors("Failed to add ARGON2ID memcost");
 
-        _cleanup_(OSSL_PARAM_freep) OSSL_PARAM *params = sym_OSSL_PARAM_BLD_to_param(bld);
-        if (!params)
+                if (!sym_OSSL_PARAM_BLD_push_uint(bld, "iter", params->iterations))
+                        return log_openssl_errors("Failed to add ARGON2ID iter");
+
+                if (!sym_OSSL_PARAM_BLD_push_uint(bld, "lanes", params->lanes))
+                        return log_openssl_errors("Failed to add ARGON2ID lanes");
+
+                if (params->lanes > 1)
+                        if (!sym_OSSL_PARAM_BLD_push_uint(bld, "threads", params->lanes))
+                                return log_openssl_errors("Failed to add ARGON2ID threads");
+        }
+
+        _cleanup_(OSSL_PARAM_freep) OSSL_PARAM *openssl_params = sym_OSSL_PARAM_BLD_to_param(bld);
+        if (!openssl_params)
                 return log_openssl_errors("Failed to build ARGON2ID OSSL_PARAM");
 
-        if (sym_EVP_KDF_derive(ctx, buf, derive_size, params) <= 0)
+        if (sym_EVP_KDF_derive(ctx, buf, derive_size, openssl_params) <= 0)
                 return log_openssl_errors("OpenSSL ARGON2ID derive failed");
 
-        *ret = TAKE_PTR(buf);
+        if (params && params->lanes > 1)
+                sym_OSSL_set_max_threads(NULL, 0);
+
+        ret->iov_base = TAKE_PTR(buf);
+        ret->iov_len = derive_size;
 
         return 0;
 }
@@ -1195,20 +1217,17 @@ int kdf_argon2id_derive(
  *
  * For more details see: https://docs.openssl.org/master/man7/EVP_KDF-HKDF.html */
 int kdf_hkdf_sha256(
-                const void *key,
-                size_t key_size,
-                const void *salt,
-                size_t salt_size,
-                const void *info,
-                size_t info_size,
+                const struct iovec *key,
+                const struct iovec *salt,
+                const struct iovec *info,
                 size_t derive_size,
-                void **ret) {
+                struct iovec *ret) {
 
         int r;
 
-        assert(key || key_size == 0);
-        assert(salt || salt_size == 0);
-        assert(info || info_size == 0);
+        assert(!key || key->iov_len > 0);
+        assert(!salt || salt->iov_len > 0);
+        assert(!info || info->iov_len > 0);
         assert(derive_size > 0);
         assert(ret);
 
@@ -1216,7 +1235,7 @@ int kdf_hkdf_sha256(
         if (r < 0)
                 return r;
 
-        _cleanup_(EVP_KDF_freep) EVP_KDF *kdf = sym_EVP_KDF_fetch(NULL, "HKDF", NULL);
+        _cleanup_(EVP_KDF_freep) EVP_KDF *kdf = sym_EVP_KDF_fetch(/* propq= */ NULL, "HKDF", /* propq= */ NULL);
         if (!kdf)
                 return log_openssl_errors("Failed to create new EVP_KDF for HKDF");
 
@@ -1232,29 +1251,30 @@ int kdf_hkdf_sha256(
         if (!buf)
                 return log_oom_debug();
 
-        if (!sym_OSSL_PARAM_BLD_push_utf8_string(bld, "digest", (char*) "SHA256", 0))
+        if (!sym_OSSL_PARAM_BLD_push_utf8_string(bld, "digest", "SHA256", 0))
                 return log_openssl_errors("Failed to add HKDF digest");
 
         if (key)
-                if (!sym_OSSL_PARAM_BLD_push_octet_string(bld, "key", (char*) key, key_size))
+                if (!sym_OSSL_PARAM_BLD_push_octet_string(bld, "key", key->iov_base, key->iov_len))
                         return log_openssl_errors("Failed to add HKDF key");
 
         if (salt)
-                if (!sym_OSSL_PARAM_BLD_push_octet_string(bld, "salt", (char*) salt, salt_size))
+                if (!sym_OSSL_PARAM_BLD_push_octet_string(bld, "salt", salt->iov_base, salt->iov_len))
                         return log_openssl_errors("Failed to add HKDF salt");
 
         if (info)
-                if (!sym_OSSL_PARAM_BLD_push_octet_string(bld, "info", (char*) info, info_size))
+                if (!sym_OSSL_PARAM_BLD_push_octet_string(bld, "info", info->iov_base, info->iov_len))
                         return log_openssl_errors("Failed to add HKDF info");
 
-        _cleanup_(OSSL_PARAM_freep) OSSL_PARAM *params = sym_OSSL_PARAM_BLD_to_param(bld);
-        if (!params)
+        _cleanup_(OSSL_PARAM_freep) OSSL_PARAM *openssl_params = sym_OSSL_PARAM_BLD_to_param(bld);
+        if (!openssl_params)
                 return log_openssl_errors("Failed to build HKDF OSSL_PARAM");
 
-        if (sym_EVP_KDF_derive(ctx, buf, derive_size, params) <= 0)
+        if (sym_EVP_KDF_derive(ctx, buf, derive_size, openssl_params) <= 0)
                 return log_openssl_errors("OpenSSL HKDF derive failed");
 
-        *ret = TAKE_PTR(buf);
+        ret->iov_base = TAKE_PTR(buf);
+        ret->iov_len = derive_size;
 
         return 0;
 }
@@ -2471,28 +2491,21 @@ int openssl_extract_public_key(EVP_PKEY *private_key, EVP_PKEY **ret) {
 
 #if !HAVE_OPENSSL
 int kdf_argon2id_derive(
-                const void *pass,
-                size_t passlen,
-                const void *salt,
-                size_t saltlen,
-                uint64_t memcost,
-                uint32_t iterations,
-                uint32_t lanes,
+                const struct iovec *password,
+                const struct iovec *salt,
+                const Argon2IdParameters *params,
                 size_t derive_size,
-                void **ret) {
+                struct iovec *ret) {
 
         return -EOPNOTSUPP;
 }
 
 int kdf_hkdf_sha256(
-                const void *key,
-                size_t key_size,
-                const void *salt,
-                size_t salt_size,
-                const void *info,
-                size_t info_size,
+                const struct iovec *key,
+                const struct iovec *salt,
+                const struct iovec *info,
                 size_t derive_size,
-                void **ret) {
+                struct iovec *ret) {
 
         return -EOPNOTSUPP;
 }

@@ -420,6 +420,19 @@ DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(OpenSSLAskPasswordUI*, openssl_ask_password_ui_
 #define DLOPEN_LIBCRYPTO(log_level, priority) dlopen_libcrypto(log_level)
 #endif
 
-int kdf_argon2id_derive(const void *pass, size_t passlen, const void *salt, size_t saltlen, uint64_t memcost, uint32_t iterations, uint32_t lanes, size_t derive_size, void **ret);
+typedef struct Argon2IdParameters {
+        uint64_t memcost_bytes;
+        uint32_t iterations;
+        uint32_t lanes;
+} Argon2IdParameters;
 
-int kdf_hkdf_sha256(const void *key, size_t key_size, const void *salt, size_t salt_size, const void *info, size_t info_size, size_t derive_size, void **ret);
+#define ARGON2ID_PARAMETERS_DEFAULT                                         \
+        (Argon2IdParameters) {                                              \
+                .memcost_bytes = 64ULL * 1024 * 1024,                       \
+                .iterations = 8,                                            \
+                .lanes = 4,                                                 \
+        }
+
+int kdf_argon2id_derive(const struct iovec *password, const struct iovec *salt, const Argon2IdParameters *params, size_t derive_size, struct iovec *ret);
+
+int kdf_hkdf_sha256(const struct iovec *key, const struct iovec *salt, const struct iovec *info, size_t derive_size, struct iovec *ret);

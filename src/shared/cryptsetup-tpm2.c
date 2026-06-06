@@ -89,9 +89,7 @@ int acquire_tpm2_key(
                 const char *askpw_credential,
                 AskPasswordFlags askpw_flags,
                 struct iovec *ret_decrypted_key,
-                uint64_t argon2id_memcost,
-                uint32_t argon2id_iterations,
-                uint32_t argon2id_lanes) {
+                const Argon2IdParameters *argon2id_params) {
 
 #if HAVE_LIBCRYPTSETUP && HAVE_TPM2
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *signature_json = NULL;
@@ -188,6 +186,7 @@ int acquire_tpm2_key(
         for (int i = 5;; i--) {
                 _cleanup_(erase_and_freep) char *input_str = NULL;
                 _cleanup_(erase_and_freep) void *key1 = NULL;
+                _cleanup_(erase_and_freep) char *b64_key2 = NULL;
                 const char *pin_used;
 
                 if (i <= 0)
@@ -202,21 +201,20 @@ int acquire_tpm2_key(
                 if (argon2id) {
                         assert(iovec_is_set(salt));
 
-                        _cleanup_(erase_and_freep) void *derived = NULL;
+                        _cleanup_(iovec_done_erase) struct iovec derived = {};
                         r = kdf_argon2id_derive(
-                                        input_str, strlen(input_str),
-                                        salt->iov_base, salt->iov_len,
-                                        argon2id_memcost, argon2id_iterations, argon2id_lanes,
-                                        64, &derived);
+                                        &IOVEC_MAKE(input_str, strlen(input_str)),
+                                        salt,
+                                        argon2id_params,
+                                        /* derive_size= */ 64, &derived);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to perform Argon2id: %m");
 
-                        uint8_t *derived_bytes = derived;
+                        uint8_t *derived_bytes = derived.iov_base;
                         key1 = memdup(derived_bytes, 32);
                         if (!key1)
                                 return log_oom();
 
-                        _cleanup_free_ char *b64_key2 = NULL;
                         ssize_t b64_size = base64mem(derived_bytes + 32, 32, &b64_key2);
                         if (b64_size < 0)
                                 return log_oom();
@@ -270,17 +268,18 @@ int acquire_tpm2_key(
                         return log_error_errno(r, "Failed to unseal secret using TPM2: %m");
 
                 if (argon2id) {
-                        _cleanup_(erase_and_freep) void *volume_key = NULL;
+                        _cleanup_(iovec_done_erase) struct iovec volume_key = {};
                         r = kdf_hkdf_sha256(
-                                        key1, 32,
-                                        unsealed.iov_base, unsealed.iov_len,
-                                        "systemd-tpm2-argon2id-lock", strlen("systemd-tpm2-argon2id-lock"),
-                                        32, &volume_key);
+                                        &IOVEC_MAKE(key1, 32),
+                                        &unsealed,
+                                        &IOVEC_MAKE_STRING("systemd-tpm2-argon2id-lock"),
+                                        /* derive_size= */ 32, &volume_key);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to derive volume key via HKDF: %m");
 
-                        ret_decrypted_key->iov_base = TAKE_PTR(volume_key);
-                        ret_decrypted_key->iov_len = 32;
+                        ret_decrypted_key->iov_base = TAKE_PTR(volume_key.iov_base);
+                        ret_decrypted_key->iov_len = volume_key.iov_len;
+                        volume_key.iov_len = 0;
                 }
 
                 return 0;
@@ -309,9 +308,7 @@ int find_tpm2_auto_data(
                 TPM2Flags *ret_flags,
                 int *ret_keyslot,
                 int *ret_token,
-                uint64_t *ret_argon2id_memcost,
-                uint32_t *ret_argon2id_iterations,
-                uint32_t *ret_argon2id_lanes) {
+                Argon2IdParameters *ret_argon2id_params) {
 
 #if HAVE_LIBCRYPTSETUP && HAVE_TPM2
         int r, token;
@@ -340,8 +337,7 @@ int find_tpm2_auto_data(
                 size_t n_blobs = 0, n_policy_hash = 0;
                 uint32_t hash_pcr_mask, pubkey_pcr_mask;
                 uint16_t pcr_bank, primary_alg;
-                uint64_t argon2id_memcost = 0;
-                uint32_t argon2id_iterations = 0, argon2id_lanes = 0;
+                Argon2IdParameters ap = {};
                 TPM2Flags flags;
                 int keyslot;
 
@@ -370,9 +366,7 @@ int find_tpm2_auto_data(
                                 &srk,
                                 &pcrlock_nv,
                                 &flags,
-                                &argon2id_memcost,
-                                &argon2id_iterations,
-                                &argon2id_lanes);
+                                &ap);
                 if (r == -EUCLEAN) /* Gracefully handle issues in JSON fields not owned by us */
                         continue;
                 if (r < 0)
@@ -399,12 +393,8 @@ int find_tpm2_auto_data(
                         *ret_srk = TAKE_STRUCT(srk);
                         *ret_pcrlock_nv = TAKE_STRUCT(pcrlock_nv);
                         *ret_flags = flags;
-                        if (ret_argon2id_memcost)
-                                *ret_argon2id_memcost = argon2id_memcost;
-                        if (ret_argon2id_iterations)
-                                *ret_argon2id_iterations = argon2id_iterations;
-                        if (ret_argon2id_lanes)
-                                *ret_argon2id_lanes = argon2id_lanes;
+                        if (ret_argon2id_params)
+                                *ret_argon2id_params = ap;
                         return 0;
                 }
 

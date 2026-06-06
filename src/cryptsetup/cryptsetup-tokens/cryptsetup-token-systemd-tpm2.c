@@ -86,8 +86,7 @@ _public_ int cryptsetup_token_open_pin(
         CLEANUP_ARRAY(blobs, n_blobs, iovec_array_free);
         CLEANUP_ARRAY(policy_hash, n_policy_hash, iovec_array_free);
 
-        uint64_t argon2id_memcost = 0;
-        uint32_t argon2id_iterations = 0, argon2id_lanes = 0;
+        Argon2IdParameters argon2id_params = {};
 
         r = tpm2_parse_luks2_json(
                         v,
@@ -105,9 +104,7 @@ _public_ int cryptsetup_token_open_pin(
                         &srk,
                         &pcrlock_nv,
                         &flags,
-                        &argon2id_memcost,
-                        &argon2id_iterations,
-                        &argon2id_lanes);
+                        &argon2id_params);
         if (r < 0)
                 return log_debug_open_error(cd, r);
 
@@ -133,9 +130,7 @@ _public_ int cryptsetup_token_open_pin(
                         &pcrlock_nv,
                         flags,
                         &decrypted_key,
-                        argon2id_memcost,
-                        argon2id_iterations,
-                        argon2id_lanes);
+                        FLAGS_SET(flags, TPM2_FLAGS_USE_ARGON2ID) ? &argon2id_params : NULL);
         if (r < 0)
                 return log_debug_open_error(cd, r);
 
@@ -214,7 +209,7 @@ _public_ void cryptsetup_token_dump(
 
         r = tpm2_parse_luks2_json(
                         v,
-                        NULL,
+                        /* ret_keyslot= */ NULL,
                         &hash_pcr_mask,
                         &pcr_bank,
                         &pubkey,
@@ -228,9 +223,7 @@ _public_ void cryptsetup_token_dump(
                         &srk,
                         &pcrlock_nv,
                         &flags,
-                        NULL,
-                        NULL,
-                        NULL);
+                        /* ret_argon2id_params= */ NULL);
         if (r < 0)
                 return (void) crypt_log_debug_errno(cd, r, "Failed to parse " TOKEN_NAME " JSON fields: %m");
 
