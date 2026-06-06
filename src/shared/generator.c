@@ -914,7 +914,7 @@ int generator_write_cryptsetup_unit_section(FILE *f, const char *source) {
         fprintf(f,
                 "\n"
                 "DefaultDependencies=no\n"
-                "After=cryptsetup-pre.target systemd-udevd-kernel.socket systemd-tpm2-setup-early.service\n"
+                "After=cryptsetup-pre.target systemd-udevd-kernel.socket systemd-udevd.service systemd-tpm2-setup-early.service\n"
                 "Before=blockdev@dev-mapper-%%i.target\n"
                 "Wants=blockdev@dev-mapper-%%i.target\n"
                 "IgnoreOnIsolate=true\n");
@@ -986,7 +986,7 @@ int generator_write_veritysetup_unit_section(FILE *f, const char *source) {
         fprintf(f,
                 "DefaultDependencies=no\n"
                 "IgnoreOnIsolate=true\n"
-                "After=veritysetup-pre.target systemd-udevd-kernel.socket\n"
+                "After=veritysetup-pre.target systemd-udevd-kernel.socket systemd-udevd.service\n"
                 "Before=blockdev@dev-mapper-%%i.target\n"
                 "Wants=blockdev@dev-mapper-%%i.target\n");
 
