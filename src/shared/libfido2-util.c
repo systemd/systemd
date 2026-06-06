@@ -743,6 +743,8 @@ int fido2_generate_hmac_hash(
                 const char *user_icon,
                 const char *askpw_icon,
                 const char *askpw_credential,
+                AskPasswordFlags askpw_flags,
+                const char *pin,
                 Fido2EnrollFlags lock_with,
                 int cred_alg,
                 const struct iovec *salt,
@@ -917,28 +919,38 @@ int fido2_generate_hmac_hash(
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Token asks for PIN but doesn't advertise 'clientPin' feature.");
 
-                AskPasswordFlags askpw_flags = ASK_PASSWORD_ACCEPT_CACHED;
+                AskPasswordFlags pin_askpw_flags = askpw_flags | ASK_PASSWORD_ACCEPT_CACHED;
 
                 for (;;) {
-                        _cleanup_strv_free_erase_ char **pin = NULL;
-                        AskPasswordRequest req = {
-                                .tty_fd = -EBADF,
-                                .message = _("Please enter security token PIN:"),
-                                .icon = askpw_icon,
-                                .keyring = "fido2-pin",
-                                .credential = askpw_credential,
-                                .until = USEC_INFINITY,
-                                .hup_fd = -EBADF,
-                        };
+                        _cleanup_strv_free_erase_ char **pins = NULL;
 
-                        r = ask_password_auto(&req, askpw_flags, &pin);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to acquire user PIN: %m");
+                        if (pin) {
+                                /* A PIN was supplied by the caller: use it directly, don't prompt. */
+                                pins = strv_new(pin);
+                                if (!pins)
+                                        return log_oom();
+                        } else if (FLAGS_SET(askpw_flags, ASK_PASSWORD_HEADLESS))
+                                return log_error_errno(SYNTHETIC_ERRNO(ENOPKG), "PIN querying disabled via 'headless' option.");
+                        else {
+                                AskPasswordRequest req = {
+                                        .tty_fd = -EBADF,
+                                        .message = _("Please enter security token PIN:"),
+                                        .icon = askpw_icon,
+                                        .keyring = "fido2-pin",
+                                        .credential = askpw_credential,
+                                        .until = USEC_INFINITY,
+                                        .hup_fd = -EBADF,
+                                };
 
-                        askpw_flags &= ~ASK_PASSWORD_ACCEPT_CACHED;
+                                r = ask_password_auto(&req, pin_askpw_flags, &pins);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to acquire user PIN: %m");
+
+                                pin_askpw_flags &= ~ASK_PASSWORD_ACCEPT_CACHED;
+                        }
 
                         r = FIDO_ERR_PIN_INVALID;
-                        STRV_FOREACH(i, pin) {
+                        STRV_FOREACH(i, pins) {
                                 if (isempty(*i)) {
                                         log_notice("PIN may not be empty.");
                                         continue;
@@ -958,6 +970,11 @@ int fido2_generate_hmac_hash(
                         if (r != FIDO_ERR_PIN_INVALID)
                                 break;
 
+                        /* A caller-supplied PIN that's wrong won't get better by retrying: fail instead of
+                         * looping forever (we'd never prompt). */
+                        if (pin)
+                                break;
+
                         log_notice("PIN incorrect, please try again.");
                 }
         }
@@ -973,6 +990,9 @@ int fido2_generate_hmac_hash(
         if (r == FIDO_ERR_UNSUPPORTED_ALGORITHM)
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                        "Token doesn't support credential algorithm %s.", fido2_algorithm_to_string(cred_alg));
+        if (r == FIDO_ERR_PIN_INVALID)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "PIN incorrect.");
         if (r != FIDO_OK)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO),
                                        "Failed to generate FIDO2 credential: %s", sym_fido_strerr(r));
@@ -1271,6 +1291,109 @@ int fido2_list_devices(void) {
 finish:
         sym_fido_dev_info_free(&di, allocated);
         return r;
+#else
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                               "FIDO2 tokens not supported on this build.");
+#endif
+}
+
+void fido2_device_info_done(Fido2DeviceInfo *d) {
+        assert(d);
+
+        d->path = mfree(d->path);
+        d->manufacturer = mfree(d->manufacturer);
+        d->product = mfree(d->product);
+}
+
+void fido2_device_info_free_many(Fido2DeviceInfo *a, size_t n) {
+        FOREACH_ARRAY(i, a, n)
+                fido2_device_info_done(i);
+
+        free(a);
+}
+
+int fido2_enumerate_devices(Fido2DeviceInfo **ret, size_t *ret_n) {
+#if HAVE_LIBFIDO2
+        Fido2DeviceInfo *devices = NULL;
+        size_t n_devices = 0, allocated = 64, found = 0;
+        fido_dev_info_t *di = NULL;
+        int r;
+
+        CLEANUP_ARRAY(devices, n_devices, fido2_device_info_free_many);
+
+        assert(ret);
+        assert(ret_n);
+
+        r = dlopen_libfido2(LOG_ERR);
+        if (r < 0)
+                return r;
+
+        di = sym_fido_dev_info_new(allocated);
+        if (!di)
+                return log_oom();
+
+        r = sym_fido_dev_info_manifest(di, allocated, &found);
+        if (r == FIDO_ERR_INTERNAL || (r == FIDO_OK && found == 0)) {
+                /* The library returns FIDO_ERR_INTERNAL when no devices are found. I wish it wouldn't. */
+                r = 0;
+                goto finish;
+        }
+        if (r != FIDO_OK) {
+                r = log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to enumerate FIDO2 devices: %s", sym_fido_strerr(r));
+                goto finish;
+        }
+
+        for (size_t i = 0; i < found; i++) {
+                bool has_rk, has_client_pin, has_up, has_uv, has_always_uv;
+                const fido_dev_info_t *entry;
+                const char *path;
+
+                entry = sym_fido_dev_info_ptr(di, i);
+                if (!entry) {
+                        r = log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                            "Failed to get device information for FIDO device %zu.", i);
+                        goto finish;
+                }
+
+                path = sym_fido_dev_info_path(entry);
+
+                r = check_device_is_fido2_with_hmac_secret(path, &has_rk, &has_client_pin, &has_up, &has_uv, &has_always_uv);
+                if (r < 0)
+                        goto finish;
+                if (r == 0) /* Not a FIDO2 device suitable for enrollment, skip it */
+                        continue;
+
+                if (!GREEDY_REALLOC(devices, n_devices + 1)) {
+                        r = log_oom();
+                        goto finish;
+                }
+
+                Fido2DeviceInfo *d = devices + n_devices;
+                *d = (Fido2DeviceInfo) {};
+
+                /* The manufacturer / product strings are optional (NULL when the device doesn't report
+                 * them), but a failure to duplicate any string is a genuine OOM and thus fatal. */
+                if (strdup_to(&d->path, path) < 0 ||
+                    strdup_to(&d->manufacturer, empty_to_null(sym_fido_dev_info_manufacturer_string(entry))) < 0 ||
+                    strdup_to(&d->product, empty_to_null(sym_fido_dev_info_product_string(entry))) < 0) {
+                        fido2_device_info_done(d);
+                        r = log_oom();
+                        goto finish;
+                }
+
+                n_devices++;
+        }
+
+        r = 0;
+
+finish:
+        sym_fido_dev_info_free(&di, allocated);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(devices);
+        *ret_n = n_devices;
+        return 0;
 #else
         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                "FIDO2 tokens not supported on this build.");
