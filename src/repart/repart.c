@@ -4325,6 +4325,15 @@ static int context_dump_partitions(Context *context) {
         (void) table_set_align_percent(t, table_get_cell(t, 0, 11), 100);
         (void) table_set_align_percent(t, table_get_cell(t, 0, 12), 100);
 
+        size_t n_partitions = 0;
+        LIST_FOREACH(partitions, p, context->partitions) {
+                if (p->dropped)
+                        continue;
+
+                n_partitions++;
+        }
+
+        size_t cur_n_partition = 0;
         LIST_FOREACH(partitions, p, context->partitions) {
                 _cleanup_free_ char *size_change = NULL, *padding_change = NULL, *partname = NULL, *rh = NULL;
                 char uuid_buffer[SD_ID128_UUID_STRING_MAX];
@@ -4332,6 +4341,8 @@ static int context_dump_partitions(Context *context) {
 
                 if (p->dropped)
                         continue;
+
+                cur_n_partition++;
 
                 if (p->current_size == UINT64_MAX)
                         activity = "create";
@@ -4373,10 +4384,10 @@ static int context_dump_partitions(Context *context) {
                                 TABLE_UINT64, p->offset,
                                 TABLE_UINT64, p->current_size == UINT64_MAX ? 0 : p->current_size,
                                 TABLE_UINT64, p->new_size,
-                                TABLE_STRING, size_change, TABLE_SET_COLOR, !p->partitions_next && sum_size > 0 ? ansi_underline() : NULL,
+                                TABLE_STRING, size_change, TABLE_SET_COLOR, cur_n_partition == n_partitions && sum_size > 0 ? ansi_underline() : NULL,
                                 TABLE_UINT64, p->current_padding == UINT64_MAX ? 0 : p->current_padding,
                                 TABLE_UINT64, p->new_padding,
-                                TABLE_STRING, padding_change, TABLE_SET_COLOR, !p->partitions_next && sum_padding > 0 ? ansi_underline() : NULL,
+                                TABLE_STRING, padding_change, TABLE_SET_COLOR, cur_n_partition == n_partitions && sum_padding > 0 ? ansi_underline() : NULL,
                                 TABLE_STRING, activity ?: "unchanged",
                                 TABLE_STRING, rh,
                                 TABLE_STRV, p->drop_in_files,
