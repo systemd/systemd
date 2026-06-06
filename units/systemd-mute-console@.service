@@ -9,7 +9,7 @@
 
 [Unit]
 Description=Console Output Muting Service
-Documentation=man:systemd-mute-console(8)
+Documentation=man:systemd-mute-console(1)
 DefaultDependencies=no
 Conflicts=shutdown.target
 Before=shutdown.target
