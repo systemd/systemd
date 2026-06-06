@@ -20,6 +20,14 @@
 #include "shim.h"
 #include "util.h"
 
+#ifdef __aarch64__
+/* The arm64 boot protocol requires the kernel image to be loaded at a
+ * 64KB-aligned address when the CPU uses 64KB MMU page granules. */
+#define LINUX_KERNEL_LOAD_ALIGN  (UINT64_C(64) * 1024U)
+#else
+#define LINUX_KERNEL_LOAD_ALIGN  EFI_PAGE_SIZE
+#endif
+
 typedef struct {
         MEMMAP_DEVICE_PATH memmap_path;
         EFI_DEVICE_PATH end_path;
@@ -265,8 +273,10 @@ EFI_STATUS linux_exec(
                 return log_error_status(err, "Cannot read sections: %m");
 
         /* Do we need to ensure under 4gb address on x86? */
-        _cleanup_pages_ Pages loaded_kernel_pages = xmalloc_pages(
-                        AllocateAnyPages, EfiLoaderCode, EFI_SIZE_TO_PAGES(kernel_size_in_memory), 0);
+        _cleanup_pages_ Pages loaded_kernel_pages = xmalloc_aligned_pages(
+                        AllocateAnyPages, EfiLoaderCode,
+                        EFI_SIZE_TO_PAGES(kernel_size_in_memory),
+                        LINUX_KERNEL_LOAD_ALIGN, 0);
 
         uint8_t* loaded_kernel = PHYSICAL_ADDRESS_TO_POINTER(loaded_kernel_pages.addr);
         FOREACH_ARRAY(h, headers, n_headers) {
