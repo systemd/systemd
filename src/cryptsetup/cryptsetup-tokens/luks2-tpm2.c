@@ -34,9 +34,7 @@ int acquire_luks2_key(
                 const struct iovec *pcrlock_nv,
                 TPM2Flags flags,
                 struct iovec *ret_decrypted_key,
-                uint64_t argon2id_memcost,
-                uint32_t argon2id_iterations,
-                uint32_t argon2id_lanes) {
+                const Argon2IdParameters *argon2id_params) {
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *signature_json = NULL;
         _cleanup_free_ char *auto_device = NULL;
@@ -65,16 +63,16 @@ int acquire_luks2_key(
                 assert(pin);
                 assert(iovec_is_set(salt));
 
-                _cleanup_(erase_and_freep) void *derived = NULL;
+                _cleanup_(iovec_done_erase) struct iovec derived = {};
                 r = kdf_argon2id_derive(
-                                pin, strlen(pin),
-                                salt->iov_base, salt->iov_len,
-                                argon2id_memcost, argon2id_iterations, argon2id_lanes,
-                                64, &derived);
+                                &IOVEC_MAKE(pin, strlen(pin)),
+                                salt,
+                                argon2id_params,
+                                /* derive_size= */ 64, &derived);
                 if (r < 0)
                         return log_error_errno(r, "Failed to perform Argon2id: %m");
 
-                uint8_t *derived_bytes = derived;
+                uint8_t *derived_bytes = derived.iov_base;
                 key1 = memdup(derived_bytes, 32);
                 if (!key1)
                         return log_oom();
@@ -150,17 +148,18 @@ int acquire_luks2_key(
                 return log_error_errno(r, "Failed to unseal secret using TPM2: %m");
 
         if (argon2id) {
-                _cleanup_(erase_and_freep) void *volume_key = NULL;
+                _cleanup_(iovec_done_erase) struct iovec volume_key = {};
                 r = kdf_hkdf_sha256(
-                                key1, 32,
-                                unsealed.iov_base, unsealed.iov_len,
-                                "systemd-tpm2-argon2id-lock", strlen("systemd-tpm2-argon2id-lock"),
-                                32, &volume_key);
+                                &IOVEC_MAKE(key1, 32),
+                                &unsealed,
+                                &IOVEC_MAKE_STRING("systemd-tpm2-argon2id-lock"),
+                                /* derive_size= */ 32, &volume_key);
                 if (r < 0)
                         return log_error_errno(r, "Failed to derive volume key via HKDF: %m");
 
-                ret_decrypted_key->iov_base = TAKE_PTR(volume_key);
-                ret_decrypted_key->iov_len = 32;
+                ret_decrypted_key->iov_base = TAKE_PTR(volume_key.iov_base);
+                ret_decrypted_key->iov_len = volume_key.iov_len;
+                volume_key.iov_len = 0;
         }
 
         return 0;
