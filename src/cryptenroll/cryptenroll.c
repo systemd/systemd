@@ -819,6 +819,7 @@ static void argon2id_parameters_init_defaults(Argon2IdParameters *p) {
         assert(p);
 
         *p = ARGON2ID_PARAMETERS_DEFAULT;
+        p->iterations = 0; /* handled by benchmark below */
 
         unsigned n_cpus;
         if (cpus_online(&n_cpus) >= 0)
@@ -830,6 +831,11 @@ static void argon2id_parameters_init_defaults(Argon2IdParameters *p) {
 }
 
 static void argon2id_parameters_benchmark_iterations(Argon2IdParameters *p) {
+        assert(p);
+
+        if (p->iterations > 0)
+                return;
+
         static const usec_t target_time = 2000 * USEC_PER_MSEC;
 
         struct iovec password = IOVEC_MAKE_STRING("benchmark");
@@ -844,6 +850,7 @@ static void argon2id_parameters_benchmark_iterations(Argon2IdParameters *p) {
         usec_t elapsed = now(CLOCK_MONOTONIC) - start;
         if (r < 0) {
                 log_debug_errno(r, "Argon2id benchmark failed, using default iterations: %m");
+                p->iterations = 8;
                 return;
         }
 
@@ -868,11 +875,13 @@ static int run(int argc, char *argv[]) {
         log_setup();
 
         argon2id_parameters_init_defaults(&arg_tpm2_argon2id_params);
-        argon2id_parameters_benchmark_iterations(&arg_tpm2_argon2id_params);
 
         r = parse_argv(argc, argv);
         if (r <= 0)
                 return r;
+
+        if (arg_tpm2_argon2id)
+                argon2id_parameters_benchmark_iterations(&arg_tpm2_argon2id_params);
 
         r = DLOPEN_CRYPTSETUP(LOG_ERR, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED);
         if (r < 0)
