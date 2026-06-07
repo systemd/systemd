@@ -7,7 +7,7 @@ msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-05-30 00:13+0200\n"
 "PO-Revision-Date: 2026-06-07 14:00+0000\n"
-"Last-Translator: Anonymous <noreply@weblate.org>\n"
+"Last-Translator: Yaron Shahrabani <sh.yaron@gmail.com>\n"
 "Language-Team: Hebrew <https://translate.fedoraproject.org/projects/systemd/"
 "main/he/>\n"
 "Language: he\n"
@@ -794,8 +794,7 @@ msgstr "ניהול מכונות וירטואליות ומכולות מקומיו
 #: src/machine/org.freedesktop.machine1.policy:85
 msgid ""
 "Authentication is required to manage local virtual machines and containers."
-msgstr ""
-"נדרש אימות כדי לנהל מכונות וירטואליות (VM) ומכולות (container) מקומיות."
+msgstr "נדרש אימות כדי לנהל מכונות וירטואליות (VM) ומכולות (container) מקומיות."
 
 #: src/machine/org.freedesktop.machine1.policy:95
 msgid "Inspect local virtual machines and containers"
@@ -834,8 +833,7 @@ msgstr "ניהול דמויות של מכונות וירטואליות ומכו�
 msgid ""
 "Authentication is required to manage local virtual machine and container "
 "images."
-msgstr ""
-"נדרש אימות לניהול דמויות של מכונות וירטואליות (VM) ומכולות (container)."
+msgstr "נדרש אימות לניהול דמויות של מכונות וירטואליות (VM) ומכולות (container)."
 
 #: src/machine/org.freedesktop.machine1.policy:137
 msgid "Inspect local virtual machine and container images"
