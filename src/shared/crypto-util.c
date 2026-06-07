@@ -647,6 +647,18 @@ int dlopen_libcrypto(int log_level) {
 #endif
 }
 
+bool dlopen_libcrypto_has_argon2id(void) {
+#if HAVE_OPENSSL
+        if (dlopen_libcrypto(LOG_DEBUG) < 0)
+                return false;
+
+        _cleanup_(EVP_KDF_freep) EVP_KDF *kdf = sym_EVP_KDF_fetch(/* propq= */ NULL, "ARGON2ID", /* propq= */ NULL);
+        return !!kdf;
+#else
+        return false;
+#endif
+}
+
 #if HAVE_OPENSSL
 
 /* For each error in the OpenSSL thread error queue, log the provided message and the OpenSSL error

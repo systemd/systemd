@@ -29,6 +29,7 @@ int parse_openssl_certificate_source_argument(const char *argument, char **certi
 int parse_openssl_key_source_argument(const char *argument, char **private_key_source, KeySourceType *private_key_source_type);
 
 int dlopen_libcrypto(int log_level);
+bool dlopen_libcrypto_has_argon2id(void);
 
 #define X509_FINGERPRINT_SIZE SHA256_DIGEST_SIZE
 

@@ -840,7 +840,7 @@ static void argon2id_parameters_benchmark_iterations(Argon2IdParameters *p) {
 
         struct iovec password = IOVEC_MAKE_STRING("benchmark");
         struct iovec salt = IOVEC_MAKE_STRING("benchmark-salt");
-        struct iovec result = {};
+        _cleanup_(iovec_done_erase) struct iovec result = {};
 
         Argon2IdParameters bench_params = *p;
         bench_params.iterations = 1;
@@ -879,6 +879,12 @@ static int run(int argc, char *argv[]) {
         r = parse_argv(argc, argv);
         if (r <= 0)
                 return r;
+
+        if (arg_tpm2_argon2id && !dlopen_libcrypto_has_argon2id()) {
+                log_warning("Argon2id not supported by libcrypto (OpenSSL >= 3.2 required), disabling.");
+                arg_tpm2_argon2id = false;
+                arg_tpm2_pin = true;
+        }
 
         if (arg_tpm2_argon2id)
                 argon2id_parameters_benchmark_iterations(&arg_tpm2_argon2id_params);
