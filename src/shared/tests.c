@@ -385,9 +385,9 @@ int run_test_table(const TestFunc *start, const TestFunc *end) {
 
         e = getenv("TESTFUNCS");
         if (e) {
-                r = strv_split_full(&tests, e, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to parse $TESTFUNCS: %m");
+                int n = strv_split_full(&tests, e, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
+                if (n < 0)
+                        return log_error_errno(n, "Failed to parse $TESTFUNCS: %m");
         }
 
         for (const TestFunc *t = ALIGN_PTR(start); t + 1 <= end; t = ALIGN_PTR(t + 1)) {
