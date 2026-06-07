@@ -47,6 +47,15 @@ CHANGES WITH 262:
           should be provisioned as far as possible without ever blocking on a
           prompt.
 
+        Changes in systemd-networkd:
+
+        * A new IPv4ProxyARPAddress= setting has been added to the [Network]
+          section of .network files. It is the IPv4 counterpart to
+          IPv6ProxyNDPAddress= and allows manual entries to be added to the
+          kernel's IPv4 neighbor proxy table. The setting implies
+          IPv4ProxyARP=yes but has no effect if IPv4ProxyARP= has been set to
+          false. This mirrors the behavior of IPv6ProxyNDPAddress=.
+
 CHANGES WITH 261:
 
         Announcements of Future Feature Removals and Incompatible Changes:
