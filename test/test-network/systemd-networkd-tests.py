@@ -5344,6 +5344,32 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         for i in range(1, 5):
             self.assertRegex(output, f'2607:5300:203:5215:{i}::1 *proxy')
 
+    def test_ipv4_proxy_arp(self):
+        copy_network_unit('25-ipv4-proxy-arp.network', '12-dummy.netdev')
+        start_networkd()
+
+        self.wait_online('dummy98:routable')
+
+        output = check_output('ip -4 neighbor show proxy dev dummy98')
+        print(output)
+        for i in range(1, 6):
+            self.assertRegex(output, f'192.0.2.{i} *proxy')
+
+        # IPv4ProxyARPAddress= implies IPv4ProxyARP=yes, mirroring IPv6ProxyNDPAddress=.
+        self.check_ipv4_sysctl_attr('dummy98', 'proxy_arp', '1')
+
+        # Explicit IPv4ProxyARP=no must suppress all IPv4ProxyARPAddress= entries and
+        # must not force proxy_arp=1, locking in the opt-out semantics.
+        copy_network_unit('25-ipv4-proxy-arp-disabled.network')
+        networkctl_reload()
+        self.wait_online('dummy98:routable')
+
+        output = check_output('ip -4 neighbor show proxy dev dummy98')
+        print(output)
+        self.assertNotIn('192.0.2.1', output)
+        self.assertNotIn('192.0.2.2', output)
+        self.check_ipv4_sysctl_attr('dummy98', 'proxy_arp', '0')
+
     def test_ipv6_neigh_retrans_time(self):
         link = 'test25'
         copy_network_unit('25-dummy.netdev', '25-dummy.network')
