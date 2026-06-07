@@ -15,7 +15,7 @@ msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-05-30 00:13+0200\n"
 "PO-Revision-Date: 2026-06-07 14:00+0000\n"
-"Last-Translator: Luna Jernberg <droidbittin@gmail.com>\n"
+"Last-Translator: Anders Jonsson <anders.jonsson@norsjovallen.se>\n"
 "Language-Team: Swedish <https://translate.fedoraproject.org/projects/systemd/"
 "main/sv/>\n"
 "Language: sv\n"
@@ -141,8 +141,7 @@ msgstr "Ändra lösenord för en hemarea"
 #: src/home/org.freedesktop.home1.policy:74
 msgid ""
 "Authentication is required to change the password of a user's home area."
-msgstr ""
-"Autentisering krävs för att ändra lösenordet för en användares hemarea."
+msgstr "Autentisering krävs för att ändra lösenordet för en användares hemarea."
 
 #: src/home/org.freedesktop.home1.policy:83
 msgid "Activate a home area"
