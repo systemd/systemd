@@ -4,14 +4,14 @@
 #
 # Daniel Rusek <mail@asciiwolf.com>, 2022, 2023, 2025, 2026.
 # Pavel Borecki <pavel.borecki@gmail.com>, 2023, 2024, 2025, 2026.
-# Jan Kalabza <jan.kalabza@gmail.com>, 2025.
+# Jan Kalabza <jan.kalabza@gmail.com>, 2025, 2026.
 # Honza Hejzl <jan.hejzl@posteo.net>, 2026.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-05-30 00:13+0200\n"
 "PO-Revision-Date: 2026-06-07 14:00+0000\n"
-"Last-Translator: Daniel Rusek <mail@asciiwolf.com>\n"
+"Last-Translator: Jan Kalabza <jan.kalabza@gmail.com>\n"
 "Language-Team: Czech <https://translate.fedoraproject.org/projects/systemd/"
 "main/cs/>\n"
 "Language: cs\n"
