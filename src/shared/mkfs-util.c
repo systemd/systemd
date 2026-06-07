@@ -148,10 +148,151 @@ static int mangle_fat_label(const char *s, char **ret) {
         return 0;
 }
 
-static int do_mcopy(const char *node, const char *root) {
-        _cleanup_free_ char *mcopy = NULL;
+static int mtools_exec(char *const *argv) {
+        int r;
+
+        assert(argv);
+        assert(argv[0]);
+
+        r = pidref_safe_fork(
+                        "(mtools)",
+                        FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT|FORK_STDOUT_TO_STDERR|FORK_CLOSE_ALL_FDS,
+                        /* ret= */ NULL);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                /* Avoid failures caused by mismatch in expectations between mkfs.vfat and mtools by
+                 * disabling the stricter checks using MTOOLS_SKIP_CHECK. Force TZ=UTC and forward
+                 * SOURCE_DATE_EPOCH so that mtools produces deterministic FAT timestamps. */
+                execve(argv[0], argv,
+                       STRV_MAKE("MTOOLS_SKIP_CHECK=1",
+                                 "TZ=UTC",
+                                 strv_find_prefix(environ, "SOURCE_DATE_EPOCH=")));
+
+                log_error_errno(errno, "Failed to execute %s: %m", argv[0]);
+                _exit(EXIT_FAILURE);
+        }
+
+        return 0;
+}
+
+static int mcopy_flush_files(
+                const char *mcopy_bin,
+                const char *node,
+                const char *dest_rel,
+                char ***file_batch) {
+
+        _cleanup_strv_free_ char **batch = TAKE_PTR(*file_batch);
         _cleanup_strv_free_ char **argv = NULL;
+        _cleanup_free_ char *dest = NULL;
+
+        assert(mcopy_bin);
+        assert(node);
+        assert(dest_rel);
+        assert(file_batch);
+
+        if (strv_isempty(batch))
+                return 0;
+
+        /* mcopy treats ::dir/ as the destination directory. The trailing slash makes it copy the
+         * source files into it rather than renaming a single source to that path. */
+        dest = strjoin("::", dest_rel, "/");
+        if (!dest)
+                return log_oom();
+
+        argv = strv_new(mcopy_bin, "-p", "-Q", "-m", "-i", node);
+        if (!argv)
+                return log_oom();
+
+        STRV_FOREACH(p, batch)
+                if (strv_extend(&argv, *p) < 0)
+                        return log_oom();
+
+        if (strv_extend(&argv, dest) < 0)
+                return log_oom();
+
+        return mtools_exec(argv);
+}
+
+static int do_mcopy_recurse(
+                const char *mcopy_bin,
+                const char *mmd_bin,
+                const char *node,
+                const char *src_root,
+                const char *dest_rel) {
+
         _cleanup_free_ DirectoryEntries *de = NULL;
+        _cleanup_strv_free_ char **file_batch = NULL;
+        int r;
+
+        assert(mcopy_bin);
+        assert(mmd_bin);
+        assert(node);
+        assert(src_root);
+        assert(dest_rel);
+
+        /* Walk the source in deterministic (alphabetical) order so the FAT directory entries are
+         * inserted in a host-independent sequence. We can't rely on `mcopy -s` to do this, as mtools
+         * recurses via the platform's readdir() so the order is FS dependent. Instead we drive the
+         * recursion here and issue per-item mmd/mcopy invocations interleaved per parent
+         * directory, batching consecutive sibling files so the fork cost stays bounded. */
+        r = readdir_all_at(AT_FDCWD, src_root, RECURSE_DIR_SORT|RECURSE_DIR_ENSURE_TYPE, &de);
+        if (r < 0)
+                return log_error_errno(r, "Failed to read '%s' contents: %m", src_root);
+
+        for (size_t i = 0; i < de->n_entries; i++) {
+                struct dirent *ent = de->entries[i];
+                _cleanup_free_ char *src = NULL;
+
+                if (!IN_SET(ent->d_type, DT_REG, DT_DIR)) {
+                        log_debug("%s/%s is not a file/directory which are the only file types supported by vfat, ignoring",
+                                  src_root, ent->d_name);
+                        continue;
+                }
+
+                src = path_join(src_root, ent->d_name);
+                if (!src)
+                        return log_oom();
+
+                if (ent->d_type == DT_REG) {
+                        if (strv_consume(&file_batch, TAKE_PTR(src)) < 0)
+                                return log_oom();
+                        continue;
+                }
+
+                /* Directory. Flush pending file siblings first so the parent FAT directory's entry
+                 * order matches the sorted enumeration above, then create the subdir and recurse. */
+                r = mcopy_flush_files(mcopy_bin, node, dest_rel, &file_batch);
+                if (r < 0)
+                        return r;
+
+                _cleanup_free_ char *dst = strjoin("::", dest_rel, "/", ent->d_name);
+                if (!dst)
+                        return log_oom();
+
+                /* Note: mmd accepts only -D and -i; there is no -Q quiet flag like mcopy has. */
+                _cleanup_strv_free_ char **argv = strv_new(mmd_bin, "-i", node, dst);
+                if (!argv)
+                        return log_oom();
+
+                r = mtools_exec(argv);
+                if (r < 0)
+                        return r;
+
+                _cleanup_free_ char *child_rel = strjoin(dest_rel, "/", ent->d_name);
+                if (!child_rel)
+                        return log_oom();
+
+                r = do_mcopy_recurse(mcopy_bin, mmd_bin, node, src, child_rel);
+                if (r < 0)
+                        return r;
+        }
+
+        return mcopy_flush_files(mcopy_bin, node, dest_rel, &file_batch);
+}
+
+static int do_mcopy(const char *node, const char *root) {
+        _cleanup_free_ char *mcopy = NULL, *mmd = NULL;
         int r;
 
         assert(node);
@@ -167,53 +308,13 @@ static int do_mcopy(const char *node, const char *root) {
         if (r < 0)
                 return log_error_errno(r, "Failed to determine whether mcopy binary exists: %m");
 
-        argv = strv_new(mcopy, "-s", "-p", "-Q", "-m", "-i", node);
-        if (!argv)
-                return log_oom();
-
-        /* mcopy copies the top level directory instead of everything in it so we have to pass all
-         * the subdirectories to mcopy instead to end up with the correct directory structure. */
-
-        r = readdir_all_at(AT_FDCWD, root, RECURSE_DIR_SORT|RECURSE_DIR_ENSURE_TYPE, &de);
+        r = find_executable("mmd", &mmd);
+        if (r == -ENOENT)
+                return log_error_errno(SYNTHETIC_ERRNO(EPROTONOSUPPORT), "Could not find mmd binary.");
         if (r < 0)
-                return log_error_errno(r, "Failed to read '%s' contents: %m", root);
+                return log_error_errno(r, "Failed to determine whether mmd binary exists: %m");
 
-        for (size_t i = 0; i < de->n_entries; i++) {
-                _cleanup_free_ char *p = NULL;
-
-                p = path_join(root, de->entries[i]->d_name);
-                if (!p)
-                        return log_oom();
-
-                if (!IN_SET(de->entries[i]->d_type, DT_REG, DT_DIR)) {
-                        log_debug("%s is not a file/directory which are the only file types supported by vfat, ignoring", p);
-                        continue;
-                }
-
-                if (strv_consume(&argv, TAKE_PTR(p)) < 0)
-                        return log_oom();
-        }
-
-        if (strv_extend(&argv, "::") < 0)
-                return log_oom();
-
-        r = pidref_safe_fork(
-                        "(mcopy)",
-                        FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT|FORK_STDOUT_TO_STDERR|FORK_CLOSE_ALL_FDS,
-                        /* ret= */ NULL);
-        if (r < 0)
-                return r;
-        if (r == 0) {
-                /* Avoid failures caused by mismatch in expectations between mkfs.vfat and mcopy by disabling
-                 * the stricter mcopy checks using MTOOLS_SKIP_CHECK. */
-                execve(mcopy, argv, STRV_MAKE("MTOOLS_SKIP_CHECK=1", "TZ=UTC", strv_find_prefix(environ, "SOURCE_DATE_EPOCH=")));
-
-                log_error_errno(errno, "Failed to execute mcopy: %m");
-
-                _exit(EXIT_FAILURE);
-        }
-
-        return 0;
+        return do_mcopy_recurse(mcopy, mmd, node, root, "");
 }
 
 int make_filesystem(
