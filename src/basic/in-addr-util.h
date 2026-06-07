@@ -201,11 +201,15 @@ static inline size_t FAMILY_ADDRESS_SIZE(int family) {
 void in_addr_hash_func(const union in_addr_union *u, int family, struct siphash *state);
 void in_addr_data_hash_func(const struct in_addr_data *a, struct siphash *state);
 int in_addr_data_compare_func(const struct in_addr_data *x, const struct in_addr_data *y);
+void in4_addr_hash_func(const struct in_addr *addr, struct siphash *state);
+int in4_addr_compare_func(const struct in_addr *a, const struct in_addr *b);
 void in6_addr_hash_func(const struct in6_addr *addr, struct siphash *state);
 int in6_addr_compare_func(const struct in6_addr *a, const struct in6_addr *b);
 
 extern const struct hash_ops in_addr_data_hash_ops;
 extern const struct hash_ops in_addr_data_hash_ops_free;
+extern const struct hash_ops in4_addr_hash_ops;
+extern const struct hash_ops in4_addr_hash_ops_free;
 extern const struct hash_ops in6_addr_hash_ops;
 extern const struct hash_ops in6_addr_hash_ops_free;
 

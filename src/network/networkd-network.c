@@ -851,6 +851,7 @@ static Network *network_free(Network *network) {
         hashmap_free(network->stacked_netdevs);
 
         /* static configs */
+        set_free(network->ipv4_proxy_arp_addresses);
         set_free(network->ipv6_proxy_ndp_addresses);
         ordered_hashmap_free(network->addresses_by_section);
         hashmap_free(network->routes_by_section);

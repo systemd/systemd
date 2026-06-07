@@ -998,6 +998,33 @@ DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(
         in_addr_data_compare_func,
         free);
 
+void in4_addr_hash_func(const struct in_addr *addr, struct siphash *state) {
+        assert(addr);
+        assert(state);
+
+        siphash24_compress_typesafe(*addr, state);
+}
+
+int in4_addr_compare_func(const struct in_addr *a, const struct in_addr *b) {
+        assert(a);
+        assert(b);
+
+        return memcmp(a, b, sizeof(*a));
+}
+
+DEFINE_HASH_OPS(
+        in4_addr_hash_ops,
+        struct in_addr,
+        in4_addr_hash_func,
+        in4_addr_compare_func);
+
+DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(
+        in4_addr_hash_ops_free,
+        struct in_addr,
+        in4_addr_hash_func,
+        in4_addr_compare_func,
+        free);
+
 void in6_addr_hash_func(const struct in6_addr *addr, struct siphash *state) {
         assert(addr);
         assert(state);
