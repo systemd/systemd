@@ -13,7 +13,7 @@ msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-05-30 00:13+0200\n"
 "PO-Revision-Date: 2026-06-07 13:57+0000\n"
-"Last-Translator: Anonymous <noreply@weblate.org>\n"
+"Last-Translator: Léane GRASSER <leane.grasser@proton.me>\n"
 "Language-Team: French <https://translate.fedoraproject.org/projects/systemd/"
 "main/fr/>\n"
 "Language: fr\n"
@@ -761,8 +761,7 @@ msgstr "Mettre le système en hibernation"
 
 #: src/login/org.freedesktop.login1.policy:301
 msgid "Authentication is required to hibernate the system."
-msgstr ""
-"Une authentification est requise pour mettre le système en hibernation."
+msgstr "Une authentification est requise pour mettre le système en hibernation."
 
 #: src/login/org.freedesktop.login1.policy:310
 msgid "Hibernate the system while other users are logged in"
@@ -1091,8 +1090,7 @@ msgstr "Réinitialiser les paramètres NTP"
 
 #: src/network/org.freedesktop.network1.policy:122
 msgid "Authentication is required to reset NTP settings."
-msgstr ""
-"Une authentification est requise pour réinitialiser les paramètres NTP."
+msgstr "Une authentification est requise pour réinitialiser les paramètres NTP."
 
 #: src/network/org.freedesktop.network1.policy:132
 msgid "Revert DNS settings"
@@ -1100,8 +1098,7 @@ msgstr "Réinitialiser les paramètres DNS"
 
 #: src/network/org.freedesktop.network1.policy:133
 msgid "Authentication is required to reset DNS settings."
-msgstr ""
-"Une authentification est requise pour réinitialiser les paramètres DNS."
+msgstr "Une authentification est requise pour réinitialiser les paramètres DNS."
 
 #: src/network/org.freedesktop.network1.policy:143
 msgid "DHCP server sends force renew message"
@@ -1239,8 +1236,7 @@ msgstr "S'abonner à la configuration DNS"
 
 #: src/resolve/org.freedesktop.resolve1.policy:155
 msgid "Authentication is required to subscribe to DNS configuration."
-msgstr ""
-"Une authentification est requise pour s'abonner à la configuration DNS."
+msgstr "Une authentification est requise pour s'abonner à la configuration DNS."
 
 #: src/resolve/org.freedesktop.resolve1.policy:165
 msgid "Dump cache"
