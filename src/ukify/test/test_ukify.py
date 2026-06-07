@@ -774,6 +774,118 @@ def test_inspect_no_osrel(kernel_initrd, tmp_path, capsys):
     test_inspect(kernel_initrd, tmp_path, capsys, osrel=False)
 
 
+def test_inspect_json_profiles(tmp_path, capsys):
+    # A dummy file is fine for --linux/--initrd: ukify just embeds them as sections, and passing
+    # --uname avoids trying to scrape a version out of the fake kernel. This keeps the test
+    # self-contained so it exercises the multi-profile JSON output without a real kernel.
+    linux = tmp_path / 'linux'
+    linux.write_bytes(b'LINUX')
+    initrd = tmp_path / 'initrd'
+    initrd.write_bytes(b'INITRD')
+
+    # Build two standalone profile PE binaries, each carrying its own '.cmdline'.
+    profiles = []
+    for i in range(2):
+        profile = f'{tmp_path}/profile{i}.efi'
+        opts = ukify.parse_args(
+            [
+                'build',
+                f'--profile=ID=profile{i}',
+                f'--cmdline=PROFILE{i}ARG',
+                f'--output={profile}',
+            ]
+            + arg_tools
+        )
+        ukify.check_inputs(opts)
+        ukify.make_uki(opts)
+        profiles.append(profile)
+
+    # Build the base UKI joining both profiles. The result has a shared base '.cmdline' plus one
+    # '.cmdline' (and one '.profile') per profile, including the implicit base profile.
+    output = f'{tmp_path}/base.efi'
+    opts = ukify.parse_args(
+        [
+            'build',
+            f'--linux={linux}',
+            f'--initrd={initrd}',
+            '--uname=1.2.3',
+            '--cmdline=BASEARG',
+            *(f'--join-profile={p}' for p in profiles),
+            f'--output={output}',
+        ]
+        + arg_tools
+    )
+    ukify.check_inputs(opts)
+    ukify.make_uki(opts)
+
+    opts = ukify.parse_args(['inspect', output, '--json=short'])
+    ukify.inspect_sections(opts)
+    result = json.loads(capsys.readouterr().out)
+
+    # Shared base sections stay keyed by name at the top level, just as for a profile-less UKI, so
+    # the base '.cmdline' is not overwritten by the profile-specific ones.
+    assert '.linux' in result
+    assert '.initrd' in result
+    assert result['.cmdline']['text'] == 'BASEARG'
+
+    # Implicit base profile (ID=main) plus the two joined profiles, each keyed by section name and
+    # starting with its '.profile' section.
+    assert len(result['profiles']) == 3
+    assert [p['.profile']['text'] for p in result['profiles']] == ['ID=main', 'ID=profile0', 'ID=profile1']
+
+    # Each joined profile's distinct '.cmdline' survives instead of being overwritten.
+    profile_cmdlines = [p['.cmdline']['text'] for p in result['profiles'] if '.cmdline' in p]
+    assert profile_cmdlines == ['PROFILE0ARG', 'PROFILE1ARG']
+
+    shutil.rmtree(tmp_path)
+
+
+def test_inspect_json_alternative_set_sections(tmp_path, capsys):
+    # '.dtbauto' is an alternative-set (one entry per hardware variant): every occurrence must be
+    # preserved, and it is always reported as a list, even for a single entry.
+    def inspect(output):
+        opts = ukify.parse_args(['inspect', str(output), '--json=short'])
+        ukify.inspect_sections(opts)
+        return json.loads(capsys.readouterr().out)
+
+    dtbs = []
+    for i in range(2):
+        dtb = tmp_path / f'dtb{i}'
+        dtb.write_bytes(f'DTB{i}'.encode())
+        dtbs.append(dtb)
+
+    output = f'{tmp_path}/dtbauto.efi'
+    opts = ukify.parse_args(
+        [
+            'build',
+            '--cmdline=ARG',
+            *(f'--devicetree-auto={d}' for d in dtbs),
+            f'--output={output}',
+        ]
+        + arg_tools
+    )
+    ukify.check_inputs(opts)
+    ukify.make_uki(opts)
+    result = inspect(output)
+
+    # Both '.dtbauto' occurrences are preserved as a list, none dropped.
+    assert isinstance(result['.dtbauto'], list)
+    assert len(result['.dtbauto']) == 2
+    assert all('sha256' in d for d in result['.dtbauto'])
+    assert result['.dtbauto'][0]['sha256'] != result['.dtbauto'][1]['sha256']
+
+    # A single '.dtbauto' is still reported as a (one-element) list, not a bare object.
+    single = f'{tmp_path}/dtbauto-single.efi'
+    opts = ukify.parse_args(['build', f'--devicetree-auto={dtbs[0]}', f'--output={single}'] + arg_tools)
+    ukify.check_inputs(opts)
+    ukify.make_uki(opts)
+    result = inspect(single)
+    assert isinstance(result['.dtbauto'], list)
+    assert len(result['.dtbauto']) == 1
+
+    shutil.rmtree(tmp_path)
+
+
 @pytest.mark.skipif(not slow_tests, reason='slow')
 def test_pcr_signing(kernel_initrd, tmp_path):
     if kernel_initrd is None:
