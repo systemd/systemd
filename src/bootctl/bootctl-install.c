@@ -208,6 +208,8 @@ static int install_context_from_cmdline(
                         return log_oom();
         }
 
+        b.touch_variables = arg_touch_variables;
+
         *ret = TAKE_GENERIC(b, InstallContext, INSTALL_CONTEXT_NULL);
 
         return !!ret->esp_path; /* return positive if we found an ESP */
