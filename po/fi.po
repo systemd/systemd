@@ -2,14 +2,14 @@
 #
 # Finnish translation of systemd.
 # Jan Kuparinen <copper_fin@hotmail.com>, 2021, 2022, 2023, 2026.
-# Ricky Tigg <ricky.tigg@gmail.com>, 2022, 2024, 2025.
+# Ricky Tigg <ricky.tigg@gmail.com>, 2022, 2024, 2025, 2026.
 # Jiri Grönroos <jiri.gronroos@iki.fi>, 2024.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-05-30 00:13+0200\n"
 "PO-Revision-Date: 2026-06-07 13:57+0000\n"
-"Last-Translator: Jan Kuparinen <copper_fin@hotmail.com>\n"
+"Last-Translator: Ricky Tigg <ricky.tigg@gmail.com>\n"
 "Language-Team: Finnish <https://translate.fedoraproject.org/projects/systemd/"
 "main/fi/>\n"
 "Language: fi\n"
@@ -411,8 +411,7 @@ msgstr "Peruuta levykuvan siirto"
 #: src/import/org.freedesktop.import1.policy:53
 msgid ""
 "Authentication is required to cancel the ongoing transfer of a disk image."
-msgstr ""
-"Todennus vaaditaan meneillään olevan levykuvan siirron peruuttamiseksi."
+msgstr "Todennus vaaditaan meneillään olevan levykuvan siirron peruuttamiseksi."
 
 #: src/locale/org.freedesktop.locale1.policy:22
 msgid "Set system locale"
