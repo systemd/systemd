@@ -10,7 +10,7 @@ msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-05-30 00:13+0200\n"
 "PO-Revision-Date: 2026-06-07 14:00+0000\n"
-"Last-Translator: Petru Rebeja <petru@rebeja.eu>\n"
+"Last-Translator: Anonymous <noreply@weblate.org>\n"
 "Language-Team: Romanian <https://translate.fedoraproject.org/projects/"
 "systemd/main/ro/>\n"
 "Language: ro\n"
@@ -789,8 +789,7 @@ msgstr "Blochează sau deblochează sesiuni active"
 
 #: src/login/org.freedesktop.login1.policy:343
 msgid "Authentication is required to lock or unlock active sessions."
-msgstr ""
-"Autentificarea este necesară pentru a bloca sau debloca sesiuni active."
+msgstr "Autentificarea este necesară pentru a bloca sau debloca sesiuni active."
 
 #: src/login/org.freedesktop.login1.policy:352
 msgid "Set the reboot \"reason\" in the kernel"
