@@ -478,6 +478,7 @@ IPForward=
 IPMasquerade=
 IPv4LLRoute=
 IPv4ProxyARP=
+IPv4ProxyARPAddress=
 IPv4ProxyARPPrivateVLAN=
 IPv6AcceptRA=
 IPv6DuplicateAddressDetection=
