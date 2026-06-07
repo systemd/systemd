@@ -1,15 +1,15 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 #
 # Portuguese translation of systemd.
-# Hugo Carvalho <hugokarvalho@hotmail.com>, 2021, 2022, 2023.
-# Tiago Rocha Cunha <tiagocunha.me@gmail.com>, 2024.
+# Hugo Carvalho <hugokarvalho@hotmail.com>, 2021, 2022, 2023, 2026.
+# Tiago Rocha Cunha <tiagocunha.me@gmail.com>, 2024, 2026.
 # Américo Monteiro <a_monteiro@gmx.com>, 2025, 2026.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-05-30 00:13+0200\n"
-"PO-Revision-Date: 2026-05-31 10:01+0000\n"
-"Last-Translator: Américo Monteiro <a_monteiro@gmx.com>\n"
+"PO-Revision-Date: 2026-06-07 14:04+0000\n"
+"Last-Translator: Tiago Rocha Cunha <tiagocunha.me@gmail.com>\n"
 "Language-Team: Portuguese <https://translate.fedoraproject.org/projects/"
 "systemd/main/pt/>\n"
 "Language: pt\n"
@@ -17,7 +17,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n > 1;\n"
-"X-Generator: Weblate 2026.5\n"
+"X-Generator: Weblate 2026.6.1\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -525,8 +525,7 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:97
 msgid "Allow applications to inhibit system handling of the hibernate key"
-msgstr ""
-"Permitir que aplicações inibam o sistema de gerir o botão de hibernação"
+msgstr "Permitir que aplicações inibam o sistema de gerir o botão de hibernação"
 
 #: src/login/org.freedesktop.login1.policy:98
 msgid ""
@@ -873,8 +872,7 @@ msgstr "Adquirir uma shell na máquina local"
 
 #: src/machine/org.freedesktop.machine1.policy:54
 msgid "Authentication is required to acquire a shell on the local host."
-msgstr ""
-"É necessária autenticação para adquirir uma shell em uma máquina local."
+msgstr "É necessária autenticação para adquirir uma shell em uma máquina local."
 
 #: src/machine/org.freedesktop.machine1.policy:64
 msgid "Acquire a pseudo TTY in a local container"

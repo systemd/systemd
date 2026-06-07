@@ -3,14 +3,14 @@
 # Greek translation for systemd.
 # Dimitris Spingos <dmtrs32@gmail.com>, 2014.
 # Dimitris Spingos (Δημήτρης Σπίγγος) <dmtrs32@gmail.com>, 2014.
-# Dimitrys Meliates <demetresmeliates+fedora@gmail.com>, 2024.
+# Dimitrys Meliates <demetresmeliates+fedora@gmail.com>, 2024, 2026.
 # Jim Spentzos <jimspentzos2000@gmail.com>, 2025, 2026.
 # Efstathios Iosifidis <eiosifidis@yandex.com>, 2026.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-05-30 00:13+0200\n"
-"PO-Revision-Date: 2026-05-01 00:59+0000\n"
+"PO-Revision-Date: 2026-06-07 14:01+0000\n"
 "Last-Translator: Jim Spentzos <jimspentzos2000@gmail.com>\n"
 "Language-Team: Greek <https://translate.fedoraproject.org/projects/systemd/"
 "main/el/>\n"
@@ -19,7 +19,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 5.17.1\n"
+"X-Generator: Weblate 2026.6.1\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -338,8 +338,7 @@ msgstr "Ο κωδικός πρόσβασης έληξε, απαιτείται α
 
 #: src/home/pam_systemd_home.c:1065
 msgid "Password is expired, but can't change, refusing login."
-msgstr ""
-"Ο κωδικός πρόσβασης έληξε αλλά δεν μπορεί να αλλαχθεί, άρνηση σύνδεσης."
+msgstr "Ο κωδικός πρόσβασης έληξε αλλά δεν μπορεί να αλλαχθεί, άρνηση σύνδεσης."
 
 #: src/home/pam_systemd_home.c:1069
 msgid "Password will expire soon, please change."
@@ -351,8 +350,7 @@ msgstr "Ορισμός ονόματος οικοδεσπότη"
 
 #: src/hostname/org.freedesktop.hostname1.policy:21
 msgid "Authentication is required to set the local hostname."
-msgstr ""
-"Απαιτείται ταυτοποίηση για τον ορισμό του τοπικού ονόματος οικοδεσπότη."
+msgstr "Απαιτείται ταυτοποίηση για τον ορισμό του τοπικού ονόματος οικοδεσπότη."
 
 #: src/hostname/org.freedesktop.hostname1.policy:30
 msgid "Set static hostname"
@@ -477,8 +475,7 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:44
 msgid "Allow applications to inhibit system sleep"
-msgstr ""
-"Να επιτρέπεται στις εφαρμογές να εμποδίζουν την αναστολή του συστήματος"
+msgstr "Να επιτρέπεται στις εφαρμογές να εμποδίζουν την αναστολή του συστήματος"
 
 #: src/login/org.freedesktop.login1.policy:45
 msgid "Authentication is required for an application to inhibit system sleep."
@@ -867,8 +864,7 @@ msgstr "Σύνδεση σε τοπικό εμπορευματοκιβώτιο (c
 
 #: src/machine/org.freedesktop.machine1.policy:23
 msgid "Authentication is required to log into a local container."
-msgstr ""
-"Απαιτείται ταυτοποίηση για τη σύνδεση σε ένα τοπικό εμπορευματοκιβώτιο."
+msgstr "Απαιτείται ταυτοποίηση για τη σύνδεση σε ένα τοπικό εμπορευματοκιβώτιο."
 
 #: src/machine/org.freedesktop.machine1.policy:32
 msgid "Log into the local host"
@@ -1027,8 +1023,7 @@ msgstr "Ενεργοποίηση/απενεργοποίηση LLMNR"
 #: src/network/org.freedesktop.network1.policy:67
 #: src/resolve/org.freedesktop.resolve1.policy:78
 msgid "Authentication is required to enable or disable LLMNR."
-msgstr ""
-"Απαιτείται ταυτοποίηση για την ενεργοποίηση ή απενεργοποίηση του LLMNR."
+msgstr "Απαιτείται ταυτοποίηση για την ενεργοποίηση ή απενεργοποίηση του LLMNR."
 
 #: src/network/org.freedesktop.network1.policy:77
 #: src/resolve/org.freedesktop.resolve1.policy:88
