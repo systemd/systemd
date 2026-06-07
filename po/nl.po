@@ -1,16 +1,17 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 #
 # Dutch translation of systemd.
-# Pjotr Vertaalt <pjotrvertaalt@gmail.com>, 2021.
+# Pjotr Vertaalt <pjotrvertaalt@gmail.com>, 2021, 2026.
 # Richard E. van der Luit <fedoraproject@veneax.nl>, 2022.
-# Maarten <maarten@posteo.de>, 2023.
-# Tim Vangehugten <timvangehugten@gmail.com>, 2025.
+# Maarten <maarten@posteo.de>, 2023, 2026.
+# Tim Vangehugten <timvangehugten@gmail.com>, 2025, 2026.
+# "Richard E. van der Luit" <fedoraproject@veneax.nl>, 2026.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-05-30 00:13+0200\n"
-"PO-Revision-Date: 2025-05-28 09:31+0000\n"
-"Last-Translator: Tim Vangehugten <timvangehugten@gmail.com>\n"
+"PO-Revision-Date: 2026-06-07 13:57+0000\n"
+"Last-Translator: \"Richard E. van der Luit\" <fedoraproject@veneax.nl>\n"
 "Language-Team: Dutch <https://translate.fedoraproject.org/projects/systemd/"
 "main/nl/>\n"
 "Language: nl\n"
@@ -18,7 +19,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 5.11.3\n"
+"X-Generator: Weblate 2026.6.1\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -772,8 +773,7 @@ msgstr "Zet het systeem in de pauzestand"
 
 #: src/login/org.freedesktop.login1.policy:269
 msgid "Authentication is required to suspend the system."
-msgstr ""
-"Authenticatie is vereist voor het in pauzestand zetten van het systeem."
+msgstr "Authenticatie is vereist voor het in pauzestand zetten van het systeem."
 
 #: src/login/org.freedesktop.login1.policy:278
 msgid "Suspend the system while other users are logged in"
@@ -1128,8 +1128,7 @@ msgstr "Schakel DNS over TLS in of uit"
 #: src/network/org.freedesktop.network1.policy:89
 #: src/resolve/org.freedesktop.resolve1.policy:100
 msgid "Authentication is required to enable or disable DNS over TLS."
-msgstr ""
-"Authenticatie is vereist voor het in- of uitschakelen van DNS over TLS."
+msgstr "Authenticatie is vereist voor het in- of uitschakelen van DNS over TLS."
 
 #: src/network/org.freedesktop.network1.policy:99
 #: src/resolve/org.freedesktop.resolve1.policy:110
@@ -1180,8 +1179,7 @@ msgstr ""
 msgid ""
 "Authentication is required to send a force renew message from the DHCP "
 "server."
-msgstr ""
-"Authenticatie is vereist voor het verzenden van een FORCERENEW-bericht."
+msgstr "Authenticatie is vereist voor het verzenden van een FORCERENEW-bericht."
 
 #: src/network/org.freedesktop.network1.policy:154
 msgid "Renew dynamic addresses"
@@ -1301,8 +1299,7 @@ msgstr "Abonneer op queryresultaten"
 #: src/resolve/org.freedesktop.resolve1.policy:144
 #, fuzzy
 msgid "Authentication is required to subscribe query results."
-msgstr ""
-"Authenticatie is vereist voor het in pauzestand zetten van het systeem."
+msgstr "Authenticatie is vereist voor het in pauzestand zetten van het systeem."
 
 #: src/resolve/org.freedesktop.resolve1.policy:154
 msgid "Subscribe to DNS configuration"
@@ -1311,8 +1308,7 @@ msgstr ""
 #: src/resolve/org.freedesktop.resolve1.policy:155
 #, fuzzy
 msgid "Authentication is required to subscribe to DNS configuration."
-msgstr ""
-"Authenticatie is vereist voor het in pauzestand zetten van het systeem."
+msgstr "Authenticatie is vereist voor het in pauzestand zetten van het systeem."
 
 #: src/resolve/org.freedesktop.resolve1.policy:165
 msgid "Dump cache"
@@ -1535,8 +1531,8 @@ msgstr ""
 #: src/core/dbus-unit.c:679
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr ""
-"Authenticatie is vereist voor het instellen van de eigenschappen van '$"
-"(unit)'."
+"Authenticatie is vereist voor het instellen van de eigenschappen van '$(unit)"
+"'."
 
 #: src/core/dbus-unit.c:776
 msgid ""

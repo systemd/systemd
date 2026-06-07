@@ -4,8 +4,8 @@
 # Sebastian Rasmussen <sebras@gmail.com>, 2015.
 # Andreas Henriksson <andreas@fatal.se>, 2016.
 # Josef Andersson <l10nl18nsweja@gmail.com>, 2015, 2017.
-# Göran Uddeborg <goeran@uddeborg.se>, 2020, 2021, 2024.
-# Luna Jernberg <bittin@reimu.nl>, 2020, 2023, 2024, 2025.
+# Göran Uddeborg <goeran@uddeborg.se>, 2020, 2021, 2024, 2026.
+# Luna Jernberg <bittin@reimu.nl>, 2020, 2023, 2024, 2025, 2026.
 # Anders Jonsson <anders.jonsson@norsjovallen.se>, 2022, 2024, 2026.
 # Weblate Translation Memory <noreply-mt-weblate-translation-memory@weblate.org>, 2024.
 # Daniel Nylander <po@danielnylander.se>, 2026.
@@ -14,8 +14,8 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-05-30 00:13+0200\n"
-"PO-Revision-Date: 2026-05-31 10:01+0000\n"
-"Last-Translator: Anders Jonsson <anders.jonsson@norsjovallen.se>\n"
+"PO-Revision-Date: 2026-06-07 14:01+0000\n"
+"Last-Translator: Daniel Nylander <po@danielnylander.se>\n"
 "Language-Team: Swedish <https://translate.fedoraproject.org/projects/systemd/"
 "main/sv/>\n"
 "Language: sv\n"
@@ -23,7 +23,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 2026.5\n"
+"X-Generator: Weblate 2026.6.1\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -42,8 +42,7 @@ msgstr "Hantera systemtjänster eller andra enheter"
 
 #: src/core/org.freedesktop.systemd1.policy.in:34
 msgid "Authentication is required to manage system services or other units."
-msgstr ""
-"Autentisering krävs för att hantera systemtjänster eller andra enheter."
+msgstr "Autentisering krävs för att hantera systemtjänster eller andra enheter."
 
 #: src/core/org.freedesktop.systemd1.policy.in:43
 msgid "Manage system service or unit files"
@@ -141,8 +140,7 @@ msgstr "Ändra lösenord för en hemarea"
 #: src/home/org.freedesktop.home1.policy:74
 msgid ""
 "Authentication is required to change the password of a user's home area."
-msgstr ""
-"Autentisering krävs för att ändra lösenordet för en användares hemarea."
+msgstr "Autentisering krävs för att ändra lösenordet för en användares hemarea."
 
 #: src/home/org.freedesktop.home1.policy:83
 msgid "Activate a home area"
@@ -158,8 +156,7 @@ msgstr "Hantera nycklar för signering av hemkatalog"
 
 #: src/home/org.freedesktop.home1.policy:94
 msgid "Authentication is required to manage signing keys for home directories."
-msgstr ""
-"Autentisering krävs för att hantera signeringsnycklar för hemkataloger."
+msgstr "Autentisering krävs för att hantera signeringsnycklar för hemkataloger."
 
 #: src/home/pam_systemd_home.c:327
 #, c-format
@@ -1358,8 +1355,8 @@ msgid ""
 "Authentication is required to send a UNIX signal to the processes of '$"
 "(unit)'."
 msgstr ""
-"Autentisering krävs för att skicka en UNIX-signal till processerna i ”$"
-"(unit)”."
+"Autentisering krävs för att skicka en UNIX-signal till processerna i ”$(unit)"
+"”."
 
 #: src/core/dbus-unit.c:621
 msgid ""
