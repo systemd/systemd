@@ -3,14 +3,14 @@
 # SOME DESCRIPTIVE TITLE.
 # This file is distributed under the same license as the PACKAGE package.
 # gogo <trebelnik2@gmail.com>, 2016.
-# Gogo Gogsi <linux.hr@protonmail.com>, 2020, 2021, 2022.
-# Marin Kresic <marinjurekresic@gmail.com>, 2024.
+# Gogo Gogsi <linux.hr@protonmail.com>, 2020, 2021, 2022, 2026.
+# Marin Kresic <marinjurekresic@gmail.com>, 2024, 2026.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-05-30 00:13+0200\n"
-"PO-Revision-Date: 2024-08-04 03:41+0000\n"
-"Last-Translator: Marin Kresic <marinjurekresic@gmail.com>\n"
+"PO-Revision-Date: 2026-06-07 14:02+0000\n"
+"Last-Translator: Gogo Gogsi <linux.hr@protonmail.com>\n"
 "Language-Team: Croatian <https://translate.fedoraproject.org/projects/"
 "systemd/main/hr/>\n"
 "Language: hr\n"
@@ -19,7 +19,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=3; plural=n%10==1 && n%100!=11 ? 0 : n%10>=2 && "
 "n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2;\n"
-"X-Generator: Weblate 5.6.2\n"
+"X-Generator: Weblate 2026.6.1\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -100,8 +100,7 @@ msgstr "Provjeri vjerodajnice osobnog prostora"
 #: src/home/org.freedesktop.home1.policy:34
 msgid ""
 "Authentication is required to check credentials against a user's home area."
-msgstr ""
-"Potrebna je ovjera za provjeru vjerodajnica osobnog prostora korisnika."
+msgstr "Potrebna je ovjera za provjeru vjerodajnica osobnog prostora korisnika."
 
 #: src/home/org.freedesktop.home1.policy:43
 msgid "Update a home area"
@@ -598,8 +597,7 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:191
 msgid "Power off the system while an application is inhibiting this"
-msgstr ""
-"Isključi sustav kada je aplikacija zatražila sprječavanje isključivanja"
+msgstr "Isključi sustav kada je aplikacija zatražila sprječavanje isključivanja"
 
 #: src/login/org.freedesktop.login1.policy:192
 msgid ""
@@ -665,8 +663,7 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:257
 msgid "Halt the system while an application is inhibiting this"
-msgstr ""
-"Zaustavi sustav kada je aplikacija zatražila sprječavanje zaustavljanja"
+msgstr "Zaustavi sustav kada je aplikacija zatražila sprječavanje zaustavljanja"
 
 #: src/login/org.freedesktop.login1.policy:258
 msgid ""
@@ -731,8 +728,7 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:321
 msgid "Hibernate the system while an application is inhibiting this"
-msgstr ""
-"Hiberniraj sustav kada je aplikacija zatražila sprječavanje hibernacije"
+msgstr "Hiberniraj sustav kada je aplikacija zatražila sprječavanje hibernacije"
 
 #: src/login/org.freedesktop.login1.policy:322
 msgid ""
@@ -1111,8 +1107,7 @@ msgstr "Dodaj ili ukloni prijenosnu sliku usluge"
 #: src/portable/org.freedesktop.portable1.policy:24
 msgid ""
 "Authentication is required to attach or detach a portable service image."
-msgstr ""
-"Potrebna je ovjera za dodavanje ili uklanjanje prijenosne slike usluge."
+msgstr "Potrebna je ovjera za dodavanje ili uklanjanje prijenosne slike usluge."
 
 #: src/portable/org.freedesktop.portable1.policy:34
 msgid "Delete or modify portable service image"
@@ -1382,8 +1377,8 @@ msgid ""
 "Authentication is required to delete files and directories associated with '$"
 "(unit)'."
 msgstr ""
-"Potrebna je ovjera za brisanje datoteka i direktorija pridruženih sa '$"
-"(unit)'."
+"Potrebna je ovjera za brisanje datoteka i direktorija pridruženih sa '$(unit)"
+"'."
 
 #: src/core/dbus-unit.c:813
 msgid ""
