@@ -6,13 +6,14 @@
 # Salvatore Cocuzza <info@salvatorecocuzza.it>, 2024, 2026.
 # Nathan <nathan95@live.it>, 2025.
 # Ali Ciloglu <ali.ciloqlu@murena.io>, 2026.
+# Milo Casagrande <milo@milo.name>, 2026.
 msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-05-30 00:13+0200\n"
-"PO-Revision-Date: 2026-06-07 14:02+0000\n"
-"Last-Translator: Anonymous <noreply@weblate.org>\n"
+"PO-Revision-Date: 2026-06-07 14:03+0000\n"
+"Last-Translator: Milo Casagrande <milo@milo.name>\n"
 "Language-Team: Italian <https://translate.fedoraproject.org/projects/systemd/"
 "main/it/>\n"
 "Language: it\n"
@@ -1051,8 +1052,7 @@ msgstr "Configura DNSSEC Negative Trust Anchors"
 #: src/network/org.freedesktop.network1.policy:111
 #: src/resolve/org.freedesktop.resolve1.policy:122
 msgid "Authentication is required to set DNSSEC Negative Trust Anchors."
-msgstr ""
-"Autenticazione richiesta per configurare DNSSEC Negative Trust Anchors."
+msgstr "Autenticazione richiesta per configurare DNSSEC Negative Trust Anchors."
 
 #: src/network/org.freedesktop.network1.policy:121
 msgid "Revert NTP settings"
@@ -1396,8 +1396,8 @@ msgid ""
 "Authentication is required to send a UNIX signal to the processes of '$"
 "(unit)'."
 msgstr ""
-"Autenticazione richiesta per inviare un segnale UNIX ai processi di '$"
-"(unit)'."
+"Autenticazione richiesta per inviare un segnale UNIX ai processi di '$(unit)"
+"'."
 
 #: src/core/dbus-unit.c:621
 msgid ""
