@@ -3,13 +3,13 @@
 # Finnish translation of systemd.
 # Jan Kuparinen <copper_fin@hotmail.com>, 2021, 2022, 2023, 2026.
 # Ricky Tigg <ricky.tigg@gmail.com>, 2022, 2024, 2025, 2026.
-# Jiri Grönroos <jiri.gronroos@iki.fi>, 2024.
+# Jiri Grönroos <jiri.gronroos@iki.fi>, 2024, 2026.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-05-30 00:13+0200\n"
 "PO-Revision-Date: 2026-06-07 13:57+0000\n"
-"Last-Translator: Ricky Tigg <ricky.tigg@gmail.com>\n"
+"Last-Translator: Jiri Grönroos <jiri.gronroos@iki.fi>\n"
 "Language-Team: Finnish <https://translate.fedoraproject.org/projects/systemd/"
 "main/fi/>\n"
 "Language: fi\n"
