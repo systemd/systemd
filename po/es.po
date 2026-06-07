@@ -6,7 +6,7 @@
 # Álex Puchades <alex94puchades@gmail.com>, 2015.
 # Adolfo Jayme Barrientos <fitoschido@gmail.com>, 2020, 2021.
 # Emilio Herrera <ehespinosa57@gmail.com>, 2021.
-# Jose Ortuno <jose_ortuno@hotmail.com>, 2025.
+# Jose Ortuno <jose_ortuno@hotmail.com>, 2025, 2026.
 # Javier Francisco <fserrador@gmail.com>, 2025.
 # "Fco. Javier F. Serrador" <fserrador@gmail.com>, 2025, 2026.
 msgid ""
@@ -14,7 +14,7 @@ msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-05-30 00:13+0200\n"
 "PO-Revision-Date: 2026-06-07 14:03+0000\n"
-"Last-Translator: \"Fco. Javier F. Serrador\" <fserrador@gmail.com>\n"
+"Last-Translator: Jose Ortuno <jose_ortuno@hotmail.com>\n"
 "Language-Team: Spanish <https://translate.fedoraproject.org/projects/systemd/"
 "main/es/>\n"
 "Language: es\n"
@@ -1403,8 +1403,8 @@ msgid ""
 "Authentication is required to send a UNIX signal to the processes of '$"
 "(unit)'."
 msgstr ""
-"Se requiere autenticación para enviar una señal UNIX a los procesos '$"
-"(unit)'."
+"Se requiere autenticación para enviar una señal UNIX a los procesos '$(unit)"
+"'."
 
 #: src/core/dbus-unit.c:621
 msgid ""
