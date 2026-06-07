@@ -2,7 +2,7 @@
 #
 # Bulgarian translation of systemd po-file.
 # Copyright © 2016, 2022, 2025 Alexander Shopov <ash@kambanaria.org>
-# Alexander Shopov <ash@kambanaria.org>, 2016, 2022, 2025.
+# Alexander Shopov <ash@kambanaria.org>, 2016, 2022, 2025, 2026.
 # Velislav Ivanov <velislav.bg@gmail.com>, 2023.
 msgid ""
 msgstr ""
@@ -10,7 +10,7 @@ msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-05-30 00:13+0200\n"
 "PO-Revision-Date: 2026-06-07 13:57+0000\n"
-"Last-Translator: Anonymous <noreply@weblate.org>\n"
+"Last-Translator: Alexander Shopov <ash@kambanaria.org>\n"
 "Language-Team: Bulgarian <https://translate.fedoraproject.org/projects/"
 "systemd/main/bg/>\n"
 "Language: bg\n"
@@ -153,8 +153,7 @@ msgstr "Създаване на домашно място за потребит�
 
 #: src/home/org.freedesktop.home1.policy:84
 msgid "Authentication is required to activate a user's home area."
-msgstr ""
-"За създаване на домашно място за потребител е необходима идентификация."
+msgstr "За създаване на домашно място за потребител е необходима идентификация."
 
 #: src/home/org.freedesktop.home1.policy:93
 msgid "Manage Home Directory Signing Keys"
