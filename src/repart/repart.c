@@ -8707,6 +8707,10 @@ static int context_factory_reset(Context *context) {
         if (r < 0)
                 return log_error_errno(r, "Failed to write disk label: %m");
 
+        r = context_partscan(context);
+        if (r < 0)
+                return r;
+
         log_info("Successfully deleted %zu partitions.", n);
         return 1;
 }
