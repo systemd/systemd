@@ -6,7 +6,7 @@
 # Sergey Ptashnick <0comffdiz@inbox.ru>, 2013-2018.
 # Vladimir Yerilov <openmindead@gmail.com>, 2020.
 # Alexey Rubtsov <rushills@gmail.com>, 2021, 2026.
-# Olga Smirnova <mistresssilvara@hotmail.com>, 2022.
+# Olga Smirnova <mistresssilvara@hotmail.com>, 2022, 2026.
 # Andrei Stepanov <adem4ik@gmail.com>, 2023, 2026.
 # "Sergey A." <sw@atrus.ru>, 2023, 2024.
 # "Sergey A." <Ser82-png@yandex.ru>, 2024, 2025, 2026.
@@ -15,7 +15,7 @@ msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-05-30 00:13+0200\n"
 "PO-Revision-Date: 2026-06-07 13:58+0000\n"
-"Last-Translator: Alexey Rubtsov <rushills@gmail.com>\n"
+"Last-Translator: Olga Smirnova <mistresssilvara@hotmail.com>\n"
 "Language-Team: Russian <https://translate.fedoraproject.org/projects/systemd/"
 "main/ru/>\n"
 "Language: ru\n"
