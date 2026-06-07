@@ -4,13 +4,13 @@
 # This file is distributed under the same license as the PACKAGE package.
 # gogo <trebelnik2@gmail.com>, 2016.
 # Gogo Gogsi <linux.hr@protonmail.com>, 2020, 2021, 2022.
-# Marin Kresic <marinjurekresic@gmail.com>, 2024.
+# Marin Kresic <marinjurekresic@gmail.com>, 2024, 2026.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-05-30 00:13+0200\n"
 "PO-Revision-Date: 2026-06-07 14:02+0000\n"
-"Last-Translator: Anonymous <noreply@weblate.org>\n"
+"Last-Translator: Marin Kresic <marinjurekresic@gmail.com>\n"
 "Language-Team: Croatian <https://translate.fedoraproject.org/projects/"
 "systemd/main/hr/>\n"
 "Language: hr\n"
