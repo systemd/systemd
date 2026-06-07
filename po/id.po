@@ -1,14 +1,14 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 #
 # Indonesian translation for systemd.
-# Andika Triwidada <andika@gmail.com>, 2014, 2021, 2022, 2024, 2025.
+# Andika Triwidada <andika@gmail.com>, 2014, 2021, 2022, 2024, 2025, 2026.
 # Arif Budiman <arifpedia@gmail.com>, 2026.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-05-30 00:13+0200\n"
 "PO-Revision-Date: 2026-06-07 14:03+0000\n"
-"Last-Translator: Anonymous <noreply@weblate.org>\n"
+"Last-Translator: Andika Triwidada <andika@gmail.com>\n"
 "Language-Team: Indonesian <https://translate.fedoraproject.org/projects/"
 "systemd/main/id/>\n"
 "Language: id\n"
@@ -1340,8 +1340,8 @@ msgid ""
 "Authentication is required to send a UNIX signal to the processes of '$"
 "(unit)'."
 msgstr ""
-"Otentikasi diperlukan untuk megirim suatu sinyal UNIX ke proses dari '$"
-"(unit)'."
+"Otentikasi diperlukan untuk megirim suatu sinyal UNIX ke proses dari '$(unit)"
+"'."
 
 #: src/core/dbus-unit.c:621
 msgid ""
