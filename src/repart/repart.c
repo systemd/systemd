@@ -8473,7 +8473,7 @@ static int context_find_esp_offset(Context *context, uint64_t *ret) {
         return 0;
 }
 
-static int context_partscan(Context *context) {
+static int context_partscan(Context *context, bool ignore_busy) {
         int capable, r;
 
         assert(context);
@@ -8490,8 +8490,12 @@ static int context_partscan(Context *context) {
                 (void) context_notify(context, PROGRESS_REREADING_TABLE, /* object= */ NULL, UINT_MAX);
 
                 r = reread_partition_table_fd(sym_fdisk_get_devfd(context->fdisk_context), /* flags= */ 0);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to reread partition table: %m");
+                if (r < 0) {
+                        if (ignore_busy && (r == -EBUSY))
+                                log_warning_errno(r, "Failed to reread partition table, ignoring: %m");
+                        else
+                                return log_error_errno(r, "Failed to reread partition table: %m");
+                }
         } else
                 log_notice("Not telling kernel to reread partition table, because selected image does not support kernel partition block devices.");
 
@@ -8581,7 +8585,7 @@ static int context_write_partition_table(Context *context) {
 
         context_btrfs_replace_resize(context);
 
-        r = context_partscan(context);
+        r = context_partscan(context, /* ignore_busy= */ false);
         if (r < 0)
                 return r;
 
@@ -8593,7 +8597,7 @@ static int context_write_partition_table(Context *context) {
         context_btrfs_replace_back(context);
 
         if (context->needs_rescan)
-                (void) context_partscan(context);
+                (void) context_partscan(context, /* ignore_busy= */ false);
 
         return r;
 }
@@ -8706,6 +8710,10 @@ static int context_factory_reset(Context *context) {
         r = sym_fdisk_write_disklabel(context->fdisk_context);
         if (r < 0)
                 return log_error_errno(r, "Failed to write disk label: %m");
+
+        r = context_partscan(context, /* ignore_busy= */ true);
+        if (r < 0)
+                return r;
 
         log_info("Successfully deleted %zu partitions.", n);
         return 1;
