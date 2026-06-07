@@ -3,7 +3,7 @@
 # Greek translation for systemd.
 # Dimitris Spingos <dmtrs32@gmail.com>, 2014.
 # Dimitris Spingos (Δημήτρης Σπίγγος) <dmtrs32@gmail.com>, 2014.
-# Dimitrys Meliates <demetresmeliates+fedora@gmail.com>, 2024.
+# Dimitrys Meliates <demetresmeliates+fedora@gmail.com>, 2024, 2026.
 # Jim Spentzos <jimspentzos2000@gmail.com>, 2025, 2026.
 # Efstathios Iosifidis <eiosifidis@yandex.com>, 2026.
 msgid ""
@@ -11,7 +11,7 @@ msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-05-30 00:13+0200\n"
 "PO-Revision-Date: 2026-06-07 14:01+0000\n"
-"Last-Translator: Efstathios Iosifidis <eiosifidis@yandex.com>\n"
+"Last-Translator: Dimitrys Meliates <demetresmeliates+fedora@gmail.com>\n"
 "Language-Team: Greek <https://translate.fedoraproject.org/projects/systemd/"
 "main/el/>\n"
 "Language: el\n"
