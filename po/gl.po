@@ -1,13 +1,13 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 #
 # Fran Dieguez <frandieguez@gnome.org>, 2015.
-# Fran Diéguez <frandieguez@gnome.org>, 2023.
+# Fran Diéguez <frandieguez@gnome.org>, 2023, 2026.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-05-30 00:13+0200\n"
 "PO-Revision-Date: 2026-06-07 14:01+0000\n"
-"Last-Translator: Anonymous <noreply@weblate.org>\n"
+"Last-Translator: Fran Diéguez <frandieguez@gnome.org>\n"
 "Language-Team: Galician <https://translate.fedoraproject.org/projects/"
 "systemd/main/gl/>\n"
 "Language: gl\n"
