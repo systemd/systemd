@@ -2,13 +2,13 @@
 #
 # Moo, 2018. #zanata
 # mooo <hazap@hotmail.com>, 2023, 2024.
-# Justinas Kairys <j.kairys@proton.me>, 2025.
+# Justinas Kairys <j.kairys@proton.me>, 2025, 2026.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-05-30 00:13+0200\n"
 "PO-Revision-Date: 2026-06-07 13:56+0000\n"
-"Last-Translator: Anonymous <noreply@weblate.org>\n"
+"Last-Translator: Justinas Kairys <j.kairys@proton.me>\n"
 "Language-Team: Lithuanian <https://translate.fedoraproject.org/projects/"
 "systemd/main/lt/>\n"
 "Language: lt\n"
@@ -151,8 +151,7 @@ msgstr "Suaktyvinti namų aplanką"
 
 #: src/home/org.freedesktop.home1.policy:84
 msgid "Authentication is required to activate a user's home area."
-msgstr ""
-"Norint suaktyvinti naudotojo namų aplanką, reikia patvirtinti tapatybę."
+msgstr "Norint suaktyvinti naudotojo namų aplanką, reikia patvirtinti tapatybę."
 
 #: src/home/org.freedesktop.home1.policy:93
 msgid "Manage Home Directory Signing Keys"
