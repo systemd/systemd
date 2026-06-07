@@ -5,7 +5,7 @@
 # Daniel Mustieles <daniel.mustieles@gmail.com>, 2015.
 # Álex Puchades <alex94puchades@gmail.com>, 2015.
 # Adolfo Jayme Barrientos <fitoschido@gmail.com>, 2020, 2021, 2026.
-# Emilio Herrera <ehespinosa57@gmail.com>, 2021.
+# Emilio Herrera <ehespinosa57@gmail.com>, 2021, 2026.
 # Jose Ortuno <jose_ortuno@hotmail.com>, 2025, 2026.
 # Javier Francisco <fserrador@gmail.com>, 2025.
 # "Fco. Javier F. Serrador" <fserrador@gmail.com>, 2025, 2026.
@@ -14,7 +14,7 @@ msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-05-30 00:13+0200\n"
 "PO-Revision-Date: 2026-06-07 14:03+0000\n"
-"Last-Translator: Adolfo Jayme Barrientos <fitoschido@gmail.com>\n"
+"Last-Translator: Emilio Herrera <ehespinosa57@gmail.com>\n"
 "Language-Team: Spanish <https://translate.fedoraproject.org/projects/systemd/"
 "main/es/>\n"
 "Language: es\n"
