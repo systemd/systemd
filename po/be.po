@@ -6,12 +6,14 @@
 # Viktar Vaŭčkievič <victorenator@gmail.com>, 2015, 2016.
 # Zmicer Turok <nashtlumach@gmail.com>, 2020, 2021, 2026.
 # Maksim Kliazovich <maxklezovich@gmail.com>, 2023.
+# Fedora Weblate user 1008 <kopatych@users.noreply.translate.fedoraproject.org>, 2026.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-05-30 00:13+0200\n"
 "PO-Revision-Date: 2026-06-07 13:59+0000\n"
-"Last-Translator: Zmicer Turok <nashtlumach@gmail.com>\n"
+"Last-Translator: Fedora Weblate user 1008 "
+"<kopatych@users.noreply.translate.fedoraproject.org>\n"
 "Language-Team: Belarusian <https://translate.fedoraproject.org/projects/"
 "systemd/main/be/>\n"
 "Language: be\n"
