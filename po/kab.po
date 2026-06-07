@@ -5,13 +5,14 @@
 # ButterflyOfFire <butterflyoffire@protonmail.com>, 2024.
 # ButterflyOfFire <butterflyoffire@users.noreply.translate.fedoraproject.org>, 2025, 2026.
 # Massii Aqvayli <massiin@proton.me>, 2026.
+# Aksel Azwaw <akselyan@users.noreply.translate.fedoraproject.org>, 2026.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-05-30 00:13+0200\n"
 "PO-Revision-Date: 2026-06-07 14:00+0000\n"
-"Last-Translator: ButterflyOfFire "
-"<butterflyoffire@users.noreply.translate.fedoraproject.org>\n"
+"Last-Translator: Aksel Azwaw "
+"<akselyan@users.noreply.translate.fedoraproject.org>\n"
 "Language-Team: Kabyle <https://translate.fedoraproject.org/projects/systemd/"
 "main/kab/>\n"
 "Language: kab\n"
