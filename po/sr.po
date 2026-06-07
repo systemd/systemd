@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 #
 # Serbian translation of systemd.
-# Frantisek Sumsal <frantisek@sumsal.cz>, 2021.
+# Frantisek Sumsal <frantisek@sumsal.cz>, 2021, 2026.
 # Марко Костић <marko.m.kostic@gmail.com>, 2026
 # "Марко Костић (Marko Kostić)" <marko.m.kostic@gmail.com>, 2026.
 msgid ""
@@ -10,7 +10,7 @@ msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-05-30 00:13+0200\n"
 "PO-Revision-Date: 2026-06-07 14:02+0000\n"
-"Last-Translator: Anonymous <noreply@weblate.org>\n"
+"Last-Translator: Frantisek Sumsal <frantisek@sumsal.cz>\n"
 "Language-Team: Serbian <https://translate.fedoraproject.org/projects/systemd/"
 "main/sr/>\n"
 "Language: sr\n"
