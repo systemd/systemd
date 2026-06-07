@@ -9,7 +9,7 @@ msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-05-30 00:13+0200\n"
 "PO-Revision-Date: 2026-06-07 13:56+0000\n"
-"Last-Translator: Anonymous <noreply@weblate.org>\n"
+"Last-Translator: naly zzwd <xeanhort007@gmail.com>\n"
 "Language-Team: Catalan <https://translate.fedoraproject.org/projects/systemd/"
 "main/ca/>\n"
 "Language: ca\n"
@@ -382,8 +382,7 @@ msgstr "Obté el número de sèrie del maquinari"
 
 #: src/hostname/org.freedesktop.hostname1.policy:62
 msgid "Authentication is required to get hardware serial number."
-msgstr ""
-"Es requereix autenticació per obtenir el número de sèrie del maquinari."
+msgstr "Es requereix autenticació per obtenir el número de sèrie del maquinari."
 
 #: src/hostname/org.freedesktop.hostname1.policy:71
 msgid "Get system description"
@@ -1331,8 +1330,7 @@ msgstr "Gestiona les característiques opcionals"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:119
 msgid "Authentication is required to manage optional features."
-msgstr ""
-"Es requereix autenticació per gestionar les característiques opcionals."
+msgstr "Es requereix autenticació per gestionar les característiques opcionals."
 
 #: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"
@@ -1395,8 +1393,8 @@ msgid ""
 "Authentication is required to send a UNIX signal to the processes of '$"
 "(unit)'."
 msgstr ""
-"Es requereix autenticació per enviar un senyal UNIX als processos de '$"
-"(unit)'."
+"Es requereix autenticació per enviar un senyal UNIX als processos de '$(unit)"
+"'."
 
 #: src/core/dbus-unit.c:621
 msgid ""
