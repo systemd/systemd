@@ -6,13 +6,13 @@
 # Gabor Kelemen <kelemeng at gnome dot hu>, 2015, 2016.
 # Balázs Úr <urbalazs at gmail dot com>, 2016.
 # Balázs Meskó <meskobalazs@mailbox.org>, 2022, 2026.
-# Balázs Úr <balazs@urbalazs.hu>, 2023.
+# Balázs Úr <balazs@urbalazs.hu>, 2023, 2026.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-05-30 00:13+0200\n"
 "PO-Revision-Date: 2026-06-07 14:04+0000\n"
-"Last-Translator: Anonymous <noreply@weblate.org>\n"
+"Last-Translator: Balázs Úr <balazs@urbalazs.hu>\n"
 "Language-Team: Hungarian <https://translate.fedoraproject.org/projects/"
 "systemd/main/hu/>\n"
 "Language: hu\n"
@@ -735,8 +735,7 @@ msgstr "Hitelesítés szükséges a rendszer hibernálásához."
 
 #: src/login/org.freedesktop.login1.policy:310
 msgid "Hibernate the system while other users are logged in"
-msgstr ""
-"A rendszer hibernálása, miközben más felhasználók be vannak jelentkezve"
+msgstr "A rendszer hibernálása, miközben más felhasználók be vannak jelentkezve"
 
 #: src/login/org.freedesktop.login1.policy:311
 msgid ""
