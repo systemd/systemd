@@ -5,7 +5,7 @@
 # Andreas Henriksson <andreas@fatal.se>, 2016.
 # Josef Andersson <l10nl18nsweja@gmail.com>, 2015, 2017.
 # Göran Uddeborg <goeran@uddeborg.se>, 2020, 2021, 2024.
-# Luna Jernberg <bittin@reimu.nl>, 2020, 2023, 2024, 2025.
+# Luna Jernberg <bittin@reimu.nl>, 2020, 2023, 2024, 2025, 2026.
 # Anders Jonsson <anders.jonsson@norsjovallen.se>, 2022, 2024, 2026.
 # Weblate Translation Memory <noreply-mt-weblate-translation-memory@weblate.org>, 2024.
 # Daniel Nylander <po@danielnylander.se>, 2026.
@@ -14,8 +14,8 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-05-30 00:13+0200\n"
-"PO-Revision-Date: 2026-06-07 14:00+0000\n"
-"Last-Translator: Anonymous <noreply@weblate.org>\n"
+"PO-Revision-Date: 2026-06-07 14:01+0000\n"
+"Last-Translator: Luna Jernberg <bittin@reimu.nl>\n"
 "Language-Team: Swedish <https://translate.fedoraproject.org/projects/systemd/"
 "main/sv/>\n"
 "Language: sv\n"
@@ -156,8 +156,7 @@ msgstr "Hantera nycklar för signering av hemkatalog"
 
 #: src/home/org.freedesktop.home1.policy:94
 msgid "Authentication is required to manage signing keys for home directories."
-msgstr ""
-"Autentisering krävs för att hantera signeringsnycklar för hemkataloger."
+msgstr "Autentisering krävs för att hantera signeringsnycklar för hemkataloger."
 
 #: src/home/pam_systemd_home.c:327
 #, c-format
