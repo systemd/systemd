@@ -146,6 +146,7 @@ static int install_context_from_cmdline(
         b.entry_token_type = arg_entry_token_type;
         b.make_entry_directory = arg_make_entry_directory;
         b.install_source = arg_install_source;
+	b.touch_variables = arg_touch_variables;
 
         if (strdup_to(&b.entry_token, arg_entry_token) < 0 ||
             strdup_to(&b.install_layout, arg_install_layout) < 0)
