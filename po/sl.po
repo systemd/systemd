@@ -1,14 +1,15 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 #
 # Martin Srebotnjak <miles@filmsi.net>, 2024, 2025, 2026.
-# Weblate Translation Memory <noreply-mt-weblate-translation-memory@weblate.org>, 2024.
+# Weblate Translation Memory <noreply-mt-weblate-translation-memory@weblate.org>, 2024, 2026.
 msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-05-30 00:13+0200\n"
 "PO-Revision-Date: 2026-06-07 14:04+0000\n"
-"Last-Translator: Martin Srebotnjak <miles@filmsi.net>\n"
+"Last-Translator: Weblate Translation Memory <noreply-mt-weblate-translation-"
+"memory@weblate.org>\n"
 "Language-Team: Slovenian <https://translate.fedoraproject.org/projects/"
 "systemd/main/sl/>\n"
 "Language: sl\n"
