@@ -310,3 +310,15 @@ systemctl stop systemd-journal-remote.{socket,service}
 rm -rf /var/log/journal/remote/*
 rm /run/systemd/journal-upload.conf.d/99-test.conf
 rm /run/systemd/journal-remote.conf.d/99-test.conf
+
+DOS_DIR="$(mktemp -d)"
+{ head -c $((5 * 1024 * 1024)) /dev/zero | tr '\0' 'A'; printf '\n'; } >"$DOS_DIR/no-separator.export"
+{ head -c $((5 * 1024 * 1024)) /dev/zero | tr '\0' 'A'; printf '=value\n'; } >"$DOS_DIR/long-field-name.export"
+for export_file in "$DOS_DIR"/no-separator.export "$DOS_DIR"/long-field-name.export; do
+    rm -f "$DOS_DIR"/*.journal
+    timeout 30 /usr/lib/systemd/systemd-journal-remote \
+                    --split-mode=none \
+                    --output="$DOS_DIR/dos.journal" \
+                    "$export_file" || [[ $? -lt 124 ]]
+done
+rm -rf "$DOS_DIR"
