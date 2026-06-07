@@ -137,6 +137,21 @@ cryptsetup luksAddKey --batch-mode \
                       --key-slot 8 \
                       "$IMAGE_DETACHED" "$IMAGE_DETACHED_KEYFILE2"
 
+# 3) Image with nothing but a recovery key
+IMAGE_RECOVERY="$WORKDIR/recovery-only.img"
+IMAGE_RECOVERY_KEYFILE="$WORKDIR/recovery-only.keyfile"
+IMAGE_RECOVERY_KEY="$WORKDIR/recovery-only.key"
+truncate -s 32M "$IMAGE_RECOVERY"
+echo -n passphrase >"$IMAGE_RECOVERY_KEYFILE"
+chmod 0600 "$IMAGE_RECOVERY_KEYFILE"
+cryptsetup luksFormat --batch-mode \
+                      --pbkdf pbkdf2 \
+                      --pbkdf-force-iterations 1000 \
+                      --use-urandom \
+                      "$IMAGE_RECOVERY" "$IMAGE_RECOVERY_KEYFILE"
+systemd-cryptenroll --recovery-key --unlock-key-file="$IMAGE_RECOVERY_KEYFILE" "$IMAGE_RECOVERY" >"$IMAGE_RECOVERY_KEY"
+cryptsetup luksKillSlot -q --key-file="$IMAGE_RECOVERY_KEY" "$IMAGE_RECOVERY" 0
+
 # Prepare a couple of dummy devices we'll store a copy of the detached header
 # and one of the keys on to test if systemd-cryptsetup correctly mounts them
 # when necessary
@@ -176,9 +191,11 @@ cat >/etc/crypttab <<EOF
 empty_key            $IMAGE_EMPTY    $IMAGE_EMPTY_KEYFILE            headless,x-systemd.device-timeout=1m
 empty_key_erase      $IMAGE_EMPTY    $IMAGE_EMPTY_KEYFILE_ERASE      headless=1,keyfile-erase=1
 empty_key_erase_fail $IMAGE_EMPTY    $IMAGE_EMPTY_KEYFILE_ERASE_FAIL headless=1,keyfile-erase=1,keyfile-offset=4
-# Empty passphrase without try-empty-password(=yes) shouldn't work
+# empty passphrase without try-empty-password(=yes) shouldn't work
+# with both headless and with headless-recovery
 empty_fail0          $IMAGE_EMPTY    -                               headless=1
 empty_fail1          $IMAGE_EMPTY    -                               headless=1,try-empty-password=0
+recovery_fail        $IMAGE_RECOVERY -                               headless-recovery
 empty0               $IMAGE_EMPTY    -                               headless=1,try-empty-password
 empty1               $IMAGE_EMPTY    -                               headless=1,try-empty-password=1
 # This one expects the key to be under /{etc,run}/cryptsetup-keys.d/empty_nokey.key
@@ -220,6 +237,7 @@ test -e "$IMAGE_EMPTY_KEYFILE_ERASE_FAIL"
 cryptsetup_start_and_check -f empty_key_erase_fail
 test ! -e "$IMAGE_EMPTY_KEYFILE_ERASE_FAIL"
 cryptsetup_start_and_check -f empty_fail{0..1}
+cryptsetup_start_and_check -f recovery_fail
 cryptsetup_start_and_check empty{0..1}
 # First, check if we correctly fail without any key
 cryptsetup_start_and_check -f empty_nokey
