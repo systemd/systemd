@@ -80,7 +80,7 @@ static int create_disk(
                 "SourcePath=%s\n"
                 "DefaultDependencies=no\n"
                 "IgnoreOnIsolate=true\n"
-                "After=integritysetup-pre.target systemd-udevd-kernel.socket\n"
+                "After=integritysetup-pre.target systemd-udevd-kernel.socket systemd-udevd.service\n"
                 "Before=blockdev@dev-mapper-%%i.target\n"
                 "Wants=blockdev@dev-mapper-%%i.target\n"
                 "Conflicts=umount.target\n"
