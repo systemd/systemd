@@ -9,7 +9,7 @@ msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-05-30 00:13+0200\n"
 "PO-Revision-Date: 2026-06-07 13:57+0000\n"
-"Last-Translator: Anonymous <noreply@weblate.org>\n"
+"Last-Translator: Jan Kuparinen <copper_fin@hotmail.com>\n"
 "Language-Team: Finnish <https://translate.fedoraproject.org/projects/systemd/"
 "main/fi/>\n"
 "Language: fi\n"
@@ -567,8 +567,7 @@ msgstr "Poista laitteen ja paikan liitokset"
 
 #: src/login/org.freedesktop.login1.policy:160
 msgid "Authentication is required to reset how devices are attached to seats."
-msgstr ""
-"Todennus vaaditaan nollaamaan, miten laitteet on yhdistetty paikkoihin."
+msgstr "Todennus vaaditaan nollaamaan, miten laitteet on yhdistetty paikkoihin."
 
 #: src/login/org.freedesktop.login1.policy:169
 msgid "Power off the system"
@@ -1349,8 +1348,7 @@ msgstr "Todennus vaaditaan $(unit):n uudelleen käynnistämiseksi."
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of '$"
 "(unit)'."
-msgstr ""
-"Todennus vaaditaan UNIX-signaalin lähettämiseen '$(unit)'-prosesseihin."
+msgstr "Todennus vaaditaan UNIX-signaalin lähettämiseen '$(unit)'-prosesseihin."
 
 #: src/core/dbus-unit.c:621
 msgid ""
