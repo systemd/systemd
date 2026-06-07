@@ -2,15 +2,14 @@
 #
 # Polish translation for systemd.
 #
-# Piotr Drąg <piotrdrag@gmail.com>, 2023, 2024, 2025.
+# Piotr Drąg <piotrdrag@gmail.com>, 2023, 2024, 2025, 2026.
 # Marek Adamski <maradam@users.noreply.translate.fedoraproject.org>, 2026.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-05-30 00:13+0200\n"
 "PO-Revision-Date: 2026-06-07 13:56+0000\n"
-"Last-Translator: Marek Adamski "
-"<maradam@users.noreply.translate.fedoraproject.org>\n"
+"Last-Translator: Piotr Drąg <piotrdrag@gmail.com>\n"
 "Language-Team: Polish <https://translate.fedoraproject.org/projects/systemd/"
 "main/pl/>\n"
 "Language: pl\n"
@@ -255,8 +254,7 @@ msgstr "Proszę potwierdzić obecność na tokenie zabezpieczeń użytkownika %s
 #: src/home/pam_systemd_home.c:454
 #, c-format
 msgid "Please verify user on security token of user %s."
-msgstr ""
-"Proszę zweryfikować użytkownika na tokenie zabezpieczeń użytkownika %s."
+msgstr "Proszę zweryfikować użytkownika na tokenie zabezpieczeń użytkownika %s."
 
 #: src/home/pam_systemd_home.c:463
 msgid ""
