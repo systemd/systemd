@@ -6,13 +6,13 @@
 # Oğuz Ersen <oguzersen@protonmail.com>, 2020.
 # Muhammet Kara <muhammetk@gmail.com>, 2015-2020.
 # Oğuz Ersen <oguz@ersen.moe>, 2022, 2023, 2024, 2025, 2026.
-# Emir SARI <emir_sari@icloud.com>, 2025.
+# Emir SARI <emir_sari@icloud.com>, 2025, 2026.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-05-30 00:13+0200\n"
 "PO-Revision-Date: 2026-06-07 14:04+0000\n"
-"Last-Translator: Anonymous <noreply@weblate.org>\n"
+"Last-Translator: Emir SARI <emir_sari@icloud.com>\n"
 "Language-Team: Turkish <https://translate.fedoraproject.org/projects/systemd/"
 "main/tr/>\n"
 "Language: tr\n"
