@@ -46,6 +46,7 @@
 #include "networkd-dhcp-server.h"
 #include "networkd-dhcp4.h"
 #include "networkd-dhcp6.h"
+#include "networkd-ipv4-proxy-arp.h"
 #include "networkd-ipv4acd.h"
 #include "networkd-ipv4ll.h"
 #include "networkd-ipv6-proxy-ndp.h"
@@ -524,6 +525,9 @@ void link_check_ready(Link *link) {
         if (!link->static_bridge_mdb_configured)
                 return (void) log_link_debug(link, "%s(): static bridge MDB entries are not configured.", __func__);
 
+        if (!link->static_ipv4_proxy_arp_configured)
+                return (void) log_link_debug(link, "%s(): static IPv4 proxy ARP addresses are not configured.", __func__);
+
         if (!link->static_ipv6_proxy_ndp_configured)
                 return (void) log_link_debug(link, "%s(): static IPv6 proxy NDP addresses are not configured.", __func__);
 
@@ -647,6 +651,10 @@ static int link_request_static_configs(Link *link) {
                 return r;
 
         r = link_request_static_bridge_mdb(link);
+        if (r < 0)
+                return r;
+
+        r = link_request_static_ipv4_proxy_arp_addresses(link);
         if (r < 0)
                 return r;
 

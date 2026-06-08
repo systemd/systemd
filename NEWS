@@ -305,6 +305,13 @@ CHANGES WITH 261 in spe:
 
         * A new IPv4SrcValidMark= setting has been added to .network files.
 
+        * A new IPv4ProxyARPAddress= setting has been added to the [Network]
+          section of .network files. It is the IPv4 counterpart to
+          IPv6ProxyNDPAddress= and allows manual entries to be added to the
+          kernel's IPv4 proxy neighbor table. Unlike IPv6ProxyNDPAddress=, it
+          does not imply IPv4ProxyARP=yes, because manual proxy ARP entries do
+          not depend on the per-interface proxy_arp sysctl.
+
         * The VRF.Table= setting now accepts symbolic route table names (as
           configured via RouteTable= in networkd.conf) in addition to
           numeric table IDs.
