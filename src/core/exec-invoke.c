@@ -6108,7 +6108,7 @@ int exec_invoke(
                 r = setup_shareable_ns(runtime->shared->userns_storage_socket, CLONE_NEWUSER);
                 if (ERRNO_IS_NEG_PRIVILEGE(r)) {
                         *exit_status = EXIT_USER;
-                        return log_notice_errno(r, "PrivateUsers= is configured, but user namespace setup not permitted, refusing.");
+                        return log_error_errno(r, "UserNamespacePath= is configured, but user namespace setup not permitted, refusing.");
                 }
                 if (r < 0) {
                         *exit_status = EXIT_USER;
