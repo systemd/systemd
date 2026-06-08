@@ -335,7 +335,14 @@
         <varlistentry>
           <term><option>--json</option></term>
 
-          <listitem><para>Generate JSON output (with <command>inspect</command> verb).</para>
+          <listitem><para>Generate JSON output (with <command>inspect</command> verb). The output is an
+          object whose keys are the names of the sections shared between all profiles (i.e. those
+          preceding the first <literal>.profile</literal> section), each mapping to an object describing
+          the section by its <literal>size</literal> and <literal>sha256</literal>, plus a
+          <literal>text</literal> field for textual sections. UKI sections that can occur multiple times
+          (in the same profile) are represented as array. If the image contains profiles, an additional
+          <literal>profiles</literal> key holds an array with one object per profile, each keyed by
+          section name in the same way (starting with its <literal>.profile</literal> section).</para>
 
           <xi:include href="version-info.xml" xpointer="v255"/></listitem>
         </varlistentry>
