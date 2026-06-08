@@ -2,16 +2,16 @@
 #
 # Czech translation for systemd.
 #
-# Daniel Rusek <mail@asciiwolf.com>, 2022, 2023, 2025.
+# Daniel Rusek <mail@asciiwolf.com>, 2022, 2023, 2025, 2026.
 # Pavel Borecki <pavel.borecki@gmail.com>, 2023, 2024, 2025, 2026.
-# Jan Kalabza <jan.kalabza@gmail.com>, 2025.
+# Jan Kalabza <jan.kalabza@gmail.com>, 2025, 2026.
 # Honza Hejzl <jan.hejzl@posteo.net>, 2026.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-05-30 00:13+0200\n"
-"PO-Revision-Date: 2026-06-06 13:01+0000\n"
-"Last-Translator: Honza Hejzl <jan.hejzl@posteo.net>\n"
+"PO-Revision-Date: 2026-06-07 14:00+0000\n"
+"Last-Translator: Jan Kalabza <jan.kalabza@gmail.com>\n"
 "Language-Team: Czech <https://translate.fedoraproject.org/projects/systemd/"
 "main/cs/>\n"
 "Language: cs\n"
@@ -170,8 +170,7 @@ msgstr ""
 #: src/home/pam_systemd_home.c:332
 #, c-format
 msgid "Too frequent login attempts for user %s, try again later."
-msgstr ""
-"Příliš časté pokusy o přihlášení uživatele %s, zkuste to znovu později."
+msgstr "Příliš časté pokusy o přihlášení uživatele %s, zkuste to znovu později."
 
 #: src/home/pam_systemd_home.c:344
 msgid "Password: "

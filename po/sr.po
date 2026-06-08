@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 #
 # Serbian translation of systemd.
-# Frantisek Sumsal <frantisek@sumsal.cz>, 2021.
+# Frantisek Sumsal <frantisek@sumsal.cz>, 2021, 2026.
 # Марко Костић <marko.m.kostic@gmail.com>, 2026
 # "Марко Костић (Marko Kostić)" <marko.m.kostic@gmail.com>, 2026.
 msgid ""
@@ -9,8 +9,8 @@ msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-05-30 00:13+0200\n"
-"PO-Revision-Date: 2026-06-05 08:02+0000\n"
-"Last-Translator: \"Марко Костић (Marko Kostić)\" <marko.m.kostic@gmail.com>\n"
+"PO-Revision-Date: 2026-06-07 14:02+0000\n"
+"Last-Translator: Frantisek Sumsal <frantisek@sumsal.cz>\n"
 "Language-Team: Serbian <https://translate.fedoraproject.org/projects/systemd/"
 "main/sr/>\n"
 "Language: sr\n"
@@ -28,8 +28,7 @@ msgstr "Пошаљи фразу назад ка систему"
 #: src/core/org.freedesktop.systemd1.policy.in:23
 msgid ""
 "Authentication is required to send the entered passphrase back to the system."
-msgstr ""
-"Потребно је да се идентификујете да бисте послали фразу назад у систем."
+msgstr "Потребно је да се идентификујете да бисте послали фразу назад у систем."
 
 #: src/core/org.freedesktop.systemd1.policy.in:33
 msgid "Manage system services or other units"
@@ -1372,8 +1371,7 @@ msgstr ""
 
 #: src/timedate/org.freedesktop.timedate1.policy:43
 msgid "Set RTC to local timezone or UTC"
-msgstr ""
-"Постави часовник реалног времена на локалну временску зону или UTC зону"
+msgstr "Постави часовник реалног времена на локалну временску зону или UTC зону"
 
 #: src/timedate/org.freedesktop.timedate1.policy:44
 msgid ""
