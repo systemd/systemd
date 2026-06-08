@@ -36,6 +36,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "sysctl-util.h"
+#include "virt.h"
 
 #if ENABLE_IDN
 #  define IDN_FLAGS NI_IDN
@@ -1812,8 +1813,12 @@ int vsock_get_local_cid(unsigned *ret) {
 
         /* If ret == NULL, we're just want to check if AF_VSOCK is available, so accept
          * any address. Otherwise, filter out special addresses that are cannot be used
-         * to identify _this_ machine from the outside. */
-        if (ret && IN_SET(tmp, VMADDR_CID_LOCAL, VMADDR_CID_HOST, VMADDR_CID_ANY))
+         * to identify _this_ machine from the outside. Note that on MSHV, VMADDR_CID_ANY
+         * is the only allowed CID for applications in the guest as per kernel code in:
+         * net/vmw_vsock/hyperv_transport.c */
+        if (ret &&
+            (IN_SET(tmp, VMADDR_CID_LOCAL, VMADDR_CID_HOST) ||
+             (tmp == VMADDR_CID_ANY && detect_vm() == VIRTUALIZATION_MICROSOFT)))
                 return log_debug_errno(SYNTHETIC_ERRNO(EADDRNOTAVAIL),
                                        "IOCTL_VM_SOCKETS_GET_LOCAL_CID returned special value (%u), ignoring.", tmp);
 
