@@ -267,7 +267,14 @@ EFI_STATUS linux_exec(
         /* Honor the PE SectionAlignment (SZ_64K on arm64). If _text is not aligned the kernel's EFI
          * stub copies the image into a fresh aligned region, which can fail with EFI_OUT_OF_RESOURCES
          * on memory-constrained firmware. When alignment <= EFI_PAGE_SIZE (e.g. x86_64)
-         * xmalloc_aligned_pages() reduces to a plain AllocatePages() with no extra over-allocation. */
+         * xmalloc_aligned_pages() reduces to a plain AllocatePages() with no extra over-allocation.
+         *
+         * The PE spec requires SectionAlignment to be a power of 2, but earlier systemd-stub versions
+         * did not honor this field at all, so fall back to plain page alignment for bogus values
+         * rather than refusing to boot. */
+        if (!ISPOWEROF2(section_alignment))
+                section_alignment = EFI_PAGE_SIZE;
+
         _cleanup_pages_ Pages loaded_kernel_pages = xmalloc_aligned_pages(
                         AllocateAnyPages,
                         EfiLoaderCode,
