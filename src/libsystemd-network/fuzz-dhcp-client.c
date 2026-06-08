@@ -58,21 +58,23 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
                 _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *m = NULL;
                 ASSERT_OK(dhcp_message_parse_json(v, &m));
 
-                /* Build UDP payload and parse it. */
+                /* Build UDP payload and parse it. Note, currently we do not use file and sname overload on
+                 * build. Hence, dhcp_message_build() may fail with -E2BIG if the input uses file and/or
+                 * sname overload. */
                 _cleanup_(iovw_done_free) struct iovec_wrapper iovw = {};
-                ASSERT_OK(dhcp_message_build(lease->message, &iovw));
+                if (ASSERT_OK_OR(dhcp_message_build(lease->message, &iovw), -E2BIG) >= 0) {
+                        _cleanup_(iovec_done) struct iovec iov = {};
+                        ASSERT_OK(iovw_concat(&iovw, &iov));
 
-                _cleanup_(iovec_done) struct iovec iov = {};
-                ASSERT_OK(iovw_concat(&iovw, &iov));
+                        _cleanup_(sd_dhcp_lease_unrefp) sd_dhcp_lease *lease2 = NULL;
+                        ASSERT_OK(dhcp_client_parse_message(client, &iov, &lease2));
 
-                _cleanup_(sd_dhcp_lease_unrefp) sd_dhcp_lease *lease2 = NULL;
-                ASSERT_OK(dhcp_client_parse_message(client, &iov, &lease2));
+                        /* Build UDP payload again, and compare with the previous one. */
+                        _cleanup_(iovw_done_free) struct iovec_wrapper iovw2 = {};
+                        ASSERT_OK(dhcp_message_build(lease2->message, &iovw2));
 
-                /* Build UDP payload again, and compare with the previous one. */
-                _cleanup_(iovw_done_free) struct iovec_wrapper iovw2 = {};
-                ASSERT_OK(dhcp_message_build(lease2->message, &iovw2));
-
-                ASSERT_TRUE(iovw_equal(&iovw, &iovw2));
+                        ASSERT_TRUE(iovw_equal(&iovw, &iovw2));
+                }
         }
 
         ASSERT_OK(sd_dhcp_client_stop(client));
