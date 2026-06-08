@@ -1428,6 +1428,10 @@ int dhcp_message_parse(
                 memzero(message->header.sname, sizeof(message->header.sname));
         }
 
+        /* Merging the overloaded fields grows the message, so reject anything we could no longer rebuild. */
+        if (dhcp_message_payload_size(message) > UDP_PAYLOAD_MAX_SIZE)
+                return -EBADMSG;
+
         *ret = TAKE_PTR(message);
         return 0;
 }

@@ -553,6 +553,74 @@ TEST(dhcp_message) {
         ASSERT_OK(dump_dhcp_message(m, /* args= */ NULL, DUMP_DHCP_MESSAGE_LEGEND | DUMP_DHCP_MESSAGE_FULL));
 }
 
+static void build_overloaded_message(uint8_t *buf, size_t size) {
+        assert(buf);
+        assert(size >= sizeof(DHCPMessageHeader) + 3);
+
+        DHCPMessageHeader *header = (DHCPMessageHeader*) buf;
+        header->op = BOOTREPLY;
+        header->htype = ARPHRD_ETHER;
+        header->hlen = ETH_ALEN;
+        header->magic = htobe32(DHCP_MAGIC_COOKIE);
+
+        /* One maximal option per overloaded field, for the largest expansion on rebuild. */
+        header->sname[0] = 0xAA; /* arbitrary unknown option code */
+        header->sname[1] = sizeof(header->sname) - 2;
+        header->file[0] = 0xAA;
+        header->file[1] = sizeof(header->file) - 2;
+
+        /* Declare the overload, then pad out with filler options. */
+        uint8_t *p = buf + sizeof(DHCPMessageHeader), *end = buf + size;
+        *p++ = SD_DHCP_OPTION_OVERLOAD;
+        *p++ = 1;
+        *p++ = DHCP_OVERLOAD_FILE | DHCP_OVERLOAD_SNAME;
+
+        while (end - p >= 2) {
+                size_t data = MIN((size_t) (end - p) - 2, (size_t) UINT8_MAX);
+                *p++ = 0xAA;
+                *p++ = data;
+                p += data;
+        }
+}
+
+TEST(overload_oversized) {
+        /* Merging overloaded fields grows the message, so an input near the UDP limit may not fit once
+         * rebuilt and must be rejected on parse. */
+
+        _cleanup_free_ uint8_t *buf = new0(uint8_t, UDP_PAYLOAD_MAX_SIZE);
+        ASSERT_NOT_NULL(buf);
+
+        /* Largest valid UDP input: accepted on length, but rejected once the overload is expanded. */
+        build_overloaded_message(buf, UDP_PAYLOAD_MAX_SIZE);
+
+        _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *m = NULL;
+        ASSERT_ERROR(dhcp_message_parse(
+                                  &IOVEC_MAKE(buf, UDP_PAYLOAD_MAX_SIZE),
+                                  BOOTREPLY,
+                                  /* xid= */ NULL,
+                                  ARPHRD_ETHER,
+                                  /* hw_addr= */ NULL,
+                                  &m),
+                     EBADMSG);
+
+        /* A small overloaded message stays valid and must round-trip. */
+        _cleanup_free_ uint8_t *small = new0(uint8_t, sizeof(DHCPMessageHeader) + 512);
+        ASSERT_NOT_NULL(small);
+        build_overloaded_message(small, sizeof(DHCPMessageHeader) + 512);
+
+        _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *m2 = NULL;
+        ASSERT_OK(dhcp_message_parse(
+                                  &IOVEC_MAKE(small, sizeof(DHCPMessageHeader) + 512),
+                                  BOOTREPLY,
+                                  /* xid= */ NULL,
+                                  ARPHRD_ETHER,
+                                  /* hw_addr= */ NULL,
+                                  &m2));
+
+        _cleanup_(iovw_done_free) struct iovec_wrapper iovw = {};
+        ASSERT_OK(dhcp_message_build(m2, &iovw));
+}
+
 static void test_domains_one(size_t len, const uint8_t *data, char * const *expected) {
         _cleanup_strv_free_ char **strv = NULL;
         _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *m = NULL;
