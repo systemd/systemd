@@ -148,6 +148,34 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>link-auto</option></term>
+
+        <listitem><para>Like <command>link</command>, but instead of taking the kernel and sidecar resources
+        as arguments, discovers them automatically. The following directories are searched, in decreasing
+        order of priority: <filename>/etc/systemd/uki/</filename>, <filename>/run/systemd/uki/</filename>,
+        <filename>/var/lib/systemd/uki/</filename> (where
+        <citerefentry><refentrytitle>systemd-sysupdate</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        stages downloaded resources), <filename>/usr/local/lib/systemd/uki/</filename> and
+        <filename>/usr/lib/systemd/uki/</filename>. In each directory the UKI is taken from
+        <filename>kernel.efi</filename>, or — if absent — the newest version in the versioned directory
+        <filename>kernel.efi.v/</filename> (see
+        <citerefentry><refentrytitle>systemd.v</refentrytitle><manvolnum>7</manvolnum></citerefentry>); the
+        UKI from the highest-priority directory that has one is used. Sidecar resources are picked up from
+        the <filename>extras.d/</filename> subdirectory of each, matching the suffixes
+        <literal>.sysext.raw</literal>, <literal>.confext.raw</literal> and <literal>.cred</literal>, each
+        either as a plain file or as a versioned <literal>.v/</literal> directory; resources are combined
+        across all directories, with the same resource in a higher-priority directory taking precedence. Any
+        files specified with <option>--extra=</option> are linked in addition to the discovered ones.</para>
+
+        <para>This is used by
+        <citerefentry><refentrytitle>systemd-sysupdate</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        when it completes an update, so a freshly downloaded kernel and its sidecar resources are linked into
+        place without specifying any paths.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>cleanup</option></term>
 
         <listitem><para>Removes files from the ESP and XBOOTLDR partitions that belong to the entry token but
@@ -843,6 +871,32 @@ Boot Loader Entries:
        used by default, and <literal>(selected)</literal> specifies the entry that was
        selected the last time (i.e. is currently running).</para>
     </example>
+  </refsect1>
+
+  <refsect1>
+    <title>Files</title>
+
+    <variablelist>
+      <varlistentry>
+        <term><filename>/etc/systemd/uki/</filename></term>
+        <term><filename>/run/systemd/uki/</filename></term>
+        <term><filename>/var/lib/systemd/uki/</filename></term>
+        <term><filename>/usr/local/lib/systemd/uki/</filename></term>
+        <term><filename>/usr/lib/systemd/uki/</filename></term>
+
+        <listitem><para>The <command>link-auto</command> command discovers the UKI to install from these
+        directories (listed in decreasing order of priority). It uses <filename>kernel.efi</filename> or the
+        versioned <filename>kernel.efi.v/</filename> directory from the highest-priority directory that
+        contains one. Additional sidecar resources (system extension images, configuration extension images,
+        credential files) are picked up from the <filename>extras.d/</filename> subdirectory of each, combined
+        across all directories. <filename>/var/lib/systemd/uki/</filename> is the directory where
+        <citerefentry><refentrytitle>systemd-sysupdate</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        is supposed to place downloaded kernels, system extensions, configuration extensions and
+        credentials.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+    </variablelist>
   </refsect1>
 
   <refsect1>
