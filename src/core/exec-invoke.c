@@ -6023,8 +6023,10 @@ int exec_invoke(
                  * Users with CAP_SYS_ADMIN can set up user namespaces last because they will be able to
                  * set up all of the other namespaces (i.e. network, mount, UTS) without a user namespace. */
 
-                if (context->user_namespace_path && runtime->shared->userns_storage_socket[0] >= 0)
+                if (context->user_namespace_path && runtime->shared->userns_storage_socket[0] >= 0) {
+                        *exit_status = EXIT_USER;
                         return log_error_errno(SYNTHETIC_ERRNO(EPERM), "UserNamespacePath= is configured, but user namespace setup not permitted");
+                }
 
                 PrivateUsers pu = exec_context_get_effective_private_users(context, params);
                 if (pu == PRIVATE_USERS_NO)
@@ -6109,12 +6111,16 @@ int exec_invoke(
          * case of mount namespaces being less privileged when the mount point list is copied from a
          * different user namespace). */
         if (needs_sandboxing && context->user_namespace_path && runtime->shared && runtime->shared->userns_storage_socket[0] >= 0) {
-                if (!namespace_type_supported(NAMESPACE_USER))
+                if (!namespace_type_supported(NAMESPACE_USER)) {
+                        *exit_status = EXIT_USER;
                         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "UserNamespacePath= is not supported, refusing.");
+                }
 
                 r = setup_shareable_ns(runtime->shared->userns_storage_socket, CLONE_NEWUSER);
-                if (ERRNO_IS_NEG_PRIVILEGE(r))
+                if (ERRNO_IS_NEG_PRIVILEGE(r)) {
+                        *exit_status = EXIT_USER;
                         return log_notice_errno(r, "PrivateUsers= is configured, but user namespace setup not permitted, refusing.");
+                }
                 if (r < 0) {
                         *exit_status = EXIT_USER;
                         return log_error_errno(r, "Failed to set up user namespacing: %m");
