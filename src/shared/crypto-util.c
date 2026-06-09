@@ -1192,10 +1192,6 @@ int kdf_argon2id_derive(
         if (!buf)
                 return log_oom_debug();
 
-        if (params && params->lanes > 1 && sym_OSSL_set_max_threads)
-                if (!sym_OSSL_set_max_threads(NULL, params->lanes))
-                        return log_openssl_errors("Failed to set Argon2id thread pool size");
-
         if (password)
                 if (!sym_OSSL_PARAM_BLD_push_octet_string(bld, "pass", password->iov_base, password->iov_len))
                         return log_openssl_errors("Failed to add ARGON2ID pass");
@@ -1228,8 +1224,15 @@ int kdf_argon2id_derive(
         if (!openssl_params)
                 return log_openssl_errors("Failed to build ARGON2ID OSSL_PARAM");
 
-        if (sym_EVP_KDF_derive(ctx, buf, derive_size, openssl_params) <= 0)
+        if (params && params->lanes > 1 && sym_OSSL_set_max_threads)
+                if (!sym_OSSL_set_max_threads(NULL, params->lanes))
+                        return log_openssl_errors("Failed to set Argon2id thread pool size");
+
+        if (sym_EVP_KDF_derive(ctx, buf, derive_size, openssl_params) <= 0) {
+                if (params && params->lanes > 1 && sym_OSSL_set_max_threads)
+                        sym_OSSL_set_max_threads(NULL, 0);
                 return log_openssl_errors("OpenSSL ARGON2ID derive failed");
+        }
 
         if (params && params->lanes > 1 && sym_OSSL_set_max_threads)
                 sym_OSSL_set_max_threads(NULL, 0);
