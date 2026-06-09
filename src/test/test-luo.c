@@ -326,9 +326,64 @@ static int do_check_hijack(void) {
         return 0;
 }
 
+static int do_check_sessions(int argc, char *argv[]) {
+        const char *e;
+        _cleanup_strv_free_ char **names = NULL;
+        int n_fds, n_verified = 0;
+
+        /* Verify that named LUO sessions are present in the fd store */
+        e = getenv("LISTEN_FDS");
+        if (!e)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "No LISTEN_FDS environment variable set!");
+
+        int r = safe_atoi(e, &n_fds);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse LISTEN_FDS='%s': %m", e);
+
+        e = getenv("LISTEN_FDNAMES");
+        if (e) {
+                names = strv_split(e, ":");
+                if (!names)
+                        return log_oom();
+        }
+
+        for (int i = 2; i < argc; i++) {
+                const char *session_name = argv[i];
+                int fd = -EBADF;
+
+                /* Find the fd by name */
+                STRV_FOREACH(name, names) {
+                        int idx = (int) (name - names);
+                        if (idx >= n_fds)
+                                break;
+                        if (streq(*name, session_name)) {
+                                fd = SD_LISTEN_FDS_START + idx;
+                                break;
+                        }
+                }
+
+                if (fd < 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
+                                               "LUO session '%s' not found in fd store!", session_name);
+
+                r = fd_is_luo_session(fd);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to check if fd '%s' is a LUO session: %m", session_name);
+                if (r == 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                               "fd '%s' is not a LUO session!", session_name);
+
+                log_info("Verified LUO session '%s' is present and valid.", session_name);
+                n_verified++;
+        }
+
+        log_info("All %d LUO session(s) verified.", n_verified);
+        return 0;
+}
+
 static int run(int argc, char *argv[]) {
-        if (argc < 2 || argc > 3)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Usage: %s store|check|store-hijack|check-hijack [PREFIX]", argv[0]);
+        if (argc < 2)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Usage: %s store|check|store-hijack|check-hijack [PREFIX] | check-sessions NAME...", argv[0]);
 
         const char *prefix = argc > 2 ? argv[2] : "luosession";
 
@@ -340,6 +395,8 @@ static int run(int argc, char *argv[]) {
                 return do_store_hijack();
         if (streq(argv[1], "check-hijack"))
                 return do_check_hijack();
+        if (streq(argv[1], "check-sessions"))
+                return do_check_sessions(argc, argv);
 
         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown command: %s", argv[1]);
 }
