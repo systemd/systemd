@@ -1537,7 +1537,7 @@ int manager_startup(Manager *m) {
 
         assert(m);
 
-        r = dlopen_libcrypto(LOG_ERR);
+        r = DLOPEN_LIBCRYPTO(LOG_ERR, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED);
         if (r < 0)
                 return r;
 

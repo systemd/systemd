@@ -4,17 +4,17 @@
 # Alex Puchades <alex94puchades@gmail.com>, 2015.
 # Daniel Mustieles <daniel.mustieles@gmail.com>, 2015.
 # Álex Puchades <alex94puchades@gmail.com>, 2015.
-# Adolfo Jayme Barrientos <fitoschido@gmail.com>, 2020, 2021.
-# Emilio Herrera <ehespinosa57@gmail.com>, 2021.
-# Jose Ortuno <jose_ortuno@hotmail.com>, 2025.
+# Adolfo Jayme Barrientos <fitoschido@gmail.com>, 2020, 2021, 2026.
+# Emilio Herrera <ehespinosa57@gmail.com>, 2021, 2026.
+# Jose Ortuno <jose_ortuno@hotmail.com>, 2025, 2026.
 # Javier Francisco <fserrador@gmail.com>, 2025.
 # "Fco. Javier F. Serrador" <fserrador@gmail.com>, 2025, 2026.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-05-30 00:13+0200\n"
-"PO-Revision-Date: 2026-05-31 10:01+0000\n"
-"Last-Translator: \"Fco. Javier F. Serrador\" <fserrador@gmail.com>\n"
+"PO-Revision-Date: 2026-06-07 14:03+0000\n"
+"Last-Translator: Emilio Herrera <ehespinosa57@gmail.com>\n"
 "Language-Team: Spanish <https://translate.fedoraproject.org/projects/systemd/"
 "main/es/>\n"
 "Language: es\n"
@@ -22,7 +22,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 2026.5\n"
+"X-Generator: Weblate 2026.6.1\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -1403,8 +1403,8 @@ msgid ""
 "Authentication is required to send a UNIX signal to the processes of '$"
 "(unit)'."
 msgstr ""
-"Se requiere autenticación para enviar una señal UNIX a los procesos '$"
-"(unit)'."
+"Se requiere autenticación para enviar una señal UNIX a los procesos '$(unit)"
+"'."
 
 #: src/core/dbus-unit.c:621
 msgid ""

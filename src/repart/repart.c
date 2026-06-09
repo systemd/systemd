@@ -1269,7 +1269,7 @@ static uint64_t partition_max_padding(const Partition *p) {
         return p->suppressing ? MIN(p->padding_max, p->suppressing->padding_max) : p->padding_max;
 }
 
-static uint64_t partition_min_size_with_padding(Context *context, const Partition *p) {
+static uint64_t partition_min_size_with_padding(const Context *context, const Partition *p) {
         uint64_t sz;
 
         /* Calculate the disk space we need for this partition plus any free space coming after it. This
@@ -1300,7 +1300,7 @@ static uint64_t free_area_available(const FreeArea *a) {
         return a->size - a->allocated;
 }
 
-static uint64_t free_area_current_end(Context *context, const FreeArea *a) {
+static uint64_t free_area_current_end(const Context *context, const FreeArea *a) {
         assert(context);
         assert(a);
 
@@ -1316,7 +1316,7 @@ static uint64_t free_area_current_end(Context *context, const FreeArea *a) {
         return round_up_size(a->after->offset + a->after->current_size, context->grain_size) + free_area_available(a);
 }
 
-static uint64_t free_area_min_end(Context *context, const FreeArea *a) {
+static uint64_t free_area_min_end(const Context *context, const FreeArea *a) {
         assert(context);
         assert(a);
 
@@ -1330,7 +1330,7 @@ static uint64_t free_area_min_end(Context *context, const FreeArea *a) {
         return round_up_size(a->after->offset + partition_min_size_with_padding(context, a->after), context->grain_size);
 }
 
-static uint64_t free_area_available_for_new_partitions(Context *context, const FreeArea *a) {
+static uint64_t free_area_available_for_new_partitions(const Context *context, const FreeArea *a) {
         assert(context);
         assert(a);
 
@@ -1349,7 +1349,7 @@ static int free_area_compare(FreeArea *const *a, FreeArea *const*b, Context *con
                    free_area_available_for_new_partitions(context, *b));
 }
 
-static uint64_t charge_size(Context *context, uint64_t total, uint64_t amount) {
+static uint64_t charge_size(const Context *context, uint64_t total, uint64_t amount) {
         assert(context);
         /* Subtract the specified amount from total, rounding up to multiple of 4K if there's room */
         assert(amount <= total);
@@ -1478,7 +1478,7 @@ static uint32_t partition_padding_weight(const Partition *p) {
         return p->suppressing ? p->suppressing->padding_weight : p->padding_weight;
 }
 
-static int context_sum_weights(Context *context, FreeArea *a, uint64_t *ret) {
+static int context_sum_weights(const Context *context, const FreeArea *a, uint64_t *ret) {
         uint64_t weight_sum = 0;
 
         assert(context);
@@ -1542,8 +1542,8 @@ typedef enum GrowPartitionPhase {
 } GrowPartitionPhase;
 
 static bool context_grow_partitions_phase(
-                Context *context,
-                FreeArea *a,
+                const Context *context,
+                const FreeArea *a,
                 GrowPartitionPhase phase,
                 uint64_t *span,
                 uint64_t *weight_sum) {
@@ -3101,7 +3101,7 @@ static int partition_read_definition(
                                   "Cannot format %s filesystem without source files, refusing.", p->format);
 
         if (p->verity != VERITY_OFF || p->encrypt != ENCRYPT_OFF) {
-                r = dlopen_cryptsetup(LOG_DEBUG);
+                r = DLOPEN_CRYPTSETUP(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
                 if (r < 0)
                         return log_syntax(NULL, LOG_ERR, path, 1, r,
                                           "libcryptsetup not found, Verity=/Encrypt= are not supported: %m");
@@ -4708,7 +4708,7 @@ static int context_wipe_range(Context *context, uint64_t offset, uint64_t size) 
         assert(offset != UINT64_MAX);
         assert(size != UINT64_MAX);
 
-        r = dlopen_libblkid(LOG_ERR);
+        r = DLOPEN_LIBBLKID(LOG_ERR, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED);
         if (r < 0)
                 return r;
 
@@ -4926,7 +4926,7 @@ static int context_discard_gap_after(Context *context, Partition *p) {
         return 0;
 }
 
-static bool partition_defer(Context *c, const Partition *p) {
+static bool partition_defer(const Context *c, const Partition *p) {
         assert(c);
         assert(p);
 
@@ -5400,7 +5400,7 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
         assert(p);
         assert(p->encrypt != ENCRYPT_OFF);
 
-        r = dlopen_cryptsetup(LOG_ERR);
+        r = DLOPEN_CRYPTSETUP(LOG_ERR, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
         if (r < 0)
                 return r;
 
@@ -5939,7 +5939,7 @@ static int partition_format_verity_hash(
 
         (void) partition_hint(p, node, &hint);
 
-        r = dlopen_cryptsetup(LOG_ERR);
+        r = DLOPEN_CRYPTSETUP(LOG_ERR, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
         if (r < 0)
                 return r;
 
@@ -6041,7 +6041,7 @@ static int sign_verity_roothash(
         assert(iovec_is_set(roothash));
         assert(ret_signature);
 
-        r = dlopen_libcrypto(LOG_ERR);
+        r = DLOPEN_LIBCRYPTO(LOG_ERR, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
         if (r < 0)
                 return r;
 
@@ -6712,6 +6712,8 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
                         return log_oom();
         }
 
+        bool copy_ownership = fstype_can_ownership(p->format);
+
         /* copy_tree_at() automatically copies the permissions of source directories to target directories if
          * it created them. However, the root directory is created by us, so we have to manually take care
          * that it is initialized. We use the first source directory targeting "/" as the metadata source for
@@ -6733,11 +6735,15 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
                         return log_error_errno(sfd, "Failed to open source file '%s%s': %m", strempty(arg_copy_source), line->source);
 
                 (void) copy_xattr(sfd, NULL, rfd, NULL, COPY_ALL_XATTRS);
-                (void) copy_access(sfd, rfd);
+                if (copy_ownership)
+                        (void) copy_access(sfd, rfd);
                 (void) copy_times(sfd, rfd, 0);
 
                 break;
         }
+
+        uid_t uid = copy_ownership ? UID_INVALID : getuid();
+        gid_t gid = copy_ownership ? GID_INVALID : getgid();
 
         FOREACH_ARRAY(line, copy_files, n_copy_files) {
                 _cleanup_hashmap_free_ Hashmap *denylist = NULL;
@@ -6795,14 +6801,14 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
                                 r = copy_tree_at(
                                                 sfd, ".",
                                                 pfd, fn,
-                                                UID_INVALID, GID_INVALID,
+                                                uid, gid,
                                                 line->flags,
                                                 denylist, subvolumes_by_source_inode);
                         } else
                                 r = copy_tree_at(
                                                 sfd, ".",
                                                 tfd, ".",
-                                                UID_INVALID, GID_INVALID,
+                                                uid, gid,
                                                 line->flags,
                                                 denylist, subvolumes_by_source_inode);
                         if (r < 0)
@@ -6849,7 +6855,8 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
                                 return log_error_errno(r, "Failed to copy '%s' to '%s%s': %m", line->source, strempty(arg_copy_source), line->target);
 
                         (void) copy_xattr(sfd, NULL, tfd, NULL, COPY_ALL_XATTRS);
-                        (void) copy_access(sfd, tfd);
+                        if (copy_ownership)
+                                (void) copy_access(sfd, tfd);
                         (void) copy_times(sfd, tfd, 0);
 
                         if (ts != USEC_INFINITY) {
@@ -7128,7 +7135,7 @@ static int partition_populate_filesystem(Context *context, Partition *p, const c
          * appear in the host namespace. Hence we fork a child that has its own file system namespace and
          * detached mount propagation. */
 
-        (void) dlopen_libmount(LOG_DEBUG);
+        (void) DLOPEN_LIBMOUNT(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED);
 
         r = pidref_safe_fork(
                         "(sd-copy)",
@@ -7362,6 +7369,42 @@ static void context_btrfs_replace_back(Context *context) {
                 if (r < 0)
                         log_warning_errno(r, "Could not move back btrfs filesystem from partition %" PRIu64 ", leaving it on new device: %m", p->partno);
         }
+}
+
+static int check_mkfs(const Context *context) {
+        int r;
+
+        assert(context);
+
+        LIST_FOREACH(partitions, p, context->partitions) {
+                if (p->dropped)
+                        continue;
+
+                if (PARTITION_EXISTS(p)) /* Never format existing partitions */
+                        continue;
+
+                if (!p->format)
+                        continue;
+
+                if (partition_defer(context, p))
+                        continue;
+
+                /* For offline signing case */
+                if (!set_isempty(arg_verity_settings) && partition_designator_is_verity_sig(p->type.designator))
+                        continue;
+
+                /* Minimized partitions will use the copy blocks logic so skip those here. */
+                if (p->copy_blocks_fd >= 0)
+                        continue;
+
+                /* We don't yet quite know if have_root= will be true, so just pass -1 which
+                 * means "not sure". */
+                r = mkfs_find_or_warn(p->format, /* have_root= */ -1, /* ret= */ NULL);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
 }
 
 static int context_mkfs(Context *context) {
@@ -8720,7 +8763,7 @@ static int resolve_copy_blocks_auto_candidate(
                 return log_error_errno(r, "Failed to open block device " DEVNUM_FORMAT_STR ": %m",
                                        DEVNUM_FORMAT_VAL(whole_devno));
 
-        r = dlopen_libblkid(LOG_ERR);
+        r = DLOPEN_LIBBLKID(LOG_ERR, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED);
         if (r < 0)
                 return r;
 
@@ -11543,7 +11586,7 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        r = dlopen_fdisk(LOG_ERR);
+        r = DLOPEN_FDISK(LOG_ERR, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED);
         if (r < 0)
                 return r;
 
@@ -11673,6 +11716,10 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
         context->from_scratch = r > 0; /* Starting from scratch */
+
+        r = check_mkfs(context);
+        if (r < 0)
+                return r;
 
         if (arg_can_factory_reset) {
                 r = context_can_factory_reset(context);

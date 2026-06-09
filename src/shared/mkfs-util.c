@@ -39,6 +39,56 @@ int mkfs_exists(const char *fstype) {
         return true;
 }
 
+int mkfs_find_or_warn(const char *fstype, int have_root, char **ret) {
+        int r;
+
+        assert(fstype);
+
+        if (fstype_is_ro(fstype) && have_root == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Cannot generate read-only filesystem %s without a source tree.", fstype);
+
+        const char *bin = NULL;
+        if (streq(fstype, "swap")) {
+                if (have_root > 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "A swap filesystem can't be populated, refusing");
+                bin = "mkswap";
+        } else if (streq(fstype, "squashfs"))
+                bin = "mksquashfs";
+        else if (streq(fstype, "erofs"))
+                bin = "mkfs.erofs";
+        else if (fstype_is_ro(fstype))
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "Don't know how to create read-only file system '%s', refusing.", fstype);
+        if (bin) {
+                r = find_executable(bin, ret);
+                if (r == -ENOENT)
+                        return log_error_errno(SYNTHETIC_ERRNO(EPROTONOSUPPORT), "%s binary not available.", bin);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to determine whether %s binary exists: %m", bin);
+                return 0;
+        }
+
+        if (have_root > 0 && !mkfs_supports_root_option(fstype))
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "Populating with source tree is not supported for %s", fstype);
+        r = mkfs_exists(fstype);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine whether mkfs binary for %s exists: %m", fstype);
+        if (r == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EPROTONOSUPPORT), "mkfs binary for %s not available.", fstype);
+
+        if (ret) {
+                char *mkfs = strjoin("mkfs.", fstype);
+                if (!mkfs)
+                        return log_oom();
+                *ret = mkfs;
+        }
+
+        return 0;
+}
+
 int mkfs_supports_root_option(const char *fstype) {
         return fstype_is_ro(fstype) || STR_IN_SET(fstype, "ext2", "ext3", "ext4", "btrfs", "vfat", "xfs");
 }
@@ -190,52 +240,9 @@ int make_filesystem(
         assert(fstype);
         assert(label);
 
-        if (fstype_is_ro(fstype) && !root)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Cannot generate read-only filesystem %s without a source tree.",
-                                       fstype);
-
-        if (streq(fstype, "swap")) {
-                if (root)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "A swap filesystem can't be populated, refusing");
-                r = find_executable("mkswap", &mkfs);
-                if (r == -ENOENT)
-                        return log_error_errno(SYNTHETIC_ERRNO(EPROTONOSUPPORT), "mkswap binary not available.");
-                if (r < 0)
-                        return log_error_errno(r, "Failed to determine whether mkswap binary exists: %m");
-        } else if (streq(fstype, "squashfs")) {
-                r = find_executable("mksquashfs", &mkfs);
-                if (r == -ENOENT)
-                        return log_error_errno(SYNTHETIC_ERRNO(EPROTONOSUPPORT), "mksquashfs binary not available.");
-                if (r < 0)
-                        return log_error_errno(r, "Failed to determine whether mksquashfs binary exists: %m");
-
-        } else if (streq(fstype, "erofs")) {
-                r = find_executable("mkfs.erofs", &mkfs);
-                if (r == -ENOENT)
-                        return log_error_errno(SYNTHETIC_ERRNO(EPROTONOSUPPORT), "mkfs.erofs binary not available.");
-                if (r < 0)
-                        return log_error_errno(r, "Failed to determine whether mkfs.erofs binary exists: %m");
-
-        } else if (fstype_is_ro(fstype)) {
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                                       "Don't know how to create read-only file system '%s', refusing.",
-                                                       fstype);
-        } else {
-                if (root && !mkfs_supports_root_option(fstype))
-                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                               "Populating with source tree is not supported for %s", fstype);
-                r = mkfs_exists(fstype);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to determine whether mkfs binary for %s exists: %m", fstype);
-                if (r == 0)
-                        return log_error_errno(SYNTHETIC_ERRNO(EPROTONOSUPPORT), "mkfs binary for %s is not available.", fstype);
-
-                mkfs = strjoin("mkfs.", fstype);
-                if (!mkfs)
-                        return log_oom();
-        }
+        r = mkfs_find_or_warn(fstype, /* have_root= */ !!root, &mkfs);
+        if (r < 0)
+                return r;
 
         if (STR_IN_SET(fstype, "ext2", "ext3", "ext4", "xfs", "swap")) {
                 size_t max_len =

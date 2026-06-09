@@ -4,14 +4,15 @@
 # Traduzione in italiano per il pacchetto systemd
 # Daniele Medri <dmedri@gmail.com>, 2013-2024.
 # Salvatore Cocuzza <info@salvatorecocuzza.it>, 2024, 2026.
-# Nathan <nathan95@live.it>, 2025.
+# Nathan <nathan95@live.it>, 2025, 2026.
 # Ali Ciloglu <ali.ciloqlu@murena.io>, 2026.
+# Milo Casagrande <milo@milo.name>, 2026.
 msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-05-30 00:13+0200\n"
-"PO-Revision-Date: 2026-05-25 20:01+0000\n"
+"PO-Revision-Date: 2026-06-07 14:03+0000\n"
 "Last-Translator: Ali Ciloglu <ali.ciloqlu@murena.io>\n"
 "Language-Team: Italian <https://translate.fedoraproject.org/projects/systemd/"
 "main/it/>\n"
@@ -20,7 +21,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 2026.5\n"
+"X-Generator: Weblate 2026.6.1\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -241,8 +242,7 @@ msgstr ""
 #: src/home/pam_systemd_home.c:443
 #, c-format
 msgid "Please confirm presence on security token of user %s."
-msgstr ""
-"Per piacere conferma la presenza sul token di sicurezza dell'utente %s."
+msgstr "Per piacere conferma la presenza sul token di sicurezza dell'utente %s."
 
 #: src/home/pam_systemd_home.c:454
 #, c-format
@@ -1052,8 +1052,7 @@ msgstr "Configura DNSSEC Negative Trust Anchors"
 #: src/network/org.freedesktop.network1.policy:111
 #: src/resolve/org.freedesktop.resolve1.policy:122
 msgid "Authentication is required to set DNSSEC Negative Trust Anchors."
-msgstr ""
-"Autenticazione richiesta per configurare DNSSEC Negative Trust Anchors."
+msgstr "Autenticazione richiesta per configurare DNSSEC Negative Trust Anchors."
 
 #: src/network/org.freedesktop.network1.policy:121
 msgid "Revert NTP settings"
@@ -1397,8 +1396,8 @@ msgid ""
 "Authentication is required to send a UNIX signal to the processes of '$"
 "(unit)'."
 msgstr ""
-"Autenticazione richiesta per inviare un segnale UNIX ai processi di '$"
-"(unit)'."
+"Autenticazione richiesta per inviare un segnale UNIX ai processi di '$(unit)"
+"'."
 
 #: src/core/dbus-unit.c:621
 msgid ""

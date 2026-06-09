@@ -16,7 +16,7 @@ jobs:
   build:
     runs-on: ${{ matrix.runner }}
     concurrency:
-      group: ${{ github.workflow }}-${{ matrix.run_phase }}-${{ github.ref }}-${{ matrix.runner }}
+      group: ${{ github.workflow }}-${{ matrix.run_phase }}-${{ matrix.cross_arch || 'native' }}-${{ github.ref }}-${{ matrix.runner }}
       cancel-in-progress: true
     strategy:
       fail-fast: false
@@ -28,6 +28,9 @@ jobs:
           - run_phase: GCC
             runner: ubuntu-24.04-arm
           - run_phase: GCC
+            runner: ubuntu-24.04-arm
+            cross_arch: armhf
+          - run_phase: GCC
             runner: ubuntu-24.04-ppc64le
           - run_phase: GCC
             runner: ubuntu-24.04-s390x
@@ -35,9 +38,14 @@ jobs:
           - run_phase: CLANG
             runner: ubuntu-24.04-arm
           - run_phase: CLANG
+            runner: ubuntu-24.04-arm
+            cross_arch: armhf
+          - run_phase: CLANG
             runner: ubuntu-24.04-ppc64le
           - run_phase: CLANG
             runner: ubuntu-24.04-s390x
+    env:
+      CROSS_ARCH: ${{ matrix.cross_arch || '' }}
     steps:
       - name: Repository checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
@@ -50,9 +58,9 @@ jobs:
           sudo sed -i '/^XDG_/d' /etc/environment
           # Pass only specific env variables through sudo, to avoid having
           # the already existing XDG_* stuff on the "other side"
-          sudo --preserve-env=GITHUB_ACTIONS,CI .github/workflows/unit-tests.sh SETUP
+          sudo --preserve-env=GITHUB_ACTIONS,CI,CROSS_ARCH .github/workflows/unit-tests.sh SETUP
       - name: Build & test
-        run: sudo --preserve-env=GITHUB_ACTIONS,CI .github/workflows/unit-tests.sh RUN_${{ matrix.run_phase }}
+        run: sudo --preserve-env=GITHUB_ACTIONS,CI,CROSS_ARCH .github/workflows/unit-tests.sh RUN_${{ matrix.run_phase }}
 
   build-musl:
     name: Build & test (musl, postmarketOS)
@@ -66,16 +74,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: systemd/mkosi@3e15f6734a3455a008c3617f89a6c5010d5bb9bf
-
-      - name: Install apk
-        # ubuntu-24.04 doesn't package apk, so fetch the official statically-linked binary from
-        # upstream so mkosi can use it to populate the postmarketOS tools tree.
-        run: |
-          sudo curl -fsSL -o /usr/local/bin/apk \
-              https://gitlab.alpinelinux.org/api/v4/projects/5/packages/generic/v3.0.6/x86_64/apk.static
-          echo 'f1489e05bace7d7dd0a687fcd38d50b585ac660af4231668b123649bef3718c4  /usr/local/bin/apk' | sha256sum --check
-          sudo chmod +x /usr/local/bin/apk
+      - uses: systemd/mkosi@60ed8c964f8d98aa4b325f381c4b3bc6de91a0b7
 
       - name: Build tools tree
         run: |

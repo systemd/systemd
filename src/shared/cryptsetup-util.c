@@ -281,11 +281,7 @@ int dlopen_cryptsetup(int log_level) {
          * still available though, and given we want to support 2.2.0 for a while longer, we'll use the old
          * symbol if the new one is not available. */
 
-        SD_ELF_NOTE_DLOPEN(
-                        "cryptsetup",
-                        "Support for disk encryption, integrity, and authentication",
-                        SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
-                        "libcryptsetup.so.12");
+        CRYPTSETUP_NOTE(SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED);
 
         r = dlopen_many_sym_or_warn(
                         &cryptsetup_dl, "libcryptsetup.so.12", log_level,

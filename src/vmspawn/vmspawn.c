@@ -3049,6 +3049,13 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 if (r < 0)
                         return r;
 
+                /* When using --console=gui the QEMU window closes immediately when the VM has stopped, so
+                 * any console output at shutdown is lost, which makes debugging difficult. Ensure the VM
+                 * stays booted for a minimum of 15s. */
+                r = strv_prepend(&arg_kernel_cmdline_extra, "systemd.minimum_uptime_sec=15");
+                if (r < 0)
+                        return log_oom();
+
                 break;
 
         case CONSOLE_HEADLESS:

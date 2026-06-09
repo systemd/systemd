@@ -128,6 +128,53 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 ## Features
 
+- sysinstall: add fully automatic mode that automatically picks target disk,
+  non-interactively. Should wait to ensure system is up for a certain amount of
+  minimal time (alternatively: certain amount of time since the last disk
+  showed up), to ensure disks have shown up before making the decision. Usecase
+  for this: redfish style server provisioning.
+
+- nspawn: optionally provide a /dev/tpm0 + /dev/tpmrm0 that is backed by swtpm,
+  much like we do in vmspawn. let's us minimize differences between
+  environments systemd runs in.
+
+- nspawn/vmspawn: add a concept how we can hand into the payload some proof
+  that it is runnin on a certain host, which it can then include in the report,
+  and which allows us to put together a map about which node runs as payload of
+  which other note. in particular useful for transient nodes, as it gives them
+  a better location
+
+- add a small varlink service that wraps the raw sftp logic (without ssh) after a
+  varlink protocol upgrade, which enables varlink clients to do file transfers,
+  which is in particular useful when accessing a system via http varlink proxy
+
+- add a small varlink service that allocates a pty and then does ptyfwd stuff
+  after a protocol upgrade on the incoming connection. Then spawn a shell/getty
+  on it. This enables varlink clients to acquire a fully featured ssh-like
+  interactive tty/shell via varlink, which is again useful via http varlink
+  proxy.
+
+- add something like podman's conmon as a native systemd subsystem:
+  i.e. allocate ptys, that can be bound to stdio/console of containers and VMs,
+  that maintain a bit of a scrollback buffer, and one can reconnect to
+  later. fun idea: might even make /dev/tty1 and friends accessible via
+  /dev/vcsa1 under the same protocol. this subsystem should potentially be the
+  same as the varlink ssh-like thing listed above.
+
+- maybe introduce a new ansi sequence that allows propagate SIGWINCH
+  inline. Idea would be: to enable inline notification of window sizes client
+  sends a new, to be defined ANSI sequence with its current assumption of
+  terminal size. Server compares it with current state. If the same it sends
+  nothing immediately, but does send exactly one update if it changes, and
+  disables the logic. If not the same sends correction immediately, and
+  disables the logic. Client has to reissue sequence immediately after getting
+  notification to get live updates. Benefit of all of this: better terminal
+  experience if we just forward terminal bytes through a serial link/stream
+  connection, as terminal sizes will be properly propagated. Write a UAPI spec
+  for all this. ptyfwd could translate turn upstream SIGWINCH into upstream
+  sequences of this type, so that every step of the way we get the right
+  behaviour.
+
 - now that the kernel supports xattrs on sockets: mark varlink entrypoint
   sockets, server side of varlink sockets, and client sides of valrink sockets
   with distinct xattrs to make them recognizable (similar maybe for our other

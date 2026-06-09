@@ -383,11 +383,7 @@ int dlopen_libpam(int log_level) {
 #if HAVE_PAM
         static void *libpam_dl = NULL;
 
-        SD_ELF_NOTE_DLOPEN(
-                        "pam",
-                        "Support for LinuxPAM",
-                        SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED,
-                        "libpam.so.0");
+        LIBPAM_NOTE(SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
 
         return dlopen_many_sym_or_warn(
                         &libpam_dl,

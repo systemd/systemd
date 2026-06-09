@@ -5,12 +5,13 @@
 # Daniel Korostil <ted.korostiled@gmail.com>, 2014, 2016, 2018.
 # Yuri Chornoivan <yurchor@ukr.net>, 2019, 2020, 2021, 2022, 2023, 2024, 2026.
 # Dmytro Markevych <hotr1pak@gmail.com>, 2024.
+# Deleted User <noreply+1350@weblate.org>, 2026.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-05-30 00:13+0200\n"
-"PO-Revision-Date: 2026-06-01 10:40+0000\n"
-"Last-Translator: Yuri Chornoivan <yurchor@ukr.net>\n"
+"PO-Revision-Date: 2026-06-07 14:02+0000\n"
+"Last-Translator: Deleted User <noreply+1350@weblate.org>\n"
 "Language-Team: Ukrainian <https://translate.fedoraproject.org/projects/"
 "systemd/main/uk/>\n"
 "Language: uk\n"
@@ -19,7 +20,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=3; plural=n%10==1 && n%100!=11 ? 0 : n%10>=2 && "
 "n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2;\n"
-"X-Generator: Weblate 2026.6\n"
+"X-Generator: Weblate 2026.6.1\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -366,8 +367,7 @@ msgstr "Встановлення даних щодо машини"
 
 #: src/hostname/org.freedesktop.hostname1.policy:42
 msgid "Authentication is required to set local machine information."
-msgstr ""
-"Для встановлення даних щодо локальної машини слід пройти розпізнавання."
+msgstr "Для встановлення даних щодо локальної машини слід пройти розпізнавання."
 
 #: src/hostname/org.freedesktop.hostname1.policy:51
 msgid "Get product UUID"
@@ -896,8 +896,7 @@ msgstr "Отримання псевдо-TTY на локальному вузлі
 
 #: src/machine/org.freedesktop.machine1.policy:75
 msgid "Authentication is required to acquire a pseudo TTY on the local host."
-msgstr ""
-"Для отримання псевдо-TTY на локальному вузлі слід пройти розпізнавання."
+msgstr "Для отримання псевдо-TTY на локальному вузлі слід пройти розпізнавання."
 
 #: src/machine/org.freedesktop.machine1.policy:84
 msgid "Manage local virtual machines and containers"
@@ -1023,8 +1022,7 @@ msgstr "Вмикання або вимикання трансляційної DN
 #: src/network/org.freedesktop.network1.policy:78
 #: src/resolve/org.freedesktop.resolve1.policy:89
 msgid "Authentication is required to enable or disable multicast DNS."
-msgstr ""
-"Для вмикання або вимикання трансляційної DNS слід пройти розпізнавання."
+msgstr "Для вмикання або вимикання трансляційної DNS слід пройти розпізнавання."
 
 #: src/network/org.freedesktop.network1.policy:88
 #: src/resolve/org.freedesktop.resolve1.policy:99

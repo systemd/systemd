@@ -2,15 +2,16 @@
 #
 # Czech translation for systemd.
 #
-# Daniel Rusek <mail@asciiwolf.com>, 2022, 2023, 2025.
+# Daniel Rusek <mail@asciiwolf.com>, 2022, 2023, 2025, 2026.
 # Pavel Borecki <pavel.borecki@gmail.com>, 2023, 2024, 2025, 2026.
-# Jan Kalabza <jan.kalabza@gmail.com>, 2025.
+# Jan Kalabza <jan.kalabza@gmail.com>, 2025, 2026.
+# Honza Hejzl <jan.hejzl@posteo.net>, 2026.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-05-30 00:13+0200\n"
-"PO-Revision-Date: 2026-03-27 12:58+0000\n"
-"Last-Translator: Pavel Borecki <pavel.borecki@gmail.com>\n"
+"PO-Revision-Date: 2026-06-07 14:00+0000\n"
+"Last-Translator: Jan Kalabza <jan.kalabza@gmail.com>\n"
 "Language-Team: Czech <https://translate.fedoraproject.org/projects/systemd/"
 "main/cs/>\n"
 "Language: cs\n"
@@ -19,7 +20,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=3; plural=(n==1 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 "
 "|| n%100>=20) ? 1 : 2);\n"
-"X-Generator: Weblate 5.16.2\n"
+"X-Generator: Weblate 2026.6.1\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -169,8 +170,7 @@ msgstr ""
 #: src/home/pam_systemd_home.c:332
 #, c-format
 msgid "Too frequent login attempts for user %s, try again later."
-msgstr ""
-"Příliš časté pokusy o přihlášení uživatele %s, zkuste to znovu později."
+msgstr "Příliš časté pokusy o přihlášení uživatele %s, zkuste to znovu později."
 
 #: src/home/pam_systemd_home.c:344
 msgid "Password: "
@@ -872,12 +872,13 @@ msgstr ""
 
 #: src/machine/org.freedesktop.machine1.policy:95
 msgid "Inspect local virtual machines and containers"
-msgstr ""
+msgstr "Prozkoumat místní virtuální stroje a kontejnery"
 
 #: src/machine/org.freedesktop.machine1.policy:96
 msgid ""
 "Authentication is required to inspect local virtual machines and containers."
 msgstr ""
+"K prozkoumání místních virtuálních strojů a kontejnerů je vyžadováno ověření."
 
 #: src/machine/org.freedesktop.machine1.policy:105
 msgid "Create a local virtual machine or container"
@@ -915,13 +916,15 @@ msgstr ""
 
 #: src/machine/org.freedesktop.machine1.policy:137
 msgid "Inspect local virtual machine and container images"
-msgstr ""
+msgstr "Prozkoumat místní virtuální stroje a obrazy kontejnerů"
 
 #: src/machine/org.freedesktop.machine1.policy:138
 msgid ""
 "Authentication is required to inspect local virtual machine and container "
 "images."
 msgstr ""
+"K prozkoumání místních virtuálních strojů a obrazů kontejnerů je vyžadováno "
+"ověření."
 
 #: src/network/org.freedesktop.network1.policy:22
 msgid "Set NTP servers"
@@ -1185,19 +1188,19 @@ msgstr "Pro resetování statistik je vyžadováno ověření."
 
 #: src/resolve/org.freedesktop.resolve1.policy:209
 msgid "Flush DNS caches"
-msgstr ""
+msgstr "Vyprázdnit DNS mezipaměti"
 
 #: src/resolve/org.freedesktop.resolve1.policy:210
 msgid "Authentication is required to flush DNS caches."
-msgstr ""
+msgstr "Pro vyprázdnění DNS mezipamětí je nutné se autentizovat."
 
 #: src/resolve/org.freedesktop.resolve1.policy:220
 msgid "Reset server features"
-msgstr ""
+msgstr "Resetovat funkce serveru"
 
 #: src/resolve/org.freedesktop.resolve1.policy:221
 msgid "Authentication is required to reset server features."
-msgstr ""
+msgstr "Pro resetování funkcí serveru je vyžadováno ověření."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:38
 msgid "Check for system updates"
@@ -1209,11 +1212,11 @@ msgstr "Pro kontrolu aktualizací systému je vyžadováno ověření."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:48
 msgid "Cancel checking for system updates"
-msgstr ""
+msgstr "Zrušit kontrolu aktualizací systému"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:49
 msgid "Authentication is required to cancel checking for system updates."
-msgstr ""
+msgstr "Pro zrušení kontroly aktualizací systému je vyžadováno ověření."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:58
 msgid "Install system updates"
@@ -1225,11 +1228,11 @@ msgstr "Pro instalaci aktualizací systému je vyžadováno ověření."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:68
 msgid "Cancel installing system updates"
-msgstr ""
+msgstr "Zrušit instalaci aktualizací systému"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:69
 msgid "Authentication is required to cancel installing system updates."
-msgstr ""
+msgstr "Pro zrušení instalace aktualizací systému je vyžadováno ověření."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:78
 msgid "Install specific system version"
@@ -1245,29 +1248,32 @@ msgstr ""
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:88
 msgid "Cancel installing specific system version"
-msgstr ""
+msgstr "Zrušit instalaci specifické verze systému"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:89
 msgid ""
 "Authentication is required to cancel updating the system to a specific "
 "(possibly old) version."
 msgstr ""
+"Pro zrušení aktualizace systému na konkrétní (patrně starší) verzi systému "
+"je vyžadováno ověření."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:98
 msgid "Clean up old system updates"
-msgstr ""
+msgstr "Vyčistit staré aktualizace systému"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:99
 msgid "Authentication is required to clean up old system updates."
-msgstr ""
+msgstr "Pro vyčištění starých aktualizací systému je vyžadováno ověření."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:108
 msgid "Cancel cleaning up old system updates"
-msgstr ""
+msgstr "Zrušit vyčištění starých aktualizací systému"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:109
 msgid "Authentication is required to cancel cleanup of old system updates."
 msgstr ""
+"Pro zrušení vyčištění starých aktualizací systému je vyžadováno ověření."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:118
 msgid "Manage optional features"
@@ -1378,7 +1384,7 @@ msgstr ""
 
 #: src/shared/libfido2-util.c:926
 msgid "Please enter security token PIN:"
-msgstr ""
+msgstr "Zadejte PIN bezpečnostního tokenu:"
 
 #~ msgid "Cleanup old system updates"
 #~ msgstr "Vyčištění starých aktualizací systému"

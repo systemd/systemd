@@ -411,7 +411,7 @@ ExecStart=bash -c ' \\
         sleep 0.1; \\
     done; \\
     mount; \\
-    mount | grep -F "on /tmp/img type squashfs" | grep -q -F "nosuid"; \\
+    mount | grep -F "on /tmp/img type squashfs" | grep -F "nosuid" >/dev/null; \\
 '
 EOF
 systemctl start testservice-50d.service
