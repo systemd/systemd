@@ -200,7 +200,7 @@ char* utf8_escape_non_printable_full(const char *str, size_t console_width, bool
         if (console_width == 0)
                 return strdup("");
 
-        p = s = prev_s = malloc(strlen(str) * 4 + 1);
+        p = s = prev_s = malloc(strlen(str) * 4 + STRLEN("…") + 1);
         if (!p)
                 return NULL;
 
