@@ -419,6 +419,11 @@ DEFAULT_SECTIONS_TO_SHOW = {
     '.profile': 'text',
 }  # fmt: skip
 
+# Sections that may legitimately appear more than once within a single profile: they carry one entry
+# per hardware variant and the firmware picks the matching one at boot. 'inspect --json' therefore
+# always reports them as a list, and add_section() allows them to repeat.
+MULTI_INSTANCE_SECTIONS = ('.dtbauto', '.efifw')
+
 
 @dataclasses.dataclass
 class Section:
@@ -490,9 +495,8 @@ class UKI:
             if s.name == '.profile':
                 start = i + 1
 
-        multiple_allowed_sections = ['.dtbauto', '.efifw']
         if any(
-            section.name == s.name for s in self.sections[start:] if s.name not in multiple_allowed_sections
+            section.name == s.name for s in self.sections[start:] if s.name not in MULTI_INSTANCE_SECTIONS
         ):
             raise ValueError(f'Duplicate section {section.name}')
 
@@ -1695,14 +1699,15 @@ def generate_keys(opts: UkifyConfig) -> None:
 def inspect_section(
     opts: UkifyConfig,
     section: pefile.SectionStructure,
-) -> tuple[str, Optional[dict[str, Union[int, str]]]]:
-    name = pe_strip_section_name(section.Name)
-
-    # find the config for this section in opts and whether to show it
+    name: str,
+    force: bool = False,
+) -> Optional[dict[str, Union[int, str]]]:
+    # find the config for this section in opts and whether to show it ('force' is used for the
+    # '.profile' delimiters, which must always appear in the JSON profile structure)
     config = opts.sections_by_name.get(name, None)
-    show = config or opts.all or (name in DEFAULT_SECTIONS_TO_SHOW and not opts.sections)
+    show = force or config or opts.all or (name in DEFAULT_SECTIONS_TO_SHOW and not opts.sections)
     if not show:
-        return name, None
+        return None
 
     ttype = config.output_mode if config else DEFAULT_SECTIONS_TO_SHOW.get(name, 'binary')
 
@@ -1732,7 +1737,25 @@ def inspect_section(
             text = textwrap.indent(cast(str, struct['text']).rstrip(), ' ' * 4)
             print(f'  text:\n{text}')
 
-    return name, struct
+    return struct
+
+
+def add_section_to_profile(profile: dict[str, Any], name: str, desc: dict[str, Union[int, str]]) -> None:
+    # Sections in MULTI_INSTANCE_SECTIONS can occur multiple times within the same profile so always
+    # report them as a list even when there's a single entry. Every other section is unique within a
+    # profile and is reported as a plain object keyed by name. A repeat of such a section means the
+    # image is malformed; warn, but still report every instance by turning the entry into a list so
+    # nothing is dropped.
+    if name in MULTI_INSTANCE_SECTIONS:
+        profile.setdefault(name, []).append(desc)
+    elif name not in profile:
+        profile[name] = desc
+    else:
+        print(f'Unexpected duplicate {name!r} section, reporting all instances as a list', file=sys.stderr)
+        if isinstance(profile[name], list):
+            profile[name] += [desc]
+        else:
+            profile[name] = [profile[name], desc]
 
 
 def inspect_sections(opts: UkifyConfig) -> None:
@@ -1740,10 +1763,35 @@ def inspect_sections(opts: UkifyConfig) -> None:
 
     for file in opts.files:
         pe = pefile.PE(file, fast_load=True)
-        gen = (inspect_section(opts, section) for section in pe.sections)
-        descs = {key: val for (key, val) in gen if val}
+
+        # A UKI is a flat list of PE sections with profile structure: the sections before the first
+        # '.profile' section belong to the base profile and are reported by name at the top level (so
+        # e.g. '.cmdline' refers to the base profile as before). Each subsequent '.profile' section
+        # introduces a further profile whose sections (up to the next '.profile') override the base
+        # ones; those profiles are reported as separate by-name objects in the '_profiles' list. The
+        # key is '_profiles' and not 'profiles' so it can never collide with a section of that name:
+        # PE section names are at most 8 bytes, so a 9-byte key is never a section name.
+        result: dict[str, Any] = {}
+        profiles: list[dict[str, Any]] = []
+        profile = result
+
+        for section in pe.sections:
+            name = pe_strip_section_name(section.Name)
+            if name == '.profile':
+                profile = {}
+                profiles += [profile]
+
+            # The '.profile' delimiter must always appear in the JSON structure so every profile
+            # object carries its identity, even when --section filters out the other sections.
+            desc = inspect_section(opts, section, name, force=name == '.profile' and opts.json != 'off')
+            if desc:
+                add_section_to_profile(profile, name, desc)
+
+        if profiles:
+            result['_profiles'] = profiles
+
         if opts.json != 'off':
-            json.dump(descs, sys.stdout, indent=indent)
+            json.dump(result, sys.stdout, indent=indent)
 
 
 @dataclasses.dataclass(frozen=True)
