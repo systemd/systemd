@@ -74,7 +74,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: systemd/mkosi@60ed8c964f8d98aa4b325f381c4b3bc6de91a0b7
+      - uses: systemd/mkosi@08ebf6d678445ff0765a9e86868258f3807f5f65
 
       - name: Build tools tree
         run: |
