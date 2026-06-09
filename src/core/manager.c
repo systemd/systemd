@@ -2007,6 +2007,7 @@ static bool manager_dbus_is_running(Manager *m, bool deserialized) {
                 return false;
         if (!IN_SET(deserialized ? SERVICE(u)->deserialized_state : SERVICE(u)->state,
                     SERVICE_RUNNING,
+                    SERVICE_RUNNING_REVALIDATING,
                     SERVICE_REFRESH_EXTENSIONS,
                     SERVICE_REFRESH_CREDENTIALS,
                     SERVICE_RELOAD,

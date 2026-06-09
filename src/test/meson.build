@@ -293,6 +293,10 @@ executables += [
                 'conditions' : ['HAVE_OPENSSL'],
         },
         test_template + {
+                'sources' : files('test-dbus-name-holder.c'),
+                'type' : 'manual',
+        },
+        test_template + {
                 'sources' : files('test-display-quota.c'),
                 'type' : 'manual',
         },
