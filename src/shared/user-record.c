@@ -2775,11 +2775,24 @@ bool user_record_matches_user_name(const UserRecord *u, const char *user_name) {
         if (strv_contains(u->aliases, user_name))
                 return true;
 
-        const char *realm = strrchr(user_name, '@');
-        if (realm && streq_ptr(realm+1, u->realm))
-                STRV_FOREACH(a, u->aliases)
-                        if (startswith(user_name, *a) == realm)
-                                return true;
+        if (record_name_matches_alias_realm(user_name, (char * const*) u->aliases, u->realm))
+                return true;
+
+        return false;
+}
+
+bool record_name_matches_alias_realm(const char *name, char * const *aliases, const char *realm) {
+        const char *suffix;
+
+        assert(name);
+
+        suffix = strrchr(name, '@');
+        if (!suffix || !streq_ptr(suffix + 1, realm))
+                return false;
+
+        STRV_FOREACH(a, aliases)
+                if (startswith(name, *a) == suffix)
+                        return true;
 
         return false;
 }

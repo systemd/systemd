@@ -546,6 +546,7 @@ bool userdb_match_is_set(const UserDBMatch *match) _pure_;
 
 void userdb_match_done(UserDBMatch *match);
 
+bool record_name_matches_alias_realm(const char *name, char * const *aliases, const char *realm);
 bool user_name_fuzzy_match(const char *names[], size_t n_names, char **matches);
 bool user_record_match(UserRecord *u, const UserDBMatch *match);
 
