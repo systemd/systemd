@@ -379,12 +379,13 @@ char* xescape_full(const char *s, const char *bad, size_t console_width, XEscape
         if (console_width == 0)
                 return strdup("");
 
-        ans = new(char, MIN(strlen(s), console_width) * 4 + 1);
+        size_t body = MIN(strlen(s), console_width) * 4;
+        ans = new(char, body + STRLEN("...") + 1);
         if (!ans)
                 return NULL;
 
-        memset(ans, '_', MIN(strlen(s), console_width) * 4);
-        ans[MIN(strlen(s), console_width) * 4] = 0;
+        memset(ans, '_', body);
+        ans[body] = 0;
 
         bool force_ellipsis = FLAGS_SET(flags, XESCAPE_FORCE_ELLIPSIS);
 
