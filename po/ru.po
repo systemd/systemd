@@ -5,8 +5,8 @@
 # Julia Dronova <juliette.tux@gmail.com>, 2013.
 # Sergey Ptashnick <0comffdiz@inbox.ru>, 2013-2018.
 # Vladimir Yerilov <openmindead@gmail.com>, 2020.
-# Alexey Rubtsov <rushills@gmail.com>, 2021.
-# Olga Smirnova <mistresssilvara@hotmail.com>, 2022.
+# Alexey Rubtsov <rushills@gmail.com>, 2021, 2026.
+# Olga Smirnova <mistresssilvara@hotmail.com>, 2022, 2026.
 # Andrei Stepanov <adem4ik@gmail.com>, 2023, 2026.
 # "Sergey A." <sw@atrus.ru>, 2023, 2024.
 # "Sergey A." <Ser82-png@yandex.ru>, 2024, 2025, 2026.
@@ -14,8 +14,8 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-05-30 00:13+0200\n"
-"PO-Revision-Date: 2026-06-01 10:40+0000\n"
-"Last-Translator: Andrei Stepanov <adem4ik@gmail.com>\n"
+"PO-Revision-Date: 2026-06-07 13:58+0000\n"
+"Last-Translator: Olga Smirnova <mistresssilvara@hotmail.com>\n"
 "Language-Team: Russian <https://translate.fedoraproject.org/projects/systemd/"
 "main/ru/>\n"
 "Language: ru\n"
@@ -24,7 +24,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=3; plural=n%10==1 && n%100!=11 ? 0 : n%10>=2 && "
 "n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2;\n"
-"X-Generator: Weblate 2026.6\n"
+"X-Generator: Weblate 2026.6.1\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -460,8 +460,7 @@ msgstr "Настроить параметры клавиатуры"
 
 #: src/locale/org.freedesktop.locale1.policy:34
 msgid "Authentication is required to set the system keyboard settings."
-msgstr ""
-"Чтобы настроить параметры клавиатуры, необходимо пройти аутентификацию."
+msgstr "Чтобы настроить параметры клавиатуры, необходимо пройти аутентификацию."
 
 #: src/login/org.freedesktop.login1.policy:22
 msgid "Allow applications to inhibit system shutdown"
@@ -1275,8 +1274,7 @@ msgstr "Дамп состояние сервера"
 
 #: src/resolve/org.freedesktop.resolve1.policy:177
 msgid "Authentication is required to dump server state."
-msgstr ""
-"Чтобы создать дамп состояние сервера, необходимо пройти аутентификацию."
+msgstr "Чтобы создать дамп состояние сервера, необходимо пройти аутентификацию."
 
 #: src/resolve/org.freedesktop.resolve1.policy:187
 msgid "Dump statistics"

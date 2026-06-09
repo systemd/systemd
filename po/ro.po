@@ -3,14 +3,14 @@
 # Romanian translation for systemd.
 # va511e <va511e@yahoo.com>, 2015.
 # Daniel Șerbănescu <daniel [at] serbanescu [dot] dk>, 2015, 2017.
-# Vlad <milovlad@outlook.com>, 2020, 2021.
+# Vlad <milovlad@outlook.com>, 2020, 2021, 2026.
 # Petru Rebeja <petru@rebeja.eu>, 2026.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-05-30 00:13+0200\n"
-"PO-Revision-Date: 2026-06-01 12:21+0000\n"
-"Last-Translator: Petru Rebeja <petru@rebeja.eu>\n"
+"PO-Revision-Date: 2026-06-07 14:00+0000\n"
+"Last-Translator: Vlad <milovlad@outlook.com>\n"
 "Language-Team: Romanian <https://translate.fedoraproject.org/projects/"
 "systemd/main/ro/>\n"
 "Language: ro\n"
@@ -19,7 +19,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=3; plural=n==1 ? 0 : (n==0 || (n%100 > 0 && n%100 < "
 "20)) ? 1 : 2;\n"
-"X-Generator: Weblate 2026.6\n"
+"X-Generator: Weblate 2026.6.1\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -789,8 +789,7 @@ msgstr "Blochează sau deblochează sesiuni active"
 
 #: src/login/org.freedesktop.login1.policy:343
 msgid "Authentication is required to lock or unlock active sessions."
-msgstr ""
-"Autentificarea este necesară pentru a bloca sau debloca sesiuni active."
+msgstr "Autentificarea este necesară pentru a bloca sau debloca sesiuni active."
 
 #: src/login/org.freedesktop.login1.policy:352
 msgid "Set the reboot \"reason\" in the kernel"
@@ -861,8 +860,7 @@ msgstr "Conectare la un container local"
 
 #: src/machine/org.freedesktop.machine1.policy:23
 msgid "Authentication is required to log into a local container."
-msgstr ""
-"Autentificarea este necesară pentru a vă conecta la un container local."
+msgstr "Autentificarea este necesară pentru a vă conecta la un container local."
 
 #: src/machine/org.freedesktop.machine1.policy:32
 msgid "Log into the local host"
@@ -1449,8 +1447,7 @@ msgstr ""
 
 #: src/core/dbus-unit.c:679
 msgid "Authentication is required to set properties on '$(unit)'."
-msgstr ""
-"Autentificarea este necesară pentru a seta proprietățile lui „$(unit)”."
+msgstr "Autentificarea este necesară pentru a seta proprietățile lui „$(unit)”."
 
 #: src/core/dbus-unit.c:776
 msgid ""

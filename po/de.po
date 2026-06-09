@@ -6,19 +6,19 @@
 # Bernd Homuth <dev@hmt.im>, 2015.
 # Fabian Affolter <mail@fabian-affolter.ch>, 2020.
 # Ettore Atalan <atalanttore@googlemail.com>, 2021, 2024, 2026.
-# Christian Wehrli <christian@chw.onl>, 2021.
-# Christian Kirbach <christian.kirbach@gmail.com>, 2023.
-# Jarne Förster <fedora@mymailclient.de>, 2024.
-# Weblate Translation Memory <noreply-mt-weblate-translation-memory@weblate.org>, 2024, 2025.
-# Anselm Schueler <mail@anselmschueler.com>, 2024.
+# Christian Wehrli <christian@chw.onl>, 2021, 2026.
+# Christian Kirbach <christian.kirbach@gmail.com>, 2023, 2026.
+# Jarne Förster <fedora@mymailclient.de>, 2024, 2026.
+# Weblate Translation Memory <noreply-mt-weblate-translation-memory@weblate.org>, 2024, 2025, 2026.
+# Anselm Schueler <mail@anselmschueler.com>, 2024, 2026.
 # Marcel Leismann <tiixrigjekfv@use.startmail.com>, 2025, 2026.
 # Dark Cronyx <darkcronyx@protonmail.com>, 2026.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-05-30 00:13+0200\n"
-"PO-Revision-Date: 2026-05-31 10:01+0000\n"
-"Last-Translator: Ettore Atalan <atalanttore@googlemail.com>\n"
+"PO-Revision-Date: 2026-06-07 13:59+0000\n"
+"Last-Translator: Anselm Schueler <mail@anselmschueler.com>\n"
 "Language-Team: German <https://translate.fedoraproject.org/projects/systemd/"
 "main/de/>\n"
 "Language: de\n"
@@ -26,7 +26,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 2026.5\n"
+"X-Generator: Weblate 2026.6.1\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -1051,8 +1051,7 @@ msgstr "LLMNR aktivieren/deaktivieren"
 #: src/network/org.freedesktop.network1.policy:67
 #: src/resolve/org.freedesktop.resolve1.policy:78
 msgid "Authentication is required to enable or disable LLMNR."
-msgstr ""
-"Legitimierung ist zum Aktivieren oder Deaktivieren von LLMNR notwendig."
+msgstr "Legitimierung ist zum Aktivieren oder Deaktivieren von LLMNR notwendig."
 
 #: src/network/org.freedesktop.network1.policy:77
 #: src/resolve/org.freedesktop.resolve1.policy:88
@@ -1450,8 +1449,8 @@ msgid ""
 "Authentication is required to send a UNIX signal to the processes of '$"
 "(unit)'."
 msgstr ""
-"Legitimierung ist zum Senden eines UNIX-Signals an die Prozesse von »$"
-"(unit)« notwendig."
+"Legitimierung ist zum Senden eines UNIX-Signals an die Prozesse von »$(unit)"
+"« notwendig."
 
 #: src/core/dbus-unit.c:621
 msgid ""
@@ -1477,8 +1476,8 @@ msgid ""
 "Authentication is required to delete files and directories associated with '$"
 "(unit)'."
 msgstr ""
-"Legitimierung ist zum Löschen von Dateien und Verzeichnissen, die zu »$"
-"(unit)« gehören, erforderlich."
+"Legitimierung ist zum Löschen von Dateien und Verzeichnissen, die zu »$(unit)"
+"« gehören, erforderlich."
 
 #: src/core/dbus-unit.c:813
 msgid ""

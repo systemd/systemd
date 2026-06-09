@@ -3,14 +3,16 @@
 # Kabyle translation of systemd.
 # Slimane Selyan Amiri <selyan.kab@gmail.com>, 2021.
 # ButterflyOfFire <butterflyoffire@protonmail.com>, 2024.
-# ButterflyOfFire <butterflyoffire@users.noreply.translate.fedoraproject.org>, 2025.
+# ButterflyOfFire <butterflyoffire@users.noreply.translate.fedoraproject.org>, 2025, 2026.
 # Massii Aqvayli <massiin@proton.me>, 2026.
+# Aksel Azwaw <akselyan@users.noreply.translate.fedoraproject.org>, 2026.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-05-30 00:13+0200\n"
-"PO-Revision-Date: 2026-03-25 21:58+0000\n"
-"Last-Translator: Massii Aqvayli <massiin@proton.me>\n"
+"PO-Revision-Date: 2026-06-09 09:04+0000\n"
+"Last-Translator: ButterflyOfFire "
+"<butterflyoffire@users.noreply.translate.fedoraproject.org>\n"
 "Language-Team: Kabyle <https://translate.fedoraproject.org/projects/systemd/"
 "main/kab/>\n"
 "Language: kab\n"
@@ -18,7 +20,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n > 1;\n"
-"X-Generator: Weblate 5.16.2\n"
+"X-Generator: Weblate 2026.6.1\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -548,7 +550,7 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:169
 msgid "Power off the system"
-msgstr ""
+msgstr "Sexsi anagraw"
 
 #: src/login/org.freedesktop.login1.policy:170
 msgid "Authentication is required to power off the system."
@@ -584,7 +586,7 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:213
 msgid "Reboot the system while other users are logged in"
-msgstr ""
+msgstr "Ales-as asekker i unagraw xas akken llan iseqdacen-nniḍen ttwaqqnen"
 
 #: src/login/org.freedesktop.login1.policy:214
 msgid ""
@@ -604,7 +606,7 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:235
 msgid "Halt the system"
-msgstr "Sexsi anagraw"
+msgstr "Seḥbes anagraw"
 
 #: src/login/org.freedesktop.login1.policy:236
 msgid "Authentication is required to halt the system."
@@ -612,7 +614,7 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:246
 msgid "Halt the system while other users are logged in"
-msgstr ""
+msgstr "Sexsi anagraw xas akken llan iseqdacen-nniḍen ttwaqqnen"
 
 #: src/login/org.freedesktop.login1.policy:247
 msgid ""
@@ -742,7 +744,7 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:396
 msgid "Set a wall message"
-msgstr ""
+msgstr "Sbadu izen wall"
 
 #: src/login/org.freedesktop.login1.policy:397
 msgid "Authentication is required to set a wall message."
@@ -750,7 +752,7 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:406
 msgid "Change Session"
-msgstr ""
+msgstr "Beddel tiɣimit"
 
 #: src/login/org.freedesktop.login1.policy:407
 msgid "Authentication is required to change the virtual terminal."
@@ -863,7 +865,7 @@ msgstr ""
 
 #: src/network/org.freedesktop.network1.policy:22
 msgid "Set NTP servers"
-msgstr ""
+msgstr "Sbadu iqeddacen NTP"
 
 #: src/network/org.freedesktop.network1.policy:23
 msgid "Authentication is required to set NTP servers."
@@ -872,7 +874,7 @@ msgstr ""
 #: src/network/org.freedesktop.network1.policy:33
 #: src/resolve/org.freedesktop.resolve1.policy:44
 msgid "Set DNS servers"
-msgstr ""
+msgstr "Sbadu iqeddacen DNS"
 
 #: src/network/org.freedesktop.network1.policy:34
 #: src/resolve/org.freedesktop.resolve1.policy:45
@@ -882,7 +884,7 @@ msgstr ""
 #: src/network/org.freedesktop.network1.policy:44
 #: src/resolve/org.freedesktop.resolve1.policy:55
 msgid "Set domains"
-msgstr ""
+msgstr "Sbadu tiɣula"
 
 #: src/network/org.freedesktop.network1.policy:45
 #: src/resolve/org.freedesktop.resolve1.policy:56
@@ -1133,7 +1135,7 @@ msgstr ""
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:38
 msgid "Check for system updates"
-msgstr ""
+msgstr "Nadi ɣef ileqman n unagraw"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:39
 msgid "Authentication is required to check for system updates."
@@ -1149,7 +1151,7 @@ msgstr ""
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:58
 msgid "Install system updates"
-msgstr ""
+msgstr "Sbedd ileqman n unagraw"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:59
 msgid "Authentication is required to install system updates."
@@ -1209,7 +1211,7 @@ msgstr ""
 
 #: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"
-msgstr ""
+msgstr "Sbadu asrag n unagraw"
 
 #: src/timedate/org.freedesktop.timedate1.policy:23
 msgid "Authentication is required to set the system time."

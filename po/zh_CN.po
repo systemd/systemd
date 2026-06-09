@@ -4,12 +4,12 @@
 # Frank Hill <hxf.prc@gmail.com>, 2014.
 # Boyuan Yang <073plan@gmail.com>, 2015.
 # Jeff Bai <jeffbai@aosc.xyz>, 2016.
-# Charles Lee <lchopn@gmail.com>, 2020, 2021, 2022, 2023.
-# Whired Planck <fungdaat31@outlook.com>, 2020.
-# hanjinpeng <hanjinpeng127@gmail.com>, 2024.
+# Charles Lee <lchopn@gmail.com>, 2020, 2021, 2022, 2023, 2026.
+# Whired Planck <fungdaat31@outlook.com>, 2020, 2026.
+# hanjinpeng <hanjinpeng127@gmail.com>, 2024, 2026.
 # lumingzh <lumingzh@qq.com>, 2024, 2025, 2026.
-# z z <3397542367@qq.com>, 2025.
-# Hang Li <dabao1955@163.com>, 2025.
+# z z <3397542367@qq.com>, 2025, 2026.
+# Hang Li <dabao1955@163.com>, 2025, 2026.
 # Jesse Guo <jesseguotech@outlook.com>, 2025, 2026.
 # Zongyuan He <lovenemesis@gmail.com>, 2025.
 # Poesty Li <poesty7450@gmail.com>, 2026.
@@ -17,8 +17,8 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-05-30 00:13+0200\n"
-"PO-Revision-Date: 2026-06-01 10:40+0000\n"
-"Last-Translator: Poesty Li <poesty7450@gmail.com>\n"
+"PO-Revision-Date: 2026-06-07 14:03+0000\n"
+"Last-Translator: hanjinpeng <hanjinpeng127@gmail.com>\n"
 "Language-Team: Chinese (Simplified) <https://translate.fedoraproject.org/"
 "projects/systemd/main/zh_CN/>\n"
 "Language: zh_CN\n"
@@ -26,7 +26,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
-"X-Generator: Weblate 2026.6\n"
+"X-Generator: Weblate 2026.6.1\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -239,8 +239,7 @@ msgstr "请验证用户 %s 的安全令牌上的用户。"
 msgid ""
 "Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
 "insertion might suffice.)"
-msgstr ""
-"安全令牌 PIN 已经锁定，请先将其解锁。（提示：移除并重新插入可能就行。）"
+msgstr "安全令牌 PIN 已经锁定，请先将其解锁。（提示：移除并重新插入可能就行。）"
 
 #: src/home/pam_systemd_home.c:471
 #, c-format
