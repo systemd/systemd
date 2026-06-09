@@ -379,7 +379,7 @@ char* xescape_full(const char *s, const char *bad, size_t console_width, XEscape
         if (console_width == 0)
                 return strdup("");
 
-        ans = new(char, MIN(strlen(s), console_width) * 4 + 1);
+        ans = new(char, MIN(strlen(s), console_width) * 4 + STRLEN("...") + 1);
         if (!ans)
                 return NULL;
 
