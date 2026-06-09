@@ -543,7 +543,6 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                         "DHCPServer\0"
                         "DHCPServerStaticLease\0"
                         "IPv6AcceptRA\0"
-                        "IPv6NDPProxyAddress\0"
                         "Bridge\0"
                         "BridgeFDB\0"
                         "BridgeMDB\0"
