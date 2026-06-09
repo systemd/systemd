@@ -914,6 +914,17 @@ static int dns_transaction_dnssec_ready(DnsTransaction *t) {
                                   dt->answer_ede_rcode >= 0 ? strempty(dt->answer_ede_msg) : "",
                                   dt->answer_ede_rcode >= 0 ? ")" : "");
 
+                        if (t->scope->dnssec_mode == DNSSEC_ALLOW_DOWNGRADE &&
+                            IN_SET(dt->answer_dnssec_result,
+                                   DNSSEC_INCOMPATIBLE_SERVER,
+                                   DNSSEC_NO_SIGNATURE)) {
+                                /* In allow-downgrade mode, treat auxiliary DNSSEC failures caused
+                                 * by missing signatures or incompatible servers as non-fatal.
+                                 * The server simply doesn't support DNSSEC — continue validating
+                                 * without this auxiliary data. */
+                                break;
+                        }
+
                         /* Copy error code over */
                         t->answer_dnssec_result = dt->answer_dnssec_result;
                         t->answer_ede_rcode = dt->answer_ede_rcode;
