@@ -260,7 +260,7 @@ int load_volume_key_tpm2(
                                 "cryptenroll.tpm2-pin",
                                 /* askpw_flags= */ 0,
                                 &decrypted_key,
-                                tpm2_flags & TPM2_FLAGS_USE_ARGON2ID ? &ap : NULL);
+                                /* argon2id_params= */ tpm2_flags & TPM2_FLAGS_USE_ARGON2ID ? &ap : NULL);
                 if (IN_SET(r, -EACCES, -ENOLCK))
                         return log_notice_errno(SYNTHETIC_ERRNO(EAGAIN), "TPM2 PIN unlock failed");
                 if (r != -EPERM)

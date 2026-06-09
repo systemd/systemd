@@ -1225,17 +1225,17 @@ int kdf_argon2id_derive(
                 return log_openssl_errors("Failed to build ARGON2ID OSSL_PARAM");
 
         if (params && params->lanes > 1 && sym_OSSL_set_max_threads)
-                if (!sym_OSSL_set_max_threads(NULL, params->lanes))
+                if (!sym_OSSL_set_max_threads(/* ctx= */ NULL, params->lanes))
                         return log_openssl_errors("Failed to set Argon2id thread pool size");
 
         if (sym_EVP_KDF_derive(ctx, buf, derive_size, openssl_params) <= 0) {
                 if (params && params->lanes > 1 && sym_OSSL_set_max_threads)
-                        sym_OSSL_set_max_threads(NULL, 0);
+                        sym_OSSL_set_max_threads(/* ctx= */ NULL, 0);
                 return log_openssl_errors("OpenSSL ARGON2ID derive failed");
         }
 
         if (params && params->lanes > 1 && sym_OSSL_set_max_threads)
-                sym_OSSL_set_max_threads(NULL, 0);
+                sym_OSSL_set_max_threads(/* ctx= */ NULL, 0);
 
         ret->iov_base = TAKE_PTR(buf);
         ret->iov_len = derive_size;
