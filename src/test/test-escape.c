@@ -63,6 +63,15 @@ TEST(xescape_full) {
         test_xescape_full_one(true);
 }
 
+TEST(xescape_full_ellipsis) {
+        _cleanup_free_ char *t = NULL;
+
+        /* Every byte escapes to four columns, so the escaped output fills strlen*4 bytes and the
+         * forced ellipsis used to be written past the end of the buffer. */
+        assert_se(t = xescape_full("\001\001\001", /* bad= */ NULL, 80, XESCAPE_FORCE_ELLIPSIS));
+        ASSERT_STREQ(t, "\\x01\\x01\\x01...");
+}
+
 TEST(cunescape) {
         _cleanup_free_ char *unescaped = NULL;
 
