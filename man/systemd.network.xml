@@ -1147,6 +1147,20 @@ DuplicateAddressDetection=none</programlisting></para>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>IPv4ProxyARPAddress=</varname></term>
+        <listitem>
+          <para>An IPv4 address, for which ARP requests will be proxied. This option may be specified
+          more than once. <command>systemd-networkd</command> will add the
+          <varname>IPv4ProxyARPAddress=</varname> entries to the kernel's IPv4 neighbor proxy table.
+          This setting implies <varname>IPv4ProxyARP=yes</varname> but has no effect if
+          <varname>IPv4ProxyARP=</varname> has been set to false. When unset, the kernel's default will
+          be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v262"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>IPv6ProxyNDP=</varname></term>
         <listitem>
           <para>Takes a boolean. Configures proxy NDP for IPv6. Proxy NDP (Neighbor Discovery Protocol)

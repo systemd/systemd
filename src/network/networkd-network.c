@@ -18,10 +18,10 @@
 #include "networkd-bridge-mdb.h"
 #include "networkd-dhcp-common.h"
 #include "networkd-dhcp-server-static-lease.h"
-#include "networkd-ipv6-proxy-ndp.h"
 #include "networkd-manager.h"
 #include "networkd-ndisc.h"
 #include "networkd-neighbor.h"
+#include "networkd-neighbor-proxy.h"
 #include "networkd-network.h"
 #include "networkd-nexthop.h"
 #include "networkd-radv.h"
@@ -230,7 +230,7 @@ int network_verify(Network *network) {
             network->ipv6ll_address_gen_mode < 0)
                 network->ipv6ll_address_gen_mode = IPV6_LINK_LOCAL_ADDRESSS_GEN_MODE_STABLE_PRIVACY;
 
-        network_adjust_ipv6_proxy_ndp(network);
+        network_adjust_neighbor_proxy(network);
         network_adjust_ndisc(network);
         network_adjust_dhcp(network);
         network_adjust_radv(network);
@@ -851,7 +851,7 @@ static Network *network_free(Network *network) {
         hashmap_free(network->stacked_netdevs);
 
         /* static configs */
-        set_free(network->ipv6_proxy_ndp_addresses);
+        set_free(network->neighbor_proxy_addresses);
         ordered_hashmap_free(network->addresses_by_section);
         hashmap_free(network->routes_by_section);
         ordered_hashmap_free(network->nexthops_by_section);
