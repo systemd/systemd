@@ -123,7 +123,7 @@ int user_record_verify(UserRecord *ur, EVP_PKEY *public_key) {
                         return -ENOMEM;
 
                 if (sym_EVP_DigestVerifyInit(md_ctx, NULL, NULL, NULL, public_key) <= 0)
-                        return -EIO;
+                        return openssl_to_errno(sym_ERR_get_error());
 
                 if (sym_EVP_DigestVerify(md_ctx, signature, signature_size, (uint8_t*) text, strlen(text)) <= 0) {
                         n_bad++;

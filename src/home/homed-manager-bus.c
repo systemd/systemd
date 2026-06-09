@@ -13,6 +13,7 @@
 #include "bus-object.h"
 #include "bus-polkit.h"
 #include "crypto-util.h"
+#include "errno-util.h"
 #include "fileio.h"
 #include "format-util.h"
 #include "home-util.h"
@@ -985,10 +986,14 @@ static int method_add_signing_key(sd_bus_message *message, void *userdata, sd_bu
 
         _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = NULL;
         r = openssl_pubkey_from_pem(pem, /* pem_size= */ SIZE_MAX, &pkey);
-        if (r == -EIO)
+        if (r < 0) {
+                /* Propagate resource exhaustion as-is; treat any other failure to parse or load the
+                 * user-supplied key (the translated OpenSSL errno varies: -EBADMSG, -EINVAL, -EOPNOTSUPP,
+                 * -EIO, …) as an invalid public key. */
+                if (ERRNO_IS_NEG_RESOURCE(r))
+                        return r;
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Public key invalid: %s", fn);
-        if (r < 0)
-                return r;
+        }
 
         /* Make sure the local key is loaded before can detect conflicts */
         r = manager_acquire_key_pair(m);
