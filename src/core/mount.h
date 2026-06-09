@@ -47,10 +47,12 @@ typedef struct Mount {
 
         char *where;
 
-        MountParameters parameters_proc_self_mountinfo;
+        MountParameters parameters_kernel;
         MountParameters parameters_fragment;
 
-        bool from_proc_self_mountinfo:1;
+        uint64_t uniq_id; /* 64-bit unique mount ID, 0 if unknown (e.g. from mountinfo scan) */
+
+        bool from_kernel:1;
         bool from_fragment:1;
 
         MountProcFlags proc_flags;
