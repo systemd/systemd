@@ -168,6 +168,48 @@ systemd-creds decrypt /tmp/cred.enc /tmp/cred.dec
 diff /tmp/cred.orig /tmp/cred.dec
 rm -f /tmp/cred.{enc,dec}
 
+# Null-key credentials and the systemd.credentials_boot_policy= setting.
+#
+# A null-key credential ("--with-key=null") is wrapped in the normal systemd-creds
+# envelope but offers neither confidentiality nor authenticity, so whether it is
+# accepted at decrypt time is governed by systemd.credentials_boot_policy= and the system
+# state. We only assert the branches that are deterministic regardless of the test
+# bed's TPM2/SecureBoot state (which is fixed and has no test override here); the
+# full accepts_null() truth table for all states is covered by test-creds.c.
+systemd-creds --name=nullcred --with-key=null encrypt /tmp/cred.orig /tmp/cred.enc
+
+# --allow-null bypasses the policy, even under the strictest setting.
+SYSTEMD_PROC_CMDLINE="systemd.credentials_boot_policy=strict" \
+    systemd-creds --name=nullcred --allow-null decrypt /tmp/cred.enc /tmp/cred.dec
+diff /tmp/cred.orig /tmp/cred.dec
+rm -f /tmp/cred.dec
+
+# --refuse-null always refuses, even under the most permissive setting.
+(! SYSTEMD_PROC_CMDLINE="systemd.credentials_boot_policy=off" \
+    systemd-creds --name=nullcred --refuse-null decrypt /tmp/cred.enc /tmp/cred.dec)
+
+# strict never accepts a null key, regardless of system state.
+(! SYSTEMD_PROC_CMDLINE="systemd.credentials_boot_policy=strict" \
+    systemd-creds --name=nullcred decrypt /tmp/cred.enc /tmp/cred.dec)
+
+# off always accepts a null key, regardless of system state.
+SYSTEMD_PROC_CMDLINE="systemd.credentials_boot_policy=off" \
+    systemd-creds --name=nullcred decrypt /tmp/cred.enc /tmp/cred.dec
+diff /tmp/cred.orig /tmp/cred.dec
+rm -f /tmp/cred.dec
+
+# An invalid policy value falls back to the default (relaxed), which accepts during first boot.
+SYSTEMD_PROC_CMDLINE="systemd.credentials_boot_policy=bogus" SYSTEMD_FIRST_BOOT=1 \
+    systemd-creds --name=nullcred decrypt /tmp/cred.enc /tmp/cred.dec
+diff /tmp/cred.orig /tmp/cred.dec
+rm -f /tmp/cred.dec
+
+# tofu accepts during first boot, independent of TPM2/SecureBoot.
+SYSTEMD_PROC_CMDLINE="systemd.credentials_boot_policy=tofu" SYSTEMD_FIRST_BOOT=1 \
+    systemd-creds --name=nullcred decrypt /tmp/cred.enc /tmp/cred.dec
+diff /tmp/cred.orig /tmp/cred.dec
+rm -f /tmp/cred.{enc,dec}
+
 (! unshare -m bash -exc "mount -t tmpfs tmpfs /run/credentials && systemd-creds list")
 (! unshare -m bash -exc "mount -t tmpfs tmpfs /run/credentials && systemd-creds --system list")
 (! CREDENTIALS_DIRECTORY="" systemd-creds list)
