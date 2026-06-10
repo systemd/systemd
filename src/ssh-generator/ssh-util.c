@@ -5,8 +5,8 @@
 
 #include "errno-util.h"
 #include "log.h"
-#include "socket-util.h"
 #include "ssh-util.h"
+#include "vsock-util.h"
 
 int vsock_open_or_warn(int *ret) {
         int fd = RET_NERRNO(socket(AF_VSOCK, SOCK_STREAM|SOCK_CLOEXEC, 0));
