@@ -273,6 +273,12 @@ static int extend_pcr_now(
         assert(pcr_mask != 0);
 
         r = tpm2_context_new_or_warn(arg_tpm2_device, &c);
+        if (r == -ENOENT)
+                /* This function reports "TPM present-or-absent but cannot be used for measurement" as a
+                 * single errno, -EOPNOTSUPP (also returned for missing crypto and no usable PCR bank), so
+                 * callers don't have to enumerate several errnos. tpm2_context_new_or_warn() instead reports
+                 * a missing device as -ENOENT, so translate it here. */
+                return -EOPNOTSUPP;
         if (r < 0)
                 return r;
 
@@ -280,7 +286,7 @@ static int extend_pcr_now(
         if (r < 0)
                 return r;
         if (strv_isempty(arg_banks)) /* Still none? */
-                return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "Found a TPM2 without enabled PCR banks. Can't operate.");
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Found a TPM2 without enabled PCR banks. Can't operate.");
 
         _cleanup_free_ char *joined_banks = NULL;
         joined_banks = strv_join(arg_banks, ", ");
@@ -321,6 +327,12 @@ static int extend_nvpcr_now(
         assert(name);
 
         r = tpm2_context_new_or_warn(arg_tpm2_device, &c);
+        if (r == -ENOENT)
+                /* On this path -ENOENT is reserved to mean "no such NvPCR definition" (see
+                 * tpm2_nvpcr_extend_bytes() below), so it must not also stand for a missing TPM device.
+                 * Keep each errno single-meaning: -ENOENT = "NvPCR definition does not exist", -EOPNOTSUPP =
+                 * "TPM cannot be used for measurement" (no device, missing crypto, no NvPCR support). */
+                return -EOPNOTSUPP;
         if (r < 0)
                 return r;
 
@@ -556,6 +568,15 @@ static int run(int argc, char *argv[]) {
                 r = extend_nvpcr_now(arg_nvpcr_name, word, strlen(word), event);
         else
                 r = extend_pcr_now(arg_pcr_mask, word, strlen(word), event);
+        /* Both extend paths normalize "TPM is present-or-absent but cannot be used for this measurement"
+         * (no usable PCR bank, no TPM device, missing crypto, no NvPCR support, OpenSSL-less build) to
+         * -EOPNOTSUPP. Under --graceful we skip those rather than fail and block boot. Genuine configuration
+         * errors (e.g. a missing NvPCR definition, which stays -ENOENT) keep their own errno and are never
+         * suppressed. */
+        if (arg_graceful && r == -EOPNOTSUPP) {
+                log_notice_errno(r, "TPM2 cannot be used for measurement (no usable PCR bank, missing device, or missing crypto support), skipping gracefully.");
+                return EXIT_SUCCESS;
+        }
         if (r < 0)
                 return r;
 
