@@ -1,0 +1,4 @@
+# This file is part of systemd.
+
+dmi:bvnMicrosoftCorporation:bvrHyper-V*
+ VSOCK_ACCEPT_VMADDR_CID_ANY=1
