@@ -2336,7 +2336,7 @@ static int acquire_security_info(sd_bus *bus, const char *name, SecurityInfo *in
                 { "RootImage",               "s",       NULL,                                    offsetof(SecurityInfo, root_image)                },
                 { "SupplementaryGroups",     "as",      NULL,                                    offsetof(SecurityInfo, supplementary_groups)      },
                 { "SystemCallArchitectures", "as",      property_read_syscall_archs,             0                                                 },
-                { "SystemCallFilter",        "(as)",    property_read_system_call_filter,        0                                                 },
+                { "SystemCallFilter",        "(bas)",   property_read_system_call_filter,        0                                                 },
                 { "Type",                    "s",       NULL,                                    offsetof(SecurityInfo, type)                      },
                 { "UMask",                   "u",       property_read_umask,                     0                                                 },
                 { "User",                    "s",       NULL,                                    offsetof(SecurityInfo, user)                      },
