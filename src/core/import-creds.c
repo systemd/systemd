@@ -148,6 +148,67 @@ static bool credential_size_ok(const ImportCredentialsContext *c, const char *na
         return true;
 }
 
+/* Copy a single credential. Returns 1 if the credential was copied, 0 if skipped < 0 on error. */
+static int copy_one_credential(
+                ImportCredentialsContext *c,
+                const char *target_dir,
+                bool with_mount,
+                int source_dir_fd,
+                const char *source_name,
+                const char *target_name) {
+
+        _cleanup_close_ int cfd = -EBADF, nfd = -EBADF;
+        struct stat st;
+        int r;
+
+        assert(c);
+        assert(target_dir);
+        assert(source_dir_fd >= 0);
+        assert(source_name);
+        assert(target_name);
+
+        cfd = openat(source_dir_fd, source_name, O_RDONLY|O_CLOEXEC);
+        if (cfd < 0) {
+                log_warning_errno(errno, "Failed to open %s, ignoring: %m", source_name);
+                return 0;
+        }
+
+        if (fstat(cfd, &st) < 0) {
+                log_warning_errno(errno, "Failed to stat %s, ignoring: %m", source_name);
+                return 0;
+        }
+
+        r = stat_verify_regular(&st);
+        if (r < 0) {
+                log_warning_errno(r, "Credential file %s is not a regular file, ignoring: %m", source_name);
+                return 0;
+        }
+
+        if (!credential_size_ok(c, target_name, st.st_size))
+                return 0;
+
+        r = acquire_credential_directory(c, target_dir, with_mount);
+        if (r < 0)
+                return r;
+
+        nfd = open_credential_file_for_write(c->target_dir_fd, target_dir, target_name);
+        if (nfd == -EEXIST)
+                return 0;
+        if (nfd < 0)
+                return nfd;
+
+        r = copy_bytes(cfd, nfd, st.st_size, 0);
+        if (r < 0) {
+                (void) unlinkat(c->target_dir_fd, target_name, 0);
+                return log_error_errno(r, "Failed to create credential '%s': %m", target_name);
+        }
+
+        c->size_sum += st.st_size;
+        c->n_credentials++;
+
+        return 1;
+}
+
 static int finalize_credentials_dir(const char *dir, const char *envvar) {
         int r;
 
@@ -210,10 +271,8 @@ static int import_credentials_boot(void) {
 
                 FOREACH_ARRAY(i, de->entries, de->n_entries) {
                         const struct dirent *d = *i;
-                        _cleanup_close_ int cfd = -EBADF, nfd = -EBADF;
                         _cleanup_free_ char *n = NULL;
                         const char *e;
-                        struct stat st;
 
                         e = endswith(d->d_name, ".cred");
                         if (!e)
@@ -230,46 +289,12 @@ static int import_credentials_boot(void) {
                                 continue;
                         }
 
-                        cfd = openat(source_dir_fd, d->d_name, O_RDONLY|O_CLOEXEC);
-                        if (cfd < 0) {
-                                log_warning_errno(errno, "Failed to open %s, ignoring: %m", d->d_name);
-                                continue;
-                        }
-
-                        if (fstat(cfd, &st) < 0) {
-                                log_warning_errno(errno, "Failed to stat %s, ignoring: %m", d->d_name);
-                                continue;
-                        }
-
-                        r = stat_verify_regular(&st);
-                        if (r < 0) {
-                                log_warning_errno(r, "Credential file %s is not a regular file, ignoring: %m", d->d_name);
-                                continue;
-                        }
-
-                        if (!credential_size_ok(&context, n, st.st_size))
-                                continue;
-
-                        r = acquire_credential_directory(&context, ENCRYPTED_SYSTEM_CREDENTIALS_DIRECTORY, /* with_mount= */ false);
+                        r = copy_one_credential(&context, ENCRYPTED_SYSTEM_CREDENTIALS_DIRECTORY, /* with_mount= */ false,
+                                                source_dir_fd, d->d_name, n);
                         if (r < 0)
                                 return r;
-
-                        nfd = open_credential_file_for_write(context.target_dir_fd, ENCRYPTED_SYSTEM_CREDENTIALS_DIRECTORY, n);
-                        if (nfd == -EEXIST)
-                                continue;
-                        if (nfd < 0)
-                                return nfd;
-
-                        r = copy_bytes(cfd, nfd, st.st_size, 0);
-                        if (r < 0) {
-                                (void) unlinkat(context.target_dir_fd, n, 0);
-                                return log_error_errno(r, "Failed to create credential '%s': %m", n);
-                        }
-
-                        context.size_sum += st.st_size;
-                        context.n_credentials++;
-
-                        log_debug("Successfully copied boot credential '%s'.", n);
+                        if (r > 0)
+                                log_debug("Successfully copied boot credential '%s'.", n);
                 }
         }
 
@@ -640,57 +665,22 @@ static int import_credentials_initrd(ImportCredentialsContext *c) {
         }
 
         FOREACH_ARRAY(entry, de->entries, de->n_entries) {
-                _cleanup_close_ int cfd = -EBADF, nfd = -EBADF;
                 const struct dirent *d = *entry;
-                struct stat st;
 
                 if (!credential_name_valid(d->d_name)) {
                         log_warning("Credential '%s' has invalid name, ignoring.", d->d_name);
                         continue;
                 }
 
-                cfd = openat(source_dir_fd, d->d_name, O_RDONLY|O_CLOEXEC);
-                if (cfd < 0) {
-                        log_warning_errno(errno, "Failed to open %s, ignoring: %m", d->d_name);
-                        continue;
-                }
-
-                if (fstat(cfd, &st) < 0) {
-                        log_warning_errno(errno, "Failed to stat %s, ignoring: %m", d->d_name);
-                        continue;
-                }
-
-                r = stat_verify_regular(&st);
-                if (r < 0) {
-                        log_warning_errno(r, "Credential file %s is not a regular file, ignoring: %m", d->d_name);
-                        continue;
-                }
-
-                if (!credential_size_ok(c, d->d_name, st.st_size))
-                        continue;
-
-                r = acquire_credential_directory(c, SYSTEM_CREDENTIALS_DIRECTORY, /* with_mount= */ true);
+                r = copy_one_credential(c, SYSTEM_CREDENTIALS_DIRECTORY, /* with_mount= */ true,
+                                        source_dir_fd, d->d_name, d->d_name);
                 if (r < 0)
                         return r;
+                if (r > 0) {
+                        log_debug("Successfully copied initrd credential '%s'.", d->d_name);
 
-                nfd = open_credential_file_for_write(c->target_dir_fd, SYSTEM_CREDENTIALS_DIRECTORY, d->d_name);
-                if (nfd == -EEXIST)
-                        continue;
-                if (nfd < 0)
-                        return nfd;
-
-                r = copy_bytes(cfd, nfd, st.st_size, 0);
-                if (r < 0) {
-                        (void) unlinkat(c->target_dir_fd, d->d_name, 0);
-                        return log_error_errno(r, "Failed to create credential '%s': %m", d->d_name);
+                        (void) unlinkat(source_dir_fd, d->d_name, 0);
                 }
-
-                c->size_sum += st.st_size;
-                c->n_credentials++;
-
-                log_debug("Successfully copied initrd credential '%s'.", d->d_name);
-
-                (void) unlinkat(source_dir_fd, d->d_name, 0);
         }
 
         source_dir_fd = safe_close(source_dir_fd);
