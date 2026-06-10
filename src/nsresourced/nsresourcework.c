@@ -374,7 +374,119 @@ static int vl_method_get_memberships(sd_varlink *link, sd_json_variant *paramete
         return sd_varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
 }
 
-static int uid_is_available(int registry_dir_fd, uid_t candidate, int parent_userns_fd) {
+static int registry_range_is_available(
+                struct userns_restrict_bpf *bpf,
+                int registry_dir_fd,
+                uid_t candidate,
+                bool gid) {
+
+        _cleanup_(userns_info_freep) UserNamespaceInfo *owner = NULL;
+        int r;
+
+        assert(registry_dir_fd >= 0);
+
+        /* Checks whether the (UID or GID) range starting at candidate is free to allocate as a fresh
+         * transient range. If an existing registry entry claims it but its owning namespace has since
+         * died — without a BPF death event reaping it yet — we reclaim it on the spot and treat the range
+         * as available. Unlike delegations, transient registrations have no ancestor chain, so a single
+         * reap suffices. */
+
+        r = gid ? userns_registry_gid_exists(registry_dir_fd, (gid_t) candidate)
+                : userns_registry_uid_exists(registry_dir_fd, candidate);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return true; /* No registry entry for this range → available. */
+
+        r = gid ? userns_registry_load_by_start_gid(registry_dir_fd, (gid_t) candidate, &owner)
+                : userns_registry_load_by_start_uid(registry_dir_fd, candidate, &owner);
+        if (r == -ENOENT)
+                return true; /* Raced away between the existence check and the load → available. */
+        if (r < 0)
+                return r;
+
+        r = userns_registry_reap_if_dead(bpf, registry_dir_fd, owner->userns_inode);
+        if (r < 0)
+                return r;
+        if (r == USERNS_REAP_RELEASED)
+                return true; /* Owner was dead and reaped → range is now free. */
+
+        /* Owner is alive or its liveness couldn't be determined → we can't reclaim it, so the range
+         * is taken. */
+        log_debug("%s" UID_FMT " unavailable: already registered in userns registry.",
+                  gid ? "GID " : "UID ", candidate);
+        return false;
+}
+
+static int delegation_range_is_available(
+                struct userns_restrict_bpf *bpf,
+                int registry_dir_fd,
+                uid_t candidate,
+                uint64_t parent_userns_inode,
+                bool gid) {
+
+        int r;
+
+        assert(registry_dir_fd >= 0);
+
+        /* Checks whether the (UID or GID) range starting at candidate is free to allocate as far as
+         * the delegation registry is concerned. A delegated range is available only if it's owned by
+         * the requesting parent user namespace (which may then sub-allocate within it). If it's owned
+         * by another namespace that has since died — without a BPF death event reaping it yet — we reclaim
+         * it on the spot, which restores the range to its ancestor (possibly the parent), and
+         * re-evaluate. This walks a chain of dead ancestors until it reaches a live owner, the
+         * requesting parent, or a fully freed range. */
+
+        r = gid ? userns_registry_delegation_gid_exists(registry_dir_fd, (gid_t) candidate)
+                : userns_registry_delegation_uid_exists(registry_dir_fd, candidate);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return true; /* No delegation for this range → available. */
+
+        for (;;) {
+                _cleanup_(delegated_userns_info_done) DelegatedUserNamespaceInfo delegation = DELEGATED_USER_NAMESPACE_INFO_NULL;
+
+                r = gid ? userns_registry_load_delegation_by_gid(registry_dir_fd, (gid_t) candidate, &delegation)
+                        : userns_registry_load_delegation_by_uid(registry_dir_fd, candidate, &delegation);
+                if (r == -ENOENT)
+                        return true; /* Delegation removed while reaping (no ancestor left) → fully free. */
+                if (r < 0)
+                        return r;
+
+                if (delegation.userns_inode == parent_userns_inode) {
+                        /* The parent userns owns this delegation, so the range is available for nested
+                         * allocation. */
+                        log_debug("%s" UID_FMT " is delegated by parent userns inode %" PRIu64 ", available for nested allocation.",
+                                  gid ? "GID " : "UID ", candidate, parent_userns_inode);
+                        return true;
+                }
+
+                /* Owned by some other namespace. If that namespace is dead, reclaim it (restoring the
+                 * range to its ancestor) and loop to re-evaluate; otherwise the range is genuinely
+                 * taken. */
+                r = userns_registry_reap_if_dead(bpf, registry_dir_fd, delegation.userns_inode);
+                if (r < 0)
+                        return r;
+                if (r == USERNS_REAP_RELEASED)
+                        continue; /* Reaped a dead owner; re-evaluate the now-restored delegation. */
+
+                /* Owner is alive, or its liveness couldn't be determined (no recorded id, or a dead
+                 * ancestor that an earlier reap popped into ownership but left no registry entry to
+                 * drive a further restore). We can't reclaim the range here — and mustn't loop, since
+                 * re-reaping would not make progress — so treat it as taken. */
+                log_debug("%s" UID_FMT " unavailable: delegated to userns inode %" PRIu64 " that can't be reclaimed (parent is %" PRIu64 ").",
+                          gid ? "GID " : "UID ", candidate, delegation.userns_inode, parent_userns_inode);
+                return false;
+        }
+}
+
+static int uid_is_available(
+                struct userns_restrict_bpf *bpf,
+                int registry_dir_fd,
+                uid_t candidate,
+                int parent_userns_fd) {
+
         int r;
 
         assert(registry_dir_fd >= 0);
@@ -387,63 +499,35 @@ static int uid_is_available(int registry_dir_fd, uid_t candidate, int parent_use
                 return log_debug_errno(errno, "Failed to fstat parent user namespace: %m");
         parent_userns_inode = parent_st.st_ino;
 
-        r = userns_registry_uid_exists(registry_dir_fd, candidate);
+        /* Check whether an existing transient registration claims this range; a dead owner is reclaimed
+         * inline so its range doesn't stay blocked. The UID and GID are checked separately as either
+         * can exist independently. */
+        r = registry_range_is_available(bpf, registry_dir_fd, candidate, /* gid= */ false);
         if (r < 0)
                 return r;
-        if (r > 0) {
-                log_debug("UID " UID_FMT " unavailable: already registered in userns registry.", candidate);
+        if (r == 0)
                 return false;
-        }
 
-        r = userns_registry_gid_exists(registry_dir_fd, (gid_t) candidate);
+        r = registry_range_is_available(bpf, registry_dir_fd, candidate, /* gid= */ true);
         if (r < 0)
                 return r;
-        if (r > 0) {
-                log_debug("UID " UID_FMT " unavailable: GID already registered in userns registry.", candidate);
+        if (r == 0)
                 return false;
-        }
 
-        /* Also check delegation files. If parent_userns_inode is set and matches the delegation's userns
-         * inode, the UID is available because the parent owns that delegation. */
-        r = userns_registry_delegation_uid_exists(registry_dir_fd, candidate);
+        /* Also check delegation files. A delegated range is only available for nested allocation when
+         * the requesting parent owns it; dead owners are reclaimed inline so their ranges don't stay
+         * blocked. We check the UID and GID delegations separately as either can exist independently. */
+        r = delegation_range_is_available(bpf, registry_dir_fd, candidate, parent_userns_inode, /* gid= */ false);
         if (r < 0)
                 return r;
-        if (r > 0) {
-                _cleanup_(delegated_userns_info_done) DelegatedUserNamespaceInfo delegation = DELEGATED_USER_NAMESPACE_INFO_NULL;
-                r = userns_registry_load_delegation_by_uid(registry_dir_fd, candidate, &delegation);
-                if (r < 0)
-                        return r;
+        if (r == 0)
+                return false;
 
-                if (delegation.userns_inode != parent_userns_inode) {
-                        log_debug("UID " UID_FMT " unavailable: delegated to userns inode %" PRIu64 " (parent is %" PRIu64 ").",
-                                  candidate, delegation.userns_inode, parent_userns_inode);
-                        return false;
-                }
-
-                /* The parent userns owns this delegation, so the UID is available for nested allocation */
-                log_debug("UID " UID_FMT " is delegated by parent userns inode %" PRIu64 ", available for nested allocation.",
-                          candidate, parent_userns_inode);
-        }
-
-        r = userns_registry_delegation_gid_exists(registry_dir_fd, (gid_t) candidate);
+        r = delegation_range_is_available(bpf, registry_dir_fd, candidate, parent_userns_inode, /* gid= */ true);
         if (r < 0)
                 return r;
-        if (r > 0) {
-                _cleanup_(delegated_userns_info_done) DelegatedUserNamespaceInfo delegation = DELEGATED_USER_NAMESPACE_INFO_NULL;
-                r = userns_registry_load_delegation_by_gid(registry_dir_fd, candidate, &delegation);
-                if (r < 0)
-                        return r;
-
-                if (delegation.userns_inode != parent_userns_inode) {
-                        log_debug("UID " UID_FMT " unavailable: GID delegated to userns inode %" PRIu64 " (parent is %" PRIu64 ").",
-                                  candidate, delegation.userns_inode, parent_userns_inode);
-                        return false;
-                }
-
-                /* The parent userns owns this delegation, so the UID is available for nested allocation */
-                log_debug("UID " UID_FMT " is delegated by parent userns inode %" PRIu64 ", available for nested allocation.",
-                          candidate, parent_userns_inode);
-        }
+        if (r == 0)
+                return false;
 
         r = is_our_namespace(parent_userns_fd, NAMESPACE_USER);
         if (r < 0)
@@ -551,6 +635,7 @@ static int inode_slot_is_available(
 }
 
 static int allocate_one(
+                struct userns_restrict_bpf *bpf,
                 int registry_dir_fd,
                 const char *name,
                 uint32_t size,
@@ -623,7 +708,7 @@ static int allocate_one(
 
                 /* We only check the base UID for each range. Pass the parent userns inode so that
                  * allocating from a delegated range owned by the parent is allowed. */
-                r = uid_is_available(registry_dir_fd, candidate, parent_userns_fd);
+                r = uid_is_available(bpf, registry_dir_fd, candidate, parent_userns_fd);
                 if (r < 0)
                         return log_debug_errno(r, "Can't determine if UID range " UID_FMT " is available: %m", candidate);
                 if (r > 0)
@@ -710,6 +795,7 @@ static int allocate_now(
          * allocate a transient range. */
         if (!uid_is_valid(info->start_uid) && !gid_is_valid(info->start_gid)) {
                 r = allocate_one(
+                                bpf,
                                 registry_dir_fd,
                                 info->name, info->size,
                                 parent_userns_fd,
@@ -728,6 +814,7 @@ static int allocate_now(
 
                 FOREACH_ARRAY(delegate, info->delegates, info->n_delegates) {
                         r = allocate_one(
+                                        bpf,
                                         registry_dir_fd,
                                         /* name= */ NULL,
                                         delegate->size,
