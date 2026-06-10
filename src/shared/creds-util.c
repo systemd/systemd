@@ -24,6 +24,7 @@
 #include "find-esp.h"
 #include "format-util.h"
 #include "fs-util.h"
+#include "initrd-util.h"
 #include "io-util.h"
 #include "json-util.h"
 #include "log.h"
@@ -31,10 +32,12 @@
 #include "mkdir.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "proc-cmdline.h"
 #include "random-util.h"
 #include "recurse-dir.h"
 #include "sparse-endian.h"
 #include "stat-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "tmpfile-util.h"
 #include "tpm2-pcr.h"
@@ -1265,16 +1268,29 @@ int decrypt_credential_and_warn(
                          * way offer no confidentiality nor authenticity. Because of that it's important we refuse to
                          * use them on systems that actually *do* have a TPM2 chip – if we are in SecureBoot
                          * mode. Otherwise an attacker could hand us credentials like this and we'd use them thinking
-                         * they are trusted, even though they are not. */
+                         * they are trusted, even though they are not.
+                         *
+                         * Which conditions actually lead us to accept a null-key credential is configurable via the
+                         * systemd.credentials_boot= policy, which also covers the first boot case (before any key
+                         * exists yet); the decision itself is made in credential_boot_policy_accepts_null(). */
 
-                        if (efi_has_tpm2()) {
-                                if (is_efi_secure_boot())
-                                        return log_error_errno(SYNTHETIC_ERRNO(EHWPOISON),
-                                                               "Credential uses null key intended for fallback use when TPM2 is absent — but TPM2 is present, and SecureBoot is enabled, refusing.");
+                        CredentialBootPolicy policy = query_credential_boot_policy();
+                        bool first_boot = in_first_boot(), have_tpm2 = efi_has_tpm2(), secure_boot = is_efi_secure_boot();
 
-                                log_warning("Credential uses null key intended for use when TPM2 is absent, but TPM2 is present! Accepting anyway, since SecureBoot is disabled.");
-                        } else
-                                log_debug("Credential uses null key intended for use when TPM2 is absent, and TPM2 indeed is absent. Accepting.");
+                        if (!credential_boot_policy_accepts_null(policy, first_boot, have_tpm2, secure_boot))
+                                return log_error_errno(SYNTHETIC_ERRNO(EHWPOISON),
+                                                       "Credential uses null key, but systemd.credentials_boot=%s policy refuses it here (TPM2=%s, SecureBoot=%s, first boot=%s).",
+                                                       credential_boot_policy_to_string(policy),
+                                                       yes_no(have_tpm2), yes_no(secure_boot), yes_no(first_boot));
+
+                        /* Accepting a null-key credential on a tpm2 host is undesired so keep it auditable */
+                        if (have_tpm2 && !first_boot)
+                                log_warning("Credential uses null key intended for use when TPM2 is absent, but TPM2 is present! "
+                                            "Accepting anyway, under systemd.credentials_boot=%s policy.",
+                                            credential_boot_policy_to_string(policy));
+                        else
+                                log_debug("Credential uses null key, accepted under systemd.credentials_boot=%s policy.",
+                                          credential_boot_policy_to_string(policy));
                 }
         }
 
@@ -1575,6 +1591,66 @@ int decrypt_credential_and_warn(const char *validate_name, usec_t validate_times
 }
 
 #endif
+
+/* The null-key credential policy is pure logic with no dependency on the encryption backend, so it lives
+ * outside the HAVE_OPENSSL guard above and stays available (and testable) even without openssl. */
+
+static const char* const credential_boot_policy_table[_CRED_BOOT_POLICY_MAX] = {
+        [CRED_BOOT_STRICT]  = "strict",
+        [CRED_BOOT_TOFU]    = "tofu",
+        [CRED_BOOT_RELAXED] = "relaxed",
+        [CRED_BOOT_OFF]     = "off",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(credential_boot_policy, CredentialBootPolicy);
+
+CredentialBootPolicy query_credential_boot_policy(void) {
+        static CredentialBootPolicy cached = _CRED_BOOT_POLICY_INVALID;
+        _cleanup_free_ char *value = NULL;
+        int r;
+
+        if (cached >= 0)
+                return cached;
+
+        /* default to RELAXED if invalid or unset */
+        cached = CRED_BOOT_RELAXED;
+        r = proc_cmdline_get_key("systemd.credentials_boot", PROC_CMDLINE_STRIP_RD_PREFIX, &value);
+        if (r < 0)
+                log_debug_errno(r, "Failed to read systemd.credentials_boot= from kernel command line, ignoring: %m");
+        else if (r > 0) {
+                CredentialBootPolicy p = credential_boot_policy_from_string(value);
+                if (p < 0)
+                        log_warning("Invalid systemd.credentials_boot= value '%s', ignoring.", value);
+                else
+                        cached = p;
+        }
+
+        return cached;
+}
+
+bool credential_boot_policy_accepts_null(CredentialBootPolicy policy, bool first_boot, bool have_tpm2, bool secure_boot) {
+
+        /* Decides whether a null-key encrypted credential (which offers neither confidentiality nor
+         * authenticity) may be accepted, given the configured policy and the current system state. */
+
+        switch (policy) {
+
+        case CRED_BOOT_STRICT:
+                return false;
+
+        case CRED_BOOT_TOFU:
+                return first_boot || !have_tpm2;
+
+        case CRED_BOOT_RELAXED:
+                return !secure_boot || !have_tpm2;
+
+        case CRED_BOOT_OFF:
+                return true;
+
+        default:
+                assert_not_reached();
+        }
+}
 
 int ipc_encrypt_credential(const char *name, usec_t timestamp, usec_t not_after, uid_t uid, const struct iovec *input, CredentialFlags flags, struct iovec *ret) {
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
