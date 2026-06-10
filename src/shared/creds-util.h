@@ -66,6 +66,21 @@ typedef enum CredentialFlags {
         CREDENTIAL_IPC_ALLOW_INTERACTIVE = 1 << 3,
 } CredentialFlags;
 
+typedef enum CredentialBootPolicy {
+        CRED_BOOT_STRICT,   /* never accept a null key */
+        CRED_BOOT_TOFU,     /* accept a null key during first boot or when no TPM2 is available */
+        CRED_BOOT_RELAXED,  /* accept a null key when SecureBoot is off or when no TPM2 is available */
+        CRED_BOOT_OFF,      /* always accept a null key */
+        _CRED_BOOT_POLICY_MAX,
+        _CRED_BOOT_POLICY_INVALID = -EINVAL,
+} CredentialBootPolicy;
+
+CredentialBootPolicy credential_boot_policy(void);
+bool credential_boot_policy_accepts_null(CredentialBootPolicy policy, bool first_boot, bool have_tpm2, bool secure_boot) _const_;
+
+const char* credential_boot_policy_to_string(CredentialBootPolicy p) _const_;
+CredentialBootPolicy credential_boot_policy_from_string(const char *s) _pure_;
+
 /* The four modes we support: keyed only by on-disk key, only by TPM2 HMAC key, and by the combination of
  * both, as well as one with a fixed zero length key if TPM2 is missing (the latter of course provides no
  * authenticity or confidentiality, but is still useful for integrity protection, and makes things simpler

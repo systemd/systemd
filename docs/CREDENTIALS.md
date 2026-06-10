@@ -274,6 +274,33 @@ SetCredentialEncrypted=foobar: \
 …
 ```
 
+### Null-Key Encryption and the Boot Policy
+
+In some situations a credential must be provisioned to a machine that does not
+yet (or does not at all) possess a key to encrypt against, for example before
+first boot completes, or on systems without a TPM2 device. For these cases
+`systemd-creds encrypt --with-key=null` produces a credential wrapped in the
+normal `systemd-creds` envelope, but encrypted with a fixed zero-length key.
+Such a credential travels through the same path as any other encrypted
+credential (e.g. it may be dropped into the ESP under `/loader/credentials/` or
+`*.efi.extra.d/`), but it offers neither confidentiality nor authenticity.
+Because of that, accepting it is risky on a system that could do better, and
+whether it is accepted at boot is controlled by the `systemd.credentials-boot=`
+kernel command line option:
+
+| Mode      | A null-key credential is accepted when…           |
+|-----------|---------------------------------------------------|
+| `strict`  | never                                             |
+| `tofu`    | this is the first boot, or no TPM2 is available   |
+| `relaxed` | SecureBoot is off, or no TPM2 is available        |
+| `off`     | always                                            |
+
+The default is `tofu` (trust on first use). This policy only governs the
+default acceptance decision; credentials encrypted against a host key or TPM2
+device are always accepted. See
+[systemd(1)](https://www.freedesktop.org/software/systemd/man/latest/systemd.html)
+for details.
+
 ## Inheritance from Container Managers, Hypervisors, Kernel Command Line, or the UEFI Boot Environment
 
 Sometimes it is useful to parameterize whole systems the same way as services,
