@@ -17,6 +17,7 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "json-util.h"
+#include "namespace-util.h"
 #include "path-util.h"
 #include "recurse-dir.h"
 #include "rm-rf.h"
@@ -536,6 +537,48 @@ void userns_registry_release_by_userns_inode(struct userns_restrict_bpf *bpf, in
         /* No registry entry — still clean up the inode-keyed kernel resources (BPF map allowlist and
          * fdstore fd), which can outlive a missing registry record. */
         release_userns_inode_resources(bpf, inode);
+}
+
+int userns_registry_reap_if_dead(struct userns_restrict_bpf *bpf, int dir_fd, uint64_t inode) {
+        _cleanup_(userns_info_freep) UserNamespaceInfo *info = NULL;
+        int r;
+
+        assert(dir_fd >= 0);
+        assert(inode != 0);
+
+        /* This is the shared engine behind both the runtime allocation hot path and the startup
+         * registry sweep: it reclaims ranges blocked by a dead namespace that no BPF death event
+         * cleaned up, without waiting for the manager to restart. */
+
+        r = userns_registry_load_by_userns_inode(dir_fd, inode, &info);
+        if (r == -ENOENT)
+                /* No entry is registered for this inode any more (already gone) — e.g. a dead ancestor
+                 * still referenced by a delegation chain. Nothing to reap. */
+                return USERNS_REAP_INDETERMINATE;
+        if (r < 0)
+                return r;
+
+        if (info->userns_id == 0)
+                return USERNS_REAP_INDETERMINATE; /* Entry predates ns id tracking, can't probe authoritatively. */
+
+        _cleanup_close_ int probe_fd = namespace_open_by_id(info->userns_id);
+        if (probe_fd >= 0)
+                return USERNS_REAP_ALIVE; /* Still alive (or the inode was recycled for a live namespace). */
+        if (ERRNO_IS_NEG_PRIVILEGE(probe_fd) || ERRNO_IS_NEG_NOT_SUPPORTED(probe_fd) || probe_fd == -EINVAL)
+                /* EPERM/EACCES (not in the initial user namespace, missing CAP_SYS_ADMIN), or
+                 * ENOTSUP/ENOSYS/EINVAL (kernel new enough for NS_GET_ID but too old for
+                 * open_by_handle_at() lookup by id on nsfs) — we can't confirm death for this or any
+                 * other entry. The userns_id == 0 case is already handled above, so -EINVAL here means
+                 * the lookup is unsupported rather than a bad id. */
+                return USERNS_REAP_UNSUPPORTED;
+        if (probe_fd != -ESTALE)
+                return probe_fd; /* Unexpected probe error. */
+
+        log_debug("User namespace %" PRIu64 " (id %" PRIu64 ") refers to a dead namespace, reclaiming its resources.",
+                  inode, info->userns_id);
+
+        userns_registry_release_by_info(bpf, dir_fd, info);
+        return USERNS_REAP_RELEASED;
 }
 
 int userns_info_verify_fd(int userns_fd, const UserNamespaceInfo *info) {
