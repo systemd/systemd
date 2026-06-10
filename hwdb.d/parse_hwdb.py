@@ -260,6 +260,7 @@ def property_grammar():
         ('IMDS_KEY_USERDATA', name_literal),
         ('IMDS_KEY_USERDATA_BASE', name_literal),
         ('IMDS_KEY_USERDATA_BASE64', name_literal),
+        ('VSOCK_LOCAL_CID_IS_VMADDR_CID_ANY', zero_one),
     )
     fixed_props = [Literal(name)('NAME') - Suppress('=') - val('VALUE') for name, val in props]
     kbd_props = [
