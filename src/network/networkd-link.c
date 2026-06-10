@@ -2641,6 +2641,32 @@ static int link_update_name(Link *link, sd_netlink_message *message) {
 
         hashmap_remove(link->manager->links_by_name, link->ifname);
 
+        Link *existing = hashmap_get(link->manager->links_by_name, ifname);
+        if (existing && existing != link) {
+                log_link_warning(link, "Interface name '%s' is already in use by ifindex %d.", 
+                                ifname, existing->ifindex);
+
+                /* Restore the occupant to the current name in the kernel */
+                char current_name[IF_NAMESIZE];
+                r = format_ifname(existing->ifindex, current_name);
+                if (r >= 0 && !streq(current_name, existing->ifname)) {
+                        log_link_info(existing, "Updating stale name '%s' to current kernel name '%s'.",
+                                        existing->ifname, current_name);
+                        hashmap_remove(link->manager->links_by_name, existing->ifname);
+                        r = free_and_strdup(&existing->ifname, current_name);
+                        if (r < 0)
+                                return log_oom_debug();
+                        r = hashmap_ensure_put(&link->manager->links_by_name, &string_hash_ops, existing->ifname, existing);
+                        if (r < 0)
+                                return log_link_debug_errno(existing, r, "Failed to manage existing link by its real name: %m");
+                } else {
+                        /* If recovery is not possible, based on the trustworthiness of the kernel netlink messages,
+                         * make the occupant enter a failed state and remove it */
+                        link_enter_failed(existing);
+                        hashmap_remove(link->manager->links_by_name, ifname);
+                }
+        }
+
         r = free_and_strdup(&link->ifname, ifname);
         if (r < 0)
                 return log_oom_debug();
