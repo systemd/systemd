@@ -15,6 +15,8 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 
+#include "sd-hwdb.h"
+
 #include "alloc-util.h"
 #include "errno-util.h"
 #include "escape.h"
@@ -53,6 +55,46 @@ static const char* const socket_address_type_table[] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(socket_address_type, int);
+
+static int smbios_get_modalias(char **ret) {
+        int r;
+
+        assert(ret);
+
+        _cleanup_free_ char *modalias = NULL;
+        r = read_virtual_file("/sys/devices/virtual/dmi/id/modalias", SIZE_MAX, &modalias, /* ret_size= */ NULL);
+        if (r < 0)
+                return r;
+
+        truncate_nl(modalias);
+
+        *ret = TAKE_PTR(modalias);
+        return 0;
+}
+
+static int smbios_get_if_local_cid_is_any(void) {
+        const char *local_cid_any;
+        int r;
+
+        _cleanup_free_ char *modalias = NULL;
+        r = smbios_get_modalias(&modalias);
+        if (r == -ENOENT) {
+                return false;
+        }
+        if (r < 0)
+                return log_debug_errno(r, "Failed to read DMI modalias: %m");
+
+        _cleanup_(sd_hwdb_unrefp) sd_hwdb *hwdb = NULL;
+        r = sd_hwdb_new(&hwdb);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to open hwdb: %m");
+
+        r = sd_hwdb_get(hwdb, modalias, "VSOCK_LOCAL_CID_IS_VMADDR_CID_ANY", &local_cid_any);
+        if (r < 0)
+                return false;
+
+        return streq(local_cid_any, "1");
+}
 
 int socket_address_verify(const SocketAddress *a, bool strict) {
         assert(a);
@@ -1813,7 +1855,9 @@ int vsock_get_local_cid(unsigned *ret) {
         /* If ret == NULL, we're just want to check if AF_VSOCK is available, so accept
          * any address. Otherwise, filter out special addresses that are cannot be used
          * to identify _this_ machine from the outside. */
-        if (ret && IN_SET(tmp, VMADDR_CID_LOCAL, VMADDR_CID_HOST, VMADDR_CID_ANY))
+        if (ret &&
+            (IN_SET(tmp, VMADDR_CID_LOCAL, VMADDR_CID_HOST) ||
+                (tmp == VMADDR_CID_ANY && !smbios_get_if_local_cid_is_any())))
                 return log_debug_errno(SYNTHETIC_ERRNO(EADDRNOTAVAIL),
                                        "IOCTL_VM_SOCKETS_GET_LOCAL_CID returned special value (%u), ignoring.", tmp);
 
