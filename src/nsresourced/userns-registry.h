@@ -76,6 +76,21 @@ int userns_info_verify_fd(int userns_fd, const UserNamespaceInfo *info);
 void userns_registry_release_by_info(struct userns_restrict_bpf *bpf, int dir_fd, UserNamespaceInfo *info);
 void userns_registry_release_by_userns_inode(struct userns_restrict_bpf *bpf, int dir_fd, uint64_t inode);
 
+/* Probes the registered user namespace with the given inode for liveness via its recorded kernel
+ * namespace id and, if it is authoritatively dead, releases its registry entry (restoring any ranges
+ * it received via delegation to their ancestors). The caller must hold the registry lock (or
+ * otherwise be free of concurrent writers). Returns:
+ *
+ *   1            the namespace was dead and its entry was released
+ *   -EBUSY       the namespace is still alive — left untouched
+ *   -ENODATA     the entry predates id tracking, so liveness can't be probed — left untouched
+ *   -EHOSTDOWN   namespaces can't be looked up by id in this environment (old kernel, or not in the
+ *                initial user namespace) — left untouched. This applies to every entry, so callers
+ *                sweeping many entries can stop probing on it.
+ *   < 0          any other negative errno on unexpected failure
+ */
+int userns_registry_reap_if_dead(struct userns_restrict_bpf *bpf, int dir_fd, uint64_t inode);
+
 int userns_registry_store(int dir_fd, UserNamespaceInfo *info);
 int userns_registry_remove(int dir_fd, UserNamespaceInfo *info);
 
