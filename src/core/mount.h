@@ -47,10 +47,10 @@ typedef struct Mount {
 
         char *where;
 
-        MountParameters parameters_proc_self_mountinfo;
+        MountParameters parameters_kernel;
         MountParameters parameters_fragment;
 
-        bool from_proc_self_mountinfo:1;
+        bool from_kernel:1;
         bool from_fragment:1;
 
         MountProcFlags proc_flags;

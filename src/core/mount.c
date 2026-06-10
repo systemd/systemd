@@ -66,7 +66,7 @@ static int mount_dispatch_io(sd_event_source *source, int fd, uint32_t revents, 
 static void mount_enter_dead(Mount *m, MountResult f, bool flush_result);
 static void mount_enter_mounted(Mount *m, MountResult f);
 static void mount_cycle_clear(Mount *m);
-static int mount_process_proc_self_mountinfo(Manager *m);
+static int mount_process_kernel_mounttable(Manager *m);
 
 static bool MOUNT_STATE_WITH_PROCESS(MountState state) {
         return IN_SET(state,
@@ -93,8 +93,8 @@ static MountParameters* get_mount_parameters_fragment(Mount *m) {
 static MountParameters* get_mount_parameters(Mount *m) {
         assert(m);
 
-        if (m->from_proc_self_mountinfo)
-                return &m->parameters_proc_self_mountinfo;
+        if (m->from_kernel)
+                return &m->parameters_kernel;
 
         return get_mount_parameters_fragment(m);
 }
@@ -227,7 +227,7 @@ static void mount_done(Unit *u) {
 
         m->where = mfree(m->where);
 
-        mount_parameters_done(&m->parameters_proc_self_mountinfo);
+        mount_parameters_done(&m->parameters_kernel);
         mount_parameters_done(&m->parameters_fragment);
 
         m->exec_runtime = exec_runtime_free(m->exec_runtime);
@@ -361,7 +361,7 @@ static int mount_add_device_dependencies(Mount *m) {
         dep = mount_is_bound_to_device(m) > 0 ? UNIT_BINDS_TO : UNIT_REQUIRES;
 
         /* We always use 'what' from /proc/self/mountinfo if mounted */
-        mask = m->from_proc_self_mountinfo ? UNIT_DEPENDENCY_MOUNTINFO : UNIT_DEPENDENCY_MOUNT_FILE;
+        mask = m->from_kernel ? UNIT_DEPENDENCY_MOUNTINFO : UNIT_DEPENDENCY_MOUNT_FILE;
 
         r = unit_add_node_dependency(UNIT(m), p->what, dep, mask);
         if (r < 0)
@@ -510,7 +510,7 @@ static int mount_add_default_dependencies(Mount *m) {
         if (!p)
                 return 0;
 
-        mask = m->from_proc_self_mountinfo ? UNIT_DEPENDENCY_MOUNTINFO : UNIT_DEPENDENCY_MOUNT_FILE;
+        mask = m->from_kernel ? UNIT_DEPENDENCY_MOUNTINFO : UNIT_DEPENDENCY_MOUNT_FILE;
 
         r = mount_add_default_ordering_dependencies(m, p, mask);
         if (r < 0)
@@ -531,7 +531,7 @@ static int mount_verify(Mount *m) {
         assert(m);
         assert(UNIT(m)->load_state == UNIT_LOADED);
 
-        if (!m->from_fragment && !m->from_proc_self_mountinfo && !UNIT(m)->perpetual)
+        if (!m->from_fragment && !m->from_kernel && !UNIT(m)->perpetual)
                 return -ENOENT;
 
         r = unit_name_from_path(m->where, ".mount", &e);
@@ -663,7 +663,7 @@ static int mount_load(Unit *u) {
 
         mount_load_root_mount(u);
 
-        bool from_kernel = m->from_proc_self_mountinfo || u->perpetual;
+        bool from_kernel = m->from_kernel || u->perpetual;
 
         r = unit_load_fragment_and_dropin(u, /* fragment_required= */ !from_kernel);
 
@@ -739,8 +739,8 @@ static int mount_coldplug(Unit *u) {
 static void mount_catchup(Unit *u) {
         Mount *m = ASSERT_PTR(MOUNT(u));
 
-        /* Adjust the deserialized state. See comments in mount_process_proc_self_mountinfo(). */
-        if (m->from_proc_self_mountinfo)
+        /* Adjust the deserialized state. See comments in mount_process_kernel_mounttable(). */
+        if (m->from_kernel)
                 switch (m->state) {
                 case MOUNT_DEAD:
                 case MOUNT_FAILED:
@@ -807,7 +807,7 @@ static void mount_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, p ? strna(p->what) : "n/a",
                 prefix, p ? strna(p->fstype) : "n/a",
                 prefix, p ? strna(p->options) : "n/a",
-                prefix, yes_no(m->from_proc_self_mountinfo),
+                prefix, yes_no(m->from_kernel),
                 prefix, yes_no(m->from_fragment),
                 prefix, yes_no(mount_is_extrinsic(u)),
                 prefix, m->directory_mode,
@@ -939,7 +939,7 @@ static void mount_enter_dead_or_mounted(Mount *m, MountResult f, bool flush_resu
          * Note that flush_result only applies to mount_enter_dead(), since that's when the result gets
          * turned into unit end state. */
 
-        if (m->from_proc_self_mountinfo)
+        if (m->from_kernel)
                 mount_enter_mounted(m, f);
         else
                 mount_enter_dead(m, f, flush_result);
@@ -1504,7 +1504,7 @@ static const char *mount_sub_state_to_string(Unit *u) {
 static bool mount_may_gc(Unit *u) {
         Mount *m = ASSERT_PTR(MOUNT(u));
 
-        if (m->from_proc_self_mountinfo)
+        if (m->from_kernel)
                 return false;
 
         return true;
@@ -1533,7 +1533,7 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
          * race, let's explicitly scan /proc/self/mountinfo before we start processing /usr/bin/(u)mount
          * dying. It's ugly, but it makes our ordering systematic again, and makes sure we always see
          * /proc/self/mountinfo changes before our mount/umount exits. */
-        (void) mount_process_proc_self_mountinfo(u->manager);
+        (void) mount_process_kernel_mounttable(u->manager);
 
         pidref_done(&m->control_pid);
 
@@ -1596,7 +1596,7 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                 break;
 
         case MOUNT_UNMOUNTING:
-                if (f == MOUNT_SUCCESS && m->from_proc_self_mountinfo) {
+                if (f == MOUNT_SUCCESS && m->from_kernel) {
                         /* Still a mount point? If so, let's try again. Most likely there were multiple mount points
                          * stacked on top of each other. We might exceed the timeout specified by the user overall,
                          * but we will stop as soon as any one umount times out. */
@@ -1609,7 +1609,7 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                 log_unit_warning(u, "Mount still present after %u attempts to unmount, giving up.", m->n_retry_umount);
                                 mount_enter_mounted(m, MOUNT_FAILURE_PROTOCOL);
                         }
-                } else if (f == MOUNT_FAILURE_EXIT_CODE && !m->from_proc_self_mountinfo) {
+                } else if (f == MOUNT_FAILURE_EXIT_CODE && !m->from_kernel) {
                         /* Hmm, umount process spawned by us failed, but the mount disappeared anyway?
                          * Maybe someone else is trying to unmount at the same time. */
                         log_unit_notice(u, "Mount disappeared even though umount process failed, continuing.");
@@ -1719,7 +1719,7 @@ static int mount_dispatch_timer(sd_event_source *source, usec_t usec, void *user
 }
 
 #if HAVE_LIBMOUNT
-static int update_parameters_proc_self_mountinfo(
+static int update_parameters_kernel(
                 Mount *m,
                 const char *what,
                 const char *options,
@@ -1730,7 +1730,7 @@ static int update_parameters_proc_self_mountinfo(
 
         assert(m);
 
-        p = &m->parameters_proc_self_mountinfo;
+        p = &m->parameters_kernel;
 
         r = free_and_strdup(&p->what, what);
         if (r < 0)
@@ -1780,14 +1780,14 @@ static int mount_setup_new_unit(
         if (r < 0)
                 return r;
 
-        r = update_parameters_proc_self_mountinfo(mnt, what, options, fstype);
+        r = update_parameters_kernel(mnt, what, options, fstype);
         if (r < 0)
                 return r;
 
         /* This unit was generated because /proc/self/mountinfo reported it. Remember this, so that by the
          * time we load the unit file for it (and thus add in extra deps right after) we know what source to
          * attributes the deps to. */
-        mnt->from_proc_self_mountinfo = true;
+        mnt->from_kernel = true;
 
         /* We have only allocated the stub now, let's enqueue this unit for loading now, so that everything
          * else is loaded in now. */
@@ -1825,7 +1825,7 @@ static int mount_setup_existing_unit(
          * iteration and thus worthy of taking into account. */
         MountProcFlags flags = m->proc_flags | MOUNT_PROC_IS_MOUNTED;
 
-        r = update_parameters_proc_self_mountinfo(m, what, options, fstype);
+        r = update_parameters_kernel(m, what, options, fstype);
         if (r < 0)
                 return r;
         if (r > 0)
@@ -1838,10 +1838,10 @@ static int mount_setup_existing_unit(
          * from the serialized state), and need to catch up. Since we know that the MOUNT_MOUNTING state is
          * reached when we wait for the mount to appear we hence can assume that if we are in it, we are
          * actually seeing it established for the first time. */
-        if (!m->from_proc_self_mountinfo || m->state == MOUNT_MOUNTING)
+        if (!m->from_kernel || m->state == MOUNT_MOUNTING)
                 flags |= MOUNT_PROC_JUST_MOUNTED;
 
-        m->from_proc_self_mountinfo = true;
+        m->from_kernel = true;
 
         if (UNIT_IS_LOAD_ERROR(u->load_state)) {
                 /* The unit was previously not found or otherwise not loaded. Now that the unit shows up in
@@ -1928,7 +1928,7 @@ static int mount_setup_unit(
         return 0;
 }
 
-static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
+static int mount_load_kernel_mounttable(Manager *m, bool set_flags) {
         _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
         _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
         _cleanup_set_free_ Set *devices = NULL;
@@ -2151,7 +2151,7 @@ static void mount_enumerate(Manager *m) {
                 (void) sd_event_source_set_description(m->mount_event_source, "mount-monitor-dispatch");
         }
 
-        r = mount_load_proc_self_mountinfo(m, false);
+        r = mount_load_kernel_mounttable(m, false);
         if (r < 0)
                 goto fail;
 
@@ -2193,7 +2193,7 @@ static int drain_libmount(Manager *m) {
 #endif
 }
 
-static int mount_process_proc_self_mountinfo(Manager *m) {
+static int mount_process_kernel_mounttable(Manager *m) {
         int r;
 
         assert(m);
@@ -2203,7 +2203,7 @@ static int mount_process_proc_self_mountinfo(Manager *m) {
                 return r;
 
 #if HAVE_LIBMOUNT
-        r = mount_load_proc_self_mountinfo(m, true);
+        r = mount_load_kernel_mounttable(m, true);
         if (r < 0) {
                 /* Reset flags, just in case, for later calls */
                 LIST_FOREACH(units_by_type, u, m->units_by_type[UNIT_MOUNT])
@@ -2224,14 +2224,14 @@ static int mount_process_proc_self_mountinfo(Manager *m) {
                         /* A mount point is not around right now. It might be gone, or might never have
                          * existed. */
 
-                        if (mount->from_proc_self_mountinfo &&
-                            mount->parameters_proc_self_mountinfo.what)
+                        if (mount->from_kernel &&
+                            mount->parameters_kernel.what)
                                 /* Remember that this device might just have disappeared */
-                                if (set_put_strdup_full(&gone, &path_hash_ops_free, mount->parameters_proc_self_mountinfo.what) < 0)
+                                if (set_put_strdup_full(&gone, &path_hash_ops_free, mount->parameters_kernel.what) < 0)
                                         log_oom(); /* we don't care too much about OOM here... */
 
-                        mount->from_proc_self_mountinfo = false;
-                        assert_se(update_parameters_proc_self_mountinfo(mount, NULL, NULL, NULL) >= 0);
+                        mount->from_kernel = false;
+                        assert_se(update_parameters_kernel(mount, NULL, NULL, NULL) >= 0);
 
                         switch (mount->state) {
 
@@ -2285,10 +2285,10 @@ static int mount_process_proc_self_mountinfo(Manager *m) {
                 }
 
                 if (mount_is_mounted(mount) &&
-                    mount->from_proc_self_mountinfo &&
-                    mount->parameters_proc_self_mountinfo.what)
+                    mount->from_kernel &&
+                    mount->parameters_kernel.what)
                         /* Track devices currently used */
-                        if (set_put_strdup_full(&around, &path_hash_ops_free, mount->parameters_proc_self_mountinfo.what) < 0)
+                        if (set_put_strdup_full(&around, &path_hash_ops_free, mount->parameters_kernel.what) < 0)
                                 log_oom();
 
                 /* Reset the flags for later calls */
@@ -2316,7 +2316,7 @@ static int mount_dispatch_io(sd_event_source *source, int fd, uint32_t revents, 
 
         assert(revents & EPOLLIN);
 
-        return mount_process_proc_self_mountinfo(m);
+        return mount_process_kernel_mounttable(m);
 }
 #endif
 
@@ -2434,8 +2434,8 @@ char* mount_get_what_escaped(const Mount *m) {
 
         assert(m);
 
-        if (m->from_proc_self_mountinfo && m->parameters_proc_self_mountinfo.what)
-                s = m->parameters_proc_self_mountinfo.what;
+        if (m->from_kernel && m->parameters_kernel.what)
+                s = m->parameters_kernel.what;
         else if (m->from_fragment && m->parameters_fragment.what)
                 s = m->parameters_fragment.what;
         if (!s)
@@ -2449,8 +2449,8 @@ char* mount_get_options_escaped(const Mount *m) {
 
         assert(m);
 
-        if (m->from_proc_self_mountinfo && m->parameters_proc_self_mountinfo.options)
-                s = m->parameters_proc_self_mountinfo.options;
+        if (m->from_kernel && m->parameters_kernel.options)
+                s = m->parameters_kernel.options;
         else if (m->from_fragment && m->parameters_fragment.options)
                 s = m->parameters_fragment.options;
         if (!s)
@@ -2462,8 +2462,8 @@ char* mount_get_options_escaped(const Mount *m) {
 const char* mount_get_fstype(const Mount *m) {
         assert(m);
 
-        if (m->from_proc_self_mountinfo && m->parameters_proc_self_mountinfo.fstype)
-                return m->parameters_proc_self_mountinfo.fstype;
+        if (m->from_kernel && m->parameters_kernel.fstype)
+                return m->parameters_kernel.fstype;
 
         if (m->from_fragment && m->parameters_fragment.fstype)
                 return m->parameters_fragment.fstype;
