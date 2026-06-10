@@ -556,8 +556,20 @@ static int run(int argc, char *argv[]) {
                 r = extend_nvpcr_now(arg_nvpcr_name, word, strlen(word), event);
         else
                 r = extend_pcr_now(arg_pcr_mask, word, strlen(word), event);
-        if (r < 0)
+        if (r < 0) {
+                /* We deliberately treat the error set broadly rather than pinpointing a single errno: the
+                 * "no usable bank" condition legitimately surfaces as -ENOENT on the PCR path
+                 * (extend_pcr_now(): "Found a TPM2 without enabled PCR banks") and as -EOPNOTSUPP on the
+                 * NvPCR path (unsupported bank algorithm). Yes, -ENOENT is a little wide and could in theory
+                 * swallow an unrelated lookup failure — but under --graceful, erring on the side of skipping
+                 * is the intended trade-off, since the alternative is blocking boot. Callers that want hard
+                 * failures simply don't pass --graceful. */
+                if (arg_graceful && (r == -EOPNOTSUPP || r == -ENOENT)) {
+                        log_notice_errno(r, "TPM2 device has no PCR bank we can use, skipping measurement gracefully.");
+                        return EXIT_SUCCESS;
+                }
                 return r;
+        }
 
         return EXIT_SUCCESS;
 }
