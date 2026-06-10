@@ -391,23 +391,11 @@ static int process(
 
                         g->n_tasks_valid = true;
                 } else {
-                        _cleanup_free_ char *p = NULL, *v = NULL;
-
-                        r = cg_get_path(path, "pids.current", &p);
-                        if (r < 0)
+                        r = cg_get_attribute_as_uint64(path, "pids.current", &g->n_tasks);
+                        if (r < 0 && r != -ENODATA)
                                 return r;
-
-                        r = read_one_line_file(p, &v);
-                        if (r < 0 && r != -ENOENT)
-                                return r;
-                        if (r >= 0) {
-                                r = safe_atou64(v, &g->n_tasks);
-                                if (r < 0)
-                                        return r;
-
-                                if (g->n_tasks > 0)
-                                        g->n_tasks_valid = true;
-                        }
+                        if (r >= 0 && g->n_tasks > 0)
+                                g->n_tasks_valid = true;
                 }
 
         } else

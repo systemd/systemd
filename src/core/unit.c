@@ -4158,7 +4158,7 @@ int unit_kill(
                         }
 
                         if (signo == SIGKILL) {
-                                r = cg_kill_kernel_sigkill(p);
+                                r = cg_kill_kernel_sigkill(p, /* ret_n_pids_killed= */ NULL);
                                 if (r >= 0) {
                                         killed = true;
                                         log_unit_info(u, "Killed unit cgroup '%s' with SIGKILL on client request.", p);
