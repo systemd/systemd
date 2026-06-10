@@ -24,6 +24,7 @@
 #include "path-util.h"
 #include "proc-cmdline.h"
 #include "recurse-dir.h"
+#include "rm-rf.h"
 #include "smbios11.h"
 #include "stat-util.h"
 #include "string-util.h"
@@ -65,6 +66,9 @@
  *
  * Net result: the service manager can pick up trusted credentials from $CREDENTIALS_DIRECTORY afterwards,
  * and untrusted ones from $ENCRYPTED_CREDENTIALS_DIRECTORY. */
+
+/* Untrusted/unencrypted firstboot credentials. Get only imported if firstboot is not completed yet. */
+#define FIRSTBOOT_SYSTEM_CREDENTIALS_DIRECTORY "/run/credentials/@firstboot"
 
 typedef struct ImportCredentialsContext {
         int target_dir_fd;
@@ -229,8 +233,32 @@ static int finalize_credentials_dir(const char *dir, const char *envvar) {
         return 0;
 }
 
+static int boot_credential_is_encrypted(int dir_fd, const char *name) {
+        _cleanup_close_ int fd = -EBADF;
+        sd_id128_t id;
+        ssize_t n;
+
+        assert(dir_fd >= 0);
+        assert(name);
+
+        /* Encrypted credentials have UUID with encryption ID at the start */
+        fd = openat(dir_fd, name, O_RDONLY|O_CLOEXEC);
+        if (fd < 0)
+                return -errno;
+
+        n = pread(fd, &id, sizeof(id), 0);
+        if (n < 0)
+                return -errno;
+        if ((size_t) n < sizeof(id))
+                return false;
+
+        return CRED_KEY_IS_VALID(id);
+}
+
 static int import_credentials_boot(void) {
         _cleanup_(import_credentials_context_done) ImportCredentialsContext context = {
+                .target_dir_fd = -EBADF,
+        }, firstboot_context = {
                 .target_dir_fd = -EBADF,
         };
         int r;
@@ -289,8 +317,32 @@ static int import_credentials_boot(void) {
                                 continue;
                         }
 
-                        r = copy_one_credential(&context, ENCRYPTED_SYSTEM_CREDENTIALS_DIRECTORY, /* with_mount= */ false,
-                                                source_dir_fd, d->d_name, n);
+                        /* The boot loader / ESP is an untrusted source. Encrypted credentials are
+                         * authenticated later on read, so they go into the untrusted directory unchanged.
+                         *
+                         * Plaintext credentials are only accepted for the 'firstboot.' namespace. They
+                         * are put into the untrusted FIRSTBOOT_SYSTEM_CREDENTIALS_DIRECTORY directory
+                         * and only imported later if firstboot is not completed. */
+                        ImportCredentialsContext *cc;
+                        const char *dir;
+
+                        r = boot_credential_is_encrypted(source_dir_fd, d->d_name);
+                        if (r < 0) {
+                                log_warning_errno(r, "Failed to determine whether boot credential '%s' is encrypted, ignoring: %m", n);
+                                continue;
+                        }
+                        if (r > 0) {
+                                cc = &context;
+                                dir = ENCRYPTED_SYSTEM_CREDENTIALS_DIRECTORY;
+                        } else if (startswith(n, "firstboot.")) {
+                                cc = &firstboot_context;
+                                dir = FIRSTBOOT_SYSTEM_CREDENTIALS_DIRECTORY;
+                        } else {
+                                log_warning("'%s' is not a 'firstboot.*' credential, please use encryption", n);
+                                continue;
+                        }
+
+                        r = copy_one_credential(cc, dir, /* with_mount= */ false, source_dir_fd, d->d_name, n);
                         if (r < 0)
                                 return r;
                         if (r > 0)
@@ -305,6 +357,10 @@ static int import_credentials_boot(void) {
                 if (r < 0)
                         return r;
         }
+
+        if (firstboot_context.n_credentials > 0)
+                log_debug("Deferred %u plaintext firstboot credentials from boot loader for later processing.",
+                          firstboot_context.n_credentials);
 
         return 0;
 }
@@ -839,7 +895,79 @@ static void report_credentials(void) {
                  q > 0 ? q : 0);
 }
 
-int import_credentials(void) {
+static int copy_deferred_firstboot_credentials(int source_dir_fd) {
+        _cleanup_(import_credentials_context_done) ImportCredentialsContext context = {
+                .target_dir_fd = -EBADF,
+        };
+        _cleanup_free_ DirectoryEntries *de = NULL;
+        int r;
+
+        assert(source_dir_fd >= 0);
+
+        r = readdir_all(source_dir_fd, RECURSE_DIR_SORT|RECURSE_DIR_IGNORE_DOT, &de);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to read '%s' contents, ignoring: %m", FIRSTBOOT_SYSTEM_CREDENTIALS_DIRECTORY);
+
+        FOREACH_ARRAY(i, de->entries, de->n_entries) {
+                const struct dirent *d = *i;
+
+                if (!credential_name_valid(d->d_name)) {
+                        log_warning("Deferred credential '%s' has invalid name, ignoring.", d->d_name);
+                        continue;
+                }
+
+                if (!startswith(d->d_name, "firstboot.")) {
+                        log_warning("Deferred credential '%s' is outside the 'firstboot.' namespace, ignoring.", d->d_name);
+                        continue;
+                }
+
+                r = copy_one_credential(&context, SYSTEM_CREDENTIALS_DIRECTORY, /* with_mount= */ true,
+                                        source_dir_fd, d->d_name, d->d_name);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        log_debug("Promoted firstboot credential '%s' to the trusted store.", d->d_name);
+        }
+
+        if (context.n_credentials == 0)
+                return 0;
+
+        log_debug("Promoted %u plaintext firstboot credentials from boot loader to the trusted store.", context.n_credentials);
+        return finalize_credentials_dir(SYSTEM_CREDENTIALS_DIRECTORY, "CREDENTIALS_DIRECTORY");
+}
+
+static int promote_firstboot_credentials(bool first_boot) {
+        _cleanup_close_ int source_dir_fd = -EBADF;
+        int ret = 0;
+
+        /* If firstboot was not run already, this will import credentials from /run/credentials/@firstboot/
+         * into our credentials directory and deletes the @firstboot directory. This is run once after
+         * the initrd → host transition. For confidential VMs import is always skipped. */
+
+        if (in_initrd())
+                return 0;
+
+        source_dir_fd = open(FIRSTBOOT_SYSTEM_CREDENTIALS_DIRECTORY, O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
+        if (source_dir_fd < 0) {
+                if (errno == ENOENT)
+                        return 0;
+                return log_warning_errno(errno, "Failed to open '%s', ignoring: %m", FIRSTBOOT_SYSTEM_CREDENTIALS_DIRECTORY);
+        }
+
+        if (!first_boot)
+                log_warning("Not firstboot: discarding plaintext firstboot credentials from boot loader.");
+        else if (detect_confidential_virtualization() > 0)
+                log_warning("Confidential VM detected: discarding plaintext firstboot credentials from boot loader.");
+        else
+                ret = copy_deferred_firstboot_credentials(source_dir_fd);
+
+        source_dir_fd = safe_close(source_dir_fd);
+        RET_GATHER(ret, rm_rf(FIRSTBOOT_SYSTEM_CREDENTIALS_DIRECTORY, REMOVE_ROOT|REMOVE_PHYSICAL));
+
+        return ret;
+}
+
+int import_credentials(bool first_boot) {
         const char *received_creds_dir = NULL, *received_encrypted_creds_dir = NULL;
         bool envvar_set = false;
         int r;
@@ -887,6 +1015,8 @@ int import_credentials(void) {
                 r = import_credentials_boot();
                 RET_GATHER(r, import_credentials_trusted());
         }
+
+        RET_GATHER(r, promote_firstboot_credentials(first_boot));
 
         report_credentials();
 
