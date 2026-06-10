@@ -38,7 +38,6 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "service-util.h"
-#include "socket-util.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -48,6 +47,7 @@
 #include "varlink-io.systemd.service.h"
 #include "varlink-util.h"
 #include "virt.h"
+#include "vsock-util.h"
 
 #define VALID_DEPLOYMENT_CHARS (ALPHANUMERICAL "-.:")
 

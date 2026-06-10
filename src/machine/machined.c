@@ -32,9 +32,9 @@
 #include "service-util.h"
 #include "set.h"
 #include "signal-util.h"
-#include "socket-util.h"
 #include "special.h"
 #include "string-util.h"
+#include "vsock-util.h"
 
 static Manager* manager_unref(Manager *m);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_unref);
