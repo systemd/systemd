@@ -2206,7 +2206,7 @@ static int show_one(
                 { "ActiveExitTimestamp",            "t",               NULL,           offsetof(UnitStatusInfo, active_exit_timestamp)             },
                 { "InactiveEnterTimestamp",         "t",               NULL,           offsetof(UnitStatusInfo, inactive_enter_timestamp)          },
                 { "RuntimeMaxUSec",                 "t",               NULL,           offsetof(UnitStatusInfo, runtime_max_sec)                   },
-                { "InvocationID",                   "s",               bus_map_id128,  offsetof(UnitStatusInfo, invocation_id)                     },
+                { "InvocationID",                   "ay",              bus_map_id128,  offsetof(UnitStatusInfo, invocation_id)                     },
                 { "NeedDaemonReload",               "b",               NULL,           offsetof(UnitStatusInfo, need_daemon_reload)                },
                 { "Transient",                      "b",               NULL,           offsetof(UnitStatusInfo, transient)                         },
                 { "ExecMainPID",                    "u",               NULL,           offsetof(UnitStatusInfo, main_pid)                          },
