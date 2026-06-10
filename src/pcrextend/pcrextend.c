@@ -556,8 +556,17 @@ static int run(int argc, char *argv[]) {
                 r = extend_nvpcr_now(arg_nvpcr_name, word, strlen(word), event);
         else
                 r = extend_pcr_now(arg_pcr_mask, word, strlen(word), event);
-        if (r < 0)
+        if (r < 0) {
+                /* "No usable bank" surfaces as -ENOENT on the PCR path and -EOPNOTSUPP on the NvPCR path;
+                 * under --graceful we skip rather than fail and block boot. -ENOENT is scoped to the PCR
+                 * path: on the NvPCR path it instead means the NvPCR definition is missing, a configuration
+                 * error we must not silently suppress. */
+                if (arg_graceful && (r == -EOPNOTSUPP || (!arg_nvpcr_name && r == -ENOENT))) {
+                        log_notice_errno(r, "TPM2 device has no PCR bank we can use, skipping measurement gracefully.");
+                        return EXIT_SUCCESS;
+                }
                 return r;
+        }
 
         return EXIT_SUCCESS;
 }
