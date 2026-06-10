@@ -1,0 +1,10 @@
+# This file is part of systemd.
+#
+# Database for AF_VSOCK driver implementations.
+#
+# Permitted keys:
+#   Specify if the driver uses VMADDR_CID_ANY as the local CID.
+#   VSOCK_ACCEPT_VMADDR_CID_ANY=1|0
+
+dmi:bvnMicrosoftCorporation:*pvrHyper-V*
+ VSOCK_ACCEPT_VMADDR_CID_ANY=1
