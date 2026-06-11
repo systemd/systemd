@@ -81,7 +81,9 @@ varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List "$timer_par
 
 at_exit() {
     systemctl stop varlink-test-enqueue.service 2>/dev/null || true
+    systemctl stop varlink-test-slow.service 2>/dev/null || true
     rm -f /run/systemd/system/varlink-test-enqueue.service
+    rm -f /run/systemd/system/varlink-test-slow.service
     rm -f /tmp/enqueue-result.json
     systemctl daemon-reload
 }
@@ -138,6 +140,39 @@ systemctl is-active varlink-test-enqueue.service
 # Error cases
 (! varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.EnqueueJob '{"name": "non-existent.service", "jobType": "start"}')
 (! varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.EnqueueJob '{"name": "invalid-unit-name", "jobType": "start"}')
+
+# A job can only be watched by a single streaming connection at a time. Because jobs coalesce, a second
+# concurrent streaming request maps onto the same job and must be rejected gracefully (not crash PID 1).
+cat >/run/systemd/system/varlink-test-slow.service <<UNIT
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/sleep 5
+RemainAfterExit=yes
+UNIT
+systemctl daemon-reload
+
+# First streaming start attaches to the job and keeps the stream open in the background.
+varlinkctl call --more /run/systemd/io.systemd.Manager io.systemd.Unit.EnqueueJob \
+    '{"name": "varlink-test-slow.service", "jobType": "start", "notifyJobChanges": true}' >/dev/null 2>&1 &
+watcher_pid=$!
+
+# Wait until the job is running (unit is activating, first watcher attached).
+for _ in {1..50}; do
+    [[ "$(systemctl show -P ActiveState varlink-test-slow.service 2>/dev/null)" == "activating" ]] && break
+    sleep 0.1
+done
+[[ "$(systemctl show -P ActiveState varlink-test-slow.service)" == "activating" ]]
+
+# A second concurrent streaming start coalesces onto the same job and must fail with a well-defined error.
+set +o pipefail
+varlinkctl call --more /run/systemd/io.systemd.Manager io.systemd.Unit.EnqueueJob \
+    '{"name": "varlink-test-slow.service", "jobType": "start", "notifyJobChanges": true}' |& grep "io.systemd.Unit.JobAlreadyBeingWatched"
+set -o pipefail
+
+wait "$watcher_pid" 2>/dev/null || true
+systemctl stop varlink-test-slow.service 2>/dev/null || true
+rm -f /run/systemd/system/varlink-test-slow.service
+systemctl daemon-reload
 
 # test io.systemd.Unit in user manager
 testuser_uid=$(id -u testuser)
