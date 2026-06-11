@@ -5,6 +5,8 @@
 #include "shared-forward.h"
 #include "unit-file.h"
 
+typedef struct SymlinkCache SymlinkCache;
+
 typedef enum UnitFilePresetMode {
         UNIT_FILE_PRESET_FULL,
         UNIT_FILE_PRESET_ENABLE_ONLY,
@@ -184,6 +186,7 @@ int unit_file_lookup_state(
                 RuntimeScope scope,
                 const LookupPaths *lp,
                 const char *name,
+                const SymlinkCache *cache,
                 UnitFileState *ret);
 
 int unit_file_get_state(RuntimeScope scope, const char *root_dir, const char *filename, UnitFileState *ret);
