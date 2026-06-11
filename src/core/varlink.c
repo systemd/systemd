@@ -571,6 +571,8 @@ void manager_varlink_done(Manager *m) {
          * installed (vl_disconnect() above) to be called, where we will unref it too. */
         sd_varlink_close_unref(TAKE_PTR(m->managed_oom_varlink));
 
+        m->pending_reload_message_vl = sd_varlink_unref(m->pending_reload_message_vl);
+
         m->varlink_server = sd_varlink_server_unref(m->varlink_server);
         m->managed_oom_varlink = sd_varlink_close_unref(m->managed_oom_varlink);
 
