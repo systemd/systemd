@@ -268,6 +268,24 @@ int sd_netlink_send(
         return 1;
 }
 
+void netlink_flush_rqueue(sd_netlink *nl) {
+        assert(nl);
+
+        sd_netlink_message *m;
+        ORDERED_SET_FOREACH(m, nl->rqueue) {
+                uint32_t serial = message_get_serial(m);
+
+                /* If we explicitly waiting for the reply, let's keep it. */
+                if (hashmap_contains(nl->reply_callbacks, UINT32_TO_PTR(serial)))
+                        continue;
+
+                /* Otherwise, remove the message from queue. */
+                ordered_set_remove(nl->rqueue, m);
+                hashmap_remove_value(nl->rqueue_by_serial, UINT32_TO_PTR(serial), m);
+                sd_netlink_message_unref(m);
+        }
+}
+
 static int dispatch_rqueue(sd_netlink *nl, sd_netlink_message **ret) {
         sd_netlink_message *m;
         int r;
