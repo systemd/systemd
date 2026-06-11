@@ -4,7 +4,6 @@
 #include <nss.h>
 #include <pthread.h>
 #include <string.h>
-#include <threads.h>
 
 #include "alloc-util.h"
 #include "env-util.h"
@@ -1066,28 +1065,72 @@ enum nss_status _nss_systemd_initgroups_dyn(
         return any ? NSS_STATUS_SUCCESS : NSS_STATUS_NOTFOUND;
 }
 
-static thread_local unsigned _blocked = 0;
+/* Note that we intentionally use POSIX thread-specific data instead of a plain thread_local variable.
+ * A thread_local in this lazily-loaded DSO uses a dynamic TLS model by default and may require
+ * a dynamic TLS allocation. If that allocation fails, glibc calls _exit() from the dynamic linker,
+ * making the failure unrecoverable. Using pthread_key_t avoids ELF TLS entirely and lets any such
+ * failure propagate as a normal error instead of terminating the process. */
+static pthread_once_t nss_blocked_key_once = PTHREAD_ONCE_INIT;
+static pthread_key_t nss_blocked_key;
+static int nss_blocked_key_error;
+
+static void nss_blocked_key_init(void) {
+        /* NULL destructor: the per-thread value is a plain integer counter encoded as void*,
+         * not a heap allocation, so nothing needs to be freed at thread exit.
+         * No pthread_key_delete: this library is linked with -z nodelete and always opened with
+         * RTLD_NODELETE, so it is never unloaded and the key exists for the process lifetime. */
+        nss_blocked_key_error = pthread_key_create(&nss_blocked_key, NULL);
+}
+
+static int nss_blocked_key_ensure(void) {
+        int r;
+
+        r = pthread_once(&nss_blocked_key_once, nss_blocked_key_init);
+        if (r != 0)
+                return -r;
+
+        if (nss_blocked_key_error != 0)
+                return -nss_blocked_key_error;
+
+        return 0;
+}
 
 _public_ int _nss_systemd_block(bool b) {
+        int r;
+        uintptr_t blocked;
+
+        r = nss_blocked_key_ensure();
+        if (r < 0)
+                return r;
+
+        blocked = (uintptr_t) pthread_getspecific(nss_blocked_key);
 
         /* This blocks recursively: it's blocked for as many times this function is called with `true` until
          * it is called an equal time with `false`. */
 
         if (b) {
-                if (_blocked >= UINT_MAX)
+                if (blocked >= UINTPTR_MAX)
                         return -EOVERFLOW;
 
-                _blocked++;
+                blocked++;
         } else {
-                if (_blocked <= 0)
+                if (blocked == 0)
                         return -EOVERFLOW;
 
-                _blocked--;
+                blocked--;
         }
+
+        r = pthread_setspecific(nss_blocked_key, (void*) blocked);
+        /* Ignore failure on the unblock path: callers may assert on it. */
+        if (r != 0 && b)
+                return -r;
 
         return b; /* Return what is passed in, i.e. the new state from the PoV of the caller */
 }
 
 _public_ bool _nss_systemd_is_blocked(void) {
-        return _blocked > 0;
+        if (nss_blocked_key_ensure() < 0)
+                return false;
+
+        return (uintptr_t) pthread_getspecific(nss_blocked_key) > 0;
 }
