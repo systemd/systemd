@@ -259,7 +259,6 @@ static int directory_name_is_valid(const char *name) {
         return false;
 }
 
-
 /* Resolve ".." components in-place in an absolute path.
  * Call after path_simplify(). No syscalls — pure string manipulation.
  * E.g., "/usr/lib/systemd/system/../../dracut/foo" -> "/usr/lib/dracut/foo" */

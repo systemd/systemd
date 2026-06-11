@@ -920,8 +920,13 @@ static SymlinkCache* symlink_cache_free(SymlinkCache *cache) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(SymlinkCache*, symlink_cache_free);
 
-static int cached_symlink_add(CachedSymlink **entries, size_t *n, size_t *allocated,
-                              const char *name, const char *target, const char *dir_path) {
+static int cached_symlink_add(
+                CachedSymlink **entries,
+                size_t *n,
+                size_t *allocated,
+                const char *name,
+                const char *target,
+                const char *dir_path) {
         if (*n >= *allocated) {
                 size_t new_alloc = MAX(*allocated * 2, 64u);
                 CachedSymlink *new_entries = reallocarray(*entries, new_alloc, sizeof(CachedSymlink));
@@ -953,6 +958,7 @@ static int cached_symlink_add(CachedSymlink **entries, size_t *n, size_t *alloca
 static int symlink_cache_build(const LookupPaths *lp, SymlinkCache **ret) {
         _cleanup_(symlink_cache_freep) SymlinkCache *cache = NULL;
         size_t n_search_paths;
+        int r;
 
         assert(lp);
         assert(ret);
@@ -1004,8 +1010,6 @@ static int symlink_cache_build(const LookupPaths *lp, SymlinkCache **ret) {
                         }
 
                         FOREACH_DIRENT(subde, d, return -errno) {
-                                int r;
-
                                 if (subde->d_type != DT_LNK)
                                         continue;
 
@@ -1024,7 +1028,6 @@ static int symlink_cache_build(const LookupPaths *lp, SymlinkCache **ret) {
                 rewinddir(config_dir);
                 FOREACH_DIRENT(de, config_dir, return -errno) {
                         _cleanup_free_ char *dest = NULL;
-                        int r;
 
                         if (de->d_type != DT_LNK)
                                 continue;
@@ -1063,7 +1066,6 @@ static int symlink_cache_build(const LookupPaths *lp, SymlinkCache **ret) {
         }
 
         /* Pre-scan for existing .d (drop-in) directories across all search paths */
-        int r;
         cache->dropin_dirs = set_new(&string_hash_ops_free);
         if (!cache->dropin_dirs)
                 return -ENOMEM;
@@ -3608,7 +3610,6 @@ int unit_file_lookup_state(
         *ret = state;
         return 0;
 }
-
 
 int unit_file_get_state(
                 RuntimeScope scope,

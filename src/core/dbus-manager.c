@@ -2355,15 +2355,13 @@ static int list_unit_files_by_patterns(sd_bus_message *message, void *userdata, 
         if (data_fd < 0)
                 return data_fd;
 
-        {
-                int except_fds[] = { data_fd, errno_pipe_fd[1] };
-                r = pidref_safe_fork_full(
-                                "(sd-lufiles)",
-                                /* stdio_fds= */ NULL,
-                                except_fds, ELEMENTSOF(except_fds),
-                                FORK_CLOSE_ALL_FDS|FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_LOG,
-                                &pidref);
-        }
+        int except_fds[] = { data_fd, errno_pipe_fd[1] };
+        r = pidref_safe_fork_full(
+                        "(sd-lufiles)",
+                        /* stdio_fds= */ NULL,
+                        except_fds, ELEMENTSOF(except_fds),
+                        FORK_CLOSE_ALL_FDS|FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_LOG,
+                        &pidref);
         if (r < 0)
                 return r;
         if (r == 0) {
