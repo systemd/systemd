@@ -482,6 +482,10 @@ int tpm2_parse_luks2_json(sd_json_variant *v, int *ret_keyslot, uint32_t *ret_ha
 #define TPM2_ALG_RSA 0x1
 #endif
 
+/* Picks the most preferred PCR bank (SHA256 > SHA512 > SHA384 > SHA1) out of the firmware-reported active
+ * banks bitmask. Defined unconditionally (no TPM2 libraries required) so it can be unit tested. */
+int tpm2_pcr_bank_from_efi_active(uint32_t active_banks, uint16_t *ret);
+
 int tpm2_hash_alg_to_size(uint16_t alg);
 
 const char* tpm2_hash_alg_to_string(uint16_t alg) _const_;
