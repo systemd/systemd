@@ -2580,6 +2580,19 @@ static int link_update_alternative_names(Link *link, sd_netlink_message *message
         if (strv_equal(altnames, link->alternative_names))
                 return 0;
 
+        /* See the comment in link_update_name(). If one of the new alternative names is already in use by
+         * another interface, the alternative-name information in this message is likely stale. Ignore the
+         * entire IFLA_ALT_IFNAME attribute in that case. */
+        STRV_FOREACH(n, altnames) {
+                Link *existing;
+                if (link_get_by_name(link->manager, *n, &existing) >= 0 && existing != link) {
+                        log_link_debug(link,
+                                       "Alternative interface name update detected, but the new name '%s' is already in use by another interface (ifindex=%i), ignoring the update as it may be stale.",
+                                       *n, existing->ifindex);
+                        return 0;
+                }
+        }
+
         STRV_FOREACH(n, link->alternative_names)
                 hashmap_remove(link->manager->links_by_name, *n);
 
@@ -2610,6 +2623,47 @@ static int link_update_name(Link *link, sd_netlink_message *message) {
 
         if (streq(ifname, link->ifname))
                 return 0;
+
+        /* Check if the new interface name is already used by another interface. If so, the rename is likely
+         * stale. Consider the following race:
+         *
+         * 1. networkd enables rtnl matches in manager_connect_rtnl().
+         * 2. The kernel sends an RTM_NEWLINK notification for an interface (say, ifindex=2, ifname="eth0"),
+         *    and the notification message (A) is queued in networkd's sd-netlink object.
+         * 3. The interface is renamed (say, "eth0" -> "enp0"), e.g. by udevd. The kernel sends another
+         *    RTM_NEWLINK notification for the rename, and the notification message (B) is also queued in
+         *    networkd's sd-netlink object.
+         * 4. The kernel detects another new interface (say, ifindex=3). Since the name "eth0" is now unused,
+         *    the interface is named "eth0".
+         * 5. networkd enumerates links and creates Link objects for:
+         *    - ifindex=2, ifname="enp0"
+         *    - ifindex=3, ifname="eth0"
+         * 6. After enumeration, when processing message (A), networkd becomes confused and thinks that the
+         *    interface with ifindex=2 was renamed from "enp0" to "eth0". However, it fails to update the
+         *    Manager.links_by_name hashmap because "eth0" is already used by the interface with ifindex=3.
+         * 7. When processing message (B), networkd thinks that the interface with ifindex=2 has been renamed
+         *    again from "eth0" to "enp0", and renames the Link object back to "enp0".
+         *
+         * When this happens, we get something like the following:
+         *
+         * systemd-networkd[5164]: enp0: Interface name change detected, renamed to eth0.
+         * systemd-networkd[5164]: eth0: Failed to manage link by its new name: File exists
+         * systemd-networkd[5164]: Could not process link message: File exists
+         * systemd-networkd[5164]: eth0: Failed
+         * systemd-networkd[5164]: eth0: State changed: initialized -> failed
+         * systemd-networkd[5164]: eth0: Interface name change detected, renamed to enp0.
+         *
+         * See also #20203.
+         *
+         * To avoid the race, ignore the rename. A subsequent RTM_NEWLINK message should eventually provide
+         * the current interface name, e.g. message (B) above. */
+        Link *existing;
+        if (link_get_by_name(link->manager, ifname, &existing) >= 0 && existing != link) {
+                log_link_debug(link,
+                               "Interface name change detected, but the new interface name '%s' is already in use by another interface (ifindex=%i), ignoring the rename as it may be stale.",
+                               ifname, existing->ifindex);
+                return 0;
+        }
 
         log_link_info(link, "Interface name change detected, renamed to %s.", ifname);
 
