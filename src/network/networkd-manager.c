@@ -1114,6 +1114,39 @@ int manager_enumerate(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Could not enumerate links: %m");
 
+        /* Flush messages received earlier than the enumeration for links. Hopefully, messages on enumeration
+         * should be up-to-date, and notifications sent before the enumeration may be outdated thus not
+         * necessary anymore. This is necessary for avoiding the following race:
+         *
+         * 1. networkd enables rtnl matches in manager_connect_rtnl().
+         * 2. The kernel notifies RTM_NEWLINK for an interface (say, ifindex=2, ifname="eth0"), and the
+         *    notification message (A) is queued in the networkd's sd-netlink object.
+         * 3. The interface is renamed (say "eth0" -> "enp0") e.g. by udevd, and the kernel notifies
+         *    RTM_NEWLINK about the renaming, and the notification message (B) is also queued in networkd.
+         * 4. The kernel detects another new interfaces (say, ifindex=3). As the name "eth0" is already
+         *    unused, the interface is namaed as "eth0".
+         * 5. networkd enumerates links, and create Link objects for the interfaces:
+         *    - ifindex=2, ifname="enp0",
+         *    - ifindex=3, ifname="eth0".
+         * 5. after enumeration, on processing message (A), networkd is confused that the interface with
+         *    ifindex=2 is renamed from "enp0" to "eth0", but failed to update the Manager.links_by_name
+         *    hashmap, as "eth0" is already used by another interface with ifindex=3. Oh...
+         * 6. on processing message (B), networkd thinks that the interface is renamed again from "eth0"
+         *    to "enp0". The Link object for the interface is renamed again to "enp0".
+         *
+         * When this happens, we will get something like the following:
+         *
+         * systemd-networkd[5164]: enp0: Interface name change detected, renamed to eth0.
+         * systemd-networkd[5164]: eth0: Failed to manage link by its new name: File exists
+         * systemd-networkd[5164]: Could not process link message: File exists
+         * systemd-networkd[5164]: eth0: Failed
+         * systemd-networkd[5164]: eth0: State changed: initialized -> failed
+         * systemd-networkd[5164]: eth0: Interface name change detected, renamed to enp0.
+         * systemd-networkd[5164]: eth0: Link state is up-to-date
+         *
+         * See also #20203. */
+        netlink_flush_rqueue(m->rtnl);
+
         /* If the kernel is built without CONFIG_NET_SCHED, the below will fail with -EOPNOTSUPP. */
         r = manager_enumerate_qdisc(m);
         if (r == -EOPNOTSUPP)
