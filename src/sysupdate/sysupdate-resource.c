@@ -405,6 +405,11 @@ static int resource_load_from_web(
                 r = unhexmem_full(p, 64, /* secure = */ false, &h, &hlen);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse digest at manifest line %zu, refusing.", line_nr);
+                if (hlen != sizeof_field(InstanceMetadata, sha256sum))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Manifest hash at line %zu decoded to %zu bytes, refusing.",
+                                               line_nr,
+                                               hlen);
 
                 p += 64, left -= 64;
 
