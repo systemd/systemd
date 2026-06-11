@@ -1045,12 +1045,17 @@ static int symlink_cache_build(const LookupPaths *lp, SymlinkCache **ret) {
                                 free_and_replace(dest, x);
                         }
 
+                        _cleanup_free_ char *fname = NULL;
+                        r = path_extract_filename(dest, &fname);
+                        if (r < 0)
+                                return r;
+
                         r = cached_symlink_add(
                                         &csp->direct_entries,
                                         &csp->n_direct,
                                         &csp->direct_allocated,
                                         de->d_name,
-                                        basename(dest),
+                                        fname,
                                         csp->config_path);
                         if (r < 0)
                                 return r;
