@@ -27,7 +27,6 @@
 #include "errno-util.h"
 #include "ethtool-util.h"
 #include "event-util.h"
-#include "format-ifname.h"
 #include "fs-util.h"
 #include "glyph-util.h"
 #include "logarithm.h"
@@ -2580,7 +2579,6 @@ static int link_update_alternative_names(Link *link, sd_netlink_message *message
 }
 
 static int link_update_name(Link *link, sd_netlink_message *message) {
-        char ifname_from_index[IF_NAMESIZE];
         const char *ifname;
         int r;
 
@@ -2596,17 +2594,6 @@ static int link_update_name(Link *link, sd_netlink_message *message) {
 
         if (streq(ifname, link->ifname))
                 return 0;
-
-        r = format_ifname(link->ifindex, ifname_from_index);
-        if (r < 0)
-                return log_link_debug_errno(link, r, "Could not get interface name for index %i.", link->ifindex);
-
-        if (!streq(ifname, ifname_from_index)) {
-                log_link_debug(link, "New interface name '%s' received from the kernel does not correspond "
-                               "with the name currently configured on the actual interface '%s'. Ignoring.",
-                               ifname, ifname_from_index);
-                return 0;
-        }
 
         log_link_info(link, "Interface name change detected, renamed to %s.", ifname);
 
