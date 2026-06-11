@@ -8,8 +8,8 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 # Reporting of Security Vulnerabilities
 
 If you discover a security vulnerability, we'd appreciate a non-public disclosure.
-systemd developers can be contacted privately by creating a new **[Security Advisory on GitHub](https://github.com/systemd/systemd/security/advisories/new)**
-or via the **[systemd-security@redhat.com](mailto:systemd-security@redhat.com) mailing list**.
+systemd developers can be contacted privately by creating a new **[Security Advisory on GitHub](https://github.com/systemd/systemd/security/advisories/new)** (preferred)
+or via the [systemd-security@redhat.com](mailto:systemd-security@redhat.com) mailing list.
 The disclosure will be coordinated with distributions.
 
 (The [issue tracker](https://github.com/systemd/systemd/issues) and [systemd-devel mailing list](https://lists.freedesktop.org/mailman/listinfo/systemd-devel) are fully public.)
