@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <openssl/evp.h>
-
+#include "crypto-util.h"
 #include "nts.h"
 #include "nts_crypto.h"
 #include "nts_extfields.h"
@@ -195,6 +194,8 @@ static void add_encrypted_server_hdr(
                 const char *cookie[],
                 uint8_t *corrupt) {
 
+        assert(dlopen_libcrypto(LOG_ERR) == 0);
+
         uint8_t *af = *p_ptr;
         uint8_t *pt;
         /* write nonce */
@@ -208,18 +209,18 @@ static void add_encrypted_server_hdr(
         if (corrupt) *corrupt = 0xee;
 
         /* encrypt fields */
-        EVP_CIPHER *cipher = EVP_CIPHER_fetch(NULL, "AES-128-SIV", NULL);
-        EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
+        EVP_CIPHER *cipher = sym_EVP_CIPHER_fetch(NULL, "AES-128-SIV", NULL);
+        EVP_CIPHER_CTX *ctx = sym_EVP_CIPHER_CTX_new();
         int ignore;
-        EVP_EncryptInit_ex(ctx, cipher, NULL, nts.s2c_key, NULL);
-        EVP_EncryptUpdate(ctx, NULL, &ignore, buffer, af - buffer);
-        EVP_EncryptUpdate(ctx, NULL, &ignore, (uint8_t*)"123NONCE", 8);
-        EVP_EncryptUpdate(ctx, pt, &ignore, pt, *p_ptr - pt);
-        EVP_EncryptFinal_ex(ctx, buffer, &ignore);
+        sym_EVP_EncryptInit_ex(ctx, cipher, NULL, nts.s2c_key, NULL);
+        sym_EVP_EncryptUpdate(ctx, NULL, &ignore, buffer, af - buffer);
+        sym_EVP_EncryptUpdate(ctx, NULL, &ignore, (uint8_t*)"123NONCE", 8);
+        sym_EVP_EncryptUpdate(ctx, pt, &ignore, pt, *p_ptr - pt);
+        sym_EVP_EncryptFinal_ex(ctx, buffer, &ignore);
         assert_se(ignore == 0);
-        EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_AEAD_GET_TAG, 16, pt - 16);
-        EVP_CIPHER_CTX_free(ctx);
-        EVP_CIPHER_free(cipher);
+        sym_EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_AEAD_GET_TAG, 16, pt - 16);
+        sym_EVP_CIPHER_CTX_free(ctx);
+        sym_EVP_CIPHER_free(cipher);
 
         /* set type to 0x404 */
         memzero(af, 8);
@@ -233,6 +234,8 @@ static void add_encrypted_server_hdr(
 }
 
 TEST(ntp_field_decoding) {
+        assert(dlopen_libcrypto(LOG_ERR) == 0);
+
         uint8_t buffer[1280];
 
         char cookie[] = "COOKIE", cakey[] = "CAKEY";
