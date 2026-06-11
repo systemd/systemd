@@ -2270,7 +2270,7 @@ static int list_unit_files_op_done(sd_event_source *s, int fd, uint32_t revents,
                 return 0;
         }
 
-        if (lseek(op->data_fd, 0, SEEK_SET) == (off_t) -1) {
+        if (lseek(op->data_fd, 0, SEEK_SET) < 0) {
                 r = sd_bus_reply_method_errnof(op->message, errno,
                                                "Failed to seek in list-unit-files data: %m");
                 if (r < 0)
@@ -2278,7 +2278,15 @@ static int list_unit_files_op_done(sd_event_source *s, int fd, uint32_t revents,
                 return 0;
         }
 
-        void *blob = malloc(st.st_size);
+        if (st.st_size > 128*1024*1024) {
+                r = sd_bus_reply_method_errnof(op->message, EFBIG,
+                                               "ListUnitFiles reply too large (%zi bytes)", st.st_size);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to send error reply for ListUnitFiles: %m");
+                return 0;
+        }
+
+        _cleanup_free_ void *blob = malloc(st.st_size);
         if (!blob) {
                 r = sd_bus_reply_method_errnof(op->message, ENOMEM,
                                                "Out of memory reading list-unit-files data");
@@ -2289,7 +2297,6 @@ static int list_unit_files_op_done(sd_event_source *s, int fd, uint32_t revents,
 
         n = loop_read(op->data_fd, blob, st.st_size, false);
         if (n < 0 || n != st.st_size) {
-                free(blob);
                 r = sd_bus_reply_method_errnof(op->message, n < 0 ? (int) -n : -EIO,
                                                "Failed to read list-unit-files data: %m");
                 if (r < 0)
@@ -2299,14 +2306,12 @@ static int list_unit_files_op_done(sd_event_source *s, int fd, uint32_t revents,
 
         r = bus_message_from_malloc(
                         sd_bus_message_get_bus(op->message),
-                        blob,
+                        TAKE_PTR(blob),
                         (size_t) st.st_size,
                         NULL, 0, false, NULL,
                         &reply);
-        if (r < 0) {
-                free(blob);
+        if (r < 0)
                 goto fail;
-        }
 
         r = sd_bus_send(NULL, reply, NULL);
         if (r < 0)

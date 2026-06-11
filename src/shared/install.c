@@ -880,11 +880,9 @@ typedef struct {
 
         CachedSymlink *wants_entries;  /* symlinks from .wants/.requires subdirs */
         size_t n_wants;
-        size_t wants_allocated;
 
         CachedSymlink *direct_entries; /* direct DT_LNK entries in this search path */
         size_t n_direct;
-        size_t direct_allocated;
 } CachedSearchPath;
 
 typedef struct SymlinkCache {
@@ -923,18 +921,12 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(SymlinkCache*, symlink_cache_free);
 static int cached_symlink_add(
                 CachedSymlink **entries,
                 size_t *n,
-                size_t *allocated,
                 const char *name,
                 const char *target,
                 const char *dir_path) {
-        if (*n >= *allocated) {
-                size_t new_alloc = MAX(*allocated * 2, 64u);
-                CachedSymlink *new_entries = reallocarray(*entries, new_alloc, sizeof(CachedSymlink));
-                if (!new_entries)
-                        return -ENOMEM;
-                *entries = new_entries;
-                *allocated = new_alloc;
-        }
+
+        if (!GREEDY_REALLOC(*entries, *n + 1))
+                return -ENOMEM;
 
         CachedSymlink *entry = &(*entries)[*n];
         entry->name = strdup(name);
@@ -1016,7 +1008,6 @@ static int symlink_cache_build(const LookupPaths *lp, SymlinkCache **ret) {
                                 r = cached_symlink_add(
                                                 &csp->wants_entries,
                                                 &csp->n_wants,
-                                                &csp->wants_allocated,
                                                 subde->d_name,
                                                 NULL,
                                                 csp->config_path);
@@ -1050,13 +1041,14 @@ static int symlink_cache_build(const LookupPaths *lp, SymlinkCache **ret) {
 
                         _cleanup_free_ char *fname = NULL;
                         r = path_extract_filename(dest, &fname);
-                        if (r < 0)
-                                return r;
+                        if (r < 0) {
+                                log_debug_errno(r, "Failed to extract filename from \"%s\" for cache, ignoring: %m", dest);
+                                continue;
+                        }
 
                         r = cached_symlink_add(
                                         &csp->direct_entries,
                                         &csp->n_direct,
-                                        &csp->direct_allocated,
                                         de->d_name,
                                         fname,
                                         csp->config_path);
@@ -1066,10 +1058,6 @@ static int symlink_cache_build(const LookupPaths *lp, SymlinkCache **ret) {
         }
 
         /* Pre-scan for existing .d (drop-in) directories across all search paths */
-        cache->dropin_dirs = set_new(&string_hash_ops_free);
-        if (!cache->dropin_dirs)
-                return -ENOMEM;
-
         for (size_t i = 0; i < n_search_paths; i++) {
                 _cleanup_closedir_ DIR *d = NULL;
 
@@ -1081,8 +1069,6 @@ static int symlink_cache_build(const LookupPaths *lp, SymlinkCache **ret) {
                         if (!IN_SET(de->d_type, DT_DIR, DT_LNK, DT_UNKNOWN))
                                 continue;
                         if (!endswith(de->d_name, ".d"))
-                                continue;
-                        if (set_contains(cache->dropin_dirs, de->d_name))
                                 continue;
 
                         r = set_put_strdup(&cache->dropin_dirs, de->d_name);
