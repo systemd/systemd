@@ -1129,14 +1129,14 @@ static Link *link_drop(Link *link) {
         link_clean(link);
 
         STRV_FOREACH(n, link->alternative_names)
-                hashmap_remove(link->manager->links_by_name, *n);
-        hashmap_remove(link->manager->links_by_name, link->ifname);
+                hashmap_remove_value(link->manager->links_by_name, *n, link);
+        hashmap_remove_value(link->manager->links_by_name, link->ifname, link);
 
         /* bonding master and its slaves have the same hardware address. */
         hashmap_remove_value(link->manager->links_by_hw_addr, &link->hw_addr, link);
 
         /* The following must be called at last. */
-        assert_se(hashmap_remove(link->manager->links_by_index, INT_TO_PTR(link->ifindex)) == link);
+        hashmap_remove_value(link->manager->links_by_index, INT_TO_PTR(link->ifindex), link);
 
         if (notify)
                 manager_notify_hook_filters(link->manager);
@@ -2594,7 +2594,7 @@ static int link_update_alternative_names(Link *link, sd_netlink_message *message
                 return 0;
 
         STRV_FOREACH(n, link->alternative_names)
-                hashmap_remove(link->manager->links_by_name, *n);
+                hashmap_remove_value(link->manager->links_by_name, *n, link);
 
         strv_free_and_replace(link->alternative_names, altnames);
 
@@ -2626,7 +2626,7 @@ static int link_update_name(Link *link, sd_netlink_message *message) {
 
         log_link_info(link, "Interface name change detected, renamed to %s.", ifname);
 
-        hashmap_remove(link->manager->links_by_name, link->ifname);
+        hashmap_remove_value(link->manager->links_by_name, link->ifname, link);
 
         r = free_and_strdup(&link->ifname, ifname);
         if (r < 0)
