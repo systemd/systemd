@@ -18,9 +18,11 @@
 
 [Time]
 #NTP=
+#NTS=
 #FallbackNTP={{NTP_SERVERS}}
 #RootDistanceMaxSec=5
 #PollIntervalMinSec=32
 #PollIntervalMaxSec=2048
 #ConnectionRetrySec=30
 #SaveIntervalSec=60
+#KeyExchangeTimeoutSec=32
