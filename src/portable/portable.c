@@ -2536,7 +2536,7 @@ static int portable_get_state_internal(
                 if (r == 0)
                         continue;
 
-                r = unit_file_lookup_state(scope, &paths, de->d_name, &state);
+                r = unit_file_lookup_state(scope, &paths, de->d_name, NULL, &state);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to determine unit file state of '%s': %m", de->d_name);
                 if (!IN_SET(state, UNIT_FILE_STATIC, UNIT_FILE_DISABLED, UNIT_FILE_LINKED, UNIT_FILE_LINKED_RUNTIME))
