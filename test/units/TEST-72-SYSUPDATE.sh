@@ -608,4 +608,30 @@ rm "$CONFIGDIR/01-tiny-url.transfer"
 rm "$WORKDIR/source/tiny-v1.bin"
 rm "$WORKDIR/source/SHA256SUMS"
 
+# Check that malformed manifest hashes are rejected without aborting.
+rm -rf "$WORKDIR/malformed-manifest"
+mkdir -p "$WORKDIR/malformed-manifest/definitions" "$WORKDIR/malformed-manifest/source" "$WORKDIR/malformed-manifest/target"
+printf 'payload\n' >"$WORKDIR/malformed-manifest/source/malformed-v1.bin"
+hash_64=0000000000000000000000000000000000000000000000000000000000000000
+printf '%s\t\t *malformed-v1.bin\n' "${hash_64%??}" >"$WORKDIR/malformed-manifest/source/SHA256SUMS"
+cat >"$WORKDIR/malformed-manifest/definitions/01-malformed-hash.transfer" <<EOF
+[Source]
+Type=url-file
+Path=file://$WORKDIR/malformed-manifest/source
+MatchPattern=malformed-@v.bin
+
+[Target]
+Type=regular-file
+Path=$WORKDIR/malformed-manifest/target
+MatchPattern=malformed-@v.bin
+InstancesMax=1
+EOF
+set +e
+"$SYSUPDATE" --definitions="$WORKDIR/malformed-manifest/definitions" --verify=no check-new &>"$WORKDIR/malformed-manifest/check-new.log"
+rc=$?
+set -e
+[[ $rc -ne 0 ]]
+[[ $rc -ne 134 ]]
+grep -F "Manifest hash at line 1 decoded to 31 bytes" "$WORKDIR/malformed-manifest/check-new.log" >/dev/null
+
 touch /testok
