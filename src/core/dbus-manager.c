@@ -2194,8 +2194,11 @@ static int method_enqueue_marked_jobs(sd_bus_message *message, void *userdata, s
 }
 
 typedef struct {
+        Manager *manager;
         sd_bus_message *message;
         sd_event_source *event_source;
+        sd_event_source *timeout_event_source;
+        PidRef pidref;
         int data_fd;
         int errno_fd;
 } ListUnitFilesOp;
@@ -2205,13 +2208,35 @@ static ListUnitFilesOp *list_unit_files_op_free(ListUnitFilesOp *op) {
                 return NULL;
 
         sd_event_source_disable_unref(op->event_source);
+        sd_event_source_disable_unref(op->timeout_event_source);
         sd_bus_message_unref(op->message);
+        pidref_done_sigkill_wait(&op->pidref);
         safe_close(op->data_fd);
         safe_close(op->errno_fd);
+
+        if (op->manager) {
+                assert(op->manager->n_list_unit_files_ops > 0);
+                op->manager->n_list_unit_files_ops--;
+        }
+
         return mfree(op);
 }
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(ListUnitFilesOp*, list_unit_files_op_free);
+
+static int list_unit_files_op_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
+        _cleanup_(list_unit_files_op_freep) ListUnitFilesOp *op = ASSERT_PTR(userdata);
+        int r;
+
+        log_warning("ListUnitFiles child " PID_FMT " timed out, killing.", op->pidref.pid);
+
+        r = sd_bus_reply_method_errnof(op->message, ETIMEDOUT,
+                                       "ListUnitFiles operation timed out");
+        if (r < 0)
+                log_warning_errno(r, "Failed to send timeout error reply for ListUnitFiles: %m");
+
+        return 0;
+}
 
 static int list_unit_files_op_done(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         _cleanup_(list_unit_files_op_freep) ListUnitFilesOp *op = ASSERT_PTR(userdata);
@@ -2307,6 +2332,10 @@ static int list_unit_files_by_patterns(sd_bus_message *message, void *userdata, 
 
         /* Anyone can call this method */
 
+        if (m->n_list_unit_files_ops >= MANAGER_MAX_LIST_UNIT_FILES_OPS)
+                return sd_bus_error_set(reterr_error, SD_BUS_ERROR_LIMITS_EXCEEDED,
+                                        "Too many concurrent ListUnitFiles operations.");
+
         if (strv_length(states) > MANAGER_MAX_STATES_PER_CALL)
                 return sd_bus_error_set(reterr_error, SD_BUS_ERROR_LIMITS_EXCEEDED,
                                         "Too many states in a single query.");
@@ -2396,10 +2425,11 @@ static int list_unit_files_by_patterns(sd_bus_message *message, void *userdata, 
                 return -ENOMEM;
 
         *op = (ListUnitFilesOp) {
+                .manager = m,
                 .message = sd_bus_message_ref(message),
+                .pidref = TAKE_PIDREF(pidref),
                 .data_fd = TAKE_FD(data_fd),
                 .errno_fd = TAKE_FD(errno_pipe_fd[0]),
-                .event_source = NULL,
         };
 
         r = sd_event_add_io(m->event, &op->event_source, op->errno_fd, EPOLLIN, list_unit_files_op_done, op);
@@ -2410,7 +2440,20 @@ static int list_unit_files_by_patterns(sd_bus_message *message, void *userdata, 
 
         (void) sd_event_source_set_description(op->event_source, "list-unit-files-op");
 
-        pidref_done(&pidref);
+        r = sd_event_add_time_relative(
+                        m->event,
+                        &op->timeout_event_source,
+                        CLOCK_MONOTONIC,
+                        30 * USEC_PER_SEC, 0,
+                        list_unit_files_op_timeout, op);
+        if (r < 0) {
+                list_unit_files_op_free(op);
+                return r;
+        }
+
+        (void) sd_event_source_set_description(op->timeout_event_source, "list-unit-files-op-timeout");
+
+        m->n_list_unit_files_ops++;
 
         return 1;
 }

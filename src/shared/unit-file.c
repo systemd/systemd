@@ -288,6 +288,8 @@ static void path_resolve_dotdot(char *path) {
                         } else
                                 out = path + 1;
                 } else {
+                        if (depth >= ELEMENTSOF(offsets))
+                                return; /* Path too deep, stop processing */
                         offsets[depth++] = out - path;
                         if (out > path + 1)
                                 *out++ = '/';

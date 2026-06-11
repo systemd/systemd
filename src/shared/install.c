@@ -986,11 +986,11 @@ static int symlink_cache_build(const LookupPaths *lp, SymlinkCache **ret) {
                         _cleanup_free_ char *subdir_path = NULL;
                         const char *suffix;
 
-                        if (de->d_type != DT_DIR)
+                        if (!IN_SET(de->d_type, DT_DIR, DT_LNK, DT_UNKNOWN))
                                 continue;
 
                         suffix = strrchr(de->d_name, '.');
-                        if (!STRPTR_IN_SET(suffix, ".wants", ".requires"))
+                        if (!STRPTR_IN_SET(suffix, ".wants", ".requires", ".upholds"))
                                 continue;
 
                         subdir_path = path_join(lp->search_path[i], de->d_name);
@@ -1076,7 +1076,7 @@ static int symlink_cache_build(const LookupPaths *lp, SymlinkCache **ret) {
                         continue;
 
                 FOREACH_DIRENT(de, d, break) {
-                        if (de->d_type != DT_DIR)
+                        if (!IN_SET(de->d_type, DT_DIR, DT_LNK, DT_UNKNOWN))
                                 continue;
                         if (!endswith(de->d_name, ".d"))
                                 continue;
