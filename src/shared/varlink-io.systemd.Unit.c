@@ -1931,6 +1931,51 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 SD_VARLINK_FIELD_COMMENT("Runtime information of the unit"),
                 SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(runtime, UnitRuntime, 0));
 
+static SD_VARLINK_DEFINE_METHOD_FULL(
+                EnqueueJob,
+                SD_VARLINK_SUPPORTS_MORE,
+                SD_VARLINK_FIELD_COMMENT("The unit name to operate on."),
+                SD_VARLINK_DEFINE_INPUT(name, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("The job type to enqueue."),
+                SD_VARLINK_DEFINE_INPUT_BY_TYPE(jobType, JobType, 0),
+                SD_VARLINK_FIELD_COMMENT("Job mode. Defaults to replace."),
+                SD_VARLINK_DEFINE_INPUT_BY_TYPE(mode, JobMode, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("If true and 'more' is set, stream job state change notifications. Defaults to false."),
+                SD_VARLINK_DEFINE_INPUT(notifyJobChanges, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("If true and 'more' is set, stream unit runtime notifications on state changes. Defaults to false."),
+                SD_VARLINK_DEFINE_INPUT(notifyUnitChanges, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Unit context. Set in the final reply."),
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(context, UnitContext, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Unit runtime state. Set in the final reply and in intermediate notifications when notifyUnitChanges is true."),
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(runtime, UnitRuntime, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The enqueued job. Set in the final reply and in intermediate notifications when notifyJobChanges is true."),
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(job, Job, SD_VARLINK_NULLABLE));
+
+#define VARLINK_DEFINE_UNIT_JOB_METHOD(method_name)                                                                                 \
+        static SD_VARLINK_DEFINE_METHOD_FULL(                                                                                       \
+                        method_name,                                                                                                \
+                        SD_VARLINK_SUPPORTS_MORE,                                                                                   \
+                        SD_VARLINK_FIELD_COMMENT("The unit name."),                                                                 \
+                        SD_VARLINK_DEFINE_INPUT(name, SD_VARLINK_STRING, 0),                                                        \
+                        SD_VARLINK_FIELD_COMMENT("Job mode. Defaults to replace."),                                                 \
+                        SD_VARLINK_DEFINE_INPUT_BY_TYPE(mode, JobMode, SD_VARLINK_NULLABLE),                                        \
+                        SD_VARLINK_FIELD_COMMENT("If true and 'more' is set, stream job state change notifications."),              \
+                        SD_VARLINK_DEFINE_INPUT(notifyJobChanges, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),                            \
+                        SD_VARLINK_FIELD_COMMENT("If true and 'more' is set, stream unit runtime notifications on state changes."), \
+                        SD_VARLINK_DEFINE_INPUT(notifyUnitChanges, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),                           \
+                        SD_VARLINK_FIELD_COMMENT("Unit context."),                                                                  \
+                        SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(context, UnitContext, SD_VARLINK_NULLABLE),                                \
+                        SD_VARLINK_FIELD_COMMENT("Unit runtime state."),                                                            \
+                        SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(runtime, UnitRuntime, SD_VARLINK_NULLABLE),                                \
+                        SD_VARLINK_FIELD_COMMENT("The enqueued job."),                                                              \
+                        SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(job, Job, SD_VARLINK_NULLABLE))
+
+VARLINK_DEFINE_UNIT_JOB_METHOD(Start);
+VARLINK_DEFINE_UNIT_JOB_METHOD(Stop);
+VARLINK_DEFINE_UNIT_JOB_METHOD(Restart);
+VARLINK_DEFINE_UNIT_JOB_METHOD(Reload);
+VARLINK_DEFINE_UNIT_JOB_METHOD(ReloadOrRestart);
+
 static SD_VARLINK_DEFINE_ERROR(
                 NoSuchUnit,
                 SD_VARLINK_DEFINE_FIELD(parameter, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
@@ -1946,6 +1991,7 @@ static SD_VARLINK_DEFINE_ERROR(
 static SD_VARLINK_DEFINE_ERROR(UnitExists);
 static SD_VARLINK_DEFINE_ERROR(UnitTypeNotSupported);
 static SD_VARLINK_DEFINE_ERROR(BadUnitSetting);
+static SD_VARLINK_DEFINE_ERROR(JobAlreadyBeingWatched);
 
 static SD_VARLINK_DEFINE_METHOD_FULL(
                 StartTransient,
@@ -1979,6 +2025,18 @@ SD_VARLINK_DEFINE_INTERFACE(
                 "io.systemd.Unit",
                 SD_VARLINK_SYMBOL_COMMENT("List units"),
                 &vl_method_List,
+                SD_VARLINK_SYMBOL_COMMENT("Enqueue a job for a unit"),
+                &vl_method_EnqueueJob,
+                SD_VARLINK_SYMBOL_COMMENT("Start a unit"),
+                &vl_method_Start,
+                SD_VARLINK_SYMBOL_COMMENT("Stop a unit"),
+                &vl_method_Stop,
+                SD_VARLINK_SYMBOL_COMMENT("Restart a unit"),
+                &vl_method_Restart,
+                SD_VARLINK_SYMBOL_COMMENT("Reload a unit's configuration"),
+                &vl_method_Reload,
+                SD_VARLINK_SYMBOL_COMMENT("Reload a unit if supported, otherwise restart"),
+                &vl_method_ReloadOrRestart,
                 SD_VARLINK_SYMBOL_COMMENT("Set unit properties"),
                 &vl_method_SetProperties,
                 SD_VARLINK_SYMBOL_COMMENT("Create a transient unit and start it"),
@@ -2149,4 +2207,6 @@ SD_VARLINK_DEFINE_INTERFACE(
                 SD_VARLINK_SYMBOL_COMMENT("This unit type does not support transient units"),
                 &vl_error_UnitTypeNotSupported,
                 SD_VARLINK_SYMBOL_COMMENT("The unit file content contains invalid settings"),
-                &vl_error_BadUnitSetting);
+                &vl_error_BadUnitSetting,
+                SD_VARLINK_SYMBOL_COMMENT("The job or unit is already being watched by another streaming connection"),
+                &vl_error_JobAlreadyBeingWatched);

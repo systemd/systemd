@@ -9,6 +9,7 @@
 #define VARLINK_ERROR_UNIT_UNIT_EXISTS "io.systemd.Unit.UnitExists"
 #define VARLINK_ERROR_UNIT_TYPE_NOT_SUPPORTED "io.systemd.Unit.UnitTypeNotSupported"
 #define VARLINK_ERROR_UNIT_BAD_SETTING "io.systemd.Unit.BadUnitSetting"
+#define VARLINK_ERROR_UNIT_JOB_ALREADY_BEING_WATCHED "io.systemd.Unit.JobAlreadyBeingWatched"
 
 int vl_method_list_units(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata);
 
@@ -20,6 +21,13 @@ int varlink_unit_queue_job_one(
                 uint32_t *ret_job_id,
                 Job **ret_job,
                 sd_bus_error *reterr_bus_error);
+
+int vl_method_enqueue_unit_job(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata);
+int vl_method_start_unit(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata);
+int vl_method_stop_unit(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata);
+int vl_method_restart_unit(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata);
+int vl_method_reload_unit(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata);
+int vl_method_reload_or_restart_unit(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata);
 
 int vl_method_set_unit_properties(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata);
 

@@ -661,6 +661,7 @@ static void transient_exec_command_item_done(TransientExecCommandItem *i) {
 
 static JSON_DISPATCH_ENUM_DEFINE(dispatch_service_type, ServiceType, service_type_from_string);
 static JSON_DISPATCH_ENUM_DEFINE(dispatch_job_mode, JobMode, job_mode_from_string);
+static JSON_DISPATCH_ENUM_DEFINE(dispatch_job_type, JobType, job_type_from_string);
 
 typedef struct TransientWorkingDirectory {
         const char *path;
@@ -1204,6 +1205,199 @@ static int transient_service_apply_properties(Service *s, TransientServiceParame
         return 0;
 }
 
+static int varlink_reply_unit_job(
+                sd_varlink *link,
+                sd_varlink_method_flags_t flags,
+                Unit *u,
+                Job *j,
+                bool notify_job_changes,
+                bool notify_unit_changes) {
+
+        assert(link);
+        assert(u);
+        assert(j);
+
+        /* Non-streaming, or fire-and-forget (no notification flags set): return full unit context
+         * and runtime, plus the job object so the caller can correlate with later state. */
+        if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE) || (!notify_job_changes && !notify_unit_changes))
+                return sd_varlink_replybo(
+                                link,
+                                SD_JSON_BUILD_PAIR_CALLBACK("context", unit_context_build_json, u),
+                                SD_JSON_BUILD_PAIR_CALLBACK("runtime", unit_runtime_build_json, u),
+                                SD_JSON_BUILD_PAIR_CALLBACK("job", job_build_json, j));
+
+        /* Streaming: attach to the job for the final reply, and optionally to the unit for state change
+         * notifications. j->varlink owns the stream lifetime, u->varlink_unit_change is just a flag to
+         * also send unit state notifications along the way.
+         *
+         * Because jobs coalesce, a concurrent streaming request may map onto a job (or unit) that is
+         * already being watched by another connection. Only a single streaming subscriber is supported,
+         * so reject the second one instead of clobbering the first. */
+        if (j->varlink || (notify_unit_changes && u->varlink_unit_change))
+                return sd_varlink_error(link, VARLINK_ERROR_UNIT_JOB_ALREADY_BEING_WATCHED, NULL);
+
+        j->varlink = sd_varlink_ref(link);
+        j->varlink_notify_job_changes = notify_job_changes;
+        if (notify_unit_changes)
+                u->varlink_unit_change = sd_varlink_ref(link);
+
+        /* Send initial job state notification if requested. Unit state change notifications are not sent
+         * here; they will arrive via varlink_unit_send_change_signal() when the unit actually transitions,
+         * matching D-Bus PropertiesChanged behavior. */
+        if (notify_job_changes)
+                return sd_varlink_notifybo(
+                                link,
+                                SD_JSON_BUILD_PAIR_CALLBACK("job", job_build_json, j));
+
+        return 0;
+}
+
+typedef struct EnqueueJobParameters {
+        const char *name;
+        JobType job_type;
+        JobMode mode;
+        bool reload_if_possible;
+        int notify_job_changes;
+        int notify_unit_changes;
+} EnqueueJobParameters;
+
+static int varlink_unit_enqueue_job_and_reply(
+                sd_varlink *link,
+                sd_varlink_method_flags_t flags,
+                const EnqueueJobParameters *p,
+                void *userdata) {
+
+        _cleanup_(sd_bus_error_free) sd_bus_error bus_error = SD_BUS_ERROR_NULL;
+        Manager *manager = ASSERT_PTR(userdata);
+        Unit *u;
+        int r;
+
+        assert(link);
+        assert(p);
+        assert(p->name);
+        assert(p->job_type >= 0 && p->job_type < _JOB_TYPE_MAX);
+        assert(p->mode >= 0 && p->mode < _JOB_MODE_MAX);
+
+        r = load_unit_and_check(link, manager, p->name, &u);
+        if (r < 0)
+                return r;
+
+        r = mac_selinux_unit_access_check_varlink(u, link, job_type_to_access_method(p->job_type));
+        if (r < 0)
+                return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, NULL);
+
+        r = varlink_verify_polkit_async(
+                        link,
+                        manager->system_bus,
+                        "org.freedesktop.systemd1.manage-units",
+                        (const char**) STRV_MAKE(
+                                        "unit", u->id,
+                                        "verb", job_type_to_string(p->job_type),
+                                        "polkit.message", N_("Authentication is required to manage unit '$(unit)'."),
+                                        "polkit.gettext_domain", GETTEXT_PACKAGE),
+                        &manager->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        Job *j;
+        r = varlink_unit_queue_job_one(
+                        u,
+                        p->job_type,
+                        p->mode,
+                        p->reload_if_possible,
+                        /* ret_job_id= */ NULL,
+                        &j,
+                        &bus_error);
+        if (r < 0)
+                return varlink_reply_bus_error(link, r, &bus_error);
+
+        return varlink_reply_unit_job(link, flags, u, j, p->notify_job_changes > 0, p->notify_unit_changes > 0);
+}
+
+int vl_method_enqueue_unit_job(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "name",              SD_JSON_VARIANT_STRING,  json_dispatch_const_unit_name, offsetof(EnqueueJobParameters, name),                 SD_JSON_MANDATORY },
+                { "jobType",           SD_JSON_VARIANT_STRING,  dispatch_job_type,             offsetof(EnqueueJobParameters, job_type),             SD_JSON_MANDATORY },
+                { "mode",              SD_JSON_VARIANT_STRING,  dispatch_job_mode,             offsetof(EnqueueJobParameters, mode),                 0                 },
+                { "notifyJobChanges",  SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate,     offsetof(EnqueueJobParameters, notify_job_changes),   0                 },
+                { "notifyUnitChanges", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate,     offsetof(EnqueueJobParameters, notify_unit_changes),  0                 },
+                {}
+        };
+
+        EnqueueJobParameters p = {
+                .job_type = _JOB_TYPE_INVALID,
+                .mode = JOB_REPLACE,
+                .notify_job_changes = -1,
+                .notify_unit_changes = -1,
+        };
+        int r;
+
+        assert(link);
+        assert(parameters);
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        return varlink_unit_enqueue_job_and_reply(link, flags, &p, userdata);
+}
+
+static int vl_method_unit_job_generic(
+                sd_varlink *link,
+                sd_json_variant *parameters,
+                sd_varlink_method_flags_t flags,
+                JobType job_type,
+                bool reload_if_possible,
+                void *userdata) {
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "name",              SD_JSON_VARIANT_STRING,  json_dispatch_const_unit_name, offsetof(EnqueueJobParameters, name),                SD_JSON_MANDATORY },
+                { "mode",              SD_JSON_VARIANT_STRING,  dispatch_job_mode,             offsetof(EnqueueJobParameters, mode),                0                 },
+                { "notifyJobChanges",  SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate,     offsetof(EnqueueJobParameters, notify_job_changes),  0                 },
+                { "notifyUnitChanges", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate,     offsetof(EnqueueJobParameters, notify_unit_changes), 0                 },
+                {}
+        };
+
+        EnqueueJobParameters p = {
+                .job_type = job_type,
+                .mode = JOB_REPLACE,
+                .reload_if_possible = reload_if_possible,
+                .notify_job_changes = -1,
+                .notify_unit_changes = -1,
+        };
+        int r;
+
+        assert(link);
+        assert(parameters);
+        assert(job_type >= 0 && job_type < _JOB_TYPE_MAX);
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        return varlink_unit_enqueue_job_and_reply(link, flags, &p, userdata);
+}
+
+int vl_method_start_unit(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        return vl_method_unit_job_generic(link, parameters, flags, JOB_START, /* reload_if_possible= */ false, userdata);
+}
+
+int vl_method_stop_unit(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        return vl_method_unit_job_generic(link, parameters, flags, JOB_STOP, /* reload_if_possible= */ false, userdata);
+}
+
+int vl_method_restart_unit(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        return vl_method_unit_job_generic(link, parameters, flags, JOB_RESTART, /* reload_if_possible= */ false, userdata);
+}
+
+int vl_method_reload_unit(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        return vl_method_unit_job_generic(link, parameters, flags, JOB_RELOAD, /* reload_if_possible= */ false, userdata);
+}
+
+int vl_method_reload_or_restart_unit(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        return vl_method_unit_job_generic(link, parameters, flags, JOB_RESTART, /* reload_if_possible= */ true, userdata);
+}
+
 int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         static const sd_json_dispatch_field dispatch_table[] = {
                 { "context",            SD_JSON_VARIANT_OBJECT,  dispatch_transient_context, 0,                                                       SD_JSON_MANDATORY },
@@ -1324,38 +1518,7 @@ int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters
         if (r < 0)
                 return varlink_reply_bus_error(link, r, &bus_error);
 
-        bool notify_job = p.notify_job_changes > 0;
-        bool notify_unit = p.notify_unit_changes > 0;
-
-        /* Non-streaming, or fire-and-forget (no notification flags set): return full unit context
-         * and runtime, plus the job object so the caller can correlate with later state. */
-        if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE) || (!notify_job && !notify_unit))
-                return sd_varlink_replybo(
-                                link,
-                                SD_JSON_BUILD_PAIR_CALLBACK("context", unit_context_build_json, u),
-                                SD_JSON_BUILD_PAIR_CALLBACK("runtime", unit_runtime_build_json, u),
-                                SD_JSON_BUILD_PAIR_CALLBACK("job", job_build_json, j));
-
-        /* Streaming: always attach to the job for the final reply, and optionally to the unit for state
-         * change notifications. j->varlink owns the stream lifetime, u->varlink_unit_change is just a flag
-         * to also send unit state notifications along the way. */
-        assert(!j->varlink);
-        j->varlink = sd_varlink_ref(link);
-        j->varlink_notify_job_changes = notify_job;
-        if (notify_unit) {
-                assert(!u->varlink_unit_change);
-                u->varlink_unit_change = sd_varlink_ref(link);
-        }
-
-        /* Send initial job state notification if requested. Unit state change notifications are not sent
-         * here; they will arrive via varlink_unit_send_change_signal() when the unit actually transitions,
-         * matching D-Bus PropertiesChanged behavior. */
-        if (notify_job)
-                return sd_varlink_notifybo(
-                                link,
-                                SD_JSON_BUILD_PAIR_CALLBACK("job", job_build_json, j));
-
-        return 0;
+        return varlink_reply_unit_job(link, flags, u, j, p.notify_job_changes > 0, p.notify_unit_changes > 0);
 }
 
 typedef struct UnitSetPropertiesParameters {
