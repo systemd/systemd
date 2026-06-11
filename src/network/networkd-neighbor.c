@@ -268,7 +268,7 @@ static void neighbor_forget(Link *link, Neighbor *neighbor, const char *msg) {
                 return;
 
         neighbor_enter_removed(neighbor);
-        log_neighbor_debug(neighbor, "Forgetting", link);
+        log_neighbor_debug(neighbor, msg, link);
         neighbor_detach(neighbor);
 }
 
