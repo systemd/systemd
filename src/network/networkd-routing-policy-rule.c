@@ -562,7 +562,7 @@ static void routing_policy_rule_forget(Manager *manager, RoutingPolicyRule *rule
                 return;
 
         routing_policy_rule_enter_removed(rule);
-        log_routing_policy_rule_debug(rule, "Forgetting", NULL, manager);
+        log_routing_policy_rule_debug(rule, msg, NULL, manager);
         routing_policy_rule_detach(rule);
 }
 
