@@ -10,7 +10,7 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-05-30 00:13+0200\n"
-"PO-Revision-Date: 2026-06-09 09:04+0000\n"
+"PO-Revision-Date: 2026-06-11 08:01+0000\n"
 "Last-Translator: ButterflyOfFire "
 "<butterflyoffire@users.noreply.translate.fedoraproject.org>\n"
 "Language-Team: Kabyle <https://translate.fedoraproject.org/projects/systemd/"
@@ -1047,7 +1047,7 @@ msgstr ""
 
 #: src/resolve/org.freedesktop.resolve1.policy:22
 msgid "Register a DNS-SD service"
-msgstr ""
+msgstr "Sekles yiwet n tanfa n DNS-SD"
 
 #: src/resolve/org.freedesktop.resolve1.policy:23
 msgid "Authentication is required to register a DNS-SD service."
@@ -1247,11 +1247,11 @@ msgstr ""
 
 #: src/core/dbus-unit.c:372
 msgid "Authentication is required to start '$(unit)'."
-msgstr ""
+msgstr "Yettwasra usesteb i usekker n '$(unit)'."
 
 #: src/core/dbus-unit.c:373
 msgid "Authentication is required to stop '$(unit)'."
-msgstr ""
+msgstr "Yettwasra usesteb i useḥbes n'$(unit)'."
 
 #: src/core/dbus-unit.c:374
 msgid "Authentication is required to reload '$(unit)'."
@@ -1259,7 +1259,7 @@ msgstr ""
 
 #: src/core/dbus-unit.c:375 src/core/dbus-unit.c:376
 msgid "Authentication is required to restart '$(unit)'."
-msgstr ""
+msgstr "Yettwasra usesteb i wallus n asekker n '$(unit)'."
 
 #: src/core/dbus-unit.c:568
 msgid ""
@@ -1302,4 +1302,4 @@ msgstr ""
 
 #: src/shared/libfido2-util.c:926
 msgid "Please enter security token PIN:"
-msgstr ""
+msgstr "Ttxil, sekcem-d tiddest n tɣellist PIN:"
