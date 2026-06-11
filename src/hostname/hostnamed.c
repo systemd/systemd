@@ -147,11 +147,9 @@ static void context_read_etc_hostname(Context *c) {
                 if (r != -ENOENT)
                         log_warning_errno(r, "Failed to read /etc/hostname, ignoring: %m");
         } else {
-                _cleanup_free_ char *substituted = strdup(c->data[PROP_STATIC_HOSTNAME]);
-                if (!substituted)
-                        return (void) log_oom();
+                _cleanup_free_ char *substituted = NULL;
 
-                r = hostname_substitute_wildcards(substituted);
+                r = hostname_substitute_wildcards(c->data[PROP_STATIC_HOSTNAME], &substituted);
                 if (r < 0)
                         log_warning_errno(r, "Failed to substitute wildcards in /etc/hostname, ignoring: %m");
                 else
@@ -1358,11 +1356,9 @@ static int validate_and_substitute_hostname(const char *name, char **ret_substit
                 return 0;
         }
 
-        _cleanup_free_ char *substituted = strdup(name);
-        if (!substituted)
-                return log_oom();
+        _cleanup_free_ char *substituted = NULL;
 
-        r = hostname_substitute_wildcards(substituted);
+        r = hostname_substitute_wildcards(name, &substituted);
         if (r < 0)
                 return log_error_errno(r, "Failed to substitute wildcards in hostname: %m");
 

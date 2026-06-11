@@ -2450,6 +2450,7 @@ subdir('test')
 
 subdir('docs/var-log')
 subdir('hwdb.d')
+subdir('hostname-words')
 subdir('man')
 subdir('modprobe.d')
 subdir('network')

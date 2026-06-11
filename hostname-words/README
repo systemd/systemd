@@ -1,0 +1,46 @@
+Hostname word lists
+====================
+
+These files provide the word lists for the "%v" (adverb), "%a" (adjective) and
+"%n" (noun) wildcards understood by /etc/hostname (see hostname(5)). A template
+such as:
+
+    %a-%n          ->  happy-octopus
+    %v-%a-%n-????  ->  wildly-happy-octopus-92a9
+
+is expanded deterministically from the machine ID, so a given machine always
+gets the same name.
+
+Files
+-----
+
+Each file holds one word per line. Empty lines and lines starting with "#" are
+ignored. Each word must be a valid single hostname label (lowercase letters,
+digits, hyphens). Invalid entries are skipped. The list is loaded as a whole
+from the highest-priority directory that provides it (/etc wins over /run wins
+over /usr/lib); lists are not merged across directories.
+
+Search path (highest priority first):
+
+    /etc/systemd/hostname-words/{adverbs,adjectives,nouns}
+    /run/systemd/hostname-words/...
+    /usr/local/lib/systemd/hostname-words/...
+    /usr/lib/systemd/hostname-words/...
+
+Caveats
+-------
+
+One word per class is picked once on the first boot and persisted (in
+/var/lib/systemd/hostname-words-picked), so once a machine has been given a
+name, later changes to these lists do not change it. (Before that first pick,
+or if /var/ is reset, the name is derived live from the current lists.) If a
+referenced list is missing the name is treated as invalid and the built-in
+fallback hostname is used.
+
+Origin
+------
+
+These are the "small" word lists taken from the petname project
+(https://github.com/dustinkirkland/petname), distributed under the Apache
+License 2.0. Distributions are encouraged to ship larger lists (petname also
+provides "medium" and "large") for a bigger name space.
