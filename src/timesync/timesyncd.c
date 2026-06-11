@@ -19,6 +19,7 @@
 #include "network-util.h"
 #include "process-util.h"
 #include "service-util.h"
+#include "signal-util.h"
 #include "timesyncd-bus.h"
 #include "timesyncd-conf.h"
 #include "timesyncd-manager.h"
@@ -139,6 +140,7 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         umask(0022);
+        (void) ignore_signals(SIGPIPE);
 
         if (argc != 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program does not take arguments.");
