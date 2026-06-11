@@ -923,6 +923,10 @@ static int cached_symlink_add(
                 const char *name,
                 const char *target) {
 
+        assert(entries);
+        assert(n);
+        assert(name);
+
         if (!GREEDY_REALLOC(*entries, *n + 1))
                 return -ENOMEM;
 
