@@ -375,6 +375,8 @@ __attribute__((noinline)) void notify_debugger(const char *identity, volatile bo
                 asm volatile("pause");
 #  elif defined(__aarch64__)
                 asm volatile("wfi");
+#  elif defined(__riscv)
+                asm volatile(".insn i 0x0F, 0, x0, x0, 0x010");
 #  else
                 BS->Stall(5000);
 #  endif
