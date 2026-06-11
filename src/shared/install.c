@@ -865,6 +865,217 @@ static int is_symlink_with_known_name(const InstallInfo *i, const char *name) {
         return false;
 }
 
+/* Symlink cache for unit_file_get_list — pre-scans .wants/.requires directories
+ * and direct symlinks once, so find_symlinks_in_scope can do in-memory lookups
+ * instead of re-reading the filesystem per unit file. */
+
+typedef struct {
+        char *name;           /* symlink d_name */
+        char *target;         /* basename of readlinkat result, only for direct links */
+} CachedSymlink;
+
+typedef struct {
+        const char *config_path;       /* points into lp->search_path, not owned */
+
+        CachedSymlink *wants_entries;  /* symlinks from .wants/.requires subdirs */
+        size_t n_wants;
+
+        CachedSymlink *direct_entries; /* direct DT_LNK entries in this search path */
+        size_t n_direct;
+} CachedSearchPath;
+
+typedef struct SymlinkCache {
+        CachedSearchPath *paths;
+        size_t n_paths;
+        Set *dropin_dirs;  /* set of existing ".d" directory basenames */
+} SymlinkCache;
+
+static SymlinkCache* symlink_cache_free(SymlinkCache *cache) {
+        if (!cache)
+                return NULL;
+
+        for (size_t i = 0; i < cache->n_paths; i++) {
+                CachedSearchPath *csp = &cache->paths[i];
+
+                for (size_t j = 0; j < csp->n_wants; j++) {
+                        free(csp->wants_entries[j].name);
+                        free(csp->wants_entries[j].target);
+                }
+                free(csp->wants_entries);
+
+                for (size_t j = 0; j < csp->n_direct; j++) {
+                        free(csp->direct_entries[j].name);
+                        free(csp->direct_entries[j].target);
+                }
+                free(csp->direct_entries);
+        }
+
+        set_free(cache->dropin_dirs);
+        free(cache->paths);
+        return mfree(cache);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(SymlinkCache*, symlink_cache_free);
+
+static int cached_symlink_add(
+                CachedSymlink **entries,
+                size_t *n,
+                const char *name,
+                const char *target) {
+
+        if (!GREEDY_REALLOC(*entries, *n + 1))
+                return -ENOMEM;
+
+        CachedSymlink *entry = &(*entries)[*n];
+        entry->name = strdup(name);
+        if (!entry->name)
+                return -ENOMEM;
+
+        if (target) {
+                entry->target = strdup(target);
+                if (!entry->target) {
+                        free(entry->name);
+                        return -ENOMEM;
+                }
+        } else
+                entry->target = NULL;
+
+        (*n)++;
+        return 0;
+}
+
+static int symlink_cache_build(const LookupPaths *lp, SymlinkCache **ret) {
+        _cleanup_(symlink_cache_freep) SymlinkCache *cache = NULL;
+        size_t n_search_paths;
+        int r;
+
+        assert(lp);
+        assert(ret);
+
+        n_search_paths = strv_length(lp->search_path);
+
+        cache = new0(SymlinkCache, 1);
+        if (!cache)
+                return -ENOMEM;
+
+        cache->paths = new0(CachedSearchPath, n_search_paths);
+        if (!cache->paths)
+                return -ENOMEM;
+        cache->n_paths = n_search_paths;
+
+        for (size_t i = 0; i < n_search_paths; i++) {
+                _cleanup_closedir_ DIR *config_dir = NULL;
+                CachedSearchPath *csp = &cache->paths[i];
+
+                csp->config_path = lp->search_path[i];
+
+                config_dir = opendir(lp->search_path[i]);
+                if (!config_dir) {
+                        if (IN_SET(errno, ENOENT, ENOTDIR, EACCES))
+                                continue;
+                        return -errno;
+                }
+
+                FOREACH_DIRENT(de, config_dir, return -errno) {
+                        _cleanup_closedir_ DIR *d = NULL;
+                        _cleanup_free_ char *subdir_path = NULL;
+                        const char *suffix;
+
+                        if (!IN_SET(de->d_type, DT_DIR, DT_LNK, DT_UNKNOWN))
+                                continue;
+
+                        suffix = strrchr(de->d_name, '.');
+                        if (!STRPTR_IN_SET(suffix, ".wants", ".requires", ".upholds"))
+                                continue;
+
+                        subdir_path = path_join(lp->search_path[i], de->d_name);
+                        if (!subdir_path)
+                                return -ENOMEM;
+
+                        d = opendir(subdir_path);
+                        if (!d) {
+                                log_debug_errno(errno, "Failed to open \"%s\" for symlink cache: %m", subdir_path);
+                                continue;
+                        }
+
+                        FOREACH_DIRENT(subde, d, return -errno) {
+                                if (subde->d_type != DT_LNK)
+                                        continue;
+
+                                r = cached_symlink_add(
+                                                &csp->wants_entries,
+                                                &csp->n_wants,
+                                                subde->d_name,
+                                                NULL);
+                                if (r < 0)
+                                        return r;
+                        }
+                }
+
+                rewinddir(config_dir);
+                FOREACH_DIRENT(de, config_dir, return -errno) {
+                        _cleanup_free_ char *dest = NULL;
+
+                        if (de->d_type != DT_LNK)
+                                continue;
+
+                        r = readlinkat_malloc(dirfd(config_dir), de->d_name, &dest);
+                        if (r == -ENOENT)
+                                continue;
+                        if (r < 0) {
+                                log_debug_errno(r, "Failed to readlink \"%s/%s\" for cache: %m",
+                                                lp->search_path[i], de->d_name);
+                                continue;
+                        }
+
+                        if (!path_is_absolute(dest)) {
+                                char *x = path_join(lp->search_path[i], dest);
+                                if (!x)
+                                        return -ENOMEM;
+                                free_and_replace(dest, x);
+                        }
+
+                        _cleanup_free_ char *fname = NULL;
+                        r = path_extract_filename(dest, &fname);
+                        if (r < 0) {
+                                log_debug_errno(r, "Failed to extract filename from \"%s\" for cache, ignoring: %m", dest);
+                                continue;
+                        }
+
+                        r = cached_symlink_add(
+                                        &csp->direct_entries,
+                                        &csp->n_direct,
+                                        de->d_name,
+                                        fname);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        /* Pre-scan for existing .d (drop-in) directories across all search paths */
+        for (size_t i = 0; i < n_search_paths; i++) {
+                _cleanup_closedir_ DIR *d = NULL;
+
+                d = opendir(lp->search_path[i]);
+                if (!d)
+                        continue;
+
+                FOREACH_DIRENT(de, d, break) {
+                        if (!IN_SET(de->d_type, DT_DIR, DT_LNK, DT_UNKNOWN))
+                                continue;
+                        if (!endswith(de->d_name, ".d"))
+                                continue;
+
+                        r = set_put_strdup(&cache->dropin_dirs, de->d_name);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        *ret = TAKE_PTR(cache);
+        return 0;
+}
+
 static int find_symlinks_in_directory(
                 DIR *dir,
                 const char *dir_path,
@@ -1027,6 +1238,7 @@ static int find_symlinks_in_scope(
                 const LookupPaths *lp,
                 const InstallInfo *info,
                 bool match_name,
+                const SymlinkCache *cache,
                 UnitFileState *state) {
 
         bool same_name_link_runtime = false, same_name_link_config = false;
@@ -1042,51 +1254,165 @@ static int find_symlinks_in_scope(
          * symlinks. The ones which are "below" (i.e. have lower priority) than the unit file itself are
          * effectively masked, so we should ignore them. */
 
-        STRV_FOREACH(p, lp->search_path)  {
-                bool same_name_link = false;
+        if (cache) {
+                for (size_t pi = 0; pi < cache->n_paths; pi++) {
+                        const CachedSearchPath *csp = &cache->paths[pi];
+                        bool same_name_link = false;
+                        bool found = false;
 
-                r = find_symlinks(lp->root_dir, info, match_name, ignore_same_name, *p, &same_name_link);
-                if (r < 0)
-                        return r;
-                if (r > 0) {
-                        /* We found symlinks in this dir? Yay! Let's see where precisely it is enabled. */
+                        for (size_t j = 0; j < csp->n_wants; j++) {
+                                const CachedSymlink *entry = &csp->wants_entries[j];
+                                bool found_path = false, found_dest = false;
+                                int q;
 
-                        if (path_equal(*p, lp->persistent_config)) {
-                                /* This is the best outcome, let's return it immediately. */
-                                *state = UNIT_FILE_ENABLED;
-                                return 1;
+                                found_path = streq(entry->name, info->name);
+
+                                if (!found_path && entry->target)
+                                        found_dest = streq(entry->target, info->name);
+
+                                if (!found_path && !found_dest) {
+                                        _cleanup_free_ char *template = NULL;
+
+                                        q = unit_name_template(entry->name, &template);
+                                        if (q < 0 && q != -EINVAL)
+                                                return q;
+                                        if (q >= 0)
+                                                found_dest = streq(template, info->name);
+                                }
+
+                                if (found_path || found_dest) {
+                                        if (!match_name) {
+                                                found = true;
+                                                break;
+                                        }
+
+                                        q = is_symlink_with_known_name(info, entry->name);
+                                        if (q < 0)
+                                                return q;
+                                        if (q > 0) {
+                                                found = true;
+                                                break;
+                                        }
+                                }
                         }
 
-                        /* look for global enablement of user units */
-                        if (scope == RUNTIME_SCOPE_USER && path_is_user_config_dir(*p)) {
-                                *state = UNIT_FILE_ENABLED;
-                                return 1;
+                        if (!found) {
+                                for (size_t j = 0; j < csp->n_direct; j++) {
+                                        const CachedSymlink *entry = &csp->direct_entries[j];
+                                        bool found_path = false, found_dest = false, b = false;
+                                        int q;
+
+                                        found_dest = streq(entry->target, info->name);
+
+                                        if (!ignore_same_name)
+                                                found_path = streq(entry->name, info->name);
+
+                                        if (found_path && found_dest) {
+                                                _cleanup_free_ char *p = NULL, *t = NULL;
+
+                                                p = path_make_absolute(entry->name, csp->config_path);
+                                                t = path_make_absolute(info->name, csp->config_path);
+
+                                                if (!p || !t)
+                                                        return -ENOMEM;
+
+                                                b = path_equal(p, t);
+                                        }
+
+                                        if (b)
+                                                same_name_link = true;
+                                        else if (found_path || found_dest) {
+                                                if (!match_name) {
+                                                        found = true;
+                                                        break;
+                                                }
+
+                                                q = is_symlink_with_known_name(info, entry->name);
+                                                if (q < 0)
+                                                        return q;
+                                                if (q > 0) {
+                                                        found = true;
+                                                        break;
+                                                }
+                                        }
+                                }
                         }
 
-                        r = path_is_runtime(lp, *p, false);
+                        if (found) {
+                                if (path_equal(csp->config_path, lp->persistent_config)) {
+                                        *state = UNIT_FILE_ENABLED;
+                                        return 1;
+                                }
+
+                                if (scope == RUNTIME_SCOPE_USER && path_is_user_config_dir(csp->config_path)) {
+                                        *state = UNIT_FILE_ENABLED;
+                                        return 1;
+                                }
+
+                                r = path_is_runtime(lp, csp->config_path, false);
+                                if (r < 0)
+                                        return r;
+                                if (r > 0)
+                                        enabled_in_runtime = true;
+                                else
+                                        enabled_at_all = true;
+
+                        } else if (same_name_link) {
+                                if (path_equal(csp->config_path, lp->persistent_config))
+                                        same_name_link_config = true;
+                                else {
+                                        r = path_is_runtime(lp, csp->config_path, false);
+                                        if (r < 0)
+                                                return r;
+                                        if (r > 0)
+                                                same_name_link_runtime = true;
+                                }
+                        }
+
+                        if (!ignore_same_name && path_startswith(info->path, csp->config_path))
+                                ignore_same_name = true;
+                }
+        } else {
+                STRV_FOREACH(p, lp->search_path)  {
+                        bool same_name_link = false;
+
+                        r = find_symlinks(lp->root_dir, info, match_name, ignore_same_name, *p, &same_name_link);
                         if (r < 0)
                                 return r;
-                        if (r > 0)
-                                enabled_in_runtime = true;
-                        else
-                                enabled_at_all = true;
+                        if (r > 0) {
+                                if (path_equal(*p, lp->persistent_config)) {
+                                        *state = UNIT_FILE_ENABLED;
+                                        return 1;
+                                }
 
-                } else if (same_name_link) {
-                        if (path_equal(*p, lp->persistent_config))
-                                same_name_link_config = true;
-                        else {
+                                if (scope == RUNTIME_SCOPE_USER && path_is_user_config_dir(*p)) {
+                                        *state = UNIT_FILE_ENABLED;
+                                        return 1;
+                                }
+
                                 r = path_is_runtime(lp, *p, false);
                                 if (r < 0)
                                         return r;
                                 if (r > 0)
-                                        same_name_link_runtime = true;
-                        }
-                }
+                                        enabled_in_runtime = true;
+                                else
+                                        enabled_at_all = true;
 
-                /* Check if next iteration will be "below" the unit file (either a regular file
-                 * or a symlink), and hence should be ignored */
-                if (!ignore_same_name && path_startswith(info->path, *p))
-                        ignore_same_name = true;
+                        } else if (same_name_link) {
+                                if (path_equal(*p, lp->persistent_config))
+                                        same_name_link_config = true;
+                                else {
+                                        r = path_is_runtime(lp, *p, false);
+                                        if (r < 0)
+                                                return r;
+                                        if (r > 0)
+                                                same_name_link_runtime = true;
+                                }
+                        }
+
+                        if (!ignore_same_name && path_startswith(info->path, *p))
+                                ignore_same_name = true;
+                }
         }
 
         if (enabled_in_runtime) {
@@ -1537,7 +1863,8 @@ static int unit_file_search(
                 InstallContext *ctx,
                 InstallInfo *info,
                 const LookupPaths *lp,
-                SearchFlags flags) {
+                SearchFlags flags,
+                const SymlinkCache *cache) {
 
         const char *dropin_dir_name = NULL, *dropin_template_dir_name = NULL;
         _cleanup_strv_free_ char **dirs = NULL, **files = NULL;
@@ -1615,30 +1942,72 @@ static int unit_file_search(
         /* Search for drop-in directories */
 
         dropin_dir_name = strjoina(info->name, ".d");
-        STRV_FOREACH(p, lp->search_path) {
-                char *path;
 
-                path = path_join(*p, dropin_dir_name);
-                if (!path)
-                        return -ENOMEM;
+        if (cache) {
+                /* Use the pre-built dropin directory cache to skip units with no dropins */
+                bool has_dropins = set_contains(cache->dropin_dirs, dropin_dir_name);
+                bool has_template_dropins = false;
+                if (template) {
+                        dropin_template_dir_name = strjoina(template, ".d");
+                        has_template_dropins = set_contains(cache->dropin_dirs, dropin_template_dir_name);
+                }
 
-                r = strv_consume(&dirs, path);
-                if (r < 0)
-                        return r;
-        }
+                if (!has_dropins && !has_template_dropins)
+                        return result;
 
-        if (template) {
-                dropin_template_dir_name = strjoina(template, ".d");
+                if (has_dropins) {
+                        STRV_FOREACH(p, lp->search_path) {
+                                char *path;
+
+                                path = path_join(*p, dropin_dir_name);
+                                if (!path)
+                                        return -ENOMEM;
+
+                                r = strv_consume(&dirs, path);
+                                if (r < 0)
+                                        return r;
+                        }
+                }
+
+                if (has_template_dropins) {
+                        STRV_FOREACH(p, lp->search_path) {
+                                char *path;
+
+                                path = path_join(*p, dropin_template_dir_name);
+                                if (!path)
+                                        return -ENOMEM;
+
+                                r = strv_consume(&dirs, path);
+                                if (r < 0)
+                                        return r;
+                        }
+                }
+        } else {
                 STRV_FOREACH(p, lp->search_path) {
                         char *path;
 
-                        path = path_join(*p, dropin_template_dir_name);
+                        path = path_join(*p, dropin_dir_name);
                         if (!path)
                                 return -ENOMEM;
 
                         r = strv_consume(&dirs, path);
                         if (r < 0)
                                 return r;
+                }
+
+                if (template) {
+                        dropin_template_dir_name = strjoina(template, ".d");
+                        STRV_FOREACH(p, lp->search_path) {
+                                char *path;
+
+                                path = path_join(*p, dropin_template_dir_name);
+                                if (!path)
+                                        return -ENOMEM;
+
+                                r = strv_consume(&dirs, path);
+                                if (r < 0)
+                                        return r;
+                        }
                 }
         }
 
@@ -1692,7 +2061,8 @@ static int install_info_traverse(
                 const LookupPaths *lp,
                 InstallInfo *start,
                 SearchFlags flags,
-                InstallInfo **ret) {
+                InstallInfo **ret,
+                const SymlinkCache *cache) {
 
         InstallInfo *i;
         unsigned k = 0;
@@ -1702,7 +2072,7 @@ static int install_info_traverse(
         assert(lp);
         assert(start);
 
-        r = unit_file_search(ctx, start, lp, flags);
+        r = unit_file_search(ctx, start, lp, flags, cache);
         if (r < 0)
                 return r;
 
@@ -1767,7 +2137,7 @@ static int install_info_traverse(
                                 return r;
 
                         /* Try again, with the new target we found. */
-                        r = unit_file_search(ctx, i, lp, flags);
+                        r = unit_file_search(ctx, i, lp, flags, NULL);
                         if (r == -ENOENT)
                                 /* Translate error code to highlight this specific case */
                                 return -ENOLINK;
@@ -1812,7 +2182,8 @@ static int install_info_discover(
                 SearchFlags flags,
                 InstallInfo **ret,
                 InstallChange **changes,
-                size_t *n_changes) {
+                size_t *n_changes,
+                const SymlinkCache *cache) {
 
         InstallInfo *info;
         int r;
@@ -1823,7 +2194,7 @@ static int install_info_discover(
 
         r = install_info_add_auto(ctx, lp, name_or_path, &info);
         if (r >= 0)
-                r = install_info_traverse(ctx, lp, info, flags, ret);
+                r = install_info_traverse(ctx, lp, info, flags, ret, cache);
 
         if (r < 0)
                 return install_changes_add(changes, n_changes, r, name_or_path, NULL);
@@ -1844,7 +2215,7 @@ static int install_info_discover_and_check(
 
         POINTER_MAY_BE_NULL(ret);
 
-        r = install_info_discover(ctx, lp, name_or_path, flags, ret, changes, n_changes);
+        r = install_info_discover(ctx, lp, name_or_path, flags, ret, changes, n_changes, NULL);
         if (r < 0)
                 return r;
 
@@ -2067,7 +2438,7 @@ static int install_info_symlink_wants(
                 if (r < 0)
                         return r;
 
-                r = unit_file_search(NULL, &instance, lp, SEARCH_FOLLOW_CONFIG_SYMLINKS);
+                r = unit_file_search(NULL, &instance, lp, SEARCH_FOLLOW_CONFIG_SYMLINKS, NULL);
                 if (r < 0)
                         return r;
 
@@ -2235,7 +2606,7 @@ static int install_context_apply(
                 if (q < 0)
                         return q;
 
-                q = install_info_traverse(ctx, lp, i, flags, NULL);
+                q = install_info_traverse(ctx, lp, i, flags, NULL, NULL);
                 if (q < 0) {
                         if (i->auxiliary) {
                                 q = install_changes_add(changes, n_changes, INSTALL_CHANGE_AUXILIARY_FAILED, i->name, NULL);
@@ -2305,7 +2676,7 @@ static int install_context_mark_for_removal(
                 if (r < 0)
                         return r;
 
-                r = install_info_traverse(ctx, lp, i, SEARCH_LOAD|SEARCH_FOLLOW_CONFIG_SYMLINKS, NULL);
+                r = install_info_traverse(ctx, lp, i, SEARCH_LOAD|SEARCH_FOLLOW_CONFIG_SYMLINKS, NULL, NULL);
                 if (r == -ENOLINK) {
                         log_debug_errno(r, "Name %s leads to a dangling symlink, removing name.", i->name);
                         r = install_changes_add(changes, n_changes, INSTALL_CHANGE_IS_DANGLING, i->path ?: i->name, NULL);
@@ -2430,7 +2801,7 @@ int unit_file_unmask(
                                 .install_mode = _INSTALL_MODE_INVALID,
                         };
 
-                        r = unit_file_search(NULL, &info, &lp, 0);
+                        r = unit_file_search(NULL, &info, &lp, 0, NULL);
                         if (r < 0) {
                                 if (r != -ENOENT)
                                         log_debug_errno(r, "Failed to look up unit %s, ignoring: %m", info.name);
@@ -2916,7 +3287,7 @@ static int do_unit_file_disable(
 
                 r = install_info_add(&ctx, *name, NULL, lp->root_dir, /* auxiliary= */ false, &info);
                 if (r >= 0)
-                        r = install_info_traverse(&ctx, lp, info, SEARCH_LOAD|SEARCH_FOLLOW_CONFIG_SYMLINKS, NULL);
+                        r = install_info_traverse(&ctx, lp, info, SEARCH_LOAD|SEARCH_FOLLOW_CONFIG_SYMLINKS, NULL, NULL);
                 if (r < 0) {
                         r = install_changes_add(changes, n_changes, r, *name, NULL);
                         /* In case there's no unit, we still want to remove any leftover symlink, even if
@@ -2994,7 +3365,7 @@ static int normalize_linked_files(
                                                "Unexpected path to a directory \"%s\", refusing.", *a);
 
                 if (!is_path(*a) && !unit_name_is_valid(*a, UNIT_NAME_INSTANCE)) {
-                        r = install_info_discover(&ctx, lp, n, SEARCH_LOAD|SEARCH_FOLLOW_CONFIG_SYMLINKS, &i, NULL, NULL);
+                        r = install_info_discover(&ctx, lp, n, SEARCH_LOAD|SEARCH_FOLLOW_CONFIG_SYMLINKS, &i, NULL, NULL, NULL);
                         if (r < 0)
                                 log_debug_errno(r, "Failed to discover unit \"%s\", operating on name: %m", n);
                 }
@@ -3115,7 +3486,7 @@ int unit_file_get_default(
                 return r;
 
         r = install_info_discover(&ctx, &lp, SPECIAL_DEFAULT_TARGET, SEARCH_FOLLOW_CONFIG_SYMLINKS,
-                                  &info, NULL, NULL);
+                                  &info, NULL, NULL, NULL);
         if (r < 0)
                 return r;
 
@@ -3126,6 +3497,7 @@ int unit_file_lookup_state(
                 RuntimeScope scope,
                 const LookupPaths *lp,
                 const char *name,
+                const SymlinkCache *cache,
                 UnitFileState *ret) {
 
         _cleanup_(install_context_done) InstallContext ctx = { .scope = scope };
@@ -3140,7 +3512,7 @@ int unit_file_lookup_state(
                 return -EINVAL;
 
         r = install_info_discover(&ctx, lp, name, SEARCH_LOAD|SEARCH_FOLLOW_CONFIG_SYMLINKS,
-                                  &info, NULL, NULL);
+                                  &info, NULL, NULL, cache);
         if (r < 0)
                 return log_debug_errno(r, "Failed to discover unit %s: %m", name);
 
@@ -3188,7 +3560,7 @@ int unit_file_lookup_state(
                 /* Check if any of the Alias= symlinks have been created.
                  * We ignore other aliases, and only check those that would
                  * be created by systemctl enable for this unit. */
-                r = find_symlinks_in_scope(scope, lp, info, true, &state);
+                r = find_symlinks_in_scope(scope, lp, info, true, cache, &state);
                 if (r < 0)
                         return r;
                 if (r > 0)
@@ -3196,7 +3568,7 @@ int unit_file_lookup_state(
 
                 /* Check if the file is known under other names. If it is,
                  * it might be in use. Report that as UNIT_FILE_INDIRECT. */
-                r = find_symlinks_in_scope(scope, lp, info, false, &state);
+                r = find_symlinks_in_scope(scope, lp, info, false, cache, &state);
                 if (r < 0)
                         return r;
                 if (r > 0)
@@ -3237,7 +3609,7 @@ int unit_file_get_state(
         if (r < 0)
                 return r;
 
-        return unit_file_lookup_state(scope, &lp, name, ret);
+        return unit_file_lookup_state(scope, &lp, name, NULL, ret);
 }
 
 int unit_file_exists_full(
@@ -3266,7 +3638,7 @@ int unit_file_exists_full(
                         flags,
                         ret_path ? &info : NULL,
                         /* changes= */ NULL,
-                        /* n_changes= */ NULL);
+                        /* n_changes= */ NULL, /* cache= */ NULL);
         if (r == -ENOENT) {
                 if (ret_path)
                         *ret_path = NULL;
@@ -3638,7 +4010,7 @@ static int preset_prepare_one(
                 return 0;
 
         r = install_info_discover(&tmp, lp, name, SEARCH_FOLLOW_CONFIG_SYMLINKS,
-                                  &info, changes, n_changes);
+                                  &info, changes, n_changes, NULL);
         if (r < 0)
                 return r;
 
@@ -3668,7 +4040,7 @@ static int preset_prepare_one(
 
         } else if (r == PRESET_DISABLE)
                 r = install_info_discover(minus, lp, name, SEARCH_FOLLOW_CONFIG_SYMLINKS,
-                                          &info, changes, n_changes);
+                                          &info, changes, n_changes, NULL);
 
         return r;
 }
@@ -3805,6 +4177,11 @@ int unit_file_get_list(
         if (r < 0)
                 return r;
 
+        _cleanup_(symlink_cache_freep) SymlinkCache *cache = NULL;
+        r = symlink_cache_build(&lp, &cache);
+        if (r < 0)
+                return r;
+
         STRV_FOREACH(dirname, lp.search_path) {
                 _cleanup_closedir_ DIR *d = NULL;
 
@@ -3835,7 +4212,7 @@ int unit_file_get_list(
 
                         UnitFileState state;
 
-                        r = unit_file_lookup_state(scope, &lp, de->d_name, &state);
+                        r = unit_file_lookup_state(scope, &lp, de->d_name, cache, &state);
                         if (r < 0)
                                 state = UNIT_FILE_BAD;
 
