@@ -3297,6 +3297,7 @@ VarlinkServerSocket* varlink_server_socket_free(VarlinkServerSocket *ss) {
         if (!ss)
                 return NULL;
 
+        sd_event_source_disable_unref(ss->event_source);
         free(ss->address);
         return mfree(ss);
 }
