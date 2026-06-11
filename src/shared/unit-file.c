@@ -259,6 +259,50 @@ static int directory_name_is_valid(const char *name) {
         return false;
 }
 
+
+/* Resolve ".." components in-place in an absolute path.
+ * Call after path_simplify(). No syscalls — pure string manipulation.
+ * E.g., "/usr/lib/systemd/system/../../dracut/foo" -> "/usr/lib/dracut/foo" */
+static void path_resolve_dotdot(char *path) {
+        assert(path);
+        assert(path[0] == '/');
+
+        size_t offsets[PATH_MAX / 2 + 1];
+        size_t depth = 0;
+        char *out = path + 1;
+        const char *in = path + 1;
+
+        while (*in) {
+                const char *slash = strchrnul(in, '/');
+                size_t len = slash - in;
+
+                if (len == 0) {
+                        in++;
+                        continue;
+                }
+
+                if (len == 2 && in[0] == '.' && in[1] == '.') {
+                        if (depth > 0) {
+                                depth--;
+                                out = path + offsets[depth];
+                        } else
+                                out = path + 1;
+                } else {
+                        offsets[depth++] = out - path;
+                        if (out > path + 1)
+                                *out++ = '/';
+                        memmove(out, in, len);
+                        out += len;
+                }
+
+                in = slash;
+                if (*in)
+                        in++;
+        }
+
+        *out = '\0';
+}
+
 int unit_file_resolve_symlink(
                 const char *root_dir,
                 char **search_path,
@@ -313,10 +357,18 @@ int unit_file_resolve_symlink(
         }
 
         /* Get rid of "." and ".." components in target path */
-        r = chase(target, root_dir, CHASE_NOFOLLOW | CHASE_NONEXISTENT, &simplified, NULL);
-        if (r < 0)
-                return log_warning_errno(r, "Failed to resolve symlink %s/%s pointing to %s: %m",
-                                         dir, filename, target);
+        if (root_dir) {
+                r = chase(target, root_dir, CHASE_NOFOLLOW | CHASE_NONEXISTENT, &simplified, NULL);
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to resolve symlink %s/%s pointing to %s: %m",
+                                                 dir, filename, target);
+        } else {
+                simplified = strdup(target);
+                if (!simplified)
+                        return log_oom();
+                path_simplify(simplified);
+                path_resolve_dotdot(simplified);
+        }
 
         assert(path_is_absolute(simplified));
 
