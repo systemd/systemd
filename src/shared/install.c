@@ -872,7 +872,6 @@ static int is_symlink_with_known_name(const InstallInfo *i, const char *name) {
 typedef struct {
         char *name;           /* symlink d_name */
         char *target;         /* basename of readlinkat result, only for direct links */
-        const char *dir_path; /* not owned */
 } CachedSymlink;
 
 typedef struct {
@@ -922,8 +921,7 @@ static int cached_symlink_add(
                 CachedSymlink **entries,
                 size_t *n,
                 const char *name,
-                const char *target,
-                const char *dir_path) {
+                const char *target) {
 
         if (!GREEDY_REALLOC(*entries, *n + 1))
                 return -ENOMEM;
@@ -942,7 +940,6 @@ static int cached_symlink_add(
         } else
                 entry->target = NULL;
 
-        entry->dir_path = dir_path;
         (*n)++;
         return 0;
 }
@@ -1009,8 +1006,7 @@ static int symlink_cache_build(const LookupPaths *lp, SymlinkCache **ret) {
                                                 &csp->wants_entries,
                                                 &csp->n_wants,
                                                 subde->d_name,
-                                                NULL,
-                                                csp->config_path);
+                                                NULL);
                                 if (r < 0)
                                         return r;
                         }
@@ -1050,8 +1046,7 @@ static int symlink_cache_build(const LookupPaths *lp, SymlinkCache **ret) {
                                         &csp->direct_entries,
                                         &csp->n_direct,
                                         de->d_name,
-                                        fname,
-                                        csp->config_path);
+                                        fname);
                         if (r < 0)
                                 return r;
                 }

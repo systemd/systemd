@@ -2209,7 +2209,8 @@ static ListUnitFilesOp *list_unit_files_op_free(ListUnitFilesOp *op) {
         sd_event_source_disable_unref(op->event_source);
         sd_event_source_disable_unref(op->timeout_event_source);
         sd_bus_message_unref(op->message);
-        pidref_done_sigkill_wait(&op->pidref);
+        (void) pidref_kill(&op->pidref, SIGKILL);
+        pidref_done(&op->pidref);
         safe_close(op->data_fd);
         safe_close(op->errno_fd);
 
@@ -2348,7 +2349,7 @@ fail:
 static int list_unit_files_by_patterns(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error, char **states, char **patterns) {
         _cleanup_close_pair_ int errno_pipe_fd[2] = EBADF_PAIR;
         _cleanup_close_ int data_fd = -EBADF;
-        _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         Manager *m = ASSERT_PTR(userdata);
         ListUnitFilesOp *op;
         int r;
@@ -2388,7 +2389,7 @@ static int list_unit_files_by_patterns(sd_bus_message *message, void *userdata, 
                         "(sd-lufiles)",
                         /* stdio_fds= */ NULL,
                         except_fds, ELEMENTSOF(except_fds),
-                        FORK_CLOSE_ALL_FDS|FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_LOG,
+                        FORK_CLOSE_ALL_FDS|FORK_REOPEN_LOG|FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_LOG,
                         &pidref);
         if (r < 0)
                 return r;
@@ -2434,6 +2435,8 @@ static int list_unit_files_by_patterns(sd_bus_message *message, void *userdata, 
                 .errno_fd = TAKE_FD(errno_pipe_fd[0]),
         };
 
+        m->n_list_unit_files_ops++;
+
         r = sd_event_add_io(m->event, &op->event_source, op->errno_fd, EPOLLIN, list_unit_files_op_done, op);
         if (r < 0) {
                 list_unit_files_op_free(op);
@@ -2454,8 +2457,6 @@ static int list_unit_files_by_patterns(sd_bus_message *message, void *userdata, 
         }
 
         (void) sd_event_source_set_description(op->timeout_event_source, "list-unit-files-op-timeout");
-
-        m->n_list_unit_files_ops++;
 
         return 1;
 }
