@@ -12,7 +12,6 @@
 #include "bus-common-errors.h"
 #include "bus-get-properties.h"
 #include "bus-log-control-api.h"
-#include "bus-message.h"
 #include "bus-message-util.h"
 #include "bus-util.h"
 #include "chase.h"
@@ -2262,14 +2261,6 @@ static int list_unit_files_op_done(sd_event_source *s, int fd, uint32_t revents,
                 return 0;
         }
 
-        if (st.st_size == 0) {
-                r = sd_bus_reply_method_errnof(op->message, EIO,
-                                               "Empty reply blob from list-unit-files child");
-                if (r < 0)
-                        log_warning_errno(r, "Failed to send error reply for ListUnitFiles: %m");
-                return 0;
-        }
-
         if (lseek(op->data_fd, 0, SEEK_SET) < 0) {
                 r = sd_bus_reply_method_errnof(op->message, errno,
                                                "Failed to seek in list-unit-files data: %m");
@@ -2286,30 +2277,59 @@ static int list_unit_files_op_done(sd_event_source *s, int fd, uint32_t revents,
                 return 0;
         }
 
-        _cleanup_free_ void *blob = malloc(st.st_size);
-        if (!blob) {
-                r = sd_bus_reply_method_errnof(op->message, ENOMEM,
-                                               "Out of memory reading list-unit-files data");
-                if (r < 0)
-                        log_warning_errno(r, "Failed to send error reply for ListUnitFiles: %m");
-                return 0;
+        _cleanup_free_ char *data = NULL;
+
+        if (st.st_size > 0) {
+                data = malloc(st.st_size);
+                if (!data) {
+                        r = sd_bus_reply_method_errnof(op->message, ENOMEM,
+                                                       "Out of memory reading list-unit-files data");
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to send error reply for ListUnitFiles: %m");
+                        return 0;
+                }
+
+                n = loop_read(op->data_fd, data, st.st_size, false);
+                if (n < 0 || n != st.st_size) {
+                        r = sd_bus_reply_method_errnof(op->message, n < 0 ? (int) -n : -EIO,
+                                                       "Failed to read list-unit-files data: %m");
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to send error reply for ListUnitFiles: %m");
+                        return 0;
+                }
         }
 
-        n = loop_read(op->data_fd, blob, st.st_size, false);
-        if (n < 0 || n != st.st_size) {
-                r = sd_bus_reply_method_errnof(op->message, n < 0 ? (int) -n : -EIO,
-                                               "Failed to read list-unit-files data: %m");
-                if (r < 0)
-                        log_warning_errno(r, "Failed to send error reply for ListUnitFiles: %m");
-                return 0;
+        r = sd_bus_message_new_method_return(op->message, &reply);
+        if (r < 0)
+                goto fail;
+
+        r = sd_bus_message_open_container(reply, 'a', "(ss)");
+        if (r < 0)
+                goto fail;
+
+        /* Parse NUL-delimited path\0state\0 pairs from child */
+        if (data) {
+                const char *p = data, *end = data + st.st_size;
+                while (p < end) {
+                        const char *path = p;
+                        const char *nul = memchr(p, 0, end - p);
+                        if (!nul)
+                                break;
+                        p = nul + 1;
+
+                        const char *state = p;
+                        nul = memchr(p, 0, end - p);
+                        if (!nul)
+                                break;
+                        p = nul + 1;
+
+                        r = sd_bus_message_append(reply, "(ss)", path, state);
+                        if (r < 0)
+                                goto fail;
+                }
         }
 
-        r = bus_message_from_malloc(
-                        sd_bus_message_get_bus(op->message),
-                        TAKE_PTR(blob),
-                        (size_t) st.st_size,
-                        NULL, 0, false, NULL,
-                        &reply);
+        r = sd_bus_message_close_container(reply);
         if (r < 0)
                 goto fail;
 
@@ -2336,6 +2356,9 @@ static int list_unit_files_by_patterns(sd_bus_message *message, void *userdata, 
         assert(message);
 
         /* Anyone can call this method */
+
+        if (!sd_bus_message_get_expect_reply(message))
+                return 1; /* Caller doesn't want a reply, skip the expensive fork */
 
         if (m->n_list_unit_files_ops >= MANAGER_MAX_LIST_UNIT_FILES_OPS)
                 return sd_bus_error_set(reterr_error, SD_BUS_ERROR_LIMITS_EXCEEDED,
@@ -2370,48 +2393,24 @@ static int list_unit_files_by_patterns(sd_bus_message *message, void *userdata, 
         if (r < 0)
                 return r;
         if (r == 0) {
-                /* Child: enumerate unit files AND build the complete D-Bus reply blob */
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+                /* Child: enumerate unit files and write NUL-delimited path\0state\0 pairs */
                 _cleanup_hashmap_free_ Hashmap *h = NULL;
-                _cleanup_free_ void *blob = NULL;
-                size_t blob_size = 0;
                 UnitFileList *item;
 
                 r = unit_file_get_list(m->runtime_scope, /* root_dir= */ NULL, states, patterns, &h);
                 if (r < 0)
                         goto child_fail;
 
-                r = sd_bus_message_new_method_return(message, &reply);
-                if (r < 0)
-                        goto child_fail;
-
-                r = sd_bus_message_open_container(reply, 'a', "(ss)");
-                if (r < 0)
-                        goto child_fail;
-
                 HASHMAP_FOREACH(item, h) {
-                        r = sd_bus_message_append(reply, "(ss)",
-                                                  item->path,
-                                                  unit_file_state_to_string(item->state));
+                        const char *state_str = unit_file_state_to_string(item->state);
+
+                        r = loop_write(data_fd, item->path, strlen(item->path) + 1);
+                        if (r < 0)
+                                goto child_fail;
+                        r = loop_write(data_fd, state_str, strlen(state_str) + 1);
                         if (r < 0)
                                 goto child_fail;
                 }
-
-                r = sd_bus_message_close_container(reply);
-                if (r < 0)
-                        goto child_fail;
-
-                r = sd_bus_message_seal(reply, 1, 0);
-                if (r < 0)
-                        goto child_fail;
-
-                r = bus_message_get_blob(reply, &blob, &blob_size);
-                if (r < 0)
-                        goto child_fail;
-
-                r = loop_write(data_fd, blob, blob_size);
-                if (r < 0)
-                        goto child_fail;
 
                 _exit(EXIT_SUCCESS);
 
