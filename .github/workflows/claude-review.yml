@@ -196,9 +196,9 @@ jobs:
         env:
           CLAUDE_CODE_DISABLE_BACKGROUND_TASKS: "1"
           CLAUDE_CODE_USE_BEDROCK: "1"
-          # Pin the `fable` alias (used by the review subagents) to Fable 5 so
-          # they don't silently resolve to an older model the Bedrock alias points at.
-          ANTHROPIC_DEFAULT_FABLE_MODEL: us.anthropic.claude-fable-5
+          # Pin the `opus` alias (used by the review subagents) to 4.8 so they
+          # don't silently resolve to an older model the Bedrock alias points at.
+          ANTHROPIC_DEFAULT_OPUS_MODEL: us.anthropic.claude-opus-4-8
         run: |
           mkdir -p ~/.claude
 
@@ -319,7 +319,7 @@ jobs:
           concurrently. Each subagent reviews EVERY commit (every worktree
           directory), but only through the perspective of its assigned lens.
 
-          Each subagent must be spawned with `model: "fable"`.
+          Each subagent must be spawned with `model: "opus"`.
 
           Each subagent prompt must include:
           - The name and full description of its assigned lens, with an instruction
@@ -447,7 +447,7 @@ jobs:
           PROMPT
 
           claude \
-            --model us.anthropic.claude-fable-5 \
+            --model us.anthropic.claude-opus-4-8 \
             --effort xhigh \
             --max-turns 200 \
             --setting-sources user \
