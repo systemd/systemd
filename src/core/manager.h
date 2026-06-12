@@ -22,6 +22,12 @@ struct libmnt_monitor;
 #define MANAGER_MAX_PATTERNS_PER_CALL 4096U
 #define MANAGER_MAX_STATES_PER_CALL 256U
 
+/* Limit concurrent ListUnitFiles child processes */
+#define MANAGER_MAX_LIST_UNIT_FILES_OPS 4U
+
+/* Upper bound on data read back from a ListUnitFiles child */
+#define MANAGER_MAX_LIST_UNIT_FILES_SIZE (128U*1024U*1024U)
+
 /* On sigrtmin+18, private commands */
 enum {
         MANAGER_SIGNAL_COMMAND_DUMP_JOBS = _COMMON_SIGNAL_COMMAND_PRIVATE_BASE + 0,
@@ -420,6 +426,9 @@ typedef struct Manager {
         unsigned n_running_jobs;
         unsigned n_on_console;
         unsigned jobs_in_progress_iteration;
+
+        /* In-flight ListUnitFiles child processes */
+        unsigned n_list_unit_files_ops;
 
         /* Do we have any outstanding password prompts? */
         int have_ask_password;
