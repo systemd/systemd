@@ -571,4 +571,44 @@ TEST(partscan_required) {
         loop = loop_device_unref(loop);
 }
 
+TEST(partscan_not_needed_for_btrfs) {
+        _cleanup_(loop_device_unrefp) LoopDevice *block_loop = NULL, *loop = NULL;
+        _cleanup_close_ int fd = -EBADF;
+        _cleanup_free_ char *p = NULL;
+
+        if (have_effective_cap(CAP_SYS_ADMIN) <= 0) {
+                log_tests_skipped("not running privileged");
+                return;
+        }
+
+        if (detect_container() != 0 || running_in_chroot() != 0) {
+                log_tests_skipped("Test not supported in a container/chroot, requires udev/uevent notifications");
+                return;
+        }
+
+        if (mkfs_exists("btrfs") == 0) {
+                log_tests_skipped("mkfs.btrfs not available");
+                return;
+        }
+
+        ASSERT_OK(tempfn_random_child("/var/tmp", "loop-util", &p));
+        fd = ASSERT_OK_ERRNO(open(p, O_CREAT|O_EXCL|O_RDWR|O_CLOEXEC|O_NOFOLLOW, 0666));
+        ASSERT_OK_ERRNO(ftruncate(fd, 256*1024*1024));
+        ASSERT_OK(make_filesystem(p, "btrfs", "test", /* root= */ NULL, SD_ID128_NULL, MKFS_QUIET,
+                                  /* sector_size= */ 0, /* compression= */ NULL, /* compression_level= */ NULL,
+                                  /* extra_mkfs_args= */ NULL));
+        (void) unlink(p);
+
+        /* Set up a backing loop device without LO_FLAGS_PARTSCAN. */
+        ASSERT_OK(loop_device_make(fd, O_RDWR, 0, UINT64_MAX, 0, 0, LOCK_EX, &block_loop));
+        ASSERT_TRUE(block_loop->created);
+        ASSERT_OK(loop_device_flock(block_loop, LOCK_SH));
+
+        /* LO_FLAGS_PARTSCAN is requested but there's no partition table to scan, so the shortcut must be
+         * taken (reuse the device) without using a loopdev */
+        ASSERT_OK(loop_device_make(block_loop->fd, O_RDWR, 0, UINT64_MAX, 0, LO_FLAGS_PARTSCAN, LOCK_SH, &loop));
+        ASSERT_FALSE(loop->created);
+        loop = loop_device_unref(loop);
+}
+
 DEFINE_TEST_MAIN_WITH_INTRO(LOG_DEBUG, intro);
