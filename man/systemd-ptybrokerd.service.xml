@@ -1,0 +1,103 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd-ptybrokerd.service">
+
+  <refentryinfo>
+    <title>systemd-ptybrokerd.service</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-ptybrokerd.service</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-ptybrokerd.service</refname>
+    <refname>systemd-ptybrokerd</refname>
+    <refpurpose>Pseudo TTY Broker</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>systemd-ptybrokerd.service</filename></para>
+    <para><filename>systemd-ptybrokerd.socket</filename></para>
+    <para><filename>/usr/lib/systemd/systemd-ptybrokerd</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>systemd-ptybrokerd</command> is a service that allocates and manages pseudo terminals
+    (PTYs) on behalf of clients. It allocates a PTY pair on client request — or takes possession of the
+    frontend (i.e. <literal>master</literal>) side of a PTY the client already allocated — and then takes
+    care of the frontend side of the PTY: whatever is written to the PTY is either discarded or forwarded to
+    the log, and may at any time be monitored and interactively attached to. The backend (i.e.
+    <literal>slave</literal>) side of the PTY is handed back to the client, which typically invokes some
+    payload with its standard input/output/error connected to it. At the client's request the broker may also
+    invoke a shell on the backend side itself, as a transient service unit.</para>
+
+    <para>This mechanism decouples the lifetime and management of a PTY from the process that requested it:
+    the terminal of a service, container, virtual machine or shell session managed by the broker exists
+    independently of any interactive client, may be monitored or attached to at any time (also by multiple
+    clients simultaneously), and continues to operate — logging output, if configured — when no client is
+    attached at all. It hence provides terminal semantics for otherwise non-interactive contexts, for example
+    fully headless systems.</para>
+
+    <para>The service is used by various other components:</para>
+
+    <itemizedlist>
+      <listitem><para>The service manager connects the standard input/output/error of services to a
+      broker-provided PTY if <varname>StandardInput=broker</varname>,
+      <varname>StandardOutput=broker</varname>, <varname>StandardError=broker</varname> (or their
+      <option>broker-log</option> flavours) are used, see
+      <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para></listitem>
+
+      <listitem><para><citerefentry><refentrytitle>systemd-pty-forward</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      invokes arbitrary commands on a broker-provided PTY via
+      <option>--console=broker</option>/<option>--console=broker-log</option>.</para></listitem>
+
+      <listitem><para><citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      and
+      <citerefentry><refentrytitle>systemd-vmspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      register the console of a container or virtual machine with the broker via their
+      <option>--console=broker</option>/<option>--console=broker-log</option> switches.</para></listitem>
+
+      <listitem><para><citerefentry><refentrytitle>run0</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      requests interactive privileged shell sessions from the broker.</para></listitem>
+    </itemizedlist>
+
+    <para>PTYs managed by the broker may be listed, monitored, interactively attached to, and hung up with
+    the <citerefentry><refentrytitle>ptyctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    tool.</para>
+
+    <para>The service is available both as a system service and as a per-user service. The system instance
+    brokers PTYs for system services and privileged clients, the user instances do the same for the
+    respective user's service manager and clients. Both instances are socket activated (via
+    <filename>systemd-ptybrokerd.socket</filename>) and exit automatically again once they are idle, i.e.
+    when no client is connected and no PTY is registered anymore.</para>
+
+    <para>The service provides the <constant>io.systemd.PTYBroker</constant> <ulink
+    url="https://varlink.org/">Varlink</ulink> IPC interface on <filename>/run/systemd/io.systemd.PTYBroker</filename>
+    (for the system instance) and <filename>$XDG_RUNTIME_DIR/systemd/io.systemd.PTYBroker</filename> (for
+    the user instances). Access to the operations of the system instance is gated via <ulink
+    url="https://www.freedesktop.org/software/polkit/docs/latest/">polkit</ulink>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>ptyctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-pty-forward</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-vmspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>run0</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>
