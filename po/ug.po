@@ -587,7 +587,7 @@ msgstr "ئۈسكۈنىنى seat قا ئۇلاش ئۈچۈن دەلىللەش تە
 
 #: src/login/org.freedesktop.login1.policy:159
 msgid "Flush device to seat attachments"
-msgstr "ئۈسكۈنە بىلەن seat ئۇلىنىشىنى يېڭىلا"
+msgstr "ئۈسكۈنە بىلەن seat ئۇلىنىشىنى تازىلا"
 
 #: src/login/org.freedesktop.login1.policy:160
 msgid "Authentication is required to reset how devices are attached to seats."
@@ -751,22 +751,22 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:332
 msgid "Manage active sessions, users and seats"
-msgstr "ئاكتىپ سۆھبەتلەر، ئىشلەتكۈچىلەر ۋە seats نى باشقۇر"
+msgstr "ئاكتىپ ئۆتكۈنچى ھالەتلەر، ئىشلەتكۈچىلەر ۋە seats نى باشقۇر"
 
 #: src/login/org.freedesktop.login1.policy:333
 msgid "Authentication is required to manage active sessions, users and seats."
 msgstr ""
-"ئاكتىپ سۆھبەتلەر، ئىشلەتكۈچىلەر ۋە seats نى باشقۇرۇش ئۈچۈن دەلىللەش تەلەپ "
+"ئاكتىپ ئۆتكۈنچى ھالەتلەر، ئىشلەتكۈچىلەر ۋە seats نى باشقۇرۇش ئۈچۈن دەلىللەش تەلەپ "
 "قىلىنىدۇ."
 
 #: src/login/org.freedesktop.login1.policy:342
 msgid "Lock or unlock active sessions"
-msgstr "ئاكتىپ سۆھبەتلەرنى قۇلۇپلا ياكى قۇلۇپنى ئاچ"
+msgstr "ئاكتىپ ئۆتكۈنچى ھالەتلەرنى قۇلۇپلا ياكى قۇلۇپنى ئاچ"
 
 #: src/login/org.freedesktop.login1.policy:343
 msgid "Authentication is required to lock or unlock active sessions."
 msgstr ""
-"ئاكتىپ سۆھبەتلەرنى قۇلۇپلاش ياكى قۇلۇپنى ئېچىش ئۈچۈن دەلىللەش تەلەپ قىلىنىدۇ."
+"ئاكتىپ ئۆتكۈنچى ھالەتلەرنى قۇلۇپلاش ياكى قۇلۇپنى ئېچىش ئۈچۈن دەلىللەش تەلەپ قىلىنىدۇ."
 
 #: src/login/org.freedesktop.login1.policy:352
 msgid "Set the reboot \"reason\" in the kernel"
