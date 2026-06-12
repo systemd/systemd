@@ -2247,7 +2247,11 @@ static int list_unit_files_op_done(sd_event_source *s, int fd, uint32_t revents,
         ssize_t n;
 
         n = read(op->errno_fd, &child_errno, sizeof(child_errno));
-        if (n == (ssize_t) sizeof(child_errno)) {
+        if (n == 0) {
+                r = -ECONNABORTED;
+                goto fail;
+        }
+        if (n == (ssize_t) sizeof(child_errno) && child_errno < 0) {
                 r = child_errno;
                 goto fail;
         }
@@ -2262,7 +2266,7 @@ static int list_unit_files_op_done(sd_event_source *s, int fd, uint32_t revents,
                 goto fail;
         }
 
-        if (st.st_size > 128*1024*1024) {
+        if (st.st_size > MANAGER_MAX_LIST_UNIT_FILES_SIZE) {
                 r = -EFBIG;
                 goto fail;
         }
@@ -2394,6 +2398,8 @@ static int list_unit_files_by_patterns(sd_bus_message *message, void *userdata, 
                                 goto child_fail;
                 }
 
+                r = 0;
+                (void) write(errno_pipe_fd[1], &r, sizeof(r));
                 _exit(EXIT_SUCCESS);
 
         child_fail:

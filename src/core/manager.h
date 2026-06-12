@@ -25,6 +25,9 @@ struct libmnt_monitor;
 /* Limit concurrent ListUnitFiles child processes */
 #define MANAGER_MAX_LIST_UNIT_FILES_OPS 4U
 
+/* Upper bound on data read back from a ListUnitFiles child */
+#define MANAGER_MAX_LIST_UNIT_FILES_SIZE (128U*1024U*1024U)
+
 /* On sigrtmin+18, private commands */
 enum {
         MANAGER_SIGNAL_COMMAND_DUMP_JOBS = _COMMON_SIGNAL_COMMAND_PRIVATE_BASE + 0,
