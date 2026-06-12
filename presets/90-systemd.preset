@@ -45,6 +45,7 @@ enable systemd-sysupdate-notify-pcrlock.socket
 enable systemd-sysupdate-notify-sysext.socket
 enable systemd-timesyncd.service
 enable systemd-tpm2-clear.service
+enable systemd-ptybrokerd.socket
 enable systemd-userdbd.socket
 
 disable console-getty.service

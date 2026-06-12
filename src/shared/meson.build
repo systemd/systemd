@@ -259,6 +259,7 @@ shared_sources = files(
         'varlink-io.systemd.SysInstall.c',
         'varlink-io.systemd.SysUpdate.c',
         'varlink-io.systemd.SysUpdate.Notify.c',
+        'varlink-io.systemd.PTYBroker.c',
         'varlink-io.systemd.Udev.c',
         'varlink-io.systemd.Unit.c',
         'varlink-io.systemd.UserDatabase.c',
