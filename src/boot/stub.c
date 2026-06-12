@@ -599,7 +599,7 @@ static EFI_STATUS load_addons(
                 err = pe_memory_locate_sections(loaded_addon->ImageBase, unified_sections, sections);
                 if (err != EFI_SUCCESS) {
                         log_error_status(err,
-                                         "Unable to locate embedded .cmdline/.dtb/.dtbauto/.initrd/.ucode sections in %ls, ignoring: %m",
+                                         "Unable to locate embedded .cmdline/.dtb/.dtbauto/.efifw/.initrd/.ucode sections in %ls, ignoring: %m",
                                          items[i]);
                         continue;
                 }
