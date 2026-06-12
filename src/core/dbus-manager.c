@@ -2252,8 +2252,8 @@ static int list_unit_files_op_done(sd_event_source *s, int fd, uint32_t revents,
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_free_ char *data = NULL;
         struct stat st;
-        int r, child_errno;
         ssize_t n;
+        int r, child_errno;
 
         n = read(op->errno_fd, &child_errno, sizeof(child_errno));
         if (n == 0) {
