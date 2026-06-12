@@ -2456,7 +2456,7 @@ static int list_unit_files_by_patterns(sd_bus_message *message, void *userdata, 
                         m->event,
                         &op->timeout_event_source,
                         CLOCK_MONOTONIC,
-                        30 * USEC_PER_SEC, 0,
+                        MANAGER_LIST_UNIT_FILES_TIMEOUT_USEC, 0,
                         list_unit_files_op_timeout, op);
         if (r < 0) {
                 list_unit_files_op_free(op);

@@ -29,6 +29,9 @@ typedef struct ListUnitFilesOp ListUnitFilesOp;
 /* Upper bound on data read back from a ListUnitFiles child */
 #define MANAGER_MAX_LIST_UNIT_FILES_SIZE (128U*1024U*1024U)
 
+/* Timeout for a ListUnitFiles child process */
+#define MANAGER_LIST_UNIT_FILES_TIMEOUT_USEC (30U * USEC_PER_SEC)
+
 /* On sigrtmin+18, private commands */
 enum {
         MANAGER_SIGNAL_COMMAND_DUMP_JOBS = _COMMON_SIGNAL_COMMAND_PRIVATE_BASE + 0,
