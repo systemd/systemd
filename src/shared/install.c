@@ -1064,7 +1064,7 @@ static int symlink_cache_build(const LookupPaths *lp, SymlinkCache **ret) {
                 if (!d)
                         continue;
 
-                FOREACH_DIRENT(de, d, break) {
+                FOREACH_DIRENT(de, d, return -errno) {
                         if (!IN_SET(de->d_type, DT_DIR, DT_LNK, DT_UNKNOWN))
                                 continue;
                         if (!endswith(de->d_name, ".d"))
