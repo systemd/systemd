@@ -71,6 +71,11 @@ units = [
         { 'file' : 'systemd-tmpfiles-clean.service' },
         { 'file' : 'systemd-tmpfiles-clean.timer' },
         { 'file' : 'systemd-tmpfiles-setup.service' },
+        { 'file' : 'systemd-ptybrokerd.service.in' },
+        {
+          'file' : 'systemd-ptybrokerd.socket',
+          'symlinks' : ['sockets.target.wants/'],
+        },
         {
           'file' : 'systemd-nspawn@.service.in',
           'conditions' : ['ENABLE_NSPAWN'],
