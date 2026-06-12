@@ -446,6 +446,38 @@ static int probe_sector_size_harder(int fd, uint32_t *ret) {
         return probe_sector_size(probe_fd, ret);
 }
 
+static int fd_is_btrfs(int fd) {
+        _cleanup_close_ int non_direct_io_fd = -EBADF;
+        _cleanup_free_ char *fstype = NULL;
+        int probe_fd, f_flags, r;
+
+        assert(fd >= 0);
+
+        f_flags = fcntl(fd, F_GETFL);
+        if (f_flags < 0)
+                return -errno;
+
+        if (FLAGS_SET(f_flags, O_DIRECT)) {
+                non_direct_io_fd = fd_reopen(fd, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
+                if (non_direct_io_fd < 0)
+                        return non_direct_io_fd;
+
+                probe_fd = non_direct_io_fd;
+        } else
+                probe_fd = fd;
+
+        r = probe_filesystem_full(probe_fd,
+                                  /* path= */ NULL,
+                                  /* offset= */ 0,
+                                  /* size= */ UINT64_MAX,
+                                  /* restrict_fstypes= */ true,
+                                  &fstype);
+        if (r < 0)
+                return r;
+
+        return streq_ptr(fstype, "btrfs");
+}
+
 static int loop_device_can_shortcut(
                 int fd,
                 uint64_t offset,
@@ -457,10 +489,8 @@ static int loop_device_can_shortcut(
         int r;
 
         /* Returns whether we can hand back the original block device fd instead of allocating a real
-         * loopback device for it: it must cover the whole device, the requested sector size must match the
-         * device's sector size, and if partscan was requested it must already be enabled on the device
-         * (otherwise e.g. partition block devices or loop devices created without LO_FLAGS_PARTSCAN would
-         * be reused even though they cannot expose nested partitions). */
+         * loopback device for it: it must cover the whole device and the requested sector size must match
+         * the device's sector size. */
 
         assert(fd >= 0);
 
@@ -475,8 +505,15 @@ static int loop_device_can_shortcut(
                 r = blockdev_partscan_enabled_fd(fd);
                 if (r < 0)
                         return r;
-                if (r == 0)
-                        return false;
+                if (r == 0) {
+                        /* Partscan was requested but isn't enabled, check if we are dealing with btrfs and
+                         * if so avoid a loopdev: https://github.com/systemd/systemd/issues/42520. */
+                        r = fd_is_btrfs(fd);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to check whether device carries a btrfs file system, ignoring: %m");
+                        if (r <= 0) /* Not btrfs or check didn't work? Do not shortcut */
+                                return false;
+                }
         }
 
         return true;
