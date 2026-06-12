@@ -652,7 +652,6 @@ static int do_shovel(PTYForward *f) {
 
                         k = read(f->input_fd, f->in_buffer + f->in_buffer_full, LINE_MAX - f->in_buffer_full);
                         if (k < 0) {
-
                                 if (errno == EAGAIN)
                                         f->stdin_readable = false;
                                 else if (errno == EIO || ERRNO_IS_DISCONNECT(errno)) {
