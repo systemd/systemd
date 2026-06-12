@@ -96,11 +96,19 @@ static int acquire_hostname_from_credential(char **ret) {
         if (r == 0) /* not found */
                 return -ENXIO;
 
-        if (!hostname_is_valid(cred, VALID_HOSTNAME_TRAILING_DOT)) /* check that the hostname we return is valid */
+        if (!hostname_is_valid(cred, VALID_HOSTNAME_TRAILING_DOT|VALID_HOSTNAME_QUESTION_MARK|VALID_HOSTNAME_WORD_TOKEN))
                 return log_warning_errno(SYNTHETIC_ERRNO(EBADMSG), "Hostname specified in system.hostname credential is invalid, ignoring: %s", cred);
 
+        _cleanup_free_ char *substituted = NULL;
+        r = hostname_substitute_wildcards(cred, &substituted);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to substitute wildcards in system.hostname credential, ignoring: %m");
+
+        if (!hostname_is_valid(substituted, VALID_HOSTNAME_TRAILING_DOT)) /* check that the expanded hostname is valid */
+                return log_warning_errno(SYNTHETIC_ERRNO(EBADMSG), "Hostname from system.hostname credential is invalid after expansion, ignoring: %s", substituted);
+
         log_info("Initializing hostname from credential.");
-        *ret = TAKE_PTR(cred);
+        *ret = TAKE_PTR(substituted);
         return 0;
 }
 
