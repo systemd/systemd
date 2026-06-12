@@ -1199,6 +1199,7 @@ manpages = [
   ''],
  ['systemd-pstore.service', '8', ['systemd-pstore'], 'ENABLE_PSTORE'],
  ['systemd-pty-forward', '1', [], ''],
+ ['systemd-ptybrokerd.service', '8', ['systemd-ptybrokerd'], ''],
  ['systemd-quotacheck@.service',
   '8',
   ['systemd-quotacheck', 'systemd-quotacheck-root.service'],
