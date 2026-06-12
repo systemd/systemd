@@ -262,20 +262,21 @@ test_varlink() {
     cmp "$A" "$B"
 }
 
-test_wildcard() {
-    SAVED="$(cat /etc/hostname)"
+testcase_wildcard() {
+    SAVED=""
+    [[ -f /etc/hostname ]] && SAVED="$(cat /etc/hostname)"
+    trap 'hostnamectl set-hostname "$SAVED"' RETURN
 
     P='foo-??-??.????bar'
     hostnamectl set-hostname "$P"
     H="$(hostname)"
     # Validate that the hostname is not the literal pattern, but matches the pattern shell style
     assert_neq "$H" "$P"
-    [[ "$P" == "$H" ]]
+    # shellcheck disable=SC2053 # glob matching is intended here
+    [[ "$H" == $P ]]
     assert_eq "$(cat /etc/hostname)" "$P"
 
     assert_in "Static hostname: foo-" "$(hostnamectl)"
-
-    hostnamectl set-hostname "$SAVED"
 }
 
 teardown_hostnamed_alternate_paths() {
