@@ -76,6 +76,15 @@
     product of the list sizes, so collisions follow the birthday bound; append a few <literal>?</literal>
     characters for extra entropy when uniqueness across a large fleet matters.</para>
 
+    <para>Because the name only stays stable as long as the word lists do, the preferred way to obtain a
+    stable, generated hostname is to provide the pattern through the <varname>firstboot.hostname</varname>
+    credential (see
+    <citerefentry><refentrytitle>systemd.system-credentials</refentrytitle><manvolnum>7</manvolnum></citerefentry>)
+    rather than placing it directly in this file: the credential is resolved once on first boot and the
+    concrete result is persisted here, so the word lists may be updated afterwards without changing the
+    hostname. A pattern placed directly in <filename>/etc/hostname</filename> is instead re-derived on every
+    boot, which only really makes sense for systems that keep the wordlist stable.</para>
+
     <xi:include href="version-info.xml" xpointer="v262"/>
 
     <para>You may use
