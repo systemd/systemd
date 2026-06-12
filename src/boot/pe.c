@@ -377,40 +377,62 @@ static void pe_locate_sections(
         const void *hwids = NULL;
         const Device *device = NULL;
 
-        if (!firmware_devicetree_exists()) {
-                /* Find HWIDs table and search for the current device */
-                static const char *const hwid_section_names[] = { ".hwids", NULL };
-                PeSectionVector hwids_section[1] = {};
+        /* Find HWIDs table and search for the current device */
+        static const char *const hwid_section_names[] = { ".hwids", NULL };
+        PeSectionVector hwids_section[1] = {};
 
+        pe_locate_sections_internal(
+                   section_table,
+                   n_section_table,
+                   hwid_section_names,
+                   validate_base,
+                   /* device_table= */ NULL,
+                   /* device= */ NULL,
+                   hwids_section);
+
+        if (!PE_SECTION_VECTOR_IS_SET(hwids_section))
+                return pe_locate_sections_internal(
+                                       section_table,
+                                       n_section_table,
+                                       section_names,
+                                       validate_base,
+                                       hwids,
+                                       device,
+                                       sections);
+
+        hwids = (const uint8_t *) SIZE_TO_PTR(validate_base) + hwids_section[0].memory_offset;
+        EFI_STATUS err;
+
+        if (!firmware_devicetree_exists()) {
+                err = chid_match(hwids, hwids_section[0].memory_size, DEVICE_TYPE_DEVICETREE, &device);
+                if (err == EFI_SUCCESS)
+                        pe_locate_sections_internal(
+                                        section_table,
+                                        n_section_table,
+                                        section_names,
+                                        validate_base,
+                                        hwids,
+                                        device,
+                                        sections);
+                else
+                        log_full(err, err == EFI_NOT_FOUND ? LOG_DEBUG : LOG_ERR,
+                                 "HWID matching failed, no DT blob will be selected: %m");
+        }
+
+        err = chid_match(hwids, hwids_section[0].memory_size, DEVICE_TYPE_UEFI_FW, &device);
+        if (err == EFI_SUCCESS)
                 pe_locate_sections_internal(
                                 section_table,
                                 n_section_table,
-                                hwid_section_names,
+                                section_names,
                                 validate_base,
-                                /* device_table= */ NULL,
-                                /* device= */ NULL,
-                                hwids_section);
-
-                if (PE_SECTION_VECTOR_IS_SET(hwids_section)) {
-                        hwids = (const uint8_t *) SIZE_TO_PTR(validate_base) + hwids_section[0].memory_offset;
-
-                        EFI_STATUS err = chid_match(hwids, hwids_section[0].memory_size, DEVICE_TYPE_DEVICETREE, &device);
-                        if (err != EFI_SUCCESS) {
-                                log_full(err, err == EFI_NOT_FOUND ? LOG_DEBUG : LOG_ERR,
-                                         "HWID matching failed, no DT blob will be selected: %m");
-                                hwids = NULL;
-                        }
-                }
-        }
-
-        return pe_locate_sections_internal(
-                            section_table,
-                            n_section_table,
-                            section_names,
-                            validate_base,
-                            hwids,
-                            device,
-                            sections);
+                                hwids,
+                                device,
+                                sections);
+        else
+                log_full(err, err == EFI_NOT_FOUND ? LOG_DEBUG : LOG_ERR,
+                         "HWID matching failed, no UEFI FW will be selected: %m");
+        return;
 }
 
 static uint32_t get_compatibility_entry_address(const DosFileHeader *dos, const PeFileHeader *pe) {
