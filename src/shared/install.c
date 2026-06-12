@@ -1101,7 +1101,7 @@ static int find_symlinks_in_directory(
         assert(same_name_link);
 
         FOREACH_DIRENT(de, dir, return -errno) {
-                bool found_path = false, found_dest = false, b = false;
+                bool found_path = false, found_dest = false, is_self_link = false;
 
                 if (de->d_type != DT_LNK)
                         continue;
@@ -1151,10 +1151,10 @@ static int find_symlinks_in_directory(
                         if (!p || !t)
                                 return -ENOMEM;
 
-                        b = path_equal(p, t);
+                        is_self_link = path_equal(p, t);
                 }
 
-                if (b)
+                if (is_self_link)
                         *same_name_link = true;
                 else if (found_path || found_dest) {
                         if (!match_name)
@@ -1278,8 +1278,10 @@ static int find_symlinks_in_scope(
                                         _cleanup_free_ char *template = NULL;
 
                                         q = unit_name_template(entry->name, &template);
-                                        if (q < 0 && q != -EINVAL)
-                                                return q;
+                                        if (q < 0 && q != -EINVAL) {
+                                                log_debug_errno(q, "Failed to extract template from '%s', ignoring: %m", entry->name);
+                                                continue;
+                                        }
                                         if (q >= 0)
                                                 found_dest = streq(template, info->name);
                                 }
@@ -1291,8 +1293,10 @@ static int find_symlinks_in_scope(
                                         }
 
                                         q = is_symlink_with_known_name(info, entry->name);
-                                        if (q < 0)
-                                                return q;
+                                        if (q < 0) {
+                                                log_debug_errno(q, "Failed to check symlink '%s', ignoring: %m", entry->name);
+                                                continue;
+                                        }
                                         if (q > 0) {
                                                 found = true;
                                                 break;
@@ -1303,7 +1307,7 @@ static int find_symlinks_in_scope(
                         if (!found) {
                                 for (size_t j = 0; j < csp->n_direct; j++) {
                                         const CachedSymlink *entry = &csp->direct_entries[j];
-                                        bool found_path = false, found_dest = false, b = false;
+                                        bool found_path = false, found_dest = false, is_self_link = false;
                                         int q;
 
                                         found_dest = streq(entry->target, info->name);
@@ -1320,10 +1324,10 @@ static int find_symlinks_in_scope(
                                                 if (!p || !t)
                                                         return -ENOMEM;
 
-                                                b = path_equal(p, t);
+                                                is_self_link = path_equal(p, t);
                                         }
 
-                                        if (b)
+                                        if (is_self_link)
                                                 same_name_link = true;
                                         else if (found_path || found_dest) {
                                                 if (!match_name) {
@@ -1332,8 +1336,10 @@ static int find_symlinks_in_scope(
                                                 }
 
                                                 q = is_symlink_with_known_name(info, entry->name);
-                                                if (q < 0)
-                                                        return q;
+                                                if (q < 0) {
+                                                        log_debug_errno(q, "Failed to check symlink '%s', ignoring: %m", entry->name);
+                                                        continue;
+                                                }
                                                 if (q > 0) {
                                                         found = true;
                                                         break;
