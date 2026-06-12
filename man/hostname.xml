@@ -79,6 +79,20 @@
     <literal>?</literal> characters and separators) stays within this limit. An expanded name that exceeds
     the limit is considered invalid and the built-in fallback hostname is used.</para>
 
+    <para>Because the name only stays stable as long as the pattern and word lists are unchanged, the
+    preferred way to obtain a stable, generated hostname is to provide the pattern through the
+    <varname>firstboot.hostname</varname> credential (see
+    <citerefentry><refentrytitle>systemd.system-credentials</refentrytitle><manvolnum>7</manvolnum></citerefentry>)
+    rather than placing it directly in this file. Concretely, write the pattern to
+    <filename>/etc/credstore/firstboot.hostname</filename> (see the description of
+    <varname>LoadCredential=</varname> in
+    <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for the
+    credential store): when firstboot runs on the live system the credential is resolved once and the
+    concrete result is persisted here, so the word lists may be updated afterwards without changing the
+    hostname. A pattern placed directly in <filename>/etc/hostname</filename> (or provisioned into an offline
+    image) is instead re-evaluated on every boot, which only really makes sense for systems that keep the
+    wordlist and the pattern stable.</para>
+
     <xi:include href="version-info.xml" xpointer="v262"/>
 
     <para>You may use
