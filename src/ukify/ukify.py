@@ -923,6 +923,37 @@ def join_initrds(initrds: list[Path]) -> Union[Path, bytes, None]:
     return b''.join(seq)
 
 
+def resolve_devicetree_path(path: Path, uname: str, check_exists: bool = False) -> Path:
+    resolved = path if path.is_absolute() else Path('/usr/lib/modules') / uname / 'dtb' / path
+
+    if check_exists and not resolved.exists():
+        raise FileNotFoundError(f'DeviceTree file {resolved} not found')
+
+    return resolved
+
+
+def resolve_devicetree_options(
+    opts: Union[argparse.Namespace, UkifyConfig], check_exists: bool = False
+) -> None:
+    if opts.uname is None:
+        has_relative_devicetree = (
+            (opts.devicetree is not None and not opts.devicetree.is_absolute())
+            or any(not path.is_absolute() for path in opts.devicetree_auto)
+        )
+        if has_relative_devicetree:
+            message = 'Kernel version unknown, cannot resolve relative DeviceTree paths'
+            if check_exists:
+                raise ValueError(message)
+            print(message, file=sys.stderr)
+        return
+
+    if opts.devicetree is not None:
+        opts.devicetree = resolve_devicetree_path(opts.devicetree, opts.uname, check_exists)
+    opts.devicetree_auto = [
+        resolve_devicetree_path(path, opts.uname, check_exists) for path in opts.devicetree_auto
+    ]
+
+
 T = TypeVar('T')
 
 
@@ -1357,6 +1388,8 @@ def make_uki(opts: UkifyConfig) -> None:
     if opts.uname is None and linux is not None:
         print('Kernel version not specified, starting autodetection 😖.', file=sys.stderr)
         opts.uname = Uname.scrape(linux, opts=opts)
+
+    resolve_devicetree_options(opts, check_exists=True)
 
     uki = UKI(opts.join_pcrsig if opts.join_pcrsig else opts.stub)
     initrd = join_initrds(opts.initrd)
@@ -2433,6 +2466,8 @@ def finalize_options(opts: argparse.Namespace) -> None:
 
     if opts.efi_arch is None:
         opts.efi_arch = guess_efi_arch()
+
+    resolve_devicetree_options(opts)
 
     if opts.stub is None and not opts.join_pcrsig:
         if opts.linux is not None:
