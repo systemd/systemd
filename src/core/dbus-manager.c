@@ -2241,62 +2241,43 @@ static int list_unit_files_op_timeout(sd_event_source *s, uint64_t usec, void *u
 static int list_unit_files_op_done(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         _cleanup_(list_unit_files_op_freep) ListUnitFilesOp *op = ASSERT_PTR(userdata);
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_free_ char *data = NULL;
         struct stat st;
         int r, child_errno;
         ssize_t n;
 
         n = read(op->errno_fd, &child_errno, sizeof(child_errno));
         if (n == (ssize_t) sizeof(child_errno)) {
-                r = sd_bus_reply_method_errnof(op->message, child_errno,
-                                               "Failed to enumerate unit files: %m");
-                if (r < 0)
-                        log_warning_errno(r, "Failed to send error reply for ListUnitFiles: %m");
-                return 0;
+                r = child_errno;
+                goto fail;
         }
 
         if (fstat(op->data_fd, &st) < 0) {
-                r = sd_bus_reply_method_errnof(op->message, errno,
-                                               "Failed to stat list-unit-files data: %m");
-                if (r < 0)
-                        log_warning_errno(r, "Failed to send error reply for ListUnitFiles: %m");
-                return 0;
+                r = -errno;
+                goto fail;
         }
 
         if (lseek(op->data_fd, 0, SEEK_SET) < 0) {
-                r = sd_bus_reply_method_errnof(op->message, errno,
-                                               "Failed to seek in list-unit-files data: %m");
-                if (r < 0)
-                        log_warning_errno(r, "Failed to send error reply for ListUnitFiles: %m");
-                return 0;
+                r = -errno;
+                goto fail;
         }
 
         if (st.st_size > 128*1024*1024) {
-                r = sd_bus_reply_method_errnof(op->message, EFBIG,
-                                               "ListUnitFiles reply too large (%zi bytes)", st.st_size);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to send error reply for ListUnitFiles: %m");
-                return 0;
+                r = -EFBIG;
+                goto fail;
         }
-
-        _cleanup_free_ char *data = NULL;
 
         if (st.st_size > 0) {
                 data = malloc(st.st_size);
                 if (!data) {
-                        r = sd_bus_reply_method_errnof(op->message, ENOMEM,
-                                                       "Out of memory reading list-unit-files data");
-                        if (r < 0)
-                                log_warning_errno(r, "Failed to send error reply for ListUnitFiles: %m");
-                        return 0;
+                        r = -ENOMEM;
+                        goto fail;
                 }
 
                 n = loop_read(op->data_fd, data, st.st_size, false);
                 if (n < 0 || n != st.st_size) {
-                        r = sd_bus_reply_method_errnof(op->message, n < 0 ? (int) -n : -EIO,
-                                                       "Failed to read list-unit-files data: %m");
-                        if (r < 0)
-                                log_warning_errno(r, "Failed to send error reply for ListUnitFiles: %m");
-                        return 0;
+                        r = n < 0 ? (int) n : -EIO;
+                        goto fail;
                 }
         }
 
@@ -2341,8 +2322,8 @@ static int list_unit_files_op_done(sd_event_source *s, int fd, uint32_t revents,
         return 0;
 
 fail:
-        log_warning_errno(r, "Failed to build reply for ListUnitFiles: %m");
-        (void) sd_bus_reply_method_errnof(op->message, r, "Failed to build list-unit-files reply: %m");
+        log_warning_errno(r, "ListUnitFiles operation failed: %m");
+        (void) sd_bus_reply_method_errnof(op->message, r, "ListUnitFiles operation failed: %m");
         return 0;
 }
 
