@@ -1916,7 +1916,7 @@ static int journal_file_append_data(
 
         /* ... and link it in. */
         o->data.next_field_offset = fo->field.head_data_offset;
-        fo->field.head_data_offset = le64toh(p);
+        fo->field.head_data_offset = htole64(p);
 
         if (ret_object)
                 *ret_object = o;
