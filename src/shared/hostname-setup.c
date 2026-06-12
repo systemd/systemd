@@ -85,6 +85,30 @@ int shorten_overlong(const char *s, char **ret) {
         return 1;
 }
 
+static int validate_and_substitute_hostname(const char *raw, const char *source, char **ret) {
+        int r;
+
+        assert(raw);
+        assert(source);
+        assert(ret);
+
+        /* Validate a raw hostname value that may carry '?'/'$' wildcards, expand the wildcards, then validate the
+         * concrete result. Shared by the credential and kernel command line paths. */
+        if (!hostname_is_valid(raw, VALID_HOSTNAME_TRAILING_DOT|VALID_HOSTNAME_QUESTION_MARK|VALID_HOSTNAME_WORD_TOKEN))
+                return log_warning_errno(SYNTHETIC_ERRNO(EBADMSG), "Hostname specified %s is invalid, ignoring: %s", source, raw);
+
+        _cleanup_free_ char *substituted = NULL;
+        r = hostname_substitute_wildcards(raw, &substituted);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to substitute wildcards in hostname specified %s, ignoring: %m", source);
+
+        if (!hostname_is_valid(substituted, VALID_HOSTNAME_TRAILING_DOT)) /* check that the expanded hostname is valid */
+                return log_warning_errno(SYNTHETIC_ERRNO(EBADMSG), "Hostname specified %s is invalid after expansion, ignoring: %s", source, substituted);
+
+        *ret = TAKE_PTR(substituted);
+        return 0;
+}
+
 static int acquire_hostname_from_credential(char **ret) {
         _cleanup_free_ char *cred = NULL;
         int r;
@@ -97,20 +121,31 @@ static int acquire_hostname_from_credential(char **ret) {
         if (r == 0) /* not found */
                 return -ENXIO;
 
-        if (!hostname_is_valid(cred, VALID_HOSTNAME_TRAILING_DOT|VALID_HOSTNAME_QUESTION_MARK|VALID_HOSTNAME_WORD_TOKEN))
-                return log_warning_errno(SYNTHETIC_ERRNO(EBADMSG), "Hostname specified in system.hostname credential is invalid, ignoring: %s", cred);
-
-        _cleanup_free_ char *substituted = NULL;
-        r = hostname_substitute_wildcards(cred, &substituted);
+        r = validate_and_substitute_hostname(cred, "in the system.hostname credential", ret);
         if (r < 0)
-                return log_warning_errno(r, "Failed to substitute wildcards in system.hostname credential, ignoring: %m");
-
-        if (!hostname_is_valid(substituted, VALID_HOSTNAME_TRAILING_DOT)) /* check that the expanded hostname is valid */
-                return log_warning_errno(SYNTHETIC_ERRNO(EBADMSG), "Hostname from system.hostname credential is invalid after expansion, ignoring: %s", substituted);
+                return r;
 
         log_info("Initializing hostname from credential.");
-        *ret = TAKE_PTR(substituted);
         return 0;
+}
+
+static int acquire_hostname_from_cmdline(char **ret) {
+        _cleanup_free_ char *hn = NULL;
+        int r;
+
+        assert(ret);
+
+        r = proc_cmdline_get_key("systemd.hostname", 0, &hn);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to retrieve system hostname from kernel command line, ignoring: %m");
+        if (r == 0) /* not specified */
+                return -ENXIO;
+
+        /* The name may contain '?'/'$' wildcards (see hostname(5)). In the initrd the word lists (and
+         * possibly the machine ID) are typically not available yet so returning here means the default
+         * hostname will be used. Once the host file system is up the expansion succeeds and the intended
+         * name is applied. */
+        return validate_and_substitute_hostname(hn, "on the kernel command line", ret);
 }
 
 int read_etc_hostname_stream(FILE *f, bool substitute_wildcards, char **ret) {
@@ -195,17 +230,9 @@ int hostname_setup(bool really) {
         bool enoent = false;
         int r;
 
-        r = proc_cmdline_get_key("systemd.hostname", 0, &hn);
-        if (r < 0)
-                log_warning_errno(r, "Failed to retrieve system hostname from kernel command line, ignoring: %m");
-        else if (r > 0) {
-                if (hostname_is_valid(hn, VALID_HOSTNAME_TRAILING_DOT))
-                        source = HOSTNAME_TRANSIENT;
-                else  {
-                        log_warning("Hostname specified on kernel command line is invalid, ignoring: %s", hn);
-                        hn = mfree(hn);
-                }
-        }
+        r = acquire_hostname_from_cmdline(&hn);
+        if (r >= 0)
+                source = HOSTNAME_TRANSIENT;
 
         if (!hn) {
                 r = read_etc_hostname(/* path= */ NULL, /* substitute_wildcards= */ true, &hn);
