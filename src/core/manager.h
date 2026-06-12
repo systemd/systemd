@@ -14,6 +14,7 @@
 #include "unit.h"
 
 struct libmnt_monitor;
+typedef struct ListUnitFilesOp ListUnitFilesOp;
 
 /* Enforce upper limit on how many names we allow */
 #define MANAGER_MAX_NAMES 131072 /* 128K */
@@ -428,6 +429,7 @@ typedef struct Manager {
         unsigned jobs_in_progress_iteration;
 
         /* In-flight ListUnitFiles child processes */
+        LIST_HEAD(ListUnitFilesOp, list_unit_files_ops);
         unsigned n_list_unit_files_ops;
 
         /* Do we have any outstanding password prompts? */

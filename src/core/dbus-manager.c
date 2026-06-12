@@ -2192,7 +2192,7 @@ static int method_enqueue_marked_jobs(sd_bus_message *message, void *userdata, s
         return sd_bus_message_send(reply);
 }
 
-typedef struct {
+struct ListUnitFilesOp {
         Manager *manager;
         sd_bus_message *message;
         sd_event_source *event_source;
@@ -2200,7 +2200,8 @@ typedef struct {
         PidRef pidref;
         int data_fd;
         int errno_fd;
-} ListUnitFilesOp;
+        LIST_FIELDS(ListUnitFilesOp, list_unit_files_ops);
+};
 
 static ListUnitFilesOp *list_unit_files_op_free(ListUnitFilesOp *op) {
         if (!op)
@@ -2215,6 +2216,7 @@ static ListUnitFilesOp *list_unit_files_op_free(ListUnitFilesOp *op) {
         safe_close(op->errno_fd);
 
         if (op->manager) {
+                LIST_REMOVE(list_unit_files_ops, op->manager->list_unit_files_ops, op);
                 assert(op->manager->n_list_unit_files_ops > 0);
                 op->manager->n_list_unit_files_ops--;
         }
@@ -2223,6 +2225,13 @@ static ListUnitFilesOp *list_unit_files_op_free(ListUnitFilesOp *op) {
 }
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(ListUnitFilesOp*, list_unit_files_op_free);
+
+void manager_cancel_list_unit_files_ops(Manager *m) {
+        assert(m);
+
+        while (m->list_unit_files_ops)
+                list_unit_files_op_free(m->list_unit_files_ops);
+}
 
 static int list_unit_files_op_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
         _cleanup_(list_unit_files_op_freep) ListUnitFilesOp *op = ASSERT_PTR(userdata);
@@ -2251,7 +2260,15 @@ static int list_unit_files_op_done(sd_event_source *s, int fd, uint32_t revents,
                 r = -ECONNABORTED;
                 goto fail;
         }
-        if (n == (ssize_t) sizeof(child_errno) && child_errno < 0) {
+        if (n < 0) {
+                r = -errno;
+                goto fail;
+        }
+        if (n != (ssize_t) sizeof(child_errno)) {
+                r = -EIO;
+                goto fail;
+        }
+        if (child_errno < 0) {
                 r = child_errno;
                 goto fail;
         }
@@ -2411,8 +2428,10 @@ static int list_unit_files_by_patterns(sd_bus_message *message, void *userdata, 
         errno_pipe_fd[1] = safe_close(errno_pipe_fd[1]);
 
         op = new(ListUnitFilesOp, 1);
-        if (!op)
+        if (!op) {
+                (void) pidref_kill(&pidref, SIGKILL);
                 return -ENOMEM;
+        }
 
         *op = (ListUnitFilesOp) {
                 .manager = m,
@@ -2422,6 +2441,7 @@ static int list_unit_files_by_patterns(sd_bus_message *message, void *userdata, 
                 .errno_fd = TAKE_FD(errno_pipe_fd[0]),
         };
 
+        LIST_PREPEND(list_unit_files_ops, m->list_unit_files_ops, op);
         m->n_list_unit_files_ops++;
 
         r = sd_event_add_io(m->event, &op->event_source, op->errno_fd, EPOLLIN, list_unit_files_op_done, op);
