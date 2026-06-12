@@ -128,6 +128,41 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 ## Features
 
+- report: allow to compile statically (together with the basic and cgroup
+  backends)
+
+- report: make sure backends can also be invoked via forking off
+
+- report: backend that extracts 10 most recent log msgs of a certain priority
+
+- implement enough of PCP in a new sd-pcp-client library that networkd can use
+  to punch holes for wireguard into common NAT routers.
+
+- measure an uapi16 manifest of /etc/ during early boot (so that
+  pre-initialized /etc/ can be detected when systems are enrolled into some
+  subsystem)
+
+- optionally turn off import of imds on non-firstboot creds (so that IMDS can
+  be considered an attack vector, except for TOFU)
+
+- store workload identity OIDC server contact info in cloud imds hwdb.
+
+- systemd-analyze unit-shell-me-harder that has both host and unit trees around
+  but mostly lives in unit namespces
+
+- os-release consumption at boot: version validation, and maybe in os-release
+
+- ed25519 authentication for sd-boot upgrades for the dm-verity key logic
+
+- change machine tags into key/value pairs instead of just labels
+
+- in sysupdate resolve %C or so as specifier in transfer fiels to the value of
+  a specific machine tag channel= or so.
+
+- make vmspawn parse UKIs for direct kernel boot
+
+- portabled driving by system credential
+
 - sysinstall: add fully automatic mode that automatically picks target disk,
   non-interactively. Should wait to ensure system is up for a certain amount of
   minimal time (alternatively: certain amount of time since the last disk
