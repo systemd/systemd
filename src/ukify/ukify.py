@@ -923,6 +923,49 @@ def join_initrds(initrds: list[Path]) -> Union[Path, bytes, None]:
     return b''.join(seq)
 
 
+def has_relative_devicetree(opts: Union[argparse.Namespace, UkifyConfig]) -> bool:
+    return (opts.devicetree is not None and not opts.devicetree.is_absolute()) or any(
+        not path.is_absolute() for path in opts.devicetree_auto
+    )
+
+
+def resolve_devicetree_path(path: Path, uname: str, check_exists: bool = False) -> Path:
+    if Path(uname).is_absolute() or '/' in uname or '..' in Path(uname).parts:
+        raise ValueError(f'Invalid kernel version {uname!r}')
+
+    if path.is_absolute():
+        resolved = path
+    else:
+        if '..' in path.parts:
+            raise ValueError(f'Relative DeviceTree path {path} must not contain ".."')
+        resolved = Path('/usr/lib/modules') / uname / 'dtb' / path
+
+    if check_exists and not resolved.exists():
+        raise FileNotFoundError(f'DeviceTree file {resolved} not found')
+
+    return resolved
+
+
+def resolve_devicetree_options(
+    opts: Union[argparse.Namespace, UkifyConfig],
+    check_exists: bool = False,
+    strict_uname: bool = False,
+) -> None:
+    if not opts.uname:
+        if has_relative_devicetree(opts):
+            message = 'Kernel version unknown, cannot resolve relative DeviceTree paths'
+            if strict_uname or check_exists:
+                raise ValueError(message)
+            print(message, file=sys.stderr)
+        return
+
+    if opts.devicetree is not None:
+        opts.devicetree = resolve_devicetree_path(opts.devicetree, opts.uname, check_exists)
+    opts.devicetree_auto = [
+        resolve_devicetree_path(path, opts.uname, check_exists) for path in opts.devicetree_auto
+    ]
+
+
 T = TypeVar('T')
 
 
@@ -2434,6 +2477,12 @@ def finalize_options(opts: argparse.Namespace) -> None:
     if opts.efi_arch is None:
         opts.efi_arch = guess_efi_arch()
 
+    if opts.uname is None and opts.linux is not None and has_relative_devicetree(opts):
+        print('Kernel version not specified, starting autodetection 😖.', file=sys.stderr)
+        opts.uname = Uname.scrape(opts.linux, opts=opts)
+
+    resolve_devicetree_options(opts, strict_uname=opts.verb == 'build')
+
     if opts.stub is None and not opts.join_pcrsig:
         if opts.linux is not None:
             opts.stub = Path(f'/usr/lib/systemd/boot/efi/linux{opts.efi_arch}.efi.stub')
@@ -2550,6 +2599,7 @@ def main() -> None:
         # TODO: replace pprint() with some fancy formatting.
         pprint.pprint(vars(opts))
     elif opts.verb == 'build':
+        resolve_devicetree_options(opts, check_exists=True, strict_uname=True)
         check_inputs(opts)
         make_uki(opts)
     elif opts.verb == 'genkey':
