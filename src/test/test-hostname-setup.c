@@ -144,6 +144,33 @@ TEST(hostname_substitute_wildcards_words) {
         ASSERT_OK(unsetenv("SYSTEMD_HOSTNAME_WORDLIST_PATH"));
 }
 
+TEST(hostname_setup_cmdline_wildcards) {
+        _cleanup_(rm_rf_physical_and_freep) char *d = NULL;
+        int r;
+
+        r = sd_id128_get_machine(NULL);
+        if (ERRNO_IS_NEG_MACHINE_ID_UNSET(r))
+                return (void) log_tests_skipped_errno(r, "skipping cmdline wildcard hostname tests, no machine ID defined");
+
+        ASSERT_OK(mkdtemp_malloc("/tmp/hostname-wordlist.XXXXXX", &d));
+        ASSERT_OK(setenv("SYSTEMD_PROC_CMDLINE", "systemd.hostname=$-????", /* overwrite= */ true));
+        ASSERT_OK(setenv("SYSTEMD_HOSTNAME_WORDLIST_PATH", d, /* overwrite= */ true));
+
+        /* Word list missing (as e.g. in the initrd): the kernel command line hostname is ignored and the
+         * usual fallback logic applies, hostname_setup() must still succeed. */
+        ASSERT_OK(hostname_setup(/* really= */ false));
+
+        /* Word list present: hostname_setup() now exercises the cmdline expansion path and must still
+         * succeed. With really=false nothing is applied and the resolved name is not surfaced, so the
+         * concrete expansion is asserted separately in the hostname_substitute_wildcards test above. */
+        _cleanup_free_ char *one_list = ASSERT_PTR(path_join(d, "1"));
+        ASSERT_OK(write_string_file(one_list, "happy\nsad\n", WRITE_STRING_FILE_CREATE));
+        ASSERT_OK(hostname_setup(/* really= */ false));
+
+        ASSERT_OK(unsetenv("SYSTEMD_PROC_CMDLINE"));
+        ASSERT_OK(unsetenv("SYSTEMD_HOSTNAME_WORDLIST_PATH"));
+}
+
 TEST(hostname_setup) {
         hostname_setup(false);
 }
