@@ -14,6 +14,7 @@
 #include "unit.h"
 
 struct libmnt_monitor;
+typedef struct ListUnitFilesOp ListUnitFilesOp;
 
 /* Enforce upper limit on how many names we allow */
 #define MANAGER_MAX_NAMES 131072 /* 128K */
@@ -21,6 +22,15 @@ struct libmnt_monitor;
 /* Enforce upper limit on the number of patterns/states requested over IPC */
 #define MANAGER_MAX_PATTERNS_PER_CALL 4096U
 #define MANAGER_MAX_STATES_PER_CALL 256U
+
+/* Limit concurrent ListUnitFiles child processes */
+#define MANAGER_MAX_LIST_UNIT_FILES_OPS 4U
+
+/* Upper bound on data read back from a ListUnitFiles child */
+#define MANAGER_MAX_LIST_UNIT_FILES_SIZE (128U*1024U*1024U)
+
+/* Timeout for a ListUnitFiles child process */
+#define MANAGER_LIST_UNIT_FILES_TIMEOUT_USEC (30U * USEC_PER_SEC)
 
 /* On sigrtmin+18, private commands */
 enum {
@@ -420,6 +430,10 @@ typedef struct Manager {
         unsigned n_running_jobs;
         unsigned n_on_console;
         unsigned jobs_in_progress_iteration;
+
+        /* In-flight ListUnitFiles child processes */
+        LIST_HEAD(ListUnitFilesOp, list_unit_files_ops);
+        unsigned n_list_unit_files_ops;
 
         /* Do we have any outstanding password prompts? */
         int have_ask_password;
