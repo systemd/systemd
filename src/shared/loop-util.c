@@ -452,15 +452,14 @@ static int loop_device_can_shortcut(
                 uint64_t size,
                 uint32_t sector_size,
                 uint32_t device_ssz,
-                uint32_t loop_flags) {
+                uint32_t loop_flags,
+                int partition_table_found) {
 
         int r;
 
         /* Returns whether we can hand back the original block device fd instead of allocating a real
-         * loopback device for it: it must cover the whole device, the requested sector size must match the
-         * device's sector size, and if partscan was requested it must already be enabled on the device
-         * (otherwise e.g. partition block devices or loop devices created without LO_FLAGS_PARTSCAN would
-         * be reused even though they cannot expose nested partitions). */
+         * loopback device for it: it must cover the whole device and the requested sector size must match
+         * the device's sector size. */
 
         assert(fd >= 0);
 
@@ -475,8 +474,18 @@ static int loop_device_can_shortcut(
                 r = blockdev_partscan_enabled_fd(fd);
                 if (r < 0)
                         return r;
-                if (r == 0)
-                        return false;
+                if (r == 0) {
+                        /* Partscan was requested but isn't enabled. If there's no partition table at all
+                         * (e.g.: BTRFS subvol) then don't attempt to create a loopdev and shortcut instead:
+                         * https://github.com/systemd/systemd/issues/42520 */
+                        if (partition_table_found > 0)
+                                return false;
+                        if (partition_table_found < 0) {
+                                uint32_t discard_ssz;
+                                if (probe_sector_size_harder(fd, &discard_ssz) != 0)
+                                        return false;
+                        }
+                }
         }
 
         return true;
@@ -497,7 +506,7 @@ static int loop_device_make_internal(
         _cleanup_close_ int reopened_fd = -EBADF, control = -EBADF;
         _cleanup_free_ char *backing_file = NULL;
         struct loop_config config;
-        int r, f_flags;
+        int r, f_flags, partition_table_found = -1;
         struct stat st;
 
         assert(fd >= 0);
@@ -533,6 +542,7 @@ static int loop_device_make_internal(
                         return r;
                 if (r == 0)
                         sector_size = 0; /* If we can't probe anything, use default sector size. */
+                partition_table_found = r;
         }
 
         if (fstat(fd, &st) < 0)
@@ -547,7 +557,7 @@ static int loop_device_make_internal(
                 if (sector_size == 0)
                         sector_size = device_ssz;
 
-                r = loop_device_can_shortcut(fd, offset, size, sector_size, device_ssz, loop_flags);
+                r = loop_device_can_shortcut(fd, offset, size, sector_size, device_ssz, loop_flags, partition_table_found);
                 if (r < 0)
                         return r;
                 if (r > 0)
