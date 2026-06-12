@@ -18,7 +18,7 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-05-30 00:13+0200\n"
-"PO-Revision-Date: 2026-06-12 07:36+0000\n"
+"PO-Revision-Date: 2026-06-12 09:22+0000\n"
 "Last-Translator: Luke Na <narukeu@outlook.com>\n"
 "Language-Team: Chinese (Simplified) <https://translate.fedoraproject.org/"
 "projects/systemd/main/zh_CN/>\n"
@@ -104,7 +104,7 @@ msgstr "核验主目录区域的凭证"
 #: src/home/org.freedesktop.home1.policy:34
 msgid ""
 "Authentication is required to check credentials against a user's home area."
-msgstr "需要身份验证方可将凭证与用户的主目录目录区域进行比对。"
+msgstr "需要身份验证方可将凭证与用户的主目录区域进行比对。"
 
 #: src/home/org.freedesktop.home1.policy:43
 msgid "Update a home area"
@@ -155,18 +155,18 @@ msgstr "激活用户的主目录区域需要认证。"
 
 #: src/home/org.freedesktop.home1.policy:93
 msgid "Manage Home Directory Signing Keys"
-msgstr "管理家目录的签名密钥"
+msgstr "管理主目录区域的签名密钥"
 
 #: src/home/org.freedesktop.home1.policy:94
 msgid "Authentication is required to manage signing keys for home directories."
-msgstr "管理家目录的签名密钥需要认证。"
+msgstr "管理主目录区域的签名密钥需要认证。"
 
 #: src/home/pam_systemd_home.c:327
 #, c-format
 msgid ""
 "Home of user %s is currently absent, please plug in the necessary storage "
 "device or backing file system."
-msgstr "用户 %s 的家目录当前不存在，请插入必要的存储设备或下层文件系统。"
+msgstr "用户 %s 的主目录区域当前不可用，请插入必要的存储设备或挂载底层文件系统。"
 
 #: src/home/pam_systemd_home.c:332
 #, c-format
@@ -234,7 +234,7 @@ msgstr "请确认安全令牌上存在用户 %s。"
 #: src/home/pam_systemd_home.c:454
 #, c-format
 msgid "Please verify user on security token of user %s."
-msgstr "请验证用户 %s 的安全令牌上的用户。"
+msgstr "请在用户 %s 的安全令牌上验证用户身份。"
 
 #: src/home/pam_systemd_home.c:463
 msgid ""
@@ -296,7 +296,7 @@ msgstr "用户记录无效，禁止访问。"
 #: src/home/pam_systemd_home.c:1044
 #, c-format
 msgid "Too many logins, try again in %s."
-msgstr "过多登录请求，请在 %s 后重试。"
+msgstr "登录次数过多，请 %s 后重试。"
 
 #: src/home/pam_systemd_home.c:1055
 msgid "Password change required."
@@ -999,13 +999,13 @@ msgstr "重新配置网络接口需要认证。"
 
 #: src/network/org.freedesktop.network1.policy:187
 msgid "Specify whether persistent storage for systemd-networkd is available"
-msgstr "指定systemd-networkd的永久存储是否可用"
+msgstr "指定 systemd-networkd 的永久存储是否可用"
 
 #: src/network/org.freedesktop.network1.policy:188
 msgid ""
 "Authentication is required to specify whether persistent storage for systemd-"
 "networkd is available."
-msgstr "指定systemd-networkd的永久存储是否可用需要认证。"
+msgstr "指定 systemd-networkd 的永久存储是否可用需要认证。"
 
 #: src/network/org.freedesktop.network1.policy:198
 msgid "Manage network links"
@@ -1078,11 +1078,11 @@ msgstr "订阅查询结果需要认证。"
 
 #: src/resolve/org.freedesktop.resolve1.policy:154
 msgid "Subscribe to DNS configuration"
-msgstr "订阅DNS配置"
+msgstr "订阅 DNS 配置"
 
 #: src/resolve/org.freedesktop.resolve1.policy:155
 msgid "Authentication is required to subscribe to DNS configuration."
-msgstr "订阅DNS配置需要认证。"
+msgstr "订阅 DNS 配置需要认证。"
 
 #: src/resolve/org.freedesktop.resolve1.policy:165
 msgid "Dump cache"
