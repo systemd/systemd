@@ -218,4 +218,68 @@ assert_eq "$(systemctl show "$UNIT_NAME" -P NRestarts)" "1"
 
 rm /run/systemd/system/"$UNIT_NAME"
 
+# Test RestartRandomizedDelaySec=
+
+export UNIT_NAME="TEST-03-JOBS-restart-randomized-delay.service"
+
+cat >"/run/systemd/system/$UNIT_NAME" <<EOF
+[Service]
+Type=simple
+ExecStart=false
+Restart=on-failure
+RestartSec=1
+RestartRandomizedDelaySec=1
+StartLimitIntervalSec=0
+EOF
+
+systemctl daemon-reload
+
+# The option should be parsed and exposed on the bus in usec.
+assert_eq "$(systemctl show "$UNIT_NAME" -P RestartRandomizedDelayUSec)" "1s"
+
+# The chosen delay is logged at debug level when the unit enters auto-restart, so we can read it without
+# waiting for the delay to elapse.
+PREV_LOG_LEVEL="$(systemctl log-level)"
+systemctl log-level debug
+
+get_randomized_delay() {
+    # Enter auto-restart once, read the chosen delay, then stop again so it never has to elapse.
+    systemctl start --no-block "$UNIT_NAME"
+    timeout 10 bash -c 'while [[ "$(systemctl show "'"$UNIT_NAME"'" -P SubState)" != "auto-restart" ]]; do sleep .2; done'
+    systemctl stop "$UNIT_NAME"
+    journalctl --sync
+    journalctl -q --no-pager -o cat -b -u "$UNIT_NAME" --grep="Next restart interval calculated as" |
+        sed -n 's/.*randomized delay: \(.*\))$/\1/p' | tail -n1
+}
+
+DELAY1="$(get_randomized_delay)"
+DELAY2="$(get_randomized_delay)"
+
+systemctl log-level "$PREV_LOG_LEVEL"
+
+: "Chosen randomized restart delays: '$DELAY1' and '$DELAY2'"
+assert_neq "$DELAY1" ""
+assert_neq "$DELAY2" ""
+# Within bound: a value below 1s never renders a bare "<digit>s" token (only ms/us).
+for delay in "$DELAY1" "$DELAY2"; do
+    if [[ "$delay" =~ [0-9]s ]]; then
+        echo "FAIL: randomized restart delay '$delay' exceeds the configured 1s bound" >&2
+        exit 1
+    fi
+done
+# A working jitter picks a different value each time.
+assert_neq "$DELAY1" "$DELAY2"
+
+# The chosen delay is serialized, so a daemon-reload must not re-randomize or reset the pending restart.
+systemctl start --no-block "$UNIT_NAME"
+timeout 10 bash -c 'while [[ "$(systemctl show "$UNIT_NAME" -P SubState)" != "auto-restart" ]]; do sleep .2; done'
+systemctl daemon-reload
+assert_eq "$(systemctl show "$UNIT_NAME" -P SubState)" "auto-restart"
+assert_eq "$(systemctl show "$UNIT_NAME" -P NRestarts)" "0"
+timeout 30 bash -c 'while [[ "$(systemctl show "$UNIT_NAME" -P NRestarts)" == "0" ]]; do sleep .2; done'
+
+systemctl stop "$UNIT_NAME"
+rm /run/systemd/system/"$UNIT_NAME"
+systemctl daemon-reload
+
 touch /testok
