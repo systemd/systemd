@@ -579,6 +579,18 @@ EOF
 mkdir /run/sysupdate.d
 "$SYSUPDATE" --json=short components | grep -F '{"default":false,"components":["some-component"]}' >/dev/null
 
+# Regression test for https://github.com/systemd/systemd/issues/42330 — the
+# 'pending'/'reboot' verbs and the '--reboot' switch compare the newest installed
+# version against the booted OS version (IMAGE_VERSION= from os-release), which is
+# unrelated to component versions. Selecting a component must therefore be refused
+# rather than silently performing a bogus comparison.
+out="$(! "$SYSUPDATE" --component=some-component pending 2>&1)"
+grep -F 'may not be combined' <<<"$out"
+out="$(! "$SYSUPDATE" --component=some-component reboot 2>&1)"
+grep -F 'may not be combined' <<<"$out"
+out="$(! "$SYSUPDATE" --component=some-component update --reboot 2>&1)"
+grep -F 'may not be combined' <<<"$out"
+
 # Clean up regression test
 rmdir /run/sysupdate.d
 rm -rf /run/sysupdate.some-component.d
