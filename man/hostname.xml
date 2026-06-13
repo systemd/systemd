@@ -6,7 +6,7 @@
 ]>
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
-<refentry id="hostname">
+<refentry id="hostname" xmlns:xi="http://www.w3.org/2001/XInclude">
   <refentryinfo>
     <title>hostname</title>
     <productname>systemd</productname>
@@ -51,6 +51,41 @@
     applied, securely and deterministically by cryptographic hashing. Example:
     <literal>foobar-????-????</literal> will automatically expand to <literal>foobar-92a9-061c</literal> or
     similar, depending on the local machine ID.</para>
+
+    <para id="word-hostname-pattern">In addition, the token <literal>$</literal> is substituted by a word picked
+    deterministically from a word list, again derived from the
+    <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry> by
+    cryptographic hashing. Each <literal>$</literal> is positional: the first <literal>$</literal> uses the word
+    list file named <filename>1</filename>, the second <filename>2</filename>, and so on. This allows
+    human-friendly, Docker-style names. Example: <literal>$-$-????</literal> might expand to
+    <literal>happy-octopus-92a9</literal>. The word lists are searched for in
+    <filename>/etc/systemd/hostname-wordlist/</filename>, <filename>/run/systemd/hostname-wordlist/</filename>,
+    <filename>/usr/local/lib/systemd/hostname-wordlist/</filename> and
+    <filename>/usr/lib/systemd/hostname-wordlist/</filename> (the first directory providing a given list wins,
+    lists are not merged); one word per line, with empty lines and lines starting with <literal>#</literal>
+    ignored. The optional default lists provide the numbered files as symlinks to <filename>adverbs</filename>,
+    <filename>adjectives</filename> and <filename>nouns</filename> (see the
+    <option>-Dhostname-wordlist=</option> build option).</para>
+
+    <xi:include href="version-info.xml" xpointer="v262"/>
+
+    <para>The word for each token is derived deterministically from the machine ID and recomputed on every
+    boot (the lists are not loaded wholesale: a word is chosen by hashing to a byte offset into the file).
+    Consequently the word lists must be kept stable: changing a list (adding, removing, or reordering words)
+    may change the name a machine already has, so installations that rely on persistent hostnames must not
+    modify the lists after deployment. If a referenced list is missing the
+    name is treated as invalid and the built-in fallback hostname is used. The combined name space is the
+    product of the list sizes, so collisions follow the birthday bound; append a few <literal>?</literal>
+    characters for extra entropy when uniqueness across a large fleet matters.</para>
+
+    <para>Because the name only stays stable as long as the word lists do, the preferred way to obtain a
+    stable, generated hostname is to provide the pattern through the <varname>firstboot.hostname</varname>
+    credential (see
+    <citerefentry><refentrytitle>systemd.system-credentials</refentrytitle><manvolnum>7</manvolnum></citerefentry>)
+    rather than placing it directly in this file: the credential is resolved once on first boot and the
+    concrete result is persisted here, so the word lists may be updated afterwards without changing the
+    hostname. A pattern placed directly in <filename>/etc/hostname</filename> is instead re-derived on every
+    boot, which only really makes sense for systems that keep the wordlist stable.</para>
 
     <para>You may use
     <citerefentry><refentrytitle>hostnamectl</refentrytitle><manvolnum>1</manvolnum></citerefentry> to change

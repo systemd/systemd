@@ -80,6 +80,11 @@ All tools:
   (relevant in particular for the system manager and `systemd-hostnamed`).
   Must be a valid hostname (either a single label or a FQDN).
 
+* `$SYSTEMD_HOSTNAME_WORDLIST_PATH` — search this directory for the numbered
+  hostname word list files used by the `$` wildcard in hostname patterns (see
+  `hostname(5)`), instead of the built-in search path. Only useful for
+  debugging and testing.
+
 * `$SD_EVENT_PROFILE_DELAYS=1` — if set, the sd-event event loop implementation
   will print latency information at runtime.
 

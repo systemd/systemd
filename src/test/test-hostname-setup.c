@@ -10,8 +10,10 @@
 #include "hostname-setup.h"
 #include "hostname-util.h"
 #include "id128-util.h"
+#include "path-util.h"
 #include "pidref.h"
 #include "process-util.h"
+#include "rm-rf.h"
 #include "tests.h"
 #include "tmpfile-util.h"
 
@@ -86,22 +88,79 @@ TEST(hostname_substitute_wildcards) {
                 return (void) log_tests_skipped_errno(r, "skipping wildcard hostname tests, no machine ID defined");
 
         _cleanup_free_ char *buf = NULL;
-        ASSERT_NOT_NULL((buf = strdup("")));
-        ASSERT_OK(hostname_substitute_wildcards(buf));
+        ASSERT_OK(hostname_substitute_wildcards("", &buf));
         ASSERT_STREQ(buf, "");
         ASSERT_NULL(buf = mfree(buf));
 
-        ASSERT_NOT_NULL((buf = strdup("hogehoge")));
-        ASSERT_OK(hostname_substitute_wildcards(buf));
+        ASSERT_OK(hostname_substitute_wildcards("hogehoge", &buf));
         ASSERT_STREQ(buf, "hogehoge");
         ASSERT_NULL(buf = mfree(buf));
 
-        ASSERT_NOT_NULL((buf = strdup("hoge??hoge??foo?")));
-        ASSERT_OK(hostname_substitute_wildcards(buf));
+        ASSERT_OK(hostname_substitute_wildcards("hoge??hoge??foo?", &buf));
         log_debug("hostname_substitute_wildcards(\"hoge??hoge??foo?\"): → \"%s\"", buf);
         ASSERT_EQ(fnmatch("hoge??hoge??foo?", buf, /* flags= */ 0), 0);
         ASSERT_TRUE(hostname_is_valid(buf, /* flags= */ 0));
         ASSERT_NULL(buf = mfree(buf));
+}
+
+TEST(hostname_substitute_wildcards_words) {
+        _cleanup_(rm_rf_physical_and_freep) char *d = NULL;
+        int r;
+
+        r = sd_id128_get_machine(NULL);
+        if (ERRNO_IS_NEG_MACHINE_ID_UNSET(r))
+                return (void) log_tests_skipped_errno(r, "skipping word hostname tests, no machine ID defined");
+
+        ASSERT_OK(mkdtemp_malloc("/tmp/hostname-wordlist.XXXXXX", &d));
+
+        /* The n-th '$' reads the word list file named after its position. */
+        _cleanup_free_ char *one_list = path_join(d, "1"), *two_list = path_join(d, "2");
+        ASSERT_NOT_NULL(one_list);
+        ASSERT_NOT_NULL(two_list);
+        ASSERT_OK(write_string_file(one_list, "happy\nsad\n# comment\n\njolly\n", WRITE_STRING_FILE_CREATE));
+        ASSERT_OK(write_string_file(two_list, "octopus\nfalcon\nINVALID_WORD!\nbadger\n", WRITE_STRING_FILE_CREATE));
+        ASSERT_OK(setenv("SYSTEMD_HOSTNAME_WORDLIST_PATH", d, /* overwrite= */ true));
+
+        _cleanup_free_ char *a = NULL, *b = NULL;
+        ASSERT_OK(hostname_substitute_wildcards("$-$", &a));
+        log_debug("hostname_substitute_wildcards(\"$-$\"): → \"%s\"", a);
+        ASSERT_TRUE(hostname_is_valid(a, /* flags= */ 0));
+
+        /* Fully deterministic: same machine ID + same lists → same name */
+        ASSERT_OK(hostname_substitute_wildcards("$-$", &b));
+        ASSERT_STREQ(a, b);
+
+        /* Missing list (no file "3") → error (caller falls back to built-in hostname) */
+        _cleanup_free_ char *e = NULL;
+        ASSERT_ERROR(hostname_substitute_wildcards("$-$-$", &e), ENOENT);
+
+        ASSERT_OK(unsetenv("SYSTEMD_HOSTNAME_WORDLIST_PATH"));
+}
+
+TEST(hostname_setup_cmdline_wildcards) {
+        _cleanup_(rm_rf_physical_and_freep) char *d = NULL;
+        int r;
+
+        r = sd_id128_get_machine(NULL);
+        if (ERRNO_IS_NEG_MACHINE_ID_UNSET(r))
+                return (void) log_tests_skipped_errno(r, "skipping cmdline wildcard hostname tests, no machine ID defined");
+
+        ASSERT_OK(mkdtemp_malloc("/tmp/hostname-wordlist.XXXXXX", &d));
+        ASSERT_OK(setenv("SYSTEMD_PROC_CMDLINE", "systemd.hostname=$-????", /* overwrite= */ true));
+        ASSERT_OK(setenv("SYSTEMD_HOSTNAME_WORDLIST_PATH", d, /* overwrite= */ true));
+
+        /* Word list missing (as e.g. in the initrd): the kernel command line hostname is ignored and the
+         * usual fallback logic applies, hostname_setup() must still succeed. */
+        ASSERT_OK(hostname_setup(/* really= */ false));
+
+        /* Word list present: the pattern is expanded and applied. */
+        _cleanup_free_ char *one_list = path_join(d, "1");
+        ASSERT_NOT_NULL(one_list);
+        ASSERT_OK(write_string_file(one_list, "happy\nsad\n", WRITE_STRING_FILE_CREATE));
+        ASSERT_OK(hostname_setup(/* really= */ false));
+
+        ASSERT_OK(unsetenv("SYSTEMD_PROC_CMDLINE"));
+        ASSERT_OK(unsetenv("SYSTEMD_HOSTNAME_WORDLIST_PATH"));
 }
 
 TEST(hostname_setup) {
