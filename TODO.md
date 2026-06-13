@@ -2696,9 +2696,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   runs it in a new namespace and then just executes the selected binary within
   it. Could be useful to run one-off binaries inside a sysext as a CLI tool.
 
-- systemd-tmpfiles: add concept for conditionalizing lines on factory reset
-  boot, or on first boot.
-
 - systemd-tpm2-setup should support a mode where we refuse booting if the SRK
   changed. (Must be opt-in, to not break systems which are supposed to be
   migratable between PCs)
@@ -2822,6 +2819,15 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   - add new line type for moving files from some source dir to some
     target dir. then use that to move sysexts/confexts and stuff from initrd
     tmpfs to /run/, so that host can pick things up.
+  - allow conditionalizing on factory reset boot, or on first boot.
+  - when cleaning up directories, take care of btrfs subvolumes too
+    (ID 927 gen 217573 top level 256 path var/tmp/.#test-btrfs4e8ef947c1122031
+     ID 928 gen 217573 top level 927 path var/tmp/.#test-btrfs4e8ef947c1122031/rec
+     ID 929 gen 217574 top level 928 path var/tmp/.#test-btrfs4e8ef947c1122031/rec/sv2
+     ID 930 gen 217575 top level 928 path var/tmp/.#test-btrfs4e8ef947c1122031/rec/sv3
+     ID 931 gen 217576 top level 930 path var/tmp/.#test-btrfs4e8ef947c1122031/rec/sv3/sub
+     ID 932 gen 217577 top level 928 path var/tmp/.#test-btrfs4e8ef947c1122031/rec/dir/sv4
+     ID 933 gen 217578 top level 932 path var/tmp/.#test-btrfs4e8ef947c1122031/rec/dir/sv4/dir/sv5)
 
 - To mimic the new tpm2-measure-pcr= crypttab option and tpm2-measure-nvpcr=
   veritytab option, add the same to integritytab (measuring the HMAC key if one
