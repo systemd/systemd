@@ -5,20 +5,16 @@
 #include "alloc-util.h"
 #include "errno-util.h"
 #include "log.h"
+#include "string-util.h"
 #include "vmspawn-qemu-config.h"
 
-static bool qemu_config_type_valid(const char *type) {
-        return !strchr(type, '\n');
+/* Enforce QEMU's identifier grammar, so runtime data can never inject config structure. */
+static bool qemu_config_identifier_valid(const char *s) {
+        return !isempty(s) && in_charset(s, ALPHANUMERICAL ".-_");
 }
 
-static bool qemu_config_id_valid(const char *id) {
-        return !strpbrk(id, "\"\n");
-}
-
-static bool qemu_config_key_name_valid(const char *key) {
-        return !strpbrk(key, "=\n");
-}
-
+/* Values are written quoted ('key = "%s"') and QEMU reads them literally between the quotes (no escapes),
+ * only '"' and newline can break out. */
 static bool qemu_config_value_valid(const char *value) {
         return !strpbrk(value, "\"\n");
 }
@@ -28,8 +24,8 @@ int qemu_config_key(FILE *f, const char *key, const char *value) {
         assert(key);
         assert(value);
 
-        if (!qemu_config_key_name_valid(key))
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "QEMU config key '%s' contains '=' or newline.", key);
+        if (!qemu_config_identifier_valid(key))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "QEMU config key '%s' is not a valid identifier.", key);
         if (!qemu_config_value_valid(value))
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "QEMU config value '%s' contains quote or newline.", value);
 
@@ -64,12 +60,12 @@ int qemu_config_section_impl(FILE *f, const char *type, const char *id, ...) {
         assert(f);
         assert(type);
 
-        if (!qemu_config_type_valid(type))
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "QEMU config section type '%s' contains newline.", type);
+        if (!qemu_config_identifier_valid(type))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "QEMU config section type '%s' is not a valid identifier.", type);
 
         if (id) {
-                if (!qemu_config_id_valid(id))
-                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "QEMU config section id '%s' contains quote or newline.", id);
+                if (!qemu_config_identifier_valid(id))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "QEMU config section id '%s' is not a valid identifier.", id);
                 fprintf(f, "\n[%s \"%s\"]\n", type, id);
         } else
                 fprintf(f, "\n[%s]\n", type);
