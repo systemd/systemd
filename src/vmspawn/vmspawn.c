@@ -4022,7 +4022,14 @@ static int determine_kernel(void) {
         int r;
 
         if (!arg_linux && arg_directory) {
-                /* A kernel is required for directory type images so attempt to find one under /boot and /efi */
+                /* A kernel is required for directory type images so attempt to find one under /boot and /efi.
+                 * Reject a user --initrd= first: discovery would overwrite (and leak) it, and the
+                 * --initrd=/--linux= consistency check in verify_arguments() is bypassed once discovery
+                 * sets arg_linux. */
+                if (!strv_isempty(arg_initrds))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "--initrd= cannot be used with --directory= unless --linux= is also specified.");
+
                 r = discover_boot_entry(arg_directory, &arg_linux, &arg_initrds);
                 if (r < 0)
                         return log_error_errno(r, "Failed to locate UKI in directory type image, please specify one with --linux=.");
