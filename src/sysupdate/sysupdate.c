@@ -1555,6 +1555,10 @@ static int verb_update_impl(int argc, char **argv, UpdateActionFlags action_flag
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                       "The --instances-max argument must be >= 2 while updating");
 
+        if (arg_reboot && arg_component)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "The --reboot switch may not be combined with --component=, as automatic reboots only apply to the booted OS version.");
+
         if (arg_reboot) {
                 /* If automatic reboot on completion is requested, let's first determine the currently booted image */
 
@@ -1663,6 +1667,10 @@ static int verb_pending_or_reboot(int argc, char *argv[], uintptr_t _data, void 
         if (arg_image || arg_root)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "The --root=/--image= switches may not be combined with the '%s' operation.", argv[0]);
+
+        if (arg_component)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "The --component= switch may not be combined with the '%s' operation, which only applies to the booted OS version.", argv[0]);
 
         r = context_make_offline(&context, /* node= */ NULL,
                                  READ_DEFINITIONS_REQUIRES_ENABLED_TRANSFERS | READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS);
