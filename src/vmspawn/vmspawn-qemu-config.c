@@ -30,7 +30,7 @@ int qemu_config_key(FILE *f, const char *key, const char *value) {
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "QEMU config value '%s' contains quote or newline.", value);
 
         if (fprintf(f, "  %s = \"%s\"\n", key, value) < 0)
-                return -errno_or_else(EIO);
+                return errno_or_else(EIO);
 
         return 0;
 }
@@ -87,7 +87,7 @@ int qemu_config_section_impl(FILE *f, const char *type, const char *id, ...) {
         va_end(ap);
 
         if (ferror(f))
-                return -errno_or_else(EIO);
+                return errno_or_else(EIO);
 
         return 0;
 }
