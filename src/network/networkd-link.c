@@ -30,7 +30,6 @@
 #include "errno-util.h"
 #include "ethtool-util.h"
 #include "event-util.h"
-#include "format-ifname.h"
 #include "fs-util.h"
 #include "glyph-util.h"
 #include "logarithm.h"
@@ -1151,14 +1150,14 @@ static Link *link_drop(Link *link) {
         link_clean(link);
 
         STRV_FOREACH(n, link->alternative_names)
-                hashmap_remove(link->manager->links_by_name, *n);
-        hashmap_remove(link->manager->links_by_name, link->ifname);
+                hashmap_remove_value(link->manager->links_by_name, *n, link);
+        hashmap_remove_value(link->manager->links_by_name, link->ifname, link);
 
         /* bonding master and its slaves have the same hardware address. */
         hashmap_remove_value(link->manager->links_by_hw_addr, &link->hw_addr, link);
 
         /* The following must be called at last. */
-        assert_se(hashmap_remove(link->manager->links_by_index, INT_TO_PTR(link->ifindex)) == link);
+        hashmap_remove_value(link->manager->links_by_index, INT_TO_PTR(link->ifindex), link);
 
         if (notify)
                 manager_notify_hook_filters(link->manager);
@@ -2595,7 +2594,7 @@ static int link_update_alternative_names(Link *link, sd_netlink_message *message
                 return 0;
 
         STRV_FOREACH(n, link->alternative_names)
-                hashmap_remove(link->manager->links_by_name, *n);
+                hashmap_remove_value(link->manager->links_by_name, *n, link);
 
         strv_free_and_replace(link->alternative_names, altnames);
 
@@ -2609,7 +2608,6 @@ static int link_update_alternative_names(Link *link, sd_netlink_message *message
 }
 
 static int link_update_name(Link *link, sd_netlink_message *message) {
-        char ifname_from_index[IF_NAMESIZE];
         const char *ifname;
         int r;
 
@@ -2626,20 +2624,50 @@ static int link_update_name(Link *link, sd_netlink_message *message) {
         if (streq(ifname, link->ifname))
                 return 0;
 
-        r = format_ifname(link->ifindex, ifname_from_index);
-        if (r < 0)
-                return log_link_debug_errno(link, r, "Could not get interface name for index %i.", link->ifindex);
-
-        if (!streq(ifname, ifname_from_index)) {
-                log_link_debug(link, "New interface name '%s' received from the kernel does not correspond "
-                               "with the name currently configured on the actual interface '%s'. Ignoring.",
-                               ifname, ifname_from_index);
+        /* Check if the new interface name is already used by another interface. If so, the rename is likely
+         * stale. Consider the following race:
+         *
+         * 1. networkd enables rtnl matches in manager_connect_rtnl().
+         * 2. The kernel sends an RTM_NEWLINK notification for an interface (say, ifindex=2, ifname="eth0"),
+         *    and the notification message (A) is queued in networkd's sd-netlink object.
+         * 3. The interface is renamed (say, "eth0" -> "enp0"), e.g. by udevd. The kernel sends another
+         *    RTM_NEWLINK notification for the rename, and the notification message (B) is also queued in
+         *    networkd's sd-netlink object.
+         * 4. The kernel detects another new interface (say, ifindex=3). Since the name "eth0" is now unused,
+         *    the interface is named "eth0".
+         * 5. networkd enumerates links and creates Link objects for:
+         *    - ifindex=2, ifname="enp0"
+         *    - ifindex=3, ifname="eth0"
+         * 6. After enumeration, when processing message (A), networkd becomes confused and thinks that the
+         *    interface with ifindex=2 was renamed from "enp0" to "eth0". However, it fails to update the
+         *    Manager.links_by_name hashmap because "eth0" is already used by the interface with ifindex=3.
+         * 7. When processing message (B), networkd thinks that the interface with ifindex=2 has been renamed
+         *    again from "eth0" to "enp0", and renames the Link object back to "enp0".
+         *
+         * When this happens, we get something like the following:
+         *
+         * systemd-networkd[5164]: enp0: Interface name change detected, renamed to eth0.
+         * systemd-networkd[5164]: eth0: Failed to manage link by its new name: File exists
+         * systemd-networkd[5164]: Could not process link message: File exists
+         * systemd-networkd[5164]: eth0: Failed
+         * systemd-networkd[5164]: eth0: State changed: initialized -> failed
+         * systemd-networkd[5164]: eth0: Interface name change detected, renamed to enp0.
+         *
+         * See also #20203.
+         *
+         * To avoid the race, ignore the rename. A subsequent RTM_NEWLINK message should eventually provide
+         * the current interface name, e.g. message (B) above. */
+        Link *another;
+        if (link_get_by_name(link->manager, ifname, &another) >= 0 && another != link) {
+                log_link_debug(link,
+                               "Interface name change detected, but the new interface name '%s' is already in use by another interface (ifindex=%i), ignoring the rename as it may be stale.",
+                               ifname, another->ifindex);
                 return 0;
         }
 
         log_link_info(link, "Interface name change detected, renamed to %s.", ifname);
 
-        hashmap_remove(link->manager->links_by_name, link->ifname);
+        hashmap_remove_value(link->manager->links_by_name, link->ifname, link);
 
         r = free_and_strdup(&link->ifname, ifname);
         if (r < 0)
