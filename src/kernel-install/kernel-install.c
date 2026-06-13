@@ -15,6 +15,7 @@
 #include "dissect-image.h"
 #include "env-file.h"
 #include "env-util.h"
+#include "escape.h"
 #include "exec-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
@@ -1465,6 +1466,72 @@ static int verb_inspect(int argc, char *argv[], uintptr_t _data, void *userdata)
         }
 
         return table_print_with_pager(t, arg_json_format_flags, arg_pager_flags, /* show_header= */ false);
+}
+
+VERB(verb_env, "env", "[[[KERNEL-VERSION] KERNEL-IMAGE] [INITRD ...]]", 1, VERB_ANY, 0,
+     "Print environment variables passed to plugins");
+static int verb_env(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        _cleanup_free_ char *vmlinuz = NULL;
+        const char *version, *kernel;
+        char **initrds;
+        struct utsname un;
+        int r;
+
+        _cleanup_(context_done) Context c = CONTEXT_NULL;
+        r = context_from_cmdline(&c, ACTION_INSPECT);
+        if (r < 0)
+                return r;
+
+        /* See comment in verb_inspect() for why kernel image is the first optional arg, not the version. */
+        version = argc > 2 ? empty_or_dash_to_null(argv[1]) : NULL;
+        kernel = argc > 2 ? empty_or_dash_to_null(argv[2]) :
+                (argc > 1 ? empty_or_dash_to_null(argv[1]) : NULL);
+        initrds = strv_skip(argv, 3);
+
+        if (!version && !arg_root) {
+                assert_se(uname(&un) >= 0);
+                version = un.release;
+        }
+
+        if (!kernel && version) {
+                r = kernel_from_version(version, &vmlinuz);
+                if (r < 0)
+                        return r;
+
+                kernel = vmlinuz;
+        }
+
+        r = context_set_version(&c, version);
+        if (r < 0)
+                return r;
+
+        r = context_set_kernel(&c, kernel);
+        if (r < 0)
+                return r;
+
+        r = context_set_initrds(&c, initrds);
+        if (r < 0)
+                return r;
+
+        r = context_prepare_execution(&c);
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH(e, c.envp) {
+                const char *sep;
+                _cleanup_free_ char *esc = NULL;
+
+                sep = strchr(*e, '=');
+                assert(sep); /* strv_env_assign_many() always produces KEY=VALUE */
+
+                esc = shell_maybe_quote(sep + 1, SHELL_ESCAPE_POSIX);
+                if (!esc)
+                        return log_oom();
+
+                printf("%.*s=%s\n", (int)(sep - *e), *e, esc);
+        }
+
+        return 0;
 }
 
 VERB_NOARG(verb_list, "list",
