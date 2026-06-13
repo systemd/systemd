@@ -1,7 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <fcntl.h>
 #include <sched.h>
 #include <stdio.h>
+#include <sys/stat.h>
 #include <sys/utsname.h>
 #include <unistd.h>
 
@@ -19,12 +21,16 @@
 #include "io-util.h"
 #include "log.h"
 #include "namespace-util.h"
+#include "path-util.h"
 #include "pidref.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
 #include "siphash24.h"
+#include "stat-util.h"
+#include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "strv.h"
 
 static int sethostname_idempotent_full(const char *s, bool really) {
         struct utsname u;
@@ -79,6 +85,30 @@ int shorten_overlong(const char *s, char **ret) {
         return 1;
 }
 
+static int validate_and_substitute_hostname_from_source(const char *raw, const char *source, char **ret) {
+        int r;
+
+        assert(raw);
+        assert(source);
+        assert(ret);
+
+        /* Validate a raw hostname value that may carry '?'/'$' wildcards, expand the wildcards, then validate the
+         * concrete result. Shared by the credential and kernel command line paths. */
+        if (!hostname_is_valid(raw, VALID_HOSTNAME_TRAILING_DOT|VALID_HOSTNAME_QUESTION_MARK|VALID_HOSTNAME_WORD_TOKEN))
+                return log_warning_errno(SYNTHETIC_ERRNO(EBADMSG), "Hostname specified %s is invalid, ignoring: %s", source, raw);
+
+        _cleanup_free_ char *substituted = NULL;
+        r = hostname_substitute_wildcards(raw, &substituted);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to substitute wildcards in hostname specified %s, ignoring: %m", source);
+
+        if (!hostname_is_valid(substituted, VALID_HOSTNAME_TRAILING_DOT)) /* check that the expanded hostname is valid */
+                return log_warning_errno(SYNTHETIC_ERRNO(EBADMSG), "Hostname specified %s is invalid after expansion, ignoring: %s", source, substituted);
+
+        *ret = TAKE_PTR(substituted);
+        return 0;
+}
+
 static int acquire_hostname_from_credential(char **ret) {
         _cleanup_free_ char *cred = NULL;
         int r;
@@ -91,12 +121,31 @@ static int acquire_hostname_from_credential(char **ret) {
         if (r == 0) /* not found */
                 return -ENXIO;
 
-        if (!hostname_is_valid(cred, VALID_HOSTNAME_TRAILING_DOT)) /* check that the hostname we return is valid */
-                return log_warning_errno(SYNTHETIC_ERRNO(EBADMSG), "Hostname specified in system.hostname credential is invalid, ignoring: %s", cred);
+        r = validate_and_substitute_hostname_from_source(cred, "in the system.hostname credential", ret);
+        if (r < 0)
+                return r;
 
         log_info("Initializing hostname from credential.");
-        *ret = TAKE_PTR(cred);
         return 0;
+}
+
+static int acquire_hostname_from_cmdline(char **ret) {
+        _cleanup_free_ char *hn = NULL;
+        int r;
+
+        assert(ret);
+
+        r = proc_cmdline_get_key("systemd.hostname", 0, &hn);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to retrieve system hostname from kernel command line, ignoring: %m");
+        if (r == 0) /* not specified */
+                return -ENXIO;
+
+        /* The name may contain '?'/'$' wildcards (see hostname(5)). In the initrd the word lists (and
+         * possibly the machine ID) are typically not available yet so returning here means the default
+         * hostname will be used. Once the host file system is up the expansion succeeds and the intended
+         * name is applied. */
+        return validate_and_substitute_hostname_from_source(hn, "on the kernel command line", ret);
 }
 
 int read_etc_hostname_stream(FILE *f, bool substitute_wildcards, char **ret) {
@@ -119,9 +168,13 @@ int read_etc_hostname_stream(FILE *f, bool substitute_wildcards, char **ret) {
                         continue;
 
                 if (substitute_wildcards) {
-                        r = hostname_substitute_wildcards(line);
+                        _cleanup_free_ char *substituted = NULL;
+
+                        r = hostname_substitute_wildcards(line, &substituted);
                         if (r < 0)
                                 return r;
+
+                        free_and_replace(line, substituted);
                 }
 
                 hostname_cleanup(line); /* normalize the hostname */
@@ -130,7 +183,7 @@ int read_etc_hostname_stream(FILE *f, bool substitute_wildcards, char **ret) {
                 if (!hostname_is_valid(
                                     line,
                                     VALID_HOSTNAME_TRAILING_DOT|
-                                    (substitute_wildcards ? 0 : VALID_HOSTNAME_QUESTION_MARK)))
+                                    (substitute_wildcards ? 0 : VALID_HOSTNAME_QUESTION_MARK|VALID_HOSTNAME_WORD_TOKEN)))
                         return -EBADMSG;
 
                 *ret = TAKE_PTR(line);
@@ -177,17 +230,9 @@ int hostname_setup(bool really) {
         bool enoent = false;
         int r;
 
-        r = proc_cmdline_get_key("systemd.hostname", 0, &hn);
-        if (r < 0)
-                log_warning_errno(r, "Failed to retrieve system hostname from kernel command line, ignoring: %m");
-        else if (r > 0) {
-                if (hostname_is_valid(hn, VALID_HOSTNAME_TRAILING_DOT))
-                        source = HOSTNAME_TRANSIENT;
-                else  {
-                        log_warning("Hostname specified on kernel command line is invalid, ignoring: %s", hn);
-                        hn = mfree(hn);
-                }
-        }
+        r = acquire_hostname_from_cmdline(&hn);
+        if (r >= 0)
+                source = HOSTNAME_TRANSIENT;
 
         if (!hn) {
                 r = read_etc_hostname(/* path= */ NULL, /* substitute_wildcards= */ true, &hn);
@@ -254,48 +299,204 @@ static const char* const hostname_source_table[] = {
 
 DEFINE_STRING_TABLE_LOOKUP(hostname_source, HostnameSource);
 
-int hostname_substitute_wildcards(char *name) {
+static int hostname_open_wordlist(const char *file, FILE **ret) {
+        _cleanup_close_ int fd = -EBADF;
+        int r;
+
+        assert(file);
+        assert(ret);
+
+        /* Opens one of the numbered hostname word list files ("1", "2", "3", ...) for the '$' wildcards.
+         * Open with O_NONBLOCK and verify we got a regular file before reading to not block on a stray FIFO. */
+        const char *override = secure_getenv("SYSTEMD_HOSTNAME_WORDLIST_PATH");
+        if (override) {
+                _cleanup_free_ char *p = path_join(override, file);
+                if (!p)
+                        return -ENOMEM;
+
+                fd = open(p, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
+                if (fd < 0)
+                        return -errno;
+        } else
+                FOREACH_STRING(dir,
+                               "/etc/systemd/hostname-wordlist",
+                               "/run/systemd/hostname-wordlist",
+                               "/usr/local/lib/systemd/hostname-wordlist",
+                               "/usr/lib/systemd/hostname-wordlist") {
+                        _cleanup_free_ char *p = path_join(dir, file);
+                        if (!p)
+                                return -ENOMEM;
+
+                        fd = open(p, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
+                        if (fd >= 0)
+                                break;
+                        if (errno != ENOENT)
+                                return -errno;
+                }
+
+        if (fd < 0)
+                return -ENOENT;
+
+        r = fd_verify_regular(fd);
+        if (r < 0)
+                return r;
+
+        FILE *f = take_fdopen(&fd, "r");
+        if (!f)
+                return -errno;
+
+        *ret = f;
+        return 0;
+}
+
+static int hostname_pick_word(sd_id128_t mid, unsigned pos, char **ret) {
+        static const sd_id128_t word_key = SD_ID128_MAKE(2d,9f,1c,7a,4b,8e,43,11,9a,6d,5f,02,c8,77,e3,14);
+        _cleanup_fclose_ FILE *f = NULL;
+        struct stat st;
+        bool wrapped = false;
+        uint64_t h;
+        int r;
+
+        assert(pos >= 1);
+        assert(ret);
+
+        /* The n-th '$' in a template reads the word list file named after its position, i.e. "1", "2", ... */
+        char file[DECIMAL_STR_MAX(unsigned)];
+        xsprintf(file, "%u", pos);
+
+        r = hostname_open_wordlist(file, &f);
+        if (r < 0)
+                return r;
+
+        if (fstat(fileno(f), &st) < 0)
+                return -errno;
+        if (st.st_size == 0)
+                return -ENOENT;
+
+        /* Pick a word without reading the whole list into memory: hash the machine ID and word position to a
+         * byte offset. This stream is independent of the '?' nibble stream, so pure-'?' templates keep
+         * producing byte-identical output. Stable as long as the wordlist is stable. */
+        struct siphash state;
+        siphash24_init(&state, word_key.bytes);
+        siphash24_compress_typesafe(mid, &state);
+        siphash24_compress_typesafe(pos, &state);
+        h = siphash24_finalize(&state);
+
+        if (fseeko(f, (off_t) (h % (uint64_t) st.st_size), SEEK_SET) < 0)
+                return -errno;
+
+        /* We mostly landed mid-line, so read/discard the current line here */
+        _cleanup_free_ char *discard = NULL;
+        r = read_line(f, LONG_LINE_MAX, &discard);
+        if (r < 0)
+                return r;
+
+        for (;;) {
+                _cleanup_free_ char *line = NULL;
+
+                r = read_stripped_line(f, LONG_LINE_MAX, &line);
+                if (r < 0)
+                        return r;
+                if (r == 0) { /* hit EOF: we started at a random offset, wrap around to the beginning */
+                        if (wrapped) /* already wrapped once, the file contains no usable word at all */
+                                return -ENOENT;
+                        wrapped = true;
+                        rewind(f);
+                        continue;
+                }
+
+                /* Skip empty lines and comments */
+                if (IN_SET(line[0], '\0', '#'))
+                        continue;
+
+                /* Each word must be a valid single hostname label on its own; lowercase it and silently skip
+                 * bogus entries. */
+                ascii_strlower(line);
+                if (!hostname_is_valid(line, /* flags= */ 0))
+                        continue;
+
+                *ret = TAKE_PTR(line);
+                return 0;
+        }
+}
+
+int hostname_substitute_wildcards(const char *name, char **ret) {
         static const sd_id128_t key = SD_ID128_MAKE(98,10,ad,df,8d,7d,4f,b5,89,1b,4b,56,ac,c2,26,8f);
         sd_id128_t mid = SD_ID128_NULL;
+        _cleanup_free_ char *result = NULL;
         size_t left_bits = 0, counter = 0;
+        unsigned word_pos = 0;
         uint64_t h = 0;
         int r;
 
         assert(name);
+        assert(ret);
 
-        /* Replaces every occurrence of '?' in the specified string with a nibble hashed from
-         * /etc/machine-id. This is supposed to be used on /etc/hostname files that want to automatically
-         * configure a hostname derived from the machine ID in some form.
+        if (isempty(name))
+                return strdup_to(ret, "");
+
+        /* Expands wildcards in the specified string, deriving the inserted values deterministically from
+         * /etc/machine-id:
          *
-         * Note that this does not directly use the machine ID, because that's not necessarily supposed to be
-         * public information to be broadcast on the network, while the hostname certainly is. */
+         *   '?'  is replaced by a single hex nibble hashed from the machine ID.
+         *   '$'  is replaced by a word picked from a word list; the n-th '$' in the string uses the list
+         *        file named "n"
+         *
+         * This is supposed to be used on /etc/hostname files that want to automatically configure a hostname
+         * derived from the machine ID in some form, e.g. "$-$-????".
+         *
+         * Note that this does not directly expose the machine ID, because that's not necessarily supposed to
+         * be public information to be broadcast on the network, while the hostname certainly is. */
 
-        for (char *n = name; ; n++) {
-                n = strchr(n, '?');
-                if (!n)
-                        return 0;
-
-                if (left_bits <= 0) {
+        for (const char *n = name; *n; n++) {
+                if (*n == '?') {
                         if (sd_id128_is_null(mid)) {
                                 r = sd_id128_get_machine(&mid);
                                 if (r < 0)
                                         return r;
                         }
 
-                        struct siphash state;
-                        siphash24_init(&state, key.bytes);
-                        siphash24_compress_typesafe(mid, &state);
-                        siphash24_compress_typesafe(counter, &state); /* counter mode */
-                        h = siphash24_finalize(&state);
-                        left_bits = sizeof(h) * 8;
-                        counter++;
-                }
+                        if (left_bits <= 0) {
+                                struct siphash state;
+                                siphash24_init(&state, key.bytes);
+                                siphash24_compress_typesafe(mid, &state);
+                                siphash24_compress_typesafe(counter, &state); /* counter mode */
+                                h = siphash24_finalize(&state);
+                                left_bits = sizeof(h) * 8;
+                                counter++;
+                        }
 
-                assert(left_bits >= 4);
-                *n = hexchar(h & 0xf);
-                h >>= 4;
-                left_bits -= 4;
+                        assert(left_bits >= 4);
+                        char c = hexchar(h & 0xf);
+                        h >>= 4;
+                        left_bits -= 4;
+
+                        if (!strextendn(&result, &c, 1))
+                                return -ENOMEM;
+
+                } else if (*n == '$') {
+                        /* Each '$' is an independent word token; the n-th one picks from word list "n".
+                         * There is no escape for a literal '$', as it is not a valid hostname character. */
+                        if (sd_id128_is_null(mid)) {
+                                r = sd_id128_get_machine(&mid);
+                                if (r < 0)
+                                        return r;
+                        }
+
+                        _cleanup_free_ char *w = NULL;
+                        r = hostname_pick_word(mid, ++word_pos, &w);
+                        if (r < 0)
+                                return r;
+
+                        if (!strextend(&result, w))
+                                return -ENOMEM;
+
+                } else if (!strextendn(&result, n, 1))
+                        return -ENOMEM;
         }
+
+        *ret = TAKE_PTR(result);
+        return 0;
 }
 
 char* get_default_hostname(void) {
@@ -305,13 +506,20 @@ char* get_default_hostname(void) {
         if (!h)
                 return NULL;
 
-        r = hostname_substitute_wildcards(h);
+        _cleanup_free_ char *substituted = NULL;
+        r = hostname_substitute_wildcards(h, &substituted);
         if (r < 0) {
                 log_debug_errno(r, "Failed to substitute wildcards in hostname, falling back to built-in name: %m");
                 return strdup(FALLBACK_HOSTNAME);
         }
 
-        return TAKE_PTR(h);
+        /* Each token expands to a whole word, so the concrete name may exceed the length limit. */
+        if (!hostname_is_valid(substituted, VALID_HOSTNAME_TRAILING_DOT)) {
+                log_debug("Substituted hostname '%s' is invalid, falling back to built-in name.", substituted);
+                return strdup(FALLBACK_HOSTNAME);
+        }
+
+        return TAKE_PTR(substituted);
 }
 
 int gethostname_full(GetHostnameFlags flags, char **ret) {
