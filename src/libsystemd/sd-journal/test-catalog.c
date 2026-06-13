@@ -12,6 +12,7 @@
 #include "log.h"
 #include "tests.h"
 #include "tmpfile-util.h"
+#include "unaligned.h"
 
 static char** catalog_dirs = NULL;
 static const char *no_catalog_dirs[] = {
@@ -179,6 +180,38 @@ static void test_catalog_file_lang(void) {
         ASSERT_STREQ(lang4, "ru_RU");
 }
 
+static void test_catalog_oob_offset(void) {
+        /* A hostile catalog database with a single item whose string offset points outside the mapping
+         * must be rejected rather than chased into an out-of-bounds read. The on-disk layout is a
+         * 40-byte CatalogHeader followed by a 56-byte CatalogItem (16-byte id, 32-byte language,
+         * 8-byte offset). */
+        _cleanup_(unlink_tempfilep) char db[] = "/tmp/test-catalog.XXXXXX";
+        _cleanup_close_ int fd = -EBADF;
+        _cleanup_free_ char *text = NULL;
+        uint8_t blob[40 + 56] = {};
+
+        memcpy(blob, (const uint8_t[]) { 'R','H','H','H','K','S','L','P' }, 8); /* signature */
+        unaligned_write_le64(blob + 16, 40);                  /* header_size */
+        unaligned_write_le64(blob + 24, 1);                   /* n_items */
+        unaligned_write_le64(blob + 32, 56);                  /* catalog_item_size */
+        memset(blob + 40, 0x42, 16);                          /* item id */
+        /* item language at [56, 88) left zero so the C-locale lookup matches */
+        unaligned_write_le64(blob + 88, UINT64_C(0x4000000000)); /* item offset: far past EOF */
+
+        ASSERT_OK(fd = mkostemp_safe(db));
+        ASSERT_OK_EQ_ERRNO(write(fd, blob, sizeof(blob)), (ssize_t) sizeof(blob));
+
+        sd_id128_t id;
+        memset(&id, 0x42, sizeof(id));
+
+        ASSERT_ERROR(catalog_get(db, id, &text), ENOENT);
+        ASSERT_NULL(text);
+
+        /* Listing the same database must walk every item without dereferencing the bad offset. */
+        ASSERT_OK(catalog_list(/* f= */ NULL, db, /* oneline= */ true));
+        ASSERT_OK(catalog_list(/* f= */ NULL, db, /* oneline= */ false));
+}
+
 int main(int argc, char *argv[]) {
         _cleanup_(unlink_tempfilep) char database[] = "/tmp/test-catalog.XXXXXX";
         _cleanup_close_ int fd = -EBADF;
@@ -196,6 +229,8 @@ int main(int argc, char *argv[]) {
         log_notice("Using catalog directory '%s'", catalog_dirs[0]);
 
         test_catalog_file_lang();
+
+        test_catalog_oob_offset();
 
         test_catalog_import_invalid();
         test_catalog_import_badid();
