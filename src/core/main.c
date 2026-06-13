@@ -2602,7 +2602,7 @@ static int initialize_runtime(
                         /* Pull credentials from various sources into a common credential directory (we do
                          * this here, before setting up the machine ID, so that we can use credential info
                          * for setting up the machine ID) */
-                        (void) import_credentials();
+                        (void) import_credentials(first_boot);
 
                         (void) os_release_status();
                         (void) machine_id_setup(/* root= */ NULL, arg_machine_id,
