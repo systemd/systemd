@@ -2498,8 +2498,8 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to create ephemeral snapshot of '%s': %m", arg_directory);
 
-                        arg_directory = strdup(snapshot_directory);
-                        if (!arg_directory)
+                        r = free_and_strdup(&arg_directory, snapshot_directory);
+                        if (r < 0)
                                 return log_oom();
                 }
 
