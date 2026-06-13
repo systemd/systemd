@@ -3383,15 +3383,15 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                                 return log_error_errno(r, "Failed to start tpm: %m");
 
                         log_debug_errno(r, "Failed to start tpm, ignoring: %m");
+                } else {
+                        _cleanup_(sd_event_source_unrefp) sd_event_source *source = NULL;
+                        r = event_add_child_pidref(event, &source, &child, WEXITED, on_child_exit, /* userdata= */ NULL);
+                        if (r < 0)
+                                return r;
+
+                        pidref_done(&child);
+                        children[n_children++] = TAKE_PTR(source);
                 }
-
-                _cleanup_(sd_event_source_unrefp) sd_event_source *source = NULL;
-                r = event_add_child_pidref(event, &source, &child, WEXITED, on_child_exit, /* userdata= */ NULL);
-                if (r < 0)
-                        return r;
-
-                pidref_done(&child);
-                children[n_children++] = TAKE_PTR(source);
         }
 
         if (tpm_socket_address) {
