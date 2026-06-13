@@ -3305,6 +3305,11 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 if (existing) {
                         _cleanup_free_ char *combined = NULL;
 
+                        if (existing->size >= INT_MAX)
+                                return log_error_errno(SYNTHETIC_ERRNO(EFBIG),
+                                                       "Existing fstab.extra credential is too large (%zu bytes).",
+                                                       existing->size);
+
                         if (existing->size > 0 && existing->data[existing->size - 1] != '\n')
                                 r = asprintf(&combined, "%.*s\n%s", (int) existing->size, existing->data, fstab_extra);
                         else
