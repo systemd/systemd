@@ -129,3 +129,15 @@ dmi:*:svnAlibabaCloud:*
  IMDS_KEY_IPV4_PUBLIC=/meta-data/eipv4
  IMDS_KEY_SSH_KEY=/meta-data/public-keys/0/openssh-key
  IMDS_KEY_USERDATA=/user-data
+
+# https://www.vultr.com/metadata/
+dmi:bvnVultr:*
+ IMDS_VENDOR=vultr
+ IMDS_DATA_URL=http://169.254.169.254
+ IMDS_ADDRESS_IPV4=169.254.169.254
+ IMDS_KEY_HOSTNAME=/v1/hostname
+ IMDS_KEY_REGION=/v1/region/regioncode
+ IMDS_KEY_IPV4_PUBLIC=/v1/interfaces/0/ipv4/address
+ IMDS_KEY_IPV6_PUBLIC=/v1/interfaces/0/ipv6/address
+ IMDS_KEY_SSH_KEY=/v1/public-keys
+ IMDS_KEY_USERDATA=/user-data/user-data
