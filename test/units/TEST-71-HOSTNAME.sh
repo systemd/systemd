@@ -266,20 +266,54 @@ test_varlink() {
     cmp "$A" "$B"
 }
 
-test_wildcard() {
-    SAVED="$(cat /etc/hostname)"
+testcase_wildcard() {
+    SAVED=""
+    [[ -f /etc/hostname ]] && SAVED="$(cat /etc/hostname)"
+    trap 'hostnamectl set-hostname "$SAVED"' RETURN
 
     P='foo-??-??.????bar'
     hostnamectl set-hostname "$P"
     H="$(hostname)"
     # Validate that the hostname is not the literal pattern, but matches the pattern shell style
     assert_neq "$H" "$P"
-    [[ "$P" == "$H" ]]
+    # shellcheck disable=SC2053 # glob matching is intended here
+    [[ "$H" == $P ]]
     assert_eq "$(cat /etc/hostname)" "$P"
 
     assert_in "Static hostname: foo-" "$(hostnamectl)"
+}
 
+restore_wildcard_words() {
+    rm -rf /etc/systemd/hostname-wordlist
     hostnamectl set-hostname "$SAVED"
+}
+
+testcase_wildcard_words() {
+    # The n-th '$' token is substituted deterministically from the machine ID using the
+    # word list file named after its position (see hostname(5) and hostname-wordlist/README).
+    SAVED=""
+    [[ -f /etc/hostname ]] && SAVED="$(cat /etc/hostname)"
+    trap restore_wildcard_words RETURN
+
+    mkdir -p /etc/systemd/hostname-wordlist
+    printf 'wildly\nquietly\n' >/etc/systemd/hostname-wordlist/1
+    printf 'happy\nsad\n'      >/etc/systemd/hostname-wordlist/2
+    printf 'octopus\nfalcon\n' >/etc/systemd/hostname-wordlist/3
+
+    # each '$' expands to a word from the list at its position
+    hostnamectl set-hostname '$-$-$'
+    H="$(hostname)"
+    assert_neq "$H" '$-$-$'
+    assert_eq "$(cat /etc/hostname)" '$-$-$'
+    IFS='-' read -r w1 w2 w3 <<<"$H"
+    grep -Fx -- "$w1" /etc/systemd/hostname-wordlist/1 >/dev/null
+    grep -Fx -- "$w2" /etc/systemd/hostname-wordlist/2 >/dev/null
+    grep -Fx -- "$w3" /etc/systemd/hostname-wordlist/3 >/dev/null
+
+    # the choice is deterministic: setting the same template again yields the same name
+    hostnamectl set-hostname testhost
+    hostnamectl set-hostname '$-$-$'
+    assert_eq "$(hostname)" "$H"
 }
 
 teardown_hostnamed_alternate_paths() {
