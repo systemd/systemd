@@ -7,7 +7,6 @@ endif
 vmspawn_sources = files(
         'vmspawn.c',
         'vmspawn-bind-volume.c',
-        'vmspawn-qemu-config.c',
         'vmspawn-qmp.c',
         'vmspawn-varlink.c',
         'vmspawn-settings.c',
@@ -16,6 +15,7 @@ vmspawn_sources = files(
 )
 vmspawn_extract_sources = files(
         'vmspawn-util.c',
+        'vmspawn-qemu-config.c',
 )
 
 executables += [
@@ -27,6 +27,10 @@ executables += [
         },
         test_template + {
                 'sources' : files('test-vmspawn-util.c'),
+                'objects' : ['systemd-vmspawn'],
+        },
+        test_template + {
+                'sources' : files('test-vmspawn-qemu-config.c'),
                 'objects' : ['systemd-vmspawn'],
         },
 ]
