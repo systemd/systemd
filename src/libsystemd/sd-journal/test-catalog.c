@@ -12,6 +12,7 @@
 #include "log.h"
 #include "tests.h"
 #include "tmpfile-util.h"
+#include "unaligned.h"
 
 static char** catalog_dirs = NULL;
 static const char *no_catalog_dirs[] = {
@@ -179,6 +180,55 @@ static void test_catalog_file_lang(void) {
         ASSERT_STREQ(lang4, "ru_RU");
 }
 
+static void test_catalog_oob_offset_one(uint64_t item_offset, size_t strings_size) {
+        /* Builds a hostile single-item catalog database and verifies the reader rejects it instead of
+         * chasing the item's string offset out of the mapping. The blob is laid out from the real struct
+         * offsets so it keeps matching open_mmap() if CatalogHeader/CatalogItem ever change. */
+        _cleanup_(unlink_tempfilep) char db[] = "/tmp/test-catalog.XXXXXX";
+        _cleanup_close_ int fd = -EBADF;
+        _cleanup_free_ char *text = NULL;
+        _cleanup_free_ uint8_t *blob = NULL;
+        size_t blob_size = sizeof(CatalogHeader) + sizeof(CatalogItem) + strings_size;
+
+        ASSERT_NOT_NULL(blob = new0(uint8_t, blob_size));
+        uint8_t *item = blob + sizeof(CatalogHeader);
+
+        memcpy(blob + offsetof(CatalogHeader, signature),
+               (const uint8_t[]) CATALOG_SIGNATURE, sizeof_field(CatalogHeader, signature));
+        unaligned_write_le64(blob + offsetof(CatalogHeader, header_size), sizeof(CatalogHeader));
+        unaligned_write_le64(blob + offsetof(CatalogHeader, n_items), 1);
+        unaligned_write_le64(blob + offsetof(CatalogHeader, catalog_item_size), sizeof(CatalogItem));
+
+        memset(item + offsetof(CatalogItem, id), 0x42, sizeof_field(CatalogItem, id));
+        /* item language left zero so the C-locale lookup matches */
+        unaligned_write_le64(item + offsetof(CatalogItem, offset), item_offset);
+
+        /* Any trailing string store is filled with non-NUL bytes, so an in-bounds offset still has no
+         * terminator before EOF. */
+        memset(blob + sizeof(CatalogHeader) + sizeof(CatalogItem), 0x41, strings_size);
+
+        ASSERT_OK(fd = mkostemp_safe(db));
+        ASSERT_OK_EQ_ERRNO(write(fd, blob, blob_size), (ssize_t) blob_size);
+
+        sd_id128_t id;
+        memset(&id, 0x42, sizeof(id));
+
+        ASSERT_ERROR(catalog_get(db, id, &text), ENOENT);
+        ASSERT_NULL(text);
+
+        /* Listing the same database must walk every item without dereferencing the bad offset. */
+        ASSERT_OK(catalog_list(/* f= */ NULL, db, /* oneline= */ true));
+        ASSERT_OK(catalog_list(/* f= */ NULL, db, /* oneline= */ false));
+}
+
+static void test_catalog_oob_offset(void) {
+        /* Offset lands far past EOF: rejected by the bounds check. */
+        test_catalog_oob_offset_one(/* item_offset= */ UINT64_C(0x4000000000), /* strings_size= */ 0);
+
+        /* Offset is in bounds but its string runs to EOF with no terminator: rejected by memchr(). */
+        test_catalog_oob_offset_one(/* item_offset= */ 0, /* strings_size= */ 16);
+}
+
 int main(int argc, char *argv[]) {
         _cleanup_(unlink_tempfilep) char database[] = "/tmp/test-catalog.XXXXXX";
         _cleanup_close_ int fd = -EBADF;
@@ -196,6 +246,8 @@ int main(int argc, char *argv[]) {
         log_notice("Using catalog directory '%s'", catalog_dirs[0]);
 
         test_catalog_file_lang();
+
+        test_catalog_oob_offset();
 
         test_catalog_import_invalid();
         test_catalog_import_badid();
