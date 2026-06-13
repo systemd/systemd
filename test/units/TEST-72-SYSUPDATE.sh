@@ -584,9 +584,12 @@ mkdir /run/sysupdate.d
 # version against the booted OS version (IMAGE_VERSION= from os-release), which is
 # unrelated to component versions. Selecting a component must therefore be refused
 # rather than silently performing a bogus comparison.
-(! "$SYSUPDATE" --component=some-component pending)
-(! "$SYSUPDATE" --component=some-component reboot)
-(! "$SYSUPDATE" --component=some-component update --reboot)
+out="$(! "$SYSUPDATE" --component=some-component pending 2>&1)"
+grep -F 'may not be combined' <<<"$out"
+out="$(! "$SYSUPDATE" --component=some-component reboot 2>&1)"
+grep -F 'may not be combined' <<<"$out"
+out="$(! "$SYSUPDATE" --component=some-component update --reboot 2>&1)"
+grep -F 'may not be combined' <<<"$out"
 
 # Clean up regression test
 rmdir /run/sysupdate.d
