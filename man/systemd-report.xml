@@ -88,8 +88,8 @@
         to an external server. Two upload mechanisms are supported. If an <literal>http://</literal> or
         <literal>https://</literal> URL is specified with <option>--url=</option>, an HTTP upload will be
         performed to the specified location. Otherwise, any sockets under
-        <filename>/run/systemd/metrics-upload/</filename> will be used to call
-        <function>io.systemd.Report.Upload()</function>.</para>
+        <filename>/run/systemd/report.upload/</filename> will be used to call
+        <function>io.systemd.Report.Upload.Upload()</function>.</para>
 
         <para>Match expressions supported by <command>metrics</command> are supported here too.</para>
 
