@@ -34,7 +34,7 @@ testUnitNUMAConf="$testUnitFile.d/numa.conf"
 sleepAfterStart=3
 
 # Journal cursor for easier navigation
-journalCursorFile="jounalCursorFile"
+journalCursorFile="journalCursorFile"
 
 startStrace() {
     coproc strace -qq -p 1 -o "$straceLog" -e set_mempolicy -s 1024 ${1:+"$1"}

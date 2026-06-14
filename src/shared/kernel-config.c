@@ -28,7 +28,7 @@ int load_kernel_install_conf_at(
         };
         int r;
 
-        assert(root_fd >= 0 || IN_SET(root_fd, AT_FDCWD, XAT_FDROOT));
+        assert(wildcard_fd_is_valid(root_fd));
 
         if (conf_root) {
                 _cleanup_free_ char *conf = path_join(conf_root, "install.conf");

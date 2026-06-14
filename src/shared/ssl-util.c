@@ -7,8 +7,6 @@
 
 #if HAVE_OPENSSL
 
-static void *libssl_dl = NULL;
-
 DLSYM_PROTOTYPE(SSL_ctrl) = NULL;
 DLSYM_PROTOTYPE(SSL_CTX_ctrl) = NULL;
 DLSYM_PROTOTYPE(SSL_CTX_free) = NULL;
@@ -36,11 +34,9 @@ DLSYM_PROTOTYPE(TLS_client_method) = NULL;
 
 int dlopen_libssl(int log_level) {
 #if HAVE_OPENSSL
-        SD_ELF_NOTE_DLOPEN(
-                        "libssl",
-                        "Support for TLS",
-                        SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
-                        "libssl.so.3");
+        static void *libssl_dl = NULL;
+
+        LIBSSL_NOTE(SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED);
 
         return dlopen_many_sym_or_warn(
                         &libssl_dl,

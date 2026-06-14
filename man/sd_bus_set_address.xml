@@ -74,6 +74,11 @@
         One or both of the <varname>host=</varname> and <varname>port=</varname> keys must be present, while
         the rest is optional. <replaceable>family</replaceable> may be either <option>ipv4</option> or
         <option>ipv6</option>.</para>
+
+        <para>Note: <emphasis>connections over TCP are made without encryption</emphasis>. Thus, this mode
+        should only be used in specific situations where integrity and confidentiality of the connection is
+        not necessary or is ensured through some other means. For local connections, <literal>unix:</literal>
+        connections should be used instead.</para>
       </listitem>
 
       <listitem>

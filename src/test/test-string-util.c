@@ -1547,6 +1547,18 @@ TEST(string_is_safe) {
         ASSERT_FALSE(string_is_safe("a\"b", STRING_ASCII));
         ASSERT_FALSE(string_is_safe("a*b", STRING_ASCII));
 
+        /* STRING_ALLOW_NEWLINES: newlines allowed, quotes/globs still rejected. */
+        ASSERT_TRUE(string_is_safe("hello", STRING_ALLOW_NEWLINES));
+        ASSERT_TRUE(string_is_safe("hello world", STRING_ALLOW_NEWLINES));
+        ASSERT_TRUE(string_is_safe("\n", STRING_ALLOW_NEWLINES));
+        ASSERT_TRUE(string_is_safe("a\nb", STRING_ALLOW_NEWLINES));
+        ASSERT_TRUE(string_is_safe("foo\n", STRING_ALLOW_NEWLINES));
+        ASSERT_TRUE(string_is_safe("\nfoo", STRING_ALLOW_NEWLINES));
+        ASSERT_TRUE(string_is_safe("foo\nbar", STRING_ALLOW_NEWLINES));
+        ASSERT_FALSE(string_is_safe("foo\\nbar", STRING_ALLOW_NEWLINES)); /* literal backslash, not newline, rejected */
+        ASSERT_FALSE(string_is_safe("\"", STRING_ALLOW_NEWLINES));        /* quotes still rejected */
+        ASSERT_FALSE(string_is_safe("*", STRING_ALLOW_NEWLINES));         /* globs still rejected */
+
         /* STRING_ALLOW_BACKSLASHES: backslashes allowed, quotes/globs still rejected. */
         ASSERT_TRUE(string_is_safe("hello", STRING_ALLOW_BACKSLASHES));
         ASSERT_TRUE(string_is_safe("hello world", STRING_ALLOW_BACKSLASHES));
@@ -1555,6 +1567,7 @@ TEST(string_is_safe) {
         ASSERT_TRUE(string_is_safe("foo\\", STRING_ALLOW_BACKSLASHES));
         ASSERT_TRUE(string_is_safe("\\foo", STRING_ALLOW_BACKSLASHES));
         ASSERT_TRUE(string_is_safe("foo\\nbar", STRING_ALLOW_BACKSLASHES)); /* literal backslash, not newline */
+        ASSERT_FALSE(string_is_safe("foo\nbar", STRING_ALLOW_BACKSLASHES)); /* newline still rejected */
         ASSERT_FALSE(string_is_safe("\"", STRING_ALLOW_BACKSLASHES));       /* quotes still rejected */
         ASSERT_FALSE(string_is_safe("*", STRING_ALLOW_BACKSLASHES));        /* globs still rejected */
 
@@ -1565,6 +1578,7 @@ TEST(string_is_safe) {
         ASSERT_TRUE(string_is_safe("'", STRING_ALLOW_QUOTES));
         ASSERT_TRUE(string_is_safe("hello\"world", STRING_ALLOW_QUOTES));
         ASSERT_TRUE(string_is_safe("it's", STRING_ALLOW_QUOTES));
+        ASSERT_FALSE(string_is_safe("a\nb", STRING_ALLOW_QUOTES));          /* newline still rejected */
         ASSERT_FALSE(string_is_safe("a\\b", STRING_ALLOW_QUOTES));          /* backslashes still rejected */
         ASSERT_FALSE(string_is_safe("*", STRING_ALLOW_QUOTES));             /* globs still rejected */
 
@@ -1577,6 +1591,7 @@ TEST(string_is_safe) {
         ASSERT_TRUE(string_is_safe("foo*bar", STRING_ALLOW_GLOBS));
         ASSERT_TRUE(string_is_safe("foo?bar", STRING_ALLOW_GLOBS));
         ASSERT_TRUE(string_is_safe("foo[bar", STRING_ALLOW_GLOBS));
+        ASSERT_FALSE(string_is_safe("foo\nbar", STRING_ALLOW_GLOBS));       /* newline still rejected */
         ASSERT_FALSE(string_is_safe("\"", STRING_ALLOW_GLOBS));             /* quotes still rejected */
         ASSERT_FALSE(string_is_safe("a\\b", STRING_ALLOW_GLOBS));           /* backslashes still rejected */
 
@@ -1618,10 +1633,18 @@ TEST(string_is_safe) {
         ASSERT_TRUE(string_is_safe("foo\"bar", STRING_ALLOW_BACKSLASHES | STRING_ALLOW_QUOTES));
 
         /* All allow flags combined: only baseline (control chars, invalid UTF-8) and STRING_FILENAME apply. */
-        StringSafeFlags all = STRING_ALLOW_EMPTY | STRING_ASCII | STRING_ALLOW_BACKSLASHES | STRING_ALLOW_QUOTES | STRING_ALLOW_GLOBS | STRING_FILENAME;
+        StringSafeFlags all =
+                STRING_ASCII |
+                STRING_ALLOW_EMPTY |
+                STRING_ALLOW_NEWLINES |
+                STRING_ALLOW_BACKSLASHES |
+                STRING_ALLOW_QUOTES |
+                STRING_ALLOW_GLOBS |
+                STRING_FILENAME;
         ASSERT_TRUE(string_is_safe("hello.txt", all));
         ASSERT_TRUE(string_is_safe("foo-bar_baz.conf", all));
         ASSERT_TRUE(string_is_safe("a", all));
+        ASSERT_TRUE(string_is_safe("foo\nbar", all));            /* newline allowed */
         ASSERT_TRUE(string_is_safe("foo\\bar", all));            /* backslash allowed */
         ASSERT_TRUE(string_is_safe("foo\"bar", all));            /* quote allowed */
         ASSERT_TRUE(string_is_safe("foo'bar", all));             /* quote allowed */

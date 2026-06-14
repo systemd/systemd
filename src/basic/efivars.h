@@ -5,7 +5,7 @@
 
 #include "sd-id128.h"
 
-#include "efivars-fundamental.h"        /* IWYU pragma: export */
+#include "../fundamental/efivars.h"        /* IWYU pragma: export */
 
 #define EFI_VENDOR_LOADER       SD_ID128_MAKE(4a,67,b0,82,0a,4c,41,cf,b6,c7,44,0b,29,bb,8c,4f)
 #define EFI_VENDOR_LOADER_STR   SD_ID128_MAKE_UUID_STR(4a,67,b0,82,0a,4c,41,cf,b6,c7,44,0b,29,bb,8c,4f)

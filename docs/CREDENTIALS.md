@@ -52,9 +52,9 @@ purpose. Specifically, the following features are provided:
 
 7. Credentials may be acquired from a hosting VM hypervisor (SMBIOS OEM strings
    or qemu `fw_cfg`), a hosting container manager, the kernel command line,
-   from the initrd, or from the UEFI environment via the EFI System Partition
-   (via `systemd-stub`). Such system credentials may then be propagated into
-   individual services as needed.
+   from the initrd, from the UEFI environment via the EFI System Partition
+   (via `systemd-stub`), or from a cloud Instance Metadata Service (IMDS). Such
+   system credentials may then be propagated into individual services as needed.
 
 8. Credentials are an effective way to pass parameters into services that run
    with `RootImage=` or `RootDirectory=` and thus cannot read these resources
@@ -67,7 +67,7 @@ purpose. Specifically, the following features are provided:
 
 ## Configuring per-Service Credentials
 
-Within unit files, there are the following settings to configure service 
+Within unit files, there are the following settings to configure service
 credentials.
 
 1. `LoadCredential=` may be used to load a credential from disk, from an
@@ -170,7 +170,7 @@ plaintext form will be placed in `$CREDENTIALS_DIRECTORY`. Use a command such
 as `systemd-creds --system cat …` to access both forms of credentials, and
 decrypt them if needed (see
 [systemd-creds(1)](https://www.freedesktop.org/software/systemd/man/latest/systemd-creds.html)
-for details.
+for details).
 
 Note that generators typically run very early during boot (similar to initrd
 code), earlier than the `/var/` file system is necessarily mounted (which is
@@ -364,6 +364,71 @@ Or propagated to services further down:
 
 ```
 systemd-run -p ImportCredential=mycred -P --wait systemd-creds cat mycred
+```
+
+## Acquisition from Cloud Instance Metadata Services (IMDS)
+
+Most public cloud environments provide an "Instance Metadata Service" (IMDS),
+i.e. a node-local network endpoint from which a virtual machine may acquire
+information about itself and the parameters it was invoked with, including data
+suitable for use as `systemd` credentials. `systemd` can automatically acquire
+such data from the IMDS and import it into the system's credential store, where
+it is then available to services via `ImportCredential=` and friends, the same
+way as credentials acquired through any of the mechanisms described above.
+
+This functionality is implemented by
+[`systemd-imdsd@.service`](https://www.freedesktop.org/software/systemd/man/latest/systemd-imdsd@.service.html),
+which provides a local Varlink IPC interface to the IMDS endpoint, and the
+[`systemd-imds`](https://www.freedesktop.org/software/systemd/man/latest/systemd-imds.html)
+client tool. On recognized clouds these are pulled into the boot transaction
+automatically by
+[`systemd-imds-generator`](https://www.freedesktop.org/software/systemd/man/latest/systemd-imds-generator.html),
+which detects the cloud environment via the SMBIOS/DMI hardware database
+(`hwdb.d/40-imds.hwdb`).
+
+At boot the `systemd-imds-import.service` runs `systemd-imds --import`, which
+acquires data from the IMDS endpoint and writes the relevant fields as
+credentials into `/run/credstore/` (and `/run/credstore.encrypted/` for
+encrypted credentials). Because these directories are part of the credential
+search path (see "Relevant Paths" below), credentials imported this way are
+automatically picked up by `ImportCredential=` in consuming units. Specifically,
+the following is imported:
+
+1. The instance's "userdata" field, if it is a JSON object containing a
+   `systemd.credentials` array. Each array entry carries a `name` field plus
+   one of `text` (a literal string), `data` (Base64-encoded binary data), or
+   `encrypted` (a Base64-encoded encrypted credential, as produced by
+   `systemd-creds encrypt`). This is the primary mechanism for passing
+   arbitrary credentials into a cloud instance. Note: if a traditional IMDS
+   client (such as `cloud-init`) is used the "userdata" field might be used for
+   that, and `systemd-imds-import.service` will gracefully ignore the data. Or
+   in other words: this functionality is not available if `cloud-init` is used.
+
+2. The instance's SSH public key, imported into the `ssh.authorized_keys.root`
+   credential (used to provision SSH access for the `root` user).
+
+3. The instance's hostname, imported into the `firstboot.hostname` credential
+   (consumed by `systemd-firstboot.service`).
+
+The acquired userdata is measured into the TPM2 (PCR 12) before it is imported,
+so that the cloud-provided parameterization may be subjected to attestation.
+
+An example `systemd.credentials` userdata payload (passed as the instance's user
+data via the cloud's provisioning interface) looks like this:
+
+```json
+{
+        "systemd.credentials": [
+                {
+                        "name": "mycred",
+                        "text": "supersecret"
+                },
+                {
+                        "name": "mybinarycred",
+                        "data": "YmFyCg=="
+                }
+        ]
+}
 ```
 
 ## Well-Known Credentials

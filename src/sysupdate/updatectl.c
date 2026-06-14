@@ -35,6 +35,7 @@ static bool arg_legend = true;
 static bool arg_reboot = false;
 static bool arg_offline = false;
 static bool arg_now = false;
+static bool arg_ask_password = true;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
 static const char *arg_host = NULL;
 
@@ -867,6 +868,10 @@ static int update_render_progress(sd_event_source *source, void *userdata) {
                         clear_progress_bar_unbuffered(target);
                         fprintf(stderr, "%s: %s Already up-to-date\n", target, GREEN_CHECK_MARK());
                         n--; /* Don't consider this target in the total */
+                } else if (progress == -EUCLEAN) {
+                        clear_progress_bar_unbuffered(target);
+                        fprintf(stderr, "%s: %s Update is already acquired and partially installed. Vacuum it to try installing again.\n", target, RED_CROSS_MARK());
+                        total += 100;
                 } else if (progress < 0) {
                         clear_progress_bar_unbuffered(target);
                         fprintf(stderr, "%s: %s %s\n", target, RED_CROSS_MARK(), STRERROR(progress));
@@ -1687,10 +1692,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argc >= 0);
         assert(argv);
 
-        OptionParser state = { argc, argv };
-        const char *arg;
+        OptionParser opts = { argc, argv };
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
 
                 OPTION_LONG("reboot", NULL, "Reboot after updating to newer version"):
@@ -1707,7 +1711,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
                 OPTION_COMMON_HOST:
                         arg_transport = BUS_TRANSPORT_REMOTE;
-                        arg_host = arg;
+                        arg_host = opts.arg;
                         break;
 
                 OPTION_COMMON_NO_PAGER:
@@ -1720,6 +1724,10 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
                 OPTION_GROUP("Verbs"): {}
 
+                OPTION_COMMON_NO_ASK_PASSWORD:
+                        arg_ask_password = false;
+                        break;
+
                 OPTION_COMMON_HELP:
                         return help();
 
@@ -1727,7 +1735,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         return version();
                 }
 
-        *ret_args = option_parser_get_args(&state);
+        *ret_args = option_parser_get_args(&opts);
         return 1;
 }
 
@@ -1749,12 +1757,11 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return bus_log_connect_error(r, arg_transport, RUNTIME_SCOPE_SYSTEM);
 
-        if (arg_transport == BUS_TRANSPORT_LOCAL)
-                polkit_agent_open();
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
-        (void) sd_bus_set_allow_interactive_authorization(bus, true);
+        (void) sd_bus_set_allow_interactive_authorization(bus, arg_ask_password);
 
-        return dispatch_verb_with_args(args, bus);
+        return dispatch_verb(args, bus);
 }
 
 DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);

@@ -56,6 +56,13 @@
     might be checked for configuration of the virtual console as well,
     however only as fallback.</para>
 
+    <para>If the boot loader reports the firmware-configured keyboard layout via the
+    <varname>LoaderKeyboardLayout</varname> EFI variable (see the
+    <ulink url="https://systemd.io/BOOT_LOADER_INTERFACE">Boot Loader Interface</ulink>),
+    it is used as the lowest-priority fallback for <varname>KEYMAP=</varname>.
+    Any setting from credentials, <filename>/etc/vconsole.conf</filename>, or the kernel
+    command line overrides it.</para>
+
     <para><filename>/etc/vconsole.conf</filename> is usually created and updated
     using
     <citerefentry><refentrytitle>systemd-localed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.

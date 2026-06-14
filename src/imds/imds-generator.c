@@ -6,6 +6,7 @@
 #include "fileio.h"
 #include "generator.h"
 #include "imds-util.h"
+#include "initrd-util.h"
 #include "log.h"
 #include "parse-util.h"
 #include "proc-cmdline.h"
@@ -13,8 +14,8 @@
 #include "string-util.h"
 #include "virt.h"
 
-static int arg_enabled = -1;           /* Whether we shall offer local IMDS APIs */
-static bool arg_import = true;         /* Whether we shall import IMDS credentials, SSH keys, … into the local system */
+static int arg_enabled = -1;  /* Whether we shall offer local IMDS APIs */
+static int arg_import = -1;   /* Whether we shall import IMDS credentials, SSH keys, … into the local system */
 static ImdsNetworkMode arg_network_mode = IMDS_NETWORK_DEFAULT;
 
 static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
@@ -179,8 +180,10 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
         if (r < 0)
                 return log_error_errno(r, "Failed to hook DMI id device before systemd-imdsd@.service: %m");
 
-        if (arg_import) {
-                /* Enable that we import IMDS data */
+        if (arg_import < 0)
+                arg_import = in_initrd();
+        if (arg_import > 0) {
+                /* Enable the import of IMDS data */
                 r = generator_add_symlink(dest_early, SPECIAL_SYSINIT_TARGET, "wants", SYSTEM_DATA_UNIT_DIR "/systemd-imds-import.service");
                 if (r < 0)
                         return log_error_errno(r, "Failed to hook in systemd-imds-import.service: %m");

@@ -41,6 +41,7 @@
 #CapabilityBoundingSet=
 #NoNewPrivileges=no
 #ProtectSystem=auto
+#RestrictFileSystemAccess=no
 #SystemCallArchitectures=
 #TimerSlackNSec=
 #StatusUnitFormat={{STATUS_UNIT_FORMAT_DEFAULT_STR}}
@@ -87,4 +88,6 @@
 #DefaultRestrictSUIDSGID=
 #ReloadLimitIntervalSec=
 #ReloadLimitBurst=
+#EventLoopRateLimitIntervalSec=1s
+#EventLoopRateLimitBurst=50000
 #DefaultMemoryZSwapWriteback=yes

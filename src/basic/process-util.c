@@ -2047,7 +2047,6 @@ int posix_spawn_wrapper(
         /* Initialization needs to succeed before we can set up a destructor. */
         _unused_ _cleanup_(posix_spawnattr_destroyp) posix_spawnattr_t *attr_destructor = &attr;
 
-#if HAVE_PIDFD_SPAWN
         static bool have_clone_into_cgroup = true; /* kernel 5.7+ */
         _cleanup_close_ int cgroup_fd = -EBADF;
 
@@ -2063,12 +2062,13 @@ int posix_spawn_wrapper(
                         return -errno;
 
                 r = posix_spawnattr_setcgroup_np(&attr, cgroup_fd);
-                if (r != 0)
+                if (r == 0)
+                        flags |= POSIX_SPAWN_SETCGROUP;
+                else if (r != ENOSYS)
                         return -r;
-
-                flags |= POSIX_SPAWN_SETCGROUP;
+                /* If libc lacks posix_spawnattr_setcgroup_np we silently skip POSIX_SPAWN_SETCGROUP — the
+                 * caller will then need to attach the child to the cgroup themselves. */
         }
-#endif
 
         r = posix_spawnattr_setflags(&attr, flags);
         if (r != 0)
@@ -2077,7 +2077,6 @@ int posix_spawn_wrapper(
         if (r != 0)
                 return -r;
 
-#if HAVE_PIDFD_SPAWN
         _cleanup_close_ int pidfd = -EBADF;
 
         r = pidfd_spawn(&pidfd, path, NULL, &attr, argv, envp);
@@ -2101,15 +2100,18 @@ int posix_spawn_wrapper(
 
                 r = pidfd_spawn(&pidfd, path, NULL, &attr, argv, envp);
         }
-        if (r != 0)
+        if (r == 0) {
+                r = pidref_set_pidfd_consume(ret_pidref, TAKE_FD(pidfd));
+                if (r < 0)
+                        return r;
+
+                return FLAGS_SET(flags, POSIX_SPAWN_SETCGROUP);
+        }
+        if (!ERRNO_IS_NOT_SUPPORTED(r))
                 return -r;
 
-        r = pidref_set_pidfd_consume(ret_pidref, TAKE_FD(pidfd));
-        if (r < 0)
-                return r;
+        /* pidfd_spawn unavailable (libc or kernel missing) — fall back to plain posix_spawn. */
 
-        return FLAGS_SET(flags, POSIX_SPAWN_SETCGROUP);
-#else
         pid_t pid;
 
         r = posix_spawn(&pid, path, NULL, &attr, argv, envp);
@@ -2121,7 +2123,6 @@ int posix_spawn_wrapper(
                 return r;
 
         return 0; /* We did not use CLONE_INTO_CGROUP so return 0, the caller will have to move the child */
-#endif
 }
 
 int proc_dir_open(DIR **ret) {

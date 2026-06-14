@@ -38,9 +38,10 @@ _systemd_vmspawn() {
         [BIND]='--bind --bind-ro'
         [SSH_KEY]='--ssh-key'
         [CONSOLE]='--console'
-        [ARG]='--cpus --ram --vsock-cid -M --machine --uuid --private-users --background --set-credential --load-credential --forward-journal-max-use --forward-journal-keep-free --forward-journal-max-file-size --forward-journal-max-files'
+        [ARG]='--cpus --ram --vsock-cid -M --machine --uuid --private-users --background --set-credential --load-credential --forward-journal-max-use --forward-journal-keep-free --forward-journal-max-file-size --forward-journal-max-files --bind-volume'
         [IMAGE_FORMAT]='--image-format'
         [IMAGE_DISK_TYPE]='--image-disk-type'
+        [COCO]='--coco'
     )
 
     _init_completion || return
@@ -68,6 +69,8 @@ _systemd_vmspawn() {
         comps='raw qcow2'
     elif __contains_word "$prev" ${OPTS[IMAGE_DISK_TYPE]}; then
         comps='virtio-blk virtio-scsi nvme'
+    elif __contains_word "$prev" ${OPTS[COCO]}; then
+        comps='no sev-snp'
     elif __contains_word "$prev" ${OPTS[ARG]}; then
         comps=''
     else

@@ -8,6 +8,7 @@ typedef struct CpioTarget {
         const char *directory; /* Path to directory where to place resources */
         uint32_t dir_mode;     /* Access mode for the directory */
         uint32_t access_mode;  /* Access mode for the files in the directory */
+        uint32_t tpm_pcr;      /* Where to measure this data into */
 } CpioTarget;
 
 EFI_STATUS pack_cpio_one(
@@ -35,7 +36,6 @@ EFI_STATUS pack_cpio(
                 const char16_t *match_suffix,
                 const char16_t *exclude_suffix,
                 const CpioTarget *target,
-                uint32_t tpm_pcr,
                 const char16_t *tpm_description,
                 struct iovec *ret_buffer,
                 bool *ret_measured);
@@ -45,7 +45,6 @@ EFI_STATUS pack_cpio_literal(
                 size_t data_size,
                 const CpioTarget *target,
                 const char16_t *target_filename,
-                uint32_t tpm_pcr,
                 const char16_t *tpm_description,
                 struct iovec *ret_buffer,
                 bool *ret_measured);

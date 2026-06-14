@@ -20,9 +20,9 @@
 #include "constants.h"
 #include "daemon-util.h"
 #include "device-private.h"
+#include "device-util.h"
 #include "env-file.h"
 #include "env-util.h"
-#include "escape.h"
 #include "extract-word.h"
 #include "fileio.h"
 #include "hashmap.h"
@@ -38,16 +38,15 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "service-util.h"
-#include "socket-util.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
-#include "utf8.h"
 #include "varlink-io.systemd.Hostname.h"
 #include "varlink-io.systemd.service.h"
 #include "varlink-util.h"
 #include "virt.h"
+#include "vsock-util.h"
 
 #define VALID_DEPLOYMENT_CHARS (ALPHANUMERICAL "-.:")
 
@@ -58,12 +57,15 @@ typedef enum {
         PROP_STATIC_HOSTNAME,
         PROP_STATIC_HOSTNAME_SUBSTITUTED_WILDCARDS,
 
-        /* Read from /etc/machine-info */
+        /* Read from /etc/machine-info (with fallbacks) */
         PROP_PRETTY_HOSTNAME,
+        _PROP_MACHINE_INFO_SETTABLE_FIRST = PROP_PRETTY_HOSTNAME,
         PROP_ICON_NAME,
         PROP_CHASSIS,
         PROP_DEPLOYMENT,
         PROP_LOCATION,
+        PROP_TAGS,
+        _PROP_MACHINE_INFO_SETTABLE_LAST = PROP_TAGS,
         PROP_HARDWARE_VENDOR,
         PROP_HARDWARE_MODEL,
         PROP_HARDWARE_SKU,
@@ -77,6 +79,7 @@ typedef enum {
         PROP_OS_SUPPORT_END,
         PROP_OS_IMAGE_ID,
         PROP_OS_IMAGE_VERSION,
+
         _PROP_MAX,
         _PROP_INVALID = -EINVAL,
 } HostProperty;
@@ -173,6 +176,7 @@ static void context_read_machine_info(Context *c) {
                               PROP_CHASSIS,
                               PROP_DEPLOYMENT,
                               PROP_LOCATION,
+                              PROP_TAGS,
                               PROP_HARDWARE_VENDOR,
                               PROP_HARDWARE_MODEL,
                               PROP_HARDWARE_SKU,
@@ -184,6 +188,7 @@ static void context_read_machine_info(Context *c) {
                            "CHASSIS", &c->data[PROP_CHASSIS],
                            "DEPLOYMENT", &c->data[PROP_DEPLOYMENT],
                            "LOCATION", &c->data[PROP_LOCATION],
+                           "TAGS", &c->data[PROP_TAGS],
                            "HARDWARE_VENDOR", &c->data[PROP_HARDWARE_VENDOR],
                            "HARDWARE_MODEL", &c->data[PROP_HARDWARE_MODEL],
                            "HARDWARE_SKU", &c->data[PROP_HARDWARE_SKU],
@@ -230,20 +235,7 @@ static void context_read_os_release(Context *c) {
         if (free_and_strdup(&c->data[PROP_OS_PRETTY_NAME], os_release_pretty_name(os_pretty_name, os_name)) < 0)
                 log_oom();
 
-        if (!isempty(os_fancy_name)) {
-                _cleanup_free_ char *unescaped = NULL;
-
-                /* We undo one level of C escapes on this */
-                ssize_t l = cunescape(os_fancy_name, /* flags= */ 0, &unescaped);
-                if (l < 0) {
-                        log_warning_errno(l, "Failed to unescape fancy OS name, ignoring: %m");
-                        os_fancy_name = mfree(os_fancy_name);
-                } else if (!utf8_is_valid(unescaped)) {
-                        log_warning("Unescaped fancy OS name contains invalid UTF-8, ignoring.");
-                        os_fancy_name = mfree(os_fancy_name);
-                } else
-                        free_and_replace(os_fancy_name, unescaped);
-        }
+        unescape_fancy_name(&os_fancy_name);
 
         if (isempty(os_fancy_name)) {
                 free(os_fancy_name); /* free if empty string */
@@ -334,18 +326,6 @@ static int context_acquire_device_tree(Context *c) {
         return 1;
 }
 
-static bool string_is_safe_for_dbus(const char *s) {
-        assert(s);
-
-        /* Do some superficial validation: do not allow CCs and make sure D-Bus won't kick us off the bus
-         * because we send invalid UTF-8 data */
-
-        if (string_has_cc(s, /* ok= */ NULL))
-                return false;
-
-        return utf8_is_valid(s);
-}
-
 static int get_dmi_property(Context *c, const char *key, char **ret) {
         const char *s;
         int r;
@@ -361,7 +341,7 @@ static int get_dmi_property(Context *c, const char *key, char **ret) {
         if (r < 0)
                 return r;
 
-        if (!string_is_safe_for_dbus(s))
+        if (!string_is_safe(s, STRING_ALLOW_EMPTY|STRING_ALLOW_BACKSLASHES|STRING_ALLOW_QUOTES|STRING_ALLOW_GLOBS))
                 return -ENXIO;
 
         return strdup_to(ret, s);
@@ -456,12 +436,14 @@ static int get_sysattr(sd_device *device, const char *key, char **ret) {
         if (!device)
                 return -ENODEV;
 
-        r = sd_device_get_sysattr_value(device, key, &s);
+        r = device_get_sysattr_safe_string(device, key, &s);
         if (r < 0)
-                return r;
+                return log_device_debug_errno(device, r, "Failed to read '%s' attribute: %m", key);
 
-        if (!string_is_safe_for_dbus(s))
-                return -ENXIO;
+        if (!string_is_safe(s, STRING_ALLOW_EMPTY|STRING_ALLOW_BACKSLASHES|STRING_ALLOW_QUOTES|STRING_ALLOW_GLOBS))
+                return log_device_debug_errno(device, SYNTHETIC_ERRNO(ENXIO),
+                                              "'%s' attribute is not safe for exposing through DBus: %s",
+                                              key, s);
 
         return strdup_to(ret, empty_to_null(s));
 }
@@ -717,7 +699,7 @@ static const char* fallback_chassis_by_device_tree(Context *c) {
         if (!c->device_tree)
                 return NULL;
 
-        r = sd_device_get_sysattr_value(c->device_tree, "chassis-type", &type);
+        r = device_get_sysattr_safe_string(c->device_tree, "chassis-type", &type);
         if (r < 0) {
                 log_debug_errno(r, "Failed to read device-tree chassis type, ignoring: %m");
                 return NULL;
@@ -863,11 +845,12 @@ static int context_write_data_static_hostname(Context *c) {
 static int context_write_data_machine_info(Context *c) {
         _cleanup_(unset_statp) struct stat *s = NULL;
         static const char * const name[_PROP_MAX] = {
-                [PROP_PRETTY_HOSTNAME] = "PRETTY_HOSTNAME",
-                [PROP_ICON_NAME] = "ICON_NAME",
-                [PROP_CHASSIS] = "CHASSIS",
-                [PROP_DEPLOYMENT] = "DEPLOYMENT",
-                [PROP_LOCATION] = "LOCATION",
+                [PROP_PRETTY_HOSTNAME]  = "PRETTY_HOSTNAME",
+                [PROP_ICON_NAME]        = "ICON_NAME",
+                [PROP_CHASSIS]          = "CHASSIS",
+                [PROP_DEPLOYMENT]       = "DEPLOYMENT",
+                [PROP_LOCATION]         = "LOCATION",
+                [PROP_TAGS]             = "TAGS",
         };
         _cleanup_strv_free_ char **l = NULL;
         int r;
@@ -882,7 +865,7 @@ static int context_write_data_machine_info(Context *c) {
         if (r < 0 && r != -ENOENT)
                 return r;
 
-        for (HostProperty p = PROP_PRETTY_HOSTNAME; p <= PROP_LOCATION; p++) {
+        for (HostProperty p = _PROP_MACHINE_INFO_SETTABLE_FIRST; p <= _PROP_MACHINE_INFO_SETTABLE_LAST; p++) {
                 assert(name[p]);
 
                 r = strv_env_assign(&l, name[p], empty_to_null(c->data[p]));
@@ -1184,6 +1167,29 @@ static int property_get_machine_info_field(
         context_read_machine_info(c);
 
         return sd_bus_message_append(reply, "s", *(char**) userdata);
+}
+
+static int property_get_tags(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Context *c = ASSERT_PTR(userdata);
+        int r;
+
+        context_read_machine_info(c);
+
+        /* Silently drop any invalid tags that might have been written into the file by hand */
+        _cleanup_strv_free_ char **l = NULL;
+        r = machine_tags_from_string(c->data[PROP_TAGS], /* graceful= */ true, &l);
+        if (r < 0)
+                log_warning_errno(r, "Failed to parse machine tags '%s', ignoring: %m", strnull(c->data[PROP_TAGS]));
+
+        return sd_bus_message_append_strv(reply, l);
 }
 
 static int property_get_os_release_field(
@@ -1584,6 +1590,74 @@ static int method_set_location(sd_bus_message *m, void *userdata, sd_bus_error *
         return set_machine_info(userdata, m, PROP_LOCATION, method_set_location, error);
 }
 
+static int method_set_tags(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        Context *c = ASSERT_PTR(userdata);
+        int r;
+
+        assert(m);
+
+        _cleanup_strv_free_ char **tags = NULL;
+        r = sd_bus_message_read_strv(m, &tags);
+        if (r < 0)
+                return r;
+
+        strv_sort_uniq(tags);
+
+        if (strv_length(tags) > MACHINE_TAGS_MAX)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Too many machine tags specified.");
+
+        _cleanup_free_ char *j = strv_join(tags, ":");
+        if (!j)
+                return log_oom();
+
+        if (!machine_tag_list_is_valid(tags))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid tags '%s'", j);
+
+        context_read_machine_info(c);
+
+        if (streq_ptr(empty_to_null(j), empty_to_null(c->data[PROP_TAGS])))
+                return sd_bus_reply_method_return(m, NULL);
+
+        r = bus_verify_polkit_async_full(
+                        m,
+                        "org.freedesktop.hostname1.set-machine-info",
+                        /* details= */ NULL,
+                        /* good_user= */ UID_INVALID,
+                        /* flags= */ 0,
+                        &c->polkit_registry,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
+
+        if (strv_isempty(tags))
+                c->data[PROP_TAGS] = mfree(c->data[PROP_TAGS]);
+        else
+                free_and_replace(c->data[PROP_TAGS], j);
+
+        r = context_write_data_machine_info(c);
+        if (r < 0) {
+                log_error_errno(r, "Failed to write machine info: %m");
+                if (ERRNO_IS_PRIVILEGE(r))
+                        return sd_bus_error_set(error, BUS_ERROR_FILE_IS_PROTECTED, "Not allowed to update /etc/machine-info.");
+                if (r == -EROFS)
+                        return sd_bus_error_set(error, BUS_ERROR_READ_ONLY_FILESYSTEM, "/etc/machine-info is in a read-only filesystem.");
+                return sd_bus_error_set_errnof(error, r, "Failed to write machine info: %m");
+        }
+
+        log_info("Changed tags to '%s'", strempty(c->data[PROP_TAGS]));
+
+        (void) sd_bus_emit_properties_changed(
+                        sd_bus_message_get_bus(m),
+                        "/org/freedesktop/hostname1",
+                        "org.freedesktop.hostname1",
+                        "Tags",
+                        NULL);
+
+        return sd_bus_reply_method_return(m, NULL);
+}
+
 static int method_get_product_uuid(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         Context *c = ASSERT_PTR(userdata);
@@ -1668,6 +1742,7 @@ static int method_get_machine_info(sd_bus_message *m, void *userdata, sd_bus_err
                 { "CHASSIS",          PROP_CHASSIS          },
                 { "DEPLOYMENT",       PROP_DEPLOYMENT       },
                 { "LOCATION",         PROP_LOCATION         },
+                { "TAGS",             PROP_TAGS             },
                 { "HARDWARE_VENDOR",  PROP_HARDWARE_VENDOR  },
                 { "HARDWARE_MODEL",   PROP_HARDWARE_MODEL   },
                 { "HARDWARE_SKU",     PROP_HARDWARE_SKU     },
@@ -1876,6 +1951,7 @@ static const sd_bus_vtable hostname_vtable[] = {
         SD_BUS_PROPERTY("Chassis", "s", property_get_chassis, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("Deployment", "s", property_get_machine_info_field, offsetof(Context, data[PROP_DEPLOYMENT]), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("Location", "s", property_get_machine_info_field, offsetof(Context, data[PROP_LOCATION]), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("Tags", "as", property_get_tags, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("KernelName", "s", property_get_uname_field, offsetof(struct utsname, sysname), SD_BUS_VTABLE_ABSOLUTE_OFFSET|SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("KernelRelease", "s", property_get_uname_field, offsetof(struct utsname, release), SD_BUS_VTABLE_ABSOLUTE_OFFSET|SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("KernelVersion", "s", property_get_uname_field, offsetof(struct utsname, version), SD_BUS_VTABLE_ABSOLUTE_OFFSET|SD_BUS_VTABLE_PROPERTY_CONST),
@@ -1932,6 +2008,11 @@ static const sd_bus_vtable hostname_vtable[] = {
                                 SD_BUS_ARGS("s", location, "b", interactive),
                                 SD_BUS_NO_RESULT,
                                 method_set_location,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("SetTags",
+                                SD_BUS_ARGS("as", tags),
+                                SD_BUS_NO_RESULT,
+                                method_set_tags,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("GetProductUUID",
                                 SD_BUS_ARGS("b", interactive),

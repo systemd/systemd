@@ -34,8 +34,6 @@
 #include "strv.h"
 
 #if HAVE_SECCOMP
-static void *libseccomp_dl = NULL;
-
 DLSYM_PROTOTYPE(seccomp_api_get) = NULL;
 DLSYM_PROTOTYPE(seccomp_arch_add) = NULL;
 DLSYM_PROTOTYPE(seccomp_arch_exist) = NULL;
@@ -1341,7 +1339,7 @@ int seccomp_parse_syscall_filter(
                         if (!FLAGS_SET(flags, SECCOMP_PARSE_PERMISSIVE))
                                 return r;
 
-                        log_syntax(unit, FLAGS_SET(flags, SECCOMP_PARSE_LOG) ? LOG_WARNING : LOG_DEBUG, filename, line, r,
+                        log_syntax(unit, FLAGS_SET(flags, SECCOMP_PARSE_LOG) ? LOG_INFO : LOG_DEBUG, filename, line, r,
                                    "System call %s cannot be resolved as libseccomp is not available, ignoring: %m", name);
                         return 0;
                 }
@@ -2604,11 +2602,9 @@ int seccomp_suppress_sync(void) {
 
 int dlopen_libseccomp(int log_level) {
 #if HAVE_SECCOMP
-        SD_ELF_NOTE_DLOPEN(
-                        "seccomp",
-                        "Support for Seccomp Sandboxes",
-                        SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED,
-                        "libseccomp.so.2");
+        static void *libseccomp_dl = NULL;
+
+        LIBSECCOMP_NOTE(SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
 
         return dlopen_many_sym_or_warn(
                         &libseccomp_dl,

@@ -14,6 +14,7 @@
 #include "networkd-address.h"
 #include "networkd-address-generation.h"
 #include "networkd-dhcp-prefix-delegation.h"
+#include "networkd-ipv6ll.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-network.h"
@@ -696,6 +697,12 @@ int radv_start(Link *link) {
         if (in6_addr_is_null(&link->ipv6ll_address))
                 return 0;
 
+        /* Update the source IPv6LL before the running check so replacement IPv6LL handover can
+         * rebind RADV without requiring stop/start. */
+        r = sd_radv_set_link_local_address(link->radv, &link->ipv6ll_address);
+        if (r < 0)
+                return r;
+
         if (sd_radv_is_running(link->radv))
                 return 0;
 
@@ -704,10 +711,6 @@ int radv_start(Link *link) {
                 if (r < 0)
                         return log_link_debug_errno(link, r, "Failed to request DHCP delegated subnet prefix: %m");
         }
-
-        r = sd_radv_set_link_local_address(link->radv, &link->ipv6ll_address);
-        if (r < 0)
-                return r;
 
         log_link_debug(link, "Starting IPv6 Router Advertisements");
         return sd_radv_start(link->radv);
@@ -815,7 +818,8 @@ void network_adjust_radv(Network *network) {
                 /* For backward compatibility. */
                 network->dhcp_pd = FLAGS_SET(network->router_prefix_delegation, RADV_PREFIX_DELEGATION_DHCP6);
 
-        if (!FLAGS_SET(network->link_local, ADDRESS_FAMILY_IPV6)) {
+        if (!FLAGS_SET(network->link_local, ADDRESS_FAMILY_IPV6) &&
+            !network_has_static_ipv6ll_address(network)) {
                 if (network->router_prefix_delegation != RADV_PREFIX_DELEGATION_NONE)
                         log_warning("%s: IPv6PrefixDelegation= is enabled but IPv6 link-local addressing is disabled. "
                                     "Disabling IPv6PrefixDelegation=.", network->filename);

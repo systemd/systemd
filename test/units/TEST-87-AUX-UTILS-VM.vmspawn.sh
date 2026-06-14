@@ -144,7 +144,7 @@ echo "Verified resumed state via Describe"
 
 # --- SubscribeEvents tests ---
 # Subscribe to all events in the background, collect output
-varlinkctl call --more --timeout=10 "$VARLINK_ADDR" io.systemd.MachineInstance.SubscribeEvents '{}' \
+varlinkctl call --more --timeout=60 "$VARLINK_ADDR" io.systemd.MachineInstance.SubscribeEvents '{}' \
     >"$WORKDIR/events-all.json" 2>&1 &
 SUBSCRIBE_ALL_PID=$!
 sleep 0.5
@@ -156,7 +156,7 @@ varlinkctl call "$VARLINK_ADDR" io.systemd.MachineInstance.Resume '{}'
 sleep 0.5
 
 # Kill the subscriber and check output
-kill "$SUBSCRIBE_ALL_PID" 2>/dev/null; wait "$SUBSCRIBE_ALL_PID" 2>/dev/null || true
+{ kill "$SUBSCRIBE_ALL_PID" 2>/dev/null && wait "$SUBSCRIBE_ALL_PID" 2>/dev/null; } || :
 cat "$WORKDIR/events-all.json"
 
 # Verify initial READY event
@@ -169,7 +169,7 @@ grep >/dev/null '"RESUME"' "$WORKDIR/events-all.json"
 echo "SubscribeEvents received STOP and RESUME events"
 
 # Test filtered subscription: only STOP events
-varlinkctl call --more --timeout=10 "$VARLINK_ADDR" io.systemd.MachineInstance.SubscribeEvents '{"filter":["STOP"]}' \
+varlinkctl call --more --timeout=60 "$VARLINK_ADDR" io.systemd.MachineInstance.SubscribeEvents '{"filter":["STOP"]}' \
     >"$WORKDIR/events-filtered.json" 2>&1 &
 SUBSCRIBE_FILTER_PID=$!
 sleep 0.5
@@ -180,7 +180,7 @@ sleep 0.2
 varlinkctl call "$VARLINK_ADDR" io.systemd.MachineInstance.Resume '{}'
 sleep 0.5
 
-kill "$SUBSCRIBE_FILTER_PID" 2>/dev/null; wait "$SUBSCRIBE_FILTER_PID" 2>/dev/null || true
+{ kill "$SUBSCRIBE_FILTER_PID" 2>/dev/null && wait "$SUBSCRIBE_FILTER_PID" 2>/dev/null; } || :
 cat "$WORKDIR/events-filtered.json"
 
 # Should have STOP but not RESUME

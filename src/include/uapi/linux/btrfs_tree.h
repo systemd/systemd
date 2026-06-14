@@ -1241,7 +1241,8 @@ struct btrfs_free_space_info {
 	__le32 flags;
 } __attribute__ ((__packed__));
 
-#define BTRFS_FREE_SPACE_USING_BITMAPS (1ULL << 0)
+#define BTRFS_FREE_SPACE_USING_BITMAPS	(1UL << 0)
+#define BTRFS_FREE_SPACE_FLAGS_MASK	(BTRFS_FREE_SPACE_USING_BITMAPS)
 
 #define BTRFS_QGROUP_LEVEL_SHIFT		48
 static __inline__ __u16 btrfs_qgroup_level(__u64 qgroupid)

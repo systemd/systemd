@@ -12,7 +12,7 @@
 #include "label-util.h"
 #include "log.h"
 #include "main-func.h"
-#include "mkdir-label.h"
+#include "mkdir.h"
 #include "resolved-bus.h"
 #include "resolved-manager.h"
 #include "resolved-resolv-conf.h"
@@ -44,13 +44,12 @@ static int run(int argc, char *argv[]) {
         /* Drop privileges, but only if we have been started as root. If we are not running as root we assume most
          * privileges are already dropped and we can't create our directory. */
         if (getuid() == 0) {
-                const char *user = "systemd-resolve";
                 uid_t uid;
                 gid_t gid;
 
-                r = get_user_creds(&user, &uid, &gid, NULL, NULL, 0);
+                r = get_user_creds("systemd-resolve", /* flags= */ 0, NULL, &uid, &gid, NULL, NULL);
                 if (r < 0)
-                        return log_error_errno(r, "Cannot resolve user name %s: %m", user);
+                        return log_error_errno(r, "Cannot resolve user name %s: %m", "systemd-resolve");
 
                 /* As we're root, we can create the directory where resolv.conf will live */
                 r = mkdir_safe_label("/run/systemd/resolve", 0755, uid, gid, MKDIR_WARN_MODE);

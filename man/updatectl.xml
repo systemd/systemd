@@ -119,6 +119,7 @@
         <xi:include href="version-info.xml" xpointer="v257"/></listitem>
       </varlistentry>
 
+      <xi:include href="standard-options.xml" xpointer="no-ask-password" />
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
     </variablelist>

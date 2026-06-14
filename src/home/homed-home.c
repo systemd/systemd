@@ -4,6 +4,7 @@
 #include <unistd.h>
 
 #include "sd-bus.h"
+#include "sd-json.h"
 
 #include "blockdev-util.h"
 #include "btrfs-util.h"
@@ -570,26 +571,24 @@ static int home_parse_worker_stdout(int _fd, UserRecord **ret) {
                 return 0;
         }
 
-        if (lseek(fd, 0, SEEK_SET) < 0)
-                return log_error_errno(errno, "Failed to seek to beginning of memfd: %m");
-
         f = take_fdopen(&fd, "r");
         if (!f)
                 return log_error_errno(errno, "Failed to reopen memfd: %m");
 
         if (DEBUG_LOGGING) {
-                _cleanup_free_ char *text = NULL;
+                if (fseek(f, 0, SEEK_SET) < 0)
+                        return log_error_errno(errno, "Failed to seek to beginning of memfd: %m");
 
+                _cleanup_free_ char *text = NULL;
                 r = read_full_stream(f, &text, NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to read from client: %m");
 
                 log_debug("Got from worker: %s", text);
-                rewind(f);
         }
 
         unsigned line = 0, column = 0;
-        r = sd_json_parse_file(f, "stdout", SD_JSON_PARSE_MUST_BE_OBJECT|SD_JSON_PARSE_SENSITIVE, &v, &line, &column);
+        r = sd_json_parse_file(f, "stdout", SD_JSON_PARSE_MUST_BE_OBJECT|SD_JSON_PARSE_SENSITIVE|SD_JSON_PARSE_SEEK0, &v, &line, &column);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse identity at %u:%u: %m", line, column);
 

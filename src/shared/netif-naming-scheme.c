@@ -31,6 +31,7 @@ static const NamingScheme naming_schemes[] = {
         { "v258", NAMING_V258 },
         { "v259", NAMING_V259 },
         { "v260", NAMING_V260 },
+        { "v261", NAMING_V261 },
         /* … add more schemes here, as the logic to name devices is updated … */
 
         EXTRA_NET_NAMING_MAP
@@ -178,7 +179,7 @@ int device_get_sysattr_bool_filtered(sd_device *device, const char *sysattr) {
         return device_get_sysattr_bool(device, sysattr);
 }
 
-int device_get_sysattr_value_filtered(sd_device *device, const char *sysattr, const char **ret_value) {
+int device_get_sysattr_safe_string_filtered(sd_device *device, const char *sysattr, const char **ret_value) {
         int r;
 
         r = naming_sysattr_allowed(device, sysattr);
@@ -187,5 +188,5 @@ int device_get_sysattr_value_filtered(sd_device *device, const char *sysattr, co
         if (r == 0)
                 return -ENOENT;
 
-        return sd_device_get_sysattr_value(device, sysattr, ret_value);
+        return device_get_sysattr_safe_string(device, sysattr, ret_value);
 }

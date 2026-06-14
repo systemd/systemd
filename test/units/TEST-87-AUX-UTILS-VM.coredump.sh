@@ -149,11 +149,28 @@ coredumpctl info "${CORE_TEST_BIN##*/}"
 coredumpctl info foo bar baz "${CORE_TEST_BIN##*/}"
 coredumpctl info COREDUMP_EXE="$CORE_TEST_BIN"
 coredumpctl info COREDUMP_EXE=aaaaa COREDUMP_EXE= COREDUMP_EXE="$CORE_TEST_BIN"
+# JSON output for info subcommand (issue #38844)
+coredumpctl info --json=short "$CORE_TEST_BIN" | jq
+coredumpctl info --json=pretty "$CORE_TEST_BIN" | jq
+coredumpctl info --json=off "$CORE_TEST_BIN"
+# Verify that mandatory fields are present and have valid values across all matching entries
+coredumpctl info --json=short "$CORE_TEST_BIN" | jq -se 'length > 0'
+coredumpctl info --json=short "$CORE_TEST_BIN" | jq -se 'all(.[]; .PID > 0)'
+coredumpctl info --json=short "$CORE_TEST_BIN" | jq -se 'all(.[]; .Signal > 0)'
+coredumpctl info --json=short "$CORE_TEST_BIN" | jq -se 'all(.[]; has("Executable"))'
+coredumpctl info --json=short "$CORE_TEST_BIN" | jq -se 'all(.[]; has("Command"))'
+coredumpctl info --json=short "$CORE_TEST_BIN" | jq -se 'all(.[]; has("Storage"))'
 
 # Check that COREDUMP_TID= is present and displayed by coredumpctl info
 coredumpctl info "$CORE_TEST_BIN" | grep "TID:" >/dev/null
 # Check the field is queryable in the journal
 coredumpctl -F COREDUMP_TID
+
+# If COREDUMP_CODE= is present, check that the expected code is SI_USER (0).
+if coredumpctl -F COREDUMP_CODE | grep "^0$" >/dev/null; then
+    coredumpctl info "$CORE_TEST_BIN" | grep --fixed-strings "Signal: 5 (TRAP) si_code: SI_USER" >/dev/null
+    coredumpctl info --json=short "$CORE_TEST_BIN" | jq -se 'any(.[]; .SignalCode == 0)'
+fi
 
 coredumpctl debug --debugger=/bin/true "$CORE_TEST_BIN"
 SYSTEMD_DEBUGGER=/bin/true coredumpctl debug "$CORE_TEST_BIN"
@@ -192,6 +209,8 @@ coredumpctl info "${CORE_TEST_UNPRIV_BIN##*/}"
 "${UNPRIV_CMD[@]}" coredumpctl
 "${UNPRIV_CMD[@]}" coredumpctl info "$CORE_TEST_UNPRIV_BIN"
 "${UNPRIV_CMD[@]}" coredumpctl info "${CORE_TEST_UNPRIV_BIN##*/}"
+# Verify JSON output for unprivileged coredumps
+"${UNPRIV_CMD[@]}" coredumpctl info --json=short "$CORE_TEST_UNPRIV_BIN" | jq
 (! "${UNPRIV_CMD[@]}" coredumpctl info --all "$CORE_TEST_BIN")
 (! "${UNPRIV_CMD[@]}" coredumpctl info --all "${CORE_TEST_BIN##*/}")
 # We should have a couple of externally stored coredumps

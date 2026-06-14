@@ -8,7 +8,6 @@
 #include <unistd.h>
 
 #include "confidential-virt.h"
-#include "confidential-virt-fundamental.h"
 #include "errno-util.h"                                 /* IWYU pragma: keep */
 #include "fd-util.h"
 #include "fileio.h"                                     /* IWYU pragma: keep */

@@ -89,7 +89,8 @@ int define_hex_ptr_internal(const char *hex, void **name, size_t *name_len);
 /* Provide a convenient way to check if we're running in CI. */
 const char* ci_environment(void);
 
-typedef struct TestFunc {
+/* Note: see the comment on struct Option in options.h for why _alignptr_ is required here. */
+typedef struct _alignptr_ TestFunc {
         union f {
                 void (*void_func)(void);
                 int (*int_func)(void);
@@ -98,6 +99,7 @@ typedef struct TestFunc {
         bool has_ret:1;
         bool sd_booted:1;
 } TestFunc;
+assert_cc(sizeof(TestFunc) % sizeof(void*) == 0);
 
 /* See static-destruct.h for an explanation of how this works. */
 #define REGISTER_TEST(func, ...)                                                                        \

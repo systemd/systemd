@@ -34,6 +34,7 @@
 #include "rm-rf.h"
 #include "selinux-util.h"
 #include "smack-util.h"
+#include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
@@ -241,6 +242,85 @@ TEST(condition_test_host) {
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_HOST, hostname, false, false)));
         ASSERT_OK_POSITIVE(condition_test(condition, environ));
         condition_free(condition);
+}
+
+TEST(condition_test_fraction) {
+        Condition *condition;
+        int r;
+
+        /* The 0%/100% boundaries are deterministic and short-circuit before the machine ID is even
+         * read, so these run everywhere. */
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_FRACTION, "0%", /* trigger= */ false, /* negate= */ false)));
+        ASSERT_OK_ZERO(condition_test(condition, environ));
+        condition_free(condition);
+
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_FRACTION, "100%", /* trigger= */ false, /* negate= */ false)));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        condition_free(condition);
+
+        /* A tag does not change the boundary behaviour. */
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_FRACTION, "sometag 0%", /* trigger= */ false, /* negate= */ false)));
+        ASSERT_OK_ZERO(condition_test(condition, environ));
+        condition_free(condition);
+
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_FRACTION, "sometag 100%", /* trigger= */ false, /* negate= */ false)));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        condition_free(condition);
+
+        /* Negation flips the boundaries. */
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_FRACTION, "100%", /* trigger= */ false, /* negate= */ true)));
+        ASSERT_OK_ZERO(condition_test(condition, environ));
+        condition_free(condition);
+
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_FRACTION, "0%", /* trigger= */ false, /* negate= */ true)));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        condition_free(condition);
+
+        /* Malformed values must propagate an error rather than silently passing or failing. */
+        FOREACH_STRING(bad,
+                       "",                  /* empty */
+                       "abc",               /* not a number */
+                       "30",                /* missing percent sign */
+                       "30 %",              /* percent token is just '%' */
+                       "150%",              /* out of range */
+                       "tag 30% extra",     /* trailing garbage */
+                       "a b 30%") {         /* unquoted multi-word tag → trailing garbage */
+                ASSERT_NOT_NULL((condition = condition_new(CONDITION_FRACTION, bad, /* trigger= */ false, /* negate= */ false)));
+                ASSERT_FAIL(condition_test(condition, environ));
+                condition_free(condition);
+        }
+
+        sd_id128_t id;
+        r = sd_id128_get_machine(&id);
+        if (ERRNO_IS_NEG_MACHINE_ID_UNSET(r))
+                return (void) log_tests_skipped("/etc/machine-id missing");
+        ASSERT_OK(r);
+
+        /* Distribution check: for a fixed machine ID, varying the tag spreads results uniformly, so
+         * about PERCENT of the tags match. This is the statistical dual of the production scenario,
+         * where the tag is fixed and the machine ID varies across a fleet, and it also pins down the
+         * direction of the comparison (a higher percentage matches more, not fewer). The result is
+         * deterministic for a given machine ID, and the slack is many standard deviations wide, so
+         * this does not flake. */
+        static const unsigned percentages[] = { 1, 20, 50, 80 };
+        FOREACH_ELEMENT(pct, percentages) {
+                const unsigned n = 10000, slack = 3 * n / 100;  /* ±3 percentage points */
+                unsigned match = 0;
+
+                for (unsigned i = 0; i < n; i++) {
+                        char param[64];
+                        xsprintf(param, "tag-%u %u%%", i, *pct);
+
+                        ASSERT_NOT_NULL((condition = condition_new(CONDITION_FRACTION, param, /* trigger= */ false, /* negate= */ false)));
+                        r = ASSERT_OK(condition_test(condition, environ));
+                        match += r > 0;
+                        condition_free(condition);
+                }
+
+                unsigned expected = *pct * n / 100;
+                ASSERT_TRUE(match + slack >= expected);
+                ASSERT_TRUE(expected + slack >= match);
+        }
 }
 
 TEST(condition_test_architecture) {
@@ -1332,6 +1412,69 @@ TEST(condition_test_os_release) {
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_OS_RELEASE, key_value_pair, false, false)));
         ASSERT_OK_POSITIVE(condition_test(condition, environ));
         condition_free(condition);
+}
+
+TEST(condition_test_machine_tag) {
+        Condition *condition;
+
+        /* etc_machine_info() caches the path on first use, so redirect it before anything reads it and
+         * rewrite the same file (truncating) for each scenario rather than switching paths. */
+        _cleanup_free_ char *saved = NULL;
+        ASSERT_OK(free_and_strdup(&saved, getenv("SYSTEMD_ETC_MACHINE_INFO")));
+
+        _cleanup_(rm_rf_physical_and_freep) char *d = NULL;
+        ASSERT_OK(mkdtemp_malloc(NULL, &d));
+
+        _cleanup_free_ char *f = path_join(d, "machine-info");
+        ASSERT_NOT_NULL(f);
+        ASSERT_OK_ERRNO(setenv("SYSTEMD_ETC_MACHINE_INFO", f, /* overwrite= */ true));
+
+        ASSERT_OK(write_string_file(f, "TAGS=\"webserver:frontend:berlin\"\n",
+                                    WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_TRUNCATE));
+
+        /* Exact match */
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_MACHINE_TAG, "webserver", /* trigger= */ false, /* negate= */ false)));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        condition_free(condition);
+
+        /* Glob match */
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_MACHINE_TAG, "front*", /* trigger= */ false, /* negate= */ false)));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        condition_free(condition);
+
+        /* No match */
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_MACHINE_TAG, "database", /* trigger= */ false, /* negate= */ false)));
+        ASSERT_OK_ZERO(condition_test(condition, environ));
+        condition_free(condition);
+
+        /* Negation matches when the tag is absent, ... */
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_MACHINE_TAG, "database", /* trigger= */ false, /* negate= */ true)));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        condition_free(condition);
+
+        /* ... and does not match when the tag is present */
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_MACHINE_TAG, "webserver", /* trigger= */ false, /* negate= */ true)));
+        ASSERT_OK_ZERO(condition_test(condition, environ));
+        condition_free(condition);
+
+        /* Invalid tags in the file are ignored (matching the Tags D-Bus property) */
+        ASSERT_OK(write_string_file(f, "TAGS=\"in valid:good\"\n",
+                                    WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_TRUNCATE));
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_MACHINE_TAG, "in valid", /* trigger= */ false, /* negate= */ false)));
+        ASSERT_OK_ZERO(condition_test(condition, environ));
+        condition_free(condition);
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_MACHINE_TAG, "good", /* trigger= */ false, /* negate= */ false)));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        condition_free(condition);
+
+        /* No tags configured at all → never matches */
+        ASSERT_OK(write_string_file(f, "PRETTY_HOSTNAME=\"x\"\n",
+                                    WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_TRUNCATE));
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_MACHINE_TAG, "webserver", /* trigger= */ false, /* negate= */ false)));
+        ASSERT_OK_ZERO(condition_test(condition, environ));
+        condition_free(condition);
+
+        ASSERT_OK(set_unset_env("SYSTEMD_ETC_MACHINE_INFO", saved, /* overwrite= */ true));
 }
 
 TEST(condition_test_psi) {

@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "sd-dlopen.h"
+
 #include "shared-forward.h"
 
 #if HAVE_LIBFDISK
@@ -14,6 +16,7 @@ extern DLSYM_PROTOTYPE(fdisk_apply_table);
 extern DLSYM_PROTOTYPE(fdisk_ask_get_type);
 extern DLSYM_PROTOTYPE(fdisk_ask_string_set_result);
 extern DLSYM_PROTOTYPE(fdisk_assign_device);
+extern DLSYM_PROTOTYPE(fdisk_assign_device_by_fd);
 extern DLSYM_PROTOTYPE(fdisk_create_disklabel);
 extern DLSYM_PROTOTYPE(fdisk_delete_partition);
 extern DLSYM_PROTOTYPE(fdisk_get_devfd);
@@ -83,6 +86,19 @@ int fdisk_partition_get_type_as_id128(struct fdisk_partition *p, sd_id128_t *ret
 int fdisk_partition_get_attrs_as_uint64(struct fdisk_partition *pa, uint64_t *ret);
 int fdisk_partition_set_attrs_as_uint64(struct fdisk_partition *pa, uint64_t flags);
 
+#define FDISK_NOTE(priority)                                            \
+        SD_ELF_NOTE_DLOPEN("fdisk",                                     \
+                           "Support for reading and writing partition tables", \
+                           priority,                                    \
+                           "libfdisk.so.1")
+
+#define DLOPEN_FDISK(log_level, priority)                               \
+        ({                                                              \
+                FDISK_NOTE(priority);                                   \
+                dlopen_fdisk(log_level);                                \
+        })
+#else
+#define DLOPEN_FDISK(log_level, priority) dlopen_fdisk(log_level)
 #endif
 
 int dlopen_fdisk(int log_level);

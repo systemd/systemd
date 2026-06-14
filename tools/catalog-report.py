@@ -36,9 +36,13 @@ from systemd import id128, journal
 def log_entry(entry):
     if 'CODE_FILE' in entry:
         # some of our code was using 'CODE_FUNCTION' instead of 'CODE_FUNC'
-        print('{}:{} {}'.format(entry.get('CODE_FILE', '???'),
-                                entry.get('CODE_LINE', '???'),
-                                entry.get('CODE_FUNC', None) or entry.get('CODE_FUNCTION', '???')))
+        print(
+            '{}:{} {}'.format(
+                entry.get('CODE_FILE'),
+                entry.get('CODE_LINE', '???'),
+                entry.get('CODE_FUNC', None) or entry.get('CODE_FUNCTION', '???'),
+            )
+        )
     print('    {}'.format(entry.get('MESSAGE', 'no message!')))
     for k, v in entry.items():
         if k.startswith('CODE_') or k in {'MESSAGE_ID', 'MESSAGE'}:
@@ -46,12 +50,13 @@ def log_entry(entry):
         print(f'    {k}={v}')
     print()
 
+
 if __name__ == '__main__':
     j = journal.Reader()
     logged = set()
     pattern = re.compile('@[A-Z0-9_]+@')
 
-    mids = { v:k for k,v in id128.__dict__.items() if k.startswith('SD_MESSAGE') }
+    mids = {v: k for k, v in id128.__dict__.items() if k.startswith('SD_MESSAGE')}
 
     for i, x in enumerate(j):
         if i % 1000 == 0:

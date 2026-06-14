@@ -26,6 +26,7 @@ BUS_DEFINE_PROPERTY_GET(bus_property_get_tasks_max, "t", CGroupTasksMax, cgroup_
 BUS_DEFINE_PROPERTY_GET_ENUM(bus_property_get_cgroup_pressure_watch, cgroup_pressure_watch, CGroupPressureWatch);
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_cgroup_device_policy, cgroup_device_policy, CGroupDevicePolicy);
+static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_cpuset_partition, cpuset_partition, CPUSetPartition);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_managed_oom_mode, managed_oom_mode, ManagedOOMMode);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_managed_oom_preference, managed_oom_preference, ManagedOOMPreference);
 
@@ -385,6 +386,7 @@ const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_PROPERTY("StartupAllowedCPUs", "ay", property_get_cpuset, offsetof(CGroupContext, startup_cpuset_cpus), 0),
         SD_BUS_PROPERTY("AllowedMemoryNodes", "ay", property_get_cpuset, offsetof(CGroupContext, cpuset_mems), 0),
         SD_BUS_PROPERTY("StartupAllowedMemoryNodes", "ay", property_get_cpuset, offsetof(CGroupContext, startup_cpuset_mems), 0),
+        SD_BUS_PROPERTY("CPUSetPartition", "s", property_get_cpuset_partition, offsetof(CGroupContext, cpuset_partition), 0),
         SD_BUS_PROPERTY("IOAccounting", "b", bus_property_get_bool, offsetof(CGroupContext, io_accounting), 0),
         SD_BUS_PROPERTY("IOWeight", "t", NULL, offsetof(CGroupContext, io_weight), 0),
         SD_BUS_PROPERTY("StartupIOWeight", "t", NULL, offsetof(CGroupContext, startup_io_weight), 0),
@@ -422,6 +424,7 @@ const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_PROPERTY("ManagedOOMMemoryPressureLimit", "u", NULL, offsetof(CGroupContext, moom_mem_pressure_limit), 0),
         SD_BUS_PROPERTY("ManagedOOMMemoryPressureDurationUSec", "t", bus_property_get_usec, offsetof(CGroupContext, moom_mem_pressure_duration_usec), 0),
         SD_BUS_PROPERTY("ManagedOOMPreference", "s", property_get_managed_oom_preference, offsetof(CGroupContext, moom_preference), 0),
+        SD_BUS_PROPERTY("OOMRules", "as", NULL, offsetof(CGroupContext, moom_rules), 0),
         SD_BUS_PROPERTY("BPFProgram", "a(ss)", property_get_bpf_foreign_program, 0, 0),
         SD_BUS_PROPERTY("SocketBindAllow", "a(iiqq)", property_get_socket_bind, offsetof(CGroupContext, socket_bind_allow), 0),
         SD_BUS_PROPERTY("SocketBindDeny", "a(iiqq)", property_get_socket_bind, offsetof(CGroupContext, socket_bind_deny), 0),
@@ -1493,6 +1496,35 @@ int bus_cgroup_set_property(
 
                 return 1;
 
+        } else if (streq(name, "CPUSetPartition")) {
+                const char *partition_str;
+                CPUSetPartition p;
+
+                r = sd_bus_message_read(message, "s", &partition_str);
+                if (r < 0)
+                        return r;
+
+                if (isempty(partition_str))
+                        p = _CPUSET_PARTITION_INVALID;
+                else {
+                        p = cpuset_partition_from_string(partition_str);
+                        if (p < 0)
+                                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS,
+                                                         "Invalid CPUSetPartition value: %s", partition_str);
+                }
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        c->cpuset_partition = p;
+                        unit_invalidate_cgroup(u, CGROUP_MASK_CPUSET);
+
+                        if (p == _CPUSET_PARTITION_INVALID)
+                                unit_write_settingf(u, flags, name, "%s=", name);
+                        else
+                                unit_write_settingf(u, flags, name, "%s=%s", name, partition_str);
+                }
+
+                return 1;
+
         } else if (streq(name, "DeviceAllow")) {
                 const char *path, *rwm;
                 unsigned n = 0;
@@ -1765,6 +1797,38 @@ int bus_cgroup_set_property(
 
                 return 1;
         }
+
+        if (streq(name, "OOMRules")) {
+                _cleanup_strv_free_ char **oom_rules = NULL;
+
+                if (!UNIT_VTABLE(u)->can_set_managed_oom)
+                        return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Cannot set %s for this unit type", name);
+
+                r = sd_bus_message_read_strv(message, &oom_rules);
+                if (r < 0)
+                        return r;
+
+                STRV_FOREACH(rule, oom_rules)
+                        if (!string_is_safe(*rule, STRING_FILENAME))
+                                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Invalid rule name: %s", *rule);
+
+                strv_uniq(oom_rules);
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        _cleanup_free_ char *joined = strv_join(oom_rules, " ");
+                        if (!joined)
+                                return -ENOMEM;
+
+                        strv_free_and_replace(c->moom_rules, oom_rules);
+
+                        unit_write_settingf(u, flags, name, "OOMRules=\nOOMRules=%s", joined);
+
+                        (void) manager_varlink_send_managed_oom_update(u);
+                }
+
+                return 1;
+        }
+
         if (STR_IN_SET(name, "SocketBindAllow", "SocketBindDeny")) {
                 CGroupSocketBindItem **list;
                 uint16_t nr_ports, port_min;

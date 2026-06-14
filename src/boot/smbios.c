@@ -40,12 +40,6 @@ typedef struct {
 } _packed_ Smbios3EntryPoint;
 
 typedef struct {
-        uint8_t type;
-        uint8_t length;
-        uint8_t handle[2];
-} _packed_ SmbiosHeader;
-
-typedef struct {
         SmbiosHeader header;
         uint8_t vendor;
         uint8_t bios_version;
@@ -55,18 +49,6 @@ typedef struct {
         uint64_t bios_characteristics;
         uint8_t bios_characteristics_ext[2];
 } _packed_ SmbiosTableType0;
-
-typedef struct {
-        SmbiosHeader header;
-        uint8_t manufacturer;
-        uint8_t product_name;
-        uint8_t version;
-        uint8_t serial_number;
-        EFI_GUID uuid;
-        uint8_t wake_up_type;
-        uint8_t sku_number;
-        uint8_t family;
-} _packed_ SmbiosTableType1;
 
 typedef struct {
         SmbiosHeader header;
@@ -103,6 +85,44 @@ static const void* find_smbios_configuration_table(uint64_t *ret_size) {
         return NULL;
 }
 
+/* Given 'p' pointing at a structure header with 'size' bytes left in the table from there onwards,
+ * returns a pointer just past the end of this structure (i.e. the start of the next one), accounting
+ * for the formatted area and the trailing string set (terminated by a double NUL byte). Returns NULL
+ * if the structure is malformed or runs past the end of the table. */
+static const uint8_t* smbios_structure_end(const uint8_t *p, uint64_t size) {
+        assert(p);
+
+        if (size < sizeof(SmbiosHeader))
+                return NULL;
+
+        const SmbiosHeader *header = (const SmbiosHeader *) p;
+        if (size < header->length)
+                return NULL;
+
+        /* Skip over formatted area. */
+        const uint8_t *q = p + header->length;
+        size -= header->length;
+
+        /* Special case: if there are no strings appended, we'll see two NUL bytes. */
+        if (size >= 2 && q[0] == 0 && q[1] == 0)
+                return q + 2;
+
+        /* Skip over a populated string table. */
+        bool first = true;
+        for (;;) {
+                const uint8_t *e = memchr(q, 0, size);
+                if (!e)
+                        return NULL;
+
+                if (!first && e == q) /* Double NUL byte means we've reached the end of the string table. */
+                        return q + 1;
+
+                size -= e + 1 - q;
+                q = e + 1;
+                first = false;
+        }
+}
+
 static const SmbiosHeader* get_smbios_table(uint8_t type, size_t min_size, uint64_t *ret_size_left) {
         uint64_t size;
         const uint8_t *p = find_smbios_configuration_table(&size);
@@ -132,34 +152,12 @@ static const SmbiosHeader* get_smbios_table(uint8_t type, size_t min_size, uint6
                         return header; /* Yay! */
                 }
 
-                /* Skip over formatted area. */
-                size -= header->length;
-                p += header->length;
+                const uint8_t *next = smbios_structure_end(p, size);
+                if (!next)
+                        goto not_found;
 
-                /* Special case: if there are no strings appended, we'll see two NUL bytes, skip over them */
-                if (size >= 2 && p[0] == 0 && p[1] == 0) {
-                        size -= 2;
-                        p += 2;
-                        continue;
-                }
-
-                /* Skip over a populated string table. */
-                bool first = true;
-                for (;;) {
-                        const uint8_t *e = memchr(p, 0, size);
-                        if (!e)
-                                goto not_found;
-
-                        if (!first && e == p) {/* Double NUL byte means we've reached the end of the string table. */
-                                p++;
-                                size--;
-                                break;
-                        }
-
-                        size -= e + 1 - p;
-                        p = e + 1;
-                        first = false;
-                }
+                size -= next - p;
+                p = next;
         }
 
 not_found:
@@ -167,6 +165,40 @@ not_found:
                 *ret_size_left = 0;
 
         return NULL;
+}
+
+void smbios_foreach(SmbiosForeachFunc func, void *userdata) {
+        assert(func);
+
+        uint64_t size;
+        const uint8_t *p = find_smbios_configuration_table(&size);
+        if (!p)
+                return;
+
+        /* Walks the SMBIOS table exactly once, invoking 'func' for every structure. 'func' receives the
+         * structure's header (which carries its type) and the structure's total length (formatted area +
+         * trailing string set); returning false stops the iteration early. */
+
+        for (;;) {
+                if (size < sizeof(SmbiosHeader))
+                        return;
+
+                const SmbiosHeader *header = (const SmbiosHeader *) p;
+
+                /* End of table. */
+                if (header->type == 127)
+                        return;
+
+                const uint8_t *next = smbios_structure_end(p, size);
+                if (!next)
+                        return;
+
+                if (!func(header, next - p, userdata))
+                        return;
+
+                size -= next - p;
+                p = next;
+        }
 }
 
 bool smbios_in_hypervisor(void) {

@@ -172,6 +172,7 @@ usb:v04F3p0CA3*
 usb:v04F3p0CA7*
 usb:v04F3p0CA8*
 usb:v04F3p0CB0*
+usb:v04F3p0CB2*
  ID_AUTOSUSPEND=1
  ID_PERSIST=0
 
@@ -204,12 +205,14 @@ usb:v10A5pD205*
 usb:v10A5p9524*
 usb:v10A5p9544*
 usb:v10A5pC844*
+usb:v10A5p9B24*
  ID_AUTOSUSPEND=1
  ID_PERSIST=0
 
 # Supported by libfprint driver goodixmoc
 usb:v27C6p5840*
 usb:v27C6p6014*
+usb:v27C6p6090*
 usb:v27C6p6092*
 usb:v27C6p6094*
 usb:v27C6p609A*
@@ -239,6 +242,7 @@ usb:v27C6p659A*
 usb:v27C6p659C*
 usb:v27C6p6A94*
 usb:v27C6p6512*
+usb:v27C6p6890*
 usb:v27C6p689A*
 usb:v27C6p66A9*
  ID_AUTOSUSPEND=1

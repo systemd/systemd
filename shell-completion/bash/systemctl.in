@@ -137,7 +137,7 @@ _systemctl () {
                       --show-transaction -T --mkdir --read-only'
         [ARG]='--host -H --kill-whom --property -p -P --signal -s --type -t --state --job-mode --root
                --preset-mode -n --lines -o --output -M --machine --message --timestamp --check-inhibitors --what
-               --image --boot-loader-menu --boot-loader-entry --reboot-argument --kernel-cmdline --drop-in'
+               --image --boot-loader-menu --boot-loader-entry --reboot-argument --kernel-cmdline --drop-in --when'
     )
 
     if __contains_word "--user" ${COMP_WORDS[*]}; then
@@ -201,6 +201,9 @@ _systemctl () {
                 ;;
             --boot-loader-entry)
                 comps=$(systemctl --boot-loader-entry=help 2>/dev/null)
+                ;;
+            --when)
+                comps='show cancel auto'
                 ;;
         esac
         COMPREPLY=( $(compgen -W '$comps' -- "$cur") )

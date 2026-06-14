@@ -1,5 +1,6 @@
 {
     "name" : "hardware",
     "algorithm" : "sha256",
-    "nvIndex" : {{TPM2_NVPCR_BASE + 0}}
+    "nvIndex" : {{TPM2_NVPCR_BASE + 0}},
+    "priority" : 500
 }

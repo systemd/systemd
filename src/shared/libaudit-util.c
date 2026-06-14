@@ -14,8 +14,6 @@
 #include "socket-util.h"
 
 #if HAVE_AUDIT
-static void *libaudit_dl = NULL;
-
 static DLSYM_PROTOTYPE(audit_close) = NULL;
 DLSYM_PROTOTYPE(audit_log_acct_message) = NULL;
 DLSYM_PROTOTYPE(audit_log_user_avc_message) = NULL;
@@ -25,6 +23,8 @@ static DLSYM_PROTOTYPE(audit_open) = NULL;
 
 int dlopen_libaudit(int log_level) {
 #if HAVE_AUDIT
+        static void *libaudit_dl = NULL;
+
         SD_ELF_NOTE_DLOPEN(
                         "audit",
                         "Support for Audit logging",

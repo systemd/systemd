@@ -23,6 +23,7 @@
 #include "rm-rf.h"
 #include "sparse-endian.h"
 #include "stat-util.h"
+#include "stdio-util.h"
 #include "string-util.h"
 #include "time-util.h"
 
@@ -95,14 +96,20 @@ int btrfs_subvol_get_read_only_fd(int fd) {
         return !!(flags & BTRFS_SUBVOL_RDONLY);
 }
 
-int btrfs_get_block_device_at(int dir_fd, const char *path, dev_t *ret) {
+int btrfs_get_block_device_at_full(int dir_fd, const char *path, uint64_t *ret_devid, char **ret_path, dev_t *ret) {
         struct btrfs_ioctl_fs_info_args fsi = {};
         _cleanup_close_ int fd = -EBADF;
         uint64_t id;
         int r;
 
-        assert(dir_fd >= 0 || IN_SET(dir_fd, AT_FDCWD, XAT_FDROOT));
-        assert(ret);
+        /*
+         * Returns:
+         * ret_devid - the device id in the filesystem for the returned block device
+         * ret_path - the path to the returned block device
+         * ret - the returned block device
+         */
+
+        assert(wildcard_fd_is_valid(dir_fd));
 
         fd = xopenat(dir_fd, path, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
         if (fd < 0)
@@ -119,7 +126,12 @@ int btrfs_get_block_device_at(int dir_fd, const char *path, dev_t *ret) {
 
         /* We won't do this for btrfs RAID */
         if (fsi.num_devices != 1) {
-                *ret = 0;
+                if (ret_devid)
+                        *ret_devid = 0;
+                if (ret_path)
+                        *ret_path = NULL;
+                if (ret)
+                        *ret = 0;
                 return 0;
         }
 
@@ -128,6 +140,7 @@ int btrfs_get_block_device_at(int dir_fd, const char *path, dev_t *ret) {
                         .devid = id,
                 };
                 struct stat st;
+                _cleanup_free_ char *device_path = NULL;
 
                 if (ioctl(fd, BTRFS_IOC_DEV_INFO, &di) < 0) {
                         if (errno == ENODEV)
@@ -155,7 +168,16 @@ int btrfs_get_block_device_at(int dir_fd, const char *path, dev_t *ret) {
                 if (major(st.st_rdev) == 0)
                         return -ENODEV;
 
-                *ret = st.st_rdev;
+                device_path = strdup((char*) di.path);
+                if (!device_path)
+                        return -ENOMEM;
+
+                if (ret_path)
+                        *ret_path = TAKE_PTR(device_path);
+                if (ret)
+                        *ret = st.st_rdev;
+                if (ret_devid)
+                        *ret_devid = id;
                 return 1;
         }
 
@@ -863,19 +885,6 @@ int btrfs_qgroup_unassign(int fd, uint64_t child, uint64_t parent) {
 }
 
 static int subvol_remove_children(int fd, const char *subvolume, uint64_t subvol_id, BtrfsRemoveFlags flags) {
-        struct btrfs_ioctl_search_args args = {
-                .key.tree_id = BTRFS_ROOT_TREE_OBJECTID,
-
-                .key.min_objectid = BTRFS_FIRST_FREE_OBJECTID,
-                .key.max_objectid = BTRFS_LAST_FREE_OBJECTID,
-
-                .key.min_type = BTRFS_ROOT_BACKREF_KEY,
-                .key.max_type = BTRFS_ROOT_BACKREF_KEY,
-
-                .key.min_transid = 0,
-                .key.max_transid = UINT64_MAX,
-        };
-
         struct btrfs_ioctl_vol_args vol_args = {};
         _cleanup_close_ int subvol_fd = -EBADF;
         bool made_writable = false;
@@ -904,8 +913,9 @@ static int subvol_remove_children(int fd, const char *subvolume, uint64_t subvol
         if (r == 0) /* Not a btrfs subvolume */
                 return -ENOTTY;
 
-        /* Before we try anything, let's see if 'user_subvol_rm_allowed' is enabled and we can just remove
-         * the dir directly */
+        /* Before we try anything, attempt VFS rmdir(). For an empty subvolume btrfs_rmdir dispatches
+         * to btrfs_delete_subvolume; for the non-empty case it returns ENOTEMPTY and we fall through
+         * to the destroy ioctl below. */
         if (unlinkat(fd, subvolume, AT_REMOVEDIR) >= 0)
                 goto finish;
 
@@ -915,51 +925,51 @@ static int subvol_remove_children(int fd, const char *subvolume, uint64_t subvol
                         return r;
         }
 
-        /* First, try to remove the subvolume. If it happens to be
-         * already empty, this will just work. */
+        /* Try the destroy ioctl. Unlike unlinkat() above, this drops the entire subvolume tree, so
+         * regular files inside don't matter; it only returns ENOTEMPTY when there are nested
+         * subvolumes (BTRFS_ROOT_REF_KEY entries), which we then handle below. */
         strncpy(vol_args.name, subvolume, sizeof(vol_args.name)-1);
-        if (ioctl(fd, BTRFS_IOC_SNAP_DESTROY, &vol_args) >= 0)
-                goto finish;
+        for (;;) {
+                if (ioctl(fd, BTRFS_IOC_SNAP_DESTROY, &vol_args) >= 0)
+                        goto finish;
+
+                /* Without CAP_SYS_ADMIN the kernel runs an inode_permission(MAY_WRITE) check against
+                 * the subvolume root, which btrfs_permission() rejects with EROFS for a read-only
+                 * subvolume. Clear the RDONLY flag and retry. */
+                if (errno != EROFS || made_writable)
+                        break;
+
+                r = btrfs_subvol_set_read_only_fd(subvol_fd, false);
+                if (r < 0)
+                        return r;
+                made_writable = true;
+        }
         if (!(flags & BTRFS_REMOVE_RECURSIVE) || errno != ENOTEMPTY)
                 return -errno;
 
-        /* OK, the subvolume is not empty, let's look for child
-         * subvolumes, and remove them, first */
+        /* OK, there are nested subvolumes — enumerate and recurse into them, then retry.
+         * BTRFS_IOC_GET_SUBVOL_ROOTREF and BTRFS_IOC_INO_LOOKUP_USER (kernel 4.18+) enumerate child
+         * subvolumes without requiring CAP_SYS_ADMIN in the initial user namespace, unlike the older
+         * BTRFS_IOC_TREE_SEARCH ioctl. */
 
-        args.key.min_offset = args.key.max_offset = subvol_id;
+        struct btrfs_ioctl_get_subvol_rootref_args rootref_args = {};
 
-        while (btrfs_ioctl_search_args_compare(&args) <= 0) {
-                struct btrfs_ioctl_search_header sh;
-                const void *body;
-
-                args.key.nr_items = 256;
-                if (ioctl(fd, BTRFS_IOC_TREE_SEARCH, &args) < 0)
+        for (;;) {
+                /* BTRFS_IOC_GET_SUBVOL_ROOTREF returns up to BTRFS_MAX_ROOTREF_BUFFER_NUM entries per
+                 * call. If more are available, it returns -EOVERFLOW with num_items filled in and
+                 * min_treeid advanced so we can resume on the next iteration. */
+                int ioctl_ret = ioctl(subvol_fd, BTRFS_IOC_GET_SUBVOL_ROOTREF, &rootref_args);
+                if (ioctl_ret < 0 && errno != EOVERFLOW)
                         return -errno;
 
-                if (args.key.nr_items <= 0)
-                        break;
+                for (uint8_t i = 0; i < rootref_args.num_items; i++) {
+                        uint64_t child_subvol_id = rootref_args.rootref[i].treeid;
 
-                FOREACH_BTRFS_IOCTL_SEARCH_HEADER(sh, body, args) {
-                        _cleanup_free_ char *p = NULL;
-
-                        btrfs_ioctl_search_args_set(&args, &sh);
-
-                        if (sh.type != BTRFS_ROOT_BACKREF_KEY)
-                                continue;
-                        if (sh.offset != subvol_id)
-                                continue;
-
-                        const struct btrfs_root_ref *ref = body;
-                        p = memdup_suffix0((char*) ref + sizeof(struct btrfs_root_ref), le64toh(ref->name_len));
-                        if (!p)
-                                return -ENOMEM;
-
-                        struct btrfs_ioctl_ino_lookup_args ino_args = {
-                                .treeid = subvol_id,
-                                .objectid = htole64(ref->dirid),
+                        struct btrfs_ioctl_ino_lookup_user_args lookup_args = {
+                                .dirid = rootref_args.rootref[i].dirid,
+                                .treeid = child_subvol_id,
                         };
-
-                        if (ioctl(fd, BTRFS_IOC_INO_LOOKUP, &ino_args) < 0)
+                        if (ioctl(subvol_fd, BTRFS_IOC_INO_LOOKUP_USER, &lookup_args) < 0)
                                 return -errno;
 
                         if (!made_writable) {
@@ -970,29 +980,26 @@ static int subvol_remove_children(int fd, const char *subvolume, uint64_t subvol
                                 made_writable = true;
                         }
 
-                        if (isempty(ino_args.name))
-                                /* Subvolume is in the top-level
-                                 * directory of the subvolume. */
-                                r = subvol_remove_children(subvol_fd, p, sh.objectid, flags);
+                        if (isempty(lookup_args.path))
+                                /* Subvolume is in the top-level directory of the subvolume. */
+                                r = subvol_remove_children(subvol_fd, lookup_args.name, child_subvol_id, flags);
                         else {
                                 _cleanup_close_ int child_fd = -EBADF;
 
-                                /* Subvolume is somewhere further down,
-                                 * hence we need to open the
+                                /* Subvolume is somewhere further down, hence we need to open the
                                  * containing directory first */
 
-                                child_fd = openat(subvol_fd, ino_args.name, O_RDONLY|O_NOCTTY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
+                                child_fd = openat(subvol_fd, lookup_args.path, O_RDONLY|O_NOCTTY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
                                 if (child_fd < 0)
                                         return -errno;
 
-                                r = subvol_remove_children(child_fd, p, sh.objectid, flags);
+                                r = subvol_remove_children(child_fd, lookup_args.name, child_subvol_id, flags);
                         }
                         if (r < 0)
                                 return r;
                 }
 
-                /* Increase search key by one, to read the next item, if we can. */
-                if (!btrfs_ioctl_search_args_inc(&args))
+                if (ioctl_ret >= 0)
                         break;
         }
 
@@ -1223,19 +1230,6 @@ static int subvol_snapshot_children(
                 uint64_t old_subvol_id,
                 BtrfsSnapshotFlags flags) {
 
-        struct btrfs_ioctl_search_args args = {
-                .key.tree_id = BTRFS_ROOT_TREE_OBJECTID,
-
-                .key.min_objectid = BTRFS_FIRST_FREE_OBJECTID,
-                .key.max_objectid = BTRFS_LAST_FREE_OBJECTID,
-
-                .key.min_type = BTRFS_ROOT_BACKREF_KEY,
-                .key.max_type = BTRFS_ROOT_BACKREF_KEY,
-
-                .key.min_transid = 0,
-                .key.max_transid = UINT64_MAX,
-        };
-
         struct btrfs_ioctl_vol_args_v2 vol_args = {
                 .flags = flags & BTRFS_SNAPSHOT_READ_ONLY ? BTRFS_SUBVOL_RDONLY : 0,
                 .fd = old_fd,
@@ -1293,50 +1287,36 @@ static int subvol_snapshot_children(
                 return flags & BTRFS_SNAPSHOT_LOCK_BSD ? TAKE_FD(subvolume_fd) : 0;
         }
 
-        args.key.min_offset = args.key.max_offset = old_subvol_id;
+        /* Enumerate child subvolumes via BTRFS_IOC_GET_SUBVOL_ROOTREF + BTRFS_IOC_INO_LOOKUP_USER
+         * (kernel 4.18+), neither of which requires CAP_SYS_ADMIN, unlike BTRFS_IOC_TREE_SEARCH. */
 
-        while (btrfs_ioctl_search_args_compare(&args) <= 0) {
-                struct btrfs_ioctl_search_header sh;
-                const void *body;
+        struct btrfs_ioctl_get_subvol_rootref_args rootref_args = {};
 
-                args.key.nr_items = 256;
-                if (ioctl(old_fd, BTRFS_IOC_TREE_SEARCH, &args) < 0)
+        for (;;) {
+                /* BTRFS_IOC_GET_SUBVOL_ROOTREF returns up to BTRFS_MAX_ROOTREF_BUFFER_NUM entries per
+                 * call. If more are available, it returns -EOVERFLOW with num_items filled in and
+                 * min_treeid advanced so we can resume on the next iteration. */
+                int ioctl_ret = ioctl(old_fd, BTRFS_IOC_GET_SUBVOL_ROOTREF, &rootref_args);
+                if (ioctl_ret < 0 && errno != EOVERFLOW)
                         return -errno;
 
-                if (args.key.nr_items <= 0)
-                        break;
-
-                FOREACH_BTRFS_IOCTL_SEARCH_HEADER(sh, body, args) {
-                        _cleanup_free_ char *p = NULL, *c = NULL, *np = NULL;
+                for (uint8_t i = 0; i < rootref_args.num_items; i++) {
+                        _cleanup_free_ char *c = NULL, *np = NULL;
                         _cleanup_close_ int old_child_fd = -EBADF, new_child_fd = -EBADF;
-
-                        btrfs_ioctl_search_args_set(&args, &sh);
-
-                        if (sh.type != BTRFS_ROOT_BACKREF_KEY)
-                                continue;
-
-                        /* Avoid finding the source subvolume a second time */
-                        if (sh.offset != old_subvol_id)
-                                continue;
+                        uint64_t child_subvol_id = rootref_args.rootref[i].treeid;
 
                         /* Avoid running into loops if the new subvolume is below the old one. */
-                        if (sh.objectid == new_subvol_id)
+                        if (child_subvol_id == new_subvol_id)
                                 continue;
 
-                        const struct btrfs_root_ref *ref = body;
-                        p = memdup_suffix0((char*) ref + sizeof(struct btrfs_root_ref), le64toh(ref->name_len));
-                        if (!p)
-                                return -ENOMEM;
-
-                        struct btrfs_ioctl_ino_lookup_args ino_args = {
-                                .treeid = old_subvol_id,
-                                .objectid = htole64(ref->dirid),
+                        struct btrfs_ioctl_ino_lookup_user_args lookup_args = {
+                                .dirid = rootref_args.rootref[i].dirid,
+                                .treeid = child_subvol_id,
                         };
-
-                        if (ioctl(old_fd, BTRFS_IOC_INO_LOOKUP, &ino_args) < 0)
+                        if (ioctl(old_fd, BTRFS_IOC_INO_LOOKUP_USER, &lookup_args) < 0)
                                 return -errno;
 
-                        c = path_join(ino_args.name, p);
+                        c = path_join(lookup_args.path, lookup_args.name);
                         if (!c)
                                 return -ENOMEM;
 
@@ -1344,7 +1324,7 @@ static int subvol_snapshot_children(
                         if (old_child_fd < 0)
                                 return -errno;
 
-                        np = path_join(subvolume, ino_args.name);
+                        np = path_join(subvolume, lookup_args.path);
                         if (!np)
                                 return -ENOMEM;
 
@@ -1369,7 +1349,7 @@ static int subvol_snapshot_children(
 
                         /* When btrfs clones the subvolumes, child subvolumes appear as empty
                          * directories. Remove them, so that we can create a new snapshot in their place */
-                        if (unlinkat(new_child_fd, p, AT_REMOVEDIR) < 0) {
+                        if (unlinkat(new_child_fd, lookup_args.name, AT_REMOVEDIR) < 0) {
                                 int k = -errno;
 
                                 if (flags & BTRFS_SNAPSHOT_READ_ONLY)
@@ -1378,7 +1358,7 @@ static int subvol_snapshot_children(
                                 return k;
                         }
 
-                        r = subvol_snapshot_children(old_child_fd, new_child_fd, p, sh.objectid,
+                        r = subvol_snapshot_children(old_child_fd, new_child_fd, lookup_args.name, child_subvol_id,
                                                      flags & ~(BTRFS_SNAPSHOT_FALLBACK_COPY|BTRFS_SNAPSHOT_LOCK_BSD));
 
                         /* Restore the readonly flag */
@@ -1394,8 +1374,7 @@ static int subvol_snapshot_children(
                                 return r;
                 }
 
-                /* Increase search key by one, to read the next item, if we can. */
-                if (!btrfs_ioctl_search_args_inc(&args))
+                if (ioctl_ret >= 0)
                         break;
         }
 
@@ -2164,4 +2143,51 @@ int btrfs_get_file_physical_offset_fd(int fd, uint64_t *ret) {
         }
 
         return -ENODATA;
+}
+
+int btrfs_replace(int fdmntpnt, uint64_t device_id, const char *target) {
+        struct btrfs_ioctl_dev_replace_args replace = {
+                .cmd = BTRFS_IOCTL_DEV_REPLACE_CMD_START,
+                .result = UINT64_MAX,
+                .start = {
+                        .srcdevid = device_id,
+                        .cont_reading_from_srcdev_mode = BTRFS_IOCTL_DEV_REPLACE_CONT_READING_FROM_SRCDEV_MODE_ALWAYS,
+                },
+        };
+
+        assert(fdmntpnt >= 0);
+        assert(target);
+
+        if (strlen(target) >= sizeof(replace.start.tgtdev_name))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Path to the btrfs replace target is too long");
+        strncpy((char *)replace.start.tgtdev_name, target, sizeof(replace.start.tgtdev_name));
+
+        if (ioctl(fdmntpnt, BTRFS_IOC_DEV_REPLACE, &replace) < 0)
+                return -errno;
+
+        switch (replace.result) {
+        case BTRFS_IOCTL_DEV_REPLACE_RESULT_NO_ERROR:
+                break;
+        case BTRFS_IOCTL_DEV_REPLACE_RESULT_NOT_STARTED:
+                return log_debug_errno(SYNTHETIC_ERRNO(ECANCELED), "btrfs replace was not started");
+        case BTRFS_IOCTL_DEV_REPLACE_RESULT_ALREADY_STARTED:
+                return log_debug_errno(SYNTHETIC_ERRNO(EALREADY), "btrfs replace was already started on this device");
+        case BTRFS_IOCTL_DEV_REPLACE_RESULT_SCRUB_INPROGRESS:
+                return log_debug_errno(SYNTHETIC_ERRNO(EBUSY), "btrfs scrub is in progress");
+        default:
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "An unknown btrfs error status occurred");
+        }
+
+        return 0;
+}
+
+int btrfs_resize_max(int fdmntpnt, uint64_t devid) {
+        struct btrfs_ioctl_vol_args args = {};
+
+        assert(fdmntpnt >= 0);
+
+        assert_cc(STRLEN(":max") + DECIMAL_STR_MAX(uint64_t) + 1 <= sizeof(args.name));
+        xsprintf(args.name, "%" PRIu64 ":max", devid);
+
+        return RET_NERRNO(ioctl(fdmntpnt, BTRFS_IOC_RESIZE, &args));
 }

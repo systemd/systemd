@@ -291,6 +291,7 @@ int json_dispatch_path(const char *name, sd_json_variant *variant, sd_json_dispa
 int json_dispatch_strv_path(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         _cleanup_strv_free_ char **n = NULL;
         char ***l = ASSERT_PTR(userdata);
+        size_t s = 0;
         int r;
 
         assert(variant);
@@ -310,7 +311,7 @@ int json_dispatch_strv_path(const char *name, sd_json_variant *variant, sd_json_
                 if (r < 0)
                         return r;
 
-                r = strv_extend(&n, a);
+                r = strv_extend_with_size(&n, &s, a);
                 if (r < 0)
                         return json_log_oom(variant, flags);
         }
@@ -652,6 +653,9 @@ int json_dispatch_strv_environment(const char *name, sd_json_variant *variant, s
         if (!sd_json_variant_is_array(variant))
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an array.", strna(name));
 
+        if (sd_json_variant_elements(variant) > ENVIRONMENT_ASSIGNMENTS_MAX)
+                return json_log(variant, flags, SYNTHETIC_ERRNO(E2BIG), "Too many environment variable assignments.");
+
         sd_json_variant *i;
         JSON_VARIANT_ARRAY_FOREACH(i, variant) {
                 const char *e;
@@ -789,6 +793,27 @@ int json_dispatch_access_mode(const char *name, sd_json_variant *variant, sd_jso
         } else
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is neither a number nor a string.", strna(name));
 
+        return 0;
+}
+
+int json_dispatch_job_id(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        uint32_t *id = ASSERT_PTR(userdata);
+        uint32_t k;
+        int r;
+
+        if (sd_json_variant_is_null(variant)) {
+                *id = 0;
+                return 0;
+        }
+
+        r = sd_json_dispatch_uint32(name, variant, flags, &k);
+        if (r < 0)
+                return r;
+
+        if (k == 0)
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a valid job ID.", strna(name));
+
+        *id = k;
         return 0;
 }
 

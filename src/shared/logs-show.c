@@ -1704,9 +1704,7 @@ static int add_matches_for_coredump_uid(sd_journal *j, MatchUnitFlag flags, cons
                 return 0;
 
         if (cached_uid == 0) {
-                const char *user = "systemd-coredump";
-
-                r = get_user_creds(&user, &cached_uid, NULL, NULL, NULL, 0);
+                r = get_user_creds("systemd-coredump", /* flags= */ 0, NULL, &cached_uid, NULL, NULL, NULL);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to resolve systemd-coredump user, ignoring: %m");
                         cached_uid = UID_INVALID;

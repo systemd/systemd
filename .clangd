@@ -11,6 +11,6 @@ CompileFlags:
 Diagnostics:
   UnusedIncludes: Strict
   # __no_reorder__ is a GCC-only attribute (see _no_reorder_ in
-  # src/fundamental/macro-fundamental.h). Meson detects it during configure
+  # src/fundamental/macro.h). Meson detects it during configure
   # with GCC and enables it unconditionally, so clangd flags every use.
   Suppress: [unknown-attributes]

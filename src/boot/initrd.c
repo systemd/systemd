@@ -2,7 +2,7 @@
 
 #include "efi-log.h"
 #include "initrd.h"
-#include "iovec-util-fundamental.h"
+#include "iovec-util.h"
 #include "proto/device-path.h"
 #include "proto/load-file.h"
 #include "util.h"

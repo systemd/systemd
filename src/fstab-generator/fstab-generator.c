@@ -704,7 +704,7 @@ static int add_mount(
                 if (r < 0) {
                         if (r != -EOPNOTSUPP)
                                 return r;
-                } else {
+                } else if (r > 0) {
                         r = generator_hook_up_quotaon(dest, where, target_unit);
                         if (r < 0)
                                 return r;
@@ -1239,6 +1239,26 @@ static int add_sysroot_mount(void) {
         if (extra_opts)
                 if (!strextend_with_separator(&combined_options, ",", extra_opts))
                         return log_oom();
+
+        /* A bind mount inherits the mount flags (nosuid, nodev, noexec, …) of the file system the source
+         * directory is located on. The source typically lives below /run/ (e.g. a freshly unpacked tar image
+         * in /run/machines/), which is mounted nosuid,nodev, and these flags would then propagate to our root
+         * file system, breaking suid binaries (e.g. sudo) and device nodes. Since this is supposed to become a
+         * regular OS root file system, default to dev,suid,exec instead, unless the user explicitly requested
+         * otherwise. */
+        if (bind) {
+                static const char* const defaults[] = {
+                        "suid", "suid\0" "nosuid\0",
+                        "dev",  "dev\0"  "nodev\0",
+                        "exec", "exec\0" "noexec\0",
+                        NULL,
+                };
+
+                STRV_FOREACH_PAIR(add, test, defaults)
+                        if (!fstab_test_option(combined_options, *test))
+                                if (!strextend_with_separator(&combined_options, ",", *add))
+                                        return log_oom();
+        }
 
         log_debug("Found entry what=%s where=/sysroot type=%s opts=%s", what, strna(fstype), strempty(combined_options));
 

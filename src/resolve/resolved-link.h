@@ -11,6 +11,7 @@
 
 #define LINK_SEARCH_DOMAINS_MAX 1024
 #define LINK_DNS_SERVERS_MAX 256
+#define LINK_NEGATIVE_TRUST_ANCHORS_MAX 2048
 
 typedef struct LinkAddress {
         Link *link;

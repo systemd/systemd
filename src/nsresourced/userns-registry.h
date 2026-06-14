@@ -3,6 +3,8 @@
 
 #include "shared-forward.h"
 
+struct userns_restrict_bpf;
+
 #define USER_NAMESPACE_CGROUPS_DELEGATE_MAX 16U
 #define USER_NAMESPACE_NETIFS_DELEGATE_MAX 16U
 #define USER_NAMESPACE_DELEGATIONS_MAX 16U
@@ -29,6 +31,7 @@ typedef struct UserNamespaceInfo {
         uid_t owner;
         char *name;
         uint64_t userns_inode;
+        uint64_t userns_id; /* Unique namespace identifier from NS_GET_ID, 0 if unavailable */
         uint32_t size;
         uid_t start_uid;
         uid_t target_uid;
@@ -63,10 +66,19 @@ int userns_registry_load_by_start_gid(int dir_fd, gid_t start, UserNamespaceInfo
 int userns_registry_load_by_userns_inode(int dir_fd, uint64_t inode, UserNamespaceInfo **ret);
 int userns_registry_load_by_name(int dir_fd, const char *name, UserNamespaceInfo **ret);
 
+int userns_info_verify_fd(int userns_fd, const UserNamespaceInfo *info);
+
+/* Releases all resources tied to a user namespace: removes BPF allowlist entries (if a bpf handle is
+ * given), drops the corresponding fd from systemd's fdstore, removes cgroups and netifs recorded for
+ * it, and unlinks the registry entry. The caller must already hold the registry lock (e.g. via
+ * userns_registry_lock()). The _by_inode variant loads the registry entry; prefer the _by_info
+ * variant where the caller already has it. */
+void userns_registry_release_by_info(struct userns_restrict_bpf *bpf, int dir_fd, UserNamespaceInfo *info);
+void userns_registry_release_by_userns_inode(struct userns_restrict_bpf *bpf, int dir_fd, uint64_t inode);
+
 int userns_registry_store(int dir_fd, UserNamespaceInfo *info);
 int userns_registry_remove(int dir_fd, UserNamespaceInfo *info);
 
-int userns_registry_inode_exists(int dir_fd, uint64_t inode);
 int userns_registry_name_exists(int dir_fd, const char *name);
 int userns_registry_uid_exists(int dir_fd, uid_t start);
 int userns_registry_gid_exists(int dir_fd, gid_t start);

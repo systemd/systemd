@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "assert-fundamental.h"
-#include "cleanup-fundamental.h" /* IWYU pragma: export */
+#include "../fundamental/assert-util.h"
+#include "../fundamental/cleanup-util.h" /* IWYU pragma: export */
 
 typedef void (*free_func_t)(void *p);
 typedef void* (*mfree_func_t)(void *p);
@@ -19,13 +19,13 @@ typedef void* (*mfree_func_t)(void *p);
 
 /* This is similar to free_and_replace_full(), but NULL is not assigned to 'b', and its reference counter is
  * increased. */
-#define unref_and_replace_full(a, b, ref_func, unref_func)      \
-        ({                                       \
-                typeof(a)* _a = &(a);            \
-                typeof(b) _b = ref_func(b);      \
-                unref_func(*_a);                 \
-                *_a = _b;                        \
-                0;                               \
+#define unref_and_replace_new_ref(a, b, ref_func, unref_func) \
+        ({                                                    \
+                typeof(a)* _a = &(a);                         \
+                typeof(b) _b = ref_func(b);                   \
+                unref_func(*_a);                              \
+                *_a = _b;                                     \
+                0;                                            \
         })
 
 #define _DEFINE_TRIVIAL_REF_FUNC(type, name, scope)                                     \

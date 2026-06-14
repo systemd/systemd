@@ -4,5 +4,4 @@ Name=client
 
 [Network]
 DHCP=yes
-IPv4Forwarding=yes
 IPv6AcceptRA=no

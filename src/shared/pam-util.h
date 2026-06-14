@@ -1,12 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "sd-dlopen.h"
+
 #include "shared-forward.h"
 
 #if HAVE_PAM
 #include <security/pam_appl.h>
 #include <security/pam_ext.h>
-#include <security/pam_modules.h> /* IWYU pragma: export */
+#include <security/pam_modules.h>       /* IWYU pragma: export */
 #include <syslog.h>
 
 #include "dlfcn-util.h"
@@ -14,10 +16,15 @@
 extern DLSYM_PROTOTYPE(pam_acct_mgmt);
 extern DLSYM_PROTOTYPE(pam_close_session);
 extern DLSYM_PROTOTYPE(pam_end);
+extern DLSYM_PROTOTYPE(pam_get_authtok_noverify);
+extern DLSYM_PROTOTYPE(pam_get_authtok_verify);
 extern DLSYM_PROTOTYPE(pam_get_data);
 extern DLSYM_PROTOTYPE(pam_get_item);
+extern DLSYM_PROTOTYPE(pam_get_user);
+extern DLSYM_PROTOTYPE(pam_getenv);
 extern DLSYM_PROTOTYPE(pam_getenvlist);
 extern DLSYM_PROTOTYPE(pam_open_session);
+extern DLSYM_PROTOTYPE(pam_prompt);
 extern DLSYM_PROTOTYPE(pam_putenv);
 extern DLSYM_PROTOTYPE(pam_set_data);
 extern DLSYM_PROTOTYPE(pam_set_item);
@@ -26,6 +33,11 @@ extern DLSYM_PROTOTYPE(pam_start);
 extern DLSYM_PROTOTYPE(pam_strerror);
 extern DLSYM_PROTOTYPE(pam_syslog);
 extern DLSYM_PROTOTYPE(pam_vsyslog);
+
+/* sym_pam_prompt() replacement for the pam_info() macro from <security/pam_ext.h>, which expands to a direct
+ * pam_prompt() call. */
+#define sym_pam_info(pamh, fmt, ...) \
+        sym_pam_prompt((pamh), PAM_TEXT_INFO, NULL, (fmt), ## __VA_ARGS__)
 
 void pam_log_setup(void);
 
@@ -90,6 +102,23 @@ int pam_get_data_many_internal(pam_handle_t *pamh, ...) _sentinel_;
 
 int pam_prompt_graceful(pam_handle_t *pamh, int style, char **ret_response, const char *fmt, ...) _printf_(4,5);
 
+/* Equivalent of pam_misc_setenv(pamh, name, value, 0), without the libpam_misc dep — builds "name=value"
+ * and hands it to sym_pam_putenv(), then erases the buffer before freeing in case it carried a secret. */
+int pam_putenv_assign(pam_handle_t *pamh, const char *name, const char *value);
+
+#define LIBPAM_NOTE(priority)                                           \
+        SD_ELF_NOTE_DLOPEN("pam",                                       \
+                           "Support for LinuxPAM",                      \
+                           priority,                                    \
+                           "libpam.so.0")
+
+#define DLOPEN_LIBPAM(log_level, priority)                              \
+        ({                                                              \
+                LIBPAM_NOTE(priority);                                  \
+                dlopen_libpam(log_level);                               \
+        })
+#else
+#define DLOPEN_LIBPAM(log_level, priority) dlopen_libpam(log_level)
 #endif
 
 int dlopen_libpam(int log_level);

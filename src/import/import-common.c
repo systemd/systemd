@@ -32,7 +32,7 @@ int import_fork_tar_x(int tree_fd, int userns_fd, PidRef *ret_pid) {
         assert(tree_fd >= 0);
         assert(ret_pid);
 
-        r = dlopen_libarchive(LOG_DEBUG);
+        r = DLOPEN_LIBARCHIVE(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
         if (r < 0)
                 return r;
 
@@ -99,7 +99,7 @@ int import_fork_tar_c(int tree_fd, int userns_fd, PidRef *ret_pid) {
         assert(tree_fd >= 0);
         assert(ret_pid);
 
-        r = dlopen_libarchive(LOG_DEBUG);
+        r = DLOPEN_LIBARCHIVE(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
         if (r < 0)
                 return r;
 
@@ -392,13 +392,14 @@ int import_remove_tree(const char *path, int *userns_fd, ImportFlags flags) {
         assert(path);
         assert(userns_fd);
 
-        r = import_make_foreign_userns(userns_fd);
-        if (r < 0)
-                return r;
-
         /* Try the userns dance first, to remove foreign UID range owned trees */
-        if (FLAGS_SET(flags, IMPORT_FOREIGN_UID))
+        if (FLAGS_SET(flags, IMPORT_FOREIGN_UID)) {
+                r = import_make_foreign_userns(userns_fd);
+                if (r < 0)
+                        return r;
+
                 (void) remove_tree_foreign(path, *userns_fd);
+        }
 
         r = rm_rf(path, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME|REMOVE_MISSING_OK|REMOVE_CHMOD);
         if (r < 0)

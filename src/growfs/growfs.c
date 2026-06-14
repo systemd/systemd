@@ -33,7 +33,7 @@ static int resize_crypt_luks_device(dev_t devno, const char *fstype, dev_t main_
         uint64_t size;
         int r;
 
-        r = dlopen_cryptsetup(LOG_ERR);
+        r = DLOPEN_CRYPTSETUP(LOG_ERR, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED);
         if (r < 0)
                 return r;
 
@@ -160,10 +160,9 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        OptionParser state = { argc, argv };
-        const char *arg;
+        OptionParser opts = { argc, argv };
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -177,13 +176,12 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
-        if (option_parser_get_n_args(&state) != 1)
+        if (option_parser_get_n_args(&opts) != 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "%s expects exactly one argument (the mount point).",
                                        program_invocation_short_name);
 
-        arg_target = option_parser_get_args(&state)[0];
-
+        arg_target = option_parser_get_arg(&opts, 0);
         return 1;
 }
 

@@ -12,7 +12,7 @@
 
 #if BPF_FRAMEWORK
 /* libbpf, clang, llvm and bpftool compile time dependencies are satisfied */
-#include "bpf-dlopen.h"
+#include "bpf-util.h"
 #include "bpf-link.h"
 #include "bind-iface-skel.h"
 
@@ -31,7 +31,7 @@ int bpf_bind_network_interface_supported(void) {
         if (supported >= 0)
                 return supported;
 
-        if (dlopen_bpf(LOG_WARNING) < 0)
+        if (DLOPEN_BPF(LOG_WARNING, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED) < 0)
                 return (supported = false);
 
         obj = bind_iface_bpf__open();

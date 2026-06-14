@@ -7,7 +7,7 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
-#include "label.h"
+#include "label-util.h"
 #include "path-util.h"
 #include "string-util.h"
 #include "tests.h"

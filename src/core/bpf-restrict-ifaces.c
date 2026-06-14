@@ -14,7 +14,7 @@
 #if BPF_FRAMEWORK
 /* libbpf, clang and llc compile time dependencies are satisfied */
 
-#include "bpf-dlopen.h"
+#include "bpf-util.h"
 #include "bpf-link.h"
 #include "restrict-ifaces-skel.h"
 
@@ -86,7 +86,7 @@ int bpf_restrict_ifaces_supported(void) {
         if (supported >= 0)
                 return supported;
 
-        if (dlopen_bpf(LOG_WARNING) < 0)
+        if (DLOPEN_BPF(LOG_WARNING, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED) < 0)
                 return (supported = false);
 
         r = prepare_restrict_ifaces_bpf(NULL, true, NULL, &obj);

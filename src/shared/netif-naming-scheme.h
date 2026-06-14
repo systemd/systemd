@@ -44,6 +44,9 @@ typedef enum NamingSchemeFlags {
         NAMING_USE_INTERFACE_PROPERTY    = 1 << 20, /* Use INTERFACE udev property, rather than sysname, when no renaming is requested. */
         NAMING_DEVICETREE_ALIASES_WLAN   = 1 << 21, /* Generate names from devicetree aliases for WLAN devices */
         NAMING_MCTP                      = 1 << 22, /* Use "mc" prefix for MCTP devices */
+        NAMING_SUBFUNC                   = 1 << 23, /* Generate names for auxiliary sub-function (SF) network
+                                                     * devices (e.g. mlx5_core SFs), based on the parent PF's
+                                                     * PCI path and the user-defined sfnum, with an "S" suffix. */
 
         /* And now the masks that combine the features above */
         NAMING_V238 = 0,
@@ -67,6 +70,7 @@ typedef enum NamingSchemeFlags {
         NAMING_V258 = NAMING_V257 | NAMING_USE_INTERFACE_PROPERTY,
         NAMING_V259 = NAMING_V258 | NAMING_DEVICETREE_ALIASES_WLAN,
         NAMING_V260 = NAMING_V259 | NAMING_MCTP,
+        NAMING_V261 = NAMING_V260 | NAMING_SUBFUNC,
 
         EXTRA_NET_NAMING_SCHEMES
 
@@ -104,4 +108,4 @@ DECLARE_STRING_TABLE_LOOKUP(alternative_names_policy, NamePolicy);
 int device_get_sysattr_int_filtered(sd_device *device, const char *sysattr, int *ret_value);
 int device_get_sysattr_unsigned_filtered(sd_device *device, const char *sysattr, unsigned *ret_value);
 int device_get_sysattr_bool_filtered(sd_device *device, const char *sysattr);
-int device_get_sysattr_value_filtered(sd_device *device, const char *sysattr, const char **ret_value);
+int device_get_sysattr_safe_string_filtered(sd_device *device, const char *sysattr, const char **ret_value);

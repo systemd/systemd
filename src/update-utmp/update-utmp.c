@@ -10,6 +10,7 @@
 #include "libaudit-util.h"
 #include "log.h"
 #include "main-func.h"
+#include "strv.h"
 #include "time-util.h"
 #include "utmp-wtmp.h"
 #include "verbs.h"
@@ -51,6 +52,7 @@ static int get_startup_monotonic_time(Context *c, usec_t *ret) {
         return 0;
 }
 
+VERB_NOARG(verb_on_reboot, "reboot", /* help= */ NULL);
 static int verb_on_reboot(int argc, char *argv[], uintptr_t _data, void *userdata) {
         Context *c = ASSERT_PTR(userdata);
         usec_t t = 0, boottime;
@@ -80,6 +82,7 @@ static int verb_on_reboot(int argc, char *argv[], uintptr_t _data, void *userdat
         return q;
 }
 
+VERB_NOARG(verb_on_shutdown, "shutdown", /* help= */ NULL);
 static int verb_on_shutdown(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r, q = 0;
 
@@ -102,12 +105,6 @@ static int verb_on_shutdown(int argc, char *argv[], uintptr_t _data, void *userd
 }
 
 static int run(int argc, char *argv[]) {
-        static const Verb verbs[] = {
-                { "reboot",   1, 1, 0, verb_on_reboot   },
-                { "shutdown", 1, 1, 0, verb_on_shutdown },
-                {}
-        };
-
         _cleanup_(context_clear) Context c = {
                 .audit_fd = -EBADF,
         };
@@ -118,7 +115,7 @@ static int run(int argc, char *argv[]) {
 
         c.audit_fd = open_audit_fd_or_warn();
 
-        return dispatch_verb(argc, argv, verbs, &c);
+        return dispatch_verb(strv_skip(argv, 1), &c);
 }
 
 DEFINE_MAIN_FUNCTION(run);

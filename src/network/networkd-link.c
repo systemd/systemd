@@ -10,6 +10,7 @@
 
 #include "sd-bus.h"
 #include "sd-dhcp-client.h"
+#include "sd-dhcp-relay.h"
 #include "sd-dhcp-server.h"
 #include "sd-dhcp6-client.h"
 #include "sd-dhcp6-lease.h"
@@ -23,6 +24,7 @@
 #include "alloc-util.h"
 #include "arphrd-util.h"
 #include "bitfield.h"
+#include "device-private.h"
 #include "device-util.h"
 #include "dns-domain.h"
 #include "errno-util.h"
@@ -40,6 +42,7 @@
 #include "networkd-bridge-mdb.h"
 #include "networkd-bridge-vlan.h"
 #include "networkd-dhcp-prefix-delegation.h"
+#include "networkd-dhcp-relay.h"
 #include "networkd-dhcp-server.h"
 #include "networkd-dhcp4.h"
 #include "networkd-dhcp6.h"
@@ -66,7 +69,6 @@
 #include "networkd-wifi.h"
 #include "networkd-wwan-bus.h"
 #include "ordered-set.h"
-#include "parse-util.h"
 #include "set.h"
 #include "socket-util.h"
 #include "string-table.h"
@@ -240,6 +242,8 @@ static void link_free_engines(Link *link) {
         if (!link)
                 return;
 
+        link->dhcp_relay_interface = sd_dhcp_relay_interface_unref(link->dhcp_relay_interface);
+        link->dhcp_relay_interface_compat = sd_dhcp_relay_interface_unref(link->dhcp_relay_interface_compat);
         link->dhcp_server = sd_dhcp_server_unref(link->dhcp_server);
 
         link->dhcp_client = sd_dhcp_client_unref(link->dhcp_client);
@@ -288,7 +292,6 @@ static Link* link_free(Link *link) {
         free(link->previous_ssid);
         free(link->driver);
 
-        unlink_and_free(link->lease_file);
         unlink_and_free(link->state_file);
 
         sd_device_unref(link->dev);
@@ -424,6 +427,14 @@ int link_stop_engines(Link *link, bool may_keep_dynamic) {
 
                 ndisc_flush(link);
         }
+
+        r = sd_dhcp_relay_interface_stop(link->dhcp_relay_interface);
+        if (r < 0)
+                RET_GATHER(ret, log_link_warning_errno(link, r, "Could not stop DHCP relay agent: %m"));
+
+        r = sd_dhcp_relay_interface_stop(link->dhcp_relay_interface_compat);
+        if (r < 0)
+                RET_GATHER(ret, log_link_warning_errno(link, r, "Could not stop DHCP relay agent (compat): %m"));
 
         r = sd_dhcp_server_stop(link->dhcp_server);
         if (r < 0)
@@ -740,6 +751,10 @@ static int link_acquire_dynamic_ipv4_conf(Link *link) {
                         log_link_debug(link, "Acquiring IPv4 link-local address.");
         }
 
+        r = link_start_dhcp_relay(link);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Could not start DHCP relay agent: %m");
+
         r = link_start_dhcp4_server(link);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Could not start DHCP server: %m");
@@ -812,6 +827,46 @@ int link_ipv6ll_gained(Link *link) {
 
         link_check_ready(link);
         return 0;
+}
+
+int link_ipv6ll_lost(Link *link, const struct in6_addr *dropped_ipv6ll, bool has_replacement) {
+        int ret = 0, r;
+
+        assert(link);
+        assert(dropped_ipv6ll);
+
+        if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
+                return 0;
+
+        log_link_info(link, "Lost IPv6LL address %s%s.",
+                      IN6_ADDR_TO_STRING(dropped_ipv6ll),
+                      has_replacement ? ", switching to alternate IPv6LL source" : "");
+
+        r = sd_dhcp6_client_stop(link->dhcp6_client);
+        if (r < 0)
+                RET_GATHER(ret, log_link_warning_errno(link, r, "Could not stop DHCPv6 client: %m"));
+
+        /* DHCPv6 must be restarted to switch the client's source address, while NDisc and
+         * RADV can switch to the replacement IPv6LL in link_ipv6ll_gained() without flushing
+         * learned state. Keep link->ndisc_configured as-is in this path. */
+        if (has_replacement)
+                return ret;
+
+        r = ndisc_stop(link);
+        if (r < 0)
+                RET_GATHER(ret, log_link_warning_errno(link, r, "Could not stop IPv6 Router Discovery: %m"));
+        link->ndisc_configured = false;
+        ndisc_flush(link);
+
+        r = sd_radv_stop(link->radv);
+        if (r < 0)
+                RET_GATHER(ret, log_link_warning_errno(link, r, "Could not stop IPv6 Router Advertisement: %m"));
+
+        r = link_request_stacked_netdevs(link, NETDEV_LOCAL_ADDRESS_IPV6LL);
+        if (r < 0)
+                RET_GATHER(ret, log_link_warning_errno(link, r, "Could not reconfigure stacked netdevs after IPv6LL loss: %m"));
+
+        return ret;
 }
 
 int link_handle_bound_to_list(Link *link) {
@@ -1157,6 +1212,8 @@ static int link_drop_dynamic_config(Link *link, Network *network) {
         RET_GATHER(r, link_drop_dhcp4_config(link, network));
         RET_GATHER(r, link_drop_dhcp6_config(link, network));
         RET_GATHER(r, link_drop_dhcp_pd_config(link, network));
+        link->dhcp_relay_interface = sd_dhcp_relay_interface_unref(link->dhcp_relay_interface);
+        link->dhcp_relay_interface_compat = sd_dhcp_relay_interface_unref(link->dhcp_relay_interface_compat);
         link->dhcp_server = sd_dhcp_server_unref(link->dhcp_server);
         link->lldp_rx = sd_lldp_rx_unref(link->lldp_rx); /* TODO: keep the received neighbors. */
         link->lldp_tx = sd_lldp_tx_unref(link->lldp_tx);
@@ -1275,6 +1332,10 @@ static int link_configure(Link *link) {
         if (r < 0)
                 return r;
 
+        r = link_request_dhcp_relay(link);
+        if (r < 0)
+                return r;
+
         r = link_request_dhcp_server(link);
         if (r < 0)
                 return r;
@@ -1335,13 +1396,9 @@ static int link_get_network(Link *link, Network **ret) {
                         continue;
 
                 if (network->match.ifname && link->dev) {
-                        uint8_t name_assign_type = NET_NAME_UNKNOWN;
-                        const char *attr;
-
-                        if (sd_device_get_sysattr_value(link->dev, "name_assign_type", &attr) >= 0)
-                                (void) safe_atou8(attr, &name_assign_type);
-
-                        warn = name_assign_type == NET_NAME_ENUM;
+                        uint8_t name_assign_type;
+                        if (device_get_sysattr_u8(link->dev, "name_assign_type", &name_assign_type) >= 0)
+                                warn = name_assign_type == NET_NAME_ENUM;
                 }
 
                 log_link_full(link, warn ? LOG_WARNING : LOG_DEBUG,
@@ -1678,7 +1735,7 @@ static int link_initialized(Link *link, sd_device *device) {
 
         /* Always replace with the new sd_device object. As the sysname (and possibly other properties
          * or sysattrs) may be outdated. */
-        device_unref_and_replace(link->dev, device);
+        device_unref_and_replace_new_ref(link->dev, device);
 
         r = link_managed_by_us(link);
         if (r <= 0)
@@ -2610,6 +2667,12 @@ static int link_update_name(Link *link, sd_netlink_message *message) {
                         return log_link_debug_errno(link, r, "Failed to update interface name in NDisc: %m");
         }
 
+        if (link->dhcp_relay_interface) {
+                r = sd_dhcp_relay_interface_set_ifname(link->dhcp_relay_interface, link->ifname);
+                if (r < 0)
+                        return log_link_debug_errno(link, r, "Failed to update interface name in DHCP relay interface: %m");
+        }
+
         if (link->dhcp_server) {
                 r = sd_dhcp_server_set_ifname(link->dhcp_server, link->ifname);
                 if (r < 0)
@@ -2713,7 +2776,7 @@ static Link *link_drop_or_unref(Link *link) {
 DEFINE_TRIVIAL_CLEANUP_FUNC(Link*, link_drop_or_unref);
 
 static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
-        _cleanup_free_ char *ifname = NULL, *kind = NULL, *state_file = NULL, *lease_file = NULL;
+        _cleanup_free_ char *ifname = NULL, *kind = NULL, *state_file = NULL;
         _cleanup_(link_drop_or_unrefp) Link *link = NULL;
         unsigned short iftype;
         int r, ifindex;
@@ -2751,9 +2814,6 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
                 /* Do not update state files when running in test mode. */
                 if (asprintf(&state_file, "/run/systemd/netif/links/%d", ifindex) < 0)
                         return log_oom_debug();
-
-                if (asprintf(&lease_file, "/run/systemd/netif/leases/%d", ifindex) < 0)
-                        return log_oom_debug();
         }
 
         link = new(Link, 1);
@@ -2775,7 +2835,6 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
                 .ipv6ll_address_gen_mode = _IPV6_LINK_LOCAL_ADDRESS_GEN_MODE_INVALID,
 
                 .state_file = TAKE_PTR(state_file),
-                .lease_file = TAKE_PTR(lease_file),
 
                 .n_dns = UINT_MAX,
                 .dns_default_route = -1,

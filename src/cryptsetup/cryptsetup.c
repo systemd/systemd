@@ -538,7 +538,7 @@ static int parse_one_option(const char *option) {
 #if HAVE_OPENSSL
                 _cleanup_strv_free_ char **l = NULL;
 
-                r = dlopen_libcrypto(LOG_ERR);
+                r = DLOPEN_LIBCRYPTO(LOG_ERR, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
                 if (r < 0)
                         return r;
 
@@ -608,7 +608,6 @@ static int parse_one_option(const char *option) {
                         log_warning_errno(r, "Failed to parse %s, ignoring: %m", option);
 
         } else if ((val = startswith(option, "link-volume-key="))) {
-#if HAVE_CRYPT_SET_KEYRING_TO_LINK
                 _cleanup_free_ char *keyring = NULL, *key_type = NULL, *key_description = NULL;
                 const char *sep;
 
@@ -657,9 +656,6 @@ static int parse_one_option(const char *option) {
                 free_and_replace(arg_link_keyring, keyring);
                 free_and_replace(arg_link_key_type, key_type);
                 free_and_replace(arg_link_key_description, key_description);
-#else
-                log_error("Build lacks libcryptsetup support for linking volume keys in user specified kernel keyrings upon device activation, ignoring: %s", option);
-#endif
         } else if ((val = startswith(option, "fixate-volume-key="))) {
                 r = free_and_strdup(&arg_fixate_volume_key, val);
                 if (r < 0)
@@ -1819,6 +1815,7 @@ static int attach_luks_or_plain_or_bitlk_by_pkcs11(
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         _cleanup_free_ void *discovered_key = NULL;
         struct iovec discovered_key_data = {};
+        Pkcs11RsaPadding rsa_padding = PKCS11_RSA_PADDING_PKCS1V15;
         int keyslot = arg_key_slot, r;
         const char *uri = NULL;
         bool use_libcryptsetup_plugin = use_token_plugins();
@@ -1829,7 +1826,7 @@ static int attach_luks_or_plain_or_bitlk_by_pkcs11(
 
         if (arg_pkcs11_uri_auto) {
                 if (!use_libcryptsetup_plugin) {
-                        r = find_pkcs11_auto_data(cd, &discovered_uri, &discovered_key, &discovered_key_size, &keyslot);
+                        r = find_pkcs11_auto_data(cd, &discovered_uri, &discovered_key, &discovered_key_size, &rsa_padding, &keyslot);
                         if (IN_SET(r, -ENOTUNIQ, -ENXIO))
                                 return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
                                                        "Automatic PKCS#11 metadata discovery was not possible because missing or not unique, falling back to traditional unlocking.");
@@ -1865,6 +1862,7 @@ static int attach_luks_or_plain_or_bitlk_by_pkcs11(
                                         name,
                                         friendly,
                                         uri,
+                                        rsa_padding,
                                         key_file, arg_keyfile_size, arg_keyfile_offset,
                                         key_data,
                                         until,
@@ -2060,7 +2058,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                         /* pcrlock_path= */ NULL,
                                         /* primary_alg= */ 0,
                                         key_file, arg_keyfile_size, arg_keyfile_offset,
-                                        key_data, /* n_blobs= */ 1,
+                                        key_data, /* n_blobs= */ iovec_is_set(key_data) ? 1 : 0,
                                         /* policy_hash= */ NULL, /* we don't know the policy hash */
                                         /* n_policy_hash= */ 0,
                                         /* salt= */ NULL,
@@ -2505,10 +2503,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argv);
         assert(ret_args);
 
-        OptionParser state = { argc, argv };
-        const char *arg;
+        OptionParser opts = { argc, argv };
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -2518,7 +2515,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         return version();
                 }
 
-        *ret_args = option_parser_get_args(&state);
+        *ret_args = option_parser_get_args(&opts);
         return 1;
 }
 
@@ -2642,6 +2639,9 @@ static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) 
         /* A delicious drop of snake oil */
         (void) safe_mlockall(MCL_CURRENT|MCL_FUTURE|MCL_ONFAULT);
 
+        /* Only erase key files explicitly configured on the command line, never the ones we
+         * auto-discover in /etc/cryptsetup-keys.d/ and /run/cryptsetup-keys.d/: those are shared
+         * resources not owned by an individual volume. (key_file is NULL when auto-discovery is used.) */
         if (key_file && arg_keyfile_erase)
                 destroy_key_file = key_file; /* let's get this baby erased when we leave */
 
@@ -2689,14 +2689,14 @@ static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) 
                 if (r < 0)
                         return log_error_errno(r, "Failed to load LUKS superblock on device %s: %m", sym_crypt_get_device_name(cd));
 
-/* since cryptsetup 2.7.0 (Jan 2024) */
-#if HAVE_CRYPT_SET_KEYRING_TO_LINK
+                /* since cryptsetup 2.7.0 (Jan 2024) */
                 if (arg_link_key_description) {
                         r = sym_crypt_set_keyring_to_link(cd, arg_link_key_description, NULL, arg_link_key_type, arg_link_keyring);
-                        if (r < 0)
+                        if (r == -ENOSYS)
+                                log_warning("Loaded libcryptsetup does not support linking volume keys in user specified kernel keyrings upon device activation, ignoring.");
+                        else if (r < 0)
                                 log_warning_errno(r, "Failed to set keyring or key description to link volume key in, ignoring: %m");
                 }
-#endif
 
                 if (arg_header) {
                         r = sym_crypt_set_data_device(cd, source);
@@ -2884,11 +2884,11 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        r = dlopen_cryptsetup(LOG_ERR);
+        r = DLOPEN_CRYPTSETUP(LOG_ERR, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED);
         if (r < 0)
                 return r;
 
-        return dispatch_verb_with_args(args, NULL);
+        return dispatch_verb(args, NULL);
 }
 
 DEFINE_MAIN_FUNCTION(run);

@@ -5,14 +5,14 @@
 #
 # Julien Humbert <julroy67@gmail.com>, 2020, 2021.
 # Arnaud T. <listes.00@gmail.com>, 2021.
-# blutch112 <vincent.lefebvre59@gmail.com>, 2022.
+# blutch112 <vincent.lefebvre59@gmail.com>, 2022, 2026.
 # Léane GRASSER <leane.grasser@proton.me>, 2023, 2024, 2025, 2026.
-# Weblate Translation Memory <noreply-mt-weblate-translation-memory@weblate.org>, 2024.
+# Weblate Translation Memory <noreply-mt-weblate-translation-memory@weblate.org>, 2024, 2026.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-03-06 03:46+0900\n"
-"PO-Revision-Date: 2026-03-07 01:58+0000\n"
+"POT-Creation-Date: 2026-05-30 00:13+0200\n"
+"PO-Revision-Date: 2026-06-09 09:04+0000\n"
 "Last-Translator: Léane GRASSER <leane.grasser@proton.me>\n"
 "Language-Team: French <https://translate.fedoraproject.org/projects/systemd/"
 "main/fr/>\n"
@@ -21,7 +21,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n > 1;\n"
-"X-Generator: Weblate 5.16.2\n"
+"X-Generator: Weblate 2026.6.1\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -177,7 +177,7 @@ msgstr ""
 "Une authentification est requise pour gérer les clés de signature des "
 "répertoires personnels."
 
-#: src/home/pam_systemd_home.c:330
+#: src/home/pam_systemd_home.c:327
 #, c-format
 msgid ""
 "Home of user %s is currently absent, please plug in the necessary storage "
@@ -186,32 +186,32 @@ msgstr ""
 "L'espace personnel de %s est actuellement absent, veuillez connecter le "
 "périphérique ou le système de fichiers qui le contient."
 
-#: src/home/pam_systemd_home.c:335
+#: src/home/pam_systemd_home.c:332
 #, c-format
 msgid "Too frequent login attempts for user %s, try again later."
 msgstr ""
 "Trop de tentatives de connexion à l'utilisateur %s, réessayez plus tard."
 
-#: src/home/pam_systemd_home.c:347
+#: src/home/pam_systemd_home.c:344
 msgid "Password: "
 msgstr "Mot de passe : "
 
-#: src/home/pam_systemd_home.c:349
+#: src/home/pam_systemd_home.c:346
 #, c-format
 msgid "Password incorrect or not sufficient for authentication of user %s."
 msgstr ""
 "Mot de passe incorrect ou insuffisant pour l'authentification de "
 "l'utilisateur %s."
 
-#: src/home/pam_systemd_home.c:350
+#: src/home/pam_systemd_home.c:347
 msgid "Sorry, try again: "
 msgstr "Désolé, réessayez : "
 
-#: src/home/pam_systemd_home.c:372
+#: src/home/pam_systemd_home.c:369
 msgid "Recovery key: "
 msgstr "Clé de récupération : "
 
-#: src/home/pam_systemd_home.c:374
+#: src/home/pam_systemd_home.c:371
 #, c-format
 msgid ""
 "Password/recovery key incorrect or not sufficient for authentication of user "
@@ -220,20 +220,20 @@ msgstr ""
 "Mot de passe ou clé de récupération incorrecte ou insuffisante pour "
 "l'authentification de l'utilisateur %s."
 
-#: src/home/pam_systemd_home.c:375
+#: src/home/pam_systemd_home.c:372
 msgid "Sorry, reenter recovery key: "
 msgstr "Désolé, saisissez à nouveau la clé de récupération : "
 
-#: src/home/pam_systemd_home.c:395
+#: src/home/pam_systemd_home.c:392
 #, c-format
 msgid "Security token of user %s not inserted."
 msgstr "Clé de sécurité de l'utilisateur %s non insérée."
 
-#: src/home/pam_systemd_home.c:396 src/home/pam_systemd_home.c:399
+#: src/home/pam_systemd_home.c:393 src/home/pam_systemd_home.c:396
 msgid "Try again with password: "
 msgstr "Réessayez avec un mot de passe : "
 
-#: src/home/pam_systemd_home.c:398
+#: src/home/pam_systemd_home.c:395
 #, c-format
 msgid ""
 "Password incorrect or not sufficient, and configured security token of user "
@@ -242,30 +242,30 @@ msgstr ""
 "Mot de passe incorrect ou insuffisant, et la clé de sécurité de "
 "l'utilisateur %s n'est pas insérée."
 
-#: src/home/pam_systemd_home.c:418
+#: src/home/pam_systemd_home.c:415
 msgid "Security token PIN: "
 msgstr "PIN de la clé de sécurité : "
 
-#: src/home/pam_systemd_home.c:435
+#: src/home/pam_systemd_home.c:432
 #, c-format
 msgid "Please authenticate physically on security token of user %s."
 msgstr ""
 "Veuillez vous authentifier physiquement à l'aide de la clé de sécurité de "
 "l'utilisateur %s."
 
-#: src/home/pam_systemd_home.c:446
+#: src/home/pam_systemd_home.c:443
 #, c-format
 msgid "Please confirm presence on security token of user %s."
 msgstr ""
 "Veuillez confirmer votre présence sur la clé de sécurité de l'utilisateur %s."
 
-#: src/home/pam_systemd_home.c:457
+#: src/home/pam_systemd_home.c:454
 #, c-format
 msgid "Please verify user on security token of user %s."
 msgstr ""
 "Veuillez confirmer l'utilisateur sur la clé de sécurité de l'utilisateur %s."
 
-#: src/home/pam_systemd_home.c:466
+#: src/home/pam_systemd_home.c:463
 msgid ""
 "Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
 "insertion might suffice.)"
@@ -273,83 +273,83 @@ msgstr ""
 "Le PIN de la clé de sécurité est verrouillé, veuillez commencer par le "
 "déverrouiller. (Astuce : débrancher et rebrancher peut suffire.)"
 
-#: src/home/pam_systemd_home.c:474
+#: src/home/pam_systemd_home.c:471
 #, c-format
 msgid "Security token PIN incorrect for user %s."
 msgstr "PIN de la clé de sécurité incorrect pour l'utilisateur %s."
 
-#: src/home/pam_systemd_home.c:475 src/home/pam_systemd_home.c:494
-#: src/home/pam_systemd_home.c:513
+#: src/home/pam_systemd_home.c:472 src/home/pam_systemd_home.c:491
+#: src/home/pam_systemd_home.c:510
 msgid "Sorry, retry security token PIN: "
 msgstr "Désolé, saisissez à nouveau le PIN de la clé de sécurité : "
 
-#: src/home/pam_systemd_home.c:493
+#: src/home/pam_systemd_home.c:490
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
 msgstr ""
 "PIN de la clé de sécurité de l'utilisateur %s incorrect (plus que quelques "
 "essais restants !)"
 
-#: src/home/pam_systemd_home.c:512
+#: src/home/pam_systemd_home.c:509
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
 msgstr ""
 "PIN de la clé de sécurité de l'utilisateur %s incorrect (plus qu'un essai "
 "restant !)"
 
-#: src/home/pam_systemd_home.c:679
+#: src/home/pam_systemd_home.c:676
 #, c-format
 msgid "Home of user %s is currently not active, please log in locally first."
 msgstr ""
 "L'espace personnel de l'utilisateur %s est actuellement inactif, veuillez "
 "vous connecter localement dans un premier temps."
 
-#: src/home/pam_systemd_home.c:681
+#: src/home/pam_systemd_home.c:678
 #, c-format
 msgid "Home of user %s is currently locked, please unlock locally first."
 msgstr ""
 "L'espace personnel de l'utilisateur %s est actuellement verrouillé, veuillez "
 "commencer par un déverrouillage local."
 
-#: src/home/pam_systemd_home.c:715
+#: src/home/pam_systemd_home.c:712
 #, c-format
 msgid "Too many unsuccessful login attempts for user %s, refusing."
 msgstr "Trop d'échecs de connexion pour l'utilisateur %s, refus."
 
-#: src/home/pam_systemd_home.c:1012
+#: src/home/pam_systemd_home.c:1021
 msgid "User record is blocked, prohibiting access."
 msgstr "L'utilisateur est bloqué, accès refusé."
 
-#: src/home/pam_systemd_home.c:1016
+#: src/home/pam_systemd_home.c:1025
 msgid "User record is not valid yet, prohibiting access."
 msgstr "L'utilisateur n'est pas encore valide, accès refusé."
 
-#: src/home/pam_systemd_home.c:1020
+#: src/home/pam_systemd_home.c:1029
 msgid "User record is not valid anymore, prohibiting access."
 msgstr "L'utilisateur n'est plus valide, accès refusé."
 
-#: src/home/pam_systemd_home.c:1025 src/home/pam_systemd_home.c:1074
+#: src/home/pam_systemd_home.c:1034 src/home/pam_systemd_home.c:1083
 msgid "User record not valid, prohibiting access."
 msgstr "Utilisateur invalide, accès refusé."
 
-#: src/home/pam_systemd_home.c:1035
+#: src/home/pam_systemd_home.c:1044
 #, c-format
 msgid "Too many logins, try again in %s."
 msgstr "Trop de tentatives de connexion, réessayez dans %s."
 
-#: src/home/pam_systemd_home.c:1046
+#: src/home/pam_systemd_home.c:1055
 msgid "Password change required."
 msgstr "Modification du mot de passe obligatoire."
 
-#: src/home/pam_systemd_home.c:1050
+#: src/home/pam_systemd_home.c:1059
 msgid "Password expired, change required."
 msgstr "Mot de passe expiré, modification obligatoire."
 
-#: src/home/pam_systemd_home.c:1056
+#: src/home/pam_systemd_home.c:1065
 msgid "Password is expired, but can't change, refusing login."
 msgstr "Mot de passe expiré et impossible à modifier, connexion refusée."
 
-#: src/home/pam_systemd_home.c:1060
+#: src/home/pam_systemd_home.c:1069
 msgid "Password will expire soon, please change."
 msgstr "Le mot de passe va bientôt expirer, veuillez le modifier."
 
@@ -761,8 +761,7 @@ msgstr "Mettre le système en hibernation"
 
 #: src/login/org.freedesktop.login1.policy:301
 msgid "Authentication is required to hibernate the system."
-msgstr ""
-"Une authentification est requise pour mettre le système en hibernation."
+msgstr "Une authentification est requise pour mettre le système en hibernation."
 
 #: src/login/org.freedesktop.login1.policy:310
 msgid "Hibernate the system while other users are logged in"
@@ -941,38 +940,61 @@ msgstr ""
 "conteneurs locaux."
 
 #: src/machine/org.freedesktop.machine1.policy:95
+msgid "Inspect local virtual machines and containers"
+msgstr "Inspecter les machines virtuelles et conteneurs locaux"
+
+#: src/machine/org.freedesktop.machine1.policy:96
+msgid ""
+"Authentication is required to inspect local virtual machines and containers."
+msgstr ""
+"Une authentification est requise pour inspecter les machines virtuelles et "
+"conteneurs locaux."
+
+#: src/machine/org.freedesktop.machine1.policy:105
 msgid "Create a local virtual machine or container"
 msgstr "Créer une machine virtuelle locale ou un conteneur local"
 
-#: src/machine/org.freedesktop.machine1.policy:96
+#: src/machine/org.freedesktop.machine1.policy:106
 msgid ""
 "Authentication is required to create a local virtual machine or container."
 msgstr ""
 "Une authentification est requise pour créer une machine virtuelle locale ou "
 "un conteneur local."
 
-#: src/machine/org.freedesktop.machine1.policy:106
+#: src/machine/org.freedesktop.machine1.policy:116
 msgid "Register a local virtual machine or container"
 msgstr "Enregistrer une machine virtuelle locale ou un conteneur local"
 
-#: src/machine/org.freedesktop.machine1.policy:107
+#: src/machine/org.freedesktop.machine1.policy:117
 msgid ""
 "Authentication is required to register a local virtual machine or container."
 msgstr ""
 "Une authentification est requise pour enregistrer une machine virtuelle "
 "locale ou un conteneur local."
 
-#: src/machine/org.freedesktop.machine1.policy:116
+#: src/machine/org.freedesktop.machine1.policy:126
 msgid "Manage local virtual machine and container images"
 msgstr "Gérer les images des machines virtuelles et des conteneurs locaux"
 
-#: src/machine/org.freedesktop.machine1.policy:117
+#: src/machine/org.freedesktop.machine1.policy:127
 msgid ""
 "Authentication is required to manage local virtual machine and container "
 "images."
 msgstr ""
 "Une authentification est requise pour gérer les images des machines "
 "virtuelles et des conteneurs locaux."
+
+#: src/machine/org.freedesktop.machine1.policy:137
+msgid "Inspect local virtual machine and container images"
+msgstr "Inspecter les images locales de machines virtuelles et de conteneurs"
+
+#: src/machine/org.freedesktop.machine1.policy:138
+msgid ""
+"Authentication is required to inspect local virtual machine and container "
+"images."
+msgstr ""
+"Une authentification est requise pour inspecter les images locales de "
+"machines virtuelles et de conteneurs."
 
 #: src/network/org.freedesktop.network1.policy:22
 msgid "Set NTP servers"
@@ -1072,8 +1094,7 @@ msgstr "Réinitialiser les paramètres NTP"
 
 #: src/network/org.freedesktop.network1.policy:122
 msgid "Authentication is required to reset NTP settings."
-msgstr ""
-"Une authentification est requise pour réinitialiser les paramètres NTP."
+msgstr "Une authentification est requise pour réinitialiser les paramètres NTP."
 
 #: src/network/org.freedesktop.network1.policy:132
 msgid "Revert DNS settings"
@@ -1081,8 +1102,7 @@ msgstr "Réinitialiser les paramètres DNS"
 
 #: src/network/org.freedesktop.network1.policy:133
 msgid "Authentication is required to reset DNS settings."
-msgstr ""
-"Une authentification est requise pour réinitialiser les paramètres DNS."
+msgstr "Une authentification est requise pour réinitialiser les paramètres DNS."
 
 #: src/network/org.freedesktop.network1.policy:143
 msgid "DHCP server sends force renew message"
@@ -1220,8 +1240,7 @@ msgstr "S'abonner à la configuration DNS"
 
 #: src/resolve/org.freedesktop.resolve1.policy:155
 msgid "Authentication is required to subscribe to DNS configuration."
-msgstr ""
-"Une authentification est requise pour s'abonner à la configuration DNS."
+msgstr "Une authentification est requise pour s'abonner à la configuration DNS."
 
 #: src/resolve/org.freedesktop.resolve1.policy:165
 msgid "Dump cache"
@@ -1255,29 +1274,67 @@ msgstr "Réinitialiser les statistiques"
 msgid "Authentication is required to reset statistics."
 msgstr "Une authentification est requise pour réinitialiser les statistiques."
 
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:35
+#: src/resolve/org.freedesktop.resolve1.policy:209
+msgid "Flush DNS caches"
+msgstr "Vider les caches DNS"
+
+#: src/resolve/org.freedesktop.resolve1.policy:210
+msgid "Authentication is required to flush DNS caches."
+msgstr "Une authentification est requise pour vider les caches DNS."
+
+#: src/resolve/org.freedesktop.resolve1.policy:220
+msgid "Reset server features"
+msgstr "Réinitialiser les fonctionnalités de serveur"
+
+#: src/resolve/org.freedesktop.resolve1.policy:221
+msgid "Authentication is required to reset server features."
+msgstr ""
+"Une authentification est requise pour réinitialiser les fonctionnalités de "
+"serveur."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:38
 msgid "Check for system updates"
 msgstr "Rechercher des mises à jour système"
 
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:36
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:39
 msgid "Authentication is required to check for system updates."
 msgstr ""
 "Une authentification est requise pour rechercher des mises à jour système."
 
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:45
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:48
+msgid "Cancel checking for system updates"
+msgstr "Annuler la recherche de mises à jour système"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:49
+msgid "Authentication is required to cancel checking for system updates."
+msgstr ""
+"Une authentification est requise pour annuler la recherche de mises à jour "
+"système."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:58
 msgid "Install system updates"
 msgstr "Installer des mises à jour système"
 
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:46
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:59
 msgid "Authentication is required to install system updates."
 msgstr ""
 "Une authentification est requise pour installer des mises à jour système."
 
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:55
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:68
+msgid "Cancel installing system updates"
+msgstr "Annuler l'installation de mises à jour système"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:69
+msgid "Authentication is required to cancel installing system updates."
+msgstr ""
+"Une authentification est requise pour annuler l'installation de mises à jour "
+"système."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:78
 msgid "Install specific system version"
 msgstr "Installer une version spécifique du système"
 
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:56
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:79
 msgid ""
 "Authentication is required to update the system to a specific (possibly old) "
 "version."
@@ -1285,21 +1342,43 @@ msgstr ""
 "Une authentification est requise pour mettre à jour le système vers une "
 "version spécifique (et potentiellement ancienne)."
 
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:65
-msgid "Cleanup old system updates"
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:88
+msgid "Cancel installing specific system version"
+msgstr "Annuler l'installation d'une version spécifique du système"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:89
+msgid ""
+"Authentication is required to cancel updating the system to a specific "
+"(possibly old) version."
+msgstr ""
+"Une authentification est requise pour annuler l'installation d'une version "
+"spécifique (qui peut être ancienne) du système."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:98
+msgid "Clean up old system updates"
 msgstr "Nettoyer les anciennes mises à jour système"
 
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:66
-msgid "Authentication is required to cleanup old system updates."
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:99
+msgid "Authentication is required to clean up old system updates."
 msgstr ""
 "Une authentification est requise pour nettoyer les anciennes mises à jour "
 "système."
 
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:75
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:108
+msgid "Cancel cleaning up old system updates"
+msgstr "Annuler le nettoyage des anciennes mises à jour système"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:109
+msgid "Authentication is required to cancel cleanup of old system updates."
+msgstr ""
+"Une authentification est requise pour annuler le nettoyage des anciennes "
+"mises à jour système."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:118
 msgid "Manage optional features"
 msgstr "Gérer les fonctionnalités facultatives"
 
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:76
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:119
 msgid "Authentication is required to manage optional features."
 msgstr ""
 "Une authentification est requise pour gérer les fonctionnalités facultatives."
@@ -1402,6 +1481,30 @@ msgid ""
 msgstr ""
 "Une authentification est requise pour geler ou dégeler les processus de "
 "l'unité '$(unit)'."
+
+#: src/shared/libfido2-util.c:497 src/shared/libfido2-util.c:554
+msgid "Please confirm presence on security token to unlock."
+msgstr ""
+"Veuillez confirmer votre présence sur la clef de sécurité pour le "
+"déverrouillage."
+
+#: src/shared/libfido2-util.c:513
+msgid "Please verify user on security token to unlock."
+msgstr ""
+"Veuillez confirmer l'utilisateur sur la clef de sécurité pour le "
+"déverrouillage."
+
+#: src/shared/libfido2-util.c:926
+msgid "Please enter security token PIN:"
+msgstr "Veuillez entrer le code PIN de la clef de sécurité:"
+
+#~ msgid "Cleanup old system updates"
+#~ msgstr "Nettoyer les anciennes mises à jour système"
+
+#~ msgid "Authentication is required to cleanup old system updates."
+#~ msgstr ""
+#~ "Une authentification est requise pour nettoyer les anciennes mises à jour "
+#~ "système."
 
 #~ msgid ""
 #~ "Authentication is required to halt the system while an application asked "

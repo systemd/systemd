@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <math.h>
 #include <stdio.h>
 #include <sys/utsname.h>
 #include <unistd.h>
@@ -178,11 +177,11 @@ int terminal_urlify_path(const char *path, const char *text, char **ret) {
         return terminal_urlify(url, text, ret);
 }
 
-int terminal_urlify_man(const char *page, const char *section, char **ret) {
+int terminal_urlify_man_full(const char *page, const char *section, const char *suffix, char **ret) {
         const char *url, *text;
 
         url = strjoina("man:", page, "(", section, ")");
-        text = strjoina(page, "(", section, ") man page");
+        text = strjoina(page, "(", section, ")", suffix);
 
         return terminal_urlify(url, text, ret);
 }
@@ -567,7 +566,10 @@ void draw_progress_bar_unbuffered(const char *prefix, double percentage) {
                  * https://conemu.github.io/en/AnsiEscapeCodes.html#ConEmu_specific_OSC
                  * https://github.com/microsoft/terminal/pull/8055
                  */
-                fprintf(stderr, ANSI_OSC "9;4;1;%u" ANSI_ST, (unsigned) ceil(percentage));
+                unsigned percentage_ceil = (unsigned) percentage;
+                if ((double) percentage_ceil < percentage)
+                        percentage_ceil++;
+                fprintf(stderr, ANSI_OSC "9;4;1;%u" ANSI_ST, percentage_ceil);
 
                 size_t cols = columns();
                 size_t prefix_width = utf8_console_width(prefix) + 1 /* space */;

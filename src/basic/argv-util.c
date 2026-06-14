@@ -29,44 +29,51 @@ void save_argc_argv(int argc, char **argv) {
 }
 
 bool invoked_as(char *argv[], const char *token) {
-        if (!argv || isempty(argv[0]))
+        const char *progname = secure_getenv("SYSTEMD_INVOKED_AS");
+
+        if (!progname && argv)
+                progname = argv[0];
+
+        if (isempty(progname) || isempty(token))
                 return false;
 
-        if (isempty(token))
-                return false;
-
-        return strstr(last_path_component(argv[0]), token);
+        return strstr(last_path_component(progname), token);
 }
 
 bool invoked_by_systemd(void) {
+        static int cached = -1;
         int r;
+
+        if (cached >= 0)
+                return cached;
 
         /* If the process is directly executed by PID1 (e.g. ExecStart= or generator), systemd-importd,
          * or systemd-homed, then $SYSTEMD_EXEC_PID= is set, and read the command line. */
         const char *e = getenv("SYSTEMD_EXEC_PID");
         if (!e)
-                return false;
+                return (cached = false);
 
         if (streq(e, "*"))
                 /* For testing. */
-                return true;
+                return (cached = true);
 
         pid_t p;
         r = parse_pid(e, &p);
         if (r < 0) {
                 /* We know that systemd sets the variable correctly. Something else must have set it. */
                 log_debug_errno(r, "Failed to parse \"SYSTEMD_EXEC_PID=%s\", ignoring: %m", e);
-                return false;
+                return (cached = false);
         }
 
-        return getpid_cached() == p;
+        cached = getpid_cached() == p;
+        return cached;
 }
 
 bool argv_looks_like_help(int argc, char **argv) {
         char **l;
 
         /* Scans the command line for indications the user asks for help. This is supposed to be called by
-         * tools that do not implement getopt() style command line parsing because they are not primarily
+         * tools that do not implement getopt()-style command line parsing because they are not primarily
          * user-facing. Detects four ways of asking for help:
          *
          * 1. Passing zero arguments

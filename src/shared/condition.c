@@ -33,7 +33,9 @@
 #include "fileio.h"
 #include "fs-util.h"
 #include "glob-util.h"
+#include "hmac.h"
 #include "hostname-setup.h"
+#include "hostname-util.h"
 #include "id128-util.h"
 #include "ima-util.h"
 #include "initrd-util.h"
@@ -62,6 +64,7 @@
 #include "tomoyo-util.h"
 #include "tpm2-util.h"
 #include "uid-classification.h"
+#include "unaligned.h"
 #include "user-util.h"
 #include "virt.h"
 
@@ -314,6 +317,37 @@ static int condition_test_osrelease(Condition *c, char **env) {
         return true;
 }
 
+static int condition_test_machine_tag(Condition *c, char **env) {
+        int r;
+
+        assert(c);
+        assert(c->parameter);
+        assert(c->type == CONDITION_MACHINE_TAG);
+
+        _cleanup_free_ char *tags = NULL;
+        r = parse_env_file(
+                        /* f= */ NULL, etc_machine_info(),
+                        "TAGS", &tags);
+        if (r < 0 && r != -ENOENT) {
+                log_debug_errno(r, "Failed to read /etc/machine-info, ignoring: %m");
+                return false;
+        }
+
+        /* Silently ignore invalid tags, matching the Tags D-Bus property */
+        _cleanup_strv_free_ char **l = NULL;
+        r = machine_tags_from_string(tags, /* graceful= */ true, &l);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to parse machine tags '%s', ignoring: %m", tags);
+                return false;
+        }
+
+        STRV_FOREACH(i, l)
+                if (fnmatch(c->parameter, *i, /* flags= */ 0) == 0)
+                        return true;
+
+        return false;
+}
+
 static int condition_test_memory(Condition *c, char **env) {
         CompareOperator operator;
         uint64_t m, k;
@@ -396,8 +430,7 @@ static int condition_test_user(Condition *c, char **env) {
         if (streq(username, c->parameter))
                 return 1;
 
-        const char *u = c->parameter;
-        r = get_user_creds(&u, &id, NULL, NULL, NULL, USER_CREDS_ALLOW_MISSING);
+        r = get_user_creds(c->parameter, USER_CREDS_ALLOW_MISSING, NULL, &id, NULL, NULL, NULL);
         if (r < 0)
                 return 0;
 
@@ -688,6 +721,82 @@ static int condition_test_host(Condition *c, char **env) {
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "fnmatch() failed.");
 
         return true;
+}
+
+static uint32_t condition_fraction_value(sd_id128_t machine_id, const char *text) {
+        /* Maps (machine ID, text) to a value uniformly distributed over [0, UINT32_MAX], via
+         * HMAC-SHA256 keyed by the machine ID over 'text'. The machine ID keys the hash, so each
+         * machine lands at a stable but unpredictable point; 'text' selects the subset, so that
+         * distinct rollouts (different texts) pick independent subsets of a fleet. */
+        assert(text);
+
+        uint8_t res[SHA256_DIGEST_SIZE];
+        hmac_sha256(&machine_id, sizeof(machine_id), text, strlen(text), res);
+
+        return unaligned_read_le32(res);
+}
+
+static int condition_test_fraction(Condition *c, char **env) {
+        int r;
+
+        assert(c);
+        assert(c->parameter);
+        assert(c->type == CONDITION_FRACTION);
+
+        /* Expected syntax: "[TAG ]PERCENT". The percentage is mandatory; the optional leading tag is used as
+         * a hash salt, so that distinct staged rollouts select independent subsets of a fleet. The condition
+         * is true for approximately PERCENT of all machines — on a given machine when its derived value
+         * falls below the threshold. This is useful for staged rollouts: hand the same unit to a whole fleet
+         * and only a fraction of it will be enabled, with each machine deciding locally and stably (no
+         * coordination required). */
+
+        const char *p = c->parameter;
+        _cleanup_free_ char *first = NULL, *second = NULL;
+
+        r = extract_first_word(&p, &first, /* separators=*/ NULL, /* flags= */ 0);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse ConditionFraction=%s: %m", c->parameter);
+        if (r == 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "ConditionFraction= value is empty.");
+
+        r = extract_first_word(&p, &second, /* separators= */ NULL, /* flags= */ 0);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse ConditionFraction=%s: %m", c->parameter);
+
+        const char *tag, *percent;
+        if (r == 0) {
+                /* A single field: it's the percentage, with no tag. */
+                tag = NULL;
+                percent = first;
+        } else if (isempty(p)) {
+                /* Two fields: TAG followed by PERCENT. */
+                tag = first;
+                percent = second;
+        } else
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "ConditionFraction=%s has trailing garbage.", c->parameter);
+
+        int permyriad = parse_permyriad(percent);
+        if (permyriad < 0)
+                return log_debug_errno(permyriad, "Failed to parse percentage in ConditionFraction=%s: %m", c->parameter);
+        if (permyriad == 0)
+                return false;             /* 0% → matches no machine */
+        if (permyriad >= 10000)
+                return true;              /* 100% → matches every machine */
+
+        /* Implicitly prefix the tag with a fixed namespace string, so that an absent or empty tag
+         * still yields a well-defined, non-trivial value (never the HMAC of the empty string), and
+         * so this value space is domain-separated from other uses of the machine ID. */
+        _cleanup_free_ char *text = strjoin("systemd-fraction-", strempty(tag));
+        if (!text)
+                return log_oom_debug();
+
+        sd_id128_t mid;
+        r = sd_id128_get_machine(&mid);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get machine ID for ConditionFraction=: %m");
+
+        return condition_fraction_value(mid, text) < UINT32_SCALE_FROM_PERMYRIAD(permyriad);
 }
 
 static int condition_test_ac_power(Condition *c, char **env) {
@@ -1252,6 +1361,7 @@ int condition_test(Condition *c, char **env) {
                 [CONDITION_SECURITY]                 = condition_test_security,
                 [CONDITION_CAPABILITY]               = condition_test_capability,
                 [CONDITION_HOST]                     = condition_test_host,
+                [CONDITION_FRACTION]                 = condition_test_fraction,
                 [CONDITION_AC_POWER]                 = condition_test_ac_power,
                 [CONDITION_ARCHITECTURE]             = condition_test_architecture,
                 [CONDITION_FIRMWARE]                 = condition_test_firmware,
@@ -1265,6 +1375,7 @@ int condition_test(Condition *c, char **env) {
                 [CONDITION_ENVIRONMENT]              = condition_test_environment,
                 [CONDITION_CPU_FEATURE]              = condition_test_cpufeature,
                 [CONDITION_OS_RELEASE]               = condition_test_osrelease,
+                [CONDITION_MACHINE_TAG]              = condition_test_machine_tag,
                 [CONDITION_MEMORY_PRESSURE]          = condition_test_psi,
                 [CONDITION_CPU_PRESSURE]             = condition_test_psi,
                 [CONDITION_IO_PRESSURE]              = condition_test_psi,
@@ -1364,6 +1475,7 @@ static const char* const _condition_type_table[_CONDITION_TYPE_MAX] = {
         [CONDITION_FIRMWARE]                 = "ConditionFirmware",
         [CONDITION_VIRTUALIZATION]           = "ConditionVirtualization",
         [CONDITION_HOST]                     = "ConditionHost",
+        [CONDITION_FRACTION]                 = "ConditionFraction",
         [CONDITION_KERNEL_COMMAND_LINE]      = "ConditionKernelCommandLine",
         [CONDITION_VERSION]                  = "ConditionVersion",
         [CONDITION_CREDENTIAL]               = "ConditionCredential",
@@ -1391,6 +1503,7 @@ static const char* const _condition_type_table[_CONDITION_TYPE_MAX] = {
         [CONDITION_ENVIRONMENT]              = "ConditionEnvironment",
         [CONDITION_CPU_FEATURE]              = "ConditionCPUFeature",
         [CONDITION_OS_RELEASE]               = "ConditionOSRelease",
+        [CONDITION_MACHINE_TAG]              = "ConditionMachineTag",
         [CONDITION_MEMORY_PRESSURE]          = "ConditionMemoryPressure",
         [CONDITION_CPU_PRESSURE]             = "ConditionCPUPressure",
         [CONDITION_IO_PRESSURE]              = "ConditionIOPressure",
@@ -1420,6 +1533,7 @@ static const char* const _assert_type_table[_CONDITION_TYPE_MAX] = {
         [CONDITION_FIRMWARE]                 = "AssertFirmware",
         [CONDITION_VIRTUALIZATION]           = "AssertVirtualization",
         [CONDITION_HOST]                     = "AssertHost",
+        [CONDITION_FRACTION]                 = "AssertFraction",
         [CONDITION_KERNEL_COMMAND_LINE]      = "AssertKernelCommandLine",
         [CONDITION_VERSION]                  = "AssertVersion",
         [CONDITION_CREDENTIAL]               = "AssertCredential",
@@ -1447,6 +1561,7 @@ static const char* const _assert_type_table[_CONDITION_TYPE_MAX] = {
         [CONDITION_ENVIRONMENT]              = "AssertEnvironment",
         [CONDITION_CPU_FEATURE]              = "AssertCPUFeature",
         [CONDITION_OS_RELEASE]               = "AssertOSRelease",
+        [CONDITION_MACHINE_TAG]              = "AssertMachineTag",
         [CONDITION_MEMORY_PRESSURE]          = "AssertMemoryPressure",
         [CONDITION_CPU_PRESSURE]             = "AssertCPUPressure",
         [CONDITION_IO_PRESSURE]              = "AssertIOPressure",

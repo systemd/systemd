@@ -28,18 +28,30 @@ actions:
 jobs:
 - job: copr_build
   trigger: pull_request
+  # Install gdb into the buildroot so post-failure hooks can pull backtraces from any cores the
+  # %check phase leaves behind.
   targets:
-  - fedora-rawhide-aarch64
-  - fedora-rawhide-i386
-  - fedora-rawhide-ppc64le
-  - fedora-rawhide-s390x
-  - fedora-rawhide-x86_64
+    fedora-rawhide-aarch64:
+      additional_packages:
+        - gdb
+    fedora-rawhide-i386:
+      additional_packages:
+        - gdb
+    fedora-rawhide-ppc64le:
+      additional_packages:
+        - gdb
+    fedora-rawhide-s390x:
+      additional_packages:
+        - gdb
+    fedora-rawhide-x86_64:
+      additional_packages:
+        - gdb
 
 - job: tests
   trigger: pull_request
   fmf_url: https://src.fedoraproject.org/rpms/systemd
   # This is automatically updated by tools/fetch-distro.py --update fedora
-  fmf_ref: 207e2d004468bf79a8bd78182d9b10956edf45c7
+  fmf_ref: 9cb09470c9c5a437f8e9c1e0e449b87de83733eb
   targets:
   - fedora-rawhide-x86_64
   # testing-farm in the Fedora repository is explicitly configured to use testing-farm bare metal runners as

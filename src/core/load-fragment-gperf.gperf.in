@@ -196,7 +196,7 @@
 {% endif %}
 {{type}}.ProtectHostname,                     config_parse_protect_hostname,                      0,                                  offsetof({{type}}, exec_context)
 {{type}}.MemoryKSM,                           config_parse_tristate,                              0,                                  offsetof({{type}}, exec_context.memory_ksm)
-{{type}}.MemoryTHP,                           config_parse_memory_thp,                            0,                                  offsetof({{type}}, exec_context.memory_thp)
+{{type}}.MemoryTHP,                           config_parse_exec_memory_thp,                       0,                                  offsetof({{type}}, exec_context.memory_thp)
 {%- endmacro -%}
 
 {%- macro KILL_CONTEXT_CONFIG_ITEMS(type) -%}
@@ -215,6 +215,7 @@
 {{type}}.StartupAllowedCPUs,                  config_parse_unit_cpu_set,                          0,                                  offsetof({{type}}, cgroup_context.startup_cpuset_cpus)
 {{type}}.AllowedMemoryNodes,                  config_parse_unit_cpu_set,                          0,                                  offsetof({{type}}, cgroup_context.cpuset_mems)
 {{type}}.StartupAllowedMemoryNodes,           config_parse_unit_cpu_set,                          0,                                  offsetof({{type}}, cgroup_context.startup_cpuset_mems)
+{{type}}.CPUSetPartition,                     config_parse_cpuset_partition,                      0,                                  offsetof({{type}}, cgroup_context.cpuset_partition)
 {{type}}.CPUAccounting,                       config_parse_warn_compat,                           DISABLED_LEGACY,                    0
 {{type}}.CPUWeight,                           config_parse_cg_cpu_weight,                         0,                                  offsetof({{type}}, cgroup_context.cpu_weight)
 {{type}}.StartupCPUWeight,                    config_parse_cg_cpu_weight,                         0,                                  offsetof({{type}}, cgroup_context.startup_cpu_weight)
@@ -271,6 +272,7 @@
 {{type}}.ManagedOOMMemoryPressureLimit,       config_parse_managed_oom_mem_pressure_limit,        0,                                  offsetof({{type}}, cgroup_context.moom_mem_pressure_limit)
 {{type}}.ManagedOOMMemoryPressureDurationSec, config_parse_managed_oom_mem_pressure_duration_sec, 0,                                  offsetof({{type}}, cgroup_context.moom_mem_pressure_duration_usec)
 {{type}}.ManagedOOMPreference,                config_parse_managed_oom_preference,                0,                                  offsetof({{type}}, cgroup_context.moom_preference)
+{{type}}.OOMRules,                            config_parse_managed_oom_rules,                     1,                                  offsetof({{type}}, cgroup_context.moom_rules)
 {{type}}.NetClass,                            config_parse_warn_compat,                           DISABLED_LEGACY,                    0
 {{type}}.BPFProgram,                          config_parse_bpf_foreign_program,                   0,                                  offsetof({{type}}, cgroup_context)
 {{type}}.SocketBindAllow,                     config_parse_cgroup_socket_bind,                    0,                                  offsetof({{type}}, cgroup_context.socket_bind_allow)
@@ -380,6 +382,7 @@ Unit.ConditionArchitecture,                   config_parse_unit_condition_string
 Unit.ConditionFirmware,                       config_parse_unit_condition_string,                 CONDITION_FIRMWARE,                 offsetof(Unit, conditions)
 Unit.ConditionVirtualization,                 config_parse_unit_condition_string,                 CONDITION_VIRTUALIZATION,           offsetof(Unit, conditions)
 Unit.ConditionHost,                           config_parse_unit_condition_string,                 CONDITION_HOST,                     offsetof(Unit, conditions)
+Unit.ConditionFraction,                       config_parse_unit_condition_string,                 CONDITION_FRACTION,                 offsetof(Unit, conditions)
 Unit.ConditionKernelCommandLine,              config_parse_unit_condition_string,                 CONDITION_KERNEL_COMMAND_LINE,      offsetof(Unit, conditions)
 Unit.ConditionKernelVersion,                  config_parse_unit_condition_string,                 CONDITION_VERSION,                  offsetof(Unit, conditions)
 Unit.ConditionVersion,                        config_parse_unit_condition_string,                 CONDITION_VERSION,                  offsetof(Unit, conditions)
@@ -395,6 +398,7 @@ Unit.ConditionUser,                           config_parse_unit_condition_string
 Unit.ConditionGroup,                          config_parse_unit_condition_string,                 CONDITION_GROUP,                    offsetof(Unit, conditions)
 Unit.ConditionControlGroupController,         config_parse_unit_condition_string,                 CONDITION_CONTROL_GROUP_CONTROLLER, offsetof(Unit, conditions)
 Unit.ConditionOSRelease,                      config_parse_unit_condition_string,                 CONDITION_OS_RELEASE,               offsetof(Unit, conditions)
+Unit.ConditionMachineTag,                     config_parse_unit_condition_string,                 CONDITION_MACHINE_TAG,              offsetof(Unit, conditions)
 Unit.ConditionMemoryPressure,                 config_parse_unit_condition_string,                 CONDITION_MEMORY_PRESSURE,          offsetof(Unit, conditions)
 Unit.ConditionCPUPressure,                    config_parse_unit_condition_string,                 CONDITION_CPU_PRESSURE,             offsetof(Unit, conditions)
 Unit.ConditionIOPressure,                     config_parse_unit_condition_string,                 CONDITION_IO_PRESSURE,              offsetof(Unit, conditions)
@@ -415,6 +419,7 @@ Unit.AssertFirstBoot,                         config_parse_unit_condition_string
 Unit.AssertArchitecture,                      config_parse_unit_condition_string,                 CONDITION_ARCHITECTURE,             offsetof(Unit, asserts)
 Unit.AssertVirtualization,                    config_parse_unit_condition_string,                 CONDITION_VIRTUALIZATION,           offsetof(Unit, asserts)
 Unit.AssertHost,                              config_parse_unit_condition_string,                 CONDITION_HOST,                     offsetof(Unit, asserts)
+Unit.AssertFraction,                          config_parse_unit_condition_string,                 CONDITION_FRACTION,                 offsetof(Unit, asserts)
 Unit.AssertKernelCommandLine,                 config_parse_unit_condition_string,                 CONDITION_KERNEL_COMMAND_LINE,      offsetof(Unit, asserts)
 Unit.AssertKernelVersion,                     config_parse_unit_condition_string,                 CONDITION_VERSION,                  offsetof(Unit, asserts)
 Unit.AssertVersion,                           config_parse_unit_condition_string,                 CONDITION_VERSION,                  offsetof(Unit, asserts)
@@ -430,6 +435,7 @@ Unit.AssertUser,                              config_parse_unit_condition_string
 Unit.AssertGroup,                             config_parse_unit_condition_string,                 CONDITION_GROUP,                    offsetof(Unit, asserts)
 Unit.AssertControlGroupController,            config_parse_unit_condition_string,                 CONDITION_CONTROL_GROUP_CONTROLLER, offsetof(Unit, asserts)
 Unit.AssertOSRelease,                         config_parse_unit_condition_string,                 CONDITION_OS_RELEASE,               offsetof(Unit, asserts)
+Unit.AssertMachineTag,                        config_parse_unit_condition_string,                 CONDITION_MACHINE_TAG,              offsetof(Unit, asserts)
 Unit.AssertMemoryPressure,                    config_parse_unit_condition_string,                 CONDITION_MEMORY_PRESSURE,          offsetof(Unit, asserts)
 Unit.AssertCPUPressure,                       config_parse_unit_condition_string,                 CONDITION_CPU_PRESSURE,             offsetof(Unit, asserts)
 Unit.AssertIOPressure,                        config_parse_unit_condition_string,                 CONDITION_IO_PRESSURE,              offsetof(Unit, asserts)

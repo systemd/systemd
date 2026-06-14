@@ -15,6 +15,7 @@
 #include <unistd.h>
 
 #include "devnum-util.h"
+#include "fd-util.h"
 #include "hexdecoct.h"
 #include "log.h"
 #include "random-util.h"
@@ -762,30 +763,23 @@ static int do_scsi_page80_inquiry(struct scsi_id_device *dev_scsi, int fd,
 }
 
 int scsi_std_inquiry(struct scsi_id_device *dev_scsi, const char *devname) {
-        int fd;
-        unsigned char buf[SCSI_INQ_BUFF_LEN];
+        unsigned char buf[SCSI_INQ_BUFF_LEN] = {};
         struct stat statbuf;
-        int err = 0;
+        int r;
 
-        fd = open(devname, O_RDONLY | O_NONBLOCK | O_CLOEXEC | O_NOCTTY);
-        if (fd < 0) {
-                log_debug_errno(errno, "scsi_id: cannot open %s: %m", devname);
-                return 1;
-        }
+        _cleanup_close_ int fd = open(devname, O_RDONLY | O_NONBLOCK | O_CLOEXEC | O_NOCTTY);
+        if (fd < 0)
+                return log_debug_errno(errno, "scsi_id: cannot open %s: %m", devname);
 
-        if (fstat(fd, &statbuf) < 0) {
-                log_debug_errno(errno, "scsi_id: cannot stat %s: %m", devname);
-                err = 2;
-                goto out;
-        }
+        if (fstat(fd, &statbuf) < 0)
+                return log_debug_errno(errno, "scsi_id: cannot stat %s: %m", devname);
+
         format_devnum(statbuf.st_rdev, dev_scsi->kernel);
 
-        memzero(buf, SCSI_INQ_BUFF_LEN);
-        err = scsi_inquiry(dev_scsi, fd, 0, 0, buf, SCSI_INQ_BUFF_LEN);
-        if (err < 0)
-                goto out;
+        r = scsi_inquiry(dev_scsi, fd, 0, 0, buf, SCSI_INQ_BUFF_LEN);
+        if (r < 0)
+                return r;
 
-        err = 0;
         memcpy(dev_scsi->vendor, buf + 8, 8);
         dev_scsi->vendor[8] = '\0';
         memcpy(dev_scsi->model, buf + 16, 16);
@@ -793,10 +787,7 @@ int scsi_std_inquiry(struct scsi_id_device *dev_scsi, const char *devname) {
         memcpy(dev_scsi->revision, buf + 32, 4);
         dev_scsi->revision[4] = '\0';
         dev_scsi->type = buf[0] & 0x1f;
-
-out:
-        close(fd);
-        return err;
+        return 0;
 }
 
 int scsi_get_serial(struct scsi_id_device *dev_scsi, const char *devname,

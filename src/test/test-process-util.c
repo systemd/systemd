@@ -1136,6 +1136,21 @@ TEST(getenv_for_pid) {
         }
 }
 
+TEST(invoked_as) {
+        ASSERT_FALSE(invoked_as(NULL, "foobar"));
+        ASSERT_FALSE(invoked_as(NULL, "barbar"));
+
+        ASSERT_EQ(setenv("SYSTEMD_INVOKED_AS", "/usr/bin/foobar", 1), 0);
+
+        ASSERT_TRUE(invoked_as(NULL, "foobar"));
+        ASSERT_FALSE(invoked_as(NULL, "barbar"));
+        ASSERT_TRUE(invoked_as(NULL, "foo"));
+        ASSERT_TRUE(invoked_as(STRV_MAKE("barbar", "barbar", "y"), "foobar"));
+        ASSERT_FALSE(invoked_as(STRV_MAKE("barbar", "barbar", "y"), "barbar"));
+
+        ASSERT_EQ(unsetenv("SYSTEMD_INVOKED_AS"), 0);
+}
+
 static int intro(void) {
         log_show_color(true);
         return EXIT_SUCCESS;

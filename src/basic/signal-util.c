@@ -223,6 +223,154 @@ int signal_from_string(const char *s) {
         return -EINVAL;
 }
 
+static const char *const sigill_code_table[] = {
+        [ILL_ILLOPC]   = "ILL_ILLOPC",
+        [ILL_ILLOPN]   = "ILL_ILLOPN",
+        [ILL_ILLADR]   = "ILL_ILLADR",
+        [ILL_ILLTRP]   = "ILL_ILLTRP",
+        [ILL_PRVOPC]   = "ILL_PRVOPC",
+        [ILL_PRVREG]   = "ILL_PRVREG",
+        [ILL_COPROC]   = "ILL_COPROC",
+        [ILL_BADSTK]   = "ILL_BADSTK",
+        [ILL_BADIADDR] = "ILL_BADIADDR",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(sigill_code, int);
+
+static const char *const sigfpe_code_table[] = {
+        [FPE_INTDIV]   = "FPE_INTDIV",
+        [FPE_INTOVF]   = "FPE_INTOVF",
+        [FPE_FLTDIV]   = "FPE_FLTDIV",
+        [FPE_FLTOVF]   = "FPE_FLTOVF",
+        [FPE_FLTUND]   = "FPE_FLTUND",
+        [FPE_FLTRES]   = "FPE_FLTRES",
+        [FPE_FLTINV]   = "FPE_FLTINV",
+        [FPE_FLTSUB]   = "FPE_FLTSUB",
+        [FPE_FLTUNK]   = "FPE_FLTUNK",
+        [FPE_CONDTRAP] = "FPE_CONDTRAP",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(sigfpe_code, int);
+
+static const char *const sigsegv_code_table[] = {
+        [SEGV_MAPERR]  = "SEGV_MAPERR",
+        [SEGV_ACCERR]  = "SEGV_ACCERR",
+        [SEGV_BNDERR]  = "SEGV_BNDERR",
+        [SEGV_PKUERR]  = "SEGV_PKUERR",
+        [SEGV_ACCADI]  = "SEGV_ACCADI",
+        [SEGV_ADIDERR] = "SEGV_ADIDERR",
+        [SEGV_ADIPERR] = "SEGV_ADIPERR",
+        [SEGV_MTEAERR] = "SEGV_MTEAERR",
+        [SEGV_MTESERR] = "SEGV_MTESERR",
+        [SEGV_CPERR]   = "SEGV_CPERR",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(sigsegv_code, int);
+
+static const char *const sigbus_code_table[] = {
+        [BUS_ADRALN]    = "BUS_ADRALN",
+        [BUS_ADRERR]    = "BUS_ADRERR",
+        [BUS_OBJERR]    = "BUS_OBJERR",
+        [BUS_MCEERR_AR] = "BUS_MCEERR_AR",
+        [BUS_MCEERR_AO] = "BUS_MCEERR_AO",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(sigbus_code, int);
+
+static const char *const sigtrap_code_table[] = {
+        [TRAP_BRKPT]  = "TRAP_BRKPT",
+        [TRAP_TRACE]  = "TRAP_TRACE",
+        [TRAP_BRANCH] = "TRAP_BRANCH",
+        [TRAP_HWBKPT] = "TRAP_HWBKPT",
+        [TRAP_UNK]    = "TRAP_UNK",
+        [TRAP_PERF]   = "TRAP_PERF",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(sigtrap_code, int);
+
+static const char *const sigsys_code_table[] = {
+        [SYS_SECCOMP]       = "SYS_SECCOMP",
+        [SYS_USER_DISPATCH] = "SYS_USER_DISPATCH",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(sigsys_code, int);
+
+/* sigchld_code_table is already defined in src/basic/process-util.c with
+ * decoded, lower-case values (CLD_EXITED -> "exited"). For consistency with
+ * all other values decoded here, provide an uppercase variant. */
+static const char *const sigchld_uppercase_code_table[] = {
+        [CLD_EXITED]    = "CLD_EXITED",
+        [CLD_KILLED]    = "CLD_KILLED",
+        [CLD_DUMPED]    = "CLD_DUMPED",
+        [CLD_TRAPPED]   = "CLD_TRAPPED",
+        [CLD_STOPPED]   = "CLD_STOPPED",
+        [CLD_CONTINUED] = "CLD_CONTINUED",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(sigchld_uppercase_code, int);
+
+static const char *const sigpoll_code_table[] = {
+        [POLL_IN]  = "POLL_IN",
+        [POLL_OUT] = "POLL_OUT",
+        [POLL_MSG] = "POLL_MSG",
+        [POLL_ERR] = "POLL_ERR",
+        [POLL_PRI] = "POLL_PRI",
+        [POLL_HUP] = "POLL_HUP",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(sigpoll_code, int);
+
+const char* signal_code_to_string(int signo, int code) {
+        switch (code) {
+        /* SI_KERNEL is 0x80 (128). Defining a table just for SI_KERNEL and
+         * SI_USER would be a waste of .rodata space: special case them instead. */
+        case SI_KERNEL:
+                return "SI_KERNEL";
+        case SI_USER:
+                return "SI_USER";
+        /* The following values are all negatives. SI_ASYNCNL is -60. Similarly
+         * to the special case for SI_KERNEL above, avoid using a table for negative
+         * values as well. */
+        case SI_ASYNCNL:
+                return "SI_ASYNCNL";
+        case SI_DETHREAD:
+                return "SI_DETHREAD";
+        case SI_TKILL:
+                return "SI_TKILL";
+        case SI_SIGIO:
+                return "SI_SIGIO";
+        case SI_ASYNCIO:
+                return "SI_ASYNCIO";
+        case SI_MESGQ:
+                return "SI_MESGQ";
+        case SI_TIMER:
+                return "SI_TIMER";
+        case SI_QUEUE:
+                return "SI_QUEUE";
+        }
+
+        switch (signo) {
+        case SIGILL:
+                return sigill_code_to_string(code);
+        case SIGFPE:
+                return sigfpe_code_to_string(code);
+        case SIGSEGV:
+                return sigsegv_code_to_string(code);
+        case SIGBUS:
+                return sigbus_code_to_string(code);
+        case SIGTRAP:
+                return sigtrap_code_to_string(code);
+        case SIGCHLD:
+                return sigchld_uppercase_code_to_string(code);
+        case SIGPOLL:
+                return sigpoll_code_to_string(code);
+        case SIGSYS:
+                return sigsys_code_to_string(code);
+        default:
+                return NULL;
+        }
+}
+
 void nop_signal_handler(int sig) {
         /* nothing here */
 }

@@ -1,8 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <linux/magic.h>
+#include <linux/nsfs.h>
+#include <sys/ioctl.h>
 #include <unistd.h>
 
+#include "sd-daemon.h"
 #include "sd-json.h"
 #include "sd-netlink.h"
 
@@ -23,6 +26,7 @@
 #include "uid-classification.h"
 #include "user-util.h"
 #include "userns-registry.h"
+#include "userns-restrict.h"
 
 int userns_registry_open_fd(void) {
         int fd;
@@ -239,6 +243,7 @@ static int userns_registry_load(int dir_fd, const char *fn, UserNamespaceInfo **
                 { "owner",     SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uid_gid,  offsetof(UserNamespaceInfo, owner),        SD_JSON_MANDATORY },
                 { "name",      SD_JSON_VARIANT_STRING,   sd_json_dispatch_string,   offsetof(UserNamespaceInfo, name),         SD_JSON_MANDATORY },
                 { "userns",    SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint64,   offsetof(UserNamespaceInfo, userns_inode), SD_JSON_MANDATORY },
+                { "usernsId",  SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint64,   offsetof(UserNamespaceInfo, userns_id),    0                 },
                 { "size",      SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint32,   offsetof(UserNamespaceInfo, size),         0                 },
                 { "start",     SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uid_gid,  offsetof(UserNamespaceInfo, start_uid),    0                 },
                 { "target",    SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uid_gid,  offsetof(UserNamespaceInfo, target_uid),   0                 },
@@ -367,23 +372,6 @@ int userns_registry_name_exists(int dir_fd, const char *name) {
         return true;
 }
 
-int userns_registry_inode_exists(int dir_fd, uint64_t inode) {
-        _cleanup_free_ char *fn = NULL;
-
-        assert(dir_fd >= 0);
-
-        if (inode <= 0)
-                return -EINVAL;
-
-        if (asprintf(&fn, "i%" PRIu64 ".userns", inode) < 0)
-                return -ENOMEM;
-
-        if (faccessat(dir_fd, fn, F_OK, AT_SYMLINK_NOFOLLOW) < 0)
-                return errno == ENOENT ? false : -errno;
-
-        return true;
-}
-
 int userns_registry_load_by_start_uid(int dir_fd, uid_t start, UserNamespaceInfo **ret) {
         _cleanup_(userns_info_freep) UserNamespaceInfo *userns_info = NULL;
         _cleanup_close_ int registry_fd = -EBADF;
@@ -483,6 +471,97 @@ int userns_registry_load_by_userns_inode(int dir_fd, uint64_t inode, UserNamespa
         return 0;
 }
 
+static void release_userns_inode_resources(struct userns_restrict_bpf *bpf, uint64_t inode) {
+        int r;
+
+        assert(inode != 0);
+
+        if (bpf) {
+                r = userns_restrict_reset_by_inode(bpf, inode);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to remove namespace inode from BPF map, ignoring: %m");
+        }
+
+        r = sd_notifyf(/* unset_environment= */ false,
+                       "FDSTOREREMOVE=1\n"
+                       "FDNAME=userns-%" PRIu64 "\n", inode);
+        if (r < 0)
+                log_warning_errno(r, "Failed to send fd store removal message, ignoring: %m");
+}
+
+void userns_registry_release_by_info(struct userns_restrict_bpf *bpf, int dir_fd, UserNamespaceInfo *info) {
+        int r;
+
+        assert(dir_fd >= 0);
+        assert(info);
+        assert(info->userns_inode != 0);
+
+        if (DEBUG_LOGGING) {
+                if (uid_is_valid(info->start_uid))
+                        log_debug("Removing user namespace mapping %" PRIu64 " for UID " UID_FMT ".", info->userns_inode, info->start_uid);
+                else
+                        log_debug("Removing user namespace mapping %" PRIu64 ".", info->userns_inode);
+        }
+
+        release_userns_inode_resources(bpf, info->userns_inode);
+
+        r = userns_info_remove_cgroups(info);
+        if (r < 0)
+                log_warning_errno(r, "Failed to remove cgroups of user namespace, ignoring: %m");
+
+        r = userns_info_remove_netifs(info);
+        if (r < 0)
+                log_warning_errno(r, "Failed to remove netifs of user namespace, ignoring: %m");
+
+        r = userns_registry_remove(dir_fd, info);
+        if (r < 0)
+                log_warning_errno(r, "Failed to remove user namespace '%s', ignoring.", info->name);
+}
+
+void userns_registry_release_by_userns_inode(struct userns_restrict_bpf *bpf, int dir_fd, uint64_t inode) {
+        _cleanup_(userns_info_freep) UserNamespaceInfo *userns_info = NULL;
+        int r;
+
+        assert(dir_fd >= 0);
+        assert(inode != 0);
+
+        r = userns_registry_load_by_userns_inode(dir_fd, inode, &userns_info);
+        if (r >= 0)
+                return userns_registry_release_by_info(bpf, dir_fd, userns_info);
+
+        log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r,
+                       "Failed to find userns for inode %" PRIu64 ", ignoring: %m", inode);
+        log_debug("Removing user namespace mapping %" PRIu64 ".", inode);
+
+        /* No registry entry — still clean up the inode-keyed kernel resources (BPF map allowlist and
+         * fdstore fd), which can outlive a missing registry record. */
+        release_userns_inode_resources(bpf, inode);
+}
+
+int userns_info_verify_fd(int userns_fd, const UserNamespaceInfo *info) {
+        uint64_t live_id;
+
+        assert(userns_fd >= 0);
+        assert(info);
+
+        /* Verifies that userns_fd refers to the same user namespace described by info, distinguishing a
+         * live namespace from a different one that happens to have inherited the same inode after the
+         * original was destroyed. Returns 0 on match (also when the check cannot be performed because
+         * the stored or live id is unavailable on older kernels), -ESTALE on mismatch, or another
+         * negative errno on unexpected failure. */
+
+        if (info->userns_id == 0)
+                return 0;
+
+        if (ioctl(userns_fd, NS_GET_ID, &live_id) < 0) {
+                if (ERRNO_IS_IOCTL_NOT_SUPPORTED(errno))
+                        return 0;
+                return -errno;
+        }
+
+        return live_id == info->userns_id ? 0 : -ESTALE;
+}
+
 int userns_registry_load_by_name(int dir_fd, const char *name, UserNamespaceInfo **ret) {
         _cleanup_(userns_info_freep) UserNamespaceInfo *userns_info = NULL;
         _cleanup_close_ int registry_fd = -EBADF;
@@ -565,6 +644,7 @@ int userns_registry_store(int dir_fd, UserNamespaceInfo *info) {
                         SD_JSON_BUILD_PAIR_UNSIGNED("owner", info->owner),
                         SD_JSON_BUILD_PAIR_STRING("name", info->name),
                         SD_JSON_BUILD_PAIR_UNSIGNED("userns", info->userns_inode),
+                        SD_JSON_BUILD_PAIR_CONDITION(info->userns_id != 0, "usernsId", SD_JSON_BUILD_UNSIGNED(info->userns_id)),
                         SD_JSON_BUILD_PAIR_CONDITION(info->size > 0, "size", SD_JSON_BUILD_UNSIGNED(info->size)),
                         SD_JSON_BUILD_PAIR_CONDITION(uid_is_valid(info->start_uid), "start", SD_JSON_BUILD_UNSIGNED(info->start_uid)),
                         SD_JSON_BUILD_PAIR_CONDITION(uid_is_valid(info->target_uid), "target", SD_JSON_BUILD_UNSIGNED(info->target_uid)),
@@ -838,8 +918,10 @@ int userns_registry_remove(int dir_fd, UserNamespaceInfo *info) {
                         continue;
                 }
 
-                _cleanup_free_ char *delegate_uid_fn = NULL;
+                _cleanup_free_ char *delegate_uid_fn = NULL, *delegate_gid_fn = NULL;
                 if (asprintf(&delegate_uid_fn, "u" UID_FMT ".delegate", delegate->start_uid) < 0)
+                        return log_oom_debug();
+                if (asprintf(&delegate_gid_fn, "g" GID_FMT ".delegate", delegate->start_gid) < 0)
                         return log_oom_debug();
 
                 if (existing.n_ancestor_userns > 0) {
@@ -876,10 +958,18 @@ int userns_registry_remove(int dir_fd, UserNamespaceInfo *info) {
                                 return log_debug_errno(r, "Failed to format delegation JSON object: %m");
 
                         r = write_string_file_at(dir_fd, delegate_uid_fn, delegate_buf, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC);
-                        if (r < 0)
+                        if (r < 0) {
                                 RET_GATHER(ret, log_debug_errno(r, "Failed to write restored delegation data to '%s' in registry: %m", delegate_uid_fn));
+                                continue;
+                        }
 
-                        /* GID link already points to the UID file, no need to update it */
+                        /* The atomic write above replaced the UID file with a new inode, so the
+                         * hardlink to the GID file is now broken. Re-create it to keep the two in
+                         * sync. */
+                        r = linkat_replace(dir_fd, delegate_uid_fn, dir_fd, delegate_gid_fn);
+                        if (r < 0)
+                                RET_GATHER(ret, log_debug_errno(r, "Failed to re-link '%s' to '%s' in registry: %m", delegate_uid_fn, delegate_gid_fn));
+
                         continue;
                 }
 
@@ -890,10 +980,6 @@ int userns_registry_remove(int dir_fd, UserNamespaceInfo *info) {
                 r = RET_NERRNO(unlinkat(dir_fd, delegate_uid_fn, 0));
                 if (r < 0)
                         RET_GATHER(ret, log_debug_errno(r, "Failed to remove %s: %m", delegate_uid_fn));
-
-                _cleanup_free_ char *delegate_gid_fn = NULL;
-                if (asprintf(&delegate_gid_fn, "g" GID_FMT ".delegate", delegate->start_gid) < 0)
-                        return log_oom_debug();
 
                 r = RET_NERRNO(unlinkat(dir_fd, delegate_gid_fn, 0));
                 if (r < 0)

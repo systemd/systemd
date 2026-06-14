@@ -17,6 +17,7 @@ interesting generators.
 import os
 import pathlib
 
+
 def rearrange_bin_sbin(path):
     """Make sure any pair of …/bin, …/sbin directories is in this order
 
@@ -27,15 +28,16 @@ def rearrange_bin_sbin(path):
     for i in range(len(items)):
         if 'sbin' in items[i].parts:
             ind = items[i].parts.index('sbin')
-            bin = pathlib.Path(*items[i].parts[:ind], 'bin', *items[i].parts[ind+1:])
-            if bin in items[i+1:]:
-                j = i + 1 + items[i+1:].index(bin)
+            bin = pathlib.Path(*items[i].parts[:ind], 'bin', *items[i].parts[ind + 1 :])
+            if bin in items[i + 1 :]:
+                j = i + 1 + items[i + 1 :].index(bin)
                 items[i], items[j] = items[j], items[i]
     return ':'.join(p.as_posix() for p in items)
 
+
 if __name__ == '__main__':
-    path = os.environ['PATH'] # This should be always set.
-                              # If it is not, we will just crash, which is OK too.
+    # This should be always set. If it is not, we will just crash, which is OK too.
+    path = os.environ['PATH']
     new = rearrange_bin_sbin(path)
     if new != path:
-        print('PATH={}'.format(new))
+        print(f'PATH={new}')

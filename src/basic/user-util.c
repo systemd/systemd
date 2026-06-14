@@ -204,67 +204,97 @@ const char* default_root_shell(const char *root) {
         return default_root_shell_at(rfd);
 }
 
-static int synthesize_user_creds(
-                const char **username,
+static int return_user_creds(
+                const char *username,
+                uid_t uid, gid_t gid,
+                const char *home,
+                const char *shell,
+                char **ret_username,
                 uid_t *ret_uid, gid_t *ret_gid,
-                const char **ret_home,
-                const char **ret_shell,
-                UserCredsFlags flags) {
+                char **ret_home,
+                char **ret_shell) {
+        /* Helper function to help with the strdups and atomic setting of return params. */
 
+        _cleanup_free_ char *s1 = NULL, *s2 = NULL, *s3 = NULL;
+        int r;
+
+        if (ret_username) {
+                r = strdup_to(&s1, username);
+                if (r < 0)
+                        return r;
+        }
+
+        if (ret_home) {
+                r = strdup_to(&s2, home);
+                if (r < 0)
+                        return r;
+        }
+
+        if (ret_shell) {
+                r = strdup_to(&s3, shell);
+                if (r < 0)
+                        return r;
+        }
+
+        if (ret_username)
+                *ret_username = TAKE_PTR(s1);
+        if (ret_uid)
+                *ret_uid = uid;
+        if (ret_gid)
+                *ret_gid = gid;
+        if (ret_home)
+                *ret_home = TAKE_PTR(s2);
+        if (ret_shell)
+                *ret_shell = TAKE_PTR(s3);
+        return 0;
+}
+
+static int synthesize_user_creds(
+                const char *username,
+                UserCredsFlags flags,
+                char **ret_username,
+                uid_t *ret_uid, gid_t *ret_gid,
+                char **ret_home,
+                char **ret_shell) {
         assert(username);
-        assert(*username);
 
-        /* We enforce some special rules for uid=0 and uid=65534: in order to avoid NSS lookups for root we hardcode
-         * their user record data. */
+        /* We enforce some special rules for uid=0 and uid=65534: in order to avoid nss lookups for root we
+         * hardcode their user record data. */
+        if (STR_IN_SET(username, "root", "0"))
+                return return_user_creds("root", 0, 0,
+                                         "/root",
+                                         ret_shell ? default_root_shell(NULL) : NULL,
+                                         ret_username,
+                                         ret_uid, ret_gid,
+                                         ret_home,
+                                         ret_shell);
 
-        if (STR_IN_SET(*username, "root", "0")) {
-                *username = "root";
-
-                if (ret_uid)
-                        *ret_uid = 0;
-                if (ret_gid)
-                        *ret_gid = 0;
-                if (ret_home)
-                        *ret_home = "/root";
-                if (ret_shell)
-                        *ret_shell = default_root_shell(NULL);
-
-                return 0;
-        }
-
-        if (STR_IN_SET(*username, NOBODY_USER_NAME, "65534") &&
-            synthesize_nobody()) {
-                *username = NOBODY_USER_NAME;
-
-                if (ret_uid)
-                        *ret_uid = UID_NOBODY;
-                if (ret_gid)
-                        *ret_gid = GID_NOBODY;
-                if (ret_home)
-                        *ret_home = FLAGS_SET(flags, USER_CREDS_SUPPRESS_PLACEHOLDER) ? NULL : "/";
-                if (ret_shell)
-                        *ret_shell = FLAGS_SET(flags, USER_CREDS_SUPPRESS_PLACEHOLDER) ? NULL : NOLOGIN;
-
-                return 0;
-        }
+        if (STR_IN_SET(username, NOBODY_USER_NAME, "65534") &&
+            synthesize_nobody())
+                return return_user_creds(NOBODY_USER_NAME, UID_NOBODY, GID_NOBODY,
+                                         FLAGS_SET(flags, USER_CREDS_SUPPRESS_PLACEHOLDER) ? NULL : "/",
+                                         FLAGS_SET(flags, USER_CREDS_SUPPRESS_PLACEHOLDER) ? NULL : NOLOGIN,
+                                         ret_username,
+                                         ret_uid, ret_gid,
+                                         ret_home,
+                                         ret_shell);
 
         return -ENOMEDIUM;
 }
 
 int get_user_creds(
-                const char **username,
+                const char *username,
+                UserCredsFlags flags,
+                char **ret_username,
                 uid_t *ret_uid, gid_t *ret_gid,
-                const char **ret_home,
-                const char **ret_shell,
-                UserCredsFlags flags) {
+                char **ret_home,
+                char **ret_shell) {
 
-        bool patch_username = false;
         uid_t u = UID_INVALID;
-        struct passwd *p;
+        _cleanup_free_ struct passwd *pw = NULL;
         int r;
 
         assert(username);
-        assert(*username);
         assert((ret_home || ret_shell) || !(flags & (USER_CREDS_SUPPRESS_PLACEHOLDER|USER_CREDS_CLEAN)));
 
         if (!FLAGS_SET(flags, USER_CREDS_PREFER_NSS) ||
@@ -279,164 +309,134 @@ int get_user_creds(
                  * of the relevant users, but changing the UID/GID mappings for them is something we explicitly don't
                  * support. */
 
-                r = synthesize_user_creds(username, ret_uid, ret_gid, ret_home, ret_shell, flags);
+                r = synthesize_user_creds(username, flags, ret_username, ret_uid, ret_gid, ret_home, ret_shell);
                 if (r >= 0)
                         return 0;
                 if (r != -ENOMEDIUM) /* not a username we can synthesize */
                         return r;
         }
 
-        if (parse_uid(*username, &u) >= 0) {
-                errno = 0;
-                p = getpwuid(u);
+        if (parse_uid(username, &u) >= 0) {
+                r = getpwuid_malloc(u, &pw);
 
                 /* If there are multiple users with the same id, make sure to leave $USER to the configured value
                  * instead of the first occurrence in the database. However if the uid was configured by a numeric uid,
                  * then let's pick the real username from /etc/passwd. */
-                if (p)
-                        patch_username = true;
-                else if (FLAGS_SET(flags, USER_CREDS_ALLOW_MISSING) && !ret_gid && !ret_home && !ret_shell) {
+                if (r >= 0)
+                        username = pw->pw_name;
 
+                else if (FLAGS_SET(flags, USER_CREDS_ALLOW_MISSING) && !ret_gid && !ret_home && !ret_shell) {
                         /* If the specified user is a numeric UID and it isn't in the user database, and the caller
                          * passed USER_CREDS_ALLOW_MISSING and was only interested in the UID, then just return that
                          * and don't complain. */
-
+                        if (ret_username)
+                                *ret_username = NULL;
                         if (ret_uid)
                                 *ret_uid = u;
-
                         return 0;
                 }
-        } else {
-                errno = 0;
-                p = getpwnam(*username);
-        }
-        if (!p) {
-                /* getpwnam() may fail with ENOENT if /etc/passwd is missing.
-                 * For us that is equivalent to the name not being defined. */
-                r = IN_SET(errno, 0, ENOENT) ? -ESRCH : -errno;
+        } else
+                r = getpwnam_malloc(username, &pw);
 
+        if (r < 0) {
                 /* If the user requested that we only synthesize as fallback, do so now */
-                if (FLAGS_SET(flags, USER_CREDS_PREFER_NSS))
-                        if (synthesize_user_creds(username, ret_uid, ret_gid, ret_home, ret_shell, flags) >= 0)
-                                return 0;
+                if (FLAGS_SET(flags, USER_CREDS_PREFER_NSS) &&
+                    synthesize_user_creds(username, flags, ret_username, ret_uid, ret_gid, ret_home, ret_shell) >= 0)
+                        return 0;
 
                 return r;
         }
 
-        if (ret_uid && !uid_is_valid(p->pw_uid))
+        if (ret_uid && !uid_is_valid(pw->pw_uid))
                 return -EBADMSG;
 
-        if (ret_gid && !gid_is_valid(p->pw_gid))
+        if (ret_gid && !gid_is_valid(pw->pw_gid))
                 return -EBADMSG;
 
-        if (ret_uid)
-                *ret_uid = p->pw_uid;
+        /* Note: we don't insist on normalized paths, since there are setups that have /./ in the path */
+        const char *h =
+                (FLAGS_SET(flags, USER_CREDS_SUPPRESS_PLACEHOLDER) && empty_or_root(pw->pw_dir)) ||
+                (FLAGS_SET(flags, USER_CREDS_CLEAN) && (!path_is_valid(pw->pw_dir) || !path_is_absolute(pw->pw_dir)))
+                ? NULL : pw->pw_dir;
 
+        const char *s =
+                (FLAGS_SET(flags, USER_CREDS_SUPPRESS_PLACEHOLDER) && shell_is_placeholder(pw->pw_shell)) ||
+                (FLAGS_SET(flags, USER_CREDS_CLEAN) && (!path_is_valid(pw->pw_shell) || !path_is_absolute(pw->pw_shell)))
+                ? NULL : pw->pw_shell;
+
+        return return_user_creds(username, pw->pw_uid, pw->pw_gid, h, s,
+                                 ret_username, ret_uid, ret_gid, ret_home, ret_shell);
+}
+
+static int synthesize_group_creds(const char *groupname, char **ret_name, gid_t *ret_gid) {
+        assert(groupname);
+
+        gid_t id;
+        const char *n;
+        int r;
+
+        if (STR_IN_SET(groupname, "root", "0")) {
+                id = 0;
+                n = "root";
+        } else if (STR_IN_SET(groupname, NOBODY_GROUP_NAME, "65534") &&
+                   synthesize_nobody()) {
+                id = GID_NOBODY;
+                n = NOBODY_GROUP_NAME;
+        } else
+                return -ENOMEDIUM;
+
+        r = strdup_to_full(ret_name, n);
+        if (r < 0)
+                return r;
         if (ret_gid)
-                *ret_gid = p->pw_gid;
-
-        if (ret_home)
-                /* Note: we don't insist on normalized paths, since there are setups that have /./ in the path */
-                *ret_home = (FLAGS_SET(flags, USER_CREDS_SUPPRESS_PLACEHOLDER) && empty_or_root(p->pw_dir)) ||
-                            (FLAGS_SET(flags, USER_CREDS_CLEAN) && (!path_is_valid(p->pw_dir) || !path_is_absolute(p->pw_dir)))
-                            ? NULL : p->pw_dir;
-
-        if (ret_shell)
-                *ret_shell = (FLAGS_SET(flags, USER_CREDS_SUPPRESS_PLACEHOLDER) && shell_is_placeholder(p->pw_shell)) ||
-                             (FLAGS_SET(flags, USER_CREDS_CLEAN) && (!path_is_valid(p->pw_shell) || !path_is_absolute(p->pw_shell)))
-                             ? NULL : p->pw_shell;
-
-        if (patch_username)
-                *username = p->pw_name;
-
+                *ret_gid = id;
         return 0;
 }
 
-static int synthesize_group_creds(
-                const char **groupname,
-                gid_t *ret_gid) {
-
-        assert(groupname);
-        assert(*groupname);
-
-        if (STR_IN_SET(*groupname, "root", "0")) {
-                *groupname = "root";
-
-                if (ret_gid)
-                        *ret_gid = 0;
-
-                return 0;
-        }
-
-        if (STR_IN_SET(*groupname, NOBODY_GROUP_NAME, "65534") &&
-            synthesize_nobody()) {
-                *groupname = NOBODY_GROUP_NAME;
-
-                if (ret_gid)
-                        *ret_gid = GID_NOBODY;
-
-                return 0;
-        }
-
-        return -ENOMEDIUM;
-}
-
-int get_group_creds(const char **groupname, gid_t *ret_gid, UserCredsFlags flags) {
-        bool patch_groupname = false;
-        struct group *g;
+int get_group_creds(const char *groupname, UserCredsFlags flags, char **ret_name, gid_t *ret_gid) {
+        _cleanup_free_ struct group *gr = NULL;
         gid_t id;
         int r;
 
         assert(groupname);
-        assert(*groupname);
 
         if (!FLAGS_SET(flags, USER_CREDS_PREFER_NSS)) {
-                r = synthesize_group_creds(groupname, ret_gid);
+                r = synthesize_group_creds(groupname, ret_name, ret_gid);
                 if (r >= 0)
                         return 0;
                 if (r != -ENOMEDIUM) /* not a groupname we can synthesize */
                         return r;
         }
 
-        if (parse_gid(*groupname, &id) >= 0) {
-                errno = 0;
-                g = getgrgid(id);
-
-                if (g)
-                        patch_groupname = true;
+        if (parse_gid(groupname, &id) >= 0) {
+                r = getgrgid_malloc(id, &gr);
+                if (r >= 0)
+                        groupname = gr->gr_name;
                 else if (FLAGS_SET(flags, USER_CREDS_ALLOW_MISSING)) {
                         if (ret_gid)
                                 *ret_gid = id;
-
+                        if (ret_name)
+                                *ret_name = NULL;
                         return 0;
                 }
-        } else {
-                errno = 0;
-                g = getgrnam(*groupname);
-        }
+        } else
+                r = getgrnam_malloc(groupname, &gr);
 
-        if (!g) {
-                /* getgrnam() may fail with ENOENT if /etc/group is missing.
-                 * For us that is equivalent to the name not being defined. */
-                r = IN_SET(errno, 0, ENOENT) ? -ESRCH : -errno;
-
-                if (FLAGS_SET(flags, USER_CREDS_PREFER_NSS))
-                        if (synthesize_group_creds(groupname, ret_gid) >= 0)
-                                return 0;
-
+        if (r < 0) {
+                if (FLAGS_SET(flags, USER_CREDS_PREFER_NSS) &&
+                    synthesize_group_creds(groupname, ret_name, ret_gid) >= 0)
+                        return 0;
                 return r;
         }
 
-        if (ret_gid) {
-                if (!gid_is_valid(g->gr_gid))
-                        return -EBADMSG;
+        if (ret_gid && !gid_is_valid(gr->gr_gid))
+                return -EBADMSG;
 
-                *ret_gid = g->gr_gid;
-        }
-
-        if (patch_groupname)
-                *groupname = g->gr_name;
-
+        r = strdup_to_full(ret_name, groupname);
+        if (r < 0)
+                return r;
+        if (ret_gid)
+                *ret_gid = gr->gr_gid;
         return 0;
 }
 
@@ -521,7 +521,7 @@ int in_group(const char *name) {
         int r;
         gid_t gid;
 
-        r = get_group_creds(&name, &gid, 0);
+        r = get_group_creds(name, /* flags= */ 0, /* ret_name= */ NULL, &gid);
         if (r < 0)
                 return r;
 
@@ -1071,7 +1071,7 @@ int is_this_me(const char *username) {
 
         /* Checks if the specified username is our current one. Passed string might be a UID or a user name. */
 
-        r = get_user_creds(&username, &uid, NULL, NULL, NULL, USER_CREDS_ALLOW_MISSING);
+        r = get_user_creds(username, /* flags= */ USER_CREDS_ALLOW_MISSING, NULL, &uid, NULL, NULL, NULL);
         if (r < 0)
                 return r;
 
@@ -1079,10 +1079,8 @@ int is_this_me(const char *username) {
 }
 
 const char* get_home_root(void) {
-        const char *e;
-
         /* For debug purposes allow overriding where we look for home dirs */
-        e = secure_getenv("SYSTEMD_HOME_ROOT");
+        const char *e = secure_getenv("SYSTEMD_HOME_ROOT");
         if (e && path_is_absolute(e) && path_is_normalized(e))
                 return e;
 

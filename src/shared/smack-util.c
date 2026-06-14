@@ -13,7 +13,6 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "label.h"
 #include "label-util.h"
 #include "log.h"
 #include "path-util.h"

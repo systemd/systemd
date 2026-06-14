@@ -43,8 +43,8 @@ executables += [
                 'sources' : nspawn_sources,
                 'extract' : nspawn_extract_sources,
                 'include_directories' : [
+                        include_directories('.'),
                         executable_template['include_directories'],
-                        include_directories('.')
                 ],
                 'dependencies' : [
                         libmount_cflags,

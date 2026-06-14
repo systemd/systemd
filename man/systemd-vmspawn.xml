@@ -105,6 +105,18 @@
         </varlistentry>
 
         <varlistentry>
+          <term><option>-x</option></term>
+          <term><option>--ephemeral</option></term>
+
+          <listitem><para>If specified, the VM is run with a temporary snapshot of its file system that is removed
+          immediately when the VM terminates. Only works with <option>--image=</option> currently.
+
+          Note that <option>--ephemeral</option> will not work with <option>--extra-drive=</option>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><option>-i</option></term>
           <term><option>--image=</option></term>
 
@@ -139,15 +151,25 @@
         </varlistentry>
 
         <varlistentry>
-          <term><option>-x</option></term>
-          <term><option>--ephemeral</option></term>
+          <term><option>--discard-disk=<replaceable>BOOL</replaceable></option></term>
 
-          <listitem><para>If specified, the VM is run with a temporary snapshot of its file system that is removed
-          immediately when the VM terminates. Only works with <option>--image=</option> currently.
+          <listitem><para>Controls whether qemu processes discard requests from the VM.
+          This prevents long running VMs from using more disk space than required.
+          This is enabled by default.</para>
 
-          Note that <option>--ephemeral</option> will not work with <option>--extra-drive=</option>.</para>
+          <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+        </varlistentry>
 
-          <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+        <varlistentry>
+          <term><option>--grow-image=<replaceable>BYTES</replaceable></option></term>
+          <term><option>-G <replaceable>BYTES</replaceable></option></term>
+
+          <listitem><para>Grows the image file specified by <option>--image=</option> to the specified size
+          in bytes if it is smaller. Executes no operation if no image file is used or the image file is
+          already as large or larger than requested. The specified size accepts the usual K, M, G suffixes
+          (to the base of 1024). Specified values are rounded up to multiples of 4096.</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>
@@ -270,59 +292,13 @@
         </varlistentry>
 
         <varlistentry>
-          <term><option>--linux=<replaceable>PATH</replaceable></option></term>
+          <term><option>--secure-boot=<replaceable>BOOL</replaceable></option></term>
 
-          <listitem>
-            <para>Set the linux kernel image to use for direct kernel boot.
-            If a directory type image is used and <option>--linux=</option> was omitted, vmspawn will search for boot loader entries
-            according to the
-            <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">UAPI.1 Boot Loader Specification</ulink> assuming
-            XBOOTLDR to be located at /boot and ESP to be /efi respectively.
-            If no kernel was installed into the image then the image will fail to boot.</para>
-
-            <xi:include href="version-info.xml" xpointer="v256"/>
-          </listitem>
-        </varlistentry>
-
-        <varlistentry>
-          <term><option>--initrd=<replaceable>PATH</replaceable></option></term>
-
-          <listitem>
-            <para>Set the initrd to use for direct kernel boot.
-            If the <option>--linux=</option> supplied is a
-            <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">UAPI.1 Boot Loader Specification</ulink>
-            Type #2 entry, then this argument is not required.
-            If no initrd was installed into the image then the image will fail to boot.</para>
-
-            <para><option>--initrd=</option> can be specified multiple times and vmspawn will merge them together.</para>
-
-            <xi:include href="version-info.xml" xpointer="v256"/>
-          </listitem>
-        </varlistentry>
-
-        <varlistentry>
-          <term><option>-n</option></term>
-          <term><option>--network-tap</option></term>
-
-          <listitem>
-            <para>Create a TAP device to network with the virtual machine.</para>
-
-            <para>Note: root privileges are required to use TAP networking.
-            Additionally,
-            <citerefentry><refentrytitle>systemd-networkd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-            must be running and correctly set up on the host to provision the host interface. The relevant
-            <literal>.network</literal> file can be found at
-            <filename>/usr/lib/systemd/network/80-vm-vt.network</filename>.
-            </para>
-
-            <xi:include href="version-info.xml" xpointer="v255"/>
-          </listitem>
-        </varlistentry>
-
-        <varlistentry>
-          <term><option>--network-user-mode</option></term>
-
-          <listitem><para>Use user mode networking.</para>
+          <listitem><para>Configure whether to search for firmware which supports Secure Boot. Takes a
+          boolean or <literal>auto</literal>. Setting this to yes is equivalent to
+          <option>--firmware-features=secure-boot</option> and setting this to no is equivalent to
+          <option>--firmware-features=~secure-boot</option>. Setting this to <literal>auto</literal>
+          removes <literal>secure-boot</literal> from both the included and excluded feature lists.</para>
 
           <xi:include href="version-info.xml" xpointer="v255"/></listitem>
         </varlistentry>
@@ -364,37 +340,97 @@
         </varlistentry>
 
         <varlistentry>
-          <term><option>--discard-disk=<replaceable>BOOL</replaceable></option></term>
+          <term><option>--coco=</option></term>
 
-          <listitem><para>Controls whether qemu processes discard requests from the VM.
-          This prevents long running VMs from using more disk space than required.
-          This is enabled by default.</para>
+          <listitem><para>Caveat: This feature is experimental, and is likely to be changed (or removed in
+          its current form) in a future version of systemd.</para>
 
-          <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+          <para>Configures whether to run the guest as a confidential VM. Takes one of
+          <literal>no</literal> or <literal>sev-snp</literal>. Defaults to <literal>no</literal>.</para>
+
+          <para><literal>sev-snp</literal> enables AMD SEV-SNP. This requires KVM on an x86_64 host with
+          SNP-capable hardware and firmware. <option>--firmware=</option> must point to a raw SNP-built
+          OVMF <filename>.fd</filename> image; the standard pflash + NVRAM split is not supported under
+          SNP, so the firmware is loaded via QEMU's <option>-bios</option> and Secure Boot is
+          unavailable. SMBIOS credentials passed via <option>--set-credential=</option> or
+          <option>--load-credential=</option> are rejected because they are outside the SNP launch
+          measurement. Direct kernel boot via <option>--linux=</option> is required so that the
+          kernel, initrd and command line are hashed into the launch measurement
+          (<literal>kernel-hashes=on</literal>); booting the kernel off the disk image via the
+          firmware would leave it outside the measurement. A vTPM, if attached via
+          <option>--tpm=</option>, must be treated as untrusted by the guest.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2>
+      <title>Networking Options</title>
+
+      <variablelist>
+        <varlistentry>
+          <term><option>-n</option></term>
+          <term><option>--network-tap</option></term>
+
+          <listitem>
+            <para>Create a TAP device to network with the virtual machine.</para>
+
+            <para>Note: root privileges are required to use TAP networking.
+            Additionally,
+            <citerefentry><refentrytitle>systemd-networkd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+            must be running and correctly set up on the host to provision the host interface. The relevant
+            <literal>.network</literal> file can be found at
+            <filename>/usr/lib/systemd/network/80-vm-vt.network</filename>.
+            </para>
+
+            <xi:include href="version-info.xml" xpointer="v255"/>
+          </listitem>
         </varlistentry>
 
         <varlistentry>
-          <term><option>--secure-boot=<replaceable>BOOL</replaceable></option></term>
+          <term><option>--network-user-mode</option></term>
 
-          <listitem><para>Configure whether to search for firmware which supports Secure Boot. Takes a
-          boolean or <literal>auto</literal>. Setting this to yes is equivalent to
-          <option>--firmware-features=secure-boot</option> and setting this to no is equivalent to
-          <option>--firmware-features=~secure-boot</option>. Setting this to <literal>auto</literal>
-          removes <literal>secure-boot</literal> from both the included and excluded feature lists.</para>
+          <listitem><para>Use user mode networking.</para>
 
           <xi:include href="version-info.xml" xpointer="v255"/></listitem>
         </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2>
+      <title>Execution Options</title>
+
+      <variablelist>
+        <varlistentry>
+          <term><option>--linux=<replaceable>PATH</replaceable></option></term>
+
+          <listitem>
+            <para>Set the linux kernel image to use for direct kernel boot.
+            If a directory type image is used and <option>--linux=</option> was omitted, vmspawn will search for boot loader entries
+            according to the
+            <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">UAPI.1 Boot Loader Specification</ulink> assuming
+            XBOOTLDR to be located at /boot and ESP to be /efi respectively.
+            If no kernel was installed into the image then the image will fail to boot.</para>
+
+            <xi:include href="version-info.xml" xpointer="v256"/>
+          </listitem>
+        </varlistentry>
 
         <varlistentry>
-          <term><option>--grow-image=<replaceable>BYTES</replaceable></option></term>
-          <term><option>-G <replaceable>BYTES</replaceable></option></term>
+          <term><option>--initrd=<replaceable>PATH</replaceable></option></term>
 
-          <listitem><para>Grows the image file specified by <option>--image=</option> to the specified size
-          in bytes if it is smaller. Executes no operation if no image file is used or the image file is
-          already as large or larger than requested. The specified size accepts the usual K, M, G suffixes
-          (to the base of 1024). Specified values are rounded up to multiples of 4096.</para>
+          <listitem>
+            <para>Set the initrd to use for direct kernel boot.
+            If the <option>--linux=</option> supplied is a
+            <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">UAPI.1 Boot Loader Specification</ulink>
+            Type #2 entry, then this argument is not required.
+            If no initrd was installed into the image then the image will fail to boot.</para>
 
-          <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+            <para><option>--initrd=</option> can be specified multiple times and vmspawn will merge them together.</para>
+
+            <xi:include href="version-info.xml" xpointer="v256"/>
+          </listitem>
         </varlistentry>
 
         <varlistentry>
@@ -567,6 +603,39 @@
         </varlistentry>
 
         <varlistentry>
+          <term><option>--bind-volume=<replaceable>PROVIDER</replaceable>:<replaceable>VOLUME</replaceable>[:<replaceable>CONFIG</replaceable>][:<replaceable>K=V</replaceable>,…]</option></term>
+
+          <listitem><para>Acquire a storage volume from a
+          <citerefentry><refentrytitle>storagectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+          provider and attach it to the virtual machine. <replaceable>PROVIDER</replaceable> is the
+          provider name (typically <literal>block</literal> or <literal>fs</literal>). <replaceable>VOLUME</replaceable>
+          is the volume name passed to the provider's <function>Acquire()</function> method.
+          <replaceable>CONFIG</replaceable> selects the guest device type and takes one of
+          <literal>virtio-blk</literal>, <literal>virtio-scsi</literal>, <literal>nvme</literal>, or
+          <literal>scsi-cd</literal>. If empty or omitted, defaults to <literal>virtio-blk</literal>.</para>
+
+          <para>The trailing comma-separated <replaceable>K=V</replaceable> list passes parameters to
+          <function>io.systemd.StorageProvider.Acquire()</function>: <varname>template=</varname>,
+          <varname>create=</varname> (one of <literal>any</literal>, <literal>new</literal>, <literal>open</literal>),
+          <varname>read-only=</varname> (or <varname>ro=</varname>; takes a boolean or <literal>auto</literal>),
+          <varname>size=</varname> / <varname>create-size=</varname> (size for created volumes),
+          <varname>request-as=</varname> (one of <literal>blk</literal>, <literal>reg</literal>,
+          <literal>dir</literal>; <literal>dir</literal> is rejected by vmspawn).</para>
+
+          <para>Each attached volume is identified by the name <literal><replaceable>PROVIDER</replaceable>:<replaceable>VOLUME</replaceable></literal>.
+          Volumes attached at startup via this option cannot be detached at runtime via
+          <command>machinectl unbind-volume</command>; only volumes added at runtime via
+          <command>machinectl bind-volume</command> are removable.</para>
+
+          <para>The provider is looked up under
+          <filename>/run/systemd/io.systemd.StorageProvider/</filename> for system mode (or
+          <filename>$XDG_RUNTIME_DIR/systemd/io.systemd.StorageProvider/</filename> for user mode), matching
+          the runtime scope chosen via <option>--user</option> / <option>--system</option>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><option>--bind-user=</option></term>
 
           <listitem><para>Binds the home directory of the specified user on the host into the virtual
@@ -651,7 +720,7 @@
     </refsect2>
 
     <refsect2>
-      <title>Integration Options</title>
+      <title>Logging Options</title>
 
       <variablelist>
         <varlistentry>
@@ -683,6 +752,13 @@
           <xi:include href="version-info.xml" xpointer="v261"/></listitem>
         </varlistentry>
 
+      </variablelist>
+    </refsect2>
+
+    <refsect2>
+      <title>SSH Options</title>
+
+      <variablelist>
         <varlistentry>
           <term><option>--pass-ssh-key=<replaceable>BOOL</replaceable></option></term>
 
@@ -819,16 +895,16 @@ $ systemd-vmspawn --image=image.raw
     </example>
 
     <example>
-      <title>Import and run a Fedora &fedora_latest_version; Cloud image using machinectl</title>
+      <title>Import and run a Fedora &fedora_latest_version; Cloud image using importctl</title>
 
       <programlisting>
 $ curl -L \
-       -O https://download.fedoraproject.org/pub/fedora/linux/releases/&fedora_latest_version;/Cloud/x86_64/images/Fedora-Cloud-Base-&fedora_latest_version;-&fedora_cloud_release;.x86_64.raw.xz \
+       -O https://download.fedoraproject.org/pub/fedora/linux/releases/&fedora_latest_version;/Cloud/x86_64/images/Fedora-Cloud-Base-Generic-&fedora_latest_version;-&fedora_cloud_release;.x86_64.qcow2 \
        -O https://download.fedoraproject.org/pub/fedora/linux/releases/&fedora_latest_version;/Cloud/x86_64/images/Fedora-Cloud-&fedora_latest_version;-&fedora_cloud_release;-x86_64-CHECKSUM \
        -O https://fedoraproject.org/fedora.gpg
 $ gpgv --keyring ./fedora.gpg Fedora-Cloud-&fedora_latest_version;-&fedora_cloud_release;-x86_64-CHECKSUM
 $ sha256sum -c Fedora-Cloud-&fedora_latest_version;-&fedora_cloud_release;-x86_64-CHECKSUM
-# machinectl import-raw Fedora-Cloud-Base-&fedora_latest_version;-&fedora_cloud_release;.x86_64.raw.xz fedora-&fedora_latest_version;-cloud
+# importctl import-raw -m Fedora-Cloud-Base-Generic-&fedora_latest_version;-&fedora_cloud_release;.x86_64.qcow2 fedora-&fedora_latest_version;-cloud
 # systemd-vmspawn -M fedora-&fedora_latest_version;-cloud
 </programlisting>
     </example>

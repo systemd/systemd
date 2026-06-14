@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "device-util.h"
+#include "errno-util.h"
 #include "string-util.h"
 #include "tpm2-util.h"
 #include "udev-builtin.h"
@@ -20,6 +21,10 @@ static int builtin_tpm2_id(UdevEvent *event, int argc, char *argv[]) {
 
         _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
         r = tpm2_context_new(dn, &c);
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(r)) {
+                log_device_debug_errno(dev, r, "Full TPM2 support is not available, skipping identification of TPM2 device '%s'.", dn);
+                return 0;
+        }
         if (r < 0)
                 return log_device_error_errno(dev, r, "Failed to open device node '%s': %m", dn);
 
@@ -30,14 +35,18 @@ static int builtin_tpm2_id(UdevEvent *event, int argc, char *argv[]) {
 
         if (!isempty(info.manufacturer)) {
                 r = udev_builtin_add_property(event, "ID_TPM2_MANUFACTURER", info.manufacturer);
+                if (r == -ENOMEM)
+                        return log_oom();
                 if (r < 0)
-                        return log_device_error_errno(dev, r, "Failed to set field: %m");
+                        log_device_warning_errno(dev, r, "Failed to set ID_TPM2_MANUFACTURER property, ignoring: %m");
         }
 
         if (!isempty(info.vendor_string)) {
                 r = udev_builtin_add_property(event, "ID_TPM2_VENDOR_STRING", info.vendor_string);
+                if (r == -ENOMEM)
+                        return log_oom();
                 if (r < 0)
-                        return log_device_error_errno(dev, r, "Failed to set field: %m");
+                        log_device_warning_errno(dev, r, "Failed to set ID_TPM2_VENDOR_STRING property, ignoring: %m");
         }
 
         _cleanup_free_ char *m = NULL;
@@ -46,8 +55,10 @@ static int builtin_tpm2_id(UdevEvent *event, int argc, char *argv[]) {
                 return log_device_error_errno(dev, r, "Failed to get modalias string for TPM2 device: %m");
 
         r = udev_builtin_add_property(event, "ID_TPM2_MODALIAS", m);
+        if (r == -ENOMEM)
+                return log_oom();
         if (r < 0)
-                return log_device_error_errno(dev, r, "Failed to set field: %m");
+                log_device_warning_errno(dev, r, "Failed to set ID_TPM2_MODALIAS property, ignoring: %m");
 
         return 0;
 }

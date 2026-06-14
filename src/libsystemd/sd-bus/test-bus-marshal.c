@@ -1,10 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <math.h>
-
 /* We make an exception here to our usual "include system headers first" rule because we need one of these
  * macros to disable a warning triggered by the glib headers. */
-#include "macro-fundamental.h"
+#include "macro.h"
 
 #if HAVE_GLIB
 DISABLE_WARNING_FORMAT_NONLITERAL
@@ -23,6 +21,7 @@ REENABLE_WARNING
 #include "bus-label.h"
 #include "bus-message.h"
 #include "bus-util.h"
+#include "dlfcn-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "log.h"
@@ -30,6 +29,42 @@ REENABLE_WARNING
 #include "memstream-util.h"
 #include "stat-util.h"
 #include "tests.h"
+
+#if HAVE_GLIB
+static DLSYM_PROTOTYPE(g_dbus_message_new_from_blob) = NULL;
+static DLSYM_PROTOTYPE(g_dbus_message_print)         = NULL;
+static DLSYM_PROTOTYPE(g_free)                       = NULL;
+static DLSYM_PROTOTYPE(g_object_unref)               = NULL;
+
+static int dlopen_glib(void) {
+        static void *glib_dl = NULL;
+
+        return dlopen_many_sym_or_warn(
+                        &glib_dl, "libgio-2.0.so.0", LOG_DEBUG,
+                        DLSYM_ARG(g_dbus_message_new_from_blob),
+                        DLSYM_ARG(g_dbus_message_print),
+                        DLSYM_ARG(g_free),
+                        DLSYM_ARG(g_object_unref));
+}
+#endif
+
+#if HAVE_DBUS
+static DLSYM_PROTOTYPE(dbus_error_init)        = NULL;
+static DLSYM_PROTOTYPE(dbus_error_free)        = NULL;
+static DLSYM_PROTOTYPE(dbus_message_demarshal) = NULL;
+static DLSYM_PROTOTYPE(dbus_message_unref)     = NULL;
+
+static int dlopen_libdbus(void) {
+        static void *libdbus_dl = NULL;
+
+        return dlopen_many_sym_or_warn(
+                        &libdbus_dl, "libdbus-1.so.3", LOG_DEBUG,
+                        DLSYM_ARG(dbus_error_init),
+                        DLSYM_ARG(dbus_error_free),
+                        DLSYM_ARG(dbus_message_demarshal),
+                        DLSYM_ARG(dbus_message_unref));
+}
+#endif
 
 static void test_bus_path_encode_unique(void) {
         _cleanup_free_ char *a = NULL, *b = NULL, *c = NULL, *d = NULL, *e = NULL;
@@ -216,6 +251,58 @@ static void test_bus_fds_truncated(void) {
         log_info("All fd truncation tests passed");
 }
 
+static void test_bus_nested_variant_depth_limit(void) {
+        /* Craft a raw D-Bus message with an unknown header field whose value is a variant
+         * containing a variant containing a variant... nested beyond BUS_CONTAINER_DEPTH.
+         * Without the depth limit in message_skip_fields(), this causes unbounded recursion
+         * and stack overflow. With the fix, it should be rejected with -EBADMSG. */
+
+        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        const unsigned depth = BUS_CONTAINER_DEPTH + 1; /* one past the limit */
+
+        /* Each nesting level in the fields area is: 1 byte sig_len + 1 byte 'v' + 1 byte NUL = 3 bytes.
+         * The innermost level has sig_len=1, 'u', NUL, then 4 bytes for the uint32 value.
+         * The field header is: 1 byte field_code + 1 byte sig_len + 1 byte 'v' + 1 byte NUL = 4 bytes. */
+        size_t fields_size = 4 + (depth * 3) + 4; /* field header + nested variant sigs + uint32 */
+        size_t padded_fields = ALIGN8(fields_size);
+        size_t total = sizeof(BusMessageHeader) + padded_fields;
+
+        _cleanup_free_ void *buf = ASSERT_PTR(malloc0(total));
+
+        BusMessageHeader *h = buf;
+        *h = (BusMessageHeader) {
+                .endian = BUS_NATIVE_ENDIAN,
+                .type = SD_BUS_MESSAGE_METHOD_CALL,
+                .version = 1,
+                .serial = 1,
+                .fields_size = (uint32_t) fields_size,
+        };
+
+        uint8_t *p = (uint8_t *) buf + sizeof(BusMessageHeader);
+
+        /* Unknown field code (triggers default: in message_parse_fields) */
+        *p++ = 0xFF;
+        /* Field signature: variant */
+        *p++ = 1;    /* sig length */
+        *p++ = 'v';
+        *p++ = '\0';
+
+        /* Nested variant signatures: each level declares its content is another variant */
+        for (unsigned i = 0; i < depth; i++) {
+                *p++ = 1;    /* sig length */
+                *p++ = 'v';
+                *p++ = '\0';
+        }
+
+        /* Innermost value: a uint32 */
+        memset(p, 0, 4);
+
+        ASSERT_OK(sd_bus_new(&bus));
+
+        ASSERT_ERROR(bus_message_from_malloc(bus, buf, total, NULL, 0, false, NULL, &m), EBADMSG);
+}
+
 static void test_bus_label_escape(void) {
         test_bus_label_escape_one("foo123bar", "foo123bar");
         test_bus_label_escape_one("foo.bar", "foo_2ebar");
@@ -322,39 +409,32 @@ int main(int argc, char *argv[]) {
         log_info("message size = %zu, contents =\n%s", sz, h);
 
 #if HAVE_GLIB
-        /* Work-around for asan bug. See c8d980a3e962aba2ea3a4cedf75fa94890a6d746. */
-#if !HAS_FEATURE_ADDRESS_SANITIZER
-        {
+        if (dlopen_glib() >= 0) {
                 GDBusMessage *g;
                 char *p;
 
-#if !defined(GLIB_VERSION_2_36)
-                g_type_init();
-#endif
-
-                g = g_dbus_message_new_from_blob(buffer, sz, 0, NULL);
-                p = g_dbus_message_print(g, 0);
+                g = sym_g_dbus_message_new_from_blob(buffer, sz, 0, NULL);
+                p = sym_g_dbus_message_print(g, 0);
                 log_info("%s", p);
-                g_free(p);
-                g_object_unref(g);
+                sym_g_free(p);
+                sym_g_object_unref(g);
         }
-#endif
 #endif
 
 #if HAVE_DBUS
-        {
+        if (dlopen_libdbus() >= 0) {
                 DBusMessage *w;
                 DBusError error;
 
-                dbus_error_init(&error);
+                sym_dbus_error_init(&error);
 
-                w = dbus_message_demarshal(buffer, sz, &error);
+                w = sym_dbus_message_demarshal(buffer, sz, &error);
                 if (!w)
                         log_error("%s", error.message);
                 else
-                        dbus_message_unref(w);
+                        sym_dbus_message_unref(w);
 
-                dbus_error_free(&error);
+                sym_dbus_error_free(&error);
         }
 #endif
 
@@ -451,7 +531,7 @@ int main(int argc, char *argv[]) {
         assert_se(r > 0);
         assert_se(streq(x, "foo"));
         assert_se(u64 == 815ULL);
-        assert_se(fabs(dbl - 47.0) < 0.1);
+        assert_se(ABS(dbl - 47.0) < 0.1);
         assert_se(streq(y, "/"));
 
         r = sd_bus_message_peek_type(m, NULL, NULL);
@@ -533,6 +613,7 @@ int main(int argc, char *argv[]) {
         test_bus_path_encode_unique();
         test_bus_path_encode_many();
         test_bus_fds_truncated();
+        test_bus_nested_variant_depth_limit();
 
         return 0;
 }

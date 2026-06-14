@@ -4,20 +4,24 @@
 
 #include "constants.h"
 #include "errno-util.h"
+#include "job.h"
 #include "json-util.h"
 #include "manager.h"
 #include "metrics.h"
 #include "path-util.h"
 #include "pidref.h"
 #include "string-util.h"
+#include "strv.h"
 #include "unit.h"
 #include "varlink.h"
 #include "varlink-dynamic-user.h"
+#include "varlink-io.systemd.Job.h"
 #include "varlink-io.systemd.ManagedOOM.h"
 #include "varlink-io.systemd.Manager.h"
 #include "varlink-io.systemd.Unit.h"
 #include "varlink-io.systemd.UserDatabase.h"
 #include "varlink-io.systemd.service.h"
+#include "varlink-job.h"
 #include "varlink-manager.h"
 #include "varlink-metrics.h"
 #include "varlink-serialize.h"
@@ -27,10 +31,11 @@
 static const char* const managed_oom_mode_properties[] = {
         "ManagedOOMSwap",
         "ManagedOOMMemoryPressure",
+        "OOMRules",
 };
 
 static int build_managed_oom_json_array_element(Unit *u, const char *property, sd_json_variant **ret_v) {
-        bool use_limit = false, use_duration = false;
+        bool use_limit = false, use_duration = false, use_rules = false;
         CGroupContext *c;
         const char *mode;
 
@@ -59,15 +64,25 @@ static int build_managed_oom_json_array_element(Unit *u, const char *property, s
                 mode = managed_oom_mode_to_string(c->moom_mem_pressure);
                 use_limit = c->moom_mem_pressure_limit > 0;
                 use_duration = c->moom_mem_pressure_duration_usec != USEC_INFINITY;
+        } else if (streq(property, "OOMRules")) {
+                if (strv_isempty(c->moom_rules))
+                        mode = managed_oom_mode_to_string(MANAGED_OOM_AUTO);
+                else {
+                        mode = managed_oom_mode_to_string(MANAGED_OOM_KILL);
+                        use_rules = true;
+                }
         } else
                 return -EINVAL;
+
+        assert(mode);
 
         return sd_json_buildo(ret_v,
                               JSON_BUILD_PAIR_ENUM("mode", mode),
                               SD_JSON_BUILD_PAIR_STRING("path", crt->cgroup_path),
                               SD_JSON_BUILD_PAIR_STRING("property", property),
                               SD_JSON_BUILD_PAIR_CONDITION(use_limit, "limit", SD_JSON_BUILD_UNSIGNED(c->moom_mem_pressure_limit)),
-                              SD_JSON_BUILD_PAIR_CONDITION(use_duration, "duration", SD_JSON_BUILD_UNSIGNED(c->moom_mem_pressure_duration_usec)));
+                              SD_JSON_BUILD_PAIR_CONDITION(use_duration, "duration", SD_JSON_BUILD_UNSIGNED(c->moom_mem_pressure_duration_usec)),
+                              SD_JSON_BUILD_PAIR_CONDITION(use_rules, "rules", SD_JSON_BUILD_STRV(c->moom_rules)));
 }
 
 static int build_managed_oom_cgroups_json(Manager *m, bool allow_empty, sd_json_variant **ret) {
@@ -108,7 +123,8 @@ static int build_managed_oom_cgroups_json(Manager *m, bool allow_empty, sd_json_
                                 /* For the initial varlink call we only care about units that enabled (i.e. mode is not
                                  * set to "auto") oomd properties. */
                                 if (!(streq(*i, "ManagedOOMSwap") && c->moom_swap == MANAGED_OOM_KILL) &&
-                                    !(streq(*i, "ManagedOOMMemoryPressure") && c->moom_mem_pressure == MANAGED_OOM_KILL))
+                                    !(streq(*i, "ManagedOOMMemoryPressure") && c->moom_mem_pressure == MANAGED_OOM_KILL) &&
+                                    !(streq(*i, "OOMRules") && !strv_isempty(c->moom_rules)))
                                         continue;
 
                                 r = build_managed_oom_json_array_element(u, *i, &e);
@@ -356,6 +372,24 @@ static void vl_disconnect(sd_varlink_server *s, sd_varlink *link, void *userdata
 
         if (link == m->managed_oom_varlink)
                 m->managed_oom_varlink = sd_varlink_unref(link);
+
+        /* Drop any job varlink references for the disconnecting client.
+         * A varlink link can stream at most one job, so stop after the first match. */
+        Job *j;
+        HASHMAP_FOREACH(j, m->jobs)
+                if (j->varlink == link) {
+                        j->varlink = sd_varlink_unref(j->varlink);
+                        break;
+                }
+
+        /* Also drop any unit-change varlink reference streaming to this link.
+         * A varlink link attaches to at most one unit, so stop after the first match. */
+        Unit *u;
+        HASHMAP_FOREACH(u, m->units)
+                if (u->varlink_unit_change == link) {
+                        u->varlink_unit_change = sd_varlink_unref(u->varlink_unit_change);
+                        break;
+                }
 }
 
 int manager_setup_varlink_server(Manager *m) {
@@ -379,6 +413,7 @@ int manager_setup_varlink_server(Manager *m) {
 
         r = sd_varlink_server_add_interface_many(
                         s,
+                        &vl_interface_io_systemd_Job,
                         &vl_interface_io_systemd_Manager,
                         &vl_interface_io_systemd_Unit,
                         &vl_interface_io_systemd_service);
@@ -387,6 +422,9 @@ int manager_setup_varlink_server(Manager *m) {
 
         r = sd_varlink_server_bind_method_many(
                         s,
+                        "io.systemd.Job.List", vl_method_list_jobs,
+                        "io.systemd.Job.Cancel", vl_method_cancel_job,
+                        "io.systemd.Job.ClearAll", vl_method_clear_all_jobs,
                         "io.systemd.Manager.Describe", vl_method_describe_manager,
                         "io.systemd.Manager.Reexecute", vl_method_reexecute_manager,
                         "io.systemd.Manager.Reload", vl_method_reload_manager,
@@ -398,6 +436,7 @@ int manager_setup_varlink_server(Manager *m) {
                         "io.systemd.Manager.SoftReboot", vl_method_soft_reboot,
                         "io.systemd.Unit.List", vl_method_list_units,
                         "io.systemd.Unit.SetProperties", vl_method_set_unit_properties,
+                        "io.systemd.Unit.StartTransient", vl_method_start_transient_unit,
                         "io.systemd.service.Ping", varlink_method_ping,
                         "io.systemd.service.GetEnvironment", varlink_method_get_environment);
         if (r < 0)
@@ -419,11 +458,11 @@ int manager_setup_varlink_server(Manager *m) {
                                 "io.systemd.ManagedOOM.SubscribeManagedOOMCGroups", vl_method_subscribe_managed_oom_cgroups);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to register varlink methods: %m");
-
-                r = sd_varlink_server_bind_disconnect(s, vl_disconnect);
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to register varlink disconnect handler: %m");
         }
+
+        r = sd_varlink_server_bind_disconnect(s, vl_disconnect);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to register varlink disconnect handler: %m");
 
         r = sd_varlink_server_attach_event(s, m->event, EVENT_PRIORITY_IPC);
         if (r < 0)
@@ -576,6 +615,8 @@ void manager_varlink_done(Manager *m) {
          * unreffing it twice. After all, closing the connection might cause the disconnect handler we
          * installed (vl_disconnect() above) to be called, where we will unref it too. */
         sd_varlink_close_unref(TAKE_PTR(m->managed_oom_varlink));
+
+        m->pending_reload_message_vl = sd_varlink_unref(m->pending_reload_message_vl);
 
         m->varlink_server = sd_varlink_server_unref(m->varlink_server);
         m->managed_oom_varlink = sd_varlink_close_unref(m->managed_oom_varlink);

@@ -201,6 +201,7 @@ COREDUMP_UID=1000
 COREDUMP_GID=1000
 COREDUMP_SIGNAL_NAME=SIGSEGV
 COREDUMP_SIGNAL=11
+COREDUMP_CODE=2
 COREDUMP_TIMESTAMP=1614342930000000
 COREDUMP_COMM=Web Content
 COREDUMP_EXE=/usr/lib64/firefox/firefox
@@ -324,6 +325,19 @@ COREDUMP_FILENAME=/var/lib/systemd/coredump/core.Web….552351.….zst
         architecture.)</para>
 
         <xi:include href="version-info.xml" xpointer="v248"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>COREDUMP_CODE=</varname></term>
+
+        <listitem><para>The reason why the signal was sent as a numerical value. The code is defined as
+        field <varname>si_code</varname> in the <varname>siginfo_t</varname> structure and
+        documented in <citerefentry
+        project='man-pages'><refentrytitle>sigaction</refentrytitle><manvolnum>2</manvolnum></citerefentry>.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/>
         </listitem>
       </varlistentry>
 

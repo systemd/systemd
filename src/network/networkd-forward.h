@@ -4,6 +4,7 @@
 /* IWYU pragma: always_keep */
 
 #include "conf-parser-forward.h"    /* IWYU pragma: export */
+#include "dhcp-forward.h"           /* IWYU pragma: export */
 #include "shared-forward.h"         /* IWYU pragma: export */
 
 typedef enum NetDevLocalAddressType NetDevLocalAddressType;

@@ -1,16 +1,17 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 #
 # Dutch translation of systemd.
-# Pjotr Vertaalt <pjotrvertaalt@gmail.com>, 2021.
+# Pjotr Vertaalt <pjotrvertaalt@gmail.com>, 2021, 2026.
 # Richard E. van der Luit <fedoraproject@veneax.nl>, 2022.
-# Maarten <maarten@posteo.de>, 2023.
-# Tim Vangehugten <timvangehugten@gmail.com>, 2025.
+# Maarten <maarten@posteo.de>, 2023, 2026.
+# Tim Vangehugten <timvangehugten@gmail.com>, 2025, 2026.
+# "Richard E. van der Luit" <fedoraproject@veneax.nl>, 2026.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-03-06 03:46+0900\n"
-"PO-Revision-Date: 2025-05-28 09:31+0000\n"
-"Last-Translator: Tim Vangehugten <timvangehugten@gmail.com>\n"
+"POT-Creation-Date: 2026-05-30 00:13+0200\n"
+"PO-Revision-Date: 2026-06-07 13:57+0000\n"
+"Last-Translator: \"Richard E. van der Luit\" <fedoraproject@veneax.nl>\n"
 "Language-Team: Dutch <https://translate.fedoraproject.org/projects/systemd/"
 "main/nl/>\n"
 "Language: nl\n"
@@ -18,7 +19,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 5.11.3\n"
+"X-Generator: Weblate 2026.6.1\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -173,7 +174,7 @@ msgstr ""
 "Authenticatie is vereist voor het beheren van de systeemdiensten of andere "
 "eenheden."
 
-#: src/home/pam_systemd_home.c:330
+#: src/home/pam_systemd_home.c:327
 #, c-format
 msgid ""
 "Home of user %s is currently absent, please plug in the necessary storage "
@@ -183,33 +184,33 @@ msgstr ""
 "Gelieve het benodigde opslagapparaat aan te sluiten of het bestandssysteem "
 "aan te koppelen dat de thuismap bevat."
 
-#: src/home/pam_systemd_home.c:335
+#: src/home/pam_systemd_home.c:332
 #, c-format
 msgid "Too frequent login attempts for user %s, try again later."
 msgstr ""
 "Gebruiker %s heeft te veel aanmeldpogingen gedaan. Probeer het later nog "
 "eens."
 
-#: src/home/pam_systemd_home.c:347
+#: src/home/pam_systemd_home.c:344
 msgid "Password: "
 msgstr "Wachtwoord: "
 
-#: src/home/pam_systemd_home.c:349
+#: src/home/pam_systemd_home.c:346
 #, c-format
 msgid "Password incorrect or not sufficient for authentication of user %s."
 msgstr ""
 "Wachtwoord is onjuist of niet voldoende voor de authenticatie van gebruiker "
 "%s."
 
-#: src/home/pam_systemd_home.c:350
+#: src/home/pam_systemd_home.c:347
 msgid "Sorry, try again: "
 msgstr "Sorry, probeer het nog eens: "
 
-#: src/home/pam_systemd_home.c:372
+#: src/home/pam_systemd_home.c:369
 msgid "Recovery key: "
 msgstr "Herstelcode: "
 
-#: src/home/pam_systemd_home.c:374
+#: src/home/pam_systemd_home.c:371
 #, c-format
 msgid ""
 "Password/recovery key incorrect or not sufficient for authentication of user "
@@ -218,20 +219,20 @@ msgstr ""
 "Het wachtwoord of de herstelcode is onjuist of niet voldoende voor de "
 "authenticatie van gebruiker %s."
 
-#: src/home/pam_systemd_home.c:375
+#: src/home/pam_systemd_home.c:372
 msgid "Sorry, reenter recovery key: "
 msgstr "Sorry, voer de herstelcode nogmaals in: "
 
-#: src/home/pam_systemd_home.c:395
+#: src/home/pam_systemd_home.c:392
 #, c-format
 msgid "Security token of user %s not inserted."
 msgstr "Het beveiligingsmiddel van gebruiker %s is niet ingestoken."
 
-#: src/home/pam_systemd_home.c:396 src/home/pam_systemd_home.c:399
+#: src/home/pam_systemd_home.c:393 src/home/pam_systemd_home.c:396
 msgid "Try again with password: "
 msgstr "Probeer het nog eens met wachtwoord: "
 
-#: src/home/pam_systemd_home.c:398
+#: src/home/pam_systemd_home.c:395
 #, c-format
 msgid ""
 "Password incorrect or not sufficient, and configured security token of user "
@@ -240,31 +241,31 @@ msgstr ""
 "Het wachtwoord is onjuist of niet voldoende, en het geconfigureerde "
 "beveiligingsmiddel van gebruiker %s is niet ingestoken."
 
-#: src/home/pam_systemd_home.c:418
+#: src/home/pam_systemd_home.c:415
 msgid "Security token PIN: "
 msgstr "PIN van het beveiligingsmiddel: "
 
-#: src/home/pam_systemd_home.c:435
+#: src/home/pam_systemd_home.c:432
 #, c-format
 msgid "Please authenticate physically on security token of user %s."
 msgstr ""
 "Gelieve in persoon het beveiligingsmiddel van gebruiker %s te authenticeren."
 
-#: src/home/pam_systemd_home.c:446
+#: src/home/pam_systemd_home.c:443
 #, c-format
 msgid "Please confirm presence on security token of user %s."
 msgstr ""
 "Gelieve te bevestigen dat het beveiligingsmiddel van gebruiker %s aanwezig "
 "is."
 
-#: src/home/pam_systemd_home.c:457
+#: src/home/pam_systemd_home.c:454
 #, c-format
 msgid "Please verify user on security token of user %s."
 msgstr ""
 "Gelieve te verifiëren dat het beveiligingsmiddel van gebruiker %s aan die "
 "gebruiker toebehoort."
 
-#: src/home/pam_systemd_home.c:466
+#: src/home/pam_systemd_home.c:463
 msgid ""
 "Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
 "insertion might suffice.)"
@@ -273,95 +274,95 @@ msgstr ""
 "eerst op te heffen. (Tip: verwijderen en weer insteken zou voldoende kunnen "
 "zijn.)"
 
-#: src/home/pam_systemd_home.c:474
+#: src/home/pam_systemd_home.c:471
 #, c-format
 msgid "Security token PIN incorrect for user %s."
 msgstr "De PIN van het beveiligingsmiddel is onjuist voor gebruiker %s."
 
-#: src/home/pam_systemd_home.c:475 src/home/pam_systemd_home.c:494
-#: src/home/pam_systemd_home.c:513
+#: src/home/pam_systemd_home.c:472 src/home/pam_systemd_home.c:491
+#: src/home/pam_systemd_home.c:510
 msgid "Sorry, retry security token PIN: "
 msgstr "Sorry, probeer de PIN van het beveiligingsmiddel nogmaals: "
 
-#: src/home/pam_systemd_home.c:493
+#: src/home/pam_systemd_home.c:490
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
 msgstr ""
 "De PIN van het beveiligingsmiddel is onjuist voor gebruiker %s. U kunt het "
 "nog maar enkele malen proberen!"
 
-#: src/home/pam_systemd_home.c:512
+#: src/home/pam_systemd_home.c:509
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
 msgstr ""
 "De PIN van het beveiligingsmiddel is onjuist voor gebruiker %s. U kunt het "
 "nog maar eenmaal proberen!"
 
-#: src/home/pam_systemd_home.c:679
+#: src/home/pam_systemd_home.c:676
 #, c-format
 msgid "Home of user %s is currently not active, please log in locally first."
 msgstr ""
 "De thuismap van gebruiker %s is thans niet aangekoppeld. Gelieve u eerst "
 "plaatselijk aan te melden."
 
-#: src/home/pam_systemd_home.c:681
+#: src/home/pam_systemd_home.c:678
 #, c-format
 msgid "Home of user %s is currently locked, please unlock locally first."
 msgstr ""
 "De thuismap van gebruiker %s is thans vergrendeld. Gelieve de vergrendeling "
 "eerst op te heffen op het plaatselijke systeem."
 
-#: src/home/pam_systemd_home.c:715
+#: src/home/pam_systemd_home.c:712
 #, c-format
 msgid "Too many unsuccessful login attempts for user %s, refusing."
 msgstr ""
 "Er zijn te veel aanmeldpogingen voor gebruiker %s niet succesvol geweest. "
 "Verdere aanmelding voor die gebruiker wordt geweigerd."
 
-#: src/home/pam_systemd_home.c:1012
+#: src/home/pam_systemd_home.c:1021
 msgid "User record is blocked, prohibiting access."
 msgstr ""
 "De registratie van de gebruiker wordt geblokkeerd, waardoor zijn toegang tot "
 "het systeem wordt belet."
 
-#: src/home/pam_systemd_home.c:1016
+#: src/home/pam_systemd_home.c:1025
 msgid "User record is not valid yet, prohibiting access."
 msgstr ""
 "De registratie van de gebruiker is nog niet geldig, waardoor zijn toegang "
 "tot het systeem wordt belet."
 
-#: src/home/pam_systemd_home.c:1020
+#: src/home/pam_systemd_home.c:1029
 msgid "User record is not valid anymore, prohibiting access."
 msgstr ""
 "De registratie van de gebruiker is niet meer geldig, waardoor zijn toegang "
 "tot het systeem wordt belet."
 
-#: src/home/pam_systemd_home.c:1025 src/home/pam_systemd_home.c:1074
+#: src/home/pam_systemd_home.c:1034 src/home/pam_systemd_home.c:1083
 msgid "User record not valid, prohibiting access."
 msgstr ""
 "De registratie van de gebruiker is niet geldig, waardoor zijn toegang tot "
 "het systeem wordt belet."
 
-#: src/home/pam_systemd_home.c:1035
+#: src/home/pam_systemd_home.c:1044
 #, c-format
 msgid "Too many logins, try again in %s."
 msgstr "Er zijn te veel aanmeldingen. Probeer het nog eens over %s."
 
-#: src/home/pam_systemd_home.c:1046
+#: src/home/pam_systemd_home.c:1055
 msgid "Password change required."
 msgstr "Wijziging van uw wachtwoord is vereist."
 
-#: src/home/pam_systemd_home.c:1050
+#: src/home/pam_systemd_home.c:1059
 msgid "Password expired, change required."
 msgstr "Het wachtwoord is verlopen. Wijziging van het wachtwoord is vereist."
 
-#: src/home/pam_systemd_home.c:1056
+#: src/home/pam_systemd_home.c:1065
 msgid "Password is expired, but can't change, refusing login."
 msgstr ""
 "Het wachtwoord is verlopen maar kan niet worden gewijzigd. Daarom wordt de "
 "aanmelding geweigerd."
 
-#: src/home/pam_systemd_home.c:1060
+#: src/home/pam_systemd_home.c:1069
 msgid "Password will expire soon, please change."
 msgstr ""
 "Het wachtwoord zal spoedig verlopen. Gelieve het wachtwoord te wijzigen."
@@ -772,8 +773,7 @@ msgstr "Zet het systeem in de pauzestand"
 
 #: src/login/org.freedesktop.login1.policy:269
 msgid "Authentication is required to suspend the system."
-msgstr ""
-"Authenticatie is vereist voor het in pauzestand zetten van het systeem."
+msgstr "Authenticatie is vereist voor het in pauzestand zetten van het systeem."
 
 #: src/login/org.freedesktop.login1.policy:278
 msgid "Suspend the system while other users are logged in"
@@ -1003,11 +1003,20 @@ msgstr ""
 "en containers."
 
 #: src/machine/org.freedesktop.machine1.policy:95
+msgid "Inspect local virtual machines and containers"
+msgstr ""
+
+#: src/machine/org.freedesktop.machine1.policy:96
+msgid ""
+"Authentication is required to inspect local virtual machines and containers."
+msgstr ""
+
+#: src/machine/org.freedesktop.machine1.policy:105
 #, fuzzy
 msgid "Create a local virtual machine or container"
 msgstr "Beheer de plaatselijke virtuele machines en de containers"
 
-#: src/machine/org.freedesktop.machine1.policy:96
+#: src/machine/org.freedesktop.machine1.policy:106
 #, fuzzy
 msgid ""
 "Authentication is required to create a local virtual machine or container."
@@ -1015,12 +1024,12 @@ msgstr ""
 "Authenticatie is vereist voor het beheren van plaatselijke virtuele machines "
 "en containers."
 
-#: src/machine/org.freedesktop.machine1.policy:106
+#: src/machine/org.freedesktop.machine1.policy:116
 #, fuzzy
 msgid "Register a local virtual machine or container"
 msgstr "Beheer de plaatselijke virtuele machines en de containers"
 
-#: src/machine/org.freedesktop.machine1.policy:107
+#: src/machine/org.freedesktop.machine1.policy:117
 #, fuzzy
 msgid ""
 "Authentication is required to register a local virtual machine or container."
@@ -1028,19 +1037,29 @@ msgstr ""
 "Authenticatie is vereist voor het beheren van plaatselijke virtuele machines "
 "en containers."
 
-#: src/machine/org.freedesktop.machine1.policy:116
+#: src/machine/org.freedesktop.machine1.policy:126
 msgid "Manage local virtual machine and container images"
 msgstr ""
 "Beheren van de plaatselijke schijfbestanden van virtuele machines en die van "
 "containers"
 
-#: src/machine/org.freedesktop.machine1.policy:117
+#: src/machine/org.freedesktop.machine1.policy:127
 msgid ""
 "Authentication is required to manage local virtual machine and container "
 "images."
 msgstr ""
 "Authenticatie is vereist voor het beheren van de plaatselijke "
 "schijfbestanden van virtuele machines en die van containers."
+
+#: src/machine/org.freedesktop.machine1.policy:137
+msgid "Inspect local virtual machine and container images"
+msgstr ""
+
+#: src/machine/org.freedesktop.machine1.policy:138
+msgid ""
+"Authentication is required to inspect local virtual machine and container "
+"images."
+msgstr ""
 
 #: src/network/org.freedesktop.network1.policy:22
 msgid "Set NTP servers"
@@ -1109,8 +1128,7 @@ msgstr "Schakel DNS over TLS in of uit"
 #: src/network/org.freedesktop.network1.policy:89
 #: src/resolve/org.freedesktop.resolve1.policy:100
 msgid "Authentication is required to enable or disable DNS over TLS."
-msgstr ""
-"Authenticatie is vereist voor het in- of uitschakelen van DNS over TLS."
+msgstr "Authenticatie is vereist voor het in- of uitschakelen van DNS over TLS."
 
 #: src/network/org.freedesktop.network1.policy:99
 #: src/resolve/org.freedesktop.resolve1.policy:110
@@ -1158,12 +1176,10 @@ msgstr ""
 
 #: src/network/org.freedesktop.network1.policy:144
 #, fuzzy
-#| msgid "Authentication is required to send force renew message."
 msgid ""
 "Authentication is required to send a force renew message from the DHCP "
 "server."
-msgstr ""
-"Authenticatie is vereist voor het verzenden van een FORCERENEW-bericht."
+msgstr "Authenticatie is vereist voor het verzenden van een FORCERENEW-bericht."
 
 #: src/network/org.freedesktop.network1.policy:154
 msgid "Renew dynamic addresses"
@@ -1283,8 +1299,7 @@ msgstr "Abonneer op queryresultaten"
 #: src/resolve/org.freedesktop.resolve1.policy:144
 #, fuzzy
 msgid "Authentication is required to subscribe query results."
-msgstr ""
-"Authenticatie is vereist voor het in pauzestand zetten van het systeem."
+msgstr "Authenticatie is vereist voor het in pauzestand zetten van het systeem."
 
 #: src/resolve/org.freedesktop.resolve1.policy:154
 msgid "Subscribe to DNS configuration"
@@ -1293,8 +1308,7 @@ msgstr ""
 #: src/resolve/org.freedesktop.resolve1.policy:155
 #, fuzzy
 msgid "Authentication is required to subscribe to DNS configuration."
-msgstr ""
-"Authenticatie is vereist voor het in pauzestand zetten van het systeem."
+msgstr "Authenticatie is vereist voor het in pauzestand zetten van het systeem."
 
 #: src/resolve/org.freedesktop.resolve1.policy:165
 msgid "Dump cache"
@@ -1333,29 +1347,61 @@ msgid "Authentication is required to reset statistics."
 msgstr ""
 "Authenticatie is vereist voor het terugzetten van de instellingen voor NTP."
 
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:35
+#: src/resolve/org.freedesktop.resolve1.policy:209
+msgid "Flush DNS caches"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:210
+msgid "Authentication is required to flush DNS caches."
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:220
+msgid "Reset server features"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:221
+msgid "Authentication is required to reset server features."
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:38
 msgid "Check for system updates"
 msgstr "Controleer op systeemupdates"
 
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:36
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:39
 #, fuzzy
 msgid "Authentication is required to check for system updates."
 msgstr "Authenticatie is vereist voor het instellen van de systeemtijd."
 
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:45
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:48
+msgid "Cancel checking for system updates"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:49
+msgid "Authentication is required to cancel checking for system updates."
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:58
 msgid "Install system updates"
 msgstr "Installeer systeemupdates"
 
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:46
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:59
 #, fuzzy
 msgid "Authentication is required to install system updates."
 msgstr "Authenticatie is vereist voor het instellen van de systeemtijd."
 
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:55
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:68
+msgid "Cancel installing system updates"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:69
+msgid "Authentication is required to cancel installing system updates."
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:78
 msgid "Install specific system version"
 msgstr "Installeer specifieke systeem versie"
 
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:56
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:79
 #, fuzzy
 msgid ""
 "Authentication is required to update the system to a specific (possibly old) "
@@ -1364,20 +1410,37 @@ msgstr ""
 "Authenticatie is vereist voor het instellen van de tijdzone die het systeem "
 "gebruikt."
 
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:65
-msgid "Cleanup old system updates"
-msgstr "Oude systeemupdates opkuisen"
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:88
+msgid "Cancel installing specific system version"
+msgstr ""
 
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:66
-#, fuzzy
-msgid "Authentication is required to cleanup old system updates."
-msgstr "Authenticatie is vereist voor het instellen van de systeemtijd."
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:89
+msgid ""
+"Authentication is required to cancel updating the system to a specific "
+"(possibly old) version."
+msgstr ""
 
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:75
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:98
+msgid "Clean up old system updates"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:99
+msgid "Authentication is required to clean up old system updates."
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:108
+msgid "Cancel cleaning up old system updates"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:109
+msgid "Authentication is required to cancel cleanup of old system updates."
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:118
 msgid "Manage optional features"
 msgstr "Beheer optionele features"
 
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:76
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:119
 #, fuzzy
 msgid "Authentication is required to manage optional features."
 msgstr ""
@@ -1468,8 +1531,8 @@ msgstr ""
 #: src/core/dbus-unit.c:679
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr ""
-"Authenticatie is vereist voor het instellen van de eigenschappen van '$"
-"(unit)'."
+"Authenticatie is vereist voor het instellen van de eigenschappen van '$(unit)"
+"'."
 
 #: src/core/dbus-unit.c:776
 msgid ""
@@ -1485,3 +1548,22 @@ msgid ""
 msgstr ""
 "Authenticatie is vereist voor het bevriezen of ontdooien van de processen "
 "die behoren tot '$(unit)'."
+
+#: src/shared/libfido2-util.c:497 src/shared/libfido2-util.c:554
+msgid "Please confirm presence on security token to unlock."
+msgstr ""
+
+#: src/shared/libfido2-util.c:513
+msgid "Please verify user on security token to unlock."
+msgstr ""
+
+#: src/shared/libfido2-util.c:926
+msgid "Please enter security token PIN:"
+msgstr ""
+
+#~ msgid "Cleanup old system updates"
+#~ msgstr "Oude systeemupdates opkuisen"
+
+#, fuzzy
+#~ msgid "Authentication is required to cleanup old system updates."
+#~ msgstr "Authenticatie is vereist voor het instellen van de systeemtijd."

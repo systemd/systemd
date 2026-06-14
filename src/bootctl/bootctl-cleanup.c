@@ -49,6 +49,7 @@ static int list_remove_orphaned_file(
 
 static int cleanup_orphaned_files(
                 const BootConfig *config,
+                BootEntrySource source,
                 const char *root) {
 
         _cleanup_hashmap_free_ Hashmap *known_files = NULL;
@@ -65,7 +66,7 @@ static int cleanup_orphaned_files(
         if (r < 0)
                 return r;
 
-        r = boot_config_count_known_files(config, root, &known_files);
+        r = boot_config_count_known_files(config, source, &known_files);
         if (r < 0)
                 return log_error_errno(r, "Failed to count files in %s: %m", root);
 
@@ -116,10 +117,10 @@ int verb_cleanup(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 return r;
 
         r = 0;
-        RET_GATHER(r, cleanup_orphaned_files(&config, arg_esp_path));
+        RET_GATHER(r, cleanup_orphaned_files(&config, BOOT_ENTRY_ESP, arg_esp_path));
 
         if (arg_xbootldr_path && xbootldr_devid != esp_devid)
-                RET_GATHER(r, cleanup_orphaned_files(&config, arg_xbootldr_path));
+                RET_GATHER(r, cleanup_orphaned_files(&config, BOOT_ENTRY_XBOOTLDR, arg_xbootldr_path));
 
         return r;
 }

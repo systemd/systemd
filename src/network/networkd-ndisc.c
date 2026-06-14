@@ -17,6 +17,7 @@
 #include "networkd-address.h"
 #include "networkd-address-generation.h"
 #include "networkd-dhcp6.h"
+#include "networkd-ipv6ll.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-ndisc.h"
@@ -91,7 +92,8 @@ bool link_ndisc_enabled(Link *link) {
 void network_adjust_ndisc(Network *network) {
         assert(network);
 
-        if (!FLAGS_SET(network->link_local, ADDRESS_FAMILY_IPV6)) {
+        if (!FLAGS_SET(network->link_local, ADDRESS_FAMILY_IPV6) &&
+            !network_has_static_ipv6ll_address(network)) {
                 if (network->ndisc > 0)
                         log_warning("%s: IPv6AcceptRA= is enabled but IPv6 link-local addressing is disabled or not supported. "
                                     "Disabling IPv6AcceptRA=.", network->filename);

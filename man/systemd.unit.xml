@@ -281,6 +281,16 @@
     generally ignored. This includes names that start with a <literal>.</literal> or
     end with a <literal>.ignore</literal>.</para>
 
+    <para>When unit aliasing is introduced during reload/reexec (e.g., converting
+    <filename>b.service</filename> to a symlink pointing to <filename>a.service</filename>), the running
+    state of the canonical unit (<filename>a.service</filename>) is preserved. The old serialized state
+    of the now-aliased unit is migrated to a new stub orphaned unit to prevent stale data from
+    corrupting the canonical unit's live state. Dependencies referencing the alias name are automatically
+    resolved to the canonical unit, and the dependency graph is rebuilt from unit files, ensuring
+    consistency. If the now-aliased unit had resources such as running processes, they will now be tracked
+    under the new orphaned unit. Once all resources are gone (e.g. all processes have exited) the orphaned
+    unit will be garbage collected automatically.</para>
+
     <para>The unit file format is covered by the
     <ulink url="https://systemd.io/PORTABILITY_AND_STABILITY/">Interface
     Portability and Stability Promise</ulink>.</para>
@@ -1105,6 +1115,16 @@
         allowed. In user mode, only <option>none</option>, <option>exit</option>, and
         <option>exit-force</option> are allowed. Both options default to <option>none</option>.</para>
 
+        <para>These actions are tied to the unit's state transitions and fire only when the unit actually
+        transitions out of an <constant>active</constant> or <constant>activating</constant> state. As a
+        consequence, <varname>Condition…=</varname> and <varname>Assert…=</varname> directives that fail do
+        <emphasis>not</emphasis> trigger <varname>SuccessAction=</varname> or
+        <varname>FailureAction=</varname>: they prevent activation in the first place, so no state transition
+        occurs. By contrast, the <varname>ExecCondition=</varname> directive in
+        <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        runs as part of activation, so an <varname>ExecCondition=</varname> skip <emphasis>will</emphasis>
+        trigger <varname>SuccessAction=</varname>.</para>
+
         <para>If <option>none</option> is set, no action will be triggered. <option>reboot</option> causes a
         reboot following the normal shutdown procedure (i.e. equivalent to <command>systemctl
         reboot</command>).  <option>reboot-force</option> causes a forced reboot which will terminate all
@@ -1454,6 +1474,38 @@
           details about the machine ID. The test may be negated by prepending an exclamation mark.</para>
 
           <xi:include href="version-info.xml" xpointer="v244"/>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>ConditionFraction=</varname></term>
+
+          <listitem><para><varname>ConditionFraction=</varname> may be used to enable a unit on a stable,
+          pseudo-random subset of a fleet of machines. It is primarily useful for staged rollouts: the same
+          unit (or drop-in) is distributed to every machine in a fleet, but only the configured fraction of
+          them will actually have it enabled. The decision is derived locally from the machine ID (see
+          <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>), so
+          it requires no central coordination and is stable over time: a given machine always lands on the
+          same side of the threshold.</para>
+
+          <para>The argument consists of an optional <replaceable>tag</replaceable> followed by a percentage,
+          separated by whitespace, for example <literal>30%</literal> or
+          <literal>myrollout 30%</literal>. The percentage may include up to two decimal places (e.g.
+          <literal>0.5%</literal>). The condition is satisfied on approximately the configured percentage of
+          all machines; <literal>0%</literal> matches no machine and <literal>100%</literal> matches every
+          machine.</para>
+
+          <para>The optional tag is an arbitrary string (not containing whitespace) that is mixed into the
+          derivation, so that independent rollouts select <emphasis>independent</emphasis> subsets of the
+          fleet. Without it, all untagged <varname>ConditionFraction=</varname> checks would select the very
+          same machines (the same machines would always be picked first). Use distinct tags for unrelated
+          rollouts, and a shared tag to deliberately target the same machines across several units.</para>
+
+          <para>The test may be negated by prepending an exclamation mark, in which case it is satisfied on the
+          complementary fraction of machines (e.g. <literal>!myrollout 30%</literal> matches the other ≈70%).
+          If the machine ID cannot be determined, the condition fails.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/>
           </listitem>
         </varlistentry>
 
@@ -2017,6 +2069,25 @@
         </varlistentry>
 
         <varlistentry>
+          <term><varname>ConditionMachineTag=</varname></term>
+
+          <listitem><para><varname>ConditionMachineTag=</varname> may be used to match against the tags
+          assigned to the local machine. Machine tags are short labels that classify and group machines for
+          management purposes; they are configured in the <varname>TAGS=</varname> field of
+          <citerefentry><refentrytitle>machine-info</refentrytitle><manvolnum>5</manvolnum></citerefentry> and
+          may be queried and changed with the <command>tags</command> command of
+          <citerefentry><refentrytitle>hostnamectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>. The
+          argument is a single tag pattern, which is compared against each of the configured tags using
+          shell-style globbing (<literal>*</literal>, <literal>?</literal>, <literal>[]</literal>). The
+          condition is satisfied if at least one of the configured tags matches the pattern. The test may be
+          negated by prepending an exclamation mark, in which case it is satisfied if none of the configured
+          tags matches.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><varname>ConditionMemoryPressure=</varname></term>
           <term><varname>ConditionCPUPressure=</varname></term>
           <term><varname>ConditionIOPressure=</varname></term>
@@ -2055,6 +2126,7 @@
           <term><varname>AssertArchitecture=</varname></term>
           <term><varname>AssertVirtualization=</varname></term>
           <term><varname>AssertHost=</varname></term>
+          <term><varname>AssertFraction=</varname></term>
           <term><varname>AssertKernelCommandLine=</varname></term>
           <term><varname>AssertKernelVersion=</varname></term>
           <term><varname>AssertVersion=</varname></term>
@@ -2083,6 +2155,7 @@
           <term><varname>AssertCPUs=</varname></term>
           <term><varname>AssertCPUFeature=</varname></term>
           <term><varname>AssertOSRelease=</varname></term>
+          <term><varname>AssertMachineTag=</varname></term>
           <term><varname>AssertMemoryPressure=</varname></term>
           <term><varname>AssertCPUPressure=</varname></term>
           <term><varname>AssertIOPressure=</varname></term>

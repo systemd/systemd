@@ -238,10 +238,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argv);
         assert(ret_args);
 
-        OptionParser state = { argc, argv };
-        const char *arg;
+        OptionParser opts = { argc, argv };
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -251,24 +250,24 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         return version();
 
                 OPTION_LONG("format", "FORMAT", "Select format"):
-                        arg_compress = compression_from_string_harder(arg);
+                        arg_compress = compression_from_string_harder(opts.arg);
                         if (arg_compress < 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Unknown format: %s", arg);
+                                                       "Unknown format: %s", opts.arg);
                         break;
 
                 OPTION_LONG("class", "CLASS",
                             "Select image class (machine, sysext, confext, portable)"):
-                        arg_class = image_class_from_string(arg);
+                        arg_class = image_class_from_string(opts.arg);
                         if (arg_class < 0)
-                                return log_error_errno(arg_class, "Failed to parse --class= argument: %s", arg);
+                                return log_error_errno(arg_class, "Failed to parse --class= argument: %s", opts.arg);
                         break;
 
-                OPTION_LONG("system", NULL, "Operate in per-system mode"):
+                OPTION_COMMON_SYSTEM:
                         arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
                         break;
 
-                OPTION_LONG("user", NULL, "Operate in per-user mode"):
+                OPTION_COMMON_USER:
                         arg_runtime_scope = RUNTIME_SCOPE_USER;
                         break;
                 }
@@ -276,7 +275,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         if (arg_runtime_scope == RUNTIME_SCOPE_USER)
                 arg_import_flags |= IMPORT_FOREIGN_UID;
 
-        *ret_args = option_parser_get_args(&state);
+        *ret_args = option_parser_get_args(&opts);
         return 1;
 }
 
@@ -293,7 +292,7 @@ static int run(int argc, char *argv[]) {
 
         (void) ignore_signals(SIGPIPE);
 
-        return dispatch_verb_with_args(args, NULL);
+        return dispatch_verb(args, NULL);
 }
 
 DEFINE_MAIN_FUNCTION(run);

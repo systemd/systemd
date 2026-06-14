@@ -10,17 +10,19 @@
 #include "efi-loader.h"
 #include "escape.h"
 #include "format-table.h"
+#include "help-util.h"
 #include "json-util.h"
 #include "main-func.h"
 #include "options.h"
 #include "parse-argument.h"
 #include "pcrextend-util.h"
-#include "pretty-print.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tpm2-pcr.h"
 #include "tpm2-util.h"
+#include "user-record.h"
+#include "userdb.h"
 #include "varlink-io.systemd.PCRExtend.h"
 #include "varlink-util.h"
 
@@ -30,6 +32,7 @@ static char **arg_banks = NULL;
 static char *arg_file_system = NULL;
 static bool arg_machine_id = false;
 static bool arg_product_id = false;
+static UserRecord *arg_login = NULL;
 static uint32_t arg_pcr_mask = 0;
 static char *arg_nvpcr_name = NULL;
 static bool arg_varlink = false;
@@ -40,40 +43,31 @@ STATIC_DESTRUCTOR_REGISTER(arg_banks, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_device, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_file_system, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_nvpcr_name, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_login, user_record_unrefp);
 
 #define EXTENSION_STRING_SAFE_LIMIT 1024
 
 static int help(void) {
-        _cleanup_free_ char *link = NULL;
         _cleanup_(table_unrefp) Table *options = NULL;
         int r;
-
-        r = terminal_urlify_man("systemd-pcrextend", "8", &link);
-        if (r < 0)
-                return log_oom();
 
         r = option_parser_get_help_table(&options);
         if (r < 0)
                 return r;
 
-        printf("%1$s  [OPTIONS...] WORD\n"
-               "%1$s  [OPTIONS...] --file-system=PATH\n"
-               "%1$s  [OPTIONS...] --machine-id\n"
-               "%1$s  [OPTIONS...] --product-id\n"
-               "\n%2$sExtend a TPM2 PCR with boot phase, machine ID, or file system ID.%3$s\n",
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal());
+        help_cmdline("[OPTIONS...] WORD");
+        help_cmdline("[OPTIONS...] --file-system=PATH");
+        help_cmdline("[OPTIONS...] --machine-id");
+        help_cmdline("[OPTIONS...] --product-id");
+        help_cmdline("[OPTIONS...] --login=UID|USER");
+        help_abstract("Extend a TPM2 PCR with boot phase, machine ID, file system ID or user record.");
 
-        printf("\n%sOptions:%s\n",
-               ansi_underline(),
-               ansi_normal());
-
+        help_section("Options");
         r = table_print_or_warn(options);
         if (r < 0)
                 return r;
 
-        printf("\nSee the %s for details.\n", link);
+        help_man_page_reference("systemd-pcrextend", "8");
         return 0;
 }
 
@@ -81,11 +75,10 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argc >= 0);
         assert(argv);
 
-        OptionParser state = { argc, argv };
-        const char *arg;
+        OptionParser opts = { argc, argv };
         int r;
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -97,13 +90,13 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 OPTION_LONG("bank", "DIGEST", "Select TPM PCR bank (SHA1, SHA256)"): {
                         const EVP_MD *implementation;
 
-                        r = dlopen_libcrypto(LOG_ERR);
+                        r = DLOPEN_LIBCRYPTO(LOG_ERR, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED);
                         if (r < 0)
                                 return r;
 
-                        implementation = sym_EVP_get_digestbyname(arg);
+                        implementation = sym_EVP_get_digestbyname(opts.arg);
                         if (!implementation)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown bank '%s', refusing.", arg);
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown bank '%s', refusing.", opts.arg);
 
                         if (strv_extend(&arg_banks, sym_EVP_MD_get0_name(implementation)) < 0)
                                 return log_oom();
@@ -112,23 +105,23 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 }
 
                 OPTION_LONG("pcr", "INDEX", "Select TPM PCR index (0…23)"):
-                        if (isempty(arg)) {
+                        if (isempty(opts.arg)) {
                                 arg_pcr_mask = 0;
                                 break;
                         }
 
-                        r = tpm2_pcr_index_from_string(arg);
+                        r = tpm2_pcr_index_from_string(opts.arg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse PCR index: %s", arg);
+                                return log_error_errno(r, "Failed to parse PCR index: %s", opts.arg);
 
                         arg_pcr_mask |= INDEX_TO_MASK(uint32_t, r);
                         break;
 
                 OPTION_LONG("nvpcr", "NAME", "Select TPM PCR mode nvindex name"):
-                        if (!tpm2_nvpcr_name_is_valid(arg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "NvPCR name is not valid: %s", arg);
+                        if (!tpm2_nvpcr_name_is_valid(opts.arg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "NvPCR name is not valid: %s", opts.arg);
 
-                        r = free_and_strdup_warn(&arg_nvpcr_name, arg);
+                        r = free_and_strdup_warn(&arg_nvpcr_name, opts.arg);
                         if (r < 0)
                                 return r;
                         break;
@@ -136,11 +129,11 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 OPTION_LONG("tpm2-device", "PATH", "Use specified TPM2 device"): {
                         _cleanup_free_ char *device = NULL;
 
-                        if (streq(arg, "list"))
+                        if (streq(opts.arg, "list"))
                                 return tpm2_list_devices(/* legend= */ true, /* quiet= */ false);
 
-                        if (!streq(arg, "auto")) {
-                                device = strdup(arg);
+                        if (!streq(opts.arg, "auto")) {
+                                device = strdup(opts.arg);
                                 if (!device)
                                         return log_oom();
                         }
@@ -156,7 +149,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
                 OPTION_LONG("file-system", "PATH",
                             "Measure UUID/labels of file system into PCR 15"):
-                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_file_system);
+                        r = parse_path_argument(opts.arg, /* suppress_root= */ false, &arg_file_system);
                         if (r < 0)
                                 return r;
                         break;
@@ -170,6 +163,19 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         arg_product_id = true;
                         break;
 
+                OPTION_LONG("login", "UID|USER",
+                            "Measure a user's record into NvPCR 'login'"): {
+                        _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
+
+                        r = userdb_by_name(opts.arg, /* match= */ NULL, USERDB_PARSE_NUMERIC|USERDB_SUPPRESS_SHADOW, &ur);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to look up user '%s': %m", opts.arg);
+
+                        user_record_unref(arg_login);
+                        arg_login = TAKE_PTR(ur);
+                        break;
+                }
+
                 OPTION_LONG("early", NULL,
                             "Run in early boot mode, without access to /var/"):
                         arg_early = true;
@@ -177,17 +183,17 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
                 OPTION_LONG("event-type", "TYPE",
                             "Event type to include in the event log"):
-                        if (streq(arg, "help"))
+                        if (streq(opts.arg, "help"))
                                 return DUMP_STRING_TABLE(tpm2_userspace_event_type, Tpm2UserspaceEventType, _TPM2_USERSPACE_EVENT_TYPE_MAX);
 
-                        arg_event_type = tpm2_userspace_event_type_from_string(arg);
+                        arg_event_type = tpm2_userspace_event_type_from_string(opts.arg);
                         if (arg_event_type < 0)
-                                return log_error_errno(arg_event_type, "Failed to parse --event-type= argument: %s", arg);
+                                return log_error_errno(arg_event_type, "Failed to parse --event-type= argument: %s", opts.arg);
                         break;
                 }
 
-        if (!!arg_file_system + arg_machine_id + arg_product_id > 1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--file-system=, --machine-id, --product-id may not be combined.");
+        if (!!arg_file_system + arg_machine_id + arg_product_id + !!arg_login > 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--file-system=, --machine-id, --product-id, --login= may not be combined.");
 
         if (arg_pcr_mask != 0 && arg_nvpcr_name)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--pcr= and --nvpcr= may not be combined.");
@@ -200,15 +206,18 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         else if (arg_pcr_mask == 0 && !arg_nvpcr_name) {
                 arg_pcr_mask =
                         (arg_file_system || arg_machine_id) ? INDEX_TO_MASK(uint32_t, TPM2_PCR_SYSTEM_IDENTITY) : /* → PCR 15 */
-                                           !arg_product_id  ? INDEX_TO_MASK(uint32_t, TPM2_PCR_KERNEL_BOOT) :     /* → PCR 11 */
-                                                              0;
+                              (arg_product_id || arg_login) ? 0 :                                                 /* → NvPCR */
+                                                              INDEX_TO_MASK(uint32_t, TPM2_PCR_KERNEL_BOOT);      /* → PCR 11 */
 
-                r = free_and_strdup_warn(&arg_nvpcr_name, arg_product_id ? "hardware" : NULL);
+                r = free_and_strdup_warn(&arg_nvpcr_name,
+                                         arg_product_id  ? "hardware" :
+                                         arg_login       ? "login" :
+                                                           NULL);
                 if (r < 0)
                         return r;
         }
 
-        *ret_args = option_parser_get_args(&state);
+        *ret_args = option_parser_get_args(&opts);
         return 1;
 }
 
@@ -252,6 +261,48 @@ static int escape_and_truncate_data(const void *data, size_t size, char **ret) {
         return 0;
 }
 
+static int tpm2_context_new_for_measurement(Tpm2Context **ret) {
+        int r;
+
+        assert(ret);
+
+        /* Wrapper around tpm2_context_new_or_warn() that translates a missing TPM device from -ENOENT to
+         * -EOPNOTSUPP, for two reasons:
+         *
+         *  - It disambiguates -ENOENT on the NvPCR path. There -ENOENT also means "no such NvPCR definition"
+         *    (from tpm2_nvpcr_extend_bytes() → nvpcr_data_load()), which vl_method_extend() maps to the
+         *    io.systemd.PCRExtend.NoSuchNvPCR error. If "no TPM device" stayed -ENOENT it would be
+         *    misreported as a missing NvPCR definition. So we keep each errno single-meaning: -ENOENT = "no
+         *    such NvPCR definition", -EOPNOTSUPP = "TPM cannot be used for this measurement" (also what
+         *    tpm2_context_new_or_warn() already returns for missing crypto / an OpenSSL-less build, and what
+         *    extend_pcr_now() returns when no PCR bank is enabled).
+         *
+         *  - It lets the --graceful skip in run() match a single errno (-EOPNOTSUPP).
+         *
+         * We deliberately translate *only* -ENOENT here, not every "TPM unusable" errno:
+         *
+         *  - Genuine absence (no TPM hardware, no tpm2 libraries) never reaches this point under --graceful:
+         *    run() bails out earlier at the tpm2_is_mostly_supported() guard, which requires the kernel
+         *    driver + tpm subsystem + libtss2 esys/rc/mu. So broadening the set buys nothing for the common
+         *    "no TPM" case.
+         *
+         *  - -ENOPKG (TCTI driver libtss2-tcti-device.so.0 not loadable) can therefore only happen when the
+         *    rest of the stack *is* present — i.e. a half-installed tpm2-tss, a misconfiguration.
+         *
+         *  - -ENOTRECOVERABLE (TCTI/Esys init or TPM startup failed) means a TPM is present but
+         *    malfunctioning.
+         *
+         * Both of the latter are real faults we want to surface and fail on, not silently skip:
+         * --graceful's contract is "no TPM2 device is found", i.e. absence, not breakage. -EINVAL (bad
+         * device string), -ENOMEM, etc. likewise stay hard errors. */
+
+        r = tpm2_context_new_or_warn(arg_tpm2_device, ret);
+        if (r == -ENOENT)
+                return -EOPNOTSUPP;
+
+        return r;
+}
+
 static int extend_pcr_now(
                 uint32_t pcr_mask,
                 const void *data,
@@ -263,7 +314,7 @@ static int extend_pcr_now(
 
         assert(pcr_mask != 0);
 
-        r = tpm2_context_new_or_warn(arg_tpm2_device, &c);
+        r = tpm2_context_new_for_measurement(&c);
         if (r < 0)
                 return r;
 
@@ -271,7 +322,7 @@ static int extend_pcr_now(
         if (r < 0)
                 return r;
         if (strv_isempty(arg_banks)) /* Still none? */
-                return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "Found a TPM2 without enabled PCR banks. Can't operate.");
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Found a TPM2 without enabled PCR banks. Can't operate.");
 
         _cleanup_free_ char *joined_banks = NULL;
         joined_banks = strv_join(arg_banks, ", ");
@@ -311,7 +362,7 @@ static int extend_nvpcr_now(
 
         assert(name);
 
-        r = tpm2_context_new_or_warn(arg_tpm2_device, &c);
+        r = tpm2_context_new_for_measurement(&c);
         if (r < 0)
                 return r;
 
@@ -428,7 +479,9 @@ static int vl_server(void) {
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *varlink_server = NULL;
         int r;
 
-        r = varlink_server_new(&varlink_server, SD_VARLINK_SERVER_ROOT_ONLY, /* userdata= */ NULL);
+        r = varlink_server_new(&varlink_server,
+                               SD_VARLINK_SERVER_ROOT_ONLY | SD_VARLINK_SERVER_MYSELF_ONLY,
+                               /* userdata= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate Varlink server: %m");
 
@@ -495,6 +548,17 @@ static int run(int argc, char *argv[]) {
                         return r;
 
                 event = TPM2_EVENT_PRODUCT_ID;
+
+        } else if (arg_login) {
+
+                if (n_args != 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Expected no argument.");
+
+                r = pcrextend_login_word(arg_login, &word);
+                if (r < 0)
+                        return r;
+
+                event = TPM2_EVENT_LOGIN;
         } else {
                 if (n_args != 1)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Expected a single argument.");
@@ -534,6 +598,14 @@ static int run(int argc, char *argv[]) {
                 r = extend_nvpcr_now(arg_nvpcr_name, word, strlen(word), event);
         else
                 r = extend_pcr_now(arg_pcr_mask, word, strlen(word), event);
+        /* Both extend paths report "TPM cannot be used for this measurement" (no PCR bank, missing crypto,
+         * no TPM device — see tpm2_context_new_for_measurement()) as -EOPNOTSUPP. Under --graceful we skip
+         * those rather than fail and block boot. Genuine faults keep their own errno and are never
+         * suppressed. */
+        if (arg_graceful && r == -EOPNOTSUPP) {
+                log_notice_errno(r, "TPM2 cannot be used for measurement (no usable PCR bank, missing device, or missing crypto support), skipping gracefully.");
+                return EXIT_SUCCESS;
+        }
         if (r < 0)
                 return r;
 

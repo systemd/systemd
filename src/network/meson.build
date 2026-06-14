@@ -43,6 +43,7 @@ systemd_networkd_extract_sources = files(
         'networkd-conf.c',
         'networkd-dhcp-common.c',
         'networkd-dhcp-prefix-delegation.c',
+        'networkd-dhcp-relay.c',
         'networkd-dhcp-server-bus.c',
         'networkd-dhcp-server-static-lease.c',
         'networkd-dhcp-server.c',
@@ -128,9 +129,11 @@ networkctl_sources = files(
         'networkctl-address-label.c',
         'networkctl-config-file.c',
         'networkctl-description.c',
+        'networkctl-dhcp-lease.c',
         'networkctl-dump-util.c',
         'networkctl-journal.c',
         'networkctl-link-info.c',
+        'networkctl-link-info-json.c',
         'networkctl-list.c',
         'networkctl-lldp.c',
         'networkctl-misc.c',
@@ -167,7 +170,7 @@ else
                               libshared_static]
 endif
 
-network_includes = [libsystemd_network_includes, include_directories(['.', 'netdev', 'tc'])]
+network_includes = [include_directories(['.', 'netdev', 'tc']), libsystemd_network_includes]
 
 network_test_template = test_template + {
         'conditions' : ['ENABLE_NETWORKD'],
@@ -186,7 +189,6 @@ network_fuzz_template = fuzz_template + {
                 libsystemd_network,
         ],
         'objects' : ['systemd-networkd'],
-        'dependencies' : threads,
         'include_directories' : network_includes,
 }
 
@@ -202,7 +204,6 @@ executables += [
                         libsystemd_network,
                         networkd_link_with,
                 ],
-                'dependencies' : threads,
                 'bpf_programs': [
                         'sysctl-monitor',
                 ]
@@ -238,11 +239,9 @@ executables += [
         },
         network_test_template + {
                 'sources' : files('test-network-tables.c'),
-                'dependencies' : threads,
         },
         network_test_template + {
                 'sources' : files('test-network.c'),
-                'dependencies' : threads,
         },
         network_test_template + {
                 'sources' : files('test-networkd-address.c'),

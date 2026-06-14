@@ -15,7 +15,8 @@ project('systemd', 'c',
 
 add_test_setup(
         'default',
-        exclude_suites : ['clang-tidy', 'unused-symbols', 'integration-tests'],
+        exclude_suites : ['clang-tidy', 'coccinelle', 'unused-symbols', 'integration-tests'],
+        exe_wrapper : find_program('tools/test-crash-trace.sh'),
         is_default : true,
 )
 
@@ -26,8 +27,8 @@ else
         project_minor_version = '0'
 endif
 
-libsystemd_version = '0.43.0'
-libudev_version = '1.7.13'
+libsystemd_version = '0.44.0'
+libudev_version = '1.7.14'
 
 conf = configuration_data()
 conf.set_quoted('PROJECT_URL', 'https://systemd.io/')
@@ -37,10 +38,17 @@ conf.set_quoted('PROJECT_VERSION_STR', project_major_version,
         description: 'Stringified project version (used where a simple string is expected)')
 conf.set_quoted('PROJECT_VERSION_FULL', meson.project_version(), description : 'Full project version')
 
-relative_source_path = run_command('realpath',
-                                   '--relative-to=@0@'.format(meson.project_build_root()),
-                                   meson.project_source_root(),
-                                   check : true).stdout().strip()
+fs = import('fs')
+
+if meson.version().version_compare('>=1.3.0')
+        relative_source_path = fs.relative_to(meson.project_source_root(),
+                                              meson.project_build_root())
+else
+        relative_source_path = run_command('realpath',
+                                           '--relative-to=@0@'.format(meson.project_build_root()),
+                                           meson.project_source_root(),
+                                           check : true).stdout().strip()
+endif
 conf.set_quoted('RELATIVE_SOURCE_PATH', relative_source_path)
 
 conf.set10('BUILD_MODE_DEVELOPER', get_option('mode') == 'developer',
@@ -79,7 +87,6 @@ summary({
 
 #####################################################################
 
-fs = import('fs')
 if get_option('split-bin') == 'auto'
         split_bin = not fs.is_symlink('/usr/sbin')
 else
@@ -420,10 +427,16 @@ possible_common_cc_flags = [
         '-Wno-string-plus-int',  # clang
 
         '-fdiagnostics-show-option',
+        '-fexcess-precision=standard',
         '-fno-common',
         '-fstack-protector',
         '-fstack-protector-strong',
         '-fstrict-flex-arrays=3',
+        # We don't read errno from any libm call, and the math-errno fallback
+        # forces a DT_NEEDED on libm via the cold error path even when the hot
+        # path is a single hardware instruction (sqrtsd, etc.). Drop it so the
+        # builtins lower to pure hardware instructions.
+        '-fno-math-errno',
         '--param=ssp-buffer-size=4',
 ]
 
@@ -558,6 +571,16 @@ have = cc.compiles(
         name : '__attribute__((__no_reorder__))')
 conf.set10('HAVE_ATTRIBUTE_NO_REORDER', have)
 
+# The "R" (SHF_GNU_RETAIN) section flag is only understood by binutils >= 2.36.
+# TODO: drop when support for CentOS 9 is dropped.
+if cc.compiles(
+        '__asm__(".pushsection .note.test, \\"aR\\", %note\\n.popsection\\n");',
+        name : 'assembler supports the "R" (SHF_GNU_RETAIN) section flag')
+        conf.set_quoted('_SD_ELF_NOTE_DLOPEN_SECTION_FLAGS', 'aGR')
+else
+        conf.set_quoted('_SD_ELF_NOTE_DLOPEN_SECTION_FLAGS', 'aG')
+endif
+
 #####################################################################
 # compilation result tests
 
@@ -581,42 +604,6 @@ long_max = cc.compute_int(
         high : 0x7FFFFFFFFFFFFFFF)
 assert(long_max > 100000)
 conf.set_quoted('LONG_MAX_STR', f'@long_max@')
-
-foreach ident : [
-        ['renameat2',         '''#include <stdio.h>'''],        # since musl-1.2.6
-        ['set_mempolicy',     '''#include <sys/syscall.h>'''],  # declared at numaif.h provided by libnuma, which we do not use
-        ['get_mempolicy',     '''#include <sys/syscall.h>'''],  # declared at numaif.h provided by libnuma, which we do not use
-        ['epoll_pwait2',      '''#include <sys/epoll.h>'''],    # since glibc-2.35
-        ['fsconfig',          '''#include <sys/mount.h>'''],    # since glibc-2.36
-        ['fsmount',           '''#include <sys/mount.h>'''],    # since glibc-2.36
-        ['fsopen',            '''#include <sys/mount.h>'''],    # since glibc-2.36
-        ['mount_setattr',     '''#include <sys/mount.h>'''],    # since glibc-2.36
-        ['move_mount',        '''#include <sys/mount.h>'''],    # since glibc-2.36
-        ['open_tree',         '''#include <sys/mount.h>'''],    # since glibc-2.36
-        ['pidfd_open',        '''#include <sys/pidfd.h>'''],    # since glibc-2.36
-        ['pidfd_send_signal', '''#include <sys/pidfd.h>'''],    # since glibc-2.36
-        ['pidfd_spawn',       '''#include <spawn.h>'''],        # since glibc-2.39
-        ['sched_setattr',     '''#include <sched.h>'''],        # since glibc-2.41
-        ['ioprio_get',        '''#include <sched.h>'''],        # no known header declares ioprio_get
-        ['ioprio_set',        '''#include <sched.h>'''],        # no known header declares ioprio_set
-        ['rt_tgsigqueueinfo', '''#include <signal.h>'''],       # no known header declares rt_tgsigqueueinfo
-        ['open_tree_attr',    '''#include <sys/mount.h>'''],    # no known header declares open_tree_attr
-        ['quotactl_fd',       '''#include <sys/quota.h>'''],    # no known header declares quotactl_fd
-        ['fchmodat2',         '''#include <sys/stat.h>'''],     # no known header declares fchmodat2
-        ['bpf',               '''#include <sys/syscall.h>'''],  # no known header declares bpf
-        ['kcmp',              '''#include <sys/syscall.h>'''],  # no known header declares kcmp
-        ['kexec_file_load',   '''#include <sys/syscall.h>'''],  # no known header declares kexec_file_load
-        ['keyctl',            '''#include <sys/syscall.h>'''],  # no known header declares keyctl
-        ['add_key',           '''#include <sys/syscall.h>'''],  # no known header declares add_key
-        ['request_key',       '''#include <sys/syscall.h>'''],  # no known header declares request_key
-        ['setxattrat',        '''#include <sys/xattr.h>'''],    # no known header declares setxattrat
-        ['removexattrat',     '''#include <sys/xattr.h>'''],    # no known header declares removexattrat
-        ['pivot_root',        '''#include <unistd.h>'''],       # no known header declares pivot_root
-]
-
-        have = cc.has_function(ident[0], prefix : ident[1], args : '-D_GNU_SOURCE')
-        conf.set10('HAVE_' + ident[0].to_upper(), have)
-endforeach
 
 #####################################################################
 
@@ -1014,25 +1001,13 @@ endif
 
 #####################################################################
 
-threads = dependency('threads')
-librt = cc.find_library('rt')
 libm = cc.find_library('m')
-libdl = cc.find_library('dl')
 
-# On some distributions that use musl (e.g. Alpine), libintl.h may be provided by gettext rather than musl.
-# In that case, we need to explicitly link with libintl.so.
-if cc.has_function('dgettext',
-                   prefix : '''#include <libintl.h>''',
-                   args : '-D_GNU_SOURCE')
-        libintl = []
-else
-        libintl = cc.find_library('intl')
-        if not cc.has_function('dgettext',
-                               prefix : '''#include <libintl.h>''',
-                               args : '-D_GNU_SOURCE',
-                               dependencies : libintl)
-                error('dgettext() not found')
-        endif
+# Header presence check only — dgettext itself is resolved via dlopen_libintl() at runtime, so we never
+# link against libintl. On glibc dgettext lives in libc; on musl gettext-dev provides libintl.h alongside
+# libintl.so.8 which we dlopen() if present.
+if not cc.has_header('libintl.h')
+        error('libintl.h not found (install gettext / gettext-dev)')
 endif
 
 # On some architectures, libatomic is required. But on some installations,
@@ -1059,6 +1034,14 @@ else
 endif
 conf.set10('HAVE_LIBCRYPT', have)
 
+# musl declares the ucontext.h functions but does not implement them; the fiber bootstrap in
+# src/libsystemd/sd-future/fiber.c relies on them, so on musl we have to link to libucontext.
+if get_option('libc') == 'musl'
+        libucontext = dependency('libucontext')
+else
+        libucontext = []
+endif
+
 bpf_framework = get_option('bpf-framework')
 bpf_compiler = get_option('bpf-compiler')
 libbpf = dependency('libbpf',
@@ -1075,7 +1058,7 @@ conf.set10('HAVE_LIBMOUNT', have)
 libmount_cflags = libmount.partial_dependency(includes: true, compile_args: true)
 
 libfdisk = dependency('fdisk',
-                      version : '>= 2.32',
+                      version : '>= 2.35',
                       required : get_option('fdisk'))
 libfdisk_cflags = libfdisk.partial_dependency(includes: true, compile_args: true)
 conf.set10('HAVE_LIBFDISK', libfdisk.found())
@@ -1169,12 +1152,7 @@ if not libpam.found()
         # Debian older than bookworm and Ubuntu older than 22.10 do not provide the .pc file.
         libpam = cc.find_library('pam', required : feature)
 endif
-libpam_misc = dependency('pam_misc',
-                         required : feature.disabled() ? feature : false)
-if not libpam_misc.found()
-        libpam_misc = cc.find_library('pam_misc', required : feature)
-endif
-conf.set10('HAVE_PAM', libpam.found() and libpam_misc.found())
+conf.set10('HAVE_PAM', libpam.found())
 libpam_cflags = libpam.partial_dependency(includes: true, compile_args: true)
 
 libmicrohttpd = dependency('libmicrohttpd',
@@ -1202,18 +1180,6 @@ conf.set10('HAVE_LIBCRYPTSETUP', have)
 conf.set10('HAVE_LIBCRYPTSETUP_PLUGINS',
            libcryptsetup_plugins.allowed() and have)
 
-foreach ident : [
-                'crypt_set_keyring_to_link',     # 2.7
-                'crypt_token_set_external_path', # 2.7
-        ]
-
-        have_ident = have and cc.has_function(
-                ident,
-                prefix : '#include <libcryptsetup.h>',
-                dependencies : libcryptsetup)
-        conf.set10('HAVE_' + ident.to_upper(), have_ident)
-endforeach
-
 libcurl = dependency('libcurl',
                      version : '>= 7.32.0',
                      required : get_option('libcurl'))
@@ -1232,22 +1198,14 @@ libqrencode = dependency('libqrencode',
 libqrencode_cflags = libqrencode.partial_dependency(includes: true, compile_args: true)
 conf.set10('HAVE_QRENCODE', libqrencode.found())
 
-feature = get_option('gcrypt')
 libgcrypt = dependency('libgcrypt',
-                       required : feature)
-libgpg_error = dependency('gpg-error',
-                          required : feature)
-
-have = libgcrypt.found() and libgpg_error.found()
-if not have
-        # link to neither of the libs if one is not found
-        libgcrypt = []
-        libgpg_error = []
-        libgcrypt_cflags = []
-else
+                       required : get_option('gcrypt'))
+conf.set10('HAVE_GCRYPT', libgcrypt.found())
+if libgcrypt.found()
         libgcrypt_cflags = libgcrypt.partial_dependency(includes: true, compile_args: true)
+else
+        libgcrypt_cflags = []
 endif
-conf.set10('HAVE_GCRYPT', have)
 
 libgnutls = dependency('gnutls',
                        version : '>= 3.1.4',
@@ -1290,10 +1248,6 @@ libelf = dependency('libelf',
                     required : get_option('elfutils'))
 libelf_cflags = libelf.partial_dependency(includes: true, compile_args: true)
 conf.set10('HAVE_ELFUTILS', libdw.found() and libelf.found())
-
-# New in elfutils 0.192
-conf.set10('HAVE_DWFL_SET_SYSROOT',
-           libdw.found() and cc.has_function('dwfl_set_sysroot', dependencies : libdw))
 
 libz = dependency('zlib',
                   required : get_option('zlib'))
@@ -1364,16 +1318,6 @@ libarchive = dependency('libarchive',
 libarchive_cflags = libarchive.partial_dependency(includes: true, compile_args: true)
 conf.set10('HAVE_LIBARCHIVE', libarchive.found())
 
-foreach ident : [
-                'archive_entry_gid_is_set',      # since 3.7.3
-                'archive_entry_uid_is_set',      # since 3.7.3
-                'archive_entry_hardlink_is_set', # since 3.7.5
-        ]
-
-        have = libarchive.found() and cc.has_function(ident, dependencies : libarchive)
-        conf.set10('HAVE_' + ident.to_upper(), have)
-endforeach
-
 libxkbcommon = dependency('xkbcommon',
                           version : '>= 0.3.0',
                           required : get_option('xkbcommon'))
@@ -1394,11 +1338,15 @@ libgobject = dependency('gobject-2.0',
 libgio =     dependency('gio-2.0',
                         required : get_option('glib'))
 conf.set10('HAVE_GLIB', libglib.found() and libgobject.found() and libgio.found())
+libglib_cflags = libglib.partial_dependency(includes: true, compile_args: true)
+libgobject_cflags = libgobject.partial_dependency(includes: true, compile_args: true)
+libgio_cflags = libgio.partial_dependency(includes: true, compile_args: true)
 
 libdbus = dependency('dbus-1',
                      version : '>= 1.3.2',
                      required : get_option('dbus'))
 conf.set10('HAVE_DBUS', libdbus.found())
+libdbus_cflags = libdbus.partial_dependency(includes: true, compile_args: true)
 
 dbusdatadir = libdbus.get_variable(pkgconfig: 'datadir', default_value: datadir) / 'dbus-1'
 
@@ -1582,6 +1530,7 @@ foreach tuple : [
                 ['rfkill'],
                 ['smack'],
                 ['sysext'],
+                ['sysinstall'],
                 ['sysusers'],
                 ['timedated'],
                 ['timesyncd'],
@@ -1685,7 +1634,7 @@ if have and efi_arch == 'x64' and cc.links('''
         efi_cpu_family_alt = 'x86'
 endif
 
-want_ukify = pymod.find_installation('python3', required: get_option('ukify'), modules : ['pefile']).found()
+want_ukify = get_option('ukify').allowed()
 conf.set10('ENABLE_UKIFY', want_ukify)
 
 #####################################################################
@@ -1773,14 +1722,13 @@ system_includes = [
         ),
 ]
 
-if get_option('libc') == 'musl'
-        system_include_args = [
-                '-isystem', meson.project_build_root()  / 'src/include/musl',
-                '-isystem', meson.project_source_root() / 'src/include/musl',
-        ] + system_include_args
+libc_include_dir = 'src/include' / get_option('libc')
+system_include_args = [
+        '-isystem', meson.project_build_root()  / libc_include_dir,
+        '-isystem', meson.project_source_root() / libc_include_dir,
+] + system_include_args
 
-        system_includes += include_directories('src/include/musl', is_system : true)
-endif
+system_includes += include_directories(libc_include_dir, is_system : true)
 
 basic_includes = [
         include_directories(
@@ -1792,11 +1740,12 @@ basic_includes = [
         version_include,
 ]
 
-libsystemd_includes = [basic_includes, include_directories(
+libsystemd_includes = [include_directories(
         'src/libsystemd/sd-bus',
         'src/libsystemd/sd-common',
         'src/libsystemd/sd-device',
         'src/libsystemd/sd-event',
+        'src/libsystemd/sd-future',
         'src/libsystemd/sd-hwdb',
         'src/libsystemd/sd-id128',
         'src/libsystemd/sd-journal',
@@ -1805,14 +1754,14 @@ libsystemd_includes = [basic_includes, include_directories(
         'src/libsystemd/sd-network',
         'src/libsystemd/sd-path',
         'src/libsystemd/sd-resolve',
-        'src/libsystemd/sd-varlink')]
+        'src/libsystemd/sd-varlink'), basic_includes]
 
 includes = [
-        libsystemd_includes,
         include_directories(
                 'src/shared',
                 'src/bpf',
         ),
+        libsystemd_includes,
 ]
 
 subdir('po')
@@ -1837,9 +1786,7 @@ libsystemd = shared_library(
         link_with : [libc_wrapper_static,
                      libbasic_static],
         link_whole : [libsystemd_static],
-        dependencies : [librt,
-                        threads,
-                        userspace],
+        dependencies : [libucontext, userspace],
         link_depends : libsystemd_sym,
         install : true,
         install_tag: 'libsystemd',
@@ -1858,14 +1805,12 @@ if static_libsystemd != 'false'
                 install_tag: 'libsystemd',
                 install_dir : libdir,
                 pic : static_libsystemd_pic,
-                dependencies : [libdl,
-                                libgcrypt_cflags,
+                dependencies : [libgcrypt_cflags,
                                 liblz4_cflags,
                                 libm,
-                                librt,
+                                libucontext,
                                 libxz_cflags,
                                 libzstd_cflags,
-                                threads,
                                 userspace],
                 c_args : libsystemd_c_args + (static_libsystemd_pic ? [] : ['-fno-PIC']))
 
@@ -1883,8 +1828,7 @@ libudev = shared_library(
                      '-Wl,--version-script=' + libudev_sym_path],
         link_with : [libsystemd_static],
         link_whole : libudev_basic,
-        dependencies : [threads,
-                        userspace],
+        dependencies : [userspace],
         link_depends : libudev_sym,
         install : true,
         install_tag: 'libudev',
@@ -1905,8 +1849,7 @@ if static_libudev != 'false'
                 install_tag: 'libudev',
                 install_dir : libdir,
                 link_depends : libudev_sym,
-                dependencies : [libmount,
-                                libshared_deps,
+                dependencies : [libshared_deps,
                                 userspace],
                 c_args : static_libudev_pic ? [] : ['-fno-PIC'],
                 pic : static_libudev_pic)
@@ -2002,10 +1945,6 @@ nss_template = {
                 libshared_static,
                 libbasic_static,
         ],
-        'dependencies' : [
-                librt,
-                threads,
-        ],
         'install' : true,
         'install_tag' : 'nss',
         'install_dir' : libdir,
@@ -2018,24 +1957,7 @@ pam_template = {
                 libsystemd_static,
                 libshared_static,
         ],
-        'dependencies' : [
-                # Note: our PAM modules also call dlopen_libpam() and use
-                # symbols acquired through that, hence the explicit dep here is
-                # strictly speaking unnecessary. We put it in place anyway,
-                # since for the PAM modules we cannot avoid libpam anyway,
-                # after all they are loaded *by* libpam, and hence there's no
-                # loss in having explicit deps here, but there's a win: it
-                # makes the deps more visible.
-                #
-                # (In case you wonder why we do dlopen_libpam() from the PAM
-                # modules in the first place: that's mostly so that all our PAM
-                # code (regardless if our PAM modules or our PAM consuming
-                # programs) can use the same helpers, which hence go via
-                # dlopen_libpam().
-                libpam_misc,
-                libpam,
-                threads,
-        ],
+        'dependencies' : libpam_cflags,
         'install' : true,
         'install_tag' : 'pam',
         'install_dir' : pamlibdir,
@@ -2139,10 +2061,12 @@ subdir('src/socket-activate')
 subdir('src/socket-proxy')
 subdir('src/ssh-generator')
 subdir('src/stdio-bridge')
+subdir('src/storage')
 subdir('src/storagetm')
 subdir('src/sulogin-shell')
 subdir('src/sysctl')
 subdir('src/sysext')
+subdir('src/sysinstall')
 subdir('src/system-update-generator')
 subdir('src/systemctl')
 subdir('src/sysupdate')
@@ -2375,6 +2299,7 @@ test_dlopen = executables_by_name.get('test-dlopen')
 
 nss_targets = []
 pam_targets = []
+module_targets = []
 foreach dict : modules
         name = dict.get('name')
         is_nss = name.startswith('nss_')
@@ -2418,6 +2343,8 @@ foreach dict : modules
                 kwargs : kwargs,
                 implicit_include_directories : false,
         )
+
+        module_targets += lib
 
         if is_nss
                 # We cannot use shared_module because it does not support version suffix.
@@ -2927,6 +2854,7 @@ foreach tuple : [
         ['resolve'],
         ['rfkill'],
         ['sysext'],
+        ['sysinstall'],
         ['systemd-analyze',        conf.get('ENABLE_ANALYZE') == 1],
         ['sysupdate'],
         ['sysupdated'],

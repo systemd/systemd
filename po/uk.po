@@ -5,12 +5,13 @@
 # Daniel Korostil <ted.korostiled@gmail.com>, 2014, 2016, 2018.
 # Yuri Chornoivan <yurchor@ukr.net>, 2019, 2020, 2021, 2022, 2023, 2024, 2026.
 # Dmytro Markevych <hotr1pak@gmail.com>, 2024.
+# Deleted User <noreply+1350@weblate.org>, 2026.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-03-06 03:46+0900\n"
-"PO-Revision-Date: 2026-03-07 01:58+0000\n"
-"Last-Translator: Yuri Chornoivan <yurchor@ukr.net>\n"
+"POT-Creation-Date: 2026-05-30 00:13+0200\n"
+"PO-Revision-Date: 2026-06-07 14:02+0000\n"
+"Last-Translator: Deleted User <noreply+1350@weblate.org>\n"
 "Language-Team: Ukrainian <https://translate.fedoraproject.org/projects/"
 "systemd/main/uk/>\n"
 "Language: uk\n"
@@ -19,7 +20,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=3; plural=n%10==1 && n%100!=11 ? 0 : n%10>=2 && "
 "n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2;\n"
-"X-Generator: Weblate 5.16.2\n"
+"X-Generator: Weblate 2026.6.1\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -164,7 +165,7 @@ msgstr ""
 "Для керування ключами підписування для домашніх каталогів слід пройти "
 "розпізнавання."
 
-#: src/home/pam_systemd_home.c:330
+#: src/home/pam_systemd_home.c:327
 #, c-format
 msgid ""
 "Home of user %s is currently absent, please plug in the necessary storage "
@@ -174,33 +175,33 @@ msgstr ""
 "з'єднайте з комп'ютером відповідний пристрій зберігання даних або резервну "
 "файлову систему."
 
-#: src/home/pam_systemd_home.c:335
+#: src/home/pam_systemd_home.c:332
 #, c-format
 msgid "Too frequent login attempts for user %s, try again later."
 msgstr ""
 "Надто часті спроби увійти до системи з боку користувача %s, повторіть спробу "
 "пізніше."
 
-#: src/home/pam_systemd_home.c:347
+#: src/home/pam_systemd_home.c:344
 msgid "Password: "
 msgstr "Пароль: "
 
-#: src/home/pam_systemd_home.c:349
+#: src/home/pam_systemd_home.c:346
 #, c-format
 msgid "Password incorrect or not sufficient for authentication of user %s."
 msgstr ""
 "Неправильно вказано пароль або пароля недостатньо для розпізнавання "
 "користувача %s."
 
-#: src/home/pam_systemd_home.c:350
+#: src/home/pam_systemd_home.c:347
 msgid "Sorry, try again: "
 msgstr "Вибачте, повторіть спробу: "
 
-#: src/home/pam_systemd_home.c:372
+#: src/home/pam_systemd_home.c:369
 msgid "Recovery key: "
 msgstr "Ключ відновлення: "
 
-#: src/home/pam_systemd_home.c:374
+#: src/home/pam_systemd_home.c:371
 #, c-format
 msgid ""
 "Password/recovery key incorrect or not sufficient for authentication of user "
@@ -209,20 +210,20 @@ msgstr ""
 "Неправильно вказано пароль або пароля недостатньо для розпізнавання "
 "користувача %s."
 
-#: src/home/pam_systemd_home.c:375
+#: src/home/pam_systemd_home.c:372
 msgid "Sorry, reenter recovery key: "
 msgstr "Вибачте, ще раз введіть ключ відновлення: "
 
-#: src/home/pam_systemd_home.c:395
+#: src/home/pam_systemd_home.c:392
 #, c-format
 msgid "Security token of user %s not inserted."
 msgstr "Не вставлено жетон безпеки користувача %s."
 
-#: src/home/pam_systemd_home.c:396 src/home/pam_systemd_home.c:399
+#: src/home/pam_systemd_home.c:393 src/home/pam_systemd_home.c:396
 msgid "Try again with password: "
 msgstr "Повторіть спробу з паролем: "
 
-#: src/home/pam_systemd_home.c:398
+#: src/home/pam_systemd_home.c:395
 #, c-format
 msgid ""
 "Password incorrect or not sufficient, and configured security token of user "
@@ -231,27 +232,27 @@ msgstr ""
 "Пароль введено неправильно або пароля недостатньо, а налаштований жетон "
 "безпеки користувача %s не вставлено."
 
-#: src/home/pam_systemd_home.c:418
+#: src/home/pam_systemd_home.c:415
 msgid "Security token PIN: "
 msgstr "PIN-код жетона безпеки: "
 
-#: src/home/pam_systemd_home.c:435
+#: src/home/pam_systemd_home.c:432
 #, c-format
 msgid "Please authenticate physically on security token of user %s."
 msgstr ""
 "Будь ласка, виконайте фізичне розпізнавання на жетоні безпеки користувача %s."
 
-#: src/home/pam_systemd_home.c:446
+#: src/home/pam_systemd_home.c:443
 #, c-format
 msgid "Please confirm presence on security token of user %s."
 msgstr "Будь ласка, підтвердьте наявність жетона безпеки користувача %s."
 
-#: src/home/pam_systemd_home.c:457
+#: src/home/pam_systemd_home.c:454
 #, c-format
 msgid "Please verify user on security token of user %s."
 msgstr "Будь ласка, перевірте користувача на жетоні безпеки користувача %s."
 
-#: src/home/pam_systemd_home.c:466
+#: src/home/pam_systemd_home.c:463
 msgid ""
 "Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
 "insertion might suffice.)"
@@ -259,84 +260,84 @@ msgstr ""
 "PIN-код жетона захисту заблоковано. Будь ласка, спочатку зніміть його "
 "блокування. (Підказка: іноді досить вийняти і знову вставити жетон.)"
 
-#: src/home/pam_systemd_home.c:474
+#: src/home/pam_systemd_home.c:471
 #, c-format
 msgid "Security token PIN incorrect for user %s."
 msgstr "Помилковий PIN-код жетона захисту для користувача %s."
 
-#: src/home/pam_systemd_home.c:475 src/home/pam_systemd_home.c:494
-#: src/home/pam_systemd_home.c:513
+#: src/home/pam_systemd_home.c:472 src/home/pam_systemd_home.c:491
+#: src/home/pam_systemd_home.c:510
 msgid "Sorry, retry security token PIN: "
 msgstr "Вибачте, повторіть введення PIN-коду жетона безпеки: "
 
-#: src/home/pam_systemd_home.c:493
+#: src/home/pam_systemd_home.c:490
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
 msgstr ""
 "Помилковий PIN-код жетона безпеки користувача %s (лишилося лише декілька "
 "спроб!)"
 
-#: src/home/pam_systemd_home.c:512
+#: src/home/pam_systemd_home.c:509
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
 msgstr ""
 "Помилковий PIN-код жетона безпеки користувача %s (лишилася одна спроба!)"
 
-#: src/home/pam_systemd_home.c:679
+#: src/home/pam_systemd_home.c:676
 #, c-format
 msgid "Home of user %s is currently not active, please log in locally first."
 msgstr ""
 "Домашня тека користувача %s є неактивною. Будь ласка, виконайте спочатку "
 "локальний вхід до системи."
 
-#: src/home/pam_systemd_home.c:681
+#: src/home/pam_systemd_home.c:678
 #, c-format
 msgid "Home of user %s is currently locked, please unlock locally first."
 msgstr ""
 "Зараз домашню теку користувача %s заблоковано. Будь ласка, спочатку "
 "розблокуйте її."
 
-#: src/home/pam_systemd_home.c:715
+#: src/home/pam_systemd_home.c:712
 #, c-format
 msgid "Too many unsuccessful login attempts for user %s, refusing."
 msgstr ""
 "Забагато неуспішних спроб увійти з боку користувача %s. У доступі відмовлено."
 
-#: src/home/pam_systemd_home.c:1012
+#: src/home/pam_systemd_home.c:1021
 msgid "User record is blocked, prohibiting access."
 msgstr "Запис користувача заблоковано. Забороняємо доступ."
 
-#: src/home/pam_systemd_home.c:1016
+#: src/home/pam_systemd_home.c:1025
 msgid "User record is not valid yet, prohibiting access."
 msgstr "Запис користувача ще не набув чинності, забороняємо доступ."
 
-#: src/home/pam_systemd_home.c:1020
+#: src/home/pam_systemd_home.c:1029
 msgid "User record is not valid anymore, prohibiting access."
 msgstr "Запис користувача вже втратив чинність, забороняємо доступ."
 
-#: src/home/pam_systemd_home.c:1025 src/home/pam_systemd_home.c:1074
+#: src/home/pam_systemd_home.c:1034 src/home/pam_systemd_home.c:1083
 msgid "User record not valid, prohibiting access."
 msgstr "Запис користувача не є чинним, забороняємо доступ."
 
-#: src/home/pam_systemd_home.c:1035
+#: src/home/pam_systemd_home.c:1044
 #, c-format
 msgid "Too many logins, try again in %s."
 msgstr "Забагато спроб увійти. Повторіть спробу за %s."
 
-#: src/home/pam_systemd_home.c:1046
+#: src/home/pam_systemd_home.c:1055
 msgid "Password change required."
 msgstr "Потрібна зміна пароля."
 
-#: src/home/pam_systemd_home.c:1050
+#: src/home/pam_systemd_home.c:1059
 msgid "Password expired, change required."
 msgstr "Строк дії пароля вичерпано. Потрібна зміна."
 
-#: src/home/pam_systemd_home.c:1056
+#: src/home/pam_systemd_home.c:1065
 msgid "Password is expired, but can't change, refusing login."
 msgstr ""
 "Строк дії пароля вичерпано, але його неможливо змінити. Забороняємо вхід."
 
-#: src/home/pam_systemd_home.c:1060
+#: src/home/pam_systemd_home.c:1069
 msgid "Password will expire soon, please change."
 msgstr "Строк дії пароля невдовзі буде вичерпано. Будь ласка, змініть його."
 
@@ -366,8 +367,7 @@ msgstr "Встановлення даних щодо машини"
 
 #: src/hostname/org.freedesktop.hostname1.policy:42
 msgid "Authentication is required to set local machine information."
-msgstr ""
-"Для встановлення даних щодо локальної машини слід пройти розпізнавання."
+msgstr "Для встановлення даних щодо локальної машини слід пройти розпізнавання."
 
 #: src/hostname/org.freedesktop.hostname1.policy:51
 msgid "Get product UUID"
@@ -896,8 +896,7 @@ msgstr "Отримання псевдо-TTY на локальному вузлі
 
 #: src/machine/org.freedesktop.machine1.policy:75
 msgid "Authentication is required to acquire a pseudo TTY on the local host."
-msgstr ""
-"Для отримання псевдо-TTY на локальному вузлі слід пройти розпізнавання."
+msgstr "Для отримання псевдо-TTY на локальному вузлі слід пройти розпізнавання."
 
 #: src/machine/org.freedesktop.machine1.policy:84
 msgid "Manage local virtual machines and containers"
@@ -911,38 +910,61 @@ msgstr ""
 "слід пройти розпізнавання."
 
 #: src/machine/org.freedesktop.machine1.policy:95
+msgid "Inspect local virtual machines and containers"
+msgstr "Інспектування локальних віртуальних машин і контейнерів"
+
+#: src/machine/org.freedesktop.machine1.policy:96
+msgid ""
+"Authentication is required to inspect local virtual machines and containers."
+msgstr ""
+"Для інспектування локальних віртуальних машин і контейнерів слід пройти "
+"розпізнавання."
+
+#: src/machine/org.freedesktop.machine1.policy:105
 msgid "Create a local virtual machine or container"
 msgstr "Створення локальної віртуальної машини або контейнера"
 
-#: src/machine/org.freedesktop.machine1.policy:96
+#: src/machine/org.freedesktop.machine1.policy:106
 msgid ""
 "Authentication is required to create a local virtual machine or container."
 msgstr ""
 "Для доступу до створення локальної віртуальної машини або контейнера слід "
 "пройти розпізнавання."
 
-#: src/machine/org.freedesktop.machine1.policy:106
+#: src/machine/org.freedesktop.machine1.policy:116
 msgid "Register a local virtual machine or container"
 msgstr "Реєстрація локальної віртуальної машини або контейнера"
 
-#: src/machine/org.freedesktop.machine1.policy:107
+#: src/machine/org.freedesktop.machine1.policy:117
 msgid ""
 "Authentication is required to register a local virtual machine or container."
 msgstr ""
 "Для реєстрації локальної віртуальної машини або контейнера слід пройти "
 "розпізнавання."
 
-#: src/machine/org.freedesktop.machine1.policy:116
+#: src/machine/org.freedesktop.machine1.policy:126
 msgid "Manage local virtual machine and container images"
 msgstr "Керування локальними образами віртуальних машин і контейнерів"
 
-#: src/machine/org.freedesktop.machine1.policy:117
+#: src/machine/org.freedesktop.machine1.policy:127
 msgid ""
 "Authentication is required to manage local virtual machine and container "
 "images."
 msgstr ""
 "Для доступу до керування локальними образами віртуальних машин і контейнерів "
 "слід пройти розпізнавання."
+
+#: src/machine/org.freedesktop.machine1.policy:137
+msgid "Inspect local virtual machine and container images"
+msgstr "Інспектування локальної віртуальної машини і образів контейнерів"
+
+#: src/machine/org.freedesktop.machine1.policy:138
+msgid ""
+"Authentication is required to inspect local virtual machine and container "
+"images."
+msgstr ""
+"Для інспектування локальної віртуальної машини і образів контейнерів слід "
+"пройти розпізнавання."
 
 #: src/network/org.freedesktop.network1.policy:22
 msgid "Set NTP servers"
@@ -1000,8 +1022,7 @@ msgstr "Вмикання або вимикання трансляційної DN
 #: src/network/org.freedesktop.network1.policy:78
 #: src/resolve/org.freedesktop.resolve1.policy:89
 msgid "Authentication is required to enable or disable multicast DNS."
-msgstr ""
-"Для вмикання або вимикання трансляційної DNS слід пройти розпізнавання."
+msgstr "Для вмикання або вимикання трансляційної DNS слід пройти розпізнавання."
 
 #: src/network/org.freedesktop.network1.policy:88
 #: src/resolve/org.freedesktop.resolve1.policy:99
@@ -1212,27 +1233,59 @@ msgstr "Скидання статистики"
 msgid "Authentication is required to reset statistics."
 msgstr "Для скидання значень статистики до типових слід пройти розпізнавання."
 
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:35
+#: src/resolve/org.freedesktop.resolve1.policy:209
+msgid "Flush DNS caches"
+msgstr "Витирання кешів DNS"
+
+#: src/resolve/org.freedesktop.resolve1.policy:210
+msgid "Authentication is required to flush DNS caches."
+msgstr "Для витирання кешів DNS слід пройти розпізнавання."
+
+#: src/resolve/org.freedesktop.resolve1.policy:220
+msgid "Reset server features"
+msgstr "Скидання можливостей сервера"
+
+#: src/resolve/org.freedesktop.resolve1.policy:221
+msgid "Authentication is required to reset server features."
+msgstr "Для скидання можливостей сервера слід пройти розпізнавання."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:38
 msgid "Check for system updates"
 msgstr "Пошук оновлень системи"
 
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:36
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:39
 msgid "Authentication is required to check for system updates."
 msgstr "Для пошуку оновлень системи слід пройти розпізнавання."
 
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:45
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:48
+msgid "Cancel checking for system updates"
+msgstr "Скасування пошуку оновлень системи"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:49
+msgid "Authentication is required to cancel checking for system updates."
+msgstr "Для скасування пошуку оновлень системи слід пройти розпізнавання."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:58
 msgid "Install system updates"
 msgstr "Встановлення оновлень системи"
 
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:46
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:59
 msgid "Authentication is required to install system updates."
 msgstr "Для встановлення оновлень системи слід пройти розпізнавання."
 
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:55
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:68
+msgid "Cancel installing system updates"
+msgstr "Скасування встановлення оновлень системи"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:69
+msgid "Authentication is required to cancel installing system updates."
+msgstr "Для скасування встановлення оновлень системи слід пройти розпізнавання."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:78
 msgid "Install specific system version"
 msgstr "Встановлення специфічної версії системи"
 
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:56
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:79
 msgid ""
 "Authentication is required to update the system to a specific (possibly old) "
 "version."
@@ -1240,19 +1293,41 @@ msgstr ""
 "Для встановлення специфічної (можливо застарілої) версії системи слід пройти "
 "розпізнавання."
 
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:65
-msgid "Cleanup old system updates"
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:88
+msgid "Cancel installing specific system version"
+msgstr "Скасування встановлення певної версії системи"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:89
+msgid ""
+"Authentication is required to cancel updating the system to a specific "
+"(possibly old) version."
+msgstr ""
+"Для скасування оновлення системи до певної (можливо, застарілої) версії слід "
+"пройти розпізнавання."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:98
+msgid "Clean up old system updates"
 msgstr "Вилучення застарілих оновлень системи"
 
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:66
-msgid "Authentication is required to cleanup old system updates."
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:99
+msgid "Authentication is required to clean up old system updates."
 msgstr "Для вилучення застарілих оновлень системи слід пройти розпізнавання."
 
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:75
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:108
+msgid "Cancel cleaning up old system updates"
+msgstr "Скасування вилучення застарілих оновлень системи"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:109
+msgid "Authentication is required to cancel cleanup of old system updates."
+msgstr ""
+"Для скасування вилучення застарілих оновлень системи слід пройти "
+"розпізнавання."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:118
 msgid "Manage optional features"
 msgstr "Керування додатковими функціями"
 
-#: src/sysupdate/org.freedesktop.sysupdate1.policy:76
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:119
 msgid "Authentication is required to manage optional features."
 msgstr "Для керування додатковими можливостями слід пройти розпізнавання."
 
@@ -1351,3 +1426,24 @@ msgid ""
 msgstr ""
 "Для замороження або розмороження процесів модуля «$(unit)» слід пройти "
 "розпізнавання."
+
+#: src/shared/libfido2-util.c:497 src/shared/libfido2-util.c:554
+msgid "Please confirm presence on security token to unlock."
+msgstr "Будь ласка, підтвердьте наявність на жетоні захисту для розблокування."
+
+#: src/shared/libfido2-util.c:513
+msgid "Please verify user on security token to unlock."
+msgstr ""
+"Будь ласка, підтвердьте ідентичність користувача на жетоні захисту для "
+"розблокування."
+
+#: src/shared/libfido2-util.c:926
+msgid "Please enter security token PIN:"
+msgstr "Будь ласка, введіть PIN жетона захисту:"
+
+#~ msgid "Cleanup old system updates"
+#~ msgstr "Вилучення застарілих оновлень системи"
+
+#~ msgid "Authentication is required to cleanup old system updates."
+#~ msgstr ""
+#~ "Для вилучення застарілих оновлень системи слід пройти розпізнавання."

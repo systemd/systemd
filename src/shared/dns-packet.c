@@ -2446,50 +2446,67 @@ static bool opt_is_good(DnsResourceRecord *rr, bool *rfc6975) {
 
 static int dns_packet_extract_question(DnsPacket *p, DnsQuestion **ret_question) {
         _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
-        unsigned n;
+        unsigned n, prealloc;
         int r;
 
         assert(ret_question);
 
         n = DNS_PACKET_QDCOUNT(p);
-        if (n > 0) {
-                question = dns_question_new(n);
-                if (!question)
-                        return -ENOMEM;
+        if (n == 0) {
+                *ret_question = NULL;
+                return 0;
+        }
 
-                _cleanup_set_free_ Set *keys = NULL; /* references to keys are kept by Question */
+        /* Calculate the maximum number of potential questions the remaining packet data can actually
+         * contain: p->size - p->rindex are the remaining unread bytes in the packet, and 5U is the minimum
+         * size of each question - 1 (QNAME) + 2 (QTYPE) + 2 (QCLASS). */
+        prealloc = (p->size - p->rindex) / 5U;
+        if (prealloc == 0)
+                /* QDCOUNT > 0 but there's not enough space left for a single question. */
+                return -EMSGSIZE;
 
-                keys = set_new(&dns_resource_key_hash_ops);
-                if (!keys)
-                        return log_oom();
+        question = dns_question_new(n);
+        if (!question)
+                return -ENOMEM;
 
-                r = set_reserve(keys, n * 2); /* Higher multipliers give slightly higher efficiency through
-                                               * hash collisions, but the gains quickly drop off after 2. */
+        _cleanup_set_free_ Set *keys = NULL; /* references to keys are kept by Question */
+
+        keys = set_new(&dns_resource_key_hash_ops);
+        if (!keys)
+                return log_oom();
+
+        /* Pre-allocate the question hashmap, but cap the pre-allocation to a number of questions the
+         * packet can realistically contain. That is, pick the minimal value from the claimed number
+         * of questions (n) and a maximum number of potential questions the remaining packet data can
+         * actually contain, see above.
+         *
+         * Note for the multiplication: higher multipliers give slightly higher efficiency through
+         * hash collisions, but the gains quickly drop off after 2. */
+        r = set_reserve(keys, MIN(n, prealloc) * 2);
+        if (r < 0)
+                return r;
+
+        for (unsigned i = 0; i < n; i++) {
+                _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+                bool qu;
+
+                r = dns_packet_read_key(p, &key, &qu, NULL);
                 if (r < 0)
                         return r;
 
-                for (unsigned i = 0; i < n; i++) {
-                        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
-                        bool qu;
+                if (!dns_type_is_valid_query(key->type))
+                        return -EBADMSG;
 
-                        r = dns_packet_read_key(p, &key, &qu, NULL);
-                        if (r < 0)
-                                return r;
+                r = set_put(keys, key);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        /* Already in the Question, let's skip */
+                        continue;
 
-                        if (!dns_type_is_valid_query(key->type))
-                                return -EBADMSG;
-
-                        r = set_put(keys, key);
-                        if (r < 0)
-                                return r;
-                        if (r == 0)
-                                /* Already in the Question, let's skip */
-                                continue;
-
-                        r = dns_question_add_raw(question, key, qu ? DNS_QUESTION_WANTS_UNICAST_REPLY : 0);
-                        if (r < 0)
-                                return r;
-                }
+                r = dns_question_add_raw(question, key, qu ? DNS_QUESTION_WANTS_UNICAST_REPLY : 0);
+                if (r < 0)
+                        return r;
         }
 
         *ret_question = TAKE_PTR(question);
@@ -2499,7 +2516,7 @@ static int dns_packet_extract_question(DnsPacket *p, DnsQuestion **ret_question)
 
 static int dns_packet_extract_answer(DnsPacket *p, DnsAnswer **ret_answer) {
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
-        unsigned n;
+        unsigned n, prealloc;
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *previous = NULL;
         bool bad_opt = false;
         int r;
@@ -2507,10 +2524,23 @@ static int dns_packet_extract_answer(DnsPacket *p, DnsAnswer **ret_answer) {
         assert(ret_answer);
 
         n = DNS_PACKET_RRCOUNT(p);
-        if (n == 0)
+        if (n == 0) {
+                *ret_answer = NULL;
                 return 0;
+        }
 
-        answer = dns_answer_new(n);
+        /* Calculate the maximum number of potential RRs the remaining packet data can actually contain:
+         * p->size - p->rindex are the remaining unread bytes in the packet, and the 11U is the minimum size
+         * of each RR - 1 (NAME) + 2 (TYPE) + 2 (CLASS) + 4 (TTL) + 2 (RDLENGTH). */
+        prealloc = (p->size - p->rindex) / 11U;
+        if (prealloc == 0)
+                /* RRCOUNT > 0 but there's not enough space left for a single RR. */
+                return -EMSGSIZE;
+
+        /* Pre-allocate the answer hashmap, but cap the pre-allocation to a number of RRs the packet can
+         * realistically contain. That is, pick the minimal value from the claimed number of RRs (n) and a
+         * maximum number of potential RRs the remaining packet data can actually contain, see above. */
+        answer = dns_answer_new(MIN(n, prealloc));
         if (!answer)
                 return -ENOMEM;
 

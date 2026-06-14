@@ -47,6 +47,11 @@ _hostnamectl_location() {
     fi
 }
 
+(( $+functions[_hostnamectl_tags] )) ||
+_hostnamectl_tags() {
+    _message "machine tag"
+}
+
 (( $+functions[_hostnamectl_commands] )) ||
 _hostnamectl_commands() {
     local -a _hostnamectl_cmds
@@ -57,6 +62,7 @@ _hostnamectl_commands() {
         "chassis:Get/set chassis type for host"
         "deployment:Get/set deployment environment for host"
         "location:Get/set location for host"
+        "tags:Get/set machine tags for host"
     )
     if (( CURRENT == 1 )); then
         _describe -t commands 'hostnamectl commands' _hostnamectl_cmds || compadd "$@"

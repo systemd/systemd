@@ -9,11 +9,7 @@
 
 #include "sd-dlopen.h"
 
-#include "alloc-util.h"
 #include "fileio.h"
-#include "parse-util.h"
-
-static void *libapparmor_dl = NULL;
 
 DLSYM_PROTOTYPE(aa_change_onexec) = NULL;
 DLSYM_PROTOTYPE(aa_change_profile) = NULL;
@@ -31,18 +27,13 @@ bool mac_apparmor_use(void) {
         if (cached_use >= 0)
                 return cached_use;
 
-        _cleanup_free_ char *p = NULL;
-        r = read_one_line_file("/sys/module/apparmor/parameters/enabled", &p);
+        r = read_boolean_file("/sys/module/apparmor/parameters/enabled");
         if (r < 0) {
                 if (r != -ENOENT)
-                        log_debug_errno(r, "Failed to read /sys/module/apparmor/parameters/enabled, assuming AppArmor is not available: %m");
+                        log_debug_errno(r, "Failed to read and parse /sys/module/apparmor/parameters/enabled, assuming AppArmor is not available: %m");
                 return (cached_use = false);
         }
-
-        r = parse_boolean(p);
-        if (r < 0)
-                log_debug_errno(r, "Failed to parse /sys/module/apparmor/parameters/enabled, assuming AppArmor is not available: %m");
-        if (r <= 0)
+        if (r == 0)
                 return (cached_use = false);
 
         if (dlopen_libapparmor(LOG_DEBUG) < 0)
@@ -55,6 +46,8 @@ bool mac_apparmor_use(void) {
 
 int dlopen_libapparmor(int log_level) {
 #if HAVE_APPARMOR
+        static void *libapparmor_dl = NULL;
+
         SD_ELF_NOTE_DLOPEN(
                         "apparmor",
                         "Support for AppArmor policies",

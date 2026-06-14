@@ -13,6 +13,7 @@
 #include "bus-locator.h"
 #include "cgroup-util.h"
 #include "conf-parser.h"
+#include "device-private.h"
 #include "device-util.h"
 #include "efi-loader.h"
 #include "errno-util.h"
@@ -446,7 +447,7 @@ int manager_get_user_by_pid(Manager *m, pid_t pid, User **ret) {
         return !!u;
 }
 
-int manager_get_idle_hint(Manager *m, dual_timestamp *t) {
+bool manager_get_idle_hint(Manager *m, dual_timestamp *ret_timestamp) {
         Session *s;
         bool idle_hint;
         dual_timestamp ts;
@@ -457,19 +458,16 @@ int manager_get_idle_hint(Manager *m, dual_timestamp *t) {
          * unreasonable large idle periods starting with the Unix epoch. */
         ts = m->init_ts;
 
-        idle_hint = !manager_is_inhibited(m, INHIBIT_IDLE, t, /* flags= */ 0, UID_INVALID, NULL);
+        idle_hint = !manager_is_inhibited(m, INHIBIT_IDLE, /* since= */ NULL, /* flags= */ 0, UID_INVALID, NULL);
 
         HASHMAP_FOREACH(s, m->sessions) {
                 dual_timestamp k;
-                int ih;
+                bool ih;
 
                 if (!SESSION_CLASS_CAN_IDLE(s->class))
                         continue;
 
                 ih = session_get_idle_hint(s, &k);
-                if (ih < 0)
-                        return ih;
-
                 if (!ih) {
                         if (!idle_hint) {
                                 if (k.monotonic < ts.monotonic)
@@ -485,8 +483,8 @@ int manager_get_idle_hint(Manager *m, dual_timestamp *t) {
                 }
         }
 
-        if (t)
-                *t = ts;
+        if (ret_timestamp)
+                *ret_timestamp = ts;
 
         return idle_hint;
 }
@@ -676,21 +674,17 @@ static int manager_count_external_displays(Manager *m) {
                         continue;
 
                 /* Ignore ports that are not enabled */
-                const char *enabled;
-                r = sd_device_get_sysattr_value(d, "enabled", &enabled);
-                if (r == -ENOENT)
+                r = device_get_sysattr_streq(d, "enabled", "enabled");
+                if (IN_SET(r, 0, -ENOENT))
                         continue;
                 if (r < 0)
                         return r;
-                if (!streq(enabled, "enabled"))
-                        continue;
 
                 /* We count any connector which is not explicitly "disconnected" as connected. */
-                const char *status = NULL;
-                r = sd_device_get_sysattr_value(d, "status", &status);
+                r = device_get_sysattr_streq(d, "status", "disconnected");
                 if (r < 0 && r != -ENOENT)
                         return r;
-                if (!streq_ptr(status, "disconnected"))
+                if (r <= 0)
                         n++;
         }
 

@@ -28,4 +28,5 @@ int icmp6_receive(
                 void *buffer,
                 size_t size,
                 struct in6_addr *ret_sender,
+                int *ret_ifindex,
                 triple_timestamp *ret_timestamp);

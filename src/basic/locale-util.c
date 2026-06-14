@@ -7,7 +7,12 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#ifndef __GLIBC__
+#include "sd-dlopen.h"
+#endif
+
 #include "dirent-util.h"
+#include "dlfcn-util.h"
 #include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -21,6 +26,28 @@
 #include "string-util.h"
 #include "strv.h"
 #include "utf8.h"
+
+#ifdef __GLIBC__
+DLSYM_PROTOTYPE(dgettext) = dgettext;
+#else
+DLSYM_PROTOTYPE(dgettext) = NULL;
+#endif
+
+int dlopen_libintl(int log_level) {
+#ifdef __GLIBC__
+        return 1;
+#else
+        static void *libintl_dl = NULL;
+
+        LIBINTL_NOTE(SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED);
+
+        return dlopen_many_sym_or_warn(
+                        &libintl_dl,
+                        "libintl.so.8",
+                        log_level,
+                        DLSYM_ARG(dgettext));
+#endif
+}
 
 static char* normalize_locale(const char *name) {
         const char *e;

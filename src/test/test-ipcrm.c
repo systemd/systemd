@@ -13,7 +13,7 @@ static int run(int argc, char *argv[]) {
 
         test_setup_logging(LOG_INFO);
 
-        r = get_user_creds(&name, &uid, NULL, NULL, NULL, 0);
+        r = get_user_creds(name, /* flags= */ 0, NULL, &uid, NULL, NULL, NULL);
         if (r == -ESRCH)
                 return log_tests_skipped("Failed to resolve user");
         if (r < 0)

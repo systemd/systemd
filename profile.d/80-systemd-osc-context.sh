@@ -14,12 +14,25 @@
 # specification for the shell prompt. For details see:
 # https://uapi-group.org/specifications/specs/osc_context/
 
+# This file is "activated" through systemd-tmpfiles which links it into
+# /etc/profile.d/. To disable this, remove the
+# /etc/profile.d/80-systemd-osc-context.sh symlink and mask the
+# 20-systemd-osc-context.conf snippet (as root):
+#
+#   test -h /etc/profile.d/80-systemd-osc-context.sh && \
+#     rm -v /etc/profile.d/80-systemd-osc-context.sh && \
+#     ln -s /dev/null /etc/tmpfiles.d/20-systemd-osc-context.conf
+
 # Not bash?
 [ -n "${BASH_VERSION:-}" ] || return 0
 
 # If we're on a "dumb" terminal, do not install the prompt.
 # Treat missing $TERM same as "dumb".
 [ "${TERM:-dumb}" = "dumb" ] && return 0
+
+# We need promptvars, otherwise the prompt strings won't undergo parameter expansion
+# and we'd print them literally
+shopt -q promptvars || return 0
 
 __systemd_osc_context_escape() {
     # Escape according to the OSC 3008 spec. Since this requires shelling out

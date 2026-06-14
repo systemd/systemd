@@ -10,8 +10,10 @@
 #include "sd-bus.h"
 #include "sd-event.h"
 
+#include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-wait-for-jobs.h"
+#include "cgroup-util.h"
 #include "event-util.h"
 #include "fd-util.h"
 #include "format-util.h"
@@ -29,6 +31,25 @@
 #include "unit-def.h"
 
 /* Shared infrastructure for fake pressure tests */
+
+static int event_loop_with_timeout(sd_event *event) {
+        ASSERT_NOT_NULL(event);
+
+        /* Note, the default meson test timeout is 30 seconds. */
+        ASSERT_OK(sd_event_add_time_relative(
+                                  event,
+                                  /* ret= */ NULL,
+                                  CLOCK_MONOTONIC,
+                                  20 * USEC_PER_SEC,
+                                  /* accuracy= */ 0,
+                                  /* callback= */ NULL,
+                                  INT_TO_PTR(-ETIMEDOUT)));
+
+        if (ASSERT_OK_OR(sd_event_loop(event), -ETIMEDOUT) < 0)
+                return log_tests_skipped("event loop timeout");
+
+        return 0;
+}
 
 struct fake_pressure_context {
         int fifo_fd;
@@ -131,7 +152,11 @@ static void test_fake_pressure(
         ASSERT_OK(add_pressure(e, &ef, fake_pressure_callback, &value));
         ASSERT_OK(sd_event_source_set_description(ef, "socket event source"));
 
-        ASSERT_OK(sd_event_loop(e));
+        if (event_loop_with_timeout(e) != 0) {
+                (void) pthread_cancel(th);
+                (void) pthread_join(th, /* retval= */ NULL);
+                return;
+        }
 
         ASSERT_EQ(value, 7 * 'f' * 's');
 
@@ -163,6 +188,28 @@ TEST(fake_io_pressure) {
 }
 
 /* Shared infrastructure for real pressure tests */
+
+static int controller_supported_on_unit(sd_bus *bus, const char *unit_name, const char *unit_path, CGroupMask controller) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_free_ char *cg = NULL;
+        CGroupMask mask;
+        int r;
+
+        r = sd_bus_get_property_string(bus, "org.freedesktop.systemd1", unit_path,
+                                       unit_dbus_interface_from_name(unit_name), "ControlGroup",
+                                       &error, &cg);
+        if (r < 0)
+                return log_notice_errno(r, "Failed to read ControlGroup property: %s", bus_error_message(&error, r));
+
+        if (isempty(cg))
+                return -ENODATA;
+
+        r = cg_mask_supported_subtree(cg, &mask);
+        if (r < 0)
+                return log_notice_errno(r, "Failed to read supported controllers for %s: %m", cg);
+
+        return FLAGS_SET(mask, controller);
+}
 
 struct real_pressure_context {
         sd_event_source *pid;
@@ -267,6 +314,11 @@ TEST(real_memory_pressure) {
 
         ASSERT_OK(bus_wait_for_jobs_one(w, object, /* flags= */ BUS_WAIT_JOBS_LOG_ERROR, /* extra_args= */ NULL));
 
+        _cleanup_free_ char *uo = ASSERT_NOT_NULL(unit_dbus_path_from_name(scope));
+        r = controller_supported_on_unit(bus, scope, uo, CGROUP_MASK_MEMORY);
+        if (r <= 0)
+                return (void) log_tests_skipped("Memory controller not available on scope");
+
         ASSERT_OK(sd_event_default(&e));
 
         ASSERT_OK_ERRNO(pipe2(pipe_fd, O_CLOEXEC));
@@ -304,9 +356,6 @@ TEST(real_memory_pressure) {
         ASSERT_OK_ZERO(sd_event_source_set_memory_pressure_period(es, 70 * USEC_PER_MSEC, 2 * USEC_PER_SEC));
         ASSERT_OK(sd_event_source_set_enabled(es, SD_EVENT_ONESHOT));
 
-        _cleanup_free_ char *uo = NULL;
-        ASSERT_NOT_NULL(uo = unit_dbus_path_from_name(scope));
-
         uint64_t mcurrent = UINT64_MAX;
         ASSERT_OK(sd_bus_get_property_trivial(bus, "org.freedesktop.systemd1", uo, "org.freedesktop.systemd1.Scope", "MemoryCurrent", &error, 't', &mcurrent));
 
@@ -337,7 +386,9 @@ TEST(real_memory_pressure) {
         /* Now start eating memory */
         ASSERT_EQ(write(pipe_fd[1], &(const char) { 'x' }, 1), 1);
 
-        ASSERT_OK(sd_event_loop(e));
+        if (event_loop_with_timeout(e) != 0)
+                return;
+
         int ex = 0;
         ASSERT_OK(sd_event_get_exit_code(e, &ex));
         ASSERT_EQ(ex, 31);
@@ -408,6 +459,11 @@ TEST(real_cpu_pressure) {
 
         ASSERT_OK(bus_wait_for_jobs_one(w, object, /* flags= */ BUS_WAIT_JOBS_LOG_ERROR, /* extra_args= */ NULL));
 
+        _cleanup_free_ char *uo = ASSERT_NOT_NULL(unit_dbus_path_from_name(scope));
+        r = controller_supported_on_unit(bus, scope, uo, CGROUP_MASK_CPU);
+        if (r <= 0)
+                return (void) log_tests_skipped("CPU controller not available on scope");
+
         ASSERT_OK(sd_event_default(&e));
 
         ASSERT_OK_ERRNO(pipe2(pipe_fd, O_CLOEXEC));
@@ -454,7 +510,9 @@ TEST(real_cpu_pressure) {
         /* Now start eating CPU */
         ASSERT_EQ(write(pipe_fd[1], &(const char) { 'x' }, 1), 1);
 
-        ASSERT_OK(sd_event_loop(e));
+        if (event_loop_with_timeout(e) != 0)
+                return;
+
         int ex = 0;
         ASSERT_OK(sd_event_get_exit_code(e, &ex));
         ASSERT_EQ(ex, 31);
@@ -537,6 +595,11 @@ TEST(real_io_pressure) {
 
         ASSERT_OK(bus_wait_for_jobs_one(w, object, /* flags= */ BUS_WAIT_JOBS_LOG_ERROR, /* extra_args= */ NULL));
 
+        _cleanup_free_ char *uo = ASSERT_NOT_NULL(unit_dbus_path_from_name(scope));
+        r = controller_supported_on_unit(bus, scope, uo, CGROUP_MASK_IO);
+        if (r <= 0)
+                return (void) log_tests_skipped("IO controller not available on scope");
+
         ASSERT_OK(sd_event_default(&e));
 
         ASSERT_OK_ERRNO(pipe2(pipe_fd, O_CLOEXEC));
@@ -588,7 +651,9 @@ TEST(real_io_pressure) {
         /* Now start eating IO */
         ASSERT_EQ(write(pipe_fd[1], &(const char) { 'x' }, 1), 1);
 
-        ASSERT_OK(sd_event_loop(e));
+        if (event_loop_with_timeout(e) != 0)
+                return;
+
         int ex = 0;
         ASSERT_OK(sd_event_get_exit_code(e, &ex));
         ASSERT_EQ(ex, 31);

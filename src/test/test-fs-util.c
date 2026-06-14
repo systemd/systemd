@@ -7,6 +7,7 @@
 
 #include "alloc-util.h"
 #include "argv-util.h"
+#include "capability-util.h"
 #include "copy.h"
 #include "fd-util.h"
 #include "fs-util.h"
@@ -851,9 +852,9 @@ TEST(xopenat_auto_rw_ro) {
 
         /* Fallback when the inode is not writable: create a file as read-only mode and verify that
          * XO_AUTO_RW_RO falls back to O_RDONLY. Root bypasses mode bits via CAP_DAC_OVERRIDE, so skip
-         * this when running as root. */
+         * this when running as root, or as a user with CAP_DAC_OVERRIDE. */
 
-        if (geteuid() != 0) {
+        if (have_effective_cap(CAP_DAC_OVERRIDE) <= 0) {
                 fd = openat(tfd, "ro", O_CREAT|O_EXCL|O_WRONLY|O_CLOEXEC, 0444);
                 assert_se(fd >= 0);
                 fd = safe_close(fd);

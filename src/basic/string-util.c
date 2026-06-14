@@ -1113,7 +1113,11 @@ bool string_is_safe(const char *p, StringSafeFlags flags) {
                 return false;
 
         for (const char *t = p; *t; t++) {
-                if ((*t > 0 && *t < ' ') || *t == 0x7f) /* never allow control characters */
+                /* never allow control characters, except for new line */
+                if ((*t > 0 && *t < ' ' && *t != '\n') || *t == 0x7f)
+                        return false;
+
+                if (!FLAGS_SET(flags, STRING_ALLOW_NEWLINES) && *t == '\n')
                         return false;
 
                 if (!FLAGS_SET(flags, STRING_ALLOW_BACKSLASHES) && *t == '\\')

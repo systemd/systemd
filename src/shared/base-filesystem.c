@@ -76,6 +76,9 @@ static const BaseFilesystem table[] = {
 #elif defined(__arm__)
         /* No /lib64 on arm. The linker is /lib/ld-linux-armhf.so.3. */
 #  define KNOW_LIB64_DIRS 1
+#elif defined(__hppa__)
+        /* No /lib32 or /lib64 on hppa. The linker is /usr/lib/hppa-linux-gnu/ld.so.1. */
+#  define KNOW_LIB64_DIRS 1
 #elif defined(__i386__) || defined(__x86_64__)
         { "lib64",    0, "usr/lib64\0"
                          "usr/lib\0",                "ld-linux-x86-64.so.2" },
@@ -114,6 +117,8 @@ static const BaseFilesystem table[] = {
         /* powerpc64-linux-gnu */
 #  else
         /* powerpc-linux-gnu */
+        /* No /lib32 or /lib64 on powerpc. The linker is /usr/lib/powerpc-linux-gnu/ld.so.1. */
+#       define KNOW_LIB64_DIRS 1
 #  endif
 #elif defined(__riscv)
 #  if __riscv_xlen == 32

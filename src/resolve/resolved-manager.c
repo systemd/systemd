@@ -369,7 +369,7 @@ static int manager_network_monitor_listen(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = sd_event_source_set_priority(m->network_event_source, SD_EVENT_PRIORITY_IMPORTANT+5);
+        r = sd_event_source_set_priority(m->network_event_source, SD_EVENT_PRIORITY_IMPORTANT-5);
         if (r < 0)
                 return r;
 
@@ -641,6 +641,8 @@ static void manager_set_defaults(Manager *m) {
         m->read_static_records = true;
         m->resolve_unicast_single_label = false;
         m->cache_from_localhost = false;
+        for (DnsProtocol p = 0; p < _DNS_PROTOCOL_MAX; p++)
+                m->cache_max[p] = DEFAULT_CACHE_MAX;
         m->stale_retention_usec = 0;
         m->refuse_record_types = set_free(m->refuse_record_types);
         m->resolv_conf_stat = (struct stat) {};
@@ -2335,7 +2337,7 @@ int manager_send_dns_configuration_changed(Manager *m, Link *l, bool reset) {
         if (sd_json_variant_equal(configuration, m->dns_configuration_json))
                 return 0;
 
-        JSON_VARIANT_REPLACE(m->dns_configuration_json, TAKE_PTR(configuration));
+        json_variant_unref_and_replace(m->dns_configuration_json, configuration);
 
         r = varlink_many_notify(m->varlink_dns_configuration_subscription, m->dns_configuration_json);
         if (r < 0)

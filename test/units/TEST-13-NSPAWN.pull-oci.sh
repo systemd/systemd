@@ -126,13 +126,13 @@ systemd-mstack -U /tmp/ooo
 
 ls -alR /home/testuser/.local/state/machines/ocicombo.mstack
 
-run0 -u testuser importctl list-images --user | grep -q ocicombo
+run0 -u testuser importctl list-images --user | grep ocicombo >/dev/null
 
 ls -alR /home/testuser/.local/state/machines/ocicombo.mstack
 
-run0 -u testuser systemd-nspawn -q --pipe -M ocicombo /sbin/init | grep -q luftikus
+run0 -u testuser systemd-nspawn -q --pipe -M ocicombo /sbin/init | grep luftikus >/dev/null
 
-run0 -u testuser --pipe systemd-run -q --unit=fimpel --user -p PrivateUsers=managed -p RootMStack=/home/testuser/.local/state/machines/ocicombo.mstack --pipe /sbin/init | grep -q luftikus
+run0 -u testuser --pipe systemd-run -q --unit=fimpel --user -p PrivateUsers=managed -p RootMStack=/home/testuser/.local/state/machines/ocicombo.mstack --pipe /sbin/init | grep luftikus >/dev/null
 
 run0 -u testuser machinectl list-images -a --user
 

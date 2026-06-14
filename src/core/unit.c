@@ -7,6 +7,7 @@
 #include "sd-bus.h"
 #include "sd-id128.h"
 #include "sd-messages.h"
+#include "sd-varlink.h"
 
 #include "all-units.h"
 #include "alloc-util.h"
@@ -39,7 +40,7 @@
 #include "load-fragment.h"
 #include "log.h"
 #include "logarithm.h"
-#include "mkdir-label.h"
+#include "mkdir.h"
 #include "manager.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
@@ -791,6 +792,7 @@ Unit* unit_free(Unit *u) {
 
         u->match_bus_slot = sd_bus_slot_unref(u->match_bus_slot);
         u->bus_track = sd_bus_track_unref(u->bus_track);
+        u->varlink_unit_change = sd_varlink_unref(u->varlink_unit_change);
         u->deserialized_refs = strv_free(u->deserialized_refs);
         u->pending_freezer_invocation = sd_bus_message_unref(u->pending_freezer_invocation);
 
@@ -1624,7 +1626,7 @@ static int unit_add_oomd_dependencies(Unit *u) {
         if (!c)
                 return 0;
 
-        bool wants_oomd = c->moom_swap == MANAGED_OOM_KILL || c->moom_mem_pressure == MANAGED_OOM_KILL;
+        bool wants_oomd = c->moom_swap == MANAGED_OOM_KILL || c->moom_mem_pressure == MANAGED_OOM_KILL || !strv_isempty(c->moom_rules);
         if (!wants_oomd)
                 return 0;
 
@@ -2336,7 +2338,7 @@ static void retroactively_stop_dependencies(Unit *u) {
 
 void unit_start_on_termination_deps(Unit *u, UnitDependencyAtom atom) {
         const char *dependency_name = NULL;
-        JobMode job_mode;
+        JobMode job_mode = _JOB_MODE_INVALID;
         unsigned n_jobs = 0;
         int r;
 
@@ -4156,7 +4158,7 @@ int unit_kill(
                         }
 
                         if (signo == SIGKILL) {
-                                r = cg_kill_kernel_sigkill(p);
+                                r = cg_kill_kernel_sigkill(p, /* ret_n_pids_killed= */ NULL);
                                 if (r >= 0) {
                                         killed = true;
                                         log_unit_info(u, "Killed unit cgroup '%s' with SIGKILL on client request.", p);
@@ -4343,10 +4345,13 @@ static int unit_verify_contexts(const Unit *u) {
                 return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOEXEC), "PrivatePIDs= setting is only supported for service units. Refusing.");
 
         if ((ec->user || ec->dynamic_user || ec->group || ec->pam_name) && ec->private_users == PRIVATE_USERS_MANAGED)
-                return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOEXEC), "PrivateUsers=managed may not be used in combination with User=/DynamicUser=/Group=/PAMName=, refusing.");
+                return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOEXEC), "PrivateUsers=managed may not be used in combination with User=/DynamicUser=/Group=/PAMName=. Refusing.");
 
         if (ec->user_namespace_path && ec->private_users != PRIVATE_USERS_NO)
-                return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOEXEC), "PrivateUsers= may not be used with custom UserNamespacePath=, refusing.");
+                return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOEXEC), "PrivateUsers= may not be used with custom UserNamespacePath=. Refusing.");
+
+        if (ec->private_pids != PRIVATE_PIDS_NO && ec->pam_name)
+                return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOEXEC), "PAM is not supported under PrivatePIDs=. Refusing.");
 
         const KillContext *kc = unit_get_kill_context(u);
 
@@ -4893,6 +4898,42 @@ int unit_make_transient(Unit *u) {
         return 0;
 }
 
+int manager_setup_transient_unit(Manager *m, const char *name, Unit **ret, sd_bus_error *reterr_error) {
+        Unit *u;
+        int r;
+
+        assert(m);
+        assert(name);
+        assert(ret);
+
+        UnitType t = unit_name_to_type(name);
+        if (t < 0)
+                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS,
+                                         "Invalid unit name or type: %s", name);
+
+        if (!unit_vtable[t]->can_transient)
+                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS,
+                                         "Unit type %s does not support transient units.",
+                                         unit_type_to_string(t));
+
+        r = manager_load_unit(m, name, /* path= */ NULL, reterr_error, &u);
+        if (r < 0)
+                return r;
+
+        if (!unit_is_pristine(u))
+                return sd_bus_error_setf(reterr_error, BUS_ERROR_UNIT_EXISTS,
+                                         "Unit %s was already loaded or has a fragment file.", name);
+
+        /* OK, the unit failed to load and is unreferenced, now let's
+         * fill in the transient data instead */
+        r = unit_make_transient(u);
+        if (r < 0)
+                return r;
+
+        *ret = u;
+        return 0;
+}
+
 static bool ignore_leftover_process(const char *comm) {
         return comm && comm[0] == '('; /* Most likely our own helper process (PAM?), ignore */
 }
@@ -5355,15 +5396,15 @@ static void unit_modify_user_nft_set(Unit *u, bool add, NFTSetSource source, uin
         if (!c)
                 return;
 
-        if (!u->manager->nfnl) {
-                r = sd_nfnl_socket_open(&u->manager->nfnl);
-                if (r < 0)
-                        return;
-        }
-
         FOREACH_ARRAY(nft_set, c->nft_set_context.sets, c->nft_set_context.n_sets) {
                 if (nft_set->source != source)
                         continue;
+
+                if (!u->manager->nfnl) {
+                        r = sd_nfnl_socket_open(&u->manager->nfnl);
+                        if (r < 0)
+                                return (void) log_once_errno(LOG_WARNING, r, "Failed to open NETLINK_NETFILTER socket, ignoring: %m");
+                }
 
                 r = nft_set_element_modify_any(u->manager->nfnl, add, nft_set->nfproto, nft_set->table, nft_set->set, &element, sizeof(element));
                 if (r < 0)

@@ -85,24 +85,43 @@ AT_AUXV = {
     'AT_L3_CACHEGEOMETRY' :  47,
 
     'AT_MINSIGSTKSZ'      :  51,         # Stack needed for signal delivery
-}
-AT_AUXV_NAMES = {v:k for k,v in AT_AUXV.items()}
+}  # fmt: skip
+AT_AUXV_NAMES = {v: k for k, v in AT_AUXV.items()}
+
 
 @click.command(help=__doc__)
-@click.option('-b', '--big-endian', 'endian',
-              flag_value='>',
-              help='Input is big-endian')
-@click.option('-l', '--little-endian', 'endian',
-              flag_value='<',
-              help='Input is little-endian')
-@click.option('-3', '--32', 'field_width',
-              flag_value=32,
-              help='Input is 32-bit')
-@click.option('-6', '--64', 'field_width',
-              flag_value=64,
-              help='Input is 64-bit')
-@click.argument('file',
-                type=click.File(mode='rb'))
+@click.option(
+    '-b',
+    '--big-endian',
+    'endian',
+    flag_value='>',
+    help='Input is big-endian',
+)
+@click.option(
+    '-l',
+    '--little-endian',
+    'endian',
+    flag_value='<',
+    help='Input is little-endian',
+)
+@click.option(
+    '-3',
+    '--32',
+    'field_width',
+    flag_value=32,
+    help='Input is 32-bit',
+)
+@click.option(
+    '-6',
+    '--64',
+    'field_width',
+    flag_value=64,
+    help='Input is 64-bit',
+)
+@click.argument(
+    'file',
+    type=click.File(mode='rb'),
+)
 def dump(endian, field_width, file):
     data = file.read()
 
@@ -111,7 +130,7 @@ def dump(endian, field_width, file):
     if endian is None:
         endian = '@'
 
-    width = {32:'II', 64:'QQ'}[field_width]
+    width = {32: 'II', 64: 'QQ'}[field_width]
 
     format_str = f'{endian}{width}'
     print(f'# {format_str=}')
@@ -136,6 +155,7 @@ def dump(endian, field_width, file):
 
     if not seen_null:
         print('# array not terminated with AT_NULL')
+
 
 if __name__ == '__main__':
     dump()

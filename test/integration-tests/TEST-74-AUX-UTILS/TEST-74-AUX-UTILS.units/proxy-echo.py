@@ -5,10 +5,10 @@ import socket
 import sys
 
 data = sys.stdin.buffer.read()
-s = socket.create_connection(("localhost", 12345), timeout=15)
+s = socket.create_connection(('localhost', 12345), timeout=15)
 s.settimeout(15)
 s.sendall(data)
-received = b""
+received = b''
 while len(received) < len(data):
     chunk = s.recv(65536)
     if not chunk:

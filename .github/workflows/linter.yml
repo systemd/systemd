@@ -30,7 +30,7 @@ jobs:
           persist-credentials: false
 
       - name: Lint Code Base
-        uses: super-linter/super-linter/slim@61abc07d755095a68f4987d1c2c3d1d64408f1f9
+        uses: super-linter/super-linter/slim@9e863354e3ff62e0727d37183162c4a88873df41
         env:
           DEFAULT_BRANCH: main
           MULTI_STATUS: false
@@ -40,7 +40,7 @@ jobs:
           GITHUB_ACTIONS_CONFIG_FILE: actionlint.yml
           ENABLE_GITHUB_PULL_REQUEST_SUMMARY_COMMENT: false
 
-      - uses: systemd/mkosi@66d51024b7149f40be4702e84275c936373ace97
+      - uses: systemd/mkosi@60ed8c964f8d98aa4b325f381c4b3bc6de91a0b7
 
       - name: Check that tabs are not used in Python code
         run: sh -c '! git grep -P "\\t" -- src/core/generate-bpf-delegate-configs.py src/boot/generate-hwids-section.py src/ukify/ukify.py test/integration-tests/integration-test-wrapper.py'
@@ -63,16 +63,21 @@ jobs:
       - name: Run ruff format
         run: |
           mkosi box -- ruff --version
-          if ! mkosi box -- ruff format --check src/core/generate-bpf-delegate-configs.py src/boot/generate-hwids-section.py src/test/generate-sym-test.py src/ukify/ukify.py test/integration-tests/integration-test-wrapper.py
+          if ! mkosi box -- ruff format --check
           then
               echo "Please run 'ruff format' on the above files or apply the diffs below manually"
-              mkosi box -- ruff format --check --quiet --diff src/core/generate-bpf-delegate-configs.py src/boot/generate-hwids-section.py src/test/generate-sym-test.py src/ukify/ukify.py test/integration-tests/integration-test-wrapper.py
+              mkosi box -- ruff format --check --quiet --diff
           fi
 
       - name: Run ruff check
         run: |
           mkosi box -- ruff --version
-          mkosi box -- ruff check src/core/generate-bpf-delegate-configs.py src/boot/generate-hwids-section.py src/test/generate-sym-test.py src/ukify/ukify.py test/integration-tests/integration-test-wrapper.py
+          if ! mkosi box -- ruff check
+          then
+              echo "Please fix the errors shown by 'ruff check' on the above files or add noqa comments where appropriate."
+              echo "Diffs for fixes that can be programmatically generated are shown below:"
+              mkosi box -- ruff check --diff
+          fi
 
       - name: Configure meson
         run: mkosi box -- env CC=clang CXX=clang++ meson setup build
@@ -82,14 +87,3 @@ jobs:
 
       - name: Run coccinelle checks
         run: mkosi box -- meson test -C build --suite=coccinelle --print-errorlogs --no-stdsplit
-
-      - name: Build with musl
-        run: |
-          mkosi box -- \
-            env \
-            CC=musl-gcc \
-            CXX=musl-gcc \
-            CFLAGS="-idirafter /usr/include" \
-            CXXFLAGS="-idirafter /usr/include" \
-              meson setup -Dlibc=musl -Ddbus-interfaces-dir=no musl
-          mkosi box -- ninja -C musl

@@ -11,15 +11,20 @@
 Description=Import System Credentials from IMDS
 Documentation=man:systemd-imds(1)
 Documentation=man:systemd.system-credentials(7)
+
 DefaultDependencies=no
-Wants=systemd-imdsd.socket network-online.target
-After=systemd-imdsd.socket network-online.target
+Wants=systemd-imdsd.socket
+After=systemd-imdsd.socket
 Before=sysinit.target systemd-firstboot.service
 Conflicts=shutdown.target
 Before=shutdown.target
-ConditionPathExists=/etc/initrd-release
 
 [Service]
 Type=oneshot
 RemainAfterExit=yes
 ExecStart={{LIBEXECDIR}}/systemd-imds --import
+
+# The tool returns EXIT_NOTCONFIGURED if the configuration required for basic
+# operation is not found. Do not treat this as error, because the service can
+# be started on generic systems that do not have complete IMDS support.
+SuccessExitStatus=NOTCONFIGURED

@@ -1,8 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <linux/if_ether.h>
-#include <linux/if_infiniband.h>
 #include <linux/if_packet.h>
 #include <linux/netlink.h>
 #include <linux/vm_sockets.h>
@@ -29,8 +27,8 @@ union sockaddr_union {
         struct sockaddr_ll ll;
         struct sockaddr_vm vm;
 
-        /* Ensure there is enough space to store Infiniband addresses */
-        uint8_t ll_buffer[offsetof(struct sockaddr_ll, sll_addr) + CONST_MAX(ETH_ALEN, INFINIBAND_ALEN)];
+        /* Ensure there is enough space to store an arbitrary hardware address, e.g. Infiniband */
+        uint8_t ll_buffer[offsetof(struct sockaddr_ll, sll_addr) + HW_ADDR_MAX_SIZE];
 
         /* Ensure there is enough space after the AF_UNIX sun_path for one more NUL byte, just to be sure that the path
          * component is always followed by at least one NUL byte. */
@@ -263,10 +261,10 @@ int socket_address_equal_unix(const char *a, const char *b);
  * authoritative. */
 #define SOMAXCONN_DELUXE INT_MAX
 
-int vsock_get_local_cid(unsigned *ret);
-
 int netlink_socket_get_multicast_groups(int fd, size_t *ret_len, uint32_t **ret_groups);
 
 int socket_get_cookie(int fd, uint64_t *ret);
 
 void cmsg_close_all(struct msghdr *mh);
+
+int tos_to_priority(uint8_t tos);

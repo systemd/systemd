@@ -14,6 +14,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "pidref.h"
+#include "process-util.h"
 #include "procfs-util.h"
 #include "sd-bus.h"
 #include "set.h"
@@ -21,13 +22,14 @@
 #include "sort-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "time-util.h"
 #include "varlink-util.h"
 
 typedef struct OomdKillState {
         Manager *manager;
         OomdCGroupContext *ctx;
-        const char *reason;
+        char *reason;
         /* This holds sd_varlink references */
         Set *links;
 } OomdKillState;
@@ -80,6 +82,7 @@ static OomdCGroupContext *oomd_cgroup_context_free(OomdCGroupContext *ctx) {
                 return NULL;
 
         free(ctx->path);
+        strv_free(ctx->rules);
         return mfree(ctx);
 }
 
@@ -247,24 +250,46 @@ int oomd_sort_cgroup_contexts(Hashmap *h, oomd_compare_t compare_func, const cha
 }
 
 int oomd_cgroup_kill(Manager *m, OomdCGroupContext *ctx, bool recurse, const char *reason) {
-        _cleanup_set_free_ Set *pids_killed = NULL;
+        _cleanup_free_ char *cg_path_self = NULL;
+        uint64_t n_pids_killed = UINT64_MAX;
         int r;
 
         assert(ctx);
         assert(!m || reason);
 
-        pids_killed = set_new(NULL);
-        if (!pids_killed)
-                return -ENOMEM;
+        /* Just for safety, in case group.kill is used */
+        r = cg_pid_get_path(getpid_cached(), &cg_path_self);
+        if (r < 0)
+                log_debug_errno(r, "Failed to get cgroup path for self, ignoring: %m");
+        else if (streq(cg_path_self, ctx->path)) {
+                log_debug("Skipping own cgroup '%s'", ctx->path);
+                return 0;
+        }
 
         r = increment_oomd_xattr(ctx->path, "user.oomd_ooms", 1);
         if (r < 0)
                 log_debug_errno(r, "Failed to set user.oomd_ooms before kill: %m");
 
-        if (recurse)
-                r = cg_kill_recursive(ctx->path, SIGKILL, CGROUP_IGNORE_SELF, pids_killed, log_kill, NULL);
-        else
-                r = cg_kill(ctx->path, SIGKILL, CGROUP_IGNORE_SELF, pids_killed, log_kill, NULL);
+        if (recurse) {
+                r = cg_kill_kernel_sigkill(ctx->path, &n_pids_killed);
+                if (r == -EOPNOTSUPP) {
+                        _cleanup_set_free_ Set *pids_killed = set_new(/* hash_ops= */ NULL);
+                        if (!pids_killed)
+                                return -ENOMEM;
+
+                        r = cg_kill_recursive(ctx->path, SIGKILL, CGROUP_IGNORE_SELF, pids_killed, log_kill, /* userdata= */ NULL);
+                        if (r >= 0)
+                                n_pids_killed = set_size(pids_killed);
+                }
+        } else {
+                _cleanup_set_free_ Set *pids_killed = set_new(/* hash_ops= */ NULL);
+                if (!pids_killed)
+                        return -ENOMEM;
+
+                r = cg_kill(ctx->path, SIGKILL, CGROUP_IGNORE_SELF, pids_killed, log_kill, /* userdata= */ NULL);
+                if (r >= 0)
+                        n_pids_killed = set_size(pids_killed);
+        }
 
         /* The cgroup could have been cleaned up after we have sent SIGKILL to all of the processes, but before
          * we could do one last iteration of cgroup.procs to check. Or the service unit could have exited and
@@ -275,12 +300,13 @@ int oomd_cgroup_kill(Manager *m, OomdCGroupContext *ctx, bool recurse, const cha
         else if (r < 0)
                 return r;
 
-        if (set_isempty(pids_killed))
+        if (n_pids_killed == 0)
                 log_debug("Nothing killed when attempting to kill %s", ctx->path);
-
-        r = increment_oomd_xattr(ctx->path, "user.oomd_kill", set_size(pids_killed));
-        if (r < 0)
-                log_debug_errno(r, "Failed to set user.oomd_kill on kill: %m");
+        else if (n_pids_killed != UINT64_MAX) {
+                r = increment_oomd_xattr(ctx->path, "user.oomd_kill", n_pids_killed);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to set user.oomd_kill on kill, ignoring: %m");
+        }
 
         /* send dbus signal */
         if (m)
@@ -292,7 +318,7 @@ int oomd_cgroup_kill(Manager *m, OomdCGroupContext *ctx, bool recurse, const cha
                                           ctx->path,
                                           reason);
 
-        return !set_isempty(pids_killed);
+        return n_pids_killed > 0 && n_pids_killed != UINT64_MAX;
 }
 
 static void oomd_kill_state_free(OomdKillState *ks) {
@@ -305,6 +331,7 @@ static void oomd_kill_state_free(OomdKillState *ks) {
 
         set_remove(ks->manager->kill_states, ks);
         oomd_cgroup_context_unref(ks->ctx);
+        free(ks->reason);
         free(ks);
 }
 
@@ -485,6 +512,10 @@ int oomd_cgroup_kill_mark(Manager *m, OomdCGroupContext *ctx, const char *reason
                 return 0;
         }
 
+        _cleanup_free_ char *reason_copy = strdup(reason);
+        if (!reason_copy)
+                return log_oom_debug();
+
         _cleanup_(oomd_kill_state_removep) OomdKillState *ks = new(OomdKillState, 1);
         if (!ks)
                 return log_oom_debug();
@@ -492,7 +523,7 @@ int oomd_cgroup_kill_mark(Manager *m, OomdCGroupContext *ctx, const char *reason
         *ks = (OomdKillState) {
                 .manager = m,
                 .ctx = oomd_cgroup_context_ref(ctx),
-                .reason = reason,
+                .reason = TAKE_PTR(reason_copy),
         };
 
         r = set_ensure_put(&m->kill_states, &oomd_kill_state_hash_ops, ks);
@@ -503,6 +534,7 @@ int oomd_cgroup_kill_mark(Manager *m, OomdCGroupContext *ctx, const char *reason
                  * cleanup path would remove by cgroup path key and could interfere with the existing queued
                  * kill state. */
                 oomd_cgroup_context_unref(ks->ctx);
+                free(ks->reason);
                 ks = mfree(ks);
                 return 0;
         }
@@ -585,14 +617,14 @@ int oomd_select_by_pgscan_rate(Hashmap *h, const char *prefix, OomdCGroupContext
         return ret;
 }
 
-int oomd_select_by_swap_usage(Hashmap *h, uint64_t threshold_usage, OomdCGroupContext **ret_selected) {
+int oomd_select_by_swap_usage(Hashmap *h, const char *prefix, uint64_t threshold_usage, OomdCGroupContext **ret_selected) {
         _cleanup_free_ OomdCGroupContext **sorted = NULL;
         int r, n, ret = 0;
 
         assert(h);
         assert(ret_selected);
 
-        n = oomd_sort_cgroup_contexts(h, compare_swap_usage, NULL, &sorted);
+        n = oomd_sort_cgroup_contexts(h, compare_swap_usage, prefix, &sorted);
         if (n < 0)
                 return n;
 
@@ -786,6 +818,9 @@ int oomd_insert_cgroup_context(Hashmap *old_h, Hashmap *new_h, const char *path)
                 curr_ctx->mem_pressure_limit_hit_start = old_ctx->mem_pressure_limit_hit_start;
                 curr_ctx->mem_pressure_duration_usec = old_ctx->mem_pressure_duration_usec;
                 curr_ctx->last_had_mem_reclaim = old_ctx->last_had_mem_reclaim;
+                curr_ctx->rules = strv_copy(old_ctx->rules);
+                if (old_ctx->rules && !curr_ctx->rules)
+                        return -ENOMEM;
         }
 
         if (oomd_pgscan_rate(curr_ctx) > 0)
@@ -817,6 +852,9 @@ void oomd_update_cgroup_contexts_between_hashmaps(Hashmap *old_h, Hashmap *curr_
                 ctx->mem_pressure_limit_hit_start = old_ctx->mem_pressure_limit_hit_start;
                 ctx->mem_pressure_duration_usec = old_ctx->mem_pressure_duration_usec;
                 ctx->last_had_mem_reclaim = old_ctx->last_had_mem_reclaim;
+                /* Note: rules are intentionally not copied here. This function is only used on
+                 * candidate hashmaps (populated by recursively_get_cgroup_context for descendant
+                 * cgroups), which never carry rules. */
 
                 if (oomd_pgscan_rate(ctx) > 0)
                         ctx->last_had_mem_reclaim = now(CLOCK_MONOTONIC);

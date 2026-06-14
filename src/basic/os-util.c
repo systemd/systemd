@@ -3,10 +3,12 @@
 #include <stdlib.h>
 
 #include "alloc-util.h"
+#include "ansi-color.h"
 #include "chase.h"
 #include "dirent-util.h"
 #include "env-file.h"
 #include "errno-util.h"
+#include "escape.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "glyph-util.h"
@@ -168,7 +170,7 @@ int open_os_release_at(int rfd, char **ret_path, int *ret_fd) {
         const char *e;
         int r;
 
-        assert(rfd >= 0 || IN_SET(rfd, AT_FDCWD, XAT_FDROOT));
+        assert(wildcard_fd_is_valid(rfd));
 
         e = secure_getenv("SYSTEMD_OS_RELEASE");
         if (e)
@@ -225,7 +227,7 @@ int open_extension_release_at(
         const char *p;
         int r;
 
-        assert(rfd >= 0 || IN_SET(rfd, AT_FDCWD, XAT_FDROOT));
+        assert(wildcard_fd_is_valid(rfd));
         assert(!extension || (image_class >= 0 && image_class < _IMAGE_CLASS_MAX));
 
         if (!extension)
@@ -370,7 +372,7 @@ static int parse_extension_release_atv(
         _cleanup_free_ char *p = NULL;
         int r;
 
-        assert(rfd >= 0 || IN_SET(rfd, AT_FDCWD, XAT_FDROOT));
+        assert(wildcard_fd_is_valid(rfd));
 
         r = open_extension_release_at(rfd, image_class, extension, relax_extension_release_check, &p, &fd);
         if (r < 0)
@@ -389,7 +391,7 @@ int parse_extension_release_at_sentinel(
         va_list ap;
         int r;
 
-        assert(rfd >= 0 || IN_SET(rfd, AT_FDCWD, XAT_FDROOT));
+        assert(wildcard_fd_is_valid(rfd));
 
         va_start(ap, extension);
         r = parse_extension_release_atv(rfd, image_class, extension, relax_extension_release_check, ap);
@@ -511,4 +513,47 @@ const char* os_release_pretty_name(const char *pretty_name, const char *name) {
 
         return empty_to_null(pretty_name) ?:
                 empty_to_null(name) ?: "Linux";
+}
+
+char *unescape_fancy_name(char **fancy_name) {
+        assert(fancy_name);
+
+        /* Checks if the fancy name is valid, unescapes if it is, nullifies it if not */
+
+        _cleanup_free_ char *unescaped_fancy_name = NULL;
+
+        if (isempty(*fancy_name))
+                goto clear;
+
+        /* We undo one level of C escapes on this */
+        ssize_t n = cunescape(*fancy_name, /* flags= */ 0, &unescaped_fancy_name);
+        if (n < 0) {
+                log_debug_errno((int) n, "Failed to unescape FANCY_NAME= string, suppressing: %m");
+                goto clear;
+        }
+
+        if (!utf8_is_valid(unescaped_fancy_name)) {
+                log_debug("Unescaped FANCY_NAME= string is not valid UTF-8, suppressing.");
+                goto clear;
+        }
+
+        free_and_replace(*fancy_name, unescaped_fancy_name);
+        return *fancy_name;
+
+clear:
+        *fancy_name = mfree(*fancy_name);
+        return NULL;
+}
+
+bool use_fancy_name(const char *fancy_name) {
+
+        /* Decides whether to show the specified fancy name */
+
+        if (isempty(fancy_name))
+                return false;
+
+        if (!colors_enabled())
+                return false;
+
+        return emoji_enabled() || ascii_is_valid(fancy_name);
 }

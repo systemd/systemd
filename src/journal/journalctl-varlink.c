@@ -65,7 +65,7 @@ int action_relinquish_var(void) {
         _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *link = NULL;
         int r;
 
-        assert(arg_action == ACTION_RELINQUISH_VAR);
+        assert(IN_SET(arg_action, ACTION_RELINQUISH_VAR, ACTION_SMART_RELINQUISH_VAR));
 
         if (arg_machine || arg_namespace)
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),

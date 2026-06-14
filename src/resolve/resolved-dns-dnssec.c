@@ -12,6 +12,7 @@
 #include "memory-util.h"
 #include "memstream-util.h"
 #include "resolved-dns-dnssec.h"
+#include "resolved-util.h"
 #include "sort-util.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -141,10 +142,15 @@ static int dnssec_rsa_verify(
         assert(rrsig);
         assert(dnskey);
 
+        if (dnskey->dnskey.key_size < 1)
+                return -EINVAL;
+
         if (*(uint8_t*) dnskey->dnskey.key == 0) {
                 /* exponent is > 255 bytes long */
 
-                exponent = (uint8_t*) dnskey->dnskey.key + 3;
+                if (dnskey->dnskey.key_size < 3)
+                        return -EINVAL;
+
                 exponent_size =
                         ((size_t) (((uint8_t*) dnskey->dnskey.key)[1]) << 8) |
                         ((size_t) ((uint8_t*) dnskey->dnskey.key)[2]);
@@ -155,13 +161,12 @@ static int dnssec_rsa_verify(
                 if (3 + exponent_size >= dnskey->dnskey.key_size)
                         return -EINVAL;
 
+                exponent = (uint8_t*) dnskey->dnskey.key + 3;
                 modulus = (uint8_t*) dnskey->dnskey.key + 3 + exponent_size;
                 modulus_size = dnskey->dnskey.key_size - 3 - exponent_size;
 
         } else {
                 /* exponent is <= 255 bytes long */
-
-                exponent = (uint8_t*) dnskey->dnskey.key + 1;
                 exponent_size = (size_t) ((uint8_t*) dnskey->dnskey.key)[0];
 
                 if (exponent_size <= 0)
@@ -170,6 +175,7 @@ static int dnssec_rsa_verify(
                 if (1 + exponent_size >= dnskey->dnskey.key_size)
                         return -EINVAL;
 
+                exponent = (uint8_t*) dnskey->dnskey.key + 1;
                 modulus = (uint8_t*) dnskey->dnskey.key + 1 + exponent_size;
                 modulus_size = dnskey->dnskey.key_size - 1 - exponent_size;
         }
@@ -704,7 +710,7 @@ int dnssec_verify_rrset(
         assert(dnskey);
         assert(result);
 
-        r = dlopen_libcrypto(LOG_DEBUG);
+        r = DLOPEN_LIBCRYPTO(LOG_DEBUG, DLOPEN_LIBCRYPTO_PRIORITY);
         if (r < 0)
                 return r;
 
@@ -1061,7 +1067,7 @@ int dnssec_verify_dnskey_by_ds(DnsResourceRecord *dnskey, DnsResourceRecord *ds,
         assert(dnskey);
         assert(ds);
 
-        r = dlopen_libcrypto(LOG_DEBUG);
+        r = DLOPEN_LIBCRYPTO(LOG_DEBUG, DLOPEN_LIBCRYPTO_PRIORITY);
         if (r < 0)
                 return r;
 
@@ -1201,7 +1207,7 @@ int dnssec_nsec3_hash(DnsResourceRecord *nsec3, const char *name, void *ret) {
         assert(name);
         assert(ret);
 
-        r = dlopen_libcrypto(LOG_DEBUG);
+        r = DLOPEN_LIBCRYPTO(LOG_DEBUG, DLOPEN_LIBCRYPTO_PRIORITY);
         if (r < 0)
                 return r;
 

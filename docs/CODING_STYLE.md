@@ -94,6 +94,28 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   }
   ```
 
+- Braces in `if` blocks are not required to be symmetric. Write this:
+
+  ```c
+  if (foobar)
+          waldo();
+  else {
+          foo();
+          bar();
+  }
+  ```
+
+  instead of this:
+
+  ```c
+  if (foobar) {
+          waldo();
+  } else {
+          foo();
+          bar();
+  }
+  ```
+
 - Do not write `foo ()`, write `foo()`.
 
 - `else` blocks should generally start on the same line as the closing `}`:
@@ -366,10 +388,10 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   - `src/shared`: `shared-forward.h`
 
   Header files that extend other header files can include the original header
-  file. For example, `iovec-util.h` includes `iovec-fundamental.h` and
-  `sys/uio.h`. To identify headers that are exported from other headers, add a
-  `IWYU pragma: export` comment to the includes so that these exports are
-  recognized by clang static analysis tooling.
+  file. For example, `iovec-util.h` includes `sys/uio.h`. To identify headers
+  that are exported from other headers, add a `IWYU pragma: export` comment
+  to the includes so that these exports are recognized by clang static analysis
+  tooling.
 
   Bad:
 

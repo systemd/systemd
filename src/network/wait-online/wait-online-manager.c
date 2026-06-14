@@ -68,7 +68,7 @@ static const LinkOperationalStateRange* get_state_range(Manager *m, Link *l, con
                 if (operational_state_range_is_valid(range))
                         return range;
 
-        /* l->requred_operstate should be always valid. */
+        /* l->required_operstate should be always valid. */
         assert_not_reached();
 }
 

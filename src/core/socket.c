@@ -30,7 +30,7 @@
 #include "ip-protocol-list.h"
 #include "log.h"
 #include "manager.h"
-#include "mkdir-label.h"
+#include "mkdir.h"
 #include "namespace-util.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -2045,25 +2045,21 @@ static int socket_chown(Socket *s, PidRef *ret_pid) {
                 /* Child */
 
                 if (!isempty(s->user)) {
-                        const char *user = s->user;
-
-                        r = get_user_creds(&user, &uid, &gid, NULL, NULL, 0);
+                        r = get_user_creds(s->user, /* flags= */ 0, NULL, &uid, &gid, NULL, NULL);
                         if (r < 0) {
                                 log_unit_error_errno(UNIT(s), r,
                                                      "Failed to resolve user '%s': %s",
-                                                     user, STRERROR_USER(r));
+                                                     s->user, STRERROR_USER(r));
                                 _exit(EXIT_USER);
                         }
                 }
 
                 if (!isempty(s->group)) {
-                        const char *group = s->group;
-
-                        r = get_group_creds(&group, &gid, 0);
+                        r = get_group_creds(s->group, /* flags= */ 0, /* ret_name= */ NULL, &gid);
                         if (r < 0) {
                                 log_unit_error_errno(UNIT(s), r,
                                                      "Failed to resolve group '%s': %s",
-                                                     group, STRERROR_GROUP(r));
+                                                     s->group, STRERROR_GROUP(r));
                                 _exit(EXIT_GROUP);
                         }
                 }
@@ -3726,6 +3722,7 @@ const UnitVTable socket_vtable = {
         .can_transient = true,
         .can_trigger = true,
         .can_fail = true,
+        .track_orphaned = true,
 
         .init = socket_init,
         .done = socket_done,

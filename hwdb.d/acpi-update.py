@@ -5,6 +5,7 @@ from csv import reader
 
 # pylint: disable=consider-using-with
 
+
 def read_table(filename):
     table = list(reader(open(filename, newline='')))
     table = table[1:]  # Skip header
@@ -14,6 +15,7 @@ def read_table(filename):
         # Some IDs end with whitespace, while they didn't in the old HTML table, so it's probably
         # a mistake, strip it.
         print(f'\nacpi:{row[1].strip()}*:\n ID_VENDOR_FROM_DATABASE={row[0].strip()}')
+
 
 print('''\
 # This file is part of systemd.

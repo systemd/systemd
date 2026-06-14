@@ -542,4 +542,5 @@ _arguments -s \
     '--plain[When used with list-dependencies, print output as a list]' \
     '--failed[Show failed units]' \
     '--timestamp=[Change format of printed timestamps]:style:_systemctl_timestamp' \
+    '--when=[Schedule halt/power-off/reboot/kexec action after a certain timestamp]:timestamp:(show cancel auto)' \
     '*::systemctl command:_systemctl_commands'

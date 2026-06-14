@@ -4,7 +4,8 @@
 #include <sys/uio.h>                /* IWYU pragma: export */
 
 #include "basic-forward.h"
-#include "iovec-util-fundamental.h" /* IWYU pragma: export */
+
+#include "../fundamental/iovec-util.h" /* IWYU pragma: export */
 
 extern const struct iovec iovec_nul_byte; /* Points to a single NUL byte */
 extern const struct iovec iovec_empty;    /* Points to an empty, but valid (i.e. non-NULL) pointer */
@@ -43,5 +44,6 @@ static inline bool iovec_equal(const struct iovec *a, const struct iovec *b) {
 }
 
 struct iovec* iovec_memdup(const struct iovec *source, struct iovec *ret);
+int iovec_done_and_memdup(struct iovec *iovec, const struct iovec *source);
 
 struct iovec* iovec_append(struct iovec *iovec, const struct iovec *append);

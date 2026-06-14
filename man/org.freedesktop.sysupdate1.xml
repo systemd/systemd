@@ -412,26 +412,35 @@ node /org/freedesktop/sysupdate1/target/host {
 
       <para><function>List()</function>, <function>Describe()</function>, and <function>CheckNew()</function>
       use the polkit action <interfacename>org.freedesktop.sysupdate1.check</interfacename>.
-      By default, this action is permitted without administrator authentication.</para>
+      By default, this action is permitted without administrator authentication. Cancellation of these
+      methods uses the polkit action <interfacename>org.freedesktop.sysupdate1.cancel-check</interfacename>.
+      By default, this cancellation action is permitted without administrator authentication.</para>
 
       <para><function>Acquire()</function> and <function>Install()</function>
       use the polkit action
       <interfacename>org.freedesktop.sysupdate1.update</interfacename> when no version is specified.
       By default, this action is permitted without administrator authentication. When a version is
       specified, <interfacename>org.freedesktop.sysupdate1.update-to-version</interfacename> is
-      used instead. By default, this alternate action requires administrator authentication.</para>
+      used instead. By default, this alternate action requires administrator authentication. Cancellation of
+      these methods uses the polkit actions
+      <interfacename>org.freedesktop.sysupdate1.cancel-update</interfacename> and
+      <interfacename>org.freedesktop.sysupdate1.cancel-update-to-version</interfacename>.
+      By default, these cancellation actions are permitted without administrator authentication.</para>
 
       <para><function>Vacuum()</function> uses the polkit action
       <interfacename>org.freedesktop.sysupdate1.vacuum</interfacename>. By default, this action requires
-      administrator authentication.</para>
+      administrator authentication. Cancellation of this method uses the polkit action
+      <interfacename>org.freedesktop.sysupdate1.cancel-vacuum</interfacename>.
+      By default, this cancellation action is permitted without administrator authentication.</para>
 
       <para><function>SetFeatureEnabled()</function> uses the polkit action
       <interfacename>org.freedesktop.sysupdate1.manage-features</interfacename>. By default, this action
-      requires administrator authentication.</para>
+      requires administrator authentication. Cancellation is not supported for this method.</para>
 
       <para><function>GetAppStream()</function>, <function>GetVersion()</function>,
       <function>ListFeatures()</function>, and <function>DescribeFeature()</function>
-      are unauthenticated and may be called by anybody.</para>
+      are unauthenticated and may be called by anybody. Cancellation is not supported for these methods, or
+      is always allowed without administrator authentication.</para>
 
       <para>All methods called on this interface expose additional variables to the polkit rules.
       <literal>class</literal> contains the class of the Target being acted upon, and <literal>name</literal>

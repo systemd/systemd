@@ -475,6 +475,10 @@ node /org/freedesktop/systemd1 {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly u DefaultStartLimitBurst = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly t EventLoopRateLimitIntervalUSec = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly u EventLoopRateLimitBurst = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b DefaultIOAccounting = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b DefaultIPAccounting = ...;
@@ -572,6 +576,8 @@ node /org/freedesktop/systemd1 {
       readonly s CtrlAltDelBurstAction = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly u SoftRebootsCount = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t ReloadCount = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b DefaultMemoryZSwapWriteback = ...;
   };
@@ -722,6 +728,10 @@ node /org/freedesktop/systemd1 {
     <!--property DefaultStartLimitIntervalUSec is not documented!-->
 
     <!--property DefaultStartLimitBurst is not documented!-->
+
+    <!--property EventLoopRateLimitIntervalUSec is not documented!-->
+
+    <!--property EventLoopRateLimitBurst is not documented!-->
 
     <!--property DefaultIOAccounting is not documented!-->
 
@@ -1181,6 +1191,10 @@ node /org/freedesktop/systemd1 {
 
     <variablelist class="dbus-property" generated="True" extra-ref="DefaultStartLimitBurst"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="EventLoopRateLimitIntervalUSec"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="EventLoopRateLimitBurst"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="DefaultIOAccounting"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="DefaultIPAccounting"/>
@@ -1278,6 +1292,8 @@ node /org/freedesktop/systemd1 {
     <variablelist class="dbus-property" generated="True" extra-ref="CtrlAltDelBurstAction"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="SoftRebootsCount"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="ReloadCount"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="DefaultMemoryZSwapWriteback"/>
 
@@ -1865,6 +1881,10 @@ node /org/freedesktop/systemd1 {
 
       <para><varname>SoftRebootsCount</varname> encodes how many soft-reboots were successfully completed
       since the last full boot. Starts at <literal>0</literal>.</para>
+
+      <para><varname>ReloadCount</varname> encodes the number of successfully completed configuration
+      reloads of the manager. The counter is reset to <literal>0</literal> on
+      <command>daemon-reexec</command> and on the initial boot.</para>
 
       <para><varname>Virtualization</varname> contains a short ID string describing the virtualization
       technology the system runs in. On bare-metal hardware this is the empty string. Otherwise, it contains
@@ -3002,6 +3022,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly ay StartupAllowedMemoryNodes = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly s CPUSetPartition = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly b IOAccounting = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t IOWeight = ...;
@@ -3075,6 +3097,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       readonly t ManagedOOMMemoryPressureDurationUSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly s ManagedOOMPreference = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly as OOMRules = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly a(ss) BPFProgram = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
@@ -3681,6 +3705,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <!--property StartupAllowedMemoryNodes is not documented!-->
 
+    <!--property CPUSetPartition is not documented!-->
+
     <!--property IOAccounting is not documented!-->
 
     <!--property IOWeight is not documented!-->
@@ -3752,6 +3778,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <!--property ManagedOOMMemoryPressureLimit is not documented!-->
 
     <!--property ManagedOOMPreference is not documented!-->
+
+    <!--property OOMRules is not documented!-->
 
     <!--property BPFProgram is not documented!-->
 
@@ -4379,6 +4407,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <variablelist class="dbus-property" generated="True" extra-ref="StartupAllowedMemoryNodes"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="CPUSetPartition"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="IOAccounting"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="IOWeight"/>
@@ -4452,6 +4482,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMMemoryPressureDurationUSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMPreference"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="OOMRules"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="BPFProgram"/>
 
@@ -5286,6 +5318,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly ay StartupAllowedMemoryNodes = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly s CPUSetPartition = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly b IOAccounting = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t IOWeight = ...;
@@ -5359,6 +5393,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       readonly t ManagedOOMMemoryPressureDurationUSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly s ManagedOOMPreference = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly as OOMRules = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly a(ss) BPFProgram = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
@@ -5981,6 +6017,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
 
     <!--property StartupAllowedMemoryNodes is not documented!-->
 
+    <!--property CPUSetPartition is not documented!-->
+
     <!--property IOAccounting is not documented!-->
 
     <!--property IOWeight is not documented!-->
@@ -6052,6 +6090,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <!--property ManagedOOMMemoryPressureLimit is not documented!-->
 
     <!--property ManagedOOMPreference is not documented!-->
+
+    <!--property OOMRules is not documented!-->
 
     <!--property BPFProgram is not documented!-->
 
@@ -6653,6 +6693,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
 
     <variablelist class="dbus-property" generated="True" extra-ref="StartupAllowedMemoryNodes"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="CPUSetPartition"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="IOAccounting"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="IOWeight"/>
@@ -6726,6 +6768,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMMemoryPressureDurationUSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMPreference"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="OOMRules"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="BPFProgram"/>
 
@@ -7383,6 +7427,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly ay StartupAllowedMemoryNodes = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly s CPUSetPartition = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly b IOAccounting = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t IOWeight = ...;
@@ -7456,6 +7502,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       readonly t ManagedOOMMemoryPressureDurationUSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly s ManagedOOMPreference = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly as OOMRules = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly a(ss) BPFProgram = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
@@ -8002,6 +8050,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
 
     <!--property StartupAllowedMemoryNodes is not documented!-->
 
+    <!--property CPUSetPartition is not documented!-->
+
     <!--property IOAccounting is not documented!-->
 
     <!--property IOWeight is not documented!-->
@@ -8073,6 +8123,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <!--property ManagedOOMMemoryPressureLimit is not documented!-->
 
     <!--property ManagedOOMPreference is not documented!-->
+
+    <!--property OOMRules is not documented!-->
 
     <!--property BPFProgram is not documented!-->
 
@@ -8582,6 +8634,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
 
     <variablelist class="dbus-property" generated="True" extra-ref="StartupAllowedMemoryNodes"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="CPUSetPartition"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="IOAccounting"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="IOWeight"/>
@@ -8655,6 +8709,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMMemoryPressureDurationUSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMPreference"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="OOMRules"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="BPFProgram"/>
 
@@ -9445,6 +9501,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly ay StartupAllowedMemoryNodes = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly s CPUSetPartition = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly b IOAccounting = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t IOWeight = ...;
@@ -9518,6 +9576,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
       readonly t ManagedOOMMemoryPressureDurationUSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly s ManagedOOMPreference = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly as OOMRules = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly a(ss) BPFProgram = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
@@ -10046,6 +10106,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
 
     <!--property StartupAllowedMemoryNodes is not documented!-->
 
+    <!--property CPUSetPartition is not documented!-->
+
     <!--property IOAccounting is not documented!-->
 
     <!--property IOWeight is not documented!-->
@@ -10117,6 +10179,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <!--property ManagedOOMMemoryPressureLimit is not documented!-->
 
     <!--property ManagedOOMPreference is not documented!-->
+
+    <!--property OOMRules is not documented!-->
 
     <!--property BPFProgram is not documented!-->
 
@@ -10608,6 +10672,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
 
     <variablelist class="dbus-property" generated="True" extra-ref="StartupAllowedMemoryNodes"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="CPUSetPartition"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="IOAccounting"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="IOWeight"/>
@@ -10681,6 +10747,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMMemoryPressureDurationUSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMPreference"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="OOMRules"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="BPFProgram"/>
 
@@ -11324,6 +11392,8 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly ay StartupAllowedMemoryNodes = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly s CPUSetPartition = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly b IOAccounting = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t IOWeight = ...;
@@ -11397,6 +11467,8 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
       readonly t ManagedOOMMemoryPressureDurationUSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly s ManagedOOMPreference = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly as OOMRules = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly a(ss) BPFProgram = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
@@ -11507,6 +11579,8 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
 
     <!--property StartupAllowedMemoryNodes is not documented!-->
 
+    <!--property CPUSetPartition is not documented!-->
+
     <!--property IOAccounting is not documented!-->
 
     <!--property IOWeight is not documented!-->
@@ -11578,6 +11652,8 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
     <!--property ManagedOOMMemoryPressureLimit is not documented!-->
 
     <!--property ManagedOOMPreference is not documented!-->
+
+    <!--property OOMRules is not documented!-->
 
     <!--property BPFProgram is not documented!-->
 
@@ -11701,6 +11777,8 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
 
     <variablelist class="dbus-property" generated="True" extra-ref="StartupAllowedMemoryNodes"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="CPUSetPartition"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="IOAccounting"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="IOWeight"/>
@@ -11774,6 +11852,8 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
     <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMMemoryPressureDurationUSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMPreference"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="OOMRules"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="BPFProgram"/>
 
@@ -11920,6 +12000,8 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly ay StartupAllowedMemoryNodes = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly s CPUSetPartition = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly b IOAccounting = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t IOWeight = ...;
@@ -11993,6 +12075,8 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
       readonly t ManagedOOMMemoryPressureDurationUSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly s ManagedOOMPreference = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly as OOMRules = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly a(ss) BPFProgram = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
@@ -12117,6 +12201,8 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
 
     <!--property StartupAllowedMemoryNodes is not documented!-->
 
+    <!--property CPUSetPartition is not documented!-->
+
     <!--property IOAccounting is not documented!-->
 
     <!--property IOWeight is not documented!-->
@@ -12188,6 +12274,8 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
     <!--property ManagedOOMMemoryPressureLimit is not documented!-->
 
     <!--property ManagedOOMPreference is not documented!-->
+
+    <!--property OOMRules is not documented!-->
 
     <!--property BPFProgram is not documented!-->
 
@@ -12335,6 +12423,8 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
 
     <variablelist class="dbus-property" generated="True" extra-ref="StartupAllowedMemoryNodes"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="CPUSetPartition"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="IOAccounting"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="IOWeight"/>
@@ -12408,6 +12498,8 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
     <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMMemoryPressureDurationUSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMPreference"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="OOMRules"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="BPFProgram"/>
 
@@ -12646,8 +12738,11 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <para><varname>DefaultMemoryZSwapWriteback</varname>,
       <varname>DefaultCPUPressureThresholdUSec</varname>,
       <varname>DefaultCPUPressureWatch</varname>,
-      <varname>DefaultIOPressureThresholdUSec</varname>, and
-      <varname>DefaultIOPressureWatch</varname> were added in version 261.</para>
+      <varname>DefaultIOPressureThresholdUSec</varname>,
+      <varname>DefaultIOPressureWatch</varname>,
+      <varname>ReloadCount</varname>,
+      <varname>EventLoopRateLimitIntervalUSec</varname>, and
+      <varname>EventLoopRateLimitBurst</varname> were added in version 261.</para>
     </refsect2>
     <refsect2>
       <title>Unit Objects</title>
@@ -12741,8 +12836,10 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>RefreshOnReload</varname>, and <varname>RootMStack</varname> were added in version 260.</para>
       <para><varname>CPUPressureThresholdUSec</varname>,
       <varname>CPUPressureWatch</varname>,
-      <varname>IOPressureThresholdUSec</varname>, and
-      <varname>IOPressureWatch</varname> were added in version 261.</para>
+      <varname>IOPressureThresholdUSec</varname>,
+      <varname>IOPressureWatch</varname>,
+      <varname>CPUSetPartition</varname>, and
+      <varname>OOMRules</varname> were added in version 261.</para>
     </refsect2>
     <refsect2>
       <title>Socket Unit Objects</title>
@@ -12815,8 +12912,10 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>RootMStack</varname> were added in version 260.</para>
       <para><varname>CPUPressureThresholdUSec</varname>,
       <varname>CPUPressureWatch</varname>,
-      <varname>IOPressureThresholdUSec</varname>, and
-      <varname>IOPressureWatch</varname> were added in version 261.</para>
+      <varname>IOPressureThresholdUSec</varname>,
+      <varname>IOPressureWatch</varname>,
+      <varname>CPUSetPartition</varname>, and
+      <varname>OOMRules</varname> were added in version 261.</para>
     </refsect2>
     <refsect2>
       <title>Mount Unit Objects</title>
@@ -12884,8 +12983,10 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>RootMStack</varname> were added in version 260.</para>
       <para><varname>CPUPressureThresholdUSec</varname>,
       <varname>CPUPressureWatch</varname>,
-      <varname>IOPressureThresholdUSec</varname>, and
-      <varname>IOPressureWatch</varname> were added in version 261.</para>
+      <varname>IOPressureThresholdUSec</varname>,
+      <varname>IOPressureWatch</varname>,
+      <varname>CPUSetPartition</varname>, and
+      <varname>OOMRules</varname> were added in version 261.</para>
     </refsect2>
     <refsect2>
       <title>Swap Unit Objects</title>
@@ -12951,8 +13052,10 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>RootMStack</varname> were added in version 260.</para>
       <para><varname>CPUPressureThresholdUSec</varname>,
       <varname>CPUPressureWatch</varname>,
-      <varname>IOPressureThresholdUSec</varname>, and
-      <varname>IOPressureWatch</varname> were added in version 261.</para>
+      <varname>IOPressureThresholdUSec</varname>,
+      <varname>IOPressureWatch</varname>,
+      <varname>CPUSetPartition</varname>, and
+      <varname>OOMRules</varname> were added in version 261.</para>
     </refsect2>
     <refsect2>
       <title>Slice Unit Objects</title>
@@ -12988,8 +13091,10 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <para><varname>BindNetworkInterface</varname> was added in version 260.</para>
       <para><varname>CPUPressureThresholdUSec</varname>,
       <varname>CPUPressureWatch</varname>,
-      <varname>IOPressureThresholdUSec</varname>, and
-      <varname>IOPressureWatch</varname> were added in version 261.</para>
+      <varname>IOPressureThresholdUSec</varname>,
+      <varname>IOPressureWatch</varname>,
+      <varname>CPUSetPartition</varname>, and
+      <varname>OOMRules</varname> were added in version 261.</para>
     </refsect2>
     <refsect2>
       <title>Scope Unit Objects</title>
@@ -13023,8 +13128,10 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <para><varname>BindNetworkInterface</varname> was added in version 260.</para>
       <para><varname>CPUPressureThresholdUSec</varname>,
       <varname>CPUPressureWatch</varname>,
-      <varname>IOPressureThresholdUSec</varname>, and
-      <varname>IOPressureWatch</varname> were added in version 261.</para>
+      <varname>IOPressureThresholdUSec</varname>,
+      <varname>IOPressureWatch</varname>,
+      <varname>CPUSetPartition</varname>, and
+      <varname>OOMRules</varname> were added in version 261.</para>
     </refsect2>
     <refsect2>
       <title>Job Objects</title>

@@ -2,6 +2,7 @@
 
 #include <libcryptsetup.h>
 #include <string.h>
+#include <syslog.h>
 
 #include "sd-json.h"
 
@@ -37,8 +38,12 @@ _public_ int cryptsetup_token_open_pin(
         assert(pin || pin_size == 0);
         assert(token >= 0);
 
+        r = DLOPEN_CRYPTSETUP(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED);
+        if (r < 0)
+                return r;
+
         /* This must not fail at this moment (internal error) */
-        r = crypt_token_json_get(cd, token, &json);
+        r = sym_crypt_token_json_get(cd, token, &json);
         /* Use assert_se() here to avoid emitting warning with -DNDEBUG */
         assert_se(token == r);
         assert(json);
@@ -97,6 +102,9 @@ _public_ void cryptsetup_token_dump(
         _cleanup_free_ char *rp_id = NULL, *cid_str = NULL, *salt_str = NULL;
 
         assert(json);
+
+        if (DLOPEN_CRYPTSETUP(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED) < 0)
+                return;
 
         r = parse_luks2_fido2_data(cd, json, &rp_id, &salt, &salt_size, &cid, &cid_size, &required);
         if (r < 0)
@@ -161,6 +169,10 @@ _public_ int cryptsetup_token_validate(
        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
 
         assert(json);
+
+        r = DLOPEN_CRYPTSETUP(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED);
+        if (r < 0)
+                return r;
 
         r = sd_json_parse(json, SD_JSON_PARSE_MUST_BE_OBJECT, &v, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
         if (r < 0)

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "chid-fundamental.h"
+#include "chid.h"
 #include "tests.h"
 
 static const char16_t *const test_fields[_CHID_SMBIOS_FIELDS_MAX] = {

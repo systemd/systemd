@@ -9,8 +9,6 @@
 
 #if HAVE_GCRYPT
 
-static void *gcrypt_dl = NULL;
-
 static DLSYM_PROTOTYPE(gcry_control) = NULL;
 static DLSYM_PROTOTYPE(gcry_check_version) = NULL;
 DLSYM_PROTOTYPE(gcry_md_close) = NULL;
@@ -47,6 +45,8 @@ DLSYM_PROTOTYPE(gcry_strerror) = NULL;
 
 int dlopen_gcrypt(int log_level) {
 #if HAVE_GCRYPT
+        static void *gcrypt_dl = NULL;
+
         SD_ELF_NOTE_DLOPEN(
                         "gcrypt",
                         "Support for journald forward-sealing",

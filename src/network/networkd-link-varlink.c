@@ -104,7 +104,9 @@ static int vl_method_link_up_or_down(sd_varlink *vlink, sd_json_variant *paramet
                         vlink,
                         manager->bus,
                         "org.freedesktop.network1.manage-links",
-                        /* details= */ NULL,
+                        (const char**) STRV_MAKE(
+                                        "interface", link->ifname,
+                                        "verb", up ? "up" : "down"),
                         &manager->polkit_registry);
         if (r <= 0)
                 return r;
@@ -143,7 +145,7 @@ int vl_method_link_renew(sd_varlink *vlink, sd_json_variant *parameters, sd_varl
                         vlink,
                         manager->bus,
                         "org.freedesktop.network1.renew",
-                        /* details= */ NULL,
+                        (const char**) STRV_MAKE("interface", link->ifname),
                         &manager->polkit_registry);
         if (r <= 0)
                 return r;
@@ -173,7 +175,7 @@ int vl_method_link_force_renew(sd_varlink *vlink, sd_json_variant *parameters, s
                         vlink,
                         manager->bus,
                         "org.freedesktop.network1.forcerenew",
-                        /* details= */ NULL,
+                        (const char**) STRV_MAKE("interface", link->ifname),
                         &manager->polkit_registry);
         if (r <= 0)
                 return r;
@@ -202,7 +204,7 @@ int vl_method_link_reconfigure(sd_varlink *vlink, sd_json_variant *parameters, s
                         vlink,
                         manager->bus,
                         "org.freedesktop.network1.reconfigure",
-                        /* details= */ NULL,
+                        (const char**) STRV_MAKE("interface", link->ifname),
                         &manager->polkit_registry);
         if (r <= 0)
                 return r;

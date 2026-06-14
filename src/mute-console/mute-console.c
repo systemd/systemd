@@ -60,11 +60,10 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        OptionParser state = { argc, argv };
-        const char *arg;
+        OptionParser opts = { argc, argv };
         int r;
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -74,13 +73,13 @@ static int parse_argv(int argc, char *argv[]) {
                         return version();
 
                 OPTION_LONG("kernel", "BOOL", "Mute kernel log output"):
-                        r = parse_boolean_argument("--kernel=", arg, &arg_mute_kernel);
+                        r = parse_boolean_argument("--kernel=", opts.arg, &arg_mute_kernel);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("pid1", "BOOL", "Mute PID 1 status output"):
-                        r = parse_boolean_argument("--pid1=", arg, &arg_mute_pid1);
+                        r = parse_boolean_argument("--pid1=", opts.arg, &arg_mute_pid1);
                         if (r < 0)
                                 return r;
                         break;
@@ -309,8 +308,9 @@ static int vl_server(void) {
 
         r = varlink_server_new(
                         &varlink_server,
-                        SD_VARLINK_SERVER_ROOT_ONLY|
-                        SD_VARLINK_SERVER_HANDLE_SIGINT|
+                        SD_VARLINK_SERVER_ROOT_ONLY |
+                        SD_VARLINK_SERVER_MYSELF_ONLY |
+                        SD_VARLINK_SERVER_HANDLE_SIGINT |
                         SD_VARLINK_SERVER_HANDLE_SIGTERM,
                         /* userdata= */ NULL);
         if (r < 0)

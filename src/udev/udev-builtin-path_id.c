@@ -5,7 +5,6 @@
  * Logic based on Hannes Reinecke's shell script.
  */
 
-#include <getopt.h>
 #include <linux/usb/ch11.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -109,7 +108,7 @@ static sd_device* handle_scsi_fibre_channel(sd_device *parent, char **path) {
                 return NULL;
         if (sd_device_new_from_subsystem_sysname(&fcdev, "fc_transport", sysname) < 0)
                 return NULL;
-        if (sd_device_get_sysattr_value(fcdev, "port_name", &port) < 0)
+        if (device_get_sysattr_safe_string(fcdev, "port_name", &port) < 0)
                 return NULL;
 
         format_lun_number(parent, &lun);
@@ -134,7 +133,7 @@ static sd_device* handle_scsi_sas_wide_port(sd_device *parent, char **path) {
                 return NULL;
         if (sd_device_new_from_subsystem_sysname(&sasdev, "sas_device", sysname) < 0)
                 return NULL;
-        if (sd_device_get_sysattr_value(sasdev, "sas_address", &sas_address) < 0)
+        if (device_get_sysattr_safe_string(sasdev, "sas_address", &sas_address) < 0)
                 return NULL;
 
         format_lun_number(parent, &lun);
@@ -176,7 +175,7 @@ static sd_device* handle_scsi_sas(sd_device *parent, char **path) {
                 return handle_scsi_sas_wide_port(parent, path);
 
         /* Get connected phy */
-        if (sd_device_get_sysattr_value(target_sasdev, "phy_identifier", &phy_id) < 0)
+        if (device_get_sysattr_safe_string(target_sasdev, "phy_identifier", &phy_id) < 0)
                 return NULL;
 
         /* The port's parent is either hba or expander */
@@ -188,7 +187,7 @@ static sd_device* handle_scsi_sas(sd_device *parent, char **path) {
         /* Get expander device */
         if (sd_device_new_from_subsystem_sysname(&expander_sasdev, "sas_device", sysname) >= 0) {
                 /* Get expander's address */
-                if (sd_device_get_sysattr_value(expander_sasdev, "sas_address", &sas_address) < 0)
+                if (device_get_sysattr_safe_string(expander_sasdev, "sas_address", &sas_address) < 0)
                         return NULL;
         }
 
@@ -225,7 +224,7 @@ static sd_device* handle_scsi_iscsi(sd_device *parent, char **path) {
         if (sd_device_new_from_subsystem_sysname(&sessiondev, "iscsi_session", sysname) < 0)
                 return NULL;
 
-        if (sd_device_get_sysattr_value(sessiondev, "targetname", &target) < 0)
+        if (device_get_sysattr_safe_string(sessiondev, "targetname", &target) < 0)
                 return NULL;
 
         if (sd_device_get_sysnum(transportdev, &sysnum) < 0)
@@ -234,9 +233,9 @@ static sd_device* handle_scsi_iscsi(sd_device *parent, char **path) {
         if (sd_device_new_from_subsystem_sysname(&conndev, "iscsi_connection", connname) < 0)
                 return NULL;
 
-        if (sd_device_get_sysattr_value(conndev, "persistent_address", &addr) < 0)
+        if (device_get_sysattr_safe_string(conndev, "persistent_address", &addr) < 0)
                 return NULL;
-        if (sd_device_get_sysattr_value(conndev, "persistent_port", &port) < 0)
+        if (device_get_sysattr_safe_string(conndev, "persistent_port", &port) < 0)
                 return NULL;
 
         format_lun_number(parent, &lun);
@@ -269,7 +268,7 @@ static sd_device* handle_scsi_ata(sd_device *parent, char **path, char **compat_
         if (sd_device_new_from_subsystem_sysname(&atadev, "ata_port", sysname) < 0)
                 return NULL;
 
-        if (sd_device_get_sysattr_value(atadev, "port_no", &port_no) < 0)
+        if (device_get_sysattr_safe_string(atadev, "port_no", &port_no) < 0)
                 return NULL;
 
         if (bus != 0)
@@ -376,7 +375,7 @@ static sd_device* handle_scsi_hyperv(sd_device *parent, char **path, size_t guid
         if (sd_device_get_parent(hostdev, &vmbusdev) < 0)
                 return NULL;
 
-        if (sd_device_get_sysattr_value(vmbusdev, "device_id", &guid_str) < 0)
+        if (device_get_sysattr_safe_string(vmbusdev, "device_id", &guid_str) < 0)
                 return NULL;
 
         if (strlen(guid_str) < guid_str_len || guid_str[0] != '{' || guid_str[guid_str_len-1] != '}')
@@ -404,7 +403,7 @@ static sd_device* handle_scsi(sd_device *parent, char **path, char **compat_path
                 return parent;
 
         /* firewire */
-        if (sd_device_get_sysattr_value(parent, "ieee1394_id", &id) >= 0) {
+        if (device_get_sysattr_safe_string(parent, "ieee1394_id", &id) >= 0) {
                 path_prepend(path, "ieee1394-0x%s", id);
                 *supported_parent = true;
                 return skip_subsystem(parent, "scsi");
@@ -473,18 +472,13 @@ static void handle_scsi_tape(sd_device *dev, char **path) {
 
 static int get_usb_revision(sd_device *dev) {
         uint8_t protocol;
-        const char *s;
         int r;
 
         assert(dev);
 
         /* Returns usb revision 1, 2, or 3. */
 
-        r = sd_device_get_sysattr_value(dev, "bDeviceProtocol", &s);
-        if (r < 0)
-                return r;
-
-        r = safe_atou8_full(s, 16, &protocol);
+        r = device_get_sysattr_u8_full(dev, "bDeviceProtocol", 16, &protocol);
         if (r < 0)
                 return r;
 
@@ -492,11 +486,10 @@ static int get_usb_revision(sd_device *dev) {
         case USB_HUB_PR_HS_NO_TT: /* Full speed hub (USB1) or Hi-speed hub without TT (USB2) */
 
                 /* See speed_show() in drivers/usb/core/sysfs.c of the kernel. */
-                r = sd_device_get_sysattr_value(dev, "speed", &s);
+                r = device_get_sysattr_streq(dev, "speed", "480");
                 if (r < 0)
                         return r;
-
-                if (streq(s, "480"))
+                if (r > 0)
                         return 2;
 
                 return 1;
@@ -571,8 +564,8 @@ static sd_device* handle_ap(sd_device *parent, char **path) {
         assert(parent);
         assert(path);
 
-        if (sd_device_get_sysattr_value(parent, "type", &type) >= 0 &&
-            sd_device_get_sysattr_value(parent, "ap_functions", &func) >= 0)
+        if (device_get_sysattr_safe_string(parent, "type", &type) >= 0 &&
+            device_get_sysattr_safe_string(parent, "ap_functions", &func) >= 0)
                 path_prepend(path, "ap-%s-%s", type, func);
         else {
                 const char *sysname;
@@ -718,6 +711,18 @@ static int builtin_path_id(UdevEvent *event, int argc, char *argv[]) {
                                 path_prepend(&path, "serio-%s", sysnum);
                                 parent = skip_subsystem(parent, "serio");
                         }
+                } else if (device_in_subsystem(parent, "auxiliary") > 0) {
+                        unsigned sfnum;
+
+                        /* sfnum is the user-defined sub-function number (devlink port add ...
+                         * sfnum N). Prepend it so an SF leaf device gets an ID_PATH distinct
+                         * from its parent PF/VF; aux devices without 'sfnum' emit no token to
+                         * preserve pre-patch ID_PATH values. */
+                        if (device_get_sysattr_unsigned(parent, "sfnum", &sfnum) >= 0) {
+                                path_prepend(&path, "sf-%u", sfnum);
+                                if (compat_path)
+                                        path_prepend(&compat_path, "sf-%u", sfnum);
+                        }
                 } else if (device_in_subsystem(parent, "pci") > 0) {
                         path_prepend(&path, "pci-%s", sysname);
                         if (compat_path)
@@ -788,7 +793,7 @@ static int builtin_path_id(UdevEvent *event, int argc, char *argv[]) {
                 } else if (device_in_subsystem(parent, "nvme", "nvme-subsystem") > 0) {
                         const char *nsid;
 
-                        if (sd_device_get_sysattr_value(dev, "nsid", &nsid) >= 0) {
+                        if (device_get_sysattr_safe_string(dev, "nsid", &nsid) >= 0) {
                                 path_prepend(&path, "nvme-%s", nsid);
                                 if (compat_path)
                                         path_prepend(&compat_path, "nvme-%s", nsid);

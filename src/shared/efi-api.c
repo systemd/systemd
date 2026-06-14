@@ -5,7 +5,7 @@
 #include "alloc-util.h"
 #include "dirent-util.h"
 #include "efi-api.h"
-#include "efi-fundamental.h"
+#include "efi.h"
 #include "efivars.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -645,21 +645,25 @@ bool efi_has_tpm2(void) {
 }
 
 sd_id128_t efi_guid_to_id128(const void *guid) {
-        const EFI_GUID *uuid = ASSERT_PTR(guid); /* cast is safe, because struct efi_guid is packed */
+        EFI_GUID uuid;
         sd_id128_t id128;
 
-        id128.bytes[0] = (uuid->Data1 >> 24) & 0xff;
-        id128.bytes[1] = (uuid->Data1 >> 16) & 0xff;
-        id128.bytes[2] = (uuid->Data1 >> 8) & 0xff;
-        id128.bytes[3] = uuid->Data1 & 0xff;
+        /* The input pointer is not guaranteed to be aligned (e.g. when pointing into a serialized EFI
+         * variable buffer), so copy into a properly aligned local first. */
+        memcpy(&uuid, ASSERT_PTR(guid), sizeof(uuid));
 
-        id128.bytes[4] = (uuid->Data2 >> 8) & 0xff;
-        id128.bytes[5] = uuid->Data2 & 0xff;
+        id128.bytes[0] = (uuid.Data1 >> 24) & 0xff;
+        id128.bytes[1] = (uuid.Data1 >> 16) & 0xff;
+        id128.bytes[2] = (uuid.Data1 >> 8) & 0xff;
+        id128.bytes[3] = uuid.Data1 & 0xff;
 
-        id128.bytes[6] = (uuid->Data3 >> 8) & 0xff;
-        id128.bytes[7] = uuid->Data3 & 0xff;
+        id128.bytes[4] = (uuid.Data2 >> 8) & 0xff;
+        id128.bytes[5] = uuid.Data2 & 0xff;
 
-        memcpy(&id128.bytes[8], uuid->Data4, sizeof(uuid->Data4));
+        id128.bytes[6] = (uuid.Data3 >> 8) & 0xff;
+        id128.bytes[7] = uuid.Data3 & 0xff;
+
+        memcpy(&id128.bytes[8], uuid.Data4, sizeof(uuid.Data4));
 
         return id128;
 }

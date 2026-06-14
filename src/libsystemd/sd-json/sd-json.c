@@ -12,6 +12,7 @@
 #include "errno-util.h"
 #include "escape.h"
 #include "ether-addr-util.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "float.h"
 #include "hexdecoct.h"
@@ -1974,7 +1975,7 @@ _public_ int sd_json_variant_filter(sd_json_variant **v, char **to_remove) {
                 return r;
 
         json_variant_propagate_sensitive(*v, w);
-        JSON_VARIANT_REPLACE(*v, TAKE_PTR(w));
+        json_variant_unref_and_replace(*v, w);
 
         return (int) n;
 }
@@ -2043,7 +2044,7 @@ _public_ int sd_json_variant_set_field(sd_json_variant **v, const char *field, s
                 return r;
 
         json_variant_propagate_sensitive(*v, w);
-        JSON_VARIANT_REPLACE(*v, TAKE_PTR(w));
+        json_variant_unref_and_replace(*v, w);
 
         return 1;
 }
@@ -2183,7 +2184,7 @@ _public_ int sd_json_variant_merge_object(sd_json_variant **v, sd_json_variant *
 
         json_variant_propagate_sensitive(*v, w);
         json_variant_propagate_sensitive(m, w);
-        JSON_VARIANT_REPLACE(*v, TAKE_PTR(w));
+        json_variant_unref_and_replace(*v, w);
 
         return 1;
 }
@@ -2262,9 +2263,7 @@ _public_ int sd_json_variant_append_array(sd_json_variant **v, sd_json_variant *
         }
 
         json_variant_propagate_sensitive(*v, nv);
-        JSON_VARIANT_REPLACE(*v, TAKE_PTR(nv));
-
-        return 0;
+        return json_variant_unref_and_replace(*v, nv);
 }
 
 _public_ int sd_json_variant_append_arrayb(sd_json_variant **v, ...) {
@@ -2511,7 +2510,7 @@ static int json_variant_set_source(sd_json_variant **v, JsonSource *source, unsi
         w->line = line;
         w->column = column;
 
-        JSON_VARIANT_REPLACE(*v, w);
+        json_variant_unref_and_replace(*v, w);
 
         return 1;
 }
@@ -2802,7 +2801,11 @@ static int json_parse_number(const char **p, JsonValue *ret) {
         *p = c;
 
         if (is_real) {
-                ret->real = ((negative ? -1.0 : 1.0) * (x + (y / shift))) * exp10((exponent_negative ? -1.0 : 1.0) * exponent);
+                /* Clamp before casting to int — a JSON input with an absurdly large exponent could
+                 * otherwise trigger undefined behaviour in the double→int conversion. xexp10i()
+                 * itself saturates anything beyond ~10^308, so clamping at INT_MAX is harmless. */
+                int e = exponent > (double) INT_MAX ? INT_MAX : (int) exponent;
+                ret->real = ((negative ? -1.0 : 1.0) * (x + (y / shift))) * xexp10i(exponent_negative ? -e : e);
                 return JSON_TOKEN_REAL;
         } else if (negative) {
                 ret->integer = i;
@@ -3504,9 +3507,12 @@ _public_ int sd_json_parse_file_at(
         _cleanup_free_ char *text = NULL;
         int r;
 
-        if (f)
+        if (f) {
+                if (FLAGS_SET(flags, SD_JSON_PARSE_SEEK0) && fseek(f, /* offset= */ 0, SEEK_SET) < 0)
+                        return -errno;
+
                 r = read_full_stream(f, &text, NULL);
-        else
+        } else
                 r = read_full_file_full(dir_fd, path, UINT64_MAX, SIZE_MAX, 0, NULL, &text, NULL);
         if (r < 0)
                 return r;
@@ -3523,6 +3529,44 @@ _public_ int sd_json_parse_file(
                 unsigned *reterr_column) {
 
         return sd_json_parse_file_at(f, AT_FDCWD, path, flags, ret, reterr_line, reterr_column);
+}
+
+_public_ int sd_json_parse_fd(
+                const char *path,
+                int fd,
+                sd_json_parse_flags_t flags,
+                sd_json_variant **ret,
+                unsigned *reterr_line,
+                unsigned *reterr_column) {
+
+        int r;
+
+        assert_return(fd >= 0, -EBADF);
+
+        _cleanup_close_ int our_fd = -EBADF;
+        if (FLAGS_SET(flags, SD_JSON_PARSE_REOPEN_FD)) {
+                assert_return(!FLAGS_SET(flags, SD_JSON_PARSE_DONATE_FD), -EINVAL);
+
+                our_fd = fd_reopen(fd, O_RDONLY|O_CLOEXEC);
+                if (our_fd < 0)
+                        return our_fd;
+
+                /* If we reopened the thing the file offset will be at the beginning anyway */
+                flags &= ~SD_JSON_PARSE_SEEK0;
+        } else if (FLAGS_SET(flags, SD_JSON_PARSE_DONATE_FD))
+                our_fd = fd;
+        else {
+                our_fd = fcntl(fd, F_DUPFD_CLOEXEC, 3);
+                if (our_fd < 0)
+                        return -errno;
+        }
+
+        _cleanup_fclose_ FILE *f = NULL;
+        r = take_fdopen_unlocked(&our_fd, "r", &f);
+        if (r < 0)
+                return r;
+
+        return sd_json_parse_file(f, path, flags, ret, reterr_line, reterr_column);
 }
 
 char *json_underscorify(char *p) {
@@ -4545,6 +4589,7 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                         break;
                 }
 
+                case _JSON_BUILD_PAIR_FINITE_USEC_NON_ZERO:
                 case _JSON_BUILD_PAIR_FINITE_USEC: {
                         const char *n;
                         usec_t u;
@@ -4557,7 +4602,9 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                         n = va_arg(ap, const char *);
                         u = va_arg(ap, usec_t);
 
-                        if (u != USEC_INFINITY && current->n_suppress == 0) {
+                        if (u != USEC_INFINITY &&
+                            (command != _JSON_BUILD_PAIR_FINITE_USEC_NON_ZERO || u > 0) &&
+                            current->n_suppress == 0) {
                                 r = sd_json_variant_new_string(&add, n);
                                 if (r < 0)
                                         goto finish;
@@ -5294,10 +5341,8 @@ _public_ int sd_json_dispatch_full(
                                         done++;
 
                         } else {
-                                if (flags & SD_JSON_ALLOW_EXTENSIONS) {
-                                        json_log(value, flags|SD_JSON_DEBUG, 0, "Unrecognized object field '%s', assuming extension.", sd_json_variant_string(key));
+                                if (flags & SD_JSON_ALLOW_EXTENSIONS)
                                         continue;
-                                }
 
                                 json_log(value, flags, 0, "Unexpected object field '%s'.", sd_json_variant_string(key));
                                 if (flags & SD_JSON_PERMISSIVE)
@@ -5663,6 +5708,7 @@ _public_ int sd_json_dispatch_strv(const char *name, sd_json_variant *variant, s
         _cleanup_strv_free_ char **l = NULL;
         char ***s = userdata;
         sd_json_variant *e;
+        size_t n = 0;
         int r;
 
         assert_return(variant, -EINVAL);
@@ -5696,7 +5742,7 @@ _public_ int sd_json_dispatch_strv(const char *name, sd_json_variant *variant, s
                 if ((flags & SD_JSON_STRICT) && !string_is_safe(sd_json_variant_string(e), STRING_ALLOW_EMPTY|STRING_ALLOW_GLOBS))
                         return json_log(e, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' contains unsafe characters, refusing.", strna(name));
 
-                r = strv_extend(&l, sd_json_variant_string(e));
+                r = strv_extend_with_size(&l, &n, sd_json_variant_string(e));
                 if (r < 0)
                         return json_log(e, flags, r, "Failed to append array element: %m");
         }
@@ -5856,7 +5902,7 @@ _public_ int sd_json_variant_sort(sd_json_variant **v) {
         if (!n->sorted) /* Check if this worked. This will fail if there are multiple identical keys used. */
                 return -ENOTUNIQ;
 
-        JSON_VARIANT_REPLACE(*v, TAKE_PTR(n));
+        json_variant_unref_and_replace(*v, n);
 
         return 1;
 }
@@ -5911,7 +5957,7 @@ _public_ int sd_json_variant_normalize(sd_json_variant **v) {
                 goto finish;
         }
 
-        JSON_VARIANT_REPLACE(*v, TAKE_PTR(n));
+        json_variant_unref_and_replace(*v, n);
 
         r = 1;
 

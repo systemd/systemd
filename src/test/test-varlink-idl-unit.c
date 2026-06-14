@@ -6,9 +6,15 @@
 #include "kill.h"
 #include "mount.h"
 #include "numa-util.h"
+#include "path.h"
 #include "process-util.h"
+#include "scope.h"
+#include "service.h"
+#include "socket.h"
+#include "swap.h"
 #include "tests.h"
 #include "test-varlink-idl-util.h"
+#include "timer.h"
 #include "unit.h"
 #include "varlink-idl-common.h"
 #include "varlink-io.systemd.Unit.h"
@@ -20,7 +26,7 @@ TEST(unit_enums_idl) {
         TEST_IDL_ENUM(ExecUtmpMode, exec_utmp_mode, vl_type_ExecUtmpMode);
         TEST_IDL_ENUM(ExecPreserveMode, exec_preserve_mode, vl_type_ExecPreserveMode);
         TEST_IDL_ENUM(ExecKeyringMode, exec_keyring_mode, vl_type_ExecKeyringMode);
-        TEST_IDL_ENUM(MemoryTHP, memory_thp, vl_type_MemoryTHP);
+        TEST_IDL_ENUM(ExecMemoryTHP, exec_memory_thp, vl_type_MemoryTHP);
         TEST_IDL_ENUM(ProtectProc, protect_proc, vl_type_ProtectProc);
         TEST_IDL_ENUM(ProcSubset, proc_subset, vl_type_ProcSubset);
         TEST_IDL_ENUM(ProtectSystem, protect_system, vl_type_ProtectSystem);
@@ -58,6 +64,47 @@ TEST(unit_enums_idl) {
 
         /* MountRuntime enums */
         TEST_IDL_ENUM(MountResult, mount_result, vl_type_MountResult);
+
+        /* ServiceContext enums */
+        TEST_IDL_ENUM(ServiceType, service_type, vl_type_ServiceType);
+        TEST_IDL_ENUM(ServiceExitType, service_exit_type, vl_type_ServiceExitType);
+        TEST_IDL_ENUM(ServiceRestart, service_restart, vl_type_ServiceRestart);
+        TEST_IDL_ENUM(ServiceRestartMode, service_restart_mode, vl_type_ServiceRestartMode);
+        TEST_IDL_ENUM(ServiceTimeoutFailureMode, service_timeout_failure_mode, vl_type_ServiceTimeoutFailureMode);
+
+        /* ServiceRuntime enums */
+        TEST_IDL_ENUM(NotifyAccess, notify_access, vl_type_NotifyAccess);
+        TEST_IDL_ENUM(ServiceResult, service_result, vl_type_ServiceResult);
+
+        /* PathContext enums */
+        TEST_IDL_ENUM(PathType, path_type, vl_type_PathType);
+
+        /* PathRuntime enums */
+        TEST_IDL_ENUM(PathResult, path_result, vl_type_PathResult);
+
+        /* ScopeRuntime enums */
+        TEST_IDL_ENUM(ScopeResult, scope_result, vl_type_ScopeResult);
+
+        /* SocketContext enums */
+        TEST_IDL_ENUM(SocketAddressBindIPv6Only, socket_address_bind_ipv6_only, vl_type_SocketBindIPv6Only);
+        TEST_IDL_ENUM(SocketTimestamping, socket_timestamping, vl_type_SocketTimestamping);
+        TEST_IDL_ENUM(SocketDeferTrigger, socket_defer_trigger, vl_type_SocketDeferTrigger);
+
+        /* SocketRuntime enums */
+        TEST_IDL_ENUM(SocketResult, socket_result, vl_type_SocketResult);
+
+        /* SwapRuntime enums */
+        TEST_IDL_ENUM(SwapResult, swap_result, vl_type_SwapResult);
+
+        /* TimerContext enums */
+        for (TimerBase b = 0; b < _TIMER_BASE_MAX; b++) {
+                _cleanup_free_ char *s = timer_base_to_usec_string(b);
+                assert_se(s);
+                test_enum_to_string_name(s, &vl_type_TimerBase);
+        }
+
+        /* TimerRuntime enums */
+        TEST_IDL_ENUM(TimerResult, timer_result, vl_type_TimerResult);
 
         /* UnitContext enums */
         TEST_IDL_ENUM(CollectMode, collect_mode, vl_type_CollectMode);

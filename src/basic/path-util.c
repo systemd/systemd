@@ -804,7 +804,7 @@ static int executable_is_good(const char *executable) {
         if (r < 0)
                 return r;
 
-        return !PATH_IN_SET(d, "true"
+        return !PATH_IN_SET(d, "true",
                                "/bin/true",
                                "/usr/bin/true",
                                "/dev/null");

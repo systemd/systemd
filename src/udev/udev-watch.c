@@ -337,21 +337,20 @@ static int udev_watch_restore(Manager *manager) {
                 return log_warning_errno(errno, "Failed to open old watches directory '%s': %m", old);
 
         FOREACH_DIRENT(de, dir, break) {
-
-                /* For backward compatibility, read symlink from watch handle to device ID. This is necessary
-                 * when udevd is restarted after upgrading from v248 or older. The new format (ID -> wd) was
-                 * introduced by e7f781e473f5119bf9246208a6de9f6b76a39c5d (v249). */
-
-                int wd;
-                if (safe_atoi(de->d_name, &wd) < 0)
-                        continue; /* This should be ID -> wd symlink. Skipping. */
+                if (in_charset(de->d_name, DIGITS))
+                        continue; /* This should be wd -> ID symlink. Skipping. */
 
                 _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
-                r = device_new_from_watch_handle_at(&dev, dirfd(dir), wd);
+                r = sd_device_new_from_device_id(&dev, de->d_name);
                 if (r < 0) {
+                        _cleanup_free_ char *wd_str = NULL;
+
+                        if (ERRNO_IS_NEG_DEVICE_ABSENT(r) || DEBUG_LOGGING)
+                                (void) readlinkat_malloc(dirfd(dir), de->d_name, &wd_str);
+
                         log_full_errno(ERRNO_IS_NEG_DEVICE_ABSENT(r) ? LOG_DEBUG : LOG_WARNING, r,
-                                       "Failed to create sd_device object from saved watch handle '%i', ignoring: %m",
-                                       wd);
+                                       "Failed to create sd_device object from device ID '%s' for watch handle '%s', ignoring: %m",
+                                       de->d_name, strna(wd_str));
                         continue;
                 }
 

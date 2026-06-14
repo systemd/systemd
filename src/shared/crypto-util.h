@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "sd-dlopen.h"
+
 #include "shared-forward.h"
 #include "iovec-util.h"
 #include "sha256.h"
@@ -31,6 +33,18 @@ int dlopen_libcrypto(int log_level);
 #define X509_FINGERPRINT_SIZE SHA256_DIGEST_SIZE
 
 #if HAVE_OPENSSL
+#define LIBCRYPTO_NOTE(priority)                                        \
+        SD_ELF_NOTE_DLOPEN("libcrypto",                                 \
+                           "Support for cryptographic operations",      \
+                           priority,                                    \
+                           "libcrypto.so.3")
+
+#define DLOPEN_LIBCRYPTO(log_level, priority)                           \
+        ({                                                              \
+                LIBCRYPTO_NOTE(priority);                               \
+                dlopen_libcrypto(log_level);                            \
+        })
+
 #  include <openssl/bio.h>              /* IWYU pragma: export */
 #  include <openssl/bn.h>               /* IWYU pragma: export */
 #  include <openssl/crypto.h>           /* IWYU pragma: export */
@@ -148,6 +162,7 @@ extern DLSYM_PROTOTYPE(EVP_PKEY_eq);
 extern DLSYM_PROTOTYPE(EVP_PKEY_free);
 extern DLSYM_PROTOTYPE(EVP_PKEY_fromdata_init);
 extern DLSYM_PROTOTYPE(EVP_PKEY_fromdata);
+extern DLSYM_PROTOTYPE(EVP_PKEY_get_base_id);
 extern DLSYM_PROTOTYPE(EVP_PKEY_get_id);
 extern DLSYM_PROTOTYPE(EVP_PKEY_keygen_init);
 extern DLSYM_PROTOTYPE(EVP_PKEY_keygen);
@@ -348,8 +363,6 @@ int kdf_ss_derive(const char *digest, const void *key, size_t key_size, const vo
 
 int kdf_kb_hmac_derive(const char *mode, const char *digest, const void *key, size_t key_size, const void *salt, size_t salt_size, const void *info, size_t info_size, const void *seed, size_t seed_size, size_t derive_size, void **ret);
 
-int rsa_encrypt_bytes(EVP_PKEY *pkey, const void *decrypted_key, size_t decrypted_key_size, void **ret_encrypt_key, size_t *ret_encrypt_key_size);
-
 int rsa_oaep_encrypt_bytes(const EVP_PKEY *pkey, const char *digest_alg, const char *label, const void *decrypted_key, size_t decrypted_key_size, void **ret_encrypt_key, size_t *ret_encrypt_key_size);
 
 int rsa_pkey_to_suitable_key_size(EVP_PKEY *pkey, size_t *ret_suitable_key_size);
@@ -366,7 +379,7 @@ int ecc_pkey_new(int curve_id, EVP_PKEY **ret);
 
 int ecc_ecdh(const EVP_PKEY *private_pkey, const EVP_PKEY *peer_pkey, void **ret_shared_secret, size_t *ret_shared_secret_size);
 
-int pkey_generate_volume_keys(EVP_PKEY *pkey, void **ret_decrypted_key, size_t *ret_decrypted_key_size, void **ret_saved_key, size_t *ret_saved_key_size);
+int pkey_generate_volume_keys(EVP_PKEY *pkey, const char *rsa_oaep_digest_alg, void **ret_decrypted_key, size_t *ret_decrypted_key_size, void **ret_saved_key, size_t *ret_saved_key_size);
 
 int pubkey_fingerprint(EVP_PKEY *pk, const EVP_MD *md, void **ret, size_t *ret_size);
 
@@ -403,4 +416,6 @@ int openssl_extract_public_key(EVP_PKEY *private_key, EVP_PKEY **ret);
 OpenSSLAskPasswordUI* openssl_ask_password_ui_free(OpenSSLAskPasswordUI *ui);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(OpenSSLAskPasswordUI*, openssl_ask_password_ui_free, NULL);
 
+#else
+#define DLOPEN_LIBCRYPTO(log_level, priority) dlopen_libcrypto(log_level)
 #endif

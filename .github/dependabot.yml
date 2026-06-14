@@ -10,8 +10,10 @@ updates:
       actions:
         patterns:
           - "*"
-        exclude-patterns:
-          - "systemd/mkosi"
+    ignore:
+      # We pin systemd/mkosi to a specific commit on purpose so the CI environment stays
+      # reproducible across runs; bump it with tools/fetch-mkosi.py when we need a newer mkosi.
+      - dependency-name: "systemd/mkosi"
     cooldown:
       default-days: 7
     open-pull-requests-limit: 2

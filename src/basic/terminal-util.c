@@ -283,6 +283,7 @@ static void clear_by_backspace(size_t n) {
 
 int ask_string_full(
                 char **ret,
+                const char *prefill,
                 GetCompletionsCallback get_completions,
                 void *userdata,
                 const char *text, ...) {
@@ -293,16 +294,41 @@ int ask_string_full(
         assert(ret);
         assert(text);
 
+        _cleanup_free_ char *string = NULL;
+        size_t n = 0;
+
+        if (prefill) {
+                /* Prefill query with explicit data if specified */
+
+                string = strdup(prefill);
+                if (!string)
+                        return -ENOMEM;
+
+                n = strlen(string);
+
+        } else if (get_completions) {
+                /* Otherwise, figure out what string to preselect the query with */
+                _cleanup_strv_free_ char **completions = NULL;
+                r = get_completions("", GET_COMPLETIONS_PRESELECT, &completions, userdata);
+                if (r < 0)
+                        return r;
+
+                CompletionResult cr = pick_completion(string, completions, &string);
+                if (cr < 0)
+                        return cr;
+
+                n = strlen_ptr(string);
+        }
+
         /* Output the prompt */
         fputs(ansi_highlight(), stdout);
         va_start(ap, text);
         vprintf(text, ap);
         va_end(ap);
         fputs(ansi_normal(), stdout);
+        if (string)
+                fputs(string, stdout);
         fflush(stdout);
-
-        _cleanup_free_ char *string = NULL;
-        size_t n = 0;
 
         /* Do interactive logic only if stdin + stdout are connected to the same place. And yes, we could use
          * STDIN_FILENO and STDOUT_FILENO here, but let's be overly correct for once, after all libc allows
@@ -344,7 +370,7 @@ int ask_string_full(
 
                         _cleanup_strv_free_ char **completions = NULL;
                         if (get_completions) {
-                                r = get_completions(string, &completions, userdata);
+                                r = get_completions(string, /* flags= */ 0, &completions, userdata);
                                 if (r < 0)
                                         return r;
                         }
@@ -450,6 +476,7 @@ int ask_string_full(
 
 fallback:
         /* A simple fallback without TTY magic */
+        string = mfree(string);
         r = read_line(stdin, LONG_LINE_MAX, &string);
         if (r < 0)
                 return r;
@@ -852,16 +879,8 @@ int vt_disallocate(const char *tty_path) {
 }
 
 static int vt_default_utf8(void) {
-        _cleanup_free_ char *b = NULL;
-        int r;
-
         /* Read the default VT UTF8 setting from the kernel */
-
-        r = read_one_line_file("/sys/module/vt/parameters/default_utf8", &b);
-        if (r < 0)
-                return r;
-
-        return parse_boolean(b);
+        return read_boolean_file("/sys/module/vt/parameters/default_utf8");
 }
 
 static int vt_reset_keyboard(int fd) {

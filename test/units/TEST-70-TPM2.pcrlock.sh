@@ -23,7 +23,26 @@ at_exit() {
         [[ -e /run/log/systemd/tpm2-measure.log ]] && jq --seq --slurp </run/log/systemd/tpm2-measure.log
     fi
 
-    return 0
+    set +e
+
+    systemd-cryptsetup detach pcrlock
+
+    if [[ -x "${SD_PCRLOCK:-}" ]]; then
+        "$SD_PCRLOCK" remove-policy
+        "$SD_PCRLOCK" unlock-firmware-config
+        "$SD_PCRLOCK" unlock-gpt
+        "$SD_PCRLOCK" unlock-machine-id
+        "$SD_PCRLOCK" unlock-file-system
+        "$SD_PCRLOCK" unlock-raw --pcrlock=/var/lib/pcrlock.d/910-test70.pcrlock
+        "$SD_PCRLOCK" unlock-raw --pcrlock=/var/lib/pcrlock.d/920-test70.pcrlock
+    fi
+
+    rm -rf /tmp/fakexbootldr /var/lib/pcrlock.d/123-empty.pcrlock.d /run/systemd/system/systemd-pcrlock.socket.d
+    if [[ -n "${img:-}" ]]; then
+        rm -f "$img" "$img".private.pem "$img".public.pem "$img".pcrsign
+    fi
+    rm -f /tmp/borked /tmp/pcrlockpwd /var/lib/systemd/pcrlock.json /var/lib/systemd/pcrlock.json.gone
+    systemctl daemon-reload
 }
 
 trap at_exit EXIT

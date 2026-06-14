@@ -20,7 +20,7 @@
 #include "io-util.h"
 #include "label-util.h"
 #include "manager.h"
-#include "mkdir-label.h"
+#include "mkdir.h"
 #include "mount.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"

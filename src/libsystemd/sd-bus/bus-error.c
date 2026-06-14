@@ -83,22 +83,17 @@ static int bus_error_name_to_errno(const char *name) {
                                 }
                         }
 
-        const sd_bus_error_map *elf_map = ALIGN_PTR(__start_SYSTEMD_BUS_ERROR_MAP);
-        while (elf_map < __stop_SYSTEMD_BUS_ERROR_MAP) {
+        assert_cc(sizeof(sd_bus_error_map) % sizeof(void*) == 0);
+
+        for (const sd_bus_error_map *m = __start_SYSTEMD_BUS_ERROR_MAP; m < __stop_SYSTEMD_BUS_ERROR_MAP; m++) {
                 /* For magic ELF error maps, the end marker might appear in the middle of things, since
-                 * multiple maps might appear in the same section. Hence, let's skip over it, but realign
-                 * the pointer to the next 8 byte boundary, which is the selected alignment for the arrays. */
-                if (elf_map->code == BUS_ERROR_MAP_END_MARKER) {
-                        elf_map = ALIGN_PTR(elf_map + 1);
-                        continue;
-                }
+                 * multiple maps might appear in the same section. Skip over it. */
 
-                if (streq(elf_map->name, name)) {
-                        assert(elf_map->code > 0);
-                        return elf_map->code;
+                if (m->code != BUS_ERROR_MAP_END_MARKER &&
+                    streq(m->name, name)) {
+                        assert(m->code > 0);
+                        return m->code;
                 }
-
-                elf_map++;
         }
 
         return EIO;

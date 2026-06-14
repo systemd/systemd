@@ -11,7 +11,7 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "log.h"
-#include "mkdir-label.h"
+#include "mkdir.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
 #include "rm-rf.h"

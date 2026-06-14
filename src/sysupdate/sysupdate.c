@@ -171,7 +171,12 @@ static int read_definitions(
         return 0;
 }
 
-static int context_read_definitions(Context *c, const char* node, bool requires_enabled_transfers) {
+typedef enum ReadDefinitionsFlags {
+        READ_DEFINITIONS_REQUIRES_ENABLED_TRANSFERS = 1 << 0,
+        READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS     = 1 << 1,
+} ReadDefinitionsFlags;
+
+static int context_read_definitions(Context *c, const char* node, ReadDefinitionsFlags flags) {
         _cleanup_strv_free_ char **dirs = NULL;
         int r;
 
@@ -244,7 +249,8 @@ static int context_read_definitions(Context *c, const char* node, bool requires_
                         log_warning("As of v257, transfer definitions should have the '.transfer' extension.");
         }
 
-        if (c->n_transfers + (requires_enabled_transfers ? 0 : c->n_disabled_transfers) == 0) {
+        if (FLAGS_SET(flags, READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS) &&
+            c->n_transfers + (FLAGS_SET(flags, READ_DEFINITIONS_REQUIRES_ENABLED_TRANSFERS) ? 0 : c->n_disabled_transfers) == 0) {
                 if (arg_component)
                         return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
                                                "No transfer definitions for component '%s' found.",
@@ -410,7 +416,10 @@ static int context_discover_update_sets_by_flag(Context *c, UpdateSetFlags flags
                                 extra_flags |= UPDATE_PROTECTED;
 
                         /* Partial or pending updates by definition are not incomplete, they’re
-                         * partial/pending instead */
+                         * partial/pending instead. While an individual Instance cannot be both partial and
+                         * pending, an UpdateSet as a whole can contain both partial and pending instances. */
+                        assert(!match || !(match->is_partial && match->is_pending));
+
                         if (match && match->is_partial)
                                 extra_flags = (extra_flags | UPDATE_PARTIAL) & ~UPDATE_INCOMPLETE;
 
@@ -502,8 +511,9 @@ static int context_discover_update_sets_by_flag(Context *c, UpdateSetFlags flags
             c->candidate && strverscmp_improved(c->newest_installed->version, c->candidate->version) >= 0)
                 c->candidate = NULL;
 
-        /* Newest installed is still pending and no candidate is set? Then it becomes the candidate. */
-        if (c->newest_installed && FLAGS_SET(c->newest_installed->flags, UPDATE_PENDING) &&
+        /* Newest installed is still pending or partial and no candidate is set? Then it becomes the candidate. */
+        if (c->newest_installed &&
+            (c->newest_installed->flags & (UPDATE_PENDING|UPDATE_PARTIAL)) &&
             !c->candidate)
                 c->candidate = c->newest_installed;
 
@@ -666,7 +676,7 @@ static int context_show_version(Context *c, const char *version) {
                 Instance *i = *inst;
 
                 if (!i) {
-                        assert(FLAGS_SET(us->flags, UPDATE_INCOMPLETE));
+                        assert(us->flags & (UPDATE_INCOMPLETE|UPDATE_PARTIAL|UPDATE_PENDING));
                         continue;
                 }
 
@@ -921,7 +931,7 @@ static int context_vacuum(
         return 0;
 }
 
-static int context_make_offline(Context **ret, const char *node, bool requires_enabled_transfers) {
+static int context_make_offline(Context **ret, const char *node, ReadDefinitionsFlags read_definitions_flags) {
         _cleanup_(context_freep) Context* context = NULL;
         int r;
 
@@ -934,7 +944,7 @@ static int context_make_offline(Context **ret, const char *node, bool requires_e
         if (!context)
                 return log_oom();
 
-        r = context_read_definitions(context, node, requires_enabled_transfers);
+        r = context_read_definitions(context, node, read_definitions_flags);
         if (r < 0)
                 return r;
 
@@ -955,7 +965,8 @@ static int context_make_online(Context **ret, const char *node) {
         /* Like context_make_offline(), but also communicates with the update source looking for new
          * versions (as long as --offline is not specified on the command line). */
 
-        r = context_make_offline(&context, node, /* requires_enabled_transfers= */ true);
+        r = context_make_offline(&context, node,
+                                 READ_DEFINITIONS_REQUIRES_ENABLED_TRANSFERS | READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS);
         if (r < 0)
                 return r;
 
@@ -1025,9 +1036,7 @@ static int context_acquire(
         if (FLAGS_SET(us->flags, UPDATE_INCOMPLETE))
                 log_info("Selected update '%s' is already installed, but incomplete. Repairing.", us->version);
         else if (FLAGS_SET(us->flags, UPDATE_PARTIAL)) {
-                log_info("Selected update '%s' is already acquired and partially installed. Vacuum it to try installing again.", us->version);
-
-                return 0;
+                return log_error_errno(SYNTHETIC_ERRNO(EUCLEAN), "Selected update '%s' is already acquired and partially installed. Vacuum it to try installing again.", us->version);
         } else if (FLAGS_SET(us->flags, UPDATE_PENDING)) {
                 log_info("Selected update '%s' is already acquired and pending installation.", us->version);
 
@@ -1363,7 +1372,8 @@ static int verb_features(int argc, char *argv[], uintptr_t _data, void *userdata
         if (r < 0)
                 return r;
 
-        r = context_make_offline(&context, loop_device ? loop_device->node : NULL, /* requires_enabled_transfers= */ false);
+        r = context_make_offline(&context, loop_device ? loop_device->node : NULL,
+                                 READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS);
         if (r < 0)
                 return r;
 
@@ -1631,7 +1641,8 @@ static int verb_vacuum(int argc, char *argv[], uintptr_t _data, void *userdata) 
         if (r < 0)
                 return r;
 
-        r = context_make_offline(&context, loop_device ? loop_device->node : NULL, /* requires_enabled_transfers= */ false);
+        r = context_make_offline(&context, loop_device ? loop_device->node : NULL,
+                                 READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS);
         if (r < 0)
                 return r;
 
@@ -1653,7 +1664,8 @@ static int verb_pending_or_reboot(int argc, char *argv[], uintptr_t _data, void 
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "The --root=/--image= switches may not be combined with the '%s' operation.", argv[0]);
 
-        r = context_make_offline(&context, /* node= */ NULL, /* requires_enabled_transfers= */ true);
+        r = context_make_offline(&context, /* node= */ NULL,
+                                 READ_DEFINITIONS_REQUIRES_ENABLED_TRANSFERS | READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS);
         if (r < 0)
                 return r;
 
@@ -1719,6 +1731,7 @@ static int component_name_valid(const char *c) {
 VERB_NOARG(verb_components, "components",
            "Show list of components");
 static int verb_components(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        _cleanup_(context_freep) Context* context = NULL;
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
         _cleanup_set_free_ Set *names = NULL;
@@ -1728,6 +1741,10 @@ static int verb_components(int argc, char *argv[], uintptr_t _data, void *userda
         assert(argc <= 1);
 
         r = process_image(/* ro= */ false, &mounted_dir, &loop_device);
+        if (r < 0)
+                return r;
+
+        r = context_make_offline(&context, loop_device ? loop_device->node : NULL, 0);
         if (r < 0)
                 return r;
 
@@ -1745,7 +1762,6 @@ static int verb_components(int argc, char *argv[], uintptr_t _data, void *userda
                 ConfFile *e = *i;
 
                 if (streq(e->filename, "sysupdate.d")) {
-                        has_default_component = true;
                         continue;
                 }
 
@@ -1772,6 +1788,14 @@ static int verb_components(int argc, char *argv[], uintptr_t _data, void *userda
                         return log_error_errno(r, "Failed to add component '%s' to set: %m", n);
                 TAKE_PTR(n);
         }
+
+        /* Does the system have at least one transfer file in /etc/sysupdate.d, which can be considered a
+         * TARGET_HOST? See target_get_argument() in sysupdated.c */
+        has_default_component = (!arg_definitions &&
+                                 !arg_component &&
+                                 !arg_root &&
+                                 !arg_image &&
+                                 context->n_transfers > 0);
 
         /* We use simple free() rather than strv_free() here, since set_free() will free the strings for us */
         _cleanup_free_ char **z = set_get_strv(names);
@@ -1862,11 +1886,10 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
         assert(argv);
         assert(remaining_args);
 
-        OptionParser state = { argc, argv };
-        const char *arg;
+        OptionParser opts = { argc, argv };
         int r;
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -1880,18 +1903,18 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
 
                 OPTION('C', "component", "NAME",
                        "Select component to update"):
-                        if (isempty(arg)) {
+                        if (isempty(opts.arg)) {
                                 arg_component = mfree(arg_component);
                                 break;
                         }
 
-                        r = component_name_valid(arg);
+                        r = component_name_valid(opts.arg);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to determine if component name is valid: %m");
                         if (r == 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Component name invalid: %s", arg);
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Component name invalid: %s", opts.arg);
 
-                        r = free_and_strdup_warn(&arg_component, arg);
+                        r = free_and_strdup_warn(&arg_component, opts.arg);
                         if (r < 0)
                                 return r;
 
@@ -1899,35 +1922,35 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
 
                 OPTION_LONG("definitions", "DIR",
                             "Find transfer definitions in specified directory"):
-                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_definitions);
+                        r = parse_path_argument(opts.arg, /* suppress_root= */ false, &arg_definitions);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("root", "PATH",
                             "Operate on an alternate filesystem root"):
-                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_root);
+                        r = parse_path_argument(opts.arg, /* suppress_root= */ false, &arg_root);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("image", "PATH",
                             "Operate on disk image as filesystem root"):
-                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_image);
+                        r = parse_path_argument(opts.arg, /* suppress_root= */ false, &arg_image);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("image-policy", "POLICY",
                             "Specify disk image dissection policy"):
-                        r = parse_image_policy_argument(arg, &arg_image_policy);
+                        r = parse_image_policy_argument(opts.arg, &arg_image_policy);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("transfer-source", "PATH",
                             "Specify the directory to transfer sources from"):
-                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_transfer_source);
+                        r = parse_path_argument(opts.arg, /* suppress_root= */ false, &arg_transfer_source);
                         if (r < 0)
                                 return r;
 
@@ -1935,15 +1958,15 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
 
                 OPTION('m', "instances-max", "INT",
                        "How many instances to maintain"):
-                        r = safe_atou64(arg, &arg_instances_max);
+                        r = safe_atou64(opts.arg, &arg_instances_max);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --instances-max= parameter: %s", arg);
+                                return log_error_errno(r, "Failed to parse --instances-max= parameter: %s", opts.arg);
 
                         break;
 
                 OPTION_LONG("sync", "BOOL",
                             "Controls whether to sync data to disk"):
-                        r = parse_boolean_argument("--sync=", arg, &arg_sync);
+                        r = parse_boolean_argument("--sync=", opts.arg, &arg_sync);
                         if (r < 0)
                                 return r;
                         break;
@@ -1952,7 +1975,7 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                             "Force signature verification on or off"): {
                         bool b;
 
-                        r = parse_boolean_argument("--verify=", arg, &b);
+                        r = parse_boolean_argument("--verify=", opts.arg, &b);
                         if (r < 0)
                                 return r;
 
@@ -1979,7 +2002,7 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                         break;
 
                 OPTION_COMMON_JSON:
-                        r = parse_json_argument(arg, &arg_json_format_flags);
+                        r = parse_json_argument(opts.arg, &arg_json_format_flags);
                         if (r <= 0)
                                 return r;
 
@@ -1995,7 +2018,7 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
         if (arg_definitions && arg_component)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "The --definitions= and --component= switches may not be combined.");
 
-        *remaining_args = option_parser_get_args(&state);
+        *remaining_args = option_parser_get_args(&opts);
         return 1;
 }
 
@@ -2009,7 +2032,7 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        return dispatch_verb_with_args(args, NULL);
+        return dispatch_verb(args, NULL);
 }
 
 DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);

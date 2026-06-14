@@ -17,8 +17,6 @@
 #include "strv.h"
 
 #if HAVE_LIBCRYPTSETUP
-static void *cryptsetup_dl = NULL;
-
 DLSYM_PROTOTYPE(crypt_activate_by_passphrase) = NULL;
 DLSYM_PROTOTYPE(crypt_activate_by_signed_key) = NULL;
 DLSYM_PROTOTYPE(crypt_activate_by_token_pin) = NULL;
@@ -45,6 +43,7 @@ DLSYM_PROTOTYPE(crypt_keyslot_destroy) = NULL;
 DLSYM_PROTOTYPE(crypt_keyslot_max) = NULL;
 DLSYM_PROTOTYPE(crypt_keyslot_status) = NULL;
 DLSYM_PROTOTYPE(crypt_load) = NULL;
+DLSYM_PROTOTYPE(crypt_logf) = NULL;
 DLSYM_PROTOTYPE(crypt_metadata_locking) = NULL;
 DLSYM_PROTOTYPE(crypt_persistent_flags_get) = NULL;
 DLSYM_PROTOTYPE(crypt_persistent_flags_set) = NULL;
@@ -55,9 +54,15 @@ DLSYM_PROTOTYPE(crypt_resume_by_volume_key) = NULL;
 DLSYM_PROTOTYPE(crypt_set_data_device) = NULL;
 DLSYM_PROTOTYPE(crypt_set_data_offset) = NULL;
 DLSYM_PROTOTYPE(crypt_set_debug_level) = NULL;
-#if HAVE_CRYPT_SET_KEYRING_TO_LINK
-DLSYM_PROTOTYPE(crypt_set_keyring_to_link) = NULL;
-#endif
+static int missing_crypt_set_keyring_to_link(
+                struct crypt_device *cd,
+                const char *key_description,
+                const char *old_key_description,
+                const char *key_type_desc,
+                const char *keyring_to_link_vk) {
+        return -ENOSYS;
+}
+DLSYM_PROTOTYPE(crypt_set_keyring_to_link) = missing_crypt_set_keyring_to_link;
 DLSYM_PROTOTYPE(crypt_set_log_callback) = NULL;
 DLSYM_PROTOTYPE(crypt_set_metadata_size) = NULL;
 DLSYM_PROTOTYPE(crypt_set_pbkdf_type) = NULL;
@@ -67,9 +72,10 @@ DLSYM_PROTOTYPE(crypt_token_external_path) = NULL;
 DLSYM_PROTOTYPE(crypt_token_json_get) = NULL;
 DLSYM_PROTOTYPE(crypt_token_json_set) = NULL;
 DLSYM_PROTOTYPE(crypt_token_max) = NULL;
-#if HAVE_CRYPT_TOKEN_SET_EXTERNAL_PATH
-DLSYM_PROTOTYPE(crypt_token_set_external_path) = NULL;
-#endif
+static int missing_crypt_token_set_external_path(const char *path) {
+        return -ENOSYS;
+}
+DLSYM_PROTOTYPE(crypt_token_set_external_path) = missing_crypt_token_set_external_path;
 DLSYM_PROTOTYPE(crypt_token_status) = NULL;
 DLSYM_PROTOTYPE(crypt_volume_key_get) = NULL;
 DLSYM_PROTOTYPE(crypt_volume_key_keyring) = NULL;
@@ -267,6 +273,7 @@ int cryptsetup_get_volume_key_id(
 
 int dlopen_cryptsetup(int log_level) {
 #if HAVE_LIBCRYPTSETUP
+        static void *cryptsetup_dl = NULL;
         int r;
 
         /* libcryptsetup added crypt_reencrypt() in 2.2.0, and marked it obsolete in 2.4.0, replacing it with
@@ -274,11 +281,7 @@ int dlopen_cryptsetup(int log_level) {
          * still available though, and given we want to support 2.2.0 for a while longer, we'll use the old
          * symbol if the new one is not available. */
 
-        SD_ELF_NOTE_DLOPEN(
-                        "cryptsetup",
-                        "Support for disk encryption, integrity, and authentication",
-                        SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
-                        "libcryptsetup.so.12");
+        CRYPTSETUP_NOTE(SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED);
 
         r = dlopen_many_sym_or_warn(
                         &cryptsetup_dl, "libcryptsetup.so.12", log_level,
@@ -308,6 +311,7 @@ int dlopen_cryptsetup(int log_level) {
                         DLSYM_ARG(crypt_keyslot_max),
                         DLSYM_ARG(crypt_keyslot_status),
                         DLSYM_ARG(crypt_load),
+                        DLSYM_ARG(crypt_logf),
                         DLSYM_ARG(crypt_metadata_locking),
                         DLSYM_ARG(crypt_persistent_flags_get),
                         DLSYM_ARG(crypt_persistent_flags_set),
@@ -318,9 +322,6 @@ int dlopen_cryptsetup(int log_level) {
                         DLSYM_ARG(crypt_set_data_device),
                         DLSYM_ARG(crypt_set_data_offset),
                         DLSYM_ARG(crypt_set_debug_level),
-#if HAVE_CRYPT_SET_KEYRING_TO_LINK
-                        DLSYM_ARG(crypt_set_keyring_to_link),
-#endif
                         DLSYM_ARG(crypt_set_log_callback),
                         DLSYM_ARG(crypt_set_metadata_size),
                         DLSYM_ARG(crypt_set_pbkdf_type),
@@ -330,9 +331,6 @@ int dlopen_cryptsetup(int log_level) {
                         DLSYM_ARG(crypt_token_json_get),
                         DLSYM_ARG(crypt_token_json_set),
                         DLSYM_ARG(crypt_token_max),
-#if HAVE_CRYPT_TOKEN_SET_EXTERNAL_PATH
-                        DLSYM_ARG(crypt_token_set_external_path),
-#endif
                         DLSYM_ARG(crypt_token_status),
                         DLSYM_ARG(crypt_volume_key_get),
                         DLSYM_ARG(crypt_volume_key_keyring),
@@ -340,6 +338,12 @@ int dlopen_cryptsetup(int log_level) {
                         DLSYM_ARG(crypt_get_integrity_info));
         if (r <= 0)
                 return r;
+
+        /* Optional symbols: present in libcryptsetup 2.7+ only. If unresolved, the prototype keeps its
+         * static initializer pointing at a fallback that returns -ENOSYS, so call sites can invoke the
+         * symbol unconditionally. */
+        DLSYM_OPTIONAL(cryptsetup_dl, crypt_set_keyring_to_link);
+        DLSYM_OPTIONAL(cryptsetup_dl, crypt_token_set_external_path);
 
         /* Redirect the default logging calls of libcryptsetup to our own logging infra. (Note that
          * libcryptsetup also maintains per-"struct crypt_device" log functions, which we'll also set
@@ -350,13 +354,11 @@ int dlopen_cryptsetup(int log_level) {
 
         const char *e = secure_getenv("SYSTEMD_CRYPTSETUP_TOKEN_PATH");
         if (e) {
-#if HAVE_CRYPT_TOKEN_SET_EXTERNAL_PATH
                 r = sym_crypt_token_set_external_path(e);
-                if (r < 0)
+                if (r == -ENOSYS)
+                        log_debug("Loaded libcryptsetup does not support setting the external token path, not setting it to '%s'.", e);
+                else if (r < 0)
                         log_debug_errno(r, "Failed to set the libcryptsetup external token path to '%s', ignoring: %m", e);
-#else
-                log_debug("libcryptsetup version does not support setting the external token path, not setting it to '%s'.", e);
-#endif
         }
 
         return 1;

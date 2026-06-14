@@ -36,6 +36,7 @@ static inline void siphash24_compress_safe(const void *in, size_t inlen, struct 
 }
 
 void siphash24_compress_string(const char *in, struct siphash *state);
+void siphash24_compress_iovec(const struct iovec *iov, struct siphash *state);
 
 uint64_t siphash24_finalize(struct siphash *state);
 

@@ -10,7 +10,10 @@
 [Unit]
 Description=User Runtime Directory /run/user/%i
 Documentation=man:user@.service(5)
-After=systemd-logind.service dbus.service
+# Order after the user record measurement (started by logind before this unit), so that the user's record is
+# measured into the 'login' TPM2 NvPCR before the runtime dir — and thus the user's session — becomes
+# available. This is ordering only (no Wants=/Requires=): a measurement failure must never block login.
+After=systemd-logind.service dbus.service systemd-pcrlogin@%i.service
 IgnoreOnIsolate=yes
 
 [Service]

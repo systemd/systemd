@@ -1,0 +1,199 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd-storage-fs_.service"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-storage-fs@.service</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-storage-fs@.service</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-storage-fs@.service</refname>
+    <refname>systemd-storage-fs.socket</refname>
+    <refname>systemd-storage-fs</refname>
+    <refpurpose>Storage provider exposing regular files and directories as storage volumes</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>systemd-storage-fs@.service</filename></para>
+    <para><filename>systemd-storage-fs.socket</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><filename>systemd-storage-fs@.service</filename> is a service that implements the
+    <constant>io.systemd.StorageProvider</constant> <ulink url="https://varlink.org/">Varlink</ulink>
+    interface, exposing regular files and directories in <filename>/var/lib/storage/*.volume</filename> (if
+    used in system mode) or <filename>$XDG_STATE_HOME/storage</filename> (when used in user mode) as storage
+    volumes. Acquired volumes are returned to the caller as file descriptors. Unlike
+    <citerefentry><refentrytitle>systemd-storage-block@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+    this implementation also supports creating new volumes on demand from a small set of built-in
+    templates.</para>
+
+    <para>The service is socket-activated via <filename>systemd-storage-fs.socket</filename>. In system mode
+    it listens on the AF_UNIX socket <filename>/run/systemd/io.systemd.StorageProvider/fs</filename>, in user
+    mode on <filename>$XDG_RUNTIME_DIR/systemd/io.systemd.StorageProvider/fs</filename>. See
+    <citerefentry><refentrytitle>storagectl</refentrytitle><manvolnum>1</manvolnum></citerefentry> for an
+    enumeration tool.</para>
+
+    <para>See also
+    <citerefentry><refentrytitle>systemd-storage-block@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    for a complementary implementation that exposes local block devices as storage volumes.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Volumes</title>
+
+    <para>Volumes are stored below the storage directory:</para>
+
+    <itemizedlist>
+      <listitem><para><filename>/var/lib/storage/</filename> when run in system mode.</para></listitem>
+
+      <listitem><para><filename>$XDG_STATE_HOME/storage/</filename> (typically
+      <filename>~/.local/state/storage/</filename>) when run in user mode.</para></listitem>
+    </itemizedlist>
+
+    <para>Each volume on disk is stored as a directory entry with a <filename>.volume</filename> suffix in
+    the storage directory. Entries which are regular files are exposed as volumes of type
+    <constant>reg</constant>; entries which are directories are exposed as volumes of type
+    <constant>dir</constant>. Moreover, block device nodes may be symlinked (or bind mounted) into the
+    directory, which are then exposed as volumes of type <constant>blk</constant>.</para>
+
+    <para>For directory volumes, the root of the file system passed to clients is placed in a subdirectory
+    <filename>root/</filename> of the <filename><replaceable>NAME</replaceable>.volume</filename> directory. The former (and all inodes
+    below it) must be owned by the foreign UID range, the latter by the host's root.</para>
+
+    <para>When acquiring a volume, symlinks are followed.</para>
+
+    <para>An administrator is permitted to freely manipulate the volume hierarchy directly as long as the
+    rules described above are followed. In particular, it's permitted to copy, mount or symlink arbitrary
+    external resources (regardless if directory, regular file or block) into the volume directory, so that
+    they are exposed as additional volumes.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Templates</title>
+
+    <para>The provider supports creating new volumes automatically when they are acquired. The caller may
+    select a <emphasis>template</emphasis> that determines configuration details of the volume to create. The
+    following built-in templates are available:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><constant>sparse-file</constant></term>
+
+        <listitem><para>Creates a volume backed by a sparsely populated regular file. This is the default
+        template when creating a regular file volume. (Volume type is <literal>reg</literal>.)</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><constant>allocated-file</constant></term>
+
+        <listitem><para>Creates a volume backed by a fully allocated regular file. (Volume type is
+        <literal>reg</literal>.)</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><constant>directory</constant></term>
+
+        <listitem><para>Creates a volume backed by a regular directory. (Volume type is
+        <literal>dir</literal>.)</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><constant>subvolume</constant></term>
+
+        <listitem><para>Creates a btrfs subvolume as backing inode (falling back to a regular directory if
+        the storage directory is not on btrfs). This is the default template when creating a directory
+        volume. (Volume type is <literal>dir</literal>.)</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following command-line options are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>--system</option></term>
+
+        <listitem><para>Operate in system mode. Volumes are stored below
+        <filename>/var/lib/storage/</filename>. This is the default when invoked from
+        <filename>systemd-storage-fs@.service</filename> in the system manager.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--user</option></term>
+
+        <listitem><para>Operate in user mode. Volumes are stored below
+        <filename>$XDG_STATE_HOME/storage/</filename>. This is the default when invoked from
+        <filename>systemd-storage-fs@.service</filename> in the user manager.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Files</title>
+
+    <variablelist>
+      <varlistentry>
+        <term><filename>/var/lib/storage/</filename></term>
+        <term><filename>$XDG_STATE_HOME/storage/</filename></term>
+
+        <listitem><para>The storage directory used to back the system mode and user mode service
+        instances respectively. Each volume is stored as an entry with a
+        <filename>.volume</filename> suffix below this directory.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><filename>/run/systemd/io.systemd.StorageProvider/fs</filename></term>
+        <term><filename>$XDG_RUNTIME_DIR/systemd/io.systemd.StorageProvider/fs</filename></term>
+
+        <listitem><para>AF_UNIX sockets the service listens on, in system and user mode
+        respectively. These are the canonical locations for the <literal>fs</literal> storage
+        provider, and are enumerated by <command>storagectl providers</command>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>storagectl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-storage-block@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

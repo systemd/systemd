@@ -17,7 +17,8 @@
 #include "assert-util.h"                /* IWYU pragma: export */
 #include "cleanup-util.h"               /* IWYU pragma: export */
 #include "macro.h"                      /* IWYU pragma: export */
-#include "string-table-fundamental.h"   /* IWYU pragma: export */
+
+#include "../fundamental/string-table.h"   /* IWYU pragma: export */
 
 /* Generic types */
 
@@ -103,6 +104,7 @@ typedef enum Glyph Glyph;
 typedef enum ImageClass ImageClass;
 typedef enum JobMode JobMode;
 typedef enum RuntimeScope RuntimeScope;
+typedef enum StringSafeFlags StringSafeFlags;
 typedef enum TimestampStyle TimestampStyle;
 typedef enum UnitActiveState UnitActiveState;
 typedef enum UnitDependency UnitDependency;
@@ -110,10 +112,13 @@ typedef enum UnitNameMangle UnitNameMangle;
 typedef enum UnitType UnitType;
 typedef enum WaitFlags WaitFlags;
 
+typedef struct Fiber Fiber;
+typedef struct FiberOps FiberOps;
 typedef struct Hashmap Hashmap;
 typedef struct HashmapBase HashmapBase;
 typedef struct IteratedCache IteratedCache;
 typedef struct Iterator Iterator;
+typedef struct LogContext LogContext;
 typedef struct OrderedHashmap OrderedHashmap;
 typedef struct OrderedSet OrderedSet;
 typedef struct Set Set;
@@ -153,3 +158,7 @@ typedef struct SocketAddress SocketAddress;
 
 /* MAX_ERRNO is defined as 4095 in linux/err.h. We use the same value here. */
 #define ERRNO_MAX               4095
+
+/* This is MAX_ADDR_LEN as defined in linux/netdevice.h, but net/if_arp.h
+ * defines a macro of the same name with a much lower size. */
+#define HW_ADDR_MAX_SIZE 32

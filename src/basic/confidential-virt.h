@@ -3,6 +3,8 @@
 
 #include "basic-forward.h"
 
+#include "../fundamental/confidential-virt.h"   /* IWYU pragma: export */
+
 typedef enum ConfidentialVirtualization {
         CONFIDENTIAL_VIRTUALIZATION_NONE = 0,
 

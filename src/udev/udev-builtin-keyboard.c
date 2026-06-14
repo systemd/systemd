@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <sys/ioctl.h>
 
+#include "device-private.h"
 #include "device-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
@@ -32,7 +33,7 @@ static int install_force_release(sd_device *dev, const unsigned *release, unsign
         if (r < 0)
                 return log_device_error_errno(dev, r, "Failed to get serio parent: %m");
 
-        r = sd_device_get_sysattr_value(atkbd, "force_release", &cur);
+        r = device_get_sysattr_safe_string(atkbd, "force_release", &cur);
         if (r < 0)
                 return log_device_error_errno(atkbd, r, "Failed to get force-release attribute: %m");
 

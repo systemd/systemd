@@ -610,8 +610,8 @@ static int portable_extract_by_path(
                  * there, and extract the metadata we need. The metadata is sent from the child back to us. */
 
                 /* Load some libraries before we fork workers off that want to use them */
-                (void) dlopen_cryptsetup(LOG_DEBUG);
-                (void) dlopen_libmount(LOG_DEBUG);
+                (void) DLOPEN_CRYPTSETUP(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
+                (void) DLOPEN_LIBMOUNT(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED);
 
                 r = mkdtemp_malloc("/tmp/inspect-XXXXXX", &tmpdir);
                 if (r < 0)
@@ -2431,7 +2431,7 @@ int portable_detach(
                         portable_changes_add_with_prefix(changes, n_changes, PORTABLE_UNLINK, where, md, NULL);
         }
 
-        /* Now, also drop any image symlink or copy, for images outside of the sarch path */
+        /* Now, also drop any image symlink or copy, for images outside of the search path */
         SET_FOREACH(item, markers) {
                 _cleanup_free_ char *target = NULL;
 

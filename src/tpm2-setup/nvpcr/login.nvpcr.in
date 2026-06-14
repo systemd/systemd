@@ -1,0 +1,6 @@
+{
+    "name" : "login",
+    "algorithm" : "sha256",
+    "nvIndex" : {{TPM2_NVPCR_BASE + 3}},
+    "priority" : 800
+}

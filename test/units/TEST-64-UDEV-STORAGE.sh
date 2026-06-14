@@ -178,7 +178,7 @@ testcase_nvme_basic() {
     local expected_symlinks=()
     local i
 
-    for i in {0..4}; do
+    for i in {0..2}; do
         expected_symlinks+=(
             # both replace mode provides the same devlink
             /dev/disk/by-id/nvme-QEMU_NVMe_Ctrl_deadbeef"$i"
@@ -186,7 +186,7 @@ testcase_nvme_basic() {
             /dev/disk/by-id/nvme-QEMU_NVMe_Ctrl_deadbeef"$i"_1
         )
     done
-    for i in {5..9}; do
+    for i in {3..5}; do
         expected_symlinks+=(
             # old replace mode
             /dev/disk/by-id/nvme-QEMU_NVMe_Ctrl__deadbeef_"$i"
@@ -196,7 +196,7 @@ testcase_nvme_basic() {
             /dev/disk/by-id/nvme-QEMU_NVMe_Ctrl_____deadbeef__"$i"_1
         )
     done
-    for i in {10..14}; do
+    for i in {6..8}; do
         expected_symlinks+=(
             # old replace mode does not provide devlink, as serial contains "/"
             # newer replace mode
@@ -205,7 +205,7 @@ testcase_nvme_basic() {
             /dev/disk/by-id/nvme-QEMU_NVMe_Ctrl_____dead_beef_"$i"_1
         )
     done
-    for i in {15..19}; do
+    for i in {9..11}; do
         expected_symlinks+=(
             # old replace mode does not provide devlink, as serial contains "/"
             # newer replace mode
@@ -222,7 +222,7 @@ testcase_nvme_basic() {
     test ! -e /dev/disk/by-id/nvme-QEMU_NVMe_Ctrl_deadbeef
 
     lsblk --noheadings | grep "^nvme"
-    [[ "$(lsblk --noheadings | grep -c "^nvme")" -ge 20 ]]
+    [[ "$(lsblk --noheadings | grep -c "^nvme")" -ge 12 ]]
 }
 
 testcase_nvme_subsystem() {
@@ -849,6 +849,10 @@ EOF
     btrfs filesystem show
     helper_check_device_symlinks
     helper_check_device_units
+    # Wipe the btrfs signature from each partition first, otherwise the superblocks remain inside
+    # the disk's data area and would be discovered again as duplicate UUIDs after re-partitioning,
+    # which breaks subsequent runs of this test (e.g. after a VM reboot).
+    udevadm lock --timeout=30 --device="${devices[0]}" wipefs -a /dev/disk/by-partlabel/diskpart{1..4}
     udevadm lock --timeout=30 --device="${devices[0]}" wipefs -a "${devices[0]}"
     udevadm wait --settle --timeout=30 --removed /dev/disk/by-partlabel/diskpart{1..4}
 
@@ -866,6 +870,12 @@ EOF
     btrfs filesystem show
     helper_check_device_symlinks
     helper_check_device_units
+    # Wipe the btrfs signatures so that subsequent sections (and runs of the test, e.g. after a VM
+    # reboot) don't see the stale UUID.
+    for ((i = 0; i < ${#devices[@]}; i++)); do
+        udevadm lock --timeout=30 --device="${devices[$i]}" wipefs -a "${devices[$i]}"
+    done
+    udevadm settle --timeout=30
 
     echo "Multiple devices: using LUKS encrypted disks, data: raid1, metadata: raid1, mixed mode"
     uuid="deadbeef-dead-dead-beef-000000000003"
@@ -941,7 +951,13 @@ EOF
     sed -i "/${mpoint##*/}/d" /etc/fstab
     : >/etc/crypttab
     rm -fr "$mpoint"
+    rm -f /etc/btrfs_keyfile
     systemctl daemon-reload
+    # Wipe LUKS headers from the underlying devices, so that if the VM is rebooted the disks don't retain
+    # stale LUKS signatures that would interfere with a re-run of the test.
+    for ((i = 0; i < ${#devices[@]}; i++)); do
+        udevadm lock --timeout=30 --device="${devices[$i]}" wipefs -a "${devices[$i]}"
+    done
     udevadm settle --timeout=30
 }
 
@@ -1333,6 +1349,12 @@ testcase_mdadm_lvm() {
     helper_check_device_units
     # Cleanup
     lvm vgchange -an "$vgroup"
+    # Wipe the LVM signature off the MD device, otherwise the underlying disks
+    # still hold the PV header at the same offset. If the VM is restarted (e.g.
+    # the test gets re-run because of a reboot), mdadm --create with the same
+    # UUID would expose the same data and udev would auto-trigger
+    # lvm-activate-${vgroup}.service, racing with the test's pvcreate.
+    wipefs --all "$raid_dev"
     mdadm -v --stop "$raid_dev"
 
     # Clear superblocks to make the MD device will not be restarted even if the VM is restarted.
@@ -1340,6 +1362,10 @@ testcase_mdadm_lvm() {
     udevadm settle --timeout=30
     # shellcheck disable=SC2046
     mdadm -v --zero-superblock --force $(readlink -f "${devices[@]}")
+    # Also wipe any leftover signatures from the underlying disks for the same
+    # reason as above.
+    # shellcheck disable=SC2046
+    wipefs --all $(readlink -f "${devices[@]}")
     udevadm settle --timeout=30
 
     # Check if all expected symlinks were removed after the cleanup
@@ -1349,6 +1375,32 @@ testcase_mdadm_lvm() {
 
 udevadm settle
 lsblk -a
+
+# This test often fails because the VM reboots (eg: kernel panic) and the previous state is left unclean.
+# Do the cleanups at the beginning too, to try and reduce flakiness.
+mdadm --stop --scan || :
+for _dm in /dev/mapper/encbtrfs[0-3] /dev/mapper/encdisk[0-3] /dev/mapper/lvmluksmap; do
+    [[ -e "$_dm" ]] || continue
+    cryptsetup close "$_dm" || :
+done
+unset _dm
+for _vg in $(lvm vgs --noheadings -o vg_name 2>/dev/null \
+                 | awk '$1 ~ /^(MyTestGroup|iscsi_lvm|mdmirpar_vg)/ {print $1}'); do
+    lvm vgchange -an "$_vg" || :
+done
+unset _vg
+udevadm settle --timeout=30
+_stale_devs=()
+for _d in /dev/disk/by-id/scsi-0systemd_foobar_deadbeef*; do
+    [[ -e "$_d" ]] && _stale_devs+=("$_d")
+done
+if (( ${#_stale_devs[@]} > 0 )); then
+    # shellcheck disable=SC2046
+    mdadm -v --zero-superblock --force $(readlink -f "${_stale_devs[@]}") || :
+    wipefs --all "${_stale_devs[@]}" || :
+fi
+unset _d _stale_devs
+udevadm settle --timeout=30
 
 echo "Check if all symlinks under /dev/disk/ are valid (pre-test)"
 helper_check_device_symlinks

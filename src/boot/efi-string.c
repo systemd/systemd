@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "efi-string.h"
-#include "string-util-fundamental.h"
+#include "string-util.h"
 
 #if SD_BOOT
 #  include "proto/simple-text-io.h"

@@ -38,3 +38,13 @@ int cpu_set_to_dbus(const CPUSet *c, uint8_t **ret, size_t *ret_size);
 int cpu_set_from_dbus(const uint8_t *bits, size_t size, CPUSet *ret);
 
 int cpus_in_affinity_mask(void);
+
+static inline size_t cpu_set_count(const CPUSet *c) {
+        if (!c)
+                return 0;
+        if (c->allocated <= 0)
+                return 0;
+        return CPU_COUNT_S(c->allocated, c->set);
+}
+
+int cpus_online(unsigned *ret);

@@ -581,7 +581,7 @@ bool fdname_is_valid(const char *s) {
 int fd_get_path(int fd, char **ret) {
         int r;
 
-        assert(fd >= 0 || IN_SET(fd, AT_FDCWD, XAT_FDROOT));
+        assert(wildcard_fd_is_valid(fd));
 
         if (fd == AT_FDCWD)
                 return safe_getcwd(ret);
@@ -781,7 +781,7 @@ finish:
 }
 
 int fd_reopen(int fd, int flags) {
-        assert(fd >= 0 || IN_SET(fd, AT_FDCWD, XAT_FDROOT));
+        assert(wildcard_fd_is_valid(fd));
         assert(!FLAGS_SET(flags, O_CREAT));
 
         /* Reopens the specified fd with new flags. This is useful for convert an O_PATH fd into a regular one, or to
@@ -1052,7 +1052,7 @@ static bool is_literal_root(const char *p) {
 }
 
 int path_is_root_at(int dir_fd, const char *path) {
-        assert(dir_fd >= 0 || IN_SET(dir_fd, AT_FDCWD, XAT_FDROOT));
+        assert(wildcard_fd_is_valid(dir_fd));
 
         if (dir_fd == XAT_FDROOT && isempty(path))
                 return true;
@@ -1086,8 +1086,8 @@ int fds_inode_and_mount_same(int fd1, int fd2) {
         struct statx sx1, sx2;
         int r;
 
-        assert(fd1 >= 0 || IN_SET(fd1, AT_FDCWD, XAT_FDROOT));
-        assert(fd2 >= 0 || IN_SET(fd2, AT_FDCWD, XAT_FDROOT));
+        assert(wildcard_fd_is_valid(fd1));
+        assert(wildcard_fd_is_valid(fd2));
 
         r = xstatx(fd1, /* path = */ NULL, AT_EMPTY_PATH,
                    STATX_TYPE|STATX_INO|STATX_MNT_ID,

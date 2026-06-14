@@ -62,8 +62,14 @@ typedef enum UserCredsFlags {
         USER_CREDS_SUPPRESS_PLACEHOLDER = 1 << 3,  /* suppress home and/or shell fields if value is placeholder (root/empty/nologin) */
 } UserCredsFlags;
 
-int get_user_creds(const char **username, uid_t *ret_uid, gid_t *ret_gid, const char **ret_home, const char **ret_shell, UserCredsFlags flags);
-int get_group_creds(const char **groupname, gid_t *ret_gid, UserCredsFlags flags);
+int get_user_creds(
+                const char *username,
+                UserCredsFlags flags,
+                char **ret_username,
+                uid_t *ret_uid, gid_t *ret_gid,
+                char **ret_home,
+                char **ret_shell);
+int get_group_creds(const char *groupname, UserCredsFlags flags, char **ret_name, gid_t *ret_gid);
 
 char* uid_to_name(uid_t uid);
 char* gid_to_name(gid_t gid);
@@ -89,6 +95,10 @@ int take_etc_passwd_lock(const char *root);
 
 #define UID_NOBODY ((uid_t) 65534U)
 #define GID_NOBODY ((gid_t) 65534U)
+
+/* Conventional size of a user-namespace UID/GID delegation block (64K).
+ * Untyped so it can be used in both UID and GID contexts without casts. */
+#define USERNS_RANGE_SIZE 0x10000U
 
 /* If REMOUNT_IDMAPPING_HOST_ROOT is set for remount_idmap() we'll include a mapping here that maps the host
  * root user accessing the idmapped mount to the this user ID on the backing fs. This is the last valid UID in

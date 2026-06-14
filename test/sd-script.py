@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: LGPL-2.1-or-later
 #
+# ruff: noqa: F821
+#
 # sd-script.py: create LOTS of sd device entries in fake sysfs
 #
 # (C) 2018 Martin Wilck, SUSE Linux GmbH
@@ -15,63 +17,67 @@
 # Note that sys-script.py already creates 10 sd device nodes
 # (sda+sdb and partitions). This script starts with sdc.
 
-import re
-import os
 import errno
+import os
+import re
 import sys
+
 
 def d(path, mode):
     os.mkdir(path, mode)
 
-def l(path, src):
+
+def l(path, src):  # noqa: E743
     os.symlink(src, path)
 
+
 def f(path, mode, contents):
-    with open(path, "wb") as f:
+    with open(path, 'wb') as f:
         f.write(contents)
     os.chmod(path, mode)
 
-class SD(object):
 
+class SD:
     sd_major = [8] + list(range(65, 72)) + list(range(128, 136))
     _name_re = re.compile(r'sd(?P<f>[a-z]*)$')
 
     def _init_from_name(self, name):
         mt = self._name_re.match(name)
         if mt is None:
-            raise RuntimeError("invalid name %s" % name)
-        nm = mt.group("f")
+            raise RuntimeError(f'invalid name {name}')
+        nm = mt.group('f')
         base = 1
         ls = nm[-1]
         nm = nm[:-1]
-        n = base * (ord(ls)-ord('a'))
+        n = base * (ord(ls) - ord('a'))
         while len(nm) > 0:
             ls = nm[-1]
             nm = nm[:-1]
             base *= 26
-            n += base * (1 + ord(ls)-ord('a'))
+            n += base * (1 + ord(ls) - ord('a'))
         self._num = n
 
     def _init_from_dev(self, dev):
-        maj, min = dev.split(":")
+        maj, min = dev.split(':')
         maj = self.sd_major.index(int(maj, 10))
         min = int(min, 10)
         num = int(min / 16)
-        self._num = 16*maj + num%16 + 256*int(num/16)
+        self._num = 16 * maj + num % 16 + 256 * int(num / 16)
 
     @staticmethod
     def _disk_num(a, b):
-        n = ord(a)-ord('a')
+        n = ord(a) - ord('a')
         if b != '':
-            n = 26 * (n+1) + ord(b)-ord('a')
+            n = 26 * (n + 1) + ord(b) - ord('a')
         return n
 
     @staticmethod
     def _get_major(n):
-        return SD.sd_major[(n%256)//16]
+        return SD.sd_major[(n % 256) // 16]
+
     @staticmethod
     def _get_minor(n):
-        return 16 * (n % 16 + 16 * n//256)
+        return 16 * (n % 16 + 16 * n // 256)
 
     @staticmethod
     def _get_name(n):
@@ -81,7 +87,7 @@ class SD(object):
         while n >= 0:
             s = chr(n % 26 + ord('a')) + s
             n = n // 26 - 1
-        return "sd" + s
+        return 'sd' + s
 
     @staticmethod
     def _get_dev_t(n):
@@ -90,9 +96,9 @@ class SD(object):
         return (maj << 20) + min
 
     def __init__(self, arg):
-        if type(arg) is type(0):
+        if type(arg) is int:
             self._num = arg
-        elif arg.startswith("sd"):
+        elif arg.startswith('sd'):
             self._init_from_name(arg)
         else:
             self._init_from_dev(arg)
@@ -110,9 +116,7 @@ class SD(object):
         return hash(self._num)
 
     def __str__(self):
-        return "%s/%s" % (
-            self.devstr(),
-            self._get_name(self._num))
+        return f'{self.devstr()}/{self._get_name(self._num)}'
 
     def major(self):
         return self._get_major(self._num)
@@ -121,28 +125,26 @@ class SD(object):
         return self._get_minor(self._num)
 
     def devstr(self):
-        return "%d:%d" % (self._get_major(self._num),
-                          self._get_minor(self._num))
+        return f'{self._get_major(self._num)}:{self._get_minor(self._num)}'
 
     def namestr(self):
         return self._get_name(self._num)
 
     def longstr(self):
-        return "%d\t%s\t%s\t%08x" % (self._num,
-                                     self.devstr(),
-                                     self.namestr(),
-                                     self._get_dev_t(self._num))
+        return f'{self._num}\t{self.devstr()}\t{self.namestr()}\t{self._get_dev_t(self._num):08x}'
+
 
 class MySD(SD):
     def subst(self, first_sg):
         disk = {
-            "lun": self._num,
-            "major": self.major(),
-            "devnode": self.namestr(),
-            "disk_minor": self.minor(),
-            "sg_minor": first_sg + self._num,
+            'lun': self._num,
+            'major': self.major(),
+            'devnode': self.namestr(),
+            'disk_minor': self.minor(),
+            'sg_minor': first_sg + self._num,
         }
         return disk
+
 
 disk_template = r"""\
 l('sys/bus/scsi/drivers/sd/7:0:0:{lun}', '../../../../devices/pci0000:00/0000:00:1d.7/usb5/5-1/5-1:1.0/host7/target7:0:0/7:0:0:{lun}')
@@ -282,29 +284,33 @@ DEVNAME={devnode}{part_num}
 """
 
 if len(sys.argv) != 3:
-    exit("Usage: {} <target dir> <number>".format(sys.argv[0]))
+    exit(f'Usage: {sys.argv[0]} <target dir> <number>')
 
 if not os.path.isdir(sys.argv[1]):
-    exit("Target dir {} not found".format(sys.argv[1]))
+    exit(f'Target dir {sys.argv[1]} not found')
+
 
 def create_part_sysfs(disk, sd, prt):
     part = disk
-    part.update ({
-        "part_num": prt,
-        "part_minor": disk["disk_minor"] + prt,
-    })
+    part.update(
+        {
+            'part_num': prt,
+            'part_minor': disk['disk_minor'] + prt,
+        }
+    )
 
     try:
         exec(part_template.format(**part))
     except OSError:
         si = sys.exc_info()[1]
-        if (si.errno == errno.EEXIST):
-            print("sysfs structures for %s%d exist" % (sd.namestr(), prt))
+        if si.errno == errno.EEXIST:
+            print(f'sysfs structures for {sd.namestr()}{prt} exist')
         else:
-            print("error for %s%d: %s" % (sd.namestr(), prt, si[1]))
+            print(f'error for {sd.namestr()}{prt}: {si[1]}')
             raise
     else:
-        print("sysfs structures for %s%d created" % (sd.namestr(), prt))
+        print(f'sysfs structures for {sd.namestr()}{prt} created')
+
 
 def create_disk_sysfs(dsk, first_sg, n):
     sd = MySD(dsk)
@@ -314,17 +320,16 @@ def create_disk_sysfs(dsk, first_sg, n):
         exec(disk_template.format(**disk))
     except OSError:
         si = sys.exc_info()[1]
-        if (si.errno == errno.EEXIST):
-            print("sysfs structures for %s exist" % sd.namestr())
-        elif (si.errno == errno.ENOENT):
-            print("error for %s: %s - have you run sys-script py first?" %
-                  (sd.namestr(), si.strerror))
+        if si.errno == errno.EEXIST:
+            print(f'sysfs structures for {sd.namestr()} exist')
+        elif si.errno == errno.ENOENT:
+            print(f'error for {sd.namestr()}: {si.strerror} - have you run sys-script py first?')
             return -1
         else:
-            print("error for %s: %s" % (sd.namestr(), si.strerror))
+            print(f'error for {sd.namestr()}: {si.strerror}')
             raise
     else:
-        print("sysfs structures for %s created" % sd.namestr())
+        print(f'sysfs structures for {sd.namestr()} created')
 
     n += 1
     if n >= last:
@@ -337,6 +342,7 @@ def create_disk_sysfs(dsk, first_sg, n):
             return n
 
     return n
+
 
 os.chdir(sys.argv[1])
 n = 0

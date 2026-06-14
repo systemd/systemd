@@ -4,7 +4,8 @@
 #include <endian.h>
 
 #include "basic-forward.h"
-#include "unaligned-fundamental.h" /* IWYU pragma: export */
+
+#include "../fundamental/unaligned.h" /* IWYU pragma: export */
 
 /* BE */
 

@@ -122,7 +122,6 @@ udev_dependencies = [
         libblkid_cflags,
         libkmod_cflags,
         libmount_cflags,
-        threads,
 ]
 
 udev_plugin_template = executable_template + {
@@ -138,7 +137,6 @@ udev_common_template = {
         'dependencies' : [
                 libacl_cflags,
                 libblkid_cflags,
-                threads,
         ],
 }
 udev_test_template = test_template + udev_common_template
@@ -152,8 +150,8 @@ udev_binaries_dict = [
                             keyboard_keys_from_name_inc,
                 'extract' : udevadm_extract_sources,
                 'include_directories' : [
-                        libexec_template['include_directories'],
                         include_directories('.', 'net'),
+                        libexec_template['include_directories'],
                 ],
                 'dependencies' : udev_dependencies,
                 'link_with' : udev_link_with,

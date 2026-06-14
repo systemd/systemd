@@ -11,10 +11,11 @@
 #include "export-vars.h"
 #include "graphics.h"
 #include "initrd.h"
-#include "iovec-util-fundamental.h"
+#include "iovec-util.h"
 #include "linux.h"
 #include "measure.h"
-#include "memory-util-fundamental.h"
+#include "measure-smbios.h"
+#include "memory-util.h"
 #include "part-discovery.h"
 #include "pe.h"
 #include "proto/shell-parameters.h"
@@ -116,6 +117,7 @@ static void export_stub_variables(EFI_LOADED_IMAGE_PROTOCOL *loaded_image, unsig
                 EFI_STUB_FEATURE_MULTI_PROFILE_UKI |        /* We grok the "@1" profile command line argument */
                 EFI_STUB_FEATURE_REPORT_STUB_PARTITION |    /* We set StubDevicePartUUID + StubImageIdentifier */
                 EFI_STUB_FEATURE_REPORT_URL |               /* We set StubDeviceURL + LoaderDeviceURL */
+                EFI_STUB_FEATURE_SMBIOS_MEASURED |          /* We measure SMBIOS data into PCR 1 */
                 0;
 
         assert(loaded_image);
@@ -819,7 +821,6 @@ static void generate_sidecar_initrds(
                       u".cred",
                       /* exclude_suffix= */ NULL,
                       &cpio_target_credentials,
-                      /* tpm_pcr= */ TPM2_PCR_KERNEL_CONFIG,
                       u"Credentials initrd",
                       initrds + INITRD_CREDENTIAL,
                       &m) == EFI_SUCCESS)
@@ -830,7 +831,6 @@ static void generate_sidecar_initrds(
                       u".cred",
                       /* exclude_suffix= */ NULL,
                       &cpio_target_global_credentials,
-                      /* tpm_pcr= */ TPM2_PCR_KERNEL_CONFIG,
                       u"Global credentials initrd",
                       initrds + INITRD_GLOBAL_CREDENTIAL,
                       &m) == EFI_SUCCESS)
@@ -841,7 +841,6 @@ static void generate_sidecar_initrds(
                       u".raw",         /* ideally we'd pick up only *.sysext.raw here, but for compat we pick up *.raw instead … */
                       u".confext.raw", /* … but then exclude *.confext.raw again */
                       &cpio_target_sysext,
-                      /* tpm_pcr= */ TPM2_PCR_SYSEXTS,
                       u"System extension initrd",
                       initrds + INITRD_SYSEXT,
                       &m) == EFI_SUCCESS)
@@ -852,7 +851,6 @@ static void generate_sidecar_initrds(
                       u".raw", /* as above */
                       u".confext.raw",
                       &cpio_target_global_sysext,
-                      /* tpm_pcr= */ TPM2_PCR_SYSEXTS,
                       u"Global system extension initrd",
                       initrds + INITRD_GLOBAL_SYSEXT,
                       &m) == EFI_SUCCESS)
@@ -863,7 +861,6 @@ static void generate_sidecar_initrds(
                       u".confext.raw",
                       /* exclude_suffix= */ NULL,
                       &cpio_target_confext,
-                      /* tpm_pcr= */ TPM2_PCR_KERNEL_CONFIG,
                       u"Configuration extension initrd",
                       initrds + INITRD_CONFEXT,
                       &m) == EFI_SUCCESS)
@@ -874,7 +871,6 @@ static void generate_sidecar_initrds(
                       u".confext.raw",
                       /* exclude_suffix= */ NULL,
                       &cpio_target_global_confext,
-                      /* tpm_pcr= */ TPM2_PCR_KERNEL_CONFIG,
                       u"Global configuration extension initrd",
                       initrds + INITRD_GLOBAL_CONFEXT,
                       &m) == EFI_SUCCESS)
@@ -926,7 +922,6 @@ static void generate_embedded_initrds(
                                 sections[t->section].memory_size,
                                 &cpio_target_meta,
                                 t->filename,
-                                /* tpm_pcr= */ UINT32_MAX,
                                 /* tpm_description= */ NULL,
                                 initrds + t->initrd_index,
                                 /* ret_measured= */ NULL);
@@ -948,7 +943,6 @@ static void generate_boot_secret_initrd(
                         BOOT_SECRET_SIZE,
                         &cpio_target_meta_secret,
                         u"boot-secret",
-                        /* tpm_pcr= */ UINT32_MAX,
                         /* tpm_description= */ NULL,
                         initrds + INITRD_BOOT_SECRET,
                         /* ret_measured= */ NULL);
@@ -1259,6 +1253,10 @@ static EFI_STATUS run(EFI_HANDLE image) {
 
         export_common_variables(loaded_image);
         export_stub_variables(loaded_image, profile);
+
+        /* Measure SMBIOS data into PCR 1, unless sd-boot already did so in the same boot (tracked via
+         * the LoaderPcrSMBIOS EFI variable). */
+        measure_smbios();
 
         /* First load the base device tree, then fix it up using addons - global first, then per-UKI. */
         install_embedded_devicetree(loaded_image, sections, &dt_state);

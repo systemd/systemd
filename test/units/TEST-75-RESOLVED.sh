@@ -248,19 +248,14 @@ manual_testcase_01_resolvectl() {
     resolvectl dns hoge.foo 10.0.1.3 10.0.1.4
     assert_in '10.0.1.1 10.0.1.2' "$(resolvectl dns hoge)"
     assert_in '10.0.1.3 10.0.1.4' "$(resolvectl dns hoge.foo)"
-    if ! RESOLVCONF=$(command -v resolvconf 2>/dev/null); then
-        TMPDIR=$(mktemp -d -p /tmp resolvconf-tests.XXXXXX)
-        RESOLVCONF="$TMPDIR"/resolvconf
-        ln -s "$(command -v resolvectl 2>/dev/null)" "$RESOLVCONF"
-    fi
 
     # DNS servers
-    echo nameserver 10.0.2.1 10.0.2.2 | "$RESOLVCONF" -a hoge
-    echo nameserver 10.0.2.3 10.0.2.4 | "$RESOLVCONF" -a hoge.foo
+    echo nameserver 10.0.2.1 10.0.2.2 | SYSTEMD_INVOKED_AS=resolvconf resolvectl -a hoge
+    echo nameserver 10.0.2.3 10.0.2.4 | SYSTEMD_INVOKED_AS=resolvconf resolvectl -a hoge.foo
     assert_in '10.0.2.1 10.0.2.2' "$(resolvectl dns hoge)"
     assert_in '10.0.2.3 10.0.2.4' "$(resolvectl dns hoge.foo)"
-    echo nameserver 10.0.3.1 10.0.3.2 | "$RESOLVCONF" -a hoge.inet.ipsec.192.168.35
-    echo nameserver 10.0.3.3 10.0.3.4 | "$RESOLVCONF" -a hoge.foo.dhcp
+    echo nameserver 10.0.3.1 10.0.3.2 | SYSTEMD_INVOKED_AS=resolvconf resolvectl -a hoge.inet.ipsec.192.168.35
+    echo nameserver 10.0.3.3 10.0.3.4 | SYSTEMD_INVOKED_AS=resolvconf resolvectl -a hoge.foo.dhcp
     assert_in '10.0.3.1 10.0.3.2' "$(resolvectl dns hoge)"
     assert_in '10.0.3.3 10.0.3.4' "$(resolvectl dns hoge.foo)"
 
@@ -268,36 +263,37 @@ manual_testcase_01_resolvectl() {
     # without domain/search clears existing domain
     resolvectl domain hoge test-domain.example.com
     assert_in 'test-domain.example.com' "$(resolvectl domain hoge)"
-    echo nameserver 10.0.2.1 10.0.2.2 | "$RESOLVCONF" -a hoge
+    echo nameserver 10.0.2.1 10.0.2.2 | SYSTEMD_INVOKED_AS=resolvconf resolvectl -a hoge
     assert_not_in 'test-domain.example.com' "$(resolvectl domain hoge)"
     # cannot set domain without DNS servers
-    (! echo domain test-domain.example.com | "$RESOLVCONF" -a hoge)
+    (! echo domain test-domain.example.com | SYSTEMD_INVOKED_AS=resolvconf resolvectl -a hoge)
     # can set domain with DNS server(s)
-    echo -e "nameserver 10.0.2.1 10.0.2.2\ndomain test-domain1.example.com test-domain2.example.com\nsearch test-search-domain.example.com" | "$RESOLVCONF" -a hoge
+    echo -e "nameserver 10.0.2.1 10.0.2.2\ndomain test-domain1.example.com test-domain2.example.com\nsearch test-search-domain.example.com" | \
+        SYSTEMD_INVOKED_AS=resolvconf resolvectl -a hoge
     assert_in 'test-domain1.example.com' "$(resolvectl domain hoge)"
     assert_in 'test-domain2.example.com' "$(resolvectl domain hoge)"
     assert_in 'test-search-domain.example.com' "$(resolvectl domain hoge)"
 
     # Tests for 'resolvconf -x'
-    echo nameserver 10.0.2.1 | "$RESOLVCONF" -x -a hoge
+    echo nameserver 10.0.2.1 | SYSTEMD_INVOKED_AS=resolvconf resolvectl -x -a hoge
     assert_in '~.' "$(resolvectl domain hoge)"
     resolvectl domain hoge "hoge.example.com"
     assert_in 'hoge.example.com' "$(resolvectl domain hoge)"
     assert_not_in '~.' "$(resolvectl domain hoge)"
-    echo -e "nameserver 10.0.2.1\ndomain test-domain.example.com" | "$RESOLVCONF" -x -a hoge
+    echo -e "nameserver 10.0.2.1\ndomain test-domain.example.com" | SYSTEMD_INVOKED_AS=resolvconf resolvectl -x -a hoge
     assert_in 'test-domain.example.com' "$(resolvectl domain hoge)"
     assert_in '~.' "$(resolvectl domain hoge)"
 
     # Tests for 'resolvconf -p'
     resolvectl default-route hoge yes
     assert_in 'yes' "$(resolvectl default-route hoge)"
-    echo nameserver 10.0.3.3 10.0.3.4 | "$RESOLVCONF" -p -a hoge
+    echo nameserver 10.0.3.3 10.0.3.4 | SYSTEMD_INVOKED_AS=resolvconf resolvectl -p -a hoge
     assert_in 'no' "$(resolvectl default-route hoge)"
 
     # Tests for 'resolvconf -d'
     resolvectl dns hoge 10.0.3.1 10.0.3.2
     resolvectl domain hoge test-domain.example.com
-    "$RESOLVCONF" -d hoge
+    SYSTEMD_INVOKED_AS=resolvconf resolvectl -d hoge
     assert_not_in '10.0.3.1' "$(resolvectl dns hoge)"
     assert_not_in '10.0.3.2' "$(resolvectl dns hoge)"
     assert_not_in 'test-domain.example.com' "$(resolvectl domain hoge)"
@@ -1387,7 +1383,7 @@ testcase_15_wait_online_dns() {
         echo "===== journalctl -u $unit ====="
         journalctl -b --no-pager --no-hostname --full -u "$unit"
         echo "=========="
-        rm -f "$override"
+        rm -f "$override" "$cursor_file"
         restart_resolved
         resolvectl revert dns0
     }
@@ -1396,6 +1392,7 @@ testcase_15_wait_online_dns() {
 
     local unit
     local override
+    local cursor_file
 
     unit="wait-online-dns-$(systemd-id128 new -u).service"
     override="/run/systemd/resolved.conf.d/90-global-dns.conf"
@@ -1416,12 +1413,26 @@ testcase_15_wait_online_dns() {
     systemctl stop systemd-resolved.service
     systemctl start systemd-resolved-monitor.socket systemd-resolved-varlink.socket
 
+    # Capture a journal cursor before starting the unit so we can match only on
+    # log messages emitted afterwards. We deliberately do not filter on
+    # _SYSTEMD_UNIT= because journald may attach stale cgroup metadata
+    # (e.g. _SYSTEMD_UNIT=init.scope) to the very first messages emitted by a
+    # freshly-spawned process, before its cgroup migration into the new service
+    # is observed. Filtering by SYSLOG_IDENTIFIER and a cursor is not affected
+    # by that race.
+    cursor_file=$(mktemp)
+    journalctl -n 0 --cursor-file="$cursor_file"
+
     # Begin systemd-networkd-wait-online --dns
     systemd-run -u "$unit" -p "Environment=SYSTEMD_LOG_LEVEL=debug" -p "Environment=SYSTEMD_LOG_TARGET=journal" --service-type=exec \
         /usr/lib/systemd/systemd-networkd-wait-online --timeout=0 --dns --interface=dns0
 
-    # Wait until it blocks waiting for updated DNS config
-    timeout 30 bash -c "journalctl -b -u $unit -f | grep -m1 'dns0: No.*DNS server is accessible'" >/dev/null
+    # Wait until it blocks waiting for updated DNS config.
+    # Note: don't use 'journalctl -f | grep -m1 ...' here. Once grep exits on
+    # match, journalctl -f will only notice the closed pipe on its next write
+    # attempt, which may never come for an otherwise idle unit, causing the
+    # pipeline to hang.
+    timeout 30 bash -c "until journalctl --after-cursor=\"\$(cat \"$cursor_file\")\" SYSLOG_IDENTIFIER=systemd-networkd-wait-online --grep 'dns0: No.*DNS server is accessible' >/dev/null 2>&1; do sleep 0.5; done"
 
     # Update the global configuration. Restart rather than reload systemd-resolved so that
     # systemd-networkd-wait-online has to re-connect to the varlink service.
@@ -1436,10 +1447,10 @@ testcase_15_wait_online_dns() {
     journalctl --sync
 
     # Check that a disconnect happened, and was handled.
-    journalctl -b -u "$unit" --grep="DNS configuration monitor disconnected, reconnecting..." >/dev/null
+    journalctl --after-cursor="$(cat "$cursor_file")" SYSLOG_IDENTIFIER=systemd-networkd-wait-online --grep="DNS configuration monitor disconnected, reconnecting..." >/dev/null
 
     # Check that dns0 was found to be online.
-    journalctl -b -u "$unit" --grep="dns0: link is configured by networkd and online." >/dev/null
+    journalctl --after-cursor="$(cat "$cursor_file")" SYSLOG_IDENTIFIER=systemd-networkd-wait-online --grep="dns0: link is configured by networkd and online." >/dev/null
 }
 
 testcase_delegate() {

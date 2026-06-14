@@ -64,6 +64,12 @@
 assert_cc(XAT_FDROOT != AT_FDCWD);
 assert_cc(XAT_FDROOT < -ERRNO_MAX);
 
+/* Checks whether the specified fd is acceptable as a *at() directory fd that supports the two "wildcard"
+ * values: it's either a regular, valid fd (i.e. >= 0), or one of the special AT_FDCWD/XAT_FDROOT values. */
+static inline bool wildcard_fd_is_valid(int fd) {
+        return fd >= 0 || IN_SET(fd, AT_FDCWD, XAT_FDROOT);
+}
+
 int close_nointr(int fd);
 int safe_close(int fd);
 void safe_close_pair(int p[static 2]);

@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <math.h>
-
 #include "hexdecoct.h"
 #include "log.h"
 #include "memory-util.h"
@@ -15,7 +13,7 @@ TEST(random_bytes) {
         for (size_t i = 1; i < sizeof buf; i++) {
                 random_bytes(buf, i);
                 if (i + 1 < sizeof buf)
-                        assert_se(buf[i] == 0);
+                        ASSERT_EQ(buf[i], 0);
 
                 hexdump(stdout, buf, i);
         }
@@ -25,9 +23,9 @@ TEST(crypto_random_bytes) {
         uint8_t buf[16] = {};
 
         for (size_t i = 1; i < sizeof buf; i++) {
-                assert_se(crypto_random_bytes(buf, i) == 0);
+                ASSERT_OK(crypto_random_bytes(buf, i));
                 if (i + 1 < sizeof buf)
-                        assert_se(buf[i] == 0);
+                        ASSERT_EQ(buf[i], 0);
 
                 hexdump(stdout, buf, i);
         }
@@ -53,21 +51,25 @@ static void test_random_u64_range_one(unsigned mod) {
         /* Print histogram: vertical axis — value, horizontal axis — count.
          *
          * The expected value is always TOTAL/mod, because the distribution should be flat. The expected
-         * variance is TOTAL×p×(1-p), where p==1/mod, and standard deviation the root of the variance.
-         * Assert that the deviation from the expected value is less than 6 standard deviations.
+         * variance is TOTAL×p×(1-p), where p==1/mod. Assert that the deviation from the expected value
+         * is less than 6 standard deviations by comparing squared values (diff² < 36·variance), which
+         * avoids a sqrt() call and the libm dependency that comes with it at -O0.
          */
         unsigned scale = 2 * max / (columns() < 20 ? 80 : columns() - 20);
         double exp = (double) TOTAL / mod;
+        double variance = exp * (mod > 1 ? mod - 1 : 1) / mod;
 
         for (size_t i = 0; i < mod; i++) {
-                double dev = (count[i] - exp) / sqrt(exp * (mod > 1 ? mod - 1 : 1) / mod);
-                log_debug("%02zu: %5u (%+.3f)%*s",
-                          i, count[i], dev,
+                double diff = count[i] - exp;
+                double dev_sq = diff * diff / variance;
+
+                log_debug("%02zu: %5u (z²=%.3f)%*s",
+                          i, count[i], dev_sq,
                           (int) (count[i] / scale), "x");
 
-                assert_se(fabs(dev) < 6); /* 6 sigma is excessive, but this check should be enough to
-                                           * identify catastrophic failure while minimizing false
-                                           * positives. */
+                ASSERT_TRUE(dev_sq < 36); /* 36 = 6²; 6 sigma is excessive, but this check should be
+                                           * enough to identify catastrophic failure while minimizing
+                                           * false positives. */
         }
 }
 

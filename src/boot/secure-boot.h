@@ -2,7 +2,7 @@
 #pragma once
 
 #include "efi.h"
-#include "efivars-fundamental.h"
+#include "efivars.h"
 
 typedef enum {
         ENROLL_OFF,         /* no Secure Boot key enrollment whatsoever, even manual entries are not generated */

@@ -13,12 +13,12 @@
 #include "fileio.h"
 #include "fs-util.h"
 #include "log.h"
-#include "mkdir-label.h"
+#include "mkdir.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "string-util.h"
 #include "strv.h"
-#include "tmpfile-util-label.h"
+#include "tmpfile-util.h"
 
 typedef struct EditFile {
         EditFileContext *context;

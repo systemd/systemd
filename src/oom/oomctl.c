@@ -65,8 +65,7 @@ static int help(void) {
 
 VERB_COMMON_HELP_HIDDEN(help);
 
-VERB(verb_dump_state, "dump", NULL, VERB_ANY, 1, VERB_DEFAULT,
-     "Output the current state of systemd-oomd");
+VERB_DEFAULT_NOARG(verb_dump_state, "dump", "Output the current state of systemd-oomd");
 static int verb_dump_state(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
@@ -91,10 +90,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argv);
         assert(ret_args);
 
-        OptionParser state = { argc, argv };
-        const char *arg;
+        OptionParser opts = { argc, argv };
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -108,7 +106,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         break;
                 }
 
-        *ret_args = option_parser_get_args(&state);
+        *ret_args = option_parser_get_args(&opts);
         return 1;
 }
 
@@ -122,7 +120,7 @@ static int run(int argc, char* argv[]) {
         if (r <= 0)
                 return r;
 
-        return dispatch_verb_with_args(args, NULL);
+        return dispatch_verb(args, NULL);
 }
 
 DEFINE_MAIN_FUNCTION(run);

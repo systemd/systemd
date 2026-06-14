@@ -1,0 +1,29 @@
+#compdef systemd-sysinstall
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+(( $+functions[_systemd-sysinstall_devices] )) ||
+_systemd-sysinstall_devices() {
+    local -a _devices
+    _devices=( ${(f)"$(systemd-repart --list-devices 2>/dev/null)"} )
+    _wanted devices expl 'block device' compadd -a _devices
+}
+
+_arguments \
+    '(- *)'{-h,--help}'[Show help text]' \
+    '(- *)--version[Show package version]' \
+    '--welcome=[Show welcome text]:boolean:(yes no)' \
+    '--chrome=[Show colored bars at top and bottom of the terminal]:boolean:(yes no)' \
+    '--erase=[Erase target disk before installation]:boolean:(yes no auto)' \
+    '--confirm=[Query for confirmation before installation]:boolean:(yes no)' \
+    '--summary=[Show summary before installation]:boolean:(yes no)' \
+    '--reboot=[Reboot system after installation]:boolean:(yes no)' \
+    '--variables=[Register installation in firmware variables]:boolean:(yes no auto)' \
+    '--mute-console=[Mute kernel/PID 1 console output during installation]:boolean:(yes no)' \
+    '--copy-locale=[Copy current locale to target system]:boolean:(yes no)' \
+    '--copy-keymap=[Copy current keymap to target system]:boolean:(yes no)' \
+    '--copy-timezone=[Copy current timezone to target system]:boolean:(yes no)' \
+    '--definitions=[Find partition definitions in directory]:directory:_directories' \
+    '--kernel=[Kernel image to install]:kernel image:_files' \
+    '--set-credential=[Install a credential with a literal value]: : _message "ID:VALUE"' \
+    '--load-credential=[Load credential from a file or AF_UNIX socket]: : _message "ID:PATH"' \
+    '*::block device:_systemd-sysinstall_devices'

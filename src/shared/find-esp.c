@@ -323,7 +323,7 @@ static int verify_esp(
                 unprivileged_mode = FLAGS_SET(flags, VERIFY_ESP_UNPRIVILEGED_MODE);
         int r;
 
-        assert(rfd >= 0 || IN_SET(rfd, AT_FDCWD, XAT_FDROOT));
+        assert(wildcard_fd_is_valid(rfd));
         assert(path);
 
         /* This logs about all errors, except:
@@ -420,7 +420,7 @@ int find_esp_and_warn_at_full(
         VerifyESPFlags flags;
         int r;
 
-        assert(rfd >= 0 || IN_SET(rfd, AT_FDCWD, XAT_FDROOT));
+        assert(wildcard_fd_is_valid(rfd));
 
         /* This logs about all errors except:
          *
@@ -733,7 +733,7 @@ static int verify_xbootldr(
                 unprivileged_mode = FLAGS_SET(flags, VERIFY_ESP_UNPRIVILEGED_MODE);
         int r;
 
-        assert(rfd >= 0 || IN_SET(rfd, AT_FDCWD, XAT_FDROOT));
+        assert(wildcard_fd_is_valid(rfd));
         assert(path);
 
         _cleanup_free_ char *p = NULL;
@@ -796,7 +796,7 @@ int find_xbootldr_and_warn_at_full(
 
         /* Similar to find_esp_and_warn(), but finds the XBOOTLDR partition. Returns the same errors. */
 
-        assert(rfd >= 0 || IN_SET(rfd, AT_FDCWD, XAT_FDROOT));
+        assert(wildcard_fd_is_valid(rfd));
 
         flags = verify_esp_flags_init(unprivileged_mode, "SYSTEMD_RELAX_XBOOTLDR_CHECKS");
 

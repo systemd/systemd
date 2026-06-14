@@ -15,7 +15,7 @@ sources += libudev_sources
 
 ############################################################
 
-libudev_includes = [includes, include_directories('.')]
+libudev_includes = [include_directories('.'), includes]
 
 libudev_dir_path = meson.current_source_dir()
 

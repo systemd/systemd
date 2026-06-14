@@ -22,7 +22,6 @@
 #include "device-private.h"
 #include "device-util.h"
 #include "dirent-util.h"
-#include "escape.h"
 #include "ether-addr-util.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -32,16 +31,9 @@
 #include "stdio-util.h"
 #include "string-util.h"
 #include "udev-builtin.h"
-#include "utf8.h"
 
 #define ONBOARD_14BIT_INDEX_MAX ((1U << 14) - 1)
 #define ONBOARD_16BIT_INDEX_MAX ((1U << 16) - 1)
-
-static int log_invalid_device_attr(sd_device *dev, const char *attr, const char *value) {
-        _cleanup_free_ char *escaped = cescape(value);
-        return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL),
-                                      "Invalid %s value '%s'.", attr, strnull(escaped));
-}
 
 static int device_get_parent_skip_virtio(sd_device *dev, sd_device **ret) {
         int r;
@@ -173,6 +165,46 @@ static int get_virtfn_info(sd_device *pcidev, sd_device **ret_physfn_pcidev, cha
         return -ENOENT;
 }
 
+static int get_subfunc_info(sd_device *aux_dev, sd_device **ret_parent_pcidev, char **ret_suffix) {
+        sd_device *parent;
+        unsigned sfnum;
+        char *suffix;
+        int r;
+
+        assert(aux_dev);
+        assert(ret_parent_pcidev);
+        assert(ret_suffix);
+
+        /* The auxiliary device must expose an 'sfnum' attribute. This is currently used by the
+         * mlx5_core driver for sub-function (SF) auxiliary devices. The sfnum is the user-defined
+         * stable identifier passed to "devlink port add ... sfnum N". */
+        r = device_get_sysattr_unsigned_filtered(aux_dev, "sfnum", &sfnum);
+        if (r < 0)
+                return r;
+
+        /* Walk one hop up: the auxiliary device's parent must be a PCI function. It can be either
+         * the PF directly, or an SR-IOV VF — mlx5 also supports SFs hosted on VFs (VF-SF), see
+         * Documentation/networking/representors.rst in the kernel tree. The VF case is handled by
+         * the existing virtfn logic in names_pci(), so here we just return the immediate PCI
+         * parent and a single "S<sfnum>" suffix piece. */
+        r = sd_device_get_parent(aux_dev, &parent);
+        if (r < 0)
+                return r;
+
+        r = device_in_subsystem(parent, "pci");
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -ENODEV;
+
+        if (asprintf(&suffix, "S%u", sfnum) < 0)
+                return log_oom_debug();
+
+        *ret_parent_pcidev = sd_device_ref(parent);
+        *ret_suffix = suffix;
+        return 0;
+}
+
 static int get_port_specifier(sd_device *dev, char **ret) {
         const char *phys_port_name;
         unsigned dev_port;
@@ -183,7 +215,7 @@ static int get_port_specifier(sd_device *dev, char **ret) {
         assert(ret);
 
         /* First, try to use the kernel provided front panel port name for multiple port PCI device. */
-        r = device_get_sysattr_value_filtered(dev, "phys_port_name", &phys_port_name);
+        r = device_get_sysattr_safe_string_filtered(dev, "phys_port_name", &phys_port_name);
         if (r >= 0 && !isempty(phys_port_name)) {
                 if (naming_scheme_has(NAMING_SR_IOV_R)) {
                         int vf_id = -1;
@@ -200,9 +232,6 @@ static int get_port_specifier(sd_device *dev, char **ret) {
                                 return 1;
                         }
                 }
-
-                if (!utf8_is_valid(phys_port_name) || string_has_cc(phys_port_name, /* ok= */ NULL))
-                        return log_invalid_device_attr(dev, "phys_port_name", phys_port_name);
 
                 /* Otherwise, use phys_port_name as is. */
                 buf = strjoin("n", phys_port_name);
@@ -260,7 +289,7 @@ static int pci_get_onboard_index(sd_device *dev, unsigned *ret) {
                 return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL),
                                               "Naming scheme does not allow onboard index==0.");
         if (!is_valid_onboard_index(idx))
-                return log_device_debug_errno(dev, SYNTHETIC_ERRNO(ENOENT),
+                return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL),
                                               "Not a valid onboard index: %u", idx);
 
         *ret = idx;
@@ -304,12 +333,9 @@ static int names_pci_onboard_label(UdevEvent *event, sd_device *pci_dev, const c
         assert(prefix);
 
         /* retrieve on-board label from firmware */
-        r = device_get_sysattr_value_filtered(pci_dev, "label", &label);
+        r = device_get_sysattr_safe_string_filtered(pci_dev, "label", &label);
         if (r < 0)
                 return log_device_debug_errno(pci_dev, r, "Failed to get PCI onboard label: %m");
-
-        if (!utf8_is_valid(label) || string_has_cc(label, /* ok= */ NULL))
-                return log_invalid_device_attr(dev, "label", label);
 
         char str[ALTIFNAMSIZ];
         if (snprintf_ok(str, sizeof str, "%s%s",
@@ -360,7 +386,7 @@ static bool is_pci_bridge(sd_device *dev) {
 
         assert(dev);
 
-        if (device_get_sysattr_value_filtered(dev, "modalias", &v) < 0)
+        if (device_get_sysattr_safe_string_filtered(dev, "modalias", &v) < 0)
                 return false;
 
         if (!startswith(v, "pci:"))
@@ -402,14 +428,14 @@ static int parse_hotplug_slot_from_function_id(sd_device *dev, int slots_dirfd, 
                 return 0;
         }
 
-        if (device_get_sysattr_value_filtered(dev, "function_id", &attr) < 0) {
+        if (device_get_sysattr_safe_string_filtered(dev, "function_id", &attr) < 0) {
                 *ret = 0;
                 return 0;
         }
 
         r = safe_atou64(attr, &function_id);
         if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to parse function_id, ignoring: %s", attr);
+                return log_device_debug_errno(dev, r, "Failed to parse function_id, ignoring: '%s'", attr);
 
         if (function_id <= 0 || function_id > UINT32_MAX)
                 return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL),
@@ -421,7 +447,7 @@ static int parse_hotplug_slot_from_function_id(sd_device *dev, int slots_dirfd, 
                                               "PCI slot path is too long, ignoring.");
 
         if (faccessat(slots_dirfd, filename, F_OK, 0) < 0)
-                return log_device_debug_errno(dev, errno, "Cannot access %s under pci slots, ignoring: %m", filename);
+                return log_device_debug_errno(dev, errno, "Cannot access '%s' under pci slots, ignoring: %m", filename);
 
         *ret = (uint32_t) function_id;
         return 1; /* Found. We should ignore domain part. */
@@ -465,7 +491,7 @@ static int pci_get_hotplug_slot_from_address(
                 if (!path)
                         return log_oom_debug();
 
-                if (device_get_sysattr_value_filtered(pci, path, &address) < 0)
+                if (device_get_sysattr_safe_string_filtered(pci, path, &address) < 0)
                         continue;
 
                 /* match slot address with device by stripping the function */
@@ -544,7 +570,7 @@ static int get_device_firmware_node_sun(sd_device *dev, uint32_t *ret) {
         assert(dev);
         assert(ret);
 
-        r = device_get_sysattr_value_filtered(dev, "firmware_node/sun", &attr);
+        r = device_get_sysattr_safe_string_filtered(dev, "firmware_node/sun", &attr);
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to read firmware_node/sun, ignoring: %m");
 
@@ -721,10 +747,11 @@ static int names_vio(UdevEvent *event, const char *prefix) {
 
         if (r != 8)
                 return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL),
-                                              "VIO bus ID and slot ID have invalid length: %s", s);
+                                              "VIO bus ID and slot ID have invalid length: '%s'", s);
 
         if (!in_charset(s, HEXDIGITS))
-                return log_invalid_device_attr(dev, "VIO bus ID and slot ID", s);
+                return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL),
+                                              "VIO bus ID and slot ID contain invalid characters: '%s'", s);
 
         /* Parse only slot ID (the last 4 hexdigits). */
         r = safe_atou_full(s + 4, 16, &slotid);
@@ -780,7 +807,8 @@ static int names_platform(UdevEvent *event, const char *prefix) {
                 return -EOPNOTSUPP;
 
         if (!in_charset(vendor, validchars))
-                return log_invalid_device_attr(dev, "platform vendor", vendor);
+                return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL),
+                                              "Platform vendor contains invalid characters: '%s'", vendor);
 
         ascii_strlower(vendor);
 
@@ -876,7 +904,7 @@ static int names_devicetree_alias_prefix(UdevEvent *event, const char *prefix, c
                 if (!alias_index)
                         continue;
 
-                if (device_get_sysattr_value_filtered(aliases_dev, alias, &alias_path) < 0)
+                if (device_get_sysattr_safe_string_filtered(aliases_dev, alias, &alias_path) < 0)
                         continue;
 
                 if (!path_equal(ofnode_path, alias_path))
@@ -890,14 +918,14 @@ static int names_devicetree_alias_prefix(UdevEvent *event, const char *prefix, c
                         r = safe_atou(alias_index, &i);
                         if (r < 0)
                                 return log_device_debug_errno(dev, r,
-                                                "Could not get index of alias %s: %m", alias);
+                                                "Could not get index of alias '%s': %m", alias);
                         conflict = alias_prefix;
                 }
 
                 /* ...but make sure we don't have an alias conflict */
-                if (i == 0 && device_get_sysattr_value_filtered(aliases_dev, conflict, NULL) >= 0)
+                if (i == 0 && device_get_sysattr_safe_string_filtered(aliases_dev, conflict, NULL) >= 0)
                         return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EEXIST),
-                                        "DeviceTree alias conflict: %s and %s both exist.",
+                                        "DeviceTree alias conflict: '%s' and '%s' both exist.",
                                         alias_prefix, alias_prefix_0);
 
                 char str[ALTIFNAMSIZ];
@@ -940,24 +968,56 @@ static int names_devicetree(UdevEvent *event, const char *prefix) {
 
 static int names_pci(UdevEvent *event, const char *prefix) {
         sd_device *parent, *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
-        _cleanup_(sd_device_unrefp) sd_device *physfn_pcidev = NULL;
-        _cleanup_free_ char *virtfn_suffix = NULL;
+        _cleanup_(sd_device_unrefp) sd_device *physfn_pcidev = NULL, *parent_pcidev = NULL;
+        _cleanup_free_ char *virtfn_suffix = NULL, *subfunc_suffix = NULL, *combined_suffix = NULL;
+        const char *suffix = NULL;
 
         assert(prefix);
 
-        /* check if our direct parent is a PCI device with no other bus in-between */
-        if (get_matching_parent(dev, STRV_MAKE("pci"), /* skip_virtio= */ true, &parent) < 0)
+        /* If the network device's direct parent is an auxiliary device that exposes a stable
+         * 'sfnum' attribute (currently mlx5_core sub-functions), peel off the SF identity into
+         * a 'S<sfnum>' suffix piece and pick up the aux device's underlying PCI function as
+         * 'parent'. The aux device is just a bump on the path; everything below — PF/VF
+         * resolution, slot/onboard lookup — proceeds the same way as for any PCI-rooted
+         * network device. */
+        if (naming_scheme_has(NAMING_SUBFUNC)) {
+                sd_device *aux;
+
+                if (get_matching_parent(dev, STRV_MAKE("auxiliary"),
+                                        /* skip_virtio= */ false, &aux) >= 0)
+                        (void) get_subfunc_info(aux, &parent_pcidev, &subfunc_suffix);
+        }
+
+        /* SF: parent is the aux device's PCI function. Otherwise the network device's direct
+         * parent must itself be a PCI device. */
+        if (subfunc_suffix)
+                parent = parent_pcidev;
+        else if (get_matching_parent(dev, STRV_MAKE("pci"), /* skip_virtio= */ true, &parent) < 0)
                 return 0;
 
-        /* If this is an SR-IOV virtual device, get base name using physical device and add virtfn suffix. */
+        /* If parent is an SR-IOV VF, walk to the parent PF and add a 'v<N>' suffix piece. The
+         * onboard BIOS label is intentionally not exposed for any "child function" (VF, SF, or
+         * VF-SF), since the label refers to the parent's physical port, not to a logical child. */
+        bool is_child_function = !!subfunc_suffix;
         if (naming_scheme_has(NAMING_SR_IOV_V) &&
-            get_virtfn_info(parent, &physfn_pcidev, &virtfn_suffix) >= 0)
+            get_virtfn_info(parent, &physfn_pcidev, &virtfn_suffix) >= 0) {
                 parent = physfn_pcidev;
-        else
+                is_child_function = true;
+        }
+        if (!is_child_function)
                 (void) names_pci_onboard_label(event, parent, prefix);
 
-        (void) names_pci_onboard(event, parent, prefix, virtfn_suffix);
-        (void) names_pci_slot(event, parent, prefix, virtfn_suffix);
+        /* Compose the final suffix in PF -> [VF ->] SF order, e.g. "v0", "S88", or "v0S88". */
+        if (virtfn_suffix && subfunc_suffix) {
+                combined_suffix = strjoin(virtfn_suffix, subfunc_suffix);
+                if (!combined_suffix)
+                        return log_oom_debug();
+                suffix = combined_suffix;
+        } else
+                suffix = virtfn_suffix ?: subfunc_suffix;
+
+        (void) names_pci_onboard(event, parent, prefix, suffix);
+        (void) names_pci_slot(event, parent, prefix, suffix);
         return 0;
 }
 
@@ -1133,7 +1193,7 @@ static int names_ccw(UdevEvent *event, const char *prefix) {
          */
         bus_id_len = strlen(bus_id);
         if (!IN_SET(bus_id_len, 8, 9))
-                return log_device_debug_errno(cdev, SYNTHETIC_ERRNO(EINVAL), "Invalid bus_id: %s", bus_id);
+                return log_device_debug_errno(cdev, SYNTHETIC_ERRNO(EINVAL), "Invalid bus_id: '%s'", bus_id);
 
         /* Strip leading zeros from the bus id for aesthetic purposes. This
          * keeps the ccw names stable, yet much shorter in general case of
@@ -1208,7 +1268,7 @@ static int names_mac(UdevEvent *event, const char *prefix) {
                 return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL),
                                               "addr_assign_type=%u, MAC address is not permanent.", assign_type);
 
-        r = device_get_sysattr_value_filtered(dev, "address", &s);
+        r = device_get_sysattr_safe_string_filtered(dev, "address", &s);
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to read 'address' attribute: %m");
 
@@ -1253,14 +1313,12 @@ static int names_netdevsim(UdevEvent *event, const char *prefix) {
         if (r < 0)
                 return log_device_debug_errno(netdevsimdev, r, "Failed to get device sysnum: %m");
 
-        r = device_get_sysattr_value_filtered(dev, "phys_port_name", &phys_port_name);
+        r = device_get_sysattr_safe_string_filtered(dev, "phys_port_name", &phys_port_name);
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to get 'phys_port_name' attribute: %m");
         if (isempty(phys_port_name))
                 return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EOPNOTSUPP),
                                               "The 'phys_port_name' attribute is empty.");
-        if (!utf8_is_valid(phys_port_name) || string_has_cc(phys_port_name, /* ok= */ NULL))
-                return log_invalid_device_attr(dev, "phys_port_name", phys_port_name);
 
         char str[ALTIFNAMSIZ];
         if (snprintf_ok(str, sizeof str, "%si%un%s", prefix, addr, phys_port_name))
@@ -1295,7 +1353,7 @@ static int names_xen(UdevEvent *event, const char *prefix) {
 
         p = startswith(vif, "vif-");
         if (!p)
-                return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL), "Invalid vif name: %s.", vif);
+                return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL), "Invalid vif name: '%s'.", vif);
 
         r = safe_atou_full(p, SAFE_ATO_REFUSE_PLUS_MINUS | SAFE_ATO_REFUSE_LEADING_ZERO |
                            SAFE_ATO_REFUSE_LEADING_WHITESPACE | 10, &id);

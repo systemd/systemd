@@ -6,8 +6,6 @@
 #include "log.h"                /* IWYU pragma: keep */
 
 #if HAVE_GNUTLS
-static void *gnutls_dl = NULL;
-
 DLSYM_PROTOTYPE(gnutls_certificate_get_peers) = NULL;
 DLSYM_PROTOTYPE(gnutls_certificate_type_get) = NULL;
 DLSYM_PROTOTYPE(gnutls_certificate_verification_status_print) = NULL;
@@ -23,6 +21,8 @@ DLSYM_PROTOTYPE(gnutls_x509_crt_init) = NULL;
 
 int dlopen_gnutls(int log_level) {
 #if HAVE_GNUTLS
+        static void *gnutls_dl = NULL;
+
         SD_ELF_NOTE_DLOPEN(
                         "gnutls",
                         "Support for TLS via GnuTLS",

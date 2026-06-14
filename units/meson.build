@@ -240,6 +240,7 @@ units = [
         },
         { 'file' : 'sysinit.target' },
         { 'file' : 'syslog.socket' },
+        { 'file' : 'system-install.target' },
         {
           'file' : 'system-systemd\\x2dcryptsetup.slice',
           'conditions' : ['HAVE_LIBCRYPTSETUP'],
@@ -604,6 +605,10 @@ units = [
           'symlinks' : ['sysinit.target.wants/'],
         },
         {
+          'file' : 'systemd-pcrlogin@.service.in',
+          'conditions' : ['ENABLE_BOOTLOADER', 'HAVE_OPENSSL', 'HAVE_TPM2'],
+        },
+        {
           'file' : 'systemd-pcrphase-initrd.service.in',
           'conditions' : ['ENABLE_BOOTLOADER', 'HAVE_OPENSSL', 'HAVE_TPM2', 'ENABLE_INITRD'],
           'symlinks' : ['initrd.target.wants/'],
@@ -779,7 +784,12 @@ units = [
           'conditions' : ['ENABLE_SYSEXT'],
         },
         {
-          'file' : 'systemd-sysupdate-reboot.service.in',
+          'file' : 'systemd-sysinstall.service',
+          'conditions' : ['ENABLE_SYSINSTALL'],
+          'symlinks' : ['system-install.target.wants/'],
+        },
+        {
+          'file' : 'systemd-sysupdate-reboot.service',
           'conditions' : ['ENABLE_SYSUPDATE'],
         },
         {
@@ -787,7 +797,7 @@ units = [
           'conditions' : ['ENABLE_SYSUPDATE'],
         },
         {
-          'file' : 'systemd-sysupdate.service.in',
+          'file' : 'systemd-sysupdate.service',
           'conditions' : ['ENABLE_SYSUPDATE'],
         },
         {
@@ -803,6 +813,20 @@ units = [
           'file' : 'systemd-sysusers.service',
           'conditions' : ['ENABLE_SYSUSERS'],
           'symlinks' : ['sysinit.target.wants/'],
+        },
+        {
+          'file' : 'systemd-storage-block.socket',
+          'symlinks' : ['sockets.target.wants/']
+        },
+        {
+          'file' : 'systemd-storage-block@.service.in',
+        },
+        {
+          'file' : 'systemd-storage-fs.socket',
+          'symlinks' : ['sockets.target.wants/']
+        },
+        {
+          'file' : 'systemd-storage-fs@.service.in',
         },
         {
           'file' : 'systemd-storagetm.service.in',

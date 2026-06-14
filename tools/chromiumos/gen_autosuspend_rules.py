@@ -145,6 +145,10 @@ USB_IDS += [
     "33f8:01a2",
     # Rolling Wireless (RW135)
     "33f8:0115",
+    # Rolling Wireless (RW135R)
+    "33f8:1003",
+    # Rolling Wireless (RW350R USB)
+    "33f8:0802",
     # NetPrisma (LCUK54)
     "3731:0100",
 ]

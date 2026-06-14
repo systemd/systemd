@@ -180,7 +180,7 @@ static int print_status_info(const StatusInfo *i) {
         return 0;
 }
 
-VERB(verb_status, "status", NULL, VERB_ANY, 1, VERB_DEFAULT, "Show current time settings");
+VERB_DEFAULT_NOARG(verb_status, "status", "Show current time settings");
 static int verb_status(int argc, char *argv[], uintptr_t _data, void *userdata) {
         StatusInfo info = {};
         static const struct bus_properties_map map[]  = {
@@ -947,11 +947,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argc >= 0);
         assert(argv);
 
-        OptionParser state = { argc, argv };
-        const Option *current;
-        const char *arg;
+        OptionParser opts = { argc, argv };
 
-        FOREACH_OPTION_FULL(&state, c, &current, &arg, /* on_error= */ return c)
+        FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
                 OPTION_COMMON_HELP:
                         return help();
@@ -969,11 +967,11 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
                 OPTION_COMMON_HOST:
                         arg_transport = BUS_TRANSPORT_REMOTE;
-                        arg_host = arg;
+                        arg_host = opts.arg;
                         break;
 
                 OPTION_COMMON_MACHINE:
-                        r = parse_machine_argument(arg, &arg_host, &arg_transport);
+                        r = parse_machine_argument(opts.arg, &arg_host, &arg_transport);
                         if (r < 0)
                                 return r;
                         break;
@@ -988,14 +986,14 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
                 OPTION('p', "property", "NAME", "Show only properties by this name"): {}
                 OPTION_SHORT('P', "NAME", "Equivalent to --value --property=NAME"):
-                        r = strv_extend(&arg_property, arg);
+                        r = strv_extend(&arg_property, opts.arg);
                         if (r < 0)
                                 return log_oom();
 
                         /* If the user asked for a particular property, show it to them, even if empty. */
                         SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_SHOW_EMPTY, true);
 
-                        if (current->short_code == 'P')
+                        if (opts.opt->short_code == 'P')
                                 SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_ONLY_VALUE, true);
                         break;
 
@@ -1008,7 +1006,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         break;
                 }
 
-        *ret_args = option_parser_get_args(&state);
+        *ret_args = option_parser_get_args(&opts);
         return 1;
 }
 
@@ -1030,7 +1028,7 @@ static int run(int argc, char *argv[]) {
 
         (void) sd_bus_set_allow_interactive_authorization(bus, arg_ask_password);
 
-        return dispatch_verb_with_args(args, bus);
+        return dispatch_verb(args, bus);
 }
 
 DEFINE_MAIN_FUNCTION(run);

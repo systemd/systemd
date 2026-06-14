@@ -113,9 +113,14 @@ static int load_kexec_kernel(void) {
 
         int saved_errno = errno;
 
-        if (saved_errno == ENOEXEC) {
+        if (IN_SET(saved_errno, ENOEXEC, EINVAL)) {
                 /* The kernel didn't recognize the image format. Try decompressing or extracting the
-                 * kernel (e.g. compressed Image, ZBOOT PE, or UKI) and loading again. */
+                 * kernel (e.g. compressed Image, ZBOOT PE, or UKI) and loading again.
+                 *
+                 * Most architectures' kexec_file_load() returns ENOEXEC when no image loader matches
+                 * (the default behavior of kexec_image_probe_default()), but arm64's image_probe()
+                 * returns EINVAL for an unrecognized magic. Accept both, otherwise `systemctl kexec`
+                 * of a UKI never reaches the extraction path on arm64. */
                 log_debug_errno(saved_errno, "Kernel rejected image, trying decompression/extraction: %m");
 
                 _cleanup_close_ int extracted_kernel_fd = -EBADF, extracted_initrd_fd = -EBADF;

@@ -390,14 +390,18 @@ static int uid_is_available(int registry_dir_fd, uid_t candidate, int parent_use
         r = userns_registry_uid_exists(registry_dir_fd, candidate);
         if (r < 0)
                 return r;
-        if (r > 0)
+        if (r > 0) {
+                log_debug("UID " UID_FMT " unavailable: already registered in userns registry.", candidate);
                 return false;
+        }
 
         r = userns_registry_gid_exists(registry_dir_fd, (gid_t) candidate);
         if (r < 0)
                 return r;
-        if (r > 0)
+        if (r > 0) {
+                log_debug("UID " UID_FMT " unavailable: GID already registered in userns registry.", candidate);
                 return false;
+        }
 
         /* Also check delegation files. If parent_userns_inode is set and matches the delegation's userns
          * inode, the UID is available because the parent owns that delegation. */
@@ -410,8 +414,11 @@ static int uid_is_available(int registry_dir_fd, uid_t candidate, int parent_use
                 if (r < 0)
                         return r;
 
-                if (delegation.userns_inode != parent_userns_inode)
+                if (delegation.userns_inode != parent_userns_inode) {
+                        log_debug("UID " UID_FMT " unavailable: delegated to userns inode %" PRIu64 " (parent is %" PRIu64 ").",
+                                  candidate, delegation.userns_inode, parent_userns_inode);
                         return false;
+                }
 
                 /* The parent userns owns this delegation, so the UID is available for nested allocation */
                 log_debug("UID " UID_FMT " is delegated by parent userns inode %" PRIu64 ", available for nested allocation.",
@@ -427,8 +434,11 @@ static int uid_is_available(int registry_dir_fd, uid_t candidate, int parent_use
                 if (r < 0)
                         return r;
 
-                if (delegation.userns_inode != parent_userns_inode)
+                if (delegation.userns_inode != parent_userns_inode) {
+                        log_debug("UID " UID_FMT " unavailable: GID delegated to userns inode %" PRIu64 " (parent is %" PRIu64 ").",
+                                  candidate, delegation.userns_inode, parent_userns_inode);
                         return false;
+                }
 
                 /* The parent userns owns this delegation, so the UID is available for nested allocation */
                 log_debug("UID " UID_FMT " is delegated by parent userns inode %" PRIu64 ", available for nested allocation.",
@@ -447,14 +457,18 @@ static int uid_is_available(int registry_dir_fd, uid_t candidate, int parent_use
                  * nsresourced user namespace, but not in the nspawn user namespace). */
 
                 r = userdb_by_uid(candidate, /* match= */ NULL, USERDB_AVOID_MULTIPLEXER, /* ret= */ NULL);
-                if (r >= 0)
+                if (r >= 0) {
+                        log_debug("UID " UID_FMT " unavailable: known to userdb.", candidate);
                         return false;
+                }
                 if (r != -ESRCH)
                         return r;
 
                 r = groupdb_by_gid(candidate, /* match= */ NULL, USERDB_AVOID_MULTIPLEXER, /* ret= */ NULL);
-                if (r >= 0)
+                if (r >= 0) {
+                        log_debug("UID " UID_FMT " unavailable: GID known to groupdb.", candidate);
                         return false;
+                }
                 if (r != -ESRCH)
                         return r;
         }
@@ -498,6 +512,41 @@ static int name_is_available(
 
         log_debug("Namespace name '%s' is available.", name);
 
+        return true;
+}
+
+static int inode_slot_is_available(
+                int registry_dir_fd,
+                int userns_fd,
+                struct userns_restrict_bpf *bpf,
+                uint64_t inode) {
+
+        _cleanup_(userns_info_freep) UserNamespaceInfo *existing = NULL;
+        int r;
+
+        assert(registry_dir_fd >= 0);
+        assert(userns_fd >= 0);
+        assert(inode != 0);
+
+        /* Returns true if the registry has no entry for this inode (after cleaning up any stale
+         * leftover from a previously-registered namespace whose inode was recycled by the kernel),
+         * false if a live registration already occupies the slot, negative on error. */
+
+        r = userns_registry_load_by_userns_inode(registry_dir_fd, inode, &existing);
+        if (r == -ENOENT)
+                return true;
+        if (r < 0)
+                return log_debug_errno(r, "Failed to load existing registry entry: %m");
+
+        r = userns_info_verify_fd(userns_fd, existing);
+        if (r >= 0)
+                return false;
+        if (r != -ESTALE)
+                return log_debug_errno(r, "Failed to verify user namespace identity: %m");
+
+        log_debug("Inode %" PRIu64 " was reused by the kernel; cleaning up stale registry entry for namespace id %" PRIu64 ".",
+                  inode, existing->userns_id);
+        userns_registry_release_by_info(bpf, registry_dir_fd, existing);
         return true;
 }
 
@@ -604,6 +653,7 @@ static int allocate_now(
                 int registry_dir_fd,
                 int userns_fd,
                 int parent_userns_fd,
+                struct userns_restrict_bpf *bpf,
                 UserNamespaceInfo *info,
                 int *ret_lock_fd) {
 
@@ -626,6 +676,12 @@ static int allocate_now(
         if (r < 0)
                 return log_debug_errno(r, "Failed to read userns UID range: %m");
 
+        log_debug("Parent user namespace exposes %zu UID range(s) inside:", uid_range_entries(candidates));
+        if (DEBUG_LOGGING)
+                FOREACH_ARRAY(e, candidates->entries, candidates->n_entries)
+                        log_debug("  " UID_FMT "…" UID_FMT " (size " UID_FMT ")",
+                                  e->start, e->start + e->nr - 1, e->nr);
+
         _cleanup_close_ int lock_fd = -EBADF;
         lock_fd = userns_registry_lock(registry_dir_fd);
         if (lock_fd < 0)
@@ -638,10 +694,10 @@ static int allocate_now(
         if (r >= USERNS_PER_UID)
                 return log_debug_errno(SYNTHETIC_ERRNO(EUSERS), "User already registered %i user namespaces, refusing.", r);
 
-        r = userns_registry_inode_exists(registry_dir_fd, info->userns_inode);
+        r = inode_slot_is_available(registry_dir_fd, userns_fd, bpf, info->userns_inode);
         if (r < 0)
                 return r;
-        if (r > 0)
+        if (r == 0)
                 return -EDEADLK;
 
         r = name_is_available(registry_dir_fd, info->name);
@@ -1251,6 +1307,10 @@ static int vl_method_allocate_user_range(sd_varlink *link, sd_json_variant *para
         if (parent_userns_fd < 0)
                 return log_debug_errno(errno, "Failed to get parent user namespace: %m");
 
+        struct stat parent_st = {};
+        if (DEBUG_LOGGING && fstat(parent_userns_fd, &parent_st) < 0)
+                return log_debug_errno(errno, "Failed to fstat() parent user namespace fd: %m");
+
         r = sd_varlink_get_peer_uid(link, &peer_uid);
         if (r < 0)
                 return r;
@@ -1258,6 +1318,15 @@ static int vl_method_allocate_user_range(sd_varlink *link, sd_json_variant *para
         r = sd_varlink_get_peer_gid(link, &peer_gid);
         if (r < 0)
                 return r;
+
+        log_debug("Processing AllocateUserRange request: name='%s' type=%s peer=" UID_FMT ":" GID_FMT
+                  " userns=" INO_FMT " parent_userns=" INO_FMT
+                  " size=%" PRIu32 " delegates=%" PRIu32 " mapForeign=%s",
+                  userns_name,
+                  p.type == ALLOCATE_USER_RANGE_SELF ? "self" : "managed",
+                  peer_uid, peer_gid,
+                  userns_st.st_ino, parent_st.st_ino,
+                  p.size, p.delegate_container_ranges, yes_no(p.map_foreign));
 
         const char *polkit_details[] = {
                 "name", userns_name,
@@ -1295,6 +1364,8 @@ static int vl_method_allocate_user_range(sd_varlink *link, sd_json_variant *para
 
         userns_info->owner = peer_uid;
         userns_info->userns_inode = userns_st.st_ino;
+        if (ioctl(userns_fd, NS_GET_ID, &userns_info->userns_id) < 0)
+                log_debug_errno(errno, "Failed to query userns ID, ignoring: %m");
         userns_info->size = p.size;
         userns_info->target_uid = p.target;
         userns_info->target_gid = (gid_t) p.target;
@@ -1340,7 +1411,7 @@ static int vl_method_allocate_user_range(sd_varlink *link, sd_json_variant *para
                 userns_info->n_delegates = p.delegate_container_ranges;
         }
 
-        r = allocate_now(registry_dir_fd, userns_fd, parent_userns_fd, userns_info, &lock_fd);
+        r = allocate_now(registry_dir_fd, userns_fd, parent_userns_fd, c->bpf, userns_info, &lock_fd);
         if (r == -EHOSTDOWN) /* The needed UID range is not delegated to us */
                 return sd_varlink_error(link, "io.systemd.NamespaceResource.DynamicRangeUnavailable", NULL);
         if (r == -EBUSY)     /* All used up */
@@ -1553,10 +1624,10 @@ static int vl_method_register_user_namespace(sd_varlink *link, sd_json_variant *
         if (lock_fd < 0)
                 return log_debug_errno(lock_fd, "Failed to open nsresource registry lock file: %m");
 
-        r = userns_registry_inode_exists(registry_dir_fd, userns_st.st_ino);
+        r = inode_slot_is_available(registry_dir_fd, userns_fd, c->bpf, userns_st.st_ino);
         if (r < 0)
                 return r;
-        if (r > 0)
+        if (r == 0)
                 return sd_varlink_error(link, "io.systemd.NamespaceResource.UserNamespaceExists", NULL);
 
         r = name_is_available(registry_dir_fd, userns_name);
@@ -1575,6 +1646,8 @@ static int vl_method_register_user_namespace(sd_varlink *link, sd_json_variant *
 
         userns_info->owner = peer_uid;
         userns_info->userns_inode = userns_st.st_ino;
+        if (ioctl(userns_fd, NS_GET_ID, &userns_info->userns_id) < 0)
+                log_debug_errno(errno, "Failed to query userns ID, ignoring: %m");
 
         r = userns_registry_store(registry_dir_fd, userns_info);
         if (r < 0)
@@ -1701,6 +1774,12 @@ static int vl_method_add_mount_to_user_namespace(sd_varlink *link, sd_json_varia
                 return sd_varlink_error(link, "io.systemd.NamespaceResource.UserNamespaceNotRegistered", NULL);
         if (r < 0)
                 return r;
+
+        r = userns_info_verify_fd(userns_fd, userns_info);
+        if (r == -ESTALE)
+                return sd_varlink_error(link, "io.systemd.NamespaceResource.UserNamespaceNotRegistered", NULL);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to verify user namespace identity: %m");
 
         if (!c->bpf) {
                 r = userns_restrict_install(/* pin= */ true, &c->bpf);
@@ -1854,6 +1933,12 @@ static int vl_method_add_cgroup_to_user_namespace(sd_varlink *link, sd_json_vari
         if (r < 0)
                 return r;
 
+        r = userns_info_verify_fd(userns_fd, userns_info);
+        if (r == -ESTALE)
+                return sd_varlink_error(link, "io.systemd.NamespaceResource.UserNamespaceNotRegistered", NULL);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to verify user namespace identity: %m");
+
         /* The user namespace must have a user assigned */
         if (userns_info->size == 0)
                 return sd_varlink_error(link, "io.systemd.NamespaceResource.UserNamespaceWithoutUserRange", NULL);
@@ -1925,7 +2010,7 @@ static void hash_ether_addr(UserNamespaceInfo *userns_info, const char *ifname, 
         siphash24_compress_byte(0, &state); /* separator */
         siphash24_compress_string(strempty(ifname), &state);
         siphash24_compress_byte(0, &state); /* separator */
-        n = htole64(n); /* add the 'index' to the mix in an endianess-independent fashion */
+        n = htole64(n); /* add the 'index' to the mix in an endianness-independent fashion */
         siphash24_compress_typesafe(n, &state);
 
         h = htole64(siphash24_finalize(&state));
@@ -2246,6 +2331,12 @@ static int vl_method_add_netif_to_user_namespace(sd_varlink *link, sd_json_varia
                 return sd_varlink_error(link, "io.systemd.NamespaceResource.UserNamespaceNotRegistered", NULL);
         if (r < 0)
                 return r;
+
+        r = userns_info_verify_fd(userns_fd, userns_info);
+        if (r == -ESTALE)
+                return sd_varlink_error(link, "io.systemd.NamespaceResource.UserNamespaceNotRegistered", NULL);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to verify user namespace identity: %m");
 
         if (strv_length(userns_info->netifs) > USER_NAMESPACE_NETIFS_DELEGATE_MAX)
                 return sd_varlink_error(link, "io.systemd.NamespaceResource.TooManyNetworkInterfaces", NULL);

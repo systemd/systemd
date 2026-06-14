@@ -14,7 +14,7 @@
 #include "generator.h"
 #include "initrd-util.h"
 #include "log.h"
-#include "mkdir-label.h"
+#include "mkdir.h"
 #include "mountpoint-util.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -817,12 +817,18 @@ int generator_hook_up_quotacheck(
 
         if (isempty(fstype) || streq(fstype, "auto"))
                 return log_warning_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Couldn't determine filesystem type for %s, quota cannot be activated", what);
+        if (fstype_has_internal_quota(fstype)) {
+                log_debug("%s handles quotas internally, skipping quotacheck/quotaon setup for %s", fstype, what);
+                return 0;
+        }
         if (!fstype_needs_quota(fstype))
                 return log_warning_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Quota was requested for %s, but not supported, ignoring: %s", what, fstype);
 
         /* quotacheck unit for system root */
-        if (path_equal(where, "/"))
-                return generator_add_symlink(dir, SPECIAL_LOCAL_FS_TARGET, "wants", SYSTEM_DATA_UNIT_DIR "/" SPECIAL_QUOTACHECK_ROOT_SERVICE);
+        if (path_equal(where, "/")) {
+                r = generator_add_symlink(dir, SPECIAL_LOCAL_FS_TARGET, "wants", SYSTEM_DATA_UNIT_DIR "/" SPECIAL_QUOTACHECK_ROOT_SERVICE);
+                return r < 0 ? r : 1;
+        }
 
         r = unit_name_path_escape(where, &instance);
         if (r < 0)
@@ -838,7 +844,8 @@ int generator_hook_up_quotacheck(
         if (r < 0)
                 return log_error_errno(r, "Failed to make unit name from path '%s': %m", where);
 
-        return generator_add_symlink_full(dir, where_unit, "wants", SYSTEM_DATA_UNIT_DIR "/" SPECIAL_QUOTACHECK_SERVICE, instance);
+        r = generator_add_symlink_full(dir, where_unit, "wants", SYSTEM_DATA_UNIT_DIR "/" SPECIAL_QUOTACHECK_SERVICE, instance);
+        return r < 0 ? r : 1;
 }
 
 int generator_hook_up_quotaon(

@@ -54,12 +54,6 @@ systemctl kill -sUSR1 systemd-homed
 testcase_basic() {
     local TMP_SKEL
 
-    . /etc/os-release
-    if [[ "${ID_LIKE:-}" == alpine ]] && ! systemd-detect-virt -cq; then
-        # luks seems to be broken on alpine/postmarketos.
-        return 0
-    fi
-
     TMP_SKEL=$(mktemp -d)
     echo hogehoge >"$TMP_SKEL"/hoge
 
@@ -274,12 +268,6 @@ testcase_basic() {
 }
 
 testcase_blob() {
-    . /etc/os-release
-    if [[ "${ID_LIKE:-}" == alpine ]] && ! systemd-detect-virt -cq; then
-        # luks seems to be broken on alpine/postmarketos.
-        return 0
-    fi
-
     # blob directory tests
     # See docs/USER_RECORD_BLOB_DIRS.md
     checkblob() {
@@ -585,6 +573,15 @@ EOF
     (! userdbctl ssh-authorized-keys dropin-user --chain)
     (! userdbctl ssh-authorized-keys dropin-user --chain '')
     (! SYSTEMD_LOG_LEVEL=debug userdbctl ssh-authorized-keys dropin-user --chain /usr/bin/false)
+
+    # Check that invocations with --chain work as expected
+    userdbctl ssh-authorized-keys --chain dropin-user /bin/echo --asdf | grep -e --asdf
+    userdbctl ssh-authorized-keys dropin-user --chain /bin/echo --asdf | grep -e --asdf
+    userdbctl ssh-authorized-keys dropin-user /bin/echo --chain --asdf | grep -e --asdf
+    userdbctl ssh-authorized-keys --chain dropin-user -- /bin/echo --asdf | grep -e --asdf
+    userdbctl ssh-authorized-keys --chain -- dropin-user /bin/echo --asdf | grep -e --asdf
+    userdbctl --chain -- ssh-authorized-keys dropin-user /bin/echo --asdf | grep -e --asdf
+    (! userdbctl --chain -- ssh-authorized-keys dropin-user -- /bin/echo --asdf)
 
     (! userdbctl '')
     for opt in json multiplexer output synthesize with-dropin with-nss with-varlink; do
@@ -973,6 +970,96 @@ testcase_match() {
     homectl inspect matchtest
     homectl inspect matchtest | grep "Area: quux3"
     homectl remove matchtest
+}
+
+testcase_fscrypt() {
+    if ! command -v mkfs.ext4 >/dev/null; then
+        echo "e2fsprogs not installed, skipping fscrypt test."
+        return 0
+    fi
+
+    local IMAGE MNT
+    IMAGE="$(mktemp /tmp/fscrypt.XXXXXX.img)"
+    MNT="$(mktemp -d /tmp/fscrypt-mnt.XXXXXX)"
+    # shellcheck disable=SC2064
+    trap "homectl deactivate fscrypttest 2>/dev/null || true; homectl remove fscrypttest 2>/dev/null || true; umount '$MNT' 2>/dev/null || true; rm -rf '$MNT' '$IMAGE'" RETURN ERR
+
+    truncate -s 64M "$IMAGE"
+    if ! mkfs.ext4 -q -O encrypt "$IMAGE"; then
+        echo "mkfs.ext4 -O encrypt unsupported, skipping fscrypt test."
+        return 0
+    fi
+
+    if ! mount -o loop "$IMAGE" "$MNT"; then
+        echo "Cannot loop-mount fscrypt-capable ext4, skipping fscrypt test."
+        return 0
+    fi
+
+    if ! NEWPASSWORD=fsfsfs1234 homectl create fscrypttest \
+            --storage=fscrypt \
+            --image-path="$MNT/fscrypttest" \
+            --rate-limit-interval=1s --rate-limit-burst=1000; then
+        echo "homed fscrypt backend not usable on this kernel, skipping."
+        return 0
+    fi
+
+    inspect fscrypttest
+
+    (! PASSWORD=wrongpass timeout 10s homectl authenticate fscrypttest </dev/null)
+
+    PASSWORD=fsfsfs1234 homectl authenticate fscrypttest
+    PASSWORD=fsfsfs1234 homectl activate fscrypttest
+    inspect fscrypttest
+
+    fscrypt_run0() {
+        run0 --property=SetCredential=pam.authtok.systemd-run0:"$1" -u fscrypttest \
+            bash -c 'keyctl link @u @s; eval "$1"' -- "$2"
+    }
+
+    fscrypt_run0 fsfsfs1234 'echo "hello fscrypt" > /home/fscrypttest/file1'
+    [[ "$(fscrypt_run0 fsfsfs1234 'cat /home/fscrypttest/file1')" == "hello fscrypt" ]]
+    fscrypt_run0 fsfsfs1234 'mkdir /home/fscrypttest/subdir'
+    fscrypt_run0 fsfsfs1234 'dd if=/dev/urandom of=/home/fscrypttest/subdir/blob bs=4096 count=8 status=none'
+    fscrypt_run0 fsfsfs1234 'cp /home/fscrypttest/subdir/blob /home/fscrypttest/subdir/blob.copy && cmp /home/fscrypttest/subdir/blob /home/fscrypttest/subdir/blob.copy'
+    fscrypt_run0 fsfsfs1234 'echo appended >> /home/fscrypttest/file1 && grep -F appended /home/fscrypttest/file1 >/dev/null'
+    fscrypt_run0 fsfsfs1234 'rm /home/fscrypttest/subdir/blob.copy && test ! -e /home/fscrypttest/subdir/blob.copy'
+
+    systemctl stop user@"$(id -u fscrypttest)".service 2>/dev/null || true
+    homectl deactivate fscrypttest 2>/dev/null || true
+    wait_for_state fscrypttest inactive
+
+    # After deactivation the fscrypt-encrypted directory is locked, so cleartext file names should not be visible
+    [[ ! -e "$MNT/fscrypttest/file1" ]]
+
+    # Verify we actually use the v2 format
+    local SLOT
+    SLOT="$(getfattr --absolute-names --only-values -n trusted.fscrypt_slot0 "$MNT/fscrypttest")"
+    [[ "${SLOT:0:4}" == "\$v2:" ]] || {
+        echo "fscrypt slot 0 is not in v2 format: ${SLOT:0:32}"
+        return 1
+    }
+
+    PASSWORD=fsfsfs1234 homectl activate fscrypttest
+    [[ "$(fscrypt_run0 fsfsfs1234 'head -n1 /home/fscrypttest/file1')" == "hello fscrypt" ]]
+    systemctl stop user@"$(id -u fscrypttest)".service 2>/dev/null || true
+    homectl deactivate fscrypttest 2>/dev/null || true
+    wait_for_state fscrypttest inactive
+
+    homectl update fscrypttest --real-name="Fscrypt Test" --offline
+    inspect fscrypttest | grep "Real Name: Fscrypt Test" >/dev/null
+
+    PASSWORD=fsfsfs1234 NEWPASSWORD=newfsfs5678 homectl passwd fscrypttest
+    PASSWORD=newfsfs5678 homectl authenticate fscrypttest
+    (! PASSWORD=fsfsfs1234 timeout 10s homectl authenticate fscrypttest </dev/null)
+
+    PASSWORD=newfsfs5678 homectl activate fscrypttest
+    [[ "$(fscrypt_run0 newfsfs5678 'head -n1 /home/fscrypttest/file1')" == "hello fscrypt" ]]
+    fscrypt_run0 newfsfs5678 'rm -r /home/fscrypttest/subdir /home/fscrypttest/file1'
+    systemctl stop user@"$(id -u fscrypttest)".service 2>/dev/null || true
+    homectl deactivate fscrypttest 2>/dev/null || true
+    wait_for_state fscrypttest inactive
+
+    homectl remove fscrypttest
 }
 
 run_testcases

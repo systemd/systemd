@@ -2144,7 +2144,7 @@ static int bus_append_protect_hostname(sd_bus_message *m, const char *field, con
         int r;
 
         /* The command-line field is called "ProtectHostname". We also accept "ProtectHostnameEx" as the
-         * field name for backward compatibility. We set ProtectHostame or ProtectHostnameEx. */
+         * field name for backward compatibility. We set ProtectHostname or ProtectHostnameEx. */
 
         r = parse_boolean(eq);
         if (r >= 0)
@@ -2384,6 +2384,7 @@ static const BusProperty cgroup_properties[] = {
         { "ManagedOOMSwap",                        bus_append_string                             },
         { "ManagedOOMMemoryPressure",              bus_append_string                             },
         { "ManagedOOMPreference",                  bus_append_string                             },
+        { "OOMRules",                              bus_append_strv                               },
         { "MemoryPressureWatch",                   bus_append_string                             },
         { "CPUPressureWatch",                      bus_append_string                             },
         { "IOPressureWatch",                       bus_append_string                             },
@@ -2403,6 +2404,7 @@ static const BusProperty cgroup_properties[] = {
         { "StartupAllowedCPUs",                    bus_append_parse_cpu_set                      },
         { "AllowedMemoryNodes",                    bus_append_parse_cpu_set                      },
         { "StartupAllowedMemoryNodes",             bus_append_parse_cpu_set                      },
+        { "CPUSetPartition",                       bus_append_string                             },
         { "DisableControllers",                    bus_append_strv                               },
         { "Delegate",                              bus_append_parse_delegate                     },
         { "MemoryMin",                             bus_append_parse_resource_limit               },

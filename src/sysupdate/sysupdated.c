@@ -24,7 +24,6 @@
 #include "escape.h"
 #include "event-util.h"
 #include "fd-util.h"
-#include "fileio.h"
 #include "format-util.h"
 #include "hashmap.h"
 #include "log.h"
@@ -246,8 +245,13 @@ static int job_parse_child_output(int _fd, sd_json_variant **ret) {
                 return 0;
         }
 
-        r = sd_json_parse_file_at(/* f= */ NULL, fd, /* path= */ NULL, /* flags= */ 0,
-                                  &v, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
+        r = sd_json_parse_fd(
+                        /* path= */ "stdout",
+                        TAKE_FD(fd),
+                        SD_JSON_PARSE_DONATE_FD|SD_JSON_PARSE_SEEK0,
+                        &v,
+                        /* reterr_line= */ NULL,
+                        /* reterr_column= */ NULL);
         if (r < 0)
                 return log_debug_errno(r, "Failed to parse child output as JSON: %m");
 
@@ -591,19 +595,19 @@ static int job_method_cancel(sd_bus_message *msg, void *userdata, sd_bus_error *
         case JOB_LIST:
         case JOB_DESCRIBE:
         case JOB_CHECK_NEW:
-                action = "org.freedesktop.sysupdate1.check";
+                action = "org.freedesktop.sysupdate1.cancel-check";
                 break;
 
         case JOB_ACQUIRE:
         case JOB_INSTALL:
                 if (j->version)
-                        action = "org.freedesktop.sysupdate1.update-to-version";
+                        action = "org.freedesktop.sysupdate1.cancel-update-to-version";
                 else
-                        action = "org.freedesktop.sysupdate1.update";
+                        action = "org.freedesktop.sysupdate1.cancel-update";
                 break;
 
         case JOB_VACUUM:
-                action = "org.freedesktop.sysupdate1.vacuum";
+                action = "org.freedesktop.sysupdate1.cancel-vacuum";
                 break;
 
         case JOB_DESCRIBE_FEATURE:
@@ -771,7 +775,6 @@ static int target_new(Manager *m, TargetClass class, const char *name, const cha
 static int sysupdate_run_simple(sd_json_variant **ret, Target *t, ...) {
         _cleanup_close_pair_ int pipe[2] = EBADF_PAIR;
         _cleanup_(pidref_done_sigkill_wait) PidRef pid = PIDREF_NULL;
-        _cleanup_fclose_ FILE *f = NULL;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         _cleanup_free_ char *target_arg = NULL;
         int r;
@@ -845,11 +848,14 @@ static int sysupdate_run_simple(sd_json_variant **ret, Target *t, ...) {
         }
 
         pipe[1] = safe_close(pipe[1]);
-        f = take_fdopen(&pipe[0], "r");
-        if (!f)
-                return -errno;
 
-        r = sd_json_parse_file(f, "stdout", 0, &v, NULL, NULL);
+        r = sd_json_parse_fd(
+                        "stdout",
+                        TAKE_FD(pipe[0]),
+                        SD_JSON_PARSE_DONATE_FD,
+                        &v,
+                        /* reterr_line= */ NULL,
+                        /* reterr_column= */ NULL);
         if (r < 0)
                 return log_debug_errno(r, "Failed to parse JSON: %m");
 

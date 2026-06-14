@@ -193,7 +193,8 @@ static int manager_runtime_build_json(sd_json_variant **ret, const char *name, v
                 JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL("WatchdogLastPingTimestamp", watchdog_get_last_ping_as_dual_timestamp(&watchdog_last_ping)),
                 SD_JSON_BUILD_PAIR_STRING("SystemState", manager_state_to_string(manager_state(m))),
                 SD_JSON_BUILD_PAIR_UNSIGNED("ExitCode", m->return_value),
-                SD_JSON_BUILD_PAIR_UNSIGNED("SoftRebootsCount", m->soft_reboots_count));
+                SD_JSON_BUILD_PAIR_UNSIGNED("SoftRebootsCount", m->soft_reboots_count),
+                SD_JSON_BUILD_PAIR_UNSIGNED("ReloadCount", m->reload_count));
 }
 
 int vl_method_describe_manager(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
@@ -381,6 +382,7 @@ int vl_method_enqueue_marked_jobs_manager(sd_varlink *link, sd_json_variant *par
                                         JOB_FAIL,
                                         /* reload_if_possible= */ !BIT_SET(u->markers, UNIT_MARKER_NEEDS_RESTART),
                                         &job_id,
+                                        /* ret_job= */ NULL,
                                         &bus_error);
                 if (ERRNO_IS_NEG_RESOURCE(r))
                         return r;

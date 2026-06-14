@@ -31,10 +31,23 @@ tpm_check_failure_with_wrong_pin() {
 }
 
 at_exit() {
+    set +e
+
+    umount /tmp/dditest.mnt
+    systemd-cryptsetup detach test-volume
+    systemd-cryptsetup detach dditest
+
     # Evict the TPM primary key that we persisted
     if [[ -n "${PERSISTENT_HANDLE:-}" ]]; then
         tpm2_evictcontrol -c "$PERSISTENT_HANDLE"
     fi
+
+    if [[ -n "${DEVICE:-}" ]]; then
+        systemd-dissect --detach "$DEVICE"
+    fi
+
+    rm -rf /tmp/dditest /tmp/dditest.mnt
+    rm -f /tmp/dditest.raw "${IMAGE:-}" "${PRIMARY:-}" /tmp/passphrase /tmp/pcr.dat /tmp/srk.pub /tmp/srk2.pub
 }
 
 trap at_exit EXIT
@@ -44,8 +57,9 @@ IMAGE="$(mktemp /tmp/systemd-cryptsetup-XXX.IMAGE)"
 
 truncate -s 20M "$IMAGE"
 echo -n passphrase >/tmp/passphrase
+echo -n wrong_passphrase >/tmp/wrong_passphrase
 # Change file mode to avoid "/tmp/passphrase has 0644 mode that is too permissive" messages
-chmod 0600 /tmp/passphrase
+chmod 0600 /tmp/passphrase /tmp/wrong_passphrase
 cryptsetup luksFormat -q --pbkdf pbkdf2 --pbkdf-force-iterations 1000 --use-urandom "$IMAGE" /tmp/passphrase
 
 # Unlocking via keyfile
@@ -210,7 +224,8 @@ Format=ext4
 CopyFiles=/tmp/dditest:/
 Encrypt=tpm2
 EOF
-    PASSWORD=passphrase systemd-repart --tpm2-device-key=/tmp/srk.pub --definitions=/tmp/dditest --empty=create --size=80M /tmp/dditest.raw --tpm2-pcrs=
+    # Use --tpm2-public-key-pcrs= to suppress auto-loading of the system PCR public key
+    PASSWORD=passphrase systemd-repart --tpm2-device-key=/tmp/srk.pub --tpm2-public-key-pcrs= --definitions=/tmp/dditest --empty=create --size=80M /tmp/dditest.raw --tpm2-pcrs=
     DEVICE="$(systemd-dissect --attach /tmp/dditest.raw)"
     udevadm wait --settle --timeout=10 "$DEVICE"p1
     systemd-cryptsetup attach dditest "$DEVICE"p1 - tpm2-device=auto,headless=yes
@@ -224,4 +239,11 @@ EOF
     rmdir /tmp/dditest
 fi
 
-rm -f "$IMAGE" "$PRIMARY"
+# Key file can contain a TPM blob but in case it doesn't fallback should also work.
+systemd-cryptsetup attach test-volume "$IMAGE" /tmp/passphrase tpm2-device=auto,headless=1
+systemd-cryptsetup detach test-volume
+
+# Negative test: invalid passphrase should not work.
+(! systemd-cryptsetup attach test-volume "$IMAGE" /tmp/wrong_passphrase tpm2-device=auto,headless=1)
+
+rm -f "$IMAGE" "$PRIMARY" /tmp/passphrase /tmp/wrong_passphrase

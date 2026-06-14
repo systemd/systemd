@@ -289,6 +289,10 @@ typedef struct Unit {
 
         /* References to this unit from clients */
         sd_bus_track *bus_track;
+
+        /* If non-NULL, a varlink connection streaming unit state change notifications */
+        sd_varlink *varlink_unit_change;
+
         char **deserialized_refs;
 
         /* References to this */
@@ -614,6 +618,13 @@ typedef struct UnitVTable {
         /* Try to match up fds with what we need for this unit */
         void (*distribute_fds)(Unit *u, FDSet *fds);
 
+        /* Restore one file descriptor that PID 1 retrieved from a Live Update Orchestrator session into the
+         * unit's per-instance state (e.g. fd store). Always consumes 'fd', even on failure. If the fd
+         * was previously propagated to an upstream NOTIFY_SOCKET supervisor under a numeric index,
+         * 'index' carries that index so it can be re-claimed (avoiding collisions with newly allocated
+         * indices and keeping FDSTOREREMOVE messages routable). Pass 0 to indicate no preserved index. */
+        int (*attach_external_fd_to_fdstore)(Unit *u, int fd, const char *fdname, uint64_t index);
+
         /* Boils down the more complex internal state of this unit to
          * a simpler one that the engine can understand */
         UnitActiveState (*active_state)(Unit *u);
@@ -766,6 +777,10 @@ typedef struct UnitVTable {
 
         /* If true, we'll notify a surrounding VMM/container manager about this unit becoming available */
         bool notify_supervisor;
+
+        /* If true, we'll synthesize an 'orphaned' unit if a unit becomes an alias of another unit during a
+         * reload cycle, but still has resources assigned to it */
+        bool track_orphaned;
 
         /* The audit events to generate on start + stop (or 0 if none shall be generated) */
         int audit_start_message_type;
@@ -973,6 +988,7 @@ int unit_write_settingf(Unit *u, UnitWriteFlags flags, const char *name, const c
 int unit_kill_context(Unit *u, KillOperation k);
 
 int unit_make_transient(Unit *u);
+int manager_setup_transient_unit(Manager *m, const char *name, Unit **ret, sd_bus_error *reterr_error);
 
 int unit_add_mounts_for(Unit *u, const char *path, UnitDependencyMask mask, UnitMountDependencyType type);
 

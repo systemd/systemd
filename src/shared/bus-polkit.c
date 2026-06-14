@@ -346,7 +346,7 @@ static int async_polkit_process_reply(sd_bus_message *reply, AsyncPolkitQuery *q
         if (r < 0)
                 return r;
 
-        /* Now, let's dispatch the original message a second time be re-enqueing. This will then traverse the
+        /* Now, let's dispatch the original message a second time be re-enqueuing. This will then traverse the
          * whole message processing again, and thus re-validating and re-retrieving the "userdata" field
          * again.
          *
@@ -482,9 +482,9 @@ static int async_polkit_query_check_action(
  *     processed and the polkit action to verify.
  * 2.  bus_verify_polkit_async() checks the registry for an existing query object associated with the
  *     message. Let's assume this is the first call, so it finds nothing.
- * 3.  A new AsyncPolkitQuery object is created and an async. D-Bus call to polkit is made. The
+ * 3.  A new AsyncPolkitQuery object is created and an async D-Bus call to polkit is made. The
  *     function then returns 0. The method handler returns 1 to tell sd-bus that the processing of
- *    the message has been interrupted.
+ *     the message has been interrupted.
  * 4.  (Later) A reply from polkit is received and async_polkit_callback() is called.
  * 5.  async_polkit_callback() reads the reply and stores its result in the passed query.
  * 6.  async_polkit_callback() enqueues the original message again.

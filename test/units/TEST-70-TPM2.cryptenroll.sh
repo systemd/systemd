@@ -11,6 +11,12 @@ cryptenroll_wipe_and_check() {(
     grep -qE "Wiped slot [[:digit:]]+" /tmp/cryptenroll.out
 )}
 
+at_exit() {
+    rm -f "${IMAGE:-}" /tmp/cryptenroll.out /tmp/password
+}
+
+trap at_exit EXIT
+
 # There is an external issue with libcryptsetup on ppc64 that hits 95% of Ubuntu ppc64 test runs, so skip it
 if [[ "$(uname -m)" == "ppc64le" ]]; then
     echo "Skipping systemd-cryptenroll tests on ppc64le, see https://github.com/systemd/systemd/issues/27716"

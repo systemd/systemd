@@ -22,7 +22,7 @@
 #include "install.h"
 #include "install-printf.h"
 #include "log.h"
-#include "mkdir-label.h"
+#include "mkdir.h"
 #include "path-lookup.h"
 #include "path-util.h"
 #include "rm-rf.h"

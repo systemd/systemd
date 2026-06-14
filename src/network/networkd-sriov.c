@@ -3,6 +3,7 @@
 
 #include "sd-netlink.h"
 
+#include "device-private.h"
 #include "device-util.h"
 #include "errno-util.h"
 #include "hashmap.h"
@@ -282,7 +283,7 @@ int link_set_sr_iov_ifindices(Link *link) {
 
         /* This may return -EINVAL or -ENODEV, instead of -ENOENT, if the device has been removed or is being
          * removed. Let's ignore the error codes here. */
-        r = sd_device_get_sysattr_value(link->dev, "dev_port", &dev_port);
+        r = device_get_sysattr_safe_string(link->dev, "dev_port", &dev_port);
         if (ERRNO_IS_NEG_DEVICE_ABSENT(r) || r == -EINVAL)
                 return 0;
         if (r < 0)

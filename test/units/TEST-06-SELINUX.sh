@@ -39,12 +39,13 @@ CONTEXT="$(stat -c %C /proc/sys/kernel/core_pattern)"
 (! systemd-run --wait --pipe -p ConditionSecurity='selinux' false)
 systemd-run --wait --pipe -p ConditionSecurity='!selinux' false
 
+# Pass a unique --machine= name on each invocation to avoid "already loaded" flakiness
 NSPAWN_ARGS=(systemd-nspawn -q --volatile=yes --directory=/ --bind-ro=/etc --inaccessible=/etc/machine-id)
-[[ "$("${NSPAWN_ARGS[@]}" cat /proc/self/attr/current | tr -d '\0')" != "$CONTEXT" ]]
-[[ "$("${NSPAWN_ARGS[@]}" --selinux-context="$CONTEXT" cat /proc/self/attr/current | tr -d '\0')" == "$CONTEXT" ]]
-[[ "$("${NSPAWN_ARGS[@]}" stat --printf %C /run)" != "$CONTEXT" ]]
-[[ "$("${NSPAWN_ARGS[@]}" --selinux-apifs-context="$CONTEXT" stat --printf %C /run)" == "$CONTEXT" ]]
-[[ "$("${NSPAWN_ARGS[@]}" --selinux-apifs-context="$CONTEXT" --tmpfs=/tmp stat --printf %C /tmp)" == "$CONTEXT" ]]
+[[ "$("${NSPAWN_ARGS[@]}" --machine="nspawn-test-0" cat /proc/self/attr/current | tr -d '\0')" != "$CONTEXT" ]]
+[[ "$("${NSPAWN_ARGS[@]}" --machine="nspawn-test-1" --selinux-context="$CONTEXT" cat /proc/self/attr/current | tr -d '\0')" == "$CONTEXT" ]]
+[[ "$("${NSPAWN_ARGS[@]}" --machine="nspawn-test-2" stat --printf %C /run)" != "$CONTEXT" ]]
+[[ "$("${NSPAWN_ARGS[@]}" --machine="nspawn-test-3" --selinux-apifs-context="$CONTEXT" stat --printf %C /run)" == "$CONTEXT" ]]
+[[ "$("${NSPAWN_ARGS[@]}" --machine="nspawn-test-4" --selinux-apifs-context="$CONTEXT" --tmpfs=/tmp stat --printf %C /tmp)" == "$CONTEXT" ]]
 
 if [[ -n "${TEST_SELINUX_CHECK_AVCS:-}" ]] && ((TEST_SELINUX_CHECK_AVCS)); then
     (! journalctl -t audit -g AVC -o cat)

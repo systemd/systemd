@@ -15,7 +15,7 @@
 #include "install-file.h"
 #include "iovec-util.h"
 #include "log.h"
-#include "mkdir-label.h"
+#include "mkdir.h"
 #include "pull-common.h"
 #include "pull-job.h"
 #include "pull-raw.h"
@@ -148,9 +148,6 @@ int raw_pull_new(
                 .glue = TAKE_PTR(g),
                 .offset = UINT64_MAX,
         };
-
-        p->glue->on_finished = pull_job_curl_on_finished;
-        p->glue->userdata = p;
 
         *ret = TAKE_PTR(p);
 
@@ -546,31 +543,11 @@ static void raw_pull_job_on_finished(PullJob *j) {
                 return;
 
         if (p->signature_job && p->signature_job->error != 0) {
-                VerificationStyle style;
-                PullJob *verify_job;
+                assert(p->checksum_job || p->raw_job);
 
-                /* The signature job failed. Let's see if we actually need it */
-
-                verify_job = p->checksum_job ?: p->raw_job; /* if the checksum job doesn't exist this must be
-                                                             * because the main job is the checksum file
-                                                             * itself */
-
-                assert(verify_job);
-
-                r = verification_style_from_url(verify_job->url, &style);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to determine verification style from checksum URL: %m");
-                        goto finish;
-                }
-
-                if (style == VERIFICATION_PER_DIRECTORY) { /* A failed signature file download only matters
-                                                            * in per-directory verification mode, since only
-                                                            * then the signature is detached, and thus a file
-                                                            * of its own. */
-                        r = log_error_errno(p->signature_job->error,
-                                            "Failed to retrieve signature file, cannot verify. (Try --verify=no?)");
-                        goto finish;
-                }
+                r = log_error_errno(p->signature_job->error,
+                                    "Failed to retrieve signature file, cannot verify. (Try --verify=no?)");
+                goto finish;
         }
 
         PullJob *jj;

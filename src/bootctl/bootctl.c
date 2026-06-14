@@ -9,6 +9,7 @@
 #include "bootctl.h"
 #include "bootctl-cleanup.h"
 #include "bootctl-install.h"
+#include "bootctl-link.h"
 #include "bootctl-random-seed.h"
 #include "bootctl-reboot-to-firmware.h"
 #include "bootctl-set-efivar.h"
@@ -16,6 +17,7 @@
 #include "bootctl-uki.h"
 #include "bootctl-unlink.h"
 #include "bootctl-util.h"
+#include "bootspec-util.h"
 #include "build.h"
 #include "crypto-util.h"
 #include "devnum-util.h"
@@ -34,6 +36,7 @@
 #include "options.h"
 #include "pager.h"
 #include "parse-argument.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
 #include "string-table.h"
@@ -80,6 +83,13 @@ char *arg_certificate_source = NULL;
 char *arg_private_key = NULL;
 KeySourceType arg_private_key_source_type = OPENSSL_KEY_SOURCE_FILE;
 char *arg_private_key_source = NULL;
+bool arg_oldest = false;
+uint64_t arg_keep_free = KEEP_FREE_BYTES_DEFAULT;
+char *arg_entry_title = NULL;
+char *arg_entry_version = NULL;
+uint64_t arg_entry_commit = 0;
+char **arg_extras = NULL;
+unsigned arg_tries_left = UINT_MAX;
 
 STATIC_DESTRUCTOR_REGISTER(arg_esp_path, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_xbootldr_path, freep);
@@ -93,6 +103,9 @@ STATIC_DESTRUCTOR_REGISTER(arg_certificate, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_certificate_source, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_private_key, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_private_key_source, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_entry_title, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_entry_version, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_extras, strv_freep);
 
 static const char* const install_source_table[_INSTALL_SOURCE_MAX] = {
         [INSTALL_SOURCE_IMAGE] = "image",
@@ -298,8 +311,10 @@ static int help(void) {
                 "Options",
         };
 
-        _cleanup_(table_unref_many) Table *verb_tables[ELEMENTSOF(verb_groups) + 1] = {};
-        _cleanup_(table_unref_many) Table *option_tables[ELEMENTSOF(option_groups) + 1] = {};
+        Table *verb_tables[ELEMENTSOF(verb_groups)] = {};
+        CLEANUP_ELEMENTS(verb_tables, table_unref_array_clear);
+        Table *option_tables[ELEMENTSOF(option_groups)] = {};
+        CLEANUP_ELEMENTS(option_tables, table_unref_array_clear);
 
         for (size_t i = 0; i < ELEMENTSOF(verb_groups); i++) {
                 r = verbs_get_help_table_group(verb_groups[i], &verb_tables[i]);
@@ -359,8 +374,11 @@ VERB_GROUP("Boot Loader Specification Commands");
 VERB_SCOPE_NOARG(, verb_list, "list",
            "List boot loader entries");
 
-VERB_SCOPE(, verb_unlink, "unlink", "ID", 2, 2, 0,
+VERB_SCOPE(, verb_unlink, "unlink", "ID", VERB_ANY, 2, 0,
            "Remove boot loader entry");
+
+VERB_SCOPE(, verb_link, "link", "KERNEL", 2, 2, 0,
+           "Create boot loader entry for specified kernel");
 
 VERB_SCOPE_NOARG(, verb_cleanup, "cleanup",
            "Remove files in ESP not referenced in any boot entry");
@@ -416,10 +434,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argc >= 0);
         assert(argv);
 
-        OptionParser state = { argc, argv };
-        const char *arg;
+        OptionParser opts = { argc, argv };
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
 
                 OPTION_GROUP("Block Device Discovery Commands"): {}
@@ -464,53 +481,53 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
                 OPTION_LONG("esp-path", "PATH", "Path to the EFI System Partition (ESP)"): {}
                 OPTION_LONG("path", "PATH", /* help= */ NULL):  /* Compatibility alias */
-                        r = free_and_strdup(&arg_esp_path, arg);
+                        r = free_and_strdup(&arg_esp_path, opts.arg);
                         if (r < 0)
                                 return log_oom();
                         break;
 
                 OPTION_LONG("boot-path", "PATH", "Path to the $BOOT partition"):
-                        r = free_and_strdup(&arg_xbootldr_path, arg);
+                        r = free_and_strdup(&arg_xbootldr_path, opts.arg);
                         if (r < 0)
                                 return log_oom();
                         break;
 
                 OPTION_LONG("root", "PATH", "Operate on an alternate filesystem root"):
-                        r = parse_path_argument(arg, /* suppress_root= */ true, &arg_root);
+                        r = parse_path_argument(opts.arg, /* suppress_root= */ true, &arg_root);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("image", "PATH", "Operate on disk image as filesystem root"):
-                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_image);
+                        r = parse_path_argument(opts.arg, /* suppress_root= */ false, &arg_image);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("image-policy", "POLICY", "Specify disk image dissection policy"):
-                        r = parse_image_policy_argument(arg, &arg_image_policy);
+                        r = parse_image_policy_argument(opts.arg, &arg_image_policy);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("install-source", "SOURCE",
                             "Where to pick files when using --root=/--image= (auto, image, host)"): {
-                        InstallSource is = install_source_from_string(arg);
+                        InstallSource is = install_source_from_string(opts.arg);
                         if (is < 0)
-                                return log_error_errno(is, "Unexpected parameter for --install-source=: %s", arg);
+                                return log_error_errno(is, "Unexpected parameter for --install-source=: %s", opts.arg);
 
                         arg_install_source = is;
                         break;
                 }
 
                 OPTION_LONG("variables", "BOOL", "Whether to modify EFI variables"):
-                        r = parse_tristate_argument_with_auto("--variables=", arg, &arg_touch_variables);
+                        r = parse_tristate_argument_with_auto("--variables=", opts.arg, &arg_touch_variables);
                         if (r < 0)
                                 return r;
 #if !ENABLE_EFI
                         if (arg_touch_variables > 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                                       "Compiled without support for EFI, --variables=%s cannot be specified.", arg);
+                                                       "Compiled without support for EFI, --variables=%s cannot be specified.", opts.arg);
 #endif
                         break;
 
@@ -519,7 +536,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         break;
 
                 OPTION_LONG("random-seed", "BOOL", "Whether to create random-seed file during install"):
-                        r = parse_boolean_argument("--random-seed=", arg, &arg_install_random_seed);
+                        r = parse_boolean_argument("--random-seed=", opts.arg, &arg_install_random_seed);
                         if (r < 0)
                                 return r;
                         break;
@@ -537,20 +554,18 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         arg_quiet = true;
                         break;
 
-                OPTION_LONG("entry-token", "TOKEN",
-                            "Entry token to use for this installation"
-                            " (machine-id, os-id, os-image-id, auto, literal:…)"):
-                        r = parse_boot_entry_token_type(arg, &arg_entry_token_type, &arg_entry_token);
+                OPTION_COMMON_ENTRY_TOKEN:
+                        r = parse_boot_entry_token_type(opts.arg, &arg_entry_token_type, &arg_entry_token);
                         if (r < 0)
                                 return r;
                         break;
 
-                OPTION_LONG("make-entry-directory", "yes|no|auto", "Create $BOOT/ENTRY-TOKEN/ directory"): {}
+                OPTION_COMMON_MAKE_ENTRY_DIRECTORY: {}
                 OPTION_LONG("make-machine-id-directory", "BOOL", /* help= */ NULL):  /* Compatibility alias */
-                        if (streq(arg, "auto"))  /* retained for backwards compatibility */
+                        if (streq(opts.arg, "auto"))  /* retained for backwards compatibility */
                                 arg_make_entry_directory = -1; /* yes if machine-id is permanent */
                         else {
-                                r = parse_boolean_argument("--make-entry-directory=", arg, NULL);
+                                r = parse_boolean_argument("--make-entry-directory=", opts.arg, NULL);
                                 if (r < 0)
                                         return r;
 
@@ -559,7 +574,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         break;
 
                 OPTION_COMMON_JSON:
-                        r = parse_json_argument(arg, &arg_json_format_flags);
+                        r = parse_json_argument(opts.arg, &arg_json_format_flags);
                         if (r <= 0)
                                 return r;
                         break;
@@ -570,23 +585,23 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
                 OPTION_LONG("efi-boot-option-description", "DESCRIPTION",
                             "Description of the entry in the boot option list"):
-                        if (!string_is_safe(arg, STRING_ALLOW_BACKSLASHES|STRING_ALLOW_QUOTES|STRING_ALLOW_GLOBS)) {
-                                _cleanup_free_ char *escaped = cescape(arg);
+                        if (!string_is_safe(opts.arg, STRING_ALLOW_BACKSLASHES|STRING_ALLOW_QUOTES|STRING_ALLOW_GLOBS)) {
+                                _cleanup_free_ char *escaped = cescape(opts.arg);
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Invalid --efi-boot-option-description=: %s", strna(escaped));
                         }
-                        if (strlen(arg) > EFI_BOOT_OPTION_DESCRIPTION_MAX)
+                        if (strlen(opts.arg) > EFI_BOOT_OPTION_DESCRIPTION_MAX)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "--efi-boot-option-description= too long: %zu > %zu",
-                                                       strlen(arg), EFI_BOOT_OPTION_DESCRIPTION_MAX);
-                        r = free_and_strdup_warn(&arg_efi_boot_option_description, arg);
+                                                       strlen(opts.arg), EFI_BOOT_OPTION_DESCRIPTION_MAX);
+                        r = free_and_strdup_warn(&arg_efi_boot_option_description, opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("efi-boot-option-description-with-device", "BOOL",
                             "Suffix description with disk vendor/model/serial"):
-                        r = parse_boolean_argument("--efi-boot-option-description-with-device=", arg,
+                        r = parse_boolean_argument("--efi-boot-option-description-with-device=", opts.arg,
                                                    &arg_efi_boot_option_description_with_device);
                         if (r < 0)
                                 return r;
@@ -597,20 +612,20 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         break;
 
                 OPTION_LONG("secure-boot-auto-enroll", "BOOL", "Set up secure boot auto-enrollment"):
-                        r = parse_boolean_argument("--secure-boot-auto-enroll=", arg,
+                        r = parse_boolean_argument("--secure-boot-auto-enroll=", opts.arg,
                                                    &arg_secure_boot_auto_enroll);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_COMMON_PRIVATE_KEY("Private key for Secure Boot auto-enrollment"):
-                        r = free_and_strdup_warn(&arg_private_key, arg);
+                        r = free_and_strdup_warn(&arg_private_key, opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_COMMON_PRIVATE_KEY_SOURCE:
-                        r = parse_openssl_key_source_argument(arg,
+                        r = parse_openssl_key_source_argument(opts.arg,
                                                               &arg_private_key_source,
                                                               &arg_private_key_source_type);
                         if (r < 0)
@@ -618,21 +633,136 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         break;
 
                 OPTION_COMMON_CERTIFICATE("PEM certificate to use when setting up Secure Boot auto-enrollment"):
-                        r = free_and_strdup_warn(&arg_certificate, arg);
+                        r = free_and_strdup_warn(&arg_certificate, opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_COMMON_CERTIFICATE_SOURCE:
-                        r = parse_openssl_certificate_source_argument(arg,
+                        r = parse_openssl_certificate_source_argument(opts.arg,
                                                                       &arg_certificate_source,
                                                                       &arg_certificate_source_type);
                         if (r < 0)
                                 return r;
                         break;
+
+                OPTION_LONG("oldest", "BOOL",
+                            "Delete oldest boot menu entry"):
+                        r = parse_boolean_argument("--oldest=", opts.arg, &arg_oldest);
+                        if (r < 0)
+                                return r;
+
+                        break;
+
+                OPTION_LONG("keep-free", "BYTES",
+                            "How much space to keep free on ESP/XBOOTLDR"):
+
+                        if (isempty(opts.arg))
+                                arg_keep_free = KEEP_FREE_BYTES_DEFAULT;
+                        else {
+                                r = parse_size(opts.arg, 1024, &arg_keep_free);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse --keep-free=: %s", opts.arg);
+                        }
+
+                        break;
+
+                OPTION_LONG("entry-title", "TITLE",
+                            "Selects the entry title for the new boot menu entry"):
+
+                        if (isempty(opts.arg)) {
+                                arg_entry_title = mfree(arg_entry_title);
+                                break;
+                        }
+
+                        if (!efi_loader_entry_title_valid(opts.arg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Not a valid boot menu entry title: %s", opts.arg);
+
+                        r = free_and_strdup_warn(&arg_entry_title, opts.arg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("entry-version", "VERSION",
+                            "Selects the entry version for the new boot menu entry"):
+                        if (isempty(opts.arg)) {
+                                arg_entry_version = mfree(arg_entry_version);
+                                break;
+                        }
+
+                        if (!version_is_valid_versionspec(opts.arg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Not a valid boot menu entry version: %s", opts.arg);
+
+                        r = free_and_strdup_warn(&arg_entry_version, opts.arg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("entry-commit", "NR",
+                            "Selects the entry commit version for the new boot menu entry"): {
+                        if (isempty(opts.arg)) {
+                                arg_entry_commit = 0;
+                                break;
+                        }
+
+                        uint64_t n;
+                        r = safe_atou64(opts.arg, &n);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --entry-commit= parameter: %s", opts.arg);
+                        if (!entry_commit_valid(n))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Not a valid entry commit number.");
+
+                        arg_entry_commit = n;
+                        break;
                 }
 
-        char **args = option_parser_get_args(&state);
+                OPTION('X', "extra", "PATH",
+                       "Pass extra resource (confext, sysext, credential) to the invoked UKI of the boot menu entry"): {
+
+                        if (isempty(opts.arg)) {
+                                arg_extras = strv_free(arg_extras);
+                                break;
+                        }
+
+                        _cleanup_free_ char *x = NULL;
+                        r = parse_path_argument(opts.arg, /* suppress_root= */ false, &x);
+                        if (r < 0)
+                                return r;
+
+                        _cleanup_free_ char *fn = NULL;
+                        r = path_extract_filename(x, &fn);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to extract filename from '%s': %m", x);
+                        if (!efi_loader_entry_resource_filename_valid(fn))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Extra filename '%s' is not suitable for reference in a boot menu entry.", fn);
+
+                        r = strv_consume(&arg_extras, TAKE_PTR(x));
+                        if (r < 0)
+                                return log_oom();
+
+                        strv_uniq(arg_extras);
+                        break;
+                }
+
+                OPTION_LONG("tries-left", "NR",
+                            "Set boot menu entries tries-left counter to the specified value"): {
+                        if (isempty(opts.arg)) {
+                                arg_tries_left = UINT_MAX;
+                                break;
+                        }
+
+                        unsigned u;
+                        r = safe_atou(opts.arg, &u);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse tries left counter: %s", opts.arg);
+                        if (u >= UINT_MAX)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Tries left counter too large, refusing: %u", u);
+
+                        arg_tries_left = u;
+                        break;
+                }}
+
+        char **args = option_parser_get_args(&opts);
 
         if (!!arg_print_esp_path + !!arg_print_dollar_boot_path + (arg_print_root_device > 0) + arg_print_loader_path + arg_print_stub_path + arg_print_efi_architecture > 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -685,7 +815,9 @@ static int vl_server(void) {
 
         r = varlink_server_new(
                         &varlink_server,
-                        SD_VARLINK_SERVER_ROOT_ONLY|SD_VARLINK_SERVER_ALLOW_FD_PASSING_INPUT,
+                        SD_VARLINK_SERVER_ROOT_ONLY |
+                        SD_VARLINK_SERVER_MYSELF_ONLY |
+                        SD_VARLINK_SERVER_ALLOW_FD_PASSING_INPUT,
                         /* userdata= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate Varlink server: %m");
@@ -699,7 +831,9 @@ static int vl_server(void) {
                         "io.systemd.BootControl.ListBootEntries",     vl_method_list_boot_entries,
                         "io.systemd.BootControl.SetRebootToFirmware", vl_method_set_reboot_to_firmware,
                         "io.systemd.BootControl.GetRebootToFirmware", vl_method_get_reboot_to_firmware,
-                        "io.systemd.BootControl.Install",             vl_method_install);
+                        "io.systemd.BootControl.Install",             vl_method_install,
+                        "io.systemd.BootControl.Link",                vl_method_link,
+                        "io.systemd.BootControl.Unlink",              vl_method_unlink);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind Varlink methods: %m");
 
@@ -783,7 +917,7 @@ static int run(int argc, char *argv[]) {
                         return log_oom();
         }
 
-        return dispatch_verb_with_args(args, NULL);
+        return dispatch_verb(args, NULL);
 }
 
 DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);

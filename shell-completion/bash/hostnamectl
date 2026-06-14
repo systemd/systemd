@@ -67,7 +67,7 @@ _hostnamectl() {
     local -A VERBS=(
         [STANDALONE]='status'
         [ICONS]='icon-name'
-        [NAME]='hostname deployment location'
+        [NAME]='hostname deployment location tags'
         [CHASSIS]='chassis'
     )
 

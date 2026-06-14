@@ -518,6 +518,7 @@ static int json_dispatch_locales(const char *name, sd_json_variant *variant, sd_
         char ***l = userdata;
         const char *locale;
         sd_json_variant *e;
+        size_t s = 0;
         int r;
 
         if (sd_json_variant_is_null(variant)) {
@@ -536,7 +537,7 @@ static int json_dispatch_locales(const char *name, sd_json_variant *variant, sd_
                 if (!locale_is_valid(locale))
                         return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an array of valid locales.", strna(name));
 
-                r = strv_extend(&n, locale);
+                r = strv_extend_with_size(&n, &s, locale);
                 if (r < 0)
                         return json_log_oom(variant, flags);
         }
@@ -593,6 +594,7 @@ static int json_dispatch_weight(const char *name, sd_json_variant *variant, sd_j
 int json_dispatch_user_group_list(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         char ***list = ASSERT_PTR(userdata);
         _cleanup_strv_free_ char **l = NULL;
+        size_t s = 0;
         int r;
 
         if (!sd_json_variant_is_array(variant))
@@ -606,7 +608,7 @@ int json_dispatch_user_group_list(const char *name, sd_json_variant *variant, sd
                 if (!valid_user_group_name(sd_json_variant_string(e), FLAGS_SET(flags, SD_JSON_RELAX) ? VALID_USER_RELAX : 0))
                         return json_log(e, flags, SYNTHETIC_ERRNO(EINVAL), "JSON array element is not a valid user/group name: %s", sd_json_variant_string(e));
 
-                r = strv_extend(&l, sd_json_variant_string(e));
+                r = strv_extend_with_size(&l, &s, sd_json_variant_string(e));
                 if (r < 0)
                         return json_log(e, flags, r, "Failed to append array element: %m");
         }
@@ -727,6 +729,29 @@ static int dispatch_pkcs11_key_data(const char *name, sd_json_variant *variant, 
         return 0;
 }
 
+static int dispatch_pkcs11_padding(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        Pkcs11RsaPadding *p = ASSERT_PTR(userdata);
+        Pkcs11RsaPadding v;
+
+        if (sd_json_variant_is_null(variant)) {
+                *p = PKCS11_RSA_PADDING_PKCS1V15;
+                return 0;
+        }
+
+        if (!sd_json_variant_is_string(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL),
+                                "JSON field '%s' is not a string.", strna(name));
+
+        v = pkcs11_rsa_padding_from_string(sd_json_variant_string(variant));
+        if (v < 0)
+                return json_log(variant, flags, v,
+                                "JSON field '%s' has unsupported value '%s'.",
+                                strna(name), sd_json_variant_string(variant));
+
+        *p = v;
+        return 0;
+}
+
 static int dispatch_pkcs11_key(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         UserRecord *h = userdata;
         sd_json_variant *e;
@@ -740,6 +765,7 @@ static int dispatch_pkcs11_key(const char *name, sd_json_variant *variant, sd_js
                         { "uri",            SD_JSON_VARIANT_STRING, dispatch_pkcs11_uri,      offsetof(Pkcs11EncryptedKey, uri),             SD_JSON_MANDATORY },
                         { "data",           SD_JSON_VARIANT_STRING, dispatch_pkcs11_key_data, 0,                                             SD_JSON_MANDATORY },
                         { "hashedPassword", SD_JSON_VARIANT_STRING, sd_json_dispatch_string,  offsetof(Pkcs11EncryptedKey, hashed_password), SD_JSON_MANDATORY },
+                        { "padding",        SD_JSON_VARIANT_STRING, dispatch_pkcs11_padding,  offsetof(Pkcs11EncryptedKey, padding),         0                 },
                         {},
                 };
 
@@ -750,7 +776,9 @@ static int dispatch_pkcs11_key(const char *name, sd_json_variant *variant, sd_js
                         return log_oom();
 
                 Pkcs11EncryptedKey *k = h->pkcs11_encrypted_key + h->n_pkcs11_encrypted_key;
-                *k = (Pkcs11EncryptedKey) {};
+                *k = (Pkcs11EncryptedKey) {
+                        .padding = PKCS11_RSA_PADDING_PKCS1V15, /* legacy default if field is absent */
+                };
 
                 r = sd_json_dispatch(e, pkcs11_key_dispatch_table, flags, k);
                 if (r < 0) {
@@ -2372,8 +2400,7 @@ static int remove_self_modifiable_json_fields_common(UserRecord *current, sd_jso
                         return r;
         }
 
-        JSON_VARIANT_REPLACE(*target, TAKE_PTR(v));
-        return 0;
+        return json_variant_unref_and_replace(*target, v);
 }
 
 static int remove_self_modifiable_json_fields(UserRecord *current, UserRecord *h, sd_json_variant **ret) {
@@ -2458,8 +2485,7 @@ static int remove_self_modifiable_json_fields(UserRecord *current, UserRecord *h
                         return r;
         }
 
-        JSON_VARIANT_REPLACE(*ret, TAKE_PTR(v));
-        return 0;
+        return json_variant_unref_and_replace(*ret, v);
 }
 
 int user_record_self_changes_allowed(UserRecord *current, UserRecord *incoming) {
@@ -2487,7 +2513,7 @@ int user_record_self_changes_allowed(UserRecord *current, UserRecord *incoming) 
          *    `selfModifiableFields` fields are unset in their record.
          * 2) This user crafts a request to add the following to their record:
          *    { "memberOf": ["wheel"], "selfModifiableFields": ["memberOf", "selfModifiableFields"] }
-         * 3) We remove the `mebmerOf` and `selfModifiabileFields` fields from `incoming`
+         * 3) We remove the `memberOf` and `selfModifiabileFields` fields from `incoming`
          * 4) `current` and `incoming` compare as equal, so we let the change happen
          * 5) the user has granted themselves administrator privileges
          */

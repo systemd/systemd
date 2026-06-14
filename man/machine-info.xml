@@ -140,6 +140,27 @@
         </varlistentry>
 
         <varlistentry>
+          <term><varname>TAGS=</varname></term>
+
+          <listitem><para>A colon-separated list of tags attached to this machine. Tags are short labels that
+          may be used to classify and group machines for management purposes, for example to identify the role
+          a machine plays in a deployment (<literal>webserver</literal>, <literal>database</literal>), the
+          fleet or organizational unit it belongs to, or any other administrator-defined attribute. Example:
+          <literal>TAGS=webserver:frontend:berlin</literal>.</para>
+
+          <para>Each individual tag must be 1…255 characters long and may consist only of the ASCII
+          alphanumeric characters, <literal>-</literal> and <literal>.</literal>.</para>
+
+          <para>The configured tags may be matched against with the
+          <varname>ConditionMachineTag=</varname> and <varname>AssertMachineTag=</varname> unit settings, see
+          <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          for details. They may be queried and changed with the <command>tags</command> command of
+          <citerefentry><refentrytitle>hostnamectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><varname>HARDWARE_VENDOR=</varname></term>
 
           <listitem><para>Specifies the hardware vendor. If unspecified, the hardware vendor set in DMI or
@@ -195,7 +216,8 @@
     <programlisting>PRETTY_HOSTNAME="Lennart's Tablet"
 ICON_NAME=computer-tablet
 CHASSIS=tablet
-DEPLOYMENT=production</programlisting>
+DEPLOYMENT=production
+TAGS=demo:berlin</programlisting>
   </refsect1>
 
   <refsect1>

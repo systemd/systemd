@@ -73,10 +73,9 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        OptionParser state = { argc, argv };
-        const char *arg;
+        OptionParser opts = { argc, argv };
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
                 OPTION_COMMON_HELP:
                         return help();
@@ -85,13 +84,13 @@ static int parse_argv(int argc, char *argv[]) {
                         return version();
 
                 OPTION_LONG("icon", "NAME", "Icon name"):
-                        arg_icon = arg;
+                        arg_icon = opts.arg;
                         break;
 
                 OPTION_LONG("timeout", "SEC", "Timeout in seconds"):
-                        r = parse_sec(arg, &arg_timeout);
+                        r = parse_sec(opts.arg, &arg_timeout);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --timeout= parameter: %s", arg);
+                                return log_error_errno(r, "Failed to parse --timeout= parameter: %s", opts.arg);
                         break;
 
                         /* Note the asymmetry: the long option --echo= allows an optional argument,
@@ -99,15 +98,15 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_LONG_FLAGS(OPTION_OPTIONAL_ARG, "echo", "yes|no|masked",
                                   "Control whether to show password while typing"): {}
                 OPTION('e', "echo", NULL, "Equivalent to --echo=yes"):
-                        if (!arg) {
+                        if (!opts.arg) {
                                 /* Short option -e is used, or no argument to long option --echo= */
                                 arg_flags |= ASK_PASSWORD_ECHO;
                                 arg_flags &= ~ASK_PASSWORD_SILENT;
-                        } else if (isempty(arg) || streq(arg, "masked"))
+                        } else if (isempty(opts.arg) || streq(opts.arg, "masked"))
                                 /* Empty argument or explicit string "masked" for default behaviour. */
                                 arg_flags &= ~(ASK_PASSWORD_ECHO|ASK_PASSWORD_SILENT);
                         else {
-                                r = parse_boolean_argument("--echo=", arg, NULL);
+                                r = parse_boolean_argument("--echo=", opts.arg, NULL);
                                 if (r < 0)
                                         return r;
 
@@ -117,7 +116,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 OPTION_LONG("emoji", "yes|no|auto", "Show a lock and key emoji"):
-                        emoji = arg;
+                        emoji = opts.arg;
                         break;
 
                 OPTION_LONG("no-tty", NULL, "Ask question via agent even on TTY"):
@@ -133,11 +132,11 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 OPTION_LONG("id", "ID", "Query identifier (e.g. \"cryptsetup:/dev/sda5\")"):
-                        arg_id = arg;
+                        arg_id = opts.arg;
                         break;
 
                 OPTION_LONG("keyname", "NAME", "Kernel key name for caching passwords"):
-                        arg_key_name = arg;
+                        arg_key_name = opts.arg;
                         break;
 
                 OPTION_LONG("no-output", NULL, "Do not print password to standard output"):
@@ -146,7 +145,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG("credential", "NAME",
                             "Credential name for ImportCredential=, LoadCredential= or SetCredential= credentials"):
-                        arg_credential_name = arg;
+                        arg_credential_name = opts.arg;
                         break;
 
                 OPTION_LONG("user", NULL, "Ask only our own user's agents"):
@@ -172,7 +171,7 @@ static int parse_argv(int argc, char *argv[]) {
                 SET_FLAG(arg_flags, ASK_PASSWORD_HIDE_EMOJI, !r);
         }
 
-        char **args = option_parser_get_args(&state);
+        char **args = option_parser_get_args(&opts);
 
         if (!strv_isempty(args)) {
                 arg_message = strv_join(args, " ");
@@ -251,6 +250,8 @@ static int vl_method_ask(sd_varlink *link, sd_json_variant *parameters, sd_varli
                 .push_cache = -1,
                 .echo_mode = _ECHO_MODE_INVALID,
         };
+        /* Local copy so that parameters passed are per-invocation */
+        AskPasswordFlags ask_flags = arg_flags;
         int r;
 
         assert(link);
@@ -286,21 +287,21 @@ static int vl_method_ask(sd_varlink *link, sd_json_variant *parameters, sd_varli
                 req.until = MIN(usec_add(now(CLOCK_MONOTONIC), p.timeout_usec), p.until_usec);
 
         /* If the timeout is set to zero, don't ask agents, just stick to cache */
-        SET_FLAG(arg_flags, ASK_PASSWORD_NO_AGENT, req.until == 0);
+        SET_FLAG(ask_flags, ASK_PASSWORD_NO_AGENT, req.until == 0);
 
         if (p.accept_cached >= 0)
-                SET_FLAG(arg_flags, ASK_PASSWORD_ACCEPT_CACHED, p.accept_cached);
+                SET_FLAG(ask_flags, ASK_PASSWORD_ACCEPT_CACHED, p.accept_cached);
 
         if (p.push_cache >= 0)
-                SET_FLAG(arg_flags, ASK_PASSWORD_PUSH_CACHE, p.push_cache);
+                SET_FLAG(ask_flags, ASK_PASSWORD_PUSH_CACHE, p.push_cache);
 
         if (p.echo_mode >= 0) {
-                SET_FLAG(arg_flags, ASK_PASSWORD_ECHO, p.echo_mode == ECHO_ON);
-                SET_FLAG(arg_flags, ASK_PASSWORD_SILENT, p.echo_mode == ECHO_OFF);
+                SET_FLAG(ask_flags, ASK_PASSWORD_ECHO, p.echo_mode == ECHO_ON);
+                SET_FLAG(ask_flags, ASK_PASSWORD_SILENT, p.echo_mode == ECHO_OFF);
         }
 
         _cleanup_strv_free_erase_ char **l = NULL;
-        r = ask_password_auto(&req, arg_flags, &l);
+        r = ask_password_auto(&req, ask_flags, &l);
         if (r == -EUNATCH)
                 return sd_varlink_error(link, "io.systemd.AskPassword.NoPasswordAvailable", NULL);
         if (r == -ETIME)

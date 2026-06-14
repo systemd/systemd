@@ -8,8 +8,6 @@
 #include "xkbcommon-util.h"
 
 #if HAVE_XKBCOMMON
-static void *xkbcommon_dl = NULL;
-
 DLSYM_PROTOTYPE(xkb_context_new) = NULL;
 DLSYM_PROTOTYPE(xkb_context_unref) = NULL;
 DLSYM_PROTOTYPE(xkb_context_set_log_fn) = NULL;
@@ -17,6 +15,8 @@ DLSYM_PROTOTYPE(xkb_keymap_new_from_names) = NULL;
 DLSYM_PROTOTYPE(xkb_keymap_unref) = NULL;
 
 static int dlopen_xkbcommon(int log_level) {
+        static void *xkbcommon_dl = NULL;
+
         SD_ELF_NOTE_DLOPEN(
                         "xkbcommon",
                         "Support for keyboard locale descriptions",

@@ -14,6 +14,7 @@
 #include "memstream-util.h"
 #include "namespace-util.h"
 #include "parse-util.h"
+#include "pidfd-util.h"
 #include "process-util.h"
 #include "signal-util.h"
 #include "special.h"
@@ -38,6 +39,7 @@ static const char * const metadata_field_table[_META_MAX] = {
         [META_UNIT]           = "COREDUMP_UNIT=",
         [META_PROC_AUXV]      = "COREDUMP_PROC_AUXV=",
         [META_THREAD_NAME]    = "COREDUMP_THREAD_NAME=",
+        [META_CODE]           = "COREDUMP_CODE=",
 };
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(metadata_field, MetadataField);
@@ -176,6 +178,34 @@ static int get_process_container_parent_cmdline(PidRef *pid, char** ret_cmdline)
         return 1;
 }
 
+/* The kernel passes si_signo through core_pattern (%s). Starting with v7.1,
+ * si_code is reported as well via pidfd. */
+static int coredump_context_read_pidfd_info(CoredumpContext *context) {
+        struct pidfd_info info = {
+                .mask = PIDFD_INFO_COREDUMP,
+        };
+        int r;
+
+        assert(context);
+        assert(pidref_is_set(&context->pidref));
+
+        if (!context->got_pidfd || context->pidref.fd < 0)
+                return 0;
+
+        r = pidfd_get_info(context->pidref.fd, &info);
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                return log_debug_errno(r, "PIDFD_INFO_COREDUMP not supported, ignoring: %m");
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get pidfd coredump info, ignoring: %m");
+
+        if (FLAGS_SET(info.mask, PIDFD_INFO_COREDUMP_CODE)) {
+                context->code = (int) info.coredump_code;
+                context->got_code = true;
+        }
+
+        return 0;
+}
+
 int coredump_context_build_iovw(CoredumpContext *context) {
         char *t;
         int r;
@@ -213,6 +243,10 @@ int coredump_context_build_iovw(CoredumpContext *context) {
                         return log_error_errno(r, "Failed to add COREDUMP_SIGNAL= field: %m");
 
                 (void) iovw_put_string_field(&context->iovw, "COREDUMP_SIGNAL_NAME=SIG", signal_to_string(context->signo));
+
+                /* Emit si_code if we learned it from pidfd_info */
+                if (context->got_code)
+                        (void) iovw_put_string_fieldf(&context->iovw, "COREDUMP_CODE=", "%i", context->code);
         }
 
         r = iovw_put_string_fieldf(&context->iovw, "COREDUMP_TIMESTAMP=", USEC_FMT, context->timestamp);
@@ -367,6 +401,8 @@ static int coredump_context_parse_from_procfs(CoredumpContext *context) {
         if (r < 0)
                 log_warning_errno(r, "Failed to get auxv, ignoring: %m");
 
+        (void) coredump_context_read_pidfd_info(context);
+
         r = pidref_verify(&context->pidref);
         if (r < 0)
                 return log_error_errno(r, "PIDFD validation failed: %m");
@@ -498,6 +534,17 @@ static int context_parse_one(CoredumpContext *context, MetadataField meta, bool 
 
         case META_THREAD_NAME:
                 return free_and_strdup_warn(&context->thread_name, s);
+
+        case META_CODE:
+                /* We must accept both positive and negative values. The former
+                 * are reserved for kernel-generated signals, the latter for signals requested
+                 * from userspace. See /usr/include/bits/siginfo-consts.h. */
+                r = safe_atoi(s, &context->code);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to parse code \"%s\", ignoring: %m", s);
+                else
+                        context->got_code = true;
+                return 0;
 
         case META_PROC_AUXV: {
                 char *t = memdup_suffix0(s, size);

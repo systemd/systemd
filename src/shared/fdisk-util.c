@@ -16,13 +16,12 @@
 #include "parse-util.h"
 #include "string-util.h"
 
-static void *fdisk_dl = NULL;
-
 DLSYM_PROTOTYPE(fdisk_add_partition) = NULL;
 DLSYM_PROTOTYPE(fdisk_apply_table) = NULL;
 DLSYM_PROTOTYPE(fdisk_ask_get_type) = NULL;
 DLSYM_PROTOTYPE(fdisk_ask_string_set_result) = NULL;
 DLSYM_PROTOTYPE(fdisk_assign_device) = NULL;
+DLSYM_PROTOTYPE(fdisk_assign_device_by_fd) = NULL;
 DLSYM_PROTOTYPE(fdisk_create_disklabel) = NULL;
 DLSYM_PROTOTYPE(fdisk_delete_partition) = NULL;
 DLSYM_PROTOTYPE(fdisk_get_devfd) = NULL;
@@ -82,11 +81,9 @@ DLSYM_PROTOTYPE(fdisk_write_disklabel) = NULL;
 
 int dlopen_fdisk(int log_level) {
 #if HAVE_LIBFDISK
-        SD_ELF_NOTE_DLOPEN(
-                        "fdisk",
-                        "Support for reading and writing partition tables",
-                        SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
-                        "libfdisk.so.1");
+        static void *fdisk_dl = NULL;
+
+        FDISK_NOTE(SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED);
 
         return dlopen_many_sym_or_warn(
                         &fdisk_dl,
@@ -97,6 +94,7 @@ int dlopen_fdisk(int log_level) {
                         DLSYM_ARG(fdisk_ask_get_type),
                         DLSYM_ARG(fdisk_ask_string_set_result),
                         DLSYM_ARG(fdisk_assign_device),
+                        DLSYM_ARG(fdisk_assign_device_by_fd),
                         DLSYM_ARG(fdisk_create_disklabel),
                         DLSYM_ARG(fdisk_delete_partition),
                         DLSYM_ARG(fdisk_get_devfd),

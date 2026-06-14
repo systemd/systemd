@@ -3,6 +3,9 @@
 #include <fcntl.h>
 #include <linux/if.h>
 #include <linux/if_arp.h>
+#include <linux/if_ether.h>
+#include <linux/if_infiniband.h>
+#include <linux/pkt_sched.h>
 #include <mqueue.h>
 #include <net/if.h>
 #include <netdb.h>
@@ -1618,13 +1621,17 @@ int connect_unix_path(int fd, int dir_fd, const char *path) {
         _cleanup_close_ int inode_fd = -EBADF;
 
         assert(fd >= 0);
-        assert(dir_fd == AT_FDCWD || dir_fd >= 0);
+        assert(wildcard_fd_is_valid(dir_fd));
 
         /* Connects to the specified AF_UNIX socket in the file system. Works around the 108 byte size limit
          * in sockaddr_un, by going via O_PATH if needed. This hence works for any kind of path. */
 
-        if (!path)
+        if (!path) {
+                if (dir_fd < 0)
+                        return -EISDIR;
+
                 return connect_unix_inode(fd, dir_fd); /* If no path is specified, then dir_fd refers to the socket inode to connect to. */
+        }
 
         /* Refuse zero length path early, to make sure AF_UNIX stack won't mistake this for an abstract
          * namespace path, since first char is NUL */
@@ -1639,7 +1646,14 @@ int connect_unix_path(int fd, int dir_fd, const char *path) {
          * exist. If the path is too long, we also need to take the indirect route, since we can't fit this
          * into a sockaddr_un directly. */
 
-        inode_fd = openat(dir_fd, path, O_PATH|O_CLOEXEC);
+        if (dir_fd == XAT_FDROOT) {
+                _cleanup_free_ char *j = strjoin("/", path);
+                if (!j)
+                        return -ENOMEM;
+
+                inode_fd = open(j, O_PATH|O_CLOEXEC);
+        } else
+                inode_fd = openat(dir_fd, path, O_PATH|O_CLOEXEC);
         if (inode_fd < 0)
                 return -errno;
 
@@ -1784,30 +1798,6 @@ int socket_address_parse_vsock(SocketAddress *ret_address, const char *s) {
         return 0;
 }
 
-int vsock_get_local_cid(unsigned *ret) {
-        _cleanup_close_ int vsock_fd = -EBADF;
-
-        vsock_fd = open("/dev/vsock", O_RDONLY|O_CLOEXEC);
-        if (vsock_fd < 0)
-                return log_debug_errno(errno, "Failed to open %s: %m", "/dev/vsock");
-
-        unsigned tmp;
-        if (ioctl(vsock_fd, IOCTL_VM_SOCKETS_GET_LOCAL_CID, &tmp) < 0)
-                return log_debug_errno(errno, "Failed to query local AF_VSOCK CID: %m");
-        log_debug("Local AF_VSOCK CID: %u", tmp);
-
-        /* If ret == NULL, we're just want to check if AF_VSOCK is available, so accept
-         * any address. Otherwise, filter out special addresses that are cannot be used
-         * to identify _this_ machine from the outside. */
-        if (ret && IN_SET(tmp, VMADDR_CID_LOCAL, VMADDR_CID_HOST, VMADDR_CID_ANY))
-                return log_debug_errno(SYNTHETIC_ERRNO(EADDRNOTAVAIL),
-                                       "IOCTL_VM_SOCKETS_GET_LOCAL_CID returned special value (%u), ignoring.", tmp);
-
-        if (ret)
-                *ret = tmp;
-        return 0;
-}
-
 int netlink_socket_get_multicast_groups(int fd, size_t *ret_len, uint32_t **ret_groups) {
         _cleanup_free_ uint32_t *groups = NULL;
         socklen_t len = 0, old_len;
@@ -1871,5 +1861,31 @@ void cmsg_close_all(struct msghdr *mh) {
                         assert(cmsg->cmsg_len == CMSG_LEN(sizeof(int)));
                         safe_close(*CMSG_TYPED_DATA(cmsg, int));
                 }
+        }
+}
+
+int tos_to_priority(uint8_t tos) {
+        /* Map the IP Precedence (top 3 bits of the TOS field) to Linux internal packet priorities
+         * (TC_PRIO_*). This exactly mirrors the standard Linux kernel IP precedence-to-priority mapping
+         * (rt_tos2priority) to ensure consistent behavior when explicitly setting SO_PRIORITY. */
+        switch (IPTOS_PREC(tos)) {
+        case IPTOS_PREC_NETCONTROL:      /* 0xc0 (CS7) - Network Control. Used for infrastructure control (e.g., STP, keepalives). */
+        case IPTOS_PREC_INTERNETCONTROL: /* 0xe0 (CS6) - Internetwork Control. Used for routing protocols (e.g., OSPF, BGP) and DHCP. */
+                return TC_PRIO_CONTROL;
+
+        case IPTOS_PREC_CRITIC_ECP:      /* 0xa0 (CS5) - Critical. Used for delay-sensitive traffic like Voice over IP (VoIP). */
+        case IPTOS_PREC_FLASHOVERRIDE:   /* 0x80 (CS4) - Flash Override. Used for interactive video and multimedia. */
+                return TC_PRIO_INTERACTIVE;
+
+        case IPTOS_PREC_FLASH:           /* 0x60 (CS3) - Flash. Used for broadcast video and call signaling (e.g., SIP). */
+        case IPTOS_PREC_IMMEDIATE:       /* 0x40 (CS2) - Immediate. Used for OAM (Operations, Administration, and Management) and transactional data. */
+                return TC_PRIO_INTERACTIVE_BULK;
+
+        case IPTOS_PREC_PRIORITY:        /* 0x20 (CS1) - Priority. Used for background traffic and bulk data transfers. */
+                return TC_PRIO_BULK;
+
+        case IPTOS_PREC_ROUTINE:         /* 0x00 (CS0) - Routine. Best effort traffic. */
+        default:
+                return TC_PRIO_BESTEFFORT;
         }
 }

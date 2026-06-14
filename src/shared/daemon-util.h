@@ -27,6 +27,8 @@ int close_and_notify_warn(int fd, const char *name);
 int notify_push_fd(int fd, const char *name);
 int notify_push_fdf(int fd, const char *format, ...) _printf_(2, 3);
 
+bool fdstore_detected(void);
+
 int notify_reloading_full(const char *status);
 static inline int notify_reloading(void) {
         return notify_reloading_full("Reloading configuration...");

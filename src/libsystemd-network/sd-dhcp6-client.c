@@ -182,12 +182,12 @@ int sd_dhcp6_client_add_vendor_option(sd_dhcp6_client *client, sd_dhcp6_option *
         }
 
         r = ordered_set_ensure_put(&client->vendor_options, &dhcp6_option_hash_ops, v);
-        if (r < 0)
+        if (r <= 0)
                 return r;
 
         sd_dhcp6_option_ref(v);
 
-        return 1;
+        return r;
 }
 
 static int client_ensure_duid(sd_dhcp6_client *client) {
@@ -541,11 +541,11 @@ int sd_dhcp6_client_add_option(sd_dhcp6_client *client, sd_dhcp6_option *v) {
         assert_return(v, -EINVAL);
 
         r = ordered_hashmap_ensure_put(&client->extra_options, &dhcp6_option_hash_ops, UINT_TO_PTR(v->option), v);
-        if (r < 0)
+        if (r <= 0)
                 return r;
 
         sd_dhcp6_option_ref(v);
-        return 0;
+        return r;
 }
 
 static void client_set_state(sd_dhcp6_client *client, DHCP6State state) {
@@ -1507,7 +1507,7 @@ int sd_dhcp6_client_attach_event(sd_dhcp6_client *client, sd_event *event, int64
         else {
                 r = sd_event_default(&client->event);
                 if (r < 0)
-                        return 0;
+                        return r;
         }
 
         client->event_priority = priority;
@@ -1533,7 +1533,7 @@ sd_event *sd_dhcp6_client_get_event(sd_dhcp6_client *client) {
 int sd_dhcp6_client_attach_device(sd_dhcp6_client *client, sd_device *dev) {
         assert_return(client, -EINVAL);
 
-        return device_unref_and_replace(client->dev, dev);
+        return device_unref_and_replace_new_ref(client->dev, dev);
 }
 
 static sd_dhcp6_client *dhcp6_client_free(sd_dhcp6_client *client) {

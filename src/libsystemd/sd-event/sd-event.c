@@ -10,12 +10,15 @@
 
 #include "sd-daemon.h"
 #include "sd-event.h"
+#include "sd-future.h"
 #include "sd-id128.h"
 #include "sd-messages.h"
 
 #include "alloc-util.h"
 #include "errno-util.h"
+#include "event-future.h"
 #include "event-source.h"
+#include "event-util.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "glyph-util.h"
@@ -473,9 +476,6 @@ _public_ sd_event* sd_event_unref(sd_event *e) {
 
         return event_free(e);
 }
-
-#define PROTECT_EVENT(e)                                                \
-        _unused_ _cleanup_(sd_event_unrefp) sd_event *_ref = sd_event_ref(e);
 
 _public_ sd_event_source* sd_event_source_disable_unref(sd_event_source *s) {
         int r;
@@ -4629,19 +4629,9 @@ static int epoll_wait_usec(
                 int maxevents,
                 usec_t timeout) {
 
-        int msec;
-        /* A wrapper that uses epoll_pwait2() if available, and falls back to epoll_wait() if not. */
-
-#if HAVE_EPOLL_PWAIT2
         static bool epoll_pwait2_absent = false;
-        int r;
-
-        /* epoll_pwait2() was added to Linux 5.11 (2021-02-14) and to glibc in 2.35 (2022-02-03). In contrast
-         * to other syscalls we don't bother with our own fallback syscall wrappers on old libcs, since this
-         * is not that obvious to implement given the libc and kernel definitions differ in the last
-         * argument. Moreover, the only reason to use it is the more accurate timeouts (which is not a
-         * biggie), let's hence rely on glibc's definitions, and fallback to epoll_pwait() when that's
-         * missing. */
+        int r, msec;
+        /* A wrapper that uses epoll_pwait2() if available, and falls back to epoll_wait() if not. */
 
         if (!epoll_pwait2_absent && timeout != USEC_INFINITY) {
                 r = epoll_pwait2(fd,
@@ -4657,7 +4647,6 @@ static int epoll_wait_usec(
 
                 epoll_pwait2_absent = true;
         }
-#endif
 
         if (timeout == USEC_INFINITY)
                 msec = -1;
@@ -4942,6 +4931,13 @@ _public_ int sd_event_run(sd_event *e, uint64_t timeout) {
         assert_return(!event_origin_changed(e), -ECHILD);
         assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
         assert_return(e->state == SD_EVENT_INITIAL, -EBUSY);
+
+        /* When running on a fiber, delegate to the suspending implementation. Note that the
+         * profile_delays accounting below is intentionally skipped on that path: the suspending variant
+         * drives the event loop via sd_event_prepare()/sd_event_wait()/sd_event_dispatch() itself, which
+         * are the same primitives profile_delays tracks when called directly. */
+        if (sd_fiber_is_running())
+                return event_run_suspend(e, timeout);
 
         if (e->profile_delays && e->last_run_usec != 0) {
                 usec_t this_run;

@@ -72,6 +72,10 @@ int icmp6_bind(int ifindex, bool is_router) {
         if (r < 0)
                 return r;
 
+        r = socket_set_recvpktinfo(s, AF_INET6, true);
+        if (r < 0)
+                return r;
+
         r = setsockopt_int(s, SOL_SOCKET, SO_TIMESTAMP, true);
         if (r < 0)
                 return r;
@@ -108,11 +112,13 @@ int icmp6_receive(
                 void *buffer,
                 size_t size,
                 struct in6_addr *ret_sender,
+                int *ret_ifindex,
                 triple_timestamp *ret_timestamp) {
 
         /* This needs to be initialized with zero. See #20741.
          * The issue is fixed on glibc-2.35 (8fba672472ae0055387e9315fc2eddfa6775ca79). */
         CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(int)) + /* ttl */
+                         CMSG_SPACE(sizeof(struct in6_pktinfo)) +
                          CMSG_SPACE_TIMEVAL) control = {};
         struct iovec iov = { buffer, size };
         union sockaddr_union sa = {};
@@ -144,6 +150,10 @@ int icmp6_receive(
         int *hops = CMSG_FIND_DATA(&msg, IPPROTO_IPV6, IPV6_HOPLIMIT, int);
         if (hops && *hops != 255)
                 return -EMULTIHOP;
+
+        struct in6_pktinfo *pktinfo = CMSG_FIND_DATA(&msg, IPPROTO_IPV6, IPV6_PKTINFO, struct in6_pktinfo);
+        if (ret_ifindex)
+                *ret_ifindex = pktinfo ? pktinfo->ipi6_ifindex : 0;
 
         if (ret_timestamp)
                 triple_timestamp_from_cmsg(ret_timestamp, &msg);

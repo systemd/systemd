@@ -10,6 +10,7 @@
 #include <unistd.h>
 
 #include "sd-daemon.h"
+#include "sd-json.h"
 #include "sd-messages.h"
 
 #include "alloc-util.h"
@@ -31,6 +32,7 @@
 #include "initrd-util.h"
 #include "killall.h"
 #include "log.h"
+#include "luo-util.h"
 #include "options.h"
 #include "parse-util.h"
 #include "pidref.h"
@@ -61,35 +63,36 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argv);
 
         /* The interface is: the verb must stay in argv[1]. Any extra positional arguments
-         * are warned about and ignored. See 4b5d8d0f22ae61ceb45a25391354ba53b43ee992. */
+         * are warned about and ignored. See 4b5d8d0f22ae61ceb45a25391354ba53b43ee992.
+         *
+         * Note: when new options are added here, also add them to the exclusion list in proc-cmdline.c! */
 
-        OptionParser state = { argc, argv, OPTION_PARSER_RETURN_POSITIONAL_ARGS };
-        const char *arg;
+        OptionParser opts = { argc, argv, OPTION_PARSER_RETURN_POSITIONAL_ARGS };
         int r;
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
 
                 OPTION_COMMON_LOG_LEVEL:
-                        r = log_set_max_level_from_string(arg);
+                        r = log_set_max_level_from_string(opts.arg);
                         if (r < 0)
-                                log_warning_errno(r, "Failed to parse log level %s, ignoring: %m", arg);
+                                log_warning_errno(r, "Failed to parse log level %s, ignoring: %m", opts.arg);
 
                         break;
 
                 OPTION_COMMON_LOG_TARGET:
-                        r = log_set_target_from_string(arg);
+                        r = log_set_target_from_string(opts.arg);
                         if (r < 0)
-                                log_warning_errno(r, "Failed to parse log target %s, ignoring: %m", arg);
+                                log_warning_errno(r, "Failed to parse log target %s, ignoring: %m", opts.arg);
 
                         break;
 
                 OPTION_LONG_FLAGS(OPTION_OPTIONAL_ARG, "log-color", "BOOL",
                                   "Highlight important messages"):
-                        if (arg) {
-                                r = log_show_color_from_string(arg);
+                        if (opts.arg) {
+                                r = log_show_color_from_string(opts.arg);
                                 if (r < 0)
-                                        log_warning_errno(r, "Failed to parse log color setting %s, ignoring: %m", arg);
+                                        log_warning_errno(r, "Failed to parse log color setting %s, ignoring: %m", opts.arg);
                         } else
                                 log_show_color(true);
 
@@ -97,10 +100,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG_FLAGS(OPTION_OPTIONAL_ARG, "log-location", "BOOL",
                                   "Include code location in messages"):
-                        if (arg) {
-                                r = log_show_location_from_string(arg);
+                        if (opts.arg) {
+                                r = log_show_location_from_string(opts.arg);
                                 if (r < 0)
-                                        log_warning_errno(r, "Failed to parse log location setting %s, ignoring: %m", arg);
+                                        log_warning_errno(r, "Failed to parse log location setting %s, ignoring: %m", opts.arg);
                         } else
                                 log_show_location(true);
 
@@ -108,10 +111,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG_FLAGS(OPTION_OPTIONAL_ARG, "log-time", "BOOL",
                                   "Prefix messages with current time"):
-                        if (arg) {
-                                r = log_show_time_from_string(arg);
+                        if (opts.arg) {
+                                r = log_show_time_from_string(opts.arg);
                                 if (r < 0)
-                                        log_warning_errno(r, "Failed to parse log time setting %s, ignoring: %m", arg);
+                                        log_warning_errno(r, "Failed to parse log time setting %s, ignoring: %m", opts.arg);
                         } else
                                 log_show_time(true);
 
@@ -119,23 +122,23 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG("exit-code", "N",
                             "Exit code for reboot/kexec"):
-                        r = safe_atou8(arg, &arg_exit_code);
+                        r = safe_atou8(opts.arg, &arg_exit_code);
                         if (r < 0)
-                                log_warning_errno(r, "Failed to parse exit code %s, ignoring: %m", arg);
+                                log_warning_errno(r, "Failed to parse exit code %s, ignoring: %m", opts.arg);
 
                         break;
 
                 OPTION_LONG("timeout", "TIME",
                             "Overall shutdown timeout"):
-                        r = parse_sec(arg, &arg_timeout);
+                        r = parse_sec(opts.arg, &arg_timeout);
                         if (r < 0)
-                                log_warning_errno(r, "Failed to parse shutdown timeout %s, ignoring: %m", arg);
+                                log_warning_errno(r, "Failed to parse shutdown timeout %s, ignoring: %m", opts.arg);
 
                         break;
 
                 OPTION_POSITIONAL:
                         if (!arg_verb)
-                                arg_verb = arg;
+                                arg_verb = opts.arg;
                         else
                                 log_warning("Got extraneous argument, ignoring.");
                         break;
@@ -337,7 +340,12 @@ static void sleep_until_minimum_uptime(void) {
                 r = safe_atou64(e, &minimum_uptime_usec);
                 if (r < 0)
                         log_warning_errno(r, "Failed to parse $MINIMUM_UPTIME_USEC, ignoring: %s", e);
-        }
+        } else if (detect_virtualization() != VIRTUALIZATION_NONE)
+                /* Enforce the minimum uptime, but don't bother with it in containers/VMs, since – unlike on
+                 * bare metal – the screen output isn't flushed out immediately when we reboot (as real PC
+                 * firmwares do). But skip only if there wasn't an explicit configuration, to let users
+                 * override this. */
+                return;
 
         if (minimum_uptime_usec <= 0) /* turned off? */
                 return;
@@ -362,14 +370,21 @@ int main(int argc, char *argv[]) {
                 SYSTEM_SHUTDOWN_PATH,
                 NULL
         };
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *luo_serialization = NULL;
+        _cleanup_close_ int luo_session_fd = -EBADF;
+        _cleanup_free_ int *luo_fds = NULL;
         _cleanup_free_ char *cgroup = NULL;
+        size_t n_luo_fds = 0;
         int cmd, r;
+
+        /* If PID 1 passed us an LUO serialization fd, parse it first so we know which fds to keep open. */
+        (void) luo_parse_serialization(&luo_serialization, &luo_fds, &n_luo_fds);
 
         /* Close random fds we might have get passed, just for paranoia, before we open any new fds, for
          * example for logging. After all this tool's purpose is about detaching any pinned resources, and
          * open file descriptors are the primary way to pin resources. Note that we don't really expect any
-         * fds to be passed here. */
-        (void) close_all_fds(NULL, 0);
+         * fds to be passed here, except for LUO fds that need to survive until kexec. */
+        (void) close_all_fds(luo_fds, n_luo_fds);
 
         /* The log target defaults to console, but the original systemd process will pass its log target in through a
          * command line argument, which will override this default. Also, ensure we'll never log to the journal or
@@ -625,11 +640,7 @@ int main(int argc, char *argv[]) {
 
         notify_supervisor();
 
-        /* Enforce the minimum uptime, but don't bother with it in containers, since – unlike on bare metal
-         * and VMs – the screen output isn't flushed out immediately when we reboot (as OVMF or real PC
-         * firmwares do) */
-        if (!in_container)
-                sleep_until_minimum_uptime();
+        sleep_until_minimum_uptime();
 
         if (streq(arg_verb, "exit")) {
                 if (in_container) {
@@ -645,6 +656,10 @@ int main(int argc, char *argv[]) {
         case LINUX_REBOOT_CMD_KEXEC:
 
                 if (!in_container) {
+                        /* Preserve fd stores via the kernel Live Update Orchestrator before kexec.
+                         * The session fd must stay open until the kexec syscall. */
+                        (void) luo_preserve_fd_stores(luo_serialization, &luo_session_fd);
+
                         log_info("Rebooting with kexec.");
 
                         (void) kexec();

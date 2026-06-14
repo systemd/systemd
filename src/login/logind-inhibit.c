@@ -17,12 +17,13 @@
 #include "fs-util.h"
 #include "hashmap.h"
 #include "io-util.h"
+#include "json-util.h"
 #include "log.h"
 #include "logind-session.h"
 #include "logind.h"
 #include "logind-dbus.h"
 #include "logind-inhibit.h"
-#include "mkdir-label.h"
+#include "mkdir.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "string-table.h"
@@ -526,6 +527,67 @@ int inhibit_what_from_string(const char *s) {
                 else
                         return _INHIBIT_WHAT_INVALID;
         }
+}
+
+static int inhibit_what_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        InhibitWhat *what = ASSERT_PTR(userdata);
+        int r;
+
+        assert(ret);
+        assert(inhibit_what_is_valid(*what));
+
+        for (unsigned bit = 0; (1U << bit) < (unsigned) _INHIBIT_WHAT_MAX; bit++) {
+                InhibitWhat w = 1U << bit;
+
+                if (!FLAGS_SET(*what, w))
+                        continue;
+
+                r = sd_json_variant_append_arrayb(&v, JSON_BUILD_STRING_UNDERSCORIFY(inhibit_what_to_string(w)));
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(v);
+        return 0;
+}
+
+static int inhibitor_context_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        Inhibitor *i = ASSERT_PTR(userdata);
+
+        assert(ret);
+        assert(i->mode >= 0 && i->mode < _INHIBIT_MODE_MAX);
+        assert(inhibit_what_is_valid(i->what));
+
+        return sd_json_buildo(
+                        ret,
+                        SD_JSON_BUILD_PAIR_STRING("Id", i->id),
+                        SD_JSON_BUILD_PAIR_CALLBACK("What", inhibit_what_build_json, &i->what),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("Who", i->who),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("Why", i->why),
+                        JSON_BUILD_PAIR_ENUM("Mode", inhibit_mode_to_string(i->mode)),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("UID", i->uid));
+}
+
+static int inhibitor_runtime_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        Inhibitor *i = ASSERT_PTR(userdata);
+
+        assert(ret);
+
+        return sd_json_buildo(
+                        ret,
+                        JSON_BUILD_PAIR_PIDREF_NON_NULL("PID", &i->pid),
+                        JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL("Since", &i->since));
+}
+
+int inhibitor_build_json(Inhibitor *i, sd_json_variant **ret) {
+        assert(i);
+        assert(ret);
+
+        return sd_json_buildo(
+                        ret,
+                        SD_JSON_BUILD_PAIR_CALLBACK("context", inhibitor_context_build_json, i),
+                        SD_JSON_BUILD_PAIR_CALLBACK("runtime", inhibitor_runtime_build_json, i));
 }
 
 static const char* const inhibit_mode_table[_INHIBIT_MODE_MAX] = {

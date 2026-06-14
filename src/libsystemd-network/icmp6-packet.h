@@ -8,6 +8,7 @@
 
 typedef struct ICMP6Packet {
         unsigned n_ref;
+        int ifindex;
 
         struct in6_addr sender_address;
         struct triple_timestamp timestamp;

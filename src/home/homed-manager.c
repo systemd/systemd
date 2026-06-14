@@ -3,7 +3,6 @@
 #include <grp.h>
 #include <linux/fscrypt.h>
 #include <linux/magic.h>
-#include <math.h>
 #include <pwd.h>
 #include <sys/inotify.h>
 #include <sys/ioctl.h>
@@ -41,6 +40,7 @@
 #include "homed-manager-bus.h"
 #include "homed-operation.h"
 #include "homed-varlink.h"
+#include "logarithm.h"
 #include "mkdir.h"
 #include "notify-recv.h"
 #include "ordered-set.h"
@@ -1537,7 +1537,7 @@ int manager_startup(Manager *m) {
 
         assert(m);
 
-        r = dlopen_libcrypto(LOG_ERR);
+        r = DLOPEN_LIBCRYPTO(LOG_ERR, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED);
         if (r < 0)
                 return r;
 
@@ -1937,9 +1937,9 @@ static int manager_rebalance_calculate(Manager *m) {
         }
 
         /* Scale next rebalancing interval based on the least amount of space of any of the home
-         * directories. We pick a time in the range 1min … 15min, scaled by log2(min_free), so that:
-         * 10M → ~0.7min, 100M → ~2.7min, 1G → ~4.6min, 10G → ~6.5min, 100G ~8.4 */
-        m->rebalance_interval_usec = (usec_t) CLAMP((LESS_BY(log2(min_free), 22)*15*USEC_PER_MINUTE)/26,
+         * directories. We pick a time in the range 1min … 15min, scaled by floor(log2(min_free)),
+         * so that: 10M → ~0.6min, 100M → ~2.3min, 1G → ~4.0min, 10G → ~6.3min, 100G → ~8.1min */
+        m->rebalance_interval_usec = (usec_t) CLAMP((LESS_BY(log2u64(min_free), 22u)*15*USEC_PER_MINUTE)/26,
                                                     1 * USEC_PER_MINUTE,
                                                     15 * USEC_PER_MINUTE);
 

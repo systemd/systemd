@@ -117,7 +117,6 @@ typedef struct Link {
 
         sd_dhcp_client *dhcp_client;
         sd_dhcp_lease *dhcp_lease;
-        char *lease_file;
         unsigned dhcp4_messages;
         bool dhcp4_configured;
         char *dhcp4_6rd_tunnel_name;
@@ -144,6 +143,8 @@ typedef struct Link {
         bool bridge_vlan_set:1;
         bool bearer_configured:1;
 
+        sd_dhcp_relay_interface *dhcp_relay_interface;
+        sd_dhcp_relay_interface *dhcp_relay_interface_compat;
         sd_dhcp_server *dhcp_server;
 
         sd_ndisc *ndisc;
@@ -234,6 +235,7 @@ bool link_multicast_enabled(Link *link);
 
 bool link_ipv6_enabled(Link *link);
 int link_ipv6ll_gained(Link *link);
+int link_ipv6ll_lost(Link *link, const struct in6_addr *dropped_ipv6ll, bool has_replacement);
 bool link_has_ipv6_connectivity(Link *link);
 
 int link_stop_engines(Link *link, bool may_keep_dynamic);

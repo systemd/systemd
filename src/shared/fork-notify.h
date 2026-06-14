@@ -4,7 +4,9 @@
 #include "output-mode.h"
 #include "shared-forward.h"
 
-int fork_notify(char * const *argv, PidRef *ret_pidref);
+typedef void (*fork_notify_handler_t)(void *userdata);
+
+int fork_notify(char * const *argv, fork_notify_handler_t child_handler, void *child_userdata, PidRef *ret_pidref);
 
 void fork_notify_terminate(PidRef *pidref);
 

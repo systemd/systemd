@@ -21,7 +21,6 @@
 
 #include "alloc-util.h"
 #include "fd-util.h"
-#include "label.h"
 #include "path-util.h"
 #include "string-util.h"
 #include "time-util.h"
@@ -54,8 +53,6 @@ static int mac_selinux_label_post(int dir_fd, const char *path, bool created) {
         mac_selinux_create_file_clear();
         return 0;
 }
-
-static void *libselinux_dl = NULL;
 
 DLSYM_PROTOTYPE(avc_open) = NULL;
 DLSYM_PROTOTYPE(context_free) = NULL;
@@ -95,11 +92,9 @@ DLSYM_PROTOTYPE(string_to_security_class) = NULL;
 
 int dlopen_libselinux(int log_level) {
 #if HAVE_SELINUX
-        SD_ELF_NOTE_DLOPEN(
-                        "selinux",
-                        "Support for SELinux",
-                        SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED,
-                        "libselinux.so.1");
+        static void *libselinux_dl = NULL;
+
+        LIBSELINUX_NOTE(SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
 
         return dlopen_many_sym_or_warn(
                         &libselinux_dl,

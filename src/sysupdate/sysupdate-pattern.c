@@ -420,11 +420,15 @@ int pattern_match(const char *pattern, const char *s, InstanceMetadata *ret) {
                 }
 
                 default:
-                        assert_se("unexpected pattern element");
+                        assert_not_reached();
                 }
 
                 p = n;
         }
+
+        /* We matched the whole pattern, but if the string continues over the end of the pattern, refuse */
+        if (*p != '\0')
+                goto nope;
 
         if (ret) {
                 *ret = found;

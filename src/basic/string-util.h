@@ -5,7 +5,8 @@
 
 #include "alloc-util.h"
 #include "basic-forward.h"
-#include "string-util-fundamental.h" /* IWYU pragma: export */
+
+#include "../fundamental/string-util.h" /* IWYU pragma: export */
 
 static inline char* strstr_ptr_internal(const char *haystack, const char *needle) {
         if (!haystack || !needle)
@@ -223,10 +224,11 @@ static inline int strdup_to(char **ret, const char *src) {
 typedef enum StringSafeFlags {
         STRING_ASCII             = 1 << 0, /* Verify string is 7-Bit ASCII (rather than just UTF-8) */
         STRING_ALLOW_EMPTY       = 1 << 1, /* Allow empty strings */
-        STRING_ALLOW_BACKSLASHES = 1 << 2, /* Allow backslashes (\) */
-        STRING_ALLOW_QUOTES      = 1 << 3, /* Allow quotes (" or ') */
-        STRING_ALLOW_GLOBS       = 1 << 4, /* Allow globs (?, * or [) */
-        STRING_FILENAME          = 1 << 5, /* Verify the string is valid as regular filename */
+        STRING_ALLOW_NEWLINES    = 1 << 2, /* Allow newlines (\n) */
+        STRING_ALLOW_BACKSLASHES = 1 << 3, /* Allow backslashes (\) */
+        STRING_ALLOW_QUOTES      = 1 << 4, /* Allow quotes (" or ') */
+        STRING_ALLOW_GLOBS       = 1 << 5, /* Allow globs (?, * or [) */
+        STRING_FILENAME          = 1 << 6, /* Verify the string is valid as regular filename */
 } StringSafeFlags;
 
 bool string_is_safe(const char *p, StringSafeFlags flags) _pure_;

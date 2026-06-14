@@ -49,7 +49,7 @@
 #include "logind-user.h"
 #include "logind-user-dbus.h"
 #include "logind-utmp.h"
-#include "mkdir-label.h"
+#include "mkdir.h"
 #include "os-util.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -282,7 +282,7 @@ static int property_get_idle_hint(
         assert(bus);
         assert(reply);
 
-        return sd_bus_message_append(reply, "b", manager_get_idle_hint(m, NULL) > 0);
+        return sd_bus_message_append(reply, "b", manager_get_idle_hint(m, /* ret_timestamp= */ NULL));
 }
 
 static int property_get_idle_since_hint(
@@ -295,7 +295,7 @@ static int property_get_idle_since_hint(
                 sd_bus_error *error) {
 
         Manager *m = ASSERT_PTR(userdata);
-        dual_timestamp t = DUAL_TIMESTAMP_NULL;
+        dual_timestamp t;
 
         assert(bus);
         assert(reply);
@@ -701,10 +701,7 @@ static int method_list_sessions_ex(sd_bus_message *message, void *userdata, sd_b
                 if (!path)
                         return -ENOMEM;
 
-                r = session_get_idle_hint(s, &idle_ts);
-                if (r < 0)
-                        return r;
-                idle = r > 0;
+                idle = session_get_idle_hint(s, &idle_ts);
 
                 r = sd_bus_message_append(reply, "(sussussbto)",
                                           s->id,
@@ -4321,7 +4318,7 @@ int match_job_removed(sd_bus_message *message, void *userdata, sd_bus_error *err
                 /* If the user is stopping, we're tracking stop jobs here. So don't send reply. */
                 if (!user->stopping) {
                         char **user_job;
-                        FOREACH_ARGUMENT(user_job, &user->runtime_dir_job, &user->service_manager_job)
+                        FOREACH_ARGUMENT(user_job, &user->runtime_dir_job, &user->service_manager_job, &user->measure_job)
                                 if (streq_ptr(path, *user_job)) {
                                         *user_job = mfree(*user_job);
 

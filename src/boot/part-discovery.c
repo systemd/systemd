@@ -6,7 +6,7 @@
 #include "proto/block-io.h"
 #include "proto/device-path.h"
 #include "proto/disk-io.h"
-#include "string-util-fundamental.h"
+#include "string-util.h"
 #include "util.h"
 
 typedef struct {

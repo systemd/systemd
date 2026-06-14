@@ -5,7 +5,7 @@
 #include "sd-messages.h"
 
 #include "af-list.h"
-#include "bpf-dlopen.h"
+#include "bpf-util.h"
 #include "conf-parser.h"
 #include "alloc-util.h"
 #include "cgroup-util.h"
@@ -108,7 +108,7 @@ int manager_install_sysctl_monitor(Manager *manager) {
 
         assert(manager);
 
-        r = dlopen_bpf(LOG_DEBUG);
+        r = DLOPEN_BPF(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
         if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
                 return log_debug_errno(r, "sysctl monitor disabled, as BPF support is not available.");
         if (r < 0)
@@ -545,11 +545,11 @@ int link_set_ipv6_mtu(Link *link, int log_level) {
         if (mtu == 0)
                 return 0;
 
-        if (mtu > link->max_mtu) {
+        if (mtu > link->mtu) {
                 log_link_full(link, log_level,
                               "Reducing requested IPv6 MTU %"PRIu32" to the interface's maximum MTU %"PRIu32".",
-                              mtu, link->max_mtu);
-                mtu = link->max_mtu;
+                              mtu, link->mtu);
+                mtu = link->mtu;
         }
 
         r = sysctl_write_ip_property_uint32(AF_INET6, link->ifname, "mtu", mtu, manager_get_sysctl_shadow(link->manager));

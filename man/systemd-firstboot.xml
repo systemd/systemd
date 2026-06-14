@@ -67,6 +67,8 @@
 
       <listitem><para>The system hostname</para></listitem>
 
+      <listitem><para>The machine tags</para></listitem>
+
       <listitem><para>The kernel command line used when installing kernel images</para></listitem>
 
       <listitem><para>The root user's password and shell</para></listitem>
@@ -196,6 +198,27 @@
         as to <option>--setup-machine-id</option>.</para>
 
         <xi:include href="version-info.xml" xpointer="v216"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--machine-tags=<replaceable>TAG</replaceable><optional>:<replaceable>TAG</replaceable>…</optional></option></term>
+
+        <listitem><para>Set the machine tags to the specified colon-separated list. Machine tags are short
+        labels that may be used to classify and group machines for management purposes, for example to
+        identify the role a machine plays in a deployment, the fleet or organizational unit it belongs to, or
+        any other administrator-defined attribute. Each individual tag must be 1…255 characters long and
+        consist only of ASCII alphanumeric characters, <literal>-</literal> and <literal>.</literal>.  This
+        controls the <varname>TAGS=</varname> field of
+        <citerefentry><refentrytitle>machine-info</refentrytitle><manvolnum>5</manvolnum></citerefentry>. The
+        tags may later be queried and changed with the <command>tags</command> command of
+        <citerefentry><refentrytitle>hostnamectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>, and
+        matched against with the <varname>ConditionMachineTag=</varname>/<varname>AssertMachineTag=</varname>
+        unit settings, see
+        <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+        <para>Unlike most other settings, machine tags are not prompted for interactively.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -455,6 +478,18 @@
         user will not be prompted for the hostname. Note that this controls the static hostname, not the
         transient hostname, and only has an effect on first boot, unlike
         <varname>system.hostname</varname>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>firstboot.machine-tags</varname></term>
+
+        <listitem><para>This credential specifies the machine tags to set during first boot, as a
+        colon-separated list, equivalent to the <option>--machine-tags=</option> switch described above. The
+        tags are written into the <varname>TAGS=</varname> field of <filename>/etc/machine-info</filename>
+        (if that file is not already present), and only have an effect on first boot. If the list contains
+        invalid tags it is ignored in its entirety.</para>
 
         <xi:include href="version-info.xml" xpointer="v261"/></listitem>
       </varlistentry>

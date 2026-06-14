@@ -1,8 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <libintl.h>
-#include <security/pam_misc.h>
-
 #include "sd-bus.h"
 
 #include "alloc-util.h"
@@ -45,7 +42,7 @@ static int parse_argv(
 
                         k = parse_boolean(v);
                         if (k < 0)
-                                pam_syslog(pamh, LOG_WARNING, "Failed to parse suspend= argument, ignoring: %s", v);
+                                sym_pam_syslog(pamh, LOG_WARNING, "Failed to parse suspend= argument, ignoring: %s", v);
                         else if (flags)
                                 SET_FLAG(*flags, ACQUIRE_PLEASE_SUSPEND, k);
 
@@ -57,12 +54,12 @@ static int parse_argv(
                         int k;
                         k = parse_boolean(v);
                         if (k < 0)
-                                pam_syslog(pamh, LOG_WARNING, "Failed to parse debug= argument, ignoring: %s", v);
+                                sym_pam_syslog(pamh, LOG_WARNING, "Failed to parse debug= argument, ignoring: %s", v);
                         else if (debug)
                                 *debug = k;
 
                 } else
-                        pam_syslog(pamh, LOG_WARNING, "Unknown parameter '%s', ignoring.", argv[i]);
+                        sym_pam_syslog(pamh, LOG_WARNING, "Unknown parameter '%s', ignoring.", argv[i]);
         }
 
         return 0;
@@ -76,7 +73,7 @@ static int parse_env(pam_handle_t *pamh, AcquireHomeFlags *flags) {
          * easy to declare the features of a display manager in code rather than configuration, and this is
          * really a feature of code */
 
-        v = pam_getenv(pamh, "SYSTEMD_HOME_SUSPEND");
+        v = sym_pam_getenv(pamh, "SYSTEMD_HOME_SUSPEND");
         if (!v) {
                 /* Also check the process env block, so that people can control this via an env var from the
                  * outside of our process. */
@@ -87,7 +84,7 @@ static int parse_env(pam_handle_t *pamh, AcquireHomeFlags *flags) {
 
         r = parse_boolean(v);
         if (r < 0)
-                pam_syslog(pamh, LOG_WARNING, "Failed to parse $SYSTEMD_HOME_SUSPEND argument, ignoring: %s", v);
+                sym_pam_syslog(pamh, LOG_WARNING, "Failed to parse $SYSTEMD_HOME_SUSPEND argument, ignoring: %s", v);
         else if (flags)
                 SET_FLAG(*flags, ACQUIRE_PLEASE_SUSPEND, r);
 
@@ -106,7 +103,7 @@ static int acquire_user_record(
         assert(pamh);
 
         if (!username) {
-                r = pam_get_user(pamh, &username, NULL);
+                r = sym_pam_get_user(pamh, &username, NULL);
                 if (r != PAM_SUCCESS)
                         return pam_syslog_pam_error(pamh, LOG_ERR, r, "Failed to get user name: @PAMERR@");
                 if (isempty(username))
@@ -149,7 +146,7 @@ static int acquire_user_record(
                 return pam_log_oom(pamh);
 
         /* Let's use the cache, so that we can share it between the session and the authentication hooks */
-        r = pam_get_data(pamh, homed_field, (const void**) &json);
+        r = sym_pam_get_data(pamh, homed_field, (const void**) &json);
         if (!IN_SET(r, PAM_SUCCESS, PAM_NO_MODULE_DATA))
                 return pam_syslog_pam_error(pamh, LOG_ERR, r, "Failed to get PAM user record data: @PAMERR@");
         if (r == PAM_SUCCESS && json) {
@@ -211,13 +208,13 @@ static int acquire_user_record(
                 return pam_syslog_pam_error(pamh, LOG_ERR, PAM_SERVICE_ERR,
                                             "Acquired user record does not match user name.");
 
-        /* Update the 'username' pointer to point to our own record now. The pam_set_item() call below is
+        /* Update the 'username' pointer to point to our own record now. The sym_pam_set_item() call below is
          * going to invalidate the old version after all */
         username = ur->user_name;
 
         /* We passed all checks. Let's now make sure the rest of the PAM stack continues with the primary,
          * normalized name of the user record (i.e. not an alias or so). */
-        r = pam_set_item(pamh, PAM_USER, ur->user_name);
+        r = sym_pam_set_item(pamh, PAM_USER, ur->user_name);
         if (r != PAM_SUCCESS)
                 return pam_syslog_pam_error(pamh, LOG_ERR, r,
                                             "Failed to update username PAM item to '%s': @PAMERR@", ur->user_name);
@@ -230,7 +227,7 @@ static int acquire_user_record(
                 if (!json_copy)
                         return pam_log_oom(pamh);
 
-                r = pam_set_data(pamh, homed_field, json_copy, pam_cleanup_free);
+                r = sym_pam_set_data(pamh, homed_field, json_copy, pam_cleanup_free);
                 if (r != PAM_SUCCESS)
                         return pam_syslog_pam_error(pamh, LOG_ERR, r,
                                                     "Failed to set PAM user record data '%s': @PAMERR@", homed_field);
@@ -246,7 +243,7 @@ static int acquire_user_record(
                 if (!generic_field)
                         return pam_log_oom(pamh);
 
-                r = pam_set_data(pamh, generic_field, json_copy, pam_cleanup_free);
+                r = sym_pam_set_data(pamh, generic_field, json_copy, pam_cleanup_free);
                 if (r != PAM_SUCCESS)
                         return pam_syslog_pam_error(pamh, LOG_ERR, r,
                                                     "Failed to set PAM user record data '%s': @PAMERR@", generic_field);
@@ -256,7 +253,7 @@ static int acquire_user_record(
 
         /* Let's store the area we parsed out of the name in an env var, so that pam_systemd later can honour it. */
         if (area) {
-                r = pam_misc_setenv(pamh, "XDG_AREA", area, /* readonly= */ 0);
+                r = pam_putenv_assign(pamh, "XDG_AREA", area);
                 if (r != PAM_SUCCESS)
                         return pam_syslog_pam_error(pamh, LOG_ERR, r,
                                                     "Failed to set environment variable $XDG_AREA to '%s': @PAMERR@", area);
@@ -269,7 +266,7 @@ static int acquire_user_record(
 
 user_unknown:
         /* Cache this, so that we don't check again */
-        r = pam_set_data(pamh, homed_field, POINTER_MAX, NULL);
+        r = sym_pam_set_data(pamh, homed_field, POINTER_MAX, NULL);
         if (r != PAM_SUCCESS)
                 pam_syslog_pam_error(pamh, LOG_ERR, r,
                                      "Failed to set PAM user record data '%s' to invalid, ignoring: @PAMERR@",
@@ -289,7 +286,7 @@ static int release_user_record(pam_handle_t *pamh, const char *username) {
         if (!homed_field)
                 return pam_log_oom(pamh);
 
-        r = pam_set_data(pamh, homed_field, NULL, NULL);
+        r = sym_pam_set_data(pamh, homed_field, NULL, NULL);
         if (r != PAM_SUCCESS)
                 pam_syslog_pam_error(pamh, LOG_ERR, r,
                                      "Failed to release PAM user record data '%s': @PAMERR@", homed_field);
@@ -298,7 +295,7 @@ static int release_user_record(pam_handle_t *pamh, const char *username) {
         if (!generic_field)
                 return pam_log_oom(pamh);
 
-        k = pam_set_data(pamh, generic_field, NULL, NULL);
+        k = sym_pam_set_data(pamh, generic_field, NULL, NULL);
         if (k != PAM_SUCCESS)
                 pam_syslog_pam_error(pamh, LOG_ERR, k,
                                      "Failed to release PAM user record data '%s': @PAMERR@", generic_field);
@@ -569,7 +566,7 @@ static int acquire_home(
          * prompt the user for the missing unlock credentials, and then chainload the real shell.
          */
 
-        r = pam_get_user(pamh, &username, NULL);
+        r = sym_pam_get_user(pamh, &username, NULL);
         if (r != PAM_SUCCESS)
                 return pam_syslog_pam_error(pamh, LOG_ERR, r, "Failed to get user name: @PAMERR@");
         if (isempty(username))
@@ -580,7 +577,7 @@ static int acquire_home(
         if (!fd_field)
                 return pam_log_oom(pamh);
 
-        r = pam_get_data(pamh, fd_field, &home_fd_ptr);
+        r = sym_pam_get_data(pamh, fd_field, &home_fd_ptr);
         if (!IN_SET(r, PAM_SUCCESS, PAM_NO_MODULE_DATA))
                 return pam_syslog_pam_error(pamh, LOG_ERR, r,
                                             "Failed to retrieve PAM home reference fd: @PAMERR@");
@@ -618,7 +615,7 @@ static int acquire_home(
                         /* If there's already a cached password, use it. But if not let's authenticate
                          * without anything, maybe some other authentication mechanism systemd-homed
                          * implements (such as PKCS#11) allows us to authenticate without anything else. */
-                        r = pam_get_item(pamh, PAM_AUTHTOK, (const void**) &cached_password);
+                        r = sym_pam_get_item(pamh, PAM_AUTHTOK, (const void**) &cached_password);
                         if (!IN_SET(r, PAM_BAD_ITEM, PAM_SUCCESS))
                                 return pam_syslog_pam_error(pamh, LOG_ERR, r,
                                                             "Failed to get cached password: @PAMERR@");
@@ -681,7 +678,7 @@ static int acquire_home(
                                                         (void) pam_prompt_graceful(pamh, PAM_ERROR_MSG, NULL, _("Home of user %s is currently locked, please unlock locally first."), ur->user_name);
 
                                                 if (FLAGS_SET(flags, ACQUIRE_MUST_AUTHENTICATE))
-                                                        pam_syslog(pamh, LOG_ERR, "Failed to prompt for password/prompt.");
+                                                        sym_pam_syslog(pamh, LOG_ERR, "Failed to prompt for password/prompt.");
                                                 else
                                                         pam_debug_syslog(pamh, debug, "Failed to prompt for password/prompt.");
 
@@ -720,12 +717,12 @@ static int acquire_home(
 
         /* Later PAM modules may need the auth token, but only during pam_authenticate. */
         if (FLAGS_SET(flags, ACQUIRE_MUST_AUTHENTICATE) && !strv_isempty(secret->password)) {
-                r = pam_set_item(pamh, PAM_AUTHTOK, *secret->password);
+                r = sym_pam_set_item(pamh, PAM_AUTHTOK, *secret->password);
                 if (r != PAM_SUCCESS)
                         return pam_syslog_pam_error(pamh, LOG_ERR, r, "Failed to set PAM auth token: @PAMERR@");
         }
 
-        r = pam_set_data(pamh, fd_field, FD_TO_PTR(acquired_fd), cleanup_home_fd);
+        r = sym_pam_set_data(pamh, fd_field, FD_TO_PTR(acquired_fd), cleanup_home_fd);
         if (r != PAM_SUCCESS)
                 return pam_syslog_pam_error(pamh, LOG_ERR, r, "Failed to set PAM bus data: @PAMERR@");
         TAKE_FD(acquired_fd);
@@ -744,13 +741,13 @@ static int acquire_home(
          * manager for us (since it would see an inaccessible home directory). Hence set an environment
          * variable that pam_systemd looks for). */
         if (unrestricted) {
-                r = pam_putenv(pamh, "XDG_SESSION_INCOMPLETE=1");
+                r = sym_pam_putenv(pamh, "XDG_SESSION_INCOMPLETE=1");
                 if (r != PAM_SUCCESS)
                         return pam_syslog_pam_error(pamh, LOG_WARNING, r, "Failed to set XDG_SESSION_INCOMPLETE= environment variable: @PAMERR@");
 
-                pam_syslog(pamh, LOG_NOTICE, "Home for user %s acquired in incomplete mode, requires later activation.", ur->user_name);
+                sym_pam_syslog(pamh, LOG_NOTICE, "Home for user %s acquired in incomplete mode, requires later activation.", ur->user_name);
         } else
-                pam_syslog(pamh, LOG_NOTICE, "Home for user %s successfully acquired.", ur->user_name);
+                sym_pam_syslog(pamh, LOG_NOTICE, "Home for user %s successfully acquired.", ur->user_name);
 
         return PAM_SUCCESS;
 }
@@ -767,13 +764,13 @@ static int release_home_fd(pam_handle_t *pamh, const char *username) {
         if (!fd_field)
                 return pam_log_oom(pamh);
 
-        r = pam_get_data(pamh, fd_field, &home_fd_ptr);
+        r = sym_pam_get_data(pamh, fd_field, &home_fd_ptr);
         if (r == PAM_NO_MODULE_DATA || (r == PAM_SUCCESS && PTR_TO_FD(home_fd_ptr) < 0))
                 return PAM_NO_MODULE_DATA;
         if (r != PAM_SUCCESS)
                 return pam_syslog_pam_error(pamh, LOG_ERR, r, "Failed to retrieve PAM home reference fd: @PAMERR@");
 
-        r = pam_set_data(pamh, fd_field, NULL, NULL);
+        r = sym_pam_set_data(pamh, fd_field, NULL, NULL);
         if (r != PAM_SUCCESS)
                 return pam_syslog_pam_error(pamh, LOG_ERR, r, "Failed to release PAM home reference fd: @PAMERR@");
 
@@ -789,9 +786,11 @@ _public_ PAM_EXTERN int pam_sm_authenticate(
         bool debug = false;
         int r;
 
-        r = dlopen_libpam(LOG_DEBUG);
+        r = DLOPEN_LIBPAM(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED);
         if (r < 0)
                 return PAM_SERVICE_ERR;
+
+        (void) DLOPEN_LIBINTL(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED); /* best-effort: messages won't be translated if this fails */
 
         pam_log_setup();
 
@@ -854,9 +853,11 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         bool debug = false;
         int r;
 
-        r = dlopen_libpam(LOG_DEBUG);
+        r = DLOPEN_LIBPAM(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED);
         if (r < 0)
                 return PAM_SERVICE_ERR;
+
+        (void) DLOPEN_LIBINTL(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED); /* best-effort: messages won't be translated if this fails */
 
         pam_log_setup();
 
@@ -887,12 +888,12 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         if (r != PAM_SUCCESS)
                 return r;
 
-        r = pam_putenv(pamh, "SYSTEMD_HOME=1");
+        r = sym_pam_putenv(pamh, "SYSTEMD_HOME=1");
         if (r != PAM_SUCCESS)
                 return pam_syslog_pam_error(pamh, LOG_ERR, r,
                                             "Failed to set PAM environment variable $SYSTEMD_HOME: @PAMERR@");
 
-        r = pam_putenv(pamh, FLAGS_SET(flags, ACQUIRE_PLEASE_SUSPEND) ? "SYSTEMD_HOME_SUSPEND=1" : "SYSTEMD_HOME_SUSPEND=0");
+        r = sym_pam_putenv(pamh, FLAGS_SET(flags, ACQUIRE_PLEASE_SUSPEND) ? "SYSTEMD_HOME_SUSPEND=1" : "SYSTEMD_HOME_SUSPEND=0");
         if (r != PAM_SUCCESS)
                 return pam_syslog_pam_error(pamh, LOG_ERR, r,
                                             "Failed to set PAM environment variable $SYSTEMD_HOME_SUSPEND: @PAMERR@");
@@ -911,6 +912,12 @@ _public_ PAM_EXTERN int pam_sm_close_session(
         bool debug = false;
         int r;
 
+        r = DLOPEN_LIBPAM(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED);
+        if (r < 0)
+                return PAM_SERVICE_ERR;
+
+        (void) DLOPEN_LIBINTL(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED); /* best-effort: messages won't be translated if this fails */
+
         pam_log_setup();
 
         if (parse_argv(pamh,
@@ -921,7 +928,7 @@ _public_ PAM_EXTERN int pam_sm_close_session(
 
         pam_debug_syslog(pamh, debug, "pam-systemd-homed: closing session...");
 
-        r = pam_get_user(pamh, &username, NULL);
+        r = sym_pam_get_user(pamh, &username, NULL);
         if (r != PAM_SUCCESS)
                 return pam_syslog_pam_error(pamh, LOG_ERR, r, "Failed to get user name: @PAMERR@");
         if (isempty(username))
@@ -954,7 +961,7 @@ _public_ PAM_EXTERN int pam_sm_close_session(
                         return pam_syslog_pam_error(pamh, LOG_ERR, PAM_SESSION_ERR,
                                                     "Failed to release user home: %s", bus_error_message(&error, r));
 
-                pam_syslog(pamh, LOG_NOTICE, "Not deactivating home directory of %s, as it is still used.", username);
+                sym_pam_syslog(pamh, LOG_NOTICE, "Not deactivating home directory of %s, as it is still used.", username);
         }
 
         return PAM_SUCCESS;
@@ -972,9 +979,11 @@ _public_ PAM_EXTERN int pam_sm_acct_mgmt(
         usec_t t;
         int r;
 
-        r = dlopen_libpam(LOG_DEBUG);
+        r = DLOPEN_LIBPAM(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED);
         if (r < 0)
                 return PAM_SERVICE_ERR;
+
+        (void) DLOPEN_LIBINTL(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED); /* best-effort: messages won't be translated if this fails */
 
         pam_log_setup();
 
@@ -1005,7 +1014,7 @@ _public_ PAM_EXTERN int pam_sm_acct_mgmt(
         switch (r) {
 
         case -ESTALE:
-                pam_syslog(pamh, LOG_WARNING, "User record for '%s' is newer than current system time, assuming incorrect system clock, allowing access.", ur->user_name);
+                sym_pam_syslog(pamh, LOG_WARNING, "User record for '%s' is newer than current system time, assuming incorrect system clock, allowing access.", ur->user_name);
                 break;
 
         case -ENOLCK:
@@ -1062,7 +1071,7 @@ _public_ PAM_EXTERN int pam_sm_acct_mgmt(
 
         case -ESTALE:
                 /* If the system clock is wrong, let's log but continue */
-                pam_syslog(pamh, LOG_WARNING, "Couldn't check if password change is required, last change is in the future, system clock likely wrong.");
+                sym_pam_syslog(pamh, LOG_WARNING, "Couldn't check if password change is required, last change is in the future, system clock likely wrong.");
                 break;
 
         case -EROFS:
@@ -1091,9 +1100,11 @@ _public_ PAM_EXTERN int pam_sm_chauthtok(
         bool debug = false;
         int r;
 
-        r = dlopen_libpam(LOG_DEBUG);
+        r = DLOPEN_LIBPAM(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED);
         if (r < 0)
                 return PAM_SERVICE_ERR;
+
+        (void) DLOPEN_LIBINTL(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED); /* best-effort: messages won't be translated if this fails */
 
         pam_log_setup();
 
@@ -1121,7 +1132,7 @@ _public_ PAM_EXTERN int pam_sm_chauthtok(
                 /* No, it's not cached, then let's ask for the password and its verification, and cache
                  * it. */
 
-                r = pam_get_authtok_noverify(pamh, &new_password, "New password: ");
+                r = sym_pam_get_authtok_noverify(pamh, &new_password, "New password: ");
                 if (r != PAM_SUCCESS)
                         return pam_syslog_pam_error(pamh, LOG_ERR, r, "Failed to get new password: @PAMERR@");
 
@@ -1130,7 +1141,7 @@ _public_ PAM_EXTERN int pam_sm_chauthtok(
                         return PAM_AUTHTOK_ERR;
                 }
 
-                r = pam_get_authtok_verify(pamh, &new_password, "new password: "); /* Lower case, since PAM prefixes 'Repeat' */
+                r = sym_pam_get_authtok_verify(pamh, &new_password, "new password: "); /* Lower case, since PAM prefixes 'Repeat' */
                 if (r != PAM_SUCCESS)
                         return pam_syslog_pam_error(pamh, LOG_ERR, r, "Failed to get password again: @PAMERR@");
 

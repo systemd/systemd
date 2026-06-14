@@ -971,6 +971,10 @@ static int method_list_units_by_names(sd_bus_message *message, void *userdata, s
         if (r < 0)
                 return r;
 
+        if (strv_length(units) > MAX(hashmap_size(m->units), (unsigned) MANAGER_MAX_NAMES / 2))
+                return sd_bus_error_set(reterr_error, SD_BUS_ERROR_LIMITS_EXCEEDED,
+                                        "Too many unit names requested.");
+
         r = sd_bus_message_new_method_return(message, &reply);
         if (r < 0)
                 return r;
@@ -1028,7 +1032,6 @@ static int transient_unit_from_message(
                 Unit **ret_unit,
                 sd_bus_error *reterr_error) {
 
-        UnitType t;
         Unit *u;
         int r;
 
@@ -1036,27 +1039,7 @@ static int transient_unit_from_message(
         assert(message);
         assert(name);
 
-        t = unit_name_to_type(name);
-        if (t < 0)
-                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS,
-                                         "Invalid unit name or type: %s", name);
-
-        if (!unit_vtable[t]->can_transient)
-                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS,
-                                         "Unit type %s does not support transient units.",
-                                         unit_type_to_string(t));
-
-        r = manager_load_unit(m, name, NULL, reterr_error, &u);
-        if (r < 0)
-                return r;
-
-        if (!unit_is_pristine(u))
-                return sd_bus_error_setf(reterr_error, BUS_ERROR_UNIT_EXISTS,
-                                         "Unit %s was already loaded or has a fragment file.", name);
-
-        /* OK, the unit failed to load and is unreferenced, now let's
-         * fill in the transient data instead */
-        r = unit_make_transient(u);
+        r = manager_setup_transient_unit(m, name, &u, reterr_error);
         if (r < 0)
                 return r;
 
@@ -1268,6 +1251,14 @@ static int list_units_filtered(sd_bus_message *message, void *userdata, sd_bus_e
 
         /* Anyone can call this method */
 
+        if (strv_length(states) > MANAGER_MAX_STATES_PER_CALL)
+                return sd_bus_error_set(reterr_error, SD_BUS_ERROR_LIMITS_EXCEEDED,
+                                        "Too many states in a single query.");
+
+        if (strv_length(patterns) > MANAGER_MAX_PATTERNS_PER_CALL)
+                return sd_bus_error_set(reterr_error, SD_BUS_ERROR_LIMITS_EXCEEDED,
+                                        "Too many patterns in a single query.");
+
         r = sd_bus_message_new_method_return(message, &reply);
         if (r < 0)
                 return r;
@@ -1450,6 +1441,10 @@ static int dump_impl(
         int r;
 
         assert(message);
+
+        if (strv_length(patterns) > MANAGER_MAX_PATTERNS_PER_CALL)
+                return sd_bus_error_set(reterr_error, SD_BUS_ERROR_LIMITS_EXCEEDED,
+                                        "Too many patterns in a single query.");
 
         /* 'status' access is the bare minimum always needed for this, as the policy might straight out
          * forbid a client from querying any information from systemd, regardless of any rate limiting. */
@@ -1897,6 +1892,10 @@ static int method_set_environment(sd_bus_message *message, void *userdata, sd_bu
         r = sd_bus_message_read_strv(message, &plus);
         if (r < 0)
                 return r;
+
+        if (strv_length(plus) > ENVIRONMENT_ASSIGNMENTS_MAX)
+                return sd_bus_error_set(reterr_error, SD_BUS_ERROR_LIMITS_EXCEEDED,
+                                        "Too many environment assignments in a single query.");
         if (!strv_env_is_valid(plus))
                 return sd_bus_error_set(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Invalid environment assignments");
 
@@ -1928,6 +1927,9 @@ static int method_unset_environment(sd_bus_message *message, void *userdata, sd_
         if (r < 0)
                 return r;
 
+        if (strv_length(minus) > ENVIRONMENT_ASSIGNMENTS_MAX)
+                return sd_bus_error_set(reterr_error, SD_BUS_ERROR_LIMITS_EXCEEDED,
+                                        "Too many environment variable names in a single query.");
         if (!strv_env_name_or_assignment_is_valid(minus))
                 return sd_bus_error_set(reterr_error, SD_BUS_ERROR_INVALID_ARGS,
                                         "Invalid environment variable names or assignments");
@@ -1964,6 +1966,9 @@ static int method_unset_and_set_environment(sd_bus_message *message, void *userd
         if (r < 0)
                 return r;
 
+        if (strv_length(plus) > ENVIRONMENT_ASSIGNMENTS_MAX || strv_length(minus) > ENVIRONMENT_ASSIGNMENTS_MAX)
+                return sd_bus_error_set(reterr_error, SD_BUS_ERROR_LIMITS_EXCEEDED,
+                                        "Too many environment variable names or assignments in a single query.");
         if (!strv_env_name_or_assignment_is_valid(minus))
                 return sd_bus_error_set(reterr_error, SD_BUS_ERROR_INVALID_ARGS,
                                         "Invalid environment variable names or assignments");
@@ -2193,6 +2198,14 @@ static int list_unit_files_by_patterns(sd_bus_message *message, void *userdata, 
         assert(message);
 
         /* Anyone can call this method */
+
+        if (strv_length(states) > MANAGER_MAX_STATES_PER_CALL)
+                return sd_bus_error_set(reterr_error, SD_BUS_ERROR_LIMITS_EXCEEDED,
+                                        "Too many states in a single query.");
+
+        if (strv_length(patterns) > MANAGER_MAX_PATTERNS_PER_CALL)
+                return sd_bus_error_set(reterr_error, SD_BUS_ERROR_LIMITS_EXCEEDED,
+                                        "Too many patterns in a single query.");
 
         r = mac_selinux_access_check(message, "status", reterr_error);
         if (r < 0)
@@ -2946,6 +2959,8 @@ const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_PROPERTY("DefaultStartLimitIntervalSec", "t", bus_property_get_usec, offsetof(Manager, defaults.start_limit.interval), SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
         SD_BUS_PROPERTY("DefaultStartLimitInterval", "t", bus_property_get_usec, offsetof(Manager, defaults.start_limit.interval), SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
         SD_BUS_PROPERTY("DefaultStartLimitBurst", "u", bus_property_get_unsigned, offsetof(Manager, defaults.start_limit.burst), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("EventLoopRateLimitIntervalUSec", "t", bus_property_get_usec, offsetof(Manager, event_loop_ratelimit.interval), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("EventLoopRateLimitBurst", "u", bus_property_get_unsigned, offsetof(Manager, event_loop_ratelimit.burst), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DefaultIOAccounting", "b", bus_property_get_bool, offsetof(Manager, defaults.io_accounting), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DefaultIPAccounting", "b", bus_property_get_bool, offsetof(Manager, defaults.ip_accounting), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DefaultMemoryAccounting", "b", bus_property_get_bool, offsetof(Manager, defaults.memory_accounting), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -2995,6 +3010,7 @@ const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_PROPERTY("DefaultRestrictSUIDSGID", "b", bus_property_get_bool, offsetof(Manager, defaults.restrict_suid_sgid), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("CtrlAltDelBurstAction", "s", bus_property_get_emergency_action, offsetof(Manager, cad_burst_action), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SoftRebootsCount", "u", bus_property_get_unsigned, offsetof(Manager, soft_reboots_count), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("ReloadCount", "t", NULL, offsetof(Manager, reload_count), 0),
         SD_BUS_PROPERTY("DefaultMemoryZSwapWriteback", "b", bus_property_get_bool, offsetof(Manager, defaults.memory_zswap_writeback), SD_BUS_VTABLE_PROPERTY_CONST),
 
         /* deprecated cgroup v1 property */

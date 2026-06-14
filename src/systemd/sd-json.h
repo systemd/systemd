@@ -184,6 +184,9 @@ __extension__ typedef enum _SD_ENUM_TYPE_S64(sd_json_parse_flags_t) {
         SD_JSON_PARSE_SENSITIVE      = 1 << 0, /* mark variant as "sensitive", i.e. something containing secret key material or such */
         SD_JSON_PARSE_MUST_BE_OBJECT = 1 << 1, /* refuse parsing if top-level is not an object */
         SD_JSON_PARSE_MUST_BE_ARRAY  = 1 << 2, /* refuse parsing if top-level is not an array */
+        SD_JSON_PARSE_SEEK0          = 1 << 3, /* seek to offset 0 before reading */
+        SD_JSON_PARSE_DONATE_FD      = 1 << 4, /* pass ownership of fd to call, incl. on failure */
+        SD_JSON_PARSE_REOPEN_FD      = 1 << 5, /* reopen the specified file descriptor */
         _SD_ENUM_FORCE_S64(JSON_PARSE_FLAGS)
 } sd_json_parse_flags_t;
 
@@ -193,6 +196,7 @@ int sd_json_parse(const char *string, sd_json_parse_flags_t flags, sd_json_varia
 int sd_json_parse_continue(const char **p, sd_json_parse_flags_t flags, sd_json_variant **ret, unsigned *reterr_line, unsigned *reterr_column);
 int sd_json_parse_file_at(FILE *f, int dir_fd, const char *path, sd_json_parse_flags_t flags, sd_json_variant **ret, unsigned *reterr_line, unsigned *reterr_column);
 int sd_json_parse_file(FILE *f, const char *path, sd_json_parse_flags_t flags, sd_json_variant **ret, unsigned *reterr_line, unsigned *reterr_column);
+int sd_json_parse_fd(const char *path, int fd, sd_json_parse_flags_t flags, sd_json_variant **ret, unsigned *reterr_line, unsigned *reterr_column);
 
 enum {
         /* Do not use these directly, use the SD_JSON_BUILD_*() macros below */

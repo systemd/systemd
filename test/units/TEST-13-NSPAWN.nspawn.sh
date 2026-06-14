@@ -405,11 +405,17 @@ testcase_check_default_inaccessible_paths() {
     # Taken from src/nspawn/nspawn-mount.c:mount_all()
     inaccessible_paths=(
         "/proc/kallsyms"
-        "/proc/kcore"
         "/proc/keys"
         "/proc/sysrq-trigger"
         "/proc/timer_list"
     )
+
+    # /proc/kcore may not exist on some kernels, e.g. Alpine/postmarketOS.
+    if [[ -e /proc/kcore ]]; then
+        inaccessible_paths+=(
+            "/proc/kcore"
+        )
+    fi
 
     root="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.default_inaccessible_paths.XXX)"
     container="$(basename "$root")"
@@ -1185,6 +1191,21 @@ matrix_run_one() {
                        ip a | grep -v -E '^1: lo.*UP'
     ip netns del nspawn_test
 
+    # test --network-namespace-path works when combined with --private-users=pick
+    ip netns add nspawn_test
+    ip netns exec nspawn_test ip link add foo type dummy
+
+    if [[ "$IS_USERNS_SUPPORTED" == "yes" && "$api_vfs_writable" == "no" ]]; then
+        SYSTEMD_NSPAWN_USE_CGNS="$use_cgns" SYSTEMD_NSPAWN_API_VFS_WRITABLE="$api_vfs_writable" \
+            systemd-nspawn --register=no \
+                           --directory="$root" \
+                           --private-users=pick \
+                           --network-namespace-path=/run/netns/nspawn_test \
+                           ip link show dev foo
+    fi
+
+    ip netns del nspawn_test
+
     rm -fr "$root"
 
     return 0
@@ -1350,7 +1371,10 @@ testcase_unpriv() {
 }
 
 testcase_fuse() {
-    if [[ "$(cat <>/dev/fuse 2>&1)" != 'cat: -: Operation not permitted' ]]; then
+    # On some kernels reading from /dev/fuse without an attached connection blocks indefinitely
+    # rather than returning EPERM, so guard the probe with a short timeout and skip the test
+    # whenever we don't get the expected error string.
+    if [[ "$(timeout --foreground 5 cat <>/dev/fuse 2>&1)" != 'cat: -: Operation not permitted' ]]; then
         echo "FUSE is not supported, skipping the test..."
         return 0
     fi
@@ -1381,7 +1405,7 @@ testcase_fuse() {
     #    "cat: -: Operation not permitted"                   # pass the test; opened but not read
     #    "bash: line 1: /dev/fuse: Operation not permitted"  # fail the test; could not open
     #    ""                                                  # fail the test; reading worked
-    [[ "$(systemd-nspawn --register=no --pipe --directory="$root" \
+    [[ "$(timeout --foreground 30 systemd-nspawn --register=no --pipe --directory="$root" \
               bash -c 'cat <>/dev/fuse' 2>&1)" == 'cat: -: Operation not permitted' ]]
 
     rm -fr "$root"
@@ -1390,7 +1414,7 @@ testcase_fuse() {
 testcase_unpriv_fuse() {
     # Same as above, but for unprivileged operation.
 
-    if [[ "$(cat <>/dev/fuse 2>&1)" != 'cat: -: Operation not permitted' ]]; then
+    if [[ "$(timeout --foreground 5 cat <>/dev/fuse 2>&1)" != 'cat: -: Operation not permitted' ]]; then
         echo "FUSE is not supported, skipping the test..."
         return 0
     fi
@@ -1409,7 +1433,7 @@ testcase_unpriv_fuse() {
     create_dummy_ddi "$tmpdir" "$name"
     chown --recursive testuser: "$tmpdir"
 
-    [[ "$(run0 -u testuser --pipe systemd-run \
+    [[ "$(timeout --foreground 60 run0 -u testuser --pipe systemd-run \
               --user \
               --pipe \
               --property=Delegate=yes \
@@ -1556,6 +1580,47 @@ testcase_volatile_link_journal_no_userns() {
     grep -q "4294967295" <<< "$acl_output" && exit 1
 
     rm -fr "$root" "$journal_dir"
+}
+
+testcase_boot_param_split() {
+    local root outdir
+
+    root="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.boot-param-split.XXX)"
+    outdir="$(mktemp -d)"
+    create_dummy_container "$root"
+
+    # Replace the init binary with a stub that records the argv and environment nspawn passes to it,
+    # so we can verify that kernel-cmdline-style KEY=VALUE arguments are split between PID 1's
+    # environment and argv the same way the kernel splits them.
+    mkdir -p "$root/usr/lib/systemd"
+    cat >"$root/usr/lib/systemd/systemd" <<'EOF'
+#!/bin/bash
+set -e
+printf '%s\n' "$@" >/output/argv
+env >/output/env
+EOF
+    chmod +x "$root/usr/lib/systemd/systemd"
+
+    # Cover the assignments that should land in env (FOO=bar, baz-qux=hello → baz_qux), the
+    # dotted assignments that should stay as argv (systemd.unit=…, some.thing=…), and the malformed
+    # entries that look env-like but must also stay as argv: empty key (=value), key starting with
+    # a digit (123=foo), key with characters that aren't valid in an env var name (foo!=bar).
+    systemd-nspawn --register=no \
+                   --directory="$root" \
+                   --bind="$outdir:/output" \
+                   --boot \
+                   FOO=bar baz-qux=hello systemd.unit=foo.target some.thing=yes plain-arg \
+                   =empty-key 123=leading-digit 'foo!=bad-char'
+
+    diff <(printf 'systemd.unit=foo.target\nsome.thing=yes\nplain-arg\n=empty-key\n123=leading-digit\nfoo!=bad-char\n') "$outdir/argv"
+    grep '^FOO=bar$' >/dev/null "$outdir/env"
+    grep '^baz_qux=hello$' >/dev/null "$outdir/env"
+    (! grep -E '^(systemd\.unit|some\.thing)=' >/dev/null "$outdir/env")
+    (! grep -E '^(FOO|baz_qux)=' >/dev/null "$outdir/argv")
+    (! grep -E '^(123|foo!?)=' >/dev/null "$outdir/env")
+    (! grep -E '^=' >/dev/null "$outdir/env")
+
+    rm -fr "$root" "$outdir"
 }
 
 testcase_cap_net_bind_service() {

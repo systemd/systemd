@@ -1,8 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdlib.h>
+
 #include "alloc-util.h"
 #include "ansi-color.h"
 #include "help-util.h"
+#include "path-util.h"
 #include "pretty-print.h"
 
 /* These are helpers for putting together --help texts in a uniform way with a common output style. Each
@@ -25,12 +28,16 @@
  *   options.[ch] APIs. */
 
 void help_cmdline(const char *arguments) {
+        const char *progname =
+                last_path_component(secure_getenv("SYSTEMD_INVOKED_AS"))
+                ?: program_invocation_short_name;
+
         assert(arguments);
 
         printf("%s>%s %s %s\n",
                ansi_grey(),
                ansi_normal(),
-               program_invocation_short_name,
+               progname,
                arguments);
 }
 
@@ -47,7 +54,7 @@ void help_abstract(const char *text) {
 void help_section(const char *title) {
         assert(title);
 
-        printf("\n%s%s%s\n",
+        printf("\n%s%s:%s\n",
                ansi_underline(),
                title,
                ansi_normal());

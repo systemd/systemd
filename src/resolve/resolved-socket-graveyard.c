@@ -2,7 +2,7 @@
 
 #include "sd-event.h"
 #include "alloc-util.h"
-#include "assert-fundamental.h"
+#include "assert-util.h"
 #include "log.h"
 #include "resolved-manager.h"
 #include "resolved-socket-graveyard.h"

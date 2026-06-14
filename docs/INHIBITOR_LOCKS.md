@@ -31,7 +31,7 @@ Seven distinct inhibitor lock types may be taken, or a combination of them:
 6. Similar, _handle-hibernate-key_ inhibits the low-level handling of the system **hardware** hibernate key.
 7. Similar, _handle-lid-switch_ inhibits the low-level handling of the systemd **hardware** lid switch.
 
-Two different modes of locks are supported:
+Three different modes of locks are supported:
 
 1. _block_ inhibits operations entirely until the lock is released.
 If such a lock is taken the operation will fail (but still may be overridden if the user possesses the necessary privileges).

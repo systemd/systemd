@@ -21,7 +21,7 @@
 #include "install-file.h"
 #include "io-util.h"
 #include "json-util.h"
-#include "mkdir-label.h"
+#include "mkdir.h"
 #include "oci-util.h"
 #include "ordered-set.h"
 #include "path-util.h"
@@ -31,7 +31,7 @@
 #include "pull-oci.h"
 #include "rm-rf.h"
 #include "set.h"
-#include "sha256-fundamental.h"
+#include "sha256.h"
 #include "signal-util.h"
 #include "stat-util.h"
 #include "string-util.h"
@@ -194,9 +194,6 @@ int oci_pull_new(
                 .glue = TAKE_PTR(g),
                 .userns_fd = -EBADF,
         };
-
-        i->glue->on_finished = pull_job_curl_on_finished;
-        i->glue->userdata = i;
 
         *ret = TAKE_PTR(i);
 

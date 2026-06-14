@@ -10,8 +10,6 @@
 #include "dns-question.h"
 #include "dns-rr.h"
 #include "errno-util.h"
-#include "fd-util.h"
-#include "fileio.h"
 #include "hashmap.h"
 #include "json-util.h"
 #include "log.h"
@@ -96,16 +94,9 @@ static int load_static_record_file(const ConfFile *cf, Hashmap **records, Set **
         if (set_ensure_consume(stats, &inode_unmodified_hash_ops, TAKE_PTR(st_copy)) < 0)
                 return log_oom();
 
-        _cleanup_fclose_ FILE *f = NULL;
-        r = xfopenat(cf->fd, /* path= */ NULL, "re", /* open_flags= */ 0, &f);
-        if (r < 0) {
-                log_warning_errno(r, "Failed to open '%s', skipping: %m", cf->result);
-                return 0;
-        }
-
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
         unsigned line = 0, column = 0;
-        r = sd_json_parse_file(f, cf->result, /* flags= */ 0, &j, &line, &column);
+        r = sd_json_parse_fd(cf->result, cf->fd, SD_JSON_PARSE_REOPEN_FD, &j, &line, &column);
         if (r < 0) {
                 if (line > 0)
                         log_syntax(/* unit= */ NULL, LOG_WARNING, cf->result, line, r, "Failed to parse JSON, skipping: %m");

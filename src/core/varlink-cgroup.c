@@ -258,6 +258,7 @@ int unit_cgroup_context_build_json(sd_json_variant **ret, const char *name, void
                         JSON_BUILD_PAIR_FINITE_USEC("CPUQuotaPeriodUSec", c->cpu_quota_period_usec),
                         JSON_BUILD_PAIR_CALLBACK_NON_NULL("AllowedCPUs", cpuset_build_json, &c->cpuset_cpus),
                         JSON_BUILD_PAIR_CALLBACK_NON_NULL("StartupAllowedCPUs", cpuset_build_json, &c->startup_cpuset_cpus),
+                        JSON_BUILD_PAIR_ENUM("CPUSetPartition", cpuset_partition_to_string(c->cpuset_partition)),
 
                         /* Memory Accounting and Control */
                         SD_JSON_BUILD_PAIR_BOOLEAN("MemoryAccounting", c->memory_accounting),
@@ -325,6 +326,7 @@ int unit_cgroup_context_build_json(sd_json_variant **ret, const char *name, void
                         JSON_BUILD_PAIR_UNSIGNED_NON_ZERO("ManagedOOMMemoryPressureLimit", c->moom_mem_pressure_limit),
                         JSON_BUILD_PAIR_FINITE_USEC("ManagedOOMMemoryPressureDurationUSec", c->moom_mem_pressure_duration_usec),
                         JSON_BUILD_PAIR_ENUM("ManagedOOMPreference", managed_oom_preference_to_string(c->moom_preference)),
+                        JSON_BUILD_PAIR_STRV_NON_EMPTY("OOMRules", c->moom_rules),
                         JSON_BUILD_PAIR_ENUM("MemoryPressureWatch", cgroup_pressure_watch_to_string(c->pressure[PRESSURE_MEMORY].watch)),
                         JSON_BUILD_PAIR_FINITE_USEC("MemoryPressureThresholdUSec", c->pressure[PRESSURE_MEMORY].threshold_usec),
                         JSON_BUILD_PAIR_ENUM("CPUPressureWatch", cgroup_pressure_watch_to_string(c->pressure[PRESSURE_CPU].watch)),

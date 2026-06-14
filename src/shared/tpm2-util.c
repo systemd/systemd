@@ -53,11 +53,6 @@
 #include "virt.h"
 
 #if HAVE_TPM2
-static void *libtss2_esys_dl = NULL;
-static void *libtss2_rc_dl = NULL;
-static void *libtss2_mu_dl = NULL;
-static void *libtss2_tcti_device_dl = NULL;
-
 static DLSYM_PROTOTYPE(Esys_Create) = NULL;
 static DLSYM_PROTOTYPE(Esys_CreateLoaded) = NULL;
 static DLSYM_PROTOTYPE(Esys_CreatePrimary) = NULL;
@@ -126,13 +121,10 @@ static DLSYM_PROTOTYPE(Tss2_MU_UINT32_Marshal) = NULL;
 static DLSYM_PROTOTYPE(Tss2_RC_Decode) = NULL;
 
 static int dlopen_tpm2_esys(int log_level) {
+        static void *libtss2_esys_dl = NULL;
         int r;
 
-        SD_ELF_NOTE_DLOPEN(
-                        "tpm",
-                        "Support for TPM",
-                        SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
-                        "libtss2-esys.so.0");
+        TPM2_ESYS_NOTE(SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED);
 
         r = dlopen_many_sym_or_warn(
                         &libtss2_esys_dl, "libtss2-esys.so.0", log_level,
@@ -192,11 +184,9 @@ static int dlopen_tpm2_esys(int log_level) {
 }
 
 static int dlopen_tpm2_rc(int log_level) {
-        SD_ELF_NOTE_DLOPEN(
-                        "tpm",
-                        "Support for TPM",
-                        SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
-                        "libtss2-rc.so.0");
+        static void *libtss2_rc_dl = NULL;
+
+        TPM2_RC_NOTE(SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED);
 
         return dlopen_many_sym_or_warn(
                         &libtss2_rc_dl, "libtss2-rc.so.0", log_level,
@@ -204,11 +194,9 @@ static int dlopen_tpm2_rc(int log_level) {
 }
 
 static int dlopen_tpm2_mu(int log_level) {
-        SD_ELF_NOTE_DLOPEN(
-                        "tpm",
-                        "Support for TPM",
-                        SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
-                        "libtss2-mu.so.0");
+        static void *libtss2_mu_dl = NULL;
+
+        TPM2_MU_NOTE(SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED);
 
         return dlopen_many_sym_or_warn(
                         &libtss2_mu_dl, "libtss2-mu.so.0", log_level,
@@ -234,14 +222,12 @@ static int dlopen_tpm2_mu(int log_level) {
 }
 
 static int dlopen_tpm2_tcti_device(int log_level) {
+        static void *libtss2_tcti_device_dl = NULL;
+
         /* The "device" TCTI is the most relevant one, let's also load it explicitly on dlopen_tpm2(), even
          * if we don't resolve any symbols here. */
 
-        SD_ELF_NOTE_DLOPEN(
-                        "tpm",
-                        "Support for TPM",
-                        SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
-                        "libtss2-tcti-device.so.0");
+        TPM2_TCTI_DEVICE_NOTE(SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED);
 
         return dlopen_verbose(
                         &libtss2_tcti_device_dl,
@@ -819,7 +805,7 @@ static bool tpm2_supports_tpmt_sym_def(Tpm2Context *c, const TPMT_SYM_DEF *param
         assert(c);
         assert(parameters);
 
-        /* Unfortunately, TPMT_SYM_DEF and TPMT_SYM_DEF_OBEJECT are separately defined, even though they are
+        /* Unfortunately, TPMT_SYM_DEF and TPMT_SYM_DEF_OBJECT are separately defined, even though they are
          * functionally identical. */
         TPMT_SYM_DEF_OBJECT object = {
                 .algorithm = parameters->algorithm,
@@ -5804,6 +5790,7 @@ int tpm2_unseal(Tpm2Context *c,
         int r;
 
         assert(n_blobs > 0);
+        assert(blobs);
         assert(iovec_is_valid(pubkey));
         assert(ret_secret);
 
@@ -6699,6 +6686,7 @@ static const char* tpm2_userspace_event_type_table[_TPM2_USERSPACE_EVENT_TYPE_MA
         [TPM2_EVENT_DM_VERITY]       = "dm-verity",
         [TPM2_EVENT_IMDS_USERDATA]   = "imds-userdata",
         [TPM2_EVENT_OS_SEPARATOR]    = "os-separator",
+        [TPM2_EVENT_LOGIN]           = "login",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(tpm2_userspace_event_type, Tpm2UserspaceEventType);
@@ -6988,6 +6976,7 @@ typedef struct NvPCRData {
         char *name;
         uint16_t algorithm;
         uint32_t nv_index;
+        uint64_t priority;
 } NvPCRData;
 
 static void nvpcr_data_done(NvPCRData *d) {
@@ -7027,11 +7016,13 @@ static int nvpcr_data_load(const char *name, NvPCRData *ret) {
                 { "name",      SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,      offsetof(NvPCRData, name),      SD_JSON_MANDATORY },
                 { "algorithm", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_tpm2_algorithm, offsetof(NvPCRData, algorithm), 0                 },
                 { "nvIndex",   _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint32,      offsetof(NvPCRData, nv_index),  SD_JSON_MANDATORY },
+                { "priority",  _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,      offsetof(NvPCRData, priority),  0                 },
                 {},
         };
 
         _cleanup_(nvpcr_data_done) NvPCRData p = {
                 .algorithm = TPM2_ALG_SHA256,
+                .priority = TPM2_NVPCR_PRIORITY_DEFAULT,
         };
         r = sd_json_dispatch(v, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &p);
         if (r < 0)
@@ -7044,7 +7035,7 @@ static int nvpcr_data_load(const char *name, NvPCRData *ret) {
         return 0;
 }
 
-int tpm2_nvpcr_get_index(const char *name, uint32_t *ret) {
+int tpm2_nvpcr_get_index(const char *name, uint32_t *ret_nv_index, uint64_t *ret_priority) {
         int r;
 
         _cleanup_(nvpcr_data_done) NvPCRData p = {};
@@ -7052,8 +7043,10 @@ int tpm2_nvpcr_get_index(const char *name, uint32_t *ret) {
         if (r < 0)
                 return r;
 
-        if (ret)
-                *ret = p.nv_index;
+        if (ret_nv_index)
+                *ret_nv_index = p.nv_index;
+        if (ret_priority)
+                *ret_priority = p.priority;
 
         return 0;
 }
@@ -7745,7 +7738,8 @@ int tpm2_nvpcr_read(
                 const Tpm2Handle *session,
                 const char *name,
                 struct iovec *ret_value,
-                uint32_t *ret_nv_index) {
+                uint32_t *ret_nv_index,
+                uint64_t *ret_priority) {
 
 #if HAVE_OPENSSL
         int r;
@@ -7772,6 +7766,8 @@ int tpm2_nvpcr_read(
                 *ret_value = (struct iovec) {};
                 if (ret_nv_index)
                         *ret_nv_index = p.nv_index;
+                if (ret_priority)
+                        *ret_priority = p.priority;
 
                 return 0;
         }
@@ -7808,6 +7804,8 @@ int tpm2_nvpcr_read(
 
         if (ret_nv_index)
                 *ret_nv_index = p.nv_index;
+        if (ret_priority)
+                *ret_priority = p.priority;
 
         return r;
 #else /* HAVE_OPENSSL */

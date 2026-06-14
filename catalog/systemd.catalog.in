@@ -455,7 +455,7 @@ Support: %SUPPORT_URL%
 
 The directory @WHERE@ is specified as the mount point (second field in
 /etc/fstab or Where= field in systemd unit file) and is not empty.
-This does not interfere with mounting, but the pre-exisiting files in
+This does not interfere with mounting, but the pre-existing files in
 this directory become inaccessible. To see those over-mounted files,
 please manually mount the underlying file system to a secondary
 location.

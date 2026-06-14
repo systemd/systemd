@@ -19,7 +19,7 @@ _public_ PAM_EXTERN int pam_sm_authenticate(
 
         assert(pamh);
 
-        r = dlopen_libpam(LOG_DEBUG);
+        r = DLOPEN_LIBPAM(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED);
         if (r < 0)
                 return PAM_SERVICE_ERR;
 
@@ -41,7 +41,7 @@ _public_ PAM_EXTERN int pam_sm_authenticate(
                 else if (streq(argv[i], "debug"))
                         debug = true;
                 else
-                        pam_syslog(pamh, LOG_WARNING, "Unknown parameter '%s', ignoring.", argv[i]);
+                        sym_pam_syslog(pamh, LOG_WARNING, "Unknown parameter '%s', ignoring.", argv[i]);
         }
 
         pam_debug_syslog(pamh, debug, "pam-systemd-loadkey: initializing...");
@@ -81,7 +81,7 @@ _public_ PAM_EXTERN int pam_sm_authenticate(
         } else if (passwords_len > 1)
                 pam_debug_syslog(pamh, debug, "Multiple passwords found in the key. Using the last one.");
 
-        r = pam_set_item(pamh, PAM_AUTHTOK, passwords[passwords_len - 1]);
+        r = sym_pam_set_item(pamh, PAM_AUTHTOK, passwords[passwords_len - 1]);
         if (r != PAM_SUCCESS)
                 return pam_syslog_pam_error(pamh, LOG_ERR, r, "Failed to set PAM auth token: @PAMERR@");
 

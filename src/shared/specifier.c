@@ -347,7 +347,7 @@ int specifier_user_name(char specifier, const void *data, const char *root, cons
          * to be able to run this in PID 1, where our user ID is 0, but where NSS lookups are not allowed.
 
          * We don't use getusername_malloc() here, because we don't want to look at $USER, to remain
-         * consistent with specifer_user_id() below.
+         * consistent with specifier_user_id() below.
          */
 
         t = uid_to_name(uid);

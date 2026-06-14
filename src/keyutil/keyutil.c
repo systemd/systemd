@@ -87,11 +87,10 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argv);
         assert(ret_args);
 
-        OptionParser state = { argc, argv };
-        const char *arg;
+        OptionParser opts = { argc, argv };
         int r;
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -101,14 +100,14 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         return version();
 
                 OPTION_COMMON_PRIVATE_KEY("Private key in PEM format"):
-                        r = free_and_strdup_warn(&arg_private_key, arg);
+                        r = free_and_strdup_warn(&arg_private_key, opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_COMMON_PRIVATE_KEY_SOURCE:
                         r = parse_openssl_key_source_argument(
-                                        arg,
+                                        opts.arg,
                                         &arg_private_key_source,
                                         &arg_private_key_source_type);
                         if (r < 0)
@@ -116,14 +115,14 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         break;
 
                 OPTION_COMMON_CERTIFICATE("PEM certificate to use for signing"):
-                        r = free_and_strdup_warn(&arg_certificate, arg);
+                        r = free_and_strdup_warn(&arg_certificate, opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_COMMON_CERTIFICATE_SOURCE:
                         r = parse_openssl_certificate_source_argument(
-                                        arg,
+                                        opts.arg,
                                         &arg_certificate_source,
                                         &arg_certificate_source_type);
                         if (r < 0)
@@ -131,24 +130,24 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         break;
 
                 OPTION_LONG("signature", "PATH", "PKCS#1 signature to embed in PKCS#7 signature"):
-                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_signature);
+                        r = parse_path_argument(opts.arg, /* suppress_root= */ false, &arg_signature);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("content", "PATH", "Raw data content to embed in PKCS#7 signature"):
-                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_content);
+                        r = parse_path_argument(opts.arg, /* suppress_root= */ false, &arg_content);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("hash-algorithm", "ALGORITHM",
                             "Hash algorithm used to create the PKCS#1 signature"):
-                        arg_hash_algorithm = arg;
+                        arg_hash_algorithm = opts.arg;
                         break;
 
                 OPTION_LONG("output", "PATH", "Where to write the PKCS#7 signature"):
-                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_output);
+                        r = parse_path_argument(opts.arg, /* suppress_root= */ false, &arg_output);
                         if (r < 0)
                                 return r;
                         break;
@@ -157,7 +156,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         if (arg_private_key_source && !arg_certificate)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "When using --private-key-source=, --certificate= must be specified.");
 
-        *ret_args = option_parser_get_args(&state);
+        *ret_args = option_parser_get_args(&opts);
         return 1;
 }
 
@@ -194,7 +193,7 @@ static int verb_validate(int argc, char *argv[], uintptr_t _data, void *userdata
         if (arg_private_key_source_type == OPENSSL_KEY_SOURCE_FILE) {
                 r = parse_path_argument(arg_private_key, /* suppress_root= */ false, &arg_private_key);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to parse private key path %s: %m", arg_private_key);
+                        return r;
         }
 
         r = openssl_load_private_key(
@@ -234,7 +233,7 @@ static int verb_extract_public(int argc, char *argv[], uintptr_t _data, void *us
                                 return r;
                 }
 
-                r = dlopen_libcrypto(LOG_ERR);
+                r = DLOPEN_LIBCRYPTO(LOG_ERR, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED);
                 if (r < 0)
                         return r;
 
@@ -260,7 +259,7 @@ static int verb_extract_public(int argc, char *argv[], uintptr_t _data, void *us
                 if (arg_private_key_source_type == OPENSSL_KEY_SOURCE_FILE) {
                         r = parse_path_argument(arg_private_key, /* suppress_root= */ false, &arg_private_key);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse private key path %s: %m", arg_private_key);
+                                return r;
                 }
 
                 r = openssl_load_private_key(
@@ -416,7 +415,7 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        return dispatch_verb_with_args(args, NULL);
+        return dispatch_verb(args, NULL);
 }
 
 DEFINE_MAIN_FUNCTION(run);

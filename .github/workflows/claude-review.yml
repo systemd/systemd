@@ -67,7 +67,7 @@ jobs:
 
       - name: Fetch PR context and create tracking comment
         id: context
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
         with:
           script: |
             const owner = context.repo.owner;
@@ -167,11 +167,15 @@ jobs:
           PR_NUMBER: ${{ needs.setup.outputs.pr_number }}
         run: |
           git fetch origin "pull/${PR_NUMBER}/head"
-          for sha in $(git log --reverse --format=%H HEAD..FETCH_HEAD); do
+          # Chronological commit order, oldest first. The worktree dirs are
+          # SHA-named, so listing them doesn't preserve order — reviewers read
+          # this manifest to review commits in the order they were authored.
+          git log --reverse --format=%H HEAD..FETCH_HEAD > commit-order.txt
+          while read -r sha; do
             git worktree add "worktrees/$sha" "$sha"
             git -C "worktrees/$sha" diff HEAD~..HEAD > "worktrees/$sha/commit.patch"
             git -C "worktrees/$sha" log -1 --format='%B' HEAD > "worktrees/$sha/commit-message.txt"
-          done
+          done < commit-order.txt
 
       - name: Install sandbox dependencies
         run: |
@@ -179,7 +183,7 @@ jobs:
           sudo apt-get update && sudo apt-get install -y bubblewrap socat
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@8df5847569e6427dd6c4fb1cf565c83acfa8afa7
+        uses: aws-actions/configure-aws-credentials@acca2b1b2070338fb9fd1ca27ecee81d687e58e5
         with:
           role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ secrets.AWS_ROLE_NAME }}
           role-session-name: GitHubActions-Claude-${{ github.run_id }}
@@ -192,6 +196,9 @@ jobs:
         env:
           CLAUDE_CODE_DISABLE_BACKGROUND_TASKS: "1"
           CLAUDE_CODE_USE_BEDROCK: "1"
+          # Pin the `opus` alias (used by the review subagents) to 4.8 so they
+          # don't silently resolve to an older model the Bedrock alias points at.
+          ANTHROPIC_DEFAULT_OPUS_MODEL: us.anthropic.claude-opus-4-8
         run: |
           mkdir -p ~/.claude
 
@@ -255,33 +262,81 @@ jobs:
           Review this pull request. All required context has been
           pre-fetched into local files.
 
-          ## Phase 1: Review commits
+          ## Phase 1: Review the PR through multiple lenses
 
-          First, list the directories in `worktrees/` and read `review-schema.json`.
-          Then, spawn exactly one review subagent per worktree directory, all in a
-          single message so they run concurrently. Do NOT batch or group multiple
-          commits into a single agent. Do NOT read any other files before spawning —
-          the subagents will do that themselves.
+          First, read `review-schema.json` and `commit-order.txt` in the repository
+          root. `commit-order.txt` lists the commit SHAs in chronological order,
+          oldest first — this is the order in which commits must be reviewed. Each
+          worktree at `worktrees/<sha>/` contains the full source tree checked out at
+          that commit, plus `commit.patch` (the diff) and `commit-message.txt` (the
+          commit message).
 
-          Each worktree at `worktrees/<sha>/` contains the full source tree checked
-          out at that commit, plus `commit.patch` (the diff) and `commit-message.txt`
-          (the commit message).
+          You will review the PR through a set of lenses. Every review uses these
+          four base lenses:
+          1. Correctness & memory safety — logic errors, edge cases, mishandled
+             error paths, use-after-free, double-free, memory/fd leaks, NULL
+             dereferences, uninitialized reads, integer/buffer overflow, off-by-one.
+          2. Resource lifetimes & concurrency — ownership and reference counting,
+             cleanup and unref paths, reentrancy, event-loop and async behavior,
+             signal safety, assert/assert_return contracts, and state-machine
+             invariants.
+          3. Security & robustness — handling of untrusted input, parsing, bounds
+             checks, resource exhaustion / DoS, privilege boundaries, path and
+             symlink handling, format strings, TOCTOU races.
+          4. API design, style & maintainability — interface design, consistency
+             with existing systemd idioms and CODING_STYLE, naming, error-propagation
+             conventions, dead code, and needless complexity.
 
-          Each reviewer reviews design, code quality, style, potential bugs, and
-          security implications.
+          ### Add PR-specific lenses
+
+          Before spawning, briefly inspect what this PR actually changes so you can
+          add domain-specific lenses. Read each worktree's `commit-message.txt` and
+          skim the changed file paths and hunk headers in each `commit.patch`, in
+          chronological order — just enough to understand which subsystems and
+          problem domains are touched. Do
+          NOT perform the review yourself or read the full source; that is the
+          subagents' job.
+
+          Based on that, add 1 to 3 EXTRA lenses targeting the specific concerns of
+          this PR. Each extra lens needs a short name and a one-sentence description
+          of what it must check. For example:
+          - a PR changing DNS logic in resolved → a "DNS protocol conformance" lens
+            (RFC compliance, packet/label parsing, name/length limits, DNSSEC,
+            EDNS, caching/TTL semantics).
+          - a PR changing D-Bus/Varlink interfaces → an "IPC interface
+            compatibility" lens (backward compatibility, method/signal signatures,
+            polkit authorization).
+          - a PR changing unit file parsing → a "unit file format & compatibility"
+            lens (directive semantics, ordering, backward compatibility).
+          - a PR touching sd-boot/UEFI → a "boot/firmware safety" lens.
+          Only add extra lenses genuinely warranted by the diff — for a small or
+          generic change the four base lenses may be enough, in which case add none.
+
+          ### Spawn the reviewers
+
+          Then spawn exactly one review subagent per lens (the base lenses plus any
+          extra lenses you derived), all in a single message so they run
+          concurrently. Each subagent reviews EVERY commit (every worktree
+          directory), but only through the perspective of its assigned lens.
 
           Each subagent must be spawned with `model: "opus"`.
 
           Each subagent prompt must include:
+          - The name and full description of its assigned lens, with an instruction
+            to report ONLY findings that fall under that lens and to ignore issues
+            belonging to the other lenses — those are covered by other reviewers.
           - Instructions to read `pr-context.json` in the repository root for additional
             context.
           - The contents of `review-schema.json` (paste it into each prompt so the
             agent doesn't have to read it separately).
-          - The worktree path.
-          - Instructions to read `commit-message.txt` and `commit.patch` in the
-            worktree for the commit message and diff.
-          - Instructions to verify every `line` and `start_line` value
-            against the hunk ranges in `commit.patch` before returning.
+          - The list of every worktree path in chronological order (oldest commit
+            first, matching `commit-order.txt`), with an instruction to review the
+            commits in that order and read each one's `commit-message.txt` and
+            `commit.patch`.
+          - Instructions that each finding's `commit` field must be the SHA of the
+            worktree the finding belongs to, and that every `line` and `start_line`
+            value must be verified against the hunk ranges in that commit's
+            `commit.patch` before returning.
           - Instructions to return ONLY a raw JSON array of findings. No markdown,
             no explanation, no code fences — just the JSON array. If there are no
             findings, return `[]`.
@@ -308,15 +363,23 @@ jobs:
 
           Then:
           1. Collect all issues. Merge duplicates across agents (same file, same
-             problem, lines within 3 of each other).
-          2. Drop issues that already have a review comment on the same file about
+             problem, lines within 3 of each other). Because the lenses overlap,
+             the same issue is often reported by more than one lens — collapse
+             these into a single comment, keeping the clearest wording.
+          2. Drop any issue whose suggestion is to add a code comment, docstring,
+             or documentation (e.g. "add a comment explaining…", "missing
+             docstring", "document this function", "would benefit from a
+             comment"). Project style is to write no comments unless the WHY is
+             non-obvious, so these are noise — drop them from `comments` and from
+             the `summary`.
+          3. Drop issues that already have a review comment on the same file about
              the same problem, or where the PR author replied disagreeing.
-          3. Populate the `resolve` array with the `id` of your own review comment
+          4. Populate the `resolve` array with the `id` of your own review comment
              threads (user.login == "github-actions[bot]", body starts with
              "Claude: ") that should be resolved — either because the issue was
              fixed or because the author dismissed it. Use the first comment `id`
              in each thread. Do not resolve threads from human reviewers.
-          4. Write a `summary` field in markdown for a top-level tracking comment.
+          5. Write a `summary` field in markdown for a top-level tracking comment.
 
               **If no existing tracking comment was found (first run):**
               Use this format:
@@ -366,15 +429,26 @@ jobs:
 
           ## Review result
 
-          Produce your review result as structured output. The fields are:
+          Produce your review result with a single `StructuredOutput` call that
+          contains all of these fields together:
           - `summary`: The markdown summary for the tracking comment.
           - `comments`: Array of review comments (same schema as the reviewer output above).
           - `resolve`: REST API IDs of review comment threads to resolve.
+
+          `comments` and `resolve` are required — include them in the same call even
+          when they are empty (`[]`). Never emit a call with `summary` alone; a call
+          missing `comments` is rejected and wastes a full retry. Build `comments`
+          first, then write `summary` from it, then emit everything in one call.
+
+          Keep `summary` concise: each checkbox is a short title, `path:line`, and a
+          one-line explanation — the detailed reasoning belongs in the matching
+          `comments` entry, not the summary. Do not restate full findings prose in
+          the summary.
           PROMPT
 
           claude \
-            --model us.anthropic.claude-opus-4-6-v1 \
-            --effort max \
+            --model us.anthropic.claude-opus-4-8 \
+            --effort xhigh \
             --max-turns 200 \
             --setting-sources user \
             --output-format stream-json \
@@ -411,7 +485,7 @@ jobs:
           name: review-result.json
 
       - name: Post review comments
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
         env:
           REVIEW_RESULT: ${{ needs.review.result }}
           PR_NUMBER: ${{ needs.setup.outputs.pr_number }}

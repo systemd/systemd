@@ -26,7 +26,7 @@
 #include "machine-dbus.h"
 #include "machined-resolve-hook.h"
 #include "machined.h"
-#include "mkdir-label.h"
+#include "mkdir.h"
 #include "namespace-util.h"
 #include "operation.h"
 #include "parse-util.h"

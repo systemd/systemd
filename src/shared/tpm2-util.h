@@ -1,10 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "sd-dlopen.h"
+
 #include "bitfield.h"
 #include "iovec-util.h"
 #include "shared-forward.h"
-#include "sha256-fundamental.h"
+#include "sha256.h"
 
 typedef enum TPM2Flags {
         TPM2_FLAGS_USE_PIN     = 1 << 0,
@@ -43,6 +45,28 @@ static inline bool TPM2_PCR_MASK_VALID(uint32_t pcr_mask) {
 int dlopen_tpm2(int log_level);
 
 #if HAVE_TPM2
+#define TPM2_ESYS_NOTE(priority) \
+        SD_ELF_NOTE_DLOPEN("tpm", "Support for TPM", priority, "libtss2-esys.so.0")
+#define TPM2_RC_NOTE(priority) \
+        SD_ELF_NOTE_DLOPEN("tpm", "Support for TPM", priority, "libtss2-rc.so.0")
+#define TPM2_MU_NOTE(priority) \
+        SD_ELF_NOTE_DLOPEN("tpm", "Support for TPM", priority, "libtss2-mu.so.0")
+#define TPM2_TCTI_DEVICE_NOTE(priority) \
+        SD_ELF_NOTE_DLOPEN("tpm", "Support for TPM", priority, "libtss2-tcti-device.so.0")
+
+#define TPM2_NOTE(priority)                                             \
+        ({                                                              \
+                TPM2_ESYS_NOTE(priority);                               \
+                TPM2_RC_NOTE(priority);                                 \
+                TPM2_MU_NOTE(priority);                                 \
+                TPM2_TCTI_DEVICE_NOTE(priority);                        \
+        })
+
+#define DLOPEN_TPM2(log_level, priority)                                \
+        ({                                                              \
+                TPM2_NOTE(priority);                                    \
+                dlopen_tpm2(log_level);                                 \
+        })
 
 #include <tss2/tss2_esys.h>     /* IWYU pragma: export */
 #include <tss2/tss2_mu.h>       /* IWYU pragma: export */
@@ -151,6 +175,7 @@ typedef enum Tpm2UserspaceEventType {
         TPM2_EVENT_DM_VERITY,
         TPM2_EVENT_IMDS_USERDATA,
         TPM2_EVENT_OS_SEPARATOR,
+        TPM2_EVENT_LOGIN,
         _TPM2_USERSPACE_EVENT_TYPE_MAX,
         _TPM2_USERSPACE_EVENT_TYPE_INVALID = -EINVAL,
 } Tpm2UserspaceEventType;
@@ -158,11 +183,16 @@ typedef enum Tpm2UserspaceEventType {
 DECLARE_STRING_TABLE_LOOKUP(tpm2_userspace_event_type, Tpm2UserspaceEventType);
 
 int tpm2_pcr_extend_bytes(Tpm2Context *c, char **banks, unsigned pcr_index, const struct iovec *data, const struct iovec *secret, Tpm2UserspaceEventType event_type, const char *description);
-int tpm2_nvpcr_get_index(const char *name, uint32_t *ret);
+
+/* Default allocation priority for NvPCRs that do not specify one explicitly. Lower values are more
+ * important and are allocated first when the TPM's NV index space is constrained. */
+#define TPM2_NVPCR_PRIORITY_DEFAULT UINT64_C(1000)
+
+int tpm2_nvpcr_get_index(const char *name, uint32_t *ret_nv_index, uint64_t *ret_priority);
 int tpm2_nvpcr_extend_bytes(Tpm2Context *c, const Tpm2Handle *session, const char *name, const struct iovec *data, const struct iovec *secret, Tpm2UserspaceEventType event_type, const char *description);
 int tpm2_nvpcr_acquire_anchor_secret(struct iovec *ret, bool sync_secondary);
 int tpm2_nvpcr_initialize(Tpm2Context *c, const Tpm2Handle *session, const char *name, const struct iovec *anchor_secret);
-int tpm2_nvpcr_read(Tpm2Context *c, const Tpm2Handle *session, const char *name, struct iovec *ret, uint32_t *ret_nv_index);
+int tpm2_nvpcr_read(Tpm2Context *c, const Tpm2Handle *session, const char *name, struct iovec *ret, uint32_t *ret_nv_index, uint64_t *ret_priority);
 
 uint32_t tpm2_tpms_pcr_selection_to_mask(const TPMS_PCR_SELECTION *s);
 void tpm2_tpms_pcr_selection_from_mask(uint32_t mask, TPMI_ALG_HASH hash, TPMS_PCR_SELECTION *ret);
@@ -407,6 +437,7 @@ static inline int tpm2_pcrlock_search_file(const char *path, FILE **ret_file, ch
         return -ENOENT;
 }
 
+#define DLOPEN_TPM2(log_level, priority) dlopen_tpm2(log_level)
 #endif /* HAVE_TPM2 */
 
 int tpm2_list_devices(bool legend, bool quiet);

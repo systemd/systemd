@@ -12,7 +12,7 @@ static const char* const ipvlan_mode_table[_NETDEV_IPVLAN_MODE_MAX] = {
 DEFINE_STRING_TABLE_LOOKUP(ipvlan_mode, IPVlanMode);
 
 static const char* const ipvlan_flags_table[_NETDEV_IPVLAN_FLAGS_MAX] = {
-        [NETDEV_IPVLAN_FLAGS_BRIGDE] = "bridge",
+        [NETDEV_IPVLAN_FLAGS_BRIDGE] = "bridge",
         [NETDEV_IPVLAN_FLAGS_PRIVATE] = "private",
         [NETDEV_IPVLAN_FLAGS_VEPA] = "vepa",
 };

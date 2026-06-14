@@ -9,13 +9,16 @@
 #include "sd-forward.h"
 #include "string-util.h"        /* IWYU pragma: keep */
 
-#define JSON_VARIANT_REPLACE(v, q)        \
-        do {                              \
-                typeof(v)* _v = &(v);     \
-                typeof(q) _q = (q);       \
+#define JSON_VARIANT_REPLACE(v, q)           \
+        do {                                 \
+                typeof(v)* _v = &(v);        \
+                typeof(q) _q = (q);          \
                 sd_json_variant_unref(*_v);  \
-                *_v = _q;                 \
+                *_v = _q;                    \
         } while(false)
+
+#define json_variant_unref_and_replace(a, b) \
+        free_and_replace_full(a, b, sd_json_variant_unref)
 
 static inline int json_variant_set_field_non_null(sd_json_variant **v, const char *field, sd_json_variant *value) {
         return value && !sd_json_variant_is_null(value) ? sd_json_variant_set_field(v, field, value) : 0;
@@ -129,6 +132,7 @@ int json_dispatch_ifindex(const char *name, sd_json_variant *variant, sd_json_di
 int json_dispatch_log_level(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
 int json_dispatch_strv_environment(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
 int json_dispatch_access_mode(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
+int json_dispatch_job_id(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
 
 static inline int json_variant_unbase64_iovec(sd_json_variant *v, struct iovec *ret) {
         return sd_json_variant_unbase64(v, ret ? &ret->iov_base : NULL, ret ? &ret->iov_len : NULL);
@@ -169,6 +173,7 @@ enum {
         _JSON_BUILD_PAIR_UNSIGNED_NON_ZERO,
         _JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL,
         _JSON_BUILD_PAIR_FINITE_USEC,
+        _JSON_BUILD_PAIR_FINITE_USEC_NON_ZERO,
         _JSON_BUILD_PAIR_STRING_NON_EMPTY,
         _JSON_BUILD_PAIR_STRING_NON_EMPTY_UNDERSCORIFY,
         _JSON_BUILD_PAIR_STRV_NON_EMPTY,
@@ -219,6 +224,7 @@ enum {
 #define JSON_BUILD_PAIR_UNSIGNED_NON_ZERO(name, u) _JSON_BUILD_PAIR_UNSIGNED_NON_ZERO, (const char*) { name }, (uint64_t) { u }
 #define JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL(name, u, eq) _JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL, (const char*) { name }, (uint64_t) { u }, (uint64_t) { eq }
 #define JSON_BUILD_PAIR_FINITE_USEC(name, u) _JSON_BUILD_PAIR_FINITE_USEC, (const char*) { name }, (usec_t) { u }
+#define JSON_BUILD_PAIR_FINITE_USEC_NON_ZERO(name, u) _JSON_BUILD_PAIR_FINITE_USEC_NON_ZERO, (const char*) { name }, (usec_t) { u }
 #define JSON_BUILD_PAIR_STRING_NON_EMPTY(name, s) _JSON_BUILD_PAIR_STRING_NON_EMPTY, (const char*) { name }, (const char*) { s }
 #define JSON_BUILD_PAIR_STRING_NON_EMPTY_UNDERSCORIFY(name, s) _JSON_BUILD_PAIR_STRING_NON_EMPTY_UNDERSCORIFY, (const char*) { name }, (const char*) { s }
 #define JSON_BUILD_PAIR_STRV_NON_EMPTY(name, l) _JSON_BUILD_PAIR_STRV_NON_EMPTY, (const char*) { name }, (char**) { l }
@@ -262,12 +268,15 @@ enum {
 #define JSON_BUILD_PAIR_PIDREF(name, p) SD_JSON_BUILD_PAIR(name, JSON_BUILD_PIDREF(p))
 #define JSON_BUILD_PAIR_DEVNUM(name, d) SD_JSON_BUILD_PAIR(name, JSON_BUILD_DEVNUM(d))
 #define JSON_BUILD_PAIR_ENUM(name, s) SD_JSON_BUILD_PAIR(name, JSON_BUILD_STRING_UNDERSCORIFY(s))
+#define JSON_BUILD_PAIR_ENUM_NON_EMPTY(name, s) JSON_BUILD_PAIR_STRING_NON_EMPTY_UNDERSCORIFY(name, s)
 #define JSON_BUILD_PAIR_YES_NO(name, b) SD_JSON_BUILD_PAIR(name, SD_JSON_BUILD_STRING(yes_no(b)))
 
 #define JSON_BUILD_PAIR_CONDITION_UNSIGNED(condition, name, value) \
         SD_JSON_BUILD_PAIR_CONDITION(condition, name, SD_JSON_BUILD_UNSIGNED(value))
 #define JSON_BUILD_PAIR_CONDITION_BOOLEAN(condition, name, value) \
         SD_JSON_BUILD_PAIR_CONDITION(condition, name, SD_JSON_BUILD_BOOLEAN(value))
+#define JSON_BUILD_PAIR_CONDITION_STRING(condition, name, value) \
+        SD_JSON_BUILD_PAIR_CONDITION(condition, name, SD_JSON_BUILD_STRING(value))
 #define JSON_BUILD_PAIR_CONDITION_STRV(condition, name, value) \
         SD_JSON_BUILD_PAIR_CONDITION(condition, name, SD_JSON_BUILD_STRV(value))
 

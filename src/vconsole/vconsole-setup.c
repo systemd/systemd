@@ -30,6 +30,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "vconsole-util.h"
 
 typedef struct Context {
         char *keymap;
@@ -70,6 +71,24 @@ static void context_merge_config(
         context_merge(dst, src, src_compat, font);
         context_merge(dst, src, src_compat, font_map);
         context_merge(dst, src, src_compat, font_unimap);
+}
+
+static int context_read_efi(Context *c) {
+        _cleanup_(context_done) Context v = {};
+        int r;
+
+        assert(c);
+
+        r = vconsole_keymap_from_efi(&v.keymap);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                log_debug("No vconsole keymap matches firmware-provided keyboard layout, ignoring.");
+                return 0;
+        }
+
+        context_merge_config(c, &v, /* src_compat= */ NULL);
+        return 0;
 }
 
 static int context_read_creds(Context *c) {
@@ -144,10 +163,13 @@ static int context_read_proc_cmdline(Context *c) {
 static void context_load_config(Context *c) {
         assert(c);
 
-        /* Load data from credentials (lowest priority) */
+        /* Pick up the firmware-provided keyboard layout if any (lowest priority) */
+        (void) context_read_efi(c);
+
+        /* Load data from credentials */
         (void) context_read_creds(c);
 
-        /* Load data from configuration file (middle priority) */
+        /* Load data from configuration file */
         (void) context_read_env(c);
 
         /* Let the kernel command line override /etc/vconsole.conf (highest priority) */

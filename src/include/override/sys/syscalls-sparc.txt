@@ -39,7 +39,7 @@ clock_nanosleep_time64	407
 clock_settime	256
 clock_settime64	404
 clone	217
-clone3
+clone3	435
 close	6
 close_range	436
 connect	98
@@ -359,6 +359,7 @@ riscv_flush_icache
 riscv_hwprobe
 rmdir	137
 rseq	365
+rseq_slice_yield	471
 rt_sigaction	102
 rt_sigpending	104
 rt_sigprocmask	103

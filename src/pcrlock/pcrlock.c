@@ -8,6 +8,7 @@
 #include "sd-varlink.h"
 
 #include "alloc-util.h"
+#include "ansi-color.h"
 #include "ask-password-api.h"
 #include "bitfield.h"
 #include "blockdev-util.h"
@@ -29,14 +30,16 @@
 #include "format-table.h"
 #include "format-util.h"
 #include "fs-util.h"
+#include "glyph-util.h"
 #include "gpt.h"
+#include "help-util.h"
 #include "hexdecoct.h"
 #include "initrd-util.h"
 #include "json-util.h"
 #include "label-util.h"
 #include "list.h"
 #include "main-func.h"
-#include "mkdir-label.h"
+#include "mkdir.h"
 #include "options.h"
 #include "ordered-set.h"
 #include "parse-argument.h"
@@ -45,7 +48,6 @@
 #include "pcrextend-util.h"
 #include "pcrlock-firmware.h"
 #include "pe-binary.h"
-#include "pretty-print.h"
 #include "proc-cmdline.h"
 #include "recovery-key.h"
 #include "sort-util.h"
@@ -743,6 +745,23 @@ static int event_log_record_extract_firmware_description(EventLogRecord *rec) {
                                         return log_error_errno(r, "Failed to format EV_EVENT_TAG description string: %m");
                                 break;
                         }
+
+                        /* SMBIOS structures measured by sd-boot/sd-stub. The tagged event payload is just a
+                         * constant identifying string ("smbios:typeN"), hence don't show it. */
+                        case SMBIOS_TYPE1_EVENT_TAG_ID:
+                                if (!strextend_with_separator(&rec->description, ", ", "systemd: SMBIOS system information (type 1)"))
+                                        return log_oom();
+                                break;
+
+                        case SMBIOS_TYPE2_EVENT_TAG_ID:
+                                if (!strextend_with_separator(&rec->description, ", ", "systemd: SMBIOS baseboard information (type 2)"))
+                                        return log_oom();
+                                break;
+
+                        case SMBIOS_TYPE11_EVENT_TAG_ID:
+                                if (!strextend_with_separator(&rec->description, ", ", "systemd: SMBIOS OEM strings (type 11)"))
+                                        return log_oom();
+                                break;
 
                         default: {
                                 _cleanup_free_ char *s = NULL;
@@ -1947,7 +1966,7 @@ static int event_log_match_component_variant(
                 return r;
 
         if (assign) {
-                /* Take ownership (Note we allow multiple components and variants to take owneship of the same record!) */
+                /* Take ownership (Note we allow multiple components and variants to take ownership of the same record!) */
                 if (!GREEDY_REALLOC(el->records[i]->mapped, el->records[i]->n_mapped+1))
                         return log_oom();
 
@@ -2500,7 +2519,7 @@ static int event_log_load_and_process(EventLog **ret) {
         return 0;
 }
 
-VERB(verb_show_log, "log", NULL, VERB_ANY, 1, VERB_DEFAULT,
+VERB_DEFAULT_NOARG(verb_show_log, "log",
      "Show measurement log");
 static int verb_show_log(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *log_table = NULL, *pcr_table = NULL;
@@ -5132,13 +5151,8 @@ static int verb_lock_raw(int argc, char *argv[], uintptr_t _data, void *userdata
 }
 
 static int help(void) {
-        _cleanup_free_ char *link = NULL;
         _cleanup_(table_unrefp) Table *commands = NULL, *protections = NULL, *options = NULL;
         int r;
-
-        r = terminal_urlify_man("systemd-pcrlock", "8", &link);
-        if (r < 0)
-                return log_oom();
 
         r = verbs_get_help_table(&commands);
         if (r < 0)
@@ -5154,28 +5168,25 @@ static int help(void) {
 
         (void) table_sync_column_widths(0, commands, protections, options);
 
-        printf("%s  [OPTIONS...] COMMAND ...\n"
-               "\n%sManage a TPM2 PCR lock.%s\n",
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal());
+        help_cmdline("[OPTIONS...] COMMAND ...");
+        help_abstract("Manage a TPM2 PCR lock.");
 
-        printf("\n%sCommands:%s\n", ansi_underline(), ansi_normal());
+        help_section("Commands");
         r = table_print_or_warn(commands);
         if (r < 0)
                 return r;
 
-        printf("\n%sProtections:%s\n", ansi_underline(), ansi_normal());
+        help_section("Protections");
         r = table_print_or_warn(protections);
         if (r < 0)
                 return r;
 
-        printf("\n%sOptions:%s\n", ansi_underline(), ansi_normal());
+        help_section("Options");
         r = table_print_or_warn(options);
         if (r < 0)
                 return r;
 
-        printf("\nSee the %s for details.\n", link);
+        help_man_page_reference("systemd-pcrlock", "8");
         return 0;
 }
 
@@ -5189,12 +5200,11 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argv);
         assert(ret_args);
 
-        OptionParser state = { argc, argv };
-        const char *arg;
+        OptionParser opts = { argc, argv };
         bool auto_location = true;
         int r;
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -5208,7 +5218,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         break;
 
                 OPTION_COMMON_JSON:
-                        r = parse_json_argument(arg, &arg_json_format_flags);
+                        r = parse_json_argument(opts.arg, &arg_json_format_flags);
                         if (r <= 0)
                                 return r;
                         break;
@@ -5220,21 +5230,21 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
                 OPTION_LONG("pcr", "NR",
                             "Generate .pcrlock for specified PCR"):
-                        r = tpm2_parse_pcr_argument_to_mask(arg, &arg_pcr_mask);
+                        r = tpm2_parse_pcr_argument_to_mask(opts.arg, &arg_pcr_mask);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse PCR specification: %s", arg);
+                                return log_error_errno(r, "Failed to parse PCR specification: %s", opts.arg);
                         break;
 
                 OPTION_LONG("nv-index", "NUMBER",
                             "Use the specified NV index, instead of a random one"):
-                        if (isempty(arg))
+                        if (isempty(opts.arg))
                                 arg_nv_index = 0;
                         else {
                                 uint32_t u;
 
-                                r = safe_atou32_full(arg, 16, &u);
+                                r = safe_atou32_full(opts.arg, 16, &u);
                                 if (r < 0)
-                                        return log_error_errno(r, "Failed to parse --nv-index= argument: %s", arg);
+                                        return log_error_errno(r, "Failed to parse --nv-index= argument: %s", opts.arg);
 
                                 if (u < TPM2_NV_INDEX_FIRST || u > TPM2_NV_INDEX_LAST)
                                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Argument for --nv-index= outside of valid range 0x%" PRIx32 "…0x%"  PRIx32 ": 0x%" PRIx32,
@@ -5248,7 +5258,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                             "Directory to read .pcrlock files from"): {
                         _cleanup_free_ char *p = NULL;
 
-                        r = parse_path_argument(arg, /* suppress_root= */ false, &p);
+                        r = parse_path_argument(opts.arg, /* suppress_root= */ false, &p);
                         if (r < 0)
                                 return r;
 
@@ -5266,15 +5276,15 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
                         auto_location = false;
 
-                        if (isempty(arg)) {
+                        if (isempty(opts.arg)) {
                                 arg_location_start = mfree(arg_location_start);
                                 arg_location_end = mfree(arg_location_end);
                                 break;
                         }
 
-                        e = strchr(arg, ':');
+                        e = strchr(opts.arg, ':');
                         if (e) {
-                                start = strndup(arg, e - arg);
+                                start = strndup(opts.arg, e - opts.arg);
                                 if (!start)
                                         return log_oom();
 
@@ -5282,11 +5292,11 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                                 if (!end)
                                         return log_oom();
                         } else {
-                                start = strdup(arg);
+                                start = strdup(opts.arg);
                                 if (!start)
                                         return log_oom();
 
-                                end = strdup(arg);
+                                end = strdup(opts.arg);
                                 if (!end)
                                         return log_oom();
                         }
@@ -5303,17 +5313,17 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
                 OPTION_LONG("recovery-pin", "MODE",
                             "Controls whether to show, hide, or ask for a recovery PIN"):
-                        arg_recovery_pin = recovery_pin_mode_from_string(arg);
+                        arg_recovery_pin = recovery_pin_mode_from_string(opts.arg);
                         if (arg_recovery_pin < 0)
-                                return log_error_errno(arg_recovery_pin, "Failed to parse --recovery-pin= mode: %s", arg);
+                                return log_error_errno(arg_recovery_pin, "Failed to parse --recovery-pin= mode: %s", opts.arg);
                         break;
 
                 OPTION_LONG("pcrlock", "PATH",
                             ".pcrlock file to write expected PCR measurement to"):
-                        if (empty_or_dash(arg))
+                        if (empty_or_dash(opts.arg))
                                 arg_pcrlock_path = mfree(arg_pcrlock_path);
                         else {
-                                r = parse_path_argument(arg, /* suppress_root= */ false, &arg_pcrlock_path);
+                                r = parse_path_argument(opts.arg, /* suppress_root= */ false, &arg_pcrlock_path);
                                 if (r < 0)
                                         return r;
                         }
@@ -5323,10 +5333,10 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
                 OPTION_LONG("policy", "PATH",
                             "JSON file to write policy output to"):
-                        if (empty_or_dash(arg))
+                        if (empty_or_dash(opts.arg))
                                 arg_policy_path = mfree(arg_policy_path);
                         else {
-                                r = parse_path_argument(arg, /* suppress_root= */ false, &arg_policy_path);
+                                r = parse_path_argument(opts.arg, /* suppress_root= */ false, &arg_policy_path);
                                 if (r < 0)
                                         return r;
                         }
@@ -5341,7 +5351,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 OPTION_LONG("entry-token", "TOKEN",
                             "Boot entry token to use for this installation "
                             "(machine-id, os-id, os-image-id, auto, literal:…)"):
-                        r = parse_boot_entry_token_type(arg, &arg_entry_token_type, &arg_entry_token);
+                        r = parse_boot_entry_token_type(opts.arg, &arg_entry_token_type, &arg_entry_token);
                         if (r < 0)
                                 return r;
                         break;
@@ -5372,7 +5382,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 arg_pager_flags |= PAGER_DISABLE;
         }
 
-        *ret_args = option_parser_get_args(&state);
+        *ret_args = option_parser_get_args(&opts);
         return 1;
 }
 
@@ -5396,7 +5406,6 @@ static int vl_method_read_event_log(sd_varlink *link, sd_json_variant *parameter
         if (r < 0)
                 return r;
 
-        // FIXME: We can't use a NULL sentinel here because the output fields in the IDL are non-nullable.
         r = sd_varlink_set_sentinel(link, NULL);
         if (r < 0)
                 return r;
@@ -5472,7 +5481,7 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        r = dlopen_libcrypto(LOG_ERR);
+        r = DLOPEN_LIBCRYPTO(LOG_ERR, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED);
         if (r < 0)
                 return r;
 
@@ -5481,7 +5490,9 @@ static int run(int argc, char *argv[]) {
 
                 /* Invocation as Varlink service */
 
-                r = varlink_server_new(&varlink_server, SD_VARLINK_SERVER_ROOT_ONLY, NULL);
+                r = varlink_server_new(&varlink_server,
+                                       SD_VARLINK_SERVER_ROOT_ONLY | SD_VARLINK_SERVER_MYSELF_ONLY,
+                                       /* userdata= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to allocate Varlink server: %m");
 
@@ -5504,7 +5515,7 @@ static int run(int argc, char *argv[]) {
                 return EXIT_SUCCESS;
         }
 
-        return dispatch_verb_with_args(args, NULL);
+        return dispatch_verb(args, NULL);
 }
 
 DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);

@@ -19,6 +19,7 @@
 #include "fileio.h"
 #include "filesystems.h"
 #include "format-util.h"
+#include "fs-util.h"
 #include "hashmap.h"
 #include "home-util.h"
 #include "homework-fido2.h"
@@ -551,27 +552,23 @@ int home_sync_and_statfs(int root_fd, struct statfs *ret) {
 }
 
 static int read_identity_file(int root_fd, sd_json_variant **ret) {
-        _cleanup_fclose_ FILE *identity_file = NULL;
-        _cleanup_close_ int identity_fd = -EBADF;
         int r;
 
         assert(root_fd >= 0);
         assert(ret);
 
-        identity_fd = openat(root_fd, ".identity", O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW|O_NONBLOCK);
+        _cleanup_close_ int identity_fd = xopenat_full(root_fd, ".identity", O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW|O_NONBLOCK, XO_REGULAR, MODE_INVALID);
         if (identity_fd < 0)
-                return log_error_errno(errno, "Failed to open .identity file in home directory: %m");
-
-        r = fd_verify_regular(identity_fd);
-        if (r < 0)
-                return log_error_errno(r, "Embedded identity file is not a regular file, refusing: %m");
-
-        identity_file = take_fdopen(&identity_fd, "r");
-        if (!identity_file)
-                return log_oom();
+                return log_error_errno(identity_fd, "Failed to open .identity file in home directory: %m");
 
         unsigned line = 0, column = 0;
-        r = sd_json_parse_file(identity_file, ".identity", SD_JSON_PARSE_MUST_BE_OBJECT|SD_JSON_PARSE_SENSITIVE, ret, &line, &column);
+        r = sd_json_parse_fd(
+                        ".identity",
+                        TAKE_FD(identity_fd),
+                        SD_JSON_PARSE_MUST_BE_OBJECT|SD_JSON_PARSE_SENSITIVE|SD_JSON_PARSE_DONATE_FD,
+                        ret,
+                        &line,
+                        &column);
         if (r < 0)
                 return log_error_errno(r, "[.identity:%u:%u] Failed to parse JSON data: %m", line, column);
 
@@ -1331,7 +1328,7 @@ static int determine_default_storage(UserStorage *ret) {
                         if (r < 0)
                                 log_warning_errno(r, "Failed to determine if %s is encrypted, ignoring: %m", get_home_root());
 
-                        r = dlopen_cryptsetup(LOG_DEBUG);
+                        r = DLOPEN_CRYPTSETUP(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
                         if (r < 0)
                                 log_info("Not using '%s' storage, since libcryptsetup could not be loaded.", user_storage_to_string(USER_LUKS));
                         else {

@@ -5,7 +5,7 @@
 
 #include "sd-daemon.h"
 
-#include "bpf-dlopen.h"
+#include "bpf-util.h"
 #if HAVE_VMLINUX_H
 #include "bpf-link.h"
 #include "userns-restrict-skel.h"
@@ -13,12 +13,14 @@
 #include "build-path.h"
 #include "common-signal.h"
 #include "env-util.h"
+#include "errno-util.h"
 #include "event-util.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"
 #include "log.h"
 #include "mkdir.h"
+#include "namespace-util.h"
 #include "nsresourced-manager.h"
 #include "parse-util.h"
 #include "pidfd-util.h"
@@ -33,7 +35,6 @@
 #include "time-util.h"
 #include "umask-util.h"
 #include "unaligned.h"
-#include "user-util.h"
 #include "userns-registry.h"
 #include "userns-restrict.h"
 
@@ -312,82 +313,61 @@ static int start_workers(Manager *m, bool explicit_request) {
         return 0;
 }
 
-static void manager_release_userns_bpf(Manager *m, uint64_t inode) {
-#if HAVE_VMLINUX_H
-        int r;
-
+static struct userns_restrict_bpf *manager_bpf(Manager *m) {
         assert(m);
 
-        if (inode == 0)
-                return;
-
-        assert(m->userns_restrict_bpf);
-
-        r = userns_restrict_reset_by_inode(m->userns_restrict_bpf, inode);
-        if (r < 0)
-                return (void) log_warning_errno(r, "Failed to remove namespace inode from BPF map, ignoring: %m");
+#if HAVE_VMLINUX_H
+        return m->userns_restrict_bpf;
+#else
+        return NULL;
 #endif
 }
 
-static void manager_release_userns_fds(Manager *m, uint64_t inode) {
-        int r;
-
+/* Releases the resources tied to a user namespace described by info. The caller must hold the
+ * registry lock if there is any chance of a concurrent writer (i.e. workers — true once the listen
+ * socket is open; not true during manager_startup() before that point). */
+static void manager_release_userns_by_info(Manager *m, UserNamespaceInfo *info) {
         assert(m);
-        assert(inode != 0);
+        assert(info);
+        assert(info->userns_inode != 0);
 
-        r = sd_notifyf(/* unset_environment= */ false,
-                       "FDSTOREREMOVE=1\n"
-                       "FDNAME=userns-%" PRIu64 "\n", inode);
-        if (r < 0)
-                log_warning_errno(r, "Failed to send fd store removal message, ignoring: %m");
+        /* Before tearing anything down, confirm by namespace id that the namespace we're releasing is
+         * actually dead. The kernel may have recycled this inode for a freshly created live namespace
+         * (e.g. between a BPF death event firing and us getting here); proceeding in that case would
+         * clobber the new namespace's BPF allowlist, fdstore fd and registry entry. */
+        if (info->userns_id != 0) {
+                _cleanup_close_ int probe_fd = namespace_open_by_id(info->userns_id);
+                if (probe_fd >= 0) {
+                        log_warning("Refusing to release user namespace %" PRIu64 " (id %" PRIu64 "): the namespace is still alive.",
+                                    info->userns_inode, info->userns_id);
+                        return;
+                }
+                if (probe_fd != -ESTALE &&
+                    !ERRNO_IS_NEG_PRIVILEGE(probe_fd) &&
+                    !ERRNO_IS_NEG_NOT_SUPPORTED(probe_fd))
+                        log_warning_errno(probe_fd,
+                                          "Failed to probe liveness of user namespace %" PRIu64 " (id %" PRIu64 "), proceeding with release: %m",
+                                          info->userns_inode, info->userns_id);
+        }
+
+        userns_registry_release_by_info(manager_bpf(m), m->registry_fd, info);
 }
 
 static void manager_release_userns_by_inode(Manager *m, uint64_t inode) {
         _cleanup_(userns_info_freep) UserNamespaceInfo *userns_info = NULL;
-        _cleanup_close_ int lock_fd = -EBADF;
         int r;
 
         assert(m);
         assert(inode != 0);
 
-        lock_fd = userns_registry_lock(m->registry_fd);
-        if (lock_fd < 0)
-                return (void) log_error_errno(lock_fd, "Failed to lock registry: %m");
-
         r = userns_registry_load_by_userns_inode(m->registry_fd, inode, &userns_info);
-        if (r < 0)
-                log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r,
-                               "Failed to find userns for inode %" PRIu64 ", ignoring: %m", inode);
+        if (r >= 0)
+                return manager_release_userns_by_info(m, userns_info);
 
-        if (DEBUG_LOGGING) {
-                if (userns_info && uid_is_valid(userns_info->start_uid))
-                        log_debug("Removing user namespace mapping %" PRIu64 " for UID " UID_FMT ".", inode, userns_info->start_uid);
-                else
-                        log_debug("Removing user namespace mapping %" PRIu64 ".", inode);
-        }
-
-        /* Remove the BPF rules */
-        manager_release_userns_bpf(m, inode);
-
-        /* Remove the resources from the fdstore */
-        manager_release_userns_fds(m, inode);
-
-        /* And finally remove the resources file from disk */
-        if (userns_info) {
-                /* Remove the cgroups of this userns */
-                r = userns_info_remove_cgroups(userns_info);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to remove cgroups of user namespace, ignoring: %m");
-
-                /* Remove the netifs of this userns */
-                r = userns_info_remove_netifs(userns_info);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to remove netifs of user namespace, ignoring: %m");
-
-                r = userns_registry_remove(m->registry_fd, userns_info);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to remove user namespace '%s', ignoring.", userns_info->name);
-        }
+        /* No registry entry to consult — fall through to inode-only cleanup of kernel resources. */
+        log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r,
+                       "Failed to load registry entry for user namespace %" PRIu64 ", proceeding with inode-only cleanup: %m", inode);
+        userns_registry_release_by_userns_inode(manager_bpf(m), m->registry_fd, inode);
 }
 
 static int manager_scan_registry(Manager *m, Set **registry_inodes) {
@@ -539,6 +519,13 @@ static int ringbuf_event(void *userdata, void *data, size_t size) {
         if ((size % sizeof(unsigned)) != 0) /* Not multiples of "unsigned"? */
                 return -EIO;
 
+        /* Workers are active alongside us once we're processing BPF events, so we have to serialize
+         * registry mutations against them. The startup-time release callers run before any worker
+         * exists and skip the lock. */
+        _cleanup_close_ int lock_fd = userns_registry_lock(m->registry_fd);
+        if (lock_fd < 0)
+                return log_error_errno(lock_fd, "Failed to lock registry: %m");
+
         n = size / sizeof(unsigned);
         for (size_t i = 0; i < n; i++) {
                 const void *d;
@@ -646,6 +633,51 @@ int manager_startup(Manager *m) {
 
                 log_debug("Found stale fd store entry for user namespace %" PRIu64 ", removing.", inode);
                 manager_release_userns_by_inode(m, inode);
+        }
+
+        /* Look for registry entries whose user namespace has died without us getting a BPF
+         * notification — e.g. because the BPF ring buffer overflowed, the kprobe is missing, or
+         * something else dropped the fd store entry without going through our cleanup path. Each
+         * registry entry stores the kernel's unique namespace identifier; ask the kernel to open
+         * the namespace by that identifier and release the entry if the lookup fails. Entries
+         * written by older versions don't carry the identifier, and old kernels (or running
+         * outside the initial user namespace) don't support lookup by it — in those cases we leave
+         * the entry alone. */
+
+        SET_FOREACH(p, registry_inodes) {
+                uint64_t inode = PTR_TO_UINT32(p);
+
+                _cleanup_(userns_info_freep) UserNamespaceInfo *userns_info = NULL;
+                r = userns_registry_load_by_userns_inode(m->registry_fd, inode, &userns_info);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to load registry entry for user namespace %" PRIu64 ", ignoring: %m", inode);
+                        continue;
+                }
+
+                if (userns_info->userns_id == 0)
+                        continue; /* Entry predates ns_id tracking, can't probe authoritatively */
+
+                _cleanup_close_ int probe_fd = namespace_open_by_id(userns_info->userns_id);
+                if (probe_fd >= 0)
+                        continue; /* User namespace is still alive */
+                /* EPERM/EACCES means we're not in the initial user/pid namespace or missing
+                 * CAP_SYS_ADMIN; ENOTSUP/ENOSYS means the kernel is too old for
+                 * open_by_handle_at() on nsfs. Either way the sweep can't proceed for any
+                 * entry, so bail out rather than logging once per entry. */
+                if (ERRNO_IS_NEG_PRIVILEGE(probe_fd) || ERRNO_IS_NEG_NOT_SUPPORTED(probe_fd)) {
+                        log_debug_errno(probe_fd, "Cannot detect stale registry entries, skipping: %m");
+                        break;
+                }
+                /* Anything else except ESTALE is unexpected — log it but skip just this one. */
+                if (probe_fd != -ESTALE) {
+                        log_debug_errno(probe_fd, "Failed to probe liveness of user namespace %" PRIu64 " (id %" PRIu64 "), ignoring: %m",
+                                        inode, userns_info->userns_id);
+                        continue;
+                }
+
+                log_debug("Registry entry for user namespace %" PRIu64 " (id %" PRIu64 ") refers to a dead namespace, removing.",
+                          inode, userns_info->userns_id);
+                manager_release_userns_by_info(m, userns_info);
         }
 
         r = manager_make_listen_socket(m);

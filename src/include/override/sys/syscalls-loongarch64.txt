@@ -213,7 +213,7 @@ map_shadow_stack	453
 mbind	235
 membarrier	283
 memfd_create	279
-memfd_secret
+memfd_secret	447
 memory_ordering
 migrate_pages	238
 mincore	232
@@ -359,6 +359,7 @@ riscv_flush_icache
 riscv_hwprobe
 rmdir
 rseq	293
+rseq_slice_yield	471
 rt_sigaction	134
 rt_sigpending	136
 rt_sigprocmask	135

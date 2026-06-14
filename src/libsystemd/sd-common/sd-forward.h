@@ -76,11 +76,7 @@ typedef enum sd_lldp_multicast_mode_t sd_lldp_multicast_mode_t;
 typedef enum sd_ndisc_event_t sd_ndisc_event_t;
 
 typedef struct sd_ipv4ll sd_ipv4ll;
-typedef struct sd_dhcp_client sd_dhcp_client;
-typedef struct sd_dhcp_lease sd_dhcp_lease;
-typedef struct sd_dhcp_route sd_dhcp_route;
 typedef struct sd_dns_resolver sd_dns_resolver;
-typedef struct sd_dhcp_server sd_dhcp_server;
 typedef struct sd_ndisc sd_ndisc;
 typedef struct sd_radv sd_radv;
 typedef struct sd_dhcp6_client sd_dhcp6_client;
@@ -127,3 +123,9 @@ typedef struct sd_resolve sd_resolve;
 typedef struct sd_resolve_query sd_resolve_query;
 
 typedef struct sd_hwdb sd_hwdb;
+
+typedef struct sd_future sd_future;
+
+typedef int (*sd_future_func_t)(sd_future *f);
+typedef int (*sd_fiber_func_t)(void *userdata);
+typedef _sd_destroy_t sd_fiber_destroy_t;

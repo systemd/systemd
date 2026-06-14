@@ -605,7 +605,7 @@ static int assess_system_call_filter(
         uint64_t b;
         int r;
 
-        r = dlopen_libseccomp(LOG_DEBUG);
+        r = DLOPEN_LIBSECCOMP(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
         if (r < 0) {
                 *ret_badness = UINT64_MAX;
                 *ret_description = NULL;
@@ -2338,7 +2338,7 @@ static int acquire_security_info(sd_bus *bus, const char *name, SecurityInfo *in
                 { "RootImage",               "s",       NULL,                                    offsetof(SecurityInfo, root_image)                },
                 { "SupplementaryGroups",     "as",      NULL,                                    offsetof(SecurityInfo, supplementary_groups)      },
                 { "SystemCallArchitectures", "as",      property_read_syscall_archs,             0                                                 },
-                { "SystemCallFilter",        "(as)",    property_read_system_call_filter,        0                                                 },
+                { "SystemCallFilter",        "(bas)",   property_read_system_call_filter,        0                                                 },
                 { "Type",                    "s",       NULL,                                    offsetof(SecurityInfo, type)                      },
                 { "UMask",                   "u",       property_read_umask,                     0                                                 },
                 { "User",                    "s",       NULL,                                    offsetof(SecurityInfo, user)                      },
@@ -2578,7 +2578,7 @@ static int get_security_info(Unit *u, ExecContext *c, CGroupContext *g, Security
                 info->_umask = c->umask;
 
 #if HAVE_SECCOMP
-                if (dlopen_libseccomp(LOG_DEBUG) >= 0) {
+                if (DLOPEN_LIBSECCOMP(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED) >= 0) {
                         SET_FOREACH(key, c->syscall_archs) {
                                 const char *name;
 
@@ -2713,7 +2713,7 @@ static int offline_security_checks(
 
         log_debug("Starting manager...");
 
-        r = manager_startup(m, /* serialization= */ NULL, /* fds= */ NULL, root);
+        r = manager_startup(m, /* serialization= */ NULL, /* fds= */ NULL, /* named_listen_fds= */ NULL, root);
         if (r < 0)
                 return r;
 

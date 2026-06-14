@@ -47,6 +47,14 @@ typedef enum FreezerAction {
         _FREEZER_ACTION_INVALID = -EINVAL,
 } FreezerAction;
 
+typedef enum CPUSetPartition {
+        CPUSET_PARTITION_MEMBER,
+        CPUSET_PARTITION_ROOT,
+        CPUSET_PARTITION_ISOLATED,
+        _CPUSET_PARTITION_MAX,
+        _CPUSET_PARTITION_INVALID = -EINVAL,
+} CPUSetPartition;
+
 typedef enum CGroupDevicePermissions {
         /* We reuse the same bit meanings the kernel's BPF_DEVCG_ACC_xyz definitions use */
         CGROUP_DEVICE_MKNOD                = 1 << 0,
@@ -136,6 +144,7 @@ typedef struct CGroupContext {
         CPUSet startup_cpuset_cpus;
         CPUSet cpuset_mems;
         CPUSet startup_cpuset_mems;
+        CPUSetPartition cpuset_partition;
 
         uint64_t io_weight;
         uint64_t startup_io_weight;
@@ -194,6 +203,7 @@ typedef struct CGroupContext {
         uint32_t moom_mem_pressure_limit; /* Normalized to 2^32-1 == 100% */
         usec_t moom_mem_pressure_duration_usec;
         ManagedOOMPreference moom_preference;
+        char **moom_rules;
 
         /* Pressure logic */
         CGroupPressure pressure[_PRESSURE_RESOURCE_MAX];
@@ -478,6 +488,7 @@ int unit_get_cpuset(Unit *u, CPUSet *cpus, const char *name);
 int unit_cgroup_freezer_action(Unit *u, FreezerAction action);
 
 DECLARE_STRING_TABLE_LOOKUP(freezer_action, FreezerAction);
+DECLARE_STRING_TABLE_LOOKUP(cpuset_partition, CPUSetPartition);
 
 CGroupRuntime* cgroup_runtime_new(void);
 CGroupRuntime* cgroup_runtime_free(CGroupRuntime *crt);

@@ -150,6 +150,9 @@ acpi:FTSC*:
 acpi:FUJI*:
  ID_VENDOR_FROM_DATABASE=Fujitsu Limited
 
+acpi:GHIP*:
+ ID_VENDOR_FROM_DATABASE=Green Hippo
+
 acpi:GHSW*:
  ID_VENDOR_FROM_DATABASE=Green Hills Software
 
@@ -383,6 +386,9 @@ acpi:SHRP*:
 
 acpi:SILC*:
  ID_VENDOR_FROM_DATABASE=Silicom Ltd. Connectivity Solutions
+
+acpi:SIPL*:
+ ID_VENDOR_FROM_DATABASE=SIPEARL
 
 acpi:SNSL*:
  ID_VENDOR_FROM_DATABASE=Sensel, Inc.

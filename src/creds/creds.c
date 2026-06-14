@@ -188,7 +188,7 @@ static int is_tmpfs_with_noswap(dev_t devno) {
         _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
         int r;
 
-        r = dlopen_libmount(LOG_DEBUG);
+        r = DLOPEN_LIBMOUNT(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
         if (r < 0)
                 return r;
 
@@ -305,8 +305,7 @@ static int add_credentials_to_table(Table *t, bool encrypted) {
         return 1; /* Creds dir set */
 }
 
-VERB(verb_list, "list", NULL, VERB_ANY, 1, VERB_DEFAULT,
-     "Show list of passed credentials");
+VERB_DEFAULT_NOARG(verb_list, "list", "Show list of passed credentials");
 static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(table_unrefp) Table *t = NULL;
         int r, q;
@@ -823,11 +822,10 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argc >= 0);
         assert(argv);
 
-        OptionParser state = { argc, argv };
-        const char *arg;
+        OptionParser opts = { argc, argv };
         int r;
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -845,7 +843,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         break;
 
                 OPTION_COMMON_JSON:
-                        r = parse_json_argument(arg, &arg_json_format_flags);
+                        r = parse_json_argument(opts.arg, &arg_json_format_flags);
                         if (r <= 0)
                                 return r;
                         break;
@@ -856,19 +854,19 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
                 OPTION_LONG("transcode", "METHOD",
                             "Transcode credential data (base64, unbase64, hex, unhex)"):
-                        if (streq(arg, "help")) {
+                        if (streq(opts.arg, "help")) {
                                 if (arg_legend)
                                         puts("Supported transcode types:");
 
                                 return DUMP_STRING_TABLE(transcode_mode, TranscodeMode, _TRANSCODE_MAX);
                         }
 
-                        if (parse_boolean(arg) == 0) /* If specified as "false", turn transcoding off */
+                        if (parse_boolean(opts.arg) == 0) /* If specified as "false", turn transcoding off */
                                 arg_transcode = TRANSCODE_OFF;
                         else {
                                 TranscodeMode m;
 
-                                m = transcode_mode_from_string(arg);
+                                m = transcode_mode_from_string(opts.arg);
                                 if (m < 0)
                                         return log_error_errno(m, "Failed to parse transcode mode: %m");
 
@@ -877,7 +875,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         break;
 
                 OPTION_LONG("newline", "auto|yes|no", "Suffix output with newline"):
-                        r = parse_tristate_argument_with_auto("--newline=", arg, &arg_newline);
+                        r = parse_tristate_argument_with_auto("--newline=", opts.arg, &arg_newline);
                         if (r < 0)
                                 return r;
                         break;
@@ -888,45 +886,45 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
                 OPTION_LONG("name", "NAME",
                             "Override filename included in encrypted credential"):
-                        if (isempty(arg)) {
+                        if (isempty(opts.arg)) {
                                 arg_name = NULL;
                                 arg_name_any = true;
                                 break;
                         }
 
-                        if (!credential_name_valid(arg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid credential name: %s", arg);
+                        if (!credential_name_valid(opts.arg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid credential name: %s", opts.arg);
 
-                        arg_name = arg;
+                        arg_name = opts.arg;
                         arg_name_any = false;
                         break;
 
                 OPTION_LONG("timestamp", "TIME",
                             "Include specified timestamp in encrypted credential"):
-                        r = parse_timestamp(arg, &arg_timestamp);
+                        r = parse_timestamp(opts.arg, &arg_timestamp);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse timestamp: %s", arg);
+                                return log_error_errno(r, "Failed to parse timestamp: %s", opts.arg);
                         break;
 
                 OPTION_LONG("not-after", "TIME",
                             "Include specified invalidation time in encrypted credential"):
-                        r = parse_timestamp(arg, &arg_not_after);
+                        r = parse_timestamp(opts.arg, &arg_not_after);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --not-after= timestamp: %s", arg);
+                                return log_error_errno(r, "Failed to parse --not-after= timestamp: %s", opts.arg);
                         break;
 
                 OPTION_LONG("with-key", "KEY",
                             "Which keys to encrypt with (host, tpm2, host+tpm2, null, auto, auto-initrd)"):
-                        if (streq(arg, "help")) {
+                        if (streq(opts.arg, "help")) {
                                 if (arg_legend)
                                         puts("Supported key types:");
                                 return DUMP_STRING_TABLE(cred_key_type, CredKeyType, _CRED_KEY_TYPE_MAX);
                         }
 
-                        if (isempty(arg))
+                        if (isempty(opts.arg))
                                 arg_with_key = _CRED_AUTO;
                         else {
-                                CredKeyType t = cred_key_type_from_string(arg);
+                                CredKeyType t = cred_key_type_from_string(opts.arg);
                                 if (t < 0)
                                         return log_error_errno(t, "Failed to parse key type: %m");
 
@@ -943,23 +941,23 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         break;
 
                 OPTION_LONG("tpm2-device", "PATH", "Pick TPM2 device"):
-                        if (streq(arg, "list"))
+                        if (streq(opts.arg, "list"))
                                 return tpm2_list_devices(arg_legend, arg_quiet);
 
-                        arg_tpm2_device = streq(arg, "auto") ? NULL : arg;
+                        arg_tpm2_device = streq(opts.arg, "auto") ? NULL : opts.arg;
                         break;
 
                 OPTION_LONG("tpm2-pcrs", "PCR1+PCR2+PCR3+…",
                             "Specify TPM2 PCRs to seal against (fixed hash)"):
                         /* For fixed hash PCR policies only */
-                        r = tpm2_parse_pcr_argument_to_mask(arg, &arg_tpm2_pcr_mask);
+                        r = tpm2_parse_pcr_argument_to_mask(opts.arg, &arg_tpm2_pcr_mask);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("tpm2-public-key", "PATH",
                             "Specify PEM certificate to seal against"):
-                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_tpm2_public_key);
+                        r = parse_path_argument(opts.arg, /* suppress_root= */ false, &arg_tpm2_public_key);
                         if (r < 0)
                                 return r;
                         break;
@@ -967,14 +965,14 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 OPTION_LONG("tpm2-public-key-pcrs", "PCR1+PCR2+…",
                             "Specify TPM2 PCRs to seal against (public key)"):
                         /* For public key PCR policies only */
-                        r = tpm2_parse_pcr_argument_to_mask(arg, &arg_tpm2_public_key_pcr_mask);
+                        r = tpm2_parse_pcr_argument_to_mask(opts.arg, &arg_tpm2_public_key_pcr_mask);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("tpm2-signature", "PATH",
                             "Specify signature for public key PCR policy"):
-                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_tpm2_signature);
+                        r = parse_path_argument(opts.arg, /* suppress_root= */ false, &arg_tpm2_signature);
                         if (r < 0)
                                 return r;
                         break;
@@ -985,23 +983,22 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         break;
 
                 OPTION_LONG("uid", "UID", "Select user for scoped credentials"):
-                        if (isempty(arg))
+                        if (isempty(opts.arg))
                                 arg_uid = UID_INVALID;
-                        else if (streq(arg, "self"))
+                        else if (streq(opts.arg, "self"))
                                 arg_uid = getuid();
                         else {
-                                const char *name = arg;
-
                                 r = get_user_creds(
-                                                &name,
+                                                opts.arg,
+                                                /* flags= */ 0,
+                                                /* ret_username= */ NULL,
                                                 &arg_uid,
                                                 /* ret_gid= */ NULL,
                                                 /* ret_home= */ NULL,
-                                                /* ret_shell= */ NULL,
-                                                /* flags= */ 0);
+                                                /* ret_shell= */ NULL);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to resolve user '%s': %s",
-                                                               arg, STRERROR_USER(r));
+                                                               opts.arg, STRERROR_USER(r));
                         }
                         break;
 
@@ -1053,7 +1050,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 return log_error_errno(r, "Failed to check if invoked in Varlink mode: %m");
         arg_varlink = r;
 
-        *ret_args = option_parser_get_args(&state);
+        *ret_args = option_parser_get_args(&opts);
         return 1;
 }
 
@@ -1480,7 +1477,7 @@ static int run(int argc, char *argv[]) {
         if (arg_varlink)
                 return vl_server();
 
-        return dispatch_verb_with_args(args, NULL);
+        return dispatch_verb(args, NULL);
 }
 
 DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);

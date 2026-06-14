@@ -43,6 +43,13 @@ typedef struct User {
         char *service_manager_unit;
         char *service_manager_job;
 
+        /* systemd-pcrlogin@UID.service — measures the user record into the 'login' NvPCR on first login.
+         * Unlike the units above, logind starts this but never stops it: it must run exactly once per boot,
+         * so it lives in system.slice, stays active until reboot, and is intentionally absent from
+         * user_stop_service(). */
+        char *measure_unit;
+        char *measure_job;
+
         Session *display;
 
         dual_timestamp timestamp;      /* When this User object was 'started' the first time */
@@ -75,13 +82,15 @@ void user_add_to_gc_queue(User *u);
 int user_stop(User *u, bool force);
 int user_finalize(User *u);
 UserState user_get_state(User *u);
-int user_get_idle_hint(User *u, dual_timestamp *t);
+bool user_get_idle_hint(User *u, dual_timestamp *ret_timestamp);
 int user_save(User *u);
 int user_load(User *u);
 int user_kill(User *u, int signo);
 int user_check_linger_file(const User *u);
 void user_elect_display(User *u);
 void user_update_last_session_timer(User *u);
+
+int user_build_json(User *u, sd_json_variant **ret);
 
 DECLARE_STRING_TABLE_LOOKUP(user_state, UserState);
 

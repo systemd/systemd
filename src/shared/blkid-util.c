@@ -9,8 +9,6 @@
 #include "string-util.h"
 
 #if HAVE_BLKID
-static void *libblkid_dl = NULL;
-
 DLSYM_PROTOTYPE(blkid_do_fullprobe) = NULL;
 DLSYM_PROTOTYPE(blkid_do_probe) = NULL;
 DLSYM_PROTOTYPE(blkid_do_safeprobe) = NULL;
@@ -99,11 +97,9 @@ int blkid_probe_lookup_value_u64(blkid_probe b, const char *field, uint64_t *ret
 
 int dlopen_libblkid(int log_level) {
 #if HAVE_BLKID
-        SD_ELF_NOTE_DLOPEN(
-                        "blkid",
-                        "Support for block device identification",
-                        SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED,
-                        "libblkid.so.1");
+        static void *libblkid_dl = NULL;
+
+        LIBBLKID_NOTE(SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
 
         return dlopen_many_sym_or_warn(
                         &libblkid_dl,

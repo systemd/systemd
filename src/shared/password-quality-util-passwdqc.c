@@ -16,8 +16,6 @@
 #include "memory-util.h"
 #include "strv.h"
 
-static void *passwdqc_dl = NULL;
-
 static DLSYM_PROTOTYPE(passwdqc_params_reset) = NULL;
 static DLSYM_PROTOTYPE(passwdqc_params_load) = NULL;
 static DLSYM_PROTOTYPE(passwdqc_params_parse) = NULL;
@@ -140,6 +138,8 @@ int check_password_quality(
 
 int dlopen_passwdqc(int log_level) {
 #if HAVE_PASSWDQC
+        static void *passwdqc_dl = NULL;
+
         SD_ELF_NOTE_DLOPEN(
                         "passwdqc",
                         "Support for password quality checks",

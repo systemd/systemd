@@ -6,15 +6,20 @@ import re
 import subprocess
 import sys
 
+
 def main():
     build_dir = sys.argv[1]
 
-    out = subprocess.run(["meson", "introspect", "--installed", build_dir],
-                         stdout=subprocess.PIPE, check=True)
+    out = subprocess.run(
+        ['meson', 'introspect', '--installed', build_dir],
+        stdout=subprocess.PIPE,
+        check=True,
+    )
     files = json.loads(out.stdout)
     for file in sorted(files.values()):
-        if re.search("^/usr/lib/systemd/(system|user)/", file) and not file.endswith(".conf"):
+        if re.search('^/usr/lib/systemd/(system|user)/', file) and not file.endswith('.conf'):
             print(file)
 
-if __name__ == "__main__":
+
+if __name__ == '__main__':
     main()

@@ -1015,10 +1015,24 @@ if systemd-analyze --version | grep -F "+ELFUTILS" >/dev/null; then
 
     # For some unknown reason the .note.dlopen sections are removed when building with sanitizers, so only
     # run this test if we're not running under sanitizers.
-    if [[ ! -v ASAN_OPTIONS ]]; then
+    # Also the linker removes them on CentOS 9 as binutils < 2.36 does not support the SHF_GNU_RETAIN flag
+    if [[ ! -v ASAN_OPTIONS ]] && ( . /etc/os-release; [[ ! "$ID $ID_LIKE" =~ centos|rhel ]] || systemd-analyze compare-versions "$VERSION_ID" ge 10 ); then
         shared="$(ldd /lib/systemd/systemd | grep shared | cut -d' ' -f3)"
         systemd-analyze dlopen-metadata "$shared"
         systemd-analyze dlopen-metadata --json=short "$shared"
+
+        dlopen_json="$(systemd-analyze dlopen-metadata --json=short "$shared")"
+        assert_eq "$(echo "$dlopen_json" | jq 'type')" '"array"'
+        assert_ge "$(echo "$dlopen_json" | jq 'length')" 1
+        # Every entry must have the four fields with the expected types and a valid priority.
+        assert_eq "$(echo "$dlopen_json" | jq 'all(
+            (.feature | type == "string") and
+            (.description | type == "string") and
+            (.priority | IN("required", "recommended", "suggested")) and
+            (.soname | type == "array" and length > 0 and all(type == "string"))
+        )')" 'true'
+        # libmount is unconditionally pulled into libsystemd-shared, so its note must be present and correct.
+        assert_eq "$(echo "$dlopen_json" | jq 'any(.feature == "mount" and (.soname | index("libmount.so.1") != null))')" 'true'
     fi
 fi
 

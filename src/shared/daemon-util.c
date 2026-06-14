@@ -7,6 +7,7 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "log.h"
+#include "parse-util.h"
 #include "string-util.h"
 #include "time-util.h"
 
@@ -82,6 +83,27 @@ int notify_push_fdf(int fd, const char *format, ...) {
                 return -ENOMEM;
 
         return notify_push_fd(fd, name);
+}
+
+bool fdstore_detected(void) {
+        static int cached = -1;
+        int r;
+
+        if (cached >= 0)
+                return cached;
+
+        const char *e = getenv("FDSTORE");
+        if (isempty(e))
+                return (cached = 0);
+
+        unsigned u;
+        r = safe_atou(e, &u);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to parse 'FDSTORE=%s', ignoring: %m", e);
+                return (cached = 0);
+        }
+
+        return (cached = u > 0);
 }
 
 int notify_reloading_full(const char *status) {
