@@ -40,6 +40,9 @@ jobs:
     fedora-rawhide-ppc64le:
       additional_packages:
         - gdb
+    fedora-rawhide-s390x:
+      additional_packages:
+        - gdb
     fedora-rawhide-x86_64:
       additional_packages:
         - gdb
