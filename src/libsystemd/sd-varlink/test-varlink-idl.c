@@ -43,6 +43,8 @@
 #include "varlink-io.systemd.PCRExtend.h"
 #include "varlink-io.systemd.PCRLock.h"
 #include "varlink-io.systemd.Repart.h"
+#include "varlink-io.systemd.Report.Upload.h"
+#include "varlink-io.systemd.Report.Sign.h"
 #include "varlink-io.systemd.Resolve.h"
 #include "varlink-io.systemd.Resolve.Hook.h"
 #include "varlink-io.systemd.Resolve.Monitor.h"
@@ -216,6 +218,8 @@ TEST(parse_format) {
                 &vl_interface_io_systemd_PCRExtend,
                 &vl_interface_io_systemd_PCRLock,
                 &vl_interface_io_systemd_Repart,
+                &vl_interface_io_systemd_Report_Sign,
+                &vl_interface_io_systemd_Report_Upload,
                 &vl_interface_io_systemd_Resolve,
                 &vl_interface_io_systemd_Resolve_Hook,
                 &vl_interface_io_systemd_Resolve_Monitor,

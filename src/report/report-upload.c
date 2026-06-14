@@ -15,6 +15,7 @@
 #include "utf8.h"
 #include "varlink-util.h"
 #include "version.h"
+#include "memstream-util.h"
 
 #define REPORT_UPLOAD_DIR "/run/systemd/report.upload"
 #define SERVER_ANSWER_MAX (1U * 1024U * 1024U)
@@ -58,7 +59,7 @@ static size_t output_callback(char *buf,
 }
 #endif
 
-static int http_upload_collected(Context *context, sd_json_variant *report) {
+static int http_upload_report(Context *context, sd_json_variant *report) {
 #if HAVE_LIBCURL
         _cleanup_(curl_slist_free_allp) struct curl_slist *header = NULL;
         char error[CURL_ERROR_SIZE] = {};
@@ -219,20 +220,36 @@ static int execute_dir_reply(
         return 0;
 }
 
-int context_upload_report(Context *context) {
+static int varlink_upload_report(Context *context, sd_json_variant *report) {
         int r;
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *report = NULL;
-        r = context_build_report(context, &report);
-        if (r < 0)
-                return r;
-
-        if (arg_url)
-                return http_upload_collected(context, report);
+        assert(context);
+        assert(report);
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *params = NULL;
-        r = sd_json_buildo(&params,
-                           SD_JSON_BUILD_PAIR_VARIANT("report", report));
+        if (arg_sign) {
+                _cleanup_(memstream_done) MemStream ms = {};
+
+                FILE *f = memstream_init(&ms);
+                if (!f)
+                        return log_oom();
+
+                r = context_sign_report(context, report, /* json_flags= */ 0, f);
+                if (r < 0)
+                        return r;
+
+                _cleanup_free_ char *buf = NULL;
+                size_t sz = 0;
+
+                r = memstream_finalize(&ms, &buf, &sz);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to finalize memory stream: %m");
+
+                r = sd_json_buildo(&params,
+                                   SD_JSON_BUILD_PAIR_BASE64("reportData", buf, sz));
+        } else
+                r = sd_json_buildo(&params,
+                                   SD_JSON_BUILD_PAIR_VARIANT("report", report));
         if (r < 0)
                 return log_error_errno(r, "Failed to build JSON data: %m");
 
@@ -255,4 +272,15 @@ int context_upload_report(Context *context) {
 
         log_debug("Upload via %s finished successfully.", REPORT_UPLOAD_DIR);
         return 0;
+}
+
+int context_upload_report(Context *context) {
+        int r;
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *report = NULL;
+        r = context_build_report(context, &report);
+        if (r < 0)
+                return r;
+
+        return (arg_url ? http_upload_report : varlink_upload_report)(context, report);
 }
