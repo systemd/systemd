@@ -1353,30 +1353,25 @@ static int verb_remove(int argc, char *argv[], uintptr_t _data, void *userdata) 
         return context_execute(&c);
 }
 
-VERB(verb_inspect, "inspect", "[[[KERNEL-VERSION] KERNEL-IMAGE] [INITRD ...]]", 1, VERB_ANY, VERB_DEFAULT,
-     "Print details about the installation");
-static int verb_inspect(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(table_unrefp) Table *t = NULL;
+/* When only a single parameter is specified for 'inspect'/'env' it's the kernel image path, and not the
+ * kernel version. i.e. it's the first argument that is optional, not the 2nd. That's a bit unfortunate, but
+ * we keep the behaviour for compatibility. If users want to specify only the version (and have the kernel
+ * image path derived automatically), then they may specify an empty string or "dash" as kernel image path. */
+static int context_init_from_argv(Context *c, int argc, char *argv[]) {
         _cleanup_free_ char *vmlinuz = NULL;
         const char *version, *kernel;
-        char **initrds;
         struct utsname un;
         int r;
 
-        _cleanup_(context_done) Context c = CONTEXT_NULL;
-        r = context_from_cmdline(&c, ACTION_INSPECT);
+        assert(c);
+
+        r = context_from_cmdline(c, ACTION_INSPECT);
         if (r < 0)
                 return r;
 
-        /* When only a single parameter is specified 'inspect' it's the kernel image path, and not the kernel
-         * version. i.e. it's the first argument that is optional, not the 2nd. That's a bit unfortunate, but
-         * we keep the behaviour for compatibility. If users want to specify only the version (and have the
-         * kernel image path derived automatically), then they may specify an empty string or "dash" as
-         * kernel image path. */
         version = argc > 2 ? empty_or_dash_to_null(argv[1]) : NULL;
         kernel = argc > 2 ? empty_or_dash_to_null(argv[2]) :
                 (argc > 1 ? empty_or_dash_to_null(argv[1]) : NULL);
-        initrds = strv_skip(argv, 3);
 
         if (!version && !arg_root) {
                 assert_se(uname(&un) >= 0);
@@ -1391,19 +1386,29 @@ static int verb_inspect(int argc, char *argv[], uintptr_t _data, void *userdata)
                 kernel = vmlinuz;
         }
 
-        r = context_set_version(&c, version);
+        r = context_set_version(c, version);
         if (r < 0)
                 return r;
 
-        r = context_set_kernel(&c, kernel);
+        r = context_set_kernel(c, kernel);
         if (r < 0)
                 return r;
 
-        r = context_set_initrds(&c, initrds);
+        r = context_set_initrds(c, strv_skip(argv, 3));
         if (r < 0)
                 return r;
 
-        r = context_prepare_execution(&c);
+        return context_prepare_execution(c);
+}
+
+VERB(verb_inspect, "inspect", "[[[KERNEL-VERSION] KERNEL-IMAGE] [INITRD ...]]", 1, VERB_ANY, VERB_DEFAULT,
+     "Print details about the installation");
+static int verb_inspect(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        _cleanup_(table_unrefp) Table *t = NULL;
+        int r;
+
+        _cleanup_(context_done) Context c = CONTEXT_NULL;
+        r = context_init_from_argv(&c, argc, argv);
         if (r < 0)
                 return r;
 
@@ -1471,49 +1476,10 @@ static int verb_inspect(int argc, char *argv[], uintptr_t _data, void *userdata)
 VERB(verb_env, "env", "[[[KERNEL-VERSION] KERNEL-IMAGE] [INITRD ...]]", 1, VERB_ANY, 0,
      "Print environment variables passed to plugins");
 static int verb_env(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_free_ char *vmlinuz = NULL;
-        const char *version, *kernel;
-        char **initrds;
-        struct utsname un;
         int r;
 
         _cleanup_(context_done) Context c = CONTEXT_NULL;
-        r = context_from_cmdline(&c, ACTION_INSPECT);
-        if (r < 0)
-                return r;
-
-        /* See comment in verb_inspect() for why kernel image is the first optional arg, not the version. */
-        version = argc > 2 ? empty_or_dash_to_null(argv[1]) : NULL;
-        kernel = argc > 2 ? empty_or_dash_to_null(argv[2]) :
-                (argc > 1 ? empty_or_dash_to_null(argv[1]) : NULL);
-        initrds = strv_skip(argv, 3);
-
-        if (!version && !arg_root) {
-                assert_se(uname(&un) >= 0);
-                version = un.release;
-        }
-
-        if (!kernel && version) {
-                r = kernel_from_version(version, &vmlinuz);
-                if (r < 0)
-                        return r;
-
-                kernel = vmlinuz;
-        }
-
-        r = context_set_version(&c, version);
-        if (r < 0)
-                return r;
-
-        r = context_set_kernel(&c, kernel);
-        if (r < 0)
-                return r;
-
-        r = context_set_initrds(&c, initrds);
-        if (r < 0)
-                return r;
-
-        r = context_prepare_execution(&c);
+        r = context_init_from_argv(&c, argc, argv);
         if (r < 0)
                 return r;
 
