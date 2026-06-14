@@ -985,7 +985,7 @@ static int symlink_cache_build(const LookupPaths *lp, SymlinkCache **ret) {
                         _cleanup_free_ char *subdir_path = NULL;
                         const char *suffix;
 
-                        if (!IN_SET(de->d_type, DT_DIR, DT_LNK, DT_UNKNOWN))
+                        if (de->d_type != DT_DIR)
                                 continue;
 
                         suffix = strrchr(de->d_name, '.');
