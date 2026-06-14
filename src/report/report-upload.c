@@ -249,7 +249,7 @@ static int upload_collected(Context *context, sd_json_variant *report) {
 
         ssize_t jobs = varlink_execute_directory(
                         REPORT_UPLOAD_DIR,
-                        "io.systemd.Report.Upload",
+                        "io.systemd.Report.Upload.Upload",
                         params,
                         /* more= */ false,
                         arg_network_timeout_usec,
