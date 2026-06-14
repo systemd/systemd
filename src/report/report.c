@@ -16,6 +16,8 @@
 #include "path-lookup.h"
 #include "recurse-dir.h"
 #include "report.h"
+#include "report-generate.h"
+#include "report-upload.h"
 #include "runtime-scope.h"
 #include "set.h"
 #include "sort-util.h"
@@ -656,10 +658,24 @@ static int verb_metrics(int argc, char *argv[], uintptr_t data, void *userdata) 
                 if (r < 0)
                         return log_error_errno(r, "Failed to run event loop: %m");
 
-                if (IN_SET(action, ACTION_GENERATE, ACTION_UPLOAD))
-                        r = report_collected(&context);
-                else
+                switch (action) {
+
+                case ACTION_LIST_METRICS:
+                case ACTION_DESCRIBE_METRICS:
                         r = output_collected(&context);
+                        break;
+
+                case ACTION_GENERATE:
+                        r = context_generate_report(&context);
+                        break;
+
+                case ACTION_UPLOAD:
+                        r = context_upload_report(&context);
+                        break;
+
+                default:
+                        assert_not_reached();
+                }
                 if (r < 0)
                         return r;
         }
