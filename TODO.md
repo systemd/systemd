@@ -128,6 +128,8 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 ## Features
 
+- bootctl set-tries for setting retry counters on boot entries
+
 - report: allow to compile statically (together with the basic and cgroup
   backends)
 
