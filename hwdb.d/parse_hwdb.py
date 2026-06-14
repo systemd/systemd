@@ -80,6 +80,7 @@ COMMENTLINE = pythonStyleComment + EOL
 INTEGER = Word(nums)
 REAL = Combine((INTEGER + Optional('.' + Optional(INTEGER))) ^ ('.' + INTEGER))
 SIGNED_REAL = Combine(Optional(Word('-+')) + REAL)
+STRING = Word(string.ascii_letters, alphanums + '_')
 UDEV_TAG = Word(string.ascii_uppercase, alphanums + '_')
 
 # Those patterns are used in type-specific matches
@@ -187,6 +188,7 @@ def property_grammar():
         ('ID_AUTOSUSPEND_DELAY_MS', INTEGER),
         ('ID_AV_PRODUCTION_CONTROLLER', zero_one),
         ('ID_AV_LIGHTS', zero_one),
+        ('ID_DEBUG_APPLIANCE', STRING),
         ('ID_PERSIST', zero_one),
         ('ID_PDA', zero_one),
         ('ID_INPUT', id_input_setting),
