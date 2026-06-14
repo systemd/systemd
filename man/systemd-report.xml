@@ -89,7 +89,7 @@
         <literal>https://</literal> URL is specified with <option>--url=</option>, an HTTP upload will be
         performed to the specified location. Otherwise, any sockets under
         <filename>/run/systemd/metrics-upload/</filename> will be used to call
-        <function>io.systemd.Report.Upload()</function>.</para>
+        <function>io.systemd.Report.Uploader.Upload()</function>.</para>
 
         <para>Match expressions supported by <command>metrics</command> are supported here too.</para>
 
