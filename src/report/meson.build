@@ -6,6 +6,7 @@ executables += [
                 'public' : true,
                 'sources' : files(
                         'report.c',
+                        'report-generate.c',
                         'report-upload.c',
                 ),
         },
