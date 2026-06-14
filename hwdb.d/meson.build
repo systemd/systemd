@@ -31,6 +31,7 @@ hwdb_files_test = files(
         '70-analyzers.hwdb',
         '70-av-production.hwdb',
         '70-cameras.hwdb',
+        '70-debug-appliance.hwdb',
         '70-hardware-wallets.hwdb',
         '70-joystick.hwdb',
         '70-lights.hwdb',
