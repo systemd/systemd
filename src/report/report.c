@@ -43,6 +43,7 @@ char *arg_cert = NULL;
 char *arg_trust = NULL;
 char **arg_extra_headers = NULL;
 usec_t arg_network_timeout_usec = TIMEOUT_USEC;
+bool arg_sign = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_matches, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_url, freep);
@@ -873,6 +874,12 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
                         if (strv_extend(&arg_extra_headers, opts.arg) < 0)
                                 return log_oom();
+                        break;
+
+                OPTION_LONG("sign", "BOOL", "Sign the generated report."):
+                        r = parse_boolean_argument("--sign", opts.arg, &arg_sign);
+                        if (r < 0)
+                                return r;
                         break;
                 }
 
