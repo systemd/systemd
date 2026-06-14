@@ -16,6 +16,7 @@
 #include "sd-netlink.h"
 
 #include "alloc-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "missing-network.h"
 #include "netlink-genl.h"
@@ -456,8 +457,12 @@ TEST(sd_netlink_message_get_errno) {
 TEST(message_array) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *genl = NULL;
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        int r;
 
-        ASSERT_OK(sd_genl_socket_open(&genl));
+        r = sd_genl_socket_open(&genl);
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                return (void) log_tests_skipped_errno(r, "GENERIC netlink unavailable (sandbox restricted?)");
+        ASSERT_OK(r);
         ASSERT_OK(sd_genl_message_new(genl, CTRL_GENL_NAME, CTRL_CMD_GETFAMILY, &m));
 
         ASSERT_OK(sd_netlink_message_open_container(m, CTRL_ATTR_MCAST_GROUPS));
@@ -570,7 +575,10 @@ TEST(genl) {
         uint8_t cmd;
         int r;
 
-        ASSERT_OK(sd_genl_socket_open(&genl));
+        r = sd_genl_socket_open(&genl);
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                return (void) log_tests_skipped_errno(r, "GENERIC netlink unavailable (sandbox restricted?)");
+        ASSERT_OK(r);
         ASSERT_OK(sd_event_default(&event));
         ASSERT_OK(sd_netlink_attach_event(genl, event, 0));
 
@@ -709,7 +717,12 @@ TEST(sock_diag_unix) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *nl = NULL;
         int r;
 
-        ASSERT_OK(sd_sock_diag_socket_open(&nl));
+        r = sd_sock_diag_socket_open(&nl);
+        /* Some restricted build sandboxes refuse NETLINK_SOCK_DIAG with
+         * -EPROTONOSUPPORT. Skip rather than abort. */
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                return (void) log_tests_skipped_errno(r, "NETLINK_SOCK_DIAG unavailable");
+        ASSERT_OK(r);
 
         _cleanup_close_ int unix_fd = ASSERT_FD(socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0));
         ASSERT_OK(socket_autobind(unix_fd, /* ret_name= */ NULL));
