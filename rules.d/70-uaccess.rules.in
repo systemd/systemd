@@ -95,6 +95,14 @@ SUBSYSTEM=="usb", ENV{ID_MEDIA_PLAYER}=="?*", TAG+="uaccess"
 # in a rare case where non-ADB/Fastboot device ends up with an ID_DEBUG_APPLIANCE="android".
 SUBSYSTEM=="usb", ENV{ID_USB_INTERFACES}=="*:dc0201:*|*:ff4201:*|*:ff4203:*", ENV{ID_DEBUG_APPLIANCE}="android"
 
+# Samsung devices in download mode
+# Used to interact with devices over Odin protocol, see:
+# https://en.wikipedia.org/wiki/Odin_(firmware_flashing_software)
+#
+# The idVendor and idProduct used are documented in source code here:
+# https://github.com/Benjamin-Dobell/Heimdall/blob/3997d5cc607e6c603c6e7c0d07e42e9868c62af2/heimdall/source/BridgeManager.h#L69-L79
+SUBSYSTEM=="usb", ATTR{idVendor}=="04e8", ATTR{idProduct}=="6601|685d|68c3", ENV{ID_DEBUG_APPLIANCE}="samsung_odin"
+
 # software-defined radio communication devices
 ENV{ID_SOFTWARE_RADIO}=="?*", TAG+="uaccess"
 
