@@ -52,6 +52,14 @@
     <cmdsynopsis>
       <command>kernel-install</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">env</arg>
+      <arg choice="opt"><replaceable>KERNEL-VERSION</replaceable></arg>
+      <arg choice="opt"><replaceable>KERNEL-IMAGE</replaceable></arg>
+      <arg choice="opt" rep="repeat"><replaceable>INITRD-FILE</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>kernel-install</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
       <arg choice="plain">list</arg>
     </cmdsynopsis>
   </refsynopsisdiv>
@@ -253,6 +261,23 @@
           of this verb as a JSON object.</para>
 
           <xi:include href="version-info.xml" xpointer="v251"/>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>
+          <command>env [[[<replaceable>KERNEL-VERSION</replaceable>] <replaceable>KERNEL-IMAGE</replaceable>] [<replaceable>INITRD-FILE</replaceable> ...]]</command>
+        </term>
+        <listitem>
+          <para>Takes the same parameters as <command>add</command>.</para>
+
+          <para>Prints the environment variables that would be passed to plugins as shell-compatible
+          variable assignments, suitable for sourcing in shell scripts via
+          <command>eval $(kernel-install env)</command>. This is useful for external scripts that
+          need to access the same paths and settings that <command>kernel-install</command> plugins
+          use, such as <varname>$KERNEL_INSTALL_BOOT_ROOT</varname>, without reimplementing the
+          discovery logic.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/>
         </listitem>
       </varlistentry>
       <varlistentry>
