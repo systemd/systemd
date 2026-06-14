@@ -7,6 +7,7 @@ executables += [
                 'sources' : files(
                         'report.c',
                         'report-generate.c',
+                        'report-sign.c',
                         'report-upload.c',
                 ),
         },

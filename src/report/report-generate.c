@@ -5,6 +5,7 @@
 #include "log.h"
 #include "report.h"
 #include "report-generate.h"
+#include "report-sign.h"
 #include "time-util.h"
 
 int context_build_report(Context *context, sd_json_variant **ret) {
@@ -27,6 +28,12 @@ int context_build_report(Context *context, sd_json_variant **ret) {
         if (r < 0)
                 return log_error_errno(r, "Failed to build JSON data: %m");
 
+        /* Normalize the report, to make signing more robust (note that we sign a specific binary formatting
+         * of it though, this is hence not load bearing, but still useful) */
+        r = sd_json_variant_normalize(&report);
+        if (r < 0)
+                return log_error_errno(r, "Failed to normalize report JSON: %m");
+
         *ret = TAKE_PTR(report);
         return 0;
 }
@@ -43,9 +50,15 @@ int context_generate_report(Context *context) {
         if (r < 0)
                 return r;
 
-        r = sd_json_variant_dump(report, arg_json_format_flags, /* f= */ NULL, /* prefix= */ NULL);
-        if (r < 0)
-                return log_error_errno(r, "Failed to dump json object: %m");
+        if (arg_sign) {
+                r = context_sign_report(context, report, arg_json_format_flags, /* output= */ NULL);
+                if (r < 0)
+                        return r;
+        } else {
+                r = sd_json_variant_dump(report, arg_json_format_flags, /* f= */ NULL, /* prefix= */ NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to dump json object: %m");
+        }
 
         return 0;
 }
