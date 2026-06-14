@@ -1,0 +1,17 @@
+# This file is part of systemd.
+#
+# Database for debug appliances.
+#
+# Permitted keys:
+#   ID_DEBUG_APPLIANCE=?*
+
+# Samsung devices in download mode
+# Used to interact with devices over Odin protocol, see:
+# https://en.wikipedia.org/wiki/Odin_(firmware_flashing_software)
+#
+# The idVendor and idProduct used are documented in source code here:
+# https://github.com/Benjamin-Dobell/Heimdall/blob/3997d5cc607e6c603c6e7c0d07e42e9868c62af2/heimdall/source/BridgeManager.h#L69-L79
+usb:v04E8p6601*
+usb:v04E8p685D*
+usb:v04E8p68C3*
+ ID_DEBUG_APPLIANCE=samsung_odin
