@@ -329,6 +329,33 @@ diff -u <(echo "$output") - >&2 <<EOF
 EOF
 
 ###########################################
+# tests for env
+###########################################
+output="$("$kernel_install" -v env 1.1.1 "$D/sources/linux")"
+
+diff -u <(echo "$output") - >&2 <<EOF
+LC_COLLATE=$SYSTEMD_DEFAULT_LOCALE
+KERNEL_INSTALL_VERBOSE=1
+KERNEL_INSTALL_IMAGE_TYPE=unknown
+KERNEL_INSTALL_MACHINE_ID=3e0484f3634a418b8e6a39e8828b03e3
+KERNEL_INSTALL_ENTRY_TOKEN=the-token
+KERNEL_INSTALL_BOOT_ROOT=$BOOT_ROOT
+KERNEL_INSTALL_LAYOUT=other
+KERNEL_INSTALL_INITRD_GENERATOR=none
+KERNEL_INSTALL_UKI_GENERATOR=
+KERNEL_INSTALL_STAGING_AREA=${TMPDIR:-/var/tmp}/kernel-install.staging.XXXXXX
+EOF
+
+# test that values with shell specials are quoted
+spaced_boot_root="$D/boot (with spaces & 'quotes')"
+mkdir -p "$spaced_boot_root"
+output="$(BOOT_ROOT="$spaced_boot_root" "$kernel_install" -v env 1.1.1 "$D/sources/linux")"
+
+echo "$output" | grep >/dev/null "^KERNEL_INSTALL_BOOT_ROOT=\\\$'"
+eval "$(echo "$output" | grep '^KERNEL_INSTALL_BOOT_ROOT=')"
+test "$KERNEL_INSTALL_BOOT_ROOT" = "$spaced_boot_root"
+
+###########################################
 # tests for propagation of plugin failure (issue #30087)
 ###########################################
 cat >"$D/00-plugin-skip" <<EOF
