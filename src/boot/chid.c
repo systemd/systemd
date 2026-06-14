@@ -121,12 +121,30 @@ EFI_STATUS chid_match(const void *hwid_buffer, size_t hwid_length, uint32_t matc
 
         /* Count devices and check validity */
         for (; (n_devices + 1) * sizeof(*devices) < hwid_length;) {
-
-                if (devices[n_devices].descriptor == DEVICE_DESCRIPTOR_EOL)
+                size_t name_off;
+                const Device *device = &devices[n_devices];
+                if (device->descriptor == DEVICE_DESCRIPTOR_EOL)
                         break;
-                if (!IN_SET(DEVICE_TYPE_FROM_DESCRIPTOR(devices[n_devices].descriptor),
+                if (!IN_SET(DEVICE_TYPE_FROM_DESCRIPTOR(device->descriptor),
                             DEVICE_TYPE_UEFI_FW, DEVICE_TYPE_DEVICETREE))
                         return EFI_UNSUPPORTED;
+                if (DEVICE_TYPE_FROM_DESCRIPTOR(device->descriptor) == DEVICE_TYPE_DEVICETREE) {
+                        size_t compat_off;
+
+                        compat_off = device->devicetree.compatible_offset;
+                        name_off = device->devicetree.name_offset;
+                        if (compat_off >= hwid_length || name_off >= hwid_length)
+                                return EFI_INVALID_PARAMETER;
+                }
+                if (DEVICE_TYPE_FROM_DESCRIPTOR(device->descriptor) == DEVICE_TYPE_UEFI_FW) {
+                        size_t fwid_off;
+
+                        fwid_off = device->uefi_fw.fwid_offset;
+                        name_off = device->uefi_fw.name_offset;
+                        if (fwid_off >= hwid_length || name_off >= hwid_length)
+                                return EFI_INVALID_PARAMETER;
+                }
+
                 n_devices++;
         }
 
