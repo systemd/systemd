@@ -9,8 +9,6 @@
 #define REPORT_CERT_FILE     CERTIFICATE_ROOT "/certs/systemd-report.pem"
 #define REPORT_TRUST_FILE    CERTIFICATE_ROOT "/ca/trusted.pem"
 
-#define REPORT_UPLOAD_DIR "/run/systemd/report.upload"
-
 extern sd_json_format_flags_t arg_json_format_flags;
 extern char *arg_url, *arg_key, *arg_cert, *arg_trust;
 extern char **arg_extra_headers;
@@ -36,5 +34,3 @@ typedef struct Context {
         int upload_result;
         struct iovec_wrapper upload_answer;
 } Context;
-
-int report_collected(Context *context);
