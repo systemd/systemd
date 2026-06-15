@@ -14,7 +14,9 @@ TEST(delegatetap) {
         int r;
 
         _cleanup_close_ int userns_fd = userns_acquire_self_root();
-        if (ERRNO_IS_NEG_PRIVILEGE(userns_fd) || ERRNO_IS_NEG_NOT_SUPPORTED(userns_fd))
+        /* EINVAL is returned when user.max_user_namespaces=0 in the sysctl, or when
+         * seccomp blocks the clone/unshare syscall in a sandbox. */
+        if (ERRNO_IS_NEG_PRIVILEGE(userns_fd) || ERRNO_IS_NEG_NOT_SUPPORTED(userns_fd) || userns_fd == -EINVAL)
                 return (void) log_tests_skipped_errno(userns_fd, "User namespaces not available");
         ASSERT_OK(userns_fd);
 
