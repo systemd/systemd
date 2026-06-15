@@ -10,6 +10,7 @@
 #include "iovec-util.h"
 #include "net-condition.h"
 #include "netdev/macvlan.h"
+#include "netdev/ovs-port.h"
 #include "netif-sriov.h"
 #include "network-util.h"
 #include "networkd-address.h"
@@ -143,6 +144,37 @@ int network_verify(Network *network) {
                                        "%s: Conditions in the file do not match the system environment, skipping.",
                                        network->filename);
 
+        if (network->ovs_bridge_name &&
+            (network->bridge_name || network->bond_name || network->vrf_name ||
+             network->batadv_name || network->ovs_bond_name))
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                         "%s: OVSBridge= is mutually exclusive with Bridge=, Bond=, VRF=, BatmanAdvanced=, and OVSBond=.",
+                                         network->filename);
+
+        if (network->ovs_bond_name &&
+            (network->bridge_name || network->bond_name || network->vrf_name ||
+             network->batadv_name))
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                         "%s: OVSBond= is mutually exclusive with Bridge=, Bond=, VRF=, and BatmanAdvanced=.",
+                                         network->filename);
+
+        if (!network->ovs_bridge_name && !network->ovs_bond_name &&
+            (network->ovs_port_tag != VLANID_INVALID ||
+             network->ovs_port_vlan_mode ||
+             !eqzero(network->ovs_port_vlan_bitmap))) {
+                log_warning("%s: [OVSPort] settings without OVSBridge= or OVSBond=, ignoring.",
+                            network->filename);
+                network->ovs_port_tag = VLANID_INVALID;
+                network->ovs_port_vlan_mode = mfree(network->ovs_port_vlan_mode);
+                memzero(network->ovs_port_vlan_bitmap, sizeof(network->ovs_port_vlan_bitmap));
+        }
+
+        if (network->ovs_port_vlan_mode && !ovs_vlan_mode_is_valid(network->ovs_port_vlan_mode)) {
+                log_warning("%s: invalid OVSPort VLANMode='%s', ignoring.",
+                            network->filename, network->ovs_port_vlan_mode);
+                network->ovs_port_vlan_mode = mfree(network->ovs_port_vlan_mode);
+        }
+
         if (network->keep_master) {
                 if (network->batadv_name)
                         log_warning("%s: BatmanAdvanced= set with KeepMaster= enabled, ignoring BatmanAdvanced=.",
@@ -156,11 +188,22 @@ int network_verify(Network *network) {
                 if (network->vrf_name)
                         log_warning("%s: VRF= set with KeepMaster= enabled, ignoring VRF=.",
                                     network->filename);
+                if (network->ovs_bridge_name)
+                        log_warning("%s: OVSBridge= set with KeepMaster= enabled, ignoring OVSBridge=.",
+                                    network->filename);
+                if (network->ovs_bond_name)
+                        log_warning("%s: OVSBond= set with KeepMaster= enabled, ignoring OVSBond=.",
+                                    network->filename);
 
                 network->batadv_name = mfree(network->batadv_name);
                 network->bond_name = mfree(network->bond_name);
                 network->bridge_name = mfree(network->bridge_name);
                 network->vrf_name = mfree(network->vrf_name);
+                network->ovs_bridge_name = mfree(network->ovs_bridge_name);
+                network->ovs_bond_name = mfree(network->ovs_bond_name);
+                network->ovs_port_tag = VLANID_INVALID;
+                network->ovs_port_vlan_mode = mfree(network->ovs_port_vlan_mode);
+                memzero(network->ovs_port_vlan_bitmap, sizeof(network->ovs_port_vlan_bitmap));
         }
 
         (void) network_resolve_netdev_one(network, network->batadv_name, NETDEV_KIND_BATADV, &network->batadv);
@@ -472,6 +515,8 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
 
                 .bridge_vlan_pvid = BRIDGE_VLAN_KEEP_PVID,
 
+                .ovs_port_tag = VLANID_INVALID,
+
                 .lldp_mode = LLDP_MODE_ROUTERS_ONLY,
                 .lldp_multicast_mode = _SD_LLDP_MULTICAST_MODE_INVALID,
 
@@ -555,6 +600,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                         "DHCPServerStaticLease\0"
                         "IPv6AcceptRA\0"
                         "Bridge\0"
+                        "OVSPort\0"
                         "BridgeFDB\0"
                         "BridgeMDB\0"
                         "BridgeVLAN\0"
@@ -843,6 +889,9 @@ static Network *network_free(Network *network) {
         free(network->bridge_name);
         free(network->bond_name);
         free(network->vrf_name);
+        free(network->ovs_bridge_name);
+        free(network->ovs_bond_name);
+        free(network->ovs_port_vlan_mode);
         hashmap_free(network->stacked_netdev_names);
         netdev_unref(network->bridge);
         netdev_unref(network->bond);
