@@ -536,12 +536,15 @@ static int open_mmap(const char *database, int *ret_fd, struct stat *ret_st, voi
                 return -errno;
 
         const CatalogHeader *h = p;
+        uint64_t total;
         if (memcmp(h->signature, (const uint8_t[]) CATALOG_SIGNATURE, sizeof(h->signature)) != 0 ||
             le64toh(h->header_size) < sizeof(CatalogHeader) ||
             le64toh(h->catalog_item_size) < sizeof(CatalogItem) ||
             h->incompatible_flags != 0 ||
             le64toh(h->n_items) <= 0 ||
-            st.st_size < (off_t) (le64toh(h->header_size) + le64toh(h->catalog_item_size) * le64toh(h->n_items))) {
+            !MUL_SAFE(&total, le64toh(h->catalog_item_size), le64toh(h->n_items)) ||
+            !INC_SAFE(&total, le64toh(h->header_size)) ||
+            (uint64_t) st.st_size < total) {
                 munmap(p, st.st_size);
                 return -EBADMSG;
         }
@@ -552,7 +555,7 @@ static int open_mmap(const char *database, int *ret_fd, struct stat *ret_st, voi
         return 0;
 }
 
-static const char* find_id(const void *p, sd_id128_t id) {
+static const char* find_id(const void *p, uint64_t file_size, sd_id128_t id) {
         CatalogItem key = { .id = id };
         const CatalogItem *f = NULL;
         const CatalogHeader *h = ASSERT_PTR(p);
@@ -602,10 +605,20 @@ static const char* find_id(const void *p, sd_id128_t id) {
         if (!f)
                 return NULL;
 
-        return (const char*) p +
-                le64toh(h->header_size) +
-                le64toh(h->n_items) * le64toh(h->catalog_item_size) +
-                le64toh(f->offset);
+        /* f->offset is attacker-controlled in a hostile database; make sure the string start, plus a
+         * terminating NUL, stay inside the mapping before handing the pointer out for strlen()/strdup(). */
+        uint64_t off;
+        if (!MUL_SAFE(&off, le64toh(h->n_items), le64toh(h->catalog_item_size)) ||
+            !INC_SAFE(&off, le64toh(h->header_size)) ||
+            !INC_SAFE(&off, le64toh(f->offset)) ||
+            off >= file_size)
+                return NULL;
+
+        const char *s = (const char*) p + off;
+        if (!memchr(s, 0, file_size - off))
+                return NULL;
+
+        return s;
 }
 
 int catalog_get(const char *database, sd_id128_t id, char **ret_text) {
@@ -621,7 +634,7 @@ int catalog_get(const char *database, sd_id128_t id, char **ret_text) {
         if (r < 0)
                 return r;
 
-        const char *s = find_id(p, id);
+        const char *s = find_id(p, st.st_size, id);
         if (!s)
                 r = -ENOENT;
         else
@@ -693,7 +706,9 @@ int catalog_list(FILE *f, const char *database, bool oneline) {
                 if (last_id_set && sd_id128_equal(last_id, items[n].id))
                         continue;
 
-                assert_se(s = find_id(p, items[n].id));
+                s = find_id(p, st.st_size, items[n].id);
+                if (!s)
+                        continue;
 
                 dump_catalog_entry(f, items[n].id, s, oneline);
 
