@@ -589,14 +589,6 @@ static int normalize_portable_changes(
 
         CLEANUP_ARRAY(changes, n_changes, portable_changes_free);
 
-        /* Corner case: only detached, nothing attached */
-        if (n_changes_attached == 0) {
-                memcpy(changes, changes_detached, sizeof(PortableChange) * n_changes_detached);
-                *ret_changes = TAKE_PTR(changes);
-                *ret_n_changes = n_changes_detached;
-                return 0;
-        }
-
         for (size_t i = 0; i < n_changes_detached; ++i) {
                 bool found = false;
 
