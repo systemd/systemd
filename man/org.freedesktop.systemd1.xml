@@ -1882,6 +1882,11 @@ node /org/freedesktop/systemd1 {
       <para><varname>SoftRebootsCount</varname> encodes how many soft-reboots were successfully completed
       since the last full boot. Starts at <literal>0</literal>.</para>
 
+      <para><varname>KexecsCount</varname> encodes how many kexec-based live updates were successfully
+      completed since the last full boot. Starts at <literal>0</literal>. The counter is preserved across the
+      kexec through the Live Update Orchestrator (LUO), and is hence only present when the kernel provides LUO
+      support.</para>
+
       <para><varname>ReloadCount</varname> encodes the number of successfully completed configuration
       reloads of the manager. The counter is reset to <literal>0</literal> on
       <command>daemon-reexec</command> and on the initial boot.</para>
@@ -12741,8 +12746,9 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>DefaultIOPressureThresholdUSec</varname>,
       <varname>DefaultIOPressureWatch</varname>,
       <varname>ReloadCount</varname>,
-      <varname>EventLoopRateLimitIntervalUSec</varname>, and
-      <varname>EventLoopRateLimitBurst</varname> were added in version 261.</para>
+      <varname>EventLoopRateLimitIntervalUSec</varname>,
+      <varname>EventLoopRateLimitBurst</varname>, and
+      <varname>KexecsCount</varname> were added in version 261.</para>
     </refsect2>
     <refsect2>
       <title>Unit Objects</title>

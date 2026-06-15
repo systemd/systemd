@@ -6,6 +6,7 @@
 #include "core-forward.h"
 
 extern const sd_bus_vtable bus_manager_vtable[];
+extern const sd_bus_vtable bus_manager_luo_vtable[];
 extern const sd_bus_vtable bus_manager_log_control_vtable[];
 
 void bus_manager_send_finished(
