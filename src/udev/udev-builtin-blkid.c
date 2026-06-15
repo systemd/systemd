@@ -554,11 +554,16 @@ static int builtin_blkid(UdevEvent *event, int argc, char *argv[]) {
                 return ignore ? 0 : fd;
         }
 
-        if (offset == 0) {
-                r = probe_gpt_boot_disk_needs_loop(event, fd);
-                if (r > 0)
-                        return 0;
-        }
+        /* If the kernel can't parse the boot disk's partition table, set properties so a udev rule sets
+         * up a loop device (with the correct sector size) to expose the partitions. We still probe the
+         * device itself below for its whole-disk properties (filesystem type, partition table UUID, and
+         * so on); partition and root discovery happen on the loop device instead. We don't need to
+         * suppress the latter here: blkid probes at the device's own logical sector size, so a GPT
+         * written for a different sector size is simply not detected, and both PART_ENTRY_* and
+         * find_gpt_root() only ever act on partitions the kernel actually registered — which, for a disk
+         * that needs a loop device, is none. */
+        if (offset == 0)
+                (void) probe_gpt_boot_disk_needs_loop(event, fd);
 
         sym_blkid_probe_set_superblocks_flags(pr,
                 BLKID_SUBLKS_LABEL | BLKID_SUBLKS_UUID |
