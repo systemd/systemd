@@ -591,11 +591,32 @@ static int normalize_portable_changes(
 
         CLEANUP_ARRAY(changes, n_changes, portable_changes_free);
 
-        /* Corner case: only detached, nothing attached */
+        /* Corner case: only detached, nothing attached. Use deep copy (strdup) rather than
+         * memcpy to avoid a double-free: both changes_detached and the returned array are
+         * freed independently via CLEANUP_ARRAY on scope exit. */
         if (n_changes_attached == 0) {
-                memcpy(changes, changes_detached, sizeof(PortableChange) * n_changes_detached);
+                for (size_t i = 0; i < n_changes_detached; i++) {
+                        _cleanup_free_ char *path = NULL, *source = NULL;
+
+                        path = strdup(changes_detached[i].path);
+                        if (!path)
+                                return -ENOMEM;
+
+                        if (changes_detached[i].source) {
+                                source = strdup(changes_detached[i].source);
+                                if (!source)
+                                        return -ENOMEM;
+                        }
+
+                        changes[n_changes++] = (PortableChange) {
+                                .type_or_errno = changes_detached[i].type_or_errno,
+                                .path = TAKE_PTR(path),
+                                .source = TAKE_PTR(source),
+                        };
+                }
+
                 *ret_changes = TAKE_PTR(changes);
-                *ret_n_changes = n_changes_detached;
+                *ret_n_changes = n_changes;
                 return 0;
         }
 
