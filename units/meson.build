@@ -633,6 +633,8 @@ units = [
           'conditions' : ['ENABLE_BOOTLOADER', 'HAVE_OPENSSL', 'HAVE_TPM2'],
           'symlinks' : ['sysinit.target.wants/'],
         },
+        { 'file' : 'systemd-report.socket' },
+        { 'file' : 'systemd-report@.service.in' },
         { 'file' : 'systemd-report-basic.socket' },
         { 'file' : 'systemd-report-basic@.service.in' },
         {
