@@ -12,6 +12,7 @@
  *
  *   {
  *     "version": 1,
+ *     "state": { },
  *     "units": {
  *       "unit-name.service": {
  *         "fdstore": [

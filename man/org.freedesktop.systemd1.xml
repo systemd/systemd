@@ -576,6 +576,8 @@ node /org/freedesktop/systemd1 {
       readonly s CtrlAltDelBurstAction = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly u SoftRebootsCount = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly u KExecsCount = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t ReloadCount = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -1293,6 +1295,8 @@ node /org/freedesktop/systemd1 {
 
     <variablelist class="dbus-property" generated="True" extra-ref="SoftRebootsCount"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="KExecsCount"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="ReloadCount"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="DefaultMemoryZSwapWriteback"/>
@@ -1881,6 +1885,11 @@ node /org/freedesktop/systemd1 {
 
       <para><varname>SoftRebootsCount</varname> encodes how many soft-reboots were successfully completed
       since the last full boot. Starts at <literal>0</literal>.</para>
+
+      <para><varname>KExecsCount</varname> encodes how many kexec-based live updates were successfully
+      completed since the last full boot. Starts at <literal>0</literal>. The counter is preserved across the
+      kexec through the Live Update Orchestrator (LUO), and is hence <literal>0</literal> when the kernel does
+      not provide LUO support.</para>
 
       <para><varname>ReloadCount</varname> encodes the number of successfully completed configuration
       reloads of the manager. The counter is reset to <literal>0</literal> on
@@ -12749,6 +12758,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>ReloadCount</varname>,
       <varname>EventLoopRateLimitIntervalUSec</varname>, and
       <varname>EventLoopRateLimitBurst</varname> were added in version 261.</para>
+      <para><varname>KExecsCount</varname> was added in version 262.</para>
     </refsect2>
     <refsect2>
       <title>Unit Objects</title>
