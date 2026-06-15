@@ -6,6 +6,14 @@ CHANGES WITH 263 in spe:
 
         Feature Removals and Incompatible Changes:
 
+        Changes in sd-varlink and varlinkctl:
+
+        * New optional varlink-sftp-root-{ro,rw}.socket units expose the local
+          file system via SFTP over an upgraded Varlink connection. They are
+          built only with -Dvarlink-sftp=true, and are disabled by
+          default. Note that both run as root so allowing acces is equivalent
+          to r/w root access or r/o /etc/shadow access.
+
 CHANGES WITH 262:
 
         Announcements of Future Feature Removals and Incompatible Changes:

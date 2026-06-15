@@ -72,3 +72,6 @@ disable systemd-journal-remote.*
 disable systemd-journal-upload.*
 disable systemd-sysext-sysroot.service
 disable systemd-time-wait-sync.service
+
+disable varlink-sftp-root-ro.socket
+disable varlink-sftp-root-rw.socket
