@@ -1101,6 +1101,14 @@ sensor:modalias:acpi:MXC6655*:dmi:*:svnUMAX:pnVisionbook12WrTab:*
  ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
 
 #########################################
+# Valve
+#########################################
+
+# Lizard mode must be off for the IMU to activate
+evdev:input:b0003v28DEp1205*
+ ACCEL_MOUNT_MATRIX=0, -1, 0; 1, 0, 0; 0, 0, 1
+
+#########################################
 # Voyo
 #########################################
 
