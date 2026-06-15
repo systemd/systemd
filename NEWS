@@ -241,6 +241,15 @@ CHANGES WITH 263 in spe:
           via polkit that the client is authorized for the specified action
           before the connection is upgraded and the command is executed.
 
+        * New optional varlink-sftp-root.socket and varlink-sftp-root-ro.socket
+          units expose the local file system via SFTP over an upgraded Varlink
+          connection, read-write and read-only respectively. Access is
+          controlled via the polkit actions io.systemd.sftp.root and
+          io.systemd.sftp.root-read-only. They are built only with
+          -Dvarlink-sftp=true, and are disabled by default. Note that both
+          run as root so allowing access is equivalent to r/w root access or
+          r/o /etc/shadow access.
+
 CHANGES WITH 262:
 
         Announcements of Future Feature Removals and Incompatible Changes:
