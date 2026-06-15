@@ -2080,15 +2080,24 @@ static int oci_version_parse(const char *s, unsigned *ret_major, unsigned *ret_m
         if (r <= 0 || p)
                 return -EINVAL;
 
-        r = safe_atou(major, &a);
+        r = safe_atou_full(major, 10
+                           | SAFE_ATO_REFUSE_PLUS_MINUS
+                           | SAFE_ATO_REFUSE_LEADING_ZERO
+                           | SAFE_ATO_REFUSE_LEADING_WHITESPACE, &a);
         if (r < 0)
                 return r;
 
-        r = safe_atou(minor, &b);
+        r = safe_atou_full(minor, 10
+                           | SAFE_ATO_REFUSE_PLUS_MINUS
+                           | SAFE_ATO_REFUSE_LEADING_ZERO
+                           | SAFE_ATO_REFUSE_LEADING_WHITESPACE, &b);
         if (r < 0)
                 return r;
 
-        r = safe_atou(patch, &c);
+        r = safe_atou_full(patch, 10
+                           | SAFE_ATO_REFUSE_PLUS_MINUS
+                           | SAFE_ATO_REFUSE_LEADING_ZERO
+                           | SAFE_ATO_REFUSE_LEADING_WHITESPACE, &c);
         if (r < 0)
                 return r;
 
