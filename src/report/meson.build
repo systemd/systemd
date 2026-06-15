@@ -27,4 +27,14 @@ executables += [
                         'report-cgroup-server.c',
                 ),
         },
+        libexec_template + {
+                'name' : 'systemd-report-sign-plain',
+                'conditions' : [
+                        'HAVE_OPENSSL',
+                ],
+                'sources' : files(
+                        'report-sign-plain.c',
+                ),
+                'dependencies' : libopenssl_cflags,
+        },
 ]
