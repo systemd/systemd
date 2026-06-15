@@ -31,6 +31,7 @@
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "time-util.h"
 
 static void cleanup_clear_loop_close(int *fd) {
@@ -419,31 +420,48 @@ static int fd_set_max_discard(int fd, uint64_t max_discard) {
         return write_string_filef(sysfs_path, WRITE_STRING_FILE_DISABLE_BUFFER, "%" PRIu64, max_discard);
 }
 
-static int probe_sector_size_harder(int fd, uint32_t *ret) {
-        _cleanup_close_ int non_direct_io_fd = -EBADF;
-        int probe_fd, f_flags;
+static int probe_fd_open(int fd, int f_flags, int *ret_to_close) {
+        int r;
 
         assert(fd >= 0);
-        assert(ret);
+        assert(ret_to_close);
 
-        /* Wraps probe_sector_size() but handles O_DIRECT: if the fd is opened with O_DIRECT there are
-         * strict alignment requirements for reads, so we temporarily reopen it without O_DIRECT for the
-         * probing logic. */
+        /* blkid- and pread-based probing has no special handling for the strict alignment requirements of
+         * O_DIRECT, so if fd was opened with O_DIRECT we reopen it without for the probing logic. Returns the
+         * fd to use for probing; when a new fd had to be opened it is also stored in *ret_to_close for the
+         * caller to close, otherwise *ret_to_close is set to -EBADF and the original fd is returned. */
 
-        f_flags = fcntl(fd, F_GETFL);
-        if (f_flags < 0)
-                return -errno;
+        if (!FLAGS_SET(f_flags, O_DIRECT)) {
+                *ret_to_close = -EBADF;
+                return fd;
+        }
 
-        if (FLAGS_SET(f_flags, O_DIRECT)) {
-                non_direct_io_fd = fd_reopen(fd, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
-                if (non_direct_io_fd < 0)
-                        return non_direct_io_fd;
+        r = fd_reopen(fd, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
+        if (r < 0)
+                return r;
 
-                probe_fd = non_direct_io_fd;
-        } else
-                probe_fd = fd;
+        return (*ret_to_close = r);
+}
 
-        return probe_sector_size(probe_fd, ret);
+static int fd_has_partition_table(int fd) {
+        _cleanup_free_ char *pttype = NULL;
+        int r;
+
+        assert(fd >= 0);
+
+        /* Checks whether the device carries a partition table the image dissection logic acts upon. We use
+         * this to decide whether wrapping the device in a loopback device with partition scanning enabled
+         * actually serves a purpose: if there are no partitions to expose we can hand back the original fd
+         * instead. Expects an fd suitable for probing, i.e. opened without O_DIRECT (see probe_fd_open()). */
+
+        r = probe_partition_table(fd, &pttype); /* already logs on error */
+        if (r < 0)
+                return r;
+
+        /* Only GPT and MBR ("dos") tables are understood by the dissection logic and require partition
+         * scanning to expose their partitions; anything else it treats as unpartitioned, so a loopback
+         * device wouldn't help (and STRPTR_IN_SET() handles a NULL pttype, i.e. no table, as false). */
+        return STRPTR_IN_SET(pttype, "gpt", "dos");
 }
 
 static int loop_device_can_shortcut(
@@ -458,9 +476,10 @@ static int loop_device_can_shortcut(
 
         /* Returns whether we can hand back the original block device fd instead of allocating a real
          * loopback device for it: it must cover the whole device, the requested sector size must match the
-         * device's sector size, and if partscan was requested it must already be enabled on the device
-         * (otherwise e.g. partition block devices or loop devices created without LO_FLAGS_PARTSCAN would
-         * be reused even though they cannot expose nested partitions). */
+         * device's sector size, and if partscan was requested the device must either already have it enabled
+         * or — unless the caller declared it may populate the image via LOOP_DEVICE_MAY_POPULATE_PARTITION_TABLE
+         * — carry no partition table at all (in which case there are no partitions to scan and the loopback
+         * would serve no purpose). */
 
         assert(fd >= 0);
 
@@ -475,8 +494,26 @@ static int loop_device_can_shortcut(
                 r = blockdev_partscan_enabled_fd(fd);
                 if (r < 0)
                         return r;
-                if (r == 0)
-                        return false;
+                if (r == 0) {
+                        /* Partition scanning was requested but cannot be enabled on this device (e.g. it's a
+                         * partition itself). If the caller might write a (nested) partition table into the
+                         * device, it must get a real loopback device so scanning works once the table is
+                         * there. */
+                        if (FLAGS_SET(loop_flags, LOOP_DEVICE_MAY_POPULATE_PARTITION_TABLE))
+                                return false;
+
+                        /* Otherwise we shortcut when the device carries no partition table: there are then no
+                         * partitions to scan, and routing e.g. a multi-device btrfs member through a loop
+                         * device breaks it, see https://github.com/systemd/systemd/issues/42520.
+                         *
+                         * If we can't probe the device, fall back to allocating a real loop device rather than
+                         * failing the whole operation: we can't prove there's no partition table, and the
+                         * image is potentially untrusted (a crafted or corrupt partition table can make the
+                         * probe fail, e.g. with -EUCLEAN), so failing here would be a fail-unsafe DoS. */
+                        r = fd_has_partition_table(fd);
+                        if (r != 0)
+                                return false;
+                }
         }
 
         return true;
@@ -494,10 +531,10 @@ static int loop_device_make_internal(
                 LoopDevice **ret) {
 
         _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
-        _cleanup_close_ int reopened_fd = -EBADF, control = -EBADF;
+        _cleanup_close_ int reopened_fd = -EBADF, control = -EBADF, probe_close_fd = -EBADF;
         _cleanup_free_ char *backing_file = NULL;
         struct loop_config config;
-        int r, f_flags;
+        int r, f_flags, probe_fd = -EBADF;
         struct stat st;
 
         assert(fd >= 0);
@@ -528,7 +565,13 @@ static int loop_device_make_internal(
                  * by looking for the GPT partition header at various offsets. This of course only works
                  * if the image already has a disk label. */
 
-                r = probe_sector_size_harder(fd, &sector_size);
+                if (probe_fd < 0) {
+                        probe_fd = probe_fd_open(fd, f_flags, &probe_close_fd);
+                        if (probe_fd < 0)
+                                return probe_fd;
+                }
+
+                r = probe_sector_size(probe_fd, &sector_size);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -547,7 +590,13 @@ static int loop_device_make_internal(
                 if (sector_size == 0)
                         sector_size = device_ssz;
 
-                r = loop_device_can_shortcut(fd, offset, size, sector_size, device_ssz, loop_flags);
+                if (probe_fd < 0) {
+                        probe_fd = probe_fd_open(fd, f_flags, &probe_close_fd);
+                        if (probe_fd < 0)
+                                return probe_fd;
+                }
+
+                r = loop_device_can_shortcut(probe_fd, offset, size, sector_size, device_ssz, loop_flags);
                 if (r < 0)
                         return r;
                 if (r > 0)
@@ -613,8 +662,9 @@ static int loop_device_make_internal(
                 .fd = fd,
                 .block_size = sector_size,
                 .info = {
-                        /* Use the specified flags, but configure the read-only flag from the open flags, and force autoclear */
-                        .lo_flags = ((loop_flags & ~(LO_FLAGS_READ_ONLY|LO_FLAGS_PARTSCAN)) |
+                        /* Use the specified flags, but strip our systemd-internal flags and the read-only and
+                         * partscan flags (the latter handled separately below/above), and force autoclear */
+                        .lo_flags = ((loop_flags & ~(LOOP_DEVICE_MAY_POPULATE_PARTITION_TABLE|LO_FLAGS_READ_ONLY|LO_FLAGS_PARTSCAN)) |
                                      ((open_flags & O_ACCMODE_STRICT) == O_RDONLY ? LO_FLAGS_READ_ONLY : 0) |
                                      LO_FLAGS_AUTOCLEAR),
                         .lo_offset = offset,
