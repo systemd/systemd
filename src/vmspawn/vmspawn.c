@@ -1555,7 +1555,6 @@ static int cmdline_add_smbios11(char ***cmdline, int smbios_dir_fd, const char *
 }
 
 static int start_tpm(
-                const char *scope,
                 const char *swtpm,
                 const char *runtime_dir,
                 const char *sd_socket_activate,
@@ -1564,30 +1563,26 @@ static int start_tpm(
 
         int r;
 
-        assert(scope);
         assert(swtpm);
         assert(runtime_dir);
         assert(sd_socket_activate);
 
-        _cleanup_free_ char *scope_prefix = NULL;
-        r = unit_name_to_prefix(scope, &scope_prefix);
-        if (r < 0)
-                return log_error_errno(r, "Failed to strip .scope suffix from scope: %m");
-
         _cleanup_free_ char *listen_address = path_join(runtime_dir, "tpm.sock");
         if (!listen_address)
                 return log_oom();
+
+        /* Validate socket path length up front instead of a failure in swtpm */
+        union sockaddr_union sa;
+        r = sockaddr_un_set_path(&sa.un, listen_address);
+        if (r < 0)
+                return log_error_errno(r, "TPM socket path '%s' is too long: %m", listen_address);
 
         _cleanup_free_ char *transient_state_dir = NULL;
         const char *state_dir;
         if (arg_tpm_state_path)
                 state_dir = arg_tpm_state_path;
         else {
-                _cleanup_free_ char *dirname = strjoin(scope_prefix, "-tpm");
-                if (!dirname)
-                        return log_oom();
-
-                transient_state_dir = path_join(runtime_dir, dirname);
+                transient_state_dir = path_join(runtime_dir, "tpm");
                 if (!transient_state_dir)
                         return log_oom();
 
@@ -1686,7 +1681,6 @@ static int find_virtiofsd(char **ret) {
 }
 
 static int start_virtiofsd(
-                const char *scope,
                 const char *directory,
                 uid_t source_uid,
                 uid_t target_uid,
@@ -1697,7 +1691,6 @@ static int start_virtiofsd(
 
         int r;
 
-        assert(scope);
         assert(directory);
         assert(runtime_dir);
 
@@ -1706,11 +1699,8 @@ static int start_virtiofsd(
         if (r < 0)
                 return r;
 
-        _cleanup_free_ char *scope_prefix = NULL;
-        r = unit_name_to_prefix(scope, &scope_prefix);
-        if (r < 0)
-                return log_error_errno(r, "Failed to strip .scope suffix from scope: %m");
-
+        /* A VM may run several virtiofsd instances (one per shared dir), so the random suffix keeps their
+         * sockets distinct within the machine's runtime directory. */
         _cleanup_free_ char *listen_address = NULL;
         if (asprintf(&listen_address, "%s/sock-%"PRIx64, runtime_dir, random_u64()) < 0)
                 return log_oom();
@@ -2652,14 +2642,9 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
         /* Create our runtime directory. We need this for the QMP varlink control socket, the QEMU
          * config file, TPM state, virtiofsd sockets, runtime mounts, and SSH key material. */
-        _cleanup_free_ char *runtime_dir = NULL, *runtime_dir_suffix = NULL;
-        _cleanup_(rm_rf_physical_and_freep) char *runtime_dir_destroy = NULL;
+        _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
 
-        runtime_dir_suffix = path_join("systemd/vmspawn", arg_machine);
-        if (!runtime_dir_suffix)
-                return log_oom();
-
-        r = runtime_directory_make(arg_runtime_scope, runtime_dir_suffix, &runtime_dir, &runtime_dir_destroy);
+        r = runtime_directory_make(arg_runtime_scope, "systemd/vmspawn", arg_machine, &runtime_dir);
         if (r < 0)
                 return log_error_errno(r, "Failed to create runtime directory: %m");
 
@@ -3178,7 +3163,6 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 }
 
                 r = start_virtiofsd(
-                                unit,
                                 arg_directory,
                                 /* source_uid= */ arg_uid_shift,
                                 /* target_uid= */ 0,
@@ -3254,7 +3238,6 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return log_oom();
 
                 r = start_virtiofsd(
-                                unit,
                                 m->source,
                                 /* source_uid= */ m->source_uid,
                                 /* target_uid= */ m->target_uid,
@@ -3376,7 +3359,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 if (!GREEDY_REALLOC(children, n_children + 1))
                         return log_oom();
 
-                r = start_tpm(unit, swtpm, runtime_dir, sd_socket_activate, &tpm_socket_address, &child);
+                r = start_tpm(swtpm, runtime_dir, sd_socket_activate, &tpm_socket_address, &child);
                 if (r < 0) {
                         /* only bail if the user asked for a tpm */
                         if (arg_tpm > 0)
@@ -3478,14 +3461,10 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         }
 
         if (arg_pass_ssh_key) {
-                _cleanup_free_ char *scope_prefix = NULL, *privkey_path = NULL, *pubkey_path = NULL;
+                _cleanup_free_ char *privkey_path = NULL, *pubkey_path = NULL;
                 const char *key_type = arg_ssh_key_type ?: "ed25519";
 
-                r = unit_name_to_prefix(unit, &scope_prefix);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to strip .scope suffix from scope: %m");
-
-                privkey_path = strjoin(runtime_dir, "/", scope_prefix, "-", key_type);
+                privkey_path = path_join(runtime_dir, key_type);
                 if (!privkey_path)
                         return log_oom();
 
@@ -3502,7 +3481,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         }
 
         if (ssh_public_key_path && ssh_private_key_path) {
-                _cleanup_free_ char *scope_prefix = NULL, *cred_path = NULL;
+                _cleanup_free_ char *cred_path = NULL;
 
                 cred_path = strjoin("ssh.ephemeral-authorized_keys-all:", ssh_public_key_path);
                 if (!cred_path)
@@ -3511,10 +3490,6 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 r = machine_credential_load(&arg_credentials, cred_path);
                 if (r < 0)
                         return log_error_errno(r, "Failed to load credential %s: %m", cred_path);
-
-                r = unit_name_to_prefix(unit, &scope_prefix);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to strip .scope suffix from scope: %m");
 
                 /* on distros that provide their own sshd@.service file we need to provide a dropin which
                  * picks up our public key credential */
