@@ -740,6 +740,14 @@ static void transient_service_parameters_done(TransientServiceParameters *p) {
         free(p->exec_start);
 }
 
+static void transient_service_parameters_init(TransientServiceParameters *p) {
+        assert(p);
+        *p = (TransientServiceParameters) {
+                .type = _SERVICE_TYPE_INVALID,
+                .remain_after_exit = -1,
+        };
+}
+
 static int dispatch_transient_exec_command(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         static const sd_json_dispatch_field exec_command_dispatch[] = {
                 { "path",      SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, offsetof(TransientExecCommandItem, path),      SD_JSON_MANDATORY },
@@ -788,6 +796,15 @@ static void start_transient_context_parameters_done(StartTransientContextParamet
         transient_service_parameters_done(&p->service);
 }
 
+static void transient_exec_context_parameters_init(TransientExecContextParameters *p);
+
+static void start_transient_context_parameters_init(StartTransientContextParameters *p) {
+        assert(p);
+        *p = (StartTransientContextParameters) {};
+        transient_exec_context_parameters_init(&p->exec);
+        transient_service_parameters_init(&p->service);
+}
+
 typedef struct StartTransientParameters {
         StartTransientContextParameters context;
         JobMode mode;
@@ -800,6 +817,16 @@ static void start_transient_parameters_done(StartTransientParameters *p) {
         assert(p);
         start_transient_context_parameters_done(&p->context);
         free(p->unsupported_property);
+}
+
+static void start_transient_parameters_init(StartTransientParameters *p) {
+        assert(p);
+        *p = (StartTransientParameters) {
+                .mode = JOB_REPLACE,
+                .notify_job_changes = -1,
+                .notify_unit_changes = -1,
+        };
+        start_transient_context_parameters_init(&p->context);
 }
 
 static int dispatch_const_string_empty_as_null(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
@@ -1319,9 +1346,6 @@ static int dispatch_transient_exec_context(const char *name, sd_json_variant *va
                 exec_dispatch_set = true;
         }
 
-        /* Some fields (like tristate) must be initialized as their "undefined" is eg. "-1" */
-        transient_exec_context_parameters_init(&p->exec);
-
         p->exec.present = true;
         return sd_json_dispatch_full(variant, exec_dispatch, /* bad= */ NULL, /* flags= */ 0, &p->exec, &p->bad_exec_field);
 }
@@ -1438,13 +1462,7 @@ int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters
         };
 
         _cleanup_(sd_bus_error_free) sd_bus_error bus_error = SD_BUS_ERROR_NULL;
-        _cleanup_(start_transient_parameters_done) StartTransientParameters p = {
-                .mode = JOB_REPLACE,
-                .notify_job_changes = -1,
-                .notify_unit_changes = -1,
-                .context.service.type = _SERVICE_TYPE_INVALID,
-                .context.service.remain_after_exit = -1,
-        };
+        _cleanup_(start_transient_parameters_done) StartTransientParameters p = {};
         Manager *manager = ASSERT_PTR(userdata);
         const char *bad_field = NULL;
         Unit *u;
@@ -1452,6 +1470,8 @@ int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters
 
         assert(link);
         assert(parameters);
+
+        start_transient_parameters_init(&p);
 
         r = mac_selinux_access_check_varlink(link, "start");
         if (r < 0)
