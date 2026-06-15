@@ -83,10 +83,22 @@ int manager_luo_restore_fd_stores(Manager *m) {
         if (r < 0)
                 return r;
 
+        /* If we find a valid LUO session then by definition we have just successfully kexec rebooted */
+        m->kexecs_count++;
+
         sd_json_variant *version = sd_json_variant_by_key(mapping, "version");
         if (!sd_json_variant_is_unsigned(version) || sd_json_variant_unsigned(version) != LUO_PROTOCOL_VERSION) {
                 log_warning("LUO mapping has unsupported version, skipping state restoration.");
                 return 0;
+        }
+
+        sd_json_variant *state = sd_json_variant_by_key(mapping, "state");
+        sd_json_variant *kexecs_count = sd_json_variant_by_key(state, "kexecsCount");
+        if (kexecs_count) {
+                if (sd_json_variant_is_unsigned(kexecs_count))
+                        m->kexecs_count += (unsigned) sd_json_variant_unsigned(kexecs_count);
+                else
+                        log_warning("LUO mapping contains invalid kexecsCount, ignoring.");
         }
 
         /* Retrieve all fds from the session and dispatch each to the named unit, eagerly loading the
@@ -280,6 +292,9 @@ int manager_luo_serialize_fd_stores(Manager *m, FILE **ret_f, FDSet **ret_fds) {
         r = sd_json_buildo(
                         &root,
                         SD_JSON_BUILD_PAIR_UNSIGNED("version", LUO_PROTOCOL_VERSION),
+                        SD_JSON_BUILD_PAIR("state",
+                                           SD_JSON_BUILD_OBJECT(
+                                                           SD_JSON_BUILD_PAIR_UNSIGNED("kexecsCount", m->kexecs_count))),
                         SD_JSON_BUILD_PAIR_CONDITION(!!units, "units", SD_JSON_BUILD_VARIANT(units)));
         if (r < 0)
                 return log_error_errno(r, "Failed to build LUO serialization JSON: %m");
