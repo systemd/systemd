@@ -1558,6 +1558,7 @@ static int start_tpm(
                 const char *scope,
                 const char *swtpm,
                 const char *runtime_dir,
+                bool machine_specific_runtime_dir,
                 const char *sd_socket_activate,
                 char **ret_listen_address,
                 PidRef *ret_pidref) {
@@ -1569,27 +1570,19 @@ static int start_tpm(
         assert(runtime_dir);
         assert(sd_socket_activate);
 
-        _cleanup_free_ char *scope_prefix = NULL;
-        r = unit_name_to_prefix(scope, &scope_prefix);
+        _cleanup_free_ char *listen_address = NULL;
+        r = vmspawn_runtime_path(scope, runtime_dir, machine_specific_runtime_dir, "tpm.sock", &listen_address);
         if (r < 0)
-                return log_error_errno(r, "Failed to strip .scope suffix from scope: %m");
-
-        _cleanup_free_ char *listen_address = path_join(runtime_dir, "tpm.sock");
-        if (!listen_address)
-                return log_oom();
+                return r;
 
         _cleanup_free_ char *transient_state_dir = NULL;
         const char *state_dir;
         if (arg_tpm_state_path)
                 state_dir = arg_tpm_state_path;
         else {
-                _cleanup_free_ char *dirname = strjoin(scope_prefix, "-tpm");
-                if (!dirname)
-                        return log_oom();
-
-                transient_state_dir = path_join(runtime_dir, dirname);
-                if (!transient_state_dir)
-                        return log_oom();
+                r = vmspawn_runtime_path(scope, runtime_dir, machine_specific_runtime_dir, "tpm", &transient_state_dir);
+                if (r < 0)
+                        return r;
 
                 state_dir = transient_state_dir;
         }
@@ -2663,6 +2656,11 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         if (r < 0)
                 return log_error_errno(r, "Failed to create runtime directory: %m");
 
+        /* runtime_directory_make() only sets runtime_dir_destroy when it created a per-machine dir
+         * (i.e. $RUNTIME_DIRECTORY was unset). Otherwise it is possibly shared and we have to prefix
+         * entries within it. */
+        bool machine_specific_runtime_dir = runtime_dir_destroy ? true : false;
+
         /* If a previous vmspawn instance was killed without cleanup (e.g. SIGKILL), the directory may
          * already exist with stale contents. This is harmless: varlink's sockaddr_un_unlink() removes stale
          * sockets before bind(), and other files (QEMU config, SSH keys) are created fresh. This matches
@@ -3371,7 +3369,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 if (!GREEDY_REALLOC(children, n_children + 1))
                         return log_oom();
 
-                r = start_tpm(unit, swtpm, runtime_dir, sd_socket_activate, &tpm_socket_address, &child);
+                r = start_tpm(unit, swtpm, runtime_dir, machine_specific_runtime_dir, sd_socket_activate, &tpm_socket_address, &child);
                 if (r < 0) {
                         /* only bail if the user asked for a tpm */
                         if (arg_tpm > 0)
@@ -3473,16 +3471,12 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         }
 
         if (arg_pass_ssh_key) {
-                _cleanup_free_ char *scope_prefix = NULL, *privkey_path = NULL, *pubkey_path = NULL;
+                _cleanup_free_ char *privkey_path = NULL, *pubkey_path = NULL;
                 const char *key_type = arg_ssh_key_type ?: "ed25519";
 
-                r = unit_name_to_prefix(unit, &scope_prefix);
+                r = vmspawn_runtime_path(unit, runtime_dir, machine_specific_runtime_dir, key_type, &privkey_path);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to strip .scope suffix from scope: %m");
-
-                privkey_path = strjoin(runtime_dir, "/", scope_prefix, "-", key_type);
-                if (!privkey_path)
-                        return log_oom();
+                        return r;
 
                 pubkey_path = strjoin(privkey_path, ".pub");
                 if (!pubkey_path)
@@ -3497,7 +3491,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         }
 
         if (ssh_public_key_path && ssh_private_key_path) {
-                _cleanup_free_ char *scope_prefix = NULL, *cred_path = NULL;
+                _cleanup_free_ char *cred_path = NULL;
 
                 cred_path = strjoin("ssh.ephemeral-authorized_keys-all:", ssh_public_key_path);
                 if (!cred_path)
@@ -3506,10 +3500,6 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 r = machine_credential_load(&arg_credentials, cred_path);
                 if (r < 0)
                         return log_error_errno(r, "Failed to load credential %s: %m", cred_path);
-
-                r = unit_name_to_prefix(unit, &scope_prefix);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to strip .scope suffix from scope: %m");
 
                 /* on distros that provide their own sshd@.service file we need to provide a dropin which
                  * picks up our public key credential */
@@ -3754,7 +3744,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         /* Varlink server for VM control */
         _cleanup_(vmspawn_varlink_context_freep) VmspawnVarlinkContext *varlink_ctx = NULL;
         _cleanup_free_ char *control_address = NULL;
-        r = vmspawn_varlink_setup(&varlink_ctx, bridge, runtime_dir, &control_address);
+        r = vmspawn_varlink_setup(&varlink_ctx, bridge, unit, runtime_dir, machine_specific_runtime_dir, &control_address);
         if (r < 0)
                 return r;
 

@@ -139,3 +139,5 @@ int find_qemu_binary(char **ret_qemu_binary);
 int vsock_fix_child_cid(int vhost_device_fd, unsigned *machine_cid, const char *machine);
 
 char* escape_qemu_value(const char *s);
+
+int vmspawn_runtime_path(const char *scope, const char *runtime_dir, bool machine_specific_dir, const char *suffix, char **ret);

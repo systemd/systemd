@@ -23,6 +23,7 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
+#include "unit-name.h"
 #include "vmspawn-util.h"
 
 static const char* const architecture_to_qemu_table[_ARCHITECTURE_MAX] = {
@@ -661,4 +662,40 @@ char* escape_qemu_value(const char *s) {
         *t = 0;
 
         return e;
+}
+
+int vmspawn_runtime_path(const char *scope, const char *runtime_dir, bool machine_specific_dir, const char *suffix, char **ret) {
+        _cleanup_free_ char *prefixed = NULL;
+        const char *entry = suffix;
+        int r;
+
+        assert(runtime_dir);
+        assert(suffix);
+        assert(ret);
+
+        /* When runtime_directory_make() handed out RUNTIME_DIRECTORY possibly shared by more machines,
+         * prefix the entry with the machine name to prevent collisions. But for per-machine directories we
+         * should not do this to prevent hitting the socket path limit. */
+        if (!machine_specific_dir) {
+                _cleanup_free_ char *scope_prefix = NULL;
+
+                assert(scope);
+
+                r = unit_name_to_prefix(scope, &scope_prefix);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to strip .scope suffix from scope: %m");
+
+                prefixed = strjoin(scope_prefix, "-", suffix);
+                if (!prefixed)
+                        return log_oom();
+
+                entry = prefixed;
+        }
+
+        char *p = path_join(runtime_dir, entry);
+        if (!p)
+                return log_oom();
+
+        *ret = p;
+        return 0;
 }
