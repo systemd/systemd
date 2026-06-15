@@ -479,7 +479,7 @@ EOF
     systemd-nspawn --oci-bundle="$OCI" bash -c 'echo hello'
 done
 
-for version in 2.0.0 6.6.6 1 1.0 1.0.0.1 1.x.0; do
+for version in 2.0.0 6.6.6 1 1.0 1.0.0.1 1.0.0. 1.x.0; do
     cat >"$OCI/config.json" <<EOF
 {
     "ociVersion" : "$version",

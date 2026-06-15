@@ -2077,7 +2077,7 @@ static int oci_version_parse(const char *s, unsigned *ret_major, unsigned *ret_m
                 return -EINVAL;
 
         r = extract_first_word(&p, &patch, ".", EXTRACT_DONT_COALESCE_SEPARATORS);
-        if (r <= 0 || !isempty(p))
+        if (r <= 0 || p)
                 return -EINVAL;
 
         r = safe_atou(major, &a);
