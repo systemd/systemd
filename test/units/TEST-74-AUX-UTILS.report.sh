@@ -62,6 +62,24 @@ id1="$(varlinkctl call --more /run/systemd/report/io.systemd.Basic io.systemd.Me
 id2="$(. /etc/os-release; echo "$ID")"
 [ "$id1" = "$id2" ]
 
+# test io.systemd.Basic load average and swap metrics
+basic_metrics="$(varlinkctl call --more /run/systemd/report/io.systemd.Basic io.systemd.Metrics.List {})"
+# NB: '| tostring' turns the numeric value into a raw string, so 'jq -r' prints it cleanly
+# (numbers, unlike strings, are otherwise still emitted with the json-seq record separator).
+basic_value() { echo "$basic_metrics" | jq --seq -r "select(.name == \"$1\") | .value | tostring"; }
+
+# The three classic load average fields must be present and numeric (jq's 'numbers' filter
+# emits the value only if it is a JSON number, so a non-empty result confirms both).
+for field in LoadAverage1Min LoadAverage5Min LoadAverage15Min; do
+    loadavg="$(echo "$basic_metrics" | jq --seq -r "select(.name == \"io.systemd.Basic.$field\") | .value | numbers | tostring")"
+    test -n "$loadavg"
+done
+
+# SwapBytes must match the total the kernel reports in /proc/meminfo (which is in kB).
+swap_reported="$(basic_value io.systemd.Basic.SwapBytes)"
+swap_expected=$(( $(awk '/^SwapTotal:/ { print $2 }' /proc/meminfo) * 1024 ))
+[ "$swap_reported" = "$swap_expected" ]
+
 # test io.systemd.Basic.MachineInfo.* metrics, sourced from /etc/machine-info
 if [ -e /etc/machine-info ]; then
     MACHINE_INFO_BACKUP="$(mktemp)"

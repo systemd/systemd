@@ -209,3 +209,23 @@ int metric_build_send_unsigned(
 
         return metric_build_send(mf, link, object, v, fields);
 }
+
+int metric_build_send_double(
+                const MetricFamily *mf,
+                sd_varlink *link,
+                const char *object,
+                double value,
+                sd_json_variant *fields) {
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        int r;
+
+        assert(mf);
+        assert(link);
+
+        r = sd_json_variant_new_real(&v, value);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to allocate JSON real: %m");
+
+        return metric_build_send(mf, link, object, v, fields);
+}
