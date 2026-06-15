@@ -22,6 +22,7 @@ In scope:
 - Preserve parser strictness for malformed or unsupported bundle content.
 - Keep failure behavior for requested semantics that systemd cannot safely realize.
 - Update tests to reflect `1.x` compatibility.
+- Limit the initial implementation to the `systemd-nspawn --oci-bundle=` runtime-bundle loading path.
 
 Out of scope:
 
@@ -29,6 +30,41 @@ Out of scope:
 - Rewriting or mutating OCI bundles on disk.
 - Adding support for currently unsupported OCI runtime features solely because a newer `1.x` bundle may mention them.
 - Changing OCI image-spec import or conversion code in `src/import/pull-oci.c`, unless a separate issue is later identified there.
+
+## Named Workflow Boundaries
+
+The following nearby workflows are explicitly classified so the implementation plan does not drift:
+
+In scope:
+
+- OCI runtime bundle loading via `systemd-nspawn --oci-bundle=`
+  - Consumes an OCI runtime-spec `config.json`
+  - Checks `ociVersion`
+  - Implemented in `src/nspawn/nspawn-oci.c`
+
+Out of scope:
+
+- OCI image-spec import and download
+  - Handles OCI image indexes, manifests, layers, and image configuration objects
+  - Implemented in `src/import/pull-oci.c`
+  - Not driven by runtime-spec `ociVersion`
+
+- `.nspawn` settings generation from OCI image configuration
+  - Related to OCI image import
+  - Produces native `.nspawn` settings from OCI image configuration data
+  - Not part of runtime-bundle `ociVersion` compatibility
+
+- Non-OCI `systemd-nspawn` container inputs
+  - Directory trees
+  - Raw disk images
+  - Tarball-based imports
+  - Mount-stack based roots
+
+- Portable services and other image-based container-adjacent workflows
+  - Container-related, but not OCI runtime bundle parsing
+
+- Any bundle migration or on-disk rewrite flow
+  - No persisted conversion, normalization artifact, or rewritten `config.json`
 
 ## Compatibility Contract
 
