@@ -90,9 +90,12 @@ SUBSYSTEM=="tpmrm", KERNEL=="tpmrm[0-9]*", TAG+="systemd", ENV{SYSTEMD_WANTS}+="
 SUBSYSTEM=="tpm", KERNEL=="tpm[0-9]*", TAG+="systemd"
 
 # If the kernel cannot parse the GPT partition table on the boot disk (e.g. due to a sector size
-# mismatch on a CD-ROM booted via El Torito, or because the device does not support partition
-# scanning), trigger a loop device to expose the partitions.
-SUBSYSTEM=="block", ENV{ID_PART_GPT_AUTO_ROOT_DISK_NEEDS_LOOP}=="1", \
+# mismatch on a CD-ROM booted via El Torito, or because the optical drive does not support partition
+# scanning), trigger a loop device to expose the partitions. Restrict this to optical drives: other
+# block devices that lack kernel partition scanning (most notably device-mapper) rely on userspace
+# partition managers such as kpartx (see 66-kpartx.rules), and a competing loop device would only cause
+# trouble.
+SUBSYSTEM=="block", ENV{ID_CDROM}=="1", ENV{ID_PART_GPT_AUTO_ROOT_DISK_NEEDS_LOOP}=="1", \
   ENV{SYSTEMD_WANTS}+="systemd-loop@.service"
 
 LABEL="systemd_end"
