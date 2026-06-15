@@ -24,6 +24,7 @@
 #include "os-util.h"
 #include "report-basic.h"
 #include "string-util.h"
+#include "time-util.h"
 #include "virt.h"
 
 static int architecture_generate(const MetricFamily *mf, sd_varlink *link, void *userdata) {
@@ -438,6 +439,49 @@ static int virtualization_generate(const MetricFamily *mf, sd_varlink *link, voi
                         /* fields= */ NULL);
 }
 
+static int cloud_vendor_generate(const MetricFamily *mf, sd_varlink *link, void *userdata) {
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *reply = NULL;
+        const char *error_id = NULL, *vendor;
+        int r;
+
+        assert(mf && mf->name);
+        assert(link);
+
+        /* GetVendorInfo resolves locally from hwdb (no network, no privileges), so a blocking call is
+         * fine here; a missing service just means this isn't a recognized cloud host, so degrade silently. */
+        r = sd_varlink_connect_address(&vl, "/run/systemd/io.systemd.InstanceMetadata");
+        if (r < 0) {
+                log_debug_errno(r, "Failed to connect to IMDS service, ignoring: %m");
+                return 0;
+        }
+
+        r = sd_varlink_set_relative_timeout(vl, 5 * USEC_PER_SEC);
+        if (r < 0)
+                return r;
+
+        r = sd_varlink_call(vl, "io.systemd.InstanceMetadata.GetVendorInfo", /* parameters= */ NULL, &reply, &error_id);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to call GetVendorInfo, ignoring: %m");
+                return 0;
+        }
+        if (error_id) {
+                log_debug("GetVendorInfo returned error %s, ignoring.", error_id);
+                return 0;
+        }
+
+        vendor = sd_json_variant_string(sd_json_variant_by_key(reply, "vendor"));
+        if (isempty(vendor))
+                return 0;
+
+        return metric_build_send_string(
+                        mf,
+                        link,
+                        /* object= */ NULL,
+                        vendor,
+                        /* fields= */ NULL);
+}
+
 #define OS_RELEASE_STANDARD_FIELD(name)                                 \
         {                                                               \
                 METRIC_IO_SYSTEMD_BASIC_PREFIX "OSRelease." name,       \
@@ -475,6 +519,12 @@ static const MetricFamily metric_family_table[] = {
                 "Current boot ID",
                 METRIC_FAMILY_TYPE_STRING,
                 .generate = boot_id_generate,
+        },
+        {
+                METRIC_IO_SYSTEMD_BASIC_PREFIX "Cloud.Vendor",
+                "Detected cloud vendor (from the IMDS service)",
+                METRIC_FAMILY_TYPE_STRING,
+                .generate = cloud_vendor_generate,
         },
         {
                 METRIC_IO_SYSTEMD_BASIC_PREFIX "ConfidentialVirtualization",
