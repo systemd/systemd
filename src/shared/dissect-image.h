@@ -160,6 +160,8 @@ static inline int probe_filesystem(const char *path, char **ret_fstype) {
         return probe_filesystem_full(-1, path, 0, UINT64_MAX, /* bool restrict_fstypes= */ false, ret_fstype);
 }
 
+int probe_partition_table(int fd, char **ret_pttype);
+
 int dissect_log_error(int log_level, int r, const char *name, const VeritySettings *verity);
 int dissect_image_file(const char *path, const VeritySettings *verity, const MountOptions *mount_options, const ImagePolicy *image_policy, const ImageFilter *filter, DissectImageFlags flags, DissectedImage **ret);
 int dissect_image_file_and_warn(const char *path, const VeritySettings *verity, const MountOptions *mount_options, const ImagePolicy *image_policy, const ImageFilter *filter, DissectImageFlags flags, DissectedImage **ret);

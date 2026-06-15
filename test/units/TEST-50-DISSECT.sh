@@ -14,6 +14,8 @@ set -o pipefail
 at_exit() {
     set +e
 
+    rm -f "${BTRFS_MEMBER1:-}" "${BTRFS_MEMBER2:-}"
+
     if [[ -z "${IMAGE_DIR:-}" ]]; then
         return
     fi
@@ -265,6 +267,22 @@ udevadm lock --timeout=60 --device="${loop}p2" dd if="$MINIMAL_IMAGE.verity" of=
 udevadm lock --timeout=60 --device="${loop}p3" dd if="$MINIMAL_IMAGE.verity-sig" of="${loop}p3"
 losetup -d "$loop"
 udevadm settle --timeout=60
+
+# Pre-build the multi-device (raid1) btrfs members as mkfs.btrfs barfs later when there's a bunch of mounts
+# for some reason
+if command -v mkfs.btrfs >/dev/null; then
+    BTRFS_MEMBER1="$(mktemp /var/tmp/test-50-btrfs-member1.XXXXXXXXXX)"
+    BTRFS_MEMBER2="$(mktemp /var/tmp/test-50-btrfs-member2.XXXXXXXXXX)"
+    export BTRFS_MEMBER1
+    export BTRFS_MEMBER2
+    # mkfs.btrfs is known to be flaky in this environment (see above), so under 'set -e' tolerate a setup
+    # failure by degrading to skipping the btrfs MountImages= subtest (the consumer guards on -f) rather
+    # than aborting the whole TEST-50 run and taking down every unrelated subtest with it.
+    if ! { truncate -s 256M "$BTRFS_MEMBER1" "$BTRFS_MEMBER2" && mkfs.btrfs -draid1 -mraid1 "$BTRFS_MEMBER1" "$BTRFS_MEMBER2"; }; then
+        rm -f "$BTRFS_MEMBER1" "$BTRFS_MEMBER2"
+        BTRFS_MEMBER1='' BTRFS_MEMBER2=''
+    fi
+fi
 
 : "Run subtests"
 
