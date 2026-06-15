@@ -35,6 +35,7 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "log.h"
+#include "luo-util.h"
 #include "manager.h"
 #include "path-util.h"
 #include "pidref.h"
@@ -593,6 +594,17 @@ static int bus_setup_api_vtables(Manager *m, sd_bus *bus) {
         r = bus_add_implementation(bus, &bus_manager_object, m);
         if (r < 0)
                 return r;
+
+        /* Do not publish if LUO is not available, as the properties only change on kexec */
+        if (MANAGER_IS_SYSTEM(m) && luo_supported()) {
+                r = sd_bus_add_object_vtable(bus, NULL,
+                                             "/org/freedesktop/systemd1",
+                                             "org.freedesktop.systemd1.Manager",
+                                             bus_manager_luo_vtable,
+                                             m);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to register Live Update Orchestrator bus vtable: %m");
+        }
 
         return bus_add_implementation(bus, &manager_log_control_object, m);
 }
