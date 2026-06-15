@@ -83,11 +83,6 @@ jobs:
           ToolsTreeDistribution=postmarketos
           EOF
 
-          tee mkosi/mkosi.tools.conf/mkosi.local.conf <<EOF
-          [Distribution]
-          RepositoryKeyFetch=yes
-          EOF
-
           mkosi -f box -- true
 
       - name: Build
