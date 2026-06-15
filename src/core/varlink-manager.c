@@ -15,6 +15,7 @@
 #include "errno-util.h"
 #include "glyph-util.h"
 #include "json-util.h"
+#include "luo-util.h"
 #include "manager.h"
 #include "path-util.h"
 #include "pidref.h"
@@ -194,6 +195,7 @@ static int manager_runtime_build_json(sd_json_variant **ret, const char *name, v
                 SD_JSON_BUILD_PAIR_STRING("SystemState", manager_state_to_string(manager_state(m))),
                 SD_JSON_BUILD_PAIR_UNSIGNED("ExitCode", m->return_value),
                 SD_JSON_BUILD_PAIR_UNSIGNED("SoftRebootsCount", m->soft_reboots_count),
+                SD_JSON_BUILD_PAIR_CONDITION(MANAGER_IS_SYSTEM(m) && luo_supported(), "KexecsCount", SD_JSON_BUILD_UNSIGNED(m->kexecs_count)),
                 SD_JSON_BUILD_PAIR_UNSIGNED("ReloadCount", m->reload_count));
 }
 

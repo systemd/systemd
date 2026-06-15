@@ -3502,6 +3502,15 @@ const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_VTABLE_END
 };
 
+/* Separate table so the property doesn't get published if LUO is disabled */
+const sd_bus_vtable bus_manager_luo_vtable[] = {
+        SD_BUS_VTABLE_START(0),
+
+        SD_BUS_PROPERTY("KexecsCount", "u", bus_property_get_unsigned, offsetof(Manager, kexecs_count), SD_BUS_VTABLE_PROPERTY_CONST),
+
+        SD_BUS_VTABLE_END,
+};
+
 const sd_bus_vtable bus_manager_log_control_vtable[] = {
         SD_BUS_VTABLE_START(0),
 
