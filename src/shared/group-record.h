@@ -12,6 +12,7 @@ typedef struct GroupRecord {
         char *group_name;
         char *realm;
         char *group_name_and_realm_auto;
+        char **aliases;
         sd_id128_t uuid;
 
         char *description;
