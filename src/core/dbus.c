@@ -571,6 +571,13 @@ static const BusObjectImplementation manager_log_control_object = {
         .vtables = BUS_VTABLES(bus_manager_log_control_vtable),
 };
 
+/* When LUO is available this is also registered */
+static const BusObjectImplementation bus_manager_luo_object = {
+        "/org/freedesktop/systemd1",
+        "org.freedesktop.systemd1.Manager",
+        .vtables = BUS_VTABLES(bus_manager_luo_vtable),
+};
+
 int bus_manager_introspect_implementations(FILE *out, const char *pattern) {
         return bus_introspect_implementations(
                         out,
@@ -597,13 +604,9 @@ static int bus_setup_api_vtables(Manager *m, sd_bus *bus) {
 
         /* Do not publish if LUO is not available, as the properties only change on kexec */
         if (MANAGER_IS_SYSTEM(m) && luo_supported()) {
-                r = sd_bus_add_object_vtable(bus, NULL,
-                                             "/org/freedesktop/systemd1",
-                                             "org.freedesktop.systemd1.Manager",
-                                             bus_manager_luo_vtable,
-                                             m);
+                r = bus_add_implementation(bus, &bus_manager_luo_object, m);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to register Live Update Orchestrator bus vtable: %m");
+                        return r;
         }
 
         return bus_add_implementation(bus, &manager_log_control_object, m);

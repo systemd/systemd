@@ -212,7 +212,7 @@ int manager_luo_serialize_fd_stores(Manager *m, FILE **ret_f, FDSet **ret_fds) {
                 return log_oom();
 
         /* Build a JSON object: { "version": 1,
-                                  "units": { "unit_id": { "fdstore": [ { "type": "fd", "name": "...", "fd": N },
+         *                        "units": { "unit_id": { "fdstore": [ { "type": "fd", "name": "...", "fd": N },
          *                                                             { "type": "luo_session", "name": "...", "fd": N, "sessionName": "..." } ] }, ... } }
          * This is passed to systemd-shutdown which will create a LUO session and preserve the fds. */
         HASHMAP_FOREACH(u, m->units) {
