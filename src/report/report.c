@@ -232,6 +232,8 @@ static int on_query_reply(
                         log_warning("Varlink connection to '%s' disconnected prematurely, ignoring.", li->name);
                 else if (streq(error_id, SD_VARLINK_ERROR_TIMEOUT))
                         log_warning("Varlink connection to '%s' timed out, ignoring.", li->name);
+                else if (streq(error_id, "io.systemd.Metrics.NoSuchMetric"))
+                        log_debug("Varlink connection to '%s' reported no more metrics, ignoring.", li->name);
                 else
                         log_warning("Varlink error from '%s', ignoring: %s", li->name, error_id);
 
