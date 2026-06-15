@@ -28,6 +28,13 @@ executables += [
                 ),
         },
         libexec_template + {
+                'name' : 'systemd-report-files',
+                'sources' : files(
+                        'report-files.c',
+                        'report-files-server.c',
+                ),
+        },
+        libexec_template + {
                 'name' : 'systemd-report-sign-plain',
                 'conditions' : [
                         'HAVE_OPENSSL',
