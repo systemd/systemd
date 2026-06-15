@@ -571,4 +571,128 @@ TEST(partscan_required) {
         loop = loop_device_unref(loop);
 }
 
+TEST(partscan_not_needed_without_partition_table) {
+        _cleanup_(loop_device_unrefp) LoopDevice *block_loop = NULL, *loop = NULL;
+        _cleanup_free_ char *p = NULL;
+        _cleanup_close_ int fd = -EBADF;
+
+        if (have_effective_cap(CAP_SYS_ADMIN) <= 0) {
+                log_tests_skipped("not running privileged");
+                return;
+        }
+
+        if (detect_container() != 0 || running_in_chroot() != 0) {
+                log_tests_skipped("Test not supported in a container/chroot, requires udev/uevent notifications");
+                return;
+        }
+
+        /* The regression in 663f0bf5cb allocated a loop device whenever partition scanning was requested but
+         * couldn't be enabled, regardless of the device's contents. That's harmless for most file systems but
+         * fatal for multi-device btrfs, which rejects seeing the same member via both the original device and
+         * the loop device (https://github.com/systemd/systemd/issues/42520). A loop device is only ever needed
+         * to expose a nested partition table though, so any device without one — here simply an empty device —
+         * must take the shortcut. */
+        ASSERT_OK(tempfn_random_child("/var/tmp", "loop-util", &p));
+        fd = ASSERT_OK_ERRNO(open(p, O_CREAT|O_EXCL|O_RDWR|O_CLOEXEC|O_NOFOLLOW, 0666));
+        ASSERT_OK_ERRNO(ftruncate(fd, 256*1024*1024));
+        (void) unlink(p);
+
+        /* Set up a backing loop device without LO_FLAGS_PARTSCAN. */
+        ASSERT_OK(loop_device_make(fd, O_RDWR, /* offset= */ 0, UINT64_MAX, /* sector_size= */ 0, /* loop_flags= */ 0, LOCK_EX, &block_loop));
+        ASSERT_TRUE(block_loop->created);
+        ASSERT_OK(loop_device_flock(block_loop, LOCK_SH));
+
+        /* LO_FLAGS_PARTSCAN is requested but there's no partition table to scan, so the shortcut must still
+         * be taken (reuse the device) rather than allocating a new loop device. */
+        ASSERT_OK(loop_device_make(block_loop->fd, O_RDWR, /* offset= */ 0, UINT64_MAX, /* sector_size= */ 0, LO_FLAGS_PARTSCAN, LOCK_SH, &loop));
+        ASSERT_FALSE(loop->created);
+}
+
+static void test_nested_partition_table_one(const char *nested_table) {
+#if HAVE_BLKID
+        _cleanup_(dissected_image_unrefp) DissectedImage *dissected = NULL;
+        _cleanup_(loop_device_unrefp) LoopDevice *outer_loop = NULL, *loop = NULL;
+        _cleanup_pclose_ FILE *sfdisk = NULL;
+        _cleanup_close_ int fd = -EBADF, part_fd = -EBADF;
+        _cleanup_free_ char *p = NULL, *cmd = NULL;
+        const char *node;
+
+        assert(nested_table);
+
+        if (have_effective_cap(CAP_SYS_ADMIN) <= 0) {
+                log_tests_skipped("not running privileged");
+                return;
+        }
+
+        if (detect_container() != 0 || running_in_chroot() != 0) {
+                log_tests_skipped("Test not supported in a container/chroot, requires udev/uevent notifications");
+                return;
+        }
+
+        /* Build an image with a single root partition spanning the whole disk. */
+        ASSERT_OK(tempfn_random_child("/var/tmp", "sfdisk", &p));
+        fd = ASSERT_OK_ERRNO(open(p, O_CREAT|O_EXCL|O_RDWR|O_CLOEXEC|O_NOFOLLOW, 0666));
+        ASSERT_OK_ERRNO(ftruncate(fd, 256*1024*1024));
+
+        cmd = ASSERT_NOT_NULL(strjoin("sfdisk ", p));
+        sfdisk = ASSERT_NOT_NULL(popen(cmd, "we"));
+        fputs("label: gpt\n"
+              "type=", sfdisk);
+#ifdef SD_GPT_ROOT_NATIVE
+        fprintf(sfdisk, SD_ID128_UUID_FORMAT_STR "\n", SD_ID128_FORMAT_VAL(SD_GPT_ROOT_NATIVE));
+#else
+        fprintf(sfdisk, SD_ID128_UUID_FORMAT_STR "\n", SD_ID128_FORMAT_VAL(SD_GPT_ROOT_X86_64));
+#endif
+        ASSERT_EQ(pclose(sfdisk), 0);
+        sfdisk = NULL;
+        (void) unlink(p);
+
+        /* Wrap it in a loopback device with partition scanning and let the dissection logic materialize the
+         * partition block device via BLKPG. That's synchronous, so unlike waiting for udev to create the
+         * node this is not racy. */
+        ASSERT_OK(loop_device_make(fd, O_RDWR, /* offset= */ 0, UINT64_MAX, /* sector_size= */ 0, LO_FLAGS_PARTSCAN, LOCK_EX, &outer_loop));
+        ASSERT_OK(dissect_loop_device(
+                                  outer_loop,
+                                  /* verity= */ NULL,
+                                  /* mount_options= */ NULL,
+                                  /* image_policy= */ NULL,
+                                  /* image_filter= */ NULL,
+                                  DISSECT_IMAGE_ADD_PARTITION_DEVICES|DISSECT_IMAGE_PIN_PARTITION_DEVICES,
+                                  &dissected));
+        ASSERT_TRUE(dissected->partitions[PARTITION_ROOT].found);
+        node = ASSERT_NOT_NULL(dissected->partitions[PARTITION_ROOT].node);
+
+        /* Carve a nested partition table into that partition, mimicking the pmOS/android case (663f0bf5cb)
+         * where a partition carries a partition table the kernel won't scan, as partition devices don't
+         * support partition scanning. We write and read it back through the same partition node, so the
+         * buffer cache stays coherent. */
+        cmd = mfree(cmd);
+        cmd = ASSERT_NOT_NULL(strjoin("sfdisk --no-reread --no-tell-kernel ", node));
+        sfdisk = ASSERT_NOT_NULL(popen(cmd, "we"));
+        fputs(nested_table, sfdisk);
+        ASSERT_EQ(pclose(sfdisk), 0);
+        sfdisk = NULL;
+
+        /* The partition has partition scanning disabled but now carries a partition table, so the shortcut
+         * must be refused and a real loop device with partition scanning allocated. */
+        part_fd = ASSERT_OK_ERRNO(open(node, O_RDWR|O_CLOEXEC|O_NOCTTY));
+        ASSERT_OK(loop_device_make(part_fd, O_RDWR, /* offset= */ 0, UINT64_MAX, /* sector_size= */ 0, LO_FLAGS_PARTSCAN, LOCK_SH, &loop));
+        ASSERT_TRUE(loop->created);
+#else
+        log_tests_skipped("blkid not available");
+#endif
+}
+
+TEST(partscan_required_for_nested_gpt) {
+        test_nested_partition_table_one("label: gpt\n"
+                                        "size=1MiB, type=0FC63DAF-8483-4772-8E79-3D69D8477DE4\n");
+}
+
+TEST(partscan_required_for_nested_mbr) {
+        /* gpt_probe() only detects GPT; make sure an MBR ("dos") table — which the dissection logic also
+         * acts on — likewise prevents the shortcut. */
+        test_nested_partition_table_one("label: dos\n"
+                                        "size=1MiB, type=83\n");
+}
+
 DEFINE_TEST_MAIN_WITH_INTRO(LOG_DEBUG, intro);
