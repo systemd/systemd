@@ -6,6 +6,8 @@ executables += [
                 'public' : true,
                 'sources' : files(
                         'report.c',
+                        'report-generate.c',
+                        'report-sign.c',
                         'report-upload.c',
                 ),
         },
@@ -25,4 +27,29 @@ executables += [
                         'report-cgroup-server.c',
                 ),
         },
+        libexec_template + {
+                'name' : 'systemd-report-files',
+                'sources' : files(
+                        'report-files.c',
+                        'report-files-server.c',
+                ),
+        },
+        libexec_template + {
+                'name' : 'systemd-report-sign-plain',
+                'conditions' : [
+                        'HAVE_OPENSSL',
+                ],
+                'sources' : files(
+                        'report-sign-plain.c',
+                ),
+                'dependencies' : libopenssl_cflags,
+        },
 ]
+
+if conf.get('HAVE_OPENSSL') == 1
+        # Expose the local software report signer's public key as a default report file, so that signed
+        # reports can be verified against it.
+        install_symlink('ReportSigningPublicKey',
+                        pointing_to : '/var/lib/systemd/report.sign.plain/local.public',
+                        install_dir : libexecdir / 'report.files')
+endif

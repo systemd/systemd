@@ -5,7 +5,11 @@
 #include "alloc-util.h"
 #include "errno-util.h"
 #include "log.h"
+#include "memstream-util.h"
 #include "report.h"
+#include "report-generate.h"
+#include "report-upload.h"
+#include "report-sign.h"
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
@@ -13,10 +17,11 @@
 #include "varlink-util.h"
 #include "version.h"
 
+#define REPORT_UPLOAD_DIR "/run/systemd/report.upload"
+#define SERVER_ANSWER_MAX (1U * 1024U * 1024U)
+
 #if HAVE_LIBCURL
 #include "curl-util.h"
-
-#define SERVER_ANSWER_MAX (1*1024*1024u)
 
 static size_t output_callback(char *buf,
                               size_t size,
@@ -54,27 +59,7 @@ static size_t output_callback(char *buf,
 }
 #endif
 
-static int build_json_report(Context *context, sd_json_variant **ret) {
-        /* Convert the variant array to a JSON report. */
-
-        assert(context);
-        assert(ret);
-
-        usec_t ts = now(CLOCK_REALTIME);
-        int r;
-
-        r = sd_json_buildo(ret,
-                           SD_JSON_BUILD_PAIR_STRING("mediaType", "application/vnd.io.systemd.report"),
-                           SD_JSON_BUILD_PAIR("timestamp",
-                                              SD_JSON_BUILD_STRING(FORMAT_TIMESTAMP_STYLE(ts, TIMESTAMP_UTC))),
-                           SD_JSON_BUILD_PAIR("metrics",
-                                              SD_JSON_BUILD_VARIANT_ARRAY(context->metrics, context->n_metrics)));
-        if (r < 0)
-                return log_error_errno(r, "Failed to build JSON data: %m");
-        return 0;
-}
-
-static int http_upload_collected(Context *context, sd_json_variant *report) {
+static int http_upload_report(Context *context, sd_json_variant *report) {
 #if HAVE_LIBCURL
         _cleanup_(curl_slist_free_allp) struct curl_slist *header = NULL;
         char error[CURL_ERROR_SIZE] = {};
@@ -235,21 +220,42 @@ static int execute_dir_reply(
         return 0;
 }
 
-static int upload_collected(Context *context, sd_json_variant *report) {
+static int varlink_upload_report(Context *context, sd_json_variant *report) {
         int r;
 
-        if (arg_url)
-                return http_upload_collected(context, report);
+        assert(context);
+        assert(report);
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *params = NULL;
-        r = sd_json_buildo(&params,
-                           SD_JSON_BUILD_PAIR_VARIANT("report", report));
+        if (arg_sign) {
+                _cleanup_(memstream_done) MemStream ms = {};
+
+                FILE *f = memstream_init(&ms);
+                if (!f)
+                        return log_oom();
+
+                r = context_sign_report(context, report, /* json_flags= */ 0, f);
+                if (r < 0)
+                        return r;
+
+                _cleanup_free_ char *buf = NULL;
+                size_t sz = 0;
+
+                r = memstream_finalize(&ms, &buf, &sz);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to finalize memory stream: %m");
+
+                r = sd_json_buildo(&params,
+                                   SD_JSON_BUILD_PAIR_BASE64("reportData", buf, sz));
+        } else
+                r = sd_json_buildo(&params,
+                                   SD_JSON_BUILD_PAIR_VARIANT("report", report));
         if (r < 0)
                 return log_error_errno(r, "Failed to build JSON data: %m");
 
         ssize_t jobs = varlink_execute_directory(
                         REPORT_UPLOAD_DIR,
-                        "io.systemd.Report.Upload",
+                        "io.systemd.Report.Uploader.Upload",
                         params,
                         /* more= */ false,
                         arg_network_timeout_usec,
@@ -268,22 +274,13 @@ static int upload_collected(Context *context, sd_json_variant *report) {
         return 0;
 }
 
-/* Make a structured report and either print it or upload it. */
-int report_collected(Context *context) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *report = NULL;
+int context_upload_report(Context *context) {
         int r;
 
-        r = build_json_report(context, &report);
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *report = NULL;
+        r = context_build_report(context, &report);
         if (r < 0)
                 return r;
 
-        if (context->action == ACTION_UPLOAD)
-                return upload_collected(context, report);
-
-        /* Just print the report for now. */
-        assert(context->action == ACTION_GENERATE);
-        r = sd_json_variant_dump(report, arg_json_format_flags, /* f= */ NULL, /* prefix= */ NULL);
-        if (r < 0)
-                return log_error_errno(r, "Failed to dump json object: %m");
-        return 0;
+        return (arg_url ? http_upload_report : varlink_upload_report)(context, report);
 }

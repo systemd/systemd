@@ -33,6 +33,9 @@ enable systemd-nsresourced.socket
 enable systemd-pstore.service
 enable systemd-report-basic.socket
 enable systemd-report-cgroup.socket
+enable systemd-report-files.socket
+enable systemd-report-sign-plain.socket
+enable systemd-report.socket
 enable systemd-resolved.service
 enable systemd-sysext.service
 enable systemd-timesyncd.service

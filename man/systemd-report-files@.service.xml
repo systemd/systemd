@@ -1,0 +1,68 @@
+<?xml version="1.0"?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd-report-files_.service" xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-report-files@.service</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-report-files@.service</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-report-files@.service</refname>
+    <refname>systemd-report-files.socket</refname>
+    <refname>systemd-report-files</refname>
+    <refpurpose>Report the contents of files as system report metrics</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>systemd-report-files@.service</filename></para>
+    <para><filename>systemd-report-files.socket</filename></para>
+    <para><filename>/usr/lib/systemd/systemd-report-files</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>systemd-report-files@.service</command> is a metrics source for
+    <citerefentry><refentrytitle>systemd-report</refentrytitle><manvolnum>1</manvolnum></citerefentry>. It
+    reports the contents of a configurable set of files as metrics, by implementing the
+    <constant>io.systemd.Metrics</constant> Varlink interface on a socket linked into the
+    <filename>/run/systemd/report/</filename> directory.</para>
+
+    <para>The files to report are picked up from <filename>report.files/</filename> subdirectories of the
+    usual configuration directories, i.e. from
+    <filename>/etc/systemd/report.files/</filename>,
+    <filename>/run/systemd/report.files/</filename>,
+    <filename>/var/lib/systemd/report.files/</filename>,
+    <filename>/usr/local/lib/systemd/report.files/</filename> and
+    <filename>/usr/lib/systemd/report.files/</filename>. Typically these directories contain symlinks pointing
+    to the actual files in the file system whose contents shall be reported. Entries with the same name in an
+    earlier directory override those in a later one.</para>
+
+    <para>Each entry is reported as a metric named
+    <literal>io.systemd.Files.<replaceable>NAME</replaceable></literal>, where
+    <replaceable>NAME</replaceable> is the name of the entry (which must be a valid metric field name). The
+    metric value is the verbatim contents of the file. Files that cannot be read (for example because a
+    symlink is dangling) are skipped, as are files whose contents are not valid UTF-8 text.</para>
+  </refsect1>
+
+  <!-- Note: we do not document the command line switches here. The systemd-report-files binary itself should
+       not be invoked by users, but only as a service. Use systemd-report(1) to acquire metrics. -->
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-report</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>
