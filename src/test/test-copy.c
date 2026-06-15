@@ -141,7 +141,7 @@ TEST(copy_tree) {
                                     "link2", "dir1/file");
         char **hardlinks = STRV_MAKE("hlink", "file",
                                      "hlink2", "dir1/file");
-        const char *unixsockp, *ignorep;
+        const char *unixsockp, *ignorep, *denydirp, *denyfilep;
         struct stat st;
         int xattr_worked = -1; /* xattr support is optional in temporary directories, hence use it if we can,
                                 * but don't fail if we can't */
@@ -192,6 +192,14 @@ TEST(copy_tree) {
         assert_se(RET_NERRNO(stat(ignorep, &st)) >= 0);
         assert_se(cp = memdup(&st, sizeof(st)));
         assert_se(hashmap_ensure_put(&denylist, &inode_hash_ops, cp, INT_TO_PTR(DENY_INODE)) >= 0);
+        TAKE_PTR(cp);
+
+        denyfilep = strjoina(original_dir, "denycontents/file");
+        assert_se(write_string_file(denyfilep, "denied", WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755) == 0);
+        denydirp = strjoina(original_dir, "denycontents");
+        assert_se(RET_NERRNO(stat(denydirp, &st)) >= 0);
+        assert_se(cp = memdup(&st, sizeof(st)));
+        assert_se(hashmap_ensure_put(&denylist, &inode_hash_ops, cp, INT_TO_PTR(DENY_CONTENTS)) >= 0);
         TAKE_PTR(cp);
 
         assert_se(copy_tree(original_dir, copy_dir, UID_INVALID, GID_INVALID, COPY_REFLINK|COPY_MERGE|COPY_HARDLINKS, denylist, NULL) == 0);
@@ -251,6 +259,13 @@ TEST(copy_tree) {
 
         ignorep = strjoina(copy_dir, "ignore/file");
         assert_se(RET_NERRNO(access(ignorep, F_OK)) == -ENOENT);
+
+        /* The DENY_CONTENTS directory itself must exist in the copy, but its contents must not have been copied. */
+        denydirp = strjoina(copy_dir, "denycontents");
+        assert_se(stat(denydirp, &st) >= 0);
+        assert_se(S_ISDIR(st.st_mode));
+        denyfilep = strjoina(copy_dir, "denycontents/file");
+        assert_se(RET_NERRNO(access(denyfilep, F_OK)) == -ENOENT);
 
         (void) rm_rf(copy_dir, REMOVE_ROOT|REMOVE_PHYSICAL);
         (void) rm_rf(original_dir, REMOVE_ROOT|REMOVE_PHYSICAL);
