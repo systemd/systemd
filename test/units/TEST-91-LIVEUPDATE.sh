@@ -67,6 +67,8 @@ if grep -qw luo_nboot=1 /proc/cmdline; then
     # Verify that the fd store of the main test service survived the kexec.
     /usr/lib/systemd/tests/unit-tests/manual/test-luo check
 
+    assert_eq "$(busctl -j get-property org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager KExecsCount | jq -r '.data')" "1"
+
     # Negative path: a unit stored a child LUO session named like PID 1's own
     # ("systemd") on the first boot. PID 1's serialize step must have refused to
     # serialize that fd store entry (anti-hijack guard in
