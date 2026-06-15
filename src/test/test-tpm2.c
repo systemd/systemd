@@ -46,6 +46,38 @@ TEST(tpm2_pcr_index_from_string) {
         assert_se(tpm2_pcr_index_from_string("24") == -EINVAL);
 }
 
+TEST(tpm2_pcr_bank_from_efi_active) {
+        uint16_t bank;
+
+        /* SHA256 is the top preference whenever it is active. */
+        ASSERT_OK(tpm2_pcr_bank_from_efi_active((1u << TPM2_ALG_SHA1) | (1u << TPM2_ALG_SHA256) | (1u << TPM2_ALG_SHA384) | (1u << TPM2_ALG_SHA512), &bank));
+        ASSERT_EQ(bank, TPM2_ALG_SHA256);
+
+        /* Without SHA256, SHA384 is preferred over SHA512 (shorter digest, less TPM event log space), and
+         * both win over SHA1. */
+        ASSERT_OK(tpm2_pcr_bank_from_efi_active((1u << TPM2_ALG_SHA1) | (1u << TPM2_ALG_SHA384) | (1u << TPM2_ALG_SHA512), &bank));
+        ASSERT_EQ(bank, TPM2_ALG_SHA384);
+        ASSERT_OK(tpm2_pcr_bank_from_efi_active((1u << TPM2_ALG_SHA1) | (1u << TPM2_ALG_SHA512), &bank));
+        ASSERT_EQ(bank, TPM2_ALG_SHA512);
+
+        /* SHA384-only firmware must resolve, not fail. */
+        ASSERT_OK(tpm2_pcr_bank_from_efi_active(1u << TPM2_ALG_SHA384, &bank));
+        ASSERT_EQ(bank, TPM2_ALG_SHA384);
+
+        /* Single-bank cases pick the obvious bank. */
+        ASSERT_OK(tpm2_pcr_bank_from_efi_active(1u << TPM2_ALG_SHA256, &bank));
+        ASSERT_EQ(bank, TPM2_ALG_SHA256);
+        ASSERT_OK(tpm2_pcr_bank_from_efi_active(1u << TPM2_ALG_SHA512, &bank));
+        ASSERT_EQ(bank, TPM2_ALG_SHA512);
+        ASSERT_OK(tpm2_pcr_bank_from_efi_active(1u << TPM2_ALG_SHA1, &bank));
+        ASSERT_EQ(bank, TPM2_ALG_SHA1);
+
+        /* No bank we are willing to use -> -EOPNOTSUPP. Empty mask, or only a bank we cannot hash in
+         * software (SM3_256, TCG algorithm id 0x12). */
+        ASSERT_ERROR(tpm2_pcr_bank_from_efi_active(0, &bank), EOPNOTSUPP);
+        ASSERT_ERROR(tpm2_pcr_bank_from_efi_active(1u << 0x12, &bank), EOPNOTSUPP);
+}
+
 TEST(tpm2_util_pbkdf2_hmac_sha256) {
 
         /*
