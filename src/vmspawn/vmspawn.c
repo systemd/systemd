@@ -1574,7 +1574,11 @@ static int start_tpm(
         if (r < 0)
                 return log_error_errno(r, "Failed to strip .scope suffix from scope: %m");
 
-        _cleanup_free_ char *listen_address = path_join(runtime_dir, "tpm.sock");
+        _cleanup_free_ char *sockname = strjoin(scope_prefix, "-tpm.sock");
+        if (!sockname)
+                return log_oom();
+
+        _cleanup_free_ char *listen_address = path_join(runtime_dir, sockname);
         if (!listen_address)
                 return log_oom();
 
@@ -3754,7 +3758,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         /* Varlink server for VM control */
         _cleanup_(vmspawn_varlink_context_freep) VmspawnVarlinkContext *varlink_ctx = NULL;
         _cleanup_free_ char *control_address = NULL;
-        r = vmspawn_varlink_setup(&varlink_ctx, bridge, runtime_dir, &control_address);
+        r = vmspawn_varlink_setup(&varlink_ctx, bridge, unit, runtime_dir, &control_address);
         if (r < 0)
                 return r;
 

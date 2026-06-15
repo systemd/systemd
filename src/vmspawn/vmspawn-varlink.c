@@ -13,6 +13,7 @@
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "unit-name.h"
 #include "varlink-io.systemd.MachineInstance.h"
 #include "varlink-io.systemd.VirtualMachineInstance.h"
 #include "varlink-util.h"
@@ -495,6 +496,7 @@ static void on_qmp_disconnect(QmpClient *client, void *userdata) {
 int vmspawn_varlink_setup(
                 VmspawnVarlinkContext **ret,
                 VmspawnQmpBridge *bridge,
+                const char *scope,
                 const char *runtime_dir,
                 char **ret_control_address) {
 
@@ -504,6 +506,7 @@ int vmspawn_varlink_setup(
 
         assert(ret);
         assert(bridge);
+        assert(scope);
         assert(runtime_dir);
 
         sd_event *event = qmp_client_get_event(bridge->qmp);
@@ -547,7 +550,16 @@ int vmspawn_varlink_setup(
         if (r < 0)
                 return log_error_errno(r, "Failed to bind disconnect handler: %m");
 
-        listen_address = path_join(runtime_dir, "control");
+        _cleanup_free_ char *scope_prefix = NULL;
+        r = unit_name_to_prefix(scope, &scope_prefix);
+        if (r < 0)
+                return log_error_errno(r, "Failed to strip .scope suffix from scope: %m");
+
+        _cleanup_free_ char *sockname = strjoin(scope_prefix, "-control");
+        if (!sockname)
+                return log_oom();
+
+        listen_address = path_join(runtime_dir, sockname);
         if (!listen_address)
                 return log_oom();
 
