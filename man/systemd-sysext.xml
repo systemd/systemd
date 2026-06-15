@@ -134,7 +134,10 @@
     page for a simple mechanism for shipping system services in disk images, in a similar fashion to OS
     extensions. Note the differences in isolation between these two mechanisms: while system extensions directly extend
     the underlying OS image with additional files that appear as if they were shipped in the OS image itself
-    and thus imply no security isolation, portable services imply service-level sandboxing in one way or another.</para>
+    and thus imply no security isolation, portable services imply service-level sandboxing in one way or another.
+    Binaries shipped in system extensions can only link against libraries from the host if the extension is
+    bound to the version of the host OS (see further below) or otherwise have to use static linking.
+    Portable services, however, are fully decoupled from the host as they ship their own library dependencies.</para>
 
     <para>The <filename>systemd-sysext.service</filename> and <filename>systemd-confext.service</filename>
     services are guaranteed to finish start-up before <filename>basic.target</filename> is reached; i.e., by the time
@@ -170,9 +173,22 @@
     but the used architecture identifiers are the same as for <varname>ConditionArchitecture=</varname>
     described in <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
     <varname>EXTENSION_RELOAD_MANAGER=</varname> can be set to 1 if the extension requires a service manager reload after application
-    of the extension. Note that for the reasons mentioned earlier,
-    <ulink url="https://systemd.io/PORTABLE_SERVICES">Portable Services</ulink> remain
-    the recommended way to ship system services.
+    of the extension. <varname>EXTENSION_RESTART_UNITS=</varname> and
+    <varname>EXTENSION_RELOAD_OR_RESTART_UNITS=</varname> can be set to a whitespace-separated list of unit
+    names (e.g. <literal>EXTENSION_RESTART_UNITS="my.service other.service"</literal>) that
+    <command>systemd-sysext</command>/<command>systemd-confext</command> should restart resp. reload (or
+    restart, if the unit does not support reloading) after merging or refreshing the extension, and after
+    unmerging it. Use <varname>EXTENSION_RESTART_UNITS=</varname> for units whose binary the extension
+    replaces (a reload would not pick up the new binary), and <varname>EXTENSION_RELOAD_OR_RESTART_UNITS=</varname>
+    for units the extension extends with configuration drop-ins only (so reload-capable services are not
+    needlessly interrupted). If a unit has disappeared, e.g., on unmerge because it was part of the
+    extension, it is stopped instead. If the same unit is listed in both fields,
+    <varname>EXTENSION_RESTART_UNITS=</varname> takes precedence. Listing any unit in either field implies
+    <varname>EXTENSION_RELOAD_MANAGER=1</varname>, as the service manager would otherwise not yet (or no
+    longer) see the unit files shipped by the extension. Note that these settings do not take effect when
+    the extension is merged for the system already from the initrd and extensions should still ship a
+    <literal>.wants/</literal> or <literal>.upholds/</literal> symlink from the unit's install target to
+    ensure the unit starts at boot.
 
     System extensions should not ship a <filename>/usr/lib/os-release</filename> file (as that would be merged
     into the host <filename>/usr/</filename> tree, overriding the host OS version data, which is not desirable).
@@ -501,7 +517,9 @@
           <para>When used with <command>merge</command>,
           <command>unmerge</command> or <command>refresh</command>, do not reload daemon
           after executing the changes even if an extension that is applied requires a reload via the
-          <varname>EXTENSION_RELOAD_MANAGER=</varname> set to 1.</para>
+          <varname>EXTENSION_RELOAD_MANAGER=</varname> set to 1. This also skips processing any units
+          listed via <varname>EXTENSION_RESTART_UNITS=</varname> or
+          <varname>EXTENSION_RELOAD_OR_RESTART_UNITS=</varname>.</para>
 
         <xi:include href="version-info.xml" xpointer="v255"/>
         </listitem>
