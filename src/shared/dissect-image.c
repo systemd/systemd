@@ -356,6 +356,63 @@ not_found:
 #endif
 }
 
+int probe_partition_table(int fd, char **ret_pttype) {
+
+        /* Probes the whole device referenced by fd for a partition table and returns its blkid type (e.g.
+         * "gpt" or "dos") in *ret_pttype, or NULL if none is found. Returns a negative error on failure
+         * (including -EUCLEAN for ambiguous results). */
+
+#if HAVE_BLKID
+        _cleanup_(blkid_free_probep) blkid_probe b = NULL;
+        const char *pttype = NULL;
+        int r;
+
+        assert(fd >= 0);
+        assert(ret_pttype);
+
+        r = dlopen_libblkid();
+        if (r < 0)
+                return r;
+
+        b = sym_blkid_new_probe();
+        if (!b)
+                return -ENOMEM;
+
+        errno = 0;
+        r = sym_blkid_probe_set_device(b, fd, /* offset= */ 0, /* size= */ 0 /* i.e. everything */);
+        if (r != 0)
+                return errno_or_else(ENOMEM);
+
+        sym_blkid_probe_enable_partitions(b, 1);
+
+        errno = 0;
+        r = sym_blkid_do_safeprobe(b);
+        if (r == _BLKID_SAFEPROBE_NOT_FOUND) {
+                log_debug("No partition table detected.");
+                *ret_pttype = NULL;
+                return 0;
+        }
+        if (r == _BLKID_SAFEPROBE_AMBIGUOUS)
+                return log_debug_errno(SYNTHETIC_ERRNO(EUCLEAN), "Partition table results ambiguous.");
+        if (r == _BLKID_SAFEPROBE_ERROR)
+                return log_debug_errno(errno_or_else(EIO), "Failed to probe for partition table: %m");
+
+        assert(r == _BLKID_SAFEPROBE_FOUND);
+
+        (void) sym_blkid_probe_lookup_value(b, "PTTYPE", &pttype, /* len= */ NULL);
+        if (!pttype) {
+                log_debug("No partition table detected.");
+                *ret_pttype = NULL;
+                return 0;
+        }
+
+        log_debug("Probed partition table type '%s'.", pttype);
+        return strdup_to_full(ret_pttype, pttype);
+#else
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Compiled without blkid support, cannot probe for partition table.");
+#endif
+}
+
 #if HAVE_BLKID
 static int image_policy_may_use(
                 const ImagePolicy *policy,

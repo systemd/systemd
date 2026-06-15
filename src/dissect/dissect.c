@@ -2172,6 +2172,11 @@ static int run(int argc, char *argv[]) {
 
                         open_flags = FLAGS_SET(arg_flags, DISSECT_IMAGE_DEVICE_READ_ONLY) ? O_RDONLY : -1;
                         loop_flags = FLAGS_SET(arg_flags, DISSECT_IMAGE_NO_PARTITION_TABLE) ? 0 : LO_FLAGS_PARTSCAN;
+                        /* --attach hands a loop device to the user, who may populate it with a (nested)
+                         * partition table afterwards, so force a real loopback device with partition
+                         * scanning even if the image is currently unpartitioned. */
+                        if (arg_action == ACTION_ATTACH)
+                                loop_flags |= LOOP_DEVICE_MAY_POPULATE_PARTITION_TABLE;
 
                         if (arg_in_memory)
                                 r = loop_device_make_by_path_memory(arg_image, open_flags, /* sector_size= */ UINT32_MAX, loop_flags, LOCK_SH, &d);
