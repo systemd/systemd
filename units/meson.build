@@ -732,6 +732,14 @@ units = [
         { 'file' : 'systemd-report-cgroup.socket' },
         { 'file' : 'systemd-report-cgroup@.service.in' },
         {
+          'file' : 'systemd-report-sign-plain.socket',
+          'conditions' : ['HAVE_OPENSSL'],
+        },
+        {
+          'file' : 'systemd-report-sign-plain@.service.in',
+          'conditions' : ['HAVE_OPENSSL'],
+        },
+        {
           'file' : 'systemd-resolved.service.in',
           'conditions' : ['ENABLE_RESOLVE'],
         },

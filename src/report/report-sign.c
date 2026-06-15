@@ -164,10 +164,10 @@ int context_sign_report(Context *context, sd_json_variant *report, sd_json_forma
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOPKG),
                                        "No signatures acquired via '%s'.", REPORT_SIGN_DIR);
 
-        fputs(text, output ?: stdout);
+        fputs(text, output);
 
         FOREACH_ARRAY(s, sl.signatures, sl.n_signatures) {
-        fputs(text, output);
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *sig = NULL;
 
                 r = sd_json_variant_normalize(&s->data);
                 if (r < 0)

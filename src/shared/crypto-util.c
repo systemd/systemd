@@ -1615,6 +1615,9 @@ int digest_and_sign(
         if (!mdctx)
                 return log_openssl_errors("Failed to create new EVP_MD_CTX");
 
+        /* Note that a NULL 'md' (message digest algorithm) means to sign the provided data directly, without
+         * hashing it first, as long as a suitable signing algorithm is used that supports this, such as
+         * Ed25519 (PureEdDSA). For such algorithms callers may pass an already calculated digest as input. */
         if (sym_EVP_DigestSignInit(mdctx, NULL, md, NULL, privkey) != 1) {
                 /* Distro security policies often disable support for SHA-1. Let's return a recognizable
                  * error for that case. */
