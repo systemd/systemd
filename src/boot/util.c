@@ -562,6 +562,7 @@ Pages xmalloc_aligned_pages(
         if (alignment <= 1)
                 alignment = EFI_PAGE_SIZE;
 
+        /* Callers must pass a power-of-2 alignment; the over-alignment math below relies on it. */
         assert(ISPOWEROF2(alignment));
 
         if (alignment <= EFI_PAGE_SIZE) {
