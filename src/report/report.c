@@ -11,12 +11,14 @@
 #include "help-util.h"
 #include "log.h"
 #include "main-func.h"
+#include "memstream-util.h"
 #include "options.h"
 #include "parse-argument.h"
 #include "path-lookup.h"
 #include "recurse-dir.h"
 #include "report.h"
 #include "report-generate.h"
+#include "report-sign.h"
 #include "report-upload.h"
 #include "runtime-scope.h"
 #include "set.h"
@@ -25,6 +27,8 @@
 #include "strv.h"
 #include "time-util.h"
 #include "varlink-idl-util.h"
+#include "varlink-io.systemd.Report.h"
+#include "varlink-util.h"
 #include "verbs.h"
 #include "web-util.h"
 
@@ -35,7 +39,6 @@
 static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
 static RuntimeScope arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
-static char **arg_matches = NULL;
 sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF|SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO;
 char *arg_url = NULL;
 char *arg_key = NULL;
@@ -45,7 +48,6 @@ char **arg_extra_headers = NULL;
 usec_t arg_network_timeout_usec = TIMEOUT_USEC;
 bool arg_sign = false;
 
-STATIC_DESTRUCTOR_REGISTER(arg_matches, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_url, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_key, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_cert, freep);
@@ -73,6 +75,7 @@ static void context_done(Context *context) {
 
         context->event = sd_event_unref(context->event);
         context->link_infos = set_free(context->link_infos);
+        context->matches = strv_free(context->matches);
         sd_json_variant_unref_many(context->metrics, context->n_metrics);
         context->metrics = NULL;
         context->n_metrics = 0;
@@ -193,13 +196,13 @@ static Verdict metrics_verdict(LinkInfo *li, sd_json_variant *metric) {
 
         /* Check it against any specified matches */
         bool matches;
-        if (strv_isempty(arg_matches))
+        if (strv_isempty(li->context->matches))
                 matches = true;
         else {
                 matches = false;
 
                 /* Allow exact matches or prefix matches */
-                STRV_FOREACH(i, arg_matches)
+                STRV_FOREACH(i, li->context->matches)
                         if (streq(metric_name, *i) ||
                             metric_startswith_prefix(metric_name, *i)) {
                                 matches = true;
@@ -493,28 +496,33 @@ static int output_collected(Context *context) {
         return 0;
 }
 
-static int parse_metrics_matches(char **matches) {
+static int parse_metrics_matches(char **input, char ***ret) {
         int r;
 
-        STRV_FOREACH(i, matches) {
+        assert(ret);
+
+        _cleanup_strv_free_ char **matches = NULL;
+        STRV_FOREACH(i, input) {
                 r = metrics_name_valid(*i);
                 if (r < 0)
                         return log_error_errno(r, "Failed to determine if '%s' is a valid metric name: %m", *i);
                 if (!r && !varlink_idl_interface_name_is_valid(*i))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Match is not a valid family name or prefix: %s", *i);
 
-                if (strv_extend(&arg_matches, *i) < 0)
+                if (strv_extend(&matches, *i) < 0)
                         return log_oom();
         }
 
-        strv_sort_uniq(arg_matches);
+        strv_sort_uniq(matches);
+
+        *ret = TAKE_PTR(matches);
         return 0;
 }
 
-static bool test_service_matches(const char *service) {
+static bool test_service_matches(const char *service, char **matches) {
         assert(service);
 
-        if (strv_isempty(arg_matches))
+        if (strv_isempty(matches))
                 return true;
 
         /* Only contact services whose name is either a prefix of any of the specified metrics families, or
@@ -527,7 +535,7 @@ static bool test_service_matches(const char *service) {
          *                          it should also be fine to specify a full metric name, and then go directly to the relevant services, and ask for matching metrics.
          */
 
-        STRV_FOREACH(i, arg_matches) {
+        STRV_FOREACH(i, matches) {
                 if (streq(service, *i))
                         return true;
 
@@ -539,7 +547,7 @@ static bool test_service_matches(const char *service) {
         return false;
 }
 
-static int readdir_sources(char **ret_directory, DirectoryEntries **ret) {
+static int readdir_sources(char **matches, char **ret_directory, DirectoryEntries **ret) {
         int r;
 
         assert(ret_directory);
@@ -575,7 +583,7 @@ static int readdir_sources(char **ret_directory, DirectoryEntries **ret) {
                         if (!varlink_idl_interface_name_is_valid(d->d_name))
                                 continue;
 
-                        if (!test_service_matches(d->d_name))
+                        if (!test_service_matches(d->d_name, matches))
                                 continue;
 
                         de->entries[m++] = *i;
@@ -587,6 +595,51 @@ static int readdir_sources(char **ret_directory, DirectoryEntries **ret) {
 
         *ret_directory = TAKE_PTR(sources_path);
         return m > 0;
+}
+
+static int context_collect_metrics(Context *context) {
+        int r;
+
+        /* Contacts all known metrics sources, issues the appropriate Varlink call on each and runs the
+         * event loop until all replies came in. Expects the caller to have set up context->event
+         * beforehand. The collected metrics end up in context->metrics. */
+
+        assert(context);
+        assert(context->event);
+
+        _cleanup_free_ DirectoryEntries *de = NULL;
+        _cleanup_free_ char *sources_path = NULL;
+        r = readdir_sources(context->matches, &sources_path, &de);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 0;
+
+        FOREACH_ARRAY(i, de->entries, de->n_entries) {
+                struct dirent *d = *i;
+
+                if (set_size(context->link_infos) >= METRICS_LINKS_MAX) {
+                        context->n_skipped_sources++;
+                        break;
+                }
+
+                _cleanup_free_ char *p = path_join(sources_path, d->d_name);
+                if (!p)
+                        return log_oom();
+
+                (void) call_collect(context, d->d_name, p);
+        }
+
+        context->n_contacted_sources = set_size(context->link_infos);
+
+        if (context->n_contacted_sources == 0)
+                return 0;
+
+        r = sd_event_loop(context->event);
+        if (r < 0)
+                return log_error_errno(r, "Failed to run event loop: %m");
+
+        return 1;
 }
 
 VERB_FULL(verb_metrics, "metrics", "[MATCH…]", VERB_ANY, VERB_ANY, 0, ACTION_LIST_METRICS,
@@ -610,55 +663,29 @@ static int verb_metrics(int argc, char *argv[], uintptr_t data, void *userdata) 
                  * objects. In the report format, we return a single JSON object, so don't do this. */
                 arg_json_format_flags |= SD_JSON_FORMAT_SEQ;
 
-        r = parse_metrics_matches(argv + 1);
-        if (r < 0)
-                return r;
-
         _cleanup_(context_done) Context context = {
                 .action = action,
         };
-        size_t n_skipped_sources = 0;
 
-        _cleanup_free_ DirectoryEntries *de = NULL;
-        _cleanup_free_ char *sources_path = NULL;
-        r = readdir_sources(&sources_path, &de);
+        r = parse_metrics_matches(argv + 1, &context.matches);
         if (r < 0)
                 return r;
-        if (r > 0) {
-                r = sd_event_default(&context.event);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to get event loop: %m");
 
-                r = sd_event_set_signal_exit(context.event, true);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to enable exit on SIGINT/SIGTERM: %m");
+        r = sd_event_default(&context.event);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get event loop: %m");
 
-                FOREACH_ARRAY(i, de->entries, de->n_entries) {
-                        struct dirent *d = *i;
+        r = sd_event_set_signal_exit(context.event, true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enable exit on SIGINT/SIGTERM: %m");
 
-                        if (set_size(context.link_infos) >= METRICS_LINKS_MAX) {
-                                n_skipped_sources++;
-                                break;
-                        }
-
-                        _cleanup_free_ char *p = path_join(sources_path, d->d_name);
-                        if (!p)
-                                return log_oom();
-
-                        (void) call_collect(&context, d->d_name, p);
-                }
-        }
-
-        if (set_isempty(context.link_infos)) {
+        r = context_collect_metrics(&context);
+        if (r < 0)
+                return r;
+        if (r == 0) {
                 if (arg_legend)
                         log_info("No metrics sources found.");
         } else {
-                assert(context.event);
-
-                r = sd_event_loop(context.event);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to run event loop: %m");
-
                 switch (action) {
 
                 case ACTION_LIST_METRICS:
@@ -681,10 +708,10 @@ static int verb_metrics(int argc, char *argv[], uintptr_t data, void *userdata) 
                         return r;
         }
 
-        if (n_skipped_sources > 0)
+        if (context.n_skipped_sources > 0)
                 return log_warning_errno(SYNTHETIC_ERRNO(EUCLEAN),
-                                         "Too many metrics sources, only %u sources contacted, %zu sources skipped.",
-                                         set_size(context.link_infos), n_skipped_sources);
+                                         "Too many metrics sources, only %zu sources contacted, %zu sources skipped.",
+                                         context.n_contacted_sources, context.n_skipped_sources);
         if (context.n_invalid_metrics > 0)
                 return log_warning_errno(SYNTHETIC_ERRNO(EUCLEAN),
                                          "%zu metrics are not valid.",
@@ -706,7 +733,7 @@ static int verb_list_sources(int argc, char *argv[], uintptr_t _data, void *user
 
         _cleanup_free_ char *sources_path = NULL;
         _cleanup_free_ DirectoryEntries *de = NULL;
-        r = readdir_sources(&sources_path, &de);
+        r = readdir_sources(/* matches= */ NULL, &sources_path, &de);
         if (r < 0)
                 return r;
         if (r > 0)
@@ -748,6 +775,110 @@ static int verb_list_sources(int argc, char *argv[], uintptr_t _data, void *user
                 else
                         printf("\n%zu sources listed.\n", table_get_rows(table) - 1);
         }
+
+        return 0;
+}
+
+static int vl_method_generate_internal(
+                sd_varlink *link,
+                sd_json_variant *parameters,
+                bool sign) {
+
+        int r;
+
+        assert(link);
+        assert(parameters);
+
+        _cleanup_strv_free_ char **input_matches = NULL;
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "matches", SD_JSON_VARIANT_ARRAY, sd_json_dispatch_strv, 0, 0 },
+                {}
+        };
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &input_matches);
+        if (r != 0)
+                return r;
+
+        _cleanup_(context_done) Context context = {
+                .action = ACTION_GENERATE,
+        };
+
+        r = parse_metrics_matches(input_matches, &context.matches);
+        if (r < 0)
+                return sd_varlink_error_invalid_parameter_name(link, "matches");
+
+        r = sd_event_new(&context.event);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate event loop: %m");
+
+        r = context_collect_metrics(&context);
+        if (r < 0)
+                return r;
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *report = NULL;
+        r = context_build_report(&context, &report);
+        if (r < 0)
+                return r;
+
+        if (sign) {
+                /* Use compact JSON formatting (no pretty/color/seq flags), matching the on-the-wire format
+                 * used for uploads. context_sign_report() adds the JSON-SEQ record separators itself. */
+                _cleanup_free_ char *s = NULL;
+                r = context_sign_report_as_string(&context, report, /* format_flags= */ 0, &s);
+                if (r < 0)
+                        return r;
+
+                return sd_varlink_replybo(
+                                link,
+                                SD_JSON_BUILD_PAIR_BASE64("reportData", s, strlen(s)));
+        }
+
+        return sd_varlink_replybo(
+                        link,
+                        SD_JSON_BUILD_PAIR_VARIANT("report", report));
+}
+
+static int vl_method_generate(
+                sd_varlink *link,
+                sd_json_variant *parameters,
+                sd_varlink_method_flags_t flags,
+                void *userdata) {
+
+        return vl_method_generate_internal(link, parameters, /* sign= */ false);
+}
+
+static int vl_method_generate_signed(
+                sd_varlink *link,
+                sd_json_variant *parameters,
+                sd_varlink_method_flags_t flags,
+                void *userdata) {
+
+        return vl_method_generate_internal(link, parameters, /* sign= */ true);
+}
+
+static int vl_server(void) {
+        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *vs = NULL;
+        int r;
+
+        r = varlink_server_new(&vs, SD_VARLINK_SERVER_MYSELF_ONLY|SD_VARLINK_SERVER_ROOT_ONLY, /* userdata= */ NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate Varlink server: %m");
+
+        r = sd_varlink_server_add_interface(vs, &vl_interface_io_systemd_Report);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add Varlink interface: %m");
+
+        r = sd_varlink_server_bind_method_many(
+                        vs,
+                        "io.systemd.Report.Generate",       vl_method_generate,
+                        "io.systemd.Report.GenerateSigned", vl_method_generate_signed);
+        if (r < 0)
+                return log_error_errno(r, "Failed to bind Varlink methods: %m");
+
+        r = sd_varlink_server_loop_auto(vs);
+        if (r < 0)
+                return log_error_errno(r, "Failed to run Varlink event loop: %m");
 
         return 0;
 }
@@ -896,6 +1027,14 @@ static int run(int argc, char *argv[]) {
         int r;
 
         log_setup();
+
+        /* If invoked as a socket-activated Varlink service (Accept=yes), act as the io.systemd.Report
+         * server instead of running the command line interface. */
+        r = sd_varlink_invocation(SD_VARLINK_ALLOW_ACCEPT);
+        if (r < 0)
+                return log_error_errno(r, "Failed to check if invoked in Varlink mode: %m");
+        if (r > 0)
+                return vl_server();
 
         r = parse_argv(argc, argv, &args);
         if (r <= 0)
