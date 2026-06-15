@@ -24,6 +24,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "gpt.h"
 #include "loop-util.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -446,6 +447,38 @@ static int probe_sector_size_harder(int fd, uint32_t *ret) {
         return probe_sector_size(probe_fd, ret);
 }
 
+static int fd_has_partition_table(int fd) {
+        _cleanup_close_ int non_direct_io_fd = -EBADF;
+        int probe_fd, f_flags;
+        ssize_t ssz;
+
+        assert(fd >= 0);
+
+        /* Checks whether the device carries a (GPT) partition table. We use this to decide whether wrapping
+         * the device in a loopback device with partition scanning enabled actually serves a purpose: if there
+         * are no partitions to expose we can hand back the original fd instead. gpt_probe() reads via plain
+         * pread(), so reopen without O_DIRECT first if necessary to avoid its strict alignment requirements. */
+
+        f_flags = fcntl(fd, F_GETFL);
+        if (f_flags < 0)
+                return log_debug_errno(errno, "Failed to get file status flags: %m");
+
+        if (FLAGS_SET(f_flags, O_DIRECT)) {
+                non_direct_io_fd = fd_reopen(fd, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
+                if (non_direct_io_fd < 0)
+                        return log_debug_errno(non_direct_io_fd, "Failed to reopen block device without O_DIRECT: %m");
+
+                probe_fd = non_direct_io_fd;
+        } else
+                probe_fd = fd;
+
+        ssz = gpt_probe(probe_fd, /* ret_header= */ NULL, /* ret_entries= */ NULL, /* ret_n_entries= */ NULL, /* ret_entry_size= */ NULL);
+        if (ssz < 0)
+                return log_debug_errno((int) ssz, "Failed to probe for GPT partition table: %m");
+
+        return ssz > 0;
+}
+
 static int loop_device_can_shortcut(
                 int fd,
                 uint64_t offset,
@@ -458,9 +491,9 @@ static int loop_device_can_shortcut(
 
         /* Returns whether we can hand back the original block device fd instead of allocating a real
          * loopback device for it: it must cover the whole device, the requested sector size must match the
-         * device's sector size, and if partscan was requested it must already be enabled on the device
-         * (otherwise e.g. partition block devices or loop devices created without LO_FLAGS_PARTSCAN would
-         * be reused even though they cannot expose nested partitions). */
+         * device's sector size, and if partscan was requested the device must either already have it enabled
+         * or carry no partition table at all (in which case there are no nested partitions to scan and the
+         * loopback device would serve no purpose). */
 
         assert(fd >= 0);
 
@@ -475,8 +508,19 @@ static int loop_device_can_shortcut(
                 r = blockdev_partscan_enabled_fd(fd);
                 if (r < 0)
                         return r;
-                if (r == 0)
-                        return false;
+                if (r == 0) {
+                        /* Partition scanning was requested but cannot be enabled on this device (e.g. it's a
+                         * partition itself). That only blocks the shortcut if the device actually carries a
+                         * partition table we'd need a loopback device to scan. If it doesn't (e.g. it carries
+                         * a file system directly) we can still shortcut — and we must, as routing e.g. a
+                         * multi-device btrfs member through a loop device breaks it. See
+                         * https://github.com/systemd/systemd/issues/42520. */
+                        r = fd_has_partition_table(fd);
+                        if (r < 0)
+                                return r;
+                        if (r > 0)
+                                return false;
+                }
         }
 
         return true;
