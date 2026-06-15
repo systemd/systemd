@@ -11,6 +11,7 @@ typedef struct VmspawnVarlinkContext VmspawnVarlinkContext;
 int vmspawn_varlink_setup(
                 VmspawnVarlinkContext **ret,
                 VmspawnQmpBridge *bridge,
+                const char *scope,
                 const char *runtime_dir,
                 char **ret_control_address);
 
