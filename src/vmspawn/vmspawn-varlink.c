@@ -8,7 +8,6 @@
 #include "fd-util.h"
 #include "hashmap.h"
 #include "log.h"
-#include "path-util.h"
 #include "qmp-client.h"
 #include "stat-util.h"
 #include "string-util.h"
@@ -18,6 +17,7 @@
 #include "varlink-util.h"
 #include "vmspawn-bind-volume.h"
 #include "vmspawn-qmp.h"
+#include "vmspawn-util.h"
 #include "vmspawn-varlink.h"
 
 DEFINE_PRIVATE_HASH_OPS_FULL(
@@ -495,7 +495,9 @@ static void on_qmp_disconnect(QmpClient *client, void *userdata) {
 int vmspawn_varlink_setup(
                 VmspawnVarlinkContext **ret,
                 VmspawnQmpBridge *bridge,
+                const char *scope,
                 const char *runtime_dir,
+                bool machine_specific_runtime_dir,
                 char **ret_control_address) {
 
         _cleanup_(vmspawn_varlink_context_freep) VmspawnVarlinkContext *ctx = NULL;
@@ -504,6 +506,7 @@ int vmspawn_varlink_setup(
 
         assert(ret);
         assert(bridge);
+        assert(scope);
         assert(runtime_dir);
 
         sd_event *event = qmp_client_get_event(bridge->qmp);
@@ -547,9 +550,9 @@ int vmspawn_varlink_setup(
         if (r < 0)
                 return log_error_errno(r, "Failed to bind disconnect handler: %m");
 
-        listen_address = path_join(runtime_dir, "control");
-        if (!listen_address)
-                return log_oom();
+        r = vmspawn_runtime_path(scope, runtime_dir, machine_specific_runtime_dir, "control", &listen_address);
+        if (r < 0)
+                return r;
 
         r = sd_varlink_server_listen_address(ctx->varlink_server, listen_address, 0600);
         if (r < 0)
