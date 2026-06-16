@@ -590,10 +590,39 @@ static int journal_file_verify_header(JournalFile *f) {
 
         arena_size = le64toh(READ_NOW(f->header->arena_size));
 
-        if (UINT64_MAX - header_size < arena_size || header_size + arena_size > (uint64_t) f->last_stat.st_size)
+        if (UINT64_MAX - header_size < arena_size)
                 return -ENODATA;
 
+        uint64_t file_size = (uint64_t) f->last_stat.st_size;
+
+        /* Probably an unclean shutdown where the header was written, but the arena data was not. On write we
+         * should ask the caller to rotate, but on read, we can still work it out with bounds checks. */
+        bool truncated = false;
+        if (header_size + arena_size > file_size) {
+                if (journal_file_writable(f))
+                        return -ENODATA;
+
+                /* This shouldn't happen given file_size is page aligned via fallocate(), but just in case
+                 * things are _really_ messed up... */
+                uint64_t available = ALIGN_DOWN_U64(file_size, sizeof(uint64_t));
+                if (header_size > available || available - header_size < offsetof(ObjectHeader, payload))
+                        return -ENODATA;
+
+                log_debug("Journal file %s claims a %" PRIu64 " byte arena but is only %" PRIu64
+                          " bytes on disk, clamping for recovery.",
+                          f->path,
+                          arena_size,
+                          file_size);
+                arena_size = available - header_size;
+                truncated = true;
+        }
+
         uint64_t tail_object_offset = le64toh(f->header->tail_object_offset);
+        if (truncated)
+                /* The tail may be in the lost region, so cap it at the last possible object header start. */
+                tail_object_offset = MIN(
+                                tail_object_offset,
+                                header_size + arena_size - offsetof(ObjectHeader, payload));
         if (!offset_is_valid(tail_object_offset, header_size, UINT64_MAX))
                 return -ENODATA;
         if (header_size + arena_size < tail_object_offset)
@@ -615,7 +644,7 @@ static int journal_file_verify_header(JournalFile *f) {
         if (!offset_is_valid(entry_array_offset, header_size, tail_object_offset))
                 return -ENODATA;
 
-        if (JOURNAL_HEADER_CONTAINS(f->header, tail_entry_array_offset)) {
+        if (!truncated && JOURNAL_HEADER_CONTAINS(f->header, tail_entry_array_offset)) {
                 uint32_t offset = le32toh(f->header->tail_entry_array_offset);
                 uint32_t n = le32toh(f->header->tail_entry_array_n_entries);
 
@@ -632,7 +661,7 @@ static int journal_file_verify_header(JournalFile *f) {
                         return -ENODATA;
         }
 
-        if (JOURNAL_HEADER_CONTAINS(f->header, tail_entry_offset)) {
+        if (!truncated && JOURNAL_HEADER_CONTAINS(f->header, tail_entry_offset)) {
                 uint64_t offset = le64toh(f->header->tail_entry_offset);
 
                 if (!offset_is_valid(offset, header_size, tail_object_offset))
@@ -664,7 +693,7 @@ static int journal_file_verify_header(JournalFile *f) {
 
         /* Verify number of objects */
         uint64_t n_objects = le64toh(f->header->n_objects);
-        if (n_objects > arena_size / offsetof(ObjectHeader, payload))
+        if (!truncated && n_objects > arena_size / offsetof(ObjectHeader, payload))
                 return -ENODATA;
 
         uint64_t n_entries = le64toh(f->header->n_entries);
