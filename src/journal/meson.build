@@ -34,6 +34,7 @@ journalctl_sources = files(
         'journalctl-authenticate.c',
         'journalctl-catalog.c',
         'journalctl-filter.c',
+        'journalctl-metrics.c',
         'journalctl-misc.c',
         'journalctl-show.c',
         'journalctl-util.c',
