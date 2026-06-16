@@ -74,13 +74,16 @@ DLSYM_PROTOTYPE(BIO_write) = NULL;
 DLSYM_PROTOTYPE(BN_CTX_free) = NULL;
 DLSYM_PROTOTYPE(BN_CTX_new) = NULL;
 DLSYM_PROTOTYPE(BN_bin2bn) = NULL;
-static DLSYM_PROTOTYPE(BN_bn2bin) = NULL;
+DLSYM_PROTOTYPE(BN_bn2bin) = NULL;
 DLSYM_PROTOTYPE(BN_bn2nativepad) = NULL;
 DLSYM_PROTOTYPE(BN_free) = NULL;
 DLSYM_PROTOTYPE(BN_new) = NULL;
 DLSYM_PROTOTYPE(BN_num_bits) = NULL;
 DLSYM_PROTOTYPE(CRYPTO_free) = NULL;
 DLSYM_PROTOTYPE(ECDSA_SIG_free) = NULL;
+DLSYM_PROTOTYPE(ECDSA_SIG_get0_r) = NULL;
+DLSYM_PROTOTYPE(ECDSA_SIG_get0_s) = NULL;
+DLSYM_PROTOTYPE(d2i_ECDSA_SIG) = NULL;
 DLSYM_PROTOTYPE(EC_GROUP_free) = NULL;
 DLSYM_PROTOTYPE(EC_GROUP_get0_generator) = NULL;
 DLSYM_PROTOTYPE(EC_GROUP_get0_order) = NULL;
@@ -404,6 +407,9 @@ int dlopen_libcrypto(int log_level) {
                         DLSYM_ARG(EC_POINT_point2oct),
                         DLSYM_ARG(EC_POINT_set_affine_coordinates),
                         DLSYM_ARG(ECDSA_SIG_free),
+                        DLSYM_ARG(ECDSA_SIG_get0_r),
+                        DLSYM_ARG(ECDSA_SIG_get0_s),
+                        DLSYM_ARG(d2i_ECDSA_SIG),
 #if !defined(OPENSSL_NO_ENGINE) && !defined(OPENSSL_NO_DEPRECATED_3_0)
                         DLSYM_ARG_FORCE(ENGINE_by_id),
                         DLSYM_ARG_FORCE(ENGINE_free),
@@ -2019,7 +2025,7 @@ static int openssl_ask_password_ui_read(UI *ui, UI_STRING *uis) {
 }
 #endif
 
-static int openssl_load_private_key_from_file(const char *path, EVP_PKEY **ret) {
+int openssl_load_private_key_from_file(const char *path, EVP_PKEY **ret) {
         _cleanup_(erase_and_freep) char *rawkey = NULL;
         _cleanup_(BIO_freep) BIO *kb = NULL;
         _cleanup_(EVP_PKEY_freep) EVP_PKEY *pk = NULL;
