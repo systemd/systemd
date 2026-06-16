@@ -17,7 +17,10 @@
 #include "format-table.h"
 #include "format-util.h"
 #include "fs-util.h"
+#include "help-util.h"
 #include "hexdecoct.h"
+#include "imds-tool.h"
+#include "imds-tool-metrics.h"
 #include "imds-util.h"
 #include "in-addr-util.h"
 #include "io-util.h"
@@ -28,7 +31,6 @@
 #include "options.h"
 #include "parse-argument.h"
 #include "pcrextend-util.h"
-#include "pretty-print.h"
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
@@ -50,29 +52,22 @@ static bool arg_refresh_usec_set = false;
 STATIC_DESTRUCTOR_REGISTER(arg_key, freep);
 
 static int help(void) {
-        _cleanup_free_ char *link = NULL;
         _cleanup_(table_unrefp) Table *options = NULL;
         int r;
-
-        r = terminal_urlify_man("systemd-imds", "1", &link);
-        if (r < 0)
-                return log_oom();
 
         r = option_parser_get_help_table(&options);
         if (r < 0)
                 return r;
 
-        printf("%s [OPTIONS...] [KEY]\n"
-               "\n%sIMDS data acquisition.%s\n\n",
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal());
+        help_cmdline("[OPTIONS...] [KEY]");
+        help_abstract("IMDS data acquisition.");
 
+        help_section("Options");
         r = table_print_or_warn(options);
         if (r < 0)
                 return r;
 
-        printf("\nSee the %s for details.\n", link);
+        help_man_page_reference("systemd-imds", "1");
         return 0;
 }
 
@@ -224,7 +219,7 @@ static int acquire_imds_key(
                 { "data", SD_JSON_VARIANT_STRING, json_dispatch_unbase64_iovec, 0, SD_JSON_MANDATORY },
                 {},
         };
-        r = sd_json_dispatch(reply, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &data);
+        r = sd_json_dispatch(reply, dispatch_table, SD_JSON_ALLOW_EXTENSIONS|SD_JSON_LOG, &data);
         if (r < 0)
                 return r;
 
@@ -232,7 +227,7 @@ static int acquire_imds_key(
         return 1;
 }
 
-static int acquire_imds_key_as_string(
+int acquire_imds_key_as_string(
                 sd_varlink *link,
                 ImdsWellKnown wk,
                 const char *key,
@@ -257,7 +252,7 @@ static int acquire_imds_key_as_string(
         _cleanup_free_ char *s = NULL;
         r = make_cstring(data.iov_base, data.iov_len, MAKE_CSTRING_REFUSE_TRAILING_NUL, &s);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to turn IMDS data into a C string: %m");
 
         *ret = TAKE_PTR(s);
         return 1;
@@ -287,7 +282,51 @@ static int acquire_imds_key_as_ip_address(
 
         r = in_addr_from_string(family, s, ret);
         if (r < 0)
+                return log_error_errno(r, "Failed to parse IP address '%s': %m", s);
+
+        return 1;
+}
+
+int acquire_imds_vendor(sd_varlink *link, char **ret) {
+        int r;
+
+        assert(link);
+        assert(ret);
+
+        const char *error_id = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *reply = NULL;
+        r = sd_varlink_call(
+                        link,
+                        "io.systemd.InstanceMetadata.GetVendorInfo",
+                        /* parameters= */ NULL,
+                        &reply,
+                        &error_id);
+        if (r < 0)
+                return log_error_errno(r, "Failed to issue io.systemd.InstanceMetadata.GetVendorInfo(): %m");
+        if (error_id) {
+                if (streq(error_id, "io.systemd.InstanceMetadata.NotSupported")) {
+                        *ret = NULL;
+                        return 0;
+                }
+
+                return log_error_errno(sd_varlink_error_to_errno(error_id, reply), "Failed to issue io.systemd.InstanceMetadata.GetVendorInfo(): %s", error_id);
+        }
+
+        const char *vendor = NULL;
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "vendor", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, 0, 0 },
+                {}
+        };
+        r = sd_json_dispatch(reply, dispatch_table, SD_JSON_ALLOW_EXTENSIONS|SD_JSON_LOG, &vendor);
+        if (r < 0)
                 return r;
+        if (isempty(vendor)) {
+                *ret = NULL;
+                return 0;
+        }
+
+        if (strdup_to_full(ret, vendor) < 0)
+                return log_oom();
 
         return 1;
 }
@@ -301,27 +340,11 @@ static int action_summary(sd_varlink *link) {
         if (!table)
                 return log_oom();
 
-        const char *error_id = NULL;
-        sd_json_variant *reply = NULL;
-        r = sd_varlink_call(
-                        link,
-                        "io.systemd.InstanceMetadata.GetVendorInfo",
-                        /* parameters= */ NULL,
-                        &reply,
-                        &error_id);
-        if (r < 0)
-                return log_error_errno(r, "Failed to issue io.systemd.InstanceMetadata.GetVendorInfo(): %m");
-        if (error_id)
-                return log_error_errno(sd_varlink_error_to_errno(error_id, reply), "Failed to issue io.systemd.InstanceMetadata.GetVendorInfo(): %s", error_id);
-
-        const char *vendor = NULL;
-        static const sd_json_dispatch_field dispatch_table[] = {
-                { "vendor",    SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, 0, 0 },
-                {}
-        };
-        r = sd_json_dispatch(reply, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &vendor);
+        _cleanup_free_ char *vendor = NULL;
+        r = acquire_imds_vendor(link, &vendor);
         if (r < 0)
                 return r;
+
         if (vendor) {
                 r = table_add_many(table,
                                    TABLE_FIELD, "Vendor",
@@ -489,9 +512,9 @@ static int import_credentials(const char *text) {
         r = sd_json_parse(e, /* flags= */ 0, &j, &line, &column);
         if (r < 0) {
                 if (line > 0)
-                        log_syntax(/* unit= */ NULL, LOG_WARNING, /* filename= */ NULL, line, r, "JSON parse failure.");
+                        log_syntax(/* unit= */ NULL, LOG_WARNING, /* filename= */ NULL, line, r, "JSON parse failure, ignoring user data");
                 else
-                        log_error_errno(r, "Failed to parse IMDS userdata JSON: %m");
+                        log_warning_errno(r, "Failed to parse IMDS userdata JSON, ignoring user data: %m");
                 return 0;
         }
 
@@ -820,14 +843,10 @@ static int action_import(sd_varlink *link) {
         return RET_GATHER(ret, import_credentials(data.iov_base));
 }
 
-static int run(int argc, char* argv[]) {
+int connect_imdsd(sd_varlink **ret) {
         int r;
 
-        log_setup();
-
-        r = parse_argv(argc, argv);
-        if (r <= 0)
-                return r;
+        assert(ret);
 
         _cleanup_(sd_varlink_unrefp) sd_varlink *link = NULL;
         r = sd_varlink_connect_address(&link, "/run/systemd/io.systemd.InstanceMetadata");
@@ -849,6 +868,33 @@ static int run(int argc, char* argv[]) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to connect to imdsd service: %m");
         }
+
+        *ret = TAKE_PTR(link);
+        return 0;
+}
+
+static int run(int argc, char* argv[]) {
+        int r;
+
+        log_setup();
+
+        /* When invoked as a Varlink service (socket activation) we act as an io.systemd.Metrics provider
+         * and run a server loop. The metric generators connect to systemd-imdsd on demand, so we never open
+         * a one-shot connection here. */
+        r = sd_varlink_invocation(SD_VARLINK_ALLOW_ACCEPT);
+        if (r < 0)
+                return log_error_errno(r, "Failed to check if invoked in Varlink mode: %m");
+        if (r > 0)
+                return imds_metrics_run();
+
+        r = parse_argv(argc, argv);
+        if (r <= 0)
+                return r;
+
+        _cleanup_(sd_varlink_unrefp) sd_varlink *link = NULL;
+        r = connect_imdsd(&link);
+        if (r < 0)
+                return r;
 
         switch (arg_action) {
 
