@@ -8375,6 +8375,24 @@ C7F000-C7FFFF     (base 16)		Brightwell Dosing ltd
 				Naju-si  Jeollanam-do  58296
 				KR
 
+8C-1F-64   (hex)		Immersive Audio Technologies
+FBC000-FBCFFF     (base 16)		Immersive Audio Technologies
+				13 rue Benoit Frachon
+				Saint Herblain  Pays de la Loire  44800
+				FR
+
+8C-1F-64   (hex)		KST technology
+084000-084FFF     (base 16)		KST technology
+				KST B/D 4-5, Wiryeseong-daero 12-gil
+				Songpa-gu  Seoul  05636
+				KR
+
+8C-1F-64   (hex)		KRONOTECH SRL
+CC3000-CC3FFF     (base 16)		KRONOTECH SRL
+				VIALE UNGHERIA 125
+				UDINE  ITALY/UDINE  33100
+				IT
+
 8C-1F-64   (hex)		Jacobs Technology, Inc.
 A98000-A98FFF     (base 16)		Jacobs Technology, Inc.
 				7765 Old Telegraph Road
@@ -16874,6 +16892,18 @@ D33000-D33FFF     (base 16)		SPACE CREATORS ALLIANCE Inc.
 				Hannover    30539
 				DE
 
+8C-1F-64   (hex)		GJD Manufacturing
+184000-184FFF     (base 16)		GJD Manufacturing
+				Unit 2, Birch Business Park, Whittle Lane
+				Heywood    OL10 2SX
+				GB
+
+8C-1F-64   (hex)		FullohmKD
+E69000-E69FFF     (base 16)		FullohmKD
+				150 GONGDAN-RO
+				GUNPO  GYEONGI  15845
+				KR
+
 8C-1F-64   (hex)		Vision Systems Safety Tech
 E6F000-E6FFFF     (base 16)		Vision Systems Safety Tech
 				5 Chemin de Chiradie
@@ -25370,17 +25400,23 @@ B33000-B33FFF     (base 16)		Skylark Lasers
 				Hazelwood  MO  63043
 				US
 
+8C-1F-64   (hex)		Preston Industries dba PolyScience
+975000-975FFF     (base 16)		Preston Industries dba PolyScience
+				6600 W. Touhy Ave
+				Niles  IL  60714-4588
+				US
+
 8C-1F-64   (hex)		Digilube Systems Inc
 3C3000-3C3FFF     (base 16)		Digilube Systems Inc
 				216 E Mill St
 				Springboro  OH  45066
 				US
 
-8C-1F-64   (hex)		Preston Industries dba PolyScience
-975000-975FFF     (base 16)		Preston Industries dba PolyScience
-				6600 W. Touhy Ave
-				Niles  IL  60714-4588
-				US
+8C-1F-64   (hex)		R2Vision GmbH
+0CF000-0CFFFF     (base 16)		R2Vision GmbH
+				Lindener Str. 58
+				Bochum    44879
+				DE
 
 8C-1F-64   (hex)		Flow Power
 82B000-82BFFF     (base 16)		Flow Power
@@ -33767,6 +33803,30 @@ DD0000-DD0FFF     (base 16)		GENIUS SPORTS
 				North Miami  FL  33168
 				US
 
+8C-1F-64   (hex)		KONAX BV
+C0F000-C0FFFF     (base 16)		KONAX BV
+				Hondekensmolenstraat 56
+				Izegem    8870
+				BE
+
+8C-1F-64   (hex)		Logic Fruit Technologies Pvt. Ltd.
+6F5000-6F5FFF     (base 16)		Logic Fruit Technologies Pvt. Ltd.
+				Logic Fruit Technologies Pvt. Ltd 7TH FLOOR, 703 BPTP PARK CENTRA, Sector 30 Star Mall,
+				Gurugram  Haryana  122001
+				IN
+
+8C-1F-64   (hex)		Wilton Arthur Poth
+701000-701FFF     (base 16)		Wilton Arthur Poth
+				Fasanenweg 3
+				Roßdorf-Gundernhausen    64380
+				DE
+
+8C-1F-64   (hex)		MDS TECH 
+792000-792FFF     (base 16)		MDS TECH 
+				9F, DTC Tower, 49, Daewangpangyo-ro 644beon-gil, Bundang-gu
+				Seongnam    13493
+				KR
+
 8C-1F-64   (hex)		Mobileye
 D63000-D63FFF     (base 16)		Mobileye
 				13 Hartom st.
@@ -42085,3 +42145,39 @@ B01000-B01FFF     (base 16)		Terranova Industries UG (haftungsbeschränkt)
 				Brühlerstr. 100
 				Solingen    42657
 				DE
+
+8C-1F-64   (hex)		Pioneer Century Infocomm Pte Ltd
+411000-411FFF     (base 16)		Pioneer Century Infocomm Pte Ltd
+				26 Sin Ming Lane #03-118 Midview City
+				Singapore  Singapore  573971
+				SG
+
+8C-1F-64   (hex)		Sörgel Elektronik
+96D000-96DFFF     (base 16)		Sörgel Elektronik
+				Oberer Garten 5
+				Kressbronn    88079
+				DE
+
+8C-1F-64   (hex)		Lucint Systems, Inc.
+E97000-E97FFF     (base 16)		Lucint Systems, Inc.
+				6635 N Baltimore AveSte 246
+				Portland  OR  97203
+				US
+
+8C-1F-64   (hex)		ATTE POWER
+4B7000-4B7FFF     (base 16)		ATTE POWER
+				Ul. Cegielskiego 2A
+				Myslenice  Małopolskie  32-400
+				PL
+
+8C-1F-64   (hex)		Harik Tech
+6BC000-6BCFFF     (base 16)		Harik Tech
+				Rte de la Plaine, 4
+				Chavannes-pres-Renens  Vaud  1022
+				CH
+
+8C-1F-64   (hex)		Pantherun Technologies Pvt Ltd
+4B6000-4B6FFF     (base 16)		Pantherun Technologies Pvt Ltd
+				311 6th main road Hal 2nd stage
+				Bangalore  Karnataka  560038
+				IN
