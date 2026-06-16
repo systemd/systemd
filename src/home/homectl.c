@@ -2998,7 +2998,8 @@ static int create_interactively(void) {
         (void) plymouth_hide_splash();
 
         _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *mute_console_link = NULL;
-        (void) mute_console(&mute_console_link);
+        if (arg_mute_console)
+                (void) mute_console(&mute_console_link);
 
         (void) terminal_reset_defensive_locked(STDOUT_FILENO, /* flags= */ 0);
 
