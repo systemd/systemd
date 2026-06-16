@@ -266,9 +266,8 @@ EOF
 testcase_multipath_basic_failover() {
     local dmpath i path wwid
 
-    . /etc/os-release
-    if [[ "${ID_LIKE:-}" == "alpine" ]]; then
-        echo "multipath on alpine/postmarketos is broken, skipping the test" | tee --append /skipped
+    if ! systemctl list-unit-files multipathd.service >/dev/null; then
+        echo "This test requires multipathd.service but it is not installed, skipping ..." | tee --append /skipped
         exit 77
     fi
 
