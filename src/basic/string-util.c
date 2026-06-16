@@ -1003,23 +1003,29 @@ char* strrep(const char *s, size_t n) {
 int split_pair(const char *s, const char *sep, char **ret_first, char **ret_second) {
         assert(s);
         assert(!isempty(sep));
-        assert(ret_first);
-        assert(ret_second);
 
         const char *x = strstr(s, sep);
         if (!x)
                 return -EINVAL;
 
-        _cleanup_free_ char *a = strndup(s, x - s);
-        if (!a)
-                return -ENOMEM;
+        _cleanup_free_ char *a = NULL;
+        if (ret_first) {
+                a = strndup(s, x - s);
+                if (!a)
+                        return -ENOMEM;
+        }
 
-        _cleanup_free_ char *b = strdup(x + strlen(sep));
-        if (!b)
-                return -ENOMEM;
+        _cleanup_free_ char *b = NULL;
+        if (ret_second) {
+                b = strdup(x + strlen(sep));
+                if (!b)
+                        return -ENOMEM;
+        }
 
-        *ret_first = TAKE_PTR(a);
-        *ret_second = TAKE_PTR(b);
+        if (ret_first)
+                *ret_first = TAKE_PTR(a);
+        if (ret_second)
+                *ret_second = TAKE_PTR(b);
         return 0;
 }
 
