@@ -122,7 +122,7 @@ if ! build; then
         exit 1
     fi
 
-    grep -v ".debug" /tmp/unpackaged-files >>"pkg/$PKG_SUBDIR${GIT_SUBDIR:+/$GIT_SUBDIR}/files.systemd"
+    grep -v "\.debug" /tmp/unpackaged-files >>"pkg/$PKG_SUBDIR${GIT_SUBDIR:+/$GIT_SUBDIR}/files.systemd"
     build --noprep --nocheck
 fi
 
