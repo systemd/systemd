@@ -11,6 +11,14 @@ if ! command -v systemd-firstboot >/dev/null; then
     exit 0
 fi
 
+restore_etc_hostname() {
+    if [[ -e /tmp/etc-hostname.bak ]]; then
+        mv /tmp/etc-hostname.bak /etc/hostname
+    elif [[ -e /tmp/etc-hostname.absent ]]; then
+        rm -f /etc/hostname /tmp/etc-hostname.absent
+    fi
+}
+
 at_exit() {
     if [[ -n "${ROOT:-}" ]]; then
         ls -lR "$ROOT"
@@ -21,6 +29,11 @@ at_exit() {
     if [[ -d /etc/otherpath ]]; then
         rm -rf /etc/otherpath
     fi
+
+    [[ -n "${WROOT:-}" ]] && rm -rf "$WROOT"
+    [[ -n "${WCREDS:-}" ]] && rm -rf "$WCREDS"
+    [[ -n "${WWORDS:-}" ]] && rm -rf "$WWORDS"
+    restore_etc_hostname
 
     restore_locale
 }
@@ -81,6 +94,57 @@ readlink "$ROOT/etc/localtime" | grep "Europe/Berlin" >/dev/null
 
 systemd-firstboot --root="$ROOT" --hostname "foobar"
 grep -q "foobar" "$ROOT/etc/hostname"
+
+# Hostname wildcard templates (see hostname(5)) must be accepted by both the --hostname option and the
+# firstboot.hostname credential (both go through hostname_is_valid() with the wildcard flags). Since these
+# invocations operate on an offline image (--root=), the template is written verbatim and only resolved
+# later, on the target's first boot (the resolve-and-freeze path is taken only when running on the live
+# system, where the machine ID is final).
+WROOT=test-root-hostname-wildcard
+
+# '$' word token via --hostname, stored as-is
+rm -rf "$WROOT"; mkdir -p "$WROOT"
+systemd-firstboot --root="$WROOT" --hostname='$-$'
+assert_eq "$(cat "$WROOT/etc/hostname")" '$-$'
+
+# '?' hex token via --hostname, stored as-is
+rm -rf "$WROOT"; mkdir -p "$WROOT"
+systemd-firstboot --root="$WROOT" --hostname='foo-????'
+assert_eq "$(cat "$WROOT/etc/hostname")" 'foo-????'
+
+# the firstboot.hostname credential is accepted and written verbatim too
+rm -rf "$WROOT"; mkdir -p "$WROOT"
+WCREDS="$(mktemp -d)"
+echo -n '$-$-????' >"$WCREDS/firstboot.hostname"
+CREDENTIALS_DIRECTORY="$WCREDS" systemd-firstboot --root="$WROOT"
+assert_eq "$(cat "$WROOT/etc/hostname")" '$-$-????'
+rm -rf "$WCREDS"
+
+# an invalid hostname (disallowed character) is refused and nothing is written
+rm -rf "$WROOT"; mkdir -p "$WROOT"
+(! systemd-firstboot --root="$WROOT" --hostname='foo_bar')
+[[ ! -e "$WROOT/etc/hostname" ]]
+
+rm -rf "$WROOT"
+
+# When run on the live system (no --root=) the machine ID is final, so the wildcards are resolved
+# immediately and the concrete result is persisted, "freezing" the generated name (see hostname(5)).
+if [[ -f /etc/hostname ]]; then
+    cp /etc/hostname /tmp/etc-hostname.bak
+else
+    touch /tmp/etc-hostname.absent
+fi
+WWORDS="$(mktemp -d)"
+printf 'wildly\nquietly\n' >"$WWORDS/1"
+printf 'happy\nsad\n'      >"$WWORDS/2"
+SYSTEMD_HOSTNAME_WORDLIST_PATH="$WWORDS" systemd-firstboot --force --hostname='$-$-????'
+H="$(cat /etc/hostname)"
+IFS='-' read -r w1 w2 suffix <<<"$H"
+grep -Fx -- "$w1" "$WWORDS/1" >/dev/null
+grep -Fx -- "$w2" "$WWORDS/2" >/dev/null
+[[ "$suffix" =~ ^[0-9a-f]{4}$ ]]
+rm -rf "$WWORDS"
+restore_etc_hostname
 
 systemd-firstboot --root="$ROOT" --machine-id=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 grep -q "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" "$ROOT/etc/machine-id"
