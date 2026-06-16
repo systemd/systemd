@@ -85,11 +85,13 @@ int manager_luo_restore_fd_stores(Manager *m) {
 
         struct {
                 uint64_t version;
+                sd_json_variant *state;
                 sd_json_variant *units;
         } q = {};
 
         static const sd_json_dispatch_field mapping_dispatch_table[] = {
                 { "version", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,        voffsetof(q, version), SD_JSON_MANDATORY },
+                { "state",   SD_JSON_VARIANT_OBJECT,        sd_json_dispatch_variant_noref, voffsetof(q, state),   0                 },
                 { "units",   SD_JSON_VARIANT_OBJECT,        sd_json_dispatch_variant_noref, voffsetof(q, units),   0                 },
                 {}
         };
@@ -102,6 +104,23 @@ int manager_luo_restore_fd_stores(Manager *m) {
                 log_warning("LUO mapping has unsupported version %" PRIu64 ", skipping state restoration.", q.version);
                 return 0;
         }
+
+        struct {
+                uint32_t kexecs_count;
+        } state_data = {};
+
+        static const sd_json_dispatch_field state_dispatch_table[] = {
+                { "kexecsCount", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint32, voffsetof(state_data, kexecs_count), 0 },
+                {}
+        };
+
+        r = sd_json_dispatch(q.state, state_dispatch_table, SD_JSON_ALLOW_EXTENSIONS|SD_JSON_LOG, &state_data);
+        if (r < 0)
+                return r;
+
+        /* If we find a valid LUO session then by definition we have just successfully kexec rebooted */
+        m->kexecs_count = state_data.kexecs_count;
+        (void) INC_SAFE(&m->kexecs_count, 1);
 
         /* Retrieve all fds from the session and dispatch each to the named unit, eagerly loading the
          * unit if necessary. */
@@ -294,6 +313,9 @@ int manager_luo_serialize_fd_stores(Manager *m, FILE **ret_f, FDSet **ret_fds) {
         r = sd_json_buildo(
                         &root,
                         SD_JSON_BUILD_PAIR_UNSIGNED("version", LUO_PROTOCOL_VERSION),
+                        SD_JSON_BUILD_PAIR("state",
+                                           SD_JSON_BUILD_OBJECT(
+                                                           SD_JSON_BUILD_PAIR_UNSIGNED("kexecsCount", m->kexecs_count))),
                         SD_JSON_BUILD_PAIR_CONDITION(!!units, "units", SD_JSON_BUILD_VARIANT(units)));
         if (r < 0)
                 return log_error_errno(r, "Failed to build LUO serialization JSON: %m");

@@ -337,9 +337,12 @@ int luo_preserve_fd_stores(sd_json_variant *serialization, int *ret_session_fd) 
         if (!sd_json_variant_is_unsigned(version))
                 return log_warning_errno(SYNTHETIC_ERRNO(EINVAL), "LUO serialization 'version' field is missing or not an unsigned integer");
 
+        sd_json_variant *state = sd_json_variant_by_key(serialization, "state");
+
         r = sd_json_buildo(
                         &mapping,
                         SD_JSON_BUILD_PAIR("version", SD_JSON_BUILD_VARIANT(version)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!state, "state", SD_JSON_BUILD_VARIANT(state)),
                         SD_JSON_BUILD_PAIR_CONDITION(!!units, "units", SD_JSON_BUILD_VARIANT(units)));
         if (r < 0)
                 return log_error_errno(r, "Failed to build LUO mapping: %m");

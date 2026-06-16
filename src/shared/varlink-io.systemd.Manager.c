@@ -189,6 +189,8 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(ExitCode, SD_VARLINK_INT, 0),
                 SD_VARLINK_FIELD_COMMENT("Encodes how many soft-reboots were successfully completed"),
                 SD_VARLINK_DEFINE_FIELD(SoftRebootsCount, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("Encodes how many consecutive kexec reboots were successfully completed since the last full boot. Zero if the Live Update Orchestrator is not available."),
+                SD_VARLINK_DEFINE_FIELD(KExecsCount, SD_VARLINK_INT, 0),
                 SD_VARLINK_FIELD_COMMENT("Number of successfully completed configuration reloads"),
                 SD_VARLINK_DEFINE_FIELD(ReloadCount, SD_VARLINK_INT, 0));
 
