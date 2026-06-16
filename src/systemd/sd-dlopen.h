@@ -57,6 +57,15 @@ extern "C" {
 #  define _SD_ELF_NOTE_DLOPEN_SECTION_FLAGS "aGR"
 #endif
 
+/* This guard tag ensures the assembler folds identical notes when compiling. Unfortunately hppa redefines
+ * '.equ' so it cannot be used. '.equiv' works on all arches, but it breaks with binutils 2.35 which is used
+ * on CentOS 9, so we need an ifdef here until the binutils baseline is updated, as above. */
+#if defined(__hppa__) || defined(__hppa64__)
+#  define _SD_ELF_NOTE_DLOPEN_GUARD ".set"
+#else
+#  define _SD_ELF_NOTE_DLOPEN_GUARD ".equ"
+#endif
+
 /* The json argument is a C string containing already backslash-escaped double quotes (i.e. the bytes
  * [{\"feature\"...), so that once it is pasted into the assembler's .asciz directive the assembler decodes
  * them back to plain quotes. The note is emitted into a COMDAT group keyed on the payload itself, which
@@ -68,7 +77,7 @@ extern "C" {
 #define _SD_ELF_NOTE_DLOPEN(json)                                                                                               \
         __asm__ (                                                                                                               \
                 ".ifndef \"sd_dlopen:" json "\"\n"                                                                              \
-                ".equ \"sd_dlopen:" json "\", 1\n" /* guard tag, avoid using 'set' as it breaks builds on alpha */              \
+                _SD_ELF_NOTE_DLOPEN_GUARD " \"sd_dlopen:" json "\", 1\n" /* guard tag, to fold identical notes */               \
                 ".pushsection .note.dlopen, \"" _SD_ELF_NOTE_DLOPEN_SECTION_FLAGS "\", %note, \"sd_dlopen:" json "\", comdat\n" \
                 ".balign 4\n"         /* notes require 4-byte alignment for the header and fields */                            \
                 ".long 884f - 883f\n" /* n_namesz: byte length of the vendor name (label 883->884) */                           \
