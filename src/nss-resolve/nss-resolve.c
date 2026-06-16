@@ -262,7 +262,7 @@ enum nss_status _nss_resolve_gethostbyname4_r(
         r = sd_json_dispatch(rparams, resolve_hostname_reply_dispatch_table, nss_json_dispatch_flags, &p);
         if (r < 0)
                 goto fail;
-        if (sd_json_variant_is_blank_object(p.addresses))
+        if (sd_json_variant_is_blank_array(p.addresses))
                 goto not_found;
 
         size_t n_addresses = 0;
@@ -283,6 +283,9 @@ enum nss_status _nss_resolve_gethostbyname4_r(
 
                 n_addresses++;
         }
+
+        if (n_addresses == 0)
+                goto not_found;
 
         const char *canonical = p.name ?: name;
         size_t l = strlen(canonical);
@@ -427,8 +430,8 @@ enum nss_status _nss_resolve_gethostbyname3_r(
         r = sd_json_dispatch(rparams, resolve_hostname_reply_dispatch_table, nss_json_dispatch_flags, &p);
         if (r < 0)
                 goto fail;
-        if (sd_json_variant_is_blank_object(p.addresses))
-                goto not_found;
+        if (sd_json_variant_is_blank_array(p.addresses))
+                goto no_data;
 
         size_t n_addresses = 0;
         JSON_VARIANT_ARRAY_FOREACH(entry, p.addresses) {
@@ -448,6 +451,9 @@ enum nss_status _nss_resolve_gethostbyname3_r(
 
                 n_addresses++;
         }
+
+        if (n_addresses == 0)
+                goto no_data;
 
         const char *canonical = p.name ?: name;
 
@@ -646,7 +652,7 @@ enum nss_status _nss_resolve_gethostbyaddr2_r(
         r = sd_json_dispatch(rparams, resolve_address_reply_dispatch_table, nss_json_dispatch_flags, &p);
         if (r < 0)
                 goto fail;
-        if (sd_json_variant_is_blank_object(p.names))
+        if (sd_json_variant_is_blank_array(p.names))
                 goto not_found;
 
         size_t ms = 0, idx;
