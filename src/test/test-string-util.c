@@ -1618,6 +1618,21 @@ TEST(string_is_safe) {
         ASSERT_FALSE(string_is_safe("/foo", STRING_FILENAME));
         ASSERT_FALSE(string_is_safe("foo/bar", STRING_FILENAME));
 
+        /* STRING_DISALLOW_WHITESPACE: rejects whitespace (space, tab, newline, carriage return). */
+        ASSERT_TRUE(string_is_safe("hello", STRING_DISALLOW_WHITESPACE));
+        ASSERT_TRUE(string_is_safe("foo-bar_baz", STRING_DISALLOW_WHITESPACE));
+        ASSERT_TRUE(string_is_safe("über", STRING_DISALLOW_WHITESPACE));     /* valid UTF-8 still allowed */
+        ASSERT_TRUE(string_is_safe("hello world", 0));                       /* space accepted by default */
+        ASSERT_FALSE(string_is_safe("hello world", STRING_DISALLOW_WHITESPACE)); /* but not with the flag */
+        ASSERT_FALSE(string_is_safe(" ", STRING_DISALLOW_WHITESPACE));
+        ASSERT_FALSE(string_is_safe("foo ", STRING_DISALLOW_WHITESPACE));
+        ASSERT_FALSE(string_is_safe(" foo", STRING_DISALLOW_WHITESPACE));
+        ASSERT_FALSE(string_is_safe("a\tb", STRING_DISALLOW_WHITESPACE));
+        ASSERT_FALSE(string_is_safe("a\rb", STRING_DISALLOW_WHITESPACE));
+        /* The flag overrides STRING_ALLOW_NEWLINES for the newline character, which is whitespace too. */
+        ASSERT_TRUE(string_is_safe("a\nb", STRING_ALLOW_NEWLINES));
+        ASSERT_FALSE(string_is_safe("a\nb", STRING_ALLOW_NEWLINES | STRING_DISALLOW_WHITESPACE));
+
         /* Pairwise combinations. */
         ASSERT_TRUE(string_is_safe("", STRING_ALLOW_EMPTY | STRING_ASCII));
         ASSERT_FALSE(string_is_safe("über", STRING_ALLOW_EMPTY | STRING_ASCII));
