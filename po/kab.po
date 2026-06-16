@@ -10,7 +10,7 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-05-30 00:13+0200\n"
-"PO-Revision-Date: 2026-06-11 08:01+0000\n"
+"PO-Revision-Date: 2026-06-16 18:13+0000\n"
 "Last-Translator: ButterflyOfFire "
 "<butterflyoffire@users.noreply.translate.fedoraproject.org>\n"
 "Language-Team: Kabyle <https://translate.fedoraproject.org/projects/systemd/"
@@ -904,7 +904,7 @@ msgstr ""
 #: src/network/org.freedesktop.network1.policy:66
 #: src/resolve/org.freedesktop.resolve1.policy:77
 msgid "Enable/disable LLMNR"
-msgstr ""
+msgstr "Sermed/Kkes armad i LLMNR"
 
 #: src/network/org.freedesktop.network1.policy:67
 #: src/resolve/org.freedesktop.resolve1.policy:78
@@ -1087,7 +1087,7 @@ msgstr ""
 
 #: src/resolve/org.freedesktop.resolve1.policy:165
 msgid "Dump cache"
-msgstr ""
+msgstr "Awway n ugbur seg tuffart"
 
 #: src/resolve/org.freedesktop.resolve1.policy:166
 msgid "Authentication is required to dump cache."
@@ -1103,7 +1103,7 @@ msgstr ""
 
 #: src/resolve/org.freedesktop.resolve1.policy:187
 msgid "Dump statistics"
-msgstr ""
+msgstr "Awway n tedaddanin"
 
 #: src/resolve/org.freedesktop.resolve1.policy:188
 msgid "Authentication is required to dump statistics."
@@ -1111,7 +1111,7 @@ msgstr ""
 
 #: src/resolve/org.freedesktop.resolve1.policy:198
 msgid "Reset statistics"
-msgstr ""
+msgstr "Wennez tidaddanin"
 
 #: src/resolve/org.freedesktop.resolve1.policy:199
 msgid "Authentication is required to reset statistics."
