@@ -280,6 +280,22 @@ mouse:usb:v056ep01a9:name:ELECOM ELECOM Bridge G1000 Mouse:*
 mouse:bluetooth:v056ep018a:name:ELECOM IST PRO Mouse:*
  ID_INPUT_TRACKBALL=1
 
+# Elecom HUGE Plus (via wired usb) (M-HT1MR)
+mouse:usb:v056ep01aa:name:HUGE PLUS HUGE PLUS:*
+ ID_INPUT_TRACKBALL=1
+ MOUSE_DPI=500 *1000 1500
+
+# Elecom HUGE Plus (via usb receiver) (M-HT1MR)
+mouse:usb:v056ep01ab:name:HUGE PLUS HUGE PLUS:*
+ ID_INPUT_TRACKBALL=1
+ MOUSE_DPI=500 *1000 1500
+
+# Elecom HUGE Plus (via Bluetooth) (M-HT1MR)
+mouse:bluetooth:v056ep01ac:name:HUGE PLUS:*
+ ID_INPUT_TRACKBALL=1
+ MOUSE_DPI=500 *1000 1500
+
+
 ##########################################
 # Fujitsu Siemens
 ##########################################
