@@ -282,7 +282,7 @@ ssize_t varlink_execute_directory(
         FOREACH_ARRAY(dp, dentries->entries, dentries->n_entries) {
                 struct dirent *de = *dp;
 
-                if (de->d_type != DT_SOCK)
+                if (!IN_SET(de->d_type, DT_SOCK, DT_LNK))
                         continue;
 
                 t++;
