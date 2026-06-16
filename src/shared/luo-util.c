@@ -5,6 +5,7 @@
 #include <linux/magic.h>
 #include <sys/ioctl.h>
 #include <sys/vfs.h>
+#include <unistd.h>
 
 #include "sd-json.h"
 
@@ -149,13 +150,23 @@ int luo_parse_serialization(sd_json_variant **ret, int **ret_fds, size_t *ret_n_
 
         /* Collect all fd numbers referenced in the JSON (plus the serialization fd itself)
          * so the caller can protect them from close_all_fds(). */
+        sd_json_variant *units = sd_json_variant_by_key(root, "units");
+        if (units && !sd_json_variant_is_object(units))
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL), "LUO serialization 'units' field is not an object, ignoring.");
+
         const char *unit_id _unused_;
-        sd_json_variant *unit_entries;
+        sd_json_variant *unit_json;
 
-        JSON_VARIANT_OBJECT_FOREACH(unit_id, unit_entries, root) {
-                sd_json_variant *entry;
+        JSON_VARIANT_OBJECT_FOREACH(unit_id, unit_json, units) {
+                sd_json_variant *entry, *fdstore;
 
-                JSON_VARIANT_ARRAY_FOREACH(entry, unit_entries) {
+                fdstore = sd_json_variant_by_key(unit_json, "fdstore");
+                if (fdstore && !sd_json_variant_is_array(fdstore)) {
+                        log_warning("LUO serialization 'fdstore' field is not an array, skipping.");
+                        continue;
+                }
+
+                JSON_VARIANT_ARRAY_FOREACH(entry, fdstore) {
                         struct {
                                 int fd;
                         } p = {
@@ -196,9 +207,9 @@ int luo_parse_serialization(sd_json_variant **ret, int **ret_fds, size_t *ret_n_
 
 int luo_preserve_fd_stores(sd_json_variant *serialization, int *ret_session_fd) {
         _cleanup_close_ int device_fd = -EBADF, session_fd = -EBADF;
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *mapping = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *mapping = NULL, *units = NULL;
         const char *unit_id;
-        sd_json_variant *entries;
+        sd_json_variant *unit_json;
         uint64_t token = LUO_MAPPING_INDEX + 1;
         int r;
 
@@ -222,17 +233,17 @@ int luo_preserve_fd_stores(sd_json_variant *serialization, int *ret_session_fd) 
                 return log_error_errno(session_fd, "Failed to create LUO session '%s': %m", LUO_SESSION_NAME);
 
         /* Build the mapping JSON for the new kernel's PID 1 and preserve each fd.
-         * JSON format:   { "unit_id": [ {"type": "fd", "name": "...", "token": N},
-         *                               {"type": "luo_session", "name": "...", "sessionName": "..."} ], ... }
+         * JSON format:   { "unit_id": { "fdstore": [ {"type": "fd", "name": "...", "token": N},
+         *                                            {"type": "luo_session", "name": "...", "sessionName": "..."} ] }, ... }
          *
          * For regular fds: type=fd, preserved in the systemd session with the given LUO token.
          * For LUO session fds: type=luo_session, the session survives kexec independently, as it cannot be
          * nested. */
-        JSON_VARIANT_OBJECT_FOREACH(unit_id, entries, serialization) {
+        JSON_VARIANT_OBJECT_FOREACH(unit_id, unit_json, sd_json_variant_by_key(serialization, "units")) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *fd_list = NULL;
                 sd_json_variant *entry;
 
-                JSON_VARIANT_ARRAY_FOREACH(entry, entries) {
+                JSON_VARIANT_ARRAY_FOREACH(entry, sd_json_variant_by_key(unit_json, "fdstore")) {
                         struct {
                                 const char *type;
                                 const char *name;
@@ -298,17 +309,28 @@ int luo_preserve_fd_stores(sd_json_variant *serialization, int *ret_session_fd) 
                 }
 
                 if (fd_list) {
-                        r = sd_json_variant_set_field(&mapping, unit_id, fd_list);
+                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *unit_entry = NULL;
+
+                        r = sd_json_buildo(
+                                        &unit_entry,
+                                        SD_JSON_BUILD_PAIR_VARIANT("fdstore", fd_list));
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to build LUO unit object: %m");
+
+                        r = sd_json_variant_set_field(&units, unit_id, unit_entry);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to add unit to LUO mapping: %m");
                 }
         }
 
-        if (!mapping) {
-                log_debug("No fds were preserved in LUO session.");
-                *ret_session_fd = -EBADF;
-                return 0;
-        }
+        sd_json_variant *version = sd_json_variant_by_key(serialization, "version");
+
+        r = sd_json_buildo(
+                        &mapping,
+                        SD_JSON_BUILD_PAIR_CONDITION(!!version, "version", SD_JSON_BUILD_VARIANT(version)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!units, "units", SD_JSON_BUILD_VARIANT(units)));
+        if (r < 0)
+                return log_error_errno(r, "Failed to build LUO mapping: %m");
 
         /* Store the mapping as a memfd at LUO token 0 */
         _cleanup_free_ char *mapping_text = NULL;

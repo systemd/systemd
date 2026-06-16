@@ -53,7 +53,7 @@ int manager_luo_restore_fd_stores(Manager *m) {
         _cleanup_close_ int device_fd = -EBADF;
         _cleanup_(luo_session_finishp) int session_fd = -EBADF;
         const char *unit_id;
-        sd_json_variant *fds_json;
+        sd_json_variant *unit_json;
         int r, n_total = 0;
 
         assert(m);
@@ -83,18 +83,41 @@ int manager_luo_restore_fd_stores(Manager *m) {
         if (r < 0)
                 return r;
 
+        struct {
+                uint64_t version;
+                sd_json_variant *state;
+                sd_json_variant *units;
+        } mapping_data = {};
+
+        static const sd_json_dispatch_field mapping_dispatch_table[] = {
+                { "version", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,        voffsetof(mapping_data, version), SD_JSON_MANDATORY },
+                { "state",   SD_JSON_VARIANT_OBJECT,        sd_json_dispatch_variant_noref, voffsetof(mapping_data, state),   0                 },
+                { "units",   SD_JSON_VARIANT_OBJECT,        sd_json_dispatch_variant_noref, voffsetof(mapping_data, units),   0                 },
+                {}
+        };
+
+        r = sd_json_dispatch(mapping, mapping_dispatch_table, SD_JSON_ALLOW_EXTENSIONS|SD_JSON_LOG, &mapping_data);
+        if (r < 0)
+                return r;
+
+        if (mapping_data.version != LUO_PROTOCOL_VERSION) {
+                log_warning("LUO mapping has unsupported version %" PRIu64 ", skipping state restoration.", mapping_data.version);
+                return 0;
+        }
+
         /* Retrieve all fds from the session and dispatch each to the named unit, eagerly loading the
          * unit if necessary. */
-        JSON_VARIANT_OBJECT_FOREACH(unit_id, fds_json, mapping) {
-                sd_json_variant *entry;
+        JSON_VARIANT_OBJECT_FOREACH(unit_id, unit_json, mapping_data.units) {
+                sd_json_variant *entry, *fds_json;
 
                 if (!unit_name_is_valid(unit_id, UNIT_NAME_ANY)) {
                         log_warning("Invalid unit name '%s' in LUO mapping, skipping.", unit_id);
                         continue;
                 }
 
+                fds_json = sd_json_variant_by_key(unit_json, "fdstore");
                 if (!sd_json_variant_is_array(fds_json)) {
-                        log_warning("LUO mapping for unit '%s' is not a JSON array, skipping.", unit_id);
+                        log_warning("LUO mapping fdstore for unit '%s' is not a JSON array, skipping.", unit_id);
                         continue;
                 }
 
@@ -172,7 +195,7 @@ int manager_luo_restore_fd_stores(Manager *m) {
 }
 
 int manager_luo_serialize_fd_stores(Manager *m, FILE **ret_f, FDSet **ret_fds) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *root = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *root = NULL, *units = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_fdset_free_ FDSet *fds = NULL;
         Unit *u;
@@ -192,8 +215,9 @@ int manager_luo_serialize_fd_stores(Manager *m, FILE **ret_f, FDSet **ret_fds) {
         if (!fds)
                 return log_oom();
 
-        /* Build a JSON object: { "unit_id": [ { "type": "fd", "name": "...", "fd": N },
-         *                                     { "type": "luo_session", "name": "...", "fd": N, "sessionName": "..." } ], ... }
+        /* Build a JSON object: { "version": 1,
+         *                        "units": { "unit_id": { "fdstore": [ { "type": "fd", "name": "...", "fd": N },
+         *                                                             { "type": "luo_session", "name": "...", "fd": N, "sessionName": "..." } ] }, ... } }
          * This is passed to systemd-shutdown which will create a LUO session and preserve the fds. */
         HASHMAP_FOREACH(u, m->units) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *entries = NULL;
@@ -247,7 +271,17 @@ int manager_luo_serialize_fd_stores(Manager *m, FILE **ret_f, FDSet **ret_fds) {
                         n_serialized++;
                 }
 
-                r = sd_json_variant_set_field(&root, u->id, entries);
+                if (!entries)
+                        continue;
+
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *unit_json = NULL;
+                r = sd_json_buildo(
+                                &unit_json,
+                                SD_JSON_BUILD_PAIR_VARIANT("fdstore", entries));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to build LUO unit object: %m");
+
+                r = sd_json_variant_set_field(&units, u->id, unit_json);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add unit to LUO serialization JSON: %m");
         }
@@ -258,6 +292,13 @@ int manager_luo_serialize_fd_stores(Manager *m, FILE **ret_f, FDSet **ret_fds) {
                 *ret_fds = NULL;
                 return 0;
         }
+
+        r = sd_json_buildo(
+                        &root,
+                        SD_JSON_BUILD_PAIR_UNSIGNED("version", LUO_PROTOCOL_VERSION),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!units, "units", SD_JSON_BUILD_VARIANT(units)));
+        if (r < 0)
+                return log_error_errno(r, "Failed to build LUO serialization JSON: %m");
 
         r = open_serialization_file("luo-fd-store", &f);
         if (r < 0)
