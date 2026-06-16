@@ -16,6 +16,7 @@
 #include "journalctl.h"
 #include "journalctl-authenticate.h"
 #include "journalctl-catalog.h"
+#include "journalctl-metrics.h"
 #include "journalctl-misc.h"
 #include "journalctl-show.h"
 #include "journalctl-varlink.h"
@@ -40,6 +41,7 @@
 #include "syslog-util.h"
 #include "time-util.h"
 #include "varlink-io.systemd.JournalAccess.h"
+#include "varlink-io.systemd.Metrics.h"
 #include "varlink-util.h"
 
 #define DEFAULT_FSS_INTERVAL_USEC (15*USEC_PER_MINUTE)
@@ -277,13 +279,20 @@ static int vl_server(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate Varlink server: %m");
 
-        r = sd_varlink_server_add_interface(varlink_server, &vl_interface_io_systemd_JournalAccess);
+        r = sd_varlink_server_add_interface_many(
+                        varlink_server,
+                        &vl_interface_io_systemd_JournalAccess,
+                        &vl_interface_io_systemd_Metrics);
         if (r < 0)
-                return log_error_errno(r, "Failed to add Varlink interface: %m");
+                return log_error_errno(r, "Failed to add Varlink interfaces: %m");
 
-        r = sd_varlink_server_bind_method(varlink_server, "io.systemd.JournalAccess.GetEntries", vl_method_get_entries);
+        r = sd_varlink_server_bind_method_many(
+                        varlink_server,
+                        "io.systemd.JournalAccess.GetEntries", vl_method_get_entries,
+                        "io.systemd.Metrics.List",             vl_method_list_metrics,
+                        "io.systemd.Metrics.Describe",         vl_method_describe_metrics);
         if (r < 0)
-                return log_error_errno(r, "Failed to bind Varlink method: %m");
+                return log_error_errno(r, "Failed to bind Varlink methods: %m");
 
         r = sd_varlink_server_loop_auto(varlink_server);
         if (r < 0)
