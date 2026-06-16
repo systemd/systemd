@@ -412,10 +412,11 @@ static int vl_on_reply(sd_varlink *link, sd_json_variant *parameters, const char
 int mute_console(sd_varlink **ret_link) {
         int r;
 
-        assert(ret_link);
-
         /* Talks to the MuteConsole service, and asks for output to the console to be muted, as long as the
          * connection is retained */
+
+        if (!ret_link)
+                return 0;
 
         _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *link = NULL;
         r = sd_varlink_connect_address(&link, "/run/systemd/io.systemd.MuteConsole");
