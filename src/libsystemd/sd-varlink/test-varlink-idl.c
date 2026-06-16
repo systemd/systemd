@@ -21,6 +21,7 @@
 #include "varlink-io.systemd.AskPassword.h"
 #include "varlink-io.systemd.BootControl.h"
 #include "varlink-io.systemd.Credentials.h"
+#include "varlink-io.systemd.CryptEnroll.h"
 #include "varlink-io.systemd.FactoryReset.h"
 #include "varlink-io.systemd.Hostname.h"
 #include "varlink-io.systemd.Import.h"
@@ -194,6 +195,7 @@ TEST(parse_format) {
                 &vl_interface_io_systemd_AskPassword,
                 &vl_interface_io_systemd_BootControl,
                 &vl_interface_io_systemd_Credentials,
+                &vl_interface_io_systemd_CryptEnroll,
                 &vl_interface_io_systemd_FactoryReset,
                 &vl_interface_io_systemd_Hostname,
                 &vl_interface_io_systemd_Import,

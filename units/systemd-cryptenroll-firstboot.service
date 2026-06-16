@@ -1,0 +1,41 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+# Runs from the initrd: once systemd-repart has created/grown the partitions
+# (including any encrypted ones) on first boot, but before we transition into
+# the host, give the user a chance to interactively enroll a disk encryption
+# credential.
+
+[Unit]
+Description=Interactive Disk Encryption Setup
+Documentation=man:systemd-cryptenroll(1)
+
+ConditionPathExists=/etc/initrd-release
+
+# We want a first boot check, but in the initrd that's not a defined
+# state. Hence let's look into the mounted image directly for the primary
+# indicator for the first boot state
+ConditionFileNotEmpty=!/sysroot/etc/machine-id
+ConditionPathIsEncrypted=/sysroot/
+
+DefaultDependencies=no
+After=systemd-repart.service systemd-vconsole-setup.service systemd-mute-console.socket initrd-fs.target
+Conflicts=shutdown.target initrd-switch-root.target
+Before=shutdown.target initrd-switch-root.target initrd.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# Ignore failures: there might not be an encrypted volume to enroll into, or the
+# user might decline, neither of which should hold up the boot.
+ExecStart=-systemd-cryptenroll --firstboot --prompt-suppress=password,recovery,fido2 --unlock-headless --mute-console=yes
+StandardOutput=tty
+StandardInput=tty
+StandardError=tty
+TTYReset=yes
