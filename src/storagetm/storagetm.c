@@ -271,6 +271,8 @@ static int nvme_subsystem_write_metadata(int subsystem_fd, sd_device *device) {
         }
         if (w) {
                 _cleanup_free_ char *truncated = strndup(w, 40); /* kernel refuses more than 40 chars (as per nvme spec) */
+                if (!truncated)
+                        return log_oom();
 
                 /* The default string stored in 'attr_model' is "Linux" btw. */
                 r = write_string_file_at(subsystem_fd, "attr_model", truncated, WRITE_STRING_FILE_DISABLE_BUFFER);
