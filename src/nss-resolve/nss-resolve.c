@@ -648,7 +648,7 @@ enum nss_status _nss_resolve_gethostbyaddr2_r(
         r = sd_json_dispatch(rparams, resolve_address_reply_dispatch_table, nss_json_dispatch_flags, &p);
         if (r < 0)
                 goto fail;
-        if (sd_json_variant_is_blank_object(p.names))
+        if (sd_json_variant_is_blank_array(p.names))
                 goto not_found;
 
         size_t ms = 0, idx;
