@@ -444,7 +444,9 @@ static int bpf_firewall_prepare_access_maps(
                         *reduced = true;
                 }
 
-                bpf_firewall_count_access_items(prefixes, &n_ipv4, &n_ipv6);
+                r = bpf_firewall_count_access_items(prefixes, &n_ipv4, &n_ipv6);
+                if (r < 0)
+                        return r;
 
                 /* Skip making the LPM trie map in cases where we are using "any" in order to hack around
                  * needing CAP_SYS_ADMIN for allocating LPM trie map. */

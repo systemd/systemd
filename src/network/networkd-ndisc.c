@@ -2242,8 +2242,8 @@ static int sd_dns_resolver_copy(const sd_dns_resolver *a, sd_dns_resolver *b) {
 
         /* addrs, n_addrs */
         c.addrs = newdup(union in_addr_union, a->addrs, a->n_addrs);
-        if (!c.addrs)
-                return r;
+        if (!c.addrs && a->n_addrs > 0)
+                return -ENOMEM;
         c.n_addrs = a->n_addrs;
 
         /* dohpath */
