@@ -45,6 +45,11 @@ executables += [
                 'objects' : ['systemd-sysupdate'],
                 'conditions' : ['ENABLE_SYSUPDATED'],
         },
+        test_template + {
+                'sources' : files('test-sysupdate-util.c'),
+                'objects' : ['systemd-sysupdate'],
+                'conditions' : ['ENABLE_SYSUPDATE'],
+        },
 ]
 
 if conf.get('ENABLE_SYSUPDATED') == 1
