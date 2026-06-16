@@ -189,8 +189,11 @@
         purposes, for example to identify the role a machine plays in a deployment, the fleet or
         organizational unit it belongs to, or any other administrator-defined attribute. Each individual tag
         must be 1…255 characters long and consist only of ASCII alphanumeric characters,
-        <literal>-</literal> and <literal>.</literal>. The tags are stored in the <varname>TAGS=</varname>
-        field of <filename>/etc/machine-info</filename>; see
+        <literal>-</literal>, <literal>.</literal> and <literal>=</literal>. A tag may optionally be
+        parameterized with a value, in the form
+        <literal><replaceable>key</replaceable>=<replaceable>value</replaceable></literal>, in which case the
+        same key may not be assigned more than one distinct value. The tags are stored in the
+        <varname>TAGS=</varname> field of <filename>/etc/machine-info</filename>; see
         <citerefentry><refentrytitle>machine-info</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
         details. They may also be matched against with the
         <varname>ConditionMachineTag=</varname>/<varname>AssertMachineTag=</varname> unit settings, see
