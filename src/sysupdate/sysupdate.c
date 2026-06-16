@@ -1711,34 +1711,12 @@ static int verb_pending_or_reboot(int argc, char *argv[], uintptr_t _data, void 
         return EXIT_SUCCESS;
 }
 
-static int component_name_valid(const char *c) {
-        _cleanup_free_ char *j = NULL;
-
-        /* See if the specified string enclosed in the directory prefix+suffix would be a valid file name */
-
-        if (isempty(c))
-                return false;
-
-        if (string_has_cc(c, NULL))
-                return false;
-
-        if (!utf8_is_valid(c))
-                return false;
-
-        j = strjoin("sysupdate.", c, ".d");
-        if (!j)
-                return -ENOMEM;
-
-        return filename_is_valid(j);
-}
-
 VERB_NOARG(verb_components, "components",
            "Show list of components");
 static int verb_components(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(context_freep) Context* context = NULL;
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
-        _cleanup_set_free_ Set *names = NULL;
         bool has_default_component = false;
         int r;
 
@@ -1752,46 +1730,10 @@ static int verb_components(int argc, char *argv[], uintptr_t _data, void *userda
         if (r < 0)
                 return r;
 
-        ConfFile **directories = NULL;
-        size_t n_directories = 0;
-
-        CLEANUP_ARRAY(directories, n_directories, conf_file_free_array);
-
-        r = conf_files_list_strv_full(".d", arg_root, CONF_FILES_DIRECTORY|CONF_FILES_WARN,
-                                      (const char * const *) CONF_PATHS_STRV(""), &directories, &n_directories);
+        _cleanup_strv_free_ char **z = NULL;
+        r = get_component_list(arg_root, &z);
         if (r < 0)
-                return log_error_errno(r, "Failed to enumerate directories: %m");
-
-        FOREACH_ARRAY(i, directories, n_directories) {
-                ConfFile *e = *i;
-
-                if (streq(e->filename, "sysupdate.d")) {
-                        continue;
-                }
-
-                const char *s = startswith(e->filename, "sysupdate.");
-                if (!s)
-                        continue;
-
-                const char *a = endswith(s, ".d");
-                if (!a)
-                        continue;
-
-                _cleanup_free_ char *n = strndup(s, a - s);
-                if (!n)
-                        return log_oom();
-
-                r = component_name_valid(n);
-                if (r < 0)
-                        return log_error_errno(r, "Unable to validate component name '%s': %m", n);
-                if (r == 0)
-                        continue;
-
-                r = set_ensure_put(&names, &string_hash_ops_free, n);
-                if (r < 0 && r != -EEXIST)
-                        return log_error_errno(r, "Failed to add component '%s' to set: %m", n);
-                TAKE_PTR(n);
-        }
+                return log_error_errno(r, "Failed to enumerate components: %m");
 
         /* Does the system have at least one transfer file in /etc/sysupdate.d, which can be considered a
          * TARGET_HOST? See target_get_argument() in sysupdated.c */
@@ -1801,15 +1743,8 @@ static int verb_components(int argc, char *argv[], uintptr_t _data, void *userda
                                  !arg_image &&
                                  context->n_transfers > 0);
 
-        /* We use simple free() rather than strv_free() here, since set_free() will free the strings for us */
-        _cleanup_free_ char **z = set_get_strv(names);
-        if (!z)
-                return log_oom();
-
-        strv_sort(z);
-
         if (!sd_json_format_enabled(arg_json_format_flags)) {
-                if (!has_default_component && set_isempty(names)) {
+                if (!has_default_component && strv_isempty(z)) {
                         log_info("No components defined.");
                         return 0;
                 }
@@ -1912,10 +1847,7 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                                 break;
                         }
 
-                        r = component_name_valid(opts.arg);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to determine if component name is valid: %m");
-                        if (r == 0)
+                        if (!component_name_valid(opts.arg))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Component name invalid: %s", opts.arg);
 
                         r = free_and_strdup_warn(&arg_component, opts.arg);
