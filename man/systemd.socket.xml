@@ -676,6 +676,40 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>XAttrEntryPoint=</varname></term>
+        <term><varname>XAttrListen=</varname></term>
+        <term><varname>XAttrAccept=</varname></term>
+        <listitem><para>Set an extended attribute on the socket, in the form
+        <literal><replaceable>NAME</replaceable>=<replaceable>VALUE</replaceable></literal>. The extended
+        attribute's name must be in the <literal>user.</literal> namespace, i.e. begin with the four
+        characters <literal>user.</literal>. Specifiers are expanded in both the name and the value, see
+        <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+        details on the available specifiers. These settings may be used more than once to set multiple
+        extended attributes; assigning the empty string resets the list.</para>
+
+        <para>The three variables control where the extended attributes are applied:
+        <varname>XAttrEntryPoint=</varname> sets them on the file-system inode an
+        <constant>AF_UNIX</constant> socket is bound to (i.e. the socket node visible in the file system at
+        the specified listening path; this only applies to <constant>AF_UNIX</constant> sockets),
+        <varname>XAttrListen=</varname> sets them on the listening socket, and
+        <varname>XAttrAccept=</varname> sets them on the connection sockets accepted off the listening socket
+        (and is thus only relevant in combination with
+        <varname>Accept=</varname><literal>yes</literal>).</para>
+
+        <para>This is primarily useful to tag sockets so that they can be discovered and classified by other
+        tools. For example, Varlink entrypoint sockets are supposed to be tagged with
+        <literal>user.varlink=entrypoint</literal> via <varname>XAttrEntryPoint=</varname>, which makes them
+        discoverable via <command>varlinkctl list-sockets</command>, see
+        <citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+
+        <para>These settings require kernel support for extended attributes on socket inodes (available since
+        Linux 7.0). Extended attributes that cannot be applied are logged at debug level and otherwise
+        ignored.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>SELinuxContextFromNet=</varname></term>
          <listitem><para>Takes a boolean argument. When true, systemd
          will attempt to figure out the SELinux label used for the
