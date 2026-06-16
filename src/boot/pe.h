@@ -57,8 +57,17 @@ EFI_STATUS pe_memory_locate_sections(
                 const char *const section_names[],
                 PeSectionVector sections[]);
 
-EFI_STATUS pe_kernel_info(const void *base, uint32_t *ret_entry_point, uint32_t *ret_compat_entry_point, size_t *ret_size_in_memory);
+EFI_STATUS pe_kernel_info(
+                const void *base,
+                uint32_t *ret_entry_point,
+                uint32_t *ret_compat_entry_point,
+                size_t *ret_size_in_memory,
+                size_t *ret_headers_size);
 
-EFI_STATUS pe_kernel_check_no_relocation(const void *base);
+EFI_STATUS pe_kernel_apply_relocations(
+                const void *file_base,
+                uint8_t *loaded_base,
+                size_t loaded_size,
+                uint64_t actual_base);
 
 bool pe_kernel_check_nx_compat(const void *base);
