@@ -159,6 +159,8 @@ bool tpm2_test_parms(Tpm2Context *c, TPMI_ALG_PUBLIC alg, const TPMU_PUBLIC_PARM
 int tpm2_get_good_pcr_banks(Tpm2Context *c, uint32_t pcr_mask, TPMI_ALG_HASH **ret_banks);
 int tpm2_get_good_pcr_banks_strv(Tpm2Context *c, uint32_t pcr_mask, char ***ret);
 int tpm2_get_best_pcr_bank(Tpm2Context *c, uint32_t pcr_mask, TPMI_ALG_HASH *ret);
+/* Like tpm2_get_best_pcr_bank(), but restricted to SHA256/SHA1 for re-deriving the bank of legacy enrollments */
+int tpm2_get_best_pcr_bank_legacy(Tpm2Context *c, uint32_t pcr_mask, TPMI_ALG_HASH *ret);
 
 const char* tpm2_userspace_log_path(void);
 const char* tpm2_firmware_log_path(void);
@@ -481,6 +483,12 @@ int tpm2_parse_luks2_json(sd_json_variant *v, int *ret_keyslot, uint32_t *ret_ha
 #ifndef TPM2_ALG_RSA
 #define TPM2_ALG_RSA 0x1
 #endif
+
+/* Picks the most preferred PCR bank (SHA256 > SHA384 > SHA512 > SHA1) out of the firmware-reported active
+ * banks bitmask. Defined unconditionally (no TPM2 libraries required) so it can be unit tested. */
+int tpm2_pcr_bank_from_efi_active(uint32_t active_banks, uint16_t *ret);
+/* Like tpm2_pcr_bank_from_efi_active(), but restricted to SHA256/SHA1, for re-deriving the bank of legacy enrollments */
+int tpm2_pcr_bank_from_efi_active_legacy(uint32_t active_banks, uint16_t *ret);
 
 int tpm2_hash_alg_to_size(uint16_t alg);
 
