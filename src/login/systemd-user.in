@@ -8,6 +8,8 @@
 {% endif %}
 account  required   pam_unix.so no_pass_expiry
 
+auth     required   pam_deny.so
+
 {% if HAVE_SELINUX %}
 session  required   pam_selinux.so close
 session  required   pam_selinux.so nottys open
