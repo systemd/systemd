@@ -716,7 +716,7 @@ int unit_name_mangle_with_suffix(
                 char **ret) {
 
         _cleanup_free_ char *s = NULL;
-        bool mangled, suggest_escape = true, warn = flags & UNIT_NAME_MANGLE_WARN;
+        bool mangled, suggest_escape = true, warn = FLAGS_SET(flags, UNIT_NAME_MANGLE_WARN);
         int r;
 
         assert(name);
@@ -735,7 +735,7 @@ int unit_name_mangle_with_suffix(
 
         /* Already a fully valid globbing expression? If so, no mangling is necessary either... */
         if (string_is_glob(name) && in_charset(name, VALID_CHARS_GLOB)) {
-                if (flags & UNIT_NAME_MANGLE_GLOB)
+                if (FLAGS_SET(flags, UNIT_NAME_MANGLE_GLOB))
                         goto good;
                 log_full(warn ? LOG_NOTICE : LOG_DEBUG,
                          "Glob pattern passed%s%s, but globs are not supported for this.",
@@ -769,7 +769,7 @@ int unit_name_mangle_with_suffix(
         if (!s)
                 return -ENOMEM;
 
-        mangled = do_escape_mangle(name, flags & UNIT_NAME_MANGLE_GLOB, s);
+        mangled = do_escape_mangle(name, FLAGS_SET(flags, UNIT_NAME_MANGLE_GLOB), s);
         if (mangled)
                 log_full(warn ? LOG_NOTICE : LOG_DEBUG,
                          "Invalid unit name \"%s\" escaped as \"%s\"%s.",
@@ -778,7 +778,7 @@ int unit_name_mangle_with_suffix(
 
         /* Append a suffix if it doesn't have any, but only if this is not a glob, so that we can allow
          * "foo.*" as a valid glob. */
-        if ((!(flags & UNIT_NAME_MANGLE_GLOB) || !string_is_glob(s)) && unit_name_to_type(s) < 0)
+        if ((!FLAGS_SET(flags, UNIT_NAME_MANGLE_GLOB) || !string_is_glob(s)) && unit_name_to_type(s) < 0)
                 strcat(s, suffix);
 
         /* Make sure mangling didn't grow this too large (but don't do this check if globbing is allowed,
