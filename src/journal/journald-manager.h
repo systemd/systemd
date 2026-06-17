@@ -81,6 +81,9 @@ typedef struct Manager {
         bool sent_notify_ready;
         bool sync_scheduled;
 
+        /* Whether the current journal is entirely in memory (no file in /run/) */
+        bool runtime_journal_memfd;
+
         unsigned n_forward_syslog_missed;
         usec_t last_warn_forward_syslog_missed;
 

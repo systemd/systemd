@@ -61,6 +61,7 @@ typedef struct JournalFile {
         bool close_fd:1;
         bool archive:1;
         bool strict_order:1;
+        bool allow_unlinked:1;
 
         direction_t last_direction;
         LocationType location_type;
@@ -127,7 +128,8 @@ typedef enum JournalFileFlags {
         JOURNAL_COMPRESS        = 1 << 0,
         JOURNAL_SEAL            = 1 << 1,
         JOURNAL_STRICT_ORDER    = 1 << 2,
-        _JOURNAL_FILE_FLAGS_ALL = JOURNAL_COMPRESS|JOURNAL_SEAL|JOURNAL_STRICT_ORDER,
+        JOURNAL_ALLOW_UNLINKED  = 1 << 3,
+        _JOURNAL_FILE_FLAGS_ALL = JOURNAL_COMPRESS|JOURNAL_SEAL|JOURNAL_STRICT_ORDER|JOURNAL_ALLOW_UNLINKED,
 } JournalFileFlags;
 
 typedef struct {
