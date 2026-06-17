@@ -380,7 +380,8 @@ int find_suitable_hibernation_device_full(HibernationDevice *ret_device, uint64_
 
                 if (!entry ||
                     swap->priority > entry->priority ||
-                    swap->size - swap->used > entry->size - entry->used)
+                    (swap->priority == entry->priority &&
+                     swap->size - swap->used > entry->size - entry->used))
                         entry = swap;
         }
 
