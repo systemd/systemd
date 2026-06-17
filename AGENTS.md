@@ -3,6 +3,10 @@
 This file provides guidance to AI coding agents when working with code in this repository. Only add
 instructions to this file if you've seen an AI agent mess up that particular bit of logic in practice.
 
+## Legal
+
+ - Only human beings can ever be credited within commit messages.
+
 ## Key Documentation
 
 Always consult these files as needed:
@@ -35,9 +39,3 @@ display. This is critical for diagnosing build and test failures.
 ## Pull Request Review Instructions
 
 - Always check out the PR in a git worktree in `worktrees/`, review it locally and remove the worktree when finished.
-
-## AI Contribution Disclosure
-
-Per project policy: if you use AI code generation tools, you **must disclose** this in commit messages
-by adding e.g. `Co-developed-by: Claude Opus 4.6 <noreply@anthropic.com>`.
-All AI-generated output requires thorough human review before submission.
