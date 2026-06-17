@@ -3100,6 +3100,14 @@ static int generic_array_bisect(
                 uint64_t left, right, k, m, m_original;
 
                 r = journal_file_move_to_object(f, OBJECT_ENTRY_ARRAY, a, &array);
+                if (IN_SET(r, -EBADMSG, -EADDRNOTAVAIL)) {
+                        /* This array object lies in a region that never made it to disk (e.g. a journal
+                         * whose header outran its data after an unclean shutdown), so we can read neither it
+                         * nor anything after it in the chain. Treat the chain as ending at the previous
+                         * array, as generic_array_get() does too. */
+                        r = TEST_GOTO_PREVIOUS;
+                        goto previous;
+                }
                 if (r < 0)
                         return r;
 
