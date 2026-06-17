@@ -97,6 +97,7 @@ build() {
         $( ((MESON_VERBOSE)) || echo "--undefine=__meson_verbose") \
         --define "meson_extra_configure_options $MKOSI_MESON_OPTIONS $MESON_OPTIONS" \
         --define "__os_install_post /usr/lib/rpm/brp-suse %{nil}" \
+        --define "ext_man %{nil}" \
         --define "__elf_exclude_path ^/usr/lib/systemd/tests/unit-tests/.*$" \
         --define "__script_requires %{nil}" \
         --define "_find_debuginfo_dwz_opts %{nil}" \
