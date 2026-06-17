@@ -108,7 +108,9 @@
         <term><option>--slice=</option></term>
 
         <listitem><para>Make the new <filename>.service</filename> unit part of the specified slice, instead
-        of <filename>user.slice</filename>.</para>
+        of <filename>user.slice</filename>. This option conflicts with <option>--lightweight</option> and
+        <option>--area</option>, and implies XDG_SESSION_CLASS=none, to keep the new process within the
+        specified slice instead of a new session slice.</para>
 
         <xi:include href="version-info.xml" xpointer="v256"/>
         </listitem>
@@ -120,7 +122,9 @@
         <listitem><para>Make the new <filename>.service</filename> unit part of the slice the
         <command>run0</command> itself has been invoked in. This option may be combined with
         <option>--slice=</option>, in which case the slice specified via <option>--slice=</option> is placed
-        within the slice the <command>run0</command> command is invoked in.</para>
+        within the slice the <command>run0</command> command is invoked in. Also conflicts with
+        <option>--lightweight</option> and <option>--area</option> and implies XDG_SESSION_CLASS=none,
+        similar to <option>--slice</option>.</para>
 
         <para>Example: consider <command>run0</command> being invoked in the slice
         <filename>foo.slice</filename>, and the <option>--slice=</option> argument is
