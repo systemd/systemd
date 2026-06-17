@@ -2068,6 +2068,10 @@ static int oci_version_parse(const char *s, unsigned *ret_major, unsigned *ret_m
         unsigned a, b, c;
         int r;
 
+        assert(ret_major);
+        assert(ret_minor);
+        assert(ret_patch);
+
         r = extract_first_word(&p, &major, ".", EXTRACT_DONT_COALESCE_SEPARATORS);
         if (r <= 0)
                 return -EINVAL;
