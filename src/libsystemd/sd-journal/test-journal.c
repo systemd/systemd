@@ -337,6 +337,71 @@ TEST(recover_truncated_linear) {
         test_recover_truncated_linear_one();
 }
 
+static void test_recover_truncated_indexed_one(void) {
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        dual_timestamp ts;
+        JournalFile *f;
+        Object *o, *d;
+        uint64_t last_array;
+        static const char field[] = "FOO=bar";
+        char t[] = "/var/tmp/journal-XXXXXX";
+
+        /* The same vague idea as above with the truncation, but this time it's the bisection case since the
+         * per-data entry array is missing. */
+
+        ASSERT_NOT_NULL(m = mmap_cache_new());
+        mkdtemp_chdir_chattr(t);
+
+        ASSERT_OK_ZERO(journal_file_open(-EBADF, "test.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS, 0666, UINT64_MAX, NULL, m, NULL, &f));
+        dual_timestamp_now(&ts);
+
+        for (unsigned i = 0; i < 200; i++) {
+                struct iovec iovec = IOVEC_MAKE_STRING(field);
+                ASSERT_OK_ZERO(journal_file_append_entry(f, &ts, NULL, &iovec, 1, NULL, NULL, NULL, NULL));
+        }
+
+        ASSERT_EQ(journal_file_find_data_object(f, field, strlen(field), &d, NULL), 1);
+        last_array = find_last_array_offset(f, le64toh(d->data.entry_array_offset));
+        (void) journal_file_offline_close(f);
+
+        /* Remove the final per-data array object. The data object's n_entries now overcounts the per-data
+         * arrays on disk */
+        ASSERT_OK_ERRNO(truncate("test.journal", (off_t) last_array));
+
+        ASSERT_OK_ZERO(journal_file_open(
+                        -EBADF, "test.journal", O_RDONLY, JOURNAL_COMPRESS, 0666, UINT64_MAX, NULL, m, NULL, &f));
+        ASSERT_EQ(journal_file_find_data_object(f, field, strlen(field), &d, NULL), 1);
+
+        /* Seeking up for the largest possible seqnum walks into the missing tail array, and must fall back
+         * to the last entry that actually survived rather than failing the query. */
+        ASSERT_EQ(journal_file_move_to_entry_by_seqnum_for_data(f, d, UINT64_MAX, DIRECTION_UP, &o, NULL), 1);
+        ASSERT_LT(le64toh(o->entry.seqnum), UINT64_C(200));
+
+        /* Seeking down past everything that survived also walks into the missing array, and must report no
+         * match rather than propagating the read error to the caller. */
+        ASSERT_OK_ZERO(journal_file_move_to_entry_by_seqnum_for_data(
+                        f, d, UINT64_MAX, DIRECTION_DOWN, &o, NULL));
+
+        /* The head of the chain is intact, so a downward seek from the start still finds the first entry. */
+        ASSERT_EQ(journal_file_move_to_entry_by_seqnum_for_data(f, d, 0, DIRECTION_DOWN, &o, NULL), 1);
+        ASSERT_EQ(le64toh(o->entry.seqnum), UINT64_C(1));
+
+        (void) journal_file_close(f);
+
+        if (arg_keep)
+                log_info("Not removing %s", t);
+        else
+                ASSERT_OK(rm_rf(t, REMOVE_ROOT | REMOVE_PHYSICAL));
+}
+
+TEST(recover_truncated_indexed) {
+        ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_COMPACT", "0", 1));
+        test_recover_truncated_indexed_one();
+
+        ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_COMPACT", "1", 1));
+        test_recover_truncated_indexed_one();
+}
+
 static int intro(void) {
         arg_keep = saved_argc > 1;
 
