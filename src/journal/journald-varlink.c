@@ -133,13 +133,20 @@ static int vl_method_flush_to_var(sd_varlink *link, sd_json_variant *parameters,
 }
 
 static int vl_method_relinquish_var(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        bool fdstore = false;
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "fileDescriptorStore", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, 0, SD_JSON_NULLABLE },
+                {}
+        };
+
         int r;
 
         assert(link);
 
         Manager *m = ASSERT_PTR(sd_varlink_server_get_userdata(sd_varlink_get_server(link)));
 
-        r = sd_varlink_dispatch(link, parameters, /* dispatch_table= */ NULL, /* userdata= */ NULL);
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &fdstore);
         if (r != 0)
                 return r;
 
@@ -150,8 +157,11 @@ static int vl_method_relinquish_var(sd_varlink *link, sd_json_variant *parameter
         if (m->namespace)
                 return sd_varlink_error(link, "io.systemd.Journal.NotSupportedByNamespaces", /* parameters= */ NULL);
 
-        log_info("Received client request to relinquish %s access.", m->system_storage.path);
-        manager_relinquish_var(m);
+        log_info("Received client request to relinquish %s access%s.",
+                 m->system_storage.path, fdstore ? " with FD store preservation" : "");
+        r = manager_relinquish_var(m, fdstore);
+        if (r < 0)
+                return r;
         log_debug("Client request to relinquish %s access completed.", m->system_storage.path);
 
         return sd_varlink_reply(link, /* parameters= */ NULL);
