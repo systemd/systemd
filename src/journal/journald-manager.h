@@ -81,6 +81,9 @@ typedef struct Manager {
         bool sent_notify_ready;
         bool sync_scheduled;
 
+        /* Whether the current journal is entirely in memory (no file in /run/) */
+        bool runtime_journal_memfd;
+
         unsigned n_forward_syslog_missed;
         usec_t last_warn_forward_syslog_missed;
 
@@ -182,7 +185,7 @@ void manager_rotate(Manager *m);
 void manager_full_rotate(Manager *m);
 int manager_flush_to_var(Manager *m, bool require_flag_file);
 void manager_full_flush(Manager *m);
-int manager_relinquish_var(Manager *m);
+int manager_relinquish_var(Manager *m, bool with_luo);
 void manager_maybe_append_tags(Manager *m);
 int manager_process_datagram(sd_event_source *es, int fd, uint32_t revents, void *userdata);
 void manager_space_usage_message(Manager *m, JournalStorage *storage);
