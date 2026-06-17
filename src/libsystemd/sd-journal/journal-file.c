@@ -1546,6 +1546,18 @@ static int get_next_hash_offset(
         return 0;
 }
 
+static bool chain_tail_lost(JournalFile *f, int r, uint64_t offset, ObjectType type) {
+        assert(f);
+
+        /* Only accept truncation when reading. On writing it's not possible to know how to safely proceed. */
+        if (journal_file_writable(f) || !IN_SET(r, -EBADMSG, -EADDRNOTAVAIL))
+                return false;
+
+        log_debug_errno(r, "Failed to read %s at offset %" PRIu64 " of %s, treating it as the end of the chain: %m",
+                        journal_object_type_to_string(type), offset, f->path);
+        return true;
+}
+
 int journal_file_find_field_object_with_hash(
                 JournalFile *f,
                 const void *field,
@@ -3099,6 +3111,10 @@ static int generic_array_bisect(
                 uint64_t left, right, k, m, m_original;
 
                 r = journal_file_move_to_object(f, OBJECT_ENTRY_ARRAY, a, &array);
+                if (chain_tail_lost(f, r, a, OBJECT_ENTRY_ARRAY)) {
+                        r = TEST_GOTO_PREVIOUS;
+                        goto previous;
+                }
                 if (r < 0)
                         return r;
 
