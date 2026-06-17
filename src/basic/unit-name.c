@@ -730,8 +730,19 @@ int unit_name_mangle_with_suffix(
                 return -EINVAL;
 
         /* Already a fully valid unit name? If so, no mangling is necessary... */
-        if (unit_name_is_valid(name, UNIT_NAME_ANY))
+        if (unit_name_is_valid(name, UNIT_NAME_ANY)) {
+                if (FLAGS_SET(flags, UNIT_NAME_MANGLE_STRICT) && !endswith(name, suffix)) {
+                        const char *e = ASSERT_PTR(strrchr(name, '.'));
+
+                        return log_full_errno(warn ? LOG_NOTICE : LOG_DEBUG,
+                                              SYNTHETIC_ERRNO(EINVAL),
+                                              "Unit name \"%s\" has unit type \"%s\", but \"%s\" is expected%s%s.",
+                                              name, e + 1, suffix + 1,
+                                              operation ? " " : "", strempty(operation));
+                }
+
                 goto good;
+        }
 
         /* Already a fully valid globbing expression? If so, no mangling is necessary either... */
         if (string_is_glob(name) && in_charset(name, VALID_CHARS_GLOB)) {
@@ -744,23 +755,41 @@ int unit_name_mangle_with_suffix(
         }
 
         if (path_is_absolute(name)) {
-                _cleanup_free_ char *n = NULL;
+                _cleanup_free_ char *n = NULL, *u = NULL;
 
                 r = path_simplify_alloc(name, &n);
                 if (r < 0)
                         return r;
 
                 if (is_device_path(n)) {
-                        r = unit_name_from_path(n, ".device", ret);
-                        if (r >= 0)
+                        r = unit_name_from_path(n, ".device", &u);
+                        if (r >= 0) {
+                                if (FLAGS_SET(flags, UNIT_NAME_MANGLE_STRICT) && !streq(suffix, ".device"))
+                                        return log_full_errno(warn ? LOG_NOTICE : LOG_DEBUG,
+                                                              SYNTHETIC_ERRNO(EINVAL),
+                                                              "Path \"%s\" resolves to unit type \"device\", but \"%s\" is expected%s%s.",
+                                                              name, suffix + 1,
+                                                              operation ? " " : "", strempty(operation));
+
+                                *ret = TAKE_PTR(u);
                                 return 1;
+                        }
                         if (r != -EINVAL)
                                 return r;
                 }
 
-                r = unit_name_from_path(n, ".mount", ret);
-                if (r >= 0)
+                r = unit_name_from_path(n, ".mount", &u);
+                if (r >= 0) {
+                        if (FLAGS_SET(flags, UNIT_NAME_MANGLE_STRICT) && !streq(suffix, ".mount"))
+                                return log_full_errno(warn ? LOG_NOTICE : LOG_DEBUG,
+                                                      SYNTHETIC_ERRNO(EINVAL),
+                                                      "Path \"%s\" resolves to unit type \"mount\", but \"%s\" is expected%s%s.",
+                                                      name, suffix + 1,
+                                                      operation ? " " : "", strempty(operation));
+
+                        *ret = TAKE_PTR(u);
                         return 1;
+                }
                 if (r != -EINVAL)
                         return r;
         }
