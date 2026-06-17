@@ -50,22 +50,28 @@ See [reporting of security vulnerabilities](https://systemd.io/SECURITY).
 * Github will automatically add the `please-review` label when a pull request is opened or updated.
   If you need more information after a review, you can comment `/please-review` on the pull request to have Github add the `please-review` label to the pull request.
 
-## Using AI Code Generators
+## Policy on the use of Large Language Models (LLMs) and AI tooling
 
-If you use an AI code generator such as ChatGPT, Claude, Copilot, Llama or a similar tool, this must be
-disclosed in the commit messages by adding e.g. `Co-developed-by: Claude Opus 4.6 <noreply@anthropic.com>`
-and pull request description.
+### For contributions
 
-The quality bar for contributions to this project is high, and unlikely to be met by an unattended AI tool,
-without significant manual corrections. Always thoroughly review and correct any such outputs, for example
-ensuring it accurately follows [Coding Style](https://systemd.io/CODING_STYLE) at the very minimum. Please do
-not fire-and-forget pull requests without any human intervention and review, as that will likely result in
-low-quality results that will not be accepted, and if done repeatedly, may result in the account being
-blocked. As with any other submissions, authors are responsible for doing due diligence and ensuring their
-submissions are compatible with the project's license as documented in LICENSES/README.md.
+We expect everyone contributing to systemd to fully own their
+contribution, be able to reason about it, be able to explain why things
+were done a particular way and act as the full owner of that code. AI
+tools are treated the same as traditional tooling like `sed`, `awk` or
+`coccinelle`.
 
-As a guideline, if someone notices that a contribution (code, issues, comments) was made with the help of AI,
-there was likely a lack of human review of the AI generated output.
+For the purpose of this project, AI tools CANNOT be treated as author,
+co-author or be credited in any way that would suggest any ownership
+over the contribution.
+
+The contributor should have done all the thinking, planning and
+understanding of the changes needed to resolve an issue or implement a
+new feature prior to using automated tooling to perform the grunt work.
+
+Unguided use of those tools or the inability to prove understanding of
+the code contributed will result in a loss of trust in that contributor
+by project maintainers which can then lead to exclusion from any further
+contribution to the project.
 
 ## Reviewing Pull Requests
 
