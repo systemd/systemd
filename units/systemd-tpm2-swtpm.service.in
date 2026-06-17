@@ -18,10 +18,33 @@ After=modprobe@tpm_vtpm_proxy.service
 Before=tpm2.target sysinit.target shutdown.target
 
 [Service]
-Type=notify
-RuntimeDirectory=systemd/swtpm
+CapabilityBoundingSet=CAP_SYS_ADMIN
 ExecStart={{LIBEXECDIR}}/systemd-tpm2-swtpm
 # Write out volatile state (so that we can read it back after the initrd transition
 ExecStop=swtpm_ioctl --unix %t/systemd/swtpm/socket -v
 # Initiate graceful shutdown
 ExecStop=swtpm_ioctl --unix %t/systemd/swtpm/socket -s
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+NoNewPrivileges=yes
+PrivateNetwork=yes
+PrivateTmp=disconnected
+ProtectClock=yes
+ProtectControlGroups=yes
+ProtectHome=yes
+ProtectHostname=yes
+ProtectKernelLogs=yes
+ProtectKernelModules=yes
+ProtectKernelTunables=yes
+ProtectProc=invisible
+RestrictAddressFamilies=AF_UNIX
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+RuntimeDirectory=systemd/swtpm
+RuntimeDirectoryMode=0700
+SystemCallArchitectures=native
+SystemCallErrorNumber=EPERM
+SystemCallFilter=@system-service
+Type=notify
+UMask=0077
