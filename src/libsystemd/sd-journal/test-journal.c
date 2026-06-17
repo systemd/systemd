@@ -264,6 +264,125 @@ TEST(min_compress_size) {
 }
 #endif
 
+typedef struct EntryArrayCut {
+        uint64_t offset;
+        uint64_t last_surviving_seqnum;
+} EntryArrayCut;
+
+static EntryArrayCut find_entry_array_cut(JournalFile *f, uint64_t first) {
+        uint64_t a, n = 0, last_surviving_seqnum = 0;
+        Object *o, *entry;
+
+        for (a = first; a > 0;) {
+                ASSERT_OK_ZERO(journal_file_move_to_object(f, OBJECT_ENTRY_ARRAY, a, &o));
+                n++;
+
+                uint64_t next = le64toh(o->entry_array.next_entry_array_offset);
+                if (next == 0)
+                        break;
+
+                uint64_t k = journal_file_entry_array_n_items(f, o);
+                ASSERT_GT(k, UINT64_C(0));
+
+                ASSERT_OK_ZERO(journal_file_move_to_object(
+                                f,
+                                OBJECT_ENTRY,
+                                journal_file_entry_array_item(f, o, k - 1),
+                                &entry));
+                last_surviving_seqnum = le64toh(entry->entry.seqnum);
+                a = next;
+        }
+
+        /* We need at least two arrays, so that lopping off the final one still leaves a readable prefix. */
+        ASSERT_GE(n, UINT64_C(2));
+        ASSERT_GT(last_surviving_seqnum, UINT64_C(0));
+
+        return (EntryArrayCut) {
+                .offset = a,
+                .last_surviving_seqnum = last_surviving_seqnum,
+        };
+}
+
+static void test_recover_truncated_linear_one(bool zeroed_tail) {
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        dual_timestamp ts;
+        JournalFile *f;
+        Object *o;
+        EntryArrayCut cut;
+        uint64_t p, file_size, c;
+        char t[] = "/var/tmp/journal-XXXXXX";
+
+        /* When a journal's header records more arena than reached disk, make sure reads recover the on disk
+         * prefix. */
+
+        ASSERT_NOT_NULL(m = mmap_cache_new());
+        mkdtemp_chdir_chattr(t);
+
+        ASSERT_OK_ZERO(journal_file_open(
+                        -EBADF, "test.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS, 0666, UINT64_MAX,
+                        /* metrics= */ NULL, m, /* template= */ NULL, &f));
+        dual_timestamp_now(&ts);
+
+        for (unsigned i = 0; i < 200; i++) {
+                struct iovec iovec = IOVEC_MAKE_STRING("LINE=x");
+                ASSERT_OK_ZERO(journal_file_append_entry(
+                                f, &ts, /* boot_id= */ NULL, &iovec, 1,
+                                /* seqnum= */ NULL, /* seqnum_id= */ NULL,
+                                /* ret_object= */ NULL, /* ret_offset= */ NULL));
+        }
+
+        cut = find_entry_array_cut(f, le64toh(f->header->entry_array_offset));
+        file_size = (uint64_t) f->last_stat.st_size;
+        ASSERT_GT(file_size, cut.offset);
+        (void) journal_file_offline_close(f);
+
+        /* Turn the last entry to crowfood. */
+        ASSERT_OK_ERRNO(truncate("test.journal", (int64_t) cut.offset));
+        if (zeroed_tail)
+                ASSERT_OK_ERRNO(truncate("test.journal", (int64_t) file_size));
+
+        ASSERT_OK_ZERO(journal_file_open(
+                        -EBADF, "test.journal", O_RDONLY, JOURNAL_COMPRESS, 0666, UINT64_MAX,
+                        /* metrics= */ NULL, m, /* template= */ NULL, &f));
+
+        c = 0;
+        for (p = 0; journal_file_next_entry(f, p, DIRECTION_DOWN, &o, &p) > 0;) {
+                c++;
+                ASSERT_EQ(le64toh(o->entry.seqnum), c);
+        }
+        ASSERT_EQ(c, cut.last_surviving_seqnum);
+        ASSERT_LT(c, UINT64_C(200)); /* We did not recover the tail that was cut. */
+        (void) journal_file_close(f);
+
+        /* A file with arena past EOF can't be written to safely. However, if the tail was allocated but
+         * zeroed, the header is self consistent, so writable opens are accepted (and are handled by
+         * STATE_ONLINE instead). */
+        if (zeroed_tail) {
+                ASSERT_OK_ZERO(journal_file_open(
+                                -EBADF, "test.journal", O_RDWR, JOURNAL_COMPRESS, 0666, UINT64_MAX,
+                                /* metrics= */ NULL, m, /* template= */ NULL, &f));
+                (void) journal_file_offline_close(f);
+        } else
+                ASSERT_ERROR(journal_file_open(
+                                -EBADF, "test.journal", O_RDWR, JOURNAL_COMPRESS, 0666, UINT64_MAX,
+                                /* metrics= */ NULL, m, /* template= */ NULL, &f), ENODATA);
+
+        if (arg_keep)
+                log_info("Not removing %s", t);
+        else
+                ASSERT_OK(rm_rf(t, REMOVE_ROOT | REMOVE_PHYSICAL));
+}
+
+TEST(recover_truncated_linear) {
+        ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_COMPACT", "0", 1));
+        test_recover_truncated_linear_one(/* zeroed_tail= */ false);
+        test_recover_truncated_linear_one(/* zeroed_tail= */ true);
+
+        ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_COMPACT", "1", 1));
+        test_recover_truncated_linear_one(/* zeroed_tail= */ false);
+        test_recover_truncated_linear_one(/* zeroed_tail= */ true);
+}
+
 static int intro(void) {
         arg_keep = saved_argc > 1;
 
