@@ -3099,6 +3099,15 @@ static int generic_array_bisect(
                 uint64_t left, right, k, m, m_original;
 
                 r = journal_file_move_to_object(f, OBJECT_ENTRY_ARRAY, a, &array);
+                if (!journal_file_writable(f) && IN_SET(r, -EBADMSG, -EADDRNOTAVAIL)) {
+                        /* A chain pointer into a region lost after an unclean shutdown is unreadable, so end
+                         * the chain at the previous array (as generic_array_get() does) instead of failing
+                         * the query. */
+                        log_debug_errno(r, "Failed to read entry array at offset %" PRIu64 " of %s, treating it as the end of the chain: %m",
+                                        a, f->path);
+                        r = TEST_GOTO_PREVIOUS;
+                        goto previous;
+                }
                 if (r < 0)
                         return r;
 
