@@ -2688,6 +2688,7 @@ static const BusProperty service_properties[] = {
         { "TimeoutStartFailureMode",               bus_append_string                             },
         { "TimeoutStopFailureMode",                bus_append_string                             },
         { "FileDescriptorStorePreserve",           bus_append_string                             },
+        { "LUOSession",                            bus_append_strv                               },
         { "PermissionsStartOnly",                  bus_append_parse_boolean                      },
         { "RootDirectoryStartOnly",                bus_append_parse_boolean                      },
         { "RemainAfterExit",                       bus_append_parse_boolean                      },

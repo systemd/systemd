@@ -2881,6 +2881,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       readonly u NFileDescriptorStore = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly s FileDescriptorStorePreserve = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly as LUOSession = ['...', ...];
       readonly s StatusText = '...';
       readonly i StatusErrno = ...;
       readonly s StatusBusError = '...';
@@ -3599,6 +3601,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <!--property FileDescriptorStorePreserve is not documented!-->
 
+    <!--property LUOSession is not documented!-->
+
     <!--property ReloadResult is not documented!-->
 
     <!--property CleanResult is not documented!-->
@@ -4246,6 +4250,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <variablelist class="dbus-property" generated="True" extra-ref="NFileDescriptorStore"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="FileDescriptorStorePreserve"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="LUOSession"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="StatusText"/>
 
@@ -12840,6 +12846,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>IOPressureWatch</varname>,
       <varname>CPUSetPartition</varname>, and
       <varname>OOMRules</varname> were added in version 261.</para>
+      <para><varname>LUOSession</varname> was added in version 262.</para>
     </refsect2>
     <refsect2>
       <title>Socket Unit Objects</title>
