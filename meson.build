@@ -504,6 +504,11 @@ if get_option('mode') == 'developer'
         possible_cc_flags += '-fno-omit-frame-pointer'
 endif
 
+# Work around stack alignment issues observed with musl + libucontext on i386.
+if get_option('libc') == 'musl' and host_machine.cpu_family() == 'x86'
+        possible_cc_flags += '-mstackrealign'
+endif
+
 add_project_arguments(
         cc.get_supported_arguments(
                 basic_disabled_warnings,
