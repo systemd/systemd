@@ -577,10 +577,11 @@ VmspawnVarlinkContext* vmspawn_varlink_context_free(VmspawnVarlinkContext *ctx) 
         if (!ctx)
                 return NULL;
 
-        sd_varlink_server_unref(ctx->varlink_server);
-        vmspawn_qmp_bridge_free(ctx->bridge);
+        ctx->varlink_server = sd_varlink_server_unref(ctx->varlink_server);
 
         drain_event_subscribers(&ctx->subscribed);
+
+        ctx->bridge = vmspawn_qmp_bridge_free(ctx->bridge);
 
         return mfree(ctx);
 }
