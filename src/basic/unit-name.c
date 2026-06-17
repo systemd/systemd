@@ -716,7 +716,7 @@ int unit_name_mangle_with_suffix(
                 char **ret) {
 
         _cleanup_free_ char *s = NULL;
-        bool mangled, suggest_escape = true, warn = flags & UNIT_NAME_MANGLE_WARN;
+        bool mangled, suggest_escape = true, warn = FLAGS_SET(flags, UNIT_NAME_MANGLE_WARN);
         int r;
 
         assert(name);
@@ -730,12 +730,22 @@ int unit_name_mangle_with_suffix(
                 return -EINVAL;
 
         /* Already a fully valid unit name? If so, no mangling is necessary... */
-        if (unit_name_is_valid(name, UNIT_NAME_ANY))
+        if (unit_name_is_valid(name, UNIT_NAME_ANY)) {
+                if (FLAGS_SET(flags, UNIT_NAME_MANGLE_STRICT) && !endswith(name, suffix)) {
+                        const char *e = ASSERT_PTR(strrchr(name, '.'));
+
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Unit name \"%s\" has unit type \"%s\", but \"%s\" is expected%s%s.",
+                                               name, e + 1, suffix + 1,
+                                               operation ? " " : "", strempty(operation));
+                }
+
                 goto good;
+        }
 
         /* Already a fully valid globbing expression? If so, no mangling is necessary either... */
         if (string_is_glob(name) && in_charset(name, VALID_CHARS_GLOB)) {
-                if (flags & UNIT_NAME_MANGLE_GLOB)
+                if (FLAGS_SET(flags, UNIT_NAME_MANGLE_GLOB))
                         goto good;
                 log_full(warn ? LOG_NOTICE : LOG_DEBUG,
                          "Glob pattern passed%s%s, but globs are not supported for this.",
@@ -744,23 +754,38 @@ int unit_name_mangle_with_suffix(
         }
 
         if (path_is_absolute(name)) {
-                _cleanup_free_ char *n = NULL;
+                _cleanup_free_ char *n = NULL, *u = NULL;
 
                 r = path_simplify_alloc(name, &n);
                 if (r < 0)
                         return r;
 
                 if (is_device_path(n)) {
-                        r = unit_name_from_path(n, ".device", ret);
-                        if (r >= 0)
+                        r = unit_name_from_path(n, ".device", &u);
+                        if (r >= 0) {
+                                if (FLAGS_SET(flags, UNIT_NAME_MANGLE_STRICT) && !streq(suffix, ".device"))
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                               "Path \"%s\" resolves to a device unit, but a %s unit is expected%s%s.",
+                                                               name, suffix + 1,
+                                                               operation ? " " : "", strempty(operation));
+
+                                *ret = TAKE_PTR(u);
                                 return 1;
+                        }
                         if (r != -EINVAL)
                                 return r;
                 }
 
-                r = unit_name_from_path(n, ".mount", ret);
-                if (r >= 0)
+                r = unit_name_from_path(n, ".mount", &u);
+                if (r >= 0) {
+                        if (FLAGS_SET(flags, UNIT_NAME_MANGLE_STRICT) && !streq(suffix, ".mount"))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Path \"%s\" resolves to a mount unit, but a %s unit is expected%s%s.",
+                                                       name, suffix + 1,
+                                                       operation ? " " : "", strempty(operation));
+                        *ret = TAKE_PTR(u);
                         return 1;
+                }
                 if (r != -EINVAL)
                         return r;
         }
@@ -769,7 +794,7 @@ int unit_name_mangle_with_suffix(
         if (!s)
                 return -ENOMEM;
 
-        mangled = do_escape_mangle(name, flags & UNIT_NAME_MANGLE_GLOB, s);
+        mangled = do_escape_mangle(name, FLAGS_SET(flags, UNIT_NAME_MANGLE_GLOB), s);
         if (mangled)
                 log_full(warn ? LOG_NOTICE : LOG_DEBUG,
                          "Invalid unit name \"%s\" escaped as \"%s\"%s.",
@@ -778,7 +803,7 @@ int unit_name_mangle_with_suffix(
 
         /* Append a suffix if it doesn't have any, but only if this is not a glob, so that we can allow
          * "foo.*" as a valid glob. */
-        if ((!(flags & UNIT_NAME_MANGLE_GLOB) || !string_is_glob(s)) && unit_name_to_type(s) < 0)
+        if ((!FLAGS_SET(flags, UNIT_NAME_MANGLE_GLOB) || !string_is_glob(s)) && unit_name_to_type(s) < 0)
                 strcat(s, suffix);
 
         /* Make sure mangling didn't grow this too large (but don't do this check if globbing is allowed,

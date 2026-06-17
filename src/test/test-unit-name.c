@@ -251,6 +251,18 @@ static void test_unit_name_mangle_with_suffix_one(const char *arg, int expected,
         ASSERT_STREQ(s, expected_name);
 }
 
+static void test_unit_name_mangle_with_suffix_strict_one(
+                const char *arg, const char *suffix, int expected, const char *expected_name) {
+        _cleanup_free_ char *s = NULL;
+        int r;
+
+        r = unit_name_mangle_with_suffix(arg, NULL, UNIT_NAME_MANGLE_STRICT, suffix, &s);
+        log_debug("%s: %s (suffix=%s) -> %d, %s", __func__, arg, suffix, r, strnull(s));
+
+        assert_se(r == expected);
+        ASSERT_STREQ(s, expected_name);
+}
+
 TEST(unit_name_mangle_with_suffix) {
         test_unit_name_mangle_with_suffix_one("", -EINVAL, NULL);
 
@@ -280,6 +292,24 @@ TEST(unit_name_mangle_with_suffix) {
         test_unit_name_mangle_with_suffix_one("/.././proc/..", 1, "-..-.-proc-...service");
         test_unit_name_mangle_with_suffix_one("/.././proc", 1, "proc.mount");
         test_unit_name_mangle_with_suffix_one("/./.././../proc/", 1, "proc.mount");
+}
+
+TEST(unit_name_mangle_with_suffix_strict) {
+        /* Matching suffix should succeed */
+        test_unit_name_mangle_with_suffix_strict_one("foo.service", ".service", 0, "foo.service");
+        test_unit_name_mangle_with_suffix_strict_one("foo.mount", ".mount", 0, "foo.mount");
+        test_unit_name_mangle_with_suffix_strict_one("/home", ".mount", 1, "home.mount");
+        test_unit_name_mangle_with_suffix_strict_one("/dev/sda", ".device", 1, "dev-sda.device");
+
+        /* Mismatched suffix should fail with -EINVAL */
+        test_unit_name_mangle_with_suffix_strict_one("foo.mount", ".service", -EINVAL, NULL);
+        test_unit_name_mangle_with_suffix_strict_one("foo.service", ".scope", -EINVAL, NULL);
+        test_unit_name_mangle_with_suffix_strict_one("/home", ".service", -EINVAL, NULL);
+        test_unit_name_mangle_with_suffix_strict_one("/dev/sda", ".service", -EINVAL, NULL);
+        test_unit_name_mangle_with_suffix_strict_one("/invalid/unit/name-47", ".service", -EINVAL, NULL);
+
+        /* Non-path names that need mangling should get the requested suffix and thus pass */
+        test_unit_name_mangle_with_suffix_strict_one("foo", ".service", 1, "foo.service");
 }
 
 TEST_RET(unit_printf, .sd_booted = true) {
