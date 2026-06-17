@@ -314,6 +314,35 @@ static int read_swap_entries(SwapEntries *ret) {
         return 0;
 }
 
+static int get_proc_meminfo_active(uint64_t *ret) {
+        _cleanup_free_ char *active_str = NULL;
+        uint64_t active;
+        int r;
+
+        assert(ret);
+
+        r = get_proc_field("/proc/meminfo", "Active(anon)", &active_str);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to retrieve Active(anon) from /proc/meminfo: %m");
+
+        r = safe_atou64(active_str, &active);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse Active(anon) '%s' from /proc/meminfo: %m", active_str);
+
+        *ret = active;
+        return 0;
+}
+
+static uint64_t swap_free(const SwapEntry *s) {
+        assert(s);
+        return LESS_BY(s->size, s->used);
+}
+
+static bool swap_can_hold_image(const SwapEntry *s, uint64_t active) {
+        assert(s);
+        return active > 0 && active <= swap_free(s) * HIBERNATION_SWAP_THRESHOLD;
+}
+
 /* Attempt to find a suitable device for hibernation by parsing /proc/swaps, /sys/power/resume, and
  * /sys/power/resume_offset.
  *
@@ -329,7 +358,8 @@ static int read_swap_entries(SwapEntries *ret) {
  *  1 - Values are set in /sys/power/resume and /sys/power/resume_offset.
  *
  *  0 - No values are set in /sys/power/resume and /sys/power/resume_offset.
- *      ret will represent the highest priority swap with most remaining space discovered in /proc/swaps.
+ *      ret will represent the highest priority swap that can hold the hibernation image. If no swap is
+ *      large enough, ret will represent the highest priority swap with most remaining space.
  *
  *  Negative value in the case of error */
 int find_suitable_hibernation_device_full(HibernationDevice *ret_device, uint64_t *ret_size, uint64_t *ret_used) {
@@ -337,9 +367,14 @@ int find_suitable_hibernation_device_full(HibernationDevice *ret_device, uint64_
         SwapEntry *entry = NULL;
         uint64_t resume_config_offset;
         dev_t resume_config_devno;
+        uint64_t active = 0;
         int r;
 
         assert(!ret_size == !ret_used);
+
+        /* Best-effort: used to prefer swaps that can hold the hibernation image.
+         * On failure, selection falls back to priority + free space only. */
+        (void) get_proc_meminfo_active(&active);
 
         r = read_resume_config(&resume_config_devno, &resume_config_offset);
         if (r < 0)
@@ -376,8 +411,14 @@ int find_suitable_hibernation_device_full(HibernationDevice *ret_device, uint64_
                 }
 
                 if (!entry ||
-                    swap->priority > entry->priority ||
-                    swap->size - swap->used > entry->size - entry->used)
+                    /* prefer a swap that can hold the image over one that cannot */
+                    (swap_can_hold_image(swap, active) && !swap_can_hold_image(entry, active)) ||
+                    /* among equal capacity fitness: higher priority wins */
+                    (swap_can_hold_image(swap, active) == swap_can_hold_image(entry, active) &&
+                     (swap->priority > entry->priority ||
+                      /* equal priority: more free space wins */
+                      (swap->priority == entry->priority &&
+                       swap_free(swap) > swap_free(entry)))))
                         entry = swap;
         }
 
@@ -415,28 +456,8 @@ int find_suitable_hibernation_device_full(HibernationDevice *ret_device, uint64_
         return resume_config_devno > 0;
 }
 
-static int get_proc_meminfo_active(unsigned long long *ret) {
-        _cleanup_free_ char *active_str = NULL;
-        unsigned long long active;
-        int r;
-
-        assert(ret);
-
-        r = get_proc_field("/proc/meminfo", "Active(anon)", &active_str);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to retrieve Active(anon) from /proc/meminfo: %m");
-
-        r = safe_atollu(active_str, &active);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to parse Active(anon) '%s' from /proc/meminfo: %m", active_str);
-
-        *ret = active;
-        return 0;
-}
-
 int hibernation_is_safe(void) {
-        unsigned long long active;
-        uint64_t size, used;
+        uint64_t active, size, used;
         bool resume_set, bypass_space_check;
         int r;
 
@@ -465,7 +486,7 @@ int hibernation_is_safe(void) {
                 return r;
 
         r = active <= (size - used) * HIBERNATION_SWAP_THRESHOLD;
-        log_debug("Detected %s swap for hibernation: Active(anon)=%llu kB, size=%" PRIu64 " kB, used=%" PRIu64 " kB, threshold=%.2g%%",
+        log_debug("Detected %s swap for hibernation: Active(anon)=%" PRIu64 " kB, size=%" PRIu64 " kB, used=%" PRIu64 " kB, threshold=%.2g%%",
                   r ? "enough" : "not enough", active, size, used, 100 * HIBERNATION_SWAP_THRESHOLD);
         if (!r)
                 return -ENOSPC;
