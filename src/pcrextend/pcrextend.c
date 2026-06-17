@@ -467,6 +467,9 @@ static int vl_method_extend(sd_varlink *link, sd_json_variant *parameters, sd_va
         else
                 return sd_varlink_error_invalid_parameter_name(link, "text");
 
+        if (!iovec_is_set(extend_iovec))
+                return sd_varlink_error_invalid_parameter_name(link, p.text ? "text" : "data");
+
         if (p.nvpcr) {
                 r = extend_nvpcr_now(p.nvpcr, extend_iovec->iov_base, extend_iovec->iov_len, _TPM2_USERSPACE_EVENT_TYPE_INVALID);
                 if (IN_SET(r, -ENOENT, -ENODEV))
