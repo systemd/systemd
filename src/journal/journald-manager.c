@@ -18,6 +18,7 @@
 #include "alloc-util.h"
 #include "audit-util.h"
 #include "cgroup-util.h"
+#include "copy.h"
 #include "daemon-util.h"
 #include "dirent-util.h"
 #include "errno-util.h"
@@ -49,11 +50,13 @@
 #include "journald-varlink.h"
 #include "log.h"
 #include "log-ratelimit.h"
+#include "memfd-util.h"
 #include "memory-util.h"
 #include "mkdir.h"
 #include "path-util.h"
 #include "prioq.h"
 #include "process-util.h"
+#include "random-util.h"
 #include "rm-rf.h"
 #include "set.h"
 #include "selinux-util.h"
@@ -68,6 +71,8 @@
 #include "user-util.h"
 
 #define USER_JOURNALS_MAX 1024
+
+#define RUNTIME_JOURNAL_FDNAME "runtime-journal"
 
 #define DEFAULT_KMSG_OWN_INTERVAL (5 * USEC_PER_SEC)
 #define DEFAULT_KMSG_OWN_BURST 50
@@ -349,6 +354,106 @@ static void manager_drop_flushed_flag(Manager *m) {
                                             "Failed to unlink %s, ignoring: %m", fn);
 }
 
+static bool manager_kexec_preserve_enabled(Manager *m) {
+        assert(m);
+
+        if (m->namespace)
+                return false;
+
+        return access("/dev/liveupdate", F_OK) >= 0;
+}
+
+static int manager_open_runtime_journal_memfd(Manager *m, const char *fn) {
+        _cleanup_(journal_file_offline_closep) JournalFile *f = NULL;
+        int memfd, r;
+
+        assert(m);
+        assert(fn);
+
+        /* Use a memfd and push it to the FD store, so that we get it back after kexec with all entries. */
+
+        memfd = memfd_new_full("journal-runtime", MFD_ALLOW_SEALING);
+        if (memfd < 0)
+                return memfd;
+
+        /* An empty (zero-length) fd is treated as a newly created journal by journal_file_open(), which
+         * thus initializes a fresh journal structure on the memfd. The memfd is anonymous so it needs
+         * JOURNAL_ALLOW_UNLINKED. */
+        r = journal_file_open(
+                        memfd,
+                        fn,
+                        O_RDWR|O_CREAT,
+                        manager_get_file_flags(m, /* seal= */ false) | JOURNAL_ALLOW_UNLINKED,
+                        0640,
+                        m->config.compress.threshold_bytes,
+                        &m->runtime_storage.metrics,
+                        m->mmap,
+                        /* template= */ NULL,
+                        &f);
+        if (r < 0) {
+                /* journal_file_open() only takes possession of the fd on success. */
+                safe_close(memfd);
+                return r;
+        }
+
+        r = journal_file_enable_post_change_timer(f, m->event, POST_CHANGE_TIMER_INTERVAL_USEC);
+        if (r < 0)
+                return r;
+
+        /* Rotation is disabled since it's a memfd and it's used at shutdown, let it grow and use memory */
+        f->metrics.max_size = 0;
+        f->metrics.keep_free = 0;
+
+        r = sd_pid_notify_with_fds(0, /* unset_environment= */ false,
+                                   "FDSTORE=1\nFDNAME=" RUNTIME_JOURNAL_FDNAME,
+                                   &f->fd, 1);
+        if (r < 0)
+                return log_ratelimit_warning_errno(r, JOURNAL_LOG_RATELIMIT,
+                                                   "Failed to store runtime journal memfd in fd store: %m");
+
+        m->runtime_journal = TAKE_PTR(f);
+        m->runtime_journal_memfd = true;
+
+        log_debug("Opened memfd-backed runtime journal for kexec preservation.");
+        return 0;
+}
+
+static int manager_materialize_runtime_memfd(Manager *m, int memfd) {
+        _cleanup_close_ int dst = -EBADF;
+        _cleanup_free_ char *fn = NULL;
+        int r;
+
+        assert(m);
+        assert(memfd >= 0);
+        assert(m->runtime_storage.path);
+
+        /* Dump the preserved shutdown journal memfd to /run/ so that the flush logic can handle it. */
+
+        (void) mkdir_parents(m->runtime_storage.path, 0755);
+        (void) mkdir(m->runtime_storage.path, 0750);
+
+        if (asprintf(&fn, "%s/system@kexec-%016" PRIx64 "-%016" PRIx64 ".journal",
+                     m->runtime_storage.path, now(CLOCK_REALTIME), random_u64()) < 0)
+                return log_oom();
+
+        dst = open(fn, O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC|O_NOFOLLOW, 0640);
+        if (dst < 0)
+                return log_ratelimit_warning_errno(errno, JOURNAL_LOG_RATELIMIT,
+                                                   "Failed to create %s: %m", fn);
+
+        if (lseek(memfd, 0, SEEK_SET) < 0)
+                return log_ratelimit_warning_errno(errno, JOURNAL_LOG_RATELIMIT,
+                                                   "Failed to rewind preserved runtime journal memfd: %m");
+
+        r = copy_bytes(memfd, dst, UINT64_MAX, COPY_REFLINK);
+        if (r < 0)
+                return log_ratelimit_warning_errno(r, JOURNAL_LOG_RATELIMIT,
+                                                   "Failed to materialize preserved runtime journal to %s: %m", fn);
+
+        log_info("Materialized kexec-preserved runtime journal to %s.", fn);
+        return 1;
+}
+
 static int manager_system_journal_open(
                 Manager *m,
                 bool flush_requested,
@@ -414,17 +519,28 @@ static int manager_system_journal_open(
                         (void) mkdir_parents(m->runtime_storage.path, 0755);
                         (void) mkdir(m->runtime_storage.path, 0750);
 
-                        r = manager_open_journal(
-                                        m,
-                                        /* reliably= */ true,
-                                        fn,
-                                        O_RDWR|O_CREAT,
-                                        /* seal= */ false,
-                                        &m->runtime_storage.metrics,
-                                        &m->runtime_journal);
-                        if (r < 0)
-                                return log_ratelimit_warning_errno(r, JOURNAL_LOG_RATELIMIT,
-                                                                   "Failed to open runtime journal: %m");
+                        /* If LUO is available then use a memfd, so that we can push it to the FD store and
+                         * and get it back after kexec. */
+                        if (relinquish_requested && manager_kexec_preserve_enabled(m)) {
+                                r = manager_open_runtime_journal_memfd(m, fn);
+                                if (r < 0)
+                                        log_ratelimit_warning_errno(r, JOURNAL_LOG_RATELIMIT,
+                                                                    "Failed to open memfd-backed runtime journal, falling back to file: %m");
+                        }
+
+                        if (!m->runtime_journal) {
+                                r = manager_open_journal(
+                                                m,
+                                                /* reliably= */ true,
+                                                fn,
+                                                O_RDWR|O_CREAT,
+                                                /* seal= */ false,
+                                                &m->runtime_storage.metrics,
+                                                &m->runtime_journal);
+                                if (r < 0)
+                                        return log_ratelimit_warning_errno(r, JOURNAL_LOG_RATELIMIT,
+                                                                           "Failed to open runtime journal: %m");
+                        }
 
                 } else if (!manager_flushed_flag_is_set(m)) {
                         /* Try to open the runtime journal, but only if it already exists, so that we can
@@ -559,6 +675,12 @@ static int manager_do_rotate(
 
         if (!*f)
                 return -EINVAL;
+
+        /* If we are using a memfd rotation makes no sense, as it's just an anonymous buffer */
+        if (m->runtime_journal_memfd && *f == m->runtime_journal) {
+                log_debug("Skipping rotation of memfd-backed runtime journal.");
+                return 0;
+        }
 
         log_debug("Rotating journal file %s.", (*f)->path);
 
@@ -938,6 +1060,13 @@ static bool shall_try_append_again(JournalFile *f, int r) {
         }
 }
 
+static bool journal_should_rotate(Manager *m, JournalFile *f) {
+        assert(m);
+
+        /* No point in rotating when using a memfd */
+        return !m->runtime_journal_memfd || f != m->runtime_journal;
+}
+
 static void manager_write_to_journal(
                 Manager *m,
                 uid_t uid,
@@ -971,7 +1100,8 @@ static void manager_write_to_journal(
         if (!f)
                 return;
 
-        if (journal_file_rotate_suggested(f, m->config.max_file_usec, LOG_DEBUG)) {
+        if (journal_should_rotate(m, f) &&
+            journal_file_rotate_suggested(f, m->config.max_file_usec, LOG_DEBUG)) {
                 if (vacuumed) {
                         log_ratelimit_warning(JOURNAL_LOG_RATELIMIT,
                                               "Suppressing rotation, as we already rotated immediately before write attempt. Giving up.");
@@ -1008,6 +1138,8 @@ static void manager_write_to_journal(
         log_debug_errno(r, "Failed to write entry to %s (%zu items, %zu bytes): %m", f->path, n, iovec_total_size(iovec, n));
 
         if (!shall_try_append_again(f, r))
+                return;
+        if (!journal_should_rotate(m, f))
                 return;
         if (vacuumed) {
                 log_ratelimit_warning_errno(r, JOURNAL_LOG_RATELIMIT,
@@ -1320,6 +1452,14 @@ int manager_flush_to_var(Manager *m, bool require_flag_file) {
 
         if (!m->system_journal)
                 return 0;
+
+        /* Dump shutdown journal from LUO into /run/ so the normal logic can flush that too */
+        if (m->runtime_journal_memfd) {
+                (void) manager_materialize_runtime_memfd(m, m->runtime_journal->fd);
+                (void) sd_notify(/* unset_environment= */ false,
+                                 "FDSTOREREMOVE=1\nFDNAME=" RUNTIME_JOURNAL_FDNAME);
+                m->runtime_journal_memfd = false;
+        }
 
         /* Offline and close the 'main' runtime journal file to allow the runtime journal to be opened with
          * the SD_JOURNAL_ASSUME_IMMUTABLE flag in the below. */
@@ -2276,8 +2416,10 @@ void manager_reopen_journals(Manager *m, const JournalConfig *old) {
          * But only when volatile (or no) storage is requested. If auto or persistent storage is requested,
          * we may need to flush the runtime journal to the persistent storage, it will done through
          * manager_system_journal_open(). Hence, we should not touch the runtime journal here in that case. */
-        if (IN_SET(m->config.storage, STORAGE_VOLATILE, STORAGE_NONE))
+        if (IN_SET(m->config.storage, STORAGE_VOLATILE, STORAGE_NONE)) {
                 m->runtime_journal = journal_file_offline_close(m->runtime_journal);
+                m->runtime_journal_memfd = false;
+        }
 
         /* Close other journals unconditionally to make the new settings applied. */
         m->system_journal = journal_file_offline_close(m->system_journal);
@@ -2337,6 +2479,8 @@ int manager_new(Manager **ret) {
 
 int manager_init(Manager *m) {
         const char *native_socket, *syslog_socket, *stdout_socket, *varlink_socket, *e;
+        _cleanup_strv_free_ char **fdnames = NULL;
+        _cleanup_close_ int restored_runtime_journal_fd = -EBADF;
         _cleanup_fdset_free_ FDSet *fds = NULL;
         int n, r, varlink_fd = -EBADF;
         bool no_sockets;
@@ -2371,7 +2515,7 @@ int manager_init(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to create event loop: %m");
 
-        n = sd_listen_fds(true);
+        n = sd_listen_fds_with_names(true, &fdnames);
         if (n < 0)
                 return log_error_errno(n, "Failed to read listening file descriptors from environment: %m");
 
@@ -2380,9 +2524,18 @@ int manager_init(Manager *m) {
         syslog_socket = strjoina(m->runtime_directory, "/dev-log");
         varlink_socket = strjoina(m->runtime_directory, "/io.systemd.journal");
 
-        for (int fd = SD_LISTEN_FDS_START; fd < SD_LISTEN_FDS_START + n; fd++)
+        for (int i = 0; i < n; i++) {
+                int fd = SD_LISTEN_FDS_START + i;
 
-                if (sd_is_socket_unix(fd, SOCK_DGRAM, -1, native_socket, 0) > 0) {
+                if (streq_ptr(fdnames[i], RUNTIME_JOURNAL_FDNAME)) {
+                        /* Shutdown journal from LUO */
+                        if (restored_runtime_journal_fd >= 0) {
+                                log_warning("Too many runtime journal memfds passed, closing extra one.");
+                                safe_close(fd);
+                        } else
+                                restored_runtime_journal_fd = fd;
+
+                } else if (sd_is_socket_unix(fd, SOCK_DGRAM, -1, native_socket, 0) > 0) {
 
                         if (m->native_fd >= 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -2433,6 +2586,7 @@ int manager_init(Manager *m) {
                         if (r < 0)
                                 return log_oom();
                 }
+        }
 
         /* Try to restore streams, but don't bother if this fails */
         (void) manager_restore_streams(m, fds);
@@ -2528,6 +2682,14 @@ int manager_init(Manager *m) {
         (void) manager_connect_notify(m);
 
         client_context_acquire_default(m);
+
+        /* Dump shutdown journal from LUO into /run/ so the normal logic can flush it */
+        if (restored_runtime_journal_fd >= 0) {
+                (void) manager_materialize_runtime_memfd(m, restored_runtime_journal_fd);
+                restored_runtime_journal_fd = safe_close(restored_runtime_journal_fd);
+                (void) sd_notify(/* unset_environment= */ false,
+                                 "FDSTOREREMOVE=1\nFDNAME=" RUNTIME_JOURNAL_FDNAME);
+        }
 
         r = manager_system_journal_open(m, /* flush_requested= */ false, /* relinquish_requested= */ false);
         if (r < 0)
