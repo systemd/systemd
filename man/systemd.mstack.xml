@@ -29,7 +29,7 @@
     <option>--mstack=</option> switch or the service manager's <option>RootMStack=</option> setting for
     services. <literal>.mstack/</literal> directories may contain various files and subdirectories, where
     each will effect one layer of an <literal>overlayfs</literal> mount, or a bind mount. The name of the
-    file or subdirectory indicates how it shall used in the mount hierarchy. Specifically, the following
+    file or subdirectory indicates how it shall be used in the mount hierarchy. Specifically, the following
     names are defined:</para>
 
     <orderedlist>
@@ -65,9 +65,9 @@
       <listitem><para>Similar, <filename>robind@<replaceable>location</replaceable>.raw</filename> creates a
       read-only bind mount from a DDI.</para></listitem>
 
-      <listitem><para>If a <filename>root/</filename> subdirectory it is used as root of the resulting mount
-      hierarchy, and only the <filename>usr/</filename> subtree of the overlayfs mount will be bound to
-      <filename>usr/</filename> in the hierarchy.</para></listitem>
+      <listitem><para>If a <filename>root/</filename> subdirectory exists, it is used as root of the
+      resulting mount hierarchy, and only the <filename>usr/</filename> subtree of the overlayfs mount will
+      be bound to <filename>usr/</filename> in the hierarchy.</para></listitem>
     </orderedlist>
 
     <para>Note that each of the entry types above may be a symbolic link pointing to a directory or image
@@ -86,7 +86,7 @@
     <title>Examples</title>
 
     <para>The following <filename>.mstack/</filename> consists of two read-only overlayfs layers as DDI, plus one
-    writable directory one on top. The read-only layers are symlinked:</para>
+    writable directory on top. The read-only layers are symlinked:</para>
 
     <orderedlist>
       <listitem><para><filename>foobar.mstack/layer@0.raw</filename> → <filename>../base.raw</filename></para></listitem>
