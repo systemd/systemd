@@ -28,6 +28,7 @@
 #include "fs-util.h"
 #include "glyph-util.h"
 #include "help-util.h"
+#include "hostname-setup.h"
 #include "hostname-util.h"
 #include "image-policy.h"
 #include "kbd-util.h"
@@ -676,7 +677,7 @@ static int prompt_hostname(int rfd, sd_varlink **mute_console_link) {
         r = read_credential("firstboot.hostname", (void**) &hn, NULL);
         if (r < 0)
                 log_debug_errno(r, "Failed to read credential firstboot.hostname, ignoring: %m");
-        else if (!hostname_is_valid(hn, VALID_HOSTNAME_TRAILING_DOT|VALID_HOSTNAME_QUESTION_MARK))
+        else if (!hostname_is_valid(hn, VALID_HOSTNAME_TRAILING_DOT|VALID_HOSTNAME_QUESTION_MARK|VALID_HOSTNAME_WORD_TOKEN))
                 log_warning_errno(SYNTHETIC_ERRNO(EINVAL), "Hostname '%s' supplied via credential is not valid, ignoring.", hn);
         else {
                 log_debug("Acquired hostname from credentials.");
@@ -738,7 +739,24 @@ static int process_hostname(int rfd, sd_varlink **mute_console_link) {
         if (isempty(arg_hostname))
                 return 0;
 
-        r = write_string_file_at(pfd, f, arg_hostname,
+        /* On running systems we have a machine ID, so resolve any '?'/'$' wildcards now and persist them.
+         * This "freezes" the name, so later word list updates do not change it. When operating on an offline
+         * image (--root=/--image=) the target's machine ID is not known yet, so write the template verbatim
+         * and let it be resolved on each first boot. */
+        const char *hostname = arg_hostname;
+        _cleanup_free_ char *resolved = NULL;
+        if (!arg_root) {
+                /* Fail rather than persist an unresolvable template; the live path must freeze a concrete name. */
+                r = hostname_substitute_wildcards(arg_hostname, &resolved);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to resolve wildcards in hostname '%s': %m", arg_hostname);
+                if (!hostname_is_valid(resolved, VALID_HOSTNAME_TRAILING_DOT))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Resolved hostname '%s' is invalid.", resolved);
+
+                hostname = resolved;
+        }
+
+        r = write_string_file_at(pfd, f, hostname,
                                  WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_SYNC|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_LABEL);
         if (r < 0)
                 return log_error_errno(r, "Failed to write /etc/hostname: %m");
@@ -1407,7 +1425,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 OPTION_LONG("hostname", "NAME", "Set hostname"):
-                        if (!hostname_is_valid(opts.arg, VALID_HOSTNAME_TRAILING_DOT|VALID_HOSTNAME_QUESTION_MARK))
+                        if (!hostname_is_valid(opts.arg, VALID_HOSTNAME_TRAILING_DOT|VALID_HOSTNAME_QUESTION_MARK|VALID_HOSTNAME_WORD_TOKEN))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Host name %s is not valid.", opts.arg);
 
