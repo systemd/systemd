@@ -64,6 +64,9 @@ EOF
 }
 
 if grep -qw luo_nboot=1 /proc/cmdline; then
+    journalctl --sync
+    timeout 10s bash -c "until journalctl -q --grep 'TEST-91-LIVEUPDATE-late-shutdown-marker' &>/dev/null; do sleep 0.5; done"
+
     # Verify that the fd store of the main test service survived the kexec.
     /usr/lib/systemd/tests/unit-tests/manual/test-luo check
 
@@ -284,6 +287,11 @@ EOF
         n_fds=$(systemctl show -P NFileDescriptorStore "TEST-91-LIVEUPDATE-${variant}.service")
         test "$n_fds" -eq 3
     done
+
+    # Check that late shutdown journal is restored after kexec
+    journalctl --relinquish-var
+    echo TEST-91-LIVEUPDATE-late-shutdown-marker | systemd-cat -t TEST-91-LIVEUPDATE-late-log
+    journalctl --sync
 
     # 'systemctl kexec' auto-loads the default boot entry (i.e. the booted UKI,
     # via EFI LoaderEntrySelected/LoaderEntryDefault). Append a marker to the
