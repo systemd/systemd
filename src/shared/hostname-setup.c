@@ -321,12 +321,20 @@ static int hostname_open_wordlist(const char *file, FILE **ret) {
         return 0;
 }
 
+static bool normalize_and_validate_word(char *word) {
+        assert(word);
+
+        if (IN_SET(word[0], '\0', '#')) /* empty line or comment */
+                return false;
+
+        ascii_strlower(word);
+        return hostname_is_valid(word, /* flags= */ 0);
+}
+
 static int hostname_pick_word(sd_id128_t mid, unsigned pos, char **ret) {
         static const sd_id128_t word_key = SD_ID128_MAKE(2d,9f,1c,7a,4b,8e,43,11,9a,6d,5f,02,c8,77,e3,14);
         _cleanup_fclose_ FILE *f = NULL;
         struct stat st;
-        bool wrapped = false;
-        uint64_t h;
         int r;
 
         assert(pos >= 1);
@@ -348,21 +356,60 @@ static int hostname_pick_word(sd_id128_t mid, unsigned pos, char **ret) {
         if (st.st_size == 0)
                 return -ENOENT;
 
-        /* Pick a word without reading the whole list into memory: hash the machine ID and word position to a
-         * byte offset. This stream is independent of the '?' nibble stream, so pure-'?' templates keep
-         * producing byte-identical output. Stable as long as the wordlist is stable. */
-        struct siphash state;
-        siphash24_init(&state, word_key.bytes);
-        siphash24_compress_typesafe(mid, &state);
-        siphash24_compress_typesafe(pos, &state);
-        h = siphash24_finalize(&state);
+        /* Warm page cache: worst case is 64 seeks, advisory only so a failure is not fatal */
+        if (readahead(fileno(f), 0, st.st_size) < 0)
+                log_warning_errno(errno, "Failed to readahead wordlist %s, ignoring: %m", file);
 
-        if (fseeko(f, (off_t) (h % (uint64_t) st.st_size), SEEK_SET) < 0)
+        /* Pick a word without reading the whole list into memory:
+         * 1. pick a random offset in the file [0 … st.st_size-1]
+         * 2. if offset is zero, read a full line from the beginning of the file, use that.
+         * 3. otherwise, seek to offset minus 1 and read one character.
+         * 4. if that character is newline, then read a full line after it, and use that as result
+         * 5. otherwise, goto 1
+         *
+         * As a safety net terminate after a fixed number iterations (for pathological wordlists)
+         * This stream is independent of the '?' nibble stream so pure-'?'  * templates keep producing
+         * byte-identical output. Stable as long as the wordlist is stable. */
+        off_t offset = 0;
+        const unsigned max_iterations = 64;
+        for (unsigned i = 0; i < max_iterations; i++) {
+                _cleanup_free_ char *line = NULL;
+
+                struct siphash state;
+                siphash24_init(&state, word_key.bytes);
+                siphash24_compress_typesafe(mid, &state);
+                siphash24_compress_typesafe(pos, &state);
+                siphash24_compress_typesafe(i, &state); /* counter mode */
+                offset = (off_t) (siphash24_finalize(&state) % (uint64_t) st.st_size);
+
+                if (offset > 0) {
+                        if (fseeko(f, offset - 1, SEEK_SET) < 0)
+                                return -errno;
+                        if (fgetc(f) != '\n')
+                                continue; /* not a line start */
+                } else if (fseeko(f, 0, SEEK_SET) < 0) /* offset 0 always begins the first line */
+                        return -errno;
+
+                r = read_stripped_line(f, LONG_LINE_MAX, &line);
+                if (r < 0)
+                        return r;
+                if (r == 0) /* raced with truncation */
+                        continue;
+                if (normalize_and_validate_word(line)) {
+                        *ret = TAKE_PTR(line);
+                        return 0;
+                }
+                /* Comment/empty/invalid line: resample rather than advancing, to keep the pick uniform. */
+        }
+
+        /* We exhausted the uniform attempts, this should never happen but if it does fallback to picking the
+        * next word after our last attempt. */
+        log_warning("hostname_pick_word did not find a usable word after %u in wordlist %u", max_iterations, pos);
+        if (fseeko(f, offset, SEEK_SET) < 0)
                 return -errno;
 
-        /* We mostly landed mid-line, so read/discard the current line here. If the file was shrunk by a
-         * concurrent modification we might have seeked at/past EOF, so wrap around to the beginning. */
-        r = read_line(f, LONG_LINE_MAX, NULL);
+        bool wrapped = false;
+        r = read_line(f, LONG_LINE_MAX, NULL); /* discard the partial line we landed in */
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -383,19 +430,10 @@ static int hostname_pick_word(sd_id128_t mid, unsigned pos, char **ret) {
                         rewind(f);
                         continue;
                 }
-
-                /* Skip empty lines and comments */
-                if (IN_SET(line[0], '\0', '#'))
-                        continue;
-
-                /* Each word must be a valid single hostname label on its own; lowercase it and silently skip
-                 * bogus entries. */
-                ascii_strlower(line);
-                if (!hostname_is_valid(line, /* flags= */ 0))
-                        continue;
-
-                *ret = TAKE_PTR(line);
-                return 0;
+                if (normalize_and_validate_word(line)) {
+                        *ret = TAKE_PTR(line);
+                        return 0;
+                }
         }
 }
 
