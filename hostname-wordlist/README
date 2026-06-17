@@ -24,13 +24,11 @@ the symlinks) while the actual word lists keep meaningful names.
 Files
 -----
 
-Each file is a plain list of words, one per line, with no comment or blank
-lines: a word is picked by hashing the machine ID to a byte offset into the
-file, so comment/blank lines (although skipped) would bias the selection and
-should be avoided. Each word must be a valid single hostname label (lowercase
-letters, digits, hyphens); invalid entries are skipped. The file is used as-is
-from the highest-priority directory that provides it (/etc wins over /run wins
-over /usr/lib); files are not merged across directories.
+Each file is a plain list of words, one per line. Blank lines and lines starting
+with "#" are treated as comments and skipped. Each word must be a valid single
+hostname label (lowercase letters, digits, hyphens); invalid entries are skipped.
+The file is used as-is from the highest-priority directory that provides it (/etc
+-> /run -> /usr/local/lib -> /usr/lib); files are not merged across directories.
 
 Search path (highest priority first):
 
@@ -49,15 +47,10 @@ list. Changing a word list may change the name a machine gets. If a referenced
 list is missing the name is treated as invalid and the built-in fallback
 hostname is used.
 
-Because a word is chosen by byte offset into the file (rather than loading and
-indexing the whole list), the words are not all equally likely: a word's chance
-tracks the length of the word that precedes it in the list (not its own length),
-so a word listed right after a long word is slightly more likely to be picked.
-The effect is small: about a 12% non-uniformity, i.e. the effective name space
-is ~88% of the nominal product for $-$-$. This is an accepted trade for not
-reading the whole list into memory. If exact uniformity is ever needed, pad
-every word to a fixed width (e.g. with trailing '#') and have the loader strip
-the padding.
+Words are picked uniformly without reading the whole list into memory: an offset
+is chosen by hashing and accepted only when it lands on the start of a line
+(otherwise another offset is tried), so a word's chance does not depend on its
+own length or that of its neighbours.
 
 Origin
 ------
