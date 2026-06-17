@@ -44,8 +44,26 @@ extern DLSYM_PROTOTYPE(mnt_table_parse_stream);
 extern DLSYM_PROTOTYPE(mnt_table_parse_swaps);
 extern DLSYM_PROTOTYPE(mnt_unref_monitor);
 
+/* Available since libmount 2.41. Always redeclare so DLSYM_PROTOTYPE's typeof() resolves on older
+ * headers; suppress the warning when newer libmount already declares them. */
+struct libmnt_statmnt;
+DISABLE_WARNING_REDUNDANT_DECLS;
+extern struct libmnt_statmnt *mnt_new_statmnt(void);
+extern void mnt_unref_statmnt(struct libmnt_statmnt *sm);
+extern int mnt_table_refer_statmnt(struct libmnt_table *tb, struct libmnt_statmnt *sm);
+extern int mnt_table_fetch_listmount(struct libmnt_table *tb);
+extern uint64_t mnt_fs_get_uniq_id(struct libmnt_fs *fs);
+REENABLE_WARNING;
+
+extern DLSYM_PROTOTYPE(mnt_new_statmnt);
+extern DLSYM_PROTOTYPE(mnt_unref_statmnt);
+extern DLSYM_PROTOTYPE(mnt_table_refer_statmnt);
+extern DLSYM_PROTOTYPE(mnt_table_fetch_listmount);
+extern DLSYM_PROTOTYPE(mnt_fs_get_uniq_id);
+
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(struct libmnt_table*, sym_mnt_free_table, mnt_free_tablep, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(struct libmnt_iter*, sym_mnt_free_iter, mnt_free_iterp, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(struct libmnt_statmnt*, sym_mnt_unref_statmnt, mnt_unref_statmntp, NULL);
 
 int libmount_parse_full(
                 const char *path,
@@ -69,6 +87,8 @@ static inline int libmount_parse_with_utab(
         return libmount_parse_full(NULL, NULL, MNT_ITER_FORWARD, ret_table, ret_iter);
 }
 
+int libmount_fetch_listmount(struct libmnt_table **ret_table, struct libmnt_iter **ret_iter);
+
 int libmount_parse_fstab(struct libmnt_table **ret_table, struct libmnt_iter **ret_iter);
 
 int libmount_is_leaf(
@@ -86,6 +106,12 @@ int libmount_is_leaf(
                 LIBMOUNT_NOTE(priority);                                \
                 dlopen_libmount(log_level);                             \
         })
+
+#define DLOPEN_LIBMOUNT_LISTMOUNT(log_level, priority)                  \
+        ({                                                              \
+                LIBMOUNT_NOTE(priority);                                \
+                dlopen_libmount_listmount(log_level);                   \
+        })
 #else
 
 struct libmnt_monitor;
@@ -97,6 +123,8 @@ static inline void* sym_mnt_unref_monitor(struct libmnt_monitor *p) {
 }
 
 #define DLOPEN_LIBMOUNT(log_level, priority) dlopen_libmount(log_level)
+#define DLOPEN_LIBMOUNT_LISTMOUNT(log_level, priority) dlopen_libmount_listmount(log_level)
 #endif
 
 int dlopen_libmount(int log_level);
+int dlopen_libmount_listmount(int log_level);

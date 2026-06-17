@@ -50,6 +50,8 @@ typedef struct Mount {
         MountParameters parameters_kernel;
         MountParameters parameters_fragment;
 
+        uint64_t uniq_id;
+
         bool from_kernel:1;
         bool from_fragment:1;
 
