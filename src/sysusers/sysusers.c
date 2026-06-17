@@ -352,7 +352,7 @@ static int make_backup(const char *target, const char *x) {
                 return r;
 
         if (rename(dst_tmp, backup) < 0)
-                return errno;
+                return -errno;
 
         dst_tmp = mfree(dst_tmp); /* disable the unlink_and_freep() hook now that the file has been renamed */
         return 0;
