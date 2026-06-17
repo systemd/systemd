@@ -204,6 +204,31 @@
         <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>cleanup</option></term>
+
+        <listitem><para>Removes orphaned files that were previously installed by a transfer, but are no longer
+        owned by any currently defined transfer file. Whenever a resource is installed into the file system,
+        <command>systemd-sysupdate</command> records the target directory and the matching pattern in an
+        installation database below <filename>/var/lib/systemd/sysupdate/</filename>. This command iterates
+        through these records, determines which files they match, and deletes those that are no longer covered
+        by any of the patterns of the transfer files currently in place. This is useful to garbage collect
+        files that used to be owned by a transfer file that has since been modified, disabled or removed
+        altogether (for example because a component is no longer updated).</para>
+
+        <para>By default only the selected component is processed (i.e. the one selected via
+        <option>--component=</option>, or the default one if none is selected). Use
+        <option>--component-all</option> to process all components known to the installation database in a
+        single invocation.</para>
+
+        <para>This operation only removes files that were installed into the file system (i.e. resources of
+        type <literal>regular-file</literal> and <literal>directory</literal>, see
+        <citerefentry><refentrytitle>sysupdate.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>); it
+        does not touch partition-based resources.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
     </variablelist>
@@ -242,6 +267,19 @@
         <para>This option may not be combined with <option>--definitions=</option>.</para>
 
         <xi:include href="version-info.xml" xpointer="v251"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--component-all</option></term>
+        <term><option>-A</option></term>
+
+        <listitem><para>Instead of operating on a single component, operate on all known components (as well as
+        the default, component-less installation). This is currently only supported for the
+        <command>cleanup</command> command; all other commands will fail if this switch is used.</para>
+
+        <para>This option may not be combined with <option>--component=</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
       </varlistentry>
 
       <varlistentry>
