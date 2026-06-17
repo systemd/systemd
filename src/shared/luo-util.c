@@ -115,6 +115,11 @@ int luo_session_finish(int session_fd) {
         return RET_NERRNO(ioctl(session_fd, LIVEUPDATE_SESSION_FINISH, &args));
 }
 
+bool luo_session_name_is_valid(const char *name) {
+        /* Used for FDNAME: no whitespace, no ":", no control characters, etc. */
+        return fdname_is_valid(name) && string_is_safe(name, STRING_DISALLOW_WHITESPACE);
+}
+
 int luo_parse_serialization(sd_json_variant **ret, int **ret_fds, size_t *ret_n_fds) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *root = NULL;
         _cleanup_free_ int *fd_list = NULL;
