@@ -343,6 +343,25 @@ static int tpm2_get_capability(
         return more == TPM2_YES;
 }
 
+static int tpm2_get_capability_property(Tpm2Context *c, uint32_t property, uint32_t *ret_value) {
+        int r;
+
+        assert(c);
+        assert(ret_value);
+
+        TPMU_CAPABILITIES capabilities = {};
+        r = tpm2_get_capability(c, TPM2_CAP_TPM_PROPERTIES, property, 1, &capabilities);
+        if (r < 0)
+                return r;
+
+        if (capabilities.tpmProperties.count == 0 ||
+            capabilities.tpmProperties.tpmProperty[0].property != property)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOENT), "TPM property 0x%04" PRIx32 " does not exist", property);
+
+        *ret_value = capabilities.tpmProperties.tpmProperty[0].value;
+        return 0;
+}
+
 int tpm2_vendor_info_to_modalias(const Tpm2VendorInfo *info, char **ret) {
         _cleanup_free_ char *m = NULL;
 
@@ -621,6 +640,31 @@ static int tpm2_cache_capabilities(Tpm2Context *c) {
                  * this command with the full PCR allocation and moreData will be NO." */
                 log_debug("TPM bug: reported multiple PCR sets; using only first set.");
         c->capability_pcrs = capability.assignedPCR;
+
+        /* Cache the value of TPM_PT_NV_BUFFER_MAX, which defines the maximum size of TPM2B_MAX_NV_BUFFER and
+         * which limits the amount of data that TPM2_NV_Read can return in a single command. This may be
+         * smaller than the size of a NV index payload, particularly if that payload contains a X509
+         * certificate with a RSA public key. */
+        uint32_t max_nv_buffer_size = 0;
+
+        /* The TCG reference library spec (part 2) doesn't guarantee a minimum size for the
+         * TPM2B_MAX_NV_BUFFER type. However, the PC-Client PTP spec does set a minimum value of 512,
+         * so we'll just assume this if the TPM didn't report a value or reports an implausible value. */
+        static const uint32_t fallback_max_nv_buffer_size = 32;
+
+        r = tpm2_get_capability_property(c, TPM2_PT_NV_BUFFER_MAX, &max_nv_buffer_size);
+        if (r == -ENOENT) {
+                log_debug("TPM bug: didn't report a value for TPM_PT_NV_BUFFER_MAX; using %" PRIu32 ".", fallback_max_nv_buffer_size);
+                max_nv_buffer_size = fallback_max_nv_buffer_size;
+        } else if (r < 0)
+                return r;
+        if (max_nv_buffer_size == 0 || max_nv_buffer_size > UINT16_MAX) {
+                /* TPM2B types have a uint16 size field. If the TPM reported a maximum size that is larger
+                 * than this, or 0, then consider this as implausible and pick the default fallback. */
+                log_debug("TPM bug: reported implausible value for TPM_PT_NV_BUFFER_MAX; using %" PRIu32 ".", fallback_max_nv_buffer_size);
+                max_nv_buffer_size = fallback_max_nv_buffer_size;
+        }
+        c->max_nv_buffer_size = (uint16_t) max_nv_buffer_size;
 
         return 0;
 }
@@ -6151,6 +6195,116 @@ int tpm2_write_policy_nv_index(
         return 0;
 }
 
+int tpm2_define_data_nv_index(
+                Tpm2Context *c,
+                const Tpm2Handle *session,
+                TPM2_HANDLE requested_nv_index,
+                const struct iovec *data,
+                TPM2_HANDLE *ret_nv_index,
+                Tpm2Handle **ret_nv_handle) {
+
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *new_handle = NULL;
+        TPM2_HANDLE nv_index = 0;
+        TSS2_RC rc;
+        int r;
+
+        assert(c);
+        assert(iovec_is_set(data));
+
+        /* Allocates an ordinary NV index sized to hold 'data' and writes 'data' into it. The index is created
+         * with AUTHREAD/AUTHWRITE attributes so it can be read back with tpm2_read_nv_index(). */
+
+        if (data->iov_len == 0 || data->iov_len > UINT16_MAX)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Invalid NV index data size %zu.", data->iov_len);
+
+        r = tpm2_handle_new(c, &new_handle);
+        if (r < 0)
+                return r;
+
+        new_handle->flush = false; /* This is a persistent NV index, don't flush hence */
+
+        for (unsigned try = 0;; try++) {
+                if (requested_nv_index != 0)
+                        nv_index = requested_nv_index;
+                else
+                        nv_index = generate_random_nv_index();
+
+                TPM2B_NV_PUBLIC public_info = {
+                        .size = sizeof_field(TPM2B_NV_PUBLIC, nvPublic),
+                        .nvPublic = {
+                                .nvIndex = nv_index,
+                                .nameAlg = TPM2_ALG_SHA256,
+                                .attributes = TPM2_NT_ORDINARY | TPMA_NV_AUTHWRITE | TPMA_NV_AUTHREAD | TPMA_NV_NO_DA,
+                                .dataSize = data->iov_len,
+                        },
+                };
+
+                rc = sym_Esys_NV_DefineSpace(
+                                c->esys_context,
+                                /* authHandle= */ ESYS_TR_RH_OWNER,
+                                /* shandle1= */ session ? session->esys_handle : ESYS_TR_PASSWORD,
+                                /* shandle2= */ ESYS_TR_NONE,
+                                /* shandle3= */ ESYS_TR_NONE,
+                                /* auth= */ NULL,
+                                &public_info,
+                                &new_handle->esys_handle);
+                if (rc == TSS2_RC_SUCCESS)
+                        break;
+                if (rc != TPM2_RC_NV_DEFINED)
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                               "Failed to allocate NV index: %s", sym_Tss2_RC_Decode(rc));
+                if (requested_nv_index != 0) {
+                        assert(nv_index == requested_nv_index);
+                        return log_debug_errno(SYNTHETIC_ERRNO(EEXIST),
+                                               "Requested NV index 0x%" PRIx32 " already taken.", requested_nv_index);
+                }
+                if (try >= 24U)
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                               "Too many attempts trying to allocate NV index: %s", sym_Tss2_RC_Decode(rc));
+
+                log_debug("NV index 0x%" PRIx32 " already taken, trying another one (%u tries left)", nv_index, 24U - try);
+        }
+
+        log_debug("NV index 0x%" PRIx32 " successfully allocated.", nv_index);
+
+        /* TPM2_NV_Write is bounded by TPM_PT_NV_BUFFER_MAX just like TPM2_NV_Read, so write in chunks no
+         * larger than what the TPM accepts in a single command. */
+        size_t max_buffer_size = MIN((size_t) c->max_nv_buffer_size, (size_t) TPM2_MAX_NV_BUFFER_SIZE);
+        assert(max_buffer_size > 0);
+
+        for (size_t offset = 0; offset < data->iov_len;) {
+                size_t chunk_size = MIN(data->iov_len - offset, max_buffer_size);
+
+                TPM2B_MAX_NV_BUFFER buffer = { .size = chunk_size };
+                memcpy(buffer.buffer, (const uint8_t*) data->iov_base + offset, chunk_size);
+
+                rc = sym_Esys_NV_Write(
+                                c->esys_context,
+                                /* authHandle= */ new_handle->esys_handle,
+                                /* nvIndex= */ new_handle->esys_handle,
+                                /* shandle1= */ session ? session->esys_handle : ESYS_TR_PASSWORD,
+                                /* shandle2= */ ESYS_TR_NONE,
+                                /* shandle3= */ ESYS_TR_NONE,
+                                &buffer,
+                                /* offset= */ offset);
+                if (rc != TSS2_RC_SUCCESS) {
+                        (void) tpm2_undefine_nv_index(c, session, nv_index, new_handle);
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                               "Failed to write NV index 0x%" PRIx32 ": %s", nv_index, sym_Tss2_RC_Decode(rc));
+                }
+
+                offset += chunk_size;
+        }
+
+        if (ret_nv_index)
+                *ret_nv_index = nv_index;
+        if (ret_nv_handle)
+                *ret_nv_handle = TAKE_PTR(new_handle);
+
+        return 0;
+}
+
 int tpm2_undefine_nv_index(
                 Tpm2Context *c,
                 const Tpm2Handle *session,
@@ -6366,36 +6520,56 @@ int tpm2_read_nv_index(
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                        "Failed read public data of nvindex 0x%x: %s", nv_index, sym_Tss2_RC_Decode(rc));
 
-        log_debug("Read public info for nvindex 0x%x, value size is %zu", nv_index, (size_t) nv_public->nvPublic.dataSize);
+        size_t data_size = nv_public->nvPublic.dataSize;
+        log_debug("Read public info for nvindex 0x%x, value size is %zu", nv_index, data_size);
 
-        _cleanup_(Esys_Freep) TPM2B_MAX_NV_BUFFER *value = NULL;
-        rc = sym_Esys_NV_Read(
-                        c->esys_context,
-                        /* authHandle= */ nv_handle->esys_handle,
-                        /* nvIndex= */ nv_handle->esys_handle,
-                        /* shandle1= */ session ? session->esys_handle : ESYS_TR_PASSWORD,
-                        /* shandle2= */ ESYS_TR_NONE,
-                        /* shandle3= */ ESYS_TR_NONE,
-                        nv_public->nvPublic.dataSize,
-                        /* offset= */ 0,
-                        &value);
-        if (rc != TSS2_RC_SUCCESS)
-                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                       "Failed read contents of nvindex 0x%x: %s", nv_index, sym_Tss2_RC_Decode(rc));
+        /* TPM2_NV_Read returns the data in a TPM2B_MAX_NV_BUFFER, whose maximum size is bounded by the value
+         * of the TPM_PT_NV_BUFFER_MAX property. This limits the amount of data that can be read in a single
+         * command. As this limit can be smaller than the size of the NV index payload (particularly if the
+         * payload contains a X509 certificate with a RSA public key), we read the contents in chunks no
+         * larger than what the TPM reports it can return in a single command. */
 
-        if (ret_value) {
-                assert(value);
+        /* Never ask for more than the buffer the TPM library hands back can hold. */
+        size_t max_buffer_size = MIN((size_t) c->max_nv_buffer_size, (size_t) TPM2_MAX_NV_BUFFER_SIZE);
+        assert(max_buffer_size > 0); /* tpm2_cache_capabilities sets this to 512 if the TPM reported 0. */
 
-                struct iovec result = {
-                        .iov_base = memdup(value->buffer, value->size),
-                        .iov_len = value->size,
-                };
-
+        _cleanup_(iovec_done) struct iovec result = {};
+        if (data_size > 0) {
+                result.iov_base = malloc(data_size);
                 if (!result.iov_base)
                         return log_oom_debug();
-
-                *ret_value = TAKE_STRUCT(result);
         }
+
+        while (result.iov_len < data_size) {
+                size_t chunk_size = MIN(data_size - result.iov_len, max_buffer_size);
+
+                _cleanup_(Esys_Freep) TPM2B_MAX_NV_BUFFER *chunk = NULL;
+                rc = sym_Esys_NV_Read(
+                                c->esys_context,
+                                /* authHandle= */ nv_handle->esys_handle,
+                                /* nvIndex= */ nv_handle->esys_handle,
+                                /* shandle1= */ session ? session->esys_handle : ESYS_TR_PASSWORD,
+                                /* shandle2= */ ESYS_TR_NONE,
+                                /* shandle3= */ ESYS_TR_NONE,
+                                chunk_size,
+                                /* offset= */ result.iov_len,
+                                &chunk);
+                if (rc != TSS2_RC_SUCCESS)
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                               "Failed read contents of nvindex 0x%x: %s", nv_index, sym_Tss2_RC_Decode(rc));
+                assert(chunk);
+                if (chunk->size != chunk_size)
+                        /* On success, TPM2_NV_Read should return exactly what we asked for. */
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                               "TPM returned an unexpected amount of data (%" PRIu16 ") reading nvindex 0x%x.",
+                                               chunk->size, nv_index);
+
+                memcpy((uint8_t*) result.iov_base + result.iov_len, chunk->buffer, chunk->size);
+                result.iov_len += chunk->size;
+        }
+
+        if (ret_value)
+                *ret_value = TAKE_STRUCT(result);
 
         return 0;
 }
