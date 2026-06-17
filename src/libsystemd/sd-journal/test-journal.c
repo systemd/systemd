@@ -264,6 +264,144 @@ TEST(min_compress_size) {
 }
 #endif
 
+static uint64_t find_last_array_offset(JournalFile *f, uint64_t first) {
+        uint64_t a, last = 0, n = 0;
+        Object *o;
+
+        for (a = first; a > 0;) {
+                ASSERT_OK_ZERO(journal_file_move_to_object(f, OBJECT_ENTRY_ARRAY, a, &o));
+                last = a;
+                n++;
+                a = le64toh(o->entry_array.next_entry_array_offset);
+        }
+
+        /* We need at least two arrays, so that lopping off the final one still leaves a readable prefix. */
+        ASSERT_GE(n, UINT64_C(2));
+        return last;
+}
+
+static void test_recover_truncated_linear_one(void) {
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        dual_timestamp ts;
+        JournalFile *f;
+        Object *o;
+        uint64_t p, last_array, c;
+        char t[] = "/var/tmp/journal-XXXXXX";
+
+        /* When a journal's header records more arena than reached disk, make sure reads recover the on disk
+         * prefix. */
+
+        ASSERT_NOT_NULL(m = mmap_cache_new());
+        mkdtemp_chdir_chattr(t);
+
+        ASSERT_OK_ZERO(journal_file_open(-EBADF, "test.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS, 0666, UINT64_MAX, NULL, m, NULL, &f));
+        dual_timestamp_now(&ts);
+
+        for (unsigned i = 0; i < 200; i++) {
+                struct iovec iovec = IOVEC_MAKE_STRING("LINE=x");
+                ASSERT_OK_ZERO(journal_file_append_entry(f, &ts, NULL, &iovec, 1, NULL, NULL, NULL, NULL));
+        }
+
+        last_array = find_last_array_offset(f, le64toh(f->header->entry_array_offset));
+        (void) journal_file_offline_close(f);
+
+        /* Turn the last entry to crowfood. */
+        ASSERT_OK_ERRNO(truncate("test.journal", (off_t) last_array));
+
+        ASSERT_OK_ZERO(journal_file_open(
+                        -EBADF, "test.journal", O_RDONLY, JOURNAL_COMPRESS, 0666, UINT64_MAX, NULL, m, NULL, &f));
+
+        c = 0;
+        for (p = 0; journal_file_next_entry(f, p, DIRECTION_DOWN, &o, &p) > 0;) {
+                c++;
+                ASSERT_EQ(le64toh(o->entry.seqnum), c);
+        }
+        ASSERT_GT(c, UINT64_C(0));   /* We recovered something... */
+        ASSERT_LT(c, UINT64_C(200)); /* ...but not the tail that was cut */
+        (void) journal_file_close(f);
+
+        /* You can't write to a journal that's truncated like this. */
+        ASSERT_ERROR(journal_file_open(-EBADF, "test.journal", O_RDWR, JOURNAL_COMPRESS, 0666, UINT64_MAX, NULL, m, NULL, &f), ENODATA);
+
+        if (arg_keep)
+                log_info("Not removing %s", t);
+        else
+                ASSERT_OK(rm_rf(t, REMOVE_ROOT | REMOVE_PHYSICAL));
+}
+
+TEST(recover_truncated_linear) {
+        ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_COMPACT", "0", 1));
+        test_recover_truncated_linear_one();
+
+        ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_COMPACT", "1", 1));
+        test_recover_truncated_linear_one();
+}
+
+static void test_recover_truncated_indexed_one(void) {
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        dual_timestamp ts;
+        JournalFile *f;
+        Object *o, *d;
+        uint64_t last_array;
+        static const char field[] = "FOO=bar";
+        char t[] = "/var/tmp/journal-XXXXXX";
+
+        /* The same vague idea as above with the truncation, but this time it's the bisection case since the
+         * per-data entry array is missing. */
+
+        ASSERT_NOT_NULL(m = mmap_cache_new());
+        mkdtemp_chdir_chattr(t);
+
+        ASSERT_OK_ZERO(journal_file_open(-EBADF, "test.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS, 0666, UINT64_MAX, NULL, m, NULL, &f));
+        dual_timestamp_now(&ts);
+
+        for (unsigned i = 0; i < 200; i++) {
+                struct iovec iovec = IOVEC_MAKE_STRING(field);
+                ASSERT_OK_ZERO(journal_file_append_entry(f, &ts, NULL, &iovec, 1, NULL, NULL, NULL, NULL));
+        }
+
+        ASSERT_EQ(journal_file_find_data_object(f, field, strlen(field), &d, NULL), 1);
+        last_array = find_last_array_offset(f, le64toh(d->data.entry_array_offset));
+        (void) journal_file_offline_close(f);
+
+        /* Remove the final per-data array object. The data object's n_entries now overcounts the per-data
+         * arrays on disk */
+        ASSERT_OK_ERRNO(truncate("test.journal", (off_t) last_array));
+
+        ASSERT_OK_ZERO(journal_file_open(
+                        -EBADF, "test.journal", O_RDONLY, JOURNAL_COMPRESS, 0666, UINT64_MAX, NULL, m, NULL, &f));
+        ASSERT_EQ(journal_file_find_data_object(f, field, strlen(field), &d, NULL), 1);
+
+        /* Seeking up for the largest possible seqnum walks into the missing tail array, and must fall back
+         * to the last entry that actually survived rather than failing the query. */
+        ASSERT_EQ(journal_file_move_to_entry_by_seqnum_for_data(f, d, UINT64_MAX, DIRECTION_UP, &o, NULL), 1);
+        ASSERT_LT(le64toh(o->entry.seqnum), UINT64_C(200));
+
+        /* Seeking down past everything that survived also walks into the missing array, and must report no
+         * match rather than propagating the read error to the caller. */
+        ASSERT_OK_ZERO(journal_file_move_to_entry_by_seqnum_for_data(
+                        f, d, UINT64_MAX, DIRECTION_DOWN, &o, NULL));
+
+        /* The head of the chain is intact, so a downward seek from the start still finds the first entry. */
+        ASSERT_EQ(journal_file_move_to_entry_by_seqnum_for_data(f, d, 0, DIRECTION_DOWN, &o, NULL), 1);
+        ASSERT_EQ(le64toh(o->entry.seqnum), UINT64_C(1));
+
+        (void) journal_file_close(f);
+
+        if (arg_keep)
+                log_info("Not removing %s", t);
+        else
+                ASSERT_OK(rm_rf(t, REMOVE_ROOT | REMOVE_PHYSICAL));
+}
+
+TEST(recover_truncated_indexed) {
+        ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_COMPACT", "0", 1));
+        test_recover_truncated_indexed_one();
+
+        ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_COMPACT", "1", 1));
+        test_recover_truncated_indexed_one();
+}
+
 static int intro(void) {
         arg_keep = saved_argc > 1;
 
