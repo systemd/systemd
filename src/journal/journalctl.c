@@ -16,6 +16,7 @@
 #include "journalctl.h"
 #include "journalctl-authenticate.h"
 #include "journalctl-catalog.h"
+#include "journalctl-metrics.h"
 #include "journalctl-misc.h"
 #include "journalctl-show.h"
 #include "journalctl-varlink.h"
@@ -40,6 +41,7 @@
 #include "syslog-util.h"
 #include "time-util.h"
 #include "varlink-io.systemd.JournalAccess.h"
+#include "varlink-io.systemd.Metrics.h"
 #include "varlink-util.h"
 
 #define DEFAULT_FSS_INTERVAL_USEC (15*USEC_PER_MINUTE)
@@ -115,6 +117,7 @@ ImagePolicy *arg_image_policy = NULL;
 bool arg_synchronize_on_exit = false;
 
 static bool arg_varlink = false;
+static bool arg_varlink_metrics = false;
 RuntimeScope arg_varlink_runtime_scope = _RUNTIME_SCOPE_INVALID;
 
 STATIC_DESTRUCTOR_REGISTER(arg_cursor, freep);
@@ -214,6 +217,43 @@ default_noarg:
         return 0;
 }
 
+static int parse_priorities(const char *arg) {
+        assert(arg);
+
+        const char *dots = strstr(arg, "..");
+        if (dots) {
+                /* a range */
+                _cleanup_free_ char *a = strndup(arg, dots - arg);
+                if (!a)
+                        return log_oom();
+
+                int from = log_level_from_string(a),
+                      to = log_level_from_string(dots + 2);
+
+                if (from < 0 || to < 0)
+                        return log_error_errno(from < 0 ? from : to,
+                                               "Failed to parse log level range %s", arg);
+
+                arg_priorities = 0;
+                if (from < to)
+                        for (int i = from; i <= to; i++)
+                                arg_priorities |= 1 << i;
+                else
+                        for (int i = to; i <= from; i++)
+                                arg_priorities |= 1 << i;
+        } else {
+                int p = log_level_from_string(arg);
+                if (p < 0)
+                        return log_error_errno(p, "Unknown log level %s", arg);
+
+                arg_priorities = 0;
+                for (int i = 0; i <= p; i++)
+                        arg_priorities |= 1 << i;
+        }
+
+        return 0;
+}
+
 static int help_facilities(void) {
         if (!arg_quiet)
                 puts("Available facilities:");
@@ -277,13 +317,33 @@ static int vl_server(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate Varlink server: %m");
 
-        r = sd_varlink_server_add_interface(varlink_server, &vl_interface_io_systemd_JournalAccess);
-        if (r < 0)
-                return log_error_errno(r, "Failed to add Varlink interface: %m");
+        /* Bind only the interface that belongs to the activating socket: otherwise a client of the metrics
+         * report socket could call JournalAccess.GetEntries and read the whole journal. */
+        if (arg_varlink_metrics) {
+                /* The --lines=+N argument does not make much sense for a metrics provider */
+                if (arg_lines_oldest)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "--lines=+N is not supported when serving the metrics interface.");
 
-        r = sd_varlink_server_bind_method(varlink_server, "io.systemd.JournalAccess.GetEntries", vl_method_get_entries);
+                r = sd_varlink_server_add_interface(varlink_server, &vl_interface_io_systemd_Metrics);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add Varlink interface: %m");
+
+                r = sd_varlink_server_bind_method_many(
+                                varlink_server,
+                                "io.systemd.Metrics.List",     vl_method_list_metrics,
+                                "io.systemd.Metrics.Describe", vl_method_describe_metrics);
+        } else {
+                r = sd_varlink_server_add_interface(varlink_server, &vl_interface_io_systemd_JournalAccess);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add Varlink interface: %m");
+
+                r = sd_varlink_server_bind_method(
+                                varlink_server,
+                                "io.systemd.JournalAccess.GetEntries", vl_method_get_entries);
+        }
         if (r < 0)
-                return log_error_errno(r, "Failed to bind Varlink method: %m");
+                return log_error_errno(r, "Failed to bind Varlink methods: %m");
 
         r = sd_varlink_server_loop_auto(varlink_server);
         if (r < 0)
@@ -319,13 +379,40 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                         OPTION_COMMON_USER:
                                 arg_varlink_runtime_scope = RUNTIME_SCOPE_USER;
                                 break;
+
+                        OPTION_LONG("metrics", NULL, "Serve the io.systemd.Metrics interface instead of io.systemd.JournalAccess"):
+                                arg_varlink_metrics = true;
+                                break;
+
+                        OPTION('p', "priority", "RANGE", "Show entries within the specified priority range"):
+                                r = parse_priorities(opts.arg);
+                                if (r < 0)
+                                        return r;
+                                break;
+
+                        OPTION_FULL(OPTION_OPTIONAL_ARG, 'n', "lines", "[+]INTEGER",
+                                    "Number of journal entries to show"): {
+                                const char *p = opts.arg ?: option_parser_peek_next_arg(&opts);
+
+                                r = parse_lines(p, /* graceful= */ !opts.arg);
+                                if (r < 0)
+                                        return r;
+                                if (r > 0 && !opts.arg)
+                                        (void) option_parser_consume_next_arg(&opts);
+
+                                break;
+                        }
                         }
 
                 if (arg_varlink_runtime_scope < 0)
                         return log_error_errno(arg_varlink_runtime_scope, "Cannot run in Varlink mode with no runtime scope specified.");
 
                 if (option_parser_get_n_args(&opts) > 0)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No arguments expected in Varlink mode.");
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No positional arguments expected in Varlink mode.");
+
+                /* We return early, skipping the tristate resolution the regular path does below; resolve it
+                 * here so add_filters() doesn't trip over the unresolved -1. */
+                arg_boot = false;
 
                 *remaining_args = NULL;
                 return 1;
@@ -526,42 +613,11 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                                 return log_oom();
                         break;
 
-                OPTION('p', "priority", "RANGE", "Show entries within the specified priority range"): {
-
-                        const char *dots = strstr(opts.arg, "..");
-                        if (dots) {
-                                /* a range */
-                                _cleanup_free_ char *a = strndup(opts.arg, dots - opts.arg);
-                                if (!a)
-                                        return log_oom();
-
-                                int from = log_level_from_string(a),
-                                      to = log_level_from_string(dots + 2);
-
-                                if (from < 0 || to < 0)
-                                        return log_error_errno(from < 0 ? from : to,
-                                                               "Failed to parse log level range %s", opts.arg);
-
-                                arg_priorities = 0;
-                                if (from < to)
-                                        for (int i = from; i <= to; i++)
-                                                arg_priorities |= 1 << i;
-                                else
-                                        for (int i = to; i <= from; i++)
-                                                arg_priorities |= 1 << i;
-
-                        } else {
-                                int p = log_level_from_string(opts.arg);
-                                if (p < 0)
-                                        return log_error_errno(p, "Unknown log level %s", opts.arg);
-
-                                arg_priorities = 0;
-                                for (int i = 0; i <= p; i++)
-                                        arg_priorities |= 1 << i;
-                        }
-
+                OPTION('p', "priority", "RANGE", "Show entries within the specified priority range"):
+                        r = parse_priorities(opts.arg);
+                        if (r < 0)
+                                return r;
                         break;
-                }
 
                 OPTION_LONG("facility", "FACILITY…", "Show entries with the specified facilities"):
                         for (const char *p = opts.arg;;) {
