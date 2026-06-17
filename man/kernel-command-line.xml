@@ -736,6 +736,15 @@
         is set in <filename>/etc/hostname</filename>. Note that this does not bar later runtime changes to
         the hostname, it simply controls the initial hostname set during early boot.</para>
 
+        <para>The name may use the <literal>?</literal> and <literal>$</literal> wildcard patterns documented
+        in <citerefentry><refentrytitle>hostname</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+        which are expanded deterministically from the machine ID each time the name is applied. The expanded
+        name is never persisted, hence it may change if the word lists change. Note that in the initrd the
+        word lists (and possibly the machine ID) are typically not available; the option is then ignored and
+        the hostname is instead determined from the other sources, i.e.
+        <filename>/etc/hostname</filename> or the <varname>system.hostname</varname> credential, falling back
+        to the default hostname if none of those apply.</para>
+
         <xi:include href="version-info.xml" xpointer="v246"/></listitem>
       </varlistentry>
 
