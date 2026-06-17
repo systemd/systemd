@@ -992,6 +992,10 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
 
         _cleanup_strv_free_ char **l = NULL;
         char **args = option_parser_get_args(&opts);
+        if (arg_slice_inherit && arg_lightweight > 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                "Option '--lightwieght' is incomaptible with '--slice-inherit'");
+
         if (!strv_isempty(args)) {
                 if (arg_validate)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -1108,6 +1112,7 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
         }
 
         if (!strv_env_get(arg_environment, "XDG_SESSION_CLASS")) {
+                const char *class = NULL;
 
                 /* If logging into an area, imply lightweight mode */
                 if (arg_lightweight < 0 && !isempty(arg_area))
@@ -1124,10 +1129,13 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                         arg_lightweight = true;
 
                 if (arg_lightweight >= 0) {
-                        const char *class =
-                                arg_lightweight ? (arg_stdio == ARG_STDIO_PTY ? (become_root() ? "user-early-light" : "user-light") : "background-light") :
+                        class = arg_lightweight ? (arg_stdio == ARG_STDIO_PTY ? (become_root() ? "user-early-light" : "user-light") : "background-light") :
                                                   (arg_stdio == ARG_STDIO_PTY ? (become_root() ? "user-early" : "user") : "background");
 
+                } else if (arg_slice_inherit > 0)
+                        class = "none";
+
+                if (class) {
                         log_debug("Setting XDG_SESSION_CLASS to '%s'.", class);
 
                         r = strv_env_assign(&arg_environment, "XDG_SESSION_CLASS", class);
