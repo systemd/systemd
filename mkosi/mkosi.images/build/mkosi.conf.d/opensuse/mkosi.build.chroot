@@ -127,6 +127,9 @@ if ! build; then
     build --noprep --nocheck
 fi
 
+# The %sysusers_generate_pre macro generates these and leaves them behind, clean them up
+rm -f systemd-network.pre systemd-resolve.pre
+
 cp "$BUILDDIR"/*.rpm "$PACKAGEDIR"
 
 make_sysext_unsigned /var/tmp/BUILD/*/BUILDROOT
