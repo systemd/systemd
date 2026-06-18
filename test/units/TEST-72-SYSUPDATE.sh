@@ -589,6 +589,18 @@ EOF
     verify_version "$blockdev" "$sector_size" v8 1
     verify_version_current "$blockdev" "$sector_size" v9 2
 
+    # Test that checking for an update on a non-existent target fails
+    # (for backwards compatibility reasons, the validation in sysupdate-cli is
+    # less strict)
+    if [[ "$client" == "sysupdate-cli" ]]; then
+        (! "$SYSUPDATE" --verify=no check-new --component=../) |& grep "Component name invalid" >/dev/null
+    elif [[ "$client" == "varlink" ]]; then
+        (! varlinkctl call "$VARLINK_SOCKET" io.systemd.SysUpdate.CheckNew '{"target":{"class":"component","name":"../"}}') |& grep org.varlink.service.InvalidParameter >/dev/null
+        (! varlinkctl call "$VARLINK_SOCKET" io.systemd.SysUpdate.CheckNew '{"target":{"class":"component","name":"doesnotexist"}}') |& grep io.systemd.SysUpdate.NoSuchTarget >/dev/null
+    else
+        exit 1
+    fi
+
     # Cleanup
     [[ -b "$blockdev" ]] && losetup --detach "$blockdev"
     rm "$BACKING_FILE"
