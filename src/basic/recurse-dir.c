@@ -27,6 +27,35 @@ static bool ignore_dirent(const struct dirent *de, RecurseDirFlags flags) {
 
         /* Depending on flag either ignore everything starting with ".", or just "." itself and ".." */
 
+        if ((flags & _RECURSE_DIR_MUST_BE_MASK) != 0) {
+                RecurseDirFlags f;
+
+                switch (de->d_type) {
+
+                case DT_DIR:
+                        f = RECURSE_DIR_MUST_BE_DIRECTORY;
+                        break;
+
+                case DT_REG:
+                        f = RECURSE_DIR_MUST_BE_REGULAR;
+                        break;
+
+                case DT_LNK:
+                        f = RECURSE_DIR_MUST_BE_SYMLINK;
+                        break;
+
+                case DT_SOCK:
+                        f = RECURSE_DIR_MUST_BE_SOCKET;
+                        break;
+
+                default:
+                        return true;
+                }
+
+                if (!FLAGS_SET(flags, f))
+                        return true;
+        }
+
         return FLAGS_SET(flags, RECURSE_DIR_IGNORE_DOT) ?
                 de->d_name[0] == '.' :
                 dot_or_dot_dot(de->d_name);
@@ -38,6 +67,9 @@ int readdir_all(int dir_fd, RecurseDirFlags flags, DirectoryEntries **ret) {
         int r;
 
         assert(dir_fd >= 0);
+
+        if ((flags & _RECURSE_DIR_MUST_BE_MASK) != 0) /* We need the type to validate it */
+                flags |= RECURSE_DIR_ENSURE_TYPE;
 
         /* Returns an array with pointers to "struct dirent" directory entries, optionally sorted.
          *
@@ -87,9 +119,6 @@ int readdir_all(int dir_fd, RecurseDirFlags flags, DirectoryEntries **ret) {
         de->n_entries = 0;
         struct dirent *entry;
         FOREACH_DIRENT_IN_BUFFER(entry, de->buffer, de->buffer_size) {
-                if (ignore_dirent(entry, flags))
-                        continue;
-
                 if (FLAGS_SET(flags, RECURSE_DIR_ENSURE_TYPE)) {
                         r = dirent_ensure_type(dir_fd, entry);
                         if (r == -ENOENT)
@@ -98,6 +127,9 @@ int readdir_all(int dir_fd, RecurseDirFlags flags, DirectoryEntries **ret) {
                         if (r < 0)
                                 return r;
                 }
+
+                if (ignore_dirent(entry, flags))
+                        continue;
 
                 de->n_entries++;
         }
@@ -117,12 +149,12 @@ int readdir_all(int dir_fd, RecurseDirFlags flags, DirectoryEntries **ret) {
 
         j = 0;
         FOREACH_DIRENT_IN_BUFFER(entry, de->buffer, de->buffer_size) {
-                if (ignore_dirent(entry, flags))
-                        continue;
-
                 /* If d_type == DT_UNKNOWN that means we failed to ensure the type in the earlier loop and
                  * didn't include the dentry in de->n_entries and as such should skip it here as well. */
                 if (FLAGS_SET(flags, RECURSE_DIR_ENSURE_TYPE) && entry->d_type == DT_UNKNOWN)
+                        continue;
+
+                if (ignore_dirent(entry, flags))
                         continue;
 
                 de->entries[j++] = entry;
@@ -165,6 +197,9 @@ int recurse_dir(
 
         assert(dir_fd >= 0);
         assert(func);
+
+        /* We cannot descend into dirs if we are supposed to ignore them */
+        assert((flags & _RECURSE_DIR_MUST_BE_MASK) == 0 || FLAGS_SET(flags, RECURSE_DIR_MUST_BE_DIRECTORY));
 
         /* This is a lot like ftw()/nftw(), but a lot more modern, i.e. built around openat()/statx()/O_PATH,
          * and under the assumption that fds are not as 'expensive' as they used to be. */
