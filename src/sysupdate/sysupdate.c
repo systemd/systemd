@@ -186,6 +186,49 @@ static void server_done(Server *s) {
 
 static DEFINE_POINTER_ARRAY_FREE_FUNC(Transfer*, transfer_free);
 
+static int read_features(
+                Context *c,
+                const char **dirs) {
+
+        int r;
+
+        assert(c);
+
+        ConfFile **files = NULL;
+        size_t n_files = 0;
+        CLEANUP_ARRAY(files, n_files, conf_file_free_array);
+
+        r = conf_files_list_strv_full(
+                        ".feature",
+                        c->root,
+                        CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED|CONF_FILES_WARN,
+                        (const char**) dirs,
+                        &files,
+                        &n_files);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enumerate sysupdate.d/*.feature definitions: %m");
+
+        FOREACH_ARRAY(i, files, n_files) {
+                ConfFile *e = *i;
+
+                _cleanup_(feature_unrefp) Feature *f = feature_new();
+                if (!f)
+                        return log_oom();
+
+                r = feature_read_definition(f, c->root, e->result, (const char**) dirs);
+                if (r < 0)
+                        return r;
+
+                r = hashmap_ensure_put(&c->features, &feature_hash_ops, f->id, f);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to insert feature '%s' into map: %m", f->id);
+
+                TAKE_PTR(f);
+        }
+
+        return 0;
+}
+
 static int read_definitions(
                 Context *c,
                 const char **dirs,
@@ -279,34 +322,9 @@ static int context_read_definitions(Context *c, const char* node, ReadDefinition
         if (!dirs)
                 return log_oom();
 
-        ConfFile **files = NULL;
-        size_t n_files = 0;
-
-        CLEANUP_ARRAY(files, n_files, conf_file_free_array);
-
-        r = conf_files_list_strv_full(".feature", c->root,
-                                      CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED|CONF_FILES_WARN,
-                                      (const char**) dirs, &files, &n_files);
+        r = read_features(c, (const char**) dirs);
         if (r < 0)
-                return log_error_errno(r, "Failed to enumerate sysupdate.d/*.feature definitions: %m");
-
-        FOREACH_ARRAY(i, files, n_files) {
-                _cleanup_(feature_unrefp) Feature *f = NULL;
-                ConfFile *e = *i;
-
-                f = feature_new();
-                if (!f)
-                        return log_oom();
-
-                r = feature_read_definition(f, c->root, e->result, (const char**) dirs);
-                if (r < 0)
-                        return r;
-
-                r = hashmap_ensure_put(&c->features, &feature_hash_ops, f->id, f);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to insert feature '%s' into map: %m", f->id);
-                TAKE_PTR(f);
-        }
+                return r;
 
         r = read_definitions(c, (const char**) dirs, ".transfer", node);
         if (r < 0)
