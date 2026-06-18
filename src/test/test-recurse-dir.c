@@ -2,14 +2,17 @@
 
 #include <ftw.h>
 #include <linux/magic.h>
+#include <sys/stat.h>
 
 #include "fd-util.h"
 #include "log.h"
 #include "recurse-dir.h"
+#include "rm-rf.h"
 #include "stat-util.h"
 #include "strv.h"
 #include "tests.h"
 #include "time-util.h"
+#include "tmpfile-util.h"
 
 static char **list_nftw = NULL;
 
@@ -119,6 +122,71 @@ static int recurse_dir_callback(
         return RECURSE_DIR_CONTINUE;
 }
 
+static void assert_entries(DirectoryEntries *de, char **expected) {
+        ASSERT_NOT_NULL(de);
+
+        /* Verifies that the directory entries enumerated in 'de' are exactly the ones listed in
+         * 'expected' (order is irrelevant). */
+
+        ASSERT_EQ(de->n_entries, strv_length(expected));
+
+        FOREACH_ARRAY(i, de->entries, de->n_entries)
+                ASSERT_TRUE(strv_contains(expected, (*i)->d_name));
+
+        STRV_FOREACH(e, expected) {
+                bool found = false;
+
+                FOREACH_ARRAY(i, de->entries, de->n_entries)
+                        if (streq((*i)->d_name, *e)) {
+                                found = true;
+                                break;
+                        }
+
+                ASSERT_TRUE(found);
+        }
+}
+
+static void check_readdir_all(int tfd, RecurseDirFlags flags, char **expected) {
+        _cleanup_free_ DirectoryEntries *de = NULL;
+        _cleanup_close_ int fd = -EBADF;
+
+        /* readdir_all() consumes the directory fd offset, hence reopen a fresh fd for each enumeration. */
+        ASSERT_OK(fd = fd_reopen(tfd, O_DIRECTORY|O_CLOEXEC));
+        ASSERT_OK(readdir_all(fd, flags, &de));
+        assert_entries(de, expected);
+}
+
+static void test_must_be_flags(void) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_close_ int tfd = -EBADF, reg_fd = -EBADF;
+
+        log_info("/* %s */", __func__);
+
+        /* Populate a temporary directory with one entry of each interesting type and verify that the
+         * RECURSE_DIR_MUST_BE_* flags select exactly the right subset. */
+
+        ASSERT_OK(tfd = mkdtemp_open(NULL, O_DIRECTORY|O_CLOEXEC, &t));
+
+        ASSERT_OK_ERRNO(mkdirat(tfd, "dir", 0777));
+        ASSERT_OK_ERRNO(reg_fd = openat(tfd, "reg", O_CREAT|O_EXCL|O_WRONLY|O_CLOEXEC, 0666));
+        reg_fd = safe_close(reg_fd);
+        ASSERT_OK_ERRNO(symlinkat("reg", tfd, "lnk"));
+        ASSERT_OK_ERRNO(mknodat(tfd, "sock", S_IFSOCK|0666, 0));
+
+        /* Without any MUST_BE flag we get all four entries. */
+        check_readdir_all(tfd, 0, STRV_MAKE("dir", "reg", "lnk", "sock"));
+
+        /* A single MUST_BE flag selects exactly the entries of the matching type. */
+        check_readdir_all(tfd, RECURSE_DIR_MUST_BE_DIRECTORY, STRV_MAKE("dir"));
+        check_readdir_all(tfd, RECURSE_DIR_MUST_BE_REGULAR, STRV_MAKE("reg"));
+        check_readdir_all(tfd, RECURSE_DIR_MUST_BE_SYMLINK, STRV_MAKE("lnk"));
+        check_readdir_all(tfd, RECURSE_DIR_MUST_BE_SOCKET, STRV_MAKE("sock"));
+
+        /* The flags may be combined, in which case we get the union of the matching entries. */
+        check_readdir_all(tfd, RECURSE_DIR_MUST_BE_REGULAR|RECURSE_DIR_MUST_BE_SYMLINK, STRV_MAKE("reg", "lnk"));
+        check_readdir_all(tfd, RECURSE_DIR_MUST_BE_DIRECTORY|RECURSE_DIR_MUST_BE_SOCKET, STRV_MAKE("dir", "sock"));
+}
+
 int main(int argc, char *argv[]) {
         _cleanup_strv_free_ char **list_recurse_dir = NULL;
         const char *p;
@@ -127,6 +195,8 @@ int main(int argc, char *argv[]) {
 
         log_show_color(true);
         test_setup_logging(LOG_INFO);
+
+        test_must_be_flags();
 
         if (argc > 1)
                 p = argv[1];
