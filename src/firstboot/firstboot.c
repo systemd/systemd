@@ -987,7 +987,7 @@ static int write_root_passwd(int rfd, int etc_fd, const char *password, const ch
         int r;
         bool found = false;
 
-        r = fopen_temporary_at_label(etc_fd, "passwd", "passwd", &passwd, &passwd_tmp);
+        r = fopen_temporary_at_label(etc_fd, "/etc/passwd", "passwd", &passwd, &passwd_tmp);
         if (r < 0)
                 return r;
 
@@ -1058,7 +1058,7 @@ static int write_root_shadow(int etc_fd, const char *hashed_password) {
         int r;
         bool found = false;
 
-        r = fopen_temporary_at_label(etc_fd, "shadow", "shadow", &shadow, &shadow_tmp);
+        r = fopen_temporary_at_label(etc_fd, "/etc/shadow", "shadow", &shadow, &shadow_tmp);
         if (r < 0)
                 return r;
 
