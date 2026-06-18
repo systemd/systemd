@@ -4,8 +4,14 @@
 
 #include "bus-error.h"
 #include "bus-locator.h"
+#include "conf-files.h"
+#include "constants.h"
 #include "log.h"
 #include "login-util.h"
+#include "path-util.h"
+#include "set.h"
+#include "string-util.h"
+#include "strv.h"
 #include "sysupdate-util.h"
 
 int reboot_now(void) {
@@ -22,5 +28,76 @@ int reboot_now(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to issue reboot request: %s", bus_error_message(&error, r));
 
+        return 0;
+}
+
+bool component_name_valid(const char *c) {
+        /* See if the specified string enclosed in the directory prefix+suffix would be a valid file name */
+
+        if (!string_is_safe(c, STRING_FILENAME_PART))
+                return false;
+
+        /* Stack allocation is safe, since STRING_FILENAME_PART includes a length check */
+        const char *j = strjoina("sysupdate.", c, ".d");
+
+        return filename_is_valid(j);
+}
+
+int get_component_list(const char *root, char ***ret) {
+        int r;
+
+        assert(ret);
+
+        ConfFile **directories = NULL;
+        size_t n_directories = 0;
+        CLEANUP_ARRAY(directories, n_directories, conf_file_free_array);
+
+        r = conf_files_list_strv_full(
+                        ".d",
+                        root,
+                        CONF_FILES_DIRECTORY|CONF_FILES_WARN,
+                        (const char * const *) CONF_PATHS_STRV(""),
+                        &directories,
+                        &n_directories);
+        if (r < 0)
+                return r;
+
+        _cleanup_set_free_ Set *names = NULL;
+
+        FOREACH_ARRAY(i, directories, n_directories) {
+                ConfFile *e = *i;
+
+                const char *s = startswith(e->filename, "sysupdate.");
+                if (!s)
+                        continue;
+
+                const char *a = endswith(s, ".d");
+                if (!a)
+                        continue;
+
+                if (a == s)
+                        continue;
+
+                _cleanup_free_ char *n = strndup(s, a - s);
+                if (!n)
+                        return log_oom();
+
+                if (!component_name_valid(n))
+                        continue;
+
+                r = set_ensure_put(&names, &string_hash_ops_free, n);
+                if (r < 0 && r != -EEXIST)
+                        return log_debug_errno(r, "Failed to add component '%s' to set: %m", n);
+
+                TAKE_PTR(n);
+        }
+
+        _cleanup_free_ char **z = set_to_strv(&names);
+        if (!z)
+                return -ENOMEM;
+
+        strv_sort(z);
+
+        *ret = TAKE_PTR(z);
         return 0;
 }
