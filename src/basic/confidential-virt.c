@@ -162,18 +162,17 @@ static ConfidentialVirtualization detect_tdx(void) {
         uint32_t eax, ebx, ecx, edx;
         char sig[13] = {};
 
-        eax = CPUID_GET_HIGHEST_FUNCTION;
+        eax = 0;
         ebx = ecx = edx = 0;
 
         cpuid(&eax, &ebx, &ecx, &edx);
 
-        if (eax < CPUID_INTEL_TDX_ENUMERATION)
-                return CONFIDENTIAL_VIRTUALIZATION_NONE;
+        if (eax >= CPUID_INTEL_TDX_ENUMERATION) {
+                cpuid_leaf(CPUID_INTEL_TDX_ENUMERATION, sig, true);
 
-        cpuid_leaf(CPUID_INTEL_TDX_ENUMERATION, sig, true);
-
-        if (memcmp(sig, CPUID_SIG_INTEL_TDX, sizeof(sig)) == 0)
-                return CONFIDENTIAL_VIRTUALIZATION_TDX;
+                if (memcmp(sig, CPUID_SIG_INTEL_TDX, sizeof(sig)) == 0)
+                        return CONFIDENTIAL_VIRTUALIZATION_TDX;
+        }
 
         log_debug("No tdx in CPUID, trying hyperv CPUID");
 
