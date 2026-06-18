@@ -40,6 +40,7 @@ typedef enum MountProcFlags {
         MOUNT_PROC_IS_MOUNTED   = 1 << 0,
         MOUNT_PROC_JUST_MOUNTED = 1 << 1,
         MOUNT_PROC_JUST_CHANGED = 1 << 2,
+        MOUNT_PROC_IS_DETACHED  = 1 << 3,
 } MountProcFlags;
 
 typedef struct Mount {

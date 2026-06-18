@@ -66,7 +66,7 @@ static int mount_dispatch_io(sd_event_source *source, int fd, uint32_t revents, 
 static void mount_enter_dead(Mount *m, MountResult f, bool flush_result);
 static void mount_enter_mounted(Mount *m, MountResult f);
 static void mount_cycle_clear(Mount *m);
-static int mount_process_kernel_mounttable(Manager *m);
+static int mount_process_kernel_mounttable(Manager *m, bool skip_drain);
 
 static bool MOUNT_STATE_WITH_PROCESS(MountState state) {
         return IN_SET(state,
@@ -224,6 +224,9 @@ static void mount_parameters_done(MountParameters *p) {
 
 static void mount_done(Unit *u) {
         Mount *m = ASSERT_PTR(MOUNT(u));
+
+        if (m->uniq_id > 0)
+                hashmap_remove(u->manager->mounts_by_uniq_id, &m->uniq_id);
 
         m->where = mfree(m->where);
 
@@ -1533,7 +1536,7 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
          * race, let's explicitly scan /proc/self/mountinfo before we start processing /usr/bin/(u)mount
          * dying. It's ugly, but it makes our ordering systematic again, and makes sure we always see
          * /proc/self/mountinfo changes before our mount/umount exits. */
-        (void) mount_process_kernel_mounttable(u->manager);
+        (void) mount_process_kernel_mounttable(u->manager, /* skip_drain= */ false);
 
         pidref_done(&m->control_pid);
 
@@ -1924,6 +1927,13 @@ static int mount_setup_unit(
         if (r < 0)
                 return log_warning_errno(r, "Failed to set up mount unit for '%s': %m", where);
 
+        if (uniq_id > 0) {
+                r = hashmap_ensure_allocated(&m->mounts_by_uniq_id, &uint64_hash_ops);
+                if (r < 0)
+                        return log_oom();
+                (void) hashmap_put(m->mounts_by_uniq_id, &MOUNT(u)->uniq_id, MOUNT(u));
+        }
+
         /* If the mount changed properties or state, let's notify our clients */
         if (flags & (MOUNT_PROC_JUST_CHANGED|MOUNT_PROC_JUST_MOUNTED))
                 unit_add_to_dbus_queue(u);
@@ -1997,6 +2007,16 @@ static void mount_shutdown(Manager *m) {
                 sym_mnt_unref_monitor(m->mount_monitor);
                 m->mount_monitor = NULL;
         }
+
+#if HAVE_LIBMOUNT
+        if (m->mount_fanotify_fs) {
+                sym_mnt_unref_fs(m->mount_fanotify_fs);
+                m->mount_fanotify_fs = NULL;
+        }
+        m->mount_use_fanotify = false;
+#endif
+
+        m->mounts_by_uniq_id = hashmap_free(m->mounts_by_uniq_id);
 }
 
 static void mount_handoff_timestamp(
@@ -2085,6 +2105,71 @@ static int mount_on_ratelimit_expire(sd_event_source *s, void *userdata) {
 
         return 0;
 }
+
+static bool mount_monitor_is_fanotify_usable(void) {
+        static int cached = -1;
+
+        if (cached != -1)
+                return cached;
+
+        _cleanup_(mnt_unref_monitorp) struct libmnt_monitor *probe = NULL;
+
+        if (DLOPEN_LIBMOUNT_FANOTIFY(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED) < 0)
+                return (cached = false);
+
+        /* mnt_monitor_enable_fanotify() only allocates data structures; the actual
+         * fanotify_init(FAN_REPORT_MNT) syscall happens inside mnt_monitor_get_fd().
+         * Use a throwaway probe monitor to test kernel support. */
+        probe = sym_mnt_new_monitor();
+        if (!probe)
+                return (cached = false);
+
+        if (sym_mnt_monitor_enable_fanotify(probe, /* enable= */ 1, /* ns= */ -1) < 0)
+                return (cached = false);
+
+        cached = sym_mnt_monitor_get_fd(probe) >= 0;
+        return cached;
+}
+
+static int mount_monitor_init_fanotify(Manager *m) {
+        int r;
+
+        assert(m);
+        assert(m->mount_monitor);
+
+        r = sym_mnt_monitor_enable_fanotify(m->mount_monitor, /* enable= */ 1, /* ns= */ -1);
+        if (r < 0)
+                return r;
+
+        m->mount_fanotify_fs = sym_mnt_new_fs();
+        if (!m->mount_fanotify_fs) {
+                r = log_oom();
+                goto fail;
+        }
+
+        struct libmnt_statmnt *stmnt = sym_mnt_new_statmnt();
+        if (!stmnt) {
+                r = log_oom();
+                goto fail;
+        }
+
+        r = sym_mnt_fs_refer_statmnt(m->mount_fanotify_fs, stmnt);
+        sym_mnt_unref_statmnt(stmnt);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to attach statmnt to fs: %m");
+                goto fail;
+        }
+
+        return 0;
+
+fail:
+        (void) sym_mnt_monitor_enable_fanotify(m->mount_monitor, /* enable= */ 0, /* ns= */ -1);
+        if (m->mount_fanotify_fs) {
+                sym_mnt_unref_fs(m->mount_fanotify_fs);
+                m->mount_fanotify_fs = NULL;
+        }
+        return r;
+}
 #endif
 
 static void mount_enumerate(Manager *m) {
@@ -2099,6 +2184,7 @@ static void mount_enumerate(Manager *m) {
         if (!m->mount_monitor) {
                 usec_t mount_rate_limit_interval = 1 * USEC_PER_SEC;
                 unsigned mount_rate_limit_burst = 5;
+                bool use_fanotify;
                 int fd;
 
                 m->mount_monitor = sym_mnt_new_monitor();
@@ -2107,10 +2193,22 @@ static void mount_enumerate(Manager *m) {
                         goto fail;
                 }
 
-                r = sym_mnt_monitor_enable_kernel(m->mount_monitor, 1);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to enable watching of kernel mount events: %m");
-                        goto fail;
+                use_fanotify = mount_monitor_is_fanotify_usable();
+
+                if (use_fanotify) {
+                        r = mount_monitor_init_fanotify(m);
+                        if (r < 0) {
+                                log_warning_errno(r, "Failed to initialize fanotify mount monitoring, falling back to inotify: %m");
+                                use_fanotify = false;
+                        }
+                }
+
+                if (!use_fanotify) {
+                        r = sym_mnt_monitor_enable_kernel(m->mount_monitor, 1);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to enable watching of kernel mount events: %m");
+                                goto fail;
+                        }
                 }
 
                 r = sym_mnt_monitor_enable_userspace(m->mount_monitor, 1, NULL);
@@ -2166,6 +2264,9 @@ static void mount_enumerate(Manager *m) {
                 }
 
                 (void) sd_event_source_set_description(m->mount_event_source, "mount-monitor-dispatch");
+
+                m->mount_use_fanotify = use_fanotify;
+                log_debug("Using %s for mount monitoring.", use_fanotify ? "fanotify" : "inotify");
         }
 
         r = mount_load_kernel_mounttable(m, false);
@@ -2211,9 +2312,24 @@ static int drain_libmount(Manager *m) {
 }
 
 #if HAVE_LIBMOUNT
-/* Dispatch the load queue, run state transitions based on proc_flags, and reconcile device
- * nodes (around/gone sets). Called after mount_load_kernel_mounttable() has populated the
- * mount units with current kernel state. */
+/* Post-processing for mount units after kernel state has been updated.
+ *
+ * Dispatches the load queue, performs state transitions based on proc_flags, and reconciles
+ * device nodes (around/gone sets). Used by both paths:
+ *
+ * Full-rescan path: mount_load_kernel_mounttable() sets MOUNT_PROC_IS_MOUNTED on every mount
+ *   found in the kernel table. Units absent from the table are explicitly marked
+ *   MOUNT_PROC_IS_DETACHED by the caller. Units with proc_flags == 0 are non-kernel (e.g.
+ *   fstab-only, never mounted) and skipped.
+ *
+ * Incremental fanotify path: only event-affected units get proc_flags set — attach sets
+ *   IS_MOUNTED (via mount_setup_unit()), detach sets IS_DETACHED, utab changes set
+ *   IS_MOUNTED|JUST_CHANGED. Units with proc_flags == 0 were not part of this event batch
+ *   and are skipped.
+ *
+ * For detached units, from_kernel and parameters_kernel are still intact at this point —
+ * the gone/around cross-check needs parameters_kernel.what to track disappearing devices.
+ * Cleanup (from_kernel, hashmap, parameters) happens here after the cross-check. */
 static void mount_process_mount_units(Manager *m) {
         _cleanup_set_free_ Set *around = NULL, *gone = NULL;
 
@@ -2223,6 +2339,9 @@ static void mount_process_mount_units(Manager *m) {
 
         LIST_FOREACH(units_by_type, u, m->units_by_type[UNIT_MOUNT]) {
                 Mount *mount = MOUNT(u);
+
+                if (mount->proc_flags == 0)
+                        continue;
 
                 if (!mount_is_mounted(mount)) {
 
@@ -2236,6 +2355,8 @@ static void mount_process_mount_units(Manager *m) {
                                         log_oom(); /* we don't care too much about OOM here... */
 
                         mount->from_kernel = false;
+                        if (mount->uniq_id > 0)
+                                hashmap_remove(m->mounts_by_uniq_id, &mount->uniq_id);
                         assert_se(update_parameters_kernel(mount, NULL, NULL, NULL, 0) >= 0);
 
                         switch (mount->state) {
@@ -2312,14 +2433,16 @@ static void mount_process_mount_units(Manager *m) {
 #endif /* HAVE_LIBMOUNT */
 
 /* Load the complete kernel mount table and process all mount units. */
-static int mount_process_kernel_mounttable(Manager *m) {
+static int mount_process_kernel_mounttable(Manager *m, bool skip_drain) {
         int r;
 
         assert(m);
 
-        r = drain_libmount(m);
-        if (r <= 0)
-                return r;
+        if (!skip_drain) {
+                r = drain_libmount(m);
+                if (r <= 0)
+                        return r;
+        }
 
 #if HAVE_LIBMOUNT
         r = mount_load_kernel_mounttable(m, /* set_flags= */ true);
@@ -2331,6 +2454,12 @@ static int mount_process_kernel_mounttable(Manager *m) {
                 return 0;
         }
 
+        /* Units previously from kernel but absent from the table are gone — mark them
+         * explicitly so mount_process_mount_units() picks them up. */
+        LIST_FOREACH(units_by_type, u, m->units_by_type[UNIT_MOUNT])
+                if (MOUNT(u)->proc_flags == 0 && MOUNT(u)->from_kernel)
+                        MOUNT(u)->proc_flags = MOUNT_PROC_IS_DETACHED;
+
         mount_process_mount_units(m);
 
         return 0;
@@ -2340,12 +2469,115 @@ static int mount_process_kernel_mounttable(Manager *m) {
 }
 
 #if HAVE_LIBMOUNT
+static Mount *mount_find_by_uniq_id(Manager *m, uint64_t uniq_id) {
+        assert(m);
+
+        if (uniq_id == 0)
+                return NULL;
+
+        return hashmap_get(m->mounts_by_uniq_id, &uniq_id);
+}
+
+/* Incremental fanotify attach: populate the mount unit via mount_setup_unit() and register the
+ * device. State transitions are deferred to mount_process_mount_units(). */
+static void mount_process_fanotify_attach(Manager *m, struct libmnt_fs *fs) {
+        assert(m);
+        assert(fs);
+
+        int r = sym_mnt_fs_fetch_statmount(fs, /* mask= */ 0);
+        if (r < 0)
+                return (void) log_debug_errno(r, "Failed to fetch statmount: %m");
+
+        const char *device = sym_mnt_fs_get_source(fs);
+        const char *path = sym_mnt_fs_get_target(fs);
+        const char *options = sym_mnt_fs_get_options(fs);
+        const char *fstype = sym_mnt_fs_get_fstype(fs);
+        if (!device || !path || !fstype)
+                return;
+        uint64_t uniq_id = sym_mnt_fs_get_uniq_id(fs);
+
+        device_found_node(m, device, DEVICE_FOUND_MOUNT, DEVICE_FOUND_MOUNT);
+        (void) mount_setup_unit(m, device, path, options, fstype, uniq_id, /* set_flags= */ true);
+}
+
+/* Incremental fanotify detach: mark the unit as detached. Leave from_kernel and kernel parameters
+ * intact so mount_process_mount_units() can use them for the gone/around device cross-check. */
+static void mount_process_fanotify_detach(Manager *m, struct libmnt_fs *fs) {
+        assert(m);
+        assert(fs);
+
+        Mount *mount = mount_find_by_uniq_id(m, sym_mnt_fs_get_uniq_id(fs));
+        if (!mount)
+                return;
+
+        mount->proc_flags &= ~MOUNT_PROC_IS_MOUNTED;
+        mount->proc_flags |= MOUNT_PROC_IS_DETACHED;
+}
+
+static void mount_process_fanotify_events(Manager *m, bool *rescan) {
+        const char *filename;
+        int type;
+
+        assert(m);
+        assert(m->mount_monitor);
+        assert(rescan);
+
+        while (sym_mnt_monitor_next_change(m->mount_monitor, &filename, &type) == 0) {
+                if (type == MNT_MONITOR_TYPE_FANOTIFY) {
+                        struct libmnt_fs *fs = m->mount_fanotify_fs;
+                        int r;
+
+                        assert(fs);
+
+                        while ((r = sym_mnt_monitor_event_next_fs(m->mount_monitor, fs)) == 0) {
+                                if (sym_mnt_fs_is_moved(fs)) {
+                                        if (mount_find_by_uniq_id(m, sym_mnt_fs_get_uniq_id(fs))) {
+                                                mount_process_fanotify_detach(m, fs);
+                                                mount_process_fanotify_attach(m, fs);
+                                        } else
+                                                *rescan = true;
+                                } else if (sym_mnt_fs_is_detached(fs))
+                                        mount_process_fanotify_detach(m, fs);
+                                else
+                                        mount_process_fanotify_attach(m, fs);
+
+                                sym_mnt_reset_fs(fs);
+                        }
+
+                        /* Includes -EOVERFLOW when the fanotify event queue overflows */
+                        if (r < 0) {
+                                log_warning_errno(r, "Failed to read fanotify mount events, rescanning: %m");
+                                *rescan = true;
+                        }
+                } else
+                        /* Non-fanotify change (utab update via inotify) — need full rescan. */
+                        *rescan = true;
+
+                if (*rescan) {
+                        (void) sym_mnt_monitor_event_cleanup(m->mount_monitor);
+                        break;
+                }
+        }
+}
+
 static int mount_dispatch_io(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
 
         assert(revents & EPOLLIN);
 
-        return mount_process_kernel_mounttable(m);
+        if (m->mount_use_fanotify) {
+                bool rescan = false;
+
+                mount_process_fanotify_events(m, &rescan);
+
+                if (rescan)
+                        return mount_process_kernel_mounttable(m, /* skip_drain= */ true);
+
+                mount_process_mount_units(m);
+                return 0;
+        }
+
+        return mount_process_kernel_mounttable(m, /* skip_drain= */ false);
 }
 #endif
 
