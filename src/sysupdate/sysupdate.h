@@ -46,5 +46,3 @@ typedef struct Context {
 } Context;
 
 void context_done(Context *c);
-
-extern const Specifier specifier_table[];

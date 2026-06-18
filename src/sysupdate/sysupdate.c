@@ -34,7 +34,6 @@
 #include "pretty-print.h"
 #include "runtime-scope.h"
 #include "sort-util.h"
-#include "specifier.h"
 #include "string-util.h"
 #include "strv.h"
 #include "sysupdate.h"
@@ -74,19 +73,13 @@ STATIC_DESTRUCTOR_REGISTER(arg_component, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_transfer_source, freep);
 
-const Specifier specifier_table[] = {
-        COMMON_SYSTEM_SPECIFIERS,
-        COMMON_TMP_SPECIFIERS,
-        {}
-};
-
-#define CONTEXT_NULL \
-        (Context) { \
-                .sync = true, \
-                .instances_max = UINT64_MAX, \
-                .verify = -1, \
-                .cleanup = -1, \
-                .installdb_fd = -EBADF, \
+#define CONTEXT_NULL                                              \
+        (Context) {                                               \
+                .sync = true,                                     \
+                .instances_max = UINT64_MAX,                      \
+                .verify = -1,                                     \
+                .cleanup = -1,                                    \
+                .installdb_fd = -EBADF,                           \
                 .target_identifier.class = _TARGET_CLASS_INVALID, \
         }
 
