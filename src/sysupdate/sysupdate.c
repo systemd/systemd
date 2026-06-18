@@ -30,6 +30,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "sysupdate.h"
+#include "sysupdate-config.h"
 #include "sysupdate-cleanup.h"
 #include "sysupdate-feature.h"
 #include "sysupdate-instance.h"
@@ -60,12 +61,6 @@ STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_component, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_transfer_source, freep);
-
-const Specifier specifier_table[] = {
-        COMMON_SYSTEM_SPECIFIERS,
-        COMMON_TMP_SPECIFIERS,
-        {}
-};
 
 Context* context_free(Context *c) {
         if (!c)

@@ -36,6 +36,7 @@
 #include "sync-util.h"
 #include "sysupdate.h"
 #include "sysupdate-cleanup.h"
+#include "sysupdate-config.h"
 #include "sysupdate-feature.h"
 #include "sysupdate-instance.h"
 #include "sysupdate-pattern.h"
@@ -178,48 +179,6 @@ static int config_parse_min_version(
         }
 
         return free_and_replace(*version, resolved);
-}
-
-static int config_parse_url_specifiers(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-        char ***s = ASSERT_PTR(data);
-        _cleanup_free_ char *resolved = NULL;
-        int r;
-
-        assert(rvalue);
-
-        if (isempty(rvalue)) {
-                *s = strv_free(*s);
-                return 0;
-        }
-
-        r = specifier_printf(rvalue, NAME_MAX, specifier_table, arg_root, NULL, &resolved);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to expand specifiers in %s=, ignoring: %s", lvalue, rvalue);
-                return 0;
-        }
-
-        if (!http_url_is_valid(resolved)) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "%s= URL is not valid, ignoring: %s", lvalue, rvalue);
-                return 0;
-        }
-
-        r = strv_push(s, TAKE_PTR(resolved));
-        if (r < 0)
-                return log_oom();
-
-        return 0;
 }
 
 static int config_parse_current_symlink(
@@ -507,8 +466,8 @@ int transfer_read_definition(Transfer *t, const char *path, const char **dirs, H
                 { "Transfer",    "MinVersion",              config_parse_min_version,          0, &t->min_version             },
                 { "Transfer",    "ProtectVersion",          config_parse_protect_version,      0, &t->protected_versions      },
                 { "Transfer",    "Verify",                  config_parse_bool,                 0, &t->verify                  },
-                { "Transfer",    "ChangeLog",               config_parse_url_specifiers,       0, &t->changelog               },
-                { "Transfer",    "AppStream",               config_parse_url_specifiers,       0, &t->appstream               },
+                { "Transfer",    "ChangeLog",               config_parse_url_specifiers_many,  0, &t->changelog               },
+                { "Transfer",    "AppStream",               config_parse_url_specifiers_many,  0, &t->appstream               },
                 { "Transfer",    "Features",                config_parse_strv,                 0, &t->features                },
                 { "Transfer",    "RequisiteFeatures",       config_parse_strv,                 0, &t->requisite_features      },
                 { "Source",      "Type",                    config_parse_resource_type,        0, &t->source.type             },

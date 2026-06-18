@@ -3,6 +3,7 @@
 systemd_sysupdate_sources = files(
         'sysupdate-cache.c',
         'sysupdate-cleanup.c',
+        'sysupdate-config.c',
         'sysupdate-feature.c',
         'sysupdate-instance.c',
         'sysupdate-partition.c',
