@@ -2053,6 +2053,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                         arg_tpm2_pcr_mask == UINT32_MAX ? TPM2_PCR_MASK_DEFAULT_LEGACY : arg_tpm2_pcr_mask,
                                         UINT16_MAX,
                                         /* pubkey= */ NULL,
+                                        /* pubkey_policy_ref= */ NULL,
                                         /* pubkey_pcr_mask= */ 0,
                                         /* signature_path= */ NULL,
                                         /* pcrlock_path= */ NULL,
@@ -2108,6 +2109,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
 
                         for (;;) {
                                 _cleanup_(iovec_done) struct iovec pubkey = {}, salt = {}, srk = {}, pcrlock_nv = {};
+                                _cleanup_free_ char *pubkey_policy_ref = NULL;
                                 struct iovec *blobs = NULL, *policy_hash = NULL;
                                 uint32_t hash_pcr_mask, pubkey_pcr_mask;
                                 size_t n_blobs = 0, n_policy_hash = 0;
@@ -2124,6 +2126,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                                 &hash_pcr_mask,
                                                 &pcr_bank,
                                                 &pubkey,
+                                                &pubkey_policy_ref,
                                                 &pubkey_pcr_mask,
                                                 &primary_alg,
                                                 &blobs,
@@ -2158,6 +2161,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                                 hash_pcr_mask,
                                                 pcr_bank,
                                                 &pubkey,
+                                                pubkey_policy_ref,
                                                 pubkey_pcr_mask,
                                                 arg_tpm2_signature,
                                                 arg_tpm2_pcrlock,

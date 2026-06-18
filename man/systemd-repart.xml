@@ -446,6 +446,17 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--tpm2-public-key-policyref=<replaceable>STRING</replaceable></option></term>
+
+        <listitem><para>Configures the policy reference to use together with the signed PCR policy configured
+        via <option>--tpm2-public-key=</option>. See
+        <citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        for details on this option.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--tpm2-pcrlock=<replaceable>PATH</replaceable></option></term>
 
         <listitem><para>Configures a TPM2 pcrlock policy to bind encryption to. See
