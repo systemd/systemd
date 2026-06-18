@@ -22,7 +22,8 @@ static int write_ntp_ext_field(struct iovec *buf, uint16_t type, void *contents,
         assert(buf);
 
         /* enforce minimum size */
-        if (size < len+4) size = len+4;
+        if (size < len+4)
+                size = len+4;
         /* pad to a dword boundary */
         uint16_t padded_len = (size+3) & ~3;
         int padding = padded_len - (len+4);

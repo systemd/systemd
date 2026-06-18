@@ -26,7 +26,7 @@ int NTS_encrypt(uint8_t *ctxt,
         assert(ctxt_len >= ptxt_len + BLKSIZ);
 
         memset(ctxt, 0xEE, BLKSIZ);
-        memmove(ctxt+BLKSIZ, ptxt, ptxt_len);
+        memmove(ctxt + BLKSIZ, ptxt, ptxt_len);
         return ptxt_len + BLKSIZ;
 }
 
@@ -49,7 +49,7 @@ int NTS_decrypt(uint8_t *ptxt,
 
         assert(ptxt_len >= ctxt_len - BLKSIZ);
 
-        memmove(ptxt, ctxt+16, ctxt_len - BLKSIZ);
+        memmove(ptxt, ctxt + BLKSIZ, ctxt_len - BLKSIZ);
         return ctxt_len - BLKSIZ;
 }
 

@@ -26,21 +26,21 @@ typedef uint8_t NTS_Identifier[32];
 
 typedef enum NTS_ErrorType {
         NTS_SERVER_UNKNOWN_CRIT_RECORD = 0,
-        NTS_SERVER_BAD_REQUEST = 1,
-        NTS_SERVER_INTERNAL_ERROR = 2,
+        NTS_SERVER_BAD_REQUEST         = 1,
+        NTS_SERVER_INTERNAL_ERROR      = 2,
 
-        NTS_UNEXPECTED_WARNING = 0x10000,
-        NTS_BAD_RESPONSE = 0x10001,
-        NTS_INTERNAL_CLIENT_ERROR = 0x10002,
-        NTS_NO_PROTOCOL = 0x10003,
-        NTS_NO_AEAD = 0x10004,
-        NTS_INSUFFICIENT_DATA = 0x10005,
-        NTS_UNKNOWN_CRIT_RECORD = 0x10006,
+        NTS_UNEXPECTED_WARNING         = 0x10000,
+        NTS_BAD_RESPONSE               = 0x10001,
+        NTS_INTERNAL_CLIENT_ERROR      = 0x10002,
+        NTS_NO_PROTOCOL                = 0x10003,
+        NTS_NO_AEAD                    = 0x10004,
+        NTS_INSUFFICIENT_DATA          = 0x10005,
+        NTS_UNKNOWN_CRIT_RECORD        = 0x10006,
 
-        NTS_SUCCESS = 0x20000,
+        NTS_SUCCESS                    = 0x20000,
 
         _NTS_ERROR_MAX,
-        _NTS_ERROR_INVALID = -EINVAL,
+        _NTS_ERROR_INVALID             = -EINVAL,
 } NTS_ErrorType;
 
 typedef struct iovec NTS_Cookie;

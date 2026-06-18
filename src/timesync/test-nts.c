@@ -29,7 +29,8 @@ static void encode_ptr_len_data(
         };
 
         memcpy(*message, hdr, 4);
-        if (len) memcpy(*message+4, data, len);
+        if (len)
+                memcpy(*message+4, data, len);
         *message += len + 4;
 }
 
@@ -206,7 +207,8 @@ static void add_encrypted_server_hdr(
                 encode_record_raw_ext(p_ptr, 0x0204, *cookie, strlen(*cookie));
 
         /* corrupt a byte */
-        if (corrupt) *corrupt = 0xee;
+        if (corrupt)
+                *corrupt = 0xee;
 
         /* encrypt fields */
         EVP_CIPHER *cipher = sym_EVP_CIPHER_fetch(NULL, "AES-128-SIV", NULL);
@@ -324,7 +326,8 @@ TEST(crypto) {
 
         /* test roundtrips for all ciphers */
         for (unsigned id=0; id <= 33; id++) {
-                if (!NTS_get_param(id)) continue;
+                if (!NTS_get_param(id))
+                        continue;
                 int len = NTS_encrypt(enc, sizeof(enc), plaintext, sizeof(plaintext), ad, nonnull(NTS_get_param(id)), key);
                 assert_se(len > 0);
                 assert_se(NTS_decrypt(dec, sizeof(dec), enc, len, ad, nonnull(NTS_get_param(id)), key) == sizeof(plaintext));
