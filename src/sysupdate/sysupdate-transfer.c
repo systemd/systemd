@@ -36,6 +36,7 @@
 #include "sync-util.h"
 #include "sysupdate.h"
 #include "sysupdate-cleanup.h"
+#include "sysupdate-config.h"
 #include "sysupdate-feature.h"
 #include "sysupdate-instance.h"
 #include "sysupdate-pattern.h"
@@ -182,7 +183,7 @@ static int config_parse_min_version(
         return free_and_replace(*version, resolved);
 }
 
-static int config_parse_url_specifiers(
+static int config_parse_transfer_url_specifiers_many(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -193,36 +194,13 @@ static int config_parse_url_specifiers(
                 const char *rvalue,
                 void *data,
                 void *userdata) {
-        char ***s = ASSERT_PTR(data);
+
         Transfer *t = ASSERT_PTR(userdata);
-        _cleanup_free_ char *resolved = NULL;
-        int r;
 
-        assert(rvalue);
+        /* Here we expect userdata to point to our Transfer object, but config_parse_url_specifiers() wants
+         * the root dir there, hence fix this up */
 
-        if (isempty(rvalue)) {
-                *s = strv_free(*s);
-                return 0;
-        }
-
-        r = specifier_printf(rvalue, NAME_MAX, system_and_tmp_specifier_table, t->context->root, NULL, &resolved);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to expand specifiers in %s=, ignoring: %s", lvalue, rvalue);
-                return 0;
-        }
-
-        if (!http_url_is_valid(resolved)) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "%s= URL is not valid, ignoring: %s", lvalue, rvalue);
-                return 0;
-        }
-
-        r = strv_push(s, TAKE_PTR(resolved));
-        if (r < 0)
-                return log_oom();
-
-        return 0;
+        return config_parse_url_specifiers_many(unit, filename, line, section, section_line, lvalue, ltype, rvalue, data, t->context->root);
 }
 
 static int config_parse_current_symlink(
@@ -510,33 +488,33 @@ int transfer_read_definition(Transfer *t, const char *path, const char **dirs, H
         assert(t);
 
         ConfigTableItem table[] = {
-                { "Transfer",    "MinVersion",              config_parse_min_version,          0, &t->min_version             },
-                { "Transfer",    "ProtectVersion",          config_parse_protect_version,      0, &t->protected_versions      },
-                { "Transfer",    "Verify",                  config_parse_bool,                 0, &t->verify                  },
-                { "Transfer",    "ChangeLog",               config_parse_url_specifiers,       0, &t->changelog               },
-                { "Transfer",    "AppStream",               config_parse_url_specifiers,       0, &t->appstream               },
-                { "Transfer",    "Features",                config_parse_strv,                 0, &t->features                },
-                { "Transfer",    "RequisiteFeatures",       config_parse_strv,                 0, &t->requisite_features      },
-                { "Source",      "Type",                    config_parse_resource_type,        0, &t->source.type             },
-                { "Source",      "Path",                    config_parse_resource_path,        0, &t->source                  },
-                { "Source",      "PathRelativeTo",          config_parse_resource_path_relto,  0, &t->source.path_relative_to },
-                { "Source",      "MatchPattern",            config_parse_resource_pattern,     0, &t->source.patterns         },
-                { "Target",      "Type",                    config_parse_resource_type,        0, &t->target.type             },
-                { "Target",      "Path",                    config_parse_resource_path,        0, &t->target                  },
-                { "Target",      "PathRelativeTo",          config_parse_resource_path_relto,  0, &t->target.path_relative_to },
-                { "Target",      "MatchPattern",            config_parse_resource_pattern,     0, &t->target.patterns         },
-                { "Target",      "MatchPartitionType",      config_parse_resource_ptype,       0, &t->target                  },
-                { "Target",      "PartitionUUID",           config_parse_partition_uuid,       0, t                           },
-                { "Target",      "PartitionFlags",          config_parse_partition_flags,      0, t                           },
-                { "Target",      "PartitionNoAuto",         config_parse_tristate,             0, &t->no_auto                 },
-                { "Target",      "PartitionGrowFileSystem", config_parse_tristate,             0, &t->growfs                  },
-                { "Target",      "ReadOnly",                config_parse_tristate,             0, &t->read_only               },
-                { "Target",      "Mode",                    config_parse_mode,                 0, &t->mode                    },
-                { "Target",      "TriesLeft",               config_parse_uint64,               0, &t->tries_left              },
-                { "Target",      "TriesDone",               config_parse_uint64,               0, &t->tries_done              },
-                { "Target",      "InstancesMax",            config_parse_instances_max,        0, &t->instances_max           },
-                { "Target",      "RemoveTemporary",         config_parse_bool,                 0, &t->remove_temporary        },
-                { "Target",      "CurrentSymlink",          config_parse_current_symlink,      0, &t->current_symlink         },
+                { "Transfer",    "MinVersion",              config_parse_min_version,                  0, &t->min_version             },
+                { "Transfer",    "ProtectVersion",          config_parse_protect_version,              0, &t->protected_versions      },
+                { "Transfer",    "Verify",                  config_parse_bool,                         0, &t->verify                  },
+                { "Transfer",    "ChangeLog",               config_parse_transfer_url_specifiers_many, 0, &t->changelog               },
+                { "Transfer",    "AppStream",               config_parse_transfer_url_specifiers_many, 0, &t->appstream               },
+                { "Transfer",    "Features",                config_parse_strv,                         0, &t->features                },
+                { "Transfer",    "RequisiteFeatures",       config_parse_strv,                         0, &t->requisite_features      },
+                { "Source",      "Type",                    config_parse_resource_type,                0, &t->source.type             },
+                { "Source",      "Path",                    config_parse_resource_path,                0, &t->source                  },
+                { "Source",      "PathRelativeTo",          config_parse_resource_path_relto,          0, &t->source.path_relative_to },
+                { "Source",      "MatchPattern",            config_parse_resource_pattern,             0, &t->source.patterns         },
+                { "Target",      "Type",                    config_parse_resource_type,                0, &t->target.type             },
+                { "Target",      "Path",                    config_parse_resource_path,                0, &t->target                  },
+                { "Target",      "PathRelativeTo",          config_parse_resource_path_relto,          0, &t->target.path_relative_to },
+                { "Target",      "MatchPattern",            config_parse_resource_pattern,             0, &t->target.patterns         },
+                { "Target",      "MatchPartitionType",      config_parse_resource_ptype,               0, &t->target                  },
+                { "Target",      "PartitionUUID",           config_parse_partition_uuid,               0, t                           },
+                { "Target",      "PartitionFlags",          config_parse_partition_flags,              0, t                           },
+                { "Target",      "PartitionNoAuto",         config_parse_tristate,                     0, &t->no_auto                 },
+                { "Target",      "PartitionGrowFileSystem", config_parse_tristate,                     0, &t->growfs                  },
+                { "Target",      "ReadOnly",                config_parse_tristate,                     0, &t->read_only               },
+                { "Target",      "Mode",                    config_parse_mode,                         0, &t->mode                    },
+                { "Target",      "TriesLeft",               config_parse_uint64,                       0, &t->tries_left              },
+                { "Target",      "TriesDone",               config_parse_uint64,                       0, &t->tries_done              },
+                { "Target",      "InstancesMax",            config_parse_instances_max,                0, &t->instances_max           },
+                { "Target",      "RemoveTemporary",         config_parse_bool,                         0, &t->remove_temporary        },
+                { "Target",      "CurrentSymlink",          config_parse_current_symlink,              0, &t->current_symlink         },
                 {}
         };
 
