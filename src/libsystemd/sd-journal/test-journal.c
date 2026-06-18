@@ -11,6 +11,7 @@
 #include "journal-vacuum.h"
 #include "log.h"
 #include "rm-rf.h"
+#include "stdio-util.h"
 #include "tests.h"
 #include "time-util.h"
 
@@ -263,6 +264,310 @@ TEST(min_compress_size) {
         test_min_compress_size_one();
 }
 #endif
+
+typedef struct EntryArrayCut {
+        uint64_t offset;
+        uint64_t last_surviving_seqnum;
+} EntryArrayCut;
+
+static EntryArrayCut find_entry_array_cut(JournalFile *f, uint64_t first) {
+        uint64_t a, n = 0, last_surviving_seqnum = 0;
+        Object *o, *entry;
+
+        for (a = first; a > 0;) {
+                ASSERT_OK_ZERO(journal_file_move_to_object(f, OBJECT_ENTRY_ARRAY, a, &o));
+                n++;
+
+                uint64_t next = le64toh(o->entry_array.next_entry_array_offset);
+                if (next == 0)
+                        break;
+
+                uint64_t k = journal_file_entry_array_n_items(f, o);
+                ASSERT_GT(k, UINT64_C(0));
+
+                ASSERT_OK_ZERO(journal_file_move_to_object(
+                                f,
+                                OBJECT_ENTRY,
+                                journal_file_entry_array_item(f, o, k - 1),
+                                &entry));
+                last_surviving_seqnum = le64toh(entry->entry.seqnum);
+                a = next;
+        }
+
+        /* We need at least two arrays, so that lopping off the final one still leaves a readable prefix. */
+        ASSERT_GE(n, UINT64_C(2));
+        ASSERT_GT(last_surviving_seqnum, UINT64_C(0));
+
+        return (EntryArrayCut) {
+                .offset = a,
+                .last_surviving_seqnum = last_surviving_seqnum,
+        };
+}
+
+static void test_recover_truncated_linear_one(bool zeroed_tail) {
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        dual_timestamp ts;
+        JournalFile *f;
+        Object *o;
+        EntryArrayCut cut;
+        uint64_t p, file_size, c;
+        usec_t from, to, last_realtime = 0;
+        char t[] = "/var/tmp/journal-XXXXXX";
+
+        /* When a journal's header records more arena than reached disk, make sure reads recover the on disk
+         * prefix. */
+
+        ASSERT_NOT_NULL(m = mmap_cache_new());
+        mkdtemp_chdir_chattr(t);
+
+        ASSERT_OK_ZERO(journal_file_open(
+                        -EBADF, "test.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS, 0666, UINT64_MAX,
+                        /* metrics= */ NULL, m, /* template= */ NULL, &f));
+        dual_timestamp_now(&ts);
+
+        for (unsigned i = 0; i < 200; i++) {
+                struct iovec iovec = IOVEC_MAKE_STRING("LINE=x");
+                ts.realtime = i + 1;
+                ASSERT_OK_ZERO(journal_file_append_entry(
+                                f, &ts, /* boot_id= */ NULL, &iovec, 1,
+                                /* seqnum= */ NULL, /* seqnum_id= */ NULL,
+                                /* ret_object= */ NULL, /* ret_offset= */ NULL));
+        }
+
+        cut = find_entry_array_cut(f, le64toh(f->header->entry_array_offset));
+        file_size = (uint64_t) f->last_stat.st_size;
+        ASSERT_GT(file_size, cut.offset);
+        (void) journal_file_offline_close(f);
+
+        /* Turn the last entry to crowfood. */
+        ASSERT_OK_ERRNO(truncate("test.journal", (int64_t) cut.offset));
+        if (zeroed_tail)
+                ASSERT_OK_ERRNO(truncate("test.journal", (int64_t) file_size));
+
+        ASSERT_OK_ZERO(journal_file_open(
+                        -EBADF, "test.journal", O_RDONLY, JOURNAL_COMPRESS, 0666, UINT64_MAX,
+                        /* metrics= */ NULL, m, /* template= */ NULL, &f));
+
+        c = 0;
+        for (p = 0; journal_file_next_entry(f, p, DIRECTION_DOWN, &o, &p) > 0;) {
+                c++;
+                ASSERT_EQ(le64toh(o->entry.seqnum), c);
+                last_realtime = le64toh(o->entry.realtime);
+        }
+        ASSERT_EQ(c, cut.last_surviving_seqnum);
+        ASSERT_LT(c, UINT64_C(200)); /* We did not recover the tail that was cut. */
+
+        ASSERT_EQ(journal_file_get_cutoff_realtime_usec(f, &from, &to), 1);
+        ASSERT_EQ(from, UINT64_C(1));
+        ASSERT_EQ(to, last_realtime);
+        (void) journal_file_close(f);
+
+        /* A file with arena past EOF can't be written to safely. However, if the tail was allocated but
+         * zeroed, the header is self consistent, so writable opens are accepted (and are handled by
+         * STATE_ONLINE instead). */
+        if (zeroed_tail) {
+                ASSERT_OK_ZERO(journal_file_open(
+                                -EBADF, "test.journal", O_RDWR, JOURNAL_COMPRESS, 0666, UINT64_MAX,
+                                /* metrics= */ NULL, m, /* template= */ NULL, &f));
+                (void) journal_file_offline_close(f);
+        } else
+                ASSERT_ERROR(journal_file_open(
+                                -EBADF, "test.journal", O_RDWR, JOURNAL_COMPRESS, 0666, UINT64_MAX,
+                                /* metrics= */ NULL, m, /* template= */ NULL, &f), ENODATA);
+
+        if (arg_keep)
+                log_info("Not removing %s", t);
+        else
+                ASSERT_OK(rm_rf(t, REMOVE_ROOT | REMOVE_PHYSICAL));
+}
+
+TEST(recover_truncated_linear) {
+        ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_COMPACT", "0", 1));
+        test_recover_truncated_linear_one(/* zeroed_tail= */ false);
+        test_recover_truncated_linear_one(/* zeroed_tail= */ true);
+
+        ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_COMPACT", "1", 1));
+        test_recover_truncated_linear_one(/* zeroed_tail= */ false);
+        test_recover_truncated_linear_one(/* zeroed_tail= */ true);
+}
+
+static void test_recover_truncated_indexed_one(bool zeroed_tail) {
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        dual_timestamp ts;
+        JournalFile *f;
+        Object *o, *d;
+        EntryArrayCut cut;
+        uint64_t file_size;
+        static const char field[] = "FOO=bar";
+        char t[] = "/var/tmp/journal-XXXXXX";
+
+        /* The same vague idea as above with the truncation, but this time it's the bisection case since the
+         * per-data entry array is missing. */
+
+        ASSERT_NOT_NULL(m = mmap_cache_new());
+        mkdtemp_chdir_chattr(t);
+
+        ASSERT_OK_ZERO(journal_file_open(
+                        -EBADF, "test.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS, 0666, UINT64_MAX,
+                        /* metrics= */ NULL, m, /* template= */ NULL, &f));
+        dual_timestamp_now(&ts);
+
+        for (unsigned i = 0; i < 200; i++) {
+                struct iovec iovec = IOVEC_MAKE_STRING(field);
+                ASSERT_OK_ZERO(journal_file_append_entry(
+                                f, &ts, /* boot_id= */ NULL, &iovec, 1,
+                                /* seqnum= */ NULL, /* seqnum_id= */ NULL,
+                                /* ret_object= */ NULL, /* ret_offset= */ NULL));
+        }
+
+        ASSERT_EQ(journal_file_find_data_object(f, field, strlen(field), &d, /* ret_offset= */ NULL), 1);
+        cut = find_entry_array_cut(f, le64toh(d->data.entry_array_offset));
+        file_size = (uint64_t) f->last_stat.st_size;
+        ASSERT_GT(file_size, cut.offset);
+        (void) journal_file_offline_close(f);
+
+        /* Remove the final per-data array object. The data object's n_entries now overcounts the per-data
+         * arrays on disk */
+        ASSERT_OK_ERRNO(truncate("test.journal", (int64_t) cut.offset));
+        if (zeroed_tail)
+                ASSERT_OK_ERRNO(truncate("test.journal", (int64_t) file_size));
+
+        ASSERT_OK_ZERO(journal_file_open(
+                        -EBADF, "test.journal", O_RDONLY, JOURNAL_COMPRESS, 0666, UINT64_MAX,
+                        /* metrics= */ NULL, m, /* template= */ NULL, &f));
+        ASSERT_EQ(journal_file_find_data_object(f, field, strlen(field), &d, /* ret_offset= */ NULL), 1);
+
+        /* Seeking up for the largest possible seqnum walks into the missing tail array, and must fall back
+         * to the last entry that actually survived rather than failing the query. */
+        ASSERT_EQ(journal_file_move_to_entry_by_seqnum_for_data(
+                        f, d, UINT64_MAX, DIRECTION_UP, &o, /* ret_offset= */ NULL), 1);
+        ASSERT_EQ(le64toh(o->entry.seqnum), cut.last_surviving_seqnum);
+        ASSERT_LT(le64toh(o->entry.seqnum), UINT64_C(200));
+
+        /* Seeking down past everything that survived also walks into the missing array, and must report no
+         * match rather than propagating the read error to the caller. */
+        ASSERT_OK_ZERO(journal_file_move_to_entry_by_seqnum_for_data(
+                        f, d, UINT64_MAX, DIRECTION_DOWN, &o, /* ret_offset= */ NULL));
+
+        /* A seqnum that only existed in the lost region must degrade to no match, not a false hit (on an
+         * intact file this seqnum would have matched). */
+        ASSERT_OK_ZERO(journal_file_move_to_entry_by_seqnum_for_data(
+                        f, d, cut.last_surviving_seqnum + 1, DIRECTION_DOWN, &o, /* ret_offset= */ NULL));
+
+        /* The head of the chain is intact, so a downward seek from the start still finds the first entry. */
+        ASSERT_EQ(journal_file_move_to_entry_by_seqnum_for_data(
+                        f, d, 0, DIRECTION_DOWN, &o, /* ret_offset= */ NULL), 1);
+        ASSERT_EQ(le64toh(o->entry.seqnum), UINT64_C(1));
+
+        (void) journal_file_close(f);
+
+        if (arg_keep)
+                log_info("Not removing %s", t);
+        else
+                ASSERT_OK(rm_rf(t, REMOVE_ROOT | REMOVE_PHYSICAL));
+}
+
+TEST(recover_truncated_indexed) {
+        ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_COMPACT", "0", 1));
+        test_recover_truncated_indexed_one(/* zeroed_tail= */ false);
+        test_recover_truncated_indexed_one(/* zeroed_tail= */ true);
+
+        ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_COMPACT", "1", 1));
+        test_recover_truncated_indexed_one(/* zeroed_tail= */ false);
+        test_recover_truncated_indexed_one(/* zeroed_tail= */ true);
+}
+
+static void test_recover_truncated_hash_chain_one(bool field, bool zeroed_tail) {
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        dual_timestamp ts;
+        JournalFile *f;
+        uint64_t lost_offset, file_size, buckets, bucket;
+        char lost_key[64], lost_value[64], t[] = "/var/tmp/journal-XXXXXX";
+
+        /* A lookup must tolerate a hash bucket whose tail node was lost to truncation, returning the
+         * surviving prefix instead of failing. The lost value is chosen to share a bucket with the surviving
+         * one, so it is chained behind the surviving head rather than heading its own bucket. */
+
+        const char *survives_value = field ? "FIELD0=x" : "FOO=survives";
+        const char *survives_key   = field ? "FIELD0"   : "FOO=survives";
+
+        ASSERT_NOT_NULL(m = mmap_cache_new());
+        mkdtemp_chdir_chattr(t);
+
+        ASSERT_OK_ZERO(journal_file_open(
+                        -EBADF, "test.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS, 0666, UINT64_MAX,
+                        /* metrics= */ NULL, m, /* template= */ NULL, &f));
+        dual_timestamp_now(&ts);
+
+        /* journal_file_hash_data() is keyed per-file, so compute the colliding value against the open file. */
+        buckets = le64toh(field ? f->header->field_hash_table_size : f->header->data_hash_table_size) / sizeof(HashItem);
+        bucket = journal_file_hash_data(f, survives_key, strlen(survives_key)) % buckets;
+        for (uint64_t i = 1;; i++) {
+                ASSERT_LT(i, UINT64_C(1000000));
+                if (field)
+                        xsprintf(lost_key, "FIELD%" PRIu64, i);
+                else
+                        xsprintf(lost_key, "FOO=%" PRIu64, i);
+                if (journal_file_hash_data(f, lost_key, strlen(lost_key)) % buckets == bucket)
+                        break;
+        }
+        if (field)
+                xsprintf(lost_value, "%s=x", lost_key);
+        else
+                strcpy(lost_value, lost_key);
+
+        const char *v;
+        FOREACH_ARGUMENT(v, survives_value, lost_value) {
+                struct iovec iovec = IOVEC_MAKE_STRING(v);
+                ASSERT_OK_ZERO(journal_file_append_entry(
+                                f, &ts, /* boot_id= */ NULL, &iovec, 1,
+                                /* seqnum= */ NULL, /* seqnum_id= */ NULL,
+                                /* ret_object= */ NULL, /* ret_offset= */ NULL));
+        }
+
+        ASSERT_EQ(field ?
+                  journal_file_find_field_object(f, lost_key, strlen(lost_key), NULL, &lost_offset) :
+                  journal_file_find_data_object(f, lost_key, strlen(lost_key), NULL, &lost_offset), 1);
+        file_size = (uint64_t) f->last_stat.st_size;
+        ASSERT_GT(file_size, lost_offset);
+        (void) journal_file_offline_close(f);
+
+        /* Lose the second object's body, but keep the bucket pointer that still references it. */
+        ASSERT_OK_ERRNO(truncate("test.journal", (int64_t) lost_offset));
+        if (zeroed_tail)
+                ASSERT_OK_ERRNO(truncate("test.journal", (int64_t) file_size));
+
+        ASSERT_OK_ZERO(journal_file_open(
+                        -EBADF, "test.journal", O_RDONLY, JOURNAL_COMPRESS, 0666, UINT64_MAX,
+                        /* metrics= */ NULL, m, /* template= */ NULL, &f));
+
+        ASSERT_EQ(field ?
+                  journal_file_find_field_object(f, survives_key, strlen(survives_key), NULL, NULL) :
+                  journal_file_find_data_object(f, survives_key, strlen(survives_key), NULL, NULL), 1);
+        ASSERT_OK_ZERO(field ?
+                       journal_file_find_field_object(f, lost_key, strlen(lost_key), NULL, NULL) :
+                       journal_file_find_data_object(f, lost_key, strlen(lost_key), NULL, NULL));
+
+        (void) journal_file_close(f);
+
+        if (arg_keep)
+                log_info("Not removing %s", t);
+        else
+                ASSERT_OK(rm_rf(t, REMOVE_ROOT | REMOVE_PHYSICAL));
+}
+
+TEST(recover_truncated_hash_chain) {
+        const char *compact;
+
+        FOREACH_ARGUMENT(compact, "0", "1") {
+                ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_COMPACT", compact, 1));
+
+                test_recover_truncated_hash_chain_one(/* field= */ false, /* zeroed_tail= */ false);
+                test_recover_truncated_hash_chain_one(/* field= */ false, /* zeroed_tail= */ true);
+                test_recover_truncated_hash_chain_one(/* field= */ true, /* zeroed_tail= */ false);
+                test_recover_truncated_hash_chain_one(/* field= */ true, /* zeroed_tail= */ true);
+        }
+}
 
 static int intro(void) {
         arg_keep = saved_argc > 1;
