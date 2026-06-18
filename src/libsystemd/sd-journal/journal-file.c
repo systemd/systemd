@@ -1582,6 +1582,14 @@ int journal_file_find_field_object_with_hash(
                 Object *o;
 
                 r = journal_file_move_to_object(f, OBJECT_FIELD, p, &o);
+                if (!journal_file_writable(f) && IN_SET(r, -EBADMSG, -EADDRNOTAVAIL)) {
+                        /* A chain pointer into a region lost after an unclean shutdown is unreadable, so end
+                         * the chain here (degrading to a lookup miss) instead of dropping the whole file from
+                         * the query. */
+                        log_debug_errno(r, "Failed to read field object at offset %" PRIu64 " of %s, treating it as the end of the chain: %m",
+                                        p, f->path);
+                        break;
+                }
                 if (r < 0)
                         return r;
 
@@ -1683,6 +1691,14 @@ int journal_file_find_data_object_with_hash(
                 size_t rsize;
 
                 r = journal_file_move_to_object(f, OBJECT_DATA, p, &o);
+                if (!journal_file_writable(f) && IN_SET(r, -EBADMSG, -EADDRNOTAVAIL)) {
+                        /* A chain pointer into a region lost after an unclean shutdown is unreadable, so end
+                         * the chain here (degrading to a lookup miss) instead of dropping the whole file from
+                         * the query. */
+                        log_debug_errno(r, "Failed to read data object at offset %" PRIu64 " of %s, treating it as the end of the chain: %m",
+                                        p, f->path);
+                        break;
+                }
                 if (r < 0)
                         return r;
 
