@@ -140,16 +140,16 @@ _arguments \
     '--no-pager[Do not pipe output into a pager]' \
     '(-H --host)'{-H+,--host=}'[Operate on remote host]:userathost:_sd_hosts_or_user_at_host' \
     '(-M --machine)'{-M+,--machine=}'[Operate on local container]:machine:_sd_machines' \
-    '--man=[Whether to check for existence of man pages]:BOOL:(yes no)' \
-    '--generators=[Whether to run unit generators (which requires privileges)]:BOOL:(yes no)' \
+    '--man=-[Whether to check for existence of man pages]:BOOL:(yes no)' \
+    '--generators=-[Whether to run unit generators (which requires privileges)]:BOOL:(yes no)' \
     '--instance=[Specify fallback instance name for template units]:NAME' \
     '--offline=[Perform a security review of the specified unit files]:BOOL:(yes no)' \
-    '--threshold=[Set a value to compare the overall security exposure level with]: NUMBER' \
-    '--security-policy=[Use customized requirements to compare unit files against]: PATH' \
+    '--threshold=[Set a value to compare the overall security exposure level with]:NUMBER' \
+    '--security-policy=[Use customized requirements to compare unit files against]:PATH' \
     "--json=[Generate a JSON output of the security analysis table or plot's raw time data]:MODE:(pretty short off)" \
     '--iterations=[Show the specified number of iterations]:N' \
     '--base-time=[Calculate calendar times relative to specified time]:TIMESTAMP' \
-    '--profile=[Include the specified profile in the security review of the units]:name|PATH' \
+    '--profile=[Include the specified profile in the security review of the units]:PATH' \
     '(-U --unit)'{-U+,--unit=}'[Evaluate conditions and asserts of unit]:UNIT' \
     "--table[Output plot's raw time data as a table]" \
     '--no-legend[Disable column headers and hints in plot with either --table or --json=]' \
