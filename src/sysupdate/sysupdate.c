@@ -6,6 +6,7 @@
 
 #include "build.h"
 #include "conf-files.h"
+#include "conf-parser.h"
 #include "constants.h"
 #include "dissect-image.h"
 #include "errno-util.h"
@@ -67,6 +68,8 @@ Context* context_free(Context *c) {
                 return NULL;
 
         free(c->component);
+        free(c->component_description);
+        strv_free(c->component_documentation);
 
         FOREACH_ARRAY(tr, c->transfers, c->n_transfers)
                 transfer_free(*tr);
@@ -96,6 +99,7 @@ static Context* context_new(void) {
 
         *c = (Context) {
                 .installdb_fd = -EBADF,
+                .component_enabled = true,
         };
 
         return c;
@@ -204,6 +208,44 @@ static int read_transfers(
         return 0;
 }
 
+static int read_component(Context *c) {
+        int r;
+
+        assert(c);
+
+        /* Read a component description file, but only if we actually operate on a component */
+        if (arg_definitions || !c->component)
+                return 0;
+
+        _cleanup_free_ char *j = strjoin("sysupdate.", c->component, ".component");
+        if (!j)
+                return log_oom();
+
+        ConfigTableItem table[] = {
+                { "Component", "Description",   config_parse_string,              0, &c->component_description   },
+                { "Component", "Documentation", config_parse_url_specifiers_many, 0, &c->component_documentation },
+                { "Component", "Enabled",       config_parse_bool,                0, &c->component_enabled       },
+                {}
+        };
+
+        r = config_parse_many_full(
+                        STRV_MAKE_CONST(j),
+                        (const char*const*) CONF_PATHS_STRV(""),
+                        strjoina(j, ".d"),
+                        arg_root,
+                        /* root_fd= */ -EBADF,
+                        "Component\0",
+                        config_item_table_lookup, table,
+                        CONFIG_PARSE_WARN,
+                        /* userdata= */ NULL,
+                        /* stats_by_path= */ NULL,
+                        /* drop_in_files= */ NULL);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 static int context_read_definitions(Context *c, const char* node, ReadDefinitionsFlags flags) {
         _cleanup_strv_free_ char **dirs = NULL;
         int r;
@@ -234,6 +276,10 @@ static int context_read_definitions(Context *c, const char* node, ReadDefinition
         if (!dirs)
                 return log_oom();
 
+        r = read_component(c);
+        if (r < 0)
+                return r;
+
         r = read_features(c, (const char**) dirs);
         if (r < 0)
                 return r;
@@ -262,6 +308,9 @@ static int context_read_definitions(Context *c, const char* node, ReadDefinition
                 return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
                                        "No transfer definitions found.");
         }
+
+        if (FLAGS_SET(flags, READ_DEFINITIONS_REQUIRES_ENABLED_COMPONENT) && !c->component_enabled)
+                return log_error_errno(SYNTHETIC_ERRNO(EHOSTDOWN), "Component is disabled.");
 
         return 0;
 }
@@ -970,7 +1019,8 @@ int context_make_offline(
 static int context_make_online(
                 Context **ret,
                 const char *node,
-                const char *component) {
+                const char *component,
+                ReadDefinitionsFlags read_definitions_flags) {
 
         _cleanup_(context_freep) Context* context = NULL;
         int r;
@@ -984,7 +1034,7 @@ static int context_make_online(
                         &context,
                         node,
                         component,
-                        READ_DEFINITIONS_REQUIRES_ENABLED_TRANSFERS|READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS);
+                        read_definitions_flags);
         if (r < 0)
                 return r;
 
@@ -1325,7 +1375,9 @@ static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
         r = context_make_online(
                         &context,
                         loop_device ? loop_device->node : NULL,
-                        arg_component);
+                        arg_component,
+                        READ_DEFINITIONS_REQUIRES_ENABLED_TRANSFERS|
+                        READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS);
         if (r < 0)
                 return r;
 
@@ -1541,7 +1593,9 @@ static int verb_check_new(int argc, char *argv[], uintptr_t _data, void *userdat
         r = context_make_online(
                         &context,
                         loop_device ? loop_device->node : NULL,
-                        arg_component);
+                        arg_component,
+                        READ_DEFINITIONS_REQUIRES_ENABLED_TRANSFERS|
+                        READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS);
         if (r < 0)
                 return r;
 
@@ -1611,7 +1665,10 @@ static int verb_update_impl(int argc, char **argv, UpdateActionFlags action_flag
         r = context_make_online(
                         &context,
                         loop_device ? loop_device->node : NULL,
-                        arg_component);
+                        arg_component,
+                        READ_DEFINITIONS_REQUIRES_ENABLED_TRANSFERS|
+                        READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS|
+                        READ_DEFINITIONS_REQUIRES_ENABLED_TRANSFERS);
         if (r < 0)
                 return r;
 
@@ -1719,7 +1776,9 @@ static int verb_pending_or_reboot(int argc, char *argv[], uintptr_t _data, void 
                         &context,
                         /* node= */ NULL,
                         arg_component,
-                        READ_DEFINITIONS_REQUIRES_ENABLED_TRANSFERS|READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS);
+                        READ_DEFINITIONS_REQUIRES_ENABLED_TRANSFERS|
+                        READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS|
+                        READ_DEFINITIONS_REQUIRES_ENABLED_COMPONENT);
         if (r < 0)
                 return r;
 

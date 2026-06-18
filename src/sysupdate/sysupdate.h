@@ -7,6 +7,10 @@
 typedef struct Context {
         char *component;
 
+        char *component_description;
+        char **component_documentation;
+        bool component_enabled;
+
         Transfer **transfers;
         size_t n_transfers;
 
@@ -29,8 +33,9 @@ Context* context_free(Context *c);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Context*, context_free);
 
 typedef enum ReadDefinitionsFlags {
-        READ_DEFINITIONS_REQUIRES_ENABLED_TRANSFERS = 1 << 0,
-        READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS     = 1 << 1,
+        READ_DEFINITIONS_REQUIRES_ENABLED_TRANSFERS = 1 << 0, /* fail unless there's at least one enabled transfer */
+        READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS     = 1 << 1, /* fail unless there's at least one transfer */
+        READ_DEFINITIONS_REQUIRES_ENABLED_COMPONENT = 1 << 2, /* fail if component is disabled */
 } ReadDefinitionsFlags;
 
 int context_make_offline(Context **ret, const char *node, const char *component, ReadDefinitionsFlags read_definitions_flags);
