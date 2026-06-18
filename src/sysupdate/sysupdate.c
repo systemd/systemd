@@ -13,6 +13,7 @@
 #include "format-table.h"
 #include "glyph-util.h"
 #include "hashmap.h"
+#include "help-util.h"
 #include "hexdecoct.h"
 #include "image-policy.h"
 #include "loop-util.h"
@@ -1845,13 +1846,8 @@ static int verb_cleanup(int argc, char *argv[], uintptr_t _data, void *userdata)
 }
 
 static int help(void) {
-        _cleanup_free_ char *link = NULL;
         _cleanup_(table_unrefp) Table *common_options = NULL, *options = NULL, *verbs = NULL;
         int r;
-
-        r = terminal_urlify_man("systemd-sysupdate", "8", &link);
-        if (r < 0)
-                return log_oom();
 
         r = verbs_get_help_table(&verbs);
         if (r < 0)
@@ -1867,13 +1863,10 @@ static int help(void) {
 
         (void) table_sync_column_widths(0, verbs, common_options, options);
 
-        printf("%s [OPTIONS...] [VERSION]\n"
-               "\n%sUpdate OS images.%s\n"
-               "\n%sCommands:%s\n",
-               program_invocation_short_name,
-               ansi_highlight(), ansi_normal(),
-               ansi_underline(), ansi_normal());
+        help_cmdline("[OPTIONS…] [VERSION]");
+        help_abstract("Update OS images.");
 
+        help_section("Commands");
         r = table_print_or_warn(verbs);
         if (r < 0)
                 return r;
@@ -1882,12 +1875,12 @@ static int help(void) {
         if (r < 0)
                 return r;
 
-        printf("\n%sOptions:%s\n", ansi_underline(), ansi_normal());
+        help_section("Options");
         r = table_print_or_warn(options);
         if (r < 0)
                 return r;
 
-        printf("\nSee the %s for details.\n", link);
+        help_man_page_reference("systemd-sysupdate", "8");
         return 0;
 }
 
