@@ -159,17 +159,10 @@ static ConfidentialVirtualization detect_sev(void) {
 }
 
 static ConfidentialVirtualization detect_tdx(void) {
-        uint32_t eax, ebx, ecx, edx;
         char sig[13] = {};
 
-        eax = CPUID_GET_HIGHEST_FUNCTION;
-        ebx = ecx = edx = 0;
-
-        cpuid(&eax, &ebx, &ecx, &edx);
-
-        if (eax < CPUID_INTEL_TDX_ENUMERATION)
-                return CONFIDENTIAL_VIRTUALIZATION_NONE;
-
+        /* Querying an unsupported CPUID leaf is harmless (it returns the highest basic leaf's data rather
+         * than faulting), so reading this leaf and matching the IntelTDX signature is sufficient. */
         cpuid_leaf(CPUID_INTEL_TDX_ENUMERATION, sig, true);
 
         if (memcmp(sig, CPUID_SIG_INTEL_TDX, sizeof(sig)) == 0)
