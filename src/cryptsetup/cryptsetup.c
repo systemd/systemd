@@ -30,6 +30,7 @@
 #include "fs-util.h"
 #include "hexdecoct.h"
 #include "json-util.h"
+#include "keyring-util.h"
 #include "libfido2-util.h"
 #include "libmount-util.h"
 #include "log.h"
@@ -2738,6 +2739,7 @@ static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) 
                 _cleanup_(iovec_done_erase) struct iovec discovered_key_data = {};
                 const struct iovec *key_data = NULL;
                 TokenType token_type = determine_token_type();
+                bool passphrase_from_cache = false;
 
                 log_debug("Beginning attempt %u to unlock.", tries);
 
@@ -2755,6 +2757,10 @@ static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) 
                                 return r;
                         if (r > 0)
                                 key_data = &discovered_key_data;
+                        else
+                                /* Nothing discovered; disable so the failure path below doesn't fire
+                                 * and silently retry the same password the user just typed. */
+                                try_discover_key = false;
                 }
 
                 if (token_type < 0 && !key_file && !key_data && !passwords) {
@@ -2774,6 +2780,10 @@ static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) 
                                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No passphrase or recovery key registered.");
                                 }
 
+                                /* Only treat this as a cached attempt if there is actually a key in
+                                 * the keyring; otherwise get_password() will prompt interactively. */
+                                passphrase_from_cache = use_cached_passphrase &&
+                                        request_key("user", "cryptsetup", /* callout_info= */ NULL, /* destringid= */ 0) >= 0;
                                 r = get_password(
                                                 volume,
                                                 source,
@@ -2831,6 +2841,9 @@ static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) 
 
                 if (passwords) {
                         passwords = strv_free_erase(passwords);
+                        /* Don't count the cached keyring attempt against tries= — the user never saw a prompt */
+                        if (passphrase_from_cache)
+                                tries--; /* net zero with for-loop tries++; this iteration is not counted */
                         continue;
                 }
 
