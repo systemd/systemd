@@ -125,7 +125,7 @@ _arguments \
     '(- *)'{-h,--help}'[Show help text]' \
     '(- *)--version[Show package version]' \
     '(-q --quiet)'{-q,--quiet}'[Do not show hints]' \
-    '--recursive-errors=[When verifying a unit, control dependency verification]:MODE' \
+    '--recursive-errors=[When verifying a unit, control dependency verification]:MODE:(yes no one)' \
     '--root=[Add support for root argument]:PATH' \
     '--image=[Add support for discrete images]:PATH' \
     '--image-policy=[Specify disk image dissection policy]:POLICY' \
@@ -150,7 +150,7 @@ _arguments \
     '--iterations=[Show the specified number of iterations]:N' \
     '--base-time=[Calculate calendar times relative to specified time]:TIMESTAMP' \
     '--profile=[Include the specified profile in the security review of the units]:name|PATH' \
-    '(-U --unit)'{-U,--unit=}'[Evaluate conditions and asserts of unit]:UNIT' \
+    '(-U --unit)'{-U+,--unit=}'[Evaluate conditions and asserts of unit]:UNIT' \
     "--table[Output plot's raw time data as a table]" \
     '--no-legend[Disable column headers and hints in plot with either --table or --json=]' \
     '--tldr[Skip comments and empty lines]' \
@@ -159,5 +159,5 @@ _arguments \
     '--detailed[Add more details to SVG plot, e.g. show activation timestamps]' \
     '--drm-device=[Use this DRM device sysfs path to get EDID]:PATH' \
     '--debugger=[Use the given debugger]:DEBUGGER' \
-    '(-A --debugger-arguments=)'{-A,--debugger-arguments=}'[Pass the given arguments to the debugger]:ARGS' \
+    '(-A --debugger-arguments=)'{-A+,--debugger-arguments=}'[Pass the given arguments to the debugger]:ARGS' \
     '*::systemd-analyze commands:_systemd-analyze_commands'
