@@ -47,11 +47,7 @@ int dlopen_gcrypt(int log_level) {
 #if HAVE_GCRYPT
         static void *gcrypt_dl = NULL;
 
-        SD_ELF_NOTE_DLOPEN(
-                        "gcrypt",
-                        "Support for journald forward-sealing",
-                        SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
-                        "libgcrypt.so.20");
+        GCRYPT_NOTE(SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED);
 
         return dlopen_many_sym_or_warn(
                         &gcrypt_dl,

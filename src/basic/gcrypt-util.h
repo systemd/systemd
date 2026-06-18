@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "sd-dlopen.h"
+
 #include "basic-forward.h"
 
 int dlopen_gcrypt(int log_level);
@@ -9,6 +11,18 @@ int dlopen_gcrypt(int log_level);
 int initialize_libgcrypt(bool secmem);
 
 #if HAVE_GCRYPT
+#define GCRYPT_NOTE(priority)                                           \
+        SD_ELF_NOTE_DLOPEN("gcrypt",                                    \
+                           "Support for journald forward-sealing",      \
+                           priority,                                    \
+                           "libgcrypt.so.20")
+
+#define DLOPEN_GCRYPT(log_level, priority)                              \
+        ({                                                              \
+                GCRYPT_NOTE(priority);                                  \
+                dlopen_gcrypt(log_level);                               \
+        })
+
 #include <gcrypt.h> /* IWYU pragma: export */
 
 #include "dlfcn-util.h"
@@ -53,6 +67,8 @@ extern DLSYM_PROTOTYPE(gcry_strerror);
                 (h__)->buf[(h__)->bufpos++] = (c) & 0xff;  \
         } while(false)
 #else
+#define DLOPEN_GCRYPT(log_level, priority) dlopen_gcrypt(log_level)
+
 typedef struct gcry_md_handle *gcry_md_hd_t;
 
 static inline void sym_gcry_md_close(gcry_md_hd_t h) {
