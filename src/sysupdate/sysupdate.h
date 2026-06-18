@@ -24,6 +24,10 @@ typedef struct Context {
         LoopDevice *loop_device;
         char *mounted_dir;
 
+        char *component_description;
+        char **component_documentation;
+        bool component_enabled;
+
         Transfer **transfers;
         size_t n_transfers;
 

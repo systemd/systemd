@@ -78,6 +78,12 @@ int get_component_list(const char *root, char ***ret) {
                 if (a == s)
                         continue;
 
+                /* Skip the per-component metadata drop-in directories (sysupdate.<component>.component.d/).
+                 * These are not components of their own, they carry metadata (and enablement state) for the
+                 * component <component>, whose transfer definitions live in sysupdate.<component>.d/. */
+                if (endswith(s, ".component.d"))
+                        continue;
+
                 _cleanup_free_ char *n = strndup(s, a - s);
                 if (!n)
                         return log_oom();
