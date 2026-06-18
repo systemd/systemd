@@ -229,7 +229,7 @@ static int read_features(
         return 0;
 }
 
-static int read_definitions(
+static int read_transfers(
                 Context *c,
                 const char **dirs,
                 const char *suffix,
@@ -326,13 +326,13 @@ static int context_read_definitions(Context *c, const char* node, ReadDefinition
         if (r < 0)
                 return r;
 
-        r = read_definitions(c, (const char**) dirs, ".transfer", node);
+        r = read_transfers(c, (const char**) dirs, ".transfer", node);
         if (r < 0)
                 return r;
 
         if (c->n_transfers + c->n_disabled_transfers == 0) {
                 /* Backwards-compat: If no .transfer defs are found, fall back to trying .conf! */
-                r = read_definitions(c, (const char**) dirs, ".conf", node);
+                r = read_transfers(c, (const char**) dirs, ".conf", node);
                 if (r < 0)
                         return r;
 
