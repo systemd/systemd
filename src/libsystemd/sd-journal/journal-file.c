@@ -1593,6 +1593,8 @@ int journal_file_find_field_object_with_hash(
                 Object *o;
 
                 r = journal_file_move_to_object(f, OBJECT_FIELD, p, &o);
+                if (chain_tail_lost(f, r, p, OBJECT_FIELD))
+                        break;
                 if (r < 0)
                         return r;
 
@@ -1694,6 +1696,8 @@ int journal_file_find_data_object_with_hash(
                 size_t rsize;
 
                 r = journal_file_move_to_object(f, OBJECT_DATA, p, &o);
+                if (chain_tail_lost(f, r, p, OBJECT_DATA))
+                        break;
                 if (r < 0)
                         return r;
 
