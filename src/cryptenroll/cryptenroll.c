@@ -8,6 +8,7 @@
 #include "blockdev-util.h"
 #include "build.h"
 #include "cryptenroll.h"
+#include "cryptenroll-empty.h"
 #include "cryptenroll-fido2.h"
 #include "cryptenroll-list.h"
 #include "cryptenroll-password.h"
@@ -96,6 +97,7 @@ static const char* const enroll_type_table[_ENROLL_TYPE_MAX] = {
         [ENROLL_PKCS11]   = "pkcs11",
         [ENROLL_FIDO2]    = "fido2",
         [ENROLL_TPM2]     = "tpm2",
+        [ENROLL_EMPTY]    = "empty",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(enroll_type, EnrollType);
@@ -106,6 +108,7 @@ static const char *const luks2_token_type_table[_ENROLL_TYPE_MAX] = {
         [ENROLL_PKCS11]   = "systemd-pkcs11",
         [ENROLL_FIDO2]    = "systemd-fido2",
         [ENROLL_TPM2]     = "systemd-tpm2",
+	[ENROLL_EMPTY]    = "systemd-empty",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(luks2_token_type, EnrollType);
@@ -380,6 +383,15 @@ static int parse_argv(int argc, char *argv[]) {
                                                        "Multiple operations specified at once, refusing.");
 
                         arg_enroll_type = ENROLL_RECOVERY;
+                        break;
+
+                OPTION_LONG("empty", NULL,
+                            "Enroll an empty key"):
+                        if (arg_enroll_type >= 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Multiple operations specified at once, refusing.");
+
+                        arg_enroll_type = ENROLL_EMPTY;
                         break;
 
                 OPTION_GROUP("PKCS#11 Enrollment"): {}
@@ -802,6 +814,10 @@ static int run(int argc, char *argv[]) {
 
         case ENROLL_RECOVERY:
                 slot = enroll_recovery(cd, &vk);
+                break;
+
+        case ENROLL_EMPTY:
+                slot = enroll_empty(cd, &vk);
                 break;
 
         case ENROLL_PKCS11:

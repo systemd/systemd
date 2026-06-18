@@ -1,0 +1,6 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+#pragma once
+
+#include "shared-forward.h"
+
+int enroll_empty(struct crypt_device *cd, const struct iovec *volume_key);
