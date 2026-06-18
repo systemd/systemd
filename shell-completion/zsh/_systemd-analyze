@@ -158,6 +158,6 @@ _arguments \
     '--scale-svg=[Stretch x-axis of plot by FACTOR (default: 1.0)]:FACTOR' \
     '--detailed[Add more details to SVG plot, e.g. show activation timestamps]' \
     '--drm-device=[Use this DRM device sysfs path to get EDID]:PATH' \
-    '--debugger=[Use the given debugger]:DEBUGGER' \
+    '--debugger=[Use the given debugger]:DEBUGGER:(gdb lldb)' \
     '(-A --debugger-arguments=)'{-A+,--debugger-arguments=}'[Pass the given arguments to the debugger]:ARGS' \
     '*::systemd-analyze commands:_systemd-analyze_commands'
