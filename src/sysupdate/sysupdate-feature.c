@@ -4,10 +4,9 @@
 #include "conf-parser.h"
 #include "hash-funcs.h"
 #include "path-util.h"
-#include "specifier.h"
 #include "string-util.h"
+#include "sysupdate-config.h"
 #include "sysupdate-feature.h"
-#include "web-util.h"
 
 static Feature *feature_free(Feature *f) {
         if (!f)
@@ -41,45 +40,6 @@ DEFINE_TRIVIAL_REF_UNREF_FUNC(Feature, feature, feature_free);
 DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(feature_hash_ops,
                                       char, string_hash_func, string_compare_func,
                                       Feature, feature_unref);
-
-static int config_parse_url_specifiers(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-        char **s = ASSERT_PTR(data);
-        const char *root = ASSERT_PTR(userdata);
-        _cleanup_free_ char *resolved = NULL;
-        int r;
-
-        assert(rvalue);
-
-        if (isempty(rvalue)) {
-                *s = mfree(*s);
-                return 0;
-        }
-
-        r = specifier_printf(rvalue, NAME_MAX, system_and_tmp_specifier_table, root, NULL, &resolved);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to expand specifiers in %s=, ignoring: %s", lvalue, rvalue);
-                return 0;
-        }
-
-        if (!http_url_is_valid(resolved)) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "%s= URL is not valid, ignoring: %s", lvalue, rvalue);
-                return 0;
-        }
-
-        return free_and_replace(*s, resolved);
-}
 
 int feature_read_definition(Feature *f, const char *root, const char *path, const char *const *dirs) {
         assert(f);
