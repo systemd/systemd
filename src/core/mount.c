@@ -2210,28 +2210,15 @@ static int drain_libmount(Manager *m) {
 #endif
 }
 
-static int mount_process_kernel_mounttable(Manager *m) {
-        int r;
+/* Dispatch the load queue, run state transitions based on proc_flags, and reconcile device
+ * nodes (around/gone sets). Called after mount_load_kernel_mounttable() has populated the
+ * mount units with current kernel state. */
+static void mount_process_mount_units(Manager *m) {
+        _cleanup_set_free_ Set *around = NULL, *gone = NULL;
 
         assert(m);
 
-        r = drain_libmount(m);
-        if (r <= 0)
-                return r;
-
-#if HAVE_LIBMOUNT
-        r = mount_load_kernel_mounttable(m, true);
-        if (r < 0) {
-                /* Reset flags, just in case, for later calls */
-                LIST_FOREACH(units_by_type, u, m->units_by_type[UNIT_MOUNT])
-                        MOUNT(u)->proc_flags = 0;
-
-                return 0;
-        }
-
         manager_dispatch_load_queue(m);
-
-        _cleanup_set_free_ Set *around = NULL, *gone = NULL;
 
         LIST_FOREACH(units_by_type, u, m->units_by_type[UNIT_MOUNT]) {
                 Mount *mount = MOUNT(u);
@@ -2320,6 +2307,29 @@ static int mount_process_kernel_mounttable(Manager *m) {
                 /* Let the device units know that the device is no longer mounted */
                 device_found_node(m, what, DEVICE_NOT_FOUND, DEVICE_FOUND_MOUNT);
         }
+}
+
+/* Load the complete kernel mount table and process all mount units. */
+static int mount_process_kernel_mounttable(Manager *m) {
+        int r;
+
+        assert(m);
+
+        r = drain_libmount(m);
+        if (r <= 0)
+                return r;
+
+#if HAVE_LIBMOUNT
+        r = mount_load_kernel_mounttable(m, /* set_flags= */ true);
+        if (r < 0) {
+                /* Reset flags, just in case, for later calls */
+                LIST_FOREACH(units_by_type, u, m->units_by_type[UNIT_MOUNT])
+                        MOUNT(u)->proc_flags = 0;
+
+                return 0;
+        }
+
+        mount_process_mount_units(m);
 
         return 0;
 #else
