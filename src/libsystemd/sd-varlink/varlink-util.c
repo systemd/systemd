@@ -272,7 +272,7 @@ ssize_t varlink_execute_directory(
                 return log_debug_errno(errno, "Failed to open '%s': %m", path);
 
         _cleanup_free_ DirectoryEntries *dentries = NULL;
-        r = readdir_all(fd, RECURSE_DIR_IGNORE_DOT|RECURSE_DIR_ENSURE_TYPE, &dentries);
+        r = readdir_all(fd, RECURSE_DIR_IGNORE_DOT|RECURSE_DIR_MUST_BE_SOCKET, &dentries);
         if (r < 0)
                 return log_debug_errno(r, "Failed to enumerate '%s': %m", path);
 
@@ -281,9 +281,6 @@ ssize_t varlink_execute_directory(
         size_t t = 0;
         FOREACH_ARRAY(dp, dentries->entries, dentries->n_entries) {
                 struct dirent *de = *dp;
-
-                if (de->d_type != DT_SOCK)
-                        continue;
 
                 t++;
 
