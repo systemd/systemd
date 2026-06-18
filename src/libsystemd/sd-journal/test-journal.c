@@ -11,6 +11,7 @@
 #include "journal-vacuum.h"
 #include "log.h"
 #include "rm-rf.h"
+#include "stdio-util.h"
 #include "tests.h"
 #include "time-util.h"
 
@@ -488,6 +489,98 @@ TEST(recover_truncated_indexed) {
         ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_COMPACT", "1", 1));
         test_recover_truncated_indexed_one(/* zeroed_tail= */ false);
         test_recover_truncated_indexed_one(/* zeroed_tail= */ true);
+}
+
+static void test_recover_truncated_hash_chain_one(bool field, bool zeroed_tail) {
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        dual_timestamp ts;
+        JournalFile *f;
+        uint64_t lost_offset, file_size, buckets, bucket;
+        char lost_key[64], lost_value[64], t[] = "/var/tmp/journal-XXXXXX";
+
+        /* A lookup must tolerate a hash bucket whose tail node was lost to truncation, returning the
+         * surviving prefix instead of failing. The lost value is chosen to share a bucket with the surviving
+         * one, so it is chained behind the surviving head rather than heading its own bucket. */
+
+        const char *survives_value = field ? "FIELD0=x" : "FOO=survives";
+        const char *survives_key   = field ? "FIELD0"   : "FOO=survives";
+
+        ASSERT_NOT_NULL(m = mmap_cache_new());
+        mkdtemp_chdir_chattr(t);
+
+        ASSERT_OK_ZERO(journal_file_open(
+                        -EBADF, "test.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS, 0666, UINT64_MAX,
+                        /* metrics= */ NULL, m, /* template= */ NULL, &f));
+        dual_timestamp_now(&ts);
+
+        /* journal_file_hash_data() is keyed per-file, so compute the colliding value against the open file. */
+        buckets = le64toh(field ? f->header->field_hash_table_size : f->header->data_hash_table_size) / sizeof(HashItem);
+        bucket = journal_file_hash_data(f, survives_key, strlen(survives_key)) % buckets;
+        for (uint64_t i = 1;; i++) {
+                ASSERT_LT(i, UINT64_C(1000000));
+                if (field)
+                        xsprintf(lost_key, "FIELD%" PRIu64, i);
+                else
+                        xsprintf(lost_key, "FOO=%" PRIu64, i);
+                if (journal_file_hash_data(f, lost_key, strlen(lost_key)) % buckets == bucket)
+                        break;
+        }
+        if (field)
+                xsprintf(lost_value, "%s=x", lost_key);
+        else
+                strcpy(lost_value, lost_key);
+
+        const char *v;
+        FOREACH_ARGUMENT(v, survives_value, lost_value) {
+                struct iovec iovec = IOVEC_MAKE_STRING(v);
+                ASSERT_OK_ZERO(journal_file_append_entry(
+                                f, &ts, /* boot_id= */ NULL, &iovec, 1,
+                                /* seqnum= */ NULL, /* seqnum_id= */ NULL,
+                                /* ret_object= */ NULL, /* ret_offset= */ NULL));
+        }
+
+        ASSERT_EQ(field ?
+                  journal_file_find_field_object(f, lost_key, strlen(lost_key), NULL, &lost_offset) :
+                  journal_file_find_data_object(f, lost_key, strlen(lost_key), NULL, &lost_offset), 1);
+        file_size = (uint64_t) f->last_stat.st_size;
+        ASSERT_GT(file_size, lost_offset);
+        (void) journal_file_offline_close(f);
+
+        /* Lose the second object's body, but keep the bucket pointer that still references it. */
+        ASSERT_OK_ERRNO(truncate("test.journal", (int64_t) lost_offset));
+        if (zeroed_tail)
+                ASSERT_OK_ERRNO(truncate("test.journal", (int64_t) file_size));
+
+        ASSERT_OK_ZERO(journal_file_open(
+                        -EBADF, "test.journal", O_RDONLY, JOURNAL_COMPRESS, 0666, UINT64_MAX,
+                        /* metrics= */ NULL, m, /* template= */ NULL, &f));
+
+        ASSERT_EQ(field ?
+                  journal_file_find_field_object(f, survives_key, strlen(survives_key), NULL, NULL) :
+                  journal_file_find_data_object(f, survives_key, strlen(survives_key), NULL, NULL), 1);
+        ASSERT_OK_ZERO(field ?
+                       journal_file_find_field_object(f, lost_key, strlen(lost_key), NULL, NULL) :
+                       journal_file_find_data_object(f, lost_key, strlen(lost_key), NULL, NULL));
+
+        (void) journal_file_close(f);
+
+        if (arg_keep)
+                log_info("Not removing %s", t);
+        else
+                ASSERT_OK(rm_rf(t, REMOVE_ROOT | REMOVE_PHYSICAL));
+}
+
+TEST(recover_truncated_hash_chain) {
+        const char *compact;
+
+        FOREACH_ARGUMENT(compact, "0", "1") {
+                ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_COMPACT", compact, 1));
+
+                test_recover_truncated_hash_chain_one(/* field= */ false, /* zeroed_tail= */ false);
+                test_recover_truncated_hash_chain_one(/* field= */ false, /* zeroed_tail= */ true);
+                test_recover_truncated_hash_chain_one(/* field= */ true, /* zeroed_tail= */ false);
+                test_recover_truncated_hash_chain_one(/* field= */ true, /* zeroed_tail= */ true);
+        }
 }
 
 static int intro(void) {
