@@ -7,14 +7,19 @@
 
 typedef enum RecurseDirFlags {
         /* Interpreted by readdir_all() */
-        RECURSE_DIR_SORT         = 1 << 0,  /* sort file directory entries before processing them */
-        RECURSE_DIR_IGNORE_DOT   = 1 << 1,  /* ignore all dot files ("." and ".." are always ignored) */
-        RECURSE_DIR_ENSURE_TYPE  = 1 << 2,  /* guarantees that 'd_type' field of 'de' is not DT_UNKNOWN */
+        RECURSE_DIR_SORT              = 1 << 0,  /* sort file directory entries before processing them */
+        RECURSE_DIR_IGNORE_DOT        = 1 << 1,  /* ignore all dot files ("." and ".." are always ignored) */
+        RECURSE_DIR_ENSURE_TYPE       = 1 << 2,  /* guarantees that 'd_type' field of 'de' is not DT_UNKNOWN */
+        RECURSE_DIR_MUST_BE_DIRECTORY = 1 << 3,  /* ignore all entries that aren't directories */
+        RECURSE_DIR_MUST_BE_REGULAR   = 1 << 4,  /* ignore all entries that aren't regular files */
+        RECURSE_DIR_MUST_BE_SYMLINK   = 1 << 5,  /* ignore all entries that aren't symlinks */
+        RECURSE_DIR_MUST_BE_SOCKET    = 1 << 6,  /* ignore all entries that aren't socket */
+        _RECURSE_DIR_MUST_BE_MASK     = RECURSE_DIR_MUST_BE_DIRECTORY|RECURSE_DIR_MUST_BE_REGULAR|RECURSE_DIR_MUST_BE_SYMLINK|RECURSE_DIR_MUST_BE_SOCKET,
 
         /* Interpreted by recurse_dir() */
-        RECURSE_DIR_SAME_MOUNT   = 1 << 3,  /* skips over subdirectories that are submounts */
-        RECURSE_DIR_INODE_FD     = 1 << 4,  /* passes an opened inode fd (O_DIRECTORY fd in case of dirs, O_PATH otherwise) */
-        RECURSE_DIR_TOPLEVEL     = 1 << 5,  /* call RECURSE_DIR_ENTER/RECURSE_DIR_LEAVE once for top-level dir, too, with dir_fd=-1 and NULL dirent */
+        RECURSE_DIR_SAME_MOUNT        = 1 << 7,  /* skips over subdirectories that are submounts */
+        RECURSE_DIR_INODE_FD          = 1 << 8,  /* passes an opened inode fd (O_DIRECTORY fd in case of dirs, O_PATH otherwise) */
+        RECURSE_DIR_TOPLEVEL          = 1 << 9,  /* call RECURSE_DIR_ENTER/RECURSE_DIR_LEAVE once for top-level dir, too, with dir_fd=-1 and NULL dirent */
 } RecurseDirFlags;
 
 typedef struct DirectoryEntries {
