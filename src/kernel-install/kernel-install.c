@@ -11,7 +11,6 @@
 #include "build.h"
 #include "chase.h"
 #include "conf-files.h"
-#include "dirent-util.h"
 #include "dissect-image.h"
 #include "env-file.h"
 #include "env-util.h"
@@ -1247,21 +1246,11 @@ static int verb_add_all(int argc, char *argv[], uintptr_t _data, void *userdata)
                 return log_error_errno(fd, "Failed to open %s/usr/lib/modules/: %m", strempty(arg_root));
 
         _cleanup_free_ DirectoryEntries *de = NULL;
-        r = readdir_all(fd, RECURSE_DIR_SORT|RECURSE_DIR_IGNORE_DOT, &de);
+        r = readdir_all(fd, RECURSE_DIR_SORT|RECURSE_DIR_IGNORE_DOT|RECURSE_DIR_MUST_BE_DIRECTORY, &de);
         if (r < 0)
                 return log_error_errno(r, "Failed to numerate /usr/lib/modules/ contents: %m");
 
         FOREACH_ARRAY(d, de->entries, de->n_entries) {
-                r = dirent_ensure_type(fd, *d);
-                if (r < 0) {
-                        if (r != -ENOENT) /* don't log if just gone by now */
-                                log_debug_errno(r, "Failed to check if '%s/usr/lib/modules/%s' is a directory, ignoring: %m", strempty(arg_root), (*d)->d_name);
-                        continue;
-                }
-
-                if ((*d)->d_type != DT_DIR)
-                        continue;
-
                 _cleanup_free_ char *fn = path_join((*d)->d_name, "vmlinuz");
                 if (!fn)
                         return log_oom();
@@ -1483,7 +1472,7 @@ static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 return log_error_errno(fd, "Failed to open %s/usr/lib/modules/: %m", strempty(arg_root));
 
         _cleanup_free_ DirectoryEntries *de = NULL;
-        r = readdir_all(fd, RECURSE_DIR_SORT|RECURSE_DIR_IGNORE_DOT, &de);
+        r = readdir_all(fd, RECURSE_DIR_SORT|RECURSE_DIR_IGNORE_DOT|RECURSE_DIR_MUST_BE_DIRECTORY, &de);
         if (r < 0)
                 return log_error_errno(r, "Failed to numerate /usr/lib/modules/ contents: %m");
 
@@ -1500,16 +1489,6 @@ static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 _cleanup_free_ char *j = path_join("/usr/lib/modules/", (*d)->d_name);
                 if (!j)
                         return log_oom();
-
-                r = dirent_ensure_type(fd, *d);
-                if (r < 0) {
-                        if (r != -ENOENT) /* don't log if just gone by now */
-                                log_debug_errno(r, "Failed to check if '%s/%s' is a directory, ignoring: %m", strempty(arg_root), j);
-                        continue;
-                }
-
-                if ((*d)->d_type != DT_DIR)
-                        continue;
 
                 _cleanup_free_ char *fn = path_join((*d)->d_name, "vmlinuz");
                 if (!fn)
