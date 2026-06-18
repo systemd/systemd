@@ -5576,16 +5576,44 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
         if (IN_SET(p->encrypt, ENCRYPT_KEY_FILE, ENCRYPT_KEY_FILE_TPM2)) {
                 /* Use partition-specific key if available, otherwise fall back to global key */
                 struct iovec *iovec_key = arg_key.iov_base ? &arg_key : &p->key;
+                int keyslot;
 
-                r = sym_crypt_keyslot_add_by_volume_key(
+                if (iovec_key->iov_len == 0) {
+                        /* No need for robust protection against brute-force... */
+                        r = cryptsetup_set_minimal_pbkdf(cd);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to set minimal PBKDF: %m");
+                }
+
+                keyslot = sym_crypt_keyslot_add_by_volume_key(
                                 cd,
                                 CRYPT_ANY_SLOT,
                                 NULL,
                                 /* volume_key_size= */ volume_key_size,
                                 strempty(iovec_key->iov_base),
                                 iovec_key->iov_len);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to add LUKS2 key: %m");
+                if (keyslot < 0)
+                        return log_error_errno(keyslot, "Failed to add LUKS2 key: %m");
+
+                if (iovec_key->iov_len == 0) {
+                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+                        _cleanup_free_ char *keyslot_as_string = NULL;
+
+                        r = asprintf(&keyslot_as_string, "%i", keyslot);
+                        if (r < 0)
+                                return log_oom();
+
+                        r = sd_json_buildo(
+                                        &v,
+                                        SD_JSON_BUILD_PAIR("type", JSON_BUILD_CONST_STRING("systemd-empty")),
+                                        SD_JSON_BUILD_PAIR("keyslots", SD_JSON_BUILD_ARRAY(SD_JSON_BUILD_STRING(keyslot_as_string))));
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to prepare empty key JSON token object: %m");
+
+                        r = cryptsetup_add_token_json(cd, v);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to add empty JSON token to LUKS2 header: %m");
+                }
 
                 passphrase = strempty(iovec_key->iov_base);
                 passphrase_size = iovec_key->iov_len;
@@ -5599,14 +5627,16 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                 ssize_t base64_encoded_size;
                 int keyslot;
                 TPM2Flags flags = 0;
-                Tpm2PCRValue *pcr_values = arg_tpm2_n_hash_pcr_values > 0 ? arg_tpm2_hash_pcr_values : p->tpm2_hash_pcr_values;
-                size_t n_pcr_values = arg_tpm2_n_hash_pcr_values > 0 ? arg_tpm2_n_hash_pcr_values : p->tpm2_n_hash_pcr_values;
+                Tpm2PCRValue *pcr_values = arg_tpm2_n_hash_pcr_values > 0 ? arg_tpm2_hash_pcr_values :
+                                                                            p->tpm2_hash_pcr_values;
+                size_t n_pcr_values = arg_tpm2_n_hash_pcr_values > 0 ? arg_tpm2_n_hash_pcr_values :
+                                                                       p->tpm2_n_hash_pcr_values;
 
-                if (n_pcr_values == 0 &&
-                    arg_tpm2_public_key_pcr_mask == 0 &&
-                    !arg_tpm2_pcrlock)
-                        log_notice("Notice: encrypting future partition %" PRIu64 ", locking against TPM2 with an empty policy, i.e. without any state or access restrictions.\n"
-                                   "Use --tpm2-public-key=, --tpm2-pcrlock=, or --tpm2-pcrs= to enable one or more restrictions.", p->partno);
+                if (n_pcr_values == 0 && arg_tpm2_public_key_pcr_mask == 0 && !arg_tpm2_pcrlock)
+                        log_notice("Notice: encrypting future partition %" PRIu64
+                                   ", locking against TPM2 with an empty policy, i.e. without any state or access restrictions.\n"
+                                   "Use --tpm2-public-key=, --tpm2-pcrlock=, or --tpm2-pcrs= to enable one or more restrictions.",
+                                   p->partno);
 
                 if (arg_tpm2_public_key_pcr_mask != 0) {
                         r = tpm2_load_pcr_public_key(arg_tpm2_public_key, &pubkey.iov_base, &pubkey.iov_len);
@@ -5614,7 +5644,8 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                                 if (arg_tpm2_public_key || r != -ENOENT)
                                         return log_error_errno(r, "Failed to read TPM PCR public key: %m");
 
-                                log_debug_errno(r, "Failed to read TPM2 PCR public key, proceeding without: %m");
+                                log_debug_errno(r,
+                                                "Failed to read TPM2 PCR public key, proceeding without: %m");
                                 arg_tpm2_public_key_pcr_mask = 0;
                         }
                 }
@@ -5643,8 +5674,9 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                                 return r;
 
                         if (!tpm2_pcr_values_has_all_values(pcr_values, n_pcr_values))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Must provide all PCR values when using TPM2 device key.");
+                                return log_error_errno(
+                                                SYNTHETIC_ERRNO(EINVAL),
+                                                "Must provide all PCR values when using TPM2 device key.");
                 } else {
                         r = tpm2_context_new_or_warn(arg_tpm2_device, &tpm2_context);
                         if (r < 0)
@@ -5695,12 +5727,14 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                         r = tpm2_calculate_sealing_policy(
                                         pcr_values,
                                         n_pcr_values,
-                                        /* public= */ NULL,      /* Turn this one off for the 2nd shard */
+                                        /* public= */ NULL, /* Turn this one off for the 2nd shard */
                                         /* use_pin= */ false,
-                                        &pcrlock_policy,         /* But turn this one on */
+                                        &pcrlock_policy, /* But turn this one on */
                                         policy_hash + 1);
                         if (r < 0)
-                                return log_error_errno(r, "Could not calculate sealing policy digest for shard 1: %m");
+                                return log_error_errno(
+                                                r,
+                                                "Could not calculate sealing policy digest for shard 1: %m");
 
                         n_policy_hash++;
                 }
@@ -5711,8 +5745,9 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
 
                 if (arg_tpm2_device_key) {
                         if (n_policy_hash > 1)
-                                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                                       "Combined signed PCR policies and pcrlock policies cannot be calculated offline, currently.");
+                                return log_error_errno(
+                                                SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                                "Combined signed PCR policies and pcrlock policies cannot be calculated offline, currently.");
 
                         blobs = new0(struct iovec, 1);
                         if (!blobs)
