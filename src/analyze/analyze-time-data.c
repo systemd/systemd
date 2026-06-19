@@ -46,6 +46,9 @@ int acquire_boot_times(sd_bus *bus, bool require_finished, BootTimes **ret) {
                 { "SecurityStartTimestampMonotonic",          "t", NULL, offsetof(BootTimes, security_start_time)           },
                 { "SecurityFinishTimestampMonotonic",         "t", NULL, offsetof(BootTimes, security_finish_time)          },
                 { "ShutdownStartTimestampMonotonic",          "t", NULL, offsetof(BootTimes, shutdown_start_time)           },
+                { "ShutdownFinishTimestampMonotonic",         "t", NULL, offsetof(BootTimes, shutdown_finish_time)          },
+                { "ShutdownBinaryStartTimestampMonotonic",    "t", NULL, offsetof(BootTimes, shutdown_binary_start_time)    },
+                { "ShutdownBinaryFinishTimestampMonotonic",   "t", NULL, offsetof(BootTimes, shutdown_binary_finish_time)   },
                 { "GeneratorsStartTimestampMonotonic",        "t", NULL, offsetof(BootTimes, generators_start_time)         },
                 { "GeneratorsFinishTimestampMonotonic",       "t", NULL, offsetof(BootTimes, generators_finish_time)        },
                 { "UnitsLoadStartTimestampMonotonic",         "t", NULL, offsetof(BootTimes, unitsload_start_time)          },
@@ -204,6 +207,24 @@ int pretty_boot_time(sd_bus *bus, char **ret) {
         if (!text)
                 return log_oom();
 
+        /* If the shutdown timestamps are set (restored via LUO), prepend them so the full shutdown + bootup
+         * chain is shown, and add their duration to the total below. */
+        usec_t shutdown_time = 0;
+        if (timestamp_is_set(t->shutdown_start_time) &&
+            timestamp_is_set(t->shutdown_finish_time) &&
+            timestamp_is_set(t->shutdown_binary_start_time) &&
+            timestamp_is_set(t->shutdown_binary_finish_time)) {
+
+                shutdown_time = t->shutdown_binary_finish_time - t->shutdown_start_time;
+
+                if (!strextend(&text, FORMAT_TIMESPAN(t->shutdown_finish_time - t->shutdown_start_time, USEC_PER_MSEC), " (stopping) + "))
+                        return log_oom();
+                if (!strextend(&text, FORMAT_TIMESPAN(t->shutdown_binary_start_time - t->shutdown_finish_time, USEC_PER_MSEC), " (exit) + "))
+                        return log_oom();
+                if (!strextend(&text, FORMAT_TIMESPAN(t->shutdown_binary_finish_time - t->shutdown_binary_start_time, USEC_PER_MSEC), " (systemd-shutdown) + "))
+                        return log_oom();
+        }
+
         if (timestamp_is_set(t->firmware_time) && !strextend(&text, FORMAT_TIMESPAN(t->firmware_time - t->loader_time, USEC_PER_MSEC), " (firmware) + "))
                 return log_oom();
         if (timestamp_is_set(t->loader_time) && !strextend(&text, FORMAT_TIMESPAN(t->loader_time, USEC_PER_MSEC), " (loader) + "))
@@ -219,7 +240,7 @@ int pretty_boot_time(sd_bus *bus, char **ret) {
                 return log_oom();
 
         if (timestamp_is_set(t->kernel_done_time))
-                if (!strextend(&text, "= ", FORMAT_TIMESPAN(t->firmware_time + t->finish_time, USEC_PER_MSEC),  " "))
+                if (!strextend(&text, "= ", FORMAT_TIMESPAN(shutdown_time + t->firmware_time + t->finish_time, USEC_PER_MSEC),  " "))
                         return log_oom();
 
         if (unit_id && timestamp_is_set(activated_time)) {
