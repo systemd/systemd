@@ -88,6 +88,7 @@ shared_sources = files(
         'fork-notify.c',
         'format-table.c',
         'fsprg.c',
+        'fsprg-openssl.c',
         'fstab-util.c',
         'gcrypt-util.c',
         'generator.c',
