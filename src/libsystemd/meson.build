@@ -4,6 +4,7 @@ sd_journal_sources = files(
         'sd-journal/audit-type.c',
         'sd-journal/catalog.c',
         'sd-journal/fsprg-gcrypt.c',
+        'sd-journal/fsprg-openssl.c',
         'sd-journal/journal-authenticate.c',
         'sd-journal/journal-file.c',
         'sd-journal/journal-send.c',
@@ -162,6 +163,7 @@ libsystemd_static = static_library(
         link_with : [libc_wrapper_static,
                      libbasic_static],
         dependencies : [libm,
+                        libopenssl_cflags,
                         libucontext,
                         userspace],
         build_by_default : false)
@@ -274,6 +276,7 @@ libsystemd_tests += [
                 'sources' : files('sd-journal/test-fsprg.c'),
                 'dependencies' : [
                         libgcrypt_cflags,
+                        libopenssl_cflags,
                 ],
         },
         {
