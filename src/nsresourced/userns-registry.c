@@ -1219,7 +1219,7 @@ int userns_registry_per_uid(int dir_fd, uid_t owner) {
 
         _cleanup_free_ DirectoryEntries *de = NULL;
 
-        r = readdir_all_at(dir_fd, uid_fn, RECURSE_DIR_IGNORE_DOT|RECURSE_DIR_ENSURE_TYPE, &de);
+        r = readdir_all_at(dir_fd, uid_fn, RECURSE_DIR_IGNORE_DOT|RECURSE_DIR_MUST_BE_REGULAR, &de);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
@@ -1227,9 +1227,6 @@ int userns_registry_per_uid(int dir_fd, uid_t owner) {
 
         FOREACH_ARRAY(i, de->entries, de->n_entries) {
                 struct dirent *e = *i;
-
-                if (e->d_type != DT_REG)
-                        continue;
 
                 if (!startswith(e->d_name, "i") || !endswith(e->d_name, ".userns"))
                         continue;
