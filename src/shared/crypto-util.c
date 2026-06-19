@@ -335,12 +335,15 @@ DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(UI_METHOD*, sym_UI_destroy_method, UI_de
 int dlopen_libcrypto(int log_level) {
 #if HAVE_OPENSSL
         static void *libcrypto_dl = NULL;
+        int r;
 
         LIBCRYPTO_NOTE(SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED);
 
-        return dlopen_many_sym_or_warn(
+        // FIXME: switch order to prefer libcrypto.so.4 in a future version once it has stabilized
+        FOREACH_STRING(soname, "libcrypto.so.3", "libcrypto.so.4") {
+                r = dlopen_many_sym_or_warn(
                         &libcrypto_dl,
-                        "libcrypto.so.3",
+                        soname,
                         log_level,
                         DLSYM_ARG(ASN1_ANY_it),
                         DLSYM_ARG(ASN1_BIT_STRING_it),
@@ -617,6 +620,15 @@ int dlopen_libcrypto(int log_level) {
                         DLSYM_ARG(X509_VERIFY_PARAM_set_hostflags),
                         DLSYM_ARG(X509_VERIFY_PARAM_set1_host),
                         DLSYM_ARG(X509_VERIFY_PARAM_set1_ip));
+                if (r >= 0)
+                        break;
+        }
+        if (r < 0) {
+                log_full_errno(log_level, r, "Neither libcrypto.so.4 nor libcrypto.so.3 could be loaded");
+                return -EOPNOTSUPP; /* turn into recognizable error */
+        }
+
+        return r;
 #else
         return log_full_errno(log_level, SYNTHETIC_ERRNO(EOPNOTSUPP),
                               "libcrypto support is not compiled in.");
