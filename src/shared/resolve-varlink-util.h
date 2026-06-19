@@ -34,3 +34,18 @@ typedef struct ResolveHostnameReply {
 void resolve_hostname_reply_done(ResolveHostnameReply *reply);
 
 int dispatch_resolve_hostname_reply(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
+
+typedef struct ResolvedName {
+        int ifindex;
+        char *name;
+} ResolvedName;
+
+typedef struct ResolveAddressReply {
+        uint64_t flags;
+        ResolvedName *names;
+        size_t n_names;
+} ResolveAddressReply;
+
+void resolve_address_reply_done(ResolveAddressReply *reply);
+
+int dispatch_resolve_address_reply(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
