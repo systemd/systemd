@@ -1033,6 +1033,10 @@ int job_finish_and_invalidate(Job *j, JobResult result, bool recursive, bool alr
         if (!already)
                 job_emit_done_message(u, j->id, t, result);
 
+        /* When shutdown.target is done (all units have stopped) take a timestamp */
+        if (result == JOB_DONE && t == JOB_START && unit_has_name(u, SPECIAL_SHUTDOWN_TARGET))
+                dual_timestamp_now(j->manager->timestamps + MANAGER_TIMESTAMP_SHUTDOWN_FINISH);
+
         /* Patch restart jobs so that they become normal start jobs */
         if (result == JOB_DONE && t == JOB_RESTART) {
 
