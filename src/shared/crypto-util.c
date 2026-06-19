@@ -6,6 +6,7 @@
 #include "ask-password-api.h"
 #include "crypto-util.h"
 #include "dlfcn-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "hexdecoct.h"
@@ -335,12 +336,25 @@ DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(UI_METHOD*, sym_UI_destroy_method, UI_de
 int dlopen_libcrypto(int log_level) {
 #if HAVE_OPENSSL
         static void *libcrypto_dl = NULL;
+        int r;
 
         LIBCRYPTO_NOTE(SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED);
 
-        return dlopen_many_sym_or_warn(
-                        &libcrypto_dl,
-                        "libcrypto.so.3",
+        if (libcrypto_dl)
+                return 0;
+
+        r = dlopen_safe("libcrypto.so.3", &libcrypto_dl, /* reterr_dlerror= */ NULL);
+        if (r < 0) {
+                const char *dle = NULL;
+                r = dlopen_safe("libcrypto.so.4", &libcrypto_dl, &dle);
+                if (r < 0) {
+                        log_full_errno(log_level, r, "Neither libcrypto.so.4 nor libcrypto.so.3 could be loaded: %s", dle ?: STRERROR(r));
+                        return -EOPNOTSUPP; /* turn into recognizable error */
+                }
+        }
+
+        return dlsym_many_or_warn(
+                        libcrypto_dl,
                         log_level,
                         DLSYM_ARG(ASN1_ANY_it),
                         DLSYM_ARG(ASN1_BIT_STRING_it),
