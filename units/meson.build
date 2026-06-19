@@ -747,6 +747,8 @@ units = [
           'file' : 'systemd-report-sign-plain@.service.in',
           'conditions' : ['HAVE_OPENSSL'],
         },
+        { 'file' : 'systemd-report-sign-tsm.socket' },
+        { 'file' : 'systemd-report-sign-tsm@.service.in' },
         {
           'file' : 'systemd-resolved.service.in',
           'conditions' : ['ENABLE_RESOLVE'],
