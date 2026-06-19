@@ -1814,15 +1814,12 @@ int pick_up_credentials(const PickUpCredential *table, size_t n_table_entry) {
                 return log_error_errno(credential_dir_fd, "Failed to open credentials directory: %m");
 
         _cleanup_free_ DirectoryEntries *des = NULL;
-        r = readdir_all(credential_dir_fd, RECURSE_DIR_SORT|RECURSE_DIR_IGNORE_DOT|RECURSE_DIR_ENSURE_TYPE, &des);
+        r = readdir_all(credential_dir_fd, RECURSE_DIR_SORT|RECURSE_DIR_IGNORE_DOT|RECURSE_DIR_MUST_BE_REGULAR, &des);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate credentials: %m");
 
         FOREACH_ARRAY(i, des->entries, des->n_entries) {
                 struct dirent *de = *i;
-
-                if (de->d_type != DT_REG)
-                        continue;
 
                 FOREACH_ARRAY(t, table, n_table_entry) {
                         r = pick_up_credential_one(credential_dir_fd, de->d_name, t);
