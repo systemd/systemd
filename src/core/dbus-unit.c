@@ -467,10 +467,44 @@ static int bus_unit_method_reload_or_try_restart(sd_bus_message *message, void *
         return bus_unit_method_start_generic(message, userdata, JOB_TRY_RESTART, true, reterr_error);
 }
 
+int bus_unit_parse_job_type(
+                const char *jtype,
+                JobType *ret_type,
+                bool *ret_reload_if_possible,
+                sd_bus_error *reterr_error) {
+
+        JobType type;
+        bool reload_if_possible = false;
+
+        assert(jtype);
+        assert(ret_type);
+        assert(ret_reload_if_possible);
+
+        /* Parses the job type string as accepted by the EnqueueUnitJob()/EnqueueUnitsJobs() bus methods. The
+         * two magic "reload-or-…" types are handled manually, the rest generically. The actual
+         * reload-vs-restart choice is unit-specific and applied per-unit later. */
+        if (streq(jtype, "reload-or-restart")) {
+                type = JOB_RESTART;
+                reload_if_possible = true;
+        } else if (streq(jtype, "reload-or-try-restart")) {
+                type = JOB_TRY_RESTART;
+                reload_if_possible = true;
+        } else {
+                type = job_type_from_string(jtype);
+                if (type < 0)
+                        return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Job type %s invalid", jtype);
+        }
+
+        *ret_type = type;
+        *ret_reload_if_possible = reload_if_possible;
+        return 0;
+}
+
 int bus_unit_method_enqueue_job(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
         BusUnitQueueFlags flags = BUS_UNIT_QUEUE_VERBOSE_REPLY;
         const char *jtype, *smode;
         Unit *u = ASSERT_PTR(userdata);
+        bool reload_if_possible;
         JobType type;
         JobMode mode;
         int r;
@@ -481,19 +515,11 @@ int bus_unit_method_enqueue_job(sd_bus_message *message, void *userdata, sd_bus_
         if (r < 0)
                 return r;
 
-        /* Parse the two magic reload types "reload-or-…" manually */
-        if (streq(jtype, "reload-or-restart")) {
-                type = JOB_RESTART;
+        r = bus_unit_parse_job_type(jtype, &type, &reload_if_possible, reterr_error);
+        if (r < 0)
+                return r;
+        if (reload_if_possible)
                 flags |= BUS_UNIT_QUEUE_RELOAD_IF_POSSIBLE;
-        } else if (streq(jtype, "reload-or-try-restart")) {
-                type = JOB_TRY_RESTART;
-                flags |= BUS_UNIT_QUEUE_RELOAD_IF_POSSIBLE;
-        } else {
-                /* And the rest generically */
-                type = job_type_from_string(jtype);
-                if (type < 0)
-                        return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Job type %s invalid", jtype);
-        }
 
         mode = job_mode_from_string(smode);
         if (mode < 0)
