@@ -302,6 +302,19 @@ libsystemd_tests += [
         },
 ]
 
+if conf.get('HAVE_GCRYPT') == 1
+        libsystemd_tests += [
+                {
+                        'sources' : files(
+                                'sd-journal/test-fsprg.c',
+                        ),
+                        'dependencies' : [
+                                libgcrypt_cflags,
+                        ],
+                },
+        ]
+endif
+
 if cxx_cmd != ''
         simple_tests += files('sd-bus/test-bus-vtable-cc.cc')
 endif
