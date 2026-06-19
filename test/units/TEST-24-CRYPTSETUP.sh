@@ -92,10 +92,10 @@ WORKDIR="$(mktemp -d)"
 # Prepare a couple of LUKS2-encrypted disk images
 #
 # 1) Image with an empty password
-IMAGE_EMPTY="$WORKDIR/empty.img)"
+IMAGE_EMPTY="$WORKDIR/empty.img"
 IMAGE_EMPTY_KEYFILE="$WORKDIR/empty.keyfile"
 IMAGE_EMPTY_KEYFILE_ERASE="$WORKDIR/empty-erase.keyfile"
-IMAGE_EMPTY_KEYFILE_ERASE_FAIL="$WORKDIR/empty-erase-fail.keyfile)"
+IMAGE_EMPTY_KEYFILE_ERASE_FAIL="$WORKDIR/empty-erase-fail.keyfile"
 truncate -s 32M "$IMAGE_EMPTY"
 echo -n passphrase >"$IMAGE_EMPTY_KEYFILE"
 chmod 0600 "$IMAGE_EMPTY_KEYFILE"
