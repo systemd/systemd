@@ -64,3 +64,31 @@ typedef struct ResolveRecordReply {
 void resolve_record_reply_done(ResolveRecordReply *reply);
 
 int dispatch_resolve_record_reply(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
+
+typedef struct ResolvedService {
+        uint16_t priority;
+        uint16_t weight;
+        uint16_t port;
+        char *hostname;
+        char *canonical_name;
+        ResolvedAddress *addresses;
+        size_t n_addresses;
+} ResolvedService;
+
+typedef struct ResolvedCanonical {
+        char *name;
+        char *type;
+        char *domain;
+} ResolvedCanonical;
+
+typedef struct ResolveServiceReply {
+        ResolvedService *services;
+        size_t n_services;
+        char **txt;
+        ResolvedCanonical canonical;
+        uint64_t flags;
+} ResolveServiceReply;
+
+void resolve_service_reply_done(ResolveServiceReply *reply);
+
+int dispatch_resolve_service_reply(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
