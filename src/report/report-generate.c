@@ -30,9 +30,10 @@ int context_build_report(Context *context, sd_json_variant **ret) {
 
         /* Normalize the report, to make signing more robust (note that we sign a specific binary formatting
          * of it though, this is hence not load bearing, but still useful) */
-        r = sd_json_variant_normalize(&report);
-        if (r < 0)
-                return log_error_errno(r, "Failed to normalize report JSON: %m");
+        // FIXME: this causes a test failure https://github.com/systemd/systemd/issues/42669
+        // r = sd_json_variant_normalize(&report);
+        // if (r < 0)
+        //         return log_error_errno(r, "Failed to normalize report JSON: %m");
 
         *ret = TAKE_PTR(report);
         return 0;
