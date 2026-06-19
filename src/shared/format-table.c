@@ -2250,6 +2250,29 @@ int _table_sync_column_widths(size_t column, Table *a, ...) {
         return r;
 }
 
+int table_sync_all_column_widths(size_t column, Table **a) {
+        size_t max = 0;
+        int r;
+
+        /* Make the specified column have the same width in the tables. */
+
+        for (Table **t = a; t && *t; t++) {
+                size_t w;
+
+                r = table_data_requested_width(*t, column, &w);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to query table column width: %m");
+
+                max = MAX(max, w);
+        }
+
+        r = 0;
+        for (Table **t = a; t && *t; t++)
+                RET_GATHER(r, table_set_column_width(*t, column, max));
+
+        return r;
+}
+
 int table_print_full(Table *t, FILE *f, bool flush) {
         _cleanup_free_ size_t *sorted = NULL;
         int r;
