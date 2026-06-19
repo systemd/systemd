@@ -2,6 +2,8 @@
 
 systemd_sysupdate_sources = files(
         'sysupdate-cache.c',
+        'sysupdate-cleanup.c',
+        'sysupdate-config.c',
         'sysupdate-feature.c',
         'sysupdate-instance.c',
         'sysupdate-partition.c',
@@ -44,6 +46,11 @@ executables += [
                 'sources' : systemd_updatectl_sources,
                 'objects' : ['systemd-sysupdate'],
                 'conditions' : ['ENABLE_SYSUPDATED'],
+        },
+        test_template + {
+                'sources' : files('test-sysupdate-util.c'),
+                'objects' : ['systemd-sysupdate'],
+                'conditions' : ['ENABLE_SYSUPDATE'],
         },
 ]
 

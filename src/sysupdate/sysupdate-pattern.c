@@ -458,7 +458,7 @@ int pattern_match_many(char **patterns, const char *s, InstanceMetadata *ret) {
                 r = pattern_match(*p, s, &found);
                 if (r < 0)
                         return r;
-                if (r > 0) {
+                if (r != PATTERN_MATCH_NO) {
                         if (ret) {
                                 *ret = found;
                                 found = (InstanceMetadata) INSTANCE_METADATA_NULL;

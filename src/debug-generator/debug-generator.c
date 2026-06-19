@@ -279,16 +279,13 @@ static int process_unit_credentials(const char *credentials_dir) {
 
         assert(credentials_dir);
 
-        r = readdir_all_at(AT_FDCWD, credentials_dir, RECURSE_DIR_SORT|RECURSE_DIR_IGNORE_DOT|RECURSE_DIR_ENSURE_TYPE, &des);
+        r = readdir_all_at(AT_FDCWD, credentials_dir, RECURSE_DIR_SORT|RECURSE_DIR_IGNORE_DOT|RECURSE_DIR_MUST_BE_REGULAR, &des);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate credentials from credentials directory '%s': %m", credentials_dir);
 
         FOREACH_ARRAY(i, des->entries, des->n_entries) {
                 struct dirent *de = *i;
                 const char *unit, *dropin;
-
-                if (de->d_type != DT_REG)
-                        continue;
 
                 unit = startswith(de->d_name, "systemd.extra-unit.");
                 dropin = startswith(de->d_name, "systemd.unit-dropin.");

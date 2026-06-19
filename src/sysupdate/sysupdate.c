@@ -6,10 +6,15 @@
 
 #include "build.h"
 #include "conf-files.h"
+#include "conf-parser.h"
 #include "constants.h"
 #include "dissect-image.h"
+#include "errno-util.h"
+#include "fd-util.h"
 #include "format-table.h"
 #include "glyph-util.h"
+#include "hashmap.h"
+#include "help-util.h"
 #include "hexdecoct.h"
 #include "image-policy.h"
 #include "loop-util.h"
@@ -20,20 +25,19 @@
 #include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"
-#include "path-util.h"
 #include "pretty-print.h"
-#include "set.h"
 #include "sort-util.h"
 #include "specifier.h"
 #include "string-util.h"
 #include "strv.h"
 #include "sysupdate.h"
+#include "sysupdate-config.h"
+#include "sysupdate-cleanup.h"
 #include "sysupdate-feature.h"
 #include "sysupdate-instance.h"
 #include "sysupdate-transfer.h"
 #include "sysupdate-update-set.h"
 #include "sysupdate-util.h"
-#include "utf8.h"
 #include "verbs.h"
 
 static char *arg_definitions = NULL;
@@ -46,6 +50,7 @@ char *arg_root = NULL;
 static char *arg_image = NULL;
 static bool arg_reboot = false;
 static char *arg_component = NULL;
+static bool arg_component_all = false;
 static int arg_verify = -1;
 static ImagePolicy *arg_image_policy = NULL;
 static bool arg_offline = false;
@@ -58,32 +63,13 @@ STATIC_DESTRUCTOR_REGISTER(arg_component, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_transfer_source, freep);
 
-const Specifier specifier_table[] = {
-        COMMON_SYSTEM_SPECIFIERS,
-        COMMON_TMP_SPECIFIERS,
-        {}
-};
-
-typedef struct Context {
-        Transfer **transfers;
-        size_t n_transfers;
-
-        Transfer **disabled_transfers;
-        size_t n_disabled_transfers;
-
-        Hashmap *features; /* Defined features, keyed by ID */
-
-        UpdateSet **update_sets;
-        size_t n_update_sets;
-
-        UpdateSet *newest_installed, *candidate;
-
-        Hashmap *web_cache; /* Cache for downloaded resources, keyed by URL */
-} Context;
-
-static Context* context_free(Context *c) {
+Context* context_free(Context *c) {
         if (!c)
                 return NULL;
+
+        free(c->component);
+        free(c->component_description);
+        strv_free(c->component_documentation);
 
         FOREACH_ARRAY(tr, c->transfers, c->n_transfers)
                 transfer_free(*tr);
@@ -101,19 +87,70 @@ static Context* context_free(Context *c) {
 
         hashmap_free(c->web_cache);
 
+        safe_close(c->installdb_fd);
+
         return mfree(c);
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(Context*, context_free);
-
 static Context* context_new(void) {
-        /* For now, no fields to initialize non-zero */
-        return new0(Context, 1);
+        Context *c = new(Context, 1);
+        if (!c)
+                return NULL;
+
+        *c = (Context) {
+                .installdb_fd = -EBADF,
+                .component_enabled = true,
+        };
+
+        return c;
 }
 
 static DEFINE_POINTER_ARRAY_FREE_FUNC(Transfer*, transfer_free);
 
-static int read_definitions(
+static int read_features(
+                Context *c,
+                const char **dirs) {
+
+        int r;
+
+        assert(c);
+
+        ConfFile **files = NULL;
+        size_t n_files = 0;
+        CLEANUP_ARRAY(files, n_files, conf_file_free_array);
+
+        r = conf_files_list_strv_full(
+                        ".feature",
+                        arg_root,
+                        CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED|CONF_FILES_WARN,
+                        (const char**) dirs,
+                        &files,
+                        &n_files);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enumerate sysupdate.d/*.feature definitions: %m");
+
+        FOREACH_ARRAY(i, files, n_files) {
+                ConfFile *e = *i;
+
+                _cleanup_(feature_unrefp) Feature *f = feature_new();
+                if (!f)
+                        return log_oom();
+
+                r = feature_read_definition(f, e->result, (const char**) dirs);
+                if (r < 0)
+                        return r;
+
+                r = hashmap_ensure_put(&c->features, &feature_hash_ops, f->id, f);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to insert feature '%s' into map: %m", f->id);
+
+                TAKE_PTR(f);
+        }
+
+        return 0;
+}
+
+static int read_transfers(
                 Context *c,
                 const char **dirs,
                 const char *suffix,
@@ -171,10 +208,43 @@ static int read_definitions(
         return 0;
 }
 
-typedef enum ReadDefinitionsFlags {
-        READ_DEFINITIONS_REQUIRES_ENABLED_TRANSFERS = 1 << 0,
-        READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS     = 1 << 1,
-} ReadDefinitionsFlags;
+static int read_component(Context *c) {
+        int r;
+
+        assert(c);
+
+        /* Read a component description file, but only if we actually operate on a component */
+        if (arg_definitions || !c->component)
+                return 0;
+
+        _cleanup_free_ char *j = strjoin("sysupdate.", c->component, ".component");
+        if (!j)
+                return log_oom();
+
+        ConfigTableItem table[] = {
+                { "Component", "Description",   config_parse_string,              0, &c->component_description   },
+                { "Component", "Documentation", config_parse_url_specifiers_many, 0, &c->component_documentation },
+                { "Component", "Enabled",       config_parse_bool,                0, &c->component_enabled       },
+                {}
+        };
+
+        r = config_parse_many_full(
+                        STRV_MAKE_CONST(j),
+                        (const char*const*) CONF_PATHS_STRV(""),
+                        strjoina(j, ".d"),
+                        arg_root,
+                        /* root_fd= */ -EBADF,
+                        "Component\0",
+                        config_item_table_lookup, table,
+                        CONFIG_PARSE_WARN,
+                        /* userdata= */ NULL,
+                        /* stats_by_path= */ NULL,
+                        /* drop_in_files= */ NULL);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
 
 static int context_read_definitions(Context *c, const char* node, ReadDefinitionsFlags flags) {
         _cleanup_strv_free_ char **dirs = NULL;
@@ -184,7 +254,7 @@ static int context_read_definitions(Context *c, const char* node, ReadDefinition
 
         if (arg_definitions)
                 dirs = strv_new(arg_definitions);
-        else if (arg_component) {
+        else if (c->component) {
                 char **l = CONF_PATHS_STRV("");
                 size_t i = 0;
 
@@ -195,7 +265,7 @@ static int context_read_definitions(Context *c, const char* node, ReadDefinition
                 STRV_FOREACH(dir, l) {
                         char *j;
 
-                        j = strjoin(*dir, "sysupdate.", arg_component, ".d");
+                        j = strjoin(*dir, "sysupdate.", c->component, ".d");
                         if (!j)
                                 return log_oom();
 
@@ -206,42 +276,21 @@ static int context_read_definitions(Context *c, const char* node, ReadDefinition
         if (!dirs)
                 return log_oom();
 
-        ConfFile **files = NULL;
-        size_t n_files = 0;
-
-        CLEANUP_ARRAY(files, n_files, conf_file_free_array);
-
-        r = conf_files_list_strv_full(".feature", arg_root,
-                                      CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED|CONF_FILES_WARN,
-                                      (const char**) dirs, &files, &n_files);
+        r = read_component(c);
         if (r < 0)
-                return log_error_errno(r, "Failed to enumerate sysupdate.d/*.feature definitions: %m");
+                return r;
 
-        FOREACH_ARRAY(i, files, n_files) {
-                _cleanup_(feature_unrefp) Feature *f = NULL;
-                ConfFile *e = *i;
+        r = read_features(c, (const char**) dirs);
+        if (r < 0)
+                return r;
 
-                f = feature_new();
-                if (!f)
-                        return log_oom();
-
-                r = feature_read_definition(f, e->result, (const char**) dirs);
-                if (r < 0)
-                        return r;
-
-                r = hashmap_ensure_put(&c->features, &feature_hash_ops, f->id, f);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to insert feature '%s' into map: %m", f->id);
-                TAKE_PTR(f);
-        }
-
-        r = read_definitions(c, (const char**) dirs, ".transfer", node);
+        r = read_transfers(c, (const char**) dirs, ".transfer", node);
         if (r < 0)
                 return r;
 
         if (c->n_transfers + c->n_disabled_transfers == 0) {
                 /* Backwards-compat: If no .transfer defs are found, fall back to trying .conf! */
-                r = read_definitions(c, (const char**) dirs, ".conf", node);
+                r = read_transfers(c, (const char**) dirs, ".conf", node);
                 if (r < 0)
                         return r;
 
@@ -251,14 +300,17 @@ static int context_read_definitions(Context *c, const char* node, ReadDefinition
 
         if (FLAGS_SET(flags, READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS) &&
             c->n_transfers + (FLAGS_SET(flags, READ_DEFINITIONS_REQUIRES_ENABLED_TRANSFERS) ? 0 : c->n_disabled_transfers) == 0) {
-                if (arg_component)
+                if (c->component)
                         return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
                                                "No transfer definitions for component '%s' found.",
-                                               arg_component);
+                                               c->component);
 
                 return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
                                        "No transfer definitions found.");
         }
+
+        if (FLAGS_SET(flags, READ_DEFINITIONS_REQUIRES_ENABLED_COMPONENT) && !c->component_enabled)
+                return log_error_errno(SYNTHETIC_ERRNO(EHOSTDOWN), "Component is disabled.");
 
         return 0;
 }
@@ -931,7 +983,11 @@ static int context_vacuum(
         return 0;
 }
 
-static int context_make_offline(Context **ret, const char *node, ReadDefinitionsFlags read_definitions_flags) {
+int context_make_offline(
+                Context **ret,
+                const char *node,
+                const char *component,
+                ReadDefinitionsFlags read_definitions_flags) {
         _cleanup_(context_freep) Context* context = NULL;
         int r;
 
@@ -943,6 +999,10 @@ static int context_make_offline(Context **ret, const char *node, ReadDefinitions
         context = context_new();
         if (!context)
                 return log_oom();
+
+        r = free_and_strdup_warn(&context->component, component);
+        if (r < 0)
+                return r;
 
         r = context_read_definitions(context, node, read_definitions_flags);
         if (r < 0)
@@ -956,7 +1016,12 @@ static int context_make_offline(Context **ret, const char *node, ReadDefinitions
         return 0;
 }
 
-static int context_make_online(Context **ret, const char *node) {
+static int context_make_online(
+                Context **ret,
+                const char *node,
+                const char *component,
+                ReadDefinitionsFlags read_definitions_flags) {
+
         _cleanup_(context_freep) Context* context = NULL;
         int r;
 
@@ -965,8 +1030,11 @@ static int context_make_online(Context **ret, const char *node) {
         /* Like context_make_offline(), but also communicates with the update source looking for new
          * versions (as long as --offline is not specified on the command line). */
 
-        r = context_make_offline(&context, node,
-                                 READ_DEFINITIONS_REQUIRES_ENABLED_TRANSFERS | READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS);
+        r = context_make_offline(
+                        &context,
+                        node,
+                        component,
+                        read_definitions_flags);
         if (r < 0)
                 return r;
 
@@ -1297,11 +1365,19 @@ static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
         assert(argc <= 2);
         version = argc >= 2 ? argv[1] : NULL;
 
+        if (arg_component_all)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--component-all currently not supported for '%s'.", argv[0]);
+
         r = process_image(/* ro= */ true, &mounted_dir, &loop_device);
         if (r < 0)
                 return r;
 
-        r = context_make_online(&context, loop_device ? loop_device->node : NULL);
+        r = context_make_online(
+                        &context,
+                        loop_device ? loop_device->node : NULL,
+                        arg_component,
+                        READ_DEFINITIONS_REQUIRES_ENABLED_TRANSFERS|
+                        READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS);
         if (r < 0)
                 return r;
 
@@ -1368,12 +1444,18 @@ static int verb_features(int argc, char *argv[], uintptr_t _data, void *userdata
         assert(argc <= 2);
         feature_id = argc >= 2 ? argv[1] : NULL;
 
+        if (arg_component_all)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--component-all currently not supported for '%s'.", argv[0]);
+
         r = process_image(/* ro= */ true, &mounted_dir, &loop_device);
         if (r < 0)
                 return r;
 
-        r = context_make_offline(&context, loop_device ? loop_device->node : NULL,
-                                 READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS);
+        r = context_make_offline(
+                        &context,
+                        loop_device ? loop_device->node : NULL,
+                        arg_component,
+                        READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS);
         if (r < 0)
                 return r;
 
@@ -1501,11 +1583,19 @@ static int verb_check_new(int argc, char *argv[], uintptr_t _data, void *userdat
 
         assert(argc <= 1);
 
+        if (arg_component_all)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--component-all currently not supported for '%s'.", argv[0]);
+
         r = process_image(/* ro= */ true, &mounted_dir, &loop_device);
         if (r < 0)
                 return r;
 
-        r = context_make_online(&context, loop_device ? loop_device->node : NULL);
+        r = context_make_online(
+                        &context,
+                        loop_device ? loop_device->node : NULL,
+                        arg_component,
+                        READ_DEFINITIONS_REQUIRES_ENABLED_TRANSFERS|
+                        READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS);
         if (r < 0)
                 return r;
 
@@ -1551,6 +1641,9 @@ static int verb_update_impl(int argc, char **argv, UpdateActionFlags action_flag
         assert(argc <= 2);
         version = argc >= 2 ? argv[1] : NULL;
 
+        if (arg_component_all)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--component-all currently not supported for '%s'.", argv[0]);
+
         if (arg_instances_max < 2)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                       "The --instances-max argument must be >= 2 while updating");
@@ -1569,7 +1662,13 @@ static int verb_update_impl(int argc, char **argv, UpdateActionFlags action_flag
         if (r < 0)
                 return r;
 
-        r = context_make_online(&context, loop_device ? loop_device->node : NULL);
+        r = context_make_online(
+                        &context,
+                        loop_device ? loop_device->node : NULL,
+                        arg_component,
+                        READ_DEFINITIONS_REQUIRES_ENABLED_TRANSFERS|
+                        READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS|
+                        READ_DEFINITIONS_REQUIRES_ENABLED_TRANSFERS);
         if (r < 0)
                 return r;
 
@@ -1633,6 +1732,9 @@ static int verb_vacuum(int argc, char *argv[], uintptr_t _data, void *userdata) 
 
         assert(argc <= 1);
 
+        if (arg_component_all)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--component-all currently not supported for '%s'.", argv[0]);
+
         if (arg_instances_max < 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                       "The --instances-max argument must be >= 1 while vacuuming");
@@ -1641,8 +1743,11 @@ static int verb_vacuum(int argc, char *argv[], uintptr_t _data, void *userdata) 
         if (r < 0)
                 return r;
 
-        r = context_make_offline(&context, loop_device ? loop_device->node : NULL,
-                                 READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS);
+        r = context_make_offline(
+                        &context,
+                        loop_device ? loop_device->node : NULL,
+                        arg_component,
+                        READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS);
         if (r < 0)
                 return r;
 
@@ -1664,8 +1769,16 @@ static int verb_pending_or_reboot(int argc, char *argv[], uintptr_t _data, void 
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "The --root=/--image= switches may not be combined with the '%s' operation.", argv[0]);
 
-        r = context_make_offline(&context, /* node= */ NULL,
-                                 READ_DEFINITIONS_REQUIRES_ENABLED_TRANSFERS | READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS);
+        if (arg_component_all)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--component-all currently not supported for '%s'.", argv[0]);
+
+        r = context_make_offline(
+                        &context,
+                        /* node= */ NULL,
+                        arg_component,
+                        READ_DEFINITIONS_REQUIRES_ENABLED_TRANSFERS|
+                        READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS|
+                        READ_DEFINITIONS_REQUIRES_ENABLED_COMPONENT);
         if (r < 0)
                 return r;
 
@@ -1707,105 +1820,47 @@ static int verb_pending_or_reboot(int argc, char *argv[], uintptr_t _data, void 
         return EXIT_SUCCESS;
 }
 
-static int component_name_valid(const char *c) {
-        _cleanup_free_ char *j = NULL;
-
-        /* See if the specified string enclosed in the directory prefix+suffix would be a valid file name */
-
-        if (isempty(c))
-                return false;
-
-        if (string_has_cc(c, NULL))
-                return false;
-
-        if (!utf8_is_valid(c))
-                return false;
-
-        j = strjoin("sysupdate.", c, ".d");
-        if (!j)
-                return -ENOMEM;
-
-        return filename_is_valid(j);
-}
-
 VERB_NOARG(verb_components, "components",
            "Show list of components");
 static int verb_components(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(context_freep) Context* context = NULL;
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
-        _cleanup_set_free_ Set *names = NULL;
         bool has_default_component = false;
         int r;
 
         assert(argc <= 1);
 
+        if (arg_component_all)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--component-all currently not supported for '%s'.", argv[0]);
+
         r = process_image(/* ro= */ false, &mounted_dir, &loop_device);
         if (r < 0)
                 return r;
 
-        r = context_make_offline(&context, loop_device ? loop_device->node : NULL, 0);
+        r = context_make_offline(
+                        &context,
+                        loop_device ? loop_device->node : NULL,
+                        arg_component,
+                        /* read_definitions_flags= */ 0);
         if (r < 0)
                 return r;
 
-        ConfFile **directories = NULL;
-        size_t n_directories = 0;
-
-        CLEANUP_ARRAY(directories, n_directories, conf_file_free_array);
-
-        r = conf_files_list_strv_full(".d", arg_root, CONF_FILES_DIRECTORY|CONF_FILES_WARN,
-                                      (const char * const *) CONF_PATHS_STRV(""), &directories, &n_directories);
+        _cleanup_strv_free_ char **z = NULL;
+        r = get_component_list(arg_root, &z);
         if (r < 0)
-                return log_error_errno(r, "Failed to enumerate directories: %m");
-
-        FOREACH_ARRAY(i, directories, n_directories) {
-                ConfFile *e = *i;
-
-                if (streq(e->filename, "sysupdate.d")) {
-                        continue;
-                }
-
-                const char *s = startswith(e->filename, "sysupdate.");
-                if (!s)
-                        continue;
-
-                const char *a = endswith(s, ".d");
-                if (!a)
-                        continue;
-
-                _cleanup_free_ char *n = strndup(s, a - s);
-                if (!n)
-                        return log_oom();
-
-                r = component_name_valid(n);
-                if (r < 0)
-                        return log_error_errno(r, "Unable to validate component name '%s': %m", n);
-                if (r == 0)
-                        continue;
-
-                r = set_ensure_put(&names, &string_hash_ops_free, n);
-                if (r < 0 && r != -EEXIST)
-                        return log_error_errno(r, "Failed to add component '%s' to set: %m", n);
-                TAKE_PTR(n);
-        }
+                return log_error_errno(r, "Failed to enumerate components: %m");
 
         /* Does the system have at least one transfer file in /etc/sysupdate.d, which can be considered a
          * TARGET_HOST? See target_get_argument() in sysupdated.c */
         has_default_component = (!arg_definitions &&
-                                 !arg_component &&
+                                 !context->component &&
                                  !arg_root &&
                                  !arg_image &&
                                  context->n_transfers > 0);
 
-        /* We use simple free() rather than strv_free() here, since set_free() will free the strings for us */
-        _cleanup_free_ char **z = set_get_strv(names);
-        if (!z)
-                return log_oom();
-
-        strv_sort(z);
-
         if (!sd_json_format_enabled(arg_json_format_flags)) {
-                if (!has_default_component && set_isempty(names)) {
+                if (!has_default_component && strv_isempty(z)) {
                         log_info("No components defined.");
                         return 0;
                 }
@@ -1832,14 +1887,39 @@ static int verb_components(int argc, char *argv[], uintptr_t _data, void *userda
         return 0;
 }
 
-static int help(void) {
-        _cleanup_free_ char *link = NULL;
-        _cleanup_(table_unrefp) Table *common_options = NULL, *options = NULL, *verbs = NULL;
+VERB_NOARG(verb_cleanup, "cleanup", "Clean up orphaned files");
+static int verb_cleanup(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r;
 
-        r = terminal_urlify_man("systemd-sysupdate", "8", &link);
+        assert(argc <= 1);
+
+        _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
+        _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
+        r = process_image(/* ro= */ false, &mounted_dir, &loop_device);
         if (r < 0)
-                return log_oom();
+                return r;
+
+        const char *node = loop_device ? loop_device->node : NULL;
+
+        int ret = 0;
+        RET_GATHER(ret, installdb_cleanup_component(node, arg_component));
+
+        if (arg_component_all) {
+                _cleanup_strv_free_ char **z = NULL;
+                r = installdb_list_components(&z);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to enumerate components: %m");
+
+                STRV_FOREACH(i, z)
+                        RET_GATHER(ret, installdb_cleanup_component(node, *i));
+        }
+
+        return ret;
+}
+
+static int help(void) {
+        _cleanup_(table_unrefp) Table *common_options = NULL, *options = NULL, *verbs = NULL;
+        int r;
 
         r = verbs_get_help_table(&verbs);
         if (r < 0)
@@ -1855,13 +1935,10 @@ static int help(void) {
 
         (void) table_sync_column_widths(0, verbs, common_options, options);
 
-        printf("%s [OPTIONS...] [VERSION]\n"
-               "\n%sUpdate OS images.%s\n"
-               "\n%sCommands:%s\n",
-               program_invocation_short_name,
-               ansi_highlight(), ansi_normal(),
-               ansi_underline(), ansi_normal());
+        help_cmdline("[OPTIONS…] [VERSION]");
+        help_abstract("Update OS images.");
 
+        help_section("Commands");
         r = table_print_or_warn(verbs);
         if (r < 0)
                 return r;
@@ -1870,12 +1947,12 @@ static int help(void) {
         if (r < 0)
                 return r;
 
-        printf("\n%sOptions:%s\n", ansi_underline(), ansi_normal());
+        help_section("Options");
         r = table_print_or_warn(options);
         if (r < 0)
                 return r;
 
-        printf("\nSee the %s for details.\n", link);
+        help_man_page_reference("systemd-sysupdate", "8");
         return 0;
 }
 
@@ -1905,19 +1982,24 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                        "Select component to update"):
                         if (isempty(opts.arg)) {
                                 arg_component = mfree(arg_component);
+                                arg_component_all = false;
                                 break;
                         }
 
-                        r = component_name_valid(opts.arg);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to determine if component name is valid: %m");
-                        if (r == 0)
+                        if (!component_name_valid(opts.arg))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Component name invalid: %s", opts.arg);
 
                         r = free_and_strdup_warn(&arg_component, opts.arg);
                         if (r < 0)
                                 return r;
 
+                        arg_component_all = false;
+                        break;
+
+                OPTION('A', "component-all", NULL, "Process all components"):
+
+                        arg_component = mfree(arg_component);
+                        arg_component_all = true;
                         break;
 
                 OPTION_LONG("definitions", "DIR",
