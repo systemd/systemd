@@ -124,6 +124,76 @@ static_assert(__NR_fchmodat2 == systemd_NR_fchmodat2, "");
 #  endif
 #endif
 
+#ifndef __IGNORE_close_range
+#  if defined(__aarch64__)
+#    define systemd_NR_close_range 436
+#  elif defined(__alpha__)
+#    define systemd_NR_close_range 546
+#  elif defined(__arc__) || defined(__tilegx__)
+#    define systemd_NR_close_range 436
+#  elif defined(__arm__)
+#    define systemd_NR_close_range 436
+#  elif defined(__i386__)
+#    define systemd_NR_close_range 436
+#  elif defined(__ia64__)
+#    define systemd_NR_close_range 1460
+#  elif defined(__loongarch_lp64)
+#    define systemd_NR_close_range 436
+#  elif defined(__m68k__)
+#    define systemd_NR_close_range 436
+#  elif defined(_MIPS_SIM)
+#    if _MIPS_SIM == _MIPS_SIM_ABI32
+#      define systemd_NR_close_range 4436
+#    elif _MIPS_SIM == _MIPS_SIM_NABI32
+#      define systemd_NR_close_range 6436
+#    elif _MIPS_SIM == _MIPS_SIM_ABI64
+#      define systemd_NR_close_range 5436
+#    else
+#      error "Unknown MIPS ABI"
+#    endif
+#  elif defined(__hppa__)
+#    define systemd_NR_close_range 436
+#  elif defined(__powerpc__)
+#    define systemd_NR_close_range 436
+#  elif defined(__riscv)
+#    if __riscv_xlen == 32
+#      define systemd_NR_close_range 436
+#    elif __riscv_xlen == 64
+#      define systemd_NR_close_range 436
+#    else
+#      error "Unknown RISC-V ABI"
+#    endif
+#  elif defined(__s390__)
+#    define systemd_NR_close_range 436
+#  elif defined(__sh__)
+#    define systemd_NR_close_range 436
+#  elif defined(__sparc__)
+#    define systemd_NR_close_range 436
+#  elif defined(__x86_64__)
+#    if defined(__ILP32__)
+#      define systemd_NR_close_range (436 | /* __X32_SYSCALL_BIT */ 0x40000000)
+#    else
+#      define systemd_NR_close_range 436
+#    endif
+#  elif !defined(missing_arch_template)
+#    warning "close_range() syscall number is unknown for your architecture"
+#  endif
+
+/* may be an (invalid) negative number due to libseccomp, see PR 13319 */
+#  if defined __NR_close_range && __NR_close_range >= 0
+#    if defined systemd_NR_close_range
+static_assert(__NR_close_range == systemd_NR_close_range, "");
+#    endif
+#  else
+#    if defined __NR_close_range
+#      undef __NR_close_range
+#    endif
+#    if defined systemd_NR_close_range && systemd_NR_close_range >= 0
+#      define __NR_close_range systemd_NR_close_range
+#    endif
+#  endif
+#endif
+
 #ifndef __IGNORE_kexec_file_load
 #  if defined(__aarch64__)
 #    define systemd_NR_kexec_file_load 294
