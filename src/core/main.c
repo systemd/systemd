@@ -45,6 +45,7 @@
 #include "emergency-action.h"
 #include "env-util.h"
 #include "escape.h"
+#include "executor.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fdset.h"
@@ -1038,12 +1039,18 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argv);
 
         int log_level_shift = getpid_cached() == 1 ? LOG_DEBUG - LOG_ERR : 0;
-        OptionParser opts = { argc, argv, .log_level_shift = log_level_shift };
+        OptionParser opts = {
+                argc, argv,
+                .namespace = "systemd",
+                .log_level_shift = log_level_shift,
+        };
 
         /* Note: when new options are added here, also add them to the exclusion list in proc-cmdline.c! */
 
         FOREACH_OPTION(c, &opts)
                 switch (c) {
+
+                OPTION_NAMESPACE("systemd"): {}
 
                 OPTION_COMMON_HELP:
                         arg_action = ACTION_HELP;
@@ -1279,7 +1286,7 @@ static int help(void) {
         _cleanup_(table_unrefp) Table *options = NULL;
         int r;
 
-        r = option_parser_get_help_table(&options);
+        r = option_parser_get_help_table_ns("systemd", &options);
         if (r < 0)
                 return r;
 
@@ -3430,7 +3437,7 @@ static int save_env(void) {
         return 0;
 }
 
-int main(int argc, char *argv[]) {
+static int run_systemd(int argc, char *argv[]) {
         dual_timestamp
                 initrd_timestamp = DUAL_TIMESTAMP_NULL,
                 userspace_timestamp = DUAL_TIMESTAMP_NULL,
@@ -3910,4 +3917,12 @@ finish:
 
         reset_arguments();
         return retval;
+}
+
+int main(int argc, char *argv[]) {
+#if BUILD_EXECUTOR_SINGLE
+        if (invoked_as(argv, "executor"))
+                return run_executor(argc, argv);
+#endif
+        return run_systemd(argc, argv);
 }
