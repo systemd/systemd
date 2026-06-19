@@ -46,6 +46,70 @@ TEST(tpm2_pcr_index_from_string) {
         assert_se(tpm2_pcr_index_from_string("24") == -EINVAL);
 }
 
+TEST(tpm2_pcr_bank_from_efi_active) {
+        uint16_t bank;
+
+        /* SHA256 is the top preference whenever it is active. */
+        ASSERT_OK(tpm2_pcr_bank_from_efi_active((1u << TPM2_ALG_SHA1) | (1u << TPM2_ALG_SHA256) | (1u << TPM2_ALG_SHA384) | (1u << TPM2_ALG_SHA512), &bank));
+        ASSERT_EQ(bank, TPM2_ALG_SHA256);
+
+        /* Without SHA256, SHA384 is preferred over SHA512 (shorter digest, less TPM event log space), and
+         * both win over SHA1. */
+        ASSERT_OK(tpm2_pcr_bank_from_efi_active((1u << TPM2_ALG_SHA1) | (1u << TPM2_ALG_SHA384) | (1u << TPM2_ALG_SHA512), &bank));
+        ASSERT_EQ(bank, TPM2_ALG_SHA384);
+        ASSERT_OK(tpm2_pcr_bank_from_efi_active((1u << TPM2_ALG_SHA1) | (1u << TPM2_ALG_SHA512), &bank));
+        ASSERT_EQ(bank, TPM2_ALG_SHA512);
+
+        /* SHA384-only firmware must resolve, not fail. */
+        ASSERT_OK(tpm2_pcr_bank_from_efi_active(1u << TPM2_ALG_SHA384, &bank));
+        ASSERT_EQ(bank, TPM2_ALG_SHA384);
+
+        /* Single-bank cases pick the obvious bank. */
+        ASSERT_OK(tpm2_pcr_bank_from_efi_active(1u << TPM2_ALG_SHA256, &bank));
+        ASSERT_EQ(bank, TPM2_ALG_SHA256);
+        ASSERT_OK(tpm2_pcr_bank_from_efi_active(1u << TPM2_ALG_SHA512, &bank));
+        ASSERT_EQ(bank, TPM2_ALG_SHA512);
+        ASSERT_OK(tpm2_pcr_bank_from_efi_active(1u << TPM2_ALG_SHA1, &bank));
+        ASSERT_EQ(bank, TPM2_ALG_SHA1);
+
+        /* No bank we are willing to use -> -EOPNOTSUPP. Empty mask, or only a bank we cannot hash in
+         * software (SM3_256, TCG algorithm id 0x12). */
+        ASSERT_ERROR(tpm2_pcr_bank_from_efi_active(0, &bank), EOPNOTSUPP);
+        ASSERT_ERROR(tpm2_pcr_bank_from_efi_active(1u << 0x12, &bank), EOPNOTSUPP);
+}
+
+TEST(tpm2_pcr_bank_from_efi_active_legacy) {
+        uint16_t bank;
+
+        /* The legacy variant re-derives the bank for old enrollments that did not record one. Such secrets
+         * could only ever have been sealed against SHA256 or SHA1, so the choice MUST stay restricted to
+         * those two banks regardless of which stronger banks the firmware reports as active — otherwise we'd
+         * re-derive a bank the secret was never bound to and silently fail to unseal. */
+
+        /* SHA256 stays the top preference. */
+        ASSERT_OK(tpm2_pcr_bank_from_efi_active_legacy((1u << TPM2_ALG_SHA1) | (1u << TPM2_ALG_SHA256) | (1u << TPM2_ALG_SHA384) | (1u << TPM2_ALG_SHA512), &bank));
+        ASSERT_EQ(bank, TPM2_ALG_SHA256);
+
+        /* The crucial backwards-compatibility case: with SHA384/SHA512 active but no SHA256, the legacy
+         * variant must fall back to SHA1, NOT pick the stronger SHA384 the way the non-legacy variant does
+         * (compare the SHA384 result in the test above). */
+        ASSERT_OK(tpm2_pcr_bank_from_efi_active_legacy((1u << TPM2_ALG_SHA1) | (1u << TPM2_ALG_SHA384) | (1u << TPM2_ALG_SHA512), &bank));
+        ASSERT_EQ(bank, TPM2_ALG_SHA1);
+
+        /* Single-bank cases for the two banks we accept. */
+        ASSERT_OK(tpm2_pcr_bank_from_efi_active_legacy(1u << TPM2_ALG_SHA256, &bank));
+        ASSERT_EQ(bank, TPM2_ALG_SHA256);
+        ASSERT_OK(tpm2_pcr_bank_from_efi_active_legacy(1u << TPM2_ALG_SHA1, &bank));
+        ASSERT_EQ(bank, TPM2_ALG_SHA1);
+
+        /* Banks the legacy variant never binds to -> -EOPNOTSUPP, even when active. A secret could not have
+         * been sealed against these by the old code, so there is nothing to re-derive. */
+        ASSERT_ERROR(tpm2_pcr_bank_from_efi_active_legacy(1u << TPM2_ALG_SHA384, &bank), EOPNOTSUPP);
+        ASSERT_ERROR(tpm2_pcr_bank_from_efi_active_legacy(1u << TPM2_ALG_SHA512, &bank), EOPNOTSUPP);
+        ASSERT_ERROR(tpm2_pcr_bank_from_efi_active_legacy((1u << TPM2_ALG_SHA384) | (1u << TPM2_ALG_SHA512), &bank), EOPNOTSUPP);
+        ASSERT_ERROR(tpm2_pcr_bank_from_efi_active_legacy(0, &bank), EOPNOTSUPP);
+}
+
 TEST(tpm2_util_pbkdf2_hmac_sha256) {
 
         /*
