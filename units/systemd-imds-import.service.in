@@ -11,10 +11,9 @@
 Description=Import System Credentials from IMDS
 Documentation=man:systemd-imds(1)
 Documentation=man:systemd.system-credentials(7)
-
 DefaultDependencies=no
-Wants=systemd-imdsd.socket
-After=systemd-imdsd.socket
+Wants=systemd-imdsd.socket network-online.target
+After=systemd-imdsd.socket network-online.target
 Before=sysinit.target systemd-firstboot.service
 Conflicts=shutdown.target
 Before=shutdown.target
