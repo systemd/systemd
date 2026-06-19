@@ -2,7 +2,11 @@
 
 #include "env-util.h"
 #include "format-table.h"
+#include "help-util.h"
 #include "log.h"
+#include "nulstr-util.h"
+#include "options.h"
+#include "pretty-print.h"
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
@@ -58,15 +62,16 @@ bool should_bypass(const char *env_prefix) {
 }
 
 static bool verb_is_metadata(const Verb *verb) {
-        /* A metadata entry that is not a real verb, like the group marker */
-        return FLAGS_SET(ASSERT_PTR(verb)->flags, VERB_GROUP_MARKER);
+        /* A metadata entry that is not a real verb, i.e. either the command and group markers. */
+        return  FLAGS_SET(ASSERT_PTR(verb)->flags, VERB_COMMAND_MARKER) ||
+                FLAGS_SET(ASSERT_PTR(verb)->flags, VERB_GROUP_MARKER);
 }
 
 const Verb* verbs_find_verb(const char *name, const Verb verbs[], const Verb verbs_end[]) {
         assert(verbs);
         assert(verbs_end > verbs);
         assert((uintptr_t) verbs % sizeof(void*) == 0);
-        assert(verbs[0].verb);
+        assert(FLAGS_SET(verbs[0].flags, VERB_COMMAND_MARKER) || verbs[0].verb);
 
         for (const Verb *verb = verbs; verb < verbs_end; verb++) {
                 if (verb_is_metadata(verb))
@@ -86,7 +91,7 @@ int _dispatch_verb(char **args, const Verb verbs[], const Verb verbs_end[], void
         assert(verbs);
         assert(verbs_end > verbs);
         assert((uintptr_t) verbs % sizeof(void*) == 0);
-        assert(verbs[0].verb);
+        assert(FLAGS_SET(verbs[0].flags, VERB_COMMAND_MARKER) || verbs[0].verb);
 
         const char *name = args ? args[0] : NULL;
         size_t left = strv_length(args);
@@ -214,6 +219,26 @@ static int verb_add_help_one(Table *table, const Verb *verb) {
         return 0;
 }
 
+static const Verb* verbs_get_command(const Verb verbs[], const Verb verbs_end[], const char *name) {
+        assert(verbs);
+        assert(verbs_end > verbs);
+        assert((uintptr_t) verbs % sizeof(void*) == 0);
+        assert(FLAGS_SET(verbs[0].flags, VERB_COMMAND_MARKER) || verbs[0].verb);
+        assert(name);
+
+        for (const Verb *verb = verbs; verb < verbs_end; verb++) {
+                if (!FLAGS_SET(verb->flags, VERB_COMMAND_MARKER))
+                        continue;
+
+                const CommandDescription *cmd = (const CommandDescription*) ASSERT_PTR(verb->data);
+                if (nulstr_contains(cmd->names, name))
+                        return verb;
+        }
+
+        /* At the end of the list? */
+        return NULL;
+}
+
 int _verbs_get_help_table(
                 const Verb verbs[],
                 const Verb verbs_end[],
@@ -234,7 +259,18 @@ int _verbs_get_help_table(
                                          * group <group>? The first part is the default group, so
                                          * if the group was not specified, we are in. */
 
-        for (const Verb *verb = verbs; verb < verbs_end; verb++) {
+        const Verb *verb;
+        for (verb = verbs; verb < verbs_end; verb++) {
+                /* Binaries with one or more VERB_COMMAND entries call this function
+                 * through print_verb_option_help() which provides a verbs slice that
+                 * starts after the VERB_COMMAND entry.
+                 *
+                 * In unconverted binaries, this function is called directly. */
+                // TODO: make this function static after everything has been converted.
+
+                if (FLAGS_SET(verb->flags, VERB_COMMAND_MARKER))
+                        break;
+
                 assert(verb->verb);
 
                 bool group_marker = FLAGS_SET(verb->flags, VERB_GROUP_MARKER);
@@ -256,5 +292,174 @@ int _verbs_get_help_table(
 
         table_set_header(table, false);
         *ret = TAKE_PTR(table);
+
+        assert(verb - verbs < INT_MAX);
+        return verb - verbs; /* Return the count of verb entries "consumed". */
+}
+
+static void table_array_freep(Table ***tables) {
+        assert(tables);
+
+        for (Table **t = *tables; t && *t; t++)
+                *t = table_unref(*t);
+        free(*tables);
+}
+
+static int print_verb_option_help(
+                const CommandDescription *cmd,
+                const Verb verbs[],
+                const Verb verbs_end[],
+                const Option options[],
+                const Option options_end[]) {
+
+        assert(verbs);
+        assert(verbs_end >= verbs);
+        assert((uintptr_t) verbs % sizeof(void*) == 0);
+
+        _cleanup_free_ const char **groups = NULL;
+        _cleanup_(table_array_freep) Table **tables = NULL;
+        size_t n_verbs = 0, n_opts = 0;
+        int r;
+
+        for (const Verb *verb = verbs; verb < verbs_end;) {
+                if (FLAGS_SET(verb->flags, VERB_COMMAND_MARKER))
+                        /* Start of entries for another command */
+                        break;
+
+                assert(verb->verb);
+
+                /* What is the the first group? */
+                const char *group = FLAGS_SET(verb->flags, VERB_GROUP_MARKER) ? verb->verb : NULL;
+
+                _cleanup_(table_unrefp) Table *table = NULL;
+                r = _verbs_get_help_table(verb, verbs_end, group, &table);
+                if (r < 0)
+                        return r;
+
+                if (!GREEDY_REALLOC0(tables, n_verbs + 2))
+                        return -ENOMEM;
+                if (!GREEDY_REALLOC0(groups, n_verbs + 2))
+                        return -ENOMEM;
+
+                tables[n_verbs] = TAKE_PTR(table);
+                groups[n_verbs++] = group ?: "Commands";
+
+                verb += r; /* Skip over the whole verb group */
+        }
+
+        const Option *optns = options_find_namespace(options, options_end, cmd->option_namespace);
+        if (!optns)
+                return log_error_errno(SYNTHETIC_ERRNO(EUCLEAN),
+                                       "Option namespace %s not found.",
+                                       cmd->option_namespace ?: "(unnamed)");
+
+        for (const Option *opt = optns; opt < options_end;) {
+                _cleanup_(table_unrefp) Table *table = NULL;
+                const char *group;
+
+                if (FLAGS_SET(opt->flags, OPTION_NAMESPACE_MARKER))
+                        /* End of our namespace */
+                        break;
+
+                r = options_get_help_table_group(opt, options_end, &table, &group);
+                if (r < 0)
+                        return r;
+
+                if (!GREEDY_REALLOC0(tables, n_verbs + n_opts + 2))
+                        return -ENOMEM;
+                if (!GREEDY_REALLOC0(groups, n_verbs + n_opts + 2))
+                        return -ENOMEM;
+
+                tables[n_verbs + n_opts] = TAKE_PTR(table);
+                groups[n_verbs + n_opts++] = group ?: "Options";
+
+                opt += r; /* Skip over the whole option group */
+        }
+
+        (void) table_sync_all_column_widths(0, tables);
+
+        for (size_t i = 0; i < n_verbs + n_opts; i++) {
+                if (table_isempty(tables[i]))
+                        continue;
+
+                help_section(groups[i]);
+
+                r = table_print_or_warn(tables[i]);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+static int print_man_links(const char *pages) {
+        int r;
+
+        NULSTR_FOREACH(page, pages) {
+                _cleanup_free_ char *link = NULL;
+
+                r = terminal_urlify_man(page, /* section= */ NULL, &link);
+                if (r < 0)
+                        return r;
+
+                printf("\nSee the %s for details.\n", link);
+        }
+
+        return 0;
+}
+
+static bool verbs_array_has_verbs(const Verb verbs[], const Verb verbs_end[]) {
+        for (const Verb *verb = verbs; verb < verbs_end; verb++) {
+                if (FLAGS_SET(verb->flags, VERB_COMMAND_MARKER))  /* start of another command section */
+                        break;
+                if (!verb->help)  /* a hidden verb */
+                        continue;
+                return true;
+        }
+
+        return false;
+}
+
+int _command_print_help(
+                const Verb verbs[],
+                const Verb verbs_end[],
+                const Option options[],
+                const Option options_end[],
+                const char *name) {
+        int r;
+
+        const Verb *cmdverb = verbs_get_command(verbs, verbs_end, name);
+        if (!cmdverb)
+                return log_error_errno(SYNTHETIC_ERRNO(ENODATA),
+                                       "Command %s not known", name);
+
+        const CommandDescription *cmd = (const CommandDescription*) ASSERT_PTR(cmdverb->data);
+
+        if (cmd->argspec)
+                NULSTR_FOREACH(spec, cmd->argspec) {
+                        _cleanup_free_ char *line = strjoin("[OPTION…] ", spec);
+                        if (!line)
+                                return log_oom();
+                        help_cmdline(line);
+                }
+        else {
+                bool have_verbs = verbs_array_has_verbs(cmdverb + 1, verbs_end);
+                help_cmdline(have_verbs ? "[OPTION…] COMMAND …" : "[OPTION…]");
+        }
+
+        if (cmd->abstract)
+                help_abstract(cmd->abstract);
+
+        r = print_verb_option_help(cmd, cmdverb + 1, verbs_end, options, options_end);
+        if (r < 0)
+                return log_error_errno(r, "Failed to print verb&option help: %m");
+
+        if (cmd->footer)
+                printf("\n%s\n", cmd->footer);
+
+        r = print_man_links(cmd->man_pages);
+        if (r < 0)
+                return log_error_errno(r, "Failed to print man page links: %m");
+
         return 0;
 }
