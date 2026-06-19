@@ -338,6 +338,15 @@ executables += [
         },
         test_template + {
                 'sources' : files(
+                        'test-fsprg.c',
+                ),
+                'dependencies' : [
+                        libgcrypt_cflags,
+                ],
+                'conditions' : ['HAVE_GCRYPT'],
+        },
+        test_template + {
+                'sources' : files(
                         'test-hashmap.c',
                         'test-hashmap-plain.c',
                 ) + [
