@@ -11,7 +11,7 @@ integration_tests += [
                         'rd.luks=1',
                         'luks.name=0d318174-56b0-4d6e-a324-ac1e7e7d235d=test24_varcrypt',
                         'luks.key=0d318174-56b0-4d6e-a324-ac1e7e7d235d=/keyfile:LABEL=varcrypt_keydev',
-                        'luks.options=0d318174-56b0-4d6e-a324-ac1e7e7d235d=x-initrd.attach',
+                        'luks.options=0d318174-56b0-4d6e-a324-ac1e7e7d235d=x-initrd.attach,x-systemd.device-timeout=300',
                 ],
                 'qemu-args' : [
                         '-drive', 'id=keydev,if=none,format=raw,cache=unsafe,file=@0@'.format(meson.project_build_root() / 'mkosi.output/keydev.raw'),

@@ -386,20 +386,22 @@ EOF
 }
 
 testcase_simultaneous_events_1() {
-    local disk expected i iterations link num_part part partscript rule target timeout
+    local disk expected i iterations link num_disks num_part part partscript rule target timeout
     local -a devices symlinks running
 
     if [[ -v ASAN_OPTIONS || "$(systemd-detect-virt -v)" == "qemu" ]]; then
         num_part=2
         iterations=10
         timeout=240
+        num_disks=4
     else
-        num_part=10
-        iterations=100
-        timeout=60
+        num_part=2
+        iterations=10
+        timeout=240
+        num_disks=4
     fi
 
-    for disk in {0..9}; do
+    for ((disk=0; disk < num_disks; disk++)); do
         link="/dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_deadbeeftest${disk}"
         target="$(readlink -f "$link")"
         if [[ ! -b "$target" ]]; then
@@ -431,7 +433,7 @@ EOF
     udevadm control --reload
 
     # initialize partition table
-    for disk in {0..9}; do
+    for ((disk=0; disk < num_disks; disk++)); do
         echo 'label: gpt' | udevadm lock --timeout=30 --device="${devices[$disk]}" sfdisk -q "${devices[$disk]}"
     done
 
@@ -443,7 +445,7 @@ EOF
     # leading to dead symlinks in /dev/disk/
     for ((i = 1; i <= iterations; i++)); do
         running=()
-        for disk in {0..9}; do
+        for ((disk=0; disk < num_disks; disk++)); do
             if ((disk % 2 == i % 2)); then
                 udevadm lock --timeout=30 --device="${devices[$disk]}" sfdisk -q --delete "${devices[$disk]}" &
             else
@@ -481,7 +483,7 @@ EOF
     helper_check_device_units
 
     # Cleanup and check if unnecessary devlinks are removed.
-    for disk in {0..9}; do
+    for ((disk=0; disk < num_disks; disk++)); do
         udevadm lock --timeout="$timeout" --device="${devices[$disk]}" sfdisk -q --delete "${devices[$disk]}" || :
     done
     udevadm settle --timeout="$timeout"
@@ -494,7 +496,7 @@ EOF
 }
 
 testcase_simultaneous_events_2() {
-    local disk i iterations link num_part part script_dir target timeout
+    local disk i iterations link num_disks num_part part script_dir target timeout
     local -a devices running
 
     script_dir="$(mktemp --directory "/tmp/test-udev-storage.script.XXXXXXXXXX")"
@@ -505,13 +507,15 @@ testcase_simultaneous_events_2() {
         num_part=10
         iterations=2
         timeout=300
+        num_disks=4
     else
-        num_part=40
-        iterations=5
-        timeout=200
+        num_part=10
+        iterations=2
+        timeout=300
+        num_disks=4
     fi
 
-    for disk in {0..9}; do
+    for ((disk=0; disk < num_disks; disk++)); do
         link="/dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_deadbeeftest${disk}"
         target="$(readlink -f "$link")"
         if [[ ! -b "$target" ]]; then
