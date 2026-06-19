@@ -204,7 +204,7 @@ CHANGES WITH 261 in spe:
           information, and provides information on how to reach local IMDS
           functionality on the node. Currently, Amazon EC2, Microsoft Azure,
           Google Compute Engine, Hetzner, Oracle Cloud, Scaleway, Tencent
-          Cloud, and Alibaba ECS are recognized.
+          Cloud, Alibaba ECS and Vultr are recognized.
 
         * An IMDS subsystem has been added. Specifically, there's now
           systemd-imdsd which provides a local Varlink IPC API that makes IMDS
@@ -685,6 +685,9 @@ CHANGES WITH 261 in spe:
         * A new io.systemd.Shutdown Varlink interface has been introduced
           to request system shutdown. The peer connection identifier of
           the requester is logged.
+
+        * systemd-logind gained new Varlink APIs for listing sessions, users,
+          seats and inhibitors
 
         Changes related to kexec:
 
