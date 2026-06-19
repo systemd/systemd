@@ -1664,6 +1664,10 @@ static int verb_pending_or_reboot(int argc, char *argv[], uintptr_t _data, void 
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "The --root=/--image= switches may not be combined with the '%s' operation.", argv[0]);
 
+        if (arg_component)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "The --component= switch may not be combined with the '%s' operation, which only applies to the booted OS version.", argv[0]);
+
         r = context_make_offline(&context, /* node= */ NULL,
                                  READ_DEFINITIONS_REQUIRES_ENABLED_TRANSFERS | READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS);
         if (r < 0)
@@ -2014,6 +2018,9 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
 
         if ((arg_image || arg_root) && arg_reboot)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "The --reboot switch may not be combined with --root= or --image=.");
+
+        if (arg_reboot && arg_component)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "The --reboot switch may not be combined with --component=, as automatic reboots only apply to the booted OS version.");
 
         if (arg_definitions && arg_component)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "The --definitions= and --component= switches may not be combined.");
