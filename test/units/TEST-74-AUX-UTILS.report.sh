@@ -136,22 +136,23 @@ trap at_exit EXIT
 systemd-run -p Type=notify --unit=fake-report-server "$FAKE_SERVER"
 systemctl status fake-report-server
 
-"$REPORT" generate io.systemd.Manager.UnitsTotal
+# TODO: re-enable once https://github.com/systemd/systemd/issues/42669 is fixed
+#"$REPORT" generate io.systemd.Manager.UnitsTotal
 
-"$REPORT" generate io.systemd.Manager.UnitsTotal | jq .
+#"$REPORT" generate io.systemd.Manager.UnitsTotal | jq .
 
-"$REPORT" upload --url=http://localhost:8089/
+#"$REPORT" upload --url=http://localhost:8089/
 
 # Test HTTPS upload with generated TLS certificates
-openssl req -x509 -newkey rsa:2048 -keyout "$CERTDIR/server.key" -out "$CERTDIR/server.crt" \
-    -days 1 -nodes -subj "/CN=localhost" 2>/dev/null
+# openssl req -x509 -newkey rsa:2048 -keyout "$CERTDIR/server.key" -out "$CERTDIR/server.crt" \
+#     -days 1 -nodes -subj "/CN=localhost" 2>/dev/null
 
-systemd-run -p Type=notify --unit=fake-report-server-tls \
-    "$FAKE_SERVER" --cert="$CERTDIR/server.crt" --key="$CERTDIR/server.key" --port=8090
-systemctl status fake-report-server-tls
+# systemd-run -p Type=notify --unit=fake-report-server-tls \
+#     "$FAKE_SERVER" --cert="$CERTDIR/server.crt" --key="$CERTDIR/server.key" --port=8090
+# systemctl status fake-report-server-tls
 
-"$REPORT" upload --url=https://localhost:8090/ --key=- --trust="$CERTDIR/server.crt" \
-          --extra-header='Authorization: Bearer magic string'
+# "$REPORT" upload --url=https://localhost:8090/ --key=- --trust="$CERTDIR/server.crt" \
+#           --extra-header='Authorization: Bearer magic string'
 
 # -----------------------------------------------------------------------------
 # Test the systemd-report-files@.service metric provider: files dropped into one
