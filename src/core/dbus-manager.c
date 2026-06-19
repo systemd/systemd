@@ -848,6 +848,105 @@ static int method_enqueue_unit_job(sd_bus_message *message, void *userdata, sd_b
         return method_generic_unit_operation(message, userdata, reterr_error, _UNIT_TYPE_INVALID, bus_unit_method_enqueue_job, GENERIC_UNIT_LOAD);
 }
 
+static int method_enqueue_units_jobs(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
+        Manager *m = ASSERT_PTR(userdata);
+        _cleanup_strv_free_ char **names = NULL;
+        _cleanup_set_free_ Set *jobs = NULL;
+        const char *jtype, *smode;
+        JobType type;
+        JobMode mode;
+        uint64_t flags;
+        bool reload_if_possible;
+        Job *j;
+        int r;
+
+        assert(message);
+
+        r = sd_bus_message_read_strv(message, &names);
+        if (r < 0)
+                return r;
+
+        if (strv_isempty(names))
+                return sd_bus_error_set(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "No units specified.");
+
+        if (strv_length(names) > (unsigned) MANAGER_MAX_NAMES / 2)
+                return sd_bus_error_set(reterr_error, SD_BUS_ERROR_LIMITS_EXCEEDED, "Too many unit names requested.");
+
+        r = sd_bus_message_read(message, "sst", &jtype, &smode, &flags);
+        if (r < 0)
+                return r;
+
+        if (flags != 0)
+                return sd_bus_error_set(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Invalid flags parameter, must be 0.");
+
+        r = bus_unit_parse_job_type(jtype, &type, &reload_if_possible, reterr_error);
+        if (r < 0)
+                return r;
+
+        mode = job_mode_from_string(smode);
+        if (mode < 0)
+                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Job mode %s invalid", smode);
+
+        r = mac_selinux_access_check(message, job_type_to_access_method(type), reterr_error);
+        if (r < 0)
+                return r;
+
+        r = bus_verify_manage_units_async(m, message, reterr_error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
+
+        jobs = set_new(NULL);
+        if (!jobs)
+                return -ENOMEM;
+
+        r = manager_add_jobs(m, type, names, reload_if_possible, mode,
+                             /* extra_flags= */ 0, /* affected_jobs= */ NULL, reterr_error, jobs);
+        if (r < 0)
+                return r;
+
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        r = sd_bus_message_new_method_return(message, &reply);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_open_container(reply, 'a', "(uosos)");
+        if (r < 0)
+                return r;
+
+        SET_FOREACH(j, jobs) {
+                _cleanup_free_ char *job_path = NULL, *unit_path = NULL;
+
+                r = bus_job_track_sender(j, message);
+                if (r < 0)
+                        return r;
+
+                bus_job_send_pending_change_signal(j, true);
+
+                job_path = job_dbus_path(j);
+                if (!job_path)
+                        return -ENOMEM;
+
+                unit_path = unit_dbus_path(j->unit);
+                if (!unit_path)
+                        return -ENOMEM;
+
+                r = sd_bus_message_append(reply, "(uosos)",
+                                          j->id, job_path,
+                                          j->unit->id, unit_path,
+                                          job_type_to_string(j->type));
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_bus_message_close_container(reply);
+        if (r < 0)
+                return r;
+
+        return sd_bus_message_send(reply);
+}
+
 static int method_start_unit_replace(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
         Manager *m = ASSERT_PTR(userdata);
         const char *old_name;
@@ -3097,6 +3196,11 @@ const sd_bus_vtable bus_manager_vtable[] = {
                                 SD_BUS_ARGS("s", name, "s", job_type, "s", job_mode),
                                 SD_BUS_RESULT("u", job_id, "o", job_path, "s", unit_id, "o", unit_path, "s", job_type, "a(uosos)", affected_jobs),
                                 method_enqueue_unit_job,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("EnqueueUnitsJobs",
+                                SD_BUS_ARGS("as", units, "s", job_type, "s", job_mode, "t", flags),
+                                SD_BUS_RESULT("a(uosos)", jobs),
+                                method_enqueue_units_jobs,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("KillUnit",
                                 SD_BUS_ARGS("s", name, "s", whom, "i", signal),
