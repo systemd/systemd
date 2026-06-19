@@ -45,7 +45,7 @@ ssize_t NTS_decrypt(uint8_t *ptxt,
         (void) ptxt_len;
 
         if (ctxt_len < BLKSIZ)
-                return -1;
+                return -EINVAL;
 
         assert(ptxt_len >= ctxt_len - BLKSIZ);
 

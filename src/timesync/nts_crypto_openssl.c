@@ -52,7 +52,7 @@ typedef int EVP_CryptUpdate_func(
                 const uint8_t *in,
                 int inl);
 
-static bool process_assoc_data(
+static int process_assoc_data(
                 EVP_CIPHER_CTX *state,
                 const AssociatedData *info,
                 const NTS_AEADParam *aead,
@@ -77,25 +77,23 @@ static bool process_assoc_data(
                         last++;
 
                 if (last->iov_len != aead->nonce_size)
-                        goto exit;
+                        return -EINVAL;
 
                 r = CryptInit_ex(state, NULL, NULL, NULL, last->iov_base);
                 if (r == 0)
-                        goto exit;
+                        return -EINVAL;
         }
 
         for ( ; info->iov_base && info != last; info++) {
                 int len = 0;
                 r = CryptUpdate(state, NULL, &len, info->iov_base, info->iov_len);
                 if (r == 0)
-                        goto exit;
+                        return -EINVAL;
 
                 assert((size_t)len == info->iov_len);
         }
 
-        return true;
-exit:
-        return false;
+        return 0;
 }
 
 ssize_t NTS_encrypt(uint8_t *ctxt,
@@ -133,7 +131,7 @@ ssize_t NTS_encrypt(uint8_t *ctxt,
         /* check that the ciphertext length is large enough */
         assert(ptxt_len <= SIZE_MAX - aead->block_size);
         if (ctxt_len < ptxt_len + aead->block_size)
-                return -ENOMEM;
+                return -EINVAL;
 
         uint8_t *ctxt_start = ctxt;
         uint8_t *tag;
@@ -148,8 +146,8 @@ ssize_t NTS_encrypt(uint8_t *ctxt,
                 return -EINVAL;
 
         r = process_assoc_data(state, info, aead, sym_EVP_EncryptInit_ex, sym_EVP_EncryptUpdate);
-        if (r == 0)
-                return -EINVAL;
+        if (r < 0)
+                return r;
 
         /* encrypt data */
         r = sym_EVP_EncryptUpdate(state, ctxt, &len, ptxt, ptxt_len);
@@ -205,7 +203,7 @@ ssize_t NTS_decrypt(uint8_t *ptxt,
 
         /* check that the ciphertext size is valid */
         if (ctxt_len < aead->block_size || ptxt_len < ctxt_len - aead->block_size)
-                return -ENOMEM;
+                return -EINVAL;
 
         cipher = sym_EVP_CIPHER_fetch(NULL, aead->cipher_name, NULL);
         if (!cipher)
@@ -230,8 +228,8 @@ ssize_t NTS_decrypt(uint8_t *ptxt,
                 return -EINVAL;
 
         r = process_assoc_data(state, info, aead, sym_EVP_DecryptInit_ex, sym_EVP_DecryptUpdate);
-        if (r == 0)
-                return -EINVAL;
+        if (r < 0)
+                return r;
 
         uint8_t *ptxt_start = ptxt;
 

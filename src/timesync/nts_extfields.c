@@ -29,7 +29,7 @@ static int write_ntp_ext_field(struct iovec *buf, uint16_t type, void *contents,
         size_t padding = padded_len - (len+4);
 
         if (buf->iov_len < padded_len)
-                return 0;
+                return -ENOBUFS;
 
         uint8_t *data = (uint8_t*) buf->iov_base;
         iovec_inc_many(buf, 1, padded_len);
@@ -42,7 +42,7 @@ static int write_ntp_ext_field(struct iovec *buf, uint16_t type, void *contents,
                 memzero(data+4, len);
 
         memzero(data+4+len, padding);
-        return padded_len;
+        return 0;
 }
 
 ssize_t NTS_add_extension_fields(
@@ -62,24 +62,25 @@ ssize_t NTS_add_extension_fields(
         iovec_inc_many(&buf, 1, 48);
 
         /* generate unique identifier */
-        if (crypto_random_bytes(*identifier, sizeof(NTS_Identifier)) != 0)
-                return -EINVAL;
+        r = crypto_random_bytes(*identifier, sizeof(NTS_Identifier));
+        if (r < 0)
+                return r;
 
         r = write_ntp_ext_field(&buf, NTS_EF_UniqueIdentifier, *identifier, sizeof(NTS_Identifier), 16);
-        if (r == 0)
-                return -ENOMEM;
+        if (r < 0)
+                return r;
 
         /* write cookie field */
         r = write_ntp_ext_field(&buf, NTS_EF_Cookie, nts->cookie.iov_base, nts->cookie.iov_len, 16);
-        if (r == 0)
-                return -ENOMEM;
+        if (r < 0)
+                return r;
 
         /* write unencrypted extra cookiefields */
         int placeholders = nts->extra_cookies;
         for ( ; placeholders > ENCRYPTED_PLACEHOLDERS; placeholders--) {
                 r = write_ntp_ext_field(&buf, NTS_EF_CookiePlaceholder, NULL, nts->cookie.iov_len, 16);
-                if (r == 0)
-                        return -ENOMEM;
+                if (r < 0)
+                        return r;
         }
 
         /* --- cobble together the extension fields extension field --- */
@@ -110,19 +111,20 @@ ssize_t NTS_add_extension_fields(
            which means that a ciphertext HAS TO BE PRESENT */
         if (placeholders == 0) {
                 r = write_ntp_ext_field(&ptxt, NTS_EF_NoOpField, NULL, 0, 0);
-                if (r == 0)
-                        return -ENOMEM;
+                if (r < 0)
+                        return r;
         }
 #endif
         while (placeholders-- > 0) {
                 r = write_ntp_ext_field(&ptxt, NTS_EF_CookiePlaceholder, NULL, nts->cookie.iov_len, 0);
-                if (r == 0)
-                        return -ENOMEM;
+                if (r < 0)
+                        return r;
         }
 
         /* generate the nonce */
-        if (crypto_random_bytes(EF_nonce, nonce_len) != 0)
-                return -EINVAL;
+        r = crypto_random_bytes(EF_nonce, nonce_len);
+        if (r < 0)
+                return r;
 
         AssociatedData info[] = {
                 { dest,     (uint8_t*)buf.iov_base - dest },  /* aad */
@@ -148,8 +150,8 @@ ssize_t NTS_add_extension_fields(
         unaligned_write_be16(EF_ciphertext_len, ctxt_len);
 
         r = write_ntp_ext_field(&buf, NTS_EF_AuthEncExtFields, EF, ef_len, 28);
-        if (r == 0)
-                return -ENOMEM;
+        if (r < 0)
+                return r;
 
         return (uint8_t*)buf.iov_base - dest;
 }
@@ -183,14 +185,14 @@ ssize_t NTS_parse_extension_fields(
                 uint16_t type, len;
                 decode_hdr(&type, &len, buf, 0);
                 if (len < 4 || buf.iov_len < len)
-                        return -ENOMEM;
+                        return -EBADMSG;
 
                 switch (type) {
                 case NTS_EF_UniqueIdentifier:
                         /* the length indicator contains the size of the header (4 bytes); the identifier
                          * itself is expected to be 32 bytes */
                         if (len - 4 != 32)
-                                return -EINVAL;
+                                return -EBADMSG;
 
                         fields->identifier = (NTS_Identifier*)((uint8_t*)buf.iov_base + 4);
                         processed = true;
@@ -202,7 +204,7 @@ ssize_t NTS_parse_extension_fields(
                          * which would be a malicious packet; the sizes don't need to match exactly since there may
                          * also be padding here */
                         if (nonce_len + ciph_len + 8 > len)
-                                return -EINVAL;
+                                return -EBADMSG;
 
                         uint8_t *nonce = (uint8_t*)buf.iov_base + 8;
                         uint8_t *content = nonce + nonce_len;
@@ -229,7 +231,7 @@ ssize_t NTS_parse_extension_fields(
                                 decode_hdr(&inner_type, &inner_len, plain, 0);
                                 /* check that our buffer has enough room and the advertised length is valid */
                                 if (plain.iov_len < inner_len || inner_len < 4)
-                                        return -ENOMEM;
+                                        return -EBADMSG;
 
                                 /* only care about cookies */
                                 switch (inner_type) {
@@ -250,7 +252,7 @@ ssize_t NTS_parse_extension_fields(
 
                         /* ignore any further fields after this,
                          * since they are not authenticated */
-                        return processed ? (uint8_t*)plain.iov_base - src : -EINVAL;
+                        return processed ? (uint8_t*)plain.iov_base - src : -EBADMSG;
                 }
 
                 default:
@@ -261,5 +263,5 @@ ssize_t NTS_parse_extension_fields(
                 iovec_inc_many(&buf, 1, len);
         }
 
-        return -EINVAL;
+        return -EBADMSG;
 }

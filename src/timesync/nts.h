@@ -111,9 +111,10 @@ int NTS_TLS_extract_keys(NTS_TLS *session, NTS_AEADAlgorithmType aead, uint8_t *
 /* Setup a ready-to-use TLS session for hostname, on the connected socket, ready to begin a TLS handshake.
  *
  * RETURNS
- *      A pointer to a ready-to-use TLS session, NULL upon failure (and then the error is stored in NTS_TLS_error)
+ *      0 upon success (the ready-to-use TLS session is stored in *ret)
+ *      < 0 (-errno) upon failure
  */
-NTS_TLS* NTS_TLS_setup(const char *hostname, int socket_fd);
+int NTS_TLS_setup(const char *hostname, int socket_fd, NTS_TLS **ret);
 
 /* Perform a TLS handshake
  *

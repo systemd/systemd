@@ -120,63 +120,65 @@ NTS_TLS* NTS_TLS_free(NTS_TLS *session) {
         return NULL;
 }
 
-NTS_TLS* NTS_TLS_setup(
+int NTS_TLS_setup(
                 const char *hostname,
-                int socket) {
+                int socket_fd,
+                NTS_TLS **ret) {
 
         int r;
+
+        assert(hostname);
+        assert(ret);
 
         /* NTS_TLS_setup() uses BIO_* helpers which live in libcrypto, so load both libraries. */
         r = dlopen_libcrypto(LOG_ERR);
         if (r < 0)
-                return NULL;
+                return r;
 
         r = dlopen_libssl(LOG_ERR);
         if (r < 0)
-                return NULL;
-
-        assert(hostname);
+                return r;
 
         _cleanup_(SSL_CTX_freep) SSL_CTX *ctx = sym_SSL_CTX_new(sym_TLS_client_method());
         if (!ctx)
-                return NULL;
+                return -ENOMEM;
 
         r = sym_SSL_CTX_set_default_verify_paths(ctx);
         if (r != 1)
-                return NULL;
+                return -EIO;
 
         r = sym_SSL_CTX_set_min_proto_version(ctx, TLS1_3_VERSION);
         if (r != 1)
-                return NULL;
+                return -EIO;
 
         _cleanup_(SSL_freep) SSL *tls = sym_SSL_new(ctx);
         if (!tls)
-                return NULL;
+                return -ENOMEM;
 
         sym_SSL_set_verify(tls, SSL_VERIFY_PEER, NULL);
         r = sym_SSL_set1_host(tls, hostname);
         if (r != 1)
-                return NULL;
+                return -EIO;
 
         r = sym_SSL_set_tlsext_host_name(tls, hostname);
         if (r != 1)
-                return NULL;
+                return -EIO;
 
         unsigned char alpn[] = "\x07ntske/1";
         r = sym_SSL_set_alpn_protos(tls, alpn, strlen((char*)alpn));
         if (r != 0)
-                return NULL;
+                return -EIO;
 
         BIO *bio = sym_BIO_new(sym_BIO_s_socket());
         if (!bio)
-                return NULL;
+                return -ENOMEM;
 
-        sym_BIO_set_fd(bio, socket, BIO_NOCLOSE);
+        sym_BIO_set_fd(bio, socket_fd, BIO_NOCLOSE);
         sym_SSL_set_bio(tls, bio, bio);
 
         /* move the initialized session object to the caller */
-        NTS_TLS *ret_ptr = (void *)tls;
+        *ret = (void *)tls;
         tls = NULL;
 
-        return ret_ptr;
+        return 0;
 }

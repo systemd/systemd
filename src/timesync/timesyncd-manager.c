@@ -193,8 +193,12 @@ static int manager_send_request(Manager *m) {
                 memzero(bottom_cookie->iov_base, bottom_cookie->iov_len);
                 m->nts_missing_cookies++;
 
-                if (packet_len < 0 || (size_t) packet_len <= sizeof(struct ntp_msg)) {
-                        log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to encode extension fields");
+                if (packet_len < 0) {
+                        log_error_errno(packet_len, "Failed to encode extension fields: %m");
+                        return packet_len;
+                }
+                if ((size_t) packet_len <= sizeof(struct ntp_msg)) {
+                        log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Encoded NTS request is too small.");
                         return -EINVAL;
                 }
         } else {
@@ -1575,9 +1579,12 @@ static int manager_nts_obtain_agreement(sd_event_source *source, int fd, uint32_
                 log_debug("Performing key exchange with %s", m->current_server_name->string);
 
                 assert(!m->nts_handshake);
-                m->nts_handshake = NTS_TLS_setup(m->current_server_name->string, m->server_socket);
-                if (!m->nts_handshake)
-                        return -ENOMEM;
+                r = NTS_TLS_setup(m->current_server_name->string, m->server_socket, &m->nts_handshake);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to set up TLS session with server: %m");
+                        m->nts_timeout = sd_event_source_unref(m->nts_timeout);
+                        return manager_connect(m);
+                }
 
                 m->nts_handshake_state = NTS_HANDSHAKE_TLS;
                 _fallthrough_;
@@ -1588,7 +1595,7 @@ static int manager_nts_obtain_agreement(sd_event_source *source, int fd, uint32_
                         return 1;
 
                 if (r < 0) {
-                        log_warning("Could not set up TLS session with server");
+                        log_warning_errno(r, "Could not set up TLS session with server: %m");
                         m->nts_handshake = NTS_TLS_free(m->nts_handshake);
                         m->nts_timeout = sd_event_source_unref(m->nts_timeout);
                         return manager_connect(m);
@@ -1634,7 +1641,7 @@ static int manager_nts_obtain_agreement(sd_event_source *source, int fd, uint32_
                 assert(r <= size);
 
                 if (r < 0) {
-                        log_warning("Error sending NTS key request");
+                        log_warning_errno(r, "Error sending NTS key request: %m");
                         m->nts_handshake = NTS_TLS_free(m->nts_handshake);
                         m->nts_timeout = sd_event_source_unref(m->nts_timeout);
                         return manager_connect(m);
@@ -1655,7 +1662,7 @@ static int manager_nts_obtain_agreement(sd_event_source *source, int fd, uint32_
                 assert(r <= size);
 
                 if (r < 0) {
-                        log_warning("Error receiving NTS key response");
+                        log_warning_errno(r, "Error receiving NTS key response: %m");
                         m->nts_handshake = NTS_TLS_free(m->nts_handshake);
                         m->nts_timeout = sd_event_source_unref(m->nts_timeout);
                         return manager_connect(m);
