@@ -1,6 +1,6 @@
 systemd System and Service Manager
 
-CHANGES WITH 261 in spe:
+CHANGES WITH 261:
 
         Announcements of Future Feature Removals and Incompatible Changes:
 
@@ -823,7 +823,7 @@ CHANGES WITH 261 in spe:
         Марко Костић (Marko Kostić), наб, 我超厉害,
         김인수
 
-        — Edinburgh, 2026/06/16
+        — Edinburgh, 2026/06/19
 
 CHANGES WITH 260:
 
