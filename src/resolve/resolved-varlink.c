@@ -135,7 +135,8 @@ static int reply_query_state(DnsQuery *q) {
                 /* We return this as NXDOMAIN. This is only generated when a host doesn't implement LLMNR/TCP, and we
                  * thus quickly know that we cannot resolve an in-addr.arpa or ip6.arpa address. */
                 return sd_varlink_errorbo(q->varlink_request, "io.systemd.Resolve.DNSError",
-                                       SD_JSON_BUILD_PAIR_INTEGER("rcode", DNS_RCODE_NXDOMAIN));
+                                       SD_JSON_BUILD_PAIR_INTEGER("rcode", DNS_RCODE_NXDOMAIN),
+                                       SD_JSON_BUILD_PAIR_STRING("queryString", dns_query_string(q)));
 
         case DNS_TRANSACTION_RCODE_FAILURE:
                 return sd_varlink_errorbo(q->varlink_request, "io.systemd.Resolve.DNSError",
@@ -143,7 +144,8 @@ static int reply_query_state(DnsQuery *q) {
                                        SD_JSON_BUILD_PAIR_CONDITION(q->answer_ede_rcode >= 0,
                                                                     "extendedDNSErrorCode", SD_JSON_BUILD_INTEGER(q->answer_ede_rcode)),
                                        SD_JSON_BUILD_PAIR_CONDITION(q->answer_ede_rcode >= 0 && !isempty(q->answer_ede_msg),
-                                                                    "extendedDNSErrorMessage", SD_JSON_BUILD_STRING(q->answer_ede_msg)));
+                                                                    "extendedDNSErrorMessage", SD_JSON_BUILD_STRING(q->answer_ede_msg)),
+                                       SD_JSON_BUILD_PAIR_STRING("queryString", dns_query_string(q)));
 
         case DNS_TRANSACTION_NULL:
         case DNS_TRANSACTION_PENDING:
