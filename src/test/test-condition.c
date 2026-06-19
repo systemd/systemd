@@ -1474,6 +1474,69 @@ TEST(condition_test_machine_tag) {
         ASSERT_OK_ZERO(condition_test(condition, environ));
         condition_free(condition);
 
+        /* Key/value (parameterized) tags */
+        ASSERT_OK(write_string_file(f, "TAGS=\"role=webserver:env=prod:berlin\"\n",
+                                    WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_TRUNCATE));
+
+        /* Exact match of a key/value tag */
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_MACHINE_TAG, "role=webserver", /* trigger= */ false, /* negate= */ false)));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        condition_free(condition);
+
+        /* Glob on the value */
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_MACHINE_TAG, "role=web*", /* trigger= */ false, /* negate= */ false)));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        condition_free(condition);
+
+        /* Glob on the key */
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_MACHINE_TAG, "*=prod", /* trigger= */ false, /* negate= */ false)));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        condition_free(condition);
+
+        /* A bare key does not match an assignment (the "=" is part of the tag) */
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_MACHINE_TAG, "role", /* trigger= */ false, /* negate= */ false)));
+        ASSERT_OK_ZERO(condition_test(condition, environ));
+        condition_free(condition);
+
+        /* Right key, wrong value → no match */
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_MACHINE_TAG, "role=database", /* trigger= */ false, /* negate= */ false)));
+        ASSERT_OK_ZERO(condition_test(condition, environ));
+        condition_free(condition);
+
+        /* A plain (non-parameterized) tag still matches alongside key/value tags */
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_MACHINE_TAG, "berlin", /* trigger= */ false, /* negate= */ false)));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        condition_free(condition);
+
+        /* Negation against a key/value tag */
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_MACHINE_TAG, "role=database", /* trigger= */ false, /* negate= */ true)));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        condition_free(condition);
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_MACHINE_TAG, "role=webserver", /* trigger= */ false, /* negate= */ true)));
+        ASSERT_OK_ZERO(condition_test(condition, environ));
+        condition_free(condition);
+
+        /* Conflicting values for the same key: graceful parsing keeps the first (lexicographically smallest)
+         * value and drops the rest, so only "env=prod" remains visible. */
+        ASSERT_OK(write_string_file(f, "TAGS=\"env=staging:env=prod\"\n",
+                                    WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_TRUNCATE));
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_MACHINE_TAG, "env=prod", /* trigger= */ false, /* negate= */ false)));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        condition_free(condition);
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_MACHINE_TAG, "env=staging", /* trigger= */ false, /* negate= */ false)));
+        ASSERT_OK_ZERO(condition_test(condition, environ));
+        condition_free(condition);
+
+        /* Invalid key/value tags in the file are ignored, valid ones still match */
+        ASSERT_OK(write_string_file(f, "TAGS=\"bad-=x:role=good\"\n",
+                                    WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_TRUNCATE));
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_MACHINE_TAG, "bad-=x", /* trigger= */ false, /* negate= */ false)));
+        ASSERT_OK_ZERO(condition_test(condition, environ));
+        condition_free(condition);
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_MACHINE_TAG, "role=good", /* trigger= */ false, /* negate= */ false)));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        condition_free(condition);
+
         ASSERT_OK(set_unset_env("SYSTEMD_ETC_MACHINE_INFO", saved, /* overwrite= */ true));
 }
 
