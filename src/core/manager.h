@@ -78,6 +78,16 @@ typedef enum ManagerObjective {
  * 6. TIMESTAMP_USERSPACE is the timestamp of when the manager was started.
  *
  * 7. TIMESTAMP_INITRD_* are set only when the system is booted with an initrd.
+ *
+ * 8. TIMESTAMP_SHUTDOWN_START and TIMESTAMP_SHUTDOWN_FINISH bracket the unit-stopping phase during the
+ *    current shutdown (the latter is also propagated across soft-reboot).
+ *
+ * 9. TIMESTAMP_PREVIOUS_SHUTDOWN_START, TIMESTAMP_PREVIOUS_SHUTDOWN_FINISH,
+ *    TIMESTAMP_PREVIOUS_SHUTDOWN_LATE_START and TIMESTAMP_PREVIOUS_SHUTDOWN_LATE_FINISH describe the
+ *    shutdown of the *previous* boot, restored from the LUO payload after a kexec-based live update
+ *    (the LATE_* ones are taken by systemd-shutdown). Like TIMESTAMP_FIRMWARE/LOADER/KERNEL they refer
+ *    to events before the current systemd cycle took over, hence they are kept distinct from the
+ *    current cycle's SHUTDOWN_START/FINISH instead of overwriting them.
  */
 
 typedef enum ManagerTimestamp {
@@ -104,6 +114,12 @@ typedef enum ManagerTimestamp {
         MANAGER_TIMESTAMP_INITRD_UNITS_LOAD_FINISH,
 
         MANAGER_TIMESTAMP_SHUTDOWN_START,
+        MANAGER_TIMESTAMP_SHUTDOWN_FINISH,
+
+        MANAGER_TIMESTAMP_PREVIOUS_SHUTDOWN_START,
+        MANAGER_TIMESTAMP_PREVIOUS_SHUTDOWN_FINISH,
+        MANAGER_TIMESTAMP_PREVIOUS_SHUTDOWN_LATE_START,
+        MANAGER_TIMESTAMP_PREVIOUS_SHUTDOWN_LATE_FINISH,
 
         _MANAGER_TIMESTAMP_MAX,
         _MANAGER_TIMESTAMP_INVALID = -EINVAL,
