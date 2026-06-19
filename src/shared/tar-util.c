@@ -1184,7 +1184,7 @@ static int hardlink_lookup(
         else
                 assert(d->have_unique_mount_id == (r > 0));
 
-        m = hexmem(SHA256_DIRECT(handle->f_handle, handle->handle_bytes), SHA256_DIGEST_SIZE);
+        m = sha256_direct_hex(handle->f_handle, handle->handle_bytes);
         if (!m)
                 return log_oom();
 

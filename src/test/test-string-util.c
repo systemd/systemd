@@ -1607,6 +1607,20 @@ TEST(string_is_safe) {
         ASSERT_FALSE(string_is_safe("/foo", STRING_FILENAME));
         ASSERT_FALSE(string_is_safe("foo/bar", STRING_FILENAME));
 
+        /* STRING_FILENAME_PART: like STRING_FILENAME, but "." and ".." are accepted; '/' still rejected. */
+        ASSERT_TRUE(string_is_safe("hello", STRING_FILENAME_PART));
+        ASSERT_TRUE(string_is_safe("hello.txt", STRING_FILENAME_PART));
+        ASSERT_TRUE(string_is_safe("...", STRING_FILENAME_PART));
+        ASSERT_TRUE(string_is_safe(".hidden", STRING_FILENAME_PART));
+        ASSERT_TRUE(string_is_safe(".", STRING_FILENAME_PART));             /* accepted, unlike STRING_FILENAME */
+        ASSERT_TRUE(string_is_safe("..", STRING_FILENAME_PART));            /* accepted, unlike STRING_FILENAME */
+        ASSERT_FALSE(string_is_safe("", STRING_FILENAME_PART));             /* empty still rejected by default */
+        ASSERT_TRUE(string_is_safe("", STRING_FILENAME_PART | STRING_ALLOW_EMPTY)); /* ... unless explicitly allowed */
+        ASSERT_FALSE(string_is_safe("/", STRING_FILENAME_PART));
+        ASSERT_FALSE(string_is_safe("/foo", STRING_FILENAME_PART));
+        ASSERT_FALSE(string_is_safe("foo/bar", STRING_FILENAME_PART));
+        ASSERT_FALSE(string_is_safe("foo/", STRING_FILENAME_PART));
+
         /* Pairwise combinations. */
         ASSERT_TRUE(string_is_safe("", STRING_ALLOW_EMPTY | STRING_ASCII));
         ASSERT_FALSE(string_is_safe("über", STRING_ALLOW_EMPTY | STRING_ASCII));

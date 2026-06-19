@@ -158,6 +158,8 @@ static int resource_load_from_directory_recursive(
                         return log_oom();
 
                 r = pattern_match_many(rr->patterns, rel_joined_for_matching, &extracted_fields);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to match pattern: %m");
                 if (r == PATTERN_MATCH_RETRY) {
                         _cleanup_closedir_ DIR *subdir = NULL;
 
@@ -170,10 +172,7 @@ static int resource_load_from_directory_recursive(
                                 return r;
                         if (r == 0)
                                 continue;
-                }
-                else if (r < 0)
-                        return log_error_errno(r, "Failed to match pattern: %m");
-                else if (r == PATTERN_MATCH_NO)
+                } else if (r == PATTERN_MATCH_NO)
                         continue;
 
                 if (de->d_type == DT_DIR && m != S_IFDIR)
