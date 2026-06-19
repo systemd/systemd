@@ -14,7 +14,6 @@
 #include "chattr-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
-#include "hexdecoct.h"
 #include "iovec-util.h"
 #include "libarchive-util.h"
 #include "mountpoint-util.h"
@@ -1184,7 +1183,7 @@ static int hardlink_lookup(
         else
                 assert(d->have_unique_mount_id == (r > 0));
 
-        m = hexmem(SHA256_DIRECT(handle->f_handle, handle->handle_bytes), SHA256_DIGEST_SIZE);
+        m = sha256_direct_hex(handle->f_handle, handle->handle_bytes);
         if (!m)
                 return log_oom();
 
