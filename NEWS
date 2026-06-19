@@ -278,6 +278,18 @@ CHANGES WITH 261 in spe:
         * New directive types 'k/K' have been added to systemd-tmpfiles for
           setting file capabilities.
 
+        * The manager exposes new UnitsReloadStartTimestamp and
+          UnitsReloadFinishTimestamp properties (with their Monotonic
+          counterparts) on its D-Bus and Varlink interfaces, bracketing
+          the most recent reload-cycle.
+          UnitsReloadStartTimestamp aliases the existing
+          UnitsLoadTimestamp. A new LastReloadUSec property reports
+          the duration of that reload-cycle in microseconds. It is also
+          exposed as the io.systemd.Manager.LastReloadUSec gauge in
+          io.systemd.Metrics. Before the first reload-cycle the value is
+          UINT64_MAX over D-Bus, omitted from Varlink Describe, and
+          absent from the metrics generator.
+
         Changes in systemd-sysext/systemd-confext:
 
         * New initrd services systemd-sysext-sysroot.service and

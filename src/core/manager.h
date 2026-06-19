@@ -93,7 +93,8 @@ typedef enum ManagerTimestamp {
         MANAGER_TIMESTAMP_GENERATORS_FINISH,
         MANAGER_TIMESTAMP_UNITS_LOAD_START,
         MANAGER_TIMESTAMP_UNITS_LOAD_FINISH,
-        MANAGER_TIMESTAMP_UNITS_LOAD,
+        MANAGER_TIMESTAMP_UNITS_RELOAD_START,
+        MANAGER_TIMESTAMP_UNITS_RELOAD_FINISH,
 
         MANAGER_TIMESTAMP_INITRD_SECURITY_START,
         MANAGER_TIMESTAMP_INITRD_SECURITY_FINISH,
@@ -617,6 +618,7 @@ int manager_loop(Manager *m);
 int manager_reload(Manager *m);
 Manager* manager_reloading_start(Manager *m);
 void manager_reloading_stopp(Manager **m);
+usec_t manager_get_last_reload_usec(Manager *m);
 
 void manager_reset_failed(Manager *m);
 

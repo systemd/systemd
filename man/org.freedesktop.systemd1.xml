@@ -373,6 +373,14 @@ node /org/freedesktop/systemd1 {
       readonly t UnitsLoadTimestamp = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t UnitsLoadTimestampMonotonic = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t UnitsReloadStartTimestamp = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t UnitsReloadStartTimestampMonotonic = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t UnitsReloadFinishTimestamp = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t UnitsReloadFinishTimestampMonotonic = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t InitRDSecurityStartTimestamp = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -578,6 +586,8 @@ node /org/freedesktop/systemd1 {
       readonly u SoftRebootsCount = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t ReloadCount = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t LastReloadUSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b DefaultMemoryZSwapWriteback = ...;
   };
@@ -1097,6 +1107,14 @@ node /org/freedesktop/systemd1 {
 
     <variablelist class="dbus-property" generated="True" extra-ref="UnitsLoadTimestampMonotonic"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="UnitsReloadStartTimestamp"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="UnitsReloadStartTimestampMonotonic"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="UnitsReloadFinishTimestamp"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="UnitsReloadFinishTimestampMonotonic"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="InitRDSecurityStartTimestamp"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="InitRDSecurityStartTimestampMonotonic"/>
@@ -1294,6 +1312,8 @@ node /org/freedesktop/systemd1 {
     <variablelist class="dbus-property" generated="True" extra-ref="SoftRebootsCount"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ReloadCount"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="LastReloadUSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="DefaultMemoryZSwapWriteback"/>
 
@@ -1843,6 +1863,16 @@ node /org/freedesktop/systemd1 {
       (as described above). The timestamps are taken every time when the manager starts loading unit files.
       </para>
 
+      <para><varname>UnitsReloadStartTimestamp</varname>,
+      <varname>UnitsReloadStartTimestampMonotonic</varname>, <varname>UnitsReloadFinishTimestamp</varname>,
+      and <varname>UnitsReloadFinishTimestampMonotonic</varname> bracket the most recent reload-cycle of the
+      manager. The start pair is taken at the beginning of every reload-cycle (covering
+      <command>daemon-reload</command>, <command>daemon-reexec</command>, soft-reboot and switch-root); the
+      finish pair is taken once unit re-enumeration and coldplug have completed. Both pairs are reset to
+      <literal>0</literal> until the first reload-cycle has run. <varname>UnitsReloadStartTimestamp</varname>
+      and <varname>UnitsReloadStartTimestampMonotonic</varname> alias the existing
+      <varname>UnitsLoadTimestamp</varname> properties.</para>
+
       <para>Similarly, the <varname>SecurityStartTimestamp</varname>,
       <varname>GeneratorsStartTimestamp</varname> and <varname>LoadUnitTimestamp</varname> (as well as their
       monotonic and stop counterparts) expose performance data for uploading the security policies to the
@@ -1885,6 +1915,14 @@ node /org/freedesktop/systemd1 {
       <para><varname>ReloadCount</varname> encodes the number of successfully completed configuration
       reloads of the manager. The counter is reset to <literal>0</literal> on
       <command>daemon-reexec</command> and on the initial boot.</para>
+
+      <para><varname>LastReloadUSec</varname> reports the duration of the most recent successfully
+      completed reload-cycle, in microseconds. It is computed as the delta between
+      <varname>UnitsReloadStartTimestampMonotonic</varname> and
+      <varname>UnitsReloadFinishTimestampMonotonic</varname> and covers
+      <command>daemon-reload</command>, <command>daemon-reexec</command>, soft-reboot and switch-root.
+      Before any reload-cycle has happened this property reports
+      <constant>UINT64_MAX</constant>.</para>
 
       <para><varname>Virtualization</varname> contains a short ID string describing the virtualization
       technology the system runs in. On bare-metal hardware this is the empty string. Otherwise, it contains
@@ -12741,8 +12779,13 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>DefaultIOPressureThresholdUSec</varname>,
       <varname>DefaultIOPressureWatch</varname>,
       <varname>ReloadCount</varname>,
-      <varname>EventLoopRateLimitIntervalUSec</varname>, and
-      <varname>EventLoopRateLimitBurst</varname> were added in version 261.</para>
+      <varname>EventLoopRateLimitIntervalUSec</varname>,
+      <varname>EventLoopRateLimitBurst</varname>,
+      <varname>UnitsReloadStartTimestamp</varname>,
+      <varname>UnitsReloadStartTimestampMonotonic</varname>,
+      <varname>UnitsReloadFinishTimestamp</varname>,
+      <varname>UnitsReloadFinishTimestampMonotonic</varname>, and
+      <varname>LastReloadUSec</varname> were added in version 261.</para>
     </refsect2>
     <refsect2>
       <title>Unit Objects</title>

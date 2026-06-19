@@ -770,6 +770,13 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         else
                                 m->previous_objective = objective;
 
+                } else if ((val = startswith(l, "units-load-timestamp="))) {
+                        /* Legacy name for what is now "units-reload-start-timestamp=". Accept it on
+                         * deserialize so a daemon-reexec from a pre-rename systemd preserves the
+                         * reload-cycle start timestamp (and therefore the LastReloadUSec coverage
+                         * of that one upgrade-window reexec). */
+                        (void) deserialize_dual_timestamp(val, m->timestamps + MANAGER_TIMESTAMP_UNITS_RELOAD_START);
+
                 } else {
                         ManagerTimestamp q;
 
