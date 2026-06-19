@@ -351,6 +351,26 @@ node /org/freedesktop/systemd1 {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t ShutdownStartTimestampMonotonic = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly t ShutdownFinishTimestamp = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly t ShutdownFinishTimestampMonotonic = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly t PreviousShutdownStartTimestamp = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly t PreviousShutdownStartTimestampMonotonic = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly t PreviousShutdownFinishTimestamp = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly t PreviousShutdownFinishTimestampMonotonic = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly t PreviousShutdownLateStartTimestamp = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly t PreviousShutdownLateStartTimestampMonotonic = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly t PreviousShutdownLateFinishTimestamp = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly t PreviousShutdownLateFinishTimestampMonotonic = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t SecurityStartTimestamp = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t SecurityStartTimestampMonotonic = ...;
@@ -641,6 +661,14 @@ node /org/freedesktop/systemd1 {
     <!--method LookupDynamicUserByUID is not documented!-->
 
     <!--method GetDynamicUsers is not documented!-->
+
+    <!--property PreviousShutdownStartTimestampMonotonic is not documented!-->
+
+    <!--property PreviousShutdownFinishTimestampMonotonic is not documented!-->
+
+    <!--property PreviousShutdownLateStartTimestampMonotonic is not documented!-->
+
+    <!--property PreviousShutdownLateFinishTimestampMonotonic is not documented!-->
 
     <!--property SecurityStartTimestampMonotonic is not documented!-->
 
@@ -1075,6 +1103,26 @@ node /org/freedesktop/systemd1 {
     <variablelist class="dbus-property" generated="True" extra-ref="ShutdownStartTimestamp"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ShutdownStartTimestampMonotonic"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="ShutdownFinishTimestamp"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="ShutdownFinishTimestampMonotonic"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="PreviousShutdownStartTimestamp"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="PreviousShutdownStartTimestampMonotonic"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="PreviousShutdownFinishTimestamp"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="PreviousShutdownFinishTimestampMonotonic"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="PreviousShutdownLateStartTimestamp"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="PreviousShutdownLateStartTimestampMonotonic"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="PreviousShutdownLateFinishTimestamp"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="PreviousShutdownLateFinishTimestampMonotonic"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="SecurityStartTimestamp"/>
 
@@ -1877,6 +1925,31 @@ node /org/freedesktop/systemd1 {
       <varname>LoaderTimestampMonotonic</varname> are to be read as negative values. Also, not all fields
       are always available, depending on the used firmware, boot loader or initrd implementation. In these
       cases the respective pairs of timestamps are both 0, indicating that no data is available.</para>
+
+      <para><varname>ShutdownFinishTimestamp</varname> and
+      <varname>ShutdownFinishTimestampMonotonic</varname> encode <constant>CLOCK_REALTIME</constant> and
+      <constant>CLOCK_MONOTONIC</constant> microsecond timestamps taken when all units have finished stopping
+      during shutdown, i.e. when <filename>shutdown.target</filename> is reached. Together with
+      <varname>ShutdownStartTimestamp</varname> (which is taken when unit stopping begins) they bracket the
+      time spent stopping units.</para>
+
+      <para><varname>PreviousShutdownStartTimestamp</varname>,
+      <varname>PreviousShutdownFinishTimestamp</varname>,
+      <varname>PreviousShutdownLateStartTimestamp</varname>,
+      <varname>PreviousShutdownLateFinishTimestamp</varname> and their
+      <constant>Monotonic</constant> counterparts encode <constant>CLOCK_REALTIME</constant> and
+      <constant>CLOCK_MONOTONIC</constant> microsecond timestamps describing the shutdown of the
+      <emphasis>previous</emphasis> boot, restored from the Live Update Orchestrator (LUO) payload after a
+      kexec-based live update. <varname>PreviousShutdownStartTimestamp</varname> and
+      <varname>PreviousShutdownFinishTimestamp</varname> bracket the unit-stopping phase of that previous
+      boot, while <varname>PreviousShutdownLateStartTimestamp</varname> and
+      <varname>PreviousShutdownLateFinishTimestamp</varname> are taken by <command>systemd-shutdown</command>
+      itself when it began execution and when it was about to <function>kexec()</function> into the current
+      kernel, respectively. Unlike the current cycle's <varname>ShutdownStartTimestamp</varname> and
+      <varname>ShutdownFinishTimestamp</varname> (which describe an in-progress shutdown of the running
+      system), these always refer to a previous, already-completed boot, similar to the firmware, boot loader
+      and kernel timestamps. They are populated only after a kexec-based live update and are useful for
+      determining shutdown and live-update performance; otherwise they are all 0.</para>
 
       <para><varname>UnitsLoadTimestamp</varname> and <varname>UnitsLoadTimestampMonotonic</varname> encode
       <constant>CLOCK_REALTIME</constant> and <constant>CLOCK_MONOTONIC</constant> microseconds timestamps
@@ -12823,8 +12896,18 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>ReloadCount</varname>,
       <varname>EventLoopRateLimitIntervalUSec</varname>, and
       <varname>EventLoopRateLimitBurst</varname> were added in version 261.</para>
-      <para><varname>KExecsCount</varname>, and
-      <function>EnqueueUnitJobMany()</function> were added in version 262.</para>
+      <para><varname>KExecsCount</varname>,
+      <function>EnqueueUnitJobMany()</function>,
+      <varname>ShutdownFinishTimestamp</varname>,
+      <varname>ShutdownFinishTimestampMonotonic</varname>,
+      <varname>PreviousShutdownStartTimestamp</varname>,
+      <varname>PreviousShutdownStartTimestampMonotonic</varname>,
+      <varname>PreviousShutdownFinishTimestamp</varname>,
+      <varname>PreviousShutdownFinishTimestampMonotonic</varname>,
+      <varname>PreviousShutdownLateStartTimestamp</varname>,
+      <varname>PreviousShutdownLateStartTimestampMonotonic</varname>,
+      <varname>PreviousShutdownLateFinishTimestamp</varname>, and
+      <varname>PreviousShutdownLateFinishTimestampMonotonic</varname> were added in version 262.</para>
     </refsect2>
     <refsect2>
       <title>Unit Objects</title>
