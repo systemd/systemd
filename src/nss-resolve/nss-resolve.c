@@ -14,6 +14,7 @@
 #include "json-util.h"
 #include "netlink-util.h"
 #include "nss-util.h"
+#include "resolve-varlink-util.h"
 #include "resolved-def.h"
 #include "signal-util.h"
 #include "string-util.h"
@@ -64,90 +65,6 @@ static int connect_to_resolved(sd_varlink **ret) {
         return 0;
 }
 
-static uint32_t ifindex_to_scopeid(int family, const void *a, int ifindex) {
-        struct in6_addr in6;
-
-        if (family != AF_INET6 || ifindex == 0)
-                return 0;
-
-        /* Some apps can't deal with the scope ID attached to non-link-local addresses. Hence, let's suppress that. */
-
-        assert(sizeof(in6) == FAMILY_ADDRESS_SIZE(AF_INET6));
-        memcpy(&in6, a, sizeof(struct in6_addr));
-
-        return in6_addr_is_link_local(&in6) ? ifindex : 0;
-}
-
-typedef struct ResolveHostnameReply {
-        sd_json_variant *addresses;
-        char *name;
-        uint64_t flags;
-} ResolveHostnameReply;
-
-static void resolve_hostname_reply_destroy(ResolveHostnameReply *p) {
-        assert(p);
-
-        sd_json_variant_unref(p->addresses);
-        free(p->name);
-}
-
-static const sd_json_dispatch_field resolve_hostname_reply_dispatch_table[] = {
-        { "addresses", SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_variant, offsetof(ResolveHostnameReply, addresses), SD_JSON_MANDATORY },
-        { "name",      SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,  offsetof(ResolveHostnameReply, name),      0                 },
-        { "flags",     _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,  offsetof(ResolveHostnameReply, flags),     0                 },
-        {}
-};
-
-typedef struct AddressParameters {
-        int ifindex;
-        int family;
-        union in_addr_union address;
-        size_t address_size;
-} AddressParameters;
-
-static int json_dispatch_address(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
-        AddressParameters *p = ASSERT_PTR(userdata);
-        union in_addr_union buf = {};
-        sd_json_variant *i;
-        size_t n, k = 0;
-
-        assert(variant);
-
-        if (!sd_json_variant_is_array(variant))
-                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an array.", strna(name));
-
-        n = sd_json_variant_elements(variant);
-        if (!IN_SET(n, 4, 16))
-                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is array of unexpected size.", strna(name));
-
-        JSON_VARIANT_ARRAY_FOREACH(i, variant) {
-                int64_t b;
-
-                if (!sd_json_variant_is_integer(i))
-                        return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "Element %zu of JSON field '%s' is not an integer.", k, strna(name));
-
-                b = sd_json_variant_integer(i);
-                if (b < 0 || b > 0xff)
-                        return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL),
-                                        "Element %zu of JSON field '%s' is out of range 0%s255.",
-                                        k, strna(name), glyph(GLYPH_ELLIPSIS));
-
-                buf.bytes[k++] = (uint8_t) b;
-        }
-
-        p->address = buf;
-        p->address_size = k;
-
-        return 0;
-}
-
-static const sd_json_dispatch_field address_parameters_dispatch_table[] = {
-        { "ifindex", SD_JSON_VARIANT_INTEGER, json_dispatch_ifindex,        offsetof(AddressParameters, ifindex), 0                 },
-        { "family",  SD_JSON_VARIANT_INTEGER, json_dispatch_address_family, offsetof(AddressParameters, family),  SD_JSON_MANDATORY },
-        { "address", SD_JSON_VARIANT_ARRAY,   json_dispatch_address,        0,                                    SD_JSON_MANDATORY },
-        {}
-};
-
 static uint64_t query_flag(
                 const char *name,
                 const int value,
@@ -191,6 +108,19 @@ static int query_ifindex(void) {
         return ifindex;
 }
 
+static uint32_t ifindex_to_scopeid(ResolvedAddress *addr) {
+        assert(addr);
+
+        if (addr->family != AF_INET6 || addr->ifindex == 0)
+                return 0;
+
+        /* Some apps can't deal with the scope ID attached to non-link-local addresses. Hence, let's suppress that. */
+        if (in6_addr_is_link_local(&addr->in_addr.address.in6))
+                return addr->ifindex;
+
+        return 0;
+}
+
 enum nss_status _nss_resolve_gethostbyname4_r(
                 const char *name,
                 struct gaih_addrtuple **pat,
@@ -200,8 +130,8 @@ enum nss_status _nss_resolve_gethostbyname4_r(
 
         _cleanup_(sd_varlink_unrefp) sd_varlink *link = NULL;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *cparams = NULL;
-        _cleanup_(resolve_hostname_reply_destroy) ResolveHostnameReply p = {};
-        sd_json_variant *rparams, *entry;
+        _cleanup_(resolve_hostname_reply_done) ResolveHostnameReply p = {};
+        sd_json_variant *rparams;
         int r;
 
         PROTECT_ERRNO;
@@ -244,27 +174,16 @@ enum nss_status _nss_resolve_gethostbyname4_r(
                 goto not_found;
         }
 
-        r = sd_json_dispatch(rparams, resolve_hostname_reply_dispatch_table, nss_json_dispatch_flags, &p);
+        r = dispatch_resolve_hostname_reply(NULL, rparams, nss_json_dispatch_flags, &p);
         if (r < 0)
                 goto fail;
-        if (sd_json_variant_is_blank_array(p.addresses))
+        if (p.n_addresses == 0)
                 goto not_found;
 
         size_t n_addresses = 0;
-        JSON_VARIANT_ARRAY_FOREACH(entry, p.addresses) {
-                AddressParameters q = {};
-
-                r = sd_json_dispatch(entry, address_parameters_dispatch_table, nss_json_dispatch_flags, &q);
-                if (r < 0)
-                        goto fail;
-
-                if (!IN_SET(q.family, AF_INET, AF_INET6))
+        FOREACH_ARRAY(entry, p.addresses, p.n_addresses) {
+                if (!IN_SET(entry->family, AF_INET, AF_INET6))
                         continue;
-
-                if (q.address_size != FAMILY_ADDRESS_SIZE(q.family)) {
-                        r = -EINVAL;
-                        goto fail;
-                }
 
                 n_addresses++;
         }
@@ -292,22 +211,16 @@ enum nss_status _nss_resolve_gethostbyname4_r(
         struct gaih_addrtuple *r_tuple = NULL,
                 *r_tuple_first = (struct gaih_addrtuple*) (buffer + idx);
 
-        JSON_VARIANT_ARRAY_FOREACH(entry, p.addresses) {
-                AddressParameters q = {};
-
-                r = sd_json_dispatch(entry, address_parameters_dispatch_table, nss_json_dispatch_flags, &q);
-                if (r < 0)
-                        goto fail;
-
-                if (!IN_SET(q.family, AF_INET, AF_INET6))
+        FOREACH_ARRAY(entry, p.addresses, p.n_addresses) {
+                if (!IN_SET(entry->family, AF_INET, AF_INET6))
                         continue;
 
                 r_tuple = (struct gaih_addrtuple*) (buffer + idx);
                 r_tuple->next = (struct gaih_addrtuple*) ((char*) r_tuple + ALIGN(sizeof(struct gaih_addrtuple)));
                 r_tuple->name = r_name;
-                r_tuple->family = q.family;
-                r_tuple->scopeid = ifindex_to_scopeid(q.family, &q.address, q.ifindex);
-                memcpy(r_tuple->addr, &q.address, q.address_size);
+                r_tuple->family = entry->family;
+                r_tuple->scopeid = ifindex_to_scopeid(entry);
+                memcpy(r_tuple->addr, entry->in_addr.address.bytes, FAMILY_ADDRESS_SIZE_SAFE(entry->family));
 
                 idx += ALIGN(sizeof(struct gaih_addrtuple));
         }
@@ -364,8 +277,8 @@ enum nss_status _nss_resolve_gethostbyname3_r(
 
         _cleanup_(sd_varlink_unrefp) sd_varlink *link = NULL;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *cparams = NULL;
-        _cleanup_(resolve_hostname_reply_destroy) ResolveHostnameReply p = {};
-        sd_json_variant *rparams, *entry;
+        _cleanup_(resolve_hostname_reply_done) ResolveHostnameReply p = {};
+        sd_json_variant *rparams;
         int r;
 
         PROTECT_ERRNO;
@@ -412,27 +325,16 @@ enum nss_status _nss_resolve_gethostbyname3_r(
                 goto not_found;
         }
 
-        r = sd_json_dispatch(rparams, resolve_hostname_reply_dispatch_table, nss_json_dispatch_flags, &p);
+        r = dispatch_resolve_hostname_reply(NULL, rparams, nss_json_dispatch_flags, &p);
         if (r < 0)
                 goto fail;
-        if (sd_json_variant_is_blank_array(p.addresses))
+        if (p.n_addresses == 0)
                 goto no_data;
 
         size_t n_addresses = 0;
-        JSON_VARIANT_ARRAY_FOREACH(entry, p.addresses) {
-                AddressParameters q = {};
-
-                r = sd_json_dispatch(entry, address_parameters_dispatch_table, nss_json_dispatch_flags, &q);
-                if (r < 0)
-                        goto fail;
-
-                if (q.family != af)
+        FOREACH_ARRAY(entry, p.addresses, p.n_addresses) {
+                if (entry->family != af)
                         continue;
-
-                if (q.address_size != FAMILY_ADDRESS_SIZE(q.family)) {
-                        r = -EINVAL;
-                        goto fail;
-                }
 
                 n_addresses++;
         }
@@ -468,22 +370,16 @@ enum nss_status _nss_resolve_gethostbyname3_r(
         char *r_addr = buffer + idx;
 
         size_t i = 0;
-        JSON_VARIANT_ARRAY_FOREACH(entry, p.addresses) {
-                AddressParameters q = {};
-
-                r = sd_json_dispatch(entry, address_parameters_dispatch_table, nss_json_dispatch_flags, &q);
-                if (r < 0)
-                        goto fail;
-
-                if (q.family != af)
+        FOREACH_ARRAY(entry, p.addresses, p.n_addresses) {
+                if (entry->family != af)
                         continue;
 
-                if (q.address_size != alen) {
+                if (FAMILY_ADDRESS_SIZE_SAFE(entry->family) != alen) {
                         r = -EINVAL;
                         goto fail;
                 }
 
-                memcpy(r_addr + i*ALIGN(alen), &q.address, alen);
+                memcpy(r_addr + i*ALIGN(alen), entry->in_addr.address.bytes, alen);
                 i++;
         }
 
@@ -540,40 +436,6 @@ try_again:
         return NSS_STATUS_TRYAGAIN;
 }
 
-typedef struct ResolveAddressReply {
-        sd_json_variant *names;
-        uint64_t flags;
-} ResolveAddressReply;
-
-static void resolve_address_reply_destroy(ResolveAddressReply *p) {
-        assert(p);
-
-        sd_json_variant_unref(p->names);
-}
-
-static const sd_json_dispatch_field resolve_address_reply_dispatch_table[] = {
-        { "names", SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_variant, offsetof(ResolveAddressReply, names), SD_JSON_MANDATORY },
-        { "flags", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,  offsetof(ResolveAddressReply, flags), 0                 },
-        {}
-};
-
-typedef struct NameParameters {
-        int ifindex;
-        char *name;
-} NameParameters;
-
-static void name_parameters_destroy(NameParameters *p) {
-        assert(p);
-
-        free(p->name);
-}
-
-static const sd_json_dispatch_field name_parameters_dispatch_table[] = {
-        { "ifindex", SD_JSON_VARIANT_INTEGER, json_dispatch_ifindex,   offsetof(NameParameters, ifindex), 0                 },
-        { "name",    SD_JSON_VARIANT_STRING,  sd_json_dispatch_string, offsetof(NameParameters, name),    SD_JSON_MANDATORY },
-        {}
-};
-
 enum nss_status _nss_resolve_gethostbyaddr2_r(
                 const void* addr, socklen_t len,
                 int af,
@@ -584,8 +446,8 @@ enum nss_status _nss_resolve_gethostbyaddr2_r(
 
         _cleanup_(sd_varlink_unrefp) sd_varlink *link = NULL;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *cparams = NULL;
-        _cleanup_(resolve_address_reply_destroy) ResolveAddressReply p = {};
-        sd_json_variant *rparams, *entry;
+        _cleanup_(resolve_address_reply_done) ResolveAddressReply p = {};
+        sd_json_variant *rparams;
         int r;
 
         PROTECT_ERRNO;
@@ -634,25 +496,18 @@ enum nss_status _nss_resolve_gethostbyaddr2_r(
                 goto not_found;
         }
 
-        r = sd_json_dispatch(rparams, resolve_address_reply_dispatch_table, nss_json_dispatch_flags, &p);
+        r = dispatch_resolve_address_reply(NULL, rparams, nss_json_dispatch_flags, &p);
         if (r < 0)
                 goto fail;
-        if (sd_json_variant_is_blank_array(p.names))
+        if (p.n_names == 0)
                 goto not_found;
 
         size_t ms = 0, idx;
 
-        JSON_VARIANT_ARRAY_FOREACH(entry, p.names) {
-                _cleanup_(name_parameters_destroy) NameParameters q = {};
+        FOREACH_ARRAY(entry, p.names, p.n_names)
+                ms += ALIGN(strlen(entry->name) + 1);
 
-                r = sd_json_dispatch(entry, name_parameters_dispatch_table, nss_json_dispatch_flags, &q);
-                if (r < 0)
-                        goto fail;
-
-                ms += ALIGN(strlen(q.name) + 1);
-        }
-
-        size_t n_names = sd_json_variant_elements(p.names);
+        size_t n_names = p.n_names;
         ms += ALIGN(len) +                    /* the address */
               2 * sizeof(char*) +             /* pointer to the address, plus trailing NULL */
               n_names * sizeof(char*);        /* pointers to aliases, plus trailing NULL */
@@ -683,16 +538,10 @@ enum nss_status _nss_resolve_gethostbyaddr2_r(
         char *r_name = buffer + idx;
 
         size_t i = 0;
-        JSON_VARIANT_ARRAY_FOREACH(entry, p.names) {
-                _cleanup_(name_parameters_destroy) NameParameters q = {};
-
-                r = sd_json_dispatch(entry, name_parameters_dispatch_table, nss_json_dispatch_flags, &q);
-                if (r < 0)
-                        goto fail;
-
-                size_t l = strlen(q.name);
+        FOREACH_ARRAY(entry, p.names, p.n_names) {
+                size_t l = strlen(entry->name);
                 char *z = buffer + idx;
-                memcpy(z, q.name, l + 1);
+                memcpy(z, entry->name, l + 1);
 
                 if (i > 0)
                         ((char**) r_aliases)[i - 1] = z;
