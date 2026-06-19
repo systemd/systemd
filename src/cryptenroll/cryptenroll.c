@@ -3,34 +3,42 @@
 #include <sys/mman.h>
 
 #include "sd-device.h"
+#include "sd-varlink.h"
 
+#include "alloc-util.h"
 #include "blockdev-list.h"
 #include "blockdev-util.h"
 #include "build.h"
+#include "cleanup-util.h"
 #include "cryptenroll.h"
 #include "cryptenroll-fido2.h"
+#include "cryptenroll-interactive.h"
 #include "cryptenroll-list.h"
 #include "cryptenroll-password.h"
 #include "cryptenroll-pkcs11.h"
 #include "cryptenroll-recovery.h"
 #include "cryptenroll-tpm2.h"
+#include "cryptenroll-varlink.h"
 #include "cryptenroll-wipe.h"
 #include "cryptsetup-util.h"
 #include "extract-word.h"
-#include "fileio.h"
 #include "format-table.h"
+#include "help-util.h"
+#include "initrd-util.h"
 #include "libfido2-util.h"
 #include "log.h"
 #include "main-func.h"
+#include "memory-util.h"
 #include "options.h"
 #include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "pkcs11-util.h"
-#include "pretty-print.h"
 #include "process-util.h"
+#include "prompt-util.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "terminal-util.h"
 #include "tpm2-pcr.h"
 #include "tpm2-util.h"
 
@@ -60,6 +68,10 @@ static int *arg_wipe_slots = NULL;
 static size_t arg_n_wipe_slots = 0;
 static WipeScope arg_wipe_slots_scope = WIPE_EXPLICIT;
 static unsigned arg_wipe_slots_mask = 0; /* Bitmask of (1U << EnrollType), for wiping all slots of specific types */
+static bool arg_firstboot = false;
+static bool arg_chrome = true;
+static bool arg_mute_console = false;
+static unsigned arg_prompt_suppress_mask = 0; /* Bitmask of (1U << EnrollType): if any such slot exists, --firstboot does nothing */
 static Fido2EnrollFlags arg_fido2_lock_with = FIDO2ENROLL_PIN | FIDO2ENROLL_UP;
 #if HAVE_LIBFIDO2
 static int arg_fido2_cred_alg = COSE_ES256;
@@ -110,6 +122,91 @@ static const char *const luks2_token_type_table[_ENROLL_TYPE_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(luks2_token_type, EnrollType);
 
+int enroll_type_mask_from_string(const char *name) {
+        assert(name);
+
+        /* Maps an enroll type name (command line spelling) to its (1U << EnrollType) bitmask, or returns a
+         * negative errno if the name is not a known type. Callers merge the returned mask into their own
+         * accumulator. Shared by the various places that parse type lists into a bitmask. */
+
+        EnrollType t = enroll_type_from_string(name);
+        if (t < 0)
+                return -EINVAL;
+
+        return 1 << t;
+}
+
+void enroll_context_done(EnrollContext *c) {
+        if (!c)
+                return;
+
+        c->node = mfree(c->node);
+        c->unlock_keyfile = mfree(c->unlock_keyfile);
+        c->unlock_fido2_device = mfree(c->unlock_fido2_device);
+        c->unlock_tpm2_device = mfree(c->unlock_tpm2_device);
+        c->unlock_password = erase_and_free(c->unlock_password);
+        c->passphrase = erase_and_free(c->passphrase);
+        c->fido2_device = mfree(c->fido2_device);
+        c->fido2_salt_file = mfree(c->fido2_salt_file);
+        c->fido2_pin = erase_and_free(c->fido2_pin);
+        c->pkcs11_token_uri = mfree(c->pkcs11_token_uri);
+        c->tpm2_device = mfree(c->tpm2_device);
+        c->tpm2_device_key = mfree(c->tpm2_device_key);
+        c->tpm2_hash_pcr_values = mfree(c->tpm2_hash_pcr_values);
+        c->tpm2_public_key = mfree(c->tpm2_public_key);
+        c->tpm2_signature = mfree(c->tpm2_signature);
+        c->tpm2_pcrlock = mfree(c->tpm2_pcrlock);
+        c->wipe_slots = mfree(c->wipe_slots);
+        c->link = sd_varlink_unref(c->link);
+}
+
+static int resolve_default_node(const char *path, char **ret) {
+        int r;
+
+        /* Resolves the path of the underlying LUKS2 block device of the file system at the given mount
+         * point, i.e. the raw partition behind the dm-crypt mapping that file system sits on. Returns
+         * -ENXIO if the file system is not backed by a (single) LUKS2 device. Logs only at debug level, so
+         * the caller can try the next candidate path. */
+
+        assert(path);
+        assert(ret);
+
+        dev_t devno;
+        r = get_block_device(path, &devno);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to determine block device backing %s: %m", path);
+        if (r == 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENXIO),
+                                       "File system %s is not backed by a (single) whole block device.", path);
+
+        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        r = sd_device_new_from_devnum(&dev, 'b', devno);
+        if (r < 0)
+                return log_debug_errno(r, "Unable to access backing block device for %s: %m", path);
+
+        const char *dm_uuid;
+        r = sd_device_get_property_value(dev, "DM_UUID", &dm_uuid);
+        if (r == -ENOENT)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENXIO), "Backing block device of %s is not a DM device.", path);
+        if (r < 0)
+                return log_debug_errno(r, "Unable to query DM_UUID udev property of backing block device for %s: %m", path);
+
+        if (!startswith(dm_uuid, "CRYPT-LUKS2-"))
+                return log_debug_errno(SYNTHETIC_ERRNO(ENXIO), "Block device backing %s is not a LUKS2 device.", path);
+
+        _cleanup_(sd_device_unrefp) sd_device *origin = NULL;
+        r = block_device_get_originating(dev, &origin, /* recursive= */ false);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get originating device of LUKS2 device backing %s: %m", path);
+
+        const char *dp;
+        r = sd_device_get_devname(origin, &dp);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get device path for LUKS2 device backing %s: %m", path);
+
+        return strdup_to(ret, dp);
+}
+
 static int determine_default_node(void) {
         int r;
 
@@ -127,47 +224,30 @@ static int determine_default_node(void) {
          * Or to say this differently: it makes sense to support well systems with /var/ being on /. It also
          * makes sense to support well systems with them being separate, and /var/ being variable and
          * persistent. But any other kind of system appears much less interesting to support, and in that
-         * case people should just specify the device name explicitly. */
+         * case people should just specify the device name explicitly.
+         *
+         * When invoked from the initrd the host's file systems are not mounted at their final location yet,
+         * but below /sysroot/, hence look there instead. */
 
-        dev_t devno;
-        r = get_block_device("/var", &devno);
-        if (r < 0)
-                return log_error_errno(r, "Failed to determine block device backing /var/: %m");
-        if (r == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(ENXIO),
-                                       "File system /var/ is on not backed by a (single) whole block device.");
+        const char *candidates[2];
+        size_t n_candidates = 0;
 
-        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
-        r = sd_device_new_from_devnum(&dev, 'b', devno);
-        if (r < 0)
-                return log_error_errno(r, "Unable to access backing block device for /var/: %m");
+        if (in_initrd()) {
+                candidates[n_candidates++] = "/sysroot/var";
+                candidates[n_candidates++] = "/sysroot";
+        } else
+                candidates[n_candidates++] = "/var";
 
-        const char *dm_uuid;
-        r = sd_device_get_property_value(dev, "DM_UUID", &dm_uuid);
-        if (r == -ENOENT)
-                return log_error_errno(r, "Backing block device of /var/ is not a DM device: %m");
-        if (r < 0)
-                return log_error_errno(r, "Unable to query DM_UUID udev property of backing block device for /var/: %m");
+        FOREACH_ARRAY(path, candidates, n_candidates) {
+                r = resolve_default_node(*path, &arg_node);
+                if (r >= 0) {
+                        log_info("No device specified, defaulting to '%s' (backing %s).", arg_node, *path);
+                        return 0;
+                }
+        }
 
-        if (!startswith(dm_uuid, "CRYPT-LUKS2-"))
-                return log_error_errno(SYNTHETIC_ERRNO(ENXIO), "Block device backing /var/ is not a LUKS2 device.");
-
-        _cleanup_(sd_device_unrefp) sd_device *origin = NULL;
-        r = block_device_get_originating(dev, &origin, /* recursive= */ false);
-        if (r < 0)
-                return log_error_errno(r, "Failed to get originating device of LUKS2 device backing /var/: %m");
-
-        const char *dp;
-        r = sd_device_get_devname(origin, &dp);
-        if (r < 0)
-                return log_error_errno(r, "Failed to get device path for LUKS2 device backing /var/: %m");
-
-        r = free_and_strdup_warn(&arg_node, dp);
-        if (r < 0)
-                return r;
-
-        log_info("No device specified, defaulting to '%s'.", arg_node);
-        return 0;
+        return log_error_errno(SYNTHETIC_ERRNO(ENXIO),
+                               "Failed to automatically determine a LUKS2 block device to operate on, please specify one explicitly.");
 }
 
 static int parse_wipe_slot(const char *arg) {
@@ -190,21 +270,15 @@ static int parse_wipe_slot(const char *arg) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse slot list: %s", arg);
 
+                int mask;
+
                 if (streq(slot, "all"))
                         arg_wipe_slots_scope = WIPE_ALL;
                 else if (streq(slot, "empty")) {
                         if (arg_wipe_slots_scope != WIPE_ALL) /* if "all" was specified before, that wins */
                                 arg_wipe_slots_scope = WIPE_EMPTY_PASSPHRASE;
-                } else if (streq(slot, "password"))
-                        arg_wipe_slots_mask |= 1U << ENROLL_PASSWORD;
-                else if (streq(slot, "recovery"))
-                        arg_wipe_slots_mask |= 1U << ENROLL_RECOVERY;
-                else if (streq(slot, "pkcs11"))
-                        arg_wipe_slots_mask |= 1U << ENROLL_PKCS11;
-                else if (streq(slot, "fido2"))
-                        arg_wipe_slots_mask |= 1U << ENROLL_FIDO2;
-                else if (streq(slot, "tpm2"))
-                        arg_wipe_slots_mask |= 1U << ENROLL_TPM2;
+                } else if ((mask = enroll_type_mask_from_string(slot)) >= 0)
+                        arg_wipe_slots_mask |= mask;
                 else {
                         unsigned n;
 
@@ -222,15 +296,34 @@ static int parse_wipe_slot(const char *arg) {
         }
 }
 
-static int help(void) {
-        _cleanup_free_ char *link = NULL;
+static int parse_prompt_suppress(const char *arg) {
         int r;
 
-        pager_open(arg_pager_flags);
+        assert(arg);
 
-        r = terminal_urlify_man("systemd-cryptenroll", "1", &link);
-        if (r < 0)
-                return log_oom();
+        /* Parses a comma-separated list of the slot types the --firstboot wizard knows how to enroll. If a
+         * slot of any listed type already exists on the volume, the wizard does nothing. */
+
+        for (const char *p = arg;;) {
+                _cleanup_free_ char *type = NULL;
+                int mask;
+
+                r = extract_first_word(&p, &type, ",", EXTRACT_DONT_COALESCE_SEPARATORS);
+                if (r == 0)
+                        return 0;
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse type list: %s", arg);
+
+                mask = enroll_type_mask_from_string(type);
+                if (mask < 0)
+                        return log_error_errno(mask, "Unknown slot type: %s", type);
+
+                arg_prompt_suppress_mask |= mask;
+        }
+}
+
+static int help(void) {
+        int r;
 
         static const char* const groups[] = {
                 NULL,
@@ -252,21 +345,20 @@ static int help(void) {
 
         (void) table_sync_column_widths(0, tables[0], tables[1], tables[2], tables[3], tables[4], tables[5]);
 
-        printf("%s [OPTIONS...] [BLOCK-DEVICE]\n\n"
-               "%sEnroll a security token or authentication credential to a LUKS volume.%s\n",
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal());
+        pager_open(arg_pager_flags);
+
+        help_cmdline("[OPTIONS...] [BLOCK-DEVICE]");
+        help_abstract("Enroll a security token or authentication credential to a LUKS volume.");
 
         for (size_t i = 0; i < ELEMENTSOF(groups); i++) {
-                printf("\n%s%s:%s\n", ansi_underline(), groups[i] ?: "Options", ansi_normal());
+                help_section(groups[i] ?: "Options");
 
                 r = table_print_or_warn(tables[i]);
                 if (r < 0)
                         return r;
         }
 
-        printf("\nSee the %s for details.\n", link);
+        help_man_page_reference("systemd-cryptenroll", "1");
         return 0;
 }
 
@@ -305,7 +397,41 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         break;
 
+                OPTION_LONG("firstboot", NULL,
+                            "Interactively enroll a credential (first-boot wizard)"):
+                        arg_firstboot = true;
+                        break;
+
+                OPTION_LONG("prompt-suppress", "TYPE1,TYPE2,…",
+                            "Skip the --firstboot wizard if a slot of any listed type exists"):
+                        r = parse_prompt_suppress(opts.arg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("chrome", "BOOL",
+                            "In first-boot mode, don't show colour bar at top and bottom of terminal"):
+                        r = parse_boolean_argument("--chrome=", opts.arg, &arg_chrome);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("mute-console", "BOOL",
+                            "In first-boot mode, tell kernel/PID 1 to not write to the console while running"):
+                        r = parse_boolean_argument("--mute-console=", opts.arg, &arg_mute_console);
+                        if (r < 0)
+                                return r;
+                        break;
+
                 OPTION_GROUP("Unlocking"): {}
+
+                OPTION_LONG("unlock-empty", NULL, "Use an empty password to unlock the volume"):
+                        if (arg_unlock_type != UNLOCK_PASSWORD)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Multiple unlock methods specified at once, refusing.");
+
+                        arg_unlock_type = UNLOCK_EMPTY;
+                        break;
 
                 OPTION_LONG("unlock-key-file", "PATH",
                             "Use a file to unlock the volume"):
@@ -361,6 +487,14 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_unlock_tpm2_device = TAKE_PTR(device);
                         break;
                 }
+
+                OPTION_LONG("unlock-headless", NULL, "Try the 'headless' unlock mechanisms in turn"):
+                        if (arg_unlock_type != UNLOCK_PASSWORD)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Multiple unlock methods specified at once, refusing.");
+
+                        arg_unlock_type = UNLOCK_HEADLESS;
+                        break;
 
                 OPTION_GROUP("Simple Enrollment"): {}
 
@@ -582,6 +716,17 @@ static int parse_argv(int argc, char *argv[]) {
         if (option_parser_get_n_args(&opts) > 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Too many arguments, refusing.");
 
+        if (arg_firstboot) {
+                if (arg_enroll_type >= 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "--firstboot may not be combined with an explicit enrollment type, refusing.");
+                if (wipe_requested())
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "--firstboot may not be combined with --wipe-slot=, refusing.");
+        } else if (arg_prompt_suppress_mask != 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--prompt-suppress= is only useful together with --firstboot, refusing.");
+
         const char *arg = option_parser_get_arg(&opts, 0);
         if (arg)
                 r = parse_path_argument(arg, false, &arg_node);
@@ -660,54 +805,18 @@ static int check_for_homed(struct crypt_device *cd) {
         return 0;
 }
 
-static int load_volume_key_keyfile(
-                struct crypt_device *cd,
-                void *ret_vk,
-                size_t *ret_vks) {
-
-        _cleanup_(erase_and_freep) char *password = NULL;
-        size_t password_len;
-        int r;
-
-        assert_se(cd);
-        assert_se(ret_vk);
-        assert_se(ret_vks);
-
-        r = read_full_file_full(
-                        AT_FDCWD,
-                        arg_unlock_keyfile,
-                        UINT64_MAX,
-                        SIZE_MAX,
-                        READ_FULL_FILE_SECURE|READ_FULL_FILE_WARN_WORLD_READABLE|READ_FULL_FILE_CONNECT_SOCKET,
-                        NULL,
-                        &password,
-                        &password_len);
-        if (r < 0)
-                return log_error_errno(r, "Reading keyfile %s failed: %m", arg_unlock_keyfile);
-
-        r = sym_crypt_volume_key_get(
-                        cd,
-                        CRYPT_ANY_SLOT,
-                        ret_vk,
-                        ret_vks,
-                        password,
-                        password_len);
-        if (r < 0)
-                return log_error_errno(r, "Unlocking via keyfile failed: %m");
-
-        return r;
-}
-
-static int prepare_luks(
+int prepare_luks(
+                const EnrollContext *c,
                 struct crypt_device **ret_cd,
                 struct iovec *ret_volume_key) {
 
         _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
         int r;
 
+        assert(c);
         assert(ret_cd);
 
-        r = sym_crypt_init(&cd, arg_node);
+        r = sym_crypt_init(&cd, c->node);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate libcryptsetup context: %m");
 
@@ -715,7 +824,7 @@ static int prepare_luks(
 
         r = sym_crypt_load(cd, CRYPT_LUKS2, NULL);
         if (r < 0)
-                return log_error_errno(r, "Failed to load LUKS2 superblock of %s: %m", arg_node);
+                return log_error_errno(r, "Failed to load LUKS2 superblock of %s: %m", c->node);
 
         r = check_for_homed(cd);
         if (r < 0)
@@ -731,35 +840,52 @@ static int prepare_luks(
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to determine LUKS volume key size");
 
         _cleanup_(iovec_done_erase) struct iovec vk = {};
-
         vk.iov_base = malloc(r);
         if (!vk.iov_base)
                 return log_oom();
 
         vk.iov_len = (size_t) r;
 
-        switch (arg_unlock_type) {
+        switch (c->unlock_type) {
+
+        case UNLOCK_EMPTY:
+                r = load_volume_key_empty(c, cd, &vk);
+                break;
 
         case UNLOCK_PASSWORD:
-                r = load_volume_key_password(cd, arg_node, vk.iov_base, &vk.iov_len);
+                r = load_volume_key_password(c, cd, &vk);
                 break;
 
         case UNLOCK_KEYFILE:
-                r = load_volume_key_keyfile(cd, vk.iov_base, &vk.iov_len);
+                r = load_volume_key_keyfile(c, cd, &vk);
                 break;
 
         case UNLOCK_FIDO2:
-                r = load_volume_key_fido2(cd, arg_node, arg_unlock_fido2_device, vk.iov_base, &vk.iov_len);
+                r = load_volume_key_fido2(c, cd, &vk);
                 break;
 
         case UNLOCK_TPM2:
-                r = load_volume_key_tpm2(cd, arg_node, arg_unlock_tpm2_device, vk.iov_base, &vk.iov_len);
+                r = load_volume_key_tpm2(c, cd, &vk);
+                break;
+
+        case UNLOCK_HEADLESS:
+                if (tpm2_is_mostly_supported()) {
+                        log_info("TPM2 support available, trying unlocking via TPM2…");
+
+                        r = load_volume_key_tpm2(c, cd, &vk);
+                        if (r >= 0)
+                                break;
+
+                        log_info("TPM2 unlocking didn't work, trying unlocking via empty password…");
+                } else
+                        log_info("TPM2 support not available, trying unlocking via empty password…");
+
+                r = load_volume_key_empty(c, cd, &vk);
                 break;
 
         default:
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown LUKS unlock method");
         }
-
         if (r < 0)
                 return r;
 
@@ -769,12 +895,132 @@ static int prepare_luks(
         return 0;
 }
 
+static int enroll_context_from_args(EnrollContext *c) {
+        assert(c);
+
+        /* Copies the parsed command line parameters from the static arg_* globals into a self-contained
+         * EnrollContext. The context owns its own copies of all strings/arrays, so it can be torn down
+         * independently of the arg_* destructors. */
+
+        *c = ENROLL_CONTEXT_NULL;
+
+        c->enroll_type = arg_enroll_type;
+        c->unlock_type = arg_unlock_type;
+        c->fido2_parameters_in_header = arg_fido2_parameters_in_header;
+        c->fido2_lock_with = arg_fido2_lock_with;
+        c->fido2_cred_alg = arg_fido2_cred_alg;
+        c->tpm2_seal_key_handle = arg_tpm2_seal_key_handle;
+        c->tpm2_pin = arg_tpm2_pin;
+        c->tpm2_load_public_key = arg_tpm2_load_public_key;
+        c->tpm2_public_key_pcr_mask = arg_tpm2_public_key_pcr_mask;
+        c->wipe_slots_scope = arg_wipe_slots_scope;
+        c->wipe_slots_mask = arg_wipe_slots_mask;
+
+        if (strdup_to(&c->node, arg_node) < 0 ||
+            strdup_to(&c->unlock_keyfile, arg_unlock_keyfile) < 0 ||
+            strdup_to(&c->unlock_fido2_device, arg_unlock_fido2_device) < 0 ||
+            strdup_to(&c->unlock_tpm2_device, arg_unlock_tpm2_device) < 0 ||
+            strdup_to(&c->fido2_device, arg_fido2_device) < 0 ||
+            strdup_to(&c->fido2_salt_file, arg_fido2_salt_file) < 0 ||
+            strdup_to(&c->pkcs11_token_uri, arg_pkcs11_token_uri) < 0 ||
+            strdup_to(&c->tpm2_device, arg_tpm2_device) < 0 ||
+            strdup_to(&c->tpm2_device_key, arg_tpm2_device_key) < 0 ||
+            strdup_to(&c->tpm2_public_key, arg_tpm2_public_key) < 0 ||
+            strdup_to(&c->tpm2_signature, arg_tpm2_signature) < 0 ||
+            strdup_to(&c->tpm2_pcrlock, arg_tpm2_pcrlock) < 0)
+                return log_oom();
+
+        if (arg_n_wipe_slots > 0) {
+                c->wipe_slots = newdup(int, arg_wipe_slots, arg_n_wipe_slots);
+                if (!c->wipe_slots)
+                        return log_oom();
+                c->n_wipe_slots = arg_n_wipe_slots;
+        }
+
+        if (arg_tpm2_n_hash_pcr_values > 0) {
+                c->tpm2_hash_pcr_values = newdup(Tpm2PCRValue, arg_tpm2_hash_pcr_values, arg_tpm2_n_hash_pcr_values);
+                if (!c->tpm2_hash_pcr_values)
+                        return log_oom();
+                c->tpm2_n_hash_pcr_values = arg_tpm2_n_hash_pcr_values;
+        }
+
+        return 0;
+}
+
+int enroll_now(
+                const EnrollContext *c,
+                struct crypt_device *cd,
+                const struct iovec *volume_key,
+                char **ret_recovery_key) {
+
+        int slot, slot_to_wipe = -1, r;
+
+        assert(c);
+        assert(cd);
+        assert(iovec_is_set(volume_key));
+
+        switch (c->enroll_type) {
+
+        case ENROLL_PASSWORD:
+                return enroll_password(c, cd, volume_key);
+
+        case ENROLL_RECOVERY:
+                return enroll_recovery(c, cd, volume_key, ret_recovery_key);
+
+        case ENROLL_PKCS11:
+                return enroll_pkcs11(c, cd, volume_key);
+
+        case ENROLL_FIDO2:
+                return enroll_fido2(c, cd, volume_key);
+
+        case ENROLL_TPM2:
+                slot = enroll_tpm2(c, cd, volume_key, &slot_to_wipe);
+                if (slot < 0)
+                        return slot;
+
+                if (slot_to_wipe >= 0) {
+                        assert(slot != slot_to_wipe);
+
+                        /* Updating the PIN on an existing enrollment: wipe just that one slot. This is an
+                         * internal one-off wipe, unrelated to the user's wipe selection, so use a throwaway
+                         * context referencing a single explicit slot. */
+                        _cleanup_(enroll_context_done) EnrollContext wipe_ctx = ENROLL_CONTEXT_NULL;
+                        wipe_ctx.wipe_slots = newdup(int, &slot_to_wipe, 1);
+                        if (!wipe_ctx.wipe_slots)
+                                return log_oom();
+
+                        wipe_ctx.n_wipe_slots = 1;
+
+                        r = wipe_slots(&wipe_ctx, cd, /* ret_wiped_slots= */ NULL, /* ret_n_wiped_slots= */ NULL);
+                        if (r < 0)
+                                return r;
+                }
+
+                return slot;
+
+        default:
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Operation not implemented yet.");
+        }
+}
+
 static int run(int argc, char *argv[]) {
         _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
         _cleanup_(iovec_done_erase) struct iovec vk = {};
-        int slot, slot_to_wipe, r;
+        _cleanup_(enroll_context_done) EnrollContext c = ENROLL_CONTEXT_NULL;
+        int slot, r;
 
         log_setup();
+
+        /* A delicious drop of snake oil */
+        (void) safe_mlockall(MCL_CURRENT|MCL_FUTURE|MCL_ONFAULT);
+
+        /* If invoked as a Varlink service, hand off to the Varlink server and don't process the command
+         * line any further. */
+        r = sd_varlink_invocation(SD_VARLINK_ALLOW_ACCEPT);
+        if (r < 0)
+                return log_error_errno(r, "Failed to check if invoked in Varlink mode: %m");
+        if (r > 0)
+                return cryptenroll_varlink_server();
 
         r = parse_argv(argc, argv);
         if (r <= 0)
@@ -784,72 +1030,66 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        /* A delicious drop of snake oil */
-        (void) safe_mlockall(MCL_CURRENT|MCL_FUTURE|MCL_ONFAULT);
-
-        if (arg_enroll_type < 0)
-                r = prepare_luks(&cd, /* ret_volume_key= */ NULL); /* No need to unlock device if we don't need the volume key because we don't need to enroll anything */
-        else
-                r = prepare_luks(&cd, &vk);
+        r = enroll_context_from_args(&c);
         if (r < 0)
                 return r;
 
-        switch (arg_enroll_type) {
+        /* Ensure the interactive chrome (drawn by cryptenroll_run_interactive() in --firstboot mode) is
+         * always torn down on exit; chrome_hide() is a no-op if no chrome was shown. */
+        DEFER_VOID_CALL(chrome_hide);
 
-        case ENROLL_PASSWORD:
-                slot = enroll_password(cd, &vk);
-                break;
+        _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *mute_console_link = NULL;
 
-        case ENROLL_RECOVERY:
-                slot = enroll_recovery(cd, &vk);
-                break;
+        if (arg_firstboot) {
+                assert(c.enroll_type < 0);
 
-        case ENROLL_PKCS11:
-                slot = enroll_pkcs11(cd, &vk, arg_pkcs11_token_uri);
-                break;
+                r = cryptenroll_run_interactive(
+                                &c,
+                                arg_prompt_suppress_mask,
+                                arg_chrome,
+                                arg_mute_console ? &mute_console_link : NULL);
+                if (r <= 0)
+                        return r;
 
-        case ENROLL_FIDO2:
-                slot = enroll_fido2(cd, &vk, arg_fido2_device, arg_fido2_lock_with, arg_fido2_cred_alg, arg_fido2_salt_file, arg_fido2_parameters_in_header);
-                break;
+                assert(c.enroll_type >= 0);
 
-        case ENROLL_TPM2:
-                slot = enroll_tpm2(cd, &vk, arg_tpm2_device, arg_tpm2_seal_key_handle, arg_tpm2_device_key, arg_tpm2_hash_pcr_values, arg_tpm2_n_hash_pcr_values, arg_tpm2_public_key, arg_tpm2_load_public_key, arg_tpm2_public_key_pcr_mask, arg_tpm2_signature, arg_tpm2_pin, arg_tpm2_pcrlock, &slot_to_wipe);
+        } else if (c.enroll_type < 0) {
+                /* If we are called without anything to enroll, we just need the LUKS device, not the volume key. */
+                r = prepare_luks(&c, &cd, /* ret_volume_key= */ NULL);
+                if (r < 0)
+                        return r;
 
-                if (slot >= 0 && slot_to_wipe >= 0) {
-                        assert(slot != slot_to_wipe);
-
-                        /* Updating PIN on an existing enrollment */
-                        r = wipe_slots(
-                                        cd,
-                                        &slot_to_wipe,
-                                        /* n_explicit_slots= */ 1,
-                                        WIPE_EXPLICIT,
-                                        /* by_mask= */ 0,
-                                        /* except_slot= */ -1);
-                        if (r < 0)
-                                return r;
-                }
-                break;
-        case _ENROLL_TYPE_INVALID:
                 /* List enrolled slots if we are called without anything to enroll or wipe */
                 if (!wipe_requested())
                         return list_enrolled(cd);
 
                 /* Only slot wiping selected */
-                return wipe_slots(cd, arg_wipe_slots, arg_n_wipe_slots, arg_wipe_slots_scope, arg_wipe_slots_mask, -1);
-
-        default:
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Operation not implemented yet.");
+                return wipe_slots(&c, cd, /* ret_wiped_slots= */ NULL, /* ret_n_wiped_slots= */ NULL);
         }
-        if (slot < 0)
-                return slot;
 
-        /* After we completed enrolling, remove user selected slots */
-        r = wipe_slots(cd, arg_wipe_slots, arg_n_wipe_slots, arg_wipe_slots_scope, arg_wipe_slots_mask, slot);
+        r = prepare_luks(&c, &cd, &vk);
         if (r < 0)
-                return r;
+                goto finish;
 
-        return 0;
+        slot = enroll_now(&c, cd, &vk, /* ret_recovery_key= */ NULL);
+        if (slot < 0) {
+                r = slot;
+                goto finish;
+        }
+
+        /* After we completed enrolling, remove user selected slots (keeping the one we just added) */
+        c.wipe_except_slot = slot;
+        r = wipe_slots(&c, cd, /* ret_wiped_slots= */ NULL, /* ret_n_wiped_slots= */ NULL);
+        if (r < 0)
+                goto finish;
+
+        r = 0;
+
+finish:
+        if (arg_firstboot)
+                (void) any_key_to_proceed();
+
+        return r;
 }
 
 DEFINE_MAIN_FUNCTION(run);

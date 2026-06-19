@@ -2581,9 +2581,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   the dropped in certs and encrypted with machine pubkey, and pass to machine.
   Machine is then able to authenticate you, and confidentiality is guaranteed.
 
-- systemd-cryptenroll: add --firstboot or so, that will interactively ask user
-  whether recovery key shall be enrolled and do so
-
 - systemd-dissect: add --cat switch for dumping files such as /etc/os-release
 
 - systemd-dissect: show available versions inside of a disk image, i.e. if
@@ -2947,7 +2944,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   - coredumpctl
   - systemd-bless-boot
   - systemd-measure
-  - systemd-cryptenroll (to allow UIs to enroll FIDO2 keys and such)
   - systemd-dissect
   - systemd-sysupdate
   - systemd-analyze
