@@ -6,6 +6,7 @@
 #include "iovec-util.h"
 #include "json-util.h"
 #include "resolve-varlink-util.h"
+#include "strv.h"
 
 void resolve_error_done(ResolveError *error) {
         if (!error)
@@ -236,6 +237,132 @@ int dispatch_resolve_record_reply(const char *name, sd_json_variant *variant, sd
 
         _cleanup_(resolve_record_reply_done) ResolveRecordReply reply = {};
         r = sd_json_dispatch(variant, resolve_record_reply_dispatch_table, flags, &reply);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_STRUCT(reply);
+        return 0;
+}
+
+static void resolved_service_done(ResolvedService *service) {
+        if (!service)
+                return;
+
+        service->hostname = mfree(service->hostname);
+        service->canonical_name = mfree(service->canonical_name);
+        service->addresses = mfree(service->addresses);
+        service->n_addresses = 0;
+}
+
+static int dispatch_resolved_service_address_array(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        ResolvedService *service = ASSERT_PTR(userdata);
+        int r;
+
+        sd_json_variant *v;
+        JSON_VARIANT_ARRAY_FOREACH(v, variant) {
+                if (!GREEDY_REALLOC0(service->addresses, service->n_addresses + 1))
+                        return log_oom();
+
+                r = dispatch_resolved_address(name, v, flags, &service->addresses[service->n_addresses++]);
+                if (r < 0)
+                        return json_log(v, flags, r, "JSON array element is not a valid ResolvedAddress.");
+        }
+
+        return 0;
+}
+
+static int dispatch_resolved_service(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field resolved_service_dispatch_table[] = {
+                { "priority",      _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint16,                 offsetof(ResolvedService, priority),       SD_JSON_MANDATORY },
+                { "weight",        _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint16,                 offsetof(ResolvedService, weight),         SD_JSON_MANDATORY },
+                { "port",          _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint16,                 offsetof(ResolvedService, port),           SD_JSON_MANDATORY },
+                { "hostname",      SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,                 offsetof(ResolvedService, hostname),       SD_JSON_MANDATORY },
+                { "canonicalName", SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,                 offsetof(ResolvedService, canonical_name), 0                 },
+                { "addresses",     SD_JSON_VARIANT_ARRAY,         dispatch_resolved_service_address_array, 0,                                         0                 },
+                {},
+        };
+        ResolvedService *ret = ASSERT_PTR(userdata);
+        int r;
+
+        _cleanup_(resolved_service_done) ResolvedService service = {};
+        r = sd_json_dispatch(variant, resolved_service_dispatch_table, flags & ~SD_JSON_MANDATORY, &service);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_STRUCT(service);
+        return 0;
+}
+
+static int dispatch_resolved_service_array(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        ResolveServiceReply *reply = ASSERT_PTR(userdata);
+        int r;
+
+        sd_json_variant *v;
+        JSON_VARIANT_ARRAY_FOREACH(v, variant) {
+                if (!GREEDY_REALLOC0(reply->services, reply->n_services + 1))
+                        return log_oom();
+
+                r = dispatch_resolved_service(name, v, flags, &reply->services[reply->n_services++]);
+                if (r < 0)
+                        return json_log(v, flags, r, "JSON array element is not a valid ResolvedService.");
+        }
+
+        return 0;
+}
+
+static void resolved_canonical_done(ResolvedCanonical *canonical) {
+        if (!canonical)
+                return;
+
+        canonical->name = mfree(canonical->name);
+        canonical->type = mfree(canonical->type);
+        canonical->domain = mfree(canonical->domain);
+}
+
+static int dispatch_resolved_canonical(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field resolved_canonical_dispatch_table[] = {
+                { "name",   SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(ResolvedCanonical, name),   SD_JSON_NULLABLE  },
+                { "type",   SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(ResolvedCanonical, type),   SD_JSON_MANDATORY },
+                { "domain", SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(ResolvedCanonical, domain), SD_JSON_MANDATORY },
+                {},
+        };
+        ResolvedCanonical *ret = ASSERT_PTR(userdata);
+        int r;
+
+        _cleanup_(resolved_canonical_done) ResolvedCanonical canonical = {};
+        r = sd_json_dispatch(variant, resolved_canonical_dispatch_table, flags & ~SD_JSON_MANDATORY, &canonical);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_STRUCT(canonical);
+        return 0;
+}
+
+void resolve_service_reply_done(ResolveServiceReply *reply) {
+        if (!reply)
+                return;
+
+        FOREACH_ARRAY(service, reply->services, reply->n_services)
+                resolved_service_done(service);
+        reply->services = mfree(reply->services);
+        reply->n_services = 0;
+        reply->txt = strv_free(reply->txt);
+        resolved_canonical_done(&reply->canonical);
+}
+
+int dispatch_resolve_service_reply(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field resolve_service_reply_dispatch_table[] = {
+                { "services",  SD_JSON_VARIANT_ARRAY,         dispatch_resolved_service_array, 0,                                        SD_JSON_MANDATORY },
+                { "txt",       SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_strv,           offsetof(ResolveServiceReply, txt),       0                 },
+                { "canonical", SD_JSON_VARIANT_OBJECT,        dispatch_resolved_canonical,     offsetof(ResolveServiceReply, canonical), SD_JSON_MANDATORY },
+                { "flags",     _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,         offsetof(ResolveServiceReply, flags),     SD_JSON_MANDATORY },
+                {},
+        };
+        ResolveServiceReply *ret = ASSERT_PTR(userdata);
+        int r;
+
+        _cleanup_(resolve_service_reply_done) ResolveServiceReply reply = {};
+        r = sd_json_dispatch(variant, resolve_service_reply_dispatch_table, flags, &reply);
         if (r < 0)
                 return r;
 
