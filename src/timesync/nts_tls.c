@@ -126,6 +126,11 @@ NTS_TLS* NTS_TLS_setup(
 
         int r;
 
+        /* NTS_TLS_setup() uses BIO_* helpers which live in libcrypto, so load both libraries. */
+        r = dlopen_libcrypto(LOG_ERR);
+        if (r < 0)
+                return NULL;
+
         r = dlopen_libssl(LOG_ERR);
         if (r < 0)
                 return NULL;
