@@ -341,6 +341,7 @@ executables += [
                 ),
                 'dependencies' : [
                         libgcrypt_cflags,
+                        libopenssl_cflags,
                 ],
                 'conditions' : ['HAVE_GCRYPT'],
         },
