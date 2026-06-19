@@ -56,7 +56,7 @@ static void serve_ntp_request(int sock, AEADKey c2s, AEADKey s2c, int sabotage) 
         uint8_t buf[1280];
 
         socklen_t addrlen = sizeof(client);
-        int len = recvfrom(sock, buf, sizeof(buf), MSG_WAITALL, (struct sockaddr*)&client, &addrlen);
+        ssize_t len = recvfrom(sock, buf, sizeof(buf), MSG_WAITALL, (struct sockaddr*)&client, &addrlen);
 
         soft_assert(len >= 48);
 
@@ -126,7 +126,7 @@ static void serve_ntp_request(int sock, AEADKey c2s, AEADKey s2c, int sabotage) 
                         {},
                 };
 
-                int ciphertext = NTS_encrypt(
+                ssize_t ciphertext = NTS_encrypt(
                         p + cipher->nonce_size, sizeof(buf) - (p - buf - cipher->nonce_size),
                         (uint8_t*)payload, sizeof(payload),
                         info,

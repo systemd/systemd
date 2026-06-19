@@ -64,7 +64,7 @@ typedef struct NTS_Agreement {
  *      non-zero number of bytes encoded upon success
  *      negative value upon failure (not enough room in buffer)
  */
-int NTS_encode_request(uint8_t *buffer, size_t buf_size, const NTS_AEADAlgorithmType *preferred_crypto);
+ssize_t NTS_encode_request(uint8_t *buffer, size_t buf_size, const NTS_AEADAlgorithmType *preferred_crypto);
 
 /* Decode a NTS KE reponse in the buffer of the provided size, and write the result to the NTS_Agreement
  * struct. This function does not allocate data: pointers in the struct for a potential negotiated server

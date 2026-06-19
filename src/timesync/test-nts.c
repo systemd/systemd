@@ -166,7 +166,7 @@ TEST(ntp_field_encoding) {
         };
 
         NTS_Receipt rcpt = {};
-        int len = NTS_add_extension_fields(buffer, &nts, &identifier);
+        ssize_t len = NTS_add_extension_fields(buffer, &nts, &identifier);
         assert_se(len > 48);
         assert_se(NTS_parse_extension_fields(buffer, len, &nts, &rcpt));
 
@@ -328,7 +328,7 @@ TEST(crypto) {
         for (unsigned id=0; id <= 33; id++) {
                 if (!NTS_get_param(id))
                         continue;
-                int len = NTS_encrypt(enc, sizeof(enc), plaintext, sizeof(plaintext), ad, nonnull(NTS_get_param(id)), key);
+                ssize_t len = NTS_encrypt(enc, sizeof(enc), plaintext, sizeof(plaintext), ad, nonnull(NTS_get_param(id)), key);
                 assert_se(len > 0);
                 assert_se(NTS_decrypt(dec, sizeof(dec), enc, len, ad, nonnull(NTS_get_param(id)), key) == sizeof(plaintext));
                 assert_se(memcmp(dec, plaintext, sizeof(plaintext)) == 0);
@@ -336,7 +336,7 @@ TEST(crypto) {
 
         /* test in-place decryption for the default cipher */
         memcpy(enc, plaintext, sizeof(plaintext));
-        int len = NTS_encrypt(enc, sizeof(enc), enc, sizeof(plaintext), ad, nonnull(NTS_get_param(NTS_AEAD_AES_SIV_CMAC_256)), key);
+        ssize_t len = NTS_encrypt(enc, sizeof(enc), enc, sizeof(plaintext), ad, nonnull(NTS_get_param(NTS_AEAD_AES_SIV_CMAC_256)), key);
         assert_se(len == sizeof(plaintext)+16);
         assert_se(NTS_decrypt(enc, sizeof(enc), enc, len, ad, nonnull(NTS_get_param(NTS_AEAD_AES_SIV_CMAC_256)), key) == sizeof(plaintext));
         assert_se(memcmp(enc, plaintext, sizeof(plaintext)) == 0);

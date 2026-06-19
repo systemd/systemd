@@ -23,7 +23,7 @@ typedef struct NTS_Receipt {
  *      The amount of data encoded in bytes (including NTP packet size).
  *      A negative result indicates an error (in which case the contents of uniq_ident are unspecified)
  */
-int NTS_add_extension_fields(
+ssize_t NTS_add_extension_fields(
                 uint8_t dest[static NTS_MAX_PACKET_SIZE],
                 const NTS_Query *nts,
                 NTS_Identifier *identifier);
@@ -36,7 +36,7 @@ int NTS_add_extension_fields(
  *      The amount of data processed in bytes (including the NTP packet size).
  *      A negative result indicates an error.
  */
-int NTS_parse_extension_fields(
+ssize_t NTS_parse_extension_fields(
                 uint8_t src[static NTS_MAX_PACKET_SIZE],
                 size_t src_len,
                 const NTS_Query *nts,

@@ -193,7 +193,7 @@ static int manager_send_request(Manager *m) {
                 memzero(bottom_cookie->iov_base, bottom_cookie->iov_len);
                 m->nts_missing_cookies++;
 
-                if (packet_len <= (int)sizeof(struct ntp_msg)) {
+                if (packet_len < 0 || (size_t) packet_len <= sizeof(struct ntp_msg)) {
                         log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to encode extension fields");
                         return -EINVAL;
                 }
@@ -1545,7 +1545,7 @@ static int manager_nts_obtain_agreement(sd_event_source *source, int fd, uint32_
         Manager *m = ASSERT_PTR(userdata);
 
         NTS_Agreement NTS;
-        int r;
+        ssize_t r;
 
         if (revents & (EPOLLHUP|EPOLLERR)) {
                 m->nts_handshake = NTS_TLS_free(m->nts_handshake);
@@ -1557,7 +1557,7 @@ static int manager_nts_obtain_agreement(sd_event_source *source, int fd, uint32_
         switch (m->nts_handshake_state) {
                 struct sockaddr *addr;
                 uint8_t *bufp;
-                int size;
+                ssize_t size;
 
         case NTS_HANDSHAKE_CONNECTING:
                 addr = &m->current_server_address->sockaddr.sa;
@@ -1621,7 +1621,7 @@ static int manager_nts_obtain_agreement(sd_event_source *source, int fd, uint32_
                 }
                 m->nts_request_size = r;
                 m->nts_bytes_processed = 0;
-                assert(m->nts_request_size <= (int)sizeof(m->nts_packet_buffer));
+                assert(m->nts_request_size <= sizeof(m->nts_packet_buffer));
 
                 m->nts_handshake_state = NTS_HANDSHAKE_TX;
                 _fallthrough_;

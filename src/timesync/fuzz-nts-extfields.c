@@ -19,7 +19,7 @@ static void eat(const uint8_t *buf, size_t size) {
 /* this program does no sanity checking as it is meant for fuzzing only */
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         uint8_t buffer[1280];
-        int len = MIN(size, sizeof(buffer));
+        size_t len = MIN(size, sizeof(buffer));
         if (len < 48)
                 return 0;
 

@@ -14,7 +14,7 @@ typedef struct iovec AssociatedData;
  *
  * RETURNS: the number of bytes in the ciphertext (< 0 indicates an error)
  */
-int NTS_encrypt(uint8_t *ctxt,
+ssize_t NTS_encrypt(uint8_t *ctxt,
                 size_t ctxt_len,
                 const uint8_t *ptxt,
                 size_t ptxt_len,
@@ -31,7 +31,7 @@ int NTS_encrypt(uint8_t *ctxt,
  *
  * RETURNS: the number of bytes in the decrypted plaintext (< 0 indicates an error)
  */
-int NTS_decrypt(uint8_t *ptxt,
+ssize_t NTS_decrypt(uint8_t *ptxt,
                 size_t ptxt_len,
                 const uint8_t *ctxt,
                 size_t ctxt_len,

@@ -124,7 +124,7 @@ static int NTS_encode_record_u16(
         return 0;
 }
 
-int NTS_encode_request(
+ssize_t NTS_encode_request(
                 uint8_t *buffer,
                 size_t buf_size,
                 const NTS_AEADAlgorithmType *preferred_crypto) {

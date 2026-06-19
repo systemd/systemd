@@ -98,7 +98,7 @@ exit:
         return false;
 }
 
-int NTS_encrypt(uint8_t *ctxt,
+ssize_t NTS_encrypt(uint8_t *ctxt,
                 size_t ctxt_len,
                 const uint8_t *ptxt,
                 size_t ptxt_len,
@@ -156,7 +156,7 @@ int NTS_encrypt(uint8_t *ctxt,
         if (r == 0)
                 return -EINVAL;
 
-        assert(len <= (int) ptxt_len);
+        assert((size_t) len <= ptxt_len);
         ctxt += len;
 
         r = sym_EVP_EncryptFinal_ex(state, ctxt, &len);
@@ -175,7 +175,7 @@ int NTS_encrypt(uint8_t *ctxt,
         return ptxt_len + aead->block_size;
 }
 
-int NTS_decrypt(uint8_t *ptxt,
+ssize_t NTS_decrypt(uint8_t *ptxt,
                 size_t ptxt_len,
                 const uint8_t *ctxt,
                 size_t ctxt_len,
@@ -240,7 +240,7 @@ int NTS_decrypt(uint8_t *ptxt,
         if (r == 0)
                 return -EINVAL;
 
-        assert(len <= (int) ctxt_len);
+        assert((size_t) len <= ctxt_len);
         ptxt += len;
 
         r = sym_EVP_DecryptFinal_ex(state, ptxt, &len);

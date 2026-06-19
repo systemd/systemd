@@ -25,8 +25,8 @@ static int write_ntp_ext_field(struct iovec *buf, uint16_t type, void *contents,
         if (size < len+4)
                 size = len+4;
         /* pad to a dword boundary */
-        uint16_t padded_len = (size+3) & ~3;
-        int padding = padded_len - (len+4);
+        uint16_t padded_len = ALIGN4(size);
+        size_t padding = padded_len - (len+4);
 
         if (buf->iov_len < padded_len)
                 return 0;
@@ -45,7 +45,7 @@ static int write_ntp_ext_field(struct iovec *buf, uint16_t type, void *contents,
         return padded_len;
 }
 
-int NTS_add_extension_fields(
+ssize_t NTS_add_extension_fields(
                 uint8_t dest[static NTS_MAX_PACKET_SIZE],
                 const NTS_Query *nts,
                 NTS_Identifier *identifier) {
@@ -130,19 +130,19 @@ int NTS_add_extension_fields(
                 { },
         };
 
-        int ptxt_len = (uint8_t*)ptxt.iov_base - (uint8_t*)buf.iov_base;
+        size_t ptxt_len = (uint8_t*)ptxt.iov_base - (uint8_t*)buf.iov_base;
+        size_t EF_capacity = sizeof(EF) - (EF_payload - EF);
 
-        assert((int)sizeof(EF) - (EF_payload - EF) >= ptxt_len + nts->cipher.block_size);
+        assert(EF_capacity >= ptxt_len + nts->cipher.block_size);
 
-        int EF_capacity = sizeof(EF) - (EF_payload - EF);
-        int ctxt_len = NTS_encrypt(EF_payload, EF_capacity, buf.iov_base, ptxt_len, info, &nts->cipher, nts->c2s_key);
-
-        assert(ctxt_len <= EF_capacity); /* failing this would be a serious error, try to run to the exit */
+        ssize_t ctxt_len = NTS_encrypt(EF_payload, EF_capacity, buf.iov_base, ptxt_len, info, &nts->cipher, nts->c2s_key);
         if (ctxt_len < 0)
-                return -EINVAL;
+                return ctxt_len;
+
+        assert((size_t) ctxt_len <= EF_capacity); /* failing this would be a serious error */
 
         /* add padding if we used a too-short nonce */
-        int ef_len = 4 + ctxt_len + nonce_len + (nonce_len < req_nonce_len)*(req_nonce_len - nonce_len);
+        size_t ef_len = 4 + ctxt_len + nonce_len + (nonce_len < req_nonce_len)*(req_nonce_len - nonce_len);
 
         /* set the ciphertext length */
         unaligned_write_be16(EF_ciphertext_len, ctxt_len);
@@ -165,7 +165,7 @@ static void decode_hdr(uint16_t *ret_a, uint16_t *ret_b, const struct iovec data
         *ret_b = unaligned_read_be16(bytes+2);
 }
 
-int NTS_parse_extension_fields(
+ssize_t NTS_parse_extension_fields(
                 uint8_t src[static NTS_MAX_PACKET_SIZE],
                 size_t src_len,
                 const NTS_Query *nts,
@@ -214,11 +214,11 @@ int NTS_parse_extension_fields(
                         };
 
                         uint8_t *plaintext = content;
-                        int plain_len = NTS_decrypt(plaintext, ciph_len, content, ciph_len, info, &nts->cipher, nts->s2c_key);
-
-                        assert(plain_len < ciph_len); /* failing this would be a serious error, try to run to the exit */
+                        ssize_t plain_len = NTS_decrypt(plaintext, ciph_len, content, ciph_len, info, &nts->cipher, nts->s2c_key);
                         if (plain_len < 0)
-                                return -EINVAL;
+                                return plain_len;
+
+                        assert(plain_len < ciph_len); /* failing this would be a serious error */
 
                         struct iovec plain = { plaintext, plain_len };
                         unsigned cookies = 0;
