@@ -40,7 +40,7 @@ int enroll_empty(
                 goto rollback;
         }
 
-        log_warning("New empty key enrolled as key slot %i.", keyslot);
+        log_warning("New empty key enrolled as key slot %i. Warning: This disables confidentiality protections!", keyslot);
         return keyslot;
 
 rollback:
