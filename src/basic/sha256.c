@@ -11,6 +11,8 @@ int sha256_fd(int fd, uint64_t max_size, uint8_t ret[static SHA256_DIGEST_SIZE])
         struct sha256_ctx ctx;
         uint64_t total_size = 0;
 
+        assert(fd >= 0);
+
         sha256_init_ctx(&ctx);
 
         for (;;) {
@@ -52,4 +54,13 @@ int parse_sha256(const char *s, uint8_t ret[static SHA256_DIGEST_SIZE]) {
 
 bool sha256_is_valid(const char *s) {
         return s && in_charset(s, HEXDIGITS) && (strlen(s) == SHA256_DIGEST_SIZE * 2);
+}
+
+char* sha256_direct_hex(const void *buffer, size_t sz) {
+        assert(buffer || sz == 0);
+
+        if (sz == SIZE_MAX)
+                sz = strlen(buffer);
+
+        return hexmem(SHA256_DIRECT(buffer, sz), SHA256_DIGEST_SIZE);
 }

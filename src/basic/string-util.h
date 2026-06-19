@@ -229,7 +229,8 @@ typedef enum StringSafeFlags {
         STRING_ALLOW_QUOTES        = 1 << 4, /* Allow quotes (" or ') */
         STRING_ALLOW_GLOBS         = 1 << 5, /* Allow globs (?, * or [) */
         STRING_FILENAME            = 1 << 6, /* Verify the string is valid as regular filename */
-        STRING_DISALLOW_WHITESPACE = 1 << 7, /* Refuse whitespace (space, tab, newline, …) */
+        STRING_FILENAME_PART       = 1 << 7, /* Verify the string is valid as part of a regular filename */
+        STRING_DISALLOW_WHITESPACE = 1 << 8, /* Refuse whitespace (space, tab, newline, …) */
 } StringSafeFlags;
 
 bool string_is_safe(const char *p, StringSafeFlags flags) _pure_;
