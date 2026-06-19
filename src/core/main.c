@@ -2338,9 +2338,11 @@ static int invoke_main_loop(
                            MANAGER_REBOOT,
                            MANAGER_KEXEC,
                            MANAGER_HALT,
-                           MANAGER_POWEROFF) &&
-                    !dual_timestamp_is_set(m->timestamps + MANAGER_TIMESTAMP_SHUTDOWN_START))
-                        dual_timestamp_now(m->timestamps + MANAGER_TIMESTAMP_SHUTDOWN_START);
+                           MANAGER_POWEROFF)) {
+                        if (!dual_timestamp_is_set(m->timestamps + MANAGER_TIMESTAMP_SHUTDOWN_START))
+                                dual_timestamp_now(m->timestamps + MANAGER_TIMESTAMP_SHUTDOWN_START);
+                        dual_timestamp_now(m->timestamps + MANAGER_TIMESTAMP_SHUTDOWN_FINISH);
+                }
 
                 switch (objective) {
 
