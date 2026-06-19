@@ -37,7 +37,7 @@ int dlopen_libcrypto(int log_level);
         SD_ELF_NOTE_DLOPEN("libcrypto",                                 \
                            "Support for cryptographic operations",      \
                            priority,                                    \
-                           "libcrypto.so.3")
+                           "libcrypto.so.4", "libcrypto.so.3")
 
 #define DLOPEN_LIBCRYPTO(log_level, priority)                           \
         ({                                                              \

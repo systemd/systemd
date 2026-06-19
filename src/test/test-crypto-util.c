@@ -122,8 +122,10 @@ static const struct {
         { "sha3-256", 32, },
         { "sha3-384", 48, },
         { "sha3-512", 64, },
-        /* SM3 family */
+#if OPENSSL_API_LEVEL < 40000
+        /* SM3 family, Removed in 4.0 */
         { "sm3",      32, },
+#endif
         /* MD5 family */
         { "md5",      16, },
 };
