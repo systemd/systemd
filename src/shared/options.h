@@ -266,6 +266,11 @@ char* option_parser_get_arg(const OptionParser *state, size_t i);
 
 char* option_get_synopsis(const Option *opt, const char *joiner, bool show_metavar);
 
+const Option* options_find_namespace(
+                const Option options[],
+                const Option options_end[],
+                const char *namespace);
+
 int _option_parser_get_help_table_full(
                 const Option options[],
                 const Option options_end[],
@@ -280,3 +285,9 @@ int _option_parser_get_help_table_full(
         option_parser_get_help_table_full(/* namespace= */ NULL, group, ret)
 #define option_parser_get_help_table(ret)                               \
         option_parser_get_help_table_group(/* group= */ NULL, ret)
+
+int options_get_help_table_group(
+                const Option options[],
+                const Option options_end[],
+                Table **ret,
+                const char **ret_group);
