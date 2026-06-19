@@ -18,7 +18,6 @@
 #include "bus-common-errors.h"
 #include "bus-error.h"
 #include "bus-locator.h"
-#include "bus-message-util.h"
 #include "bus-util.h"
 #include "crypto-util.h"
 #include "dns-configuration.h"
@@ -835,18 +834,9 @@ static int verb_query(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return ret;
 }
 
-static int resolve_service(sd_bus *bus, const char *name, const char *type, const char *domain) {
-        const char *canonical_name, *canonical_type, *canonical_domain;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *req = NULL, *reply = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        size_t indent, sz;
-        uint64_t flags;
-        const char *p;
-        unsigned c;
-        usec_t ts;
+static int resolve_service(const char *name, const char *type, const char *domain) {
         int r;
 
-        assert(bus);
         assert(domain);
 
         name = empty_to_null(name);
@@ -859,141 +849,88 @@ static int resolve_service(sd_bus *bus, const char *name, const char *type, cons
         else
                 log_debug("Resolving service type %s (family %s, interface %s).", domain, af_to_name(arg_family) ?: "*", isempty(arg_ifname) ? "*" : arg_ifname);
 
-        r = bus_message_new_method_call(bus, &req, bus_resolve_mgr, "ResolveService");
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        r = varlink_connect_with_query_timeout(&vl);
         if (r < 0)
-                return bus_log_create_error(r);
+                return r;
 
-        r = sd_bus_message_append(req, "isssit", arg_ifindex, name, type, domain, arg_family, arg_flags);
+        usec_t ts = now(CLOCK_MONOTONIC);
+
+        const char *error_id = NULL;
+        sd_json_variant *v = NULL;
+        r = sd_varlink_callbo(
+                        vl,
+                        "io.systemd.Resolve.ResolveService",
+                        &v,
+                        &error_id,
+                        SD_JSON_BUILD_PAIR_STRING("domain", domain),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("name", name),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("type", type),
+                        JSON_BUILD_PAIR_CONDITION_UNSIGNED(arg_ifindex > 0, "ifindex", arg_ifindex),
+                        JSON_BUILD_PAIR_CONDITION_UNSIGNED(arg_family != AF_UNSPEC, "family", arg_family),
+                        JSON_BUILD_PAIR_UNSIGNED_NON_ZERO("flags", arg_flags));
         if (r < 0)
-                return bus_log_create_error(r);
-
-        ts = now(CLOCK_MONOTONIC);
-
-        r = sd_bus_call(bus, req, SD_RESOLVED_QUERY_TIMEOUT_USEC, &error, &reply);
-        if (r < 0)
-                return log_error_errno(r, "Resolve call failed: %s", bus_error_message(&error, r));
+                return log_error_errno(r, "Failed to issue varlink call: %m");
 
         ts = now(CLOCK_MONOTONIC) - ts;
 
-        r = sd_bus_message_enter_container(reply, 'a', "(qqqsa(iiay)s)");
+        if (!isempty(error_id))
+                return varlink_log_resolve_error(domain, error_id, v, /* warn_missing = */ true);
+
+        _cleanup_(resolve_service_reply_done) ResolveServiceReply reply = {};
+        r = dispatch_resolve_service_reply(/* name = */ NULL, v, SD_JSON_LOG, &reply);
         if (r < 0)
-                return bus_log_parse_error(r);
+                return r;
 
-        indent =
-                (name ? strlen(name) + 1 : 0) +
-                (type ? strlen(type) + 1 : 0) +
-                strlen(domain) + 2;
+        size_t indent = (name ? strlen(name) + 1 : 0) +
+                        (type ? strlen(type) + 1 : 0) +
+                        strlen(domain) + 2;
 
-        c = 0;
-        while ((r = sd_bus_message_enter_container(reply, 'r', "qqqsa(iiay)s")) > 0) {
-                uint16_t priority, weight, port;
-                const char *hostname, *canonical;
-
-                r = sd_bus_message_read(reply, "qqqs", &priority, &weight, &port, &hostname);
-                if (r < 0)
-                        return bus_log_parse_error(r);
-
+        bool first = true;
+        FOREACH_ARRAY(service, reply.services, reply.n_services) {
                 if (name)
-                        printf("%*s%s", (int) strlen(name), c == 0 ? name : "", c == 0 ? "/" : " ");
+                        printf("%*s%s", (int) strlen(name), first ? name : "", first ? "/" : " ");
                 if (type)
-                        printf("%*s%s", (int) strlen(type), c == 0 ? type : "", c == 0 ? "/" : " ");
+                        printf("%*s%s", (int) strlen(type), first ? type : "", first ? "/" : " ");
 
                 printf("%*s%s %s:%u [priority=%u, weight=%u]\n",
-                       (int) strlen(domain), c == 0 ? domain : "",
-                       c == 0 ? ":" : " ",
-                       hostname, port,
-                       priority, weight);
+                       (int) strlen(domain),
+                       first ? domain : "",
+                       first ? ":" : " ",
+                       service->hostname,
+                       service->port,
+                       service->priority,
+                       service->weight);
 
-                r = sd_bus_message_enter_container(reply, 'a', "(iiay)");
-                if (r < 0)
-                        return bus_log_parse_error(r);
-
-                while ((r = sd_bus_message_enter_container(reply, 'r', "iiay")) > 0) {
+                FOREACH_ARRAY(address, service->addresses, service->n_addresses) {
                         _cleanup_free_ char *pretty = NULL;
-                        int ifindex, family, k;
-                        union in_addr_union a;
-
-                        assert_cc(sizeof(int) == sizeof(int32_t));
-
-                        r = sd_bus_message_read(reply, "i", &ifindex);
-                        if (r < 0)
-                                return bus_log_parse_error(r);
-
-                        sd_bus_error_free(&error);
-                        r = bus_message_read_in_addr_auto(reply, &error, &family, &a);
-                        if (r < 0 && !sd_bus_error_has_name(&error, SD_BUS_ERROR_INVALID_ARGS))
-                                return log_error_errno(r, "%s: systemd-resolved returned invalid result: %s", name, bus_error_message(&error, r));
-
-                        r = sd_bus_message_exit_container(reply);
-                        if (r < 0)
-                                return bus_log_parse_error(r);
-
-                        if (sd_bus_error_has_name(&error, SD_BUS_ERROR_INVALID_ARGS)) {
-                                log_debug_errno(r, "%s: systemd-resolved returned invalid result, ignoring: %s", name, bus_error_message(&error, r));
-                                continue;
-                        }
-
-                        r = in_addr_ifindex_to_string(family, &a, ifindex, &pretty);
+                        r = in_addr_ifindex_to_string(address->family, &address->in_addr, address->ifindex, &pretty);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to print address for %s: %m", name);
 
-                        k = printf("%*s%s", (int) indent, "", pretty);
-                        print_ifindex_comment(k, ifindex);
+                        int k = printf("%*s%s", (int) indent, "", pretty);
+
+                        print_ifindex_comment(k, address->ifindex);
                         fputc('\n', stdout);
                 }
-                if (r < 0)
-                        return bus_log_parse_error(r);
 
-                r = sd_bus_message_exit_container(reply);
-                if (r < 0)
-                        return bus_log_parse_error(r);
+                if (!streq(service->hostname, service->canonical_name))
+                        printf("%*s(%s)\n", (int) indent, "", service->canonical_name);
 
-                r = sd_bus_message_read(reply, "s", &canonical);
-                if (r < 0)
-                        return bus_log_parse_error(r);
-
-                if (!streq(hostname, canonical))
-                        printf("%*s(%s)\n", (int) indent, "", canonical);
-
-                r = sd_bus_message_exit_container(reply);
-                if (r < 0)
-                        return bus_log_parse_error(r);
-
-                c++;
+                first = false;
         }
-        if (r < 0)
-                return bus_log_parse_error(r);
 
-        r = sd_bus_message_exit_container(reply);
-        if (r < 0)
-                return bus_log_parse_error(r);
-
-        r = sd_bus_message_enter_container(reply, 'a', "ay");
-        if (r < 0)
-                return bus_log_parse_error(r);
-
-        while ((r = sd_bus_message_read_array(reply, 'y', (const void**) &p, &sz)) > 0) {
-                _cleanup_free_ char *escaped = NULL;
-
-                escaped = cescape_length(p, sz);
+        STRV_FOREACH(p, reply.txt) {
+                _cleanup_free_ char *escaped = cescape(*p);
                 if (!escaped)
                         return log_oom();
 
                 printf("%*s%s\n", (int) indent, "", escaped);
         }
-        if (r < 0)
-                return bus_log_parse_error(r);
 
-        r = sd_bus_message_exit_container(reply);
-        if (r < 0)
-                return bus_log_parse_error(r);
-
-        r = sd_bus_message_read(reply, "ssst", &canonical_name, &canonical_type, &canonical_domain, &flags);
-        if (r < 0)
-                return bus_log_parse_error(r);
-
-        canonical_name = empty_to_null(canonical_name);
-        canonical_type = empty_to_null(canonical_type);
+        const char *canonical_name = empty_to_null(reply.canonical.name);
+        const char *canonical_type = empty_to_null(reply.canonical.type);
+        const char *canonical_domain = reply.canonical.domain;
 
         if (!streq_ptr(name, canonical_name) ||
             !streq_ptr(type, canonical_type) ||
@@ -1009,7 +946,7 @@ static int resolve_service(sd_bus *bus, const char *name, const char *type, cons
                 printf("%s)\n", canonical_domain);
         }
 
-        print_source(flags, ts);
+        print_source(reply.flags, ts);
 
         return 0;
 }
@@ -1017,22 +954,15 @@ static int resolve_service(sd_bus *bus, const char *name, const char *type, cons
 VERB(verb_service, "service", "[[NAME] TYPE] DOMAIN", 2, 4, 0,
      "Resolve service (SRV)");
 static int verb_service(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        int r;
-
-        r = acquire_bus(&bus);
-        if (r < 0)
-                return r;
-
         if (sd_json_format_enabled(arg_json_format_flags))
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Use --json=pretty with --type= to acquire resource record information in JSON format.");
 
         if (argc == 2)
-                return resolve_service(bus, NULL, NULL, argv[1]);
+                return resolve_service(NULL, NULL, argv[1]);
         else if (argc == 3)
-                return resolve_service(bus, NULL, argv[1], argv[2]);
+                return resolve_service(NULL, argv[1], argv[2]);
         else
-                return resolve_service(bus, argv[1], argv[2], argv[3]);
+                return resolve_service(argv[1], argv[2], argv[3]);
 }
 
 #if HAVE_OPENSSL
