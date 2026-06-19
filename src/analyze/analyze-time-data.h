@@ -13,6 +13,10 @@ typedef struct BootTimes {
         usec_t userspace_time;
         usec_t finish_time;
         usec_t shutdown_start_time;
+        usec_t previous_shutdown_start_time;
+        usec_t previous_shutdown_finish_time;
+        usec_t previous_shutdown_late_start_time;
+        usec_t previous_shutdown_late_finish_time;
         usec_t security_start_time;
         usec_t security_finish_time;
         usec_t generators_start_time;
