@@ -10,7 +10,7 @@ set -o pipefail
 mkfifo /tmp/syncfifo1 /tmp/syncfifo2
 
 sync_in() {
-    read -r x < /tmp/syncfifo1
+    read -r x </tmp/syncfifo1
     test "$x" = "$1"
 }
 
@@ -100,14 +100,14 @@ assert_in "D-Bus: org.freedesktop.DBus.Error.UnknownObject" "$(systemctl status 
 # Now test basic fdstore behaviour
 
 MYSCRIPT="/tmp/myscript$RANDOM.sh"
-cat >> "$MYSCRIPT" <<'EOF'
+cat >>"$MYSCRIPT" <<'EOF'
 #!/usr/bin/env bash
 set -eux
 set -o pipefail
 test "$FDSTORE" -eq 7
 N="/tmp/$RANDOM"
-echo $RANDOM > "$N"
-systemd-notify --fd=4 --fdname=quux --pid=parent 4< "$N"
+echo $RANDOM >"$N"
+systemd-notify --fd=4 --fdname=quux --pid=parent 4<"$N"
 rm "$N"
 systemd-notify --ready
 exec sleep infinity
