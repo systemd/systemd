@@ -560,6 +560,9 @@ Socket.PollLimitIntervalSec,                  config_parse_sec,                 
 Socket.PollLimitBurst,                        config_parse_unsigned,                              0,                                  offsetof(Socket, poll_limit.burst)
 Socket.DeferTrigger,                          config_parse_socket_defer_trigger,                  0,                                  offsetof(Socket, defer_trigger)
 Socket.DeferTriggerMaxSec,                    config_parse_sec_fix_0,                             0,                                  offsetof(Socket, defer_trigger_max_usec)
+Socket.XAttrEntryPoint,                       config_parse_xattr,                                 0,                                  offsetof(Socket, xattr_entrypoint)
+Socket.XAttrListen,                           config_parse_xattr,                                 0,                                  offsetof(Socket, xattr_listen)
+Socket.XAttrAccept,                           config_parse_xattr,                                 0,                                  offsetof(Socket, xattr_accept)
 {% if ENABLE_SMACK %}
 Socket.SmackLabel,                            config_parse_unit_string_printf,                    0,                                  offsetof(Socket, smack)
 Socket.SmackLabelIPIn,                        config_parse_unit_string_printf,                    0,                                  offsetof(Socket, smack_ip_in)
