@@ -392,23 +392,29 @@ static int varlink_idl_format_symbol(
                  * Until this is resolved upstream, consider this comment part of the API (i.e. don't change
                  * only extend). It is used by tools like varlink-http-bridge. */
                 if ((symbol->symbol_flags & (SD_VARLINK_REQUIRES_MORE|SD_VARLINK_SUPPORTS_MORE)) != 0) {
-                        fputs(colors[COLOR_COMMENT], f);
-                        if (FLAGS_SET(symbol->symbol_flags, SD_VARLINK_REQUIRES_MORE))
-                                fputs("# [Requires 'more' flag]", f);
-                        else
-                                fputs("# [Supports 'more' flag]", f);
-                        fputs(colors[COLOR_RESET], f);
-                        fputs("\n", f);
+                        const char *msg = FLAGS_SET(symbol->symbol_flags, SD_VARLINK_REQUIRES_MORE) ? "[Requires 'more' flag]" : "[Supports 'more' flag]";
+
+                        r = varlink_idl_format_comment(
+                                        f,
+                                        msg,
+                                        /* indent= */ NULL,
+                                        colors,
+                                        cols);
+                        if (r < 0)
+                                return r;
                 }
 
                 if ((symbol->symbol_flags & (SD_VARLINK_REQUIRES_UPGRADE|SD_VARLINK_SUPPORTS_UPGRADE)) != 0) {
-                        fputs(colors[COLOR_COMMENT], f);
-                        if (FLAGS_SET(symbol->symbol_flags, SD_VARLINK_REQUIRES_UPGRADE))
-                                fputs("# [Requires 'upgrade' flag]", f);
-                        else
-                                fputs("# [Supports 'upgrade' flag]", f);
-                        fputs(colors[COLOR_RESET], f);
-                        fputs("\n", f);
+                        const char *msg = FLAGS_SET(symbol->symbol_flags, SD_VARLINK_REQUIRES_UPGRADE) ? "[Requires 'upgrade' flag]" : "[Supports 'upgrade' flag]";
+
+                        r = varlink_idl_format_comment(
+                                        f,
+                                        msg,
+                                        /* indent= */ NULL,
+                                        colors,
+                                        cols);
+                        if (r < 0)
+                                return r;
                 }
 
                 fputs(colors[COLOR_SYMBOL_TYPE], f);
