@@ -1107,6 +1107,7 @@ manpages = [
  ['systemd-loop@.service', '8', [], ''],
  ['systemd-machine-id-commit.service', '8', [], ''],
  ['systemd-machine-id-setup', '1', [], ''],
+ ['systemd-machine-tag@.service', '8', [], 'ENABLE_HOSTNAMED'],
  ['systemd-machined.service', '8', ['systemd-machined'], 'ENABLE_MACHINED'],
  ['systemd-makefs@.service',
   '8',

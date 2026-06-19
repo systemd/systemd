@@ -265,9 +265,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 - sysupdate: add concept for enabling/disabling specific components explicitly,
   just like features.
 
-- udev: add a MACHINE_TAGS field, that augments /etc/machine-info configured
-  tags.
-
 - hostnamectl: management, collation of all tags. four sources: udev,
   /etc/machine-info, credentials, and /etc/machine-tags.d/*.conf
 
@@ -780,7 +777,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 - clean up date formatting and parsing so that all absolute/relative timestamps we format can also be parsed
 
 - **complete varlink introspection comments:**
-  - io.systemd.Hostname
   - io.systemd.ManagedOOM
   - io.systemd.Network
   - io.systemd.PCRLock
@@ -2431,8 +2427,8 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   PR_SET_DUMPABLE so that it cannot be ptraced from the host. Should have
   CAP_SYS_BPF as only service around.
 
-- SIGRTMIN+18 and memory pressure handling should still be added to: hostnamed,
-  localed, oomd, timedated.
+- SIGRTMIN+18 and memory pressure handling should still be added to: localed,
+  oomd, timedated.
 
 - socket units: allow creating a udev monitor socket with ListenDevices= or so,
   with matches, then activate app through that passing socket over
