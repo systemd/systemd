@@ -320,7 +320,8 @@
       <varlistentry>
         <term><option>--password</option></term>
 
-        <listitem><para>Enroll a regular password/passphrase. This command is mostly equivalent to
+        <listitem><para>Enroll a regular password/passphrase. If an empty password is provided this has
+        the same effect as <option>--empty</option>. This command is mostly equivalent to
         <command>cryptsetup luksAddKey</command>, however may be combined with
         <option>--wipe-slot=</option> in one call, see below.</para>
 
@@ -344,9 +345,7 @@
         <listitem><para>Enroll an empty key. This allows the volume to be unlocked without a key,
         which effectively disables the confidentiality protections of encryption. The encryption is not
         removed, however, so confidentiality protections can be reenabled by removing the empty
-        key enrollment (i.e. via <option>--wipe-slot=empty</option>). Unlike a blank <option>--password</option>,
-        a key enrolled via this option will automatically unlock the volume with no user input and no
-        performance penalty.</para>
+        key enrollment (i.e. via <option>--wipe-slot=empty</option>).</para>
 
         <xi:include href="version-info.xml" xpointer="v261"/></listitem>
       </varlistentry>
