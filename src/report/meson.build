@@ -6,6 +6,8 @@ executables += [
                 'public' : true,
                 'sources' : files(
                         'report.c',
+                        'report-generate.c',
+                        'report-sign.c',
                         'report-upload.c',
                 ),
         },
@@ -24,5 +26,22 @@ executables += [
                         'report-cgroup.c',
                         'report-cgroup-server.c',
                 ),
+        },
+        libexec_template + {
+                'name' : 'systemd-report-files',
+                'sources' : files(
+                        'report-files.c',
+                        'report-files-server.c',
+                ),
+        },
+        libexec_template + {
+                'name' : 'systemd-report-sign-plain',
+                'conditions' : [
+                        'HAVE_OPENSSL',
+                ],
+                'sources' : files(
+                        'report-sign-plain.c',
+                ),
+                'dependencies' : libopenssl_cflags,
         },
 ]
