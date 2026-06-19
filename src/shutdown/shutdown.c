@@ -663,6 +663,10 @@ int main(int argc, char *argv[]) {
                         dual_timestamp shutdown_binary_finish;
 
                         dual_timestamp_now(&shutdown_binary_finish);
+                        (void) luo_serialization_add_shutdown_timestamps(
+                                        &luo_serialization,
+                                        &shutdown_binary_start,
+                                        &shutdown_binary_finish);
 
                         /* Preserve fd stores via the kernel Live Update Orchestrator before kexec.
                          * The session fd must stay open until the kexec syscall. */

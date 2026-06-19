@@ -48,6 +48,54 @@ static void luo_session_finishp(int *fd) {
         safe_close(*fd);
 }
 
+static void luo_restore_one_timestamp(sd_json_variant *timestamps, const char *key, dual_timestamp *ret) {
+        int r;
+
+        assert(key);
+        assert(ret);
+
+        sd_json_variant *v = sd_json_variant_by_key(timestamps, key);
+        if (!v)
+                return;
+
+        struct {
+                uint64_t realtime;
+                uint64_t monotonic;
+        } p = {};
+
+        static const sd_json_dispatch_field table[] = {
+                { "realtime",  _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64, voffsetof(p, realtime),  0 },
+                { "monotonic", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64, voffsetof(p, monotonic), 0 },
+                {}
+        };
+
+        r = sd_json_dispatch(v, table, SD_JSON_ALLOW_EXTENSIONS|SD_JSON_LOG, &p);
+        if (r < 0)
+                return;
+
+        *ret = (dual_timestamp) { .realtime = p.realtime, .monotonic = p.monotonic };
+}
+
+static void manager_luo_restore_shutdown_timestamps(Manager *m, sd_json_variant *timestamps) {
+        static const struct {
+                const char *key;
+                ManagerTimestamp t;
+        } map[] = {
+                { "shutdownStart",        MANAGER_TIMESTAMP_SHUTDOWN_START         },
+                { "shutdownFinish",       MANAGER_TIMESTAMP_SHUTDOWN_FINISH        },
+                { "shutdownBinaryStart",  MANAGER_TIMESTAMP_SHUTDOWN_BINARY_START  },
+                { "shutdownBinaryFinish", MANAGER_TIMESTAMP_SHUTDOWN_BINARY_FINISH },
+        };
+
+        assert(m);
+
+        if (!timestamps)
+                return;
+
+        FOREACH_ELEMENT(e, map)
+                luo_restore_one_timestamp(timestamps, e->key, m->timestamps + e->t);
+}
+
 int manager_luo_restore_fd_stores(Manager *m) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *mapping = NULL;
         _cleanup_close_ int device_fd = -EBADF;
@@ -107,16 +155,20 @@ int manager_luo_restore_fd_stores(Manager *m) {
 
         struct {
                 unsigned kexecs_count;
+                sd_json_variant *shutdown_timestamps;
         } state_data = {};
 
         static const sd_json_dispatch_field state_dispatch_table[] = {
-                { "kexecsCount", SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint, voffsetof(state_data, kexecs_count), 0 },
+                { "kexecsCount", SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint,          voffsetof(state_data, kexecs_count),        0 },
+                { "timestamps",  SD_JSON_VARIANT_OBJECT,   sd_json_dispatch_variant_noref, voffsetof(state_data, shutdown_timestamps), 0 },
                 {}
         };
 
         r = sd_json_dispatch(q.state, state_dispatch_table, SD_JSON_ALLOW_EXTENSIONS|SD_JSON_LOG, &state_data);
-        if (r >= 0)
+        if (r >= 0) {
                 m->kexecs_count = state_data.kexecs_count;
+                manager_luo_restore_shutdown_timestamps(m, state_data.shutdown_timestamps);
+        }
 
         /* If we found a LUO session then by definition we have just successfully kexec rebooted */
         (void) INC_SAFE(&m->kexecs_count, 1);
@@ -307,7 +359,11 @@ int manager_luo_serialize_fd_stores(Manager *m, FILE **ret_f, FDSet **ret_fds) {
                         SD_JSON_BUILD_PAIR_UNSIGNED("version", LUO_PROTOCOL_VERSION),
                         SD_JSON_BUILD_PAIR("state",
                                            SD_JSON_BUILD_OBJECT(
-                                                           SD_JSON_BUILD_PAIR_UNSIGNED("kexecsCount", m->kexecs_count))),
+                                                           SD_JSON_BUILD_PAIR_UNSIGNED("kexecsCount", m->kexecs_count),
+                                                           SD_JSON_BUILD_PAIR("timestamps",
+                                                                              SD_JSON_BUILD_OBJECT(
+                                                                                              JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL("shutdownStart", &m->timestamps[MANAGER_TIMESTAMP_SHUTDOWN_START]),
+                                                                                              JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL("shutdownFinish", &m->timestamps[MANAGER_TIMESTAMP_SHUTDOWN_FINISH]))))),
                         SD_JSON_BUILD_PAIR_CONDITION(!!units, "units", SD_JSON_BUILD_VARIANT(units)));
         if (r < 0)
                 return log_error_errno(r, "Failed to build LUO serialization JSON: %m");

@@ -80,6 +80,20 @@ if grep -qw luo_nboot=1 /proc/cmdline; then
 
     assert_eq "$(busctl -j get-property org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager KExecsCount | jq -r '.data')" "1"
 
+    ts_shutdown_start=$(busctl -j get-property org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager ShutdownStartTimestampMonotonic | jq -r '.data')
+    ts_shutdown_finish=$(busctl -j get-property org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager ShutdownFinishTimestampMonotonic | jq -r '.data')
+    ts_shutdown_binary_start=$(busctl -j get-property org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager ShutdownBinaryStartTimestampMonotonic | jq -r '.data')
+    ts_shutdown_binary_finish=$(busctl -j get-property org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager ShutdownBinaryFinishTimestampMonotonic | jq -r '.data')
+
+    assert_ge "${ts_shutdown_start}" 1
+    assert_ge "${ts_shutdown_finish}" 1
+    assert_ge "${ts_shutdown_binary_start}" 1
+    assert_ge "${ts_shutdown_binary_finish}" 1
+
+    assert_le "${ts_shutdown_start}" "${ts_shutdown_finish}"
+    assert_le "${ts_shutdown_finish}" "${ts_shutdown_binary_start}"
+    assert_le "${ts_shutdown_binary_start}" "${ts_shutdown_binary_finish}"
+
     # Negative path: a unit stored a child LUO session named like PID 1's own
     # ("systemd") on the first boot. PID 1's serialize step must have refused to
     # serialize that fd store entry (anti-hijack guard in
