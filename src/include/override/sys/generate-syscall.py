@@ -6,6 +6,7 @@ import sys
 
 # We only generate numbers for a dozen or so syscalls
 SYSCALLS = [
+    'close_range',
     'fchmodat2',     # defined in glibc header since glibc-2.39
     'kexec_file_load',
     'open_tree_attr',
