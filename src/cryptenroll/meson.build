@@ -6,6 +6,7 @@ endif
 
 systemd_cryptenroll_sources = files(
         'cryptenroll.c',
+        'cryptenroll-empty.c',
         'cryptenroll-fido2.c',
         'cryptenroll-list.c',
         'cryptenroll-password.c',
