@@ -1362,7 +1362,7 @@ static int on_post(sd_event_source *s, void *userdata) {
 
         if (manager->workers_cgroup && set_isempty(manager->synthesize_change_child_event_sources))
                 /* cleanup possible left-over processes in the workers cgroup */
-                if (cg_kill_kernel_sigkill(manager->workers_cgroup) == -EOPNOTSUPP)
+                if (cg_kill_kernel_sigkill(manager->workers_cgroup, /* ret_n_pids_killed= */ NULL) == -EOPNOTSUPP)
                         (void) cg_kill(manager->workers_cgroup, SIGKILL, CGROUP_IGNORE_SELF, /* killed_pids= */ NULL, /* log_kill= */ NULL, /* userdata= */ NULL);
 
         return 0;
