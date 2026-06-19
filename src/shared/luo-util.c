@@ -19,6 +19,7 @@
 #include "parse-util.h"
 #include "stat-util.h"
 #include "string-util.h"
+#include "time-util.h"
 
 /* Kernel API defined at https://docs.kernel.org/userspace-api/liveupdate.html The /dev/liveupdate is a
  * single-owner singleton, only a single process at any given time can open it. Callers can create named
@@ -208,6 +209,42 @@ int luo_parse_serialization(sd_json_variant **ret, int **ret_fds, size_t *ret_n_
         *ret_fds = TAKE_PTR(fd_list);
         *ret_n_fds = n_fds;
         return 0;
+}
+
+int luo_serialization_add_shutdown_timestamps(
+                sd_json_variant **serialization,
+                const dual_timestamp *shutdown_late_start,
+                const dual_timestamp *shutdown_late_finish) {
+
+        int r;
+
+        assert(serialization);
+
+        /* sd-shutdown calls this to add its timestamps to the preserved JSON payload, so that the next
+         * boot can expose them as the previous boot's shutdown timestamps. */
+
+        if (!*serialization)
+                return 0; /* No LUO serialization, nothing to augment */
+
+        if ((!shutdown_late_start || !dual_timestamp_is_set(shutdown_late_start)) &&
+            (!shutdown_late_finish || !dual_timestamp_is_set(shutdown_late_finish)))
+                return 0; /* Nothing to add */
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *new_state =
+                        sd_json_variant_ref(sd_json_variant_by_key(*serialization, "state"));
+
+        r = sd_json_variant_merge_objectbo(
+                        &new_state,
+                        JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL("PreviousShutdownLateStartTimestamp", (dual_timestamp*) shutdown_late_start),
+                        JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL("PreviousShutdownLateFinishTimestamp", (dual_timestamp*) shutdown_late_finish));
+        if (r < 0)
+                return log_error_errno(r, "Failed to merge LUO shutdown timestamps into state: %m");
+
+        r = sd_json_variant_set_field(serialization, "state", new_state);
+        if (r < 0)
+                return log_error_errno(r, "Failed to update LUO 'state' object: %m");
+
+        return 1;
 }
 
 int luo_preserve_fd_stores(sd_json_variant *serialization, int *ret_session_fd) {
