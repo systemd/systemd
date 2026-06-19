@@ -259,13 +259,26 @@ bool machine_tag_is_valid(const char *s) {
         if (n <= 0 || n >= 256)
                 return false;
 
-        /* Don't allow "-" and "." as first or last char. (This is load-bearing, we want that "+"/"-" can be
-         * used as prefix for adding/removing tags from the list). */
-        if (strchr("-.", s[0]) ||
-            strchr("-.", s[n-1]))
+        /* Don't allow "-" and "." as first char. (This is load-bearing, we want that "+"/"-" can be used as
+         * prefix for adding/removing tags from the list). */
+        if (strchr("-.=", s[0]))
                 return false;
 
-        return in_charset(s, ALPHANUMERICAL "-.");
+        /* We allow parameterization of tags, with a "=" as separator */
+        const char *eq = strchr(s, '=');
+        if (eq) {
+                assert(eq > s);
+
+                /* If there is an '=', then make the same restrictions as for the first char on the last char before it */
+                if (strchr("-.", eq[-1]))
+                        return false;
+        } else {
+                /* If there's no '=', then make the restriction on the very last character */
+                if (strchr("-.", s[n-1]))
+                        return false;
+        }
+
+        return in_charset(s, ALPHANUMERICAL "-.=");
 }
 
 bool machine_tag_list_is_valid(char **l) {
@@ -277,6 +290,23 @@ bool machine_tag_list_is_valid(char **l) {
 
                 if (!machine_tag_is_valid(*i))
                         return false;
+
+                const char *eq = strchr(*i, '=');
+                if (!eq)
+                        continue;
+
+                /* Refuse tags with a common part before the '=', that do no also carry the same value. */
+                size_t np = eq - *i + 1;
+                STRV_FOREACH(j, l) {
+                        if (j == i)
+                                break;
+
+                        if (streq(*i, *j)) /* Fully identical is OK */
+                                continue;
+
+                        if (strneq(*i, *j, np)) /* Not identical, but same key: refuse */
+                                return false;
+                }
         }
 
         return true;
@@ -319,6 +349,21 @@ int machine_tags_from_string(const char *s, bool graceful, char ***ret) {
                 n++;
                 if (n > MACHINE_TAGS_MAX)
                         return -E2BIG;
+
+                const char *eq = strchr(*i, '=');
+                if (eq) {
+                        /* Suppress duplicate assignments */
+                        bool skip = false;
+                        size_t np = eq - *i + 1;
+                        STRV_FOREACH(j, cleaned)
+                                if (strneq(*i, *j, np)) {
+                                        skip = true;
+                                        break;
+                                }
+
+                        if (skip)
+                                continue;
+                }
 
                 r = strv_extend(&cleaned, *i);
                 if (r < 0)
