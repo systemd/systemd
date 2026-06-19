@@ -1816,6 +1816,7 @@ if static_libsystemd != 'false'
                 dependencies : [libgcrypt_cflags,
                                 liblz4_cflags,
                                 libm,
+                                libopenssl_cflags,
                                 libucontext,
                                 libxz_cflags,
                                 libzstd_cflags,
