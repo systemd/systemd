@@ -4,7 +4,9 @@
 #  include <valgrind/valgrind.h>
 #endif
 
+#include "crypto-util.h"
 #include "fsprg.h"
+#include "fsprg-openssl.h"
 #include "gcrypt-util.h"
 #include "iovec-util.h"
 #include "journal-def.h"
@@ -339,6 +341,48 @@ TEST(fsprg) {
                         ASSERT_TRUE(iovec_equal(&state, &states[i]));
                 }
         }
+
+        if (dlopen_libcrypto(LOG_DEBUG) >= 0) {
+                struct iovec seed = IOVEC_ALLOCA(FSPRG_RECOMMENDED_SEEDLEN),
+                        state = IOVEC_ALLOCA(fsprg_state_size(FSPRG_RECOMMENDED_SECPAR)),
+                        key = IOVEC_ALLOCA(32);
+
+                generate_seed(&seed);
+
+                /* Generate states by fsprg_generate_state() */
+                for (size_t i = 0; i < n_states; i++) {
+                        ASSERT_OK(fsprg_generate_state(FSPRG_RECOMMENDED_SECPAR, i, &seed, &state));
+
+                        /* Verify state */
+                        if (i < ELEMENTSOF(expected_state))
+                                ASSERT_EQ(iovec_memcmp(&state, &IOVEC_MAKE(expected_state[i], sizeof(expected_state[i]))), 0);
+
+                        /* Verify key */
+                        ASSERT_OK(fsprg_get_key(&state, &key));
+                        if (i < ELEMENTSOF(expected_key))
+                                ASSERT_EQ(iovec_memcmp(&key, &IOVEC_MAKE(expected_key[i], sizeof(expected_key[i]))), 0);
+
+                        /* Verify epoch */
+                        uint64_t epoch;
+                        ASSERT_OK(fsprg_get_epoch(&state, &epoch));
+                        ASSERT_EQ(epoch, (uint64_t) i);
+
+                        if (iovec_is_set(&states[i]))
+                                ASSERT_EQ(iovec_memcmp(&state, &states[i]), 0);
+                        else
+                                ASSERT_NOT_NULL(iovec_memdup(&state, &states[i]));
+                }
+
+                /* Generate state by fsprg_generate_state(0) */
+                ASSERT_OK(fsprg_generate_state(FSPRG_RECOMMENDED_SECPAR, 0, &seed, &state));
+                ASSERT_EQ(iovec_memcmp(&state, &states[0]), 0);
+
+                /* Generate states by fsprg_evolve() */
+                for (unsigned i = 1; i < n_states; i++) {
+                        ASSERT_OK(fsprg_evolve(&state));
+                        ASSERT_EQ(iovec_memcmp(&state, &states[i]), 0);
+                }
+        }
 }
 
 TEST(hmac) {
@@ -355,6 +399,8 @@ TEST(hmac) {
          *      journal_file_maybe_append_tag(). */
 
         size_t n_tags = 20;
+        struct iovec *tags = new0(struct iovec, n_tags);
+        CLEANUP_ARRAY(tags, n_tags, iovec_array_free);
 
 #if HAVE_GCRYPT
         if (initialize_libgcrypt(false) >= 0) {
@@ -396,15 +442,67 @@ TEST(hmac) {
                         if (i < ELEMENTSOF(expected_tag))
                                 ASSERT_TRUE(iovec_equal(&tag, &IOVEC_MAKE(expected_tag[i], sizeof(expected_tag[i]))));
 
+                        /* Save tag */
+                        ASSERT_NOT_NULL(iovec_memdup(&tag, &tags[i]));
+
                         /* Increment epoch */
                         ASSERT_OK(FSPRG_Evolve(state.iov_base));
+                }
+        }
+#endif
+
+#if HAVE_OPENSSL
+        if (dlopen_libcrypto(LOG_DEBUG) >= 0) {
+                struct iovec seed = IOVEC_ALLOCA(FSPRG_RECOMMENDED_SEEDLEN),
+                        state = IOVEC_ALLOCA(fsprg_state_size(FSPRG_RECOMMENDED_SECPAR)),
+                        key = IOVEC_ALLOCA(KEY_LENGTH),
+                        tag = IOVEC_ALLOCA(TAG_LENGTH);
+
+                generate_seed(&seed);
+
+                /* Calculate initial state */
+                ASSERT_OK(fsprg_generate_state(FSPRG_RECOMMENDED_SECPAR, 0, &seed, &state));
+
+                /* Allocate HMAC */
+                _cleanup_(EVP_MAC_freep) EVP_MAC *hmac = ASSERT_NOT_NULL(sym_EVP_MAC_fetch(NULL, "HMAC", NULL));
+                _cleanup_(EVP_MAC_CTX_freep) EVP_MAC_CTX *hmac_ctx = ASSERT_NOT_NULL(sym_EVP_MAC_CTX_new(hmac));
+                _cleanup_(OSSL_PARAM_BLD_freep) OSSL_PARAM_BLD *bld = ASSERT_NOT_NULL(sym_OSSL_PARAM_BLD_new());
+                ASSERT_OK_POSITIVE(sym_OSSL_PARAM_BLD_push_utf8_string(bld, OSSL_MAC_PARAM_DIGEST, "SHA256", 0));
+                _cleanup_(OSSL_PARAM_freep) OSSL_PARAM *params = ASSERT_NOT_NULL(sym_OSSL_PARAM_BLD_to_param(bld));
+
+                for (size_t i = 0; i < n_tags; i++) {
+                        /* Initialize HMAC with fsprg key */
+                        ASSERT_OK(fsprg_get_key(&state, &key));
+                        ASSERT_OK_POSITIVE(sym_EVP_MAC_init(hmac_ctx, key.iov_base, key.iov_len, params));
+
+                        /* Put dummy data */
+                        _cleanup_(iovec_done) struct iovec data =
+                                IOVEC_MAKE_STRING(ASSERT_NOT_NULL(asprintf_safe("dummy data: %zu, hoge hoge hoge hoge hoge", i)));
+                        ASSERT_OK_POSITIVE(sym_EVP_MAC_update(hmac_ctx, data.iov_base, data.iov_len));
+
+                        /* Finalize HMAC and generate tag. */
+                        size_t len;
+                        ASSERT_OK_POSITIVE(sym_EVP_MAC_final(hmac_ctx, tag.iov_base, &len, tag.iov_len));
+                        ASSERT_EQ(len, tag.iov_len);
+
+                        /* Verify tag */
+                        if (i < ELEMENTSOF(expected_tag))
+                                ASSERT_TRUE(iovec_equal(&tag, &IOVEC_MAKE(expected_tag[i], sizeof(expected_tag[i]))));
+
+                        /* Compare with the tag generated by gcrypt */
+                        if (iovec_is_set(&tags[i]))
+                                ASSERT_TRUE(iovec_equal(&tag, &tags[i]));
+
+                        /* Increment epoch */
+                        ASSERT_OK(fsprg_evolve(&state));
                 }
         }
 #endif
 }
 
 static int intro(void) {
-        if (DLOPEN_GCRYPT(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED) < 0)
+        if (DLOPEN_GCRYPT(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED) < 0 &&
+            DLOPEN_LIBCRYPTO(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED) < 0)
                 return EXIT_TEST_SKIP;
 
         return EXIT_SUCCESS;
