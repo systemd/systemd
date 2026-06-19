@@ -19,6 +19,7 @@
 #include "nts.h"
 #include "nts_crypto.h"
 #include "nts_extfields.h"
+#include "iovec-util.h"
 #include "memory-util.h"
 #include "timesyncd-ntp-message.h"
 
@@ -127,8 +128,8 @@ static void serve_ntp_request(int sock, AEADKey c2s, AEADKey s2c, int sabotage) 
                 };
 
                 ssize_t ciphertext = NTS_encrypt(
-                        p + cipher->nonce_size, sizeof(buf) - (p - buf - cipher->nonce_size),
-                        (uint8_t*)payload, sizeof(payload),
+                        &IOVEC_MAKE(p + cipher->nonce_size, sizeof(buf) - (p - buf - cipher->nonce_size)),
+                        &IOVEC_MAKE((uint8_t*)payload, sizeof(payload)),
                         info,
                         cipher, s2c
                 );

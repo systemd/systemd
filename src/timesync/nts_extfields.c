@@ -32,7 +32,7 @@ static int write_ntp_ext_field(struct iovec *buf, uint16_t type, void *contents,
                 return -ENOBUFS;
 
         uint8_t *data = (uint8_t*) buf->iov_base;
-        iovec_inc_many(buf, 1, padded_len);
+        iovec_inc(buf, padded_len);
 
         unaligned_write_be16(data, type);
         unaligned_write_be16(data+2, padded_len);
@@ -59,7 +59,7 @@ ssize_t NTS_add_extension_fields(
         struct iovec buf = { dest, NTS_MAX_PACKET_SIZE };
 
         /* skip beyond regular ntp portion */
-        iovec_inc_many(&buf, 1, 48);
+        iovec_inc(&buf, 48);
 
         /* generate unique identifier */
         r = crypto_random_bytes(*identifier, sizeof(NTS_Identifier));
@@ -137,7 +137,10 @@ ssize_t NTS_add_extension_fields(
 
         assert(EF_capacity >= ptxt_len + nts->cipher.block_size);
 
-        ssize_t ctxt_len = NTS_encrypt(EF_payload, EF_capacity, buf.iov_base, ptxt_len, info, &nts->cipher, nts->c2s_key);
+        ssize_t ctxt_len = NTS_encrypt(
+                        &IOVEC_MAKE(EF_payload, EF_capacity),
+                        &IOVEC_MAKE(buf.iov_base, ptxt_len),
+                        info, &nts->cipher, nts->c2s_key);
         if (ctxt_len < 0)
                 return ctxt_len;
 
@@ -216,7 +219,10 @@ ssize_t NTS_parse_extension_fields(
                         };
 
                         uint8_t *plaintext = content;
-                        ssize_t plain_len = NTS_decrypt(plaintext, ciph_len, content, ciph_len, info, &nts->cipher, nts->s2c_key);
+                        ssize_t plain_len = NTS_decrypt(
+                                        &IOVEC_MAKE(plaintext, ciph_len),
+                                        &IOVEC_MAKE(content, ciph_len),
+                                        info, &nts->cipher, nts->s2c_key);
                         if (plain_len < 0)
                                 return plain_len;
 
@@ -247,7 +253,7 @@ ssize_t NTS_parse_extension_fields(
                                         /* ignore any other field */;
                                 }
 
-                                iovec_inc_many(&plain, 1, inner_len);
+                                iovec_inc(&plain, inner_len);
                         }
 
                         /* ignore any further fields after this,
@@ -260,7 +266,7 @@ ssize_t NTS_parse_extension_fields(
                         ;
                 }
 
-                iovec_inc_many(&buf, 1, len);
+                iovec_inc(&buf, len);
         }
 
         return -EBADMSG;

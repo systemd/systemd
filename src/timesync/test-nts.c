@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "crypto-util.h"
+#include "iovec-util.h"
 #include "nts.h"
 #include "nts_crypto.h"
 #include "nts_extfields.h"
@@ -328,17 +329,17 @@ TEST(crypto) {
         for (unsigned id=0; id <= 33; id++) {
                 if (!NTS_get_param(id))
                         continue;
-                ssize_t len = NTS_encrypt(enc, sizeof(enc), plaintext, sizeof(plaintext), ad, nonnull(NTS_get_param(id)), key);
+                ssize_t len = NTS_encrypt(&IOVEC_MAKE(enc, sizeof(enc)), &IOVEC_MAKE(plaintext, sizeof(plaintext)), ad, nonnull(NTS_get_param(id)), key);
                 assert_se(len > 0);
-                assert_se(NTS_decrypt(dec, sizeof(dec), enc, len, ad, nonnull(NTS_get_param(id)), key) == sizeof(plaintext));
+                assert_se(NTS_decrypt(&IOVEC_MAKE(dec, sizeof(dec)), &IOVEC_MAKE(enc, len), ad, nonnull(NTS_get_param(id)), key) == sizeof(plaintext));
                 assert_se(memcmp(dec, plaintext, sizeof(plaintext)) == 0);
         }
 
         /* test in-place decryption for the default cipher */
         memcpy(enc, plaintext, sizeof(plaintext));
-        ssize_t len = NTS_encrypt(enc, sizeof(enc), enc, sizeof(plaintext), ad, nonnull(NTS_get_param(NTS_AEAD_AES_SIV_CMAC_256)), key);
+        ssize_t len = NTS_encrypt(&IOVEC_MAKE(enc, sizeof(enc)), &IOVEC_MAKE(enc, sizeof(plaintext)), ad, nonnull(NTS_get_param(NTS_AEAD_AES_SIV_CMAC_256)), key);
         assert_se(len == sizeof(plaintext)+16);
-        assert_se(NTS_decrypt(enc, sizeof(enc), enc, len, ad, nonnull(NTS_get_param(NTS_AEAD_AES_SIV_CMAC_256)), key) == sizeof(plaintext));
+        assert_se(NTS_decrypt(&IOVEC_MAKE(enc, sizeof(enc)), &IOVEC_MAKE(enc, len), ad, nonnull(NTS_get_param(NTS_AEAD_AES_SIV_CMAC_256)), key) == sizeof(plaintext));
         assert_se(memcmp(enc, plaintext, sizeof(plaintext)) == 0);
 
         /* test known vectors AES_SIV_CMAC_256
@@ -386,7 +387,7 @@ TEST(crypto) {
                         { nonce, sizeof(nonce) },
                         { NULL }
                 };
-                assert_se(NTS_encrypt(out, sizeof(out), pt, sizeof(pt), info, NTS_get_param(NTS_AEAD_AES_SIV_CMAC_256), key) == sizeof(ct));
+                assert_se(NTS_encrypt(&IOVEC_MAKE(out, sizeof(out)), &IOVEC_MAKE(pt, sizeof(pt)), info, NTS_get_param(NTS_AEAD_AES_SIV_CMAC_256), key) == sizeof(ct));
                 assert_se(memcmp(out, ct, sizeof(ct)) == 0);
         }
 
@@ -410,7 +411,7 @@ TEST(crypto) {
 
                 uint8_t out[sizeof(ct)];
 
-                assert_se(NTS_encrypt(out, sizeof(out), pt, sizeof(pt), info, NTS_get_param(NTS_AEAD_AES_128_GCM_SIV), key) == sizeof(ct));
+                assert_se(NTS_encrypt(&IOVEC_MAKE(out, sizeof(out)), &IOVEC_MAKE(pt, sizeof(pt)), info, NTS_get_param(NTS_AEAD_AES_128_GCM_SIV), key) == sizeof(ct));
                 assert_se(memcmp(out, ct, sizeof(ct)) == 0);
         }
 }

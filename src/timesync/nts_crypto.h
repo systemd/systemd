@@ -7,34 +7,32 @@
 
 typedef struct iovec AssociatedData;
 
-/* encrypt the data in ptxt of ptxt_len bytes, and write it to ctxt, using the selected cryptoscheme and key
+/* encrypt the plaintext in ptxt, and write the ciphertext to ctxt, using the selected cryptoscheme and key.
  * the associated data should point to an array of NULL-terminated chunks of associated data
  *
- * caller should make sure that there is enough room in ptxt for holding the plaintext + one additional block
+ * caller should make sure that ctxt has enough room for holding the plaintext + one additional block
  *
  * RETURNS: the number of bytes in the ciphertext (< 0 indicates an error)
  */
-ssize_t NTS_encrypt(uint8_t *ctxt,
-                size_t ctxt_len,
-                const uint8_t *ptxt,
-                size_t ptxt_len,
+ssize_t NTS_encrypt(const struct iovec *ctxt,
+                const struct iovec *ptxt,
                 const AssociatedData *info,
                 const NTS_AEADParam *aead,
                 const uint8_t *key);
 
-/* decrypt the data in ctxt of ctxt_len bytes, and write it to ptxt, using the selected cryptoscheme and key
+/* decrypt the ciphertext in ctxt, and write the plaintext to ptxt, using the selected cryptoscheme and key.
+ * ptxt and ctxt are described by iovecs: iov_base points at the buffer, iov_len gives its size. The iovec
+ * structures themselves are not modified (only ptxt's buffer is written to).
  *
  * the associated data should point to an array of NULL-terminated chunks of associated data
  *
- * caller should make sure that there is enough room in ptxt for holding the decrypted ciphertext;
- * the size of the plaintext will always be less than or equal to the ciphertext ptxt
+ * caller should make sure that ptxt has enough room for holding the decrypted ciphertext;
+ * the size of the plaintext will always be less than or equal to the ciphertext size
  *
  * RETURNS: the number of bytes in the decrypted plaintext (< 0 indicates an error)
  */
-ssize_t NTS_decrypt(uint8_t *ptxt,
-                size_t ptxt_len,
-                const uint8_t *ctxt,
-                size_t ctxt_len,
+ssize_t NTS_decrypt(const struct iovec *ptxt,
+                const struct iovec *ctxt,
                 const AssociatedData *info,
                 const NTS_AEADParam *aead,
                 const uint8_t *key);

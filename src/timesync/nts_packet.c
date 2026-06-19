@@ -21,13 +21,13 @@
 /* does not check bounds */
 static void push_u16(struct iovec *data, uint16_t value) {
         unaligned_write_be16(data->iov_base, value);
-        iovec_inc_many(data, 1, 2);
+        iovec_inc(data, 2);
 }
 
 /* does not check bounds */
 static uint16_t take_u16(struct iovec *data) {
         uint16_t result = unaligned_read_be16(data->iov_base);
-        iovec_inc_many(data, 1, 2);
+        iovec_inc(data, 2);
         return result;
 }
 
@@ -65,7 +65,7 @@ static int NTS_decode_record(struct iovec *message, NTS_Record *record) {
         record->type = rec_type & 0x7FFF;
         record->body.iov_base = message->iov_base;
         record->body.iov_len = body_size;
-        iovec_inc_many(message, 1, body_size);
+        iovec_inc(message, body_size);
 
         switch (record->type) {
         case NTS_REC_Error:

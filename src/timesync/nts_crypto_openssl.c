@@ -96,10 +96,8 @@ static int process_assoc_data(
         return 0;
 }
 
-ssize_t NTS_encrypt(uint8_t *ctxt,
-                size_t ctxt_len,
-                const uint8_t *ptxt,
-                size_t ptxt_len,
+ssize_t NTS_encrypt(const struct iovec *ctxt,
+                const struct iovec *ptxt,
                 const AssociatedData *info,
                 const NTS_AEADParam *aead,
                 const uint8_t *key) {
@@ -107,12 +105,20 @@ ssize_t NTS_encrypt(uint8_t *ctxt,
         int r;
 
         assert(ctxt);
-        assert(ctxt_len <= (size_t)INT_MAX); /* OpenSSL expects an int */
         assert(ptxt);
-        assert(ptxt_len <= (size_t)INT_MAX); /* same */
         assert(info);
         assert(aead);
         assert(key);
+
+        uint8_t *ctxt_buf = ctxt->iov_base;
+        size_t ctxt_len = ctxt->iov_len;
+        const uint8_t *ptxt_buf = ptxt->iov_base;
+        size_t ptxt_len = ptxt->iov_len;
+
+        assert(ctxt_buf);
+        assert(ctxt_len <= (size_t)INT_MAX); /* OpenSSL expects an int */
+        assert(ptxt_buf);
+        assert(ptxt_len <= (size_t)INT_MAX); /* same */
 
         r = dlopen_libcrypto(LOG_ERR);
         if (r < 0)
@@ -132,13 +138,13 @@ ssize_t NTS_encrypt(uint8_t *ctxt,
         if (ctxt_len < ptxt_len + aead->block_size)
                 return -EINVAL;
 
-        uint8_t *ctxt_start = ctxt;
+        uint8_t *ctxt_start = ctxt_buf;
         uint8_t *tag;
         if (aead->tag_first) {
-                tag = ctxt;
-                ctxt += aead->block_size;
+                tag = ctxt_buf;
+                ctxt_buf += aead->block_size;
         } else
-                tag = ctxt + ptxt_len;
+                tag = ctxt_buf + ptxt_len;
 
         r = sym_EVP_EncryptInit_ex(state, cipher, /* impl= */ NULL, key, /* iv= */ NULL);
         if (r == 0)
@@ -150,20 +156,20 @@ ssize_t NTS_encrypt(uint8_t *ctxt,
 
         /* encrypt data */
         int len;
-        r = sym_EVP_EncryptUpdate(state, ctxt, &len, ptxt, ptxt_len);
+        r = sym_EVP_EncryptUpdate(state, ctxt_buf, &len, ptxt_buf, ptxt_len);
         if (r == 0)
                 return -EINVAL;
 
         assert((size_t) len <= ptxt_len);
-        ctxt += len;
+        ctxt_buf += len;
 
-        r = sym_EVP_EncryptFinal_ex(state, ctxt, &len);
+        r = sym_EVP_EncryptFinal_ex(state, ctxt_buf, &len);
         if (r == 0)
                 return -EINVAL;
 
         assert(len <= aead->block_size);
-        ctxt += len;
-        assert(ctxt - ctxt_start == (ptrdiff_t) ptxt_len + aead->tag_first * aead->block_size);
+        ctxt_buf += len;
+        assert(ctxt_buf - ctxt_start == (ptrdiff_t) ptxt_len + aead->tag_first * aead->block_size);
 
         /* append/prepend the AEAD tag */
         r = sym_EVP_CIPHER_CTX_ctrl(state, EVP_CTRL_AEAD_GET_TAG, aead->block_size, tag);
@@ -173,10 +179,8 @@ ssize_t NTS_encrypt(uint8_t *ctxt,
         return ptxt_len + aead->block_size;
 }
 
-ssize_t NTS_decrypt(uint8_t *ptxt,
-                size_t ptxt_len,
-                const uint8_t *ctxt,
-                size_t ctxt_len,
+ssize_t NTS_decrypt(const struct iovec *ptxt,
+                const struct iovec *ctxt,
                 const AssociatedData *info,
                 const NTS_AEADParam *aead,
                 const uint8_t *key) {
@@ -184,12 +188,20 @@ ssize_t NTS_decrypt(uint8_t *ptxt,
         int r;
 
         assert(ptxt);
-        assert(ptxt_len <= (size_t)INT_MAX); /* OpenSSL expects an int */
         assert(ctxt);
-        assert(ctxt_len <= (size_t)INT_MAX); /* same */
         assert(info);
         assert(aead);
         assert(key);
+
+        uint8_t *ptxt_buf = ptxt->iov_base;
+        size_t ptxt_len = ptxt->iov_len;
+        const uint8_t *ctxt_buf = ctxt->iov_base;
+        size_t ctxt_len = ctxt->iov_len;
+
+        assert(ptxt_buf);
+        assert(ptxt_len <= (size_t)INT_MAX); /* OpenSSL expects an int */
+        assert(ctxt_buf);
+        assert(ctxt_len <= (size_t)INT_MAX); /* same */
 
         r = dlopen_libcrypto(LOG_ERR);
         if (r < 0)
@@ -211,10 +223,10 @@ ssize_t NTS_decrypt(uint8_t *ptxt,
         /* set the AEAD tag */
         const uint8_t *tag;
         if (aead->tag_first) {
-                tag = ctxt;
-                ctxt += aead->block_size;
+                tag = ctxt_buf;
+                ctxt_buf += aead->block_size;
         } else
-                tag = ctxt + ctxt_len - aead->block_size;
+                tag = ctxt_buf + ctxt_len - aead->block_size;
 
         ctxt_len -= aead->block_size;
 
@@ -230,25 +242,25 @@ ssize_t NTS_decrypt(uint8_t *ptxt,
         if (r < 0)
                 return r;
 
-        uint8_t *ptxt_start = ptxt;
+        uint8_t *ptxt_start = ptxt_buf;
 
         /* decrypt data */
         int len;
-        r = sym_EVP_DecryptUpdate(state, ptxt, &len, ctxt, ctxt_len);
+        r = sym_EVP_DecryptUpdate(state, ptxt_buf, &len, ctxt_buf, ctxt_len);
         if (r == 0)
                 return -EINVAL;
 
         assert((size_t) len <= ctxt_len);
-        ptxt += len;
+        ptxt_buf += len;
 
-        r = sym_EVP_DecryptFinal_ex(state, ptxt, &len);
+        r = sym_EVP_DecryptFinal_ex(state, ptxt_buf, &len);
         if (r == 0)
                 return -EINVAL;
 
         assert(len <= aead->block_size);
-        ptxt += len;
+        ptxt_buf += len;
 
-        assert(ptxt - ptxt_start == (ptrdiff_t) ctxt_len);
+        assert(ptxt_buf - ptxt_start == (ptrdiff_t) ctxt_len);
 
         return ctxt_len;
 }
