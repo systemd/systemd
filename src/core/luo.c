@@ -107,16 +107,27 @@ int manager_luo_restore_fd_stores(Manager *m) {
 
         struct {
                 unsigned kexecs_count;
+                dual_timestamp previous_shutdown_start, previous_shutdown_finish,
+                               previous_shutdown_late_start, previous_shutdown_late_finish;
         } state_data = {};
 
         static const sd_json_dispatch_field state_dispatch_table[] = {
-                { "kexecsCount", SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint, voffsetof(state_data, kexecs_count), 0 },
+                { "kexecsCount",                 SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint,        voffsetof(state_data, kexecs_count),                  0 },
+                { "ShutdownStartTimestamp",      SD_JSON_VARIANT_OBJECT,   json_dispatch_dual_timestamp, voffsetof(state_data, previous_shutdown_start),       0 },
+                { "ShutdownFinishTimestamp",     SD_JSON_VARIANT_OBJECT,   json_dispatch_dual_timestamp, voffsetof(state_data, previous_shutdown_finish),      0 },
+                { "ShutdownLateStartTimestamp",  SD_JSON_VARIANT_OBJECT,   json_dispatch_dual_timestamp, voffsetof(state_data, previous_shutdown_late_start),  0 },
+                { "ShutdownLateFinishTimestamp", SD_JSON_VARIANT_OBJECT,   json_dispatch_dual_timestamp, voffsetof(state_data, previous_shutdown_late_finish), 0 },
                 {}
         };
 
         r = sd_json_dispatch(q.state, state_dispatch_table, SD_JSON_ALLOW_EXTENSIONS|SD_JSON_LOG, &state_data);
-        if (r >= 0)
+        if (r >= 0) {
                 m->kexecs_count = state_data.kexecs_count;
+                m->timestamps[MANAGER_TIMESTAMP_PREVIOUS_SHUTDOWN_START]       = state_data.previous_shutdown_start;
+                m->timestamps[MANAGER_TIMESTAMP_PREVIOUS_SHUTDOWN_FINISH]      = state_data.previous_shutdown_finish;
+                m->timestamps[MANAGER_TIMESTAMP_PREVIOUS_SHUTDOWN_LATE_START]  = state_data.previous_shutdown_late_start;
+                m->timestamps[MANAGER_TIMESTAMP_PREVIOUS_SHUTDOWN_LATE_FINISH] = state_data.previous_shutdown_late_finish;
+        }
 
         /* If we found a LUO session then by definition we have just successfully kexec rebooted */
         (void) INC_SAFE(&m->kexecs_count, 1);
@@ -307,7 +318,9 @@ int manager_luo_serialize_fd_stores(Manager *m, FILE **ret_f, FDSet **ret_fds) {
                         SD_JSON_BUILD_PAIR_UNSIGNED("version", LUO_PROTOCOL_VERSION),
                         SD_JSON_BUILD_PAIR("state",
                                            SD_JSON_BUILD_OBJECT(
-                                                           SD_JSON_BUILD_PAIR_UNSIGNED("kexecsCount", m->kexecs_count))),
+                                                           SD_JSON_BUILD_PAIR_UNSIGNED("kexecsCount", m->kexecs_count),
+                                                           JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL("ShutdownStartTimestamp", &m->timestamps[MANAGER_TIMESTAMP_SHUTDOWN_START]),
+                                                           JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL("ShutdownFinishTimestamp", &m->timestamps[MANAGER_TIMESTAMP_SHUTDOWN_FINISH]))),
                         SD_JSON_BUILD_PAIR_CONDITION(!!units, "units", SD_JSON_BUILD_VARIANT(units)));
         if (r < 0)
                 return log_error_errno(r, "Failed to build LUO serialization JSON: %m");

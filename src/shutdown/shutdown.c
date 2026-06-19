@@ -650,6 +650,7 @@ int main(int argc, char *argv[]) {
          * down is left, so record the late shutdown timestamp here. */
         dual_timestamp shutdown_late_finish;
         dual_timestamp_now(&shutdown_late_finish);
+        (void) luo_serialization_add_shutdown_timestamps(&luo_serialization, &shutdown_late_start, &shutdown_late_finish);
 
         if (streq(arg_verb, "exit")) {
                 if (in_container) {
