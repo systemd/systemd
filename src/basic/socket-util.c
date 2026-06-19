@@ -1724,6 +1724,7 @@ int vsock_parse_port(const char *s, unsigned *ret) {
 }
 
 int vsock_parse_cid(const char *s, unsigned *ret) {
+        int cid, r;
         assert(ret);
 
         if (!s)
@@ -1738,8 +1739,16 @@ int vsock_parse_cid(const char *s, unsigned *ret) {
                 *ret = VMADDR_CID_LOCAL;
         else if (streq(s, "host"))
                 *ret = VMADDR_CID_HOST;
-        else
-                return safe_atou(s, ret);
+        else if (streq(s, "any"))
+                *ret = VMADDR_CID_ANY;
+        else {
+                /* The CID needs to wrap to support VMADDR_CID_ANY for instance. */
+                r = safe_atoi(s, &cid);
+                if (r < 0)
+                        return r;
+
+                *ret = cid & 0xFFFFu;
+        }
 
         return 0;
 }
