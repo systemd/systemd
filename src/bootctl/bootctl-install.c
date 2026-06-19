@@ -45,6 +45,7 @@
 #include "tmpfile-util.h"
 #include "umask-util.h"
 #include "utf8.h"
+#include "varlink-util.h"
 
 typedef enum InstallOperation {
         INSTALL_NEW,
@@ -2122,6 +2123,10 @@ int vl_method_install(
 
         r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
         if (r != 0)
+                return r;
+
+        r = varlink_check_privileged_peer(link);
+        if (r < 0)
                 return r;
 
         if (!IN_SET(p.context.operation, INSTALL_NEW, INSTALL_UPDATE))

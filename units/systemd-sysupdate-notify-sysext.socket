@@ -8,20 +8,19 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Automatic Boot Loader Update
-Documentation=man:bootctl(1)
+Description=System Extension and Configuration Refresh on Completed System Update
+Documentation=man:systemd-sysext(8)
 DefaultDependencies=no
-ConditionPathExists=!/etc/initrd-release
-ConditionFirmware=uefi
 After=local-fs.target
-Before=sysinit.target systemd-update-done.service
-Conflicts=shutdown.target
-Before=shutdown.target
+Before=sockets.target
+ConditionCapability=CAP_SYS_ADMIN
 
-[Service]
-Type=oneshot
-RemainAfterExit=yes
-ExecStart=bootctl --variables=no --graceful update
+[Socket]
+ListenStream=/run/systemd/sysupdate/notify/io.systemd.sysext
+FileDescriptorName=varlink
+SocketMode=0600
+Accept=yes
+MaxConnectionsPerSource=16
 
 [Install]
-WantedBy=sysinit.target
+WantedBy=sockets.target
