@@ -358,7 +358,7 @@ int pcrextend_imds_userdata_word(const struct iovec *data, char **ret) {
         /* We include both a hash of the complete user data, and a truncated version of the data in the word
          * we measure. The former protects the actual data, the latter is useful for debugging. */
 
-        _cleanup_free_ char *hash = hexmem(SHA256_DIRECT(data->iov_base, data->iov_len), SHA256_DIGEST_SIZE);
+        _cleanup_free_ char *hash = sha256_direct_hex(data->iov_base, data->iov_len);
         if (!hash)
                 return log_oom();
 
