@@ -25,6 +25,10 @@ ssize_t NTS_encrypt(
         const uint8_t *ptxt_buf = ptxt->iov_base;
         size_t ptxt_len = ptxt->iov_len;
 
+        /* Bounds assertions enforced in NTS_encrypt */
+        assert(ctxt_len <= (size_t) INT_MAX);
+        assert(ptxt_len <= (size_t) INT_MAX);
+
         assert(ctxt_len >= ptxt_len + BLKSIZ);
 
         memset(ctxt_buf, 0xEE, BLKSIZ);
@@ -47,6 +51,10 @@ ssize_t NTS_decrypt(
         const uint8_t *ctxt_buf = ctxt->iov_base;
         size_t ctxt_len = ctxt->iov_len;
 
+        /* Bounds assertions enforced in NTS_decrypt */
+        assert(ptxt_len <= (size_t) INT_MAX);
+        assert(ctxt_len <= (size_t) INT_MAX);
+
         if (ctxt_len < BLKSIZ)
                 return -EINVAL;
 
@@ -57,8 +65,14 @@ ssize_t NTS_decrypt(
 }
 
 const NTS_AEADParam* NTS_get_param(NTS_AEADAlgorithmType id) {
-        static NTS_AEADParam param = {
-                NTS_AEAD_AES_SIV_CMAC_256, 256/8, BLKSIZ, BLKSIZ, true, false, "AES-128-SIV"
+        static const NTS_AEADParam param = {
+                .aead_id     = NTS_AEAD_AES_SIV_CMAC_256,
+                .key_size    = 256/8,
+                .block_size  = BLKSIZ,
+                .nonce_size  = BLKSIZ,
+                .tag_first   = true,
+                .nonce_is_iv = false,
+                .cipher_name = "AES-128-SIV",
         };
-        return id? &param : NULL;
+        return id ? &param : NULL;
 }
