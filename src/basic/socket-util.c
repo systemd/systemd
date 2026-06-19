@@ -1729,8 +1729,8 @@ int vsock_parse_cid(const char *s, unsigned *ret) {
         if (!s)
                 return -EINVAL;
 
-        /* Parsed an AF_VSOCK "CID". This is a 32bit entity, and the usual type is "unsigned". We recognize
-         * the three special CIDs as strings, and otherwise parse the numeric CIDs. */
+        /* Parsed an AF_VSOCK "CID". This is a 32bit entity. We recognize
+         * four special CIDs as strings, and otherwise parse the numeric CIDs. */
 
         if (streq(s, "hypervisor"))
                 *ret = VMADDR_CID_HYPERVISOR;
@@ -1738,8 +1738,10 @@ int vsock_parse_cid(const char *s, unsigned *ret) {
                 *ret = VMADDR_CID_LOCAL;
         else if (streq(s, "host"))
                 *ret = VMADDR_CID_HOST;
+        else if (streq(s, "any"))
+                *ret = VMADDR_CID_ANY;
         else
-                return safe_atou(s, ret);
+                return safe_atoi(s, ret);
 
         return 0;
 }
