@@ -79,14 +79,14 @@ static int process_assoc_data(
                 if (last->iov_len != aead->nonce_size)
                         return -EINVAL;
 
-                r = CryptInit_ex(state, NULL, NULL, NULL, last->iov_base);
+                r = CryptInit_ex(state, /* type= */ NULL, /* impl= */ NULL, /* key= */ NULL, last->iov_base);
                 if (r == 0)
                         return -EINVAL;
         }
 
         for ( ; info->iov_base && info != last; info++) {
                 int len = 0;
-                r = CryptUpdate(state, NULL, &len, info->iov_base, info->iov_len);
+                r = CryptUpdate(state, /* out= */ NULL, &len, info->iov_base, info->iov_len);
                 if (r == 0)
                         return -EINVAL;
 
@@ -105,7 +105,6 @@ ssize_t NTS_encrypt(uint8_t *ctxt,
                 const uint8_t *key) {
 
         int r;
-        int len;
 
         assert(ctxt);
         assert(ctxt_len <= (size_t)INT_MAX); /* OpenSSL expects an int */
@@ -124,7 +123,7 @@ ssize_t NTS_encrypt(uint8_t *ctxt,
         if (!state)
                 return -ENOMEM;
 
-        cipher = sym_EVP_CIPHER_fetch(NULL, aead->cipher_name, NULL);
+        cipher = sym_EVP_CIPHER_fetch(/* ctx= */ NULL, aead->cipher_name, /* properties= */ NULL);
         if (!cipher)
                 return -EINVAL;
 
@@ -141,7 +140,7 @@ ssize_t NTS_encrypt(uint8_t *ctxt,
         } else
                 tag = ctxt + ptxt_len;
 
-        r = sym_EVP_EncryptInit_ex(state, cipher, NULL, key, NULL);
+        r = sym_EVP_EncryptInit_ex(state, cipher, /* impl= */ NULL, key, /* iv= */ NULL);
         if (r == 0)
                 return -EINVAL;
 
@@ -150,6 +149,7 @@ ssize_t NTS_encrypt(uint8_t *ctxt,
                 return r;
 
         /* encrypt data */
+        int len;
         r = sym_EVP_EncryptUpdate(state, ctxt, &len, ptxt, ptxt_len);
         if (r == 0)
                 return -EINVAL;
@@ -182,7 +182,6 @@ ssize_t NTS_decrypt(uint8_t *ptxt,
                 const uint8_t *key) {
 
         int r;
-        int len;
 
         assert(ptxt);
         assert(ptxt_len <= (size_t)INT_MAX); /* OpenSSL expects an int */
@@ -205,7 +204,7 @@ ssize_t NTS_decrypt(uint8_t *ptxt,
         if (ctxt_len < aead->block_size || ptxt_len < ctxt_len - aead->block_size)
                 return -EINVAL;
 
-        cipher = sym_EVP_CIPHER_fetch(NULL, aead->cipher_name, NULL);
+        cipher = sym_EVP_CIPHER_fetch(/* ctx= */ NULL, aead->cipher_name, /* properties= */ NULL);
         if (!cipher)
                 return -EINVAL;
 
@@ -219,7 +218,7 @@ ssize_t NTS_decrypt(uint8_t *ptxt,
 
         ctxt_len -= aead->block_size;
 
-        r = sym_EVP_DecryptInit_ex(state, cipher, NULL, key, NULL);
+        r = sym_EVP_DecryptInit_ex(state, cipher, /* impl= */ NULL, key, /* iv= */ NULL);
         if (r == 0)
                 return -EINVAL;
 
@@ -234,6 +233,7 @@ ssize_t NTS_decrypt(uint8_t *ptxt,
         uint8_t *ptxt_start = ptxt;
 
         /* decrypt data */
+        int len;
         r = sym_EVP_DecryptUpdate(state, ptxt, &len, ctxt, ctxt_len);
         if (r == 0)
                 return -EINVAL;

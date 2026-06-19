@@ -14,14 +14,9 @@ ssize_t NTS_encrypt(uint8_t *ctxt,
                 size_t ctxt_len,
                 const uint8_t *ptxt,
                 size_t ptxt_len,
-                const AssociatedData *info,
-                const NTS_AEADParam *aead,
-                const uint8_t *key) {
-
-        /* avoid 'unused' warnings */
-        (void) info;
-        (void) aead;
-        (void) key;
+                _unused_ const AssociatedData *info,
+                _unused_ const NTS_AEADParam *aead,
+                _unused_ const uint8_t *key) {
 
         assert(ctxt_len >= ptxt_len + BLKSIZ);
 
@@ -34,15 +29,9 @@ ssize_t NTS_decrypt(uint8_t *ptxt,
                 size_t ptxt_len,
                 const uint8_t *ctxt,
                 size_t ctxt_len,
-                const AssociatedData *info,
-                const NTS_AEADParam *aead,
-                const uint8_t *key) {
-
-        /* avoid 'unused' warnings */
-        (void) info;
-        (void) aead;
-        (void) key;
-        (void) ptxt_len;
+                _unused_ const AssociatedData *info,
+                _unused_ const NTS_AEADParam *aead,
+                _unused_ const uint8_t *key) {
 
         if (ctxt_len < BLKSIZ)
                 return -EINVAL;

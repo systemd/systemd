@@ -38,7 +38,7 @@ int NTS_TLS_extract_keys(
                                         tls,
                                         keys[i], info->key_size,
                                         label, strlen(label),
-                                        context, sizeof context, 1)
+                                        context, sizeof context, /* use_context= */ 1)
                                 != 1)
                         return -EBADE;
         }
@@ -155,7 +155,7 @@ int NTS_TLS_setup(
         if (!tls)
                 return -ENOMEM;
 
-        sym_SSL_set_verify(tls, SSL_VERIFY_PEER, NULL);
+        sym_SSL_set_verify(tls, SSL_VERIFY_PEER, /* callback= */ NULL);
         r = sym_SSL_set1_host(tls, hostname);
         if (r != 1)
                 return -EIO;

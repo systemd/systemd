@@ -147,19 +147,19 @@ ssize_t NTS_encode_request(
         }
 
         int result;
-        result = NTS_encode_record_u16(&request, true, NTS_REC_NextProto, proto, ELEMENTSOF(proto));
+        result = NTS_encode_record_u16(&request, /* critical= */ true, NTS_REC_NextProto, proto, ELEMENTSOF(proto));
         if (result < 0)
                 return result;
 
-        result = NTS_encode_record_u16(&request, true, NTS_REC_AEADAlgorithm, aead, aead_len);
+        result = NTS_encode_record_u16(&request, /* critical= */ true, NTS_REC_AEADAlgorithm, aead, aead_len);
         if (result < 0)
                 return result;
 #ifdef CHRONY_WORKAROUND
-        result = NTS_encode_record_u16(&request, false, NTS_REC_Chrony_BugWorkaround, NULL, 0);
+        result = NTS_encode_record_u16(&request, /* critical= */ false, NTS_REC_Chrony_BugWorkaround, NULL, 0);
         if (result < 0)
                 return result;
 #endif
-        result = NTS_encode_record_u16(&request, true, NTS_REC_EndOfMessage, NULL, 0);
+        result = NTS_encode_record_u16(&request, /* critical= */ true, NTS_REC_EndOfMessage, NULL, 0);
         if (result < 0)
                 return result;
 

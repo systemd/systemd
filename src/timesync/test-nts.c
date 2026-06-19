@@ -38,7 +38,7 @@ TEST(nts_encoding) {
         uint8_t buffer[1000];
         NTS_Agreement rec;
 
-        NTS_encode_request(buffer, sizeof buffer, NULL);
+        NTS_encode_request(buffer, sizeof buffer, /* preferred_crypto= */ NULL);
         assert_se(NTS_decode_response(buffer, 1000, &rec) == 0);
         assert_se(rec.error == NTS_SUCCESS);
         assert_se(rec.ntp_server == NULL);
@@ -211,12 +211,12 @@ static void add_encrypted_server_hdr(
                 *corrupt = 0xee;
 
         /* encrypt fields */
-        EVP_CIPHER *cipher = sym_EVP_CIPHER_fetch(NULL, "AES-128-SIV", NULL);
+        EVP_CIPHER *cipher = sym_EVP_CIPHER_fetch(/* ctx= */ NULL, "AES-128-SIV", /* properties= */ NULL);
         EVP_CIPHER_CTX *ctx = sym_EVP_CIPHER_CTX_new();
         int ignore;
-        sym_EVP_EncryptInit_ex(ctx, cipher, NULL, nts.s2c_key, NULL);
-        sym_EVP_EncryptUpdate(ctx, NULL, &ignore, buffer, af - buffer);
-        sym_EVP_EncryptUpdate(ctx, NULL, &ignore, (uint8_t*)"123NONCE", 8);
+        sym_EVP_EncryptInit_ex(ctx, cipher, /* impl= */ NULL, nts.s2c_key, /* iv= */ NULL);
+        sym_EVP_EncryptUpdate(ctx, /* out= */ NULL, &ignore, buffer, af - buffer);
+        sym_EVP_EncryptUpdate(ctx, /* out= */ NULL, &ignore, (uint8_t*)"123NONCE", 8);
         sym_EVP_EncryptUpdate(ctx, pt, &ignore, pt, *p_ptr - pt);
         sym_EVP_EncryptFinal_ex(ctx, buffer, &ignore);
         assert_se(ignore == 0);

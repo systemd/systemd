@@ -151,15 +151,13 @@ static void serve_ntp_request(int sock, AEADKey c2s, AEADKey s2c, int sabotage) 
 }
 
 static int alpn_select(
-                SSL *ssl,
+                _unused_ SSL *ssl,
                 const unsigned char **out,
                 unsigned char *outlen,
                 const unsigned char *in,
                 unsigned int inlen,
-                void *arg) {
+                _unused_ void *arg) {
 
-        (void) ssl;
-        (void) arg;
         soft_assert(SSL_select_next_proto((unsigned char**)out, outlen, (unsigned char*)"\x07ntske/1", 8, in, inlen) == OPENSSL_NPN_NEGOTIATED);
         return SSL_TLSEXT_ERR_OK;
 }
@@ -172,7 +170,7 @@ static void wait_for_nts_ke(AEADKey c2s, AEADKey s2c, int sabotage) {
         soft_assert(SSL_CTX_use_certificate_chain_file(ctx, "server.crt") > 0);
         soft_assert(SSL_CTX_use_PrivateKey_file(ctx, "server.key", SSL_FILETYPE_PEM) > 0);
 
-        SSL_CTX_set_alpn_select_cb(ctx, alpn_select, NULL);
+        SSL_CTX_set_alpn_select_cb(ctx, alpn_select, /* arg= */ NULL);
 
         SSL *tls = SSL_new(ctx);
         soft_assert(tls);
@@ -183,7 +181,7 @@ static void wait_for_nts_ke(AEADKey c2s, AEADKey s2c, int sabotage) {
         soft_assert(BIO_do_accept(acceptor) > 0);
         soft_assert(BIO_do_accept(acceptor) > 0);
         BIO *bio = BIO_pop(acceptor);
-        close(BIO_get_fd(acceptor, NULL));
+        close(BIO_get_fd(acceptor, /* c= */ NULL));
 
         soft_assert(bio);
 

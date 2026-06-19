@@ -78,7 +78,7 @@ ssize_t NTS_add_extension_fields(
         /* write unencrypted extra cookiefields */
         int placeholders = nts->extra_cookies;
         for ( ; placeholders > ENCRYPTED_PLACEHOLDERS; placeholders--) {
-                r = write_ntp_ext_field(&buf, NTS_EF_CookiePlaceholder, NULL, nts->cookie.iov_len, 16);
+                r = write_ntp_ext_field(&buf, NTS_EF_CookiePlaceholder, /* contents= */ NULL, nts->cookie.iov_len, 16);
                 if (r < 0)
                         return r;
         }
@@ -110,13 +110,13 @@ ssize_t NTS_add_extension_fields(
         /* bug in OpenSSL: https://github.com/openssl/openssl/issues/26580,
            which means that a ciphertext HAS TO BE PRESENT */
         if (placeholders == 0) {
-                r = write_ntp_ext_field(&ptxt, NTS_EF_NoOpField, NULL, 0, 0);
+                r = write_ntp_ext_field(&ptxt, NTS_EF_NoOpField, /* contents= */ NULL, 0, 0);
                 if (r < 0)
                         return r;
         }
 #endif
         while (placeholders-- > 0) {
-                r = write_ntp_ext_field(&ptxt, NTS_EF_CookiePlaceholder, NULL, nts->cookie.iov_len, 0);
+                r = write_ntp_ext_field(&ptxt, NTS_EF_CookiePlaceholder, /* contents= */ NULL, nts->cookie.iov_len, 0);
                 if (r < 0)
                         return r;
         }
@@ -183,7 +183,7 @@ ssize_t NTS_parse_extension_fields(
 
         while (buf.iov_len >= 4) {
                 uint16_t type, len;
-                decode_hdr(&type, &len, buf, 0);
+                decode_hdr(&type, &len, buf, /* offset= */ 0);
                 if (len < 4 || buf.iov_len < len)
                         return -EBADMSG;
 
@@ -199,7 +199,7 @@ ssize_t NTS_parse_extension_fields(
                         break;
                 case NTS_EF_AuthEncExtFields: {
                         uint16_t nonce_len, ciph_len;
-                        decode_hdr(&nonce_len, &ciph_len, buf, 4);
+                        decode_hdr(&nonce_len, &ciph_len, buf, /* offset= */ 4);
                         /* check that the advertised nonce / cipher lengths + header don't exceed the outer length,
                          * which would be a malicious packet; the sizes don't need to match exactly since there may
                          * also be padding here */
@@ -228,7 +228,7 @@ ssize_t NTS_parse_extension_fields(
 
                         while (plain.iov_len >= 4) {
                                 uint16_t inner_type, inner_len;
-                                decode_hdr(&inner_type, &inner_len, plain, 0);
+                                decode_hdr(&inner_type, &inner_len, plain, /* offset= */ 0);
                                 /* check that our buffer has enough room and the advertised length is valid */
                                 if (plain.iov_len < inner_len || inner_len < 4)
                                         return -EBADMSG;
