@@ -32,6 +32,7 @@
 #include "parse-argument.h"
 #include "path-util.h"
 #include "recurse-dir.h"
+#include "set.h"
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
@@ -39,6 +40,8 @@
 #include "tmpfile-util.h"
 #include "uki.h"
 #include "utf8.h"
+#include "varlink-util.h"
+#include "vpick.h"
 
 /* Keeps track of an "extra" file to associate with the type 1 entries to generate */
 typedef struct ExtraFile {
@@ -205,77 +208,14 @@ static void link_context_done(LinkContext *c) {
         c->linked_ids = strv_free(c->linked_ids);
 }
 
-static int link_context_from_cmdline(LinkContext *ret, const char *kernel) {
+static int link_context_acquire_dollar_boot(LinkContext *b) {
         int r;
 
-        assert(ret);
-        assert(kernel);
-
-        _cleanup_(link_context_done) LinkContext b = LINK_CONTEXT_NULL;
-        b.entry_token_type = arg_entry_token_type;
-        b.tries_left = arg_tries_left;
-        b.entry_commit = arg_entry_commit;
-        b.keep_free = arg_keep_free;
-
-        if (strdup_to(&b.entry_token, arg_entry_token) < 0 ||
-            strdup_to(&b.entry_title, arg_entry_title) < 0 ||
-            strdup_to(&b.entry_version, arg_entry_version) < 0)
-                return log_oom();
-
-        if (arg_root) {
-                b.root_fd = open(arg_root, O_CLOEXEC|O_DIRECTORY|O_PATH);
-                if (b.root_fd < 0)
-                        return log_error_errno(errno, "Failed to open root directory '%s': %m", arg_root);
-
-                if (strdup_to(&b.root, arg_root) < 0)
-                        return log_oom();
-        } else
-                b.root_fd = XAT_FDROOT;
-
-        r = path_extract_filename(kernel, &b.kernel_filename);
-        if (r < 0)
-                return log_error_errno(r, "Failed to extract filename from kernel path '%s': %m", kernel);
-        if (!efi_loader_entry_resource_filename_valid(b.kernel_filename))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Kernel '%s' is not suitable for reference in a boot menu entry.", kernel);
-        b.kernel_fd = xopenat_full(AT_FDCWD, kernel, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY, XO_REGULAR, /* mode= */ MODE_INVALID);
-        if (b.kernel_fd < 0)
-                return log_error_errno(b.kernel_fd, "Failed to open kernel path '%s': %m", kernel);
-
-        KernelImageType kit = _KERNEL_IMAGE_TYPE_INVALID;
-        r = inspect_kernel(b.kernel_fd, /* filename= */ NULL, &kit);
-        if (r == -EBADMSG)
-                return log_error_errno(r, "Kernel image '%s' is not valid.", kernel);
-        if (r < 0)
-                return log_error_errno(r, "Failed to determine kernel image type of '%s': %m", kernel);
-        if (kit != KERNEL_IMAGE_TYPE_UKI)
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Kernel image '%s' is not a UKI.", kernel);
-
-        STRV_FOREACH(x, arg_extras) {
-                _cleanup_free_ char *fn = NULL;
-                r = path_extract_filename(*x, &fn);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to extract filename from path '%s': %m", *x);
-                if (r == O_DIRECTORY)
-                        return log_error_errno(SYNTHETIC_ERRNO(EISDIR), "Extra file path '%s' does not refer to regular file.", *x);
-
-                _cleanup_close_ int fd = -EBADF;
-                fd = xopenat_full(AT_FDCWD, *x, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY, XO_REGULAR, /* mode= */ MODE_INVALID);
-                if (fd < 0)
-                        return log_error_errno(fd, "Failed to open '%s': %m", *x);
-
-                if (!GREEDY_REALLOC(b.extra, b.n_extra+1))
-                        return log_oom();
-
-                b.extra[b.n_extra++] = (ExtraFile) {
-                        .source_fd = TAKE_FD(fd),
-                        .filename = TAKE_PTR(fn),
-                        .temp_fd = -EBADF,
-                };
-        }
+        assert(b);
 
         r = acquire_xbootldr(
                         /* unprivileged_mode= */ false,
-                        &b.dollar_boot_fd,
+                        &b->dollar_boot_fd,
                         /* ret_uuid= */ NULL,
                         /* ret_devid= */ NULL);
         if (r < 0)
@@ -288,19 +228,19 @@ static int link_context_from_cmdline(LinkContext *ret, const char *kernel) {
                         if (!e)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "XBOOTLDR path '%s' not below specified root '%s', refusing.", arg_xbootldr_path, arg_root);
 
-                        r = strdup_to(&b.dollar_boot_path, e);
+                        r = strdup_to(&b->dollar_boot_path, e);
                 } else
-                        r = strdup_to(&b.dollar_boot_path, arg_xbootldr_path);
+                        r = strdup_to(&b->dollar_boot_path, arg_xbootldr_path);
                 if (r < 0)
                         return log_oom();
 
-                b.dollar_boot_source = BOOT_ENTRY_XBOOTLDR;
+                b->dollar_boot_source = BOOT_ENTRY_XBOOTLDR;
         } else {
                 /* No XBOOTLDR has been found, look for ESP */
 
                 r = acquire_esp(/* unprivileged_mode= */ false,
                                 /* graceful= */ false,
-                                &b.dollar_boot_fd,
+                                &b->dollar_boot_fd,
                                 /* ret_part= */ NULL,
                                 /* ret_pstart= */ NULL,
                                 /* ret_psize= */ NULL,
@@ -316,14 +256,125 @@ static int link_context_from_cmdline(LinkContext *ret, const char *kernel) {
                         if (!e)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "ESP path '%s' not below specified root '%s', refusing.", arg_esp_path, arg_root);
 
-                        r = strdup_to(&b.dollar_boot_path, e);
+                        r = strdup_to(&b->dollar_boot_path, e);
                 } else
-                        r = strdup_to(&b.dollar_boot_path, arg_esp_path);
+                        r = strdup_to(&b->dollar_boot_path, arg_esp_path);
                 if (r < 0)
                         return log_oom();
 
-                b.dollar_boot_source = BOOT_ENTRY_ESP;
+                b->dollar_boot_source = BOOT_ENTRY_ESP;
         }
+
+        return 0;
+}
+
+/* Fills the bits of a LinkContext that both "bootctl link" and "bootctl link-auto" derive from the global
+ * command line options (everything except the kernel image and extra files themselves). */
+static int link_context_from_cmdline_common(LinkContext *b) {
+        assert(b);
+
+        b->entry_token_type = arg_entry_token_type;
+        b->tries_left = arg_tries_left;
+        b->entry_commit = arg_entry_commit;
+        b->keep_free = arg_keep_free;
+
+        if (strdup_to(&b->entry_token, arg_entry_token) < 0 ||
+            strdup_to(&b->entry_title, arg_entry_title) < 0 ||
+            strdup_to(&b->entry_version, arg_entry_version) < 0)
+                return log_oom();
+
+        if (arg_root) {
+                b->root_fd = open(arg_root, O_CLOEXEC|O_DIRECTORY|O_PATH);
+                if (b->root_fd < 0)
+                        return log_error_errno(errno, "Failed to open root directory '%s': %m", arg_root);
+
+                if (strdup_to(&b->root, arg_root) < 0)
+                        return log_oom();
+        } else
+                b->root_fd = XAT_FDROOT;
+
+        return 0;
+}
+
+/* Appends the files passed via --extra= on the command line as extra resources to the link context. */
+static int link_context_add_cmdline_extras(LinkContext *b) {
+        int r;
+
+        assert(b);
+
+        STRV_FOREACH(x, arg_extras) {
+                _cleanup_free_ char *fn = NULL;
+                r = path_extract_filename(*x, &fn);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to extract filename from path '%s': %m", *x);
+                if (r == O_DIRECTORY)
+                        return log_error_errno(SYNTHETIC_ERRNO(EISDIR), "Extra file path '%s' does not refer to regular file.", *x);
+
+                _cleanup_close_ int fd = xopenat_full(AT_FDCWD, *x, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY, XO_REGULAR, /* mode= */ MODE_INVALID);
+                if (fd < 0)
+                        return log_error_errno(fd, "Failed to open '%s': %m", *x);
+
+                if (!GREEDY_REALLOC(b->extra, b->n_extra+1))
+                        return log_oom();
+
+                b->extra[b->n_extra++] = (ExtraFile) {
+                        .source_fd = TAKE_FD(fd),
+                        .filename = TAKE_PTR(fn),
+                        .temp_fd = -EBADF,
+                };
+        }
+
+        return 0;
+}
+
+static int validate_kernel(int kernel_fd, const char *filename) {
+        int r;
+
+        assert(kernel_fd >= 0);
+
+        KernelImageType kit = _KERNEL_IMAGE_TYPE_INVALID;
+        r = inspect_kernel(kernel_fd, /* filename= */ NULL, &kit);
+        if (r == -EBADMSG)
+                return log_error_errno(r, "UKI '%s' is not valid.", filename);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine kernel image type of '%s': %m", filename);
+        if (kit != KERNEL_IMAGE_TYPE_UKI)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Image '%s' is not a UKI.", filename);
+
+        return 0;
+}
+
+static int link_context_from_cmdline(LinkContext *ret, const char *kernel) {
+        int r;
+
+        assert(ret);
+        assert(kernel);
+
+        _cleanup_(link_context_done) LinkContext b = LINK_CONTEXT_NULL;
+        r = link_context_from_cmdline_common(&b);
+        if (r < 0)
+                return r;
+
+        r = path_extract_filename(kernel, &b.kernel_filename);
+        if (r < 0)
+                return log_error_errno(r, "Failed to extract filename from kernel path '%s': %m", kernel);
+        if (!efi_loader_entry_resource_filename_valid(b.kernel_filename))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Kernel '%s' is not suitable for reference in a boot menu entry.", kernel);
+        b.kernel_fd = xopenat_full(AT_FDCWD, kernel, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY, XO_REGULAR, /* mode= */ MODE_INVALID);
+        if (b.kernel_fd < 0)
+                return log_error_errno(b.kernel_fd, "Failed to open kernel path '%s': %m", kernel);
+
+        r = validate_kernel(b.kernel_fd, kernel);
+        if (r < 0)
+                return r;
+
+        r = link_context_add_cmdline_extras(&b);
+        if (r < 0)
+                return r;
+
+        r = link_context_acquire_dollar_boot(&b);
+        if (r < 0)
+                return r;
 
         *ret = TAKE_GENERIC(b, LinkContext, LINK_CONTEXT_NULL);
         return 0;
@@ -993,6 +1044,302 @@ int verb_link(int argc, char *argv[], uintptr_t data, void *userdata) {
         return run_link(&c);
 }
 
+/* Directories (relative to the operative root) below which "bootctl link-auto" looks for a staged UKI and
+ * extra resources, in decreasing priority order. /var/lib/systemd/uki/ is where systemd-sysupdate stages
+ * downloaded resources; the others follow the usual configuration search path precedence, with
+ * /var/lib/ slotted in just below the volatile locations and above the vendor trees. */
+static const char* const uki_auto_dirs[] = {
+        "etc/systemd/uki",
+        "run/systemd/uki",
+        "var/lib/systemd/uki",
+        "usr/local/lib/systemd/uki",
+        "usr/lib/systemd/uki",
+};
+
+static const PickFilter pick_filter_uki = {
+        .type_mask = UINT32_C(1) << DT_REG,
+        .architecture = _ARCHITECTURE_INVALID,
+        .suffix = ".efi",
+};
+
+/* The recognized suffixes of extra resources we pick up alongside the UKI. Each may appear as a plain file
+ * (e.g. foo.sysext.raw) or as a versioned directory (e.g. foo.sysext.raw.v/) resolved via the vpick
+ * mechanism. */
+static const char* const auto_link_extra_suffixes[] = {
+        ".sysext.raw",
+        ".confext.raw",
+        ".cred",
+};
+
+static int link_context_add_extra(LinkContext *c, int dir_fd, const char *path, const char *filename) {
+        assert(c);
+        assert(dir_fd >= 0);
+        assert(path);
+        assert(filename);
+
+        if (!efi_loader_entry_resource_filename_valid(filename))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Extra file '%s' is not suitable for reference in a boot menu entry, refusing.", filename);
+
+        _cleanup_close_ int fd = xopenat_full(dir_fd, path, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY, XO_REGULAR, /* mode= */ MODE_INVALID);
+        if (fd < 0)
+                return log_error_errno(fd, "Failed to open extra file '%s': %m", path);
+
+        _cleanup_free_ char *fn = strdup(filename);
+        if (!fn)
+                return log_oom();
+
+        if (!GREEDY_REALLOC(c->extra, c->n_extra + 1))
+                return log_oom();
+
+        c->extra[c->n_extra++] = (ExtraFile) {
+                .source_fd = TAKE_FD(fd),
+                .filename = TAKE_PTR(fn),
+                .temp_fd = -EBADF,
+        };
+
+        return 0;
+}
+
+/* Adds the extra resources found in <uki_dir_fd>/extras.d/ to the link context. The 'seen' set tracks the
+ * logical resource names already added by a higher-priority directory, so the same resource appearing in
+ * multiple directories is taken from the highest-priority one only. */
+static int link_context_add_extras(LinkContext *c, int uki_dir_fd, Set **seen) {
+        int r;
+
+        assert(c);
+        assert(uki_dir_fd >= 0);
+        assert(seen);
+
+        _cleanup_close_ int extras_dir_fd = chase_and_openat(
+                        c->root_fd,
+                        uki_dir_fd,
+                        "extras.d",
+                        /* chase_flags= */ 0,
+                        O_DIRECTORY|O_CLOEXEC,
+                        /* ret_path= */ NULL);
+        if (extras_dir_fd == -ENOENT)
+                return 0;
+        if (extras_dir_fd < 0)
+                return log_error_errno(extras_dir_fd, "Failed to open extras.d/ directory: %m");
+
+        _cleanup_free_ DirectoryEntries *des = NULL;
+        r = readdir_all(extras_dir_fd, RECURSE_DIR_IGNORE_DOT|RECURSE_DIR_ENSURE_TYPE|RECURSE_DIR_SORT, &des);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enumerate extras.d/ directory: %m");
+
+        FOREACH_ARRAY(i, des->entries, des->n_entries) {
+                struct dirent *de = *i;
+
+                if (!IN_SET(de->d_type, DT_DIR, DT_REG))
+                        continue;
+
+                FOREACH_ELEMENT(suffix, auto_link_extra_suffixes) {
+                        _cleanup_free_ char *dot_v = strjoin(*suffix, ".v");
+                        if (!dot_v)
+                                return log_oom();
+
+                        bool versioned;
+                        _cleanup_free_ char *key = NULL;
+                        if (endswith(de->d_name, *suffix)) {
+                                if (de->d_type != DT_REG)
+                                        continue;
+
+                                versioned = false;
+                                key = strdup(de->d_name);
+                        } else if (endswith(de->d_name, dot_v)) {
+
+                                if (de->d_type != DT_DIR)
+                                        continue;
+
+                                /* The dedup key is the directory entry name with any trailing ".v" stripped, so that
+                                 * a plain file and a versioned directory of the same resource collapse, and a
+                                 * higher-priority directory wins. */
+                                versioned = true;
+                                key = strndup(de->d_name, strlen(de->d_name) - strlen(".v"));
+                        } else
+                                continue;
+                        if (!key)
+                                return log_oom();
+
+                        if (set_contains(*seen, key))
+                                break;
+
+                        if (versioned) {
+                                /* A versioned directory: resolve the best version via vpick, relative to the
+                                 * extras directory fd. We deliberately do not honour boot-counting suffixes
+                                 * here. */
+                                _cleanup_(pick_result_done) PickResult pick = PICK_RESULT_NULL;
+                                const PickFilter filter = {
+                                        .type_mask = UINT32_C(1) << DT_REG,
+                                        .architecture = _ARCHITECTURE_INVALID,
+                                        .suffix = *suffix,
+                                };
+
+                                r = path_pick(/* root_path= */ NULL,
+                                              /* root_fd= */ c->root_fd,
+                                              /* dir_fd= */ extras_dir_fd,
+                                              de->d_name,
+                                              &filter,
+                                              /* n_filters= */ 1,
+                                              /* flags= */ 0,
+                                              &pick);
+                                if (r == -ENOENT || r == 0) {
+                                        log_debug("No matching entry in versioned directory '%s', skipping.", de->d_name);
+                                        break;
+                                }
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to pick version in '%s': %m", de->d_name);
+
+                                _cleanup_free_ char *fn = NULL;
+                                r = path_extract_filename(pick.path, &fn);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to extract filename from '%s': %m", pick.path);
+
+                                r = link_context_add_extra(c, extras_dir_fd, pick.path, fn);
+                        } else
+                                /* A plain file. */
+                                r = link_context_add_extra(c, extras_dir_fd, de->d_name, de->d_name);
+                        if (r < 0)
+                                return r;
+
+                        r = set_ensure_consume(seen, &string_hash_ops_free, TAKE_PTR(key));
+                        if (r < 0)
+                                return log_oom();
+
+                        break;
+                }
+        }
+
+        return 0;
+}
+
+/* Looks for a UKI (kernel.efi, or the best version in kernel.efi.v/) in the directory referenced by
+ * uki_dir_fd and, if found, fills c->kernel_fd and c->kernel_filename. Returns 1 if found, 0 if not, and a
+ * negative errno on error. We deliberately do not honour boot-counting suffixes here. */
+static int link_context_find_kernel(LinkContext *c, int uki_dir_fd) {
+        int r;
+
+        assert(c);
+        assert(uki_dir_fd >= 0);
+
+        _cleanup_free_ char *filename = NULL;
+        _cleanup_close_ int kernel_fd = xopenat_full(uki_dir_fd, "kernel.efi", O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY, XO_REGULAR, /* mode= */ MODE_INVALID);
+        if (kernel_fd == -ENOENT) {
+                _cleanup_(pick_result_done) PickResult pick = PICK_RESULT_NULL;
+                r = path_pick(/* root_path= */ NULL,
+                              /* root_fd= */ c->root_fd,
+                              /* dir_fd= */ uki_dir_fd,
+                              "kernel.efi.v",
+                              &pick_filter_uki,
+                              /* n_filters= */ 1,
+                              /* flags= */ 0,
+                              &pick);
+                if (r == -ENOENT || r == 0)
+                        return 0;
+                if (r < 0)
+                        return log_error_errno(r, "Failed to pick UKI version in 'kernel.efi.v': %m");
+
+                r = path_extract_filename(pick.path, &filename);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to extract filename from '%s': %m", pick.path);
+
+                kernel_fd = xopenat_full(uki_dir_fd, pick.path, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY, XO_REGULAR, /* mode= */ MODE_INVALID);
+                if (kernel_fd < 0)
+                        return log_error_errno(kernel_fd, "Failed to open UKI '%s': %m", pick.path);
+        } else if (kernel_fd < 0)
+                return log_error_errno(kernel_fd, "Failed to open 'kernel.efi': %m");
+        else {
+                filename = strdup("kernel.efi");
+                if (!filename)
+                        return log_oom();
+        }
+
+        if (!efi_loader_entry_resource_filename_valid(filename))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "UKI '%s' is not suitable for reference in a boot menu entry.", filename);
+
+        r = validate_kernel(kernel_fd, filename);
+        if (r < 0)
+                return r;
+
+        c->kernel_fd = TAKE_FD(kernel_fd);
+        c->kernel_filename = TAKE_PTR(filename);
+        return 1;
+}
+
+/* Discovers the staged UKI and extra resources below the uki_auto_dirs[] (relative to the already-pinned
+ * c->root_fd) and fills c->kernel_fd, c->kernel_filename and c->extra[] accordingly. The directories are
+ * searched in priority order: the UKI is taken from the first directory that has one, and extra resources
+ * are combined across all directories with higher-priority directories winning on conflicts. Returns 1 if a
+ * UKI was found, 0 if there is nothing to link, and a negative errno on error. */
+static int link_context_discover_resources(LinkContext *c) {
+        _cleanup_set_free_ Set *seen = NULL;
+        int r;
+
+        assert(c);
+
+        FOREACH_ELEMENT(dir, uki_auto_dirs) {
+                _cleanup_close_ int uki_dir_fd = chase_and_openat(
+                                /* root_fd= */ c->root_fd,
+                                /* dir_fd= */ c->root_fd,
+                                *dir,
+                                CHASE_MUST_BE_DIRECTORY,
+                                O_RDONLY|O_DIRECTORY|O_CLOEXEC,
+                                /* ret_path= */ NULL);
+                if (uki_dir_fd == -ENOENT)
+                        continue;
+                if (uki_dir_fd < 0)
+                        return log_error_errno(uki_dir_fd, "Failed to open '%s': %m", *dir);
+
+                /* Take the UKI from the first (highest-priority) directory that has one. */
+                if (c->kernel_fd < 0) {
+                        r = link_context_find_kernel(c, uki_dir_fd);
+                        if (r < 0)
+                                return r;
+                }
+
+                r = link_context_add_extras(c, uki_dir_fd, &seen);
+                if (r < 0)
+                        return r;
+        }
+
+        if (c->kernel_fd < 0) {
+                log_debug("No UKI found in any of the search directories, nothing to link.");
+                return 0;
+        }
+
+        return 1;
+}
+
+int verb_link_auto(int argc, char *argv[], uintptr_t data, void *userdata) {
+        int r;
+
+        assert(argc == 1);
+
+        _cleanup_(link_context_done) LinkContext c = LINK_CONTEXT_NULL;
+        r = link_context_from_cmdline_common(&c);
+        if (r < 0)
+                return r;
+
+        r = link_context_discover_resources(&c);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                log_info("No UKI staged for linking, nothing to do.");
+                return 0;
+        }
+
+        /* In addition to the auto-discovered resources, also honour any files passed via --extra=. */
+        r = link_context_add_cmdline_extras(&c);
+        if (r < 0)
+                return r;
+
+        r = link_context_acquire_dollar_boot(&c);
+        if (r < 0)
+                return r;
+
+        return run_link(&c);
+}
+
 static JSON_DISPATCH_ENUM_DEFINE(json_dispatch_boot_entry_token_type, BootEntryTokenType, boot_entry_token_type_from_string);
 
 typedef struct LinkParameters {
@@ -1089,6 +1436,107 @@ static int dispatch_extras(const char *name, sd_json_variant *v, sd_json_dispatc
         return 0;
 }
 
+/* Resolves the root_fd of the LinkContext from the dispatched Link/LinkAuto parameters, fills in the
+ * boot entry token type default, and validates the entry title/version/commit fields. Returns 0 on success,
+ * non-zero (Varlink error or negative errno) otherwise. */
+static int vl_link_prepare(sd_varlink *link, LinkParameters *p) {
+        int r;
+
+        assert(link);
+        assert(p);
+
+        if (p->root_fd_index != UINT_MAX) {
+                p->context.root_fd = sd_varlink_peek_dup_fd(link, p->root_fd_index);
+                if (p->context.root_fd < 0)
+                        return log_debug_errno(p->context.root_fd, "Failed to acquire root fd from Varlink: %m");
+
+                r = fd_verify_safe_flags_full(p->context.root_fd, O_DIRECTORY);
+                if (r < 0)
+                        return sd_varlink_error_invalid_parameter_name(link, "rootFileDescriptor");
+
+                r = fd_verify_directory(p->context.root_fd);
+                if (r < 0)
+                        return log_debug_errno(r, "Specified file descriptor does not refer to a directory: %m");
+
+                if (!p->context.root) {
+                        r = fd_get_path(p->context.root_fd, &p->context.root);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to get path of file descriptor: %m");
+
+                        if (empty_or_root(p->context.root))
+                                p->context.root = mfree(p->context.root);
+                }
+        } else if (p->context.root) {
+                p->context.root_fd = open(p->context.root, O_RDONLY|O_CLOEXEC|O_DIRECTORY);
+                if (p->context.root_fd < 0)
+                        return log_debug_errno(errno, "Failed to open '%s': %m", p->context.root);
+        } else
+                p->context.root_fd = XAT_FDROOT;
+
+        if (p->context.entry_token_type < 0)
+                p->context.entry_token_type = BOOT_ENTRY_TOKEN_AUTO;
+
+        if (p->context.entry_title && !efi_loader_entry_title_valid(p->context.entry_title))
+                return sd_varlink_error_invalid_parameter_name(link, "entryTitle");
+
+        if (p->context.entry_version && !version_is_valid_versionspec(p->context.entry_version))
+                return sd_varlink_error_invalid_parameter_name(link, "entryVersion");
+
+        if (p->context.entry_commit != 0 && !entry_commit_valid(p->context.entry_commit))
+                return sd_varlink_error_invalid_parameter_name(link, "entryCommit");
+
+        return 0;
+}
+
+/* Resolves $BOOT, runs the link operation and sends the reply. Expects the kernel and extra files to already
+ * be set up in the context. If with_ids is true the reply carries the list of created entry IDs (as expected
+ * by Link()/LinkAuto()), otherwise an empty reply is sent (as expected by
+ * io.systemd.SysUpdate.Notify.OnCompletedUpdate(), which declares no output fields). */
+static int vl_link_finish(sd_varlink *link, LinkParameters *p, bool with_ids) {
+        int r;
+
+        assert(link);
+        assert(p);
+
+        r = find_xbootldr_and_warn_at(
+                        p->context.root_fd,
+                        /* path= */ NULL,
+                        /* unprivileged_mode= */ false,
+                        &p->context.dollar_boot_path,
+                        &p->context.dollar_boot_fd);
+        if (r < 0) {
+                if (r != -ENOKEY)
+                        return r;
+
+                /* No XBOOTLDR found, let's look for ESP then. */
+
+                r = find_esp_and_warn_at(
+                                p->context.root_fd,
+                                /* path= */ NULL,
+                                /* unprivileged_mode= */ false,
+                                &p->context.dollar_boot_path,
+                                &p->context.dollar_boot_fd);
+                if (r == -ENOKEY)
+                        return sd_varlink_error(link, "io.systemd.BootControl.NoDollarBootFound", NULL);
+                if (r < 0)
+                        return r;
+
+                p->context.dollar_boot_source = BOOT_ENTRY_ESP;
+        } else
+                p->context.dollar_boot_source = BOOT_ENTRY_XBOOTLDR;
+
+        r = run_link(&p->context);
+        if (r == -EUNATCH) /* no boot entry token is set */
+                return sd_varlink_error(link, "io.systemd.BootControl.BootEntryTokenUnavailable", NULL);
+        if (r < 0)
+                return r;
+
+        if (with_ids)
+                return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_STRV("ids", p->context.linked_ids));
+
+        return sd_varlink_reply(link, NULL);
+}
+
 int vl_method_link(
                 sd_varlink *link,
                 sd_json_variant *parameters,
@@ -1125,45 +1573,9 @@ int vl_method_link(
         if (r != 0)
                 return r;
 
-        if (p.root_fd_index != UINT_MAX) {
-                p.context.root_fd = sd_varlink_peek_dup_fd(link, p.root_fd_index);
-                if (p.context.root_fd < 0)
-                        return log_debug_errno(p.context.root_fd, "Failed to acquire root fd from Varlink: %m");
-
-                r = fd_verify_safe_flags_full(p.context.root_fd, O_DIRECTORY);
-                if (r < 0)
-                        return sd_varlink_error_invalid_parameter_name(link, "rootFileDescriptor");
-
-                r = fd_verify_directory(p.context.root_fd);
-                if (r < 0)
-                        return log_debug_errno(r, "Specified file descriptor does not refer to a directory: %m");
-
-                if (!p.context.root) {
-                        r = fd_get_path(p.context.root_fd, &p.context.root);
-                        if (r < 0)
-                                return log_debug_errno(r, "Failed to get path of file descriptor: %m");
-
-                        if (empty_or_root(p.context.root))
-                                p.context.root = mfree(p.context.root);
-                }
-        } else if (p.context.root) {
-                p.context.root_fd = open(p.context.root, O_RDONLY|O_CLOEXEC|O_DIRECTORY);
-                if (p.context.root_fd < 0)
-                        return log_debug_errno(errno, "Failed to open '%s': %m", p.context.root);
-        } else
-                p.context.root_fd = XAT_FDROOT;
-
-        if (p.context.entry_token_type < 0)
-                p.context.entry_token_type = BOOT_ENTRY_TOKEN_AUTO;
-
-        if (p.context.entry_title && !efi_loader_entry_title_valid(p.context.entry_title))
-                return sd_varlink_error_invalid_parameter_name(link, "entryTitle");
-
-        if (p.context.entry_version && !version_is_valid_versionspec(p.context.entry_version))
-                return sd_varlink_error_invalid_parameter_name(link, "entryVersion");
-
-        if (p.context.entry_commit != 0 && !entry_commit_valid(p.context.entry_commit))
-                return sd_varlink_error_invalid_parameter_name(link, "entryCommit");
+        r = vl_link_prepare(link, &p);
+        if (r != 0)
+                return r;
 
         p.context.kernel_fd = sd_varlink_peek_dup_fd(link, p.kernel_fd_index);
         if (p.context.kernel_fd < 0)
@@ -1186,38 +1598,91 @@ int vl_method_link(
         if (kit != KERNEL_IMAGE_TYPE_UKI)
                 return sd_varlink_error(link, "io.systemd.BootControl.InvalidKernelImage", NULL);
 
-        r = find_xbootldr_and_warn_at(
-                        p.context.root_fd,
-                        /* path= */ NULL,
-                        /* unprivileged_mode= */ false,
-                        &p.context.dollar_boot_path,
-                        &p.context.dollar_boot_fd);
-        if (r < 0) {
-                if (r != -ENOKEY)
-                        return r;
+        return vl_link_finish(link, &p, /* with_ids= */ true);
+}
 
-                /* No XBOOTLDR found, let's look for ESP then. */
+int vl_method_link_auto(
+                sd_varlink *link,
+                sd_json_variant *parameters,
+                sd_varlink_method_flags_t flags,
+                void *userdata) {
 
-                r = find_esp_and_warn_at(
-                                p.context.root_fd,
-                                /* path= */ NULL,
-                                /* unprivileged_mode= */ false,
-                                &p.context.dollar_boot_path,
-                                &p.context.dollar_boot_fd);
-                if (r == -ENOKEY)
-                        return sd_varlink_error(link, "io.systemd.BootControl.NoDollarBootFound", NULL);
-                if (r < 0)
-                        return r;
+        int r;
 
-                p.context.dollar_boot_source = BOOT_ENTRY_ESP;
-        } else
-                p.context.dollar_boot_source = BOOT_ENTRY_XBOOTLDR;
+        assert(link);
 
-        r = run_link(&p.context);
-        if (r == -EUNATCH) /* no boot entry token is set */
-                return sd_varlink_error(link, "io.systemd.BootControl.BootEntryTokenUnavailable", NULL);
+        _cleanup_(link_parameters_done) LinkParameters p = {
+                .context = LINK_CONTEXT_NULL,
+                .root_fd_index = UINT_MAX,
+                .kernel_fd_index = UINT_MAX,
+                .link = link,
+        };
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "rootFileDescriptor", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,               voffsetof(p, root_fd_index),            0 },
+                { "rootDirectory",      SD_JSON_VARIANT_STRING,        json_dispatch_path,                  voffsetof(p, context.root),             0 },
+                { "bootEntryTokenType", SD_JSON_VARIANT_STRING,        json_dispatch_boot_entry_token_type, voffsetof(p, context.entry_token_type), 0 },
+                { "entryTitle",         SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,             voffsetof(p, context.entry_title),      0 },
+                { "entryVersion",       SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,             voffsetof(p, context.entry_version),    0 },
+                { "entryCommit",        SD_JSON_VARIANT_INTEGER,       sd_json_dispatch_uint64,             voffsetof(p, context.entry_commit),     0 },
+                { "triesLeft",          _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,               voffsetof(p, context.tries_left),       0 },
+                { "keepFree",           _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,             voffsetof(p, context.keep_free),        0 },
+                {},
+        };
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        r = vl_link_prepare(link, &p);
+        if (r != 0)
+                return r;
+
+        r = link_context_discover_resources(&p.context);
+        if (r < 0)
+                return r;
+        if (r == 0) /* Nothing staged for linking. */
+                return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_STRV("ids", STRV_EMPTY));
+
+        return vl_link_finish(link, &p, /* with_ids= */ true);
+}
+
+int vl_method_on_completed_update(
+                sd_varlink *link,
+                sd_json_variant *parameters,
+                sd_varlink_method_flags_t flags,
+                void *userdata) {
+
+        int r;
+
+        assert(link);
+
+        /* Only honour update notifications if they come from root */
+        r = varlink_check_privileged_peer(link);
         if (r < 0)
                 return r;
 
-        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_STRV("ids", p.context.linked_ids));
+        /* Triggered by systemd-sysupdate after an update completed. We deliberately ignore all parameters
+         * (we don't even dispatch them) and behave like LinkAuto() with default parameters: discover the
+         * staged UKI and extra resources and link them in. Contrary to LinkAuto() we reply without any
+         * parameters, matching the io.systemd.SysUpdate.Notify.OnCompletedUpdate() signature. */
+
+        _cleanup_(link_parameters_done) LinkParameters p = {
+                .context = LINK_CONTEXT_NULL,
+                .root_fd_index = UINT_MAX,
+                .kernel_fd_index = UINT_MAX,
+                .link = link,
+        };
+
+        r = vl_link_prepare(link, &p);
+        if (r != 0)
+                return r;
+
+        r = link_context_discover_resources(&p.context);
+        if (r < 0)
+                return r;
+        if (r == 0) /* Nothing staged for linking. */
+                return sd_varlink_reply(link, NULL);
+
+        return vl_link_finish(link, &p, /* with_ids= */ false);
 }
