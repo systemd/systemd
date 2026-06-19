@@ -339,8 +339,7 @@ int dlopen_libcrypto(int log_level) {
 
         LIBCRYPTO_NOTE(SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED);
 
-        // FIXME: switch order to prefer libcrypto.so.4 in a future version once it has stabilized
-        FOREACH_STRING(soname, "libcrypto.so.3", "libcrypto.so.4") {
+        FOREACH_STRING(soname, "libcrypto.so.4", "libcrypto.so.3") {
                 r = dlopen_many_sym_or_warn(
                         &libcrypto_dl,
                         soname,
