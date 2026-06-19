@@ -8393,6 +8393,18 @@ CC3000-CC3FFF     (base 16)		KRONOTECH SRL
 				UDINE  ITALY/UDINE  33100
 				IT
 
+8C-1F-64   (hex)		HBTECH
+39C000-39CFFF     (base 16)		HBTECH
+				11-32, Sangdeok-ro, Jiksan-eup, Seobuk-gu, Cheonan-si, Chungcheongnam-do, Republic of Korea
+				Cheonan-si  Chungcheongnam-do  31029
+				KR
+
+8C-1F-64   (hex)		SLAT
+847000-847FFF     (base 16)		SLAT
+				11 Rue Jean-Elysée DUPUY
+				Champagne au Mont d'Or  Rhône  69543
+				FR
+
 8C-1F-64   (hex)		Jacobs Technology, Inc.
 A98000-A98FFF     (base 16)		Jacobs Technology, Inc.
 				7765 Old Telegraph Road
@@ -16903,6 +16915,12 @@ E69000-E69FFF     (base 16)		FullohmKD
 				150 GONGDAN-RO
 				GUNPO  GYEONGI  15845
 				KR
+
+8C-1F-64   (hex)		Daifuku CO., Ltd.
+997000-997FFF     (base 16)		Daifuku CO., Ltd.
+				1225 Nakazaiji, Hino-cho, Gamo-gun, Shiga
+				Gamo-gun  Shiga-ken  529-1692
+				JP
 
 8C-1F-64   (hex)		Vision Systems Safety Tech
 E6F000-E6FFFF     (base 16)		Vision Systems Safety Tech
@@ -25418,6 +25436,12 @@ B33000-B33FFF     (base 16)		Skylark Lasers
 				Bochum    44879
 				DE
 
+8C-1F-64   (hex)		Event Acoustics B.V.
+77D000-77DFFF     (base 16)		Event Acoustics B.V.
+				Proostwetering 50
+				Utrecht    3543AH
+				NL
+
 8C-1F-64   (hex)		Flow Power
 82B000-82BFFF     (base 16)		Flow Power
 				Suite 2, Level 3, 18 - 20 York St
@@ -33821,6 +33845,12 @@ C0F000-C0FFFF     (base 16)		KONAX BV
 				Roßdorf-Gundernhausen    64380
 				DE
 
+8C-1F-64   (hex)		FormFactor
+3A7000-3A7FFF     (base 16)		FormFactor
+				7005 Southfront Road
+				Livermore  CA  94551
+				US
+
 8C-1F-64   (hex)		MDS TECH 
 792000-792FFF     (base 16)		MDS TECH 
 				9F, DTC Tower, 49, Daewangpangyo-ro 644beon-gil, Bundang-gu
@@ -42152,17 +42182,11 @@ B01000-B01FFF     (base 16)		Terranova Industries UG (haftungsbeschränkt)
 				Singapore  Singapore  573971
 				SG
 
-8C-1F-64   (hex)		Sörgel Elektronik
-96D000-96DFFF     (base 16)		Sörgel Elektronik
-				Oberer Garten 5
-				Kressbronn    88079
-				DE
-
-8C-1F-64   (hex)		Lucint Systems, Inc.
-E97000-E97FFF     (base 16)		Lucint Systems, Inc.
-				6635 N Baltimore AveSte 246
-				Portland  OR  97203
-				US
+8C-1F-64   (hex)		Pantherun Technologies Pvt Ltd
+4B6000-4B6FFF     (base 16)		Pantherun Technologies Pvt Ltd
+				311 6th main road Hal 2nd stage
+				Bangalore  Karnataka  560038
+				IN
 
 8C-1F-64   (hex)		ATTE POWER
 4B7000-4B7FFF     (base 16)		ATTE POWER
@@ -42176,8 +42200,20 @@ E97000-E97FFF     (base 16)		Lucint Systems, Inc.
 				Chavannes-pres-Renens  Vaud  1022
 				CH
 
-8C-1F-64   (hex)		Pantherun Technologies Pvt Ltd
-4B6000-4B6FFF     (base 16)		Pantherun Technologies Pvt Ltd
-				311 6th main road Hal 2nd stage
-				Bangalore  Karnataka  560038
-				IN
+8C-1F-64   (hex)		Lucint Systems, Inc.
+E97000-E97FFF     (base 16)		Lucint Systems, Inc.
+				6635 N Baltimore AveSte 246
+				Portland  OR  97203
+				US
+
+8C-1F-64   (hex)		Sörgel Elektronik
+96D000-96DFFF     (base 16)		Sörgel Elektronik
+				Oberer Garten 5
+				Kressbronn    88079
+				DE
+
+8C-1F-64   (hex)		DEUTA-WERKE GmbH
+492000-492FFF     (base 16)		DEUTA-WERKE GmbH
+				Paffrather Str. 140
+				Bergisch Gladbach  North Rhine-Westphalia  51465
+				DE

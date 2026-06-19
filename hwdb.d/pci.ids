@@ -1,8 +1,8 @@
 #
 #	List of PCI IDs
 #
-#	Version: 2026.06.16
-#	Date:    2026-06-16 03:15:02
+#	Version: 2026.06.19
+#	Date:    2026-06-19 03:15:02
 #
 #	Maintained by Albert Pool, Martin Mares, and other volunteers from
 #	the PCI ID Project at https://pci-ids.ucw.cz/.
@@ -13459,7 +13459,7 @@
 	24dd  GA104M [GeForce RTX 3070 Mobile / Max-Q]
 	24df  GA104M
 	24e0  GA104M [Geforce RTX 3070 Ti Laptop GPU]
-	24fa  GA104 [RTX A4500 Embedded GPU ]
+	24fa  GA104 [RTX A4500 Embedded GPU]
 	2501  GA106 [GeForce RTX 3060]
 	2503  GA106 [GeForce RTX 3060]
 	2504  GA106 [GeForce RTX 3060 Lite Hash Rate]
@@ -13509,7 +13509,7 @@
 	25e5  GA107BM [GeForce RTX 3050 Mobile]
 	25ec  GA107BM / GN20-P0-R-K2 [GeForce RTX 3050 6GB Laptop GPU]
 	25ed  GA107 [GeForce RTX 2050]
-	25f9  GA107 [RTX A1000 Embedded GPU ]
+	25f9  GA107 [RTX A1000 Embedded GPU]
 	25fa  GA107 [RTX A2000 Embedded GPU]
 	25fb  GA107 [RTX A500 Embedded GPU]
 	2681  AD102 [RTX TITAN Ada]
@@ -19412,6 +19412,8 @@
 13b3  Lanart Corporation
 13b4  Wellbean Co Inc
 13b5  ARM
+	0300  Integrated [AGI CPU] PCIe/CXL Root Port
+	0301  Arm Integrated [AGI CPU] Platform PCIe Root Port
 13b6  Dlog GmbH
 13b7  Logic Devices Inc
 13b8  Nokia Telecommunications oy
@@ -19805,6 +19807,10 @@
 	5821  Xenos GPU (Zephyr/Falcon)
 	5831  Xenos GPU (Jasper)
 	5841  Xenos GPU (Slim)
+	c030  OpenVMM PCIe Root Port
+	c031  OpenVMM PCIe Switch Upstream Port
+	c032  OpenVMM PCIe Switch Downstream Port
+	c03e  OpenVMM NVMe Controller
 1415  Oxford Semiconductor Ltd
 	8401  OX9162 Mode 1 (8-bit bus)
 	8403  OX9162 Mode 0 (parallel port)
@@ -25649,8 +25655,12 @@
 		19e5 0051  Hi1822 SP681 (2*25/10GE)
 		19e5 0052  Hi1822 SP680 (4*25/10GE)
 		19e5 00a1  Hi1822 SP670 (2*100GE)
+		19e5 0152  Hi1822 SP623Q (4*25/10GE)
+		19e5 01a1  Hi1822 SP625D (2*100GE)
 	0229  Hi1872 Family
 	022a  Hi1872 Family Virtual Function
+	0230  Hi1825 Family
+	0231  Hi1825 Family Virtual Function
 	1710  iBMA Virtual Network Adapter
 	1711  Hi171x Series [iBMC Intelligent Management system chip w/VGA support]
 	1712  Intelligent Management system chip Virtual Network Adapter
@@ -28507,6 +28517,8 @@
 1e30  Sophgo
 	1684  BM1684 [Sophon Series Deep Learning Accelerator]
 	2042  SG2042 Root Complex
+# https://www.sord.co.jp/
+1e31  SORD CORPORATION
 1e36  Shanghai Enflame Technology Co. Ltd
 	0001  T10 [CloudBlazer]
 	0002  T11 [CloudBlazer]
@@ -30261,6 +30273,7 @@
 209b  BitIntelligence Technology
 	1000  TCU Family - TCU-1
 	1001  TCU Family - TCU-1 Virtual Function
+	1002  TCU Family - TCU-1 PCIe Switch
 209f  Mobilint, Inc.
 20a1  Etched, Inc.
 	0001  Sohu
@@ -41460,7 +41473,7 @@
 	1083  Ethernet Controller N400 Series Virtual Function
 	8208  Ethernet Controller N210M for 1GbE 1-port RJ45
 	8209  Ethernet Controller N210 Series Virtual Function
-	820a  8848/820A Ethernet Controller N210L for 1GbE 1-port RJ45
+	820a  Ethernet Controller N210L for 1GbE 1-port RJ45
 	8308  Ethernet Controller N500 Series for 1GbE (Quad-port, Copper RJ45)
 # NIC-ETH3M0T-3S-4P Quad-Port RJ45 Adapter for OCP 3.0
 		193d 1088  NIC-ETH3M0T-3S-4P
