@@ -101,3 +101,73 @@ int dispatch_resolve_hostname_reply(const char *name, sd_json_variant *variant, 
         *ret = TAKE_STRUCT(reply);
         return 0;
 }
+
+static void resolved_name_done(ResolvedName *name) {
+        if (!name)
+                return;
+
+        name->name = mfree(name->name);
+}
+
+static int dispatch_resolved_name(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field resolved_name_dispatch_table[] = {
+                { "ifindex", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_ifindex,   offsetof(ResolvedName, ifindex), SD_JSON_RELAX     },
+                { "name",    SD_JSON_VARIANT_STRING,        sd_json_dispatch_string, offsetof(ResolvedName, name),    SD_JSON_MANDATORY },
+                {},
+        };
+        ResolvedName *ret = ASSERT_PTR(userdata);
+        int r;
+
+        _cleanup_(resolved_name_done) ResolvedName resolved_name = {};
+        r = sd_json_dispatch(variant, resolved_name_dispatch_table, flags & ~SD_JSON_MANDATORY, &resolved_name);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_STRUCT(resolved_name);
+        return 0;
+}
+
+static int dispatch_resolved_name_array(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        ResolveAddressReply *reply = ASSERT_PTR(userdata);
+        int r;
+
+        sd_json_variant *v;
+        JSON_VARIANT_ARRAY_FOREACH(v, variant) {
+                if (!GREEDY_REALLOC0(reply->names, reply->n_names + 1))
+                        return log_oom();
+
+                r = dispatch_resolved_name(name, v, flags, &reply->names[reply->n_names++]);
+                if (r < 0)
+                        return json_log(v, flags, r, "JSON array element is not a valid ResolvedName.");
+        }
+
+        return 0;
+}
+
+void resolve_address_reply_done(ResolveAddressReply *reply) {
+        if (!reply)
+                return;
+
+        FOREACH_ARRAY(n, reply->names, reply->n_names)
+                resolved_name_done(n);
+        reply->names = mfree(reply->names);
+        reply->n_names = 0;
+}
+
+int dispatch_resolve_address_reply(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field resolve_address_reply_dispatch_table[] = {
+                { "flags", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,      offsetof(ResolveAddressReply, flags), SD_JSON_MANDATORY },
+                { "names", SD_JSON_VARIANT_ARRAY,         dispatch_resolved_name_array, 0,                                    SD_JSON_MANDATORY },
+                {},
+        };
+        ResolveAddressReply *ret = ASSERT_PTR(userdata);
+        int r;
+
+        _cleanup_(resolve_address_reply_done) ResolveAddressReply reply = {};
+        r = sd_json_dispatch(variant, resolve_address_reply_dispatch_table, flags, &reply);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_STRUCT(reply);
+        return 0;
+}
