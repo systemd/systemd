@@ -14,13 +14,16 @@
 #include <string.h>
 #include <sys/random.h>
 #include <sys/socket.h>
+#include <syslog.h>
 #include <unistd.h>
 
+#include "crypto-util.h"
 #include "nts.h"
 #include "nts_crypto.h"
 #include "nts_extfields.h"
 #include "iovec-util.h"
 #include "memory-util.h"
+#include "ssl-util.h"
 #include "timesyncd-ntp-message.h"
 
 /* always pick this AEAD */
@@ -159,30 +162,30 @@ static int alpn_select(
                 unsigned int inlen,
                 _unused_ void *arg) {
 
-        soft_assert(SSL_select_next_proto((unsigned char**)out, outlen, (unsigned char*)"\x07ntske/1", 8, in, inlen) == OPENSSL_NPN_NEGOTIATED);
+        soft_assert(sym_SSL_select_next_proto((unsigned char**)out, outlen, (unsigned char*)"\x07ntske/1", 8, in, inlen) == OPENSSL_NPN_NEGOTIATED);
         return SSL_TLSEXT_ERR_OK;
 }
 
 static void wait_for_nts_ke(AEADKey c2s, AEADKey s2c, int sabotage) {
         /* configure TLS */
-        SSL_CTX *ctx = SSL_CTX_new(TLS_server_method());
+        SSL_CTX *ctx = sym_SSL_CTX_new(sym_TLS_server_method());
         soft_assert(ctx);
 
-        soft_assert(SSL_CTX_use_certificate_chain_file(ctx, "server.crt") > 0);
-        soft_assert(SSL_CTX_use_PrivateKey_file(ctx, "server.key", SSL_FILETYPE_PEM) > 0);
+        soft_assert(sym_SSL_CTX_use_certificate_chain_file(ctx, "server.crt") > 0);
+        soft_assert(sym_SSL_CTX_use_PrivateKey_file(ctx, "server.key", SSL_FILETYPE_PEM) > 0);
 
-        SSL_CTX_set_alpn_select_cb(ctx, alpn_select, /* arg= */ NULL);
+        sym_SSL_CTX_set_alpn_select_cb(ctx, alpn_select, /* arg= */ NULL);
 
-        SSL *tls = SSL_new(ctx);
+        SSL *tls = sym_SSL_new(ctx);
         soft_assert(tls);
 
         /* await the TCP connect */
-        BIO *acceptor = BIO_new_accept("4460");
+        BIO *acceptor = sym_BIO_new_accept("4460");
         soft_assert(acceptor);
-        soft_assert(BIO_do_accept(acceptor) > 0);
-        soft_assert(BIO_do_accept(acceptor) > 0);
-        BIO *bio = BIO_pop(acceptor);
-        close(BIO_get_fd(acceptor, /* c= */ NULL));
+        soft_assert(sym_BIO_do_accept(acceptor) > 0);
+        soft_assert(sym_BIO_do_accept(acceptor) > 0);
+        BIO *bio = sym_BIO_pop(acceptor);
+        close(sym_BIO_get_fd(acceptor, /* c= */ NULL));
 
         soft_assert(bio);
 
@@ -195,15 +198,15 @@ static void wait_for_nts_ke(AEADKey c2s, AEADKey s2c, int sabotage) {
                 exit(0);
         }
 
-        SSL_set_bio(tls, bio, bio);
+        sym_SSL_set_bio(tls, bio, bio);
 
-        soft_assert(SSL_accept(tls) > 0);
+        soft_assert(sym_SSL_accept(tls) > 0);
 
         /* read the NTS packet */
         NTS_Agreement NTS;
         int readbytes;
         uint8_t buf[1280];
-        readbytes = SSL_read(tls, buf, sizeof(buf));
+        readbytes = sym_SSL_read(tls, buf, sizeof(buf));
         soft_assert(readbytes > 0);
 
         if (sabotage > 3) {
@@ -245,15 +248,18 @@ static void wait_for_nts_ke(AEADKey c2s, AEADKey s2c, int sabotage) {
                 p[3] = (p[3] % 32 + 1) ^ 10;
         }
 
-        SSL_write(tls, reply, sizeof(reply));
-        SSL_free(tls);
-        SSL_CTX_free(ctx);
+        sym_SSL_write(tls, reply, sizeof(reply));
+        sym_SSL_free(tls);
+        sym_SSL_CTX_free(ctx);
 }
 
 /* the number of arguments decide at which
  * points in the NTS process a hiccup is simulated
  */
 int main(int argc, char **argv) {
+        assert(dlopen_libcrypto(LOG_ERR) == 0);
+        assert(dlopen_libssl(LOG_ERR) == 0);
+
         AEADKey c2s, s2c;
         int sabo = argc>1 ? atoi(argv[1]) : 0;
 

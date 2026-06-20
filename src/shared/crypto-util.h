@@ -87,9 +87,11 @@ extern DLSYM_PROTOTYPE(BIO_find_type);
 extern DLSYM_PROTOTYPE(BIO_free_all);
 extern DLSYM_PROTOTYPE(BIO_free);
 extern DLSYM_PROTOTYPE(BIO_int_ctrl);
+extern DLSYM_PROTOTYPE(BIO_new_accept);
 extern DLSYM_PROTOTYPE(BIO_new_mem_buf);
 extern DLSYM_PROTOTYPE(BIO_new_socket);
 extern DLSYM_PROTOTYPE(BIO_new);
+extern DLSYM_PROTOTYPE(BIO_pop);
 extern DLSYM_PROTOTYPE(BIO_s_socket);
 extern DLSYM_PROTOTYPE(BIO_s_mem);
 extern DLSYM_PROTOTYPE(BIO_write);
@@ -261,6 +263,8 @@ DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(RSA*, sym_RSA_free, RSA_freep, NULL);
 
 /* Mirrors of OpenSSL macros that go through our dlopen'd sym_* variants, so we don't end up linking against
  * libcrypto just for these. */
+#define sym_BIO_do_accept(b) sym_BIO_ctrl((b), BIO_C_DO_STATE_MACHINE, 0, NULL)
+#define sym_BIO_get_fd(b, c) sym_BIO_ctrl((b), BIO_C_GET_FD, 0, (char *)(c))
 #define sym_BIO_get_md_ctx(b, mdcp) sym_BIO_ctrl((b), BIO_C_GET_MD_CTX, 0, (char*) (mdcp))
 #define sym_BIO_get_mem_ptr(b, pp) sym_BIO_ctrl((b), BIO_C_GET_BUF_MEM_PTR, 0, (char *) (pp))
 #define sym_BIO_reset(b) sym_BIO_ctrl((b), BIO_CTRL_RESET, 0, NULL)
