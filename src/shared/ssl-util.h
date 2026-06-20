@@ -24,13 +24,17 @@ int dlopen_libssl(int log_level);
 
 #  include "dlfcn-util.h"
 
+extern DLSYM_PROTOTYPE(SSL_accept);
 extern DLSYM_PROTOTYPE(SSL_connect);
 extern DLSYM_PROTOTYPE(SSL_ctrl);
 extern DLSYM_PROTOTYPE(SSL_CTX_ctrl);
 extern DLSYM_PROTOTYPE(SSL_CTX_free);
 extern DLSYM_PROTOTYPE(SSL_CTX_new);
+extern DLSYM_PROTOTYPE(SSL_CTX_set_alpn_select_cb);
 extern DLSYM_PROTOTYPE(SSL_CTX_set_default_verify_paths);
 extern DLSYM_PROTOTYPE(SSL_CTX_set_options);
+extern DLSYM_PROTOTYPE(SSL_CTX_use_PrivateKey_file);
+extern DLSYM_PROTOTYPE(SSL_CTX_use_certificate_chain_file);
 extern DLSYM_PROTOTYPE(SSL_do_handshake);
 extern DLSYM_PROTOTYPE(SSL_export_keying_material);
 extern DLSYM_PROTOTYPE(SSL_free);
@@ -41,6 +45,7 @@ extern DLSYM_PROTOTYPE(SSL_get1_session);
 extern DLSYM_PROTOTYPE(SSL_new);
 extern DLSYM_PROTOTYPE(SSL_read);
 extern DLSYM_PROTOTYPE(SSL_SESSION_free);
+extern DLSYM_PROTOTYPE(SSL_select_next_proto);
 extern DLSYM_PROTOTYPE(SSL_set_bio);
 extern DLSYM_PROTOTYPE(SSL_set_connect_state);
 extern DLSYM_PROTOTYPE(SSL_set_session);
@@ -50,6 +55,7 @@ extern DLSYM_PROTOTYPE(SSL_set1_host);
 extern DLSYM_PROTOTYPE(SSL_shutdown);
 extern DLSYM_PROTOTYPE(SSL_write);
 extern DLSYM_PROTOTYPE(TLS_client_method);
+extern DLSYM_PROTOTYPE(TLS_server_method);
 
 /* Mirrors of OpenSSL macros that go through our dlopen'd sym_* variants, so we don't end up linking against
  * libssl just for these. */
