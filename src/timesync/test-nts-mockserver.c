@@ -212,7 +212,10 @@ static void wait_for_nts_ke(AEADKey c2s, AEADKey s2c, int sabotage) {
         }
 
         if (NTS_decode_response(buf, readbytes, &NTS) < 0) {
-                printf("NTS error: %s (read %d bytes)\n", NTS_error_string(NTS.error), readbytes);
+                const char *error = NTS_error_string(NTS.error);
+                if (error == NULL)
+                        error = "Unexpected error";
+                printf("NTS error: %s (read %d bytes)\n", error, readbytes);
                 abort();
         }
 

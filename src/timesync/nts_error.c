@@ -19,8 +19,8 @@ const char *NTS_error_string(NTS_ErrorType error) {
                 ERROR(NTS_INSUFFICIENT_DATA);
                 ERROR(NTS_UNKNOWN_CRIT_RECORD);
         case NTS_SUCCESS:
-                return "Success?";
+                return "Success";
         default:
-                assert_not_reached();
+                return NULL;
         }
 }

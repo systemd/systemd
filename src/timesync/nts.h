@@ -82,7 +82,7 @@ ssize_t NTS_encode_request(uint8_t *buffer, size_t buf_size, const NTS_AEADAlgor
  */
 int NTS_decode_response(uint8_t *buffer, size_t buf_size, NTS_Agreement *response);
 
-/* Convert a NTS_ErrorType to a string */
+/* Convert a NTS_ErrorType to a string, or NULL if an unknown error. */
 const char *NTS_error_string(NTS_ErrorType error);
 
 /* The following three functions provide runtime information about the chosen AEAD algorithm:
