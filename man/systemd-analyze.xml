@@ -263,6 +263,16 @@
       point where all system services have been spawned, but not necessarily until they fully finished
       initialization or the disk is idle.</para>
 
+      <para>If the manager carried shutdown timestamps across a kexec-based live update (i.e. they were
+      restored from the previous boot through the Live Update Orchestrator), the previous boot's shutdown
+      phases are prepended to the chain, so the full shutdown plus bootup sequence is shown and summed into
+      the total: the time spent stopping units (<literal>(stopping)</literal>), the time the manager took to
+      hand off to
+      <citerefentry><refentrytitle>systemd-shutdown</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      (<literal>(exit)</literal>) and the time spent in <command>systemd-shutdown</command> itself
+      (<literal>(systemd-shutdown)</literal>) are added before the firmware/loader/kernel/initrd/userspace
+      phases.</para>
+
       <example>
         <title><command>Show how long the boot took</command></title>
 

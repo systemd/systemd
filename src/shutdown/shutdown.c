@@ -374,8 +374,12 @@ int main(int argc, char *argv[]) {
         _cleanup_close_ int luo_session_fd = -EBADF;
         _cleanup_free_ int *luo_fds = NULL;
         _cleanup_free_ char *cgroup = NULL;
+        dual_timestamp shutdown_binary_start;
         size_t n_luo_fds = 0;
         int cmd, r;
+
+        /* LUO will preserve these across kexec */
+        dual_timestamp_now(&shutdown_binary_start);
 
         /* If PID 1 passed us an LUO serialization fd, parse it first so we know which fds to keep open. */
         (void) luo_parse_serialization(&luo_serialization, &luo_fds, &n_luo_fds);
@@ -656,6 +660,14 @@ int main(int argc, char *argv[]) {
         case LINUX_REBOOT_CMD_KEXEC:
 
                 if (!in_container) {
+                        dual_timestamp shutdown_binary_finish;
+
+                        dual_timestamp_now(&shutdown_binary_finish);
+                        (void) luo_serialization_add_shutdown_timestamps(
+                                        &luo_serialization,
+                                        &shutdown_binary_start,
+                                        &shutdown_binary_finish);
+
                         /* Preserve fd stores via the kernel Live Update Orchestrator before kexec.
                          * The session fd must stay open until the kexec syscall. */
                         (void) luo_preserve_fd_stores(luo_serialization, &luo_session_fd);

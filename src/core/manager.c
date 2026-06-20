@@ -5444,6 +5444,9 @@ static const char* const manager_timestamp_table[_MANAGER_TIMESTAMP_MAX] = {
         [MANAGER_TIMESTAMP_INITRD_UNITS_LOAD_START]  = "initrd-units-load-start",
         [MANAGER_TIMESTAMP_INITRD_UNITS_LOAD_FINISH] = "initrd-units-load-finish",
         [MANAGER_TIMESTAMP_SHUTDOWN_START]           = "shutdown-start",
+        [MANAGER_TIMESTAMP_SHUTDOWN_FINISH]          = "shutdown-finish",
+        [MANAGER_TIMESTAMP_SHUTDOWN_BINARY_START]    = "shutdown-binary-start",
+        [MANAGER_TIMESTAMP_SHUTDOWN_BINARY_FINISH]   = "shutdown-binary-finish",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(manager_timestamp, ManagerTimestamp);
