@@ -239,6 +239,21 @@ systemctl show -P Group varlink-transient-ids.service | grep "^${NOBODY_GROUP}$"
 systemctl show -P SupplementaryGroups varlink-transient-ids.service | grep "${NOBODY_GROUP}" >/dev/null
 systemctl show -P Nice varlink-transient-ids.service | grep '^5$' >/dev/null
 
+# Exec.OOMScoreAdjust, Exec.UMask, Exec.NoNewPrivileges, Exec.MemoryDenyWriteExecute, Exec.LogLevelMax
+# (int+validator, mode_t, two tristate-bool shapes, plus the string-form log level dispatcher)
+defer_transient_cleanup varlink-transient-procctl.service
+result=$(varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+    '{"context":{"ID":"varlink-transient-procctl.service","Exec":{"OOMScoreAdjust":250,"UMask":18,"NoNewPrivileges":true,"MemoryDenyWriteExecute":true,"LogLevelMax":"info"},"Service":{"Type":"oneshot","RemainAfterExit":true,"ExecStart":[{"path":"/bin/true"}]}}}')
+echo "$result" | jq -e '.context.Exec.OOMScoreAdjust == 250'
+echo "$result" | jq -e '.context.Exec.UMask == 18'
+echo "$result" | jq -e '.context.Exec.NoNewPrivileges == true'
+timeout 30 bash -c 'until systemctl is-active varlink-transient-procctl.service; do sleep 0.5; done'
+systemctl show -P OOMScoreAdjust varlink-transient-procctl.service | grep '^250$' >/dev/null
+systemctl show -P UMask varlink-transient-procctl.service | grep '^0022$' >/dev/null
+systemctl show -P NoNewPrivileges varlink-transient-procctl.service | grep '^yes$' >/dev/null
+systemctl show -P MemoryDenyWriteExecute varlink-transient-procctl.service | grep '^yes$' >/dev/null
+systemctl show -P LogLevelMax varlink-transient-procctl.service | grep '^6$' >/dev/null
+
 # Error cases: verify specific varlink error types
 set +o pipefail
 varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
@@ -284,6 +299,16 @@ defer_transient_cleanup varlink-transient-bad-nice.service
 expect_invalid_parameter \
     '{"context":{"ID":"varlink-transient-bad-nice.service","Exec":{"Nice":100},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' \
     "Exec.Nice"
+# Out-of-range OOMScoreAdjust= value is rejected
+defer_transient_cleanup varlink-transient-bad-oom.service
+expect_invalid_parameter \
+    '{"context":{"ID":"varlink-transient-bad-oom.service","Exec":{"OOMScoreAdjust":9999},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' \
+    "Exec.OOMScoreAdjust"
+# Unknown LogLevelMax= value is rejected
+defer_transient_cleanup varlink-transient-bad-loglevel.service
+expect_invalid_parameter \
+    '{"context":{"ID":"varlink-transient-bad-loglevel.service","Exec":{"LogLevelMax":"bogus"},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' \
+    "Exec.LogLevelMax"
 # Invalid credential ID
 defer_transient_cleanup varlink-transient-bad-cred-id.service
 expect_invalid_parameter \
