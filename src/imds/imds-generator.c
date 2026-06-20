@@ -187,6 +187,11 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
                 r = generator_add_symlink(dest_early, SPECIAL_SYSINIT_TARGET, "wants", SYSTEM_DATA_UNIT_DIR "/systemd-imds-import.service");
                 if (r < 0)
                         return log_error_errno(r, "Failed to hook in systemd-imds-import.service: %m");
+
+                /* And also enable the metrics in this case. */
+                r = generator_add_symlink(dest_early, SPECIAL_SYSINIT_TARGET, "wants", SYSTEM_DATA_UNIT_DIR "/systemd-imds-metrics.service");
+                if (r < 0)
+                        return log_error_errno(r, "Failed to hook in systemd-imds-import.service: %m");
         }
 
         return 0;
