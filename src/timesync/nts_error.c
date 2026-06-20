@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "assert-util.h"
 #include "nts.h"
 
 #define ERROR(kind) case kind: return &#kind[4]
@@ -19,8 +18,8 @@ const char *NTS_error_string(NTS_ErrorType error) {
                 ERROR(NTS_INSUFFICIENT_DATA);
                 ERROR(NTS_UNKNOWN_CRIT_RECORD);
         case NTS_SUCCESS:
-                return "Success?";
+                return "Success";
         default:
-                assert_not_reached();
+                return NULL;
         }
 }

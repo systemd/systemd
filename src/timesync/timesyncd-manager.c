@@ -1675,7 +1675,12 @@ static int manager_nts_obtain_agreement(sd_event_source *source, int fd, uint32_
                         if (NTS.error == NTS_INSUFFICIENT_DATA)
                                 return 1;
 
-                        log_warning("NTS Error: %s", NTS_error_string(NTS.error));
+                        const char *error = NTS_error_string(NTS.error);
+                        if (error != NULL) {
+                                log_warning("NTS Error: %s", error);
+                        } else {
+                                log_warning("Unexpected NTS Error code: %d", NTS.error);
+                        }
                         m->nts_handshake = NTS_TLS_free(m->nts_handshake);
                         m->nts_timeout = sd_event_source_unref(m->nts_timeout);
                         return manager_connect(m);
