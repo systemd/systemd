@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-30 00:13+0200\n"
+"POT-Creation-Date: 2026-06-01 11:49+0200\n"
 "PO-Revision-Date: 2026-06-07 14:04+0000\n"
 "Last-Translator: Anonymous <noreply@weblate.org>\n"
 "Language-Team: Slovenian <https://translate.fedoraproject.org/projects/"
@@ -69,7 +69,8 @@ msgstr "Vnovič naloži stanje systemd"
 
 #: src/core/org.freedesktop.systemd1.policy.in:65
 msgid "Authentication is required to reload the systemd state."
-msgstr "Preverjanje pristnosti je potrebno za ponovno nalaganje stanja systemd."
+msgstr ""
+"Preverjanje pristnosti je potrebno za ponovno nalaganje stanja systemd."
 
 #: src/core/org.freedesktop.systemd1.policy.in:74
 msgid "Dump the systemd state without rate limits"
@@ -331,7 +332,8 @@ msgstr "Geslo je poteklo, potrebna je sprememba."
 
 #: src/home/pam_systemd_home.c:1065
 msgid "Password is expired, but can't change, refusing login."
-msgstr "Geslo je poteklo, vendar ga ni mogoče spremeniti; prijava bo zavrnjena."
+msgstr ""
+"Geslo je poteklo, vendar ga ni mogoče spremeniti; prijava bo zavrnjena."
 
 #: src/home/pam_systemd_home.c:1069
 msgid "Password will expire soon, please change."
@@ -527,7 +529,8 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:97
 msgid "Allow applications to inhibit system handling of the hibernate key"
-msgstr "Dovoli programom, da preprečijo sistemsko ravnanje s tipko za mirovanje"
+msgstr ""
+"Dovoli programom, da preprečijo sistemsko ravnanje s tipko za mirovanje"
 
 #: src/login/org.freedesktop.login1.policy:98
 msgid ""
@@ -589,7 +592,8 @@ msgstr "Dovoli pripenjanje naprav na delovišča"
 
 #: src/login/org.freedesktop.login1.policy:149
 msgid "Authentication is required to attach a device to a seat."
-msgstr "Preverjanje pristnosti je potrebno za pripenjanje naprave na delovišče."
+msgstr ""
+"Preverjanje pristnosti je potrebno za pripenjanje naprave na delovišče."
 
 #: src/login/org.freedesktop.login1.policy:159
 msgid "Flush device to seat attachments"
@@ -1205,7 +1209,8 @@ msgstr "Naroči se na rezultate poizvedbe"
 
 #: src/resolve/org.freedesktop.resolve1.policy:144
 msgid "Authentication is required to subscribe query results."
-msgstr "Za naročanje na rezultate poizvedbe je potrebno preverjanje pristnosti."
+msgstr ""
+"Za naročanje na rezultate poizvedbe je potrebno preverjanje pristnosti."
 
 #: src/resolve/org.freedesktop.resolve1.policy:154
 msgid "Subscribe to DNS configuration"
@@ -1436,8 +1441,8 @@ msgstr ""
 #: src/core/dbus-unit.c:679
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr ""
-"Preverjanje pristnosti je potrebno, če želite lastnosti nastaviti na »$(unit)"
-"«."
+"Preverjanje pristnosti je potrebno, če želite lastnosti nastaviti na »$"
+"(unit)«."
 
 #: src/core/dbus-unit.c:776
 msgid ""
@@ -1454,15 +1459,22 @@ msgstr ""
 "Preverjanje pristnosti je potrebno za zamrznitev ali odmrzovanje postopkov "
 "enote »$(enota)«."
 
-#: src/shared/libfido2-util.c:497 src/shared/libfido2-util.c:554
+#: src/shared/libfido2-util.c:500 src/shared/libfido2-util.c:557
 msgid "Please confirm presence on security token to unlock."
 msgstr "Potrdite prisotnost za varnostni žeton, da bo možno odklepanje."
 
-#: src/shared/libfido2-util.c:513
+#: src/shared/libfido2-util.c:516
 msgid "Please verify user on security token to unlock."
 msgstr "Preverite uporabnika na varnostnem žetonu, da bo možno odklepanje."
 
-#: src/shared/libfido2-util.c:926
+#: src/shared/libfido2-util.c:936
+#, fuzzy, c-format
+#| msgid "Please enter security token PIN:"
+msgid ""
+"Please enter security token PIN (remaining attempts before lock-out: %d):"
+msgstr "Vnesite PIN varnostnega žetona:"
+
+#: src/shared/libfido2-util.c:948
 msgid "Please enter security token PIN:"
 msgstr "Vnesite PIN varnostnega žetona:"
 

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-30 00:13+0200\n"
+"POT-Creation-Date: 2026-06-01 11:49+0200\n"
 "PO-Revision-Date: 2026-06-07 13:57+0000\n"
 "Last-Translator: Anonymous <noreply@weblate.org>\n"
 "Language-Team: Serbian (Latin script) <https://translate.fedoraproject.org/"
@@ -28,7 +28,8 @@ msgstr "Pošalji frazu nazad ka sistemu"
 #: src/core/org.freedesktop.systemd1.policy.in:23
 msgid ""
 "Authentication is required to send the entered passphrase back to the system."
-msgstr "Potrebno je da se identifikujete da biste poslali frazu nazad u sistem."
+msgstr ""
+"Potrebno je da se identifikujete da biste poslali frazu nazad u sistem."
 
 #: src/core/org.freedesktop.systemd1.policy.in:33
 msgid "Manage system services or other units"
@@ -126,7 +127,8 @@ msgstr "Ažuriraj svoj lični prostor"
 
 #: src/home/org.freedesktop.home1.policy:54
 msgid "Authentication is required to update your home area."
-msgstr "Potrebno je potvrđivanje identiteta za ažuriranje svog ličnog prostora."
+msgstr ""
+"Potrebno je potvrđivanje identiteta za ažuriranje svog ličnog prostora."
 
 #: src/home/org.freedesktop.home1.policy:63
 msgid "Resize a home area"
@@ -987,7 +989,8 @@ msgstr "Postavi podrazumevanu rutu"
 #: src/network/org.freedesktop.network1.policy:56
 #: src/resolve/org.freedesktop.resolve1.policy:67
 msgid "Authentication is required to set default route."
-msgstr "Potrebno je potvrđivanje identiteta za postavljanje podrazumevane rute."
+msgstr ""
+"Potrebno je potvrđivanje identiteta za postavljanje podrazumevane rute."
 
 #: src/network/org.freedesktop.network1.policy:66
 #: src/resolve/org.freedesktop.resolve1.policy:77
@@ -1269,7 +1272,8 @@ msgstr "Instaliraj ažuriranja sistema"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:59
 msgid "Authentication is required to install system updates."
-msgstr "Potrebno je potvrđivanje identiteta za instaliranje ažuriranja sistema."
+msgstr ""
+"Potrebno je potvrđivanje identiteta za instaliranje ažuriranja sistema."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:68
 msgid "Cancel installing system updates"
@@ -1345,7 +1349,8 @@ msgstr ""
 
 #: src/timedate/org.freedesktop.timedate1.policy:43
 msgid "Set RTC to local timezone or UTC"
-msgstr "Postavi časovnik realnog vremena na lokalnu vremensku zonu ili UTC zonu"
+msgstr ""
+"Postavi časovnik realnog vremena na lokalnu vremensku zonu ili UTC zonu"
 
 #: src/timedate/org.freedesktop.timedate1.policy:44
 msgid ""
@@ -1414,15 +1419,21 @@ msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr ""
 
-#: src/shared/libfido2-util.c:497 src/shared/libfido2-util.c:554
+#: src/shared/libfido2-util.c:500 src/shared/libfido2-util.c:557
 msgid "Please confirm presence on security token to unlock."
 msgstr ""
 
-#: src/shared/libfido2-util.c:513
+#: src/shared/libfido2-util.c:516
 msgid "Please verify user on security token to unlock."
 msgstr ""
 
-#: src/shared/libfido2-util.c:926
+#: src/shared/libfido2-util.c:936
+#, c-format
+msgid ""
+"Please enter security token PIN (remaining attempts before lock-out: %d):"
+msgstr ""
+
+#: src/shared/libfido2-util.c:948
 msgid "Please enter security token PIN:"
 msgstr ""
 

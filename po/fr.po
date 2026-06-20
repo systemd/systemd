@@ -11,7 +11,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-30 00:13+0200\n"
+"POT-Creation-Date: 2026-06-01 11:49+0200\n"
 "PO-Revision-Date: 2026-06-09 09:04+0000\n"
 "Last-Translator: Léane GRASSER <leane.grasser@proton.me>\n"
 "Language-Team: French <https://translate.fedoraproject.org/projects/systemd/"
@@ -761,7 +761,8 @@ msgstr "Mettre le système en hibernation"
 
 #: src/login/org.freedesktop.login1.policy:301
 msgid "Authentication is required to hibernate the system."
-msgstr "Une authentification est requise pour mettre le système en hibernation."
+msgstr ""
+"Une authentification est requise pour mettre le système en hibernation."
 
 #: src/login/org.freedesktop.login1.policy:310
 msgid "Hibernate the system while other users are logged in"
@@ -1094,7 +1095,8 @@ msgstr "Réinitialiser les paramètres NTP"
 
 #: src/network/org.freedesktop.network1.policy:122
 msgid "Authentication is required to reset NTP settings."
-msgstr "Une authentification est requise pour réinitialiser les paramètres NTP."
+msgstr ""
+"Une authentification est requise pour réinitialiser les paramètres NTP."
 
 #: src/network/org.freedesktop.network1.policy:132
 msgid "Revert DNS settings"
@@ -1102,7 +1104,8 @@ msgstr "Réinitialiser les paramètres DNS"
 
 #: src/network/org.freedesktop.network1.policy:133
 msgid "Authentication is required to reset DNS settings."
-msgstr "Une authentification est requise pour réinitialiser les paramètres DNS."
+msgstr ""
+"Une authentification est requise pour réinitialiser les paramètres DNS."
 
 #: src/network/org.freedesktop.network1.policy:143
 msgid "DHCP server sends force renew message"
@@ -1240,7 +1243,8 @@ msgstr "S'abonner à la configuration DNS"
 
 #: src/resolve/org.freedesktop.resolve1.policy:155
 msgid "Authentication is required to subscribe to DNS configuration."
-msgstr "Une authentification est requise pour s'abonner à la configuration DNS."
+msgstr ""
+"Une authentification est requise pour s'abonner à la configuration DNS."
 
 #: src/resolve/org.freedesktop.resolve1.policy:165
 msgid "Dump cache"
@@ -1482,19 +1486,26 @@ msgstr ""
 "Une authentification est requise pour geler ou dégeler les processus de "
 "l'unité '$(unit)'."
 
-#: src/shared/libfido2-util.c:497 src/shared/libfido2-util.c:554
+#: src/shared/libfido2-util.c:500 src/shared/libfido2-util.c:557
 msgid "Please confirm presence on security token to unlock."
 msgstr ""
 "Veuillez confirmer votre présence sur la clef de sécurité pour le "
 "déverrouillage."
 
-#: src/shared/libfido2-util.c:513
+#: src/shared/libfido2-util.c:516
 msgid "Please verify user on security token to unlock."
 msgstr ""
 "Veuillez confirmer l'utilisateur sur la clef de sécurité pour le "
 "déverrouillage."
 
-#: src/shared/libfido2-util.c:926
+#: src/shared/libfido2-util.c:936
+#, fuzzy, c-format
+#| msgid "Please enter security token PIN:"
+msgid ""
+"Please enter security token PIN (remaining attempts before lock-out: %d):"
+msgstr "Veuillez entrer le code PIN de la clef de sécurité:"
+
+#: src/shared/libfido2-util.c:948
 msgid "Please enter security token PIN:"
 msgstr "Veuillez entrer le code PIN de la clef de sécurité:"
 
