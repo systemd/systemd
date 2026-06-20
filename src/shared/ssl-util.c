@@ -4,6 +4,7 @@
 
 #include "log.h"                /* IWYU pragma: keep */
 #include "ssl-util.h"
+#include "strv.h"
 
 #if HAVE_OPENSSL
 
@@ -35,35 +36,47 @@ DLSYM_PROTOTYPE(TLS_client_method) = NULL;
 int dlopen_libssl(int log_level) {
 #if HAVE_OPENSSL
         static void *libssl_dl = NULL;
+        int r;
 
         LIBSSL_NOTE(SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED);
 
-        return dlopen_many_sym_or_warn(
-                        &libssl_dl,
-                        "libssl.so.3",
-                        log_level,
-                        DLSYM_ARG(SSL_ctrl),
-                        DLSYM_ARG(SSL_CTX_ctrl),
-                        DLSYM_ARG(SSL_CTX_free),
-                        DLSYM_ARG(SSL_CTX_new),
-                        DLSYM_ARG(SSL_CTX_set_default_verify_paths),
-                        DLSYM_ARG(SSL_CTX_set_options),
-                        DLSYM_ARG(SSL_do_handshake),
-                        DLSYM_ARG(SSL_free),
-                        DLSYM_ARG(SSL_get_error),
-                        DLSYM_ARG(SSL_get_wbio),
-                        DLSYM_ARG(SSL_get0_param),
-                        DLSYM_ARG(SSL_get1_session),
-                        DLSYM_ARG(SSL_new),
-                        DLSYM_ARG(SSL_read),
-                        DLSYM_ARG(SSL_SESSION_free),
-                        DLSYM_ARG(SSL_set_bio),
-                        DLSYM_ARG(SSL_set_connect_state),
-                        DLSYM_ARG(SSL_set_session),
-                        DLSYM_ARG(SSL_set_verify),
-                        DLSYM_ARG(SSL_shutdown),
-                        DLSYM_ARG(SSL_write),
-                        DLSYM_ARG(TLS_client_method));
+        // FIXME: switch order to prefer libssl.so.4 in a future version once it has stabilized
+        FOREACH_STRING(soname, "libssl.so.3", "libssl.so.4") {
+                r = dlopen_many_sym_or_warn(
+                                &libssl_dl,
+                                soname,
+                                log_level,
+                                DLSYM_ARG(SSL_ctrl),
+                                DLSYM_ARG(SSL_CTX_ctrl),
+                                DLSYM_ARG(SSL_CTX_free),
+                                DLSYM_ARG(SSL_CTX_new),
+                                DLSYM_ARG(SSL_CTX_set_default_verify_paths),
+                                DLSYM_ARG(SSL_CTX_set_options),
+                                DLSYM_ARG(SSL_do_handshake),
+                                DLSYM_ARG(SSL_free),
+                                DLSYM_ARG(SSL_get_error),
+                                DLSYM_ARG(SSL_get_wbio),
+                                DLSYM_ARG(SSL_get0_param),
+                                DLSYM_ARG(SSL_get1_session),
+                                DLSYM_ARG(SSL_new),
+                                DLSYM_ARG(SSL_read),
+                                DLSYM_ARG(SSL_SESSION_free),
+                                DLSYM_ARG(SSL_set_bio),
+                                DLSYM_ARG(SSL_set_connect_state),
+                                DLSYM_ARG(SSL_set_session),
+                                DLSYM_ARG(SSL_set_verify),
+                                DLSYM_ARG(SSL_shutdown),
+                                DLSYM_ARG(SSL_write),
+                                DLSYM_ARG(TLS_client_method));
+                if (r >= 0)
+                        break;
+        }
+        if (r < 0) {
+                log_full_errno(log_level, r, "Neither libssl.so.4 nor libssl.so.3 could be loaded");
+                return -EOPNOTSUPP; /* turn into recognizable error */
+        }
+
+        return r;
 #else
         return log_full_errno(log_level, SYNTHETIC_ERRNO(EOPNOTSUPP),
                               "libssl support is not compiled in.");
