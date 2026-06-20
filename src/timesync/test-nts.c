@@ -156,7 +156,7 @@ TEST(ntp_field_encoding) {
         uint8_t buffer[1280];
 
         uint8_t key[32] = {};
-        uint8_t identifier[32] = {};
+        NTS_Identifier identifier = {};
         char cookie[] = "PAD";
 
         NTS_Query nts = {
@@ -262,7 +262,7 @@ TEST(ntp_field_decoding) {
         NTS_Receipt rcpt = {};
         assert_se(NTS_parse_extension_fields(buffer, p - buffer, &nts, &rcpt));
 
-        assert_se(memcmp(rcpt.identifier, ident, 32) == 0);
+        assert_se(memcmp(rcpt.identifier.bytes, ident, 32) == 0);
         assert_se(rcpt.new_cookie[0].iov_base != NULL);
         assert_se(rcpt.new_cookie[0].iov_len >= strlen(cookie));
         assert_se(memcmp(rcpt.new_cookie[0].iov_base, cookie, strlen(cookie)) == 0);

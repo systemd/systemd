@@ -62,11 +62,11 @@ ssize_t NTS_add_extension_fields(
         iovec_inc(&buf, 48);
 
         /* generate unique identifier */
-        r = crypto_random_bytes(*identifier, sizeof(NTS_Identifier));
+        r = crypto_random_bytes(identifier->bytes, sizeof(NTS_Identifier));
         if (r < 0)
                 return r;
 
-        r = write_ntp_ext_field(&buf, NTS_EF_UniqueIdentifier, *identifier, sizeof(NTS_Identifier), 16);
+        r = write_ntp_ext_field(&buf, NTS_EF_UniqueIdentifier, identifier->bytes, sizeof(NTS_Identifier), 16);
         if (r < 0)
                 return r;
 
@@ -194,10 +194,10 @@ ssize_t NTS_parse_extension_fields(
                 case NTS_EF_UniqueIdentifier:
                         /* the length indicator contains the size of the header (4 bytes); the identifier
                          * itself is expected to be 32 bytes */
-                        if (len - 4 != 32)
+                        if (len - 4 != sizeof(NTS_Identifier))
                                 return -EBADMSG;
 
-                        fields->identifier = (NTS_Identifier*)((uint8_t*)buf.iov_base + 4);
+                        memcpy(&fields->identifier, (uint8_t*)buf.iov_base + 4, sizeof(NTS_Identifier));
                         processed = true;
                         break;
                 case NTS_EF_AuthEncExtFields: {

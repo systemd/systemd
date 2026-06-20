@@ -37,7 +37,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
                 FOREACH_ELEMENT(cookie, rcpt.new_cookie)
                         eat(cookie->iov_base, cookie->iov_len);
 
-                eat(*rcpt.identifier, 32);
+                eat(rcpt.identifier.bytes, 32);
         }
 
         return 0;

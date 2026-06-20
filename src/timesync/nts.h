@@ -9,6 +9,7 @@
 #include <sys/types.h>
 #include <sys/uio.h>
 
+#include "macro.h"
 #include "nts_definitions.h"
 
 typedef uint16_t NTS_RecordType;
@@ -22,7 +23,9 @@ typedef struct NTS_AEADParam {
         const char *cipher_name;
 } NTS_AEADParam;
 
-typedef uint8_t NTS_Identifier[32];
+typedef struct NTS_Identifier {
+        uint8_t bytes[32];
+} _packed_ NTS_Identifier;
 
 typedef enum NTS_ErrorType {
         NTS_SERVER_UNKNOWN_CRIT_RECORD = 0,

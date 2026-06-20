@@ -12,7 +12,7 @@ typedef struct NTS_Query {
 } NTS_Query;
 
 typedef struct NTS_Receipt {
-        NTS_Identifier *identifier;
+        NTS_Identifier identifier;
         NTS_Cookie new_cookie[8];
 } NTS_Receipt;
 

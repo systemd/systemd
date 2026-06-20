@@ -82,7 +82,7 @@ static void serve_ntp_request(int sock, AEADKey c2s, AEADKey s2c, int sabotage) 
                 /* getting "new cookies" from a client is an error */
                 soft_assert(rcpt.new_cookie->iov_base == NULL);
 
-                memcpy(unique_id, rcpt.identifier, 32);
+                memcpy(unique_id, rcpt.identifier.bytes, 32);
         }
 
         /* simulate a SNTP reponse - you are always 42 seconds behind */
