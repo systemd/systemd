@@ -2795,11 +2795,34 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           <para>When used with <command>kexec</command>, append the specified string to the kernel command
           line options of the kexec kernel. The kernel command line is taken from the boot loader entry of
           the currently booted kernel (as selected automatically when no kexec kernel is preloaded, see
-          <command>kexec</command> above). This string is appended verbatim, separated from the existing
-          options by a single space. <command>systemctl kexec</command> will fail if this option is specified
+          <command>kexec</command> above). This string is appended, separated from the existing
+          options by a single space. Any parameter that ends up more than once in the resulting command line
+          is deduplicated, keeping the last occurrence, consistent with the kernel's last-assignment-wins
+          semantics for repeated parameters.
+          <command>systemctl kexec</command> will fail if this option is specified
           when a kexec kernel is already loaded.</para>
 
           <xi:include href="version-info.xml" xpointer="v261"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--reuse-kernel-cmdline</option></term>
+
+        <listitem>
+          <para>Like <option>--kernel-cmdline=</option>, but instead of taking the string to append as an
+          argument, the command line of the currently running kernel is reused, as read from
+          <filename>/proc/cmdline</filename>. This is useful to boot the kexec kernel with the same command
+          line options the running system was booted with, including any modifications applied at boot time.
+          As with <option>--kernel-cmdline=</option>, the string is appended to the kernel command line taken
+          from the boot loader entry of the currently booted kernel, and <command>systemctl kexec</command>
+          will fail if this option is specified when a kexec kernel is already loaded.</para>
+
+          <para>Any parameter that ends up more than once in the resulting command line is deduplicated,
+          keeping the last occurrence, consistent with the kernel's last-assignment-wins semantics for
+          repeated parameters.</para>
+
+          <xi:include href="version-info.xml" xpointer="v262"/>
         </listitem>
       </varlistentry>
 
