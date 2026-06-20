@@ -9,6 +9,7 @@
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "efivars.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "log.h"
 #include "parse-util.h"
@@ -24,13 +25,38 @@
 #include "systemctl-trivial-method.h"
 #include "systemctl-util.h"
 
+static int deduplicate_kernel_cmdline(char **cmdline) {
+        int r;
+
+        assert(cmdline);
+
+        /* Split, reverse, deduplicate, reverse again: the last occurrence of each identical argument wins. */
+
+        _cleanup_strv_free_ char **l = NULL;
+        r = strv_split_full(&l, *cmdline, /* separators= */ NULL,
+                            EXTRACT_KEEP_QUOTE | EXTRACT_RETAIN_ESCAPE | EXTRACT_RELAX);
+        if (r < 0)
+                return r;
+
+        strv_reverse(l);
+        strv_uniq(l);
+        strv_reverse(l);
+
+        _cleanup_free_ char *joined = strv_join(l, " ");
+        if (!joined)
+                return -ENOMEM;
+
+        free_and_replace(*cmdline, joined);
+        return 0;
+}
+
 static int load_kexec_kernel(void) {
         int r;
 
         if (kexec_loaded()) {
-                if (arg_kernel_cmdline)
+                if (arg_kernel_cmdline || arg_reuse_kernel_cmdline)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "--kernel-cmdline= specified but kexec kernel already loaded");
+                                               "--kernel-cmdline=/--kernel-cmdline-reuse specified but kexec kernel already loaded");
                 log_debug("Kexec kernel already loaded.");
                 return 0;
         }
@@ -81,8 +107,18 @@ static int load_kexec_kernel(void) {
         if (!options)
                 return log_oom();
 
+        /* Assemble in a fixed order: UKI -> current cmdline -> appended cmdline, and dedup at the end */
+        if (!isempty(arg_reuse_kernel_cmdline) && !strextend_with_separator(&options, " ", arg_reuse_kernel_cmdline))
+                return log_oom();
+
         if (!isempty(arg_kernel_cmdline) && !strextend_with_separator(&options, " ", arg_kernel_cmdline))
                 return log_oom();
+
+        if (!isempty(arg_reuse_kernel_cmdline) || !isempty(arg_kernel_cmdline)) {
+                r = deduplicate_kernel_cmdline(&options);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to deduplicate kernel command line: %m");
+        }
 
         log_full(arg_quiet ? LOG_DEBUG : LOG_INFO,
                  "%s %s kernel=\"%s\" cmdline=\"%s\"%s%s%s",
