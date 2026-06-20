@@ -910,23 +910,35 @@ static int subvol_remove_children(int fd, const char *subvolume, uint64_t subvol
          * regular files inside don't matter; it only returns ENOTEMPTY when there are nested
          * subvolumes (BTRFS_ROOT_REF_KEY entries), which we then handle below. */
         strncpy(vol_args.name, subvolume, sizeof(vol_args.name)-1);
+        int destroy_errno = 0;
         for (;;) {
                 if (ioctl(fd, BTRFS_IOC_SNAP_DESTROY, &vol_args) >= 0)
                         goto finish;
+                destroy_errno = errno;
 
-                /* Without CAP_SYS_ADMIN the kernel runs an inode_permission(MAY_WRITE) check against
-                 * the subvolume root, which btrfs_permission() rejects with EROFS for a read-only
-                 * subvolume. Clear the RDONLY flag and retry. */
-                if (errno != EROFS || made_writable)
+                /* Without CAP_SYS_ADMIN the destroy ioctl is rejected for a read-only subvolume: with
+                 * EROFS when 'user_subvol_rm_allowed' is set (btrfs_permission() fails the inode
+                 * MAY_WRITE check), or with EPERM/EACCES when it is not (the privilege check fires
+                 * first). In either case, if the subvolume is read-only, clear the RDONLY flag (only
+                 * inode ownership is required) and retry. This lets the retry succeed when removal is
+                 * permitted, and otherwise leaves the subvolume writable so the caller (e.g. rm_rf())
+                 * can empty and rmdir() it without privileges. */
+                if (made_writable || !ERRNO_IS_FS_WRITE_REFUSED(destroy_errno))
                         break;
+
+                r = btrfs_subvol_get_read_only_fd(subvol_fd);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break; /* Not read-only; clearing the flag would not help. */
 
                 r = btrfs_subvol_set_read_only_fd(subvol_fd, false);
                 if (r < 0)
                         return r;
                 made_writable = true;
         }
-        if (!(flags & BTRFS_REMOVE_RECURSIVE) || errno != ENOTEMPTY)
-                return -errno;
+        if (!(flags & BTRFS_REMOVE_RECURSIVE) || destroy_errno != ENOTEMPTY)
+                return -destroy_errno;
 
         /* OK, there are nested subvolumes — enumerate and recurse into them, then retry.
          * BTRFS_IOC_GET_SUBVOL_ROOTREF and BTRFS_IOC_INO_LOOKUP_USER (kernel 4.18+) enumerate child
