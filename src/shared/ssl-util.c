@@ -40,8 +40,7 @@ int dlopen_libssl(int log_level) {
 
         LIBSSL_NOTE(SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED);
 
-        // FIXME: switch order to prefer libssl.so.4 in a future version once it has stabilized
-        FOREACH_STRING(soname, "libssl.so.3", "libssl.so.4") {
+        FOREACH_STRING(soname, "libssl.so.4", "libssl.so.3") {
                 r = dlopen_many_sym_or_warn(
                                 &libssl_dl,
                                 soname,
