@@ -198,8 +198,7 @@ static void add_encrypted_server_hdr(
 
         assert(dlopen_libcrypto(LOG_ERR) == 0);
 
-        uint8_t *af = *p_ptr;
-        uint8_t *pt;
+        uint8_t *pt, *af = *p_ptr;
         /* write nonce */
         *p_ptr = pt = (uint8_t*)mempcpy(af+8, "123NONCE", 8) + 16;
         /* write fields */
