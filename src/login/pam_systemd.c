@@ -117,6 +117,8 @@ static int parse_argv(
                 const char **type,
                 const char **desktop,
                 const char **area,
+                const char **inhibit_what,
+                const char **inhibit_why,
                 bool *debug,
                 uint64_t *default_capability_bounding_set,
                 uint64_t *default_capability_ambient_set) {
@@ -148,6 +150,12 @@ static int parse_argv(
                                 sym_pam_syslog(pamh, LOG_WARNING, "Area name specified among PAM module parameters is not valid, ignoring: %s", p);
                         else if (area)
                                 *area = p;
+                } else if ((p = startswith(argv[i], "inhibit="))) {
+                        if (inhibit_what)
+                                *inhibit_what = p;
+                } else if ((p = startswith(argv[i], "inhibit-why="))) {
+                        if (inhibit_why)
+                                *inhibit_why = p;
 
                 } else if (streq(argv[i], "debug")) {
                         if (debug)
@@ -1739,6 +1747,57 @@ static int close_osc_context(pam_handle_t *pamh, bool debug) {
         return PAM_SUCCESS;
 }
 
+static int acquire_inhibit_lock(
+                pam_handle_t *pamh,
+                const char *inhibit_what,
+                const char *inhibit_why,
+                bool debug) {
+
+        _cleanup_(pam_bus_data_disconnectp) PamBusData *d = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        const char *service = NULL;
+        int r;
+
+        assert(pamh);
+        assert(inhibit_what);
+
+        r = pam_acquire_bus_connection(pamh, "pam-systemd", debug, &bus, &d);
+        if (r != PAM_SUCCESS)
+                return r;
+
+        (void) sym_pam_get_item(pamh, PAM_SERVICE, (const void **) &service);
+
+        r = bus_call_method(bus, bus_login_mgr, "Inhibit", &error, &reply, "ssss",
+                            inhibit_what,
+                            service ?: "pam_systemd",
+                            inhibit_why ?: "Active PAM session",
+                            "block");
+        if (r < 0) {
+                sym_pam_syslog(pamh, LOG_WARNING, "Failed to acquire inhibit lock: %s", bus_error_message(&error, r));
+                return PAM_SESSION_ERR;
+        }
+
+        int raw_fd;
+        r = sd_bus_message_read_basic(reply, SD_BUS_TYPE_UNIX_FD, &raw_fd);
+        if (r < 0)
+                return pam_bus_log_parse_error(pamh, r);
+
+        _cleanup_close_ int fd = fcntl(raw_fd, F_DUPFD_CLOEXEC, 3);
+        if (fd < 0)
+                return pam_syslog_errno(pamh, LOG_ERR, errno, "Failed to dup inhibit lock fd: %m");
+
+        r = sym_pam_set_data(pamh, "systemd.inhibit-fd", FD_TO_PTR(fd), pam_cleanup_close);
+        if (r != PAM_SUCCESS)
+                return pam_syslog_pam_error(pamh, LOG_ERR, r,
+                                            "Failed to store inhibit lock fd: @PAMERR@");
+        TAKE_FD(fd);
+
+        pam_debug_syslog(pamh, debug, "Acquired inhibit lock for '%s'.", inhibit_what);
+        return PAM_SUCCESS;
+}
+
 _public_ PAM_EXTERN int pam_sm_open_session(
                 pam_handle_t *pamh,
                 int flags,
@@ -1755,7 +1814,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         pam_log_setup();
 
         uint64_t default_capability_bounding_set = CAP_MASK_UNSET, default_capability_ambient_set = CAP_MASK_UNSET;
-        const char *class_pam = NULL, *type_pam = NULL, *desktop_pam = NULL, *area_pam = NULL;
+        const char *class_pam = NULL, *type_pam = NULL, *desktop_pam = NULL, *area_pam = NULL, *inhibit_what = NULL, *inhibit_why = NULL;
         bool debug = false;
         if (parse_argv(pamh,
                        argc, argv,
@@ -1763,6 +1822,8 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                        &type_pam,
                        &desktop_pam,
                        &area_pam,
+                       &inhibit_what,
+                       &inhibit_why,
                        &debug,
                        &default_capability_bounding_set,
                        &default_capability_ambient_set) < 0)
@@ -1793,6 +1854,8 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         c.desktop = getenv_harder(pamh, "XDG_SESSION_DESKTOP", desktop_pam);
         c.area = getenv_harder(pamh, "XDG_AREA", area_pam);
         c.incomplete = getenv_harder_bool(pamh, "XDG_SESSION_INCOMPLETE", false);
+        inhibit_what = getenv_harder(pamh, "XDG_SESSION_INHIBIT", inhibit_what);
+        inhibit_why = getenv_harder(pamh, "XDG_SESSION_INHIBIT_WHY", inhibit_why);
 
         const char *extra_device_access = getenv_harder(pamh, "XDG_SESSION_EXTRA_DEVICE_ACCESS", NULL);
         if (extra_device_access) {
@@ -1817,6 +1880,11 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         r = register_session(pamh, &c, ur, debug, &seat_buffer, &type_buffer, &runtime_dir);
         if (r != PAM_SUCCESS)
                 return r;
+
+        if (inhibit_what)
+                /* Failure to acquire the inhibit lock is not fatal, session setup should proceed
+                 * regardless. */
+                (void) acquire_inhibit_lock(pamh, inhibit_what, inhibit_why, debug);
 
         r = import_shell_credentials(pamh, debug);
         if (r != PAM_SUCCESS)
@@ -1859,6 +1927,8 @@ _public_ PAM_EXTERN int pam_sm_close_session(
                        /* type= */ NULL,
                        /* desktop= */ NULL,
                        /* area= */ NULL,
+                       /* inhibit_what= */ NULL,
+                       /* inhibit_why= */ NULL,
                        &debug,
                        /* default_capability_bounding_set= */ NULL,
                        /* default_capability_ambient_set= */ NULL) < 0)
@@ -1867,6 +1937,8 @@ _public_ PAM_EXTERN int pam_sm_close_session(
         pam_debug_syslog(pamh, debug, "pam-systemd: shutting down...");
 
         (void) close_osc_context(pamh, debug);
+
+        (void) sym_pam_set_data(pamh, "systemd.inhibit-fd", NULL, NULL);
 
         id = sym_pam_getenv(pamh, "XDG_SESSION_ID");
         if (id) {
