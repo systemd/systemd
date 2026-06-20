@@ -12,7 +12,7 @@ int dlopen_libssl(int log_level);
         SD_ELF_NOTE_DLOPEN("libssl",                                    \
                            "Support for TLS",                           \
                            priority,                                    \
-                           "libssl.so.3")
+                           "libssl.so.3", "libssl.so.4")
 
 #define DLOPEN_LIBSSL(log_level, priority)                              \
         ({                                                              \
