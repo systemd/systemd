@@ -21,6 +21,9 @@ SocketMode=0666
 Accept=yes
 MaxConnectionsPerSource=16
 RemoveOnStop=yes
+XAttrEntryPoint=user.varlink=entrypoint
+XAttrListen=user.varlink=listen
+XAttrAccept=user.varlink=server
 
 # Note that this is typically pulled in automatically by
 # systemd-imds-generator, but you can also enable it manually if you like.

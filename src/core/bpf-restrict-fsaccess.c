@@ -5,6 +5,7 @@
 #include <sys/stat.h>
 
 #include "bpf-restrict-fsaccess.h"
+#include "devnum-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "initrd-util.h"
