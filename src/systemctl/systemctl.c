@@ -19,6 +19,7 @@
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "proc-cmdline.h"
 #include "static-destruct.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -768,6 +769,26 @@ static int systemctl_parse_argv(int argc, char *argv[], int log_level_shift, cha
                         if (r < 0)
                                 return r;
                         break;
+
+                OPTION_LONG("reuse-kernel-cmdline", NULL,
+                            "Like --kernel-cmdline=, but reuse the current kernel command line"): {
+                        _cleanup_free_ char *cmdline = NULL;
+
+                        r = proc_cmdline(&cmdline);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to read current kernel command line: %m");
+
+                        const char *stripped = empty_to_null(strstrip(cmdline));
+
+                        if (stripped && !string_is_safe(stripped, STRING_ALLOW_GLOBS|STRING_ALLOW_BACKSLASHES|STRING_ALLOW_QUOTES))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Current kernel command line contains invalid characters: %s", stripped);
+
+                        r = free_and_strdup_warn(&arg_kernel_cmdline, stripped);
+                        if (r < 0)
+                                return r;
+                        break;
+                }
 
                 OPTION_LONG("plain", NULL, "Print unit dependencies as a list instead of a tree"):
                         arg_plain = true;
