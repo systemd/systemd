@@ -543,4 +543,5 @@ _arguments -s \
     '--failed[Show failed units]' \
     '--timestamp=[Change format of printed timestamps]:style:_systemctl_timestamp' \
     '--when=[Schedule halt/power-off/reboot/kexec action after a certain timestamp]:timestamp:(show cancel auto)' \
+    '--reuse-kernel-cmdline[Reuse the current kernel command line when loading the kexec kernel]' \
     '*::systemctl command:_systemctl_commands'
