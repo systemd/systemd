@@ -18,15 +18,26 @@
 #define ENCRYPTED_PLACEHOLDERS 0
 #endif
 
-static int write_ntp_ext_field(struct iovec *buf, uint16_t type, void *contents, uint16_t len, uint16_t size) {
+/* Per RFC7822, extension fields have to be at least 16 bytes each; but the final one has to be at least 28; however, per RFC8915, this
+ * requirement does not hold for the encrypted and authenticated extension fields */
+
+#define NORMAL_EF_MIN_SIZE 16
+#define FINAL_EF_MIN_SIZE 28
+#define ENCRYPTED_EF_MIN_SIZE 0
+
+/* write an NTP extension field with minimum length min_size.
+ * the pointer in the contents argument is allowed to be NULL, in that case an all-zero field of the given size is emitted */
+
+static int write_ntp_ext_field(struct iovec *buf, uint16_t type, struct iovec contents, size_t min_size) {
         assert(buf);
 
         /* enforce minimum size */
-        if (size < len+4)
-                size = len+4;
+        const size_t req_size = contents.iov_len+4;
+        size_t size = MAX(min_size, req_size);
+
         /* pad to a dword boundary */
-        uint16_t padded_len = ALIGN4(size);
-        size_t padding = padded_len - (len+4);
+        size_t padded_len = ALIGN4(size);
+        size_t padding = padded_len - req_size;
 
         if (buf->iov_len < padded_len)
                 return -ENOBUFS;
@@ -34,14 +45,15 @@ static int write_ntp_ext_field(struct iovec *buf, uint16_t type, void *contents,
         uint8_t *data = (uint8_t*) buf->iov_base;
         iovec_inc(buf, padded_len);
 
+        assert(padded_len <= UINT16_MAX);
         unaligned_write_be16(data, type);
         unaligned_write_be16(data+2, padded_len);
-        if (contents)
-                memmove(data+4, contents, len);
+        if (contents.iov_base)
+                memmove(data+4, contents.iov_base, contents.iov_len);
         else
-                memzero(data+4, len);
+                memzero(data+4, contents.iov_len);
 
-        memzero(data+4+len, padding);
+        memzero(data+req_size, padding);
         return 0;
 }
 
@@ -66,19 +78,19 @@ ssize_t NTS_add_extension_fields(
         if (r < 0)
                 return r;
 
-        r = write_ntp_ext_field(&buf, NTS_EF_UniqueIdentifier, identifier->bytes, sizeof(NTS_Identifier), 16);
+        r = write_ntp_ext_field(&buf, NTS_EF_UniqueIdentifier, IOVEC_MAKE(identifier->bytes, sizeof(NTS_Identifier)), NORMAL_EF_MIN_SIZE);
         if (r < 0)
                 return r;
 
         /* write cookie field */
-        r = write_ntp_ext_field(&buf, NTS_EF_Cookie, nts->cookie.iov_base, nts->cookie.iov_len, 16);
+        r = write_ntp_ext_field(&buf, NTS_EF_Cookie, nts->cookie, NORMAL_EF_MIN_SIZE);
         if (r < 0)
                 return r;
 
         /* write unencrypted extra cookiefields */
         int placeholders = nts->extra_cookies;
         for ( ; placeholders > ENCRYPTED_PLACEHOLDERS; placeholders--) {
-                r = write_ntp_ext_field(&buf, NTS_EF_CookiePlaceholder, /* contents= */ NULL, nts->cookie.iov_len, 16);
+                r = write_ntp_ext_field(&buf, NTS_EF_CookiePlaceholder, IOVEC_MAKE(NULL, nts->cookie.iov_len), NORMAL_EF_MIN_SIZE);
                 if (r < 0)
                         return r;
         }
@@ -110,13 +122,13 @@ ssize_t NTS_add_extension_fields(
         /* bug in OpenSSL: https://github.com/openssl/openssl/issues/26580,
            which means that a ciphertext HAS TO BE PRESENT */
         if (placeholders == 0) {
-                r = write_ntp_ext_field(&ptxt, NTS_EF_NoOpField, /* contents= */ NULL, 0, 0);
+                r = write_ntp_ext_field(&ptxt, NTS_EF_NoOpField, IOVEC_MAKE(NULL, 0), ENCRYPTED_EF_MIN_SIZE);
                 if (r < 0)
                         return r;
         }
 #endif
         while (placeholders-- > 0) {
-                r = write_ntp_ext_field(&ptxt, NTS_EF_CookiePlaceholder, /* contents= */ NULL, nts->cookie.iov_len, 0);
+                r = write_ntp_ext_field(&ptxt, NTS_EF_CookiePlaceholder, IOVEC_MAKE(NULL, nts->cookie.iov_len), ENCRYPTED_EF_MIN_SIZE);
                 if (r < 0)
                         return r;
         }
@@ -152,7 +164,7 @@ ssize_t NTS_add_extension_fields(
         /* set the ciphertext length */
         unaligned_write_be16(EF_ciphertext_len, ctxt_len);
 
-        r = write_ntp_ext_field(&buf, NTS_EF_AuthEncExtFields, EF, ef_len, 28);
+        r = write_ntp_ext_field(&buf, NTS_EF_AuthEncExtFields, IOVEC_MAKE(EF, ef_len), FINAL_EF_MIN_SIZE);
         if (r < 0)
                 return r;
 
