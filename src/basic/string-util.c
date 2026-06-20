@@ -1139,6 +1139,9 @@ bool string_is_safe(const char *p, StringSafeFlags flags) {
         if (FLAGS_SET(flags, STRING_FILENAME) && !filename_is_valid(p))
                 return false;
 
+        if (FLAGS_SET(flags, STRING_FILENAME_PART) && !filename_part_is_valid(p))
+                return false;
+
         return true;
 }
 
