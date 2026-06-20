@@ -168,7 +168,7 @@ static int manager_send_request(Manager *m) {
                  * hidden (it is enough that it is unpredictable).
                  */
                 int num_cookies = ELEMENTSOF(m->nts_cookies) - m->nts_missing_cookies;
-                int randidx = m->nts_identifier[0] % num_cookies;
+                int randidx = m->nts_identifier.bytes[0] % num_cookies;
                 NTS_Cookie *bottom_cookie = &m->nts_cookies[num_cookies-1];
                 swap_cookies(bottom_cookie, &m->nts_cookies[randidx]);
                 assert(bottom_cookie->iov_base);
@@ -568,13 +568,13 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                         return 0;
                 }
 
-                if (!rcpt.identifier || memcmp(m->nts_identifier, *rcpt.identifier, sizeof(m->nts_identifier)) != 0) {
+                if (memcmp(&m->nts_identifier, &rcpt.identifier, sizeof(NTS_Identifier)) != 0) {
                         log_debug("NTS packet had an invalid unique identifier. Ignoring.");
                         return 0;
                 }
 
                 /* invalidate the identifier to prevent replays */
-                m->nts_identifier[0] ^= 0xFF;
+                m->nts_identifier.bytes[0] ^= 0xFF;
 
                 assert(m->nts_missing_cookies <= ELEMENTSOF(m->nts_cookies));
 
