@@ -138,8 +138,7 @@ ssize_t NTS_encrypt(const struct iovec *ctxt,
         if (ctxt_len < ptxt_len + aead->block_size)
                 return -EINVAL;
 
-        uint8_t *ctxt_start = ctxt_buf;
-        uint8_t *tag;
+        uint8_t *tag, *ctxt_start = ctxt_buf;
         if (aead->tag_first) {
                 tag = ctxt_buf;
                 ctxt_buf += aead->block_size;
