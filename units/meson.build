@@ -504,6 +504,10 @@ units = [
           'symlinks' : ['sysinit.target.wants/'],
         },
         {
+          'file' : 'systemd-machine-tag@.service',
+          'conditions' : ['ENABLE_HOSTNAMED'],
+        },
+        {
           'file' : 'systemd-machined.service.in',
           'conditions' : ['ENABLE_MACHINED'],
           'symlinks' : ['dbus-org.freedesktop.machine1.service'],
@@ -633,6 +637,8 @@ units = [
           'conditions' : ['ENABLE_BOOTLOADER', 'HAVE_OPENSSL', 'HAVE_TPM2'],
           'symlinks' : ['sysinit.target.wants/'],
         },
+        { 'file' : 'systemd-report.socket' },
+        { 'file' : 'systemd-report@.service.in' },
         { 'file' : 'systemd-report-basic.socket' },
         { 'file' : 'systemd-report-basic@.service.in' },
         {
@@ -731,6 +737,16 @@ units = [
         },
         { 'file' : 'systemd-report-cgroup.socket' },
         { 'file' : 'systemd-report-cgroup@.service.in' },
+        { 'file' : 'systemd-report-files.socket' },
+        { 'file' : 'systemd-report-files@.service.in' },
+        {
+          'file' : 'systemd-report-sign-plain.socket',
+          'conditions' : ['HAVE_OPENSSL'],
+        },
+        {
+          'file' : 'systemd-report-sign-plain@.service.in',
+          'conditions' : ['HAVE_OPENSSL'],
+        },
         {
           'file' : 'systemd-resolved.service.in',
           'conditions' : ['ENABLE_RESOLVE'],

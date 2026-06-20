@@ -576,6 +576,8 @@ node /org/freedesktop/systemd1 {
       readonly s CtrlAltDelBurstAction = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly u SoftRebootsCount = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly u KExecsCount = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t ReloadCount = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -1293,6 +1295,8 @@ node /org/freedesktop/systemd1 {
 
     <variablelist class="dbus-property" generated="True" extra-ref="SoftRebootsCount"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="KExecsCount"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="ReloadCount"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="DefaultMemoryZSwapWriteback"/>
@@ -1881,6 +1885,11 @@ node /org/freedesktop/systemd1 {
 
       <para><varname>SoftRebootsCount</varname> encodes how many soft-reboots were successfully completed
       since the last full boot. Starts at <literal>0</literal>.</para>
+
+      <para><varname>KExecsCount</varname> encodes how many kexec-based live updates were successfully
+      completed since the last full boot. Starts at <literal>0</literal>. The counter is preserved across the
+      kexec through the Live Update Orchestrator (LUO), and is hence <literal>0</literal> when the kernel does
+      not provide LUO support.</para>
 
       <para><varname>ReloadCount</varname> encodes the number of successfully completed configuration
       reloads of the manager. The counter is reset to <literal>0</literal> on
@@ -2837,6 +2846,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       readonly u RestartSteps = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t RestartMaxDelayUSec = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly t RestartRandomizedDelayUSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t RestartUSecNext = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -2881,6 +2892,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       readonly u NFileDescriptorStore = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly s FileDescriptorStorePreserve = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly as LUOSession = ['...', ...];
       readonly s StatusText = '...';
       readonly i StatusErrno = ...;
       readonly s StatusBusError = '...';
@@ -3567,6 +3580,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <!--property RestartMaxDelayUSec is not documented!-->
 
+    <!--property RestartRandomizedDelayUSec is not documented!-->
+
     <!--property RestartUSecNext is not documented!-->
 
     <!--property TimeoutStartFailureMode is not documented!-->
@@ -3598,6 +3613,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <!--property NFileDescriptorStore is not documented!-->
 
     <!--property FileDescriptorStorePreserve is not documented!-->
+
+    <!--property LUOSession is not documented!-->
 
     <!--property ReloadResult is not documented!-->
 
@@ -4201,6 +4218,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <variablelist class="dbus-property" generated="True" extra-ref="RestartMaxDelayUSec"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="RestartRandomizedDelayUSec"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="RestartUSecNext"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="TimeoutStartUSec"/>
@@ -4246,6 +4265,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <variablelist class="dbus-property" generated="True" extra-ref="NFileDescriptorStore"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="FileDescriptorStorePreserve"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="LUOSession"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="StatusText"/>
 
@@ -12743,6 +12764,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>ReloadCount</varname>,
       <varname>EventLoopRateLimitIntervalUSec</varname>, and
       <varname>EventLoopRateLimitBurst</varname> were added in version 261.</para>
+      <para><varname>KExecsCount</varname> was added in version 262.</para>
     </refsect2>
     <refsect2>
       <title>Unit Objects</title>
@@ -12840,6 +12862,8 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>IOPressureWatch</varname>,
       <varname>CPUSetPartition</varname>, and
       <varname>OOMRules</varname> were added in version 261.</para>
+      <para><varname>LUOSession</varname> was added in version 262.</para>
+      <para><varname>RestartRandomizedDelayUSec</varname> was added in version 262.</para>
     </refsect2>
     <refsect2>
       <title>Socket Unit Objects</title>

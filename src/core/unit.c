@@ -1195,6 +1195,8 @@ int unit_merge(Unit *u, Unit *other) {
         if (r < 0)
                 return r;
 
+        UnitLoadState saved_load_state = other->load_state;
+
         other->load_state = UNIT_MERGED;
         other->merged_into = u;
 
@@ -1203,7 +1205,7 @@ int unit_merge(Unit *u, Unit *other) {
 
         /* If there is still some data attached to the other node, we
          * don't need it anymore, and can free it. */
-        if (other->load_state != UNIT_STUB)
+        if (saved_load_state != UNIT_STUB)
                 if (UNIT_VTABLE(other)->done)
                         UNIT_VTABLE(other)->done(other);
 
@@ -2338,7 +2340,7 @@ static void retroactively_stop_dependencies(Unit *u) {
 
 void unit_start_on_termination_deps(Unit *u, UnitDependencyAtom atom) {
         const char *dependency_name = NULL;
-        JobMode job_mode;
+        JobMode job_mode = _JOB_MODE_INVALID;
         unsigned n_jobs = 0;
         int r;
 
@@ -4158,7 +4160,7 @@ int unit_kill(
                         }
 
                         if (signo == SIGKILL) {
-                                r = cg_kill_kernel_sigkill(p);
+                                r = cg_kill_kernel_sigkill(p, /* ret_n_pids_killed= */ NULL);
                                 if (r >= 0) {
                                         killed = true;
                                         log_unit_info(u, "Killed unit cgroup '%s' with SIGKILL on client request.", p);
@@ -4345,10 +4347,13 @@ static int unit_verify_contexts(const Unit *u) {
                 return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOEXEC), "PrivatePIDs= setting is only supported for service units. Refusing.");
 
         if ((ec->user || ec->dynamic_user || ec->group || ec->pam_name) && ec->private_users == PRIVATE_USERS_MANAGED)
-                return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOEXEC), "PrivateUsers=managed may not be used in combination with User=/DynamicUser=/Group=/PAMName=, refusing.");
+                return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOEXEC), "PrivateUsers=managed may not be used in combination with User=/DynamicUser=/Group=/PAMName=. Refusing.");
 
         if (ec->user_namespace_path && ec->private_users != PRIVATE_USERS_NO)
-                return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOEXEC), "PrivateUsers= may not be used with custom UserNamespacePath=, refusing.");
+                return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOEXEC), "PrivateUsers= may not be used with custom UserNamespacePath=. Refusing.");
+
+        if (ec->private_pids != PRIVATE_PIDS_NO && ec->pam_name)
+                return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOEXEC), "PAM is not supported under PrivatePIDs=. Refusing.");
 
         const KillContext *kc = unit_get_kill_context(u);
 
@@ -5027,6 +5032,35 @@ static int unit_kill_context_one(
         return !is_alien;
 }
 
+typedef struct PidsMaxRestore {
+        const char *cgroup_path;
+        uint64_t max;
+        Unit *unit;
+} PidsMaxRestore;
+
+static void pids_max_restore(PidsMaxRestore *p) {
+        int r;
+
+        assert(p);
+        assert(p->unit);
+
+        if (!p->cgroup_path)
+                return;
+
+        char value[DECIMAL_STR_MAX(uint64_t) + 1] = "max";
+        if (p->max != CGROUP_LIMIT_MAX)
+                xsprintf(value, "%" PRIu64, p->max);
+
+        r = cg_set_attribute(p->cgroup_path, "pids.max", value);
+        if (r < 0)
+                log_unit_warning_errno(p->unit,
+                                       r,
+                                       "Failed to restore pids.max to %s for control group %s, ignoring: %m",
+                                       value, empty_to_root(p->cgroup_path));
+
+        p->cgroup_path = NULL;
+}
+
 int unit_kill_context(Unit *u, KillOperation k) {
         bool wait_for_exit = false, send_sighup;
         cg_kill_log_func_t log_func = NULL;
@@ -5063,7 +5097,31 @@ int unit_kill_context(Unit *u, KillOperation k) {
         CGroupRuntime *crt = unit_get_cgroup_runtime(u);
         if (crt && crt->cgroup_path &&
             (c->kill_mode == KILL_CONTROL_GROUP || (c->kill_mode == KILL_MIXED && k == KILL_KILL))) {
+                _cleanup_(pids_max_restore) PidsMaxRestore state = {
+                        .unit = u,
+                };
                 _cleanup_set_free_ Set *pid_set = NULL;
+
+                /* Stop more processes from being spawned when zapping the cgroup. Restore previous state
+                 * before returning. */
+                if (sig == SIGKILL) {
+                        r = cg_get_attribute_as_uint64(crt->cgroup_path, "pids.max", &state.max);
+                        if (r < 0)
+                                log_unit_warning_errno(u,
+                                                       r,
+                                                       "Failed to read pids.max for control group %s, ignoring: %m",
+                                                       empty_to_root(crt->cgroup_path));
+                        else {
+                                r = cg_set_attribute(crt->cgroup_path, "pids.max", "0");
+                                if (r < 0)
+                                        log_unit_warning_errno(u,
+                                                               r,
+                                                               "Failed to set pids.max to 0 for control group %s, ignoring: %m",
+                                                               empty_to_root(crt->cgroup_path));
+                                else
+                                        state.cgroup_path = crt->cgroup_path;
+                        }
+                }
 
                 /* Exclude the main/control pids from being killed via the cgroup */
                 r = unit_pid_set(u, &pid_set);

@@ -46,9 +46,9 @@ permissions:
 
 jobs:
   ci:
-    runs-on: ${{ matrix.runner }}
+    runs-on: ${{ matrix.runner || 'ubuntu-24.04' }}
     concurrency:
-      group: ${{ github.workflow }}-${{ matrix.distro }}-${{ matrix.release }}-${{ github.ref }}-${{ matrix.runner }}
+      group: ${{ github.workflow }}-${{ matrix.distro }}-${{ matrix.release }}-${{ github.ref }}-${{ matrix.runner || 'ubuntu-24.04' }}
       cancel-in-progress: true
     strategy:
       fail-fast: false
@@ -56,120 +56,40 @@ jobs:
         include:
           - distro: arch
             release: rolling
-            runner: ubuntu-24.04
-            sanitizers: ""
-            llvm: 0
             cflags: "-O2 -D_FORTIFY_SOURCE=3"
             vm: 1
-            no_qemu: 0
-            no_kvm: 0
-            shim: 0
           - distro: debian
             release: stable
-            runner: ubuntu-24.04
-            sanitizers: ""
-            llvm: 0
-            cflags: "-Og"
-            vm: 0
-            no_qemu: 0
-            no_kvm: 0
-            shim: 0
           - distro: debian
             release: testing
-            runner: ubuntu-24.04
-            sanitizers: ""
-            llvm: 0
-            cflags: "-Og"
-            vm: 0
-            no_qemu: 0
-            no_kvm: 0
             shim: 1
           - distro: debian
             release: testing
             runner: ubuntu-24.04-arm
-            sanitizers: ""
-            llvm: 0
-            cflags: "-Og"
-            vm: 0
             no_qemu: 1
             no_kvm: 1
-            shim: 0
           - distro: ubuntu
             release: noble
-            runner: ubuntu-24.04
-            sanitizers: ""
-            llvm: 0
-            cflags: "-Og"
-            vm: 0
-            no_qemu: 0
-            no_kvm: 0
-            shim: 0
           - distro: ubuntu
             release: resolute
-            runner: ubuntu-24.04
-            sanitizers: ""
-            llvm: 0
-            cflags: "-Og"
-            vm: 0
-            no_qemu: 0
-            no_kvm: 0
-            shim: 0
           - distro: fedora
             release: "43"
-            runner: ubuntu-24.04
             sanitizers: address,undefined
             llvm: 1
-            cflags: "-Og"
-            vm: 0
-            no_qemu: 0
-            no_kvm: 0
-            shim: 0
           - distro: fedora
             release: rawhide
-            runner: ubuntu-24.04
-            sanitizers: ""
-            llvm: 0
-            cflags: "-Og"
-            vm: 0
-            no_qemu: 0
-            no_kvm: 0
-            shim: 0
           - distro: opensuse
             release: tumbleweed
-            runner: ubuntu-24.04
-            sanitizers: ""
-            llvm: 0
-            cflags: "-Og"
-            vm: 0
-            no_qemu: 0
-            no_kvm: 0
-            shim: 0
           - distro: centos
             release: "9"
-            runner: ubuntu-24.04
-            sanitizers: ""
-            llvm: 0
-            cflags: "-Og"
-            vm: 0
-            no_qemu: 0
-            no_kvm: 0
-            shim: 0
           - distro: centos
             release: "10"
-            runner: ubuntu-24.04
-            sanitizers: ""
-            llvm: 0
-            cflags: "-Og"
-            vm: 0
-            no_qemu: 0
-            no_kvm: 0
-            shim: 0
 
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           persist-credentials: false
-      - uses: systemd/mkosi@3e15f6734a3455a008c3617f89a6c5010d5bb9bf
+      - uses: systemd/mkosi@60ed8c964f8d98aa4b325f381c4b3bc6de91a0b7
 
       # Freeing up disk space with rm -rf can take multiple minutes. Since we don't need the extra free space
       # immediately, we remove the files in the background. However, we first move them to a different location
@@ -216,10 +136,10 @@ jobs:
           Environment=
                   # Build debuginfo packages since we'll be publishing the packages as artifacts.
                   WITH_DEBUG=1
-                  CFLAGS="${{ matrix.cflags }}"
-                  SANITIZERS=${{ matrix.sanitizers }}
+                  CFLAGS="${{ matrix.cflags || '-Og' }}"
+                  SANITIZERS="${{ matrix.sanitizers || '' }}"
                   MESON_OPTIONS=--werror
-                  LLVM=${{ matrix.llvm }}
+                  LLVM="${{ matrix.llvm || 0 }}"
                   SYSEXT=1
 
           [Runtime]
@@ -227,7 +147,7 @@ jobs:
           EOF
 
           # Preferred for cloud/CIs
-          if [ ${{ matrix.distro }} = opensuse ]; then
+          if [ "${{ matrix.distro }}" = opensuse ]; then
               tee -a mkosi/mkosi.local.conf <<EOF
 
           [Distribution]
@@ -257,7 +177,7 @@ jobs:
 
       - name: Prepare shim integration
         run: |
-          if [ ${{ matrix.shim }} = 1 ]; then
+          if [ "${{ matrix.shim || 0 }}" = 1 ]; then
             { printf '[Content]\nPackages=shim-signed\nShimBootloader=signed\n'; \
               printf '[Runtime]\nFirmware=uefi-secure-boot\nFirmwareVariables=%%O/ovmf_vars_shim.fd\n'; } \
               >>mkosi/mkosi.local.conf
@@ -294,7 +214,7 @@ jobs:
               MAX_LINES=()
           fi
 
-          if [ "${{ matrix.no_kvm }}" = 1 ] && [ "${{ matrix.no_qemu }}" = 0 ]; then
+          if [ "${{ matrix.no_kvm || 0 }}" = 1 ] && [ "${{ matrix.no_qemu || 0 }}" = 0 ]; then
               timeout_multiplier=4
           fi
 
@@ -303,10 +223,10 @@ jobs:
           # of failed tests.
           sudo --preserve-env mkosi box -- \
             env \
-            TEST_PREFER_QEMU=${{ matrix.vm }} \
-            TEST_NO_QEMU=${{ matrix.no_qemu }} \
-            TEST_NO_KVM=${{ matrix.no_kvm }} \
-            TEST_RUNNER=${{ matrix.runner }} \
+            TEST_PREFER_QEMU="${{ matrix.vm || 0 }}" \
+            TEST_NO_QEMU="${{ matrix.no_qemu || 0 }}" \
+            TEST_NO_KVM="${{ matrix.no_kvm || 0 }}" \
+            TEST_RUNNER="${{ matrix.runner || 'ubuntu-24.04' }}" \
             meson test \
             -C build \
             --timeout-multiplier="${timeout_multiplier:-1}" \
@@ -326,7 +246,7 @@ jobs:
         uses: actions/upload-artifact@v7
         if: failure() && (github.repository == 'systemd/systemd' || github.repository == 'systemd/systemd-stable')
         with:
-          name: ci-mkosi-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.distro }}-${{ matrix.release }}-${{ matrix.runner }}-failed-test-journals
+          name: ci-mkosi-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.distro }}-${{ matrix.release }}-${{ matrix.runner || 'ubuntu-24.04' }}-failed-test-journals
           path: |
             build/test/journal/*.journal
             build/meson-logs/*

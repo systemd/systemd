@@ -500,8 +500,8 @@ EOF
 		"raw_size" : 33554432,
 		"size" : "-> 32M",
 		"old_padding" : 0,
-		"raw_padding" : 0,
-		"padding" : "-> 0B",
+		"raw_padding" : 70234112,
+		"padding" : "-> 66.9M",
 		"activity" : "create",
 		"drop-in_files" : [
 			"$defs/root.conf.d/override1.conf",
@@ -577,8 +577,8 @@ EOF
 		"raw_size" : 33554432,
 		"size" : "-> 32M",
 		"old_padding" : 0,
-		"raw_padding" : 0,
-		"padding" : "-> 0B",
+		"raw_padding" : 36679680,
+		"padding" : "-> 34.9M",
 		"activity" : "create"
 	}
 ]
@@ -1843,6 +1843,174 @@ testcase_varlink_list_devices() {
     varlinkctl call /run/systemd/io.systemd.Repart --graceful=io.systemd.Repart.NoCandidateDevices --collect io.systemd.Repart.ListCandidateDevices '{"ignoreEmpty":true,"ignoreRoot":true}'
 }
 
+testcase_varlink_subscribe_devices() {
+    local imgs subscribe_log pre_existing_log loop loop2 mark non_sub_output
+    local sub_unit="test-repart-subscribe.service"
+    local pre_unit="test-repart-subscribe-pre.service"
+
+    # The uevent monitor in the spawned systemd-repart only sees events from the host's kernel
+    # uevent namespace, which an nspawn container with --private-network filters away. Loopback
+    # creation also fails inside many container setups.
+    if systemd-detect-virt --container >/dev/null 2>&1; then
+        echo "Skipping subscribe tests inside container."
+        return
+    fi
+
+    REPART="$(which systemd-repart)"
+    imgs="$(mktemp --directory "/var/tmp/test-repart.subscribe.XXXXXXXXXX")"
+    subscribe_log="$(mktemp "/var/tmp/test-repart.subscribe-log.XXXXXXXXXX")"
+    pre_existing_log="$(mktemp "/var/tmp/test-repart.pre-log.XXXXXXXXXX")"
+    loop=""
+    loop2=""
+
+    # Single-quoted trap body so $loop / $loop2 are expanded at trap-fire time, not now.
+    # shellcheck disable=SC2016
+    trap '
+        systemctl stop "$sub_unit" "$pre_unit" 2>/dev/null || true
+        [[ -n "${loop:-}"  ]] && systemd-dissect --detach "$loop"  2>/dev/null || true
+        [[ -n "${loop2:-}" ]] && systemd-dissect --detach "$loop2" 2>/dev/null || true
+        rm -rf "$imgs" "$subscribe_log" "$subscribe_log.err" "$pre_existing_log" "$pre_existing_log.err"
+    ' RETURN
+
+    # systemd-dissect --attach requires a dissectable image; a plain ext4 single-filesystem image
+    # is the simplest thing it accepts.
+    truncate -s 50M "$imgs/loop.img"
+    truncate -s 50M "$imgs/loop2.img"
+    mkfs.ext4 -F -q -L test-repart-1 "$imgs/loop.img"
+    mkfs.ext4 -F -q -L test-repart-2 "$imgs/loop2.img"
+
+    # Make sure no stale unit is sitting around from a previous failed run, then arrange cleanup.
+    systemctl reset-failed "$sub_unit" "$pre_unit" 2>/dev/null || true
+    systemctl stop "$sub_unit" "$pre_unit" 2>/dev/null || true
+
+    # Start a varlinkctl subscriber as a transient Type=notify service. systemd-run blocks until the
+    # service notifies READY=1 -- which varlinkctl does on receipt of the first reply (see
+    # src/varlinkctl/varlinkctl.c reply_callback). For us that's either the first "add" of the
+    # initial enumeration or the "ready" sentinel; either way we are guaranteed the server-side
+    # monitor is up before we trigger any uevents.
+    start_subscriber() {
+        local unit="$1" log="$2" params="$3"
+
+        systemd-run \
+            --quiet \
+            --unit="$unit" \
+            --collect \
+            --service-type=notify \
+            --property=StandardOutput="truncate:$log" \
+            --property=StandardError="truncate:$log.err" \
+            -- \
+            varlinkctl --more --timeout=infinity --json=short call \
+            "$REPART" io.systemd.Repart.ListCandidateDevices "$params"
+    }
+
+    # Poll for a regex match in $1 of the named log file ($3, default $subscribe_log), starting from
+    # byte offset $2. Prints the new byte offset (post-match) on stdout so the caller can advance.
+    expect_event() {
+        local pat="$1" mark_="$2" file="${3:-$subscribe_log}"
+        local deadline_=$((SECONDS + UDEVADM_WAIT_TIMEOUT))
+        local cur
+
+        while (( SECONDS < deadline_ )); do
+            cur=$(stat -c%s "$file" 2>/dev/null || echo 0)
+            if (( cur > mark_ )) && \
+               tail -c +"$((mark_ + 1))" "$file" | grep -a -E "$pat" >/dev/null; then
+                printf '%s\n' "$cur"
+                return 0
+            fi
+            sleep 0.1
+        done
+
+        echo "FAIL: pattern '$pat' did not appear within ${UDEVADM_WAIT_TIMEOUT}s. Output past offset $mark_:" >&2
+        tail -c +"$((mark_ + 1))" "$file" >&2 || true
+        return 1
+    }
+
+    # === Test 1: subscribing produces a "ready" sentinel even on an empty initial set ===
+    start_subscriber "$sub_unit" "$subscribe_log" \
+        '{"ignoreRoot":true,"ignoreEmpty":true,"subscribe":true}'
+    mark=$(expect_event '"action":"ready"' 0) || return 1
+
+    # === Test 2: a freshly-added loopback produces an "add" event ===
+    loop="$(systemd-dissect --attach --loop-ref=test-repart-1 "$imgs/loop.img")"
+    udevadm wait --timeout="$UDEVADM_WAIT_TIMEOUT" --settle "$loop"
+    mark=$(expect_event "\"action\":\"add\".*\"node\":\"$loop\"" "$mark") || return 1
+
+    # === Test 3: detaching the loopback produces a "remove" event ===
+    systemd-dissect --detach "$loop"
+    udevadm wait --timeout="$UDEVADM_WAIT_TIMEOUT" --removed --settle "$loop"
+    mark=$(expect_event "\"action\":\"remove\".*\"node\":\"$loop\"" "$mark") || return 1
+    loop=""
+
+    # === Test 4: five add/remove cycles in a row stay in sync ===
+    for _ in 1 2 3 4 5; do
+        loop="$(systemd-dissect --attach --loop-ref=test-repart-1 "$imgs/loop.img")"
+        udevadm wait --timeout="$UDEVADM_WAIT_TIMEOUT" --settle "$loop"
+        mark=$(expect_event "\"action\":\"add\".*\"node\":\"$loop\"" "$mark") || return 1
+
+        systemd-dissect --detach "$loop"
+        udevadm wait --timeout="$UDEVADM_WAIT_TIMEOUT" --removed --settle "$loop"
+        mark=$(expect_event "\"action\":\"remove\".*\"node\":\"$loop\"" "$mark") || return 1
+        loop=""
+    done
+
+    # === Test 5: two coexisting loop devices each produce their own events ===
+    # Set them up (and tear them down) one at a time and wait for each device in turn, so events
+    # appear in a strict order and we can advance our mark monotonically.
+    loop="$(systemd-dissect --attach --loop-ref=test-repart-1 "$imgs/loop.img")"
+    udevadm wait --timeout="$UDEVADM_WAIT_TIMEOUT" --settle "$loop"
+    mark=$(expect_event "\"action\":\"add\".*\"node\":\"$loop\"" "$mark") || return 1
+
+    loop2="$(systemd-dissect --attach --loop-ref=test-repart-2 "$imgs/loop2.img")"
+    udevadm wait --timeout="$UDEVADM_WAIT_TIMEOUT" --settle "$loop2"
+    mark=$(expect_event "\"action\":\"add\".*\"node\":\"$loop2\"" "$mark") || return 1
+
+    systemd-dissect --detach "$loop2"
+    udevadm wait --timeout="$UDEVADM_WAIT_TIMEOUT" --removed --settle "$loop2"
+    mark=$(expect_event "\"action\":\"remove\".*\"node\":\"$loop2\"" "$mark") || return 1
+    loop2=""
+
+    systemd-dissect --detach "$loop"
+    udevadm wait --timeout="$UDEVADM_WAIT_TIMEOUT" --removed --settle "$loop"
+    mark=$(expect_event "\"action\":\"remove\".*\"node\":\"$loop\"" "$mark") || return 1
+    loop=""
+
+    # Tear down the first subscriber before starting the next one.
+    systemctl stop "$sub_unit"
+
+    # === Test 6: a device that exists *before* subscribe starts shows up in the initial enumeration,
+    # and "ready" arrives only after it ===
+    loop="$(systemd-dissect --attach --loop-ref=test-repart-1 "$imgs/loop.img")"
+    udevadm wait --timeout="$UDEVADM_WAIT_TIMEOUT" --settle "$loop"
+
+    start_subscriber "$pre_unit" "$pre_existing_log" \
+        '{"ignoreRoot":true,"subscribe":true}'
+
+    # systemd-run returned (Type=notify => first reply already received), but "ready" may not be
+    # written yet -- poll for it.
+    expect_event '"action":"ready"' 0 "$pre_existing_log" >/dev/null || return 1
+
+    # Everything up to (but excluding) "ready" is the initial enumeration; it must contain $loop.
+    if ! sed -n '/"action":"ready"/q;p' "$pre_existing_log" | \
+            grep -a -E "\"action\":\"add\".*\"node\":\"$loop\"" >/dev/null; then
+        echo "FAIL: pre-existing loop device $loop not in initial enumeration:" >&2
+        cat "$pre_existing_log" >&2
+        return 1
+    fi
+
+    systemctl stop "$pre_unit"
+
+    # === Test 7: without subscribe the reply has no "action" field (back-compat for older clients) ===
+    non_sub_output="$(varlinkctl --collect --json=short call \
+        "$REPART" --graceful=io.systemd.Repart.NoCandidateDevices \
+        io.systemd.Repart.ListCandidateDevices '{"ignoreRoot":true}')"
+    assert_not_in '"action"' "$non_sub_output"
+    # Sanity-check: our $loop *is* in that output (so the assertion above wasn't vacuous).
+    assert_in "\"node\":\"$loop\"" "$non_sub_output"
+
+    systemd-dissect --detach "$loop"
+    loop=""
+}
+
 testcase_get_size() {
     local defs
 
@@ -1951,7 +2119,7 @@ EOF
     touch "$imgs/empty-password"
 
     # the expectation for hmac-sha256 is 'integrity: hmac(sha256)'
-    cryptsetup luksDump "${loop}p1" | grep -q "integrity: $(echo "$1" | sed -r 's/^hmac-(.*)$/hmac(\1)/')"
+    cryptsetup luksDump "${loop}p1" | grep "integrity: $(echo "$1" | sed -r 's/^hmac-(.*)$/hmac(\1)/')" >/dev/null
 
     cryptsetup open --type=luks2 --key-file="$imgs/empty-password" "${loop}p1" "$volume"
     dmsetup status > "$dmstatus"
@@ -2149,7 +2317,7 @@ testcase_block_device_replace() {
 
     local defs imgs btrfs_mntpoint_plain btrfs_mntpoint_encrypted
     local loop loop_btrfs_plain loop_btrfs_encrypted
-    local encrypted_device
+    local dm_btrfs_encrypted encrypted_device
 
     btrfs_mntpoint_plain="$(mktemp --directory "/tmp/test-repart.btrfs-mntpoint-plain.XXXXXXXXXX")"
     btrfs_mntpoint_encrypted="$(mktemp --directory "/tmp/test-repart.btrfs-mntpoint-encrypted.XXXXXXXXXX")"
@@ -2216,11 +2384,59 @@ EOF
                    "${loop}"
 
     assert_eq "$(findmnt "${btrfs_mntpoint_plain}" -o SOURCE -n)" "${loop}p1"
-    assert_eq "$(findmnt "${btrfs_mntpoint_encrypted}" -o SOURCE -n)" "/dev/mapper/btrfs-replace-encrypted"
+    dm_btrfs_encrypted="$(findmnt "${btrfs_mntpoint_encrypted}" -o SOURCE -n)"
+    if [[ "$dm_btrfs_encrypted" != "/dev/mapper/btrfs-replace-encrypted" ]]; then
+        # When libdevmapper is built without UDEV_SYNC_SUPPORT (e.g. on Alpine/postmarketOS),
+        # it creates a device node under /dev/mapper/ instead of relying on udev to create a symlink.
+        # In this case, verify that both device nodes refer to the same underlying device.
+        assert_eq "$(stat -c %Hr:%Lr "$dm_btrfs_encrypted")" "$(stat -c %Hr:%Lr /dev/mapper/btrfs-replace-encrypted)"
+    fi
     encrypted_device="/sys/dev/block/$(dmsetup table /dev/mapper/btrfs-replace-encrypted | cut -d" " -f7)"
     assert_eq "$(udevadm info --query=property --property=DEVNAME --value "${encrypted_device}")" "${loop}p2"
     grep -q tada "${btrfs_mntpoint_plain}/magic-plain"
     grep -q tada "${btrfs_mntpoint_encrypted}/magic-encrypted"
+}
+
+testcase_insert_into_gap() {
+    local defs imgs output
+
+    defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
+    imgs="$(mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs'" RETURN
+    chmod 0755 "$defs"
+
+    echo "*** Inserting a new partition into a gap between two existing partitions ***"
+
+    truncate -s 71M "$imgs/gap.img"
+    sfdisk "$imgs/gap.img" <<EOF
+label: gpt
+size=10M, type=${esp_guid}, name="part-a",
+start=60M, size=10M, type=${root_guid}, name="part-c",
+EOF
+
+    tee "$defs/new.conf" <<EOF
+[Partition]
+Type=usr
+Label=part-b
+SizeMinBytes=10M
+SizeMaxBytes=10M
+EOF
+
+    systemd-repart --offline="$OFFLINE" \
+                   --definitions="$defs" \
+                   --seed="$seed" \
+                   --dry-run=no \
+                   "$imgs/gap.img"
+
+    output=$(sfdisk --dump "$imgs/gap.img")
+
+    assert_in "$imgs/gap.img1 : start=        2048, size=       20480," "$output"
+    assert_in "$imgs/gap.img2 : start=      122880, size=       20480," "$output"
+
+    # New partition B must start at the beginning of the gap (after A), not at
+    # the end (before C).
+    assert_in "$imgs/gap.img3 : start=       22528, size=       20480, type=$usr_guid, uuid=$usr_uuid, name=\"part-b\"" "$output"
 }
 
 OFFLINE="yes"

@@ -1,11 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <linux/audit.h>        /* IWYU pragma: keep */
+#include <linux/liveupdate.h>
 #include <math.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
 #include "sd-bus.h"
+#include "sd-id128.h"
 #include "sd-json.h"
 #include "sd-messages.h"
 
@@ -32,8 +34,10 @@
 #include "fileio.h"
 #include "format-util.h"
 #include "glyph-util.h"
+#include "id128-util.h"
 #include "image-policy.h"
 #include "log.h"
+#include "luo-util.h"
 #include "manager.h"
 #include "memfd-util.h"
 #include "mount-util.h"
@@ -396,6 +400,13 @@ usec_t service_restart_usec_next(const Service *s) {
                                                 (long double) (n_restarts_next - 1) / s->restart_steps));
 }
 
+static usec_t service_restart_usec_next_jittered(const Service *s) {
+        assert(s);
+
+        /* Single helper for the restart timer and the deadline reconstructed at coldplug so they can't drift */
+        return usec_add(service_restart_usec_next(s), s->restart_randomized_delay_chosen_usec);
+}
+
 static void service_extend_event_source_timeout(Service *s, sd_event_source *source, usec_t extended) {
         usec_t current;
         int r;
@@ -524,7 +535,7 @@ static void service_truncate_fd_store(Service *s) {
          * parsed and FileDescriptorStoreMax= shrunk the configured limit. Newest entries are at the head
          * of the list, so drop from the head (newest first). */
 
-        while (s->n_fd_store > s->n_fd_store_max) {
+        while (s->n_fd_store > s->n_fd_store_max + strv_length(s->luo_sessions)) {
                 ServiceFDStore *fs = ASSERT_PTR(s->fd_store);
                 log_unit_debug(UNIT(s), "Dropping stored fd '%s' to honor FileDescriptorStoreMax=%u.",
                                strna(fs->fdname), s->n_fd_store_max);
@@ -616,6 +627,8 @@ static void service_done(Unit *u) {
         service_release_fd_store(s);
         service_release_extra_fds(s);
         s->root_directory_fd = asynchronous_close(s->root_directory_fd);
+
+        s->luo_sessions = strv_free(s->luo_sessions);
 
         s->mount_request = sd_bus_message_unref(s->mount_request);
 }
@@ -748,6 +761,102 @@ static int service_add_fd_store_set(Service *s, FDSet *fds, const char *name, bo
                                                       s->n_fd_store_max);
                 if (r < 0)
                         return log_unit_error_errno(UNIT(s), r, "Failed to add fd to store: %m");
+        }
+
+        return 0;
+}
+
+/* Build a deterministic LUO session name from the unit's name and the session name, with stable length. */
+static int service_build_luo_session_name(Service *s, const char *name, char **ret) {
+        _cleanup_free_ char *full = NULL, *result = NULL;
+
+        assert(s);
+        assert(name);
+        assert(ret);
+
+        full = strjoin(UNIT(s)->id, "/", name);
+        if (!full)
+                return -ENOMEM;
+
+        /* The kernel embeds the session name in the anon_inode path shown in /proc/self/fd/, i.e.
+         * "anon_inode:[luo_session] <name>". On kernels lacking commit 97b67e64affb ("dcache: permit
+         * dynamic_dname()s up to NAME_MAX") that path must fit dynamic_dname()'s historical 64 byte limit,
+         * otherwise reading it back will fail. Can be simplified once Ubuntu 26.04 support is dropped. */
+        // FIXME: allow longer prefix once Ubuntu 26.04 support is dropped
+        size_t name_max = 64U - STRLEN("anon_inode:[luo_session] ") - 1U; /* = 38 */
+        size_t digest_chars = 24U; /* 96 bit, leaves room for a useful unit id prefix within name_max */
+
+        assert_cc(64U - STRLEN("anon_inode:[luo_session] ") - 1U < LIVEUPDATE_SESSION_NAME_LENGTH);
+        assert_cc(24U < SD_ID128_STRING_MAX);
+        assert_cc(24U + 1U < 64U - STRLEN("anon_inode:[luo_session] ") - 1U);
+
+        char digest[SD_ID128_STRING_MAX];
+        sd_id128_to_string(id128_digest(full, SIZE_MAX), digest);
+
+        if (asprintf(&result, "%.*s-%.*s",
+                     (int) (name_max - digest_chars - 1U), UNIT(s)->id,
+                     (int) digest_chars, digest) < 0)
+                return -ENOMEM;
+
+        *ret = TAKE_PTR(result);
+        return 0;
+}
+
+static int service_setup_luo_sessions(Service *s) {
+        int r;
+
+        assert(s);
+
+        /* For each configured LUOSession=, create a fresh LUO session and hand it to the service via the fd
+         * store (and thus LISTEN_FDS, with the configured name as FDNAME). The kernel-level session name is
+         * derived deterministically from the unit and the configured name so it stays stable and fits the
+         * kernel's length limit. */
+
+        if (strv_isempty(s->luo_sessions))
+                return 0;
+
+        if (!MANAGER_IS_SYSTEM(UNIT(s)->manager)) {
+                log_unit_debug(UNIT(s), "LUOSession= is only supported in the system manager, ignoring.");
+                return 0;
+        }
+
+        _cleanup_close_ int device_fd = luo_open_device();
+        if (device_fd < 0) {
+                if (ERRNO_IS_NEG_DEVICE_ABSENT(device_fd)) {
+                        log_unit_debug_errno(UNIT(s), device_fd, "No /dev/liveupdate device found, not handing out LUO sessions.");
+                        return 0;
+                }
+                return log_unit_warning_errno(UNIT(s), device_fd, "Failed to open /dev/liveupdate: %m");
+        }
+
+        STRV_FOREACH(name, s->luo_sessions) {
+                _cleanup_free_ char *session_name = NULL;
+                _cleanup_close_ int session_fd = -EBADF;
+                bool already_given_out = false;
+
+                LIST_FOREACH(fd_store, fs, s->fd_store)
+                        if (streq_ptr(fs->fdname, *name) && fd_is_luo_session(fs->fd) > 0) {
+                                already_given_out = true;
+                                break;
+                        }
+                if (already_given_out)
+                        continue;
+
+                r = service_build_luo_session_name(s, *name, &session_name);
+                if (r < 0)
+                        return log_unit_warning_errno(UNIT(s), r, "Failed to build LUO session name for '%s': %m", *name);
+
+                session_fd = luo_create_session(device_fd, session_name);
+                if (session_fd < 0) {
+                        log_unit_warning_errno(UNIT(s), session_fd, "Failed to create LUO session '%s', ignoring: %m", session_name);
+                        continue;
+                }
+
+                r = service_add_fd_store(s, TAKE_FD(session_fd), *name, /* do_poll= */ false, /* propagate_upstream= */ false);
+                if (r < 0)
+                        return log_unit_warning_errno(UNIT(s), r, "Failed to hand out LUO session '%s': %m", *name);
+
+                log_unit_debug(UNIT(s), "Handed out LUO session '%s' (kernel name '%s').", *name, session_name);
         }
 
         return 0;
@@ -978,6 +1087,11 @@ static int service_verify(Service *s) {
                 s->restart_usec = s->restart_max_delay_usec;
         }
 
+        if (s->restart_randomized_delay_usec == USEC_INFINITY) {
+                log_unit_warning(UNIT(s), "RestartRandomizedDelaySec= cannot be infinity, ignoring.");
+                s->restart_randomized_delay_usec = 0;
+        }
+
         if (s->refresh_on_reload_set && s->refresh_on_reload_flags != _SERVICE_REFRESH_ON_RELOAD_ALL) {
                 if (FLAGS_SET(s->refresh_on_reload_flags, SERVICE_RELOAD_EXTENSIONS))
                         service_can_reload_extensions(s, /* warn = */ true);
@@ -1118,6 +1232,10 @@ static int service_add_extras(Service *s) {
         r = unit_set_default_slice(UNIT(s));
         if (r < 0)
                 return r;
+
+        /* Each configured LUOSession= is handed to the service through the fd store, hence make sure the
+         * store is large enough to hold them all. */
+        s->n_fd_store_max += strv_length(s->luo_sessions);
 
         /* If the service needs the notify socket, let's enable it automatically. */
         if (s->notify_access == NOTIFY_NONE &&
@@ -1282,6 +1400,7 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sRestartSec: %s\n"
                 "%sRestartSteps: %u\n"
                 "%sRestartMaxDelaySec: %s\n"
+                "%sRestartRandomizedDelaySec: %s\n"
                 "%sTimeoutStartSec: %s\n"
                 "%sTimeoutStopSec: %s\n"
                 "%sTimeoutStartFailureMode: %s\n"
@@ -1289,6 +1408,7 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, FORMAT_TIMESPAN(s->restart_usec, USEC_PER_SEC),
                 prefix, s->restart_steps,
                 prefix, FORMAT_TIMESPAN(s->restart_max_delay_usec, USEC_PER_SEC),
+                prefix, FORMAT_TIMESPAN(s->restart_randomized_delay_usec, USEC_PER_SEC),
                 prefix, FORMAT_TIMESPAN(s->timeout_start_usec, USEC_PER_SEC),
                 prefix, FORMAT_TIMESPAN(s->timeout_stop_usec, USEC_PER_SEC),
                 prefix, service_timeout_failure_mode_to_string(s->timeout_start_failure_mode),
@@ -1635,7 +1755,8 @@ static usec_t service_coldplug_timeout(Service *s) {
                 return usec_add(UNIT(s)->state_change_timestamp.monotonic, service_timeout_abort_usec(s));
 
         case SERVICE_AUTO_RESTART:
-                return usec_add(UNIT(s)->inactive_enter_timestamp.monotonic, service_restart_usec_next(s));
+                return usec_add(UNIT(s)->inactive_enter_timestamp.monotonic,
+                                service_restart_usec_next_jittered(s));
 
         case SERVICE_CLEANING:
                 return usec_add(UNIT(s)->state_change_timestamp.monotonic, s->exec_context.timeout_clean_usec);
@@ -2408,7 +2529,11 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
                 if (s->restart_mode != SERVICE_RESTART_MODE_DIRECT)
                         service_set_state(s, restart_state);
 
-                restart_usec_next = service_restart_usec_next(s);
+                /* Do the randomized restart delay once and remember it so that it's stable across daemon-reload */
+                s->restart_randomized_delay_chosen_usec = s->restart_randomized_delay_usec > 0 ?
+                        random_u64_range(s->restart_randomized_delay_usec) : 0;
+
+                restart_usec_next = service_restart_usec_next_jittered(s);
 
                 r = service_arm_timer(s, /* relative= */ true, restart_usec_next);
                 if (r < 0) {
@@ -2428,7 +2553,9 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
                                 log_unit_notice(UNIT(s), "Service dead, subsequent restarts will be executed with debug level logging.");
                 }
 
-                log_unit_debug(UNIT(s), "Next restart interval calculated as: %s", FORMAT_TIMESPAN(restart_usec_next, 0));
+                log_unit_debug(UNIT(s), "Next restart interval calculated as: %s (randomized delay: %s)",
+                               FORMAT_TIMESPAN(restart_usec_next, 0),
+                               FORMAT_TIMESPAN(s->restart_randomized_delay_chosen_usec, 0));
 
                 service_set_state(s, SERVICE_AUTO_RESTART);
         } else {
@@ -2748,6 +2875,10 @@ static void service_enter_start(Service *s) {
 
         service_unwatch_control_pid(s);
         service_unwatch_main_pid(s);
+
+        r = service_setup_luo_sessions(s);
+        if (r < 0)
+                goto fail;
 
         r = service_adverse_to_leftover_processes(s);
         if (r < 0)
@@ -3634,6 +3765,7 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
         (void) serialize_bool(f, "bus-name-good", s->bus_name_good);
 
         (void) serialize_item_format(f, "n-restarts", "%u", s->n_restarts);
+        (void) serialize_usec(f, "restart-randomized-delay-chosen-usec", s->restart_randomized_delay_chosen_usec);
         (void) serialize_bool(f, "forbid-restart", s->forbid_restart);
 
         service_serialize_exec_command(u, f, s->control_command);
@@ -4086,6 +4218,9 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                 r = safe_atou(value, &s->n_restarts);
                 if (r < 0)
                         log_unit_debug_errno(u, r, "Failed to parse serialized restart counter '%s': %m", value);
+
+        } else if (streq(key, "restart-randomized-delay-chosen-usec")) {
+                (void) deserialize_usec(value, &s->restart_randomized_delay_chosen_usec);
 
         } else if (streq(key, "forbid-restart")) {
                 r = parse_boolean(value);

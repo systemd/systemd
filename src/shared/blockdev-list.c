@@ -87,20 +87,17 @@ static int blockdev_get_subsystem(sd_device *d, char **ret_subsystem) {
         return ret < 0 ? ret : -ENOENT;
 }
 
-int blockdev_list(BlockDevListFlags flags, BlockDevice **ret_devices, size_t *ret_n_devices) {
-        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+int blockdev_list_get_root_devnos(BlockDevListFlags flags, dev_t *ret_root, dev_t *ret_whole_root) {
         int r;
 
-        assert(!!ret_devices == !!ret_n_devices);
-
-        /* If ret_devices/ret_n_devices are passed, returns a list of matching block devices, otherwise
-         * prints the list to stdout */
-
-        BlockDevice *l = NULL;
-        size_t n = 0;
-        CLEANUP_ARRAY(l, n, block_device_array_free);
+        /* Looks up the devno of the block device the OS is booted from, plus the whole-disk devno (e.g.
+         * /dev/sda for /dev/sda3). Returns both as 0 if root can't be determined – which is fine, callers
+         * pass these to blockdev_list_one() and devnum_set_and_equal() handles zero gracefully.
+         *
+         * Split out of blockdev_list() so subscribers can look them up once up-front instead of per uevent. */
 
         dev_t root_devno = 0, whole_root_devno = 0;
+
         if (FLAGS_SET(flags, BLOCKDEV_LIST_IGNORE_ROOT)) {
                 r = blockdev_get_root(LOG_DEBUG, &root_devno);
                 if (r < 0)
@@ -110,98 +107,137 @@ int blockdev_list(BlockDevListFlags flags, BlockDevice **ret_devices, size_t *re
                         if (r < 0)
                                 log_debug_errno(r, "Failed to get whole block device of root device, ignoring: %m");
                 }
-
-                /* It's fine if root_devno/whole_root_devno are zero here as devnum_set_and_equal() will
-                 * happily take that into account – it is in fact its primary raison d'etre. */
         }
 
-        if (sd_device_enumerator_new(&e) < 0)
-                return log_oom();
+        if (ret_root)
+                *ret_root = root_devno;
+        if (ret_whole_root)
+                *ret_whole_root = whole_root_devno;
 
-        r = sd_device_enumerator_add_match_subsystem(e, "block", /* match= */ true);
-        if (r < 0)
-                return log_error_errno(r, "Failed to add subsystem match: %m");
+        return 0;
+}
+
+int blockdev_list_one(
+                sd_device *dev,
+                BlockDevListFlags flags,
+                dev_t root_devno,
+                dev_t whole_root_devno,
+                BlockDevice *ret) {
+
+        int r;
+
+        assert(dev);
+
+        /* Per-device counterpart to blockdev_list(). Applies the same filters and metadata collection,
+         * and reports via a multi-valued return:
+         *
+         *   MATCH_NO       – cleanly fails a static filter (never interesting)
+         *   MATCH_YES      – fully matches
+         *   MATCH_FILTERED – passes static filters but fails a dynamic one (IGNORE_EMPTY / IGNORE_READ_ONLY)
+         *   MATCH_SKIPPED  – an unexpected error tripped during filter evaluation; the caller should
+         *                   treat this like _FILTERED, but the distinct code makes the soft failure
+         *                   visible rather than silently swallowed here.
+         *
+         * On each of the four success codes *ret is initialized: BLOCK_DEVICE_NULL for MATCH_NO and
+         * MATCH_SKIPPED, fully populated for MATCH_YES / MATCH_FILTERED (with d.size / d.read_only
+         * reflecting the current state so callers can tell which dynamic filter tripped). On negative
+         * return *ret is untouched.
+         *
+         * blockdev_list() itself collapses everything except _YES back into "skip". */
+
+        const char *node;
+        r = sd_device_get_devname(dev, &node);
+        if (r < 0) {
+                log_device_warning_errno(dev, r, "Failed to get device node of discovered block device, ignoring: %m");
+                goto skipped;
+        }
+
+        if (FLAGS_SET(flags, BLOCKDEV_LIST_IGNORE_ROOT) && root_devno != 0) {
+                dev_t devno;
+
+                r = sd_device_get_devnum(dev, &devno);
+                if (r < 0) {
+                        log_device_warning_errno(dev, r, "Failed to get major/minor of discovered block device, ignoring: %m");
+                        goto skipped;
+                }
+
+                if (devnum_set_and_equal(devno, root_devno) ||
+                    devnum_set_and_equal(devno, whole_root_devno))
+                        goto no_match;
+        }
+
+        if (FLAGS_SET(flags, BLOCKDEV_LIST_IGNORE_ZRAM)) {
+                r = device_sysname_startswith(dev, "zram");
+                if (r < 0) {
+                        log_device_warning_errno(dev, r, "Failed to check device name of discovered block device '%s', ignoring: %m", node);
+                        goto skipped;
+                }
+                if (r > 0)
+                        goto no_match;
+        }
+
+        if (FLAGS_SET(flags, BLOCKDEV_LIST_REQUIRE_PARTITION_SCANNING)) {
+                r = blockdev_partscan_enabled(dev);
+                if (r < 0) {
+                        log_device_warning_errno(dev, r, "Unable to determine whether '%s' supports partition scanning, skipping device: %m", node);
+                        goto skipped;
+                }
+                if (r == 0) {
+                        log_device_debug(dev, "Device '%s' does not support partition scanning, skipping.", node);
+                        goto no_match;
+                }
+        }
 
         if (FLAGS_SET(flags, BLOCKDEV_LIST_REQUIRE_LUKS)) {
-                r = sd_device_enumerator_add_match_property(e, "ID_FS_TYPE", "crypto_LUKS");
-                if (r < 0)
-                        return log_error_errno(r, "Failed to add match for LUKS block devices: %m");
+                const char *fstype;
+                r = sd_device_get_property_value(dev, "ID_FS_TYPE", &fstype);
+                if (r == -ENOENT)
+                        goto no_match; /* No detected filesystem → not a LUKS superblock. */
+                if (r < 0) {
+                        log_device_warning_errno(dev, r, "Failed to acquire ID_FS_TYPE of device '%s', ignoring: %m", node);
+                        goto skipped;
+                }
+                if (!streq(fstype, "crypto_LUKS"))
+                        goto no_match;
         }
 
-        FOREACH_DEVICE(e, dev) {
-                const char *node;
+        bool dynamic_filtered = false;
 
-                r = sd_device_get_devname(dev, &node);
-                if (r < 0) {
-                        log_device_warning_errno(dev, r, "Failed to get device node of discovered block device, ignoring: %m");
-                        continue;
+        uint64_t size = UINT64_MAX;
+        if (FLAGS_SET(flags, BLOCKDEV_LIST_IGNORE_EMPTY) || ret) {
+                r = device_get_sysattr_u64(dev, "size", &size);
+                if (r < 0)
+                        log_device_debug_errno(dev, r, "Failed to acquire size of device '%s', ignoring: %m", node);
+                else
+                        /* the 'size' sysattr is always in multiples of 512, even on 4K sector block devices! */
+                        assert_se(MUL_ASSIGN_SAFE(&size, 512)); /* Overflow check for coverity */
+
+                if (size == 0 && FLAGS_SET(flags, BLOCKDEV_LIST_IGNORE_EMPTY)) {
+                        log_device_debug(dev, "Device '%s' has a zero size, assuming drive without a medium.", node);
+                        dynamic_filtered = true;
                 }
+        }
 
-                if (FLAGS_SET(flags, BLOCKDEV_LIST_IGNORE_ROOT) && root_devno != 0) {
-                        dev_t devno;
+        int ro = -1;
+        if (FLAGS_SET(flags, BLOCKDEV_LIST_IGNORE_READ_ONLY) || FLAGS_SET(flags, BLOCKDEV_LIST_METADATA)) {
+                r = device_get_sysattr_bool(dev, "ro");
+                if (r < 0)
+                        log_device_debug_errno(dev, r, "Failed to acquire read-only flag of device '%s', ignoring: %m", node);
+                else
+                        ro = r;
 
-                        r = sd_device_get_devnum(dev, &devno);
-                        if (r < 0) {
-                                log_device_warning_errno(dev, r, "Failed to get major/minor of discovered block device, ignoring: %m");
-                                continue;
-                        }
-
-                        if (devnum_set_and_equal(devno, root_devno) ||
-                            devnum_set_and_equal(devno, whole_root_devno))
-                                continue;
+                if (ro > 0 && FLAGS_SET(flags, BLOCKDEV_LIST_IGNORE_READ_ONLY)) {
+                        log_device_debug(dev, "Device '%s' is read-only.", node);
+                        dynamic_filtered = true;
                 }
+        }
 
-                if (FLAGS_SET(flags, BLOCKDEV_LIST_IGNORE_ZRAM)) {
-                        r = device_sysname_startswith(dev, "zram");
-                        if (r < 0) {
-                                log_device_warning_errno(dev, r, "Failed to check device name of discovered block device '%s', ignoring: %m", node);
-                                continue;
-                        }
-                        if (r > 0)
-                                continue;
-                }
+        if (!ret)
+                return dynamic_filtered ? BLOCKDEV_LIST_MATCH_FILTERED : BLOCKDEV_LIST_MATCH_YES;
 
-                if (FLAGS_SET(flags, BLOCKDEV_LIST_REQUIRE_PARTITION_SCANNING)) {
-                        r = blockdev_partscan_enabled(dev);
-                        if (r < 0) {
-                                log_device_warning_errno(dev, r, "Unable to determine whether '%s' supports partition scanning, skipping device: %m", node);
-                                continue;
-                        }
-                        if (r == 0) {
-                                log_device_debug(dev, "Device '%s' does not support partition scanning, skipping.", node);
-                                continue;
-                        }
-                }
-
-                uint64_t size = UINT64_MAX;
-                if (FLAGS_SET(flags, BLOCKDEV_LIST_IGNORE_EMPTY) || ret_devices) {
-                        r = device_get_sysattr_u64(dev, "size", &size);
-                        if (r < 0)
-                                log_device_debug_errno(dev, r, "Failed to acquire size of device '%s', ignoring: %m", node);
-                        else
-                                /* the 'size' sysattr is always in multiples of 512, even on 4K sector block devices! */
-                                assert_se(MUL_ASSIGN_SAFE(&size, 512)); /* Overflow check for coverity */
-
-                        if (size == 0 && FLAGS_SET(flags, BLOCKDEV_LIST_IGNORE_EMPTY)) {
-                                log_device_debug(dev, "Device '%s' has a zero size, assuming drive without a medium, skipping.", node);
-                                continue;
-                        }
-                }
-
-                int ro = -1;
-                if (FLAGS_SET(flags, BLOCKDEV_LIST_IGNORE_READ_ONLY) || FLAGS_SET(flags, BLOCKDEV_LIST_METADATA)) {
-                        r = device_get_sysattr_bool(dev, "ro");
-                        if (r < 0)
-                                log_device_debug_errno(dev, r, "Failed to acquire read-only flag of device '%s', ignoring: %m", node);
-                        else
-                                ro = r;
-
-                        if (ro > 0 && FLAGS_SET(flags, BLOCKDEV_LIST_IGNORE_READ_ONLY)) {
-                                log_device_debug(dev, "Device '%s' is read-only, skipping.", node);
-                                continue;
-                        }
-                }
-
+        /* Wrap the metadata population in a nested scope so the cleanup-attributed locals don't
+         * intersect the goto-target label below (jumping into a protected scope is a clang error). */
+        {
                 _cleanup_strv_free_ char **list = NULL;
                 if (FLAGS_SET(flags, BLOCKDEV_LIST_SHOW_SYMLINKS)) {
                         FOREACH_DEVICE_DEVLINK(dev, sl)
@@ -218,36 +254,95 @@ int blockdev_list(BlockDevListFlags flags, BlockDevice **ret_devices, size_t *re
                         (void) blockdev_get_subsystem(dev, &subsystem);
                 }
 
-                if (ret_devices) {
-                        uint64_t diskseq = UINT64_MAX;
-                        r = sd_device_get_diskseq(dev, &diskseq);
-                        if (r < 0)
-                                log_device_debug_errno(dev, r, "Failed to acquire diskseq of device '%s', ignoring: %m", node);
+                uint64_t diskseq = UINT64_MAX;
+                r = sd_device_get_diskseq(dev, &diskseq);
+                if (r < 0)
+                        log_device_debug_errno(dev, r, "Failed to acquire diskseq of device '%s', ignoring: %m", node);
 
+                _cleanup_free_ char *m = strdup(node);
+                if (!m)
+                        return log_oom();
+
+                *ret = (BlockDevice) {
+                        .node = TAKE_PTR(m),
+                        .symlinks = TAKE_PTR(list),
+                        .diskseq = diskseq,
+                        .size = size,
+                        .model = TAKE_PTR(model),
+                        .vendor = TAKE_PTR(vendor),
+                        .subsystem = TAKE_PTR(subsystem),
+                        .read_only = ro,
+                };
+
+                return dynamic_filtered ? BLOCKDEV_LIST_MATCH_FILTERED : BLOCKDEV_LIST_MATCH_YES;
+        }
+
+no_match:
+        if (ret)
+                *ret = BLOCK_DEVICE_NULL;
+        return BLOCKDEV_LIST_MATCH_NO;
+
+skipped:
+        if (ret)
+                *ret = BLOCK_DEVICE_NULL;
+        return BLOCKDEV_LIST_MATCH_SKIPPED;
+}
+
+int blockdev_list(BlockDevListFlags flags, BlockDevice **ret_devices, size_t *ret_n_devices) {
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        int r;
+
+        assert(!!ret_devices == !!ret_n_devices);
+
+        /* If ret_devices/ret_n_devices are passed, returns a list of matching block devices, otherwise
+         * prints the list to stdout */
+
+        BlockDevice *l = NULL;
+        size_t n = 0;
+        CLEANUP_ARRAY(l, n, block_device_array_free);
+
+        dev_t root_devno = 0, whole_root_devno = 0;
+        (void) blockdev_list_get_root_devnos(flags, &root_devno, &whole_root_devno);
+
+        if (sd_device_enumerator_new(&e) < 0)
+                return log_oom();
+
+        r = sd_device_enumerator_add_match_subsystem(e, "block", /* match= */ true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add subsystem match: %m");
+
+        if (FLAGS_SET(flags, BLOCKDEV_LIST_REQUIRE_LUKS)) {
+                /* blockdev_list_one() enforces this filter authoritatively; the enumerator match is just
+                 * an optimization so we don't iterate non-LUKS devices here. */
+                r = sd_device_enumerator_add_match_property(e, "ID_FS_TYPE", "crypto_LUKS");
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add match for LUKS block devices: %m");
+        }
+
+        FOREACH_DEVICE(e, dev) {
+                _cleanup_(block_device_done) BlockDevice d = BLOCK_DEVICE_NULL;
+
+                r = blockdev_list_one(dev, flags, root_devno, whole_root_devno, ret_devices ? &d : NULL);
+                if (r < 0)
+                        return r;
+                if (r != BLOCKDEV_LIST_MATCH_YES)
+                        continue; /* MATCH_NO or MATCH_FILTERED – bulk enumeration treats both as "skip" */
+
+                if (ret_devices) {
                         if (!GREEDY_REALLOC(l, n+1))
                                 return log_oom();
 
-                        _cleanup_free_ char *m = strdup(node);
-                        if (!m)
-                                return log_oom();
-
-                        l[n++] = (BlockDevice) {
-                                .node = TAKE_PTR(m),
-                                .symlinks = TAKE_PTR(list),
-                                .diskseq = diskseq,
-                                .size = size,
-                                .model = TAKE_PTR(model),
-                                .vendor = TAKE_PTR(vendor),
-                                .subsystem = TAKE_PTR(subsystem),
-                                .read_only = ro,
-                        };
-
+                        l[n++] = TAKE_STRUCT(d);
                 } else {
+                        const char *node;
+                        if (sd_device_get_devname(dev, &node) < 0)
+                                continue;
+
                         printf("%s\n", node);
 
                         if (FLAGS_SET(flags, BLOCKDEV_LIST_SHOW_SYMLINKS))
-                                STRV_FOREACH(i, list)
-                                        printf("%s%s%s%s\n", on_tty() ? "    " : "", ansi_grey(), *i, ansi_normal());
+                                FOREACH_DEVICE_DEVLINK(dev, sl)
+                                        printf("%s%s%s%s\n", on_tty() ? "    " : "", ansi_grey(), sl, ansi_normal());
                 }
         }
 

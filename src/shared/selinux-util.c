@@ -94,11 +94,7 @@ int dlopen_libselinux(int log_level) {
 #if HAVE_SELINUX
         static void *libselinux_dl = NULL;
 
-        SD_ELF_NOTE_DLOPEN(
-                        "selinux",
-                        "Support for SELinux",
-                        SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED,
-                        "libselinux.so.1");
+        LIBSELINUX_NOTE(SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
 
         return dlopen_many_sym_or_warn(
                         &libselinux_dl,

@@ -76,6 +76,26 @@ int userns_info_verify_fd(int userns_fd, const UserNamespaceInfo *info);
 void userns_registry_release_by_info(struct userns_restrict_bpf *bpf, int dir_fd, UserNamespaceInfo *info);
 void userns_registry_release_by_userns_inode(struct userns_restrict_bpf *bpf, int dir_fd, uint64_t inode);
 
+typedef enum UserNamespaceReapStatus {
+        USERNS_REAP_RELEASED,      /* Confirmed dead via its kernel id — registry entry released. */
+        USERNS_REAP_ALIVE,         /* Still alive — left untouched. */
+        USERNS_REAP_INDETERMINATE, /* Liveness couldn't be determined for this entry — it predates id
+                                      tracking, or no entry is registered for the inode any more (e.g. a
+                                      dead ancestor still referenced by a delegation chain). */
+        USERNS_REAP_UNSUPPORTED,   /* Namespaces can't be looked up by id in this environment at all (old
+                                      kernel, or not in the initial user namespace). Applies to every
+                                      entry, so callers sweeping many of them can stop probing. */
+        _USERNS_REAP_MAX,
+        _USERNS_REAP_INVALID = -EINVAL,
+} UserNamespaceReapStatus;
+
+/* Probes the registered user namespace with the given inode for liveness via its recorded kernel
+ * namespace id and, if it is authoritatively dead, releases its registry entry (restoring any ranges
+ * it received via delegation to their ancestors). Returns a non-negative UserNamespaceReapStatus
+ * describing what happened, or a negative errno on genuine failure. The caller must hold the registry
+ * lock (or otherwise be free of concurrent writers). */
+int userns_registry_reap_if_dead(struct userns_restrict_bpf *bpf, int dir_fd, uint64_t inode);
+
 int userns_registry_store(int dir_fd, UserNamespaceInfo *info);
 int userns_registry_remove(int dir_fd, UserNamespaceInfo *info);
 

@@ -647,37 +647,19 @@ int manager_startup(Manager *m) {
         SET_FOREACH(p, registry_inodes) {
                 uint64_t inode = PTR_TO_UINT32(p);
 
-                _cleanup_(userns_info_freep) UserNamespaceInfo *userns_info = NULL;
-                r = userns_registry_load_by_userns_inode(m->registry_fd, inode, &userns_info);
+                r = userns_registry_reap_if_dead(manager_bpf(m), m->registry_fd, inode);
                 if (r < 0) {
-                        log_debug_errno(r, "Failed to load registry entry for user namespace %" PRIu64 ", ignoring: %m", inode);
+                        log_debug_errno(r, "Failed to probe liveness of user namespace %" PRIu64 ", ignoring: %m", inode);
                         continue;
                 }
-
-                if (userns_info->userns_id == 0)
-                        continue; /* Entry predates ns_id tracking, can't probe authoritatively */
-
-                _cleanup_close_ int probe_fd = namespace_open_by_id(userns_info->userns_id);
-                if (probe_fd >= 0)
-                        continue; /* User namespace is still alive */
-                /* EPERM/EACCES means we're not in the initial user/pid namespace or missing
-                 * CAP_SYS_ADMIN; ENOTSUP/ENOSYS means the kernel is too old for
-                 * open_by_handle_at() on nsfs. Either way the sweep can't proceed for any
-                 * entry, so bail out rather than logging once per entry. */
-                if (ERRNO_IS_NEG_PRIVILEGE(probe_fd) || ERRNO_IS_NEG_NOT_SUPPORTED(probe_fd)) {
-                        log_debug_errno(probe_fd, "Cannot detect stale registry entries, skipping: %m");
+                if (r == USERNS_REAP_UNSUPPORTED) {
+                        /* Can't look namespaces up by id at all here (old kernel, or not in the
+                         * initial user namespace) — no entry is probeable, so stop rather than
+                         * continuing to probe (and log) once per entry. */
+                        log_debug("Cannot detect stale registry entries, skipping the rest.");
                         break;
                 }
-                /* Anything else except ESTALE is unexpected — log it but skip just this one. */
-                if (probe_fd != -ESTALE) {
-                        log_debug_errno(probe_fd, "Failed to probe liveness of user namespace %" PRIu64 " (id %" PRIu64 "), ignoring: %m",
-                                        inode, userns_info->userns_id);
-                        continue;
-                }
-
-                log_debug("Registry entry for user namespace %" PRIu64 " (id %" PRIu64 ") refers to a dead namespace, removing.",
-                          inode, userns_info->userns_id);
-                manager_release_userns_by_info(m, userns_info);
+                /* USERNS_REAP_RELEASED, _ALIVE, or _INDETERMINATE — nothing more to do for this entry. */
         }
 
         r = manager_make_listen_socket(m);

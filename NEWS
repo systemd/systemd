@@ -1,6 +1,6 @@
 systemd System and Service Manager
 
-CHANGES WITH 261 in spe:
+CHANGES WITH 261:
 
         Announcements of Future Feature Removals and Incompatible Changes:
 
@@ -204,7 +204,7 @@ CHANGES WITH 261 in spe:
           information, and provides information on how to reach local IMDS
           functionality on the node. Currently, Amazon EC2, Microsoft Azure,
           Google Compute Engine, Hetzner, Oracle Cloud, Scaleway, Tencent
-          Cloud, and Alibaba ECS are recognized.
+          Cloud, Alibaba ECS and Vultr are recognized.
 
         * An IMDS subsystem has been added. Specifically, there's now
           systemd-imdsd which provides a local Varlink IPC API that makes IMDS
@@ -602,6 +602,12 @@ CHANGES WITH 261 in spe:
           throughout the codebase, further reducing the set of mandatory
           dependencies from all binaries.
 
+        * Individual binaries now also embed the dlopen ELF metadata note
+          (https://uapi-group.org/specifications/specs/elf_dlopen_metadata/) for
+          their dlopen() dependencies, which allows packaging tools to reliably
+          discover the set of optional dependencies of a binary, as opposed to
+          having the note only on the libsystemd-shared.so ELF object as before.
+
         * The unused dependency on libgpg-error has been dropped.
 
         │ This means all direct shared library linking against external       │
@@ -680,6 +686,9 @@ CHANGES WITH 261 in spe:
           to request system shutdown. The peer connection identifier of
           the requester is logged.
 
+        * systemd-logind gained new Varlink APIs for listing sessions, users,
+          seats and inhibitors
+
         Changes related to kexec:
 
         * 'systemctl kexec' gained a new --kernel-cmdline= argument that
@@ -751,45 +760,73 @@ CHANGES WITH 261 in spe:
           v1", as defined by "haproxy". See the new --proxy-protocol= switch
           for details.
 
-        Contributions from: A S Alam, Adam Dinwoodie, Adrian Wannenmacher,
-        Aleksa Sarai, Ali Ciloglu, Alyssa Ross, Ambareesh Balaji,
-        Américo Monteiro, Andreas K. Hüttel, Antonio Alvarez Feijoo,
-        Arif Budiman, Aritra Basu, Arnout Engelen, Artem Proskurnev,
-        Balázs Meskó, Bone NI, Bret Comnes, Chris Down, Chris Hofer,
-        Chris Mason, Christian Brauner, Christian Goeschel Ndjomouo,
-        Christian Hesse, Claude Opus 4.6, Clayton Craft, Cynthia,
-        Daan De Meyer, Dan Anderson, Dark Cronyx,
-        David Santamaría Rogado, David Tardon, Diego Viola, Dirga Yuza,
+        Contributions from: A S Alam, Adam Dinwoodie, Adam Williamson,
+        Adolfo Jayme Barrientos, Adrian Wannenmacher, Aksel Azwaw,
+        Aleksa Sarai, Alexander Shopov, Alexey Rubtsov, Ali Ciloglu,
+        Alyssa Ross, Ambareesh Balaji, Américo Monteiro, Anders Jonsson,
+        Andika Triwidada, Andreas K. Hüttel, Andrei Stepanov,
+        Anselm Schueler, Antonio Alvarez Feijoo, Arif Budiman,
+        Aritra Basu, Arnout Engelen, Artem Proskurnev,
+        Asier Sarasua Garmendia, Balázs Meskó, Balázs Úr,
+        Baurzhan Muftakhidinov, Bone NI, Bret Comnes, ButterflyOfFire,
+        Charles Lee, Cheng-Chia Tseng, Chitoku, Chris Down, Chris Hofer,
+        Chris Mason, Chris Patterson, Christian Brauner,
+        Christian Goeschel Ndjomouo, Christian Hesse, Christian Kirbach,
+        Christian Wehrli, Claude Opus 4.6, Clayton Craft, Cynthia,
+        Daan De Meyer, Dan Anderson, Daniel Nylander, Daniel Rusek,
+        Dark Cronyx, David Santamaría Rogado, David Tardon, Deleted User,
+        Derek J. Clark, Diego Viola, Dimitrys Meliates, Dirga Yuza,
         Dmitry Konishchev, Duncan Overbruck, Dylan M. Taylor,
-        Emanuele Rocca, Fco. Javier F. Serrador, Felix Pehla, Franck Bui,
-        Frantisek Sumsal, Hadi Chokr, Heran Yang, Ivan Kruglov,
-        Ivan Shapovalov, Jan Kuparinen, Jim Spentzos, Jiri Pirko,
-        Jonas Dreßler, Jonas Rebmann, Jonathan Davies,
+        Efstathios Iosifidis, Emanuele Rocca, Emilio Herrera,
+        Emilio Sepulveda, Emir SARI, Ettore Atalan,
+        Fco. Javier F. Serrador, Felix Pehla, Fran Diéguez, Franck Bui,
+        Frantisek Sumsal, Fábio Rodrigues Ribeiro, Gabriel Elyas,
+        George Tsiamasiotis, Geraldo S. Simião Kutz, Gogo Gogsi,
+        Gustavo Costa, Göran Uddeborg, Hadi Chokr, Hang Li, Hela Basa,
+        Henri Aunin, Heran Yang, Honza Hejzl, Hugo Carvalho,
+        Icenowy Zheng, Ivan Kruglov, Ivan Shapovalov, Jan Kalabza,
+        Jan Kuparinen, Jarl Gullberg, Jarne Förster, Jesse Guo,
+        Jim Spentzos, Jiri Grönroos, Jiri Pirko, Jonas Dreßler,
+        Jonas Rebmann, Jonathan Davies, Jordan Petridis, Jose Ortuno,
         José Miguel Sarasola, João Taveira Araújo, Julian Sparber,
-        Jörg Behrmann, Kai Lüke, Kajus Naujokaitis, Kit Dallege,
-        Lennart Poettering, LevitatingBusinessMan (Rein Fernhout),
+        Justinas Kairys, Jörg Behrmann, Kai Lüke, Kajus Naujokaitis,
+        Kit Dallege, Kristjan Schmidt, Lennart Poettering,
+        LevitatingBusinessMan (Rein Fernhout), Liu Zhangjian, LuK1337,
         Luan Vitor Simião Oliveira, Luan Vitor Simião oliveira,
-        Luca Boccassi, Luna Jernberg, Marek Adamski, Massii Aqvayli,
-        Matheus Afonso Martins Moreira, Matteo Croce, Max Chernoff,
-        Michael Ferrari, Michael Vogt, Michal Rybecky, Michal Sekletár,
-        Mike Yuan, Mikhail Nogin, Milan Kyselica, Morten Linderud,
-        Nandakumar Raghavan, Nick Rosbrook, Nikolas Kyx, Nita Vesa,
-        Oblivionsage, Oğuz Ersen, Patrick Rohr, Patrick Wicki, Paul Meyer,
-        Pavel Borecki, Petru Rebeja, Philip Withnall, Quentin Deslandes,
-        Rafael Fontenelle, RiskoZS, Robin Ebert, Rocker Zhang,
-        Ronan Pigott, Samuel Dainard, Sebastian Bernardt,
-        Sergei Trofimovich, Simon Lucido, Simon de Vlieger, Simran Singh,
-        Sriman Achanta, Stephane Chazelas, Temuri Doghonadze,
+        Luca Boccassi, Luke Na, Luna Jernberg, Léane GRASSER, Maarten,
+        Malformed C, Marcel Leismann, Marcel Ziswiler, Marek Adamski,
+        Marin Kresic, Martin Srebotnjak, Massii Aqvayli,
+        Matheus Afonso Martins Moreira, Matteo Croce, Matthew Schwartz,
+        Max Chernoff, Michael Ferrari, Michael Vogt, Michal Rybecky,
+        Michal Sekletár, Mike Yuan, Mikhail Nogin, Milan Kyselica,
+        Milo Casagrande, Moisticules, Morten Linderud, Nandakumar Raghavan,
+        Nathan, Nick Rosbrook, Nikolas Kyx, Nita Vesa, Oblivionsage,
+        Olga Smirnova, Oğuz Ersen, Patrick Rohr, Patrick Wicki,
+        Paul Meyer, Pavel Borecki, Petru Rebeja, Philip Withnall,
+        Piotr Drąg, Pjotr Vertaalt, Poesty Li, Priit Jõerüüt,
+        Quentin Deslandes, Rafael Fontenelle, Raito Bezarius,
+        Richard E. van der Luit, Ricky Tigg, RiskoZS, Robin Ebert,
+        Rocker Zhang, Ronan Pigott, Salvatore Cocuzza, Samuel Dainard,
+        Samuel Holland, Scrambled 777, Sebastian Bernardt,
+        Sergei Trofimovich, Sergey A., Simon Lucido, Simon de Vlieger,
+        Simran Singh, Sriman Achanta, Stephane Chazelas, Takuro Onoue,
+        Temuri Doghonadze, Tiago Rocha Cunha, Tim Vangehugten,
         Tobias Heider, Tobias Stoeckmann, Todd Zullinger, TristanInSec,
-        Valentin David, Vincent Mihalkovic, Vitaly Kuznetsov,
-        Walter McKelvie, Yaping Li, Yu Watanabe, Yuri Chornoivan,
-        Zbigniew Jędrzejewski-Szmek, albertescanes, azureuser, drhydroxide,
-        favilances, fecet, glemco, hschloss, ipv6, ishwarbb, joo es, kakolla,
-        kostich, mukunda katta, naly zzwd, noxiouz, r-vdp, roib, rusty-snake,
-        seaeunlee, ssahani, vad, vlefebvre,
-        Дамјан Георгиевски, наб, 我超厉害, 김인수
+        Ulrich Ölmann, Valentin David, Vincent Mihalkovic,
+        Vitaly Kuznetsov, Vlad, Walter McKelvie, Whired Planck,
+        Will Fancher, Y T, Yaping Li, Yaron Shahrabani, Yu Watanabe,
+        Yuri Chornoivan, Zbigniew Jędrzejewski-Szmek, Zmicer Turok,
+        albertescanes, arvind froiland, azureuser, blutch112, djantti,
+        dongshengyuan, doof, drhydroxide, elysia090, favilances, fecet, glemco,
+        guido, hanjinpeng, hschloss, hsu zangmen, ipv6, ishwarbb, jeffhuang,
+        jmestwa-coder, joo es, kakolla, kanitha chim, kostich, lumingzh,
+        lzwind, mburucuyapy, mooo, mukunda katta, naly zzwd, nikstur,
+        noxiouz, r-vdp, roib, rusty-snake, scootergrisen, seaeunlee, ssahani,
+        sykikxo, vad, vlefebvre, z z, Дамјан Георгиевски,
+        Марко Костић (Marko Kostić), наб, 我超厉害,
+        김인수
 
-        — Edinburgh, 2026/05/26
+        — Edinburgh, 2026/06/19
 
 CHANGES WITH 260:
 
@@ -1259,7 +1296,14 @@ CHANGES WITH 260:
           suppress any operation in case no images where added, removed or
           changed. To force a umount/mount operation in this case (i.e. get
           back to the status quo ante) a new --always-refresh= option has been
-          added.
+          added. Note that the change detection identifies extensions by
+          identity (verity hash, or else by file handle/inode, mount ID,
+          creation time and modification time), and does not look at their
+          contents. In particular, for directory-based extensions, adding,
+          removing or modifying files inside the directory (or touching the
+          directory itself) is not detected, and such a refresh is suppressed
+          by default. Use --always-refresh=yes to force a refresh in these
+          cases.
 
         * systemd-oomd acquired "prekill hook" functionality, permitting other
           system components to synchronously hook into the OOM killing logic,

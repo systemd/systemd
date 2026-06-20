@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "sd-dlopen.h"
+
 #include "bitfield.h"
 #include "iovec-util.h"
 #include "shared-forward.h"
@@ -43,6 +45,28 @@ static inline bool TPM2_PCR_MASK_VALID(uint32_t pcr_mask) {
 int dlopen_tpm2(int log_level);
 
 #if HAVE_TPM2
+#define TPM2_ESYS_NOTE(priority) \
+        SD_ELF_NOTE_DLOPEN("tpm", "Support for TPM", priority, "libtss2-esys.so.0")
+#define TPM2_RC_NOTE(priority) \
+        SD_ELF_NOTE_DLOPEN("tpm", "Support for TPM", priority, "libtss2-rc.so.0")
+#define TPM2_MU_NOTE(priority) \
+        SD_ELF_NOTE_DLOPEN("tpm", "Support for TPM", priority, "libtss2-mu.so.0")
+#define TPM2_TCTI_DEVICE_NOTE(priority) \
+        SD_ELF_NOTE_DLOPEN("tpm", "Support for TPM", priority, "libtss2-tcti-device.so.0")
+
+#define TPM2_NOTE(priority)                                             \
+        ({                                                              \
+                TPM2_ESYS_NOTE(priority);                               \
+                TPM2_RC_NOTE(priority);                                 \
+                TPM2_MU_NOTE(priority);                                 \
+                TPM2_TCTI_DEVICE_NOTE(priority);                        \
+        })
+
+#define DLOPEN_TPM2(log_level, priority)                                \
+        ({                                                              \
+                TPM2_NOTE(priority);                                    \
+                dlopen_tpm2(log_level);                                 \
+        })
 
 #include <tss2/tss2_esys.h>     /* IWYU pragma: export */
 #include <tss2/tss2_mu.h>       /* IWYU pragma: export */
@@ -135,6 +159,8 @@ bool tpm2_test_parms(Tpm2Context *c, TPMI_ALG_PUBLIC alg, const TPMU_PUBLIC_PARM
 int tpm2_get_good_pcr_banks(Tpm2Context *c, uint32_t pcr_mask, TPMI_ALG_HASH **ret_banks);
 int tpm2_get_good_pcr_banks_strv(Tpm2Context *c, uint32_t pcr_mask, char ***ret);
 int tpm2_get_best_pcr_bank(Tpm2Context *c, uint32_t pcr_mask, TPMI_ALG_HASH *ret);
+/* Like tpm2_get_best_pcr_bank(), but restricted to SHA256/SHA1 for re-deriving the bank of legacy enrollments */
+int tpm2_get_best_pcr_bank_legacy(Tpm2Context *c, uint32_t pcr_mask, TPMI_ALG_HASH *ret);
 
 const char* tpm2_userspace_log_path(void);
 const char* tpm2_firmware_log_path(void);
@@ -415,6 +441,7 @@ static inline int tpm2_pcrlock_search_file(const char *path, FILE **ret_file, ch
         return -ENOENT;
 }
 
+#define DLOPEN_TPM2(log_level, priority) dlopen_tpm2(log_level)
 #endif /* HAVE_TPM2 */
 
 int tpm2_list_devices(bool legend, bool quiet);
@@ -458,6 +485,12 @@ int tpm2_parse_luks2_json(sd_json_variant *v, int *ret_keyslot, uint32_t *ret_ha
 #ifndef TPM2_ALG_RSA
 #define TPM2_ALG_RSA 0x1
 #endif
+
+/* Picks the most preferred PCR bank (SHA256 > SHA384 > SHA512 > SHA1) out of the firmware-reported active
+ * banks bitmask. Defined unconditionally (no TPM2 libraries required) so it can be unit tested. */
+int tpm2_pcr_bank_from_efi_active(uint32_t active_banks, uint16_t *ret);
+/* Like tpm2_pcr_bank_from_efi_active(), but restricted to SHA256/SHA1, for re-deriving the bank of legacy enrollments */
+int tpm2_pcr_bank_from_efi_active_legacy(uint32_t active_banks, uint16_t *ret);
 
 int tpm2_hash_alg_to_size(uint16_t alg);
 

@@ -3049,6 +3049,13 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 if (r < 0)
                         return r;
 
+                /* When using --console=gui the QEMU window closes immediately when the VM has stopped, so
+                 * any console output at shutdown is lost, which makes debugging difficult. Ensure the VM
+                 * stays booted for a minimum of 15s. */
+                r = strv_prepend(&arg_kernel_cmdline_extra, "systemd.minimum_uptime_sec=15");
+                if (r < 0)
+                        return log_oom();
+
                 break;
 
         case CONSOLE_HEADLESS:
@@ -3165,8 +3172,8 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to create ephemeral snapshot of '%s': %m", arg_directory);
 
-                        arg_directory = strdup(snapshot_directory);
-                        if (!arg_directory)
+                        r = free_and_strdup(&arg_directory, snapshot_directory);
+                        if (r < 0)
                                 return log_oom();
                 }
 
@@ -3298,6 +3305,11 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 if (existing) {
                         _cleanup_free_ char *combined = NULL;
 
+                        if (existing->size >= INT_MAX)
+                                return log_error_errno(SYNTHETIC_ERRNO(EFBIG),
+                                                       "Existing fstab.extra credential is too large (%zu bytes).",
+                                                       existing->size);
+
                         if (existing->size > 0 && existing->data[existing->size - 1] != '\n')
                                 r = asprintf(&combined, "%.*s\n%s", (int) existing->size, existing->data, fstab_extra);
                         else
@@ -3371,15 +3383,15 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                                 return log_error_errno(r, "Failed to start tpm: %m");
 
                         log_debug_errno(r, "Failed to start tpm, ignoring: %m");
+                } else {
+                        _cleanup_(sd_event_source_unrefp) sd_event_source *source = NULL;
+                        r = event_add_child_pidref(event, &source, &child, WEXITED, on_child_exit, /* userdata= */ NULL);
+                        if (r < 0)
+                                return r;
+
+                        pidref_done(&child);
+                        children[n_children++] = TAKE_PTR(source);
                 }
-
-                _cleanup_(sd_event_source_unrefp) sd_event_source *source = NULL;
-                r = event_add_child_pidref(event, &source, &child, WEXITED, on_child_exit, /* userdata= */ NULL);
-                if (r < 0)
-                        return r;
-
-                pidref_done(&child);
-                children[n_children++] = TAKE_PTR(source);
         }
 
         if (tpm_socket_address) {
@@ -4015,7 +4027,14 @@ static int determine_kernel(void) {
         int r;
 
         if (!arg_linux && arg_directory) {
-                /* A kernel is required for directory type images so attempt to find one under /boot and /efi */
+                /* A kernel is required for directory type images so attempt to find one under /boot and /efi.
+                 * Reject a user --initrd= first: discovery would overwrite (and leak) it, and the
+                 * --initrd=/--linux= consistency check in verify_arguments() is bypassed once discovery
+                 * sets arg_linux. */
+                if (!strv_isempty(arg_initrds))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "--initrd= cannot be used with --directory= unless --linux= is also specified.");
+
                 r = discover_boot_entry(arg_directory, &arg_linux, &arg_initrds);
                 if (r < 0)
                         return log_error_errno(r, "Failed to locate UKI in directory type image, please specify one with --linux=.");

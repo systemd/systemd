@@ -453,6 +453,7 @@ Service.ExecStopPost,                         config_parse_exec,                
 Service.RestartSec,                           config_parse_sec,                                   0,                                  offsetof(Service, restart_usec)
 Service.RestartSteps,                         config_parse_unsigned,                              0,                                  offsetof(Service, restart_steps)
 Service.RestartMaxDelaySec,                   config_parse_sec,                                   0,                                  offsetof(Service, restart_max_delay_usec)
+Service.RestartRandomizedDelaySec,            config_parse_sec,                                   0,                                  offsetof(Service, restart_randomized_delay_usec)
 Service.TimeoutSec,                           config_parse_service_timeout,                       0,                                  0
 Service.TimeoutStartSec,                      config_parse_service_timeout,                       0,                                  0
 Service.TimeoutStopSec,                       config_parse_sec_fix_0,                             0,                                  offsetof(Service, timeout_stop_usec)
@@ -484,6 +485,7 @@ Service.NonBlocking,                          config_parse_bool,                
 Service.BusName,                              config_parse_bus_name,                              0,                                  offsetof(Service, bus_name)
 Service.FileDescriptorStoreMax,               config_parse_unsigned,                              0,                                  offsetof(Service, n_fd_store_max)
 Service.FileDescriptorStorePreserve,          config_parse_exec_preserve_mode,                    0,                                  offsetof(Service, fd_store_preserve_mode)
+Service.LUOSession,                           config_parse_luo_sessions,                          0,                                  offsetof(Service, luo_sessions)
 Service.NotifyAccess,                         config_parse_notify_access,                         0,                                  offsetof(Service, notify_access)
 Service.Sockets,                              config_parse_service_sockets,                       0,                                  0
 Service.BusPolicy,                            config_parse_warn_compat,                           DISABLED_LEGACY,                    0

@@ -128,6 +128,109 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 ## Features
 
+- **report:**
+  - implement signer for TPM2 that adds a quote + event log excerpt as signing
+    object. should include a TPM timestamp, and some "generation ID" provided
+    by an orchestrator to guarantee freshness.
+  - implement metrics provider in logind: report number of active
+    sessions, and number of sessions since boot.
+  - implement metrics provider in journald that reports number of log messages
+    received since boot, by log priority
+  - implement metrics provider in journalctl, that simply reports the most
+    recent 10 emergency log msgs on the system
+  - allow to compile statically (together with the basic and cgroup
+    backends)
+  - make sure backends can also be invoked via forking off
+  - allow metrics providers to indicate which reported values mean
+    "nothing"/"invalid"/"zero"/"please-suppress". Then use that to reduce noise
+    in systemd-report output.
+  - teach cgroup metrics provider to expose PSI information
+  - implement metrics provider that reports local IP addresses, and bound open
+    IP ports
+  - implement current system load via metrics
+  - metrics from pid1: suppress metrics form units that are inactive and have nothing to report
+  - pass filtering hints to services, so that they can also be applied server-side, not just client side
+  - add "hint-suppress-zero" flag (which suppresses all metrics which are zero)
+  - add "hint-object" parameter (which only queries info about certain object)
+  - make systemd-report a varlink service
+
+- bootctl set-tries for setting retry counters on boot entries
+
+- implement enough of PCP in a new sd-pcp-client library that networkd can use
+  to punch holes for wireguard into common NAT routers. use that in networkd. alternatively: just use libjuice
+
+- measure an uapi16 manifest of /etc/ during early boot (so that
+  pre-initialized /etc/ can be detected when systems are enrolled into some
+  subsystem)
+
+- optionally turn off import of imds on non-firstboot creds (so that IMDS can
+  be considered an attack vector, except for TOFU)
+
+- store workload identity OIDC server contact info in cloud imds hwdb.
+
+- systemd-analyze unit-shell-me-harder that has both host and unit trees around
+  but mostly lives in unit namespces
+
+- os-release consumption at boot: version validation, and maybe in os-release
+
+- ed25519 authentication for sd-boot upgrades for the dm-verity key logic
+
+- change machine tags into key/value pairs instead of just labels
+
+- in sysupdate resolve %C or so as specifier in transfer fiels to the value of
+  a specific machine tag channel= or so.
+
+- make vmspawn parse UKIs for direct kernel boot
+
+- portabled driving by system credential
+
+- sysinstall: add fully automatic mode that automatically picks target disk,
+  non-interactively. Should wait to ensure system is up for a certain amount of
+  minimal time (alternatively: certain amount of time since the last disk
+  showed up), to ensure disks have shown up before making the decision. Usecase
+  for this: redfish style server provisioning.
+
+- nspawn: optionally provide a /dev/tpm0 + /dev/tpmrm0 that is backed by swtpm,
+  much like we do in vmspawn. let's us minimize differences between
+  environments systemd runs in.
+
+- nspawn/vmspawn: add a concept how we can hand into the payload some proof
+  that it is runnin on a certain host, which it can then include in the report,
+  and which allows us to put together a map about which node runs as payload of
+  which other note. in particular useful for transient nodes, as it gives them
+  a better location
+
+- add a small varlink service that wraps the raw sftp logic (without ssh) after a
+  varlink protocol upgrade, which enables varlink clients to do file transfers,
+  which is in particular useful when accessing a system via http varlink proxy
+
+- add a small varlink service that allocates a pty and then does ptyfwd stuff
+  after a protocol upgrade on the incoming connection. Then spawn a shell/getty
+  on it. This enables varlink clients to acquire a fully featured ssh-like
+  interactive tty/shell via varlink, which is again useful via http varlink
+  proxy.
+
+- add something like podman's conmon as a native systemd subsystem:
+  i.e. allocate ptys, that can be bound to stdio/console of containers and VMs,
+  that maintain a bit of a scrollback buffer, and one can reconnect to
+  later. fun idea: might even make /dev/tty1 and friends accessible via
+  /dev/vcsa1 under the same protocol. this subsystem should potentially be the
+  same as the varlink ssh-like thing listed above.
+
+- maybe introduce a new ansi sequence that allows propagate SIGWINCH
+  inline. Idea would be: to enable inline notification of window sizes client
+  sends a new, to be defined ANSI sequence with its current assumption of
+  terminal size. Server compares it with current state. If the same it sends
+  nothing immediately, but does send exactly one update if it changes, and
+  disables the logic. If not the same sends correction immediately, and
+  disables the logic. Client has to reissue sequence immediately after getting
+  notification to get live updates. Benefit of all of this: better terminal
+  experience if we just forward terminal bytes through a serial link/stream
+  connection, as terminal sizes will be properly propagated. Write a UAPI spec
+  for all this. ptyfwd could translate turn upstream SIGWINCH into upstream
+  sequences of this type, so that every step of the way we get the right
+  behaviour.
+
 - now that the kernel supports xattrs on sockets: mark varlink entrypoint
   sockets, server side of varlink sockets, and client sides of valrink sockets
   with distinct xattrs to make them recognizable (similar maybe for our other
@@ -138,8 +241,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   processes (select by pid, select by cgroup, select by all machine), and shows
   traffic of all sockets marked via the new varlink socket xattrs. Use BPF for
   all of that of course.
-
-- systemd-report: implement signing via callout varlink dir
 
 - add tooling for generating dictionary-based hostnames
 
@@ -153,12 +254,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   hence we might as well associate the title with the table itself, and
   streamline a few things.
 
-- allow metrics to indicate which values mean
-  "nothing"/"invalid"/"zero"/"please-suppress". Then use that to reduce noise
-  in systemd-report output.
-
-- cgroup-metrics: add per-cgroup PSI metrics
-
 - sysupdate: offer reading transfer files/components/features optionally from
   some JSON fragment rather than transfer files, so that we can update it
   independently from any DDI, and it needs no activation cycle. Why? so that
@@ -169,9 +264,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 - sysupdate: add concept for enabling/disabling specific components explicitly,
   just like features.
-
-- udev: add a MACHINE_TAGS field, that augments /etc/machine-info configured
-  tags.
 
 - hostnamectl: management, collation of all tags. four sources: udev,
   /etc/machine-info, credentials, and /etc/machine-tags.d/*.conf
@@ -234,16 +326,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   are not showing up, then counts down, eventually set a flag somewhere, and
   retriggers the fs is was invoked for, which causes the udev rules to rerun
   that assemble the btrfs raid, but this time force degraded assembly.
-
-- add a report backend that simply exposes a bunch of static files that are
-  symlinked to some dir {/run,/etc/,/var/lib/}systemd/report-files/ or so as
-  facts. Use that for exposing SSH keys and suchlike.
-
-- report generators for:
-  - ip addresses
-  - imds address
-  - tpm event log
-  - open IP ports
 
 - a way for container managers to turn off getty starting via $container_headless= or so...
 
@@ -695,7 +777,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 - clean up date formatting and parsing so that all absolute/relative timestamps we format can also be parsed
 
 - **complete varlink introspection comments:**
-  - io.systemd.Hostname
   - io.systemd.ManagedOOM
   - io.systemd.Network
   - io.systemd.PCRLock
@@ -804,15 +885,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   should be able to safely try another attempt when the bus call LoadUnit() is invoked.
 
 - ddi must be listed as block device fstype
-
-- define a generic "report" varlink interface, which services can implement to
-  provide health/statistics data about themselves. then define a dir somewhere
-  in /run/ where components can bind such sockets. Then make journald, logind,
-  and pid1 itself implement this and expose various stats on things there. Then
-  issue parallel calls to these interfaces from the systemd-report tool,
-  combine into one json document, and include measurement logs and tpm
-  quote. tpm quote should protect the json doc via the nonce field
-  studd. Allow shipping this off elsewhere for analyze.
 
 - define a JSON format for units, separating out unit definitions from unit
   runtime state. Then, expose it:
@@ -1583,28 +1655,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 - man: the documentation of Restart= currently is very misleading and suggests the tools from ExecStartPre= might get restarted.
 
-- maybe add a "systemd-report" tool, that generates a TPM2-backed "report" of
-  current system state, i.e. a combination of PCR information, local system
-  time and TPM clock, running services, recent high-priority log
-  messages/coredumps, system load/PSI, signed by the local TPM chip, to form an
-  enhanced remote attestation quote. Use case: a simple orchestrator could use
-  this: have the report tool upload these reports every 3min somewhere. Then
-  have the orchestrator collect these reports centrally over a 3min time
-  window, and use them to determine what which node should now start/stop what,
-  and generate a small confext for each node, that uses Uphold= to pin services
-  on each node.  The confext would be encrypted using the asymmetric encryption
-  proposed above, so that it can only be activated on the specific host, if the
-  software is in a good state, and within a specific time frame. Then run a
-  loop on each node that sends report to orchestrator and then sysupdate to
-  update confext.  Orchestrator would be stateless, i.e. operate on desired
-  config and collected reports in the last 3min time window only, and thus can
-  be trivially scaled up since all instances of the orchestrator should come to
-  the same conclusions given the same inputs of reports/desired workload info.
-  Could also be used to deliver Wireguard secrets and thus to clients, thus
-  permitting zero-trust networking: secrets are rolled over via confext updates,
-  and via the time window TPM logic invalidated if node doesn't keep itself
-  updated, or becomes corrupted in some way.
-
 - maybe add a new standard slice where process that are started in the initrd
   and stick around for the whole system runtime (i.e. root fs storage daemons,
   the bpf loader daemon discussed above, and such) are placed. maybe
@@ -2157,14 +2207,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 - report: have something that requests cloud workload identity bearer tokens
   and includes it in the report
 
-- **report:**
-  - plug "facts" into systemd-report too, i.e. stuff that is more static, such as hostnames, ssh keys and so on.
-  - pass filtering hints to services, so that they can also be applied server-side, not just client side
-  - metrics from pid1: suppress metrics form units that are inactive and have nothing to report
-  - add "hint-suppress-zero" flag (which suppresses all metrics which are zero)
-  - add "hint-object" parameter (which only queries info about certain object)
-  - make systemd-report a varlink service
-
 - Reset TPM2 DA bit on each successful boot
 
 - **resolved:**
@@ -2385,8 +2427,8 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   PR_SET_DUMPABLE so that it cannot be ptraced from the host. Should have
   CAP_SYS_BPF as only service around.
 
-- SIGRTMIN+18 and memory pressure handling should still be added to: hostnamed,
-  localed, oomd, timedated.
+- SIGRTMIN+18 and memory pressure handling should still be added to: localed,
+  oomd, timedated.
 
 - socket units: allow creating a udev monitor socket with ListenDevices= or so,
   with matches, then activate app through that passing socket over
@@ -2612,9 +2654,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   runs it in a new namespace and then just executes the selected binary within
   it. Could be useful to run one-off binaries inside a sysext as a CLI tool.
 
-- systemd-tmpfiles: add concept for conditionalizing lines on factory reset
-  boot, or on first boot.
-
 - systemd-tpm2-setup should support a mode where we refuse booting if the SRK
   changed. (Must be opt-in, to not break systems which are supposed to be
   migratable between PCs)
@@ -2738,6 +2777,15 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   - add new line type for moving files from some source dir to some
     target dir. then use that to move sysexts/confexts and stuff from initrd
     tmpfs to /run/, so that host can pick things up.
+  - allow conditionalizing on factory reset boot, or on first boot.
+  - when cleaning up directories, take care of btrfs subvolumes too
+    (ID 927 gen 217573 top level 256 path var/tmp/.#test-btrfs4e8ef947c1122031
+     ID 928 gen 217573 top level 927 path var/tmp/.#test-btrfs4e8ef947c1122031/rec
+     ID 929 gen 217574 top level 928 path var/tmp/.#test-btrfs4e8ef947c1122031/rec/sv2
+     ID 930 gen 217575 top level 928 path var/tmp/.#test-btrfs4e8ef947c1122031/rec/sv3
+     ID 931 gen 217576 top level 930 path var/tmp/.#test-btrfs4e8ef947c1122031/rec/sv3/sub
+     ID 932 gen 217577 top level 928 path var/tmp/.#test-btrfs4e8ef947c1122031/rec/dir/sv4
+     ID 933 gen 217578 top level 932 path var/tmp/.#test-btrfs4e8ef947c1122031/rec/dir/sv4/dir/sv5)
 
 - To mimic the new tpm2-measure-pcr= crypttab option and tpm2-measure-nvpcr=
   veritytab option, add the same to integritytab (measuring the HMAC key if one

@@ -101,9 +101,11 @@ static const struct {
         const char *alg;
         size_t size;
 } digest_size_table[] = {
+#ifndef OPENSSL_NO_SHA1
         /* SHA1 "family" */
         { "sha1",     20, },
         { "sha-1",    20, },
+#endif
         /* SHA2 family */
         { "sha224",   28, },
         { "sha256",   32, },
@@ -122,14 +124,18 @@ static const struct {
         { "sha3-256", 32, },
         { "sha3-384", 48, },
         { "sha3-512", 64, },
+#ifndef OPENSSL_NO_SM3
         /* SM3 family */
         { "sm3",      32, },
+#endif
+#ifndef OPENSSL_NO_MD5
         /* MD5 family */
         { "md5",      16, },
+#endif
 };
 
 TEST(digest_size) {
-        size_t size;
+        size_t size = 0;  /* avoid false maybe-uninitialized warning */
 
         FOREACH_ELEMENT(t, digest_size_table) {
                 assert(openssl_digest_size(t->alg, &size) >= 0);

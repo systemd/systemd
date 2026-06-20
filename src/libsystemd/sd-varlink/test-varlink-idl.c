@@ -31,8 +31,10 @@
 #include "varlink-io.systemd.Login.h"
 #include "varlink-io.systemd.Machine.h"
 #include "varlink-io.systemd.MachineImage.h"
+#include "varlink-io.systemd.MachineInstance.h"
 #include "varlink-io.systemd.ManagedOOM.h"
 #include "varlink-io.systemd.Manager.h"
+#include "varlink-io.systemd.Metrics.h"
 #include "varlink-io.systemd.MountFileSystem.h"
 #include "varlink-io.systemd.MuteConsole.h"
 #include "varlink-io.systemd.NamespaceResource.h"
@@ -41,13 +43,18 @@
 #include "varlink-io.systemd.PCRExtend.h"
 #include "varlink-io.systemd.PCRLock.h"
 #include "varlink-io.systemd.Repart.h"
+#include "varlink-io.systemd.Report.h"
+#include "varlink-io.systemd.Report.Signer.h"
+#include "varlink-io.systemd.Report.Uploader.h"
 #include "varlink-io.systemd.Resolve.h"
 #include "varlink-io.systemd.Resolve.Hook.h"
 #include "varlink-io.systemd.Resolve.Monitor.h"
+#include "varlink-io.systemd.Shutdown.h"
 #include "varlink-io.systemd.StorageProvider.h"
 #include "varlink-io.systemd.Udev.h"
 #include "varlink-io.systemd.Unit.h"
 #include "varlink-io.systemd.UserDatabase.h"
+#include "varlink-io.systemd.VirtualMachineInstance.h"
 #include "varlink-io.systemd.oom.h"
 #include "varlink-io.systemd.oom.Prekill.h"
 #include "varlink-io.systemd.service.h"
@@ -200,8 +207,10 @@ TEST(parse_format) {
                 &vl_interface_io_systemd_Login,
                 &vl_interface_io_systemd_Machine,
                 &vl_interface_io_systemd_MachineImage,
+                &vl_interface_io_systemd_MachineInstance,
                 &vl_interface_io_systemd_ManagedOOM,
                 &vl_interface_io_systemd_Manager,
+                &vl_interface_io_systemd_Metrics,
                 &vl_interface_io_systemd_MountFileSystem,
                 &vl_interface_io_systemd_MuteConsole,
                 &vl_interface_io_systemd_NamespaceResource,
@@ -210,13 +219,18 @@ TEST(parse_format) {
                 &vl_interface_io_systemd_PCRExtend,
                 &vl_interface_io_systemd_PCRLock,
                 &vl_interface_io_systemd_Repart,
+                &vl_interface_io_systemd_Report,
+                &vl_interface_io_systemd_Report_Signer,
+                &vl_interface_io_systemd_Report_Uploader,
                 &vl_interface_io_systemd_Resolve,
                 &vl_interface_io_systemd_Resolve_Hook,
                 &vl_interface_io_systemd_Resolve_Monitor,
+                &vl_interface_io_systemd_Shutdown,
                 &vl_interface_io_systemd_StorageProvider,
                 &vl_interface_io_systemd_Udev,
                 &vl_interface_io_systemd_Unit,
                 &vl_interface_io_systemd_UserDatabase,
+                &vl_interface_io_systemd_VirtualMachineInstance,
                 &vl_interface_io_systemd_oom,
                 &vl_interface_io_systemd_oom_Prekill,
                 &vl_interface_io_systemd_service,

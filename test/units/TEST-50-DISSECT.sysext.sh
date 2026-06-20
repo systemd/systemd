@@ -1675,6 +1675,194 @@ run_systemd_sysext "$fake_root" unmerge
 extension_verify_after_unmerge "$fake_root" "$hierarchy" -h
 )
 
+( init_trap
+: "Check EXTENSION_RESTART_UNITS= (re)starts units after merge and stops vanished ones on unmerge"
+# Talks to the real service manager, skip the --root= variant (it is a no-op there)
+if [ "$roots_dir" != "" ]; then
+    exit 0
+fi
+
+ext_name="test-restart-extension"
+ext_dir="/var/lib/extensions/$ext_name"
+host_unit="test-restart-host.service"
+host_unit_file="/run/systemd/system/$host_unit"
+ext_unit="test-restart-ext.service"
+
+cat >"$host_unit_file" <<EOF
+[Service]
+Type=simple
+ExecStart=sleep 9999
+EOF
+prepend_trap "rm -f ${host_unit_file@Q}; systemctl stop ${host_unit@Q} 2>/dev/null || :"
+systemctl daemon-reload
+systemctl start "$host_unit"
+host_pid_before=$(systemctl show -P MainPID "$host_unit")
+
+mkdir -p "$ext_dir/usr/lib/extension-release.d" "$ext_dir/usr/lib/systemd/system"
+prepend_trap "rm -rf ${ext_dir@Q}"
+cat >"$ext_dir/usr/lib/extension-release.d/extension-release.$ext_name" <<EOF
+ID=_any
+ARCHITECTURE=_any
+EXTENSION_RELOAD_MANAGER=1
+EXTENSION_RESTART_UNITS="$host_unit $ext_unit"
+EOF
+cat >"$ext_dir/usr/lib/systemd/system/$ext_unit" <<EOF
+[Service]
+Type=simple
+ExecStart=sleep 9999
+EOF
+
+# --no-reload skips both the daemon-reload and the restarts
+systemd-sysext merge --no-reload
+systemd-sysext refresh --always-refresh=yes --no-reload
+if [ "$(systemctl show -P MainPID "$host_unit")" != "$host_pid_before" ]; then
+    echo >&2 "Unexpected restart of host unit"
+    exit 1
+fi
+if systemctl --quiet is-active "$ext_unit"; then
+    echo >&2 "Unexpected start of extension unit"
+    exit 1
+fi
+systemd-sysext unmerge --no-reload
+
+# merge: host unit is restarted (new PID), extension unit is started
+systemd-sysext merge
+host_pid_merged=$(systemctl show -P MainPID "$host_unit")
+if [ "$host_pid_before" = "$host_pid_merged" ]; then
+    echo >&2 "Missing restart of host unit"
+    exit 1
+fi
+if ! systemctl --quiet is-active "$ext_unit"; then
+    echo >&2 "Missing start of extension unit"
+    exit 1
+fi
+host_pid_before_refresh="$host_pid_merged"
+systemd-sysext refresh --always-refresh=yes
+host_pid_merged=$(systemctl show -P MainPID "$host_unit")
+if [ "$host_pid_before_refresh" = "$host_pid_merged" ]; then
+    echo >&2 "Missing restart of host unit after refresh"
+    exit 1
+fi
+if ! systemctl --quiet is-active "$ext_unit"; then
+    echo >&2 "Missing start of extension unit"
+    exit 1
+fi
+
+# unmerge: host unit file is still in /run -> restart again (new PID)
+# but extension unit file is gone -> fallback to StopUnit
+systemd-sysext unmerge
+host_pid_unmerged=$(systemctl show -P MainPID "$host_unit")
+if [ "$host_pid_merged" = "$host_pid_unmerged" ]; then
+    echo >&2 "Missing restart of host unit"
+    exit 1
+fi
+if systemctl --quiet is-active "$ext_unit"; then
+    echo >&2 "Missing stop of extension unit"
+    exit 1
+fi
+)
+
+( init_trap
+: "Check EXTENSION_RELOAD_OR_RESTART_UNITS= reloads units after merge and stops vanished ones on unmerge"
+# Talks to the real service manager, skip the --root= variant (it is a no-op there)
+if [ "$roots_dir" != "" ]; then
+    exit 0
+fi
+
+ext_name="test-reload-or-restart-extension"
+ext_dir="/var/lib/extensions/$ext_name"
+host_unit="test-reload-or-restart-host.service"
+host_unit_file="/run/systemd/system/$host_unit"
+ext_unit="test-reload-or-restart-ext.service"
+host_stamp="/run/test-reload-or-restart-host.stamp"
+ext_stamp="/run/test-reload-or-restart-ext.stamp"
+
+cat >"$host_unit_file" <<EOF
+[Service]
+Type=simple
+ExecStart=sleep 9999
+ExecReload=touch $host_stamp
+EOF
+prepend_trap "rm -f ${host_unit_file@Q} ${host_stamp@Q}; systemctl stop ${host_unit@Q} 2>/dev/null || :"
+systemctl daemon-reload
+systemctl start "$host_unit"
+host_pid_before=$(systemctl show -P MainPID "$host_unit")
+
+mkdir -p "$ext_dir/usr/lib/extension-release.d" "$ext_dir/usr/lib/systemd/system"
+prepend_trap "rm -rf ${ext_dir@Q} ${ext_stamp@Q}"
+cat >"$ext_dir/usr/lib/extension-release.d/extension-release.$ext_name" <<EOF
+ID=_any
+ARCHITECTURE=_any
+EXTENSION_RELOAD_OR_RESTART_UNITS="$host_unit $ext_unit"
+EOF
+cat >"$ext_dir/usr/lib/systemd/system/$ext_unit" <<EOF
+[Service]
+Type=simple
+ExecStart=sleep 9999
+ExecReload=touch $ext_stamp
+EOF
+
+# merge: host unit supports reload -> reloaded (same PID, stamp file created),
+# extension unit is started (no reload because it was not running yet)
+rm -f "$host_stamp" "$ext_stamp"
+systemd-sysext merge
+host_pid_merged=$(systemctl show -P MainPID "$host_unit")
+if [ "$host_pid_before" != "$host_pid_merged" ]; then
+    echo >&2 "Unexpected restart of host unit (should have reloaded)"
+    exit 1
+fi
+if [ ! -e "$host_stamp" ]; then
+    echo >&2 "Host unit was not reloaded on merge (stamp missing)"
+    exit 1
+fi
+if ! systemctl --quiet is-active "$ext_unit"; then
+    echo >&2 "Missing start of extension unit"
+    exit 1
+fi
+ext_pid_merged=$(systemctl show -P MainPID "$ext_unit")
+
+# refresh: both units already running and reload-capable -> reloaded, MainPIDs unchanged,
+# both stamp files re-created
+rm -f "$host_stamp" "$ext_stamp"
+systemd-sysext refresh --always-refresh=yes
+host_pid_refreshed=$(systemctl show -P MainPID "$host_unit")
+if [ "$host_pid_merged" != "$host_pid_refreshed" ]; then
+    echo >&2 "Unexpected restart of host unit on refresh (should have reloaded)"
+    exit 1
+fi
+if [ ! -e "$host_stamp" ]; then
+    echo >&2 "Host unit was not reloaded on refresh (stamp missing)"
+    exit 1
+fi
+ext_pid_refreshed=$(systemctl show -P MainPID "$ext_unit")
+if [ "$ext_pid_merged" != "$ext_pid_refreshed" ]; then
+    echo >&2 "Unexpected restart of extension unit on refresh (should have reloaded)"
+    exit 1
+fi
+if [ ! -e "$ext_stamp" ]; then
+    echo >&2 "Extension unit was not reloaded on refresh (stamp missing)"
+    exit 1
+fi
+
+# unmerge: host unit file still in /run -> reloaded again (same PID, stamp re-created)
+# but extension unit file is gone -> fallback to StopUnit
+rm -f "$host_stamp" "$ext_stamp"
+systemd-sysext unmerge
+host_pid_unmerged=$(systemctl show -P MainPID "$host_unit")
+if [ "$host_pid_refreshed" != "$host_pid_unmerged" ]; then
+    echo >&2 "Unexpected restart of host unit on unmerge (should have reloaded)"
+    exit 1
+fi
+if [ ! -e "$host_stamp" ]; then
+    echo >&2 "Host unit was not reloaded on unmerge (stamp missing)"
+    exit 1
+fi
+if systemctl --quiet is-active "$ext_unit"; then
+    echo >&2 "Missing stop of extension unit"
+    exit 1
+fi
+)
+
 } # End of run_sysext_tests
 
 

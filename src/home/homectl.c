@@ -2482,7 +2482,7 @@ static int verb_list_signing_keys(int argc, char *argv[], uintptr_t _data, void 
                         /* Let's decode the PEM key to DER (so that we lose prefix/suffix), then truncate it
                          * for display reasons. */
 
-                        r = dlopen_libcrypto(LOG_DEBUG);
+                        r = DLOPEN_LIBCRYPTO(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
                         if (r < 0)
                                 return r;
 
@@ -2998,7 +2998,8 @@ static int create_interactively(void) {
         (void) plymouth_hide_splash();
 
         _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *mute_console_link = NULL;
-        (void) mute_console(&mute_console_link);
+        if (arg_mute_console)
+                (void) mute_console(&mute_console_link);
 
         (void) terminal_reset_defensive_locked(STDOUT_FILENO, /* flags= */ 0);
 

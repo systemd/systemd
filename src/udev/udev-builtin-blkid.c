@@ -422,28 +422,37 @@ notloop:
         return 0;
 }
 
-static int probe_gpt_boot_disk_needs_loop(UdevEvent *event, int fd) {
-        sd_device *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
+static int gpt_boot_disk_needs_loop(sd_device *dev, int fd, ssize_t *ret_sector_size) {
         int r;
 
-        /* Probe the GPT sector size. For devices booted via El Torito, the GPT may use a different
-         * sector size than the device (e.g. a 512-byte GPT on a device with 2048-byte blocks). If
-         * there's a mismatch, check if this is the boot disk by comparing GPT partition UUIDs with the
-         * ESP/XBOOTLDR UUID exported by the boot loader. If it matches, set a property so that udev
-         * rules can set up a loop device with the correct sector size — the kernel can't parse the
-         * partition table itself in this case.
+        assert(dev);
+        assert(fd >= 0);
+        assert(ret_sector_size);
+
+        /* Determine whether the boot disk needs a loop device to expose its partitions. For devices
+         * booted via El Torito, the GPT may use a different sector size than the device (e.g. a 512-byte
+         * GPT on a device with 2048-byte blocks). If there's a mismatch, check whether this is the boot
+         * disk by comparing GPT partition UUIDs with the ESP/XBOOTLDR UUID exported by the boot loader.
+         * The kernel can't parse the partition table itself in this case, so the caller sets up a loop
+         * device with the returned sector size.
          *
          * Even if the sector sizes match, if the device does not support partition scanning (e.g. some
-         * CD-ROM drives), the kernel still can't parse the partition table. In that case, if the disk
-         * contains the ESP we booted from, we still need a loop device to expose the partitions. */
+         * CD-ROM drives), the kernel still can't parse the partition table. In that case too, if the
+         * disk contains the ESP we booted from, a loop device is needed to expose the partitions.
+         *
+         * Returns 1 if the boot disk needs a loop device, 0 if not. On success the GPT sector size is
+         * returned in *ret_sector_size (0 if the disk has no GPT), regardless of whether a loop device
+         * is needed. */
 
         _cleanup_free_ void *entries = NULL;
         uint32_t n_entries, entry_size;
         ssize_t gpt_ssz = gpt_probe(fd, /* ret_header= */ NULL, &entries, &n_entries, &entry_size);
         if (gpt_ssz < 0)
                 return log_device_debug_errno(dev, gpt_ssz, "Failed to probe GPT: %m");
-        if (gpt_ssz == 0)
+        if (gpt_ssz == 0) {
+                *ret_sector_size = 0;
                 return 0;
+        }
 
         uint32_t device_ssz;
         r = blockdev_get_sector_size(fd, &device_ssz);
@@ -456,8 +465,11 @@ static int probe_gpt_boot_disk_needs_loop(UdevEvent *event, int fd) {
                 r = blockdev_partscan_enabled(dev);
                 if (r < 0)
                         return log_device_debug_errno(dev, r, "Failed to check if partition scanning is enabled: %m");
-                if (r > 0)
+                if (r > 0) {
+                        /* The kernel can parse the partition table itself; no loop device needed. */
+                        *ret_sector_size = gpt_ssz;
                         return 0;
+                }
         }
 
         if (sector_size_mismatch)
@@ -472,6 +484,8 @@ static int probe_gpt_boot_disk_needs_loop(UdevEvent *event, int fd) {
                 if (r != -ENOENT && !ERRNO_IS_NEG_NOT_SUPPORTED(r))
                         return log_device_debug_errno(dev, r, "Failed to get loader partition UUID: %m");
 
+                /* No loader partition UUID set, can't tell whether this is the boot disk. */
+                *ret_sector_size = gpt_ssz;
                 return 0;
         }
 
@@ -486,11 +500,11 @@ static int probe_gpt_boot_disk_needs_loop(UdevEvent *event, int fd) {
                         continue;
 
                 log_device_debug(dev, "Found boot partition (ESP/XBOOTLDR) on disk where kernel cannot scan partitions.");
-                udev_builtin_add_property(event, "ID_PART_GPT_AUTO_ROOT_DISK_NEEDS_LOOP", "1");
-                udev_builtin_add_propertyf(event, "ID_PART_GPT_SECTOR_SIZE", "%zi", gpt_ssz);
-                return 1; /* boot disk needs loop device */
+                *ret_sector_size = gpt_ssz;
+                return 1; /* boot disk needs a loop device */
         }
 
+        *ret_sector_size = gpt_ssz;
         return 0;
 }
 
@@ -506,7 +520,7 @@ static int builtin_blkid(UdevEvent *event, int argc, char *argv[]) {
         int64_t offset = 0;
         int r;
 
-        r = dlopen_libblkid(LOG_DEBUG);
+        r = DLOPEN_LIBBLKID(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED);
         if (r < 0)
                 return log_device_debug_errno(dev, r, "blkid not available: %m");
 
@@ -554,10 +568,22 @@ static int builtin_blkid(UdevEvent *event, int argc, char *argv[]) {
                 return ignore ? 0 : fd;
         }
 
+        /* If the kernel can't parse the boot disk's partition table, set properties so a udev rule sets
+         * up a loop device (with the correct sector size) to expose the partitions. We still probe the
+         * device itself below for its whole-disk properties (filesystem type, partition table UUID, and
+         * so on); partition and root discovery happen on the loop device instead. We don't need to
+         * suppress the latter here: blkid probes at the device's own logical sector size, so a GPT
+         * written for a different sector size is simply not detected, and both PART_ENTRY_* and
+         * find_gpt_root() only ever act on partitions the kernel actually registered — which, for a disk
+         * that needs a loop device, is none. */
         if (offset == 0) {
-                r = probe_gpt_boot_disk_needs_loop(event, fd);
+                ssize_t gpt_ssz = 0;
+
+                r = gpt_boot_disk_needs_loop(dev, fd, &gpt_ssz);
+                if (gpt_ssz > 0)
+                        udev_builtin_add_propertyf(event, "ID_PART_GPT_SECTOR_SIZE", "%zi", gpt_ssz);
                 if (r > 0)
-                        return 0;
+                        udev_builtin_add_property(event, "ID_PART_GPT_AUTO_ROOT_DISK_NEEDS_LOOP", "1");
         }
 
         sym_blkid_probe_set_superblocks_flags(pr,

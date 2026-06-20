@@ -194,6 +194,7 @@ static int manager_runtime_build_json(sd_json_variant **ret, const char *name, v
                 SD_JSON_BUILD_PAIR_STRING("SystemState", manager_state_to_string(manager_state(m))),
                 SD_JSON_BUILD_PAIR_UNSIGNED("ExitCode", m->return_value),
                 SD_JSON_BUILD_PAIR_UNSIGNED("SoftRebootsCount", m->soft_reboots_count),
+                SD_JSON_BUILD_PAIR_UNSIGNED("KExecsCount", m->kexecs_count),
                 SD_JSON_BUILD_PAIR_UNSIGNED("ReloadCount", m->reload_count));
 }
 

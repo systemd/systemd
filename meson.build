@@ -510,6 +510,11 @@ if get_option('mode') == 'developer'
         possible_cc_flags += '-fno-omit-frame-pointer'
 endif
 
+# Work around stack alignment issues observed with musl + libucontext on i386.
+if get_option('libc') == 'musl' and host_machine.cpu_family() == 'x86'
+        possible_cc_flags += '-mstackrealign'
+endif
+
 add_project_arguments(
         cc.get_supported_arguments(
                 basic_disabled_warnings,
@@ -570,6 +575,16 @@ have = cc.compiles(
         args : '-Werror=attributes',
         name : '__attribute__((__no_reorder__))')
 conf.set10('HAVE_ATTRIBUTE_NO_REORDER', have)
+
+# The "R" (SHF_GNU_RETAIN) section flag is only understood by binutils >= 2.36.
+# TODO: drop when support for CentOS 9 is dropped.
+if cc.compiles(
+        '__asm__(".pushsection .note.test, \\"aR\\", %note\\n.popsection\\n");',
+        name : 'assembler supports the "R" (SHF_GNU_RETAIN) section flag')
+        conf.set_quoted('_SD_ELF_NOTE_DLOPEN_SECTION_FLAGS', 'aGR')
+else
+        conf.set_quoted('_SD_ELF_NOTE_DLOPEN_SECTION_FLAGS', 'aG')
+endif
 
 #####################################################################
 # compilation result tests

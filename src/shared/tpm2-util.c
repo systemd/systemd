@@ -52,6 +52,52 @@
 #include "unaligned.h"
 #include "virt.h"
 
+/* The PCR banks we are willing to bind policies to, in order of preference. We keep SHA256 as the top
+ * preference for backwards compatibility (systems that already bind to it keep using the same bank, so
+ * existing TPM2-sealed secrets remain valid), then prefer SHA384 over SHA512: SHA384 is computed in 64-bit
+ * words like SHA512 but produces a shorter digest, so it takes up less room in the TPM event log, whose
+ * memory is usually bounded. SHA512 comes next, and we only fall back to the weak SHA1 as a last resort. */
+static const uint16_t tpm2_pcr_bank_preference[] = {
+        TPM2_ALG_SHA256,
+        TPM2_ALG_SHA384,
+        TPM2_ALG_SHA512,
+        TPM2_ALG_SHA1,
+};
+
+/* The reduced preference list used when re-deriving the bank for legacy enrollments that did not record one
+ * (see tpm2_get_best_pcr_bank_legacy()). Such enrollments were sealed by code that only ever considered
+ * SHA256 and SHA1, so they can only be bound to one of those two banks. We must restrict the choice to exactly this set. */
+static const uint16_t tpm2_pcr_bank_preference_legacy[] = {
+        TPM2_ALG_SHA256,
+        TPM2_ALG_SHA1,
+};
+
+static int pcr_bank_from_efi_active(
+                const uint16_t *banks,
+                size_t n_banks,
+                uint32_t active_banks,
+                uint16_t *ret) {
+
+        assert(banks);
+        assert(ret);
+
+        FOREACH_ARRAY(bank, banks, n_banks)
+                if (BIT_SET(active_banks, *bank)) {
+                        *ret = *bank;
+                        return 0;
+                }
+
+        return -EOPNOTSUPP;
+}
+
+int tpm2_pcr_bank_from_efi_active(uint32_t active_banks, uint16_t *ret) {
+        return pcr_bank_from_efi_active(tpm2_pcr_bank_preference, ELEMENTSOF(tpm2_pcr_bank_preference), active_banks, ret);
+}
+
+int tpm2_pcr_bank_from_efi_active_legacy(uint32_t active_banks, uint16_t *ret) {
+        return pcr_bank_from_efi_active(tpm2_pcr_bank_preference_legacy, ELEMENTSOF(tpm2_pcr_bank_preference_legacy), active_banks, ret);
+}
+
 #if HAVE_TPM2
 static DLSYM_PROTOTYPE(Esys_Create) = NULL;
 static DLSYM_PROTOTYPE(Esys_CreateLoaded) = NULL;
@@ -124,11 +170,7 @@ static int dlopen_tpm2_esys(int log_level) {
         static void *libtss2_esys_dl = NULL;
         int r;
 
-        SD_ELF_NOTE_DLOPEN(
-                        "tpm",
-                        "Support for TPM",
-                        SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
-                        "libtss2-esys.so.0");
+        TPM2_ESYS_NOTE(SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED);
 
         r = dlopen_many_sym_or_warn(
                         &libtss2_esys_dl, "libtss2-esys.so.0", log_level,
@@ -190,11 +232,7 @@ static int dlopen_tpm2_esys(int log_level) {
 static int dlopen_tpm2_rc(int log_level) {
         static void *libtss2_rc_dl = NULL;
 
-        SD_ELF_NOTE_DLOPEN(
-                        "tpm",
-                        "Support for TPM",
-                        SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
-                        "libtss2-rc.so.0");
+        TPM2_RC_NOTE(SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED);
 
         return dlopen_many_sym_or_warn(
                         &libtss2_rc_dl, "libtss2-rc.so.0", log_level,
@@ -204,11 +242,7 @@ static int dlopen_tpm2_rc(int log_level) {
 static int dlopen_tpm2_mu(int log_level) {
         static void *libtss2_mu_dl = NULL;
 
-        SD_ELF_NOTE_DLOPEN(
-                        "tpm",
-                        "Support for TPM",
-                        SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
-                        "libtss2-mu.so.0");
+        TPM2_MU_NOTE(SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED);
 
         return dlopen_many_sym_or_warn(
                         &libtss2_mu_dl, "libtss2-mu.so.0", log_level,
@@ -239,11 +273,7 @@ static int dlopen_tpm2_tcti_device(int log_level) {
         /* The "device" TCTI is the most relevant one, let's also load it explicitly on dlopen_tpm2(), even
          * if we don't resolve any symbols here. */
 
-        SD_ELF_NOTE_DLOPEN(
-                        "tpm",
-                        "Support for TPM",
-                        SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
-                        "libtss2-tcti-device.so.0");
+        TPM2_TCTI_DEVICE_NOTE(SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED);
 
         return dlopen_verbose(
                         &libtss2_tcti_device_dl,
@@ -2997,9 +3027,23 @@ static int tpm2_bank_has24(const TPMS_PCR_SELECTION *selection) {
         return valid;
 }
 
-int tpm2_get_best_pcr_bank(
+static char* pcr_bank_preference_to_string(const uint16_t *banks, size_t n_banks) {
+        _cleanup_free_ char *s = NULL;
+
+        assert(banks);
+
+        FOREACH_ARRAY(bank, banks, n_banks)
+                if (!strextend_with_separator(&s, ", ", tpm2_hash_alg_to_string(*bank)))
+                        return NULL;
+
+        return TAKE_PTR(s);
+}
+
+static int get_best_pcr_bank(
                 Tpm2Context *c,
                 uint32_t pcr_mask,
+                const uint16_t *banks,
+                size_t n_banks,
                 TPMI_ALG_HASH *ret) {
 
         TPMI_ALG_HASH supported_hash = 0, hash_with_valid_pcr = 0;
@@ -3007,6 +3051,8 @@ int tpm2_get_best_pcr_bank(
 
         assert(c);
         assert(ret);
+        assert(banks);
+        assert(n_banks > 0);
 
         uint32_t efi_banks;
         r = efi_get_active_pcr_banks(&efi_banks);
@@ -3021,14 +3067,18 @@ int tpm2_get_best_pcr_bank(
         else if (efi_banks == 0)
                 log_debug("Boot loader set the LoaderTpm2ActivePcrBanks EFI variable to zero to indicate that TPM support is not available in the firmware. We'll have to guess the used PCR banks.");
         else {
-                if (BIT_SET(efi_banks, TPM2_ALG_SHA256))
-                        *ret = TPM2_ALG_SHA256;
-                else if (BIT_SET(efi_banks, TPM2_ALG_SHA1))
-                        *ret = TPM2_ALG_SHA1;
-                else
-                        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Firmware reports neither SHA1 nor SHA256 PCR banks, cannot operate.");
+                r = pcr_bank_from_efi_active(banks, n_banks, efi_banks, ret);
+                if (r == -EOPNOTSUPP) {
+                        _cleanup_free_ char *bank_list = pcr_bank_preference_to_string(banks, n_banks);
+                        return log_debug_errno(r, "Firmware reports none of the PCR banks we can use (%s), cannot operate.", strna(bank_list));
+                }
+                if (r < 0)
+                        return r;
 
-                log_debug("Picked best PCR bank %s based on firmware reported banks.", tpm2_hash_alg_to_string(*ret));
+                if (*ret == TPM2_ALG_SHA1)
+                        log_notice("Firmware reports SHA1 as the best active PCR bank, binding policy to it. This reduces the security level substantially.");
+                else
+                        log_debug("Picked best PCR bank %s based on firmware reported banks.", tpm2_hash_alg_to_string(*ret));
                 return 0;
         }
 
@@ -3038,73 +3088,63 @@ int tpm2_get_best_pcr_bank(
                 return 0;
         }
 
-        FOREACH_TPMS_PCR_SELECTION_IN_TPML_PCR_SELECTION(selection, &c->capability_pcrs) {
-                TPMI_ALG_HASH hash = selection->hash;
+        /* Walk our banks in order of preference. Because the list is already sorted best-first, the first
+         * bank that qualifies is the most preferred one — no ranking needed. */
+        FOREACH_ARRAY(bank, banks, n_banks) {
                 int good;
 
-                /* For now we are only interested in the SHA1 and SHA256 banks */
-                if (!IN_SET(hash, TPM2_ALG_SHA256, TPM2_ALG_SHA1))
+                /* Skip banks the TPM doesn't expose with a full set of 24 PCRs. */
+                if (!tpm2_tpml_pcr_selection_has_mask(&c->capability_pcrs, *bank, TPM2_PCRS_MASK))
                         continue;
 
-                r = tpm2_bank_has24(selection);
-                if (r < 0)
-                        return r;
-                if (!r)
-                        continue;
+                /* First supported bank we reach is the most preferred supported one. */
+                if (supported_hash == 0)
+                        supported_hash = *bank;
 
-                good = tpm2_pcr_mask_good(c, hash, pcr_mask);
+                good = tpm2_pcr_mask_good(c, *bank, pcr_mask);
                 if (good < 0)
                         return good;
-
-                if (hash == TPM2_ALG_SHA256) {
-                        supported_hash = TPM2_ALG_SHA256;
-                        if (good) {
-                                /* Great, SHA256 is supported and has initialized PCR values, we are done. */
-                                hash_with_valid_pcr = TPM2_ALG_SHA256;
-                                break;
-                        }
-                } else {
-                        assert(hash == TPM2_ALG_SHA1);
-
-                        if (supported_hash == 0)
-                                supported_hash = TPM2_ALG_SHA1;
-
-                        if (good && hash_with_valid_pcr == 0)
-                                hash_with_valid_pcr = TPM2_ALG_SHA1;
+                if (good) {
+                        /* First supported bank with initialized PCRs is the most preferred such bank; we
+                         * cannot do any better, so we are done. */
+                        hash_with_valid_pcr = *bank;
+                        break;
                 }
         }
 
-        /* We preferably pick SHA256, but only if its PCRs are initialized or neither the SHA1 nor the SHA256
-         * PCRs are initialized. If SHA256 is not supported but SHA1 is and its PCRs are too, we prefer
-         * SHA1.
-         *
-         * We log at LOG_NOTICE level whenever we end up using the SHA1 bank or when the PCRs we bind to are
-         * not initialized. */
+        /* Prefer a bank whose selected PCRs are actually initialized. If none of the supported banks has
+         * initialized PCRs we still proceed with the most preferred supported bank, but the resulting PCR
+         * policy is then effectively unenforced. */
 
-        if (hash_with_valid_pcr == TPM2_ALG_SHA256) {
-                assert(supported_hash == TPM2_ALG_SHA256);
-                log_debug("TPM2 device supports SHA256 PCR bank and SHA256 PCRs are valid, yay!");
-                *ret = TPM2_ALG_SHA256;
-        } else if (hash_with_valid_pcr == TPM2_ALG_SHA1) {
-                if (supported_hash == TPM2_ALG_SHA256)
-                        log_notice("TPM2 device supports both SHA1 and SHA256 PCR banks, but only SHA1 PCRs are valid, falling back to SHA1 bank. This reduces the security level substantially.");
-                else {
-                        assert(supported_hash == TPM2_ALG_SHA1);
-                        log_notice("TPM2 device lacks support for SHA256 PCR bank, but SHA1 bank is supported and SHA1 PCRs are valid, falling back to SHA1 bank. This reduces the security level substantially.");
-                }
+        if (hash_with_valid_pcr != 0) {
+                if (hash_with_valid_pcr == TPM2_ALG_SHA1)
+                        log_notice("Only the weak SHA1 PCR bank has initialized PCRs, binding policy to it. This reduces the security level substantially.");
+                else if (hash_with_valid_pcr != supported_hash)
+                        log_notice("Preferred %s PCR bank has uninitialized PCRs, binding policy to the %s bank instead.",
+                                   tpm2_hash_alg_to_string(supported_hash), tpm2_hash_alg_to_string(hash_with_valid_pcr));
+                else
+                        log_debug("Binding policy to %s PCR bank with initialized PCRs.", tpm2_hash_alg_to_string(hash_with_valid_pcr));
 
-                *ret = TPM2_ALG_SHA1;
-        } else if (supported_hash == TPM2_ALG_SHA256) {
-                log_notice("TPM2 device supports SHA256 PCR bank but none of the selected PCRs are valid! Firmware apparently did not initialize any of the selected PCRs. Proceeding anyway with SHA256 bank. PCR policy effectively unenforced!");
-                *ret = TPM2_ALG_SHA256;
-        } else if (supported_hash == TPM2_ALG_SHA1) {
-                log_notice("TPM2 device lacks support for SHA256 bank, but SHA1 bank is supported, but none of the selected PCRs are valid! Firmware apparently did not initialize any of the selected PCRs. Proceeding anyway with SHA1 bank. PCR policy effectively unenforced!");
-                *ret = TPM2_ALG_SHA1;
-        } else
+                *ret = hash_with_valid_pcr;
+        } else if (supported_hash != 0) {
+                log_notice("TPM2 device supports the %s PCR bank but none of the selected PCRs are initialized! Firmware apparently did not measure into any of them. Proceeding anyway, but the PCR policy is effectively unenforced!",
+                           tpm2_hash_alg_to_string(supported_hash));
+                *ret = supported_hash;
+        } else {
+                _cleanup_free_ char *bank_list = pcr_bank_preference_to_string(banks, n_banks);
                 return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                       "TPM2 module supports neither SHA1 nor SHA256 PCR banks, cannot operate.");
+                                       "TPM2 module supports none of the PCR banks we can use (%s), cannot operate.", strna(bank_list));
+        }
 
         return 0;
+}
+
+int tpm2_get_best_pcr_bank(Tpm2Context *c, uint32_t pcr_mask, TPMI_ALG_HASH *ret) {
+        return get_best_pcr_bank(c, pcr_mask, tpm2_pcr_bank_preference, ELEMENTSOF(tpm2_pcr_bank_preference), ret);
+}
+
+int tpm2_get_best_pcr_bank_legacy(Tpm2Context *c, uint32_t pcr_mask, TPMI_ALG_HASH *ret) {
+        return get_best_pcr_bank(c, pcr_mask, tpm2_pcr_bank_preference_legacy, ELEMENTSOF(tpm2_pcr_bank_preference_legacy), ret);
 }
 
 int tpm2_get_good_pcr_banks(
@@ -5948,9 +5988,9 @@ int tpm2_unseal(Tpm2Context *c,
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Number of provided known policy hashes (%zu) does not match policy requirements (%zu or 0).", n_known_policy_hash, n_shards);
 
         /* Older code did not save the pcr_bank, and unsealing needed to detect the best pcr bank to use,
-         * so we need to handle that legacy situation. */
+         * so we need to handle that legacy situation. Use the legacy variant, which only ever picks SHA256 or SHA1. */
         if (pcr_bank == UINT16_MAX) {
-                r = tpm2_get_best_pcr_bank(c, hash_pcr_mask|pubkey_pcr_mask, &pcr_bank);
+                r = tpm2_get_best_pcr_bank_legacy(c, hash_pcr_mask|pubkey_pcr_mask, &pcr_bank);
                 if (r < 0)
                         return r;
         }

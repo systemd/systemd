@@ -11,11 +11,13 @@ u unlockedtestuser - "An unlocked system user" / /bin/bash
 u! lockedtestuser - "A locked system user" / /bin/bash
 EOF
 
-userdbctl -j user unlockedtestuser
-userdbctl -j user lockedtestuser
+if command -v userdbctl >/dev/null; then
+    userdbctl -j user unlockedtestuser
+    userdbctl -j user lockedtestuser
 
-assert_eq "$(userdbctl -j user unlockedtestuser | jq .locked)" "null"
-assert_eq "$(userdbctl -j user lockedtestuser | jq .locked)" "true"
+    assert_eq "$(userdbctl -j user unlockedtestuser | jq .locked)" "null"
+    assert_eq "$(userdbctl -j user lockedtestuser | jq .locked)" "true"
+fi
 
 at_exit() {
     set +e

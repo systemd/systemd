@@ -54,12 +54,6 @@ systemctl kill -sUSR1 systemd-homed
 testcase_basic() {
     local TMP_SKEL
 
-    . /etc/os-release
-    if [[ "${ID_LIKE:-}" == alpine ]] && ! systemd-detect-virt -cq; then
-        # luks seems to be broken on alpine/postmarketos.
-        return 0
-    fi
-
     TMP_SKEL=$(mktemp -d)
     echo hogehoge >"$TMP_SKEL"/hoge
 
@@ -274,12 +268,6 @@ testcase_basic() {
 }
 
 testcase_blob() {
-    . /etc/os-release
-    if [[ "${ID_LIKE:-}" == alpine ]] && ! systemd-detect-virt -cq; then
-        # luks seems to be broken on alpine/postmarketos.
-        return 0
-    fi
-
     # blob directory tests
     # See docs/USER_RECORD_BLOB_DIRS.md
     checkblob() {
@@ -1028,12 +1016,12 @@ testcase_fscrypt() {
             bash -c 'keyctl link @u @s; eval "$1"' -- "$2"
     }
 
-    fscrypt_run0 fsfsfs1234 'echo "hello fscrypt" > /home/fscrypttest/file1'
+    fscrypt_run0 fsfsfs1234 'echo "hello fscrypt" >/home/fscrypttest/file1'
     [[ "$(fscrypt_run0 fsfsfs1234 'cat /home/fscrypttest/file1')" == "hello fscrypt" ]]
     fscrypt_run0 fsfsfs1234 'mkdir /home/fscrypttest/subdir'
     fscrypt_run0 fsfsfs1234 'dd if=/dev/urandom of=/home/fscrypttest/subdir/blob bs=4096 count=8 status=none'
     fscrypt_run0 fsfsfs1234 'cp /home/fscrypttest/subdir/blob /home/fscrypttest/subdir/blob.copy && cmp /home/fscrypttest/subdir/blob /home/fscrypttest/subdir/blob.copy'
-    fscrypt_run0 fsfsfs1234 'echo appended >> /home/fscrypttest/file1 && grep -F appended /home/fscrypttest/file1 >/dev/null'
+    fscrypt_run0 fsfsfs1234 'echo appended >>/home/fscrypttest/file1 && grep -F appended /home/fscrypttest/file1 >/dev/null'
     fscrypt_run0 fsfsfs1234 'rm /home/fscrypttest/subdir/blob.copy && test ! -e /home/fscrypttest/subdir/blob.copy'
 
     systemctl stop user@"$(id -u fscrypttest)".service 2>/dev/null || true

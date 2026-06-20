@@ -80,11 +80,7 @@ int dlopen_libarchive(int log_level) {
         static void *libarchive_dl = NULL;
         int r;
 
-        SD_ELF_NOTE_DLOPEN(
-                        "archive",
-                        "Support for decompressing archive files",
-                        SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
-                        "libarchive.so.13");
+        LIBARCHIVE_NOTE(SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED);
 
         r = dlopen_many_sym_or_warn(
                         &libarchive_dl,
@@ -145,7 +141,8 @@ int dlopen_libarchive(int log_level) {
         if (r <= 0)
                 return r;
 
-        /* Optional symbols: present in newer libarchive versions only. If missing, sym_X keeps its
+        /* Optional symbols: archive_entry_gid_is_set and archive_entry_uid_is_set exist only in libarchive
+         * 3.7.3+, archive_entry_hardlink_is_set exists only in 3.7.5+. If missing, sym_X keeps its
          * fallback-function initializer (see above). */
         DLSYM_OPTIONAL(libarchive_dl, archive_entry_gid_is_set);
         DLSYM_OPTIONAL(libarchive_dl, archive_entry_uid_is_set);

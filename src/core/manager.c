@@ -1679,6 +1679,7 @@ static void manager_clear_jobs_and_units(Manager *m) {
         assert(!m->start_when_upheld_queue);
         assert(!m->stop_when_bound_queue);
         assert(!m->release_resources_queue);
+        assert(!m->stop_notify_queue);
 
         assert(hashmap_isempty(m->jobs));
         assert(hashmap_isempty(m->units));
@@ -2193,8 +2194,10 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds, Hashmap *named_
                         m->soft_reboots_count++;
 
                 /* If a LUO (Live Update Orchestrator) session from a previous kexec is available, restore
-                 * preserved file descriptors into the appropriate service fd stores now, before coldplug. */
-                (void) manager_luo_restore_fd_stores(m);
+                 * preserved file descriptors into the appropriate service fd stores now, before coldplug.
+                 * Only do this when booting up (i.e., skip on reexec/soft reboot/etc.) */
+                if (m->previous_objective < 0)
+                        (void) manager_luo_restore_fd_stores(m);
 
                 /* Pick up fds passed via the LISTEN_FDS=/LISTEN_FDNAMES= protocol that are tagged with a
                  * unit id ("unit-id|fdname"), and route them into the matching unit's fd store. Untagged

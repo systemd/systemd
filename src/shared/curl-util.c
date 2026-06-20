@@ -604,11 +604,7 @@ int dlopen_curl(int log_level) {
 #if HAVE_LIBCURL
         static void *curl_dl = NULL;
 
-        SD_ELF_NOTE_DLOPEN(
-                        "curl",
-                        "Support for downloading and uploading files over HTTP",
-                        SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
-                        "libcurl.so.4");
+        CURL_NOTE(SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED);
 
         return dlopen_many_sym_or_warn(
                         &curl_dl,

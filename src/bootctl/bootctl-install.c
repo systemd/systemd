@@ -211,6 +211,8 @@ static int install_context_from_cmdline(
                         return log_oom();
         }
 
+        b.touch_variables = arg_touch_variables;
+
         *ret = TAKE_GENERIC(b, InstallContext, INSTALL_CONTEXT_NULL);
 
         return !!ret->esp_path; /* return positive if we found an ESP */
@@ -1082,7 +1084,7 @@ static int install_secure_boot_auto_enroll(InstallContext *c) {
         if (!c->secure_boot_certificate || !c->secure_boot_private_key)
                 return 0;
 
-        r = dlopen_libcrypto(LOG_DEBUG);
+        r = DLOPEN_LIBCRYPTO(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
         if (r < 0)
                 return r;
 

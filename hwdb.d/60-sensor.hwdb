@@ -527,7 +527,7 @@ sensor:modalias:acpi:BMI0160:*:dmi:*:svnGPD:pnG1619-04:*    # Win Max 2
  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
 
 sensor:modalias:acpi:MXC6655:*:dmi:*:svnGPD:pnG1688-08:*    # MicroPC 2
- ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, -1
+ ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, -1
 
 #########################################
 # Hometech
@@ -624,6 +624,14 @@ sensor:modalias:acpi:KIOX0009:*:dmi:*:bvrJumper12x.WJ2012.bsBKRCP*:svnJumper:pnE
 # EZpad Go
 sensor:modalias:acpi:KIOX000A:*:dmi:bvnAmericanMegatrendsInc.:bvrZB-BI-11.6-SF133AR200-059-J:*:svnjumper:pnEZpad:*
  ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
+
+#########################################
+# Juno Computers
+#########################################
+
+# Juno Tablet 4 (Wifi)
+sensor:modalias:acpi:MXC6655*:dmi:bvnAMI:bvr*:svnJunoComputers:pnjunotab4-wifi:*
+ ACCEL_MOUNT_MATRIX=0, -1, 0; 1, 0, 0; 0, 0, 1
 
 #########################################
 # Kazam
@@ -1091,6 +1099,14 @@ sensor:modalias:acpi:SMO8500*:dmi:*:svnUMAX:pnVisionBook10WiPlus:*
 
 sensor:modalias:acpi:MXC6655*:dmi:*:svnUMAX:pnVisionbook12WrTab:*
  ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
+
+#########################################
+# Valve
+#########################################
+
+# Lizard mode must be off for the IMU to activate
+evdev:input:b0003v28DEp1205*
+ ACCEL_MOUNT_MATRIX=0, -1, 0; 1, 0, 0; 0, 0, 1
 
 #########################################
 # Voyo

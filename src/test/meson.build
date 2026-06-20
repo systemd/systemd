@@ -66,7 +66,6 @@ simple_tests += files(
         'test-bitmap.c',
         'test-blockdev-util.c',
         'test-bootspec.c',
-        'test-btrfs.c',
         'test-build-path.c',
         'test-bus-unit-util.c',
         'test-bus-util.c',
@@ -115,6 +114,7 @@ simple_tests += files(
         'test-fstab-util.c',
         'test-glob-util.c',
         'test-gpt.c',
+        'test-group-record-nss.c',
         'test-gunicode.c',
         'test-hash-funcs.c',
         'test-hexdecoct.c',
@@ -222,6 +222,7 @@ simple_tests += files(
         'test-unaligned.c',
         'test-unit-file.c',
         'test-user-record.c',
+        'test-user-record-nss.c',
         'test-user-util.c',
         'test-utf8.c',
         'test-verbs.c',
@@ -259,6 +260,10 @@ executables += [
         test_template + {
                 'sources' : files('test-boot-timestamps.c'),
                 'conditions' : ['ENABLE_EFI'],
+        },
+        test_template + {
+                'sources' : files('test-btrfs.c'),
+                'timeout' : 120,
         },
         test_template + {
                 'sources' : files('test-chase-manual.c'),
@@ -510,6 +515,7 @@ executables += [
         core_test_template + {
                 'sources' : files('test-bpf-restrict-fsaccess.c'),
                 'dependencies' : common_test_dependencies,
+                'bpf_programs' : ['restrict-fsaccess'],
                 'type' : 'manual',
         },
         core_test_template + {
@@ -547,6 +553,7 @@ executables += [
         core_test_template + {
                 'sources' : files('test-execute.c'),
                 'dependencies' : common_test_dependencies,
+                'type' : meson.is_cross_build() ? 'manual' : '',
                 'timeout' : 360,
         },
         core_test_template + {

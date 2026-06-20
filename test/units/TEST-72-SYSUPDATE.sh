@@ -7,6 +7,7 @@ set -o pipefail
 
 SYSUPDATE=/usr/bin/systemd-sysupdate
 SYSUPDATED=/lib/systemd/systemd-sysupdated
+UPDATECTL=""
 SECTOR_SIZES=(512 4096)
 WORKDIR="$(mktemp -d /var/tmp/test-72-XXXXXX)"
 CONFIGDIR="/run/sysupdate.d"
@@ -21,7 +22,9 @@ if [[ ! -x "$SYSUPDATE" ]]; then
     exit 77
 fi
 
-have_updatectl=$([[ -x "$SYSUPDATED" ]] && command -v updatectl)
+if [[ -x "$SYSUPDATED" ]]; then
+    UPDATECTL="$(command -v updatectl || true)"
+fi
 
 # Loopback devices may not be supported. They are used because sfdisk cannot
 # change the sector size of a file, and we want to test both 512 and 4096 byte
@@ -140,9 +143,9 @@ update_now() {
         "$SYSUPDATE" --verify=no acquire
         "$SYSUPDATE" --verify=no update
     elif [[ "$update_type" == "updatectl" ]]; then
-        if $have_updatectl; then
+        if [[ -x "$UPDATECTL" ]]; then
             systemctl start systemd-sysupdated
-            updatectl update
+            "$UPDATECTL" update
         else
             # Gracefully fall back to sysupdate
             "$SYSUPDATE" --verify=no update
@@ -432,10 +435,10 @@ EOF
     # Create sixth version, update using updatectl and verify it replaced the
     # correct version
     new_version "$sector_size" v6
-    if $have_updatectl; then
+    if [[ -x "$UPDATECTL" ]]; then
         systemctl start systemd-sysupdated
         "$SYSUPDATE" --verify=no check-new
-        updatectl update |& tee "$WORKDIR"/updatectl-update-6
+        "$UPDATECTL" update |& tee "$WORKDIR"/updatectl-update-6
         grep "Done" "$WORKDIR"/updatectl-update-6
         (! grep "Already up-to-date" "$WORKDIR"/updatectl-update-6)
     else
@@ -452,13 +455,13 @@ EOF
     # testing for specific output, but this will at least catch obvious crashes
     # and allow updatectl to run under the various sanitizers. We create a
     # component so that updatectl has multiple targets to list.
-    if $have_updatectl; then
+    if [[ -x "$UPDATECTL" ]]; then
         mkdir -p /run/sysupdate.test.d/
         cp "$CONFIGDIR/01-first.transfer" /run/sysupdate.test.d/01-first.transfer
-        verify_object_fields "$(updatectl list 2>&1)"
-        verify_object_fields "$(updatectl list host 2>&1)"
-        verify_object_fields "$(updatectl list host@v6 2>&1)"
-        updatectl check
+        verify_object_fields "$("$UPDATECTL" list 2>&1)"
+        verify_object_fields "$("$UPDATECTL" list host 2>&1)"
+        verify_object_fields "$("$UPDATECTL" list host@v6 2>&1)"
+        "$UPDATECTL" check
         rm -r /run/sysupdate.test.d
     fi
 
@@ -576,6 +579,15 @@ EOF
 mkdir /run/sysupdate.d
 "$SYSUPDATE" --json=short components | grep -F '{"default":false,"components":["some-component"]}' >/dev/null
 
+# Regression test for https://github.com/systemd/systemd/issues/42330 — the
+# 'pending'/'reboot' verbs and the '--reboot' switch compare the newest installed
+# version against the booted OS version (IMAGE_VERSION= from os-release), which is
+# unrelated to component versions. Selecting a component must therefore be refused
+# rather than silently performing a bogus comparison.
+(! "$SYSUPDATE" --component=some-component pending) |& grep -F 'may not be combined' >/dev/null
+(! "$SYSUPDATE" --component=some-component reboot) |& grep -F 'may not be combined' >/dev/null
+(! "$SYSUPDATE" --component=some-component update --reboot) |& grep -F 'may not be combined' >/dev/null
+
 # Clean up regression test
 rmdir /run/sysupdate.d
 rm -rf /run/sysupdate.some-component.d
@@ -604,5 +616,31 @@ cmp "$WORKDIR/source/tiny-v1.bin" "$WORKDIR/blobs/tiny-v1.bin"
 rm "$CONFIGDIR/01-tiny-url.transfer"
 rm "$WORKDIR/source/tiny-v1.bin"
 rm "$WORKDIR/source/SHA256SUMS"
+
+# Check that malformed manifest hashes are rejected without aborting.
+rm -rf "$WORKDIR/malformed-manifest"
+mkdir -p "$WORKDIR/malformed-manifest/definitions" "$WORKDIR/malformed-manifest/source" "$WORKDIR/malformed-manifest/target"
+printf 'payload\n' >"$WORKDIR/malformed-manifest/source/malformed-v1.bin"
+hash_64=0000000000000000000000000000000000000000000000000000000000000000
+printf '%s\t\t *malformed-v1.bin\n' "${hash_64%??}" >"$WORKDIR/malformed-manifest/source/SHA256SUMS"
+cat >"$WORKDIR/malformed-manifest/definitions/01-malformed-hash.transfer" <<EOF
+[Source]
+Type=url-file
+Path=file://$WORKDIR/malformed-manifest/source
+MatchPattern=malformed-@v.bin
+
+[Target]
+Type=regular-file
+Path=$WORKDIR/malformed-manifest/target
+MatchPattern=malformed-@v.bin
+InstancesMax=1
+EOF
+set +e
+"$SYSUPDATE" --definitions="$WORKDIR/malformed-manifest/definitions" --verify=no check-new &>"$WORKDIR/malformed-manifest/check-new.log"
+rc=$?
+set -e
+[[ $rc -ne 0 ]]
+[[ $rc -ne 134 ]]
+grep -F "Manifest hash at line 1 decoded to 31 bytes" "$WORKDIR/malformed-manifest/check-new.log" >/dev/null
 
 touch /testok

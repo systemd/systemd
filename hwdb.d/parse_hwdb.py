@@ -187,6 +187,7 @@ def property_grammar():
         ('ID_AUTOSUSPEND_DELAY_MS', INTEGER),
         ('ID_AV_PRODUCTION_CONTROLLER', zero_one),
         ('ID_AV_LIGHTS', zero_one),
+        ('ID_DEBUG_APPLIANCE', name_literal),
         ('ID_PERSIST', zero_one),
         ('ID_PDA', zero_one),
         ('ID_INPUT', id_input_setting),
@@ -260,6 +261,7 @@ def property_grammar():
         ('IMDS_KEY_USERDATA', name_literal),
         ('IMDS_KEY_USERDATA_BASE', name_literal),
         ('IMDS_KEY_USERDATA_BASE64', name_literal),
+        ('VSOCK_ACCEPT_VMADDR_CID_ANY', zero_one),
     )
     fixed_props = [Literal(name)('NAME') - Suppress('=') - val('VALUE') for name, val in props]
     kbd_props = [

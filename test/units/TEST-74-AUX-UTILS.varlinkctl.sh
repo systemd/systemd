@@ -106,7 +106,7 @@ rm_rf_sshbindir() {
 trap rm_rf_sshbindir EXIT
 
 # Create a fake "ssh" binary that validates everything works as expected if invoked for the "ssh-unix:" Varlink transport
-cat > "$SSHBINDIR"/ssh <<'EOF'
+cat >"$SSHBINDIR"/ssh <<'EOF'
 #!/usr/bin/env bash
 
 set -xe
@@ -122,7 +122,7 @@ chmod +x "$SSHBINDIR"/ssh
 SYSTEMD_SSH="$SSHBINDIR/ssh" varlinkctl info ssh-unix:foobar:/run/systemd/journal/io.systemd.journal
 
 # Now build another fake "ssh" binary that does the same for "ssh-exec:"
-cat > "$SSHBINDIR"/ssh <<'EOF'
+cat >"$SSHBINDIR"/ssh <<'EOF'
 #!/usr/bin/env bash
 
 set -xe
@@ -207,7 +207,7 @@ varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Manager.Reexecute '{}
 # Wait for the manager to finish re-exec before proceeding — the user manager
 # tests below use systemd-run which requires a functional PID 1.
 for _ in {1..10}; do
-    if systemctl is-system-running 2>/dev/null | grep -qE 'running|degraded'; then
+    if systemctl is-system-running 2>/dev/null | grep -E 'running|degraded' >/dev/null; then
         break
     fi
     sleep 1
@@ -294,8 +294,8 @@ chmod +x "$UPGRADE_SERVER"
 UPGRADE_SOCKET2="$(mktemp -d)/upgrade.sock"
 systemd-notify --fork -q -- python3 "$UPGRADE_SERVER" "$UPGRADE_SOCKET2"
 
-echo "file input test" > /tmp/test-upgrade-input
-result="$(varlinkctl call --upgrade "unix:$UPGRADE_SOCKET2" io.systemd.test.Reverse '{"foo":"file"}' < /tmp/test-upgrade-input)"
+echo "file input test" >/tmp/test-upgrade-input
+result="$(varlinkctl call --upgrade "unix:$UPGRADE_SOCKET2" io.systemd.test.Reverse '{"foo":"file"}' </tmp/test-upgrade-input)"
 echo "$result" | grep "<<< UPGRADED >>>" >/dev/null
 echo "$result" | grep '"foo": "file"' >/dev/null
 echo "$result" | grep "tset tupni elif" >/dev/null
@@ -303,7 +303,7 @@ echo "$result" | grep "tset tupni elif" >/dev/null
 # Test --upgrade over ssh-exec: transport (pipe pair, not a bidirectional socket).
 # This exercises the input_fd != output_fd path in sd_varlink_call_and_upgrade().
 # Reuse the same server script without a socket argument - it speaks over stdin/stdout.
-cat > "$SSHBINDIR"/ssh <<EOF
+cat >"$SSHBINDIR"/ssh <<EOF
 #!/usr/bin/env bash
 exec python3 "$UPGRADE_SERVER"
 EOF
@@ -322,7 +322,7 @@ systemd-notify --fork -q -- python3 "$UPGRADE_SERVER" "$UPGRADE_SOCKET"
 # Since stdout goes to the socket (not the terminal), write results to a file for verification.
 EXEC_RESULT="$(mktemp)"
 varlinkctl call --upgrade --exec "unix:$UPGRADE_SOCKET" io.systemd.test.Reverse '{"foo":"bar"}' -- \
-        bash -c "head -2 > '$EXEC_RESULT'; echo 'hello world'; head -1 >> '$EXEC_RESULT'"
+        bash -c "head -2 >'$EXEC_RESULT'; echo 'hello world'; head -1 >>'$EXEC_RESULT'"
 grep "<<< UPGRADED >>>" "$EXEC_RESULT" >/dev/null
 grep '"foo": "bar"' "$EXEC_RESULT" >/dev/null
 grep "dlrow olleh" "$EXEC_RESULT" >/dev/null
@@ -358,8 +358,8 @@ SERVE_PID=$(systemd-notify --fork -- \
                                    varlinkctl serve io.systemd.Compress.Decompress gunzip)
 
 SERVE_TMPDIR="$(mktemp -d)"
-echo "untrusted data decompressed safely via varlink serve" | gzip > "$SERVE_TMPDIR/compressed.gz"
-result="$(varlinkctl call --upgrade "unix:$SERVE_SOCKET" io.systemd.Compress.Decompress '{}' < "$SERVE_TMPDIR/compressed.gz")"
+echo "untrusted data decompressed safely via varlink serve" | gzip >"$SERVE_TMPDIR/compressed.gz"
+result="$(varlinkctl call --upgrade "unix:$SERVE_SOCKET" io.systemd.Compress.Decompress '{}' <"$SERVE_TMPDIR/compressed.gz")"
 echo "$result" | grep "untrusted data decompressed safely" >/dev/null
 kill "$SERVE_PID" 2>/dev/null || true
 wait "$SERVE_PID" 2>/dev/null || true

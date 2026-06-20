@@ -90,7 +90,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 OPTION_LONG("bank", "DIGEST", "Select TPM PCR bank (SHA1, SHA256)"): {
                         const EVP_MD *implementation;
 
-                        r = dlopen_libcrypto(LOG_ERR);
+                        r = DLOPEN_LIBCRYPTO(LOG_ERR, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED);
                         if (r < 0)
                                 return r;
 
@@ -261,6 +261,48 @@ static int escape_and_truncate_data(const void *data, size_t size, char **ret) {
         return 0;
 }
 
+static int tpm2_context_new_for_measurement(Tpm2Context **ret) {
+        int r;
+
+        assert(ret);
+
+        /* Wrapper around tpm2_context_new_or_warn() that translates a missing TPM device from -ENOENT to
+         * -EOPNOTSUPP, for two reasons:
+         *
+         *  - It disambiguates -ENOENT on the NvPCR path. There -ENOENT also means "no such NvPCR definition"
+         *    (from tpm2_nvpcr_extend_bytes() → nvpcr_data_load()), which vl_method_extend() maps to the
+         *    io.systemd.PCRExtend.NoSuchNvPCR error. If "no TPM device" stayed -ENOENT it would be
+         *    misreported as a missing NvPCR definition. So we keep each errno single-meaning: -ENOENT = "no
+         *    such NvPCR definition", -EOPNOTSUPP = "TPM cannot be used for this measurement" (also what
+         *    tpm2_context_new_or_warn() already returns for missing crypto / an OpenSSL-less build, and what
+         *    extend_pcr_now() returns when no PCR bank is enabled).
+         *
+         *  - It lets the --graceful skip in run() match a single errno (-EOPNOTSUPP).
+         *
+         * We deliberately translate *only* -ENOENT here, not every "TPM unusable" errno:
+         *
+         *  - Genuine absence (no TPM hardware, no tpm2 libraries) never reaches this point under --graceful:
+         *    run() bails out earlier at the tpm2_is_mostly_supported() guard, which requires the kernel
+         *    driver + tpm subsystem + libtss2 esys/rc/mu. So broadening the set buys nothing for the common
+         *    "no TPM" case.
+         *
+         *  - -ENOPKG (TCTI driver libtss2-tcti-device.so.0 not loadable) can therefore only happen when the
+         *    rest of the stack *is* present — i.e. a half-installed tpm2-tss, a misconfiguration.
+         *
+         *  - -ENOTRECOVERABLE (TCTI/Esys init or TPM startup failed) means a TPM is present but
+         *    malfunctioning.
+         *
+         * Both of the latter are real faults we want to surface and fail on, not silently skip:
+         * --graceful's contract is "no TPM2 device is found", i.e. absence, not breakage. -EINVAL (bad
+         * device string), -ENOMEM, etc. likewise stay hard errors. */
+
+        r = tpm2_context_new_or_warn(arg_tpm2_device, ret);
+        if (r == -ENOENT)
+                return -EOPNOTSUPP;
+
+        return r;
+}
+
 static int extend_pcr_now(
                 uint32_t pcr_mask,
                 const void *data,
@@ -272,7 +314,7 @@ static int extend_pcr_now(
 
         assert(pcr_mask != 0);
 
-        r = tpm2_context_new_or_warn(arg_tpm2_device, &c);
+        r = tpm2_context_new_for_measurement(&c);
         if (r < 0)
                 return r;
 
@@ -280,7 +322,7 @@ static int extend_pcr_now(
         if (r < 0)
                 return r;
         if (strv_isempty(arg_banks)) /* Still none? */
-                return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "Found a TPM2 without enabled PCR banks. Can't operate.");
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Found a TPM2 without enabled PCR banks. Can't operate.");
 
         _cleanup_free_ char *joined_banks = NULL;
         joined_banks = strv_join(arg_banks, ", ");
@@ -320,7 +362,7 @@ static int extend_nvpcr_now(
 
         assert(name);
 
-        r = tpm2_context_new_or_warn(arg_tpm2_device, &c);
+        r = tpm2_context_new_for_measurement(&c);
         if (r < 0)
                 return r;
 
@@ -556,6 +598,14 @@ static int run(int argc, char *argv[]) {
                 r = extend_nvpcr_now(arg_nvpcr_name, word, strlen(word), event);
         else
                 r = extend_pcr_now(arg_pcr_mask, word, strlen(word), event);
+        /* Both extend paths report "TPM cannot be used for this measurement" (no PCR bank, missing crypto,
+         * no TPM device — see tpm2_context_new_for_measurement()) as -EOPNOTSUPP. Under --graceful we skip
+         * those rather than fail and block boot. Genuine faults keep their own errno and are never
+         * suppressed. */
+        if (arg_graceful && r == -EOPNOTSUPP) {
+                log_notice_errno(r, "TPM2 cannot be used for measurement (no usable PCR bank, missing device, or missing crypto support), skipping gracefully.");
+                return EXIT_SUCCESS;
+        }
         if (r < 0)
                 return r;
 

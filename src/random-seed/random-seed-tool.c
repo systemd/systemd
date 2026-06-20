@@ -282,7 +282,7 @@ static int save_seed_file(
                 return log_error_errno(r, "Failed to write new random seed file: %m");
 
         if (ftruncate(seed_fd, k) < 0)
-                return log_error_errno(r, "Failed to truncate random seed file: %m");
+                return log_error_errno(errno, "Failed to truncate random seed file: %m");
 
         r = fsync_full(seed_fd);
         if (r < 0)

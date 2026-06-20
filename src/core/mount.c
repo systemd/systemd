@@ -1554,12 +1554,8 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                 /* MOUNT_MOUNTING and MOUNT_UNMOUNTING states need to be patched, see below. */
                 m->result = f;
 
-        if (m->control_command) {
+        if (m->control_command)
                 exec_status_exit(&m->control_command->exec_status, &m->exec_context, pid, code, status);
-
-                m->control_command = NULL;
-                m->control_command_id = _MOUNT_EXEC_COMMAND_INVALID;
-        }
 
         unit_log_process_exit(
                         u,
@@ -1567,6 +1563,9 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                         mount_exec_command_to_string(m->control_command_id),
                         f == MOUNT_SUCCESS,
                         code, status);
+
+        m->control_command = NULL;
+        m->control_command_id = _MOUNT_EXEC_COMMAND_INVALID;
 
         /* Note that due to the io event priority logic, we can be sure the new mountinfo is loaded
          * before we process the SIGCHLD for the mount command. */
@@ -2408,7 +2407,7 @@ static int mount_test_startable(Unit *u) {
 }
 
 static bool mount_supported(void) {
-        return dlopen_libmount(LOG_DEBUG) >= 0;
+        return DLOPEN_LIBMOUNT(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED) >= 0;
 }
 
 static int mount_subsystem_ratelimited(Manager *m) {
