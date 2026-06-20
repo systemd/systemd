@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-30 00:13+0200\n"
+"POT-Creation-Date: 2026-06-01 11:49+0200\n"
 "PO-Revision-Date: 2026-06-07 14:04+0000\n"
 "Last-Translator: Anonymous <noreply@weblate.org>\n"
 "Language-Team: Belarusian (Latin script) <https://"
@@ -523,7 +523,8 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:97
 msgid "Allow applications to inhibit system handling of the hibernate key"
-msgstr "Dazvolić prahramam pieraškadžać sistemie apracoŭvać klavišu hibiernacyi"
+msgstr ""
+"Dazvolić prahramam pieraškadžać sistemie apracoŭvać klavišu hibiernacyi"
 
 #: src/login/org.freedesktop.login1.policy:98
 msgid ""
@@ -1425,14 +1426,16 @@ msgstr "Nieabchodna aŭtentyfikacyja dlia pierazapusku '$(unit)'."
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of '$"
 "(unit)'."
-msgstr "Nieabchodna aŭtentyfikacyja dlia ŭstaliavannia ŭlascivasciej '$(unit)'."
+msgstr ""
+"Nieabchodna aŭtentyfikacyja dlia ŭstaliavannia ŭlascivasciej '$(unit)'."
 
 #: src/core/dbus-unit.c:621
 #, fuzzy
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "subgroup of '$(unit)'."
-msgstr "Nieabchodna aŭtentyfikacyja dlia ŭstaliavannia ŭlascivasciej '$(unit)'."
+msgstr ""
+"Nieabchodna aŭtentyfikacyja dlia ŭstaliavannia ŭlascivasciej '$(unit)'."
 
 #: src/core/dbus-unit.c:649
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
@@ -1441,7 +1444,8 @@ msgstr ""
 
 #: src/core/dbus-unit.c:679
 msgid "Authentication is required to set properties on '$(unit)'."
-msgstr "Nieabchodna aŭtentyfikacyja dlia ŭstaliavannia ŭlascivasciej '$(unit)'."
+msgstr ""
+"Nieabchodna aŭtentyfikacyja dlia ŭstaliavannia ŭlascivasciej '$(unit)'."
 
 #: src/core/dbus-unit.c:776
 #, fuzzy
@@ -1458,15 +1462,21 @@ msgid ""
 msgstr ""
 "Nieabchodna aŭtentyfikacyja dlia anuliavannia pamylkovaha stanu '$(unit)'."
 
-#: src/shared/libfido2-util.c:497 src/shared/libfido2-util.c:554
+#: src/shared/libfido2-util.c:500 src/shared/libfido2-util.c:557
 msgid "Please confirm presence on security token to unlock."
 msgstr ""
 
-#: src/shared/libfido2-util.c:513
+#: src/shared/libfido2-util.c:516
 msgid "Please verify user on security token to unlock."
 msgstr ""
 
-#: src/shared/libfido2-util.c:926
+#: src/shared/libfido2-util.c:936
+#, c-format
+msgid ""
+"Please enter security token PIN (remaining attempts before lock-out: %d):"
+msgstr ""
+
+#: src/shared/libfido2-util.c:948
 msgid "Please enter security token PIN:"
 msgstr ""
 

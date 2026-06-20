@@ -9,7 +9,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-30 00:13+0200\n"
+"POT-Creation-Date: 2026-06-01 11:49+0200\n"
 "PO-Revision-Date: 2026-06-07 14:01+0000\n"
 "Last-Translator: Jim Spentzos <jimspentzos2000@gmail.com>\n"
 "Language-Team: Greek <https://translate.fedoraproject.org/projects/systemd/"
@@ -338,7 +338,8 @@ msgstr "Ο κωδικός πρόσβασης έληξε, απαιτείται α
 
 #: src/home/pam_systemd_home.c:1065
 msgid "Password is expired, but can't change, refusing login."
-msgstr "Ο κωδικός πρόσβασης έληξε αλλά δεν μπορεί να αλλαχθεί, άρνηση σύνδεσης."
+msgstr ""
+"Ο κωδικός πρόσβασης έληξε αλλά δεν μπορεί να αλλαχθεί, άρνηση σύνδεσης."
 
 #: src/home/pam_systemd_home.c:1069
 msgid "Password will expire soon, please change."
@@ -350,7 +351,8 @@ msgstr "Ορισμός ονόματος οικοδεσπότη"
 
 #: src/hostname/org.freedesktop.hostname1.policy:21
 msgid "Authentication is required to set the local hostname."
-msgstr "Απαιτείται ταυτοποίηση για τον ορισμό του τοπικού ονόματος οικοδεσπότη."
+msgstr ""
+"Απαιτείται ταυτοποίηση για τον ορισμό του τοπικού ονόματος οικοδεσπότη."
 
 #: src/hostname/org.freedesktop.hostname1.policy:30
 msgid "Set static hostname"
@@ -475,7 +477,8 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:44
 msgid "Allow applications to inhibit system sleep"
-msgstr "Να επιτρέπεται στις εφαρμογές να εμποδίζουν την αναστολή του συστήματος"
+msgstr ""
+"Να επιτρέπεται στις εφαρμογές να εμποδίζουν την αναστολή του συστήματος"
 
 #: src/login/org.freedesktop.login1.policy:45
 msgid "Authentication is required for an application to inhibit system sleep."
@@ -864,7 +867,8 @@ msgstr "Σύνδεση σε τοπικό εμπορευματοκιβώτιο (c
 
 #: src/machine/org.freedesktop.machine1.policy:23
 msgid "Authentication is required to log into a local container."
-msgstr "Απαιτείται ταυτοποίηση για τη σύνδεση σε ένα τοπικό εμπορευματοκιβώτιο."
+msgstr ""
+"Απαιτείται ταυτοποίηση για τη σύνδεση σε ένα τοπικό εμπορευματοκιβώτιο."
 
 #: src/machine/org.freedesktop.machine1.policy:32
 msgid "Log into the local host"
@@ -1023,7 +1027,8 @@ msgstr "Ενεργοποίηση/απενεργοποίηση LLMNR"
 #: src/network/org.freedesktop.network1.policy:67
 #: src/resolve/org.freedesktop.resolve1.policy:78
 msgid "Authentication is required to enable or disable LLMNR."
-msgstr "Απαιτείται ταυτοποίηση για την ενεργοποίηση ή απενεργοποίηση του LLMNR."
+msgstr ""
+"Απαιτείται ταυτοποίηση για την ενεργοποίηση ή απενεργοποίηση του LLMNR."
 
 #: src/network/org.freedesktop.network1.policy:77
 #: src/resolve/org.freedesktop.resolve1.policy:88
@@ -1439,15 +1444,21 @@ msgstr ""
 "Απαιτείται ταυτοποίηση για την παύση (freeze) ή την επαναφορά (thaw) των "
 "διεργασιών της μονάδας '$(unit)'."
 
-#: src/shared/libfido2-util.c:497 src/shared/libfido2-util.c:554
+#: src/shared/libfido2-util.c:500 src/shared/libfido2-util.c:557
 msgid "Please confirm presence on security token to unlock."
 msgstr ""
 
-#: src/shared/libfido2-util.c:513
+#: src/shared/libfido2-util.c:516
 msgid "Please verify user on security token to unlock."
 msgstr ""
 
-#: src/shared/libfido2-util.c:926
+#: src/shared/libfido2-util.c:936
+#, c-format
+msgid ""
+"Please enter security token PIN (remaining attempts before lock-out: %d):"
+msgstr ""
+
+#: src/shared/libfido2-util.c:948
 msgid "Please enter security token PIN:"
 msgstr ""
 

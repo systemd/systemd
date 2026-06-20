@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-30 00:13+0200\n"
+"POT-Creation-Date: 2026-06-01 11:49+0200\n"
 "PO-Revision-Date: 2026-06-07 13:57+0000\n"
 "Last-Translator: Jiri Grönroos <jiri.gronroos@iki.fi>\n"
 "Language-Team: Finnish <https://translate.fedoraproject.org/projects/systemd/"
@@ -411,7 +411,8 @@ msgstr "Peruuta levykuvan siirto"
 #: src/import/org.freedesktop.import1.policy:53
 msgid ""
 "Authentication is required to cancel the ongoing transfer of a disk image."
-msgstr "Todennus vaaditaan meneillään olevan levykuvan siirron peruuttamiseksi."
+msgstr ""
+"Todennus vaaditaan meneillään olevan levykuvan siirron peruuttamiseksi."
 
 #: src/locale/org.freedesktop.locale1.policy:22
 msgid "Set system locale"
@@ -566,7 +567,8 @@ msgstr "Poista laitteen ja paikan liitokset"
 
 #: src/login/org.freedesktop.login1.policy:160
 msgid "Authentication is required to reset how devices are attached to seats."
-msgstr "Todennus vaaditaan nollaamaan, miten laitteet on yhdistetty paikkoihin."
+msgstr ""
+"Todennus vaaditaan nollaamaan, miten laitteet on yhdistetty paikkoihin."
 
 #: src/login/org.freedesktop.login1.policy:169
 msgid "Power off the system"
@@ -1347,7 +1349,8 @@ msgstr "Todennus vaaditaan $(unit):n uudelleen käynnistämiseksi."
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of '$"
 "(unit)'."
-msgstr "Todennus vaaditaan UNIX-signaalin lähettämiseen '$(unit)'-prosesseihin."
+msgstr ""
+"Todennus vaaditaan UNIX-signaalin lähettämiseen '$(unit)'-prosesseihin."
 
 #: src/core/dbus-unit.c:621
 msgid ""
@@ -1380,15 +1383,21 @@ msgstr ""
 "Todennus vaaditaan '$(unit)'-yksikön prosessien jäädyttämiseksi tai "
 "sulattamiseksi."
 
-#: src/shared/libfido2-util.c:497 src/shared/libfido2-util.c:554
+#: src/shared/libfido2-util.c:500 src/shared/libfido2-util.c:557
 msgid "Please confirm presence on security token to unlock."
 msgstr ""
 
-#: src/shared/libfido2-util.c:513
+#: src/shared/libfido2-util.c:516
 msgid "Please verify user on security token to unlock."
 msgstr ""
 
-#: src/shared/libfido2-util.c:926
+#: src/shared/libfido2-util.c:936
+#, c-format
+msgid ""
+"Please enter security token PIN (remaining attempts before lock-out: %d):"
+msgstr ""
+
+#: src/shared/libfido2-util.c:948
 msgid "Please enter security token PIN:"
 msgstr ""
 

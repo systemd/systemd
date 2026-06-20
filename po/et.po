@@ -6,7 +6,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-30 00:13+0200\n"
+"POT-Creation-Date: 2026-06-01 11:49+0200\n"
 "PO-Revision-Date: 2026-06-07 14:04+0000\n"
 "Last-Translator: Priit Jõerüüt "
 "<jrtkbfdr@users.noreply.translate.fedoraproject.org>\n"
@@ -100,7 +100,8 @@ msgstr "Kontrolli koduala isikutunnuseid"
 #: src/home/org.freedesktop.home1.policy:34
 msgid ""
 "Authentication is required to check credentials against a user's home area."
-msgstr "Autentimine on vajalik, et kontrollida kasutaja koduala isikutunnuseid."
+msgstr ""
+"Autentimine on vajalik, et kontrollida kasutaja koduala isikutunnuseid."
 
 #: src/home/org.freedesktop.home1.policy:43
 msgid "Update a home area"
@@ -187,7 +188,8 @@ msgstr "Taastamisvõti: "
 msgid ""
 "Password/recovery key incorrect or not sufficient for authentication of user "
 "%s."
-msgstr "Parool/taastamisvõti on vale või pole kasutaja %s autentimiseks piisav."
+msgstr ""
+"Parool/taastamisvõti on vale või pole kasutaja %s autentimiseks piisav."
 
 #: src/home/pam_systemd_home.c:372
 msgid "Sorry, reenter recovery key: "
@@ -820,7 +822,8 @@ msgstr "Sisene kohaliku konteineri pseudo TTY-sse"
 #: src/machine/org.freedesktop.machine1.policy:65
 msgid ""
 "Authentication is required to acquire a pseudo TTY in a local container."
-msgstr "Autentimine on vajalik, et siseneda kohaliku konteineri pseudo TTY-sse."
+msgstr ""
+"Autentimine on vajalik, et siseneda kohaliku konteineri pseudo TTY-sse."
 
 #: src/machine/org.freedesktop.machine1.policy:74
 msgid "Acquire a pseudo TTY on the local host"
@@ -979,7 +982,8 @@ msgstr "Säti DNSSEC negatiivsed usaldusankrud"
 #: src/network/org.freedesktop.network1.policy:111
 #: src/resolve/org.freedesktop.resolve1.policy:122
 msgid "Authentication is required to set DNSSEC Negative Trust Anchors."
-msgstr "Autentimine on vajalik, et seadistada DNSSEC negatiivsed usaldusankrud."
+msgstr ""
+"Autentimine on vajalik, et seadistada DNSSEC negatiivsed usaldusankrud."
 
 #: src/network/org.freedesktop.network1.policy:121
 msgid "Revert NTP settings"
@@ -1303,7 +1307,8 @@ msgstr "Autentimine on vajalik, et restartida '$(unit)'."
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of '$"
 "(unit)'."
-msgstr "Autentimine on vajalik, et saata UNIX signaali '$(unit)' protsessidele."
+msgstr ""
+"Autentimine on vajalik, et saata UNIX signaali '$(unit)' protsessidele."
 
 #: src/core/dbus-unit.c:621
 msgid ""
@@ -1335,15 +1340,21 @@ msgstr ""
 "„$(unit)“ ühikfaili protsesside külmitamiseks või ülessulatamiseks on "
 "vajalik autentimine."
 
-#: src/shared/libfido2-util.c:497 src/shared/libfido2-util.c:554
+#: src/shared/libfido2-util.c:500 src/shared/libfido2-util.c:557
 msgid "Please confirm presence on security token to unlock."
 msgstr ""
 
-#: src/shared/libfido2-util.c:513
+#: src/shared/libfido2-util.c:516
 msgid "Please verify user on security token to unlock."
 msgstr ""
 
-#: src/shared/libfido2-util.c:926
+#: src/shared/libfido2-util.c:936
+#, c-format
+msgid ""
+"Please enter security token PIN (remaining attempts before lock-out: %d):"
+msgstr ""
+
+#: src/shared/libfido2-util.c:948
 msgid "Please enter security token PIN:"
 msgstr ""
 

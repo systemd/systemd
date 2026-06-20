@@ -6,7 +6,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-30 00:13+0200\n"
+"POT-Creation-Date: 2026-06-01 11:49+0200\n"
 "PO-Revision-Date: 2026-06-19 17:10+0000\n"
 "Last-Translator: Arif Budiman <arifpedia@gmail.com>\n"
 "Language-Team: Indonesian <https://translate.fedoraproject.org/projects/"
@@ -35,7 +35,8 @@ msgstr "Kelola layanan sistem atau unit lainnya"
 
 #: src/core/org.freedesktop.systemd1.policy.in:34
 msgid "Authentication is required to manage system services or other units."
-msgstr "Otentikasi diperlukan untuk mengelola layanan sistem atau unit lainnya."
+msgstr ""
+"Otentikasi diperlukan untuk mengelola layanan sistem atau unit lainnya."
 
 #: src/core/org.freedesktop.systemd1.policy.in:43
 msgid "Manage system service or unit files"
@@ -856,7 +857,8 @@ msgstr "Dapatkan sebuah TTY semu pada host lokal"
 
 #: src/machine/org.freedesktop.machine1.policy:75
 msgid "Authentication is required to acquire a pseudo TTY on the local host."
-msgstr "Otentikasi diperlukan untuk mendapatkan suatu TTY semu pada host lokal."
+msgstr ""
+"Otentikasi diperlukan untuk mendapatkan suatu TTY semu pada host lokal."
 
 #: src/machine/org.freedesktop.machine1.policy:84
 msgid "Manage local virtual machines and containers"
@@ -1346,8 +1348,8 @@ msgid ""
 "Authentication is required to send a UNIX signal to the processes of '$"
 "(unit)'."
 msgstr ""
-"Otentikasi diperlukan untuk megirim suatu sinyal UNIX ke proses dari '$(unit)"
-"'."
+"Otentikasi diperlukan untuk megirim suatu sinyal UNIX ke proses dari '$"
+"(unit)'."
 
 #: src/core/dbus-unit.c:621
 msgid ""
@@ -1359,7 +1361,8 @@ msgstr ""
 
 #: src/core/dbus-unit.c:649
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
-msgstr "Otentikasi diperlukan untuk me-reset keadaan \"failed\" dari '$(unit)'."
+msgstr ""
+"Otentikasi diperlukan untuk me-reset keadaan \"failed\" dari '$(unit)'."
 
 #: src/core/dbus-unit.c:679
 msgid "Authentication is required to set properties on '$(unit)'."
@@ -1380,15 +1383,22 @@ msgstr ""
 "Otentikasi diperlukan untuk membekukan atau melanjutkan proses dari unit '$"
 "(unit)'."
 
-#: src/shared/libfido2-util.c:497 src/shared/libfido2-util.c:554
+#: src/shared/libfido2-util.c:500 src/shared/libfido2-util.c:557
 msgid "Please confirm presence on security token to unlock."
 msgstr "Harap konfirmasikan kehadiran pada token keamanan untuk membuka kunci."
 
-#: src/shared/libfido2-util.c:513
+#: src/shared/libfido2-util.c:516
 msgid "Please verify user on security token to unlock."
 msgstr "Harap verifikasi pengguna pada token keamanan untuk membuka kunci."
 
-#: src/shared/libfido2-util.c:926
+#: src/shared/libfido2-util.c:936
+#, fuzzy, c-format
+#| msgid "Please enter security token PIN:"
+msgid ""
+"Please enter security token PIN (remaining attempts before lock-out: %d):"
+msgstr "Silakan masukkan PIN token keamanan:"
+
+#: src/shared/libfido2-util.c:948
 msgid "Please enter security token PIN:"
 msgstr "Silakan masukkan PIN token keamanan:"
 
