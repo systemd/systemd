@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-30 00:13+0200\n"
+"POT-Creation-Date: 2026-06-01 11:49+0200\n"
 "PO-Revision-Date: 2026-06-07 13:56+0000\n"
 "Last-Translator: Anonymous <noreply@weblate.org>\n"
 "Language-Team: Polish <https://translate.fedoraproject.org/projects/systemd/"
@@ -254,7 +254,8 @@ msgstr "Proszę potwierdzić obecność na tokenie zabezpieczeń użytkownika %s
 #: src/home/pam_systemd_home.c:454
 #, c-format
 msgid "Please verify user on security token of user %s."
-msgstr "Proszę zweryfikować użytkownika na tokenie zabezpieczeń użytkownika %s."
+msgstr ""
+"Proszę zweryfikować użytkownika na tokenie zabezpieczeń użytkownika %s."
 
 #: src/home/pam_systemd_home.c:463
 msgid ""
@@ -584,7 +585,8 @@ msgstr "Zezwolenie na podłączanie urządzeń do stanowisk"
 
 #: src/login/org.freedesktop.login1.policy:149
 msgid "Authentication is required to attach a device to a seat."
-msgstr "Wymagane jest uwierzytelnienie, aby podłączyć urządzenie do stanowiska."
+msgstr ""
+"Wymagane jest uwierzytelnienie, aby podłączyć urządzenie do stanowiska."
 
 #: src/login/org.freedesktop.login1.policy:159
 msgid "Flush device to seat attachments"
@@ -912,8 +914,8 @@ msgstr "Badanie lokalnych maszyn wirtualnych i kontenerów"
 msgid ""
 "Authentication is required to inspect local virtual machines and containers."
 msgstr ""
-"Wymagane jest uwierzytelnienie, aby zbadać lokalne maszyny wirtualne i "
-"kontenery."
+"Wymagane jest uwierzytelnienie, aby zbadać lokalne maszyny wirtualne "
+"i kontenery."
 
 #: src/machine/org.freedesktop.machine1.policy:105
 msgid "Create a local virtual machine or container"
@@ -1028,7 +1030,8 @@ msgstr "Włączenie/wyłączenie DNS przez TLS"
 #: src/network/org.freedesktop.network1.policy:89
 #: src/resolve/org.freedesktop.resolve1.policy:100
 msgid "Authentication is required to enable or disable DNS over TLS."
-msgstr "Wymagane jest uwierzytelnienie, aby włączyć lub wyłączyć DNS przez TLS."
+msgstr ""
+"Wymagane jest uwierzytelnienie, aby włączyć lub wyłączyć DNS przez TLS."
 
 #: src/network/org.freedesktop.network1.policy:99
 #: src/resolve/org.freedesktop.resolve1.policy:110
@@ -1077,8 +1080,8 @@ msgid ""
 "Authentication is required to send a force renew message from the DHCP "
 "server."
 msgstr ""
-"Wymagane jest uwierzytelnienie, aby wysłać komunikat wymuszonego odnowienia z"
-" serwera DHCP."
+"Wymagane jest uwierzytelnienie, aby wysłać komunikat wymuszonego odnowienia "
+"z serwera DHCP."
 
 #: src/network/org.freedesktop.network1.policy:154
 msgid "Renew dynamic addresses"
@@ -1424,8 +1427,8 @@ msgid ""
 "Authentication is required to delete files and directories associated with '$"
 "(unit)'."
 msgstr ""
-"Wymagane jest uwierzytelnienie, aby usunąć pliki i katalogi powiązane z "
-"jednostką „$(unit)”."
+"Wymagane jest uwierzytelnienie, aby usunąć pliki i katalogi powiązane "
+"z jednostką „$(unit)”."
 
 #: src/core/dbus-unit.c:813
 msgid ""
@@ -1434,15 +1437,22 @@ msgstr ""
 "Wymagane jest uwierzytelnienie, aby zamrozić lub odmrozić procesy jednostki "
 "„$(unit)”."
 
-#: src/shared/libfido2-util.c:497 src/shared/libfido2-util.c:554
+#: src/shared/libfido2-util.c:500 src/shared/libfido2-util.c:557
 msgid "Please confirm presence on security token to unlock."
 msgstr "Proszę potwierdzić obecność tokenem zabezpieczeń, aby odblokować."
 
-#: src/shared/libfido2-util.c:513
+#: src/shared/libfido2-util.c:516
 msgid "Please verify user on security token to unlock."
 msgstr "Proszę zweryfikować użytkownika tokenem zabezpieczeń, aby odblokować."
 
-#: src/shared/libfido2-util.c:926
+#: src/shared/libfido2-util.c:936
+#, fuzzy, c-format
+#| msgid "Please enter security token PIN:"
+msgid ""
+"Please enter security token PIN (remaining attempts before lock-out: %d):"
+msgstr "Proszę wpisać kod PIN tokena zabezpieczeń:"
+
+#: src/shared/libfido2-util.c:948
 msgid "Please enter security token PIN:"
 msgstr "Proszę wpisać kod PIN tokena zabezpieczeń:"
 

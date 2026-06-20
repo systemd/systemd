@@ -8,7 +8,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-30 00:13+0200\n"
+"POT-Creation-Date: 2026-06-01 11:49+0200\n"
 "PO-Revision-Date: 2026-06-07 14:00+0000\n"
 "Last-Translator: Vlad <milovlad@outlook.com>\n"
 "Language-Team: Romanian <https://translate.fedoraproject.org/projects/"
@@ -789,7 +789,8 @@ msgstr "Blochează sau deblochează sesiuni active"
 
 #: src/login/org.freedesktop.login1.policy:343
 msgid "Authentication is required to lock or unlock active sessions."
-msgstr "Autentificarea este necesară pentru a bloca sau debloca sesiuni active."
+msgstr ""
+"Autentificarea este necesară pentru a bloca sau debloca sesiuni active."
 
 #: src/login/org.freedesktop.login1.policy:352
 msgid "Set the reboot \"reason\" in the kernel"
@@ -860,7 +861,8 @@ msgstr "Conectare la un container local"
 
 #: src/machine/org.freedesktop.machine1.policy:23
 msgid "Authentication is required to log into a local container."
-msgstr "Autentificarea este necesară pentru a vă conecta la un container local."
+msgstr ""
+"Autentificarea este necesară pentru a vă conecta la un container local."
 
 #: src/machine/org.freedesktop.machine1.policy:32
 msgid "Log into the local host"
@@ -1447,7 +1449,8 @@ msgstr ""
 
 #: src/core/dbus-unit.c:679
 msgid "Authentication is required to set properties on '$(unit)'."
-msgstr "Autentificarea este necesară pentru a seta proprietățile lui „$(unit)”."
+msgstr ""
+"Autentificarea este necesară pentru a seta proprietățile lui „$(unit)”."
 
 #: src/core/dbus-unit.c:776
 msgid ""
@@ -1464,18 +1467,25 @@ msgstr ""
 "Autentificarea este necesară pentru a îngheța sau dezgheța procesele "
 "corespunzătoare lui „$(unit)”."
 
-#: src/shared/libfido2-util.c:497 src/shared/libfido2-util.c:554
+#: src/shared/libfido2-util.c:500 src/shared/libfido2-util.c:557
 msgid "Please confirm presence on security token to unlock."
 msgstr ""
 "Vă rugăm să vă confirmați prezența pe tokenul de securitate pentru deblocare."
 
-#: src/shared/libfido2-util.c:513
+#: src/shared/libfido2-util.c:516
 msgid "Please verify user on security token to unlock."
 msgstr ""
 "Vă rugăm să verificați utilizatorul pe tokenul de securitate pentru "
 "deblocare."
 
-#: src/shared/libfido2-util.c:926
+#: src/shared/libfido2-util.c:936
+#, fuzzy, c-format
+#| msgid "Please enter security token PIN:"
+msgid ""
+"Please enter security token PIN (remaining attempts before lock-out: %d):"
+msgstr "Vă rugăm să introduceți codul PIN al tokenului de securitate:"
+
+#: src/shared/libfido2-util.c:948
 msgid "Please enter security token PIN:"
 msgstr "Vă rugăm să introduceți codul PIN al tokenului de securitate:"
 

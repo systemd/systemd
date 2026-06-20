@@ -8,7 +8,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-30 00:13+0200\n"
+"POT-Creation-Date: 2026-06-01 11:49+0200\n"
 "PO-Revision-Date: 2026-06-07 14:02+0000\n"
 "Last-Translator: Gogo Gogsi <linux.hr@protonmail.com>\n"
 "Language-Team: Croatian <https://translate.fedoraproject.org/projects/"
@@ -100,7 +100,8 @@ msgstr "Provjeri vjerodajnice osobnog prostora"
 #: src/home/org.freedesktop.home1.policy:34
 msgid ""
 "Authentication is required to check credentials against a user's home area."
-msgstr "Potrebna je ovjera za provjeru vjerodajnica osobnog prostora korisnika."
+msgstr ""
+"Potrebna je ovjera za provjeru vjerodajnica osobnog prostora korisnika."
 
 #: src/home/org.freedesktop.home1.policy:43
 msgid "Update a home area"
@@ -597,7 +598,8 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:191
 msgid "Power off the system while an application is inhibiting this"
-msgstr "Isključi sustav kada je aplikacija zatražila sprječavanje isključivanja"
+msgstr ""
+"Isključi sustav kada je aplikacija zatražila sprječavanje isključivanja"
 
 #: src/login/org.freedesktop.login1.policy:192
 msgid ""
@@ -663,7 +665,8 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:257
 msgid "Halt the system while an application is inhibiting this"
-msgstr "Zaustavi sustav kada je aplikacija zatražila sprječavanje zaustavljanja"
+msgstr ""
+"Zaustavi sustav kada je aplikacija zatražila sprječavanje zaustavljanja"
 
 #: src/login/org.freedesktop.login1.policy:258
 msgid ""
@@ -728,7 +731,8 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:321
 msgid "Hibernate the system while an application is inhibiting this"
-msgstr "Hiberniraj sustav kada je aplikacija zatražila sprječavanje hibernacije"
+msgstr ""
+"Hiberniraj sustav kada je aplikacija zatražila sprječavanje hibernacije"
 
 #: src/login/org.freedesktop.login1.policy:322
 msgid ""
@@ -1107,7 +1111,8 @@ msgstr "Dodaj ili ukloni prijenosnu sliku usluge"
 #: src/portable/org.freedesktop.portable1.policy:24
 msgid ""
 "Authentication is required to attach or detach a portable service image."
-msgstr "Potrebna je ovjera za dodavanje ili uklanjanje prijenosne slike usluge."
+msgstr ""
+"Potrebna je ovjera za dodavanje ili uklanjanje prijenosne slike usluge."
 
 #: src/portable/org.freedesktop.portable1.policy:34
 msgid "Delete or modify portable service image"
@@ -1377,8 +1382,8 @@ msgid ""
 "Authentication is required to delete files and directories associated with '$"
 "(unit)'."
 msgstr ""
-"Potrebna je ovjera za brisanje datoteka i direktorija pridruženih sa '$(unit)"
-"'."
+"Potrebna je ovjera za brisanje datoteka i direktorija pridruženih sa '$"
+"(unit)'."
 
 #: src/core/dbus-unit.c:813
 msgid ""
@@ -1386,15 +1391,21 @@ msgid ""
 msgstr ""
 "Potrebna je ovjera za zamrzavanje ili odmrzavanje procesa '$(unit)' jedinice."
 
-#: src/shared/libfido2-util.c:497 src/shared/libfido2-util.c:554
+#: src/shared/libfido2-util.c:500 src/shared/libfido2-util.c:557
 msgid "Please confirm presence on security token to unlock."
 msgstr ""
 
-#: src/shared/libfido2-util.c:513
+#: src/shared/libfido2-util.c:516
 msgid "Please verify user on security token to unlock."
 msgstr ""
 
-#: src/shared/libfido2-util.c:926
+#: src/shared/libfido2-util.c:936
+#, c-format
+msgid ""
+"Please enter security token PIN (remaining attempts before lock-out: %d):"
+msgstr ""
+
+#: src/shared/libfido2-util.c:948
 msgid "Please enter security token PIN:"
 msgstr ""
 
