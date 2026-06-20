@@ -3203,7 +3203,7 @@ static int validate_signature_userspace(const VeritySettings *verity, const char
         if (r)
                 log_debug("Userspace PKCS#7 validation succeeded.");
         else
-                log_debug("Userspace PKCS#7 validation failed: %s", sym_ERR_error_string(sym_ERR_get_error(), NULL));
+                log_openssl_errors(LOG_DEBUG, "Userspace PKCS#7 validation failed");
 
         return r;
 #else

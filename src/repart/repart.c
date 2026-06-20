@@ -6065,13 +6065,11 @@ static int sign_verity_roothash(
 
         p7 = sym_PKCS7_sign(context->certificate, context->private_key, NULL, rb, PKCS7_DETACHED|PKCS7_NOATTR|PKCS7_BINARY);
         if (!p7)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to calculate PKCS7 signature: %s",
-                                       sym_ERR_error_string(sym_ERR_get_error(), NULL));
+                return log_openssl_errors(LOG_ERR, "Failed to calculate PKCS7 signature");
 
         sigsz = sym_i2d_PKCS7(p7, &sig);
         if (sigsz < 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to convert PKCS7 signature to DER: %s",
-                                       sym_ERR_error_string(sym_ERR_get_error(), NULL));
+                return log_openssl_errors(LOG_ERR, "Failed to convert PKCS7 signature to DER");
 
         *ret_signature = IOVEC_MAKE(TAKE_PTR(sig), sigsz);
 
