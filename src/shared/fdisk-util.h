@@ -64,6 +64,7 @@ extern DLSYM_PROTOTYPE(fdisk_ref_partition);
 extern DLSYM_PROTOTYPE(fdisk_save_user_sector_size);
 extern DLSYM_PROTOTYPE(fdisk_set_ask);
 extern DLSYM_PROTOTYPE(fdisk_set_disklabel_id);
+extern DLSYM_PROTOTYPE(fdisk_set_first_lba);
 extern DLSYM_PROTOTYPE(fdisk_set_partition);
 extern DLSYM_PROTOTYPE(fdisk_table_get_nents);
 extern DLSYM_PROTOTYPE(fdisk_table_get_partition);
