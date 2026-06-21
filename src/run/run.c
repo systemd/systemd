@@ -992,6 +992,13 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
 
         _cleanup_strv_free_ char **l = NULL;
         char **args = option_parser_get_args(&opts);
+        if (arg_slice_inherit && arg_lightweight >= 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                "--lightweight may not be combined with --slice-inherit");
+        if (arg_slice_inherit && !isempty(arg_area))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                "--area may not be combined with --slice-inherit");
+
         if (!strv_isempty(args)) {
                 if (arg_validate)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -1108,9 +1115,12 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
         }
 
         if (!strv_env_get(arg_environment, "XDG_SESSION_CLASS")) {
+                const char *class = NULL;
+                if (arg_slice_inherit)
+                        class = "none";
 
                 /* If logging into an area, imply lightweight mode */
-                if (arg_lightweight < 0 && !isempty(arg_area))
+                else if (arg_lightweight < 0 && !isempty(arg_area))
                         arg_lightweight = true;
 
                 /* When using run0 to acquire privileges temporarily, let's not pull in session manager by
@@ -1120,14 +1130,14 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                  * this for root or --empower though, under the assumption that if a regular user temporarily
                  * transitions into another regular user it's a better default that the full user environment is
                  * uniformly available. */
-                if (arg_lightweight < 0 && (become_root() || arg_empower))
+                else if (arg_lightweight < 0 && (become_root() || arg_empower))
                         arg_lightweight = true;
 
-                if (arg_lightweight >= 0) {
-                        const char *class =
-                                arg_lightweight ? (arg_stdio == ARG_STDIO_PTY ? (become_root() ? "user-early-light" : "user-light") : "background-light") :
+                if (arg_lightweight >= 0)
+                        class = arg_lightweight ? (arg_stdio == ARG_STDIO_PTY ? (become_root() ? "user-early-light" : "user-light") : "background-light") :
                                                   (arg_stdio == ARG_STDIO_PTY ? (become_root() ? "user-early" : "user") : "background");
 
+                if (class) {
                         log_debug("Setting XDG_SESSION_CLASS to '%s'.", class);
 
                         r = strv_env_assign(&arg_environment, "XDG_SESSION_CLASS", class);
