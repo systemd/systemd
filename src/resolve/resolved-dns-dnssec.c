@@ -12,7 +12,6 @@
 #include "memory-util.h"
 #include "memstream-util.h"
 #include "resolved-dns-dnssec.h"
-#include "resolved-util.h"
 #include "sort-util.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -710,7 +709,7 @@ int dnssec_verify_rrset(
         assert(dnskey);
         assert(result);
 
-        r = DLOPEN_LIBCRYPTO(LOG_DEBUG, DLOPEN_LIBCRYPTO_PRIORITY);
+        r = DLOPEN_LIBCRYPTO(LOG_WARNING, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
         if (r < 0)
                 return r;
 
@@ -1067,7 +1066,7 @@ int dnssec_verify_dnskey_by_ds(DnsResourceRecord *dnskey, DnsResourceRecord *ds,
         assert(dnskey);
         assert(ds);
 
-        r = DLOPEN_LIBCRYPTO(LOG_DEBUG, DLOPEN_LIBCRYPTO_PRIORITY);
+        r = DLOPEN_LIBCRYPTO(LOG_WARNING, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
         if (r < 0)
                 return r;
 
@@ -1207,7 +1206,7 @@ int dnssec_nsec3_hash(DnsResourceRecord *nsec3, const char *name, void *ret) {
         assert(name);
         assert(ret);
 
-        r = DLOPEN_LIBCRYPTO(LOG_DEBUG, DLOPEN_LIBCRYPTO_PRIORITY);
+        r = DLOPEN_LIBCRYPTO(LOG_WARNING, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
         if (r < 0)
                 return r;
 
