@@ -14,7 +14,8 @@ typedef enum ExtractFlags {
         EXTRACT_RETAIN_ESCAPE            = 1 << 7, /* Treat escape character '\' as any other character without special meaning */
         EXTRACT_RETAIN_SEPARATORS        = 1 << 8, /* Do not advance the original string pointer past the separator(s) */
 
-        /* Note that if no flags are specified, escaped escape characters will be silently stripped. */
+        /* Note that if none of EXTRACT_CUNESCAPE, EXTRACT_UNESCAPE_RELAX, EXTRACT_UNESCAPE_SEPARATORS, EXTRACT_RETAIN_ESCAPE are
+         * specified, escape characters will be stripped. */
 } ExtractFlags;
 
 int extract_first_word(const char **p, char **ret, const char *separators, ExtractFlags flags);

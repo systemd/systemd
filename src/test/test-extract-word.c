@@ -247,13 +247,13 @@ TEST(extract_first_word) {
 
         p = original = "fooo\\ bar quux";
         assert_se(extract_first_word(&p, &t, NULL, EXTRACT_UNESCAPE_RELAX) > 0);
-        ASSERT_STREQ(t, "fooo bar");
+        ASSERT_STREQ(t, "fooo\\ bar");
         free(t);
         assert_se(p == original + 10);
 
         p = original = "fooo\\ bar quux";
         assert_se(extract_first_word(&p, &t, NULL, EXTRACT_UNESCAPE_RELAX|EXTRACT_RELAX) > 0);
-        ASSERT_STREQ(t, "fooo bar");
+        ASSERT_STREQ(t, "fooo\\ bar");
         free(t);
         assert_se(p == original + 10);
 
