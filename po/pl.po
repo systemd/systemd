@@ -8,8 +8,9 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-06-01 11:49+0200\n"
-"PO-Revision-Date: 2026-06-07 13:56+0000\n"
-"Last-Translator: Anonymous <noreply@weblate.org>\n"
+"PO-Revision-Date: 2026-06-21 11:10+0000\n"
+"Last-Translator: Marek Adamski "
+"<maradam@users.noreply.translate.fedoraproject.org>\n"
 "Language-Team: Polish <https://translate.fedoraproject.org/projects/systemd/"
 "main/pl/>\n"
 "Language: pl\n"
@@ -1446,11 +1447,12 @@ msgid "Please verify user on security token to unlock."
 msgstr "Proszę zweryfikować użytkownika tokenem zabezpieczeń, aby odblokować."
 
 #: src/shared/libfido2-util.c:936
-#, fuzzy, c-format
-#| msgid "Please enter security token PIN:"
+#, c-format
 msgid ""
 "Please enter security token PIN (remaining attempts before lock-out: %d):"
-msgstr "Proszę wpisać kod PIN tokena zabezpieczeń:"
+msgstr ""
+"Proszę wpisać kod PIN tokena zabezpieczeń (pozostałe próby przed "
+"zablokowaniem: %d):"
 
 #: src/shared/libfido2-util.c:948
 msgid "Please enter security token PIN:"
