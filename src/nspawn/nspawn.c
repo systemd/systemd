@@ -6104,14 +6104,14 @@ static int do_cleanup(void) {
         if (r < 0)
                 return r;
 
-        _cleanup_free_ char *subdir = path_join("systemd/nspawn", arg_machine);
-        if (!subdir)
-                return log_oom();
-
-        _cleanup_free_ char *runtime_dir = NULL;
-        r = runtime_directory(arg_runtime_scope, subdir, &runtime_dir);
+        _cleanup_free_ char *base = NULL, *runtime_dir = NULL;
+        r = runtime_directory(arg_runtime_scope, "systemd/nspawn", &base);
         if (r < 0)
                 return r;
+
+        runtime_dir = path_join(base, arg_machine);
+        if (!runtime_dir)
+                return log_oom();
 
         cleanup_propagation_and_export_directories(runtime_dir);
         return 0;
@@ -6133,7 +6133,7 @@ static int run(int argc, char *argv[]) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *nfnl = NULL;
         _cleanup_(pidref_done) PidRef pid = PIDREF_NULL;
         _cleanup_(sd_varlink_unrefp) sd_varlink *nsresource_link = NULL, *mountfsd_link = NULL;
-        _cleanup_free_ char *runtime_dir = NULL, *subdir = NULL;
+        _cleanup_free_ char *runtime_dir = NULL;
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir_destroy = NULL;
         _cleanup_(fork_notify_terminate) PidRef journal_remote_pidref = PIDREF_NULL;
 
@@ -6629,15 +6629,10 @@ static int run(int argc, char *argv[]) {
         } else
                 assert_not_reached();
 
-        subdir = path_join("systemd/nspawn", arg_machine);
-        if (!subdir) {
-                r = log_oom();
-                goto finish;
-        }
-
         r = runtime_directory_make(
                         arg_runtime_scope,
-                        subdir,
+                        "systemd/nspawn",
+                        arg_machine,
                         &runtime_dir,
                         &runtime_dir_destroy);
         if (r < 0) {
