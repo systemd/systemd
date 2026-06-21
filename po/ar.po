@@ -8,7 +8,7 @@ msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-06-01 11:49+0200\n"
-"PO-Revision-Date: 2026-06-07 14:04+0000\n"
+"PO-Revision-Date: 2026-06-21 11:10+0000\n"
 "Last-Translator: joo es <jonnyse@users.noreply.translate.fedoraproject.org>\n"
 "Language-Team: Arabic <https://translate.fedoraproject.org/projects/systemd/"
 "main/ar/>\n"
@@ -1292,11 +1292,10 @@ msgid "Please verify user on security token to unlock."
 msgstr "يُرجى التحقق من المستخدم عبر رمز الأمان لإلغاء القفل."
 
 #: src/shared/libfido2-util.c:936
-#, fuzzy, c-format
-#| msgid "Please enter security token PIN:"
+#, c-format
 msgid ""
 "Please enter security token PIN (remaining attempts before lock-out: %d):"
-msgstr "يُرجى إدخال رمز الأمان (PIN):"
+msgstr "يُرجى إدخال رمز الأمان (PIN) (عدد المحاولات المتبقية قبل الحظر: %d):"
 
 #: src/shared/libfido2-util.c:948
 msgid "Please enter security token PIN:"
