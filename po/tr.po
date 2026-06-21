@@ -11,8 +11,8 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-06-01 11:49+0200\n"
-"PO-Revision-Date: 2026-06-07 14:04+0000\n"
-"Last-Translator: Emir SARI <emir_sari@icloud.com>\n"
+"PO-Revision-Date: 2026-06-21 11:10+0000\n"
+"Last-Translator: Oğuz Ersen <oguz@ersen.moe>\n"
 "Language-Team: Turkish <https://translate.fedoraproject.org/projects/systemd/"
 "main/tr/>\n"
 "Language: tr\n"
@@ -1459,11 +1459,12 @@ msgid "Please verify user on security token to unlock."
 msgstr "Kilidi açmak için lütfen güvenlik belirteçinde kullanıcıyı doğrulayın."
 
 #: src/shared/libfido2-util.c:936
-#, fuzzy, c-format
-#| msgid "Please enter security token PIN:"
+#, c-format
 msgid ""
 "Please enter security token PIN (remaining attempts before lock-out: %d):"
-msgstr "Lütfen güvenlik belirteci kodunu girin:"
+msgstr ""
+"Lütfen güvenlik belirteci kodunu girin (kilitlenmeden önce kalan deneme "
+"sayısı: %d):"
 
 #: src/shared/libfido2-util.c:948
 msgid "Please enter security token PIN:"
