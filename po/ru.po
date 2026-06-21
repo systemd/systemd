@@ -14,8 +14,8 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-06-01 11:49+0200\n"
-"PO-Revision-Date: 2026-06-07 13:58+0000\n"
-"Last-Translator: Olga Smirnova <mistresssilvara@hotmail.com>\n"
+"PO-Revision-Date: 2026-06-21 11:10+0000\n"
+"Last-Translator: \"Sergey A.\" <Ser82-png@yandex.ru>\n"
 "Language-Team: Russian <https://translate.fedoraproject.org/projects/systemd/"
 "main/ru/>\n"
 "Language: ru\n"
@@ -1501,11 +1501,11 @@ msgid "Please verify user on security token to unlock."
 msgstr "Подтвердите пользователя на токене безопасности для разблокировки."
 
 #: src/shared/libfido2-util.c:936
-#, fuzzy, c-format
-#| msgid "Please enter security token PIN:"
+#, c-format
 msgid ""
 "Please enter security token PIN (remaining attempts before lock-out: %d):"
-msgstr "Введите PIN-код токена безопасности:"
+msgstr ""
+"Введите PIN-код токена безопасности (осталось попыток до блокировки: %d):"
 
 #: src/shared/libfido2-util.c:948
 msgid "Please enter security token PIN:"
