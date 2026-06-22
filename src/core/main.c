@@ -2029,8 +2029,10 @@ static void update_numa_policy(bool skip_setup) {
         }
 
         r = apply_numa_policy(&arg_numa_policy);
-        if (r == -EOPNOTSUPP)
+        if (r == -ENOSYS)
                 log_debug_errno(r, "NUMA support not available, ignoring.");
+        else if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                log_warning_errno(r, "NUMA policy not supported by kernel, ignoring.");
         else if (r < 0)
                 log_warning_errno(r, "Failed to set NUMA memory policy, ignoring: %m");
 }
