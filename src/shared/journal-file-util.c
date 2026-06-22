@@ -407,7 +407,7 @@ bool journal_file_is_offlining(JournalFile *f) {
 
 void journal_file_write_final_tag(JournalFile *f) {
         assert(f);
-#if HAVE_GCRYPT
+#if HAVE_OPENSSL
         if (!JOURNAL_HEADER_SEALED(f->header) || !journal_file_writable(f))
                 return;
 
