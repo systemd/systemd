@@ -5,12 +5,14 @@
 # Daniel Șerbănescu <daniel [at] serbanescu [dot] dk>, 2015, 2017.
 # Vlad <milovlad@outlook.com>, 2020, 2021, 2026.
 # Petru Rebeja <petru@rebeja.eu>, 2026.
+# Fedora Weblate user 1831 <atony076@users.noreply.translate.fedoraproject.org>, 2026.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-06-01 11:49+0200\n"
-"PO-Revision-Date: 2026-06-07 14:00+0000\n"
-"Last-Translator: Vlad <milovlad@outlook.com>\n"
+"PO-Revision-Date: 2026-06-22 17:44+0000\n"
+"Last-Translator: Fedora Weblate user 1831 "
+"<atony076@users.noreply.translate.fedoraproject.org>\n"
 "Language-Team: Romanian <https://translate.fedoraproject.org/projects/"
 "systemd/main/ro/>\n"
 "Language: ro\n"
@@ -76,7 +78,7 @@ msgstr "Autentificarea este necesară pentru a reîncărca starea lui systemd."
 
 #: src/core/org.freedesktop.systemd1.policy.in:74
 msgid "Dump the systemd state without rate limits"
-msgstr ""
+msgstr "Renunțați la starea systemd fără limite de frecvență"
 
 #: src/core/org.freedesktop.systemd1.policy.in:75
 #, fuzzy
@@ -186,23 +188,27 @@ msgstr ""
 #, c-format
 msgid "Too frequent login attempts for user %s, try again later."
 msgstr ""
+"S-au înregistrat prea multe încercări de autentificare pentru utilizatorul "
+"%s. Vă rugăm să încercați din nou mai târziu."
 
 #: src/home/pam_systemd_home.c:344
 msgid "Password: "
-msgstr ""
+msgstr "Parolă: "
 
 #: src/home/pam_systemd_home.c:346
 #, c-format
 msgid "Password incorrect or not sufficient for authentication of user %s."
 msgstr ""
+"Parola este incorectă sau nu este suficientă pentru autentificarea "
+"utilizatorului %s."
 
 #: src/home/pam_systemd_home.c:347
 msgid "Sorry, try again: "
-msgstr ""
+msgstr "Scuze, încearcă din nou: "
 
 #: src/home/pam_systemd_home.c:369
 msgid "Recovery key: "
-msgstr ""
+msgstr "Cheia de recuperare: "
 
 #: src/home/pam_systemd_home.c:371
 #, c-format
@@ -210,19 +216,21 @@ msgid ""
 "Password/recovery key incorrect or not sufficient for authentication of user "
 "%s."
 msgstr ""
+"Parola/cheia de recuperare sunt incorecte sau insuficiente pentru "
+"autentificarea utilizatorului %s."
 
 #: src/home/pam_systemd_home.c:372
 msgid "Sorry, reenter recovery key: "
-msgstr ""
+msgstr "Scuze, reintroduceți cheia de recuperare: "
 
 #: src/home/pam_systemd_home.c:392
 #, c-format
 msgid "Security token of user %s not inserted."
-msgstr ""
+msgstr "Tokenul de securitate al utilizatorului %s nu a fost introdus."
 
 #: src/home/pam_systemd_home.c:393 src/home/pam_systemd_home.c:396
 msgid "Try again with password: "
-msgstr ""
+msgstr "Încearcă din nou cu parola: "
 
 #: src/home/pam_systemd_home.c:395
 #, c-format
@@ -230,15 +238,19 @@ msgid ""
 "Password incorrect or not sufficient, and configured security token of user "
 "%s not inserted."
 msgstr ""
+"Parola este incorectă sau insuficientă, iar tokenul de securitate configurat "
+"al utilizatorului %s nu a fost introdus."
 
 #: src/home/pam_systemd_home.c:415
 msgid "Security token PIN: "
-msgstr ""
+msgstr "PIN-ul tokenului de securitate: "
 
 #: src/home/pam_systemd_home.c:432
 #, c-format
 msgid "Please authenticate physically on security token of user %s."
 msgstr ""
+"Vă rugăm să vă autentificați fizic folosind tokenul de securitate al "
+"utilizatorului %s."
 
 #: src/home/pam_systemd_home.c:443
 #, c-format
