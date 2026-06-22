@@ -315,7 +315,7 @@ static int numa_policy_build_json(sd_json_variant **ret, const char *name, void 
                 return 0;
         }
 
-        return sd_json_variant_new_string(ret, mpol_to_string(t));
+        return sd_json_variant_new_string(ret, json_underscorify(mpol_to_string(t)));
 }
 
 static int numa_mask_build_json(sd_json_variant **ret, const char *name, void *userdata) {

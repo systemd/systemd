@@ -61,6 +61,7 @@ REQUIREMENTS:
         Linux kernel ≥ 5.11 for epoll_pwait2()
                      ≥ 5.12 for idmapped mount (mount_setattr())
                      ≥ 5.14 for cgroup.kill, quotactl_fd(), and MOUNT_ATTR_NOSYMFOLLOW
+                     ≥ 5.15 for MPOL_PREFERRED_MANY NUMA policy
 
         ⚠️ Kernel versions below 5.14 ("recommended baseline") have significant gaps
            in functionality and are not recommended for use with this version
@@ -73,7 +74,7 @@ REQUIREMENTS:
                      ≥ 6.6 for quota support on tmpfs
                      ≥ 6.7 for cgroup2fs memory_hugetlb_accounting option
                      ≥ 6.8 for STATX_MNT_ID_UNIQUE
-                     ≥ 6.9 for pidfs
+                     ≥ 6.9 for pidfs and MPOL_WEIGHTED_INTERLEAVE NUMA policy
                      ≥ 6.10 for fcntl(F_DUPFD_QUERY), unprivileged linkat(AT_EMPTY_PATH),
                                 and block device 'partscan' sysfs attribute
                      ≥ 6.12 for AT_HANDLE_MNT_ID_UNIQUE
