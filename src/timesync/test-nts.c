@@ -40,33 +40,33 @@ TEST(nts_encoding) {
         NTS_Agreement rec;
 
         NTS_encode_request(buffer, sizeof buffer, /* preferred_crypto= */ NULL);
-        assert_se(NTS_decode_response(buffer, 1000, &rec) == 0);
-        assert_se(rec.error == NTS_SUCCESS);
-        assert_se(rec.ntp_server == NULL);
-        assert_se(rec.ntp_port == 0);
-        assert_se(rec.cookie[0].iov_base == NULL);
-        assert_se(rec.cookie[0].iov_len == 0);
-        assert_se(rec.aead_id == NTS_AEAD_AES_SIV_CMAC_256);
+        ASSERT_OK_ZERO(NTS_decode_response(buffer, 1000, &rec));
+        ASSERT_EQ(rec.error, NTS_SUCCESS);
+        ASSERT_NULL(rec.ntp_server);
+        ASSERT_EQ(rec.ntp_port, 0);
+        ASSERT_NULL(rec.cookie[0].iov_base);
+        ASSERT_EQ(rec.cookie[0].iov_len, 0u);
+        ASSERT_EQ(rec.aead_id, NTS_AEAD_AES_SIV_CMAC_256);
 
         uint16_t proto1[] = { NTS_AEAD_AES_SIV_CMAC_256, NTS_AEAD_AES_SIV_CMAC_512, 0 };
         NTS_encode_request(buffer, sizeof buffer, proto1);
-        assert_se(NTS_decode_response(buffer, 1000, &rec) == 0);
-        assert_se(rec.error == NTS_SUCCESS);
-        assert_se(rec.ntp_server == NULL);
-        assert_se(rec.ntp_port == 0);
-        assert_se(rec.cookie[0].iov_base == NULL);
-        assert_se(rec.cookie[0].iov_len == 0);
-        assert_se(rec.aead_id == NTS_AEAD_AES_SIV_CMAC_256);
+        ASSERT_OK_ZERO(NTS_decode_response(buffer, 1000, &rec));
+        ASSERT_EQ(rec.error, NTS_SUCCESS);
+        ASSERT_NULL(rec.ntp_server);
+        ASSERT_EQ(rec.ntp_port, 0);
+        ASSERT_NULL(rec.cookie[0].iov_base);
+        ASSERT_EQ(rec.cookie[0].iov_len, 0u);
+        ASSERT_EQ(rec.aead_id, NTS_AEAD_AES_SIV_CMAC_256);
 
         uint16_t proto2[] = { NTS_AEAD_AES_SIV_CMAC_512, NTS_AEAD_AES_SIV_CMAC_256, 0 };
         NTS_encode_request(buffer, sizeof buffer, proto2);
-        assert_se(NTS_decode_response(buffer, 1000, &rec) == 0);
-        assert_se(rec.error == NTS_SUCCESS);
-        assert_se(rec.ntp_server == NULL);
-        assert_se(rec.ntp_port == 0);
-        assert_se(rec.cookie[0].iov_base == NULL);
-        assert_se(rec.cookie[0].iov_len == 0);
-        assert_se(rec.aead_id == NTS_AEAD_AES_SIV_CMAC_512);
+        ASSERT_OK_ZERO(NTS_decode_response(buffer, 1000, &rec));
+        ASSERT_EQ(rec.error, NTS_SUCCESS);
+        ASSERT_NULL(rec.ntp_server);
+        ASSERT_EQ(rec.ntp_port, 0);
+        ASSERT_NULL(rec.cookie[0].iov_base);
+        ASSERT_EQ(rec.cookie[0].iov_len, 0u);
+        ASSERT_EQ(rec.aead_id, NTS_AEAD_AES_SIV_CMAC_512);
 }
 
 TEST(nts_decoding) {
@@ -76,58 +76,58 @@ TEST(nts_decoding) {
         /* empty */
         uint8_t value[2] = {};
         encode_record_raw((p = buffer, &p), 0, NULL, 0);
-        assert_se(NTS_decode_response(buffer, sizeof buffer, &rec) != 0);
-        assert_se(rec.error == NTS_BAD_RESPONSE);
+        ASSERT_FAIL(NTS_decode_response(buffer, sizeof buffer, &rec));
+        ASSERT_EQ(rec.error, NTS_BAD_RESPONSE);
 
         /* missing aead */
         encode_record_raw((p = buffer, &p), 1, &value, 2);
         encode_record_raw(&p, 0, NULL, 0);
-        assert_se(NTS_decode_response(buffer, sizeof buffer, &rec) != 0);
-        assert_se(rec.error == NTS_BAD_RESPONSE);
+        ASSERT_FAIL(NTS_decode_response(buffer, sizeof buffer, &rec));
+        ASSERT_EQ(rec.error, NTS_BAD_RESPONSE);
 
         /* missing nextproto */
         encode_record_raw((p = buffer, &p), 4, (value[1] = 15, &value), 2);
         encode_record_raw(&p, 0, NULL, 0);
-        assert_se(NTS_decode_response(buffer, sizeof buffer, &rec) != 0);
-        assert_se(rec.error == NTS_BAD_RESPONSE);
+        ASSERT_FAIL(NTS_decode_response(buffer, sizeof buffer, &rec));
+        ASSERT_EQ(rec.error, NTS_BAD_RESPONSE);
 
         /* invalid nextproto */
         encode_record_raw((p = buffer, &p), 4, (value[1] = 15, &value), 2);
         encode_record_raw(&p, 1, (value[1] = 3, &value), 2);
         encode_record_raw(&p, 0, NULL, 0);
-        assert_se(NTS_decode_response(buffer, sizeof buffer, &rec) != 0);
-        assert_se(rec.error == NTS_NO_PROTOCOL);
+        ASSERT_FAIL(NTS_decode_response(buffer, sizeof buffer, &rec));
+        ASSERT_EQ(rec.error, NTS_NO_PROTOCOL);
 
         /* invalid aead */
         encode_record_raw((p = buffer, &p), 1, (value[1] = 0, &value), 2);
         encode_record_raw(&p, 4, (value[1] = 37, &value), 2);
         encode_record_raw(&p, 0, NULL, 0);
-        assert_se(NTS_decode_response(buffer, sizeof buffer, &rec) != 0);
-        assert_se(rec.error == NTS_NO_AEAD);
+        ASSERT_FAIL(NTS_decode_response(buffer, sizeof buffer, &rec));
+        ASSERT_EQ(rec.error, NTS_NO_AEAD);
 
         /* unknown critical record */
         encode_record_raw((p = buffer, &p), 1, (value[1] = 0, &value), 2);
         encode_record_raw(&p, 4, (value[1] = 15, &value), 2);
         encode_record_raw(&p, 0xfe | 0x8000, &value, 2);
         encode_record_raw(&p, 0, NULL, 0);
-        assert_se(NTS_decode_response(buffer, sizeof buffer, &rec) != 0);
-        assert_se(rec.error == NTS_UNKNOWN_CRIT_RECORD);
+        ASSERT_FAIL(NTS_decode_response(buffer, sizeof buffer, &rec));
+        ASSERT_EQ(rec.error, NTS_UNKNOWN_CRIT_RECORD);
 
         /* error record */
         encode_record_raw((p = buffer, &p), 1, (value[1] = 0, &value), 2);
         encode_record_raw(&p, 4, (value[1] = 15, &value), 2);
         encode_record_raw(&p, 2, (value[1] = 42, &value), 2);
         encode_record_raw(&p, 0, NULL, 0);
-        assert_se(NTS_decode_response(buffer, sizeof buffer, &rec) != 0);
-        assert_se(rec.error == 42);
+        ASSERT_FAIL(NTS_decode_response(buffer, sizeof buffer, &rec));
+        ASSERT_EQ(rec.error, 42);
 
         /* warning record */
         encode_record_raw((p = buffer, &p), 1, (value[1] = 0, &value), 2);
         encode_record_raw(&p, 4, (value[1] = 15, &value), 2);
         encode_record_raw(&p, 3, (value[1] = 42, &value), 2);
         encode_record_raw(&p, 0, NULL, 0);
-        assert_se(NTS_decode_response(buffer, sizeof buffer, &rec) != 0);
-        assert_se(rec.error == NTS_UNEXPECTED_WARNING);
+        ASSERT_FAIL(NTS_decode_response(buffer, sizeof buffer, &rec));
+        ASSERT_EQ(rec.error, NTS_UNEXPECTED_WARNING);
 
         /* valid */
         encode_record_raw((p = buffer, &p), 1, (value[1] = 0, &value), 2);
@@ -139,17 +139,17 @@ TEST(nts_decoding) {
         encode_record_raw(&p, 5, "COOKIE333", 9);
         encode_record_raw(&p, 6, "localhost", 9);
         encode_record_raw(&p, 5, "COOKIE4444", 10);
-        assert_se(NTS_decode_response(buffer, sizeof buffer, &rec) == 0);
-        assert_se(rec.error == NTS_SUCCESS);
-        assert_se(rec.aead_id == 15);
-        assert_se(rec.ntp_port == 42);
-        assert_se(strcmp(rec.ntp_server, "localhost") == 0);
-        assert_se(memcmp(rec.cookie[0].iov_base, "COOKIE1", rec.cookie[0].iov_len) == 0);
-        assert_se(memcmp(rec.cookie[1].iov_base, "COOKIE22", rec.cookie[1].iov_len) == 0);
-        assert_se(memcmp(rec.cookie[2].iov_base, "COOKIE333", rec.cookie[2].iov_len) == 0);
-        assert_se(memcmp(rec.cookie[3].iov_base, "COOKIE4444", rec.cookie[3].iov_len) == 0);
-        assert_se(rec.cookie[4].iov_base == NULL);
-        assert_se(rec.cookie[4].iov_len == 0);
+        ASSERT_OK_ZERO(NTS_decode_response(buffer, sizeof buffer, &rec));
+        ASSERT_EQ(rec.error, NTS_SUCCESS);
+        ASSERT_EQ(rec.aead_id, 15);
+        ASSERT_EQ(rec.ntp_port, 42);
+        ASSERT_STREQ(rec.ntp_server, "localhost");
+        ASSERT_EQ(memcmp(rec.cookie[0].iov_base, "COOKIE1", rec.cookie[0].iov_len), 0);
+        ASSERT_EQ(memcmp(rec.cookie[1].iov_base, "COOKIE22", rec.cookie[1].iov_len), 0);
+        ASSERT_EQ(memcmp(rec.cookie[2].iov_base, "COOKIE333", rec.cookie[2].iov_len), 0);
+        ASSERT_EQ(memcmp(rec.cookie[3].iov_base, "COOKIE4444", rec.cookie[3].iov_len), 0);
+        ASSERT_NULL(rec.cookie[4].iov_base);
+        ASSERT_EQ(rec.cookie[4].iov_len, 0u);
 }
 
 TEST(ntp_field_encoding) {
@@ -168,24 +168,24 @@ TEST(ntp_field_encoding) {
 
         NTS_Receipt rcpt = {};
         ssize_t len = NTS_add_extension_fields(buffer, &nts, &identifier);
-        assert_se(len > 48);
-        assert_se(NTS_parse_extension_fields(buffer, len, &nts, &rcpt));
+        ASSERT_GT(len, 48);
+        ASSERT_OK_POSITIVE(NTS_parse_extension_fields(buffer, len, &nts, &rcpt));
 
-        assert_se(rcpt.new_cookie->iov_base == NULL);
-        assert_se(memcmp(buffer + 48 + 36 + 4, cookie, strlen(cookie)) == 0);
-        assert_se(strcmp((char*)buffer + 48 + 36 + 4, cookie) == 0);
+        ASSERT_NULL(rcpt.new_cookie->iov_base);
+        ASSERT_EQ(memcmp(buffer + 48 + 36 + 4, cookie, strlen(cookie)), 0);
+        ASSERT_STREQ((char*)buffer + 48 + 36 + 4, cookie);
 
         for (int i=0; i < len; i++) {
                 zero(rcpt);
                 len = NTS_add_extension_fields(buffer, &nts, &identifier);
                 buffer[i] ^= 0x20;
-                assert_se(NTS_parse_extension_fields(buffer, len, &nts, &rcpt) < 0);
+                ASSERT_FAIL(NTS_parse_extension_fields(buffer, len, &nts, &rcpt));
         }
 
         zero(rcpt);
         len = NTS_add_extension_fields(buffer, &nts, &identifier);
         nts.s2c_key = (uint8_t[32]){ 1, };
-        assert_se(NTS_parse_extension_fields(buffer, len, &nts, &rcpt) < 0);
+        ASSERT_FAIL(NTS_parse_extension_fields(buffer, len, &nts, &rcpt));
 }
 
 #if HAVE_OPENSSL
@@ -196,7 +196,7 @@ static void add_encrypted_server_hdr(
                 const char *cookie[],
                 uint8_t *corrupt) {
 
-        assert(dlopen_libcrypto(LOG_ERR) == 0);
+        ASSERT_OK_ZERO(dlopen_libcrypto(LOG_ERR));
 
         uint8_t *pt, *af = *p_ptr;
         /* write nonce */
@@ -219,7 +219,7 @@ static void add_encrypted_server_hdr(
         sym_EVP_EncryptUpdate(ctx, /* out= */ NULL, &ignore, (uint8_t*)"123NONCE", 8);
         sym_EVP_EncryptUpdate(ctx, pt, &ignore, pt, *p_ptr - pt);
         sym_EVP_EncryptFinal_ex(ctx, buffer, &ignore);
-        assert_se(ignore == 0);
+        ASSERT_EQ(ignore, 0);
         sym_EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_AEAD_GET_TAG, 16, pt - 16);
         sym_EVP_CIPHER_CTX_free(ctx);
         sym_EVP_CIPHER_free(cipher);
@@ -236,7 +236,7 @@ static void add_encrypted_server_hdr(
 }
 
 TEST(ntp_field_decoding) {
-        assert(dlopen_libcrypto(LOG_ERR) == 0);
+        ASSERT_OK_ZERO(dlopen_libcrypto(LOG_ERR));
 
         uint8_t buffer[1280];
 
@@ -253,23 +253,23 @@ TEST(ntp_field_decoding) {
         uint8_t *p =  buffer + 48;
 
         char ident[] = "Silence speaks louder than words";
-        assert(strlen(ident) == 32);
+        ASSERT_EQ(strlen(ident), 32u);
 
         /* this deliberately breaks padding rules and sneaks an encrypted identifier */
         encode_record_raw_ext(&p, 0x0104, ident, 32);
         add_encrypted_server_hdr(buffer, &p, nts, (const char*[]){cookie, cakey, NULL}, NULL);
 
         NTS_Receipt rcpt = {};
-        assert_se(NTS_parse_extension_fields(buffer, p - buffer, &nts, &rcpt));
+        ASSERT_OK_POSITIVE(NTS_parse_extension_fields(buffer, p - buffer, &nts, &rcpt));
 
-        assert_se(memcmp(rcpt.identifier.bytes, ident, 32) == 0);
-        assert_se(rcpt.new_cookie[0].iov_base != NULL);
-        assert_se(rcpt.new_cookie[0].iov_len >= strlen(cookie));
-        assert_se(memcmp(rcpt.new_cookie[0].iov_base, cookie, strlen(cookie)) == 0);
-        assert_se(rcpt.new_cookie[1].iov_base != NULL);
-        assert_se(rcpt.new_cookie[1].iov_len >= strlen(cakey));
-        assert_se(memcmp(rcpt.new_cookie[1].iov_base, cakey, strlen(cakey)) == 0);
-        assert_se(rcpt.new_cookie[2].iov_base == NULL);
+        ASSERT_EQ(memcmp(rcpt.identifier.bytes, ident, 32), 0);
+        ASSERT_NOT_NULL(rcpt.new_cookie[0].iov_base);
+        ASSERT_GE(rcpt.new_cookie[0].iov_len, strlen(cookie));
+        ASSERT_EQ(memcmp(rcpt.new_cookie[0].iov_base, cookie, strlen(cookie)), 0);
+        ASSERT_NOT_NULL(rcpt.new_cookie[1].iov_base);
+        ASSERT_GE(rcpt.new_cookie[1].iov_len, strlen(cakey));
+        ASSERT_EQ(memcmp(rcpt.new_cookie[1].iov_base, cakey, strlen(cakey)), 0);
+        ASSERT_NULL(rcpt.new_cookie[2].iov_base);
 
         /* same test but no authentication of uniq id */
         p = buffer + 48;
@@ -277,13 +277,13 @@ TEST(ntp_field_decoding) {
         encode_record_raw_ext(&p, 0x0104, ident, 32);
 
         zero(rcpt);
-        assert_se(NTS_parse_extension_fields(buffer, p - buffer, &nts, &rcpt) < 0);
+        ASSERT_FAIL(NTS_parse_extension_fields(buffer, p - buffer, &nts, &rcpt));
 
         /* no authentication at all */
         p = buffer + 48;
         encode_record_raw(&p, 0x0104, ident, 32);
         zero(rcpt);
-        assert_se(NTS_parse_extension_fields(buffer, p - buffer, &nts, &rcpt) < 0);
+        ASSERT_FAIL(NTS_parse_extension_fields(buffer, p - buffer, &nts, &rcpt));
 
         /* malicious unencrypted field */
         p = buffer + 48;
@@ -291,7 +291,7 @@ TEST(ntp_field_decoding) {
         add_encrypted_server_hdr(buffer, &p, nts, (const char*[]){cookie, NULL}, NULL);
         buffer[48+2] = 0xee;
         zero(rcpt);
-        assert_se(NTS_parse_extension_fields(buffer, p - buffer, &nts, &rcpt) < 0);
+        ASSERT_FAIL(NTS_parse_extension_fields(buffer, p - buffer, &nts, &rcpt));
 
         /* malicious encrypted field */
         p = buffer + 48;
@@ -301,15 +301,9 @@ TEST(ntp_field_decoding) {
         add_encrypted_server_hdr(buffer, &p, nts, (const char*[]){cookie, NULL}, p+34);
 
         zero(rcpt);
-        assert_se(NTS_parse_extension_fields(buffer, p - buffer, &nts, &rcpt) < 0);
+        ASSERT_FAIL(NTS_parse_extension_fields(buffer, p - buffer, &nts, &rcpt));
 }
 #endif
-
-/* appease the gcc static analyzer */
-static const void* nonnull(const void *p) {
-        assert_se(p);
-        return p;
-}
 
 TEST(crypto) {
         uint8_t key[256];
@@ -328,18 +322,18 @@ TEST(crypto) {
         for (unsigned id=0; id <= 33; id++) {
                 if (!NTS_get_param(id))
                         continue;
-                ssize_t len = NTS_encrypt(&IOVEC_MAKE(enc, sizeof(enc)), &IOVEC_MAKE(plaintext, sizeof(plaintext)), ad, nonnull(NTS_get_param(id)), key);
-                assert_se(len > 0);
-                assert_se(NTS_decrypt(&IOVEC_MAKE(dec, sizeof(dec)), &IOVEC_MAKE(enc, len), ad, nonnull(NTS_get_param(id)), key) == sizeof(plaintext));
-                assert_se(memcmp(dec, plaintext, sizeof(plaintext)) == 0);
+                ssize_t len = NTS_encrypt(&IOVEC_MAKE(enc, sizeof(enc)), &IOVEC_MAKE(plaintext, sizeof(plaintext)), ad, ASSERT_PTR(NTS_get_param(id)), key);
+                ASSERT_OK_POSITIVE(len);
+                ASSERT_OK_EQ(NTS_decrypt(&IOVEC_MAKE(dec, sizeof(dec)), &IOVEC_MAKE(enc, len), ad, ASSERT_PTR(NTS_get_param(id)), key), sizeof(plaintext));
+                ASSERT_EQ(memcmp(dec, plaintext, sizeof(plaintext)), 0);
         }
 
         /* test in-place decryption for the default cipher */
         memcpy(enc, plaintext, sizeof(plaintext));
-        ssize_t len = NTS_encrypt(&IOVEC_MAKE(enc, sizeof(enc)), &IOVEC_MAKE(enc, sizeof(plaintext)), ad, nonnull(NTS_get_param(NTS_AEAD_AES_SIV_CMAC_256)), key);
-        assert_se(len == sizeof(plaintext)+16);
-        assert_se(NTS_decrypt(&IOVEC_MAKE(enc, sizeof(enc)), &IOVEC_MAKE(enc, len), ad, nonnull(NTS_get_param(NTS_AEAD_AES_SIV_CMAC_256)), key) == sizeof(plaintext));
-        assert_se(memcmp(enc, plaintext, sizeof(plaintext)) == 0);
+        ssize_t len = NTS_encrypt(&IOVEC_MAKE(enc, sizeof(enc)), &IOVEC_MAKE(enc, sizeof(plaintext)), ad, ASSERT_PTR(NTS_get_param(NTS_AEAD_AES_SIV_CMAC_256)), key);
+        ASSERT_OK_EQ(len, sizeof(plaintext)+16);
+        ASSERT_OK_EQ(NTS_decrypt(&IOVEC_MAKE(enc, sizeof(enc)), &IOVEC_MAKE(enc, len), ad, ASSERT_PTR(NTS_get_param(NTS_AEAD_AES_SIV_CMAC_256)), key), sizeof(plaintext));
+        ASSERT_EQ(memcmp(enc, plaintext, sizeof(plaintext)), 0);
 
         /* test known vectors AES_SIV_CMAC_256
          * we can't test these using Nettle; one way to check that we are on Nettle is currently that it does not
@@ -386,8 +380,8 @@ TEST(crypto) {
                         { nonce, sizeof(nonce) },
                         { NULL }
                 };
-                assert_se(NTS_encrypt(&IOVEC_MAKE(out, sizeof(out)), &IOVEC_MAKE(pt, sizeof(pt)), info, NTS_get_param(NTS_AEAD_AES_SIV_CMAC_256), key) == sizeof(ct));
-                assert_se(memcmp(out, ct, sizeof(ct)) == 0);
+                ASSERT_OK_EQ(NTS_encrypt(&IOVEC_MAKE(out, sizeof(out)), &IOVEC_MAKE(pt, sizeof(pt)), info, NTS_get_param(NTS_AEAD_AES_SIV_CMAC_256), key), sizeof(ct));
+                ASSERT_EQ(memcmp(out, ct, sizeof(ct)), 0);
         }
 
         /* test known vectors - AES_128_GCM_SIV */
@@ -410,14 +404,14 @@ TEST(crypto) {
 
                 uint8_t out[sizeof(ct)];
 
-                assert_se(NTS_encrypt(&IOVEC_MAKE(out, sizeof(out)), &IOVEC_MAKE(pt, sizeof(pt)), info, NTS_get_param(NTS_AEAD_AES_128_GCM_SIV), key) == sizeof(ct));
-                assert_se(memcmp(out, ct, sizeof(ct)) == 0);
+                ASSERT_OK_EQ(NTS_encrypt(&IOVEC_MAKE(out, sizeof(out)), &IOVEC_MAKE(pt, sizeof(pt)), info, NTS_get_param(NTS_AEAD_AES_128_GCM_SIV), key), sizeof(ct));
+                ASSERT_EQ(memcmp(out, ct, sizeof(ct)), 0);
         }
 }
 
 TEST(keysize) {
-        assert_se(NTS_get_param(NTS_AEAD_AES_SIV_CMAC_256)->key_size == 32);
-        assert_se(NTS_get_param(NTS_AEAD_AES_SIV_CMAC_512)->key_size == 64);
+        ASSERT_EQ(NTS_get_param(NTS_AEAD_AES_SIV_CMAC_256)->key_size, 32);
+        ASSERT_EQ(NTS_get_param(NTS_AEAD_AES_SIV_CMAC_512)->key_size, 64);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
