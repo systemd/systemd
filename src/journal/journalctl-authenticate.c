@@ -7,11 +7,11 @@
 #include "alloc-util.h"
 #include "ansi-color.h"
 #include "chattr-util.h"
+#include "crypto-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
-#include "fsprg-gcrypt.h"
-#include "gcrypt-util.h"
+#include "fsprg-openssl.h"
 #include "hostname-setup.h"
 #include "hostname-util.h"
 #include "io-util.h"
@@ -29,7 +29,7 @@
 #include "time-util.h"
 #include "tmpfile-util.h"
 
-#if HAVE_GCRYPT
+#if HAVE_OPENSSL
 static int format_key(
                 const void *seed,
                 size_t seed_size,
@@ -61,19 +61,19 @@ static int format_key(
 #endif
 
 int action_setup_keys(void) {
-#if HAVE_GCRYPT
+#if HAVE_OPENSSL
         _cleanup_(unlink_and_freep) char *tmpfile = NULL;
         _cleanup_close_ int fd = -EBADF;
         _cleanup_free_ char *path = NULL;
-        size_t mpk_size, seed_size, state_size;
-        uint8_t *mpk, *seed, *state;
+        size_t seed_size, state_size;
+        uint8_t *seed, *state;
         sd_id128_t machine, boot;
         uint64_t n;
         int r;
 
         assert(arg_action == ACTION_SETUP_KEYS);
 
-        r = DLOPEN_GCRYPT(LOG_ERR, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
+        r = DLOPEN_LIBCRYPTO(LOG_ERR, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
         if (r < 0)
                 return r;
 
@@ -105,13 +105,10 @@ int action_setup_keys(void) {
                 return log_error_errno(SYNTHETIC_ERRNO(EEXIST),
                                        "Sealing key file %s exists already. Use --force to recreate.", path);
 
-        mpk_size = FSPRG_mskinbytes(FSPRG_RECOMMENDED_SECPAR);
-        mpk = alloca_safe(mpk_size);
-
         seed_size = FSPRG_RECOMMENDED_SEEDLEN;
         seed = alloca_safe(seed_size);
 
-        state_size = FSPRG_stateinbytes(FSPRG_RECOMMENDED_SECPAR);
+        state_size = fsprg_state_size(FSPRG_RECOMMENDED_SECPAR);
         state = alloca_safe(state_size);
 
         if (!arg_quiet)
@@ -121,14 +118,12 @@ int action_setup_keys(void) {
                 return log_error_errno(r, "Failed to acquire random seed: %m");
 
         if (!arg_quiet)
-                log_info("Generating key pair...");
-        r = FSPRG_GenMK(NULL, mpk, seed, seed_size, FSPRG_RECOMMENDED_SECPAR);
-        if (r < 0)
-                return log_error_errno(r, "Failed to generate key pair: %m");
-
-        if (!arg_quiet)
                 log_info("Generating sealing key...");
-        r = FSPRG_GenState0(state, mpk, seed, seed_size);
+        r = fsprg_generate_state(
+                        FSPRG_RECOMMENDED_SECPAR,
+                        /* epoch= */ 0,
+                        &IOVEC_MAKE(seed, seed_size),
+                        &IOVEC_MAKE(state, state_size));
         if (r < 0)
                 return log_error_errno(r, "Failed to generate sealing key: %m");
 
