@@ -1738,7 +1738,7 @@ int vsock_parse_cid(const char *s, unsigned *ret) {
                 *ret = VMADDR_CID_LOCAL;
         else if (streq(s, "host"))
                 *ret = VMADDR_CID_HOST;
-        else if (streq(s, "any") || streq(s, "-1"))
+        else if (STR_IN_SET(s, "any", "-1"))
                 *ret = VMADDR_CID_ANY;
         else
                 return safe_atou(s, ret);
