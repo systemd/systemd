@@ -1408,15 +1408,20 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         <term><varname>NUMAPolicy=</varname></term>
 
         <listitem><para>Controls the NUMA memory policy of the executed processes. Takes a policy type, one of:
-        <option>default</option>, <option>preferred</option>, <option>bind</option>, <option>interleave</option> and
-        <option>local</option>. A list of NUMA nodes that should be associated with the policy must be specified
-        in <varname>NUMAMask=</varname>. For more details on each policy please see,
+        <option>default</option>, <option>preferred</option>, <option>bind</option>, <option>interleave</option>,
+        <option>local</option>, <option>preferred-many</option> (requires Linux 5.15 or newer) and
+        <option>weighted-interleave</option> (requires Linux 6.9 or newer, weights are configured via
+        <filename>/sys/kernel/mm/mempolicy/weighted_interleave/</filename>). A list of NUMA nodes that should be
+        associated with the policy must be specified in <varname>NUMAMask=</varname>. For more details on each
+        policy please see,
         <citerefentry><refentrytitle>set_mempolicy</refentrytitle><manvolnum>2</manvolnum></citerefentry>. For overall
         overview of NUMA support in Linux see,
         <citerefentry project='man-pages'><refentrytitle>numa</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+        If the kernel does not support the requested policy, a warning is logged and the setting is ignored.
         </para>
 
-        <xi:include href="version-info.xml" xpointer="v243"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v243"/>
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
       </varlistentry>
 
       <varlistentry>
