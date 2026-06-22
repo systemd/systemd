@@ -55,9 +55,10 @@ int metrics_setup_varlink_server(
 }
 
 static const char * const metric_family_type_table[_METRIC_FAMILY_TYPE_MAX] = {
-        [METRIC_FAMILY_TYPE_COUNTER] = "counter",
-        [METRIC_FAMILY_TYPE_GAUGE]   = "gauge",
-        [METRIC_FAMILY_TYPE_STRING]  = "string",
+        [METRIC_FAMILY_TYPE_COUNTER]     = "counter",
+        [METRIC_FAMILY_TYPE_GAUGE]       = "gauge",
+        [METRIC_FAMILY_TYPE_STRING]      = "string",
+        [METRIC_FAMILY_TYPE_JSON_OBJECT] = "jsonObject",
 };
 
 DEFINE_STRING_TABLE_LOOKUP_TO_STRING(metric_family_type, MetricFamilyType);
@@ -228,4 +229,19 @@ int metric_build_send_double(
                 return log_debug_errno(r, "Failed to allocate JSON real: %m");
 
         return metric_build_send(mf, link, object, v, fields);
+}
+
+int metric_build_send_object(
+                const MetricFamily *mf,
+                sd_varlink *link,
+                const char *object,
+                sd_json_variant *value,
+                sd_json_variant *fields) {
+
+        assert(mf);
+        assert(link);
+        assert(value);
+        assert(sd_json_variant_is_object(value));
+
+        return metric_build_send(mf, link, object, value, fields);
 }
