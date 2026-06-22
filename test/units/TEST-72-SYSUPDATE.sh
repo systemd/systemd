@@ -249,7 +249,7 @@ verify_version_current() {
 verify_object_fields() {
     local updatectl_output="${1:?}"
 
-    [[ "${updatectl_output}" != *"Unrecognized object field"* ]] || exit 1
+    [[ "${updatectl_output}" != *"Unrecognized object field"* ]]
 }
 
 for sector_size in "${SECTOR_SIZES[@]}"; do
