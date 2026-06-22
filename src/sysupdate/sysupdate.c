@@ -268,7 +268,7 @@ static int context_load_installed_instances(Context *c) {
 
         assert(c);
 
-        log_info("Discovering installed instances%s", glyph(GLYPH_ELLIPSIS));
+        log_debug("Discovering installed instances%s", glyph(GLYPH_ELLIPSIS));
 
         FOREACH_ARRAY(tr, c->transfers, c->n_transfers) {
                 Transfer *t = *tr;
