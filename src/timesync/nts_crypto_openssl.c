@@ -38,7 +38,7 @@ typedef int EVP_CryptInit_func(
                 const uint8_t *iv);
 
 typedef int EVP_CryptUpdate_func(
-                EVP_CIPHER_CTX* ctx,
+                EVP_CIPHER_CTX *ctx,
                 uint8_t *out,
                 int *outl,
                 const uint8_t *in,
@@ -65,7 +65,7 @@ static int process_assoc_data(
                  * our interface *does* interpret the last AAD item as the siv/nonce
                  */
                 assert(info->iov_base);
-                for (last = info; (last + 1)->iov_base != NULL; )
+                for (last = info; (last + 1)->iov_base; )
                         last++;
 
                 if (last->iov_len != aead->nonce_size)
@@ -82,7 +82,7 @@ static int process_assoc_data(
                 if (r == 0)
                         return -EINVAL;
 
-                assert((size_t)len == info->iov_len);
+                assert((size_t) len == info->iov_len);
         }
 
         return 0;
@@ -108,9 +108,9 @@ ssize_t NTS_encrypt(const struct iovec *ctxt,
         size_t ptxt_len = ptxt->iov_len;
 
         assert(ctxt_buf);
-        assert(ctxt_len <= (size_t)INT_MAX); /* OpenSSL expects an int */
+        assert(ctxt_len <= (size_t) INT_MAX); /* OpenSSL expects an int */
         assert(ptxt_buf);
-        assert(ptxt_len <= (size_t)INT_MAX); /* same */
+        assert(ptxt_len <= (size_t) INT_MAX); /* same */
 
         r = dlopen_libcrypto(LOG_ERR);
         if (r < 0)
@@ -190,9 +190,9 @@ ssize_t NTS_decrypt(const struct iovec *ptxt,
         size_t ctxt_len = ctxt->iov_len;
 
         assert(ptxt_buf);
-        assert(ptxt_len <= (size_t)INT_MAX); /* OpenSSL expects an int */
+        assert(ctxt_len <= (size_t) INT_MAX); /* OpenSSL expects an int */
         assert(ctxt_buf);
-        assert(ctxt_len <= (size_t)INT_MAX); /* same */
+        assert(ptxt_len <= (size_t) INT_MAX); /* same */
 
         r = dlopen_libcrypto(LOG_ERR);
         if (r < 0)
@@ -225,7 +225,7 @@ ssize_t NTS_decrypt(const struct iovec *ptxt,
         if (r == 0)
                 return -EINVAL;
 
-        r = sym_EVP_CIPHER_CTX_ctrl(state, EVP_CTRL_AEAD_SET_TAG, aead->block_size, (uint8_t*)tag);
+        r = sym_EVP_CIPHER_CTX_ctrl(state, EVP_CTRL_AEAD_SET_TAG, aead->block_size, (uint8_t*) tag);
         if (r == 0)
                 return -EINVAL;
 

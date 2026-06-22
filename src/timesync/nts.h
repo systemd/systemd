@@ -61,7 +61,7 @@ typedef struct NTS_Agreement {
 
 /* Encode a NTS KE request in the buffer of the provided size. If the third argument is not NULL,
  * it must point to a NULL-terminated array of AEAD_algorithm-types that indicate the preferred AEAD
- * algorithms (otherwise a sane default it used).
+ * algorithms (otherwise a sane default is used).
  *
  * RETURNS
  *      non-zero number of bytes encoded upon success
@@ -69,7 +69,7 @@ typedef struct NTS_Agreement {
  */
 ssize_t NTS_encode_request(uint8_t *buffer, size_t buf_size, const NTS_AEADAlgorithmType *preferred_crypto);
 
-/* Decode a NTS KE reponse in the buffer of the provided size, and write the result to the NTS_Agreement
+/* Decode a NTS KE response in the buffer of the provided size, and write the result to the NTS_Agreement
  * struct. This function does not allocate data: pointers in the struct for a potential negotiated server
  * name and NTS cookies point into buffer, and must be copied if buffer is deallocated or overwritten.
  *
@@ -86,7 +86,7 @@ ssize_t NTS_encode_request(uint8_t *buffer, size_t buf_size, const NTS_AEADAlgor
 int NTS_decode_response(uint8_t *buffer, size_t buf_size, NTS_Agreement *response);
 
 /* Convert a NTS_ErrorType to a string, or NULL if an unknown error. */
-const char *NTS_error_string(NTS_ErrorType error);
+const char* NTS_error_string(NTS_ErrorType error);
 
 /* The following three functions provide runtime information about the chosen AEAD algorithm:
  * - key size requirement in bytes
@@ -107,7 +107,7 @@ typedef struct NTS_TLS NTS_TLS;
  *      a negative value upon failure:
  *              -EBADE   OpenSSL error
  *              -ENOBUFS not enough space in buffer
- *              -EINVAL  unkown AEAD
+ *              -EINVAL  unknown AEAD
  */
 int NTS_TLS_extract_keys(NTS_TLS *session, NTS_AEADAlgorithmType aead, uint8_t *ret_c2s, uint8_t *ret_s2c, size_t key_capacity);
 
@@ -129,7 +129,7 @@ int NTS_TLS_setup(const char *hostname, int socket_fd, NTS_TLS **ret);
  */
 int NTS_TLS_handshake(NTS_TLS *session);
 
-/* Shutdowns a TLS session and frees all resources, closes the associated socket
+/* Shuts down a TLS session and frees all resources, closes the associated socket
  * Also sets the NTS_TLS* object itself to NULL.
  *
  * RETURNS

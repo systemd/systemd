@@ -25,13 +25,13 @@ static void encode_ptr_len_data(
         uint8_t hdr[4] = {
                 type >> 8,
                 type & 0xFF,
-                (len + count_hdr*sizeof(hdr)) >> 8,
-                (len + count_hdr*sizeof(hdr)) & 0xFF,
+                (len + count_hdr * sizeof(hdr)) >> 8,
+                (len + count_hdr * sizeof(hdr)) & 0xFF,
         };
 
         memcpy(*message, hdr, 4);
         if (len)
-                memcpy(*message+4, data, len);
+                memcpy(*message + 4, data, len);
         *message += len + 4;
 }
 
@@ -160,7 +160,7 @@ TEST(ntp_field_encoding) {
         char cookie[] = "PAD";
 
         NTS_Query nts = {
-                { (uint8_t*)cookie, strlen(cookie) },
+                { (uint8_t*) cookie, strlen(cookie) },
                 key,
                 key,
                 *NTS_get_param(NTS_AEAD_AES_SIV_CMAC_256),
@@ -173,9 +173,9 @@ TEST(ntp_field_encoding) {
 
         ASSERT_NULL(rcpt.new_cookie->iov_base);
         ASSERT_EQ(memcmp(buffer + 48 + 36 + 4, cookie, strlen(cookie)), 0);
-        ASSERT_STREQ((char*)buffer + 48 + 36 + 4, cookie);
+        ASSERT_STREQ((char*) buffer + 48 + 36 + 4, cookie);
 
-        for (int i=0; i < len; i++) {
+        for (int i = 0; i < len; i++) {
                 zero(rcpt);
                 len = NTS_add_extension_fields(buffer, &nts, &identifier);
                 buffer[i] ^= 0x20;
@@ -200,7 +200,7 @@ static void add_encrypted_server_hdr(
 
         uint8_t *pt, *af = *p_ptr;
         /* write nonce */
-        *p_ptr = pt = (uint8_t*)mempcpy(af+8, "123NONCE", 8) + 16;
+        *p_ptr = pt = (uint8_t*) mempcpy(af + 8, "123NONCE", 8) + 16;
         /* write fields */
         encode_record_raw_ext(p_ptr, 0x0104, "A sharp mind cuts through deceit", 32);
         for ( ; *cookie; cookie++)
@@ -216,7 +216,7 @@ static void add_encrypted_server_hdr(
         int ignore;
         sym_EVP_EncryptInit_ex(ctx, cipher, /* impl= */ NULL, nts.s2c_key, /* iv= */ NULL);
         sym_EVP_EncryptUpdate(ctx, /* out= */ NULL, &ignore, buffer, af - buffer);
-        sym_EVP_EncryptUpdate(ctx, /* out= */ NULL, &ignore, (uint8_t*)"123NONCE", 8);
+        sym_EVP_EncryptUpdate(ctx, /* out= */ NULL, &ignore, (uint8_t*) "123NONCE", 8);
         sym_EVP_EncryptUpdate(ctx, pt, &ignore, pt, *p_ptr - pt);
         sym_EVP_EncryptFinal_ex(ctx, buffer, &ignore);
         ASSERT_EQ(ignore, 0);
@@ -244,13 +244,13 @@ TEST(ntp_field_decoding) {
         uint8_t key[32] = {};
 
         NTS_Query nts = {
-                { (uint8_t*)cookie, strlen(cookie) },
+                { (uint8_t*) cookie, strlen(cookie) },
                 key,
                 key,
                 *NTS_get_param(NTS_AEAD_AES_SIV_CMAC_256),
         };
 
-        uint8_t *p =  buffer + 48;
+        uint8_t *p = buffer + 48;
 
         char ident[] = "Silence speaks louder than words";
         ASSERT_EQ(strlen(ident), 32u);
@@ -289,7 +289,7 @@ TEST(ntp_field_decoding) {
         p = buffer + 48;
         encode_record_raw_ext(&p, 0x0104, ident, 32);
         add_encrypted_server_hdr(buffer, &p, nts, (const char*[]){cookie, NULL}, NULL);
-        buffer[48+2] = 0xee;
+        buffer[48 + 2] = 0xee;
         zero(rcpt);
         ASSERT_FAIL(NTS_parse_extension_fields(buffer, p - buffer, &nts, &rcpt));
 
@@ -298,7 +298,7 @@ TEST(ntp_field_decoding) {
         encode_record_raw_ext(&p, 0x0104, ident, 32);
         /* at p+32 the first plaintext data will be written
          * so at p+34 is the MSB of the first field length */
-        add_encrypted_server_hdr(buffer, &p, nts, (const char*[]){cookie, NULL}, p+34);
+        add_encrypted_server_hdr(buffer, &p, nts, (const char*[]){cookie, NULL}, p + 34);
 
         zero(rcpt);
         ASSERT_FAIL(NTS_parse_extension_fields(buffer, p - buffer, &nts, &rcpt));
@@ -310,16 +310,17 @@ TEST(crypto) {
         uint8_t enc[100], dec[100];
         const uint8_t plaintext[] = "attack at down";
 
-        for (unsigned i = 0; i < sizeof(key); i++) key[i] = i * 0x11 & 0xFF;
+        for (unsigned i = 0; i < sizeof(key); i++)
+                key[i] = i * 0x11 & 0xFF;
 
         const AssociatedData ad[] = {
-                { (uint8_t*)"FNORD", 5 },
-                { (uint8_t*)"XXXXNONCEXXX", 12 },
+                { (uint8_t*) "FNORD", 5 },
+                { (uint8_t*) "XXXXNONCEXXX", 12 },
                 { NULL },
         };
 
         /* test roundtrips for all ciphers */
-        for (unsigned id=0; id <= 33; id++) {
+        for (unsigned id = 0; id <= 33; id++) {
                 if (!NTS_get_param(id))
                         continue;
                 ssize_t len = NTS_encrypt(&IOVEC_MAKE(enc, sizeof(enc)), &IOVEC_MAKE(plaintext, sizeof(plaintext)), ad, ASSERT_PTR(NTS_get_param(id)), key);
@@ -331,7 +332,7 @@ TEST(crypto) {
         /* test in-place decryption for the default cipher */
         memcpy(enc, plaintext, sizeof(plaintext));
         ssize_t len = NTS_encrypt(&IOVEC_MAKE(enc, sizeof(enc)), &IOVEC_MAKE(enc, sizeof(plaintext)), ad, ASSERT_PTR(NTS_get_param(NTS_AEAD_AES_SIV_CMAC_256)), key);
-        ASSERT_OK_EQ(len, (ssize_t) (sizeof(plaintext)+16));
+        ASSERT_OK_EQ(len, (ssize_t) (sizeof(plaintext) + 16));
         ASSERT_OK_EQ(NTS_decrypt(&IOVEC_MAKE(enc, sizeof(enc)), &IOVEC_MAKE(enc, len), ad, ASSERT_PTR(NTS_get_param(NTS_AEAD_AES_SIV_CMAC_256)), key), (ssize_t) sizeof(plaintext));
         ASSERT_EQ(memcmp(enc, plaintext, sizeof(plaintext)), 0);
 
@@ -340,12 +341,10 @@ TEST(crypto) {
          * support SIV_CMAC_384
          */
         if (NTS_get_param(NTS_AEAD_AES_SIV_CMAC_384)) {
-
                 uint8_t key[] = {
                         0x7f,0x7e,0x7d,0x7c, 0x7b,0x7a,0x79,0x78, 0x77,0x76,0x75,0x74, 0x73,0x72,0x71,0x70,
                         0x40,0x41,0x42,0x43, 0x44,0x45,0x46,0x47, 0x48,0x49,0x4a,0x4b, 0x4c,0x4d,0x4e,0x4f,
                 };
-
 
                 uint8_t aad1[] = {
                         0x00,0x11,0x22,0x33, 0x44,0x55,0x66,0x77, 0x88,0x99,0xaa,0xbb, 0xcc,0xdd,0xee,0xff,

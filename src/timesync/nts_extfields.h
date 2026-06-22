@@ -21,14 +21,14 @@ typedef struct NTS_Receipt {
  *
  * RETURNS
  *      The amount of data encoded in bytes (including NTP packet size).
- *      A negative result indicates an error (in which case the contents of uniq_ident are unspecified)
+ *      A negative result indicates an error (in which case the contents of identifier are unspecified)
  */
 ssize_t NTS_add_extension_fields(
                 uint8_t dest[static NTS_MAX_PACKET_SIZE],
                 const NTS_Query *nts,
                 NTS_Identifier *identifier);
 
-/* Processed the NTP extension fields in the provided buffer based on the configuration in the NTS struct,
+/* Processes the NTP extension fields in the provided buffer based on the configuration in the NTS struct,
  * and make this information available in the NTS_Receipt struct. The identifier and cookies in NTS_Receipt
  * all point into the given src buffer, so the caller must make copies if they are to live longer than src.
  *

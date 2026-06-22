@@ -27,8 +27,8 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         NTS_Query nts = {
                 .cipher = *NTS_get_param(NTS_AEAD_AES_SIV_CMAC_256),
-                .c2s_key = (void*)"01234567890abcdef",
-                .s2c_key = (void*)"01234567890abcdef",
+                .c2s_key = (void*) "01234567890abcdef",
+                .s2c_key = (void*) "01234567890abcdef",
         };
 
         /* fuzz the NTS extension field parser */
