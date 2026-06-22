@@ -228,10 +228,14 @@ static int rm_rf_inner_child(
 
                         r = btrfs_subvol_remove_at(fd, fname, BTRFS_REMOVE_RECURSIVE|BTRFS_REMOVE_QUOTA);
                         if (r < 0) {
-                                if (!IN_SET(r, -ENOTTY, -EINVAL))
+                                if (!IN_SET(r, -ENOTTY, -EINVAL, -EPERM, -EACCES))
                                         return r;
 
-                                /* ENOTTY, then it wasn't a btrfs subvolume, continue below. */
+                                /* ENOTTY, then it wasn't a btrfs subvolume. EPERM/EACCES means we lack
+                                 * the privileges for the destroy ioctl (no CAP_SYS_ADMIN and no
+                                 * 'user_subvol_rm_allowed'); btrfs_subvol_remove_at() will have cleared
+                                 * the read-only flag where it could, so fall through and try to empty the
+                                 * subvolume recursively and rmdir() it, which an unprivileged owner may do. */
                         } else
                                 /* It was a subvolume, done. */
                                 return 1;
