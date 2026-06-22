@@ -54,9 +54,15 @@ int oci_registry_is_valid(const char *n) {
         if (!n)
                 return false;
 
+        if (isempty(n))
+                return false;
+
         const char *colon = strchr(n, ':');
         if (!colon)
                 return dns_name_is_valid(n);
+
+        if (colon == n)  /* empty host, e.g. ":5000" */
+                return false;
 
         _cleanup_free_ char *s = strndup(n, colon - n);
         if (!s)
@@ -67,7 +73,10 @@ int oci_registry_is_valid(const char *n) {
                 return r;
 
         uint16_t port;
-        return safe_atou16(s, &port) >= 0 && port != 0;
+        return safe_atou16_full(colon + 1,
+                                10 | SAFE_ATO_REFUSE_LEADING_WHITESPACE |
+                                SAFE_ATO_REFUSE_PLUS_MINUS | SAFE_ATO_REFUSE_LEADING_ZERO,
+                                &port) >= 0 && port != 0;
 }
 
 bool oci_tag_is_valid(const char *n) {
