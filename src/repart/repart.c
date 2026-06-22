@@ -2366,7 +2366,7 @@ static int config_parse_make_symlinks(
         int r;
 
         for (;;) {
-                _cleanup_free_ char *word = NULL, *path = NULL, *target = NULL, *d = NULL;
+                _cleanup_free_ char *word = NULL, *source = NULL, *target = NULL, *resolved_source = NULL, *resolved_target = NULL;
 
                 r = extract_first_word(&p, &word, NULL, EXTRACT_UNQUOTE);
                 if (r == -ENOMEM)
@@ -2379,7 +2379,7 @@ static int config_parse_make_symlinks(
                         return 0;
 
                 const char *q = word;
-                r = extract_many_words(&q, ":", EXTRACT_UNQUOTE|EXTRACT_DONT_COALESCE_SEPARATORS, &path, &target);
+                r = extract_many_words(&q, ":", EXTRACT_UNQUOTE|EXTRACT_DONT_COALESCE_SEPARATORS, &source, &target);
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r, "Invalid syntax, ignoring: %s", q);
                         continue;
@@ -2390,18 +2390,26 @@ static int config_parse_make_symlinks(
                         continue;
                 }
 
-                r = specifier_printf(path, PATH_MAX-1, system_and_tmp_specifier_table, arg_root, /* userdata= */ NULL, &d);
+                r = specifier_printf(source, PATH_MAX-1, system_and_tmp_specifier_table, arg_root, /* userdata= */ NULL, &resolved_source);
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Failed to expand specifiers in Subvolumes= parameter, ignoring: %s", path);
+                                   "Failed to expand specifiers in MakeSymlinks= source, ignoring: %s", source);
                         continue;
                 }
 
-                r = path_simplify_and_warn(d, PATH_CHECK_ABSOLUTE, unit, filename, line, lvalue);
+                r = path_simplify_and_warn(resolved_source, PATH_CHECK_ABSOLUTE, unit, filename, line, lvalue);
                 if (r < 0)
                         continue;
 
-                r = strv_consume_pair(sv, TAKE_PTR(d), TAKE_PTR(target));
+                r = specifier_printf(target, PATH_MAX-1, system_and_tmp_specifier_table, arg_root, /* userdata= */ NULL, &resolved_target);
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Failed to expand specifiers in MakeSymlinks= target, ignoring: %s", target);
+                        continue;
+                }
+                /* Don't simplify the symlink target, preserve the exact argument including relative components */
+
+                r = strv_consume_pair(sv, TAKE_PTR(resolved_source), TAKE_PTR(resolved_target));
                 if (r < 0)
                         return log_error_errno(r, "Failed to add symlink to list: %m");
         }
