@@ -786,8 +786,20 @@ static int dns_transaction_emit_tcp(DnsTransaction *t) {
 
                         assert(t->server);
                         r = dnstls_stream_connect_tls(s, t->server);
-                        if (r < 0)
+                        if (r < 0) {
+                                /* If libcrypto is not available treat this like a TLS connection loss, so
+                                 * that opportunistic DNS-over-TLS downgrades to plaintext instead of
+                                 * re-selecting a TLS feature level and failing on every attempt. */
+                                if (r == -EOPNOTSUPP) {
+                                        log_struct_once(LOG_WARNING,
+                                                        LOG_MESSAGE_ID(SD_MESSAGE_MISSING_DEPENDENCY_STR),
+                                                        LOG_ITEM("FEATURE=DNS-over-TLS"),
+                                                        LOG_MESSAGE("DNS-over-TLS has been requested but the required TLS libraries (libssl/libcrypto) are not installed."));
+                                        dns_server_packet_lost(t->server, IPPROTO_TCP, t->current_feature_level);
+                                        return -ECONNREFUSED;
+                                }
                                 return r;
+                        }
                 }
 #endif
 
