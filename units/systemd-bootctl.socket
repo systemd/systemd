@@ -18,6 +18,9 @@ Before=sockets.target
 ListenStream=/run/systemd/io.systemd.BootControl
 Symlinks=/run/varlink/registry/io.systemd.BootControl
 FileDescriptorName=varlink
-SocketMode=0600
+SocketMode=0644
 Accept=yes
 MaxConnectionsPerSource=16
+XAttrEntryPoint=user.varlink=entrypoint
+XAttrListen=user.varlink=listen
+XAttrAccept=user.varlink=server

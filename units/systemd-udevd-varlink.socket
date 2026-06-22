@@ -19,6 +19,8 @@ Service=systemd-udevd.service
 ListenStream=/run/udev/io.systemd.Udev
 Symlinks=/run/varlink/registry/io.systemd.Udev
 FileDescriptorName=varlink
-SocketMode=0600
+SocketMode=0644
 RemoveOnStop=yes
 DeferTrigger=yes
+XAttrEntryPoint=user.varlink=entrypoint
+XAttrListen=user.varlink=listen
