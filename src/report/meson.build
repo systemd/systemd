@@ -44,4 +44,10 @@ executables += [
                 ),
                 'dependencies' : libopenssl_cflags,
         },
+        libexec_template + {
+                'name' : 'systemd-report-sign-tsm',
+                'sources' : files(
+                        'report-sign-tsm.c',
+                ),
+        }
 ]
