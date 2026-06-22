@@ -312,6 +312,9 @@ _SD_BEGIN_DECLARATIONS;
 #define SD_MESSAGE_TPM_NVPCR_UNSUPPORTED              SD_ID128_MAKE(8f,07,a5,b8,14,ca,47,62,b8,9f,cc,30,82,e4,8a,ed)
 #define SD_MESSAGE_TPM_NVPCR_UNSUPPORTED_STR          SD_ID128_MAKE_STR(8f,07,a5,b8,14,ca,47,62,b8,9f,cc,30,82,e4,8a,ed)
 
+#define SD_MESSAGE_MISSING_DEPENDENCY                 SD_ID128_MAKE(ea,c6,d3,94,c9,25,49,3d,ea,c2,ba,99,f3,c2,bb,11)
+#define SD_MESSAGE_MISSING_DEPENDENCY_STR             SD_ID128_MAKE_STR(ea,c6,d3,94,c9,25,49,3d,ea,c2,ba,99,f3,c2,bb,11)
+
 _SD_END_DECLARATIONS;
 
 #endif

@@ -1024,3 +1024,17 @@ Support: %SUPPORT_URL%
 The Trusted Platform Module's (TPM) NV index support is too limited to properly
 implement NV index backed additional PCRs. NvPCRs will not be allocated or
 initialized, and will not be available on the system.
+
+-- eac6d394c925493deac2ba99f3c2bb11
+Subject: An optional dependency is not installed
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+A feature that was requested depends on an optional component that is loaded at
+runtime (for example a shared library opened via dlopen(3)), but that component
+is not installed on this system.
+
+As a result the requested functionality is unavailable, and is either skipped,
+disabled, or degraded to a fallback mode. Refer to the accompanying log message
+for the specific dependency that is missing and the functionality that is
+affected, then install the dependency to make use of it.
