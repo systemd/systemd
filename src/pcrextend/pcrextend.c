@@ -463,6 +463,9 @@ static int vl_method_extend(sd_varlink *link, sd_json_variant *parameters, sd_va
         else
                 return sd_varlink_error_invalid_parameter_name(link, "text");
 
+        if (extend_iovec->iov_len == 0)
+                return sd_varlink_error_invalid_parameter_name(link, p.text ? "text" : "data");
+
         if (p.nvpcr) {
                 r = extend_nvpcr_now(p.nvpcr, extend_iovec->iov_base, extend_iovec->iov_len, p.event_type);
                 if (r == -ENOENT)
