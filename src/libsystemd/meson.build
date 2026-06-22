@@ -3,7 +3,6 @@
 sd_journal_sources = files(
         'sd-journal/audit-type.c',
         'sd-journal/catalog.c',
-        'sd-journal/fsprg-gcrypt.c',
         'sd-journal/fsprg-openssl.c',
         'sd-journal/journal-authenticate.c',
         'sd-journal/journal-file.c',
@@ -273,7 +272,11 @@ libsystemd_tests += [
                 'timeout' : 120,
         },
         {
-                'sources' : files('sd-journal/test-fsprg.c'),
+                'sources' : files(
+                        'sd-journal/test-fsprg.c',
+                        'sd-journal/fsprg-gcrypt.c',
+                        'sd-journal/gcrypt-util.c',
+                ),
                 'dependencies' : [
                         libgcrypt_cflags,
                         libopenssl_cflags,
