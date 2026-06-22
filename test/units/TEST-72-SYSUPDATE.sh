@@ -643,4 +643,219 @@ set -e
 [[ $rc -ne 134 ]]
 grep -F "Manifest hash at line 1 decoded to 31 bytes" "$WORKDIR/malformed-manifest/check-new.log" >/dev/null
 
+# Check the "cleanup" verb and the underlying install database. A successful
+# update must record an install database entry for every transfer that installs
+# into the file system, and those entries must cover all installed resources
+# (regular files as well as directories). Once the transfer file owning some
+# resources is removed, "systemd-sysupdate cleanup" must delete the now-orphaned
+# resources (and their install database entries), while leaving resources that
+# are still owned by a transfer file untouched.
+INSTALLDB="/var/lib/systemd/sysupdate/installdb"
+CLEANUP="$WORKDIR/cleanup"
+rm -rf "$CONFIGDIR" "$INSTALLDB" "$CLEANUP"
+mkdir -p "$CONFIGDIR" "$CLEANUP/source" "$CLEANUP/target"
+
+# The "alpha" transfer installs plain regular files, while the "beta" transfer
+# installs whole directories (each populated with a couple of files), to exercise
+# the recursive removal of orphaned directory resources during cleanup.
+cleanup_new_version() {
+    local version="${1:?}"
+    echo "$RANDOM" >"$CLEANUP/source/alpha-$version.bin"
+    rm -rf "$CLEANUP/source/beta-$version"
+    mkdir -p "$CLEANUP/source/beta-$version"
+    echo "$RANDOM" >"$CLEANUP/source/beta-$version/one.txt"
+    echo "$RANDOM" >"$CLEANUP/source/beta-$version/two.txt"
+    (cd "$CLEANUP/source" && sha256sum alpha-* >SHA256SUMS)
+}
+
+# Number of install database entries (symlinks) currently recorded.
+installdb_count() {
+    if [[ -d "$INSTALLDB" ]]; then
+        find "$INSTALLDB" -mindepth 1 -maxdepth 1 -type l | wc -l
+    else
+        echo 0
+    fi
+}
+
+# Assert that every resource (file or directory) currently installed in the
+# target directory is covered by at least one install database entry (i.e. its
+# name matches a recorded pattern that points at the target directory).
+assert_installdb_covers_target() {
+    local f base link tgt path pattern glob covered
+    for f in "$CLEANUP/target"/*; do
+        [[ -e "$f" ]] || continue
+        base="$(basename "$f")"
+        covered=0
+        while read -r link; do
+            tgt="$(readlink "$link")"
+            # Entries are stored as "<path>/./<pattern>".
+            path="${tgt%%/./*}"
+            pattern="${tgt#*/./}"
+            # Translate the sysupdate pattern into a shell glob (only @v is used here).
+            glob="${pattern//@v/*}"
+            # shellcheck disable=SC2053
+            if [[ "$path" == "$CLEANUP/target" && "$base" == $glob ]]; then
+                covered=1
+                break
+            fi
+        done < <(find "$INSTALLDB" -mindepth 1 -maxdepth 1 -type l)
+        [[ "$covered" -eq 1 ]] || { echo "Installed resource '$f' not covered by install database" >&2; exit 1; }
+    done
+}
+
+# Verify the installed beta-<version> directory matches its source.
+verify_beta_synced() {
+    local version="${1:?}"
+    test -d "$CLEANUP/target/beta-$version"
+    cmp "$CLEANUP/source/beta-$version/one.txt" "$CLEANUP/target/beta-$version/one.txt"
+    cmp "$CLEANUP/source/beta-$version/two.txt" "$CLEANUP/target/beta-$version/two.txt"
+}
+
+cat >"$CONFIGDIR/01-alpha.transfer" <<EOF
+[Source]
+Type=regular-file
+Path=$CLEANUP/source
+MatchPattern=alpha-@v.bin
+
+[Target]
+Type=regular-file
+Path=$CLEANUP/target
+MatchPattern=alpha-@v.bin
+InstancesMax=2
+EOF
+
+cat >"$CONFIGDIR/02-beta.transfer" <<EOF
+[Source]
+Type=directory
+Path=$CLEANUP/source
+MatchPattern=beta-@v
+
+[Target]
+Type=directory
+Path=$CLEANUP/target
+MatchPattern=beta-@v
+InstancesMax=2
+EOF
+
+# Install two versions; with InstancesMax=2 both are kept for each transfer.
+cleanup_new_version v1
+"$SYSUPDATE" --verify=no update
+cleanup_new_version v2
+"$SYSUPDATE" --verify=no update
+
+# All four resources must be installed, and the directory resources must have
+# been synced over completely.
+test -f "$CLEANUP/target/alpha-v1.bin"
+test -f "$CLEANUP/target/alpha-v2.bin"
+verify_beta_synced v1
+verify_beta_synced v2
+
+# The update must have recorded one install database entry per transfer pattern,
+# and those entries must cover every installed resource.
+[[ "$(installdb_count)" -eq 2 ]]
+assert_installdb_covers_target
+
+# Running cleanup while all transfer files are still in place must be a no-op:
+# nothing is orphaned, so nothing must be removed.
+"$SYSUPDATE" cleanup
+test -f "$CLEANUP/target/alpha-v1.bin"
+test -f "$CLEANUP/target/alpha-v2.bin"
+verify_beta_synced v1
+verify_beta_synced v2
+[[ "$(installdb_count)" -eq 2 ]]
+assert_installdb_covers_target
+
+# Remove the transfer file owning the "beta" directories and clean up. The beta
+# directories (with all their contents) and their install database entry must be
+# removed, while the alpha files must be kept since their transfer file is still
+# in place.
+rm "$CONFIGDIR/02-beta.transfer"
+"$SYSUPDATE" cleanup
+test -f "$CLEANUP/target/alpha-v1.bin"
+test -f "$CLEANUP/target/alpha-v2.bin"
+test ! -e "$CLEANUP/target/beta-v1"
+test ! -e "$CLEANUP/target/beta-v2"
+[[ "$(installdb_count)" -eq 1 ]]
+assert_installdb_covers_target
+
+# Now remove the remaining transfer file and clean up again. The alpha files and
+# the last install database entry must be removed too.
+rm "$CONFIGDIR/01-alpha.transfer"
+"$SYSUPDATE" cleanup
+test ! -f "$CLEANUP/target/alpha-v1.bin"
+test ! -f "$CLEANUP/target/alpha-v2.bin"
+[[ "$(installdb_count)" -eq 0 ]]
+
+rm -rf "$CONFIGDIR" "$INSTALLDB" "$CLEANUP"
+
+# Briefly check the "--component-all" switch of the "cleanup" verb. Each component
+# keeps its own install database (installdb.<component>), and "cleanup
+# --component-all" must clean up orphaned resources across *all* of them in one
+# go. Set up two components, install a resource into each, then drop both transfer
+# files and run a single "cleanup --component-all" — it must remove both
+# components' resources (and their install database entries).
+COMPALL="$WORKDIR/component-all"
+rm -rf "$COMPALL" /run/sysupdate.comp-a.d /run/sysupdate.comp-b.d \
+    /var/lib/systemd/sysupdate/installdb.comp-a /var/lib/systemd/sysupdate/installdb.comp-b
+mkdir -p "$COMPALL/source" "$COMPALL/target-a" "$COMPALL/target-b" \
+    /run/sysupdate.comp-a.d /run/sysupdate.comp-b.d
+
+echo "$RANDOM" >"$COMPALL/source/comp-a-v1.bin"
+echo "$RANDOM" >"$COMPALL/source/comp-b-v1.bin"
+(cd "$COMPALL/source" && sha256sum comp-* >SHA256SUMS)
+
+cat >/run/sysupdate.comp-a.d/01-comp-a.transfer <<EOF
+[Source]
+Type=regular-file
+Path=$COMPALL/source
+MatchPattern=comp-a-@v.bin
+
+[Target]
+Type=regular-file
+Path=$COMPALL/target-a
+MatchPattern=comp-a-@v.bin
+InstancesMax=1
+EOF
+
+cat >/run/sysupdate.comp-b.d/01-comp-b.transfer <<EOF
+[Source]
+Type=regular-file
+Path=$COMPALL/source
+MatchPattern=comp-b-@v.bin
+
+[Target]
+Type=regular-file
+Path=$COMPALL/target-b
+MatchPattern=comp-b-@v.bin
+InstancesMax=1
+EOF
+
+"$SYSUPDATE" --component=comp-a --verify=no update
+"$SYSUPDATE" --component=comp-b --verify=no update
+test -f "$COMPALL/target-a/comp-a-v1.bin"
+test -f "$COMPALL/target-b/comp-b-v1.bin"
+test -d /var/lib/systemd/sysupdate/installdb.comp-a
+test -d /var/lib/systemd/sysupdate/installdb.comp-b
+
+# --component-all is only supported for the "cleanup" verb, refuse it elsewhere.
+(! "$SYSUPDATE" --component-all --verify=no update)
+
+# With the transfer files still in place "cleanup --component-all" is a no-op:
+# nothing is orphaned.
+"$SYSUPDATE" --component-all cleanup
+test -f "$COMPALL/target-a/comp-a-v1.bin"
+test -f "$COMPALL/target-b/comp-b-v1.bin"
+
+# Drop both transfer files and clean up all components at once. Both resources
+# (and their install database entries) must now be gone.
+rm /run/sysupdate.comp-a.d/01-comp-a.transfer /run/sysupdate.comp-b.d/01-comp-b.transfer
+"$SYSUPDATE" --component-all cleanup
+test ! -e "$COMPALL/target-a/comp-a-v1.bin"
+test ! -e "$COMPALL/target-b/comp-b-v1.bin"
+[[ "$(find /var/lib/systemd/sysupdate/installdb.comp-a -type l | wc -l)" -eq 0 ]]
+[[ "$(find /var/lib/systemd/sysupdate/installdb.comp-b -type l | wc -l)" -eq 0 ]]
+
+rm -rf "$COMPALL" /run/sysupdate.comp-a.d /run/sysupdate.comp-b.d \
+    /var/lib/systemd/sysupdate/installdb.comp-a /var/lib/systemd/sysupdate/installdb.comp-b
+
 touch /testok

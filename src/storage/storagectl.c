@@ -348,15 +348,12 @@ static int verb_providers(int argc, char *argv[], uintptr_t data, void *userdata
                         return log_error_errno(errno, "Failed to open '%s': %m", socket_path);
         } else {
                 _cleanup_free_ DirectoryEntries *dentries = NULL;
-                r = readdir_all(fd, RECURSE_DIR_SORT|RECURSE_DIR_IGNORE_DOT|RECURSE_DIR_ENSURE_TYPE, &dentries);
+                r = readdir_all(fd, RECURSE_DIR_SORT|RECURSE_DIR_IGNORE_DOT|RECURSE_DIR_MUST_BE_SOCKET, &dentries);
                 if (r < 0)
                         return log_error_errno(r, "Failed to enumerate '%s': %m", socket_path);
 
                 FOREACH_ARRAY(dp, dentries->entries, dentries->n_entries) {
                         struct dirent *de = *dp;
-
-                        if (de->d_type != DT_SOCK)
-                                continue;
 
                         if (!storage_provider_name_is_valid(de->d_name))
                                 continue;
