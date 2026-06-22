@@ -296,24 +296,28 @@ static bool slots_remain(struct crypt_device *cd, Set *wipe_slots, Set *keep_slo
         return false;
 }
 
-int wipe_slots(struct crypt_device *cd,
-               const int explicit_slots[],
-               size_t n_explicit_slots,
-               WipeScope by_scope,
-               unsigned by_mask,
-               int except_slot) {
+int wipe_slots(const EnrollContext *c,
+               struct crypt_device *cd,
+               int **ret_wiped_slots,
+               size_t *ret_n_wiped_slots) {
 
         _cleanup_set_free_ Set *wipe_slots = NULL, *wipe_tokens = NULL, *keep_slots = NULL;
-        _cleanup_free_ int *ordered_slots = NULL, *ordered_tokens = NULL;
-        size_t n_ordered_slots = 0, n_ordered_tokens = 0;
+        _cleanup_free_ int *ordered_slots = NULL, *ordered_tokens = NULL, *wiped_slots = NULL;
+        size_t n_ordered_slots = 0, n_ordered_tokens = 0, n_wiped_slots = 0;
         int r, slot_max, ret;
         void *e;
 
+        assert_se(c);
         assert_se(cd);
 
         /* Shortcut if nothing to wipe. */
-        if (n_explicit_slots == 0 && by_mask == 0 && by_scope == WIPE_EXPLICIT)
+        if (c->n_wipe_slots == 0 && c->wipe_slots_mask == 0 && c->wipe_slots_scope == WIPE_EXPLICIT) {
+                if (ret_wiped_slots)
+                        *ret_wiped_slots = NULL;
+                if (ret_n_wiped_slots)
+                        *ret_n_wiped_slots = 0;
                 return 0;
+        }
 
         /* So this is a bit more complicated than I'd wish, but we want support three different axis for wiping slots:
          *
@@ -334,23 +338,23 @@ int wipe_slots(struct crypt_device *cd,
                 return log_oom();
 
         /* Let's maintain one set of slots for the slots we definitely want to keep */
-        if (except_slot >= 0)
-                if (set_put(keep_slots, INT_TO_PTR(except_slot)) < 0)
+        if (c->wipe_except_slot >= 0)
+                if (set_put(keep_slots, INT_TO_PTR(c->wipe_except_slot)) < 0)
                         return log_oom();
 
         assert_se((slot_max = sym_crypt_keyslot_max(CRYPT_LUKS2)) > 0);
 
         /* Maintain another set of the slots we intend to wipe */
-        for (size_t i = 0; i < n_explicit_slots; i++) {
-                if (explicit_slots[i] >= slot_max)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Slot index %i out of range.", explicit_slots[i]);
+        for (size_t i = 0; i < c->n_wipe_slots; i++) {
+                if (c->wipe_slots[i] >= slot_max)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Slot index %i out of range.", c->wipe_slots[i]);
 
-                if (set_put(wipe_slots, INT_TO_PTR(explicit_slots[i])) < 0)
+                if (set_put(wipe_slots, INT_TO_PTR(c->wipe_slots[i])) < 0)
                         return log_oom();
         }
 
         /* Now, handle the "all" and "empty passphrase" cases. */
-        switch (by_scope) {
+        switch (c->wipe_slots_scope) {
 
         case WIPE_EXPLICIT:
                 break; /* Nothing to do here */
@@ -373,7 +377,7 @@ int wipe_slots(struct crypt_device *cd,
         }
 
         /* Then add all slots that match a token type */
-        r = find_slots_by_mask(cd, wipe_slots, keep_slots, by_mask);
+        r = find_slots_by_mask(cd, wipe_slots, keep_slots, c->wipe_slots_mask);
         if (r < 0)
                 return r;
 
@@ -409,9 +413,20 @@ int wipe_slots(struct crypt_device *cd,
         typesafe_qsort(ordered_tokens, n_ordered_tokens, cmp_int);
 
         if (n_ordered_slots == 0 && n_ordered_tokens == 0) {
-                log_full(except_slot < 0 ? LOG_NOTICE : LOG_DEBUG,
+                log_full(c->wipe_except_slot < 0 ? LOG_NOTICE : LOG_DEBUG,
                          "No slots to remove selected.");
+                if (ret_wiped_slots)
+                        *ret_wiped_slots = NULL;
+                if (ret_n_wiped_slots)
+                        *ret_n_wiped_slots = 0;
                 return 0;
+        }
+
+        /* Remember which slots we actually managed to wipe, so we can report them back to the caller. */
+        if (ret_wiped_slots) {
+                wiped_slots = new(int, n_ordered_slots);
+                if (!wiped_slots)
+                        return log_oom();
         }
 
         if (DEBUG_LOGGING) {
@@ -433,8 +448,11 @@ int wipe_slots(struct crypt_device *cd,
                                 log_warning_errno(r, "Failed to wipe slot %i, continuing: %m", ordered_slots[i - 1]);
                         if (ret == 0)
                                 ret = r;
-                } else
+                } else {
                         log_info("Wiped slot %i.", ordered_slots[i - 1]);
+                        if (wiped_slots)
+                                wiped_slots[n_wiped_slots++] = ordered_slots[i - 1];
+                }
         }
 
         for (size_t i = n_ordered_tokens; i > 0; i--) {
@@ -445,6 +463,14 @@ int wipe_slots(struct crypt_device *cd,
                                 ret = r;
                 }
         }
+
+        if (ret_wiped_slots) {
+                /* We wiped from back to front, restore ascending order before handing the list out. */
+                typesafe_qsort(wiped_slots, n_wiped_slots, cmp_int);
+                *ret_wiped_slots = TAKE_PTR(wiped_slots);
+        }
+        if (ret_n_wiped_slots)
+                *ret_n_wiped_slots = n_wiped_slots;
 
         return ret;
 }
