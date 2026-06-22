@@ -273,6 +273,15 @@ int log_emergency_level(void);
         log_struct_iovec_internal(level, error, PROJECT_FILE, __LINE__, __func__, iovec, n_iovec)
 #define log_struct_iovec(level, iovec, n_iovec) log_struct_iovec_errno(level, 0, iovec, n_iovec)
 
+/* Like log_struct(), but with log_once() semantics */
+#define log_struct_once(level, ...)                                     \
+        ({                                                              \
+                if (ONCE)                                               \
+                        log_struct(level, __VA_ARGS__);                 \
+                else if (LOG_PRI(level) != LOG_DEBUG)                   \
+                        log_struct(LOG_DEBUG, __VA_ARGS__);             \
+        })
+
 /* This modifies the buffer passed! */
 #define log_dump(level, buffer)                                         \
         log_dump_internal(level, 0, PROJECT_FILE, __LINE__, __func__, buffer)
