@@ -230,7 +230,6 @@ REQUIREMENTS:
         libarchive >= 3.0 (optional)
         libxkbcommon >= 0.3.0 (optional)
         libpcre2 (optional)
-        libgcrypt (optional)
         libqrencode >= 3 (optional)
         libmicrohttpd >= 0.9.33 (optional)
         libcurl >= 7.32.0 (optional)
