@@ -50,7 +50,7 @@ int action_verify(void) {
                 int k;
                 usec_t first = 0, validated = 0, last = 0;
 
-#if HAVE_GCRYPT
+#if HAVE_OPENSSL
                 if (!arg_verify_key && JOURNAL_HEADER_SEALED(f->header))
                         log_notice("Journal file %s has sealing enabled but verification key has not been passed using --verify-key=.", f->path);
 #endif

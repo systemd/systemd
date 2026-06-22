@@ -187,8 +187,8 @@ int main(int argc, char *argv[]) {
         ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_COMPACT", "1", 1));
         run_test(verification_key, max_iterations);
 
-#if HAVE_GCRYPT
-        /* If we're running without any arguments and we're compiled with gcrypt
+#if HAVE_OPENSSL
+        /* If we're running without any arguments and we're compiled with openssl
          * check the journal verification stuff with a valid key as well */
         if (argc <= 1) {
                 verification_key = "c262bd-85187f-0b1b04-877cc5/1c7af8-35a4e900";
