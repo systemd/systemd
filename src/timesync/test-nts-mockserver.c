@@ -18,11 +18,11 @@
 #include <unistd.h>
 
 #include "crypto-util.h"
+#include "iovec-util.h"
+#include "memory-util.h"
 #include "nts.h"
 #include "nts_crypto.h"
 #include "nts_extfields.h"
-#include "iovec-util.h"
-#include "memory-util.h"
 #include "ssl-util.h"
 #include "timesyncd-ntp-message.h"
 
@@ -30,7 +30,7 @@
 static const NTS_AEADAlgorithmType algo = NTS_AEAD_AES_SIV_CMAC_384;
 
 /* always pick this NTP port */
-static const uint16_t Port = 12345;
+static const uint16_t port = 12345;
 
 typedef uint8_t AEADKey[64];
 
@@ -48,11 +48,13 @@ static struct ntp_ts ntp_time(uint32_t secs) {
 /* we want to fail but not actually cause a core dump since this will run in
  * integration tests; in some scenarios failure of this server is precisely the point
  */
-#define soft_assert(condition)                                                          \
-        if (!(condition)) {                                                             \
-                fprintf(stderr, "server failed: %s (line %d)\n", #condition, __LINE__); \
-                exit(1);                                                                \
-        }
+#define soft_assert(condition)                                                                  \
+        do {                                                                                    \
+                if (!(condition)) {                                                             \
+                        fprintf(stderr, "server failed: %s (line %d)\n", #condition, __LINE__); \
+                        exit(1);                                                                \
+                }                                                                               \
+        } while (0)
 
 static void serve_ntp_request(int sock, AEADKey c2s, AEADKey s2c, int sabotage) {
         struct sockaddr_in client = {};
@@ -60,7 +62,7 @@ static void serve_ntp_request(int sock, AEADKey c2s, AEADKey s2c, int sabotage) 
         uint8_t buf[1280];
 
         socklen_t addrlen = sizeof(client);
-        ssize_t len = recvfrom(sock, buf, sizeof(buf), MSG_WAITALL, (struct sockaddr*)&client, &addrlen);
+        ssize_t len = recvfrom(sock, buf, sizeof(buf), MSG_WAITALL, (struct sockaddr*) &client, &addrlen);
 
         soft_assert(len >= 48);
 
@@ -74,8 +76,8 @@ static void serve_ntp_request(int sock, AEADKey c2s, AEADKey s2c, int sabotage) 
                 /* We only parse the extension fields to check the authenticity tag; parse_extension_fields
                  * is meant for use in clients, not servers so it'll ignore Cookie Placeholders.
                  * Also note that the order of the s2c and c2s keys has to be reversed. */
-                NTS_Query const query = {
-                        { (void*)"42", 2 },
+                const NTS_Query query = {
+                        { (void*) "42", 2 },
                         s2c, c2s,
                         *cipher,
                         0,
@@ -83,20 +85,20 @@ static void serve_ntp_request(int sock, AEADKey c2s, AEADKey s2c, int sabotage) 
                 NTS_Receipt rcpt;
                 soft_assert(NTS_parse_extension_fields(buf, len, &query, &rcpt) > 0);
                 /* getting "new cookies" from a client is an error */
-                soft_assert(rcpt.new_cookie->iov_base == NULL);
+                soft_assert(!rcpt.new_cookie->iov_base);
 
                 memcpy(unique_id, rcpt.identifier.bytes, 32);
         }
 
-        /* simulate a SNTP reponse - you are always 42 seconds behind */
+        /* simulate a SNTP response - you are always 42 seconds behind */
         uint64_t reply_time = get_current_ntp_sec() + 42;
 
         packet.field = 044;
         packet.stratum = 15;
         packet.reference_time = (struct ntp_ts){ 0, 0 };
-        packet.origin_time    = packet.trans_time;
-        packet.recv_time      = ntp_time(reply_time);
-        packet.trans_time     = ntp_time(reply_time);
+        packet.origin_time = packet.trans_time;
+        packet.recv_time = ntp_time(reply_time);
+        packet.trans_time = ntp_time(reply_time);
 
         if (len > 48 && sabotage <= 1) {
                 int padding = 0;
@@ -105,17 +107,17 @@ static void serve_ntp_request(int sock, AEADKey c2s, AEADKey s2c, int sabotage) 
                         htobe16(0x0204 /*Cookie*/), htobe16(8), htobe16(1), htobe16(1),
                         htobe16(0x0204 /*Cookie*/), htobe16(8), htobe16(1), htobe16(2),
                 };
-                static_assert(sizeof(payload)%4 == 0, "payload must dword-padded");
+                static_assert(sizeof(payload) % 4 == 0, "payload must be dword-padded");
 
                 uint16_t id_field[] = {
                         htobe16(0x0104 /*UniqId*/), htobe16(36),
                            2, 4, 6, 8,10,12,14,16,18,20,22,24,26,28,30,32,
                 };
-                memcpy(id_field+2, unique_id, sizeof(unique_id));
+                memcpy(id_field + 2, unique_id, sizeof(unique_id));
                 uint16_t auth_enc_field[] = {
-                        htobe16(0x0404 /*AE Fld*/), htobe16(8+cipher->nonce_size+cipher->block_size+sizeof(payload)+padding),
+                        htobe16(0x0404 /*AE Fld*/), htobe16(8 + cipher->nonce_size + cipher->block_size + sizeof(payload) + padding),
                           htobe16(cipher->nonce_size),
-                          htobe16(cipher->block_size+sizeof(payload)),
+                          htobe16(cipher->block_size + sizeof(payload)),
                 };
 
                 zero(buf);
@@ -132,7 +134,7 @@ static void serve_ntp_request(int sock, AEADKey c2s, AEADKey s2c, int sabotage) 
 
                 ssize_t ciphertext = NTS_encrypt(
                         &IOVEC_MAKE(p + cipher->nonce_size, sizeof(buf) - (p - buf - cipher->nonce_size)),
-                        &IOVEC_MAKE((uint8_t*)payload, sizeof(payload)),
+                        &IOVEC_MAKE((uint8_t*) payload, sizeof(payload)),
                         info,
                         cipher, s2c
                 );
@@ -146,9 +148,9 @@ static void serve_ntp_request(int sock, AEADKey c2s, AEADKey s2c, int sabotage) 
                         buf[index % 48] ^= 1;
                 }
 
-                sendto(sock, buf, p - buf, MSG_CONFIRM, (struct sockaddr*)&client, addrlen);
+                sendto(sock, buf, p - buf, MSG_CONFIRM, (struct sockaddr*) &client, addrlen);
         } else {
-                sendto(sock, &packet, sizeof(packet), MSG_CONFIRM, (struct sockaddr*)&client, addrlen);
+                sendto(sock, &packet, sizeof(packet), MSG_CONFIRM, (struct sockaddr*) &client, addrlen);
         }
 
         close(sock);
@@ -162,7 +164,7 @@ static int alpn_select(
                 unsigned int inlen,
                 _unused_ void *arg) {
 
-        soft_assert(sym_SSL_select_next_proto((unsigned char**)out, outlen, (unsigned char*)"\x07ntske/1", 8, in, inlen) == OPENSSL_NPN_NEGOTIATED);
+        soft_assert(sym_SSL_select_next_proto((unsigned char**) out, outlen, (unsigned char*) "\x07ntske/1", 8, in, inlen) == OPENSSL_NPN_NEGOTIATED);
         return SSL_TLSEXT_ERR_OK;
 }
 
@@ -216,14 +218,14 @@ static void wait_for_nts_ke(AEADKey c2s, AEADKey s2c, int sabotage) {
 
         if (NTS_decode_response(buf, readbytes, &NTS) < 0) {
                 const char *error = NTS_error_string(NTS.error);
-                if (error == NULL)
+                if (!error)
                         error = "Unexpected error";
                 printf("NTS error: %s (read %d bytes)\n", error, readbytes);
                 abort();
         }
 
         /* store the key */
-        soft_assert(NTS_TLS_extract_keys((void*)tls, algo, c2s, s2c, sizeof(AEADKey)) == 0);
+        soft_assert(NTS_TLS_extract_keys((void*) tls, algo, c2s, s2c, sizeof(AEADKey)) == 0);
 
         /* custom hostname is intentionally padded to 10 bytes, so "127.0.0.01" is not a typo */
         const char ntphost[] = "127.0.0.01";
@@ -240,11 +242,11 @@ static void wait_for_nts_ke(AEADKey c2s, AEADKey s2c, int sabotage) {
                 htobe16(5/*NTPv4Cookie*/),       htobe16(4), htobe16(0), htobe16(2),
                 htobe16(0/*EndOfMessage*/ | 0x8000),  htobe16(0),
         };
-        memcpy(reply+2, ntphost, sizeof(ntphost));
+        memcpy(reply + 2, ntphost, sizeof(ntphost));
         if (sabotage > 2) {
                 /* tamper with the length of the ntp server field, make sure it's not "10" */
                 unsigned char *p = (unsigned char*) reply;
-                getrandom(p+3, 1, 0);
+                getrandom(p + 3, 1, 0);
                 p[3] = (p[3] % 32 + 1) ^ 10;
         }
 
@@ -261,7 +263,7 @@ int main(int argc, char **argv) {
         assert(dlopen_libssl(LOG_ERR) == 0);
 
         AEADKey c2s, s2c;
-        int sabo = argc>1 ? atoi(argv[1]) : 0;
+        int sabo = argc > 1 ? atoi(argv[1]) : 0;
 
         /* bind the NTP socket ahead of time to prevent a race */
         int sock = socket(AF_INET, SOCK_DGRAM, 0);
@@ -269,10 +271,10 @@ int main(int argc, char **argv) {
 
         struct sockaddr_in server = {};
         server.sin_family = AF_INET;
-        server.sin_port = htobe16(Port);
+        server.sin_port = htobe16(port);
         inet_aton("127.0.0.1", &server.sin_addr);
 
-        soft_assert(bind(sock, (struct sockaddr*)&server, sizeof(server)) == 0);
+        soft_assert(bind(sock, (struct sockaddr*) &server, sizeof(server)) == 0);
 
         puts("KE started");
         wait_for_nts_ke(c2s, s2c, sabo);

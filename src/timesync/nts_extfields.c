@@ -106,8 +106,8 @@ ssize_t NTS_add_extension_fields(
         /* --- cobble together the extension fields extension field --- */
 
         /* this represents "N_REQ" in the RFC */
-        uint8_t const req_nonce_len = nts->cipher.nonce_size;
-        uint8_t const nonce_len = req_nonce_len; /* RFC8915 permits < req_nonce_len, but many servers wont like it */
+        const uint8_t req_nonce_len = nts->cipher.nonce_size;
+        const uint8_t nonce_len = req_nonce_len; /* RFC8915 permits < req_nonce_len, but many servers won't like it */
 
 #if ENCRYPTED_PLACEHOLDERS
         uint8_t EF[1024] = { 0, nonce_len, 0, 0, };
@@ -122,8 +122,8 @@ ssize_t NTS_add_extension_fields(
         assert((req_nonce_len & 3) == 0 && req_nonce_len <= 16);
 
         /* re-use the remaining buffer as a temporary scratch area for plaintext;
-           since we are encrypting this and writing it to the buffer, it will be guaranteed
-           to be overwritten */
+         * since we are encrypting this and writing it to the buffer, it will be guaranteed
+         * to be overwritten */
         struct iovec ptxt = buf;
 
         while (placeholders-- > 0) {
@@ -138,12 +138,12 @@ ssize_t NTS_add_extension_fields(
                 return r;
 
         AssociatedData info[] = {
-                { dest,     (uint8_t*)buf.iov_base - dest },  /* aad */
+                { dest,     (uint8_t*) buf.iov_base - dest },  /* aad */
                 { EF_nonce, nonce_len },                      /* nonce */
                 { },
         };
 
-        size_t ptxt_len = (uint8_t*)ptxt.iov_base - (uint8_t*)buf.iov_base;
+        size_t ptxt_len = (uint8_t*) ptxt.iov_base - (uint8_t*) buf.iov_base;
         size_t EF_capacity = sizeof(EF) - (EF_payload - EF);
 
         assert(EF_capacity >= ptxt_len + nts->cipher.block_size);
@@ -166,7 +166,7 @@ ssize_t NTS_add_extension_fields(
         if (r < 0)
                 return r;
 
-        return (uint8_t*)buf.iov_base - dest;
+        return (uint8_t*) buf.iov_base - dest;
 }
 
 /* caller checks memory bounds */
@@ -207,7 +207,7 @@ ssize_t NTS_parse_extension_fields(
                         if (len - NTS_EF_HDR_SIZE != sizeof(NTS_Identifier))
                                 return -EBADMSG;
 
-                        memcpy(&fields->identifier, (uint8_t*)buf.iov_base + NTS_EF_HDR_SIZE, sizeof(NTS_Identifier));
+                        memcpy(&fields->identifier, (uint8_t*) buf.iov_base + NTS_EF_HDR_SIZE, sizeof(NTS_Identifier));
                         processed = true;
                         break;
                 case NTS_EF_AuthEncExtFields: {
@@ -220,11 +220,11 @@ ssize_t NTS_parse_extension_fields(
                         if (nonce_len + ciph_len + NTS_EF_HDR_SIZE + NTS_AUTHENC_INNER_HDR_SIZE > len)
                                 return -EBADMSG;
 
-                        uint8_t *nonce = (uint8_t*)buf.iov_base + NTS_EF_HDR_SIZE + NTS_AUTHENC_INNER_HDR_SIZE;
+                        uint8_t *nonce = (uint8_t*) buf.iov_base + NTS_EF_HDR_SIZE + NTS_AUTHENC_INNER_HDR_SIZE;
                         uint8_t *content = nonce + nonce_len;
 
                         AssociatedData info[] = {
-                                { src, (uint8_t*)buf.iov_base - src }, /* aad */
+                                { src, (uint8_t*) buf.iov_base - src }, /* aad */
                                 { nonce, nonce_len },                  /* nonce */
                                 { },
                         };
@@ -254,7 +254,7 @@ ssize_t NTS_parse_extension_fields(
                                 switch (inner_type) {
                                 case NTS_EF_Cookie:
                                         if (cookies < ELEMENTSOF(fields->new_cookie)) {
-                                                fields->new_cookie[cookies].iov_base = (uint8_t*)plain.iov_base + NTS_EF_HDR_SIZE;
+                                                fields->new_cookie[cookies].iov_base = (uint8_t*) plain.iov_base + NTS_EF_HDR_SIZE;
                                                 fields->new_cookie[cookies].iov_len = inner_len - NTS_EF_HDR_SIZE;
                                         }
                                         cookies++;

@@ -149,7 +149,7 @@ ssize_t NTS_encode_request(
         size_t aead_len = ELEMENTSOF(aead_default);
         if (preferred_crypto) {
                 aead = preferred_crypto;
-                for (aead_len = 0; preferred_crypto[aead_len] ; )
+                for (aead_len = 0; preferred_crypto[aead_len]; )
                         ++aead_len;
         }
 
@@ -170,7 +170,7 @@ ssize_t NTS_encode_request(
         if (result < 0)
                 return result;
 
-        return (uint8_t*)request.iov_base - buffer;
+        return (uint8_t*) request.iov_base - buffer;
 }
 
 int NTS_decode_response(uint8_t *buffer, size_t buf_size, NTS_Agreement *response) {
@@ -194,8 +194,7 @@ int NTS_decode_response(uint8_t *buffer, size_t buf_size, NTS_Agreement *respons
                         response->error = -val;
                         if (response->error == NTS_INSUFFICIENT_DATA)
                                 return -ENODATA;
-                        else
-                                return -EBADMSG;
+                        return -EBADMSG;
                 }
 
                 switch (rec.type) {
@@ -223,10 +222,10 @@ int NTS_decode_response(uint8_t *buffer, size_t buf_size, NTS_Agreement *respons
                         if (is_ntp4 && response->aead_id != 0) {
                                 response->error = NTS_SUCCESS;
                                 return 0;
-                        } else {
-                                response->error = NTS_BAD_RESPONSE;
-                                return -EBADMSG;
                         }
+
+                        response->error = NTS_BAD_RESPONSE;
+                        return -EBADMSG;
 
                 case NTS_REC_NextProto:
                         /* confirm that NTPv4 is on offer */
@@ -241,7 +240,7 @@ int NTS_decode_response(uint8_t *buffer, size_t buf_size, NTS_Agreement *respons
                         break;
 
                 case NTS_REC_AEADAlgorithm:
-                        /* confirm that one of the supported AEAD algo's is offered */
+                        /* confirm that one of the supported AEAD algorithms is offered */
                         val = NTS_decode_u16(&rec);
                         if (val < 0 || !NTS_get_param(val)) {
                                 response->error = NTS_NO_AEAD;
@@ -255,7 +254,7 @@ int NTS_decode_response(uint8_t *buffer, size_t buf_size, NTS_Agreement *respons
                         if (cookie_nr < ELEMENTSOF(response->cookie)) {
                                 NTS_Cookie *cookie = &response->cookie[cookie_nr++];
                                 cookie->iov_base = rec.body.iov_base;
-                                cookie->iov_len  = rec.body.iov_len;
+                                cookie->iov_len = rec.body.iov_len;
                         }
                         break;
 
@@ -266,13 +265,13 @@ int NTS_decode_response(uint8_t *buffer, size_t buf_size, NTS_Agreement *respons
                                 return -EBADMSG;
                         }
 
-                        if (!ascii_is_valid_n((char *)rec.body.iov_base, rec.body.iov_len)) {
+                        if (!ascii_is_valid_n((char*) rec.body.iov_base, rec.body.iov_len)) {
                                 response->error = NTS_BAD_RESPONSE;
                                 return -EBADMSG;
                         }
 
-                        response->ntp_server  = (char *)rec.body.iov_base;
-                        ntp_server_terminator = (char *)rec.body.iov_base + rec.body.iov_len;
+                        response->ntp_server = (char*) rec.body.iov_base;
+                        ntp_server_terminator = (char*) rec.body.iov_base + rec.body.iov_len;
                         break;
 
                 case NTS_REC_NTPv4Port:

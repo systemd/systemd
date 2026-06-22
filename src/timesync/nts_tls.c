@@ -21,7 +21,7 @@ int NTS_TLS_extract_keys(
         assert(ret_c2s);
         assert(ret_s2c);
 
-        SSL *tls = (void *)session;
+        SSL *tls = (void*) session;
 
         uint8_t *keys[] = { ret_c2s, ret_s2c };
         const char label[] = "EXPORTER-network-time-security";
@@ -29,7 +29,7 @@ int NTS_TLS_extract_keys(
         const NTS_AEADParam *info = NTS_get_param(aead);
         if (!info)
                 return -EINVAL;
-        else if (info->key_size > key_capacity)
+        if (info->key_size > key_capacity)
                 return -ENOBUFS;
 
         for (size_t i = 0; i < ELEMENTSOF(keys); i++) {
@@ -38,7 +38,7 @@ int NTS_TLS_extract_keys(
                                         tls,
                                         keys[i], info->key_size,
                                         label, strlen(label),
-                                        context, sizeof context, /* use_context= */ 1)
+                                        context, sizeof(context), /* use_context= */ 1)
                                 != 1)
                         return -EBADE;
         }
@@ -48,7 +48,7 @@ int NTS_TLS_extract_keys(
 
 int NTS_TLS_handshake(NTS_TLS *session) {
         assert(session);
-        SSL *tls = (void *)session;
+        SSL *tls = (void*) session;
 
         int result = sym_SSL_connect(tls);
         if (result == 1)
@@ -70,9 +70,9 @@ ssize_t NTS_TLS_write(NTS_TLS *session, const void *buffer, size_t size) {
         assert(buffer);
 
         /* clamp size to fit in the range required by OpenSSL */
-        size = MIN(size, (size_t)INT_MAX);
+        size = MIN(size, (size_t) INT_MAX);
 
-        SSL *tls = (void *)session;
+        SSL *tls = (void*) session;
         int result = sym_SSL_write(tls, buffer, size);
         if (result > 0)
                 return result;
@@ -91,9 +91,9 @@ ssize_t NTS_TLS_read(NTS_TLS *session, void *buffer, size_t size) {
         assert(buffer);
 
         /* clamp size to fit in the range required by OpenSSL */
-        size = MIN(size, (size_t)INT_MAX);
+        size = MIN(size, (size_t) INT_MAX);
 
-        SSL *tls = (void *)session;
+        SSL *tls = (void*) session;
         int result = sym_SSL_read(tls, buffer, size);
         if (result > 0)
                 return result;
@@ -108,7 +108,7 @@ ssize_t NTS_TLS_read(NTS_TLS *session, void *buffer, size_t size) {
 }
 
 NTS_TLS* NTS_TLS_free(NTS_TLS *session) {
-        if (session == NULL)
+        if (!session)
                 return NULL;
 
         SSL *tls = (SSL*) session;
@@ -165,7 +165,7 @@ int NTS_TLS_setup(
                 return -EIO;
 
         unsigned char alpn[] = "\x07ntske/1";
-        r = sym_SSL_set_alpn_protos(tls, alpn, strlen((char*)alpn));
+        r = sym_SSL_set_alpn_protos(tls, alpn, strlen((char*) alpn));
         if (r != 0)
                 return -EIO;
 
@@ -177,8 +177,7 @@ int NTS_TLS_setup(
         sym_SSL_set_bio(tls, bio, bio);
 
         /* move the initialized session object to the caller */
-        *ret = (void *)tls;
-        tls = NULL;
+        *ret = (void*) TAKE_PTR(tls);
 
         return 0;
 }
