@@ -1981,6 +1981,9 @@ module_additional_kwargs = {
 
 #####################################################################
 
+# 'src/core' embeds a built-in copy of some unit files, so the unit file list
+# from 'units' must be defined first.
+subdir('units')
 # systemd-analyze requires 'libcore'
 subdir('src/core')
 # systemd-networkd requires 'libsystemd_network'
@@ -2475,7 +2478,6 @@ subdir('shell-completion/zsh')
 subdir('sysctl.d')
 subdir('sysusers.d')
 subdir('tmpfiles.d')
-subdir('units')
 
 install_subdir('factory/etc',
                install_dir : factorydir)
