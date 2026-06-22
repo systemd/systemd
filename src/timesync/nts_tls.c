@@ -32,7 +32,7 @@ int NTS_TLS_extract_keys(
         else if (info->key_size > key_capacity)
                 return -ENOBUFS;
 
-        for (int i=0; i < 2; i++) {
+        for (size_t i = 0; i < ELEMENTSOF(keys); i++) {
                 const uint8_t context[5] = { 0, 0, (aead >> 8) & 0xFF, aead & 0xFF, i };
                 if (sym_SSL_export_keying_material(
                                         tls,

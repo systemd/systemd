@@ -22,9 +22,16 @@
 /* Per RFC7822, extension fields have to be at least 16 bytes each; but the final one has to be at least 28; however, per RFC8915, this
  * requirement does not hold for the encrypted and authenticated extension fields */
 
-#define NORMAL_EF_MIN_SIZE 16
-#define FINAL_EF_MIN_SIZE 28
-#define ENCRYPTED_EF_MIN_SIZE 0
+#define NORMAL_EF_MIN_SIZE    16u
+#define FINAL_EF_MIN_SIZE     28u
+#define ENCRYPTED_EF_MIN_SIZE 0u
+
+/* NTP extension field header: 16-bit type followed by a 16-bit length (RFC7822) */
+#define NTS_EF_HDR_SIZE 4u
+
+/* Inner header for authenticator and encrypted extension field: 16-bit nonce, followed by a 16-bit ciphertext length (RFC8915)
+ * It sits right after the outer NTS_EF_HDR_SIZE header. */
+#define NTS_AUTHENC_INNER_HDR_SIZE 4u
 
 /* write an NTP extension field with minimum length min_size.
  * the pointer in the contents argument is allowed to be NULL, in that case an all-zero field of the given size is emitted */
@@ -33,7 +40,7 @@ static int write_ntp_ext_field(struct iovec *buf, uint16_t type, struct iovec co
         assert(buf);
 
         /* enforce minimum size */
-        const size_t req_size = contents.iov_len+4;
+        const size_t req_size = contents.iov_len + NTS_EF_HDR_SIZE;
         size_t size = MAX(min_size, req_size);
 
         /* pad to a dword boundary */
@@ -48,13 +55,13 @@ static int write_ntp_ext_field(struct iovec *buf, uint16_t type, struct iovec co
 
         assert(padded_len <= UINT16_MAX);
         unaligned_write_be16(data, type);
-        unaligned_write_be16(data+2, padded_len);
+        unaligned_write_be16(data + 2, padded_len);
         if (contents.iov_base)
-                memmove(data+4, contents.iov_base, contents.iov_len);
+                memmove(data + NTS_EF_HDR_SIZE, contents.iov_base, contents.iov_len);
         else
-                memzero(data+4, contents.iov_len);
+                memzero(data + NTS_EF_HDR_SIZE, contents.iov_len);
 
-        memzero(data+req_size, padding);
+        memzero(data + req_size, padding);
         return 0;
 }
 
@@ -107,8 +114,8 @@ ssize_t NTS_add_extension_fields(
 #else
         uint8_t EF[64] = { 0, nonce_len, 0, 0, }; /* 64 bytes are plenty */
 #endif
-        void *const EF_ciphertext_len = EF+2;
-        uint8_t *const EF_nonce = EF+4;
+        void *const EF_ciphertext_len = EF + 2;
+        uint8_t *const EF_nonce = EF + NTS_AUTHENC_INNER_HDR_SIZE;
         uint8_t *const EF_payload = EF_nonce + nonce_len;
 
         assert((nonce_len & 3) == 0);
@@ -150,7 +157,7 @@ ssize_t NTS_add_extension_fields(
 
         assert((size_t) ctxt_len <= EF_capacity); /* failing this would be a serious error */
 
-        size_t ef_len = 4 + ctxt_len + nonce_len;
+        size_t ef_len = NTS_AUTHENC_INNER_HDR_SIZE + ctxt_len + nonce_len;
 
         /* set the ciphertext length */
         unaligned_write_be16(EF_ciphertext_len, ctxt_len);
@@ -166,11 +173,11 @@ ssize_t NTS_add_extension_fields(
 static void decode_hdr(uint16_t *ret_a, uint16_t *ret_b, const struct iovec data, size_t offset) {
         assert(ret_a);
         assert(ret_b);
-        assert(data.iov_len >= 4 + offset);
+        assert(data.iov_len >= NTS_EF_HDR_SIZE + offset);
 
         uint8_t *bytes = (uint8_t*) data.iov_base + offset;
         *ret_a = unaligned_read_be16(bytes);
-        *ret_b = unaligned_read_be16(bytes+2);
+        *ret_b = unaligned_read_be16(bytes + 2);
 }
 
 ssize_t NTS_parse_extension_fields(
@@ -187,32 +194,33 @@ ssize_t NTS_parse_extension_fields(
         struct iovec buf = { src + sizeof(struct ntp_msg), src_len - sizeof(struct ntp_msg) };
         bool processed = false;
 
-        while (buf.iov_len >= 4) {
+        while (buf.iov_len >= NTS_EF_HDR_SIZE) {
                 uint16_t type, len;
                 decode_hdr(&type, &len, buf, /* offset= */ 0);
-                if (len < 4 || buf.iov_len < len)
+                if (len < NTS_EF_HDR_SIZE || buf.iov_len < len)
                         return -EBADMSG;
 
                 switch (type) {
                 case NTS_EF_UniqueIdentifier:
-                        /* the length indicator contains the size of the header (4 bytes); the identifier
+                        /* the length indicator contains the size of the header; the identifier
                          * itself is expected to be 32 bytes */
-                        if (len - 4 != sizeof(NTS_Identifier))
+                        if (len - NTS_EF_HDR_SIZE != sizeof(NTS_Identifier))
                                 return -EBADMSG;
 
-                        memcpy(&fields->identifier, (uint8_t*)buf.iov_base + 4, sizeof(NTS_Identifier));
+                        memcpy(&fields->identifier, (uint8_t*)buf.iov_base + NTS_EF_HDR_SIZE, sizeof(NTS_Identifier));
                         processed = true;
                         break;
                 case NTS_EF_AuthEncExtFields: {
                         uint16_t nonce_len, ciph_len;
-                        decode_hdr(&nonce_len, &ciph_len, buf, /* offset= */ 4);
+                        /* the inner authenticator header sits right after the outer EF header */
+                        decode_hdr(&nonce_len, &ciph_len, buf, /* offset= */ NTS_EF_HDR_SIZE);
                         /* check that the advertised nonce / cipher lengths + header don't exceed the outer length,
                          * which would be a malicious packet; the sizes don't need to match exactly since there may
                          * also be padding here */
-                        if (nonce_len + ciph_len + 8 > len)
+                        if (nonce_len + ciph_len + NTS_EF_HDR_SIZE + NTS_AUTHENC_INNER_HDR_SIZE > len)
                                 return -EBADMSG;
 
-                        uint8_t *nonce = (uint8_t*)buf.iov_base + 8;
+                        uint8_t *nonce = (uint8_t*)buf.iov_base + NTS_EF_HDR_SIZE + NTS_AUTHENC_INNER_HDR_SIZE;
                         uint8_t *content = nonce + nonce_len;
 
                         AssociatedData info[] = {
@@ -235,19 +243,19 @@ ssize_t NTS_parse_extension_fields(
                         unsigned cookies = 0;
                         zero(fields->new_cookie);
 
-                        while (plain.iov_len >= 4) {
+                        while (plain.iov_len >= NTS_EF_HDR_SIZE) {
                                 uint16_t inner_type, inner_len;
                                 decode_hdr(&inner_type, &inner_len, plain, /* offset= */ 0);
                                 /* check that our buffer has enough room and the advertised length is valid */
-                                if (plain.iov_len < inner_len || inner_len < 4)
+                                if (plain.iov_len < inner_len || inner_len < NTS_EF_HDR_SIZE)
                                         return -EBADMSG;
 
                                 /* only care about cookies */
                                 switch (inner_type) {
                                 case NTS_EF_Cookie:
                                         if (cookies < ELEMENTSOF(fields->new_cookie)) {
-                                                fields->new_cookie[cookies].iov_base = (uint8_t*)plain.iov_base + 4;
-                                                fields->new_cookie[cookies].iov_len = inner_len - 4;
+                                                fields->new_cookie[cookies].iov_base = (uint8_t*)plain.iov_base + NTS_EF_HDR_SIZE;
+                                                fields->new_cookie[cookies].iov_len = inner_len - NTS_EF_HDR_SIZE;
                                         }
                                         cookies++;
                                         break;

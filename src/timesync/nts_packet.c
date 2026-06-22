@@ -18,6 +18,12 @@
  */
 #define CHRONY_WORKAROUND
 
+/* NTS-KE record header: 16-bit record type (with critical bit) followed by a 16-bit body length (RFC8915) */
+#define NTS_KE_REC_HDR_SIZE 4u
+
+/* "critical" flag (RFC8915) */
+#define NTS_KE_CRITICAL_BIT 0x8000u
+
 /* does not check bounds */
 static void push_u16(struct iovec *data, uint16_t value) {
         unaligned_write_be16(data->iov_base, value);
@@ -49,20 +55,20 @@ static int NTS_decode_record(struct iovec *message, NTS_Record *record) {
         assert(message);
         assert(record);
 
-        if (message->iov_len < 4)
+        if (message->iov_len < NTS_KE_REC_HDR_SIZE)
                 /* not enough bytes to decode a header */
                 return -NTS_INSUFFICIENT_DATA;
 
-        bool is_critical = ((uint8_t*)message->iov_base)[0] >> 7;
-
         uint16_t rec_type = take_u16(message);
         uint16_t body_size = take_u16(message);
+
+        bool is_critical = rec_type & NTS_KE_CRITICAL_BIT;
 
         if (body_size > message->iov_len)
                 /* not enough data in the slice to decode this header */
                 return -NTS_INSUFFICIENT_DATA;
 
-        record->type = rec_type & 0x7FFF;
+        record->type = rec_type & ~NTS_KE_CRITICAL_BIT;
         record->body.iov_base = message->iov_base;
         record->body.iov_len = body_size;
         iovec_inc(message, body_size);
@@ -108,15 +114,16 @@ static int NTS_encode_record_u16(
         assert(message);
         assert(num_words == 0 || data);
 
-        if (num_words >= 0x8000 || message->iov_len < 4 + num_words*2)
+        size_t body_size = num_words * 2;
+        if (body_size > UINT16_MAX || message->iov_len < NTS_KE_REC_HDR_SIZE + body_size)
                 /* not enough space */
                 return -NTS_INSUFFICIENT_DATA;
 
         if (critical)
-                type |= 0x8000;
+                type |= NTS_KE_CRITICAL_BIT;
 
         push_u16(message, type);
-        push_u16(message, num_words * 2);
+        push_u16(message, body_size);
 
         for (size_t i = 0; i < num_words; i++)
                 push_u16(message, data[i]);
