@@ -2,7 +2,6 @@
 
 #include "sd-bus.h"
 
-#include "alloc-util.h"
 #include "ansi-color.h"
 #include "bus-common-errors.h"
 #include "bus-error.h"
@@ -192,6 +191,95 @@ fail:
         return r;
 }
 
+static int start_units_one_transaction(
+                sd_bus *bus,
+                char * const *names,
+                const char *job_type,
+                const char *mode,
+                sd_bus_error *error,
+                BusWaitForJobs *w,
+                BusWaitForUnits *wu,
+                char ***ret_stopped_units) {
+
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
+        int r;
+
+        assert(bus);
+        assert(!strv_isempty(names));
+        assert(job_type);
+        assert(mode);
+        assert(error);
+
+        log_debug("Executing dbus call org.freedesktop.systemd1.Manager EnqueueUnitJobMany(%s, %s) for %zu units",
+                  job_type, mode, strv_length(names));
+
+        r = bus_message_new_method_call(bus, &m, bus_systemd_mgr, "EnqueueUnitJobMany");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append_strv(m, (char**) names);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append(m, "sst", job_type, mode, UINT64_C(0));
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_call(bus, m, /* usec= */ 0, error, &reply);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_enter_container(reply, 'a', "(uosos)");
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        for (;;) {
+                const char *path, *unit_id, *jt;
+                uint32_t id;
+
+                r = sd_bus_message_read(reply, "(uosos)", &id, &path, &unit_id, NULL, &jt);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+                if (r == 0)
+                        break;
+
+                log_debug("Enqueued job %" PRIu32 " for %s/%s as %s", id, unit_id, jt, path);
+
+                if (need_daemon_reload(bus, unit_id) > 0)
+                        warn_unit_file_changed(unit_id);
+
+                if (w) {
+                        log_debug("Adding %s to the set", path);
+                        r = bus_wait_for_jobs_add(w, path);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to watch job for %s: %m", unit_id);
+                }
+
+                if (wu) {
+                        r = bus_wait_for_units_add_unit(wu, unit_id, BUS_WAIT_FOR_INACTIVE|BUS_WAIT_NO_JOB, NULL, NULL);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to watch unit %s: %m", unit_id);
+                }
+
+                /* Only record units for which the daemon actually enqueued a stop job. The
+                 * server may optimize away stops for units that are already inactive, in
+                 * which case the corresponding entry has a different job type (or is
+                 * omitted), and we must not warn about "unit can still be triggered by…"
+                 * for those. */
+                if (ret_stopped_units && streq(jt, "stop")) {
+                        r = strv_extend(ret_stopped_units, unit_id);
+                        if (r < 0)
+                                return log_oom();
+                }
+        }
+
+        r = sd_bus_message_exit_container(reply);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        return 0;
+}
+
 static int enqueue_marked_jobs(
                 sd_bus *bus,
                 BusWaitForJobs *w) {
@@ -293,7 +381,7 @@ int verb_start(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(bus_wait_for_units_freep) BusWaitForUnits *wu = NULL;
         _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
         const char *method, *job_type, *mode, *one_name, *suffix = NULL;
-        _cleanup_free_ char **stopped_units = NULL; /* Do not use _cleanup_strv_free_ */
+        _cleanup_strv_free_ char **stopped_units = NULL;
         _cleanup_strv_free_ char **names = NULL;
         bool is_enqueue_marked_jobs = false;
         int r, ret = EXIT_SUCCESS;
@@ -401,22 +489,59 @@ int verb_start(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (is_enqueue_marked_jobs)
                 ret = enqueue_marked_jobs(bus, w);
         else {
+                bool fallback = true;
+
                 if (arg_verbose)
                         (void) journal_fork(arg_runtime_scope, names, arg_output, &journal_pid);
 
-                STRV_FOREACH(name, names) {
+                /* When operating on multiple units in one go, prefer the new EnqueueUnitJobMany() method
+                 * which builds a single transaction. This ensures After= ordering is honored regardless
+                 * of the order on the command line (see issue #8102). For show-transaction or dry-run we
+                 * stick to per-unit calls. */
+                if (arg_action == ACTION_SYSTEMCTL &&
+                    strv_length(names) > 1 &&
+                    !arg_show_transaction &&
+                    !arg_dry_run &&
+                    !streq(mode, "isolate")) {
                         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 
-                        r = start_unit_one(bus, method, job_type, *name, mode, &error, w, wu);
-                        if (ret == EXIT_SUCCESS && r < 0)
+                        r = start_units_one_transaction(bus, names, job_type, mode, &error, w, wu,
+                                                        streq(method, "StopUnit") ? &stopped_units : NULL);
+                        if (r >= 0)
+                                fallback = false;
+                        else if (sd_bus_error_has_names(&error,
+                                                        SD_BUS_ERROR_UNKNOWN_METHOD,
+                                                        SD_BUS_ERROR_INVALID_ARGS)) {
+                                log_debug_errno(r, "EnqueueUnitJobMany() unavailable or unsupported (%s), falling back to per-unit calls.",
+                                                bus_error_message(&error, r));
+                        } else if (sd_bus_error_has_name(&error, BUS_ERROR_UNIT_MASKED) &&
+                                   STR_IN_SET(method, "TryRestartUnit", "ReloadOrTryRestartUnit")) {
+                                /* try-restart variants silently ignore masked units in the per-unit
+                                 * path; preserve that by falling back so each unit is evaluated
+                                 * individually. */
+                                log_debug_errno(r, "Batched %s aborted due to masked unit (%s), falling back to per-unit calls.",
+                                                method, bus_error_message(&error, r));
+                        } else {
+                                log_error_errno(r, "Failed to enqueue jobs: %s", bus_error_message(&error, r));
                                 ret = translate_bus_error_to_exit_status(r, &error);
-
-                        if (r >= 0 && streq(method, "StopUnit")) {
-                                r = strv_push(&stopped_units, *name);
-                                if (r < 0)
-                                        return log_oom();
+                                fallback = false; /* Real error, don't fall back. */
                         }
                 }
+
+                if (fallback)
+                        STRV_FOREACH(name, names) {
+                                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+
+                                r = start_unit_one(bus, method, job_type, *name, mode, &error, w, wu);
+                                if (ret == EXIT_SUCCESS && r < 0)
+                                        ret = translate_bus_error_to_exit_status(r, &error);
+
+                                if (r >= 0 && streq(method, "StopUnit")) {
+                                        r = strv_extend(&stopped_units, *name);
+                                        if (r < 0)
+                                                return log_oom();
+                                }
+                        }
         }
 
         if (!arg_no_block) {

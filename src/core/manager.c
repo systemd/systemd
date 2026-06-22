@@ -2288,6 +2288,128 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds, Hashmap *named_
         return 0;
 }
 
+int manager_add_jobs(
+                Manager *m,
+                JobType type,
+                char * const *names,
+                bool reload_if_possible,
+                JobMode mode,
+                TransactionAddFlags extra_flags,
+                Set *affected_jobs,
+                sd_bus_error *reterr_error,
+                Set *ret_jobs) {
+
+        _cleanup_(transaction_abort_and_freep) Transaction *tr = NULL;
+        Job *j;
+        int r;
+
+        assert(m);
+        assert(type >= 0 && type < _JOB_TYPE_MAX);
+        assert(!strv_isempty(names));
+        assert(mode >= 0 && mode < _JOB_MODE_MAX);
+        assert((extra_flags & ~_TRANSACTION_FLAGS_MASK_PUBLIC) == 0);
+
+        if (mode == JOB_ISOLATE && type != JOB_START)
+                return sd_bus_error_set(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Isolate is only valid for start.");
+
+        if (mode == JOB_TRIGGERING && type != JOB_STOP)
+                return sd_bus_error_set(reterr_error, SD_BUS_ERROR_INVALID_ARGS,
+                                        "--job-mode=triggering is only valid for stop.");
+
+        if (mode == JOB_RESTART_DEPENDENCIES && type != JOB_START)
+                return sd_bus_error_set(reterr_error, SD_BUS_ERROR_INVALID_ARGS,
+                                        "--job-mode=restart-dependencies is only valid for start.");
+
+        if (mode == JOB_ISOLATE && strv_length(names) > 1)
+                return sd_bus_error_set(reterr_error, SD_BUS_ERROR_NOT_SUPPORTED,
+                                        "Isolating more than one unit is not supported.");
+
+        tr = transaction_new(mode == JOB_REPLACE_IRREVERSIBLY, ++m->last_transaction_id);
+        if (!tr)
+                return -ENOMEM;
+
+        LOG_CONTEXT_PUSHF("TRANSACTION_ID=%" PRIu64, tr->id);
+
+        STRV_FOREACH(name, names) {
+                Unit *u;
+                JobType t = type;
+                JobType merged_type;
+
+                r = manager_load_unit(m, *name, NULL, reterr_error, &u);
+                if (r < 0)
+                        return r;
+
+                if (mode == JOB_ISOLATE && !u->allow_isolate)
+                        return sd_bus_error_setf(reterr_error, BUS_ERROR_NO_ISOLATION,
+                                                 "Operation refused, unit %s may not be isolated.", u->id);
+
+                /* Per-unit validation and reload-if-possible mangling: units that can reload turn
+                 * JOB_RESTART into JOB_RELOAD_OR_START and JOB_TRY_RESTART into JOB_TRY_RELOAD; others
+                 * keep the original restart type. Also rejects manual start/stop on units that refuse
+                 * it, etc. */
+                r = unit_queue_job_check_and_mangle_type(u, &t, reload_if_possible, reterr_error);
+                if (r < 0)
+                        return r;
+
+                merged_type = job_type_collapse(t, u);
+
+                log_unit_debug(u, "Trying to enqueue job %s/%s/%s",
+                               u->id, job_type_to_string(merged_type), job_mode_to_string(mode));
+
+                r = transaction_add_job_and_dependencies(
+                                tr,
+                                merged_type,
+                                u,
+                                /* by= */ NULL,
+                                TRANSACTION_MATTERS |
+                                (IN_SET(mode, JOB_IGNORE_DEPENDENCIES, JOB_IGNORE_REQUIREMENTS) ? TRANSACTION_IGNORE_REQUIREMENTS : 0) |
+                                (mode == JOB_IGNORE_DEPENDENCIES ? TRANSACTION_IGNORE_ORDER : 0) |
+                                (mode == JOB_RESTART_DEPENDENCIES ? TRANSACTION_PROPAGATE_START_AS_RESTART : 0) |
+                                extra_flags,
+                                reterr_error);
+                if (r < 0)
+                        return r;
+
+                if (mode == JOB_TRIGGERING) {
+                        r = transaction_add_triggering_jobs(tr, u);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        if (mode == JOB_ISOLATE) {
+                r = transaction_add_isolate_jobs(tr, m);
+                if (r < 0)
+                        return r;
+        }
+
+        r = transaction_activate(tr, m, mode, affected_jobs, reterr_error);
+        if (r < 0)
+                return r;
+
+        SET_FOREACH(j, tr->anchor_jobs)
+                log_unit_debug(j->unit,
+                               "Enqueued job %s/%s as %u",
+                               j->unit->id, job_type_to_string(j->type), (unsigned) j->id);
+
+        if (ret_jobs) {
+                /* The anchor_jobs set would be destroyed anyway, so steal the contents. */
+                r = set_move(ret_jobs, tr->anchor_jobs);
+                if (r < 0) {
+                        /* On failure, still clear anchor_jobs so the cleanup handler doesn't trip the
+                         * empty-set assertion in transaction_free(). */
+                        set_clear(tr->anchor_jobs);
+                        return r;
+                }
+        } else
+                /* tr->anchor_jobs tracks pointers to jobs that are now installed in the manager; clear
+                 * it so transaction_free() doesn't trip its empty-set assertion. */
+                set_clear(tr->anchor_jobs);
+
+        tr = transaction_free(tr);
+        return 0;
+}
+
 int manager_add_job_full(
                 Manager *m,
                 JobType type,
@@ -2359,12 +2481,19 @@ int manager_add_job_full(
         if (r < 0)
                 return r;
 
+        Job *anchor = ASSERT_PTR(set_first(tr->anchor_jobs));
+        assert(set_size(tr->anchor_jobs) == 1);
+
         log_unit_debug(unit,
                        "Enqueued job %s/%s as %u", unit->id,
-                       job_type_to_string(type), (unsigned) tr->anchor_job->id);
+                       job_type_to_string(type), (unsigned) anchor->id);
 
         if (ret)
-                *ret = tr->anchor_job;
+                *ret = anchor;
+
+        /* anchor_jobs tracks pointers to jobs that are now installed in the manager; clear it so
+         * transaction_free() doesn't trip its empty-set assertion. */
+        set_clear(tr->anchor_jobs);
 
         tr = transaction_free(tr);
         return 0;
@@ -2438,7 +2567,7 @@ int manager_propagate_reload(Manager *m, Unit *unit, JobMode mode, sd_bus_error 
         transaction_add_propagate_reload_jobs(
                         tr,
                         unit,
-                        tr->anchor_job,
+                        set_first(tr->anchor_jobs),
                         mode == JOB_IGNORE_DEPENDENCIES ? TRANSACTION_IGNORE_ORDER : 0);
 
         /* Only activate the transaction if it contains jobs other than NOP anchor.
@@ -2449,6 +2578,9 @@ int manager_propagate_reload(Manager *m, Unit *unit, JobMode mode, sd_bus_error 
         r = transaction_activate(tr, m, mode, NULL, e);
         if (r < 0)
                 return r;
+
+        /* tr->anchor_jobs tracks pointers to jobs that are now installed in the manager, clear it */
+        set_clear(tr->anchor_jobs);
 
         tr = transaction_free(tr);
         return 0;
