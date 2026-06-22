@@ -261,7 +261,7 @@ ssize_t NTS_parse_extension_fields(
 
                         /* ignore any further fields after this,
                          * since they are not authenticated */
-                        return processed ? (uint8_t*)plain.iov_base - src : -EBADMSG;
+                        return processed ? (ssize_t) (src_len - buf.iov_len + len) : -EBADMSG;
                 }
 
                 default:
