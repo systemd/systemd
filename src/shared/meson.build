@@ -208,6 +208,7 @@ shared_sources = files(
         'tomoyo-util.c',
         'tpm2-util.c',
         'tpm2-event-log.c',
+        'tsm-report.c',
         'udev-util.c',
         'unit-file.c',
         'user-record-nss.c',
