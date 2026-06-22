@@ -6,7 +6,7 @@
 
 #include "alloc-util.h"
 #include "fd-util.h"
-#include "fsprg.h"
+#include "fsprg-gcrypt.h"
 #include "gcrypt-util.h"
 #include "hexdecoct.h"
 #include "iovec-util.h"
