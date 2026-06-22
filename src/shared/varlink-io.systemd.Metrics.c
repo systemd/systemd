@@ -9,7 +9,9 @@ static SD_VARLINK_DEFINE_ENUM_TYPE(
                 SD_VARLINK_FIELD_COMMENT("A gauge metric family type which is a value that can go up and down"),
                 SD_VARLINK_DEFINE_ENUM_VALUE(gauge),
                 SD_VARLINK_FIELD_COMMENT("A string metric family type"),
-                SD_VARLINK_DEFINE_ENUM_VALUE(string));
+                SD_VARLINK_DEFINE_ENUM_VALUE(string),
+                SD_VARLINK_FIELD_COMMENT("A JSON object metric family type whose value is an arbitrary JSON object"),
+                SD_VARLINK_DEFINE_ENUM_VALUE(jsonObject));
 
 static SD_VARLINK_DEFINE_ERROR(NoSuchMetric);
 
