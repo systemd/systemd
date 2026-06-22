@@ -1618,6 +1618,8 @@ Type=root
 MakeDirectories=/dir
 MakeSymlinks=/foo:/bar
 MakeSymlinks=/dir/foo:/bar
+MakeSymlinks=/dir/foo-%a:/bar-%a
+MakeSymlinks=/dir/bar-%a:../bar-%a
 EOF
 
     systemd-repart --offline="$OFFLINE" \
@@ -1632,6 +1634,8 @@ EOF
     systemd-dissect "$imgs/zzz" -M "$imgs/mnt"
     assert_eq "$(readlink "$imgs/mnt/foo")" "/bar"
     assert_eq "$(readlink "$imgs/mnt/dir/foo")" "/bar"
+    assert_eq "$(readlink "$imgs/mnt/dir/foo-${architecture}")" "/bar-${architecture}"
+    assert_eq "$(readlink "$imgs/mnt/dir/bar-${architecture}")" "../bar-${architecture}"
     systemd-dissect -U "$imgs/mnt"
 }
 
