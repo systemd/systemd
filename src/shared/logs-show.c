@@ -1039,7 +1039,10 @@ void json_escape(
         assert(f);
         assert(p);
 
-        if (!(flags & OUTPUT_SHOW_ALL) && l >= JSON_THRESHOLD)
+        if ((flags & OUTPUT_SKIP_UNPRINTABLE) && !utf8_is_printable(p, l))
+                fputs("null", f);
+
+        else if (!(flags & OUTPUT_SHOW_ALL) && l >= JSON_THRESHOLD)
                 fputs("null", f);
 
         else if (!(flags & OUTPUT_SHOW_ALL) && !utf8_is_printable(p, l)) {
@@ -1124,6 +1127,8 @@ static int update_json_data(
                 r = sd_json_variant_new_null(&v);
         else if (utf8_is_printable(value, size))
                 r = sd_json_variant_new_stringn(&v, value, size);
+        else if (flags & OUTPUT_SKIP_UNPRINTABLE)
+                r = sd_json_variant_new_null(&v);
         else
                 r = sd_json_variant_new_array_bytes(&v, value, size);
         if (r < 0)
