@@ -30,6 +30,7 @@
 #include "execute.h"
 #include "extract-word.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "fstab-util.h"
 #include "hashmap.h"
 #include "hexdecoct.h"
@@ -72,6 +73,16 @@
 #include "unit-printf.h"
 #include "user-util.h"
 #include "web-util.h"
+
+/* Built-in copies of a few essential unit files, embedded at build time. They are used as a fallback
+ * when no fragment for the unit is found on disk, so that the manager can reach a usable state even on
+ * a system that ships none of these unit files. */
+static const struct {
+        const char *name;
+        const char *data;
+} builtin_units[] = {
+#  include "builtin-units.inc"
+};
 
 static int parse_socket_protocol(const char *s) {
         int r;
@@ -6171,6 +6182,16 @@ static int merge_by_names(Unit *u, Set *names, const char *id) {
         return 0;
 }
 
+static const char* builtin_unit_lookup(const char *name) {
+        assert(name);
+
+        FOREACH_ELEMENT(i, builtin_units)
+                if (streq(i->name, name))
+                        return i->data;
+
+        return NULL;
+}
+
 int unit_load_fragment(Unit *u) {
         int r;
 
@@ -6257,6 +6278,36 @@ int unit_load_fragment(Unit *u) {
                                          NULL);
                         if (r == -ENOEXEC)
                                 log_unit_notice_errno(u, r, "Unit configuration has fatal error, unit will not be started.");
+                        if (r < 0)
+                                return r;
+                }
+        } else if (u->manager->runtime_scope == RUNTIME_SCOPE_SYSTEM) {
+                /* No fragment found on disk. For system units, fall back to a built-in copy if we have one
+                 * embedded. This way the manager can reach a usable state even if none of these unit files
+                 * are installed. On-disk files always take precedence (including masks), since we only get
+                 * here when nothing was found in the lookup paths. */
+
+                const char *data = builtin_unit_lookup(u->id);
+                if (data) {
+                        _cleanup_fclose_ FILE *f = NULL;
+
+                        f = fmemopen_unlocked((void*) data, strlen(data), "re");
+                        if (!f)
+                                return log_oom();
+
+                        log_unit_debug(u, "Loading built-in fragment for %s.", u->id);
+
+                        u->load_state = UNIT_LOADED;
+                        u->fragment_mtime = 0;
+
+                        r = config_parse(u->id, u->id, f,
+                                         UNIT_VTABLE(u)->sections,
+                                         config_item_perf_lookup, load_fragment_gperf_lookup,
+                                         0,
+                                         u,
+                                         NULL);
+                        if (r == -ENOEXEC)
+                                log_unit_notice_errno(u, r, "Built-in unit configuration has fatal error, unit will not be started.");
                         if (r < 0)
                                 return r;
                 }

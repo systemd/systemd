@@ -1070,6 +1070,33 @@ units = [
 udev_units = []
 hwdb_units = []
 
+# Unit files whose contents are embedded into the manager binary, so that it can
+# fall back to a built-in copy when the file is not present on disk. Referenced
+# from src/core/meson.build.
+embedded_unit_names = [
+        'basic.target',
+        'exit.target',
+        'final.target',
+        'graphical.target',
+        'halt.target',
+        'kexec.target',
+        'multi-user.target',
+        'poweroff.target',
+        'reboot.target',
+        'shutdown.target',
+        'sigpwr.target',
+        'soft-reboot.target',
+        'sysinit.target',
+        'systemd-exit.service',
+        'systemd-halt.service',
+        'systemd-kexec.service',
+        'systemd-poweroff.service',
+        'systemd-reboot.service',
+        'systemd-soft-reboot.service',
+        'umount.target',
+]
+embedded_units = []
+
 foreach unit : units
         source = unit.get('file')
 
@@ -1092,7 +1119,7 @@ foreach unit : units
         endforeach
 
         if needs_jinja
-                t = custom_target(
+                processed = custom_target(
                         input : source,
                         output : name,
                         command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
@@ -1100,14 +1127,19 @@ foreach unit : units
                         install_dir : systemunitdir,
                         install_tag : unit.get('install_tag', ''))
                 if unit.get('install_tag', '') == 'udev'
-                        udev_units += t
+                        udev_units += processed
                 elif unit.get('install_tag', '') == 'hwdb'
-                        hwdb_units += t
+                        hwdb_units += processed
                 endif
         elif install
                 install_data(source,
                              install_dir : systemunitdir,
                              install_tag : unit.get('install_tag', ''))
+        endif
+
+        if name in embedded_unit_names
+                # Embed either the processed output or the original file.
+                embedded_units += needs_jinja ? processed : source
         endif
 
         if install
