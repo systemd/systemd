@@ -67,7 +67,7 @@ int oci_registry_is_valid(const char *n) {
                 return r;
 
         uint16_t port;
-        return safe_atou16(s, &port) >= 0 && port != 0;
+        return safe_atou16_full(colon + 1, 10 | SAFE_ATO_REFUSE_LEADING_WHITESPACE | SAFE_ATO_REFUSE_PLUS_MINUS | SAFE_ATO_REFUSE_LEADING_ZERO, &port) >= 0 && port != 0;
 }
 
 bool oci_tag_is_valid(const char *n) {
