@@ -173,7 +173,9 @@ SD_VARLINK_DEFINE_ENUM_TYPE(
                 SD_VARLINK_DEFINE_ENUM_VALUE(preferred),
                 SD_VARLINK_DEFINE_ENUM_VALUE(bind),
                 SD_VARLINK_DEFINE_ENUM_VALUE(interleave),
-                SD_VARLINK_DEFINE_ENUM_VALUE(local));
+                SD_VARLINK_DEFINE_ENUM_VALUE(local),
+                SD_VARLINK_DEFINE_ENUM_VALUE(preferred_many),
+                SD_VARLINK_DEFINE_ENUM_VALUE(weighted_interleave));
 
 SD_VARLINK_DEFINE_ENUM_TYPE(
                 MountPropagationFlag,

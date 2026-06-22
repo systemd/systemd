@@ -315,7 +315,11 @@ static int numa_policy_build_json(sd_json_variant **ret, const char *name, void 
                 return 0;
         }
 
-        return sd_json_variant_new_string(ret, mpol_to_string(t));
+        _cleanup_free_ char *s = strdup(mpol_to_string(t));
+        if (!s)
+                return -ENOMEM;
+
+        return sd_json_variant_new_string(ret, json_underscorify(s));
 }
 
 static int numa_mask_build_json(sd_json_variant **ret, const char *name, void *userdata) {

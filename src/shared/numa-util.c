@@ -73,7 +73,7 @@ int apply_numa_policy(const NUMAPolicy *policy) {
         assert(policy);
 
         if (get_mempolicy(NULL, NULL, 0, NULL, 0) < 0 && errno == ENOSYS)
-                return -EOPNOTSUPP;
+                return -ENOSYS;
 
         if (!numa_policy_is_valid(policy))
                 return -EINVAL;
@@ -83,8 +83,14 @@ int apply_numa_policy(const NUMAPolicy *policy) {
                 return r;
 
         r = set_mempolicy(numa_policy_get_type(policy), nodes, maxnode);
-        if (r < 0)
+        if (r < 0) {
+                /* FIXME: This compatibility code path shall be removed once kernel 6.9
+                 *        becomes the new minimal baseline (MPOL_WEIGHTED_INTERLEAVE). */
+                if (errno == EINVAL && IN_SET(numa_policy_get_type(policy),
+                                             MPOL_PREFERRED_MANY, MPOL_WEIGHTED_INTERLEAVE))
+                        return -EOPNOTSUPP;
                 return -errno;
+        }
 
         return 0;
 }
@@ -241,11 +247,13 @@ int numa_mask_add_all(CPUSet *mask) {
 }
 
 static const char* const mpol_table[] = {
-        [MPOL_DEFAULT]    = "default",
-        [MPOL_PREFERRED]  = "preferred",
-        [MPOL_BIND]       = "bind",
-        [MPOL_INTERLEAVE] = "interleave",
-        [MPOL_LOCAL]      = "local",
+        [MPOL_DEFAULT]             = "default",
+        [MPOL_PREFERRED]           = "preferred",
+        [MPOL_BIND]                = "bind",
+        [MPOL_INTERLEAVE]          = "interleave",
+        [MPOL_LOCAL]               = "local",
+        [MPOL_PREFERRED_MANY]      = "preferred-many",
+        [MPOL_WEIGHTED_INTERLEAVE] = "weighted-interleave",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(mpol, int);
