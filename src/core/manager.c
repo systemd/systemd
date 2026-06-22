@@ -895,6 +895,30 @@ usec_t manager_default_timeout(RuntimeScope scope) {
         return scope == RUNTIME_SCOPE_SYSTEM ? DEFAULT_TIMEOUT_USEC : DEFAULT_USER_TIMEOUT_USEC;
 }
 
+static int pin_executor_binary(int *ret_fd) {
+        _cleanup_free_ char *path = NULL;
+
+        assert(ret_fd);
+
+#if BUILD_EXECUTOR_SINGLE
+        int r;
+
+        r = open_and_check_executable("/proc/self/exe", /* root= */ NULL, &path, ret_fd);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to pin executor binary %s: %m", "/proc/self/exe");
+#else
+        int fd;
+
+        fd = pin_callout_binary(SYSTEMD_EXECUTOR_BINARY_PATH, &path);
+        if (fd < 0)
+                return log_debug_errno(fd, "Failed to pin executor binary %s: %m", SYSTEMD_EXECUTOR_BINARY_PATH);
+        *ret_fd = fd;
+#endif
+
+        log_debug("Using systemd-executor binary %s.", path);
+        return 0;
+}
+
 int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, Manager **ret) {
         _cleanup_(manager_freep) Manager *m = NULL;
         int r;
@@ -1057,11 +1081,9 @@ int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, 
         }
 
         if (!FLAGS_SET(test_run_flags, MANAGER_TEST_DONT_OPEN_EXECUTOR)) {
-                m->executor_fd = pin_callout_binary(SYSTEMD_EXECUTOR_BINARY_PATH, &m->executor_path);
-                if (m->executor_fd < 0)
-                        return log_debug_errno(m->executor_fd, "Failed to pin executor binary: %m");
-
-                log_debug("Using systemd-executor binary from '%s'.", m->executor_path);
+                r = pin_executor_binary(&m->executor_fd);
+                if (r < 0)
+                        return r;
         }
 
         /* Note that we do not set up the notify fd here. We do that after deserialization,
@@ -1797,7 +1819,6 @@ Manager* manager_free(Manager *m) {
         safe_close(m->restrict_fsaccess_bss_map_fd);
 
         safe_close(m->executor_fd);
-        free(m->executor_path);
 
         return mfree(m);
 }
