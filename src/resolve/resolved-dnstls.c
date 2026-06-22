@@ -71,6 +71,10 @@ int dnstls_stream_connect_tls(DnsStream *stream, DnsServer *server) {
         assert(stream->manager);
         assert(server);
 
+        r = dnstls_manager_init(stream->manager);
+        if (r < 0)
+                return r;
+
         rb = sym_BIO_new_socket(stream->fd, 0);
         if (!rb)
                 return -ENOMEM;
@@ -393,37 +397,45 @@ void dnstls_server_free(DnsServer *server) {
 }
 
 int dnstls_manager_init(Manager *manager) {
+        _cleanup_(SSL_CTX_freep) SSL_CTX *ctx = NULL;
         int r;
 
         assert(manager);
 
-        r = DLOPEN_LIBCRYPTO(LOG_WARNING, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED);
+        /* Load libcrypto/libssl on first use, so that the dependencies can be optional. */
+
+        if (manager->dnstls_data.ctx)
+                return 0;
+
+        r = DLOPEN_LIBCRYPTO(LOG_WARNING, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
         if (r < 0)
                 return r;
 
-        r = DLOPEN_LIBSSL(LOG_WARNING, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED);
+        r = DLOPEN_LIBSSL(LOG_WARNING, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
         if (r < 0)
                 return r;
 
-        manager->dnstls_data.ctx = sym_SSL_CTX_new(sym_TLS_client_method());
-        if (!manager->dnstls_data.ctx)
+        ctx = sym_SSL_CTX_new(sym_TLS_client_method());
+        if (!ctx)
                 return log_warning_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                          "Failed to create SSL context: %s",
                                          sym_ERR_error_string(sym_ERR_get_error(), NULL));
 
-        r = sym_SSL_CTX_set_min_proto_version(manager->dnstls_data.ctx, TLS1_2_VERSION);
+        r = sym_SSL_CTX_set_min_proto_version(ctx, TLS1_2_VERSION);
         if (r == 0)
                 return log_warning_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                          "Failed to set protocol version on SSL context: %s",
                                          sym_ERR_error_string(sym_ERR_get_error(), NULL));
 
-        (void) sym_SSL_CTX_set_options(manager->dnstls_data.ctx, SSL_OP_NO_COMPRESSION);
+        (void) sym_SSL_CTX_set_options(ctx, SSL_OP_NO_COMPRESSION);
 
-        r = sym_SSL_CTX_set_default_verify_paths(manager->dnstls_data.ctx);
+        r = sym_SSL_CTX_set_default_verify_paths(ctx);
         if (r == 0)
                 return log_warning_errno(SYNTHETIC_ERRNO(EIO),
                                          "Failed to load system trust store: %s",
                                          sym_ERR_error_string(sym_ERR_get_error(), NULL));
+
+        manager->dnstls_data.ctx = TAKE_PTR(ctx);
         return 0;
 }
 
