@@ -377,6 +377,26 @@ int luo_preserve_fd_stores(sd_json_variant *serialization, int *ret_session_fd) 
         return 1;
 }
 
+static int luo_session_get_name(int session_fd, char **ret) {
+        struct liveupdate_session_get_name args = {
+                .size = sizeof(args),
+        };
+
+        assert(session_fd >= 0);
+
+        if (ioctl(session_fd, LIVEUPDATE_SESSION_GET_NAME, &args) < 0)
+                return -errno;
+
+        /* Paranonia check */
+        if (!memchr(args.name, 0, sizeof(args.name)))
+                return -EBADMSG;
+
+        if (ret)
+                return strdup_to(ret, (const char*) args.name);
+
+        return 0;
+}
+
 int fd_get_luo_session_name(int fd, char **ret) {
         _cleanup_free_ char *path = NULL;
         int r;
@@ -389,6 +409,14 @@ int fd_get_luo_session_name(int fd, char **ret) {
                 return r;
         if (r == 0)
                 return -EMEDIUMTYPE;
+
+        /* IOCTL is new in 7.2, fallback to parsing procfs */
+        // FIXME: drop fallback once baseline moves to 7.2+
+        r = luo_session_get_name(fd, ret);
+        if (r >= 0)
+                return 0;
+        else if (!ERRNO_IS_NEG_IOCTL_NOT_SUPPORTED(r))
+                return r;
 
         r = fd_get_path(fd, &path);
         if (r < 0)
