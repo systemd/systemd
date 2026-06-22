@@ -1905,7 +1905,7 @@ static int manager_rebalance_calculate(Manager *m) {
                 /* Keep track of home directory with the least amount of space left: we want to schedule the
                  * next rebalance more quickly if this is low */
                 if (new_free < min_free)
-                        min_free = h->rebalance_size;
+                        min_free = new_free;
 
                 if (new_free > UINT64_MAX - h->rebalance_usage)
                         h->rebalance_goal = UINT64_MAX-1; /* maximum size */
