@@ -19,6 +19,7 @@
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "proc-cmdline.h"
 #include "static-destruct.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -71,6 +72,7 @@ usec_t arg_when = 0;
 bool arg_stdin = false;
 const char *arg_reboot_argument = NULL;
 char *arg_kernel_cmdline = NULL;
+char *arg_reuse_kernel_cmdline = NULL;
 enum action arg_action = ACTION_SYSTEMCTL;
 BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
 const char *arg_host = NULL;
@@ -102,6 +104,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_reboot_argument, unsetp);
 STATIC_DESTRUCTOR_REGISTER(arg_kernel_cmdline, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_reuse_kernel_cmdline, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_host, unsetp);
 STATIC_DESTRUCTOR_REGISTER(arg_boot_loader_entry, unsetp);
 STATIC_DESTRUCTOR_REGISTER(arg_clean_what, strv_freep);
@@ -764,10 +767,31 @@ static int systemctl_parse_argv(int argc, char *argv[], int log_level_shift, cha
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "--kernel-cmdline= argument contains invalid characters: %s", opts.arg);
 
-                        r = free_and_strdup_warn(&arg_kernel_cmdline, opts.arg);
+                        if (!strextend_with_separator(&arg_kernel_cmdline, " ", opts.arg))
+                                return log_oom();
+                        break;
+
+                OPTION_LONG("kernel-cmdline-reuse", NULL,
+                            "Like --kernel-cmdline=, but reuse the current kernel command line"): {
+                        _cleanup_free_ char *cmdline = NULL;
+
+                        r = proc_cmdline(&cmdline);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to read current kernel command line: %m");
+
+                        const char *stripped = empty_to_null(strstrip(cmdline));
+                        if (!stripped)
+                                break;
+
+                        if (!string_is_safe(stripped, STRING_ALLOW_GLOBS|STRING_ALLOW_BACKSLASHES|STRING_ALLOW_QUOTES))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Current kernel command line contains invalid characters: %s", stripped);
+
+                        r = free_and_strdup_warn(&arg_reuse_kernel_cmdline, stripped);
                         if (r < 0)
                                 return r;
                         break;
+                }
 
                 OPTION_LONG("plain", NULL, "Print unit dependencies as a list instead of a tree"):
                         arg_plain = true;
