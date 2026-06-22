@@ -9,7 +9,6 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
-#include "gcrypt-util.h"
 #include "journal-authenticate.h"
 #include "journal-def.h"
 #include "journal-file.h"
@@ -833,14 +832,14 @@ int journal_file_verify(
         bool found_last = false;
         const char *tmp_dir = NULL;
         MMapCache *m;
-
-#if HAVE_GCRYPT
+#if HAVE_OPENSSL
         uint64_t last_tag = 0;
 #endif
+
         assert(f);
 
         if (key) {
-#if HAVE_GCRYPT
+#if HAVE_OPENSSL
                 r = journal_file_parse_verification_key(f, key);
                 if (r < 0) {
                         log_error("Failed to parse seed.");
@@ -1155,7 +1154,7 @@ int journal_file_verify(
                                 }
                         }
 
-#if HAVE_GCRYPT
+#if HAVE_OPENSSL
                         if (JOURNAL_HEADER_SEALED(f->header)) {
                                 uint64_t q, rt, rt_end;
 
@@ -1226,7 +1225,13 @@ int journal_file_verify(
                                 if (r < 0)
                                         goto fail;
 
-                                if (memcmp(o->tag.tag, sym_gcry_md_read(f->hmac, 0), TAG_LENGTH) != 0) {
+                                size_t len;
+                                uint8_t tag[TAG_LENGTH];
+                                if (sym_EVP_MAC_final(f->hmac_ctx, tag, &len, TAG_LENGTH) <= 0 || len != TAG_LENGTH) {
+                                        r = -EIO;
+                                        goto fail;
+                                }
+                                if (memcmp(o->tag.tag, tag, TAG_LENGTH) != 0) {
                                         error(p, "Tag failed verification");
                                         r = -EBADMSG;
                                         goto fail;
@@ -1406,7 +1411,7 @@ int journal_file_verify(
 
         if (first_contained)
                 *first_contained = le64toh(f->header->head_entry_realtime);
-#if HAVE_GCRYPT
+#if HAVE_OPENSSL
         if (last_validated)
                 *last_validated = last_tag_realtime + f->fss_interval_usec;
 #endif

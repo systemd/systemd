@@ -19,7 +19,6 @@
 #include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"
-#include "gcrypt-util.h"
 #include "hashmap.h"
 #include "id128-util.h"
 #include "iovec-util.h"
@@ -317,8 +316,14 @@ JournalFile* journal_file_close(JournalFile *f) {
 
         iovec_done_erase(&f->fsprg_seed);
 
+#if HAVE_OPENSSL
+        if (f->ossl_params)
+                sym_OSSL_PARAM_free(f->ossl_params);
+        if (f->hmac_ctx)
+                sym_EVP_MAC_CTX_free(f->hmac_ctx);
         if (f->hmac)
-                sym_gcry_md_close(f->hmac);
+                sym_EVP_MAC_free(f->hmac);
+#endif
 
         return mfree(f);
 }
@@ -410,7 +415,7 @@ static int journal_file_init_header(
 
         assert(f);
 
-#if HAVE_GCRYPT
+#if HAVE_OPENSSL
         /* Try to load the FSPRG state, and if we can't, then just don't do sealing */
         seal = FLAGS_SET(file_flags, JOURNAL_SEAL) && journal_file_fss_load(f) >= 0;
 #endif
@@ -1788,7 +1793,7 @@ static int journal_file_append_field(
         /* The linking might have altered the window, so let's only pass the offset to hmac which will
          * move to the object again if needed. */
 
-#if HAVE_GCRYPT
+#if HAVE_OPENSSL
         r = journal_file_hmac_put_object(f, OBJECT_FIELD, NULL, p);
         if (r < 0)
                 return r;
@@ -1903,7 +1908,7 @@ static int journal_file_append_data(
         if (r < 0)
                 return r;
 
-#if HAVE_GCRYPT
+#if HAVE_OPENSSL
         r = journal_file_hmac_put_object(f, OBJECT_DATA, o, p);
         if (r < 0)
                 return r;
@@ -2153,7 +2158,7 @@ static int link_entry_into_array(
         if (r < 0)
                 return r;
 
-#if HAVE_GCRYPT
+#if HAVE_OPENSSL
         r = journal_file_hmac_put_object(f, OBJECT_ENTRY_ARRAY, o, q);
         if (r < 0)
                 return r;
@@ -2399,7 +2404,7 @@ static int journal_file_append_entry_internal(
         for (size_t i = 0; i < n_items; i++)
                 write_entry_item(f, o, i, &items[i]);
 
-#if HAVE_GCRYPT
+#if HAVE_OPENSSL
         r = journal_file_hmac_put_object(f, OBJECT_ENTRY, o, np);
         if (r < 0)
                 return r;
@@ -2588,7 +2593,7 @@ int journal_file_append_entry(
         else
                 machine_id = &_machine_id;
 
-#if HAVE_GCRYPT
+#if HAVE_OPENSSL
         r = journal_file_maybe_append_tag(f, ts->realtime);
         if (r < 0)
                 return r;
@@ -4235,7 +4240,7 @@ int journal_file_open(
                         goto fail;
         }
 
-#if HAVE_GCRYPT
+#if HAVE_OPENSSL
         if (!newly_created && journal_file_writable(f) && JOURNAL_HEADER_SEALED(f->header)) {
                 r = journal_file_fss_load(f);
                 if (r < 0)
@@ -4255,7 +4260,7 @@ int journal_file_open(
                         goto fail;
         }
 
-#if HAVE_GCRYPT
+#if HAVE_OPENSSL
         r = journal_file_hmac_setup(f);
         if (r < 0)
                 goto fail;
@@ -4270,7 +4275,7 @@ int journal_file_open(
                 if (r < 0)
                         goto fail;
 
-#if HAVE_GCRYPT
+#if HAVE_OPENSSL
                 r = journal_file_append_first_tag(f);
                 if (r < 0)
                         goto fail;
