@@ -1,5 +1,13 @@
 systemd System and Service Manager
 
+CHANGES WITH 262:
+
+        Feature Removals and Incompatible Changes:
+
+        * systemd-repart's MakeSymlinks= option now expands "%" specifiers in
+          the symlink target. Previously, these were only expanded in the
+          source.
+
 CHANGES WITH 261:
 
         Announcements of Future Feature Removals and Incompatible Changes:
