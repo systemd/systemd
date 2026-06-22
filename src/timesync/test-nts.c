@@ -324,15 +324,15 @@ TEST(crypto) {
                         continue;
                 ssize_t len = NTS_encrypt(&IOVEC_MAKE(enc, sizeof(enc)), &IOVEC_MAKE(plaintext, sizeof(plaintext)), ad, ASSERT_PTR(NTS_get_param(id)), key);
                 ASSERT_OK_POSITIVE(len);
-                ASSERT_OK_EQ(NTS_decrypt(&IOVEC_MAKE(dec, sizeof(dec)), &IOVEC_MAKE(enc, len), ad, ASSERT_PTR(NTS_get_param(id)), key), sizeof(plaintext));
+                ASSERT_OK_EQ(NTS_decrypt(&IOVEC_MAKE(dec, sizeof(dec)), &IOVEC_MAKE(enc, len), ad, ASSERT_PTR(NTS_get_param(id)), key), (ssize_t) sizeof(plaintext));
                 ASSERT_EQ(memcmp(dec, plaintext, sizeof(plaintext)), 0);
         }
 
         /* test in-place decryption for the default cipher */
         memcpy(enc, plaintext, sizeof(plaintext));
         ssize_t len = NTS_encrypt(&IOVEC_MAKE(enc, sizeof(enc)), &IOVEC_MAKE(enc, sizeof(plaintext)), ad, ASSERT_PTR(NTS_get_param(NTS_AEAD_AES_SIV_CMAC_256)), key);
-        ASSERT_OK_EQ(len, sizeof(plaintext)+16);
-        ASSERT_OK_EQ(NTS_decrypt(&IOVEC_MAKE(enc, sizeof(enc)), &IOVEC_MAKE(enc, len), ad, ASSERT_PTR(NTS_get_param(NTS_AEAD_AES_SIV_CMAC_256)), key), sizeof(plaintext));
+        ASSERT_OK_EQ(len, (ssize_t) (sizeof(plaintext)+16));
+        ASSERT_OK_EQ(NTS_decrypt(&IOVEC_MAKE(enc, sizeof(enc)), &IOVEC_MAKE(enc, len), ad, ASSERT_PTR(NTS_get_param(NTS_AEAD_AES_SIV_CMAC_256)), key), (ssize_t) sizeof(plaintext));
         ASSERT_EQ(memcmp(enc, plaintext, sizeof(plaintext)), 0);
 
         /* test known vectors AES_SIV_CMAC_256
@@ -380,7 +380,7 @@ TEST(crypto) {
                         { nonce, sizeof(nonce) },
                         { NULL }
                 };
-                ASSERT_OK_EQ(NTS_encrypt(&IOVEC_MAKE(out, sizeof(out)), &IOVEC_MAKE(pt, sizeof(pt)), info, NTS_get_param(NTS_AEAD_AES_SIV_CMAC_256), key), sizeof(ct));
+                ASSERT_OK_EQ(NTS_encrypt(&IOVEC_MAKE(out, sizeof(out)), &IOVEC_MAKE(pt, sizeof(pt)), info, NTS_get_param(NTS_AEAD_AES_SIV_CMAC_256), key), (ssize_t) sizeof(ct));
                 ASSERT_EQ(memcmp(out, ct, sizeof(ct)), 0);
         }
 
@@ -404,7 +404,7 @@ TEST(crypto) {
 
                 uint8_t out[sizeof(ct)];
 
-                ASSERT_OK_EQ(NTS_encrypt(&IOVEC_MAKE(out, sizeof(out)), &IOVEC_MAKE(pt, sizeof(pt)), info, NTS_get_param(NTS_AEAD_AES_128_GCM_SIV), key), sizeof(ct));
+                ASSERT_OK_EQ(NTS_encrypt(&IOVEC_MAKE(out, sizeof(out)), &IOVEC_MAKE(pt, sizeof(pt)), info, NTS_get_param(NTS_AEAD_AES_128_GCM_SIV), key), (ssize_t) sizeof(ct));
                 ASSERT_EQ(memcmp(out, ct, sizeof(ct)), 0);
         }
 }
