@@ -76,7 +76,7 @@ ssize_t NTS_add_extension_fields(
         assert(nts);
         assert(identifier);
 
-        struct iovec buf = { dest, NTS_MAX_PACKET_SIZE };
+        struct iovec buf = IOVEC_MAKE(dest, NTS_MAX_PACKET_SIZE);
 
         /* skip beyond regular ntp portion */
         iovec_inc(&buf, sizeof(struct ntp_msg));
@@ -191,7 +191,7 @@ ssize_t NTS_parse_extension_fields(
         assert(nts);
         assert(fields);
 
-        struct iovec buf = { src + sizeof(struct ntp_msg), src_len - sizeof(struct ntp_msg) };
+        struct iovec buf = IOVEC_MAKE(src + sizeof(struct ntp_msg), src_len - sizeof(struct ntp_msg));
         bool processed = false;
 
         while (buf.iov_len >= NTS_EF_HDR_SIZE) {
@@ -239,7 +239,7 @@ ssize_t NTS_parse_extension_fields(
 
                         assert(plain_len < ciph_len); /* failing this would be a serious error */
 
-                        struct iovec plain = { plaintext, plain_len };
+                        struct iovec plain = IOVEC_MAKE(plaintext, plain_len);
                         unsigned cookies = 0;
                         zero(fields->new_cookie);
 

@@ -138,7 +138,7 @@ ssize_t NTS_encode_request(
 
         assert(buffer);
 
-        struct iovec request = { buffer, buf_size };
+        struct iovec request = IOVEC_MAKE(buffer, buf_size);
 
         const uint16_t proto[] = { NTS_PROTO_NTPv4 };
         const uint16_t aead_default[] = {
@@ -177,7 +177,7 @@ int NTS_decode_response(uint8_t *buffer, size_t buf_size, NTS_Agreement *respons
         assert(buffer);
         assert(response);
 
-        struct iovec raw_response = { buffer, buf_size };
+        struct iovec raw_response = IOVEC_MAKE(buffer, buf_size);
         NTS_Record rec;
 
         /* clear response */
