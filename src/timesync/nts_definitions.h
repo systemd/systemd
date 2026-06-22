@@ -34,4 +34,3 @@
 #define NTS_EF_Cookie            0x0204u
 #define NTS_EF_CookiePlaceholder 0x0304u
 #define NTS_EF_AuthEncExtFields  0x0404u
-#define NTS_EF_NoOpField         0x0200u
