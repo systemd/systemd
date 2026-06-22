@@ -2444,6 +2444,9 @@ SPDX-License-Identifier: LGPL-2.1-or-later
     operate in device mode
   - add NVMe authentication
 
+- **sigpwr.target** doesn't do anything useful. Consider hooking it up to
+  shutdown.target.
+
 - support boot into nvme-over-tcp: add generator that allows specifying nvme
   devices on kernel cmdline + credentials. Also maybe add interactive mode
   (where the user is prompted for nvme info), in order to boot from other
