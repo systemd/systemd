@@ -119,15 +119,6 @@ ssize_t NTS_add_extension_fields(
            to be overwritten */
         struct iovec ptxt = buf;
 
-#if defined(OPENSSL_WORKAROUND)
-        /* bug in OpenSSL: https://github.com/openssl/openssl/issues/26580,
-           which means that a ciphertext HAS TO BE PRESENT */
-        if (placeholders == 0) {
-                r = write_ntp_ext_field(&ptxt, NTS_EF_NoOpField, IOVEC_MAKE(NULL, 0), ENCRYPTED_EF_MIN_SIZE);
-                if (r < 0)
-                        return r;
-        }
-#endif
         while (placeholders-- > 0) {
                 r = write_ntp_ext_field(&ptxt, NTS_EF_CookiePlaceholder, IOVEC_MAKE(NULL, nts->cookie.iov_len), ENCRYPTED_EF_MIN_SIZE);
                 if (r < 0)
@@ -159,8 +150,7 @@ ssize_t NTS_add_extension_fields(
 
         assert((size_t) ctxt_len <= EF_capacity); /* failing this would be a serious error */
 
-        /* add padding if we used a too-short nonce */
-        size_t ef_len = 4 + ctxt_len + nonce_len + (nonce_len < req_nonce_len)*(req_nonce_len - nonce_len);
+        size_t ef_len = 4 + ctxt_len + nonce_len;
 
         /* set the ciphertext length */
         unaligned_write_be16(EF_ciphertext_len, ctxt_len);

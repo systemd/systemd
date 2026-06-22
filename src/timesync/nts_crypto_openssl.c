@@ -7,14 +7,6 @@
 #include "nts_crypto.h"
 #include "timesyncd-forward.h"
 
-#if !OPENSSL_VERSION_PREREQ(3,0)
-#    error Your OpenSSL version does not support SIV modes, need at least version 3.0.
-#endif
-
-#if defined(OPENSSL_WORKAROUND) && OPENSSL_VERSION_PREREQ(3,5)
-#    warning The OpenSSL workaround is not necessary.
-#endif
-
 static const NTS_AEADParam supported_algos[] = {
         { NTS_AEAD_AES_SIV_CMAC_256, 256/8, 16, 16, true, false, "AES-128-SIV" },
         { NTS_AEAD_AES_SIV_CMAC_512, 512/8, 16, 16, true, false, "AES-256-SIV" },
