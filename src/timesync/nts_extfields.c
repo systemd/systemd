@@ -12,6 +12,7 @@
 #include "nts_definitions.h"
 #include "nts_extfields.h"
 #include "random-util.h"
+#include "timesyncd-ntp-message.h"
 #include "unaligned.h"
 
 #ifndef ENCRYPTED_PLACEHOLDERS
@@ -71,7 +72,7 @@ ssize_t NTS_add_extension_fields(
         struct iovec buf = { dest, NTS_MAX_PACKET_SIZE };
 
         /* skip beyond regular ntp portion */
-        iovec_inc(&buf, 48);
+        iovec_inc(&buf, sizeof(struct ntp_msg));
 
         /* generate unique identifier */
         r = crypto_random_bytes(identifier->bytes, sizeof(NTS_Identifier));
@@ -189,11 +190,11 @@ ssize_t NTS_parse_extension_fields(
                 NTS_Receipt *fields) {
 
         assert(src);
-        assert(src_len >= 48 && src_len <= NTS_MAX_PACKET_SIZE);
+        assert(src_len >= sizeof(struct ntp_msg) && src_len <= NTS_MAX_PACKET_SIZE);
         assert(nts);
         assert(fields);
 
-        struct iovec buf = { src + 48, src_len - 48 };
+        struct iovec buf = { src + sizeof(struct ntp_msg), src_len - sizeof(struct ntp_msg) };
         bool processed = false;
 
         while (buf.iov_len >= 4) {
