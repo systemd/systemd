@@ -326,6 +326,8 @@ int dns_transaction_new(
                 r = hashmap_replace(s->transactions_by_key, first->key, first);
                 if (r < 0) {
                         LIST_REMOVE(transactions_by_key, first, t);
+                        hashmap_remove(s->manager->dns_transactions, UINT_TO_PTR(t->id));
+                        t->id = 0;
                         return r;
                 }
         }
