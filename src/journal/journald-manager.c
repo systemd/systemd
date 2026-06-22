@@ -2539,7 +2539,7 @@ int manager_init(Manager *m) {
 }
 
 void manager_maybe_append_tags(Manager *m) {
-#if HAVE_GCRYPT
+#if HAVE_OPENSSL
         JournalFile *f;
         usec_t n;
 
