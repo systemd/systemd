@@ -3,11 +3,19 @@
 
 #include <sys/mempolicy.h>
 
+/* These may be missing from older system headers */
+#ifndef MPOL_PREFERRED_MANY
+#define MPOL_PREFERRED_MANY 5
+#endif
+#ifndef MPOL_WEIGHTED_INTERLEAVE
+#define MPOL_WEIGHTED_INTERLEAVE 6
+#endif
+
 #include "cpu-set-util.h"
 #include "shared-forward.h"
 
 static inline bool mpol_is_valid(int t) {
-        return t >= MPOL_DEFAULT && t <= MPOL_LOCAL;
+        return t >= MPOL_DEFAULT && t <= MPOL_WEIGHTED_INTERLEAVE;
 }
 
 typedef struct NUMAPolicy {
