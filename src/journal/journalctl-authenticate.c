@@ -10,7 +10,7 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
-#include "fsprg.h"
+#include "fsprg-gcrypt.h"
 #include "gcrypt-util.h"
 #include "hostname-setup.h"
 #include "hostname-util.h"

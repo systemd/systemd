@@ -3,7 +3,7 @@
 sd_journal_sources = files(
         'sd-journal/audit-type.c',
         'sd-journal/catalog.c',
-        'sd-journal/fsprg.c',
+        'sd-journal/fsprg-gcrypt.c',
         'sd-journal/journal-authenticate.c',
         'sd-journal/journal-file.c',
         'sd-journal/journal-send.c',

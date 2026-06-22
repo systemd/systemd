@@ -14,7 +14,7 @@
 
 #include <string.h>
 
-#include "fsprg.h"
+#include "fsprg-gcrypt.h"
 #include "gcrypt-util.h"
 #include "memory-util.h"
 
