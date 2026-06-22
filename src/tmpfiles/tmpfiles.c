@@ -1422,16 +1422,20 @@ static int path_set_acl(
                    strna(t), pretty);
 
         if (!arg_dry_run &&
-            sym_acl_set_file(path, type, dup) < 0) {
-                if (ERRNO_IS_NOT_SUPPORTED(errno))
+            (r = RET_NERRNO(sym_acl_set_file(path, type, dup))) < 0) {
+                if (ERRNO_IS_NOT_SUPPORTED(r))
                         /* No error if filesystem doesn't support ACLs. Return negative. */
-                        return -errno;
-                else
-                        /* Return positive to indicate we already warned */
-                        return -log_error_errno(errno,
-                                                "Setting %s ACL \"%s\" on %s failed: %m",
+                        return r;
+                if (r == EINVAL && running_in_chroot() > 0)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                                "Setting %s ACL \"%s\" on %s failed: %m. This may be due to a chroot environment, ignoring.",
                                                 type == ACL_TYPE_ACCESS ? "access" : "default",
                                                 strna(t), pretty);
+                /* Return positive to indicate we already warned */
+                return -log_error_errno(r,
+                                        "Setting %s ACL \"%s\" on %s failed: %m",
+                                        type == ACL_TYPE_ACCESS ? "access" : "default",
+                                        strna(t), pretty);
         }
         return 0;
 }
