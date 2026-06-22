@@ -103,6 +103,7 @@ shared_sources = files(
         'image-policy.c',
         'import-util.c',
         'in-addr-prefix-util.c',
+        'initrd-cpio.c',
         'install-file.c',
         'install-printf.c',
         'install.c',

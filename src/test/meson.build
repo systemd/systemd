@@ -126,6 +126,7 @@ simple_tests += files(
         'test-import-util.c',
         'test-in-addr-prefix-util.c',
         'test-in-addr-util.c',
+        'test-initrd-cpio.c',
         'test-install-file.c',
         'test-install-root.c',
         'test-io-util.c',

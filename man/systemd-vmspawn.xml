@@ -352,13 +352,20 @@
           SNP-capable hardware and firmware. <option>--firmware=</option> must point to a raw SNP-built
           OVMF <filename>.fd</filename> image; the standard pflash + NVRAM split is not supported under
           SNP, so the firmware is loaded via QEMU's <option>-bios</option> and Secure Boot is
-          unavailable. SMBIOS credentials passed via <option>--set-credential=</option> or
-          <option>--load-credential=</option> are rejected because they are outside the SNP launch
-          measurement. Direct kernel boot via <option>--linux=</option> is required so that the
-          kernel, initrd and command line are hashed into the launch measurement
-          (<literal>kernel-hashes=on</literal>); booting the kernel off the disk image via the
-          firmware would leave it outside the measurement. A vTPM, if attached via
-          <option>--tpm=</option>, must be treated as untrusted by the guest.</para>
+          unavailable. Direct kernel boot via <option>--linux=</option> is required so that the kernel,
+          initrd and command line are hashed into the launch measurement
+          (<literal>kernel-hashes=on</literal>); booting the kernel off the disk image via the firmware
+          would leave it outside the measurement. Credentials passed via <option>--set-credential=</option>
+          or <option>--load-credential=</option> are bundled into a cpio archive appended to the initrd
+          (mirroring what <command>systemd-stub</command> does for ESP credentials), so they enter the
+          launch measurement via <literal>kernel-hashes=on</literal>; the SMBIOS and fw_cfg channels
+          normally used to deliver credentials are not used because they are unmeasured and would be
+          discarded by PID1 in confidential guests. This channel is measured but not confidential with
+          respect to the host or VMM: the initrd (and thus the credentials it carries) is supplied to QEMU
+          as plaintext and only its hash enters the launch measurement, which guarantees integrity but does
+          not keep the credentials secret from the host. This requires the guest to run a sufficiently
+          recent version of systemd (supporting <filename>/.extra/system_credentials/</filename>). A vTPM,
+          if attached via <option>--tpm=</option>, must be treated as untrusted by the guest.</para>
 
           <xi:include href="version-info.xml" xpointer="v261"/></listitem>
         </varlistentry>
@@ -863,6 +870,18 @@
           If neither mechanism is available, credentials are passed on the kernel command line using
           <varname>systemd.set_credential_binary=</varname> which is not a confidential channel. Do not use
           this for passing secrets to the VM in that case.</para>
+
+          <para>Under <option>--coco=sev-snp</option>, SMBIOS and fw_cfg are not covered by the SNP launch
+          measurement and are discarded by PID1 in confidential guests. Credentials are therefore packaged
+          into a cpio archive containing
+          <filename>.extra/system_credentials/<replaceable>ID</replaceable>.cred</filename> entries and
+          appended to the initrd that QEMU loads, so they enter the launch measurement via
+          <literal>kernel-hashes=on</literal>. PID1 imports them from the initramfs at boot. As with the
+          kernel command line, this is a measured but not a confidential channel: QEMU receives the initrd
+          (and thus the embedded credentials) as plaintext from the host and only its hash is covered by the
+          launch measurement, so a modified initrd makes the guest refuse to boot, but the credentials are
+          not hidden from the host or VMM. This requires the guest to run a sufficiently recent version of
+          systemd (supporting <filename>/.extra/system_credentials/</filename>).</para>
 
           <xi:include href="version-info.xml" xpointer="v255"/></listitem>
         </varlistentry>
