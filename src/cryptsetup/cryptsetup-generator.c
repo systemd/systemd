@@ -18,6 +18,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "proc-cmdline.h"
+#include "random-util.h"
 #include "specifier.h"
 #include "string-util.h"
 #include "strv.h"
@@ -236,11 +237,7 @@ static int print_dependencies(FILE *f, const char* device_path, const char* time
                 /* None, nothing to do */
                 return 0;
 
-        if (PATH_IN_SET(device_path,
-                        "/dev/urandom",
-                        "/dev/random",
-                        "/dev/hw_random",
-                        "/dev/hwrng")) {
+        if (random_is_rng_device(device_path)) {
                 /* RNG device, add random dep */
                 fputs("After=systemd-random-seed.service\n", f);
                 return 0;
