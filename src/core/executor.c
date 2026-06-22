@@ -13,6 +13,7 @@
 #include "exec-invoke.h"
 #include "execute.h"
 #include "execute-serialize.h"
+#include "executor.h"
 #include "exit-status.h"
 #include "fd-util.h"
 #include "fdset.h"
@@ -38,7 +39,7 @@ static int help(void) {
         if (r < 0)
                 return log_oom();
 
-        r = option_parser_get_help_table(&options);
+        r = option_parser_get_help_table_ns("systemd-executor", &options);
         if (r < 0)
                 return r;
 
@@ -62,10 +63,12 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        OptionParser opts = { argc, argv };
+        OptionParser opts = { argc, argv, .namespace = "systemd-executor" };
 
         FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
+
+                OPTION_NAMESPACE("systemd-executor"): {}
 
                 OPTION_COMMON_HELP:
                         return help();
@@ -226,7 +229,7 @@ static int run(int argc, char *argv[]) {
         return exit_status;
 }
 
-int main(int argc, char *argv[]) {
+int run_executor(int argc, char *argv[]) {
         int r;
 
         /* We use safe_fork() for spawning sd-pam helper process, which internally calls rename_process().
@@ -241,3 +244,7 @@ int main(int argc, char *argv[]) {
 
         return r < 0 ? EXIT_FAILURE : r;
 }
+
+#if !BUILD_EXECUTOR_SINGLE
+_alias_(run_executor) main;
+#endif
