@@ -65,7 +65,7 @@ static int process_assoc_data(
                  * our interface *does* interpret the last AAD item as the siv/nonce
                  */
                 assert(info->iov_base);
-                for (last = info; (last+1)->iov_base != NULL; )
+                for (last = info; (last + 1)->iov_base != NULL; )
                         last++;
 
                 if (last->iov_len != aead->nonce_size)
