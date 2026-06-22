@@ -573,6 +573,10 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
+        r = DLOPEN_TPM2(LOG_ERR, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED);
+        if (r < 0)
+                return r;
+
         umask(0022);
 
         /* Execute both jobs, and then return unlisted errors preferably, and listed errors
