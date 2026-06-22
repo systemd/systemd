@@ -109,6 +109,17 @@ fi
 [ "$(metric_value UserspaceTimestamp.Realtime)" -gt 0 ]
 [ "$(metric_value UserspaceTimestamp.Monotonic)" -gt 0 ]
 
+# These startup phases are captured unconditionally by manager_startup() on every boot (in containers
+# too, where they are not redirected to the InitRD* variants), so both clocks are always set on the
+# system manager by the time this service runs. We don't check UnitsLoadTimestamp (the last load, only
+# set on the reload/reexec triggered by switch-root) nor the Security/Firmware/Loader/InitRD timestamps,
+# which depend on the boot environment and may legitimately be unset (the metric is then suppressed).
+for phase in GeneratorsStartTimestamp GeneratorsFinishTimestamp \
+             UnitsLoadStartTimestamp UnitsLoadFinishTimestamp; do
+    [ "$(metric_value "$phase.Realtime")" -gt 0 ]
+    [ "$(metric_value "$phase.Monotonic")" -gt 0 ]
+done
+
 # test io.systemd.Basic.MachineInfo.* metrics, sourced from /etc/machine-info
 if [ -e /etc/machine-info ]; then
     MACHINE_INFO_BACKUP="$(mktemp)"
