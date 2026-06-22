@@ -94,7 +94,7 @@
     <structname>sd_journal</structname> objects might cause optional shared libraries to be dynamically
     loaded via
     <citerefentry project='man-pages'><refentrytitle>dlopen</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-    such as decompression libraries (xz, lz4, zstd) or cryptographic libraries (gcrypt).
+    such as decompression libraries (xz, lz4, zstd) or cryptographic libraries (openssl).
     </para>
   </refsect1>
 

@@ -5,10 +5,10 @@
 #include <sys/stat.h>
 
 #include "compress.h"
-#include "sd-forward.h"
-#include "gcrypt-util.h"
+#include "crypto-util.h"
 #include "journal-def.h"
 #include "mmap-cache.h"
+#include "sd-forward.h"
 #include "sparse-endian.h"
 
 typedef struct JournalMetrics {
@@ -98,8 +98,12 @@ typedef struct JournalFile {
         void *compress_buffer;
 #endif
 
-        gcry_md_hd_t hmac;
+#if HAVE_OPENSSL
+        EVP_MAC *hmac;
+        EVP_MAC_CTX *hmac_ctx;
+        OSSL_PARAM *ossl_params;
         bool hmac_running;
+#endif
 
         FSSHeader *fss_file;
         size_t fss_file_size;
