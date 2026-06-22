@@ -640,6 +640,23 @@ TEST(split_pair) {
         ASSERT_OK(split_pair("===", "==", &a, &b));
         ASSERT_STREQ(a, "");
         ASSERT_STREQ(b, "=");
+        a = mfree(a);
+        b = mfree(b);
+
+        /* The output parameters are optional */
+        ASSERT_OK(split_pair("foo=bar", "=", NULL, &b));
+        ASSERT_NULL(a);
+        ASSERT_STREQ(b, "bar");
+        b = mfree(b);
+        ASSERT_OK(split_pair("foo=bar", "=", &a, NULL));
+        ASSERT_STREQ(a, "foo");
+        ASSERT_NULL(b);
+        a = mfree(a);
+        ASSERT_OK(split_pair("foo=bar", "=", NULL, NULL));
+        ASSERT_NULL(a);
+        ASSERT_NULL(b);
+        /* ... but the separator must still be present */
+        ASSERT_ERROR(split_pair("foo", "=", NULL, NULL), EINVAL);
 }
 
 TEST(empty_to_null) {
