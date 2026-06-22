@@ -55,8 +55,8 @@ int load_volume_key_keyfile(
                         AT_FDCWD,
                         c->unlock_keyfile,
                         UINT64_MAX,
-                        SIZE_MAX,
-                        READ_FULL_FILE_SECURE|READ_FULL_FILE_WARN_WORLD_READABLE|READ_FULL_FILE_CONNECT_SOCKET,
+                        4U * U64_MB, /* safety net */
+                        READ_FULL_FILE_SECURE|READ_FULL_FILE_WARN_WORLD_READABLE|READ_FULL_FILE_CONNECT_SOCKET|READ_FULL_FILE_FAIL_WHEN_LARGER,
                         NULL,
                         &password,
                         &password_len);
