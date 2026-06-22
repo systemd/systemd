@@ -343,7 +343,7 @@ executables += [
                         libgcrypt_cflags,
                         libopenssl_cflags,
                 ],
-                'conditions' : ['HAVE_GCRYPT'],
+                'conditions' : ['HAVE_OPENSSL'],
         },
         test_template + {
                 'sources' : files(

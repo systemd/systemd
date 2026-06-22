@@ -7,11 +7,11 @@
 #include "alloc-util.h"
 #include "ansi-color.h"
 #include "chattr-util.h"
+#include "crypto-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
-#include "fsprg.h"
-#include "gcrypt-util.h"
+#include "fsprg-openssl.h"
 #include "hostname-setup.h"
 #include "hostname-util.h"
 #include "io-util.h"
@@ -30,7 +30,7 @@
 #include "time-util.h"
 #include "tmpfile-util.h"
 
-#if HAVE_GCRYPT
+#if HAVE_OPENSSL
 static int format_key(
                 const struct iovec *seed,
                 uint64_t start,
@@ -60,7 +60,7 @@ static int format_key(
 #endif
 
 int action_setup_keys(void) {
-#if HAVE_GCRYPT
+#if HAVE_OPENSSL
         _cleanup_(unlink_and_freep) char *tmpfile = NULL;
         _cleanup_close_ int fd = -EBADF;
         _cleanup_free_ char *path = NULL;
@@ -70,7 +70,7 @@ int action_setup_keys(void) {
 
         assert(arg_action == ACTION_SETUP_KEYS);
 
-        r = DLOPEN_GCRYPT(LOG_ERR, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
+        r = DLOPEN_LIBCRYPTO(LOG_ERR, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
         if (r < 0)
                 return r;
 
@@ -103,9 +103,8 @@ int action_setup_keys(void) {
                                        "Sealing key file %s exists already. Use --force to recreate.", path);
 
         _cleanup_(iovec_erase) struct iovec
-                mpk = IOVEC_ALLOCA(FSPRG_mpkinbytes(FSPRG_RECOMMENDED_SECPAR)),
                 seed = IOVEC_ALLOCA(FSPRG_RECOMMENDED_SEEDLEN),
-                state = IOVEC_ALLOCA(FSPRG_stateinbytes(FSPRG_RECOMMENDED_SECPAR));
+                state = IOVEC_ALLOCA(fsprg_state_size(FSPRG_RECOMMENDED_SECPAR));
 
         if (!arg_quiet)
                 log_info("Generating seed...");
@@ -114,14 +113,8 @@ int action_setup_keys(void) {
                 return log_error_errno(r, "Failed to acquire random seed: %m");
 
         if (!arg_quiet)
-                log_info("Generating key pair...");
-        r = FSPRG_GenMK(NULL, mpk.iov_base, seed.iov_base, seed.iov_len, FSPRG_RECOMMENDED_SECPAR);
-        if (r < 0)
-                return log_error_errno(r, "Failed to generate key pair: %m");
-
-        if (!arg_quiet)
                 log_info("Generating sealing key...");
-        r = FSPRG_GenState0(state.iov_base, mpk.iov_base, seed.iov_base, seed.iov_len);
+        r = fsprg_generate_state(FSPRG_RECOMMENDED_SECPAR, /* epoch= */ 0, &seed, &state);
         if (r < 0)
                 return log_error_errno(r, "Failed to generate sealing key: %m");
 
