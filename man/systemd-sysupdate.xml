@@ -18,10 +18,15 @@
 
   <refnamediv>
     <refname>systemd-sysupdate</refname>
-    <refname>systemd-sysupdate.service</refname>
-    <refname>systemd-sysupdate.timer</refname>
+    <refname>systemd-sysupdate-update.service</refname>
+    <refname>systemd-sysupdate-update.timer</refname>
     <refname>systemd-sysupdate-reboot.service</refname>
     <refname>systemd-sysupdate-reboot.timer</refname>
+
+    <!-- Compatibility symlinks for old names of systemd-sysupdate-update.{service,timer} -->
+    <refname>systemd-sysupdate.service</refname>
+    <refname>systemd-sysupdate.timer</refname>
+
     <refpurpose>Automatically Update OS or Other Resources</refpurpose>
   </refnamediv>
 
@@ -31,7 +36,7 @@
       <arg choice="opt" rep="repeat">OPTIONS</arg>
     </cmdsynopsis>
 
-    <para><filename>systemd-sysupdate.service</filename></para>
+    <para><filename>systemd-sysupdate-update.service</filename></para>
   </refsynopsisdiv>
 
   <refsect1>
@@ -73,9 +78,9 @@
     embedded in the disk images. For the latter, see <option>--image=</option> below. The latter is
     particularly interesting to update container images or portable service images.</para>
 
-    <para>The <filename>systemd-sysupdate.service</filename> system service will automatically update the
+    <para>The <filename>systemd-sysupdate-update.service</filename> system service will automatically update the
     host OS based on the installed transfer files. It is triggered in regular intervals via
-    <filename>systemd-sysupdate.timer</filename>. The <filename>systemd-sysupdate-reboot.service</filename>
+    <filename>systemd-sysupdate-update.timer</filename>. The <filename>systemd-sysupdate-reboot.service</filename>
     will automatically reboot the system after a new version is installed. It is triggered via
     <filename>systemd-sysupdate-reboot.timer</filename>. The two services are separate from each other as it
     is typically advisable to download updates regularly while the system is up, but delay reboots until the
