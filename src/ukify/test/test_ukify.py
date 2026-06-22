@@ -774,6 +774,98 @@ def test_inspect_no_osrel(kernel_initrd, tmp_path, capsys):
     test_inspect(kernel_initrd, tmp_path, capsys, osrel=False)
 
 
+def build_inspect_uki(*args):
+    # Build a UKI for the inspect-JSON tests. Building needs a stub; CI provides the addon stub via
+    # $EFI_ADDON (see test_addon), so build addon-style (no --linux) to need only that one. Skip if
+    # the stub is unavailable.
+    stub = os.getenv('EFI_ADDON')
+    if not stub:
+        pytest.skip('EFI_ADDON not set')
+    opts = ukify.parse_args(['build', f'--stub={stub}', *args, *arg_tools])
+    try:
+        ukify.check_inputs(opts)
+    except FileNotFoundError as e:
+        pytest.skip(str(e))
+    ukify.make_uki(opts)
+
+
+def test_inspect_json_profiles(tmp_path, capsys):
+    # Build two standalone profile PE binaries, each carrying its own '.cmdline'.
+    profiles = []
+    for i in range(2):
+        profile = f'{tmp_path}/profile{i}.efi'
+        build_inspect_uki(f'--profile=ID=profile{i}', f'--cmdline=PROFILE{i}ARG', f'--output={profile}')
+        profiles.append(profile)
+
+    # Build the base UKI joining both profiles. The result has a shared base '.cmdline' plus one
+    # '.cmdline' (and one '.profile') per profile, including the implicit base profile.
+    output = f'{tmp_path}/base.efi'
+    build_inspect_uki(
+        '--cmdline=BASEARG',
+        '--uname=1.2.3',
+        *(f'--join-profile={p}' for p in profiles),
+        f'--output={output}',
+    )
+
+    opts = ukify.parse_args(['inspect', output, '--json=short'])
+    ukify.inspect_sections(opts)
+    result = json.loads(capsys.readouterr().out)
+
+    # Shared base sections stay keyed by name at the top level, just as for a profile-less UKI, so
+    # the base '.cmdline' is not overwritten by the profile-specific ones.
+    assert result['.cmdline']['text'] == 'BASEARG'
+    assert result['.uname']['text'] == '1.2.3'
+
+    # Implicit base profile (ID=main) plus the two joined profiles, each keyed by section name and
+    # starting with its '.profile' section.
+    assert len(result['_profiles']) == 3
+    assert [p['.profile']['text'] for p in result['_profiles']] == ['ID=main', 'ID=profile0', 'ID=profile1']
+
+    # Each joined profile's distinct '.cmdline' survives instead of being overwritten.
+    profile_cmdlines = [p['.cmdline']['text'] for p in result['_profiles'] if '.cmdline' in p]
+    assert profile_cmdlines == ['PROFILE0ARG', 'PROFILE1ARG']
+
+    shutil.rmtree(tmp_path)
+
+
+def test_inspect_json_alternative_set_sections(tmp_path, capsys):
+    # '.dtbauto' is an alternative-set (one entry per hardware variant): every occurrence must be
+    # preserved, and it is always reported as a list, even for a single entry.
+    def inspect(output):
+        opts = ukify.parse_args(['inspect', str(output), '--json=short'])
+        ukify.inspect_sections(opts)
+        return json.loads(capsys.readouterr().out)
+
+    dtbs = []
+    for i in range(2):
+        dtb = tmp_path / f'dtb{i}'
+        dtb.write_bytes(f'DTB{i}'.encode())
+        dtbs.append(dtb)
+
+    output = f'{tmp_path}/dtbauto.efi'
+    build_inspect_uki('--cmdline=ARG', *(f'--devicetree-auto={d}' for d in dtbs), f'--output={output}')
+    result = inspect(output)
+
+    # No profiles, so no '_profiles' key and single sections stay plain objects (backwards compatible).
+    assert '_profiles' not in result
+    assert result['.cmdline']['text'] == 'ARG'
+
+    # Both '.dtbauto' occurrences are preserved as a list, none dropped.
+    assert isinstance(result['.dtbauto'], list)
+    assert len(result['.dtbauto']) == 2
+    assert all('sha256' in d for d in result['.dtbauto'])
+    assert result['.dtbauto'][0]['sha256'] != result['.dtbauto'][1]['sha256']
+
+    # A single '.dtbauto' is still reported as a (one-element) list, not a bare object.
+    single = f'{tmp_path}/dtbauto-single.efi'
+    build_inspect_uki(f'--devicetree-auto={dtbs[0]}', f'--output={single}')
+    result = inspect(single)
+    assert isinstance(result['.dtbauto'], list)
+    assert len(result['.dtbauto']) == 1
+
+    shutil.rmtree(tmp_path)
+
+
 @pytest.mark.skipif(not slow_tests, reason='slow')
 def test_pcr_signing(kernel_initrd, tmp_path):
     if kernel_initrd is None:
