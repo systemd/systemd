@@ -119,7 +119,7 @@ static int property_get_confidential_virtualization(
 
         return sd_bus_message_append(
                         reply, "s",
-                        v <= 0 ? NULL : confidential_virtualization_to_string(v));
+                        v < 0 ? NULL : confidential_virtualization_to_string(v));
 }
 
 static int property_get_tainted(
