@@ -691,6 +691,16 @@ typedef struct TransientExecContextParameters {
         const char *user;
         const char *group;
         char **supplementary_groups;
+        /* Absolute-path strings: must validated via path_is_absolute(). */
+        const char *ipc_namespace_path;
+        const char *network_namespace_path;
+        const char *root_directory;
+        const char *root_hash_path;
+        const char *root_hash_sig_path;
+        const char *root_image;
+        const char *root_mstack;
+        const char *root_verity;
+        const char *user_namespace_path;
         bool nice_set;
         int nice;
         bool oom_score_adjust_set;
@@ -1210,6 +1220,83 @@ DEFINE_APPLY_EXEC_TRISTATE_BOOL(restrict_realtime,         "RestrictRealtime");
 DEFINE_APPLY_EXEC_TRISTATE_BOOL(restrict_suid_sgid,        "RestrictSUIDSGID");
 DEFINE_APPLY_EXEC_TRISTATE_BOOL(root_ephemeral,            "RootEphemeral");
 
+/* Generate an apply fn for an exec-context absolute-path string: validate via path_is_absolute(),
+ * copy into ExecContext, write "Name=<path>". Mirrors D-Bus bus_set_transient_path. */
+#define DEFINE_APPLY_EXEC_ABSOLUTE_PATH(field, JsonName)                \
+        static int apply_exec_##field(Unit *u, ExecContext *c, TransientExecContextParameters *p) { \
+                int r;                                                  \
+                assert(c);                                              \
+                assert(p);                                              \
+                if (!p->field)                                          \
+                        return 0;                                       \
+                if (!path_is_absolute(p->field))                        \
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), \
+                                               JsonName ": expects an absolute path"); \
+                r = free_and_strdup(&c->field, p->field);               \
+                if (r < 0)                                              \
+                        return r;                                       \
+                unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE|UNIT_ESCAPE_SPECIFIERS, JsonName, \
+                                    JsonName "=%s", p->field);          \
+                return 0;                                               \
+        }
+
+DEFINE_APPLY_EXEC_ABSOLUTE_PATH(ipc_namespace_path,     "IPCNamespacePath");
+DEFINE_APPLY_EXEC_ABSOLUTE_PATH(network_namespace_path, "NetworkNamespacePath");
+DEFINE_APPLY_EXEC_ABSOLUTE_PATH(root_directory,         "RootDirectory");
+DEFINE_APPLY_EXEC_ABSOLUTE_PATH(root_image,             "RootImage");
+DEFINE_APPLY_EXEC_ABSOLUTE_PATH(root_mstack,            "RootMStack");
+DEFINE_APPLY_EXEC_ABSOLUTE_PATH(root_verity,            "RootVerity");
+DEFINE_APPLY_EXEC_ABSOLUTE_PATH(user_namespace_path,    "UserNamespacePath");
+
+/* RootHashPath and RootHashSignaturePath need custom apply fns: the corresponding unit-file
+ * directive is "RootHash="/"RootHashSignature=" (not the JSON name), and setting the path form
+ * must clear the byte-buffer (iovec) form to match the D-Bus semantics. */
+static int apply_exec_root_hash_path(Unit *u, ExecContext *c, TransientExecContextParameters *p) {
+        int r;
+
+        assert(c);
+        assert(p);
+
+        if (!p->root_hash_path)
+                return 0;
+
+        if (!path_is_absolute(p->root_hash_path))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "RootHashPath: expects an absolute path");
+
+        r = free_and_strdup(&c->root_hash_path, p->root_hash_path);
+        if (r < 0)
+                return r;
+        iovec_done(&c->root_hash);
+
+        unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE|UNIT_ESCAPE_SPECIFIERS, "RootHash",
+                            "RootHash=%s", p->root_hash_path);
+        return 0;
+}
+
+static int apply_exec_root_hash_sig_path(Unit *u, ExecContext *c, TransientExecContextParameters *p) {
+        int r;
+
+        assert(c);
+        assert(p);
+
+        if (!p->root_hash_sig_path)
+                return 0;
+
+        if (!path_is_absolute(p->root_hash_sig_path))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "RootHashSignaturePath: expects an absolute path");
+
+        r = free_and_strdup(&c->root_hash_sig_path, p->root_hash_sig_path);
+        if (r < 0)
+                return r;
+        iovec_done(&c->root_hash_sig);
+
+        unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE|UNIT_ESCAPE_SPECIFIERS, "RootHashSignature",
+                            "RootHashSignature=%s", p->root_hash_sig_path);
+        return 0;
+}
+
 /* Per-property descriptor for fields of the Exec context.
  *
  *   json_name     - JSON key inside the Exec object (e.g. "Nice").
@@ -1254,9 +1341,20 @@ typedef struct TransientExecProperty {
         { json, "Exec." json, SD_JSON_VARIANT_STRING, dispatch_fn,                         \
           offsetof(TransientExecContextParameters, field), json_flags, apply_exec_##field }
 
+/* Absolute-path string property: parsed via sd_json_dispatch_const_string + path_is_absolute(). */
+#define EXEC_PROPERTY_ABSOLUTE_PATH(json, field)                                          \
+        { json, "Exec." json, SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string,      \
+          offsetof(TransientExecContextParameters, field), 0, apply_exec_##field }
+
 static const TransientExecProperty exec_properties[] = {
         EXEC_PROPERTY              ("WorkingDirectory",       SD_JSON_VARIANT_OBJECT,        dispatch_transient_working_directory,        0,                                                                       0,             apply_exec_working_directory),
+        EXEC_PROPERTY_ABSOLUTE_PATH("RootDirectory",          root_directory),
+        EXEC_PROPERTY_ABSOLUTE_PATH("RootImage",              root_image),
+        EXEC_PROPERTY_ABSOLUTE_PATH("RootMStack",             root_mstack),
         EXEC_PROPERTY_TRISTATE_BOOL("RootEphemeral",          root_ephemeral),
+        EXEC_PROPERTY              ("RootHashPath",           SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,               offsetof(TransientExecContextParameters, root_hash_path),                0,             apply_exec_root_hash_path),
+        EXEC_PROPERTY              ("RootHashSignaturePath",  SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,               offsetof(TransientExecContextParameters, root_hash_sig_path),            0,             apply_exec_root_hash_sig_path),
+        EXEC_PROPERTY_ABSOLUTE_PATH("RootVerity",             root_verity),
         EXEC_PROPERTY_STRING       ("User",                   user,  json_dispatch_const_user_group_name, SD_JSON_RELAX),
         EXEC_PROPERTY_STRING       ("Group",                  group, json_dispatch_const_user_group_name, SD_JSON_RELAX),
         EXEC_PROPERTY_TRISTATE_BOOL("DynamicUser",            dynamic_user),
@@ -1270,6 +1368,9 @@ static const TransientExecProperty exec_properties[] = {
         EXEC_PROPERTY_TRISTATE_BOOL("MemoryDenyWriteExecute", memory_deny_write_execute),
         EXEC_PROPERTY_TRISTATE_BOOL("RestrictRealtime",       restrict_realtime),
         EXEC_PROPERTY_TRISTATE_BOOL("RestrictSUIDSGID",       restrict_suid_sgid),
+        EXEC_PROPERTY_ABSOLUTE_PATH("NetworkNamespacePath",   network_namespace_path),
+        EXEC_PROPERTY_ABSOLUTE_PATH("IPCNamespacePath",       ipc_namespace_path),
+        EXEC_PROPERTY_ABSOLUTE_PATH("UserNamespacePath",      user_namespace_path),
         EXEC_PROPERTY_TRISTATE_BOOL("RemoveIPC",              remove_ipc),
         EXEC_PROPERTY              ("Environment",            _SD_JSON_VARIANT_TYPE_INVALID, dispatch_transient_environment,              0,                                                                       0,             apply_exec_environment),
         EXEC_PROPERTY              ("SetCredential",          SD_JSON_VARIANT_ARRAY,         dispatch_transient_set_credential,           0,                                                                       0,             apply_exec_set_credential),
@@ -1278,6 +1379,7 @@ static const TransientExecProperty exec_properties[] = {
 #undef EXEC_PROPERTY
 #undef EXEC_PROPERTY_TRISTATE_BOOL
 #undef EXEC_PROPERTY_STRING
+#undef EXEC_PROPERTY_ABSOLUTE_PATH
 
 /* Tristate-bool fields default to -1 (= absent). Default-zeroed slots would look "explicitly false"
  * to the apply path. Initialize all tristate fields here so adding a new tristate property only
