@@ -726,6 +726,9 @@ if fallback_hostname == '' or fallback_hostname[0] == '.' or fallback_hostname[0
 endif
 conf.set_quoted('FALLBACK_HOSTNAME', fallback_hostname)
 
+fallback_default_target = get_option('fallback-default-target')
+conf.set_quoted('FALLBACK_DEFAULT_TARGET', fallback_default_target)
+
 extra_net_naming_schemes = []
 extra_net_naming_map = []
 foreach scheme: get_option('extra-net-naming-schemes').split(',')
@@ -2751,6 +2754,7 @@ summary({
         'nobody user name'                          : nobody_user,
         'nobody group name'                         : nobody_group,
         'fallback hostname'                         : get_option('fallback-hostname'),
+        'fallback default target'                   : fallback_default_target,
         'default compression method'                : compression,
         'default DNSSEC mode'                       : default_dnssec,
         'default DNS-over-TLS mode'                 : default_dns_over_tls,

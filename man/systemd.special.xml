@@ -1,6 +1,9 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
-  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+<!ENTITY % entities SYSTEM "custom-entities.ent" >
+%entities;
+]>
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="systemd.special" xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -238,6 +241,13 @@
             names like <varname>single</varname>, <varname>rescue</varname>, <varname>1</varname>,
             <varname>3</varname>, <varname>5</varname>, …; see
             <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+
+            <para>If <filename>default.target</filename> is not present on disk and no unit was requested on
+            the kernel command line, the default set at compile time will be used
+            (<filename>&FALLBACK_DEFAULT_TARGET;</filename>).</para>
+
+            <para>If the default unit or one of the fallbacks cannot be started, systemd starts
+            <filename>rescue.target</filename>.</para>
 
             <para>For typical unit files please set <literal>WantedBy=</literal> to a regular target (like
             <filename>multi-user.target</filename> or <filename>graphical.target</filename>),
