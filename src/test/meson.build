@@ -670,32 +670,25 @@ executables += [
                         libudev_basic,
                 ],
         },
+
+        test_template + {
+                'name' : 'test-libsystemd-static-sym',
+                'sources' : [test_libsystemd_sym_c],
+                'link_with' : install_libsystemd_static,
+                'build_by_default' : want_tests != 'false',
+                'install' : install_tests,
+                'suite' : 'libsystemd',
+                'conditions' : [static_libsystemd != 'false'],
+        },
+        test_template + {
+                'name' : 'test-libudev-static-sym',
+                'sources' : [test_libudev_sym_c],
+                'include_directories' : libudev_includes,
+                'c_args' : ['-Wno-deprecated-declarations'] + test_cflags,
+                'link_with' : install_libudev_static,
+                'build_by_default' : want_tests != 'false',
+                'install' : install_tests,
+                'suite' : 'libudev',
+                'conditions' : [static_libsystemd != 'false'],
+        },
 ]
-
-if static_libsystemd != 'false'
-        executables += [
-                test_template + {
-                        'name' : 'test-libsystemd-static-sym',
-                        'sources' : [test_libsystemd_sym_c],
-                        'link_with' : install_libsystemd_static,
-                        'build_by_default' : want_tests != 'false',
-                        'install' : install_tests,
-                        'suite' : 'libsystemd',
-                },
-        ]
-endif
-
-if static_libudev != 'false'
-        executables += [
-                test_template + {
-                        'name' : 'test-libudev-static-sym',
-                        'sources' : [test_libudev_sym_c],
-                        'include_directories' : libudev_includes,
-                        'c_args' : ['-Wno-deprecated-declarations'] + test_cflags,
-                        'link_with' : install_libudev_static,
-                        'build_by_default' : want_tests != 'false',
-                        'install' : install_tests,
-                        'suite' : 'libudev',
-                },
-        ]
-endif

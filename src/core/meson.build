@@ -252,6 +252,23 @@ executables += [
         },
 
         libexec_template + {
+                'name' : 'systemd-executor',
+                'public' : true,
+                'sources' : systemd_executor_sources,
+                'link_with' : executor_libs,
+                'dependencies' : [
+                        libapparmor_cflags,
+                        libbpf_cflags,
+                        libcryptsetup_cflags,
+                        libmount_cflags,
+                        libpam_cflags,
+                        libseccomp_cflags,
+                        libselinux_cflags,
+                ],
+                'conditions' : [conf.get('SYSTEMD_MULTICALL_BINARY') == 0],
+        },
+
+        libexec_template + {
                 'name' : 'systemd-shutdown',
                 'extract' : systemd_shutdown_sources,
                 'dependencies' : libmount_cflags,
@@ -304,24 +321,6 @@ if conf.get('SYSTEMD_MULTICALL_BINARY') == 1
         install_symlink('systemd-executor',
                         pointing_to : 'systemd',
                         install_dir : libexecdir)
-else
-        executables += [
-                libexec_template + {
-                        'name' : 'systemd-executor',
-                        'public' : true,
-                        'sources' : systemd_executor_sources,
-                        'link_with' : executor_libs,
-                        'dependencies' : [
-                                libapparmor_cflags,
-                                libbpf_cflags,
-                                libcryptsetup_cflags,
-                                libmount_cflags,
-                                libpam_cflags,
-                                libseccomp_cflags,
-                                libselinux_cflags,
-                        ],
-                },
-        ]
 endif
 
 in_files = [['system.conf',                     pkgconfigfiledir],
