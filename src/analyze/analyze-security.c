@@ -2792,7 +2792,7 @@ static int offline_security_checks(
                                 return log_error_errno(r, "Failed to copy: %m");
                 }
 
-                k = manager_load_startable_unit_or_warn(m, NULL, prepared, &units[count]);
+                k = manager_load_startable_unit_or_warn(m, NULL, prepared, LOG_ERR, &units[count]);
                 if (k < 0) {
                         RET_GATHER(r, k);
                         continue;
