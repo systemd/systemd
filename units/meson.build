@@ -473,6 +473,8 @@ units = [
           'file' : 'systemd-journalctl.socket',
           'symlinks' : ['sockets.target.wants/'],
         },
+        { 'file' : 'systemd-journalctl-metrics@.service' },
+        { 'file' : 'systemd-journalctl-metrics.socket' },
         { 'file' : 'systemd-journald-audit.socket' },
         {
           'file' : 'systemd-journald-dev-log.socket',

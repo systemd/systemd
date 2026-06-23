@@ -24,6 +24,7 @@ enable systemd-boot-update.service
 enable systemd-confext.service
 enable systemd-homed.service
 enable systemd-homed-activate.service
+enable systemd-journalctl-metrics.socket
 enable systemd-journald-audit.socket
 enable systemd-mountfsd.socket
 enable systemd-network-generator.service
