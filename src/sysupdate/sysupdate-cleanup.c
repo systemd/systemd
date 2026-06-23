@@ -352,30 +352,23 @@ static int context_installdb_process_entry(
         return context_installdb_process_directory(c, path, /* relpath= */ NULL, dir_fd, de, pattern);
 }
 
-int installdb_cleanup_component(const char *node, const char *component) {
+int installdb_cleanup_component(Context *context) {
         int r;
 
-        _cleanup_(context_freep) Context* context = NULL;
-        r = context_make_offline(
-                        &context,
-                        node,
-                        component,
-                        /* read_definitions_flags= */ 0);
-        if (r < 0)
-                return r;
+        assert(context);
 
         r = context_installdb_acquire_fd(context, /* make= */ false);
         if (r < 0)
                 return r;
         if (r == 0) {
-                log_debug("Not cleaning up component '%s', install database is empty.", strna(component));
+                log_debug("Not cleaning up component '%s', install database is empty.", strna(context->component));
                 return 0;
         }
 
         _cleanup_free_ DirectoryEntries *de = NULL;
         r = readdir_all(context->installdb_fd, RECURSE_DIR_ENSURE_TYPE|RECURSE_DIR_MUST_BE_SYMLINK, &de);
         if (r < 0)
-                return log_error_errno(r, "Failed to enumerate install database for component '%s': %m", strna(component));
+                return log_error_errno(r, "Failed to enumerate install database for component '%s': %m", strna(context->component));
 
         int ret = 0;
         FOREACH_ARRAY(_d, de->entries, de->n_entries) {

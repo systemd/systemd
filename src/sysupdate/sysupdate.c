@@ -171,6 +171,11 @@ static int read_definitions(
         return 0;
 }
 
+typedef enum ReadDefinitionsFlags {
+        READ_DEFINITIONS_REQUIRES_ENABLED_TRANSFERS = 1 << 0,
+        READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS     = 1 << 1,
+} ReadDefinitionsFlags;
+
 static int context_read_definitions(Context *c, const char* node, ReadDefinitionsFlags flags) {
         _cleanup_strv_free_ char **dirs = NULL;
         int r;
@@ -926,7 +931,7 @@ static int context_vacuum(
         return 0;
 }
 
-int context_make_offline(
+static int context_make_offline(
                 Context **ret,
                 const char *node,
                 const char *component,
@@ -1929,6 +1934,7 @@ static int verb_components(int argc, char *argv[], uintptr_t _data, void *userda
 
 VERB_NOARG(verb_cleanup, "cleanup", "Clean up orphaned files");
 static int verb_cleanup(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        _cleanup_(context_freep) Context* context = NULL;
         int r;
 
         assert(argc <= 1);
@@ -1944,8 +1950,16 @@ static int verb_cleanup(int argc, char *argv[], uintptr_t _data, void *userdata)
 
         const char *node = loop_device ? loop_device->node : NULL;
 
+        r = context_make_offline(
+                        &context,
+                        node,
+                        arg_component,
+                        /* read_definitions_flags= */ 0);
+        if (r < 0)
+                return r;
+
         int ret = 0;
-        RET_GATHER(ret, installdb_cleanup_component(node, arg_component));
+        RET_GATHER(ret, installdb_cleanup_component(context));
 
         if (arg_component_all) {
                 _cleanup_strv_free_ char **z = NULL;
@@ -1953,8 +1967,19 @@ static int verb_cleanup(int argc, char *argv[], uintptr_t _data, void *userdata)
                 if (r < 0)
                         return log_error_errno(r, "Failed to enumerate components: %m");
 
-                STRV_FOREACH(i, z)
-                        RET_GATHER(ret, installdb_cleanup_component(node, *i));
+                STRV_FOREACH(i, z) {
+                        _cleanup_(context_freep) Context* component_context = NULL;
+
+                        r = context_make_offline(
+                                        &component_context,
+                                        node,
+                                        *i,
+                                        /* read_definitions_flags= */ 0);
+                        if (r < 0)
+                                return r;
+
+                        RET_GATHER(ret, installdb_cleanup_component(component_context));
+                }
         }
 
         return ret;
