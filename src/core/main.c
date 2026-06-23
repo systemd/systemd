@@ -2766,7 +2766,16 @@ static int do_queue_default_job(
 
                 r = manager_load_startable_unit_or_warn(m, SPECIAL_DEFAULT_TARGET, NULL, &target);
         }
+        if (r == -ENOENT && !arg_default_unit) {
+                /* The default.target symlink was not found on disk and the target was not explicitly
+                 * specified. Fall back to the target configured at build time via -Ddefault-target=. */
+
+                log_info("Falling back to %s.", DEFAULT_TARGET);
+
+                r = manager_load_startable_unit_or_warn(m, DEFAULT_TARGET, NULL, &target);
+        }
         if (r < 0) {
+                /* We failed. Activate rescue mode. */
                 log_info("Falling back to %s.", SPECIAL_RESCUE_TARGET);
 
                 r = manager_load_startable_unit_or_warn(m, SPECIAL_RESCUE_TARGET, NULL, &target);
