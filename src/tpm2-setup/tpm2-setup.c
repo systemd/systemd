@@ -2,13 +2,16 @@
 
 #include <sys/stat.h>
 #include <sysexits.h>
+#include <unistd.h>
 
 #include "sd-messages.h"
 
 #include "alloc-util.h"
+#include "boot-entry.h"
 #include "build.h"
 #include "conf-files.h"
 #include "constants.h"
+#include "creds-util.h"
 #include "crypto-util.h"
 #include "dlopen-note.h"
 #include "errno-util.h"
@@ -22,7 +25,9 @@
 #include "mkdir.h"
 #include "options.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "pretty-print.h"
+#include "sd-id128.h"
 #include "set.h"
 #include "sort-util.h"
 #include "string-util.h"
@@ -368,10 +373,71 @@ static int setup_srk(void) {
         return 0;
 }
 
+static int cleanup_one_old_nvpcr_cred(const char *path) {
+        int r;
+
+        assert(path);
+
+        r = RET_NERRNO(unlink(path));
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0)
+                return log_debug_errno(r, "Failed to unlink old NvPCR anchor secret credential '%s', ignoring: %m", path);
+
+        log_debug("Removed old NvPCR anchor secret credential '%s'.", path);
+        return 0;
+}
+
+static int cleanup_old_nvpcr_creds(void) {
+        int r;
+
+        if (arg_early)
+                return 0;
+
+        int j = cleanup_one_old_nvpcr_cred("/var/lib/systemd/nvpcr/nvpcr-anchor.cred");
+
+        _cleanup_free_ char *dir = NULL;
+        r = get_global_boot_credentials_path(&dir);
+        if (r <= 0)
+                return r;
+
+        sd_id128_t machine_id;
+        r = sd_id128_get_machine(&machine_id);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to read machine ID, not removing old NvPCR anchor secret boot credential: %m");
+
+        BootEntryTokenType entry_token_type = BOOT_ENTRY_TOKEN_AUTO;
+        _cleanup_free_ char *entry_token = NULL;
+        r = boot_entry_token_ensure(
+                        /* root= */ NULL,
+                        /* conf_root= */ NULL,
+                        machine_id,
+                        /* machine_id_is_random= */ false,
+                        &entry_token_type,
+                        &entry_token);
+        if (r < 0)
+                return r;
+
+        _cleanup_free_ char *fname = strjoin("nvpcr-anchor.", entry_token, ".cred");
+        if (!fname)
+                return log_oom();
+
+        if (!filename_is_valid(fname))
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "'%s' is not a valid file name, not removing old NvPCR anchor secret boot credential.", fname);
+
+        _cleanup_free_ char *joined = path_join(dir, fname);
+        if (!joined)
+                return log_oom();
+
+        RET_GATHER(j, cleanup_one_old_nvpcr_cred(joined));
+
+        return j;
+}
+
 typedef struct SetupNvPCRContext {
         Tpm2Context *tpm2_context;
-        struct iovec anchor_secret;
-        size_t n_already, n_anchored, n_failed, n_skipped;
+        size_t n_already, n_initialized, n_failed, n_skipped;
         bool nv_space_exhausted; /* Set once the TPM ran out of NV index space, so we skip the rest. */
         Set *done;
 } SetupNvPCRContext;
@@ -379,7 +445,6 @@ typedef struct SetupNvPCRContext {
 static void setup_nvpcr_context_done(SetupNvPCRContext *c) {
         assert(c);
 
-        iovec_done_erase(&c->anchor_secret);
         c->tpm2_context = tpm2_context_unref(c->tpm2_context);
         c->done = set_free(c->done);
 }
@@ -405,19 +470,7 @@ static int setup_nvpcr_one(
                 return 0;
         }
 
-        r = tpm2_nvpcr_initialize(c->tpm2_context, /* session= */ NULL, name, &c->anchor_secret);
-        if (r == -EUNATCH) {
-                assert(!iovec_is_set(&c->anchor_secret));
-
-                /* If we get EUNATCH this means we actually need to initialize this NvPCR
-                 * now, and haven't provided the anchor secret yet. Hence acquire it now. */
-
-                r = tpm2_nvpcr_acquire_anchor_secret(&c->anchor_secret, /* sync_secondary= */ !arg_early);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to acquire anchor secret: %m");
-
-                r = tpm2_nvpcr_initialize(c->tpm2_context, /* session= */ NULL, name, &c->anchor_secret);
-        }
+        r = tpm2_nvpcr_initialize(c->tpm2_context, /* session= */ NULL, name);
         if (r == -EOPNOTSUPP) {
                 c->n_failed++;
                 return log_struct_errno(LOG_ERR, r,
@@ -436,11 +489,11 @@ static int setup_nvpcr_one(
         }
         if (r < 0) {
                 c->n_failed++;
-                return log_error_errno(r, "Failed to extend NvPCR index with anchor secret: %m");
+                return log_error_errno(r, "Failed to initialize NvPCR index: %m");
         }
 
         if (r > 0)
-                c->n_anchored++;
+                c->n_initialized++;
         else
                 c->n_already++;
 
@@ -524,23 +577,17 @@ static int setup_nvpcr(void) {
                 RET_GATHER(ret, setup_nvpcr_one(&c, e->name));
         }
 
-        if (c.n_already > 0 && c.n_anchored == 0 && !arg_early)
-                /* If we didn't anchor anything right now, but we anchored something earlier, then it might
-                 * have happened in the initrd, and thus the anchor ID was not committed to /var/ or the ESP
-                 * yet. Hence, let's explicitly do so now, to catch up. */
-                RET_GATHER(ret, tpm2_nvpcr_acquire_anchor_secret(/* ret= */ NULL, /* sync_secondary= */ true));
-
         if (c.nv_space_exhausted)
                 log_notice("Skipped %zu lowest-priority NvPCR(s) because the TPM's NV index space is exhausted, proceeding anyway.", c.n_skipped);
 
         if (c.n_failed > 0)
                 log_warning("%zu NvPCRs failed to initialize, proceeding anyway.", c.n_failed);
 
-        if (c.n_anchored > 0) {
+        if (c.n_initialized > 0) {
                 if (c.n_already == 0)
-                        log_info("%zu NvPCRs initialized.", c.n_anchored);
+                        log_info("%zu NvPCRs initialized.", c.n_initialized);
                 else
-                        log_info("%zu NvPCRs initialized. (%zu NvPCRs were already initialized.)", c.n_anchored, c.n_already);
+                        log_info("%zu NvPCRs initialized. (%zu NvPCRs were already initialized.)", c.n_initialized, c.n_already);
         } else if (c.n_already > 0)
                 log_info("%zu NvPCRs already initialized.", c.n_already);
         else if (c.n_failed == 0 && c.n_skipped == 0)
@@ -552,6 +599,9 @@ static int setup_nvpcr(void) {
                 return EX_UNAVAILABLE;   /* e.g. no NvPCR support in TPM */
         if (ret == -ENOBUFS)
                 return EX_CANTCREAT;     /* NV index space on TPM exhausted */
+
+        if (ret == 0)
+                (void) cleanup_old_nvpcr_creds();
 
         return ret;
 }
