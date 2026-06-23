@@ -530,6 +530,9 @@ int in_group(const char *name) {
 
 int merge_gid_lists(const gid_t *list1, size_t size1, const gid_t *list2, size_t size2, gid_t **ret) {
         size_t nresult = 0;
+
+        assert(size1 == 0 || list1);
+        assert(size2 == 0 || list2);
         assert(ret);
 
         if (size2 > INT_MAX - size1)

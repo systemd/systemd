@@ -608,7 +608,6 @@ int uid_map_search_root(pid_t pid, UIDRangeUsernsMode mode, uid_t *ret) {
 }
 
 uid_t uid_range_base(const UIDRange *range) {
-
         /* Returns the lowest UID in the range (notw that elements are sorted, hence we just need to look at
          * the first one that is populated. */
 
