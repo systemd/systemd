@@ -248,6 +248,53 @@ int json_dispatch_in6_addr(const char *name, sd_json_variant *variant, sd_json_d
         return 0;
 }
 
+int json_dispatch_in_addr_union(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        union in_addr_union *ret = ASSERT_PTR(userdata), address = IN_ADDR_NULL;
+        int r;
+
+        assert(variant);
+
+        if (sd_json_variant_is_null(variant)) {
+                *ret = address;
+                return 0;
+        }
+
+        /* We support both a more human readable string based encoding and an array based encoding */
+        if (sd_json_variant_is_string(variant)) {
+                r = in_addr_from_string_auto(sd_json_variant_string(variant), /* ret_family = */ NULL, &address);
+                if (r < 0)
+                        return json_log(variant, flags, r,
+                                        "JSON field '%s' is not a valid IPv4 or IPv6 address string: %s", strna(name), sd_json_variant_string(variant));
+                *ret = address;
+                return 0;
+        }
+
+        if (!sd_json_variant_is_array(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an array.", strna(name));
+
+        size_t n = sd_json_variant_elements(variant);
+        if (!IN_SET(n, sizeof(struct in_addr), sizeof(struct in6_addr)))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is array of unexpected size.", strna(name));
+
+        size_t k = 0;
+        sd_json_variant *i;
+        JSON_VARIANT_ARRAY_FOREACH(i, variant) {
+                if (!sd_json_variant_is_integer(i))
+                        return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "Element %zu of JSON field '%s' is not an integer.", k, strna(name));
+
+                int64_t b = sd_json_variant_integer(i);
+                if (b < 0 || b > 0xff)
+                        return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL),
+                                        "Element %zu of JSON field '%s' is out of range 0%s255.",
+                                        k, strna(name), glyph(GLYPH_ELLIPSIS));
+
+                address.bytes[k++] = (uint8_t) b;
+        }
+
+        *ret = address;
+        return 0;
+}
+
 int json_dispatch_const_path(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         const char **p = ASSERT_PTR(userdata), *path;
 
