@@ -323,6 +323,7 @@ char* iovw_to_cstring(const struct iovec_wrapper *iovw) {
 int iovec_split(const struct iovec *iov, size_t length_size, struct iovec_wrapper *ret) {
         int r;
 
+        assert(iov);
         assert(IN_SET(length_size, 1, 2, 4));
         assert(ret);
 

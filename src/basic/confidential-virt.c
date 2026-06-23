@@ -19,6 +19,11 @@
 #if defined(__x86_64__)
 
 static void cpuid(uint32_t *eax, uint32_t *ebx, uint32_t *ecx, uint32_t *edx) {
+        assert(eax);
+        assert(ebx);
+        assert(ecx);
+        assert(edx);
+
         log_debug("CPUID func %" PRIx32 " %" PRIx32, *eax, *ecx);
         __cpuid_count(*eax, *ecx, *eax, *ebx, *ecx, *edx);
         log_debug("CPUID result %" PRIx32 " %" PRIx32 " %" PRIx32 " %" PRIx32, *eax, *ebx, *ecx, *edx);
