@@ -424,6 +424,7 @@ char* utf16_to_utf8(const char16_t *s, size_t length /* bytes! */) {
 }
 
 size_t utf16_encode_unichar(char16_t *out, char32_t c) {
+        assert(out);
 
         /* Note that this encodes as little-endian. */
 
