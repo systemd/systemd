@@ -272,6 +272,8 @@ def test_parse_args_many():
             '--no-measure',
             '--policy-digest',
             '--no-policy-digest',
+            '--sign-nvpcr-init',
+            '--no-sign-nvpcr-init',
         ]
     )
     assert opts.linux == pathlib.Path('/ARG1')
@@ -294,6 +296,7 @@ def test_parse_args_many():
     assert opts.output == pathlib.Path('OUTPUT')
     assert opts.measure is False
     assert opts.policy_digest is False
+    assert opts.sign_nvpcr_init is False
 
 
 def test_parse_sections():
@@ -1122,6 +1125,60 @@ def test_pcr_signing3(kernel_initrd, tmp_path):
     assert 'ref' not in sig['sha384'][3]
     assert 'ref' in sig['sha384'][4]
     assert sig['sha384'][4]['ref'] == 'initrd'
+
+    shutil.rmtree(tmp_path)
+
+
+def test_pcr_signing_nvpcr_init(kernel_initrd, tmp_path):
+    if kernel_initrd is None:
+        pytest.skip('linux+initrd not found')
+    try:
+        systemd_measure()
+    except ValueError:
+        pytest.skip('systemd-measure not found')
+
+    ourdir = pathlib.Path(__file__).parent
+    pub = unbase64(ourdir / 'example.tpm2-pcr-public.pem.base64')
+    priv = unbase64(ourdir / 'example.tpm2-pcr-private.pem.base64')
+
+    output = f'{tmp_path}/signed.efi'
+    args = [
+        'build',
+        *kernel_initrd,
+        f'--output={output}',
+        '--uname=1.2.3',
+        '--cmdline=ARG1 ARG2 ARG3',
+        '--os-release=ID=foobar\n',
+        '--pcr-banks=sha384',  # sha1 might not be allowed, use something else
+        f'--pcr-private-key={priv.name}',
+        f'--pcr-public-key={pub.name}',
+        '--sign-nvpcr-init',
+    ] + arg_tools
+
+    opts = ukify.parse_args(args)
+    try:
+        ukify.check_inputs(opts)
+    except OSError as e:
+        pytest.skip(str(e))
+
+    ukify.make_uki(opts)
+
+    subprocess.check_call(
+        ['objcopy', f'--dump-section=.pcrsig={tmp_path}/out.pcrsig', output, tmp_path / 'dummy'],
+        text=True,
+    )
+
+    sig = json.loads(open(tmp_path / 'out.pcrsig').read())
+    assert list(sig.keys()) == ['sha384']
+    assert len(sig['sha384']) == 6  # six items for six phase paths
+    assert 'ref' not in sig['sha384'][0]
+    assert 'ref' not in sig['sha384'][1]
+    assert 'ref' not in sig['sha384'][2]
+    assert 'ref' not in sig['sha384'][3]
+    assert 'ref' in sig['sha384'][4]
+    assert sig['sha384'][4]['ref'] == 'nvpcr-init'
+    assert 'ref' in sig['sha384'][5]
+    assert sig['sha384'][5]['ref'] == 'nvpcr-init'
 
     shutil.rmtree(tmp_path)
 
