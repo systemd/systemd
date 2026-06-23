@@ -25,6 +25,7 @@
 #include <unistd.h>
 
 #include "bpf-restrict-fsaccess.h"
+#include "devnum-util.h"
 #include "fd-util.h"
 #include "log.h"
 #include "string-util.h"
