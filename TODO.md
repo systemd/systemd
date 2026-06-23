@@ -136,8 +136,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
     sessions, and number of sessions since boot.
   - implement metrics provider in journald that reports number of log messages
     received since boot, by log priority
-  - implement metrics provider in journalctl, that simply reports the most
-    recent 10 emergency log msgs on the system
   - allow to compile statically (together with the basic and cgroup
     backends)
   - make sure backends can also be invoked via forking off
