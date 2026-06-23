@@ -194,9 +194,8 @@ int tpm2_pcr_extend_bytes(Tpm2Context *c, char **banks, unsigned pcr_index, cons
 #define TPM2_NVPCR_PRIORITY_DEFAULT UINT64_C(1000)
 
 int tpm2_nvpcr_get_index(const char *name, uint32_t *ret_nv_index, uint64_t *ret_priority);
-int tpm2_nvpcr_extend_bytes(Tpm2Context *c, const Tpm2Handle *session, const char *name, const struct iovec *data, const struct iovec *secret, bool sync_secondary_anchor, Tpm2UserspaceEventType event_type, const char *description);
-int tpm2_nvpcr_acquire_anchor_secret(struct iovec *ret, bool sync_secondary);
-int tpm2_nvpcr_initialize(Tpm2Context *c, const Tpm2Handle *session, const char *name, const struct iovec *anchor_secret);
+int tpm2_nvpcr_extend_bytes(Tpm2Context *c, const Tpm2Handle *session, const char *name, const struct iovec *data, const struct iovec *secret, Tpm2UserspaceEventType event_type, const char *description);
+int tpm2_nvpcr_initialize(Tpm2Context *c, const Tpm2Handle *session, const char *name);
 int tpm2_nvpcr_read(Tpm2Context *c, const Tpm2Handle *session, const char *name, struct iovec *ret, uint32_t *ret_nv_index, uint64_t *ret_priority);
 
 uint32_t tpm2_tpms_pcr_selection_to_mask(const TPMS_PCR_SELECTION *s);
@@ -322,6 +321,7 @@ int tpm2_set_auth_binary(Tpm2Context *c, const Tpm2Handle *handle, const TPM2B_A
 int tpm2_make_policy_session(Tpm2Context *c, const Tpm2Handle *primary, const Tpm2Handle *encryption_session, Tpm2Handle **ret_session);
 
 int tpm2_policy_auth_value(Tpm2Context *c, const Tpm2Handle *session, TPM2B_DIGEST **ret_policy_digest);
+int tpm2_policy_nv_written(Tpm2Context *c, const Tpm2Handle *session, bool written_set, TPM2B_DIGEST **ret_policy_digest);
 int tpm2_policy_authorize_nv(Tpm2Context *c, const Tpm2Handle *session, const Tpm2Handle *nv_handle, TPM2B_DIGEST **ret_policy_digest);
 int tpm2_policy_pcr(Tpm2Context *c, const Tpm2Handle *session, const TPML_PCR_SELECTION *pcr_selection, TPM2B_DIGEST **ret_policy_digest);
 int tpm2_policy_or(Tpm2Context *c, const Tpm2Handle *session, const TPM2B_DIGEST *branches, size_t n_branches, TPM2B_DIGEST **ret_policy_digest);
@@ -332,6 +332,7 @@ int tpm2_calculate_pubkey_name(const TPMT_PUBLIC *public, TPM2B_NAME *ret_name);
 int tpm2_calculate_nv_index_name(const TPMS_NV_PUBLIC *nvpublic, TPM2B_NAME *ret_name);
 
 int tpm2_calculate_policy_auth_value(TPM2B_DIGEST *digest);
+int tpm2_calculate_policy_nv_written(bool written_set, TPM2B_DIGEST *digest);
 int tpm2_calculate_policy_authorize(const TPM2B_PUBLIC *public, const TPM2B_NONCE *policy_ref, TPM2B_DIGEST *digest);
 int tpm2_calculate_policy_authorize_nv(const TPM2B_NV_PUBLIC *public, TPM2B_DIGEST *digest);
 int tpm2_calculate_policy_pcr(const Tpm2PCRValue *pcr_values, size_t n_pcr_values, TPM2B_DIGEST *digest);
