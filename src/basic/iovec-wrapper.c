@@ -275,6 +275,8 @@ void iovw_rebase(struct iovec_wrapper *iovw, void *old, void *new) {
 }
 
 size_t iovw_size(const struct iovec_wrapper *iovw) {
+        assert(iovw);
+
         if (iovw_isempty(iovw))
                 return 0;
 
@@ -323,6 +325,7 @@ char* iovw_to_cstring(const struct iovec_wrapper *iovw) {
 int iovec_split(const struct iovec *iov, size_t length_size, struct iovec_wrapper *ret) {
         int r;
 
+        assert(iov);
         assert(IN_SET(length_size, 1, 2, 4));
         assert(ret);
 
@@ -374,6 +377,7 @@ int iovec_split(const struct iovec *iov, size_t length_size, struct iovec_wrappe
 }
 
 int iovw_merge(const struct iovec_wrapper *iovw, size_t length_size, struct iovec *ret) {
+        assert(iovw);
         assert(IN_SET(length_size, 1, 2, 4));
         assert(ret);
 

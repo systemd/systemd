@@ -163,6 +163,8 @@ char* ascii_strupper(char *s) {
 }
 
 char* ascii_strlower_n(char *s, size_t n) {
+        assert(n <= 0 || s);
+
         if (n <= 0)
                 return s;
 
@@ -1481,6 +1483,9 @@ bool version_is_valid_versionspec(const char *s) {
 ssize_t strlevenshtein(const char *x, const char *y) {
         _cleanup_free_ size_t *t0 = NULL, *t1 = NULL, *t2 = NULL;
         size_t xl, yl;
+
+        assert(x);
+        assert(y);
 
         /* This is inspired from the Linux kernel's Levenshtein implementation */
 
