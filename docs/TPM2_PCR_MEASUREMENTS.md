@@ -90,16 +90,21 @@ fields are:
 There's one complication: these NV indexes (like any NV indexes) can be deleted
 by anyone with access to the TPM, and then be recreated. This could be used to
 reset the NvPCRs to zero during runtime, which defeats the whole point of
-them. Our way out: we measure a secret as first thing after creation into the
-NvPCRs. (Or actually, we measure a per-NvPCR secret we derive from a system
-secret via an HMAC of the NvPCR name and the NV index handle). This "anchoring"
-secret is stored in `/run/` + `/var/lib/` + ESP/XBOOTLDR (the latter encrypted
-as credential, locked to the TPM), to make it available at the whole runtime of
-the OS. It's only accessible to privileged processes with access to the
-TPM. Due to this, any process with access to the TPM and read access to any of
-the storage locations of the anchor secret is considered part of the TCB, as
-they are able to replay the NvPCR with their own content at will, so due care
-must be employed when designing a system that uses this feature.
+them. To prevent this, we extend the name of each NvPCR to PCR 9 (the name in this
+context is a cryptographic hash of the public attributes of the NV index), and we
+only permit the first extend (write) to an NvPCR to be performed from the initrd.
+If a NvPCR is recreated later on during runtime, it is not possible to reinitialize
+it by performing the first write in order to replay arbitrary measurements. This
+is achieved by using a write policy on the NV index with 2 branches. One of these
+branches permits writing without any further authorization if the NV index has
+previously been written to. The other branch has to be satisfied in order to
+perform the first write, and this other branch is bound to a signed PCR policy that
+can only be satisfied from the initrd, using the kernel boot PCR (11). This works
+because booting an operating system that doesn't correctly extend this PCR can be
+detected via changes to other PCRs, and recreating a NvPCR with a different write
+policy or different attributes that permit initialization during runtime can be
+detected because the name of the NV index will not match the name that was
+previously measured to PCR 9.
 
 ## PCR Measurements Made by `systemd-boot` (UEFI)
 
@@ -282,12 +287,12 @@ The `systemd-tpm2-setup-early.service` service initializes any NvPCRs defined vi
 9.
 
 → **Measured hash** covers the string `nvpcr-init:`, suffixed by the NvPCR
-name, suffixed by `:0x`, suffixed by the NV Index handle (formatted in
-hexadecimal), suffixed by a colon, suffixed by the hash function used, in
-lowercase (i.e. `sha256` or so), suffixed by a colon, and finally suffixed by
-the state of the NvPCR after its initialization with the anchor measurement, in
-hexadecimal. Example:
-`nvpcr-init:hardware:0x1d10200:sha256:de3857f637c61e82f02e3722e1b207585fe9711045d863238904be8db10683f2`
+readable name, suffixed by `:0x`, suffixed by the NV Index handle (formatted in
+hexadecimal), suffixed by a colon, and finally suffixed by the TPM name of the
+NvPCR in hexadecimal (where the TPM name is the cryptographic hash of the NV
+index public attributes, prefixed by the name algorithm - eg, `000b` for
+`sha256`). Example:
+`nvpcr-init:hardware:0x1d10200:000bff27bc66b6eda11bccd3a0ca07664ae4c360bcc3d7ef019d0b19cb5fa4067541`
 
 ## PCR/NvPCR Measurements Made by `systemd-pcrextend` (Userspace)
 

@@ -998,6 +998,16 @@ TEST(calculate_policy_auth_value) {
         assert_se(digest_check(&d, "759ebd5ed65100e0b4aa2d04b4b789c2672d92ecc9cdda4b5fa16a303132e008"));
 }
 
+TEST(calculate_policy_nv_written) {
+        TPM2B_DIGEST d;
+
+        digest_init(&d, "0000000000000000000000000000000000000000000000000000000000000000");
+        ASSERT_OK_ZERO(tpm2_calculate_policy_nv_written(false, &d));
+        ASSERT_TRUE(digest_check(&d, "3c326323670e28ad37bd57f63b4cc34d26ab205ef22f275c58d47fab2485466e"));
+        ASSERT_OK_ZERO(tpm2_calculate_policy_nv_written(true, &d));
+        ASSERT_TRUE(digest_check(&d, "af595f3b5b4930da0d29921745c970bea2d8e6cdb9aa7cc40ce4916d0dc185fa"));
+}
+
 TEST(calculate_policy_authorize) {
         TPM2B_PUBLIC public;
         TPM2B_DIGEST d;
