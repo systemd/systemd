@@ -3220,10 +3220,10 @@ turn_off:
         return 0;
 }
 
-static void manager_start_special(Manager *m, const char *name, JobMode mode) {
+static void manager_start_special_with_fallback(Manager *m, const char *name, const char *fallback, JobMode mode) {
         Job *job;
 
-        if (manager_add_job_by_name_or_warn(m, JOB_START, name, mode, NULL, &job) < 0)
+        if (manager_add_job_by_name_or_warn_with_fallback(m, JOB_START, name, fallback, mode, NULL, &job) < 0)
                 return;
 
         const char *s = unit_status_string(job->unit, NULL);
@@ -3235,6 +3235,10 @@ static void manager_start_special(Manager *m, const char *name, JobMode mode) {
         m->status_ready = false;
 }
 
+static void manager_start_special(Manager *m, const char *name, JobMode mode) {
+        return manager_start_special_with_fallback(m, name, /* fallback= */ NULL, mode);
+}
+
 static void manager_handle_ctrl_alt_del(Manager *m) {
         assert(m);
 
@@ -3242,7 +3246,11 @@ static void manager_handle_ctrl_alt_del(Manager *m) {
          * unless it was disabled in system.conf. */
 
         if (ratelimit_below(&m->ctrl_alt_del_ratelimit) || m->cad_burst_action == EMERGENCY_ACTION_NONE)
-                manager_start_special(m, SPECIAL_CTRL_ALT_DEL_TARGET, JOB_REPLACE_IRREVERSIBLY);
+                manager_start_special_with_fallback(
+                                m,
+                                SPECIAL_CTRL_ALT_DEL_TARGET,
+                                CTRL_ALT_DEL_TARGET_FALLBACK,
+                                JOB_REPLACE_IRREVERSIBLY);
         else
                 emergency_action(
                                 m,
