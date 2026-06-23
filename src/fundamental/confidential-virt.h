@@ -4,7 +4,7 @@
 #include <stdint.h>
 
 /* Keep CVM detection logic in this file at feature parity with
- * that in src/efi/boot/vmm.c */
+ * that in src/boot/vmm.c */
 
 #define CPUID_PROCESSOR_INFO_AND_FEATURE_BITS UINT32_C(0x1)
 
