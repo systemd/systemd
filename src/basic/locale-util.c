@@ -229,6 +229,8 @@ int get_locales(char ***ret) {
         _cleanup_set_free_ Set *locales = NULL;
         int r;
 
+        assert(ret);
+
         locales = set_new(&string_hash_ops_free);
         if (!locales)
                 return -ENOMEM;

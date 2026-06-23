@@ -425,6 +425,8 @@ int load_os_release_pairs_with_prefix(const char *root, const char *prefix, char
         _cleanup_strv_free_ char **os_release_pairs = NULL, **os_release_pairs_prefixed = NULL;
         int r;
 
+        assert(ret);
+
         r = load_os_release_pairs(root, &os_release_pairs);
         if (r < 0)
                 return r;

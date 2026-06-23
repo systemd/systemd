@@ -664,6 +664,9 @@ bool stat_inode_unmodified(const struct stat *a, const struct stat *b) {
          * about contents of the file. The purpose here is to detect file contents changes, and nothing
          * else. */
 
+        assert(a);
+        assert(b);
+
         return stat_inode_same(a, b) &&
                 a->st_mtim.tv_sec == b->st_mtim.tv_sec &&
                 a->st_mtim.tv_nsec == b->st_mtim.tv_nsec &&
@@ -700,13 +703,17 @@ int statx_mount_same(const struct statx *a, const struct statx *b) {
 }
 
 usec_t statx_timestamp_load(const struct statx_timestamp *ts) {
+        assert(ts);
         return timespec_load(&(const struct timespec) { .tv_sec = ts->tv_sec, .tv_nsec = ts->tv_nsec });
 }
 nsec_t statx_timestamp_load_nsec(const struct statx_timestamp *ts) {
+        assert(ts);
         return timespec_load_nsec(&(const struct timespec) { .tv_sec = ts->tv_sec, .tv_nsec = ts->tv_nsec });
 }
 
 void inode_hash_func(const struct stat *q, struct siphash *state) {
+        assert(q);
+
         siphash24_compress_typesafe(q->st_dev, state);
         siphash24_compress_typesafe(q->st_ino, state);
 
@@ -717,6 +724,9 @@ void inode_hash_func(const struct stat *q, struct siphash *state) {
 
 int inode_compare_func(const struct stat *a, const struct stat *b) {
         int r;
+
+        assert(a);
+        assert(b);
 
         r = CMP(a->st_dev, b->st_dev);
         if (r != 0)
@@ -732,6 +742,8 @@ int inode_compare_func(const struct stat *a, const struct stat *b) {
 DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(inode_hash_ops, struct stat, inode_hash_func, inode_compare_func, free);
 
 void inode_unmodified_hash_func(const struct stat *q, struct siphash *state) {
+        assert(q);
+
         inode_hash_func(q, state);
 
         siphash24_compress_typesafe(q->st_mtim.tv_sec, state);
@@ -754,6 +766,9 @@ void inode_unmodified_hash_func(const struct stat *q, struct siphash *state) {
 
 int inode_unmodified_compare_func(const struct stat *a, const struct stat *b) {
         int r;
+
+        assert(a);
+        assert(b);
 
         r = inode_compare_func(a, b);
         if (r != 0)

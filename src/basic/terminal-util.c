@@ -238,6 +238,8 @@ static CompletionResult pick_completion(const char *string, char *const*completi
         _cleanup_free_ char *found = NULL;
         bool partial = false;
 
+        assert(ret);
+
         string = strempty(string);
 
         STRV_FOREACH(c, completions) {
@@ -510,6 +512,7 @@ int show_menu(char **x,
               const char *grey_prefix,
               bool with_numbers) {
 
+        assert(x);
         assert(n_columns > 0);
 
         if (n_columns == SIZE_MAX)
@@ -1664,6 +1667,8 @@ int openpt_allocate_in_namespace(
         _cleanup_close_ int pidnsfd = -EBADF, mntnsfd = -EBADF, usernsfd = -EBADF, rootfd = -EBADF, fd = -EBADF;
         _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
         int r;
+
+        assert(pidref);
 
         r = pidref_namespace_open(pidref, &pidnsfd, &mntnsfd, /* ret_netns_fd= */ NULL, &usernsfd, &rootfd);
         if (r < 0)

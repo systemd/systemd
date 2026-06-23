@@ -909,6 +909,8 @@ static const struct cpuid_table_entry leaf87_edx[] = {
 };
 
 static bool given_flag_in_set(const char *flag, const struct cpuid_table_entry *set, size_t set_size, uint32_t val) {
+        assert(set);
+
         for (size_t i = 0; i < set_size; i++) {
                 if ((UINT32_C(1) << set[i].flag_bit) & val &&
                                 streq(flag, set[i].name))

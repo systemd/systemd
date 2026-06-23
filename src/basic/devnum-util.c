@@ -18,6 +18,9 @@ int parse_devnum(const char *s, dev_t *ret) {
         size_t n;
         int r;
 
+        assert(s);
+        assert(ret);
+
         n = strspn(s, DIGITS);
         if (n == 0)
                 return -EINVAL;

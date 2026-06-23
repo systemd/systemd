@@ -383,6 +383,7 @@ int strv_split_newlines_full(char ***ret, const char *s, ExtractFlags flags) {
         size_t n;
         int r;
 
+        assert(ret);
         assert(s);
 
         /* Special version of strv_split_full() that splits on newlines and
