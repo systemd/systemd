@@ -300,16 +300,20 @@ _destructor_ static void cleanup_pools(void) {
 #endif
 
 static unsigned n_buckets(HashmapBase *h) {
+        assert(h);
         return h->has_indirect ? h->indirect.n_buckets
                                : hashmap_type_info[h->type].n_direct_buckets;
 }
 
 static unsigned n_entries(HashmapBase *h) {
+        assert(h);
         return h->has_indirect ? h->indirect.n_entries
                                : h->n_direct_entries;
 }
 
 static void n_entries_inc(HashmapBase *h) {
+        assert(h);
+
         if (h->has_indirect)
                 h->indirect.n_entries++;
         else
@@ -317,6 +321,8 @@ static void n_entries_inc(HashmapBase *h) {
 }
 
 static void n_entries_dec(HashmapBase *h) {
+        assert(h);
+
         if (h->has_indirect)
                 h->indirect.n_entries--;
         else
@@ -324,11 +330,13 @@ static void n_entries_dec(HashmapBase *h) {
 }
 
 static void* storage_ptr(HashmapBase *h) {
+        assert(h);
         return h->has_indirect ? h->indirect.storage
                                : h->direct.storage;
 }
 
 static uint8_t* hash_key(HashmapBase *h) {
+        assert(h);
         return h->has_indirect ? h->indirect.hash_key
                                : shared_hash_key;
 }
@@ -336,6 +344,8 @@ static uint8_t* hash_key(HashmapBase *h) {
 static unsigned base_bucket_hash(HashmapBase *h, const void *p) {
         struct siphash state;
         uint64_t hash;
+
+        assert(h);
 
         siphash24_init(&state, hash_key(h));
 
@@ -348,6 +358,8 @@ static unsigned base_bucket_hash(HashmapBase *h, const void *p) {
 #define bucket_hash(h, p) base_bucket_hash(HASHMAP_BASE(h), p)
 
 static void base_set_dirty(HashmapBase *h) {
+        assert(h);
+
         h->dirty = true;
 }
 #define hashmap_set_dirty(h) base_set_dirty(HASHMAP_BASE(h))
@@ -372,6 +384,7 @@ static void get_hash_key(uint8_t hash_key[HASH_KEY_SIZE], bool reuse_is_ok) {
 }
 
 static struct hashmap_base_entry* bucket_at(HashmapBase *h, unsigned idx) {
+        assert(h);
         return CAST_ALIGN_PTR(
                         struct hashmap_base_entry,
                         (uint8_t *) storage_ptr(h) + idx * hashmap_type_info[h->type].entry_size);
@@ -390,6 +403,7 @@ static struct set_entry *set_bucket_at(Set *h, unsigned idx) {
 }
 
 static struct ordered_hashmap_entry* bucket_at_swap(struct swap_entries *swap, unsigned idx) {
+        assert(swap);
         return &swap->e[idx - _IDX_SWAP_BEGIN];
 }
 
@@ -407,6 +421,7 @@ static struct hashmap_base_entry* bucket_at_virtual(HashmapBase *h, struct swap_
 }
 
 static dib_raw_t* dib_raw_ptr(HashmapBase *h) {
+        assert(h);
         return (dib_raw_t*)
                 ((uint8_t*) storage_ptr(h) + hashmap_type_info[h->type].entry_size * n_buckets(h));
 }
@@ -456,6 +471,8 @@ static unsigned skip_free_buckets(HashmapBase *h, unsigned idx) {
 }
 
 static void bucket_mark_free(HashmapBase *h, unsigned idx) {
+        assert(h);
+
         memzero(bucket_at(h, idx), hashmap_type_info[h->type].entry_size);
         bucket_set_dib(h, idx, DIB_FREE);
 }
@@ -464,6 +481,7 @@ static void bucket_move_entry(HashmapBase *h, struct swap_entries *swap,
                               unsigned from, unsigned to) {
         struct hashmap_base_entry *e_from, *e_to;
 
+        assert(h);
         assert(from != to);
 
         e_from = bucket_at_virtual(h, swap, from);
@@ -505,6 +523,9 @@ static unsigned prev_idx(HashmapBase *h, unsigned idx) {
 }
 
 static void* entry_value(HashmapBase *h, struct hashmap_base_entry *e) {
+        assert(h);
+        assert(e);
+
         switch (h->type) {
 
         case HASHMAP_TYPE_PLAIN:
@@ -527,6 +548,7 @@ static void base_remove_entry(HashmapBase *h, unsigned idx) {
         assert(dibs[idx] != DIB_RAW_FREE);
 
 #if ENABLE_DEBUG_HASHMAP
+        assert(h);
         h->debug.rem_count++;
         h->debug.last_rem_idx = idx;
 #endif
@@ -977,6 +999,7 @@ static bool hashmap_put_robin_hood(HashmapBase *h, unsigned idx,
         unsigned dib, distance;
 
 #if ENABLE_DEBUG_HASHMAP
+        assert(h);
         h->debug.put_count++;
 #endif
 

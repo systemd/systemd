@@ -81,6 +81,7 @@ bool argv_looks_like_help(int argc, char **argv) {
          * 3. Passing --help as any argument
          * 4. Passing -h as any argument
          */
+        assert(argv == 0 || (argc > 0 && argv));
 
         if (argc <= 1)
                 return true;
