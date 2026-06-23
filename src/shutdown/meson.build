@@ -1,23 +1,25 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-if conf.get('HAVE_LIBMOUNT') != 1
-        subdir_done()
-endif
-
 shutdown_detach_sources = files(
         'detach-swap.c',
         'umount.c',
 )
 
+systemd_shutdown_sources = files(
+        'detach-dm.c',
+        'detach-loopback.c',
+        'detach-md.c',
+        'shutdown.c',
+)
+
+if conf.get('HAVE_LIBMOUNT') == 1
+        systemd_shutdown_sources += shutdown_detach_sources
+endif
+
 executables += [
         libexec_template + {
                 'name' : 'systemd-shutdown',
-                'extract' : files(
-                        'detach-dm.c',
-                        'detach-loopback.c',
-                        'detach-md.c',
-                        'shutdown.c',
-                ) + shutdown_detach_sources,
+                'extract' : systemd_shutdown_sources,
                 'dependencies' : libmount_cflags,
         },
         libexec_template + {
@@ -35,5 +37,6 @@ executables += [
                 'sources' : files('test-umount.c') +
                             shutdown_detach_sources,
                 'dependencies' : libmount_cflags,
+                'conditions' : ['HAVE_LIBMOUNT'],
         },
 ]

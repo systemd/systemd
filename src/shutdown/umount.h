@@ -8,6 +8,7 @@
 #include "shared-forward.h"
 #include "list.h"
 
+#if HAVE_LIBMOUNT
 int umount_all(bool *changed, bool last_try);
 
 /* This is exported just for testing */
@@ -23,3 +24,10 @@ typedef struct MountPoint {
 
 int mount_points_list_get(FILE *f, MountPoint **head);
 void mount_points_list_free(MountPoint **head);
+
+#else
+
+static inline int umount_all(bool *changed, bool last_try) {
+        return -EOPNOTSUPP;
+}
+#endif
