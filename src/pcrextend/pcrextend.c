@@ -37,7 +37,6 @@ static UserRecord *arg_login = NULL;
 static uint32_t arg_pcr_mask = 0;
 static char *arg_nvpcr_name = NULL;
 static bool arg_varlink = false;
-static bool arg_early = false;
 static Tpm2UserspaceEventType arg_event_type = _TPM2_USERSPACE_EVENT_TYPE_INVALID;
 
 STATIC_DESTRUCTOR_REGISTER(arg_banks, strv_freep);
@@ -176,11 +175,6 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         arg_login = TAKE_PTR(ur);
                         break;
                 }
-
-                OPTION_LONG("early", NULL,
-                            "Run in early boot mode, without access to /var/"):
-                        arg_early = true;
-                        break;
 
                 OPTION_LONG("event-type", "TYPE",
                             "Event type to include in the event log"):
@@ -379,7 +373,6 @@ static int extend_nvpcr_now(
                         name,
                         &IOVEC_MAKE(data, size),
                         /* secret= */ NULL,
-                        /* sync_secondary_anchor= */ !arg_early,
                         event,
                         safe);
         if (r == -ENOBUFS)
