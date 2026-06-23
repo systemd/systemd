@@ -39,16 +39,6 @@ enum {
 #define STAT_DEV_TO_KERNEL(dev) \
         ((uint32_t)major(dev) << 20 | (uint32_t)minor(dev))
 
-/* Mirrors the BPF program's .bss section layout for read-modify-write via
- * bpf_map_lookup_elem/bpf_map_update_elem on the serialized .bss map FD. */
-struct restrict_fsaccess_bss {
-        uint32_t initramfs_s_dev; /* kernel dev_t encoding: (major << 20) | minor */
-        uint32_t protected_map_id_verity;
-        uint32_t protected_map_id_bss;
-        uint32_t protected_prog_ids[_RESTRICT_FILESYSTEM_ACCESS_LINK_MAX];
-        uint32_t protected_link_ids[_RESTRICT_FILESYSTEM_ACCESS_LINK_MAX];
-};
-
 extern const char* const restrict_fsaccess_link_names[_RESTRICT_FILESYSTEM_ACCESS_LINK_MAX];
 
 bool dm_verity_require_signatures(void);
