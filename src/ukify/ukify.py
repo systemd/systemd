@@ -291,8 +291,9 @@ class UkifyConfig:
     pcrpkey: Optional[Path]
     pcrsig: Union[str, Path, None]
     join_pcrsig: Optional[Path]
-    phase_path_groups: Optional[list[str]]
+    phase_path_groups: Optional[list[list[str]]]
     policyrefs: Optional[list[str]]
+    sign_initrd_pcrs: bool
     policy_digest: bool
     profile: Optional[str]
     sb_cert: Union[str, Path, None]
@@ -702,7 +703,10 @@ def check_cert_and_keys_nonexistent(opts: UkifyConfig) -> None:
     # Raise if any of the keys and certs are found on disk
     paths: Iterator[Union[str, Path, None]] = itertools.chain(
         (opts.sb_key, opts.sb_cert),
-        *((priv_key, pub_key, cert) for priv_key, pub_key, cert, _, _ in key_path_groups(opts)),
+        *(
+            (priv_key, pub_key, cert)
+            for priv_key, pub_key, cert, _, _ in key_path_groups(opts, include_extra=False)
+        ),
     )
     for path in paths:
         if path and Path(path).exists():
@@ -742,7 +746,8 @@ def combine_signatures(pcrsigs: list[dict[str, str]]) -> str:
 
 def key_path_groups(
     opts: UkifyConfig,
-) -> Iterator[tuple[str, Optional[str], Optional[str], Optional[str], Optional[str]]]:
+    include_extra: bool,
+) -> Iterator[tuple[str, Optional[str], Optional[str], Optional[list[str]], Optional[str]]]:
     if not opts.pcr_private_keys:
         return
 
@@ -760,6 +765,17 @@ def key_path_groups(
         policyrefs[:n_priv],
         fillvalue=None,
     )
+
+    # When requested, emit an extra signing group that reuses the first PCR signing key to produce
+    # a signed PCR policyy that can only be used from the initrd.
+    if opts.sign_initrd_pcrs and include_extra:
+        yield (
+            opts.pcr_private_keys[0],
+            pub_keys[0] if pub_keys else None,
+            certs[0] if certs else None,
+            ['enter-initrd'],
+            'initrd',
+        )
 
 
 def pe_strip_section_name(name: bytes) -> str:
@@ -879,7 +895,7 @@ def call_systemd_measure(uki: UKI, opts: UkifyConfig, profile_start: int = 0) ->
                 *(f'--bank={bank}' for bank in banks),
             ]
 
-            for priv_key, pub_key, cert, group, ref in key_path_groups(opts):
+            for priv_key, pub_key, cert, group, ref in key_path_groups(opts, include_extra=True):
                 extra = [f'--private-key={priv_key}']
                 if opts.signing_engine is not None:
                     assert pub_key or cert
@@ -1685,7 +1701,7 @@ def generate_keys(opts: UkifyConfig) -> None:
 
         work = True
 
-    for priv_key, pub_key, _, _, _ in key_path_groups(opts):
+    for priv_key, pub_key, _, _, _ in key_path_groups(opts, include_extra=False):
         priv_key_pem, pub_key_pem = generate_priv_pub_key_pair()
 
         print(f'Writing private key for PCR signing to {priv_key}', file=sys.stderr)
@@ -2288,6 +2304,12 @@ CONFIG_ITEMS = [
         help='print systemd-measure policy digests for the UKI',
     ),
     ConfigItem(
+        '--sign-initrd-pcrs',
+        action=argparse.BooleanOptionalAction,
+        help='additionally sign PCR policies that can only be satisfied from the initrd',
+        config_key='UKI/SignInitrdPCRs',
+    ),
+    ConfigItem(
         '--json',
         choices=('pretty', 'short', 'off'),
         default='off',
@@ -2481,6 +2503,8 @@ def finalize_options(opts: argparse.Namespace) -> None:
         raise ValueError('--phases= specifications must match --pcr-private-key=')
     if n_policyrefs is not None and n_policyrefs != n_pcr_priv:
         raise ValueError('--policyref= specifications must match --pcr-private-key=')
+    if opts.sign_initrd_pcrs and not n_pcr_priv:
+        raise ValueError('--sign-initrd-pcrs requires at least one --pcr-private-key=')
 
     opts.cmdline = resolve_at_path(opts.cmdline)
 
