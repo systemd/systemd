@@ -22,6 +22,8 @@ FileDescriptorName=resolve-hook
 SocketMode=0666
 Service=systemd-networkd.service
 RemoveOnStop=yes
+XAttrEntryPoint=user.varlink=entrypoint
+XAttrListen=user.varlink=listen
 
 [Install]
 WantedBy=sockets.target

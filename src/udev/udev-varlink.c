@@ -189,7 +189,7 @@ int manager_start_varlink_server(Manager *manager, int fd) {
                 return log_error_errno(r, "Failed to attach Varlink connection to event loop: %m");
 
         if (fd < 0)
-                r = sd_varlink_server_listen_address(v, UDEV_VARLINK_ADDRESS, 0600);
+                r = sd_varlink_server_listen_address(v, UDEV_VARLINK_ADDRESS, 0644);
         else
                 r = sd_varlink_server_listen_fd(v, fd);
         if (r < 0)
