@@ -81,7 +81,7 @@ static void wait_for_service_finish(Manager *m, Unit *unit) {
         /* Bump the timeout when running in plain QEMU or in CI, as some more involved tests might start
          * hitting the default 2m timeout (like exec-dynamicuser-statedir.service). */
         if (detect_virtualization() == VIRTUALIZATION_QEMU || ci_environment())
-                timeout *= 2;
+                timeout *= 5;
 
         printf("%s\n", unit->id);
         exec_context_dump(&service->exec_context, stdout, "\t");
