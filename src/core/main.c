@@ -2757,14 +2757,18 @@ static int do_queue_default_job(
 
         log_debug("Activating default unit: %s", unit);
 
-        r = manager_load_startable_unit_or_warn(m, unit, NULL, &target);
+        /* When no unit was explicitly requested, failures to load the default unit are not fatal, since we
+         * fall back to other targets below. Log them at a lower level in that case. */
+        int log_level = arg_default_unit ? LOG_ERR : LOG_INFO;
+
+        r = manager_load_startable_unit_or_warn(m, unit, NULL, log_level, &target);
         if (r < 0 && in_initrd() && !arg_default_unit) {
                 /* Fall back to default.target, which we used to always use by default. Only do this if no
                  * explicit configuration was given. */
 
                 log_info("Falling back to %s.", SPECIAL_DEFAULT_TARGET);
 
-                r = manager_load_startable_unit_or_warn(m, SPECIAL_DEFAULT_TARGET, NULL, &target);
+                r = manager_load_startable_unit_or_warn(m, SPECIAL_DEFAULT_TARGET, NULL, log_level, &target);
         }
         if (r == -ENOENT && !arg_default_unit) {
                 /* The default.target symlink was not found on disk and the target was not explicitly
@@ -2772,13 +2776,13 @@ static int do_queue_default_job(
 
                 log_info("Falling back to %s.", DEFAULT_TARGET);
 
-                r = manager_load_startable_unit_or_warn(m, DEFAULT_TARGET, NULL, &target);
+                r = manager_load_startable_unit_or_warn(m, DEFAULT_TARGET, NULL, log_level, &target);
         }
         if (r < 0) {
                 /* We failed. Activate rescue mode. */
                 log_info("Falling back to %s.", SPECIAL_RESCUE_TARGET);
 
-                r = manager_load_startable_unit_or_warn(m, SPECIAL_RESCUE_TARGET, NULL, &target);
+                r = manager_load_startable_unit_or_warn(m, SPECIAL_RESCUE_TARGET, NULL, log_level, &target);
                 if (r < 0) {
                         *ret_error_message = r == -ERFKILL ? SPECIAL_RESCUE_TARGET " masked"
                                                            : "Failed to load " SPECIAL_RESCUE_TARGET;

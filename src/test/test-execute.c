@@ -304,7 +304,7 @@ static void _test(const char *file, unsigned line, const char *func,
 
         ASSERT_NOT_NULL(unit_name);
 
-        ASSERT_OK(manager_load_startable_unit_or_warn(m, unit_name, NULL, &unit));
+        ASSERT_OK(manager_load_startable_unit_or_warn(m, unit_name, NULL, LOG_ERR, &unit));
         /* We need to start the slices as well otherwise the slice cgroups might be pruned
          * in on_cgroup_empty_event. */
         start_parent_slices(unit);
@@ -322,7 +322,7 @@ static void _test_service(const char *file, unsigned line, const char *func,
 
         ASSERT_NOT_NULL(unit_name);
 
-        ASSERT_OK(manager_load_startable_unit_or_warn(m, unit_name, NULL, &unit));
+        ASSERT_OK(manager_load_startable_unit_or_warn(m, unit_name, NULL, LOG_ERR, &unit));
         ASSERT_OK(unit_start(unit, NULL));
         check_service_result(file, line, func, m, unit, result_expected);
 }
