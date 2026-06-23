@@ -291,8 +291,9 @@ class UkifyConfig:
     pcrpkey: Optional[Path]
     pcrsig: Union[str, Path, None]
     join_pcrsig: Optional[Path]
-    phase_path_groups: Optional[list[str]]
+    phase_path_groups: Optional[list[list[str]]]
     policyrefs: Optional[list[str]]
+    sign_nvpcr_init: bool
     policy_digest: bool
     profile: Optional[str]
     sb_cert: Union[str, Path, None]
@@ -738,7 +739,7 @@ def combine_signatures(pcrsigs: list[dict[str, str]]) -> str:
 
 def key_path_groups(
     opts: UkifyConfig,
-) -> Iterator[tuple[str, Optional[str], Optional[str], Optional[str], Optional[str]]]:
+) -> Iterator[tuple[str, Optional[str], Optional[str], Optional[list[str]], Optional[str]]]:
     if not opts.pcr_private_keys:
         return
 
@@ -756,6 +757,17 @@ def key_path_groups(
         policyrefs[:n_priv],
         fillvalue=None,
     )
+
+    # When requested, emit an extra signing group that reuses the first PCR signing key to produce
+    # signed PCR policies specifically for authorizing the initialization of NvPCRs during early boot.
+    if opts.sign_nvpcr_init:
+        yield (
+            opts.pcr_private_keys[0],
+            pub_keys[0] if pub_keys else None,
+            certs[0] if certs else None,
+            ['enter-initrd', 'enter-initrd:leave-initrd'],
+            'nvpcr-init',
+        )
 
 
 def pe_strip_section_name(name: bytes) -> str:
@@ -2238,6 +2250,12 @@ CONFIG_ITEMS = [
         help='print systemd-measure policy digests for the UKI',
     ),
     ConfigItem(
+        '--sign-nvpcr-init',
+        action=argparse.BooleanOptionalAction,
+        help='additionally sign a PCR policy specifically to authorize the initialization of NvPCRs',
+        config_key='UKI/SignNvPCRInit',
+    ),
+    ConfigItem(
         '--json',
         choices=('pretty', 'short', 'off'),
         default='off',
@@ -2431,6 +2449,8 @@ def finalize_options(opts: argparse.Namespace) -> None:
         raise ValueError('--phases= specifications must match --pcr-private-key=')
     if n_policyrefs is not None and n_policyrefs != n_pcr_priv:
         raise ValueError('--policyref= specifications must match --pcr-private-key=')
+    if opts.sign_nvpcr_init and not n_pcr_priv:
+        raise ValueError('--sign-nvpcr-init requires at least one --pcr-private-key=')
 
     opts.cmdline = resolve_at_path(opts.cmdline)
 
