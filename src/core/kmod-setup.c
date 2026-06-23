@@ -49,7 +49,7 @@ static int match_modalias_recurse_dir_cb(
         return RECURSE_DIR_LEAVE_DIRECTORY;
 }
 
-static bool has_virtio_feature(const char *name, char **modaliases) {
+static bool has_virtio_feature(const char *name, const char *devpath, char **modaliases) {
         int r;
 
         /* Directory traversal might be slow, hence let's do a cheap check first if it's even worth it */
@@ -58,7 +58,7 @@ static bool has_virtio_feature(const char *name, char **modaliases) {
 
         r = recurse_dir_at(
                         AT_FDCWD,
-                        "/sys/devices/pci0000:00",
+                        devpath,
                         /* statx_mask= */ 0,
                         /* n_depth_max= */ 3,
                         RECURSE_DIR_ENSURE_TYPE,
@@ -71,16 +71,33 @@ static bool has_virtio_feature(const char *name, char **modaliases) {
 }
 
 static bool has_virtio_rng(void) {
-        return has_virtio_feature("virtio-rng", STRV_MAKE("pci:v00001AF4d00001005", "pci:v00001AF4d00001044"));
+        if (has_virtio_feature("virtio-rng", "/sys/devices/pci0000:00",
+                               STRV_MAKE("pci:v00001AF4d00001005", "pci:v00001AF4d00001044")))
+                return true;
+
+        if (has_virtio_feature("virtio-rng", "/sys/devices/css0", STRV_MAKE("ccw:t3832m04")))
+                return true;
+
+        return false;
 }
 
 static bool has_virtio_pci(void) {
-        return has_virtio_feature("virtio-pci", STRV_MAKE("pci:v00001AF4d"));
+        return has_virtio_feature("virtio-pci", "/sys/devices/pci0000:00", STRV_MAKE("pci:v00001AF4d"));
+}
+
+static bool has_virtio_ccw(void) {
+#if defined(__s390x__)
+        /* On s390x all virtio-ccw devices use the control unit type (CU type) 0x3832 */
+        return has_virtio_feature("virtio-ccw", "/sys/devices/css0", STRV_MAKE("ccw:t3832"));
+#else
+        /* Only s390x can have CCW */
+        return false;
+#endif
 }
 
 static bool may_have_virtio(void) {
-        /* FIXME: strictly speaking, other virtio features, e.g. vsock, are independent of the virtio PCI device. */
-        return has_virtio_pci();
+        /* FIXME: strictly speaking, other virtio features, e.g. vsock, are independent of the virtio PCI or CCW device. */
+        return has_virtio_pci() || has_virtio_ccw();
 }
 
 static bool in_qemu(void) {
@@ -139,6 +156,7 @@ int kmod_setup(void) {
                  * resolved and the kernel fix is widely available. */
                 { "virtiofs",                   "/sys/module/virtiofs",         false, false, may_have_virtio           },
                 { "virtio_pci",                 "/sys/module/virtio_pci",       false, false, has_virtio_pci            },
+                { "virtio_ccw",                 "/sys/module/virtio_ccw",       false, false, has_virtio_ccw            },
 
                 /* qemu_fw_cfg would be loaded by udev later, but we want to import credentials from it super early */
                 { "qemu_fw_cfg",                "/sys/firmware/qemu_fw_cfg",    false, false, in_qemu                   },
