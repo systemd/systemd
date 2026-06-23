@@ -64,6 +64,23 @@ CHANGES WITH 262:
           IPv4ProxyARP=yes but has no effect if IPv4ProxyARP= has been set to
           false. This mirrors the behavior of IPv6ProxyNDPAddress=.
 
+        Changes in the TPM Subsystem:
+
+        * The way that NvPCRs are anchored has been improved. They are now
+          created with a write policy which only permits the initial extend to
+          be performed from the initrd environment, and no longer rely on a
+          secret that is sealed to the TPM (the "anchor secret"). For NvPCRs to
+          work, all NvPCR definitions (/usr/lib/nvpcr/*.nvpcr) must now be
+          shipped in the UKI. The UKI must also embed a signed PCR policy that
+          is bound to the initrd boot phase and with the "initrd" policy
+          reference. This can be created by supplying the --sign-initrd-pcrs
+          option to ukify. NvPCRs that are not defined or initialized in the
+          initrd will fail to initialize lazily during runtime if an attempt is
+          made to extend them with systemd-pcrextend. Existing NvPCRs that were
+          created with a previous systemd version will be automatically
+          upgraded, and the existing "anchor secret" stored in /var/lib and the
+          ESP/XBOOTLDR will be removed.
+
 CHANGES WITH 261:
 
         Announcements of Future Feature Removals and Incompatible Changes:
