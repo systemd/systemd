@@ -54,7 +54,7 @@ static void test_non_empty_one(void) {
         iovec = IOVEC_MAKE_STRING(test);
         ASSERT_OK_ZERO(journal_file_append_entry(f, &ts, &fake_boot_id, &iovec, 1, NULL, NULL, NULL, NULL));
 
-#if HAVE_GCRYPT
+#if HAVE_OPENSSL
         journal_file_append_tag(f);
 #endif
         journal_file_dump(f);
@@ -199,7 +199,7 @@ static bool check_compressed(uint64_t compress_threshold, uint64_t data_size) {
         iovec = IOVEC_MAKE(data, data_size);
         ASSERT_OK_ZERO(journal_file_append_entry(f, &ts, NULL, &iovec, 1, NULL, NULL, NULL, NULL));
 
-#if HAVE_GCRYPT
+#if HAVE_OPENSSL
         journal_file_append_tag(f);
 #endif
         journal_file_dump(f);
