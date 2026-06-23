@@ -1206,8 +1206,9 @@ libqrencode = dependency('libqrencode',
 libqrencode_cflags = libqrencode.partial_dependency(includes: true, compile_args: true)
 conf.set10('HAVE_QRENCODE', libqrencode.found())
 
+feature = get_option('gcrypt')
 libgcrypt = dependency('libgcrypt',
-                       required : get_option('gcrypt'))
+                       required : feature.disabled() ? feature : false)
 conf.set10('HAVE_GCRYPT', libgcrypt.found())
 if libgcrypt.found()
         libgcrypt_cflags = libgcrypt.partial_dependency(includes: true, compile_args: true)
@@ -1816,6 +1817,7 @@ if static_libsystemd != 'false'
                 dependencies : [libgcrypt_cflags,
                                 liblz4_cflags,
                                 libm,
+                                libopenssl_cflags,
                                 libucontext,
                                 libxz_cflags,
                                 libzstd_cflags,
