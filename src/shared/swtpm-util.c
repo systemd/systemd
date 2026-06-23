@@ -234,5 +234,14 @@ int manufacture_swtpm(const char *state_dir, const char *secret) {
                 _exit(EXIT_FAILURE);
         }
 
+        /* Write marker file to signal manufacturing completed successfully. */
+        _cleanup_free_ char *marker = path_join(state_dir, SWTPM_MANUFACTURED_MARKER);
+        if (!marker)
+                return log_oom();
+
+        r = write_string_file(marker, "", WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write '%s' marker: %m", SWTPM_MANUFACTURED_MARKER);
+
         return 0;
 }
