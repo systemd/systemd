@@ -79,7 +79,7 @@ bool arg_file_stdin = false;
 int arg_priorities = 0;
 Set *arg_facilities = NULL;
 char *arg_verify_key = NULL;
-#if HAVE_GCRYPT
+#if HAVE_OPENSSL
 usec_t arg_interval = DEFAULT_FSS_INTERVAL_USEC;
 bool arg_force = false;
 #endif
@@ -729,7 +729,7 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                 OPTION_GROUP("Forward Secure Sealing (FSS) Options"): {}
 
                 OPTION_LONG("interval", "TIME", "Time interval for changing the FSS sealing key"):
-#if HAVE_GCRYPT
+#if HAVE_OPENSSL
                         r = parse_sec(opts.arg, &arg_interval);
                         if (r < 0 || arg_interval <= 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -741,7 +741,7 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
 #endif
 
                 OPTION_LONG("verify-key", "KEY", "Specify FSS verification key"):
-#if HAVE_GCRYPT
+#if HAVE_OPENSSL
                         erase_and_free(arg_verify_key);
                         arg_verify_key = strdup(opts.arg);
                         if (!arg_verify_key)
@@ -760,7 +760,7 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
 #endif
 
                 OPTION_LONG("force", NULL, "Override of the FSS key pair with --setup-keys"):
-#if HAVE_GCRYPT
+#if HAVE_OPENSSL
                         arg_force = true;
                         break;
 #else
@@ -869,7 +869,7 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                         break;
 
                 OPTION_LONG("setup-keys", NULL, "Generate a new FSS key pair"):
-#if HAVE_GCRYPT
+#if HAVE_OPENSSL
                         arg_action = ACTION_SETUP_KEYS;
                         break;
 #else

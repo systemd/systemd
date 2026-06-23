@@ -16,6 +16,17 @@ const struct iovec iovec_empty = {
         .iov_len = 0,
 };
 
+int iovec_alloc(size_t n, struct iovec *ret) {
+        assert(ret);
+
+        void *buf = malloc(n ?: 1);
+        if (!buf)
+                return -ENOMEM;
+
+        *ret = IOVEC_MAKE(buf, n);
+        return 0;
+}
+
 size_t iovec_total_size(const struct iovec *iovec, size_t n) {
         size_t sum = 0;
 
@@ -61,6 +72,15 @@ struct iovec* iovec_make_string(struct iovec *iovec, const char *s) {
 
         *iovec = IOVEC_MAKE(s, strlen_ptr(s));
         return iovec;
+}
+
+void iovec_erase(struct iovec *iovec) {
+        assert(iovec);
+
+        /* Unlike iovec_done_erase(), which derives the buffer size with MALLOC_SIZEOF_SAFE(), this uses
+         * iov_len as the buffer size. Hence, it can be used with iovec referring to a static array or a
+         * buffer allocated on the stack. */
+        explicit_bzero_safe(iovec->iov_base, iovec->iov_len);
 }
 
 void iovec_done_erase(struct iovec *iovec) {

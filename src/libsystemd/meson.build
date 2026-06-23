@@ -3,7 +3,7 @@
 sd_journal_sources = files(
         'sd-journal/audit-type.c',
         'sd-journal/catalog.c',
-        'sd-journal/fsprg.c',
+        'sd-journal/fsprg-openssl.c',
         'sd-journal/journal-authenticate.c',
         'sd-journal/journal-file.c',
         'sd-journal/journal-send.c',
@@ -162,6 +162,7 @@ libsystemd_static = static_library(
         link_with : [libc_wrapper_static,
                      libbasic_static],
         dependencies : [libm,
+                        libopenssl_cflags,
                         libucontext,
                         userspace],
         build_by_default : false)
@@ -301,6 +302,22 @@ libsystemd_tests += [
                 'sources' : files('sd-varlink/test-varlink-idl.c'),
         },
 ]
+
+if conf.get('HAVE_GCRYPT') == 1 or conf.get('HAVE_OPENSSL') == 1
+        libsystemd_tests += [
+                {
+                        'sources' : files(
+                                'sd-journal/test-fsprg.c',
+                                'sd-journal/fsprg-gcrypt.c',
+                                'sd-journal/gcrypt-util.c',
+                        ),
+                        'dependencies' : [
+                                libgcrypt_cflags,
+                                libopenssl_cflags,
+                        ],
+                },
+        ]
+endif
 
 if cxx_cmd != ''
         simple_tests += files('sd-bus/test-bus-vtable-cc.cc')
