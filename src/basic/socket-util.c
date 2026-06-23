@@ -1285,6 +1285,8 @@ size_t sockaddr_un_len(const struct sockaddr_un *sa) {
 }
 
 size_t sockaddr_len(const union sockaddr_union *sa) {
+        assert(sa);
+
         switch (sa->sa.sa_family) {
         case AF_INET:
                 return sizeof(struct sockaddr_in);
