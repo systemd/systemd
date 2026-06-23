@@ -2788,6 +2788,7 @@ int manager_load_startable_unit_or_warn(
                 Manager *m,
                 const char *name,
                 const char *path,
+                int log_level,
                 Unit **ret) {
 
         /* Load a unit, make sure it loaded fully and is not masked. */
@@ -2800,13 +2801,13 @@ int manager_load_startable_unit_or_warn(
 
         r = manager_load_unit(m, name, path, &error, &unit);
         if (r < 0)
-                return log_error_errno(r, "Failed to load %s %s: %s",
-                                       name ? "unit" : "unit file", name ?: path,
-                                       bus_error_message(&error, r));
+                return log_full_errno(log_level, r, "Failed to load %s %s: %s",
+                                      name ? "unit" : "unit file", name ?: path,
+                                      bus_error_message(&error, r));
 
         r = bus_unit_validate_load_state(unit, &error);
         if (r < 0)
-                return log_error_errno(r, "%s", bus_error_message(&error, r));
+                return log_full_errno(log_level, r, "%s", bus_error_message(&error, r));
 
         *ret = unit;
         return 0;
