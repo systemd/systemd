@@ -119,9 +119,9 @@ static int do_attach(void) {
         if (stat("/", &st) < 0)
                 return log_error_errno(errno, "Failed to stat /: %m");
 
-        obj->bss->initramfs_s_dev = STAT_DEV_TO_KERNEL(st.st_dev);
+        obj->bss->g.initramfs_s_dev = STAT_DEV_TO_KERNEL(st.st_dev);
         log_info("Set initramfs_s_dev to %u:%u (kernel dev_t=0x%x)",
-                 major(st.st_dev), minor(st.st_dev), obj->bss->initramfs_s_dev);
+                 major(st.st_dev), minor(st.st_dev), obj->bss->g.initramfs_s_dev);
 
         r = restrict_fsaccess_bpf__attach(obj);
         if (r < 0)
@@ -132,18 +132,18 @@ static int do_attach(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to populate guard globals: %m");
 
-        printf("VERITY_MAP_ID=%u\n", (unsigned) obj->bss->protected_map_id_verity);
-        printf("BSS_MAP_ID=%u\n", (unsigned) obj->bss->protected_map_id_bss);
+        printf("VERITY_MAP_ID=%u\n", (unsigned) obj->bss->g.protected_map_id_verity);
+        printf("BSS_MAP_ID=%u\n", (unsigned) obj->bss->g.protected_map_id_bss);
 
         /* Print comma-separated prog and link IDs for guard tests */
         printf("PROG_IDS=\"");
         for (size_t i = 0; i < _RESTRICT_FILESYSTEM_ACCESS_LINK_MAX; i++)
-                printf("%s%u", i > 0 ? "," : "", (unsigned) obj->bss->protected_prog_ids[i]);
+                printf("%s%u", i > 0 ? "," : "", (unsigned) obj->bss->g.protected_prog_ids[i]);
         printf("\"\n");
 
         printf("LINK_IDS=\"");
         for (size_t i = 0; i < _RESTRICT_FILESYSTEM_ACCESS_LINK_MAX; i++)
-                printf("%s%u", i > 0 ? "," : "", (unsigned) obj->bss->protected_link_ids[i]);
+                printf("%s%u", i > 0 ? "," : "", (unsigned) obj->bss->g.protected_link_ids[i]);
         printf("\"\n");
 
         fflush(stdout);
