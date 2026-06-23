@@ -1144,7 +1144,6 @@ static int measure_keyslot(
                         arg_tpm2_measure_keyslot_nvpcr,
                         &IOVEC_MAKE_STRING(s),
                         /* secret= */ NULL,
-                        /* sync_secondary_anchor= */ false,
                         TPM2_EVENT_KEYSLOT,
                         s);
         if (r < 0)
@@ -2884,7 +2883,6 @@ static int verb_detach(int argc, char *argv[], uintptr_t _data, void *userdata) 
 static int run(int argc, char *argv[]) {
         int r;
 
-        LIBBLKID_NOTE(recommended);
         LIBFIDO2_NOTE(suggested);
         LIBMOUNT_NOTE(recommended);
         LIBP11KIT_NOTE(suggested);
