@@ -426,6 +426,8 @@ int capability_quintet_enforce(const CapabilityQuintet *q) {
         bool modified = false;
         int r;
 
+        assert(q);
+
         if (q->ambient != CAP_MASK_UNSET ||
             q->inheritable != CAP_MASK_UNSET ||
             q->permitted != CAP_MASK_UNSET ||

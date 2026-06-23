@@ -163,6 +163,8 @@ int in_addr_is_localhost_one(int family, const union in_addr_union *u) {
 }
 
 bool in6_addr_is_ipv4_mapped_address(const struct in6_addr *a) {
+        assert(a);
+
         return a->s6_addr32[0] == 0 &&
                 a->s6_addr32[1] == 0 &&
                 a->s6_addr32[2] == htobe32(UINT32_C(0x0000ffff));
@@ -727,6 +729,8 @@ int in4_addr_mask(struct in_addr *addr, unsigned char prefixlen) {
 
 int in6_addr_mask(struct in6_addr *addr, unsigned char prefixlen) {
         unsigned i;
+
+        assert(addr);
 
         for (i = 0; i < 16; i++) {
                 uint8_t mask;
