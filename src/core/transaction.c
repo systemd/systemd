@@ -263,11 +263,47 @@ static int transaction_ensure_mergeable(Transaction *tr, bool matters_to_anchor,
         return 0;
 }
 
+static void transaction_drop_nop(Transaction *tr) {
+        Job *j;
+
+        assert(tr);
+
+        /* NOP jobs live in the unit's dedicated 'nop_job' slot and are never merged with regular jobs. A
+         * unit may however end up with both a NOP job (e.g. a try-restart/try-reload anchor that collapsed
+         * to JOB_NOP because the unit is inactive) and a regular job (typically pulled in as a dependency by
+         * another job in the same transaction, which is possible since EnqueueUnitJobMany() allows more than
+         * one anchor). In that case the NOP carries no meaning of its own, as the regular job is what
+         * determines the fate of the unit, so drop it to keep each unit's transaction list mergeable. */
+
+        HASHMAP_FOREACH(j, tr->jobs) {
+                Job *nop = NULL;
+                bool has_regular = false;
+
+                LIST_FOREACH(transaction, k, j)
+                        if (k->type == JOB_NOP)
+                                nop = k; /* At most one NOP per unit, as jobs are deduplicated by type. */
+                        else
+                                has_regular = true;
+
+                /* Only drop the NOP when a regular job for the same unit remains. A lone NOP anchor must be
+                 * kept so that e.g. 'try-restart' on an inactive unit still completes successfully. */
+                if (nop && has_regular) {
+                        log_unit_debug(nop->unit,
+                                       "Dropping NOP job for %s, a regular job for the same unit is part of the transaction.",
+                                       nop->unit->id);
+                        transaction_delete_job(tr, nop, /* delete_dependencies= */ false);
+                }
+        }
+}
+
 static int transaction_merge_jobs(Transaction *tr, sd_bus_error *e) {
         Job *j;
         int r;
 
         assert(tr);
+
+        /* NOP jobs cannot be merged with regular jobs, so drop the ones that would collide first. */
+        transaction_drop_nop(tr);
 
         /* First step, try to drop unmergeable jobs for jobs that matter to anchor. */
         r = transaction_ensure_mergeable(tr, /* matters_to_anchor= */ true, e);
