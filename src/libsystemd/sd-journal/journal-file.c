@@ -22,6 +22,7 @@
 #include "gcrypt-util.h"
 #include "hashmap.h"
 #include "id128-util.h"
+#include "iovec-util.h"
 #include "journal-authenticate.h"
 #include "journal-def.h"
 #include "journal-file.h"
@@ -312,9 +313,9 @@ JournalFile* journal_file_close(JournalFile *f) {
                 assert(sz < SIZE_MAX);
                 munmap(f->fss_file, sz);
         } else
-                free(f->fsprg_state);
+                iovec_done_erase(&f->fsprg_state);
 
-        free(f->fsprg_seed);
+        iovec_done_erase(&f->fsprg_seed);
 
         if (f->hmac)
                 sym_gcry_md_close(f->hmac);
