@@ -1270,43 +1270,41 @@ int kdf_argon2id_derive(
                 if (!sym_OSSL_PARAM_BLD_push_octet_string(bld, "salt", salt->iov_base, salt->iov_len))
                         return log_openssl_errors(LOG_DEBUG, "Failed to add ARGON2ID salt");
 
-        if (params) {
-                uint64_t memcost_kb = params->memcost_bytes / 1024;
+        uint64_t memcost_kb = params->memcost_bytes / 1024;
 
-                if (memcost_kb > UINT_MAX)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Argon2id memory cost too large: %"PRIu64" bytes", params->memcost_bytes);
+        if (memcost_kb > UINT_MAX)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Argon2id memory cost too large: %"PRIu64" bytes", params->memcost_bytes);
 
-                if (!sym_OSSL_PARAM_BLD_push_uint(bld, "memcost", (unsigned) memcost_kb))
-                        return log_openssl_errors(LOG_DEBUG, "Failed to add ARGON2ID memcost");
+        if (!sym_OSSL_PARAM_BLD_push_uint(bld, "memcost", (unsigned) memcost_kb))
+                return log_openssl_errors(LOG_DEBUG, "Failed to add ARGON2ID memcost");
 
-                if (!sym_OSSL_PARAM_BLD_push_uint(bld, "iter", params->iterations))
-                        return log_openssl_errors(LOG_DEBUG, "Failed to add ARGON2ID iter");
+        if (!sym_OSSL_PARAM_BLD_push_uint(bld, "iter", params->iterations))
+                return log_openssl_errors(LOG_DEBUG, "Failed to add ARGON2ID iter");
 
-                if (!sym_OSSL_PARAM_BLD_push_uint(bld, "lanes", params->lanes))
-                        return log_openssl_errors(LOG_DEBUG, "Failed to add ARGON2ID lanes");
+        if (!sym_OSSL_PARAM_BLD_push_uint(bld, "lanes", params->lanes))
+                return log_openssl_errors(LOG_DEBUG, "Failed to add ARGON2ID lanes");
 
-                /* FIXME: drop sym_OSSL_set_max_threads() conditionalization once OpenSSL 3.2 becomes the minimum baseline */
-                if (params->lanes > 1 && sym_OSSL_set_max_threads)
-                        if (!sym_OSSL_PARAM_BLD_push_uint(bld, "threads", params->lanes))
-                                return log_openssl_errors(LOG_DEBUG, "Failed to add ARGON2ID threads");
-        }
+        /* FIXME: drop sym_OSSL_set_max_threads() conditionalization once OpenSSL 3.2 becomes the minimum baseline */
+        if (params->lanes > 1 && sym_OSSL_set_max_threads)
+                if (!sym_OSSL_PARAM_BLD_push_uint(bld, "threads", params->lanes))
+                        return log_openssl_errors(LOG_DEBUG, "Failed to add ARGON2ID threads");
 
         _cleanup_(OSSL_PARAM_freep) OSSL_PARAM *openssl_params = sym_OSSL_PARAM_BLD_to_param(bld);
         if (!openssl_params)
                 return log_openssl_errors(LOG_DEBUG, "Failed to build ARGON2ID OSSL_PARAM");
 
         /* FIXME: drop sym_OSSL_set_max_threads() conditionalization once OpenSSL 3.2 becomes the minimum baseline */
-        if (params && params->lanes > 1 && sym_OSSL_set_max_threads)
+        if (params->lanes > 1 && sym_OSSL_set_max_threads)
                 if (!sym_OSSL_set_max_threads(/* ctx= */ NULL, params->lanes))
                         return log_openssl_errors(LOG_DEBUG, "Failed to set Argon2id thread pool size");
 
         if (sym_EVP_KDF_derive(ctx, buf, derive_size, openssl_params) <= 0) {
-                if (params && params->lanes > 1 && sym_OSSL_set_max_threads)
+                if (params->lanes > 1 && sym_OSSL_set_max_threads)
                         sym_OSSL_set_max_threads(/* ctx= */ NULL, 0);
                 return log_openssl_errors(LOG_DEBUG, "OpenSSL ARGON2ID derive failed");
         }
 
-        if (params && params->lanes > 1 && sym_OSSL_set_max_threads)
+        if (params->lanes > 1 && sym_OSSL_set_max_threads)
                 sym_OSSL_set_max_threads(/* ctx= */ NULL, 0);
 
         ret->iov_base = TAKE_PTR(buf);
