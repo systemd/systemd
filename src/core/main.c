@@ -2765,9 +2765,12 @@ static int do_queue_default_job(
         else
                 unit = SPECIAL_DEFAULT_TARGET;
 
-        log_debug("Activating default unit: %s", unit);
+        /* When no unit was explicitly requested, failures to load the default unit are not fatal,
+         * since we fall back to other targets below. Log them at a lower level in that case. */
+        int log_level = arg_default_unit ? LOG_ERR : LOG_INFO;
 
-        r = manager_load_startable_unit_or_warn(m, unit, NULL, &target);
+        log_debug("Activating default unit: %s", unit);
+        r = manager_load_startable_unit_or_warn(m, unit, /* path= */ NULL, log_level, &target);
         if (r == -ENOENT && !arg_default_unit) {
                 if (in_initrd())
                         /* Fall back to default.target, which we used to always use by default.
@@ -2780,13 +2783,13 @@ static int do_queue_default_job(
                         unit = FALLBACK_DEFAULT_TARGET;
 
                 log_info("Falling back to %s.", unit);
-                r = manager_load_startable_unit_or_warn(m, unit, NULL, &target);
+                r = manager_load_startable_unit_or_warn(m, unit, /* path= */ NULL, log_level, &target);
         }
         if (r < 0) {
                 /* We failed. Activate rescue mode. */
                 log_info("Falling back to %s.", SPECIAL_RESCUE_TARGET);
 
-                r = manager_load_startable_unit_or_warn(m, SPECIAL_RESCUE_TARGET, NULL, &target);
+                r = manager_load_startable_unit_or_warn(m, SPECIAL_RESCUE_TARGET, /* path= */ NULL, log_level, &target);
                 if (r < 0) {
                         *ret_error_message = r == -ERFKILL ? SPECIAL_RESCUE_TARGET " masked"
                                                            : "Failed to load " SPECIAL_RESCUE_TARGET;
