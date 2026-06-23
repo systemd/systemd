@@ -290,7 +290,7 @@ int journal_importer_process_data(JournalImporter *imp) {
 
         switch (imp->state) {
         case IMPORTER_STATE_LINE: {
-                char *line, *sep;
+                char *line = NULL;  /* avoid false maybe-uninitialized warning */
                 size_t n = 0;
 
                 assert(imp->data_size == 0);
@@ -315,7 +315,7 @@ int journal_importer_process_data(JournalImporter *imp) {
                    COREDUMP\n
                    LLLLLLLL0011223344...\n
                 */
-                sep = memchr(line, '=', n);
+                char *sep = memchr(line, '=', n);
                 if (sep) {
                         /* chomp newline */
                         n--;
