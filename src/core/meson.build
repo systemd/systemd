@@ -233,6 +233,7 @@ executor_libs = get_option('link-executor-shared') ? core_libs_shared : core_lib
 
 if conf.get('SYSTEMD_MULTICALL_BINARY') == 1
         systemd_sources += systemd_executor_sources
+        systemd_sources += systemd_shutdown_sources
         systemd_deps += [
                 libbpf_cflags,
                 libcryptsetup_cflags,
@@ -272,6 +273,7 @@ executables += [
                 'name' : 'systemd-shutdown',
                 'extract' : systemd_shutdown_sources,
                 'dependencies' : libmount_cflags,
+                'conditions' : [conf.get('SYSTEMD_MULTICALL_BINARY') == 0],
         },
         libexec_template + {
                 'name' : 'systemd-shutdown.standalone',
@@ -283,6 +285,7 @@ executables += [
                         libsystemd_static,
                 ],
                 'dependencies' : libmount_cflags,
+                'conditions' : [conf.get('SYSTEMD_MULTICALL_BINARY') == 0],
         },
 
         test_template + {

@@ -102,6 +102,7 @@
 #include "serialize.h"
 #include "service.h"
 #include "set.h"
+#include "shutdown.h"
 #include "signal-util.h"
 #include "smack-setup.h"
 #include "special.h"
@@ -1854,8 +1855,14 @@ static int become_shutdown(int objective, int retval) {
 
         (void) write_boot_or_shutdown_osc("shutdown");
 
-        execve(SYSTEMD_SHUTDOWN_BINARY_PATH, (char **) command_line, env_block);
-        return -errno;
+        r = RET_NERRNO(execve(SYSTEMD_SHUTDOWN_BINARY_PATH, (char **) command_line, env_block));
+        if (SYSTEMD_MULTICALL_BINARY && r == -ENOENT) {
+                log_debug("%s not found, falling back to /proc/self/exe", SYSTEMD_SHUTDOWN_BINARY_PATH);
+                /* Fall back to ourselves as the shutdown binary */
+                r = RET_NERRNO(execve("/proc/self/exe", (char **) command_line, env_block));
+        }
+
+        return r;
 }
 
 static void initialize_clock_timewarp(void) {
@@ -3925,6 +3932,9 @@ int main(int argc, char *argv[]) {
 #if SYSTEMD_MULTICALL_BINARY
         if (invoked_as(argv, "executor"))
                 return run_executor(argc, argv);
+
+        if (invoked_as(argv, "shutdown"))
+                return run_shutdown(argc, argv);
 #endif
         return run_systemd(argc, argv);
 }

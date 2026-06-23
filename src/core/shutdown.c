@@ -67,11 +67,17 @@ static int parse_argv(int argc, char *argv[]) {
          *
          * Note: when new options are added here, also add them to the exclusion list in proc-cmdline.c! */
 
-        OptionParser opts = { argc, argv, OPTION_PARSER_RETURN_POSITIONAL_ARGS };
+        OptionParser opts = {
+                argc, argv,
+                .mode = OPTION_PARSER_RETURN_POSITIONAL_ARGS,
+                .namespace = "systemd-shutdown",
+        };
         int r;
 
         FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
+
+                OPTION_NAMESPACE("systemd-shutdown"): {}
 
                 OPTION_COMMON_LOG_LEVEL:
                         r = log_set_max_level_from_string(opts.arg);
@@ -365,7 +371,7 @@ static void sleep_until_minimum_uptime(void) {
         }
 }
 
-int main(int argc, char *argv[]) {
+int run_shutdown(int argc, char *argv[]) {
         static const char* const dirs[] = {
                 SYSTEM_SHUTDOWN_PATH,
                 NULL
@@ -703,3 +709,7 @@ error:
                          LOG_MESSAGE_ID(SD_MESSAGE_SHUTDOWN_ERROR_STR));
         freeze();
 }
+
+#if !SYSTEMD_MULTICALL_BINARY
+_alias_(run_shutdown) main;
+#endif

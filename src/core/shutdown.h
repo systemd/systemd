@@ -2,3 +2,4 @@
 #pragma once
 
 int sync_with_progress(int fd);
+int run_shutdown(int argc, char *argv[]);
