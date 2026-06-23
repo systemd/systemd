@@ -16,6 +16,8 @@
 char* sysctl_normalize(char *s) {
         char *n;
 
+        assert(s);
+
         n = strpbrk(s, "/.");
 
         /* If the first separator is a slash, the path is

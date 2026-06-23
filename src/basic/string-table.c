@@ -10,10 +10,14 @@ const char* string_table_lookup_to_string(const char * const *table, size_t len,
         if (i < 0 || i >= (ssize_t) len)
                 return NULL;
 
+        assert(table);
+
         return table[i];
 }
 
 ssize_t string_table_lookup_from_string(const char * const *table, size_t len, const char *key) {
+        assert_return(table, -EINVAL);
+
         if (!key)
                 return -EINVAL;
 
@@ -39,6 +43,9 @@ ssize_t string_table_lookup_from_string_with_boolean(const char * const *table, 
 
 int string_table_lookup_to_string_fallback(const char * const *table, size_t len, ssize_t i, size_t max, char **ret) {
         char *s;
+
+        assert(table);
+        assert(ret);
 
         if (i < 0 || i > (ssize_t) max)
                 return -ERANGE;

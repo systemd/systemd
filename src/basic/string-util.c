@@ -163,6 +163,8 @@ char* ascii_strupper(char *s) {
 }
 
 char* ascii_strlower_n(char *s, size_t n) {
+        assert(n <= 0 || s);
+
         if (n <= 0)
                 return s;
 

@@ -490,6 +490,8 @@ bool pidref_is_automatic(const PidRef *pidref) {
 }
 
 void pidref_hash_func(const PidRef *pidref, struct siphash *state) {
+        assert(pidref);
+
         siphash24_compress_typesafe(pidref->pid, state);
 }
 
