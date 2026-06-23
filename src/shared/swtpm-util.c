@@ -8,6 +8,7 @@
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "json-util.h"
 #include "log.h"
 #include "memfd-util.h"
@@ -233,6 +234,15 @@ int manufacture_swtpm(const char *state_dir, const char *secret) {
                 log_error_errno(errno, "Failed to execute '%s': %m", args[0]);
                 _exit(EXIT_FAILURE);
         }
+
+        /* Write marker file to signal manufacturing completed successfully. */
+        _cleanup_free_ char *marker = path_join(state_dir, SWTPM_MANUFACTURED_MARKER);
+        if (!marker)
+                return log_oom();
+
+        r = touch(marker);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write '%s' marker: %m", SWTPM_MANUFACTURED_MARKER);
 
         return 0;
 }
