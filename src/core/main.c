@@ -2768,15 +2768,22 @@ static int do_queue_default_job(
         log_debug("Activating default unit: %s", unit);
 
         r = manager_load_startable_unit_or_warn(m, unit, NULL, &target);
-        if (r < 0 && in_initrd() && !arg_default_unit) {
-                /* Fall back to default.target, which we used to always use by default. Only do this if no
-                 * explicit configuration was given. */
+        if (r == -ENOENT && !arg_default_unit) {
+                if (in_initrd())
+                        /* Fall back to default.target, which we used to always use by default.
+                         * Only do this if no explicit configuration was given. */
+                        unit = SPECIAL_DEFAULT_TARGET;
+                else
+                        /* The default.target symlink was not found on disk and the target was not
+                         * explicitly specified. Fall back to the target configured at build time
+                         * via -Ddefault-target=. */
+                        unit = FALLBACK_DEFAULT_TARGET;
 
-                log_info("Falling back to %s.", SPECIAL_DEFAULT_TARGET);
-
-                r = manager_load_startable_unit_or_warn(m, SPECIAL_DEFAULT_TARGET, NULL, &target);
+                log_info("Falling back to %s.", unit);
+                r = manager_load_startable_unit_or_warn(m, unit, NULL, &target);
         }
         if (r < 0) {
+                /* We failed. Activate rescue mode. */
                 log_info("Falling back to %s.", SPECIAL_RESCUE_TARGET);
 
                 r = manager_load_startable_unit_or_warn(m, SPECIAL_RESCUE_TARGET, NULL, &target);

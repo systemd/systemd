@@ -267,6 +267,8 @@ option('clock-valid-range-usec-max', type : 'integer', value : 473364000000000, 
        description : 'maximum value in microseconds for the difference between RTC and epoch, exceeding which is considered an RTC error ["0" disables]')
 option('default-user-shell', type : 'string', value : '/bin/bash',
        description : 'default interactive shell')
+option('fallback-default-target', type : 'string', value : 'graphical.target',
+       description : 'unit to activate when default.target is not found on disk')
 
 option('system-alloc-uid-min', type : 'integer', value : 0,
        description : 'minimum system UID used when allocating')
