@@ -43,12 +43,13 @@ typedef enum OutputFlags {
         OUTPUT_UTC               = 1 << 6,
         OUTPUT_NO_HOSTNAME       = 1 << 7,
         OUTPUT_TRUNCATE_NEWLINE  = 1 << 8,
+        OUTPUT_SKIP_UNPRINTABLE  = 1 << 9,
 
         /* Specific to process tree output */
-        OUTPUT_KERNEL_THREADS    = 1 << 9,
-        OUTPUT_CGROUP_XATTRS     = 1 << 10,
-        OUTPUT_CGROUP_ID         = 1 << 11,
-        OUTPUT_HIDE_EXTRA        = 1 << 12,
+        OUTPUT_KERNEL_THREADS    = 1 << 10,
+        OUTPUT_CGROUP_XATTRS     = 1 << 11,
+        OUTPUT_CGROUP_ID         = 1 << 12,
+        OUTPUT_HIDE_EXTRA        = 1 << 13,
 } OutputFlags;
 
 sd_json_format_flags_t output_mode_to_json_format_flags(OutputMode m);
