@@ -425,6 +425,47 @@ static int write_mounts_for(
         return 0;
 }
 
+static int write_on_failure(FILE *f, const char *where, const char *opts) {
+        _cleanup_strv_free_ char **units = NULL;
+        int r;
+
+        assert(f);
+        assert(where);
+
+        r = fstab_filter_options(
+                        opts,
+                        "x-systemd.onfailure\0",
+                        /* ret_namefound= */ NULL,
+                        /* ret_value= */ NULL,
+                        /* ret_values= */ &units,
+                        /* ret_filtered= */ NULL);
+        if (r < 0)
+                return log_error_errno(
+                                r,
+                                "Failed to parse x-systemd.onfailure= for '%s': %m",
+                                where);
+        if (r == 0)
+                return 0;
+
+        STRV_FOREACH(u, units) {
+                _cleanup_free_ char *mangled = NULL;
+
+                r = unit_name_mangle(*u, 0, &mangled);
+                if (r < 0) {
+                        log_warning_errno(
+                                        r,
+                                        "Failed to generate OnFailure unit name '%s', ignoring: %m",
+                                        *u);
+                        continue;
+                }
+
+                fprintf(f, "OnFailure=%s\n", mangled);
+
+        }
+
+        return 0;
+}
+
 static int write_extra_dependencies(FILE *f, const char *where, const char *opts) {
         int r;
 
@@ -456,6 +497,10 @@ static int write_extra_dependencies(FILE *f, const char *where, const char *opts
 
         r = write_mounts_for(f, where, opts,
                              "x-systemd.wants-mounts-for\0", "WantsMountsFor");
+        if (r < 0)
+                return r;
+
+        r = write_on_failure(f, where, opts);
         if (r < 0)
                 return r;
 
