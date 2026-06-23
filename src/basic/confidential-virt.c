@@ -43,37 +43,32 @@ static uint32_t cpuid_leaf(uint32_t eax, char ret_sig[static 13], bool swapped) 
 
 #define MSR_DEVICE "/dev/cpu/0/msr"
 
-static uint64_t msr(uint64_t index) {
-        uint64_t ret;
-        ssize_t rv;
+static int msr(uint64_t index, uint64_t *ret) {
         _cleanup_close_ int fd = -EBADF;
+        uint64_t v;
+        ssize_t n;
+
+        assert(ret);
 
         fd = open(MSR_DEVICE, O_RDONLY|O_CLOEXEC);
-        if (fd < 0) {
-                log_debug_errno(errno,
-                                "Cannot open MSR device %s (index %" PRIu64 "), ignoring: %m",
-                                MSR_DEVICE,
-                                index);
-                return 0;
-        }
+        if (fd < 0)
+                return log_debug_errno(errno,
+                                       "Cannot open MSR device %s (index %" PRIu64 "): %m",
+                                       MSR_DEVICE, index);
 
-        rv = pread(fd, &ret, sizeof(ret), index);
-        if (rv < 0) {
-                log_debug_errno(errno,
-                                "Cannot read MSR device %s (index %" PRIu64 "), ignoring: %m",
-                                MSR_DEVICE,
-                                index);
-                return 0;
-        } else if (rv != sizeof(ret)) {
-                log_debug("Short read %zd bytes from MSR device %s (index %" PRIu64 "), ignoring",
-                          rv,
-                          MSR_DEVICE,
-                          index);
-                return 0;
-        }
+        n = pread(fd, &v, sizeof(v), index);
+        if (n < 0)
+                return log_debug_errno(errno,
+                                       "Cannot read MSR device %s (index %" PRIu64 "): %m",
+                                       MSR_DEVICE, index);
+        if (n != sizeof(v))
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO),
+                                       "Short read %zd bytes from MSR device %s (index %" PRIu64 ")",
+                                       n, MSR_DEVICE, index);
 
-        log_debug("MSR %" PRIu64 " result %" PRIu64 "", index, ret);
-        return ret;
+        log_debug("MSR %" PRIu64 " result %" PRIu64, index, v);
+        *ret = v;
+        return 0;
 }
 
 static bool detect_hyperv_cvm(uint32_t isoltype) {
@@ -110,6 +105,7 @@ static bool detect_hyperv_cvm(uint32_t isoltype) {
 static ConfidentialVirtualization detect_sev(void) {
         uint32_t eax, ebx, ecx, edx;
         uint64_t msrval;
+        int r;
 
         eax = CPUID_GET_HIGHEST_FUNCTION;
         ebx = ecx = edx = 0;
@@ -140,7 +136,15 @@ static ConfidentialVirtualization detect_sev(void) {
                 return CONFIDENTIAL_VIRTUALIZATION_NONE;
         }
 
-        msrval = msr(MSR_AMD64_SEV);
+        r = msr(MSR_AMD64_SEV, &msrval);
+        if (r < 0) {
+                /* The CPU advertises SEV support and we're running under a hypervisor, but we couldn't read
+                 * the SEV MSR to determine the exact mode (e.g. /dev/cpu/0/msr is unavailable because the
+                 * msr module isn't loaded). Assume plain SEV. Misreporting a genuine confidential guest as
+                 * non-confidential would wrongly make us trust hypervisor-provided data such as firmware credentials. */
+                log_debug_errno(r, "Failed to read SEV MSR, assuming SEV: %m");
+                return CONFIDENTIAL_VIRTUALIZATION_SEV;
+        }
 
         /* Test reverse order, since the SEV-SNP bit implies
          * the SEV-ES bit, which implies the SEV bit */
@@ -155,17 +159,10 @@ static ConfidentialVirtualization detect_sev(void) {
 }
 
 static ConfidentialVirtualization detect_tdx(void) {
-        uint32_t eax, ebx, ecx, edx;
         char sig[13] = {};
 
-        eax = CPUID_GET_HIGHEST_FUNCTION;
-        ebx = ecx = edx = 0;
-
-        cpuid(&eax, &ebx, &ecx, &edx);
-
-        if (eax < CPUID_INTEL_TDX_ENUMERATION)
-                return CONFIDENTIAL_VIRTUALIZATION_NONE;
-
+        /* Querying an unsupported CPUID leaf is harmless (it returns the highest basic leaf's data rather
+         * than faulting), so reading this leaf and matching the IntelTDX signature is sufficient. */
         cpuid_leaf(CPUID_INTEL_TDX_ENUMERATION, sig, true);
 
         if (memcmp(sig, CPUID_SIG_INTEL_TDX, sizeof(sig)) == 0)
