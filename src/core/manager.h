@@ -78,6 +78,11 @@ typedef enum ManagerObjective {
  * 6. TIMESTAMP_USERSPACE is the timestamp of when the manager was started.
  *
  * 7. TIMESTAMP_INITRD_* are set only when the system is booted with an initrd.
+ *
+ * 8. TIMESTAMP_SHUTDOWN_START and TIMESTAMP_SHUTDOWN_FINISH bracket the unit-stopping phase during
+ *    shutdown. TIMESTAMP_SHUTDOWN_BINARY_START and TIMESTAMP_SHUTDOWN_BINARY_FINISH are taken by
+ *    systemd-shutdown. When LUO is available, these are preserved across kexec so that the previous
+ *    boot's shutdown metrics are available.
  */
 
 typedef enum ManagerTimestamp {
@@ -104,6 +109,9 @@ typedef enum ManagerTimestamp {
         MANAGER_TIMESTAMP_INITRD_UNITS_LOAD_FINISH,
 
         MANAGER_TIMESTAMP_SHUTDOWN_START,
+        MANAGER_TIMESTAMP_SHUTDOWN_FINISH,
+        MANAGER_TIMESTAMP_SHUTDOWN_BINARY_START,
+        MANAGER_TIMESTAMP_SHUTDOWN_BINARY_FINISH,
 
         _MANAGER_TIMESTAMP_MAX,
         _MANAGER_TIMESTAMP_INVALID = -EINVAL,

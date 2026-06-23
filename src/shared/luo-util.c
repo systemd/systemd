@@ -19,6 +19,7 @@
 #include "parse-util.h"
 #include "stat-util.h"
 #include "string-util.h"
+#include "time-util.h"
 
 /* Kernel API defined at https://docs.kernel.org/userspace-api/liveupdate.html The /dev/liveupdate is a
  * single-owner singleton, only a single process at any given time can open it. Callers can create named
@@ -208,6 +209,63 @@ int luo_parse_serialization(sd_json_variant **ret, int **ret_fds, size_t *ret_n_
         *ret_fds = TAKE_PTR(fd_list);
         *ret_n_fds = n_fds;
         return 0;
+}
+
+int luo_serialization_add_shutdown_timestamps(
+                sd_json_variant **serialization,
+                const dual_timestamp *shutdown_binary_start,
+                const dual_timestamp *shutdown_binary_finish) {
+
+        int r;
+
+        assert(serialization);
+
+        /* sd-shutdown calls this to add its timestamps to the preserved JSON payload */
+
+        if (!*serialization)
+                return 0; /* No LUO serialization, nothing to augment */
+
+        const struct {
+                const char *key;
+                const dual_timestamp *ts;
+        } entries[] = {
+                { "shutdownBinaryStart",  shutdown_binary_start  },
+                { "shutdownBinaryFinish", shutdown_binary_finish },
+        };
+
+        sd_json_variant *state = sd_json_variant_by_key(*serialization, "state");
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *timestamps =
+                        sd_json_variant_ref(state ? sd_json_variant_by_key(state, "timestamps") : NULL);
+
+        FOREACH_ELEMENT(e, entries) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+
+                if (!e->ts || !dual_timestamp_is_set(e->ts))
+                        continue;
+
+                r = sd_json_build(&v, JSON_BUILD_DUAL_TIMESTAMP((dual_timestamp*) e->ts));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to build LUO shutdown timestamp '%s': %m", e->key);
+
+                r = sd_json_variant_set_field(&timestamps, e->key, v);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set LUO shutdown timestamp '%s': %m", e->key);
+        }
+
+        if (!timestamps)
+                return 0; /* Nothing was set and nothing pre-existed */
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *new_state = sd_json_variant_ref(state);
+
+        r = sd_json_variant_set_field(&new_state, "timestamps", timestamps);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set LUO 'timestamps' field: %m");
+
+        r = sd_json_variant_set_field(serialization, "state", new_state);
+        if (r < 0)
+                return log_error_errno(r, "Failed to update LUO 'state' object: %m");
+
+        return 1;
 }
 
 int luo_preserve_fd_stores(sd_json_variant *serialization, int *ret_session_fd) {
