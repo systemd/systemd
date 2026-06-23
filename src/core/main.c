@@ -52,6 +52,7 @@
 #include "fileio.h"
 #include "format-table.h"
 #include "format-util.h"
+#include "fs-util.h"
 #include "glyph-util.h"
 #include "hash-funcs.h"
 #include "hashmap.h"
@@ -2135,6 +2136,7 @@ static int do_reexecute(
                 const char **ret_error_message) {
 
         size_t i, args_size;
+        _cleanup_free_ char *our_exe = NULL;
         const char **args;
         int r;
 
@@ -2242,14 +2244,31 @@ static int do_reexecute(
                 valgrind_summary_hack();
 
                 args[0] = SYSTEMD_BINARY_PATH;
-                (void) execv(args[0], (char* const*) args);
+                r = RET_NERRNO(execv(args[0], (char* const*) args));
 
                 if (objective == MANAGER_REEXECUTE) {
+                        /* If the binary is missing, try with our current executable too. This way things
+                         * continue to work if the binary is installed into a non-default location. Note that
+                         * we don't use chase here, the symlink the kernel gives is good enough. */
+                        if (r == -ENOENT) {
+                                int k;
+
+                                k = readlink_malloc("/proc/self/exe", &our_exe);
+                                if (k < 0)
+                                        log_warning_errno(k, "Failed to read /proc/self/exe: %m");
+                                else if (!endswith(our_exe, " (deleted)")) {
+                                        log_info_errno(r, "Failed to execute our own binary %s, trying fallback: %m", args[0]);
+
+                                        args[0] = our_exe;
+                                        r = RET_NERRNO(execv(args[0], (char* const*) args));
+                                }
+                        }
+
                         *ret_error_message = "Failed to execute our own binary";
-                        return log_error_errno(errno, "Failed to execute our own binary %s: %m", args[0]);
+                        return log_error_errno(r, "Failed to execute our own binary %s: %m", args[0]);
                 }
 
-                log_debug_errno(errno, "Failed to execute our own binary %s, trying fallback: %m", args[0]);
+                log_debug_errno(r, "Failed to execute our own binary %s, trying fallback: %m", args[0]);
         }
 
         /* Try the fallback, if there is any, without any serialization. We pass the original argv[] and
@@ -2285,13 +2304,12 @@ static int do_reexecute(
 
         if (switch_root_init) {
                 args[0] = switch_root_init;
-                (void) execve(args[0], (char* const*) args, saved_env);
-                log_warning_errno(errno, "Failed to execute configured init %s, trying fallback: %m", args[0]);
+                r = RET_NERRNO(execve(args[0], (char* const*) args, saved_env));
+                log_warning_errno(r, "Failed to execute configured init %s, trying fallback: %m", args[0]);
         }
 
         args[0] = "/sbin/init";
-        (void) execv(args[0], (char* const*) args);
-        r = -errno;
+        r = RET_NERRNO(execv(args[0], (char* const*) args));
         *ret_error_message = "Failed to execute /sbin/init";
 
         if (r == -ENOENT) {
@@ -2303,8 +2321,7 @@ static int do_reexecute(
 
                 args[0] = "/bin/sh";
                 args[1] = NULL;
-                (void) execve(args[0], (char* const*) args, saved_env);
-                r = -errno;
+                r = RET_NERRNO(execve(args[0], (char* const*) args, saved_env));
                 *ret_error_message = "Failed to execute fallback shell";
         }
 
