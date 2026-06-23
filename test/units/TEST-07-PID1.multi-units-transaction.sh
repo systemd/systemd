@@ -24,14 +24,17 @@ at_exit() {
     systemctl stop issue8102-sock-foo.service issue8102-sock-foo.socket
     systemctl stop 'issue8102-many@*.service'
     systemctl stop issue8102-conflict-a.service issue8102-conflict-b.service
+    systemctl stop issue8102-nop-main.service issue8102-nop-dep.service
     systemctl reset-failed issue8102-second.service issue8102-first.service
     systemctl reset-failed issue8102-sock-foo.service issue8102-sock-foo.socket
     systemctl reset-failed 'issue8102-many@*.service'
     systemctl reset-failed issue8102-conflict-a.service issue8102-conflict-b.service
+    systemctl reset-failed issue8102-nop-main.service issue8102-nop-dep.service
     rm -f /run/systemd/system/issue8102-{first,second}.service
     rm -f /run/systemd/system/issue8102-sock-foo.{service,socket}
     rm -f /run/systemd/system/issue8102-many@.service
     rm -f /run/systemd/system/issue8102-conflict-{a,b}.service
+    rm -f /run/systemd/system/issue8102-nop-{main,dep}.service
     rm -rf "$MARKER_DIR" "$SOCK_DIR"
     systemctl daemon-reload
 }
@@ -373,3 +376,90 @@ busctl call \
     0 >/dev/null
 
 [[ "$(systemctl show -P ActiveState issue8102-first.service)" == inactive ]]
+
+# ---------------------------------------------------------------------------
+# Regression test: a try-restart anchor that collapses to a NOP job (because
+# the unit is inactive) must not crash PID1 when the very same unit is also
+# pulled into the transaction as a regular start job by another anchor.
+#
+# ---------------------------------------------------------------------------
+
+cat >/run/systemd/system/issue8102-nop-dep.service <<EOF
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/true
+EOF
+
+cat >/run/systemd/system/issue8102-nop-main.service <<EOF
+[Unit]
+Wants=issue8102-nop-dep.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/true
+EOF
+systemctl daemon-reload
+
+systemctl start issue8102-nop-main.service
+[[ "$(systemctl show -P ActiveState issue8102-nop-main.service)" == active ]]
+
+# Stop just the dependency. Wants= is a weak dependency, so the main unit stays
+# active while the dependency goes inactive.
+systemctl stop issue8102-nop-dep.service
+[[ "$(systemctl show -P ActiveState issue8102-nop-dep.service)" == inactive ]]
+[[ "$(systemctl show -P ActiveState issue8102-nop-main.service)" == active ]]
+
+# try-restart both in a single transaction: the inactive dependency collapses to
+# a NOP anchor, while restarting the active main unit pulls the dependency back
+# in as a regular start job.
+out=$(busctl call \
+    org.freedesktop.systemd1 \
+    /org/freedesktop/systemd1 \
+    org.freedesktop.systemd1.Manager \
+    EnqueueUnitJobMany \
+    assst \
+    2 issue8102-nop-dep.service issue8102-nop-main.service \
+    try-restart replace \
+    0)
+grep -F "issue8102-nop-dep.service" >/dev/null <<<"$out"
+grep -F "issue8102-nop-main.service" >/dev/null <<<"$out"
+
+# shellcheck disable=SC2016
+timeout 30s bash -c '
+    while [[ "$(systemctl show -P ActiveState issue8102-nop-dep.service)" != active ]] ||
+          [[ "$(systemctl show -P ActiveState issue8102-nop-main.service)" != active ]]; do
+        sleep 0.5
+    done
+'
+
+# Repeat with the two anchors swapped in the array. The per-unit transaction list
+# is built incrementally, so the NOP and the regular job end up in the opposite
+# order; transaction_drop_nop() must handle both cases.
+systemctl stop issue8102-nop-dep.service
+[[ "$(systemctl show -P ActiveState issue8102-nop-dep.service)" == inactive ]]
+[[ "$(systemctl show -P ActiveState issue8102-nop-main.service)" == active ]]
+
+out=$(busctl call \
+    org.freedesktop.systemd1 \
+    /org/freedesktop/systemd1 \
+    org.freedesktop.systemd1.Manager \
+    EnqueueUnitJobMany \
+    assst \
+    2 issue8102-nop-main.service issue8102-nop-dep.service \
+    try-restart replace \
+    0)
+grep -F "issue8102-nop-dep.service" >/dev/null <<<"$out"
+grep -F "issue8102-nop-main.service" >/dev/null <<<"$out"
+
+# shellcheck disable=SC2016
+timeout 30s bash -c '
+    while [[ "$(systemctl show -P ActiveState issue8102-nop-dep.service)" != active ]] ||
+          [[ "$(systemctl show -P ActiveState issue8102-nop-main.service)" != active ]]; do
+        sleep 0.5
+    done
+'
+
+# Ensure we are still running
+systemctl daemon-reload
