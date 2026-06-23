@@ -2527,20 +2527,34 @@ int manager_add_job_by_name(Manager *m, JobType type, const char *name, JobMode 
         return manager_add_job_full(m, type, unit, mode, /* extra_flags= */ 0, affected_jobs, e, ret);
 }
 
-int manager_add_job_by_name_and_warn(Manager *m, JobType type, const char *name, JobMode mode, Set *affected_jobs, Job **ret) {
+static int manager_add_job_by_name_or_warn_with_fallback(
+                Manager *m,
+                JobType type,
+                const char *name,
+                const char *fallback,
+                JobMode mode,
+                Set *affected_jobs,
+                Job **ret) {
+
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
-        assert(m);
-        assert(type < _JOB_TYPE_MAX);
-        assert(name);
-        assert(mode < _JOB_MODE_MAX);
-
         r = manager_add_job_by_name(m, type, name, mode, affected_jobs, &error, ret);
+        if (r == -ENOENT && fallback) {
+                log_debug_errno(r, "Failed to enqueue job %s/%s, fallback to %s: %s",
+                                name, job_mode_to_string(mode), fallback, bus_error_message(&error, r));
+                sd_bus_error_free(&error);
+                name = fallback;
+                r = manager_add_job_by_name(m, type, name, mode, affected_jobs, &error, ret);
+        }
         if (r < 0)
-                return log_warning_errno(r, "Failed to enqueue %s job for %s: %s", job_mode_to_string(mode), name, bus_error_message(&error, r));
-
+                return log_warning_errno(r, "Failed to enqueue job %s/%s: %s",
+                                         name, job_mode_to_string(mode), bus_error_message(&error, r));
         return r;
+}
+
+int manager_add_job_by_name_or_warn(Manager *m, JobType type, const char *name, JobMode mode, Set *affected_jobs, Job **ret) {
+        return manager_add_job_by_name_or_warn_with_fallback(m, type, name, /* fallback= */ NULL, mode, affected_jobs, ret);
 }
 
 int manager_propagate_reload(Manager *m, Unit *unit, JobMode mode, sd_bus_error *e) {
@@ -3209,7 +3223,7 @@ turn_off:
 static void manager_start_special(Manager *m, const char *name, JobMode mode) {
         Job *job;
 
-        if (manager_add_job_by_name_and_warn(m, JOB_START, name, mode, NULL, &job) < 0)
+        if (manager_add_job_by_name_or_warn(m, JOB_START, name, mode, NULL, &job) < 0)
                 return;
 
         const char *s = unit_status_string(job->unit, NULL);
