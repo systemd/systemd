@@ -339,15 +339,15 @@ int enroll_tpm2(struct crypt_device *cd,
         assert_se(node = sym_crypt_get_device_name(cd));
 
         if (use_pin) {
+                r = get_pin(&pin_str, &flags);
+                if (r < 0)
+                        return r;
+
+                r = crypto_random_bytes(binary_salt, sizeof(binary_salt));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to acquire random salt: %m");
+
                 if (argon2id) {
-                        r = get_pin(&pin_str, &flags);
-                        if (r < 0)
-                                return r;
-
-                        r = crypto_random_bytes(binary_salt, sizeof(binary_salt));
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to acquire random salt: %m");
-
                         _cleanup_(iovec_done_erase) struct iovec derived = {};
                         r = kdf_argon2id_derive(
                                         &IOVEC_MAKE(pin_str, strlen(pin_str)),
@@ -372,14 +372,6 @@ int enroll_tpm2(struct crypt_device *cd,
 
                         flags |= TPM2_FLAGS_USE_ARGON2ID;
                 } else {
-                        r = get_pin(&pin_str, &flags);
-                        if (r < 0)
-                                return r;
-
-                        r = crypto_random_bytes(binary_salt, sizeof(binary_salt));
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to acquire random salt: %m");
-
                         uint8_t salted_pin[SHA256_DIGEST_SIZE] = {};
                         CLEANUP_ERASE(salted_pin);
                         r = tpm2_util_pbkdf2_hmac_sha256(pin_str, strlen(pin_str), binary_salt, sizeof(binary_salt), salted_pin);
