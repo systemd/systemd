@@ -49,23 +49,24 @@ struct {
 
 /* ---- Globals (set by PID1 via skeleton) ---- */
 
-/* Device number of the initramfs superblock. PID1 sets this at load time and
- * clears it (to 0) after switch_root. A value of 0 means "no initramfs trust
- * — the window is closed." */
-volatile __u32 initramfs_s_dev;
-
-/* ---- Self-protection guard globals (set by PID1 after attach) ----
- *
- * While all IDs are 0 (the .bss default), the guard is inactive — no real BPF
- * object has ID 0, so no comparisons match. PID1 populates these after
- * attaching all programs. */
-volatile __u32 protected_map_id_verity;
-volatile __u32 protected_map_id_bss;
-
 /* Must equal _RESTRICT_FILESYSTEM_ACCESS_LINK_MAX in bpf-restrict-fsaccess.h — update when adding programs */
 #define NUM_PROTECTED_OBJS 9 /* 5 enforcement + 4 guard (bpf, bpf_map, bpf_prog, ptrace) */
-volatile __u32 protected_prog_ids[NUM_PROTECTED_OBJS];
-volatile __u32 protected_link_ids[NUM_PROTECTED_OBJS];
+
+/* All .bss globals in one struct to prevent the compiler from reordering them.
+ * Field order must match struct restrict_fsaccess_bss in bpf-restrict-fsaccess.h. */
+struct {
+        /* Device number of the initramfs superblock. PID1 sets this at load
+         * time and clears it (to 0) after switch_root. 0 means no trust. */
+        __u32 initramfs_s_dev;
+
+        /* Self-protection guard globals (set by PID1 after attach).
+         * All IDs default to 0 — no real BPF object has ID 0, so the guard is
+         * inactive until PID1 populates these after attaching all programs. */
+        __u32 protected_map_id_verity;
+        __u32 protected_map_id_bss;
+        __u32 protected_prog_ids[NUM_PROTECTED_OBJS];
+        __u32 protected_link_ids[NUM_PROTECTED_OBJS];
+} g;
 
 /* ---- Integrity tracking hooks ---- */
 
@@ -126,7 +127,7 @@ static __always_inline int check_trusted_file(struct file *file)
         BPF_CORE_READ_INTO(&s_dev, file, f_inode, i_sb, s_dev);
 
         /* Check initramfs trust (active only during early boot) */
-        if (initramfs_s_dev != 0 && s_dev == initramfs_s_dev)
+        if (g.initramfs_s_dev != 0 && s_dev == g.initramfs_s_dev)
                 return 0;
 
         /* Check verity device map */
@@ -247,8 +248,8 @@ int BPF_PROG(restrict_fsaccess_bpf_map_guard, struct bpf_map *map,
                 return 0;
 
         id = map->id;
-        if (id != 0 && (id == protected_map_id_verity ||
-                        id == protected_map_id_bss))
+        if (id != 0 && (id == g.protected_map_id_verity ||
+                        id == g.protected_map_id_bss))
                 return -EPERM;
 
         return 0;
@@ -267,7 +268,7 @@ int BPF_PROG(restrict_fsaccess_bpf_prog_guard, struct bpf_prog *prog)
                 return 0;
 
         for (int i = 0; i < NUM_PROTECTED_OBJS; i++)
-                if (id == protected_prog_ids[i])
+                if (id == g.protected_prog_ids[i])
                         return -EPERM;
 
         return 0;
@@ -291,7 +292,7 @@ int BPF_PROG(restrict_fsaccess_bpf_guard, int cmd, union bpf_attr *attr,
                 return 0;
 
         for (int i = 0; i < NUM_PROTECTED_OBJS; i++)
-                if (id == protected_link_ids[i])
+                if (id == g.protected_link_ids[i])
                         return -EPERM;
 
         return 0;

@@ -48,19 +48,19 @@ static struct restrict_fsaccess_bpf *restrict_fsaccess_bpf_free(struct restrict_
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(struct restrict_fsaccess_bpf *, restrict_fsaccess_bpf_free);
 
-/* Verify that restrict_fsaccess_bss matches the skeleton's .bss layout. The sizeof
+/* Verify that restrict_fsaccess_bss matches the skeleton's bss[0].g layout. The sizeof
  * check catches field additions/removals; the offsetof checks catch field
- * reordering. Field order in restrict_fsaccess_bss must match the BPF global
- * declaration order in restrict-fsaccess.bpf.c — this is what bpftool uses for the
- * generated struct. The read-modify-write in restrict_fsaccess_clear_initramfs_trust()
- * depends on this layout. */
-assert_cc(sizeof(struct restrict_fsaccess_bss) == sizeof_field(struct restrict_fsaccess_bpf, bss[0]));
+ * reordering. Field order in restrict_fsaccess_bss must match struct g in
+ * restrict-fsaccess.bpf.c — this is what bpftool uses for the generated struct.
+ * The read-modify-write in restrict_fsaccess_clear_initramfs_trust() depends on
+ * this layout. */
+assert_cc(sizeof(struct restrict_fsaccess_bss) == sizeof_field(struct restrict_fsaccess_bpf, bss[0].g));
 assert_cc(offsetof(struct restrict_fsaccess_bss, initramfs_s_dev) ==
-          offsetof(typeof_field(struct restrict_fsaccess_bpf, bss[0]), initramfs_s_dev));
+          offsetof(typeof_field(struct restrict_fsaccess_bpf, bss[0].g), initramfs_s_dev));
 assert_cc(offsetof(struct restrict_fsaccess_bss, protected_map_id_verity) ==
-          offsetof(typeof_field(struct restrict_fsaccess_bpf, bss[0]), protected_map_id_verity));
+          offsetof(typeof_field(struct restrict_fsaccess_bpf, bss[0].g), protected_map_id_verity));
 assert_cc(offsetof(struct restrict_fsaccess_bss, protected_map_id_bss) ==
-          offsetof(typeof_field(struct restrict_fsaccess_bpf, bss[0]), protected_map_id_bss));
+          offsetof(typeof_field(struct restrict_fsaccess_bpf, bss[0].g), protected_map_id_bss));
 
 /* Build the skeleton links array indexed by the link enum.
  * For BDEV_SETINTEGRITY, use whichever variant was loaded (full or compat).
@@ -295,11 +295,11 @@ int bpf_restrict_fsaccess_populate_guard(struct restrict_fsaccess_bpf *obj) {
         assert_cc(ELEMENTSOF(links) == _RESTRICT_FILESYSTEM_ACCESS_LINK_MAX);
 
         /* Map IDs */
-        r = bpf_get_map_id(sym_bpf_map__fd(obj->maps.verity_devices), &obj->bss->protected_map_id_verity);
+        r = bpf_get_map_id(sym_bpf_map__fd(obj->maps.verity_devices), &obj->bss->g.protected_map_id_verity);
         if (r < 0)
                 return log_error_errno(r, "bpf-restrict-fsaccess: Failed to get verity_devices map ID: %m");
 
-        r = bpf_get_map_id(sym_bpf_map__fd(obj->maps.bss), &obj->bss->protected_map_id_bss);
+        r = bpf_get_map_id(sym_bpf_map__fd(obj->maps.bss), &obj->bss->g.protected_map_id_bss);
         if (r < 0)
                 return log_error_errno(r, "bpf-restrict-fsaccess: Failed to get .bss map ID: %m");
 
@@ -315,16 +315,16 @@ int bpf_restrict_fsaccess_populate_guard(struct restrict_fsaccess_bpf *obj) {
                                                restrict_fsaccess_link_names[idx]);
 
                 r = bpf_get_link_ids(sym_bpf_link__fd(*link),
-                                     &obj->bss->protected_link_ids[idx],
-                                     &obj->bss->protected_prog_ids[idx]);
+                                     &obj->bss->g.protected_link_ids[idx],
+                                     &obj->bss->g.protected_prog_ids[idx]);
                 if (r < 0)
                         return log_error_errno(r, "bpf-restrict-fsaccess: Failed to get link/prog IDs for %s: %m",
                                                restrict_fsaccess_link_names[idx]);
         }
 
         log_info("bpf-restrict-fsaccess: Guard globals populated (verity_map=%u, bss_map=%u)",
-                 (unsigned) obj->bss->protected_map_id_verity,
-                 (unsigned) obj->bss->protected_map_id_bss);
+                 (unsigned) obj->bss->g.protected_map_id_verity,
+                 (unsigned) obj->bss->g.protected_map_id_bss);
         return 0;
 }
 
@@ -429,7 +429,7 @@ int bpf_restrict_fsaccess_setup(Manager *m) {
                 if (r < 0)
                         return r;
 
-                obj->bss->initramfs_s_dev = root_dev;
+                obj->bss->g.initramfs_s_dev = root_dev;
                 log_info("bpf-restrict-fsaccess: Initramfs trusted (s_dev=%" PRIu32 ":%" PRIu32 ")",
                          root_dev >> 20, root_dev & 0xFFFFF);
         }
