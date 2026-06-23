@@ -78,6 +78,8 @@ machinectl terminate zurps
 
 (! run0 -u testuser systemctl is-active --user systemd-nspawn@zurps.service)
 
+loginctl disable-linger testuser
+
 (! run0 -u testuser \
     busctl call \
         org.freedesktop.machine1 \
@@ -316,6 +318,10 @@ cmp /var/tmp/mangletest/mangletest-0.1/usr/lib/os-release /home/testuser/.local/
 # Then restart the nspawn service and verify the inner payload actually
 # receives the preserved fds back via LISTEN_FDS, with their original content.
 create_dummy_container /home/testuser/.local/state/machines/fdstore
+if [[ ! -x /home/testuser/.local/state/machines/fdstore/usr/bin/test-fdstore ]]; then
+    echo >&2 "test-fdstore not available in the minimal container, skipping fdstore tests"
+    exit 0
+fi
 # The container init execs the helper directly so the FDSTORE notification is
 # sent from PID 1 (nspawn rejects notify messages from anyone but the inner
 # payload's init). The helper itself execs sleep on success to keep the
@@ -404,5 +410,3 @@ assert_eq "$(run0 -u testuser systemctl --user show -P SubState systemd-nspawn@f
 run0 -u testuser systemctl --user reset-failed systemd-nspawn@fdstore.service
 
 machinectl terminate fdstore 2>/dev/null || true
-
-loginctl disable-linger testuser
