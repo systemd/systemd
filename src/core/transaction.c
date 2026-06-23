@@ -263,11 +263,69 @@ static int transaction_ensure_mergeable(Transaction *tr, bool matters_to_anchor,
         return 0;
 }
 
+static void transaction_drop_nop(Transaction *tr) {
+        Job *j;
+        int r;
+
+        assert(tr);
+
+        /* While a transaction is being built, a NOP job sits in the same per-unit list in tr->jobs (linked
+         * via transaction_next/transaction_prev) as the regular jobs for that unit; the dedicated 'nop_job'
+         * slot in Unit is only populated later, at install time. JOB_NOP equals _JOB_TYPE_MAX_MERGING and is
+         * thus outside the domain of job_type_lookup_merge(), so it cannot be merged with a regular job and
+         * would trip the assertion there. A unit can end up with both a NOP job (e.g. a try-restart/try-reload
+         * anchor that collapsed to JOB_NOP because the unit is inactive) and a regular job (typically pulled
+         * in as a dependency by another job in the same transaction, which is possible since
+         * EnqueueUnitJobMany() allows more than one anchor). In that case the NOP carries no meaning of its
+         * own, as the regular job is what determines the fate of the unit, so drop it to keep each unit's
+         * transaction list mergeable. */
+
+        HASHMAP_FOREACH(j, tr->jobs) {
+                Job *nop = NULL, *regular = NULL;
+
+                LIST_FOREACH(transaction, k, j)
+                        if (k->type == JOB_NOP)
+                                nop = k; /* At most one NOP per unit, as jobs are deduplicated by type. */
+                        else
+                                regular = k;
+
+                /* Only drop the NOP when a regular job for the same unit remains. A lone NOP anchor must be
+                 * kept so that e.g. 'try-restart' on an inactive unit still completes successfully. */
+                if (!nop || !regular)
+                        continue;
+
+                log_unit_debug(nop->unit,
+                               "Dropping NOP job for %s, a regular job for the same unit is part of the transaction.",
+                               nop->unit->id);
+
+                /* A NOP job only ever enters the transaction as a client-requested anchor: propagated
+                 * try-restart/try-reload that would collapse to JOB_NOP is skipped before being added. Hand
+                 * the anchor identity over to the surviving regular job (which was pulled in by another job
+                 * and is not an anchor itself) so the unit the client explicitly named still shows up in the
+                 * set reported back by EnqueueUnitJobMany(). */
+                if (set_contains(tr->anchor_jobs, nop)) {
+                        r = set_remove_and_put(tr->anchor_jobs, nop, regular);
+                        if (r == -EEXIST)
+                                /* The regular job is already an anchor; just drop the about-to-be-freed NOP
+                                 * key so it doesn't linger. */
+                                (void) set_remove(tr->anchor_jobs, nop);
+                        else
+                                /* nop was present (we just checked) and put cannot fail after a remove. */
+                                assert(r >= 0);
+                }
+
+                transaction_delete_job(tr, nop, /* delete_dependencies= */ false);
+        }
+}
+
 static int transaction_merge_jobs(Transaction *tr, sd_bus_error *e) {
         Job *j;
         int r;
 
         assert(tr);
+
+        /* NOP jobs cannot be merged with regular jobs, so drop the ones that would collide first. */
+        transaction_drop_nop(tr);
 
         /* First step, try to drop unmergeable jobs for jobs that matter to anchor. */
         r = transaction_ensure_mergeable(tr, /* matters_to_anchor= */ true, e);
