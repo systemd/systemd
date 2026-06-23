@@ -463,9 +463,12 @@ static int vl_method_extend(sd_varlink *link, sd_json_variant *parameters, sd_va
         else
                 return sd_varlink_error_invalid_parameter_name(link, "text");
 
+        if (!iovec_is_set(extend_iovec))
+                return sd_varlink_error_invalid_parameter_name(link, p.text ? "text" : "data");
+
         if (p.nvpcr) {
                 r = extend_nvpcr_now(p.nvpcr, extend_iovec->iov_base, extend_iovec->iov_len, p.event_type);
-                if (r == -ENOENT)
+                if (IN_SET(r, -ENOENT, -ENODEV))
                         return sd_varlink_error(link, "io.systemd.PCRExtend.NoSuchNvPCR", NULL);
         } else
                 r = extend_pcr_now(INDEX_TO_MASK(uint32_t, p.pcr), extend_iovec->iov_base, extend_iovec->iov_len, p.event_type);
