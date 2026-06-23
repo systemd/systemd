@@ -86,7 +86,7 @@ static void bubbleinsert(struct strbuf_node *node,
                 .c = c,
                 .child = node_child,
         };
-        int left = 0, right = node->children_count;
+        int left = 0, right = ASSERT_PTR(node)->children_count;
 
         while (right > left) {
                 int middle = (right + left) / 2 ;

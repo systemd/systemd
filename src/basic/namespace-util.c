@@ -800,6 +800,7 @@ int process_is_owned_by_uid(const PidRef *pidref, uid_t uid) {
         /* Checks if the specified process either is owned directly by the specified user, or if it is inside
          * a user namespace owned by it. */
 
+        assert(pidref);
         assert(uid_is_valid(uid));
 
         uid_t process_uid;
