@@ -64,6 +64,7 @@ static char *arg_root = NULL;
 static char *arg_image = NULL;
 static bool arg_reboot = false;
 static int arg_cleanup = -1;
+static SelectMode arg_feature_select = SELECT_EXPLICIT;
 static char *arg_component = NULL;
 static SelectMode arg_component_select = SELECT_EXPLICIT;
 static int arg_verify = -1;
@@ -143,6 +144,7 @@ static int context_from_cmdline(Context *ret) {
         context.offline = arg_offline;
         context.cleanup = arg_cleanup;
         context.component_select = arg_component_select;
+        context.feature_select = arg_feature_select;
 
         if (strdup_to(&context.definitions, arg_definitions) < 0)
                 return log_oom();
@@ -184,6 +186,7 @@ static int context_from_base_with_component(const Context *base, const char *com
         context.verify = base->verify;
         context.offline = base->offline;
         context.cleanup = base->cleanup;
+        context.feature_select = base->feature_select;
 
         if (strdup_to(&context.root, base->root) < 0)
                 return log_oom();
@@ -1762,6 +1765,8 @@ static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (r < 0)
                 return r;
 
+        if (context.feature_select != SELECT_EXPLICIT)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--feature-all/--feature-suggested is not supported for '%s'.", argv[0]);
         if (context.component_select != SELECT_EXPLICIT)
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--component-all/--component-suggested currently not supported for '%s'.", argv[0]);
 
@@ -1838,6 +1843,8 @@ static int verb_features(int argc, char *argv[], uintptr_t _data, void *userdata
         if (r < 0)
                 return r;
 
+        if (context.feature_select != SELECT_EXPLICIT)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--feature-all/--feature-suggested is not supported for '%s'.", argv[0]);
         if (context.component_select != SELECT_EXPLICIT)
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--component-all/--component-suggested currently not supported for '%s'.", argv[0]);
 
@@ -2030,6 +2037,8 @@ static int verb_enable_feature(int argc, char *argv[], uintptr_t _data, void *us
         if (r < 0)
                 return r;
 
+        if (context.feature_select != SELECT_EXPLICIT)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--feature-all/--feature-suggested is not supported for '%s'.", argv[0]);
         if (context.component_select != SELECT_EXPLICIT)
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--component-all currently not supported for '%s'.", argv[0]);
 
@@ -2087,6 +2096,8 @@ static int verb_check_new(int argc, char *argv[], uintptr_t _data, void *userdat
         if (r < 0)
                 return r;
 
+        if (context.feature_select != SELECT_EXPLICIT)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--feature-all/--feature-suggested is not supported for '%s'.", argv[0]);
         if (context.component_select != SELECT_EXPLICIT)
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--component-all/--component-suggested currently not supported for '%s'.", argv[0]);
 
@@ -2192,6 +2203,8 @@ static int verb_update_impl(int argc, char **argv, UpdateActionFlags action_flag
         if (r < 0)
                 return r;
 
+        if (context.feature_select != SELECT_EXPLICIT)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--feature-all/--feature-suggested is not supported for '%s'.", argv[0]);
         if (context.component_select != SELECT_EXPLICIT)
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--component-all/--component-suggested currently not supported for '%s'.", argv[0]);
 
@@ -2315,6 +2328,8 @@ static int verb_vacuum(int argc, char *argv[], uintptr_t _data, void *userdata) 
         if (r < 0)
                 return r;
 
+        if (context.feature_select != SELECT_EXPLICIT)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--feature-all/--feature-suggested is not supported for '%s'.", argv[0]);
         if (context.component_select != SELECT_EXPLICIT)
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--component-all/--component-suggested currently not supported for '%s'.", argv[0]);
 
@@ -2346,6 +2361,8 @@ static int verb_cleanup(int argc, char *argv[], uintptr_t _data, void *userdata)
         if (context.cleanup == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invocation of 'cleanup' with --cleanup=no is contradictory, refusing.");
 
+        if (context.feature_select != SELECT_EXPLICIT)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--feature-all/--feature-suggested is not supported for '%s'.", argv[0]);
         if (!IN_SET(context.component_select, SELECT_EXPLICIT, SELECT_ALL))
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--component-suggested currently not supported for '%s'.", argv[0]);
 
@@ -2411,6 +2428,8 @@ static int verb_pending_or_reboot(int argc, char *argv[], uintptr_t _data, void 
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "The --root=/--image= switches may not be combined with the '%s' operation.", argv[0]);
 
+        if (context.feature_select != SELECT_EXPLICIT)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--feature-all/--feature-suggested is not supported for '%s'.", argv[0]);
         if (context.component || context.component_select != SELECT_EXPLICIT)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "The --component=, --component-all and --component-suggested switches may not be combined with the '%s' operation, which only applies to the booted OS version.", argv[0]);
@@ -2516,6 +2535,8 @@ static int verb_components(int argc, char *argv[], uintptr_t _data, void *userda
         if (r < 0)
                 return r;
 
+        if (context.feature_select != SELECT_EXPLICIT)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--feature-all/--feature-suggested is not supported for '%s'.", argv[0]);
         if (context.component_select != SELECT_EXPLICIT)
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--component-all/--component-suggested currently not supported for '%s'.", argv[0]);
 
@@ -2631,6 +2652,8 @@ static int verb_enable_component(int argc, char *argv[], uintptr_t _data, void *
         if (r < 0)
                 return r;
 
+        if (context.feature_select != SELECT_EXPLICIT)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--feature-all/--feature-suggested is not supported for '%s'.", argv[0]);
         if (context.definitions)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "The --definitions= switch may not be combined with '%s'.", argv[0]);
@@ -2848,6 +2871,14 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                 OPTION('S', "component-suggested", NULL, "Select all suggested components"):
                         arg_component = mfree(arg_component);
                         arg_component_select = SELECT_SUGGESTED;
+                        break;
+
+                OPTION('a', "feature-all", NULL, "Select all features"):
+                        arg_feature_select = SELECT_ALL;
+                        break;
+
+                OPTION('s', "feature-suggested", NULL, "Select all suggested features"):
+                        arg_feature_select = SELECT_SUGGESTED;
                         break;
 
                 OPTION_LONG("definitions", "DIR",

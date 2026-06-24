@@ -23,6 +23,7 @@ typedef struct Context {
         int cleanup;
         char *component;
         SelectMode component_select;
+        SelectMode feature_select;
         int verify;
         ImagePolicy *image_policy;
         bool offline;
