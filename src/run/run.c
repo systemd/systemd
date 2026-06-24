@@ -976,6 +976,15 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                         return log_oom();
         }
 
+        /* run0's default target user is root. Make this explicit so downstream readers (in particular the
+         * OSC 3008 emission in start_transient_service()) can rely on arg_exec_user reflecting the actual
+         * target identity instead of having to special-case the "default = root" path. */
+        if (!arg_exec_user) {
+                arg_exec_user = strdup("root");
+                if (!arg_exec_user)
+                        return log_oom();
+        }
+
         arg_service_type = "exec";
         arg_quiet = true;
         arg_wait = true;
