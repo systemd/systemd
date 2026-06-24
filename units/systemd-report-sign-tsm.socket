@@ -18,7 +18,7 @@ ConditionSecurity=cvm
 [Socket]
 ListenStream=/run/systemd/report.sign/tsm
 FileDescriptorName=varlink
-SocketMode=0600
+SocketMode=0644
 Accept=yes
 MaxConnectionsPerSource=16
 RemoveOnStop=yes
