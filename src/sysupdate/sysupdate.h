@@ -28,6 +28,9 @@ typedef struct Context {
         char **component_documentation;
         bool component_enabled;
 
+        int component_suggest;
+        Condition *component_suggest_on;
+
         Transfer **transfers;
         size_t n_transfers;
 
