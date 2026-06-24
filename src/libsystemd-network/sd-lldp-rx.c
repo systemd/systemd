@@ -199,6 +199,10 @@ static int lldp_rx_receive_datagram(sd_event_source *s, int fd, uint32_t revents
         sd_lldp_rx *lldp_rx = ASSERT_PTR(userdata);
         struct timespec ts;
 
+        /* Keep ref in case the callback drops the last reference, so we can use it below */
+        _cleanup_(sd_lldp_rx_unrefp) sd_lldp_rx *ref = sd_lldp_rx_ref(lldp_rx);
+        (void) ref; /* Avoid unused variable warning */
+
         assert(fd >= 0);
 
         space = next_datagram_size_fd(fd);
@@ -420,6 +424,10 @@ int sd_lldp_rx_new(sd_lldp_rx **ret) {
 static int on_timer_event(sd_event_source *s, uint64_t usec, void *userdata) {
         sd_lldp_rx *lldp_rx = userdata;
         int r;
+
+        /* Keep ref in case the callback drops the last reference, so we can use it below */
+        _cleanup_(sd_lldp_rx_unrefp) sd_lldp_rx *ref = sd_lldp_rx_ref(lldp_rx);
+        (void) ref; /* Avoid unused variable warning */
 
         r = lldp_rx_make_space(lldp_rx, 0);
         if (r < 0) {
