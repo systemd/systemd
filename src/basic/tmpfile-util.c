@@ -101,6 +101,8 @@ int fmkostemp_safe(char *pattern, const char *mode, FILE **ret_f) {
         _cleanup_close_ int fd = -EBADF;
         FILE *f;
 
+        assert(ret_f);
+
         fd = mkostemp_safe(pattern);
         if (fd < 0)
                 return fd;

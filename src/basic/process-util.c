@@ -674,6 +674,7 @@ int pidref_get_ppid_as_pidref(const PidRef *pidref, PidRef *ret) {
         pid_t ppid;
         int r;
 
+        POINTER_MAY_BE_NULL(pidref);
         assert(ret);
 
         r = pidref_get_ppid(pidref, &ppid);
