@@ -123,6 +123,7 @@ static int arg_lightweight = -1;
 static char *arg_area = NULL;
 static bool arg_via_shell = false;
 static bool arg_empower = false;
+static bool arg_invoked_as_run0 = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_description, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_slice, freep);
@@ -2414,8 +2415,9 @@ static int start_transient_service(sd_bus *bus) {
 
                 _cleanup_(osc_context_closep) sd_id128_t osc_context_id = SD_ID128_NULL;
                 if (c.pty_fd >= 0) {
-                        if (arg_exec_user && !terminal_is_dumb()) {
-                                r = osc_context_open_chpriv(arg_exec_user, /* ret_seq= */ NULL, &osc_context_id);
+                        const char *osc_user = arg_exec_user ?: (arg_invoked_as_run0 && become_root() ? "root" : NULL);
+                        if (osc_user && !terminal_is_dumb()) {
+                                r = osc_context_open_chpriv(osc_user, /* ret_seq= */ NULL, &osc_context_id);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to set OSC context: %m");
                         }
@@ -2861,7 +2863,8 @@ static int run(int argc, char* argv[]) {
 
         log_setup();
 
-        if (invoked_as(argv, "run0"))
+        arg_invoked_as_run0 = invoked_as(argv, "run0");
+        if (arg_invoked_as_run0)
                 r = parse_argv_sudo_mode(argc, argv);
         else
                 r = parse_argv(argc, argv);
