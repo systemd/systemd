@@ -8,20 +8,12 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Automatic Boot Loader Update
+Description=Boot Loader UKI Auto-Link on Completed System Update
 Documentation=man:bootctl(1)
 DefaultDependencies=no
-ConditionPathExists=!/etc/initrd-release
-ConditionFirmware=uefi
-After=local-fs.target
-Before=sysinit.target systemd-update-done.service
 Conflicts=shutdown.target
+After=local-fs.target
 Before=shutdown.target
 
 [Service]
-Type=oneshot
-RemainAfterExit=yes
-ExecStart=bootctl --variables=no --graceful update
-
-[Install]
-WantedBy=sysinit.target
+ExecStart=bootctl

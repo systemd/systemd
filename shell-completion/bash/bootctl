@@ -87,7 +87,7 @@ _bootctl() {
     fi
 
     local -A VERBS=(
-        [STANDALONE]='help status install update remove is-installed random-seed list set-timeout set-timeout-oneshot cleanup'
+        [STANDALONE]='help status install update remove is-installed random-seed list set-timeout set-timeout-oneshot cleanup link-auto'
         [BOOTENTRY]='set-default set-oneshot set-sysfail set-preferred unlink'
         [BOOLEAN]='reboot-to-firmware'
         [FILE]='kernel-identify kernel-inspect link'
