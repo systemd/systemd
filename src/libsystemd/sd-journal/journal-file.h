@@ -121,6 +121,7 @@ typedef struct JournalFile {
         unsigned newest_boot_id_prioq_idx;
         uint64_t newest_entry_offset;
         uint8_t newest_state;
+        bool tail_timestamp_read; /* true once journal_file_read_tail_timestamp() has been attempted */
 } JournalFile;
 
 typedef enum JournalFileFlags {
