@@ -60,6 +60,10 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(struct restrict_fsaccess_bpf *, restrict_fsaccess_bp
 /* The single aligned 32-bit store in restrict_fsaccess_clear_initramfs_trust()
  * is only atomic if the field is 4-byte aligned. */
 assert_cc(INITRAMFS_S_DEV_OFF % sizeof(uint32_t) == 0);
+/* The store is a fixed 4-byte write; pin its width to the skeleton's field
+ * width so widening initramfs_s_dev fails the build instead of silently
+ * clearing only the low bytes. */
+assert_cc(sizeof_field(typeof_field(struct restrict_fsaccess_bpf, bss[0]), initramfs_s_dev) == sizeof(uint32_t));
 
 /* Build the skeleton links array indexed by the link enum.
  * For BDEV_SETINTEGRITY, use whichever variant was loaded (full or compat).
