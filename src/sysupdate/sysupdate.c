@@ -66,7 +66,7 @@ static char *arg_image = NULL;
 static bool arg_reboot = false;
 static int arg_cleanup = -1;
 static char *arg_component = NULL;
-static bool arg_component_all = false;
+static SelectMode arg_component_select = SELECT_EXPLICIT;
 static int arg_verify = -1;
 static ImagePolicy *arg_image_policy = NULL;
 static bool arg_offline = false;
@@ -143,7 +143,7 @@ static int context_from_cmdline(Context *ret) {
         context.verify = arg_verify;
         context.offline = arg_offline;
         context.cleanup = arg_cleanup;
-        context.component_all = arg_component_all;
+        context.component_select = arg_component_select;
 
         if (strdup_to(&context.definitions, arg_definitions) < 0)
                 return log_oom();
@@ -1763,8 +1763,8 @@ static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (r < 0)
                 return r;
 
-        if (context.component_all)
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--component-all currently not supported for '%s'.", argv[0]);
+        if (context.component_select != SELECT_EXPLICIT)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--component-all/--component-suggested currently not supported for '%s'.", argv[0]);
 
         r = context_load_online(
                         &context,
@@ -1839,8 +1839,8 @@ static int verb_features(int argc, char *argv[], uintptr_t _data, void *userdata
         if (r < 0)
                 return r;
 
-        if (context.component_all)
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--component-all currently not supported for '%s'.", argv[0]);
+        if (context.component_select != SELECT_EXPLICIT)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--component-all/--component-suggested currently not supported for '%s'.", argv[0]);
 
         r = context_load_offline(
                         &context,
@@ -2031,7 +2031,7 @@ static int verb_enable_feature(int argc, char *argv[], uintptr_t _data, void *us
         if (r < 0)
                 return r;
 
-        if (context.component_all)
+        if (context.component_select != SELECT_EXPLICIT)
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--component-all currently not supported for '%s'.", argv[0]);
 
         r = context_load_offline(
@@ -2081,17 +2081,17 @@ static int verb_enable_feature(int argc, char *argv[], uintptr_t _data, void *us
 VERB_NOARG(verb_check_new, "check-new",
            "Check if there's a new version available");
 static int verb_check_new(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(context_done) Context context = CONTEXT_NULL;
         int r;
 
         assert(argc <= 1);
 
+        _cleanup_(context_done) Context context = CONTEXT_NULL;
         r = context_from_cmdline(&context);
         if (r < 0)
                 return r;
 
-        if (context.component_all)
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--component-all currently not supported for '%s'.", argv[0]);
+        if (context.component_select != SELECT_EXPLICIT)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--component-all/--component-suggested currently not supported for '%s'.", argv[0]);
 
         r = context_load_online(
                         &context,
@@ -2182,7 +2182,6 @@ typedef enum {
 } UpdateActionFlags;
 
 static int verb_update_impl(int argc, char **argv, UpdateActionFlags action_flags) {
-        _cleanup_(context_done) Context context = CONTEXT_NULL;
         _cleanup_free_ char *booted_version = NULL;
         UpdateSet *applied = NULL;
         const char *version;
@@ -2191,16 +2190,17 @@ static int verb_update_impl(int argc, char **argv, UpdateActionFlags action_flag
         assert(argc <= 2);
         version = argc >= 2 ? argv[1] : NULL;
 
+        _cleanup_(context_done) Context context = CONTEXT_NULL;
         r = context_from_cmdline(&context);
         if (r < 0)
                 return r;
 
-        if (context.component_all)
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--component-all currently not supported for '%s'.", argv[0]);
+        if (context.component_select != SELECT_EXPLICIT)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--component-all/--component-suggested currently not supported for '%s'.", argv[0]);
 
         if (context.instances_max < 2)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                      "The --instances-max argument must be >= 2 while updating");
+                                      "The --instances-max= argument must be >= 2 while updating");
 
         if (context.reboot) {
                 /* If automatic reboot on completion is requested, let's first determine the currently booted image */
@@ -2309,12 +2309,12 @@ static int verb_vacuum(int argc, char *argv[], uintptr_t _data, void *userdata) 
         if (r < 0)
                 return r;
 
-        if (context.component_all)
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--component-all currently not supported for '%s'.", argv[0]);
+        if (context.component_select != SELECT_EXPLICIT)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--component-all/--component-suggested currently not supported for '%s'.", argv[0]);
 
         if (context.instances_max < 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                      "The --instances-max argument must be >= 1 while vacuuming");
+                                      "The --instances-max= argument must be >= 1 while vacuuming");
 
         r = context_load_offline(
                         &context,
@@ -2340,6 +2340,9 @@ static int verb_cleanup(int argc, char *argv[], uintptr_t _data, void *userdata)
         if (context.cleanup == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invocation of 'cleanup' with --cleanup=no is contradictory, refusing.");
 
+        if (!IN_SET(context.component_select, SELECT_EXPLICIT, SELECT_ALL))
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--component-suggested currently not supported for '%s'.", argv[0]);
+
         r = context_load_offline(
                         &context,
                         /* process_image_flags= */ 0,
@@ -2350,7 +2353,7 @@ static int verb_cleanup(int argc, char *argv[], uintptr_t _data, void *userdata)
         int ret = 0;
         RET_GATHER(ret, installdb_cleanup_component(&context));
 
-        if (context.component_all) {
+        if (context.component_select == SELECT_ALL) {
                 _cleanup_strv_free_ char **z = NULL;
                 r = installdb_list_components(&context, &z);
                 if (r < 0)
@@ -2402,9 +2405,9 @@ static int verb_pending_or_reboot(int argc, char *argv[], uintptr_t _data, void 
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "The --root=/--image= switches may not be combined with the '%s' operation.", argv[0]);
 
-        if (context.component || context.component_all)
+        if (context.component || context.component_select != SELECT_EXPLICIT)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "The --component= and --component-all switches may not be combined with the '%s' operation, which only applies to the booted OS version.", argv[0]);
+                                       "The --component=, --component-all and --component-suggested switches may not be combined with the '%s' operation, which only applies to the booted OS version.", argv[0]);
 
         r = context_load_offline(
                         &context,
@@ -2507,8 +2510,11 @@ static int verb_components(int argc, char *argv[], uintptr_t _data, void *userda
         if (r < 0)
                 return r;
 
-        if (context.component_all)
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--component-all currently not supported for '%s'.", argv[0]);
+        if (context.component_select != SELECT_EXPLICIT)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--component-all/--component-suggested currently not supported for '%s'.", argv[0]);
+        if (context.definitions)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "The --definitions= switch may not be combined with '%s'.", argv[0]);
 
         r = context_load_offline(
                         &context,
@@ -2624,9 +2630,9 @@ static int verb_enable_component(int argc, char *argv[], uintptr_t _data, void *
         if (r < 0)
                 return r;
 
-        if (context.component || context.component_all)
+        if (context.component || context.component_select != SELECT_EXPLICIT)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "The --component= and --component-all switches may not be combined with '%s', "
+                                       "The --component= and --component-all/--component-suggested switches may not be combined with '%s', "
                                        "specify the component(s) as arguments instead.", argv[0]);
 
         if (context.definitions)
@@ -2746,7 +2752,7 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                        "Select component to update"):
                         if (isempty(opts.arg)) {
                                 arg_component = mfree(arg_component);
-                                arg_component_all = false;
+                                arg_component_select = SELECT_EXPLICIT;
                                 break;
                         }
 
@@ -2757,13 +2763,17 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                         if (r < 0)
                                 return r;
 
-                        arg_component_all = false;
+                        arg_component_select = SELECT_EXPLICIT;
                         break;
 
-                OPTION('A', "component-all", NULL, "Process all components"):
-
+                OPTION('A', "component-all", NULL, "Select all components"):
                         arg_component = mfree(arg_component);
-                        arg_component_all = true;
+                        arg_component_select = SELECT_ALL;
+                        break;
+
+                OPTION('S', "component-suggested", NULL, "Select all suggested components"):
+                        arg_component = mfree(arg_component);
+                        arg_component_select = SELECT_SUGGESTED;
                         break;
 
                 OPTION_LONG("definitions", "DIR",
@@ -2877,11 +2887,13 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "The --definitions= switch may not be combined with --root= or --image=.");
         }
 
-        if (arg_reboot && arg_component)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "The --reboot switch may not be combined with --component=, as automatic reboots only apply to the booted OS version.");
+        if ((arg_component || arg_component_select != SELECT_EXPLICIT)) {
+                if (arg_reboot)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "The --reboot switch may not be combined with --component=/--component-all/--component-suggested, as automatic reboots only apply to the booted OS version.");
 
-        if (arg_definitions && arg_component)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "The --definitions= and --component= switches may not be combined.");
+                if (arg_definitions)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "The --definitions= and --component=/--component-all/--component-suggested switches may not be combined.");
+        }
 
         r = sd_varlink_invocation(SD_VARLINK_ALLOW_ACCEPT);
         if (r < 0)
