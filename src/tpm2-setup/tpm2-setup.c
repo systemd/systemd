@@ -423,7 +423,7 @@ static int setup_nvpcr_one(
                                         LOG_MESSAGE("The TPM does not correctly support NV indexes in NT_EXTEND mode, unable to allocate NvPCR '%s': %m", name),
                                         LOG_MESSAGE_ID(SD_MESSAGE_TPM_NVPCR_UNSUPPORTED_STR));
         }
-        if (r == -ENOSPC) {
+        if (r == -ENOBUFS) {
                 /* The TPM's NV index space is exhausted. Remember this so we skip the remaining (less
                  * important) NvPCRs, and report it gracefully at the end rather than failing the boot.
                  * Logged at notice level, not error. */
@@ -549,7 +549,7 @@ static int setup_nvpcr(void) {
          * SuccessExitStatus= in the service unit file. */
         if (ret == -EOPNOTSUPP)
                 return EX_UNAVAILABLE;   /* e.g. no NvPCR support in TPM */
-        if (ret == -ENOSPC)
+        if (ret == -ENOBUFS)
                 return EX_CANTCREAT;     /* NV index space on TPM exhausted */
 
         return ret;
