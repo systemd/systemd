@@ -2414,8 +2414,9 @@ static int start_transient_service(sd_bus *bus) {
 
                 _cleanup_(osc_context_closep) sd_id128_t osc_context_id = SD_ID128_NULL;
                 if (c.pty_fd >= 0) {
-                        if (arg_exec_user && !terminal_is_dumb()) {
-                                r = osc_context_open_chpriv(arg_exec_user, /* ret_seq= */ NULL, &osc_context_id);
+                        const char *osc_user = arg_exec_user ?: (become_root() ? "root" : NULL);
+                        if (osc_user && !terminal_is_dumb()) {
+                                r = osc_context_open_chpriv(osc_user, /* ret_seq= */ NULL, &osc_context_id);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to set OSC context: %m");
                         }
