@@ -420,6 +420,11 @@ executables += [
                 'conditions' : ['ENABLE_VMSPAWN'],
         },
         test_template + {
+                'sources' : files('test-ssh-util.c'),
+                'dependencies' : libopenssl_cflags,
+                'conditions' : ['HAVE_OPENSSL'],
+        },
+        test_template + {
                 'sources' : files('test-random-util.c'),
                 'timeout' : 120,
         },
