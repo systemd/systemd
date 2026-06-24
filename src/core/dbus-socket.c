@@ -58,6 +58,33 @@ static int property_get_listen(
         return sd_bus_message_close_container(reply);
 }
 
+static int property_get_xattr(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *reterr_error) {
+
+        char ***xattr = ASSERT_PTR(userdata);
+        int r;
+
+        assert(reply);
+
+        r = sd_bus_message_open_container(reply, 'a', "(ss)");
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH_PAIR(name, value, *xattr) {
+                r = sd_bus_message_append(reply, "(ss)", *name, *value);
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_bus_message_close_container(reply);
+}
+
 const sd_bus_vtable bus_socket_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("BindIPv6Only", "s", property_get_bind_ipv6_only, offsetof(Socket, bind_ipv6_only), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -95,6 +122,9 @@ const sd_bus_vtable bus_socket_vtable[] = {
         SD_BUS_PROPERTY("RemoveOnStop", "b", bus_property_get_bool, offsetof(Socket, remove_on_stop), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Listen", "a(ss)", property_get_listen, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Symlinks", "as", NULL, offsetof(Socket, symlinks), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("XAttrEntryPoint", "a(ss)", property_get_xattr, offsetof(Socket, xattr_entrypoint), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("XAttrListen", "a(ss)", property_get_xattr, offsetof(Socket, xattr_listen), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("XAttrAccept", "a(ss)", property_get_xattr, offsetof(Socket, xattr_accept), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Mark", "i", bus_property_get_int, offsetof(Socket, mark), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("MaxConnections", "u", bus_property_get_unsigned, offsetof(Socket, max_connections), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("MaxConnectionsPerSource", "u", bus_property_get_unsigned, offsetof(Socket, max_connections_per_source), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -152,6 +182,63 @@ static BUS_DEFINE_SET_TRANSIENT_TO_STRING_ALLOC(ip_tos, "i", int32_t, int, "%" P
 static BUS_DEFINE_SET_TRANSIENT_TO_STRING(socket_protocol, "i", int32_t, int, "%" PRIi32, socket_protocol_to_string);
 static BUS_DEFINE_SET_TRANSIENT_PARSE(socket_timestamping, SocketTimestamping, socket_timestamping_from_string_harder);
 static BUS_DEFINE_SET_TRANSIENT_PARSE(socket_defer_trigger, SocketDeferTrigger, socket_defer_trigger_from_string);
+
+static int bus_socket_set_transient_xattr(
+                Unit *u,
+                const char *name,
+                char ***p,
+                sd_bus_message *message,
+                UnitWriteFlags flags,
+                sd_bus_error *reterr_error) {
+
+        _cleanup_strv_free_ char **pairs = NULL;
+        const char *xname, *xvalue;
+        bool empty = true;
+        int r;
+
+        assert(u);
+        assert(name);
+        assert(p);
+        assert(message);
+
+        r = sd_bus_message_enter_container(message, 'a', "(ss)");
+        if (r < 0)
+                return r;
+
+        while ((r = sd_bus_message_read(message, "(ss)", &xname, &xvalue)) > 0) {
+                if (!startswith(xname, "user."))
+                        return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS,
+                                                 "Extended attribute name does not begin with 'user.': %s", xname);
+
+                r = strv_extend_many(&pairs, xname, xvalue);
+                if (r < 0)
+                        return -ENOMEM;
+
+                empty = false;
+        }
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_exit_container(message);
+        if (r < 0)
+                return r;
+
+        if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                if (empty) {
+                        *p = strv_free(*p);
+                        unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "%s=", name);
+                } else {
+                        r = strv_extend_strv(p, pairs, /* filter_duplicates= */ false);
+                        if (r < 0)
+                                return -ENOMEM;
+
+                        STRV_FOREACH_PAIR(n, v, pairs)
+                                unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "%s=%s=%s", name, *n, *v);
+                }
+        }
+
+        return 1;
+}
 
 static int bus_socket_set_transient_property(
                 Socket *s,
@@ -334,6 +421,15 @@ static int bus_socket_set_transient_property(
                 return bus_set_transient_exec_command(u, name,
                                                       &s->exec_command[ci],
                                                       message, flags, reterr_error);
+
+        if (streq(name, "XAttrEntryPoint"))
+                return bus_socket_set_transient_xattr(u, name, &s->xattr_entrypoint, message, flags, reterr_error);
+
+        if (streq(name, "XAttrListen"))
+                return bus_socket_set_transient_xattr(u, name, &s->xattr_listen, message, flags, reterr_error);
+
+        if (streq(name, "XAttrAccept"))
+                return bus_socket_set_transient_xattr(u, name, &s->xattr_accept, message, flags, reterr_error);
 
         if (streq(name, "Symlinks")) {
                 _cleanup_strv_free_ char **l = NULL;
