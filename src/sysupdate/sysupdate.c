@@ -15,6 +15,7 @@
 #include "discover-image.h"
 #include "dissect-image.h"
 #include "dlopen-note.h"
+#include "dropin.h"
 #include "env-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
@@ -33,6 +34,7 @@
 #include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "pretty-print.h"
 #include "runtime-scope.h"
 #include "sort-util.h"
@@ -1940,6 +1942,93 @@ static int verb_features(int argc, char *argv[], uintptr_t _data, void *userdata
                 r = sd_json_variant_dump(json, arg_json_format_flags, stdout, NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to print JSON: %m");
+        }
+
+        return 0;
+}
+
+static int make_dropin_dir(Context *c, char **ret) {
+        _cleanup_free_ char *dir = NULL;
+
+        assert(c);
+        assert(ret);
+
+        /* Returns the (writable) directory where feature definitions live, so that we can drop our
+         * 'Enabled=' override right next to them. This mirrors the directory logic in
+         * context_read_definitions(), but settles on a single writable location below /etc. */
+
+        if (c->definitions)
+                dir = strdup(c->definitions); /* --root= is not supported for this for now */
+        else if (c->component) {
+                _cleanup_free_ char *n = strjoin("sysupdate.", c->component, ".d");
+                if (!n)
+                        return log_oom();
+
+                dir = path_join(c->root, SYSCONF_DIR, n);
+        } else
+                dir = path_join(c->root, SYSCONF_DIR "/sysupdate.d");
+        if (!dir)
+                return log_oom();
+
+        *ret = TAKE_PTR(dir);
+        return 0;
+}
+
+VERB(verb_enable_feature, "enable-feature", "FEATURE…", 2, VERB_ANY, 0,
+     "Enable optional feature");
+VERB(verb_enable_feature, "disable-feature", "FEATURE…", 2, VERB_ANY, 0,
+     "Disable optional feature");
+static int verb_enable_feature(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        bool enable = streq(argv[0], "enable-feature");
+        int r;
+
+        _cleanup_(context_done) Context context = CONTEXT_NULL;
+        r = context_from_cmdline(&context);
+        if (r < 0)
+                return r;
+
+        if (context.component_all)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--component-all currently not supported for '%s'.", argv[0]);
+
+        r = context_load_offline(
+                        &context,
+                        /* process_image_flags= */ 0,
+                        /* read_definitions_flags= */ 0);
+        if (r < 0)
+                return r;
+
+        _cleanup_free_ char *dropin_dir = NULL;
+        r = make_dropin_dir(&context, &dropin_dir);
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH(name, strv_skip(argv, 1)) {
+
+                if (!feature_name_valid(*name))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Feature name invalid: %s", *name);
+
+                if (!hashmap_contains(context.features, *name))
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
+                                               "Optional feature not found: %s", *name);
+
+                _cleanup_free_ char *fname = strjoin(*name, ".feature");
+                if (!fname)
+                        return log_oom();
+
+                /* We assume that no sysadmin will name their config 50-systemd-sysupdate-enabled.conf */
+                r = write_drop_in_format(
+                                dropin_dir,
+                                fname,
+                                50, "systemd-sysupdate-enabled",
+                                "# Generated via 'systemd-sysupdate %s'\n\n"
+                                "[Feature]\n"
+                                "Enabled=%s\n",
+                                argv[0],
+                                yes_no(enable));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to write drop-in for feature '%s': %m", *name);
+
+                log_info("Feature '%s' %s.", *name, enable ? "enabled" : "disabled");
         }
 
         return 0;
