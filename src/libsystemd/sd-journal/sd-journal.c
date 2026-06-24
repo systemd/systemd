@@ -1004,7 +1004,12 @@ static int next_beyond_location(sd_journal *j, JournalFile *f, direction_t direc
         assert(j);
         assert(f);
 
-        (void) journal_file_read_tail_timestamp(j, f);
+        /* Only refresh the tail timestamp if this file hasn't been initialized yet.
+         * Once initialized, updates happen via the file-add path and inotify events.
+         * Calling this unconditionally is O(N × files) overhead that makes large
+         * 'journalctl -n N' queries unusably slow. */
+        if (f->newest_entry_offset == 0)
+                (void) journal_file_read_tail_timestamp(j, f);
 
         n_entries = le64toh(f->header->n_entries);
 
