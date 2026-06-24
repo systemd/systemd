@@ -2055,10 +2055,6 @@ static int bus_method_register_service(sd_bus_message *message, void *userdata, 
         if (r == 0)
                 return 1; /* Polkit will call us back */
 
-        r = hashmap_ensure_put(&m->dnssd_registered_services, &string_hash_ops, service->id, service);
-        if (r < 0)
-                return r;
-
         r = sd_bus_track_new(sd_bus_message_get_bus(message), &bus_track, dnssd_registered_service_on_bus_track, service);
         if (r < 0)
                 return r;
@@ -2068,6 +2064,10 @@ static int bus_method_register_service(sd_bus_message *message, void *userdata, 
                 return r;
 
         service->manager = m;
+
+        r = hashmap_ensure_put(&m->dnssd_registered_services, &string_hash_ops, service->id, service);
+        if (r < 0)
+                return r;
 
         service = NULL;
 
