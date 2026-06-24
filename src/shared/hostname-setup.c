@@ -448,6 +448,7 @@ int hostname_substitute_wildcards(const char *name, char **ret) {
         _cleanup_free_ char *result = NULL;
         size_t left_bits = 0, counter = 0;
         size_t word_pos = 0;
+        size_t n_result = 0;
         uint64_t h = 0;
         int r;
 
@@ -493,7 +494,7 @@ int hostname_substitute_wildcards(const char *name, char **ret) {
                         h >>= 4;
                         left_bits -= 4;
 
-                        if (!strextendn(&result, &c, 1))
+                        if (!GREEDY_REALLOC_APPEND(result, n_result, &c, 1))
                                 return -ENOMEM;
 
                 } else if (*n == '$') {
@@ -504,12 +505,16 @@ int hostname_substitute_wildcards(const char *name, char **ret) {
                         if (r < 0)
                                 return r;
 
-                        if (!strextend(&result, w))
+                        if (!GREEDY_REALLOC_APPEND(result, n_result, w, strlen(w)))
                                 return -ENOMEM;
 
-                } else if (!strextendn(&result, n, 1))
+                } else if (!GREEDY_REALLOC_APPEND(result, n_result, n, 1))
                         return -ENOMEM;
         }
+
+        if (!GREEDY_REALLOC(result, n_result + 1))
+                return -ENOMEM;
+        result[n_result] = 0;
 
         *ret = TAKE_PTR(result);
         return 0;
