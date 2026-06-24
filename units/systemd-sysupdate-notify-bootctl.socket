@@ -8,20 +8,22 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Automatic Boot Loader Update
+Description=Boot Loader UKI Auto-Link on Completed System Update
 Documentation=man:bootctl(1)
 DefaultDependencies=no
-ConditionPathExists=!/etc/initrd-release
 ConditionFirmware=uefi
 After=local-fs.target
-Before=sysinit.target systemd-update-done.service
-Conflicts=shutdown.target
-Before=shutdown.target
+Before=sockets.target
 
-[Service]
-Type=oneshot
-RemainAfterExit=yes
-ExecStart=bootctl --variables=no --graceful update
+[Socket]
+ListenStream=/run/systemd/sysupdate/notify/io.systemd.BootControl
+FileDescriptorName=varlink
+SocketMode=0644
+Accept=yes
+MaxConnectionsPerSource=16
+XAttrEntryPoint=user.varlink=entrypoint
+XAttrListen=user.varlink=listen
+XAttrAccept=user.varlink=server
 
 [Install]
-WantedBy=sysinit.target
+WantedBy=sockets.target
