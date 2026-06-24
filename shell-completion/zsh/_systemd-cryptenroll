@@ -1,0 +1,74 @@
+#compdef systemd-cryptenroll
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+(( $+functions[_systemd-cryptenroll_devices] )) ||
+_systemd-cryptenroll_devices() {
+    local -a devices
+    devices=( ${(f)"$(_call_program devices systemd-cryptenroll --list-devices 2>/dev/null)"} )
+    _describe -t devices 'block device' devices
+}
+
+(( $+functions[_systemd-cryptenroll_fido2_device] )) ||
+_systemd-cryptenroll_fido2_device() {
+    _alternative \
+        "special:special:($*)" \
+        'devices:FIDO2 device:_files -g "/dev/hidraw*(-c)"'
+}
+
+(( $+functions[_systemd-cryptenroll_tpm2_device] )) ||
+_systemd-cryptenroll_tpm2_device() {
+    _alternative \
+        "special:special:($*)" \
+        'devices:TPM2 device:_files -g "/dev/tpmrm*(-c)"'
+}
+
+(( $+functions[_systemd-cryptenroll_wipe_slot] )) ||
+_systemd-cryptenroll_wipe_slot() {
+    _values -s , 'slot' all empty password recovery pkcs11 fido2 tpm2
+}
+
+(( $+functions[_systemd-cryptenroll_prompt_suppress] )) ||
+_systemd-cryptenroll_prompt_suppress() {
+    _values -s , 'type' password recovery pkcs11 fido2 tpm2
+}
+
+# Unlock methods are mutually exclusive with each other
+local unlock='--unlock-empty --unlock-key-file --unlock-fido2-device --unlock-tpm2-device --unlock-headless'
+# Enrollment operations are mutually exclusive with each other
+local enroll='--password --recovery-key --pkcs11-token-uri --fido2-device --tpm2-device --tpm2-device-key --firstboot'
+
+_arguments -s \
+    '(- *)'{-h,--help}'[Show this help]' \
+    '(- *)--version[Show package version]' \
+    '--no-pager[Do not pipe output into a pager]' \
+    '(- *)--list-devices[List candidate block devices to operate on]' \
+    '--wipe-slot=[Wipe specified slots]:slot:_systemd-cryptenroll_wipe_slot' \
+    "($enroll)--firstboot[Interactively enroll a credential (first-boot wizard)]" \
+    '--prompt-suppress=[Skip the --firstboot wizard if a slot of any listed type exists]:type:_systemd-cryptenroll_prompt_suppress' \
+    '--chrome=[In first-boot mode, do not show colour bar at top and bottom of terminal]:boolean:(yes no)' \
+    '--mute-console=[In first-boot mode, tell kernel/PID 1 to not write to the console while running]:boolean:(yes no)' \
+    "($unlock)--unlock-empty[Use an empty password to unlock the volume]" \
+    "($unlock)--unlock-key-file=[Use a file to unlock the volume]:key file:_files" \
+    "($unlock)--unlock-fido2-device=[Use a FIDO2 device to unlock the volume]:FIDO2 device:_systemd-cryptenroll_fido2_device auto" \
+    "($unlock)--unlock-tpm2-device=[Use a TPM2 device to unlock the volume]:TPM2 device:_systemd-cryptenroll_tpm2_device auto" \
+    "($unlock)--unlock-headless[Try the 'headless' unlock mechanisms in turn]" \
+    "($enroll)--password[Enroll a user-supplied password]" \
+    "($enroll)--recovery-key[Enroll a recovery key]" \
+    "($enroll)--pkcs11-token-uri=[Enroll a PKCS#11 security token or list them]:PKCS#11 token URI:(auto list pkcs11:)" \
+    "($enroll)--fido2-device=[Enroll a FIDO2-HMAC security token or list them]:FIDO2 device:_systemd-cryptenroll_fido2_device auto list" \
+    '--fido2-salt-file=[Use salt from a file instead of generating one]:salt file:_files' \
+    '--fido2-parameters-in-header=[Whether to store FIDO2 parameters in the LUKS2 header]:boolean:(yes no)' \
+    '--fido2-credential-algorithm=[Specify COSE algorithm for FIDO2 credential]:algorithm:(es256 rs256 eddsa)' \
+    '--fido2-with-client-pin=[Whether to require entering a PIN to unlock the volume]:boolean:(yes no)' \
+    '--fido2-with-user-presence=[Whether to require user presence to unlock the volume]:boolean:(yes no)' \
+    '--fido2-with-user-verification=[Whether to require user verification to unlock the volume]:boolean:(yes no)' \
+    "($enroll)--tpm2-device=[Enroll a TPM2 device or list them]:TPM2 device:_systemd-cryptenroll_tpm2_device auto list" \
+    "($enroll)--tpm2-device-key=[Enroll a TPM2 device using its public key]:public key file:_files" \
+    '--tpm2-seal-key-handle=[Specify handle of key to use for sealing]:handle:' \
+    '--tpm2-pcrs=[Specify TPM2 PCRs to seal against]:PCRs:' \
+    '--tpm2-public-key=[Enroll signed TPM2 PCR policy against PEM public key]:public key file:_files' \
+    '--tpm2-public-key-pcrs=[Enroll signed TPM2 PCR policy for specified TPM2 PCRs]:PCRs:' \
+    '--tpm2-signature=[Validate public key enrollment works with JSON signature file]:signature file:_files' \
+    '--tpm2-pcrlock=[Specify pcrlock policy to lock against]:pcrlock file:_files' \
+    '--tpm2-with-pin=[Whether to require entering a PIN to unlock the volume]:boolean:(yes no)' \
+    '*::block device:_systemd-cryptenroll_devices'
