@@ -26,6 +26,7 @@
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "varlink-util.h"
 
 typedef struct UnlinkContext {
         char *root;
@@ -592,6 +593,10 @@ int vl_method_unlink(
                 return sd_varlink_error_invalid_parameter_name(link, "id");
         if (p.id && !efi_loader_entry_name_valid(p.id))
                 return sd_varlink_error_invalid_parameter_name(link, "id");
+
+        r = varlink_check_privileged_peer(link);
+        if (r < 0)
+                return r;
 
         if (p.root_fd_index != UINT_MAX) {
                 p.context.root_fd = sd_varlink_peek_dup_fd(link, p.root_fd_index);

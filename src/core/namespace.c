@@ -564,8 +564,9 @@ static int append_extensions(
                 _cleanup_free_ char *mount_point = NULL;
                 const MountImage *m = mount_images + i;
 
-                r = path_pick(/* toplevel_path= */ NULL,
-                              /* toplevel_fd= */ AT_FDCWD,
+                r = path_pick(/* root_path= */ NULL,
+                              /* root_fd= */ AT_FDCWD,
+                              /* dir_fd= */ AT_FDCWD,
                               m->source,
                               pick_filter_image_raw,
                               ELEMENTSOF(pick_filter_image_raw),
@@ -636,8 +637,9 @@ static int append_extensions(
                 if (startswith(e, "+"))
                         e++;
 
-                r = path_pick(/* toplevel_path= */ NULL,
-                              /* toplevel_fd= */ AT_FDCWD,
+                r = path_pick(/* root_path= */ NULL,
+                              /* root_fd= */ AT_FDCWD,
+                              /* dir_fd= */ AT_FDCWD,
                               e,
                               pick_filter_image_dir,
                               ELEMENTSOF(pick_filter_image_dir),
