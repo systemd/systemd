@@ -102,6 +102,19 @@ DnsStubListenerExtra *dns_stub_listener_extra_free(DnsStubListenerExtra *p) {
         p->udp_event_source = sd_event_source_disable_unref(p->udp_event_source);
         p->tcp_event_source = sd_event_source_disable_unref(p->tcp_event_source);
 
+        assert(p->manager);
+
+        /* Detach the raw back-pointers that DnsStream and DnsQuery objects keep to this listener before we
+         * free it. Otherwise a later dns_stream_complete()/dns_query_free() during the same reload would
+         * dereference the freed slab: dns_query_free() reads q->stub_listener_extra->queries_by_packet. */
+        LIST_FOREACH(streams, s, p->manager->dns_streams)
+                if (s->stub_listener_extra == p)
+                        s->stub_listener_extra = NULL;
+
+        LIST_FOREACH(queries, q, p->manager->dns_queries)
+                if (q->stub_listener_extra == p)
+                        q->stub_listener_extra = NULL;
+
         hashmap_free(p->queries_by_packet);
 
         return mfree(p);
