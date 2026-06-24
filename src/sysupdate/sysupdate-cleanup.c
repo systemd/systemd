@@ -57,7 +57,7 @@ static int context_installdb_acquire_fd(Context *c, bool make) {
         assert(c);
 
         if (c->installdb_fd >= 0)
-                return 0;
+                return 1;
 
         _cleanup_free_ char *j = NULL;
         const char *p;
