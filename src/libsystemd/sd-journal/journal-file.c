@@ -4142,6 +4142,7 @@ int journal_file_open(
                 .strict_order = FLAGS_SET(file_flags, JOURNAL_STRICT_ORDER),
                 .newest_boot_id_prioq_idx = PRIOQ_IDX_NULL,
                 .last_direction = _DIRECTION_INVALID,
+                .tail_timestamp_ratelimit = { .interval = USEC_PER_SEC, .burst = 1 },
         };
 
         if (f->fd < 0) {
