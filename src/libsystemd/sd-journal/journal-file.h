@@ -8,6 +8,7 @@
 #include "sd-forward.h"
 #include "journal-def.h"
 #include "mmap-cache.h"
+#include "ratelimit.h"
 #include "sparse-endian.h"
 
 typedef struct JournalMetrics {
@@ -107,6 +108,7 @@ typedef struct JournalFile {
         unsigned newest_boot_id_prioq_idx;
         uint64_t newest_entry_offset;
         uint8_t newest_state;
+        RateLimit tail_timestamp_ratelimit; /* rate-limits journal_file_read_tail_timestamp() calls during iteration */
 } JournalFile;
 
 typedef enum JournalFileFlags {
