@@ -29,6 +29,7 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_DEFINE_INPUT_BY_TYPE(eventType, EventType, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_ERROR(NoSuchNvPCR);
+static SD_VARLINK_DEFINE_ERROR(NvPCRSpaceExhausted);
 
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_PCRExtend,
@@ -38,4 +39,5 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_Extend,
                 SD_VARLINK_SYMBOL_COMMENT("Event type to store in event log"),
                 &vl_type_EventType,
-                &vl_error_NoSuchNvPCR);
+                &vl_error_NoSuchNvPCR,
+                &vl_error_NvPCRSpaceExhausted);
