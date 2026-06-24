@@ -166,21 +166,28 @@ static int get_source_for_fd(RemoteServer *s,
         Writer *writer;
         int r;
 
-        /* This takes ownership of name, but only on success. */
+        /* This takes ownership of name in all cases, including on failure. */
 
         assert(s);
         assert(fd >= 0);
         assert(source);
 
-        if (!GREEDY_REALLOC0(s->sources, fd + 1))
+        if (!GREEDY_REALLOC0(s->sources, fd + 1)) {
+                free(name);
                 return log_oom();
+        }
 
         r = journal_remote_get_writer(s, name, &writer);
-        if (r < 0)
-                return log_warning_errno(r, "Failed to get writer for source %s: %m",
-                                         name);
+        if (r < 0) {
+                log_warning_errno(r, "Failed to get writer for source %s: %m", name);
+                free(name);
+                return r;
+        }
 
-        if (!s->sources[fd]) {
+        if (s->sources[fd])
+                /* We already have a source for this fd, so the freshly determined name is not needed. */
+                free(name);
+        else {
                 s->sources[fd] = source_new(fd, false, name, writer);
                 if (!s->sources[fd]) {
                         writer_unref(writer);
@@ -227,13 +234,10 @@ int journal_remote_add_source(RemoteServer *s, int fd, char *name, bool own_name
                         return log_oom();
         }
 
+        /* get_source_for_fd() takes ownership of name in all cases, so it must not be touched below. */
         r = get_source_for_fd(s, fd, name, &source);
-        if (r < 0) {
-                log_error_errno(r, "Failed to create source for fd:%d (%s): %m",
-                                fd, name);
-                free(name);
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to create source for fd:%d: %m", fd);
 
         r = sd_event_add_io(s->event, &source->event,
                             fd, EPOLLIN|EPOLLRDHUP|EPOLLPRI,
@@ -246,7 +250,7 @@ int journal_remote_add_source(RemoteServer *s, int fd, char *name, bool own_name
                 if (r == 0)
                         r = sd_event_source_set_enabled(source->buffer_event, SD_EVENT_OFF);
         } else if (r == -EPERM) {
-                log_debug("Falling back to sd_event_add_defer for fd:%d (%s)", fd, name);
+                log_debug("Falling back to sd_event_add_defer for fd:%d (%s)", fd, source->importer.name);
                 r = sd_event_add_defer(s->event, &source->event,
                                        dispatch_blocking_source_event, source);
                 if (r == 0)
@@ -258,7 +262,7 @@ int journal_remote_add_source(RemoteServer *s, int fd, char *name, bool own_name
                 goto error;
         }
 
-        r = sd_event_source_set_description(source->event, name);
+        r = sd_event_source_set_description(source->event, source->importer.name);
         if (r < 0) {
                 log_error_errno(r, "Failed to set source name for fd:%d: %m", fd);
                 goto error;
