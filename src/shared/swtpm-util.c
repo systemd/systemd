@@ -154,7 +154,7 @@ int manufacture_swtpm(const char *state_dir, const char *secret) {
 
         r = write_string_filef(
                         localca_conf,
-                        WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_TRUNCATE|WRITE_STRING_FILE_MKDIR_0755,
+                        WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755|WRITE_STRING_FILE_ATOMIC,
                         "statedir = %1$s\n"
                         "signingkey = %1$s/signing-private-key.pem\n"
                         "issuercert = %1$s/issuer-certificate.pem\n"
@@ -172,7 +172,7 @@ int manufacture_swtpm(const char *state_dir, const char *secret) {
                         "--platform-manufacturer systemd\n"
                         "--platform-version 2.1\n"
                         "--platform-model swtpm\n",
-                        WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_TRUNCATE|WRITE_STRING_FILE_MKDIR_0755);
+                        WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755|WRITE_STRING_FILE_ATOMIC);
         if (r < 0)
                 return log_error_errno(r, "Failed to write swtpm-localca.options: %m");
 
@@ -187,7 +187,7 @@ int manufacture_swtpm(const char *state_dir, const char *secret) {
 
         r = write_string_filef(
                         setup_conf,
-                        WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_TRUNCATE|WRITE_STRING_FILE_MKDIR_0755,
+                        WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755|WRITE_STRING_FILE_ATOMIC,
                         "create_certs_tool = %1$s\n"
                         "create_certs_tool_config = %2$s\n"
                         "create_certs_tool_options = %3$s\n",
