@@ -163,6 +163,50 @@ static int context_from_cmdline(Context *ret) {
         return 0;
 }
 
+static int context_from_base_with_component(const Context *base, const char *component, Context *ret) {
+        assert(base);
+        assert(component);
+        assert(ret);
+
+        /* Copies the specified context, but changes the component to the specified one */
+
+        _cleanup_(context_done) Context context = CONTEXT_NULL;
+
+        context.instances_max = base->instances_max;
+        context.sync = base->sync;
+        context.reboot = base->reboot;
+        context.verify = base->verify;
+        context.offline = base->offline;
+        context.cleanup = base->cleanup;
+
+        if (strdup_to(&context.root, base->root) < 0)
+                return log_oom();
+
+        if (strdup_to(&context.image, base->image) < 0)
+                return log_oom();
+
+        if (strdup_to(&context.transfer_source, base->transfer_source) < 0)
+                return log_oom();
+
+        if (base->image_policy) {
+                context.image_policy = image_policy_copy(base->image_policy);
+                if (!context.image_policy)
+                        return log_oom();
+        }
+
+        if (strdup_to(&context.component, component) < 0)
+                return log_oom();
+
+        /* NB: we do not copy .loop_device/.mounted_dir here, since that's for lifetime tracking only, and
+         * not needed for access (we only need to copy .root/.image) for that. Under the assumption that the
+         * contexts initialized via context_from_base_with_component() have a shorter lifetime than the
+         * contexts they are copied from we don't bother with lifetime tracking of the loopback device/mount
+         * point here. */
+
+        *ret = TAKE_GENERIC(context, Context, CONTEXT_NULL);
+        return 0;
+}
+
 /* Stores any long-running server state which needs to persist between varlink calls, such as state for
  * pending polkit requests */
 typedef struct Server {
@@ -1078,10 +1122,9 @@ static int context_process_image(
 
         assert(c);
 
-        if (!c->image)
+        if (c->root || !c->image) /* Idempotent or nothing to do */
                 return 0;
 
-        assert(!c->root);
         assert(!c->mounted_dir);
         assert(!c->loop_device);
 
@@ -2288,12 +2331,56 @@ static int verb_components(int argc, char *argv[], uintptr_t _data, void *userda
                         return 0;
                 }
 
-                if (has_default_component)
-                        printf("%s<default>%s\n",
-                               ansi_highlight(), ansi_normal());
+                _cleanup_(table_unrefp) Table *t = table_new("", "component", "description", "documentation");
+                if (!t)
+                        return log_oom();
 
-                STRV_FOREACH(i, component_names)
-                        puts(*i);
+                table_set_ersatz_string(t, TABLE_ERSATZ_DASH);
+
+                if (has_default_component) {
+                        r = table_add_many(
+                                        t,
+                                        TABLE_EMPTY,
+                                        TABLE_STRING, "<default>",
+                                        TABLE_SET_COLOR, ansi_highlight(),
+                                        TABLE_STRING, "Default Component",
+                                        TABLE_EMPTY);
+                        if (r < 0)
+                                return table_log_add_error(r);
+                }
+
+                STRV_FOREACH(i, component_names) {
+                        _cleanup_(context_done) Context cc = CONTEXT_NULL;
+
+                        r = context_from_base_with_component(
+                                        &cc,
+                                        *i,
+                                        &context);
+                        if (r < 0)
+                                return r;
+
+                        r = context_load_offline(
+                                        &cc,
+                                        /* process_image_flags= */ 0,
+                                        /* read_definitions_flags= */ 0);
+                        if (r < 0)
+                                continue;
+
+                        const char *doc = cc.component_documentation ? cc.component_documentation[0] : NULL;
+
+                        r = table_add_many(
+                                        t,
+                                        TABLE_BOOLEAN_CHECKMARK, cc.component_enabled,
+                                        TABLE_SET_COLOR, ansi_highlight_green_red(cc.component_enabled),
+                                        TABLE_STRING, *i,
+                                        TABLE_STRING, cc.component_description,
+                                        TABLE_STRING, doc,
+                                        TABLE_SET_URL, doc);
+                        if (r < 0)
+                                return table_log_add_error(r);
+                }
+
+                return table_print_with_pager(t, arg_json_format_flags, arg_pager_flags, arg_legend);
         } else {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
 
