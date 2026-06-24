@@ -1004,7 +1004,12 @@ static int next_beyond_location(sd_journal *j, JournalFile *f, direction_t direc
         assert(j);
         assert(f);
 
-        (void) journal_file_read_tail_timestamp(j, f);
+        /* Only refresh the tail timestamp if we haven't attempted it yet for this file.
+         * Once attempted, updates happen via the file-add path and inotify events.
+         * Calling this unconditionally is O(N × files) overhead that makes large
+         * 'journalctl -n N' queries unusably slow. */
+        if (!f->tail_timestamp_read)
+                (void) journal_file_read_tail_timestamp(j, f);
 
         n_entries = le64toh(f->header->n_entries);
 
@@ -2598,6 +2603,10 @@ static int journal_file_read_tail_timestamp(sd_journal *j, JournalFile *f) {
             f->header->state == STATE_ARCHIVED &&
             f->newest_entry_offset != 0)
                 return 0; /* We have already read archived file. */
+
+        /* Mark as attempted regardless of outcome, so next_beyond_location() won't retry on every
+         * iteration step for files where reading fails or returns no data (e.g. empty files). */
+        f->tail_timestamp_read = true;
 
         if (JOURNAL_HEADER_CONTAINS(f->header, tail_entry_offset)) {
                 offset = le64toh(READ_NOW(f->header->tail_entry_offset));
