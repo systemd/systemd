@@ -13,6 +13,9 @@ typedef struct Feature {
         char *appstream;
 
         bool enabled;
+
+        int suggest;
+        Condition *suggest_on;
 } Feature;
 
 Feature *feature_new(void);
@@ -23,3 +26,5 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(Feature*, feature_unref);
 extern const struct hash_ops feature_hash_ops;
 
 int feature_read_definition(Feature *f, const char *root, const char *path, const char *const *conf_file_dirs);
+
+int feature_is_suggested(Feature *f);
