@@ -1119,11 +1119,11 @@ shortcut:
         return label_fix_full(fd, /* inode_path= */ NULL, /* label_path= */ path, 0);
 }
 
-static int path_open_parent_safe_name(const char *path, bool allow_failure, char **dirname) {
-        /* Open parent and return its file descriptor. Also return its allocated path in dirname, which the user must free */
+static int path_open_parent_safe_name(const char *path, bool allow_failure, char **ret_dirname) {
+        /* Open parent and return its file descriptor. Also return its allocated path in ret_dirname, which the user must free */
         int r, fd;
 
-        assert(dirname);
+        assert(ret_dirname);
         if (!path_is_normalized(path))
                 return log_full_errno(allow_failure ? LOG_INFO : LOG_ERR,
                                       SYNTHETIC_ERRNO(EINVAL),
@@ -1131,7 +1131,7 @@ static int path_open_parent_safe_name(const char *path, bool allow_failure, char
                                       path,
                                       allow_failure ? ", ignoring" : "");
 
-        r = path_extract_directory(path, dirname);
+        r = path_extract_directory(path, ret_dirname);
         if (r < 0)
                 return log_full_errno(allow_failure ? LOG_INFO : LOG_ERR,
                                       r,
@@ -1139,22 +1139,22 @@ static int path_open_parent_safe_name(const char *path, bool allow_failure, char
                                       path,
                                       allow_failure ? ", ignoring" : "");
 
-        r = chase(*dirname, arg_root, allow_failure ? CHASE_SAFE : CHASE_SAFE|CHASE_WARN, NULL, &fd);
+        r = chase(*ret_dirname, arg_root, allow_failure ? CHASE_SAFE : CHASE_SAFE|CHASE_WARN, NULL, &fd);
         if (r == -ENOLINK) /* Unsafe symlink: already covered by CHASE_WARN */
                 return r;
         if (r < 0)
                 return log_full_errno(allow_failure ? LOG_INFO : LOG_ERR,
                                       r,
                                       "Failed to open path '%s'%s: %m",
-                                      *dirname,
+                                      *ret_dirname,
                                       allow_failure ? ", ignoring" : "");
 
         return fd;
 }
 
 static int path_open_parent_safe(const char *path, bool allow_failure) {
-        _cleanup_free_ char *dirname = NULL;
-        return path_open_parent_safe_name(path, allow_failure, &dirname);
+        _cleanup_free_ char *ret_dirname = NULL;
+        return path_open_parent_safe_name(path, allow_failure, &ret_dirname);
 }
 
 static int path_open_safe(const char *path) {
@@ -3550,8 +3550,8 @@ static int clean_including_item(
         int r;
 
         /* Find parent path so we can get stats on the directory that holds instance (file or dir) */
-        _cleanup_free_ char *dirname = NULL;
-        dir_fd = path_open_parent_safe_name(instance, i->allow_failure, &dirname);
+        _cleanup_free_ char *ret_dirname = NULL;
+        dir_fd = path_open_parent_safe_name(instance, i->allow_failure, &ret_dirname);
         if (dir_fd < 0)
                 return dir_fd;
 
@@ -3590,13 +3590,12 @@ static int clean_including_item(
 
         const char *name = last_path_component(instance);
         bool deleted = item_cleanup(c, i, instance, name, dir_fd,
-                           cutoff * NSEC_PER_USEC,
-                           mountpoint,
-                           MAX_DEPTH, i->keep_first_level,
-                           i->age_by_file, i->age_by_dir);
-        if (deleted) {
-                restore_timestamps(dir_fd, dirname, atime_nsec, mtime_nsec);
-        }
+                                    cutoff * NSEC_PER_USEC,
+                                    mountpoint,
+                                    MAX_DEPTH, i->keep_first_level,
+                                    i->age_by_file, i->age_by_dir);
+        if (deleted)
+                restore_timestamps(dir_fd, ret_dirname, atime_nsec, mtime_nsec);
         return 0;
 }
 
