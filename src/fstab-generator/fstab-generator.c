@@ -336,8 +336,7 @@ static int write_idle_timeout(FILE *f, const char *where, const char *opts) {
 }
 
 static int write_automount_extra_options(FILE *f, const char *where, const char *opts) {
-        _cleanup_free_ char *value = NULL;
-        _cleanup_free_ char *escaped = NULL;
+        _cleanup_free_ char *value = NULL, *escaped = NULL;
         int r;
 
         assert(f);
@@ -346,6 +345,8 @@ static int write_automount_extra_options(FILE *f, const char *where, const char 
         if (r < 0)
                 return log_error_errno(r, "Failed to parse options for '%s': %m", where);
         if (r == 0)
+                return 0;
+        if (isempty(value))
                 return 0;
 
         escaped = specifier_escape(value);
