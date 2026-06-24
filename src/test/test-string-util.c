@@ -9,6 +9,17 @@
 #include "strv.h"
 #include "tests.h"
 
+TEST(ellipsize_mem_ansi_short) {
+        _cleanup_free_ char *a = ellipsize_mem("X\x1b[m", 4, 1, 50);
+        assert_se(a);
+
+        _cleanup_free_ char *b = ellipsize_mem(" \x1b[A", 4, 1, 0);
+        assert_se(b);
+
+        _cleanup_free_ char *c = ellipsize_mem("\x1b[m", 3, 1, 50);
+        assert_se(c);
+}
+
 TEST(xsprintf) {
         char buf[5];
 
