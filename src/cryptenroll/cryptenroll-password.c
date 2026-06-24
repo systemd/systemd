@@ -26,6 +26,20 @@ int load_volume_key_password(
         assert_se(cd);
         assert_se(ret_vk);
 
+        if (c->unlock_password) {
+                r = sym_crypt_volume_key_get(
+                                cd,
+                                CRYPT_ANY_SLOT,
+                                ret_vk->iov_base,
+                                &ret_vk->iov_len,
+                                c->unlock_password,
+                                strlen(c->unlock_password));
+                if (r < 0)
+                        return log_error_errno(r, "Provided unlock password did not work: %m");
+
+                return r;
+        }
+
         r = getenv_steal_erase("PASSWORD", &envpw);
         if (r < 0)
                 return log_error_errno(r, "Failed to acquire password from environment: %m");
