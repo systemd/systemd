@@ -672,6 +672,13 @@ static int dhcp6_option_parse_ia_pdprefix(sd_dhcp6_client *client, DHCP6IA *ia, 
                                               FORMAT_TIMESPAN(lt_pref, USEC_PER_SEC),
                                               FORMAT_TIMESPAN(lt_valid, USEC_PER_SEC));
 
+        /* RFC 8415 defines the prefix length as 1…128; reject the out-of-range values the sender-side
+         * counterpart option_append_pd_prefix() also refuses. */
+        if (a->iapdprefix.prefixlen == 0 || a->iapdprefix.prefixlen > 128)
+                return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL),
+                                              "Received a PD prefix with invalid prefix length %u, ignoring.",
+                                              a->iapdprefix.prefixlen);
+
         if (len > sizeof(struct iapdprefix)) {
                 r = dhcp6_option_parse_ia_options(client, data + sizeof(struct iapdprefix), len - sizeof(struct iapdprefix));
                 if (r < 0)
