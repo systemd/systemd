@@ -719,7 +719,7 @@ static bool item_cleanup(
                 AgeBy age_by_file, /* age criteria ([a|m|c|b]_time) to examine against file age */
                 AgeBy age_by_dir) { /* same age criteria for directory */
         /* Clean up a file or directory, recursively, according to the cutoff_nsec age constraint.
-         * Errors are ignored, consistent with historical behaviour for tmpfiles cleanup.
+         * Errors are ignored (except out-of-memory, consistent with historical behaviour for tmpfiles cleanup.
          * Return true if a file or directory is deleted.
          */
         int r = 0;
@@ -796,11 +796,14 @@ static bool item_cleanup(
                                 return false;
                         }
 
-                        dir_cleanup(c, i,
+                        r = dir_cleanup(c, i,
                                         pathname, sub_dir,
                                         atime_nsec, mtime_nsec, cutoff_nsec,
                                         false, maxdepth-1, false,
                                         age_by_file, age_by_dir);
+                        /* the only error dir_cleanup returns is out-of-memory */
+                        if (r < 0)
+                                return r;
                 }
 
                 /* Note: if you are wondering why we don't support the sticky bit for excluding
