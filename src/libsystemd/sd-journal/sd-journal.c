@@ -1004,7 +1004,12 @@ static int next_beyond_location(sd_journal *j, JournalFile *f, direction_t direc
         assert(j);
         assert(f);
 
-        (void) journal_file_read_tail_timestamp(j, f);
+        /* Only refresh the tail timestamp if we haven't attempted it yet for this file.
+         * Once attempted, updates happen via the file-add path and inotify events.
+         * Calling this unconditionally is O(N x files) overhead that makes large
+         * 'journalctl -n N' queries unusably slow. */
+        if (!f->tail_timestamp_read)
+                (void) journal_file_read_tail_timestamp(j, f);
 
         n_entries = le64toh(f->header->n_entries);
 
@@ -2680,6 +2685,11 @@ static int journal_file_read_tail_timestamp(sd_journal *j, JournalFile *f) {
         r = journal_file_reshuffle_newest_by_boot_id(j, f);
         if (r < 0)
                 return r;
+
+        /* Mark the file as having a valid tail timestamp entry in the prioq. Only set here,
+         * on a successful read, so that files that failed (empty, mo > rt, mmap error) remain
+         * eligible for retry on subsequent iteration steps. */
+        f->tail_timestamp_read = true;
 
         return 1; /* Updated. */
 }
