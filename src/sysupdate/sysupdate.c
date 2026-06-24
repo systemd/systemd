@@ -9,6 +9,7 @@
 
 #include "build.h"
 #include "bus-polkit.h"
+#include "condition.h"
 #include "conf-files.h"
 #include "conf-parser.h"
 #include "constants.h"
@@ -38,6 +39,7 @@
 #include "pretty-print.h"
 #include "runtime-scope.h"
 #include "sort-util.h"
+#include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "sysupdate.h"
@@ -87,6 +89,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_transfer_source, freep);
                 .cleanup = -1,                                    \
                 .installdb_fd = -EBADF,                           \
                 .target_identifier.class = _TARGET_CLASS_INVALID, \
+                .component_suggest = -1,                          \
         }
 
 void context_done(Context *c) {
@@ -126,6 +129,7 @@ void context_done(Context *c) {
         c->transfer_source = mfree(c->transfer_source);
 
         target_identifier_done(&c->target_identifier);
+        condition_free_list(c->component_suggest_on);
 }
 
 static int context_from_cmdline(Context *ret) {
@@ -346,9 +350,21 @@ static int read_component(Context *c) {
                 return log_oom();
 
         ConfigTableItem table[] = {
-                { "Component", "Description",   config_parse_string,              0, &c->component_description   },
-                { "Component", "Documentation", config_parse_url_specifiers_many, 0, &c->component_documentation },
-                { "Component", "Enabled",       config_parse_bool,                0, &c->component_enabled       },
+                { "Component", "Description",                config_parse_string,              0,                             &c->component_description   },
+                { "Component", "Documentation",              config_parse_url_specifiers_many, 0,                             &c->component_documentation },
+                { "Component", "Enabled",                    config_parse_bool,                0,                             &c->component_enabled       },
+                { "Component", "Suggest",                    config_parse_tristate,            0,                             &c->component_suggest       },
+                { "Component", "SuggestOnArchitecture",      config_parse_condition,           CONDITION_ARCHITECTURE,        &c->component_suggest_on    },
+                { "Component", "SuggestOnFirmware",          config_parse_condition,           CONDITION_FIRMWARE,            &c->component_suggest_on    },
+                { "Component", "SuggestOnVirtualization",    config_parse_condition,           CONDITION_VIRTUALIZATION,      &c->component_suggest_on    },
+                { "Component", "SuggestOnHost",              config_parse_condition,           CONDITION_HOST,                &c->component_suggest_on    },
+                { "Component", "SuggestOnFraction",          config_parse_condition,           CONDITION_FRACTION,            &c->component_suggest_on    },
+                { "Component", "SuggestOnKernelCommandLine", config_parse_condition,           CONDITION_KERNEL_COMMAND_LINE, &c->component_suggest_on    },
+                { "Component", "SuggestOnVersion",           config_parse_condition,           CONDITION_VERSION,             &c->component_suggest_on    },
+                { "Component", "SuggestOnCredential",        config_parse_condition,           CONDITION_CREDENTIAL,          &c->component_suggest_on    },
+                { "Component", "SuggestOnSecurity",          config_parse_condition,           CONDITION_SECURITY,            &c->component_suggest_on    },
+                { "Component", "SuggestOnOSRelease",         config_parse_condition,           CONDITION_OS_RELEASE,          &c->component_suggest_on    },
+                { "Component", "SuggestOnMachineTag",        config_parse_condition,           CONDITION_MACHINE_TAG,         &c->component_suggest_on    },
                 {}
         };
 
@@ -1876,6 +1892,20 @@ static int verb_features(int argc, char *argv[], uintptr_t _data, void *userdata
                 if (r < 0)
                         return table_log_add_error(r);
 
+                r = feature_is_suggested(f);
+                if (r < 0) {
+                        errno = -r; /* Let's make %m below show this error */
+                        _cleanup_free_ char *k = asprintf_safe("error (%m)");
+                        r = table_add_many(table,
+                                           TABLE_FIELD, "Suggested",
+                                           TABLE_STRING, k);
+                } else
+                        r = table_add_many(table,
+                                           TABLE_FIELD, "Suggested",
+                                           TABLE_BOOLEAN, r);
+                if (r < 0)
+                        return table_log_add_error(r);
+
                 if (f->description) {
                         r = table_add_many(table, TABLE_FIELD, "Description", TABLE_STRING, f->description);
                         if (r < 0)
@@ -1908,14 +1938,28 @@ static int verb_features(int argc, char *argv[], uintptr_t _data, void *userdata
 
                 return table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, arg_legend);
         } else if (FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF)) {
-                table = table_new("", "feature", "description", "documentation");
+                table = table_new("enabled", "suggested", "feature", "description", "documentation");
                 if (!table)
                         return log_oom();
+
+                table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
 
                 HASHMAP_FOREACH(f, context.features) {
                         r = table_add_many(table,
                                            TABLE_BOOLEAN_CHECKMARK, f->enabled,
-                                           TABLE_SET_COLOR, ansi_highlight_green_red(f->enabled),
+                                           TABLE_SET_COLOR, ansi_highlight_green_red(f->enabled));
+                        if (r < 0)
+                                return table_log_add_error(r);
+
+                        r = feature_is_suggested(f);
+                        if (r < 0)
+                                r = table_add_many(table, TABLE_EMPTY);
+                        else
+                                r = table_add_many(table, TABLE_BOOLEAN_CHECKMARK, r);
+                        if (r < 0)
+                                return table_log_add_error(r);
+
+                        r = table_add_many(table,
                                            TABLE_STRING, f->id,
                                            TABLE_STRING, f->description,
                                            TABLE_STRING, f->documentation,
@@ -2435,16 +2479,30 @@ static int context_list_components(Context *context, char ***ret_component_names
         return 0;
 }
 
+static int context_component_is_suggested(Context *c) {
+        assert(c);
+
+        /* Only applies to components, not to the main system */
+        if (!c->component)
+                return -ENOTTY;
+
+        if (c->component_suggest >= 0)
+                return c->component_suggest;
+
+        if (!c->component_suggest_on) /* no condition → false */
+                return false;
+
+        return condition_test_list(c->component_suggest_on, environ, suggest_on_type_to_string, /* logger= */ NULL, /* userdata= */ NULL);
+}
+
 VERB_NOARG(verb_components, "components",
            "Show list of components");
 static int verb_components(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(context_done) Context context = CONTEXT_NULL;
-        _cleanup_strv_free_ char **component_names = NULL;
-        bool has_default_component = false;
         int r;
 
         assert(argc <= 1);
 
+        _cleanup_(context_done) Context context = CONTEXT_NULL;
         r = context_from_cmdline(&context);
         if (r < 0)
                 return r;
@@ -2459,6 +2517,8 @@ static int verb_components(int argc, char *argv[], uintptr_t _data, void *userda
         if (r < 0)
                 return r;
 
+        _cleanup_strv_free_ char **component_names = NULL;
+        bool has_default_component = false;
         r = context_list_components(&context, &component_names, &has_default_component);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate components: %m");
@@ -2469,7 +2529,7 @@ static int verb_components(int argc, char *argv[], uintptr_t _data, void *userda
                         return 0;
                 }
 
-                _cleanup_(table_unrefp) Table *t = table_new("", "component", "description", "documentation");
+                _cleanup_(table_unrefp) Table *t = table_new("enabled", "suggested", "component", "description", "documentation");
                 if (!t)
                         return log_oom();
 
@@ -2478,6 +2538,7 @@ static int verb_components(int argc, char *argv[], uintptr_t _data, void *userda
                 if (has_default_component) {
                         r = table_add_many(
                                         t,
+                                        TABLE_EMPTY,
                                         TABLE_EMPTY,
                                         TABLE_STRING, "<default>",
                                         TABLE_SET_COLOR, ansi_highlight(),
@@ -2506,12 +2567,25 @@ static int verb_components(int argc, char *argv[], uintptr_t _data, void *userda
                         if (r < 0)
                                 continue;
 
+                        r = table_add_many(
+                                        t,
+                                        TABLE_BOOLEAN_CHECKMARK, cc.component_enabled,
+                                        TABLE_SET_COLOR, ansi_highlight_green_red(cc.component_enabled));
+                        if (r < 0)
+                                return table_log_add_error(r);
+
+                        r = context_component_is_suggested(&cc);
+                        if (r < 0)
+                                r = table_add_many(t, TABLE_EMPTY);
+                        else
+                                r = table_add_many(t, TABLE_BOOLEAN_CHECKMARK, r);
+                        if (r < 0)
+                                return table_log_add_error(r);
+
                         const char *doc = cc.component_documentation ? cc.component_documentation[0] : NULL;
 
                         r = table_add_many(
                                         t,
-                                        TABLE_BOOLEAN_CHECKMARK, cc.component_enabled,
-                                        TABLE_SET_COLOR, ansi_highlight_green_red(cc.component_enabled),
                                         TABLE_STRING, *i,
                                         TABLE_STRING, cc.component_description,
                                         TABLE_STRING, doc,
@@ -2850,10 +2924,16 @@ static int vl_server(void) {
 static int run(int argc, char *argv[]) {
         int r;
 
+        LIBAPPARMOR_NOTE(suggested);
+        LIBAUDIT_NOTE(suggested);
         LIBBLKID_NOTE(recommended);
         LIBCRYPTO_NOTE(suggested);
         LIBCRYPTSETUP_NOTE(suggested);
         LIBMOUNT_NOTE(recommended);
+        LIBSELINUX_NOTE(suggested);
+        LIBTSS2_ESYS_NOTE(suggested);
+        LIBTSS2_MU_NOTE(suggested);
+        LIBTSS2_RC_NOTE(suggested);
 
         log_setup();
 
