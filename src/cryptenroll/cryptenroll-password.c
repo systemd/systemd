@@ -7,25 +7,101 @@
 #include "env-util.h"
 #include "errno-util.h"
 #include "escape.h"
+#include "fileio.h"
 #include "iovec-util.h"
 #include "log.h"
 #include "password-quality-util.h"
 #include "string-util.h"
 #include "strv.h"
 
-int load_volume_key_password(
+int load_volume_key_empty(
+                const EnrollContext *c,
                 struct crypt_device *cd,
-                const char *cd_node,
-                void *ret_vk,
-                size_t *ret_vks) {
+                struct iovec *ret_vk) {
+
+        int r;
+
+        assert_se(c);
+        assert_se(cd);
+        assert_se(ret_vk);
+
+        r = sym_crypt_volume_key_get(
+                        cd,
+                        CRYPT_ANY_SLOT,
+                        ret_vk->iov_base,
+                        &ret_vk->iov_len,
+                        "",
+                        0);
+        if (r < 0)
+                return log_error_errno(r, "Provided empty password did not work: %m");
+
+        return r;
+}
+
+int load_volume_key_keyfile(
+                const EnrollContext *c,
+                struct crypt_device *cd,
+                struct iovec *ret_vk) {
+
+        _cleanup_(erase_and_freep) char *password = NULL;
+        size_t password_len;
+        int r;
+
+        assert_se(c);
+        assert_se(cd);
+        assert_se(ret_vk);
+
+        r = read_full_file_full(
+                        AT_FDCWD,
+                        c->unlock_keyfile,
+                        UINT64_MAX,
+                        4U * U64_MB, /* safety net */
+                        READ_FULL_FILE_SECURE|READ_FULL_FILE_WARN_WORLD_READABLE|READ_FULL_FILE_CONNECT_SOCKET|READ_FULL_FILE_FAIL_WHEN_LARGER,
+                        NULL,
+                        &password,
+                        &password_len);
+        if (r < 0)
+                return log_error_errno(r, "Reading keyfile %s failed: %m", c->unlock_keyfile);
+
+        r = sym_crypt_volume_key_get(
+                        cd,
+                        CRYPT_ANY_SLOT,
+                        ret_vk->iov_base,
+                        &ret_vk->iov_len,
+                        password,
+                        password_len);
+        if (r < 0)
+                return log_error_errno(r, "Unlocking via keyfile failed: %m");
+
+        return r;
+}
+
+int load_volume_key_password(
+                const EnrollContext *c,
+                struct crypt_device *cd,
+                struct iovec *ret_vk) {
 
         _cleanup_(erase_and_freep) char *envpw = NULL;
         int r;
 
+        assert_se(c);
+        assert_se(c->node);
         assert_se(cd);
-        assert_se(cd_node);
         assert_se(ret_vk);
-        assert_se(ret_vks);
+
+        if (c->unlock_password) {
+                r = sym_crypt_volume_key_get(
+                                cd,
+                                CRYPT_ANY_SLOT,
+                                ret_vk->iov_base,
+                                &ret_vk->iov_len,
+                                c->unlock_password,
+                                strlen(c->unlock_password));
+                if (r < 0)
+                        return log_error_errno(r, "Provided unlock password did not work: %m");
+
+                return r;
+        }
 
         r = getenv_steal_erase("PASSWORD", &envpw);
         if (r < 0)
@@ -34,22 +110,27 @@ int load_volume_key_password(
                 r = sym_crypt_volume_key_get(
                                 cd,
                                 CRYPT_ANY_SLOT,
-                                ret_vk,
-                                ret_vks,
+                                ret_vk->iov_base,
+                                &ret_vk->iov_len,
                                 envpw,
                                 strlen(envpw));
                 if (r < 0)
                         return log_error_errno(r, "Password from environment variable $PASSWORD did not work: %m");
         } else {
                 AskPasswordFlags ask_password_flags = ASK_PASSWORD_PUSH_CACHE|ASK_PASSWORD_ACCEPT_CACHED;
+
+                if (!c->interactive)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOPKG),
+                                               "Password querying disabled via 'headless' option, but no password provided for disk %s.",
+                                               c->node);
                 _cleanup_free_ char *question = NULL, *id = NULL, *disk_path = NULL;
                 unsigned i = 5;
 
-                question = strjoin("Please enter current passphrase for disk ", cd_node, ":");
+                question = strjoin("Please enter current passphrase for disk ", c->node, ":");
                 if (!question)
                         return log_oom();
 
-                disk_path = cescape(cd_node);
+                disk_path = cescape(c->node);
                 if (!disk_path)
                         return log_oom();
 
@@ -84,8 +165,8 @@ int load_volume_key_password(
                                 r = sym_crypt_volume_key_get(
                                                 cd,
                                                 CRYPT_ANY_SLOT,
-                                                ret_vk,
-                                                ret_vks,
+                                                ret_vk->iov_base,
+                                                &ret_vk->iov_len,
                                                 *p,
                                                 strlen(*p));
                                 if (r >= 0)
@@ -103,6 +184,7 @@ int load_volume_key_password(
 }
 
 int enroll_password(
+                const EnrollContext *c,
                 struct crypt_device *cd,
                 const struct iovec *volume_key) {
 
@@ -111,17 +193,29 @@ int enroll_password(
         const char *node;
         int r, keyslot;
 
+        assert(c);
         assert(cd);
         assert(iovec_is_set(volume_key));
 
         assert_se(node = sym_crypt_get_device_name(cd));
 
-        r = getenv_steal_erase("NEWPASSWORD", &new_password);
-        if (r < 0)
-                return log_error_errno(r, "Failed to acquire password from environment: %m");
-        if (r == 0) {
+        if (c->passphrase) {
+                new_password = memdup_suffix0(c->passphrase, c->passphrase_size);
+                if (!new_password)
+                        return log_oom();
+        } else {
+                r = getenv_steal_erase("NEWPASSWORD", &new_password);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to acquire password from environment: %m");
+        }
+
+        if (!new_password) {
                 _cleanup_free_ char *disk_path = NULL, *id = NULL;
                 unsigned i = 5;
+
+                if (!c->interactive)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOPKG),
+                                               "Password querying disabled via 'headless' option, but no new password provided.");
 
                 assert_se(node = sym_crypt_get_device_name(cd));
 
