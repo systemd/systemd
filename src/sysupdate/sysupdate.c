@@ -2282,6 +2282,63 @@ static int verb_vacuum(int argc, char *argv[], uintptr_t _data, void *userdata) 
         return context_vacuum(&context, 0, NULL);
 }
 
+VERB_NOARG(verb_cleanup, "cleanup", "Clean up orphaned files");
+static int verb_cleanup(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        _cleanup_(context_done) Context context = CONTEXT_NULL;
+        int r;
+
+        assert(argc <= 1);
+
+        r = context_from_cmdline(&context);
+        if (r < 0)
+                return r;
+
+        if (context.cleanup == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invocation of 'cleanup' with --cleanup=no is contradictory, refusing.");
+
+        r = context_load_offline(
+                        &context,
+                        /* process_image_flags= */ 0,
+                        /* read_definitions_flags= */ 0);
+        if (r < 0)
+                return r;
+
+        int ret = 0;
+        RET_GATHER(ret, installdb_cleanup_component(&context));
+
+        if (context.component_all) {
+                _cleanup_strv_free_ char **z = NULL;
+                r = installdb_list_components(&context, &z);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to enumerate components: %m");
+
+                STRV_FOREACH(i, z) {
+                        _cleanup_(context_done) Context component_context = CONTEXT_NULL;
+
+                        r = context_from_cmdline(&component_context);
+                        if (r < 0)
+                                return r;
+
+                        /* Override the component with our iter. This needs to be done in a fresh Context
+                         * as the installdb_fd and other state are specific to the component. */
+                        r = free_and_strdup_warn(&component_context.component, *i);
+                        if (r < 0)
+                                return r;
+
+                        r = context_load_offline(
+                                        &component_context,
+                                        /* process_image_flags= */ 0,
+                                        /* read_definitions_flags= */ 0);
+                        if (r < 0)
+                                return r;
+
+                        RET_GATHER(ret, installdb_cleanup_component(&component_context));
+                }
+        }
+
+        return ret;
+}
+
 VERB(verb_pending_or_reboot, "pending", NULL, 1, 1, 0,
      "Report whether a newer version is installed than currently booted");
 VERB(verb_pending_or_reboot, "reboot", NULL, 1, 1, 0,
@@ -2548,63 +2605,6 @@ static int verb_enable_component(int argc, char *argv[], uintptr_t _data, void *
         }
 
         return 0;
-}
-
-VERB_NOARG(verb_cleanup, "cleanup", "Clean up orphaned files");
-static int verb_cleanup(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(context_done) Context context = CONTEXT_NULL;
-        int r;
-
-        assert(argc <= 1);
-
-        r = context_from_cmdline(&context);
-        if (r < 0)
-                return r;
-
-        if (context.cleanup == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invocation of 'cleanup' with --cleanup=no is contradictory, refusing.");
-
-        r = context_load_offline(
-                        &context,
-                        /* process_image_flags= */ 0,
-                        /* read_definitions_flags= */ 0);
-        if (r < 0)
-                return r;
-
-        int ret = 0;
-        RET_GATHER(ret, installdb_cleanup_component(&context));
-
-        if (context.component_all) {
-                _cleanup_strv_free_ char **z = NULL;
-                r = installdb_list_components(&context, &z);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to enumerate components: %m");
-
-                STRV_FOREACH(i, z) {
-                        _cleanup_(context_done) Context component_context = CONTEXT_NULL;
-
-                        r = context_from_cmdline(&component_context);
-                        if (r < 0)
-                                return r;
-
-                        /* Override the component with our iter. This needs to be done in a fresh Context
-                         * as the installdb_fd and other state are specific to the component. */
-                        r = free_and_strdup_warn(&component_context.component, *i);
-                        if (r < 0)
-                                return r;
-
-                        r = context_load_offline(
-                                        &component_context,
-                                        /* process_image_flags= */ 0,
-                                        /* read_definitions_flags= */ 0);
-                        if (r < 0)
-                                return r;
-
-                        RET_GATHER(ret, installdb_cleanup_component(&component_context));
-                }
-        }
-
-        return ret;
 }
 
 static int help(void) {
