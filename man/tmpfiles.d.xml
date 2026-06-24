@@ -235,7 +235,7 @@ L     /tmp/foobar -    -    -     -   /dev/null</programlisting>
           <option>--remove</option>, mountpoints, sticky bits, and so on, <varname>E</varname> is identical to
           <varname>e</varname>.</para>
 
-          <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+          <xi:include href="version-info.xml" xpointer="v262"/></listitem>
         </varlistentry>
 
         <varlistentry>

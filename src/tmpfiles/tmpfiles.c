@@ -721,7 +721,7 @@ static bool item_cleanup(
         /* Clean up a file or directory, recursively, according to the cutoff_nsec age constraint.
          * Errors are ignored, consistent with historical behaviour for tmpfiles cleanup.
          * Return true if a file or directory is deleted.
-        */
+         */
         int r = 0;
 
         assert(c);
@@ -895,6 +895,36 @@ static bool item_cleanup(
         return false;
 }
 
+static void restore_timestamps(int dir_fd, const char *p, nsec_t atime_nsec, nsec_t mtime_nsec) {
+        /* Restore timestamps on directory specified by dir_fd with path p.
+         * If either timestamp is NSEC_INFINITY, it will be ignored rather than restored.
+         */
+        if (atime_nsec == NSEC_INFINITY && mtime_nsec == NSEC_INFINITY)
+                return;
+
+        log_action("Would restore", "Restoring",
+                   "%s access and modification time on \"%s\": %s, %s",
+                   p,
+                   atime_nsec != NSEC_INFINITY
+                        ? FORMAT_TIMESTAMP_STYLE(atime_nsec / NSEC_PER_USEC, TIMESTAMP_US)
+                        : "(omitted)",
+                   mtime_nsec != NSEC_INFINITY
+                        ? FORMAT_TIMESTAMP_STYLE(mtime_nsec / NSEC_PER_USEC, TIMESTAMP_US)
+                        : "(omitted)");
+
+        struct timespec ts[2];
+        ts[0] = atime_nsec != NSEC_INFINITY
+                ? *TIMESPEC_STORE_NSEC(atime_nsec)
+                : TIMESPEC_OMIT;
+        ts[1] = mtime_nsec != NSEC_INFINITY
+                ? *TIMESPEC_STORE_NSEC(mtime_nsec)
+                : TIMESPEC_OMIT;
+
+        /* Restore original directory timestamps */
+        if (!arg_dry_run && utimensat(dir_fd, "", ts, AT_EMPTY_PATH) < 0)
+                log_warning_errno(errno, "Failed to revert timestamps of '%s', ignoring: %m", p);
+}
+
 static int dir_cleanup(
                 Context *c,
                 Item *i,
@@ -930,31 +960,8 @@ static int dir_cleanup(
                                 mountpoint, maxdepth, keep_this_level,
                                 age_by_file, age_by_dir);
         }
-        if (deleted && (self_atime_nsec < NSEC_INFINITY || self_mtime_nsec < NSEC_INFINITY)) {
-                struct timespec ts[2];
-
-                log_action("Would restore", "Restoring",
-                           "%s access and modification time on \"%s\": %s, %s",
-                           p,
-                           self_atime_nsec != NSEC_INFINITY
-                                ? FORMAT_TIMESTAMP_STYLE(self_atime_nsec / NSEC_PER_USEC, TIMESTAMP_US)
-                                : "(omitted)",
-                           self_mtime_nsec != NSEC_INFINITY
-                                ? FORMAT_TIMESTAMP_STYLE(self_mtime_nsec / NSEC_PER_USEC, TIMESTAMP_US)
-                                : "(omitted)");
-
-                ts[0] = self_atime_nsec != NSEC_INFINITY
-                        ? *TIMESPEC_STORE_NSEC(self_atime_nsec)
-                        : TIMESPEC_OMIT;
-                ts[1] = self_mtime_nsec != NSEC_INFINITY
-                        ? *TIMESPEC_STORE_NSEC(self_mtime_nsec)
-                        : TIMESPEC_OMIT;
-
-                /* Restore original directory timestamps */
-                if (!arg_dry_run &&
-                    futimens(dirfd(d), ts) < 0)
-                        log_warning_errno(errno, "Failed to revert timestamps of '%s', ignoring: %m", p);
-        }
+        if (deleted)
+                restore_timestamps(dirfd(d), p, self_atime_nsec, self_mtime_nsec);
 
         return r;
 }
@@ -1112,8 +1119,8 @@ shortcut:
         return label_fix_full(fd, /* inode_path= */ NULL, /* label_path= */ path, 0);
 }
 
-static int path_open_parent_safe(const char *path, bool allow_failure) {
-        _cleanup_free_ char *dn = NULL;
+static int path_open_parent_safe_name(const char *path, bool allow_failure, char **dirname) {
+        /* Open parent and return its file descriptor. Also return its allocated path in dirname, which the user must free */
         int r, fd;
 
         if (!path_is_normalized(path))
@@ -1123,7 +1130,7 @@ static int path_open_parent_safe(const char *path, bool allow_failure) {
                                       path,
                                       allow_failure ? ", ignoring" : "");
 
-        r = path_extract_directory(path, &dn);
+        r = path_extract_directory(path, dirname);
         if (r < 0)
                 return log_full_errno(allow_failure ? LOG_INFO : LOG_ERR,
                                       r,
@@ -1131,17 +1138,22 @@ static int path_open_parent_safe(const char *path, bool allow_failure) {
                                       path,
                                       allow_failure ? ", ignoring" : "");
 
-        r = chase(dn, arg_root, allow_failure ? CHASE_SAFE : CHASE_SAFE|CHASE_WARN, NULL, &fd);
+        r = chase(*dirname, arg_root, allow_failure ? CHASE_SAFE : CHASE_SAFE|CHASE_WARN, NULL, &fd);
         if (r == -ENOLINK) /* Unsafe symlink: already covered by CHASE_WARN */
                 return r;
         if (r < 0)
                 return log_full_errno(allow_failure ? LOG_INFO : LOG_ERR,
                                       r,
                                       "Failed to open path '%s'%s: %m",
-                                      dn,
+                                      *dirname,
                                       allow_failure ? ", ignoring" : "");
 
         return fd;
+}
+
+static int path_open_parent_safe(const char *path, bool allow_failure) {
+        _cleanup_free_ char *dirname = NULL;
+        return path_open_parent_safe_name(path, allow_failure, &dirname);
 }
 
 static int path_open_safe(const char *path) {
@@ -3471,7 +3483,6 @@ static int clean_item_instance(
                 return 0;
 
         usec_t cutoff = n - i->age;
-        nsec_t atime_nsec, mtime_nsec;
 
         _cleanup_closedir_ DIR *d = NULL;
         struct statx sx;
@@ -3482,8 +3493,8 @@ static int clean_item_instance(
         if (r <= 0)
                 return r;
 
-        atime_nsec = FLAGS_SET(sx.stx_mask, STATX_ATIME) ? statx_timestamp_load_nsec(&sx.stx_atime) : NSEC_INFINITY;
-        mtime_nsec = FLAGS_SET(sx.stx_mask, STATX_MTIME) ? statx_timestamp_load_nsec(&sx.stx_mtime) : NSEC_INFINITY;
+        nsec_t atime_nsec = FLAGS_SET(sx.stx_mask, STATX_ATIME) ? statx_timestamp_load_nsec(&sx.stx_atime) : NSEC_INFINITY;
+        nsec_t mtime_nsec = FLAGS_SET(sx.stx_mask, STATX_MTIME) ? statx_timestamp_load_nsec(&sx.stx_mtime) : NSEC_INFINITY;
 
         if (DEBUG_LOGGING) {
                 _cleanup_free_ char *ab_f = NULL, *ab_d = NULL;
@@ -3538,7 +3549,8 @@ static int clean_including_item(
         int r;
 
         /* Find parent path so we can get stats on the directory that holds instance (file or dir) */
-        dir_fd = path_open_parent_safe(instance, i->allow_failure);
+        _cleanup_free_ char *dirname = NULL;
+        dir_fd = path_open_parent_safe_name(instance, i->allow_failure, &dirname);
         if (dir_fd < 0)
                 return dir_fd;
 
@@ -3547,11 +3559,14 @@ static int clean_including_item(
                         /* statx_flags= */ AT_EMPTY_PATH|AT_NO_AUTOMOUNT,
                         /* xstatx_flags= */ 0,
                         /* mandatory_mask= */ 0,
-                        /* optional_mask= */ 0,
+                        /* optional_mask= */ STATX_ATIME|STATX_MTIME,
                         /* mandatory_attributes= */ STATX_ATTR_MOUNT_ROOT,
                         &sx);
         if (r < 0)
                 return log_error_errno(r, "statx on parent of '%s' failed: %m", instance);
+
+        nsec_t atime_nsec = FLAGS_SET(sx.stx_mask, STATX_ATIME) ? statx_timestamp_load_nsec(&sx.stx_atime) : NSEC_INFINITY;
+        nsec_t mtime_nsec = FLAGS_SET(sx.stx_mask, STATX_MTIME) ? statx_timestamp_load_nsec(&sx.stx_mtime) : NSEC_INFINITY;
 
         mountpoint = FLAGS_SET(sx.stx_attributes, STATX_ATTR_MOUNT_ROOT);
         if (DEBUG_LOGGING) {
@@ -3573,11 +3588,14 @@ static int clean_including_item(
         }
 
         const char *name = last_path_component(instance);
-        item_cleanup(c, i, instance, name, dir_fd,
+        bool deleted = item_cleanup(c, i, instance, name, dir_fd,
                            cutoff * NSEC_PER_USEC,
                            mountpoint,
                            MAX_DEPTH, i->keep_first_level,
                            i->age_by_file, i->age_by_dir);
+        if (deleted) {
+                restore_timestamps(dir_fd, dirname, atime_nsec, mtime_nsec);
+        }
         return 0;
 }
 
