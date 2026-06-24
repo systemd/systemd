@@ -361,6 +361,18 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--cleanup=</option></term>
+
+        <listitem><para>Takes a boolean argument. When used in combination with the <command>update</command>
+        command, automatically performs the equivalent of the <command>cleanup</command> command afterwards,
+        removing any orphaned files that are no longer covered by the patterns of the currently defined
+        transfer files. This is useful to garbage-collect files that used to be owned by a transfer file that
+        has since been modified, disabled or removed. Defaults to off.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--offline</option></term>
 
         <listitem><para>Prevents fetching metadata from the network (i.e. <filename>SHA256SUMS</filename>).

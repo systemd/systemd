@@ -47,6 +47,7 @@ static bool arg_legend = true;
 char *arg_root = NULL;
 static char *arg_image = NULL;
 static bool arg_reboot = false;
+static int arg_cleanup = -1;
 static char *arg_component = NULL;
 static bool arg_component_all = false;
 static int arg_verify = -1;
@@ -1595,44 +1596,60 @@ static int verb_update_impl(int argc, char **argv, UpdateActionFlags action_flag
         if (r < 0)
                 return r;
 
+        const char *node = loop_device ? loop_device->node : NULL;
+        bool installed = false;
+        int ret = 0;
+
         r = context_make_online(
                         &context,
-                        loop_device ? loop_device->node : NULL,
+                        node,
                         arg_component);
-        if (r < 0)
-                return r;
+        if (r < 0) {
+                if (r != -ENOENT)
+                        return r;
 
-        if (action_flags & UPDATE_ACTION_ACQUIRE)
-                r = context_acquire(context, version);
-        else
-                r = context_process_partial_and_pending(context, version);
-        if (r < 0)
-                return r;  /* error */
+                /* No transfer files found. In that case, still do the installdb cleanup below */
+                RET_GATHER(ret, r);
+        } else {
+                if (action_flags & UPDATE_ACTION_ACQUIRE)
+                        r = context_acquire(context, version);
+                else
+                        r = context_process_partial_and_pending(context, version);
+                if (r < 0)
+                        return r;
 
-        if (action_flags & UPDATE_ACTION_INSTALL && r > 0)  /* update needed */
-                r = context_install(context, version, &applied);
-        if (r < 0)
-                return r;
+                if (FLAGS_SET(action_flags, UPDATE_ACTION_INSTALL) && r > 0) { /* installation of update indicated */
+                        r = context_install(context, version, &applied);
+                        if (r < 0)
+                                return r;
 
-        if (r > 0 && arg_reboot) {
-                assert(applied);
-                assert(booted_version);
-
-                if (strverscmp_improved(applied->version, booted_version) > 0) {
-                        log_notice("Newly installed version is newer than booted version, rebooting.");
-                        return reboot_now();
+                        installed = r > 0;
                 }
-
-                if (strverscmp_improved(applied->version, booted_version) == 0 &&
-                    FLAGS_SET(applied->flags, UPDATE_INCOMPLETE)) {
-                        log_notice("Currently booted version was incomplete and has been repaired, rebooting.");
-                        return reboot_now();
-                }
-
-                log_info("Booted version is newer or identical to newly installed version, not rebooting.");
         }
 
-        return 0;
+        if (arg_cleanup > 0)
+                RET_GATHER(ret, installdb_cleanup_component(node, arg_component));
+
+        if (installed) {
+                /* We installed something, yay */
+
+                if (arg_reboot) {
+                        assert(applied);
+                        assert(booted_version);
+
+                        if (strverscmp_improved(applied->version, booted_version) > 0) {
+                                log_notice("Newly installed version is newer than booted version, rebooting.");
+                                RET_GATHER(ret, reboot_now());
+                        } else if (strverscmp_improved(applied->version, booted_version) == 0 &&
+                                   FLAGS_SET(applied->flags, UPDATE_INCOMPLETE)) {
+                                log_notice("Currently booted version was incomplete and has been repaired, rebooting.");
+                                RET_GATHER(ret, reboot_now());
+                        } else
+                                log_info("Booted version is newer or identical to newly installed version, not rebooting.");
+                }
+        }
+
+        return ret;
 }
 
 VERB(verb_update, "update", "[VERSION]", VERB_ANY, 2, 0,
@@ -1822,6 +1839,9 @@ static int verb_cleanup(int argc, char *argv[], uintptr_t _data, void *userdata)
 
         assert(argc <= 1);
 
+        if (arg_cleanup == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invocation of 'cleanup' with --cleanup=no is contradictory, refusing.");
+
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
         r = process_image(/* ro= */ false, &mounted_dir, &loop_device);
@@ -2003,6 +2023,17 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                             "Do not fetch metadata from the network"):
                         arg_offline = true;
                         break;
+
+                OPTION_LONG("cleanup", "BOOL", "Clean up orphaned files after completing update"): {
+                        bool b;
+
+                        r = parse_boolean_argument("--cleanup=", opts.arg, &b);
+                        if (r < 0)
+                                return r;
+
+                        arg_cleanup = b;
+                        break;
+                }
 
                 OPTION_COMMON_NO_PAGER:
                         arg_pager_flags |= PAGER_DISABLE;
