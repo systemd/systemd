@@ -2617,9 +2617,9 @@ static int verb_components(int argc, char *argv[], uintptr_t _data, void *userda
         return 0;
 }
 
-VERB(verb_enable_component, "enable-component", "COMPONENT…", 2, VERB_ANY, 0,
+VERB(verb_enable_component, "enable-component", "COMPONENT…", 1, VERB_ANY, 0,
      "Enable component");
-VERB(verb_enable_component, "disable-component", "COMPONENT…", 2, VERB_ANY, 0,
+VERB(verb_enable_component, "disable-component", "COMPONENT…", 1, VERB_ANY, 0,
      "Disable component");
 static int verb_enable_component(int argc, char *argv[], uintptr_t _data, void *userdata) {
         bool enable = streq(argv[0], "enable-component");
@@ -2630,14 +2630,32 @@ static int verb_enable_component(int argc, char *argv[], uintptr_t _data, void *
         if (r < 0)
                 return r;
 
-        if (context.component || context.component_select != SELECT_EXPLICIT)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "The --component= and --component-all/--component-suggested switches may not be combined with '%s', "
-                                       "specify the component(s) as arguments instead.", argv[0]);
-
         if (context.definitions)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "The --definitions= switch may not be combined with '%s'.", argv[0]);
+
+        char **arguments, *array[2];
+        if (argc > 1) {
+                if (context.component || context.component_select != SELECT_EXPLICIT)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Either specify component names as positional parameter or via --component=/--component-all/--component-suggested, not both.");
+
+                arguments = strv_skip(argv, 1);
+
+        } else if (context.component_select == SELECT_EXPLICIT) {
+                if (!context.component)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No component specified.");
+
+                array[0] = context.component;
+                array[1] = NULL;
+                arguments = array;
+        } else {
+                assert(!context.component);
+                arguments = NULL;
+        }
+
+        STRV_FOREACH(name, arguments)
+                if (!component_name_valid(*name))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Component name invalid: %s", *name);
 
         r = context_load_offline(
                         &context,
@@ -2651,19 +2669,76 @@ static int verb_enable_component(int argc, char *argv[], uintptr_t _data, void *
         if (r < 0)
                 return r;
 
+        _cleanup_strv_free_ char **suggested = NULL;
+
+        switch (context.component_select) {
+
+        case SELECT_EXPLICIT:
+                STRV_FOREACH(name, arguments)
+                        if (!strv_contains(component_names, *name))
+                                return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "Component not found: %s", *name);
+                break;
+
+        case SELECT_ALL:
+                assert(!arguments);
+                arguments = component_names;
+                break;
+
+        case SELECT_SUGGESTED:
+                assert(!arguments);
+                STRV_FOREACH(name, component_names) {
+                        _cleanup_(context_done) Context cc = CONTEXT_NULL;
+
+                        r = context_from_base_with_component(&context, *name, &cc);
+                        if (r < 0)
+                                return r;
+
+                        r = context_load_offline(
+                                        &cc,
+                                        /* process_image_flags= */ 0,
+                                        /* read_definitions_flags= */ 0);
+                        if (r < 0)
+                                continue;
+
+                        r = context_component_is_suggested(&cc);
+                        if (r < 0) {
+                                log_warning_errno(r, "Failed to determine whether '%s' shall be enabled, skipping: %m", *name);
+                                continue;
+                        }
+
+                        /* This reconciles the system with the suggestions: on 'enable-component' we act on
+                         * the components that are suggested, on 'disable-component' we act on the ones that
+                         * are not. Hence pick the components whose suggestion state matches the operation. */
+                        if (!!r != !!enable) {
+                                log_debug("Skipping '%s'.", *name);
+                                continue;
+                        }
+
+                        log_info("%s '%s'.", enable ? "Enabling" : "Disabling", *name);
+
+                        if (strv_extend(&suggested, *name) < 0)
+                                return log_oom();
+                }
+
+                arguments = suggested;
+                break;
+
+        default:
+                assert_not_reached();
+        }
+
+        if (strv_isempty(arguments)) {
+                log_info("No components selected.");
+                return 0;
+        }
+
         /* Component definition files live directly below the configuration directories, hence the drop-in
          * goes right next to them below /etc. */
         _cleanup_free_ char *dropin_dir = path_join(context.root, SYSCONF_DIR);
         if (!dropin_dir)
                 return log_oom();
 
-        STRV_FOREACH(name, strv_skip(argv, 1)) {
-                if (!component_name_valid(*name))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Component name invalid: %s", *name);
-
-                if (!strv_contains(component_names, *name))
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "Component not found: %s", *name);
-
+        STRV_FOREACH(name, arguments) {
                 _cleanup_free_ char *fname = strjoin("sysupdate.", *name, ".component");
                 if (!fname)
                         return log_oom();
