@@ -345,13 +345,14 @@ static void pe_locate_sections_internal(
                 }
 }
 
-static bool looking_for_dtbauto(const char *const section_names[]) {
+static bool looking_for_dtbauto_or_efifw(const char *const section_names[]) {
         assert(section_names);
 
         for (size_t i = 0; section_names[i]; i++)
-                if (pe_section_name_equal(section_names[i], ".dtbauto"))
+                if (pe_section_name_equal(section_names[i], ".dtbauto") ||
+                    pe_section_name_equal(section_names[i], ".efifw"))
                         return true;
-         return false;
+        return false;
 }
 
 static void pe_locate_sections(
@@ -361,7 +362,7 @@ static void pe_locate_sections(
                 size_t validate_base,
                 PeSectionVector sections[]) {
 
-        if (!looking_for_dtbauto(section_names))
+        if (!looking_for_dtbauto_or_efifw(section_names))
                 return pe_locate_sections_internal(
                                   section_table,
                                   n_section_table,
@@ -377,40 +378,64 @@ static void pe_locate_sections(
         const void *hwids = NULL;
         const Device *device = NULL;
 
-        if (!firmware_devicetree_exists()) {
-                /* Find HWIDs table and search for the current device */
-                static const char *const hwid_section_names[] = { ".hwids", NULL };
-                PeSectionVector hwids_section[1] = {};
+        /* Find HWIDs table and search for the current device */
+        static const char *const hwid_section_names[] = { ".hwids", NULL };
+        PeSectionVector hwids_section[1] = {};
 
-                pe_locate_sections_internal(
-                                section_table,
-                                n_section_table,
-                                hwid_section_names,
-                                validate_base,
-                                /* device_table= */ NULL,
-                                /* device= */ NULL,
-                                hwids_section);
+        pe_locate_sections_internal(
+                   section_table,
+                   n_section_table,
+                   hwid_section_names,
+                   validate_base,
+                   /* device_table= */ NULL,
+                   /* device= */ NULL,
+                   hwids_section);
 
-                if (PE_SECTION_VECTOR_IS_SET(hwids_section)) {
-                        hwids = (const uint8_t *) SIZE_TO_PTR(validate_base) + hwids_section[0].memory_offset;
+        if (PE_SECTION_VECTOR_IS_SET(hwids_section)) {
+                hwids = (const uint8_t *) SIZE_TO_PTR(validate_base) + hwids_section[0].memory_offset;
+                EFI_STATUS err;
 
-                        EFI_STATUS err = chid_match(hwids, hwids_section[0].memory_size, DEVICE_TYPE_DEVICETREE, &device);
-                        if (err != EFI_SUCCESS) {
+                if (!firmware_devicetree_exists()) {
+                        err = chid_match(hwids, hwids_section[0].memory_size, DEVICE_TYPE_DEVICETREE, &device);
+                        if (err == EFI_SUCCESS)
+                                pe_locate_sections_internal(
+                                                section_table,
+                                                n_section_table,
+                                                section_names,
+                                                validate_base,
+                                                hwids,
+                                                device,
+                                                sections);
+                        else
                                 log_full(err, err == EFI_NOT_FOUND ? LOG_DEBUG : LOG_ERR,
                                          "HWID matching failed, no DT blob will be selected: %m");
-                                hwids = NULL;
-                        }
+                }
+
+                err = chid_match(hwids, hwids_section[0].memory_size, DEVICE_TYPE_UEFI_FW, &device);
+                if (err == EFI_SUCCESS)
+                        pe_locate_sections_internal(
+                                        section_table,
+                                        n_section_table,
+                                        section_names,
+                                        validate_base,
+                                        hwids,
+                                        device,
+                                        sections);
+                else {
+                        log_full(err, err == EFI_NOT_FOUND ? LOG_DEBUG : LOG_ERR,
+                                 "No UEFI FW will be selected: %m");
+                        hwids = NULL;
+                        device = NULL;
                 }
         }
-
         return pe_locate_sections_internal(
-                            section_table,
-                            n_section_table,
-                            section_names,
-                            validate_base,
-                            hwids,
-                            device,
-                            sections);
+                   section_table,
+                   n_section_table,
+                   section_names,
+                   validate_base,
+                   hwids,
+                   device,
+                   sections);
 }
 
 static uint32_t get_compatibility_entry_address(const DosFileHeader *dos, const PeFileHeader *pe) {
@@ -460,7 +485,12 @@ static uint32_t get_compatibility_entry_address(const DosFileHeader *dos, const 
         return 0;
 }
 
-EFI_STATUS pe_kernel_info(const void *base, uint32_t *ret_entry_point, uint32_t *ret_compat_entry_point, size_t *ret_size_in_memory) {
+EFI_STATUS pe_kernel_info(
+                const void *base,
+                uint32_t *ret_entry_point,
+                uint32_t *ret_compat_entry_point,
+                size_t *ret_size_in_memory,
+                uint32_t *ret_section_alignment) {
         assert(base);
 
         const DosFileHeader *dos = (const DosFileHeader *) base;
@@ -475,6 +505,16 @@ EFI_STATUS pe_kernel_info(const void *base, uint32_t *ret_entry_point, uint32_t 
          * of the SizeOfImage field in the PE header and return it */
         size_t size_in_memory = pe->OptionalHeader.SizeOfImage;
 
+        /* Honoring SectionAlignment lets callers place the image so the kernel's EFI stub need not relocate
+         * it (SZ_64K on arm64). The PE spec requires a power of 2; for a non-conforming value fall back to
+         * plain page alignment (what we assumed before honoring this field) rather than propagate something
+         * that would break the allocator's over-alignment math. */
+        uint32_t section_alignment = pe->OptionalHeader.SectionAlignment;
+        if (!ISPOWEROF2(section_alignment)) {
+                log_warning("PE SectionAlignment %" PRIu32 " is not a power of 2, falling back to page alignment.", section_alignment);
+                section_alignment = EFI_PAGE_SIZE;
+        }
+
         /* Support for LINUX_INITRD_MEDIA_GUID was added in kernel stub 1.0. */
         if (pe->OptionalHeader.MajorImageVersion < 1)
                 return EFI_UNSUPPORTED;
@@ -486,6 +526,8 @@ EFI_STATUS pe_kernel_info(const void *base, uint32_t *ret_entry_point, uint32_t 
                         *ret_compat_entry_point = 0;
                 if (ret_size_in_memory)
                         *ret_size_in_memory = size_in_memory;
+                if (ret_section_alignment)
+                        *ret_section_alignment = section_alignment;
                 return EFI_SUCCESS;
         }
 
@@ -500,6 +542,8 @@ EFI_STATUS pe_kernel_info(const void *base, uint32_t *ret_entry_point, uint32_t 
                 *ret_compat_entry_point = compat_entry_point;
         if (ret_size_in_memory)
                 *ret_size_in_memory = size_in_memory;
+        if (ret_section_alignment)
+                *ret_section_alignment = section_alignment;
 
         return EFI_SUCCESS;
 }

@@ -99,21 +99,25 @@ if grep -qw luo_nboot=1 /proc/cmdline; then
     # then forwards the preserved fds via LISTEN_FDS to a fresh nspawn payload,
     # which verifies the content is intact.
     create_dummy_container /var/lib/machines/fdstore
-    cat >/var/lib/machines/fdstore/sbin/init <<'EOF'
+    if [[ -x /var/lib/machines/fdstore/usr/bin/test-fdstore ]]; then
+        cat >/var/lib/machines/fdstore/sbin/init <<'EOF'
 #!/usr/bin/env bash
 set -e
 exec /usr/bin/test-fdstore check
 EOF
-    chmod +x /var/lib/machines/fdstore/sbin/init
-    mkdir -p /run/systemd/nspawn
-    cat >/run/systemd/nspawn/fdstore.nspawn <<EOF
+        chmod +x /var/lib/machines/fdstore/sbin/init
+        mkdir -p /run/systemd/nspawn
+        cat >/run/systemd/nspawn/fdstore.nspawn <<EOF
 [Exec]
 KillSignal=SIGTERM
 EOF
-    n_nspawn_fds=$(systemctl show -P NFileDescriptorStore systemd-nspawn@fdstore.service)
-    test "${n_nspawn_fds}" -ge 2
-    systemctl start systemd-nspawn@fdstore.service
-    systemctl is-active systemd-nspawn@fdstore.service
+        n_nspawn_fds=$(systemctl show -P NFileDescriptorStore systemd-nspawn@fdstore.service)
+        test "${n_nspawn_fds}" -ge 2
+        systemctl start systemd-nspawn@fdstore.service
+        systemctl is-active systemd-nspawn@fdstore.service
+    else
+        echo >&2 "test-fdstore not available in the minimal container, skipping fdstore tests"
+    fi
 
     # late.service: rewrite the fragment with the second-boot ExecStart and
     # exercise the daemon-reload + daemon-reexec preservation paths.
@@ -174,7 +178,7 @@ set -eux
 state_file=/run/TEST-91-LIVEUPDATE-failure.attempt
 attempt=$(cat "$state_file" 2>/dev/null || echo 0)
 attempt=$((attempt + 1))
-echo "$attempt" > "$state_file"
+echo "$attempt" >"$state_file"
 if [[ "$attempt" -eq 1 ]]; then
     systemd-notify --fd=0 --fdname=mem </dev/zero
 else
@@ -244,26 +248,30 @@ else
 
     # Exercise the FD-store preservation chain across a kexec for a privileged
     # nspawn container managed as a system service:
-    #   payload (inside container) -> systemd-nspawn@fdstore.service fdstore
-    #   -> LUO -> after kexec PID 1 restores the fdstore -> systemd-nspawn ->
+    #   payload (inside container) → systemd-nspawn@fdstore.service fdstore
+    #   → LUO → after kexec PID 1 restores the fdstore → systemd-nspawn →
     #   payload verifies content matches.
     create_dummy_container /var/lib/machines/fdstore
-    cat >/var/lib/machines/fdstore/sbin/init <<'EOF'
+    if [[ -x /var/lib/machines/fdstore/usr/bin/test-fdstore ]]; then
+        cat >/var/lib/machines/fdstore/sbin/init <<'EOF'
 #!/usr/bin/env bash
 set -e
 exec /usr/bin/test-fdstore store
 EOF
-    chmod +x /var/lib/machines/fdstore/sbin/init
+        chmod +x /var/lib/machines/fdstore/sbin/init
 
-    mkdir -p /run/systemd/nspawn
-    cat >/run/systemd/nspawn/fdstore.nspawn <<EOF
+        mkdir -p /run/systemd/nspawn
+        cat >/run/systemd/nspawn/fdstore.nspawn <<EOF
 [Exec]
 KillSignal=SIGTERM
 EOF
 
-    systemctl start systemd-nspawn@fdstore.service
-    timeout 30s bash -c \
-        "until [[ \"\$(systemctl show -P NFileDescriptorStore systemd-nspawn@fdstore.service)\" -ge 2 ]]; do sleep 0.5; done"
+        systemctl start systemd-nspawn@fdstore.service
+        timeout 30s bash -c \
+            "until [[ \"\$(systemctl show -P NFileDescriptorStore systemd-nspawn@fdstore.service)\" -ge 2 ]]; do sleep 0.5; done"
+    else
+        echo >&2 "test-fdstore not available in the minimal container, skipping fdstore tests"
+    fi
 
     # Negative path: store a fd store entry that holds a child LUO session named
     # like PID 1's own ("systemd"). On kexec PID 1 must refuse to serialize it

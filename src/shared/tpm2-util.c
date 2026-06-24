@@ -52,6 +52,52 @@
 #include "unaligned.h"
 #include "virt.h"
 
+/* The PCR banks we are willing to bind policies to, in order of preference. We keep SHA256 as the top
+ * preference for backwards compatibility (systems that already bind to it keep using the same bank, so
+ * existing TPM2-sealed secrets remain valid), then prefer SHA384 over SHA512: SHA384 is computed in 64-bit
+ * words like SHA512 but produces a shorter digest, so it takes up less room in the TPM event log, whose
+ * memory is usually bounded. SHA512 comes next, and we only fall back to the weak SHA1 as a last resort. */
+static const uint16_t tpm2_pcr_bank_preference[] = {
+        TPM2_ALG_SHA256,
+        TPM2_ALG_SHA384,
+        TPM2_ALG_SHA512,
+        TPM2_ALG_SHA1,
+};
+
+/* The reduced preference list used when re-deriving the bank for legacy enrollments that did not record one
+ * (see tpm2_get_best_pcr_bank_legacy()). Such enrollments were sealed by code that only ever considered
+ * SHA256 and SHA1, so they can only be bound to one of those two banks. We must restrict the choice to exactly this set. */
+static const uint16_t tpm2_pcr_bank_preference_legacy[] = {
+        TPM2_ALG_SHA256,
+        TPM2_ALG_SHA1,
+};
+
+static int pcr_bank_from_efi_active(
+                const uint16_t *banks,
+                size_t n_banks,
+                uint32_t active_banks,
+                uint16_t *ret) {
+
+        assert(banks);
+        assert(ret);
+
+        FOREACH_ARRAY(bank, banks, n_banks)
+                if (BIT_SET(active_banks, *bank)) {
+                        *ret = *bank;
+                        return 0;
+                }
+
+        return -EOPNOTSUPP;
+}
+
+int tpm2_pcr_bank_from_efi_active(uint32_t active_banks, uint16_t *ret) {
+        return pcr_bank_from_efi_active(tpm2_pcr_bank_preference, ELEMENTSOF(tpm2_pcr_bank_preference), active_banks, ret);
+}
+
+int tpm2_pcr_bank_from_efi_active_legacy(uint32_t active_banks, uint16_t *ret) {
+        return pcr_bank_from_efi_active(tpm2_pcr_bank_preference_legacy, ELEMENTSOF(tpm2_pcr_bank_preference_legacy), active_banks, ret);
+}
+
 #if HAVE_TPM2
 static DLSYM_PROTOTYPE(Esys_Create) = NULL;
 static DLSYM_PROTOTYPE(Esys_CreateLoaded) = NULL;
@@ -343,6 +389,25 @@ static int tpm2_get_capability(
         return more == TPM2_YES;
 }
 
+static int tpm2_get_capability_property(Tpm2Context *c, uint32_t property, uint32_t *ret_value) {
+        int r;
+
+        assert(c);
+        assert(ret_value);
+
+        TPMU_CAPABILITIES capabilities = {};
+        r = tpm2_get_capability(c, TPM2_CAP_TPM_PROPERTIES, property, 1, &capabilities);
+        if (r < 0)
+                return r;
+
+        if (capabilities.tpmProperties.count == 0 ||
+            capabilities.tpmProperties.tpmProperty[0].property != property)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOENT), "TPM property 0x%04" PRIx32 " does not exist", property);
+
+        *ret_value = capabilities.tpmProperties.tpmProperty[0].value;
+        return 0;
+}
+
 int tpm2_vendor_info_to_modalias(const Tpm2VendorInfo *info, char **ret) {
         _cleanup_free_ char *m = NULL;
 
@@ -621,6 +686,31 @@ static int tpm2_cache_capabilities(Tpm2Context *c) {
                  * this command with the full PCR allocation and moreData will be NO." */
                 log_debug("TPM bug: reported multiple PCR sets; using only first set.");
         c->capability_pcrs = capability.assignedPCR;
+
+        /* Cache the value of TPM_PT_NV_BUFFER_MAX, which defines the maximum size of TPM2B_MAX_NV_BUFFER and
+         * which limits the amount of data that TPM2_NV_Read can return in a single command. This may be
+         * smaller than the size of a NV index payload, particularly if that payload contains a X509
+         * certificate with a RSA public key. */
+        uint32_t max_nv_buffer_size = 0;
+
+        /* The TCG reference library spec (part 2) doesn't guarantee a minimum size for the
+         * TPM2B_MAX_NV_BUFFER type. However, the PC-Client PTP spec does set a minimum value of 512,
+         * so we'll just assume this if the TPM didn't report a value or reports an implausible value. */
+        static const uint32_t fallback_max_nv_buffer_size = 512;
+
+        r = tpm2_get_capability_property(c, TPM2_PT_NV_BUFFER_MAX, &max_nv_buffer_size);
+        if (r == -ENOENT) {
+                log_debug("TPM bug: didn't report a value for TPM_PT_NV_BUFFER_MAX; using %" PRIu32 ".", fallback_max_nv_buffer_size);
+                max_nv_buffer_size = fallback_max_nv_buffer_size;
+        } else if (r < 0)
+                return r;
+        if (max_nv_buffer_size == 0 || max_nv_buffer_size > UINT16_MAX) {
+                /* TPM2B types have a uint16 size field. If the TPM reported a maximum size that is larger
+                 * than this, or 0, then consider this as implausible and pick the default fallback. */
+                log_debug("TPM bug: reported implausible value for TPM_PT_NV_BUFFER_MAX; using %" PRIu32 ".", fallback_max_nv_buffer_size);
+                max_nv_buffer_size = fallback_max_nv_buffer_size;
+        }
+        c->max_nv_buffer_size = (uint16_t) max_nv_buffer_size;
 
         return 0;
 }
@@ -2863,9 +2953,23 @@ static int tpm2_bank_has24(const TPMS_PCR_SELECTION *selection) {
         return valid;
 }
 
-int tpm2_get_best_pcr_bank(
+static char* pcr_bank_preference_to_string(const uint16_t *banks, size_t n_banks) {
+        _cleanup_free_ char *s = NULL;
+
+        assert(banks);
+
+        FOREACH_ARRAY(bank, banks, n_banks)
+                if (!strextend_with_separator(&s, ", ", tpm2_hash_alg_to_string(*bank)))
+                        return NULL;
+
+        return TAKE_PTR(s);
+}
+
+static int get_best_pcr_bank(
                 Tpm2Context *c,
                 uint32_t pcr_mask,
+                const uint16_t *banks,
+                size_t n_banks,
                 TPMI_ALG_HASH *ret) {
 
         TPMI_ALG_HASH supported_hash = 0, hash_with_valid_pcr = 0;
@@ -2873,6 +2977,8 @@ int tpm2_get_best_pcr_bank(
 
         assert(c);
         assert(ret);
+        assert(banks);
+        assert(n_banks > 0);
 
         uint32_t efi_banks;
         r = efi_get_active_pcr_banks(&efi_banks);
@@ -2887,14 +2993,18 @@ int tpm2_get_best_pcr_bank(
         else if (efi_banks == 0)
                 log_debug("Boot loader set the LoaderTpm2ActivePcrBanks EFI variable to zero to indicate that TPM support is not available in the firmware. We'll have to guess the used PCR banks.");
         else {
-                if (BIT_SET(efi_banks, TPM2_ALG_SHA256))
-                        *ret = TPM2_ALG_SHA256;
-                else if (BIT_SET(efi_banks, TPM2_ALG_SHA1))
-                        *ret = TPM2_ALG_SHA1;
-                else
-                        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Firmware reports neither SHA1 nor SHA256 PCR banks, cannot operate.");
+                r = pcr_bank_from_efi_active(banks, n_banks, efi_banks, ret);
+                if (r == -EOPNOTSUPP) {
+                        _cleanup_free_ char *bank_list = pcr_bank_preference_to_string(banks, n_banks);
+                        return log_debug_errno(r, "Firmware reports none of the PCR banks we can use (%s), cannot operate.", strna(bank_list));
+                }
+                if (r < 0)
+                        return r;
 
-                log_debug("Picked best PCR bank %s based on firmware reported banks.", tpm2_hash_alg_to_string(*ret));
+                if (*ret == TPM2_ALG_SHA1)
+                        log_notice("Firmware reports SHA1 as the best active PCR bank, binding policy to it. This reduces the security level substantially.");
+                else
+                        log_debug("Picked best PCR bank %s based on firmware reported banks.", tpm2_hash_alg_to_string(*ret));
                 return 0;
         }
 
@@ -2904,73 +3014,63 @@ int tpm2_get_best_pcr_bank(
                 return 0;
         }
 
-        FOREACH_TPMS_PCR_SELECTION_IN_TPML_PCR_SELECTION(selection, &c->capability_pcrs) {
-                TPMI_ALG_HASH hash = selection->hash;
+        /* Walk our banks in order of preference. Because the list is already sorted best-first, the first
+         * bank that qualifies is the most preferred one — no ranking needed. */
+        FOREACH_ARRAY(bank, banks, n_banks) {
                 int good;
 
-                /* For now we are only interested in the SHA1 and SHA256 banks */
-                if (!IN_SET(hash, TPM2_ALG_SHA256, TPM2_ALG_SHA1))
+                /* Skip banks the TPM doesn't expose with a full set of 24 PCRs. */
+                if (!tpm2_tpml_pcr_selection_has_mask(&c->capability_pcrs, *bank, TPM2_PCRS_MASK))
                         continue;
 
-                r = tpm2_bank_has24(selection);
-                if (r < 0)
-                        return r;
-                if (!r)
-                        continue;
+                /* First supported bank we reach is the most preferred supported one. */
+                if (supported_hash == 0)
+                        supported_hash = *bank;
 
-                good = tpm2_pcr_mask_good(c, hash, pcr_mask);
+                good = tpm2_pcr_mask_good(c, *bank, pcr_mask);
                 if (good < 0)
                         return good;
-
-                if (hash == TPM2_ALG_SHA256) {
-                        supported_hash = TPM2_ALG_SHA256;
-                        if (good) {
-                                /* Great, SHA256 is supported and has initialized PCR values, we are done. */
-                                hash_with_valid_pcr = TPM2_ALG_SHA256;
-                                break;
-                        }
-                } else {
-                        assert(hash == TPM2_ALG_SHA1);
-
-                        if (supported_hash == 0)
-                                supported_hash = TPM2_ALG_SHA1;
-
-                        if (good && hash_with_valid_pcr == 0)
-                                hash_with_valid_pcr = TPM2_ALG_SHA1;
+                if (good) {
+                        /* First supported bank with initialized PCRs is the most preferred such bank; we
+                         * cannot do any better, so we are done. */
+                        hash_with_valid_pcr = *bank;
+                        break;
                 }
         }
 
-        /* We preferably pick SHA256, but only if its PCRs are initialized or neither the SHA1 nor the SHA256
-         * PCRs are initialized. If SHA256 is not supported but SHA1 is and its PCRs are too, we prefer
-         * SHA1.
-         *
-         * We log at LOG_NOTICE level whenever we end up using the SHA1 bank or when the PCRs we bind to are
-         * not initialized. */
+        /* Prefer a bank whose selected PCRs are actually initialized. If none of the supported banks has
+         * initialized PCRs we still proceed with the most preferred supported bank, but the resulting PCR
+         * policy is then effectively unenforced. */
 
-        if (hash_with_valid_pcr == TPM2_ALG_SHA256) {
-                assert(supported_hash == TPM2_ALG_SHA256);
-                log_debug("TPM2 device supports SHA256 PCR bank and SHA256 PCRs are valid, yay!");
-                *ret = TPM2_ALG_SHA256;
-        } else if (hash_with_valid_pcr == TPM2_ALG_SHA1) {
-                if (supported_hash == TPM2_ALG_SHA256)
-                        log_notice("TPM2 device supports both SHA1 and SHA256 PCR banks, but only SHA1 PCRs are valid, falling back to SHA1 bank. This reduces the security level substantially.");
-                else {
-                        assert(supported_hash == TPM2_ALG_SHA1);
-                        log_notice("TPM2 device lacks support for SHA256 PCR bank, but SHA1 bank is supported and SHA1 PCRs are valid, falling back to SHA1 bank. This reduces the security level substantially.");
-                }
+        if (hash_with_valid_pcr != 0) {
+                if (hash_with_valid_pcr == TPM2_ALG_SHA1)
+                        log_notice("Only the weak SHA1 PCR bank has initialized PCRs, binding policy to it. This reduces the security level substantially.");
+                else if (hash_with_valid_pcr != supported_hash)
+                        log_notice("Preferred %s PCR bank has uninitialized PCRs, binding policy to the %s bank instead.",
+                                   tpm2_hash_alg_to_string(supported_hash), tpm2_hash_alg_to_string(hash_with_valid_pcr));
+                else
+                        log_debug("Binding policy to %s PCR bank with initialized PCRs.", tpm2_hash_alg_to_string(hash_with_valid_pcr));
 
-                *ret = TPM2_ALG_SHA1;
-        } else if (supported_hash == TPM2_ALG_SHA256) {
-                log_notice("TPM2 device supports SHA256 PCR bank but none of the selected PCRs are valid! Firmware apparently did not initialize any of the selected PCRs. Proceeding anyway with SHA256 bank. PCR policy effectively unenforced!");
-                *ret = TPM2_ALG_SHA256;
-        } else if (supported_hash == TPM2_ALG_SHA1) {
-                log_notice("TPM2 device lacks support for SHA256 bank, but SHA1 bank is supported, but none of the selected PCRs are valid! Firmware apparently did not initialize any of the selected PCRs. Proceeding anyway with SHA1 bank. PCR policy effectively unenforced!");
-                *ret = TPM2_ALG_SHA1;
-        } else
+                *ret = hash_with_valid_pcr;
+        } else if (supported_hash != 0) {
+                log_notice("TPM2 device supports the %s PCR bank but none of the selected PCRs are initialized! Firmware apparently did not measure into any of them. Proceeding anyway, but the PCR policy is effectively unenforced!",
+                           tpm2_hash_alg_to_string(supported_hash));
+                *ret = supported_hash;
+        } else {
+                _cleanup_free_ char *bank_list = pcr_bank_preference_to_string(banks, n_banks);
                 return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                       "TPM2 module supports neither SHA1 nor SHA256 PCR banks, cannot operate.");
+                                       "TPM2 module supports none of the PCR banks we can use (%s), cannot operate.", strna(bank_list));
+        }
 
         return 0;
+}
+
+int tpm2_get_best_pcr_bank(Tpm2Context *c, uint32_t pcr_mask, TPMI_ALG_HASH *ret) {
+        return get_best_pcr_bank(c, pcr_mask, tpm2_pcr_bank_preference, ELEMENTSOF(tpm2_pcr_bank_preference), ret);
+}
+
+int tpm2_get_best_pcr_bank_legacy(Tpm2Context *c, uint32_t pcr_mask, TPMI_ALG_HASH *ret) {
+        return get_best_pcr_bank(c, pcr_mask, tpm2_pcr_bank_preference_legacy, ELEMENTSOF(tpm2_pcr_bank_preference_legacy), ret);
 }
 
 int tpm2_get_good_pcr_banks(
@@ -5814,9 +5914,9 @@ int tpm2_unseal(Tpm2Context *c,
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Number of provided known policy hashes (%zu) does not match policy requirements (%zu or 0).", n_known_policy_hash, n_shards);
 
         /* Older code did not save the pcr_bank, and unsealing needed to detect the best pcr bank to use,
-         * so we need to handle that legacy situation. */
+         * so we need to handle that legacy situation. Use the legacy variant, which only ever picks SHA256 or SHA1. */
         if (pcr_bank == UINT16_MAX) {
-                r = tpm2_get_best_pcr_bank(c, hash_pcr_mask|pubkey_pcr_mask, &pcr_bank);
+                r = tpm2_get_best_pcr_bank_legacy(c, hash_pcr_mask|pubkey_pcr_mask, &pcr_bank);
                 if (r < 0)
                         return r;
         }
@@ -6151,6 +6251,116 @@ int tpm2_write_policy_nv_index(
         return 0;
 }
 
+int tpm2_define_data_nv_index(
+                Tpm2Context *c,
+                const Tpm2Handle *session,
+                TPM2_HANDLE requested_nv_index,
+                const struct iovec *data,
+                TPM2_HANDLE *ret_nv_index,
+                Tpm2Handle **ret_nv_handle) {
+
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *new_handle = NULL;
+        TPM2_HANDLE nv_index = 0;
+        TSS2_RC rc;
+        int r;
+
+        assert(c);
+        assert(iovec_is_set(data));
+
+        /* Allocates an ordinary NV index sized to hold 'data' and writes 'data' into it. The index is created
+         * with AUTHREAD/AUTHWRITE attributes so it can be read back with tpm2_read_nv_index(). */
+
+        if (data->iov_len == 0 || data->iov_len > UINT16_MAX)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Invalid NV index data size %zu.", data->iov_len);
+
+        r = tpm2_handle_new(c, &new_handle);
+        if (r < 0)
+                return r;
+
+        new_handle->flush = false; /* This is a persistent NV index, don't flush hence */
+
+        for (unsigned try = 0;; try++) {
+                if (requested_nv_index != 0)
+                        nv_index = requested_nv_index;
+                else
+                        nv_index = generate_random_nv_index();
+
+                TPM2B_NV_PUBLIC public_info = {
+                        .size = sizeof_field(TPM2B_NV_PUBLIC, nvPublic),
+                        .nvPublic = {
+                                .nvIndex = nv_index,
+                                .nameAlg = TPM2_ALG_SHA256,
+                                .attributes = TPM2_NT_ORDINARY | TPMA_NV_AUTHWRITE | TPMA_NV_AUTHREAD | TPMA_NV_NO_DA,
+                                .dataSize = data->iov_len,
+                        },
+                };
+
+                rc = sym_Esys_NV_DefineSpace(
+                                c->esys_context,
+                                /* authHandle= */ ESYS_TR_RH_OWNER,
+                                /* shandle1= */ session ? session->esys_handle : ESYS_TR_PASSWORD,
+                                /* shandle2= */ ESYS_TR_NONE,
+                                /* shandle3= */ ESYS_TR_NONE,
+                                /* auth= */ NULL,
+                                &public_info,
+                                &new_handle->esys_handle);
+                if (rc == TSS2_RC_SUCCESS)
+                        break;
+                if (rc != TPM2_RC_NV_DEFINED)
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                               "Failed to allocate NV index: %s", sym_Tss2_RC_Decode(rc));
+                if (requested_nv_index != 0) {
+                        assert(nv_index == requested_nv_index);
+                        return log_debug_errno(SYNTHETIC_ERRNO(EEXIST),
+                                               "Requested NV index 0x%" PRIx32 " already taken.", requested_nv_index);
+                }
+                if (try >= 24U)
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                               "Too many attempts trying to allocate NV index: %s", sym_Tss2_RC_Decode(rc));
+
+                log_debug("NV index 0x%" PRIx32 " already taken, trying another one (%u tries left)", nv_index, 24U - try);
+        }
+
+        log_debug("NV index 0x%" PRIx32 " successfully allocated.", nv_index);
+
+        /* TPM2_NV_Write is bounded by TPM_PT_NV_BUFFER_MAX just like TPM2_NV_Read, so write in chunks no
+         * larger than what the TPM accepts in a single command. */
+        size_t max_buffer_size = MIN((size_t) c->max_nv_buffer_size, (size_t) TPM2_MAX_NV_BUFFER_SIZE);
+        assert(max_buffer_size > 0);
+
+        for (size_t offset = 0; offset < data->iov_len;) {
+                size_t chunk_size = MIN(data->iov_len - offset, max_buffer_size);
+
+                TPM2B_MAX_NV_BUFFER buffer = { .size = chunk_size };
+                memcpy(buffer.buffer, (const uint8_t*) data->iov_base + offset, chunk_size);
+
+                rc = sym_Esys_NV_Write(
+                                c->esys_context,
+                                /* authHandle= */ new_handle->esys_handle,
+                                /* nvIndex= */ new_handle->esys_handle,
+                                /* shandle1= */ session ? session->esys_handle : ESYS_TR_PASSWORD,
+                                /* shandle2= */ ESYS_TR_NONE,
+                                /* shandle3= */ ESYS_TR_NONE,
+                                &buffer,
+                                /* offset= */ offset);
+                if (rc != TSS2_RC_SUCCESS) {
+                        (void) tpm2_undefine_nv_index(c, session, nv_index, new_handle);
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                               "Failed to write NV index 0x%" PRIx32 ": %s", nv_index, sym_Tss2_RC_Decode(rc));
+                }
+
+                offset += chunk_size;
+        }
+
+        if (ret_nv_index)
+                *ret_nv_index = nv_index;
+        if (ret_nv_handle)
+                *ret_nv_handle = TAKE_PTR(new_handle);
+
+        return 0;
+}
+
 int tpm2_undefine_nv_index(
                 Tpm2Context *c,
                 const Tpm2Handle *session,
@@ -6366,36 +6576,56 @@ int tpm2_read_nv_index(
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                        "Failed read public data of nvindex 0x%x: %s", nv_index, sym_Tss2_RC_Decode(rc));
 
-        log_debug("Read public info for nvindex 0x%x, value size is %zu", nv_index, (size_t) nv_public->nvPublic.dataSize);
+        size_t data_size = nv_public->nvPublic.dataSize;
+        log_debug("Read public info for nvindex 0x%x, value size is %zu", nv_index, data_size);
 
-        _cleanup_(Esys_Freep) TPM2B_MAX_NV_BUFFER *value = NULL;
-        rc = sym_Esys_NV_Read(
-                        c->esys_context,
-                        /* authHandle= */ nv_handle->esys_handle,
-                        /* nvIndex= */ nv_handle->esys_handle,
-                        /* shandle1= */ session ? session->esys_handle : ESYS_TR_PASSWORD,
-                        /* shandle2= */ ESYS_TR_NONE,
-                        /* shandle3= */ ESYS_TR_NONE,
-                        nv_public->nvPublic.dataSize,
-                        /* offset= */ 0,
-                        &value);
-        if (rc != TSS2_RC_SUCCESS)
-                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                       "Failed read contents of nvindex 0x%x: %s", nv_index, sym_Tss2_RC_Decode(rc));
+        /* TPM2_NV_Read returns the data in a TPM2B_MAX_NV_BUFFER, whose maximum size is bounded by the value
+         * of the TPM_PT_NV_BUFFER_MAX property. This limits the amount of data that can be read in a single
+         * command. As this limit can be smaller than the size of the NV index payload (particularly if the
+         * payload contains a X509 certificate with a RSA public key), we read the contents in chunks no
+         * larger than what the TPM reports it can return in a single command. */
 
-        if (ret_value) {
-                assert(value);
+        /* Never ask for more than the buffer the TPM library hands back can hold. */
+        size_t max_buffer_size = MIN((size_t) c->max_nv_buffer_size, (size_t) TPM2_MAX_NV_BUFFER_SIZE);
+        assert(max_buffer_size > 0); /* tpm2_cache_capabilities sets this to 512 if the TPM reported 0. */
 
-                struct iovec result = {
-                        .iov_base = memdup(value->buffer, value->size),
-                        .iov_len = value->size,
-                };
-
+        _cleanup_(iovec_done) struct iovec result = {};
+        if (data_size > 0) {
+                result.iov_base = malloc(data_size);
                 if (!result.iov_base)
                         return log_oom_debug();
-
-                *ret_value = TAKE_STRUCT(result);
         }
+
+        while (result.iov_len < data_size) {
+                size_t chunk_size = MIN(data_size - result.iov_len, max_buffer_size);
+
+                _cleanup_(Esys_Freep) TPM2B_MAX_NV_BUFFER *chunk = NULL;
+                rc = sym_Esys_NV_Read(
+                                c->esys_context,
+                                /* authHandle= */ nv_handle->esys_handle,
+                                /* nvIndex= */ nv_handle->esys_handle,
+                                /* shandle1= */ session ? session->esys_handle : ESYS_TR_PASSWORD,
+                                /* shandle2= */ ESYS_TR_NONE,
+                                /* shandle3= */ ESYS_TR_NONE,
+                                chunk_size,
+                                /* offset= */ result.iov_len,
+                                &chunk);
+                if (rc != TSS2_RC_SUCCESS)
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                               "Failed read contents of nvindex 0x%x: %s", nv_index, sym_Tss2_RC_Decode(rc));
+                assert(chunk);
+                if (chunk->size != chunk_size)
+                        /* On success, TPM2_NV_Read should return exactly what we asked for. */
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                               "TPM returned an unexpected amount of data (%" PRIu16 ") reading nvindex 0x%x.",
+                                               chunk->size, nv_index);
+
+                memcpy((uint8_t*) result.iov_base + result.iov_len, chunk->buffer, chunk->size);
+                result.iov_len += chunk->size;
+        }
+
+        if (ret_value)
+                *ret_value = TAKE_STRUCT(result);
 
         return 0;
 }
@@ -7126,6 +7356,10 @@ int tpm2_nvpcr_extend_bytes(
                         &nv_handle);
         if (r < 0)
                 return log_debug_errno(r, "Failed to acquire handle to NV index 0x%" PRIu32 ".", p.nv_index);
+        if (r == 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENODEV),
+                                       "NvPCR '%s' is anchored but its NV index 0x%" PRIx32 " is no longer present on the TPM, refusing extend.",
+                                       name, p.nv_index);
 
         log_debug("Successfully acquired handle to existing NV index 0x%" PRIx32 ".", p.nv_index);
 

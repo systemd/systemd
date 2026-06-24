@@ -325,7 +325,7 @@ static int cd_media_compat(Context *c) {
 
 static int cd_inquiry(Context *c) {
         struct scsi_cmd sc;
-        unsigned char inq[36];
+        unsigned char inq[36] = {};
         int r;
 
         assert(c);
@@ -360,7 +360,7 @@ static int feature_profiles(Context *c, const unsigned char *profiles, size_t si
 }
 
 static int cd_profiles_old_mmc(Context *c) {
-        disc_information discinfo;
+        disc_information discinfo = {};
         struct scsi_cmd sc;
         size_t len;
         int r;
@@ -411,7 +411,7 @@ static int cd_profiles_old_mmc(Context *c) {
 
 static int cd_profiles(Context *c) {
         struct scsi_cmd sc;
-        unsigned char features[65530];
+        unsigned char features[65530] = {};
         unsigned cur_profile;
         size_t len;
         int r;
@@ -503,8 +503,8 @@ DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(media_state, MediaState);
 
 static int dvd_ram_media_update_state(Context *c) {
         struct scsi_cmd sc;
-        unsigned char dvdstruct[8];
-        unsigned char format[12];
+        unsigned char dvdstruct[8] = {};
+        unsigned char format[12] = {};
         unsigned char len;
         int r;
 
@@ -568,7 +568,7 @@ static int dvd_ram_media_update_state(Context *c) {
 
 static int dvd_media_update_state(Context *c) {
         struct scsi_cmd sc;
-        unsigned char buffer[32 * 2048];
+        unsigned char buffer[32 * 2048] = {};
         int r;
 
         r = dvd_ram_media_update_state(c);
@@ -614,7 +614,7 @@ static int dvd_media_update_state(Context *c) {
 
 static int cd_media_info(Context *c) {
         struct scsi_cmd sc;
-        unsigned char header[32];
+        unsigned char header[32] = {};
         MediaState state;
         int r;
 
@@ -666,8 +666,8 @@ static int cd_media_info(Context *c) {
 
 static int cd_media_toc(Context *c) {
         struct scsi_cmd sc;
-        unsigned char header[12];
-        unsigned char toc[65536];
+        unsigned char header[12] = {};
+        unsigned char toc[65536] = {};
         unsigned num_tracks;
         size_t len;
         int r;

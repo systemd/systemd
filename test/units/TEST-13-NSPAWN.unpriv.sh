@@ -37,6 +37,7 @@ at_exit() {
     rm -rf /var/tmp/mangletest
     rm -f /var/tmp/mangletest.tar.gz
     rm -f /shouldnotwork
+    loginctl disable-linger testuser
 }
 
 trap at_exit EXIT
@@ -67,7 +68,7 @@ EOF
 loginctl enable-linger testuser
 
 run0 -u testuser mkdir -p .config/systemd/nspawn/
-run0 -u testuser -i "echo -e \"[Exec]\nKillSignal=SIGKILL\n\" > .config/systemd/nspawn/zurps.nspawn"
+run0 -u testuser -i "echo -e \"[Exec]\nKillSignal=SIGKILL\n\" >.config/systemd/nspawn/zurps.nspawn"
 run0 -u testuser systemctl start --user systemd-nspawn@zurps.service
 
 machinectl status zurps
@@ -194,14 +195,14 @@ run0 -u testuser mkdir /var/tmp/image-tar
 run0 -u testuser importctl --user export-tar zurps /var/tmp/image-tar/kurps.tar.gz -m
 run0 -u testuser importctl --user import-tar /var/tmp/image-tar/kurps.tar.gz -m
 
-run0 -u testuser -i "echo -e \"[Exec]\nKillSignal=SIGKILL\n\" > .config/systemd/nspawn/kurps.nspawn"
+run0 -u testuser -i "echo -e \"[Exec]\nKillSignal=SIGKILL\n\" >.config/systemd/nspawn/kurps.nspawn"
 run0 -u testuser systemctl start --user systemd-nspawn@kurps.service
 machinectl terminate kurps
 
-run0 -u testuser -D /var/tmp/image-tar/ bash -c 'sha256sum kurps.tar.gz > SHA256SUMS'
+run0 -u testuser -D /var/tmp/image-tar/ bash -c 'sha256sum kurps.tar.gz >SHA256SUMS'
 run0 -u testuser importctl --user pull-tar file:///var/tmp/image-tar/kurps.tar.gz nurps --verify=checksum -m
 
-run0 -u testuser -i "echo -e \"[Exec]\nKillSignal=SIGKILL\n\" > .config/systemd/nspawn/nurps.nspawn"
+run0 -u testuser -i "echo -e \"[Exec]\nKillSignal=SIGKILL\n\" >.config/systemd/nspawn/nurps.nspawn"
 run0 -u testuser systemctl start --user systemd-nspawn@nurps.service
 machinectl terminate nurps
 
@@ -234,7 +235,7 @@ assert_in 'wamms' "$(run0 -u testuser machinectl --user list-images)"
 run0 -u testuser machinectl --user image-status wamms
 run0 -u testuser machinectl --user show-image wamms
 
-run0 -u testuser -i "echo -e \"[Exec]\nKillSignal=SIGKILL\n\" > .config/systemd/nspawn/wamms.nspawn"
+run0 -u testuser -i "echo -e \"[Exec]\nKillSignal=SIGKILL\n\" >.config/systemd/nspawn/wamms.nspawn"
 run0 -u testuser systemctl start --user systemd-nspawn@wamms.service
 
 run0 -u testuser systemctl stop --user systemd-nspawn@zurps.service
@@ -316,6 +317,10 @@ cmp /var/tmp/mangletest/mangletest-0.1/usr/lib/os-release /home/testuser/.local/
 # Then restart the nspawn service and verify the inner payload actually
 # receives the preserved fds back via LISTEN_FDS, with their original content.
 create_dummy_container /home/testuser/.local/state/machines/fdstore
+if [[ ! -x /home/testuser/.local/state/machines/fdstore/usr/bin/test-fdstore ]]; then
+    echo >&2 "test-fdstore not available in the minimal container, skipping fdstore tests"
+    exit 0
+fi
 # The container init execs the helper directly so the FDSTORE notification is
 # sent from PID 1 (nspawn rejects notify messages from anyone but the inner
 # payload's init). The helper itself execs sleep on success to keep the
@@ -404,5 +409,3 @@ assert_eq "$(run0 -u testuser systemctl --user show -P SubState systemd-nspawn@f
 run0 -u testuser systemctl --user reset-failed systemd-nspawn@fdstore.service
 
 machinectl terminate fdstore 2>/dev/null || true
-
-loginctl disable-linger testuser
