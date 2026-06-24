@@ -443,9 +443,12 @@ static int client_context_read_extra_fields(
                 if (v < 2)
                         return -EBADMSG;
 
-                n = sizeof(uint64_t) + v;
-                if (left < n)
+                /* left >= sizeof(uint64_t) here, so the subtraction is safe and we avoid
+                 * overflowing sizeof(uint64_t) + v when v is close to UINT64_MAX. */
+                if (v > left - sizeof(uint64_t))
                         return -EBADMSG;
+
+                n = sizeof(uint64_t) + v;
 
                 field = q + sizeof(uint64_t);
 
