@@ -2480,6 +2480,76 @@ static int verb_components(int argc, char *argv[], uintptr_t _data, void *userda
         return 0;
 }
 
+VERB(verb_enable_component, "enable-component", "COMPONENT…", 2, VERB_ANY, 0,
+     "Enable component");
+VERB(verb_enable_component, "disable-component", "COMPONENT…", 2, VERB_ANY, 0,
+     "Disable component");
+static int verb_enable_component(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        bool enable = streq(argv[0], "enable-component");
+        int r;
+
+        _cleanup_(context_done) Context context = CONTEXT_NULL;
+        r = context_from_cmdline(&context);
+        if (r < 0)
+                return r;
+
+        if (context.component || context.component_all)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "The --component= and --component-all switches may not be combined with '%s', "
+                                       "specify the component(s) as arguments instead.", argv[0]);
+
+        if (context.definitions)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "The --definitions= switch may not be combined with '%s'.", argv[0]);
+
+        r = context_load_offline(
+                        &context,
+                        /* process_image_flags= */ 0,
+                        /* read_definitions_flags= */ 0);
+        if (r < 0)
+                return r;
+
+        _cleanup_strv_free_ char **component_names = NULL;
+        r = context_list_components(&context, &component_names, /* ret_has_default_component= */ NULL);
+        if (r < 0)
+                return r;
+
+        /* Component definition files live directly below the configuration directories, hence the drop-in
+         * goes right next to them below /etc. */
+        _cleanup_free_ char *dropin_dir = path_join(context.root, SYSCONF_DIR);
+        if (!dropin_dir)
+                return log_oom();
+
+        STRV_FOREACH(name, strv_skip(argv, 1)) {
+                if (!component_name_valid(*name))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Component name invalid: %s", *name);
+
+                if (!strv_contains(component_names, *name))
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "Component not found: %s", *name);
+
+                _cleanup_free_ char *fname = strjoin("sysupdate.", *name, ".component");
+                if (!fname)
+                        return log_oom();
+
+                /* We assume that no sysadmin will name their config 50-systemd-sysupdate-enabled.conf */
+                r = write_drop_in_format(
+                                dropin_dir,
+                                fname,
+                                50, "systemd-sysupdate-enabled",
+                                "# Generated via 'systemd-sysupdate %s'\n\n"
+                                "[Component]\n"
+                                "Enabled=%s\n",
+                                argv[0],
+                                yes_no(enable));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to write drop-in for component '%s': %m", *name);
+
+                log_info("Component '%s' %s.", *name, enable ? "enabled" : "disabled");
+        }
+
+        return 0;
+}
+
 VERB_NOARG(verb_cleanup, "cleanup", "Clean up orphaned files");
 static int verb_cleanup(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(context_done) Context context = CONTEXT_NULL;
