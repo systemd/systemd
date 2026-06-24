@@ -19,6 +19,7 @@ typedef enum BusPrintPropertyFlags BusPrintPropertyFlags;
 typedef enum BusTransport BusTransport;
 typedef enum CatFlags CatFlags;
 typedef enum CertificateSourceType CertificateSourceType;
+typedef enum ConditionType ConditionType;
 typedef enum DnsAnswerFlags DnsAnswerFlags;
 typedef enum DnsCacheMode DnsCacheMode;
 typedef enum DnsOverTlsMode DnsOverTlsMode;
