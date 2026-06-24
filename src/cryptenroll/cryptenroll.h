@@ -48,6 +48,7 @@ typedef struct EnrollContext {
         char *unlock_keyfile;
         char *unlock_fido2_device;
         char *unlock_tpm2_device;
+        char *unlock_password;          /* used by Varlink; NULL on CLI path */
 
         /* New password to enroll (mechanism == password). When NULL the helpers fall back to
          * $NEWPASSWORD / askpw. */
