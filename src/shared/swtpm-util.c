@@ -135,6 +135,10 @@ int manufacture_swtpm(const char *state_dir, const char *secret) {
 
         assert(state_dir);
 
+        _cleanup_close_ int state_dir_fd = xopenat(AT_FDCWD, state_dir, O_RDONLY|O_DIRECTORY|O_CLOEXEC);
+        if (state_dir_fd < 0)
+                return log_error_errno(state_dir_fd, "Failed to open TPM state directory '%s': %m", state_dir);
+
         _cleanup_free_ char *swtpm_setup = NULL;
         r = find_executable("swtpm_setup", &swtpm_setup);
         if (r < 0)
@@ -151,9 +155,9 @@ int manufacture_swtpm(const char *state_dir, const char *secret) {
         if (!localca_conf)
                 return log_oom();
 
-        r = write_string_filef(
-                        localca_conf,
-                        WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_TRUNCATE|WRITE_STRING_FILE_MKDIR_0755,
+        r = write_string_filef_at(
+                        state_dir_fd, "swtpm-localca.conf",
+                        WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC,
                         "statedir = %1$s\n"
                         "signingkey = %1$s/signing-private-key.pem\n"
                         "issuercert = %1$s/issuer-certificate.pem\n"
@@ -166,12 +170,12 @@ int manufacture_swtpm(const char *state_dir, const char *secret) {
         if (!localca_options)
                 return log_oom();
 
-        r = write_string_file(
-                        localca_options,
+        r = write_string_file_at(
+                        state_dir_fd, "swtpm-localca.options",
                         "--platform-manufacturer systemd\n"
                         "--platform-version 2.1\n"
                         "--platform-model swtpm\n",
-                        WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_TRUNCATE|WRITE_STRING_FILE_MKDIR_0755);
+                        WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC);
         if (r < 0)
                 return log_error_errno(r, "Failed to write swtpm-localca.options: %m");
 
@@ -184,9 +188,9 @@ int manufacture_swtpm(const char *state_dir, const char *secret) {
         if (!setup_conf)
                 return log_oom();
 
-        r = write_string_filef(
-                        setup_conf,
-                        WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_TRUNCATE|WRITE_STRING_FILE_MKDIR_0755,
+        r = write_string_filef_at(
+                        state_dir_fd, "swtpm_setup.conf",
+                        WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC,
                         "create_certs_tool = %1$s\n"
                         "create_certs_tool_config = %2$s\n"
                         "create_certs_tool_options = %3$s\n",
