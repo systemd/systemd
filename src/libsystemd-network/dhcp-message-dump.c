@@ -895,6 +895,8 @@ static int dump_dhcp_option_one(Table *table, sd_dhcp_message *message, uint8_t 
         bool fallback = false;
         if (type == DHCP_OPTION_TYPE_AUTO) {
                 type = dhcp_option_type_from_code(code);
+                if (type < 0)
+                        return type;
                 fallback = true;
         }
 
