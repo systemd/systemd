@@ -21,7 +21,6 @@
 #include "path-lookup.h"
 #include "path-util.h"
 #include "sha256.h"
-#include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "swtpm-util.h"
@@ -116,18 +115,20 @@ static int setup_swtpm(const char *state_dir, int state_fd, const char *secret) 
                         return log_error_errno(r, "Failed to remove 'tpm2-00.volatilestate': %m");
         }
 
-        r = dir_is_empty_at(state_fd, /* path= */ NULL, /* ignore_hidden_or_backup= */ false);
-        if (r < 0)
-                return log_error_errno(r, "Failed to check if TPM state directory is empty: %m");
-        if (r == 0) {
+        /* manufacture_swtpm() writes its marker only after swtpm_setup has fully created the TPM state.
+         * If the marker file is missing, the existing state is incomplete and recreation is needed.*/
+        r = RET_NERRNO(faccessat(state_fd, SWTPM_MANUFACTURED_MARKER, F_OK, AT_SYMLINK_NOFOLLOW));
+        if (r >= 0) {
                 log_debug("TPM state directory is already populated, not manufacturing a TPM.");
                 return 0;
         }
+        if (r != -ENOENT)
+                return log_error_errno(r, "Failed to check for TPM manufacture marker: %m");
 
         if (!in_initrd())
                 return log_error_errno(SYNTHETIC_ERRNO(ESTALE), "swtpm TPM state directory has not been initialized in the initrd, refusing.");
 
-        log_debug("TPM state directory is unpopulated, manufacturing a TPM.");
+        log_debug("TPM state directory holds no fully manufactured TPM, manufacturing a TPM.");
 
         return manufacture_swtpm(state_dir, secret);
 }
