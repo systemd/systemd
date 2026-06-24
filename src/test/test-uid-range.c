@@ -328,6 +328,51 @@ TEST(uid_range_partition) {
         ASSERT_EQ(p->entries[1].nr, 1U);
         ASSERT_EQ(p->entries[2].start, 102U);
         ASSERT_EQ(p->entries[2].nr, 1U);
+
+        p = uid_range_free(p);
+
+        /* A too-small entry between two partitionable entries is dropped; the others still partition. */
+        ASSERT_OK(uid_range_add_str(&p, "0-4"));        /* nr=5  < size -> dropped */
+        ASSERT_OK(uid_range_add_str(&p, "50-69"));      /* nr=20       -> 2 parts */
+        ASSERT_OK(uid_range_add_str(&p, "200-204"));    /* nr=5  < size -> dropped */
+        ASSERT_OK(uid_range_add_str(&p, "1000-1029"));  /* nr=30       -> 3 parts */
+        ASSERT_EQ(uid_range_entries(p), 4U);
+        ASSERT_OK(uid_range_partition(p, 10));
+        ASSERT_EQ(uid_range_entries(p), 5U);
+        ASSERT_EQ(p->entries[0].start, 50U);
+        ASSERT_EQ(p->entries[0].nr, 10U);
+        ASSERT_EQ(p->entries[1].start, 60U);
+        ASSERT_EQ(p->entries[1].nr, 10U);
+        ASSERT_EQ(p->entries[2].start, 1000U);
+        ASSERT_EQ(p->entries[2].nr, 10U);
+        ASSERT_EQ(p->entries[3].start, 1010U);
+        ASSERT_EQ(p->entries[3].nr, 10U);
+        ASSERT_EQ(p->entries[4].start, 1020U);
+        ASSERT_EQ(p->entries[4].nr, 10U);
+
+        p = uid_range_free(p);
+
+        /* A too-small entry before a partitionable entry is dropped. */
+        ASSERT_OK(uid_range_add_str(&p, "0-4"));        /* nr=5  < size -> dropped */
+        ASSERT_OK(uid_range_add_str(&p, "100-119"));    /* nr=20       -> 2 parts */
+        ASSERT_OK(uid_range_partition(p, 10));
+        ASSERT_EQ(uid_range_entries(p), 2U);
+        ASSERT_EQ(p->entries[0].start, 100U);
+        ASSERT_EQ(p->entries[0].nr, 10U);
+        ASSERT_EQ(p->entries[1].start, 110U);
+        ASSERT_EQ(p->entries[1].nr, 10U);
+
+        p = uid_range_free(p);
+
+        /* A too-small entry after a partitionable entry is dropped. */
+        ASSERT_OK(uid_range_add_str(&p, "0-199"));      /* nr=200 -> 2 parts */
+        ASSERT_OK(uid_range_add_str(&p, "1000-1004"));  /* nr=5  < size -> dropped */
+        ASSERT_OK(uid_range_partition(p, 100));
+        ASSERT_EQ(uid_range_entries(p), 2U);
+        ASSERT_EQ(p->entries[0].start, 0U);
+        ASSERT_EQ(p->entries[0].nr, 100U);
+        ASSERT_EQ(p->entries[1].start, 100U);
+        ASSERT_EQ(p->entries[1].nr, 100U);
 }
 
 TEST(uid_range_copy) {
