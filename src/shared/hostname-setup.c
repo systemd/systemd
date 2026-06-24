@@ -446,8 +446,7 @@ int hostname_substitute_wildcards(const char *name, char **ret) {
         static const sd_id128_t key = SD_ID128_MAKE(98,10,ad,df,8d,7d,4f,b5,89,1b,4b,56,ac,c2,26,8f);
         sd_id128_t mid = SD_ID128_NULL;
         _cleanup_free_ char *result = NULL;
-        size_t left_bits = 0, counter = 0;
-        size_t word_pos = 0;
+        size_t left_bits = 0, counter = 0, word_pos = 0, n_result = 0;
         uint64_t h = 0;
         int r;
 
@@ -493,7 +492,7 @@ int hostname_substitute_wildcards(const char *name, char **ret) {
                         h >>= 4;
                         left_bits -= 4;
 
-                        if (!strextendn(&result, &c, 1))
+                        if (!GREEDY_REALLOC_APPEND(result, n_result, &c, 1))
                                 return -ENOMEM;
 
                 } else if (*n == '$') {
@@ -504,12 +503,16 @@ int hostname_substitute_wildcards(const char *name, char **ret) {
                         if (r < 0)
                                 return r;
 
-                        if (!strextend(&result, w))
+                        if (!GREEDY_REALLOC_APPEND(result, n_result, w, strlen(w)))
                                 return -ENOMEM;
 
-                } else if (!strextendn(&result, n, 1))
+                } else if (!GREEDY_REALLOC_APPEND(result, n_result, n, 1))
                         return -ENOMEM;
         }
+
+        if (!GREEDY_REALLOC(result, n_result + 1))
+                return -ENOMEM;
+        result[n_result] = 0;
 
         *ret = TAKE_PTR(result);
         return 0;
