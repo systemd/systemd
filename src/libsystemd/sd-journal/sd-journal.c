@@ -1004,7 +1004,12 @@ static int next_beyond_location(sd_journal *j, JournalFile *f, direction_t direc
         assert(j);
         assert(f);
 
-        (void) journal_file_read_tail_timestamp(j, f);
+        /* Rate-limit tail timestamp refreshes during iteration. Calling this unconditionally is
+         * O(N x files) volatile mmap overhead that makes large 'journalctl -n N' queries unusably
+         * slow. Periodic refresh keeps cross-boot ordering reasonably fresh and provides a fallback
+         * for any missed inotify events. */
+        if (ratelimit_below(&f->tail_timestamp_rl))
+                (void) journal_file_read_tail_timestamp(j, f);
 
         n_entries = le64toh(f->header->n_entries);
 
