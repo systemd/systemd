@@ -392,22 +392,23 @@ int uid_range_partition(UIDRange *range, uid_t size) {
                 return 0;
         }
 
-        if (n_new_entries > range->n_entries && !GREEDY_REALLOC(range->entries, n_new_entries))
+        _cleanup_free_ UIDRangeEntry *new_entries = new(UIDRangeEntry, n_new_entries);
+        if (!new_entries)
                 return -ENOMEM;
 
-        /* Work backwards to avoid overwriting entries we still need to read */
-        size_t t = n_new_entries;
-        for (size_t i = range->n_entries; i > 0; i--) {
-                UIDRangeEntry *e = range->entries + i - 1;
+        size_t t = 0;
+        FOREACH_ARRAY(e, range->entries, range->n_entries) {
                 unsigned n_parts = e->nr / size;
 
-                for (unsigned j = n_parts; j > 0; j--)
-                        range->entries[--t] = (UIDRangeEntry) {
-                                .start = e->start + (j - 1) * size,
+                for (unsigned j = 0; j < n_parts; j++)
+                        new_entries[t++] = (UIDRangeEntry) {
+                                .start = e->start + j * size,
                                 .nr = size,
                         };
         }
+        assert(t == n_new_entries);
 
+        free_and_replace(range->entries, new_entries);
         range->n_entries = n_new_entries;
 
         return 0;
