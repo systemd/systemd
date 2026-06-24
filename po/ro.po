@@ -10,9 +10,8 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-06-01 11:49+0200\n"
-"PO-Revision-Date: 2026-06-22 17:44+0000\n"
-"Last-Translator: Fedora Weblate user 1831 "
-"<atony076@users.noreply.translate.fedoraproject.org>\n"
+"PO-Revision-Date: 2026-06-24 08:17+0000\n"
+"Last-Translator: Petru Rebeja <petru@rebeja.eu>\n"
 "Language-Team: Romanian <https://translate.fedoraproject.org/projects/"
 "systemd/main/ro/>\n"
 "Language: ro\n"
@@ -81,10 +80,11 @@ msgid "Dump the systemd state without rate limits"
 msgstr "Renunțați la starea systemd fără limite de frecvență"
 
 #: src/core/org.freedesktop.systemd1.policy.in:75
-#, fuzzy
 msgid ""
 "Authentication is required to dump the systemd state without rate limits."
-msgstr "Autentificarea este necesară pentru a reîncărca starea lui systemd."
+msgstr ""
+"Autentificarea este necesară pentru a descărca starea systemd fără limite de "
+"date."
 
 #: src/home/org.freedesktop.home1.policy:13
 msgid "Create a home area"
@@ -168,7 +168,7 @@ msgstr ""
 
 #: src/home/org.freedesktop.home1.policy:93
 msgid "Manage Home Directory Signing Keys"
-msgstr ""
+msgstr "Gestionați cheile de semnare pentru directorul personal"
 
 #: src/home/org.freedesktop.home1.policy:94
 #, fuzzy
@@ -183,6 +183,9 @@ msgid ""
 "Home of user %s is currently absent, please plug in the necessary storage "
 "device or backing file system."
 msgstr ""
+"Directorul personal al utilizatorului %s este absent momentan, vă rugăm să "
+"conectați dispozitivul de stocare necesar sau sistemul de fișiere care îl "
+"conține."
 
 #: src/home/pam_systemd_home.c:332
 #, c-format
@@ -256,6 +259,8 @@ msgstr ""
 #, c-format
 msgid "Please confirm presence on security token of user %s."
 msgstr ""
+"Vă rugăm să vă confirmați prezența pe tokenul de securitate al "
+"utilizatorului %s."
 
 #: src/home/pam_systemd_home.c:454
 #, c-format
@@ -1491,11 +1496,12 @@ msgstr ""
 "deblocare."
 
 #: src/shared/libfido2-util.c:936
-#, fuzzy, c-format
-#| msgid "Please enter security token PIN:"
+#, c-format
 msgid ""
 "Please enter security token PIN (remaining attempts before lock-out: %d):"
-msgstr "Vă rugăm să introduceți codul PIN al tokenului de securitate:"
+msgstr ""
+"Vă rugăm să introduceți codul PIN al tokenului de securitate (au mai rămas "
+"%d încercări până la blocare):"
 
 #: src/shared/libfido2-util.c:948
 msgid "Please enter security token PIN:"
