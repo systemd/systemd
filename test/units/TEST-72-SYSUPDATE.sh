@@ -858,4 +858,93 @@ test ! -e "$COMPALL/target-b/comp-b-v1.bin"
 rm -rf "$COMPALL" /run/sysupdate.comp-a.d /run/sysupdate.comp-b.d \
     /var/lib/systemd/sysupdate/installdb.comp-a /var/lib/systemd/sysupdate/installdb.comp-b
 
+# Check the "--cleanup=" switch of the "update" verb. With "--cleanup=yes" a
+# successful update must, after installing the new version, run the equivalent of
+# the "cleanup" verb and remove any resources that are no longer owned by a
+# currently defined transfer file. Reuse the "alpha"/"beta" helpers from above.
+rm -rf "$CONFIGDIR" "$INSTALLDB" "$CLEANUP"
+mkdir -p "$CONFIGDIR" "$CLEANUP/source" "$CLEANUP/target"
+
+cat >"$CONFIGDIR/01-alpha.transfer" <<EOF
+[Source]
+Type=regular-file
+Path=$CLEANUP/source
+MatchPattern=alpha-@v.bin
+
+[Target]
+Type=regular-file
+Path=$CLEANUP/target
+MatchPattern=alpha-@v.bin
+InstancesMax=2
+EOF
+
+cat >"$CONFIGDIR/02-beta.transfer" <<EOF
+[Source]
+Type=directory
+Path=$CLEANUP/source
+MatchPattern=beta-@v
+
+[Target]
+Type=directory
+Path=$CLEANUP/target
+MatchPattern=beta-@v
+InstancesMax=2
+EOF
+
+# Install a first version with both transfers in place.
+cleanup_new_version v1
+"$SYSUPDATE" --verify=no update --cleanup=yes
+test -f "$CLEANUP/target/alpha-v1.bin"
+verify_beta_synced v1
+[[ "$(installdb_count)" -eq 2 ]]
+assert_installdb_covers_target
+
+# Now drop the "beta" transfer file and install a second version with
+# "--cleanup=yes". The new alpha resource must be installed, and the now-orphaned
+# beta directory (and its install database entry) must be removed as part of the
+# same invocation, without a separate "cleanup" call.
+rm "$CONFIGDIR/02-beta.transfer"
+cleanup_new_version v2
+"$SYSUPDATE" --verify=no update --cleanup=yes
+test -f "$CLEANUP/target/alpha-v1.bin"
+test -f "$CLEANUP/target/alpha-v2.bin"
+test ! -e "$CLEANUP/target/beta-v1"
+[[ "$(installdb_count)" -eq 1 ]]
+assert_installdb_covers_target
+
+# With "--cleanup=no" (the default) orphaned resources must be left in place.
+# Redefine the "alpha" transfer so its patterns no longer match the already
+# installed alpha files (turning them into orphans), while keeping a valid
+# transfer definition in place. Updating with "--cleanup=no" must then install
+# nothing new (there's no matching source) and leave the now-orphaned alpha files
+# and their install database entry untouched.
+cat >"$CONFIGDIR/01-alpha.transfer" <<EOF
+[Source]
+Type=regular-file
+Path=$CLEANUP/source
+MatchPattern=gamma-@v.bin
+
+[Target]
+Type=regular-file
+Path=$CLEANUP/target
+MatchPattern=gamma-@v.bin
+InstancesMax=2
+EOF
+"$SYSUPDATE" --verify=no update --cleanup=no
+test -f "$CLEANUP/target/alpha-v1.bin"
+test -f "$CLEANUP/target/alpha-v2.bin"
+[[ "$(installdb_count)" -eq 1 ]]
+
+# Invoking the "cleanup" verb with "--cleanup=no" is contradictory and must be
+# refused.
+(! "$SYSUPDATE" --cleanup=no cleanup) |& grep "contradictory" >/dev/null
+
+# A plain "cleanup" must still remove the orphaned alpha files.
+"$SYSUPDATE" cleanup
+test ! -f "$CLEANUP/target/alpha-v1.bin"
+test ! -f "$CLEANUP/target/alpha-v2.bin"
+[[ "$(installdb_count)" -eq 0 ]]
+
+rm -rf "$CONFIGDIR" "$INSTALLDB" "$CLEANUP"
+
 touch /testok
