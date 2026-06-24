@@ -415,6 +415,44 @@ static void test_receive_oui_vlanid_packet(sd_event *e) {
         ASSERT_OK(stop_lldp_rx(lldp_rx));
 }
 
+static int reentrant_unref_calls;
+
+static void lldp_rx_reentrant_unref_handler(sd_lldp_rx *lldp_rx, sd_lldp_rx_event_t event, sd_lldp_neighbor *n, void *userdata) {
+        /* Drop the last external reference from inside the callback. The event-source callback holds a
+         * transient self-ref, so lldp_rx must survive until the dispatch stack unwinds. */
+        reentrant_unref_calls++;
+        sd_lldp_rx_unref(lldp_rx);
+}
+
+static void test_receive_reentrant_unref(sd_event *e) {
+        /* Regression: a user callback dropping the last lldp_rx reference used to free the object while
+         * inner library frames still dereferenced it (use-after-free). The event-source callbacks now take
+         * a transient self-ref, so teardown is deferred until the dispatch stack unwinds. */
+        static const uint8_t frame[] = {
+                /* Ethernet header */
+                0x01, 0x80, 0xc2, 0x00, 0x00, 0x03,     /* Destination MAC */
+                0x01, 0x02, 0x03, 0x04, 0x05, 0x06,     /* Source MAC */
+                0x88, 0xcc,                             /* Ethertype */
+                /* LLDP mandatory TLVs */
+                0x02, 0x07, 0x04, 0x00, 0x01, 0x02,     /* Chassis: MAC, 00:01:02:03:04:05 */
+                0x03, 0x04, 0x05,
+                0x04, 0x04, 0x05, 0x31, 0x2f, 0x33,     /* Port: interface name, "1/3" */
+                0x06, 0x02, 0x00, 0x78,                 /* TTL: 120 seconds */
+                0x00, 0x00                              /* End Of LLDPDU */
+        };
+        sd_lldp_rx *lldp_rx;
+
+        reentrant_unref_calls = 0;
+        assert_se(start_lldp_rx(&lldp_rx, e, lldp_rx_reentrant_unref_handler, NULL) == 0);
+
+        assert_se(write(test_fd[1], frame, sizeof(frame)) == sizeof(frame));
+        sd_event_run(e, 0);
+        assert_se(reentrant_unref_calls == 1);
+
+        /* lldp_rx was freed by the callback's unref once the dispatch stack unwound; do not touch it. */
+        safe_close(test_fd[1]);
+}
+
 int main(int argc, char *argv[]) {
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
 
@@ -427,6 +465,7 @@ int main(int argc, char *argv[]) {
         test_receive_oui_packet(e);
         test_multiple_neighbors_sorted(e);
         test_receive_oui_vlanid_packet(e);
+        test_receive_reentrant_unref(e);
 
         return 0;
 }
