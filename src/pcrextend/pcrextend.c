@@ -382,6 +382,12 @@ static int extend_nvpcr_now(
                         return r;
 
                 r = tpm2_nvpcr_initialize(c, /* session= */ NULL, name, &anchor_secret);
+                if (r == -ENOSPC)
+                        /* TPM NV index space exhausted: the NvPCR was never allocated, nothing we can do.
+                         * Map to -EOPNOTSUPP so --graceful skips rather than fails. */
+                        return log_notice_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                               "TPM NV index space is exhausted, NvPCR '%s' could not be initialized, skipping.",
+                                               name);
                 if (r < 0)
                         return log_error_errno(r, "Failed to extend NvPCR index '%s' with anchor secret: %m", name);
 
