@@ -15,10 +15,13 @@ Before=sockets.target
 [Socket]
 ListenStream=/run/systemd/io.systemd.Report
 FileDescriptorName=varlink
-SocketMode=0600
+SocketMode=06444
 Accept=yes
 MaxConnectionsPerSource=16
 RemoveOnStop=yes
+XAttrEntryPoint=user.varlink=entrypoint
+XAttrListen=user.varlink=listen
+XAttrAccept=user.varlink=server
 
 [Install]
 WantedBy=sockets.target
