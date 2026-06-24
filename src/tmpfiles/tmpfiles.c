@@ -1123,6 +1123,7 @@ static int path_open_parent_safe_name(const char *path, bool allow_failure, char
         /* Open parent and return its file descriptor. Also return its allocated path in dirname, which the user must free */
         int r, fd;
 
+        assert(dirname);
         if (!path_is_normalized(path))
                 return log_full_errno(allow_failure ? LOG_INFO : LOG_ERR,
                                       SYNTHETIC_ERRNO(EINVAL),
