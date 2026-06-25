@@ -436,83 +436,6 @@ int journal_file_append_first_tag(JournalFile *f) {
         return journal_file_append_tag(f);
 }
 
-static int journal_file_get_epoch(JournalFile *f, uint64_t realtime, uint64_t *epoch) {
-        uint64_t t;
-
-        assert(f);
-        assert(epoch);
-        assert(JOURNAL_HEADER_SEALED(f->header));
-
-        if (f->fss_start_usec == 0 || f->fss_interval_usec == 0)
-                return -EOPNOTSUPP;
-
-        if (realtime < f->fss_start_usec)
-                return -ESTALE;
-
-        t = realtime - f->fss_start_usec;
-        t = t / f->fss_interval_usec;
-
-        *epoch = t;
-
-        return 0;
-}
-
-static int journal_file_fsprg_need_evolve(JournalFile *f, uint64_t realtime) {
-        uint64_t goal, epoch;
-        int r;
-
-        assert(f);
-
-        if (!JOURNAL_HEADER_SEALED(f->header))
-                return 0;
-
-        r = journal_file_get_epoch(f, realtime, &goal);
-        if (r < 0)
-                return r;
-
-        epoch = FSPRG_GetEpoch(f->fsprg_state.iov_base);
-        if (epoch > goal)
-                return -ESTALE;
-
-        return epoch != goal;
-}
-
-int journal_file_fsprg_evolve(JournalFile *f, uint64_t realtime) {
-        uint64_t goal, epoch;
-        int r;
-
-        assert(f);
-
-        if (!JOURNAL_HEADER_SEALED(f->header))
-                return 0;
-
-        r = journal_file_get_epoch(f, realtime, &goal);
-        if (r < 0)
-                return r;
-
-        epoch = FSPRG_GetEpoch(f->fsprg_state.iov_base);
-        if (epoch < goal)
-                log_debug("Evolving FSPRG key from epoch %"PRIu64" to %"PRIu64".", epoch, goal);
-
-        for (;;) {
-                if (epoch > goal)
-                        return -ESTALE;
-                if (epoch == goal)
-                        return 0;
-
-                r = FSPRG_Evolve(f->fsprg_state.iov_base);
-                if (r < 0)
-                        return r;
-
-                epoch = FSPRG_GetEpoch(f->fsprg_state.iov_base);
-                if (epoch < goal) {
-                        r = journal_file_append_tag(f);
-                        if (r < 0)
-                                return r;
-                }
-        }
-}
-
 int journal_file_maybe_append_tag(JournalFile *f, uint64_t realtime) {
         int r;
 
@@ -524,17 +447,19 @@ int journal_file_maybe_append_tag(JournalFile *f, uint64_t realtime) {
         if (realtime <= 0)
                 realtime = now(CLOCK_REALTIME);
 
-        r = journal_file_fsprg_need_evolve(f, realtime);
-        if (r <= 0)
-                return 0;
+        uint64_t goal = usec_sub_unsigned(realtime, f->fss_start_usec) / f->fss_interval_usec;
 
-        r = journal_file_append_tag(f);
-        if (r < 0)
-                return r;
+        for (;;) {
+                uint64_t epoch = FSPRG_GetEpoch(f->fsprg_state.iov_base);
+                if (epoch >= goal)
+                        return 0;
 
-        r = journal_file_fsprg_evolve(f, realtime);
-        if (r < 0)
-                return r;
+                r = journal_file_append_tag(f);
+                if (r < 0)
+                        return r;
 
-        return 0;
+                r = FSPRG_Evolve(f->fsprg_state.iov_base);
+                if (r < 0)
+                        return r;
+        }
 }
