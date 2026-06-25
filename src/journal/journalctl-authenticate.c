@@ -139,7 +139,7 @@ int action_setup_keys(void) {
                                r, "Failed to set file attributes on a temporary file for '%s', ignoring: %m", path);
 
         struct FSSHeader h = {
-                .signature = { 'K', 'S', 'H', 'H', 'R', 'H', 'L', 'P' },
+                .signature = FSS_HEADER_SIGNATURE,
                 .machine_id = machine,
                 .boot_id = boot,
                 .header_size = htole64(sizeof(h)),
