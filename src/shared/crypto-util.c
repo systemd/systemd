@@ -17,7 +17,6 @@
 #include "strv.h"
 
 #if HAVE_OPENSSL
-#  include <openssl/core_names.h>
 #  include <openssl/kdf.h>
 #  include <openssl/provider.h>
 #  include <openssl/store.h>
@@ -73,12 +72,32 @@ DLSYM_PROTOTYPE(BIO_s_mem) = NULL;
 DLSYM_PROTOTYPE(BIO_write) = NULL;
 DLSYM_PROTOTYPE(BN_CTX_free) = NULL;
 DLSYM_PROTOTYPE(BN_CTX_new) = NULL;
+DLSYM_PROTOTYPE(BN_CTX_secure_new) = NULL;
+DLSYM_PROTOTYPE(BN_add) = NULL;
+DLSYM_PROTOTYPE(BN_add_word) = NULL;
 DLSYM_PROTOTYPE(BN_bin2bn) = NULL;
-static DLSYM_PROTOTYPE(BN_bn2bin) = NULL;
+DLSYM_PROTOTYPE(BN_bn2bin) = NULL;
+DLSYM_PROTOTYPE(BN_bn2binpad) = NULL;
 DLSYM_PROTOTYPE(BN_bn2nativepad) = NULL;
+DLSYM_PROTOTYPE(BN_check_prime) = NULL;
+DLSYM_PROTOTYPE(BN_clear_free) = NULL;
+DLSYM_PROTOTYPE(BN_cmp) = NULL;
+DLSYM_PROTOTYPE(BN_copy) = NULL;
 DLSYM_PROTOTYPE(BN_free) = NULL;
+DLSYM_PROTOTYPE(BN_is_negative) = NULL;
+DLSYM_PROTOTYPE(BN_mod_exp) = NULL;
+DLSYM_PROTOTYPE(BN_mod_inverse) = NULL;
+DLSYM_PROTOTYPE(BN_mod_lshift1_quick) = NULL;
+DLSYM_PROTOTYPE(BN_mod_mul) = NULL;
+DLSYM_PROTOTYPE(BN_mod_sqr) = NULL;
+DLSYM_PROTOTYPE(BN_mod_sub) = NULL;
+DLSYM_PROTOTYPE(BN_mul) = NULL;
 DLSYM_PROTOTYPE(BN_new) = NULL;
+DLSYM_PROTOTYPE(BN_nnmod) = NULL;
 DLSYM_PROTOTYPE(BN_num_bits) = NULL;
+DLSYM_PROTOTYPE(BN_secure_new) = NULL;
+DLSYM_PROTOTYPE(BN_set_word) = NULL;
+DLSYM_PROTOTYPE(BN_sub_word) = NULL;
 DLSYM_PROTOTYPE(CRYPTO_free) = NULL;
 DLSYM_PROTOTYPE(ECDSA_SIG_free) = NULL;
 DLSYM_PROTOTYPE(EC_GROUP_free) = NULL;
@@ -130,12 +149,13 @@ static DLSYM_PROTOTYPE(EVP_KDF_fetch) = NULL;
 static DLSYM_PROTOTYPE(EVP_KDF_free) = NULL;
 DLSYM_PROTOTYPE(EVP_MAC_CTX_free) = NULL;
 static DLSYM_PROTOTYPE(EVP_MAC_CTX_get_mac_size) = NULL;
-static DLSYM_PROTOTYPE(EVP_MAC_CTX_new) = NULL;
-static DLSYM_PROTOTYPE(EVP_MAC_fetch) = NULL;
-static DLSYM_PROTOTYPE(EVP_MAC_final) = NULL;
+DLSYM_PROTOTYPE(EVP_MAC_CTX_new) = NULL;
+DLSYM_PROTOTYPE(EVP_MAC_fetch) = NULL;
+DLSYM_PROTOTYPE(EVP_MAC_final) = NULL;
 DLSYM_PROTOTYPE(EVP_MAC_free) = NULL;
-static DLSYM_PROTOTYPE(EVP_MAC_init) = NULL;
-static DLSYM_PROTOTYPE(EVP_MAC_update) = NULL;
+DLSYM_PROTOTYPE(EVP_MAC_init) = NULL;
+DLSYM_PROTOTYPE(EVP_MAC_update) = NULL;
+DLSYM_PROTOTYPE(EVP_MD_CTX_copy_ex) = NULL;
 DLSYM_PROTOTYPE(EVP_MD_CTX_free) = NULL;
 DLSYM_PROTOTYPE(EVP_MD_CTX_get0_md) = NULL;
 DLSYM_PROTOTYPE(EVP_MD_CTX_new) = NULL;
@@ -195,11 +215,11 @@ DLSYM_PROTOTYPE(OPENSSL_sk_pop_free) = NULL;
 DLSYM_PROTOTYPE(OPENSSL_sk_push) = NULL;
 DLSYM_PROTOTYPE(OPENSSL_sk_value) = NULL;
 DLSYM_PROTOTYPE(OSSL_EC_curve_nid2name) = NULL;
-static DLSYM_PROTOTYPE(OSSL_PARAM_BLD_free) = NULL;
-static DLSYM_PROTOTYPE(OSSL_PARAM_BLD_new) = NULL;
+DLSYM_PROTOTYPE(OSSL_PARAM_BLD_free) = NULL;
+DLSYM_PROTOTYPE(OSSL_PARAM_BLD_new) = NULL;
 static DLSYM_PROTOTYPE(OSSL_PARAM_BLD_push_octet_string) = NULL;
-static DLSYM_PROTOTYPE(OSSL_PARAM_BLD_push_utf8_string) = NULL;
-static DLSYM_PROTOTYPE(OSSL_PARAM_BLD_to_param) = NULL;
+DLSYM_PROTOTYPE(OSSL_PARAM_BLD_push_utf8_string) = NULL;
+DLSYM_PROTOTYPE(OSSL_PARAM_BLD_to_param) = NULL;
 DLSYM_PROTOTYPE(OSSL_PARAM_construct_BN) = NULL;
 DLSYM_PROTOTYPE(OSSL_PARAM_construct_end) = NULL;
 DLSYM_PROTOTYPE(OSSL_PARAM_construct_octet_string) = NULL;
@@ -276,7 +296,6 @@ static DLSYM_PROTOTYPE(i2d_PublicKey) = NULL;
 DLSYM_PROTOTYPE(i2d_X509) = NULL;
 DLSYM_PROTOTYPE(i2d_X509_NAME) = NULL;
 
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(OSSL_PARAM_BLD*, sym_OSSL_PARAM_BLD_free, OSSL_PARAM_BLD_freep, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(OSSL_STORE_CTX*, sym_OSSL_STORE_close, OSSL_STORE_closep, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(OSSL_STORE_INFO*, sym_OSSL_STORE_INFO_free, OSSL_STORE_INFO_freep, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(EVP_KDF*, sym_EVP_KDF_free, EVP_KDF_freep, NULL);
@@ -380,12 +399,32 @@ int dlopen_libcrypto(int log_level) {
                         DLSYM_ARG(BIO_write),
                         DLSYM_ARG(BN_CTX_free),
                         DLSYM_ARG(BN_CTX_new),
+                        DLSYM_ARG(BN_CTX_secure_new),
+                        DLSYM_ARG(BN_add),
+                        DLSYM_ARG(BN_add_word),
                         DLSYM_ARG(BN_bin2bn),
                         DLSYM_ARG(BN_bn2bin),
+                        DLSYM_ARG(BN_bn2binpad),
                         DLSYM_ARG(BN_bn2nativepad),
+                        DLSYM_ARG(BN_check_prime),
+                        DLSYM_ARG(BN_clear_free),
+                        DLSYM_ARG(BN_cmp),
+                        DLSYM_ARG(BN_copy),
                         DLSYM_ARG(BN_free),
+                        DLSYM_ARG(BN_is_negative),
+                        DLSYM_ARG(BN_mod_exp),
+                        DLSYM_ARG(BN_mod_inverse),
+                        DLSYM_ARG(BN_mod_lshift1_quick),
+                        DLSYM_ARG(BN_mod_mul),
+                        DLSYM_ARG(BN_mod_sqr),
+                        DLSYM_ARG(BN_mod_sub),
+                        DLSYM_ARG(BN_mul),
                         DLSYM_ARG(BN_new),
+                        DLSYM_ARG(BN_nnmod),
                         DLSYM_ARG(BN_num_bits),
+                        DLSYM_ARG(BN_secure_new),
+                        DLSYM_ARG(BN_set_word),
+                        DLSYM_ARG(BN_sub_word),
                         DLSYM_ARG(CRYPTO_free),
                         DLSYM_ARG(ECDSA_SIG_free),
                         DLSYM_ARG(EC_GROUP_free),
@@ -443,6 +482,7 @@ int dlopen_libcrypto(int log_level) {
                         DLSYM_ARG(EVP_MAC_free),
                         DLSYM_ARG(EVP_MAC_init),
                         DLSYM_ARG(EVP_MAC_update),
+                        DLSYM_ARG(EVP_MD_CTX_copy_ex),
                         DLSYM_ARG(EVP_MD_CTX_free),
                         DLSYM_ARG(EVP_MD_CTX_get0_md),
                         DLSYM_ARG(EVP_MD_CTX_new),
