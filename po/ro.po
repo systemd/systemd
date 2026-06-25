@@ -6,12 +6,14 @@
 # Vlad <milovlad@outlook.com>, 2020, 2021, 2026.
 # Petru Rebeja <petru@rebeja.eu>, 2026.
 # Fedora Weblate user 1831 <atony076@users.noreply.translate.fedoraproject.org>, 2026.
+# Weblate Translation Memory <noreply-mt-weblate-translation-memory@weblate.org>, 2026.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-06-01 11:49+0200\n"
 "PO-Revision-Date: 2026-06-25 10:17+0000\n"
-"Last-Translator: Petru Rebeja <petru@rebeja.eu>\n"
+"Last-Translator: Weblate Translation Memory <noreply-mt-weblate-translation-"
+"memory@weblate.org>\n"
 "Language-Team: Romanian <https://translate.fedoraproject.org/projects/"
 "systemd/main/ro/>\n"
 "Language: ro\n"
@@ -1318,7 +1320,7 @@ msgstr ""
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:38
 msgid "Check for system updates"
-msgstr ""
+msgstr "Verifică dacă sunt disponibile actualizări"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:39
 #, fuzzy
