@@ -959,12 +959,14 @@ static int dir_cleanup(
                         break;
                 }
 
+                bool ret_deleted;
                 r = item_cleanup(c, i,
                                 sub_path, de->d_name, dirfd(d),
                                 cutoff_nsec,
                                 mountpoint, maxdepth, keep_this_level,
                                 age_by_file, age_by_dir,
-                                &deleted);
+                                &ret_deleted);
+                deleted |= ret_deleted;
                 if (r < 0)
                         break;
         }
