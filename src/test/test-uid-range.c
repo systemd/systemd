@@ -318,6 +318,23 @@ TEST(uid_range_partition) {
 
         p = uid_range_free(p);
 
+        /* Small entry preceding a large entry: the small entry must be dropped and the large entry
+         * partitioned without the in-place backward-fill write cursor aliasing the still-live small entry
+         * slot. */
+        ASSERT_OK(uid_range_add_str(&p, "0-4"));
+        ASSERT_OK(uid_range_add_str(&p, "100-129"));
+        ASSERT_EQ(uid_range_entries(p), 2U);
+        ASSERT_OK(uid_range_partition(p, 10));
+        ASSERT_EQ(uid_range_entries(p), 3U);
+        ASSERT_EQ(p->entries[0].start, 100U);
+        ASSERT_EQ(p->entries[0].nr, 10U);
+        ASSERT_EQ(p->entries[1].start, 110U);
+        ASSERT_EQ(p->entries[1].nr, 10U);
+        ASSERT_EQ(p->entries[2].start, 120U);
+        ASSERT_EQ(p->entries[2].nr, 10U);
+
+        p = uid_range_free(p);
+
         /* Partition size of 1 */
         ASSERT_OK(uid_range_add_str(&p, "100-102"));
         ASSERT_OK(uid_range_partition(p, 1));
