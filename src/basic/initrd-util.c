@@ -38,3 +38,30 @@ bool in_initrd(void) {
 void in_initrd_force(bool value) {
         saved_in_initrd = value;
 }
+
+static int saved_in_first_boot = -1;
+
+bool in_first_boot(void) {
+        int r;
+
+        if (saved_in_first_boot >= 0)
+                return saved_in_first_boot;
+
+        /* PID 1 creates /run/systemd/first-boot when it detects an uninitialized system.
+         * This can be overridden by setting SYSTEMD_FIRST_BOOT=0|1. */
+
+        r = secure_getenv_bool("SYSTEMD_FIRST_BOOT");
+        if (r < 0 && r != -ENXIO)
+                log_debug_errno(r, "Failed to parse $SYSTEMD_FIRST_BOOT, ignoring: %m");
+
+        if (r >= 0)
+                saved_in_first_boot = r > 0;
+        else {
+                r = RET_NERRNO(access("/run/systemd/first-boot", F_OK));
+                if (r < 0 && r != -ENOENT)
+                        log_debug_errno(r, "Failed to check if /run/systemd/first-boot exists, assuming it does not: %m");
+                saved_in_first_boot = r >= 0;
+        }
+
+        return saved_in_first_boot;
+}
