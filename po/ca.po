@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-30 00:13+0200\n"
+"POT-Creation-Date: 2026-06-01 11:49+0200\n"
 "PO-Revision-Date: 2026-06-07 13:56+0000\n"
 "Last-Translator: naly zzwd <xeanhort007@gmail.com>\n"
 "Language-Team: Catalan <https://translate.fedoraproject.org/projects/systemd/"
@@ -382,7 +382,8 @@ msgstr "Obté el número de sèrie del maquinari"
 
 #: src/hostname/org.freedesktop.hostname1.policy:62
 msgid "Authentication is required to get hardware serial number."
-msgstr "Es requereix autenticació per obtenir el número de sèrie del maquinari."
+msgstr ""
+"Es requereix autenticació per obtenir el número de sèrie del maquinari."
 
 #: src/hostname/org.freedesktop.hostname1.policy:71
 msgid "Get system description"
@@ -693,7 +694,8 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:257
 msgid "Halt the system while an application is inhibiting this"
-msgstr "Atura el sistema mentre hi ha una aplicació que ha demanat d'inhibir-ho"
+msgstr ""
+"Atura el sistema mentre hi ha una aplicació que ha demanat d'inhibir-ho"
 
 #: src/login/org.freedesktop.login1.policy:258
 msgid ""
@@ -872,7 +874,8 @@ msgstr "Adquireix un shell en un contenidor local"
 
 #: src/machine/org.freedesktop.machine1.policy:43
 msgid "Authentication is required to acquire a shell in a local container."
-msgstr "Es requereix autenticació per adquirir un shell en un contenidor local."
+msgstr ""
+"Es requereix autenticació per adquirir un shell en un contenidor local."
 
 #: src/machine/org.freedesktop.machine1.policy:53
 msgid "Acquire a shell on the local host"
@@ -1330,7 +1333,8 @@ msgstr "Gestiona les característiques opcionals"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:119
 msgid "Authentication is required to manage optional features."
-msgstr "Es requereix autenticació per gestionar les característiques opcionals."
+msgstr ""
+"Es requereix autenticació per gestionar les característiques opcionals."
 
 #: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"
@@ -1393,8 +1397,8 @@ msgid ""
 "Authentication is required to send a UNIX signal to the processes of '$"
 "(unit)'."
 msgstr ""
-"Es requereix autenticació per enviar un senyal UNIX als processos de '$(unit)"
-"'."
+"Es requereix autenticació per enviar un senyal UNIX als processos de '$"
+"(unit)'."
 
 #: src/core/dbus-unit.c:621
 msgid ""
@@ -1427,15 +1431,21 @@ msgstr ""
 "Es requereix autenticació per congelar o descongelar els processos de la "
 "unitat '$(unit)'."
 
-#: src/shared/libfido2-util.c:497 src/shared/libfido2-util.c:554
+#: src/shared/libfido2-util.c:500 src/shared/libfido2-util.c:557
 msgid "Please confirm presence on security token to unlock."
 msgstr ""
 
-#: src/shared/libfido2-util.c:513
+#: src/shared/libfido2-util.c:516
 msgid "Please verify user on security token to unlock."
 msgstr ""
 
-#: src/shared/libfido2-util.c:926
+#: src/shared/libfido2-util.c:936
+#, c-format
+msgid ""
+"Please enter security token PIN (remaining attempts before lock-out: %d):"
+msgstr ""
+
+#: src/shared/libfido2-util.c:948
 msgid "Please enter security token PIN:"
 msgstr ""
 

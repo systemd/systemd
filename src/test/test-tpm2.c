@@ -2,6 +2,8 @@
 
 #include "crypto-util.h"
 #include "hexdecoct.h"
+#include "iovec-util.h"
+#include "random-util.h"
 #include "tests.h"
 #include "tpm2-util.h"
 #include "virt.h"
@@ -44,6 +46,70 @@ TEST(tpm2_pcr_index_from_string) {
         assert_se(tpm2_pcr_index_from_string("44") == -EINVAL);
         assert_se(tpm2_pcr_index_from_string("-5") == -EINVAL);
         assert_se(tpm2_pcr_index_from_string("24") == -EINVAL);
+}
+
+TEST(tpm2_pcr_bank_from_efi_active) {
+        uint16_t bank;
+
+        /* SHA256 is the top preference whenever it is active. */
+        ASSERT_OK(tpm2_pcr_bank_from_efi_active((1u << TPM2_ALG_SHA1) | (1u << TPM2_ALG_SHA256) | (1u << TPM2_ALG_SHA384) | (1u << TPM2_ALG_SHA512), &bank));
+        ASSERT_EQ(bank, TPM2_ALG_SHA256);
+
+        /* Without SHA256, SHA384 is preferred over SHA512 (shorter digest, less TPM event log space), and
+         * both win over SHA1. */
+        ASSERT_OK(tpm2_pcr_bank_from_efi_active((1u << TPM2_ALG_SHA1) | (1u << TPM2_ALG_SHA384) | (1u << TPM2_ALG_SHA512), &bank));
+        ASSERT_EQ(bank, TPM2_ALG_SHA384);
+        ASSERT_OK(tpm2_pcr_bank_from_efi_active((1u << TPM2_ALG_SHA1) | (1u << TPM2_ALG_SHA512), &bank));
+        ASSERT_EQ(bank, TPM2_ALG_SHA512);
+
+        /* SHA384-only firmware must resolve, not fail. */
+        ASSERT_OK(tpm2_pcr_bank_from_efi_active(1u << TPM2_ALG_SHA384, &bank));
+        ASSERT_EQ(bank, TPM2_ALG_SHA384);
+
+        /* Single-bank cases pick the obvious bank. */
+        ASSERT_OK(tpm2_pcr_bank_from_efi_active(1u << TPM2_ALG_SHA256, &bank));
+        ASSERT_EQ(bank, TPM2_ALG_SHA256);
+        ASSERT_OK(tpm2_pcr_bank_from_efi_active(1u << TPM2_ALG_SHA512, &bank));
+        ASSERT_EQ(bank, TPM2_ALG_SHA512);
+        ASSERT_OK(tpm2_pcr_bank_from_efi_active(1u << TPM2_ALG_SHA1, &bank));
+        ASSERT_EQ(bank, TPM2_ALG_SHA1);
+
+        /* No bank we are willing to use -> -EOPNOTSUPP. Empty mask, or only a bank we cannot hash in
+         * software (SM3_256, TCG algorithm id 0x12). */
+        ASSERT_ERROR(tpm2_pcr_bank_from_efi_active(0, &bank), EOPNOTSUPP);
+        ASSERT_ERROR(tpm2_pcr_bank_from_efi_active(1u << 0x12, &bank), EOPNOTSUPP);
+}
+
+TEST(tpm2_pcr_bank_from_efi_active_legacy) {
+        uint16_t bank;
+
+        /* The legacy variant re-derives the bank for old enrollments that did not record one. Such secrets
+         * could only ever have been sealed against SHA256 or SHA1, so the choice MUST stay restricted to
+         * those two banks regardless of which stronger banks the firmware reports as active — otherwise we'd
+         * re-derive a bank the secret was never bound to and silently fail to unseal. */
+
+        /* SHA256 stays the top preference. */
+        ASSERT_OK(tpm2_pcr_bank_from_efi_active_legacy((1u << TPM2_ALG_SHA1) | (1u << TPM2_ALG_SHA256) | (1u << TPM2_ALG_SHA384) | (1u << TPM2_ALG_SHA512), &bank));
+        ASSERT_EQ(bank, TPM2_ALG_SHA256);
+
+        /* The crucial backwards-compatibility case: with SHA384/SHA512 active but no SHA256, the legacy
+         * variant must fall back to SHA1, NOT pick the stronger SHA384 the way the non-legacy variant does
+         * (compare the SHA384 result in the test above). */
+        ASSERT_OK(tpm2_pcr_bank_from_efi_active_legacy((1u << TPM2_ALG_SHA1) | (1u << TPM2_ALG_SHA384) | (1u << TPM2_ALG_SHA512), &bank));
+        ASSERT_EQ(bank, TPM2_ALG_SHA1);
+
+        /* Single-bank cases for the two banks we accept. */
+        ASSERT_OK(tpm2_pcr_bank_from_efi_active_legacy(1u << TPM2_ALG_SHA256, &bank));
+        ASSERT_EQ(bank, TPM2_ALG_SHA256);
+        ASSERT_OK(tpm2_pcr_bank_from_efi_active_legacy(1u << TPM2_ALG_SHA1, &bank));
+        ASSERT_EQ(bank, TPM2_ALG_SHA1);
+
+        /* Banks the legacy variant never binds to -> -EOPNOTSUPP, even when active. A secret could not have
+         * been sealed against these by the old code, so there is nothing to re-derive. */
+        ASSERT_ERROR(tpm2_pcr_bank_from_efi_active_legacy(1u << TPM2_ALG_SHA384, &bank), EOPNOTSUPP);
+        ASSERT_ERROR(tpm2_pcr_bank_from_efi_active_legacy(1u << TPM2_ALG_SHA512, &bank), EOPNOTSUPP);
+        ASSERT_ERROR(tpm2_pcr_bank_from_efi_active_legacy((1u << TPM2_ALG_SHA384) | (1u << TPM2_ALG_SHA512), &bank), EOPNOTSUPP);
+        ASSERT_ERROR(tpm2_pcr_bank_from_efi_active_legacy(0, &bank), EOPNOTSUPP);
 }
 
 TEST(tpm2_util_pbkdf2_hmac_sha256) {
@@ -1309,6 +1375,81 @@ static void check_seal_unseal(Tpm2Context *c) {
         }
 }
 
+static void check_nv_index_read(Tpm2Context *c) {
+        int r;
+        uint8_t payload[1031];
+
+        assert(c);
+
+        TEST_LOG_FUNC();
+
+        random_bytes(payload, sizeof(payload));
+        struct iovec data = IOVEC_MAKE(payload, sizeof(payload));
+
+        /* Test chunked reads first by mocking c->max_nv_buffer_size with several values that are less than
+         * the payload size and the TPM's reported size for TPM2_PT_NV_BUFFER_MAX. */
+        TPM2_HANDLE nv_index = 0;
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *nv_handle = NULL;
+        r = tpm2_define_data_nv_index(c, /* session= */ NULL, /* requested_nv_index= */ 0, &data, &nv_index, &nv_handle);
+        if (r < 0) {
+                /* Could fail because the index size is greater than the value of TPM2_PT_NV_INDEX_MAX, or
+                 * there isn't enough space available. */
+                log_notice_errno(r, "Could not allocate NV index, skipping NV index read test: %m");
+                return;
+        }
+        ASSERT_NE(nv_index, 0U);
+        ASSERT_NOT_NULL(nv_handle);
+
+        uint16_t saved_max_nv_buffer_size = c->max_nv_buffer_size;
+
+        static const uint16_t chunk_sizes[] = { 128, 256, 512, 1024 };
+        FOREACH_ELEMENT(cs, chunk_sizes) {
+                if (*cs >= saved_max_nv_buffer_size)
+                        continue;
+
+                c->max_nv_buffer_size = *cs;
+
+                _cleanup_(iovec_done) struct iovec value = {};
+                ASSERT_OK_ZERO(tpm2_read_nv_index(c, /* session= */ NULL, nv_index, nv_handle, &value));
+                ASSERT_TRUE(iovec_equal(&value, &data));
+        }
+
+        c->max_nv_buffer_size = saved_max_nv_buffer_size;
+
+        ASSERT_OK_ZERO(tpm2_undefine_nv_index(c, /* session= */ NULL, nv_index, nv_handle));
+        nv_index = 0;
+        nv_handle = tpm2_handle_free(nv_handle);
+
+        /* Test reading of a payload with the size of the reported TPM2_PT_NV_BUFFER_MAX. */
+        _cleanup_free_ void *payload2 = malloc(c->max_nv_buffer_size);
+        ASSERT_NOT_NULL(payload2);
+        random_bytes(payload2, c->max_nv_buffer_size);
+        struct iovec data2 = IOVEC_MAKE(payload2, c->max_nv_buffer_size);
+        ASSERT_OK_ZERO(tpm2_define_data_nv_index(c, /* session= */ NULL, /* requested_nv_index= */ 0, &data2, &nv_index, &nv_handle));
+        ASSERT_NE(nv_index, 0U);
+        ASSERT_NOT_NULL(nv_handle);
+
+        _cleanup_(iovec_done) struct iovec value = {};
+        ASSERT_OK_ZERO(tpm2_read_nv_index(c, /* session= */ NULL, nv_index, nv_handle, &value));
+        ASSERT_TRUE(iovec_equal(&value, &data2));
+
+        ASSERT_OK_ZERO(tpm2_undefine_nv_index(c, /* session= */ NULL, nv_index, nv_handle));
+        nv_index = 0;
+        nv_handle = tpm2_handle_free(nv_handle);
+        iovec_done(&value);
+
+        /* Test reading of a payload which is smaller than the reported size of TPM2_PT_NV_BUFFER_MAX. */
+        data.iov_len = 36;
+        ASSERT_OK_ZERO(tpm2_define_data_nv_index(c, /* session= */ NULL, /* requested_nv_index= */ 0, &data, &nv_index, &nv_handle));
+        ASSERT_NE(nv_index, 0U);
+        ASSERT_NOT_NULL(nv_handle);
+
+        ASSERT_OK_ZERO(tpm2_read_nv_index(c, /* session= */ NULL, nv_index, nv_handle, &value));
+        ASSERT_TRUE(iovec_equal(&value, &data));
+
+        ASSERT_OK_ZERO(tpm2_undefine_nv_index(c, /* session= */ NULL, nv_index, nv_handle));
+}
+
 TEST_RET(tests_which_require_tpm) {
         _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
         int r = 0;
@@ -1322,6 +1463,7 @@ TEST_RET(tests_which_require_tpm) {
         check_best_srk_template(c);
         check_get_or_create_srk(c);
         check_seal_unseal(c);
+        check_nv_index_read(c);
 
 #if HAVE_OPENSSL
         r = check_calculate_seal(c);

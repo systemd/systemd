@@ -189,17 +189,38 @@ libcore = shared_library(
         install : true,
         install_dir : pkglibdir)
 
-executor_libs = get_option('link-executor-shared') ? \
-        [
-                libcore,
-                libshared,
-        ] : [
-                libc_wrapper_static,
-                libcore_static,
-                libshared_static,
-                libbasic_static,
-                libsystemd_static,
+core_libs_static = [
+        libc_wrapper_static,
+        libcore_static,
+        libshared_static,
+        libbasic_static,
+        libsystemd_static,
+]
+core_libs_shared = [
+        libcore,
+        libshared,
+]
+
+systemd_deps = [
+        libapparmor_cflags,
+        libkmod_cflags,
+        libmount_cflags,
+        libseccomp_cflags,
+        libselinux_cflags,
+]
+
+link_executor_shared = get_option('link-executor-shared')
+
+executor_libs = link_executor_shared == 'true' ? core_libs_shared : core_libs_static
+
+if link_executor_shared == 'single'
+        systemd_sources += systemd_executor_sources
+        systemd_deps += [
+                libbpf_cflags,
+                libcryptsetup_cflags,
+                libpam_cflags,
         ]
+endif
 
 executables += [
         libexec_template + {
@@ -207,33 +228,10 @@ executables += [
                 'dbus' : true,
                 'public' : true,
                 'sources' : systemd_sources,
-                'link_with' : [
-                        libcore,
-                        libshared,
-                ],
-                'dependencies' : [
-                        libapparmor_cflags,
-                        libkmod_cflags,
-                        libmount_cflags,
-                        libseccomp_cflags,
-                        libselinux_cflags,
-                ],
+                'link_with' : core_libs_shared,
+                'dependencies' : systemd_deps,
         },
-        libexec_template + {
-                'name' : 'systemd-executor',
-                'public' : true,
-                'sources' : systemd_executor_sources,
-                'link_with' : executor_libs,
-                'dependencies' : [
-                        libapparmor_cflags,
-                        libbpf_cflags,
-                        libcryptsetup_cflags,
-                        libmount_cflags,
-                        libpam_cflags,
-                        libseccomp_cflags,
-                        libselinux_cflags,
-                ],
-        },
+
         fuzz_template + {
                 'sources' : files('fuzz-unit-file.c'),
                 'link_with' : [
@@ -257,6 +255,31 @@ executables += [
                 ],
         },
 ]
+
+if link_executor_shared == 'single'
+        # Symlink for external callers
+        install_symlink('systemd-executor',
+                        pointing_to : 'systemd',
+                        install_dir : libexecdir)
+else
+        executables += [
+                libexec_template + {
+                        'name' : 'systemd-executor',
+                        'public' : true,
+                        'sources' : systemd_executor_sources,
+                        'link_with' : executor_libs,
+                        'dependencies' : [
+                                libapparmor_cflags,
+                                libbpf_cflags,
+                                libcryptsetup_cflags,
+                                libmount_cflags,
+                                libpam_cflags,
+                                libseccomp_cflags,
+                                libselinux_cflags,
+                        ],
+                },
+        ]
+endif
 
 in_files = [['system.conf',                     pkgconfigfiledir],
             ['user.conf',                       pkgconfigfiledir],

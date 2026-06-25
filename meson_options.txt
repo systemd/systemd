@@ -15,8 +15,8 @@ option('split-bin', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'sbin is not a symlink to bin')
 option('link-udev-shared', type : 'boolean',
        description : 'link systemd-udevd and its helpers to libsystemd-shared.so')
-option('link-executor-shared', type : 'boolean',
-       description : 'link systemd-executor to libsystemd-shared.so and libsystemd-core.so')
+option('link-executor-shared', type : 'combo', choices : ['true', 'false', 'single'],
+       description : 'link systemd-executor to libsystemd-shared.so and libsystemd-core.so, or into systemd')
 option('link-systemctl-shared', type: 'boolean',
        description : 'link systemctl against libsystemd-shared.so')
 option('link-networkd-shared', type: 'boolean',
@@ -248,6 +248,8 @@ option('configfiledir', type : 'string', value : '',
 
 option('fallback-hostname', type : 'string', value : 'localhost',
        description : 'the hostname used if none configured')
+option('hostname-wordlist', type : 'boolean', value : false,
+       description : 'install default word lists for $ hostname wildcards')
 option('extra-net-naming-schemes', type : 'string',
        description : 'comma-separated list of extra net.naming_scheme= definitions')
 option('default-net-naming-scheme', type : 'string', value : 'latest',

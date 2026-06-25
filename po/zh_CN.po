@@ -17,7 +17,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-30 00:13+0200\n"
+"POT-Creation-Date: 2026-06-01 11:49+0200\n"
 "PO-Revision-Date: 2026-06-12 09:22+0000\n"
 "Last-Translator: Luke Na <narukeu@outlook.com>\n"
 "Language-Team: Chinese (Simplified) <https://translate.fedoraproject.org/"
@@ -166,7 +166,8 @@ msgstr "管理主目录区域的签名密钥需要认证。"
 msgid ""
 "Home of user %s is currently absent, please plug in the necessary storage "
 "device or backing file system."
-msgstr "用户 %s 的主目录区域当前不可用，请插入必要的存储设备或挂载底层文件系统。"
+msgstr ""
+"用户 %s 的主目录区域当前不可用，请插入必要的存储设备或挂载底层文件系统。"
 
 #: src/home/pam_systemd_home.c:332
 #, c-format
@@ -240,7 +241,8 @@ msgstr "请在用户 %s 的安全令牌上验证用户身份。"
 msgid ""
 "Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
 "insertion might suffice.)"
-msgstr "安全令牌 PIN 已经锁定，请先将其解锁。（提示：移除并重新插入可能就行。）"
+msgstr ""
+"安全令牌 PIN 已经锁定，请先将其解锁。（提示：移除并重新插入可能就行。）"
 
 #: src/home/pam_systemd_home.c:471
 #, c-format
@@ -1291,15 +1293,22 @@ msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr "冻结或解冻 '$(unit)' 单元进程需要认证。"
 
-#: src/shared/libfido2-util.c:497 src/shared/libfido2-util.c:554
+#: src/shared/libfido2-util.c:500 src/shared/libfido2-util.c:557
 msgid "Please confirm presence on security token to unlock."
 msgstr "请在安全令牌上确认在场以解锁。"
 
-#: src/shared/libfido2-util.c:513
+#: src/shared/libfido2-util.c:516
 msgid "Please verify user on security token to unlock."
 msgstr "请在安全令牌上验证用户身份以解锁。"
 
-#: src/shared/libfido2-util.c:926
+#: src/shared/libfido2-util.c:936
+#, fuzzy, c-format
+#| msgid "Please enter security token PIN:"
+msgid ""
+"Please enter security token PIN (remaining attempts before lock-out: %d):"
+msgstr "请输入安全令牌 PIN："
+
+#: src/shared/libfido2-util.c:948
 msgid "Please enter security token PIN:"
 msgstr "请输入安全令牌 PIN："
 

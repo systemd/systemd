@@ -551,7 +551,7 @@ int vmspawn_varlink_setup(
         if (!listen_address)
                 return log_oom();
 
-        r = sd_varlink_server_listen_address(ctx->varlink_server, listen_address, 0600);
+        r = sd_varlink_server_listen_address(ctx->varlink_server, listen_address, 0644);
         if (r < 0)
                 return log_error_errno(r, "Failed to listen on %s: %m", listen_address);
 
@@ -577,10 +577,11 @@ VmspawnVarlinkContext* vmspawn_varlink_context_free(VmspawnVarlinkContext *ctx) 
         if (!ctx)
                 return NULL;
 
-        sd_varlink_server_unref(ctx->varlink_server);
-        vmspawn_qmp_bridge_free(ctx->bridge);
+        ctx->varlink_server = sd_varlink_server_unref(ctx->varlink_server);
 
         drain_event_subscribers(&ctx->subscribed);
+
+        ctx->bridge = vmspawn_qmp_bridge_free(ctx->bridge);
 
         return mfree(ctx);
 }

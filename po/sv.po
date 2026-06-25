@@ -13,9 +13,9 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-30 00:13+0200\n"
-"PO-Revision-Date: 2026-06-07 14:01+0000\n"
-"Last-Translator: Daniel Nylander <po@danielnylander.se>\n"
+"POT-Creation-Date: 2026-06-01 11:49+0200\n"
+"PO-Revision-Date: 2026-06-21 11:10+0000\n"
+"Last-Translator: Luna Jernberg <droidbittin@gmail.com>\n"
 "Language-Team: Swedish <https://translate.fedoraproject.org/projects/systemd/"
 "main/sv/>\n"
 "Language: sv\n"
@@ -42,7 +42,8 @@ msgstr "Hantera systemtjänster eller andra enheter"
 
 #: src/core/org.freedesktop.systemd1.policy.in:34
 msgid "Authentication is required to manage system services or other units."
-msgstr "Autentisering krävs för att hantera systemtjänster eller andra enheter."
+msgstr ""
+"Autentisering krävs för att hantera systemtjänster eller andra enheter."
 
 #: src/core/org.freedesktop.systemd1.policy.in:43
 msgid "Manage system service or unit files"
@@ -140,7 +141,8 @@ msgstr "Ändra lösenord för en hemarea"
 #: src/home/org.freedesktop.home1.policy:74
 msgid ""
 "Authentication is required to change the password of a user's home area."
-msgstr "Autentisering krävs för att ändra lösenordet för en användares hemarea."
+msgstr ""
+"Autentisering krävs för att ändra lösenordet för en användares hemarea."
 
 #: src/home/org.freedesktop.home1.policy:83
 msgid "Activate a home area"
@@ -156,7 +158,8 @@ msgstr "Hantera nycklar för signering av hemkatalog"
 
 #: src/home/org.freedesktop.home1.policy:94
 msgid "Authentication is required to manage signing keys for home directories."
-msgstr "Autentisering krävs för att hantera signeringsnycklar för hemkataloger."
+msgstr ""
+"Autentisering krävs för att hantera signeringsnycklar för hemkataloger."
 
 #: src/home/pam_systemd_home.c:327
 #, c-format
@@ -1224,7 +1227,8 @@ msgstr "Avbryt sökandet efter systemuppdateringar"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:49
 msgid "Authentication is required to cancel checking for system updates."
-msgstr "Autentisering krävs för att avbryta sökandet efter systemuppdateringar."
+msgstr ""
+"Autentisering krävs för att avbryta sökandet efter systemuppdateringar."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:58
 msgid "Install system updates"
@@ -1355,8 +1359,8 @@ msgid ""
 "Authentication is required to send a UNIX signal to the processes of '$"
 "(unit)'."
 msgstr ""
-"Autentisering krävs för att skicka en UNIX-signal till processerna i ”$(unit)"
-"”."
+"Autentisering krävs för att skicka en UNIX-signal till processerna i ”$"
+"(unit)”."
 
 #: src/core/dbus-unit.c:621
 msgid ""
@@ -1390,15 +1394,21 @@ msgid ""
 msgstr ""
 "Autentisering krävs för att frysa eller töa processerna i enheten ”$(unit)”."
 
-#: src/shared/libfido2-util.c:497 src/shared/libfido2-util.c:554
+#: src/shared/libfido2-util.c:500 src/shared/libfido2-util.c:557
 msgid "Please confirm presence on security token to unlock."
 msgstr "Bekräfta närvaro på säkerhetstoken för att låsa upp."
 
-#: src/shared/libfido2-util.c:513
+#: src/shared/libfido2-util.c:516
 msgid "Please verify user on security token to unlock."
 msgstr "Verifiera användare med säkerhetstoken för att låsa upp."
 
-#: src/shared/libfido2-util.c:926
+#: src/shared/libfido2-util.c:936
+#, c-format
+msgid ""
+"Please enter security token PIN (remaining attempts before lock-out: %d):"
+msgstr "Ange säkerhetstoken-PIN (återstående försök före utelåsning: %d):"
+
+#: src/shared/libfido2-util.c:948
 msgid "Please enter security token PIN:"
 msgstr "Ange PIN-koden för säkerhetstoken:"
 

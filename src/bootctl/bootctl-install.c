@@ -45,6 +45,7 @@
 #include "tmpfile-util.h"
 #include "umask-util.h"
 #include "utf8.h"
+#include "varlink-util.h"
 
 typedef enum InstallOperation {
         INSTALL_NEW,
@@ -1092,8 +1093,7 @@ static int install_secure_boot_auto_enroll(InstallContext *c) {
         int dercertsz;
         dercertsz = sym_i2d_X509(c->secure_boot_certificate, &dercert);
         if (dercertsz < 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to convert X.509 certificate to DER: %s",
-                                       sym_ERR_error_string(sym_ERR_get_error(), NULL));
+                return log_openssl_errors(LOG_ERR, "Failed to convert X.509 certificate to DER");
 
         if (c->esp_fd < 0)
                 return c->esp_fd;
@@ -1150,33 +1150,31 @@ static int install_secure_boot_auto_enroll(InstallContext *c) {
 
                 /* Don't count the trailing NUL terminator. */
                 if (sym_BIO_write(bio, db16, char16_strsize(db16) - sizeof(char16_t)) < 0)
-                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to write variable name to bio");
+                        return log_openssl_errors(LOG_ERR, "Failed to write variable name to bio");
 
                 EFI_GUID *guid = STR_IN_SET(db, "PK", "KEK") ? &(EFI_GUID) EFI_GLOBAL_VARIABLE : &(EFI_GUID) EFI_IMAGE_SECURITY_DATABASE_GUID;
 
                 if (sym_BIO_write(bio, guid, sizeof(*guid)) < 0)
-                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to write variable GUID to bio");
+                        return log_openssl_errors(LOG_ERR, "Failed to write variable GUID to bio");
 
                 if (sym_BIO_write(bio, &attrs, sizeof(attrs)) < 0)
-                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to write variable attributes to bio");
+                        return log_openssl_errors(LOG_ERR, "Failed to write variable attributes to bio");
 
                 if (sym_BIO_write(bio, &timestamp, sizeof(timestamp)) < 0)
-                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to write timestamp to bio");
+                        return log_openssl_errors(LOG_ERR, "Failed to write timestamp to bio");
 
                 if (sym_BIO_write(bio, siglist, siglistsz) < 0)
-                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to write signature list to bio");
+                        return log_openssl_errors(LOG_ERR, "Failed to write signature list to bio");
 
                 _cleanup_(PKCS7_freep) PKCS7 *p7 = NULL;
                 p7 = sym_PKCS7_sign(c->secure_boot_certificate, c->secure_boot_private_key, /* certs= */ NULL, bio, PKCS7_DETACHED|PKCS7_NOATTR|PKCS7_BINARY|PKCS7_NOSMIMECAP);
                 if (!p7)
-                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to calculate PKCS7 signature: %s",
-                                               sym_ERR_error_string(sym_ERR_get_error(), NULL));
+                        return log_openssl_errors(LOG_ERR, "Failed to calculate PKCS7 signature");
 
                 _cleanup_free_ uint8_t *sig = NULL;
                 int sigsz = sym_i2d_PKCS7(p7, &sig);
                 if (sigsz < 0)
-                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to convert PKCS7 signature to DER: %s",
-                                               sym_ERR_error_string(sym_ERR_get_error(), NULL));
+                        return log_openssl_errors(LOG_ERR, "Failed to convert PKCS7 signature to DER");
 
                 size_t authsz = offsetof(EFI_VARIABLE_AUTHENTICATION_2, AuthInfo.CertData) + sigsz;
                 _cleanup_free_ EFI_VARIABLE_AUTHENTICATION_2 *auth = malloc(authsz);
@@ -2122,6 +2120,10 @@ int vl_method_install(
 
         r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
         if (r != 0)
+                return r;
+
+        r = varlink_check_privileged_peer(link);
+        if (r < 0)
                 return r;
 
         if (!IN_SET(p.context.operation, INSTALL_NEW, INSTALL_UPDATE))

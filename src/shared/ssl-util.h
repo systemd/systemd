@@ -12,7 +12,7 @@ int dlopen_libssl(int log_level);
         SD_ELF_NOTE_DLOPEN("libssl",                                    \
                            "Support for TLS",                           \
                            priority,                                    \
-                           "libssl.so.3")
+                           "libssl.so.4", "libssl.so.3")
 
 #define DLOPEN_LIBSSL(log_level, priority)                              \
         ({                                                              \
@@ -55,6 +55,7 @@ extern DLSYM_PROTOTYPE(TLS_client_method);
         sym_SSL_CTX_ctrl((ctx), SSL_CTRL_SET_MIN_PROTO_VERSION, (version), NULL)
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(SSL*, sym_SSL_free, SSL_freep, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(SSL_CTX*, sym_SSL_CTX_free, SSL_CTX_freep, NULL);
 
 #else
 #define DLOPEN_LIBSSL(log_level, priority) dlopen_libssl(log_level)

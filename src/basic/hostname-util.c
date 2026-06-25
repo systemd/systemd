@@ -18,7 +18,7 @@ char* get_default_hostname_raw(void) {
 
         const char *e = secure_getenv("SYSTEMD_DEFAULT_HOSTNAME");
         if (e) {
-                if (hostname_is_valid(e, VALID_HOSTNAME_QUESTION_MARK))
+                if (hostname_is_valid(e, VALID_HOSTNAME_QUESTION_MARK|VALID_HOSTNAME_WORD_TOKEN))
                         return strdup(e);
 
                 log_debug("Invalid hostname in $SYSTEMD_DEFAULT_HOSTNAME, ignoring: %s", e);
@@ -29,7 +29,7 @@ char* get_default_hostname_raw(void) {
         if (r < 0)
                 log_debug_errno(r, "Failed to parse os-release, ignoring: %m");
         else if (f) {
-                if (hostname_is_valid(f, VALID_HOSTNAME_QUESTION_MARK))
+                if (hostname_is_valid(f, VALID_HOSTNAME_QUESTION_MARK|VALID_HOSTNAME_WORD_TOKEN))
                         return TAKE_PTR(f);
 
                 log_debug("Invalid hostname in os-release, ignoring: %s", f);
@@ -82,7 +82,9 @@ bool hostname_is_valid(const char *s, ValidHostnameFlags flags) {
                         hyphen = true;
 
                 } else {
-                        if (!valid_ldh_char(*p) && (*p != '?' || !FLAGS_SET(flags, VALID_HOSTNAME_QUESTION_MARK)))
+                        if (!valid_ldh_char(*p) &&
+                            (*p != '?' || !FLAGS_SET(flags, VALID_HOSTNAME_QUESTION_MARK)) &&
+                            (*p != '$' || !FLAGS_SET(flags, VALID_HOSTNAME_WORD_TOKEN)))
                                 return false;
 
                         dot = false;
@@ -124,7 +126,7 @@ char* hostname_cleanup(char *s) {
                         dot = false;
                         hyphen = true;
 
-                } else if (valid_ldh_char(*p) || *p == '?') {
+                } else if (valid_ldh_char(*p) || IN_SET(*p, '?', '$')) {
                         *(d++) = *p;
                         dot = false;
                         hyphen = false;
@@ -259,13 +261,26 @@ bool machine_tag_is_valid(const char *s) {
         if (n <= 0 || n >= 256)
                 return false;
 
-        /* Don't allow "-" and "." as first or last char. (This is load-bearing, we want that "+"/"-" can be
-         * used as prefix for adding/removing tags from the list). */
-        if (strchr("-.", s[0]) ||
-            strchr("-.", s[n-1]))
+        /* Don't allow "-" and "." as first char. (This is load-bearing, we want that "+"/"-" can be used as
+         * prefix for adding/removing tags from the list). */
+        if (strchr("-.=", s[0]))
                 return false;
 
-        return in_charset(s, ALPHANUMERICAL "-.");
+        /* We allow parameterization of tags, with a "=" as separator */
+        const char *eq = strchr(s, '=');
+        if (eq) {
+                assert(eq > s);
+
+                /* If there is an '=', then make the same restrictions as for the first char on the last char before it */
+                if (strchr("-.", eq[-1]))
+                        return false;
+        } else {
+                /* If there's no '=', then make the restriction on the very last character */
+                if (strchr("-.", s[n-1]))
+                        return false;
+        }
+
+        return in_charset(s, ALPHANUMERICAL "-.=");
 }
 
 bool machine_tag_list_is_valid(char **l) {
@@ -277,6 +292,23 @@ bool machine_tag_list_is_valid(char **l) {
 
                 if (!machine_tag_is_valid(*i))
                         return false;
+
+                const char *eq = strchr(*i, '=');
+                if (!eq)
+                        continue;
+
+                /* Refuse tags with a common part before the '=', that do no also carry the same value. */
+                size_t np = eq - *i + 1;
+                STRV_FOREACH(j, l) {
+                        if (j == i)
+                                break;
+
+                        if (streq(*i, *j)) /* Fully identical is OK */
+                                continue;
+
+                        if (strneq(*i, *j, np)) /* Not identical, but same key: refuse */
+                                return false;
+                }
         }
 
         return true;
@@ -319,6 +351,21 @@ int machine_tags_from_string(const char *s, bool graceful, char ***ret) {
                 n++;
                 if (n > MACHINE_TAGS_MAX)
                         return -E2BIG;
+
+                const char *eq = strchr(*i, '=');
+                if (eq) {
+                        /* Suppress duplicate assignments */
+                        bool skip = false;
+                        size_t np = eq - *i + 1;
+                        STRV_FOREACH(j, cleaned)
+                                if (strneq(*i, *j, np)) {
+                                        skip = true;
+                                        break;
+                                }
+
+                        if (skip)
+                                continue;
+                }
 
                 r = strv_extend(&cleaned, *i);
                 if (r < 0)

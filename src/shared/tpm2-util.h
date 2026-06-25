@@ -89,6 +89,7 @@ typedef struct Tpm2Context {
         TPM2_ECC_CURVE *capability_ecc_curves;
         size_t n_capability_ecc_curves;
         TPML_PCR_SELECTION capability_pcrs;
+        uint16_t max_nv_buffer_size;
 } Tpm2Context;
 
 int tpm2_context_new(const char *device, Tpm2Context **ret_context);
@@ -159,6 +160,8 @@ bool tpm2_test_parms(Tpm2Context *c, TPMI_ALG_PUBLIC alg, const TPMU_PUBLIC_PARM
 int tpm2_get_good_pcr_banks(Tpm2Context *c, uint32_t pcr_mask, TPMI_ALG_HASH **ret_banks);
 int tpm2_get_good_pcr_banks_strv(Tpm2Context *c, uint32_t pcr_mask, char ***ret);
 int tpm2_get_best_pcr_bank(Tpm2Context *c, uint32_t pcr_mask, TPMI_ALG_HASH *ret);
+/* Like tpm2_get_best_pcr_bank(), but restricted to SHA256/SHA1 for re-deriving the bank of legacy enrollments */
+int tpm2_get_best_pcr_bank_legacy(Tpm2Context *c, uint32_t pcr_mask, TPMI_ALG_HASH *ret);
 
 const char* tpm2_userspace_log_path(void);
 const char* tpm2_firmware_log_path(void);
@@ -302,7 +305,9 @@ int tpm2_pcrlock_search_file(const char *path, FILE **ret_file, char **ret_path)
 int tpm2_pcrlock_policy_load(const char *path, Tpm2PCRLockPolicy *ret_policy);
 int tpm2_pcrlock_policy_from_credentials(const struct iovec *srk, const struct iovec *nv, Tpm2PCRLockPolicy *ret);
 
-int tpm2_index_to_handle(Tpm2Context *c, TPM2_HANDLE index, const Tpm2Handle *session, TPM2B_PUBLIC **ret_public, TPM2B_NAME **ret_name, TPM2B_NAME **ret_qname, Tpm2Handle **ret_handle);
+int tpm2_index_to_handle(Tpm2Context *c, TPM2_HANDLE index, const Tpm2Handle *session, TPM2B_NAME **ret_name, Tpm2Handle **ret_handle);
+int tpm2_object_index_to_handle(Tpm2Context *c, TPM2_HANDLE index, const Tpm2Handle *session, TPM2B_PUBLIC **ret_public, TPM2B_NAME **ret_name, TPM2B_NAME **ret_qname, Tpm2Handle **ret_handle);
+int tpm2_nv_index_to_handle(Tpm2Context *c, TPM2_HANDLE index, const Tpm2Handle *session, TPM2B_NV_PUBLIC **ret_nv_public, TPM2B_NAME **ret_name, Tpm2Handle **ret_handle);
 int tpm2_index_from_handle(Tpm2Context *c, const Tpm2Handle *handle, TPM2_HANDLE *ret_index);
 
 int tpm2_pcr_read(Tpm2Context *c, const TPML_PCR_SELECTION *pcr_selection, Tpm2PCRValue **ret_pcr_values, size_t *ret_n_pcr_values);
@@ -357,6 +362,7 @@ int tpm2_tpm2b_public_to_fingerprint(const TPM2B_PUBLIC *public, void **ret_fing
 
 int tpm2_define_policy_nv_index(Tpm2Context *c, const Tpm2Handle *session, TPM2_HANDLE requested_nv_index, const TPM2B_DIGEST *write_policy, TPM2_HANDLE *ret_nv_index, Tpm2Handle **ret_nv_handle, TPM2B_NV_PUBLIC *ret_nv_public);
 int tpm2_write_policy_nv_index(Tpm2Context *c, const Tpm2Handle *policy_session, TPM2_HANDLE nv_index, const Tpm2Handle *nv_handle, const TPM2B_DIGEST *policy_digest);
+int tpm2_define_data_nv_index(Tpm2Context *c, const Tpm2Handle *session, TPM2_HANDLE requested_nv_index, const struct iovec *data, TPM2_HANDLE *ret_nv_index, Tpm2Handle **ret_nv_handle);
 int tpm2_undefine_nv_index(Tpm2Context *c, const Tpm2Handle *session, TPM2_HANDLE nv_index, const Tpm2Handle *nv_handle);
 int tpm2_read_nv_index(Tpm2Context *c, const Tpm2Handle *session, TPM2_HANDLE nv_index, const Tpm2Handle *nv_handle, struct iovec *ret_value);
 
@@ -481,6 +487,12 @@ int tpm2_parse_luks2_json(sd_json_variant *v, int *ret_keyslot, uint32_t *ret_ha
 #ifndef TPM2_ALG_RSA
 #define TPM2_ALG_RSA 0x1
 #endif
+
+/* Picks the most preferred PCR bank (SHA256 > SHA384 > SHA512 > SHA1) out of the firmware-reported active
+ * banks bitmask. Defined unconditionally (no TPM2 libraries required) so it can be unit tested. */
+int tpm2_pcr_bank_from_efi_active(uint32_t active_banks, uint16_t *ret);
+/* Like tpm2_pcr_bank_from_efi_active(), but restricted to SHA256/SHA1, for re-deriving the bank of legacy enrollments */
+int tpm2_pcr_bank_from_efi_active_legacy(uint32_t active_banks, uint16_t *ret);
 
 int tpm2_hash_alg_to_size(uint16_t alg);
 

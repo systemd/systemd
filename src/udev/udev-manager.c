@@ -6,6 +6,7 @@
 
 #include "sd-varlink.h"
 
+#include "cgroup-setup.h"
 #include "cgroup-util.h"
 #include "common-signal.h"
 #include "daemon-util.h"
@@ -21,6 +22,7 @@
 #include "io-util.h"
 #include "list.h"
 #include "notify-recv.h"
+#include "path-util.h"
 #include "pidref.h"
 #include "prioq.h"
 #include "process-util.h"
@@ -226,7 +228,7 @@ Manager* manager_free(Manager *manager) {
         sd_event_source_unref(manager->kill_workers_event);
         sd_event_unref(manager->event);
 
-        free(manager->cgroup);
+        free(manager->workers_cgroup);
         return mfree(manager);
 }
 
@@ -585,6 +587,14 @@ static int worker_spawn(Manager *manager, Event *event) {
                         .config = manager->config,
                         .manager_pid = manager_pid,
                 };
+
+                if (manager->workers_cgroup) {
+                        r = cg_attach(manager->workers_cgroup, /* pid= */ 0);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to move worker into cgroup '%s': %m", manager->workers_cgroup);
+                                _exit(EXIT_FAILURE);
+                        }
+                }
 
                 if (setenv("NOTIFY_SOCKET", manager->worker_notify_socket_path, /* overwrite= */ true) < 0) {
                         log_error_errno(errno, "Failed to set $NOTIFY_SOCKET: %m");
@@ -1350,9 +1360,10 @@ static int on_post(sd_event_source *s, void *userdata) {
         if (!hashmap_isempty(manager->workers))
                 return 0; /* There still exist idle workers. */
 
-        if (manager->cgroup && set_isempty(manager->synthesize_change_child_event_sources))
-                /* cleanup possible left-over processes in our cgroup */
-                (void) cg_kill(manager->cgroup, SIGKILL, CGROUP_IGNORE_SELF, /* killed_pids= */ NULL, /* log_kill= */ NULL, /* userdata= */ NULL);
+        if (manager->workers_cgroup && set_isempty(manager->synthesize_change_child_event_sources))
+                /* cleanup possible left-over processes in the workers cgroup */
+                if (cg_kill_kernel_sigkill(manager->workers_cgroup, /* ret_n_pids_killed= */ NULL) == -EOPNOTSUPP)
+                        (void) cg_kill(manager->workers_cgroup, SIGKILL, CGROUP_IGNORE_SELF, /* killed_pids= */ NULL, /* log_kill= */ NULL, /* userdata= */ NULL);
 
         return 0;
 }
@@ -1480,12 +1491,30 @@ int manager_main(Manager *manager) {
         assert(manager);
 
         _cleanup_free_ char *cgroup = NULL;
-        r = cg_pid_get_path(0, &cgroup);
+        r = cg_pid_get_path(/* pid= */ 0, &cgroup);
         if (r < 0)
                 log_debug_errno(r, "Failed to get cgroup, ignoring: %m");
         else if (endswith(cgroup, "/udev")) { /* If we are in a subcgroup /udev/ we assume it was delegated to us */
                 log_debug("Running in delegated subcgroup '%s'.", cgroup);
-                manager->cgroup = TAKE_PTR(cgroup);
+
+                /* Try to create a sibling 'workers' cgroup and spawn all workers inside it, so that we can
+                 * use cgroup.kill to atomically clear all workers. */
+                _cleanup_free_ char *workers_cgroup = NULL;
+                r = path_extract_directory(cgroup, &workers_cgroup);
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to extract parent of cgroup '%s': %m", cgroup);
+
+                if (!path_extend(&workers_cgroup, "workers"))
+                        return log_oom();
+
+                r = cg_create(workers_cgroup);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to create workers cgroup '%s', ignoring: %m", workers_cgroup);
+                else {
+                        log_debug("Running workers in delegated subcgroup '%s'.", workers_cgroup);
+                        manager->workers_cgroup = TAKE_PTR(workers_cgroup);
+                }
+
         }
 
         r = manager_setup_event(manager);

@@ -11,6 +11,7 @@
 #include "fd-util.h"
 #include "fs-util.h"
 #include "fsprg.h"
+#include "gcrypt-util.h"
 #include "hostname-setup.h"
 #include "hostname-util.h"
 #include "io-util.h"
@@ -71,6 +72,10 @@ int action_setup_keys(void) {
         int r;
 
         assert(arg_action == ACTION_SETUP_KEYS);
+
+        r = DLOPEN_GCRYPT(LOG_ERR, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
+        if (r < 0)
+                return r;
 
         r = is_dir("/var/log/journal/", /* follow= */ false);
         if (r == 0)

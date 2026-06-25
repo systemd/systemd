@@ -429,6 +429,7 @@ static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) 
         if (r < 0)
                 return log_error_errno(r, "Failed to configure data device: %m");
 
+        bool signed_activation = false;
         if (arg_root_hash_signature_size > 0) {
                 r = sym_crypt_activate_by_signed_key(cd, volume, rh, rh_size, arg_root_hash_signature, arg_root_hash_signature_size, arg_activate_flags);
                 if (r < 0) {
@@ -439,7 +440,8 @@ static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) 
                                 return log_error_errno(r, "Failed to activate verity device '%s' both with and without root hash signature: %m", volume);
 
                         log_info("Activation of verity device '%s' succeeded without root hash signature.", volume);
-                }
+                } else
+                        signed_activation = true;
         } else
                 r = sym_crypt_activate_by_volume_key(cd, volume, rh, rh_size, arg_activate_flags);
         if (r < 0)
@@ -448,7 +450,7 @@ static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) 
         (void) pcrextend_verity_now(
                         volume,
                         &IOVEC_MAKE(rh, rh_size),
-                        &IOVEC_MAKE(arg_root_hash_signature, arg_root_hash_signature_size));
+                        signed_activation ? &IOVEC_MAKE(arg_root_hash_signature, arg_root_hash_signature_size) : NULL);
 
         return 0;
 }

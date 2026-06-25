@@ -78,6 +78,9 @@ conf.set10('FUZZ_USE_SIZE_LIMIT', fuzzer_build)
 # We'll set this to '1' for EFI builds in a different place.
 conf.set10('SD_BOOT', false)
 
+link_executor_shared = get_option('link-executor-shared')
+conf.set10('BUILD_EXECUTOR_SINGLE', link_executor_shared == 'single')
+
 # Create a title-less summary section early, so it ends up first in the output.
 # More items are added later after they have been detected.
 summary({
@@ -508,6 +511,11 @@ possible_cc_flags = [
 
 if get_option('mode') == 'developer'
         possible_cc_flags += '-fno-omit-frame-pointer'
+endif
+
+# Work around stack alignment issues observed with musl + libucontext on i386.
+if get_option('libc') == 'musl' and host_machine.cpu_family() == 'x86'
+        possible_cc_flags += '-mstackrealign'
 endif
 
 add_project_arguments(
@@ -2449,6 +2457,7 @@ subdir('test')
 #####################################################################
 
 subdir('docs/var-log')
+subdir('hostname-wordlist')
 subdir('hwdb.d')
 subdir('man')
 subdir('modprobe.d')

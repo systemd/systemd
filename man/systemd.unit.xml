@@ -2083,6 +2083,17 @@
           negated by prepending an exclamation mark, in which case it is satisfied if none of the configured
           tags matches.</para>
 
+          <para>Tags may be parameterized with a value in the form
+          <literal><replaceable>key</replaceable>=<replaceable>value</replaceable></literal>; the
+          <literal>=</literal> and the value are part of the tag and thus part of the string the pattern is
+          matched against. Hence <literal>ConditionMachineTag=role=webserver</literal> matches the tag
+          <literal>role=webserver</literal> exactly, <literal>ConditionMachineTag=role=*</literal> matches any
+          value assigned to the <literal>role</literal> key, and <literal>ConditionMachineTag=role</literal>
+          (without <literal>=</literal>) does <emphasis>not</emphasis> match <literal>role=webserver</literal>.
+          See
+          <citerefentry><refentrytitle>machine-info</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          for the precise syntax of machine tags.</para>
+
           <xi:include href="version-info.xml" xpointer="v261"/>
           </listitem>
         </varlistentry>
@@ -2452,11 +2463,7 @@
             <entry>Credentials directory</entry>
             <entry>This is the value of the <literal>$CREDENTIALS_DIRECTORY</literal> environment variable if available. See section "Credentials" in <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for more information.</entry>
           </row>
-          <row>
-            <entry><literal>%D</literal></entry>
-            <entry>Shared data directory</entry>
-            <entry>This is either <filename>/usr/share/</filename> (for the system manager) or the path <literal>$XDG_DATA_HOME</literal> resolves to (for user managers).</entry>
-          </row>
+          <xi:include href="standard-specifiers.xml" xpointer="D"/>
           <row>
             <entry><literal>%E</literal></entry>
             <entry>Configuration directory root</entry>

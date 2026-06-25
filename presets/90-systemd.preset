@@ -24,6 +24,7 @@ enable systemd-boot-update.service
 enable systemd-confext.service
 enable systemd-homed.service
 enable systemd-homed-activate.service
+enable systemd-journalctl-metrics.socket
 enable systemd-journald-audit.socket
 enable systemd-mountfsd.socket
 enable systemd-network-generator.service
@@ -33,8 +34,15 @@ enable systemd-nsresourced.socket
 enable systemd-pstore.service
 enable systemd-report-basic.socket
 enable systemd-report-cgroup.socket
+enable systemd-report-files.socket
+enable systemd-report-sign-plain.socket
+enable systemd-report-sign-tsm.socket
+enable systemd-report.socket
 enable systemd-resolved.service
 enable systemd-sysext.service
+enable systemd-sysupdate-notify-bootctl.socket
+enable systemd-sysupdate-notify-pcrlock.socket
+enable systemd-sysupdate-notify-sysext.socket
 enable systemd-timesyncd.service
 enable systemd-tpm2-clear.service
 enable systemd-userdbd.socket

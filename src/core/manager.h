@@ -11,6 +11,7 @@
 #include "log.h"
 #include "path-lookup.h"
 #include "show-status.h"
+#include "transaction.h"
 #include "unit.h"
 
 struct libmnt_monitor;
@@ -505,10 +506,12 @@ typedef struct Manager {
 
         /* Pin the systemd-executor binary, so that it never changes until re-exec, ensuring we don't have
          * serialization/deserialization compatibility issues during upgrades. */
-        char *executor_path;
         int executor_fd;
 
         unsigned soft_reboots_count;
+
+        /* When LUO is enabled we can count consecutive kexec reboots. */
+        unsigned kexecs_count;
 
         /* The number of successfully completed configuration reloads. */
         uint64_t reload_count;
@@ -573,6 +576,17 @@ int manager_load_unit(Manager *m, const char *name, const char *path, sd_bus_err
 int manager_dispatch_external_fd_to_unit(Manager *m, const char *unit_id, const char *fdname, uint64_t index, int fd, const char *log_context);
 int manager_load_startable_unit_or_warn(Manager *m, const char *name, const char *path, Unit **ret);
 int manager_load_unit_from_dbus_path(Manager *m, const char *s, sd_bus_error *e, Unit **_u);
+
+int manager_add_jobs(
+                Manager *m,
+                JobType type,
+                char * const *names,
+                bool reload_if_possible,
+                JobMode mode,
+                TransactionAddFlags extra_flags,
+                Set *affected_jobs,
+                sd_bus_error *reterr_error,
+                Set *ret_jobs);
 
 int manager_add_job_full(
                 Manager *m,

@@ -80,6 +80,11 @@ All tools:
   (relevant in particular for the system manager and `systemd-hostnamed`).
   Must be a valid hostname (either a single label or a FQDN).
 
+* `$SYSTEMD_HOSTNAME_WORDLIST_PATH` — search this directory for the numbered
+  hostname word list files used by the `$` wildcard in hostname patterns (see
+  `hostname(5)`), instead of the built-in search path. Only useful for
+  debugging and testing.
+
 * `$SD_EVENT_PROFILE_DELAYS=1` — if set, the sd-event event loop implementation
   will print latency information at runtime.
 
@@ -865,3 +870,10 @@ Tools using the Varlink protocol (such as `varlinkctl`) or sd-bus (such as
   'freshness' check via `BEST-BEFORE-YYYY-MM-DD` files in `SHA256SUMS` manifest
   files is disabled, and updating from outdated manifests will not result in an
   error.
+
+* `$SYSTEMD_SYSUPDATE_FORCE_NOTIFY` – takes a boolean. If true the notification
+  callouts in `/run/systemd/sysupdate/notify/` are invoked even when no update
+  was applied (i.e. the system was already up-to-date). In this case the
+  notification carries no list of updated resources. This is useful to
+  unconditionally trigger follow-up work such as relinking a kernel or
+  recomputing a TPM policy.

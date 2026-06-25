@@ -5,12 +5,13 @@
 # Daniel Șerbănescu <daniel [at] serbanescu [dot] dk>, 2015, 2017.
 # Vlad <milovlad@outlook.com>, 2020, 2021, 2026.
 # Petru Rebeja <petru@rebeja.eu>, 2026.
+# Fedora Weblate user 1831 <atony076@users.noreply.translate.fedoraproject.org>, 2026.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-30 00:13+0200\n"
-"PO-Revision-Date: 2026-06-07 14:00+0000\n"
-"Last-Translator: Vlad <milovlad@outlook.com>\n"
+"POT-Creation-Date: 2026-06-01 11:49+0200\n"
+"PO-Revision-Date: 2026-06-24 08:17+0000\n"
+"Last-Translator: Petru Rebeja <petru@rebeja.eu>\n"
 "Language-Team: Romanian <https://translate.fedoraproject.org/projects/"
 "systemd/main/ro/>\n"
 "Language: ro\n"
@@ -76,13 +77,14 @@ msgstr "Autentificarea este necesară pentru a reîncărca starea lui systemd."
 
 #: src/core/org.freedesktop.systemd1.policy.in:74
 msgid "Dump the systemd state without rate limits"
-msgstr ""
+msgstr "Renunțați la starea systemd fără limite de frecvență"
 
 #: src/core/org.freedesktop.systemd1.policy.in:75
-#, fuzzy
 msgid ""
 "Authentication is required to dump the systemd state without rate limits."
-msgstr "Autentificarea este necesară pentru a reîncărca starea lui systemd."
+msgstr ""
+"Autentificarea este necesară pentru a descărca starea systemd fără limite de "
+"date."
 
 #: src/home/org.freedesktop.home1.policy:13
 msgid "Create a home area"
@@ -166,7 +168,7 @@ msgstr ""
 
 #: src/home/org.freedesktop.home1.policy:93
 msgid "Manage Home Directory Signing Keys"
-msgstr ""
+msgstr "Gestionați cheile de semnare pentru directorul personal"
 
 #: src/home/org.freedesktop.home1.policy:94
 #, fuzzy
@@ -181,28 +183,35 @@ msgid ""
 "Home of user %s is currently absent, please plug in the necessary storage "
 "device or backing file system."
 msgstr ""
+"Directorul personal al utilizatorului %s este absent momentan, vă rugăm să "
+"conectați dispozitivul de stocare necesar sau sistemul de fișiere care îl "
+"conține."
 
 #: src/home/pam_systemd_home.c:332
 #, c-format
 msgid "Too frequent login attempts for user %s, try again later."
 msgstr ""
+"S-au înregistrat prea multe încercări de autentificare pentru utilizatorul "
+"%s. Vă rugăm să încercați din nou mai târziu."
 
 #: src/home/pam_systemd_home.c:344
 msgid "Password: "
-msgstr ""
+msgstr "Parolă: "
 
 #: src/home/pam_systemd_home.c:346
 #, c-format
 msgid "Password incorrect or not sufficient for authentication of user %s."
 msgstr ""
+"Parola este incorectă sau nu este suficientă pentru autentificarea "
+"utilizatorului %s."
 
 #: src/home/pam_systemd_home.c:347
 msgid "Sorry, try again: "
-msgstr ""
+msgstr "Scuze, încearcă din nou: "
 
 #: src/home/pam_systemd_home.c:369
 msgid "Recovery key: "
-msgstr ""
+msgstr "Cheia de recuperare: "
 
 #: src/home/pam_systemd_home.c:371
 #, c-format
@@ -210,19 +219,21 @@ msgid ""
 "Password/recovery key incorrect or not sufficient for authentication of user "
 "%s."
 msgstr ""
+"Parola/cheia de recuperare sunt incorecte sau insuficiente pentru "
+"autentificarea utilizatorului %s."
 
 #: src/home/pam_systemd_home.c:372
 msgid "Sorry, reenter recovery key: "
-msgstr ""
+msgstr "Scuze, reintroduceți cheia de recuperare: "
 
 #: src/home/pam_systemd_home.c:392
 #, c-format
 msgid "Security token of user %s not inserted."
-msgstr ""
+msgstr "Tokenul de securitate al utilizatorului %s nu a fost introdus."
 
 #: src/home/pam_systemd_home.c:393 src/home/pam_systemd_home.c:396
 msgid "Try again with password: "
-msgstr ""
+msgstr "Încearcă din nou cu parola: "
 
 #: src/home/pam_systemd_home.c:395
 #, c-format
@@ -230,20 +241,26 @@ msgid ""
 "Password incorrect or not sufficient, and configured security token of user "
 "%s not inserted."
 msgstr ""
+"Parola este incorectă sau insuficientă, iar tokenul de securitate configurat "
+"al utilizatorului %s nu a fost introdus."
 
 #: src/home/pam_systemd_home.c:415
 msgid "Security token PIN: "
-msgstr ""
+msgstr "PIN-ul tokenului de securitate: "
 
 #: src/home/pam_systemd_home.c:432
 #, c-format
 msgid "Please authenticate physically on security token of user %s."
 msgstr ""
+"Vă rugăm să vă autentificați fizic folosind tokenul de securitate al "
+"utilizatorului %s."
 
 #: src/home/pam_systemd_home.c:443
 #, c-format
 msgid "Please confirm presence on security token of user %s."
 msgstr ""
+"Vă rugăm să vă confirmați prezența pe tokenul de securitate al "
+"utilizatorului %s."
 
 #: src/home/pam_systemd_home.c:454
 #, c-format
@@ -789,7 +806,8 @@ msgstr "Blochează sau deblochează sesiuni active"
 
 #: src/login/org.freedesktop.login1.policy:343
 msgid "Authentication is required to lock or unlock active sessions."
-msgstr "Autentificarea este necesară pentru a bloca sau debloca sesiuni active."
+msgstr ""
+"Autentificarea este necesară pentru a bloca sau debloca sesiuni active."
 
 #: src/login/org.freedesktop.login1.policy:352
 msgid "Set the reboot \"reason\" in the kernel"
@@ -860,7 +878,8 @@ msgstr "Conectare la un container local"
 
 #: src/machine/org.freedesktop.machine1.policy:23
 msgid "Authentication is required to log into a local container."
-msgstr "Autentificarea este necesară pentru a vă conecta la un container local."
+msgstr ""
+"Autentificarea este necesară pentru a vă conecta la un container local."
 
 #: src/machine/org.freedesktop.machine1.policy:32
 msgid "Log into the local host"
@@ -1447,7 +1466,8 @@ msgstr ""
 
 #: src/core/dbus-unit.c:679
 msgid "Authentication is required to set properties on '$(unit)'."
-msgstr "Autentificarea este necesară pentru a seta proprietățile lui „$(unit)”."
+msgstr ""
+"Autentificarea este necesară pentru a seta proprietățile lui „$(unit)”."
 
 #: src/core/dbus-unit.c:776
 msgid ""
@@ -1464,18 +1484,26 @@ msgstr ""
 "Autentificarea este necesară pentru a îngheța sau dezgheța procesele "
 "corespunzătoare lui „$(unit)”."
 
-#: src/shared/libfido2-util.c:497 src/shared/libfido2-util.c:554
+#: src/shared/libfido2-util.c:500 src/shared/libfido2-util.c:557
 msgid "Please confirm presence on security token to unlock."
 msgstr ""
 "Vă rugăm să vă confirmați prezența pe tokenul de securitate pentru deblocare."
 
-#: src/shared/libfido2-util.c:513
+#: src/shared/libfido2-util.c:516
 msgid "Please verify user on security token to unlock."
 msgstr ""
 "Vă rugăm să verificați utilizatorul pe tokenul de securitate pentru "
 "deblocare."
 
-#: src/shared/libfido2-util.c:926
+#: src/shared/libfido2-util.c:936
+#, c-format
+msgid ""
+"Please enter security token PIN (remaining attempts before lock-out: %d):"
+msgstr ""
+"Vă rugăm să introduceți codul PIN al tokenului de securitate (au mai rămas "
+"%d încercări până la blocare):"
+
+#: src/shared/libfido2-util.c:948
 msgid "Please enter security token PIN:"
 msgstr "Vă rugăm să introduceți codul PIN al tokenului de securitate:"
 

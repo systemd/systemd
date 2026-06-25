@@ -98,4 +98,7 @@ SUBSYSTEM=="tpm", KERNEL=="tpm[0-9]*", TAG+="systemd"
 SUBSYSTEM=="block", ENV{ID_CDROM}=="1", ENV{ID_PART_GPT_AUTO_ROOT_DISK_NEEDS_LOOP}=="1", \
   ENV{SYSTEMD_WANTS}+="systemd-loop@.service"
 
+# A device carrying the SYSTEMD_MACHINE_TAG property auto-tags the host with the specified machine tag.
+ENV{SYSTEMD_MACHINE_TAG}=="?*", TAG+="systemd", ENV{SYSTEMD_WANTS}+="systemd-machine-tag@$env{SYSTEMD_MACHINE_TAG}.service"
+
 LABEL="systemd_end"

@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-30 00:13+0200\n"
+"POT-Creation-Date: 2026-06-01 11:49+0200\n"
 "PO-Revision-Date: 2026-06-07 14:00+0000\n"
 "Last-Translator: Yaron Shahrabani <sh.yaron@gmail.com>\n"
 "Language-Team: Hebrew <https://translate.fedoraproject.org/projects/systemd/"
@@ -794,7 +794,8 @@ msgstr "ניהול מכונות וירטואליות ומכולות מקומיו
 #: src/machine/org.freedesktop.machine1.policy:85
 msgid ""
 "Authentication is required to manage local virtual machines and containers."
-msgstr "נדרש אימות כדי לנהל מכונות וירטואליות (VM) ומכולות (container) מקומיות."
+msgstr ""
+"נדרש אימות כדי לנהל מכונות וירטואליות (VM) ומכולות (container) מקומיות."
 
 #: src/machine/org.freedesktop.machine1.policy:95
 msgid "Inspect local virtual machines and containers"
@@ -833,7 +834,8 @@ msgstr "ניהול דמויות של מכונות וירטואליות ומכו�
 msgid ""
 "Authentication is required to manage local virtual machine and container "
 "images."
-msgstr "נדרש אימות לניהול דמויות של מכונות וירטואליות (VM) ומכולות (container)."
+msgstr ""
+"נדרש אימות לניהול דמויות של מכונות וירטואליות (VM) ומכולות (container)."
 
 #: src/machine/org.freedesktop.machine1.policy:137
 msgid "Inspect local virtual machine and container images"
@@ -1278,15 +1280,21 @@ msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr "נדרש אימות כדי להפשיר או להקפיא את התהליכים של ‚$(unit)’."
 
-#: src/shared/libfido2-util.c:497 src/shared/libfido2-util.c:554
+#: src/shared/libfido2-util.c:500 src/shared/libfido2-util.c:557
 msgid "Please confirm presence on security token to unlock."
 msgstr ""
 
-#: src/shared/libfido2-util.c:513
+#: src/shared/libfido2-util.c:516
 msgid "Please verify user on security token to unlock."
 msgstr ""
 
-#: src/shared/libfido2-util.c:926
+#: src/shared/libfido2-util.c:936
+#, c-format
+msgid ""
+"Please enter security token PIN (remaining attempts before lock-out: %d):"
+msgstr ""
+
+#: src/shared/libfido2-util.c:948
 msgid "Please enter security token PIN:"
 msgstr ""
 

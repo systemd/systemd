@@ -85,7 +85,7 @@ HELPER_PID=$!
 while IFS= read -r -t 60 line <&3; do
     echo "$line"
     [[ "$line" == LINK_IDS=* ]] && break
-done > /tmp/restrict-fsaccess-dvk-attach.out
+done >/tmp/restrict-fsaccess-dvk-attach.out
 
 # Fail closed if helper died before printing the full handshake: an unattached
 # program would let the subsequent verity exec test pass trivially.

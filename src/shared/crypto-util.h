@@ -37,7 +37,7 @@ int dlopen_libcrypto(int log_level);
         SD_ELF_NOTE_DLOPEN("libcrypto",                                 \
                            "Support for cryptographic operations",      \
                            priority,                                    \
-                           "libcrypto.so.3")
+                           "libcrypto.so.4", "libcrypto.so.3")
 
 #define DLOPEN_LIBCRYPTO(log_level, priority)                           \
         ({                                                              \
@@ -335,6 +335,18 @@ static inline void sk_X509_free_allp(STACK_OF(X509) **sk) {
 
         sym_sk_X509_pop_free(*sk, sym_X509_free);
 }
+
+/* Translates an OpenSSL error code (as returned by ERR_get_error()) into a negative errno. Returns
+ * -ENOTRECOVERABLE when passed 0 or when the error's reason has no more specific errno. */
+int openssl_to_errno(unsigned long e);
+
+int log_openssl_errors_internal(int level, const char *file, int line, const char *func, const char *format, ...) _printf_(5, 6);
+
+/* Logs `format` at `level`, suffixed with each error from the OpenSSL thread-local error queue (or
+ * "No OpenSSL errors." when it is empty), and returns a negative errno derived from the last error
+ * (-ENOTRECOVERABLE when the queue is empty or the reason isn't recognized). */
+#define log_openssl_errors(level, format, ...)                          \
+        log_openssl_errors_internal(level, PROJECT_FILE, __LINE__, __func__, format, ##__VA_ARGS__)
 
 int openssl_pubkey_from_pem(const void *pem, size_t pem_size, EVP_PKEY **ret);
 int openssl_pubkey_to_pem(EVP_PKEY *pkey, char **ret);

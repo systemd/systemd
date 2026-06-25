@@ -20,4 +20,10 @@ fi
 # For use in the minimal containers, only needs libsystemd and libc
 if [[ -x "$BUILDDIR/test-fdstore" ]]; then
     cp "$BUILDDIR/test-fdstore" "$BUILDROOT/usr/bin/test-fdstore"
+elif [[ -x "$BUILDROOT/usr/lib/systemd/tests/unit-tests/manual/test-fdstore" ]]; then
+    cp "$BUILDROOT/usr/lib/systemd/tests/unit-tests/manual/test-fdstore" "$BUILDROOT/usr/bin/test-fdstore"
+elif [[ -x /usr/lib/systemd/tests/unit-tests/manual/test-fdstore ]]; then
+    cp /usr/lib/systemd/tests/unit-tests/manual/test-fdstore "$BUILDROOT/usr/bin/test-fdstore"
+else
+    echo >&2 "WARNING: test-fdstore binary not found, fdstore container tests will be skipped"
 fi

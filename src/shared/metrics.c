@@ -58,6 +58,7 @@ static const char * const metric_family_type_table[_METRIC_FAMILY_TYPE_MAX] = {
         [METRIC_FAMILY_TYPE_COUNTER] = "counter",
         [METRIC_FAMILY_TYPE_GAUGE]   = "gauge",
         [METRIC_FAMILY_TYPE_STRING]  = "string",
+        [METRIC_FAMILY_TYPE_OBJECT]  = "object",
 };
 
 DEFINE_STRING_TABLE_LOOKUP_TO_STRING(metric_family_type, MetricFamilyType);
@@ -208,4 +209,39 @@ int metric_build_send_unsigned(
                 return log_debug_errno(r, "Failed to allocate JSON unsigned: %m");
 
         return metric_build_send(mf, link, object, v, fields);
+}
+
+int metric_build_send_double(
+                const MetricFamily *mf,
+                sd_varlink *link,
+                const char *object,
+                double value,
+                sd_json_variant *fields) {
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        int r;
+
+        assert(mf);
+        assert(link);
+
+        r = sd_json_variant_new_real(&v, value);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to allocate JSON real: %m");
+
+        return metric_build_send(mf, link, object, v, fields);
+}
+
+int metric_build_send_object(
+                const MetricFamily *mf,
+                sd_varlink *link,
+                const char *object,
+                sd_json_variant *value,
+                sd_json_variant *fields) {
+
+        assert(mf);
+        assert(link);
+        assert(value);
+        assert(sd_json_variant_is_object(value));
+
+        return metric_build_send(mf, link, object, value, fields);
 }

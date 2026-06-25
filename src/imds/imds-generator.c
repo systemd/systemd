@@ -189,6 +189,11 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
                         return log_error_errno(r, "Failed to hook in systemd-imds-import.service: %m");
         }
 
+        /* Enable IMDS metrics in case IMDS is supported */
+        r = generator_add_symlink(dest_early, SPECIAL_SOCKETS_TARGET, "wants", SYSTEM_DATA_UNIT_DIR "/systemd-imds-metrics.socket");
+        if (r < 0)
+                return log_error_errno(r, "Failed to hook in systemd-imds-metrics.socket: %m");
+
         return 0;
 }
 

@@ -163,6 +163,8 @@ char* ascii_strupper(char *s) {
 }
 
 char* ascii_strlower_n(char *s, size_t n) {
+        assert(n <= 0 || s);
+
         if (n <= 0)
                 return s;
 
@@ -1003,23 +1005,29 @@ char* strrep(const char *s, size_t n) {
 int split_pair(const char *s, const char *sep, char **ret_first, char **ret_second) {
         assert(s);
         assert(!isempty(sep));
-        assert(ret_first);
-        assert(ret_second);
 
         const char *x = strstr(s, sep);
         if (!x)
                 return -EINVAL;
 
-        _cleanup_free_ char *a = strndup(s, x - s);
-        if (!a)
-                return -ENOMEM;
+        _cleanup_free_ char *a = NULL;
+        if (ret_first) {
+                a = strndup(s, x - s);
+                if (!a)
+                        return -ENOMEM;
+        }
 
-        _cleanup_free_ char *b = strdup(x + strlen(sep));
-        if (!b)
-                return -ENOMEM;
+        _cleanup_free_ char *b = NULL;
+        if (ret_second) {
+                b = strdup(x + strlen(sep));
+                if (!b)
+                        return -ENOMEM;
+        }
 
-        *ret_first = TAKE_PTR(a);
-        *ret_second = TAKE_PTR(b);
+        if (ret_first)
+                *ret_first = TAKE_PTR(a);
+        if (ret_second)
+                *ret_second = TAKE_PTR(b);
         return 0;
 }
 
@@ -1129,11 +1137,17 @@ bool string_is_safe(const char *p, StringSafeFlags flags) {
                 if (!FLAGS_SET(flags, STRING_ALLOW_GLOBS) && strchr(GLOB_CHARS, *t))
                         return false;
 
+                if (FLAGS_SET(flags, STRING_DISALLOW_WHITESPACE) && strchr(WHITESPACE, *t))
+                        return false;
+
                 if (FLAGS_SET(flags, STRING_ASCII) && (uint8_t) *t >= 0x80)
                         return false;
         }
 
         if (FLAGS_SET(flags, STRING_FILENAME) && !filename_is_valid(p))
+                return false;
+
+        if (FLAGS_SET(flags, STRING_FILENAME_PART) && !filename_part_is_valid(p))
                 return false;
 
         return true;

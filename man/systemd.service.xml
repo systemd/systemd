@@ -643,6 +643,22 @@ RestartMaxDelaySec=160s</programlisting>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>RestartRandomizedDelaySec=</varname></term>
+        <listitem><para>Delay automatic restarts by a randomly selected, evenly distributed amount of time
+        between 0 and the specified time value, added on top of the delay otherwise configured via
+        <varname>RestartSec=</varname> (and <varname>RestartSteps=</varname>/<varname>RestartMaxDelaySec=</varname>,
+        if used). Takes a value in the same format as <varname>RestartSec=</varname>. Defaults to 0, indicating
+        that no randomized delay shall be applied.</para>
+
+        <para>This setting is useful to stretch out the restarts of similarly configured service instances that
+        fail at the same time, to prevent them from restarting simultaneously and possibly resulting in
+        resource congestion. It is the restart-side analogue of <varname>RandomizedDelaySec=</varname> in
+        <citerefentry><refentrytitle>systemd.timer</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>TimeoutStartSec=</varname></term>
         <listitem><para>Configures the time to wait for start-up. If a daemon service does not signal
         start-up completion within the configured time, the service will be considered failed and will be
@@ -1295,6 +1311,42 @@ RestartMaxDelaySec=160s</programlisting>
         explicitly.</para>
 
         <xi:include href="version-info.xml" xpointer="v254"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>LUOSession=</varname></term>
+        <listitem><para>Takes a whitespace-separated list of names. For each name, when the service is
+        started the service manager creates a LUO session via the <ulink
+        url="https://docs.kernel.org/userspace-api/liveupdate.html">Live Update Orchestrator</ulink> (LUO,
+        i.e. <filename>/dev/liveupdate</filename>) and hands the resulting session file descriptor to the
+        service through the file descriptor store, using the configured name as its
+        <literal>FDNAME=</literal>. The session is hence passed to the service's processes via
+        <citerefentry><refentrytitle>sd_listen_fds</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+        like any other file descriptor store entry. The service may then preserve additional file
+        descriptors (such as <citerefentry
+        project='man-pages'><refentrytitle>memfd_create</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+        memory file descriptors) in the session, which survive a <literal>kexec</literal>-based reboot and
+        can be retrieved again on the other side.</para>
+
+        <para>A session is only handed out if one with the same name is not already present in the service's
+        file descriptor store. This way a session handed out on first start, or restored across a
+        <literal>kexec</literal>, is reused on the next start rather than replaced. The kernel-level session
+        name is derived deterministically from the unit name and the configured name, so that it remains
+        stable and unique, and it fits within the length limit imposed by the kernel.</para>
+
+        <para>This setting implies <varname>FileDescriptorStoreMax=</varname> is set to at least the number
+        of configured sessions. To ensure the sessions are kept pinned and preserved across a
+        <literal>kexec</literal>, combine this with <varname>FileDescriptorStorePreserve=yes</varname> (see
+        above). If <filename>/dev/liveupdate</filename> is not available no session is handed out, and the
+        service is started normally. This setting may be specified more than once, in which case the lists
+        are combined. If the empty string is assigned the list is reset and all prior assignments have no
+        effect.</para>
+
+        <para>For further information on the file descriptor store see the <ulink
+        url="https://systemd.io/FILE_DESCRIPTOR_STORE">File Descriptor Store</ulink> overview.</para>
+
+        <xi:include href="system-only.xml" xpointer="singular"/>
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
       </varlistentry>
 
       <varlistentry>

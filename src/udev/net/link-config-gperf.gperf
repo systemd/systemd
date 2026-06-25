@@ -40,6 +40,7 @@ Match.Version,                             config_parse_net_condition,          
 Match.Credential,                          config_parse_net_condition,            CONDITION_CREDENTIAL,          offsetof(LinkConfig, conditions)
 Match.Architecture,                        config_parse_net_condition,            CONDITION_ARCHITECTURE,        offsetof(LinkConfig, conditions)
 Match.Firmware,                            config_parse_net_condition,            CONDITION_FIRMWARE,            offsetof(LinkConfig, conditions)
+Match.MachineTag,                          config_parse_net_condition,            CONDITION_MACHINE_TAG,         offsetof(LinkConfig, conditions)
 Link.Description,                          config_parse_string,                   0,                             offsetof(LinkConfig, description)
 /* udev property */
 Link.Property,                             config_parse_udev_property,            0,                             offsetof(LinkConfig, properties)

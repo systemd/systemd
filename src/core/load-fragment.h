@@ -172,6 +172,8 @@ CONFIG_PARSER_PROTOTYPE(config_parse_concurrency_max);
 CONFIG_PARSER_PROTOTYPE(config_parse_bind_network_interface);
 CONFIG_PARSER_PROTOTYPE(config_parse_exec_memory_thp);
 CONFIG_PARSER_PROTOTYPE(config_parse_cpuset_partition);
+CONFIG_PARSER_PROTOTYPE(config_parse_luo_sessions);
+CONFIG_PARSER_PROTOTYPE(config_parse_xattr);
 
 /* gperf prototypes */
 const struct ConfigPerfItem* load_fragment_gperf_lookup(const char *key, GPERF_LEN_TYPE length);

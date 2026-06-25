@@ -80,7 +80,7 @@ run_test() {
         --unit="$name" \
         --wait "$test" && ret=0 || ret=$?
 
-    exec {LOCK_FD}> /lock
+    exec {LOCK_FD}>/lock
     flock --exclusive ${LOCK_FD}
 
     if [[ $ret -eq 77 ]] || [[ $ret -eq 127 ]]; then

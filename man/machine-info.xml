@@ -149,7 +149,22 @@
           <literal>TAGS=webserver:frontend:berlin</literal>.</para>
 
           <para>Each individual tag must be 1…255 characters long and may consist only of the ASCII
-          alphanumeric characters, <literal>-</literal> and <literal>.</literal>.</para>
+          alphanumeric characters, <literal>-</literal>, <literal>.</literal> and <literal>=</literal>. The
+          first character may not be <literal>-</literal>, <literal>.</literal> or <literal>=</literal>, and
+          the last character may not be <literal>-</literal> or <literal>.</literal> (unless it takes the
+          parameterized form, see below).</para>
+
+          <para>A tag may optionally be parameterized with a value, in the form
+          <literal><replaceable>key</replaceable>=<replaceable>value</replaceable></literal>. The first
+          <literal>=</literal> separates the key from the value; any further <literal>=</literal> characters
+          are part of the value. The key (the part before the first <literal>=</literal>) follows the same
+          restrictions as an unparameterized tag, in particular it may not be empty and may not end in
+          <literal>-</literal> or <literal>.</literal>. The value (the part after the first
+          <literal>=</literal>) may be empty and is otherwise unrestricted within the allowed character set.
+          Example: <literal>TAGS=role=webserver:env=production:berlin</literal>. The same key may not be
+          assigned more than one distinct value: <literal>role=webserver:role=database</literal> is refused
+          (but a key may coexist with the corresponding unparameterized tag, e.g.
+          <literal>role:role=webserver</literal>).</para>
 
           <para>The configured tags may be matched against with the
           <varname>ConditionMachineTag=</varname> and <varname>AssertMachineTag=</varname> unit settings, see
@@ -217,7 +232,7 @@
 ICON_NAME=computer-tablet
 CHASSIS=tablet
 DEPLOYMENT=production
-TAGS=demo:berlin</programlisting>
+TAGS=demo:berlin:role=webserver</programlisting>
   </refsect1>
 
   <refsect1>

@@ -322,7 +322,7 @@ static int setup_srk(void) {
                 return log_error_errno(r, "Failed to open SRK public key file '%s' for writing: %m", pem_path);
 
         if (sym_PEM_write_PUBKEY(f, tpm2_key.pkey) <= 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to write SRK public key file '%s'.", pem_path);
+                return log_openssl_errors(LOG_ERR, "Failed to write SRK public key file '%s'.", pem_path);
 
         if (fchmod(fileno(f), 0444) < 0)
                 return log_error_errno(errno, "Failed to adjust access mode of SRK public key file '%s' to 0444: %m", pem_path);
@@ -570,6 +570,10 @@ static int run(int argc, char *argv[]) {
         }
 
         r = DLOPEN_LIBCRYPTO(LOG_ERR, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED);
+        if (r < 0)
+                return r;
+
+        r = DLOPEN_TPM2(LOG_ERR, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED);
         if (r < 0)
                 return r;
 

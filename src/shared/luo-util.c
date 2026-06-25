@@ -115,6 +115,11 @@ int luo_session_finish(int session_fd) {
         return RET_NERRNO(ioctl(session_fd, LIVEUPDATE_SESSION_FINISH, &args));
 }
 
+bool luo_session_name_is_valid(const char *name) {
+        /* Used for FDNAME: no whitespace, no ":", no control characters, etc. */
+        return fdname_is_valid(name) && string_is_safe(name, STRING_DISALLOW_WHITESPACE);
+}
+
 int luo_parse_serialization(sd_json_variant **ret, int **ret_fds, size_t *ret_n_fds) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *root = NULL;
         _cleanup_free_ int *fd_list = NULL;
@@ -337,9 +342,12 @@ int luo_preserve_fd_stores(sd_json_variant *serialization, int *ret_session_fd) 
         if (!sd_json_variant_is_unsigned(version))
                 return log_warning_errno(SYNTHETIC_ERRNO(EINVAL), "LUO serialization 'version' field is missing or not an unsigned integer");
 
+        sd_json_variant *state = sd_json_variant_by_key(serialization, "state");
+
         r = sd_json_buildo(
                         &mapping,
                         SD_JSON_BUILD_PAIR("version", SD_JSON_BUILD_VARIANT(version)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!state, "state", SD_JSON_BUILD_VARIANT(state)),
                         SD_JSON_BUILD_PAIR_CONDITION(!!units, "units", SD_JSON_BUILD_VARIANT(units)));
         if (r < 0)
                 return log_error_errno(r, "Failed to build LUO mapping: %m");

@@ -510,6 +510,26 @@ TEST(strv_overlap) {
         assert_se(!strv_overlap((char **)input_table, (char**)input_table_unique));
 }
 
+TEST(strv_remove_strv) {
+        _cleanup_strv_free_ char **l = NULL;
+
+        ASSERT_OK(strv_extend_strv(&l, STRV_MAKE("one", "two", "three", "four"), false));
+
+        ASSERT_PTR_EQ(strv_remove_strv(l, STRV_MAKE("two", "four")), l);
+        ASSERT_TRUE(strv_equal(l, STRV_MAKE("one", "three")));
+
+        /* Removing entries not present is a no-op. */
+        ASSERT_PTR_EQ(strv_remove_strv(l, STRV_MAKE("nope")), l);
+        ASSERT_TRUE(strv_equal(l, STRV_MAKE("one", "three")));
+
+        /* Empty removal list leaves the list untouched. */
+        ASSERT_PTR_EQ(strv_remove_strv(l, STRV_EMPTY), l);
+        ASSERT_TRUE(strv_equal(l, STRV_MAKE("one", "three")));
+
+        /* Removing from an empty/NULL list is fine. */
+        ASSERT_NULL(strv_remove_strv(NULL, STRV_MAKE("one")));
+}
+
 TEST(strv_sort) {
         const char* input_table[] = {
                 "durian",

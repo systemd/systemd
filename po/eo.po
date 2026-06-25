@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-30 00:13+0200\n"
+"POT-Creation-Date: 2026-06-01 11:49+0200\n"
 "PO-Revision-Date: 2026-06-07 14:05+0000\n"
 "Last-Translator: Kristjan Schmidt <kristjan.schmidt@googlemail.com>\n"
 "Language-Team: Esperanto <https://translate.fedoraproject.org/projects/"
@@ -423,7 +423,8 @@ msgstr "Agordi sistemajn klavarajn agordojn"
 
 #: src/locale/org.freedesktop.locale1.policy:34
 msgid "Authentication is required to set the system keyboard settings."
-msgstr "Aŭtentikigo estas postulata por agordi la sistemajn klavarajn agordojn."
+msgstr ""
+"Aŭtentikigo estas postulata por agordi la sistemajn klavarajn agordojn."
 
 #: src/login/org.freedesktop.login1.policy:22
 msgid "Allow applications to inhibit system shutdown"
@@ -432,7 +433,8 @@ msgstr "Permesi al aplikaĵoj malhelpi sistemmalŝaltadon"
 #: src/login/org.freedesktop.login1.policy:23
 msgid ""
 "Authentication is required for an application to inhibit system shutdown."
-msgstr "Aŭtentikigo estas postulata por ke aplikaĵo malhelpu sistemmalŝaltadon."
+msgstr ""
+"Aŭtentikigo estas postulata por ke aplikaĵo malhelpu sistemmalŝaltadon."
 
 #: src/login/org.freedesktop.login1.policy:33
 msgid "Allow applications to delay system shutdown"
@@ -1106,7 +1108,8 @@ msgstr "Forigi aŭ modifi porteblan servobildon"
 #: src/portable/org.freedesktop.portable1.policy:35
 msgid ""
 "Authentication is required to delete or modify a portable service image."
-msgstr "Aŭtentikigo estas postulata por forigi aŭ modifi porteblan servobildon."
+msgstr ""
+"Aŭtentikigo estas postulata por forigi aŭ modifi porteblan servobildon."
 
 #: src/resolve/org.freedesktop.resolve1.policy:22
 msgid "Register a DNS-SD service"
@@ -1260,7 +1263,8 @@ msgstr "Forigi malnovajn sistemajn ĝisdatigojn"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:99
 msgid "Authentication is required to clean up old system updates."
-msgstr "Aŭtentikigo estas postulata por forigi malnovajn sistemajn ĝisdatigojn."
+msgstr ""
+"Aŭtentikigo estas postulata por forigi malnovajn sistemajn ĝisdatigojn."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:108
 msgid "Cancel cleaning up old system updates"
@@ -1377,14 +1381,21 @@ msgstr ""
 "Aŭtentikigo estas postulata por frostigi aŭ degeli la procezojn de unuo '$"
 "(unit)'."
 
-#: src/shared/libfido2-util.c:497 src/shared/libfido2-util.c:554
+#: src/shared/libfido2-util.c:500 src/shared/libfido2-util.c:557
 msgid "Please confirm presence on security token to unlock."
 msgstr "Bonvolu konfirmi ĉeeston sur la sekureca ĵetono por malŝlosi."
 
-#: src/shared/libfido2-util.c:513
+#: src/shared/libfido2-util.c:516
 msgid "Please verify user on security token to unlock."
 msgstr "Bonvolu konfirmi uzanton sur la sekureca ĵetono por malŝlosi."
 
-#: src/shared/libfido2-util.c:926
+#: src/shared/libfido2-util.c:936
+#, fuzzy, c-format
+#| msgid "Please enter security token PIN:"
+msgid ""
+"Please enter security token PIN (remaining attempts before lock-out: %d):"
+msgstr "Bonvolu enigi la PIN de la sekureca ĵetono:"
+
+#: src/shared/libfido2-util.c:948
 msgid "Please enter security token PIN:"
 msgstr "Bonvolu enigi la PIN de la sekureca ĵetono:"

@@ -640,6 +640,23 @@ TEST(split_pair) {
         ASSERT_OK(split_pair("===", "==", &a, &b));
         ASSERT_STREQ(a, "");
         ASSERT_STREQ(b, "=");
+        a = mfree(a);
+        b = mfree(b);
+
+        /* The output parameters are optional */
+        ASSERT_OK(split_pair("foo=bar", "=", NULL, &b));
+        ASSERT_NULL(a);
+        ASSERT_STREQ(b, "bar");
+        b = mfree(b);
+        ASSERT_OK(split_pair("foo=bar", "=", &a, NULL));
+        ASSERT_STREQ(a, "foo");
+        ASSERT_NULL(b);
+        a = mfree(a);
+        ASSERT_OK(split_pair("foo=bar", "=", NULL, NULL));
+        ASSERT_NULL(a);
+        ASSERT_NULL(b);
+        /* ... but the separator must still be present */
+        ASSERT_ERROR(split_pair("foo", "=", NULL, NULL), EINVAL);
 }
 
 TEST(empty_to_null) {
@@ -1606,6 +1623,35 @@ TEST(string_is_safe) {
         ASSERT_FALSE(string_is_safe("/", STRING_FILENAME));
         ASSERT_FALSE(string_is_safe("/foo", STRING_FILENAME));
         ASSERT_FALSE(string_is_safe("foo/bar", STRING_FILENAME));
+
+        /* STRING_DISALLOW_WHITESPACE: rejects whitespace (space, tab, newline, carriage return). */
+        ASSERT_TRUE(string_is_safe("hello", STRING_DISALLOW_WHITESPACE));
+        ASSERT_TRUE(string_is_safe("foo-bar_baz", STRING_DISALLOW_WHITESPACE));
+        ASSERT_TRUE(string_is_safe("über", STRING_DISALLOW_WHITESPACE));     /* valid UTF-8 still allowed */
+        ASSERT_TRUE(string_is_safe("hello world", 0));                       /* space accepted by default */
+        ASSERT_FALSE(string_is_safe("hello world", STRING_DISALLOW_WHITESPACE)); /* but not with the flag */
+        ASSERT_FALSE(string_is_safe(" ", STRING_DISALLOW_WHITESPACE));
+        ASSERT_FALSE(string_is_safe("foo ", STRING_DISALLOW_WHITESPACE));
+        ASSERT_FALSE(string_is_safe(" foo", STRING_DISALLOW_WHITESPACE));
+        ASSERT_FALSE(string_is_safe("a\tb", STRING_DISALLOW_WHITESPACE));
+        ASSERT_FALSE(string_is_safe("a\rb", STRING_DISALLOW_WHITESPACE));
+        /* The flag overrides STRING_ALLOW_NEWLINES for the newline character, which is whitespace too. */
+        ASSERT_TRUE(string_is_safe("a\nb", STRING_ALLOW_NEWLINES));
+        ASSERT_FALSE(string_is_safe("a\nb", STRING_ALLOW_NEWLINES | STRING_DISALLOW_WHITESPACE));
+
+        /* STRING_FILENAME_PART: like STRING_FILENAME, but "." and ".." are accepted; '/' still rejected. */
+        ASSERT_TRUE(string_is_safe("hello", STRING_FILENAME_PART));
+        ASSERT_TRUE(string_is_safe("hello.txt", STRING_FILENAME_PART));
+        ASSERT_TRUE(string_is_safe("...", STRING_FILENAME_PART));
+        ASSERT_TRUE(string_is_safe(".hidden", STRING_FILENAME_PART));
+        ASSERT_TRUE(string_is_safe(".", STRING_FILENAME_PART));             /* accepted, unlike STRING_FILENAME */
+        ASSERT_TRUE(string_is_safe("..", STRING_FILENAME_PART));            /* accepted, unlike STRING_FILENAME */
+        ASSERT_FALSE(string_is_safe("", STRING_FILENAME_PART));             /* empty still rejected by default */
+        ASSERT_TRUE(string_is_safe("", STRING_FILENAME_PART | STRING_ALLOW_EMPTY)); /* ... unless explicitly allowed */
+        ASSERT_FALSE(string_is_safe("/", STRING_FILENAME_PART));
+        ASSERT_FALSE(string_is_safe("/foo", STRING_FILENAME_PART));
+        ASSERT_FALSE(string_is_safe("foo/bar", STRING_FILENAME_PART));
+        ASSERT_FALSE(string_is_safe("foo/", STRING_FILENAME_PART));
 
         /* Pairwise combinations. */
         ASSERT_TRUE(string_is_safe("", STRING_ALLOW_EMPTY | STRING_ASCII));

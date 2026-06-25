@@ -56,6 +56,7 @@ struct statx;
 struct termios;
 struct tm;
 struct ucred;
+struct unix_diag_msg;
 
 /* To forward declare FILE and DIR, we have to declare the internal struct names for them. Since these are
  * used for C++ symbol name mangling, they're effectively part of the ABI and won't actually change. */

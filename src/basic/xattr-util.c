@@ -36,8 +36,7 @@ static int normalize_and_maybe_pin_inode(
         assert(ret_tfd);
         assert(ret_opath);
 
-        if (isempty(*path))
-                *path = NULL; /* Normalize "" to NULL */
+        *path = empty_to_null(*path); /* Normalize "" to NULL */
 
         if (*fd == AT_FDCWD) {
                 if (!*path) /* Both unspecified? Then operate on current working directory */

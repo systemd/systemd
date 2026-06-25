@@ -1,6 +1,14 @@
 systemd System and Service Manager
 
-CHANGES WITH 261 in spe:
+CHANGES WITH 262:
+
+        Feature Removals and Incompatible Changes:
+
+        * systemd-repart's MakeSymlinks= option now expands "%" specifiers in
+          the symlink target. Previously, these were only expanded in the
+          source.
+
+CHANGES WITH 261:
 
         Announcements of Future Feature Removals and Incompatible Changes:
 
@@ -204,7 +212,7 @@ CHANGES WITH 261 in spe:
           information, and provides information on how to reach local IMDS
           functionality on the node. Currently, Amazon EC2, Microsoft Azure,
           Google Compute Engine, Hetzner, Oracle Cloud, Scaleway, Tencent
-          Cloud, and Alibaba ECS are recognized.
+          Cloud, Alibaba ECS and Vultr are recognized.
 
         * An IMDS subsystem has been added. Specifically, there's now
           systemd-imdsd which provides a local Varlink IPC API that makes IMDS
@@ -686,6 +694,9 @@ CHANGES WITH 261 in spe:
           to request system shutdown. The peer connection identifier of
           the requester is logged.
 
+        * systemd-logind gained new Varlink APIs for listing sessions, users,
+          seats and inhibitors
+
         Changes related to kexec:
 
         * 'systemctl kexec' gained a new --kernel-cmdline= argument that
@@ -809,20 +820,21 @@ CHANGES WITH 261 in spe:
         Simran Singh, Sriman Achanta, Stephane Chazelas, Takuro Onoue,
         Temuri Doghonadze, Tiago Rocha Cunha, Tim Vangehugten,
         Tobias Heider, Tobias Stoeckmann, Todd Zullinger, TristanInSec,
-        Valentin David, Vincent Mihalkovic, Vitaly Kuznetsov, Vlad,
-        Walter McKelvie, Whired Planck, Y T, Yaping Li, Yaron Shahrabani,
-        Yu Watanabe, Yuri Chornoivan, Zbigniew Jędrzejewski-Szmek,
-        Zmicer Turok, albertescanes, azureuser, blutch112, djantti,
-        dongshengyuan, drhydroxide, elysia090, favilances, fecet, glemco,
+        Ulrich Ölmann, Valentin David, Vincent Mihalkovic,
+        Vitaly Kuznetsov, Vlad, Walter McKelvie, Whired Planck,
+        Will Fancher, Y T, Yaping Li, Yaron Shahrabani, Yu Watanabe,
+        Yuri Chornoivan, Zbigniew Jędrzejewski-Szmek, Zmicer Turok,
+        albertescanes, arvind froiland, azureuser, blutch112, djantti,
+        dongshengyuan, doof, drhydroxide, elysia090, favilances, fecet, glemco,
         guido, hanjinpeng, hschloss, hsu zangmen, ipv6, ishwarbb, jeffhuang,
-        joo es, kakolla, kanitha chim, kostich, lumingzh, lzwind,
-        mburucuyapy, mooo, mukunda katta, naly zzwd, nikstur, noxiouz, r-vdp,
-        roib, rusty-snake, scootergrisen, seaeunlee, ssahani, sykikxo, vad,
-        vlefebvre, z z, Дамјан Георгиевски,
+        jmestwa-coder, joo es, kakolla, kanitha chim, kostich, lumingzh,
+        lzwind, mburucuyapy, mooo, mukunda katta, naly zzwd, nikstur,
+        noxiouz, r-vdp, roib, rusty-snake, scootergrisen, seaeunlee, ssahani,
+        sykikxo, vad, vlefebvre, z z, Дамјан Георгиевски,
         Марко Костић (Marko Kostić), наб, 我超厉害,
         김인수
 
-        — Edinburgh, 2026/06/16
+        — Edinburgh, 2026/06/19
 
 CHANGES WITH 260:
 

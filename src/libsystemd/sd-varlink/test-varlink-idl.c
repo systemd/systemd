@@ -43,11 +43,15 @@
 #include "varlink-io.systemd.PCRExtend.h"
 #include "varlink-io.systemd.PCRLock.h"
 #include "varlink-io.systemd.Repart.h"
+#include "varlink-io.systemd.Report.h"
+#include "varlink-io.systemd.Report.Signer.h"
+#include "varlink-io.systemd.Report.Uploader.h"
 #include "varlink-io.systemd.Resolve.h"
 #include "varlink-io.systemd.Resolve.Hook.h"
 #include "varlink-io.systemd.Resolve.Monitor.h"
 #include "varlink-io.systemd.Shutdown.h"
 #include "varlink-io.systemd.StorageProvider.h"
+#include "varlink-io.systemd.SysUpdate.Notify.h"
 #include "varlink-io.systemd.Udev.h"
 #include "varlink-io.systemd.Unit.h"
 #include "varlink-io.systemd.UserDatabase.h"
@@ -216,11 +220,15 @@ TEST(parse_format) {
                 &vl_interface_io_systemd_PCRExtend,
                 &vl_interface_io_systemd_PCRLock,
                 &vl_interface_io_systemd_Repart,
+                &vl_interface_io_systemd_Report,
+                &vl_interface_io_systemd_Report_Signer,
+                &vl_interface_io_systemd_Report_Uploader,
                 &vl_interface_io_systemd_Resolve,
                 &vl_interface_io_systemd_Resolve_Hook,
                 &vl_interface_io_systemd_Resolve_Monitor,
                 &vl_interface_io_systemd_Shutdown,
                 &vl_interface_io_systemd_StorageProvider,
+                &vl_interface_io_systemd_SysUpdate_Notify,
                 &vl_interface_io_systemd_Udev,
                 &vl_interface_io_systemd_Unit,
                 &vl_interface_io_systemd_UserDatabase,

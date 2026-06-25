@@ -383,6 +383,7 @@ int strv_split_newlines_full(char ***ret, const char *s, ExtractFlags flags) {
         size_t n;
         int r;
 
+        assert(ret);
         assert(s);
 
         /* Special version of strv_split_full() that splits on newlines and
@@ -812,16 +813,14 @@ bool strv_is_uniq(char * const *l) {
 }
 
 char** strv_remove(char **l, const char *s) {
-        char **f, **t;
-
         if (!l)
                 return NULL;
 
         assert(s);
 
-        /* Drops every occurrence of s in the string list, edits
-         * in-place. */
+        /* Drops every occurrence of s in the string list, edits in-place. */
 
+        char **f, **t;
         for (f = t = l; *f; f++)
                 if (streq(*f, s))
                         free(*f);
@@ -829,6 +828,17 @@ char** strv_remove(char **l, const char *s) {
                         *(t++) = *f;
 
         *t = NULL;
+        return l;
+}
+
+char** strv_remove_strv(char **l, char *const*ll) {
+
+        if (strv_isempty(l))
+                return l;
+
+        STRV_FOREACH(i, ll)
+                strv_remove(l, *i);
+
         return l;
 }
 
