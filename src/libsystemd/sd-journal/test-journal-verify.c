@@ -9,6 +9,7 @@
 #include "chattr-util.h"
 #include "fd-util.h"
 #include "iovec-util.h"
+#include "journal-authenticate.h"
 #include "journal-file-util.h"
 #include "journal-verify.h"
 #include "log.h"
@@ -175,6 +176,8 @@ static int run_test(const char *verification_key, ssize_t max_iterations) {
 int main(int argc, char *argv[]) {
         const char *verification_key = NULL;
         int max_iterations = 512;
+
+        journal_auth_init();
 
         if (argc > 1) {
                 /* Don't limit the number of iterations when the verification key
