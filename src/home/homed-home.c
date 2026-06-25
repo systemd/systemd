@@ -1088,9 +1088,8 @@ static void home_unlocking_finish(Home *h, int ret, UserRecord *hr) {
 
         log_debug("Unlocking operation of %s completed.", h->user_name);
 
-        h->current_operation = operation_result_unref(h->current_operation, r, &error);
+        h->current_operation = operation_result_unref(h->current_operation, 0, NULL);
         home_set_state(h, _HOME_STATE_INVALID);
-        return;
 }
 
 static void home_authenticating_finish(Home *h, int ret, UserRecord *hr) {
