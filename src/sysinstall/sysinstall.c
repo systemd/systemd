@@ -930,12 +930,16 @@ static int invoke_bootctl_link(
                 sd_varlink **link,
                 const char *root_dir,
                 int root_fd,
+                const char *kernel_filename,
+                int kernel_fd,
                 char **encrypted_credentials) {
         int r;
 
         assert(link);
         assert(root_dir);
         assert(root_fd >= 0);
+        assert(kernel_filename);
+        assert(kernel_fd >= 0);
 
         r = connect_to_bootctl(link);
         if (r < 0)
@@ -958,25 +962,6 @@ static int invoke_bootctl_link(
         int root_fd_idx = sd_varlink_push_dup_fd(*link, root_fd);
         if (root_fd_idx < 0)
                 return log_error_errno(root_fd_idx, "Failed to submit root fd onto Varlink connection: %m");
-
-        _cleanup_free_ char *kernel_filename = NULL;
-        _cleanup_close_ int kernel_fd = -EBADF;
-        if (arg_kernel_image) {
-                r = path_extract_filename(arg_kernel_image, &kernel_filename);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to extract filename from kernel path '%s': %m", arg_kernel_image);
-                if (r == O_DIRECTORY)
-                        return log_error_errno(SYNTHETIC_ERRNO(EISDIR), "Kernel path '%s' refers to directory, must be regular file, refusing.", arg_kernel_image);
-
-                kernel_fd = xopenat_full(XAT_FDROOT, arg_kernel_image, O_RDONLY|O_CLOEXEC, XO_REGULAR, MODE_INVALID);
-                if (kernel_fd < 0)
-                        return log_error_errno(kernel_fd, "Failed to open kernel image '%s': %m", arg_kernel_image);
-
-        } else {
-                r = find_current_kernel(&kernel_filename, &kernel_fd);
-                if (r < 0)
-                        return r;
-        }
 
         int kernel_fd_idx = sd_varlink_push_dup_fd(*link, kernel_fd);
         if (kernel_fd_idx < 0)
@@ -1259,6 +1244,8 @@ static void end_marker(void) {
 }
 
 static int run(int argc, char *argv[]) {
+        _cleanup_free_ char *kernel_filename = NULL;
+        _cleanup_close_ int kernel_fd = -EBADF;
         int r;
 
         setlocale(LC_ALL, "");
@@ -1341,6 +1328,23 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
+        if (arg_kernel_image) {
+                r = path_extract_filename(arg_kernel_image, &kernel_filename);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to extract filename from kernel path '%s': %m", arg_kernel_image);
+                if (r == O_DIRECTORY)
+                        return log_error_errno(SYNTHETIC_ERRNO(EISDIR), "Kernel path '%s' refers to directory, must be regular file, refusing.", arg_kernel_image);
+
+                kernel_fd = xopenat_full(XAT_FDROOT, arg_kernel_image, O_RDONLY|O_CLOEXEC, XO_REGULAR, MODE_INVALID);
+                if (kernel_fd < 0)
+                        return log_error_errno(kernel_fd, "Failed to open kernel image '%s': %m", arg_kernel_image);
+        } else {
+                r = find_current_kernel(&kernel_filename, &kernel_fd);
+                if (r < 0)
+                        return r;
+        }
+
+
         /* Verify we have everything we need */
         assert(arg_node);
         assert(arg_erase >= 0);
@@ -1408,7 +1412,7 @@ static int run(int argc, char *argv[]) {
                    emoji_enabled() ? glyph(GLYPH_COMPUTER_DISK) : "", emoji_enabled() ? " " : "");
 
         _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *bootctl_link = NULL;
-        r = invoke_bootctl_link(&bootctl_link, root_dir, root_fd, encrypted_credentials);
+        r = invoke_bootctl_link(&bootctl_link, root_dir, root_fd, kernel_filename, kernel_fd, encrypted_credentials);
         if (r < 0)
                 return r;
 
