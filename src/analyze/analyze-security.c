@@ -108,6 +108,8 @@ typedef struct SecurityInfo {
         Set *system_call_filter;
 
         mode_t _umask;
+
+        RuntimeScope runtime_scope;
 } SecurityInfo;
 
 struct security_assessor {
@@ -182,6 +184,9 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(SecurityInfo*, security_info_free);
 static bool security_info_runs_privileged(const SecurityInfo *i)  {
         assert(i);
 
+        if (i->runtime_scope == RUNTIME_SCOPE_USER)
+                return false;                       /* User instances cannot switch to root */
+
         if (STRPTR_IN_SET(i->user, "0", "root"))
                 return true;
 
@@ -231,6 +236,9 @@ static int assess_user(
                 b = 0;
         } else if (info->user && !STR_IN_SET(info->user, "0", "root", "")) {
                 d = "Service runs under a static non-root user identity";
+                b = 0;
+        } else if (info->runtime_scope == RUNTIME_SCOPE_USER) {
+                d = "Service runs under the calling user's identity";
                 b = 0;
         } else {
                 *ret_badness = 10;
@@ -2292,7 +2300,7 @@ static int property_read_device_allow(
         return sd_bus_message_exit_container(m);
 }
 
-static int acquire_security_info(sd_bus *bus, const char *name, SecurityInfo *info, AnalyzeSecurityFlags flags) {
+static int acquire_security_info(sd_bus *bus, const char *name, SecurityInfo *info, RuntimeScope scope, AnalyzeSecurityFlags flags) {
 
         static const struct bus_properties_map security_map[] = {
                 { "AmbientCapabilities",     "t",       NULL,                                    offsetof(SecurityInfo, ambient_capabilities)      },
@@ -2413,6 +2421,8 @@ static int acquire_security_info(sd_bus *bus, const char *name, SecurityInfo *in
                 info->capability_bounding_set &= ~((UINT64_C(1) << CAP_MKNOD) |
                                                    (UINT64_C(1) << CAP_SYS_RAWIO));
 
+        info->runtime_scope = scope;
+
         return 0;
 }
 
@@ -2420,6 +2430,7 @@ static int analyze_security_one(sd_bus *bus,
                                 const char *name,
                                 Table *overview_table,
                                 AnalyzeSecurityFlags flags,
+                                RuntimeScope scope,
                                 unsigned threshold,
                                 sd_json_variant *policy,
                                 PagerFlags pager_flags,
@@ -2434,7 +2445,7 @@ static int analyze_security_one(sd_bus *bus,
         assert(bus);
         assert(name);
 
-        r = acquire_security_info(bus, name, info, flags);
+        r = acquire_security_info(bus, name, info, scope, flags);
         if (r == -EMEDIUMTYPE) /* Ignore this one because not loaded or Type is oneshot */
                 return 0;
         if (r < 0)
@@ -2448,12 +2459,14 @@ static int analyze_security_one(sd_bus *bus,
 }
 
 /* Refactoring SecurityInfo so that it can make use of existing struct variables instead of reading from dbus */
-static int get_security_info(Unit *u, ExecContext *c, CGroupContext *g, SecurityInfo **ret_info) {
+static int get_security_info(Unit *u, ExecContext *c, CGroupContext *g, RuntimeScope scope, SecurityInfo **ret_info) {
         assert(ret_info);
 
         _cleanup_(security_info_freep) SecurityInfo *info = security_info_new();
         if (!info)
                 return log_oom();
+
+        info->runtime_scope = scope;
 
         if (u) {
                 if (u->id) {
@@ -2654,6 +2667,7 @@ static int get_security_info(Unit *u, ExecContext *c, CGroupContext *g, Security
 }
 
 static int offline_security_check(Unit *u,
+                                  RuntimeScope scope,
                                   unsigned threshold,
                                   sd_json_variant *policy,
                                   PagerFlags pager_flags,
@@ -2669,7 +2683,7 @@ static int offline_security_check(Unit *u,
         if (DEBUG_LOGGING)
                 unit_dump(u, stdout, "\t");
 
-        r = get_security_info(u, unit_get_exec_context(u), unit_get_cgroup_context(u), &info);
+        r = get_security_info(u, unit_get_exec_context(u), unit_get_cgroup_context(u), scope, &info);
         if (r < 0)
               return r;
 
@@ -2775,7 +2789,7 @@ static int offline_security_checks(
         }
 
         for (size_t i = 0; i < count; i++)
-                RET_GATHER(r, offline_security_check(units[i], threshold, policy, pager_flags, json_format_flags));
+                RET_GATHER(r, offline_security_check(units[i], scope, threshold, policy, pager_flags, json_format_flags));
 
         return r;
 }
@@ -2855,7 +2869,7 @@ static int analyze_security(sd_bus *bus,
                 flags |= ANALYZE_SECURITY_SHORT|ANALYZE_SECURITY_ONLY_LOADED|ANALYZE_SECURITY_ONLY_LONG_RUNNING;
 
                 STRV_FOREACH(i, list) {
-                        r = analyze_security_one(bus, *i, overview_table, flags, threshold, policy, pager_flags, json_format_flags);
+                        r = analyze_security_one(bus, *i, overview_table, flags, scope, threshold, policy, pager_flags, json_format_flags);
                         if (r < 0 && ret >= 0)
                                 ret = r;
                 }
@@ -2888,7 +2902,7 @@ static int analyze_security(sd_bus *bus,
                         } else
                                 name = mangled;
 
-                        r = analyze_security_one(bus, name, overview_table, flags, threshold, policy, pager_flags, json_format_flags);
+                        r = analyze_security_one(bus, name, overview_table, flags, scope, threshold, policy, pager_flags, json_format_flags);
                         if (r < 0 && ret >= 0)
                                 ret = r;
                 }
