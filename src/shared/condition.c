@@ -960,28 +960,6 @@ static int condition_test_needs_update(Condition *c, char **env) {
         return timespec_load_nsec(&usr.st_mtim) > timestamp;
 }
 
-static bool in_first_boot(void) {
-        static int first_boot = -1;
-        int r;
-
-        if (first_boot >= 0)
-                return first_boot;
-
-        const char *e = secure_getenv("SYSTEMD_FIRST_BOOT");
-        if (e) {
-                r = parse_boolean(e);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to parse $SYSTEMD_FIRST_BOOT, ignoring: %m");
-                else
-                        return (first_boot = r);
-        }
-
-        r = RET_NERRNO(access("/run/systemd/first-boot", F_OK));
-        if (r < 0 && r != -ENOENT)
-                log_debug_errno(r, "Failed to check if /run/systemd/first-boot exists, assuming no: %m");
-        return r >= 0;
-}
-
 static int condition_test_first_boot(Condition *c, char **env) {
         int r;
 
