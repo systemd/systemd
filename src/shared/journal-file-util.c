@@ -405,23 +405,15 @@ bool journal_file_is_offlining(JournalFile *f) {
         return true;
 }
 
-void journal_file_write_final_tag(JournalFile *f) {
-        assert(f);
-#if HAVE_GCRYPT
-        if (!JOURNAL_HEADER_SEALED(f->header) || !journal_file_writable(f))
-                return;
-
-        int r = journal_file_append_tag(f);
-        if (r < 0)
-                log_debug_errno(r, "Failed to append tag when closing journal: %m");
-#endif
-}
-
 JournalFile* journal_file_offline_close(JournalFile *f) {
+        int r;
+
         if (!f)
                 return NULL;
 
-        journal_file_write_final_tag(f);
+        r = journal_file_auth_append_tag(f);
+        if (r < 0)
+                log_debug_errno(r, "Failed to append tag when closing journal, ignoring: %m");
 
         if (sd_event_source_get_enabled(f->post_change_timer, NULL) > 0)
                 journal_file_post_change(f);
@@ -464,7 +456,10 @@ int journal_file_rotate(
         assert(f);
         assert(*f);
 
-        journal_file_write_final_tag(*f);
+        r = journal_file_auth_append_tag(*f);
+        if (r < 0)
+                log_debug_errno(r, "Failed to append tag when closing journal, ignoring: %m");
+
         r = journal_file_archive(*f, &path);
         if (r < 0)
                 return r;
