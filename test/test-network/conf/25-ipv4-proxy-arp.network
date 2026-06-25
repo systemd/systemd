@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Name=dummy98
+
+[Network]
+IPv4ProxyARPAddress=192.0.2.1
+IPv4ProxyARPAddress=192.0.2.2
+IPv4ProxyARPAddress=192.0.2.3
+IPv4ProxyARPAddress=192.0.2.4
+IPv4ProxyARPAddress=192.0.2.5
+IPv6AcceptRA=no
+Address=10.0.0.1/24
