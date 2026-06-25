@@ -261,7 +261,7 @@ assert_cc(sizeof(struct Header) == sizeof(struct Header__packed));
 assert_cc(sizeof(struct Header) == 272);
 
 #define FSS_HEADER_SIGNATURE                                            \
-        ((const char[]) { 'K', 'S', 'H', 'H', 'R', 'H', 'L', 'P' })
+        { 'K', 'S', 'H', 'H', 'R', 'H', 'L', 'P' }
 
 struct FSSHeader {
         uint8_t signature[8]; /* "KSHHRHLP" */
