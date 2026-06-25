@@ -65,6 +65,18 @@ if (
     arg_tools += ['--stub', p]
 
 
+def module_dtb_path(uname, path):
+    return pathlib.Path('/usr/lib/modules') / uname / 'dtb' / path
+
+
+def firmware_dtb_path(uname, path):
+    return pathlib.Path('/usr/lib/firmware') / uname / 'device-tree' / path
+
+
+def linux_image_dtb_path(uname, path):
+    return pathlib.Path('/usr/lib') / f'linux-image-{uname}' / path
+
+
 def systemd_measure():
     opts = ukify.create_parser().parse_args(arg_tools)
     return ukify.find_tool('systemd-measure', opts=opts)
@@ -111,6 +123,7 @@ def test_apply_config(tmp_path):
                   6 7 8
         OSRelease = @some/path1
         DeviceTree = some/path2
+        DeviceTreeAuto = auto/path1 auto/path2
         Splash = some/path3
         Uname = 1.2.3
         EFIArch=arm
@@ -143,6 +156,7 @@ def test_apply_config(tmp_path):
     assert ns.cmdline == '1 2 3 4 5\n6 7 8'
     assert ns.os_release == '@some/path1'
     assert ns.devicetree == pathlib.Path('some/path2')
+    assert ns.devicetree_auto == [pathlib.Path('auto/path1'), pathlib.Path('auto/path2')]
     assert ns.splash == pathlib.Path('some/path3')
     assert ns.efi_arch == 'arm'
     assert ns.stub == pathlib.Path('some/path4')
@@ -168,6 +182,7 @@ def test_apply_config(tmp_path):
     assert ns.cmdline == '1 2 3 4 5 6 7 8'
     assert ns.os_release == pathlib.Path('some/path1')
     assert ns.devicetree == pathlib.Path('some/path2')
+    assert ns.devicetree_auto == [pathlib.Path('auto/path1'), pathlib.Path('auto/path2')]
     assert ns.splash == pathlib.Path('some/path3')
     assert ns.efi_arch == 'arm'
     assert ns.stub == pathlib.Path('some/path4')
@@ -205,6 +220,7 @@ def test_parse_args_many_deprecated():
             '--cmdline=a b c',
             '--os-release=K1=V1\nK2=V2',
             '--devicetree=DDDDTTTT',
+            '--devicetree-auto=AAAADDDDTTTT',
             '--splash=splash',
             '--pcrpkey=PATH',
             '--uname=1.2.3',
@@ -228,6 +244,7 @@ def test_parse_args_many_deprecated():
     assert opts.cmdline == 'a b c'
     assert opts.os_release == 'K1=V1\nK2=V2'
     assert opts.devicetree == pathlib.Path('DDDDTTTT')
+    assert opts.devicetree_auto == [pathlib.Path('AAAADDDDTTTT')]
     assert opts.splash == pathlib.Path('splash')
     assert opts.pcrpkey == pathlib.Path('PATH')
     assert opts.uname == '1.2.3'
@@ -254,6 +271,7 @@ def test_parse_args_many():
             '--cmdline=a b c',
             '--os-release=K1=V1\nK2=V2',
             '--devicetree=DDDDTTTT',
+            '--devicetree-auto=AAAADDDDTTTT',
             '--splash=splash',
             '--pcrpkey=PATH',
             '--uname=1.2.3',
@@ -279,6 +297,7 @@ def test_parse_args_many():
     assert opts.cmdline == 'a b c'
     assert opts.os_release == 'K1=V1\nK2=V2'
     assert opts.devicetree == pathlib.Path('DDDDTTTT')
+    assert opts.devicetree_auto == [pathlib.Path('AAAADDDDTTTT')]
     assert opts.splash == pathlib.Path('splash')
     assert opts.pcrpkey == pathlib.Path('PATH')
     assert opts.uname == '1.2.3'
@@ -294,6 +313,233 @@ def test_parse_args_many():
     assert opts.output == pathlib.Path('OUTPUT')
     assert opts.measure is False
     assert opts.policy_digest is False
+
+
+def test_parse_args_devicetree_autodetects_uname(monkeypatch):
+    def scrape(filename, opts=None):
+        assert filename == pathlib.Path('/ARG1')
+        return '1.2.3'
+
+    monkeypatch.setattr(ukify.Uname, 'scrape', scrape)
+
+    opts = ukify.parse_args(
+        [
+            'build',
+            '--linux=/ARG1',
+            '--devicetree=DDDDTTTT',
+            '--devicetree-auto=AAAADDDDTTTT',
+        ]
+    )
+
+    assert opts.uname == '1.2.3'
+    assert opts.devicetree == pathlib.Path('DDDDTTTT')
+    assert opts.devicetree_auto == [pathlib.Path('AAAADDDDTTTT')]
+
+
+def test_parse_args_devicetree_autodetect_failure(monkeypatch):
+    def scrape(filename, opts=None):
+        assert filename == pathlib.Path('/ARG1')
+        return None
+
+    monkeypatch.setattr(ukify.Uname, 'scrape', scrape)
+
+    with pytest.raises(ValueError, match='Kernel version unknown'):
+        ukify.parse_args(
+            [
+                'build',
+                '--linux=/ARG1',
+                '--devicetree=DDDDTTTT',
+            ]
+        )
+
+
+def test_parse_args_devicetree_absolute_passthrough():
+    opts = ukify.parse_args(
+        [
+            'build',
+            '--linux=/ARG1',
+            '--uname=..',
+            '--devicetree=/DDDDTTTT',
+            '--devicetree-auto=/AAAADDDDTTTT',
+        ]
+    )
+
+    assert opts.devicetree == pathlib.Path('/DDDDTTTT')
+    assert opts.devicetree_auto == [pathlib.Path('/AAAADDDDTTTT')]
+
+
+def test_resolve_devicetree_path_searches_kernel_install_locations(monkeypatch):
+    uname = '1.2.3'
+
+    def is_file(self):
+        return self == linux_image_dtb_path(uname, 'DDDDTTTT')
+
+    monkeypatch.setattr(pathlib.Path, 'is_file', is_file)
+
+    resolved = ukify.resolve_devicetree_path(pathlib.Path('DDDDTTTT'), uname, check_exists=True)
+    assert resolved == linux_image_dtb_path(uname, 'DDDDTTTT')
+
+
+def test_resolve_devicetree_path_prefers_firmware_location(monkeypatch):
+    uname = '1.2.3'
+
+    def is_file(self):
+        return self in (
+            firmware_dtb_path(uname, 'DDDDTTTT'),
+            linux_image_dtb_path(uname, 'DDDDTTTT'),
+            module_dtb_path(uname, 'DDDDTTTT'),
+        )
+
+    monkeypatch.setattr(pathlib.Path, 'is_file', is_file)
+
+    resolved = ukify.resolve_devicetree_path(pathlib.Path('DDDDTTTT'), uname, check_exists=True)
+    assert resolved == firmware_dtb_path(uname, 'DDDDTTTT')
+
+
+def test_resolve_devicetree_path_prefers_linux_image_location_over_modules(monkeypatch):
+    uname = '1.2.3'
+
+    def is_file(self):
+        return self in (
+            linux_image_dtb_path(uname, 'DDDDTTTT'),
+            module_dtb_path(uname, 'DDDDTTTT'),
+        )
+
+    monkeypatch.setattr(pathlib.Path, 'is_file', is_file)
+
+    resolved = ukify.resolve_devicetree_path(pathlib.Path('DDDDTTTT'), uname, check_exists=True)
+    assert resolved == linux_image_dtb_path(uname, 'DDDDTTTT')
+
+
+def test_resolve_devicetree_path_missing_uses_module_fallback(monkeypatch):
+    uname = '1.2.3'
+
+    monkeypatch.setattr(pathlib.Path, 'is_file', lambda self: False)
+
+    with pytest.raises(FileNotFoundError, match=f'DeviceTree file {module_dtb_path(uname, "DDDDTTTT")} not found'):
+        ukify.resolve_devicetree_path(pathlib.Path('DDDDTTTT'), uname, check_exists=True)
+
+
+def test_resolve_devicetree_options_searches_after_parse_args(monkeypatch):
+    uname = '1.2.3'
+
+    opts = ukify.parse_args(
+        [
+            'build',
+            '--linux=/ARG1',
+            '--uname=1.2.3',
+            '--devicetree=DDDDTTTT',
+        ]
+    )
+
+    assert opts.devicetree == pathlib.Path('DDDDTTTT')
+
+    def is_file(self):
+        return self == firmware_dtb_path(uname, 'DDDDTTTT')
+
+    monkeypatch.setattr(pathlib.Path, 'is_file', is_file)
+
+    ukify.resolve_devicetree_options(opts, check_exists=True)
+    assert opts.devicetree == firmware_dtb_path(uname, 'DDDDTTTT')
+
+
+def test_main_resolves_devicetree_options_after_finalize(monkeypatch):
+    uname = '1.2.3'
+    captured_opts = []
+
+    def is_file(self):
+        return self == firmware_dtb_path(uname, 'DDDDTTTT')
+
+    def check_inputs(opts):
+        assert opts.devicetree == firmware_dtb_path(uname, 'DDDDTTTT')
+
+    def make_uki(opts):
+        captured_opts.append(opts)
+
+    monkeypatch.setattr(
+        sys,
+        'argv',
+        [
+            'ukify',
+            'build',
+            '--linux=/ARG1',
+            '--uname=1.2.3',
+            '--devicetree=DDDDTTTT',
+        ],
+    )
+    monkeypatch.setattr(pathlib.Path, 'is_file', is_file)
+    monkeypatch.setattr(ukify, 'check_inputs', check_inputs)
+    monkeypatch.setattr(ukify, 'make_uki', make_uki)
+
+    ukify.main()
+
+    assert captured_opts[0].devicetree == firmware_dtb_path(uname, 'DDDDTTTT')
+
+
+def test_parse_args_devicetree_empty_uname():
+    with pytest.raises(ValueError, match='Kernel version unknown'):
+        ukify.parse_args(
+            [
+                'build',
+                '--linux=/ARG1',
+                '--uname=',
+                '--devicetree=DDDDTTTT',
+            ]
+        )
+
+
+def test_parse_args_devicetree_invalid_uname():
+    with pytest.raises(ValueError, match='Invalid kernel version'):
+        ukify.parse_args(
+            [
+                'build',
+                '--linux=/ARG1',
+                '--uname=..',
+                '--devicetree=DDDDTTTT',
+            ]
+        )
+
+    with pytest.raises(ValueError, match='Invalid kernel version'):
+        ukify.parse_args(
+            [
+                'build',
+                '--linux=/ARG1',
+                '--uname=.',
+                '--devicetree=DDDDTTTT',
+            ]
+        )
+
+    with pytest.raises(ValueError, match='Invalid kernel version'):
+        ukify.parse_args(
+            [
+                'build',
+                '--linux=/ARG1',
+                '--uname=/',
+                '--devicetree=DDDDTTTT',
+            ]
+        )
+
+
+def test_parse_args_devicetree_rejects_parent_path():
+    with pytest.raises(ValueError, match='must name a file'):
+        ukify.parse_args(
+            [
+                'build',
+                '--linux=/ARG1',
+                '--uname=1.2.3',
+                '--devicetree=../DDDDTTTT',
+            ]
+        )
+
+    with pytest.raises(ValueError, match='must name a file'):
+        ukify.parse_args(
+            [
+                'build',
+                '--linux=/ARG1',
+                '--uname=1.2.3',
+                '--devicetree=.',
+            ]
+        )
 
 
 def test_parse_sections():
@@ -323,6 +569,8 @@ def test_parse_sections():
 
 
 def test_config_priority(tmp_path):
+    uname = '1.2.3'
+
     config = tmp_path / 'config1.conf'
     # config: use pesign and give certdir + certname
     config.write_text(
@@ -400,7 +648,7 @@ def test_config_priority(tmp_path):
     assert opts.devicetree == pathlib.Path('DDDDTTTT')
     assert opts.splash == pathlib.Path('splash')
     assert opts.pcrpkey == pathlib.Path('PATH')
-    assert opts.uname == '1.2.3'
+    assert opts.uname == uname
     assert opts.stub == pathlib.Path('STUBPATH')
     assert opts.pcr_private_keys == ['PKEY1', 'some/path7']
     assert opts.pcr_public_keys == ['PKEY2', 'some/path8']
