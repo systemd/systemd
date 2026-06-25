@@ -2662,7 +2662,8 @@ int exec_shared_runtime_deserialize_compat(Unit *u, const char *key, const char 
 int exec_shared_runtime_deserialize_one(Manager *m, const char *value, FDSet *fds) {
         _cleanup_free_ char *tmp_dir = NULL, *var_tmp_dir = NULL;
         char *id = NULL;
-        int r, userns_fdpair[] = {-1, -1}, netns_fdpair[] = {-1, -1}, ipcns_fdpair[] = {-1, -1};
+        _cleanup_close_pair_ int userns_fdpair[] = EBADF_PAIR, netns_fdpair[] = EBADF_PAIR, ipcns_fdpair[] = EBADF_PAIR;
+        int r;
         const char *p, *v = ASSERT_PTR(value);
         size_t n;
 
