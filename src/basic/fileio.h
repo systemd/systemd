@@ -56,6 +56,7 @@ static inline int write_string_file(const char *fn, const char *line, WriteStrin
         return write_string_file_at(AT_FDCWD, fn, line, flags);
 }
 int write_string_filef(const char *fn, WriteStringFileFlags flags, const char *format, ...) _printf_(3, 4);
+int write_string_filef_at(int dir_fd, const char *fn, WriteStringFileFlags flags, const char *format, ...) _printf_(4, 5);
 
 int write_base64_file_at(int dir_fd, const char *fn, const struct iovec *data, WriteStringFileFlags flags);
 
