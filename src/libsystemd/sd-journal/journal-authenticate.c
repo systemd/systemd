@@ -515,24 +515,24 @@ int journal_file_parse_verification_key(JournalFile *f, const char *key) {
 
                 x = unhexchar(*k);
                 if (x < 0)
-                        return -EINVAL;
+                        return -EKEYREJECTED;
                 k++;
 
                 y = unhexchar(*k);
                 if (y < 0)
-                        return -EINVAL;
+                        return -EKEYREJECTED;
                 k++;
 
                 seed[c] = (uint8_t) (x * 16 + y);
         }
 
         if (*k != '/')
-                return -EINVAL;
+                return -EKEYREJECTED;
         k++;
 
         r = sscanf(k, "%llx-%llx", &start, &interval);
         if (r != 2)
-                return -EINVAL;
+                return -EKEYREJECTED;
 
         f->fsprg_seed = IOVEC_MAKE(TAKE_PTR(seed), seed_size);
         f->fss_start_usec = start * interval;
