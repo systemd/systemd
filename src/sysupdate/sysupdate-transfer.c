@@ -837,7 +837,7 @@ int transfer_vacuum(
 
                 r = transfer_instance_vacuum(t, instance);
                 if (r < 0)
-                        return 0;
+                        return r;
 
                 instance_free(instance);
                 memmove(t->target.instances + i, t->target.instances + i + 1, (t->target.n_instances - i - 1) * sizeof(Instance*));
@@ -936,7 +936,7 @@ int transfer_vacuum(
 
                 r = transfer_instance_vacuum(t, oldest);
                 if (r < 0)
-                        return 0;
+                        return r;
 
                 instance_free(oldest);
                 memmove(t->target.instances + p, t->target.instances + p + 1, (t->target.n_instances - p - 1) * sizeof(Instance*));
