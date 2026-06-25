@@ -1301,7 +1301,7 @@ static int journal_file_setup_data_hash_table(JournalFile *f) {
         if (r < 0)
                 return r;
 
-        memzero(o->hash_table.items, s);
+        memzero(o->hash_table.items, s * sizeof(HashItem));
 
         f->header->data_hash_table_offset = htole64(p + offsetof(Object, hash_table.items));
         f->header->data_hash_table_size = htole64(s * sizeof(HashItem));
