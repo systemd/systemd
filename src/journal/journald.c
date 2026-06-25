@@ -52,6 +52,8 @@ static int run(int argc, char *argv[]) {
 
         sigbus_install();
 
+        journal_auth_init();
+
         r = manager_new(&m);
         if (r < 0)
                 return log_oom();

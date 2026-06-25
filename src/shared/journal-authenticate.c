@@ -34,7 +34,7 @@ struct JournalAuthContext {
         struct iovec fsprg_seed;
 };
 
-JournalAuthContext* journal_auth_free(JournalAuthContext *c) {
+static JournalAuthContext* journal_auth_free(JournalAuthContext *c) {
         if (!c)
                 return NULL;
 
@@ -64,7 +64,7 @@ static void* fssheader_free(FSSHeader *p) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(FSSHeader*, fssheader_free);
 
-int journal_auth_load(JournalAuthContext **ret) {
+static int journal_auth_load(JournalAuthContext **ret) {
         int r;
 
         assert(ret);
@@ -130,7 +130,7 @@ int journal_auth_load(JournalAuthContext **ret) {
         if (le64toh(header->start_usec) <= 0 || le64toh(header->interval_usec) <= 0)
                 return -EBADMSG;
 
-        _cleanup_(journal_auth_freep) JournalAuthContext *c = new(JournalAuthContext, 1);
+        _cleanup_(journal_auth_freep) JournalAuthContext *c = new0(JournalAuthContext, 1);
         if (!c)
                 return -ENOMEM;
 
@@ -158,7 +158,7 @@ int journal_auth_load(JournalAuthContext **ret) {
         return 0;
 }
 
-int journal_auth_load_key(JournalAuthContext **ret, const char *key) {
+static int journal_auth_load_key(JournalAuthContext **ret, const char *key) {
         int r;
 
         assert(ret);
@@ -215,7 +215,7 @@ int journal_auth_load_key(JournalAuthContext **ret, const char *key) {
         return 0;
 }
 
-int journal_auth_epoch_to_realtime_usec(const JournalAuthContext *c, uint64_t epoch, usec_t *ret_start, usec_t *ret_end) {
+static int journal_auth_epoch_to_realtime_usec(const JournalAuthContext *c, uint64_t epoch, usec_t *ret_start, usec_t *ret_end) {
         assert(c);
 
         uint64_t start, end;
@@ -232,7 +232,7 @@ int journal_auth_epoch_to_realtime_usec(const JournalAuthContext *c, uint64_t ep
         return 0;
 }
 
-int journal_auth_next_evolve_usec(const JournalAuthContext *c, usec_t *ret) {
+static int journal_auth_next_evolve_usec(const JournalAuthContext *c, usec_t *ret) {
         assert(c);
 
         uint64_t epoch = FSPRG_GetEpoch(c->fsprg_state.iov_base);
@@ -240,7 +240,7 @@ int journal_auth_next_evolve_usec(const JournalAuthContext *c, usec_t *ret) {
         return journal_auth_epoch_to_realtime_usec(c, epoch, /* ret_start= */ NULL, ret);
 }
 
-int journal_auth_seek(JournalAuthContext *c, uint64_t goal) {
+static int journal_auth_seek(JournalAuthContext *c, uint64_t goal) {
         int r;
 
         assert(c);
@@ -287,7 +287,7 @@ static int journal_auth_setup(JournalAuthContext *c) {
         return 0;
 }
 
-int journal_auth_start(JournalAuthContext *c) {
+static int journal_auth_start(JournalAuthContext *c) {
         int r;
 
         assert(c);
@@ -318,7 +318,7 @@ int journal_auth_start(JournalAuthContext *c) {
         return 0;
 }
 
-int journal_auth_end(JournalAuthContext *c, uint8_t ret[static TAG_LENGTH]) {
+static int journal_auth_end(JournalAuthContext *c, uint8_t ret[static TAG_LENGTH]) {
         assert(c);
         assert(ret);
 
@@ -330,7 +330,7 @@ int journal_auth_end(JournalAuthContext *c, uint8_t ret[static TAG_LENGTH]) {
         return 0;
 }
 
-int journal_auth_put_header(JournalAuthContext *c, JournalFile *f) {
+static int journal_auth_put_header(JournalAuthContext *c, JournalFile *f) {
         int r;
 
         assert(c);
@@ -355,7 +355,7 @@ int journal_auth_put_header(JournalAuthContext *c, JournalFile *f) {
         return 0;
 }
 
-int journal_auth_put_object(JournalAuthContext *c, JournalFile *f, ObjectType type, Object *o, uint64_t p) {
+static int journal_auth_put_object(JournalAuthContext *c, JournalFile *f, ObjectType type, Object *o, uint64_t p) {
         int r;
 
         assert(c);
@@ -411,7 +411,7 @@ int journal_auth_put_object(JournalAuthContext *c, JournalFile *f, ObjectType ty
         return 0;
 }
 
-int journal_auth_append_tag(JournalAuthContext *c, JournalFile *f) {
+static int journal_auth_append_tag(JournalAuthContext *c, JournalFile *f) {
         int r;
 
         assert(c);
@@ -446,7 +446,7 @@ int journal_auth_append_tag(JournalAuthContext *c, JournalFile *f) {
         return journal_auth_end(c, o->tag.tag);
 }
 
-int journal_auth_append_tag_first(JournalAuthContext *c, JournalFile *f) {
+static int journal_auth_append_tag_first(JournalAuthContext *c, JournalFile *f) {
         uint64_t p;
         int r;
 
@@ -480,7 +480,7 @@ int journal_auth_append_tag_first(JournalAuthContext *c, JournalFile *f) {
         return journal_auth_append_tag(c, f);
 }
 
-int journal_auth_append_tag_maybe(JournalAuthContext *c, JournalFile *f, usec_t realtime) {
+static int journal_auth_append_tag_maybe(JournalAuthContext *c, JournalFile *f, usec_t realtime) {
         int r;
 
         assert(c);
@@ -504,6 +504,31 @@ int journal_auth_append_tag_maybe(JournalAuthContext *c, JournalFile *f, usec_t 
                 if (r < 0)
                         return r;
         }
+}
+
+static const JournalAuthOps journal_auth_ops = {
+        .free = journal_auth_free,
+        .load = journal_auth_load,
+        .load_key = journal_auth_load_key,
+        .epoch_to_realtime_usec = journal_auth_epoch_to_realtime_usec,
+        .next_evolve_usec = journal_auth_next_evolve_usec,
+        .seek = journal_auth_seek,
+        .start = journal_auth_start,
+        .end = journal_auth_end,
+        .put_header = journal_auth_put_header,
+        .put_object = journal_auth_put_object,
+        .append_tag = journal_auth_append_tag,
+        .append_tag_first = journal_auth_append_tag_first,
+        .append_tag_maybe = journal_auth_append_tag_maybe,
+};
+
+void journal_auth_init(void) {
+        journal_auth_set_ops(&journal_auth_ops);
+}
+
+#else
+
+void journal_auth_init(void) {
 }
 
 #endif /* HAVE_GCRYPT */
