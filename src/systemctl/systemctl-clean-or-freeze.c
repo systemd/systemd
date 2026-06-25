@@ -83,10 +83,9 @@ int verb_clean_or_freeze(int argc, char *argv[], void *userdata) {
                 r = sd_bus_call(bus, m, 0, &error, NULL);
                 if (r < 0) {
                         log_error_errno(r, "Failed to %s unit %s: %s", argv[0], *name, bus_error_message(&error, r));
-                        if (ret == EXIT_SUCCESS) {
+                        if (ret == EXIT_SUCCESS)
                                 ret = r;
-                                continue;
-                        }
+                        continue;
                 }
 
                 if (w) {
