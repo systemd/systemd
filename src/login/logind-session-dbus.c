@@ -207,6 +207,7 @@ int bus_session_method_terminate(sd_bus_message *message, void *userdata, sd_bus
                         s->user->user_record->uid,
                         /* flags= */ 0,
                         &s->manager->polkit_registry,
+                        /* ret_admin= */ NULL,
                         error);
         if (r < 0)
                 return r;
@@ -252,6 +253,7 @@ int bus_session_method_lock(sd_bus_message *message, void *userdata, sd_bus_erro
                         s->user->user_record->uid,
                         /* flags= */ 0,
                         &s->manager->polkit_registry,
+                        /* ret_admin= */ NULL,
                         error);
         if (r < 0)
                 return r;
@@ -362,6 +364,7 @@ int bus_session_method_kill(sd_bus_message *message, void *userdata, sd_bus_erro
                         s->user->user_record->uid,
                         /* flags= */ 0,
                         &s->manager->polkit_registry,
+                        /* ret_admin= */ NULL,
                         error);
         if (r < 0)
                 return r;
