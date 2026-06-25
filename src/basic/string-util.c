@@ -287,6 +287,12 @@ static size_t previous_ansi_sequence(const char *s, size_t length, const char **
 
         /* Locate the previous ANSI sequence and save its start in *ret_where and return length. */
 
+        if (length < 2) {
+                /* Need at least two bytes for an ANSI sequence */
+                *ret_where = NULL;
+                return 0;
+        }
+
         for (size_t i = length - 2; i > 0; i--) {  /* -2 because at least two bytes are needed */
                 size_t slen = ansi_sequence_length(s + (i - 1), length - (i - 1));
                 if (slen == 0)
