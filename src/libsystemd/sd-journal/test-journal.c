@@ -269,6 +269,8 @@ static int intro(void) {
         if (access("/etc/machine-id", F_OK) != 0)
                 return log_tests_skipped("/etc/machine-id not found");
 
+        journal_auth_init();
+
         return EXIT_SUCCESS;
 }
 

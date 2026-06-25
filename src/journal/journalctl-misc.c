@@ -9,6 +9,7 @@
 #include "format-util.h"
 #include "hashmap.h"
 #include "errno-util.h"
+#include "journal-authenticate.h"
 #include "journal-internal.h"
 #include "journal-verify.h"
 #include "journalctl.h"
@@ -45,6 +46,8 @@ int action_verify(void) {
                 return r;
 
         log_show_color(true);
+
+        journal_auth_init();
 
         JournalFile *f;
         ORDERED_HASHMAP_FOREACH(f, j->files) {
