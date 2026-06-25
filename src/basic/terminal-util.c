@@ -529,7 +529,6 @@ int show_menu(char **x,
               const char *grey_prefix,
               bool with_numbers) {
 
-        assert(x);
         assert(n_columns > 0);
         assert(column_width > 0);
 
