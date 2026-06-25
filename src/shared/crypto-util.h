@@ -45,6 +45,7 @@ int dlopen_libcrypto(int log_level);
                 dlopen_libcrypto(log_level);                            \
         })
 
+#  include <openssl/core_names.h>       /* IWYU pragma: export */
 #  include <openssl/bio.h>              /* IWYU pragma: export */
 #  include <openssl/bn.h>               /* IWYU pragma: export */
 #  include <openssl/crypto.h>           /* IWYU pragma: export */
@@ -93,11 +94,32 @@ extern DLSYM_PROTOTYPE(BIO_s_mem);
 extern DLSYM_PROTOTYPE(BIO_write);
 extern DLSYM_PROTOTYPE(BN_CTX_free);
 extern DLSYM_PROTOTYPE(BN_CTX_new);
+extern DLSYM_PROTOTYPE(BN_CTX_secure_new);
+extern DLSYM_PROTOTYPE(BN_add);
+extern DLSYM_PROTOTYPE(BN_add_word);
 extern DLSYM_PROTOTYPE(BN_bin2bn);
+extern DLSYM_PROTOTYPE(BN_bn2bin);
+extern DLSYM_PROTOTYPE(BN_bn2binpad);
 extern DLSYM_PROTOTYPE(BN_bn2nativepad);
+extern DLSYM_PROTOTYPE(BN_check_prime);
+extern DLSYM_PROTOTYPE(BN_clear_free);
+extern DLSYM_PROTOTYPE(BN_cmp);
+extern DLSYM_PROTOTYPE(BN_copy);
 extern DLSYM_PROTOTYPE(BN_free);
+extern DLSYM_PROTOTYPE(BN_is_negative);
+extern DLSYM_PROTOTYPE(BN_mod_exp);
+extern DLSYM_PROTOTYPE(BN_mod_inverse);
+extern DLSYM_PROTOTYPE(BN_mod_lshift1_quick);
+extern DLSYM_PROTOTYPE(BN_mod_mul);
+extern DLSYM_PROTOTYPE(BN_mod_sqr);
+extern DLSYM_PROTOTYPE(BN_mod_sub);
+extern DLSYM_PROTOTYPE(BN_mul);
 extern DLSYM_PROTOTYPE(BN_new);
+extern DLSYM_PROTOTYPE(BN_nnmod);
 extern DLSYM_PROTOTYPE(BN_num_bits);
+extern DLSYM_PROTOTYPE(BN_secure_new);
+extern DLSYM_PROTOTYPE(BN_set_word);
+extern DLSYM_PROTOTYPE(BN_sub_word);
 extern DLSYM_PROTOTYPE(CRYPTO_free);
 extern DLSYM_PROTOTYPE(ECDSA_SIG_free);
 extern DLSYM_PROTOTYPE(EC_GROUP_free);
@@ -135,7 +157,13 @@ extern DLSYM_PROTOTYPE(EVP_EncryptFinal_ex);
 extern DLSYM_PROTOTYPE(EVP_EncryptInit_ex);
 extern DLSYM_PROTOTYPE(EVP_EncryptUpdate);
 extern DLSYM_PROTOTYPE(EVP_MAC_CTX_free);
+extern DLSYM_PROTOTYPE(EVP_MAC_CTX_new);
+extern DLSYM_PROTOTYPE(EVP_MAC_fetch);
+extern DLSYM_PROTOTYPE(EVP_MAC_final);
 extern DLSYM_PROTOTYPE(EVP_MAC_free);
+extern DLSYM_PROTOTYPE(EVP_MAC_init);
+extern DLSYM_PROTOTYPE(EVP_MAC_update);
+extern DLSYM_PROTOTYPE(EVP_MD_CTX_copy_ex);
 extern DLSYM_PROTOTYPE(EVP_MD_CTX_free);
 extern DLSYM_PROTOTYPE(EVP_MD_CTX_get0_md);
 extern DLSYM_PROTOTYPE(EVP_MD_CTX_new);
@@ -180,6 +208,10 @@ extern DLSYM_PROTOTYPE(OPENSSL_sk_pop_free);
 extern DLSYM_PROTOTYPE(OPENSSL_sk_push);
 extern DLSYM_PROTOTYPE(OPENSSL_sk_value);
 extern DLSYM_PROTOTYPE(OSSL_EC_curve_nid2name);
+extern DLSYM_PROTOTYPE(OSSL_PARAM_BLD_free);
+extern DLSYM_PROTOTYPE(OSSL_PARAM_BLD_new);
+extern DLSYM_PROTOTYPE(OSSL_PARAM_BLD_push_utf8_string);
+extern DLSYM_PROTOTYPE(OSSL_PARAM_BLD_to_param);
 extern DLSYM_PROTOTYPE(OSSL_PARAM_construct_BN);
 extern DLSYM_PROTOTYPE(OSSL_PARAM_construct_end);
 extern DLSYM_PROTOTYPE(OSSL_PARAM_construct_octet_string);
@@ -262,6 +294,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(RSA*, sym_RSA_free, RSA_freep, NULL);
 #define sym_BIO_get_mem_ptr(b, pp) sym_BIO_ctrl((b), BIO_C_GET_BUF_MEM_PTR, 0, (char *) (pp))
 #define sym_BIO_reset(b) sym_BIO_ctrl((b), BIO_CTRL_RESET, 0, NULL)
 #define sym_BN_num_bytes(a) ((sym_BN_num_bits(a) + 7) / 8)
+#define sym_BN_one(a) sym_BN_set_word(a, 1)
 #define sym_EVP_MD_CTX_get_size(ctx) sym_EVP_MD_get_size(sym_EVP_MD_CTX_get0_md(ctx))
 #define sym_EVP_MD_CTX_get0_name(ctx) sym_EVP_MD_get0_name(sym_EVP_MD_CTX_get0_md(ctx))
 #define sym_EVP_PKEY_assign_RSA(pkey, rsa) sym_EVP_PKEY_assign((pkey), EVP_PKEY_RSA, (rsa))
@@ -272,6 +305,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_MACRO_RENAME(void*, sym_OPENSSL_free, OPENSSL_f
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(ASN1_OCTET_STRING*, sym_ASN1_OCTET_STRING_free, ASN1_OCTET_STRING_freep, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(ASN1_TIME*, sym_ASN1_TIME_free, ASN1_TIME_freep, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(BIGNUM*, sym_BN_free, BN_freep, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(BIGNUM*, sym_BN_clear_free, BN_clear_freep, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(BIO*, sym_BIO_free_all, BIO_free_allp, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(BIO*, sym_BIO_free, BIO_freep, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(BN_CTX*, sym_BN_CTX_free, BN_CTX_freep, NULL);
@@ -286,6 +320,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(EVP_MD_CTX*, sym_EVP_MD_CTX_free, EVP_MD
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(EVP_MD*, sym_EVP_MD_free, EVP_MD_freep, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(EVP_PKEY_CTX*, sym_EVP_PKEY_CTX_free, EVP_PKEY_CTX_freep, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(EVP_PKEY*, sym_EVP_PKEY_free, EVP_PKEY_freep, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(OSSL_PARAM_BLD*, sym_OSSL_PARAM_BLD_free, OSSL_PARAM_BLD_freep, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(OSSL_PARAM*, sym_OSSL_PARAM_free, OSSL_PARAM_freep, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(PKCS7_SIGNER_INFO*, sym_PKCS7_SIGNER_INFO_free, PKCS7_SIGNER_INFO_freep, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(PKCS7*, sym_PKCS7_free, PKCS7_freep, NULL);
