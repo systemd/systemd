@@ -555,6 +555,10 @@ int show_menu(char **x,
                                 column_max = LESS_BY(column_max, 6U);
                 }
 
+                /* Never make this narrower than 10 characters */
+                if (column_max < 10U)
+                        column_max = 10U;
+
                 column_width = CLAMP(widest+1, 10U, column_max);
         }
 
