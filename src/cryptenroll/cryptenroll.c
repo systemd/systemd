@@ -878,9 +878,7 @@ static void argon2id_parameters_benchmark(Argon2IdParameters *p, usec_t target_t
         struct iovec password = IOVEC_MAKE_STRING("benchmark");
         struct iovec salt = IOVEC_MAKE_STRING("benchmark-salt");
 
-        uint32_t target_ms = (uint32_t) MIN(target_time / USEC_PER_MSEC, (usec_t) UINT32_MAX);
-        if (target_ms == 0)
-                target_ms = ARGON2ID_BENCHMARK_DEFAULT_TARGET_MS;
+        uint64_t target_ms = CLAMP(target_time / USEC_PER_MSEC, 1U, ARGON2ID_BENCHMARK_DEFAULT_TARGET_MS);
 
         uint32_t iterations = iter_fixed ? p->iterations : 2;
         uint64_t memcost_bytes = mem_fixed ? p->memcost_bytes : ARGON2ID_BENCHMARK_MIN_MEMORY;
@@ -956,12 +954,10 @@ static void argon2id_parameters_benchmark(Argon2IdParameters *p, usec_t target_t
 
                 actual_elapsed = elapsed;
 
-                uint32_t ms = (uint32_t) (elapsed / USEC_PER_MSEC);
-                if (ms == 0)
-                        ms = 1;
+                uint64_t ms = MAX(elapsed / USEC_PER_MSEC, 1U);
 
-                uint64_t lower = (uint64_t) target_ms * ARGON2ID_BENCHMARK_PERCENT_MIN / 100;
-                uint64_t upper = (uint64_t) target_ms * ARGON2ID_BENCHMARK_PERCENT_MAX / 100;
+                uint64_t lower = target_ms * ARGON2ID_BENCHMARK_PERCENT_MIN / 100;
+                uint64_t upper = target_ms * ARGON2ID_BENCHMARK_PERCENT_MAX / 100;
                 if (ms >= lower && ms <= upper)
                         break;
 
@@ -970,26 +966,24 @@ static void argon2id_parameters_benchmark(Argon2IdParameters *p, usec_t target_t
 
                 if (ms < target_ms) {
                         if (!mem_fixed) {
-                                new_mem = MIN((uint64_t) memcost_bytes * target_ms / ms, max_mem_bytes);
+                                new_mem = MIN(memcost_bytes * target_ms / ms, max_mem_bytes);
                                 if (new_mem >= max_mem_bytes && !iter_fixed)
-                                        new_iter = (uint32_t) MIN(
-                                                        (uint64_t) iterations * target_ms / ms,
-                                                        (uint64_t) UINT32_MAX);
-                        } else if (!iter_fixed)
-                                new_iter = (uint32_t) MIN(
+                        new_iter = (uint32_t) MIN(
                                                 (uint64_t) iterations * target_ms / ms,
-                                                (uint64_t) UINT32_MAX);
+                                                UINT32_MAX);
+                        } else if (!iter_fixed)
+                                new_iter = (uint32_t) MIN(iterations * target_ms / ms, UINT32_MAX);
                 } else {
                         if (!iter_fixed) {
                                 new_iter = MAX((uint64_t) iterations * target_ms / ms, 2ULL);
                                 if (new_iter <= 2 && !mem_fixed)
-                                        new_mem = MAX(
-                                                        (uint64_t) memcost_bytes * target_ms / ms,
-                                                        (uint64_t) ARGON2ID_BENCHMARK_MIN_MEMORY);
+                        new_mem = MAX(
+                                                memcost_bytes * target_ms / ms,
+                                                ARGON2ID_BENCHMARK_MIN_MEMORY);
                         } else if (!mem_fixed)
                                 new_mem = MAX(
-                                                (uint64_t) memcost_bytes * target_ms / ms,
-                                                (uint64_t) ARGON2ID_BENCHMARK_MIN_MEMORY);
+                                                memcost_bytes * target_ms / ms,
+                                                ARGON2ID_BENCHMARK_MIN_MEMORY);
                 }
 
                 if (new_iter == iterations && new_mem == memcost_bytes)
@@ -1002,9 +996,9 @@ static void argon2id_parameters_benchmark(Argon2IdParameters *p, usec_t target_t
         p->memcost_bytes = memcost_bytes;
         p->iterations = iterations;
 
-        log_notice("Argon2id benchmark: %u iterations, %"PRIu64" MiB, %u lanes, ~%ums.",
+        log_notice("Argon2id benchmark: %u iterations, %"PRIu64" MiB, %u lanes, ~%"PRIu64"ms.",
                    p->iterations, p->memcost_bytes / 1024 / 1024, p->lanes,
-                   actual_elapsed > 0 ? (unsigned) (actual_elapsed / USEC_PER_MSEC) : target_ms);
+                   actual_elapsed > 0 ? actual_elapsed / USEC_PER_MSEC : target_ms);
 }
 
 static int run(int argc, char *argv[]) {

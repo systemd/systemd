@@ -184,9 +184,8 @@ int acquire_tpm2_key(
         bool argon2id = FLAGS_SET(flags, TPM2_FLAGS_USE_ARGON2ID);
 
         for (int i = 5;; i--) {
-                _cleanup_(erase_and_freep) char *input_str = NULL;
+                _cleanup_(erase_and_freep) char *input_str = NULL, *b64_key2 = NULL;
                 _cleanup_(erase_and_freep) void *key1 = NULL;
-                _cleanup_(erase_and_freep) char *b64_key2 = NULL;
                 const char *pin_used;
 
                 if (i <= 0)
@@ -277,9 +276,7 @@ int acquire_tpm2_key(
                         if (r < 0)
                                 return log_error_errno(r, "Failed to derive volume key via HKDF: %m");
 
-                        ret_decrypted_key->iov_base = TAKE_PTR(volume_key.iov_base);
-                        ret_decrypted_key->iov_len = volume_key.iov_len;
-                        volume_key.iov_len = 0;
+                        *ret_decrypted_key = TAKE_STRUCT(volume_key);
                 }
 
                 return 0;

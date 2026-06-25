@@ -157,9 +157,7 @@ int acquire_luks2_key(
                 if (r < 0)
                         return log_error_errno(r, "Failed to derive volume key via HKDF: %m");
 
-                ret_decrypted_key->iov_base = TAKE_PTR(volume_key.iov_base);
-                ret_decrypted_key->iov_len = volume_key.iov_len;
-                volume_key.iov_len = 0;
+                *ret_decrypted_key = TAKE_STRUCT(volume_key);
         }
 
         return 0;
