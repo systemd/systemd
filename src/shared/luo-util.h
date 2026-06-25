@@ -40,6 +40,7 @@ int luo_session_finish(int session_fd);
 bool luo_session_name_is_valid(const char *name);
 
 int luo_parse_serialization(sd_json_variant **ret, int **ret_fds, size_t *ret_n_fds);
+int luo_serialization_add_shutdown_timestamps(sd_json_variant **serialization, const dual_timestamp *shutdown_late_start, const dual_timestamp *shutdown_late_finish);
 int luo_preserve_fd_stores(sd_json_variant *serialization, int *ret_session_fd);
 
 int fd_is_luo_session(int fd);
