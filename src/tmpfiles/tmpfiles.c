@@ -717,12 +717,15 @@ static bool item_cleanup(
                 int maxdepth, /* max directory recursion depth */
                 bool keep_this_level,
                 AgeBy age_by_file, /* age criteria ([a|m|c|b]_time) to examine against file age */
-                AgeBy age_by_dir) { /* same age criteria for directory */
+                AgeBy age_by_dir, /* same age criteria for directory */
+                bool *ret_deleted) { /* whether an item was teleted from the supplied directory */
         /* Clean up a file or directory, recursively, according to the cutoff_nsec age constraint.
          * Errors are ignored (except out-of-memory, consistent with historical behaviour for tmpfiles cleanup.
-         * Return true if a file or directory is deleted.
+         * Return whethen an item is deleted in *ret_deleted
+         * Return 0 on success or <0 on error
          */
         int r = 0;
+        *ret_deleted = false;
 
         assert(c);
         assert(i);
@@ -730,7 +733,7 @@ static bool item_cleanup(
         nsec_t atime_nsec, mtime_nsec, ctime_nsec, btime_nsec;
 
         if (dot_or_dot_dot(name))
-                return false;
+                return 0;
 
         struct statx sx;
         r = xstatx_full(dir_fd, name,
@@ -741,17 +744,17 @@ static bool item_cleanup(
                         STATX_ATTR_MOUNT_ROOT,
                         &sx);
         if (r == -ENOENT)
-                return false;
+                return 0;
         if (r < 0) {
                 /* FUSE, NFS mounts, SELinux might return EACCES */
                 log_full_errno(r == -EACCES ? LOG_DEBUG : LOG_ERR, r,
                                "statx(%s) failed: %m", pathname);
-                return false;
+                return 0;
         }
 
         if (FLAGS_SET(sx.stx_attributes, STATX_ATTR_MOUNT_ROOT)) {
                 log_debug("Ignoring \"%s\": different mount points.", pathname);
-                return false;
+                return 0;
         }
 
         atime_nsec = FLAGS_SET(sx.stx_mask, STATX_ATIME) ? statx_timestamp_load_nsec(&sx.stx_atime) : NSEC_INFINITY;
@@ -762,12 +765,12 @@ static bool item_cleanup(
         /* Is there an item configured for this path? */
         if (ordered_hashmap_get(c->items, pathname)) {
                 log_debug("Ignoring \"%s\": a separate entry exists.", pathname);
-                return false;
+                return 0;
         }
 
         if (find_glob(c->globs, pathname, i)) {
                 log_debug("Ignoring \"%s\": a separate glob exists.", pathname);
-                return false;
+                return 0;
         }
 
         if (S_ISDIR(sx.stx_mode)) {
@@ -777,7 +780,7 @@ static bool item_cleanup(
                     streq(name, "lost+found") &&
                     sx.stx_uid == 0) {
                         log_debug("Ignoring directory \"%s\".", pathname);
-                        return false;
+                        return 0;
                 }
 
                 if (maxdepth <= 0)
@@ -787,13 +790,13 @@ static bool item_cleanup(
                         if (!sub_dir) {
                                 if (errno != ENOENT)
                                         log_warning_errno(errno, "Opening directory \"%s\" failed, ignoring: %m", pathname);
-                                return false;
+                                return 0;
                         }
 
                         if (!arg_dry_run &&
                             flock(dirfd(sub_dir), LOCK_EX|LOCK_NB) < 0) {
                                 log_debug_errno(errno, "Couldn't acquire shared BSD lock on directory \"%s\", skipping: %m", pathname);
-                                return false;
+                                return 0;
                         }
 
                         r = dir_cleanup(c, i,
@@ -813,7 +816,7 @@ static bool item_cleanup(
 
                 if (keep_this_level) {
                         log_debug("Keeping directory \"%s\".", pathname);
-                        return false;
+                        return 0;
                 }
 
                 /*
@@ -822,7 +825,7 @@ static bool item_cleanup(
                  */
                 if (!needs_cleanup(atime_nsec, btime_nsec, ctime_nsec, mtime_nsec,
                                    cutoff_nsec, pathname, age_by_dir, true))
-                        return false;
+                        return 0;
 
                 log_action("Would remove", "Removing", "%s directory \"%s\"", pathname);
                 if (!arg_dry_run &&
@@ -830,8 +833,7 @@ static bool item_cleanup(
                     !IN_SET(errno, ENOENT, ENOTEMPTY))
                         log_warning_errno(errno, "Failed to remove directory \"%s\", ignoring: %m", pathname);
                 if (r >= 0)
-                        return true; /* flag that a directory entry was deleted */
-
+                        *ret_deleted = true; /* flag that a file was deleted */
         } else {
                 _cleanup_close_ int fd = -EBADF; /* This file descriptor is defined here so that the
                                                   * lock that is taken below is only dropped _after_
@@ -841,7 +843,7 @@ static bool item_cleanup(
                  * unknown elsewhere. See XDG_RUNTIME_DIR specification for details. */
                 if (sx.stx_mode & S_ISVTX) {
                         log_debug("Skipping \"%s\": sticky bit set.", pathname);
-                        return false;
+                        return 0;
                 }
 
                 if (mountpoint &&
@@ -852,30 +854,30 @@ static bool item_cleanup(
                                "aquota.user",
                                "aquota.group")) {
                         log_debug("Skipping \"%s\".", pathname);
-                        return false;
+                        return 0;
                 }
 
                 /* Ignore sockets that are listed in /proc/net/unix */
                 if (S_ISSOCK(sx.stx_mode) && unix_socket_alive(c, pathname)) {
                         log_debug("Skipping \"%s\": live socket.", pathname);
-                        return false;
+                        return 0;
                 }
 
                 /* Ignore device nodes */
                 if (S_ISCHR(sx.stx_mode) || S_ISBLK(sx.stx_mode)) {
                         log_debug("Skipping \"%s\": a device.", pathname);
-                        return false;
+                        return 0;
                 }
 
                 /* Keep files on this level if this was requested */
                 if (keep_this_level) {
                         log_debug("Keeping \"%s\".", pathname);
-                        return false;
+                        return 0;
                 }
 
                 if (!needs_cleanup(atime_nsec, btime_nsec, ctime_nsec, mtime_nsec,
                                    cutoff_nsec, pathname, age_by_file, false))
-                        return false;
+                        return 0;
 
                 if (!arg_dry_run) {
                         fd = xopenat(dir_fd, name, O_RDONLY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME|O_NONBLOCK|O_NOCTTY);
@@ -883,7 +885,7 @@ static bool item_cleanup(
                                 log_warning_errno(fd, "Opening file \"%s\" failed, proceeding without lock: %m", pathname);
                         if (fd >= 0 && flock(fd, LOCK_EX|LOCK_NB) < 0 && errno == EAGAIN) {
                                 log_debug_errno(errno, "Couldn't acquire shared BSD lock on file \"%s\", skipping: %m", pathname);
-                                return false;
+                                return 0;
                         }
                 }
 
@@ -893,9 +895,9 @@ static bool item_cleanup(
                     errno != ENOENT)
                         log_warning_errno(errno, "Failed to remove \"%s\", ignoring: %m", pathname);
                 if (r >= 0)
-                        return true; /* flag that a file was deleted */
+                        *ret_deleted = true; /* flag that a file was deleted */
         }
-        return false;
+        return 0;
 }
 
 static void restore_timestamps(int dir_fd, const char *p, nsec_t atime_nsec, nsec_t mtime_nsec) {
@@ -957,11 +959,14 @@ static int dir_cleanup(
                         break;
                 }
 
-                deleted |= item_cleanup(c, i,
+                r = item_cleanup(c, i,
                                 sub_path, de->d_name, dirfd(d),
                                 cutoff_nsec,
                                 mountpoint, maxdepth, keep_this_level,
-                                age_by_file, age_by_dir);
+                                age_by_file, age_by_dir,
+                                &deleted);
+                if (r < 0)
+                        break;
         }
         if (deleted)
                 restore_timestamps(dirfd(d), p, self_atime_nsec, self_mtime_nsec);
@@ -3592,14 +3597,16 @@ static int clean_including_item(
         }
 
         const char *name = last_path_component(instance);
-        bool deleted = item_cleanup(c, i, instance, name, dir_fd,
+        bool deleted;
+        r = item_cleanup(c, i, instance, name, dir_fd,
                                     cutoff * NSEC_PER_USEC,
                                     mountpoint,
                                     MAX_DEPTH, i->keep_first_level,
-                                    i->age_by_file, i->age_by_dir);
+                                    i->age_by_file, i->age_by_dir,
+                                    &deleted);
         if (deleted)
                 restore_timestamps(dir_fd, ret_dirname, atime_nsec, mtime_nsec);
-        return 0;
+        return r;
 }
 
 static int clean_item(Context *c, Item *i) {
