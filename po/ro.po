@@ -6,12 +6,14 @@
 # Vlad <milovlad@outlook.com>, 2020, 2021, 2026.
 # Petru Rebeja <petru@rebeja.eu>, 2026.
 # Fedora Weblate user 1831 <atony076@users.noreply.translate.fedoraproject.org>, 2026.
+# Weblate Translation Memory <noreply-mt-weblate-translation-memory@weblate.org>, 2026.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-06-01 11:49+0200\n"
-"PO-Revision-Date: 2026-06-24 08:17+0000\n"
-"Last-Translator: Petru Rebeja <petru@rebeja.eu>\n"
+"PO-Revision-Date: 2026-06-25 10:17+0000\n"
+"Last-Translator: Weblate Translation Memory <noreply-mt-weblate-translation-"
+"memory@weblate.org>\n"
 "Language-Team: Romanian <https://translate.fedoraproject.org/projects/"
 "systemd/main/ro/>\n"
 "Language: ro\n"
@@ -77,14 +79,14 @@ msgstr "Autentificarea este necesară pentru a reîncărca starea lui systemd."
 
 #: src/core/org.freedesktop.systemd1.policy.in:74
 msgid "Dump the systemd state without rate limits"
-msgstr "Renunțați la starea systemd fără limite de frecvență"
+msgstr "Descărcați starea systemd fără limite de acces"
 
 #: src/core/org.freedesktop.systemd1.policy.in:75
 msgid ""
 "Authentication is required to dump the systemd state without rate limits."
 msgstr ""
 "Autentificarea este necesară pentru a descărca starea systemd fără limite de "
-"date."
+"acces."
 
 #: src/home/org.freedesktop.home1.policy:13
 msgid "Create a home area"
@@ -266,84 +268,98 @@ msgstr ""
 #, c-format
 msgid "Please verify user on security token of user %s."
 msgstr ""
+"Vă rugăm să verificați utilizatorul pe cheia de securitate al utilizatorului "
+"%s."
 
 #: src/home/pam_systemd_home.c:463
 msgid ""
 "Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
 "insertion might suffice.)"
 msgstr ""
+"PIN-ul cheii de securitate este blocat, vă rugăm să îl deblocați mai întâi. "
+"(Indiciu: Ar putea fi suficientă doar extragerea și reintroducerea cheii.)"
 
 #: src/home/pam_systemd_home.c:471
 #, c-format
 msgid "Security token PIN incorrect for user %s."
-msgstr ""
+msgstr "PIN-ul tokenului de securitate este incorect pentru utilizatorul %s."
 
 #: src/home/pam_systemd_home.c:472 src/home/pam_systemd_home.c:491
 #: src/home/pam_systemd_home.c:510
 msgid "Sorry, retry security token PIN: "
-msgstr ""
+msgstr "Ne pare rău, introduceți din nou PIN-ul tokenului de securitate: "
 
 #: src/home/pam_systemd_home.c:490
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
 msgstr ""
+"PIN-ul cheii de securitate a utilizatorului %s nu este corect (au mai rămas "
+"doar câteva încercări!)"
 
 #: src/home/pam_systemd_home.c:509
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
 msgstr ""
+"PIN-ul cheii de securitate al utilizatorului %s nu este corect (a mai rămas "
+"o singură încercare!)"
 
 #: src/home/pam_systemd_home.c:676
 #, c-format
 msgid "Home of user %s is currently not active, please log in locally first."
 msgstr ""
+"Spațiul personal al utilizatorului %s nu este activ momentan, vă rugăm să "
+"conectați local mai întâi."
 
 #: src/home/pam_systemd_home.c:678
 #, c-format
 msgid "Home of user %s is currently locked, please unlock locally first."
 msgstr ""
+"Spațiul personal al utilizatorului %s este blocat momentan, vă rugăm să îl "
+"deblocați mai întâi local."
 
 #: src/home/pam_systemd_home.c:712
 #, c-format
 msgid "Too many unsuccessful login attempts for user %s, refusing."
 msgstr ""
+"Prea multe încercări de autentificare nereușite pentru utilizatorul %s, "
+"refuzat."
 
 #: src/home/pam_systemd_home.c:1021
 msgid "User record is blocked, prohibiting access."
-msgstr ""
+msgstr "Utilizatorul este blocat, se refuză accesul."
 
 #: src/home/pam_systemd_home.c:1025
 msgid "User record is not valid yet, prohibiting access."
-msgstr ""
+msgstr "Utilizatorul încă nu este valid, se refuză accesul."
 
 #: src/home/pam_systemd_home.c:1029
 msgid "User record is not valid anymore, prohibiting access."
-msgstr ""
+msgstr "Utilizatorul nu mai este valid, se refuză accesul."
 
 #: src/home/pam_systemd_home.c:1034 src/home/pam_systemd_home.c:1083
 msgid "User record not valid, prohibiting access."
-msgstr ""
+msgstr "Utilizatorul nu este valid, se refuză accesul."
 
 #: src/home/pam_systemd_home.c:1044
 #, c-format
 msgid "Too many logins, try again in %s."
-msgstr ""
+msgstr "Prea multe autentificări, vă rugăm să încercați din nou în %s."
 
 #: src/home/pam_systemd_home.c:1055
 msgid "Password change required."
-msgstr ""
+msgstr "Este necesară schimbarea parolei."
 
 #: src/home/pam_systemd_home.c:1059
 msgid "Password expired, change required."
-msgstr ""
+msgstr "Parola a expirat, e necesar să o schimbați."
 
 #: src/home/pam_systemd_home.c:1065
 msgid "Password is expired, but can't change, refusing login."
-msgstr ""
+msgstr "Parola a expirat, dar nu poate fi modificată, se refuză conectarea."
 
 #: src/home/pam_systemd_home.c:1069
 msgid "Password will expire soon, please change."
-msgstr ""
+msgstr "Parola va expira în curând, vă rugăm să o schimbați."
 
 #: src/hostname/org.freedesktop.hostname1.policy:20
 msgid "Set hostname"
@@ -386,7 +402,7 @@ msgstr ""
 
 #: src/hostname/org.freedesktop.hostname1.policy:61
 msgid "Get hardware serial number"
-msgstr ""
+msgstr "Obțineți numărul de serie al componentei hardware"
 
 #: src/hostname/org.freedesktop.hostname1.policy:62
 #, fuzzy
@@ -441,7 +457,7 @@ msgstr ""
 
 #: src/import/org.freedesktop.import1.policy:52
 msgid "Cancel transfer of a disk image"
-msgstr ""
+msgstr "Anulați transferul imaginii de disc"
 
 #: src/import/org.freedesktop.import1.policy:53
 #, fuzzy
@@ -636,7 +652,7 @@ msgstr "Oprește sistemul"
 
 #: src/login/org.freedesktop.login1.policy:170
 msgid "Authentication is required to power off the system."
-msgstr "Este necesară autentificarea pentru oprirea sistemului."
+msgstr "Trebuie să vă autentificați pentru a opri sistemul."
 
 #: src/login/org.freedesktop.login1.policy:180
 msgid "Power off the system while other users are logged in"
@@ -659,8 +675,8 @@ msgid ""
 "Authentication is required to power off the system while an application is "
 "inhibiting this."
 msgstr ""
-"Autentificarea este necesară pentru oprirea sistemului în timp ce o "
-"aplicație împiedică oprirea."
+"Trebuie să vă autentificați pentru a opri sistemul în timp ce o aplicație "
+"împiedică oprirea."
 
 #: src/login/org.freedesktop.login1.policy:202
 msgid "Reboot the system"
@@ -700,7 +716,7 @@ msgstr "Oprește sistemul"
 
 #: src/login/org.freedesktop.login1.policy:236
 msgid "Authentication is required to halt the system."
-msgstr "Este necesară autentificarea pentru oprirea sistemului."
+msgstr "Trebuie să vă autentificați pentru a opri sistemul."
 
 #: src/login/org.freedesktop.login1.policy:246
 msgid "Halt the system while other users are logged in"
@@ -723,8 +739,8 @@ msgid ""
 "Authentication is required to halt the system while an application is "
 "inhibiting this."
 msgstr ""
-"Autentificarea este necesară pentru oprirea sistemului în timp ce o "
-"aplicație împiedică oprirea."
+"Trebuie să vă autentificați pentru a opri sistemul în timp ce o aplicație "
+"împiedică oprirea."
 
 #: src/login/org.freedesktop.login1.policy:268
 msgid "Suspend the system"
@@ -942,12 +958,14 @@ msgstr ""
 
 #: src/machine/org.freedesktop.machine1.policy:95
 msgid "Inspect local virtual machines and containers"
-msgstr ""
+msgstr "Inspectați mașinile virtuale și containerele locale"
 
 #: src/machine/org.freedesktop.machine1.policy:96
 msgid ""
 "Authentication is required to inspect local virtual machines and containers."
 msgstr ""
+"Autentificarea este necesară pentru a inspecta mașinile virtuale și "
+"containerele locale."
 
 #: src/machine/org.freedesktop.machine1.policy:105
 #, fuzzy
@@ -990,13 +1008,15 @@ msgstr ""
 
 #: src/machine/org.freedesktop.machine1.policy:137
 msgid "Inspect local virtual machine and container images"
-msgstr ""
+msgstr "Inspectați mașinile virtuale și imaginile container locale"
 
 #: src/machine/org.freedesktop.machine1.policy:138
 msgid ""
 "Authentication is required to inspect local virtual machine and container "
 "images."
 msgstr ""
+"Autentificarea este necesară pentru a inspecta mașinile virtuale și "
+"imaginile container locale."
 
 #: src/network/org.freedesktop.network1.policy:22
 msgid "Set NTP servers"
@@ -1146,20 +1166,24 @@ msgstr "Autentificarea este necesară pentru a reconfigura interfața de rețea.
 #: src/network/org.freedesktop.network1.policy:187
 msgid "Specify whether persistent storage for systemd-networkd is available"
 msgstr ""
+"Specificați dacă este disponibil un spațiu de stocare persistent pentru "
+"systemd-networkd"
 
 #: src/network/org.freedesktop.network1.policy:188
 msgid ""
 "Authentication is required to specify whether persistent storage for systemd-"
 "networkd is available."
 msgstr ""
+"Autentificarea este necesară pentru a specifica dacă este disponibil un "
+"spațiu de stocare persistent pentru systemd-networkd."
 
 #: src/network/org.freedesktop.network1.policy:198
 msgid "Manage network links"
-msgstr ""
+msgstr "Gestionați legăturile de rețea"
 
 #: src/network/org.freedesktop.network1.policy:199
 msgid "Authentication is required to manage network links."
-msgstr ""
+msgstr "Trebuie să vă autentificați pentru a gestiona legăturile de rețea."
 
 #: src/portable/org.freedesktop.portable1.policy:13
 msgid "Inspect a portable service image"
@@ -1225,7 +1249,7 @@ msgstr ""
 
 #: src/resolve/org.freedesktop.resolve1.policy:143
 msgid "Subscribe query results"
-msgstr ""
+msgstr "Abonați-vă la rezultatele interogării"
 
 #: src/resolve/org.freedesktop.resolve1.policy:144
 #, fuzzy
@@ -1234,7 +1258,7 @@ msgstr "Este necesară autentificarea pentru suspendarea sistemului."
 
 #: src/resolve/org.freedesktop.resolve1.policy:154
 msgid "Subscribe to DNS configuration"
-msgstr ""
+msgstr "Abonați-vă la configurarea DNS"
 
 #: src/resolve/org.freedesktop.resolve1.policy:155
 #, fuzzy
@@ -1243,7 +1267,7 @@ msgstr "Este necesară autentificarea pentru suspendarea sistemului."
 
 #: src/resolve/org.freedesktop.resolve1.policy:165
 msgid "Dump cache"
-msgstr ""
+msgstr "Descărcați cache"
 
 #: src/resolve/org.freedesktop.resolve1.policy:166
 #, fuzzy
@@ -1252,7 +1276,7 @@ msgstr "Autentificarea este necesară pentru a seta domenii."
 
 #: src/resolve/org.freedesktop.resolve1.policy:176
 msgid "Dump server state"
-msgstr ""
+msgstr "Descărcați starea serverului"
 
 #: src/resolve/org.freedesktop.resolve1.policy:177
 #, fuzzy
@@ -1261,7 +1285,7 @@ msgstr "Autentificarea este necesară pentru a seta servere NTP."
 
 #: src/resolve/org.freedesktop.resolve1.policy:187
 msgid "Dump statistics"
-msgstr ""
+msgstr "Descărcați statisticile"
 
 #: src/resolve/org.freedesktop.resolve1.policy:188
 #, fuzzy
@@ -1270,7 +1294,7 @@ msgstr "Autentificarea este necesară pentru a seta domenii."
 
 #: src/resolve/org.freedesktop.resolve1.policy:198
 msgid "Reset statistics"
-msgstr ""
+msgstr "Resetați statisticile"
 
 #: src/resolve/org.freedesktop.resolve1.policy:199
 #, fuzzy
@@ -1296,7 +1320,7 @@ msgstr ""
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:38
 msgid "Check for system updates"
-msgstr ""
+msgstr "Verifică dacă sunt disponibile actualizări"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:39
 #, fuzzy
@@ -1315,7 +1339,7 @@ msgstr ""
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:58
 msgid "Install system updates"
-msgstr ""
+msgstr "Instalează actualizările de sistem"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:59
 #, fuzzy
@@ -1334,7 +1358,7 @@ msgstr ""
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:78
 msgid "Install specific system version"
-msgstr ""
+msgstr "Instalează o versiune specifică a sistemului"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:79
 #, fuzzy
@@ -1377,7 +1401,7 @@ msgstr ""
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:118
 msgid "Manage optional features"
-msgstr ""
+msgstr "Gestionați funcționalitățile facultative"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:119
 #, fuzzy
