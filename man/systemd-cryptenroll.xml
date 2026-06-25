@@ -657,6 +657,29 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--tpm2-public-key-policyref=<replaceable>STRING</replaceable></option></term>
+
+        <listitem><para>Configures the policy reference to use together with the signed PCR policy enrolled via
+        <option>--tpm2-public-key=</option>. The policy reference is an opaque string that is incorporated
+        into the resulting authorization policy (via the <constant>TPM2_PolicyAuthorize</constant> assertion),
+        so that the slot can only be unlocked by a signed policy that was generated with the same policy
+        reference. This must match the policy reference passed to the <option>--policyref=</option> option of
+        <citerefentry><refentrytitle>systemd-measure</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        when the signature was generated. It can be used to bind a slot to signatures for a specific boot
+        phase, even when a single signing key is used to produce signatures for multiple phases.</para>
+
+        <para>It is recommended to use this option to select a policy reference that is only bound to a
+        signature for the initrd phase. For example, if such a signed policy is created by supplying
+        <option>--phase=enter-initrd</option> and <option>--policyref=initrd</option> to
+        <citerefentry><refentrytitle>systemd-measure</refentrytitle><manvolnum>1</manvolnum></citerefentry>:
+        </para>
+
+        <programlisting>systemd-cryptenroll --tpm2-device=auto --tpm2-public-key-policyref=initrd /dev/sda1</programlisting>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--tpm2-pcrlock=<replaceable>PATH</replaceable></option></term>
 
         <listitem><para>Configures a TPM2 pcrlock policy to bind encryption to. Expects a path to a pcrlock
