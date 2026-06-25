@@ -299,10 +299,14 @@ executables += [
                 'type' : 'manual',
         },
         test_template + {
-                'sources' : files('test-dlopen-so.c'),
+                'sources' : files(
+                        'test-dlopen-so.c',
+                        'gcrypt-util.c',
+                ),
                 'dependencies' : [
                         libblkid_cflags,
                         libfdisk_cflags,
+                        libgcrypt_cflags,
                         libgnutls_cflags,
                         libkmod_cflags,
                         libmicrohttpd_cflags,
@@ -334,6 +338,18 @@ executables += [
                 'sources' : files('test-fdstore.c'),
                 'link_with' : libsystemd,
                 'type' : 'manual',
+        },
+        test_template + {
+                'sources' : files(
+                        'test-fsprg.c',
+                        'fsprg.c',
+                        'gcrypt-util.c',
+                ),
+                'dependencies' : [
+                        libgcrypt_cflags,
+                        libopenssl_cflags,
+                ],
+                'conditions' : ['HAVE_OPENSSL'],
         },
         test_template + {
                 'sources' : files(
