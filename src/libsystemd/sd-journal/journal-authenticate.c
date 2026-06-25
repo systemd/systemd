@@ -268,6 +268,99 @@ int journal_file_hmac_start(JournalFile *f) {
 #endif
 }
 
+int journal_file_hmac_put_header(JournalFile *f) {
+#if HAVE_GCRYPT
+        int r;
+
+        assert(f);
+
+        if (!JOURNAL_HEADER_SEALED(f->header))
+                return 0;
+
+        r = journal_file_hmac_start(f);
+        if (r < 0)
+                return r;
+
+        /* All but state+reserved, boot_id, arena_size,
+         * tail_object_offset, n_objects, n_entries,
+         * tail_entry_seqnum, head_entry_seqnum, entry_array_offset,
+         * head_entry_realtime, tail_entry_realtime,
+         * tail_entry_monotonic, n_data, n_fields, n_tags,
+         * n_entry_arrays. */
+
+        sym_gcry_md_write(f->hmac, f->header->signature, offsetof(Header, state) - offsetof(Header, signature));
+        sym_gcry_md_write(f->hmac, &f->header->file_id, offsetof(Header, tail_entry_boot_id) - offsetof(Header, file_id));
+        sym_gcry_md_write(f->hmac, &f->header->seqnum_id, offsetof(Header, arena_size) - offsetof(Header, seqnum_id));
+        sym_gcry_md_write(f->hmac, &f->header->data_hash_table_offset, offsetof(Header, tail_object_offset) - offsetof(Header, data_hash_table_offset));
+
+        return 0;
+#else
+        return -EOPNOTSUPP;
+#endif
+}
+
+int journal_file_hmac_put_object(JournalFile *f, ObjectType type, Object *o, uint64_t p) {
+#if HAVE_GCRYPT
+        int r;
+
+        assert(f);
+
+        if (!JOURNAL_HEADER_SEALED(f->header))
+                return 0;
+
+        r = journal_file_hmac_start(f);
+        if (r < 0)
+                return r;
+
+        if (!o) {
+                r = journal_file_move_to_object(f, type, p, &o);
+                if (r < 0)
+                        return r;
+        } else if (type > OBJECT_UNUSED && o->object.type != type)
+                return -EBADMSG;
+
+        sym_gcry_md_write(f->hmac, o, offsetof(ObjectHeader, payload));
+
+        switch (o->object.type) {
+
+        case OBJECT_DATA:
+                /* All but hash and payload are mutable */
+                sym_gcry_md_write(f->hmac, &o->data.hash, sizeof(o->data.hash));
+                sym_gcry_md_write(f->hmac, journal_file_data_payload_field(f, o), le64toh(o->object.size) - journal_file_data_payload_offset(f));
+                break;
+
+        case OBJECT_FIELD:
+                /* Same here */
+                sym_gcry_md_write(f->hmac, &o->field.hash, sizeof(o->field.hash));
+                sym_gcry_md_write(f->hmac, o->field.payload, le64toh(o->object.size) - offsetof(Object, field.payload));
+                break;
+
+        case OBJECT_ENTRY:
+                /* All */
+                sym_gcry_md_write(f->hmac, &o->entry.seqnum, le64toh(o->object.size) - offsetof(Object, entry.seqnum));
+                break;
+
+        case OBJECT_FIELD_HASH_TABLE:
+        case OBJECT_DATA_HASH_TABLE:
+        case OBJECT_ENTRY_ARRAY:
+                /* Nothing: everything is mutable */
+                break;
+
+        case OBJECT_TAG:
+                /* All but the tag itself */
+                sym_gcry_md_write(f->hmac, &o->tag.seqnum, sizeof(o->tag.seqnum));
+                sym_gcry_md_write(f->hmac, &o->tag.epoch, sizeof(o->tag.epoch));
+                break;
+        default:
+                return -EINVAL;
+        }
+
+        return 0;
+#else
+        return -EOPNOTSUPP;
+#endif
+}
+
 int journal_file_append_tag(JournalFile *f) {
 #if HAVE_GCRYPT
         int r;
@@ -314,6 +407,44 @@ int journal_file_append_tag(JournalFile *f) {
 #else
         return -EOPNOTSUPP;
 #endif
+}
+
+int journal_file_append_first_tag(JournalFile *f) {
+        uint64_t p;
+        int r;
+
+        if (!JOURNAL_HEADER_SEALED(f->header))
+                return 0;
+
+        log_debug("Calculating first tag...");
+
+        r = journal_file_hmac_put_header(f);
+        if (r < 0)
+                return r;
+
+        p = le64toh(f->header->field_hash_table_offset);
+        if (p < offsetof(Object, hash_table.items))
+                return -EINVAL;
+        p -= offsetof(Object, hash_table.items);
+
+        r = journal_file_hmac_put_object(f, OBJECT_FIELD_HASH_TABLE, NULL, p);
+        if (r < 0)
+                return r;
+
+        p = le64toh(f->header->data_hash_table_offset);
+        if (p < offsetof(Object, hash_table.items))
+                return -EINVAL;
+        p -= offsetof(Object, hash_table.items);
+
+        r = journal_file_hmac_put_object(f, OBJECT_DATA_HASH_TABLE, NULL, p);
+        if (r < 0)
+                return r;
+
+        r = journal_file_append_tag(f);
+        if (r < 0)
+                return r;
+
+        return 0;
 }
 
 static int journal_file_get_epoch(JournalFile *f, uint64_t realtime, uint64_t *epoch) {
@@ -413,137 +544,6 @@ int journal_file_maybe_append_tag(JournalFile *f, uint64_t realtime) {
                 return r;
 
         r = journal_file_fsprg_evolve(f, realtime);
-        if (r < 0)
-                return r;
-
-        return 0;
-}
-
-int journal_file_hmac_put_object(JournalFile *f, ObjectType type, Object *o, uint64_t p) {
-#if HAVE_GCRYPT
-        int r;
-
-        assert(f);
-
-        if (!JOURNAL_HEADER_SEALED(f->header))
-                return 0;
-
-        r = journal_file_hmac_start(f);
-        if (r < 0)
-                return r;
-
-        if (!o) {
-                r = journal_file_move_to_object(f, type, p, &o);
-                if (r < 0)
-                        return r;
-        } else if (type > OBJECT_UNUSED && o->object.type != type)
-                return -EBADMSG;
-
-        sym_gcry_md_write(f->hmac, o, offsetof(ObjectHeader, payload));
-
-        switch (o->object.type) {
-
-        case OBJECT_DATA:
-                /* All but hash and payload are mutable */
-                sym_gcry_md_write(f->hmac, &o->data.hash, sizeof(o->data.hash));
-                sym_gcry_md_write(f->hmac, journal_file_data_payload_field(f, o), le64toh(o->object.size) - journal_file_data_payload_offset(f));
-                break;
-
-        case OBJECT_FIELD:
-                /* Same here */
-                sym_gcry_md_write(f->hmac, &o->field.hash, sizeof(o->field.hash));
-                sym_gcry_md_write(f->hmac, o->field.payload, le64toh(o->object.size) - offsetof(Object, field.payload));
-                break;
-
-        case OBJECT_ENTRY:
-                /* All */
-                sym_gcry_md_write(f->hmac, &o->entry.seqnum, le64toh(o->object.size) - offsetof(Object, entry.seqnum));
-                break;
-
-        case OBJECT_FIELD_HASH_TABLE:
-        case OBJECT_DATA_HASH_TABLE:
-        case OBJECT_ENTRY_ARRAY:
-                /* Nothing: everything is mutable */
-                break;
-
-        case OBJECT_TAG:
-                /* All but the tag itself */
-                sym_gcry_md_write(f->hmac, &o->tag.seqnum, sizeof(o->tag.seqnum));
-                sym_gcry_md_write(f->hmac, &o->tag.epoch, sizeof(o->tag.epoch));
-                break;
-        default:
-                return -EINVAL;
-        }
-
-        return 0;
-#else
-        return -EOPNOTSUPP;
-#endif
-}
-
-int journal_file_hmac_put_header(JournalFile *f) {
-#if HAVE_GCRYPT
-        int r;
-
-        assert(f);
-
-        if (!JOURNAL_HEADER_SEALED(f->header))
-                return 0;
-
-        r = journal_file_hmac_start(f);
-        if (r < 0)
-                return r;
-
-        /* All but state+reserved, boot_id, arena_size,
-         * tail_object_offset, n_objects, n_entries,
-         * tail_entry_seqnum, head_entry_seqnum, entry_array_offset,
-         * head_entry_realtime, tail_entry_realtime,
-         * tail_entry_monotonic, n_data, n_fields, n_tags,
-         * n_entry_arrays. */
-
-        sym_gcry_md_write(f->hmac, f->header->signature, offsetof(Header, state) - offsetof(Header, signature));
-        sym_gcry_md_write(f->hmac, &f->header->file_id, offsetof(Header, tail_entry_boot_id) - offsetof(Header, file_id));
-        sym_gcry_md_write(f->hmac, &f->header->seqnum_id, offsetof(Header, arena_size) - offsetof(Header, seqnum_id));
-        sym_gcry_md_write(f->hmac, &f->header->data_hash_table_offset, offsetof(Header, tail_object_offset) - offsetof(Header, data_hash_table_offset));
-
-        return 0;
-#else
-        return -EOPNOTSUPP;
-#endif
-}
-
-int journal_file_append_first_tag(JournalFile *f) {
-        uint64_t p;
-        int r;
-
-        if (!JOURNAL_HEADER_SEALED(f->header))
-                return 0;
-
-        log_debug("Calculating first tag...");
-
-        r = journal_file_hmac_put_header(f);
-        if (r < 0)
-                return r;
-
-        p = le64toh(f->header->field_hash_table_offset);
-        if (p < offsetof(Object, hash_table.items))
-                return -EINVAL;
-        p -= offsetof(Object, hash_table.items);
-
-        r = journal_file_hmac_put_object(f, OBJECT_FIELD_HASH_TABLE, NULL, p);
-        if (r < 0)
-                return r;
-
-        p = le64toh(f->header->data_hash_table_offset);
-        if (p < offsetof(Object, hash_table.items))
-                return -EINVAL;
-        p -= offsetof(Object, hash_table.items);
-
-        r = journal_file_hmac_put_object(f, OBJECT_DATA_HASH_TABLE, NULL, p);
-        if (r < 0)
-                return r;
-
-        r = journal_file_append_tag(f);
         if (r < 0)
                 return r;
 
