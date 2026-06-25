@@ -230,6 +230,41 @@ int journal_file_hmac_setup(JournalFile *f) {
 #endif
 }
 
+int journal_file_hmac_start(JournalFile *f) {
+#if HAVE_GCRYPT
+        int r;
+
+        assert(f);
+
+        if (!JOURNAL_HEADER_SEALED(f->header))
+                return 0;
+
+        if (f->hmac_running)
+                return 0;
+
+        /* Prepare HMAC for next cycle */
+        sym_gcry_md_reset(f->hmac);
+
+        uint8_t key[256 / 8]; /* Let's pass 256 bit from FSPRG to HMAC */
+        CLEANUP_ERASE(key);
+        r = FSPRG_GetKey(f->fsprg_state.iov_base, key, sizeof(key), 0);
+        if (r < 0)
+                return r;
+
+        gcry_error_t err = sym_gcry_md_setkey(f->hmac, key, sizeof(key));
+        if (gcry_err_code(err) != GPG_ERR_NO_ERROR)
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO),
+                                       "sym_gcry_md_setkey() failed with error code: %s",
+                                       sym_gcry_strerror(err));
+
+        f->hmac_running = true;
+
+        return 0;
+#else
+        return -EOPNOTSUPP;
+#endif
+}
+
 int journal_file_append_tag(JournalFile *f) {
 #if HAVE_GCRYPT
         int r;
@@ -271,41 +306,6 @@ int journal_file_append_tag(JournalFile *f) {
         /* Get the HMAC tag and store it in the object */
         memcpy(o->tag.tag, sym_gcry_md_read(f->hmac, 0), TAG_LENGTH);
         f->hmac_running = false;
-
-        return 0;
-#else
-        return -EOPNOTSUPP;
-#endif
-}
-
-int journal_file_hmac_start(JournalFile *f) {
-#if HAVE_GCRYPT
-        int r;
-
-        assert(f);
-
-        if (!JOURNAL_HEADER_SEALED(f->header))
-                return 0;
-
-        if (f->hmac_running)
-                return 0;
-
-        /* Prepare HMAC for next cycle */
-        sym_gcry_md_reset(f->hmac);
-
-        uint8_t key[256 / 8]; /* Let's pass 256 bit from FSPRG to HMAC */
-        CLEANUP_ERASE(key);
-        r = FSPRG_GetKey(f->fsprg_state.iov_base, key, sizeof(key), 0);
-        if (r < 0)
-                return r;
-
-        gcry_error_t err = sym_gcry_md_setkey(f->hmac, key, sizeof(key));
-        if (gcry_err_code(err) != GPG_ERR_NO_ERROR)
-                return log_debug_errno(SYNTHETIC_ERRNO(EIO),
-                                       "sym_gcry_md_setkey() failed with error code: %s",
-                                       sym_gcry_strerror(err));
-
-        f->hmac_running = true;
 
         return 0;
 #else
