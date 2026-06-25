@@ -531,6 +531,7 @@ int show_menu(char **x,
 
         assert(x);
         assert(n_columns > 0);
+        assert(column_width > 0);
 
         if (n_columns == SIZE_MAX)
                 n_columns = 3;
@@ -542,16 +543,16 @@ int show_menu(char **x,
                 size_t column_max = (columns()-1) / n_columns;
 
                 /* Subtract room for numbers */
-                if (with_numbers && column_max > 6)
-                        column_max -= 6;
+                if (with_numbers)
+                        column_max = LESS_BY(column_max, 6U);
 
                 /* If columns would get too tight let's make this a linear list instead. */
                 if (column_max < 10 && widest > 10) {
                         n_columns = 1;
                         column_max = columns()-1;
 
-                        if (with_numbers && column_max > 6)
-                                column_max -= 6;
+                        if (with_numbers)
+                                column_max = LESS_BY(column_max, 6U);
                 }
 
                 column_width = CLAMP(widest+1, 10U, column_max);
