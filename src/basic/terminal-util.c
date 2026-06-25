@@ -564,8 +564,7 @@ int show_menu(char **x,
         if (break_lines > 2)
                 break_lines--;
 
-        /* The first page gets two extra lines, since we want to show
-         * a title */
+        /* The first page gets two extra lines, since we want to show a title */
         size_t break_modulo = break_lines;
         if (break_modulo > 3)
                 break_modulo -= 3;
@@ -575,17 +574,18 @@ int show_menu(char **x,
                 for (size_t j = 0; j < n_columns; j++) {
                         _cleanup_free_ char *e = NULL;
 
-                        if (j * per_column + i >= n)
+                        size_t p = j * per_column + i;
+                        if (p >= n)
                                 break;
 
-                        e = ellipsize(x[j * per_column + i], column_width, ellipsize_percentage);
+                        e = ellipsize(x[p], column_width, ellipsize_percentage);
                         if (!e)
                                 return -ENOMEM;
 
                         if (with_numbers)
                                 printf("%s%4zu)%s ",
                                        ansi_grey(),
-                                       j * per_column + i + 1,
+                                       p + 1,
                                        ansi_normal());
 
                         if (grey_prefix && startswith(e, grey_prefix)) {
