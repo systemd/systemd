@@ -697,7 +697,10 @@ static int manager_archive_offline_user_journals(Manager *m) {
 
                 TAKE_FD(fd); /* Donated to journal_file_open() */
 
-                journal_file_write_final_tag(f);
+                r = journal_file_auth_append_tag(f);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to append tag when closing journal, ignoring: %m");
+
                 r = journal_file_archive(f, NULL);
                 if (r < 0)
                         log_debug_errno(r, "Failed to archive journal file '%s', ignoring: %m", full);
@@ -2539,18 +2542,16 @@ int manager_init(Manager *m) {
 }
 
 void manager_maybe_append_tags(Manager *m) {
-#if HAVE_GCRYPT
-        JournalFile *f;
-        usec_t n;
+        assert(m);
 
-        n = now(CLOCK_REALTIME);
+        usec_t n = now(CLOCK_REALTIME);
 
         if (m->system_journal)
-                journal_file_maybe_append_tag(m->system_journal, n);
+                journal_file_auth_append_tag_maybe(m->system_journal, n);
 
+        JournalFile *f;
         ORDERED_HASHMAP_FOREACH(f, m->user_journals)
-                journal_file_maybe_append_tag(f, n);
-#endif
+                journal_file_auth_append_tag_maybe(f, n);
 }
 
 Manager* manager_free(Manager *m) {
