@@ -34,9 +34,13 @@ RemoteSource* source_new(int fd, bool passive_fd, char *name, Writer *writer) {
 
         assert(fd >= 0);
 
+        /* This takes ownership of 'name' in all cases, including on failure. */
+
         source = new0(RemoteSource, 1);
-        if (!source)
+        if (!source) {
+                free(name);
                 return NULL;
+        }
 
         source->importer = JOURNAL_IMPORTER_MAKE(fd);
         source->importer.passive_fd = passive_fd;
