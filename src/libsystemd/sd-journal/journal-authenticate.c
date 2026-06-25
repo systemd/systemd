@@ -392,7 +392,7 @@ int journal_file_fss_load(JournalFile *f) {
         if (header == MAP_FAILED)
                 return -errno;
 
-        if (memcmp(header->signature, FSS_HEADER_SIGNATURE, 8) != 0)
+        if (memcmp(header->signature, (uint8_t[]) FSS_HEADER_SIGNATURE, 8) != 0)
                 return -EBADMSG;
 
         if (header->incompatible_flags != 0)
