@@ -56,7 +56,7 @@ int action_verify(void) {
 #endif
 
                 k = journal_file_verify(f, arg_verify_key, &first, &validated, &last, /* show_progress= */ !arg_quiet);
-                if (k == -EINVAL)
+                if (k == -EKEYREJECTED)
                         /* If the key was invalid give up right-away. */
                         return k;
                 if (k < 0)
