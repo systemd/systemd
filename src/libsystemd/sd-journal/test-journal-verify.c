@@ -9,6 +9,7 @@
 #include "chattr-util.h"
 #include "fd-util.h"
 #include "iovec-util.h"
+#include "journal-authenticate.h"
 #include "journal-file-util.h"
 #include "journal-verify.h"
 #include "log.h"
@@ -68,7 +69,6 @@ static int run_test(const char *verification_key, ssize_t max_iterations) {
         struct stat st;
         JournalFile *f;
         JournalFile *df;
-        usec_t from = 0, to = 0, total = 0;
         uint64_t start, end;
         int r;
 
@@ -136,13 +136,16 @@ static int run_test(const char *verification_key, ssize_t max_iterations) {
         journal_file_print_header(f);
         journal_file_dump(f);
 
-        ASSERT_OK(journal_file_verify(f, verification_key, &from, &to, &total, true));
+        if (verification_key) {
+                usec_t from = 0, to = 0, total = 0;
 
-        if (verification_key && JOURNAL_HEADER_SEALED(f->header))
-                log_info("=> Validated from %s to %s, %s missing",
-                         FORMAT_TIMESTAMP(from),
-                         FORMAT_TIMESTAMP(to),
-                         FORMAT_TIMESPAN(total > to ? total - to : 0, 0));
+                if (ASSERT_OK_OR(journal_file_verify(f, verification_key, &from, &to, &total, true), -EOPNOTSUPP) >= 0)
+                        log_info("=> Validated from %s to %s, %s missing",
+                                 FORMAT_TIMESTAMP(from),
+                                 FORMAT_TIMESTAMP(to),
+                                 FORMAT_TIMESPAN(total > to ? total - to : 0, 0));
+        } else
+                ASSERT_OK(journal_file_verify(f, NULL, NULL, NULL, NULL, true));
 
         (void) journal_file_close(f);
         ASSERT_OK_ERRNO(stat("test.journal", &st));
@@ -174,6 +177,8 @@ int main(int argc, char *argv[]) {
         const char *verification_key = NULL;
         int max_iterations = 512;
 
+        journal_auth_init();
+
         if (argc > 1) {
                 /* Don't limit the number of iterations when the verification key
                  * is provided on the command line, we want to do that only in CIs */
@@ -187,9 +192,7 @@ int main(int argc, char *argv[]) {
         ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_COMPACT", "1", 1));
         run_test(verification_key, max_iterations);
 
-#if HAVE_GCRYPT
-        /* If we're running without any arguments and we're compiled with gcrypt
-         * check the journal verification stuff with a valid key as well */
+        /* If we're running without any arguments, check the journal verification stuff with a valid key */
         if (argc <= 1) {
                 verification_key = "c262bd-85187f-0b1b04-877cc5/1c7af8-35a4e900";
 
@@ -199,7 +202,6 @@ int main(int argc, char *argv[]) {
                 ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_COMPACT", "1", 1));
                 run_test(verification_key, max_iterations);
         }
-#endif
 
         return 0;
 }
