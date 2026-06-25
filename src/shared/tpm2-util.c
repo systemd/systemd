@@ -555,6 +555,11 @@ int tpm2_get_vendor_info(
 
 #define TPMA_CC_TO_TPM2_CC(cca) (((cca) & TPMA_CC_COMMANDINDEX_MASK) >> TPMA_CC_COMMANDINDEX_SHIFT)
 
+/* The TCG reference library spec (part 2) doesn't guarantee a minimum size for the
+ * TPM2B_MAX_NV_BUFFER type. However, the PC-Client PTP spec does set a minimum value of 512,
+ * so we'll just assume this if the TPM didn't report a value or reports an implausible value. */
+#define FALLBACK_MAX_NV_BUFFER_SIZE 512u
+
 static int tpm2_cache_capabilities(Tpm2Context *c) {
         TPMU_CAPABILITIES capability;
         int r;
@@ -693,22 +698,17 @@ static int tpm2_cache_capabilities(Tpm2Context *c) {
          * certificate with a RSA public key. */
         uint32_t max_nv_buffer_size = 0;
 
-        /* The TCG reference library spec (part 2) doesn't guarantee a minimum size for the
-         * TPM2B_MAX_NV_BUFFER type. However, the PC-Client PTP spec does set a minimum value of 512,
-         * so we'll just assume this if the TPM didn't report a value or reports an implausible value. */
-        static const uint32_t fallback_max_nv_buffer_size = 512;
-
         r = tpm2_get_capability_property(c, TPM2_PT_NV_BUFFER_MAX, &max_nv_buffer_size);
         if (r == -ENOENT) {
-                log_debug("TPM bug: didn't report a value for TPM_PT_NV_BUFFER_MAX; using %" PRIu32 ".", fallback_max_nv_buffer_size);
-                max_nv_buffer_size = fallback_max_nv_buffer_size;
+                log_debug("TPM bug: didn't report a value for TPM_PT_NV_BUFFER_MAX; using %"PRIu32".", FALLBACK_MAX_NV_BUFFER_SIZE);
+                max_nv_buffer_size = FALLBACK_MAX_NV_BUFFER_SIZE;
         } else if (r < 0)
                 return r;
         if (max_nv_buffer_size == 0 || max_nv_buffer_size > UINT16_MAX) {
                 /* TPM2B types have a uint16 size field. If the TPM reported a maximum size that is larger
                  * than this, or 0, then consider this as implausible and pick the default fallback. */
-                log_debug("TPM bug: reported implausible value for TPM_PT_NV_BUFFER_MAX; using %" PRIu32 ".", fallback_max_nv_buffer_size);
-                max_nv_buffer_size = fallback_max_nv_buffer_size;
+                log_debug("TPM bug: reported implausible value for TPM_PT_NV_BUFFER_MAX; using %"PRIu32".", FALLBACK_MAX_NV_BUFFER_SIZE);
+                max_nv_buffer_size = FALLBACK_MAX_NV_BUFFER_SIZE;
         }
         c->max_nv_buffer_size = (uint16_t) max_nv_buffer_size;
 
