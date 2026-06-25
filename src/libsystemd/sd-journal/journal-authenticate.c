@@ -29,6 +29,207 @@ static void* fssheader_free(FSSHeader *p) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(FSSHeader*, fssheader_free);
 
+int journal_file_fss_load(JournalFile *f) {
+        _cleanup_close_ int fd = -EBADF;
+        _cleanup_free_ char *path = NULL;
+        _cleanup_(fssheader_freep) FSSHeader *header = NULL;
+        struct stat st;
+        sd_id128_t machine;
+        int r;
+
+        assert(f);
+
+        /* This function is used to determine whether sealing should be enabled in the journal header so we
+         * can't check the header to check if sealing is enabled here. */
+
+        r = sd_id128_get_machine(&machine);
+        if (r < 0)
+                return r;
+
+        if (asprintf(&path, "/var/log/journal/" SD_ID128_FORMAT_STR "/fss",
+                     SD_ID128_FORMAT_VAL(machine)) < 0)
+                return -ENOMEM;
+
+        fd = open(path, O_RDWR|O_CLOEXEC|O_NOCTTY, 0600);
+        if (fd < 0) {
+                if (errno != ENOENT)
+                        log_error_errno(errno, "Failed to open %s: %m", path);
+
+                return -errno;
+        }
+
+        if (fstat(fd, &st) < 0)
+                return -errno;
+
+        if (st.st_size < (off_t) sizeof(FSSHeader))
+                return -ENODATA;
+
+        header = mmap(NULL, PAGE_ALIGN(sizeof(FSSHeader)), PROT_READ, MAP_SHARED, fd, 0);
+        if (header == MAP_FAILED)
+                return -errno;
+
+        if (memcmp(header->signature, (uint8_t[]) FSS_HEADER_SIGNATURE, 8) != 0)
+                return -EBADMSG;
+
+        if (header->incompatible_flags != 0)
+                return -EPROTONOSUPPORT;
+
+        if (le64toh(header->header_size) < sizeof(FSSHeader))
+                return -EBADMSG;
+
+        if (le64toh(header->fsprg_state_size) != FSPRG_stateinbytes(le16toh(header->fsprg_secpar)))
+                return -EBADMSG;
+
+        f->fss_file_size = le64toh(header->header_size) + le64toh(header->fsprg_state_size);
+        if ((uint64_t) st.st_size < f->fss_file_size)
+                return -ENODATA;
+
+        if (!sd_id128_equal(machine, header->machine_id))
+                return -EHOSTDOWN;
+
+        if (le64toh(header->start_usec) <= 0 || le64toh(header->interval_usec) <= 0)
+                return -EBADMSG;
+
+        size_t sz = PAGE_ALIGN(f->fss_file_size);
+        assert(sz < SIZE_MAX);
+        f->fss_file = mmap(NULL, sz, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
+        if (f->fss_file == MAP_FAILED) {
+                f->fss_file = NULL;
+                return -errno;
+        }
+
+        f->fss_start_usec = le64toh(f->fss_file->start_usec);
+        f->fss_interval_usec = le64toh(f->fss_file->interval_usec);
+
+        f->fsprg_state = IOVEC_MAKE(
+                        (uint8_t*) f->fss_file + le64toh(f->fss_file->header_size),
+                        le64toh(f->fss_file->fsprg_state_size));
+
+        return 0;
+}
+
+int journal_file_parse_verification_key(JournalFile *f, const char *key) {
+        _cleanup_(erase_and_freep) uint8_t *seed = NULL;
+        size_t seed_size;
+        const char *k;
+        unsigned long long start, interval;
+        int r;
+
+        assert(f);
+        assert(key);
+
+        seed_size = FSPRG_RECOMMENDED_SEEDLEN;
+        seed = malloc(seed_size);
+        if (!seed)
+                return -ENOMEM;
+
+        k = key;
+        for (size_t c = 0; c < seed_size; c++) {
+                int x, y;
+
+                k = skip_leading_chars(k, "-");
+
+                x = unhexchar(*k);
+                if (x < 0)
+                        return -EKEYREJECTED;
+                k++;
+
+                y = unhexchar(*k);
+                if (y < 0)
+                        return -EKEYREJECTED;
+                k++;
+
+                seed[c] = (uint8_t) (x * 16 + y);
+        }
+
+        if (*k != '/')
+                return -EKEYREJECTED;
+        k++;
+
+        r = sscanf(k, "%llx-%llx", &start, &interval);
+        if (r != 2)
+                return -EKEYREJECTED;
+
+        f->fsprg_seed = IOVEC_MAKE(TAKE_PTR(seed), seed_size);
+        f->fss_start_usec = start * interval;
+        f->fss_interval_usec = interval;
+
+        return 0;
+}
+
+bool journal_file_next_evolve_usec(JournalFile *f, usec_t *u) {
+        uint64_t epoch;
+
+        assert(f);
+        assert(u);
+
+        if (!JOURNAL_HEADER_SEALED(f->header))
+                return false;
+
+        epoch = FSPRG_GetEpoch(f->fsprg_state.iov_base);
+
+        *u = (usec_t) (f->fss_start_usec + f->fss_interval_usec * epoch + f->fss_interval_usec);
+
+        return true;
+}
+
+int journal_file_fsprg_seek(JournalFile *f, uint64_t goal) {
+        int r;
+
+        assert(f);
+
+        if (!JOURNAL_HEADER_SEALED(f->header))
+                return 0;
+
+        assert(iovec_is_set(&f->fsprg_seed));
+
+        if (iovec_is_set(&f->fsprg_state)) {
+                /* Cheaper... */
+
+                uint64_t epoch = FSPRG_GetEpoch(f->fsprg_state.iov_base);
+                if (goal == epoch)
+                        return 0;
+
+                if (goal == epoch + 1)
+                        return FSPRG_Evolve(f->fsprg_state.iov_base);
+        } else {
+                r = iovec_alloc(FSPRG_stateinbytes(FSPRG_RECOMMENDED_SECPAR), &f->fsprg_state);
+                if (r < 0)
+                        return r;
+        }
+
+        log_debug("Seeking FSPRG key to %"PRIu64".", goal);
+
+        _cleanup_(iovec_erase) struct iovec msk = IOVEC_ALLOCA(FSPRG_mskinbytes(FSPRG_RECOMMENDED_SECPAR));
+        r = FSPRG_GenMK(msk.iov_base, NULL, f->fsprg_seed.iov_base, f->fsprg_seed.iov_len, FSPRG_RECOMMENDED_SECPAR);
+        if (r < 0)
+                return r;
+
+        return FSPRG_Seek(f->fsprg_state.iov_base, goal, msk.iov_base, f->fsprg_seed.iov_base, f->fsprg_seed.iov_len);
+}
+
+int journal_file_hmac_setup(JournalFile *f) {
+#if HAVE_GCRYPT
+        gcry_error_t e;
+        int r;
+
+        if (!JOURNAL_HEADER_SEALED(f->header))
+                return 0;
+
+        r = initialize_libgcrypt(true);
+        if (r < 0)
+                return r;
+
+        e = sym_gcry_md_open(&f->hmac, GCRY_MD_SHA256, GCRY_MD_FLAG_HMAC);
+        if (e != 0)
+                return -EOPNOTSUPP;
+
+        return 0;
+#else
+        return -EOPNOTSUPP;
+#endif
+}
+
 int journal_file_append_tag(JournalFile *f) {
 #if HAVE_GCRYPT
         int r;
@@ -189,41 +390,6 @@ int journal_file_fsprg_evolve(JournalFile *f, uint64_t realtime) {
         }
 }
 
-int journal_file_fsprg_seek(JournalFile *f, uint64_t goal) {
-        int r;
-
-        assert(f);
-
-        if (!JOURNAL_HEADER_SEALED(f->header))
-                return 0;
-
-        assert(iovec_is_set(&f->fsprg_seed));
-
-        if (iovec_is_set(&f->fsprg_state)) {
-                /* Cheaper... */
-
-                uint64_t epoch = FSPRG_GetEpoch(f->fsprg_state.iov_base);
-                if (goal == epoch)
-                        return 0;
-
-                if (goal == epoch + 1)
-                        return FSPRG_Evolve(f->fsprg_state.iov_base);
-        } else {
-                r = iovec_alloc(FSPRG_stateinbytes(FSPRG_RECOMMENDED_SECPAR), &f->fsprg_state);
-                if (r < 0)
-                        return r;
-        }
-
-        log_debug("Seeking FSPRG key to %"PRIu64".", goal);
-
-        _cleanup_(iovec_erase) struct iovec msk = IOVEC_ALLOCA(FSPRG_mskinbytes(FSPRG_RECOMMENDED_SECPAR));
-        r = FSPRG_GenMK(msk.iov_base, NULL, f->fsprg_seed.iov_base, f->fsprg_seed.iov_len, FSPRG_RECOMMENDED_SECPAR);
-        if (r < 0)
-                return r;
-
-        return FSPRG_Seek(f->fsprg_state.iov_base, goal, msk.iov_base, f->fsprg_seed.iov_base, f->fsprg_seed.iov_len);
-}
-
 int journal_file_maybe_append_tag(JournalFile *f, uint64_t realtime) {
         int r;
 
@@ -343,107 +509,6 @@ int journal_file_hmac_put_header(JournalFile *f) {
 #endif
 }
 
-int journal_file_fss_load(JournalFile *f) {
-        _cleanup_close_ int fd = -EBADF;
-        _cleanup_free_ char *path = NULL;
-        _cleanup_(fssheader_freep) FSSHeader *header = NULL;
-        struct stat st;
-        sd_id128_t machine;
-        int r;
-
-        assert(f);
-
-        /* This function is used to determine whether sealing should be enabled in the journal header so we
-         * can't check the header to check if sealing is enabled here. */
-
-        r = sd_id128_get_machine(&machine);
-        if (r < 0)
-                return r;
-
-        if (asprintf(&path, "/var/log/journal/" SD_ID128_FORMAT_STR "/fss",
-                     SD_ID128_FORMAT_VAL(machine)) < 0)
-                return -ENOMEM;
-
-        fd = open(path, O_RDWR|O_CLOEXEC|O_NOCTTY, 0600);
-        if (fd < 0) {
-                if (errno != ENOENT)
-                        log_error_errno(errno, "Failed to open %s: %m", path);
-
-                return -errno;
-        }
-
-        if (fstat(fd, &st) < 0)
-                return -errno;
-
-        if (st.st_size < (off_t) sizeof(FSSHeader))
-                return -ENODATA;
-
-        header = mmap(NULL, PAGE_ALIGN(sizeof(FSSHeader)), PROT_READ, MAP_SHARED, fd, 0);
-        if (header == MAP_FAILED)
-                return -errno;
-
-        if (memcmp(header->signature, (uint8_t[]) FSS_HEADER_SIGNATURE, 8) != 0)
-                return -EBADMSG;
-
-        if (header->incompatible_flags != 0)
-                return -EPROTONOSUPPORT;
-
-        if (le64toh(header->header_size) < sizeof(FSSHeader))
-                return -EBADMSG;
-
-        if (le64toh(header->fsprg_state_size) != FSPRG_stateinbytes(le16toh(header->fsprg_secpar)))
-                return -EBADMSG;
-
-        f->fss_file_size = le64toh(header->header_size) + le64toh(header->fsprg_state_size);
-        if ((uint64_t) st.st_size < f->fss_file_size)
-                return -ENODATA;
-
-        if (!sd_id128_equal(machine, header->machine_id))
-                return -EHOSTDOWN;
-
-        if (le64toh(header->start_usec) <= 0 || le64toh(header->interval_usec) <= 0)
-                return -EBADMSG;
-
-        size_t sz = PAGE_ALIGN(f->fss_file_size);
-        assert(sz < SIZE_MAX);
-        f->fss_file = mmap(NULL, sz, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
-        if (f->fss_file == MAP_FAILED) {
-                f->fss_file = NULL;
-                return -errno;
-        }
-
-        f->fss_start_usec = le64toh(f->fss_file->start_usec);
-        f->fss_interval_usec = le64toh(f->fss_file->interval_usec);
-
-        f->fsprg_state = IOVEC_MAKE(
-                        (uint8_t*) f->fss_file + le64toh(f->fss_file->header_size),
-                        le64toh(f->fss_file->fsprg_state_size));
-
-        return 0;
-}
-
-int journal_file_hmac_setup(JournalFile *f) {
-#if HAVE_GCRYPT
-        gcry_error_t e;
-        int r;
-
-        if (!JOURNAL_HEADER_SEALED(f->header))
-                return 0;
-
-        r = initialize_libgcrypt(true);
-        if (r < 0)
-                return r;
-
-        e = sym_gcry_md_open(&f->hmac, GCRY_MD_SHA256, GCRY_MD_FLAG_HMAC);
-        if (e != 0)
-                return -EOPNOTSUPP;
-
-        return 0;
-#else
-        return -EOPNOTSUPP;
-#endif
-}
-
 int journal_file_append_first_tag(JournalFile *f) {
         uint64_t p;
         int r;
@@ -480,69 +545,4 @@ int journal_file_append_first_tag(JournalFile *f) {
                 return r;
 
         return 0;
-}
-
-int journal_file_parse_verification_key(JournalFile *f, const char *key) {
-        _cleanup_(erase_and_freep) uint8_t *seed = NULL;
-        size_t seed_size;
-        const char *k;
-        unsigned long long start, interval;
-        int r;
-
-        assert(f);
-        assert(key);
-
-        seed_size = FSPRG_RECOMMENDED_SEEDLEN;
-        seed = malloc(seed_size);
-        if (!seed)
-                return -ENOMEM;
-
-        k = key;
-        for (size_t c = 0; c < seed_size; c++) {
-                int x, y;
-
-                k = skip_leading_chars(k, "-");
-
-                x = unhexchar(*k);
-                if (x < 0)
-                        return -EKEYREJECTED;
-                k++;
-
-                y = unhexchar(*k);
-                if (y < 0)
-                        return -EKEYREJECTED;
-                k++;
-
-                seed[c] = (uint8_t) (x * 16 + y);
-        }
-
-        if (*k != '/')
-                return -EKEYREJECTED;
-        k++;
-
-        r = sscanf(k, "%llx-%llx", &start, &interval);
-        if (r != 2)
-                return -EKEYREJECTED;
-
-        f->fsprg_seed = IOVEC_MAKE(TAKE_PTR(seed), seed_size);
-        f->fss_start_usec = start * interval;
-        f->fss_interval_usec = interval;
-
-        return 0;
-}
-
-bool journal_file_next_evolve_usec(JournalFile *f, usec_t *u) {
-        uint64_t epoch;
-
-        assert(f);
-        assert(u);
-
-        if (!JOURNAL_HEADER_SEALED(f->header))
-                return false;
-
-        epoch = FSPRG_GetEpoch(f->fsprg_state.iov_base);
-
-        *u = (usec_t) (f->fss_start_usec + f->fss_interval_usec * epoch + f->fss_interval_usec);
-
-        return true;
 }
