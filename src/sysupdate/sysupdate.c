@@ -246,13 +246,12 @@ static int context_read_definitions(Context *c, const char* node, ReadDefinition
 
         if (FLAGS_SET(flags, READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS) &&
             c->n_transfers + (FLAGS_SET(flags, READ_DEFINITIONS_REQUIRES_ENABLED_TRANSFERS) ? 0 : c->n_disabled_transfers) == 0) {
-                if (c->component)
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
-                                               "No transfer definitions for component '%s' found.",
-                                               c->component);
+                if (c->component) {
+                        log_warning("No transfer definitions for component '%s' found.", c->component);
+                        return 0;
+                }
 
-                return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
-                                       "No transfer definitions found.");
+                log_warning("No transfer definitions found.");
         }
 
         return 0;
@@ -1828,7 +1827,9 @@ static int verb_pending_or_reboot(int argc, char *argv[], uintptr_t _data, void 
         if (r < 0)
                 return r;
         if (!context->newest_installed)
-                return log_error_errno(SYNTHETIC_ERRNO(ENODATA), "Couldn't find any suitable installed versions.");
+                return context->n_transfers == 0
+                        ? (log_warning("Couldn't find any suitable installed versions."), 0)
+                        : log_error_errno(SYNTHETIC_ERRNO(ENODATA), "Couldn't find any suitable installed versions.");
 
         r = parse_os_release(arg_root, "IMAGE_VERSION", &booted_version);
         if (r < 0) /* yes, arg_root is NULL here, but we have to pass something, and it's a lot more readable
