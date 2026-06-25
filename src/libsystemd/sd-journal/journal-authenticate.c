@@ -18,6 +18,43 @@
 #include "string-util.h"
 #include "time-util.h"
 
+#if HAVE_GCRYPT
+
+struct JournalAuthContext {
+        gcry_md_hd_t hmac;
+        bool hmac_running;
+
+        FSSHeader *fss_file;
+        size_t fss_file_size;
+
+        uint64_t fss_start_usec;
+        uint64_t fss_interval_usec;
+
+        struct iovec fsprg_state;
+        struct iovec fsprg_seed;
+};
+
+JournalAuthContext* journal_auth_free(JournalAuthContext *c) {
+        if (!c)
+                return NULL;
+
+        if (c->fss_file) {
+                size_t sz = PAGE_ALIGN(c->fss_file_size);
+                assert(sz < SIZE_MAX);
+                munmap(c->fss_file, sz);
+        } else
+                iovec_done_erase(&c->fsprg_state);
+
+        iovec_done_erase(&c->fsprg_seed);
+
+        if (c->hmac)
+                sym_gcry_md_close(c->hmac);
+
+        return mfree(c);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(JournalAuthContext*, journal_auth_free);
+
 static void* fssheader_free(FSSHeader *p) {
         /* mmap() returns MAP_FAILED on error and sets the errno */
         if (!p || p == MAP_FAILED)
@@ -29,10 +66,10 @@ static void* fssheader_free(FSSHeader *p) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(FSSHeader*, fssheader_free);
 
-int journal_file_fss_load(JournalFile *f) {
+int journal_auth_load(JournalAuthContext **ret) {
         int r;
 
-        assert(f);
+        assert(ret);
 
         /* This function is used to determine whether sealing should be enabled in the journal header so we
          * can't check the header to check if sealing is enabled here. */
@@ -89,29 +126,36 @@ int journal_file_fss_load(JournalFile *f) {
         if (le64toh(header->start_usec) <= 0 || le64toh(header->interval_usec) <= 0)
                 return -EBADMSG;
 
+        _cleanup_(journal_auth_freep) JournalAuthContext *c = new(JournalAuthContext, 1);
+        if (!c)
+                return -ENOMEM;
+
         size_t sz = PAGE_ALIGN(fss_file_size);
         assert(sz < SIZE_MAX);
         FSSHeader *p = mmap(NULL, sz, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
         if (p == MAP_FAILED)
                 return -errno;
 
-        f->fss_file_size = fss_file_size;
-        f->fss_file = p;
+        *c = (JournalAuthContext) {
+                .fss_file_size = fss_file_size,
+                .fss_file = p,
 
-        f->fss_start_usec = le64toh(p->start_usec);
-        f->fss_interval_usec = le64toh(p->interval_usec);
+                .fss_start_usec = le64toh(p->start_usec),
+                .fss_interval_usec = le64toh(p->interval_usec),
 
-        f->fsprg_state = IOVEC_MAKE(
-                        (uint8_t*) p + le64toh(p->header_size),
-                        le64toh(p->fsprg_state_size));
+                .fsprg_state = IOVEC_MAKE(
+                                (uint8_t*) p + le64toh(p->header_size),
+                                le64toh(p->fsprg_state_size)),
+        };
 
+        *ret = TAKE_PTR(c);
         return 0;
 }
 
-int journal_file_parse_verification_key(JournalFile *f, const char *key) {
+int journal_auth_load_key(JournalAuthContext **ret, const char *key) {
         int r;
 
-        assert(f);
+        assert(ret);
         assert(key);
 
         size_t seed_size = FSPRG_RECOMMENDED_SEEDLEN;
@@ -147,20 +191,28 @@ int journal_file_parse_verification_key(JournalFile *f, const char *key) {
         if (r != 2)
                 return -EKEYREJECTED;
 
-        f->fsprg_seed = IOVEC_MAKE(TAKE_PTR(seed), seed_size);
-        f->fss_start_usec = start * interval;
-        f->fss_interval_usec = interval;
+        _cleanup_(journal_auth_freep) JournalAuthContext *c = new(JournalAuthContext, 1);
+        if (!c)
+                return -ENOMEM;
 
+        *c = (JournalAuthContext) {
+                .fss_start_usec = start * interval,
+                .fss_interval_usec = interval,
+
+                .fsprg_seed = IOVEC_MAKE(TAKE_PTR(seed), seed_size),
+        };
+
+        *ret = TAKE_PTR(c);
         return 0;
 }
 
-static int journal_auth_epoch_to_realtime_usec(JournalFile *f, uint64_t epoch, usec_t *ret_start, usec_t *ret_end) {
-        assert(f);
+int journal_auth_epoch_to_realtime_usec(const JournalAuthContext *c, uint64_t epoch, usec_t *ret_start, usec_t *ret_end) {
+        assert(c);
 
         uint64_t start, end;
-        if (!MUL_SAFE(&start, epoch, f->fss_interval_usec) ||
-            !INC_SAFE(&start, f->fss_start_usec) ||
-            !ADD_SAFE(&end, start, f->fss_interval_usec))
+        if (!MUL_SAFE(&start, epoch, c->fss_interval_usec) ||
+            !INC_SAFE(&start, c->fss_start_usec) ||
+            !ADD_SAFE(&end, start, c->fss_interval_usec))
                 return -ERANGE;
 
         if (ret_start)
@@ -171,38 +223,29 @@ static int journal_auth_epoch_to_realtime_usec(JournalFile *f, uint64_t epoch, u
         return 0;
 }
 
-int journal_file_next_evolve_usec(JournalFile *f, usec_t *ret) {
-        assert(f);
+int journal_auth_next_evolve_usec(const JournalAuthContext *c, usec_t *ret) {
+        assert(c);
 
-        if (!JOURNAL_HEADER_SEALED(f->header))
-                return -EOPNOTSUPP;
+        uint64_t epoch = FSPRG_GetEpoch(c->fsprg_state.iov_base);
 
-        uint64_t epoch = FSPRG_GetEpoch(f->fsprg_state.iov_base);
-
-        return journal_auth_epoch_to_realtime_usec(f, epoch, /* ret_start= */ NULL, ret);
+        return journal_auth_epoch_to_realtime_usec(c, epoch, /* ret_start= */ NULL, ret);
 }
 
-int journal_file_fsprg_seek(JournalFile *f, uint64_t goal) {
+int journal_auth_seek(JournalAuthContext *c, uint64_t goal) {
         int r;
 
-        assert(f);
+        assert(c);
+        assert(iovec_is_set(&c->fsprg_seed));
 
-        if (!JOURNAL_HEADER_SEALED(f->header))
-                return 0;
-
-        assert(iovec_is_set(&f->fsprg_seed));
-
-        if (iovec_is_set(&f->fsprg_state)) {
-                /* Cheaper... */
-
-                uint64_t epoch = FSPRG_GetEpoch(f->fsprg_state.iov_base);
+        if (iovec_is_set(&c->fsprg_state)) {
+                uint64_t epoch = FSPRG_GetEpoch(c->fsprg_state.iov_base);
                 if (goal == epoch)
                         return 0;
 
                 if (goal == epoch + 1)
-                        return FSPRG_Evolve(f->fsprg_state.iov_base);
+                        return FSPRG_Evolve(c->fsprg_state.iov_base);
         } else {
-                r = iovec_alloc(FSPRG_stateinbytes(FSPRG_RECOMMENDED_SECPAR), &f->fsprg_state);
+                r = iovec_alloc(FSPRG_stateinbytes(FSPRG_RECOMMENDED_SECPAR), &c->fsprg_state);
                 if (r < 0)
                         return r;
         }
@@ -210,78 +253,74 @@ int journal_file_fsprg_seek(JournalFile *f, uint64_t goal) {
         log_debug("Seeking FSPRG key to %"PRIu64".", goal);
 
         _cleanup_(iovec_erase) struct iovec msk = IOVEC_ALLOCA(FSPRG_mskinbytes(FSPRG_RECOMMENDED_SECPAR));
-        r = FSPRG_GenMK(msk.iov_base, NULL, f->fsprg_seed.iov_base, f->fsprg_seed.iov_len, FSPRG_RECOMMENDED_SECPAR);
+        r = FSPRG_GenMK(msk.iov_base, NULL, c->fsprg_seed.iov_base, c->fsprg_seed.iov_len, FSPRG_RECOMMENDED_SECPAR);
         if (r < 0)
                 return r;
 
-        return FSPRG_Seek(f->fsprg_state.iov_base, goal, msk.iov_base, f->fsprg_seed.iov_base, f->fsprg_seed.iov_len);
+        return FSPRG_Seek(c->fsprg_state.iov_base, goal, msk.iov_base, c->fsprg_seed.iov_base, c->fsprg_seed.iov_len);
 }
 
-int journal_file_hmac_setup(JournalFile *f) {
-#if HAVE_GCRYPT
+int journal_auth_setup(JournalAuthContext *c) {
         int r;
 
-        if (!JOURNAL_HEADER_SEALED(f->header))
-                return 0;
+        assert(c);
 
         r = initialize_libgcrypt(true);
         if (r < 0)
                 return r;
 
-        if (sym_gcry_md_open(&f->hmac, GCRY_MD_SHA256, GCRY_MD_FLAG_HMAC) != 0)
+        if (sym_gcry_md_open(&c->hmac, GCRY_MD_SHA256, GCRY_MD_FLAG_HMAC) != 0)
                 return -EOPNOTSUPP;
 
         return 0;
-#else
-        return -EOPNOTSUPP;
-#endif
 }
 
-int journal_file_hmac_start(JournalFile *f) {
-#if HAVE_GCRYPT
+int journal_auth_start(JournalAuthContext *c) {
         int r;
 
-        assert(f);
+        assert(c);
 
-        if (!JOURNAL_HEADER_SEALED(f->header))
-                return 0;
-
-        if (f->hmac_running)
+        if (c->hmac_running)
                 return 0;
 
         /* Prepare HMAC for next cycle */
-        sym_gcry_md_reset(f->hmac);
+        sym_gcry_md_reset(c->hmac);
 
         uint8_t key[256 / 8]; /* Let's pass 256 bit from FSPRG to HMAC */
         CLEANUP_ERASE(key);
-        r = FSPRG_GetKey(f->fsprg_state.iov_base, key, sizeof(key), 0);
+        r = FSPRG_GetKey(c->fsprg_state.iov_base, key, sizeof(key), 0);
         if (r < 0)
                 return r;
 
-        gcry_error_t err = sym_gcry_md_setkey(f->hmac, key, sizeof(key));
+        gcry_error_t err = sym_gcry_md_setkey(c->hmac, key, sizeof(key));
         if (gcry_err_code(err) != GPG_ERR_NO_ERROR)
                 return log_debug_errno(SYNTHETIC_ERRNO(EIO),
                                        "sym_gcry_md_setkey() failed with error code: %s",
                                        sym_gcry_strerror(err));
 
-        f->hmac_running = true;
-
+        c->hmac_running = true;
         return 0;
-#else
-        return -EOPNOTSUPP;
-#endif
 }
 
-int journal_file_hmac_put_header(JournalFile *f) {
-#if HAVE_GCRYPT
+int journal_auth_end(JournalAuthContext *c, uint8_t ret[static TAG_LENGTH]) {
+        assert(c);
+        assert(ret);
+
+        if (!c->hmac_running)
+                return -EINVAL;
+
+        memcpy(ret, sym_gcry_md_read(c->hmac, 0), TAG_LENGTH);
+        c->hmac_running = false;
+        return 0;
+}
+
+int journal_auth_put_header(JournalAuthContext *c, JournalFile *f) {
         int r;
 
+        assert(c);
         assert(f);
 
-        if (!JOURNAL_HEADER_SEALED(f->header))
-                return 0;
-
-        r = journal_file_hmac_start(f);
+        r = journal_auth_start(c);
         if (r < 0)
                 return r;
 
@@ -292,27 +331,21 @@ int journal_file_hmac_put_header(JournalFile *f) {
          * tail_entry_monotonic, n_data, n_fields, n_tags,
          * n_entry_arrays. */
 
-        sym_gcry_md_write(f->hmac, f->header->signature, offsetof(Header, state) - offsetof(Header, signature));
-        sym_gcry_md_write(f->hmac, &f->header->file_id, offsetof(Header, tail_entry_boot_id) - offsetof(Header, file_id));
-        sym_gcry_md_write(f->hmac, &f->header->seqnum_id, offsetof(Header, arena_size) - offsetof(Header, seqnum_id));
-        sym_gcry_md_write(f->hmac, &f->header->data_hash_table_offset, offsetof(Header, tail_object_offset) - offsetof(Header, data_hash_table_offset));
+        sym_gcry_md_write(c->hmac, f->header->signature, offsetof(Header, state) - offsetof(Header, signature));
+        sym_gcry_md_write(c->hmac, &f->header->file_id, offsetof(Header, tail_entry_boot_id) - offsetof(Header, file_id));
+        sym_gcry_md_write(c->hmac, &f->header->seqnum_id, offsetof(Header, arena_size) - offsetof(Header, seqnum_id));
+        sym_gcry_md_write(c->hmac, &f->header->data_hash_table_offset, offsetof(Header, tail_object_offset) - offsetof(Header, data_hash_table_offset));
 
         return 0;
-#else
-        return -EOPNOTSUPP;
-#endif
 }
 
-int journal_file_hmac_put_object(JournalFile *f, ObjectType type, Object *o, uint64_t p) {
-#if HAVE_GCRYPT
+int journal_auth_put_object(JournalAuthContext *c, JournalFile *f, ObjectType type, Object *o, uint64_t p) {
         int r;
 
+        assert(c);
         assert(f);
 
-        if (!JOURNAL_HEADER_SEALED(f->header))
-                return 0;
-
-        r = journal_file_hmac_start(f);
+        r = journal_auth_start(c);
         if (r < 0)
                 return r;
 
@@ -323,25 +356,25 @@ int journal_file_hmac_put_object(JournalFile *f, ObjectType type, Object *o, uin
         } else if (type > OBJECT_UNUSED && o->object.type != type)
                 return -EBADMSG;
 
-        sym_gcry_md_write(f->hmac, o, offsetof(ObjectHeader, payload));
+        sym_gcry_md_write(c->hmac, o, offsetof(ObjectHeader, payload));
 
         switch (o->object.type) {
 
         case OBJECT_DATA:
                 /* All but hash and payload are mutable */
-                sym_gcry_md_write(f->hmac, &o->data.hash, sizeof(o->data.hash));
-                sym_gcry_md_write(f->hmac, journal_file_data_payload_field(f, o), le64toh(o->object.size) - journal_file_data_payload_offset(f));
+                sym_gcry_md_write(c->hmac, &o->data.hash, sizeof(o->data.hash));
+                sym_gcry_md_write(c->hmac, journal_file_data_payload_field(f, o), le64toh(o->object.size) - journal_file_data_payload_offset(f));
                 break;
 
         case OBJECT_FIELD:
                 /* Same here */
-                sym_gcry_md_write(f->hmac, &o->field.hash, sizeof(o->field.hash));
-                sym_gcry_md_write(f->hmac, o->field.payload, le64toh(o->object.size) - offsetof(Object, field.payload));
+                sym_gcry_md_write(c->hmac, &o->field.hash, sizeof(o->field.hash));
+                sym_gcry_md_write(c->hmac, o->field.payload, le64toh(o->object.size) - offsetof(Object, field.payload));
                 break;
 
         case OBJECT_ENTRY:
                 /* All */
-                sym_gcry_md_write(f->hmac, &o->entry.seqnum, le64toh(o->object.size) - offsetof(Object, entry.seqnum));
+                sym_gcry_md_write(c->hmac, &o->entry.seqnum, le64toh(o->object.size) - offsetof(Object, entry.seqnum));
                 break;
 
         case OBJECT_FIELD_HASH_TABLE:
@@ -352,35 +385,25 @@ int journal_file_hmac_put_object(JournalFile *f, ObjectType type, Object *o, uin
 
         case OBJECT_TAG:
                 /* All but the tag itself */
-                sym_gcry_md_write(f->hmac, &o->tag.seqnum, sizeof(o->tag.seqnum));
-                sym_gcry_md_write(f->hmac, &o->tag.epoch, sizeof(o->tag.epoch));
+                sym_gcry_md_write(c->hmac, &o->tag.seqnum, sizeof(o->tag.seqnum));
+                sym_gcry_md_write(c->hmac, &o->tag.epoch, sizeof(o->tag.epoch));
                 break;
         default:
                 return -EINVAL;
         }
 
         return 0;
-#else
-        return -EOPNOTSUPP;
-#endif
 }
 
-int journal_file_append_tag(JournalFile *f) {
-#if HAVE_GCRYPT
+int journal_auth_append_tag(JournalAuthContext *c, JournalFile *f) {
         int r;
 
+        assert(c);
         assert(f);
 
-        if (!JOURNAL_HEADER_SEALED(f->header))
-                return 0;
-
-        if (!f->hmac_running) {
-                r = journal_file_hmac_start(f);
-                if (r < 0)
-                        return r;
-        }
-
-        assert(f->hmac);
+        r = journal_auth_start(c);
+        if (r < 0)
+                return r;
 
         Object *o;
         uint64_t p;
@@ -392,37 +415,31 @@ int journal_file_append_tag(JournalFile *f) {
         f->header->n_tags = htole64(seqnum);
 
         o->tag.seqnum = htole64(seqnum);
-        o->tag.epoch = htole64(FSPRG_GetEpoch(f->fsprg_state.iov_base));
+        o->tag.epoch = htole64(FSPRG_GetEpoch(c->fsprg_state.iov_base));
 
         log_debug("Writing tag %"PRIu64" for epoch %"PRIu64"",
                   le64toh(o->tag.seqnum), le64toh(o->tag.epoch));
 
         /* Add the tag object itself, so that we can protect its
          * header. This will exclude the actual hash value in it */
-        r = journal_file_hmac_put_object(f, OBJECT_TAG, o, p);
+        r = journal_auth_put_object(c, f, OBJECT_TAG, o, p);
         if (r < 0)
                 return r;
 
         /* Get the HMAC tag and store it in the object */
-        memcpy(o->tag.tag, sym_gcry_md_read(f->hmac, 0), TAG_LENGTH);
-        f->hmac_running = false;
-
-        return 0;
-#else
-        return -EOPNOTSUPP;
-#endif
+        return journal_auth_end(c, o->tag.tag);
 }
 
-int journal_file_append_first_tag(JournalFile *f) {
+int journal_auth_append_tag_first(JournalAuthContext *c, JournalFile *f) {
         uint64_t p;
         int r;
 
-        if (!JOURNAL_HEADER_SEALED(f->header))
-                return 0;
+        assert(c);
+        assert(f);
 
         log_debug("Calculating first tag...");
 
-        r = journal_file_hmac_put_header(f);
+        r = journal_auth_put_header(c, f);
         if (r < 0)
                 return r;
 
@@ -431,7 +448,7 @@ int journal_file_append_first_tag(JournalFile *f) {
                 return -EINVAL;
         p -= offsetof(Object, hash_table.items);
 
-        r = journal_file_hmac_put_object(f, OBJECT_FIELD_HASH_TABLE, NULL, p);
+        r = journal_auth_put_object(c, f, OBJECT_FIELD_HASH_TABLE, NULL, p);
         if (r < 0)
                 return r;
 
@@ -440,45 +457,45 @@ int journal_file_append_first_tag(JournalFile *f) {
                 return -EINVAL;
         p -= offsetof(Object, hash_table.items);
 
-        r = journal_file_hmac_put_object(f, OBJECT_DATA_HASH_TABLE, NULL, p);
+        r = journal_auth_put_object(c, f, OBJECT_DATA_HASH_TABLE, NULL, p);
         if (r < 0)
                 return r;
 
-        return journal_file_append_tag(f);
+        return journal_auth_append_tag(c, f);
 }
 
-int journal_file_maybe_append_tag(JournalFile *f, uint64_t realtime) {
+int journal_auth_append_tag_maybe(JournalAuthContext *c, JournalFile *f, uint64_t realtime) {
         int r;
 
+        assert(c);
         assert(f);
 
-        if (!JOURNAL_HEADER_SEALED(f->header))
-                return 0;
-
-        if (f->fss_start_usec == 0 || f->fss_interval_usec == 0)
+        if (c->fss_start_usec == 0 || c->fss_interval_usec == 0)
                 return -EOPNOTSUPP;
 
         if (realtime <= 0)
                 realtime = now(CLOCK_REALTIME);
 
-        if (realtime < f->fss_start_usec)
+        if (realtime < c->fss_start_usec)
                 return -ESTALE;
 
-        uint64_t goal = (realtime - f->fss_start_usec) / f->fss_interval_usec;
+        uint64_t goal = (realtime - c->fss_start_usec) / c->fss_interval_usec;
 
         for (;;) {
-                uint64_t epoch = FSPRG_GetEpoch(f->fsprg_state.iov_base);
+                uint64_t epoch = FSPRG_GetEpoch(c->fsprg_state.iov_base);
                 if (epoch > goal)
                         return -ESTALE;
                 if (epoch == goal)
                         return 0;
 
-                r = journal_file_append_tag(f);
+                r = journal_auth_append_tag(c, f);
                 if (r < 0)
                         return r;
 
-                r = FSPRG_Evolve(f->fsprg_state.iov_base);
+                r = FSPRG_Evolve(c->fsprg_state.iov_base);
                 if (r < 0)
                         return r;
         }
 }
+
+#endif /* HAVE_GCRYPT */

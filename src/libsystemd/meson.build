@@ -5,6 +5,7 @@ sd_journal_sources = files(
         'sd-journal/catalog.c',
         'sd-journal/fsprg.c',
         'sd-journal/journal-authenticate.c',
+        'sd-journal/journal-authenticate-internal.c',
         'sd-journal/journal-file.c',
         'sd-journal/journal-send.c',
         'sd-journal/journal-vacuum.c',
