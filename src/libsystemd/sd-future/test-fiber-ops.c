@@ -422,8 +422,6 @@ static int loop_write_zero_blocking_reader_fiber(void *userdata) {
         _cleanup_free_ char *buf = malloc(ctx->total);
         ASSERT_NOT_NULL(buf);
         ssize_t n = loop_read(ctx->pipefd[0], buf, ctx->total, /* do_poll= */ true);
-        if (n < 0)
-                return (int) n;
         return (int) n;
 }
 

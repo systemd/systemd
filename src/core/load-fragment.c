@@ -6823,8 +6823,10 @@ int config_parse_luo_sessions(
                                    "Failed to parse LUOSession= value, ignoring: %s", rvalue);
                         return 0;
                 }
-                if (r == 0)
+                if (r == 0) {
+                        strv_sort(*sessions);
                         return 0;
+                }
 
                 if (!luo_session_name_is_valid(word)) {
                         log_syntax(unit, LOG_WARNING, filename, line, 0,
@@ -6842,6 +6844,4 @@ int config_parse_luo_sessions(
                 if (r < 0)
                         return log_oom();
         }
-
-        strv_sort(*sessions);
 }
