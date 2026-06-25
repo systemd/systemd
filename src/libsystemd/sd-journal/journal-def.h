@@ -43,6 +43,9 @@ typedef struct HashItem HashItem;
 
 typedef struct FSSHeader FSSHeader;
 
+typedef struct JournalFile JournalFile;
+typedef struct JournalAuthContext JournalAuthContext;
+
 /* Object types */
 typedef enum ObjectType {
         OBJECT_UNUSED, /* also serves as "any type" or "additional category" */
