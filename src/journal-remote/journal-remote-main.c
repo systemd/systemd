@@ -15,6 +15,7 @@
 #include "format-util.h"
 #include "fileio.h"
 #include "hashmap.h"
+#include "journal-authenticate.h"
 #include "journal-compression-util.h"
 #include "journal-remote.h"
 #include "journal-remote-write.h"
@@ -1164,6 +1165,8 @@ static int run(int argc, char **argv) {
         int r;
 
         log_setup();
+
+        journal_auth_init();
 
         r = parse_config();
         if (r < 0)
