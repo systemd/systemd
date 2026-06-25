@@ -160,20 +160,32 @@ int journal_file_parse_verification_key(JournalFile *f, const char *key) {
         return 0;
 }
 
-bool journal_file_next_evolve_usec(JournalFile *f, usec_t *u) {
-        uint64_t epoch;
-
+static int journal_auth_epoch_to_realtime_usec(JournalFile *f, uint64_t epoch, usec_t *ret_start, usec_t *ret_end) {
         assert(f);
-        assert(u);
+
+        uint64_t start, end;
+        if (!MUL_SAFE(&start, epoch, f->fss_interval_usec) ||
+            !INC_SAFE(&start, f->fss_start_usec) ||
+            !ADD_SAFE(&end, start, f->fss_interval_usec))
+                return -ERANGE;
+
+        if (ret_start)
+                *ret_start = start;
+        if (ret_end)
+                *ret_end = end;
+
+        return 0;
+}
+
+int journal_file_next_evolve_usec(JournalFile *f, usec_t *ret) {
+        assert(f);
 
         if (!JOURNAL_HEADER_SEALED(f->header))
-                return false;
+                return -EOPNOTSUPP;
 
-        epoch = FSPRG_GetEpoch(f->fsprg_state.iov_base);
+        uint64_t epoch = FSPRG_GetEpoch(f->fsprg_state.iov_base);
 
-        *u = (usec_t) (f->fss_start_usec + f->fss_interval_usec * epoch + f->fss_interval_usec);
-
-        return true;
+        return journal_auth_epoch_to_realtime_usec(f, epoch, /* ret_start= */ NULL, ret);
 }
 
 int journal_file_fsprg_seek(JournalFile *f, uint64_t goal) {
