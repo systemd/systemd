@@ -30,11 +30,6 @@ static void* fssheader_free(FSSHeader *p) {
 DEFINE_TRIVIAL_CLEANUP_FUNC(FSSHeader*, fssheader_free);
 
 int journal_file_fss_load(JournalFile *f) {
-        _cleanup_close_ int fd = -EBADF;
-        _cleanup_free_ char *path = NULL;
-        _cleanup_(fssheader_freep) FSSHeader *header = NULL;
-        struct stat st;
-        sd_id128_t machine;
         int r;
 
         assert(f);
@@ -42,15 +37,17 @@ int journal_file_fss_load(JournalFile *f) {
         /* This function is used to determine whether sealing should be enabled in the journal header so we
          * can't check the header to check if sealing is enabled here. */
 
+        sd_id128_t machine;
         r = sd_id128_get_machine(&machine);
         if (r < 0)
                 return r;
 
+        _cleanup_free_ char *path = NULL;
         if (asprintf(&path, "/var/log/journal/" SD_ID128_FORMAT_STR "/fss",
                      SD_ID128_FORMAT_VAL(machine)) < 0)
                 return -ENOMEM;
 
-        fd = open(path, O_RDWR|O_CLOEXEC|O_NOCTTY, 0600);
+        _cleanup_close_ int fd = open(path, O_RDWR|O_CLOEXEC|O_NOCTTY, 0600);
         if (fd < 0) {
                 if (errno != ENOENT)
                         log_error_errno(errno, "Failed to open %s: %m", path);
@@ -58,13 +55,15 @@ int journal_file_fss_load(JournalFile *f) {
                 return -errno;
         }
 
+        struct stat st;
         if (fstat(fd, &st) < 0)
                 return -errno;
 
         if (st.st_size < (off_t) sizeof(FSSHeader))
                 return -ENODATA;
 
-        header = mmap(NULL, PAGE_ALIGN(sizeof(FSSHeader)), PROT_READ, MAP_SHARED, fd, 0);
+        _cleanup_(fssheader_freep) FSSHeader *header =
+                mmap(NULL, PAGE_ALIGN(sizeof(FSSHeader)), PROT_READ, MAP_SHARED, fd, 0);
         if (header == MAP_FAILED)
                 return -errno;
 
@@ -80,8 +79,8 @@ int journal_file_fss_load(JournalFile *f) {
         if (le64toh(header->fsprg_state_size) != FSPRG_stateinbytes(le16toh(header->fsprg_secpar)))
                 return -EBADMSG;
 
-        f->fss_file_size = le64toh(header->header_size) + le64toh(header->fsprg_state_size);
-        if ((uint64_t) st.st_size < f->fss_file_size)
+        size_t fss_file_size = le64toh(header->header_size) + le64toh(header->fsprg_state_size);
+        if ((uint64_t) st.st_size < fss_file_size)
                 return -ENODATA;
 
         if (!sd_id128_equal(machine, header->machine_id))
@@ -90,40 +89,37 @@ int journal_file_fss_load(JournalFile *f) {
         if (le64toh(header->start_usec) <= 0 || le64toh(header->interval_usec) <= 0)
                 return -EBADMSG;
 
-        size_t sz = PAGE_ALIGN(f->fss_file_size);
+        size_t sz = PAGE_ALIGN(fss_file_size);
         assert(sz < SIZE_MAX);
-        f->fss_file = mmap(NULL, sz, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
-        if (f->fss_file == MAP_FAILED) {
-                f->fss_file = NULL;
+        FSSHeader *p = mmap(NULL, sz, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
+        if (p == MAP_FAILED)
                 return -errno;
-        }
 
-        f->fss_start_usec = le64toh(f->fss_file->start_usec);
-        f->fss_interval_usec = le64toh(f->fss_file->interval_usec);
+        f->fss_file_size = fss_file_size;
+        f->fss_file = p;
+
+        f->fss_start_usec = le64toh(p->start_usec);
+        f->fss_interval_usec = le64toh(p->interval_usec);
 
         f->fsprg_state = IOVEC_MAKE(
-                        (uint8_t*) f->fss_file + le64toh(f->fss_file->header_size),
-                        le64toh(f->fss_file->fsprg_state_size));
+                        (uint8_t*) p + le64toh(p->header_size),
+                        le64toh(p->fsprg_state_size));
 
         return 0;
 }
 
 int journal_file_parse_verification_key(JournalFile *f, const char *key) {
-        _cleanup_(erase_and_freep) uint8_t *seed = NULL;
-        size_t seed_size;
-        const char *k;
-        unsigned long long start, interval;
         int r;
 
         assert(f);
         assert(key);
 
-        seed_size = FSPRG_RECOMMENDED_SEEDLEN;
-        seed = malloc(seed_size);
+        size_t seed_size = FSPRG_RECOMMENDED_SEEDLEN;
+        _cleanup_(erase_and_freep) uint8_t *seed = malloc(seed_size);
         if (!seed)
                 return -ENOMEM;
 
-        k = key;
+        const char *k = key;
         for (size_t c = 0; c < seed_size; c++) {
                 int x, y;
 
@@ -146,6 +142,7 @@ int journal_file_parse_verification_key(JournalFile *f, const char *key) {
                 return -EKEYREJECTED;
         k++;
 
+        unsigned long long start, interval;
         r = sscanf(k, "%llx-%llx", &start, &interval);
         if (r != 2)
                 return -EKEYREJECTED;
@@ -210,7 +207,6 @@ int journal_file_fsprg_seek(JournalFile *f, uint64_t goal) {
 
 int journal_file_hmac_setup(JournalFile *f) {
 #if HAVE_GCRYPT
-        gcry_error_t e;
         int r;
 
         if (!JOURNAL_HEADER_SEALED(f->header))
@@ -220,8 +216,7 @@ int journal_file_hmac_setup(JournalFile *f) {
         if (r < 0)
                 return r;
 
-        e = sym_gcry_md_open(&f->hmac, GCRY_MD_SHA256, GCRY_MD_FLAG_HMAC);
-        if (e != 0)
+        if (sym_gcry_md_open(&f->hmac, GCRY_MD_SHA256, GCRY_MD_FLAG_HMAC) != 0)
                 return -EOPNOTSUPP;
 
         return 0;
@@ -437,11 +432,7 @@ int journal_file_append_first_tag(JournalFile *f) {
         if (r < 0)
                 return r;
 
-        r = journal_file_append_tag(f);
-        if (r < 0)
-                return r;
-
-        return 0;
+        return journal_file_append_tag(f);
 }
 
 static int journal_file_get_epoch(JournalFile *f, uint64_t realtime, uint64_t *epoch) {
