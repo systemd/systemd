@@ -811,8 +811,10 @@ static int address_update(Address *address) {
                 link->ipv6ll_address = address->in_addr.in6;
 
                 r = link_ipv6ll_gained(link);
-                if (r < 0)
+                if (r < 0) {
+                        link->ipv6ll_address = (const struct in6_addr) {};
                         return r;
+                }
         }
 
         if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
