@@ -29,23 +29,8 @@ static void* fssheader_free(FSSHeader *p) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(FSSHeader*, fssheader_free);
 
-#if HAVE_GCRYPT
-static uint64_t journal_file_tag_seqnum(JournalFile *f) {
-        uint64_t r;
-
-        assert(f);
-
-        r = le64toh(f->header->n_tags) + 1;
-        f->header->n_tags = htole64(r);
-
-        return r;
-}
-#endif
-
 int journal_file_append_tag(JournalFile *f) {
 #if HAVE_GCRYPT
-        Object *o;
-        uint64_t p;
         int r;
 
         assert(f);
@@ -61,11 +46,16 @@ int journal_file_append_tag(JournalFile *f) {
 
         assert(f->hmac);
 
+        Object *o;
+        uint64_t p;
         r = journal_file_append_object(f, OBJECT_TAG, sizeof(struct TagObject), &o, &p);
         if (r < 0)
                 return r;
 
-        o->tag.seqnum = htole64(journal_file_tag_seqnum(f));
+        uint64_t seqnum = le64toh(f->header->n_tags) + 1;
+        f->header->n_tags = htole64(seqnum);
+
+        o->tag.seqnum = htole64(seqnum);
         o->tag.epoch = htole64(FSPRG_GetEpoch(f->fsprg_state.iov_base));
 
         log_debug("Writing tag %"PRIu64" for epoch %"PRIu64"",
