@@ -21,6 +21,11 @@ from pathlib import Path
 from types import FrameType
 from typing import Optional
 
+# vmspawn (our VMM) reports an abnormal exit of QEMU itself (a crash, an OOM-kill, …), as opposed to the
+# exit status reported by the VM over VSOCK, as EXIT_EXCEPTION. Keep this in sync with EXIT_EXCEPTION from
+# src/shared/exit-status.h.
+EXIT_EXCEPTION = 255
+
 EMERGENCY_EXIT_DROPIN = '''\
 [Unit]
 Wants=emergency-exit.service
@@ -586,6 +591,7 @@ def main() -> None:
         '--directory', os.fspath(args.mkosi_dir),
         '--machine', name,
         '--ephemeral=yes',
+        '--console=native',
         *(['--forward-journal', journal_file] if journal_file else []),
         *(
             [
@@ -635,23 +641,24 @@ def main() -> None:
     try:
         result = subprocess.run(cmd)
 
-        # On Debian/Ubuntu we get a lot of random QEMU crashes. Retry once, and then skip if it fails again.
-        if args.vm and result.returncode == 247 and args.exit_code != 247:
+        # On Debian/Ubuntu we get a lot of random QEMU crashes. vmspawn surfaces these as EXIT_EXCEPTION
+        # (see the constant above). Retry once, and then skip if it fails again.
+        if args.vm and result.returncode == EXIT_EXCEPTION and args.exit_code != EXIT_EXCEPTION:
             if journal_file:
                 journal_file.unlink(missing_ok=True)
             print(
-                f'Test {args.name} failed due to QEMU crash (error 247), retrying...',
+                f'Test {args.name} failed due to QEMU crash (error {EXIT_EXCEPTION}), retrying...',
                 file=sys.stderr,
             )
             result = subprocess.run(cmd)
-            if args.vm and result.returncode == 247 and args.exit_code != 247:
+            if args.vm and result.returncode == EXIT_EXCEPTION and args.exit_code != EXIT_EXCEPTION:
                 print(
-                    f'Test {args.name} failed due to QEMU crash (error 247), ignoring',
+                    f'Test {args.name} failed due to QEMU crash (error {EXIT_EXCEPTION}), ignoring',
                     file=sys.stderr,
                 )
                 exit(77)
             print(
-                f'Test {args.name} worked on re-run after QEMU crash (error 247)',
+                f'Test {args.name} worked on re-run after QEMU crash (error {EXIT_EXCEPTION})',
                 file=sys.stderr,
             )
     except KeyboardInterrupt:
