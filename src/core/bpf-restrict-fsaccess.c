@@ -49,19 +49,21 @@ static struct restrict_fsaccess_bpf *restrict_fsaccess_bpf_free(struct restrict_
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(struct restrict_fsaccess_bpf *, restrict_fsaccess_bpf_free);
 
-/* Verify that restrict_fsaccess_bss matches the skeleton's .bss layout. The sizeof
- * check catches field additions/removals; the offsetof checks catch field
- * reordering. Field order in restrict_fsaccess_bss must match the BPF global
- * declaration order in restrict-fsaccess.bpf.c — this is what bpftool uses for the
- * generated struct. The read-modify-write in restrict_fsaccess_clear_initramfs_trust()
- * depends on this layout. */
-assert_cc(sizeof(struct restrict_fsaccess_bss) == sizeof_field(struct restrict_fsaccess_bpf, bss[0]));
-assert_cc(offsetof(struct restrict_fsaccess_bss, initramfs_s_dev) ==
-          offsetof(typeof_field(struct restrict_fsaccess_bpf, bss[0]), initramfs_s_dev));
-assert_cc(offsetof(struct restrict_fsaccess_bss, protected_map_id_verity) ==
-          offsetof(typeof_field(struct restrict_fsaccess_bpf, bss[0]), protected_map_id_verity));
-assert_cc(offsetof(struct restrict_fsaccess_bss, protected_map_id_bss) ==
-          offsetof(typeof_field(struct restrict_fsaccess_bpf, bss[0]), protected_map_id_bss));
+/* Offset of initramfs_s_dev within the BPF program's .bss section, taken from
+ * the generated skeleton so it matches whichever BPF compiler (clang or gcc)
+ * emitted the object. clang and gcc do not necessarily place .bss globals in
+ * source declaration order, so the offset must come from the skeleton rather
+ * than a hand-maintained mirror struct. restrict_fsaccess_clear_initramfs_trust()
+ * mmaps the .bss map and clears this field via a single store. */
+#define INITRAMFS_S_DEV_OFF                                            \
+        offsetof(typeof_field(struct restrict_fsaccess_bpf, bss[0]), initramfs_s_dev)
+/* The single aligned 32-bit store in restrict_fsaccess_clear_initramfs_trust()
+ * is only atomic if the field is 4-byte aligned. */
+assert_cc(INITRAMFS_S_DEV_OFF % sizeof(uint32_t) == 0);
+/* The store is a fixed 4-byte write; pin its width to the skeleton's field
+ * width so widening initramfs_s_dev fails the build instead of silently
+ * clearing only the low bytes. */
+assert_cc(sizeof_field(typeof_field(struct restrict_fsaccess_bpf, bss[0]), initramfs_s_dev) == sizeof(uint32_t));
 
 /* Build the skeleton links array indexed by the link enum.
  * For BDEV_SETINTEGRITY, use whichever variant was loaded (full or compat).
@@ -227,16 +229,15 @@ static int restrict_fsaccess_clear_initramfs_trust(int bss_map_fd) {
         void *p;
 
         assert(bss_map_fd >= 0);
-        assert_cc(offsetof(struct restrict_fsaccess_bss, initramfs_s_dev) == 0);
 
         p = mmap(NULL, page_size(), PROT_READ | PROT_WRITE, MAP_SHARED, bss_map_fd, 0);
         if (p == MAP_FAILED)
                 return log_error_errno(errno, "bpf-restrict-fsaccess: Failed to mmap .bss map: %m");
 
-        /* initramfs_s_dev is at offset 0 in the .bss layout. Single aligned
-         * 32-bit store is atomic — BPF programs see either the old or new value,
-         * no torn reads possible. Guard globals are untouched. */
-        *(uint32_t *) p = 0;
+        /* Single aligned 32-bit store at INITRAMFS_S_DEV_OFF is atomic — BPF
+         * programs see either the old or new value, no torn reads possible.
+         * Guard globals are untouched. */
+        *(uint32_t *) ((uint8_t *) p + INITRAMFS_S_DEV_OFF) = 0;
 
         /* munmap failure here is harmless: the clear above already landed in
          * the kernel, and the mapping is discarded by exec anyway. */
