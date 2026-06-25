@@ -400,6 +400,26 @@ int write_string_filef(
         return write_string_file(fn, p, flags);
 }
 
+int write_string_filef_at(
+                int dir_fd,
+                const char *fn,
+                WriteStringFileFlags flags,
+                const char *format, ...) {
+
+        _cleanup_free_ char *p = NULL;
+        va_list ap;
+        int r;
+
+        va_start(ap, format);
+        r = vasprintf(&p, format, ap);
+        va_end(ap);
+
+        if (r < 0)
+                return -ENOMEM;
+
+        return write_string_file_at(dir_fd, fn, p, flags);
+}
+
 int write_base64_file_at(
                 int dir_fd,
                 const char *fn,
