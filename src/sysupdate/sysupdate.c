@@ -1008,7 +1008,7 @@ typedef enum ProcessImageFlags {
         PROCESS_IMAGE_READ_ONLY = 1 << 0,
 } ProcessImageFlags;
 
-static int process_image(
+static int context_process_image(
                 Context *c,
                 ProcessImageFlags flags) {
 
@@ -1053,7 +1053,7 @@ static int process_image(
         return 0;
 }
 
-static int context_list_components(Context *context, char ***component_names, bool *has_default_component);
+static int context_list_components(Context *context, char ***ret_component_names, bool *ret_has_default_component);
 
 static int context_load_offline(
                 Context *context,
@@ -1066,7 +1066,7 @@ static int context_load_offline(
         /* Sets up a context object and initializes everything we can initialize offline, i.e. without
          * checking on the update source (i.e. the Internet) what versions are available */
 
-        r = process_image(context, process_image_flags);
+        r = context_process_image(context, process_image_flags);
         if (r < 0)
                 return r;
 
@@ -1112,18 +1112,8 @@ static int context_load_online(
 }
 
 static bool image_type_can_sysupdate(ImageType image_type) {
-        switch (image_type) {
-        case IMAGE_DIRECTORY:
-        case IMAGE_SUBVOLUME:
-        case IMAGE_RAW:
-        case IMAGE_BLOCK:
-                return true;
-
         /* systemd-sysupdate doesn't support mstack images yet */
-        case IMAGE_MSTACK:
-        default:
-                return false;
-        }
+        return IN_SET(image_type, IMAGE_DIRECTORY, IMAGE_SUBVOLUME, IMAGE_RAW, IMAGE_BLOCK);
 }
 
 static int context_load_paths_from_image(Context *context, Image *image) {
@@ -1202,7 +1192,7 @@ static int context_load_online_from_target(Context *context, ProcessImageFlags p
                         if (r < 0)
                                 return r;
 
-                        r = context_list_components(&image_context, /* component_names= */ NULL, &have);
+                        r = context_list_components(&image_context, /* ret_component_names= */ NULL, &have);
                         if (r < 0)
                                 return r;
                         if (!have) {
@@ -1230,7 +1220,7 @@ static int context_load_online_from_target(Context *context, ProcessImageFlags p
         case TARGET_COMPONENT: {
                 _cleanup_strv_free_ char **component_names = NULL;
 
-                r = context_list_components(context, &component_names, /* has_default_component= */ NULL);
+                r = context_list_components(context, &component_names, /* ret_has_default_component= */ NULL);
                 if (r < 0)
                         return r;
 
@@ -1921,7 +1911,7 @@ static int vl_method_check_new(sd_varlink *link, sd_json_variant *parameters, sd
         r = context_load_online_from_target(&context, PROCESS_IMAGE_READ_ONLY);
         if (r == -ENOENT)
                 return sd_varlink_error(link, "io.systemd.SysUpdate.NoSuchTarget", NULL);
-        else if (r < 0)
+        if (r < 0)
                 return r;
 
         if (context.candidate)
@@ -2149,7 +2139,7 @@ static int verb_pending_or_reboot(int argc, char *argv[], uintptr_t _data, void 
         return EXIT_SUCCESS;
 }
 
-static int context_list_components(Context *context, char ***component_names, bool *has_default_component) {
+static int context_list_components(Context *context, char ***ret_component_names, bool *ret_has_default_component) {
         int r;
 
         assert(context);
@@ -2159,13 +2149,13 @@ static int context_list_components(Context *context, char ***component_names, bo
         if (r < 0)
                 return r;
 
-        if (component_names)
-                *component_names = TAKE_PTR(z);
+        if (ret_component_names)
+                *ret_component_names = TAKE_PTR(z);
 
         /* Does the system have at least one transfer file in /etc/sysupdate.d, which can be considered a
          * TARGET_HOST? See target_get_argument() in sysupdated.c */
-        if (has_default_component)
-                *has_default_component = (!context->definitions &&
+        if (ret_has_default_component)
+                *ret_has_default_component = (!context->definitions &&
                                           !context->component &&
                                           !context->root &&
                                           !context->image &&
