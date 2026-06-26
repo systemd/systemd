@@ -18,7 +18,7 @@ char16_t *disk_get_url(EFI_HANDLE *handle) {
         if (err != EFI_SUCCESS)
                 return NULL;
 
-        for (; !device_path_is_end(dp); dp = device_path_next_node(dp)) {
+        for (; dp && !device_path_is_end(dp); dp = device_path_next_node(dp)) {
                 if (dp->Type != MESSAGING_DEVICE_PATH || dp->SubType != MSG_URI_DP)
                         continue;
 
