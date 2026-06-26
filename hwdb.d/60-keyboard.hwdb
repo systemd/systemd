@@ -241,6 +241,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnNitro*AN*515-58:pvr*
  KEYBOARD_KEY_f0=!kbdillumdown                          # Fn+F9
  KEYBOARD_KEY_8a=micmute                                # Microphone mute button
  KEYBOARD_KEY_55=power
+ KEYBOARD_KEY_f5=prog1                                  # NitroSense button
 
 # Nitro AN517-54
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnNitro*AN*517-54:pvr*
@@ -960,6 +961,15 @@ evdev:name:Huawei WMI hotkeys:dmi:bvn*:bvr*:bd*:svnHUAWEI*:pnEUL-WX9:*
  KEYBOARD_KEY_282=unknown                               # Brightness Up, also emitted by acpi-video, ignore
 
 ###########################################################
+# Infinix
+###########################################################
+
+# Infinix Y3 Max YL-613
+evdev:atkbd:dmi:*:svnInfinix:*pnY3Max:*
+ KEYBOARD_KEY_64=prog1                                   # Power Boost key (top-right corner)
+ KEYBOARD_KEY_76=f21                                     # Fn+F8 Touchpad toggle, sends Ctrl+Meta+f21
+
+###########################################################
 # IBM
 ###########################################################
 
@@ -1072,6 +1082,10 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*3000*:pvr*
 # "Lenovo Care" Key of the 3000 N200
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO:pn0769AP2:pvr3000N200:*
  KEYBOARD_KEY_b4=prog1
+
+# Lenovo ThinkPad T14 Gen 1 AMD, Brazilian keyboard
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO:pn20UES5TQ00:pvr*
+ KEYBOARD_KEY_9d=ro                                     # slash/question key
 
 # Lenovo IdeaPad
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*IdeaPad*:pvr*
@@ -1656,10 +1670,15 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMicro-Star*:pn*Modern*:*
  KEYBOARD_KEY_97=unknown                                # Lid close
  KEYBOARD_KEY_98=unknown                                # Lid open
 
-# MSI Claw A1M, MSI Claw 7 AI+ A2VM, MSI Claw 8 AI+ A2VM
-evdev:name:AT Translated Set 2 keyboard:dmi:*:svnMicro-StarInternationalCo.,Ltd.:pnClawA1M:*
-evdev:name:AT Translated Set 2 keyboard:dmi:*:svnMicro-StarInternationalCo.,Ltd.:pnClaw7AI+A2VM:*
-evdev:name:AT Translated Set 2 keyboard:dmi:*:svnMicro-StarInternationalCo.,Ltd.:pnClaw8AI+A2VM:*
+# Keymaps for MSI Modern 15 H AI C1MG
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMicro-Star*:pnModern15HAIC1MG:*
+ KEYBOARD_KEY_d7=bluetooth                              # Fn+F6 Bluetooth key
+
+# MSI Claw A1M, MSI Claw 7 AI+ A2VM, MSI Claw 8 AI+ A2VM, MSI Claw A8 BZ2EM
+evdev:name:AT Translated Set 2 keyboard:dmi:*:rvnMicro-StarInternationalCo.,Ltd.:rnMS-1T41:*
+evdev:name:AT Translated Set 2 keyboard:dmi:*:rvnMicro-StarInternationalCo.,Ltd.:rnMS-1T42:*
+evdev:name:AT Translated Set 2 keyboard:dmi:*:rvnMicro-StarInternationalCo.,Ltd.:rnMS-1T52:*
+evdev:name:AT Translated Set 2 keyboard:dmi:*:rvnMicro-StarInternationalCo.,Ltd.:rnMS-1T8K:*
  KEYBOARD_KEY_b9=f15                                   # Right Face Button
  KEYBOARD_KEY_ba=f16                                   # Left Face Button
 
@@ -2224,7 +2243,7 @@ evdev:atkbd:dmi:bvnTIMI*:bvr*:bd*:svnTIMI*:pnMiNoteBookPro*:*
 ###########################################################
 
 # X+ piccolo series 81X (Intel N305, possibly more)
-evdev:atkbd:dmi:bvn*:bvr*:bd*:svnX-Plus.tech:pnX+ Piccolo:*
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnX-Plus.tech:pnX+Piccolo:pvr*
  KEYBOARD_KEY_9c=enter                                  # KP_enter in the main area is wrong
 
 ###########################################################

@@ -9,8 +9,8 @@
 #	The latest version can be obtained from
 #		http://www.linux-usb.org/usb.ids
 #
-# Version: 2025.12.13
-# Date:    2025-12-13 20:34:01
+# Version: 2026.06.10
+# Date:    2026-06-10 20:34:02
 #
 
 # Vendors, devices and interfaces. Please keep sorted.
@@ -13057,6 +13057,7 @@
 	5804  BCM5880 Secure Applications Processor with fingerprint swipe sensor
 	5832  BCM5880 Secure Applications Processor Smartcard reader
 	5843  BCM58200 ControlVault 3 (FingerPrint sensor + Contacted SmartCard)
+	5865  Fingerprint Reader (Dell Control Vault)
 	6300  Pirelli Remote NDIS Device
 	6410  BCM20703A1 Bluetooth 4.1 + LE
 	bd11  BCM4320 802.11bg Wireless Adapter
