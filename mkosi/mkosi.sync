@@ -7,7 +7,7 @@ if ((${NO_SYNC:-0})) || ((${NO_BUILD:-0})); then
     exit 0
 fi
 
-# Distributions without downstream systemd packaging (e.g. postmarketOS) skip the mkosi.pkgenv entry
+# Distributions without downstream systemd packaging skip the mkosi.pkgenv entry
 # that sets PKG_SUBDIR (and the matching prepare script), so there's nothing to sync.
 if [[ -z "${PKG_SUBDIR:-}" ]]; then
     exit 0
