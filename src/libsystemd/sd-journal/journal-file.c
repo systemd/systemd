@@ -19,10 +19,9 @@
 #include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"
-#include "gcrypt-util.h"
 #include "hashmap.h"
 #include "id128-util.h"
-#include "journal-authenticate.h"
+#include "journal-authenticate-internal.h"
 #include "journal-def.h"
 #include "journal-file.h"
 #include "journal-internal.h"
@@ -307,17 +306,7 @@ JournalFile* journal_file_close(JournalFile *f) {
         free(f->compress_buffer);
 #endif
 
-        if (f->fss_file) {
-                size_t sz = PAGE_ALIGN(f->fss_file_size);
-                assert(sz < SIZE_MAX);
-                munmap(f->fss_file, sz);
-        } else
-                free(f->fsprg_state);
-
-        free(f->fsprg_seed);
-
-        if (f->hmac)
-                sym_gcry_md_close(f->hmac);
+        journal_file_auth_done(f);
 
         return mfree(f);
 }
@@ -403,16 +392,13 @@ static int journal_file_init_header(
                 JournalFileFlags file_flags,
                 JournalFile *template) {
 
-        bool seal = false;
         ssize_t k;
         int r;
 
         assert(f);
 
-#if HAVE_GCRYPT
         /* Try to load the FSPRG state, and if we can't, then just don't do sealing */
-        seal = FLAGS_SET(file_flags, JOURNAL_SEAL) && journal_file_fss_load(f) >= 0;
-#endif
+        bool seal = FLAGS_SET(file_flags, JOURNAL_SEAL) && journal_file_auth_load(f) >= 0;
 
         Header h = {
                 .header_size = htole64(ALIGN64(sizeof(h))),
@@ -1832,11 +1818,9 @@ static int journal_file_append_field(
         /* The linking might have altered the window, so let's only pass the offset to hmac which will
          * move to the object again if needed. */
 
-#if HAVE_GCRYPT
-        r = journal_file_hmac_put_object(f, OBJECT_FIELD, NULL, p);
+        r = journal_file_auth_put_object(f, OBJECT_FIELD, NULL, p);
         if (r < 0)
                 return r;
-#endif
 
         if (ret_object) {
                 r = journal_file_move_to_object(f, OBJECT_FIELD, p, ret_object);
@@ -1947,11 +1931,9 @@ static int journal_file_append_data(
         if (r < 0)
                 return r;
 
-#if HAVE_GCRYPT
-        r = journal_file_hmac_put_object(f, OBJECT_DATA, o, p);
+        r = journal_file_auth_put_object(f, OBJECT_DATA, o, p);
         if (r < 0)
                 return r;
-#endif
 
         /* Create field object ... */
         r = journal_file_append_field(f, data, (uint8_t*) eq - (uint8_t*) data, &fo, NULL);
@@ -2197,11 +2179,9 @@ static int link_entry_into_array(
         if (r < 0)
                 return r;
 
-#if HAVE_GCRYPT
-        r = journal_file_hmac_put_object(f, OBJECT_ENTRY_ARRAY, o, q);
+        r = journal_file_auth_put_object(f, OBJECT_ENTRY_ARRAY, o, q);
         if (r < 0)
                 return r;
-#endif
 
         write_entry_array_item(f, o, i, p);
 
@@ -2443,11 +2423,9 @@ static int journal_file_append_entry_internal(
         for (size_t i = 0; i < n_items; i++)
                 write_entry_item(f, o, i, &items[i]);
 
-#if HAVE_GCRYPT
-        r = journal_file_hmac_put_object(f, OBJECT_ENTRY, o, np);
+        r = journal_file_auth_put_object(f, OBJECT_ENTRY, o, np);
         if (r < 0)
                 return r;
-#endif
 
         r = journal_file_link_entry(f, o, np, items, n_items);
         if (r < 0)
@@ -2632,11 +2610,9 @@ int journal_file_append_entry(
         else
                 machine_id = &_machine_id;
 
-#if HAVE_GCRYPT
-        r = journal_file_maybe_append_tag(f, ts->realtime);
+        r = journal_file_auth_append_tag_maybe(f, ts->realtime);
         if (r < 0)
                 return r;
-#endif
 
         if (n_iovec < ALLOCA_MAX / sizeof(EntryItem) / 2)
                 items = newa(EntryItem, n_iovec);
@@ -4283,13 +4259,11 @@ int journal_file_open(
                         goto fail;
         }
 
-#if HAVE_GCRYPT
         if (!newly_created && journal_file_writable(f) && JOURNAL_HEADER_SEALED(f->header)) {
-                r = journal_file_fss_load(f);
+                r = journal_file_auth_load(f);
                 if (r < 0)
                         goto fail;
         }
-#endif
 
         if (journal_file_writable(f)) {
                 if (metrics) {
@@ -4303,11 +4277,9 @@ int journal_file_open(
                         goto fail;
         }
 
-#if HAVE_GCRYPT
-        r = journal_file_hmac_setup(f);
+        r = journal_file_auth_setup(f);
         if (r < 0)
                 goto fail;
-#endif
 
         if (newly_created) {
                 r = journal_file_setup_field_hash_table(f);
@@ -4318,11 +4290,9 @@ int journal_file_open(
                 if (r < 0)
                         goto fail;
 
-#if HAVE_GCRYPT
-                r = journal_file_append_first_tag(f);
+                r = journal_file_auth_append_tag_first(f);
                 if (r < 0)
                         goto fail;
-#endif
         }
 
         if (mmap_cache_fd_got_sigbus(f->cache_fd)) {
