@@ -1,11 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdlib.h>
 #include <unistd.h>
 
 #include "env-util.h"
 #include "errno-util.h"
 #include "initrd-util.h"
 #include "log.h"
+#include "parse-util.h"
 
 static int saved_in_initrd = -1;
 
@@ -37,4 +39,26 @@ bool in_initrd(void) {
 
 void in_initrd_force(bool value) {
         saved_in_initrd = value;
+}
+
+bool in_first_boot(void) {
+        static int first_boot = -1;
+        int r;
+
+        if (first_boot >= 0)
+                return first_boot;
+
+        const char *e = secure_getenv("SYSTEMD_FIRST_BOOT");
+        if (e) {
+                r = parse_boolean(e);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to parse $SYSTEMD_FIRST_BOOT, ignoring: %m");
+                else
+                        return (first_boot = r);
+        }
+
+        r = RET_NERRNO(access("/run/systemd/first-boot", F_OK));
+        if (r < 0 && r != -ENOENT)
+                log_debug_errno(r, "Failed to check if /run/systemd/first-boot exists, assuming no: %m");
+        return r >= 0;
 }
