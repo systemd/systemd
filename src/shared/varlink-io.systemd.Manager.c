@@ -2,6 +2,7 @@
 
 #include "varlink-idl-common.h"
 #include "varlink-io.systemd.Manager.h"
+#include "varlink-io.systemd.Unit.h"
 
 SD_VARLINK_DEFINE_ENUM_TYPE(
                 LogTarget,
@@ -108,6 +109,8 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(DefaultProtectKernelTunables, SD_VARLINK_BOOL, 0),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd-system.conf.html#DefaultProtectKernelModules="),
                 SD_VARLINK_DEFINE_FIELD(DefaultProtectKernelModules, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd-system.conf.html#DefaultPrivateTmp="),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(DefaultPrivateTmp, PrivateTmp, 0),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd-system.conf.html#CtrlAltDelBurstAction="),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(CtrlAltDelBurstAction, EmergencyAction, 0),
                 SD_VARLINK_FIELD_COMMENT("The console on which systemd asks for confirmation when spawning processes"),
@@ -278,4 +281,5 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_type_OOMPolicy,
                 &vl_type_ExecOutputType,
                 &vl_type_CGroupPressureWatch,
-                &vl_type_EmergencyAction);
+                &vl_type_EmergencyAction,
+                &vl_type_PrivateTmp);

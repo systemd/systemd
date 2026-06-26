@@ -872,6 +872,7 @@ static int parse_config_file(void) {
                 { "Manager", "DefaultRestrictSUIDSGID",           config_parse_bool,                  0,                        &arg_defaults.restrict_suid_sgid                       },
                 { "Manager", "DefaultProtectKernelTunables",      config_parse_bool,                  0,                        &arg_defaults.protect_kernel_tunables                  },
                 { "Manager", "DefaultProtectKernelModules",       config_parse_bool,                  0,                        &arg_defaults.protect_kernel_modules                   },
+                { "Manager", "DefaultPrivateTmp",                 config_parse_private_tmp,           0,                        &arg_defaults.private_tmp                              },
                 { "Manager", "DefaultEnvironment",                config_parse_environ,               arg_runtime_scope,        &arg_default_environment                               },
                 { "Manager", "ManagerEnvironment",                config_parse_environ,               arg_runtime_scope,        &arg_manager_environment                               },
                 { "Manager", "DefaultLimitCPU",                   config_parse_rlimit,                RLIMIT_CPU,               arg_defaults.rlimit                                    },
