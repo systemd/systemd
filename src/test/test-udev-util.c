@@ -57,4 +57,21 @@ TEST(udev_replace_whitespace) {
         test_udev_replace_whitespace_one_len("    hoge   hoge    ", 0, "");
 }
 
+TEST(udev_replace_whitespace_not_nul_terminated) {
+        /* 'str' is not NUL terminated within 'len' and consists entirely of whitespace, like a
+         * space padded, non-terminated ATA IDENTIFY model/serial field. Only 'len' bytes may be
+         * read from it; otherwise this reads off the end of the buffer (caught by the sanitizers). */
+
+        for (size_t len = 1; len <= 64; len++) {
+                _cleanup_free_ char *str = NULL, *result = NULL;
+
+                assert_se(str = new(char, len));
+                memset(str, ' ', len);
+
+                assert_se(result = new(char, len + 1));
+                assert_se(udev_replace_whitespace(str, result, len) == 0);
+                ASSERT_STREQ(result, "");
+        }
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);

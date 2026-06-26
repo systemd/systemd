@@ -315,7 +315,10 @@ size_t udev_replace_whitespace(const char *str, char *to, size_t len) {
          *
          * Note that only 'len' characters are read from 'str'. */
 
-        i = strspn(str, WHITESPACE);
+        /* Skip leading whitespace, but read at most 'len' bytes: 'str' is not necessarily NUL
+         * terminated within 'len' (e.g. the space padded ATA IDENTIFY fields ata_id passes in). */
+        for (i = 0; i < len && str[i] != '\0' && strchr(WHITESPACE, str[i]); i++)
+                ;
 
         for (j = 0; j < len && i < len && str[i] != '\0'; i++) {
                 if (isspace(str[i])) {
