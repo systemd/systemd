@@ -1286,6 +1286,24 @@ TEST(strspn_from_end) {
         assert_se(strspn_from_end("aaa12aa34", DIGITS) == 2);
 }
 
+TEST(strspn_max) {
+        assert_se(strspn_max("", WHITESPACE, 0) == 0);
+        assert_se(strspn_max("hoge", WHITESPACE, 4) == 0);
+        assert_se(strspn_max("   hoge", WHITESPACE, 7) == 3);
+        assert_se(strspn_max("   hoge", WHITESPACE, 2) == 2);
+        assert_se(strspn_max("    ", WHITESPACE, 4) == 4);
+
+        /* 'str' is all whitespace and not NUL terminated within 'n': at most 'n' bytes may be read,
+         * otherwise this reads off the end of the buffer (caught by the sanitizers). */
+        for (size_t n = 1; n <= 64; n++) {
+                _cleanup_free_ char *str = NULL;
+
+                assert_se(str = new(char, n));
+                memset(str, ' ', n);
+                assert_se(strspn_max(str, WHITESPACE, n) == n);
+        }
+}
+
 TEST(streq_skip_trailing_chars) {
         /* NULL is WHITESPACE by default */
         assert_se(streq_skip_trailing_chars("foo bar", "foo bar", NULL));

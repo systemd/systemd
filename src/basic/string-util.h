@@ -286,6 +286,7 @@ typedef enum MakeCStringMode {
 int make_cstring(const void *s, size_t n, MakeCStringMode mode, char **ret);
 
 size_t strspn_from_end(const char *str, const char *accept) _pure_;
+size_t strspn_max(const char *str, const char *accept, size_t n) _pure_;
 
 char* strdupspn(const char *a, const char *accept);
 char* strdupcspn(const char *a, const char *reject);
