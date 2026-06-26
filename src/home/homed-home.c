@@ -49,9 +49,6 @@
 #include "user-record-util.h"
 #include "user-util.h"
 
-/* Retry to deactivate home directories again and again every 15s until it works */
-#define RETRY_DEACTIVATE_USEC (15U * USEC_PER_SEC)
-
 #define HOME_USERS_MAX 500
 #define PENDING_OPERATIONS_MAX 100
 
@@ -514,7 +511,7 @@ static void home_start_retry_deactivate(Home *h) {
                         h->manager->event,
                         &h->retry_deactivate_event_source,
                         CLOCK_MONOTONIC,
-                        RETRY_DEACTIVATE_USEC,
+                        HOME_RETRY_DEACTIVATE_USEC,
                         1*USEC_PER_MINUTE,
                         home_on_retry_deactivate,
                         h);
@@ -1091,9 +1088,8 @@ static void home_unlocking_finish(Home *h, int ret, UserRecord *hr) {
 
         log_debug("Unlocking operation of %s completed.", h->user_name);
 
-        h->current_operation = operation_result_unref(h->current_operation, r, &error);
+        h->current_operation = operation_result_unref(h->current_operation, 0, NULL);
         home_set_state(h, _HOME_STATE_INVALID);
-        return;
 }
 
 static void home_authenticating_finish(Home *h, int ret, UserRecord *hr) {
