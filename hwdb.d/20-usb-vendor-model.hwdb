@@ -39110,6 +39110,9 @@ usb:v0A5Cp5832*
 usb:v0A5Cp5843*
  ID_MODEL_FROM_DATABASE=BCM58200 ControlVault 3 (FingerPrint sensor + Contacted SmartCard)
 
+usb:v0A5Cp5865*
+ ID_MODEL_FROM_DATABASE=Fingerprint Reader (Dell Control Vault)
+
 usb:v0A5Cp6300*
  ID_MODEL_FROM_DATABASE=Pirelli Remote NDIS Device
 
