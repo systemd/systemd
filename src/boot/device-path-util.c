@@ -25,6 +25,10 @@ EFI_STATUS make_file_device_path(EFI_HANDLE device, const char16_t *file, EFI_DE
         const EFI_DEVICE_PATH *end_node = device_path_find_end_node(dp);
 
         size_t file_size = strsize16(file);
+        /* The node Length is a uint16_t, so refuse a path that would not fit. */
+        if (file_size > UINT16_MAX - sizeof(FILEPATH_DEVICE_PATH))
+                return EFI_INVALID_PARAMETER;
+
         size_t dp_size = (uint8_t *) end_node - (uint8_t *) dp;
 
         /* Make a copy that can also hold a file media device path. */
@@ -55,6 +59,9 @@ EFI_STATUS make_url_device_path(const char16_t *url, EFI_DEVICE_PATH **ret) {
                 return EFI_INVALID_PARAMETER;
 
         size_t l = strlen8(u);
+        /* The node Length is a uint16_t, so refuse a URL that would not fit. */
+        if (l > UINT16_MAX - offsetof(URI_DEVICE_PATH, Uri))
+                return EFI_INVALID_PARAMETER;
 
         size_t t = offsetof(URI_DEVICE_PATH, Uri) + l + sizeof(EFI_DEVICE_PATH);
         EFI_DEVICE_PATH *dp = xmalloc(t);
@@ -175,6 +182,23 @@ EFI_DEVICE_PATH *device_path_replace_node(
 
         *end = DEVICE_PATH_END_NODE;
         return ret;
+}
+
+bool device_path_is_valid(const EFI_DEVICE_PATH *dp, size_t size) {
+        if (!dp)
+                return false;
+
+        /* Validate against the known size so a truncated/corrupt path can't make us read out of bounds. */
+        for (;;) {
+                if (size < sizeof(EFI_DEVICE_PATH))
+                        return false;
+                if (dp->Length < sizeof(EFI_DEVICE_PATH) || dp->Length > size)
+                        return false;
+                if (device_path_is_end(dp))
+                        return true;
+                size -= dp->Length;
+                dp = (const EFI_DEVICE_PATH *) ((const uint8_t *) dp + dp->Length);
+        }
 }
 
 size_t device_path_size(const EFI_DEVICE_PATH *dp) {
