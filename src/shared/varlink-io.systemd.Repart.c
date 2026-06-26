@@ -29,7 +29,7 @@ static SD_VARLINK_DEFINE_ENUM_TYPE(
                 SD_VARLINK_FIELD_COMMENT("Always create a new partition table, potentially overwriting an existing table"),
                 SD_VARLINK_DEFINE_ENUM_VALUE(force));
 
-static SD_VARLINK_DEFINE_ENUM_TYPE(
+SD_VARLINK_DEFINE_ENUM_TYPE(
                 BlockDeviceAction,
                 SD_VARLINK_FIELD_COMMENT("The device is currently present and a candidate. Emitted both during the initial enumeration and for live uevents (any action other than 'remove' is propagated as 'add', including the synthesized transitions when a device becomes empty or read-only and a relevant ignore* input is in effect)."),
                 SD_VARLINK_DEFINE_ENUM_VALUE(add),
