@@ -98,6 +98,7 @@ void mac_selinux_retest(void);
 bool mac_selinux_enforcing(void);
 
 int mac_selinux_init(void);
+int mac_selinux_init_with_root(const char *root);
 int mac_selinux_init_lazy(void);
 void mac_selinux_maybe_reload(void);
 void mac_selinux_finish(void);
