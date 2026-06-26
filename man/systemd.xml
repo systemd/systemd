@@ -966,6 +966,41 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>systemd.credentials_boot=</varname></term>
+
+        <listitem><para>Controls under which conditions a credential encrypted with a <literal>null</literal>
+        key (i.e. a credential wrapped in a <command>systemd-creds</command> envelope but offering neither
+        confidentiality nor authenticity, see
+        <citerefentry><refentrytitle>systemd-creds</refentrytitle><manvolnum>1</manvolnum></citerefentry>)
+        is accepted at boot. This provides a fallback for provisioning credentials before a machine has a key
+        to encrypt them against, for example during first boot or on systems without a TPM2 device. Takes
+        one of <option>strict</option>, <option>tofu</option>, <option>relaxed</option> or
+        <option>off</option>:</para>
+
+        <itemizedlist>
+          <listitem><para><option>strict</option> never accepts a <literal>null</literal> key, i.e. always
+          insists on proper encryption.</para></listitem>
+
+          <listitem><para><option>tofu</option> (trust on first use) accepts a <literal>null</literal> key
+          during first boot, or when no TPM2 device is available.</para></listitem>
+
+          <listitem><para><option>relaxed</option> accepts a <literal>null</literal> key when SecureBoot is
+          disabled, or when no TPM2 device is available.</para></listitem>
+
+          <listitem><para><option>off</option> always accepts a <literal>null</literal> key.</para></listitem>
+        </itemizedlist>
+
+        <para>Defaults to <option>tofu</option>. Note that this policy only applies to the default acceptance
+        decision; it has no effect on credentials encrypted against a host key or TPM2 device, which are
+        always accepted.</para>
+
+        <para>For further information see <ulink url="https://systemd.io/CREDENTIALS">System and Service
+        Credentials</ulink> documentation.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>quiet</varname></term>
 
         <listitem><para>Turn off status output at boot, much like
