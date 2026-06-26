@@ -355,8 +355,12 @@ EFI_STATUS linux_exec(
 
         _cleanup_(cleanup_initrd) EFI_HANDLE initrd_handle = NULL;
         err = initrd_register(initrd, &initrd_handle);
-        if (err != EFI_SUCCESS)
+        if (err != EFI_SUCCESS) {
+                /* Restore the patched fields before kernel_file_path and loaded_kernel_pages are freed,
+                 * otherwise the stub's own EFI_LOADED_IMAGE_PROTOCOL is left pointing at freed memory. */
+                *parent_loaded_image = original_parent_loaded_image;
                 return log_error_status(err, "Error registering initrd: %m");
+        }
 
         log_wait();
 
