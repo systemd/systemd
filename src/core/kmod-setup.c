@@ -148,7 +148,7 @@ int kmod_setup(void) {
 
 #if HAVE_TPM2
                 /* Make sure the tpm subsystem is available which ConditionSecurity=tpm2 depends on. */
-                { "tpm",                        "/sys/class/tpmrm",             false, false, efi_has_tpm2              },
+                { "tpm",                        "/sys/class/tpmrm",             false, false, NULL                      },
 #endif
         };
 
