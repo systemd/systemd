@@ -2284,10 +2284,6 @@ static int run(int argc, char *argv[]) {
 
         umask(0022);
 
-        r = mac_init();
-        if (r < 0)
-                return r;
-
         if (arg_image) {
                 assert(!arg_root);
 
@@ -2311,6 +2307,10 @@ static int run(int argc, char *argv[]) {
                 if (!arg_root)
                         return log_oom();
         }
+
+        r = mac_init();
+        if (r < 0)
+                return r;
 
         /* Prepare to emit audit events, but only if we're operating on the host system. */
         if (!arg_root)
