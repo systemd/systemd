@@ -110,6 +110,8 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(DefaultProtectKernelModules, SD_VARLINK_BOOL, 0),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd-system.conf.html#DefaultPrivateTmp="),
                 SD_VARLINK_DEFINE_FIELD(DefaultPrivateTmp, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd-system.conf.html#DefaultProtectHome="),
+                SD_VARLINK_DEFINE_FIELD(DefaultProtectHome, SD_VARLINK_BOOL, 0),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd-system.conf.html#CtrlAltDelBurstAction="),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(CtrlAltDelBurstAction, EmergencyAction, 0),
                 SD_VARLINK_FIELD_COMMENT("The console on which systemd asks for confirmation when spawning processes"),
