@@ -40,6 +40,7 @@ DEFINE_STRING_TABLE_LOOKUP(firmware, Firmware);
 static const char *const confidential_computing_table[_COCO_MAX] = {
         [COCO_NO]          = "no",
         [COCO_AMD_SEV_SNP] = "sev-snp",
+        [COCO_INTEL_TDX]   = "tdx",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(confidential_computing, ConfidentialComputing);
