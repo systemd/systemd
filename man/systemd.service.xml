@@ -1618,7 +1618,7 @@ ExecStart=/bin/echo ${ONE} ${TWO} ${THREE}
 ExecStart=/bin/echo $ONE $TWO $THREE</programlisting>
     <para>This results in <filename>/bin/echo</filename> being
     called twice, the first time with arguments
-    <literal>'one'</literal>,
+    <literal>one</literal>,
     <literal>'two two' too</literal>, <literal></literal>,
     and the second time with arguments
     <literal>one</literal>, <literal>two two</literal>,
