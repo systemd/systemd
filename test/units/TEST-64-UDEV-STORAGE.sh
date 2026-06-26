@@ -386,10 +386,12 @@ EOF
 }
 
 testcase_simultaneous_events_1() {
-    local disk expected i iterations link num_part part partscript rule target timeout
+    local disk expected i iterations link num_disks num_part part partscript prio_disk_index0 prio_disk_index1 rule reduce_num_disks target timeout
     local -a devices symlinks running
 
-    if [[ -v ASAN_OPTIONS || "$(systemd-detect-virt -v)" == "qemu" ]]; then
+    reduce_num_disks=${1:-0}
+
+    if [[ -v ASAN_OPTIONS || "$(systemd-detect-virt -v)" == "qemu" || $reduce_num_disks -eq 1 ]]; then
         num_part=2
         iterations=10
         timeout=240
@@ -399,7 +401,17 @@ testcase_simultaneous_events_1() {
         timeout=60
     fi
 
-    for disk in {0..9}; do
+    if [[ $reduce_num_disks -eq 1 ]]; then
+        num_disks=4
+        prio_disk_index0=3
+        prio_disk_index1=2
+    else
+        num_disks=10
+        prio_disk_index0=5
+        prio_disk_index1=4
+    fi
+
+    for ((disk = 0; disk < num_disks; disk++)); do
         link="/dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_deadbeeftest${disk}"
         target="$(readlink -f "$link")"
         if [[ ! -b "$target" ]]; then
@@ -425,13 +437,13 @@ EOF
     rule=/run/udev/rules.d/50-test.rules
     mkdir -p "${rule%/*}"
     cat >"$rule" <<EOF
-SUBSYSTEM=="block", KERNEL=="${devices[4]##*/}*|${devices[5]##*/}*", OPTIONS="link_priority=10"
+SUBSYSTEM=="block", KERNEL=="${devices[$prio_disk_index1]##*/}*|${devices[$prio_disk_index0]##*/}*", OPTIONS="link_priority=10"
 EOF
 
     udevadm control --reload
 
     # initialize partition table
-    for disk in {0..9}; do
+    for ((disk = 0; disk < num_disks; disk++)); do
         echo 'label: gpt' | udevadm lock --timeout=30 --device="${devices[$disk]}" sfdisk -q "${devices[$disk]}"
     done
 
@@ -443,7 +455,7 @@ EOF
     # leading to dead symlinks in /dev/disk/
     for ((i = 1; i <= iterations; i++)); do
         running=()
-        for disk in {0..9}; do
+        for ((disk = 0; disk < num_disks; disk++)); do
             if ((disk % 2 == i % 2)); then
                 udevadm lock --timeout=30 --device="${devices[$disk]}" sfdisk -q --delete "${devices[$disk]}" &
             else
@@ -466,9 +478,9 @@ EOF
                 link="/dev/disk/by-partlabel/test${part}"
                 target="$(readlink -f "$link")"
                 if ((i % 2 == 0)); then
-                    expected="${devices[5]}$part"
+                    expected="${devices[$prio_disk_index0]}$part"
                 else
-                    expected="${devices[4]}$part"
+                    expected="${devices[$prio_disk_index1]}$part"
                 fi
                 if [[ "$target" != "$expected" ]]; then
                     echo >&2 "ERROR: symlink '/dev/disk/by-partlabel/test${part}' points to '$target' but '$expected' was expected"
@@ -481,7 +493,7 @@ EOF
     helper_check_device_units
 
     # Cleanup and check if unnecessary devlinks are removed.
-    for disk in {0..9}; do
+    for ((disk = 0; disk < num_disks; disk++)); do
         udevadm lock --timeout="$timeout" --device="${devices[$disk]}" sfdisk -q --delete "${devices[$disk]}" || :
     done
     udevadm settle --timeout="$timeout"
@@ -494,14 +506,16 @@ EOF
 }
 
 testcase_simultaneous_events_2() {
-    local disk i iterations link num_part part script_dir target timeout
+    local disk i iterations link num_disks num_part part script_dir reduce_num_disks target timeout
     local -a devices running
+
+    reduce_num_disks=${1:-0}
 
     script_dir="$(mktemp --directory "/tmp/test-udev-storage.script.XXXXXXXXXX")"
     # shellcheck disable=SC2064
     trap "rm -rf '$script_dir'" RETURN
 
-    if [[ -v ASAN_OPTIONS || "$(systemd-detect-virt -v)" == "qemu" ]]; then
+    if [[ -v ASAN_OPTIONS || "$(systemd-detect-virt -v)" == "qemu" || $reduce_num_disks -eq 1 ]]; then
         num_part=10
         iterations=2
         timeout=300
@@ -511,7 +525,14 @@ testcase_simultaneous_events_2() {
         timeout=200
     fi
 
-    for disk in {0..9}; do
+    # NOTE: num_disks must be even for the later test logic to remain correct.
+    if [[ $reduce_num_disks -eq 1 ]]; then
+        num_disks=4
+    else
+        num_disks=10
+    fi
+
+    for ((disk = 0; disk < num_disks; disk++)); do
         link="/dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_deadbeeftest${disk}"
         target="$(readlink -f "$link")"
         if [[ ! -b "$target" ]]; then
@@ -616,15 +637,16 @@ EOF
 }
 
 testcase_simultaneous_events() {
+    local reduce_num_disks
+
     . /etc/os-release
-    if [[ "$ID" == "debian" ]]; then
-        # See https://github.com/systemd/systemd/issues/39552
-        echo "Simultaneous events test cases are not working on Debian, skipping the test" | tee --append /skipped
-        exit 77
+    reduce_num_disks=0
+    if [[ "$ID" == "ubuntu" || "$ID" == "debian" ]]; then
+        reduce_num_disks=1
     fi
 
-    testcase_simultaneous_events_1
-    testcase_simultaneous_events_2
+    testcase_simultaneous_events_1 $reduce_num_disks
+    testcase_simultaneous_events_2 $reduce_num_disks
     testcase_simultaneous_events_3
 }
 
