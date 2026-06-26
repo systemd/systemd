@@ -4942,7 +4942,7 @@ static int run(int argc, char *argv[]) {
                         return log_oom();
         }
 
-        r = mac_init();
+        r = mac_init_with_root(arg_root);
         if (r < 0)
                 return r;
 
