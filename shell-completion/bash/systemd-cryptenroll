@@ -43,10 +43,14 @@ _systemd_cryptenroll() {
     local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]} words cword
     local -A OPTS=(
         [STANDALONE]='-h --help --version
-                     --password --recovery-key --list-devices'
+                     --password --recovery-key --list-devices
+                     --unlock-empty --unlock-headless --firstboot'
         [ARG]='--unlock-key-file
                --unlock-fido2-device
                --unlock-tpm2-device
+               --prompt-suppress
+               --chrome
+               --mute-console
                --pkcs11-token-uri
                --fido2-credential-algorithm
                --fido2-device
@@ -98,6 +102,12 @@ _systemd_cryptenroll() {
                 ;;
             --wipe-slot)
                 comps='all empty password recovery pkcs11 fido2 tpm2'
+                ;;
+            --prompt-suppress)
+                comps='password recovery pkcs11 fido2 tpm2'
+                ;;
+            --chrome|--mute-console)
+                comps='yes no'
                 ;;
         esac
         COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
