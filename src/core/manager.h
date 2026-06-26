@@ -169,6 +169,7 @@ typedef struct UnitDefaults {
 
         bool protect_kernel_tunables;
         bool protect_kernel_modules;
+        bool private_tmp;
 
         OOMPolicy oom_policy;
         int oom_score_adjust;

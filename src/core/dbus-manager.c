@@ -3114,6 +3114,7 @@ const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_PROPERTY("DefaultRestrictSUIDSGID", "b", bus_property_get_bool, offsetof(Manager, defaults.restrict_suid_sgid), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DefaultProtectKernelTunables", "b", bus_property_get_bool, offsetof(Manager, defaults.protect_kernel_tunables), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DefaultProtectKernelModules", "b", bus_property_get_bool, offsetof(Manager, defaults.protect_kernel_modules), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("DefaultPrivateTmp", "b", bus_property_get_bool, offsetof(Manager, defaults.private_tmp), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("CtrlAltDelBurstAction", "s", bus_property_get_emergency_action, offsetof(Manager, cad_burst_action), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SoftRebootsCount", "u", bus_property_get_unsigned, offsetof(Manager, soft_reboots_count), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("KExecsCount", "u", bus_property_get_unsigned, offsetof(Manager, kexecs_count), SD_BUS_VTABLE_PROPERTY_CONST),
