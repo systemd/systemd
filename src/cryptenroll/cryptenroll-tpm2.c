@@ -191,6 +191,7 @@ int load_volume_key_tpm2(
 
         for (;;) {
                 _cleanup_(iovec_done) struct iovec pubkey = {}, salt = {}, srk = {}, pcrlock_nv = {};
+                _cleanup_free_ char *pubkey_policy_ref = NULL;
                 struct iovec *blobs = NULL, *policy_hash = NULL;
                 size_t n_blobs = 0, n_policy_hash = 0;
                 uint32_t hash_pcr_mask, pubkey_pcr_mask;
@@ -208,6 +209,7 @@ int load_volume_key_tpm2(
                                 &hash_pcr_mask,
                                 &pcr_bank,
                                 &pubkey,
+                                &pubkey_policy_ref,
                                 &pubkey_pcr_mask,
                                 &primary_alg,
                                 &blobs,
@@ -240,6 +242,7 @@ int load_volume_key_tpm2(
                                 hash_pcr_mask,
                                 pcr_bank,
                                 &pubkey,
+                                pubkey_policy_ref,
                                 pubkey_pcr_mask,
                                 /* signature_path= */ NULL,
                                 /* pcrlock_path= */ NULL,
@@ -297,6 +300,7 @@ int enroll_tpm2(struct crypt_device *cd,
                 size_t n_hash_pcr_values,
                 const char *pcr_pubkey_path,
                 bool load_pcr_pubkey,
+                const char *pubkey_policy_ref,
                 uint32_t pubkey_pcr_mask,
                 const char *signature_path,
                 bool use_pin,
@@ -464,6 +468,7 @@ int enroll_tpm2(struct crypt_device *cd,
                         hash_pcr_values,
                         n_hash_pcr_values,
                         iovec_is_set(&pubkey) ? &public : NULL,
+                        iovec_is_set(&pubkey) ? pubkey_policy_ref : NULL,
                         use_pin,
                         pcrlock_path && !iovec_is_set(&pubkey) ? &pcrlock_policy : NULL,
                         policy_hash + 0);
@@ -475,6 +480,7 @@ int enroll_tpm2(struct crypt_device *cd,
                                 hash_pcr_values,
                                 n_hash_pcr_values,
                                 /* public= */ NULL, /* This one is off now */
+                                /* pubkey_policy_ref= */ NULL,
                                 use_pin,
                                 &pcrlock_policy,    /* And this one on instead. */
                                 policy_hash + 1);
@@ -552,6 +558,7 @@ int enroll_tpm2(struct crypt_device *cd,
                                 hash_pcr_mask,
                                 hash_pcr_bank,
                                 &pubkey,
+                                pubkey_policy_ref,
                                 pubkey_pcr_mask,
                                 signature_json,
                                 pin_str,
@@ -594,6 +601,7 @@ int enroll_tpm2(struct crypt_device *cd,
                         hash_pcr_mask,
                         hash_pcr_bank,
                         &pubkey,
+                        pubkey_policy_ref,
                         pubkey_pcr_mask,
                         primary_alg,
                         blobs,
