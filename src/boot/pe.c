@@ -140,6 +140,9 @@ typedef struct PeFileHeader {
 
 #define SECTION_TABLE_BYTES_MAX (16U * 1024U * 1024U)
 
+/* https://learn.microsoft.com/en-us/windows/win32/debug/pe-format#optional-header-data-directories-image-only */
+#define BASE_RELOCATION_TABLE_DATA_DIRECTORY_ENTRY 5
+
 static bool verify_dos(const DosFileHeader *dos) {
         assert(dos);
 
@@ -163,7 +166,18 @@ static bool verify_pe(
                  (allow_compatibility && pe->FileHeader.Machine == TARGET_MACHINE_TYPE_COMPATIBILITY)) &&
                 pe->FileHeader.NumberOfSections > 0 &&
                 IN_SET(pe->OptionalHeader.Magic, OPTHDR32_MAGIC, OPTHDR64_MAGIC) &&
-                pe->FileHeader.SizeOfOptionalHeader < SIZE_MAX - (dos->ExeHeader + offsetof(PeFileHeader, OptionalHeader));
+                pe->FileHeader.SizeOfOptionalHeader < SIZE_MAX - (dos->ExeHeader + offsetof(PeFileHeader, OptionalHeader)) &&
+                /* The optional header must be large enough to actually contain every field we read from
+                 * it later (the deepest being the base relocation data directory entry), and must declare
+                 * at least that many data directory entries. */
+                pe->FileHeader.SizeOfOptionalHeader >=
+                        (pe->OptionalHeader.Magic == OPTHDR32_MAGIC ?
+                                offsetof(PeOptionalHeader, DataDirectory32) :
+                                offsetof(PeOptionalHeader, DataDirectory64)) +
+                        (BASE_RELOCATION_TABLE_DATA_DIRECTORY_ENTRY + 1) * sizeof(PeImageDataDirectory) &&
+                (pe->OptionalHeader.Magic == OPTHDR32_MAGIC ?
+                        pe->OptionalHeader.NumberOfRvaAndSizes32 :
+                        pe->OptionalHeader.NumberOfRvaAndSizes64) > BASE_RELOCATION_TABLE_DATA_DIRECTORY_ENTRY;
 }
 
 static size_t section_table_offset(const DosFileHeader *dos, const PeFileHeader *pe) {
@@ -567,9 +581,6 @@ EFI_STATUS pe_kernel_info(
 
         return EFI_SUCCESS;
 }
-
-/* https://learn.microsoft.com/en-us/windows/win32/debug/pe-format#optional-header-data-directories-image-only */
-#define BASE_RELOCATION_TABLE_DATA_DIRECTORY_ENTRY 5
 
 /* We do not expect PE inner kernels to have any relocations. However that might be wrong for some
  * architectures, or it might change in the future. If the case of relocation arise, we should transform this
