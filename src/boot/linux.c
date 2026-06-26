@@ -153,6 +153,25 @@ static EFI_STATUS memory_mark_rw_nx(EFI_MEMORY_ATTRIBUTE_PROTOCOL *memory_proto,
         return EFI_SUCCESS;
 }
 
+typedef struct CleanupNxSections {
+        EFI_MEMORY_ATTRIBUTE_PROTOCOL *memory_proto;
+        struct iovec *sections;
+        size_t n_sections;
+} CleanupNxSections;
+
+static void cleanup_nx_sections(CleanupNxSections *c) {
+        assert(c);
+
+        /* Restore the code sections that were marked RO+X back to RW+NX before their backing pages are
+         * freed: EDK2 requires freed buffers to be writable and non-executable (it may overwrite them with
+         * a fixed pattern), otherwise FreePages() crashes. */
+        if (c->memory_proto)
+                for (size_t i = 0; i < c->n_sections; i++)
+                        (void) memory_mark_rw_nx(c->memory_proto, &c->sections[i]);
+
+        free(c->sections);
+}
+
 EFI_STATUS linux_exec(
                 EFI_HANDLE parent_image,
                 const char16_t *cmdline,
@@ -242,8 +261,6 @@ EFI_STATUS linux_exec(
          * https://microsoft.github.io/mu/WhatAndWhy/enhancedmemoryprotection/
          * https://www.kraxel.org/blog/2023/12/uefi-nx-linux-boot/ */
         EFI_MEMORY_ATTRIBUTE_PROTOCOL *memory_proto = NULL;
-        _cleanup_free_ struct iovec *nx_sections = NULL;
-        size_t n_nx_sections = 0;
 
         if (pe_kernel_check_nx_compat(kernel->iov_base)) {
                 /* LocateProtocol() is not quite that quick if you have many protocols, so only look for it
@@ -276,6 +293,12 @@ EFI_STATUS linux_exec(
                         /* addr= */ 0);
 
         uint8_t* loaded_kernel = PHYSICAL_ADDRESS_TO_POINTER(loaded_kernel_pages.addr);
+
+        /* Any code section marked RO+X must be reverted to RW+NX before the backing pages are freed. */
+        _cleanup_(cleanup_nx_sections) CleanupNxSections nx_restore = {
+                .memory_proto = memory_proto,
+        };
+
         FOREACH_ARRAY(h, headers, n_headers) {
                 if (h->PointerToRelocations != 0)
                         return log_error_status(EFI_LOAD_ERROR, "Inner kernel image contains sections with relocations, which we do not support.");
@@ -304,15 +327,14 @@ EFI_STATUS linux_exec(
 
                 /* Not a code section? Nothing to do, leave as-is. */
                 if (memory_proto && (h->Characteristics & (PE_CODE|PE_EXECUTE))) {
-                        nx_sections = xrealloc(nx_sections, n_nx_sections * sizeof(struct iovec), (n_nx_sections + 1) * sizeof(struct iovec));
-                        nx_sections[n_nx_sections].iov_base = loaded_kernel + h->VirtualAddress;
-                        nx_sections[n_nx_sections].iov_len = h->VirtualSize;
+                        nx_restore.sections = xrealloc(nx_restore.sections, nx_restore.n_sections * sizeof(struct iovec), (nx_restore.n_sections + 1) * sizeof(struct iovec));
+                        nx_restore.sections[nx_restore.n_sections].iov_base = loaded_kernel + h->VirtualAddress;
+                        nx_restore.sections[nx_restore.n_sections].iov_len = h->VirtualSize;
+                        ++nx_restore.n_sections;
 
-                        err = memory_mark_ro_x(memory_proto, &nx_sections[n_nx_sections]);
+                        err = memory_mark_ro_x(memory_proto, &nx_restore.sections[nx_restore.n_sections - 1]);
                         if (err != EFI_SUCCESS)
                                 return err;
-
-                        ++n_nx_sections;
                 }
         }
 
@@ -351,12 +373,6 @@ EFI_STATUS linux_exec(
 
         /* Restore */
         *parent_loaded_image = original_parent_loaded_image;
-
-        /* On failure we'll free the buffers. EDK2 requires the memory buffers to be writable and
-         * non-executable, as in some configurations it will overwrite them with a fixed pattern, so if the
-         * attributes are not restored FreePages() will crash. */
-        for (size_t i = 0; i < n_nx_sections; i++)
-                (void) memory_mark_rw_nx(memory_proto, &nx_sections[i]);
 
         return log_error_status(err, "Error starting kernel image: %m");
 }
