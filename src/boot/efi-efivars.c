@@ -185,6 +185,14 @@ EFI_STATUS efivar_get_raw(const EFI_GUID *vendor, const char16_t *name, void **r
 
         size_t size = 0;
         err = RT->GetVariable((char16_t *) name, (EFI_GUID *) vendor, NULL, &size, NULL);
+        if (err == EFI_SUCCESS) {
+                /* The variable exists but is empty, initialize return parameters */
+                if (ret_data)
+                        *ret_data = NULL;
+                if (ret_size)
+                        *ret_size = 0;
+                return EFI_SUCCESS;
+        }
         if (err != EFI_BUFFER_TOO_SMALL)
                 return err;
 
@@ -212,6 +220,9 @@ EFI_STATUS efivar_get_boolean_u8(const EFI_GUID *vendor, const char16_t *name, b
         err = efivar_get_raw(vendor, name, (void**) &b, &size);
         if (err != EFI_SUCCESS)
                 return err;
+
+        if (size == 0)
+                return EFI_BUFFER_TOO_SMALL;
 
         if (ret)
                 *ret = *b > 0;
