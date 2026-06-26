@@ -289,6 +289,10 @@ EFI_STATUS linux_exec(
                         return log_error_status(EFI_LOAD_ERROR, "Section would write outside of memory");
                 if (h->SizeOfRawData > h->VirtualSize)
                         return log_error_status(EFI_LOAD_ERROR, "Invalid PE section, raw data size is greater than virtual size");
+                if (UINT32_MAX - h->VirtualAddress < h->VirtualSize)
+                        return log_error_status(EFI_LOAD_ERROR, "Invalid PE section, VirtualSize + VirtualAddress overflows");
+                if (h->VirtualAddress + h->VirtualSize > kernel_size_in_memory)
+                        return log_error_status(EFI_LOAD_ERROR, "Section virtual size would write outside of memory");
                 if (UINT32_MAX - h->PointerToRawData < h->SizeOfRawData)
                         return log_error_status(EFI_LOAD_ERROR, "Invalid PE section, PointerToRawData + SizeOfRawData overflows");
                 if (h->PointerToRawData + h->SizeOfRawData > kernel->iov_len)
