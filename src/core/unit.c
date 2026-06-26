@@ -197,6 +197,8 @@ static void unit_init(Unit *u) {
 
                 ec->restrict_suid_sgid = u->manager->defaults.restrict_suid_sgid;
 
+                ec->protect_kernel_tunables = u->manager->defaults.protect_kernel_tunables;
+
                 if (MANAGER_IS_SYSTEM(u->manager))
                         ec->keyring_mode = EXEC_KEYRING_SHARED;
                 else {

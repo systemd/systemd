@@ -104,6 +104,8 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(DefaultOOMScoreAdjust, SD_VARLINK_INT, 0),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd-system.conf.html#DefaultRestrictSUIDSGID="),
                 SD_VARLINK_DEFINE_FIELD(DefaultRestrictSUIDSGID, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd-system.conf.html#DefaultProtectKernelTunables="),
+                SD_VARLINK_DEFINE_FIELD(DefaultProtectKernelTunables, SD_VARLINK_BOOL, 0),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd-system.conf.html#CtrlAltDelBurstAction="),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(CtrlAltDelBurstAction, EmergencyAction, 0),
                 SD_VARLINK_FIELD_COMMENT("The console on which systemd asks for confirmation when spawning processes"),
