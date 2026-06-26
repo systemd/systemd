@@ -718,10 +718,10 @@ static bool item_cleanup(
                 bool keep_this_level,
                 AgeBy age_by_file, /* age criteria ([a|m|c|b]_time) to examine against file age */
                 AgeBy age_by_dir, /* same age criteria for directory */
-                bool *ret_deleted) { /* whether an item was teleted from the supplied directory */
+                bool *ret_deleted) { /* whether an item was deleted from the supplied directory */
         /* Clean up a file or directory, recursively, according to the cutoff_nsec age constraint.
-         * Errors are ignored (except out-of-memory, consistent with historical behaviour for tmpfiles cleanup.
-         * Return whethen an item is deleted in *ret_deleted
+         * Errors are ignored (except out-of-memory), consistent with historical behaviour for tmpfiles cleanup.
+         * Return whether an item is deleted in *ret_deleted
          * Return 0 on success or <0 on error
          */
         int r = 0;
@@ -833,7 +833,7 @@ static bool item_cleanup(
                     !IN_SET(errno, ENOENT, ENOTEMPTY))
                         log_warning_errno(errno, "Failed to remove directory \"%s\", ignoring: %m", pathname);
                 if (r >= 0)
-                        *ret_deleted = true; /* flag that a file was deleted */
+                        *ret_deleted = true; /* flag that something (a directory) was deleted */
         } else {
                 _cleanup_close_ int fd = -EBADF; /* This file descriptor is defined here so that the
                                                   * lock that is taken below is only dropped _after_
@@ -895,7 +895,7 @@ static bool item_cleanup(
                     errno != ENOENT)
                         log_warning_errno(errno, "Failed to remove \"%s\", ignoring: %m", pathname);
                 if (r >= 0)
-                        *ret_deleted = true; /* flag that a file was deleted */
+                        *ret_deleted = true; /* flag that something (a file) was deleted */
         }
         return 0;
 }
@@ -966,7 +966,7 @@ static int dir_cleanup(
                                 mountpoint, maxdepth, keep_this_level,
                                 age_by_file, age_by_dir,
                                 &ret_deleted);
-                deleted |= ret_deleted;
+                deleted = deleted || ret_deleted;
                 if (r < 0)
                         break;
         }
@@ -1130,10 +1130,11 @@ shortcut:
 }
 
 static int path_open_parent_safe_name(const char *path, bool allow_failure, char **ret_dirname) {
-        /* Open parent and return its file descriptor. Also return its allocated path in ret_dirname, which the user must free */
+        /* Open parent and return its file descriptor.
+           Also allocate and return its path, if ret_dirname is not NULL, in ret_dirname, which the caller must free */
         int r, fd;
 
-        assert(ret_dirname);
+        _cleanup_free_ char *dirname = NULL;
         if (!path_is_normalized(path))
                 return log_full_errno(allow_failure ? LOG_INFO : LOG_ERR,
                                       SYNTHETIC_ERRNO(EINVAL),
@@ -1141,7 +1142,7 @@ static int path_open_parent_safe_name(const char *path, bool allow_failure, char
                                       path,
                                       allow_failure ? ", ignoring" : "");
 
-        r = path_extract_directory(path, ret_dirname);
+        r = path_extract_directory(path, &dirname);
         if (r < 0)
                 return log_full_errno(allow_failure ? LOG_INFO : LOG_ERR,
                                       r,
@@ -1149,22 +1150,26 @@ static int path_open_parent_safe_name(const char *path, bool allow_failure, char
                                       path,
                                       allow_failure ? ", ignoring" : "");
 
-        r = chase(*ret_dirname, arg_root, allow_failure ? CHASE_SAFE : CHASE_SAFE|CHASE_WARN, NULL, &fd);
+        r = chase(dirname, arg_root, allow_failure ? CHASE_SAFE : CHASE_SAFE|CHASE_WARN, NULL, &fd);
         if (r == -ENOLINK) /* Unsafe symlink: already covered by CHASE_WARN */
                 return r;
         if (r < 0)
                 return log_full_errno(allow_failure ? LOG_INFO : LOG_ERR,
                                       r,
                                       "Failed to open path '%s'%s: %m",
-                                      *ret_dirname,
+                                      dirname,
                                       allow_failure ? ", ignoring" : "");
+
+        if (ret_dirname) {
+                *ret_dirname = dirname;
+                dirname = NULL; /* pass dirname string back to caller, so don't free it */
+        }
 
         return fd;
 }
 
 static int path_open_parent_safe(const char *path, bool allow_failure) {
-        _cleanup_free_ char *ret_dirname = NULL;
-        return path_open_parent_safe_name(path, allow_failure, &ret_dirname);
+        return path_open_parent_safe_name(path, allow_failure, /* ret_dirname= */ NULL);
 }
 
 static int path_open_safe(const char *path) {
@@ -3535,7 +3540,7 @@ static int clean_item_instance(
 }
 
 /* Cleanup file or directory, including the actual file and directory, not just its contents  */
-static int clean_including_item(
+static int clean_item_inclusive(
                 Context *c,
                 Item *i,
                 const char *instance,
@@ -3634,7 +3639,7 @@ static int clean_item(Context *c, Item *i) {
                 return glob_item(c, i, clean_item_instance);
 
         case CLEAN_INCLUSIVE:
-                return glob_item(c, i, clean_including_item);
+                return glob_item(c, i, clean_item_inclusive);
 
         default:
                 return 0;
