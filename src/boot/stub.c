@@ -1099,8 +1099,8 @@ static EFI_STATUS find_sections(
         assert(sections);
 
         const PeSectionHeader *section_table;
-        size_t n_section_table;
-        err = pe_section_table_from_base(loaded_image->ImageBase, &section_table, &n_section_table);
+        size_t n_section_table, size_of_image;
+        err = pe_section_table_from_base(loaded_image->ImageBase, &section_table, &n_section_table, &size_of_image);
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Unable to locate PE section table: %m");
 
@@ -1111,6 +1111,7 @@ static EFI_STATUS find_sections(
                         unified_sections,
                         /* profile= */ UINT_MAX,
                         /* validate_base= */ PTR_TO_SIZE(loaded_image->ImageBase),
+                        size_of_image,
                         sections);
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Unable to locate embedded base PE sections: %m");
@@ -1123,6 +1124,7 @@ static EFI_STATUS find_sections(
                                 unified_sections,
                                 profile,
                                 /* validate_base= */ PTR_TO_SIZE(loaded_image->ImageBase),
+                                size_of_image,
                                 sections);
                 if (err != EFI_SUCCESS && !(err == EFI_NOT_FOUND && profile == 0)) /* the first profile is implied if it doesn't exist */
                         return log_error_status(err, "Unable to locate embedded per-profile PE sections: %m");
