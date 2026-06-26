@@ -520,6 +520,10 @@ EFI_STATUS pe_kernel_info(
                 return EFI_UNSUPPORTED;
 
         if (pe->FileHeader.Machine == TARGET_MACHINE_TYPE) {
+                /* The entry point is later called as ImageBase + entry_point, and only SizeOfImage
+                 * bytes are allocated for the image, so reject an entry point outside of it. */
+                if (pe->OptionalHeader.AddressOfEntryPoint >= size_in_memory)
+                        return EFI_LOAD_ERROR;
                 if (ret_entry_point)
                         *ret_entry_point = pe->OptionalHeader.AddressOfEntryPoint;
                 if (ret_compat_entry_point)
@@ -535,6 +539,9 @@ EFI_STATUS pe_kernel_info(
         if (compat_entry_point == 0)
                 /* Image type not supported and no compat entry found. */
                 return EFI_UNSUPPORTED;
+        if (compat_entry_point >= size_in_memory)
+                /* Same as above: the compat entry point is called as ImageBase + entry_point. */
+                return EFI_LOAD_ERROR;
 
         if (ret_entry_point)
                 *ret_entry_point = 0;
