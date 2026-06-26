@@ -4616,6 +4616,7 @@ int manager_set_unit_defaults(Manager *m, const UnitDefaults *defaults) {
         m->defaults.protect_kernel_tunables = defaults->protect_kernel_tunables;
         m->defaults.protect_kernel_modules = defaults->protect_kernel_modules;
         m->defaults.private_tmp = defaults->private_tmp;
+        m->defaults.protect_home = defaults->protect_home;
 
         m->defaults.start_limit = defaults->start_limit;
 
