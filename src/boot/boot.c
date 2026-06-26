@@ -2922,7 +2922,10 @@ static EFI_STATUS expand_path(
                         return log_error_status(err, "Failed to get LoadFile() device path: %m");
 
                 /* And return a copy */
-                *ret_expanded_path = device_path_dup(load_file_path);
+                EFI_DEVICE_PATH *expanded_path = device_path_dup(load_file_path);
+                if (!expanded_path)
+                        return EFI_INVALID_PARAMETER;
+                *ret_expanded_path = expanded_path;
                 return EFI_SUCCESS;
         }
 

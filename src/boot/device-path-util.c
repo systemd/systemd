@@ -6,7 +6,7 @@
 #include "util.h"
 
 static const EFI_DEVICE_PATH *device_path_find_end_node(const EFI_DEVICE_PATH *dp) {
-        while (!device_path_is_end(dp))
+        while (dp && !device_path_is_end(dp))
                 dp = device_path_next_node(dp);
         return dp;
 }
@@ -23,8 +23,14 @@ EFI_STATUS make_file_device_path(EFI_HANDLE device, const char16_t *file, EFI_DE
                 return err;
 
         const EFI_DEVICE_PATH *end_node = device_path_find_end_node(dp);
+        if (!end_node)
+                return EFI_INVALID_PARAMETER;
 
         size_t file_size = strsize16(file);
+        /* The node Length is a uint16_t, so refuse a path that would not fit. */
+        if (file_size > UINT16_MAX - sizeof(FILEPATH_DEVICE_PATH))
+                return EFI_INVALID_PARAMETER;
+
         size_t dp_size = (uint8_t *) end_node - (uint8_t *) dp;
 
         /* Make a copy that can also hold a file media device path. */
@@ -39,7 +45,7 @@ EFI_STATUS make_file_device_path(EFI_HANDLE device, const char16_t *file, EFI_DE
         };
         memcpy(file_dp->PathName, file, file_size);
 
-        dp = device_path_next_node(dp);
+        dp = ASSERT_PTR(device_path_next_node(dp));
         *dp = DEVICE_PATH_END_NODE;
         return EFI_SUCCESS;
 }
@@ -55,6 +61,9 @@ EFI_STATUS make_url_device_path(const char16_t *url, EFI_DEVICE_PATH **ret) {
                 return EFI_INVALID_PARAMETER;
 
         size_t l = strlen8(u);
+        /* The node Length is a uint16_t, so refuse a URL that would not fit. */
+        if (l > UINT16_MAX - offsetof(URI_DEVICE_PATH, Uri))
+                return EFI_INVALID_PARAMETER;
 
         size_t t = offsetof(URI_DEVICE_PATH, Uri) + l + sizeof(EFI_DEVICE_PATH);
         EFI_DEVICE_PATH *dp = xmalloc(t);
@@ -67,7 +76,7 @@ EFI_STATUS make_url_device_path(const char16_t *url, EFI_DEVICE_PATH **ret) {
         };
         memcpy(udp->Uri, u, l);
 
-        EFI_DEVICE_PATH *end = device_path_next_node(dp);
+        EFI_DEVICE_PATH *end = ASSERT_PTR(device_path_next_node(dp));
         *end = DEVICE_PATH_END_NODE;
 
         assert(((uint8_t*) end + sizeof(EFI_DEVICE_PATH)) == ((uint8_t*) dp + t));
@@ -79,7 +88,7 @@ EFI_STATUS make_url_device_path(const char16_t *url, EFI_DEVICE_PATH **ret) {
 static char16_t *device_path_to_str_internal(const EFI_DEVICE_PATH *dp) {
         char16_t *str = NULL;
 
-        for (const EFI_DEVICE_PATH *node = dp; !device_path_is_end(node); node = device_path_next_node(node)) {
+        for (const EFI_DEVICE_PATH *node = dp; node && !device_path_is_end(node); node = device_path_next_node(node)) {
                 _cleanup_free_ char16_t *old = str;
 
                 if (node->Type == END_DEVICE_PATH_TYPE && node->SubType == END_INSTANCE_DEVICE_PATH_SUBTYPE) {
@@ -152,6 +161,8 @@ bool device_path_startswith(const EFI_DEVICE_PATH *dp, const EFI_DEVICE_PATH *st
                         return false;
                 start = device_path_next_node(start);
                 dp = device_path_next_node(dp);
+                if (!start || !dp)
+                        return false;
         }
 }
 
@@ -163,8 +174,11 @@ EFI_DEVICE_PATH *device_path_replace_node(
 
         assert(path);
 
-        if (!node)
+        if (!node) {
                 node = device_path_find_end_node(path);
+                if (!node)
+                        return NULL;
+        }
 
         size_t len = (uint8_t *) node - (uint8_t *) path;
         EFI_DEVICE_PATH *ret = xmalloc(len + (new_node ? new_node->Length : 0) + sizeof(EFI_DEVICE_PATH));
@@ -177,15 +191,39 @@ EFI_DEVICE_PATH *device_path_replace_node(
         return ret;
 }
 
+bool device_path_is_valid(const EFI_DEVICE_PATH *dp, size_t size) {
+        if (!dp)
+                return false;
+
+        /* Validate against the known size so a truncated/corrupt path can't make us read out of bounds. */
+        for (;;) {
+                if (size < sizeof(EFI_DEVICE_PATH))
+                        return false;
+                if (dp->Length < sizeof(EFI_DEVICE_PATH) || dp->Length > size)
+                        return false;
+                if (device_path_is_end(dp))
+                        return true;
+                size -= dp->Length;
+                dp = (const EFI_DEVICE_PATH *) ((const uint8_t *) dp + dp->Length);
+        }
+}
+
 size_t device_path_size(const EFI_DEVICE_PATH *dp) {
         const EFI_DEVICE_PATH *i = ASSERT_PTR(dp);
 
-        for (; !device_path_is_end(i); i = device_path_next_node(i))
-                ;
+        while (!device_path_is_end(i)) {
+                i = device_path_next_node(i);
+                if (!i)
+                        return 0;
+        }
 
         return (const uint8_t*) i - (const uint8_t*) dp + sizeof(EFI_DEVICE_PATH);
 }
 
 EFI_DEVICE_PATH *device_path_dup(const EFI_DEVICE_PATH *dp) {
-        return xmemdup(ASSERT_PTR(dp), device_path_size(dp));
+        size_t size = device_path_size(ASSERT_PTR(dp));
+        if (size == 0)
+                return NULL;
+
+        return xmemdup(dp, size);
 }

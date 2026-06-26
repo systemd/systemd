@@ -208,7 +208,7 @@ static EFI_STATUS find_device(const EFI_GUID *type, EFI_HANDLE *device, EFI_DEVI
 
         /* Find the (last) partition node itself. */
         EFI_DEVICE_PATH *part_node = NULL;
-        for (EFI_DEVICE_PATH *node = partition_path; !device_path_is_end(node);
+        for (EFI_DEVICE_PATH *node = partition_path; node && !device_path_is_end(node);
              node = device_path_next_node(node)) {
                 if (node->Type != MEDIA_DEVICE_PATH || node->SubType != MEDIA_HARDDRIVE_DP)
                         continue;
@@ -333,7 +333,7 @@ static char16_t* disk_get_part_uuid_eltorito(const EFI_DEVICE_PATH *dp) {
          * USB stick). */
 
         const CDROM_DEVICE_PATH *cdrom = NULL;
-        for (const EFI_DEVICE_PATH *node = dp; !device_path_is_end(node); node = device_path_next_node(node))
+        for (const EFI_DEVICE_PATH *node = dp; node && !device_path_is_end(node); node = device_path_next_node(node))
                 if (node->Type == MEDIA_DEVICE_PATH && node->SubType == MEDIA_CDROM_DP)
                         cdrom = (const CDROM_DEVICE_PATH *) node;
         if (!cdrom) {
@@ -462,7 +462,7 @@ char16_t *disk_get_part_uuid(EFI_HANDLE *handle) {
         if (err != EFI_SUCCESS)
                 return NULL;
 
-        for (EFI_DEVICE_PATH *node = dp; !device_path_is_end(node); node = device_path_next_node(node)) {
+        for (EFI_DEVICE_PATH *node = dp; node && !device_path_is_end(node); node = device_path_next_node(node)) {
                 if (node->Type != MEDIA_DEVICE_PATH || node->SubType != MEDIA_HARDDRIVE_DP)
                         continue;
 
