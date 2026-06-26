@@ -12,7 +12,6 @@ typedef struct BootTimes {
         usec_t initrd_time;
         usec_t userspace_time;
         usec_t finish_time;
-        usec_t shutdown_start_time;
         usec_t previous_shutdown_start_time;
         usec_t previous_shutdown_finish_time;
         usec_t previous_shutdown_late_start_time;
