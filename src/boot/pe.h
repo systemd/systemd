@@ -37,12 +37,14 @@ static inline bool PE_SECTION_VECTOR_IS_SET(const PeSectionVector *v) {
 EFI_STATUS pe_section_table_from_base(
                 const void *base,
                 const PeSectionHeader **ret_section_table,
-                size_t *ret_n_section_table);
+                size_t *ret_n_section_table,
+                size_t *ret_size_in_memory);
 
 EFI_STATUS pe_section_table_from_file(
                 EFI_FILE *handle,
                 PeSectionHeader **ret_section_table,
-                size_t *ret_n_section_table);
+                size_t *ret_n_section_table,
+                size_t *ret_size_in_memory);
 
 EFI_STATUS pe_locate_profile_sections(
                 const PeSectionHeader section_table[],
@@ -50,6 +52,7 @@ EFI_STATUS pe_locate_profile_sections(
                 const char* const section_names[],
                 unsigned profile,
                 size_t validate_base,
+                size_t size_in_memory,
                 PeSectionVector sections[]);
 
 EFI_STATUS pe_memory_locate_sections(
