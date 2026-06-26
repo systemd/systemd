@@ -232,11 +232,13 @@ int journal_file_fsprg_seek(JournalFile *f, uint64_t goal) {
         return FSPRG_Seek(f->fsprg_state.iov_base, goal, msk.iov_base, f->fsprg_seed.iov_base, f->fsprg_seed.iov_len);
 }
 
-int journal_file_hmac_setup(JournalFile *f) {
 #if HAVE_GCRYPT
+static int journal_file_hmac_setup(JournalFile *f) {
         int r;
 
-        if (!JOURNAL_HEADER_SEALED(f->header))
+        assert(f);
+
+        if (f->hmac)
                 return 0;
 
         r = initialize_libgcrypt(true);
@@ -247,10 +249,8 @@ int journal_file_hmac_setup(JournalFile *f) {
                 return -EOPNOTSUPP;
 
         return 0;
-#else
-        return -EOPNOTSUPP;
-#endif
 }
+#endif
 
 int journal_file_hmac_start(JournalFile *f) {
 #if HAVE_GCRYPT
@@ -263,6 +263,10 @@ int journal_file_hmac_start(JournalFile *f) {
 
         if (f->hmac_running)
                 return 0;
+
+        r = journal_file_hmac_setup(f);
+        if (r < 0)
+                return r;
 
         /* Prepare HMAC for next cycle */
         sym_gcry_md_reset(f->hmac);
