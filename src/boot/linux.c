@@ -167,7 +167,7 @@ EFI_STATUS linux_exec(
         assert(iovec_is_set(kernel));
         assert(iovec_is_valid(initrd));
 
-        err = pe_kernel_info(kernel->iov_base, &entry_point, &compat_entry_point, &kernel_size_in_memory, &section_alignment);
+        err = pe_kernel_info(kernel->iov_base, kernel->iov_len, &entry_point, &compat_entry_point, &kernel_size_in_memory, &section_alignment);
 #if defined(__i386__) || defined(__x86_64__)
         if (err == EFI_UNSUPPORTED)
                 /* Kernel is too old to support LINUX_INITRD_MEDIA_GUID, try the deprecated EFI handover
@@ -259,8 +259,7 @@ EFI_STATUS linux_exec(
         const PeSectionHeader *headers;
         size_t n_headers;
 
-        /* Do we need to validate anything here? the len? */
-        err = pe_section_table_from_base(kernel->iov_base, &headers, &n_headers);
+        err = pe_section_table_from_base(kernel->iov_base, kernel->iov_len, &headers, &n_headers, /* ret_size_in_memory= */ NULL);
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Cannot read sections: %m");
 
