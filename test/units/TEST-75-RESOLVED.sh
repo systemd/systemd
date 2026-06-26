@@ -770,7 +770,7 @@ testcase_08_resolved() {
     grep -qE "^edns-extra-text.forwarded.test.+: SERVFAIL \(Censored: Nothing to see here!\)" "$RUN_OUT"
     (! run varlinkctl call /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.ResolveHostname '{"name" : "edns-extra-text.forwarded.test"}')
     grep -qF "io.systemd.Resolve.DNSError" "$RUN_OUT"
-    grep -qF '{"rcode":2,"extendedDNSErrorCode":16,"extendedDNSErrorMessage":"Nothing to see here!"}' "$RUN_OUT"
+    grep -qF '{"rcode":2,"extendedDNSErrorCode":16,"extendedDNSErrorMessage":"Nothing to see here!","queryString":"edns-extra-text.forwarded.test"}' "$RUN_OUT"
     journalctl --sync
     journalctl -u systemd-resolved.service --cursor-file="$JOURNAL_CURSOR" --grep "Server returned error: SERVFAIL \(Censored: Nothing to see here!\)"
 
@@ -779,7 +779,7 @@ testcase_08_resolved() {
     grep -qE "^edns-code-zero.forwarded.test:.+: SERVFAIL \(Other: 🐱\)" "$RUN_OUT"
     (! run varlinkctl call /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.ResolveHostname '{"name" : "edns-code-zero.forwarded.test"}')
     grep -qF "io.systemd.Resolve.DNSError" "$RUN_OUT"
-    grep -qF '{"rcode":2,"extendedDNSErrorCode":0,"extendedDNSErrorMessage":"🐱"}' "$RUN_OUT"
+    grep -qF '{"rcode":2,"extendedDNSErrorCode":0,"extendedDNSErrorMessage":"🐱","queryString":"edns-code-zero.forwarded.test"}' "$RUN_OUT"
     journalctl --sync
     journalctl -u systemd-resolved.service --cursor-file="$JOURNAL_CURSOR" --grep "Server returned error: SERVFAIL \(Other: 🐱\)"
 
@@ -788,7 +788,7 @@ testcase_08_resolved() {
     grep -qE "^edns-invalid-code.forwarded.test:.+: SERVFAIL \([0-9]+\)" "$RUN_OUT"
     (! run varlinkctl call /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.ResolveHostname '{"name" : "edns-invalid-code.forwarded.test"}')
     grep -qF "io.systemd.Resolve.DNSError" "$RUN_OUT"
-    grep -qE '{"rcode":2,"extendedDNSErrorCode":[0-9]+}' "$RUN_OUT"
+    grep -qE '{"rcode":2,"extendedDNSErrorCode":[0-9]+,"queryString":"edns-invalid-code.forwarded.test"}' "$RUN_OUT"
     journalctl --sync
     journalctl -u systemd-resolved.service --cursor-file="$JOURNAL_CURSOR" --grep "Server returned error: SERVFAIL \(\d+\)"
 
@@ -797,7 +797,7 @@ testcase_08_resolved() {
     grep -qE '^edns-invalid-code-with-extra-text.forwarded.test:.+: SERVFAIL \([0-9]+: Hello \[#\]\$%~ World\)' "$RUN_OUT"
     (! run varlinkctl call /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.ResolveHostname '{"name" : "edns-invalid-code-with-extra-text.forwarded.test"}')
     grep -qF "io.systemd.Resolve.DNSError" "$RUN_OUT"
-    grep -qE '{"rcode":2,"extendedDNSErrorCode":[0-9]+,"extendedDNSErrorMessage":"Hello \[#\]\$%~ World"}' "$RUN_OUT"
+    grep -qE '{"rcode":2,"extendedDNSErrorCode":[0-9]+,"extendedDNSErrorMessage":"Hello \[#\]\$%~ World","queryString":"edns-invalid-code-with-extra-text.forwarded.test"}' "$RUN_OUT"
     journalctl --sync
     journalctl -u systemd-resolved.service --cursor-file="$JOURNAL_CURSOR" --grep "Server returned error: SERVFAIL \(\d+: Hello \[\#\]\\$%~ World\)"
 }
@@ -1258,13 +1258,13 @@ testcase_14_refuse_record_types() {
     grep -qF "127.128.0.5" "$RUN_OUT"
 
     (! run resolvectl query localhost5 --type=SRV)
-    grep -qF "DNS query type refused." "$RUN_OUT"
+    grep -qF "DNS query type refused" "$RUN_OUT"
 
     (! run resolvectl query localhost5 --type=TXT)
-    grep -qF "DNS query type refused." "$RUN_OUT"
+    grep -qF "DNS query type refused" "$RUN_OUT"
 
     (! run resolvectl query localhost5 --type=AAAA)
-    grep -qF "DNS query type refused." "$RUN_OUT"
+    grep -qF "DNS query type refused" "$RUN_OUT"
 
     run resolvectl query localhost5 --type=A
     grep -qF "127.128.0.5" "$RUN_OUT"
@@ -1304,7 +1304,7 @@ testcase_14_refuse_record_types() {
     grep -qF "does not have any RR of the requested type" "$RUN_OUT"
 
     (! run resolvectl query localhost5 --type=AAAA)
-    grep -qF "DNS query type refused." "$RUN_OUT"
+    grep -qF "DNS query type refused" "$RUN_OUT"
 
     run resolvectl service _mysvc._tcp signed.test
     grep -qF "myservice.signed.test:1234" "$RUN_OUT"
