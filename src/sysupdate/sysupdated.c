@@ -40,6 +40,7 @@
 #include "signal-util.h"
 #include "string-table.h"
 #include "strv.h"
+#include "sysupdate-target.h"
 #include "sysupdate-util.h"
 #include "utf8.h"
 
@@ -63,25 +64,6 @@ typedef struct Manager {
 
 /* Forward declare so that jobs can call it on exit */
 static void manager_check_idle(Manager *m);
-
-typedef enum TargetClass {
-        /* These should try to match ImageClass from src/basic/os-util.h */
-        TARGET_MACHINE  = IMAGE_MACHINE,
-        TARGET_PORTABLE = IMAGE_PORTABLE,
-        TARGET_SYSEXT   = IMAGE_SYSEXT,
-        TARGET_CONFEXT  = IMAGE_CONFEXT,
-        _TARGET_CLASS_IS_IMAGE_CLASS_MAX,
-
-        /* sysupdate-specific classes */
-        TARGET_HOST = _TARGET_CLASS_IS_IMAGE_CLASS_MAX,
-        TARGET_COMPONENT,
-
-        _TARGET_CLASS_MAX,
-        _TARGET_CLASS_INVALID = -EINVAL,
-} TargetClass;
-
-/* Let's ensure when the number of classes is updated things are updated here too */
-assert_cc((int) _IMAGE_CLASS_MAX == (int) _TARGET_CLASS_IS_IMAGE_CLASS_MAX);
 
 typedef struct Target {
         Manager *manager;
@@ -137,17 +119,6 @@ struct Job {
         sd_bus_message *dbus_msg;
         JobReady detach_cb; /* Callback called when job has started.  Detaches the job to run in the background */
 };
-
-static const char* const target_class_table[_TARGET_CLASS_MAX] = {
-        [TARGET_MACHINE]   = "machine",
-        [TARGET_PORTABLE]  = "portable",
-        [TARGET_SYSEXT]    = "sysext",
-        [TARGET_CONFEXT]   = "confext",
-        [TARGET_COMPONENT] = "component",
-        [TARGET_HOST]      = "host",
-};
-
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(target_class, TargetClass);
 
 static const char* const job_type_table[_JOB_TYPE_MAX] = {
         [JOB_LIST]             = "list",
