@@ -45,7 +45,6 @@ int acquire_boot_times(sd_bus *bus, bool require_finished, BootTimes **ret) {
                 { "FinishTimestampMonotonic",                     "t", NULL, offsetof(BootTimes, finish_time)                        },
                 { "SecurityStartTimestampMonotonic",              "t", NULL, offsetof(BootTimes, security_start_time)                },
                 { "SecurityFinishTimestampMonotonic",             "t", NULL, offsetof(BootTimes, security_finish_time)               },
-                { "ShutdownStartTimestampMonotonic",              "t", NULL, offsetof(BootTimes, shutdown_start_time)                },
                 { "PreviousShutdownStartTimestampMonotonic",      "t", NULL, offsetof(BootTimes, previous_shutdown_start_time)       },
                 { "PreviousShutdownFinishTimestampMonotonic",     "t", NULL, offsetof(BootTimes, previous_shutdown_finish_time)      },
                 { "PreviousShutdownLateStartTimestampMonotonic",  "t", NULL, offsetof(BootTimes, previous_shutdown_late_start_time)  },
@@ -100,7 +99,7 @@ int acquire_boot_times(sd_bus *bus, bool require_finished, BootTimes **ret) {
                                 times.initrd_security_start_time = times.initrd_security_finish_time =
                                 times.initrd_generators_start_time = times.initrd_generators_finish_time =
                                 times.initrd_unitsload_start_time = times.initrd_unitsload_finish_time = 0;
-                times.reverse_offset = times.shutdown_start_time;
+                times.reverse_offset = times.previous_shutdown_start_time;
 
                 /* Clamp all timestamps to avoid showing huge graphs */
                 if (timestamp_is_set(times.finish_time))
@@ -366,8 +365,8 @@ int acquire_time_data(sd_bus *bus, bool require_finished, UnitTimes **out) {
 
                 /* Activated in the previous soft-reboot iteration? Ignore it, we want new activations */
                 if (boot_times->soft_reboots_count > 0 &&
-                    ((t->activated > 0 && t->activated < boot_times->shutdown_start_time) ||
-                     (t->activating > 0 && t->activating < boot_times->shutdown_start_time)))
+                    ((t->activated > 0 && t->activated < boot_times->previous_shutdown_start_time) ||
+                     (t->activating > 0 && t->activating < boot_times->previous_shutdown_start_time)))
                         continue;
 
                 subtract_timestamp(&t->activating, boot_times->reverse_offset);

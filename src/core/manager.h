@@ -84,10 +84,12 @@ typedef enum ManagerObjective {
  *
  * 9. TIMESTAMP_PREVIOUS_SHUTDOWN_START, TIMESTAMP_PREVIOUS_SHUTDOWN_FINISH,
  *    TIMESTAMP_PREVIOUS_SHUTDOWN_LATE_START and TIMESTAMP_PREVIOUS_SHUTDOWN_LATE_FINISH describe the
- *    shutdown of the *previous* boot, restored from the LUO payload after a kexec-based live update
- *    (the LATE_* ones are taken by systemd-shutdown). Like TIMESTAMP_FIRMWARE/LOADER/KERNEL they refer
- *    to events before the current systemd cycle took over, hence they are kept distinct from the
- *    current cycle's SHUTDOWN_START/FINISH instead of overwriting them.
+ *    shutdown of the *previous* boot: either restored from the LUO payload after a kexec-based live
+ *    update, or carried over from the current cycle's SHUTDOWN_START/FINISH across a soft-reboot. The
+ *    LATE_* ones are taken by systemd-shutdown and hence only set for the kexec case. Like
+ *    TIMESTAMP_FIRMWARE/LOADER/KERNEL they refer to events before the current systemd cycle took over,
+ *    hence they are kept distinct from the current cycle's SHUTDOWN_START/FINISH instead of overwriting
+ *    them.
  */
 
 typedef enum ManagerTimestamp {
