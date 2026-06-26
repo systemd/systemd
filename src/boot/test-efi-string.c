@@ -612,6 +612,11 @@ TEST(line_get_key_value) {
         ASSERT_NULL(line_get_key_value(s1, "=", &pos, &key, &value));
 
         pos = 0;
+        ASSERT_NOT_NULL(line_get_key_value((char[]) { "ID=" }, "=", &pos, &key, &value));
+        ASSERT_TRUE(streq8(key, "ID"));
+        ASSERT_TRUE(streq8(value, ""));
+
+        pos = 0;
         ASSERT_NOT_NULL(line_get_key_value(s2, " \t", &pos, &key, &value));
         ASSERT_TRUE(streq8(key, "this"));
         ASSERT_TRUE(streq8(value, "parser"));
