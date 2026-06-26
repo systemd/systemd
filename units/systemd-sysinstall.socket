@@ -16,8 +16,8 @@ Conflicts=shutdown.target
 Before=shutdown.target
 
 [Socket]
-ListenStream=/run/systemd/io.systemd.Sysinstall
-Symlinks=/run/varlink/registry/io.systemd.Sysinstall
+ListenStream=/run/systemd/io.systemd.SysInstall
+Symlinks=/run/varlink/registry/io.systemd.SysInstall
 FileDescriptorName=varlink
 SocketMode=0666
 Accept=yes

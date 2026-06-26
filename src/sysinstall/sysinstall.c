@@ -111,7 +111,7 @@ static const char *device_fit_table[_DEVICE_FIT_MAX] = {
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(device_fit, DeviceFit);
 
-typedef struct SysinstallContext {
+typedef struct SysInstallContext {
         bool copy_locale;
         bool copy_keymap;
         bool copy_timezone;
@@ -126,9 +126,9 @@ typedef struct SysinstallContext {
         sd_varlink *repart_link;
 
         sd_varlink *link; /* If 'more' is used on the Varlink call, we'll send progress info over this link */
-} SysinstallContext;
+} SysInstallContext;
 
-static void sysinstall_context_done(SysinstallContext *c) {
+static void sysinstall_context_done(SysInstallContext *c) {
         assert(c);
 
         strv_free(c->definitions);
@@ -492,7 +492,7 @@ static int prompt_block_device(sd_varlink **repart_link, char **ret_node) {
 }
 
 static int sysinstall_context_notify(
-                SysinstallContext *context,
+                SysInstallContext *context,
                 ProgressPhase phase,
                 const char *object,
                 unsigned percent) {
@@ -557,7 +557,7 @@ static int sysinstall_context_notify(
 
 typedef struct RepartResult {
         int ret;
-        SysinstallContext *context;
+        SysInstallContext *context;
 } RepartResult;
 
 static int handle_repart_reply(
@@ -651,7 +651,7 @@ static int handle_repart_reply(
         return result->ret = 0;
 }
 
-static int sysinstall_context_invoke_repart_run(SysinstallContext *context) {
+static int sysinstall_context_invoke_repart_run(SysInstallContext *context) {
 
         int r;
 
@@ -1024,7 +1024,7 @@ static int validate_run(sd_varlink **repart_link, const char *node) {
         }
 }
 
-static int sysinstall_context_show_summary(SysinstallContext *context) {
+static int sysinstall_context_show_summary(SysInstallContext *context) {
         int r;
 
         printf("\n"
@@ -1403,7 +1403,7 @@ static int read_credential_timezone(MachineCredentialContext *credentials) {
         return 0;
 }
 
-static int sysinstall_context_read_credentials(SysinstallContext *context) {
+static int sysinstall_context_read_credentials(SysInstallContext *context) {
         int r;
 
         if (context->copy_locale) {
@@ -1546,7 +1546,7 @@ static int get_sysinstall_definitions(char ***definitions) {
         return 0;
 }
 
-static int sysinstall_context_settle_definitions(SysinstallContext *context,
+static int sysinstall_context_settle_definitions(SysInstallContext *context,
                                                  char **definitions) {
 
         _cleanup_strv_free_ char **ret_definitions = NULL;
@@ -1567,7 +1567,7 @@ static int sysinstall_context_settle_definitions(SysinstallContext *context,
         return 0;
 }
 
-static int sysinstall_context_settle_kernel_image(SysinstallContext *context,
+static int sysinstall_context_settle_kernel_image(SysInstallContext *context,
                                                   const char *kernel_image) {
 
         _cleanup_free_ char *kernel_filename = NULL;
@@ -1597,7 +1597,7 @@ static int sysinstall_context_settle_kernel_image(SysinstallContext *context,
         return 0;
 }
 
-static int sysinstall_context_run(SysinstallContext *context) {
+static int sysinstall_context_run(SysInstallContext *context) {
 
         int r;
 
@@ -2007,7 +2007,7 @@ static int vl_method_run(
         if (r != 0)
                 return r;
 
-        _cleanup_(sysinstall_context_done) SysinstallContext context = (SysinstallContext) {
+        _cleanup_(sysinstall_context_done) SysInstallContext context = (SysInstallContext) {
                 .copy_locale = p.copy_locale,
                 .copy_keymap = p.copy_keymap,
                 .copy_timezone = p.copy_timezone,
@@ -2108,7 +2108,7 @@ static int run(int argc, char *argv[]) {
         if (arg_varlink)
                 return vl_server();
 
-        _cleanup_(sysinstall_context_done) SysinstallContext context = (SysinstallContext) {
+        _cleanup_(sysinstall_context_done) SysInstallContext context = (SysInstallContext) {
                 .copy_locale = arg_copy_locale,
                 .copy_keymap = arg_copy_keymap,
                 .copy_timezone = arg_copy_timezone,
