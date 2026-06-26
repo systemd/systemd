@@ -4304,12 +4304,6 @@ int journal_file_open(
                         goto fail;
         }
 
-#if HAVE_GCRYPT
-        r = journal_file_hmac_setup(f);
-        if (r < 0)
-                goto fail;
-#endif
-
         if (newly_created) {
                 r = journal_file_setup_field_hash_table(f);
                 if (r < 0)
