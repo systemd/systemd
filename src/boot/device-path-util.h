@@ -13,7 +13,8 @@ EFI_DEVICE_PATH *device_path_replace_node(
 
 static inline EFI_DEVICE_PATH *device_path_next_node(const EFI_DEVICE_PATH *dp) {
         assert(dp);
-        return (EFI_DEVICE_PATH *) ((uint8_t *) dp + dp->Length);
+        /* Length includes the 4-byte node header, so step by at least sizeof(EFI_DEVICE_PATH). */
+        return (EFI_DEVICE_PATH *) ((uint8_t *) dp + MAX((size_t) dp->Length, sizeof(EFI_DEVICE_PATH)));
 }
 
 static inline bool device_path_is_end(const EFI_DEVICE_PATH *dp) {
