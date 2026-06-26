@@ -153,6 +153,25 @@ static EFI_STATUS memory_mark_rw_nx(EFI_MEMORY_ATTRIBUTE_PROTOCOL *memory_proto,
         return EFI_SUCCESS;
 }
 
+typedef struct CleanupNxSections {
+        EFI_MEMORY_ATTRIBUTE_PROTOCOL *memory_proto;
+        struct iovec **sections;
+        size_t *n_sections;
+} CleanupNxSections;
+
+static void cleanup_nx_sections(CleanupNxSections *c) {
+        assert(c);
+
+        /* Restore the code sections that were marked RO+X back to RW+NX before their backing pages are
+         * freed: EDK2 requires freed buffers to be writable and non-executable (it may overwrite them with
+         * a fixed pattern), otherwise FreePages() crashes. */
+        if (!c->memory_proto)
+                return;
+
+        for (size_t i = 0; i < *c->n_sections; i++)
+                (void) memory_mark_rw_nx(c->memory_proto, &(*c->sections)[i]);
+}
+
 EFI_STATUS linux_exec(
                 EFI_HANDLE parent_image,
                 const char16_t *cmdline,
@@ -277,6 +296,14 @@ EFI_STATUS linux_exec(
                         /* addr= */ 0);
 
         uint8_t* loaded_kernel = PHYSICAL_ADDRESS_TO_POINTER(loaded_kernel_pages.addr);
+
+        /* Any code section marked RO+X must be reverted to RW+NX before the backing pages are freed. */
+        _unused_ _cleanup_(cleanup_nx_sections) CleanupNxSections nx_restore = {
+                .memory_proto = memory_proto,
+                .sections = &nx_sections,
+                .n_sections = &n_nx_sections,
+        };
+
         FOREACH_ARRAY(h, headers, n_headers) {
                 if (h->PointerToRelocations != 0)
                         return log_error_status(EFI_LOAD_ERROR, "Inner kernel image contains sections with relocations, which we do not support.");
@@ -308,12 +335,11 @@ EFI_STATUS linux_exec(
                         nx_sections = xrealloc(nx_sections, n_nx_sections * sizeof(struct iovec), (n_nx_sections + 1) * sizeof(struct iovec));
                         nx_sections[n_nx_sections].iov_base = loaded_kernel + h->VirtualAddress;
                         nx_sections[n_nx_sections].iov_len = h->VirtualSize;
+                        ++n_nx_sections;
 
-                        err = memory_mark_ro_x(memory_proto, &nx_sections[n_nx_sections]);
+                        err = memory_mark_ro_x(memory_proto, &nx_sections[n_nx_sections - 1]);
                         if (err != EFI_SUCCESS)
                                 return err;
-
-                        ++n_nx_sections;
                 }
         }
 
@@ -352,12 +378,6 @@ EFI_STATUS linux_exec(
 
         /* Restore */
         *parent_loaded_image = original_parent_loaded_image;
-
-        /* On failure we'll free the buffers. EDK2 requires the memory buffers to be writable and
-         * non-executable, as in some configurations it will overwrite them with a fixed pattern, so if the
-         * attributes are not restored FreePages() will crash. */
-        for (size_t i = 0; i < n_nx_sections; i++)
-                (void) memory_mark_rw_nx(memory_proto, &nx_sections[i]);
 
         return log_error_status(err, "Error starting kernel image: %m");
 }
