@@ -16,6 +16,15 @@ CHANGES WITH 262:
           have been provided. This clears the way for a new
           "systemd-sysupdate@.service" unit for varlink activation of sysupdate.
 
+        Changes in systemd-networkd:
+
+        * A new IPv4ProxyARPAddress= setting has been added to the [Network]
+          section of .network files. It is the IPv4 counterpart to
+          IPv6ProxyNDPAddress= and allows manual entries to be added to the
+          kernel's IPv4 proxy neighbor table. The setting implies
+          IPv4ProxyARP=yes but has no effect if IPv4ProxyARP= has been set to
+          false. This mirrors the behavior of IPv6ProxyNDPAddress=.
+
 CHANGES WITH 261:
 
         Announcements of Future Feature Removals and Incompatible Changes:
