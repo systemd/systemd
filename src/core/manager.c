@@ -4038,7 +4038,7 @@ static void manager_notify_finished(Manager *m) {
                 /* The soft-reboot case, where we only report data for the last reboot */
                 firmware_usec = loader_usec = initrd_usec = kernel_usec = 0;
                 total_usec = userspace_usec = usec_sub_unsigned(m->timestamps[MANAGER_TIMESTAMP_FINISH].monotonic,
-                                                                m->timestamps[MANAGER_TIMESTAMP_SHUTDOWN_START].monotonic);
+                                                                m->timestamps[MANAGER_TIMESTAMP_PREVIOUS_SHUTDOWN_START].monotonic);
 
                 log_struct(LOG_INFO,
                            LOG_MESSAGE_ID(SD_MESSAGE_STARTUP_FINISHED_STR),
