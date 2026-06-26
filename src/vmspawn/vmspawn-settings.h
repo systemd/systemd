@@ -45,6 +45,7 @@ typedef enum Firmware {
 typedef enum ConfidentialComputing {
         COCO_NO,
         COCO_AMD_SEV_SNP,
+        COCO_INTEL_TDX,
         _COCO_MAX,
         _COCO_INVALID = -EINVAL,
 } ConfidentialComputing;

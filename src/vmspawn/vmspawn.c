@@ -634,7 +634,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
-                OPTION_LONG("coco", "no|sev-snp", "Run the guest as a confidential VM"): {
+                OPTION_LONG("coco", "no|sev-snp|tdx", "Run the guest as a confidential VM"): {
                         ConfidentialComputing cc = confidential_computing_from_string(opts.arg);
                         if (cc < 0)
                                 return log_error_errno(cc, "Unknown --coco= value: %s", opts.arg);
@@ -2607,11 +2607,11 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 use_kvm = r;
         }
 
-        if (arg_confidential_computing == COCO_AMD_SEV_SNP && !use_kvm)
+        if (arg_confidential_computing != COCO_NO && !use_kvm)
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                       "--coco=sev-snp requires KVM, but KVM is not available.");
+                                       "--coco= requires KVM, but KVM is not available.");
 
-        if (arg_firmware_type == FIRMWARE_UEFI && arg_confidential_computing != COCO_AMD_SEV_SNP) {
+        if (arg_firmware_type == FIRMWARE_UEFI && arg_confidential_computing == COCO_NO) {
                 if (arg_firmware)
                         r = load_ovmf_config(arg_firmware, &ovmf_config);
                 else
@@ -2685,7 +2685,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         if (r < 0)
                 return r;
 
-        if (arg_confidential_computing == COCO_AMD_SEV_SNP) {
+        if (arg_confidential_computing != COCO_NO) {
                 r = qemu_config_key(config_file, "kernel-irqchip", "split");
                 if (r < 0)
                         return r;
@@ -2717,6 +2717,10 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
         if (arg_confidential_computing == COCO_AMD_SEV_SNP) {
                 r = qemu_config_key(config_file, "confidential-guest-support", "snp0");
+                if (r < 0)
+                        return r;
+        } else if (arg_confidential_computing == COCO_INTEL_TDX) {
+                r = qemu_config_key(config_file, "confidential-guest-support", "tdx0");
                 if (r < 0)
                         return r;
         }
@@ -2927,6 +2931,11 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                                         "kernel-hashes", "on");
                 if (r < 0)
                         return r;
+        } else if (arg_confidential_computing == COCO_INTEL_TDX) {
+                r = qemu_config_section(config_file, "object", "tdx0",
+                                        "qom-type", "tdx-guest");
+                if (r < 0)
+                        return r;
         }
 
         unsigned child_cid = arg_vsock_cid;
@@ -2948,11 +2957,13 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
         /* -cpu stays on cmdline since not all flags are supported in config. SNP needs a stable,
          * named CPU model so the launch measurement is reproducible across hosts; EPYC-v4 is the
-         * baseline that covers all SNP-capable processors (Milan and later). */
+         * baseline that covers all SNP-capable processors (Milan and later). TDX requires host
+         * CPU model. */
         const char *cpu_model =
 #ifdef __x86_64__
-                arg_confidential_computing == COCO_AMD_SEV_SNP ? "EPYC-v4"
-                                                             : "max,hv_relaxed,hv-vapic,hv-time";
+                arg_confidential_computing == COCO_AMD_SEV_SNP ? "EPYC-v4" :
+                arg_confidential_computing == COCO_INTEL_TDX   ? "host"    :
+                                                                 "max,hv_relaxed,hv-vapic,hv-time";
 #else
                 "max";
 #endif
@@ -4128,7 +4139,7 @@ static int verify_arguments(void) {
                                                "--coco=sev-snp requires KVM, remove --kvm=no.");
                 if (arg_firmware_type != FIRMWARE_UEFI)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "--coco can't be used with %s firmware",
+                                               "--coco=sev-snp can't be used with %s firmware",
                                                firmware_to_string(arg_firmware_type));
                 /* SNP can't use pflash + NVRAM split, so the firmware-descriptor
                  * machinery doesn't apply. Require an explicit raw .fd path and
@@ -4140,7 +4151,7 @@ static int verify_arguments(void) {
                 log_debug("Using raw SNP firmware at %s (no NVRAM, no Secure Boot).", arg_firmware);
                 if (set_contains(arg_firmware_features_include, "secure-boot"))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "--secure-boot=yes cannot be combined with --coco.");
+                                               "--coco=sev-snp cannot be combined with --secure-boot=yes.");
                 if (arg_tpm > 0)
                         log_warning("TPM can't be trusted by the confidential computing guest");
                 /* kernel-hashes=on only covers what QEMU itself loads via -kernel/-initrd/-append.
@@ -4151,6 +4162,34 @@ static int verify_arguments(void) {
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "--coco=sev-snp requires --linux= "
                                                "so kernel, initrd and cmdline are covered by the launch measurement.");
+        }
+
+        if (arg_confidential_computing == COCO_INTEL_TDX) {
+                if (native_architecture() != ARCHITECTURE_X86_64)
+                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                               "--coco=tdx is only supported on x86_64.");
+                if (arg_kvm == 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "--coco=tdx requires KVM, remove --kvm=no.");
+                if (arg_firmware_type != FIRMWARE_UEFI)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "--coco=tdx can't be used with %s firmware",
+                                               firmware_to_string(arg_firmware_type));
+                /* TDX can't use pflash + NVRAM split, so the firmware-descriptor
+                 * machinery doesn't apply. Require an explicit raw .fd path and
+                 * use it verbatim with -bios later. */
+                if (!arg_firmware)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "--coco=tdx requires --firmware=PATH "
+                                               "pointing at a raw TDX-built OVMF (TDVF) .fd binary.");
+                log_debug("Using raw TDX firmware at %s (no NVRAM, no Secure Boot).", arg_firmware);
+                /* Secure Boot state is baked into the supplied TDVF image and can't be enrolled at
+                 * runtime (no writable NVRAM), so --secure-boot=yes would silently have no effect. */
+                if (set_contains(arg_firmware_features_include, "secure-boot"))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "--coco=tdx cannot be combined with --secure-boot=yes.");
+                if (arg_tpm > 0)
+                        log_warning("TPM can't be trusted by the confidential computing guest");
         }
 
         return 0;
