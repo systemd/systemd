@@ -798,5 +798,14 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                 }
         }
 
+        /* On soft-reboot the shutdown timestamps we just deserialized describe the boot that is going away,
+         * not the current one. Move them into the previous-shutdown-* fields and NUL the current ones. */
+        if (m->previous_objective == MANAGER_SOFT_REBOOT) {
+                m->timestamps[MANAGER_TIMESTAMP_PREVIOUS_SHUTDOWN_START]  = m->timestamps[MANAGER_TIMESTAMP_SHUTDOWN_START];
+                m->timestamps[MANAGER_TIMESTAMP_PREVIOUS_SHUTDOWN_FINISH] = m->timestamps[MANAGER_TIMESTAMP_SHUTDOWN_FINISH];
+                m->timestamps[MANAGER_TIMESTAMP_SHUTDOWN_START]           = DUAL_TIMESTAMP_NULL;
+                m->timestamps[MANAGER_TIMESTAMP_SHUTDOWN_FINISH]          = DUAL_TIMESTAMP_NULL;
+        }
+
         return manager_deserialize_units(m, f, fds);
 }

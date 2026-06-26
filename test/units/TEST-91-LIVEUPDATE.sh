@@ -80,6 +80,23 @@ if grep -qw luo_nboot=1 /proc/cmdline; then
 
     assert_eq "$(busctl -j get-property org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager KExecsCount | jq -r '.data')" "1"
 
+    # The previous boot's shutdown timestamps were preserved across the kexec via LUO and are now exposed
+    # as the PreviousShutdown* properties (the live Shutdown* ones describe this boot, which is not shutting
+    # down, so they are unset here).
+    ts_shutdown_start=$(busctl -j get-property org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager PreviousShutdownStartTimestampMonotonic | jq -r '.data')
+    ts_shutdown_finish=$(busctl -j get-property org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager PreviousShutdownFinishTimestampMonotonic | jq -r '.data')
+    ts_shutdown_late_start=$(busctl -j get-property org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager PreviousShutdownLateStartTimestampMonotonic | jq -r '.data')
+    ts_shutdown_late_finish=$(busctl -j get-property org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager PreviousShutdownLateFinishTimestampMonotonic | jq -r '.data')
+
+    assert_ge "${ts_shutdown_start}" 1
+    assert_ge "${ts_shutdown_finish}" 1
+    assert_ge "${ts_shutdown_late_start}" 1
+    assert_ge "${ts_shutdown_late_finish}" 1
+
+    assert_le "${ts_shutdown_start}" "${ts_shutdown_finish}"
+    assert_le "${ts_shutdown_finish}" "${ts_shutdown_late_start}"
+    assert_le "${ts_shutdown_late_start}" "${ts_shutdown_late_finish}"
+
     # Negative path: a unit stored a child LUO session named like PID 1's own
     # ("systemd") on the first boot. PID 1's serialize step must have refused to
     # serialize that fd store entry (anti-hijack guard in

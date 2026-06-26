@@ -23,6 +23,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "syslog-util.h"
+#include "time-util.h"
 #include "unit-name.h"
 #include "user-util.h"
 
@@ -246,6 +247,30 @@ int json_dispatch_in6_addr(const char *name, sd_json_variant *variant, sd_json_d
 
         memcpy(address, iov.iov_base, iov.iov_len);
         return 0;
+}
+
+int json_dispatch_dual_timestamp(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        dual_timestamp *ts = ASSERT_PTR(userdata);
+
+        /* The inverse of JSON_BUILD_DUAL_TIMESTAMP(): decodes a { "realtime": …, "monotonic": … } object
+         * into a dual_timestamp. */
+
+        if (sd_json_variant_is_null(variant)) {
+                *ts = DUAL_TIMESTAMP_NULL;
+                return 0;
+        }
+
+        if (!sd_json_variant_is_object(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL),
+                                "JSON field '%s' is not an object.", strna(name));
+
+        static const sd_json_dispatch_field table[] = {
+                { "realtime",  _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64, voffsetof(*ts, realtime),  0 },
+                { "monotonic", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64, voffsetof(*ts, monotonic), 0 },
+                {}
+        };
+
+        return sd_json_dispatch(variant, table, flags, ts);
 }
 
 int json_dispatch_const_path(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
