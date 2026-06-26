@@ -438,7 +438,7 @@ static bool has_graphics_output(void) {
 static EFI_STATUS device_path_get_uart_index(const EFI_DEVICE_PATH *dp, uint32_t *ret_index) {
         assert(ret_index);
 
-        for (const EFI_DEVICE_PATH *node = dp; !device_path_is_end(node); node = device_path_next_node(node))
+        for (const EFI_DEVICE_PATH *node = dp; node && !device_path_is_end(node); node = device_path_next_node(node))
                 if (node->Type == ACPI_DEVICE_PATH &&
                     node->SubType == ACPI_DP &&
                     node->Length >= sizeof(ACPI_HID_DEVICE_PATH)) {
