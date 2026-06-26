@@ -51,6 +51,7 @@
 #include "varlink-io.systemd.Resolve.Monitor.h"
 #include "varlink-io.systemd.Shutdown.h"
 #include "varlink-io.systemd.StorageProvider.h"
+#include "varlink-io.systemd.SysUpdate.h"
 #include "varlink-io.systemd.SysUpdate.Notify.h"
 #include "varlink-io.systemd.Udev.h"
 #include "varlink-io.systemd.Unit.h"
@@ -228,6 +229,7 @@ TEST(parse_format) {
                 &vl_interface_io_systemd_Resolve_Monitor,
                 &vl_interface_io_systemd_Shutdown,
                 &vl_interface_io_systemd_StorageProvider,
+                &vl_interface_io_systemd_SysUpdate,
                 &vl_interface_io_systemd_SysUpdate_Notify,
                 &vl_interface_io_systemd_Udev,
                 &vl_interface_io_systemd_Unit,
