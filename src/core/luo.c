@@ -112,7 +112,7 @@ int manager_luo_restore_fd_stores(Manager *m) {
         } state_data = {};
 
         static const sd_json_dispatch_field state_dispatch_table[] = {
-                { "kexecsCount",                         SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint,        voffsetof(state_data, kexecs_count),                  0 },
+                { "KExecsCount",                         SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint,        voffsetof(state_data, kexecs_count),                  0 },
                 { "PreviousShutdownStartTimestamp",      SD_JSON_VARIANT_OBJECT,   json_dispatch_dual_timestamp, voffsetof(state_data, previous_shutdown_start),       0 },
                 { "PreviousShutdownFinishTimestamp",     SD_JSON_VARIANT_OBJECT,   json_dispatch_dual_timestamp, voffsetof(state_data, previous_shutdown_finish),      0 },
                 { "PreviousShutdownLateStartTimestamp",  SD_JSON_VARIANT_OBJECT,   json_dispatch_dual_timestamp, voffsetof(state_data, previous_shutdown_late_start),  0 },
@@ -318,7 +318,7 @@ int manager_luo_serialize_fd_stores(Manager *m, FILE **ret_f, FDSet **ret_fds) {
                         SD_JSON_BUILD_PAIR_UNSIGNED("version", LUO_PROTOCOL_VERSION),
                         SD_JSON_BUILD_PAIR("state",
                                            SD_JSON_BUILD_OBJECT(
-                                                           SD_JSON_BUILD_PAIR_UNSIGNED("kexecsCount", m->kexecs_count),
+                                                           SD_JSON_BUILD_PAIR_UNSIGNED("KExecsCount", m->kexecs_count),
                                                            JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL("PreviousShutdownStartTimestamp", &m->timestamps[MANAGER_TIMESTAMP_SHUTDOWN_START]),
                                                            JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL("PreviousShutdownFinishTimestamp", &m->timestamps[MANAGER_TIMESTAMP_SHUTDOWN_FINISH]))),
                         SD_JSON_BUILD_PAIR_CONDITION(!!units, "units", SD_JSON_BUILD_VARIANT(units)));
