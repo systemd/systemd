@@ -277,6 +277,10 @@ EFI_STATUS linux_exec(
                 if ((h->VirtualAddress < image_base)
                     || (h->VirtualAddress - image_base + h->SizeOfRawData > kernel_size_in_memory))
                         return log_error_status(EFI_LOAD_ERROR, "Section would write outside of memory");
+                if (UINT32_MAX - h->VirtualAddress < h->VirtualSize)
+                        return log_error_status(EFI_LOAD_ERROR, "Invalid PE section, VirtualSize + VirtualAddress overflows");
+                if (h->VirtualAddress + h->VirtualSize > kernel_size_in_memory)
+                        return log_error_status(EFI_LOAD_ERROR, "Section virtual size would write outside of memory");
                 memcpy(loaded_kernel + h->VirtualAddress - image_base,
                        (const uint8_t*)kernel->iov_base + h->PointerToRawData,
                        h->SizeOfRawData);
