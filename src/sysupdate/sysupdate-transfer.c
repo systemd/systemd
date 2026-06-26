@@ -563,8 +563,8 @@ int transfer_read_definition(Transfer *t, const char *path, const char **dirs, H
                         config_item_table_lookup, table,
                         CONFIG_PARSE_WARN,
                         t,
-                        /* stats_by_path= */ NULL,
-                        /* drop_in_files= */ NULL);
+                        /* ret_stats_by_path= */ NULL,
+                        /* ret_drop_in_files= */ NULL);
         if (r < 0)
                 return r;
 
