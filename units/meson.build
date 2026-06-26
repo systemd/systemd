@@ -338,6 +338,20 @@ units = [
           'symlinks' : ['sockets.target.wants/'],
         },
         { 'file' : 'systemd-creds@.service' },
+        {
+          'file' : 'systemd-cryptenroll.socket',
+          'conditions' : ['HAVE_LIBCRYPTSETUP'],
+          'symlinks' : ['sockets.target.wants/'],
+        },
+        {
+          'file' : 'systemd-cryptenroll@.service',
+          'conditions' : ['HAVE_LIBCRYPTSETUP'],
+        },
+        {
+          'file' : 'systemd-cryptenroll-firstboot.service',
+          'conditions' : ['HAVE_LIBCRYPTSETUP', 'ENABLE_INITRD'],
+          'symlinks' : ['initrd.target.wants/'],
+        },
         { 'file' : 'systemd-exit.service' },
         { 'file' : 'systemd-factory-reset@.service.in' },
         {
