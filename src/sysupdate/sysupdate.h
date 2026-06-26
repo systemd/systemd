@@ -3,9 +3,27 @@
 
 #include "specifier.h"
 #include "sysupdate-forward.h"
+#include "sysupdate-target.h"
 
 typedef struct Context {
+        /* Parameters/Command line arguments: */
+        char *definitions;
+        bool sync;
+        uint64_t instances_max;
+        char *root;
+        char *image;
+        bool reboot;
+        int cleanup;
         char *component;
+        bool component_all;
+        int verify;
+        ImagePolicy *image_policy;
+        bool offline;
+        char *transfer_source;
+
+        /* Loaded state: */
+        LoopDevice *loop_device;
+        char *mounted_dir;
 
         Transfer **transfers;
         size_t n_transfers;
@@ -23,21 +41,10 @@ typedef struct Context {
         Hashmap *web_cache; /* Cache for downloaded resources, keyed by URL */
 
         int installdb_fd;
+
+        TargetIdentifier target_identifier;
 } Context;
 
-Context* context_free(Context *c);
-DEFINE_TRIVIAL_CLEANUP_FUNC(Context*, context_free);
-
-typedef enum ReadDefinitionsFlags {
-        READ_DEFINITIONS_REQUIRES_ENABLED_TRANSFERS = 1 << 0,
-        READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS     = 1 << 1,
-} ReadDefinitionsFlags;
-
-int context_make_offline(Context **ret, const char *node, const char *component, ReadDefinitionsFlags read_definitions_flags);
-
-extern bool arg_sync;
-extern uint64_t arg_instances_max;
-extern char *arg_root;
-extern char *arg_transfer_source;
+void context_done(Context *c);
 
 extern const Specifier specifier_table[];

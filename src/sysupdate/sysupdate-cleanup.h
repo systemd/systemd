@@ -5,5 +5,5 @@
 
 int context_installdb_record(Context *c, const char *path, char **patterns);
 
-int installdb_cleanup_component(const char *node, const char *component);
-int installdb_list_components(char ***ret);
+int installdb_cleanup_component(Context *context);
+int installdb_list_components(Context *context, char ***ret);
