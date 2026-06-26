@@ -39,6 +39,7 @@ extern DLSYM_PROTOTYPE(selinux_getenforcemode);
 extern DLSYM_PROTOTYPE(selinux_init_load_policy);
 extern DLSYM_PROTOTYPE(selinux_path);
 extern DLSYM_PROTOTYPE(selinux_set_callback);
+extern DLSYM_PROTOTYPE(selinux_set_policy_root);
 extern DLSYM_PROTOTYPE(selinux_status_close);
 extern DLSYM_PROTOTYPE(selinux_status_getenforce);
 extern DLSYM_PROTOTYPE(selinux_status_open);

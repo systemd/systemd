@@ -78,6 +78,7 @@ DLSYM_PROTOTYPE(selinux_getenforcemode) = NULL;
 DLSYM_PROTOTYPE(selinux_init_load_policy) = NULL;
 DLSYM_PROTOTYPE(selinux_path) = NULL;
 DLSYM_PROTOTYPE(selinux_set_callback) = NULL;
+DLSYM_PROTOTYPE(selinux_set_policy_root) = NULL;
 DLSYM_PROTOTYPE(selinux_status_close) = NULL;
 DLSYM_PROTOTYPE(selinux_status_getenforce) = NULL;
 DLSYM_PROTOTYPE(selinux_status_open) = NULL;
@@ -124,6 +125,7 @@ int dlopen_libselinux(int log_level) {
                         DLSYM_ARG(selinux_init_load_policy),
                         DLSYM_ARG(selinux_path),
                         DLSYM_ARG(selinux_set_callback),
+                        DLSYM_ARG(selinux_set_policy_root),
                         DLSYM_ARG(selinux_status_close),
                         DLSYM_ARG(selinux_status_getenforce),
                         DLSYM_ARG(selinux_status_open),
