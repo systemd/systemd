@@ -496,7 +496,6 @@ int journal_file_parse_verification_key(JournalFile *f, const char *key) {
         _cleanup_(erase_and_freep) uint8_t *seed = NULL;
         size_t seed_size;
         const char *k;
-        unsigned long long start, interval;
         int r;
 
         assert(f);
@@ -530,12 +529,20 @@ int journal_file_parse_verification_key(JournalFile *f, const char *key) {
                 return -EKEYREJECTED;
         k++;
 
-        r = sscanf(k, "%llx-%llx", &start, &interval);
+        uint64_t start, interval;
+        r = sscanf(k, "%"PRIx64"-%"PRIx64, &start, &interval);
         if (r != 2)
                 return -EKEYREJECTED;
 
+        if (start == 0 || interval == 0)
+                return -EKEYREJECTED;
+
+        uint64_t start_usec;
+        if (!MUL_SAFE(&start_usec, start, interval))
+                return -EKEYREJECTED;
+
         f->fsprg_seed = IOVEC_MAKE(TAKE_PTR(seed), seed_size);
-        f->fss_start_usec = start * interval;
+        f->fss_start_usec = start_usec;
         f->fss_interval_usec = interval;
 
         return 0;
