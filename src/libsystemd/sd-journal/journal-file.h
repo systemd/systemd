@@ -107,11 +107,8 @@ typedef struct JournalFile {
         uint64_t fss_start_usec;
         uint64_t fss_interval_usec;
 
-        void *fsprg_state;
-        size_t fsprg_state_size;
-
-        void *fsprg_seed;
-        size_t fsprg_seed_size;
+        struct iovec fsprg_state;
+        struct iovec fsprg_seed;
 
         /* When we insert this file into the per-boot priority queue 'newest_by_boot_id' in sd_journal, then by these keys */
         sd_id128_t newest_boot_id;
