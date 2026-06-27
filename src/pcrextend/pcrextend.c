@@ -382,6 +382,8 @@ static int extend_nvpcr_now(
                         return r;
 
                 r = tpm2_nvpcr_initialize(c, /* session= */ NULL, name, &anchor_secret);
+                if (r == -ENOBUFS)
+                        return r; /* NV space exhausted; let caller handle gracefully */
                 if (r < 0)
                         return log_error_errno(r, "Failed to extend NvPCR index '%s' with anchor secret: %m", name);
 
@@ -470,6 +472,8 @@ static int vl_method_extend(sd_varlink *link, sd_json_variant *parameters, sd_va
                 r = extend_nvpcr_now(p.nvpcr, extend_iovec->iov_base, extend_iovec->iov_len, p.event_type);
                 if (IN_SET(r, -ENOENT, -ENODEV))
                         return sd_varlink_error(link, "io.systemd.PCRExtend.NoSuchNvPCR", NULL);
+                if (r == -ENOBUFS)
+                        return sd_varlink_error(link, "io.systemd.PCRExtend.NvPCRSpaceExhausted", NULL);
         } else
                 r = extend_pcr_now(INDEX_TO_MASK(uint32_t, p.pcr), extend_iovec->iov_base, extend_iovec->iov_len, p.event_type);
         if (r < 0)
@@ -607,6 +611,10 @@ static int run(int argc, char *argv[]) {
          * suppressed. */
         if (arg_graceful && r == -EOPNOTSUPP) {
                 log_notice_errno(r, "TPM2 cannot be used for measurement (no usable PCR bank, missing device, or missing crypto support), skipping gracefully.");
+                return EXIT_SUCCESS;
+        }
+        if (arg_graceful && r == -ENOBUFS) {
+                log_notice_errno(r, "TPM NV index space is exhausted, NvPCR could not be initialized, skipping gracefully.");
                 return EXIT_SUCCESS;
         }
         if (r < 0)
