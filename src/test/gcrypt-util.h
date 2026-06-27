@@ -56,7 +56,6 @@ extern DLSYM_PROTOTYPE(gcry_mpi_subm);
 extern DLSYM_PROTOTYPE(gcry_mpi_sub_ui);
 extern DLSYM_PROTOTYPE(gcry_prime_check);
 extern DLSYM_PROTOTYPE(gcry_randomize);
-extern DLSYM_PROTOTYPE(gcry_strerror);
 
 /* Copied from gcry_md_putc from gcrypt.h due to the need to call the sym_ variant */
 #define sym_gcry_md_putc(h,c)                              \
@@ -66,14 +65,8 @@ extern DLSYM_PROTOTYPE(gcry_strerror);
                         sym_gcry_md_write((h__), NULL, 0); \
                 (h__)->buf[(h__)->bufpos++] = (c) & 0xff;  \
         } while(false)
-#else
-#define DLOPEN_GCRYPT(log_level, priority) dlopen_gcrypt(log_level)
-
-typedef struct gcry_md_handle *gcry_md_hd_t;
-
-static inline void sym_gcry_md_close(gcry_md_hd_t h) {
-        assert(h == NULL);
-}
-#endif
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(gcry_md_hd_t, sym_gcry_md_close, NULL);
+#else
+#define DLOPEN_GCRYPT(log_level, priority) dlopen_gcrypt(log_level)
+#endif

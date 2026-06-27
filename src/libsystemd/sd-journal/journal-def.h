@@ -43,6 +43,9 @@ typedef struct HashItem HashItem;
 
 typedef struct FSSHeader FSSHeader;
 
+typedef struct JournalFile JournalFile;
+typedef struct JournalAuthContext JournalAuthContext;
+
 /* Object types */
 typedef enum ObjectType {
         OBJECT_UNUSED, /* also serves as "any type" or "additional category" */
@@ -207,7 +210,8 @@ enum {
                                                HEADER_COMPATIBLE_TAIL_ENTRY_BOOT_ID |
                                                HEADER_COMPATIBLE_SEALED_CONTINUOUS,
 
-        HEADER_COMPATIBLE_SUPPORTED          = (HAVE_GCRYPT ? HEADER_COMPATIBLE_SEALED | HEADER_COMPATIBLE_SEALED_CONTINUOUS : 0) |
+        HEADER_COMPATIBLE_SUPPORTED          = HEADER_COMPATIBLE_SEALED |
+                                               HEADER_COMPATIBLE_SEALED_CONTINUOUS |
                                                HEADER_COMPATIBLE_TAIL_ENTRY_BOOT_ID,
 };
 
