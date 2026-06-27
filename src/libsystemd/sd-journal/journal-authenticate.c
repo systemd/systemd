@@ -534,6 +534,9 @@ int journal_file_parse_verification_key(JournalFile *f, const char *key) {
         if (r != 2)
                 return -EKEYREJECTED;
 
+        if (start <= 0 || interval <= 0)
+                return -EKEYREJECTED;
+
         f->fsprg_seed = IOVEC_MAKE(TAKE_PTR(seed), seed_size);
         f->fss_start_usec = start * interval;
         f->fss_interval_usec = interval;
