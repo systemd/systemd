@@ -25,7 +25,7 @@ struct JournalAuthContext {
         bool hmac_running;
 
         FSSHeader *fss_file;
-        size_t fss_file_size;
+        size_t fss_mmap_size;
 
         uint64_t fss_start_usec;
         uint64_t fss_interval_usec;
@@ -38,11 +38,9 @@ JournalAuthContext* journal_auth_free(JournalAuthContext *c) {
         if (!c)
                 return NULL;
 
-        if (c->fss_file) {
-                size_t sz = PAGE_ALIGN(c->fss_file_size);
-                assert(sz < SIZE_MAX);
-                munmap(c->fss_file, sz);
-        } else
+        if (c->fss_file)
+                munmap(c->fss_file, c->fss_mmap_size);
+        else
                 iovec_done_erase(&c->fsprg_state);
 
         iovec_done_erase(&c->fsprg_seed);
@@ -145,7 +143,7 @@ int journal_auth_load(JournalAuthContext **ret) {
                 return -errno;
 
         *c = (JournalAuthContext) {
-                .fss_file_size = fss_file_size,
+                .fss_mmap_size = sz,
                 .fss_file = p,
 
                 .fss_start_usec = le64toh(p->start_usec),
