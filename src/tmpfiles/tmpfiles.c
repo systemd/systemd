@@ -795,7 +795,7 @@ static int item_cleanup(
 
                         if (!arg_dry_run &&
                             flock(dirfd(sub_dir), LOCK_EX|LOCK_NB) < 0) {
-                                log_debug_errno(errno, "Couldn't acquire shared BSD lock on directory \"%s\", skipping: %m", pathname);
+                                log_debug_errno(errno, "Couldn't acquire lock on directory \"%s\", skipping: %m", pathname);
                                 goto no_delete_needed;
                         }
 
@@ -883,7 +883,7 @@ static int item_cleanup(
                         if (fd < 0 && !IN_SET(fd, -ENOENT, -ELOOP))
                                 log_warning_errno(fd, "Opening file \"%s\" failed, proceeding without lock: %m", pathname);
                         if (fd >= 0 && flock(fd, LOCK_EX|LOCK_NB) < 0 && errno == EAGAIN) {
-                                log_debug_errno(errno, "Couldn't acquire shared BSD lock on file \"%s\", skipping: %m", pathname);
+                                log_debug_errno(errno, "Couldn't acquire lock on file \"%s\", skipping: %m", pathname);
                                 goto no_delete_needed;
                         }
                 }
@@ -3584,13 +3584,25 @@ static int clean_item_inclusive(
                         /* optional_mask= */ STATX_ATIME|STATX_MTIME,
                         /* mandatory_attributes= */ STATX_ATTR_MOUNT_ROOT,
                         &sx);
+        if (r == -EUNATCH) {
+                /* try again without STATX_ATTR_MOUNT_ROOT for kernels that don't support it, and simply set mountpoint=false */
+                r = xstatx_full(dir_fd,
+                                /* path= */ NULL,
+                                /* statx_flags= */ AT_EMPTY_PATH|AT_NO_AUTOMOUNT,
+                                /* xstatx_flags= */ 0,
+                                /* mandatory_mask= */ 0,
+                                /* optional_mask= */ STATX_ATIME|STATX_MTIME,
+                                /* mandatory_attributes= */ 0,
+                                &sx);
+                mountpoint = false;
+        } else
+                mountpoint = FLAGS_SET(sx.stx_attributes, STATX_ATTR_MOUNT_ROOT);
         if (r < 0)
                 return log_error_errno(r, "statx on parent of '%s' failed: %m", instance);
 
         nsec_t atime_nsec = FLAGS_SET(sx.stx_mask, STATX_ATIME) ? statx_timestamp_load_nsec(&sx.stx_atime) : NSEC_INFINITY;
         nsec_t mtime_nsec = FLAGS_SET(sx.stx_mask, STATX_MTIME) ? statx_timestamp_load_nsec(&sx.stx_mtime) : NSEC_INFINITY;
 
-        mountpoint = FLAGS_SET(sx.stx_attributes, STATX_ATTR_MOUNT_ROOT);
         if (DEBUG_LOGGING) {
                 _cleanup_free_ char *ab_f = NULL, *ab_d = NULL;
 
