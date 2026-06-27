@@ -12,6 +12,10 @@ void journal_auth_set_ops(const JournalAuthOps *ops) {
         auth_ops = ops;
 }
 
+bool journal_auth_supported(void) {
+        return !!auth_ops;
+}
+
 void journal_file_auth_done(JournalFile *f) {
         assert(f);
 

@@ -210,7 +210,8 @@ enum {
                                                HEADER_COMPATIBLE_TAIL_ENTRY_BOOT_ID |
                                                HEADER_COMPATIBLE_SEALED_CONTINUOUS,
 
-        HEADER_COMPATIBLE_SUPPORTED          = (HAVE_GCRYPT ? HEADER_COMPATIBLE_SEALED | HEADER_COMPATIBLE_SEALED_CONTINUOUS : 0) |
+        HEADER_COMPATIBLE_SUPPORTED          = HEADER_COMPATIBLE_SEALED |
+                                               HEADER_COMPATIBLE_SEALED_CONTINUOUS |
                                                HEADER_COMPATIBLE_TAIL_ENTRY_BOOT_ID,
 };
 
