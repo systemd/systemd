@@ -247,13 +247,13 @@ TEST(extract_first_word) {
 
         p = original = "fooo\\ bar quux";
         assert_se(extract_first_word(&p, &t, NULL, EXTRACT_UNESCAPE_RELAX) > 0);
-        ASSERT_STREQ(t, "fooo bar");
+        ASSERT_STREQ(t, "fooo\\ bar");
         free(t);
         assert_se(p == original + 10);
 
         p = original = "fooo\\ bar quux";
         assert_se(extract_first_word(&p, &t, NULL, EXTRACT_UNESCAPE_RELAX|EXTRACT_RELAX) > 0);
-        ASSERT_STREQ(t, "fooo bar");
+        ASSERT_STREQ(t, "fooo\\ bar");
         free(t);
         assert_se(p == original + 10);
 
@@ -585,6 +585,12 @@ TEST(extract_first_word) {
         ASSERT_OK_POSITIVE(extract_first_word(&p, &t, NULL, EXTRACT_UNQUOTE | EXTRACT_CUNESCAPE));
         ASSERT_STREQ(t, "test4@/pure/path/like/data.service");
         free(t);
+
+        /* For issue #41853. */
+        p = original = "foo\\ bar\\:qu\\\\x2dux:y:z waldo:a:b:c";
+        assert_se(extract_first_word(&p, &t, NULL, EXTRACT_UNESCAPE_RELAX) > 0);
+        ASSERT_STREQ(t, "foo\\ bar\\:qu\\\\x2dux:y:z");
+        /* Continued below with extract_many_words. */
 }
 
 TEST(extract_first_word_and_warn) {
@@ -817,6 +823,17 @@ TEST(extract_many_words) {
         ASSERT_STREQ(a, "gęślą");
         ASSERT_STREQ(b, "👊🔪💐");
         ASSERT_STREQ(c, "가너도루");
+        free(a);
+        free(b);
+        free(c);
+
+        /* For issue #41853. */
+        p = original = "foo\\ bar\\:qu\\\\x2dux:y:z"; /* i.e. shell_escape("foo bar:qu\\x2dux", ":" WHITESPACE) + ":y:z" */
+        assert_se(extract_many_words(&p, ":" WHITESPACE, EXTRACT_UNESCAPE_SEPARATORS, &a, &b, &c) == 3);
+        assert_se(isempty(p));
+        ASSERT_STREQ(a, "foo bar:qu\\x2dux"); /* Shell escaping undone. */
+        ASSERT_STREQ(b, "y");
+        ASSERT_STREQ(c, "z");
         free(a);
         free(b);
         free(c);
