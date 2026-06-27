@@ -5,6 +5,7 @@
 #include <sys/stat.h>
 
 #include "compress.h"
+#include "ratelimit.h"
 #include "sd-forward.h"
 #include "gcrypt-util.h"
 #include "journal-def.h"
@@ -121,6 +122,7 @@ typedef struct JournalFile {
         unsigned newest_boot_id_prioq_idx;
         uint64_t newest_entry_offset;
         uint8_t newest_state;
+        RateLimit tail_timestamp_rl; /* rate-limits journal_file_read_tail_timestamp() calls during iteration */
 } JournalFile;
 
 typedef enum JournalFileFlags {
