@@ -16,6 +16,15 @@ CHANGES WITH 262:
           have been provided. This clears the way for a new
           "systemd-sysupdate@.service" unit for varlink activation of sysupdate.
 
+        * ukify now resolves relative DeviceTree=/--devicetree= and
+          DeviceTreeAuto=/--devicetree-auto= paths using kernel-install's
+          devicetree lookup paths, using $KERNEL_INSTALL_CONF_ROOT as an
+          override when set. Absolute paths continue to be used as-is.
+          Previously, relative paths were passed through unchanged and thus
+          resolved relative to the caller's current working directory. For
+          relative paths, the kernel version must be specified explicitly or
+          autodetectable from the kernel image.
+
 CHANGES WITH 261:
 
         Announcements of Future Feature Removals and Incompatible Changes:
