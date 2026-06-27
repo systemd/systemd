@@ -841,8 +841,14 @@ int journal_file_verify(
                 r = journal_file_auth_load_key(f, key);
                 if (r < 0)
                         return log_error_errno(r, "Failed to load verification key: %m");
-        } else if (JOURNAL_HEADER_SEALED(f->header))
-                return -ENOKEY;
+        } else if (JOURNAL_HEADER_SEALED(f->header)) {
+                /* For a sealed journal file, request the verification key when journal sealing is supported.
+                 * Otherwise, log that seal verification is skipped. */
+                if (journal_auth_supported())
+                        return -ENOKEY;
+                else
+                        log_notice("Journal file is sealed, but journal sealing support is disabled. Skipping seal verification.");
+        }
 
         r = var_tmp_dir(&tmp_dir);
         if (r < 0) {
@@ -1147,7 +1153,7 @@ int journal_file_verify(
                                 }
                         }
 
-                        if (JOURNAL_HEADER_SEALED(f->header)) {
+                        if (JOURNAL_HEADER_SEALED(f->header) && journal_auth_supported()) {
                                 uint64_t q, rt, rt_end;
 
                                 debug(p, "Checking tag %"PRIu64"...", le64toh(o->tag.seqnum));
