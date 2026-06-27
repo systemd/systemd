@@ -9,6 +9,7 @@
 #include "chattr-util.h"
 #include "fd-util.h"
 #include "iovec-util.h"
+#include "journal-authenticate.h"
 #include "journal-file-util.h"
 #include "journal-verify.h"
 #include "log.h"
@@ -174,6 +175,8 @@ int main(int argc, char *argv[]) {
         const char *verification_key = NULL;
         int max_iterations = 512;
 
+        journal_auth_init();
+
         if (argc > 1) {
                 /* Don't limit the number of iterations when the verification key
                  * is provided on the command line, we want to do that only in CIs */
@@ -187,10 +190,9 @@ int main(int argc, char *argv[]) {
         ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_COMPACT", "1", 1));
         run_test(verification_key, max_iterations);
 
-#if HAVE_GCRYPT
-        /* If we're running without any arguments and we're compiled with gcrypt
+        /* If we're running without any arguments and journal sealing support is enabled,
          * check the journal verification stuff with a valid key as well */
-        if (argc <= 1) {
+        if (argc <= 1 && journal_auth_supported()) {
                 verification_key = "c262bd-85187f-0b1b04-877cc5/1c7af8-35a4e900";
 
                 ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_COMPACT", "0", 1));
@@ -199,7 +201,6 @@ int main(int argc, char *argv[]) {
                 ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_COMPACT", "1", 1));
                 run_test(verification_key, max_iterations);
         }
-#endif
 
         return 0;
 }

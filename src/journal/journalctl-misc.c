@@ -9,6 +9,7 @@
 #include "format-table.h"
 #include "format-util.h"
 #include "hashmap.h"
+#include "journal-authenticate.h"
 #include "journal-internal.h"
 #include "journal-verify.h"
 #include "journalctl.h"
@@ -39,6 +40,8 @@ int action_verify(void) {
         int r, ret = 0;
 
         assert(arg_action == ACTION_VERIFY);
+
+        journal_auth_init();
 
         r = acquire_journal(&j);
         if (r < 0)
