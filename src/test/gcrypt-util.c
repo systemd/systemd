@@ -40,7 +40,6 @@ DLSYM_PROTOTYPE(gcry_mpi_subm) = NULL;
 DLSYM_PROTOTYPE(gcry_mpi_sub_ui) = NULL;
 DLSYM_PROTOTYPE(gcry_prime_check) = NULL;
 DLSYM_PROTOTYPE(gcry_randomize) = NULL;
-DLSYM_PROTOTYPE(gcry_strerror) = NULL;
 #endif
 
 int dlopen_gcrypt(int log_level) {
@@ -82,8 +81,7 @@ int dlopen_gcrypt(int log_level) {
                         DLSYM_ARG(gcry_mpi_subm),
                         DLSYM_ARG(gcry_mpi_sub_ui),
                         DLSYM_ARG(gcry_prime_check),
-                        DLSYM_ARG(gcry_randomize),
-                        DLSYM_ARG(gcry_strerror));
+                        DLSYM_ARG(gcry_randomize));
 #else
         return log_full_errno(log_level, SYNTHETIC_ERRNO(EOPNOTSUPP),
                               "gcrypt support is not compiled in.");

@@ -7,14 +7,15 @@
 #include "alloc-util.h"
 #include "ansi-color.h"
 #include "chattr-util.h"
+#include "crypto-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
-#include "fsprg.h"
-#include "gcrypt-util.h"
+#include "fsprg-openssl.h"
 #include "hostname-setup.h"
 #include "hostname-util.h"
 #include "io-util.h"
+#include "iovec-util.h"
 #include "journal-def.h"
 #include "journalctl.h"
 #include "journalctl-authenticate.h"
@@ -29,10 +30,9 @@
 #include "time-util.h"
 #include "tmpfile-util.h"
 
-#if HAVE_GCRYPT
+#if HAVE_OPENSSL
 static int format_key(
-                const void *seed,
-                size_t seed_size,
+                const struct iovec *seed,
                 uint64_t start,
                 uint64_t interval,
                 char **ret) {
@@ -40,18 +40,17 @@ static int format_key(
         _cleanup_(memstream_done) MemStream m = {};
         FILE *f;
 
-        assert(seed);
-        assert(seed_size > 0);
+        assert(iovec_is_set(seed));
         assert(ret);
 
         f = memstream_init(&m);
         if (!f)
                 return -ENOMEM;
 
-        for (size_t i = 0; i < seed_size; i++) {
+        for (size_t i = 0; i < seed->iov_len; i++) {
                 if (i > 0 && i % 3 == 0)
                         fputc('-', f);
-                fprintf(f, "%02x", ((uint8_t*) seed)[i]);
+                fprintf(f, "%02x", ((uint8_t*) seed->iov_base)[i]);
         }
 
         fprintf(f, "/%"PRIx64"-%"PRIx64, start, interval);
@@ -61,19 +60,17 @@ static int format_key(
 #endif
 
 int action_setup_keys(void) {
-#if HAVE_GCRYPT
+#if HAVE_OPENSSL
         _cleanup_(unlink_and_freep) char *tmpfile = NULL;
         _cleanup_close_ int fd = -EBADF;
         _cleanup_free_ char *path = NULL;
-        size_t mpk_size, seed_size, state_size;
-        uint8_t *mpk, *seed, *state;
         sd_id128_t machine, boot;
         uint64_t n;
         int r;
 
         assert(arg_action == ACTION_SETUP_KEYS);
 
-        r = DLOPEN_GCRYPT(LOG_ERR, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
+        r = DLOPEN_LIBCRYPTO(LOG_ERR, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
         if (r < 0)
                 return r;
 
@@ -105,30 +102,19 @@ int action_setup_keys(void) {
                 return log_error_errno(SYNTHETIC_ERRNO(EEXIST),
                                        "Sealing key file %s exists already. Use --force to recreate.", path);
 
-        mpk_size = FSPRG_mskinbytes(FSPRG_RECOMMENDED_SECPAR);
-        mpk = alloca_safe(mpk_size);
-
-        seed_size = FSPRG_RECOMMENDED_SEEDLEN;
-        seed = alloca_safe(seed_size);
-
-        state_size = FSPRG_stateinbytes(FSPRG_RECOMMENDED_SECPAR);
-        state = alloca_safe(state_size);
+        _cleanup_(iovec_erase) struct iovec
+                seed = IOVEC_ALLOCA(FSPRG_RECOMMENDED_SEEDLEN),
+                state = IOVEC_ALLOCA(fsprg_state_size(FSPRG_RECOMMENDED_SECPAR));
 
         if (!arg_quiet)
                 log_info("Generating seed...");
-        r = crypto_random_bytes(seed, seed_size);
+        r = crypto_random_bytes(seed.iov_base, seed.iov_len);
         if (r < 0)
                 return log_error_errno(r, "Failed to acquire random seed: %m");
 
         if (!arg_quiet)
-                log_info("Generating key pair...");
-        r = FSPRG_GenMK(NULL, mpk, seed, seed_size, FSPRG_RECOMMENDED_SECPAR);
-        if (r < 0)
-                return log_error_errno(r, "Failed to generate key pair: %m");
-
-        if (!arg_quiet)
                 log_info("Generating sealing key...");
-        r = FSPRG_GenState0(state, mpk, seed, seed_size);
+        r = fsprg_generate_state(FSPRG_RECOMMENDED_SECPAR, /* epoch= */ 0, &seed, &state);
         if (r < 0)
                 return log_error_errno(r, "Failed to generate sealing key: %m");
 
@@ -146,21 +132,21 @@ int action_setup_keys(void) {
                                r, "Failed to set file attributes on a temporary file for '%s', ignoring: %m", path);
 
         struct FSSHeader h = {
-                .signature = { 'K', 'S', 'H', 'H', 'R', 'H', 'L', 'P' },
+                .signature = FSS_HEADER_SIGNATURE,
                 .machine_id = machine,
                 .boot_id = boot,
                 .header_size = htole64(sizeof(h)),
                 .start_usec = htole64(n * arg_interval),
                 .interval_usec = htole64(arg_interval),
                 .fsprg_secpar = htole16(FSPRG_RECOMMENDED_SECPAR),
-                .fsprg_state_size = htole64(state_size),
+                .fsprg_state_size = htole64(state.iov_len),
         };
 
         r = loop_write(fd, &h, sizeof(h));
         if (r < 0)
                 return log_error_errno(r, "Failed to write header: %m");
 
-        r = loop_write(fd, state, state_size);
+        r = loop_write(fd, state.iov_base, state.iov_len);
         if (r < 0)
                 return log_error_errno(r, "Failed to write state: %m");
 
@@ -170,8 +156,8 @@ int action_setup_keys(void) {
 
         tmpfile = mfree(tmpfile);
 
-        _cleanup_free_ char *key = NULL;
-        r = format_key(seed, seed_size, n, arg_interval, &key);
+        _cleanup_(erase_and_freep) char *key = NULL;
+        r = format_key(&seed, n, arg_interval, &key);
         if (r < 0)
                 return r;
 
@@ -240,7 +226,7 @@ int action_setup_keys(void) {
         fputs(ansi_normal(), stderr);
 
 #if HAVE_QRENCODE
-        _cleanup_free_ char *url = NULL;
+        _cleanup_(erase_and_freep) char *url = NULL;
         url = strjoin("fss://", key, "?machine=", SD_ID128_TO_STRING(machine), hn ? ";hostname=" : "", hn);
         if (!url)
                 return log_oom();

@@ -94,6 +94,7 @@ executables += [
                 'link_with' : journalctl_link_with,
                 'dependencies' : [
                         liblz4_cflags,
+                        libopenssl_cflags,
                         libxz_cflags,
                         libzstd_cflags,
                 ],
