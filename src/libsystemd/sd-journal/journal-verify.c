@@ -814,12 +814,14 @@ static int verify_hash_table(
 int journal_file_verify(
                 JournalFile *f,
                 const char *key,
-                usec_t *first_contained, usec_t *last_validated, usec_t *last_contained,
+                usec_t *ret_first_contained,
+                usec_t *ret_last_validated,
+                usec_t *ret_last_contained,
                 bool show_progress) {
+
         int r;
         Object *o;
-        uint64_t p = 0, last_epoch = 0, last_tag_realtime = 0;
-
+        uint64_t p = 0, last_epoch = 0, last_tag_realtime = 0, last_tag_realtime_end = 0;
         uint64_t entry_seqnum = 0, entry_monotonic = 0, entry_realtime = 0;
         usec_t min_entry_realtime = USEC_INFINITY, max_entry_realtime = 0;
         sd_id128_t entry_boot_id = {};  /* Unnecessary initialization to appease gcc */
@@ -842,10 +844,8 @@ int journal_file_verify(
         if (key) {
 #if HAVE_GCRYPT
                 r = journal_file_parse_verification_key(f, key);
-                if (r < 0) {
-                        log_error("Failed to parse seed.");
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to load verification key: %m");
 #else
                 return -EOPNOTSUPP;
 #endif
@@ -1167,7 +1167,7 @@ int journal_file_verify(
                                         error(p,
                                               "tag/entry realtime timestamp out of synchronization (%"PRIu64" >= %"PRIu64")",
                                               entry_realtime,
-                                              rt + f->fss_interval_usec);
+                                              rt_end);
                                         r = -EBADMSG;
                                         goto fail;
                                 }
@@ -1234,6 +1234,7 @@ int journal_file_verify(
 
                                 f->hmac_running = false;
                                 last_tag_realtime = rt;
+                                last_tag_realtime_end = rt_end;
                         }
 
                         last_tag = p + ALIGN64(le64toh(o->object.size));
@@ -1404,14 +1405,12 @@ int journal_file_verify(
         mmap_cache_fd_free(cache_entry_fd);
         mmap_cache_fd_free(cache_entry_array_fd);
 
-        if (first_contained)
-                *first_contained = le64toh(f->header->head_entry_realtime);
-#if HAVE_GCRYPT
-        if (last_validated)
-                *last_validated = last_tag_realtime + f->fss_interval_usec;
-#endif
-        if (last_contained)
-                *last_contained = le64toh(f->header->tail_entry_realtime);
+        if (ret_first_contained)
+                *ret_first_contained = le64toh(f->header->head_entry_realtime);
+        if (ret_last_validated)
+                *ret_last_validated = last_tag_realtime_end;
+        if (ret_last_contained)
+                *ret_last_contained = le64toh(f->header->tail_entry_realtime);
 
         return 0;
 
