@@ -7,7 +7,7 @@
 #include "shared-forward.h"
 
 static inline bool mpol_is_valid(int t) {
-        return t >= MPOL_DEFAULT && t <= MPOL_LOCAL;
+        return t >= MPOL_DEFAULT && t <= MPOL_WEIGHTED_INTERLEAVE;
 }
 
 typedef struct NUMAPolicy {
