@@ -706,7 +706,7 @@ static int dir_cleanup(
                 AgeBy age_by_file,
                 AgeBy age_by_dir);
 
-static bool item_cleanup(
+static int item_cleanup(
                 Context *c,
                 Item *i,
                 const char *pathname, /* joined path (path/name) of directory|file to be cleaned up */
@@ -721,13 +721,14 @@ static bool item_cleanup(
                 bool *ret_deleted) { /* whether an item was deleted from the supplied directory */
         /* Clean up a file or directory, recursively, according to the cutoff_nsec age constraint.
          * Errors are ignored (except out-of-memory), consistent with historical behaviour for tmpfiles cleanup.
-         * On success, return whether an item is deleted in *ret_deleted
+         * On success, return 0 and return whether an item is deleted in *ret_deleted
          * On error, return <0 and don't touch *ret_deleted
          */
         int r = 0;
 
         assert(c);
         assert(i);
+        assert(ret_deleted);
 
         nsec_t atime_nsec, mtime_nsec, ctime_nsec, btime_nsec;
 
@@ -946,7 +947,7 @@ static int dir_cleanup(
                 AgeBy age_by_file,
                 AgeBy age_by_dir) {
 
-        bool deleted = false;
+        bool any_deleted = false;
         int r = 0;
 
         assert(c);
@@ -961,18 +962,18 @@ static int dir_cleanup(
                         break;
                 }
 
-                bool ret_deleted = false;
+                bool deleted = false;
                 r = item_cleanup(c, i,
                                 sub_path, de->d_name, dirfd(d),
                                 cutoff_nsec,
                                 mountpoint, maxdepth, keep_this_level,
                                 age_by_file, age_by_dir,
-                                &ret_deleted);
+                                &deleted);
                 if (r < 0)
                         break;
-                deleted = deleted || ret_deleted;
+                any_deleted = any_deleted || deleted;
         }
-        if (deleted)
+        if (any_deleted)
                 restore_timestamps(dirfd(d), p, self_atime_nsec, self_mtime_nsec);
 
         return r;
@@ -3570,8 +3571,8 @@ static int clean_item_inclusive(
         int r;
 
         /* Find parent path so we can get stats on the directory that holds instance (file or dir) */
-        _cleanup_free_ char *ret_dirname = NULL;
-        dir_fd = path_open_parent_safe_name(instance, i->allow_failure, &ret_dirname);
+        _cleanup_free_ char *parent_name = NULL;
+        dir_fd = path_open_parent_safe_name(instance, i->allow_failure, &parent_name);
         if (dir_fd < 0)
                 return dir_fd;
 
@@ -3617,7 +3618,7 @@ static int clean_item_inclusive(
                                     i->age_by_file, i->age_by_dir,
                                     &deleted);
         if (deleted)
-                restore_timestamps(dir_fd, ret_dirname, atime_nsec, mtime_nsec);
+                restore_timestamps(dir_fd, parent_name, atime_nsec, mtime_nsec);
         return r;
 }
 
