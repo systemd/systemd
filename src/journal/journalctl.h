@@ -57,7 +57,7 @@ extern bool arg_file_stdin;
 extern int arg_priorities;
 extern Set *arg_facilities;
 extern char *arg_verify_key;
-#if HAVE_GCRYPT
+#if HAVE_OPENSSL
 extern usec_t arg_interval;
 extern bool arg_force;
 #endif

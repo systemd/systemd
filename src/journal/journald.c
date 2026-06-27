@@ -52,6 +52,8 @@ static int run(int argc, char *argv[]) {
 
         sigbus_install();
 
+        journal_auth_init();
+
         r = manager_new(&m);
         if (r < 0)
                 return log_oom();
@@ -110,14 +112,12 @@ static int run(int argc, char *argv[]) {
                 } else
                         t = USEC_INFINITY;
 
-#if HAVE_GCRYPT
                 if (m->system_journal) {
                         usec_t u;
 
-                        if (journal_file_next_evolve_usec(m->system_journal, &u))
+                        if (journal_file_auth_next_evolve_usec(m->system_journal, &u) >= 0)
                                 t = MIN(t, usec_sub_unsigned(u, n));
                 }
-#endif
 
                 r = sd_event_run(m->event, t);
                 if (r < 0)
