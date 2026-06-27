@@ -457,13 +457,18 @@ static int journal_file_refresh_header(JournalFile *f) {
 }
 
 static bool warn_wrong_flags(const JournalFile *f, bool compatible) {
-        const uint32_t any = compatible ? HEADER_COMPATIBLE_ANY : HEADER_INCOMPATIBLE_ANY,
+        uint32_t any = compatible ? HEADER_COMPATIBLE_ANY : HEADER_INCOMPATIBLE_ANY,
                 supported = compatible ? HEADER_COMPATIBLE_SUPPORTED : HEADER_INCOMPATIBLE_SUPPORTED;
         const char *type = compatible ? "compatible" : "incompatible";
         uint32_t flags;
 
         assert(f);
         assert(f->header);
+
+        /* When sealing is not supported, refuse to write to an already sealed journal file, but still allow
+         * reading sealed journal files. */
+        if (compatible && journal_file_writable(f) && !journal_auth_supported())
+                supported &= ~(HEADER_COMPATIBLE_SEALED | HEADER_COMPATIBLE_SEALED_CONTINUOUS);
 
         flags = le32toh(compatible ? f->header->compatible_flags : f->header->incompatible_flags);
 
