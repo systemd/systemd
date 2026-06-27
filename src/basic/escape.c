@@ -379,21 +379,22 @@ char* xescape_full(const char *s, const char *bad, size_t console_width, XEscape
         if (console_width == 0)
                 return strdup("");
 
-        size_t body = MIN(strlen(s), console_width) * 4;
-        ans = new(char, body + STRLEN("...") + 1);
+        size_t len_forced_ellipsis = FLAGS_SET(flags, XESCAPE_FORCE_ELLIPSIS) ? STRLEN("...") : 0;
+        size_t len_s = strlen(s);
+
+        size_t len_body = MIN(console_width, SIZE_MAX - 1); /* We need room for the NUL byte */
+        if ((len_body > len_forced_ellipsis) && (len_s <= (len_body - len_forced_ellipsis) / 4))
+                len_body = len_s * 4 + len_forced_ellipsis;
+
+        ans = new(char, len_body + 1);
         if (!ans)
                 return NULL;
-
-        memset(ans, '_', body);
-        ans[body] = 0;
-
-        bool force_ellipsis = FLAGS_SET(flags, XESCAPE_FORCE_ELLIPSIS);
 
         for (f = s, t = prev = prev2 = ans; ; f++) {
                 char *tmp_t = t;
 
                 if (!*f) {
-                        if (force_ellipsis)
+                        if (len_forced_ellipsis != 0)
                                 break;
 
                         *t = 0;
@@ -403,7 +404,7 @@ char* xescape_full(const char *s, const char *bad, size_t console_width, XEscape
                 if ((unsigned char) *f < ' ' ||
                     (!FLAGS_SET(flags, XESCAPE_8_BIT) && (unsigned char) *f >= 127) ||
                     *f == '\\' || (bad && strchr(bad, *f))) {
-                        if ((size_t) (t - ans) + 4 + 3 * force_ellipsis > console_width)
+                        if ((size_t) (t - ans) + 4 + len_forced_ellipsis > len_body)
                                 break;
 
                         *(t++) = '\\';
@@ -411,7 +412,7 @@ char* xescape_full(const char *s, const char *bad, size_t console_width, XEscape
                         *(t++) = hexchar(*f >> 4);
                         *(t++) = hexchar(*f);
                 } else {
-                        if ((size_t) (t - ans) + 1 + 3 * force_ellipsis > console_width)
+                        if ((size_t) (t - ans) + 1 + len_forced_ellipsis > len_body)
                                 break;
 
                         *(t++) = *f;
@@ -423,16 +424,16 @@ char* xescape_full(const char *s, const char *bad, size_t console_width, XEscape
         }
 
         /* We can just write where we want, since chars are one-byte */
-        size_t c = MIN(console_width, 3u); /* If the console is too narrow, write fewer dots */
+        size_t c = MIN(len_body, STRLEN("...")); /* If the console is too narrow, write fewer dots */
         size_t off;
-        if (console_width - c >= (size_t) (t - ans))
+        if (len_body - c >= (size_t) (t - ans))
                 off = (size_t) (t - ans);
-        else if (console_width - c >= (size_t) (prev - ans))
+        else if (len_body - c >= (size_t) (prev - ans))
                 off = (size_t) (prev - ans);
-        else if (console_width - c >= (size_t) (prev2 - ans))
+        else if (len_body - c >= (size_t) (prev2 - ans))
                 off = (size_t) (prev2 - ans);
         else
-                off = console_width - c;
+                off = len_body - c;
         assert(off <= (size_t) (t - ans));
 
         memcpy(ans + off, "...", c);
@@ -452,7 +453,8 @@ char* escape_non_printable_full(const char *str, size_t console_width, XEscapeFl
 char* octescape_full(const char *s, size_t len, const char *bad) {
         char *buf, *t;
 
-        /* Escapes all chars in bad, in addition to \ and " chars, in \nnn octal style escaping. */
+        /* Escapes all chars in bad, in addition to \ and " chars, in \nnn octal style escaping. May be
+         * reversed with cunescape(). */
 
         assert(s || len == 0);
 
