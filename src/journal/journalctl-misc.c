@@ -4,6 +4,7 @@
 
 #include "alloc-util.h"
 #include "dirent-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "format-table.h"
 #include "format-util.h"
@@ -35,7 +36,7 @@ int action_print_header(void) {
 
 int action_verify(void) {
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
-        int r;
+        int r, ret = 0;
 
         assert(arg_action == ACTION_VERIFY);
 
@@ -47,43 +48,40 @@ int action_verify(void) {
 
         JournalFile *f;
         ORDERED_HASHMAP_FOREACH(f, j->files) {
-                int k;
                 usec_t first = 0, validated = 0, last = 0;
 
-#if HAVE_GCRYPT
-                if (!arg_verify_key && JOURNAL_HEADER_SEALED(f->header))
-                        log_notice("Journal file %s has sealing enabled but verification key has not been passed using --verify-key=.", f->path);
-#endif
-
-                k = journal_file_verify(f, arg_verify_key, &first, &validated, &last, /* show_progress= */ !arg_quiet);
-                if (k == -EINVAL)
+                r = journal_file_verify(f, arg_verify_key, &first, &validated, &last, /* show_progress= */ !arg_quiet);
+                if (r == -EKEYREJECTED)
                         /* If the key was invalid give up right-away. */
-                        return k;
-                if (k < 0)
-                        r = log_warning_errno(k, "FAIL: %s (%m)", f->path);
-                else {
-                        char a[FORMAT_TIMESTAMP_MAX], b[FORMAT_TIMESTAMP_MAX];
-                        log_full(arg_quiet ? LOG_DEBUG : LOG_INFO, "PASS: %s", f->path);
+                        return r;
+                if (r == -ENOKEY)
+                        log_notice_errno(r, "Journal file %s has sealing enabled but verification key has not been passed using --verify-key=.", f->path);
+                if (r < 0) {
+                        RET_GATHER(ret, log_warning_errno(r, "FAIL: %s: %m", f->path));
+                        continue;
+                }
 
-                        if (arg_verify_key && JOURNAL_HEADER_SEALED(f->header)) {
-                                if (validated > 0) {
-                                        log_full(arg_quiet ? LOG_DEBUG : LOG_INFO,
-                                                 "=> Validated from %s to %s, final %s entries not sealed.",
-                                                 format_timestamp_maybe_utc(a, sizeof(a), first),
-                                                 format_timestamp_maybe_utc(b, sizeof(b), validated),
-                                                 FORMAT_TIMESPAN(last > validated ? last - validated : 0, 0));
-                                } else if (last > 0)
-                                        log_full(arg_quiet ? LOG_DEBUG : LOG_INFO,
-                                                 "=> No sealing yet, %s of entries not sealed.",
-                                                 FORMAT_TIMESPAN(last - first, 0));
-                                else
-                                        log_full(arg_quiet ? LOG_DEBUG : LOG_INFO,
-                                                 "=> No sealing yet, no entries in file.");
-                        }
+                log_full(arg_quiet ? LOG_DEBUG : LOG_INFO, "PASS: %s", f->path);
+
+                if (arg_verify_key && JOURNAL_HEADER_SEALED(f->header)) {
+                        if (validated > 0) {
+                                char a[FORMAT_TIMESTAMP_MAX], b[FORMAT_TIMESTAMP_MAX];
+                                log_full(arg_quiet ? LOG_DEBUG : LOG_INFO,
+                                         "=> Validated from %s to %s, final %s entries not sealed.",
+                                         format_timestamp_maybe_utc(a, sizeof(a), first),
+                                         format_timestamp_maybe_utc(b, sizeof(b), validated),
+                                         FORMAT_TIMESPAN(usec_sub_unsigned(last, validated), 0));
+                        } else if (last > 0)
+                                log_full(arg_quiet ? LOG_DEBUG : LOG_INFO,
+                                         "=> No sealing yet, %s of entries not sealed.",
+                                         FORMAT_TIMESPAN(last - first, 0));
+                        else
+                                log_full(arg_quiet ? LOG_DEBUG : LOG_INFO,
+                                         "=> No sealing yet, no entries in file.");
                 }
         }
 
-        return r;
+        return ret;
 }
 
 int action_disk_usage(void) {
