@@ -725,7 +725,6 @@ static bool item_cleanup(
          * On error, return <0 and don't touch *ret_deleted
          */
         int r = 0;
-        bool deleted = false;
 
         assert(c);
         assert(i);
@@ -733,7 +732,7 @@ static bool item_cleanup(
         nsec_t atime_nsec, mtime_nsec, ctime_nsec, btime_nsec;
 
         if (dot_or_dot_dot(name))
-                goto success;
+                goto no_delete_needed;
 
         struct statx sx;
         r = xstatx_full(dir_fd, name,
@@ -744,17 +743,17 @@ static bool item_cleanup(
                         STATX_ATTR_MOUNT_ROOT,
                         &sx);
         if (r == -ENOENT)
-                goto success;
+                goto no_delete_needed;
         if (r < 0) {
                 /* FUSE, NFS mounts, SELinux might return EACCES */
                 log_full_errno(r == -EACCES ? LOG_DEBUG : LOG_ERR, r,
                                "statx(%s) failed: %m", pathname);
-                goto success;
+                goto no_delete_needed;
         }
 
         if (FLAGS_SET(sx.stx_attributes, STATX_ATTR_MOUNT_ROOT)) {
                 log_debug("Ignoring \"%s\": different mount points.", pathname);
-                goto success;
+                goto no_delete_needed;
         }
 
         atime_nsec = FLAGS_SET(sx.stx_mask, STATX_ATIME) ? statx_timestamp_load_nsec(&sx.stx_atime) : NSEC_INFINITY;
@@ -765,12 +764,12 @@ static bool item_cleanup(
         /* Is there an item configured for this path? */
         if (ordered_hashmap_get(c->items, pathname)) {
                 log_debug("Ignoring \"%s\": a separate entry exists.", pathname);
-                goto success;
+                goto no_delete_needed;
         }
 
         if (find_glob(c->globs, pathname, i)) {
                 log_debug("Ignoring \"%s\": a separate glob exists.", pathname);
-                goto success;
+                goto no_delete_needed;
         }
 
         if (S_ISDIR(sx.stx_mode)) {
@@ -780,7 +779,7 @@ static bool item_cleanup(
                     streq(name, "lost+found") &&
                     sx.stx_uid == 0) {
                         log_debug("Ignoring directory \"%s\".", pathname);
-                        goto success;
+                        goto no_delete_needed;
                 }
 
                 if (maxdepth <= 0)
@@ -790,13 +789,13 @@ static bool item_cleanup(
                         if (!sub_dir) {
                                 if (errno != ENOENT)
                                         log_warning_errno(errno, "Opening directory \"%s\" failed, ignoring: %m", pathname);
-                                goto success;
+                                goto no_delete_needed;
                         }
 
                         if (!arg_dry_run &&
                             flock(dirfd(sub_dir), LOCK_EX|LOCK_NB) < 0) {
                                 log_debug_errno(errno, "Couldn't acquire shared BSD lock on directory \"%s\", skipping: %m", pathname);
-                                goto success;
+                                goto no_delete_needed;
                         }
 
                         r = dir_cleanup(c, i,
@@ -816,7 +815,7 @@ static bool item_cleanup(
 
                 if (keep_this_level) {
                         log_debug("Keeping directory \"%s\".", pathname);
-                        goto success;
+                        goto no_delete_needed;
                 }
 
                 /*
@@ -825,15 +824,14 @@ static bool item_cleanup(
                  */
                 if (!needs_cleanup(atime_nsec, btime_nsec, ctime_nsec, mtime_nsec,
                                    cutoff_nsec, pathname, age_by_dir, true))
-                        goto success;
+                        goto no_delete_needed;
 
                 log_action("Would remove", "Removing", "%s directory \"%s\"", pathname);
-                if (!arg_dry_run &&
-                    (r = unlinkat(dir_fd, name, AT_REMOVEDIR)) < 0 &&
-                    !IN_SET(errno, ENOENT, ENOTEMPTY))
-                        log_warning_errno(errno, "Failed to remove directory \"%s\", ignoring: %m", pathname);
-                if (r >= 0)
-                        deleted = true; /* flag that something (a directory) was deleted */
+                if (!arg_dry_run) {
+                        r = unlinkat(dir_fd, name, AT_REMOVEDIR);
+                        if (r < 0 && !IN_SET(errno, ENOENT, ENOTEMPTY))
+                                log_warning_errno(errno, "Failed to remove directory \"%s\", ignoring: %m", pathname);
+                }
         } else {
                 _cleanup_close_ int fd = -EBADF; /* This file descriptor is defined here so that the
                                                   * lock that is taken below is only dropped _after_
@@ -843,7 +841,7 @@ static bool item_cleanup(
                  * unknown elsewhere. See XDG_RUNTIME_DIR specification for details. */
                 if (sx.stx_mode & S_ISVTX) {
                         log_debug("Skipping \"%s\": sticky bit set.", pathname);
-                        goto success;
+                        goto no_delete_needed;
                 }
 
                 if (mountpoint &&
@@ -854,30 +852,30 @@ static bool item_cleanup(
                                "aquota.user",
                                "aquota.group")) {
                         log_debug("Skipping \"%s\".", pathname);
-                        goto success;
+                        goto no_delete_needed;
                 }
 
                 /* Ignore sockets that are listed in /proc/net/unix */
                 if (S_ISSOCK(sx.stx_mode) && unix_socket_alive(c, pathname)) {
                         log_debug("Skipping \"%s\": live socket.", pathname);
-                        goto success;
+                        goto no_delete_needed;
                 }
 
                 /* Ignore device nodes */
                 if (S_ISCHR(sx.stx_mode) || S_ISBLK(sx.stx_mode)) {
                         log_debug("Skipping \"%s\": a device.", pathname);
-                        goto success;
+                        goto no_delete_needed;
                 }
 
                 /* Keep files on this level if this was requested */
                 if (keep_this_level) {
                         log_debug("Keeping \"%s\".", pathname);
-                        goto success;
+                        goto no_delete_needed;
                 }
 
                 if (!needs_cleanup(atime_nsec, btime_nsec, ctime_nsec, mtime_nsec,
                                    cutoff_nsec, pathname, age_by_file, false))
-                        goto success;
+                        goto no_delete_needed;
 
                 if (!arg_dry_run) {
                         fd = xopenat(dir_fd, name, O_RDONLY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME|O_NONBLOCK|O_NOCTTY);
@@ -885,20 +883,22 @@ static bool item_cleanup(
                                 log_warning_errno(fd, "Opening file \"%s\" failed, proceeding without lock: %m", pathname);
                         if (fd >= 0 && flock(fd, LOCK_EX|LOCK_NB) < 0 && errno == EAGAIN) {
                                 log_debug_errno(errno, "Couldn't acquire shared BSD lock on file \"%s\", skipping: %m", pathname);
-                                goto success;
+                                goto no_delete_needed;
                         }
                 }
 
                 log_action("Would remove", "Removing", "%s \"%s\"", pathname);
-                if (!arg_dry_run &&
-                    (r = unlinkat(dir_fd, name, 0)) < 0 &&
-                    errno != ENOENT)
-                        log_warning_errno(errno, "Failed to remove \"%s\", ignoring: %m", pathname);
-                if (r >= 0)
-                        deleted = true; /* flag that something (a file) was deleted */
+                if (!arg_dry_run) {
+                        r = unlinkat(dir_fd, name, 0);
+                        if (r < 0 && errno != ENOENT)
+                                log_warning_errno(errno, "Failed to remove \"%s\", ignoring: %m", pathname);
+                }
         }
-success:
-        *ret_deleted = deleted;
+        /* flag that a file or directory was deleted, so timestamps on the parent should be restored */
+        *ret_deleted = true;
+        return 0;
+no_delete_needed:
+        *ret_deleted = false;
         return 0;
 }
 
