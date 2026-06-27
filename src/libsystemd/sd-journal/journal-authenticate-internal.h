@@ -21,6 +21,7 @@ typedef struct JournalAuthOps {
 } JournalAuthOps;
 
 void journal_auth_set_ops(const JournalAuthOps *ops);
+bool journal_auth_supported(void);
 
 void journal_file_auth_done(JournalFile *f);
 int journal_file_auth_load(JournalFile *f);
