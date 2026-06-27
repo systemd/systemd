@@ -1718,7 +1718,7 @@ static int start_virtiofsd(
         union sockaddr_union su;
         r = sockaddr_un_set_path(&su.un, listen_address);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to prepare unix socket '%s': %m", listen_address);
 
         _cleanup_close_ int sock = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0);
         if (sock < 0)
