@@ -30,7 +30,6 @@
 #define EVENT_PRIORITY_SIGHUP         (SD_EVENT_PRIORITY_NORMAL + 1)
 /* Let's not interrupt the service by any user process, even that requires privileges. */
 #define EVENT_PRIORITY_VARLINK        (SD_EVENT_PRIORITY_NORMAL + 2)
-#define EVENT_PRIORITY_CONTROL        (SD_EVENT_PRIORITY_NORMAL + 2)
 /* The event is intended to trigger the post-event source, hence can be the lowest priority. */
 #define EVENT_PRIORITY_REQUEUE_EVENT  (SD_EVENT_PRIORITY_NORMAL + 3)
 
@@ -45,7 +44,6 @@ typedef struct Manager {
         Hashmap *properties;
 
         sd_device_monitor *monitor;
-        UdevCtrl *ctrl;
         sd_varlink_server *varlink_server;
 
         char *worker_notify_socket_path;
