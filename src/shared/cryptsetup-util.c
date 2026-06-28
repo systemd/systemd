@@ -11,6 +11,7 @@
 #include "escape.h"
 #include "hexdecoct.h"
 #include "hmac.h"
+#include "json-util.h"
 #include "log.h"
 #include "parse-util.h"
 #include "string-util.h"
@@ -206,6 +207,25 @@ int cryptsetup_add_token_json(struct crypt_device *cd, sd_json_variant *v) {
                 return log_debug_errno(r, "Failed to write token data to LUKS: %m");
 
         return 0;
+}
+
+int cryptsetup_add_token_empty(struct crypt_device *cd, int keyslot) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_free_ char *keyslot_as_string = NULL;
+        int r;
+
+        r = asprintf(&keyslot_as_string, "%i", keyslot);
+        if (r < 0)
+                return log_oom_debug();
+
+        r = sd_json_buildo(
+                        &v,
+                        SD_JSON_BUILD_PAIR("type", JSON_BUILD_CONST_STRING("systemd-empty")),
+                        SD_JSON_BUILD_PAIR("keyslots", SD_JSON_BUILD_ARRAY(SD_JSON_BUILD_STRING(keyslot_as_string))));
+        if (r < 0)
+                return log_debug_errno(r, "Failed to prepare empty key JSON token object: %m");
+
+        return cryptsetup_add_token_json(cd, v);
 }
 
 int cryptsetup_get_volume_key_prefix(

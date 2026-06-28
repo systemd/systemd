@@ -206,6 +206,15 @@ int enroll_password(
         if (keyslot < 0)
                 return log_error_errno(keyslot, "Failed to add new password to %s: %m", node);
 
-        log_info("New password enrolled as key slot %i.", keyslot);
+        if (isempty(new_password)) {
+                r = cryptsetup_add_token_empty(cd, keyslot);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to add empty JSON token to LUKS2 header: %m");
+                        return keyslot;
+                }
+                log_warning("New empty key enrolled as key slot %i. Warning: This disables confidentiality protections!", keyslot);
+        } else
+                log_info("New password enrolled as key slot %i.", keyslot);
+
         return keyslot;
 }
