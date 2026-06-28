@@ -589,9 +589,11 @@ TEST(kill_properties) {
                         "SendSIGKILL=true",
 
                         "KillSignal=1",
-                        "KillSignal=64",  /* _NSIG == 64 */
+                        "KillSignal=64",
                         "-ERANGE KillSignal=0",
+#if _NSIG == 64
                         "-ERANGE KillSignal=65",
+#endif
                         "RestartKillSignal=TERM",
                         "RestartKillSignal=SIGTERM",
                         "FinalKillSignal=WINCH",
