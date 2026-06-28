@@ -589,9 +589,15 @@ TEST(kill_properties) {
                         "SendSIGKILL=true",
 
                         "KillSignal=1",
-                        "KillSignal=64",  /* _NSIG == 64 */
+                        "KillSignal=64",
                         "-ERANGE KillSignal=0",
+                        /* MIPS has _NSIG = 128, all others have 64. */
+#if _NSIG < 65
                         "-ERANGE KillSignal=65",
+#endif
+#if _NSIG < 129
+                        "-ERANGE KillSignal=129",
+#endif
                         "RestartKillSignal=TERM",
                         "RestartKillSignal=SIGTERM",
                         "FinalKillSignal=WINCH",
