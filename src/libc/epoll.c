@@ -9,7 +9,7 @@
  * struct timespec ABI matches our 64-bit time_t. dlsym() can't see that header-level rename, so
  * we have to spell out the right name here, otherwise we'd silently dispatch a 64-bit timespec to
  * the legacy 32-bit-time_t entry point. */
-#ifdef __USE_TIME_BITS64
+#if defined __USE_TIME_BITS64 && __TIMESIZE == 32
 DEFINE_LIBC_ERRNO_SHIM_NAMED(epoll_pwait2, "__epoll_pwait2_time64", int,
                              int, fd,
                              struct epoll_event *, events,
