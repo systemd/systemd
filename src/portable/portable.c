@@ -118,7 +118,7 @@ static PortableMetadata *portable_metadata_new(const char *name, const char *pat
                 }
         }
 
-        strcpy(m->name, name);
+        memcpy(m->name, name, strlen(name) + 1);
         m->fd = fd;
 
         return TAKE_PTR(m);
