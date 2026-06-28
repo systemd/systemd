@@ -29,6 +29,7 @@ int parse_openssl_certificate_source_argument(const char *argument, char **certi
 int parse_openssl_key_source_argument(const char *argument, char **private_key_source, KeySourceType *private_key_source_type);
 
 int dlopen_libcrypto(int log_level);
+bool dlopen_libcrypto_has_argon2id(void);
 
 #define X509_FINGERPRINT_SIZE SHA256_DIGEST_SIZE
 
@@ -466,3 +467,20 @@ DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(OpenSSLAskPasswordUI*, openssl_ask_password_ui_
 #else
 #define DLOPEN_LIBCRYPTO(log_level, priority) dlopen_libcrypto(log_level)
 #endif
+
+typedef struct Argon2IdParameters {
+        uint64_t memcost_bytes;
+        uint32_t iterations;
+        uint32_t lanes;
+} Argon2IdParameters;
+
+#define ARGON2ID_PARAMETERS_DEFAULT                                         \
+        (Argon2IdParameters) {                                              \
+                .memcost_bytes = 64ULL * 1024 * 1024,                       \
+                .iterations = 8,                                            \
+                .lanes = 4,                                                 \
+        }
+
+int kdf_argon2id_derive(const struct iovec *password, const struct iovec *salt, const Argon2IdParameters *params, size_t derive_size, struct iovec *ret);
+
+int kdf_hkdf_sha256(const struct iovec *key, const struct iovec *salt, const struct iovec *info, size_t derive_size, struct iovec *ret);

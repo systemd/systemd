@@ -5,6 +5,7 @@
 #include "alloc-util.h"
 #include "ask-password-api.h"
 #include "cryptenroll-tpm2.h"
+#include "crypto-util.h"
 #include "cryptsetup-tpm2.h"
 #include "cryptsetup-util.h"
 #include "env-util.h"
@@ -193,6 +194,7 @@ int load_volume_key_tpm2(
                 size_t n_blobs = 0, n_policy_hash = 0;
                 uint32_t hash_pcr_mask, pubkey_pcr_mask;
                 uint16_t pcr_bank, primary_alg;
+                Argon2IdParameters ap = {};
                 TPM2Flags tpm2_flags;
                 int keyslot;
 
@@ -217,7 +219,8 @@ int load_volume_key_tpm2(
                                 &pcrlock_nv,
                                 &tpm2_flags,
                                 &keyslot,
-                                &token);
+                                &token,
+                                &ap);
                 if (r == -ENXIO)
                         return log_full_errno(LOG_NOTICE,
                                               SYNTHETIC_ERRNO(EAGAIN),
@@ -254,7 +257,8 @@ int load_volume_key_tpm2(
                                 /* until= */ 0,
                                 "cryptenroll.tpm2-pin",
                                 c->interactive ? 0 : ASK_PASSWORD_HEADLESS,
-                                &decrypted_key);
+                                &decrypted_key,
+                                /* argon2id_params= */ FLAGS_SET(tpm2_flags, TPM2_FLAGS_USE_ARGON2ID) ? &ap : NULL);
                 if (IN_SET(r, -EACCES, -ENOLCK))
                         return log_notice_errno(SYNTHETIC_ERRNO(EAGAIN), "TPM2 PIN unlock failed");
                 if (r != -EPERM)
@@ -298,6 +302,7 @@ int enroll_tpm2(const EnrollContext *c,
         _cleanup_(iovec_done_erase) struct iovec secret = {};
         const char *node;
         _cleanup_(erase_and_freep) char *pin_str = NULL;
+        _cleanup_(erase_and_freep) void *key1 = NULL;
         ssize_t base64_encoded_size;
         int r, keyslot, slot_to_wipe = -1;
         TPM2Flags flags = 0;
@@ -322,7 +327,7 @@ int enroll_tpm2(const EnrollContext *c,
 
         assert_se(node = sym_crypt_get_device_name(cd));
 
-        if (c->tpm2_pin) {
+        if (c->tpm2_pin >= TPM2_WITH_PIN_YES) {
                 r = get_pin(&pin_str, &flags);
                 if (r < 0)
                         return r;
@@ -331,17 +336,45 @@ int enroll_tpm2(const EnrollContext *c,
                 if (r < 0)
                         return log_error_errno(r, "Failed to acquire random salt: %m");
 
-                uint8_t salted_pin[SHA256_DIGEST_SIZE] = {};
-                CLEANUP_ERASE(salted_pin);
-                r = tpm2_util_pbkdf2_hmac_sha256(pin_str, strlen(pin_str), binary_salt, sizeof(binary_salt), salted_pin);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to perform PBKDF2: %m");
+                if (c->tpm2_pin == TPM2_WITH_PIN_YES) {
+                        _cleanup_(iovec_done_erase) struct iovec derived = {};
+                        r = kdf_argon2id_derive(
+                                        &IOVEC_MAKE(pin_str, strlen(pin_str)),
+                                        &IOVEC_MAKE(binary_salt, sizeof(binary_salt)),
+                                        &c->tpm2_argon2id_params,
+                                        /* derive_size= */ 64, &derived);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to perform Argon2id: %m");
 
-                pin_str = erase_and_free(pin_str);
-                /* re-stringify pin_str */
-                base64_encoded_size = base64mem(salted_pin, sizeof(salted_pin), &pin_str);
-                if (base64_encoded_size < 0)
-                        return log_error_errno(base64_encoded_size, "Failed to base64 encode salted pin: %m");
+                        assert(derived.iov_len == 64);
+
+                        uint8_t *derived_bytes = derived.iov_base;
+
+                        /* Key1 = first 32 bytes, stored for final HKDF derivation */
+                        key1 = memdup(derived_bytes, 32);
+                        if (!key1)
+                                return log_oom();
+
+                        /* Key2 = last 32 bytes, used as TPM PIN */
+                        pin_str = erase_and_free(pin_str);
+                        ssize_t b64_size = base64mem(derived_bytes + 32, 32, &pin_str);
+                        if (b64_size < 0)
+                                return log_error_errno(b64_size, "Failed to base64 encode Key2: %m");
+
+                        flags |= TPM2_FLAGS_USE_ARGON2ID;
+                } else {
+                        uint8_t salted_pin[SHA256_DIGEST_SIZE] = {};
+                        CLEANUP_ERASE(salted_pin);
+                        r = tpm2_util_pbkdf2_hmac_sha256(pin_str, strlen(pin_str), binary_salt, sizeof(binary_salt), salted_pin);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to perform PBKDF2: %m");
+
+                        pin_str = erase_and_free(pin_str);
+                        /* re-stringify pin_str */
+                        base64_encoded_size = base64mem(salted_pin, sizeof(salted_pin), &pin_str);
+                        if (base64_encoded_size < 0)
+                                return log_error_errno(base64_encoded_size, "Failed to base64 encode salted pin: %m");
+                }
         }
 
         TPM2B_PUBLIC public = {};
@@ -455,7 +488,7 @@ int enroll_tpm2(const EnrollContext *c,
                         c->tpm2_hash_pcr_values,
                         c->tpm2_n_hash_pcr_values,
                         iovec_is_set(&pubkey) ? &public : NULL,
-                        c->tpm2_pin,
+                        c->tpm2_pin >= TPM2_WITH_PIN_YES,
                         c->tpm2_pcrlock && !iovec_is_set(&pubkey) ? &pcrlock_policy : NULL,
                         policy_hash + 0);
         if (r < 0)
@@ -466,7 +499,7 @@ int enroll_tpm2(const EnrollContext *c,
                                 c->tpm2_hash_pcr_values,
                                 c->tpm2_n_hash_pcr_values,
                                 /* public= */ NULL, /* This one is off now */
-                                c->tpm2_pin,
+                                c->tpm2_pin >= TPM2_WITH_PIN_YES,
                                 &pcrlock_policy,    /* And this one on instead. */
                                 policy_hash + 1);
                 if (r < 0)
@@ -525,7 +558,7 @@ int enroll_tpm2(const EnrollContext *c,
                 log_debug_errno(r, "PCR policy hash not yet enrolled, enrolling now.");
         else if (r < 0)
                 return r;
-        else if (c->tpm2_pin) {
+        else if (c->tpm2_pin >= TPM2_WITH_PIN_YES) {
                 log_debug("This PCR set is already enrolled, re-enrolling anyway to update PIN.");
                 slot_to_wipe = r;
         } else {
@@ -561,8 +594,20 @@ int enroll_tpm2(const EnrollContext *c,
                         return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "TPM2 seal/unseal verification failed.");
         }
 
-        /* let's base64 encode the key to use, for compat with homed (and it's easier to every type it in by keyboard, if that might end up being necessary. */
-        base64_encoded_size = base64mem(secret.iov_base, secret.iov_len, &base64_encoded);
+        if (FLAGS_SET(flags, TPM2_FLAGS_USE_ARGON2ID)) {
+                _cleanup_(iovec_done_erase) struct iovec final_key = {};
+                r = kdf_hkdf_sha256(
+                                &IOVEC_MAKE(key1, 32),
+                                &secret,
+                                &IOVEC_MAKE_STRING("systemd-tpm2-argon2id-lock"),
+                                /* derive_size= */ 32, &final_key);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to derive final volume key via HKDF: %m");
+
+                base64_encoded_size = base64mem(final_key.iov_base, final_key.iov_len, &base64_encoded);
+        } else
+                /* let's base64 encode the key to use, for compat with homed (and it's easier to every type it in by keyboard, if that might end up being necessary. */
+                base64_encoded_size = base64mem(secret.iov_base, secret.iov_len, &base64_encoded);
         if (base64_encoded_size < 0)
                 return log_error_errno(base64_encoded_size, "Failed to base64 encode secret key: %m");
 
@@ -591,10 +636,11 @@ int enroll_tpm2(const EnrollContext *c,
                         n_blobs,
                         policy_hash_as_iovec,
                         n_policy_hash,
-                        c->tpm2_pin ? &IOVEC_MAKE(binary_salt, sizeof(binary_salt)) : NULL,
+                        c->tpm2_pin >= TPM2_WITH_PIN_YES ? &IOVEC_MAKE(binary_salt, sizeof(binary_salt)) : NULL,
                         &srk,
                         c->tpm2_pcrlock ? &pcrlock_policy.nv_handle : NULL,
                         flags,
+                        &c->tpm2_argon2id_params,
                         &v);
         if (r < 0)
                 return log_error_errno(r, "Failed to prepare TPM2 JSON token object: %m");
