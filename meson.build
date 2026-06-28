@@ -1011,13 +1011,6 @@ endif
 
 libm = cc.find_library('m')
 
-# Header presence check only — dgettext itself is resolved via dlopen_libintl() at runtime, so we never
-# link against libintl. On glibc dgettext lives in libc; on musl gettext-dev provides libintl.h alongside
-# libintl.so.8 which we dlopen() if present.
-if not cc.has_header('libintl.h')
-        error('libintl.h not found (install gettext / gettext-dev)')
-endif
-
 # On some architectures, libatomic is required. But on some installations,
 # it is found, but actual linking fails. So let's try to use it opportunistically.
 # If it is installed, but not needed, it will be dropped because of --as-needed.

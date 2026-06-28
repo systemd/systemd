@@ -18,7 +18,6 @@
 #include "libcrypt-util.h"
 #include "libfido2-util.h"
 #include "libmount-util.h"
-#include "locale-util.h"
 #include "main-func.h"
 #include "microhttpd-util.h"
 #include "module-util.h"
@@ -66,7 +65,6 @@ static int run(int argc, char **argv) {
         ASSERT_DLOPEN(dlopen_libblkid, HAVE_BLKID);
         ASSERT_DLOPEN(dlopen_libcrypt, HAVE_LIBCRYPT);
         ASSERT_DLOPEN(dlopen_libfido2, HAVE_LIBFIDO2);
-        ASSERT_OK(dlopen_libintl(LOG_DEBUG)); /* Required to be available at build time. */
         ASSERT_DLOPEN(dlopen_libkmod, HAVE_KMOD);
         ASSERT_DLOPEN(dlopen_libmount, HAVE_LIBMOUNT);
         ASSERT_DLOPEN(dlopen_libpam, HAVE_PAM);
