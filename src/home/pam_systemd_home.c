@@ -790,8 +790,6 @@ _public_ PAM_EXTERN int pam_sm_authenticate(
         if (r < 0)
                 return PAM_SERVICE_ERR;
 
-        (void) DLOPEN_LIBINTL(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED); /* best-effort: messages won't be translated if this fails */
-
         pam_log_setup();
 
         if (parse_env(pamh, &flags) < 0)
@@ -857,8 +855,6 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         if (r < 0)
                 return PAM_SERVICE_ERR;
 
-        (void) DLOPEN_LIBINTL(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED); /* best-effort: messages won't be translated if this fails */
-
         pam_log_setup();
 
         if (parse_env(pamh, &flags) < 0)
@@ -915,8 +911,6 @@ _public_ PAM_EXTERN int pam_sm_close_session(
         r = DLOPEN_LIBPAM(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED);
         if (r < 0)
                 return PAM_SERVICE_ERR;
-
-        (void) DLOPEN_LIBINTL(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED); /* best-effort: messages won't be translated if this fails */
 
         pam_log_setup();
 
@@ -982,8 +976,6 @@ _public_ PAM_EXTERN int pam_sm_acct_mgmt(
         r = DLOPEN_LIBPAM(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED);
         if (r < 0)
                 return PAM_SERVICE_ERR;
-
-        (void) DLOPEN_LIBINTL(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED); /* best-effort: messages won't be translated if this fails */
 
         pam_log_setup();
 
@@ -1103,8 +1095,6 @@ _public_ PAM_EXTERN int pam_sm_chauthtok(
         r = DLOPEN_LIBPAM(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED);
         if (r < 0)
                 return PAM_SERVICE_ERR;
-
-        (void) DLOPEN_LIBINTL(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED); /* best-effort: messages won't be translated if this fails */
 
         pam_log_setup();
 
