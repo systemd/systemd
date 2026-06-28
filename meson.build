@@ -1011,11 +1011,12 @@ endif
 
 libm = cc.find_library('m')
 
-# Header presence check only — dgettext itself is resolved via dlopen_libintl() at runtime, so we never
-# link against libintl. On glibc dgettext lives in libc; on musl gettext-dev provides libintl.h alongside
-# libintl.so.8 which we dlopen() if present.
-if not cc.has_header('libintl.h')
-        error('libintl.h not found (install gettext / gettext-dev)')
+# On some distributions that use musl (e.g. Alpine), libintl.h may be provided by gettext rather than musl.
+# In that case, we need to dlopen libintl.so.
+if cc.has_function('dgettext',
+                   prefix : '''#include <libintl.h>''',
+                   args : '-D_GNU_SOURCE')
+        conf.set10('HAVE_LIBINTL_IN_LIBC', true)
 endif
 
 # On some architectures, libatomic is required. But on some installations,
