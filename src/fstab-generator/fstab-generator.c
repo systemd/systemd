@@ -191,7 +191,7 @@ static int write_options(FILE *f, const char *options) {
         if (streq(options, "defaults"))
                 return 0;
 
-        o = specifier_escape(options);
+        o = mount_options_escape(options);
         if (!o)
                 return log_oom();
 
@@ -349,7 +349,7 @@ static int write_automount_extra_options(FILE *f, const char *where, const char 
         if (r == 0 || isempty(value))
                 return 0;
 
-        escaped = specifier_escape(value);
+        escaped = mount_options_escape(value);
         if (!escaped)
                 return log_oom();
         fprintf(f, "ExtraOptions=%s\n", escaped);

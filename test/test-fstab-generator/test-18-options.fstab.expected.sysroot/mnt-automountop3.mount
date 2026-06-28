@@ -9,4 +9,4 @@ After=blockdev@dev-sdx17.target
 [Mount]
 What=/dev/sdx17
 Where=/mnt/automountop3
-Options=x-systemd.automount,x-systemd.automount-options=args\,kwargs=value
+Options=x-systemd.automount,x-systemd.automount-options=args\\,kwargs=value
