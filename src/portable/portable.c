@@ -214,8 +214,8 @@ static int receive_portable_metadata(
                  * but according to suggestions from the SELinux people this will change and it will probably
                  * be identical to NAME_MAX. For now we use that, but this should be updated one day when the
                  * final limit is known. */
-                char iov_buffer[PATH_MAX + NAME_MAX + 2];
-                struct iovec iov = IOVEC_MAKE(iov_buffer, sizeof(iov_buffer));
+                char iov_buffer[PATH_MAX + NAME_MAX + 2 + 1]; /* One extra byte for the trailing NUL we add below. */
+                struct iovec iov = IOVEC_MAKE(iov_buffer, sizeof(iov_buffer) - 1);
 
                 ssize_t n = receive_one_fd_iov(socket_fd, &iov, 1, 0, &fd);
                 if (n == -EIO)
