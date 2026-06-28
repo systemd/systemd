@@ -21,3 +21,5 @@
 /dev/sdx17 /mnt/automountesc       auto x-systemd.automount,x-systemd.automount-options=%n%%n%n%%n\,%s      0 0
 /dev/sdx17 /mnt/automountempty     auto x-systemd.automount,x-systemd.automount-options                     0 0
 /dev/sdx17 /mnt/automountnil       auto x-systemd.automount,x-systemd.automount-options=                    0 0
+/dev/sdx17 /mnt/optesc             auto defaults,custom\\opt                                              0 0
+/dev/sdx17 /mnt/optpct             auto defaults,100%opt                                                  0 0

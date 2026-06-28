@@ -351,6 +351,44 @@ int config_parse_unit_string_printf(
         return config_parse_string(unit, filename, line, section, section_line, lvalue, ltype, k, data, userdata);
 }
 
+int config_parse_mount_options_printf(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_free_ char *k = NULL, *unescaped = NULL;
+        char **s = ASSERT_PTR(data);
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        /* Expands specifiers via config_parse_unit_string_printf, then unescapes
+         * doubled backslashes (\\ → \). This is the counterpart to
+         * mount_options_escape() in fstab-generator, which doubles backslashes
+         * to protect them from the configuration file parser's line continuation
+         * logic, and doubles percent signs for specifier escaping. */
+
+        r = config_parse_unit_string_printf(unit, filename, line, section, section_line,
+                                            lvalue, ltype, rvalue, &k, userdata);
+        if (r <= 0)
+                return r;
+
+        unescaped = strreplace(k, "\\\\", "\\");
+        if (!unescaped)
+                return log_oom();
+
+        return free_and_strdup_warn(s, unescaped);
+}
+
 int config_parse_reboot_parameter(
                 const char *unit,
                 const char *filename,

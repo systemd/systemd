@@ -8,5 +8,5 @@ After=blockdev@dev-sdx17.target
 
 [Mount]
 What=/dev/sdx17
-Where=/mnt/automountesc
-Options=x-systemd.automount,x-systemd.automount-options=%%n%%%%n%%n%%%%n\\,%%s
+Where=/mnt/optesc
+Options=defaults,custom\\opt
