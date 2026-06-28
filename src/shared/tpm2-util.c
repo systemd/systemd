@@ -9769,6 +9769,7 @@ int tpm2_make_luks2_json(
                 const struct iovec *srk,
                 const struct iovec *pcrlock_nv,
                 TPM2Flags flags,
+                const Argon2IdParameters *argon2id_params,
                 sd_json_variant **ret) {
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL, *hmj = NULL, *pkmj = NULL;
@@ -9823,7 +9824,10 @@ int tpm2_make_luks2_json(
                         SD_JSON_BUILD_PAIR_CONDITION(pubkey_policy_ref != NULL, "tpm2_pubkey_ref", SD_JSON_BUILD_STRING(pubkey_policy_ref)),
                         SD_JSON_BUILD_PAIR_CONDITION(iovec_is_set(salt), "tpm2_salt", JSON_BUILD_IOVEC_BASE64(salt)),
                         SD_JSON_BUILD_PAIR_CONDITION(iovec_is_set(srk), "tpm2_srk", JSON_BUILD_IOVEC_BASE64(srk)),
-                        SD_JSON_BUILD_PAIR_CONDITION(iovec_is_set(pcrlock_nv), "tpm2_pcrlock_nv", JSON_BUILD_IOVEC_BASE64(pcrlock_nv)));
+                        SD_JSON_BUILD_PAIR_CONDITION(iovec_is_set(pcrlock_nv), "tpm2_pcrlock_nv", JSON_BUILD_IOVEC_BASE64(pcrlock_nv)),
+                        SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(flags, TPM2_FLAGS_USE_ARGON2ID), "tpm2_argon2id_memcost", SD_JSON_BUILD_UNSIGNED(argon2id_params->memcost_bytes)),
+                        SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(flags, TPM2_FLAGS_USE_ARGON2ID), "tpm2_argon2id_iterations", SD_JSON_BUILD_UNSIGNED(argon2id_params->iterations)),
+                        SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(flags, TPM2_FLAGS_USE_ARGON2ID), "tpm2_argon2id_lanes", SD_JSON_BUILD_UNSIGNED(argon2id_params->lanes)));
         if (r < 0)
                 return r;
 
@@ -9906,7 +9910,8 @@ int tpm2_parse_luks2_json(
                 struct iovec *ret_salt,
                 struct iovec *ret_srk,
                 struct iovec *ret_pcrlock_nv,
-                TPM2Flags *ret_flags) {
+                TPM2Flags *ret_flags,
+                Argon2IdParameters *ret_argon2id_params) {
 
         _cleanup_(iovec_done) struct iovec pubkey = {}, salt = {}, srk = {}, pcrlock_nv = {};
         _cleanup_free_ char *pubkey_ref = NULL;
@@ -10056,6 +10061,42 @@ int tpm2_parse_luks2_json(
                         return log_debug_errno(r, "Invalid base64 data in 'tpm2_pcrlock_nv' field.");
         }
 
+        Argon2IdParameters ap = {};
+
+        w = sd_json_variant_by_key(v, "tpm2_argon2id_memcost");
+        if (w) {
+                if (!sd_json_variant_is_unsigned(w))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "tpm2_argon2id_memcost is not an unsigned integer.");
+                ap.memcost_bytes = sd_json_variant_unsigned(w);
+                if (ap.memcost_bytes == 0)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "tpm2_argon2id_memcost must be non-zero.");
+                SET_FLAG(flags, TPM2_FLAGS_USE_ARGON2ID, true);
+        }
+
+        w = sd_json_variant_by_key(v, "tpm2_argon2id_iterations");
+        if (w) {
+                uint64_t raw_iterations;
+
+                if (!sd_json_variant_is_unsigned(w))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "tpm2_argon2id_iterations is not an unsigned integer.");
+                raw_iterations = sd_json_variant_unsigned(w);
+                if (raw_iterations == 0 || raw_iterations > UINT32_MAX)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "tpm2_argon2id_iterations value out of range.");
+                ap.iterations = (uint32_t) raw_iterations;
+        }
+
+        w = sd_json_variant_by_key(v, "tpm2_argon2id_lanes");
+        if (w) {
+                uint64_t raw_lanes;
+
+                if (!sd_json_variant_is_unsigned(w))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "tpm2_argon2id_lanes is not an unsigned integer.");
+                raw_lanes = sd_json_variant_unsigned(w);
+                if (raw_lanes == 0 || raw_lanes > UINT32_MAX)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "tpm2_argon2id_lanes value out of range.");
+                ap.lanes = (uint32_t) raw_lanes;
+        }
+
         if (ret_keyslot)
                 *ret_keyslot = keyslot;
         if (ret_hash_pcr_mask)
@@ -10086,6 +10127,8 @@ int tpm2_parse_luks2_json(
                 *ret_pcrlock_nv = TAKE_STRUCT(pcrlock_nv);
         if (ret_flags)
                 *ret_flags = flags;
+        if (ret_argon2id_params)
+                *ret_argon2id_params = ap;
         return 0;
 }
 
