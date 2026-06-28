@@ -7,7 +7,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#ifndef __GLIBC__
+#ifndef HAVE_LIBINTL_IN_LIBC
 #include "sd-dlopen.h"
 #endif
 
@@ -27,14 +27,14 @@
 #include "strv.h"
 #include "utf8.h"
 
-#ifdef __GLIBC__
+#ifdef HAVE_LIBINTL_IN_LIBC
 DLSYM_PROTOTYPE(dgettext) = dgettext;
 #else
 DLSYM_PROTOTYPE(dgettext) = NULL;
 #endif
 
 int dlopen_libintl(int log_level) {
-#ifdef __GLIBC__
+#ifdef HAVE_LIBINTL_IN_LIBC
         return 1;
 #else
         static void *libintl_dl = NULL;
