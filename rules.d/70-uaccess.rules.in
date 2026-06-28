@@ -130,6 +130,6 @@ SUBSYSTEM=="hidraw", ENV{ID_HARDWARE_WALLET}=="1", TAG+="uaccess"
 SUBSYSTEM=="hidraw", ENV{ID_INPUT_3D_MOUSE}=="1", TAG+="uaccess"
 
 # Debug interfaces (e.g. Android Debug Bridge)
-ENV{ID_DEBUG_APPLIANCE}=="?*", TAG+="uaccess"
+ENV{ID_DEBUG_APPLIANCE}=="?*", TAG+="uaccess", TAG+="xaccess-debug"
 
 LABEL="uaccess_end"
