@@ -29,6 +29,26 @@ TEST(specifier_escape) {
         test_specifier_escape_one("%%%%%", "%%%%%%%%%%");
 }
 
+static void test_mount_options_escape_one(const char *a, const char *b) {
+        _cleanup_free_ char *x = NULL;
+
+        x = mount_options_escape(a);
+        ASSERT_STREQ(x, b);
+}
+
+TEST(mount_options_escape) {
+        test_mount_options_escape_one(NULL, NULL);
+        test_mount_options_escape_one("", "");
+        test_mount_options_escape_one("%", "%%");
+        test_mount_options_escape_one("foo bar", "foo bar");
+        test_mount_options_escape_one("foo%bar", "foo%%bar");
+        test_mount_options_escape_one("%%%%%", "%%%%%%%%%%");
+        test_mount_options_escape_one("\\", "\\\\");
+        test_mount_options_escape_one("foo\\bar", "foo\\\\bar");
+        test_mount_options_escape_one("foo\\%bar", "foo\\\\%%bar");
+        test_mount_options_escape_one("\\%", "\\\\%%");
+}
+
 static void test_specifier_escape_strv_one(char **a, char **b) {
         _cleanup_strv_free_ char **x = NULL;
 

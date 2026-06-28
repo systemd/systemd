@@ -102,5 +102,7 @@ char* specifier_escape(const char *string);
 
 int specifier_escape_strv(char **l, char ***ret);
 
+char* mount_options_escape(const char *string);
+
 /* A generic specifier table consisting of COMMON_SYSTEM_SPECIFIERS and COMMON_TMP_SPECIFIERS */
 extern const Specifier system_and_tmp_specifier_table[];

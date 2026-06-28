@@ -191,7 +191,7 @@ static int write_options(FILE *f, const char *options) {
         if (streq(options, "defaults"))
                 return 0;
 
-        o = specifier_escape(options);
+        o = mount_options_escape(options);
         if (!o)
                 return log_oom();
 
@@ -333,6 +333,27 @@ static bool mount_in_initrd(const char *where, const char *options, bool accept_
 static int write_idle_timeout(FILE *f, const char *where, const char *opts) {
         return generator_write_unit_timeout(f, where, opts,
                                             "x-systemd.idle-timeout\0", "TimeoutIdleSec");
+}
+
+static int write_automount_extra_options(FILE *f, const char *where, const char *opts) {
+        _cleanup_free_ char *value = NULL, *escaped = NULL;
+        int r;
+
+        assert(f);
+        assert(where);
+
+        r = fstab_filter_options(opts, "x-systemd.automount-options\0",
+                /* ret_namefound= */ NULL, &value, /* ret_values= */ NULL, /* ret_filtered= */ NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse options for '%s': %m", where);
+        if (r == 0 || isempty(value))
+                return 0;
+
+        escaped = mount_options_escape(value);
+        if (!escaped)
+                return log_oom();
+        fprintf(f, "ExtraOptions=%s\n", escaped);
+        return 0;
 }
 
 static int write_dependency(
@@ -735,6 +756,10 @@ static int add_mount(
                         where_escaped);
 
                 r = write_idle_timeout(f, where, opts);
+                if (r < 0)
+                        return r;
+
+                r = write_automount_extra_options(f, where, opts);
                 if (r < 0)
                         return r;
 

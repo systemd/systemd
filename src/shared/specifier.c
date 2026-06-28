@@ -431,6 +431,24 @@ char* specifier_escape(const char *string) {
         return strreplace(string, "%", "%%");
 }
 
+char* mount_options_escape(const char *string) {
+        char *s, *r;
+
+        /* Escapes backslashes and percent characters for use in Options= and
+         * ExtraOptions= settings. Backslashes are doubled to protect them from
+         * the configuration file parser's line continuation logic. Percent
+         * characters are doubled for specifier expansion. The corresponding
+         * unescaping is done by config_parse_mount_options_printf(). */
+
+        s = strreplace(string, "\\", "\\\\");
+        if (!s)
+                return NULL;
+
+        r = strreplace(s, "%", "%%");
+        free(s);
+        return r;
+}
+
 int specifier_escape_strv(char **l, char ***ret) {
         _cleanup_strv_free_ char **z = NULL;
         char **p, **q;
