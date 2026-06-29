@@ -3486,8 +3486,7 @@ static int clean_item(Context *c, Item *i) {
         case CREATE_SUBVOLUME_INHERIT_QUOTA:
         case CREATE_SUBVOLUME_NEW_QUOTA:
         case COPY_FILES:
-                clean_item_instance(c, i, i->path, CREATION_EXISTING);
-                return 0;
+                return clean_item_instance(c, i, i->path, CREATION_EXISTING);
 
         case EMPTY_DIRECTORY:
         case IGNORE_PATH:
