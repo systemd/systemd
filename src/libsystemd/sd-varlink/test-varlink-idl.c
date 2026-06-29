@@ -21,6 +21,7 @@
 #include "varlink-io.systemd.AskPassword.h"
 #include "varlink-io.systemd.BootControl.h"
 #include "varlink-io.systemd.Credentials.h"
+#include "varlink-io.systemd.CryptEnroll.h"
 #include "varlink-io.systemd.FactoryReset.h"
 #include "varlink-io.systemd.Hostname.h"
 #include "varlink-io.systemd.Import.h"
@@ -51,6 +52,7 @@
 #include "varlink-io.systemd.Resolve.Monitor.h"
 #include "varlink-io.systemd.Shutdown.h"
 #include "varlink-io.systemd.StorageProvider.h"
+#include "varlink-io.systemd.SysUpdate.h"
 #include "varlink-io.systemd.SysUpdate.Notify.h"
 #include "varlink-io.systemd.Udev.h"
 #include "varlink-io.systemd.Unit.h"
@@ -198,6 +200,7 @@ TEST(parse_format) {
                 &vl_interface_io_systemd_AskPassword,
                 &vl_interface_io_systemd_BootControl,
                 &vl_interface_io_systemd_Credentials,
+                &vl_interface_io_systemd_CryptEnroll,
                 &vl_interface_io_systemd_FactoryReset,
                 &vl_interface_io_systemd_Hostname,
                 &vl_interface_io_systemd_Import,
@@ -228,6 +231,7 @@ TEST(parse_format) {
                 &vl_interface_io_systemd_Resolve_Monitor,
                 &vl_interface_io_systemd_Shutdown,
                 &vl_interface_io_systemd_StorageProvider,
+                &vl_interface_io_systemd_SysUpdate,
                 &vl_interface_io_systemd_SysUpdate_Notify,
                 &vl_interface_io_systemd_Udev,
                 &vl_interface_io_systemd_Unit,

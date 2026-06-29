@@ -67,13 +67,14 @@ REQUIREMENTS:
            of systemd. Taint flag 'old-kernel' will be set. systemd will most likely
            still function, but upstream support and testing are limited.
 
-        Linux kernel ≥ 6.3 for MFD_EXEC/MFD_NOEXEC_SEAL and tmpfs noswap option
+        Linux kernel ≥ 5.15 for MPOL_PREFERRED_MANY NUMA policy
+                     ≥ 6.3 for MFD_EXEC/MFD_NOEXEC_SEAL and tmpfs noswap option
                      ≥ 6.5 for name_to_handle_at() AT_HANDLE_FID, SO_PEERPIDFD/SO_PASSPIDFD,
                                and MOVE_MOUNT_BENEATH
                      ≥ 6.6 for quota support on tmpfs
                      ≥ 6.7 for cgroup2fs memory_hugetlb_accounting option
                      ≥ 6.8 for STATX_MNT_ID_UNIQUE
-                     ≥ 6.9 for pidfs
+                     ≥ 6.9 for pidfs and MPOL_WEIGHTED_INTERLEAVE NUMA policy
                      ≥ 6.10 for fcntl(F_DUPFD_QUERY), unprivileged linkat(AT_EMPTY_PATH),
                                 and block device 'partscan' sysfs attribute
                      ≥ 6.12 for AT_HANDLE_MNT_ID_UNIQUE
@@ -230,7 +231,6 @@ REQUIREMENTS:
         libarchive >= 3.0 (optional)
         libxkbcommon >= 0.3.0 (optional)
         libpcre2 (optional)
-        libgcrypt (optional)
         libqrencode >= 3 (optional)
         libmicrohttpd >= 0.9.33 (optional)
         libcurl >= 7.32.0 (optional)

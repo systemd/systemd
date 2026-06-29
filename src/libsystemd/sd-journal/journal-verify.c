@@ -9,8 +9,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
-#include "gcrypt-util.h"
-#include "journal-authenticate.h"
+#include "journal-authenticate-internal.h"
 #include "journal-def.h"
 #include "journal-file.h"
 #include "journal-verify.h"
@@ -591,7 +590,7 @@ static int verify_data_hash_table(
                 }
 
                 if (last != le64toh(f->data_hash_table[i].tail_hash_offset)) {
-                        error(p,
+                        error(last,
                               "Tail hash pointer mismatch in hash table (%"PRIu64" != %"PRIu64")",
                               last,
                               le64toh(f->data_hash_table[i].tail_hash_offset));
@@ -814,12 +813,14 @@ static int verify_hash_table(
 int journal_file_verify(
                 JournalFile *f,
                 const char *key,
-                usec_t *first_contained, usec_t *last_validated, usec_t *last_contained,
+                usec_t *ret_first_contained,
+                usec_t *ret_last_validated,
+                usec_t *ret_last_contained,
                 bool show_progress) {
+
         int r;
         Object *o;
-        uint64_t p = 0, last_epoch = 0, last_tag_realtime = 0;
-
+        uint64_t p = 0, last_tag = 0, last_epoch = 0, last_tag_realtime = 0, last_tag_realtime_end = 0;
         uint64_t entry_seqnum = 0, entry_monotonic = 0, entry_realtime = 0;
         usec_t min_entry_realtime = USEC_INFINITY, max_entry_realtime = 0;
         sd_id128_t entry_boot_id = {};  /* Unnecessary initialization to appease gcc */
@@ -834,23 +835,20 @@ int journal_file_verify(
         const char *tmp_dir = NULL;
         MMapCache *m;
 
-#if HAVE_GCRYPT
-        uint64_t last_tag = 0;
-#endif
         assert(f);
 
         if (key) {
-#if HAVE_GCRYPT
-                r = journal_file_parse_verification_key(f, key);
-                if (r < 0) {
-                        log_error("Failed to parse seed.");
-                        return r;
-                }
-#else
-                return -EOPNOTSUPP;
-#endif
-        } else if (JOURNAL_HEADER_SEALED(f->header))
-                return -ENOKEY;
+                r = journal_file_auth_load_key(f, key);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to load verification key: %m");
+        } else if (JOURNAL_HEADER_SEALED(f->header)) {
+                /* For a sealed journal file, request the verification key when journal sealing is supported.
+                 * Otherwise, log that seal verification is skipped. */
+                if (journal_auth_supported())
+                        return -ENOKEY;
+                else
+                        log_notice("Journal file is sealed, but journal sealing support is disabled. Skipping seal verification.");
+        }
 
         r = var_tmp_dir(&tmp_dir);
         if (r < 0) {
@@ -1155,19 +1153,20 @@ int journal_file_verify(
                                 }
                         }
 
-#if HAVE_GCRYPT
-                        if (JOURNAL_HEADER_SEALED(f->header)) {
+                        if (JOURNAL_HEADER_SEALED(f->header) && journal_auth_supported()) {
                                 uint64_t q, rt, rt_end;
 
                                 debug(p, "Checking tag %"PRIu64"...", le64toh(o->tag.seqnum));
 
-                                rt = f->fss_start_usec + le64toh(o->tag.epoch) * f->fss_interval_usec;
-                                rt_end = usec_add(rt, f->fss_interval_usec);
+                                r = journal_file_auth_epoch_to_realtime_usec(f, le64toh(o->tag.epoch), &rt, &rt_end);
+                                if (r < 0)
+                                        goto fail;
+
                                 if (entry_realtime_set && entry_realtime >= rt_end) {
                                         error(p,
                                               "tag/entry realtime timestamp out of synchronization (%"PRIu64" >= %"PRIu64")",
                                               entry_realtime,
-                                              rt + f->fss_interval_usec);
+                                              rt_end);
                                         r = -EBADMSG;
                                         goto fail;
                                 }
@@ -1192,16 +1191,16 @@ int journal_file_verify(
                                 /* OK, now we know the epoch. So let's now set
                                  * it, and calculate the HMAC for everything
                                  * since the last tag. */
-                                r = journal_file_fsprg_seek(f, le64toh(o->tag.epoch));
+                                r = journal_file_auth_seek(f, le64toh(o->tag.epoch));
                                 if (r < 0)
                                         goto fail;
 
-                                r = journal_file_hmac_start(f);
+                                r = journal_file_auth_start(f);
                                 if (r < 0)
                                         goto fail;
 
                                 if (last_tag == 0) {
-                                        r = journal_file_hmac_put_header(f);
+                                        r = journal_file_auth_put_header(f);
                                         if (r < 0)
                                                 goto fail;
 
@@ -1214,7 +1213,7 @@ int journal_file_verify(
                                         if (r < 0)
                                                 goto fail;
 
-                                        r = journal_file_hmac_put_object(f, OBJECT_UNUSED, o, q);
+                                        r = journal_file_auth_put_object(f, OBJECT_UNUSED, o, q);
                                         if (r < 0)
                                                 goto fail;
 
@@ -1226,19 +1225,24 @@ int journal_file_verify(
                                 if (r < 0)
                                         goto fail;
 
-                                if (memcmp(o->tag.tag, sym_gcry_md_read(f->hmac, 0), TAG_LENGTH) != 0) {
+                                uint8_t tag[TAG_LENGTH];
+                                CLEANUP_ERASE(tag);
+
+                                r = journal_file_auth_end(f, tag);
+                                if (r < 0)
+                                        goto fail;
+
+                                if (memcmp(o->tag.tag, tag, TAG_LENGTH) != 0) {
                                         error(p, "Tag failed verification");
                                         r = -EBADMSG;
                                         goto fail;
                                 }
 
-                                f->hmac_running = false;
                                 last_tag_realtime = rt;
+                                last_tag_realtime_end = rt_end;
                         }
 
                         last_tag = p + ALIGN64(le64toh(o->object.size));
-#endif
-
                         last_epoch = le64toh(o->tag.epoch);
 
                         n_tags++;
@@ -1404,14 +1408,12 @@ int journal_file_verify(
         mmap_cache_fd_free(cache_entry_fd);
         mmap_cache_fd_free(cache_entry_array_fd);
 
-        if (first_contained)
-                *first_contained = le64toh(f->header->head_entry_realtime);
-#if HAVE_GCRYPT
-        if (last_validated)
-                *last_validated = last_tag_realtime + f->fss_interval_usec;
-#endif
-        if (last_contained)
-                *last_contained = le64toh(f->header->tail_entry_realtime);
+        if (ret_first_contained)
+                *ret_first_contained = le64toh(f->header->head_entry_realtime);
+        if (ret_last_validated)
+                *ret_last_validated = last_tag_realtime_end;
+        if (ret_last_contained)
+                *ret_last_contained = le64toh(f->header->tail_entry_realtime);
 
         return 0;
 

@@ -19,6 +19,13 @@ enable systemd-networkd-wait-online.service
 # systemd-resolved is disabled by default on CentOS so make sure it is enabled.
 enable systemd-resolved.service
 
+# systemd-time-wait-sync.service is enabled by default on postmarketOS.
+# It pulls in time-sync.target, but the target is never reached because the
+# test environment has no Internet connectivity. As a result, timer units
+# cannot be started. Disable the service explicitly to allow timer units to
+# start in the test environment.
+disable systemd-time-wait-sync.service
+
 # systemd-userdbd.socket is disabled by default on OpenSUSE
 enable systemd-userdbd.socket
 
@@ -61,3 +68,12 @@ disable multipathd.service
 # The socket unit is disabled by default in the upstream:
 # https://github.com/opensvc/multipath-tools/commit/346e9adda4e5f0ccfcbb7a3eccf5f96001d95027
 disable multipathd.socket
+
+# rtkit-daemon.service randomly fails with the following error on postmarketOS:
+# rtkit-daemon[54]: pthread_create failed: Resource temporarily unavailable
+# The service is not necessary on our test suites, let's disable it.
+disable rtkit-daemon.service
+
+# Disable postmarketOS specific zram swap service.
+# Maybe better to replace it with zram-generator?
+disable zram_swap.service

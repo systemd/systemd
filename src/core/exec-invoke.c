@@ -5646,8 +5646,10 @@ int exec_invoke(
 
         if (mpol_is_valid(numa_policy_get_type(&context->numa_policy))) {
                 r = apply_numa_policy(&context->numa_policy);
-                if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                if (r == -ENOSYS)
                         log_debug_errno(r, "NUMA support not available, ignoring.");
+                else if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                        log_warning_errno(r, "NUMA policy not supported by kernel, ignoring.");
                 else if (r < 0) {
                         *exit_status = EXIT_NUMA_POLICY;
                         return log_error_errno(r, "Failed to set NUMA memory policy: %m");

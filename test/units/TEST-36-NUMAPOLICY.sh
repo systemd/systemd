@@ -227,6 +227,26 @@ else
     pid1ReloadWithStrace
     grep -E "set_mempolicy\((MPOL_LOCAL|0x4 [^,]*), NULL" "$straceLog"
 
+    echo "PID1 NUMAPolicy support - Preferred-many policy w/o mask"
+    writePID1NUMAPolicy "preferred-many"
+    pid1ReloadWithJournal
+    grep "Failed to set NUMA memory policy, ignoring: Invalid argument" "$journalLog"
+
+    echo "PID1 NUMAPolicy support - Preferred-many policy w/ mask"
+    writePID1NUMAPolicy "preferred-many" "0"
+    pid1ReloadWithStrace
+    grep -E "set_mempolicy\((MPOL_PREFERRED_MANY|0x5 [^,]*), \[0x0*1\]" "$straceLog"
+
+    echo "PID1 NUMAPolicy support - Weighted-interleave policy w/o mask"
+    writePID1NUMAPolicy "weighted-interleave"
+    pid1ReloadWithJournal
+    grep "Failed to set NUMA memory policy, ignoring: Invalid argument" "$journalLog"
+
+    echo "PID1 NUMAPolicy support - Weighted-interleave policy w/ mask"
+    writePID1NUMAPolicy "weighted-interleave" "0"
+    pid1ReloadWithStrace
+    grep -E "set_mempolicy\((MPOL_WEIGHTED_INTERLEAVE|0x6 [^,]*), \[0x0*1\]" "$straceLog"
+
     echo "Unit file NUMAPolicy support - Default policy w/o mask"
     writeTestUnitNUMAPolicy "default"
     pid1StartUnitWithStrace "$testUnit"
@@ -297,6 +317,34 @@ else
     # Mask must be ignored
     grep -E "set_mempolicy\((MPOL_LOCAL|0x4 [^,]*), NULL" "$straceLog"
 
+    echo "Unit file NUMAPolicy support - Preferred-many policy w/o mask"
+    writeTestUnitNUMAPolicy "preferred-many"
+    pid1StartUnitWithStrace "$testUnit"
+    pid1StopUnit "$testUnit"
+    [[ $(systemctl show "$testUnit" -P ExecMainStatus) == "242" ]]
+
+    echo "Unit file NUMAPolicy support - Preferred-many policy w/ mask"
+    writeTestUnitNUMAPolicy "preferred-many" "0"
+    pid1StartUnitWithStrace "$testUnit"
+    systemctlCheckNUMAProperties "$testUnit" "preferred-many" "0"
+    varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List "{\"name\":\"$testUnit\"}" | jq -e '.context.Exec.NUMAPolicy == "preferred_many"'
+    pid1StopUnit "$testUnit"
+    grep -E "set_mempolicy\((MPOL_PREFERRED_MANY|0x5 [^,]*), \[0x0*1\]" "$straceLog"
+
+    echo "Unit file NUMAPolicy support - Weighted-interleave policy w/o mask"
+    writeTestUnitNUMAPolicy "weighted-interleave"
+    pid1StartUnitWithStrace "$testUnit"
+    pid1StopUnit "$testUnit"
+    [[ $(systemctl show "$testUnit" -P ExecMainStatus) == "242" ]]
+
+    echo "Unit file NUMAPolicy support - Weighted-interleave policy w/ mask"
+    writeTestUnitNUMAPolicy "weighted-interleave" "0"
+    pid1StartUnitWithStrace "$testUnit"
+    systemctlCheckNUMAProperties "$testUnit" "weighted-interleave" "0"
+    varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List "{\"name\":\"$testUnit\"}" | jq -e '.context.Exec.NUMAPolicy == "weighted_interleave"'
+    pid1StopUnit "$testUnit"
+    grep -E "set_mempolicy\((MPOL_WEIGHTED_INTERLEAVE|0x6 [^,]*), \[0x0*1\]" "$straceLog"
+
     echo "Unit file CPUAffinity=NUMA support"
     writeTestUnitNUMAPolicy "bind" "0"
     echo "CPUAffinity=numa" >>"$testUnitNUMAConf"
@@ -342,6 +390,14 @@ else
     systemd-run -p NUMAPolicy=local -p NUMAMask=0 -p CPUAffinity=numa --unit "$runUnit" sleep 1000
     systemctlCheckNUMAProperties "$runUnit" "local" ""
     systemctl cat "$runUnit" | grep 'CPUAffinity=numa' >/dev/null
+    pid1StopUnit "$runUnit"
+
+    systemd-run -p NUMAPolicy=preferred-many -p NUMAMask=0 --unit "$runUnit" sleep 1000
+    systemctlCheckNUMAProperties "$runUnit" "preferred-many" "0"
+    pid1StopUnit "$runUnit"
+
+    systemd-run -p NUMAPolicy=weighted-interleave -p NUMAMask=0 --unit "$runUnit" sleep 1000
+    systemctlCheckNUMAProperties "$runUnit" "weighted-interleave" "0"
     pid1StopUnit "$runUnit"
 fi
 
