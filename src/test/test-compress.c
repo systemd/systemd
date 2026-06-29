@@ -69,6 +69,115 @@ TEST(compress_decompress_blob) {
         }
 }
 
+TEST(decompress_blob_zstd_unknown_size) {
+        /* Frames produced by the streaming compressor — like those the 'zstd' CLI and compressed kernel
+         * images use — don't record the decompressed size in the frame header, so
+         * ZSTD_getFrameContentSize() returns ZSTD_CONTENTSIZE_UNKNOWN. Make sure decompress_blob() and
+         * decompress_startswith() handle that instead of bailing out with -EBADMSG. */
+
+        if (!compression_supported(COMPRESSION_ZSTD))
+                return (void) log_tests_skipped("zstd is not supported");
+
+        _cleanup_free_ char *input = NULL;
+        size_t input_size = U64_MB; /* > ZSTD_DStreamOutSize(), so the output buffer must grow
+                                     * several times and pass through zstd's buffered-flush mode */
+
+        ASSERT_NOT_NULL(input = malloc(input_size));
+        for (size_t i = 0; i < input_size; i++)
+                input[i] = 'A' + (i % 26);
+
+        _cleanup_close_ int src = -EBADF, dst = -EBADF;
+        _cleanup_(unlink_tempfilep) char
+                src_pattern[] = "/tmp/systemd-test.zstd-unknown-src.XXXXXX",
+                pattern[] = "/tmp/systemd-test.zstd-unknown.XXXXXX";
+        struct stat st;
+
+        ASSERT_OK(src = mkostemp_safe(src_pattern));
+        ASSERT_OK(loop_write(src, input, input_size));
+        ASSERT_EQ(lseek(src, 0, SEEK_SET), (off_t) 0);
+
+        /* compress_stream() never records the content size in the frame header. */
+        ASSERT_OK(dst = mkostemp_safe(pattern));
+        ASSERT_OK(compress_stream(COMPRESSION_ZSTD, src, dst, UINT64_MAX, NULL));
+
+        ASSERT_OK_ERRNO(fstat(dst, &st));
+
+        _cleanup_free_ void *compressed = NULL;
+        ASSERT_NOT_NULL(compressed = malloc(st.st_size));
+        ASSERT_EQ(lseek(dst, 0, SEEK_SET), (off_t) 0);
+        ASSERT_EQ(loop_read(dst, compressed, st.st_size, true), (ssize_t) st.st_size);
+
+        /* Full blob decompression must reconstruct the input exactly. */
+        _cleanup_free_ void *decompressed = NULL;
+        size_t dsize = 0;
+        ASSERT_OK_ZERO(decompress_blob(COMPRESSION_ZSTD, compressed, st.st_size, &decompressed, &dsize, 0));
+        ASSERT_EQ(dsize, input_size);
+        ASSERT_EQ(memcmp(decompressed, input, input_size), 0);
+
+        /* Decompression capped via dst_max must stop at the requested size. */
+        decompressed = mfree(decompressed);
+        dsize = 0;
+        ASSERT_OK_ZERO(decompress_blob(COMPRESSION_ZSTD, compressed, st.st_size, &decompressed, &dsize, 4096));
+        ASSERT_EQ(dsize, 4096u);
+        ASSERT_EQ(memcmp(decompressed, input, 4096), 0);
+
+        /* decompress_startswith() must still find the prefix without a recorded content size. */
+        _cleanup_free_ void *buf = NULL;
+        ASSERT_OK_POSITIVE(decompress_startswith(COMPRESSION_ZSTD, compressed, st.st_size, &buf, input, 4096, input[4096]));
+        ASSERT_OK_ZERO(decompress_startswith(COMPRESSION_ZSTD, compressed, st.st_size, &buf, input, 4096, 0xff));
+
+        /* A concatenated multi-frame stream must be fully decoded, not silently truncated at the first
+         * frame boundary. */
+        size_t csize = st.st_size;
+        _cleanup_free_ void *multiframe = malloc(csize * 2);
+        ASSERT_NOT_NULL(multiframe);
+        memcpy(multiframe, compressed, csize);
+        memcpy((uint8_t*) multiframe + csize, compressed, csize);
+
+        decompressed = mfree(decompressed);
+        dsize = 0;
+        ASSERT_OK_ZERO(decompress_blob(COMPRESSION_ZSTD, multiframe, csize * 2, &decompressed, &dsize, 0));
+        ASSERT_EQ(dsize, input_size * 2);
+        ASSERT_EQ(memcmp(decompressed, input, input_size), 0);
+        ASSERT_EQ(memcmp((uint8_t*) decompressed + input_size, input, input_size), 0);
+
+        /* Kernel zboot payloads are usually compressed without a content checksum, which is the case that
+         * exercises the buffer-growth/buffered-flush logic without the checksum trailer masking
+         * end-of-input. Turn our stream into a non-checksummed one (clear bit 2 of the frame header
+         * descriptor, drop the 4-byte trailer) and make sure it still round-trips. */
+        ((uint8_t*) compressed)[4] &= ~0x04;
+        decompressed = mfree(decompressed);
+        dsize = 0;
+        ASSERT_OK_ZERO(decompress_blob(COMPRESSION_ZSTD, compressed, csize - 4, &decompressed, &dsize, 0));
+        ASSERT_EQ(dsize, input_size);
+        ASSERT_EQ(memcmp(decompressed, input, input_size), 0);
+
+        /* A valid but short unknown-size stream whose content is shorter than the requested prefix must
+         * report "too short" (0), not a corruption error. */
+        _cleanup_close_ int short_src = -EBADF, short_dst = -EBADF;
+        _cleanup_(unlink_tempfilep) char
+                short_src_pattern[] = "/tmp/systemd-test.zstd-short-src.XXXXXX",
+                short_pattern[] = "/tmp/systemd-test.zstd-short.XXXXXX";
+        static const char short_text[] = "hi";
+        struct stat short_st;
+
+        ASSERT_OK(short_src = mkostemp_safe(short_src_pattern));
+        ASSERT_OK(loop_write(short_src, short_text, sizeof(short_text)));
+        ASSERT_EQ(lseek(short_src, 0, SEEK_SET), (off_t) 0);
+        ASSERT_OK(short_dst = mkostemp_safe(short_pattern));
+        ASSERT_OK(compress_stream(COMPRESSION_ZSTD, short_src, short_dst, UINT64_MAX, NULL));
+        ASSERT_OK_ERRNO(fstat(short_dst, &short_st));
+
+        _cleanup_free_ void *short_compressed = malloc(short_st.st_size);
+        ASSERT_NOT_NULL(short_compressed);
+        ASSERT_EQ(lseek(short_dst, 0, SEEK_SET), (off_t) 0);
+        ASSERT_EQ(loop_read(short_dst, short_compressed, short_st.st_size, true), (ssize_t) short_st.st_size);
+
+        _cleanup_free_ void *short_buf = NULL;
+        ASSERT_OK_ZERO(decompress_startswith(COMPRESSION_ZSTD, short_compressed, short_st.st_size, &short_buf,
+                                             "hello world", strlen("hello world"), 'x'));
+}
+
 TEST(decompress_startswith) {
         for (Compression c = 0; c < _COMPRESSION_MAX; c++) {
                 if (c == COMPRESSION_NONE || !compression_supported(c))
