@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# SPDX-License-Identifier: CC-0
+# SPDX-License-Identifier: LGPL-2.1-or-later
 set -e
 
 touch -r "$BUILDROOT/usr" "$BUILDROOT/etc/.updated" "$BUILDROOT/var/.updated"
