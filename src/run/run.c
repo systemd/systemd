@@ -1049,7 +1049,7 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
 
         strv_free_and_replace(arg_cmdline, l);
 
-        if (!arg_slice) {
+        if (!arg_slice && !arg_slice_inherit) {
                 arg_slice = strdup(SPECIAL_USER_SLICE);
                 if (!arg_slice)
                         return log_oom();
