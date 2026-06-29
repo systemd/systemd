@@ -622,6 +622,11 @@ static int fido2_use_hmac_hash_specific_token(
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to retrieve HMAC secret.");
 
         hmac_size = sym_fido_assert_hmac_secret_len(a, 0);
+        /* Should be identical, sanity check */
+        if (hmac_size != salt_size)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                       "FIDO2 token returned HMAC secret of size %zu, but %zu was expected, refusing.",
+                                       hmac_size, salt_size);
 
         hmac_copy = memdup(hmac, hmac_size);
         if (!hmac_copy)
@@ -1160,6 +1165,11 @@ int fido2_generate_hmac_hash(
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to retrieve HMAC secret.");
 
         secret_size = sym_fido_assert_hmac_secret_len(a, 0);
+        /* Should be identical, sanity check */
+        if (secret_size != salt->iov_len)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                       "FIDO2 token returned HMAC secret of size %zu, but %zu was expected, refusing.",
+                                       secret_size, salt->iov_len);
 
         secret_copy = memdup(secret, secret_size);
         if (!secret_copy)
