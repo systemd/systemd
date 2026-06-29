@@ -13,10 +13,11 @@ if [[ -v ASAN_OPTIONS ]]; then
     exit 0
 fi
 
+rm -f /run/leakedtestpid
 systemctl start issue14566-repro
 systemctl status issue14566-repro
 
-leaked_pid=$(cat /leakedtestpid)
+leaked_pid=$(cat /run/leakedtestpid)
 
 systemctl stop issue14566-repro
 timeout 30 bash -c 'while systemctl is-active issue14566-repro; do sleep .5; done'
