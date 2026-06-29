@@ -590,4 +590,28 @@ TEST(strv_env_get_merged) {
         ASSERT_TRUE(strv_equal(m, expected));
 }
 
+TEST(replace_env_argv_unterminated) {
+        /* A bare unset "$VAR" token expands to nothing and advances neither the write index nor writes a
+         * terminator, so the output strv must still be NUL-terminated when such a token leads or is the
+         * only word. */
+
+        _cleanup_strv_free_ char **a = NULL, **b = NULL, **c = NULL, **d = NULL;
+
+        /* Single bare unset variable: result must be a properly terminated empty strv. */
+        assert_se(replace_env_argv(STRV_MAKE("$THIS_IS_UNSET"), STRV_MAKE("FOO=BAR"), &a, NULL, NULL) >= 0);
+        assert_se(strv_isempty(a));
+
+        /* Only unset variables. */
+        assert_se(replace_env_argv(STRV_MAKE("$THIS_IS_UNSET", "$ALSO_UNSET"), STRV_MAKE("FOO=BAR"), &b, NULL, NULL) >= 0);
+        assert_se(strv_isempty(b));
+
+        /* Trailing bare unset variable after an expanded one. */
+        assert_se(replace_env_argv(STRV_MAKE("$FOO", "$THIS_IS_UNSET"), STRV_MAKE("FOO=BAR"), &c, NULL, NULL) >= 0);
+        assert_se(strv_equal(c, STRV_MAKE("BAR")));
+
+        /* Trailing bare unset variable after a literal word. */
+        assert_se(replace_env_argv(STRV_MAKE("hello", "$THIS_IS_UNSET"), STRV_MAKE("FOO=BAR"), &d, NULL, NULL) >= 0);
+        assert_se(strv_equal(d, STRV_MAKE("hello")));
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
