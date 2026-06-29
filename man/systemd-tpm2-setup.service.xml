@@ -78,21 +78,6 @@
         <listitem><para>Definition files for NvPCRs.</para>
         <xi:include href="version-info.xml" xpointer="v259"/></listitem>
       </varlistentry>
-
-      <varlistentry>
-        <term><filename>/run/credentials/@encrypted/nvpcr-anchor.*</filename></term>
-
-        <listitem><para>Encrypted NvPCR anchor secret, received into the system via system credentials.</para>
-        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><filename>$BOOT/loader/credentials/nvpcr-anchor.*.cred</filename></term>
-
-        <listitem><para>Encrypted NvPCR anchor secret, to be picked up by the kernel loader stub,
-        i.e. <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
-        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
-      </varlistentry>
     </variablelist>
   </refsect1>
 
