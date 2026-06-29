@@ -1,26 +1,35 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <errno.h>              /* IWYU pragma: keep */
+#include <linux/time_types.h>
 #include <sys/epoll.h>
+#include <sys/syscall.h>
+#include <unistd.h>
 
-#include "libc-shim.h"
+int missing_epoll_pwait2(
+                int epfd,
+                struct epoll_event *events,
+                int maxevents,
+                const struct timespec *timeout,
+                const sigset_t *sigmask) {
 
-/* On 32-bit architectures built with _TIME_BITS=64, glibc renames epoll_pwait2() to
- * __epoll_pwait2_time64 via __asm__() in <sys/epoll.h> so the linker picks the variant whose
- * struct timespec ABI matches our 64-bit time_t. dlsym() can't see that header-level rename, so
- * we have to spell out the right name here, otherwise we'd silently dispatch a 64-bit timespec to
- * the legacy 32-bit-time_t entry point. */
-#ifdef __USE_TIME_BITS64
-DEFINE_LIBC_ERRNO_SHIM_NAMED(epoll_pwait2, "__epoll_pwait2_time64", int,
-                             int, fd,
-                             struct epoll_event *, events,
-                             int, maxevents,
-                             const struct timespec *, timeout,
-                             const sigset_t *, sigmask)
-#else
-DEFINE_LIBC_ERRNO_SHIM(epoll_pwait2, int,
-                       int, fd,
-                       struct epoll_event *, events,
-                       int, maxevents,
-                       const struct timespec *, timeout,
-                       const sigset_t *, sigmask)
-#endif
+        /* We intentionally reject non-NULL sigmask to avoid depending on the architecture-specific kernel
+         * sigset_t size. If sigmask support is ever added, the correct sigsetsize must be passed to the
+         * syscall. */
+        if (sigmask) {
+                errno = ENOSYS;
+                return -1;
+        }
+
+        /* Convert struct timespec to struct __kernel_timespec, as they may differ. */
+        struct __kernel_timespec t, *p = NULL;
+        if (timeout) {
+                t = (struct __kernel_timespec) {
+                        .tv_sec = (__kernel_time64_t) timeout->tv_sec,
+                        .tv_nsec = (long long) timeout->tv_nsec,
+                };
+                p = &t;
+        }
+
+        return syscall(__NR_epoll_pwait2, epfd, events, maxevents, p, /* sigmask= */ NULL, /* sigsetsize= */ 0);
+}
