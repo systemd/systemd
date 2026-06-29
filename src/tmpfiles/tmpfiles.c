@@ -2572,7 +2572,7 @@ static int create_device(
         log_debug("%s %s device node \"%s\" %u:%u.",
                   creation_mode_verb_to_string(creation),
                   i->type == CREATE_BLOCK_DEVICE ? "block" : "char",
-                  i->path, major(i->mode), minor(i->mode));
+                  i->path, major(i->major_minor), minor(i->major_minor));
 
         return fd_set_perms(c, i, fd, i->path, &st, creation);
 
