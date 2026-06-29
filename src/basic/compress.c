@@ -800,16 +800,29 @@ static int decompress_blob_zstd(
                 return r;
 
         size = sym_ZSTD_getFrameContentSize(src, src_size);
-        if (IN_SET(size, ZSTD_CONTENTSIZE_ERROR, ZSTD_CONTENTSIZE_UNKNOWN))
+        if (size == ZSTD_CONTENTSIZE_ERROR)
                 return -EBADMSG;
 
-        if (dst_max > 0 && size > dst_max)
-                size = dst_max;
-        if (size > SIZE_MAX)
-                return -E2BIG;
+        /* ZSTD_CONTENTSIZE_UNKNOWN is returned when the frame header doesn't record the decompressed
+         * size, which is the case e.g. for kernel images compressed with 'zstd'. Per the zstd
+         * documentation this is not an error, it just means we don't know the output size upfront and
+         * have to grow the output buffer as we decompress. */
+        bool size_known = size != ZSTD_CONTENTSIZE_UNKNOWN;
 
-        if (!(greedy_realloc(dst, MAX(sym_ZSTD_DStreamOutSize(), size), 1)))
+        size_t space;
+        if (size_known) {
+                if (dst_max > 0 && size > dst_max)
+                        size = dst_max;
+                if (size > SIZE_MAX)
+                        return -E2BIG;
+
+                space = MAX(sym_ZSTD_DStreamOutSize(), size);
+        } else
+                space = MAX(sym_ZSTD_DStreamOutSize(), MIN(src_size * 2, dst_max ?: SIZE_MAX));
+
+        if (!greedy_realloc(dst, space, 1))
                 return -ENOMEM;
+        space = MALLOC_SIZEOF_SAFE(*dst);
 
         _cleanup_(ZSTD_freeDCtxp) ZSTD_DCtx *dctx = sym_ZSTD_createDCtx();
         if (!dctx)
@@ -821,16 +834,36 @@ static int decompress_blob_zstd(
         };
         ZSTD_outBuffer output = {
                 .dst = *dst,
-                .size = MALLOC_SIZEOF_SAFE(*dst),
+                .size = space,
         };
 
-        size_t k = sym_ZSTD_decompressStream(dctx, &output, &input);
-        if (sym_ZSTD_isError(k))
-                return log_debug_errno(zstd_ret_to_errno(k), "ZSTD decoder failed: %s", sym_ZSTD_getErrorName(k));
-        if (output.pos < size)
-                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "ZSTD decoded less data than indicated, probably corrupted stream.");
+        for (;;) {
+                size_t k = sym_ZSTD_decompressStream(dctx, &output, &input);
+                if (sym_ZSTD_isError(k))
+                        return log_debug_errno(zstd_ret_to_errno(k), "ZSTD decoder failed: %s", sym_ZSTD_getErrorName(k));
 
-        *dst_size = size;
+                if (dst_max > 0 && output.pos >= dst_max) {
+                        output.pos = dst_max;
+                        break; /* Decoded everything the caller asked for. */
+                }
+                if (k == 0)
+                        break; /* The frame was fully decoded. */
+                if (output.pos < output.size)
+                        /* The decoder couldn't make further progress even though the output buffer
+                         * isn't full yet, which means the input is exhausted before the frame is
+                         * complete. */
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "ZSTD decoded less data than indicated, probably corrupted stream.");
+
+                /* The output buffer is full but there's more to decompress, grow it and continue. */
+                space = MIN(2 * space, dst_max ?: SIZE_MAX);
+                if (!greedy_realloc(dst, space, 1))
+                        return -ENOMEM;
+                space = MALLOC_SIZEOF_SAFE(*dst);
+                output.dst = *dst;
+                output.size = space;
+        }
+
+        *dst_size = output.pos;
         return 0;
 #else
         return -EPROTONOSUPPORT;
@@ -1210,10 +1243,12 @@ static int decompress_startswith_zstd(
                 return r;
 
         uint64_t size = sym_ZSTD_getFrameContentSize(src, src_size);
-        if (IN_SET(size, ZSTD_CONTENTSIZE_ERROR, ZSTD_CONTENTSIZE_UNKNOWN))
+        if (size == ZSTD_CONTENTSIZE_ERROR)
                 return -EBADMSG;
 
-        if (size < prefix_len + 1)
+        /* ZSTD_CONTENTSIZE_UNKNOWN means the frame doesn't record the decompressed size, so we can't
+         * shortcut here. The single decompression below only needs prefix_len + 1 bytes anyway. */
+        if (size != ZSTD_CONTENTSIZE_UNKNOWN && size < prefix_len + 1)
                 return 0; /* Decompressed text too short to match the prefix and extra */
 
         _cleanup_(ZSTD_freeDCtxp) ZSTD_DCtx *dctx = sym_ZSTD_createDCtx();
