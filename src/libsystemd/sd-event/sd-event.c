@@ -4631,14 +4631,16 @@ static int epoll_wait_usec(
 
         static bool epoll_pwait2_absent = false;
         int r, msec;
-        /* A wrapper that uses epoll_pwait2() if available, and falls back to epoll_wait() if not. */
+
+        /* A wrapper that uses missing_epoll_pwait2(), which directly calls epoll_pwait2 syscall. */
 
         if (!epoll_pwait2_absent && timeout != USEC_INFINITY) {
-                r = epoll_pwait2(fd,
-                                 events,
-                                 maxevents,
-                                 TIMESPEC_STORE(timeout),
-                                 NULL);
+                r = missing_epoll_pwait2(
+                                fd,
+                                events,
+                                maxevents,
+                                TIMESPEC_STORE(timeout),
+                                NULL);
                 if (r >= 0)
                         return r;
                 if (!ERRNO_IS_NOT_SUPPORTED(errno) && !ERRNO_IS_PRIVILEGE(errno))
