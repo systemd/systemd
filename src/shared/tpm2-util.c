@@ -10,6 +10,7 @@
 #include "bitfield.h"
 #include "boot-entry.h"
 #include "chase.h"
+#include "conf-files.h"
 #include "constants.h"
 #include "creds-util.h"
 #include "crypto-util.h"
@@ -33,6 +34,7 @@
 #include "log.h"
 #include "logarithm.h"
 #include "memory-util.h"
+#include "memstream-util.h"
 #include "mkdir.h"
 #include "ordered-set.h"
 #include "random-util.h"
@@ -98,19 +100,23 @@ int tpm2_pcr_bank_from_efi_active_legacy(uint32_t active_banks, uint16_t *ret) {
 }
 
 #if HAVE_TPM2
+static DLSYM_PROTOTYPE(Esys_ContextLoad) = NULL;
+static DLSYM_PROTOTYPE(Esys_ContextSave) = NULL;
 static DLSYM_PROTOTYPE(Esys_Create) = NULL;
 static DLSYM_PROTOTYPE(Esys_CreateLoaded) = NULL;
 static DLSYM_PROTOTYPE(Esys_CreatePrimary) = NULL;
 static DLSYM_PROTOTYPE(Esys_EvictControl) = NULL;
 static DLSYM_PROTOTYPE(Esys_Finalize) = NULL;
 static DLSYM_PROTOTYPE(Esys_FlushContext) = NULL;
-static DLSYM_PROTOTYPE(Esys_Free) = NULL;
+DLSYM_PROTOTYPE(Esys_Free) = NULL;
 static DLSYM_PROTOTYPE(Esys_GetCapability) = NULL;
 static DLSYM_PROTOTYPE(Esys_GetRandom) = NULL;
+static DLSYM_PROTOTYPE(Esys_GetSessionAuditDigest) = NULL;
 static DLSYM_PROTOTYPE(Esys_Import) = NULL;
 static DLSYM_PROTOTYPE(Esys_Initialize) = NULL;
 static DLSYM_PROTOTYPE(Esys_Load) = NULL;
 static DLSYM_PROTOTYPE(Esys_LoadExternal) = NULL;
+static DLSYM_PROTOTYPE(Esys_NV_Certify) = NULL;
 static DLSYM_PROTOTYPE(Esys_NV_DefineSpace) = NULL;
 static DLSYM_PROTOTYPE(Esys_NV_Extend) = NULL;
 static DLSYM_PROTOTYPE(Esys_NV_Read) = NULL;
@@ -125,7 +131,9 @@ static DLSYM_PROTOTYPE(Esys_PolicyAuthorizeNV) = NULL;
 static DLSYM_PROTOTYPE(Esys_PolicyGetDigest) = NULL;
 static DLSYM_PROTOTYPE(Esys_PolicyOR) = NULL;
 static DLSYM_PROTOTYPE(Esys_PolicyPCR) = NULL;
+static DLSYM_PROTOTYPE(Esys_PolicySecret) = NULL;
 static DLSYM_PROTOTYPE(Esys_PolicySigned) = NULL;
+static DLSYM_PROTOTYPE(Esys_Quote) = NULL;
 static DLSYM_PROTOTYPE(Esys_ReadPublic) = NULL;
 static DLSYM_PROTOTYPE(Esys_StartAuthSession) = NULL;
 static DLSYM_PROTOTYPE(Esys_Startup) = NULL;
@@ -155,6 +163,9 @@ static DLSYM_PROTOTYPE(Tss2_MU_TPM2B_PUBLIC_Marshal) = NULL;
 static DLSYM_PROTOTYPE(Tss2_MU_TPM2B_PUBLIC_Unmarshal) = NULL;
 static DLSYM_PROTOTYPE(Tss2_MU_TPM2B_SENSITIVE_Marshal) = NULL;
 static DLSYM_PROTOTYPE(Tss2_MU_TPML_PCR_SELECTION_Marshal) = NULL;
+static DLSYM_PROTOTYPE(Tss2_MU_TPMS_ATTEST_Unmarshal) = NULL;
+static DLSYM_PROTOTYPE(Tss2_MU_TPMS_CONTEXT_Marshal) = NULL;
+static DLSYM_PROTOTYPE(Tss2_MU_TPMS_CONTEXT_Unmarshal) = NULL;
 static DLSYM_PROTOTYPE(Tss2_MU_TPMS_NV_PUBLIC_Marshal) = NULL;
 static DLSYM_PROTOTYPE(Tss2_MU_TPM2B_NV_PUBLIC_Marshal) = NULL;
 static DLSYM_PROTOTYPE(Tss2_MU_TPM2B_NV_PUBLIC_Unmarshal) = NULL;
@@ -175,6 +186,8 @@ static int dlopen_tpm2_esys(int log_level) {
 
         r = dlopen_many_sym_or_warn(
                         &libtss2_esys_dl, "libtss2-esys.so.0", log_level,
+                        DLSYM_ARG(Esys_ContextLoad),
+                        DLSYM_ARG(Esys_ContextSave),
                         DLSYM_ARG(Esys_Create),
                         DLSYM_ARG(Esys_CreateLoaded),
                         DLSYM_ARG(Esys_CreatePrimary),
@@ -184,10 +197,12 @@ static int dlopen_tpm2_esys(int log_level) {
                         DLSYM_ARG(Esys_Free),
                         DLSYM_ARG(Esys_GetCapability),
                         DLSYM_ARG(Esys_GetRandom),
+                        DLSYM_ARG(Esys_GetSessionAuditDigest),
                         DLSYM_ARG(Esys_Import),
                         DLSYM_ARG(Esys_Initialize),
                         DLSYM_ARG(Esys_Load),
                         DLSYM_ARG(Esys_LoadExternal),
+                        DLSYM_ARG(Esys_NV_Certify),
                         DLSYM_ARG(Esys_NV_DefineSpace),
                         DLSYM_ARG(Esys_NV_Extend),
                         DLSYM_ARG(Esys_NV_Read),
@@ -202,7 +217,9 @@ static int dlopen_tpm2_esys(int log_level) {
                         DLSYM_ARG(Esys_PolicyGetDigest),
                         DLSYM_ARG(Esys_PolicyOR),
                         DLSYM_ARG(Esys_PolicyPCR),
+                        DLSYM_ARG(Esys_PolicySecret),
                         DLSYM_ARG(Esys_PolicySigned),
+                        DLSYM_ARG(Esys_Quote),
                         DLSYM_ARG(Esys_ReadPublic),
                         DLSYM_ARG(Esys_StartAuthSession),
                         DLSYM_ARG(Esys_Startup),
@@ -261,6 +278,9 @@ static int dlopen_tpm2_mu(int log_level) {
                         DLSYM_ARG(Tss2_MU_TPM2B_PUBLIC_Unmarshal),
                         DLSYM_ARG(Tss2_MU_TPM2B_SENSITIVE_Marshal),
                         DLSYM_ARG(Tss2_MU_TPML_PCR_SELECTION_Marshal),
+                        DLSYM_ARG(Tss2_MU_TPMS_ATTEST_Unmarshal),
+                        DLSYM_ARG(Tss2_MU_TPMS_CONTEXT_Marshal),
+                        DLSYM_ARG(Tss2_MU_TPMS_CONTEXT_Unmarshal),
                         DLSYM_ARG(Tss2_MU_TPMS_NV_PUBLIC_Marshal),
                         DLSYM_ARG(Tss2_MU_TPM2B_NV_PUBLIC_Marshal),
                         DLSYM_ARG(Tss2_MU_TPM2B_NV_PUBLIC_Unmarshal),
@@ -778,6 +798,26 @@ bool tpm2_supports_ecc_curve(Tpm2Context *c, TPM2_ECC_CURVE ecc_curve) {
         return false;
 }
 
+/* Return the maximum size of a TPM2B_DATA structure. This structure is intended to be able to
+ * store a TPMT_HA structure, so the maximum size is the value of TPM_PT_MAX_DIGEST (the maximum size
+ * of a TPMU_HA structure) + the size of TPM_ALG_ID. */
+int tpm2_max_data_size(Tpm2Context *c) {
+        int r;
+
+        assert(c);
+
+        uint32_t max_digest_size = 0;
+        r = tpm2_get_capability_property(c, TPM2_PT_MAX_DIGEST, &max_digest_size);
+        if (r < 0)
+                return r;
+
+        if (max_digest_size > (UINT16_MAX - sizeof(TPM2_ALG_ID)))
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "TPM bug: reported implausible value for TPM_PT_MAX_DIGEST");
+
+        return (int) max_digest_size + sizeof(TPM2_ALG_ID);
+}
+
 /* Query the TPM for populated handles.
  *
  * This provides an array of handle indexes populated in the TPM, starting at the requested handle. The array will
@@ -937,6 +977,10 @@ static const TPMT_SYM_DEF SESSION_TEMPLATE_SYM_AES_128_CFB = {
         .algorithm = TPM2_ALG_AES,
         .keyBits.aes = 128,
         .mode.aes = TPM2_ALG_CFB, /* The spec requires sessions to use CFB. */
+};
+
+static const TPMT_SYM_DEF SESSION_TEMPLATE_SYM_NULL = {
+        .algorithm = TPM2_ALG_NULL,
 };
 
 int tpm2_context_new(const char *device, Tpm2Context **ret_context) {
@@ -1163,7 +1207,7 @@ int tpm2_handle_new(Tpm2Context *context, Tpm2Handle **ret_handle) {
         return 0;
 }
 
-static int tpm2_read_public(
+int tpm2_read_public(
                 Tpm2Context *c,
                 const Tpm2Handle *session,
                 const Tpm2Handle *handle,
@@ -1428,6 +1472,100 @@ int tpm2_index_from_handle(Tpm2Context *c, const Tpm2Handle *handle, TPM2_HANDLE
         return 0;
 }
 
+int tpm2_marshal_saved_handle_context(TPMS_CONTEXT *context, void **ret, size_t *ret_size) {
+        size_t max_size = SIZEOF(*context), blob_size = 0;
+        _cleanup_free_ void *blob = NULL;
+        TSS2_RC rc;
+
+        assert(context);
+        assert(ret);
+        assert(ret_size);
+
+        blob = malloc0(max_size);
+        if (!blob)
+                return log_oom_debug();
+
+        rc = sym_Tss2_MU_TPMS_CONTEXT_Marshal(context, blob, max_size, &blob_size);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to marshal saved context structure: %s", sym_Tss2_RC_Decode(rc));
+
+        *ret = TAKE_PTR(blob);
+        *ret_size = blob_size;
+        return 0;
+}
+
+int tpm2_unmarshal_saved_handle_context(const void *data, size_t size, TPMS_CONTEXT *ret) {
+        size_t offset = 0;
+        TPMS_CONTEXT context = {};
+        TSS2_RC rc;
+        int r;
+
+        assert(data);
+        assert(ret);
+
+        r = dlopen_tpm2(LOG_DEBUG);
+        if (r < 0)
+                return r;
+
+        rc = sym_Tss2_MU_TPMS_CONTEXT_Unmarshal(data, size, &offset, &context);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to unmarshal saved context structure: %s", sym_Tss2_RC_Decode(rc));
+        if (offset != size)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Garbage at end of saved context structure data.");
+
+        *ret = context;
+        return 0;
+}
+
+int tpm2_load_saved_handle_context(Tpm2Context *c, const TPMS_CONTEXT *context, TPM2B_NAME **ret_name, Tpm2Handle **ret_handle) {
+        TSS2_RC rc;
+        int r;
+
+        assert(c);
+        assert(context);
+
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *handle = NULL;
+        r = tpm2_handle_new(c, &handle);
+        if (r < 0)
+                return r;
+
+        rc = sym_Esys_ContextLoad(c->esys_context, context, &handle->esys_handle);
+        if (rc != TPM2_RC_SUCCESS)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to load handle context: %s", sym_Tss2_RC_Decode(rc));
+
+        if (ret_name) {
+                r = tpm2_get_name(c, handle, ret_name);
+                if (r < 0)
+                        return r;
+        }
+
+        if (ret_handle)
+                *ret_handle = TAKE_PTR(handle);
+
+        return 0;
+}
+
+int tpm2_save_handle_context(Tpm2Context *c, const Tpm2Handle *handle, TPMS_CONTEXT **ret_context) {
+        TSS2_RC rc;
+
+        assert(c);
+        assert(handle);
+        assert(ret_context);
+
+        _cleanup_(Esys_Freep) TPMS_CONTEXT *context = NULL;
+        rc = sym_Esys_ContextSave(c->esys_context, handle->esys_handle, &context);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to save handle context: %s", sym_Tss2_RC_Decode(rc));
+
+        *ret_context = TAKE_PTR(context);
+        return 0;
+}
+
 /* Copy an object in the TPM at a transient handle to a persistent handle.
  *
  * The provided transient handle must exist in the TPM in the transient range. The persistent handle may be 0
@@ -1623,6 +1761,118 @@ static int tpm2_get_legacy_template(TPMI_ALG_PUBLIC alg, TPMT_PUBLIC *ret_templa
                                        "Unsupported legacy SRK alg: 0x%x", alg);
 
         return 0;
+}
+
+int tpm2_get_best_attestation_key_template(Tpm2Context *c, TPMT_PUBLIC *ret) {
+        assert(c);
+        assert(ret);
+
+        static const struct {
+                TPMI_ALG_PUBLIC alg;
+                TPMI_ALG_HASH name_alg;
+                TPMT_ASYM_SCHEME asym_scheme;
+                union {
+                        TPMI_RSA_KEY_BITS rsa_key_bits;
+                        TPMI_ECC_CURVE ecc_curve_id;
+                } asym_params;
+        } template_params[] = {
+                {
+                        .alg = TPM2_ALG_ECC,
+                        .name_alg = TPM2_ALG_SHA384,
+                        .asym_scheme = {
+                                .scheme = TPM2_ALG_ECDSA,
+                                .details.ecdsa.hashAlg = TPM2_ALG_SHA384,
+                        },
+                        .asym_params.ecc_curve_id = TPM2_ECC_NIST_P384,
+                },
+                {
+                        .alg = TPM2_ALG_ECC,
+                        .name_alg = TPM2_ALG_SHA256,
+                        .asym_scheme = {
+                                .scheme = TPM2_ALG_ECDSA,
+                                .details.ecdsa.hashAlg = TPM2_ALG_SHA256,
+                        },
+                        .asym_params.ecc_curve_id = TPM2_ECC_NIST_P256,
+                },
+                {
+                        .alg = TPM2_ALG_RSA,
+                        .name_alg = TPM2_ALG_SHA384,
+                        .asym_scheme = {
+                                .scheme = TPM2_ALG_RSAPSS,
+                                .details.rsapss.hashAlg = TPM2_ALG_SHA384,
+                        },
+                        .asym_params.rsa_key_bits = 3072,
+                },
+                {
+                        .alg = TPM2_ALG_RSA,
+                        .name_alg = TPM2_ALG_SHA384,
+                        .asym_scheme = {
+                                .scheme = TPM2_ALG_RSASSA,
+                                .details.rsassa.hashAlg = TPM2_ALG_SHA384,
+                        },
+                        .asym_params.rsa_key_bits = 3072,
+                },
+                {
+                        .alg = TPM2_ALG_RSA,
+                        .name_alg = TPM2_ALG_SHA256,
+                        .asym_scheme = {
+                                .scheme = TPM2_ALG_RSAPSS,
+                                .details.rsapss.hashAlg = TPM2_ALG_SHA256,
+                        },
+                        .asym_params.rsa_key_bits = 2048,
+                },
+                {
+                        .alg = TPM2_ALG_RSA,
+                        .name_alg = TPM2_ALG_SHA256,
+                        .asym_scheme = {
+                                .scheme = TPM2_ALG_RSASSA,
+                                .details.rsassa.hashAlg = TPM2_ALG_SHA256,
+                        },
+                        .asym_params.rsa_key_bits = 2048,
+                },
+        };
+
+        FOREACH_ELEMENT(p, template_params) {
+                TPMT_PUBLIC template = {
+                        .type = p->alg,
+                        .nameAlg = p->name_alg,
+                        .objectAttributes =
+                                TPMA_OBJECT_FIXEDTPM |
+                                TPMA_OBJECT_FIXEDPARENT |
+                                TPMA_OBJECT_SENSITIVEDATAORIGIN |
+                                TPMA_OBJECT_USERWITHAUTH |
+                                TPMA_OBJECT_ADMINWITHPOLICY |
+                                TPMA_OBJECT_RESTRICTED |
+                                TPMA_OBJECT_SIGN_ENCRYPT,
+                        .parameters.asymDetail = {
+                                .symmetric.algorithm = TPM2_ALG_NULL,
+                                .scheme = p->asym_scheme,
+                        },
+                };
+                switch (template.type) {
+                case TPM2_ALG_RSA:
+                        template.parameters.rsaDetail.keyBits = p->asym_params.rsa_key_bits;
+                        break;
+                case TPM2_ALG_ECC:
+                        template.parameters.eccDetail.curveID = p->asym_params.ecc_curve_id;
+                        template.parameters.eccDetail.kdf.scheme = TPM2_ALG_NULL;
+                        break;
+                default:
+                        assert_not_reached();
+                }
+
+                if (!tpm2_supports_alg(c, template.type))
+                        continue;
+                if (!tpm2_supports_tpmt_public(c, &template))
+                        continue;
+                if (template.type == TPM2_ALG_ECC && !tpm2_supports_ecc_curve(c, template.parameters.eccDetail.curveID))
+                        continue;
+
+                *ret = template;
+                return 0;
+        }
+
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "No supported attestation key template");
 }
 
 /* Get a Storage Root Key (SRK) template.
@@ -2396,6 +2646,72 @@ int tpm2_get_or_create_ek(
 #else
         return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "OpenSSL support is disabled.");
 #endif
+}
+
+/* Opens a policy session for the EK associated with the supplied handle and executes the
+ * TPM2_PolicySecret(TPM_RH_ENDORSEMENT) branch, leaving the session ready to use for the user auth role.
+ *
+ * This isn't very flexible - it doesn't support delegated policies and assumes that the endorsement
+ * hierarchy auth is empty (or at least known by the caller). If the object has the userWithAuth attribute
+ * set, it doesn't create a policy session, which assumes that the object's auth value is empty. The EK
+ * template is designed in such a way that the use of the key can be locked down via a delegated policy by
+ * setting the endorsement hierarchy auth and setting the persistent EKauth to a random value. In the future,
+ * if we adopt the JSON policy language which will make it nicer to execute arbitrary policies, we might
+ * want to support these use cases via systemd-tpm2-setup.
+ *
+ * Returns 1 if a policy session was opened, 0 if the object at the supplied handle doesn't need a policy for
+ * the user auth role (in which case, no policy session is returned), or < 0 on error. */
+int tpm2_open_ek_user_policy_session(
+                Tpm2Context *c,
+                const Tpm2Handle *session,
+                const Tpm2Handle *ek_handle,
+                const Tpm2Handle *tpm_key,
+                Tpm2Handle **ret_session) {
+        int r;
+
+        assert(c);
+        assert(ek_handle);
+
+        _cleanup_(Esys_Freep) TPM2B_PUBLIC *public = NULL;
+        r = tpm2_read_public(c, /* session= */ NULL, ek_handle, &public, /* ret_name= */ NULL, /* ret_qname= */ NULL);
+        if (r < 0)
+                return r;
+
+        if ((public->publicArea.objectAttributes & TPMA_OBJECT_USERWITHAUTH) != 0) {
+                /* Prefer HMAC or passphrase auth for this object. This catches
+                 * the case where ek_handle is actually the SRK, and also all
+                 * high-range EKs. */
+                if (ret_session)
+                        *ret_session = NULL;
+                return 0;
+        }
+
+        /* We need a policy session. The only EKs we require this for today are low-range ones. */
+        if (public->publicArea.nameAlg != TPM2_ALG_SHA256)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to open EK user policy session: unsupported name algorithm");
+
+        TPM2B_DIGEST expected_policy = TPM2_EK_AUTH_POLICY_A;
+        if (memcmp_nn(expected_policy.buffer, expected_policy.size,
+                      public->publicArea.authPolicy.buffer, public->publicArea.authPolicy.size) != 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to open EK user policy session: unrecognized policy digest");
+
+        /* Note that tpm2_make_policy_session is currently hardcoded to SHA256. That's ok for now because
+         * we only get this far if the supplied ek_handle has a name algorithm of SHA256. */
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *policy_session = NULL;
+        r = tpm2_make_policy_session(c, tpm_key, /* encryption_session= */ NULL, &policy_session);
+        if (r < 0)
+                return r;
+
+        r = tpm2_policy_secret(c, session, policy_session, &TPM2_HANDLE_RH_ENDORSEMENT, /* policy_ref= */ NULL, /* ret_policy_digest= */ NULL);
+        if (r < 0)
+                return r;
+
+        if (ret_session)
+                *ret_session = TAKE_PTR(policy_session);
+
+        return 1;
 }
 
 /* Utility functions for TPMS_PCR_SELECTION. */
@@ -3293,7 +3609,7 @@ static int tpm2_load_external(
         return 0;
 }
 
-static int tpm2_marshal_private(const TPM2B_PRIVATE *private, void **ret, size_t *ret_size) {
+int tpm2_marshal_private(const TPM2B_PRIVATE *private, void **ret, size_t *ret_size) {
         size_t max_size = SIZEOF(*private), blob_size = 0;
         _cleanup_free_ void *blob = NULL;
         TSS2_RC rc;
@@ -3316,7 +3632,7 @@ static int tpm2_marshal_private(const TPM2B_PRIVATE *private, void **ret, size_t
         return 0;
 }
 
-static int tpm2_unmarshal_private(const void *data, size_t size, TPM2B_PRIVATE *ret_private) {
+int tpm2_unmarshal_private(const void *data, size_t size, TPM2B_PRIVATE *ret_private) {
         TPM2B_PRIVATE private = {};
         size_t offset = 0;
         TSS2_RC rc;
@@ -3359,7 +3675,7 @@ int tpm2_marshal_public(const TPM2B_PUBLIC *public, void **ret, size_t *ret_size
         return 0;
 }
 
-static int tpm2_unmarshal_public(const void *data, size_t size, TPM2B_PUBLIC *ret_public) {
+int tpm2_unmarshal_public(const void *data, size_t size, TPM2B_PUBLIC *ret_public) {
         TPM2B_PUBLIC public = {};
         size_t offset = 0;
         TSS2_RC rc;
@@ -3928,6 +4244,51 @@ int tpm2_get_good_pcr_banks_strv(
 #endif
 }
 
+static int tpm2_tpmt_ha_to_data(TPMT_HA *ha, TPM2B_DATA *ret) {
+        TSS2_RC rc;
+        int r;
+
+        assert(ha);
+        assert(ret);
+
+        r = dlopen_tpm2(LOG_DEBUG);
+        if (r < 0)
+                return r;
+
+        TPM2B_DATA data = {};
+        size_t written = 0;
+        rc = sym_Tss2_MU_TPMT_HA_Marshal(ha, data.buffer, sizeof(data.buffer), &written);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to marshal digest.");
+        data.size = written;
+
+        *ret = data;
+        return 0;
+}
+
+int tpm2_digest_buf_to_data(TPMI_ALG_HASH alg, void *digest, size_t digest_sz, TPM2B_DATA *ret) {
+        assert(digest);
+        assert(ret);
+
+        if (digest_sz != (size_t) tpm2_hash_alg_to_size(alg))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid digest size");
+
+        TPMT_HA ha = {
+                .hashAlg = alg,
+        };
+        assert(digest_sz <= sizeof_field(TPMT_HA, digest));
+        memcpy_safe(&ha.digest, digest, digest_sz);
+
+        return tpm2_tpmt_ha_to_data(&ha, ret);
+}
+
+int tpm2_digest_iovec_to_data(TPMI_ALG_HASH alg, const struct iovec *digest, TPM2B_DATA *ret) {
+        assert(iovec_is_valid(digest));
+        assert(ret);
+
+        return tpm2_digest_buf_to_data(alg, digest->iov_base, digest->iov_len, ret);
+}
+
 /* Hash data into the digest.
  *
  * If 'extend' is true, the hashing operation starts with the existing digest hash (and the digest is
@@ -4163,6 +4524,61 @@ int tpm2_make_encryption_session(
         return 0;
 }
 
+static bool tpm2_is_audit_session(Tpm2Context *c, const Tpm2Handle *session) {
+        TPMA_SESSION flags = 0;
+        TSS2_RC rc;
+
+        assert(c);
+        assert(session);
+
+        rc = sym_Esys_TRSess_GetAttributes(c->esys_context, session->esys_handle, &flags);
+        if (rc != TSS2_RC_SUCCESS)
+                return false;
+
+        return flags & TPMA_SESSION_AUDIT;
+}
+
+int tpm2_make_exclusive_audit_session(Tpm2Context *c, Tpm2Handle **ret_session) {
+        TSS2_RC rc;
+        int r;
+
+        assert(c);
+        assert(ret_session);
+
+        log_debug("Starting HMAC exclusive audit session.");
+
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *session = NULL;
+        r = tpm2_handle_new(c, &session);
+        if (r < 0)
+                return r;
+
+        rc = sym_Esys_StartAuthSession(
+                        c->esys_context,
+                        /* tpmKey= */ ESYS_TR_NONE,
+                        /* bind= */ ESYS_TR_NONE,
+                        /* shandle1= */ ESYS_TR_NONE,
+                        /* shandle2= */ ESYS_TR_NONE,
+                        /* shandle3= */ ESYS_TR_NONE,
+                        /* nonceCaller= */ NULL,
+                        TPM2_SE_HMAC,
+                        &SESSION_TEMPLATE_SYM_NULL,
+                        TPM2_ALG_SHA256,
+                        &session->esys_handle);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to open session in TPM: %s", sym_Tss2_RC_Decode(rc));
+
+        const TPMA_SESSION sessionAttributes = TPMA_SESSION_AUDIT | TPMA_SESSION_AUDITEXCLUSIVE | TPMA_SESSION_CONTINUESESSION;
+        rc = sym_Esys_TRSess_SetAttributes(c->esys_context, session->esys_handle, sessionAttributes, 0xff);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to configure TPM session: %s", sym_Tss2_RC_Decode(rc));
+
+        *ret_session = TAKE_PTR(session);
+
+        return 0;
+}
+
 int tpm2_make_policy_session(
                 Tpm2Context *c,
                 const Tpm2Handle *primary,
@@ -4173,13 +4589,11 @@ int tpm2_make_policy_session(
         int r;
 
         assert(c);
-        assert(primary);
-        assert(encryption_session);
         assert(ret_session);
 
-        if (!tpm2_is_encryption_session(c, encryption_session))
+        if (encryption_session && !tpm2_is_encryption_session(c, encryption_session))
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Missing encryption session");
+                                       "Invalid encryption session");
 
         log_debug("Starting policy session.");
 
@@ -4190,9 +4604,9 @@ int tpm2_make_policy_session(
 
         rc = sym_Esys_StartAuthSession(
                         c->esys_context,
-                        primary->esys_handle,
+                        primary ? primary->esys_handle : ESYS_TR_NONE,
                         ESYS_TR_NONE,
-                        encryption_session->esys_handle,
+                        encryption_session ? encryption_session->esys_handle : ESYS_TR_NONE,
                         ESYS_TR_NONE,
                         ESYS_TR_NONE,
                         NULL,
@@ -4677,6 +5091,43 @@ int tpm2_policy_signed_hmac_sha256(
 #else /* HAVE_OPENSSL */
         return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "OpenSSL support is disabled.");
 #endif
+}
+
+int tpm2_policy_secret(
+                Tpm2Context *c,
+                const Tpm2Handle *auth_session,
+                const Tpm2Handle *session,
+                const Tpm2Handle *handle,
+                const TPM2B_NONCE *policy_ref,
+                TPM2B_DIGEST **ret_policy_digest) {
+
+        TSS2_RC rc;
+
+        assert(c);
+        assert(session);
+        assert(handle);
+
+        log_debug("Submitting PolicySecret policy.");
+
+        rc = sym_Esys_PolicySecret(
+                        c->esys_context,
+                        handle->esys_handle,
+                        session->esys_handle,
+                        auth_session ? auth_session->esys_handle : ESYS_TR_PASSWORD,
+                        /* shandle2= */ ESYS_TR_NONE,
+                        /* shandle3= */ ESYS_TR_NONE,
+                        /* nonceTPM= */ NULL,
+                        /* cpHashA= */ NULL,
+                        policy_ref,
+                        /* expiration= */ 0,
+                        /* timeout= */ NULL,
+                        /* policyTicket= */ NULL);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to add PolicySecret policy to TPM: %s",
+                                       sym_Tss2_RC_Decode(rc));
+
+        return tpm2_get_policy_digest(c, session, ret_policy_digest);
 }
 
 int tpm2_calculate_policy_authorize_nv(
@@ -8082,6 +8533,39 @@ static int nvpcr_data_load(const char *name, NvPCRData *ret) {
         return 0;
 }
 
+int tpm2_nvpcr_all_names(char ***ret_names) {
+        int r;
+
+        _cleanup_strv_free_ char **paths = NULL;
+        r = conf_files_list_nulstr(&paths, ".nvpcr", /* root= */ NULL, CONF_FILES_WARN, CONF_PATHS_NULSTR("nvpcr"));
+        if (r < 0)
+                return r;
+
+        _cleanup_strv_free_ char **names = NULL;
+        STRV_FOREACH(p, paths) {
+                _cleanup_free_ char *fname = NULL;
+                r = path_extract_filename(*p, &fname);
+                if (r < 0)
+                        return r;
+
+                char *e = endswith(fname, ".nvpcr");
+                if (!e)
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Unexpected nvpcr config file name '%s'", fname);
+                *e = 0;
+
+                if (!tpm2_nvpcr_name_is_valid(fname))
+                        continue;
+
+                r = strv_consume(&names, TAKE_PTR(fname));
+                if (r < 0)
+                        return r;
+        }
+
+        if (ret_names)
+                *ret_names = TAKE_PTR(names);
+        return 0;
+}
+
 int tpm2_nvpcr_get_index(const char *name, uint32_t *ret_nv_index, uint64_t *ret_priority) {
         int r;
 
@@ -9656,6 +10140,819 @@ int tpm2_hmac_key_from_pin(Tpm2Context *c, const Tpm2Handle *session, const TPM2
 
         return 0;
 }
+
+static int tpm2_unmarshal_attestation(const void *data, size_t size, TPMS_ATTEST *ret) {
+        size_t offset = 0;
+        TPMS_ATTEST attest = {};
+        TSS2_RC rc;
+        int r;
+
+        assert(data);
+        assert(ret);
+
+        r = dlopen_tpm2(LOG_DEBUG);
+        if (r < 0)
+                return r;
+
+        rc = sym_Tss2_MU_TPMS_ATTEST_Unmarshal(data, size, &offset, &attest);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to unmarshal attestation structure: %s", sym_Tss2_RC_Decode(rc));
+        if (offset != size)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Garbage at end of attestation structure data.");
+
+        *ret = attest;
+        return 0;
+}
+
+/* Convert a TPM signature to PEM. This only supports RSASSA, RSAPSS and ECDSA signatures. */
+int tpm2_tpmt_signature_to_pem(const TPMT_SIGNATURE *signature, char **ret) {
+#if HAVE_OPENSSL
+        int r;
+
+        assert(signature);
+        assert(ret);
+
+        const char *label = NULL;
+        _cleanup_free_ void *sig = NULL;
+        size_t sig_len = 0;
+        switch (signature->sigAlg) {
+        case TPM2_ALG_RSASSA:
+                label = "RSA SIGNATURE";
+                sig_len = signature->signature.rsassa.sig.size;
+                sig = memdup(signature->signature.rsassa.sig.buffer, sig_len);
+                if (!sig)
+                        return log_oom_debug();
+                break;
+        case TPM2_ALG_RSAPSS:
+                label = "RSA SIGNATURE";
+                sig_len = signature->signature.rsapss.sig.size;
+                sig = memdup(signature->signature.rsapss.sig.buffer, sig_len);
+                if (!sig)
+                        return log_oom_debug();
+                break;
+        case TPM2_ALG_ECDSA: {
+                label = "ECDSA SIGNATURE";
+                _cleanup_(BN_freep) BIGNUM *bn_r = sym_BN_bin2bn(
+                                signature->signature.ecdsa.signatureR.buffer,
+                                signature->signature.ecdsa.signatureR.size, NULL);
+                if (!bn_r)
+                        return log_openssl_errors(LOG_DEBUG, "Failed to convert ECDSA signature r to BIGNUM");
+
+                _cleanup_(BN_freep) BIGNUM *bn_s = sym_BN_bin2bn(
+                                signature->signature.ecdsa.signatureS.buffer,
+                                signature->signature.ecdsa.signatureS.size, NULL);
+                if (!bn_s)
+                        return log_openssl_errors(LOG_DEBUG, "Failed to convert ECDSA signature s to BIGNUM");
+
+                _cleanup_(ECDSA_SIG_freep) ECDSA_SIG *ecdsaSig = sym_ECDSA_SIG_new();
+                if (!ecdsaSig)
+                        return log_oom_debug();
+
+                if (sym_ECDSA_SIG_set0(ecdsaSig, bn_r, bn_s) <= 0)
+                        return log_openssl_errors(LOG_DEBUG, "Failed to set ECDSA signature");
+                TAKE_PTR(bn_r);
+                TAKE_PTR(bn_s);
+
+                /* We want to allocate our own buffer so we can have a common cleanup path for this
+                 * and RSA signatures. */
+                r = sym_i2d_ECDSA_SIG(ecdsaSig, NULL);
+                if (r <= 0)
+                        return log_openssl_errors(LOG_DEBUG, "Failed to determine ECDSA signature size");
+                sig_len = r;
+
+                sig = malloc(sig_len);
+                if (!sig)
+                        return log_oom_debug();
+
+                unsigned char *p = (unsigned char*) sig;
+                r = sym_i2d_ECDSA_SIG(ecdsaSig, &p);
+                if (r <= 0)
+                        return log_openssl_errors(LOG_DEBUG, "Failed to DER encode ECDSA signature");
+
+                break;
+        }
+        case TPM2_ALG_NULL:
+                *ret = NULL;
+                return 0;
+        default:
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Unknown signature algorithm id 0x%" PRIx16, signature->sigAlg);
+        }
+
+        _cleanup_(memstream_done) MemStream m = {};
+        FILE *f = memstream_init(&m);
+        if (!f)
+                return -ENOMEM;
+
+        if (sym_PEM_write(f, label, /* header= */ NULL, sig, sig_len) <= 0)
+                return log_openssl_errors(LOG_DEBUG, "Failed to write signature in PEM format");
+
+        return memstream_finalize(&m, ret, /* ret_size= */ NULL);
+#else
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "OpenSSL support is disabled.");
+#endif
+}
+
+/* Convert a TPM public key to a SubjectPublicKeyInfo PEM sequence. */
+int tpm2_tpmt_public_to_pem(const TPMT_PUBLIC *public, char **ret) {
+#if HAVE_OPENSSL
+        int r;
+
+        assert(public);
+        assert(ret);
+
+        TPM2B_PUBLIC public2b = {
+                .size = sizeof(TPMT_PUBLIC),
+                .publicArea = *public,
+        };
+
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = NULL;
+        r = tpm2_tpm2b_public_to_openssl_pkey(&public2b, &pkey);
+        if (r < 0)
+                return r;
+
+        return openssl_pubkey_to_pem(pkey, ret);
+#else
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "OpenSSL support is disabled.");
+#endif
+}
+
+static const char* tpm2_hash_alg_to_string_tss2(TPMI_ALG_HASH alg) {
+        /* Note that this is different to tpm2_hash_alg_to_string because it
+         * returns a string that aligns with those produced by TSS2 and compatible
+         * with the TCG TSS2 JSON format. The JSON format is actually not case
+         * sensitive, but this is here just to be consistent with the signature
+         * algorithm. */
+        switch (alg) {
+        case TPM2_ALG_SHA1:
+                return "SHA1";
+        case TPM2_ALG_SHA256:
+                return "SHA256";
+        case TPM2_ALG_SHA384:
+                return "SHA384";
+        case TPM2_ALG_SHA512:
+                return "SHA512";
+        default:
+                log_debug("Unknown hash algorithm id 0x%" PRIx16, alg);
+                return NULL;
+        }
+}
+
+static const char* tpm2_sig_alg_to_string(TPMI_ALG_SIG_SCHEME alg) {
+        switch (alg) {
+        case TPM2_ALG_RSASSA:
+                return "RSASSA";
+        case TPM2_ALG_RSAPSS:
+                return "RSAPSS";
+        case TPM2_ALG_ECDSA:
+                return "ECDSA";
+        case TPM2_ALG_NULL:
+                return "NULL";
+        default:
+                log_debug("Unknown signature algorithm id 0x%" PRIx16, alg);
+                return NULL;
+        }
+}
+
+/* Convert a TPM signature to JSON, in a format compatible with the TCG TSS2 JSON data format,
+ * and which is compatible with the TSS2 implementation. This only supports RSASSA, RSAPSS and ECDSA
+ * signatures. */
+int tpm2_tpmt_signature_to_json(const TPMT_SIGNATURE *signature, sd_json_variant **ret) {
+        int r = 0;
+
+        assert(signature);
+        assert(ret);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *siginnerj = NULL;
+        switch (signature->sigAlg) {
+        case TPM2_ALG_RSASSA:
+                r = sd_json_buildo(
+                                &siginnerj,
+                                SD_JSON_BUILD_PAIR_STRING("hash", tpm2_hash_alg_to_string_tss2(signature->signature.rsassa.hash)),
+                                SD_JSON_BUILD_PAIR_HEX("sig", signature->signature.rsassa.sig.buffer, signature->signature.rsassa.sig.size));
+                break;
+        case TPM2_ALG_RSAPSS:
+                r = sd_json_buildo(
+                                &siginnerj,
+                                SD_JSON_BUILD_PAIR_STRING("hash", tpm2_hash_alg_to_string_tss2(signature->signature.rsapss.hash)),
+                                SD_JSON_BUILD_PAIR_HEX("sig", signature->signature.rsapss.sig.buffer, signature->signature.rsapss.sig.size));
+                break;
+        case TPM2_ALG_ECDSA:
+                r = sd_json_buildo(
+                                &siginnerj,
+                                SD_JSON_BUILD_PAIR_STRING("hash", tpm2_hash_alg_to_string_tss2(signature->signature.ecdsa.hash)),
+                                SD_JSON_BUILD_PAIR_HEX("signatureR", signature->signature.ecdsa.signatureR.buffer, signature->signature.ecdsa.signatureR.size),
+                                SD_JSON_BUILD_PAIR_HEX("signatureS", signature->signature.ecdsa.signatureS.buffer, signature->signature.ecdsa.signatureS.size));
+                break;
+        case TPM2_ALG_NULL:
+                break;
+        default:
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Unknown signature algorithm id 0x%" PRIx16, signature->sigAlg);
+        }
+        if (r < 0)
+                return r;
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *sigj = NULL;
+        r = sd_json_buildo(
+                        &sigj,
+                        SD_JSON_BUILD_PAIR_STRING("sigAlg", tpm2_sig_alg_to_string(signature->sigAlg)),
+                        JSON_BUILD_PAIR_VARIANT_NON_NULL("signature", siginnerj));
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(sigj);
+        return 0;
+}
+
+static const char* tpm2_st_attest_to_string(TPMI_ST_ATTEST attest) {
+        switch (attest) {
+        case TPM2_ST_ATTEST_NV:
+                return "ATTEST_NV";
+        case TPM2_ST_ATTEST_SESSION_AUDIT:
+                return "ATTEST_SESSION_AUDIT";
+        case TPM2_ST_ATTEST_QUOTE:
+                return "ATTEST_QUOTE";
+        default:
+                log_debug("Unknown attestation type 0x%" PRIx16, attest);
+                return NULL;
+        }
+}
+
+/* Convert a TPMS_CLOCK_INFO to JSON, in a format compatible with the TCG TSS2 JSON data format,
+ * and which is compatible with the TSS2 implementation. */
+static int tpm2_tpms_clock_info_to_json(const TPMS_CLOCK_INFO *clock_info, sd_json_variant **ret) {
+        int r;
+
+        assert(clock_info);
+        assert(ret);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        r = sd_json_buildo(
+                        &v,
+                        /* tss2-fapi serializes a uint64_t that doesn't fit into a signed 54-bits as an
+                         * array of 2 integers, but the deserialize path handles decoding this just fine. */
+                        SD_JSON_BUILD_PAIR_UNSIGNED("clock", clock_info->clock),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("resetCount", clock_info->resetCount),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("restartCount", clock_info->restartCount),
+                        /* tss2-fapi doesn't handle this being a boolean when deserializing. */
+                        SD_JSON_BUILD_PAIR_STRING("safe", clock_info->safe == TPM2_YES ? "YES" : "NO"));
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(v);
+        return 0;
+}
+
+/* Convert TPML_PCR_SELECTION to JSON, in a format compatible with the TCG TSS2 JSON data format,
+ * and which is compatible with the TSS2 implementation. */
+static int tpm2_tpml_pcr_selection_to_json(const TPML_PCR_SELECTION *pcrs, sd_json_variant **ret) {
+        int r;
+
+        assert(pcrs);
+        assert(ret);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        FOREACH_TPMS_PCR_SELECTION_IN_TPML_PCR_SELECTION(s, pcrs) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *sv = NULL;
+                FOREACH_PCR_IN_TPMS_PCR_SELECTION(pcr, s) {
+                        r = sd_json_variant_append_arrayb(&sv, SD_JSON_BUILD_INTEGER(pcr));
+                        if (r < 0)
+                                return r;
+                }
+
+                r = sd_json_variant_append_arraybo(
+                                &v,
+                                SD_JSON_BUILD_PAIR_STRING("hash", tpm2_hash_alg_to_string_tss2(s->hash)),
+                                SD_JSON_BUILD_PAIR_VARIANT("pcrSelect", sv));
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(v);
+        return 0;
+}
+
+/* Convert TPMS_ATTEST to JSON, in a format compatible with the TCG TSS2 JSON data format, and which is
+ * compatible with the TSS2 implementation. */
+static int tpm2_tpms_attest_to_json(const TPMS_ATTEST *attest, sd_json_variant **ret) {
+        int r;
+
+        assert(attest);
+        assert(ret);
+
+        if (attest->magic != TPM2_GENERATED_VALUE)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Invalid magic value %u", attest->magic);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *cv = NULL;
+        r = tpm2_tpms_clock_info_to_json(&attest->clockInfo, &cv);
+        if (r < 0)
+                return r;
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *av = NULL;
+        switch (attest->type) {
+        case TPM2_ST_ATTEST_NV:
+                r = sd_json_buildo(
+                                &av,
+                                SD_JSON_BUILD_PAIR_HEX("indexName", attest->attested.nv.indexName.name, attest->attested.nv.indexName.size),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("offset", attest->attested.nv.offset),
+                                SD_JSON_BUILD_PAIR_HEX("nvContents", attest->attested.nv.nvContents.buffer, attest->attested.nv.nvContents.size));
+                break;
+        case TPM2_ST_ATTEST_SESSION_AUDIT:
+                r = sd_json_buildo(
+                                &av,
+                                /* tss2-fapi doesn't handle this being a boolean when deserializing. */
+                                SD_JSON_BUILD_PAIR_STRING("exclusiveSession", attest->attested.sessionAudit.exclusiveSession == TPM2_YES ? "YES" : "NO"),
+                                SD_JSON_BUILD_PAIR_HEX("sessionDigest", attest->attested.sessionAudit.sessionDigest.buffer, attest->attested.sessionAudit.sessionDigest.size));
+                break;
+        case TPM2_ST_ATTEST_QUOTE: {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *sv = NULL;
+                r = tpm2_tpml_pcr_selection_to_json(&attest->attested.quote.pcrSelect, &sv);
+                if (r < 0)
+                        return r;
+                r = sd_json_buildo(
+                                &av,
+                                SD_JSON_BUILD_PAIR_VARIANT("pcrSelect", sv),
+                                SD_JSON_BUILD_PAIR_HEX("pcrDigest", attest->attested.quote.pcrDigest.buffer, attest->attested.quote.pcrDigest.size));
+                break;
+        }
+        default:
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Unknown attestation type id 0x%" PRIx16, attest->type);
+        }
+        if (r < 0)
+                return r;
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        r = sd_json_buildo(
+                        &v,
+                        SD_JSON_BUILD_PAIR_STRING("magic", "VALUE"),
+                        SD_JSON_BUILD_PAIR_STRING("type", tpm2_st_attest_to_string(attest->type)),
+                        SD_JSON_BUILD_PAIR_HEX("qualifiedSigner", attest->qualifiedSigner.name, attest->qualifiedSigner.size),
+                        SD_JSON_BUILD_PAIR_HEX("extraData", attest->extraData.buffer, attest->extraData.size),
+                        SD_JSON_BUILD_PAIR_VARIANT("clockInfo", cv),
+                        /* tss2-fapi serializes a uint64_t that doesn't fit into a signed 54-bits as an
+                         * array of 2 integers, but the deserialize path handles decoding this just fine. */
+                        SD_JSON_BUILD_PAIR_UNSIGNED("firmwareVersion", attest->firmwareVersion),
+                        SD_JSON_BUILD_PAIR_VARIANT("attested", av));
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(v);
+        return 0;
+}
+
+/* Convert a signature scheme to JSON, in a format compatible with the TCG TSS2 JSON data format,
+ * and which is compatible with the TSS2 implementation. This only supports RSASSA, RSAPSS and ECDSA
+ * signatures. */
+static int tpm2_tpmt_sig_scheme_to_json(const TPMT_SIG_SCHEME *scheme, sd_json_variant **ret) {
+        int r;
+
+        assert(scheme);
+        assert(ret);
+
+        TPMI_ALG_SIG_SCHEME alg = scheme->scheme;
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *dv = NULL;
+        if (IN_SET(alg, TPM2_ALG_RSASSA, TPM2_ALG_RSAPSS, TPM2_ALG_ECDSA)) {
+                r = sd_json_buildo(
+                                &dv,
+                                SD_JSON_BUILD_PAIR_STRING("hashAlg", tpm2_hash_alg_to_string_tss2(scheme->details.any.hashAlg)));
+                if (r < 0)
+                        return r;
+        } else if (alg != TPM2_ALG_NULL)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Unknown signature algorithm id 0x%" PRIx16, alg);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        r = sd_json_buildo(
+                        &v,
+                        SD_JSON_BUILD_PAIR_STRING("scheme", tpm2_sig_alg_to_string(alg)),
+                        JSON_BUILD_PAIR_VARIANT_NON_NULL("details", dv));
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(v);
+        return 0;
+}
+
+/* Convert a signature scheme and attestation structure to JSON in a format that matches the TSS2 FAPI
+ * Fapi_Quote quotedInfo. Note that this is generic - supporting also the result from NV_Certify and
+ * GetSessionAuditDigest. Note that only RSASSA, RSAPSS and ECDSA signature schemes are supported. */
+int tpm2_attest_info_to_json(const TPMT_SIG_SCHEME *scheme, const TPMS_ATTEST *attest, sd_json_variant **ret) {
+        int r;
+
+        assert(attest);
+        assert(ret);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *sv = NULL;
+        r = tpm2_tpmt_sig_scheme_to_json(scheme, &sv);
+        if (r < 0)
+                return r;
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *av = NULL;
+        r = tpm2_tpms_attest_to_json(attest, &av);
+        if (r < 0)
+                return r;
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        r = sd_json_buildo(
+                        &v,
+                        SD_JSON_BUILD_PAIR_VARIANT("sig_scheme", sv),
+                        SD_JSON_BUILD_PAIR_VARIANT("attest", av));
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(v);
+        return 0;
+}
+
+static const char* tpm2_public_alg_to_string(TPMI_ALG_PUBLIC alg) {
+        switch (alg) {
+        case TPM2_ALG_RSA:
+                return "RSA";
+        case TPM2_ALG_ECC:
+                return "ECC";
+        case TPM2_ALG_SYMCIPHER:
+                return "SYMCIPHER";
+        case TPM2_ALG_KEYEDHASH:
+                return "KEYEDHASH";;
+        default:
+                log_debug("Unknown public object type 0x%" PRIx16, alg);
+                return NULL;
+        }
+}
+
+static const char* tpm2_ecc_curve_to_string(TPMI_ECC_CURVE curve) {
+        switch (curve) {
+        case TPM2_ECC_NIST_P192:
+                return "NIST_P192";
+        case TPM2_ECC_NIST_P224:
+                return "NIST_P224";
+        case TPM2_ECC_NIST_P256:
+                return "NIST_P256";
+        case TPM2_ECC_NIST_P384:
+                return "NIST_P384";
+        case TPM2_ECC_NIST_P521:
+                return "NIST_P521";
+        case TPM2_ECC_BN_P256:
+                return "BN_P256";
+        case TPM2_ECC_BN_P638:
+                return "BN_P638";
+        case TPM2_ECC_SM2_P256:
+                return "SM2_P256";
+        default:
+                log_debug("Unknown ECC curve ID 0x%" PRIx16, curve);
+                return NULL;
+        }
+}
+
+/* Convert an asymmetric scheme to JSON, in a format compatible with the TCG TSS2 JSON data format,
+ * and which is compatible with the TSS2 implementation. This only supports the signature schemes RSASSA,
+ * RSAPSS and ECDSA. */
+static int tpm2_tpmt_asym_scheme_to_json(const TPMT_ASYM_SCHEME *scheme, sd_json_variant **ret) {
+        int r;
+
+        assert(scheme);
+        assert(ret);
+
+        TPMI_ALG_ASYM_SCHEME alg = scheme->scheme;
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *dv = NULL;
+        if (IN_SET(alg, TPM2_ALG_RSASSA, TPM2_ALG_RSAPSS, TPM2_ALG_ECDSA)) {
+                r = sd_json_buildo(
+                                &dv,
+                                SD_JSON_BUILD_PAIR_STRING("hashAlg", tpm2_hash_alg_to_string_tss2(scheme->details.anySig.hashAlg)));
+                if (r < 0)
+                        return r;
+        } else if (alg != TPM2_ALG_NULL)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Unknown asymmetric scheme id 0x%" PRIx16, alg);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        r = sd_json_buildo(
+                        &v,
+                        SD_JSON_BUILD_PAIR_STRING("scheme", tpm2_sig_alg_to_string(alg)),
+                        SD_JSON_BUILD_PAIR_VARIANT("details", dv));
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(v);
+        return 0;
+}
+
+/* Convert a TPM public key to JSON, in a format compatible with the TCG TSS2 JSON data format, and which
+ * is compatible with the TSS2 implementation. This only supports restricted asymmetric signing keys with
+ * the signing scheme RSASSA, RSAPSS or ECDSA. */
+int tpm2_tpmt_public_to_json(const TPMT_PUBLIC *public, sd_json_variant **ret) {
+        int r;
+
+        assert(public);
+        assert(ret);
+
+        if (!IN_SET(public->type, TPM2_ALG_RSA, TPM2_ALG_ECC))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Unsupported object type 0x%" PRIx16, public->type);
+
+        /* We're currently only serializing restricted signing keys which never have a symmetric algorithm,
+         * so to avoid implementing the JSON encoding for this, just reject anything with a symmetric
+         * algorithm. */
+        if (public->parameters.asymDetail.symmetric.algorithm != TPM2_ALG_NULL)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Unsupported object symmetric algorithm 0x%" PRIx16,
+                                       public->parameters.asymDetail.symmetric.algorithm);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *sv = NULL;
+        r = tpm2_tpmt_asym_scheme_to_json(&public->parameters.asymDetail.scheme, &sv);
+        if (r < 0)
+                return r;
+
+        /* Marshal the public parameters. */
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *pv = NULL;
+        switch (public->type) {
+        case TPM2_ALG_RSA:
+                r = sd_json_buildo(
+                                &pv,
+                                SD_JSON_BUILD_PAIR_OBJECT("symmetric",
+                                                          SD_JSON_BUILD_PAIR_STRING("algorithm", "NULL")),
+                                SD_JSON_BUILD_PAIR_VARIANT("scheme", sv),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("keyBits", public->parameters.rsaDetail.keyBits),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("exponent", public->parameters.rsaDetail.exponent));
+                break;
+        case TPM2_ALG_ECC:
+                /* No valid key has anything other than NULL here, so reject anything else to avoid
+                 * having to implement the JSON encoding. */
+                if (public->parameters.eccDetail.kdf.scheme != TPM2_ALG_NULL)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Unsupported ECC object KDF algorithm 0x%" PRIx16,
+                                               public->parameters.eccDetail.kdf.scheme);
+
+                r = sd_json_buildo(
+                                &pv,
+                                SD_JSON_BUILD_PAIR_OBJECT("symmetric",
+                                                          SD_JSON_BUILD_PAIR_STRING("algorithm", "NULL")),
+                                SD_JSON_BUILD_PAIR_VARIANT("scheme", sv),
+                                SD_JSON_BUILD_PAIR_STRING("curveID", tpm2_ecc_curve_to_string(public->parameters.eccDetail.curveID)),
+                                SD_JSON_BUILD_PAIR_OBJECT("kdf",
+                                                          SD_JSON_BUILD_PAIR_STRING("scheme", "NULL")));
+                break;
+        default:
+                /* We've already checked the type. */
+                assert_not_reached();
+        }
+        if (r < 0)
+                return r;
+
+        /* Marshal the public key. */
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *uv = NULL;
+        switch (public->type) {
+        case TPM2_ALG_RSA:
+                r = sd_json_variant_new_hex(&uv, public->unique.rsa.buffer, public->unique.rsa.size);
+                break;
+        case TPM2_ALG_ECC:
+                r = sd_json_buildo(
+                                &uv,
+                                SD_JSON_BUILD_PAIR_HEX("x", public->unique.ecc.x.buffer, public->unique.ecc.x.size),
+                                SD_JSON_BUILD_PAIR_HEX("y", public->unique.ecc.y.buffer, public->unique.ecc.y.size));
+                break;
+        default:
+                /* We've already checked the type. */
+                assert_not_reached();
+        }
+        if (r < 0)
+                return r;
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        r = sd_json_buildo(
+                        &v,
+                        SD_JSON_BUILD_PAIR_STRING("type", tpm2_public_alg_to_string(public->type)),
+                        SD_JSON_BUILD_PAIR_STRING("nameAlg", tpm2_hash_alg_to_string_tss2(public->nameAlg)),
+                        /* tss2-fapi serializes these as an object with pretty names, but it can deserialize
+                         * an integer here. */
+                        SD_JSON_BUILD_PAIR_INTEGER("objectAttributes", public->objectAttributes),
+                        SD_JSON_BUILD_PAIR_HEX("authPolicy", public->authPolicy.buffer, public->authPolicy.size),
+                        SD_JSON_BUILD_PAIR_VARIANT("parameters", pv),
+                        SD_JSON_BUILD_PAIR_VARIANT("unique", uv));
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(v);
+        return 0;
+}
+
+int tpm2_tpms_nv_public_to_json(const TPMS_NV_PUBLIC *nv_public, sd_json_variant **ret) {
+        int r;
+
+        assert(nv_public);
+        assert(ret);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        r = sd_json_buildo(
+                        &v,
+                        SD_JSON_BUILD_PAIR_INTEGER("nvIndex", nv_public->nvIndex),
+                        SD_JSON_BUILD_PAIR_STRING("nameAlg", tpm2_hash_alg_to_string_tss2(nv_public->nameAlg)),
+                        /* tss2-fapi serializes these as an object with pretty names, but it can deserialize
+                         * an integer here. */
+                        SD_JSON_BUILD_PAIR_INTEGER("attributes", nv_public->attributes),
+                        SD_JSON_BUILD_PAIR_HEX("authPolicy", nv_public->authPolicy.buffer, nv_public->authPolicy.size),
+                        SD_JSON_BUILD_PAIR_INTEGER("dataSize", nv_public->dataSize));
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(v);
+        return 0;
+}
+
+static TPMT_SIG_SCHEME SIG_SCHEME_TEMPLATE_NULL = {
+        .scheme = TPM2_ALG_NULL,
+};
+
+int tpm2_quote(
+               Tpm2Context *c,
+               const Tpm2Handle *sign_session,
+               const Tpm2Handle *audit_session,
+               const Tpm2Handle *sign_key,
+               const TPM2B_DATA *qualifying_data,
+               const TPML_PCR_SELECTION *pcr_select,
+               TPMS_ATTEST **ret_quoted,
+               TPMT_SIGNATURE **ret_signature) {
+
+        TSS2_RC rc;
+        int r;
+
+        assert(c);
+        assert(pcr_select);
+
+        log_debug("Fetching TPM PCR quote for selection '%s'.", tpm2_tpml_pcr_selection_to_string(pcr_select));
+
+        if (audit_session && !tpm2_is_audit_session(c, audit_session))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Supplied session handle is not an audit session.");
+
+        _cleanup_(Esys_Freep) TPM2B_ATTEST *quoted = NULL;
+        _cleanup_(Esys_Freep) TPMT_SIGNATURE *signature = NULL;
+        rc = sym_Esys_Quote(
+                        c->esys_context,
+                        sign_key ? sign_key->esys_handle : ESYS_TR_NONE,
+                        sign_session ? sign_session->esys_handle : ESYS_TR_PASSWORD,
+                        audit_session ? audit_session->esys_handle : ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        qualifying_data,
+                        &SIG_SCHEME_TEMPLATE_NULL,
+                        pcr_select,
+                        &quoted,
+                        ret_signature ? &signature : NULL);
+        if (rc == TPM2_RC_EXCLUSIVE)
+                return log_debug_errno(SYNTHETIC_ERRNO(EBUSY),
+                                       "Failed to obtain TPM quote: audit session required exclusivity");
+        if (rc != TSS2_RC_SUCCESS)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to obtain TPM quote: %s", sym_Tss2_RC_Decode(rc));
+
+        if (ret_quoted) {
+                _cleanup_free_ TPMS_ATTEST *quoted_decoded = new0(TPMS_ATTEST, 1);
+                if (!quoted_decoded)
+                        return log_oom_debug();
+                r = tpm2_unmarshal_attestation(quoted->attestationData, quoted->size, quoted_decoded);
+                if (r < 0)
+                        return r;
+
+                *ret_quoted = TAKE_PTR(quoted_decoded);
+        }
+        if (ret_signature)
+                *ret_signature = TAKE_PTR(signature);
+
+        return 0;
+}
+
+int tpm2_nv_certify(
+                Tpm2Context *c,
+                const Tpm2Handle *sign_session,
+                const Tpm2Handle *auth_session,
+                const Tpm2Handle *audit_session,
+                const Tpm2Handle *sign_key,
+                const TPMS_NV_PUBLIC *nv_public,
+                const Tpm2Handle *nv_handle,
+                const TPM2B_DATA *qualifying_data,
+                TPMS_ATTEST **ret_certify_info,
+                TPMT_SIGNATURE **ret_signature) {
+
+        TSS2_RC rc;
+        int r;
+
+        assert(c);
+        assert(nv_public);
+        assert(nv_handle);
+
+        log_debug("Fetching TPM attestation for NV index 0x%" PRIx32 ".", nv_public->nvIndex);
+
+        if (audit_session && !tpm2_is_audit_session(c, audit_session))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Supplied session handle is not an audit session.");
+
+        TPM2_HANDLE nv_index;
+        r = tpm2_index_from_handle(c, nv_handle, &nv_index);
+        if (r == -EOPNOTSUPP)
+                nv_index = nv_public->nvIndex;
+        else if (r < 0)
+                return log_debug_errno(r, "Failed to get index from TPM handle");
+
+        if (nv_index != nv_public->nvIndex)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Inconsistent TPMS_NV_PUBLIC and Tpm2Handle arguments supplied");
+
+        _cleanup_(Esys_Freep) TPM2B_ATTEST *certify_info = NULL;
+        _cleanup_(Esys_Freep) TPMT_SIGNATURE *signature = NULL;
+        rc = sym_Esys_NV_Certify(
+                        c->esys_context,
+                        sign_key ? sign_key->esys_handle : ESYS_TR_NONE,
+                        nv_handle->esys_handle,
+                        nv_handle->esys_handle,
+                        sign_session ? sign_session->esys_handle : ESYS_TR_PASSWORD,
+                        auth_session ? auth_session->esys_handle : ESYS_TR_PASSWORD,
+                        audit_session ? audit_session->esys_handle : ESYS_TR_NONE,
+                        qualifying_data,
+                        &SIG_SCHEME_TEMPLATE_NULL,
+                        nv_public->dataSize, 0,
+                        &certify_info,
+                        ret_signature ? &signature : NULL);
+        if (rc == TPM2_RC_EXCLUSIVE)
+                return log_debug_errno(SYNTHETIC_ERRNO(EBUSY),
+                                       "Failed to obtain TPM attestation for NV index: audit session required exclusivity");
+        if (rc != TSS2_RC_SUCCESS)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to obtain TPM attestation for NV index: %s", sym_Tss2_RC_Decode(rc));
+
+        if (ret_certify_info) {
+                _cleanup_free_ TPMS_ATTEST *certify_info_decoded = new0(TPMS_ATTEST, 1);
+                if (!certify_info_decoded)
+                        return log_oom_debug();
+                r = tpm2_unmarshal_attestation(certify_info->attestationData, certify_info->size, certify_info_decoded);
+                if (r < 0)
+                        return r;
+
+                *ret_certify_info = TAKE_PTR(certify_info_decoded);
+        }
+        if (ret_signature)
+                *ret_signature = TAKE_PTR(signature);
+
+        return 0;
+}
+
+int tpm2_get_session_audit_digest(
+                Tpm2Context *c,
+                const Tpm2Handle *eh_session,
+                const Tpm2Handle *sign_session,
+                const Tpm2Handle *audit_session,
+                const Tpm2Handle *sign_key,
+                const TPM2B_DATA *qualifying_data,
+                TPMS_ATTEST **ret_audit_info,
+                TPMT_SIGNATURE **ret_signature) {
+
+        TSS2_RC rc;
+        int r;
+
+        assert(c);
+        assert(audit_session);
+
+        log_debug("Fetching TPM attestation for audit session.");
+
+        _cleanup_(Esys_Freep) TPM2B_ATTEST *audit_info = NULL;
+        _cleanup_(Esys_Freep) TPMT_SIGNATURE *signature = NULL;
+        rc = sym_Esys_GetSessionAuditDigest(
+                        c->esys_context,
+                        ESYS_TR_RH_ENDORSEMENT,
+                        sign_key ? sign_key->esys_handle : ESYS_TR_NONE,
+                        audit_session->esys_handle,
+                        eh_session ? eh_session->esys_handle : ESYS_TR_PASSWORD,
+                        sign_session ? sign_session->esys_handle : ESYS_TR_PASSWORD,
+                        ESYS_TR_NONE,
+                        qualifying_data,
+                        &SIG_SCHEME_TEMPLATE_NULL,
+                        &audit_info,
+                        ret_signature ? &signature : NULL);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to obtain TPM attestation for audit session: %s", sym_Tss2_RC_Decode(rc));
+
+        if (ret_audit_info) {
+                _cleanup_free_ TPMS_ATTEST *audit_info_decoded = new0(TPMS_ATTEST, 1);
+                if (!audit_info_decoded)
+                        return log_oom_debug();
+                r = tpm2_unmarshal_attestation(audit_info->attestationData, audit_info->size, audit_info_decoded);
+                if (r < 0)
+                        return r;
+
+                *ret_audit_info = TAKE_PTR(audit_info_decoded);
+        }
+        if (ret_signature)
+                *ret_signature = TAKE_PTR(signature);
+
+        return 0;
+}
+
 #endif
 
 char* tpm2_pcr_mask_to_string(uint32_t mask) {
