@@ -379,7 +379,11 @@
           measured individually by <command>systemd-stub</command> into RTMR 2. For direct linux boot,
           firmware measures the kernel PE into RTMR 1, and the Linux EFI stub measures initrd and
           command line into RTMR 2. A vTPM, if attached via <option>--tpm=</option>, must be treated
-          as untrusted by the guest.
+          as untrusted by the guest. To obtain TD Quotes for remote attestation, the guest is wired
+          to the host's local TDX Quote Generation Service automatically: the unix socket
+          up <filename>/run/tdx-qgs/qgs.socket</filename> is used if it exists, otherwise vsock port 4050
+          on the host (cid 2). If the QGS is listening on neither channel, the guest's quote requests will
+          fail.
           <xi:include href="version-info.xml" xpointer="v262"/></para>
 
           <xi:include href="version-info.xml" xpointer="v261"/></listitem>
