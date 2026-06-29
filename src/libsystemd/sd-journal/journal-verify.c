@@ -590,7 +590,7 @@ static int verify_data_hash_table(
                 }
 
                 if (last != le64toh(f->data_hash_table[i].tail_hash_offset)) {
-                        error(p,
+                        error(last,
                               "Tail hash pointer mismatch in hash table (%"PRIu64" != %"PRIu64")",
                               last,
                               le64toh(f->data_hash_table[i].tail_hash_offset));
