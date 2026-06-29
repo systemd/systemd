@@ -905,7 +905,7 @@ int replace_env_argv(
 
         l = strv_length(argv);
 
-        n = new(char*, l+1);
+        n = new0(char*, l+1);
         if (!n)
                 return -ENOMEM;
 
