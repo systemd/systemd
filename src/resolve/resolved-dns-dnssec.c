@@ -12,11 +12,11 @@
 #include "memory-util.h"
 #include "memstream-util.h"
 #include "resolved-dns-dnssec.h"
+#include "resolved-dns-dnssec-crypto.h"
 #include "sort-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "time-util.h"
-
 
 #define VERIFY_RRS_MAX 256
 #define MAX_KEY_SIZE (32*1024)
@@ -73,7 +73,7 @@ static int dnssec_verify_errno(int r) {
         return r == -EOPNOTSUPP ? -EIO : r;
 }
 
-static int dnssec_rsa_verify_raw(
+int dnssec_rsa_verify_raw(
                 const EVP_MD *hash_algorithm,
                 const void *signature, size_t signature_size,
                 const void *data, size_t data_size,
