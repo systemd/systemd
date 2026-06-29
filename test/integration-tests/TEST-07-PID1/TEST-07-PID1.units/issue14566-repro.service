@@ -3,6 +3,8 @@
 Description=Issue 14566 Repro
 
 [Service]
+Type=notify
+NotifyAccess=all
 ExecStart=/usr/lib/systemd/tests/testdata/TEST-07-PID1.units/%N.sh
 ExecStopPost=true
 KillMode=mixed
