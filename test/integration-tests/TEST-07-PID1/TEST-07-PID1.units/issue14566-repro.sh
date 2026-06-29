@@ -2,6 +2,6 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 sleep infinity &
-echo $! >/leakedtestpid
+echo $! >/run/leakedtestpid
 systemd-notify --ready
 wait $!
