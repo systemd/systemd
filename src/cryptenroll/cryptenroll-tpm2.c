@@ -189,6 +189,7 @@ int load_volume_key_tpm2(
 
         for (;;) {
                 _cleanup_(iovec_done) struct iovec pubkey = {}, salt = {}, srk = {}, pcrlock_nv = {};
+                _cleanup_free_ char *pubkey_policy_ref = NULL;
                 struct iovec *blobs = NULL, *policy_hash = NULL;
                 size_t n_blobs = 0, n_policy_hash = 0;
                 uint32_t hash_pcr_mask, pubkey_pcr_mask;
@@ -206,6 +207,7 @@ int load_volume_key_tpm2(
                                 &hash_pcr_mask,
                                 &pcr_bank,
                                 &pubkey,
+                                &pubkey_policy_ref,
                                 &pubkey_pcr_mask,
                                 &primary_alg,
                                 &blobs,
@@ -238,6 +240,7 @@ int load_volume_key_tpm2(
                                 hash_pcr_mask,
                                 pcr_bank,
                                 &pubkey,
+                                pubkey_policy_ref,
                                 pubkey_pcr_mask,
                                 /* signature_path= */ NULL,
                                 /* pcrlock_path= */ NULL,
@@ -455,6 +458,7 @@ int enroll_tpm2(const EnrollContext *c,
                         c->tpm2_hash_pcr_values,
                         c->tpm2_n_hash_pcr_values,
                         iovec_is_set(&pubkey) ? &public : NULL,
+                        iovec_is_set(&pubkey) ? c->tpm2_public_key_policyref : NULL,
                         c->tpm2_pin,
                         c->tpm2_pcrlock && !iovec_is_set(&pubkey) ? &pcrlock_policy : NULL,
                         policy_hash + 0);
@@ -466,6 +470,7 @@ int enroll_tpm2(const EnrollContext *c,
                                 c->tpm2_hash_pcr_values,
                                 c->tpm2_n_hash_pcr_values,
                                 /* public= */ NULL, /* This one is off now */
+                                /* pubkey_policy_ref= */ NULL,
                                 c->tpm2_pin,
                                 &pcrlock_policy,    /* And this one on instead. */
                                 policy_hash + 1);
@@ -543,6 +548,7 @@ int enroll_tpm2(const EnrollContext *c,
                                 hash_pcr_mask,
                                 hash_pcr_bank,
                                 &pubkey,
+                                c->tpm2_public_key_policyref,
                                 pubkey_pcr_mask,
                                 signature_json,
                                 pin_str,
@@ -585,6 +591,7 @@ int enroll_tpm2(const EnrollContext *c,
                         hash_pcr_mask,
                         hash_pcr_bank,
                         &pubkey,
+                        c->tpm2_public_key_policyref,
                         pubkey_pcr_mask,
                         primary_alg,
                         blobs,
