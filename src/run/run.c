@@ -964,14 +964,20 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                         arg_working_directory = mfree(arg_working_directory);
         }
 
-        if (!arg_exec_user && (arg_area || arg_empower)) {
+        if (!arg_exec_user) {
                 /* If the user specifies --area= but not --user= then consider this an area switch request,
                  * and default to logging into our own account.
                  *
                  * If the user specifies --empower but not --user= then consider this a request to empower
-                 * the current user. */
+                 * the current user.
+                 *
+                 * If neither --user=, --area= nor --empower is specified, default to switching to root
+                 * explicitly. */
 
-                arg_exec_user = getusername_malloc();
+                if (arg_area || arg_empower)
+                        arg_exec_user = getusername_malloc();
+                else
+                        arg_exec_user = strdup("root");
                 if (!arg_exec_user)
                         return log_oom();
         }
