@@ -276,6 +276,7 @@ DLSYM_PROTOTYPE(X509_VERIFY_PARAM_set1_host) = NULL;
 DLSYM_PROTOTYPE(X509_VERIFY_PARAM_set1_ip) = NULL;
 DLSYM_PROTOTYPE(X509_VERIFY_PARAM_set_hostflags) = NULL;
 DLSYM_PROTOTYPE(X509_free) = NULL;
+DLSYM_PROTOTYPE(X509_get0_pubkey) = NULL;
 static DLSYM_PROTOTYPE(X509_get0_serialNumber) = NULL;
 static DLSYM_PROTOTYPE(X509_get_issuer_name) = NULL;
 DLSYM_PROTOTYPE(X509_get_pubkey) = NULL;
@@ -603,6 +604,7 @@ int dlopen_libcrypto(int log_level) {
                         DLSYM_ARG(X509_VERIFY_PARAM_set1_ip),
                         DLSYM_ARG(X509_VERIFY_PARAM_set_hostflags),
                         DLSYM_ARG(X509_free),
+                        DLSYM_ARG(X509_get0_pubkey),
                         DLSYM_ARG(X509_get0_serialNumber),
                         DLSYM_ARG(X509_get_issuer_name),
                         DLSYM_ARG(X509_get_pubkey),

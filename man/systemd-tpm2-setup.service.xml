@@ -20,7 +20,7 @@
     <refname>systemd-tpm2-setup.service</refname>
     <refname>systemd-tpm2-setup-early.service</refname>
     <refname>systemd-tpm2-setup</refname>
-    <refpurpose>Set up the TPM2 Storage Root Key (SRK) and initialize NvPCRs at boot</refpurpose>
+    <refpurpose>Set up the TPM2 Storage Root Key (SRK), Endorsement Key (EK), and initialize NvPCRs at boot</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -33,8 +33,9 @@
 
     <para><filename>systemd-tpm2-setup.service</filename> and
     <filename>systemd-tpm2-setup-early.service</filename> are services that generate the Storage Root Key
-    (SRK) if it has not been generated yet, and stores it in the TPM. If NvPCRs (additional PCR registers in
-    TPM NV Indexes) are defined, these are initialized with the anchoring secret.</para>
+    (SRK) and Endorsement Key (EK) if they have not been generated yet, and stores them in the TPM. If
+    NvPCRs (additional PCR registers in TPM NV Indexes) are defined, these are initialized with the
+    anchoring secret.</para>
 
     <para>The services will store the public key of the SRK key pair in a PEM file in
     <filename>/run/systemd/tpm2-srk-public-key.pem</filename> and
