@@ -8,6 +8,7 @@ set -o pipefail
 
 export SYSTEMD_LOG_LEVEL=debug
 SD_PCREXTEND="/usr/lib/systemd/systemd-pcrextend"
+SD_TPM2SETUP="/usr/lib/systemd/systemd-tpm2-setup"
 
 if [[ ! -x "${SD_PCREXTEND:?}" ]] || ! tpm_has_pcr sha256 11; then
     echo "$SD_PCREXTEND or PCR sysfs files not found, skipping PCR extension tests"
@@ -27,6 +28,15 @@ at_exit() {
 
 trap at_exit EXIT
 
+# systemd-tpm2-setup returns EX_UNAVAILABLE rather than 0 when it cannot set something up but this
+# is still considered success. This happens at the moment because there is no EK certificate in
+# QEMU guests.
+run_tpm2_setup() {
+    local rc=0
+    "$SD_TPM2SETUP" "$@" || rc=$?
+    [[ "$rc" -eq 0 || "$rc" -eq 69 ]]
+}
+
 # Temporarily override sd-pcrextend's sanity checks
 export SYSTEMD_FORCE_MEASURE=1
 
@@ -35,7 +45,7 @@ mkdir -p /run/nvpcr
 cat >/run/nvpcr/test.nvpcr <<EOF
 {"name":"test","algorithm":"sha256","nvIndex":30474762}
 EOF
-/usr/lib/systemd/systemd-tpm2-setup
+run_tpm2_setup
 test -f /run/systemd/nvpcr/test.anchor
 /usr/lib/systemd/systemd-pcrextend --nvpcr=test schrumpel
 # To calculate the current value we need the anchor measurement
@@ -77,7 +87,7 @@ EOF
 cat >/run/nvpcr/zzz.nvpcr <<EOF
 {"name":"zzz","algorithm":"sha256","nvIndex":30474773,"priority":100}
 EOF
-SETUP_LOG="$(/usr/lib/systemd/systemd-tpm2-setup 2>&1)"
+SETUP_LOG="$(run_tpm2_setup 2>&1)"
 AAA_LINE="$(echo "$SETUP_LOG" | grep -n "Setting up NvPCR 'aaa'" | cut -d: -f1)"
 ZZZ_LINE="$(echo "$SETUP_LOG" | grep -n "Setting up NvPCR 'zzz'" | cut -d: -f1)"
 test "$ZZZ_LINE" -lt "$AAA_LINE"
