@@ -57,6 +57,7 @@
 #include "rm-rf.h"
 #include "selinux-util.h"
 #include "set.h"
+#include "socket-util.h"
 #include "sort-util.h"
 #include "specifier.h"
 #include "stat-util.h"
@@ -541,7 +542,19 @@ static bool unix_socket_alive(Context *c, const char *fn) {
         if (load_unix_sockets(c) < 0)
                 return true;     /* We don't know, so assume yes */
 
-        return set_contains(c->unix_sockets, fn);
+        if (set_contains(c->unix_sockets, fn))
+                return true;
+
+        /* The socket was not found in /proc/net/unix. This can happen if the listening process runs in a
+         * different network namespace. Fall back to connect() to check if anyone is actually listening,
+         * regardless of namespace. */
+        _cleanup_close_ int fd = socket(AF_UNIX, SOCK_STREAM|SOCK_NONBLOCK|SOCK_CLOEXEC, 0);
+        if (fd < 0)
+                return true; /* We don't know, so assume yes */
+
+        /* If connect() explicitly tells us nobody is listening, the socket is dead.
+         * For all other outcomes (success, wrong socket type, permission denied, …) be conservative. */
+        return connect_unix_path(fd, AT_FDCWD, fn) != -ECONNREFUSED;
 }
 
 /* Accessors for the argument in binary format */
