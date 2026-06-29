@@ -29,17 +29,34 @@ _timedatectl_set-ntp(){
     _describe options _options
 }
 
+_timedatectl_ntp-servers(){
+    if (( CURRENT == 2 )); then
+        _net_interfaces
+    else
+        _message "NTP server"
+    fi
+}
+
+_timedatectl_revert(){
+    if (( CURRENT == 2 )); then
+        _net_interfaces
+    fi
+}
+
 _timedatectl_command(){
     local -a _timedatectl_cmds
     _timedatectl_cmds=(
         'status:Show current time settings'
+        'show:Show properties of systemd-timedated'
         'set-time:Set system time'
         'set-timezone:Set system timezone'
         'list-timezones:Show known timezones'
-        'timesync-status:Show status of systemd-timesyncd'
-        'show-timesync:Show properties of systemd-timesyncd'
         'set-local-rtc:Control whether RTC is in local time'
         'set-ntp:Control whether NTP is enabled'
+        'timesync-status:Show status of systemd-timesyncd'
+        'show-timesync:Show properties of systemd-timesyncd'
+        'ntp-servers:Set the interface specific NTP servers'
+        'revert:Revert the interface specific NTP servers'
     )
     if (( CURRENT == 1 )); then
         _describe -t commands 'timedatectl command' _timedatectl_cmds
@@ -62,8 +79,13 @@ _arguments -s \
     '(- *)'{-h,--help}'[Show this help]' \
     '(- *)--version[Show package version]' \
     '--adjust-system-clock[Adjust system clock when changing local RTC mode]' \
+    '--monitor[Monitor status of systemd-timesyncd]' \
     '--no-pager[Do not pipe output into a pager]' \
     '--no-ask-password[Do not prompt for password]' \
     '(-H --host)'{-H+,--host=}'[Operate on remote host]:userathost:_sd_hosts_or_user_at_host' \
     '(-M --machine)'{-M+,--machine=}'[Operate on local container]:machines:_sd_machines' \
+    '*'{-p+,--property=}'[Show only properties by this name]:property' \
+    '(-a --all)'{-a,--all}'[Show all properties, including empty ones]' \
+    '--value[When showing properties, only print the value]' \
+    '-P+[Equivalent to --value --property=]:property' \
     '*::timedatectl commands:_timedatectl_command'
