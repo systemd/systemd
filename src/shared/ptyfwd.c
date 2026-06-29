@@ -889,19 +889,16 @@ static int on_sigwinch_event(sd_event_source *e, const struct signalfd_siginfo *
 
 static int on_exit_event(sd_event_source *e, void *userdata) {
         PTYForward *f = ASSERT_PTR(userdata);
-        int r;
 
         assert(e);
         assert(e == f->exit_event_source);
 
-        if (!pty_forward_drain(f)) {
-                /* If not drained, try to drain the buffer. */
-                r = shovel_force(f);
-                if (r < 0)
-                        return r;
-        }
-
-        return pty_forward_done(f, 0);
+        /* The event loop is exiting while the forwarder is still active. Force a final synchronous drain of
+         * whatever is still buffered. shovel() may complete the drain and call pty_forward_done(), which
+         * can free f via the hangup handler, so we must not touch f afterwards, only propagate the return
+         * value, exactly like on_master_event() does. */
+        f->drain = true;
+        return shovel_force(f);
 }
 
 static int on_defer_event(sd_event_source *s, void *userdata) {
