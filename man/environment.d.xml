@@ -45,6 +45,13 @@
     parses them and updates the environment exported by the systemd user instance. See below for an
     discussion of which processes inherit those variables.</para>
 
+    <para>The user-level configuration directory defaults to <filename>~/.config/environment.d/</filename>.
+    If <varname>$XDG_CONFIG_HOME</varname> is set to an absolute path in the user service manager
+    environment (e.g. via PAM or <filename>/etc/environment</filename>), it takes precedence over
+    <filename>~/.config/</filename>. Note that this creates a bootstrapping consideration: variables
+    set in <filename>environment.d/</filename> files, including <varname>$XDG_CONFIG_HOME</varname>
+    itself, are not available when the generator determines which directory to read.</para>
+
     <para>It is recommended to use numerical prefixes for file names to simplify ordering.</para>
 
     <para>For backwards compatibility, a symlink to <filename>/etc/environment</filename> is
