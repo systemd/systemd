@@ -3492,7 +3492,7 @@ static int method_set_reboot_to_boot_loader_entry(
                         if (unlink("/run/systemd/reboot-to-boot-loader-entry") < 0 && errno != ENOENT)
                                 return -errno;
                 } else {
-                        r = write_string_file("/run/systemd/reboot-boot-to-loader-entry", v, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_LABEL);
+                        r = write_string_file("/run/systemd/reboot-to-boot-loader-entry", v, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_LABEL);
                         if (r < 0)
                                 return r;
                 }
