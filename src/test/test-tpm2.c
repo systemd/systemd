@@ -998,6 +998,16 @@ TEST(calculate_policy_auth_value) {
         assert_se(digest_check(&d, "759ebd5ed65100e0b4aa2d04b4b789c2672d92ecc9cdda4b5fa16a303132e008"));
 }
 
+TEST(calculate_policy_nv_written) {
+        TPM2B_DIGEST d;
+
+        digest_init(&d, "0000000000000000000000000000000000000000000000000000000000000000");
+        ASSERT_OK_ZERO(tpm2_calculate_policy_nv_written(false, &d));
+        ASSERT_TRUE(digest_check(&d, "3c326323670e28ad37bd57f63b4cc34d26ab205ef22f275c58d47fab2485466e"));
+        ASSERT_OK_ZERO(tpm2_calculate_policy_nv_written(true, &d));
+        ASSERT_TRUE(digest_check(&d, "af595f3b5b4930da0d29921745c970bea2d8e6cdb9aa7cc40ce4916d0dc185fa"));
+}
+
 TEST(calculate_policy_authorize) {
         TPM2B_PUBLIC public;
         TPM2B_DIGEST d;
@@ -1017,6 +1027,32 @@ TEST(calculate_policy_authorize) {
         assert_se(digest_check(&d, "2a5b705e83f949c27ac4d2e79e54fb5fb0a60f0b37bbd54a0ee1022ba00d3628"));
         assert_se(tpm2_calculate_policy_authorize(&public, NULL, &d) == 0);
         assert_se(digest_check(&d, "2a5b705e83f949c27ac4d2e79e54fb5fb0a60f0b37bbd54a0ee1022ba00d3628"));
+}
+
+TEST(make_policy_authorize_tbs_data) {
+        _cleanup_(iovec_done) struct iovec tbs = {};
+
+        DEFINE_HEX_PTR(digest, "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef");
+        TPM2B_DIGEST d = TPM2B_DIGEST_MAKE(digest, digest_len);
+
+        /* Without a policy reference the to-be-signed data is just the approved policy digest. */
+        ASSERT_OK_ZERO(tpm2_make_policy_authorize_tbs_data(&d, NULL, &tbs));
+        ASSERT_EQ(tbs.iov_len, d.size);
+        ASSERT_EQ(memcmp(tbs.iov_base, d.buffer, d.size), 0);
+        iovec_done(&tbs);
+
+        /* An empty (zero-length) policy reference should not result in a SHA256 digest being appended. */
+        const char empty[] = "";
+        ASSERT_OK_ZERO(tpm2_make_policy_authorize_tbs_data(&d, empty, &tbs));
+        ASSERT_EQ(tbs.iov_len, d.size);
+        iovec_done(&tbs);
+
+        /* A non-empty policy reference should result in a SHA256 digest being appended. */
+        const char ref[] = "initrd";
+        ASSERT_OK_ZERO(tpm2_make_policy_authorize_tbs_data(&d, ref, &tbs));
+        ASSERT_EQ(tbs.iov_len, (size_t) d.size + SHA256_DIGEST_SIZE);
+        ASSERT_EQ(memcmp(tbs.iov_base, d.buffer, d.size), 0);
+        ASSERT_EQ(memcmp((const uint8_t*) tbs.iov_base + d.size, SHA256_DIRECT(ref, strlen(ref)), SHA256_DIGEST_SIZE), 0);
 }
 
 TEST(calculate_policy_pcr) {
@@ -1231,6 +1267,7 @@ static void calculate_seal_and_unseal(
                         /* hash_pcr_mask= */ 0,
                         /* pcr_bank= */ 0,
                         /* pubkey= */ NULL,
+                        /* pubkey_policy_ref = */ NULL,
                         /* pubkey_pcr_mask= */ 0,
                         /* signature= */ NULL,
                         /* pin= */ NULL,
@@ -1318,6 +1355,7 @@ static void check_seal_unseal_for_handle(Tpm2Context *c, TPM2_HANDLE handle) {
                         /* hash_pcr_mask= */ 0,
                         /* pcr_bank= */ 0,
                         /* pubkey= */ NULL,
+                        /* pubkey_policy_ref= */ NULL,
                         /* pubkey_pcr_mask= */ 0,
                         /* signature= */ NULL,
                         /* pin= */ NULL,

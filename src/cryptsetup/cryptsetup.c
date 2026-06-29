@@ -1140,14 +1140,9 @@ static int measure_keyslot(
         r = tpm2_nvpcr_extend_bytes(c, /* session= */ NULL, arg_tpm2_measure_keyslot_nvpcr, &IOVEC_MAKE_STRING(s), /* secret= */ NULL, TPM2_EVENT_KEYSLOT, s);
         if (r == -ENETDOWN) {
                 /* NvPCR is not initialized yet. Do so now. */
-                _cleanup_(iovec_done_erase) struct iovec anchor_secret = {};
-                r = tpm2_nvpcr_acquire_anchor_secret(&anchor_secret, /* sync_secondary= */ false);
+                r = tpm2_nvpcr_initialize(c, /* session= */ NULL, arg_tpm2_measure_keyslot_nvpcr);
                 if (r < 0)
-                        return r;
-
-                r = tpm2_nvpcr_initialize(c, /* session= */ NULL, arg_tpm2_measure_keyslot_nvpcr, &anchor_secret);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to extend NvPCR index '%s' with anchor secret: %m", name);
+                        return log_error_errno(r, "Failed to initialize NvPCR index '%s': %m", name);
 
                 r = tpm2_nvpcr_extend_bytes(c, /* session= */ NULL, arg_tpm2_measure_keyslot_nvpcr, &IOVEC_MAKE_STRING(s), /* secret= */ NULL, TPM2_EVENT_KEYSLOT, s);
         }
@@ -2053,6 +2048,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                         arg_tpm2_pcr_mask == UINT32_MAX ? TPM2_PCR_MASK_DEFAULT_LEGACY : arg_tpm2_pcr_mask,
                                         UINT16_MAX,
                                         /* pubkey= */ NULL,
+                                        /* pubkey_policy_ref= */ NULL,
                                         /* pubkey_pcr_mask= */ 0,
                                         /* signature_path= */ NULL,
                                         /* pcrlock_path= */ NULL,
@@ -2108,6 +2104,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
 
                         for (;;) {
                                 _cleanup_(iovec_done) struct iovec pubkey = {}, salt = {}, srk = {}, pcrlock_nv = {};
+                                _cleanup_free_ char *pubkey_policy_ref = NULL;
                                 struct iovec *blobs = NULL, *policy_hash = NULL;
                                 uint32_t hash_pcr_mask, pubkey_pcr_mask;
                                 size_t n_blobs = 0, n_policy_hash = 0;
@@ -2124,6 +2121,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                                 &hash_pcr_mask,
                                                 &pcr_bank,
                                                 &pubkey,
+                                                &pubkey_policy_ref,
                                                 &pubkey_pcr_mask,
                                                 &primary_alg,
                                                 &blobs,
@@ -2158,6 +2156,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                                 hash_pcr_mask,
                                                 pcr_bank,
                                                 &pubkey,
+                                                pubkey_policy_ref,
                                                 pubkey_pcr_mask,
                                                 arg_tpm2_signature,
                                                 arg_tpm2_pcrlock,
