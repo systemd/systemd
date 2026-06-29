@@ -14,13 +14,12 @@ if [[ -v ASAN_OPTIONS ]]; then
 fi
 
 systemctl start issue14566-repro
-sleep 4
 systemctl status issue14566-repro
 
 leaked_pid=$(cat /leakedtestpid)
 
 systemctl stop issue14566-repro
-sleep 4
+timeout 30 bash -c 'while systemctl is-active issue14566-repro; do sleep .5; done'
 
 # Leaked PID will still be around if we're buggy.
 # I personally prefer to see 42.

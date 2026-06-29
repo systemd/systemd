@@ -3,4 +3,5 @@
 
 sleep infinity &
 echo $! >/leakedtestpid
+systemd-notify --ready
 wait $!
