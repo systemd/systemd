@@ -105,6 +105,13 @@
 #define DISK_SERIAL_MAX_LEN_NVME        20
 #define DISK_SERIAL_MAX_LEN_VIRTIO_BLK  20
 
+/* Well-known endpoints for the host's TDX Quote Generation Service (qgsd), auto-discovered so the
+ * guest can obtain TD Quotes. The Intel reference qgsd listens on a unix socket; the common
+ * deployment listens on vsock port 4050 (cid 2 = host). */
+#define TDX_QGS_UNIX_SOCKET_PATH "/run/tdx-qgs/qgs.socket"
+#define TDX_QGS_VSOCK_CID        "2"
+#define TDX_QGS_VSOCK_PORT       "4050"
+
 /* First and one-past-last pcie.0 device-numbers used for multifunction-packed
  * pcie-root-ports. Sits above the auto-assigned virtio devices (0x01-0x03) and
  * below 0x1f, which q35 reserves for ICH9 LPC at 0x1f.0 (single-function). */
@@ -2936,6 +2943,33 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                                         "qom-type", "tdx-guest");
                 if (r < 0)
                         return r;
+
+                /* The guest needs a connection to the TDX Quote Generation Service (QGS) running on
+                 * the host to obtain TD Quotes (e.g. via the systemd-report-sign-tsm). There are two
+                 * well-known interfaces for QGS: a well-known unix socket, or vsock port 4050. QEMU
+                 * only connects on a GetQuote request, and pointing at an absent QGS is harmless,
+                 * the request just fails and the guest gets no quote. */
+                if (is_socket(TDX_QGS_UNIX_SOCKET_PATH) > 0) {
+                        r = qemu_config_key(config_file, "quote-generation-socket.type", "unix");
+                        if (r < 0)
+                                return r;
+                        r = qemu_config_key(config_file, "quote-generation-socket.path", TDX_QGS_UNIX_SOCKET_PATH);
+                        if (r < 0)
+                                return r;
+                        log_debug("Using TDX Quote Generation Service at unix socket %s.", TDX_QGS_UNIX_SOCKET_PATH);
+                } else {
+                        r = qemu_config_key(config_file, "quote-generation-socket.type", "vsock");
+                        if (r < 0)
+                                return r;
+                        r = qemu_config_key(config_file, "quote-generation-socket.cid", TDX_QGS_VSOCK_CID);
+                        if (r < 0)
+                                return r;
+                        r = qemu_config_key(config_file, "quote-generation-socket.port", TDX_QGS_VSOCK_PORT);
+                        if (r < 0)
+                                return r;
+                        log_debug("No QGS unix socket found, pointing TDX quote generation at vsock %s:%s.",
+                                  TDX_QGS_VSOCK_CID, TDX_QGS_VSOCK_PORT);
+                }
         }
 
         unsigned child_cid = arg_vsock_cid;
