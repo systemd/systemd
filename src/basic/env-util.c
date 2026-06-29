@@ -948,6 +948,8 @@ int replace_env_argv(
                         }
 
                         k += q;
+                        /* reallocarray() does not zero-initialize the grown tail, add NUL termination */
+                        n[k] = NULL;
                         continue;
                 }
 
