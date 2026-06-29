@@ -142,6 +142,14 @@ static int tsm_report_fill(
         if (r < 0)
                 return log_debug_errno(r, "Failed to read 'provider' attribute: %m");
 
+        /* A zero-length outblob is never a valid attestation report, e.g. under Intel TDX the kernel
+         * yields an empty quote when the GetQuote round-trip to the host's Quote Generation Service
+         * produced nothing. */
+        if (!iovec_is_set(&report->outblob))
+                return log_debug_errno(SYNTHETIC_ERRNO(ENODATA),
+                                       "TSM provider '%s' returned an empty 'outblob'; no attestation report available.",
+                                       report->provider);
+
         r = read_full_file_at(entry_fd, "auxblob",
                               (char**) &report->auxblob.iov_base, &report->auxblob.iov_len);
         if (r < 0 && r != -ENOENT) /* auxblob is optional */
