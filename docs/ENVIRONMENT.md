@@ -508,6 +508,16 @@ is suppressed by default.
   operation. If not set, defaults to true. If disabled installation of images
   will be quicker, but not as safe.
 
+`systemd-importd`/`systemd-pull` and `systemd-sysupdate`:
+
+* `$SYSTEMD_OPENPGP_KEYRING` — takes an absolute path to an OpenPGP keyring
+  file. If set and non-empty, signature verification on download uses this
+  keyring instead of the default `/etc/systemd/import-pubring.pgp` and
+  `/usr/lib/systemd/import-pubring.pgp` keyrings.
+  Useful when running unprivileged in the user context, with custom transfer
+  definitions (e.g. `systemd-sysupdate --definitions=…`), or for testing.
+  Has no effect when signature verification is disabled.
+
 `systemd-dissect`, `systemd-nspawn` and all other tools that may operate on
 disk images with `--image=` or similar:
 

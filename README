@@ -270,6 +270,8 @@ REQUIREMENTS:
                 NOTE: If using dbus < 1.9.18, you should override the default
                 policy directory (--with-dbuspolicydir=/etc/dbus-1/system.d).
         polkit (optional)
+        gnupg >= 2.4 optional (for signature verification in: importctl,
+                               systemd-sysupdate)
 
         To build in directory build/:
           meson setup build/ && ninja -C build/
