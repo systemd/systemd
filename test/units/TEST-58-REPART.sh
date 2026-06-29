@@ -1814,6 +1814,131 @@ EOF
     losetup -d "$loop"
 }
 
+testcase_move() {
+    local defs imgs root loop
+
+    defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
+    imgs="$(mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
+    root="$(mktemp --directory "/var/tmp/test-repart.root.XXXXXXXXXX")"
+    # shellcheck disable=SC2064
+    trap "umount '$root/staging/mnt' 2>/dev/null; rm -rf '$defs' '$imgs' '$root'" RETURN
+    chmod 0755 "$defs"
+
+    echo "*** CopyFiles= move ***"
+
+    mkdir "$root/staging"
+    touch "$root/staging/move_me"
+    touch "$root/staging/keep_me"
+    ln -s move_me "$root/staging/link_me"
+    mkdir "$root/staging/sub"
+    touch "$root/staging/sub/nested"
+    mkdir -p "$root/staging/deep/inner"
+    touch "$root/staging/deep/move_shallow"
+    touch "$root/staging/deep/inner/move_deep"
+    touch "$root/staging/deep/inner/keep_deep"
+    touch "$root/singlefile"
+    mkdir "$root/linkdir_target"
+    touch "$root/linkdir_target/linkdir_file"
+    ln -s linkdir_target "$root/linkdir"
+    mkdir "$root/staging/mnt"
+    mount -t tmpfs tmpfs "$root/staging/mnt"
+    touch "$root/staging/mnt/mounted_file"
+
+    tee "$defs/00-root.conf" <<EOF
+[Partition]
+Type=root-${architecture}
+Format=ext4
+CopyFiles=/staging:/data:move
+CopyFiles=/singlefile:/singlefile:move
+CopyFiles=/linkdir:/linkeddata:move
+ExcludeFiles=/staging/keep_me
+ExcludeFiles=/staging/deep/inner/keep_deep
+EOF
+
+    systemd-repart --offline="$OFFLINE" \
+                   --definitions="$defs" \
+                   --seed="$seed" \
+                   --dry-run=yes \
+                   --empty=create \
+                   --size=auto \
+                   --root="$root" \
+                   "$imgs/dry"
+    assert_rc 0 ls "$root/staging/move_me"
+    assert_rc 0 ls "$root/staging/sub/nested"
+    assert_rc 0 test -L "$root/staging/link_me"
+    assert_rc 0 ls "$root/staging/deep/move_shallow"
+    assert_rc 0 ls "$root/staging/deep/inner/move_deep"
+    assert_rc 0 ls "$root/singlefile"
+    assert_rc 0 test -L "$root/linkdir"
+    assert_rc 0 ls "$root/linkdir_target/linkdir_file"
+    assert_rc 0 ls "$root/staging/mnt/mounted_file"
+
+    systemd-repart --offline="$OFFLINE" \
+                   --definitions="$defs" \
+                   --seed="$seed" \
+                   --dry-run=no \
+                   --empty=create \
+                   --size=auto \
+                   --root="$root" \
+                   "$imgs/zzz"
+
+    assert_rc 0 ls -d "$root/staging"
+    assert_rc 0 ls "$root/staging/keep_me"
+    assert_rc 2 ls "$root/staging/move_me"
+    assert_rc 1 test -L "$root/staging/link_me"
+    assert_rc 2 ls -d "$root/staging/sub"
+    assert_rc 0 ls -d "$root/staging/deep"
+    assert_rc 0 ls -d "$root/staging/deep/inner"
+    assert_rc 0 ls "$root/staging/deep/inner/keep_deep"
+    assert_rc 2 ls "$root/staging/deep/inner/move_deep"
+    assert_rc 2 ls "$root/staging/deep/move_shallow"
+    assert_rc 2 ls "$root/singlefile"
+    assert_rc 1 test -L "$root/linkdir"
+    assert_rc 0 ls -d "$root/linkdir_target"
+    assert_rc 0 ls "$root/linkdir_target/linkdir_file"
+    assert_rc 0 ls -d "$root/staging/mnt"
+    assert_rc 0 ls "$root/staging/mnt/mounted_file"
+    assert_rc 0 findmnt "$root/staging/mnt"
+
+    if systemd-detect-virt --quiet --container; then
+        echo "Skipping move partition content verification in container."
+        return
+    fi
+
+    loop=$(losetup -P --show -f "$imgs/zzz")
+    udevadm wait --timeout="$UDEVADM_WAIT_TIMEOUT" --settle "${loop:?}p1"
+
+    # Partition side: moved files (including the symlink and the deep subtree) are present, while the
+    # excluded files were never copied.
+    mkdir "$imgs/mnt"
+    mount -t ext4 "${loop}p1" "$imgs/mnt"
+    assert_rc 0 ls "$imgs/mnt/data/move_me"
+    assert_rc 0 ls "$imgs/mnt/data/sub/nested"
+    assert_rc 0 test -L "$imgs/mnt/data/link_me"
+    assert_rc 0 ls "$imgs/mnt/data/deep/move_shallow"
+    assert_rc 0 ls "$imgs/mnt/data/deep/inner/move_deep"
+    assert_rc 2 ls "$imgs/mnt/data/keep_me"
+    assert_rc 2 ls "$imgs/mnt/data/deep/inner/keep_deep"
+    assert_rc 0 ls "$imgs/mnt/singlefile"
+    assert_rc 0 ls "$imgs/mnt/linkeddata/linkdir_file"
+    assert_rc 0 ls "$imgs/mnt/data/mnt/mounted_file"
+
+    umount -R "$imgs/mnt"
+    losetup -d "$loop"
+
+    assert_rc 1 systemd-repart --offline="$OFFLINE" \
+                               --definitions="$defs" \
+                               --seed="$seed" \
+                               --dry-run=no \
+                               --image="$imgs/zzz"
+
+    assert_rc 0 systemd-repart --offline="$OFFLINE" \
+                               --definitions="$defs" \
+                               --seed="$seed" \
+                               --dry-run=yes \
+                               --image="$imgs/zzz"
+}
+
 testcase_minimize() {
     local defs imgs output
 
