@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-json.h"
+
 #include "crypto-util.h"
 #include "hexdecoct.h"
 #include "iovec-util.h"
@@ -1680,6 +1682,355 @@ static void check_get_or_create_ek(Tpm2Context *c) {
         ASSERT_EQ(memcmp_nn(qname->name, qname->size, qname2->name, qname2->size), 0);
 }
 
+static void check_max_data_size(Tpm2Context *c) {
+        int r;
+
+        assert(c);
+
+        TEST_LOG_FUNC();
+
+        r = tpm2_max_data_size(c);
+        ASSERT_OK_POSITIVE(r);
+        ASSERT_TRUE(IN_SET(r, 22, 34, 50, 66));
+}
+
+TEST(tpm2_digest_to_data) {
+        DEFINE_HEX_PTR(h, "b48a7bdf4214ed87d617690ff108e0089939a6d6754b2b6be324e2bfb2bbc54a");
+        DEFINE_HEX_PTR(expected, "000bb48a7bdf4214ed87d617690ff108e0089939a6d6754b2b6be324e2bfb2bbc54a");
+
+        TPM2B_DATA d;
+        ASSERT_OK(tpm2_digest_buf_to_data(TPM2_ALG_SHA256, h, h_len, &d));
+        ASSERT_EQ(memcmp_nn(d.buffer, d.size, expected, expected_len), 0);
+
+        memset(&d, 0, sizeof(d));
+        ASSERT_OK(tpm2_digest_iovec_to_data(TPM2_ALG_SHA256, &IOVEC_MAKE(h, h_len), &d));
+        ASSERT_EQ(memcmp_nn(d.buffer, d.size, expected, expected_len), 0);
+}
+
+static void check_context_saving(Tpm2Context *c) {
+        assert(c);
+
+        TEST_LOG_FUNC();
+
+        TPM2B_PUBLIC template = { .size = sizeof(TPMT_PUBLIC), };
+        ASSERT_OK(tpm2_get_srk_template(TPM2_ALG_ECC, &template.publicArea) >= 0);
+
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *handle = NULL;
+        ASSERT_OK(tpm2_create_primary(c, NULL, ESYS_TR_RH_OWNER, &template, NULL, NULL, &handle));
+
+        _cleanup_(Esys_Freep) TPMS_CONTEXT *context = NULL;
+        ASSERT_OK(tpm2_save_handle_context(c, handle, &context));
+
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *handle2 = NULL;
+        ASSERT_OK(tpm2_load_saved_handle_context(c, context, NULL, &handle2));
+
+        _cleanup_(Esys_Freep) TPM2B_NAME *name1 = NULL, *name2 = NULL;
+        ASSERT_OK(tpm2_get_name(c, handle, &name1));
+        ASSERT_OK(tpm2_get_name(c, handle2, &name2));
+
+        ASSERT_EQ(memcmp_nn(name1->name, name1->size, name2->name, name2->size), 0);
+}
+
+static void check_saved_context_marshaling(Tpm2Context *c) {
+        assert(c);
+
+        TEST_LOG_FUNC();
+
+        TPM2B_PUBLIC template = { .size = sizeof(TPMT_PUBLIC), };
+        ASSERT_OK(tpm2_get_srk_template(TPM2_ALG_ECC, &template.publicArea) >= 0);
+
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *handle = NULL;
+        ASSERT_OK(tpm2_create_primary(c, NULL, ESYS_TR_RH_OWNER, &template, NULL, NULL, &handle));
+
+        _cleanup_(Esys_Freep) TPMS_CONTEXT *context = NULL;
+        ASSERT_OK(tpm2_save_handle_context(c, handle, &context));
+
+        _cleanup_free_ void *buf = NULL;
+        size_t sz;
+        ASSERT_OK(tpm2_marshal_saved_handle_context(context, &buf, &sz));
+
+        TPMS_CONTEXT context2;
+        ASSERT_OK(tpm2_unmarshal_saved_handle_context(buf, sz, &context2));
+
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *handle2 = NULL;
+        ASSERT_OK(tpm2_load_saved_handle_context(c, &context2, NULL, &handle2));
+
+        _cleanup_(Esys_Freep) TPM2B_NAME *name1 = NULL, *name2 = NULL;
+        ASSERT_OK(tpm2_get_name(c, handle, &name1));
+        ASSERT_OK(tpm2_get_name(c, handle2, &name2));
+
+        ASSERT_EQ(memcmp_nn(name1->name, name1->size, name2->name, name2->size), 0);
+}
+
+static void check_policy_secret(Tpm2Context *c) {
+        assert(c);
+
+        TEST_LOG_FUNC();
+
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *session = NULL;
+        ASSERT_OK(tpm2_make_policy_session(c, NULL, NULL, &session));
+
+        _cleanup_(Esys_Freep) TPM2B_DIGEST *digest = NULL;
+        ASSERT_OK(tpm2_policy_secret(c, NULL, session, &TPM2_HANDLE_RH_ENDORSEMENT, NULL, &digest));
+        ASSERT_TRUE(digest_check(digest, "837197674484b3f81a90cc8d46a5d724fd52d76e06520b64f2a1da1b331469aa"));
+
+        session = tpm2_handle_free(session);
+        ASSERT_OK(tpm2_make_policy_session(c, NULL, NULL, &session));
+
+        const char *s = "foo";
+
+        _cleanup_(Esys_Freep) TPM2B_DIGEST *digest2 = NULL;
+        TPM2B_NONCE ref = TPM2B_NONCE_MAKE(s, strlen(s));
+        ASSERT_OK(tpm2_policy_secret(c, NULL, session, &TPM2_HANDLE_RH_OWNER, &ref, &digest2));
+        ASSERT_TRUE(digest_check(digest2, "62fd94980db2a746545cab626e9df21a1d0f00472f637d4bf567026e40a6ebed"));
+}
+
+static void check_best_attestation_key_template(Tpm2Context *c) {
+        assert(c);
+
+        TEST_LOG_FUNC();
+
+        TPMT_PUBLIC template;
+        ASSERT_OK(tpm2_get_best_attestation_key_template(c, &template));
+
+        ASSERT_TRUE(IN_SET(template.type, TPM2_ALG_RSA, TPM2_ALG_ECC));
+        ASSERT_TRUE(IN_SET(template.nameAlg, TPM2_ALG_SHA256, TPM2_ALG_SHA384));
+        ASSERT_EQ(template.objectAttributes, TPMA_OBJECT_FIXEDTPM | TPMA_OBJECT_FIXEDPARENT | TPMA_OBJECT_SENSITIVEDATAORIGIN | TPMA_OBJECT_USERWITHAUTH | TPMA_OBJECT_ADMINWITHPOLICY | TPMA_OBJECT_RESTRICTED | TPMA_OBJECT_SIGN_ENCRYPT);
+        ASSERT_EQ(template.parameters.asymDetail.symmetric.algorithm, TPM2_ALG_NULL);
+        ASSERT_NE(template.parameters.asymDetail.scheme.scheme, TPM2_ALG_NULL);
+        ASSERT_TRUE(IN_SET(template.parameters.asymDetail.scheme.details.anySig.hashAlg, TPM2_ALG_SHA256, TPM2_ALG_SHA384));
+
+        if (template.type == TPM2_ALG_RSA) {
+                ASSERT_TRUE(IN_SET(template.parameters.rsaDetail.scheme.scheme, TPM2_ALG_RSASSA, TPM2_ALG_RSAPSS));
+                ASSERT_TRUE(IN_SET(template.parameters.rsaDetail.keyBits, 2048, 3072));
+        } else {
+                ASSERT_EQ(template.parameters.eccDetail.scheme.scheme, TPM2_ALG_ECDSA);
+                ASSERT_TRUE(IN_SET(template.parameters.eccDetail.curveID, TPM2_ECC_NIST_P256, TPM2_ECC_NIST_P384));
+        }
+}
+
+TEST(tpm2_signature_to_json) {
+        TPMT_SIGNATURE rsa = {
+                .sigAlg = TPM2_ALG_RSAPSS,
+                .signature.rsapss = {
+                        .hash = TPM2_ALG_SHA256,
+                        .sig = {
+                                .size = 256,
+                        },
+                },
+        };
+        assert(sizeof(rsa.signature.rsapss.sig.buffer) >= 256);
+        random_bytes(rsa.signature.rsapss.sig.buffer, 256);
+
+        _cleanup_free_ char *h_rsa = hexmem(rsa.signature.rsapss.sig.buffer, 256);
+        ASSERT_NOT_NULL(h_rsa);
+
+        _cleanup_free_ char *rsa_expected = NULL;
+        ASSERT_OK(asprintf(&rsa_expected, "{\"sigAlg\":\"RSAPSS\",\"signature\":{\"hash\":\"SHA256\",\"sig\":\"%s\"}}", h_rsa));
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *rsaj = NULL;
+        ASSERT_OK(tpm2_signature_to_json(&rsa, &rsaj));
+
+        _cleanup_free_ char *rsa_json = NULL;
+        ASSERT_OK(sd_json_variant_format(rsaj, 0, &rsa_json));
+        ASSERT_STREQ(rsa_json, rsa_expected);
+
+        TPMT_SIGNATURE ecc = {
+                .sigAlg = TPM2_ALG_ECDSA,
+                .signature.ecdsa = {
+                        .hash = TPM2_ALG_SHA384,
+                        .signatureR = { .size = 32 },
+                        .signatureS = { .size = 32 },
+                },
+        };
+        assert(sizeof(ecc.signature.ecdsa.signatureR.buffer) >= 32);
+        random_bytes(ecc.signature.ecdsa.signatureR.buffer, 32);
+        random_bytes(ecc.signature.ecdsa.signatureS.buffer, 32);
+
+        _cleanup_free_ char *h_ecc_r = hexmem(ecc.signature.ecdsa.signatureR.buffer, 32);
+        ASSERT_NOT_NULL(h_ecc_r);
+        _cleanup_free_ char *h_ecc_s = hexmem(ecc.signature.ecdsa.signatureS.buffer, 32);
+        ASSERT_NOT_NULL(h_ecc_s);
+
+        _cleanup_free_ char *ecc_expected = NULL;
+        ASSERT_OK(asprintf(&ecc_expected, "{\"sigAlg\":\"ECDSA\",\"signature\":{\"hash\":\"SHA384\",\"signatureR\":\"%s\",\"signatureS\":\"%s\"}}", h_ecc_r, h_ecc_s));
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *eccj = NULL;
+        ASSERT_OK(tpm2_signature_to_json(&ecc, &eccj));
+
+        _cleanup_free_ char *ecc_json = NULL;
+        ASSERT_OK(sd_json_variant_format(eccj, 0, &ecc_json));
+        ASSERT_STREQ(ecc_json, ecc_expected);
+}
+
+static void check_attest_common(const struct iovec *attest, TPMI_ST_ATTEST type, const TPM2B_DATA *extra_data, TPMS_ATTEST *ret) {
+        TPMS_ATTEST decoded;
+        ASSERT_OK(tpm2_unmarshal_attestation(attest->iov_base, attest->iov_len, &decoded));
+        ASSERT_EQ(decoded.magic, TPM2_GENERATED_VALUE);
+        ASSERT_EQ(decoded.type, type);
+        ASSERT_EQ(memcmp_nn(decoded.extraData.buffer, decoded.extraData.size, extra_data->buffer, extra_data->size), 0);
+        *ret = decoded;
+}
+
+static void check_attest_signature(const TPM2B_PUBLIC *public, const TPMT_SIGNATURE *sig) {
+        ASSERT_NOT_NULL(sig);
+        ASSERT_EQ(sig->sigAlg, public->publicArea.parameters.asymDetail.scheme.scheme);
+        ASSERT_EQ(sig->signature.any.hashAlg, public->publicArea.parameters.asymDetail.scheme.details.anySig.hashAlg);
+        switch (public->publicArea.parameters.asymDetail.scheme.scheme) {
+        case TPM2_ALG_RSAPSS:
+                ASSERT_EQ(sig->signature.rsapss.sig.size, public->publicArea.parameters.rsaDetail.keyBits / 8);
+                break;
+        case TPM2_ALG_RSASSA:
+                ASSERT_EQ(sig->signature.rsapss.sig.size, public->publicArea.parameters.rsaDetail.keyBits / 8);
+                break;
+        case TPM2_ALG_ECDSA:
+                size_t expected_sz;
+                switch (public->publicArea.parameters.eccDetail.curveID) {
+                case TPM2_ECC_NIST_P256:
+                        expected_sz = 32;
+                        break;
+                case TPM2_ECC_NIST_P384:
+                        expected_sz = 48;
+                        break;
+                default:
+                        assert_not_reached();
+                }
+                ASSERT_EQ(sig->signature.ecdsa.signatureR.size, expected_sz);
+                ASSERT_EQ(sig->signature.ecdsa.signatureS.size, expected_sz);
+                break;
+        default:
+                assert_not_reached();
+        }
+
+        /* XXX: Probably would be good to verify the actual signature here. We could do that with
+         * TPM2_VerifySignature, we would just need to implement that in tpm2-util.c. */
+}
+
+static void check_quote(Tpm2Context *c) {
+        assert(c);
+
+        TEST_LOG_FUNC();
+
+        TPM2B_PUBLIC template = {
+                .size = sizeof(TPMT_PUBLIC),
+        };
+        ASSERT_OK(tpm2_get_best_attestation_key_template(c, &template.publicArea));
+
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *key = NULL;
+        ASSERT_OK(tpm2_create_primary(c, NULL, ESYS_TR_RH_OWNER, &template, NULL, NULL, &key));
+
+        const char *s = "foo";
+        TPM2B_DATA data = TPM2B_DATA_MAKE(s, strlen(s));
+
+        TPML_PCR_SELECTION pcrs;
+        tpm2_tpml_pcr_selection_from_mask(127, TPM2_ALG_SHA256, &pcrs);
+
+        _cleanup_(iovec_done) struct iovec quote = {};
+        _cleanup_(Esys_Freep) TPMT_SIGNATURE *sig = NULL;
+        ASSERT_OK(tpm2_quote(c, NULL, NULL, key, &data, &pcrs, &quote, &sig));
+
+        TPMS_ATTEST quote_decoded;
+        check_attest_common(&quote, TPM2_ST_ATTEST_QUOTE, &data, &quote_decoded);
+        ASSERT_EQ(memcmp(&quote_decoded.attested.quote.pcrSelect, &pcrs, sizeof(pcrs)), 0);
+
+        check_attest_signature(&template, sig);
+}
+
+static void check_nv_certify(Tpm2Context *c) {
+        int r;
+
+        assert(c);
+
+        TEST_LOG_FUNC();
+
+        char payload[16];
+        random_bytes(payload, sizeof(payload));
+        struct iovec nv_data = IOVEC_MAKE(payload, sizeof(payload));
+
+        TPM2_HANDLE nv_index = 0;
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *nv_handle = NULL;
+        r = tpm2_define_data_nv_index(c, /* session= */ NULL, /* requested_nv_index= */ 0, &nv_data, &nv_index, &nv_handle);
+        if (r < 0) {
+                /* Could fail because the index size is greater than the value of TPM2_PT_NV_INDEX_MAX, or
+                 * there isn't enough space available. */
+                log_notice_errno(r, "Could not allocate NV index, skipping NV certify test: %m");
+                return;
+        }
+        ASSERT_NE(nv_index, 0U);
+        ASSERT_NOT_NULL(nv_handle);
+
+        TPMS_NV_PUBLIC nv_public = {
+                .nvIndex = nv_index,
+                .nameAlg = TPM2_ALG_SHA256,
+                .attributes = TPM2_NT_ORDINARY | TPMA_NV_AUTHWRITE | TPMA_NV_AUTHREAD | TPMA_NV_NO_DA,
+                .dataSize = nv_data.iov_len,
+        };
+
+        _cleanup_(Esys_Freep) TPM2B_NAME *nv_name = NULL;
+        ASSERT_OK(tpm2_get_name(c, nv_handle, &nv_name));
+
+        TPM2B_PUBLIC template = {
+                .size = sizeof(TPMT_PUBLIC),
+        };
+        ASSERT_OK(tpm2_get_best_attestation_key_template(c, &template.publicArea));
+
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *key = NULL;
+        ASSERT_OK(tpm2_create_primary(c, NULL, ESYS_TR_RH_OWNER, &template, NULL, NULL, &key));
+
+        const char *s = "bar";
+        TPM2B_DATA data = TPM2B_DATA_MAKE(s, strlen(s));
+
+        _cleanup_(iovec_done) struct iovec certify_info = {};
+        _cleanup_(Esys_Freep) TPMT_SIGNATURE *sig = NULL;
+        ASSERT_OK(tpm2_nv_certify(c, NULL, NULL, NULL, key, &nv_public, nv_handle, &data, &certify_info, &sig));
+
+        ASSERT_OK(tpm2_undefine_nv_index(c, NULL, nv_index, nv_handle));
+
+        TPMS_ATTEST certify_info_decoded;
+        check_attest_common(&certify_info, TPM2_ST_ATTEST_NV, &data, &certify_info_decoded);
+        ASSERT_EQ(memcmp_nn(certify_info_decoded.attested.nv.indexName.name, certify_info_decoded.attested.nv.indexName.size, nv_name->name, nv_name->size), 0);
+        ASSERT_EQ(certify_info_decoded.attested.nv.offset, 0);
+        ASSERT_EQ(memcmp_nn(certify_info_decoded.attested.nv.nvContents.buffer, certify_info_decoded.attested.nv.nvContents.size, nv_data.iov_base, nv_data.iov_len), 0);
+
+        check_attest_signature(&template, sig);
+}
+
+static void check_get_session_audit_digest(Tpm2Context *c) {
+        assert(c);
+
+        TEST_LOG_FUNC();
+
+        TPM2B_PUBLIC template = {
+                .size = sizeof(TPMT_PUBLIC),
+        };
+        ASSERT_OK(tpm2_get_best_attestation_key_template(c, &template.publicArea));
+
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *key = NULL;
+        ASSERT_OK(tpm2_create_primary(c, NULL, ESYS_TR_RH_OWNER, &template, NULL, NULL, &key));
+
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *session = NULL;
+        ASSERT_OK(tpm2_make_exclusive_audit_session(c, &session));
+
+        /* Use the session */
+        TPML_PCR_SELECTION pcrs;
+        tpm2_tpml_pcr_selection_from_mask(127, TPM2_ALG_SHA256, &pcrs);
+        ASSERT_OK(tpm2_quote(c, NULL, session, key, NULL, &pcrs, NULL, NULL));
+
+        const char *s = "foo";
+        TPM2B_DATA data = TPM2B_DATA_MAKE(s, strlen(s));
+
+        _cleanup_(iovec_done) struct iovec audit_info = {};
+        _cleanup_(Esys_Freep) TPMT_SIGNATURE *sig = NULL;
+        ASSERT_OK(tpm2_get_session_audit_digest(c, NULL, NULL, session, key, &data, &audit_info, &sig));
+
+        TPMS_ATTEST audit_info_decoded;
+        check_attest_common(&audit_info, TPM2_ST_ATTEST_SESSION_AUDIT, &data, &audit_info_decoded);
+        ASSERT_EQ(audit_info_decoded.attested.sessionAudit.exclusiveSession, TPM2_YES);
+        ASSERT_EQ(audit_info_decoded.attested.sessionAudit.sessionDigest.size, 32);
+
+        check_attest_signature(&template, sig);
+}
+
 TEST_RET(tests_which_require_tpm) {
         _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
         int r = 0;
@@ -1696,6 +2047,14 @@ TEST_RET(tests_which_require_tpm) {
         check_nv_index_read(c);
         check_get_ek_template(c);
         check_get_or_create_ek(c);
+        check_max_data_size(c);
+        check_context_saving(c);
+        check_saved_context_marshaling(c);
+        check_policy_secret(c);
+        check_best_attestation_key_template(c);
+        check_quote(c);
+        check_nv_certify(c);
+        check_get_session_audit_digest(c);
 
 #if HAVE_OPENSSL
         r = check_calculate_seal(c);
