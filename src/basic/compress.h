@@ -89,3 +89,8 @@ int dlopen_bzip2(int log_level);
 static inline const char* default_compression_extension(void) {
         return compression_extension_to_string(DEFAULT_COMPRESSION) ?: "";
 }
+
+/* Returns ZSTD_DStreamOutSize() — the streaming decompressor's recommended output buffer size, which
+ * decompress_blob() uses to size its initial buffer — or 0 if libzstd is unavailable. Exposed so tests
+ * can line content up with the decoder's buffer boundary instead of hardcoding the value. */
+size_t zstd_dstream_out_size(void);
