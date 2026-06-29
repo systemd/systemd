@@ -186,10 +186,6 @@ int context_sign_report(
                 if (r < 0)
                         return log_error_errno(r, "Failed to build JSON data: %m");
 
-                r = sd_json_variant_normalize(&sig);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to normalize JSON object: %m");
-
                 r = sd_json_variant_dump(sig, format_flags, output, /* prefix= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to dump json object: %m");
