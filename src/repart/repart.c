@@ -358,6 +358,7 @@ typedef struct CopyFiles {
         char *source;
         char *target;
         CopyFlags flags;
+        bool move;
 } CopyFiles;
 
 static void copy_files_free_many(CopyFiles *f, size_t n) {
@@ -466,6 +467,7 @@ typedef struct Partition {
         bool dropped;
         bool factory_reset;
         bool discarded;
+        bool populated;
         int32_t priority;
 
         uint32_t weight, padding_weight;
@@ -2102,6 +2104,7 @@ static int config_parse_copy_files(
         _cleanup_free_ char *source = NULL, *buffer = NULL, *resolved_source = NULL, *resolved_target = NULL, *options = NULL;
         Partition *partition = ASSERT_PTR(data);
         const char *p = rvalue, *target;
+        bool move = false;
         int r;
 
         assert(rvalue);
@@ -2150,9 +2153,21 @@ static int config_parse_copy_files(
                                 flags &= ~COPY_PRESERVE_FS_VERITY;
                         else
                                 log_syntax(unit, LOG_WARNING, filename, line, 0, "fsverity= expects either 'off' or 'copy'.");
-                } else
+                } else if (streq(word, "move"))
+                        move = true;
+                else if (startswith(word, "move="))
+                        log_syntax(unit, LOG_WARNING, filename, line, 0, "move does not take a value, ignoring.");
+                else
                         log_syntax(unit, LOG_WARNING, filename, line, 0, "Encountered unknown option '%s', ignoring.", word);
         }
+
+        /* For 'move' we remove everything below the source that isn't explicitly excluded, relying on the
+         * assumption that everything else was actually copied. COPY_GRACEFUL_WARN breaks that assumption: it
+         * silently skips inodes we cannot copy (e.g. device nodes or symlinks on file systems or in
+         * environments that don't support them), which we would then delete without ever having copied them.
+         * Turn it off for move entries so such cases fail loudly and leave the source intact. */
+        if (move)
+                flags &= ~COPY_GRACEFUL_WARN;
 
         r = specifier_printf(source, PATH_MAX-1, system_and_tmp_specifier_table, arg_root, NULL, &resolved_source);
         if (r < 0) {
@@ -2183,6 +2198,7 @@ static int config_parse_copy_files(
                 .source = TAKE_PTR(resolved_source),
                 .target = TAKE_PTR(resolved_target),
                 .flags = flags,
+                .move = move,
         };
 
         return 0;
@@ -3703,6 +3719,37 @@ static int context_read_definitions(Context *context) {
                 tgt->supplemented_by = p;
                 tgt->suppressing_supplement = true;
         }
+
+        return 0;
+}
+
+/* CopyFiles= with the 'move' option deletes the sources from the copy source, which can never work
+* if that copy source is read-only. Catch it up-front: the removal only happens once the image has
+* been fully written, so otherwise we'd do all the work and only then fail.
+*
+* The only read-only copy source we can end up with is the --image= mount, which we mount strictly
+* read-only and default the copy source to unless --copy-source= pointed elsewhere. */
+static int context_verify_move_copy_source(Context *context) {
+        assert(context);
+
+        if (!arg_image || !path_equal(arg_copy_source, arg_root))
+                return 0;
+
+        LIST_FOREACH(partitions, p, context->partitions)
+                FOREACH_ARRAY(line, p->copy_files, p->n_copy_files) {
+                        if (!line->move)
+                                continue;
+
+                        /* Don't fail on a dry run: nothing is ever removed then, and --image= is routinely
+                         * combined with --dry-run= just to inspect an image or query its minimal size. Do
+                         * warn though, since telling the user what a real run would do is the point of a
+                         * dry run. */
+                        return log_syntax(NULL, !context->dry_run ? LOG_ERR : LOG_WARNING, p->definition_path, 1,
+                                          !context->dry_run ? SYNTHETIC_ERRNO(EROFS) : 0,
+                                          "CopyFiles= with the 'move' option requires a writable copy source, but "
+                                          "--image= is mounted read-only. Use --copy-source= to point at a "
+                                          "writable directory instead.");
+                }
 
         return 0;
 }
@@ -6421,6 +6468,8 @@ static int context_copy_blocks(Context *context) {
                 if (r < 0)
                         return r;
 
+                p->populated = true;
+
                 usec_t time_spent = usec_sub_unsigned(now(CLOCK_MONOTONIC), start_timestamp);
                 if (time_spent > 250 * USEC_PER_MSEC) /* Show throughput, but not if we spent too little time on it, since it's just noise then */
                         log_info("Block level copying and synchronization of partition %" PRIu64 " complete in %s (%s/s).",
@@ -6773,6 +6822,74 @@ static int file_is_denylisted(const char *source, Hashmap *denylist) {
         return 0;
 }
 
+static int remove_moved_source(int fd, Hashmap *denylist, unsigned depth_left) {
+        _cleanup_closedir_ DIR *d = NULL;
+        int ret = 0, r;
+
+        assert(fd >= 0);
+
+        if (depth_left == 0) {
+                safe_close(fd);
+                return -ENAMETOOLONG;
+        }
+
+        d = take_fdopendir(&fd);
+        if (!d) {
+                safe_close(fd);
+                return -errno;
+        }
+
+        FOREACH_DIRENT_ALL(de, d, return -errno) {
+                struct stat st;
+
+                if (dot_or_dot_dot(de->d_name))
+                        continue;
+
+                if (fstatat(dirfd(d), de->d_name, &st, AT_SYMLINK_NOFOLLOW) < 0) {
+                        if (errno == ENOENT)
+                                continue;
+                        return -errno;
+                }
+
+                if (hashmap_get(denylist, &st))
+                        continue;
+
+                if (S_ISDIR(st.st_mode)) {
+                        _cleanup_close_ int cfd = -EBADF;
+
+                        cfd = openat(dirfd(d), de->d_name, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
+                        if (cfd < 0) {
+                                if (errno == ENOENT)
+                                        continue;
+                                return -errno;
+                        }
+
+                        bool keep;
+                        r = btrfs_is_subvol_fd(cfd);
+                        if (r < 0) {
+                                /* If we cannot tell, err towards keeping it: recreating a subvolume we
+                                 * shouldn't have removed is not something we can do. */
+                                keep = true;
+                                RET_GATHER(ret, r);
+                        } else
+                                keep = r > 0;
+
+                        RET_GATHER(ret, remove_moved_source(TAKE_FD(cfd), denylist, depth_left - 1));
+
+                        if (keep)
+                                continue;
+
+                        /* Only drop the directory itself once it is empty. If it still holds retained
+                         * (denylisted) entries or a subvolume we kept, leave it in place (ENOTEMPTY). */
+                        if (unlinkat(dirfd(d), de->d_name, AT_REMOVEDIR) < 0 && !IN_SET(errno, ENOTEMPTY, ENOENT))
+                                RET_GATHER(ret, -errno);
+                } else if (unlinkat(dirfd(d), de->d_name, 0) < 0 && errno != ENOENT)
+                        RET_GATHER(ret, -errno);
+        }
+
+        return ret;
+}
+
 static int do_copy_files(Context *context, Partition *p, const char *root) {
         _cleanup_hashmap_free_ Hashmap *subvolumes = NULL;
         int r;
@@ -6950,6 +7067,105 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
                                         return -errno;
                         }
                 }
+        }
+
+        return 0;
+}
+
+static int partition_remove_moved_sources(Context *context, const Partition *p) {
+        bool warned_host_root = false;
+        int r;
+
+        assert(context);
+        assert(p);
+
+        _cleanup_free_ CopyFiles *copy_files = newdup(CopyFiles, p->copy_files, p->n_copy_files);
+        if (!copy_files)
+                return log_oom();
+
+        size_t n_copy_files = p->n_copy_files;
+        if (p->suppressing_supplement) {
+                if (!GREEDY_REALLOC_APPEND(copy_files, n_copy_files,
+                                           p->supplemented_by->copy_files, p->supplemented_by->n_copy_files))
+                        return log_oom();
+        }
+
+        FOREACH_ARRAY(line, copy_files, n_copy_files) {
+                _cleanup_hashmap_free_ Hashmap *denylist = NULL;
+                _cleanup_close_ int fd = -EBADF;
+                struct stat st;
+
+                if (!line->move)
+                        continue;
+
+                r = make_copy_files_denylist(context, p, line->source, line->target, &denylist);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        continue;
+
+                fd = chase_and_open(line->source, arg_copy_source, CHASE_PREFIX_ROOT, O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_NOCTTY, NULL);
+                if (fd == -ENOENT)
+                        continue;
+                if (fd < 0)
+                        return log_error_errno(fd, "Failed to open source '%s%s': %m", strempty(arg_copy_source), line->source);
+
+                if (fstat(fd, &st) < 0)
+                        return log_error_errno(errno, "Failed to stat source '%s%s': %m", strempty(arg_copy_source), line->source);
+
+                /* When neither --copy-source= nor --root=/--image= is given the copy source is the running
+                 * host's root file system, so 'move' deletes files from the host itself. This is a legitimate
+                 * (if dangerous) use case, e.g. relocating /var into a new partition during first boot, so we
+                 * allow it, but make it visible in the logs. Emitted here, once we know there is a source to
+                 * actually remove. */
+                if (!arg_copy_source && !warned_host_root) {
+                        log_notice("CopyFiles= with the 'move' option is removing source files from the host's "
+                                   "root file system, because neither --root=/--image= nor --copy-source= was specified.");
+                        warned_host_root = true;
+                }
+
+                if (S_ISDIR(st.st_mode)) {
+                        if (hashmap_get(denylist, &st))
+                                continue;
+
+                        r = remove_moved_source(TAKE_FD(fd), denylist, COPY_DEPTH_MAX);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to remove moved contents of '%s%s': %m", strempty(arg_copy_source), line->source);
+                } else {
+                        _cleanup_close_ int pfd = -EBADF;
+                        _cleanup_free_ char *fn = NULL;
+
+                        r = file_is_denylisted(line->source, denylist);
+                        if (r < 0)
+                                return r;
+                        if (r > 0)
+                                continue;
+
+                        pfd = chase_and_open_parent(line->source, arg_copy_source, CHASE_PREFIX_ROOT, &fn);
+                        if (pfd < 0)
+                                return log_error_errno(pfd, "Failed to open parent of source '%s%s': %m", strempty(arg_copy_source), line->source);
+
+                        if (unlinkat(pfd, fn, 0) < 0 && errno != ENOENT)
+                                return log_error_errno(errno, "Failed to remove moved source file '%s%s': %m", strempty(arg_copy_source), line->source);
+                }
+        }
+
+        return 0;
+}
+
+static int context_remove_moved_sources(Context *context) {
+        int r;
+
+        assert(context);
+
+        LIST_FOREACH(partitions, p, context->partitions) {
+                /* Only delete sources that have been actually copied */
+                if (!p->populated)
+                        continue;
+
+                r = partition_remove_moved_sources(context, p);
+                if (r < 0)
+                        return r;
         }
 
         return 0;
@@ -7622,6 +7838,8 @@ static int context_mkfs(Context *context) {
                 r = partition_target_sync(context, p, t);
                 if (r < 0)
                         return r;
+
+                p->populated = true;
 
                 if (p->siblings[VERITY_HASH] && !partition_defer(context, p->siblings[VERITY_HASH])) {
                         /* The verity hash must cover the partition contents as stored on disk, i.e. the
@@ -8674,6 +8892,10 @@ static int context_write_partition_table(Context *context) {
                 return r;
 
         log_info("Partition table written.");
+
+        r = context_remove_moved_sources(context);
+        if (r < 0)
+                return r;
 
         return 0;
 
@@ -11833,6 +12055,10 @@ static int run(int argc, char *argv[]) {
                 strv_uniq(context->definitions);
 
         r = context_read_definitions(context);
+        if (r < 0)
+                return r;
+
+        r = context_verify_move_copy_source(context);
         if (r < 0)
                 return r;
 
