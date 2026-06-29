@@ -306,7 +306,7 @@ static int decompress_zboot_to_memfd(int fd, uint32_t payload_offset, uint32_t p
             payload_size > (uint64_t) st.st_size - payload_offset)
                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "ZBOOT payload offset/size invalid.");
 
-        if (payload_size > 256 * 1024 * 1024) /* generous for any compressed kernel */
+        if (payload_size > 256 * U64_MB) /* generous for any compressed kernel */
                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "ZBOOT payload unreasonably large.");
 
         _cleanup_free_ void *payload = malloc(payload_size);
@@ -321,7 +321,11 @@ static int decompress_zboot_to_memfd(int fd, uint32_t payload_offset, uint32_t p
 
         _cleanup_free_ void *decompressed = NULL;
         size_t decompressed_size;
-        r = decompress_blob(c, payload, payload_size, &decompressed, &decompressed_size, /* dst_max= */ 0);
+        /* Cap the decompressed size as well: a zstd frame that doesn't record its content size is
+         * decompressed by growing the output buffer as we go, so without a limit a malicious image could
+         * expand far beyond its (already bounded) compressed size. 1 GiB is generous for any real kernel. */
+        r = decompress_blob(c, payload, payload_size, &decompressed, &decompressed_size,
+                            /* dst_max= */ U64_GB);
         if (r < 0)
                 return log_error_errno(r, "Failed to decompress ZBOOT payload: %m");
 
