@@ -792,6 +792,14 @@ units = [
           'file' : 'systemd-report-sign-plain@.service.in',
           'conditions' : ['HAVE_OPENSSL'],
         },
+        {
+          'file' : 'systemd-report-sign-tpm2.socket',
+          'conditions' : ['HAVE_OPENSSL','HAVE_TPM2'],
+        },
+        {
+          'file' : 'systemd-report-sign-tpm2@.service.in',
+          'conditions' : ['HAVE_OPENSSL', 'HAVE_TPM2'],
+        },
         { 'file' : 'systemd-report-sign-tsm.socket' },
         { 'file' : 'systemd-report-sign-tsm@.service.in' },
         {
