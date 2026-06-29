@@ -314,3 +314,19 @@ fi
 
 # Tests whether intermediate disconnects corrupt us (modified testcase from https://github.com/systemd/systemd/issues/27204)
 assert_rc "37" timeout 300 systemd-run --unit=disconnecttest --wait --pipe --user -M testuser@.host bash -ec 'systemctl --user daemon-reexec; sleep 3; exit 37'
+
+# Trigger on_exit_event(): SIGINT makes systemd-run leave the event loop
+# while PTY forwarding is active. coproc gives us a pollable stdout and exec
+# makes $PTY_FWD_PID point at systemd-run
+coproc PTY_FWD { exec systemd-run --quiet --pty -- bash -c 'echo PTY_FORWARD_READY; exec sleep 60'; }
+PTY_FWD_PID_SAVED="$PTY_FWD_PID"
+read -r -t 30 -u "${PTY_FWD[0]}" PTY_FWD_LINE || true
+[[ "$PTY_FWD_LINE" == *PTY_FORWARD_READY* ]]
+kill -INT "$PTY_FWD_PID_SAVED"
+PTY_FWD_RC=0
+wait "$PTY_FWD_PID_SAVED" || PTY_FWD_RC=$?
+# ASan reports the UAF as systemd-run exiting non-zero.
+if [[ "$PTY_FWD_RC" != 0 ]]; then
+    echo "systemd-run --pty failed"
+    exit 1
+fi
