@@ -622,7 +622,14 @@ static int import_credentials_smbios(ImportCredentialsContext *c) {
         if (detect_container() > 0) /* don't access /sys/ in a container */
                 return 0;
 
-        if (detect_confidential_virtualization() > 0) /* don't trust firmware if confidential VMs */
+        /* SMBIOS OEM strings are host-controlled, so by default we don't trust them in a confidential VM.
+        * Exception: under Intel TDX the SMBIOS table (including Type 11) is measured into RTMR0 by the
+        * firmware (TDVF's SmbiosMeasurementDxe) on direct boot, and additionally by systemd-stub on UKI
+        * boot, so a remote verifier can detect host tampering with these credentials. As with the kernel
+        * command line (also host-influenced but measured), we can't and needn't locally verify the
+        * measurement actually happened; the verifier anchors the firmware's behaviour via MRTD. */
+        ConfidentialVirtualization cv = detect_confidential_virtualization();
+        if (cv > 0 && cv != CONFIDENTIAL_VIRTUALIZATION_TDX)
                 return 0;
 
         for (unsigned i = 0;; i++) {

@@ -3576,7 +3576,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
          * confidential VMs. Instead, package credentials into a cpio archive appended to the initrd
          * (mirroring what systemd-stub does for ESP credentials) so they enter the launch measurement
          * via QEMU's "kernel-hashes=on". The new initrd path requires a guest PID1 that knows about
-         * /.extra/system_credentials/, so we keep this scoped to SNP for now. Non-CoCo guests
+         * /.extra/system_credentials/, so we keep this scoped to SNP for now. Non-SNP guests
          * continue to use the SMBIOS path below, which works with older systemd versions too.
          * Must run after all credential-mutating calls above so the cpio captures the complete set. */
         bool use_initrd_cpio = arg_confidential_computing == COCO_AMD_SEV_SNP &&
