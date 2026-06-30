@@ -362,7 +362,7 @@ int dlopen_libcrypto(int log_level) {
                 r = dlopen_many_sym_or_warn(
                         &libcrypto_dl,
                         soname,
-                        log_level,
+                        LOG_DEBUG,
                         DLSYM_ARG(ASN1_ANY_it),
                         DLSYM_ARG(ASN1_BIT_STRING_it),
                         DLSYM_ARG(ASN1_BMPSTRING_it),
