@@ -116,7 +116,17 @@
     </refsect2>
   </refsect1>
 
-  <xi:include href="libsystemd-pkgconfig.xml" />
+  <refsect1>
+    <title>Notes</title>
+
+    <xi:include href="libsystemd-pkgconfig.xml" xpointer="pkgconfig-text"/>
+
+    <para><function>sd_bus_error_add_map()</function> is not thread-safe: it modifies a process-global
+    registry of error maps without any locking. It should only be called from a single thread, for
+    example early during program initialization, before other threads have been started.</para>
+
+    <xi:include href="threads-aware.xml" xpointer="getenv"/>
+  </refsect1>
 
   <refsect1>
     <title>History</title>

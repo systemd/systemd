@@ -222,7 +222,15 @@ sd_bus_message_append(m, "ynqiuxtd", y, n, q, i, u, x, t, d);</programlisting>
     <xi:include href="sd_bus_message_append_basic.xml" xpointer="errors" />
   </refsect1>
 
-  <xi:include href="libsystemd-pkgconfig.xml" />
+  <refsect1>
+    <title>Notes</title>
+
+    <xi:include href="libsystemd-pkgconfig.xml" xpointer="pkgconfig-text"/>
+
+    <xi:include href="threads-aware.xml" xpointer="strict"/>
+
+    <xi:include href="threads-aware.xml" xpointer="getenv"/>
+  </refsect1>
 
   <refsect1>
     <title>See Also</title>

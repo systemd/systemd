@@ -111,6 +111,16 @@
   </refsect1>
 
   <refsect1>
+    <title>Notes</title>
+
+    <xi:include href="libsystemd-pkgconfig.xml" xpointer="pkgconfig-text"/>
+
+    <xi:include href="threads-aware.xml" xpointer="strict"/>
+
+    <xi:include href="threads-aware.xml" xpointer="getenv"/>
+  </refsect1>
+
+  <refsect1>
     <title>History</title>
     <para><function>sd_bus_message_read_strv()</function> was added in version 246.</para>
     <para><function>sd_bus_message_read_strv_extend()</function> was added in version 252.</para>
