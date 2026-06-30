@@ -574,7 +574,7 @@ bool manager_unit_cache_should_retry_load(Unit *u);
 int manager_load_unit_prepare(Manager *m, const char *name, const char *path, sd_bus_error *e, Unit **ret);
 int manager_load_unit(Manager *m, const char *name, const char *path, sd_bus_error *e, Unit **ret);
 int manager_dispatch_external_fd_to_unit(Manager *m, const char *unit_id, const char *fdname, uint64_t index, int fd, const char *log_context);
-int manager_load_startable_unit_or_warn(Manager *m, const char *name, const char *path, Unit **ret);
+int manager_load_startable_unit_or_warn(Manager *m, const char *name, const char *path, int log_level, Unit **ret);
 int manager_load_unit_from_dbus_path(Manager *m, const char *s, sd_bus_error *e, Unit **_u);
 
 int manager_add_jobs(
@@ -606,7 +606,7 @@ int manager_add_job(
                 Job **ret);
 
 int manager_add_job_by_name(Manager *m, JobType type, const char *name, JobMode mode, Set *affected_jobs, sd_bus_error *e, Job **ret);
-int manager_add_job_by_name_and_warn(Manager *m, JobType type, const char *name, JobMode mode, Set *affected_jobs, Job **ret);
+int manager_add_job_by_name_or_warn(Manager *m, JobType type, const char *name, JobMode mode, Set *affected_jobs, Job **ret);
 int manager_propagate_reload(Manager *m, Unit *unit, JobMode mode, sd_bus_error *e);
 
 void manager_clear_jobs(Manager *m);

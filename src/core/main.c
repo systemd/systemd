@@ -52,6 +52,7 @@
 #include "fileio.h"
 #include "format-table.h"
 #include "format-util.h"
+#include "fs-util.h"
 #include "glyph-util.h"
 #include "hash-funcs.h"
 #include "hashmap.h"
@@ -102,6 +103,7 @@
 #include "serialize.h"
 #include "service.h"
 #include "set.h"
+#include "shutdown.h"
 #include "signal-util.h"
 #include "smack-setup.h"
 #include "special.h"
@@ -1854,8 +1856,14 @@ static int become_shutdown(int objective, int retval) {
 
         (void) write_boot_or_shutdown_osc("shutdown");
 
-        execve(SYSTEMD_SHUTDOWN_BINARY_PATH, (char **) command_line, env_block);
-        return -errno;
+        r = RET_NERRNO(execve(SYSTEMD_SHUTDOWN_BINARY_PATH, (char **) command_line, env_block));
+        if (SYSTEMD_MULTICALL_BINARY && r == -ENOENT) {
+                log_debug("%s not found, falling back to /proc/self/exe", SYSTEMD_SHUTDOWN_BINARY_PATH);
+                /* Fall back to ourselves as the shutdown binary */
+                r = RET_NERRNO(execve("/proc/self/exe", (char **) command_line, env_block));
+        }
+
+        return r;
 }
 
 static void initialize_clock_timewarp(void) {
@@ -2128,6 +2136,7 @@ static int do_reexecute(
                 const char **ret_error_message) {
 
         size_t i, args_size;
+        _cleanup_free_ char *our_exe = NULL;
         const char **args;
         int r;
 
@@ -2235,14 +2244,31 @@ static int do_reexecute(
                 valgrind_summary_hack();
 
                 args[0] = SYSTEMD_BINARY_PATH;
-                (void) execv(args[0], (char* const*) args);
+                r = RET_NERRNO(execv(args[0], (char* const*) args));
 
                 if (objective == MANAGER_REEXECUTE) {
+                        /* If the binary is missing, try with our current executable too. This way things
+                         * continue to work if the binary is installed into a non-default location. Note that
+                         * we don't use chase here, the symlink the kernel gives is good enough. */
+                        if (r == -ENOENT) {
+                                int k;
+
+                                k = readlink_malloc("/proc/self/exe", &our_exe);
+                                if (k < 0)
+                                        log_warning_errno(k, "Failed to read /proc/self/exe: %m");
+                                else if (!endswith(our_exe, " (deleted)")) {
+                                        log_info_errno(r, "Failed to execute our own binary %s, trying fallback: %m", args[0]);
+
+                                        args[0] = our_exe;
+                                        r = RET_NERRNO(execv(args[0], (char* const*) args));
+                                }
+                        }
+
                         *ret_error_message = "Failed to execute our own binary";
-                        return log_error_errno(errno, "Failed to execute our own binary %s: %m", args[0]);
+                        return log_error_errno(r, "Failed to execute our own binary %s: %m", args[0]);
                 }
 
-                log_debug_errno(errno, "Failed to execute our own binary %s, trying fallback: %m", args[0]);
+                log_debug_errno(r, "Failed to execute our own binary %s, trying fallback: %m", args[0]);
         }
 
         /* Try the fallback, if there is any, without any serialization. We pass the original argv[] and
@@ -2278,13 +2304,12 @@ static int do_reexecute(
 
         if (switch_root_init) {
                 args[0] = switch_root_init;
-                (void) execve(args[0], (char* const*) args, saved_env);
-                log_warning_errno(errno, "Failed to execute configured init %s, trying fallback: %m", args[0]);
+                r = RET_NERRNO(execve(args[0], (char* const*) args, saved_env));
+                log_warning_errno(r, "Failed to execute configured init %s, trying fallback: %m", args[0]);
         }
 
         args[0] = "/sbin/init";
-        (void) execv(args[0], (char* const*) args);
-        r = -errno;
+        r = RET_NERRNO(execv(args[0], (char* const*) args));
         *ret_error_message = "Failed to execute /sbin/init";
 
         if (r == -ENOENT) {
@@ -2296,8 +2321,7 @@ static int do_reexecute(
 
                 args[0] = "/bin/sh";
                 args[1] = NULL;
-                (void) execve(args[0], (char* const*) args, saved_env);
-                r = -errno;
+                r = RET_NERRNO(execve(args[0], (char* const*) args, saved_env));
                 *ret_error_message = "Failed to execute fallback shell";
         }
 
@@ -2757,19 +2781,32 @@ static int do_queue_default_job(
 
         log_debug("Activating default unit: %s", unit);
 
-        r = manager_load_startable_unit_or_warn(m, unit, NULL, &target);
+        /* When no unit was explicitly requested, failures to load the default unit are not fatal, since we
+         * fall back to other targets below. Log them at a lower level in that case. */
+        int log_level = arg_default_unit ? LOG_ERR : LOG_INFO;
+
+        r = manager_load_startable_unit_or_warn(m, unit, NULL, log_level, &target);
         if (r < 0 && in_initrd() && !arg_default_unit) {
                 /* Fall back to default.target, which we used to always use by default. Only do this if no
                  * explicit configuration was given. */
 
                 log_info("Falling back to %s.", SPECIAL_DEFAULT_TARGET);
 
-                r = manager_load_startable_unit_or_warn(m, SPECIAL_DEFAULT_TARGET, NULL, &target);
+                r = manager_load_startable_unit_or_warn(m, SPECIAL_DEFAULT_TARGET, NULL, log_level, &target);
+        }
+        if (r == -ENOENT && !arg_default_unit) {
+                /* The default.target symlink was not found on disk and the target was not explicitly
+                 * specified. Fall back to the target configured at build time via -Ddefault-target=. */
+
+                log_info("Falling back to %s.", DEFAULT_TARGET);
+
+                r = manager_load_startable_unit_or_warn(m, DEFAULT_TARGET, NULL, log_level, &target);
         }
         if (r < 0) {
+                /* We failed. Activate rescue mode. */
                 log_info("Falling back to %s.", SPECIAL_RESCUE_TARGET);
 
-                r = manager_load_startable_unit_or_warn(m, SPECIAL_RESCUE_TARGET, NULL, &target);
+                r = manager_load_startable_unit_or_warn(m, SPECIAL_RESCUE_TARGET, NULL, log_level, &target);
                 if (r < 0) {
                         *ret_error_message = r == -ERFKILL ? SPECIAL_RESCUE_TARGET " masked"
                                                            : "Failed to load " SPECIAL_RESCUE_TARGET;
@@ -3922,9 +3959,12 @@ finish:
 }
 
 int main(int argc, char *argv[]) {
-#if BUILD_EXECUTOR_SINGLE
+#if SYSTEMD_MULTICALL_BINARY
         if (invoked_as(argv, "executor"))
                 return run_executor(argc, argv);
+
+        if (invoked_as(argv, "shutdown"))
+                return run_shutdown(argc, argv);
 #endif
         return run_systemd(argc, argv);
 }

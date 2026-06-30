@@ -78,8 +78,9 @@ conf.set10('FUZZ_USE_SIZE_LIMIT', fuzzer_build)
 # We'll set this to '1' for EFI builds in a different place.
 conf.set10('SD_BOOT', false)
 
-link_executor_shared = get_option('link-executor-shared')
-conf.set10('BUILD_EXECUTOR_SINGLE', link_executor_shared == 'single')
+conf.set10('SYSTEMD_MULTICALL_BINARY', get_option('systemd-multicall-binary'))
+
+conf.set10('BUILD_STATIC', get_option('build-static'))
 
 # Create a title-less summary section early, so it ends up first in the output.
 # More items are added later after they have been detected.
@@ -724,6 +725,9 @@ if fallback_hostname == '' or fallback_hostname[0] == '.' or fallback_hostname[0
         # the most obvious errors here so we don't fail with an assert later.
 endif
 conf.set_quoted('FALLBACK_HOSTNAME', fallback_hostname)
+
+default_target = get_option('default-target')
+conf.set_quoted('DEFAULT_TARGET', default_target)
 
 extra_net_naming_schemes = []
 extra_net_naming_map = []
@@ -1792,29 +1796,32 @@ libsystemd = shared_library(
         link_depends : libsystemd_sym,
         install : true,
         install_tag: 'libsystemd',
-        install_dir : libdir)
+        install_dir : libdir,
+)
+
+install_libsystemd_static = static_library(
+        'systemd',
+        libc_wrapper_sources,
+        libsystemd_sources,
+        basic_sources,
+        fundamental_sources,
+        include_directories : libsystemd_includes,
+        implicit_include_directories : false,
+        build_by_default : static_libsystemd != 'false',
+        install : static_libsystemd != 'false',
+        install_tag: 'libsystemd',
+        install_dir : libdir,
+        pic : static_libsystemd_pic,
+        dependencies : [liblz4_cflags,
+                        libm,
+                        libucontext,
+                        libxz_cflags,
+                        libzstd_cflags,
+                        userspace],
+        c_args : libsystemd_c_args + (static_libsystemd_pic ? [] : ['-fno-PIC']),
+)
 
 if static_libsystemd != 'false'
-        install_libsystemd_static = static_library(
-                'systemd',
-                libc_wrapper_sources,
-                libsystemd_sources,
-                basic_sources,
-                fundamental_sources,
-                include_directories : libsystemd_includes,
-                implicit_include_directories : false,
-                install : true,
-                install_tag: 'libsystemd',
-                install_dir : libdir,
-                pic : static_libsystemd_pic,
-                dependencies : [liblz4_cflags,
-                                libm,
-                                libucontext,
-                                libxz_cflags,
-                                libzstd_cflags,
-                                userspace],
-                c_args : libsystemd_c_args + (static_libsystemd_pic ? [] : ['-fno-PIC']))
-
         alias_target('libsystemd', libsystemd, install_libsystemd_static)
 else
         alias_target('libsystemd', libsystemd)
@@ -1833,28 +1840,31 @@ libudev = shared_library(
         link_depends : libudev_sym,
         install : true,
         install_tag: 'libudev',
-        install_dir : libdir)
+        install_dir : libdir,
+)
+
+install_libudev_static = static_library(
+        'udev',
+        libc_wrapper_sources,
+        basic_sources,
+        fundamental_sources,
+        shared_sources,
+        libsystemd_sources,
+        libudev_sources,
+        include_directories : includes,
+        implicit_include_directories : false,
+        build_by_default : static_libudev != 'false',
+        install : static_libudev != 'false',
+        install_tag: 'libudev',
+        install_dir : libdir,
+        link_depends : libudev_sym,
+        dependencies : [libshared_deps,
+                        userspace],
+        c_args : static_libudev_pic ? [] : ['-fno-PIC'],
+        pic : static_libudev_pic,
+)
 
 if static_libudev != 'false'
-        install_libudev_static = static_library(
-                'udev',
-                libc_wrapper_sources,
-                basic_sources,
-                fundamental_sources,
-                shared_sources,
-                libsystemd_sources,
-                libudev_sources,
-                include_directories : includes,
-                implicit_include_directories : false,
-                install : true,
-                install_tag: 'libudev',
-                install_dir : libdir,
-                link_depends : libudev_sym,
-                dependencies : [libshared_deps,
-                                userspace],
-                c_args : static_libudev_pic ? [] : ['-fno-PIC'],
-                pic : static_libudev_pic)
-
         alias_target('libudev', libudev, install_libudev_static)
 else
         alias_target('libudev', libudev)
@@ -1971,6 +1981,9 @@ module_additional_kwargs = {
 
 #####################################################################
 
+# 'src/core' embeds a built-in copy of some unit files, so the unit file list
+# from 'units' must be defined first.
+subdir('units')
 # systemd-analyze requires 'libcore'
 subdir('src/core')
 # systemd-networkd requires 'libsystemd_network'
@@ -2056,7 +2069,6 @@ subdir('src/rpm')
 subdir('src/run')
 subdir('src/run-generator')
 subdir('src/sbsign')
-subdir('src/shutdown')
 subdir('src/sleep')
 subdir('src/socket-activate')
 subdir('src/socket-proxy')
@@ -2128,7 +2140,11 @@ foreach dict : executables
 
         build = true
         foreach cond : dict.get('conditions', [])
-                if conf.get(cond) != 1
+                # 'conditions' is an array of condition predicates to be ANDed together.
+                # Each predicate is either a boolean (true or false), or a
+                # name of an option in the 'conf' map that maps to 1 or 0.
+                val = [true, false].contains(cond) ? cond : conf.get(cond) == 1
+                if not val
                         build = false
                         break
                 endif
@@ -2462,7 +2478,6 @@ subdir('shell-completion/zsh')
 subdir('sysctl.d')
 subdir('sysusers.d')
 subdir('tmpfiles.d')
-subdir('units')
 
 install_subdir('factory/etc',
                install_dir : factorydir)
@@ -2750,6 +2765,7 @@ summary({
         'nobody user name'                          : nobody_user,
         'nobody group name'                         : nobody_group,
         'fallback hostname'                         : get_option('fallback-hostname'),
+        'default target'                            : default_target,
         'default compression method'                : compression,
         'default DNSSEC mode'                       : default_dnssec,
         'default DNS-over-TLS mode'                 : default_dns_over_tls,
