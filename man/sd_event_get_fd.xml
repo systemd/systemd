@@ -94,7 +94,7 @@
     </example>
   </refsect1>
 
-  <xi:include href="libsystemd-pkgconfig.xml" />
+  <xi:include href="libsystemd-notes.xml"/>
 
   <refsect1>
     <title>History</title>
