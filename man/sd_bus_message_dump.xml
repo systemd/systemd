@@ -119,7 +119,15 @@
     errno-style error code. No error codes are currently defined.</para>
   </refsect1>
 
-  <xi:include href="libsystemd-pkgconfig.xml" />
+  <refsect1>
+    <title>Notes</title>
+
+    <xi:include href="libsystemd-pkgconfig.xml" xpointer="pkgconfig-text"/>
+
+    <xi:include href="threads-aware.xml" xpointer="getenv"/>
+
+    <xi:include href="threads-aware.xml" xpointer="strict"/>
+  </refsect1>
 
   <refsect1>
     <title>See Also</title>
