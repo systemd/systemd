@@ -209,6 +209,10 @@ systemd_deps = [
         libselinux_cflags,
 ]
 
+
+systemd_link_args = get_option('build-static') ? ['-static'] : []
+systemd_libs = get_option('build-static') ? core_libs_static : core_libs_shared
+
 executor_libs = get_option('link-executor-shared') ? core_libs_shared : core_libs_static
 
 if conf.get('SYSTEMD_MULTICALL_BINARY') == 1
@@ -226,7 +230,8 @@ executables += [
                 'dbus' : true,
                 'public' : true,
                 'sources' : systemd_sources,
-                'link_with' : core_libs_shared,
+                'link_args' : systemd_link_args,
+                'link_with' : systemd_libs,
                 'dependencies' : systemd_deps,
         },
 
