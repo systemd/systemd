@@ -1090,7 +1090,7 @@ static int ask_password_conv(
 
                                 if (creds_dir) {
                                         if (setenv("CREDENTIALS_DIRECTORY", creds_dir, /* overwrite= */ true) < 0)
-                                                return log_error_errno(r, "Failed to set $CREDENTIALS_DIRECTORY: %m");
+                                                return log_error_errno(errno, "Failed to set $CREDENTIALS_DIRECTORY: %m");
                                 } else
                                         (void) unsetenv("CREDENTIALS_DIRECTORY");
 
