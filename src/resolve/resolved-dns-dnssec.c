@@ -69,9 +69,11 @@ static int dnssec_rsa_verify_raw(
                 const void *data, size_t data_size,
                 const void *exponent, size_t exponent_size,
                 const void *modulus, size_t modulus_size) {
+
+#if !defined(OPENSSL_NO_DEPRECATED_3_0)
+        DISABLE_WARNING_DEPRECATED_DECLARATIONS;
         int r;
 
-        DISABLE_WARNING_DEPRECATED_DECLARATIONS;
         _cleanup_(RSA_freep) RSA *rpubkey = NULL;
         _cleanup_(EVP_PKEY_freep) EVP_PKEY *epubkey = NULL;
         _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx = NULL;
@@ -125,6 +127,9 @@ static int dnssec_rsa_verify_raw(
 
         REENABLE_WARNING;
         return r;
+#else
+        return -EOPNOTSUPP;
+#endif
 }
 
 static int dnssec_rsa_verify(
@@ -195,9 +200,11 @@ static int dnssec_ecdsa_verify_raw(
                 const void *signature_s, size_t signature_s_size,
                 const void *data, size_t data_size,
                 const void *key, size_t key_size) {
+
+#if !defined(OPENSSL_NO_DEPRECATED_3_0)
+        DISABLE_WARNING_DEPRECATED_DECLARATIONS;
         int k;
 
-        DISABLE_WARNING_DEPRECATED_DECLARATIONS;
         _cleanup_(EC_GROUP_freep) EC_GROUP *ec_group = NULL;
         _cleanup_(EC_POINT_freep) EC_POINT *p = NULL;
         _cleanup_(EC_KEY_freep) EC_KEY *eckey = NULL;
@@ -262,6 +269,9 @@ static int dnssec_ecdsa_verify_raw(
 
         REENABLE_WARNING;
         return k;
+#else
+        return -EOPNOTSUPP;
+#endif
 }
 
 static int dnssec_ecdsa_verify(
