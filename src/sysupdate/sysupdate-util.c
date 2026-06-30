@@ -43,6 +43,18 @@ bool component_name_valid(const char *c) {
         return filename_is_valid(j);
 }
 
+bool feature_name_valid(const char *c) {
+        /* See if the specified string enclosed in the file suffix would be a valid file name */
+
+        if (!string_is_safe(c, STRING_FILENAME_PART))
+                return false;
+
+        /* Stack allocation is safe, since STRING_FILENAME_PART includes a length check */
+        const char *j = strjoina(c, ".feature");
+
+        return filename_is_valid(j);
+}
+
 int get_component_list(const char *root, char ***ret) {
         int r;
 
