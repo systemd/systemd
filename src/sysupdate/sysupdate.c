@@ -2025,9 +2025,114 @@ static int make_dropin_dir(Context *c, char **ret) {
         return 0;
 }
 
-VERB(verb_enable_feature, "enable-feature", "FEATURE…", 2, VERB_ANY, 0,
+static const char *context_component_display(const Context *c) {
+        assert(c);
+
+        return c->component ?: "<default>";
+}
+
+static int context_enable_feature(
+                Context *c,
+                const char *argv0,
+                bool enable,
+                char **features) {
+
+        int r;
+
+        assert(c);
+        assert(argv0);
+
+        _cleanup_free_ char **l = NULL;
+        switch (c->feature_select) {
+
+        case SELECT_EXPLICIT:
+                break;
+
+        case SELECT_ALL: {
+                assert(!features);
+
+                Feature *f;
+                HASHMAP_FOREACH(f, c->features)
+                        if (strv_push(&l, f->id) < 0)
+                                return log_oom();
+
+                features = l;
+                break;
+        }
+
+        case SELECT_SUGGESTED: {
+                assert(!features);
+
+                Feature *f;
+                HASHMAP_FOREACH(f, c->features) {
+                        r = feature_is_suggested(f);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to determine if feature '%s' of component '%s' shall be enabled: %m", f->id, context_component_display(c));
+                        if (!!r != !!enable) {
+                                log_debug("Skipping feature '%s' of component '%s'.", f->id, context_component_display(c));
+                                continue;
+                        }
+
+                        log_info("%s feature '%s' of component '%s'.", enable ? "Enabling" : "Disabling", f->id, context_component_display(c));
+
+                        if (strv_push(&l, f->id) < 0)
+                                return log_oom();
+                }
+
+                features = l;
+                break;
+        }
+
+        default:
+                assert_not_reached();
+        }
+
+        if (strv_isempty(features)) {
+                log_debug("No features selected.");
+                return 0;
+        }
+
+        _cleanup_free_ char *dropin_dir = NULL;
+        r = make_dropin_dir(c, &dropin_dir);
+        if (r < 0)
+                return r;
+
+        int ret = 0;
+        STRV_FOREACH(name, features) {
+                if (!hashmap_contains(c->features, *name)) {
+                        RET_GATHER(ret, log_error_errno(SYNTHETIC_ERRNO(ENOENT), "Optional feature not found in component '%s': %s", context_component_display(c), *name));
+                        continue;
+                }
+
+                _cleanup_free_ char *fname = strjoin(*name, ".feature");
+                if (!fname)
+                        return log_oom();
+
+                /* We assume that no sysadmin will name their config 50-systemd-sysupdate-enabled.conf */
+                r = write_drop_in_format(
+                                dropin_dir,
+                                fname,
+                                50,
+                                "systemd-sysupdate-enabled",
+                                "# Generated via 'systemd-sysupdate %s'\n\n"
+                                "[Feature]\n"
+                                "Enabled=%s\n",
+                                argv0,
+                                yes_no(enable));
+                if (r < 0) {
+                        RET_GATHER(ret, log_error_errno(r, "Failed to write drop-in for feature '%s': %m", *name));
+                        continue;
+                }
+
+                log_info("Feature '%s' %s.", *name, enabled_disabled(enable));
+        }
+
+        return ret;
+}
+
+VERB(verb_enable_feature, "enable-feature", "FEATURE…", 1, VERB_ANY, 0,
      "Enable optional feature");
-VERB(verb_enable_feature, "disable-feature", "FEATURE…", 2, VERB_ANY, 0,
+VERB(verb_enable_feature, "disable-feature", "FEATURE…", 1, VERB_ANY, 0,
      "Disable optional feature");
 static int verb_enable_feature(int argc, char *argv[], uintptr_t _data, void *userdata) {
         bool enable = streq(argv[0], "enable-feature");
@@ -2038,10 +2143,24 @@ static int verb_enable_feature(int argc, char *argv[], uintptr_t _data, void *us
         if (r < 0)
                 return r;
 
-        if (context.feature_select != SELECT_EXPLICIT)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--feature-all/--feature-suggested is not supported for '%s'.", argv[0]);
-        if (context.component_select != SELECT_EXPLICIT)
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--component-all currently not supported for '%s'.", argv[0]);
+        if (!IN_SET(context.component_select, SELECT_EXPLICIT, SELECT_ALL))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--component-suggested is not supported for '%s'.", argv[0]);
+        if (context.definitions)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "The --definitions= switch may not be combined with '%s'.", argv[0]);
+
+        char **features;
+        if (argc > 1 && context.feature_select == SELECT_EXPLICIT) {
+                features = strv_skip(argv, 1);
+
+                STRV_FOREACH(name, features)
+                        if (!feature_name_valid(*name))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Feature name invalid: %s", *name);
+
+        } else if (argc <= 1 && context.feature_select != SELECT_EXPLICIT)
+                features = NULL;
+        else
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Either specify features as positional parameter or via --feature-all/--feature-suggested, not both.");
 
         r = context_load_offline(
                         &context,
@@ -2050,41 +2169,54 @@ static int verb_enable_feature(int argc, char *argv[], uintptr_t _data, void *us
         if (r < 0)
                 return r;
 
-        _cleanup_free_ char *dropin_dir = NULL;
-        r = make_dropin_dir(&context, &dropin_dir);
-        if (r < 0)
-                return r;
+        switch (context.component_select) {
 
-        STRV_FOREACH(name, strv_skip(argv, 1)) {
+        case SELECT_EXPLICIT:
+                return context_enable_feature(&context, argv[0], enable, features);
 
-                if (!feature_name_valid(*name))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Feature name invalid: %s", *name);
-
-                if (!hashmap_contains(context.features, *name))
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
-                                               "Optional feature not found: %s", *name);
-
-                _cleanup_free_ char *fname = strjoin(*name, ".feature");
-                if (!fname)
-                        return log_oom();
-
-                /* We assume that no sysadmin will name their config 50-systemd-sysupdate-enabled.conf */
-                r = write_drop_in_format(
-                                dropin_dir,
-                                fname,
-                                50, "systemd-sysupdate-enabled",
-                                "# Generated via 'systemd-sysupdate %s'\n\n"
-                                "[Feature]\n"
-                                "Enabled=%s\n",
-                                argv[0],
-                                yes_no(enable));
+        case SELECT_ALL: {
+                _cleanup_strv_free_ char **component_names = NULL;
+                bool has_default_component;
+                r = context_list_components(&context, &component_names, &has_default_component);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to write drop-in for feature '%s': %m", *name);
+                        return r;
 
-                log_info("Feature '%s' %s.", *name, enable ? "enabled" : "disabled");
+                if (strv_isempty(component_names) && !has_default_component) {
+                        log_debug("No components selected.");
+                        return 0;
+                }
+
+                int ret = 0;
+                if (has_default_component)
+                        RET_GATHER(ret, context_enable_feature(&context, argv[0], enable, features));
+
+                STRV_FOREACH(name, component_names) {
+                        _cleanup_(context_done) Context cc = CONTEXT_NULL;
+
+                        r = context_from_base_with_component(&context, *name, &cc);
+                        if (r < 0) {
+                                RET_GATHER(ret, r);
+                                continue;
+                        }
+
+                        r = context_load_offline(
+                                        &cc,
+                                        /* process_image_flags= */ 0,
+                                        /* read_definitions_flags= */ 0);
+                        if (r < 0) {
+                                RET_GATHER(ret, r);
+                                continue;
+                        }
+
+                        RET_GATHER(ret, context_enable_feature(&cc, argv[0], enable, features));
+                }
+
+                return ret;
         }
 
-        return 0;
+        default:
+                assert_not_reached();
+        }
 }
 
 VERB_NOARG(verb_check_new, "check-new",
