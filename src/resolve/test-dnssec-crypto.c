@@ -341,19 +341,13 @@ TEST(generate_ecdsa_test_vectors) {
                 ASSERT_OK_EQ(dnssec_ecdsa_verify_raw(                   \
                                              sym_EVP_sha256(),          \
                                              NID_X9_62_prime256v1,      \
-                                             (r).iov_base, (r).iov_len, \
-                                             (s).iov_base, (s).iov_len, \
-                                             (digest).iov_base, (digest).iov_len, \
-                                             (key).iov_base, (key).iov_len), \
+                                             &r, &s, &digest, &key),    \
                              expected);                                 \
         else                                                            \
                 ASSERT_ERROR(dnssec_ecdsa_verify_raw(                   \
                                              sym_EVP_sha256(),          \
                                              NID_X9_62_prime256v1,      \
-                                             (r).iov_base, (r).iov_len, \
-                                             (s).iov_base, (s).iov_len, \
-                                             (digest).iov_base, (digest).iov_len, \
-                                             (key).iov_base, (key).iov_len), \
+                                             &r, &s, &digest, &key),    \
                              -expected);
 
 TEST(dnssec_ecdsa_verify_raw) {

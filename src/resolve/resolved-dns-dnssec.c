@@ -207,40 +207,39 @@ static int dnssec_rsa_verify(
 int dnssec_ecdsa_verify_raw(
                 const EVP_MD *hash_algorithm,
                 int curve,
-                const void *signature_r, size_t signature_r_size,
-                const void *signature_s, size_t signature_s_size,
-                const void *data, size_t data_size,
-                const void *key, size_t key_size) {
+                const struct iovec *signature_r,
+                const struct iovec *signature_s,
+                const struct iovec *hash,
+                const struct iovec *key) {
 
 #if !defined(OPENSSL_NO_DEPRECATED_3_0)
         DISABLE_WARNING_DEPRECATED_DECLARATIONS;
-        int k;
-
-        _cleanup_(EC_GROUP_freep) EC_GROUP *ec_group = NULL;
-        _cleanup_(EC_POINT_freep) EC_POINT *p = NULL;
-        _cleanup_(EC_KEY_freep) EC_KEY *eckey = NULL;
-        _cleanup_(BN_CTX_freep) BN_CTX *bctx = NULL;
-        _cleanup_(BN_freep) BIGNUM *r = NULL, *s = NULL;
-        _cleanup_(ECDSA_SIG_freep) ECDSA_SIG *sig = NULL;
+        int r;
 
         assert(hash_algorithm);
+        assert(iovec_is_set(signature_r));
+        assert(iovec_is_set(signature_s));
+        assert(iovec_is_set(hash));
+        assert(iovec_is_set(key));
 
-        ec_group = sym_EC_GROUP_new_by_curve_name(curve);
+        DISABLE_WARNING_DEPRECATED_DECLARATIONS;
+
+        _cleanup_(EC_GROUP_freep) EC_GROUP *ec_group = sym_EC_GROUP_new_by_curve_name(curve);
         if (!ec_group)
                 return -ENOMEM;
 
-        p = sym_EC_POINT_new(ec_group);
+        _cleanup_(EC_POINT_freep) EC_POINT *p = sym_EC_POINT_new(ec_group);
         if (!p)
                 return -ENOMEM;
 
-        bctx = sym_BN_CTX_new();
+        _cleanup_(BN_CTX_freep) BN_CTX *bctx = sym_BN_CTX_new();
         if (!bctx)
                 return -ENOMEM;
 
-        if (sym_EC_POINT_oct2point(ec_group, p, key, key_size, bctx) <= 0)
+        if (sym_EC_POINT_oct2point(ec_group, p, key->iov_base, key->iov_len, bctx) <= 0)
                 return log_openssl_errors(LOG_DEBUG, "Failed to parse EC public key point");
 
-        eckey = sym_EC_KEY_new();
+        _cleanup_(EC_KEY_freep) EC_KEY *eckey = sym_EC_KEY_new();
         if (!eckey)
                 return -ENOMEM;
 
@@ -250,33 +249,34 @@ int dnssec_ecdsa_verify_raw(
         if (sym_EC_KEY_set_public_key(eckey, p) <= 0)
                 return log_openssl_errors(LOG_DEBUG, "EC_KEY_set_public_key failed");
 
-        if (sym_EC_KEY_check_key(eckey) != 1)
+        if (sym_EC_KEY_check_key(eckey) <= 0)
                 return log_openssl_errors(LOG_DEBUG, "EC_KEY_check_key failed");
 
-        r = sym_BN_bin2bn(signature_r, signature_r_size, NULL);
-        if (!r)
+        _cleanup_(BN_freep) BIGNUM *bn_r = sym_BN_bin2bn(signature_r->iov_base, signature_r->iov_len, NULL);
+        if (!bn_r)
                 return log_openssl_errors(LOG_DEBUG, "Failed to convert ECDSA signature r to BIGNUM");
 
-        s = sym_BN_bin2bn(signature_s, signature_s_size, NULL);
-        if (!s)
+        _cleanup_(BN_freep) BIGNUM *bn_s = sym_BN_bin2bn(signature_s->iov_base, signature_s->iov_len, NULL);
+        if (!bn_s)
                 return log_openssl_errors(LOG_DEBUG, "Failed to convert ECDSA signature s to BIGNUM");
 
         /* TODO: We should eventually use the EVP API once it supports ECDSA signature verification */
 
-        sig = sym_ECDSA_SIG_new();
+        _cleanup_(ECDSA_SIG_freep) ECDSA_SIG *sig = sym_ECDSA_SIG_new();
         if (!sig)
                 return -ENOMEM;
 
-        if (sym_ECDSA_SIG_set0(sig, r, s) <= 0)
+        if (sym_ECDSA_SIG_set0(sig, bn_r, bn_s) <= 0)
                 return log_openssl_errors(LOG_DEBUG, "Failed to set ECDSA signature");
-        r = s = NULL;
+        TAKE_PTR(bn_r);
+        TAKE_PTR(bn_s);
 
-        k = sym_ECDSA_do_verify(data, data_size, sig, eckey);
-        if (k < 0)
+        r = sym_ECDSA_do_verify(hash->iov_base, hash->iov_len, sig, eckey);
+        if (r < 0)
                 return log_openssl_errors(LOG_DEBUG, "Signature verification failed");
 
         REENABLE_WARNING;
-        return k;
+        return r;
 #else
         return -EOPNOTSUPP;
 #endif
@@ -285,7 +285,7 @@ int dnssec_ecdsa_verify_raw(
 static int dnssec_ecdsa_verify(
                 const EVP_MD *hash_algorithm,
                 int algorithm,
-                const void *hash, size_t hash_size,
+                const struct iovec *hash,
                 DnsResourceRecord *rrsig,
                 DnsResourceRecord *dnskey) {
 
@@ -293,8 +293,8 @@ static int dnssec_ecdsa_verify(
         size_t key_size;
         uint8_t *q;
 
-        assert(hash);
-        assert(hash_size);
+        assert(hash_algorithm);
+        assert(iovec_is_set(hash));
         assert(rrsig);
         assert(dnskey);
 
@@ -320,10 +320,10 @@ static int dnssec_ecdsa_verify(
         return dnssec_ecdsa_verify_raw(
                         hash_algorithm,
                         curve,
-                        rrsig->rrsig.signature, key_size,
-                        (uint8_t*) rrsig->rrsig.signature + key_size, key_size,
-                        hash, hash_size,
-                        q, key_size*2+1);
+                        &IOVEC_MAKE(rrsig->rrsig.signature, key_size),
+                        &IOVEC_MAKE((uint8_t*) rrsig->rrsig.signature + key_size, key_size),
+                        hash,
+                        &IOVEC_MAKE(q, key_size * 2 + 1));
 }
 
 static int dnssec_eddsa_verify_raw(
@@ -698,7 +698,7 @@ static int dnssec_rrset_verify_sig(
                 return dnssec_verify_errno(dnssec_ecdsa_verify(
                                 md_algorithm,
                                 rrsig->rrsig.algorithm,
-                                hash, hash_size,
+                                &IOVEC_MAKE(hash, hash_size),
                                 rrsig,
                                 dnskey));
 
