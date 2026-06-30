@@ -204,7 +204,7 @@ static int dnssec_rsa_verify(
                         &IOVEC_MAKE(modulus, modulus_size));
 }
 
-static int dnssec_ecdsa_verify_raw(
+int dnssec_ecdsa_verify_raw(
                 const EVP_MD *hash_algorithm,
                 int curve,
                 const void *signature_r, size_t signature_r_size,

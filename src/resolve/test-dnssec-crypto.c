@@ -255,6 +255,162 @@ TEST(dnssec_rsa_verify_raw) {
         TEST_RSA_VERIFY(test_signature, test_digest, test_exponent, bad_modulus, -EINVAL);
 }
 
+static const uint8_t test_ecdsa_r_buf[] = {
+        0x0b, 0x81, 0x39, 0x45, 0xa8, 0xcd, 0x1b, 0x12,
+        0xd6, 0x9f, 0xa9, 0x88, 0xf2, 0x28, 0x39, 0x13,
+        0x59, 0x1d, 0xe7, 0xee, 0xea, 0x92, 0x87, 0x0a,
+        0x2c, 0x7a, 0xf2, 0x3b, 0xfb, 0x3e, 0xcb, 0x3b,
+};
+
+static const uint8_t test_ecdsa_s_buf[] = {
+        0x74, 0xcd, 0x7c, 0x0b, 0x52, 0xa5, 0x7b, 0xf5,
+        0x63, 0x84, 0xd5, 0xd9, 0xd2, 0xcb, 0xe3, 0xce,
+        0x55, 0x05, 0x11, 0x7c, 0xe1, 0xfe, 0x55, 0xb4,
+        0x54, 0x2e, 0x6e, 0x1c, 0xff, 0x50, 0xe5, 0x92,
+};
+
+static const uint8_t test_ecdsa_key_buf[] = {
+        0x04, 0x23, 0x1f, 0x7d, 0x08, 0xec, 0x20, 0xcd,
+        0xde, 0x03, 0x93, 0xa7, 0xb2, 0x47, 0x73, 0xeb,
+        0xde, 0xd3, 0x5a, 0xbe, 0x35, 0x01, 0xda, 0x31,
+        0x2b, 0x7b, 0x61, 0xcf, 0xd2, 0x30, 0xbf, 0xbf,
+        0xb7, 0x6f, 0x0d, 0x86, 0x0a, 0x32, 0x46, 0xb6,
+        0xdc, 0xb0, 0xd0, 0xa7, 0x3f, 0x5d, 0xdd, 0xdd,
+        0xb9, 0xbb, 0x6b, 0x01, 0x61, 0x93, 0x2c, 0x1a,
+        0x26, 0x65, 0x5f, 0x46, 0xb1, 0xe1, 0xc7, 0x1d,
+        0x21,
+};
+
+static const struct iovec test_ecdsa_r = IOVEC_MAKE(test_ecdsa_r_buf, sizeof(test_ecdsa_r_buf));
+static const struct iovec test_ecdsa_s = IOVEC_MAKE(test_ecdsa_s_buf, sizeof(test_ecdsa_s_buf));
+static const struct iovec test_ecdsa_key = IOVEC_MAKE(test_ecdsa_key_buf, sizeof(test_ecdsa_key_buf));
+
+TEST(generate_ecdsa_test_vectors) {
+        /* This does not test anything but generates test vectors for dnssec_ecdsa_verify_raw().
+         * This is skipped when we are running on valgrind or sanitizers, as it is extremely slow. */
+#if HAVE_VALGRIND_VALGRIND_H
+        if (RUNNING_ON_VALGRIND)
+                return (void) log_tests_skipped("Running on valgrind");
+#endif
+#if HAS_FEATURE_ADDRESS_SANITIZER
+        return (void) log_tests_skipped("Running on sanitizers");
+#endif
+
+        /* Generate a P-256 (prime256v1) EC key pair. */
+        _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *kctx =
+                ASSERT_NOT_NULL(sym_EVP_PKEY_CTX_new_id(EVP_PKEY_EC, NULL));
+        ASSERT_OK_POSITIVE(sym_EVP_PKEY_keygen_init(kctx));
+        ASSERT_OK_POSITIVE(sym_EVP_PKEY_CTX_set_ec_paramgen_curve_nid(kctx, NID_X9_62_prime256v1));
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = NULL;
+        ASSERT_OK_POSITIVE(sym_EVP_PKEY_generate(kctx, &pkey));
+
+        /* Export uncompressed public key point (0x04 || X || Y) */
+        size_t key_sz = 0;
+        ASSERT_OK_POSITIVE(sym_EVP_PKEY_get_octet_string_param(pkey, OSSL_PKEY_PARAM_PUB_KEY, NULL, 0, &key_sz));
+        struct iovec pubkey = IOVEC_ALLOCA(key_sz);
+        ASSERT_OK_POSITIVE(sym_EVP_PKEY_get_octet_string_param(pkey, OSSL_PKEY_PARAM_PUB_KEY, pubkey.iov_base, key_sz, &key_sz));
+        pubkey.iov_len = key_sz;
+
+        /* Sign the existing test_digest with ECDSA */
+        _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *sctx = ASSERT_PTR(sym_EVP_PKEY_CTX_new(pkey, NULL));
+        ASSERT_OK_POSITIVE(sym_EVP_PKEY_sign_init(sctx));
+        ASSERT_OK_POSITIVE(sym_EVP_PKEY_CTX_set_signature_md(sctx, sym_EVP_sha256()));
+        size_t sig_sz;
+        ASSERT_OK_POSITIVE(sym_EVP_PKEY_sign(sctx, NULL, &sig_sz, test_digest.iov_base, test_digest.iov_len));
+        struct iovec signature_der = IOVEC_ALLOCA(sig_sz);
+        ASSERT_OK_POSITIVE(sym_EVP_PKEY_sign(sctx, signature_der.iov_base, &signature_der.iov_len, test_digest.iov_base, test_digest.iov_len));
+
+        /* ECDSA signature is DER encoded. Extract r and s components. */
+        const uint8_t *p = signature_der.iov_base;
+        _cleanup_(ECDSA_SIG_freep) ECDSA_SIG *esig = ASSERT_NOT_NULL(sym_d2i_ECDSA_SIG(NULL, &p, signature_der.iov_len));
+
+        const BIGNUM *r_bn = sym_ECDSA_SIG_get0_r(esig);
+        const BIGNUM *s_bn = sym_ECDSA_SIG_get0_s(esig);
+
+        _cleanup_(iovec_done) struct iovec r_iov = {}, s_iov = {};
+        export_bn(r_bn, &r_iov);
+        export_bn(s_bn, &s_iov);
+
+        iovec_dump_c("test_ecdsa_r_buf", &r_iov);
+        iovec_dump_c("test_ecdsa_s_buf", &s_iov);
+        iovec_dump_c("test_ecdsa_key_buf", &pubkey);
+}
+
+#define TEST_ECDSA_VERIFY(r, s, digest, key, expected)                  \
+        if (expected >= 0)                                              \
+                ASSERT_OK_EQ(dnssec_ecdsa_verify_raw(                   \
+                                             sym_EVP_sha256(),          \
+                                             NID_X9_62_prime256v1,      \
+                                             (r).iov_base, (r).iov_len, \
+                                             (s).iov_base, (s).iov_len, \
+                                             (digest).iov_base, (digest).iov_len, \
+                                             (key).iov_base, (key).iov_len), \
+                             expected);                                 \
+        else                                                            \
+                ASSERT_ERROR(dnssec_ecdsa_verify_raw(                   \
+                                             sym_EVP_sha256(),          \
+                                             NID_X9_62_prime256v1,      \
+                                             (r).iov_base, (r).iov_len, \
+                                             (s).iov_base, (s).iov_len, \
+                                             (digest).iov_base, (digest).iov_len, \
+                                             (key).iov_base, (key).iov_len), \
+                             -expected);
+
+TEST(dnssec_ecdsa_verify_raw) {
+#if !defined(OPENSSL_NO_DEPRECATED_3_0)
+        uint8_t *p;
+
+        /* Normal verification */
+        TEST_ECDSA_VERIFY(test_ecdsa_r, test_ecdsa_s, test_digest, test_ecdsa_key, 1);
+
+        /* Fuzzing R component */
+        _cleanup_(iovec_done) struct iovec bad_r = {};
+        ASSERT_NOT_NULL(iovec_memdup(&test_ecdsa_r, &bad_r));
+        p = bad_r.iov_base;
+        p[0] ^= 0x01;
+        TEST_ECDSA_VERIFY(bad_r, test_ecdsa_s, test_digest, test_ecdsa_key, 0);
+
+        p[0] ^= 0x01;
+        bad_r.iov_len -= 1;
+        TEST_ECDSA_VERIFY(bad_r, test_ecdsa_s, test_digest, test_ecdsa_key, 0);
+
+        /* Fuzzing S component */
+        _cleanup_(iovec_done) struct iovec bad_s = {};
+        ASSERT_NOT_NULL(iovec_memdup(&test_ecdsa_s, &bad_s));
+        p = bad_s.iov_base;
+        p[0] ^= 0x01;
+        TEST_ECDSA_VERIFY(test_ecdsa_r, bad_s, test_digest, test_ecdsa_key, 0);
+
+        p[0] ^= 0x01;
+        bad_s.iov_len -= 1;
+        TEST_ECDSA_VERIFY(test_ecdsa_r, bad_s, test_digest, test_ecdsa_key, 0);
+
+        /* Fuzzing Digest */
+        _cleanup_(iovec_done) struct iovec bad_digest = {};
+        ASSERT_NOT_NULL(iovec_memdup(&test_digest, &bad_digest));
+        p = bad_digest.iov_base;
+        p[0] ^= 0x01;
+        TEST_ECDSA_VERIFY(test_ecdsa_r, test_ecdsa_s, bad_digest, test_ecdsa_key, 0);
+
+        p[0] ^= 0x01;
+        bad_digest.iov_len -= 1;
+        TEST_ECDSA_VERIFY(test_ecdsa_r, test_ecdsa_s, bad_digest, test_ecdsa_key, 0);
+
+        /* Fuzzing Public Key Point */
+        _cleanup_(iovec_done) struct iovec bad_key = {};
+        ASSERT_NOT_NULL(iovec_memdup(&test_ecdsa_key, &bad_key));
+        p = bad_key.iov_base;
+        p[bad_key.iov_len - 1] ^= 0x01;
+        TEST_ECDSA_VERIFY(test_ecdsa_r, test_ecdsa_s, test_digest, bad_key, -ENOTRECOVERABLE);
+
+        p[bad_key.iov_len - 1] ^= 0x01;
+        bad_key.iov_len -= 1;
+        TEST_ECDSA_VERIFY(test_ecdsa_r, test_ecdsa_s, test_digest, bad_key, -ENOTRECOVERABLE);
+#else
+        TEST_ECDSA_VERIFY(test_ecdsa_r, test_ecdsa_s, test_digest, test_ecdsa_key, -EOPNOTSUPP);
+#endif
+}
+
 static int intro(void) {
         if (DLOPEN_LIBCRYPTO(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED) < 0)
                 return EXIT_TEST_SKIP;
