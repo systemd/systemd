@@ -10,6 +10,7 @@
 #include "string-util.h"
 #include "sysupdate-config.h"
 #include "sysupdate-feature.h"
+#include "sysupdate-util.h"
 
 static Feature *feature_free(Feature *f) {
         if (!f)
@@ -48,7 +49,27 @@ DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(feature_hash_ops,
                                       Feature, feature_unref);
 
 int feature_read_definition(Feature *f, const char *root, const char *path, const char *const *dirs) {
+        int r;
+
         assert(f);
+        assert(path);
+        assert(dirs);
+
+        _cleanup_free_ char *filename = NULL;
+        r = path_extract_filename(path, &filename);
+        if (r < 0)
+                return log_error_errno(r, "Failed to extract filename from path '%s': %m", path);
+
+        char *e = endswith(filename, ".feature");
+        if (!e)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Feature file '%s' has bad suffix: %m", filename);
+
+        _cleanup_free_ char *id = strndup(filename, e - filename);
+        if (!id)
+                return log_oom();
+
+        if (!feature_name_valid(id))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Malformed feature filename '%s': %m", filename);
 
         ConfigTableItem table[] = {
                 { "Feature", "Description",                config_parse_string,         0,                             &f->description   },
@@ -70,16 +91,6 @@ int feature_read_definition(Feature *f, const char *root, const char *path, cons
                 {}
         };
 
-        _cleanup_free_ char *filename = NULL;
-        int r;
-
-        assert(path);
-        assert(dirs);
-
-        r = path_extract_filename(path, &filename);
-        if (r < 0)
-                return log_error_errno(r, "Failed to extract filename from path '%s': %m", path);
-
         r = config_parse_many_full(
                         STRV_MAKE_CONST(path),
                         dirs,
@@ -95,8 +106,7 @@ int feature_read_definition(Feature *f, const char *root, const char *path, cons
         if (r < 0)
                 return r;
 
-        *ASSERT_PTR(endswith(filename, ".feature")) = 0; /* Remove the file extension */
-        f->id = TAKE_PTR(filename);
+        f->id = TAKE_PTR(id);
 
         return 0;
 }
