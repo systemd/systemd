@@ -529,8 +529,8 @@ int show_menu(char **x,
               const char *grey_prefix,
               bool with_numbers) {
 
-        assert(x);
         assert(n_columns > 0);
+        assert(column_width > 0);
 
         if (n_columns == SIZE_MAX)
                 n_columns = 3;
@@ -542,17 +542,21 @@ int show_menu(char **x,
                 size_t column_max = (columns()-1) / n_columns;
 
                 /* Subtract room for numbers */
-                if (with_numbers && column_max > 6)
-                        column_max -= 6;
+                if (with_numbers)
+                        column_max = LESS_BY(column_max, 6U);
 
                 /* If columns would get too tight let's make this a linear list instead. */
                 if (column_max < 10 && widest > 10) {
                         n_columns = 1;
                         column_max = columns()-1;
 
-                        if (with_numbers && column_max > 6)
-                                column_max -= 6;
+                        if (with_numbers)
+                                column_max = LESS_BY(column_max, 6U);
                 }
+
+                /* Never make this narrower than 10 characters */
+                if (column_max < 10U)
+                        column_max = 10U;
 
                 column_width = CLAMP(widest+1, 10U, column_max);
         }
@@ -564,8 +568,7 @@ int show_menu(char **x,
         if (break_lines > 2)
                 break_lines--;
 
-        /* The first page gets two extra lines, since we want to show
-         * a title */
+        /* The first page gets two extra lines, since we want to show a title */
         size_t break_modulo = break_lines;
         if (break_modulo > 3)
                 break_modulo -= 3;
@@ -575,17 +578,18 @@ int show_menu(char **x,
                 for (size_t j = 0; j < n_columns; j++) {
                         _cleanup_free_ char *e = NULL;
 
-                        if (j * per_column + i >= n)
+                        size_t p = j * per_column + i;
+                        if (p >= n)
                                 break;
 
-                        e = ellipsize(x[j * per_column + i], column_width, ellipsize_percentage);
+                        e = ellipsize(x[p], column_width, ellipsize_percentage);
                         if (!e)
                                 return -ENOMEM;
 
                         if (with_numbers)
                                 printf("%s%4zu)%s ",
                                        ansi_grey(),
-                                       j * per_column + i + 1,
+                                       p + 1,
                                        ansi_normal());
 
                         if (grey_prefix && startswith(e, grey_prefix)) {
