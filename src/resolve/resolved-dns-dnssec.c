@@ -80,8 +80,6 @@ int dnssec_rsa_verify_raw(
                 const struct iovec *exponent,
                 const struct iovec *modulus) {
 
-#if !defined(OPENSSL_NO_DEPRECATED_3_0)
-        DISABLE_WARNING_DEPRECATED_DECLARATIONS;
         int r;
 
         assert(hash_algorithm);
@@ -98,23 +96,33 @@ int dnssec_rsa_verify_raw(
         if (!m)
                 return log_openssl_errors(LOG_DEBUG, "Failed to convert RSA modulus to BIGNUM");
 
-        _cleanup_(RSA_freep) RSA *rpubkey = sym_RSA_new();
-        if (!rpubkey)
+        _cleanup_(OSSL_PARAM_BLD_freep) OSSL_PARAM_BLD *bld = sym_OSSL_PARAM_BLD_new();
+        if (!bld)
                 return -ENOMEM;
 
-        if (sym_RSA_set0_key(rpubkey, m, e, NULL) <= 0)
-                return log_openssl_errors(LOG_DEBUG, "Failed to set RSA public key");
-        e = m = NULL;
+        if (sym_OSSL_PARAM_BLD_push_BN(bld, OSSL_PKEY_PARAM_RSA_E, e) <= 0)
+                return log_openssl_errors(LOG_DEBUG, "Failed to push RSA exponent to OSSL_PARAM_BLD");
 
-        if ((size_t) sym_RSA_size(rpubkey) != signature->iov_len)
+        if (sym_OSSL_PARAM_BLD_push_BN(bld, OSSL_PKEY_PARAM_RSA_N, m) <= 0)
+                return log_openssl_errors(LOG_DEBUG, "Failed to push RSA modulus to OSSL_PARAM_BLD");
+
+        _cleanup_(OSSL_PARAM_freep) OSSL_PARAM *params = sym_OSSL_PARAM_BLD_to_param(bld);
+        if (!params)
+                return log_openssl_errors(LOG_DEBUG, "Failed to push generate OSSL param");
+
+        _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *kctx = sym_EVP_PKEY_CTX_new_id(EVP_PKEY_RSA, NULL);
+        if (!kctx)
+                return -ENOMEM;
+
+        if (sym_EVP_PKEY_fromdata_init(kctx) <= 0)
+                return log_openssl_errors(LOG_DEBUG, "Failed to initialize key creation");
+
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *epubkey = NULL;
+        if (sym_EVP_PKEY_fromdata(kctx, &epubkey, EVP_PKEY_PUBLIC_KEY, params) <= 0)
+                return log_openssl_errors(LOG_DEBUG, "Failed to load RSA public key from raw data");
+
+        if ((size_t) sym_EVP_PKEY_get_size(epubkey) != signature->iov_len)
                 return -EINVAL;
-
-        _cleanup_(EVP_PKEY_freep) EVP_PKEY *epubkey = sym_EVP_PKEY_new();
-        if (!epubkey)
-                return -ENOMEM;
-
-        if (sym_EVP_PKEY_assign_RSA(epubkey, sym_RSAPublicKey_dup(rpubkey)) <= 0)
-                return log_openssl_errors(LOG_DEBUG, "Failed to assign RSA public key");
 
         _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx = sym_EVP_PKEY_CTX_new(epubkey, NULL);
         if (!ctx)
@@ -133,11 +141,7 @@ int dnssec_rsa_verify_raw(
         if (r < 0)
                 return log_openssl_errors(LOG_DEBUG, "Signature verification failed");
 
-        REENABLE_WARNING;
         return r;
-#else
-        return -EOPNOTSUPP;
-#endif
 }
 
 static int dnssec_rsa_verify(
