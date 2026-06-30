@@ -948,7 +948,7 @@ static int dump_list(int argc, char **argv, void *userdata) {
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to determine timestamp: %m");
                                 if (usec > arg_until)
-                                        continue;
+                                        break;
                         }
 
                         if (arg_since != USEC_INFINITY && arg_reverse) {
@@ -958,7 +958,7 @@ static int dump_list(int argc, char **argv, void *userdata) {
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to determine timestamp: %m");
                                 if (usec < arg_since)
-                                        continue;
+                                        break;
                         }
 
                         r = print_entry(j, n_found++, t);
