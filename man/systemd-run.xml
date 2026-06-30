@@ -514,7 +514,7 @@
           <para>Do not synchronously wait for the unit start operation to finish. If this option is not specified, the
           start request for the transient unit will be verified, enqueued and <command>systemd-run</command> will wait
           until the unit's start-up is completed. By passing this argument, it is only verified and enqueued. This
-          option may not be combined with <option>--wait</option>.</para>
+          option may not be combined with <option>--wait</option> or <option>--scope</option>.</para>
 
           <xi:include href="version-info.xml" xpointer="v220"/>
         </listitem>
