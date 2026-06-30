@@ -85,6 +85,7 @@ shared_sources = files(
         'fido2-util.c',
         'find-esp.c',
         'firewall-util.c',
+        'firstboot-util.c',
         'fork-notify.c',
         'format-table.c',
         'fsprg-openssl.c',
