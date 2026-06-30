@@ -112,7 +112,7 @@
     <function>sd_event_source_ref()</function> always returns the event source object passed in.</para>
   </refsect1>
 
-  <xi:include href="libsystemd-pkgconfig.xml" />
+  <xi:include href="libsystemd-notes.xml"/>
 
   <refsect1>
     <title>History</title>
