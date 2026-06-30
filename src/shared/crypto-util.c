@@ -1640,10 +1640,9 @@ int ecc_ecdh(const EVP_PKEY *private_pkey,
 
 int pubkey_fingerprint(EVP_PKEY *pk, const EVP_MD *md, void **ret, size_t *ret_size) {
         _cleanup_(EVP_MD_CTX_freep) EVP_MD_CTX* m = NULL;
-        _cleanup_free_ void *d = NULL, *h = NULL;
-        int sz, lsz, msz;
+        _cleanup_free_ void *h = NULL;
+        int lsz, msz;
         unsigned umsz;
-        unsigned char *dd;
         int r;
 
         /* Calculates a message digest of the DER encoded public key */
@@ -1657,15 +1656,8 @@ int pubkey_fingerprint(EVP_PKEY *pk, const EVP_MD *md, void **ret, size_t *ret_s
         if (r < 0)
                 return r;
 
-        sz = sym_i2d_PublicKey(pk, NULL);
-        if (sz < 0)
-                return log_openssl_errors(LOG_DEBUG, "Unable to convert public key to DER format");
-
-        dd = d = malloc(sz);
-        if (!d)
-                return log_oom_debug();
-
-        lsz = sym_i2d_PublicKey(pk, &dd);
+        _cleanup_(OPENSSL_freep) void *d = NULL;
+        lsz = sym_i2d_PublicKey(pk, (unsigned char**) &d);
         if (lsz < 0)
                 return log_openssl_errors(LOG_DEBUG, "Unable to convert public key to DER format");
 
