@@ -1640,10 +1640,9 @@ int ecc_ecdh(const EVP_PKEY *private_pkey,
 
 int pubkey_fingerprint(EVP_PKEY *pk, const EVP_MD *md, void **ret, size_t *ret_size) {
         _cleanup_(EVP_MD_CTX_freep) EVP_MD_CTX* m = NULL;
-        _cleanup_free_ void *d = NULL, *h = NULL;
-        int sz, lsz, msz;
+        _cleanup_free_ void *h = NULL;
+        int lsz, msz;
         unsigned umsz;
-        unsigned char *dd;
         int r;
 
         /* Calculates a message digest of the DER encoded public key */
@@ -1657,15 +1656,8 @@ int pubkey_fingerprint(EVP_PKEY *pk, const EVP_MD *md, void **ret, size_t *ret_s
         if (r < 0)
                 return r;
 
-        sz = sym_i2d_PublicKey(pk, NULL);
-        if (sz < 0)
-                return log_openssl_errors(LOG_DEBUG, "Unable to convert public key to DER format");
-
-        dd = d = malloc(sz);
-        if (!d)
-                return log_oom_debug();
-
-        lsz = sym_i2d_PublicKey(pk, &dd);
+        _cleanup_(OPENSSL_freep) void *d = NULL;
+        lsz = sym_i2d_PublicKey(pk, (unsigned char**) &d);
         if (lsz < 0)
                 return log_openssl_errors(LOG_DEBUG, "Unable to convert public key to DER format");
 
@@ -1873,7 +1865,7 @@ static int ecc_pkey_generate_volume_keys(
 
         _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey_new = NULL;
         _cleanup_(erase_and_freep) void *decrypted_key = NULL;
-        _cleanup_free_ unsigned char *saved_key = NULL;
+        _cleanup_(OPENSSL_freep) void *saved_key = NULL;
         size_t decrypted_key_size, saved_key_size;
         int r;
 
@@ -1905,7 +1897,7 @@ static int ecc_pkey_generate_volume_keys(
 
         /* EVP_PKEY_get1_encoded_public_key() always returns uncompressed format of EC points.
            See https://github.com/openssl/openssl/discussions/22835 */
-        saved_key_size = sym_EVP_PKEY_get1_encoded_public_key(pkey_new, &saved_key);
+        saved_key_size = sym_EVP_PKEY_get1_encoded_public_key(pkey_new, (unsigned char**) &saved_key);
         if (saved_key_size == 0)
                 return log_openssl_errors(LOG_DEBUG, "Failed to convert the generated public key to SEC1 format");
 
@@ -2291,7 +2283,7 @@ OpenSSLAskPasswordUI* openssl_ask_password_ui_free(OpenSSLAskPasswordUI *ui) {
 }
 
 int x509_fingerprint(X509 *cert, uint8_t buffer[static SHA256_DIGEST_SIZE]) {
-        _cleanup_free_ uint8_t *der = NULL;
+        _cleanup_(OPENSSL_freep) void *der = NULL;
         int dersz, r;
 
         assert(cert);
@@ -2300,7 +2292,7 @@ int x509_fingerprint(X509 *cert, uint8_t buffer[static SHA256_DIGEST_SIZE]) {
         if (r < 0)
                 return r;
 
-        dersz = sym_i2d_X509(cert, &der);
+        dersz = sym_i2d_X509(cert, (unsigned char**) &der);
         if (dersz < 0)
                 return log_openssl_errors(LOG_DEBUG, "Unable to convert PEM certificate to DER format");
 
@@ -2408,21 +2400,12 @@ int openssl_extract_public_key(EVP_PKEY *private_key, EVP_PKEY **ret) {
         if (r < 0)
                 return r;
 
-        _cleanup_(memstream_done) MemStream m = {};
-        FILE *tf = memstream_init(&m);
-        if (!tf)
-                return -ENOMEM;
-
-        if (sym_i2d_PUBKEY_fp(tf, private_key) != 1)
+        _cleanup_(OPENSSL_freep) void *buf = NULL;
+        int len = sym_i2d_PUBKEY(private_key, (unsigned char**) &buf);
+        if (len < 0)
                 return log_openssl_errors(LOG_DEBUG, "Failed to extract public key in DER format");
 
-        _cleanup_(erase_and_freep) char *buf = NULL;
-        size_t len;
-        r = memstream_finalize(&m, &buf, &len);
-        if (r < 0)
-                return r;
-
-        const unsigned char *t = (const unsigned char*) buf;
+        const unsigned char *t = buf;
         if (!sym_d2i_PUBKEY(ret, &t, len))
                 return log_openssl_errors(LOG_DEBUG, "Failed to parse public key in DER format");
 
