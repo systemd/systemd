@@ -25,6 +25,7 @@
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "firstboot-util.h"
 #include "format-table.h"
 #include "format-util.h"
 #include "fs-util.h"
@@ -52,7 +53,6 @@
 #include "pkcs11-util.h"
 #include "plymouth-util.h"
 #include "polkit-agent.h"
-#include "proc-cmdline.h"
 #include "process-util.h"
 #include "prompt-util.h"
 #include "recurse-dir.h"
@@ -3120,12 +3120,15 @@ static int verb_firstboot(int argc, char *argv[], uintptr_t _data, void *userdat
         /* Let's honour the systemd.firstboot kernel command line option, just like the systemd-firstboot
          * tool. */
 
-        bool enabled;
-        r = proc_cmdline_get_bool("systemd.firstboot", /* flags= */ 0, &enabled);
+        FirstBootMode mode;
+        _cleanup_free_ char *bad = NULL;
+        r = firstboot_mode_from_cmdline(&mode, &bad);
         if (r < 0)
-                return log_error_errno(r, "Failed to parse systemd.firstboot= kernel command line argument, ignoring: %m");
-        if (r > 0 && !enabled) {
-                log_debug("Found systemd.firstboot=no kernel command line argument, turning off all prompts.");
+                return log_error_errno(r, "Failed to parse systemd.firstboot= kernel command line argument%s: %m",
+                                       bad ? strjoina(" (invalid value '", bad, "')") : "");
+        if (IN_SET(mode, FIRSTBOOT_NO, FIRSTBOOT_HEADLESS)) {
+                log_debug("Found systemd.firstboot=%s kernel command line argument, turning off all prompts.",
+                          firstboot_mode_to_string(mode));
                 arg_prompt_new_user = false;
         }
 

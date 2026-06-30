@@ -108,6 +108,7 @@ simple_tests += files(
         'test-fiemap.c',
         'test-fileio.c',
         'test-firewall-util.c',
+        'test-firstboot-util.c',
         'test-format-table.c',
         'test-format-util.c',
         'test-fs-util.c',
