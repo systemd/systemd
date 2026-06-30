@@ -245,6 +245,6 @@ int run_executor(int argc, char *argv[]) {
         return r < 0 ? EXIT_FAILURE : r;
 }
 
-#if !BUILD_EXECUTOR_SINGLE
+#if !SYSTEMD_MULTICALL_BINARY
 _alias_(run_executor) main;
 #endif
