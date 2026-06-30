@@ -900,7 +900,7 @@ static int pin_executor_binary(int *ret_fd) {
 
         assert(ret_fd);
 
-#if BUILD_EXECUTOR_SINGLE
+#if SYSTEMD_MULTICALL_BINARY
         int r;
 
         r = open_and_check_executable("/proc/self/exe", /* root= */ NULL, &path, ret_fd);
@@ -2527,20 +2527,34 @@ int manager_add_job_by_name(Manager *m, JobType type, const char *name, JobMode 
         return manager_add_job_full(m, type, unit, mode, /* extra_flags= */ 0, affected_jobs, e, ret);
 }
 
-int manager_add_job_by_name_and_warn(Manager *m, JobType type, const char *name, JobMode mode, Set *affected_jobs, Job **ret) {
+static int manager_add_job_by_name_or_warn_with_fallback(
+                Manager *m,
+                JobType type,
+                const char *name,
+                const char *fallback,
+                JobMode mode,
+                Set *affected_jobs,
+                Job **ret) {
+
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
-        assert(m);
-        assert(type < _JOB_TYPE_MAX);
-        assert(name);
-        assert(mode < _JOB_MODE_MAX);
-
         r = manager_add_job_by_name(m, type, name, mode, affected_jobs, &error, ret);
+        if (r == -ENOENT && fallback) {
+                log_debug_errno(r, "Failed to enqueue job %s/%s, fallback to %s: %s",
+                                name, job_mode_to_string(mode), fallback, bus_error_message(&error, r));
+                sd_bus_error_free(&error);
+                name = fallback;
+                r = manager_add_job_by_name(m, type, name, mode, affected_jobs, &error, ret);
+        }
         if (r < 0)
-                return log_warning_errno(r, "Failed to enqueue %s job for %s: %s", job_mode_to_string(mode), name, bus_error_message(&error, r));
-
+                return log_warning_errno(r, "Failed to enqueue job %s/%s: %s",
+                                         name, job_mode_to_string(mode), bus_error_message(&error, r));
         return r;
+}
+
+int manager_add_job_by_name_or_warn(Manager *m, JobType type, const char *name, JobMode mode, Set *affected_jobs, Job **ret) {
+        return manager_add_job_by_name_or_warn_with_fallback(m, type, name, /* fallback= */ NULL, mode, affected_jobs, ret);
 }
 
 int manager_propagate_reload(Manager *m, Unit *unit, JobMode mode, sd_bus_error *e) {
@@ -2788,6 +2802,7 @@ int manager_load_startable_unit_or_warn(
                 Manager *m,
                 const char *name,
                 const char *path,
+                int log_level,
                 Unit **ret) {
 
         /* Load a unit, make sure it loaded fully and is not masked. */
@@ -2800,13 +2815,13 @@ int manager_load_startable_unit_or_warn(
 
         r = manager_load_unit(m, name, path, &error, &unit);
         if (r < 0)
-                return log_error_errno(r, "Failed to load %s %s: %s",
-                                       name ? "unit" : "unit file", name ?: path,
-                                       bus_error_message(&error, r));
+                return log_full_errno(log_level, r, "Failed to load %s %s: %s",
+                                      name ? "unit" : "unit file", name ?: path,
+                                      bus_error_message(&error, r));
 
         r = bus_unit_validate_load_state(unit, &error);
         if (r < 0)
-                return log_error_errno(r, "%s", bus_error_message(&error, r));
+                return log_full_errno(log_level, r, "%s", bus_error_message(&error, r));
 
         *ret = unit;
         return 0;
@@ -3205,10 +3220,10 @@ turn_off:
         return 0;
 }
 
-static void manager_start_special(Manager *m, const char *name, JobMode mode) {
+static void manager_start_special_with_fallback(Manager *m, const char *name, const char *fallback, JobMode mode) {
         Job *job;
 
-        if (manager_add_job_by_name_and_warn(m, JOB_START, name, mode, NULL, &job) < 0)
+        if (manager_add_job_by_name_or_warn_with_fallback(m, JOB_START, name, fallback, mode, NULL, &job) < 0)
                 return;
 
         const char *s = unit_status_string(job->unit, NULL);
@@ -3220,6 +3235,10 @@ static void manager_start_special(Manager *m, const char *name, JobMode mode) {
         m->status_ready = false;
 }
 
+static void manager_start_special(Manager *m, const char *name, JobMode mode) {
+        return manager_start_special_with_fallback(m, name, /* fallback= */ NULL, mode);
+}
+
 static void manager_handle_ctrl_alt_del(Manager *m) {
         assert(m);
 
@@ -3227,7 +3246,11 @@ static void manager_handle_ctrl_alt_del(Manager *m) {
          * unless it was disabled in system.conf. */
 
         if (ratelimit_below(&m->ctrl_alt_del_ratelimit) || m->cad_burst_action == EMERGENCY_ACTION_NONE)
-                manager_start_special(m, SPECIAL_CTRL_ALT_DEL_TARGET, JOB_REPLACE_IRREVERSIBLY);
+                manager_start_special_with_fallback(
+                                m,
+                                SPECIAL_CTRL_ALT_DEL_TARGET,
+                                CTRL_ALT_DEL_TARGET_FALLBACK,
+                                JOB_REPLACE_IRREVERSIBLY);
         else
                 emergency_action(
                                 m,

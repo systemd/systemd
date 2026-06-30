@@ -52,6 +52,7 @@
 #include "fileio.h"
 #include "format-table.h"
 #include "format-util.h"
+#include "fs-util.h"
 #include "glyph-util.h"
 #include "hash-funcs.h"
 #include "hashmap.h"
@@ -94,6 +95,7 @@
 #include "proc-cmdline.h"
 #include "process-util.h"
 #include "random-util.h"
+#include "reboot-util.h"
 #include "rlimit-util.h"
 #include "rm-rf.h"
 #include "seccomp-util.h"
@@ -1858,6 +1860,52 @@ static int become_shutdown(int objective, int retval) {
         return -errno;
 }
 
+static int perform_shutdown(ManagerObjective objective, int retval) {
+        int cmd;
+
+        /* Perform the requested shutdown operation ourselves, by issuing the matching reboot() directly.
+         * This skips the cleanup systemd-shutdown normally does (unmounting file systems, detaching storage,
+         * killing remaining processes, switching into the exitrd). */
+
+        switch (objective) {
+
+        case MANAGER_KEXEC:
+                log_info("Rebooting with kexec.");
+                (void) kexec();
+                /* If we are still here kexec didn't work, fall back to a plain reboot. */
+                _fallthrough_;
+
+        case MANAGER_REBOOT:
+                (void) reboot_with_parameter(REBOOT_LOG);
+                log_info("Rebooting.");
+                cmd = RB_AUTOBOOT;
+                break;
+
+        case MANAGER_EXIT:
+                if (detect_container() > 0) {
+                        log_info("Exiting container.");
+                        exit(retval);
+                }
+                _fallthrough_;
+
+        case MANAGER_POWEROFF:
+                log_info("Powering off.");
+                cmd = RB_POWER_OFF;
+                break;
+
+        case MANAGER_HALT:
+                log_info("Halting system.");
+                cmd = RB_HALT_SYSTEM;
+                break;
+
+        default:
+                assert_not_reached();
+        }
+
+        (void) reboot(cmd);
+        return log_error_errno(errno, "Failed to shut down, freezing: %m");
+}
+
 static void initialize_clock_timewarp(void) {
         int r;
 
@@ -2128,6 +2176,7 @@ static int do_reexecute(
                 const char **ret_error_message) {
 
         size_t i, args_size;
+        _cleanup_free_ char *our_exe = NULL;
         const char **args;
         int r;
 
@@ -2235,14 +2284,31 @@ static int do_reexecute(
                 valgrind_summary_hack();
 
                 args[0] = SYSTEMD_BINARY_PATH;
-                (void) execv(args[0], (char* const*) args);
+                r = RET_NERRNO(execv(args[0], (char* const*) args));
 
                 if (objective == MANAGER_REEXECUTE) {
+                        /* If the binary is missing, try with our current executable too. This way things
+                         * continue to work if the binary is installed into a non-default location. Note that
+                         * we don't use chase here, the symlink the kernel gives is good enough. */
+                        if (r == -ENOENT) {
+                                int k;
+
+                                k = readlink_malloc("/proc/self/exe", &our_exe);
+                                if (k < 0)
+                                        log_warning_errno(k, "Failed to read /proc/self/exe: %m");
+                                else if (!endswith(our_exe, " (deleted)")) {
+                                        log_info_errno(r, "Failed to execute our own binary %s, trying fallback: %m", args[0]);
+
+                                        args[0] = our_exe;
+                                        r = RET_NERRNO(execv(args[0], (char* const*) args));
+                                }
+                        }
+
                         *ret_error_message = "Failed to execute our own binary";
-                        return log_error_errno(errno, "Failed to execute our own binary %s: %m", args[0]);
+                        return log_error_errno(r, "Failed to execute our own binary %s: %m", args[0]);
                 }
 
-                log_debug_errno(errno, "Failed to execute our own binary %s, trying fallback: %m", args[0]);
+                log_debug_errno(r, "Failed to execute our own binary %s, trying fallback: %m", args[0]);
         }
 
         /* Try the fallback, if there is any, without any serialization. We pass the original argv[] and
@@ -2278,13 +2344,12 @@ static int do_reexecute(
 
         if (switch_root_init) {
                 args[0] = switch_root_init;
-                (void) execve(args[0], (char* const*) args, saved_env);
-                log_warning_errno(errno, "Failed to execute configured init %s, trying fallback: %m", args[0]);
+                r = RET_NERRNO(execve(args[0], (char* const*) args, saved_env));
+                log_warning_errno(r, "Failed to execute configured init %s, trying fallback: %m", args[0]);
         }
 
         args[0] = "/sbin/init";
-        (void) execv(args[0], (char* const*) args);
-        r = -errno;
+        r = RET_NERRNO(execv(args[0], (char* const*) args));
         *ret_error_message = "Failed to execute /sbin/init";
 
         if (r == -ENOENT) {
@@ -2296,8 +2361,7 @@ static int do_reexecute(
 
                 args[0] = "/bin/sh";
                 args[1] = NULL;
-                (void) execve(args[0], (char* const*) args, saved_env);
-                r = -errno;
+                r = RET_NERRNO(execve(args[0], (char* const*) args, saved_env));
                 *ret_error_message = "Failed to execute fallback shell";
         }
 
@@ -2757,19 +2821,32 @@ static int do_queue_default_job(
 
         log_debug("Activating default unit: %s", unit);
 
-        r = manager_load_startable_unit_or_warn(m, unit, NULL, &target);
+        /* When no unit was explicitly requested, failures to load the default unit are not fatal, since we
+         * fall back to other targets below. Log them at a lower level in that case. */
+        int log_level = arg_default_unit ? LOG_ERR : LOG_INFO;
+
+        r = manager_load_startable_unit_or_warn(m, unit, NULL, log_level, &target);
         if (r < 0 && in_initrd() && !arg_default_unit) {
                 /* Fall back to default.target, which we used to always use by default. Only do this if no
                  * explicit configuration was given. */
 
                 log_info("Falling back to %s.", SPECIAL_DEFAULT_TARGET);
 
-                r = manager_load_startable_unit_or_warn(m, SPECIAL_DEFAULT_TARGET, NULL, &target);
+                r = manager_load_startable_unit_or_warn(m, SPECIAL_DEFAULT_TARGET, NULL, log_level, &target);
+        }
+        if (r == -ENOENT && !arg_default_unit) {
+                /* The default.target symlink was not found on disk and the target was not explicitly
+                 * specified. Fall back to the target configured at build time via -Ddefault-target=. */
+
+                log_info("Falling back to %s.", DEFAULT_TARGET);
+
+                r = manager_load_startable_unit_or_warn(m, DEFAULT_TARGET, NULL, log_level, &target);
         }
         if (r < 0) {
+                /* We failed. Activate rescue mode. */
                 log_info("Falling back to %s.", SPECIAL_RESCUE_TARGET);
 
-                r = manager_load_startable_unit_or_warn(m, SPECIAL_RESCUE_TARGET, NULL, &target);
+                r = manager_load_startable_unit_or_warn(m, SPECIAL_RESCUE_TARGET, NULL, log_level, &target);
                 if (r < 0) {
                         *ret_error_message = r == -ERFKILL ? SPECIAL_RESCUE_TARGET " masked"
                                                            : "Failed to load " SPECIAL_RESCUE_TARGET;
@@ -3896,9 +3973,20 @@ finish:
          * If we failed above, we want to freeze after finishing cleanup. */
         if (arg_runtime_scope == RUNTIME_SCOPE_SYSTEM &&
             IN_SET(r, MANAGER_EXIT, MANAGER_REBOOT, MANAGER_POWEROFF, MANAGER_HALT, MANAGER_KEXEC)) {
-                r = become_shutdown(r, retval);
-                log_error_errno(r, "Failed to execute shutdown binary, %s: %m", getpid_cached() == 1 ? "freezing" : "quitting");
-                error_message = "Failed to execute shutdown binary";
+                ManagerObjective objective = r;
+
+                r = become_shutdown(objective, retval);
+                assert(r < 0);
+                log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r,
+                               "Failed to execute shutdown binary: %m");
+
+                /* As PID 1, carry out the requested operation ourselves rather than relying on the shutdown
+                 * binary. This only returns if that didn't work, in which case we freeze/exit/reboot
+                 * below. */
+                r = perform_shutdown(objective, retval);
+                assert(r < 0);
+                log_error_errno(r, "Failed to perform shutdown: %m");
+                error_message = "Failed to perform shutdown";
         }
 
         /* This is primarily useful when running systemd in a VM, as it provides the user running the VM with
@@ -3922,7 +4010,7 @@ finish:
 }
 
 int main(int argc, char *argv[]) {
-#if BUILD_EXECUTOR_SINGLE
+#if SYSTEMD_MULTICALL_BINARY
         if (invoked_as(argv, "executor"))
                 return run_executor(argc, argv);
 #endif

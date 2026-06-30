@@ -78,8 +78,9 @@ conf.set10('FUZZ_USE_SIZE_LIMIT', fuzzer_build)
 # We'll set this to '1' for EFI builds in a different place.
 conf.set10('SD_BOOT', false)
 
-link_executor_shared = get_option('link-executor-shared')
-conf.set10('BUILD_EXECUTOR_SINGLE', link_executor_shared == 'single')
+conf.set10('SYSTEMD_MULTICALL_BINARY', get_option('systemd-multicall-binary'))
+
+conf.set10('BUILD_STATIC', get_option('build-static'))
 
 # Create a title-less summary section early, so it ends up first in the output.
 # More items are added later after they have been detected.
@@ -724,6 +725,9 @@ if fallback_hostname == '' or fallback_hostname[0] == '.' or fallback_hostname[0
         # the most obvious errors here so we don't fail with an assert later.
 endif
 conf.set_quoted('FALLBACK_HOSTNAME', fallback_hostname)
+
+default_target = get_option('default-target')
+conf.set_quoted('DEFAULT_TARGET', default_target)
 
 extra_net_naming_schemes = []
 extra_net_naming_map = []
@@ -1971,6 +1975,9 @@ module_additional_kwargs = {
 
 #####################################################################
 
+# 'src/core' embeds a built-in copy of some unit files, so the unit file list
+# from 'units' must be defined first.
+subdir('units')
 # systemd-analyze requires 'libcore'
 subdir('src/core')
 # systemd-networkd requires 'libsystemd_network'
@@ -2462,7 +2469,6 @@ subdir('shell-completion/zsh')
 subdir('sysctl.d')
 subdir('sysusers.d')
 subdir('tmpfiles.d')
-subdir('units')
 
 install_subdir('factory/etc',
                install_dir : factorydir)
@@ -2750,6 +2756,7 @@ summary({
         'nobody user name'                          : nobody_user,
         'nobody group name'                         : nobody_group,
         'fallback hostname'                         : get_option('fallback-hostname'),
+        'default target'                            : default_target,
         'default compression method'                : compression,
         'default DNSSEC mode'                       : default_dnssec,
         'default DNS-over-TLS mode'                 : default_dns_over_tls,

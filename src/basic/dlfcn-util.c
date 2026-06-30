@@ -101,6 +101,10 @@ void block_dlopen(void) {
 }
 
 int dlopen_safe(const char *filename, void **ret, const char **reterr_dlerror) {
+#if BUILD_STATIC
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                               "dlopen is not supported in static builds, cannot load %s.", filename);
+#else
         _cleanup_(dlclosep) void *dl = NULL;
         int r;
 
@@ -142,4 +146,5 @@ int dlopen_safe(const char *filename, void **ret, const char **reterr_dlerror) {
                 *ret = TAKE_PTR(dl);
 
         return 0;
+#endif
 }
