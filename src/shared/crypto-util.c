@@ -1865,7 +1865,6 @@ static int ecc_pkey_generate_volume_keys(
 
         _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey_new = NULL;
         _cleanup_(erase_and_freep) void *decrypted_key = NULL;
-        _cleanup_free_ unsigned char *saved_key = NULL;
         size_t decrypted_key_size, saved_key_size;
         int r;
 
@@ -1897,9 +1896,16 @@ static int ecc_pkey_generate_volume_keys(
 
         /* EVP_PKEY_get1_encoded_public_key() always returns uncompressed format of EC points.
            See https://github.com/openssl/openssl/discussions/22835 */
-        saved_key_size = sym_EVP_PKEY_get1_encoded_public_key(pkey_new, &saved_key);
+        _cleanup_(OPENSSL_freep) void *buf = NULL;
+        saved_key_size = sym_EVP_PKEY_get1_encoded_public_key(pkey_new, (unsigned char**) &buf);
         if (saved_key_size == 0)
                 return log_openssl_errors(LOG_DEBUG, "Failed to convert the generated public key to SEC1 format");
+
+        /* 'buf' is allocated by OpenSSL and must be freed via OPENSSL_free(). We duplicate it here so the
+         * caller can safely use standard free(). */
+        _cleanup_free_ void *saved_key = memdup(buf, saved_key_size);
+        if (!saved_key)
+                return log_oom_debug();
 
         *ret_decrypted_key = TAKE_PTR(decrypted_key);
         *ret_decrypted_key_size = decrypted_key_size;
@@ -2283,7 +2289,7 @@ OpenSSLAskPasswordUI* openssl_ask_password_ui_free(OpenSSLAskPasswordUI *ui) {
 }
 
 int x509_fingerprint(X509 *cert, uint8_t buffer[static SHA256_DIGEST_SIZE]) {
-        _cleanup_free_ uint8_t *der = NULL;
+        _cleanup_(OPENSSL_freep) void *der = NULL;
         int dersz, r;
 
         assert(cert);
@@ -2292,7 +2298,7 @@ int x509_fingerprint(X509 *cert, uint8_t buffer[static SHA256_DIGEST_SIZE]) {
         if (r < 0)
                 return r;
 
-        dersz = sym_i2d_X509(cert, &der);
+        dersz = sym_i2d_X509(cert, (unsigned char**) &der);
         if (dersz < 0)
                 return log_openssl_errors(LOG_DEBUG, "Unable to convert PEM certificate to DER format");
 
