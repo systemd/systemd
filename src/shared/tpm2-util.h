@@ -26,6 +26,11 @@ typedef enum TPM2Flags {
  * the Provisioning Guidance document for more details. */
 #define TPM2_SRK_HANDLE UINT32_C(0x81000001)
 
+/* The EK handle is defined in the Provisioning Guidance document (see above) in the table "Reserved Handles
+ * for TPM Provisioning Fundamental Elements". The NV indices are from the "TCG EK Credential Profile for
+ * TPM Family 2.0" specification (low range). */
+#define TPM2_EK_HANDLE UINT32_C(0x81010001)
+
 /* The TPM specification limits sealed data to MAX_SYM_DATA. Unfortunately, tpm2-tss incorrectly
  * defines this value as 256; the TPM specification Part 2 ("Structures") section
  * "TPMU_SENSITIVE_CREATE" states "For interoperability, MAX_SYM_DATA should be 128." */
@@ -141,7 +146,7 @@ int tpm2_tpml_pcr_selection_from_pcr_values(const Tpm2PCRValue *pcr_values, size
 
 int tpm2_make_encryption_session(Tpm2Context *c, const Tpm2Handle *primary, const Tpm2Handle *bind_key, Tpm2Handle **ret_session);
 
-int tpm2_create_primary(Tpm2Context *c, const Tpm2Handle *session, const TPM2B_PUBLIC *template, const TPM2B_SENSITIVE_CREATE *sensitive, TPM2B_PUBLIC **ret_public, Tpm2Handle **ret_handle);
+int tpm2_create_primary(Tpm2Context *c, const Tpm2Handle *session, ESYS_TR hierarchy, const TPM2B_PUBLIC *template, const TPM2B_SENSITIVE_CREATE *sensitive, TPM2B_PUBLIC **ret_public, Tpm2Handle **ret_handle);
 int tpm2_create(Tpm2Context *c, const Tpm2Handle *parent, const Tpm2Handle *session, const TPMT_PUBLIC *template, const TPMS_SENSITIVE_CREATE *sensitive, TPM2B_PUBLIC **ret_public, TPM2B_PRIVATE **ret_private);
 int tpm2_load(Tpm2Context *c, const Tpm2Handle *parent, const Tpm2Handle *session, const TPM2B_PUBLIC *public, const TPM2B_PRIVATE *private, Tpm2Handle **ret_handle);
 int tpm2_marshal_public(const TPM2B_PUBLIC *public, void **ret, size_t *ret_size);
@@ -345,6 +350,24 @@ int tpm2_get_best_srk_template(Tpm2Context *c, TPMT_PUBLIC *ret_template);
 
 int tpm2_get_srk(Tpm2Context *c, const Tpm2Handle *session, TPM2B_PUBLIC **ret_public, TPM2B_NAME **ret_name, TPM2B_NAME **ret_qname, Tpm2Handle **ret_handle);
 int tpm2_get_or_create_srk(Tpm2Context *c, const Tpm2Handle *session, TPM2B_PUBLIC **ret_public, TPM2B_NAME **ret_name, TPM2B_NAME **ret_qname, Tpm2Handle **ret_handle);
+
+typedef enum Tpm2EKTemplateProfile {
+        TPM2_EK_TEMPLATE_RSA_2048_LEGACY,       /* RSA 2048 storage (L-1) */
+        TPM2_EK_TEMPLATE_ECC_NIST_P256_LEGACY,  /* ECC NIST P256 storage (L-2) */
+        TPM2_EK_TEMPLATE_RSA_2048,              /* RSA 2048 storage (H-1) */
+        TPM2_EK_TEMPLATE_ECC_NIST_P256,         /* ECC NIST P256 storage (H-2) */
+        TPM2_EK_TEMPLATE_ECC_NIST_P384,         /* ECC NIST P384 storage (H-3) */
+        TPM2_EK_TEMPLATE_RSA_3072,              /* RSA 3072 storage (H-6) */
+
+        _TPM2_EK_TEMPLATE_MAX,
+        _TPM2_EK_TEMPLATE_INVALID = -EINVAL,
+} Tpm2EKTemplateProfile;
+
+void tpm2_get_default_ek_template(Tpm2EKTemplateProfile profile, TPMT_PUBLIC *ret_template);
+int tpm2_get_ek_template(Tpm2Context *c, const Tpm2Handle *session, Tpm2EKTemplateProfile profile, TPMT_PUBLIC *ret_template);
+
+int tpm2_get_ek(Tpm2Context *c, const Tpm2Handle *session, TPM2B_PUBLIC **ret_public, TPM2B_NAME **ret_name, TPM2B_NAME **ret_qname, Tpm2Handle **ret_handle);
+int tpm2_get_or_create_ek(Tpm2Context *c, const Tpm2Handle *session, TPM2B_PUBLIC **ret_public, TPM2B_NAME **ret_name, TPM2B_NAME **ret_qname, Tpm2Handle **ret_handle);
 
 int tpm2_seal(Tpm2Context *c, uint32_t seal_key_handle, const TPM2B_DIGEST policy_hash[], size_t n_policy, const char *pin, struct iovec *ret_secret, struct iovec **ret_blobs, size_t *ret_n_blobs, uint16_t *ret_primary_alg, struct iovec *ret_srk);
 int tpm2_unseal(Tpm2Context *c, uint32_t hash_pcr_mask, uint16_t pcr_bank, const struct iovec *pubkey, uint32_t pubkey_pcr_mask, sd_json_variant *signature, const char *pin, const Tpm2PCRLockPolicy *pcrlock_policy, uint16_t primary_alg, const struct iovec blobs[], size_t n_blobs, const struct iovec known_policy_hash[], size_t n_known_policy_hash, const struct iovec *srk, struct iovec *ret_secret);
