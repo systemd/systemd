@@ -13,6 +13,9 @@ EFI_DEVICE_PATH *device_path_replace_node(
 
 static inline EFI_DEVICE_PATH *device_path_next_node(const EFI_DEVICE_PATH *dp) {
         assert(dp);
+        /* Return NULL on a malformed length (smaller than the 4-byte header) instead of papering over it. */
+        if (dp->Length < sizeof(EFI_DEVICE_PATH))
+                return NULL;
         return (EFI_DEVICE_PATH *) ((uint8_t *) dp + dp->Length);
 }
 
@@ -29,5 +32,9 @@ static inline bool device_path_is_end(const EFI_DEVICE_PATH *dp) {
         }
 
 size_t device_path_size(const EFI_DEVICE_PATH *dp);
+
+/* Validates that a device path is well-formed and fully contained within the given size, terminated by an
+ * end node. Use on paths from untrusted sources (e.g. EFI variables) before walking them. */
+bool device_path_is_valid(const EFI_DEVICE_PATH *dp, size_t size);
 
 EFI_DEVICE_PATH *device_path_dup(const EFI_DEVICE_PATH *dp);
