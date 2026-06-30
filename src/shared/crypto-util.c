@@ -327,23 +327,6 @@ REENABLE_WARNING;
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(ENGINE*, sym_ENGINE_free, ENGINE_freep, NULL);
 #endif
 
-#if !defined(OPENSSL_NO_DEPRECATED_3_0)
-DISABLE_WARNING_DEPRECATED_DECLARATIONS;
-DLSYM_PROTOTYPE(ECDSA_do_verify) = NULL;
-DLSYM_PROTOTYPE(EC_KEY_check_key) = NULL;
-DLSYM_PROTOTYPE(EC_KEY_free) = NULL;
-DLSYM_PROTOTYPE(EC_KEY_new) = NULL;
-DLSYM_PROTOTYPE(EC_KEY_set_group) = NULL;
-DLSYM_PROTOTYPE(EC_KEY_set_public_key) = NULL;
-DLSYM_PROTOTYPE(EVP_PKEY_assign) = NULL;
-DLSYM_PROTOTYPE(RSAPublicKey_dup) = NULL;
-DLSYM_PROTOTYPE(RSA_free) = NULL;
-DLSYM_PROTOTYPE(RSA_new) = NULL;
-DLSYM_PROTOTYPE(RSA_set0_key) = NULL;
-DLSYM_PROTOTYPE(RSA_size) = NULL;
-REENABLE_WARNING;
-#endif
-
 #ifndef OPENSSL_NO_UI_CONSOLE
 static DLSYM_PROTOTYPE(UI_OpenSSL) = NULL;
 static DLSYM_PROTOTYPE(UI_create_method) = NULL;
@@ -655,20 +638,6 @@ int dlopen_libcrypto(int log_level) {
                         DLSYM_ARG_FORCE(ENGINE_free),
                         DLSYM_ARG_FORCE(ENGINE_init),
                         DLSYM_ARG_FORCE(ENGINE_load_private_key),
-#endif
-#if !defined(OPENSSL_NO_DEPRECATED_3_0)
-                        DLSYM_ARG_FORCE(ECDSA_do_verify),
-                        DLSYM_ARG_FORCE(EC_KEY_check_key),
-                        DLSYM_ARG_FORCE(EC_KEY_free),
-                        DLSYM_ARG_FORCE(EC_KEY_new),
-                        DLSYM_ARG_FORCE(EC_KEY_set_group),
-                        DLSYM_ARG_FORCE(EC_KEY_set_public_key),
-                        DLSYM_ARG_FORCE(EVP_PKEY_assign),
-                        DLSYM_ARG_FORCE(RSAPublicKey_dup),
-                        DLSYM_ARG_FORCE(RSA_free),
-                        DLSYM_ARG_FORCE(RSA_new),
-                        DLSYM_ARG_FORCE(RSA_set0_key),
-                        DLSYM_ARG_FORCE(RSA_size),
 #endif
 #ifndef OPENSSL_NO_UI_CONSOLE
                         DLSYM_ARG(UI_OpenSSL),

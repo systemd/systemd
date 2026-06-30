@@ -283,26 +283,6 @@ extern DLSYM_PROTOTYPE(i2d_PUBKEY);
 extern DLSYM_PROTOTYPE(i2d_X509);
 extern DLSYM_PROTOTYPE(i2d_X509_NAME);
 
-#if !defined(OPENSSL_NO_DEPRECATED_3_0)
-DISABLE_WARNING_DEPRECATED_DECLARATIONS;
-extern DLSYM_PROTOTYPE(ECDSA_do_verify);
-extern DLSYM_PROTOTYPE(EC_KEY_check_key);
-extern DLSYM_PROTOTYPE(EC_KEY_free);
-extern DLSYM_PROTOTYPE(EC_KEY_new);
-extern DLSYM_PROTOTYPE(EC_KEY_set_group);
-extern DLSYM_PROTOTYPE(EC_KEY_set_public_key);
-extern DLSYM_PROTOTYPE(EVP_PKEY_assign);
-extern DLSYM_PROTOTYPE(RSAPublicKey_dup);
-extern DLSYM_PROTOTYPE(RSA_free);
-extern DLSYM_PROTOTYPE(RSA_new);
-extern DLSYM_PROTOTYPE(RSA_set0_key);
-extern DLSYM_PROTOTYPE(RSA_size);
-REENABLE_WARNING;
-
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(EC_KEY*, sym_EC_KEY_free, EC_KEY_freep, NULL);
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(RSA*, sym_RSA_free, RSA_freep, NULL);
-#endif
-
 /* Mirrors of OpenSSL macros that go through our dlopen'd sym_* variants, so we don't end up linking against
  * libcrypto just for these. */
 #define sym_BIO_get_md_ctx(b, mdcp) sym_BIO_ctrl((b), BIO_C_GET_MD_CTX, 0, (char*) (mdcp))
@@ -312,7 +292,6 @@ DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(RSA*, sym_RSA_free, RSA_freep, NULL);
 #define sym_BN_one(a) sym_BN_set_word(a, 1)
 #define sym_EVP_MD_CTX_get_size(ctx) sym_EVP_MD_get_size(sym_EVP_MD_CTX_get0_md(ctx))
 #define sym_EVP_MD_CTX_get0_name(ctx) sym_EVP_MD_get0_name(sym_EVP_MD_CTX_get0_md(ctx))
-#define sym_EVP_PKEY_assign_RSA(pkey, rsa) sym_EVP_PKEY_assign((pkey), EVP_PKEY_RSA, (rsa))
 #define sym_OPENSSL_free(addr) sym_CRYPTO_free((addr), OPENSSL_FILE, OPENSSL_LINE)
 #define sym_PKCS7_set_detached(p, v) sym_PKCS7_ctrl((p), PKCS7_OP_SET_DETACHED_SIGNATURE, (v), NULL)
 
