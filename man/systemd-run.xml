@@ -1,6 +1,9 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
-  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+<!ENTITY % entities SYSTEM "custom-entities.ent" >
+%entities;
+]>
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="systemd-run"
@@ -708,8 +711,8 @@ There is a screen on:
       and a service unit would be terminated. Running <command>screen</command>
       as a user unit has the advantage that it is not part of the session scope.
       If <varname>KillUserProcesses=yes</varname> is configured in
-      <citerefentry><refentrytitle>logind.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      the default, the session scope will be terminated when the user logs
+      <citerefentry><refentrytitle>logind.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+      (defaults to <literal>&KILL_USER_PROCESSES;</literal>), the session scope will be terminated when the user logs
       out of that session.</para>
 
       <para>The <filename>user@.service</filename> is started automatically
