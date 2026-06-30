@@ -9,11 +9,15 @@
 
 #include "alloc-util.h"
 #include "ansi-color.h"
+#include "env-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "fileio.h"
+#include "memfd-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "stat-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "tests.h"
@@ -414,6 +418,159 @@ TEST(terminal_new_session) {
                 ASSERT_ERROR(terminal_new_session(), ENXIO);
 
                 _exit(EXIT_SUCCESS);
+        }
+}
+
+static void show_menu_capture(
+                char **menu,
+                size_t n_columns,
+                size_t column_width,
+                const char *grey_prefix,
+                bool with_numbers,
+                const char *columns_env,
+                char **ret) {
+
+        int r;
+
+        /* Runs show_menu() in a forked child whose stdout is connected to a memfd, so we can capture its
+         * output verbatim and byte-compare it. The child sets $COLUMNS explicitly so we can exercise
+         * show_menu() at various terminal widths regardless of the actual terminal the test runs on. */
+
+        _cleanup_close_ int mfd = ASSERT_OK(memfd_new("test-show-menu"));
+
+        r = pidref_safe_fork_full(
+                        "test-show-menu",
+                        (int[]) { -EBADF, mfd, STDERR_FILENO },
+                        /* except_fds= */ NULL, /* n_except_fds= */ 0,
+                        FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL|FORK_LOG|FORK_WAIT|FORK_REARRANGE_STDIO|FORK_FLUSH_STDIO,
+                        /* ret= */ NULL);
+        ASSERT_OK(r);
+        if (r == 0) {
+                /* Child: stdout is now the memfd. */
+
+                ASSERT_OK(set_unset_env("COLUMNS", columns_env, /* overwrite= */ true));
+
+                /* Pin $LINES to a large value so the "press any key to proceed" pager (which would block on
+                 * stdin) is never reached, and turn off colors so the captured output stays free of ANSI
+                 * escape sequences. */
+                ASSERT_OK_ERRNO(setenv("LINES", "1000", /* overwrite= */ true));
+                ASSERT_OK_ERRNO(setenv("SYSTEMD_COLORS", "0", /* overwrite= */ true));
+                reset_terminal_feature_caches();
+
+                ASSERT_OK(show_menu(menu, n_columns, column_width, /* ellipsize_percentage= */ 50, grey_prefix, with_numbers));
+                ASSERT_OK_ZERO_ERRNO(fflush(stdout));
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        /* Parent: read back whatever the child wrote. The memfd's file offset is shared with the child's
+         * dup'd fd, so rewind before reading. */
+        _cleanup_fclose_ FILE *f = ASSERT_NOT_NULL(fdopen(TAKE_FD(mfd), "re"));
+        rewind(f);
+
+        _cleanup_free_ char *content = NULL;
+        ASSERT_OK(read_full_stream(f, &content, /* ret_size= */ NULL));
+
+        log_info("=== show_menu(n_columns=%zu, column_width=%zu, grey_prefix=%s, with_numbers=%s, COLUMNS=%s) ===\n%s",
+                 n_columns, column_width, strnull(grey_prefix), yes_no(with_numbers), strnull(columns_env), content);
+
+        if (ret)
+                *ret = TAKE_PTR(content);
+}
+
+TEST(show_menu) {
+        char **menu = STRV_MAKE("alpha", "bravo", "charlie", "delta", "echo", "foxtrot", "golf");
+
+        /* NULL list: must not crash (the assert(x) was dropped) and must produce no output at all. */
+        FOREACH_STRING(cols, "200", "80", "10", "1") {
+                _cleanup_free_ char *content = NULL;
+                show_menu_capture(/* menu= */ NULL, /* n_columns= */ 3, /* column_width= */ SIZE_MAX,
+                                  /* grey_prefix= */ NULL, /* with_numbers= */ true, /* columns_env= */ cols, &content);
+                ASSERT_STREQ(content, "");
+        }
+
+        /* Empty (but non-NULL) list: also no output. */
+        {
+                _cleanup_free_ char *content = NULL;
+                show_menu_capture(/* menu= */ STRV_EMPTY, /* n_columns= */ 3, /* column_width= */ SIZE_MAX,
+                                  /* grey_prefix= */ NULL, /* with_numbers= */ false, /* columns_env= */ "80", &content);
+                ASSERT_STREQ(content, "");
+        }
+
+        /* The longest entry in 'menu' is 7 cells wide, so the column width is always clamped up to the 10-cell
+         * minimum, no matter how wide or narrow $COLUMNS is — every width must yield byte-identical output.
+         * This pins down the multi-column layout (3 columns, column-major numbering 1..7), the "never narrower
+         * than 10" clamp and the LESS_BY() underflow guard at absurdly tiny widths. */
+        static const char menu_expected[] =
+                "   1) alpha        4) delta        7) golf      \n"
+                "   2) bravo        5) echo      \n"
+                "   3) charlie      6) foxtrot   \n";
+
+        FOREACH_STRING(cols, "200", "80", "40", "20", "10", "5", "1") {
+                _cleanup_free_ char *content = NULL;
+                show_menu_capture(menu, /* n_columns= */ 3, /* column_width= */ SIZE_MAX,
+                                  /* grey_prefix= */ NULL, /* with_numbers= */ true, /* columns_env= */ cols, &content);
+                ASSERT_STREQ(content, menu_expected);
+        }
+
+        /* $COLUMNS unset: stdout is a memfd (not a tty), so columns() falls back to its 80-column default,
+         * which gives the very same layout. */
+        {
+                _cleanup_free_ char *content = NULL;
+                show_menu_capture(menu, /* n_columns= */ 3, /* column_width= */ SIZE_MAX,
+                                  /* grey_prefix= */ NULL, /* with_numbers= */ true, /* columns_env= */ NULL, &content);
+                ASSERT_STREQ(content, menu_expected);
+        }
+
+        /* Single column, no numbers: one entry per row, each padded to the 10-cell minimum. */
+        {
+                _cleanup_free_ char *content = NULL;
+                show_menu_capture(menu, /* n_columns= */ 1, /* column_width= */ SIZE_MAX,
+                                  /* grey_prefix= */ NULL, /* with_numbers= */ false, /* columns_env= */ "200", &content);
+                ASSERT_STREQ(content,
+                             "alpha     \n"
+                             "bravo     \n"
+                             "charlie   \n"
+                             "delta     \n"
+                             "echo      \n"
+                             "foxtrot   \n"
+                             "golf      \n");
+        }
+
+        /* A menu whose longest entry (14 cells) exceeds the 10-cell minimum, so the column width now tracks
+         * the content (widest+1 == 15). At a wide terminal it stays a 3-column grid... */
+        char **menu2 = STRV_MAKE("fourteen-chars", "short", "two");
+        {
+                _cleanup_free_ char *content = NULL;
+                show_menu_capture(menu2, /* n_columns= */ 3, /* column_width= */ SIZE_MAX,
+                                  /* grey_prefix= */ NULL, /* with_numbers= */ true, /* columns_env= */ "200", &content);
+                ASSERT_STREQ(content,
+                             "   1) fourteen-chars    2) short             3) two            \n");
+        }
+
+        /* ...but at a narrow terminal show_menu() falls back to a single linear column (n_columns forced to
+         * 1), still wide enough to print every entry in full. */
+        {
+                _cleanup_free_ char *content = NULL;
+                show_menu_capture(menu2, /* n_columns= */ 3, /* column_width= */ SIZE_MAX,
+                                  /* grey_prefix= */ NULL, /* with_numbers= */ true, /* columns_env= */ "30", &content);
+                ASSERT_STREQ(content,
+                             "   1) fourteen-chars \n"
+                             "   2) short          \n"
+                             "   3) two            \n");
+        }
+
+        /* Explicit column width (the COLUMNS-derived path is skipped entirely) together with a grey prefix:
+         * matching entries get the prefix printed via the grey branch, non-matching ones don't. The captured
+         * bytes are identical either way since colors are disabled. */
+        char **prefixed = STRV_MAKE("net.foo", "net.bar", "other", "net.baz");
+        {
+                _cleanup_free_ char *content = NULL;
+                show_menu_capture(prefixed, /* n_columns= */ 2, /* column_width= */ 20,
+                                  /* grey_prefix= */ "net.", /* with_numbers= */ true, /* columns_env= */ "200", &content);
+                ASSERT_STREQ(content,
+                             "   1) net.foo                3) other               \n"
+                             "   2) net.bar                4) net.baz             \n");
         }
 }
 
