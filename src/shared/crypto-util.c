@@ -100,6 +100,10 @@ DLSYM_PROTOTYPE(BN_set_word) = NULL;
 DLSYM_PROTOTYPE(BN_sub_word) = NULL;
 DLSYM_PROTOTYPE(CRYPTO_free) = NULL;
 DLSYM_PROTOTYPE(ECDSA_SIG_free) = NULL;
+DLSYM_PROTOTYPE(ECDSA_SIG_get0_r) = NULL;
+DLSYM_PROTOTYPE(ECDSA_SIG_get0_s) = NULL;
+DLSYM_PROTOTYPE(ECDSA_SIG_new) = NULL;
+DLSYM_PROTOTYPE(ECDSA_SIG_set0) = NULL;
 DLSYM_PROTOTYPE(EC_GROUP_free) = NULL;
 DLSYM_PROTOTYPE(EC_GROUP_get0_generator) = NULL;
 DLSYM_PROTOTYPE(EC_GROUP_get0_order) = NULL;
@@ -170,7 +174,8 @@ DLSYM_PROTOTYPE(EVP_PKEY_CTX_new) = NULL;
 DLSYM_PROTOTYPE(EVP_PKEY_CTX_new_from_name) = NULL;
 DLSYM_PROTOTYPE(EVP_PKEY_CTX_new_id) = NULL;
 static DLSYM_PROTOTYPE(EVP_PKEY_CTX_set0_rsa_oaep_label) = NULL;
-static DLSYM_PROTOTYPE(EVP_PKEY_CTX_set_ec_paramgen_curve_nid) = NULL;
+DLSYM_PROTOTYPE(EVP_PKEY_CTX_set_ec_paramgen_curve_nid) = NULL;
+DLSYM_PROTOTYPE(EVP_PKEY_CTX_set_rsa_keygen_bits) = NULL;
 static DLSYM_PROTOTYPE(EVP_PKEY_CTX_set_rsa_oaep_md) = NULL;
 DLSYM_PROTOTYPE(EVP_PKEY_CTX_set_rsa_padding) = NULL;
 DLSYM_PROTOTYPE(EVP_PKEY_CTX_set_signature_md) = NULL;
@@ -183,17 +188,22 @@ DLSYM_PROTOTYPE(EVP_PKEY_eq) = NULL;
 DLSYM_PROTOTYPE(EVP_PKEY_free) = NULL;
 DLSYM_PROTOTYPE(EVP_PKEY_fromdata) = NULL;
 DLSYM_PROTOTYPE(EVP_PKEY_fromdata_init) = NULL;
+DLSYM_PROTOTYPE(EVP_PKEY_generate) = NULL;
 static DLSYM_PROTOTYPE(EVP_PKEY_get1_encoded_public_key) = NULL;
 DLSYM_PROTOTYPE(EVP_PKEY_get_base_id) = NULL;
 static DLSYM_PROTOTYPE(EVP_PKEY_get_bits) = NULL;
-static DLSYM_PROTOTYPE(EVP_PKEY_get_bn_param) = NULL;
+DLSYM_PROTOTYPE(EVP_PKEY_get_bn_param) = NULL;
 static DLSYM_PROTOTYPE(EVP_PKEY_get_group_name) = NULL;
 DLSYM_PROTOTYPE(EVP_PKEY_get_id) = NULL;
+DLSYM_PROTOTYPE(EVP_PKEY_get_octet_string_param) = NULL;
+DLSYM_PROTOTYPE(EVP_PKEY_get_size) = NULL;
 static DLSYM_PROTOTYPE(EVP_PKEY_get_utf8_string_param) = NULL;
 DLSYM_PROTOTYPE(EVP_PKEY_keygen) = NULL;
 DLSYM_PROTOTYPE(EVP_PKEY_keygen_init) = NULL;
 DLSYM_PROTOTYPE(EVP_PKEY_new) = NULL;
 DLSYM_PROTOTYPE(EVP_PKEY_new_raw_public_key) = NULL;
+DLSYM_PROTOTYPE(EVP_PKEY_sign) = NULL;
+DLSYM_PROTOTYPE(EVP_PKEY_sign_init) = NULL;
 DLSYM_PROTOTYPE(EVP_PKEY_verify) = NULL;
 DLSYM_PROTOTYPE(EVP_PKEY_verify_init) = NULL;
 DLSYM_PROTOTYPE(EVP_aes_256_ctr) = NULL;
@@ -217,6 +227,7 @@ DLSYM_PROTOTYPE(OPENSSL_sk_value) = NULL;
 DLSYM_PROTOTYPE(OSSL_EC_curve_nid2name) = NULL;
 DLSYM_PROTOTYPE(OSSL_PARAM_BLD_free) = NULL;
 DLSYM_PROTOTYPE(OSSL_PARAM_BLD_new) = NULL;
+DLSYM_PROTOTYPE(OSSL_PARAM_BLD_push_BN) = NULL;
 static DLSYM_PROTOTYPE(OSSL_PARAM_BLD_push_octet_string) = NULL;
 DLSYM_PROTOTYPE(OSSL_PARAM_BLD_push_utf8_string) = NULL;
 DLSYM_PROTOTYPE(OSSL_PARAM_BLD_to_param) = NULL;
@@ -283,11 +294,13 @@ static DLSYM_PROTOTYPE(X509_get_signature_info) = NULL;
 DLSYM_PROTOTYPE(X509_get_subject_name) = NULL;
 DLSYM_PROTOTYPE(X509_gmtime_adj) = NULL;
 DLSYM_PROTOTYPE(d2i_ASN1_OCTET_STRING) = NULL;
+DLSYM_PROTOTYPE(d2i_ECDSA_SIG) = NULL;
 DLSYM_PROTOTYPE(d2i_ECPKParameters) = NULL;
 DLSYM_PROTOTYPE(d2i_PKCS7) = NULL;
 DLSYM_PROTOTYPE(d2i_PUBKEY) = NULL;
 DLSYM_PROTOTYPE(d2i_X509) = NULL;
 DLSYM_PROTOTYPE(i2d_ASN1_INTEGER) = NULL;
+DLSYM_PROTOTYPE(i2d_ECDSA_SIG) = NULL;
 DLSYM_PROTOTYPE(i2d_PKCS7) = NULL;
 DLSYM_PROTOTYPE(i2d_PKCS7_fp) = NULL;
 DLSYM_PROTOTYPE(i2d_PUBKEY) = NULL;
@@ -314,8 +327,6 @@ DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(ENGINE*, sym_ENGINE_free, ENGINE_freep, 
 
 #if !defined(OPENSSL_NO_DEPRECATED_3_0)
 DISABLE_WARNING_DEPRECATED_DECLARATIONS;
-DLSYM_PROTOTYPE(ECDSA_SIG_new) = NULL;
-DLSYM_PROTOTYPE(ECDSA_SIG_set0) = NULL;
 DLSYM_PROTOTYPE(ECDSA_do_verify) = NULL;
 DLSYM_PROTOTYPE(EC_KEY_check_key) = NULL;
 DLSYM_PROTOTYPE(EC_KEY_free) = NULL;
@@ -427,6 +438,10 @@ int dlopen_libcrypto(int log_level) {
                         DLSYM_ARG(BN_sub_word),
                         DLSYM_ARG(CRYPTO_free),
                         DLSYM_ARG(ECDSA_SIG_free),
+                        DLSYM_ARG(ECDSA_SIG_get0_r),
+                        DLSYM_ARG(ECDSA_SIG_get0_s),
+                        DLSYM_ARG(ECDSA_SIG_new),
+                        DLSYM_ARG(ECDSA_SIG_set0),
                         DLSYM_ARG(EC_GROUP_free),
                         DLSYM_ARG(EC_GROUP_get0_generator),
                         DLSYM_ARG(EC_GROUP_get0_order),
@@ -498,6 +513,7 @@ int dlopen_libcrypto(int log_level) {
                         DLSYM_ARG(EVP_PKEY_CTX_new_id),
                         DLSYM_ARG(EVP_PKEY_CTX_set0_rsa_oaep_label),
                         DLSYM_ARG(EVP_PKEY_CTX_set_ec_paramgen_curve_nid),
+                        DLSYM_ARG(EVP_PKEY_CTX_set_rsa_keygen_bits),
                         DLSYM_ARG(EVP_PKEY_CTX_set_rsa_oaep_md),
                         DLSYM_ARG(EVP_PKEY_CTX_set_rsa_padding),
                         DLSYM_ARG(EVP_PKEY_CTX_set_signature_md),
@@ -510,17 +526,22 @@ int dlopen_libcrypto(int log_level) {
                         DLSYM_ARG(EVP_PKEY_free),
                         DLSYM_ARG(EVP_PKEY_fromdata),
                         DLSYM_ARG(EVP_PKEY_fromdata_init),
+                        DLSYM_ARG(EVP_PKEY_generate),
                         DLSYM_ARG(EVP_PKEY_get1_encoded_public_key),
                         DLSYM_ARG(EVP_PKEY_get_base_id),
                         DLSYM_ARG(EVP_PKEY_get_bits),
                         DLSYM_ARG(EVP_PKEY_get_bn_param),
                         DLSYM_ARG(EVP_PKEY_get_group_name),
                         DLSYM_ARG(EVP_PKEY_get_id),
+                        DLSYM_ARG(EVP_PKEY_get_octet_string_param),
+                        DLSYM_ARG(EVP_PKEY_get_size),
                         DLSYM_ARG(EVP_PKEY_get_utf8_string_param),
                         DLSYM_ARG(EVP_PKEY_keygen),
                         DLSYM_ARG(EVP_PKEY_keygen_init),
                         DLSYM_ARG(EVP_PKEY_new),
                         DLSYM_ARG(EVP_PKEY_new_raw_public_key),
+                        DLSYM_ARG(EVP_PKEY_sign),
+                        DLSYM_ARG(EVP_PKEY_sign_init),
                         DLSYM_ARG(EVP_PKEY_verify),
                         DLSYM_ARG(EVP_PKEY_verify_init),
                         DLSYM_ARG(EVP_aes_256_ctr),
@@ -544,6 +565,7 @@ int dlopen_libcrypto(int log_level) {
                         DLSYM_ARG(OSSL_EC_curve_nid2name),
                         DLSYM_ARG(OSSL_PARAM_BLD_free),
                         DLSYM_ARG(OSSL_PARAM_BLD_new),
+                        DLSYM_ARG(OSSL_PARAM_BLD_push_BN),
                         DLSYM_ARG(OSSL_PARAM_BLD_push_octet_string),
                         DLSYM_ARG(OSSL_PARAM_BLD_push_utf8_string),
                         DLSYM_ARG(OSSL_PARAM_BLD_to_param),
@@ -610,11 +632,13 @@ int dlopen_libcrypto(int log_level) {
                         DLSYM_ARG(X509_get_subject_name),
                         DLSYM_ARG(X509_gmtime_adj),
                         DLSYM_ARG(d2i_ASN1_OCTET_STRING),
+                        DLSYM_ARG(d2i_ECDSA_SIG),
                         DLSYM_ARG(d2i_ECPKParameters),
                         DLSYM_ARG(d2i_PKCS7),
                         DLSYM_ARG(d2i_PUBKEY),
                         DLSYM_ARG(d2i_X509),
                         DLSYM_ARG(i2d_ASN1_INTEGER),
+                        DLSYM_ARG(i2d_ECDSA_SIG),
                         DLSYM_ARG(i2d_PKCS7),
                         DLSYM_ARG(i2d_PKCS7_fp),
                         DLSYM_ARG(i2d_PUBKEY),
@@ -629,8 +653,6 @@ int dlopen_libcrypto(int log_level) {
                         DLSYM_ARG_FORCE(ENGINE_load_private_key),
 #endif
 #if !defined(OPENSSL_NO_DEPRECATED_3_0)
-                        DLSYM_ARG_FORCE(ECDSA_SIG_new),
-                        DLSYM_ARG_FORCE(ECDSA_SIG_set0),
                         DLSYM_ARG_FORCE(ECDSA_do_verify),
                         DLSYM_ARG_FORCE(EC_KEY_check_key),
                         DLSYM_ARG_FORCE(EC_KEY_free),
