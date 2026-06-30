@@ -1187,7 +1187,7 @@ static int verb_tlsa(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
 static int varlink_dump_dns_configuration(sd_json_variant **ret) {
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *reply = NULL;
+        sd_json_variant *reply = NULL;
         sd_json_variant *v;
         int r;
 
@@ -1206,7 +1206,6 @@ static int varlink_dump_dns_configuration(sd_json_variant **ret) {
         if (!sd_json_variant_is_array(v))
                 return log_error_errno(SYNTHETIC_ERRNO(ENODATA), "DumpDNSConfiguration() response missing 'configuration' key.");
 
-        TAKE_PTR(reply);
         *ret = sd_json_variant_ref(v);
         return 0;
 }
