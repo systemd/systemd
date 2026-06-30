@@ -214,7 +214,7 @@ EFI_STATUS process_random_seed(EFI_FILE *root_dir) {
                                 0);
                 if (err != EFI_SUCCESS)
                         return log_full(err,
-                                        EFI_STATUS_IS_WRITE_REFUSED(err) ? LOG_DEBUG : LOG_ERR,
+                                        err == EFI_NOT_FOUND || EFI_STATUS_IS_WRITE_REFUSED(err) ? LOG_DEBUG : LOG_ERR,
                                         "Failed to open random seed file: %m");
                 created = true;
 
