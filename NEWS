@@ -16,6 +16,17 @@ CHANGES WITH 262:
           have been provided. This clears the way for a new
           "systemd-sysupdate@.service" unit for varlink activation of sysupdate.
 
+        Changes in systemd-firstboot:
+
+        * The "systemd.firstboot=" kernel command line option now accepts the
+          special value "headless" in addition to a boolean. Like "no", it
+          suppresses all interactive prompts, but unlike "no" it still performs
+          non-interactive auto-configuration that requires no user input (such
+          as selecting the sole installed locale, or applying settings provided
+          via credentials). This is useful for unattended installations that
+          should be provisioned as far as possible without ever blocking on a
+          prompt.
+
 CHANGES WITH 261:
 
         Announcements of Future Feature Removals and Incompatible Changes:
