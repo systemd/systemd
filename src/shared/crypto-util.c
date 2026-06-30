@@ -217,6 +217,7 @@ DLSYM_PROTOTYPE(OPENSSL_sk_value) = NULL;
 DLSYM_PROTOTYPE(OSSL_EC_curve_nid2name) = NULL;
 DLSYM_PROTOTYPE(OSSL_PARAM_BLD_free) = NULL;
 DLSYM_PROTOTYPE(OSSL_PARAM_BLD_new) = NULL;
+static DLSYM_PROTOTYPE(OSSL_PARAM_BLD_push_BN) = NULL;
 static DLSYM_PROTOTYPE(OSSL_PARAM_BLD_push_octet_string) = NULL;
 DLSYM_PROTOTYPE(OSSL_PARAM_BLD_push_utf8_string) = NULL;
 DLSYM_PROTOTYPE(OSSL_PARAM_BLD_to_param) = NULL;
@@ -291,7 +292,6 @@ DLSYM_PROTOTYPE(i2d_ASN1_INTEGER) = NULL;
 DLSYM_PROTOTYPE(i2d_PKCS7) = NULL;
 DLSYM_PROTOTYPE(i2d_PKCS7_fp) = NULL;
 DLSYM_PROTOTYPE(i2d_PUBKEY) = NULL;
-static DLSYM_PROTOTYPE(i2d_PUBKEY_fp) = NULL;
 static DLSYM_PROTOTYPE(i2d_PublicKey) = NULL;
 DLSYM_PROTOTYPE(i2d_X509) = NULL;
 DLSYM_PROTOTYPE(i2d_X509_NAME) = NULL;
@@ -544,6 +544,7 @@ int dlopen_libcrypto(int log_level) {
                         DLSYM_ARG(OSSL_EC_curve_nid2name),
                         DLSYM_ARG(OSSL_PARAM_BLD_free),
                         DLSYM_ARG(OSSL_PARAM_BLD_new),
+                        DLSYM_ARG(OSSL_PARAM_BLD_push_BN),
                         DLSYM_ARG(OSSL_PARAM_BLD_push_octet_string),
                         DLSYM_ARG(OSSL_PARAM_BLD_push_utf8_string),
                         DLSYM_ARG(OSSL_PARAM_BLD_to_param),
@@ -618,7 +619,6 @@ int dlopen_libcrypto(int log_level) {
                         DLSYM_ARG(i2d_PKCS7),
                         DLSYM_ARG(i2d_PKCS7_fp),
                         DLSYM_ARG(i2d_PUBKEY),
-                        DLSYM_ARG(i2d_PUBKEY_fp),
                         DLSYM_ARG(i2d_PublicKey),
                         DLSYM_ARG(i2d_X509),
                         DLSYM_ARG(i2d_X509_NAME),
@@ -1357,30 +1357,32 @@ int rsa_pkey_from_n_e(const void *n, size_t n_size, const void *e, size_t e_size
         if (sym_EVP_PKEY_fromdata_init(ctx) <= 0)
                 return log_openssl_errors(LOG_DEBUG, "Failed to initialize EVP_PKEY_CTX");
 
-        OSSL_PARAM params[3];
+        _cleanup_(BN_freep) BIGNUM *bn_n = sym_BN_bin2bn(n, n_size, NULL);
+        if (!bn_n)
+                return log_openssl_errors(LOG_DEBUG, "Failed to create BIGNUM n");
 
-#if __BYTE_ORDER == __BIG_ENDIAN
-        params[0] = sym_OSSL_PARAM_construct_BN(OSSL_PKEY_PARAM_RSA_N, (void*)n, n_size);
-        params[1] = sym_OSSL_PARAM_construct_BN(OSSL_PKEY_PARAM_RSA_E, (void*)e, e_size);
-#else
-        _cleanup_free_ void *native_n = memdup_reverse(n, n_size);
-        if (!native_n)
-                return log_oom_debug();
+        _cleanup_(BN_freep) BIGNUM *bn_e = sym_BN_bin2bn(e, e_size, NULL);
+        if (!bn_e)
+                return log_openssl_errors(LOG_DEBUG, "Failed to create BIGNUM e");
 
-        _cleanup_free_ void *native_e = memdup_reverse(e, e_size);
-        if (!native_e)
-                return log_oom_debug();
+        _cleanup_(OSSL_PARAM_BLD_freep) OSSL_PARAM_BLD *bld = sym_OSSL_PARAM_BLD_new();
+        if (!bld)
+                return log_openssl_errors(LOG_DEBUG, "Failed to create new OSSL_PARAM_BLD");
 
-        params[0] = sym_OSSL_PARAM_construct_BN(OSSL_PKEY_PARAM_RSA_N, native_n, n_size);
-        params[1] = sym_OSSL_PARAM_construct_BN(OSSL_PKEY_PARAM_RSA_E, native_e, e_size);
-#endif
-        params[2] = sym_OSSL_PARAM_construct_end();
+        if (!sym_OSSL_PARAM_BLD_push_BN(bld, OSSL_PKEY_PARAM_RSA_N, bn_n))
+                return log_openssl_errors(LOG_DEBUG, "Failed to push n to RSA params");
+
+        if (!sym_OSSL_PARAM_BLD_push_BN(bld, OSSL_PKEY_PARAM_RSA_E, bn_e))
+                return log_openssl_errors(LOG_DEBUG, "Failed to push e to RSA params");
+
+        _cleanup_(OSSL_PARAM_freep) OSSL_PARAM *params = sym_OSSL_PARAM_BLD_to_param(bld);
+        if (!params)
+                return log_openssl_errors(LOG_DEBUG, "Failed to build RSA OSSL_PARAM");
 
         if (sym_EVP_PKEY_fromdata(ctx, &pkey, EVP_PKEY_PUBLIC_KEY, params) <= 0)
                 return log_openssl_errors(LOG_DEBUG, "Failed to create RSA EVP_PKEY");
 
         *ret = TAKE_PTR(pkey);
-
         return 0;
 }
 
@@ -1640,10 +1642,9 @@ int ecc_ecdh(const EVP_PKEY *private_pkey,
 
 int pubkey_fingerprint(EVP_PKEY *pk, const EVP_MD *md, void **ret, size_t *ret_size) {
         _cleanup_(EVP_MD_CTX_freep) EVP_MD_CTX* m = NULL;
-        _cleanup_free_ void *d = NULL, *h = NULL;
-        int sz, lsz, msz;
+        _cleanup_free_ void *h = NULL;
+        int lsz, msz;
         unsigned umsz;
-        unsigned char *dd;
         int r;
 
         /* Calculates a message digest of the DER encoded public key */
@@ -1657,15 +1658,8 @@ int pubkey_fingerprint(EVP_PKEY *pk, const EVP_MD *md, void **ret, size_t *ret_s
         if (r < 0)
                 return r;
 
-        sz = sym_i2d_PublicKey(pk, NULL);
-        if (sz < 0)
-                return log_openssl_errors(LOG_DEBUG, "Unable to convert public key to DER format");
-
-        dd = d = malloc(sz);
-        if (!d)
-                return log_oom_debug();
-
-        lsz = sym_i2d_PublicKey(pk, &dd);
+        _cleanup_(OPENSSL_freep) void *d = NULL;
+        lsz = sym_i2d_PublicKey(pk, (unsigned char**) &d);
         if (lsz < 0)
                 return log_openssl_errors(LOG_DEBUG, "Unable to convert public key to DER format");
 
@@ -1873,7 +1867,6 @@ static int ecc_pkey_generate_volume_keys(
 
         _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey_new = NULL;
         _cleanup_(erase_and_freep) void *decrypted_key = NULL;
-        _cleanup_free_ unsigned char *saved_key = NULL;
         size_t decrypted_key_size, saved_key_size;
         int r;
 
@@ -1905,9 +1898,16 @@ static int ecc_pkey_generate_volume_keys(
 
         /* EVP_PKEY_get1_encoded_public_key() always returns uncompressed format of EC points.
            See https://github.com/openssl/openssl/discussions/22835 */
-        saved_key_size = sym_EVP_PKEY_get1_encoded_public_key(pkey_new, &saved_key);
+        _cleanup_(OPENSSL_freep) void *buf = NULL;
+        saved_key_size = sym_EVP_PKEY_get1_encoded_public_key(pkey_new, (unsigned char**) &buf);
         if (saved_key_size == 0)
                 return log_openssl_errors(LOG_DEBUG, "Failed to convert the generated public key to SEC1 format");
+
+        /* 'buf' is allocated by OpenSSL and must be freed via OPENSSL_free(). We duplicate it here so the
+         * caller can safely use standard free(). */
+        _cleanup_free_ void *saved_key = memdup(buf, saved_key_size);
+        if (!saved_key)
+                return log_oom_debug();
 
         *ret_decrypted_key = TAKE_PTR(decrypted_key);
         *ret_decrypted_key_size = decrypted_key_size;
@@ -2291,7 +2291,7 @@ OpenSSLAskPasswordUI* openssl_ask_password_ui_free(OpenSSLAskPasswordUI *ui) {
 }
 
 int x509_fingerprint(X509 *cert, uint8_t buffer[static SHA256_DIGEST_SIZE]) {
-        _cleanup_free_ uint8_t *der = NULL;
+        _cleanup_(OPENSSL_freep) void *der = NULL;
         int dersz, r;
 
         assert(cert);
@@ -2300,7 +2300,7 @@ int x509_fingerprint(X509 *cert, uint8_t buffer[static SHA256_DIGEST_SIZE]) {
         if (r < 0)
                 return r;
 
-        dersz = sym_i2d_X509(cert, &der);
+        dersz = sym_i2d_X509(cert, (unsigned char**) &der);
         if (dersz < 0)
                 return log_openssl_errors(LOG_DEBUG, "Unable to convert PEM certificate to DER format");
 
@@ -2408,21 +2408,12 @@ int openssl_extract_public_key(EVP_PKEY *private_key, EVP_PKEY **ret) {
         if (r < 0)
                 return r;
 
-        _cleanup_(memstream_done) MemStream m = {};
-        FILE *tf = memstream_init(&m);
-        if (!tf)
-                return -ENOMEM;
-
-        if (sym_i2d_PUBKEY_fp(tf, private_key) != 1)
+        _cleanup_(OPENSSL_freep) void *buf = NULL;
+        int len = sym_i2d_PUBKEY(private_key, (unsigned char**) &buf);
+        if (len < 0)
                 return log_openssl_errors(LOG_DEBUG, "Failed to extract public key in DER format");
 
-        _cleanup_(erase_and_freep) char *buf = NULL;
-        size_t len;
-        r = memstream_finalize(&m, &buf, &len);
-        if (r < 0)
-                return r;
-
-        const unsigned char *t = (const unsigned char*) buf;
+        const unsigned char *t = buf;
         if (!sym_d2i_PUBKEY(ret, &t, len))
                 return log_openssl_errors(LOG_DEBUG, "Failed to parse public key in DER format");
 
