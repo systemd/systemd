@@ -205,11 +205,35 @@ EFI_STATUS process_random_seed(EFI_FILE *root_dir) {
                         0);
         if (err == EFI_NOT_FOUND && seeded_by_efi) {
 
-                /* If the file does not exist, but we are reasonably well seeded, create the seed file */
+                /* If the file does not exist, but we are reasonably well seeded, create the seed
+                 * file. Get a handle to the \loader\ directory — open it read-only if it already
+                 * exists, or create it (requiring write access) only when it is missing (e.g. on
+                 * systems using UKI+EFISTUB without systemd-boot installed). We avoid requesting
+                 * write access on an already-present directory because some firmware
+                 * implementations refuse it, which would abort seed creation unnecessarily. */
+                _cleanup_file_close_ EFI_FILE *dir_handle = NULL;
                 err = root_dir->Open(
                                 root_dir,
+                                &dir_handle,
+                                (char16_t *) u"\\loader",
+                                EFI_FILE_MODE_READ,
+                                0);
+                if (err == EFI_NOT_FOUND)
+                        err = root_dir->Open(
+                                        root_dir,
+                                        &dir_handle,
+                                        (char16_t *) u"\\loader",
+                                        EFI_FILE_MODE_READ | EFI_FILE_MODE_WRITE | EFI_FILE_MODE_CREATE,
+                                        EFI_FILE_DIRECTORY);
+                if (err != EFI_SUCCESS)
+                        return log_full(err,
+                                        EFI_STATUS_IS_WRITE_REFUSED(err) ? LOG_DEBUG : LOG_ERR,
+                                        "Failed to open or create loader directory: %m");
+
+                err = dir_handle->Open(
+                                dir_handle,
                                 &handle,
-                                (char16_t *) u"\\loader\\random-seed",
+                                (char16_t *) u"random-seed",
                                 EFI_FILE_MODE_READ | EFI_FILE_MODE_WRITE | EFI_FILE_MODE_CREATE,
                                 0);
                 if (err != EFI_SUCCESS)
