@@ -37,26 +37,29 @@ static int log_not_finished(usec_t finish_time) {
 
 int acquire_boot_times(sd_bus *bus, bool require_finished, BootTimes **ret) {
         static const struct bus_properties_map property_map[] = {
-                { "FirmwareTimestampMonotonic",               "t", NULL, offsetof(BootTimes, firmware_time)                 },
-                { "LoaderTimestampMonotonic",                 "t", NULL, offsetof(BootTimes, loader_time)                   },
-                { "KernelTimestamp",                          "t", NULL, offsetof(BootTimes, kernel_time)                   },
-                { "InitRDTimestampMonotonic",                 "t", NULL, offsetof(BootTimes, initrd_time)                   },
-                { "UserspaceTimestampMonotonic",              "t", NULL, offsetof(BootTimes, userspace_time)                },
-                { "FinishTimestampMonotonic",                 "t", NULL, offsetof(BootTimes, finish_time)                   },
-                { "SecurityStartTimestampMonotonic",          "t", NULL, offsetof(BootTimes, security_start_time)           },
-                { "SecurityFinishTimestampMonotonic",         "t", NULL, offsetof(BootTimes, security_finish_time)          },
-                { "ShutdownStartTimestampMonotonic",          "t", NULL, offsetof(BootTimes, shutdown_start_time)           },
-                { "GeneratorsStartTimestampMonotonic",        "t", NULL, offsetof(BootTimes, generators_start_time)         },
-                { "GeneratorsFinishTimestampMonotonic",       "t", NULL, offsetof(BootTimes, generators_finish_time)        },
-                { "UnitsLoadStartTimestampMonotonic",         "t", NULL, offsetof(BootTimes, unitsload_start_time)          },
-                { "UnitsLoadFinishTimestampMonotonic",        "t", NULL, offsetof(BootTimes, unitsload_finish_time)         },
-                { "InitRDSecurityStartTimestampMonotonic",    "t", NULL, offsetof(BootTimes, initrd_security_start_time)    },
-                { "InitRDSecurityFinishTimestampMonotonic",   "t", NULL, offsetof(BootTimes, initrd_security_finish_time)   },
-                { "InitRDGeneratorsStartTimestampMonotonic",  "t", NULL, offsetof(BootTimes, initrd_generators_start_time)  },
-                { "InitRDGeneratorsFinishTimestampMonotonic", "t", NULL, offsetof(BootTimes, initrd_generators_finish_time) },
-                { "InitRDUnitsLoadStartTimestampMonotonic",   "t", NULL, offsetof(BootTimes, initrd_unitsload_start_time)   },
-                { "InitRDUnitsLoadFinishTimestampMonotonic",  "t", NULL, offsetof(BootTimes, initrd_unitsload_finish_time)  },
-                { "SoftRebootsCount",                         "u", NULL, offsetof(BootTimes, soft_reboots_count)            },
+                { "FirmwareTimestampMonotonic",                   "t", NULL, offsetof(BootTimes, firmware_time)                      },
+                { "LoaderTimestampMonotonic",                     "t", NULL, offsetof(BootTimes, loader_time)                        },
+                { "KernelTimestamp",                              "t", NULL, offsetof(BootTimes, kernel_time)                        },
+                { "InitRDTimestampMonotonic",                     "t", NULL, offsetof(BootTimes, initrd_time)                        },
+                { "UserspaceTimestampMonotonic",                  "t", NULL, offsetof(BootTimes, userspace_time)                     },
+                { "FinishTimestampMonotonic",                     "t", NULL, offsetof(BootTimes, finish_time)                        },
+                { "SecurityStartTimestampMonotonic",              "t", NULL, offsetof(BootTimes, security_start_time)                },
+                { "SecurityFinishTimestampMonotonic",             "t", NULL, offsetof(BootTimes, security_finish_time)               },
+                { "PreviousShutdownStartTimestampMonotonic",      "t", NULL, offsetof(BootTimes, previous_shutdown_start_time)       },
+                { "PreviousShutdownFinishTimestampMonotonic",     "t", NULL, offsetof(BootTimes, previous_shutdown_finish_time)      },
+                { "PreviousShutdownLateStartTimestampMonotonic",  "t", NULL, offsetof(BootTimes, previous_shutdown_late_start_time)  },
+                { "PreviousShutdownLateFinishTimestampMonotonic", "t", NULL, offsetof(BootTimes, previous_shutdown_late_finish_time) },
+                { "GeneratorsStartTimestampMonotonic",            "t", NULL, offsetof(BootTimes, generators_start_time)              },
+                { "GeneratorsFinishTimestampMonotonic",           "t", NULL, offsetof(BootTimes, generators_finish_time)             },
+                { "UnitsLoadStartTimestampMonotonic",             "t", NULL, offsetof(BootTimes, unitsload_start_time)               },
+                { "UnitsLoadFinishTimestampMonotonic",            "t", NULL, offsetof(BootTimes, unitsload_finish_time)              },
+                { "InitRDSecurityStartTimestampMonotonic",        "t", NULL, offsetof(BootTimes, initrd_security_start_time)         },
+                { "InitRDSecurityFinishTimestampMonotonic",       "t", NULL, offsetof(BootTimes, initrd_security_finish_time)        },
+                { "InitRDGeneratorsStartTimestampMonotonic",      "t", NULL, offsetof(BootTimes, initrd_generators_start_time)       },
+                { "InitRDGeneratorsFinishTimestampMonotonic",     "t", NULL, offsetof(BootTimes, initrd_generators_finish_time)      },
+                { "InitRDUnitsLoadStartTimestampMonotonic",       "t", NULL, offsetof(BootTimes, initrd_unitsload_start_time)        },
+                { "InitRDUnitsLoadFinishTimestampMonotonic",      "t", NULL, offsetof(BootTimes, initrd_unitsload_finish_time)       },
+                { "SoftRebootsCount",                             "u", NULL, offsetof(BootTimes, soft_reboots_count)                 },
                 {},
         };
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -96,7 +99,7 @@ int acquire_boot_times(sd_bus *bus, bool require_finished, BootTimes **ret) {
                                 times.initrd_security_start_time = times.initrd_security_finish_time =
                                 times.initrd_generators_start_time = times.initrd_generators_finish_time =
                                 times.initrd_unitsload_start_time = times.initrd_unitsload_finish_time = 0;
-                times.reverse_offset = times.shutdown_start_time;
+                times.reverse_offset = times.previous_shutdown_start_time;
 
                 /* Clamp all timestamps to avoid showing huge graphs */
                 if (timestamp_is_set(times.finish_time))
@@ -204,6 +207,28 @@ int pretty_boot_time(sd_bus *bus, char **ret) {
         if (!text)
                 return log_oom();
 
+        /* If the previous boot's shutdown timestamps are set (restored via LUO across a kexec-based live
+         * update), prepend them so the full shutdown + bootup chain is shown, and add their duration to the
+         * total below. */
+        usec_t shutdown_time = 0;
+        if (timestamp_is_set(t->previous_shutdown_start_time) &&
+            timestamp_is_set(t->previous_shutdown_finish_time) &&
+            timestamp_is_set(t->previous_shutdown_late_start_time) &&
+            timestamp_is_set(t->previous_shutdown_late_finish_time)) {
+
+                usec_t stopping = usec_sub_unsigned(t->previous_shutdown_finish_time, t->previous_shutdown_start_time);
+                usec_t exit_time = usec_sub_unsigned(t->previous_shutdown_late_start_time, t->previous_shutdown_finish_time);
+                usec_t systemd_shutdown = usec_sub_unsigned(t->previous_shutdown_late_finish_time, t->previous_shutdown_late_start_time);
+                shutdown_time = stopping + exit_time + systemd_shutdown;
+
+                if (!strextend(&text, FORMAT_TIMESPAN(stopping, USEC_PER_MSEC), " (stopping) + "))
+                        return log_oom();
+                if (!strextend(&text, FORMAT_TIMESPAN(exit_time, USEC_PER_MSEC), " (exit) + "))
+                        return log_oom();
+                if (!strextend(&text, FORMAT_TIMESPAN(systemd_shutdown, USEC_PER_MSEC), " (systemd-shutdown) + "))
+                        return log_oom();
+        }
+
         if (timestamp_is_set(t->firmware_time) && !strextend(&text, FORMAT_TIMESPAN(t->firmware_time - t->loader_time, USEC_PER_MSEC), " (firmware) + "))
                 return log_oom();
         if (timestamp_is_set(t->loader_time) && !strextend(&text, FORMAT_TIMESPAN(t->loader_time, USEC_PER_MSEC), " (loader) + "))
@@ -219,7 +244,7 @@ int pretty_boot_time(sd_bus *bus, char **ret) {
                 return log_oom();
 
         if (timestamp_is_set(t->kernel_done_time))
-                if (!strextend(&text, "= ", FORMAT_TIMESPAN(t->firmware_time + t->finish_time, USEC_PER_MSEC),  " "))
+                if (!strextend(&text, "= ", FORMAT_TIMESPAN(shutdown_time + t->firmware_time + t->finish_time, USEC_PER_MSEC),  " "))
                         return log_oom();
 
         if (unit_id && timestamp_is_set(activated_time)) {
@@ -339,8 +364,9 @@ int acquire_time_data(sd_bus *bus, bool require_finished, UnitTimes **out) {
                                                u.id, bus_error_message(&error, r));
 
                 /* Activated in the previous soft-reboot iteration? Ignore it, we want new activations */
-                if ((t->activated > 0 && t->activated < boot_times->shutdown_start_time) ||
-                    (t->activating > 0 && t->activating < boot_times->shutdown_start_time))
+                if (boot_times->soft_reboots_count > 0 &&
+                    ((t->activated > 0 && t->activated < boot_times->previous_shutdown_start_time) ||
+                     (t->activating > 0 && t->activating < boot_times->previous_shutdown_start_time)))
                         continue;
 
                 subtract_timestamp(&t->activating, boot_times->reverse_offset);
