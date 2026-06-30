@@ -3,7 +3,7 @@
   "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
-<refentry id="sd_bus_get_n_queued_read">
+<refentry id="sd_bus_get_n_queued_read" xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>sd_bus_get_fd</title>
@@ -83,6 +83,14 @@
 
       </variablelist>
     </refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title>Notes</title>
+
+    <xi:include href="libsystemd-pkgconfig.xml" xpointer="pkgconfig-text"/>
+
+    <xi:include href="threads-aware.xml" xpointer="strict"/>
   </refsect1>
 
   <refsect1>
