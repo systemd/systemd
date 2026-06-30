@@ -95,6 +95,7 @@
 #include "proc-cmdline.h"
 #include "process-util.h"
 #include "random-util.h"
+#include "reboot-util.h"
 #include "rlimit-util.h"
 #include "rm-rf.h"
 #include "seccomp-util.h"
@@ -1857,6 +1858,56 @@ static int become_shutdown(int objective, int retval) {
 
         execve(SYSTEMD_SHUTDOWN_BINARY_PATH, (char **) command_line, env_block);
         return -errno;
+}
+
+static int perform_shutdown(ManagerObjective objective, int retval) {
+        bool in_container = detect_container() > 0;
+        int cmd;
+
+        /* Perform the requested shutdown operation ourselves, by issuing the matching reboot() directly.
+         * This skips the cleanup systemd-shutdown normally does (unmounting file systems, detaching storage,
+         * killing remaining processes, switching into the exitrd). */
+
+        if (!in_container)
+                sync();
+
+        switch (objective) {
+
+        case MANAGER_KEXEC:
+                log_info("Rebooting with kexec.");
+                (void) kexec();
+                /* If we are still here kexec didn't work, fall back to a plain reboot. */
+                _fallthrough_;
+
+        case MANAGER_REBOOT:
+                (void) reboot_with_parameter(REBOOT_LOG);
+                log_info("Rebooting.");
+                cmd = RB_AUTOBOOT;
+                break;
+
+        case MANAGER_EXIT:
+                if (in_container) {
+                        log_info("Exiting container.");
+                        exit(retval);
+                }
+                _fallthrough_;
+
+        case MANAGER_POWEROFF:
+                log_info("Powering off.");
+                cmd = RB_POWER_OFF;
+                break;
+
+        case MANAGER_HALT:
+                log_info("Halting system.");
+                cmd = RB_HALT_SYSTEM;
+                break;
+
+        default:
+                assert_not_reached();
+        }
+
+        (void) reboot(cmd);
+        return log_error_errno(errno, "Failed to shut down, freezing: %m");
 }
 
 static void initialize_clock_timewarp(void) {
@@ -3926,9 +3977,20 @@ finish:
          * If we failed above, we want to freeze after finishing cleanup. */
         if (arg_runtime_scope == RUNTIME_SCOPE_SYSTEM &&
             IN_SET(r, MANAGER_EXIT, MANAGER_REBOOT, MANAGER_POWEROFF, MANAGER_HALT, MANAGER_KEXEC)) {
-                r = become_shutdown(r, retval);
-                log_error_errno(r, "Failed to execute shutdown binary, %s: %m", getpid_cached() == 1 ? "freezing" : "quitting");
-                error_message = "Failed to execute shutdown binary";
+                ManagerObjective objective = r;
+
+                r = become_shutdown(objective, retval);
+                assert(r < 0);
+                log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r,
+                               "Failed to execute shutdown binary: %m");
+
+                /* As PID 1, carry out the requested operation ourselves rather than relying on the shutdown
+                 * binary. This only returns if that didn't work, in which case we freeze/exit/reboot
+                 * below. */
+                r = perform_shutdown(objective, retval);
+                assert(r < 0);
+                log_error_errno(r, "Failed to perform shutdown: %m");
+                error_message = "Failed to perform shutdown";
         }
 
         /* This is primarily useful when running systemd in a VM, as it provides the user running the VM with
