@@ -16,9 +16,9 @@ int dnssec_rsa_verify_raw(
 int dnssec_ecdsa_verify_raw(
                 const EVP_MD *hash_algorithm,
                 int curve,
-                const void *signature_r, size_t signature_r_size,
-                const void *signature_s, size_t signature_s_size,
-                const void *data, size_t data_size,
-                const void *key, size_t key_size);
+                const struct iovec *signature_r,
+                const struct iovec *signature_s,
+                const struct iovec *hash,
+                const struct iovec *key);
 
 #endif
