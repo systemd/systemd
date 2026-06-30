@@ -1115,6 +1115,48 @@ bool tty_is_console(const char *tty) {
         return streq(skip_dev_prefix(tty), "console");
 }
 
+int read_console_active_cached(char **ret) {
+        static char *cache = NULL;
+
+        if (!cache) {
+                /* Try /proc/cmdline first to avoid /sys/class/tty/console/active which
+                 * takes the kernel console_lock and can block indefinitely under printk
+                 * pressure (e.g. nftables LOG flood on a serial console). */
+                _cleanup_strv_free_ char **args = NULL;
+                int r = proc_cmdline_strv(&args);
+                if (r >= 0) {
+                        _cleanup_free_ char *consoles = NULL;
+
+                        STRV_FOREACH(a, args) {
+                                const char *v = startswith(*a, "console=");
+                                if (!v)
+                                        continue;
+
+                                _cleanup_free_ char *dev = NULL;
+                                const char *comma = strchr(v, ',');
+                                dev = strndup(v, comma ? (size_t)(comma - v) : strlen(v));
+                                if (!dev)
+                                        return -ENOMEM;
+
+                                if (!strextend_with_separator(&consoles, " ", dev))
+                                        return -ENOMEM;
+                        }
+
+                        if (!isempty(consoles)) {
+                                cache = TAKE_PTR(consoles);
+                                return strdup_to(ret, cache);
+                        }
+                }
+
+                /* Fallback to sysfs */
+                r = read_one_line_file("/sys/class/tty/console/active", &cache);
+                if (r < 0)
+                        return r;
+        }
+
+        return strdup_to(ret, cache);
+}
+
 int resolve_dev_console(char **ret) {
         int r;
 
@@ -1141,10 +1183,10 @@ int resolve_dev_console(char **ret) {
                 return -ENOMEDIUM;
 
         _cleanup_free_ char *active = NULL;
-        r = read_one_line_file("/sys/class/tty/console/active", &active);
+        r = read_console_active_cached(&active);
         if (r < 0)
                 return r;
-        if (r == 0)
+        if (isempty(active))
                 return -ENXIO;
 
         /* If multiple log outputs are configured the last one is what /dev/console points to */
@@ -1188,7 +1230,7 @@ int get_kernel_consoles(char ***ret) {
         if (path_is_read_only_fs("/sys") > 0)
                 goto fallback;
 
-        r = read_one_line_file("/sys/class/tty/console/active", &line);
+        r = read_console_active_cached(&line);
         if (r < 0)
                 return r;
 
