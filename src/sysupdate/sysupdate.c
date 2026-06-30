@@ -1951,6 +1951,15 @@ static int verb_update_impl(int argc, char **argv, UpdateActionFlags action_flag
                                       "The --instances-max argument must be >= 2 while updating");
 
         if (context.reboot) {
+
+                if (context.image || context.root)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "The --root=/--image= switches may not be combined with the '%s' operation.", argv[0]);
+
+                if (context.component)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "The --component= switch may not be combined with the '%s' operation, which only applies to the booted OS version.", argv[0]);
+
                 /* If automatic reboot on completion is requested, let's first determine the currently booted image */
 
                 r = parse_os_release(context.root, "IMAGE_VERSION", &booted_version);
