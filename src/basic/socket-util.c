@@ -1903,35 +1903,21 @@ int socket_xattr_supported(void) {
 
         // FIXME: Drop this check once Linux 7.0 becomes our baseline
 
-        /* Checks if socket inodes may have xattrs on this kernel. This should pass on kernel 7.0, fail on
-         * older kernels */
-
         static int cached = -1;
         if (cached >= 0)
                 return cached;
 
-        const char *t;
-        r = tmp_dir(&t);
-        if (r < 0)
-                return r;
-
-        _cleanup_free_ char *sp = NULL;
-        r = tempfn_random_child(t, "sockxattrtest", &sp);
-        if (r < 0)
-                return r;
-
-        if (mknod(sp, S_IFSOCK | 0600, /* dev= */ 0) < 0)
+        _cleanup_close_ int fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0);
+        if (fd < 0)
                 return -errno;
-
-        _cleanup_(unlink_and_freep) char *sp_destroy = TAKE_PTR(sp);
 
         /* Old kernels return EPERM. But let's also check for more appropriate error codes, to be friendly to
          * seccomp policies */
-        r = xsetxattr(AT_FDCWD, sp_destroy, /* at_flags= */ 0, "user.testxxx", "1");
+        r = xsetxattr(fd, /*path= */ NULL, AT_EMPTY_PATH, "user.testxxx", "1");
         if (ERRNO_IS_NEG_NOT_SUPPORTED(r) || r == -EPERM)
                 return (cached = false);
         if (r < 0)
-                return log_debug_errno(r, "Failed to set test xattr on socket inode '%s': %m", sp_destroy);
+                return log_debug_errno(r, "Failed to set test xattr on socket: %m");
 
         return (cached = true);
 }
