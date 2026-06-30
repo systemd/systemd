@@ -342,7 +342,6 @@ TEST(generate_ecdsa_test_vectors) {
                              -expected);
 
 TEST(dnssec_ecdsa_verify_raw) {
-#if !defined(OPENSSL_NO_DEPRECATED_3_0)
         uint8_t *p;
 
         /* Normal verification */
@@ -391,9 +390,6 @@ TEST(dnssec_ecdsa_verify_raw) {
         p[bad_key.iov_len - 1] ^= 0x01;
         bad_key.iov_len -= 1;
         TEST_ECDSA_VERIFY(test_ecdsa_r, test_ecdsa_s, test_digest, bad_key, -ENOTRECOVERABLE);
-#else
-        TEST_ECDSA_VERIFY(test_ecdsa_r, test_ecdsa_s, test_digest, test_ecdsa_key, -EOPNOTSUPP);
-#endif
 }
 
 static int intro(void) {
