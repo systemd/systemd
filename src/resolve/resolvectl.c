@@ -1133,7 +1133,6 @@ static int varlink_dump_dns_configuration(sd_json_variant **ret) {
         if (!sd_json_variant_is_array(v))
                 return log_error_errno(SYNTHETIC_ERRNO(ENODATA), "DumpDNSConfiguration() response missing 'configuration' key.");
 
-        TAKE_PTR(reply);
         *ret = sd_json_variant_ref(v);
         return 0;
 }
