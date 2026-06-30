@@ -103,6 +103,7 @@ int show_menu(char **x, size_t n_columns, size_t column_width, unsigned ellipsiz
 
 int vt_disallocate(const char *tty_path);
 
+int read_console_active_cached(char **ret);
 int resolve_dev_console(char **ret);
 int get_kernel_consoles(char ***ret);
 bool tty_is_vc(const char *tty);
