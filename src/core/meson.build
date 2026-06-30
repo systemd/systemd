@@ -209,11 +209,9 @@ systemd_deps = [
         libselinux_cflags,
 ]
 
-link_executor_shared = get_option('link-executor-shared')
+executor_libs = get_option('link-executor-shared') ? core_libs_shared : core_libs_static
 
-executor_libs = link_executor_shared == 'true' ? core_libs_shared : core_libs_static
-
-if link_executor_shared == 'single'
+if conf.get('SYSTEMD_MULTICALL_BINARY') == 1
         systemd_sources += systemd_executor_sources
         systemd_deps += [
                 libbpf_cflags,
@@ -256,7 +254,7 @@ executables += [
         },
 ]
 
-if link_executor_shared == 'single'
+if conf.get('SYSTEMD_MULTICALL_BINARY') == 1
         # Symlink for external callers
         install_symlink('systemd-executor',
                         pointing_to : 'systemd',
