@@ -100,9 +100,9 @@ int main(int argc, char *argv[]) {
         assert_se(manager_startup(m, NULL, NULL, NULL, NULL) >= 0);
 
         printf("Load1:\n");
-        assert_se(manager_load_startable_unit_or_warn(m, "a.service", NULL, &a) >= 0);
-        assert_se(manager_load_startable_unit_or_warn(m, "b.service", NULL, &b) >= 0);
-        assert_se(manager_load_startable_unit_or_warn(m, "c.service", NULL, &c) >= 0);
+        assert_se(manager_load_startable_unit_or_warn(m, "a.service", NULL, LOG_ERR, &a) >= 0);
+        assert_se(manager_load_startable_unit_or_warn(m, "b.service", NULL, LOG_ERR, &b) >= 0);
+        assert_se(manager_load_startable_unit_or_warn(m, "c.service", NULL, LOG_ERR, &c) >= 0);
         manager_dump_units(m, stdout, /* patterns= */ NULL, "\t");
 
         printf("Test1: (Trivial)\n");
@@ -114,8 +114,8 @@ int main(int argc, char *argv[]) {
 
         printf("Load2:\n");
         manager_clear_jobs(m);
-        assert_se(manager_load_startable_unit_or_warn(m, "d.service", NULL, &d) >= 0);
-        assert_se(manager_load_startable_unit_or_warn(m, "e.service", NULL, &e) >= 0);
+        assert_se(manager_load_startable_unit_or_warn(m, "d.service", NULL, LOG_ERR, &d) >= 0);
+        assert_se(manager_load_startable_unit_or_warn(m, "e.service", NULL, LOG_ERR, &e) >= 0);
         manager_dump_units(m, stdout, /* patterns= */ NULL, "\t");
 
         printf("Test2: (Cyclic Order, Unfixable)\n");
@@ -131,7 +131,7 @@ int main(int argc, char *argv[]) {
         manager_dump_jobs(m, stdout, /* patterns= */ NULL, "\t");
 
         printf("Load3:\n");
-        assert_se(manager_load_startable_unit_or_warn(m, "g.service", NULL, &g) >= 0);
+        assert_se(manager_load_startable_unit_or_warn(m, "g.service", NULL, LOG_ERR, &g) >= 0);
         manager_dump_units(m, stdout, /* patterns= */ NULL, "\t");
 
         printf("Test5: (Colliding transaction, fail)\n");
@@ -153,7 +153,7 @@ int main(int argc, char *argv[]) {
         manager_dump_jobs(m, stdout, /* patterns= */ NULL, "\t");
 
         printf("Load4:\n");
-        assert_se(manager_load_startable_unit_or_warn(m, "h.service", NULL, &h) >= 0);
+        assert_se(manager_load_startable_unit_or_warn(m, "h.service", NULL, LOG_ERR, &h) >= 0);
         manager_dump_units(m, stdout, /* patterns= */ NULL, "\t");
 
         printf("Test10: (Unmergeable job type of auxiliary job, fail)\n");
@@ -162,7 +162,7 @@ int main(int argc, char *argv[]) {
 
         printf("Load5:\n");
         manager_clear_jobs(m);
-        assert_se(manager_load_startable_unit_or_warn(m, "i.service", NULL, &i) >= 0);
+        assert_se(manager_load_startable_unit_or_warn(m, "i.service", NULL, LOG_ERR, &i) >= 0);
         SERVICE(a)->state = SERVICE_RUNNING;
         SERVICE(d)->state = SERVICE_RUNNING;
         manager_dump_units(m, stdout, /* patterns= */ NULL, "\t");
@@ -176,7 +176,7 @@ int main(int argc, char *argv[]) {
 
         printf("Load6:\n");
         manager_clear_jobs(m);
-        assert_se(manager_load_startable_unit_or_warn(m, "a-conj.service", NULL, &a_conj) >= 0);
+        assert_se(manager_load_startable_unit_or_warn(m, "a-conj.service", NULL, LOG_ERR, &a_conj) >= 0);
         SERVICE(a)->state = SERVICE_DEAD;
         manager_dump_units(m, stdout, /* patterns= */ NULL, "\t");
 
