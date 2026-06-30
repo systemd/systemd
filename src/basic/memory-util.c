@@ -19,22 +19,6 @@ size_t page_size(void) {
         return pgsz;
 }
 
-void* memdup_reverse(const void *mem, size_t size) {
-        assert(mem);
-        assert(size != 0);
-
-        void *p = malloc(size);
-        if (!p)
-                return NULL;
-
-        uint8_t *p_dst = p;
-        const uint8_t *p_src = mem;
-        for (size_t i = 0, k = size; i < size; i++, k--)
-                p_dst[i] = p_src[k-1];
-
-        return p;
-}
-
 void* erase_and_free(void *p) {
         size_t l;
 
