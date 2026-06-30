@@ -16,7 +16,9 @@ TEST(namespace_enter) {
                         "test-ns-enter-1",
                         FORK_NEW_USERNS|FORK_NEW_MOUNTNS|FORK_LOG|FORK_FREEZE|FORK_DEATHSIG_SIGKILL,
                         &pidref);
-        if (ERRNO_IS_NEG_PRIVILEGE(r))
+        /* EINVAL also signals "namespace disabled by sysctl" (user.max_user_namespaces=0)
+         * in restricted build environments. */
+        if (ERRNO_IS_NEG_PRIVILEGE(r) || r == -EINVAL)
                 return (void) log_tests_skipped_errno(r, "Unable to unshare user namespace");
 
         ASSERT_OK(r);
