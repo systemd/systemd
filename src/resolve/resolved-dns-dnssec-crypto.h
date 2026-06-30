@@ -8,9 +8,9 @@
 
 int dnssec_rsa_verify_raw(
                 const EVP_MD *hash_algorithm,
-                const void *signature, size_t signature_size,
-                const void *data, size_t data_size,
-                const void *exponent, size_t exponent_size,
-                const void *modulus, size_t modulus_size);
+                const struct iovec *signature,
+                const struct iovec *hash,
+                const struct iovec *exponent,
+                const struct iovec *modulus);
 
 #endif

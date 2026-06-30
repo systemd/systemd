@@ -182,18 +182,18 @@ TEST(generate_rsa_test_vectors) {
         if (expected >= 0)                                              \
                 ASSERT_OK_EQ(dnssec_rsa_verify_raw(                     \
                                              sym_EVP_sha256(),          \
-                                             signature.iov_base, signature.iov_len, \
-                                             digest.iov_base, digest.iov_len, \
-                                             exponent.iov_base, exponent.iov_len, \
-                                             modulus.iov_base, modulus.iov_len), \
+                                             &signature,                \
+                                             &digest,                   \
+                                             &exponent,                 \
+                                             &modulus),                 \
                              expected);                                 \
         else                                                            \
                 ASSERT_ERROR(dnssec_rsa_verify_raw(                     \
                                              sym_EVP_sha256(),          \
-                                             signature.iov_base, signature.iov_len, \
-                                             digest.iov_base, digest.iov_len, \
-                                             exponent.iov_base, exponent.iov_len, \
-                                             modulus.iov_base, modulus.iov_len), \
+                                             &signature,                \
+                                             &digest,                   \
+                                             &exponent,                 \
+                                             &modulus),                 \
                              -expected);
 
 TEST(dnssec_rsa_verify_raw) {

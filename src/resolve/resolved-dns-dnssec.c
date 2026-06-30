@@ -75,31 +75,30 @@ static int dnssec_verify_errno(int r) {
 
 int dnssec_rsa_verify_raw(
                 const EVP_MD *hash_algorithm,
-                const void *signature, size_t signature_size,
-                const void *data, size_t data_size,
-                const void *exponent, size_t exponent_size,
-                const void *modulus, size_t modulus_size) {
+                const struct iovec *signature,
+                const struct iovec *hash,
+                const struct iovec *exponent,
+                const struct iovec *modulus) {
 
 #if !defined(OPENSSL_NO_DEPRECATED_3_0)
         DISABLE_WARNING_DEPRECATED_DECLARATIONS;
         int r;
 
-        _cleanup_(RSA_freep) RSA *rpubkey = NULL;
-        _cleanup_(EVP_PKEY_freep) EVP_PKEY *epubkey = NULL;
-        _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx = NULL;
-        _cleanup_(BN_freep) BIGNUM *e = NULL, *m = NULL;
-
         assert(hash_algorithm);
+        assert(iovec_is_set(signature));
+        assert(iovec_is_set(hash));
+        assert(iovec_is_set(exponent));
+        assert(iovec_is_set(modulus));
 
-        e = sym_BN_bin2bn(exponent, exponent_size, NULL);
+        _cleanup_(BN_freep) BIGNUM *e = sym_BN_bin2bn(exponent->iov_base, exponent->iov_len, NULL);
         if (!e)
                 return log_openssl_errors(LOG_DEBUG, "Failed to convert RSA exponent to BIGNUM");
 
-        m = sym_BN_bin2bn(modulus, modulus_size, NULL);
+        _cleanup_(BN_freep) BIGNUM *m = sym_BN_bin2bn(modulus->iov_base, modulus->iov_len, NULL);
         if (!m)
                 return log_openssl_errors(LOG_DEBUG, "Failed to convert RSA modulus to BIGNUM");
 
-        rpubkey = sym_RSA_new();
+        _cleanup_(RSA_freep) RSA *rpubkey = sym_RSA_new();
         if (!rpubkey)
                 return -ENOMEM;
 
@@ -107,17 +106,17 @@ int dnssec_rsa_verify_raw(
                 return log_openssl_errors(LOG_DEBUG, "Failed to set RSA public key");
         e = m = NULL;
 
-        if ((size_t) sym_RSA_size(rpubkey) != signature_size)
+        if ((size_t) sym_RSA_size(rpubkey) != signature->iov_len)
                 return -EINVAL;
 
-        epubkey = sym_EVP_PKEY_new();
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *epubkey = sym_EVP_PKEY_new();
         if (!epubkey)
                 return -ENOMEM;
 
         if (sym_EVP_PKEY_assign_RSA(epubkey, sym_RSAPublicKey_dup(rpubkey)) <= 0)
                 return log_openssl_errors(LOG_DEBUG, "Failed to assign RSA public key");
 
-        ctx = sym_EVP_PKEY_CTX_new(epubkey, NULL);
+        _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx = sym_EVP_PKEY_CTX_new(epubkey, NULL);
         if (!ctx)
                 return -ENOMEM;
 
@@ -130,7 +129,7 @@ int dnssec_rsa_verify_raw(
         if (sym_EVP_PKEY_CTX_set_signature_md(ctx, hash_algorithm) <= 0)
                 return log_openssl_errors(LOG_DEBUG, "Failed to set RSA signature digest");
 
-        r = sym_EVP_PKEY_verify(ctx, signature, signature_size, data, data_size);
+        r = sym_EVP_PKEY_verify(ctx, signature->iov_base, signature->iov_len, hash->iov_base, hash->iov_len);
         if (r < 0)
                 return log_openssl_errors(LOG_DEBUG, "Signature verification failed");
 
@@ -143,7 +142,7 @@ int dnssec_rsa_verify_raw(
 
 static int dnssec_rsa_verify(
                 const EVP_MD *hash_algorithm,
-                const void *hash, size_t hash_size,
+                const struct iovec *hash,
                 DnsResourceRecord *rrsig,
                 DnsResourceRecord *dnskey) {
 
@@ -151,8 +150,7 @@ static int dnssec_rsa_verify(
         void *exponent, *modulus;
 
         assert(hash_algorithm);
-        assert(hash);
-        assert(hash_size > 0);
+        assert(iovec_is_set(hash));
         assert(rrsig);
         assert(dnskey);
 
@@ -196,10 +194,10 @@ static int dnssec_rsa_verify(
 
         return dnssec_rsa_verify_raw(
                         hash_algorithm,
-                        rrsig->rrsig.signature, rrsig->rrsig.signature_size,
-                        hash, hash_size,
-                        exponent, exponent_size,
-                        modulus, modulus_size);
+                        &IOVEC_MAKE(rrsig->rrsig.signature, rrsig->rrsig.signature_size),
+                        hash,
+                        &IOVEC_MAKE(exponent, exponent_size),
+                        &IOVEC_MAKE(modulus, modulus_size));
 }
 
 static int dnssec_ecdsa_verify_raw(
@@ -687,7 +685,7 @@ static int dnssec_rrset_verify_sig(
         case DNSSEC_ALGORITHM_RSASHA512:
                 return dnssec_verify_errno(dnssec_rsa_verify(
                                 md_algorithm,
-                                hash, hash_size,
+                                &IOVEC_MAKE(hash, hash_size),
                                 rrsig,
                                 dnskey));
 
