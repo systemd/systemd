@@ -1350,30 +1350,32 @@ int rsa_pkey_from_n_e(const void *n, size_t n_size, const void *e, size_t e_size
         if (sym_EVP_PKEY_fromdata_init(ctx) <= 0)
                 return log_openssl_errors(LOG_DEBUG, "Failed to initialize EVP_PKEY_CTX");
 
-        OSSL_PARAM params[3];
+        _cleanup_(BN_freep) BIGNUM *bn_n = sym_BN_bin2bn(n, n_size, NULL);
+        if (!bn_n)
+                return log_openssl_errors(LOG_DEBUG, "Failed to create BIGNUM n");
 
-#if __BYTE_ORDER == __BIG_ENDIAN
-        params[0] = sym_OSSL_PARAM_construct_BN(OSSL_PKEY_PARAM_RSA_N, (void*)n, n_size);
-        params[1] = sym_OSSL_PARAM_construct_BN(OSSL_PKEY_PARAM_RSA_E, (void*)e, e_size);
-#else
-        _cleanup_free_ void *native_n = memdup_reverse(n, n_size);
-        if (!native_n)
-                return log_oom_debug();
+        _cleanup_(BN_freep) BIGNUM *bn_e = sym_BN_bin2bn(e, e_size, NULL);
+        if (!bn_e)
+                return log_openssl_errors(LOG_DEBUG, "Failed to create BIGNUM e");
 
-        _cleanup_free_ void *native_e = memdup_reverse(e, e_size);
-        if (!native_e)
-                return log_oom_debug();
+        _cleanup_(OSSL_PARAM_BLD_freep) OSSL_PARAM_BLD *bld = sym_OSSL_PARAM_BLD_new();
+        if (!bld)
+                return log_openssl_errors(LOG_DEBUG, "Failed to create new OSSL_PARAM_BLD");
 
-        params[0] = sym_OSSL_PARAM_construct_BN(OSSL_PKEY_PARAM_RSA_N, native_n, n_size);
-        params[1] = sym_OSSL_PARAM_construct_BN(OSSL_PKEY_PARAM_RSA_E, native_e, e_size);
-#endif
-        params[2] = sym_OSSL_PARAM_construct_end();
+        if (!sym_OSSL_PARAM_BLD_push_BN(bld, OSSL_PKEY_PARAM_RSA_N, bn_n))
+                return log_openssl_errors(LOG_DEBUG, "Failed to push n to RSA params");
+
+        if (!sym_OSSL_PARAM_BLD_push_BN(bld, OSSL_PKEY_PARAM_RSA_E, bn_e))
+                return log_openssl_errors(LOG_DEBUG, "Failed to push e to RSA params");
+
+        _cleanup_(OSSL_PARAM_freep) OSSL_PARAM *params = sym_OSSL_PARAM_BLD_to_param(bld);
+        if (!params)
+                return log_openssl_errors(LOG_DEBUG, "Failed to build RSA OSSL_PARAM");
 
         if (sym_EVP_PKEY_fromdata(ctx, &pkey, EVP_PKEY_PUBLIC_KEY, params) <= 0)
                 return log_openssl_errors(LOG_DEBUG, "Failed to create RSA EVP_PKEY");
 
         *ret = TAKE_PTR(pkey);
-
         return 0;
 }
 
