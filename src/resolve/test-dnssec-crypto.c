@@ -197,7 +197,6 @@ TEST(generate_rsa_test_vectors) {
                              -expected);
 
 TEST(dnssec_rsa_verify_raw) {
-#if !defined(OPENSSL_NO_DEPRECATED_3_0)
         uint8_t *p;
 
         TEST_RSA_VERIFY(test_signature, test_digest, test_exponent, test_modulus, 1);
@@ -245,9 +244,6 @@ TEST(dnssec_rsa_verify_raw) {
         p[bad_modulus.iov_len - 1] ^= 0x01;
         bad_modulus.iov_len -= 1;
         TEST_RSA_VERIFY(test_signature, test_digest, test_exponent, bad_modulus, -EINVAL);
-#else
-        TEST_RSA_VERIFY(test_signature, test_digest, test_exponent, test_modulus, -EOPNOTSUPP);
-#endif
 }
 
 static int intro(void) {
