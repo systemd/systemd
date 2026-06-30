@@ -78,8 +78,7 @@ conf.set10('FUZZ_USE_SIZE_LIMIT', fuzzer_build)
 # We'll set this to '1' for EFI builds in a different place.
 conf.set10('SD_BOOT', false)
 
-link_executor_shared = get_option('link-executor-shared')
-conf.set10('BUILD_EXECUTOR_SINGLE', link_executor_shared == 'single')
+conf.set10('SYSTEMD_MULTICALL_BINARY', get_option('systemd-multicall-binary'))
 
 conf.set10('BUILD_STATIC', get_option('build-static'))
 

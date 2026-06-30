@@ -3922,7 +3922,7 @@ finish:
 }
 
 int main(int argc, char *argv[]) {
-#if BUILD_EXECUTOR_SINGLE
+#if SYSTEMD_MULTICALL_BINARY
         if (invoked_as(argv, "executor"))
                 return run_executor(argc, argv);
 #endif

@@ -900,7 +900,7 @@ static int pin_executor_binary(int *ret_fd) {
 
         assert(ret_fd);
 
-#if BUILD_EXECUTOR_SINGLE
+#if SYSTEMD_MULTICALL_BINARY
         int r;
 
         r = open_and_check_executable("/proc/self/exe", /* root= */ NULL, &path, ret_fd);
