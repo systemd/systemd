@@ -2155,11 +2155,12 @@ static int context_list_components(Context *context, char ***ret_component_names
         /* Does the system have at least one transfer file in /etc/sysupdate.d, which can be considered a
          * TARGET_HOST? See target_get_argument() in sysupdated.c */
         if (ret_has_default_component)
-                *ret_has_default_component = (!context->definitions &&
-                                          !context->component &&
-                                          !context->root &&
-                                          !context->image &&
-                                          context->n_transfers > 0);
+                *ret_has_default_component =
+                        !context->definitions &&
+                        !context->component &&
+                        !context->root &&
+                        !context->image &&
+                        context->n_transfers > 0;
 
         return 0;
 }
