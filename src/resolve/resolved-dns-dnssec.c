@@ -212,8 +212,6 @@ int dnssec_ecdsa_verify_raw(
                 const struct iovec *hash,
                 const struct iovec *key) {
 
-#if !defined(OPENSSL_NO_DEPRECATED_3_0)
-        DISABLE_WARNING_DEPRECATED_DECLARATIONS;
         int r;
 
         assert(hash_algorithm);
@@ -222,35 +220,25 @@ int dnssec_ecdsa_verify_raw(
         assert(iovec_is_set(hash));
         assert(iovec_is_set(key));
 
-        DISABLE_WARNING_DEPRECATED_DECLARATIONS;
+        const char *curve_name = sym_OBJ_nid2sn(curve);
+        if (!curve_name)
+                return log_openssl_errors(LOG_DEBUG, "Unknown curve NID");
 
-        _cleanup_(EC_GROUP_freep) EC_GROUP *ec_group = sym_EC_GROUP_new_by_curve_name(curve);
-        if (!ec_group)
+        OSSL_PARAM params[3];
+        params[0] = sym_OSSL_PARAM_construct_utf8_string(OSSL_PKEY_PARAM_GROUP_NAME, (char*) curve_name, 0);
+        params[1] = sym_OSSL_PARAM_construct_octet_string(OSSL_PKEY_PARAM_PUB_KEY, key->iov_base, key->iov_len);
+        params[2] = sym_OSSL_PARAM_construct_end();
+
+        _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *kctx = sym_EVP_PKEY_CTX_new_id(EVP_PKEY_EC, NULL);
+        if (!kctx)
                 return -ENOMEM;
 
-        _cleanup_(EC_POINT_freep) EC_POINT *p = sym_EC_POINT_new(ec_group);
-        if (!p)
-                return -ENOMEM;
+        if (sym_EVP_PKEY_fromdata_init(kctx) <= 0)
+                return log_openssl_errors(LOG_DEBUG, "Failed to initialize EC key creation");
 
-        _cleanup_(BN_CTX_freep) BN_CTX *bctx = sym_BN_CTX_new();
-        if (!bctx)
-                return -ENOMEM;
-
-        if (sym_EC_POINT_oct2point(ec_group, p, key->iov_base, key->iov_len, bctx) <= 0)
-                return log_openssl_errors(LOG_DEBUG, "Failed to parse EC public key point");
-
-        _cleanup_(EC_KEY_freep) EC_KEY *eckey = sym_EC_KEY_new();
-        if (!eckey)
-                return -ENOMEM;
-
-        if (sym_EC_KEY_set_group(eckey, ec_group) <= 0)
-                return log_openssl_errors(LOG_DEBUG, "Failed to set EC group");
-
-        if (sym_EC_KEY_set_public_key(eckey, p) <= 0)
-                return log_openssl_errors(LOG_DEBUG, "EC_KEY_set_public_key failed");
-
-        if (sym_EC_KEY_check_key(eckey) <= 0)
-                return log_openssl_errors(LOG_DEBUG, "EC_KEY_check_key failed");
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *epubkey = NULL;
+        if (sym_EVP_PKEY_fromdata(kctx, &epubkey, EVP_PKEY_PUBLIC_KEY, params) <= 0)
+                return log_openssl_errors(LOG_DEBUG, "Failed to load EC public key from raw data");
 
         _cleanup_(BN_freep) BIGNUM *bn_r = sym_BN_bin2bn(signature_r->iov_base, signature_r->iov_len, NULL);
         if (!bn_r)
@@ -259,8 +247,6 @@ int dnssec_ecdsa_verify_raw(
         _cleanup_(BN_freep) BIGNUM *bn_s = sym_BN_bin2bn(signature_s->iov_base, signature_s->iov_len, NULL);
         if (!bn_s)
                 return log_openssl_errors(LOG_DEBUG, "Failed to convert ECDSA signature s to BIGNUM");
-
-        /* TODO: We should eventually use the EVP API once it supports ECDSA signature verification */
 
         _cleanup_(ECDSA_SIG_freep) ECDSA_SIG *sig = sym_ECDSA_SIG_new();
         if (!sig)
@@ -271,15 +257,27 @@ int dnssec_ecdsa_verify_raw(
         TAKE_PTR(bn_r);
         TAKE_PTR(bn_s);
 
-        r = sym_ECDSA_do_verify(hash->iov_base, hash->iov_len, sig, eckey);
+        _cleanup_(OPENSSL_freep) void *buf = NULL;
+        r = sym_i2d_ECDSA_SIG(sig, (unsigned char**) &buf);
+        if (r <= 0)
+                return log_openssl_errors(LOG_DEBUG, "Failed to DER encode ECDSA signature");
+        struct iovec der_sig = IOVEC_MAKE(buf, r);
+
+        _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *vctx = sym_EVP_PKEY_CTX_new(epubkey, NULL);
+        if (!vctx)
+                return -ENOMEM;
+
+        if (sym_EVP_PKEY_verify_init(vctx) <= 0)
+                return log_openssl_errors(LOG_DEBUG, "Failed to initialize ECDSA signature verification");
+
+        if (sym_EVP_PKEY_CTX_set_signature_md(vctx, hash_algorithm) <= 0)
+                return log_openssl_errors(LOG_DEBUG, "Failed to set ECDSA signature digest");
+
+        r = sym_EVP_PKEY_verify(vctx, der_sig.iov_base, der_sig.iov_len, hash->iov_base, hash->iov_len);
         if (r < 0)
                 return log_openssl_errors(LOG_DEBUG, "Signature verification failed");
 
-        REENABLE_WARNING;
         return r;
-#else
-        return -EOPNOTSUPP;
-#endif
 }
 
 static int dnssec_ecdsa_verify(
