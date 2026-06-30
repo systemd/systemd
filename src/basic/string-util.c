@@ -1469,8 +1469,10 @@ bool version_is_valid(const char *s) {
         if (!filename_part_is_valid(s))
                 return false;
 
-        /* This is a superset of the characters used by semver. We additionally allow "," and "_". */
-        if (!in_charset(s, ALPHANUMERICAL ".,_-+"))
+        /* This is a superset of the characters used by semver. We additionally allow ",", "_", and the
+         * "~"/"^" separators that strverscmp_improved() understands (and which the Version Format
+         * Specification mandates), so that e.g. pre-release versions such as "3.0.0~a" are accepted. */
+        if (!in_charset(s, ALPHANUMERICAL ".,_-+~^"))
                 return false;
 
         return true;
