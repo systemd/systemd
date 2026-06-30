@@ -291,7 +291,6 @@ DLSYM_PROTOTYPE(i2d_ASN1_INTEGER) = NULL;
 DLSYM_PROTOTYPE(i2d_PKCS7) = NULL;
 DLSYM_PROTOTYPE(i2d_PKCS7_fp) = NULL;
 DLSYM_PROTOTYPE(i2d_PUBKEY) = NULL;
-static DLSYM_PROTOTYPE(i2d_PUBKEY_fp) = NULL;
 static DLSYM_PROTOTYPE(i2d_PublicKey) = NULL;
 DLSYM_PROTOTYPE(i2d_X509) = NULL;
 DLSYM_PROTOTYPE(i2d_X509_NAME) = NULL;
@@ -618,7 +617,6 @@ int dlopen_libcrypto(int log_level) {
                         DLSYM_ARG(i2d_PKCS7),
                         DLSYM_ARG(i2d_PKCS7_fp),
                         DLSYM_ARG(i2d_PUBKEY),
-                        DLSYM_ARG(i2d_PUBKEY_fp),
                         DLSYM_ARG(i2d_PublicKey),
                         DLSYM_ARG(i2d_X509),
                         DLSYM_ARG(i2d_X509_NAME),
@@ -2400,21 +2398,12 @@ int openssl_extract_public_key(EVP_PKEY *private_key, EVP_PKEY **ret) {
         if (r < 0)
                 return r;
 
-        _cleanup_(memstream_done) MemStream m = {};
-        FILE *tf = memstream_init(&m);
-        if (!tf)
-                return -ENOMEM;
-
-        if (sym_i2d_PUBKEY_fp(tf, private_key) != 1)
+        _cleanup_(OPENSSL_freep) void *buf = NULL;
+        int len = sym_i2d_PUBKEY(private_key, (unsigned char**) &buf);
+        if (len < 0)
                 return log_openssl_errors(LOG_DEBUG, "Failed to extract public key in DER format");
 
-        _cleanup_(erase_and_freep) char *buf = NULL;
-        size_t len;
-        r = memstream_finalize(&m, &buf, &len);
-        if (r < 0)
-                return r;
-
-        const unsigned char *t = (const unsigned char*) buf;
+        const unsigned char *t = buf;
         if (!sym_d2i_PUBKEY(ret, &t, len))
                 return log_openssl_errors(LOG_DEBUG, "Failed to parse public key in DER format");
 
