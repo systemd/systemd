@@ -212,6 +212,29 @@ EFI_STATUS process_random_seed(EFI_FILE *root_dir) {
                                 (char16_t *) u"\\loader\\random-seed",
                                 EFI_FILE_MODE_READ | EFI_FILE_MODE_WRITE | EFI_FILE_MODE_CREATE,
                                 0);
+                if (err == EFI_NOT_FOUND) {
+                        /* The \loader\ directory doesn't exist yet (e.g. on systems using UKI+EFISTUB
+                         * without systemd-boot), create it first, then retry. */
+                        _cleanup_file_close_ EFI_FILE *dir_handle = NULL;
+                        err = root_dir->Open(
+                                        root_dir,
+                                        &dir_handle,
+                                        (char16_t *) u"\\loader",
+                                        EFI_FILE_MODE_READ | EFI_FILE_MODE_WRITE | EFI_FILE_MODE_CREATE,
+                                        EFI_FILE_DIRECTORY);
+                        if (err != EFI_SUCCESS)
+                                return log_full(err,
+                                                EFI_STATUS_IS_WRITE_REFUSED(err) ? LOG_DEBUG : LOG_ERR,
+                                                "Failed to create loader directory: %m");
+
+                        handle = NULL;
+                        err = root_dir->Open(
+                                        root_dir,
+                                        &handle,
+                                        (char16_t *) u"\\loader\\random-seed",
+                                        EFI_FILE_MODE_READ | EFI_FILE_MODE_WRITE | EFI_FILE_MODE_CREATE,
+                                        0);
+                }
                 if (err != EFI_SUCCESS)
                         return log_full(err,
                                         EFI_STATUS_IS_WRITE_REFUSED(err) ? LOG_DEBUG : LOG_ERR,
