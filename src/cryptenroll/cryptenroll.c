@@ -59,6 +59,7 @@ static size_t arg_tpm2_n_hash_pcr_values = 0;
 static bool arg_tpm2_pin = false;
 static char *arg_tpm2_public_key = NULL;
 static bool arg_tpm2_load_public_key = true;
+static char *arg_tpm2_public_key_policyref = NULL;
 static uint32_t arg_tpm2_public_key_pcr_mask = 0;
 static char *arg_tpm2_signature = NULL;
 static char *arg_tpm2_pcrlock = NULL;
@@ -91,6 +92,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_tpm2_device, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_device_key, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_hash_pcr_values, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_public_key, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_tpm2_public_key_policyref, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_signature, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_pcrlock, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_node, freep);
@@ -682,6 +684,13 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_tpm2_load_public_key = true;
                         break;
 
+                OPTION_LONG("tpm2-public-key-policyref", "STRING",
+                            "Enroll signed TPM2 PCR policy with the specified policy reference"):
+                        r = free_and_strdup_warn(&arg_tpm2_public_key_policyref, opts.arg);
+                        if (r < 0)
+                                return r;
+                        break;
+
                 OPTION_LONG("tpm2-public-key-pcrs", "PCR1+PCR2+PCR3+…",
                             "Enroll signed TPM2 PCR policy for specified TPM2 PCRs"):
                         auto_public_key_pcr_mask = false;
@@ -926,6 +935,7 @@ static int enroll_context_from_args(EnrollContext *c) {
             strdup_to(&c->tpm2_device, arg_tpm2_device) < 0 ||
             strdup_to(&c->tpm2_device_key, arg_tpm2_device_key) < 0 ||
             strdup_to(&c->tpm2_public_key, arg_tpm2_public_key) < 0 ||
+            strdup_to(&c->tpm2_public_key_policyref, arg_tpm2_public_key_policyref) < 0 ||
             strdup_to(&c->tpm2_signature, arg_tpm2_signature) < 0 ||
             strdup_to(&c->tpm2_pcrlock, arg_tpm2_pcrlock) < 0)
                 return log_oom();
