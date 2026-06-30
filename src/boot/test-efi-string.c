@@ -590,6 +590,7 @@ TEST(line_get_key_value) {
                     "  also\tused  \r\n"
                     "for \"the conf\"\n"
                     "format\t !!";
+        char s3[] = "ID=";
         size_t pos = 0;
         char *key, *value;
 
@@ -610,6 +611,11 @@ TEST(line_get_key_value) {
         ASSERT_TRUE(streq8(key, "odd"));
         ASSERT_TRUE(streq8(value, " stripping  # with comments"));
         ASSERT_NULL(line_get_key_value(s1, "=", &pos, &key, &value));
+
+        pos = 0;
+        ASSERT_NOT_NULL(line_get_key_value(s3, "=", &pos, &key, &value));
+        ASSERT_TRUE(streq8(key, "ID"));
+        ASSERT_TRUE(streq8(value, ""));
 
         pos = 0;
         ASSERT_NOT_NULL(line_get_key_value(s2, " \t", &pos, &key, &value));
