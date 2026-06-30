@@ -24,6 +24,7 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "firstboot-util.h"
 #include "format-table.h"
 #include "fs-util.h"
 #include "glyph-util.h"
@@ -47,7 +48,6 @@
 #include "password-quality-util.h"
 #include "path-util.h"
 #include "plymouth-util.h"
-#include "proc-cmdline.h"
 #include "prompt-util.h"
 #include "runtime-scope.h"
 #include "smack-util.h"
@@ -79,6 +79,7 @@ static bool arg_prompt_timezone = false;
 static bool arg_prompt_hostname = false;
 static bool arg_prompt_root_password = false;
 static bool arg_prompt_root_shell = false;
+static bool arg_headless = false;
 static bool arg_copy_locale = false;
 static bool arg_copy_keymap = false;
 static bool arg_copy_timezone = false;
@@ -244,6 +245,14 @@ static int locale_is_ok(const char *name, void *userdata) {
         return r != 0 ? locale_is_installed(name) > 0 : locale_is_valid(name);
 }
 
+static bool headless_skips_prompt_for(const char *what) {
+        if (!arg_headless)
+                return false;
+
+        log_debug("Running headless, not prompting for %s.", what);
+        return true;
+}
+
 static int prompt_locale(int rfd, sd_varlink **mute_console_link) {
         _cleanup_strv_free_ char **locales = NULL;
         bool acquired_from_creds = false;
@@ -296,6 +305,9 @@ static int prompt_locale(int rfd, sd_varlink **mute_console_link) {
                         /* Not setting arg_locale_message here, since it defaults to LANG anyway */
                 }
         } else {
+                if (headless_skips_prompt_for("locale"))
+                        return 0;
+
                 print_welcome(rfd, mute_console_link);
 
                 _cleanup_free_ char *prefill = NULL;
@@ -456,6 +468,9 @@ static int prompt_keymap(int rfd, sd_varlink **mute_console_link) {
                 return 0;
         }
 
+        if (headless_skips_prompt_for("keymap"))
+                return 0;
+
         r = get_keymaps(&kmaps);
         if (r == -ENOENT) /* no keymaps installed */
                 return log_debug_errno(r, "No keymaps are installed.");
@@ -578,6 +593,9 @@ static int prompt_timezone(int rfd, sd_varlink **mute_console_link) {
                 return 0;
         }
 
+        if (headless_skips_prompt_for("timezone"))
+                return 0;
+
         r = get_timezones(&zones);
         if (r < 0)
                 return log_error_errno(r, "Cannot query timezone list: %m");
@@ -690,6 +708,9 @@ static int prompt_hostname(int rfd, sd_varlink **mute_console_link) {
                 log_debug("Prompting for hostname was not requested.");
                 return 0;
         }
+
+        if (headless_skips_prompt_for("hostname"))
+                return 0;
 
         print_welcome(rfd, mute_console_link);
 
@@ -879,6 +900,9 @@ static int prompt_root_password(int rfd, sd_varlink **mute_console_link) {
                 return 0;
         }
 
+        if (headless_skips_prompt_for("root password"))
+                return 0;
+
         print_welcome(rfd, mute_console_link);
 
         msg1 = "Please enter the new root password (empty to skip):";
@@ -979,6 +1003,9 @@ static int prompt_root_shell(int rfd, sd_varlink **mute_console_link) {
                 log_debug("Prompting for root shell was not requested.");
                 return 0;
         }
+
+        if (headless_skips_prompt_for("root shell"))
+                return 0;
 
         print_welcome(rfd, mute_console_link);
 
@@ -1688,13 +1715,16 @@ static int run(int argc, char *argv[]) {
                  * command line option, because we are called to provision the host with basic settings (as
                  * opposed to some other file system tree/image) */
 
-                bool enabled;
-                r = proc_cmdline_get_bool("systemd.firstboot", /* flags= */ 0, &enabled);
+                FirstBootMode mode;
+                r = firstboot_mode_from_cmdline(&mode);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to parse systemd.firstboot= kernel command line argument, ignoring: %m");
-                if (r > 0 && !enabled) {
+                        return log_error_errno(r, "Failed to parse systemd.firstboot= kernel command line argument: %m");
+                if (mode == FIRSTBOOT_OFF) {
                         log_debug("Found systemd.firstboot=no kernel command line argument, turning off all prompts.");
                         arg_prompt_locale = arg_prompt_keymap = arg_prompt_keymap_auto = arg_prompt_timezone = arg_prompt_hostname = arg_prompt_root_password = arg_prompt_root_shell = false;
+                } else if (mode == FIRSTBOOT_HEADLESS) {
+                        log_debug("Found systemd.firstboot=headless kernel command line argument, skipping interactive prompts but keeping non-interactive auto-configuration.");
+                        arg_headless = true;
                 }
         }
 

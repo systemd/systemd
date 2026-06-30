@@ -8,10 +8,10 @@
 #include "cryptenroll-interactive.h"
 #include "cryptenroll-list.h"
 #include "cryptsetup-util.h"
+#include "firstboot-util.h"
 #include "glyph-util.h"
 #include "libfido2-util.h"
 #include "log.h"
-#include "proc-cmdline.h"
 #include "prompt-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -176,12 +176,13 @@ int cryptenroll_run_interactive(
         assert(c->node);
 
         /* Honour the systemd.firstboot= kernel command line option, just like systemd-firstboot. */
-        bool enabled;
-        r = proc_cmdline_get_bool("systemd.firstboot", PROC_CMDLINE_TRUE_WHEN_MISSING, &enabled);
+        FirstBootMode mode;
+        r = firstboot_mode_from_cmdline(&mode);
         if (r < 0)
                 log_warning_errno(r, "Failed to parse systemd.firstboot= kernel command line option, ignoring: %m");
-        else if (!enabled) {
-                log_debug("systemd.firstboot=no set, skipping interactive enrollment.");
+        else if (IN_SET(mode, FIRSTBOOT_OFF, FIRSTBOOT_HEADLESS)) {
+                log_debug("systemd.firstboot=%s set, skipping interactive enrollment.",
+                          firstboot_mode_to_string(mode));
                 return 0;
         }
 
