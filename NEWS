@@ -16,6 +16,15 @@ CHANGES WITH 262:
           have been provided. This clears the way for a new
           "systemd-sysupdate@.service" unit for varlink activation of sysupdate.
 
+        Changes in the system and service manager:
+
+        * The manager now embeds a basic set of unit files (basic.target,
+          sysinit.target, multi-user.target, reboot.target, shutodown.target,
+          systemd-poweroff.service, etc.) and will use if files cannot be
+          loaded from disk. This makes the binary slightly more robust and
+          allows a container to be started with systemd as PID1 without
+          installing any unit files.
+
         Changes in systemd-firstboot:
 
         * The "systemd.firstboot=" kernel command line option now accepts the
