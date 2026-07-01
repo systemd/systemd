@@ -4038,7 +4038,7 @@ static void manager_notify_finished(Manager *m) {
                 /* The soft-reboot case, where we only report data for the last reboot */
                 firmware_usec = loader_usec = initrd_usec = kernel_usec = 0;
                 total_usec = userspace_usec = usec_sub_unsigned(m->timestamps[MANAGER_TIMESTAMP_FINISH].monotonic,
-                                                                m->timestamps[MANAGER_TIMESTAMP_SHUTDOWN_START].monotonic);
+                                                                m->timestamps[MANAGER_TIMESTAMP_PREVIOUS_SHUTDOWN_START].monotonic);
 
                 log_struct(LOG_INFO,
                            LOG_MESSAGE_ID(SD_MESSAGE_STARTUP_FINISHED_STR),
@@ -5577,26 +5577,31 @@ static const char* const manager_objective_table[_MANAGER_OBJECTIVE_MAX] = {
 DEFINE_STRING_TABLE_LOOKUP(manager_objective, ManagerObjective);
 
 static const char* const manager_timestamp_table[_MANAGER_TIMESTAMP_MAX] = {
-        [MANAGER_TIMESTAMP_FIRMWARE]                 = "firmware",
-        [MANAGER_TIMESTAMP_LOADER]                   = "loader",
-        [MANAGER_TIMESTAMP_KERNEL]                   = "kernel",
-        [MANAGER_TIMESTAMP_INITRD]                   = "initrd",
-        [MANAGER_TIMESTAMP_USERSPACE]                = "userspace",
-        [MANAGER_TIMESTAMP_FINISH]                   = "finish",
-        [MANAGER_TIMESTAMP_SECURITY_START]           = "security-start",
-        [MANAGER_TIMESTAMP_SECURITY_FINISH]          = "security-finish",
-        [MANAGER_TIMESTAMP_GENERATORS_START]         = "generators-start",
-        [MANAGER_TIMESTAMP_GENERATORS_FINISH]        = "generators-finish",
-        [MANAGER_TIMESTAMP_UNITS_LOAD_START]         = "units-load-start",
-        [MANAGER_TIMESTAMP_UNITS_LOAD_FINISH]        = "units-load-finish",
-        [MANAGER_TIMESTAMP_UNITS_LOAD]               = "units-load",
-        [MANAGER_TIMESTAMP_INITRD_SECURITY_START]    = "initrd-security-start",
-        [MANAGER_TIMESTAMP_INITRD_SECURITY_FINISH]   = "initrd-security-finish",
-        [MANAGER_TIMESTAMP_INITRD_GENERATORS_START]  = "initrd-generators-start",
-        [MANAGER_TIMESTAMP_INITRD_GENERATORS_FINISH] = "initrd-generators-finish",
-        [MANAGER_TIMESTAMP_INITRD_UNITS_LOAD_START]  = "initrd-units-load-start",
-        [MANAGER_TIMESTAMP_INITRD_UNITS_LOAD_FINISH] = "initrd-units-load-finish",
-        [MANAGER_TIMESTAMP_SHUTDOWN_START]           = "shutdown-start",
+        [MANAGER_TIMESTAMP_FIRMWARE]                      = "firmware",
+        [MANAGER_TIMESTAMP_LOADER]                        = "loader",
+        [MANAGER_TIMESTAMP_KERNEL]                        = "kernel",
+        [MANAGER_TIMESTAMP_INITRD]                        = "initrd",
+        [MANAGER_TIMESTAMP_USERSPACE]                     = "userspace",
+        [MANAGER_TIMESTAMP_FINISH]                        = "finish",
+        [MANAGER_TIMESTAMP_SECURITY_START]                = "security-start",
+        [MANAGER_TIMESTAMP_SECURITY_FINISH]               = "security-finish",
+        [MANAGER_TIMESTAMP_GENERATORS_START]              = "generators-start",
+        [MANAGER_TIMESTAMP_GENERATORS_FINISH]             = "generators-finish",
+        [MANAGER_TIMESTAMP_UNITS_LOAD_START]              = "units-load-start",
+        [MANAGER_TIMESTAMP_UNITS_LOAD_FINISH]             = "units-load-finish",
+        [MANAGER_TIMESTAMP_UNITS_LOAD]                    = "units-load",
+        [MANAGER_TIMESTAMP_INITRD_SECURITY_START]         = "initrd-security-start",
+        [MANAGER_TIMESTAMP_INITRD_SECURITY_FINISH]        = "initrd-security-finish",
+        [MANAGER_TIMESTAMP_INITRD_GENERATORS_START]       = "initrd-generators-start",
+        [MANAGER_TIMESTAMP_INITRD_GENERATORS_FINISH]      = "initrd-generators-finish",
+        [MANAGER_TIMESTAMP_INITRD_UNITS_LOAD_START]       = "initrd-units-load-start",
+        [MANAGER_TIMESTAMP_INITRD_UNITS_LOAD_FINISH]      = "initrd-units-load-finish",
+        [MANAGER_TIMESTAMP_SHUTDOWN_START]                = "shutdown-start",
+        [MANAGER_TIMESTAMP_SHUTDOWN_FINISH]               = "shutdown-finish",
+        [MANAGER_TIMESTAMP_PREVIOUS_SHUTDOWN_START]       = "previous-shutdown-start",
+        [MANAGER_TIMESTAMP_PREVIOUS_SHUTDOWN_FINISH]      = "previous-shutdown-finish",
+        [MANAGER_TIMESTAMP_PREVIOUS_SHUTDOWN_LATE_START]  = "previous-shutdown-late-start",
+        [MANAGER_TIMESTAMP_PREVIOUS_SHUTDOWN_LATE_FINISH] = "previous-shutdown-late-finish",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(manager_timestamp, ManagerTimestamp);

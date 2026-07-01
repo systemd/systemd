@@ -35,17 +35,50 @@ int manager_open_serialization(Manager *m, FILE **ret_f) {
         return open_serialization_file("systemd-state", ret_f);
 }
 
-static bool manager_timestamp_shall_serialize(ManagerObjective o, ManagerTimestamp t) {
-        if (!in_initrd() && o != MANAGER_SOFT_REBOOT)
+static bool manager_timestamp_shall_serialize(ManagerTimestamp t) {
+        if (!in_initrd())
                 return true;
 
-        /* The following timestamps only apply to the host system (or first boot in case of soft-reboot),
-         * hence only serialize them there. */
+        /* In the initrd the following timestamps describe the host boot we are about to hand over to,
+         * which re-takes them, so don't serialize them. */
         return !IN_SET(t,
                        MANAGER_TIMESTAMP_USERSPACE, MANAGER_TIMESTAMP_FINISH,
                        MANAGER_TIMESTAMP_SECURITY_START, MANAGER_TIMESTAMP_SECURITY_FINISH,
                        MANAGER_TIMESTAMP_GENERATORS_START, MANAGER_TIMESTAMP_GENERATORS_FINISH,
                        MANAGER_TIMESTAMP_UNITS_LOAD_START, MANAGER_TIMESTAMP_UNITS_LOAD_FINISH);
+}
+
+static ManagerTimestamp map_timestamp_serialization(ManagerObjective previous_objective, ManagerTimestamp t) {
+        /* Returns the timestamp field a serialized timestamp 't' should be deserialized into, given the
+         * objective the previous instance serialized under, or _MANAGER_TIMESTAMP_INVALID to drop it. */
+
+        /* Both across a soft-reboot and a switch-root the new instance runs through the early boot phases
+         * again, so drop those timestamps to have them re-measured; the firmware/loader/kernel/initrd ones
+         * are kept. */
+        if (IN_SET(previous_objective, MANAGER_SOFT_REBOOT, MANAGER_SWITCH_ROOT) &&
+            IN_SET(t,
+                   MANAGER_TIMESTAMP_USERSPACE, MANAGER_TIMESTAMP_FINISH,
+                   MANAGER_TIMESTAMP_SECURITY_START, MANAGER_TIMESTAMP_SECURITY_FINISH,
+                   MANAGER_TIMESTAMP_GENERATORS_START, MANAGER_TIMESTAMP_GENERATORS_FINISH,
+                   MANAGER_TIMESTAMP_UNITS_LOAD_START, MANAGER_TIMESTAMP_UNITS_LOAD_FINISH))
+                return _MANAGER_TIMESTAMP_INVALID;
+
+        /* Across a soft-reboot the old instance's shutdown timestamps describe the boot that is going away,
+         * so move them into the previous-shutdown-* fields. */
+        if (previous_objective == MANAGER_SOFT_REBOOT)
+                switch (t) {
+
+                case MANAGER_TIMESTAMP_SHUTDOWN_START:
+                        return MANAGER_TIMESTAMP_PREVIOUS_SHUTDOWN_START;
+
+                case MANAGER_TIMESTAMP_SHUTDOWN_FINISH:
+                        return MANAGER_TIMESTAMP_PREVIOUS_SHUTDOWN_FINISH;
+
+                default:
+                        break;
+                }
+
+        return t;
 }
 
 static void manager_serialize_uid_refs_internal(
@@ -130,7 +163,7 @@ int manager_serialize(
         for (ManagerTimestamp q = 0; q < _MANAGER_TIMESTAMP_MAX; q++) {
                 _cleanup_free_ char *joined = NULL;
 
-                if (!manager_timestamp_shall_serialize(m->objective, q))
+                if (!manager_timestamp_shall_serialize(q))
                         continue;
 
                 joined = strjoin(manager_timestamp_to_string(q), "-timestamp");
@@ -791,9 +824,11 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                                         break;
                         }
 
-                        if (q < _MANAGER_TIMESTAMP_MAX) /* found it */
-                                (void) deserialize_dual_timestamp(val, m->timestamps + q);
-                        else if (!STARTSWITH_SET(l, "kdbus-fd=", "honor-device-enumeration=", "ready-sent=", "cgroups-agent-fd=")) /* ignore deprecated values */
+                        if (q < _MANAGER_TIMESTAMP_MAX) { /* found it */
+                                ManagerTimestamp target = map_timestamp_serialization(m->previous_objective, q);
+                                if (target >= 0)
+                                        (void) deserialize_dual_timestamp(val, m->timestamps + target);
+                        } else if (!STARTSWITH_SET(l, "kdbus-fd=", "honor-device-enumeration=", "ready-sent=", "cgroups-agent-fd=")) /* ignore deprecated values */
                                 log_notice("Unknown serialization item '%s', ignoring.", l);
                 }
         }
