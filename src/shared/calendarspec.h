@@ -6,6 +6,8 @@
 
 #include "shared-forward.h"
 
+#define BITS_WEEKDAYS 127 /* bitmask with bits 0..6 set, one per weekday Mon..Sun */
+
 typedef struct CalendarComponent {
         int start;
         int stop;
