@@ -51,6 +51,9 @@ DLSYM_PROTOTYPE(mnt_table_refer_statmnt) = NULL;
 DLSYM_PROTOTYPE(mnt_table_fetch_listmount) = NULL;
 DLSYM_PROTOTYPE(mnt_fs_get_uniq_id) = NULL;
 
+/* Optional utab parsing API (libmount >= 2.43) */
+DLSYM_PROTOTYPE(mnt_table_parse_utab) = NULL;
+
 /* Optional fanotify mount monitor symbols (libmount >= 2.42) */
 DLSYM_PROTOTYPE(mnt_monitor_enable_fanotify) = NULL;
 DLSYM_PROTOTYPE(mnt_monitor_event_cleanup) = NULL;
@@ -257,7 +260,7 @@ int dlopen_libmount_fanotify(int log_level) {
         if (r < 0)
                 return r;
 
-        return dlopen_many_sym_or_warn(
+        r = dlopen_many_sym_or_warn(
                         &libmount_fanotify_dl,
                         "libmount.so.1",
                         log_level,
@@ -274,6 +277,13 @@ int dlopen_libmount_fanotify(int log_level) {
                         DLSYM_ARG(mnt_fs_get_uniq_id),
                         DLSYM_ARG(mnt_fs_is_detached),
                         DLSYM_ARG(mnt_fs_is_moved));
+        if (r <= 0)
+                return r;
+
+        /* Optional: available since libmount 2.43 */
+        DLSYM_OPTIONAL(libmount_fanotify_dl, mnt_table_parse_utab);
+
+        return 1;
 #else
         return log_full_errno(log_level, SYNTHETIC_ERRNO(EOPNOTSUPP),
                               "libmount fanotify support is not compiled in.");

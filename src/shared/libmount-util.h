@@ -55,6 +55,10 @@ extern int mnt_table_refer_statmnt(struct libmnt_table *tb, struct libmnt_statmn
 extern int mnt_table_fetch_listmount(struct libmnt_table *tb);
 extern uint64_t mnt_fs_get_uniq_id(struct libmnt_fs *fs);
 
+/* Available since libmount 2.43 (utab parsing API). */
+extern int mnt_table_parse_utab(struct libmnt_table *tb, const char *filename);
+extern DLSYM_PROTOTYPE(mnt_table_parse_utab);
+
 /* Available since libmount 2.42 (fanotify mount monitoring). */
 extern int mnt_monitor_enable_fanotify(struct libmnt_monitor *mn, int enable, int ns);
 extern int mnt_monitor_event_cleanup(struct libmnt_monitor *mn);

@@ -1820,6 +1820,25 @@ static int update_parameters_kernel(
         return r > 0 || q > 0 || u > 0 || w > 0;
 }
 
+/* Update only the user options (from utab), rebuild merged options. Returns > 0 if changed. */
+static int update_parameters_useropts(Mount *m, const char *opt_user) {
+        MountParameters *p;
+        int r;
+
+        assert(m);
+
+        p = &m->parameters_kernel;
+
+        if (streq_ptr(p->opt_user, opt_user))
+                return 0;
+
+        r = free_and_strdup(&p->opt_user, opt_user);
+        if (r < 0)
+                return r;
+
+        return mount_parameters_rebuild_options(p);
+}
+
 static int mount_setup_new_unit(
                 Manager *m,
                 const char *name,
@@ -2629,8 +2648,32 @@ static void mount_process_fanotify_events(Manager *m, bool *rescan) {
                                 log_warning_errno(r, "Failed to read fanotify mount events, rescanning: %m");
                                 *rescan = true;
                         }
+                } else if (sym_mnt_table_parse_utab) {
+                        /* Incremental utab processing: parse utab, update user options on
+                         * matching mount units without a full kernel mount table rescan. */
+                        _cleanup_(mnt_free_tablep) struct libmnt_table *utab = NULL;
+                        _cleanup_(mnt_free_iterp) struct libmnt_iter *itr = NULL;
+                        struct libmnt_fs *uf;
+
+                        utab = sym_mnt_new_table();
+                        itr = sym_mnt_new_iter(MNT_ITER_FORWARD);
+                        if (!utab || !itr) {
+                                log_oom();
+                                *rescan = true;
+                        } else if (sym_mnt_table_parse_utab(utab, NULL) < 0)
+                                *rescan = true;
+                        else
+                                while (sym_mnt_table_next_fs(utab, itr, &uf) == 0) {
+                                        uint64_t id = sym_mnt_fs_get_uniq_id(uf);
+                                        Mount *mount = mount_find_by_uniq_id(m, id);
+                                        if (!mount)
+                                                continue;
+                                        if (update_parameters_useropts(mount,
+                                                        sym_mnt_fs_get_user_options(uf)) > 0)
+                                                mount->proc_flags |= MOUNT_PROC_IS_MOUNTED | MOUNT_PROC_JUST_CHANGED;
+                                }
                 } else
-                        /* Non-fanotify change (utab update via inotify) — need full rescan. */
+                        /* No utab API available — fall back to full rescan. */
                         *rescan = true;
 
                 if (*rescan) {
