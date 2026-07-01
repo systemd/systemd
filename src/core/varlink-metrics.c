@@ -98,7 +98,7 @@ static int version_build_json(const MetricFamily *mf, sd_varlink *vl, void *user
                         /* fields= */ NULL);
 }
 
-static int boot_timestamp_build_json(
+static int manager_timestamp_build_json(
                 const MetricFamily *mf,
                 sd_varlink *vl,
                 const dual_timestamp *t,
@@ -136,20 +136,43 @@ static int boot_timestamp_build_json(
         return 0;
 }
 
-static int kernel_timestamp_build_json(const MetricFamily *mf, sd_varlink *vl, void *userdata) {
-        Manager *manager = ASSERT_PTR(userdata);
-        return boot_timestamp_build_json(mf, vl, &manager->timestamps[MANAGER_TIMESTAMP_KERNEL], /* with_monotonic= */ false);
-}
+/* Per-timestamp metric callbacks. Each callback emits the timestamp's .Realtime value; for
+ * with_monotonic the .Monotonic value is emitted from the immediately following table entry (whose
+ * .generate is NULL), see manager_timestamp_build_json(). Firmware/loader/kernel report only .Realtime:
+ * their CLOCK_MONOTONIC is either 0 (kernel) or a pre-kernel offset (firmware/loader), neither of which is
+ * a meaningful absolute monotonic timestamp. */
+#define DEFINE_MANAGER_TIMESTAMP_METRIC(name, ts, with_monotonic)                                        \
+        static int name##_timestamp_build_json(const MetricFamily *mf, sd_varlink *vl, void *userdata) { \
+                Manager *manager = ASSERT_PTR(userdata);                                                 \
+                return manager_timestamp_build_json(                                                     \
+                                mf, vl, &manager->timestamps[MANAGER_TIMESTAMP_##ts], with_monotonic);   \
+        }
 
-static int userspace_timestamp_build_json(const MetricFamily *mf, sd_varlink *vl, void *userdata) {
-        Manager *manager = ASSERT_PTR(userdata);
-        return boot_timestamp_build_json(mf, vl, &manager->timestamps[MANAGER_TIMESTAMP_USERSPACE], /* with_monotonic= */ true);
-}
-
-static int finish_timestamp_build_json(const MetricFamily *mf, sd_varlink *vl, void *userdata) {
-        Manager *manager = ASSERT_PTR(userdata);
-        return boot_timestamp_build_json(mf, vl, &manager->timestamps[MANAGER_TIMESTAMP_FINISH], /* with_monotonic= */ true);
-}
+DEFINE_MANAGER_TIMESTAMP_METRIC(firmware,                      FIRMWARE,                      false);
+DEFINE_MANAGER_TIMESTAMP_METRIC(loader,                        LOADER,                        false);
+DEFINE_MANAGER_TIMESTAMP_METRIC(kernel,                        KERNEL,                        false);
+DEFINE_MANAGER_TIMESTAMP_METRIC(initrd,                        INITRD,                        true);
+DEFINE_MANAGER_TIMESTAMP_METRIC(userspace,                     USERSPACE,                     true);
+DEFINE_MANAGER_TIMESTAMP_METRIC(finish,                        FINISH,                        true);
+DEFINE_MANAGER_TIMESTAMP_METRIC(security_start,                SECURITY_START,                true);
+DEFINE_MANAGER_TIMESTAMP_METRIC(security_finish,               SECURITY_FINISH,               true);
+DEFINE_MANAGER_TIMESTAMP_METRIC(generators_start,              GENERATORS_START,              true);
+DEFINE_MANAGER_TIMESTAMP_METRIC(generators_finish,             GENERATORS_FINISH,             true);
+DEFINE_MANAGER_TIMESTAMP_METRIC(units_load_start,              UNITS_LOAD_START,              true);
+DEFINE_MANAGER_TIMESTAMP_METRIC(units_load_finish,             UNITS_LOAD_FINISH,             true);
+DEFINE_MANAGER_TIMESTAMP_METRIC(units_load,                    UNITS_LOAD,                    true);
+DEFINE_MANAGER_TIMESTAMP_METRIC(initrd_security_start,         INITRD_SECURITY_START,         true);
+DEFINE_MANAGER_TIMESTAMP_METRIC(initrd_security_finish,        INITRD_SECURITY_FINISH,        true);
+DEFINE_MANAGER_TIMESTAMP_METRIC(initrd_generators_start,       INITRD_GENERATORS_START,       true);
+DEFINE_MANAGER_TIMESTAMP_METRIC(initrd_generators_finish,      INITRD_GENERATORS_FINISH,      true);
+DEFINE_MANAGER_TIMESTAMP_METRIC(initrd_units_load_start,       INITRD_UNITS_LOAD_START,       true);
+DEFINE_MANAGER_TIMESTAMP_METRIC(initrd_units_load_finish,      INITRD_UNITS_LOAD_FINISH,      true);
+DEFINE_MANAGER_TIMESTAMP_METRIC(shutdown_start,                SHUTDOWN_START,                true);
+DEFINE_MANAGER_TIMESTAMP_METRIC(shutdown_finish,               SHUTDOWN_FINISH,               true);
+DEFINE_MANAGER_TIMESTAMP_METRIC(previous_shutdown_start,       PREVIOUS_SHUTDOWN_START,       true);
+DEFINE_MANAGER_TIMESTAMP_METRIC(previous_shutdown_finish,      PREVIOUS_SHUTDOWN_FINISH,      true);
+DEFINE_MANAGER_TIMESTAMP_METRIC(previous_shutdown_late_start,  PREVIOUS_SHUTDOWN_LATE_START,  true);
+DEFINE_MANAGER_TIMESTAMP_METRIC(previous_shutdown_late_finish, PREVIOUS_SHUTDOWN_LATE_FINISH, true);
 
 static int state_change_timestamp_build_json(const MetricFamily *mf, sd_varlink *vl, void *userdata) {
         Manager *manager = ASSERT_PTR(userdata);
@@ -471,11 +494,134 @@ static const MetricFamily metric_family_table[] = {
         },
         /* Keep those ↑ in sync with finish_timestamp_build_json(). */
         {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "FirmwareTimestamp.Realtime",
+                .description = "CLOCK_REALTIME microseconds at which the firmware began execution (CLOCK_MONOTONIC is a pre-kernel offset, not reported)",
+                .type = METRIC_FAMILY_TYPE_GAUGE,
+                .generate = firmware_timestamp_build_json,
+        },
+        {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "GeneratorsFinishTimestamp.Realtime",
+                .description = "CLOCK_REALTIME microseconds at which the manager finished executing generators",
+                .type = METRIC_FAMILY_TYPE_GAUGE,
+                .generate = generators_finish_timestamp_build_json,
+        },
+        {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "GeneratorsFinishTimestamp.Monotonic",
+                .description = "CLOCK_MONOTONIC microseconds at which the manager finished executing generators",
+                .type = METRIC_FAMILY_TYPE_GAUGE,
+                .generate = NULL,
+        },
+        /* Keep those ↑ in sync with generators_finish_timestamp_build_json(). */
+        {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "GeneratorsStartTimestamp.Realtime",
+                .description = "CLOCK_REALTIME microseconds at which the manager started executing generators",
+                .type = METRIC_FAMILY_TYPE_GAUGE,
+                .generate = generators_start_timestamp_build_json,
+        },
+        {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "GeneratorsStartTimestamp.Monotonic",
+                .description = "CLOCK_MONOTONIC microseconds at which the manager started executing generators",
+                .type = METRIC_FAMILY_TYPE_GAUGE,
+                .generate = NULL,
+        },
+        /* Keep those ↑ in sync with generators_start_timestamp_build_json(). */
+        {
                 .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "InactiveExitTimestamp",
                 .description = "Per unit metric: timestamp when the unit last exited the inactive state in microseconds; 0 indicates the transition has not occurred",
                 .type = METRIC_FAMILY_TYPE_GAUGE,
                 .generate = inactive_exit_timestamp_build_json,
         },
+        {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "InitRDGeneratorsFinishTimestamp.Realtime",
+                .description = "CLOCK_REALTIME microseconds at which the manager finished executing generators in the initrd",
+                .type = METRIC_FAMILY_TYPE_GAUGE,
+                .generate = initrd_generators_finish_timestamp_build_json,
+        },
+        {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "InitRDGeneratorsFinishTimestamp.Monotonic",
+                .description = "CLOCK_MONOTONIC microseconds at which the manager finished executing generators in the initrd",
+                .type = METRIC_FAMILY_TYPE_GAUGE,
+                .generate = NULL,
+        },
+        /* Keep those ↑ in sync with initrd_generators_finish_timestamp_build_json(). */
+        {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "InitRDGeneratorsStartTimestamp.Realtime",
+                .description = "CLOCK_REALTIME microseconds at which the manager started executing generators in the initrd",
+                .type = METRIC_FAMILY_TYPE_GAUGE,
+                .generate = initrd_generators_start_timestamp_build_json,
+        },
+        {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "InitRDGeneratorsStartTimestamp.Monotonic",
+                .description = "CLOCK_MONOTONIC microseconds at which the manager started executing generators in the initrd",
+                .type = METRIC_FAMILY_TYPE_GAUGE,
+                .generate = NULL,
+        },
+        /* Keep those ↑ in sync with initrd_generators_start_timestamp_build_json(). */
+        {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "InitRDSecurityFinishTimestamp.Realtime",
+                .description = "CLOCK_REALTIME microseconds at which the manager finished uploading security policies to the kernel in the initrd",
+                .type = METRIC_FAMILY_TYPE_GAUGE,
+                .generate = initrd_security_finish_timestamp_build_json,
+        },
+        {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "InitRDSecurityFinishTimestamp.Monotonic",
+                .description = "CLOCK_MONOTONIC microseconds at which the manager finished uploading security policies to the kernel in the initrd",
+                .type = METRIC_FAMILY_TYPE_GAUGE,
+                .generate = NULL,
+        },
+        /* Keep those ↑ in sync with initrd_security_finish_timestamp_build_json(). */
+        {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "InitRDSecurityStartTimestamp.Realtime",
+                .description = "CLOCK_REALTIME microseconds at which the manager started uploading security policies to the kernel in the initrd",
+                .type = METRIC_FAMILY_TYPE_GAUGE,
+                .generate = initrd_security_start_timestamp_build_json,
+        },
+        {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "InitRDSecurityStartTimestamp.Monotonic",
+                .description = "CLOCK_MONOTONIC microseconds at which the manager started uploading security policies to the kernel in the initrd",
+                .type = METRIC_FAMILY_TYPE_GAUGE,
+                .generate = NULL,
+        },
+        /* Keep those ↑ in sync with initrd_security_start_timestamp_build_json(). */
+        {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "InitRDTimestamp.Realtime",
+                .description = "CLOCK_REALTIME microseconds at which the initrd began execution",
+                .type = METRIC_FAMILY_TYPE_GAUGE,
+                .generate = initrd_timestamp_build_json,
+        },
+        {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "InitRDTimestamp.Monotonic",
+                .description = "CLOCK_MONOTONIC microseconds at which the initrd began execution",
+                .type = METRIC_FAMILY_TYPE_GAUGE,
+                .generate = NULL,
+        },
+        /* Keep those ↑ in sync with initrd_timestamp_build_json(). */
+        {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "InitRDUnitsLoadFinishTimestamp.Realtime",
+                .description = "CLOCK_REALTIME microseconds at which the manager first finished loading units in the initrd",
+                .type = METRIC_FAMILY_TYPE_GAUGE,
+                .generate = initrd_units_load_finish_timestamp_build_json,
+        },
+        {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "InitRDUnitsLoadFinishTimestamp.Monotonic",
+                .description = "CLOCK_MONOTONIC microseconds at which the manager first finished loading units in the initrd",
+                .type = METRIC_FAMILY_TYPE_GAUGE,
+                .generate = NULL,
+        },
+        /* Keep those ↑ in sync with initrd_units_load_finish_timestamp_build_json(). */
+        {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "InitRDUnitsLoadStartTimestamp.Realtime",
+                .description = "CLOCK_REALTIME microseconds at which the manager first started loading units in the initrd",
+                .type = METRIC_FAMILY_TYPE_GAUGE,
+                .generate = initrd_units_load_start_timestamp_build_json,
+        },
+        {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "InitRDUnitsLoadStartTimestamp.Monotonic",
+                .description = "CLOCK_MONOTONIC microseconds at which the manager first started loading units in the initrd",
+                .type = METRIC_FAMILY_TYPE_GAUGE,
+                .generate = NULL,
+        },
+        /* Keep those ↑ in sync with initrd_units_load_start_timestamp_build_json(). */
         {
                 .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "JobsQueued",
                 .description = "Number of jobs currently queued",
@@ -489,17 +635,127 @@ static const MetricFamily metric_family_table[] = {
                 .generate = kernel_timestamp_build_json,
         },
         {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "LoaderTimestamp.Realtime",
+                .description = "CLOCK_REALTIME microseconds at which the boot loader began execution (CLOCK_MONOTONIC is a pre-kernel offset, not reported)",
+                .type = METRIC_FAMILY_TYPE_GAUGE,
+                .generate = loader_timestamp_build_json,
+        },
+        {
                 .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "NRestarts",
                 .description = "Per unit metric: number of restarts",
                 .type = METRIC_FAMILY_TYPE_COUNTER,
                 .generate = nrestarts_build_json,
         },
         {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "PreviousShutdownFinishTimestamp.Realtime",
+                .description = "CLOCK_REALTIME microseconds at which all units finished stopping during the shutdown of the previous boot, if available (e.g.: kexec or soft-reboot)",
+                .type = METRIC_FAMILY_TYPE_GAUGE,
+                .generate = previous_shutdown_finish_timestamp_build_json,
+        },
+        {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "PreviousShutdownFinishTimestamp.Monotonic",
+                .description = "CLOCK_MONOTONIC microseconds at which all units finished stopping during the shutdown of the previous boot, if available (e.g.: kexec or soft-reboot)",
+                .type = METRIC_FAMILY_TYPE_GAUGE,
+                .generate = NULL,
+        },
+        /* Keep those ↑ in sync with previous_shutdown_finish_timestamp_build_json(). */
+        {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "PreviousShutdownLateFinishTimestamp.Realtime",
+                .description = "CLOCK_REALTIME microseconds at which systemd-shutdown was about to kexec into the current kernel during the previous boot, restored from the LUO payload after a kexec-based live update",
+                .type = METRIC_FAMILY_TYPE_GAUGE,
+                .generate = previous_shutdown_late_finish_timestamp_build_json,
+        },
+        {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "PreviousShutdownLateFinishTimestamp.Monotonic",
+                .description = "CLOCK_MONOTONIC microseconds at which systemd-shutdown was about to kexec into the current kernel during the previous boot, restored from the LUO payload after a kexec-based live update",
+                .type = METRIC_FAMILY_TYPE_GAUGE,
+                .generate = NULL,
+        },
+        /* Keep those ↑ in sync with previous_shutdown_late_finish_timestamp_build_json(). */
+        {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "PreviousShutdownLateStartTimestamp.Realtime",
+                .description = "CLOCK_REALTIME microseconds at which systemd-shutdown began execution during the previous boot, restored from the LUO payload after a kexec-based live update",
+                .type = METRIC_FAMILY_TYPE_GAUGE,
+                .generate = previous_shutdown_late_start_timestamp_build_json,
+        },
+        {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "PreviousShutdownLateStartTimestamp.Monotonic",
+                .description = "CLOCK_MONOTONIC microseconds at which systemd-shutdown began execution during the previous boot, restored from the LUO payload after a kexec-based live update",
+                .type = METRIC_FAMILY_TYPE_GAUGE,
+                .generate = NULL,
+        },
+        /* Keep those ↑ in sync with previous_shutdown_late_start_timestamp_build_json(). */
+        {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "PreviousShutdownStartTimestamp.Realtime",
+                .description = "CLOCK_REALTIME microseconds at which shutdown began during the previous boot, i.e. units started to be stopped, if available (e.g.: kexec or soft-reboot)",
+                .type = METRIC_FAMILY_TYPE_GAUGE,
+                .generate = previous_shutdown_start_timestamp_build_json,
+        },
+        {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "PreviousShutdownStartTimestamp.Monotonic",
+                .description = "CLOCK_MONOTONIC microseconds at which shutdown began during the previous boot, i.e. units started to be stopped, if available (e.g.: kexec or soft-reboot)",
+                .type = METRIC_FAMILY_TYPE_GAUGE,
+                .generate = NULL,
+        },
+        /* Keep those ↑ in sync with previous_shutdown_start_timestamp_build_json(). */
+        {
                 .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "ReloadCount",
                 .description = "Number of successful manager reloads since startup; resets across daemon-reexec",
                 .type = METRIC_FAMILY_TYPE_COUNTER,
                 .generate = reload_count_build_json,
         },
+        {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "SecurityFinishTimestamp.Realtime",
+                .description = "CLOCK_REALTIME microseconds at which the manager finished uploading security policies to the kernel",
+                .type = METRIC_FAMILY_TYPE_GAUGE,
+                .generate = security_finish_timestamp_build_json,
+        },
+        {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "SecurityFinishTimestamp.Monotonic",
+                .description = "CLOCK_MONOTONIC microseconds at which the manager finished uploading security policies to the kernel",
+                .type = METRIC_FAMILY_TYPE_GAUGE,
+                .generate = NULL,
+        },
+        /* Keep those ↑ in sync with security_finish_timestamp_build_json(). */
+        {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "SecurityStartTimestamp.Realtime",
+                .description = "CLOCK_REALTIME microseconds at which the manager started uploading security policies to the kernel",
+                .type = METRIC_FAMILY_TYPE_GAUGE,
+                .generate = security_start_timestamp_build_json,
+        },
+        {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "SecurityStartTimestamp.Monotonic",
+                .description = "CLOCK_MONOTONIC microseconds at which the manager started uploading security policies to the kernel",
+                .type = METRIC_FAMILY_TYPE_GAUGE,
+                .generate = NULL,
+        },
+        /* Keep those ↑ in sync with security_start_timestamp_build_json(). */
+        {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "ShutdownFinishTimestamp.Realtime",
+                .description = "CLOCK_REALTIME microseconds at which all units finished stopping during shutdown",
+                .type = METRIC_FAMILY_TYPE_GAUGE,
+                .generate = shutdown_finish_timestamp_build_json,
+        },
+        {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "ShutdownFinishTimestamp.Monotonic",
+                .description = "CLOCK_MONOTONIC microseconds at which all units finished stopping during shutdown",
+                .type = METRIC_FAMILY_TYPE_GAUGE,
+                .generate = NULL,
+        },
+        /* Keep those ↑ in sync with shutdown_finish_timestamp_build_json(). */
+        {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "ShutdownStartTimestamp.Realtime",
+                .description = "CLOCK_REALTIME microseconds at which shutdown began, i.e. units started to be stopped",
+                .type = METRIC_FAMILY_TYPE_GAUGE,
+                .generate = shutdown_start_timestamp_build_json,
+        },
+        {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "ShutdownStartTimestamp.Monotonic",
+                .description = "CLOCK_MONOTONIC microseconds at which shutdown began, i.e. units started to be stopped",
+                .type = METRIC_FAMILY_TYPE_GAUGE,
+                .generate = NULL,
+        },
+        /* Keep those ↑ in sync with shutdown_start_timestamp_build_json(). */
         {
                 .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "StateChangeTimestamp",
                 .description = "Per unit metric: timestamp of the last state change in microseconds; 0 indicates no state change has occurred",
@@ -548,6 +804,45 @@ static const MetricFamily metric_family_table[] = {
                 .type = METRIC_FAMILY_TYPE_GAUGE,
                 .generate = units_by_type_total_build_json,
         },
+        {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "UnitsLoadFinishTimestamp.Realtime",
+                .description = "CLOCK_REALTIME microseconds at which the manager first finished loading units",
+                .type = METRIC_FAMILY_TYPE_GAUGE,
+                .generate = units_load_finish_timestamp_build_json,
+        },
+        {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "UnitsLoadFinishTimestamp.Monotonic",
+                .description = "CLOCK_MONOTONIC microseconds at which the manager first finished loading units",
+                .type = METRIC_FAMILY_TYPE_GAUGE,
+                .generate = NULL,
+        },
+        /* Keep those ↑ in sync with units_load_finish_timestamp_build_json(). */
+        {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "UnitsLoadStartTimestamp.Realtime",
+                .description = "CLOCK_REALTIME microseconds at which the manager first started loading units",
+                .type = METRIC_FAMILY_TYPE_GAUGE,
+                .generate = units_load_start_timestamp_build_json,
+        },
+        {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "UnitsLoadStartTimestamp.Monotonic",
+                .description = "CLOCK_MONOTONIC microseconds at which the manager first started loading units",
+                .type = METRIC_FAMILY_TYPE_GAUGE,
+                .generate = NULL,
+        },
+        /* Keep those ↑ in sync with units_load_start_timestamp_build_json(). */
+        {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "UnitsLoadTimestamp.Realtime",
+                .description = "CLOCK_REALTIME microseconds at which the manager last started loading units",
+                .type = METRIC_FAMILY_TYPE_GAUGE,
+                .generate = units_load_timestamp_build_json,
+        },
+        {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "UnitsLoadTimestamp.Monotonic",
+                .description = "CLOCK_MONOTONIC microseconds at which the manager last started loading units",
+                .type = METRIC_FAMILY_TYPE_GAUGE,
+                .generate = NULL,
+        },
+        /* Keep those ↑ in sync with units_load_timestamp_build_json(). */
         {
                 .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "UnitsTotal",
                 .description = "Total number of units",
