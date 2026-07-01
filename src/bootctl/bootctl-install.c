@@ -2113,14 +2113,15 @@ int vl_method_install(
         };
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "operation",          SD_JSON_VARIANT_STRING,        json_dispatch_install_operation,     voffsetof(p, context.operation),        SD_JSON_MANDATORY },
-                { "graceful",           SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,            voffsetof(p, context.graceful),         0                 },
-                { "rootFileDescriptor", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,               voffsetof(p, root_fd_index),            0                 },
-                { "rootDirectory",      SD_JSON_VARIANT_STRING,        json_dispatch_path,                  voffsetof(p, context.root),             0                 },
-                { "espPath",            SD_JSON_VARIANT_STRING,        json_dispatch_path,                  voffsetof(p, esp_path),                 0                 },
-                { "xbootldrPath",       SD_JSON_VARIANT_STRING,        json_dispatch_path,                  voffsetof(p, xbootldr_path),            0                 },
-                { "bootEntryTokenType", SD_JSON_VARIANT_STRING,        json_dispatch_boot_entry_token_type, voffsetof(p, context.entry_token_type), 0                 },
-                { "touchVariables",     SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_tristate,           voffsetof(p, context.touch_variables),  0                 },
+                { "operation",          SD_JSON_VARIANT_STRING,        json_dispatch_install_operation,     voffsetof(p, context.operation),            SD_JSON_MANDATORY },
+                { "graceful",           SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,            voffsetof(p, context.graceful),             0                 },
+                { "rootFileDescriptor", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,               voffsetof(p, root_fd_index),                0                 },
+                { "rootDirectory",      SD_JSON_VARIANT_STRING,        json_dispatch_path,                  voffsetof(p, context.root),                 0                 },
+                { "espPath",            SD_JSON_VARIANT_STRING,        json_dispatch_path,                  voffsetof(p, esp_path),                     0                 },
+                { "xbootldrPath",       SD_JSON_VARIANT_STRING,        json_dispatch_path,                  voffsetof(p, xbootldr_path),                0                 },
+                { "bootEntryTokenType", SD_JSON_VARIANT_STRING,        json_dispatch_boot_entry_token_type, voffsetof(p, context.entry_token_type),     0                 },
+                { "makeEntryDirectory", SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_tristate,           voffsetof(p, context.make_entry_directory), 0                 },
+                { "touchVariables",     SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_tristate,           voffsetof(p, context.touch_variables),      0                 },
                 {},
         };
 
