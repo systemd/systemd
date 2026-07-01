@@ -271,23 +271,26 @@ done
 # Completion function for "show" with option support
 (( $+functions[_systemctl_show] )) || _systemctl_show()
 {
+    local curcontext="$curcontext" state line
+    local -A opt_args
+    local ret=1
     local -a _systemctl_show_options=(
         '(-p --property)'{-p+,--property=}'[Show only properties by specific name]:unit property:_systemctl_unit_properties'
-        '(-P --value)'{-P,--value}'[When showing properties, only print the value]'
+        '(-P)-P+[Equivalent to --value --property=NAME]:unit property:_systemctl_unit_properties'
+        '--value[When showing properties, only print the value]'
         '(-a --all)'{-a,--all}'[Show all properties/all units currently in memory]'
         '--no-pager[Do not pipe output into a pager]'
     )
     _arguments -s -C \
         "$_systemctl_show_options[@]" \
         '*:units:->units' && ret=0
-    if [[ -n "$state" ]]; then
-        case $state in
-            (units)
-                _wanted systemd-units expl unit \
-                        compadd "$@" - $(_systemctl_get_non_template_names)
-                ;;
-        esac
-    fi
+    case $state in
+        (units)
+            _wanted systemd-units expl unit \
+                    compadd "$@" - $(_systemctl_get_non_template_names)
+            ;;
+    esac
+    return ret
 }
 
 # Completion functions for NONTEMPLATE_UNITS
