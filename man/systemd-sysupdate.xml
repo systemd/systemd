@@ -22,6 +22,7 @@
     <refname>systemd-sysupdate-update.timer</refname>
     <refname>systemd-sysupdate-reboot.service</refname>
     <refname>systemd-sysupdate-reboot.timer</refname>
+    <refname>systemd-sysupdate-auto-enable.service</refname>
 
     <!-- Compatibility symlinks for old names of systemd-sysupdate-update.{service,timer} -->
     <refname>systemd-sysupdate.service</refname>
@@ -86,6 +87,12 @@
     is typically advisable to download updates regularly while the system is up, but delay reboots until the
     appropriate time (i.e. typically at night). The two sets of service/timer units may be enabled
     separately.</para>
+
+    <para>The <filename>systemd-sysupdate-auto-enable.service</filename> system service automatically enables all
+    suggested components and all features of the enabled components before each update. It is ordered before and
+    pulled in by <filename>systemd-sysupdate-update.service</filename>, and is not enabled by default. Enable it
+    if newly suggested components and features shall be picked up automatically as they become available, rather
+    than requiring manual <command>enable-component</command>/<command>enable-feature</command> invocations.</para>
 
     <para>For details about transfer files and examples see
     <citerefentry><refentrytitle>sysupdate.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
