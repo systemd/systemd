@@ -102,6 +102,19 @@ static int machine_credential_add_and_log(
         return 0;
 }
 
+int machine_credential_set_parsed(MachineCredentialContext *ctx, const char *id, const char *value) {
+        assert(ctx);
+
+        const char *p = ASSERT_PTR(value);
+
+        _cleanup_free_ char *data = NULL;
+        ssize_t l;
+        l = cunescape(value, UNESCAPE_ACCEPT_NUL, &data);
+        if (l < 0)
+                return log_error_errno(l, "Failed to unescape credential data: %s", p);
+
+        return machine_credential_add_and_log(ctx, id, data, l);
+}
 
 int machine_credential_set(MachineCredentialContext *ctx, const char *cred_str) {
         int r;
@@ -117,27 +130,15 @@ int machine_credential_set(MachineCredentialContext *ctx, const char *cred_str) 
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Missing value for --set-credential=: %s", cred_str);
 
-        _cleanup_free_ char *data = NULL;
-        ssize_t l;
-        l = cunescape(p, UNESCAPE_ACCEPT_NUL, &data);
-        if (l < 0)
-                return log_error_errno(l, "Failed to unescape credential data: %s", p);
-
-        return machine_credential_add_and_log(ctx, id, data, l);
+        return machine_credential_set_parsed(ctx, id, p);
 }
 
-int machine_credential_load(MachineCredentialContext *ctx, const char *cred_path) {
+int machine_credential_load_parsed(MachineCredentialContext *ctx, const char *id, const char *path) {
         int r;
 
         assert(ctx);
 
-        const char *p = ASSERT_PTR(cred_path);
-        _cleanup_free_ char *id = NULL;
-        r = extract_first_word(&p, &id, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
-        if (r < 0)
-                return log_error_errno(r, "Failed to parse --load-credential= parameter: %m");
-        if (r == 0 || !p)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Missing value for --load-credential=: %s", cred_path);
+        const char *p = ASSERT_PTR(path);
 
         ReadFullFileFlags flags = READ_FULL_FILE_SECURE;
         _cleanup_free_ char *path_alloc = NULL;
@@ -171,4 +172,20 @@ int machine_credential_load(MachineCredentialContext *ctx, const char *cred_path
                 return log_error_errno(r, "Failed to read credential '%s': %m", p);
 
         return machine_credential_add_and_log(ctx, id, iov.iov_base, iov.iov_len);
+}
+
+int machine_credential_load(MachineCredentialContext *ctx, const char *cred_path) {
+        int r;
+
+        assert(ctx);
+
+        const char *p = ASSERT_PTR(cred_path);
+        _cleanup_free_ char *id = NULL;
+        r = extract_first_word(&p, &id, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse --load-credential= parameter: %m");
+        if (r == 0 || !p)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Missing value for --load-credential=: %s", cred_path);
+
+        return machine_credential_load_parsed(ctx, id, p);
 }

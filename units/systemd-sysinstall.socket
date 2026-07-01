@@ -10,15 +10,15 @@
 [Unit]
 Description=System Install Tool
 Documentation=man:systemd-sysinstall(8)
-Wants=systemd-logind.service
-After=systemd-logind.service
+DefaultDependencies=no
+Before=sockets.target
+Conflicts=shutdown.target
+Before=shutdown.target
 
-[Service]
-Type=oneshot
-RemainAfterExit=yes
-ExecStart=systemd-sysinstall --variables=yes --reboot=yes --mute-console=yes
-StandardOutput=tty
-StandardInput=tty
-StandardError=tty
-TTYReset=yes
-FailureAction=halt
+[Socket]
+ListenStream=/run/systemd/io.systemd.SysInstall
+Symlinks=/run/varlink/registry/io.systemd.SysInstall
+FileDescriptorName=varlink
+SocketMode=0666
+Accept=yes
+MaxConnectionsPerSource=16
