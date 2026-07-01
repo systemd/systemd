@@ -2120,6 +2120,7 @@ int vl_method_install(
                 { "espPath",            SD_JSON_VARIANT_STRING,        json_dispatch_path,                  voffsetof(p, esp_path),                 0                 },
                 { "xbootldrPath",       SD_JSON_VARIANT_STRING,        json_dispatch_path,                  voffsetof(p, xbootldr_path),            0                 },
                 { "bootEntryTokenType", SD_JSON_VARIANT_STRING,        json_dispatch_boot_entry_token_type, voffsetof(p, context.entry_token_type), 0                 },
+                { "makeEntryDirectory", SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_tristate,           voffsetof(p, context.make_entry_directory), 0             },
                 { "touchVariables",     SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_tristate,           voffsetof(p, context.touch_variables),  0                 },
                 {},
         };
