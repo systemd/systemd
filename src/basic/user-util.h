@@ -159,6 +159,10 @@ static inline bool hashed_password_is_locked_or_invalid(const char *password) {
         return password && password[0] != '$';
 }
 
+/* Places where we will try to load account data from */
+#define PASSWD_FILES STRV_MAKE("/etc/passwd", "/usr/lib/passwd")
+#define GROUP_FILES STRV_MAKE("/etc/group", "/usr/lib/group")
+
 /* A locked *and* invalid password for "struct spwd"'s .sp_pwdp and "struct passwd"'s .pw_passwd field */
 #define PASSWORD_LOCKED_AND_INVALID "!*"
 
@@ -172,6 +176,27 @@ static inline bool hashed_password_is_locked_or_invalid(const char *password) {
  * Also see https://github.com/systemd/systemd/pull/24680#pullrequestreview-1439464325.
  */
 #define PASSWORD_UNPROVISIONED "!unprovisioned"
+
+int sysconf_ngroups_max(void);
+
+int lookup_pwent_in_files(
+                char * const *files,
+                const char *name,
+                uid_t uid,
+                struct passwd **ret);
+int lookup_grent_in_files(
+                char * const *files,
+                const char *name,
+                gid_t gid,
+                struct group **ret);
+
+ssize_t lookup_groups_in_files(
+                char * const *files,
+                const char *name,
+                gid_t gid,
+                gid_t **ret);
+int getgrouplist_malloc(const char *user, gid_t gid, gid_t **ret);
+int initgroups_wrapper(const char *user, gid_t gid);
 
 int getpwuid_malloc(uid_t uid, struct passwd **ret);
 int getpwnam_malloc(const char *name, struct passwd **ret);

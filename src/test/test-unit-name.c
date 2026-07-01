@@ -88,6 +88,9 @@ TEST(unit_name_is_valid) {
         test_unit_name_is_valid_one("foo.target.wants/plain.service", UNIT_NAME_ANY, false);
         test_unit_name_is_valid_one("foo.target.conf/foo.conf", UNIT_NAME_ANY, false);
         test_unit_name_is_valid_one("foo.target.requires/plain.socket", UNIT_NAME_ANY, false);
+
+        /* The build-time configured fallback for default.target must be a valid plain unit name. */
+        test_unit_name_is_valid_one(FALLBACK_DEFAULT_TARGET, UNIT_NAME_PLAIN, true);
 }
 
 static void test_unit_name_replace_instance_one(const char *pattern, const char *repl, const char *expected, int ret) {
