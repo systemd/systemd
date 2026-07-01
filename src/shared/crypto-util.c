@@ -628,23 +628,7 @@ int dlopen_libcrypto(int log_level) {
                         DLSYM_ARG(i2d_PUBKEY),
                         DLSYM_ARG(i2d_PublicKey),
                         DLSYM_ARG(i2d_X509),
-                        DLSYM_ARG(i2d_X509_NAME),
-#ifndef OPENSSL_NO_UI_CONSOLE
-                        DLSYM_ARG(UI_OpenSSL),
-                        DLSYM_ARG(UI_create_method),
-                        DLSYM_ARG(UI_destroy_method),
-                        DLSYM_ARG(UI_get0_output_string),
-                        DLSYM_ARG(UI_get_default_method),
-                        DLSYM_ARG(UI_get_method),
-                        DLSYM_ARG(UI_get_string_type),
-                        DLSYM_ARG(UI_method_get_ex_data),
-                        DLSYM_ARG(UI_method_get_reader),
-                        DLSYM_ARG(UI_method_set_ex_data),
-                        DLSYM_ARG(UI_method_set_reader),
-                        DLSYM_ARG(UI_set_default_method),
-                        DLSYM_ARG(UI_set_result),
-#endif
-                        NULL);
+                        DLSYM_ARG(i2d_X509_NAME));
                 if (r >= 0)
                         break;
         }
@@ -652,6 +636,24 @@ int dlopen_libcrypto(int log_level) {
                 log_full_errno(log_level, r, "Neither libcrypto.so.4 nor libcrypto.so.3 could be loaded");
                 return -EOPNOTSUPP; /* turn into recognizable error */
         }
+
+#ifndef OPENSSL_NO_UI_CONSOLE
+        /* Load UI API optionally so we don't fail to load libcrypto.so lacking UI support,
+         * even if systemd is built with UI support enabled in the headers. */
+        DLSYM_OPTIONAL(libcrypto_dl, UI_OpenSSL);
+        DLSYM_OPTIONAL(libcrypto_dl, UI_create_method);
+        DLSYM_OPTIONAL(libcrypto_dl, UI_destroy_method);
+        DLSYM_OPTIONAL(libcrypto_dl, UI_get0_output_string);
+        DLSYM_OPTIONAL(libcrypto_dl, UI_get_default_method);
+        DLSYM_OPTIONAL(libcrypto_dl, UI_get_method);
+        DLSYM_OPTIONAL(libcrypto_dl, UI_get_string_type);
+        DLSYM_OPTIONAL(libcrypto_dl, UI_method_get_ex_data);
+        DLSYM_OPTIONAL(libcrypto_dl, UI_method_get_reader);
+        DLSYM_OPTIONAL(libcrypto_dl, UI_method_set_ex_data);
+        DLSYM_OPTIONAL(libcrypto_dl, UI_method_set_reader);
+        DLSYM_OPTIONAL(libcrypto_dl, UI_set_default_method);
+        DLSYM_OPTIONAL(libcrypto_dl, UI_set_result);
+#endif
 
 #if !defined(OPENSSL_NO_ENGINE) && !defined(OPENSSL_NO_DEPRECATED_3_0)
         /* Load ENGINE API optionally so we don't fail when loading libcrypto.so.4 even if systemd is built
@@ -2104,9 +2106,32 @@ static int openssl_load_private_key_from_file(const char *path, EVP_PKEY **ret) 
         return 0;
 }
 
+static bool openssl_ui_supported(void) {
+#ifndef OPENSSL_NO_UI_CONSOLE
+        return
+                sym_UI_OpenSSL &&
+                sym_UI_create_method &&
+                sym_UI_destroy_method &&
+                sym_UI_get0_output_string &&
+                sym_UI_get_default_method &&
+                sym_UI_get_method &&
+                sym_UI_get_string_type &&
+                sym_UI_method_get_ex_data &&
+                sym_UI_method_get_reader &&
+                sym_UI_method_set_ex_data &&
+                sym_UI_method_set_reader &&
+                sym_UI_set_default_method &&
+                sym_UI_set_result;
+#else
+        return false;
+#endif
+}
+
 OpenSSLAskPasswordUI* openssl_ask_password_ui_free(OpenSSLAskPasswordUI *ui) {
         if (!ui)
                 return NULL;
+
+        assert(openssl_ui_supported());
 
 #ifndef OPENSSL_NO_UI_CONSOLE
         assert(sym_UI_get_default_method() == ui->method);
@@ -2120,7 +2145,9 @@ OpenSSLAskPasswordUI* openssl_ask_password_ui_free(OpenSSLAskPasswordUI *ui) {
 static int openssl_ask_password_ui_read(UI *ui, UI_STRING *uis) {
         int r;
 
-        switch(sym_UI_get_string_type(uis)) {
+        assert(openssl_ui_supported());
+
+        switch (sym_UI_get_string_type(uis)) {
         case UIT_PROMPT: {
                 /* If no ask password request was configured use the default openssl UI. */
                 AskPasswordRequest *req = (AskPasswordRequest*) sym_UI_method_get_ex_data(sym_UI_get_method(ui), 0);
@@ -2158,6 +2185,12 @@ static int openssl_ask_password_ui_new(const AskPasswordRequest *request, OpenSS
         assert(request);
         assert(ret);
 
+        if (!openssl_ui_supported()) {
+                log_debug("OpenSSL UI API is not supported.");
+                *ret = NULL;
+                return 0;
+        }
+
 #ifndef OPENSSL_NO_UI_CONSOLE
         _cleanup_(UI_destroy_methodp) UI_METHOD *method = sym_UI_create_method("systemd-ask-password");
         if (!method)
@@ -2183,8 +2216,7 @@ static int openssl_ask_password_ui_new(const AskPasswordRequest *request, OpenSS
         *ret = TAKE_PTR(ui);
         return 0;
 #else
-        *ret = NULL;
-        return 0;
+        assert_not_reached();
 #endif
 }
 
