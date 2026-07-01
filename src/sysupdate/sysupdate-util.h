@@ -9,4 +9,6 @@ int reboot_now(void);
 #define SD_SYSUPDATE_FLAGS_ALL (SD_SYSUPDATE_OFFLINE)
 
 bool component_name_valid(const char *c);
+bool feature_name_valid(const char *c);
+
 int get_component_list(const char *root, char ***ret);

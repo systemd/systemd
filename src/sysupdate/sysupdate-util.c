@@ -43,6 +43,18 @@ bool component_name_valid(const char *c) {
         return filename_is_valid(j);
 }
 
+bool feature_name_valid(const char *c) {
+        /* See if the specified string enclosed in the file suffix would be a valid file name */
+
+        if (!string_is_safe(c, STRING_FILENAME_PART))
+                return false;
+
+        /* Stack allocation is safe, since STRING_FILENAME_PART includes a length check */
+        const char *j = strjoina(c, ".feature");
+
+        return filename_is_valid(j);
+}
+
 int get_component_list(const char *root, char ***ret) {
         int r;
 
@@ -76,6 +88,12 @@ int get_component_list(const char *root, char ***ret) {
                         continue;
 
                 if (a == s)
+                        continue;
+
+                /* Skip the per-component metadata drop-in directories (sysupdate.<component>.component.d/).
+                 * These are not components of their own, they carry metadata (and enablement state) for the
+                 * component <component>, whose transfer definitions live in sysupdate.<component>.d/. */
+                if (endswith(s, ".component.d"))
                         continue;
 
                 _cleanup_free_ char *n = strndup(s, a - s);

@@ -253,15 +253,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 - sysupdate: go through all components, and update them all, one by one.
 
-- sysupdate: add concept for enabling/disabling specific components explicitly,
-  just like features.
-
-- sysupdate: add conditions to transfer files, copying what we have for unit
-  files and .network files
-
-- pid1,sysupdate,network: add support for a new "tags" condition, that checks
-  all of the above.
-
 - pcrextend: we probably should measure /etc/machine-info during boot somehow
 
 - pcrextend: we should measure something when we enter developer mode, by some
@@ -2659,7 +2650,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   - download multiple arbitrary patterns from same source
   - SHA256SUMS format with bearer tokens for each resource to download
   - decrypt SHA256SUMS with key from tpm
-  - clean up stuff on disk that disappears from SHA256SUMS
   - turn http backend stuff int plugin via varlink
   - for each transfer support looking at multiple sources,
     pick source with newest entry. If multiple sources have the same entry, use
