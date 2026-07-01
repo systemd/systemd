@@ -1355,6 +1355,8 @@ typedef struct LinkParameters {
         LinkContext context;
         unsigned root_fd_index;
         unsigned kernel_fd_index;
+        char *esp_path;
+        char *xbootldr_path;
         sd_varlink *link;
 } LinkParameters;
 
@@ -1362,6 +1364,8 @@ static void link_parameters_done(LinkParameters *p) {
         assert(p);
 
         link_context_done(&p->context);
+        free(p->esp_path);
+        free(p->xbootldr_path);
 }
 
 typedef struct ExtraParameters {
@@ -1509,7 +1513,7 @@ static int vl_link_finish(sd_varlink *link, LinkParameters *p, bool with_ids) {
 
         r = find_xbootldr_and_warn_at(
                         p->context.root_fd,
-                        /* path= */ NULL,
+                        p->xbootldr_path,
                         /* unprivileged_mode= */ false,
                         &p->context.dollar_boot_path,
                         &p->context.dollar_boot_fd);
@@ -1521,7 +1525,7 @@ static int vl_link_finish(sd_varlink *link, LinkParameters *p, bool with_ids) {
 
                 r = find_esp_and_warn_at(
                                 p->context.root_fd,
-                                /* path= */ NULL,
+                                p->esp_path,
                                 /* unprivileged_mode= */ false,
                                 &p->context.dollar_boot_path,
                                 &p->context.dollar_boot_fd);
@@ -1566,6 +1570,8 @@ int vl_method_link(
         static const sd_json_dispatch_field dispatch_table[] = {
                 { "rootFileDescriptor",   _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,                        voffsetof(p, root_fd_index),            0                 },
                 { "rootDirectory",        SD_JSON_VARIANT_STRING,        json_dispatch_path,                           voffsetof(p, context.root),             0                 },
+                { "espPath",              SD_JSON_VARIANT_STRING,        json_dispatch_path,                           voffsetof(p, esp_path),                 0                 },
+                { "xbootldrPath",         SD_JSON_VARIANT_STRING,        json_dispatch_path,                           voffsetof(p, xbootldr_path),            0                 },
                 { "bootEntryTokenType",   SD_JSON_VARIANT_STRING,        json_dispatch_boot_entry_token_type,          voffsetof(p, context.entry_token_type), 0                 },
                 { "entryTitle",           SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,                      voffsetof(p, context.entry_title),      0                 },
                 { "entryVersion",         SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,                      voffsetof(p, context.entry_version),    0                 },
@@ -1634,6 +1640,8 @@ int vl_method_link_auto(
         static const sd_json_dispatch_field dispatch_table[] = {
                 { "rootFileDescriptor", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,               voffsetof(p, root_fd_index),            0 },
                 { "rootDirectory",      SD_JSON_VARIANT_STRING,        json_dispatch_path,                  voffsetof(p, context.root),             0 },
+                { "espPath",            SD_JSON_VARIANT_STRING,        json_dispatch_path,                  voffsetof(p, esp_path),                 0 },
+                { "xbootldrPath",       SD_JSON_VARIANT_STRING,        json_dispatch_path,                  voffsetof(p, xbootldr_path),            0 },
                 { "bootEntryTokenType", SD_JSON_VARIANT_STRING,        json_dispatch_boot_entry_token_type, voffsetof(p, context.entry_token_type), 0 },
                 { "entryTitle",         SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,             voffsetof(p, context.entry_title),      0 },
                 { "entryVersion",       SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,             voffsetof(p, context.entry_version),    0 },
