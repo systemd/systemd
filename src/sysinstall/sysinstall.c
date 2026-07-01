@@ -1941,8 +1941,7 @@ typedef struct RunParameters {
         bool copy_locale;
         bool copy_keymap;
         bool copy_timezone;
-        char **set_credentials;
-        char **load_credentials;
+        sd_json_variant *credentials;
 } RunParameters;
 
 static void run_parameters_done(RunParameters *p) {
@@ -1951,8 +1950,43 @@ static void run_parameters_done(RunParameters *p) {
         p->node = mfree(p->node);
         p->definitions = strv_free(p->definitions);
         p->kernel_image = mfree(p->kernel_image);
-        p->set_credentials = strv_free(p->set_credentials);
-        p->load_credentials = strv_free(p->load_credentials);
+        p->credentials = sd_json_variant_unref(p->credentials);
+}
+
+static int credentials_from_json_array(sd_json_variant *v, MachineCredentialContext *credentials) {
+
+        int r;
+        sd_json_variant *credential;
+
+        struct {
+                const char *id;
+                const char *value;
+                bool load;
+        } p = {};
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "id",    SD_JSON_VARIANT_STRING,  sd_json_dispatch_const_string, voffsetof(p, id),     SD_JSON_MANDATORY },
+                { "value", SD_JSON_VARIANT_STRING,  sd_json_dispatch_const_string, voffsetof(p, value),  SD_JSON_MANDATORY },
+                { "load",  SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool,      voffsetof(p, load),   SD_JSON_NULLABLE  },
+                {}
+        };
+
+        assert(v);
+
+        JSON_VARIANT_ARRAY_FOREACH(credential, v) {
+            r = sd_json_dispatch(credential, dispatch_table, 0, &p);
+            if (r < 0)
+                return r;
+
+            if (p.load)
+                r = machine_credential_load_parsed(credentials, p.id, p.value);
+            else
+                r = machine_credential_set_parsed(credentials, p.id, p.value);
+            if (r < 0)
+                return r;
+        }
+
+        return 0;
 }
 
 static int vl_method_run(
@@ -1962,16 +1996,15 @@ static int vl_method_run(
                 void *userdata) {
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "node",            SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,  offsetof(RunParameters, node),             SD_JSON_MANDATORY                 },
-                { "definitions",     SD_JSON_VARIANT_ARRAY,   json_dispatch_strv_path,  offsetof(RunParameters, definitions),      SD_JSON_NULLABLE | SD_JSON_STRICT },
-                { "erase",           SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(RunParameters, erase),            SD_JSON_MANDATORY                 },
-                { "variables",       SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(RunParameters, variables),        SD_JSON_NULLABLE                  },
-                { "kernelImage",     SD_JSON_VARIANT_STRING,  json_dispatch_path,       offsetof(RunParameters, kernel_image),     SD_JSON_NULLABLE | SD_JSON_STRICT },
-                { "copyLocale",      SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(RunParameters, copy_locale),      SD_JSON_NULLABLE                  },
-                { "copyKeymap",      SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(RunParameters, copy_keymap),      SD_JSON_NULLABLE                  },
-                { "copyTimezone",    SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(RunParameters, copy_timezone),    SD_JSON_NULLABLE                  },
-                { "setCredentials",  SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_strv,    offsetof(RunParameters, set_credentials),  SD_JSON_NULLABLE | SD_JSON_STRICT },
-                { "loadCredentials", SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_strv,    offsetof(RunParameters, load_credentials), SD_JSON_NULLABLE | SD_JSON_STRICT },
+                { "node",         SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,  offsetof(RunParameters, node),          SD_JSON_MANDATORY                 },
+                { "definitions",  SD_JSON_VARIANT_ARRAY,   json_dispatch_strv_path,  offsetof(RunParameters, definitions),   SD_JSON_NULLABLE | SD_JSON_STRICT },
+                { "erase",        SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(RunParameters, erase),         SD_JSON_MANDATORY                 },
+                { "variables",    SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(RunParameters, variables),     SD_JSON_NULLABLE                  },
+                { "kernelImage",  SD_JSON_VARIANT_STRING,  json_dispatch_path,       offsetof(RunParameters, kernel_image),  SD_JSON_NULLABLE | SD_JSON_STRICT },
+                { "copyLocale",   SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(RunParameters, copy_locale),   SD_JSON_NULLABLE                  },
+                { "copyKeymap",   SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(RunParameters, copy_keymap),   SD_JSON_NULLABLE                  },
+                { "copyTimezone", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(RunParameters, copy_timezone), SD_JSON_NULLABLE                  },
+                { "credentials",  SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_variant, offsetof(RunParameters, credentials),   SD_JSON_NULLABLE                  },
                 {}
         };
 
@@ -2014,17 +2047,10 @@ static int vl_method_run(
 
         (void) sysinstall_context_notify(&context, PROGRESS_LOAD_CREDENTIALS, NULL, UINT_MAX);
 
-        STRV_FOREACH(credential, p.set_credentials) {
-                r = machine_credential_set(&context.credentials, *credential);
-                if (r < 0)
-                        return r;
-        }
 
-        STRV_FOREACH(credential, p.load_credentials) {
-                r = machine_credential_load(&context.credentials, *credential);
-                if (r < 0)
-                        return r;
-        }
+        credentials_from_json_array(p.credentials, &context.credentials);
+        if (r < 0)
+            return r;
 
         r = sysinstall_context_read_credentials(&context);
         if (r < 0)

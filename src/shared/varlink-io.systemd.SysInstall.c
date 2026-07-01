@@ -24,6 +24,15 @@ static SD_VARLINK_DEFINE_ENUM_TYPE(
                 SD_VARLINK_DEFINE_ENUM_VALUE(disk_too_small),
                 SD_VARLINK_DEFINE_ENUM_VALUE(conflicting_disk_label_present));
 
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                Credential,
+                SD_VARLINK_FIELD_COMMENT("The id of the credential."),
+                SD_VARLINK_DEFINE_FIELD(id, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("The value, either a literal or a path if load is set to true."),
+                SD_VARLINK_DEFINE_FIELD(value, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("If true, the value is used as path to load the credential from."),
+                SD_VARLINK_DEFINE_FIELD(load, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
+
 static SD_VARLINK_DEFINE_METHOD_FULL(
                 Run,
                 SD_VARLINK_SUPPORTS_MORE,
@@ -45,10 +54,8 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 SD_VARLINK_FIELD_COMMENT("If true, the current timezone is copied to target system"),
                 SD_VARLINK_DEFINE_INPUT(copyTimezone, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
 
-                SD_VARLINK_FIELD_COMMENT("A list of credentials with literal value in format 'ID:VALUE' to be installed to target system."),
-                SD_VARLINK_DEFINE_INPUT(setCredentials, SD_VARLINK_STRING, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("A list of credentials that will be loaded from file in format 'ID:PATH' to be installed on the new system."),
-                SD_VARLINK_DEFINE_INPUT(loadCredentials, SD_VARLINK_STRING, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("A list of credentials to be installed to target system."),
+                SD_VARLINK_DEFINE_INPUT_BY_TYPE(credentials, Credential, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
 
                 SD_VARLINK_FIELD_COMMENT("If used with the 'more' flag, a phase identifier is sent in progress updates."),
                 SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(phase, ProgressPhase, SD_VARLINK_NULLABLE),
