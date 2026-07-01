@@ -2071,6 +2071,14 @@ int config_parse_timer(
                         log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse calendar specification, ignoring: %s", k);
                         return 0;
                 }
+
+                int wday;
+                if (calendar_spec_weekday_conflicts(c, &wday))
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                   "Weekday constraint does not match the fixed date %04d-%02d-%02d "
+                                   "(which is a %s) — this timer will never elapse.",
+                                   c->year->start, c->month->start, c->day->start,
+                                   weekday_to_string(wday));
         } else {
                 r = parse_sec(k, &usec);
                 if (r < 0) {

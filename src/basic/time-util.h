@@ -125,6 +125,10 @@ char* format_timestamp_style(char *buf, size_t l, usec_t t, TimestampStyle style
 char* format_timestamp_relative_full(char *buf, size_t l, usec_t t, clockid_t clock, bool implicit_left) _warn_unused_result_;
 char* format_timespan(char *buf, size_t l, usec_t t, usec_t accuracy) _warn_unused_result_;
 
+/* Returns the abbreviated English weekday name for wd in Mon=0 … Sun=6 order
+ * (matching systemd's weekdays_bits layout). */
+const char *weekday_to_string(int wd);
+
 _warn_unused_result_
 static inline char* format_timestamp_relative(char *buf, size_t l, usec_t t) {
         return format_timestamp_relative_full(buf, l, t, CLOCK_REALTIME, /* implicit_left= */ false);
