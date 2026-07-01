@@ -256,6 +256,36 @@ TEST(calendar_spec_from_string) {
         assert_se(calendar_spec_from_string("*:4,30:*\n", &c) == -EINVAL);
 }
 
+TEST(calendar_spec_weekday_conflict) {
+        _cleanup_(calendar_spec_freep) CalendarSpec *c = NULL;
+        usec_t next;
+
+        /* "Thu 2027-01-01": parses OK but 2027-01-01 is a Friday, not Thursday.
+         * calendar_spec_from_string() should emit a log_warning and the spec
+         * must never elapse. */
+        assert_se(calendar_spec_from_string("Thu 2027-01-01", &c) == 0);
+        assert_se(calendar_spec_next_usec(c, 0, &next) == -ENOENT);
+        c = calendar_spec_free(c);
+
+        /* Correct weekday: "Fri 2027-01-01" must elapse exactly once. */
+        assert_se(calendar_spec_from_string("Fri 2027-01-01", &c) == 0);
+        assert_se(calendar_spec_next_usec(c, 0, &next) == 0);
+        assert_se(next > 0);
+        c = calendar_spec_free(c);
+
+        /* Wildcard date "Thu *-*-*": no static conflict possible, must fire normally. */
+        assert_se(calendar_spec_from_string("Thu *-*-*", &c) == 0);
+        assert_se(calendar_spec_next_usec(c, 0, &next) == 0);
+        assert_se(next > 0);
+        c = calendar_spec_free(c);
+
+        /* Range in day "Mon,Thu 2027-01-*": no conflict — January 2027 has both
+         * Mondays and Thursdays, so the spec is satisfiable. */
+        assert_se(calendar_spec_from_string("Mon,Thu 2027-01-*", &c) == 0);
+        assert_se(calendar_spec_next_usec(c, 0, &next) == 0);
+        assert_se(next > 0);
+}
+
 static int intro(void) {
         /* Tests have hard-coded results that do not expect a specific timezone to be set by the caller */
         ASSERT_OK_ERRNO(unsetenv("TZ"));
