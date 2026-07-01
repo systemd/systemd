@@ -173,7 +173,10 @@ int bpf_restrict_fs_update(const Set *filesystems, uint64_t cgroup_id, int outer
                         if (magic[i] == 0)
                                 break;
 
-                        if (sym_bpf_map_update_elem(inner_map_fd, &magic[i], &dummy_value, BPF_ANY) != 0) {
+                        /* The map key is uint32_t but statfs_f_type_t may be 64-bit, pass a truncated copy
+                         * to avoid breaking on big endian arches. */
+                        uint32_t key = magic[i];
+                        if (sym_bpf_map_update_elem(inner_map_fd, &key, &dummy_value, BPF_ANY) != 0) {
                                 r = log_error_errno(errno, "bpf-restrict-fs: Failed to update BPF map: %m");
 
                                 if (sym_bpf_map_delete_elem(outer_map_fd, &cgroup_id) != 0)
