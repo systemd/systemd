@@ -47,6 +47,11 @@
 /* Default value for InstancesMax= for fs object targets */
 #define DEFAULT_FILE_INSTANCES_MAX 3
 
+enum {
+        MATCH_PATTERN_SOURCE,
+        MATCH_PATTERN_TARGET,
+};
+
 Transfer* transfer_free(Transfer *t) {
         if (!t)
                 return NULL;
@@ -312,6 +317,7 @@ static int config_parse_resource_pattern(
 
         char ***patterns = ASSERT_PTR(data);
         Transfer *t = ASSERT_PTR(userdata);
+        bool is_source = ltype == MATCH_PATTERN_SOURCE;
         int r;
 
         assert(rvalue);
@@ -323,6 +329,7 @@ static int config_parse_resource_pattern(
 
         for (;;) {
                 _cleanup_free_ char *word = NULL, *resolved = NULL;
+                const char *body;
 
                 r = extract_first_word(&rvalue, &word, NULL, EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_RELAX);
                 if (r < 0) {
@@ -340,7 +347,21 @@ static int config_parse_resource_pattern(
                         return 0;
                 }
 
-                if (!pattern_valid(resolved))
+                /* The glob directory prefix on a source MatchPattern= means "match the rest against the
+                 * basename" thus the remainder must not itself contain slashes.
+                 * Target patterns can not use it. */
+                body = pattern_skip_glob_directory_prefix(resolved);
+                if (body) {
+                        if (!is_source)
+                                return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
+                                                  "'**/' prefix is only supported in a source MatchPattern=, refusing: %s", resolved);
+                        if (strchr(body, '/'))
+                                return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
+                                                  "The pattern after a '**/' prefix must not contain further slashes, refusing: %s", resolved);
+                }
+
+                /* The glob directory prefix is not allowed in the remainder and pattern_valid will catch this. */
+                if (!pattern_valid(body ?: resolved))
                         return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
                                           "MatchPattern= string is not valid, refusing: %s", resolved);
 
@@ -510,33 +531,33 @@ int transfer_read_definition(Transfer *t, const char *path, const char **dirs, H
         assert(t);
 
         ConfigTableItem table[] = {
-                { "Transfer",    "MinVersion",              config_parse_min_version,          0, &t->min_version             },
-                { "Transfer",    "ProtectVersion",          config_parse_protect_version,      0, &t->protected_versions      },
-                { "Transfer",    "Verify",                  config_parse_bool,                 0, &t->verify                  },
-                { "Transfer",    "ChangeLog",               config_parse_url_specifiers,       0, &t->changelog               },
-                { "Transfer",    "AppStream",               config_parse_url_specifiers,       0, &t->appstream               },
-                { "Transfer",    "Features",                config_parse_strv,                 0, &t->features                },
-                { "Transfer",    "RequisiteFeatures",       config_parse_strv,                 0, &t->requisite_features      },
-                { "Source",      "Type",                    config_parse_resource_type,        0, &t->source.type             },
-                { "Source",      "Path",                    config_parse_resource_path,        0, &t->source                  },
-                { "Source",      "PathRelativeTo",          config_parse_resource_path_relto,  0, &t->source.path_relative_to },
-                { "Source",      "MatchPattern",            config_parse_resource_pattern,     0, &t->source.patterns         },
-                { "Target",      "Type",                    config_parse_resource_type,        0, &t->target.type             },
-                { "Target",      "Path",                    config_parse_resource_path,        0, &t->target                  },
-                { "Target",      "PathRelativeTo",          config_parse_resource_path_relto,  0, &t->target.path_relative_to },
-                { "Target",      "MatchPattern",            config_parse_resource_pattern,     0, &t->target.patterns         },
-                { "Target",      "MatchPartitionType",      config_parse_resource_ptype,       0, &t->target                  },
-                { "Target",      "PartitionUUID",           config_parse_partition_uuid,       0, t                           },
-                { "Target",      "PartitionFlags",          config_parse_partition_flags,      0, t                           },
-                { "Target",      "PartitionNoAuto",         config_parse_tristate,             0, &t->no_auto                 },
-                { "Target",      "PartitionGrowFileSystem", config_parse_tristate,             0, &t->growfs                  },
-                { "Target",      "ReadOnly",                config_parse_tristate,             0, &t->read_only               },
-                { "Target",      "Mode",                    config_parse_mode,                 0, &t->mode                    },
-                { "Target",      "TriesLeft",               config_parse_uint64,               0, &t->tries_left              },
-                { "Target",      "TriesDone",               config_parse_uint64,               0, &t->tries_done              },
-                { "Target",      "InstancesMax",            config_parse_instances_max,        0, &t->instances_max           },
-                { "Target",      "RemoveTemporary",         config_parse_bool,                 0, &t->remove_temporary        },
-                { "Target",      "CurrentSymlink",          config_parse_current_symlink,      0, &t->current_symlink         },
+                { "Transfer",    "MinVersion",              config_parse_min_version,          0,                    &t->min_version             },
+                { "Transfer",    "ProtectVersion",          config_parse_protect_version,      0,                    &t->protected_versions      },
+                { "Transfer",    "Verify",                  config_parse_bool,                 0,                    &t->verify                  },
+                { "Transfer",    "ChangeLog",               config_parse_url_specifiers,       0,                    &t->changelog               },
+                { "Transfer",    "AppStream",               config_parse_url_specifiers,       0,                    &t->appstream               },
+                { "Transfer",    "Features",                config_parse_strv,                 0,                    &t->features                },
+                { "Transfer",    "RequisiteFeatures",       config_parse_strv,                 0,                    &t->requisite_features      },
+                { "Source",      "Type",                    config_parse_resource_type,        0,                    &t->source.type             },
+                { "Source",      "Path",                    config_parse_resource_path,        0,                    &t->source                  },
+                { "Source",      "PathRelativeTo",          config_parse_resource_path_relto,  0,                    &t->source.path_relative_to },
+                { "Source",      "MatchPattern",            config_parse_resource_pattern,     MATCH_PATTERN_SOURCE, &t->source.patterns         },
+                { "Target",      "Type",                    config_parse_resource_type,        0,                    &t->target.type             },
+                { "Target",      "Path",                    config_parse_resource_path,        0,                    &t->target                  },
+                { "Target",      "PathRelativeTo",          config_parse_resource_path_relto,  0,                    &t->target.path_relative_to },
+                { "Target",      "MatchPattern",            config_parse_resource_pattern,     MATCH_PATTERN_TARGET, &t->target.patterns         },
+                { "Target",      "MatchPartitionType",      config_parse_resource_ptype,       0,                    &t->target                  },
+                { "Target",      "PartitionUUID",           config_parse_partition_uuid,       0,                    t                           },
+                { "Target",      "PartitionFlags",          config_parse_partition_flags,      0,                    t                           },
+                { "Target",      "PartitionNoAuto",         config_parse_tristate,             0,                    &t->no_auto                 },
+                { "Target",      "PartitionGrowFileSystem", config_parse_tristate,             0,                    &t->growfs                  },
+                { "Target",      "ReadOnly",                config_parse_tristate,             0,                    &t->read_only               },
+                { "Target",      "Mode",                    config_parse_mode,                 0,                    &t->mode                    },
+                { "Target",      "TriesLeft",               config_parse_uint64,               0,                    &t->tries_left              },
+                { "Target",      "TriesDone",               config_parse_uint64,               0,                    &t->tries_done              },
+                { "Target",      "InstancesMax",            config_parse_instances_max,        0,                    &t->instances_max           },
+                { "Target",      "RemoveTemporary",         config_parse_bool,                 0,                    &t->remove_temporary        },
+                { "Target",      "CurrentSymlink",          config_parse_current_symlink,      0,                    &t->current_symlink         },
                 {}
         };
 
@@ -646,6 +667,12 @@ int transfer_read_definition(Transfer *t, const char *path, const char **dirs, H
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
                                   "Source specification lacks MatchPattern=.");
 
+        if (IN_SET(t->source.type, RESOURCE_DIRECTORY, RESOURCE_SUBVOLUME))
+                STRV_FOREACH(p, t->source.patterns)
+                        if (pattern_skip_glob_directory_prefix(*p))
+                                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
+                                                  "MatchPattern= with '**/' prefix is not supported for source Type=directory and Type=subvolume, refusing.");
+
         if (!t->target.path && !t->target.path_auto)
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
                                   "Target specification lacks Path= field.");
@@ -661,6 +688,18 @@ int transfer_read_definition(Transfer *t, const char *path, const char **dirs, H
                 t->target.patterns = strv_copy(t->source.patterns);
                 if (!t->target.patterns)
                         return log_oom();
+
+                /* Strip any glob directory prefix when inheriting from source because it's only used for finding and
+                 * not to replicate the same directory layout at the target, so we don't support it there. */
+                STRV_FOREACH(p, t->target.patterns) {
+                        const char *body = pattern_skip_glob_directory_prefix(*p);
+                        if (body)
+                                memmove(*p, body, strlen(body) + 1);
+                }
+
+                /* Stripping the prefix can turn distinct source patterns like "**/foo" and "foo" into
+                 * duplicates, so re-uniq for parity with the source side. */
+                strv_uniq(t->target.patterns);
         }
 
         if (t->current_symlink && !RESOURCE_IS_FILESYSTEM(t->target.type) && !path_is_absolute(t->current_symlink))
