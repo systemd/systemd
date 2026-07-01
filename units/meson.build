@@ -855,6 +855,10 @@ units = [
           'symlinks' : ['system-install.target.wants/'],
         },
         {
+          'file' : 'systemd-sysupdate-auto-enable.service',
+          'conditions' : ['ENABLE_SYSUPDATE'],
+        },
+        {
           'file' : 'systemd-sysupdate-reboot.service',
           'conditions' : ['ENABLE_SYSUPDATE'],
         },
