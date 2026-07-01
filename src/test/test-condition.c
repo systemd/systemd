@@ -1037,7 +1037,8 @@ TEST(condition_test_group) {
         Condition *condition;
         char gid[DECIMAL_STR_MAX(uint32_t)];
         gid_t *gids, max_gid;
-        int ngroups_max, ngroups, r, i;
+        int ngroups, r, i;
+        long ngroups_max;
 
         xsprintf(gid, "%u", UINT32_C(0xFFFF));
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_GROUP, gid, false, false)));
