@@ -126,6 +126,7 @@ static int machine_cid(const char *name, sd_json_variant *variant, sd_json_dispa
 int vl_method_register(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         Manager *manager = ASSERT_PTR(userdata);
         _cleanup_(machine_freep) Machine *machine = NULL;
+        const char *bad_field = NULL;
         bool sender_is_admin = false;
         int r;
 
@@ -136,8 +137,6 @@ int vl_method_register(sd_varlink *link, sd_json_variant *parameters, sd_varlink
                 { "class",               SD_JSON_VARIANT_STRING,        dispatch_machine_class,   offsetof(Machine, class),                SD_JSON_MANDATORY },
                 { "leader",              _SD_JSON_VARIANT_TYPE_INVALID, machine_pidref,           offsetof(Machine, leader),               SD_JSON_STRICT    },
                 { "leaderProcessId",     SD_JSON_VARIANT_OBJECT,        machine_pidref,           offsetof(Machine, leader),               SD_JSON_STRICT    },
-                { "supervisor",          _SD_JSON_VARIANT_TYPE_INVALID, machine_pidref,           offsetof(Machine, supervisor),           SD_JSON_STRICT    },
-                { "supervisorProcessId", SD_JSON_VARIANT_OBJECT,        machine_pidref,           offsetof(Machine, supervisor),           SD_JSON_STRICT    },
                 { "rootDirectory",       SD_JSON_VARIANT_STRING,        json_dispatch_path,       offsetof(Machine, root_directory),       SD_JSON_STRICT    },
                 { "ifIndices",           SD_JSON_VARIANT_ARRAY,         machine_ifindices,        0,                                       0                 },
                 { "vSockCid",            _SD_JSON_VARIANT_TYPE_INVALID, machine_cid,              offsetof(Machine, vsock_cid),            0                 },
@@ -153,9 +152,12 @@ int vl_method_register(sd_varlink *link, sd_json_variant *parameters, sd_varlink
         if (r < 0)
                 return r;
 
-        r = sd_varlink_dispatch(link, parameters, dispatch_table, machine);
-        if (r != 0)
+        r = sd_json_dispatch_full(parameters, dispatch_table, /* bad= */ NULL, SD_JSON_ALLOW_EXTENSIONS, machine, &bad_field);
+        if (r < 0) {
+                if (bad_field)
+                        return sd_varlink_error_invalid_parameter_name(link, bad_field);
                 return r;
+        }
 
         if (!MACHINE_CLASS_CAN_REGISTER(machine->class))
                 return sd_varlink_error_invalid_parameter_name(link, "class");
@@ -179,9 +181,7 @@ int vl_method_register(sd_varlink *link, sd_json_variant *parameters, sd_varlink
                 r = varlink_get_peer_pidref(link, &machine->leader);
                 if (r < 0)
                         return r;
-        }
-
-        if (!pidref_is_set(&machine->supervisor)) {
+        } else if (!pidref_is_set(&machine->supervisor)) {
                 _cleanup_(pidref_done) PidRef client_pidref = PIDREF_NULL;
 
                 r = varlink_get_peer_pidref(link, &client_pidref);
