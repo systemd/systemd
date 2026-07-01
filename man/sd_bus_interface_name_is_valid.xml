@@ -83,7 +83,13 @@
     </refsect2>
   </refsect1>
 
-  <xi:include href="libsystemd-pkgconfig.xml" />
+  <refsect1>
+    <title>Notes</title>
+
+    <xi:include href="libsystemd-pkgconfig.xml" xpointer="pkgconfig-text"/>
+
+    <xi:include href="threads-aware.xml" xpointer="safe"/>
+  </refsect1>
 
   <refsect1>
     <title>History</title>
