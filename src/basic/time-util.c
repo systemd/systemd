@@ -321,24 +321,26 @@ struct timeval *timeval_store(struct timeval *tv, usec_t u) {
         return tv;
 }
 
+/* Returns the abbreviated English weekday name for wd in Mon=0 … Sun=6 order.
+ * We use non-localized (English) form so that timestamps can be parsed with
+ * parse_timestamp() and always read the same regardless of locale. */
+static const char *const weekday_table[] = {
+        [0] = "Mon",
+        [1] = "Tue",
+        [2] = "Wed",
+        [3] = "Thu",
+        [4] = "Fri",
+        [5] = "Sat",
+        [6] = "Sun",
+};
+
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(weekday, int);
+
 char* format_timestamp_style(
                 char *buf,
                 size_t l,
                 usec_t t,
                 TimestampStyle style) {
-
-        /* The weekdays in non-localized (English) form. We use this instead of the localized form, so that
-         * our generated timestamps may be parsed with parse_timestamp(), and always read the same. */
-        static const char * const weekdays[] = {
-                [0] = "Sun",
-                [1] = "Mon",
-                [2] = "Tue",
-                [3] = "Wed",
-                [4] = "Thu",
-                [5] = "Fri",
-                [6] = "Sat",
-        };
-
         struct tm tm;
         bool utc, us;
         size_t n;
@@ -387,8 +389,7 @@ char* format_timestamp_style(
                 return NULL;
 
         /* Start with the week day */
-        assert((size_t) tm.tm_wday < ELEMENTSOF(weekdays));
-        memcpy(buf, weekdays[tm.tm_wday], 4);
+        memcpy(buf, weekday_to_string(tm.tm_wday == 0 ? 6 : tm.tm_wday - 1), 4);
 
         if (style == TIMESTAMP_DATE) {
                 /* Special format string if only date should be shown. */
