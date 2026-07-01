@@ -131,7 +131,6 @@ int procfs_cpu_get_usage(nsec_t *ret) {
         _cleanup_free_ char *first_line = NULL;
         unsigned long user_ticks, nice_ticks, system_ticks, irq_ticks, softirq_ticks,
                 guest_ticks = 0, guest_nice_ticks = 0;
-        long ticks_per_second;
         uint64_t sum, gcd, a, b;
         const char *p;
         int r;
@@ -156,10 +155,7 @@ int procfs_cpu_get_usage(nsec_t *ret) {
                    &guest_nice_ticks) < 5) /* we only insist on the first five fields */
                 return -EINVAL;
 
-        ticks_per_second = sysconf(_SC_CLK_TCK);
-        if (ticks_per_second  < 0)
-                return -errno;
-        assert(ticks_per_second > 0);
+        uint64_t ticks_per_second = sysconf_clock_ticks_cached();
 
         sum = (uint64_t) user_ticks + (uint64_t) nice_ticks + (uint64_t) system_ticks +
                 (uint64_t) irq_ticks + (uint64_t) softirq_ticks +
@@ -168,8 +164,8 @@ int procfs_cpu_get_usage(nsec_t *ret) {
         /* Let's reduce this fraction before we apply it to avoid overflows when converting this to μsec */
         gcd = calc_gcd64(NSEC_PER_SEC, ticks_per_second);
 
-        a = (uint64_t) NSEC_PER_SEC / gcd;
-        b = (uint64_t) ticks_per_second / gcd;
+        a = NSEC_PER_SEC / gcd;
+        b = ticks_per_second / gcd;
 
         *ret = DIV_ROUND_UP((nsec_t) sum * (nsec_t) a, (nsec_t) b);
         return 0;

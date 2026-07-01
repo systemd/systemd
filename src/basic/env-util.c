@@ -555,7 +555,7 @@ char* strv_env_get_n(char * const *l, const char *name, size_t k, ReplaceEnvFlag
                 const char *t;
 
                 /* Safety check that the name is not overly long, before we do a stack allocation */
-                if (k > (size_t) sysconf(_SC_ARG_MAX) - 2)
+                if (k > sc_arg_max() - 2)
                         return NULL;
 
                 t = strndupa_safe(name, k);
