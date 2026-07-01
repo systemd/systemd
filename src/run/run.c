@@ -545,19 +545,24 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_LONG("on-calendar", "SPEC", "Realtime timer"): {
                         _cleanup_(calendar_spec_freep) CalendarSpec *cs = NULL;
 
-                        r = calendar_spec_from_string(opts.arg, &cs);
+                        r = calendar_spec_from_string_full(opts.arg, &cs, /* warn_on_weekday_mismatch= */ true);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse calendar event specification: %m");
 
                         /* Let's make sure the given calendar event is not in the past */
                         r = calendar_spec_next_usec(cs, now(CLOCK_REALTIME), NULL);
-                        if (r == -ENOENT)
-                                /* The calendar event is in the past — let's warn about this, but install it
-                                 * anyway as is. The service manager will trigger the service right away.
-                                 * Moreover, the server side might have a different clock or timezone than we
-                                 * do, hence it should decide when or whether to run something. */
-                                log_warning("Specified calendar expression is in the past, proceeding anyway.");
-                        else if (r < 0)
+                        if (r == -ENOENT) {
+                                /* The calendar event might be in the past, so let's warn about this, but
+                                 * install it anyway as is. The service manager will trigger the service
+                                 * right away. Moreover, the server side might have a different clock or
+                                 * timezone than we do, hence it should decide when or whether to run
+                                 * something.
+                                 *
+                                 * However, a mismatching weekday for a fixed date also results in -ENOENT,
+                                 * and was already warned about when parsing. */
+                                if (!calendar_spec_weekday_conflicts(cs, NULL))
+                                        log_warning("Specified calendar expression is in the past, proceeding anyway.");
+                        } else if (r < 0)
                                 return log_error_errno(r, "Failed to calculate next time calendar expression elapses: %m");
 
                         r = add_timer_property("OnCalendar", opts.arg);
