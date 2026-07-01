@@ -7,6 +7,10 @@
 #include "calendarspec.h"
 #include "env-util.h"
 #include "errno-util.h"
+#include "fd-util.h"
+#include "log.h"
+#include "memfd-util.h"
+#include "process-util.h"
 #include "string-util.h"
 #include "tests.h"
 #include "time-util.h"
@@ -254,6 +258,63 @@ TEST(calendar_spec_from_string) {
         assert_se(calendar_spec_from_string("*:4,30:*,5", &c) == -EINVAL);
         assert_se(calendar_spec_from_string("*:4,30:5,*", &c) == -EINVAL);
         assert_se(calendar_spec_from_string("*:4,30:*\n", &c) == -EINVAL);
+}
+
+/* Helper: fork a child, redirect its stderr to a fresh memfd, call
+ * calendar_spec_from_string_full() with warn=true, wait for the child,
+ * then return the memfd (seeked back to 0) so the caller can read it. */
+static int run_in_child_capture_stderr(const char *spec) {
+        _cleanup_close_ int memfd = memfd_new("calendarspec-warn-test");
+        assert_se(memfd >= 0);
+
+        int r = pidref_safe_fork("(calendarspec-warn)", FORK_WAIT|FORK_LOG, NULL);
+        assert_se(r >= 0);
+
+        if (r == 0) {
+                /* child */
+                assert_se(dup2(memfd, STDERR_FILENO) >= 0);
+                log_set_target(LOG_TARGET_CONSOLE);
+                log_open();
+
+                _cleanup_(calendar_spec_freep) CalendarSpec *c = NULL;
+                (void) calendar_spec_from_string_full(spec, &c, /* warn_on_weekday_mismatch= */ true);
+                _exit(0);
+        }
+
+        /* parent — rewind and hand fd back */
+        assert_se(lseek(memfd, 0, SEEK_SET) == 0);
+        return TAKE_FD(memfd);
+}
+
+TEST(calendar_spec_weekday_conflict) {
+        char buf[4096];
+        ssize_t n;
+
+        /* Case 1: conflicting weekday — warning must be emitted */
+        {
+                _cleanup_close_ int fd = run_in_child_capture_stderr("Thu 2027-01-01");
+                n = read(fd, buf, sizeof(buf) - 1);
+                assert_se(n > 0);
+                buf[n] = '\0';
+                assert_se(strstr(buf, "2027-01-01"));
+                assert_se(strstr(buf, "Fri"));
+        }
+
+        /* Case 2: correct weekday — no warning */
+        {
+                _cleanup_close_ int fd = run_in_child_capture_stderr("Fri 2027-01-01");
+                n = read(fd, buf, sizeof(buf) - 1);
+                buf[MAX(n, (ssize_t)0)] = '\0';
+                assert_se(!strstr(buf, "will never elapse"));
+        }
+
+        /* Case 3: wildcard date — no static conflict, no warning */
+        {
+                _cleanup_close_ int fd = run_in_child_capture_stderr("Thu *-*-*");
+                n = read(fd, buf, sizeof(buf) - 1);
+                buf[MAX(n, (ssize_t)0)] = '\0';
+                assert_se(!strstr(buf, "will never elapse"));
+        }
 }
 
 static int intro(void) {
