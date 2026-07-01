@@ -27,7 +27,7 @@ _public_ const char *cryptsetup_token_version(void) {
 static int log_debug_open_error(struct crypt_device *cd, int r) {
         if (r == -EAGAIN)
                 return crypt_log_debug_errno(cd, r, "TPM2 device not found.");
-        if (r == -ENXIO)
+        if (r == -ENOENT)
                 return crypt_log_debug_errno(cd, r, "No matching TPM2 token data found.");
 
         return crypt_log_debug_errno(cd, r, TOKEN_NAME " open failed: %m.");
@@ -106,7 +106,7 @@ _public_ int cryptsetup_token_open_pin(
                 return log_debug_open_error(cd, r);
 
         if (params.search_pcr_mask != UINT32_MAX && hash_pcr_mask != params.search_pcr_mask)
-                return crypt_log_debug_errno(cd, ENXIO, "PCR mask doesn't match expectation (%" PRIu32 " vs. %" PRIu32 ")", hash_pcr_mask, params.search_pcr_mask);
+                return crypt_log_debug_errno(cd, ENOENT, "PCR mask doesn't match expectation (%" PRIu32 " vs. %" PRIu32 ")", hash_pcr_mask, params.search_pcr_mask);
 
         r = acquire_luks2_key(
                         params.device,

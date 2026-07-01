@@ -2177,7 +2177,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                                 &decrypted_key);
                                 if (IN_SET(r, -EACCES, -ENOLCK))
                                         return log_notice_errno(SYNTHETIC_ERRNO(EAGAIN), "TPM2 PIN unlock failed, falling back to traditional unlocking.");
-                                if (r != -EPERM)
+                                if (!IN_SET(r, -EPERM, -ENOENT))
                                         break;
 
                                 token++; /* try a different token next time */
