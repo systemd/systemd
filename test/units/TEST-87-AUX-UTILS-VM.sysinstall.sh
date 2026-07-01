@@ -216,7 +216,7 @@ testcase_sysinstall_varlink_basic() {
     # Run the installer via varlink against the target image. Also stash a
     # literal credential ('marker') so we can verify it ends up next to the UKI
     # and is referenced from the boot loader entry.
-    varlinkctl call /run/systemd/io.systemd.SysInstall io.systemd.SysInstall.Run "{\"erase\": true, \"variables\": false, \"setCredentials\" : [\"marker:$CRED_VALUE\"], \"kernelImage\" : \"$WORKDIR/testuki.efi\", \"node\": \"$WORKDIR/target.img\", \"definitions\" : [\"$DEFS\"] }" --more
+    varlinkctl call /run/systemd/io.systemd.SysInstall io.systemd.SysInstall.Run "{\"erase\": true, \"variables\": false, \"credentials\" : [{ \"id\" : \"marker\", \"value\" : \"$CRED_VALUE\" }], \"kernelImage\" : \"$WORKDIR/testuki.efi\", \"node\": \"$WORKDIR/target.img\", \"definitions\" : [\"$DEFS\"] }" --more
 
     validate_image
 }
