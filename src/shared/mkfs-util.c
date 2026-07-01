@@ -4,6 +4,7 @@
 #include <sys/mount.h>
 #include <unistd.h>
 
+#include "escape.h"
 #include "log.h"
 #include "mkfs-util.h"
 #include "mount-util.h"
@@ -153,6 +154,11 @@ static int mtools_exec(char *const *argv) {
 
         assert(argv);
         assert(argv[0]);
+
+        if (DEBUG_LOGGING) {
+                _cleanup_free_ char *j = quote_command_line(argv, SHELL_ESCAPE_EMPTY);
+                log_debug("Invoking mtools command: %s", strna(j));
+        }
 
         r = pidref_safe_fork(
                         "(mtools)",
@@ -635,9 +641,7 @@ int make_filesystem(
         log_info("Formatting %s as %s", node, fstype);
 
         if (DEBUG_LOGGING) {
-                _cleanup_free_ char *j = NULL;
-
-                j = strv_join(argv, " ");
+                _cleanup_free_ char *j = quote_command_line(argv, SHELL_ESCAPE_EMPTY);
                 log_debug("Executing mkfs command: %s", strna(j));
         }
 
