@@ -8,15 +8,14 @@
 
 size_t page_size(void) {
         static thread_local size_t pgsz = 0;
-        long r;
 
         if (_likely_(pgsz > 0))
                 return pgsz;
 
-        r = sysconf(_SC_PAGESIZE);
-        assert(r > 0);
+        long p = sysconf(_SC_PAGESIZE);
+        assert(p > 0);
 
-        pgsz = (size_t) r;
+        pgsz = (size_t) p;
         return pgsz;
 }
 
