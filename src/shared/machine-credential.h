@@ -20,4 +20,6 @@ MachineCredential* machine_credential_find(MachineCredentialContext *ctx, const 
 
 int machine_credential_add(MachineCredentialContext *ctx, const char *id, const char *value, size_t size);
 int machine_credential_set(MachineCredentialContext *ctx, const char *cred_str);
+int machine_credential_set_parsed(MachineCredentialContext *ctx, const char *id, const char *value);
 int machine_credential_load(MachineCredentialContext *ctx, const char *cred_path);
+int machine_credential_load_parsed(MachineCredentialContext *ctx, const char *id, const char *path);
