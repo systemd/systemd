@@ -137,6 +137,8 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_DEFINE_INPUT(xbootldrPath, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Selects how to identify boot entries"),
                 SD_VARLINK_DEFINE_INPUT_BY_TYPE(bootEntryTokenType, BootEntryTokenType, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Whether to create the '$BOOT/ENTRY-TOKEN/' directory for Boot Loader Specification Type #1 snippets. If not specified this is decided automatically."),
+                SD_VARLINK_DEFINE_INPUT(makeEntryDirectory, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("If true the boot loader will be registered in an EFI boot entry via EFI variables, otherwise this is omitted"),
                 SD_VARLINK_DEFINE_INPUT(touchVariables, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
 
