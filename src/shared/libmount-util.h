@@ -20,6 +20,7 @@ extern DLSYM_PROTOTYPE(mnt_fs_get_id);
 extern DLSYM_PROTOTYPE(mnt_fs_get_option);
 extern DLSYM_PROTOTYPE(mnt_fs_get_options);
 extern DLSYM_PROTOTYPE(mnt_fs_get_passno);
+extern DLSYM_PROTOTYPE(mnt_fs_get_user_options);
 extern DLSYM_PROTOTYPE(mnt_fs_get_propagation);
 extern DLSYM_PROTOTYPE(mnt_fs_get_source);
 extern DLSYM_PROTOTYPE(mnt_fs_get_target);
