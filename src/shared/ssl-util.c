@@ -44,7 +44,7 @@ int dlopen_libssl(int log_level) {
                 r = dlopen_many_sym_or_warn(
                                 &libssl_dl,
                                 soname,
-                                log_level,
+                                LOG_DEBUG,
                                 DLSYM_ARG(SSL_ctrl),
                                 DLSYM_ARG(SSL_CTX_ctrl),
                                 DLSYM_ARG(SSL_CTX_free),
