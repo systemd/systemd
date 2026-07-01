@@ -381,6 +381,7 @@ InstancesMax=2
       <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd-sysupdate</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>sysupdate.d</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sysupdate.components</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
     </simplelist></para>
   </refsect1>
 
