@@ -922,7 +922,7 @@ static int get_supplementary_groups(
          * be positive, otherwise fail.
          */
         errno = 0;
-        int ngroups_max = (int) sysconf(_SC_NGROUPS_MAX);
+        long ngroups_max = sysconf(_SC_NGROUPS_MAX);
         if (ngroups_max <= 0)
                 return errno_or_else(EOPNOTSUPP);
 
