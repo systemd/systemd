@@ -877,6 +877,53 @@ finish:
         return 0;
 }
 
+static bool calendar_component_is_single_fixed(const CalendarComponent *c) {
+        /* Returns true if the component is a single fixed value — no range, no repeat, no alternatives */
+        return c && !c->next && c->repeat == 0 && (c->stop < 0 || c->stop == c->start);
+}
+
+static void calendar_spec_warn_weekday_conflict(const CalendarSpec *spec) {
+        assert(spec);
+
+        /* Only relevant when a weekday constraint is set */
+        if (spec->weekdays_bits <= 0 || spec->weekdays_bits >= BITS_WEEKDAYS)
+                return;
+
+        /* We can only detect the conflict statically when year, month and day are all pinned
+         * to a single fixed value. If any component is a wildcard or a range, the constraint
+         * may still be satisfiable and we stay silent. */
+        if (!calendar_component_is_single_fixed(spec->year)  ||
+            !calendar_component_is_single_fixed(spec->month) ||
+            !calendar_component_is_single_fixed(spec->day))
+                return;
+
+        /* CalendarSpec stores month as 1-12; struct tm uses 0-11 */
+        struct tm tm = {
+                .tm_year = spec->year->start  - 1900,
+                .tm_mon  = spec->month->start - 1,
+                .tm_mday = spec->day->start,
+        };
+        struct tm orig = tm;
+
+        /* Compute weekday in a TZ/DST-independent way and ignore invalid dates
+         * that would be normalized (e.g. 2027-02-31 → 2027-03-03). */
+        if (mktime_or_timegm_usec(&tm, /* utc= */ true, /* ret= */ NULL) < 0 ||
+            tm.tm_year != orig.tm_year || tm.tm_mon != orig.tm_mon ||
+            tm.tm_mday != orig.tm_mday)
+                return;
+
+        /* Convert tm_wday (Sun=0) to Mon=0..Sun=6 to match weekdays_bits layout */
+        int k = tm.tm_wday == 0 ? 6 : tm.tm_wday - 1;
+        if (spec->weekdays_bits & (1 << k))
+                return; /* weekday matches — no conflict */
+
+        static const char *const day_names[] = { "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun" };
+        log_warning("Weekday constraint does not match the fixed date %04d-%02d-%02d "
+                    "(which is a %s) — this timer will never elapse.",
+                    spec->year->start, spec->month->start, spec->day->start,
+                    day_names[k]);
+}
+
 int calendar_spec_from_string(const char *p, CalendarSpec **ret) {
         const char *utc;
         _cleanup_(calendar_spec_freep) CalendarSpec *c = NULL;
@@ -1097,6 +1144,8 @@ int calendar_spec_from_string(const char *p, CalendarSpec **ret) {
 
         if (!calendar_spec_valid(c))
                 return -EINVAL;
+
+        calendar_spec_warn_weekday_conflict(c);
 
         if (ret)
                 *ret = TAKE_PTR(c);
