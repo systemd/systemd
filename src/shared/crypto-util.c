@@ -2216,7 +2216,7 @@ int openssl_load_private_key(
                 _cleanup_(openssl_ask_password_ui_freep) OpenSSLAskPasswordUI *ui = NULL;
                 r = openssl_ask_password_ui_new(request, &ui);
                 if (r < 0)
-                        return log_debug_errno(r, "Failed to allocate ask-password user interface: %m");
+                        return r;
 
                 UI_METHOD *ui_method = NULL;
 #ifndef OPENSSL_NO_UI_CONSOLE
@@ -2235,11 +2235,7 @@ int openssl_load_private_key(
                         assert_not_reached();
                 }
                 if (r < 0)
-                        return log_debug_errno(
-                                        r,
-                                        "Failed to load key '%s' from OpenSSL private key source %s: %m",
-                                        private_key,
-                                        private_key_source);
+                        return r;
 
                 *ret_user_interface = TAKE_PTR(ui);
         }
