@@ -66,7 +66,7 @@ static int mount_dispatch_io(sd_event_source *source, int fd, uint32_t revents, 
 static void mount_enter_dead(Mount *m, MountResult f, bool flush_result);
 static void mount_enter_mounted(Mount *m, MountResult f);
 static void mount_cycle_clear(Mount *m);
-static int mount_process_proc_self_mountinfo(Manager *m);
+static int mount_process_kernel_mounttable(Manager *m, bool skip_drain);
 
 static bool MOUNT_STATE_WITH_PROCESS(MountState state) {
         return IN_SET(state,
@@ -93,8 +93,8 @@ static MountParameters* get_mount_parameters_fragment(Mount *m) {
 static MountParameters* get_mount_parameters(Mount *m) {
         assert(m);
 
-        if (m->from_proc_self_mountinfo)
-                return &m->parameters_proc_self_mountinfo;
+        if (m->from_kernel)
+                return &m->parameters_kernel;
 
         return get_mount_parameters_fragment(m);
 }
@@ -219,6 +219,8 @@ static void mount_parameters_done(MountParameters *p) {
 
         p->what = mfree(p->what);
         p->options = mfree(p->options);
+        p->opt_kernel = mfree(p->opt_kernel);
+        p->opt_user = mfree(p->opt_user);
         p->fstype = mfree(p->fstype);
 }
 
@@ -227,7 +229,7 @@ static void mount_done(Unit *u) {
 
         m->where = mfree(m->where);
 
-        mount_parameters_done(&m->parameters_proc_self_mountinfo);
+        mount_parameters_done(&m->parameters_kernel);
         mount_parameters_done(&m->parameters_fragment);
 
         m->exec_runtime = exec_runtime_free(m->exec_runtime);
@@ -361,7 +363,7 @@ static int mount_add_device_dependencies(Mount *m) {
         dep = mount_is_bound_to_device(m) > 0 ? UNIT_BINDS_TO : UNIT_REQUIRES;
 
         /* We always use 'what' from /proc/self/mountinfo if mounted */
-        mask = m->from_proc_self_mountinfo ? UNIT_DEPENDENCY_MOUNTINFO : UNIT_DEPENDENCY_MOUNT_FILE;
+        mask = m->from_kernel ? UNIT_DEPENDENCY_MOUNTINFO : UNIT_DEPENDENCY_MOUNT_FILE;
 
         r = unit_add_node_dependency(UNIT(m), p->what, dep, mask);
         if (r < 0)
@@ -510,7 +512,7 @@ static int mount_add_default_dependencies(Mount *m) {
         if (!p)
                 return 0;
 
-        mask = m->from_proc_self_mountinfo ? UNIT_DEPENDENCY_MOUNTINFO : UNIT_DEPENDENCY_MOUNT_FILE;
+        mask = m->from_kernel ? UNIT_DEPENDENCY_MOUNTINFO : UNIT_DEPENDENCY_MOUNT_FILE;
 
         r = mount_add_default_ordering_dependencies(m, p, mask);
         if (r < 0)
@@ -531,7 +533,7 @@ static int mount_verify(Mount *m) {
         assert(m);
         assert(UNIT(m)->load_state == UNIT_LOADED);
 
-        if (!m->from_fragment && !m->from_proc_self_mountinfo && !UNIT(m)->perpetual)
+        if (!m->from_fragment && !m->from_kernel && !UNIT(m)->perpetual)
                 return -ENOENT;
 
         r = unit_name_from_path(m->where, ".mount", &e);
@@ -663,7 +665,7 @@ static int mount_load(Unit *u) {
 
         mount_load_root_mount(u);
 
-        bool from_kernel = m->from_proc_self_mountinfo || u->perpetual;
+        bool from_kernel = m->from_kernel || u->perpetual;
 
         r = unit_load_fragment_and_dropin(u, /* fragment_required= */ !from_kernel);
 
@@ -739,8 +741,8 @@ static int mount_coldplug(Unit *u) {
 static void mount_catchup(Unit *u) {
         Mount *m = ASSERT_PTR(MOUNT(u));
 
-        /* Adjust the deserialized state. See comments in mount_process_proc_self_mountinfo(). */
-        if (m->from_proc_self_mountinfo)
+        /* Adjust the deserialized state. See comments in mount_process_kernel_mounttable(). */
+        if (m->from_kernel)
                 switch (m->state) {
                 case MOUNT_DEAD:
                 case MOUNT_FAILED:
@@ -807,7 +809,7 @@ static void mount_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, p ? strna(p->what) : "n/a",
                 prefix, p ? strna(p->fstype) : "n/a",
                 prefix, p ? strna(p->options) : "n/a",
-                prefix, yes_no(m->from_proc_self_mountinfo),
+                prefix, yes_no(m->from_kernel),
                 prefix, yes_no(m->from_fragment),
                 prefix, yes_no(mount_is_extrinsic(u)),
                 prefix, m->directory_mode,
@@ -939,7 +941,7 @@ static void mount_enter_dead_or_mounted(Mount *m, MountResult f, bool flush_resu
          * Note that flush_result only applies to mount_enter_dead(), since that's when the result gets
          * turned into unit end state. */
 
-        if (m->from_proc_self_mountinfo)
+        if (m->from_kernel)
                 mount_enter_mounted(m, f);
         else
                 mount_enter_dead(m, f, flush_result);
@@ -1504,7 +1506,7 @@ static const char *mount_sub_state_to_string(Unit *u) {
 static bool mount_may_gc(Unit *u) {
         Mount *m = ASSERT_PTR(MOUNT(u));
 
-        if (m->from_proc_self_mountinfo)
+        if (m->from_kernel)
                 return false;
 
         return true;
@@ -1533,7 +1535,7 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
          * race, let's explicitly scan /proc/self/mountinfo before we start processing /usr/bin/(u)mount
          * dying. It's ugly, but it makes our ordering systematic again, and makes sure we always see
          * /proc/self/mountinfo changes before our mount/umount exits. */
-        (void) mount_process_proc_self_mountinfo(u->manager);
+        (void) mount_process_kernel_mounttable(u->manager, /* skip_drain= */ false);
 
         pidref_done(&m->control_pid);
 
@@ -1595,7 +1597,7 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                 break;
 
         case MOUNT_UNMOUNTING:
-                if (f == MOUNT_SUCCESS && m->from_proc_self_mountinfo) {
+                if (f == MOUNT_SUCCESS && m->from_kernel) {
                         /* Still a mount point? If so, let's try again. Most likely there were multiple mount points
                          * stacked on top of each other. We might exceed the timeout specified by the user overall,
                          * but we will stop as soon as any one umount times out. */
@@ -1608,7 +1610,7 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                 log_unit_warning(u, "Mount still present after %u attempts to unmount, giving up.", m->n_retry_umount);
                                 mount_enter_mounted(m, MOUNT_FAILURE_PROTOCOL);
                         }
-                } else if (f == MOUNT_FAILURE_EXIT_CODE && !m->from_proc_self_mountinfo) {
+                } else if (f == MOUNT_FAILURE_EXIT_CODE && !m->from_kernel) {
                         /* Hmm, umount process spawned by us failed, but the mount disappeared anyway?
                          * Maybe someone else is trying to unmount at the same time. */
                         log_unit_notice(u, "Mount disappeared even though umount process failed, continuing.");
@@ -1718,32 +1720,119 @@ static int mount_dispatch_timer(sd_event_source *source, usec_t usec, void *user
 }
 
 #if HAVE_LIBMOUNT
-static int update_parameters_proc_self_mountinfo(
+
+/* Merge two comma-separated option strings into one. Either or both may be NULL. */
+static int mount_merge_options(const char *a, const char *b, char **ret) {
+        _cleanup_free_ char *merged = NULL;
+
+        assert(ret);
+
+        if (a && b)
+                merged = strjoin(a, ",", b);
+        else if (a)
+                merged = strdup(a);
+        else if (b)
+                merged = strdup(b);
+        else {
+                *ret = NULL;
+                return 0;
+        }
+
+        if (!merged)
+                return -ENOMEM;
+
+        *ret = TAKE_PTR(merged);
+        return 0;
+}
+
+/* Merge VFS and FS options into a single kernel options string. */
+static int mount_build_kernel_options(struct libmnt_fs *fs, char **ret) {
+        assert(fs);
+        assert(ret);
+
+        return mount_merge_options(
+                        sym_mnt_fs_get_vfs_options(fs),
+                        sym_mnt_fs_get_fs_options(fs),
+                        ret);
+}
+
+/* Rebuild the merged options string from opt_kernel and opt_user. */
+static int mount_parameters_rebuild_options(MountParameters *p) {
+        _cleanup_free_ char *merged = NULL;
+        int r;
+
+        assert(p);
+
+        r = mount_merge_options(p->opt_kernel, p->opt_user, &merged);
+        if (r < 0)
+                return r;
+
+        return free_and_replace(p->options, merged);
+}
+
+static int update_parameters_kernel(
                 Mount *m,
                 const char *what,
-                const char *options,
-                const char *fstype) {
+                const char *opt_kernel,
+                const char *opt_user,
+                const char *fstype,
+                uint64_t uniq_id) {
 
         MountParameters *p;
-        int r, q, w;
+        bool rebuild;
+        int r, q, u, w;
 
         assert(m);
 
-        p = &m->parameters_proc_self_mountinfo;
+        p = &m->parameters_kernel;
+
+        rebuild = !streq_ptr(p->opt_kernel, opt_kernel) ||
+                  !streq_ptr(p->opt_user, opt_user);
 
         r = free_and_strdup(&p->what, what);
         if (r < 0)
                 return r;
 
-        q = free_and_strdup(&p->options, options);
+        q = free_and_strdup(&p->opt_kernel, opt_kernel);
         if (q < 0)
                 return q;
+
+        u = free_and_strdup(&p->opt_user, opt_user);
+        if (u < 0)
+                return u;
 
         w = free_and_strdup(&p->fstype, fstype);
         if (w < 0)
                 return w;
 
-        return r > 0 || q > 0 || w > 0;
+        if (rebuild) {
+                int x = mount_parameters_rebuild_options(p);
+                if (x < 0)
+                        return x;
+        }
+
+        m->uniq_id = uniq_id;
+
+        return r > 0 || q > 0 || u > 0 || w > 0;
+}
+
+/* Update only the user options (from utab), rebuild merged options. Returns > 0 if changed. */
+static int update_parameters_useropts(Mount *m, const char *opt_user) {
+        MountParameters *p;
+        int r;
+
+        assert(m);
+
+        p = &m->parameters_kernel;
+
+        if (streq_ptr(p->opt_user, opt_user))
+                return 0;
+
+        r = free_and_strdup(&p->opt_user, opt_user);
+        if (r < 0)
+                return r;
+
+        return mount_parameters_rebuild_options(p);
 }
 
 static int mount_setup_new_unit(
@@ -1751,8 +1840,10 @@ static int mount_setup_new_unit(
                 const char *name,
                 const char *what,
                 const char *where,
-                const char *options,
+                const char *opt_kernel,
+                const char *opt_user,
                 const char *fstype,
+                uint64_t uniq_id,
                 MountProcFlags *ret_flags,
                 Unit **ret) {
 
@@ -1779,14 +1870,14 @@ static int mount_setup_new_unit(
         if (r < 0)
                 return r;
 
-        r = update_parameters_proc_self_mountinfo(mnt, what, options, fstype);
+        r = update_parameters_kernel(mnt, what, opt_kernel, opt_user, fstype, uniq_id);
         if (r < 0)
                 return r;
 
         /* This unit was generated because /proc/self/mountinfo reported it. Remember this, so that by the
          * time we load the unit file for it (and thus add in extra deps right after) we know what source to
          * attributes the deps to. */
-        mnt->from_proc_self_mountinfo = true;
+        mnt->from_kernel = true;
 
         /* We have only allocated the stub now, let's enqueue this unit for loading now, so that everything
          * else is loaded in now. */
@@ -1801,8 +1892,10 @@ static int mount_setup_existing_unit(
                 Unit *u,
                 const char *what,
                 const char *where,
-                const char *options,
+                const char *opt_kernel,
+                const char *opt_user,
                 const char *fstype,
+                uint64_t uniq_id,
                 MountProcFlags *ret_flags) {
 
         Mount *m = ASSERT_PTR(MOUNT(u));
@@ -1824,7 +1917,7 @@ static int mount_setup_existing_unit(
          * iteration and thus worthy of taking into account. */
         MountProcFlags flags = m->proc_flags | MOUNT_PROC_IS_MOUNTED;
 
-        r = update_parameters_proc_self_mountinfo(m, what, options, fstype);
+        r = update_parameters_kernel(m, what, opt_kernel, opt_user, fstype, uniq_id);
         if (r < 0)
                 return r;
         if (r > 0)
@@ -1837,10 +1930,10 @@ static int mount_setup_existing_unit(
          * from the serialized state), and need to catch up. Since we know that the MOUNT_MOUNTING state is
          * reached when we wait for the mount to appear we hence can assume that if we are in it, we are
          * actually seeing it established for the first time. */
-        if (!m->from_proc_self_mountinfo || m->state == MOUNT_MOUNTING)
+        if (!m->from_kernel || m->state == MOUNT_MOUNTING)
                 flags |= MOUNT_PROC_JUST_MOUNTED;
 
-        m->from_proc_self_mountinfo = true;
+        m->from_kernel = true;
 
         if (UNIT_IS_LOAD_ERROR(u->load_state)) {
                 /* The unit was previously not found or otherwise not loaded. Now that the unit shows up in
@@ -1869,8 +1962,10 @@ static int mount_setup_unit(
                 Manager *m,
                 const char *what,
                 const char *where,
-                const char *options,
+                const char *opt_kernel,
+                const char *opt_user,
                 const char *fstype,
+                uint64_t uniq_id,
                 bool set_flags) {
 
         _cleanup_free_ char *e = NULL;
@@ -1881,7 +1976,6 @@ static int mount_setup_unit(
         assert(m);
         assert(what);
         assert(where);
-        assert(options);
         assert(fstype);
 
         /* Ignore API and credential mount points. They should never be referenced in dependencies ever.
@@ -1909,13 +2003,18 @@ static int mount_setup_unit(
 
         u = manager_get_unit(m, e);
         if (u)
-                r = mount_setup_existing_unit(u, what, where, options, fstype, &flags);
+                r = mount_setup_existing_unit(u, what, where, opt_kernel, opt_user, fstype, uniq_id, &flags);
         else
                 /* First time we see this mount point meaning that it's not been initiated by a mount unit
                  * but rather by the sysadmin having called mount(8) directly. */
-                r = mount_setup_new_unit(m, e, what, where, options, fstype, &flags, &u);
+                r = mount_setup_new_unit(m, e, what, where, opt_kernel, opt_user, fstype, uniq_id, &flags, &u);
         if (r < 0)
                 return log_warning_errno(r, "Failed to set up mount unit for '%s': %m", where);
+
+        if (uniq_id > 0) {
+                (void) hashmap_ensure_allocated(&m->mounts_by_uniq_id, &uint64_hash_ops);
+                (void) hashmap_put(m->mounts_by_uniq_id, &MOUNT(u)->uniq_id, MOUNT(u));
+        }
 
         /* If the mount changed properties or state, let's notify our clients */
         if (flags & (MOUNT_PROC_JUST_CHANGED|MOUNT_PROC_JUST_MOUNTED))
@@ -1927,35 +2026,52 @@ static int mount_setup_unit(
         return 0;
 }
 
-static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
+static int mount_load_kernel_mounttable(Manager *m, bool set_flags) {
         _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
         _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
         _cleanup_set_free_ Set *devices = NULL;
+        bool use_listmount = false;
         int r;
 
         assert(m);
 
-        r = libmount_parse_with_utab(&table, &iter);
-        if (r < 0)
-                return log_error_errno(r, "Failed to parse /proc/self/mountinfo: %m");
+        r = libmount_fetch_listmount(&table, &iter);
+        if (r >= 0)
+                use_listmount = true;
+        else {
+                if (r != -EOPNOTSUPP)
+                        log_debug_errno(r, "Failed to use listmount, falling back to /proc/self/mountinfo: %m");
+
+                r = libmount_parse_with_utab(&table, &iter);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse /proc/self/mountinfo: %m");
+        }
 
         for (;;) {
                 struct libmnt_fs *fs;
-                const char *device, *path, *options, *fstype;
+                const char *device, *path, *fstype;
+                uint64_t uniq_id;
 
                 r = sym_mnt_table_next_fs(table, iter, &fs);
                 if (r == 1)
                         break;
                 if (r < 0)
-                        return log_error_errno(r, "Failed to get next entry from /proc/self/mountinfo: %m");
+                        return log_error_errno(r, "Failed to get next entry from mount table: %m");
 
                 device = sym_mnt_fs_get_source(fs);
                 path = sym_mnt_fs_get_target(fs);
-                options = sym_mnt_fs_get_options(fs);
                 fstype = sym_mnt_fs_get_fstype(fs);
+                uniq_id = use_listmount ? sym_mnt_fs_get_uniq_id(fs) : 0;
 
                 if (!device || !path)
                         continue;
+
+                _cleanup_free_ char *opt_kernel = NULL;
+                r = mount_build_kernel_options(fs, &opt_kernel);
+                if (r < 0)
+                        return log_oom();
+
+                const char *opt_user = sym_mnt_fs_get_user_options(fs);
 
                 /* Just to achieve device name uniqueness. Note that the suppression of the duplicate
                  * processing is merely an optimization, hence in case of OOM (unlikely) we'll just process
@@ -1963,7 +2079,7 @@ static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
                 if (set_put_strdup_full(&devices, &path_hash_ops_free, device) != 0)
                         device_found_node(m, device, DEVICE_FOUND_MOUNT, DEVICE_FOUND_MOUNT);
 
-                (void) mount_setup_unit(m, device, path, options, fstype, set_flags);
+                (void) mount_setup_unit(m, device, path, opt_kernel, opt_user, fstype, uniq_id, set_flags);
         }
 
         return 0;
@@ -1979,6 +2095,16 @@ static void mount_shutdown(Manager *m) {
                 sym_mnt_unref_monitor(m->mount_monitor);
                 m->mount_monitor = NULL;
         }
+
+#if HAVE_LIBMOUNT
+        if (m->mount_fanotify_fs) {
+                sym_mnt_unref_fs(m->mount_fanotify_fs);
+                m->mount_fanotify_fs = NULL;
+        }
+        m->mount_use_fanotify = false;
+#endif
+
+        m->mounts_by_uniq_id = hashmap_free(m->mounts_by_uniq_id);
 }
 
 static void mount_handoff_timestamp(
@@ -2067,6 +2193,71 @@ static int mount_on_ratelimit_expire(sd_event_source *s, void *userdata) {
 
         return 0;
 }
+
+static bool mount_monitor_is_fanotify_usable(void) {
+        static int cached = -1;
+
+        if (cached != -1)
+                return cached;
+
+        _cleanup_(mnt_unref_monitorp) struct libmnt_monitor *probe = NULL;
+
+        if (DLOPEN_LIBMOUNT_FANOTIFY(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED) < 0)
+                return (cached = false);
+
+        /* mnt_monitor_enable_fanotify() only allocates data structures; the actual
+         * fanotify_init(FAN_REPORT_MNT) syscall happens inside mnt_monitor_get_fd().
+         * Use a throwaway probe monitor to test kernel support. */
+        probe = sym_mnt_new_monitor();
+        if (!probe)
+                return (cached = false);
+
+        if (sym_mnt_monitor_enable_fanotify(probe, /* enable= */ 1, /* ns= */ -1) < 0)
+                return (cached = false);
+
+        cached = sym_mnt_monitor_get_fd(probe) >= 0;
+        return cached;
+}
+
+static int mount_monitor_init_fanotify(Manager *m) {
+        int r;
+
+        assert(m);
+        assert(m->mount_monitor);
+
+        r = sym_mnt_monitor_enable_fanotify(m->mount_monitor, /* enable= */ 1, /* ns= */ -1);
+        if (r < 0)
+                return r;
+
+        m->mount_fanotify_fs = sym_mnt_new_fs();
+        if (!m->mount_fanotify_fs) {
+                r = log_oom();
+                goto fail;
+        }
+
+        struct libmnt_statmnt *stmnt = sym_mnt_new_statmnt();
+        if (!stmnt) {
+                r = log_oom();
+                goto fail;
+        }
+
+        r = sym_mnt_fs_refer_statmnt(m->mount_fanotify_fs, stmnt);
+        sym_mnt_unref_statmnt(stmnt);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to attach statmnt to fs: %m");
+                goto fail;
+        }
+
+        return 0;
+
+fail:
+        sym_mnt_monitor_enable_fanotify(m->mount_monitor, /* enable= */ 0, /* ns= */ -1);
+        if (m->mount_fanotify_fs) {
+                sym_mnt_unref_fs(m->mount_fanotify_fs);
+                m->mount_fanotify_fs = NULL;
+        }
+        return r;
+}
 #endif
 
 static void mount_enumerate(Manager *m) {
@@ -2081,6 +2272,7 @@ static void mount_enumerate(Manager *m) {
         if (!m->mount_monitor) {
                 usec_t mount_rate_limit_interval = 1 * USEC_PER_SEC;
                 unsigned mount_rate_limit_burst = 5;
+                bool use_fanotify;
                 int fd;
 
                 m->mount_monitor = sym_mnt_new_monitor();
@@ -2089,10 +2281,22 @@ static void mount_enumerate(Manager *m) {
                         goto fail;
                 }
 
-                r = sym_mnt_monitor_enable_kernel(m->mount_monitor, 1);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to enable watching of kernel mount events: %m");
-                        goto fail;
+                use_fanotify = mount_monitor_is_fanotify_usable();
+
+                if (use_fanotify) {
+                        r = mount_monitor_init_fanotify(m);
+                        if (r < 0) {
+                                log_warning_errno(r, "Failed to initialize fanotify mount monitoring, falling back to inotify: %m");
+                                use_fanotify = false;
+                        }
+                }
+
+                if (!use_fanotify) {
+                        r = sym_mnt_monitor_enable_kernel(m->mount_monitor, 1);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to enable watching of kernel mount events: %m");
+                                goto fail;
+                        }
                 }
 
                 r = sym_mnt_monitor_enable_userspace(m->mount_monitor, 1, NULL);
@@ -2148,9 +2352,12 @@ static void mount_enumerate(Manager *m) {
                 }
 
                 (void) sd_event_source_set_description(m->mount_event_source, "mount-monitor-dispatch");
+
+                m->mount_use_fanotify = use_fanotify;
+                log_debug("Using %s for mount monitoring.", use_fanotify ? "fanotify" : "inotify");
         }
 
-        r = mount_load_proc_self_mountinfo(m, false);
+        r = mount_load_kernel_mounttable(m, false);
         if (r < 0)
                 goto fail;
 
@@ -2192,28 +2399,15 @@ static int drain_libmount(Manager *m) {
 #endif
 }
 
-static int mount_process_proc_self_mountinfo(Manager *m) {
-        int r;
+/* Dispatch the load queue, run state transitions based on proc_flags, and reconcile device
+ * nodes (around/gone sets). Called after mount_load_kernel_mounttable() has populated the
+ * mount units with current kernel state. */
+static void mount_process_mount_units(Manager *m) {
+        _cleanup_set_free_ Set *around = NULL, *gone = NULL;
 
         assert(m);
 
-        r = drain_libmount(m);
-        if (r <= 0)
-                return r;
-
-#if HAVE_LIBMOUNT
-        r = mount_load_proc_self_mountinfo(m, true);
-        if (r < 0) {
-                /* Reset flags, just in case, for later calls */
-                LIST_FOREACH(units_by_type, u, m->units_by_type[UNIT_MOUNT])
-                        MOUNT(u)->proc_flags = 0;
-
-                return 0;
-        }
-
         manager_dispatch_load_queue(m);
-
-        _cleanup_set_free_ Set *around = NULL, *gone = NULL;
 
         LIST_FOREACH(units_by_type, u, m->units_by_type[UNIT_MOUNT]) {
                 Mount *mount = MOUNT(u);
@@ -2223,14 +2417,16 @@ static int mount_process_proc_self_mountinfo(Manager *m) {
                         /* A mount point is not around right now. It might be gone, or might never have
                          * existed. */
 
-                        if (mount->from_proc_self_mountinfo &&
-                            mount->parameters_proc_self_mountinfo.what)
+                        if (mount->from_kernel &&
+                            mount->parameters_kernel.what)
                                 /* Remember that this device might just have disappeared */
-                                if (set_put_strdup_full(&gone, &path_hash_ops_free, mount->parameters_proc_self_mountinfo.what) < 0)
+                                if (set_put_strdup_full(&gone, &path_hash_ops_free, mount->parameters_kernel.what) < 0)
                                         log_oom(); /* we don't care too much about OOM here... */
 
-                        mount->from_proc_self_mountinfo = false;
-                        assert_se(update_parameters_proc_self_mountinfo(mount, NULL, NULL, NULL) >= 0);
+                        mount->from_kernel = false;
+                        if (mount->uniq_id > 0)
+                                hashmap_remove(m->mounts_by_uniq_id, &mount->uniq_id);
+                        assert_se(update_parameters_kernel(mount, NULL, NULL, NULL, NULL, 0) >= 0);
 
                         switch (mount->state) {
 
@@ -2284,10 +2480,10 @@ static int mount_process_proc_self_mountinfo(Manager *m) {
                 }
 
                 if (mount_is_mounted(mount) &&
-                    mount->from_proc_self_mountinfo &&
-                    mount->parameters_proc_self_mountinfo.what)
+                    mount->from_kernel &&
+                    mount->parameters_kernel.what)
                         /* Track devices currently used */
-                        if (set_put_strdup_full(&around, &path_hash_ops_free, mount->parameters_proc_self_mountinfo.what) < 0)
+                        if (set_put_strdup_full(&around, &path_hash_ops_free, mount->parameters_kernel.what) < 0)
                                 log_oom();
 
                 /* Reset the flags for later calls */
@@ -2302,6 +2498,31 @@ static int mount_process_proc_self_mountinfo(Manager *m) {
                 /* Let the device units know that the device is no longer mounted */
                 device_found_node(m, what, DEVICE_NOT_FOUND, DEVICE_FOUND_MOUNT);
         }
+}
+
+/* Load the complete kernel mount table and process all mount units. */
+static int mount_process_kernel_mounttable(Manager *m, bool skip_drain) {
+        int r;
+
+        assert(m);
+
+        if (!skip_drain) {
+                r = drain_libmount(m);
+                if (r <= 0)
+                        return r;
+        }
+
+#if HAVE_LIBMOUNT
+        r = mount_load_kernel_mounttable(m, /* set_flags= */ true);
+        if (r < 0) {
+                /* Reset flags, just in case, for later calls */
+                LIST_FOREACH(units_by_type, u, m->units_by_type[UNIT_MOUNT])
+                        MOUNT(u)->proc_flags = 0;
+
+                return 0;
+        }
+
+        mount_process_mount_units(m);
 
         return 0;
 #else
@@ -2310,12 +2531,144 @@ static int mount_process_proc_self_mountinfo(Manager *m) {
 }
 
 #if HAVE_LIBMOUNT
+static Mount *mount_find_by_uniq_id(Manager *m, uint64_t uniq_id) {
+        assert(m);
+
+        if (uniq_id == 0)
+                return NULL;
+
+        return hashmap_get(m->mounts_by_uniq_id, &uniq_id);
+}
+
+/* Incremental fanotify attach: populate the mount unit via mount_setup_unit() and register the
+ * device. State transitions are deferred to mount_process_mount_units(). */
+static void mount_process_fanotify_attach(Manager *m, struct libmnt_fs *fs) {
+        assert(m);
+        assert(fs);
+
+        int r = sym_mnt_fs_fetch_statmount(fs, /* mask= */ 0);
+        if (r < 0)
+                return (void) log_debug_errno(r, "Failed to fetch statmount: %m");
+
+        const char *device = sym_mnt_fs_get_source(fs);
+        const char *path = sym_mnt_fs_get_target(fs);
+        if (!device || !path)
+                return;
+
+        const char *fstype = sym_mnt_fs_get_fstype(fs);
+        uint64_t uniq_id = sym_mnt_fs_get_uniq_id(fs);
+
+        /* statmount returns kernel-only data — no utab. User options arrive via a subsequent
+         * utab event. */
+        _cleanup_free_ char *opt_kernel = NULL;
+        if (mount_build_kernel_options(fs, &opt_kernel) < 0)
+                return (void) log_oom();
+
+        device_found_node(m, device, DEVICE_FOUND_MOUNT, DEVICE_FOUND_MOUNT);
+        (void) mount_setup_unit(m, device, path, opt_kernel, /* opt_user= */ NULL, fstype, uniq_id, /* set_flags= */ true);
+}
+
+/* Incremental fanotify detach: clear from_kernel, uniq_id and kernel parameters. State transitions
+ * and device reconciliation are deferred to mount_process_mount_units(). */
+static void mount_process_fanotify_detach(Manager *m, struct libmnt_fs *fs) {
+        assert(m);
+        assert(fs);
+
+        Mount *mount = mount_find_by_uniq_id(m, sym_mnt_fs_get_uniq_id(fs));
+        if (!mount)
+                return;
+
+        hashmap_remove(m->mounts_by_uniq_id, &mount->uniq_id);
+        mount->from_kernel = false;
+        assert_se(update_parameters_kernel(mount, NULL, NULL, NULL, NULL, 0) >= 0);
+}
+
+static void mount_process_fanotify_events(Manager *m, bool *rescan) {
+        const char *filename;
+        int type;
+
+        assert(m);
+        assert(m->mount_monitor);
+        assert(rescan);
+
+        while (sym_mnt_monitor_next_change(m->mount_monitor, &filename, &type) == 0) {
+                if (type == MNT_MONITOR_TYPE_FANOTIFY) {
+                        struct libmnt_fs *fs = m->mount_fanotify_fs;
+                        int r;
+
+                        assert(fs);
+
+                        while ((r = sym_mnt_monitor_event_next_fs(m->mount_monitor, fs)) == 0) {
+                                if (sym_mnt_fs_is_moved(fs)) {
+                                        if (mount_find_by_uniq_id(m, sym_mnt_fs_get_uniq_id(fs))) {
+                                                mount_process_fanotify_detach(m, fs);
+                                                mount_process_fanotify_attach(m, fs);
+                                        } else
+                                                *rescan = true;
+                                } else if (sym_mnt_fs_is_detached(fs))
+                                        mount_process_fanotify_detach(m, fs);
+                                else
+                                        mount_process_fanotify_attach(m, fs);
+
+                                sym_mnt_reset_fs(fs);
+                        }
+
+                        if (r == -EOVERFLOW) {
+                                log_warning("Fanotify mount event queue overflow, rescanning.");
+                                *rescan = true;
+                        }
+                } else if (sym_mnt_table_parse_utab) {
+                        /* Incremental utab processing: parse utab, update user options on
+                         * matching mount units without a full kernel mount table rescan. */
+                        _cleanup_(mnt_free_tablep) struct libmnt_table *utab = NULL;
+                        _cleanup_(mnt_free_iterp) struct libmnt_iter *itr = NULL;
+                        struct libmnt_fs *uf;
+
+                        utab = sym_mnt_new_table();
+                        itr = sym_mnt_new_iter(MNT_ITER_FORWARD);
+                        if (!utab || !itr) {
+                                log_oom();
+                                *rescan = true;
+                        } else if (sym_mnt_table_parse_utab(utab, NULL) < 0)
+                                *rescan = true;
+                        else
+                                while (sym_mnt_table_next_fs(utab, itr, &uf) == 0) {
+                                        uint64_t id = sym_mnt_fs_get_uniq_id(uf);
+                                        Mount *mount = mount_find_by_uniq_id(m, id);
+                                        if (!mount)
+                                                continue;
+                                        (void) update_parameters_useropts(mount,
+                                                        sym_mnt_fs_get_user_options(uf));
+                                }
+                } else
+                        /* No utab API available — fall back to full rescan. */
+                        *rescan = true;
+
+                if (*rescan) {
+                        (void) sym_mnt_monitor_event_cleanup(m->mount_monitor);
+                        break;
+                }
+        }
+}
+
 static int mount_dispatch_io(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
 
         assert(revents & EPOLLIN);
 
-        return mount_process_proc_self_mountinfo(m);
+        if (m->mount_use_fanotify) {
+                bool rescan = false;
+
+                mount_process_fanotify_events(m, &rescan);
+
+                if (rescan)
+                        return mount_process_kernel_mounttable(m, /* skip_drain= */ true);
+
+                mount_process_mount_units(m);
+                return 0;
+        }
+
+        return mount_process_kernel_mounttable(m, /* skip_drain= */ false);
 }
 #endif
 
@@ -2433,8 +2786,8 @@ char* mount_get_what_escaped(const Mount *m) {
 
         assert(m);
 
-        if (m->from_proc_self_mountinfo && m->parameters_proc_self_mountinfo.what)
-                s = m->parameters_proc_self_mountinfo.what;
+        if (m->from_kernel && m->parameters_kernel.what)
+                s = m->parameters_kernel.what;
         else if (m->from_fragment && m->parameters_fragment.what)
                 s = m->parameters_fragment.what;
         if (!s)
@@ -2448,8 +2801,8 @@ char* mount_get_options_escaped(const Mount *m) {
 
         assert(m);
 
-        if (m->from_proc_self_mountinfo && m->parameters_proc_self_mountinfo.options)
-                s = m->parameters_proc_self_mountinfo.options;
+        if (m->from_kernel && m->parameters_kernel.options)
+                s = m->parameters_kernel.options;
         else if (m->from_fragment && m->parameters_fragment.options)
                 s = m->parameters_fragment.options;
         if (!s)
@@ -2461,8 +2814,8 @@ char* mount_get_options_escaped(const Mount *m) {
 const char* mount_get_fstype(const Mount *m) {
         assert(m);
 
-        if (m->from_proc_self_mountinfo && m->parameters_proc_self_mountinfo.fstype)
-                return m->parameters_proc_self_mountinfo.fstype;
+        if (m->from_kernel && m->parameters_kernel.fstype)
+                return m->parameters_kernel.fstype;
 
         if (m->from_fragment && m->parameters_fragment.fstype)
                 return m->parameters_fragment.fstype;

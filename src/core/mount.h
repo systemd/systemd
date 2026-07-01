@@ -31,7 +31,9 @@ typedef enum MountResult {
 
 typedef struct MountParameters {
         char *what;
-        char *options;
+        char *options;      /* merged: opt_kernel + opt_user (read by all consumers) */
+        char *opt_kernel;   /* VFS + FS options from statmount/mountinfo */
+        char *opt_user;     /* user options from utab (x-systemd.*, etc.) */
         char *fstype;
 } MountParameters;
 
@@ -47,10 +49,12 @@ typedef struct Mount {
 
         char *where;
 
-        MountParameters parameters_proc_self_mountinfo;
+        MountParameters parameters_kernel;
         MountParameters parameters_fragment;
 
-        bool from_proc_self_mountinfo:1;
+        uint64_t uniq_id;
+
+        bool from_kernel:1;
         bool from_fragment:1;
 
         MountProcFlags proc_flags;
