@@ -242,6 +242,11 @@ systemctl restart systemd-pcrlock.socket
 varlinkctl call /run/systemd/io.systemd.PCRLock io.systemd.PCRLock.RemovePolicy '{}'
 varlinkctl call /run/systemd/io.systemd.PCRLock io.systemd.PCRLock.MakePolicy '{}'
 varlinkctl call --collect --json=pretty /run/systemd/io.systemd.PCRLock io.systemd.PCRLock.ReadEventLog '{}'
+varlinkctl call /run/systemd/io.systemd.PCRLock io.systemd.PCRLock.Lock '{"category":"firmwareConfig"}'
+varlinkctl call /run/systemd/io.systemd.PCRLock io.systemd.PCRLock.Lock '{"category":"firmwareConfig","unlock":true}'
+varlinkctl call /run/systemd/io.systemd.PCRLock io.systemd.PCRLock.Lock '{"category":"firmwareCode","unlock":true}'
+varlinkctl call /run/systemd/io.systemd.PCRLock io.systemd.PCRLock.Lock '{"category":"secureBootPolicy","unlock":true}'
+varlinkctl call /run/systemd/io.systemd.PCRLock io.systemd.PCRLock.Lock '{"category":"secureBootAuthority","unlock":true}'
 
 rm "$img" /tmp/pcrlockpwd
 
