@@ -1,0 +1,63 @@
+#compdef systemd-sysupdate
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+local context state state_descr line
+typeset -A opt_args
+local ret=1
+
+local -a opts=(
+    {-h,--help}'[Show help message and exit]'
+    '--version[Show package version and exit]'
+    '--no-pager[Do not pipe output into a pager]'
+    '--no-legend[Do not show the headers and footers]'
+    '--json=[Show output as JSON]:mode:(pretty short off)'
+    '(-A --component-all -S --component-suggested)'{-C+,--component=}'[Select component to update]:component'
+    '(-C --component -S --component-suggested)'{-A,--component-all}'[Select all components]'
+    '(-C --component -A --component-all)'{-S,--component-suggested}'[Select all suggested components]'
+    '(-s --feature-suggested)'{-a,--feature-all}'[Select all features]'
+    '(-a --feature-all)'{-s,--feature-suggested}'[Select all suggested features]'
+    '--definitions=[Find transfer definitions in specified directory]:directory:_directories'
+    '--root=[Operate on an alternate filesystem root]:directory:_directories'
+    '--image=[Operate on disk image as filesystem root]:image file:_files'
+    '--image-policy=[Specify disk image dissection policy]:policy'
+    '--transfer-source=[Specify the directory to transfer sources from]:directory:_directories'
+    {-m+,--instances-max=}'[How many instances to maintain]:number'
+    '--sync=[Control whether to sync data to disk]:bool:(yes no)'
+    '--verify=[Force signature verification on or off]:bool:(yes no)'
+    '--reboot[Reboot after updating to newer version]'
+    '--offline[Do not fetch metadata from the network]'
+    '--cleanup=[Clean up orphaned files after completing update]:bool:(yes no)'
+)
+
+local -a commands=(
+    'list:List available and installed versions'
+    'features:List optional features'
+    'enable-feature:Enable optional features'
+    'disable-feature:Disable optional features'
+    'check-new:Check if a newer version is available'
+    'update:Install newest version'
+    'acquire:Download newest version without installing'
+    'vacuum:Make room by deleting old versions'
+    'cleanup:Clean up orphaned files'
+    'pending:Report whether a newer version is installed than booted'
+    'reboot:Reboot if a newer version is installed than booted'
+    'components:Show list of components'
+    'enable-component:Enable components'
+    'disable-component:Disable components'
+)
+
+_arguments -s -A '-*' \
+    "$opts[@]" \
+    ':command:->command' \
+    '*:: :->argument' && ret=0
+
+case $state in
+    command)
+        _describe -t commands 'systemd-sysupdate command' commands && ret=0
+        ;;
+    argument)
+        _arguments -s "$opts[@]" && ret=0
+        ;;
+esac
+
+return ret
