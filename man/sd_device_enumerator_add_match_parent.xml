@@ -122,7 +122,7 @@
 
     <para>The <function>sd_device_enumerator_add_match_subsystem()</function> function adds a filter
     to the <parameter>enumerator</parameter> so that all devices in the specified
-    <parameter>subsystem</parameter>, when <parameter>match</parameter> is <constant>true</constant>.
+    <parameter>subsystem</parameter> are enumerated when <parameter>match</parameter> is <constant>true</constant>.
     When <parameter>match</parameter> is <constant>false</constant>, then all devices except those in
     the specified <parameter>subsystem</parameter> are enumerated. When called multiple times,
     positive filters are ORed, and negative ones are ANDed.</para>
