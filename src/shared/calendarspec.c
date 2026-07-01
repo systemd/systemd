@@ -877,7 +877,12 @@ finish:
         return 0;
 }
 
-int calendar_spec_from_string(const char *p, CalendarSpec **ret) {
+static bool calendar_component_is_single_fixed(const CalendarComponent *c) {
+        /* Returns true if the component is a single fixed value — no range, no repeat, no alternatives */
+        return c && !c->next && c->repeat == 0 && (c->stop < 0 || c->stop == c->start);
+}
+
+int calendar_spec_from_string_full(const char *p, CalendarSpec **ret, bool warn_on_weekday_mismatch) {
         const char *utc;
         _cleanup_(calendar_spec_freep) CalendarSpec *c = NULL;
         _cleanup_free_ char *p_tmp = NULL;
@@ -1098,6 +1103,15 @@ int calendar_spec_from_string(const char *p, CalendarSpec **ret) {
         if (!calendar_spec_valid(c))
                 return -EINVAL;
 
+        if (warn_on_weekday_mismatch) {
+                int wday;
+                if (calendar_spec_weekday_conflicts(c, &wday))
+                        log_warning("Weekday constraint does not match the fixed date %04d-%02d-%02d "
+                                    "(which is a %s), so this timer will never elapse.",
+                                    c->year->start, c->month->start, c->day->start,
+                                    weekday_to_string(wday));
+        }
+
         if (ret)
                 *ret = TAKE_PTR(c);
         return 0;
@@ -1241,6 +1255,46 @@ static bool matches_weekday(int weekdays_bits, const struct tm *tm, bool utc) {
 
         k = t.tm_wday == 0 ? 6 : t.tm_wday - 1;
         return (weekdays_bits & (1 << k));
+}
+
+bool calendar_spec_weekday_conflicts(const CalendarSpec *spec, int *ret_actual_wday) {
+        assert(spec);
+
+        if (spec->weekdays_bits <= 0 || spec->weekdays_bits >= BITS_WEEKDAYS)
+                return false;
+
+        /* Skip when end_of_month (~) is used: day->start holds an offset, not an
+         * absolute day-of-month, so the real firing date cannot be determined here. */
+        if (spec->end_of_month)
+                return false;
+
+        /* Only detectable when year, month and day are each a single fixed value */
+        if (!calendar_component_is_single_fixed(spec->year) ||
+            !calendar_component_is_single_fixed(spec->month) ||
+            !calendar_component_is_single_fixed(spec->day))
+                return false;
+
+        /* CalendarSpec stores month as 1-12; struct tm uses 0-11 */
+        struct tm tm = {
+                .tm_year = spec->year->start - 1900,
+                .tm_mon  = spec->month->start - 1,
+                .tm_mday = spec->day->start,
+        };
+        struct tm orig = tm;
+
+        /* Compute weekday in UTC to avoid TZ/DST skew; reject dates that would be
+         * silently normalised (e.g. 2027-02-31 → 2027-03-03). */
+        if (mktime_or_timegm_usec(&tm, /* utc= */ true, /* ret= */ NULL) < 0 ||
+            tm.tm_year != orig.tm_year || tm.tm_mon != orig.tm_mon ||
+            tm.tm_mday != orig.tm_mday)
+                return false;
+
+        if (matches_weekday(spec->weekdays_bits, &tm, /* utc= */ true))
+                return false; /* no conflict */
+
+        if (ret_actual_wday)
+                *ret_actual_wday = tm.tm_wday == 0 ? 6 : tm.tm_wday - 1;
+        return true;
 }
 
 static int tm_compare(const struct tm *t1, const struct tm *t2) {
