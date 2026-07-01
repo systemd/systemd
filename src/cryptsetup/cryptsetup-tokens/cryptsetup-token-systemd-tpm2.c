@@ -106,7 +106,7 @@ _public_ int cryptsetup_token_open_pin(
                 return log_debug_open_error(cd, r);
 
         if (params.search_pcr_mask != UINT32_MAX && hash_pcr_mask != params.search_pcr_mask)
-                return crypt_log_debug_errno(cd, ENXIO, "PCR mask doesn't match expectation (%" PRIu32 " vs. %" PRIu32 ")", hash_pcr_mask, params.search_pcr_mask);
+                return crypt_log_debug_errno(cd, EPERM, "PCR mask doesn't match expectation (%" PRIu32 " vs. %" PRIu32 ")", hash_pcr_mask, params.search_pcr_mask);
 
         r = acquire_luks2_key(
                         params.device,
@@ -127,6 +127,8 @@ _public_ int cryptsetup_token_open_pin(
                         &pcrlock_nv,
                         flags,
                         &decrypted_key);
+        if (r == -TPM2_PCRLOCK_POLICY_MISSING_ERRNO)
+                return crypt_log_debug_errno(cd, EPERM, "TPM2 pcrlock policy not found.");
         if (r < 0)
                 return log_debug_open_error(cd, r);
 
