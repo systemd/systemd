@@ -1766,27 +1766,26 @@ int localtime_or_gmtime_usec(
         return 0;
 }
 
-static uint32_t sysconf_clock_ticks_cached(void) {
-        static thread_local uint32_t hz = 0;
-        long r;
+uint64_t sysconf_clock_ticks_cached(void) {
+        static thread_local uint64_t hz = 0;
 
-        if (hz == 0) {
-                r = sysconf(_SC_CLK_TCK);
+        if (hz != 0)
+                return hz;
 
-                assert(r > 0);
-                hz = r;
-        }
+        long t = sysconf(_SC_CLK_TCK);
+        assert(t > 0);
+        hz = (uint64_t) t;
 
         return hz;
 }
 
 uint32_t usec_to_jiffies(usec_t u) {
-        uint32_t hz = sysconf_clock_ticks_cached();
+        uint64_t hz = sysconf_clock_ticks_cached();
         return DIV_ROUND_UP(u, USEC_PER_SEC / hz);
 }
 
 usec_t jiffies_to_usec(uint32_t j) {
-        uint32_t hz = sysconf_clock_ticks_cached();
+        uint64_t hz = sysconf_clock_ticks_cached();
         return DIV_ROUND_UP(j * USEC_PER_SEC, hz);
 }
 
