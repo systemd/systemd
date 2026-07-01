@@ -274,7 +274,6 @@ DLSYM_PROTOTYPE(PKCS7_set_content) = NULL;
 static DLSYM_PROTOTYPE(PKCS7_set_type) = NULL;
 DLSYM_PROTOTYPE(PKCS7_sign) = NULL;
 DLSYM_PROTOTYPE(PKCS7_verify) = NULL;
-DLSYM_PROTOTYPE(SHA1) = NULL;
 DLSYM_PROTOTYPE(SHA512) = NULL;
 DLSYM_PROTOTYPE(X509_ALGOR_free) = NULL;
 static DLSYM_PROTOTYPE(X509_ALGOR_set0) = NULL;
@@ -596,7 +595,6 @@ int dlopen_libcrypto(int log_level) {
                         DLSYM_ARG(PKCS7_set_type),
                         DLSYM_ARG(PKCS7_sign),
                         DLSYM_ARG(PKCS7_verify),
-                        DLSYM_ARG(SHA1),
                         DLSYM_ARG(SHA512),
                         DLSYM_ARG(X509_ALGOR_free),
                         DLSYM_ARG(X509_ALGOR_set0),
