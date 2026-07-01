@@ -631,12 +631,6 @@ int dlopen_libcrypto(int log_level) {
                         DLSYM_ARG(i2d_PublicKey),
                         DLSYM_ARG(i2d_X509),
                         DLSYM_ARG(i2d_X509_NAME),
-#if !defined(OPENSSL_NO_ENGINE) && !defined(OPENSSL_NO_DEPRECATED_3_0)
-                        DLSYM_ARG_FORCE(ENGINE_by_id),
-                        DLSYM_ARG_FORCE(ENGINE_free),
-                        DLSYM_ARG_FORCE(ENGINE_init),
-                        DLSYM_ARG_FORCE(ENGINE_load_private_key),
-#endif
 #ifndef OPENSSL_NO_UI_CONSOLE
                         DLSYM_ARG(UI_OpenSSL),
                         DLSYM_ARG(UI_create_method),
@@ -660,6 +654,15 @@ int dlopen_libcrypto(int log_level) {
                 log_full_errno(log_level, r, "Neither libcrypto.so.4 nor libcrypto.so.3 could be loaded");
                 return -EOPNOTSUPP; /* turn into recognizable error */
         }
+
+#if !defined(OPENSSL_NO_ENGINE) && !defined(OPENSSL_NO_DEPRECATED_3_0)
+        /* Load ENGINE API optionally so we don't fail when loading libcrypto.so.4 even if systemd is built
+         * with openssl-3 headers. */
+        DLSYM_OPTIONAL(libcrypto_dl, ENGINE_by_id);
+        DLSYM_OPTIONAL(libcrypto_dl, ENGINE_init);
+        DLSYM_OPTIONAL(libcrypto_dl, ENGINE_free);
+        DLSYM_OPTIONAL(libcrypto_dl, ENGINE_load_private_key);
+#endif
 
         return r;
 #else
@@ -2040,6 +2043,13 @@ static int load_key_from_engine(const char *engine, const char *private_key_uri,
         assert(ret);
 
         DISABLE_WARNING_DEPRECATED_DECLARATIONS;
+        if (!sym_ENGINE_by_id ||
+            !sym_ENGINE_free ||
+            !sym_ENGINE_init ||
+            !sym_ENGINE_load_private_key)
+                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "ENGINE API is not available in the loaded OpenSSL library.");
+
         _cleanup_(ENGINE_freep) ENGINE *e = sym_ENGINE_by_id(engine);
         if (!e)
                 return log_openssl_errors(LOG_DEBUG, "Failed to load signing engine '%s'", engine);
