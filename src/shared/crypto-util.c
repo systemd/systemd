@@ -1866,10 +1866,6 @@ static int ecc_pkey_generate_volume_keys(
         _cleanup_free_ char *curve_name = NULL;
         size_t len = 0;
 
-        r = dlopen_libcrypto(LOG_DEBUG);
-        if (r < 0)
-                return r;
-
         if (sym_EVP_PKEY_get_group_name(pkey, NULL, 0, &len) != 1 || len == 0)
                 return log_openssl_errors(LOG_DEBUG, "Failed to determine PKEY group name length");
 
@@ -2001,15 +1997,9 @@ static int load_key_from_provider(
                 UI_METHOD *ui_method,
                 EVP_PKEY **ret) {
 
-        int r;
-
         assert(provider);
         assert(private_key_uri);
         assert(ret);
-
-        r = dlopen_libcrypto(LOG_DEBUG);
-        if (r < 0)
-                return r;
 
         /* Load the provider so that this can work without any custom written configuration in /etc/.
          * Also load the 'default' as that seems to be the recommendation. */
@@ -2045,17 +2035,9 @@ static int load_key_from_provider(
 
 static int load_key_from_engine(const char *engine, const char *private_key_uri, UI_METHOD *ui_method, EVP_PKEY **ret) {
 #if !defined(OPENSSL_NO_ENGINE) && !defined(OPENSSL_NO_DEPRECATED_3_0)
-        int r;
-#endif
-
         assert(engine);
         assert(private_key_uri);
         assert(ret);
-
-#if !defined(OPENSSL_NO_ENGINE) && !defined(OPENSSL_NO_DEPRECATED_3_0)
-        r = dlopen_libcrypto(LOG_DEBUG);
-        if (r < 0)
-                return r;
 
         DISABLE_WARNING_DEPRECATED_DECLARATIONS;
         _cleanup_(ENGINE_freep) ENGINE *e = sym_ENGINE_by_id(engine);
@@ -2126,10 +2108,6 @@ static int openssl_load_private_key_from_file(const char *path, EVP_PKEY **ret) 
         assert(path);
         assert(ret);
 
-        r = dlopen_libcrypto(LOG_DEBUG);
-        if (r < 0)
-                return r;
-
         r = read_full_file_full(
                         AT_FDCWD, path, UINT64_MAX, SIZE_MAX,
                         READ_FULL_FILE_SECURE|READ_FULL_FILE_WARN_WORLD_READABLE|READ_FULL_FILE_CONNECT_SOCKET,
@@ -2153,16 +2131,8 @@ static int openssl_load_private_key_from_file(const char *path, EVP_PKEY **ret) 
 
 static int openssl_ask_password_ui_new(const AskPasswordRequest *request, OpenSSLAskPasswordUI **ret) {
 #ifndef OPENSSL_NO_UI_CONSOLE
-        int r;
-#endif
-
         assert(request);
         assert(ret);
-
-#ifndef OPENSSL_NO_UI_CONSOLE
-        r = dlopen_libcrypto(LOG_DEBUG);
-        if (r < 0)
-                return r;
 
         _cleanup_(UI_destroy_methodp) UI_METHOD *method = sym_UI_create_method("systemd-ask-password");
         if (!method)
@@ -2202,10 +2172,6 @@ static int load_x509_certificate_from_file(const char *path, X509 **ret) {
         assert(path);
         assert(ret);
 
-        r = dlopen_libcrypto(LOG_DEBUG);
-        if (r < 0)
-                return r;
-
         r = read_full_file_full(
                         AT_FDCWD, path, UINT64_MAX, SIZE_MAX,
                         READ_FULL_FILE_CONNECT_SOCKET,
@@ -2229,15 +2195,9 @@ static int load_x509_certificate_from_file(const char *path, X509 **ret) {
 }
 
 static int load_x509_certificate_from_provider(const char *provider, const char *certificate_uri, X509 **ret) {
-        int r;
-
         assert(provider);
         assert(certificate_uri);
         assert(ret);
-
-        r = dlopen_libcrypto(LOG_DEBUG);
-        if (r < 0)
-                return r;
 
         /* Load the provider so that this can work without any custom written configuration in /etc/.
          * Also load the 'default' as that seems to be the recommendation. */
@@ -2311,6 +2271,10 @@ int openssl_load_x509_certificate(
 
         assert(certificate);
 
+        r = dlopen_libcrypto(LOG_DEBUG);
+        if (r < 0)
+                return r;
+
         switch (certificate_source_type) {
 
         case OPENSSL_CERTIFICATE_SOURCE_FILE:
@@ -2349,6 +2313,10 @@ int openssl_load_private_key(
         assert(request);
         assert(ret_private_key);
         assert(ret_user_interface);
+
+        r = dlopen_libcrypto(LOG_DEBUG);
+        if (r < 0)
+                return r;
 
         if (private_key_source_type == OPENSSL_KEY_SOURCE_FILE) {
                 r = openssl_load_private_key_from_file(private_key, ret_private_key);
