@@ -543,8 +543,10 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                         return 0;
 
                 r = unbase64mem(value, &p, &sz);
-                if (r < 0)
+                if (r < 0) {
                         log_warning_errno(r, "Failed to parse systemd.random_seed= argument, ignoring: %s", value);
+                        return 0;
+                }
 
                 free(arg_random_seed);
                 arg_random_seed = sz > 0 ? p : mfree(p);
@@ -2121,7 +2123,7 @@ static int do_reexecute(
                 char* argv[],
                 const struct rlimit *saved_rlimit_nofile,
                 const struct rlimit *saved_rlimit_memlock,
-                FDSet *fds,
+                FDSet **fds,
                 const char *switch_root_dir,
                 const char *switch_root_init,
                 uint64_t saved_capability_ambient_set,
@@ -2135,6 +2137,7 @@ static int do_reexecute(
         assert(argc >= 0);
         assert(saved_rlimit_nofile);
         assert(saved_rlimit_memlock);
+        assert(fds);
         assert(ret_error_message);
 
         /* Close and disarm the watchdog, so that the new instance can reinitialize it, but the machine
@@ -2207,7 +2210,7 @@ static int do_reexecute(
                  * only if the user didn't specify an explicit init to spawn. */
 
                 assert(arg_serialization);
-                assert(fds);
+                assert(*fds);
 
                 xsprintf(sfd, "--deserialize=%i", fileno(arg_serialization));
 
@@ -2250,7 +2253,7 @@ static int do_reexecute(
          * envp[], but let's hope that doesn't matter.) */
 
         arg_serialization = safe_fclose(arg_serialization);
-        fds = fdset_free(fds);
+        *fds = fdset_free(*fds);
 
         /* Drop /run/systemd directory. Some of its content can be used as a flag indicating that systemd is
          * the init system but we might be replacing it with something different. If systemd is used again it
@@ -3846,7 +3849,7 @@ finish:
                                  argc, argv,
                                  &saved_rlimit_nofile,
                                  &saved_rlimit_memlock,
-                                 fds,
+                                 &fds,
                                  switch_root_dir,
                                  switch_root_init,
                                  saved_ambient_set,
