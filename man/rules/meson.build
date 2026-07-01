@@ -1367,6 +1367,7 @@ manpages = [
  ['systemd.timer', '5', [], ''],
  ['systemd.unit', '5', [], ''],
  ['systemd.v', '7', [], ''],
+ ['sysupdate.components', '5', [], 'ENABLE_SYSUPDATE'],
  ['sysupdate.d', '5', [], 'ENABLE_SYSUPDATE'],
  ['sysupdate.features', '5', [], 'ENABLE_SYSUPDATE'],
  ['sysusers.d', '5', [], 'ENABLE_SYSUSERS'],
