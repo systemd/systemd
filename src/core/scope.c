@@ -437,6 +437,10 @@ static int scope_start(Unit *u) {
         if (IN_SET(s->state, SCOPE_STOP_SIGTERM, SCOPE_STOP_SIGKILL))
                 return -EAGAIN;
 
+        /* Already starting up (waiting for the async cgroup chown helper)? Then there's nothing to do. */
+        if (s->state == SCOPE_START_CHOWN)
+                return 0;
+
         assert(s->state == SCOPE_DEAD);
 
         if (!u->transient && !MANAGER_IS_RELOADING(u->manager))
