@@ -85,7 +85,7 @@ int acquire_luks2_key(
                         if (r < 0)
                                 return r;
                         if (r == 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EREMOTE), "Couldn't find pcrlock policy for volume.");
+                                return log_notice_errno(SYNTHETIC_ERRNO(EPERM), "Couldn't find pcrlock policy for volume.");
                 }
         }
 
