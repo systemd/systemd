@@ -146,7 +146,7 @@ int acquire_tpm2_key(
                         if (r < 0)
                                 return r;
                         if (r == 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EREMOTE), "Couldn't find pcrlock policy for volume.");
+                                return log_debug_errno(SYNTHETIC_ERRNO(ENODATA), "Couldn't find pcrlock policy for volume.");
                 }
         }
 
