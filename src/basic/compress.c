@@ -792,24 +792,42 @@ static int decompress_blob_zstd(
         assert(dst_size);
 
 #if HAVE_ZSTD
-        uint64_t size;
         int r;
 
         r = dlopen_zstd(LOG_DEBUG);
         if (r < 0)
                 return r;
 
-        size = sym_ZSTD_getFrameContentSize(src, src_size);
-        if (IN_SET(size, ZSTD_CONTENTSIZE_ERROR, ZSTD_CONTENTSIZE_UNKNOWN))
+        /* ZSTD_getFrameContentSize() returns unsigned long long, which is not necessarily size_t, so
+         * keep the value in that type until we've clamped it down to something that fits size_t. */
+        unsigned long long size = sym_ZSTD_getFrameContentSize(src, src_size);
+        if (size == ZSTD_CONTENTSIZE_ERROR)
                 return -EBADMSG;
 
-        if (dst_max > 0 && size > dst_max)
-                size = dst_max;
-        if (size > SIZE_MAX)
-                return -E2BIG;
+        /* ZSTD_CONTENTSIZE_UNKNOWN is returned when the frame header doesn't record the decompressed
+         * size, which is the case e.g. for kernel images compressed with 'zstd'. Per the zstd
+         * documentation this is not an error, it just means we don't know the output size upfront and
+         * have to grow the output buffer as we decompress. */
 
-        if (!(greedy_realloc(dst, MAX(sym_ZSTD_DStreamOutSize(), size), 1)))
+        /* dst_max == 0 means "no limit"; fold that into a single ceiling up front so the rest of the
+         * function can treat the unlimited case like any other rather than repeating the sentinel. */
+        size_t cap = dst_max ?: SIZE_MAX;
+
+        size_t space;
+        if (size != ZSTD_CONTENTSIZE_UNKNOWN)
+                /* The MIN clamps the (possibly 64-bit) content size to the ceiling, which is <= SIZE_MAX,
+                 * so the result always fits size_t. */
+                space = MAX(sym_ZSTD_DStreamOutSize(), (size_t) MIN(size, (unsigned long long) cap));
+        else {
+                /* Start from twice the compressed size, guarding the doubling against overflow, then
+                 * clamp to the ceiling. */
+                uint64_t twice = src_size <= UINT64_MAX / 2 ? src_size * 2 : UINT64_MAX;
+                space = MAX(sym_ZSTD_DStreamOutSize(), (size_t) MIN(twice, (uint64_t) cap));
+        }
+
+        if (!greedy_realloc(dst, space, 1))
                 return -ENOMEM;
+        space = MALLOC_SIZEOF_SAFE(*dst);
 
         _cleanup_(ZSTD_freeDCtxp) ZSTD_DCtx *dctx = sym_ZSTD_createDCtx();
         if (!dctx)
@@ -821,16 +839,55 @@ static int decompress_blob_zstd(
         };
         ZSTD_outBuffer output = {
                 .dst = *dst,
-                .size = MALLOC_SIZEOF_SAFE(*dst),
+                /* Never offer the decoder more room than the cap: greedy_realloc() over-allocates, so
+                 * without this clamp a single ZSTD_decompressStream() call could write past dst_max
+                 * before the output.pos >= cap check below fires. */
+                .size = MIN(space, cap),
         };
 
-        size_t k = sym_ZSTD_decompressStream(dctx, &output, &input);
-        if (sym_ZSTD_isError(k))
-                return log_debug_errno(zstd_ret_to_errno(k), "ZSTD decoder failed: %s", sym_ZSTD_getErrorName(k));
-        if (output.pos < size)
-                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "ZSTD decoded less data than indicated, probably corrupted stream.");
+        for (;;) {
+                size_t k = sym_ZSTD_decompressStream(dctx, &output, &input);
+                if (sym_ZSTD_isError(k))
+                        return log_debug_errno(zstd_ret_to_errno(k), "ZSTD decoder failed: %s", sym_ZSTD_getErrorName(k));
 
-        *dst_size = size;
+                if (output.pos >= cap) {
+                        output.pos = cap;
+                        break; /* Decoded everything the caller asked for. */
+                }
+
+                /* k == 0 means the current frame was fully decoded and flushed. If no input is left
+                 * either, the whole stream is done. This must be checked before the grow branch below:
+                 * the frame can finish exactly as the output buffer fills, and growing then would call
+                 * the decoder again on already-exhausted input, which it'd misread as a truncated next
+                 * frame. */
+                if (k == 0 && input.pos >= input.size)
+                        break;
+
+                /* Otherwise there is still work to do: either decoded data buffered inside the decoder
+                 * that didn't fit (k != 0, e.g. zstd's buffered-flush mode), or another concatenated
+                 * frame to decode (k == 0 with input left). If the output buffer is full, grow it and
+                 * call again. Guard against the doubling overflowing size_t (only reachable with an
+                 * uncapped dst_max once the allocation has already grown past SIZE_MAX/2). */
+                if (output.pos == output.size) {
+                        if (space > SIZE_MAX / 2)
+                                return -E2BIG;
+                        space = MIN(2 * space, cap);
+                        if (!greedy_realloc(dst, space, 1))
+                                return -ENOMEM;
+                        space = MALLOC_SIZEOF_SAFE(*dst);
+                        output.dst = *dst;
+                        output.size = MIN(space, cap);
+                        continue;
+                }
+
+                /* The output buffer still has room but the decoder stopped. If input is exhausted the
+                 * decoder wanted more (k != 0, since k == 0 + no input broke above), i.e. the stream was
+                 * truncated mid-frame. Otherwise input remains (a concatenated frame) and we loop. */
+                if (input.pos >= input.size)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "ZSTD stream ended unexpectedly, probably corrupted.");
+        }
+
+        *dst_size = output.pos;
         return 0;
 #else
         return -EPROTONOSUPPORT;
@@ -1209,11 +1266,14 @@ static int decompress_startswith_zstd(
         if (r < 0)
                 return r;
 
-        uint64_t size = sym_ZSTD_getFrameContentSize(src, src_size);
-        if (IN_SET(size, ZSTD_CONTENTSIZE_ERROR, ZSTD_CONTENTSIZE_UNKNOWN))
+        /* ZSTD_getFrameContentSize() returns unsigned long long, which is not necessarily size_t. */
+        unsigned long long size = sym_ZSTD_getFrameContentSize(src, src_size);
+        if (size == ZSTD_CONTENTSIZE_ERROR)
                 return -EBADMSG;
 
-        if (size < prefix_len + 1)
+        /* ZSTD_CONTENTSIZE_UNKNOWN means the frame doesn't record the decompressed size, so we can't
+         * shortcut here. The single decompression below only needs prefix_len + 1 bytes anyway. */
+        if (size != ZSTD_CONTENTSIZE_UNKNOWN && size < prefix_len + 1)
                 return 0; /* Decompressed text too short to match the prefix and extra */
 
         _cleanup_(ZSTD_freeDCtxp) ZSTD_DCtx *dctx = sym_ZSTD_createDCtx();
@@ -1236,8 +1296,15 @@ static int decompress_startswith_zstd(
         k = sym_ZSTD_decompressStream(dctx, &output, &input);
         if (sym_ZSTD_isError(k))
                 return log_debug_errno(zstd_ret_to_errno(k), "ZSTD decoder failed: %s", sym_ZSTD_getErrorName(k));
-        if (output.pos < prefix_len + 1)
-                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "ZSTD decoded less data than indicated, probably corrupted stream.");
+        if (output.pos < prefix_len + 1) {
+                /* The output buffer is at least prefix_len + 1 bytes, so if it isn't full the decoder
+                 * stopped for another reason: either the frame ended (k == 0), in which case the stream
+                 * is simply too short to match the prefix, or it's still expecting input (k != 0), which
+                 * means the stream was truncated mid-frame. */
+                if (k != 0)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "ZSTD stream ended unexpectedly, probably corrupted.");
+                return 0; /* Decompressed text too short to match the prefix and extra */
+        }
 
         return memcmp(*buffer, prefix, prefix_len) == 0 &&
                 ((const uint8_t*) *buffer)[prefix_len] == extra;
