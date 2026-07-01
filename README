@@ -328,42 +328,49 @@ POLICY FOR SUPPORT OF DISTRIBUTIONS AND ARCHITECTURES:
         which support has been added. systemd will emit warnings when
         architecture-specific constants are not defined.
 
-STATIC COMPILATION AND "STANDALONE" BINARIES:
-        systemd provides a public shared libraries libsystemd.so and
-        libudev.so. The latter is deprecated, and the sd-device APIs in
-        libsystemd should be used instead for new code. In addition, systemd is
-        built with a private shared library, libsystemd-shared-<suffix>.so,
-        that also includes the libsystemd code, and by default most systemd
-        binaries are linked to it. Using shared libraries saves disk space and
-        memory at runtime, because only one copy of the code is needed.
+STATIC LIBRARIES AND "STANDALONE" BINARIES:
+        systemd provides public shared libraries libsystemd.so and libudev.so.
+        The latter is deprecated, and the sd-device APIs in libsystemd should
+        be used instead for new code. Normally systemd is built with a private
+        shared library, libsystemd-shared-<suffix>.so, that also includes the
+        libsystemd code, and by default most systemd binaries are linked to it.
+        Using shared libraries saves disk space and memory at runtime, because
+        only one copy of the code is needed.
 
         It is possible to build static versions of systemd public shared
         libraries (via the configuration options '-Dstatic-libsystemd' and
         '-Dstatic-libudev'). This allows the libsystemd and libudev code to be
         linked statically into programs. Note that mixing & matching different
         versions of libsystemd and systemd is generally not recommended, since
-        various of its APIs wrap internal state and protocols of systemd
-        (e.g. logind and udev databases), which are not considered
-        stable. Hence, using static libraries is not recommended since it
-        generally means that version of the static libsystemd linked into
-        applications and the host systemd are not in sync, and will thus create
-        compatibility problems.
+        various of its APIs wrap internal state and protocols of systemd (e.g.
+        logind and udev databases), which are not considered stable. Hence,
+        using static libraries is not recommended since it generally means that
+        version of the static libsystemd linked into applications and the host
+        systemd may get out of sync, creating compatibility problems.
 
         In addition, it is possible to disable the use of
         libsystemd-shared-<suffix>.so for various components (via the
         configuration options '-Dlink-*-shared'). In this mode, the libsystemd
-        and libsystemd-shared code is linked statically into selected
-        binaries. This option is intended for systems where some of the
-        components are intended to be delivered independently of the main
-        systemd package. Finally, some binaries can be compiled in a second
-        version (via the configuration option '-Dstandalone-binaries'). The
-        version suffixed with ".standalone" has the libsystemd and
-        libsystemd-shared code linked statically. Those binaries are intended
-        as replacements to be used in limited installations where the full
-        systemd suite is not installed. Yet another option is to rebuild
-        systemd with a different '-Dshared-lib-tag' setting, allowing different
-        systemd binaries to be linked to instances of the private shared
-        library that can be installed in parallel.
+        and libsystemd-shared code is linked statically into selected binaries.
+        This option is intended for systems where some of the components are
+        intended to be delivered independently of the main systemd package.
+
+        In addition, some binaries can be compiled in a second version (via the
+        configuration option '-Dstandalone-binaries'). The version suffixed
+        with ".standalone" has the libsystemd and libsystemd-shared code linked
+        statically. Those binaries are intended as replacements to be used in
+        limited installations where the full systemd suite is not installed. An
+        alternative approach is to rebuild systemd with a different
+        '-Dshared-lib-tag' setting, allowing different systemd binaries to be
+        linked to instances of the private shared library that can be installed
+        in parallel.
+
+        When compiled in one of the modes described in this section, the code
+        has identical functionality (apart from the potential compatibility
+        issues).
+
+        Finally, fully static compilation of systemd (the program) is possible,
+        see next section.
 
         Again: Using the default shared linking is recommended, building static
         or "standalone" versions is not. Mixing versions of systemd components
@@ -371,6 +378,17 @@ STATIC COMPILATION AND "STANDALONE" BINARIES:
         daemons and the manager) is not recommended: we do not test such
         combinations upstream and cannot provide support. Distributors making
         use of those options are responsible if things do not work as expected.
+
+STATIC BINARIES:
+        It is possible to compile systemd (the program) as a static binary with
+        the meson options:
+          --default-library=static --prefer-static -Dbuild-static=true -Dsystemd-multicall-binary=true
+        This results in a static 'systemd' binary that can be used as PID1 in a
+        container. This binary does not use dlopen, which means that it cannot
+        dynamically extend its functionality by loading other libraries, even
+        if they were available in the file system. It also does not support
+        NSS and instead uses simplified code that only supports static passwd
+        and group files to resolve users.
 
 USERS AND GROUPS:
         Default udev rules use the following standard system group names, which
