@@ -31,7 +31,9 @@ typedef enum MountResult {
 
 typedef struct MountParameters {
         char *what;
-        char *options;
+        char *options;      /* merged: opt_kernel + opt_user (read by all consumers) */
+        char *opt_kernel;   /* VFS + FS options from statmount/mountinfo */
+        char *opt_user;     /* user options from utab (x-systemd.*, etc.) */
         char *fstype;
 } MountParameters;
 

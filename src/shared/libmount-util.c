@@ -19,6 +19,7 @@ DLSYM_PROTOTYPE(mnt_fs_get_id) = NULL;
 DLSYM_PROTOTYPE(mnt_fs_get_option) = NULL;
 DLSYM_PROTOTYPE(mnt_fs_get_options) = NULL;
 DLSYM_PROTOTYPE(mnt_fs_get_passno) = NULL;
+DLSYM_PROTOTYPE(mnt_fs_get_user_options) = NULL;
 DLSYM_PROTOTYPE(mnt_fs_get_propagation) = NULL;
 DLSYM_PROTOTYPE(mnt_fs_get_source) = NULL;
 DLSYM_PROTOTYPE(mnt_fs_get_target) = NULL;
@@ -193,6 +194,7 @@ int dlopen_libmount(int log_level) {
                         DLSYM_ARG(mnt_fs_get_option),
                         DLSYM_ARG(mnt_fs_get_options),
                         DLSYM_ARG(mnt_fs_get_passno),
+                        DLSYM_ARG(mnt_fs_get_user_options),
                         DLSYM_ARG(mnt_fs_get_propagation),
                         DLSYM_ARG(mnt_fs_get_source),
                         DLSYM_ARG(mnt_fs_get_target),

@@ -219,6 +219,8 @@ static void mount_parameters_done(MountParameters *p) {
 
         p->what = mfree(p->what);
         p->options = mfree(p->options);
+        p->opt_kernel = mfree(p->opt_kernel);
+        p->opt_user = mfree(p->opt_user);
         p->fstype = mfree(p->fstype);
 }
 
@@ -1722,35 +1724,100 @@ static int mount_dispatch_timer(sd_event_source *source, usec_t usec, void *user
 }
 
 #if HAVE_LIBMOUNT
+
+/* Merge two comma-separated option strings into one. Either or both may be NULL. */
+static int mount_merge_options(const char *a, const char *b, char **ret) {
+        _cleanup_free_ char *merged = NULL;
+
+        assert(ret);
+
+        if (a && b)
+                merged = strjoin(a, ",", b);
+        else if (a)
+                merged = strdup(a);
+        else if (b)
+                merged = strdup(b);
+        else {
+                *ret = NULL;
+                return 0;
+        }
+
+        if (!merged)
+                return -ENOMEM;
+
+        *ret = TAKE_PTR(merged);
+        return 0;
+}
+
+/* Merge VFS and FS options into a single kernel options string. */
+static int mount_build_kernel_options(struct libmnt_fs *fs, char **ret) {
+        assert(fs);
+        assert(ret);
+
+        return mount_merge_options(
+                        sym_mnt_fs_get_vfs_options(fs),
+                        sym_mnt_fs_get_fs_options(fs),
+                        ret);
+}
+
+/* Rebuild the merged options string from opt_kernel and opt_user. */
+static int mount_parameters_rebuild_options(MountParameters *p) {
+        _cleanup_free_ char *merged = NULL;
+        int r;
+
+        assert(p);
+
+        r = mount_merge_options(p->opt_kernel, p->opt_user, &merged);
+        if (r < 0)
+                return r;
+
+        return free_and_replace(p->options, merged);
+}
+
 static int update_parameters_kernel(
                 Mount *m,
                 const char *what,
-                const char *options,
+                const char *opt_kernel,
+                const char *opt_user,
                 const char *fstype,
                 uint64_t uniq_id) {
 
         MountParameters *p;
-        int r, q, w;
+        bool rebuild;
+        int r, q, u, w;
 
         assert(m);
 
         p = &m->parameters_kernel;
 
+        rebuild = !streq_ptr(p->opt_kernel, opt_kernel) ||
+                  !streq_ptr(p->opt_user, opt_user);
+
         r = free_and_strdup(&p->what, what);
         if (r < 0)
                 return r;
 
-        q = free_and_strdup(&p->options, options);
+        q = free_and_strdup(&p->opt_kernel, opt_kernel);
         if (q < 0)
                 return q;
+
+        u = free_and_strdup(&p->opt_user, opt_user);
+        if (u < 0)
+                return u;
 
         w = free_and_strdup(&p->fstype, fstype);
         if (w < 0)
                 return w;
 
+        if (rebuild) {
+                int x = mount_parameters_rebuild_options(p);
+                if (x < 0)
+                        return x;
+        }
+
         m->uniq_id = uniq_id;
 
-        return r > 0 || q > 0 || w > 0;
+        return r > 0 || q > 0 || u > 0 || w > 0;
 }
 
 static int mount_setup_new_unit(
@@ -1758,7 +1825,8 @@ static int mount_setup_new_unit(
                 const char *name,
                 const char *what,
                 const char *where,
-                const char *options,
+                const char *opt_kernel,
+                const char *opt_user,
                 const char *fstype,
                 uint64_t uniq_id,
                 MountProcFlags *ret_flags,
@@ -1787,7 +1855,7 @@ static int mount_setup_new_unit(
         if (r < 0)
                 return r;
 
-        r = update_parameters_kernel(mnt, what, options, fstype, uniq_id);
+        r = update_parameters_kernel(mnt, what, opt_kernel, opt_user, fstype, uniq_id);
         if (r < 0)
                 return r;
 
@@ -1809,7 +1877,8 @@ static int mount_setup_existing_unit(
                 Unit *u,
                 const char *what,
                 const char *where,
-                const char *options,
+                const char *opt_kernel,
+                const char *opt_user,
                 const char *fstype,
                 uint64_t uniq_id,
                 MountProcFlags *ret_flags) {
@@ -1833,7 +1902,7 @@ static int mount_setup_existing_unit(
          * iteration and thus worthy of taking into account. */
         MountProcFlags flags = m->proc_flags | MOUNT_PROC_IS_MOUNTED;
 
-        r = update_parameters_kernel(m, what, options, fstype, uniq_id);
+        r = update_parameters_kernel(m, what, opt_kernel, opt_user, fstype, uniq_id);
         if (r < 0)
                 return r;
         if (r > 0)
@@ -1878,7 +1947,8 @@ static int mount_setup_unit(
                 Manager *m,
                 const char *what,
                 const char *where,
-                const char *options,
+                const char *opt_kernel,
+                const char *opt_user,
                 const char *fstype,
                 uint64_t uniq_id,
                 bool set_flags) {
@@ -1891,7 +1961,6 @@ static int mount_setup_unit(
         assert(m);
         assert(what);
         assert(where);
-        assert(options);
         assert(fstype);
 
         /* Ignore API and credential mount points. They should never be referenced in dependencies ever.
@@ -1919,11 +1988,11 @@ static int mount_setup_unit(
 
         u = manager_get_unit(m, e);
         if (u)
-                r = mount_setup_existing_unit(u, what, where, options, fstype, uniq_id, &flags);
+                r = mount_setup_existing_unit(u, what, where, opt_kernel, opt_user, fstype, uniq_id, &flags);
         else
                 /* First time we see this mount point meaning that it's not been initiated by a mount unit
                  * but rather by the sysadmin having called mount(8) directly. */
-                r = mount_setup_new_unit(m, e, what, where, options, fstype, uniq_id, &flags, &u);
+                r = mount_setup_new_unit(m, e, what, where, opt_kernel, opt_user, fstype, uniq_id, &flags, &u);
         if (r < 0)
                 return log_warning_errno(r, "Failed to set up mount unit for '%s': %m", where);
 
@@ -1967,7 +2036,7 @@ static int mount_load_kernel_mounttable(Manager *m, bool set_flags) {
 
         for (;;) {
                 struct libmnt_fs *fs;
-                const char *device, *path, *options, *fstype;
+                const char *device, *path, *fstype;
                 uint64_t uniq_id;
 
                 r = sym_mnt_table_next_fs(table, iter, &fs);
@@ -1978,12 +2047,18 @@ static int mount_load_kernel_mounttable(Manager *m, bool set_flags) {
 
                 device = sym_mnt_fs_get_source(fs);
                 path = sym_mnt_fs_get_target(fs);
-                options = sym_mnt_fs_get_options(fs);
                 fstype = sym_mnt_fs_get_fstype(fs);
                 uniq_id = use_listmount ? sym_mnt_fs_get_uniq_id(fs) : 0;
 
                 if (!device || !path)
                         continue;
+
+                _cleanup_free_ char *opt_kernel = NULL;
+                r = mount_build_kernel_options(fs, &opt_kernel);
+                if (r < 0)
+                        return log_oom();
+
+                const char *opt_user = sym_mnt_fs_get_user_options(fs);
 
                 /* Just to achieve device name uniqueness. Note that the suppression of the duplicate
                  * processing is merely an optimization, hence in case of OOM (unlikely) we'll just process
@@ -1991,7 +2066,7 @@ static int mount_load_kernel_mounttable(Manager *m, bool set_flags) {
                 if (set_put_strdup_full(&devices, &path_hash_ops_free, device) != 0)
                         device_found_node(m, device, DEVICE_FOUND_MOUNT, DEVICE_FOUND_MOUNT);
 
-                (void) mount_setup_unit(m, device, path, options, fstype, uniq_id, set_flags);
+                (void) mount_setup_unit(m, device, path, opt_kernel, opt_user, fstype, uniq_id, set_flags);
         }
 
         return 0;
@@ -2357,7 +2432,7 @@ static void mount_process_mount_units(Manager *m) {
                         mount->from_kernel = false;
                         if (mount->uniq_id > 0)
                                 hashmap_remove(m->mounts_by_uniq_id, &mount->uniq_id);
-                        assert_se(update_parameters_kernel(mount, NULL, NULL, NULL, 0) >= 0);
+                        assert_se(update_parameters_kernel(mount, NULL, NULL, NULL, NULL, 0) >= 0);
 
                         switch (mount->state) {
 
@@ -2490,14 +2565,19 @@ static void mount_process_fanotify_attach(Manager *m, struct libmnt_fs *fs) {
 
         const char *device = sym_mnt_fs_get_source(fs);
         const char *path = sym_mnt_fs_get_target(fs);
-        const char *options = sym_mnt_fs_get_options(fs);
         const char *fstype = sym_mnt_fs_get_fstype(fs);
         if (!device || !path || !fstype)
                 return;
         uint64_t uniq_id = sym_mnt_fs_get_uniq_id(fs);
 
+        /* statmount returns kernel-only data — no utab. User options arrive via a subsequent
+         * utab event. */
+        _cleanup_free_ char *opt_kernel = NULL;
+        if (mount_build_kernel_options(fs, &opt_kernel) < 0)
+                return (void) log_oom();
+
         device_found_node(m, device, DEVICE_FOUND_MOUNT, DEVICE_FOUND_MOUNT);
-        (void) mount_setup_unit(m, device, path, options, fstype, uniq_id, /* set_flags= */ true);
+        (void) mount_setup_unit(m, device, path, opt_kernel, /* opt_user= */ NULL, fstype, uniq_id, /* set_flags= */ true);
 }
 
 /* Incremental fanotify detach: mark the unit as detached. Leave from_kernel and kernel parameters
