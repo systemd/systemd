@@ -146,7 +146,7 @@ jobs:
       id-token: write       # Authenticate with AWS via OIDC
 
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
         with:
           # Need full history for git worktree add to work on all PR commits.
           fetch-depth: 0
@@ -183,7 +183,7 @@ jobs:
           sudo apt-get update && sudo apt-get install -y bubblewrap socat
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@acca2b1b2070338fb9fd1ca27ecee81d687e58e5
+        uses: aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b
         with:
           role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ secrets.AWS_ROLE_NAME }}
           role-session-name: GitHubActions-Claude-${{ github.run_id }}
