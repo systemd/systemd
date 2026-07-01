@@ -149,7 +149,7 @@ static int mangle_fat_label(const char *s, char **ret) {
         return 0;
 }
 
-static int mtools_exec(char *const *argv) {
+static int mtools_exec(char *const *argv, ForkFlags extra_fork_flags) {
         int r;
 
         assert(argv);
@@ -162,7 +162,7 @@ static int mtools_exec(char *const *argv) {
 
         r = pidref_safe_fork(
                         "(mtools)",
-                        FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT|FORK_STDOUT_TO_STDERR|FORK_CLOSE_ALL_FDS,
+                        FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG_SIGTERM|FORK_WAIT|FORK_STDOUT_TO_STDERR|FORK_CLOSE_ALL_FDS|extra_fork_flags,
                         /* ret= */ NULL);
         if (r < 0)
                 return r;
@@ -175,7 +175,7 @@ static int mtools_exec(char *const *argv) {
                                  "TZ=UTC",
                                  strv_find_prefix(environ, "SOURCE_DATE_EPOCH=")));
 
-                log_error_errno(errno, "Failed to execute %s: %m", argv[0]);
+                log_full_errno(FLAGS_SET(extra_fork_flags, FORK_LOG) ? LOG_ERR : LOG_DEBUG, errno, "Failed to execute %s: %m", argv[0]);
                 _exit(EXIT_FAILURE);
         }
 
@@ -216,7 +216,7 @@ static int mcopy_flush_files(
         if (strv_extend(&argv, dest) < 0)
                 return log_oom();
 
-        return mtools_exec(argv);
+        return mtools_exec(argv, FORK_LOG);
 }
 
 static int do_mcopy_recurse(
@@ -276,13 +276,18 @@ static int do_mcopy_recurse(
                         return log_oom();
 
                 /* Note: mmd accepts only -D and -i; there is no -Q quiet flag like mcopy has. */
-                _cleanup_strv_free_ char **argv = strv_new(mmd_bin, "-i", node, dst);
+                _cleanup_strv_free_ char **argv = strv_new(mmd_bin, "-Ds", "-DS", "-i", node, dst);
                 if (!argv)
                         return log_oom();
 
-                r = mtools_exec(argv);
+                /* If a directory already exists mmd will skip the entry (because we pass -Ds/-DS above), but
+                 * it ultimately still fails. That sucks, and there's no way we can turn this off. Let's
+                 * ignore the return value here (i.e. we do not pass FORK_LOG here, and eat up the error),
+                 * under the assumption that any serious failure is noticed later either way, once we
+                 * populate the directory, and it turns out to be missing. */
+                r = mtools_exec(argv, /* extra_fork_flags= */ 0);
                 if (r < 0)
-                        return r;
+                        log_debug_errno(r, "mtools mmd operation failed, assuming because directory already existed, ignoring: %m");
 
                 _cleanup_free_ char *child_rel = strjoin(dest_rel, "/", ent->d_name);
                 if (!child_rel)
