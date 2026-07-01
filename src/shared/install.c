@@ -2438,8 +2438,10 @@ int unit_file_unmask(
                                    path_is_generator(&lp, info.path)) {
                                 r = install_changes_add(changes, n_changes,
                                                         INSTALL_CHANGE_IS_MASKED_GENERATOR, info.name, info.path);
-                                if (r < 0)
+                                if (r < 0) {
+                                        TAKE_PTR(info.name); /* Return the borrowed name before bailing */
                                         return r;
+                                }
                         }
 
                         TAKE_PTR(info.name);  /* … and give it back here */
