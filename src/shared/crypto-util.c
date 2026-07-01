@@ -31,9 +31,7 @@
 
 struct OpenSSLAskPasswordUI {
         AskPasswordRequest request;
-#ifndef OPENSSL_NO_UI_CONSOLE
         UI_METHOD *method;
-#endif
 };
 
 DLSYM_PROTOTYPE(ASN1_ANY_it) = NULL;
@@ -1997,7 +1995,7 @@ int pkey_generate_volume_keys(
 static int load_key_from_provider(
                 const char *provider,
                 const char *private_key_uri,
-                UI_METHOD *ui_method,
+                UI_METHOD *ui_method, /* can be NULL */
                 EVP_PKEY **ret) {
 
         assert(provider);
@@ -2036,7 +2034,12 @@ static int load_key_from_provider(
         return 0;
 }
 
-static int load_key_from_engine(const char *engine, const char *private_key_uri, UI_METHOD *ui_method, EVP_PKEY **ret) {
+static int load_key_from_engine(
+                const char *engine,
+                const char *private_key_uri,
+                UI_METHOD *ui_method, /* can be NULL */
+                EVP_PKEY **ret) {
+
 #if !defined(OPENSSL_NO_ENGINE) && !defined(OPENSSL_NO_DEPRECATED_3_0)
         assert(engine);
         assert(private_key_uri);
@@ -2152,10 +2155,10 @@ static int openssl_ask_password_ui_read(UI *ui, UI_STRING *uis) {
 #endif
 
 static int openssl_ask_password_ui_new(const AskPasswordRequest *request, OpenSSLAskPasswordUI **ret) {
-#ifndef OPENSSL_NO_UI_CONSOLE
         assert(request);
         assert(ret);
 
+#ifndef OPENSSL_NO_UI_CONSOLE
         _cleanup_(UI_destroy_methodp) UI_METHOD *method = sym_UI_create_method("systemd-ask-password");
         if (!method)
                 return log_openssl_errors(LOG_DEBUG, "Failed to initialize openssl user interface");
@@ -2180,7 +2183,8 @@ static int openssl_ask_password_ui_new(const AskPasswordRequest *request, OpenSS
         *ret = TAKE_PTR(ui);
         return 0;
 #else
-        return -EOPNOTSUPP;
+        *ret = NULL;
+        return 0;
 #endif
 }
 
@@ -2206,40 +2210,33 @@ int openssl_load_private_key(
         if (r < 0)
                 return r;
 
-        if (private_key_source_type == OPENSSL_KEY_SOURCE_FILE) {
-                r = openssl_load_private_key_from_file(private_key, ret_private_key);
-                if (r < 0)
-                        return r;
+        _cleanup_(openssl_ask_password_ui_freep) OpenSSLAskPasswordUI *ui = NULL;
 
-                *ret_user_interface = NULL;
-        } else {
-                _cleanup_(openssl_ask_password_ui_freep) OpenSSLAskPasswordUI *ui = NULL;
+        switch (private_key_source_type) {
+        case OPENSSL_KEY_SOURCE_FILE:
+                r = openssl_load_private_key_from_file(private_key, ret_private_key);
+                break;
+        case OPENSSL_KEY_SOURCE_ENGINE:
                 r = openssl_ask_password_ui_new(request, &ui);
                 if (r < 0)
                         return r;
 
-                UI_METHOD *ui_method = NULL;
-#ifndef OPENSSL_NO_UI_CONSOLE
-                ui_method = ui->method;
-#endif
-
-                switch (private_key_source_type) {
-
-                case OPENSSL_KEY_SOURCE_ENGINE:
-                        r = load_key_from_engine(private_key_source, private_key, ui_method, ret_private_key);
-                        break;
-                case OPENSSL_KEY_SOURCE_PROVIDER:
-                        r = load_key_from_provider(private_key_source, private_key, ui_method, ret_private_key);
-                        break;
-                default:
-                        assert_not_reached();
-                }
+                r = load_key_from_engine(private_key_source, private_key, ui ? ui->method : NULL, ret_private_key);
+                break;
+        case OPENSSL_KEY_SOURCE_PROVIDER:
+                r = openssl_ask_password_ui_new(request, &ui);
                 if (r < 0)
                         return r;
 
-                *ret_user_interface = TAKE_PTR(ui);
+                r = load_key_from_provider(private_key_source, private_key, ui ? ui->method : NULL, ret_private_key);
+                break;
+        default:
+                assert_not_reached();
         }
+        if (r < 0)
+                return r;
 
+        *ret_user_interface = TAKE_PTR(ui);
         return 0;
 }
 
