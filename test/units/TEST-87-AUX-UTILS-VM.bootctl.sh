@@ -437,6 +437,17 @@ testcase_install_varlink() {
     (! bootctl is-installed )
     SYSTEMD_LOG_TARGET=console varlinkctl call "$(type -p bootctl)" io.systemd.BootControl.Install "{\"operation\":\"new\",\"touchVariables\":false}"
     bootctl is-installed
+
+    # Verify that espPath overrides auto-discovery: install into a bind mount of the ESP at a
+    # non-standard location and check that a subsequent update at that path reports "already
+    # current" (ESTALE via io.systemd.System).
+    ESPBIND=$(mktemp --directory /tmp/esp-bind.XXXXXX)
+    mount --bind "$(bootctl --print-esp-path)" "$ESPBIND"
+    RET=$(SYSTEMD_LOG_TARGET=console varlinkctl call --quiet "$(type -p bootctl)" io.systemd.BootControl.Install \
+            "{\"operation\":\"update\",\"touchVariables\":false,\"espPath\":\"$ESPBIND\"}" 2>&1 || true)
+    assert_in 'Stale file handle' "$RET"
+    umount "$ESPBIND"
+    rmdir "$ESPBIND"
 }
 
 cleanup_link() {
