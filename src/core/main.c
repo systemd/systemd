@@ -2114,7 +2114,7 @@ static int do_reexecute(
                 char* argv[],
                 const struct rlimit *saved_rlimit_nofile,
                 const struct rlimit *saved_rlimit_memlock,
-                FDSet *fds,
+                FDSet *_fds, /* donated */
                 const char *switch_root_dir,
                 const char *switch_root_init,
                 uint64_t saved_capability_ambient_set,
@@ -2129,6 +2129,9 @@ static int do_reexecute(
         assert(saved_rlimit_nofile);
         assert(saved_rlimit_memlock);
         assert(ret_error_message);
+
+        /* The fdset is donated to us, take ownership so it is freed on all exit paths. */
+        _cleanup_fdset_free_ FDSet *fds = TAKE_PTR(_fds);
 
         /* Close and disarm the watchdog, so that the new instance can reinitialize it, but the machine
          * doesn't get rebooted while we do that. */
@@ -3834,7 +3837,7 @@ finish:
                                  argc, argv,
                                  &saved_rlimit_nofile,
                                  &saved_rlimit_memlock,
-                                 fds,
+                                 TAKE_PTR(fds),
                                  switch_root_dir,
                                  switch_root_init,
                                  saved_ambient_set,
