@@ -402,12 +402,7 @@ static void timer_enter_waiting(Timer *t, bool time_change) {
                         /* If DeferReactivation= is enabled, schedule the job based on the last time
                          * the trigger unit entered inactivity. Otherwise, if we know the last time
                          * this was triggered, schedule the job based relative to that. If we don't,
-                         * just start from the activation time or realtime.
-                         *
-                         * Unless we have a real last-trigger time, we subtract the random_offset because
-                         * any event that elapsed within the last random_offset has actually been delayed
-                         * and thus hasn't truly elapsed yet. */
-
+                         * just start from the activation time or realtime. */
                         if (t->defer_reactivation &&
                             dual_timestamp_is_set(&trigger->inactive_enter_timestamp)) {
                                 if (dual_timestamp_is_set(&t->last_trigger))
@@ -425,11 +420,19 @@ static void timer_enter_waiting(Timer *t, bool time_change) {
                                 if (t->last_trigger.monotonic < boot_monotonic)
                                         rebase_after_boot_time = true;
                         } else if (dual_timestamp_is_set(&UNIT(t)->inactive_exit_timestamp))
-                                b = UNIT(t)->inactive_exit_timestamp.realtime - random_offset;
+                                b = UNIT(t)->inactive_exit_timestamp.realtime;
                         else {
-                                b = ts.realtime - random_offset;
+                                b = ts.realtime;
                                 rebase_after_boot_time = true;
                         }
+
+                        /* We always subtract random_offset from the base time because
+                         * calendar_spec_next_usec() finds the next calendar event, and then we add the
+                         * offset back afterwards (see below). The base time needs to be in "pre-offset"
+                         * space so the next calendar match is computed correctly. Without this, a timer
+                         * that fires late (e.g. persistent catch-up) would skip the next scheduled
+                         * activation. */
+                        b = usec_sub_unsigned(b, random_offset);
 
                         r = calendar_spec_next_usec(v->calendar_spec, b, &v->next_elapse);
                         if (r < 0)
