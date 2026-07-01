@@ -105,6 +105,13 @@
 #define DISK_SERIAL_MAX_LEN_NVME        20
 #define DISK_SERIAL_MAX_LEN_VIRTIO_BLK  20
 
+/* Well-known endpoints for the host's TDX Quote Generation Service (qgsd), auto-discovered so the
+ * guest can obtain TD Quotes. The Intel reference qgsd listens on a unix socket; the common
+ * deployment listens on vsock port 4050 (cid 2 = host). */
+#define TDX_QGS_UNIX_SOCKET_PATH "/run/tdx-qgs/qgs.socket"
+#define TDX_QGS_VSOCK_CID        "2"
+#define TDX_QGS_VSOCK_PORT       "4050"
+
 /* First and one-past-last pcie.0 device-numbers used for multifunction-packed
  * pcie-root-ports. Sits above the auto-assigned virtio devices (0x01-0x03) and
  * below 0x1f, which q35 reserves for ICH9 LPC at 0x1f.0 (single-function). */
@@ -634,7 +641,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
-                OPTION_LONG("coco", "no|sev-snp", "Run the guest as a confidential VM"): {
+                OPTION_LONG("coco", "no|sev-snp|tdx", "Run the guest as a confidential VM"): {
                         ConfidentialComputing cc = confidential_computing_from_string(opts.arg);
                         if (cc < 0)
                                 return log_error_errno(cc, "Unknown --coco= value: %s", opts.arg);
@@ -2607,11 +2614,11 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 use_kvm = r;
         }
 
-        if (arg_confidential_computing == COCO_AMD_SEV_SNP && !use_kvm)
+        if (arg_confidential_computing != COCO_NO && !use_kvm)
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                       "--coco=sev-snp requires KVM, but KVM is not available.");
+                                       "--coco= requires KVM, but KVM is not available.");
 
-        if (arg_firmware_type == FIRMWARE_UEFI && arg_confidential_computing != COCO_AMD_SEV_SNP) {
+        if (arg_firmware_type == FIRMWARE_UEFI && arg_confidential_computing == COCO_NO) {
                 if (arg_firmware)
                         r = load_ovmf_config(arg_firmware, &ovmf_config);
                 else
@@ -2685,7 +2692,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         if (r < 0)
                 return r;
 
-        if (arg_confidential_computing == COCO_AMD_SEV_SNP) {
+        if (arg_confidential_computing != COCO_NO) {
                 r = qemu_config_key(config_file, "kernel-irqchip", "split");
                 if (r < 0)
                         return r;
@@ -2717,6 +2724,10 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
         if (arg_confidential_computing == COCO_AMD_SEV_SNP) {
                 r = qemu_config_key(config_file, "confidential-guest-support", "snp0");
+                if (r < 0)
+                        return r;
+        } else if (arg_confidential_computing == COCO_INTEL_TDX) {
+                r = qemu_config_key(config_file, "confidential-guest-support", "tdx0");
                 if (r < 0)
                         return r;
         }
@@ -2927,6 +2938,41 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                                         "kernel-hashes", "on");
                 if (r < 0)
                         return r;
+        } else if (arg_confidential_computing == COCO_INTEL_TDX) {
+                r = qemu_config_section(config_file, "object", "tdx0",
+                                        "qom-type", "tdx-guest");
+                if (r < 0)
+                        return r;
+
+                /* The guest needs a connection to the TDX Quote Generation Service (QGS) running on
+                 * the host to obtain TD Quotes (e.g. via the systemd-report-sign-tsm). There are two
+                 * well-known interfaces for QGS: a well-known unix socket, or vsock port 4050. QEMU
+                 * only connects on a GetQuote request, and pointing at an absent QGS is harmless,
+                 * the request just fails and the guest gets no quote. */
+                r = is_socket(TDX_QGS_UNIX_SOCKET_PATH);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to check for QGS socket '%s', falling back to vsock: %m", TDX_QGS_UNIX_SOCKET_PATH);
+                if (r > 0) {
+                        r = qemu_config_key(config_file, "quote-generation-socket.type", "unix");
+                        if (r < 0)
+                                return r;
+                        r = qemu_config_key(config_file, "quote-generation-socket.path", TDX_QGS_UNIX_SOCKET_PATH);
+                        if (r < 0)
+                                return r;
+                        log_debug("Using TDX Quote Generation Service at unix socket %s.", TDX_QGS_UNIX_SOCKET_PATH);
+                } else {
+                        r = qemu_config_key(config_file, "quote-generation-socket.type", "vsock");
+                        if (r < 0)
+                                return r;
+                        r = qemu_config_key(config_file, "quote-generation-socket.cid", TDX_QGS_VSOCK_CID);
+                        if (r < 0)
+                                return r;
+                        r = qemu_config_key(config_file, "quote-generation-socket.port", TDX_QGS_VSOCK_PORT);
+                        if (r < 0)
+                                return r;
+                        log_debug("No QGS unix socket found, pointing TDX quote generation at vsock %s:%s.",
+                                  TDX_QGS_VSOCK_CID, TDX_QGS_VSOCK_PORT);
+                }
         }
 
         unsigned child_cid = arg_vsock_cid;
@@ -2948,11 +2994,13 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
         /* -cpu stays on cmdline since not all flags are supported in config. SNP needs a stable,
          * named CPU model so the launch measurement is reproducible across hosts; EPYC-v4 is the
-         * baseline that covers all SNP-capable processors (Milan and later). */
+         * baseline that covers all SNP-capable processors (Milan and later). TDX requires host
+         * CPU model. */
         const char *cpu_model =
 #ifdef __x86_64__
-                arg_confidential_computing == COCO_AMD_SEV_SNP ? "EPYC-v4"
-                                                             : "max,hv_relaxed,hv-vapic,hv-time";
+                arg_confidential_computing == COCO_AMD_SEV_SNP ? "EPYC-v4" :
+                arg_confidential_computing == COCO_INTEL_TDX   ? "host"    :
+                                                                 "max,hv_relaxed,hv-vapic,hv-time";
 #else
                 "max";
 #endif
@@ -3531,7 +3579,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
          * confidential VMs. Instead, package credentials into a cpio archive appended to the initrd
          * (mirroring what systemd-stub does for ESP credentials) so they enter the launch measurement
          * via QEMU's "kernel-hashes=on". The new initrd path requires a guest PID1 that knows about
-         * /.extra/system_credentials/, so we keep this scoped to SNP for now. Non-CoCo guests
+         * /.extra/system_credentials/, so we keep this scoped to SNP for now. Non-SNP guests
          * continue to use the SMBIOS path below, which works with older systemd versions too.
          * Must run after all credential-mutating calls above so the cpio captures the complete set. */
         bool use_initrd_cpio = arg_confidential_computing == COCO_AMD_SEV_SNP &&
@@ -4128,7 +4176,7 @@ static int verify_arguments(void) {
                                                "--coco=sev-snp requires KVM, remove --kvm=no.");
                 if (arg_firmware_type != FIRMWARE_UEFI)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "--coco can't be used with %s firmware",
+                                               "--coco=sev-snp can't be used with %s firmware",
                                                firmware_to_string(arg_firmware_type));
                 /* SNP can't use pflash + NVRAM split, so the firmware-descriptor
                  * machinery doesn't apply. Require an explicit raw .fd path and
@@ -4140,7 +4188,7 @@ static int verify_arguments(void) {
                 log_debug("Using raw SNP firmware at %s (no NVRAM, no Secure Boot).", arg_firmware);
                 if (set_contains(arg_firmware_features_include, "secure-boot"))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "--secure-boot=yes cannot be combined with --coco.");
+                                               "--coco=sev-snp cannot be combined with --secure-boot=yes.");
                 if (arg_tpm > 0)
                         log_warning("TPM can't be trusted by the confidential computing guest");
                 /* kernel-hashes=on only covers what QEMU itself loads via -kernel/-initrd/-append.
@@ -4151,6 +4199,34 @@ static int verify_arguments(void) {
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "--coco=sev-snp requires --linux= "
                                                "so kernel, initrd and cmdline are covered by the launch measurement.");
+        }
+
+        if (arg_confidential_computing == COCO_INTEL_TDX) {
+                if (native_architecture() != ARCHITECTURE_X86_64)
+                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                               "--coco=tdx is only supported on x86_64.");
+                if (arg_kvm == 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "--coco=tdx requires KVM, remove --kvm=no.");
+                if (arg_firmware_type != FIRMWARE_UEFI)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "--coco=tdx can't be used with %s firmware",
+                                               firmware_to_string(arg_firmware_type));
+                /* TDX can't use pflash + NVRAM split, so the firmware-descriptor
+                 * machinery doesn't apply. Require an explicit raw .fd path and
+                 * use it verbatim with -bios later. */
+                if (!arg_firmware)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "--coco=tdx requires --firmware=PATH "
+                                               "pointing at a raw TDX-built OVMF (TDVF) .fd binary.");
+                log_debug("Using raw TDX firmware at %s (no NVRAM, no Secure Boot).", arg_firmware);
+                /* Secure Boot state is baked into the supplied TDVF image and can't be enrolled at
+                 * runtime (no writable NVRAM), so --secure-boot=yes would silently have no effect. */
+                if (set_contains(arg_firmware_features_include, "secure-boot"))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "--coco=tdx cannot be combined with --secure-boot=yes.");
+                if (arg_tpm > 0)
+                        log_warning("TPM can't be trusted by the confidential computing guest");
         }
 
         return 0;

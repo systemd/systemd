@@ -346,7 +346,8 @@
           its current form) in a future version of systemd.</para>
 
           <para>Configures whether to run the guest as a confidential VM. Takes one of
-          <literal>no</literal> or <literal>sev-snp</literal>. Defaults to <literal>no</literal>.</para>
+          <literal>no</literal>, <literal>sev-snp</literal> or <literal>tdx</literal>. Defaults to
+          <literal>no</literal>.</para>
 
           <para><literal>sev-snp</literal> enables AMD SEV-SNP. This requires KVM on an x86_64 host with
           SNP-capable hardware and firmware. <option>--firmware=</option> must point to a raw SNP-built
@@ -366,6 +367,27 @@
           not keep the credentials secret from the host. This requires the guest to run a sufficiently
           recent version of systemd (supporting <filename>/.extra/system_credentials/</filename>). A vTPM,
           if attached via <option>--tpm=</option>, must be treated as untrusted by the guest.</para>
+
+          <para><literal>tdx</literal> enables Intel TDX. This requires KVM on an x86_64 host with
+          TDX-capable hardware and a TDX-enabled host kernel. As with <literal>sev-snp</literal>,
+          <option>--firmware=</option> must point to a raw TDX-built OVMF (TDVF) <filename>.fd</filename>
+          image, which is loaded via QEMU's <option>-bios</option> (pflash + NVRAM split is not
+          supported), and the CPU model is fixed to <literal>host</literal>. Firmware is measured into
+          MRTD when the TD is built. Secure Boot cannot be enrolled at runtime (there is no writable
+          NVRAM); its state is fixed by the supplied TDVF image and is part of the measured firmware.
+          When booting a UKI, the whole UKI PE is measured into RTMR 1, and the loaded sections are
+          measured individually by <command>systemd-stub</command> into RTMR 2. For direct linux boot,
+          firmware measures the kernel PE into RTMR 1, and the Linux EFI stub measures initrd and
+          command line into RTMR 2. Credentials passed via <option>--set-credential=</option> or
+          <option>--load-credential=</option> are delivered through SMBIOS Type 11 OEM strings, which the
+          firmware (TDVF) measures into RTMR 0. This channel is measured but not confidential with respect
+          to the host or VMM, since the host assembles the SMBIOS table. A vTPM, if attached via
+          <option>--tpm=</option>, must be treated as untrusted by the guest. To obtain TD Quotes for
+          remote attestation, the guest is wired to the host's local TDX Quote Generation Service
+          automatically: the unix socket up <filename>/run/tdx-qgs/qgs.socket</filename> is used if it
+          exists, otherwise vsock port 4050 on the host (cid 2). If the QGS is listening on neither
+          channel, the guest's quote requests will fail.
+          <xi:include href="version-info.xml" xpointer="v262"/></para>
 
           <xi:include href="version-info.xml" xpointer="v261"/></listitem>
         </varlistentry>
