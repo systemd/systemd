@@ -150,6 +150,7 @@ int cryptsetup_get_token_as_json(
          *      -EINVAL → token index out of range or "type" field missing
          *      -ENOENT → token doesn't exist
          * -EMEDIUMTYPE → "verify_type" specified and doesn't match token's type
+         *     -EUCLEAN → token JSON data cannot be parsed
          */
 
         r = dlopen_cryptsetup();
@@ -162,7 +163,7 @@ int cryptsetup_get_token_as_json(
 
         r = sd_json_parse(text, 0, &v, NULL, NULL);
         if (r < 0)
-                return r;
+                return r == -ENOMEM ? r : -EUCLEAN; /* Report unparseable token data in a single way for callers to skip */
 
         if (verify_type) {
                 sd_json_variant *w;
