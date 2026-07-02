@@ -467,7 +467,6 @@ static const MetricFamily metric_family_table[] = {
                 .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "FinishTimestamp.Monotonic",
                 .description = "CLOCK_MONOTONIC microseconds at which userspace finished booting",
                 .type = METRIC_FAMILY_TYPE_GAUGE,
-                .generate = NULL,
         },
         /* Keep those ↑ in sync with finish_timestamp_build_json(). */
         {
@@ -564,7 +563,6 @@ static const MetricFamily metric_family_table[] = {
                 .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "UserspaceTimestamp.Monotonic",
                 .description = "CLOCK_MONOTONIC microseconds at which userspace was reached",
                 .type = METRIC_FAMILY_TYPE_GAUGE,
-                .generate = NULL,
         },
         /* Keep those ↑ in sync with userspace_timestamp_build_json(). */
         {
