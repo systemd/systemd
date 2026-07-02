@@ -619,6 +619,9 @@ executables += [
                 'sources' : files('test-tables.c'),
         },
         core_test_template + {
+                'sources' : files('test-protect-defaults.c'),
+        },
+        core_test_template + {
                 'sources' : files('test-unit-name.c'),
                 'dependencies' : common_test_dependencies,
         },

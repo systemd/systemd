@@ -61,6 +61,7 @@ static UnitFileFlags unit_file_bools_to_flags(bool runtime, bool force) {
 
 BUS_DEFINE_PROPERTY_GET_ENUM(bus_property_get_oom_policy, oom_policy, OOMPolicy);
 BUS_DEFINE_PROPERTY_GET_ENUM(bus_property_get_emergency_action, emergency_action, EmergencyAction);
+static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_protect_home, protect_home, ProtectHome);
 
 static BUS_DEFINE_PROPERTY_GET_GLOBAL(property_get_version, "s", GIT_VERSION);
 static BUS_DEFINE_PROPERTY_GET_GLOBAL(property_get_features, "s", systemd_features);
@@ -74,6 +75,21 @@ static BUS_DEFINE_PROPERTY_GET_GLOBAL(property_get_watchdog_device, "s", watchdo
 static BUS_DEFINE_PROPERTY_GET_GLOBAL(property_get_watchdog_last_ping_realtime, "t", watchdog_get_last_ping(CLOCK_REALTIME));
 static BUS_DEFINE_PROPERTY_GET_GLOBAL(property_get_watchdog_last_ping_monotonic, "t", watchdog_get_last_ping(CLOCK_MONOTONIC));
 static BUS_DEFINE_PROPERTY_GET(property_get_progress, "d", Manager, manager_get_progress);
+
+static int property_get_private_tmp(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *reterr_error) {
+
+        PrivateTmp *p = ASSERT_PTR(userdata);
+        int b = *p != PRIVATE_TMP_NO;
+
+        return sd_bus_message_append_basic(reply, 'b', &b);
+}
 
 static int property_get_virtualization(
                 sd_bus *bus,
@@ -3112,6 +3128,10 @@ const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_PROPERTY("DefaultOOMPolicy", "s", bus_property_get_oom_policy, offsetof(Manager, defaults.oom_policy), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DefaultOOMScoreAdjust", "i", property_get_oom_score_adjust, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DefaultRestrictSUIDSGID", "b", bus_property_get_bool, offsetof(Manager, defaults.restrict_suid_sgid), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("DefaultProtectKernelTunables", "b", bus_property_get_bool, offsetof(Manager, defaults.protect_kernel_tunables), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("DefaultProtectKernelModules", "b", bus_property_get_bool, offsetof(Manager, defaults.protect_kernel_modules), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("DefaultPrivateTmp", "b", property_get_private_tmp, offsetof(Manager, defaults.private_tmp), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("DefaultProtectHome", "s", property_get_protect_home, offsetof(Manager, defaults.protect_home), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("CtrlAltDelBurstAction", "s", bus_property_get_emergency_action, offsetof(Manager, cad_burst_action), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SoftRebootsCount", "u", bus_property_get_unsigned, offsetof(Manager, soft_reboots_count), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("KExecsCount", "u", bus_property_get_unsigned, offsetof(Manager, kexecs_count), SD_BUS_VTABLE_PROPERTY_CONST),
