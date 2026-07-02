@@ -391,6 +391,9 @@ int bus_match_run(
                                         r = bus_match_run(bus, found, m);
                                         if (r != 0)
                                                 return r;
+
+                                        if (bus && bus->match_callbacks_modified)
+                                                return 0;
                                 }
                         }
 
