@@ -334,6 +334,11 @@ static int vl_server(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to bind Varlink methods: %m");
 
+        /* tears down the streaming state of GetEntries follow=true calls when the client goes away */
+        r = sd_varlink_server_bind_disconnect(varlink_server, vl_on_disconnect);
+        if (r < 0)
+                return log_error_errno(r, "Failed to bind Varlink disconnect handler: %m");
+
         r = sd_varlink_server_loop_auto(varlink_server);
         if (r < 0)
                 return log_error_errno(r, "Failed to run Varlink event loop: %m");
