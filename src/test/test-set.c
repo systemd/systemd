@@ -2,8 +2,10 @@
 
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "random-util.h"
 #include "set.h"
+#include "siphash24.h"
 #include "strv.h"
 #include "tests.h"
 
@@ -49,6 +51,46 @@ TEST(set_free_with_hash_ops) {
         assert_se(items[1].seen == 1);
         assert_se(items[2].seen == 1);
         assert_se(items[3].seen == 0);
+}
+
+static unsigned set_ensure_consume_freed = 0;
+
+typedef struct ValItem {
+        int key;
+} ValItem;
+
+static void val_item_free(ValItem *i) {
+        set_ensure_consume_freed++;
+        free(i);
+}
+
+static void val_item_hash_func(const ValItem *i, struct siphash *state) {
+        siphash24_compress_typesafe(i->key, state);
+}
+
+static int val_item_compare_func(const ValItem *a, const ValItem *b) {
+        return CMP(a->key, b->key);
+}
+
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+                val_item_hash_ops, ValItem, val_item_hash_func, val_item_compare_func,
+                ValItem, val_item_free);
+
+TEST(set_ensure_consume_value_destructor) {
+        _cleanup_set_free_ Set *s = NULL;
+        ValItem *a, *b;
+
+        ASSERT_NOT_NULL(a = new0(ValItem, 1));
+        a->key = 1;
+        ASSERT_OK_POSITIVE(set_ensure_consume(&s, &val_item_hash_ops, a));
+
+        ASSERT_NOT_NULL(b = new0(ValItem, 1));
+        b->key = 1; /* same key, different pointer -> duplicate */
+
+        set_ensure_consume_freed = 0;
+        /* The rejected duplicate must be released via the value destructor, not plain free(). */
+        ASSERT_OK_ZERO(set_ensure_consume(&s, &val_item_hash_ops, b));
+        ASSERT_EQ(set_ensure_consume_freed, 1u);
 }
 
 TEST(set_put) {
