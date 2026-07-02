@@ -13,6 +13,7 @@
 #include "path-util.h"
 #include "socket-util.h"
 #include "stat-util.h"
+#include "stdio-util.h"
 #include "string-util.h"
 #include "tests.h"
 #include "time-util.h"
@@ -280,6 +281,21 @@ TEST(sd_device_monitor_filter_add_match_tag) {
         log_device_info(device, "Sending device syspath:%s", syspath);
         ASSERT_OK(device_monitor_send(monitor_server, &sa, device));
         ASSERT_EQ(sd_event_loop(sd_device_monitor_get_event(monitor_client)), 100);
+}
+
+TEST(sd_device_monitor_filter_update_bounds) {
+        _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *m = NULL;
+
+        ASSERT_OK(device_monitor_new_full(&m, MONITOR_GROUP_NONE, -EBADF));
+
+        /* Each tag emits 6 BPF instructions into a fixed 512-entry array, too many must be refused */
+        for (unsigned u = 0; u < 200; u++) {
+                char t[32];
+                xsprintf(t, "tag%u", u);
+                ASSERT_OK(sd_device_monitor_filter_add_match_tag(m, t));
+        }
+
+        ASSERT_ERROR(sd_device_monitor_filter_update(m), E2BIG);
 }
 
 TEST(sd_device_monitor_filter_add_match_sysattr) {
