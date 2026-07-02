@@ -133,7 +133,7 @@ TEST(find_ovmf_config) {
         ASSERT_STREQ(config->vars, "/test/vars.fd");
         ASSERT_STREQ(config->format, "raw");
         ASSERT_FALSE(ovmf_config_is_stateless(config));
-        ASSERT_FALSE(config->supports_sb);
+        ASSERT_FALSE(ovmf_config_has_feature(config, "secure-boot"));
         config = ovmf_config_free(config);
 
         /* With FIND_OVMF_STATELESS only firmware in stateless flash mode is considered. */
@@ -188,14 +188,20 @@ TEST(find_ovmf_config) {
 
         /* The first matching descriptor in sort order wins. */
         check_find(STRV_MAKE("vmspawn-test-e1"), /* exclude= */ NULL, /* flags= */ 0, "/test/e-both.fd", &config);
-        ASSERT_TRUE(config->supports_sb);
+        ASSERT_TRUE(ovmf_config_has_feature(config, "secure-boot"));
         config = ovmf_config_free(config);
 
         /* Descriptors with an excluded feature are skipped. */
-        check_find(STRV_MAKE("vmspawn-test-e1"), STRV_MAKE("vmspawn-test-e2"), /* flags= */ 0, "/test/e-one.fd", /* ret= */ NULL);
+        check_find(STRV_MAKE("vmspawn-test-e1"), STRV_MAKE("vmspawn-test-e2"), /* flags= */ 0, "/test/e-one.fd", &config);
+        ASSERT_TRUE(ovmf_config_has_feature(config, "vmspawn-test-e1"));
+        ASSERT_FALSE(ovmf_config_has_feature(config, "vmspawn-test-e2"));
+        config = ovmf_config_free(config);
 
         /* Inclusion wins over exclusion. */
-        check_find(STRV_MAKE("vmspawn-test-e1", "vmspawn-test-e2"), STRV_MAKE("vmspawn-test-e2"), /* flags= */ 0, "/test/e-both.fd", /* ret= */ NULL);
+        check_find(STRV_MAKE("vmspawn-test-e1", "vmspawn-test-e2"), STRV_MAKE("vmspawn-test-e2"), /* flags= */ 0, "/test/e-both.fd", &config);
+        ASSERT_TRUE(ovmf_config_has_feature(config, "vmspawn-test-e1"));
+        ASSERT_TRUE(ovmf_config_has_feature(config, "vmspawn-test-e2"));
+        config = ovmf_config_free(config);
 
         /* All included features must be present. */
         check_find(STRV_MAKE("vmspawn-test-e1", "vmspawn-test-nonexistent"), /* exclude= */ NULL, /* flags= */ 0, /* expect_path= */ NULL, /* ret= */ NULL);

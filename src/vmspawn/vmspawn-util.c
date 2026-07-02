@@ -64,7 +64,15 @@ OvmfConfig* ovmf_config_free(OvmfConfig *config) {
         free(config->vars_format);
         free(config->device);
         free(config->mode);
+        strv_free(config->features);
         return mfree(config);
+}
+
+bool ovmf_config_has_feature(const OvmfConfig *config, const char *feature) {
+        assert(config);
+        assert(feature);
+
+        return strv_contains(config->features, feature);
 }
 
 static bool firmware_is_stateless(const char *device, const char *mode) {
@@ -183,12 +191,6 @@ static bool firmware_data_matches_machine(const FirmwareData *fwd, const char *a
         }
 
         return false;
-}
-
-static bool firmware_data_supports_sb(const FirmwareData *fwd) {
-        assert(fwd);
-
-        return strv_contains(fwd->features, "secure-boot");
 }
 
 static FirmwareData* firmware_data_free(FirmwareData *fwd) {
@@ -447,7 +449,7 @@ static int ovmf_config_make(FirmwareData *fwd, OvmfConfig **ret) {
                 .vars_format = TAKE_PTR(fwd->vars_format),
                 .device = TAKE_PTR(fwd->device),
                 .mode = TAKE_PTR(fwd->mode),
-                .supports_sb = firmware_data_supports_sb(fwd),
+                .features = TAKE_PTR(fwd->features),
         };
 
         *ret = TAKE_PTR(config);
