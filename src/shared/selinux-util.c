@@ -523,6 +523,13 @@ static int selinux_fix_fd(
         if (r == -EROFS && (flags & LABEL_IGNORE_EROFS))
                 return 0;
 
+        /* When operating on an alternate root the host kernel's policy may not recognise
+         * the security contexts — degrade gracefully instead of failing the operation. */
+        if (r == -EINVAL && label_root) {
+                log_debug_errno(r, "Unable to fix SELinux security context of %s, ignoring: %m", label_path);
+                return 0;
+        }
+
         return log_selinux_enforcing_errno(r, "Unable to fix SELinux security context of %s: %m", label_path);
 }
 #endif
@@ -807,8 +814,16 @@ static int selinux_create_file_prepare_abspath(const char *abspath, mode_t mode)
                 return log_selinux_enforcing_errno(errno, "Failed to determine SELinux security context for %s: %m", abspath);
         }
 
-        if (sym_setfscreatecon_raw(filecon) < 0)
+        if (sym_setfscreatecon_raw(filecon) < 0) {
+                /* When operating on an alternate root the host kernel's policy may not recognise
+                 * the security contexts — degrade gracefully instead of failing the operation. */
+                if (label_root && errno == EINVAL) {
+                        log_debug_errno(errno, "Failed to set SELinux security context %s for %s, ignoring: %m", filecon, abspath);
+                        return 0;
+                }
+
                 return log_selinux_enforcing_errno(errno, "Failed to set SELinux security context %s for %s: %m", filecon, abspath);
+        }
 
         return 0;
 }
