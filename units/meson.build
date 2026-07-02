@@ -231,11 +231,13 @@ units = [
         { 'file' : 'sysinit.target' },
         { 'file' : 'syslog.socket' },
         {
-          'file' : 'system-systemd\\x2dcryptsetup.slice',
+          'file' : 'system-systemd-cryptsetup.slice',
+          'name' : 'system-systemd\\x2dcryptsetup.slice',
           'conditions' : ['HAVE_LIBCRYPTSETUP'],
         },
         {
-          'file' : 'system-systemd\\x2dveritysetup.slice',
+          'file' : 'system-systemd-veritysetup.slice',
+          'name' : 'system-systemd\\x2dveritysetup.slice',
           'conditions' : ['HAVE_LIBCRYPTSETUP'],
         },
         { 'file' : 'system-update-cleanup.service' },
@@ -901,6 +903,9 @@ foreach unit : units
                 needs_jinja = false
                 name = source
         endif
+        # Unit names that contain characters which are awkward in source file names (e.g. the
+        # backslash in \x2d escapes) are stored under a sanitized file name and renamed on install.
+        name = unit.get('name', name)
         source = files(source)
 
         install = true
@@ -926,6 +931,7 @@ foreach unit : units
                 endif
         elif install
                 install_data(source,
+                             rename : name,
                              install_dir : systemunitdir,
                              install_tag : unit.get('install_tag', ''))
         endif
