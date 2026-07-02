@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "bus-polkit.h"
 #include "varlink-io.systemd.Network.h"
 
 /* Helper macro to define address fields with both binary and string representation */
@@ -545,6 +546,12 @@ SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(BitRates, BitRates, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_METHOD(
+                Reload,
+                SD_VARLINK_FIELD_COMMENT("If true (default), reload config files and reconfigure all matching network interfaces. If false, only reload config files without reconfiguring interfaces; use 'networkctl reconfigure' afterwards to apply changes selectively."),
+                SD_VARLINK_DEFINE_INPUT(configureLinks, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                VARLINK_DEFINE_POLKIT_INPUT);
+
+static SD_VARLINK_DEFINE_METHOD(
                 Describe,
                 SD_VARLINK_FIELD_COMMENT("All network interfaces managed by systemd-networkd"),
                 SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(Interfaces, Interface, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
@@ -608,6 +615,7 @@ static SD_VARLINK_DEFINE_ERROR(StorageReadOnly);
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_Network,
                 "io.systemd.Network",
+                &vl_method_Reload,
                 &vl_method_Describe,
                 &vl_method_GetStates,
                 &vl_method_GetNamespaceId,

@@ -60,7 +60,7 @@ int varlink_connect_networkd(sd_varlink **ret_varlink) {
         return 0;
 }
 
-int reload_networkd(void) {
+int reload_networkd(bool configure_links) {
         _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *vl = NULL;
         int r;
 
@@ -72,8 +72,9 @@ int reload_networkd(void) {
 
         return varlink_callbo_and_log(
                         vl,
-                        "io.systemd.service.Reload",
+                        "io.systemd.Network.Reload",
                         /* reply= */ NULL,
+                        SD_JSON_BUILD_PAIR_BOOLEAN("configureLinks", configure_links),
                         SD_JSON_BUILD_PAIR_BOOLEAN("allowInteractiveAuthentication", arg_ask_password));
 }
 
