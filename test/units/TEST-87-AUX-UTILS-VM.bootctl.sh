@@ -425,18 +425,35 @@ remove_root_dir() {
     rm -rf "$ROOTDIR"
 }
 
+cleanup_install_varlink() {
+    if [[ -n "${FAKE_ESP:-}" ]]; then
+        rm -rf "$FAKE_ESP"
+        unset FAKE_ESP
+    fi
+    restore_esp
+}
+
 testcase_install_varlink() {
 
     varlinkctl introspect "$(type -p bootctl)"
 
     if [ $# -eq 0 ]; then
         backup_esp
-        trap restore_esp RETURN ERR
+        trap cleanup_install_varlink RETURN ERR
     fi
 
     (! bootctl is-installed )
     SYSTEMD_LOG_TARGET=console varlinkctl call "$(type -p bootctl)" io.systemd.BootControl.Install "{\"operation\":\"new\",\"touchVariables\":false}"
     bootctl is-installed
+
+    # Verify that espPath overrides auto-discovery: install into a fresh empty directory (with
+    # relaxed ESP checks so verify_esp() accepts a non-vfat non-mountpoint path) and check the
+    # loader files land there. If espPath were ignored the call would auto-discover the real ESP
+    # instead and the directory would stay empty.
+    FAKE_ESP="$(mktemp --directory /tmp/test-bootctl-esp.XXXXXXXXXX)"
+    SYSTEMD_RELAX_ESP_CHECKS=yes SYSTEMD_LOG_TARGET=console varlinkctl call --quiet "$(type -p bootctl)" io.systemd.BootControl.Install \
+            "{\"operation\":\"new\",\"touchVariables\":false,\"espPath\":\"$FAKE_ESP\"}"
+    test -f "$FAKE_ESP/EFI/systemd/systemd-boot$(bootctl --print-efi-architecture).efi"
 }
 
 cleanup_link() {
