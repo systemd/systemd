@@ -87,6 +87,8 @@ _public_ int cryptsetup_token_open_pin(
                 params = *(systemd_tpm2_plugin_params *)usrptr;
 
         r = sd_json_parse(json, SD_JSON_PARSE_MUST_BE_OBJECT, &v, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
+        if (r == -ENOMEM)
+                return r;
         if (r < 0) {
                 /* Remap to -EPERM so libcryptsetup keeps iterating past a broken token. */
                 (void) crypt_log_debug_errno(cd, r, "Token %d: failed to parse JSON data: %m", token);
