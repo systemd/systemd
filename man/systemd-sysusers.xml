@@ -66,6 +66,9 @@
         <replaceable>root</replaceable> path, including config search
         paths. </para>
 
+        <para>Note that this is not a sandboxing or security feature. Config files are always considered
+        trusted content by <command>systemd-sysusers</command>, even when this option is used.</para>
+
         <xi:include href="version-info.xml" xpointer="v215"/></listitem>
       </varlistentry>
 
