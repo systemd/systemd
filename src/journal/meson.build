@@ -31,10 +31,19 @@ generated_sources += journald_gperf_c
 systemd_journald_extract_sources += journald_gperf_c
 
 generate_audit_type_list = files('generate-audit_type-list.sh')
+generate_audit_type_command = [env, 'bash', generate_audit_type_list, cpp]
+if libaudit.found()
+        generate_audit_type_command += [
+                '-include', 'libaudit.h',
+                '-I' + libaudit.get_variable('includedir'),
+        ]
+endif
+generate_audit_type_command += system_include_args
+
 audit_type_list_txt = custom_target(
-        input : [generate_audit_type_list, audit_sources],
+        input : [generate_audit_type_list],
         output : 'audit_type-list.txt',
-        command : [env, 'bash', generate_audit_type_list, cpp, system_include_args],
+        command : generate_audit_type_command,
         capture : true)
 
 audit_type_to_name = custom_target(
