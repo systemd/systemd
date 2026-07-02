@@ -67,6 +67,63 @@ static void test_match_scope(const char *match, BusMatchScope scope) {
         assert_se(bus_match_get_scope(components, n_components) == scope);
 }
 
+static sd_bus *modify_bus;
+static BusMatchNode *modify_root;
+static sd_bus_slot *modify_slots;
+
+static int strv_uaf_modify_filter(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
+        /* Remove both argNhas matches from within the callback (as bus_slot_disconnect() would), which
+         * frees the argNhas node that bus_match_run() is still iterating over the array values of. */
+        assert_se(bus_match_remove(modify_root, &modify_slots[0].match_callback) >= 0);
+        assert_se(bus_match_remove(modify_root, &modify_slots[1].match_callback) >= 0);
+        modify_bus->match_callbacks_modified = true;
+        return 0;
+}
+
+static int strv_uaf_noop_filter(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
+        return 0;
+}
+
+static void add_cb_match(BusMatchNode *root, sd_bus_slot *slot, const char *match, sd_bus_message_handler_t cb) {
+        BusMatchComponent *components = NULL;
+        size_t n_components = 0;
+
+        CLEANUP_ARRAY(components, n_components, bus_match_parse_free);
+
+        assert_se(bus_match_parse(match, &components, &n_components) >= 0);
+        slot->n_ref = 1; /* bus_match_run() refs the slot around each callback */
+        slot->match_callback.callback = cb;
+        assert_se(bus_match_add(root, components, n_components, &slot->match_callback) >= 0);
+}
+
+/* Two argNhas= matches under the same node; the first callback frees that node. bus_match_run() must
+ * not dereference it for the next array value. */
+static void test_match_run_strv_modified(sd_bus *bus) {
+        BusMatchNode root = { .type = BUS_MATCH_ROOT };
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        sd_bus_slot slots[2] = {};
+
+        modify_bus = bus;
+        modify_root = &root;
+        modify_slots = slots;
+
+        add_cb_match(&root, &slots[0], "arg0has='pi'", strv_uaf_modify_filter);
+        add_cb_match(&root, &slots[1], "arg0has='pa'", strv_uaf_noop_filter);
+
+        assert_se(sd_bus_message_new_signal(bus, &m, "/", "a.b", "c") >= 0);
+        assert_se(sd_bus_message_append(m, "as", 2, "pi", "pa") >= 0);
+        assert_se(sd_bus_message_seal(m, 1, 0) >= 0);
+
+        /* Let the leaf gating pass for our synthetic message/matches. */
+        m->read_counter = 1;
+        bus->iteration_counter = 1;
+        bus->match_callbacks_modified = false;
+
+        assert_se(bus_match_run(bus, &root, m) == 0);
+
+        bus_match_free(&root);
+}
+
 int main(int argc, char *argv[]) {
         BusMatchNode root = {
                 .type = BUS_MATCH_ROOT,
@@ -141,6 +198,8 @@ int main(int argc, char *argv[]) {
         test_match_scope("sender='org.freedesktop.DBus.Local'", BUS_MATCH_LOCAL);
         test_match_scope("member='gurke',path='/org/freedesktop/DBus/Local'", BUS_MATCH_LOCAL);
         test_match_scope("arg2='piep',sender='org.freedesktop.DBus',member='waldo'", BUS_MATCH_DRIVER);
+
+        test_match_run_strv_modified(bus);
 
         return 0;
 }
