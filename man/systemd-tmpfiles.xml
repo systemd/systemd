@@ -262,6 +262,9 @@
         or directories below mount points in the OS image operated on that are typically overmounted during
         runtime.</para>
 
+        <para>Note that this is not a sandboxing or security feature. Input files are always considered
+        trusted content by systemd-tmpfiles, even when this option is used.</para>
+
         <xi:include href="version-info.xml" xpointer="v212"/></listitem>
       </varlistentry>
 
