@@ -45,6 +45,10 @@ static int vl_method_synchronize(sd_varlink *link, sd_json_variant *parameters, 
 
         assert(link);
 
+        /* Refuse one-way calls as userdata is overridden below and restored only on reply */
+        if (FLAGS_SET(flags, SD_VARLINK_METHOD_ONEWAY))
+                return -EINVAL;
+
         r = sd_varlink_dispatch(link, parameters, dispatch_table, &offline);
         if (r != 0)
                 return r;
