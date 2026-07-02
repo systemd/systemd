@@ -60,7 +60,7 @@ int varlink_connect_networkd(sd_varlink **ret_varlink) {
         return 0;
 }
 
-int reload_networkd(void) {
+int reload_networkd(bool configure_links) {
         _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *vl = NULL;
         int r;
 
@@ -70,11 +70,41 @@ int reload_networkd(void) {
 
         (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
 
-        return varlink_callbo_and_log(
-                        vl,
-                        "io.systemd.service.Reload",
-                        /* reply= */ NULL,
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *parameters = NULL;
+        r = sd_json_buildo(
+                        &parameters,
+                        SD_JSON_BUILD_PAIR_BOOLEAN("reconfigureLinks", configure_links),
                         SD_JSON_BUILD_PAIR_BOOLEAN("allowInteractiveAuthentication", arg_ask_password));
+        if (r < 0)
+                return log_error_errno(r, "Failed to build JSON parameters: %m");
+
+        sd_json_variant *reply = NULL;
+        const char *error_id = NULL;
+        r = sd_varlink_call(vl, "io.systemd.Network.Reload", parameters, &reply, &error_id);
+        if (r < 0)
+                return log_error_errno(r, "Failed to call io.systemd.Network.Reload varlink method: %m");
+
+        if (streq_ptr(error_id, SD_VARLINK_ERROR_METHOD_NOT_FOUND)) {
+                if (!configure_links)
+                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                               "Installed version of systemd-networkd does not support --no-reconfigure.");
+
+                /* Older networkd without io.systemd.Network.Reload, fall back to io.systemd.service.Reload. */
+                return varlink_callbo_and_log(
+                                vl,
+                                "io.systemd.service.Reload",
+                                /* reply= */ NULL,
+                                SD_JSON_BUILD_PAIR_BOOLEAN("allowInteractiveAuthentication", arg_ask_password));
+        }
+
+        if (error_id) {
+                r = sd_varlink_error_to_errno(error_id, reply);
+                if (r != -EBADR)
+                        return log_error_errno(r, "Failed to call io.systemd.Network.Reload varlink method: %m");
+                return log_error_errno(r, "Failed to call io.systemd.Network.Reload varlink method: %s", error_id);
+        }
+
+        return 0;
 }
 
 int reload_udevd(void) {
