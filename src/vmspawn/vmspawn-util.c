@@ -43,7 +43,7 @@ static const char* const architecture_to_qemu_table[_ARCHITECTURE_MAX] = {
         [ARCHITECTURE_S390X]       = "s390x",
 };
 
-static int native_arch_as_qemu(const char **ret) {
+int native_arch_as_qemu(const char **ret) {
         const char *s = architecture_to_qemu_table[native_architecture()];
         if (!s)
                 return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Architecture %s not supported by qemu", architecture_to_string(native_architecture()));
@@ -62,7 +62,26 @@ OvmfConfig* ovmf_config_free(OvmfConfig *config) {
         free(config->format);
         free(config->vars);
         free(config->vars_format);
+        free(config->device);
+        free(config->mode);
         return mfree(config);
+}
+
+static bool firmware_is_stateless(const char *device, const char *mode) {
+        /* Memory-mapped firmware (loaded via -bios) carries no NVRAM. For flash, only mode "stateless"
+         * is stateless: an absent mode means "split" (executable plus NVRAM template), and "combined"
+         * images carry the variable store inside the (writable) executable. */
+
+        if (streq_ptr(device, "memory"))
+                return true;
+
+        return streq_ptr(device, "flash") && streq_ptr(mode, "stateless");
+}
+
+bool ovmf_config_is_stateless(const OvmfConfig *config) {
+        assert(config);
+
+        return firmware_is_stateless(config->device, config->mode);
 }
 
 DEFINE_STRING_TABLE_LOOKUP(network_stack, NetworkStack);
@@ -140,6 +159,8 @@ typedef struct FirmwareData {
         char *firmware_format;
         char *vars;
         char *vars_format;
+        char *device;
+        char *mode;
         FirmwareTarget **targets;
         size_t n_targets;
 } FirmwareData;
@@ -180,6 +201,8 @@ static FirmwareData* firmware_data_free(FirmwareData *fwd) {
         free(fwd->firmware_format);
         free(fwd->vars);
         free(fwd->vars_format);
+        free(fwd->device);
+        free(fwd->mode);
         firmware_target_free_many(fwd->targets, fwd->n_targets);
 
         return mfree(fwd);
@@ -207,14 +230,30 @@ static int firmware_nvram_template(const char *name, sd_json_variant *v, sd_json
 }
 
 static int firmware_mapping(const char *name, sd_json_variant *v, sd_json_dispatch_flags_t flags, void *userdata) {
-        static const sd_json_dispatch_field table[] = {
-                { "device",         SD_JSON_VARIANT_STRING, NULL,                    0, SD_JSON_MANDATORY },
-                { "executable",     SD_JSON_VARIANT_OBJECT, firmware_executable,     0, SD_JSON_MANDATORY },
-                { "nvram-template", SD_JSON_VARIANT_OBJECT, firmware_nvram_template, 0, 0                 },
+        static const sd_json_dispatch_field table_flash[] = {
+                { "device",         SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(FirmwareData, device), SD_JSON_MANDATORY },
+                { "mode",           SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(FirmwareData, mode),   0                 },
+                { "executable",     SD_JSON_VARIANT_OBJECT, firmware_executable,     0,                              SD_JSON_MANDATORY },
+                { "nvram-template", SD_JSON_VARIANT_OBJECT, firmware_nvram_template, 0,                              0                 },
+                {}
+        };
+        static const sd_json_dispatch_field table_memory[] = {
+                { "device",   SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(FirmwareData, device),   SD_JSON_MANDATORY },
+                { "filename", SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(FirmwareData, firmware), SD_JSON_MANDATORY },
                 {}
         };
 
-        return sd_json_dispatch(v, table, flags, userdata);
+        sd_json_variant *d = sd_json_variant_by_key(v, "device");
+        if (!d || !sd_json_variant_is_string(d))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Firmware mapping lacks a device type.");
+
+        const char *device = sd_json_variant_string(d);
+        if (streq(device, "flash"))
+                return sd_json_dispatch(v, table_flash, flags, userdata);
+        if (streq(device, "memory"))
+                return sd_json_dispatch(v, table_memory, flags, userdata);
+
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Unsupported firmware mapping device type '%s'.", device);
 }
 
 static int dispatch_targets(const char *name, sd_json_variant *v, sd_json_dispatch_flags_t flags, void *userdata) {
@@ -406,6 +445,8 @@ static int ovmf_config_make(FirmwareData *fwd, OvmfConfig **ret) {
                 .format = TAKE_PTR(fwd->firmware_format),
                 .vars = TAKE_PTR(fwd->vars),
                 .vars_format = TAKE_PTR(fwd->vars_format),
+                .device = TAKE_PTR(fwd->device),
+                .mode = TAKE_PTR(fwd->mode),
                 .supports_sb = firmware_data_supports_sb(fwd),
         };
 
@@ -430,6 +471,7 @@ int load_ovmf_config(const char *path, OvmfConfig **ret) {
 int find_ovmf_config(
                 Set *features_include,
                 Set *features_exclude,
+                FindOvmfConfigFlags flags,
                 OvmfConfig **ret,
                 sd_json_variant **ret_firmware_json) {
         _cleanup_(ovmf_config_freep) OvmfConfig *config = NULL;
@@ -465,8 +507,19 @@ int find_ovmf_config(
                         continue;
                 }
 
-                if (!fwd->vars) {
+                if (FLAGS_SET(flags, FIND_OVMF_STATELESS)) {
+                        if (!firmware_is_stateless(fwd->device, fwd->mode)) {
+                                log_debug("Skipping %s, firmware is not stateless.", *file);
+                                continue;
+                        }
+                } else if (!fwd->vars) {
                         log_debug("Skipping %s, firmware does not have an NVRAM template.", *file);
+                        continue;
+                }
+
+                /* Memory-mapped firmware carries no format field and is raw by definition. */
+                if (FLAGS_SET(flags, FIND_OVMF_REQUIRE_RAW) && !streq(fwd->firmware_format ?: "raw", "raw")) {
+                        log_debug("Skipping %s, firmware image is not in raw format.", *file);
                         continue;
                 }
 
