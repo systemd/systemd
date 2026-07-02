@@ -15,8 +15,10 @@ option('split-bin', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'sbin is not a symlink to bin')
 option('link-udev-shared', type : 'boolean',
        description : 'link systemd-udevd and its helpers to libsystemd-shared.so')
-option('link-executor-shared', type : 'combo', choices : ['true', 'false', 'single'],
-       description : 'link systemd-executor to libsystemd-shared.so and libsystemd-core.so, or into systemd')
+option('systemd-multicall-binary', type : 'boolean', value : false,
+       description : 'link systemd+systemd-executor as a single binary')
+option('link-executor-shared', type : 'boolean',
+       description : 'link (separate) systemd-executor to libsystemd-shared.so and libsystemd-core.so')
 option('link-systemctl-shared', type: 'boolean',
        description : 'link systemctl against libsystemd-shared.so')
 option('link-networkd-shared', type: 'boolean',
@@ -40,6 +42,8 @@ option('static-libudev', type : 'combo',
        description : 'install a static library for libudev')
 option('standalone-binaries', type : 'boolean', value : false,
        description : 'also build standalone versions of supported binaries')
+option('build-static', type : 'boolean', value : false,
+       description : 'build static versions of supported binaries')
 
 option('sysvinit-path', type : 'string', value : '/etc/init.d', deprecated : true,
        description : 'This option is deprecated and will be removed in a future release')
@@ -263,6 +267,8 @@ option('clock-valid-range-usec-max', type : 'integer', value : 473364000000000, 
        description : 'maximum value in microseconds for the difference between RTC and epoch, exceeding which is considered an RTC error ["0" disables]')
 option('default-user-shell', type : 'string', value : '/bin/bash',
        description : 'default interactive shell')
+option('fallback-default-target', type : 'string', value : 'graphical.target',
+       description : 'unit to activate when default.target is not found on disk')
 
 option('system-alloc-uid-min', type : 'integer', value : 0,
        description : 'minimum system UID used when allocating')
