@@ -27,6 +27,8 @@ typedef enum SRIOVLinkState {
 } SRIOVLinkState;
 
 typedef struct SRIOV {
+        unsigned n_ref;
+
         ConfigSection *section;
         OrderedHashmap *sr_iov_by_section;
 
@@ -42,6 +44,8 @@ typedef struct SRIOV {
 } SRIOV;
 
 DECLARE_STRING_TABLE_LOOKUP_TO_STRING(sr_iov_attribute, SRIOVAttribute);
+
+DECLARE_TRIVIAL_REF_UNREF_FUNC(SRIOV, sr_iov);
 
 void sr_iov_hash_func(const SRIOV *sr_iov, struct siphash *state);
 int sr_iov_compare_func(const SRIOV *s1, const SRIOV *s2);
