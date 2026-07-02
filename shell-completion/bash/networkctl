@@ -45,7 +45,7 @@ _networkctl() {
     local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]} words cword
     local -A OPTS=(
         [STANDALONE]='-a --all -h --help --version --no-pager --no-legend --no-ask-password
-                      -s --stats -l --full --no-reload --runtime'
+                      -s --stats -l --full --no-reload --no-configure --runtime'
         [ARG]='-n --lines --json --drop-in'
     )
 
