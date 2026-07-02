@@ -167,7 +167,7 @@ int acquire_fido2_key_auto(
                 int ks;
 
                 r = cryptsetup_get_token_as_json(cd, token, "systemd-fido2", &v);
-                if (IN_SET(r, -ENOENT, -EINVAL, -EMEDIUMTYPE))
+                if (IN_SET(r, -ENOENT, -EINVAL, -EMEDIUMTYPE, -EUCLEAN))
                         continue;
                 if (r < 0)
                         return log_error_errno(r, "Failed to read JSON token data off disk: %m");
