@@ -67,27 +67,6 @@ struct sd_device_monitor {
         void *userdata;
 };
 
-#define UDEV_MONITOR_MAGIC                0xfeedcafe
-
-typedef struct monitor_netlink_header {
-        /* "libudev" prefix to distinguish libudev and kernel messages */
-        char prefix[8];
-        /* Magic to protect against daemon <-> Library message format mismatch
-         * Used in the kernel from socket filter rules; needs to be stored in network order */
-        unsigned magic;
-        /* Total length of header structure known to the sender */
-        unsigned header_size;
-        /* Properties string buffer */
-        unsigned properties_off;
-        unsigned properties_len;
-        /* Hashes of primary device properties strings, to let libudev subscribers
-         * use in-kernel socket filters; values need to be stored in network order */
-        unsigned filter_subsystem_hash;
-        unsigned filter_devtype_hash;
-        unsigned filter_tag_bloom_hi;
-        unsigned filter_tag_bloom_lo;
-} monitor_netlink_header;
-
 static int monitor_set_nl_address(sd_device_monitor *m) {
         union sockaddr_union snl;
         socklen_t addrlen;
@@ -642,10 +621,10 @@ _public_ int sd_device_monitor_receive(sd_device_monitor *m, sd_device **ret) {
                                                  "Invalid message signature (%x != %x).",
                                                  message.nlh->magic, htobe32(UDEV_MONITOR_MAGIC));
 
-                if (message.nlh->properties_off + 32 > (size_t) n)
+                if ((uint64_t) message.nlh->properties_off + 32 > (uint64_t) n)
                         return log_monitor_errno(m, SYNTHETIC_ERRNO(EAGAIN),
-                                                 "Invalid offset for properties (%u > %zi).",
-                                                 message.nlh->properties_off + 32, n);
+                                                 "Invalid offset for properties (%"PRIu64" > %zi).",
+                                                 (uint64_t) message.nlh->properties_off + 32, n);
 
                 offset = message.nlh->properties_off;
 

@@ -9,6 +9,7 @@
 #include "device-private.h"
 #include "device-util.h"
 #include "io-util.h"
+#include "iovec-util.h"
 #include "mountpoint-util.h"
 #include "path-util.h"
 #include "socket-util.h"
@@ -422,6 +423,31 @@ TEST(sd_device_monitor_receive) {
         const char *s;
         ASSERT_OK(sd_device_get_syspath(dev, &s));
         ASSERT_STREQ(s, syspath);
+}
+
+TEST(sd_device_monitor_receive_bad_properties_off) {
+        _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor_server = NULL, *monitor_client = NULL;
+        union sockaddr_union sa;
+
+        prepare_monitor(&monitor_server, &monitor_client, &sa);
+
+        monitor_netlink_header nlh = {
+                .prefix = "libudev",
+                .magic = htobe32(UDEV_MONITOR_MAGIC),
+                .header_size = sizeof nlh,
+                .properties_off = UINT32_MAX - 10,
+        };
+        struct iovec iov = IOVEC_MAKE(&nlh, sizeof nlh);
+        struct msghdr smsg = {
+                .msg_iov = &iov,
+                .msg_iovlen = 1,
+                .msg_name = &sa,
+                .msg_namelen = sizeof(struct sockaddr_nl),
+        };
+        ASSERT_OK_ERRNO(sendmsg(sd_device_monitor_get_fd(monitor_server), &smsg, 0));
+
+        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        ASSERT_ERROR(sd_device_monitor_receive(monitor_client, &dev), EAGAIN);
 }
 
 static int intro(void) {
