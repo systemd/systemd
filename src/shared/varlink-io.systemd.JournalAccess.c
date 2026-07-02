@@ -17,6 +17,8 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 SD_VARLINK_DEFINE_INPUT(priority, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Maximum number of entries to return. Defaults to 100, capped at 10000."),
                 SD_VARLINK_DEFINE_INPUT(limit, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("If true, do not complete after sending the newest entries: keep the call open and stream new entries as they are logged, until the client disconnects. The limit parameter then bounds only the initial backlog."),
+                SD_VARLINK_DEFINE_INPUT(follow, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The journal entry in flat JSON format, matching journalctl --output=json."),
                 SD_VARLINK_DEFINE_OUTPUT(entry, SD_VARLINK_OBJECT, 0));
 
