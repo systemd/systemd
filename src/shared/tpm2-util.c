@@ -7107,7 +7107,6 @@ static int tpm2_define_nvpcr_nv_index(
                 bool orderly,
                 Tpm2Handle **ret_nv_handle) {
 
-        _cleanup_(tpm2_handle_freep) Tpm2Handle *new_handle = NULL;
         TSS2_RC rc;
         int r;
 
@@ -7125,11 +7124,13 @@ static int tpm2_define_nvpcr_nv_index(
         if ((size_t) digest_size > sizeof_field(TPM2B_MAX_NV_BUFFER, buffer))
                 return log_debug_errno(SYNTHETIC_ERRNO(E2BIG), "Digest too large for extension.");
 
-        r = tpm2_handle_new(c, &new_handle);
-        if (r < 0)
-                return r;
-
-        new_handle->flush = false; /* This is a persistent NV index, don't flush hence */
+        /* If we already ran into NV index space exhaustion for this orderly mode during this boot, don't
+         * bother trying again — the situation is unlikely to improve until reboot. We track this via a flag
+         * file in /run/, with a separate file for orderly and non-orderly NvPCRs, since the two draw on
+         * different TPM resources (RAM-backed vs. NVRAM-backed). */
+        const char *exhausted_flag = orderly ?
+                "/run/systemd/tpm2-nv-space-exhausted-orderly" :
+                "/run/systemd/tpm2-nv-space-exhausted-non-orderly";
 
         TPM2B_NV_PUBLIC public_info = {
                 .size = sizeof_field(TPM2B_NV_PUBLIC, nvPublic),
@@ -7147,62 +7148,93 @@ static int tpm2_define_nvpcr_nv_index(
                 },
         };
 
-        rc = sym_Esys_NV_DefineSpace(
-                        c->esys_context,
-                        /* authHandle= */ ESYS_TR_RH_OWNER,
-                        /* shandle1= */ session ? session->esys_handle : ESYS_TR_PASSWORD,
-                        /* shandle2= */ ESYS_TR_NONE,
-                        /* shandle3= */ ESYS_TR_NONE,
-                        /* auth= */ NULL,
-                        &public_info,
-                        &new_handle->esys_handle);
-        if (rc == TPM2_RC_NV_SPACE)
-                return log_debug_errno(SYNTHETIC_ERRNO(ENOSPC),
-                                       "NV index space on TPM exhausted, cannot allocate NvPCR.");
-        if (rc == TPM2_RC_NV_DEFINED) {
-                log_debug("NV index 0x%" PRIu32 " already registered.", nv_index);
+        bool exhausted;
+        if (access(exhausted_flag, F_OK) < 0) {
+                if (errno != ENOENT)
+                        log_debug_errno(errno, "Failed to check whether %s exists, assuming it does not: %m", exhausted_flag);
 
-                new_handle = tpm2_handle_free(new_handle);
+                _cleanup_(tpm2_handle_freep) Tpm2Handle *new_handle = NULL;
+                r = tpm2_handle_new(c, &new_handle);
+                if (r < 0)
+                        return r;
 
-                _cleanup_(Esys_Freep) TPM2B_NV_PUBLIC *nv_public_real = NULL;
-                r = tpm2_nv_index_to_handle(
-                                c,
-                                nv_index,
-                                session,
-                                &nv_public_real,
-                                /* ret_name= */ NULL,
-                                &new_handle);
-                if (r <= 0)
-                        return log_debug_errno(r < 0 ? r : SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                               "Failed to acquire handle to existing NV index 0x%" PRIu32 ".", nv_index);
+                new_handle->flush = false; /* This is a persistent NV index, don't flush hence */
 
-                log_debug("Successfully acquired handle to existing NV index 0x%" PRIx32 ".", nv_index);
+                rc = sym_Esys_NV_DefineSpace(
+                                c->esys_context,
+                                /* authHandle= */ ESYS_TR_RH_OWNER,
+                                /* shandle1= */ session ? session->esys_handle : ESYS_TR_PASSWORD,
+                                /* shandle2= */ ESYS_TR_NONE,
+                                /* shandle3= */ ESYS_TR_NONE,
+                                /* auth= */ NULL,
+                                &public_info,
+                                &new_handle->esys_handle);
+                if (rc == TPM2_RC_NV_SPACE) {
+                        /* Remember that we ran out of NV index space for this orderly mode, so that we don't keep
+                         * retrying the (doomed) allocation until reboot. */
+                        r = touch(exhausted_flag);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to create %s flag file, ignoring: %m", exhausted_flag);
 
-                if (nv_public_real->size < endoffsetof_field(TPMS_NV_PUBLIC, attributes) + sizeof_field(TPMS_NV_PUBLIC, dataSize) ||
-                    nv_public_real->nvPublic.nvIndex != public_info.nvPublic.nvIndex ||
-                    nv_public_real->nvPublic.nameAlg != public_info.nvPublic.nameAlg ||
-                    ((nv_public_real->nvPublic.attributes ^ public_info.nvPublic.attributes) & ~(TPMA_NV_WRITTEN|TPMA_NV_ORDERLY)) != 0 ||
-                    nv_public_real->nvPublic.dataSize != public_info.nvPublic.dataSize)
-                        return log_debug_errno(SYNTHETIC_ERRNO(EEXIST),
-                                               "Public data of nvindex 0x%x does not match our expectations.", nv_index);
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOSPC),
+                                               "NV index space on TPM exhausted, cannot allocate NvPCR.");
+                }
+                if (rc == TSS2_RC_SUCCESS) {
+                        log_debug("NV Index 0x%" PRIx32 " successfully allocated.", nv_index);
 
-                log_debug("Public info for nvindex 0x%x checks out, using.", nv_index);
+                        if (ret_nv_handle)
+                                *ret_nv_handle = TAKE_PTR(new_handle);
 
-                if (ret_nv_handle)
-                        *ret_nv_handle = TAKE_PTR(new_handle);
+                        return 1;
+                }
+                if (rc != TPM2_RC_NV_DEFINED)
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                               "Failed to allocate NV index: %s", sym_Tss2_RC_Decode(rc));
 
-                return 0;
+                log_debug("NV index 0x%" PRIx32 " already registered.", nv_index);
+                exhausted = false;
+        } else {
+                log_debug("TPM NV index space previously found exhausted (%s exists), refusing to allocate %s NvPCR, but checking if it already exists.",
+                          exhausted_flag, orderly ? "orderly" : "non-orderly");
+                exhausted = true;
         }
-        if (rc != TSS2_RC_SUCCESS)
-                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                       "Failed to allocate NV index: %s", sym_Tss2_RC_Decode(rc));
 
-        log_debug("NV Index 0x%" PRIx32 " successfully allocated.", nv_index);
+        /* We either got told that this NV index already exists or we didn't even try to allocate it, because
+         * it failed before. Let's get information about it, in the hope it exists. */
+
+        _cleanup_(Esys_Freep) TPM2B_NV_PUBLIC *nv_public_real = NULL;
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *new_handle = NULL;
+        r = tpm2_nv_index_to_handle(
+                        c,
+                        nv_index,
+                        session,
+                        &nv_public_real,
+                        /* ret_name= */ NULL,
+                        &new_handle);
+        if (r <= 0) {
+                if (exhausted)
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOSPC), "Unable to acquire NvPCR and space exhaustion was indicated before.");
+
+                return log_debug_errno(r < 0 ? r : SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to acquire handle to NV index 0x%" PRIx32 ".", nv_index);
+        }
+
+        log_debug("Successfully acquired handle to existing NV index 0x%" PRIx32 ".", nv_index);
+
+        if (nv_public_real->size < endoffsetof_field(TPMS_NV_PUBLIC, attributes) + sizeof_field(TPMS_NV_PUBLIC, dataSize) ||
+            nv_public_real->nvPublic.nvIndex != public_info.nvPublic.nvIndex ||
+            nv_public_real->nvPublic.nameAlg != public_info.nvPublic.nameAlg ||
+            ((nv_public_real->nvPublic.attributes ^ public_info.nvPublic.attributes) & ~(TPMA_NV_WRITTEN|TPMA_NV_ORDERLY)) != 0 ||
+            nv_public_real->nvPublic.dataSize != public_info.nvPublic.dataSize)
+                return log_debug_errno(SYNTHETIC_ERRNO(EEXIST),
+                                       "Public data of nvindex 0x%" PRIx32 " does not match our expectations.", nv_index);
+
+        log_debug("Public info for nvindex 0x%" PRIx32 " checks out, using.", nv_index);
 
         if (ret_nv_handle)
                 *ret_nv_handle = TAKE_PTR(new_handle);
 
-        return 1;
+        return 0;
 }
 
 static int tpm2_extend_nvpcr_nv_index(
