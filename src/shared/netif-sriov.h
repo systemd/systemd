@@ -43,6 +43,9 @@ typedef struct SRIOV {
 
 DECLARE_STRING_TABLE_LOOKUP_TO_STRING(sr_iov_attribute, SRIOVAttribute);
 
+SRIOV* sr_iov_free(SRIOV *sr_iov);
+int sr_iov_dup(const SRIOV *sr_iov, SRIOV **ret);
+
 void sr_iov_hash_func(const SRIOV *sr_iov, struct siphash *state);
 int sr_iov_compare_func(const SRIOV *s1, const SRIOV *s2);
 bool sr_iov_has_config(SRIOV *sr_iov, SRIOVAttribute attr);
