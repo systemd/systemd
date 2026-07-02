@@ -125,7 +125,7 @@ static int link_put_dns(Link *link, OrderedSet **s) {
 
                 r = sd_dhcp_lease_get_dnr(link->dhcp_lease, &resolvers);
                 if (r >= 0) {
-                        struct in_addr_full **dot_servers;
+                        struct in_addr_full **dot_servers = NULL;
                         size_t n = 0;
                         CLEANUP_ARRAY(dot_servers, n, in_addr_full_array_free);
 
@@ -154,7 +154,7 @@ static int link_put_dns(Link *link, OrderedSet **s) {
 
                 r = sd_dhcp6_lease_get_dnr(link->dhcp6_lease, &resolvers);
                 if (r >= 0) {
-                        struct in_addr_full **dot_servers;
+                        struct in_addr_full **dot_servers = NULL;
                         size_t n = 0;
                         CLEANUP_ARRAY(dot_servers, n, in_addr_full_array_free);
 
