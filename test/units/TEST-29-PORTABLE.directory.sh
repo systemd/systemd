@@ -20,6 +20,9 @@ fi
 unsquashfs -force -no-xattrs -d /tmp/minimal_0 /usr/share/minimal_0.raw
 unsquashfs -force -no-xattrs -d /tmp/minimal_1 /usr/share/minimal_1.raw
 
+cp -a /tmp/minimal_0 /tmp/image
+portablectl inspect /tmp/image | grep -F "minimal-app0.service" >/dev/null
+
 portablectl "${ARGS[@]}" attach --copy=symlink --now --runtime /tmp/minimal_0 minimal-app0
 
 systemctl is-active minimal-app0.service
