@@ -1330,6 +1330,9 @@ int set_ensure_consume(Set **s, const struct hash_ops *hash_ops, void *key) {
         if (r <= 0) {
                 if (hash_ops && hash_ops->free_key)
                         hash_ops->free_key(key);
+                else if (hash_ops && hash_ops->free_value)
+                        /* Sets store their element in the key slot but may carry a value destructor. */
+                        hash_ops->free_value(key);
                 else
                         free(key);
         }
