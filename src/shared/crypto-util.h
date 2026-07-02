@@ -122,6 +122,10 @@ extern DLSYM_PROTOTYPE(BN_set_word);
 extern DLSYM_PROTOTYPE(BN_sub_word);
 extern DLSYM_PROTOTYPE(CRYPTO_free);
 extern DLSYM_PROTOTYPE(ECDSA_SIG_free);
+extern DLSYM_PROTOTYPE(ECDSA_SIG_get0_r);
+extern DLSYM_PROTOTYPE(ECDSA_SIG_get0_s);
+extern DLSYM_PROTOTYPE(ECDSA_SIG_new);
+extern DLSYM_PROTOTYPE(ECDSA_SIG_set0);
 extern DLSYM_PROTOTYPE(EC_GROUP_free);
 extern DLSYM_PROTOTYPE(EC_GROUP_get0_generator);
 extern DLSYM_PROTOTYPE(EC_GROUP_get0_order);
@@ -175,18 +179,27 @@ extern DLSYM_PROTOTYPE(EVP_PKEY_CTX_free);
 extern DLSYM_PROTOTYPE(EVP_PKEY_CTX_new);
 extern DLSYM_PROTOTYPE(EVP_PKEY_CTX_new_from_name);
 extern DLSYM_PROTOTYPE(EVP_PKEY_CTX_new_id);
+extern DLSYM_PROTOTYPE(EVP_PKEY_CTX_set_ec_paramgen_curve_nid);
+extern DLSYM_PROTOTYPE(EVP_PKEY_CTX_set_rsa_keygen_bits);
 extern DLSYM_PROTOTYPE(EVP_PKEY_CTX_set_rsa_padding);
 extern DLSYM_PROTOTYPE(EVP_PKEY_CTX_set_signature_md);
 extern DLSYM_PROTOTYPE(EVP_PKEY_eq);
 extern DLSYM_PROTOTYPE(EVP_PKEY_free);
 extern DLSYM_PROTOTYPE(EVP_PKEY_fromdata);
 extern DLSYM_PROTOTYPE(EVP_PKEY_fromdata_init);
+extern DLSYM_PROTOTYPE(EVP_PKEY_generate);
 extern DLSYM_PROTOTYPE(EVP_PKEY_get_base_id);
+extern DLSYM_PROTOTYPE(EVP_PKEY_get_bn_param);
 extern DLSYM_PROTOTYPE(EVP_PKEY_get_id);
+extern DLSYM_PROTOTYPE(EVP_PKEY_get_octet_string_param);
+extern DLSYM_PROTOTYPE(EVP_PKEY_get_size);
 extern DLSYM_PROTOTYPE(EVP_PKEY_keygen);
 extern DLSYM_PROTOTYPE(EVP_PKEY_keygen_init);
 extern DLSYM_PROTOTYPE(EVP_PKEY_new);
 extern DLSYM_PROTOTYPE(EVP_PKEY_new_raw_public_key);
+extern DLSYM_PROTOTYPE(EVP_PKEY_public_check);
+extern DLSYM_PROTOTYPE(EVP_PKEY_sign);
+extern DLSYM_PROTOTYPE(EVP_PKEY_sign_init);
 extern DLSYM_PROTOTYPE(EVP_PKEY_verify);
 extern DLSYM_PROTOTYPE(EVP_PKEY_verify_init);
 extern DLSYM_PROTOTYPE(EVP_aes_256_ctr);
@@ -210,6 +223,7 @@ extern DLSYM_PROTOTYPE(OPENSSL_sk_value);
 extern DLSYM_PROTOTYPE(OSSL_EC_curve_nid2name);
 extern DLSYM_PROTOTYPE(OSSL_PARAM_BLD_free);
 extern DLSYM_PROTOTYPE(OSSL_PARAM_BLD_new);
+extern DLSYM_PROTOTYPE(OSSL_PARAM_BLD_push_BN);
 extern DLSYM_PROTOTYPE(OSSL_PARAM_BLD_push_utf8_string);
 extern DLSYM_PROTOTYPE(OSSL_PARAM_BLD_to_param);
 extern DLSYM_PROTOTYPE(OSSL_PARAM_construct_BN);
@@ -241,7 +255,6 @@ extern DLSYM_PROTOTYPE(PKCS7_new);
 extern DLSYM_PROTOTYPE(PKCS7_set_content);
 extern DLSYM_PROTOTYPE(PKCS7_sign);
 extern DLSYM_PROTOTYPE(PKCS7_verify);
-extern DLSYM_PROTOTYPE(SHA1);
 extern DLSYM_PROTOTYPE(SHA512);
 extern DLSYM_PROTOTYPE(X509_ALGOR_free);
 extern DLSYM_PROTOTYPE(X509_ATTRIBUTE_free);
@@ -256,38 +269,18 @@ extern DLSYM_PROTOTYPE(X509_get_pubkey);
 extern DLSYM_PROTOTYPE(X509_get_subject_name);
 extern DLSYM_PROTOTYPE(X509_gmtime_adj);
 extern DLSYM_PROTOTYPE(d2i_ASN1_OCTET_STRING);
+extern DLSYM_PROTOTYPE(d2i_ECDSA_SIG);
 extern DLSYM_PROTOTYPE(d2i_ECPKParameters);
 extern DLSYM_PROTOTYPE(d2i_PKCS7);
 extern DLSYM_PROTOTYPE(d2i_PUBKEY);
 extern DLSYM_PROTOTYPE(d2i_X509);
 extern DLSYM_PROTOTYPE(i2d_ASN1_INTEGER);
+extern DLSYM_PROTOTYPE(i2d_ECDSA_SIG);
 extern DLSYM_PROTOTYPE(i2d_PKCS7);
 extern DLSYM_PROTOTYPE(i2d_PKCS7_fp);
 extern DLSYM_PROTOTYPE(i2d_PUBKEY);
 extern DLSYM_PROTOTYPE(i2d_X509);
 extern DLSYM_PROTOTYPE(i2d_X509_NAME);
-
-#if !defined(OPENSSL_NO_DEPRECATED_3_0)
-DISABLE_WARNING_DEPRECATED_DECLARATIONS;
-extern DLSYM_PROTOTYPE(ECDSA_SIG_new);
-extern DLSYM_PROTOTYPE(ECDSA_SIG_set0);
-extern DLSYM_PROTOTYPE(ECDSA_do_verify);
-extern DLSYM_PROTOTYPE(EC_KEY_check_key);
-extern DLSYM_PROTOTYPE(EC_KEY_free);
-extern DLSYM_PROTOTYPE(EC_KEY_new);
-extern DLSYM_PROTOTYPE(EC_KEY_set_group);
-extern DLSYM_PROTOTYPE(EC_KEY_set_public_key);
-extern DLSYM_PROTOTYPE(EVP_PKEY_assign);
-extern DLSYM_PROTOTYPE(RSAPublicKey_dup);
-extern DLSYM_PROTOTYPE(RSA_free);
-extern DLSYM_PROTOTYPE(RSA_new);
-extern DLSYM_PROTOTYPE(RSA_set0_key);
-extern DLSYM_PROTOTYPE(RSA_size);
-REENABLE_WARNING;
-
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(EC_KEY*, sym_EC_KEY_free, EC_KEY_freep, NULL);
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(RSA*, sym_RSA_free, RSA_freep, NULL);
-#endif
 
 /* Mirrors of OpenSSL macros that go through our dlopen'd sym_* variants, so we don't end up linking against
  * libcrypto just for these. */
@@ -298,7 +291,6 @@ DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(RSA*, sym_RSA_free, RSA_freep, NULL);
 #define sym_BN_one(a) sym_BN_set_word(a, 1)
 #define sym_EVP_MD_CTX_get_size(ctx) sym_EVP_MD_get_size(sym_EVP_MD_CTX_get0_md(ctx))
 #define sym_EVP_MD_CTX_get0_name(ctx) sym_EVP_MD_get0_name(sym_EVP_MD_CTX_get0_md(ctx))
-#define sym_EVP_PKEY_assign_RSA(pkey, rsa) sym_EVP_PKEY_assign((pkey), EVP_PKEY_RSA, (rsa))
 #define sym_OPENSSL_free(addr) sym_CRYPTO_free((addr), OPENSSL_FILE, OPENSSL_LINE)
 #define sym_PKCS7_set_detached(p, v) sym_PKCS7_ctrl((p), PKCS7_OP_SET_DETACHED_SIGNATURE, (v), NULL)
 

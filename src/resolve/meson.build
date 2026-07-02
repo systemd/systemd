@@ -132,6 +132,10 @@ executables += [
                 'type' : 'manual',
         },
         resolve_test_template + {
+                'sources' : files('test-dnssec-crypto.c'),
+                'conditions' : ['HAVE_OPENSSL'],
+        },
+        resolve_test_template + {
                 'sources' : files('test-dns-search-domain.c'),
         },
         resolve_test_template + {
