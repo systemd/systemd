@@ -169,6 +169,27 @@ static int extract_prefix(const char *path, char **ret) {
         return 0;
 }
 
+static int log_unit_file_matches(char **matches) {
+        if (arg_quiet)
+                return 0;
+
+        if (strv_isempty(matches))
+                log_info("(Matching all unit files.)");
+        else if (strv_length(matches) == 1)
+                log_info("(Matching unit files with prefix '%s'.)", matches[0]);
+        else {
+                _cleanup_free_ char *joined = NULL;
+
+                joined = strv_join(matches, "', '");
+                if (!joined)
+                        return log_oom();
+
+                log_info("(Matching unit files with prefixes '%s'.)", joined);
+        }
+
+        return 0;
+}
+
 static int determine_matches(const char *image, char **l, bool allow_any, char ***ret) {
         _cleanup_strv_free_ char **k = NULL;
         int r;
@@ -184,9 +205,6 @@ static int determine_matches(const char *image, char **l, bool allow_any, char *
                 if (r < 0)
                         return log_error_errno(r, "Failed to extract prefix of image name '%s': %m", image);
 
-                if (!arg_quiet)
-                        log_info("(Matching unit files with prefix '%s'.)", prefix);
-
                 r = strv_consume(&k, prefix);
                 if (r < 0)
                         return log_oom();
@@ -197,24 +215,16 @@ static int determine_matches(const char *image, char **l, bool allow_any, char *
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Refusing all unit file match.");
 
-                if (!arg_quiet)
-                        log_info("(Matching all unit files.)");
         } else {
 
                 k = strv_copy(l);
                 if (!k)
                         return log_oom();
-
-                if (!arg_quiet) {
-                        _cleanup_free_ char *joined = NULL;
-
-                        joined = strv_join(k, "', '");
-                        if (!joined)
-                                return log_oom();
-
-                        log_info("(Matching unit files with prefixes '%s'.)", joined);
-                }
         }
+
+        r = log_unit_file_matches(k);
+        if (r < 0)
+                return r;
 
         *ret = TAKE_PTR(k);
 
@@ -329,6 +339,61 @@ static int verb_list_images(int argc, char *argv[], uintptr_t _data, void *userd
         return 0;
 }
 
+static int determine_matches_from_os_release(sd_bus *bus, const char *image, char ***ret) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_strv_free_ char **matches = NULL;
+        int r;
+
+        assert(bus);
+        assert(image);
+        assert(ret);
+
+        r = bus_call_method(bus, bus_portable_mgr, "GetImageOSRelease", &error, &reply, "s", image);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to inspect image os-release: %s", bus_error_message(&error, r));
+                return 0;
+        }
+
+        r = sd_bus_message_enter_container(reply, 'a', "{ss}");
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        for (;;) {
+                const char *key, *value;
+
+                r = sd_bus_message_read(reply, "{ss}", &key, &value);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+                if (r == 0)
+                        break;
+
+                if (streq(key, "PORTABLE_PREFIXES")) {
+                        char **split;
+
+                        split = strv_split(value, WHITESPACE);
+                        if (!split)
+                                return log_oom();
+
+                        strv_free_and_replace(matches, split);
+                }
+        }
+
+        r = sd_bus_message_exit_container(reply);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        if (strv_isempty(matches))
+                return 0;
+
+        r = log_unit_file_matches(matches);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(matches);
+        return 1;
+}
+
 static int get_image_metadata(sd_bus *bus, const char *image, char **matches, sd_bus_message **reply) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -387,13 +452,21 @@ static int verb_inspect_image(int argc, char *argv[], uintptr_t _data, void *use
         if (r < 0)
                 return r;
 
-        r = determine_matches(argv[1], argv + 2, true, &matches);
-        if (r < 0)
-                return r;
-
         r = acquire_bus(&bus);
         if (r < 0)
                 return r;
+
+        if (strv_isempty(argv + 2)) {
+                r = determine_matches_from_os_release(bus, image, &matches);
+                if (r < 0)
+                        return r;
+        }
+
+        if (!matches) {
+                r = determine_matches(argv[1], argv + 2, true, &matches);
+                if (r < 0)
+                        return r;
+        }
 
         r = get_image_metadata(bus, image, matches, &reply);
         if (r < 0)
