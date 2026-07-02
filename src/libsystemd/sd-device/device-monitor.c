@@ -838,6 +838,10 @@ _public_ int sd_device_monitor_filter_update(sd_device_monitor *m) {
                         uint32_t tag_bloom_hi = tag_bloom_bits >> 32;
                         uint32_t tag_bloom_lo = tag_bloom_bits & 0xffffffff;
 
+                        /* Each tag emits 6 instructions, leave room for them and the trailing returns. */
+                        if (i + 6 + 2 > ELEMENTSOF(ins))
+                                return -E2BIG;
+
                         /* load device bloom bits in A */
                         bpf_stmt(ins, &i, BPF_LD|BPF_W|BPF_ABS, offsetof(monitor_netlink_header, filter_tag_bloom_hi));
                         /* clear bits (tag bits & bloom bits) */
