@@ -140,32 +140,30 @@ static int unit_file_add_dir(
         return 0;
 }
 
-static int unit_file_find_dirs(
-                const char *original_root,
-                Set *unit_path_cache,
-                const char *unit_path,
-                const char *name,
-                const char *suffix,
-                char ***dirs) {
-
+/* Expands a unit name into the ordered list of candidate unit names whose drop-in directories should be
+ * considered for it: the name itself, its template (if it's an instance), and its "-" prefix chain (e.g.
+ * given "foo-bar-waldo.service" also "foo-bar-.service" and "foo-.service"), each of which may again expand
+ * further via the same rules (e.g. a templated prefix).
+ *
+ * This only depends on the unit name itself, not on any particular lookup directory. Search paths usually
+ * contain several directories, and each unit is looked up under several different suffixes (".d", ".wants",
+ * ".requires", ".upholds"), so callers are expected to compute this list once per (name, aliases) and reuse
+ * it across every directory/suffix combination, rather than re-deriving it (which requires several small
+ * allocations and unit-name parsing calls) again for each one. */
+static int unit_file_expand_dropin_names(const char *name, char ***ret_names) {
         _cleanup_free_ char *prefix = NULL, *instance = NULL, *built = NULL;
         bool is_instance, chopped;
         const char *dash;
         UnitType type;
-        char *path;
         size_t n;
         int r;
 
-        assert(unit_path);
         assert(name);
-        assert(suffix);
+        assert(ret_names);
 
-        path = strjoina(unit_path, "/", name, suffix);
-        if (!unit_path_cache || set_contains(unit_path_cache, path)) {
-                r = unit_file_add_dir(original_root, path, dirs);
-                if (r < 0)
-                        return r;
-        }
+        r = strv_extend(ret_names, name);
+        if (r < 0)
+                return log_oom();
 
         is_instance = unit_name_is_valid(name, UNIT_NAME_INSTANCE);
         if (is_instance) { /* Also try the template dir */
@@ -175,7 +173,7 @@ static int unit_file_find_dirs(
                 if (r < 0)
                         return log_error_errno(r, "Failed to generate template from unit name: %m");
 
-                r = unit_file_find_dirs(original_root, unit_path_cache, unit_path, template, suffix, dirs);
+                r = unit_file_expand_dropin_names(template, ret_names);
                 if (r < 0)
                         return r;
         }
@@ -234,7 +232,60 @@ static int unit_file_find_dirs(
         if (r < 0)
                 return log_error_errno(r, "Failed to build prefix unit name: %m");
 
-        return unit_file_find_dirs(original_root, unit_path_cache, unit_path, built, suffix, dirs);
+        return unit_file_expand_dropin_names(built, ret_names);
+}
+
+/* Checks whether [original_root]/unit_path/name+suffix exists (consulting unit_path_cache first, if
+ * given), and if so adds it to dirs. */
+static int unit_file_add_dir_if_exists(
+                const char *original_root,
+                Set *unit_path_cache,
+                const char *unit_path,
+                const char *name,
+                const char *suffix,
+                char ***dirs) {
+
+        char *path;
+
+        assert(unit_path);
+        assert(name);
+        assert(suffix);
+
+        path = strjoina(unit_path, "/", name, suffix);
+        if (unit_path_cache && !set_contains(unit_path_cache, path))
+                return 0;
+
+        return unit_file_add_dir(original_root, path, dirs);
+}
+
+static int unit_file_find_dirs(
+                const char *original_root,
+                Set *unit_path_cache,
+                char **lookup_path,
+                const char *name,
+                const char *suffix,
+                char ***dirs) {
+
+        _cleanup_strv_free_ char **candidates = NULL;
+        int r;
+
+        assert(name);
+        assert(suffix);
+
+        r = unit_file_expand_dropin_names(name, &candidates);
+        if (r < 0)
+                return r;
+
+        /* A failure while checking one candidate directory (e.g. OOM, or an unexpected chase() error)
+         * only aborts the (increasingly less specific) remaining candidates for the lookup directory we
+         * were currently looking at, matching the original recursive implementation's error handling.
+         * Other lookup directories are still tried independently. */
+        STRV_FOREACH(p, lookup_path)
+                STRV_FOREACH(c, candidates)
+                        if (unit_file_add_dir_if_exists(original_root, unit_path_cache, *p, *c, suffix, dirs) < 0)
+                                break;
+
+        return 0;
 }
 
 int unit_file_find_dropin_paths(
@@ -254,12 +305,10 @@ int unit_file_find_dropin_paths(
         assert(ret);
 
         if (name)
-                STRV_FOREACH(p, lookup_path)
-                        (void) unit_file_find_dirs(original_root, unit_path_cache, *p, name, dir_suffix, &dirs);
+                (void) unit_file_find_dirs(original_root, unit_path_cache, lookup_path, name, dir_suffix, &dirs);
 
         SET_FOREACH(n, aliases)
-                STRV_FOREACH(p, lookup_path)
-                        (void) unit_file_find_dirs(original_root, unit_path_cache, *p, n, dir_suffix, &dirs);
+                (void) unit_file_find_dirs(original_root, unit_path_cache, lookup_path, n, dir_suffix, &dirs);
 
         /* All the names in the unit are of the same type so just grab one. */
         n = name ?: (const char*) set_first(aliases);
@@ -273,13 +322,12 @@ int unit_file_find_dropin_paths(
 
                 /* Special top level drop in for "<unit type>.<suffix>". Add this last as it's the most generic
                  * and should be able to be overridden by more specific drop-ins. */
-                STRV_FOREACH(p, lookup_path)
-                        (void) unit_file_find_dirs(original_root,
-                                                   unit_path_cache,
-                                                   *p,
-                                                   unit_type_to_string(type),
-                                                   dir_suffix,
-                                                   &dirs);
+                (void) unit_file_find_dirs(original_root,
+                                           unit_path_cache,
+                                           lookup_path,
+                                           unit_type_to_string(type),
+                                           dir_suffix,
+                                           &dirs);
         }
 
         if (strv_isempty(dirs)) {
