@@ -5,6 +5,7 @@
 #include "sd-id128.h"
 
 #include "alloc-util.h"
+#include "copy.h"
 #include "dirent-util.h"
 #include "escape.h"
 #include "fd-util.h"
@@ -409,10 +410,19 @@ static int verify_gpg(
         _cleanup_(rm_rf_physical_and_freep) char *gpg_home = NULL;
         char sig_file_path[] = "/tmp/sigXXXXXX";
         _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
+        _cleanup_free_ char *keyring_copy = NULL;
+        const char *keyring_override, *keyring_source;
         int r;
 
         assert(iovec_is_valid(payload));
         assert(iovec_is_valid(signature));
+
+        /* Support using a custom keyring, see docs/ENVIRONMENT.md. */
+        keyring_override = empty_to_null(secure_getenv("SYSTEMD_OPENPGP_KEYRING"));
+        if (keyring_override && !(path_is_absolute(keyring_override) && path_is_normalized(keyring_override)))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "$SYSTEMD_OPENPGP_KEYRING must be an absolute, normalized path, got '%s'.",
+                                       keyring_override);
 
         r = pipe2(gpg_pipe, O_CLOEXEC);
         if (r < 0)
@@ -438,6 +448,31 @@ static int verify_gpg(
                 goto finish;
         }
 
+        if (keyring_override)
+                keyring_source = keyring_override;
+        else if (access(USER_KEYRING_PATH, F_OK) >= 0)
+                keyring_source = USER_KEYRING_PATH;
+        else if (access(USER_KEYRING_PATH_LEGACY, F_OK) >= 0)
+                keyring_source = USER_KEYRING_PATH_LEGACY;
+        else
+                keyring_source = VENDOR_KEYRING_PATH;
+
+        /* For whatever reason gpg --auto-key-import writes the key material embedded in the signature
+         * (the signing subkey) back into the keyring it verifies against instead of just using it
+         * temporarily. Verify against a throwaway copy in the tmp home so we never write to the
+         * original keyring. */
+        keyring_copy = path_join(gpg_home, "keyring.gpg");
+        if (!keyring_copy) {
+                r = log_oom();
+                goto finish;
+        }
+
+        r = copy_file(keyring_source, keyring_copy, 0, 0600, /* copy_flags= */ 0);
+        if (r < 0) {
+                log_error_errno(r, "Failed to copy keyring '%s': %m", keyring_source);
+                goto finish;
+        }
+
         r = pidref_safe_fork_full(
                         "(gpg)",
                         (int[]) { gpg_pipe[0], -EBADF, STDERR_FILENO },
@@ -455,6 +490,8 @@ static int verify_gpg(
                         "--no-auto-check-trustdb",
                         "--batch",
                         "--trust-model=always",
+                        "--auto-key-import",
+                        "--import-options=merge-only,import-clean",
                         NULL, /* --homedir= */
                         NULL, /* --keyring= */
                         NULL, /* --verify */
@@ -467,16 +504,7 @@ static int verify_gpg(
                 /* Child */
 
                 cmd[k++] = strjoina("--homedir=", gpg_home);
-
-                /* We add the user keyring only to the command line arguments, if it's around since gpg fails
-                 * otherwise. */
-                if (access(USER_KEYRING_PATH, F_OK) >= 0)
-                        cmd[k++] = "--keyring=" USER_KEYRING_PATH;
-                else if (access(USER_KEYRING_PATH_LEGACY, F_OK) >= 0)
-                        cmd[k++] = "--keyring=" USER_KEYRING_PATH_LEGACY;
-                else
-                        cmd[k++] = "--keyring=" VENDOR_KEYRING_PATH;
-
+                cmd[k++] = strjoina("--keyring=", keyring_copy);
                 cmd[k++] = "--verify";
                 if (signature) {
                         cmd[k++] = sig_file_path;
