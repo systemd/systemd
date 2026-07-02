@@ -521,9 +521,12 @@
       <varlistentry>
         <term><varname>systemd.firstboot=</varname></term>
 
-        <listitem><para>Takes a boolean argument, defaults to on. If off, <filename>systemd-firstboot.service</filename>
-        will not interactively query the user for basic settings at first boot, even if those settings are not
-        initialized yet.</para>
+        <listitem><para>Takes a boolean argument or the special value <literal>headless</literal>, defaults to
+        on. If off, <filename>systemd-firstboot.service</filename> will not interactively query the user for
+        basic settings at first boot, even if those settings are not initialized yet. If set to
+        <literal>headless</literal>, interactive prompts are suppressed just like with <literal>no</literal>,
+        but non-interactive auto-configuration that requires no user input is still performed (for example,
+        selecting the sole installed locale, or applying settings passed in via credentials).</para>
 
         <xi:include href="version-info.xml" xpointer="v233"/></listitem>
       </varlistentry>
