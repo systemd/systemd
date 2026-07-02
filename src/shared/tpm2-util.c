@@ -7104,6 +7104,7 @@ static int tpm2_define_nvpcr_nv_index(
                 const Tpm2Handle *session,
                 TPM2_HANDLE nv_index,
                 TPMI_ALG_HASH algorithm,
+                bool orderly,
                 Tpm2Handle **ret_nv_handle) {
 
         _cleanup_(tpm2_handle_freep) Tpm2Handle *new_handle = NULL;
@@ -7124,6 +7125,21 @@ static int tpm2_define_nvpcr_nv_index(
         if ((size_t) digest_size > sizeof_field(TPM2B_MAX_NV_BUFFER, buffer))
                 return log_debug_errno(SYNTHETIC_ERRNO(E2BIG), "Digest too large for extension.");
 
+        /* If we already ran into NV index space exhaustion for this orderly mode during this boot, don't
+         * bother trying again — the situation is unlikely to improve until reboot. We track this via a flag
+         * file in /run/, with a separate file for orderly and non-orderly NvPCRs, since the two draw on
+         * different TPM resources (RAM-backed vs. NVRAM-backed). */
+        const char *exhausted_flag = orderly ?
+                "/run/systemd/tpm2-nv-space-exhausted-orderly" :
+                "/run/systemd/tpm2-nv-space-exhausted-non-orderly";
+
+        if (access(exhausted_flag, F_OK) >= 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOSPC),
+                                       "TPM NV index space previously found exhausted (%s exists), refusing to allocate %s NvPCR.",
+                                       exhausted_flag, orderly ? "orderly" : "non-orderly");
+        if (errno != ENOENT)
+                log_debug_errno(errno, "Failed to check whether %s exists, ignoring: %m", exhausted_flag);
+
         r = tpm2_handle_new(c, &new_handle);
         if (r < 0)
                 return r;
@@ -7136,7 +7152,7 @@ static int tpm2_define_nvpcr_nv_index(
                         .nvIndex = nv_index,
                         .nameAlg = algorithm,
                         .attributes = TPMA_NV_CLEAR_STCLEAR |
-                                      TPMA_NV_ORDERLY |
+                                      (orderly ? TPMA_NV_ORDERLY : 0) |
                                       TPMA_NV_OWNERWRITE |
                                       TPMA_NV_AUTHWRITE |
                                       TPMA_NV_OWNERREAD |
@@ -7155,9 +7171,16 @@ static int tpm2_define_nvpcr_nv_index(
                         /* auth= */ NULL,
                         &public_info,
                         &new_handle->esys_handle);
-        if (rc == TPM2_RC_NV_SPACE)
+        if (rc == TPM2_RC_NV_SPACE) {
+                /* Remember that we ran out of NV index space for this orderly mode, so that we don't keep
+                 * retrying the (doomed) allocation until reboot. */
+                r = touch(exhausted_flag);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to create %s flag file, ignoring: %m", exhausted_flag);
+
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOSPC),
                                        "NV index space on TPM exhausted, cannot allocate NvPCR.");
+        }
         if (rc == TPM2_RC_NV_DEFINED) {
                 log_debug("NV index 0x%" PRIu32 " already registered.", nv_index);
 
@@ -7180,7 +7203,7 @@ static int tpm2_define_nvpcr_nv_index(
                 if (nv_public_real->size < endoffsetof_field(TPMS_NV_PUBLIC, attributes) + sizeof_field(TPMS_NV_PUBLIC, dataSize) ||
                     nv_public_real->nvPublic.nvIndex != public_info.nvPublic.nvIndex ||
                     nv_public_real->nvPublic.nameAlg != public_info.nvPublic.nameAlg ||
-                    ((nv_public_real->nvPublic.attributes ^ public_info.nvPublic.attributes) & ~TPMA_NV_WRITTEN) != 0 ||
+                    ((nv_public_real->nvPublic.attributes ^ public_info.nvPublic.attributes) & ~(TPMA_NV_WRITTEN|TPMA_NV_ORDERLY)) != 0 ||
                     nv_public_real->nvPublic.dataSize != public_info.nvPublic.dataSize)
                         return log_debug_errno(SYNTHETIC_ERRNO(EEXIST),
                                                "Public data of nvindex 0x%x does not match our expectations.", nv_index);
@@ -7897,6 +7920,7 @@ typedef struct NvPCRData {
         uint16_t algorithm;
         uint32_t nv_index;
         uint64_t priority;
+        bool orderly;
 } NvPCRData;
 
 static void nvpcr_data_done(NvPCRData *d) {
@@ -7937,12 +7961,14 @@ static int nvpcr_data_load(const char *name, NvPCRData *ret) {
                 { "algorithm", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_tpm2_algorithm, offsetof(NvPCRData, algorithm), 0                 },
                 { "nvIndex",   _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint32,      offsetof(NvPCRData, nv_index),  SD_JSON_MANDATORY },
                 { "priority",  _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,      offsetof(NvPCRData, priority),  0                 },
+                { "orderly",   SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,     offsetof(NvPCRData, orderly),   0                 },
                 {},
         };
 
         _cleanup_(nvpcr_data_done) NvPCRData p = {
                 .algorithm = TPM2_ALG_SHA256,
                 .priority = TPM2_NVPCR_PRIORITY_DEFAULT,
+                .orderly = true,
         };
         r = sd_json_dispatch(v, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &p);
         if (r < 0)
@@ -8573,6 +8599,7 @@ int tpm2_nvpcr_initialize(
                         session,
                         p.nv_index,
                         p.algorithm,
+                        p.orderly,
                         &nv_handle);
         if (r < 0)
                 return r;

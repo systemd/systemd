@@ -74,6 +74,18 @@ fields are:
   least important ones are skipped gracefully rather than the allocation failing
   arbitrarily. Ties are broken by name. Priority does not affect the NV index,
   the algorithm, or anything measured into the NvPCR.
+* `orderly` — a boolean, defaulting to `true`. It controls whether the NV index
+  is allocated with the `TPMA_NV_ORDERLY` attribute set, which selects whether
+  the TPM keeps the NV index in RAM or in persistent memory (NVRAM). On
+  physical TPMs RAM is typically much more constrained than persistent memory,
+  but persistent memory is subject to wear. We hence prefer `TPMA_NV_ORDERLY`
+  disabled (i.e. NVRAM) for NvPCRs that are written only once each boot — which
+  translates into a conservative number of write cycles over the lifetime of a
+  TPM — but enabled (i.e. RAM) for NvPCRs we expect to be written many times
+  during runtime, so that we minimize wear. This reflects real-life experience
+  where the RAM in TPMs is so constrained that allocating many NvPCRs in TPM
+  RAM simply doesn't work. For now, only the `hardware` NvPCR (which is written
+  just once, early at boot) sets this flag to false.
 
 There's one complication: these NV indexes (like any NV indexes) can be deleted
 by anyone with access to the TPM, and then be recreated. This could be used to
