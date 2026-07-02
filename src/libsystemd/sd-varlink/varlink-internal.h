@@ -29,6 +29,7 @@ typedef enum VarlinkState {
         VARLINK_PROCESSED_METHOD,
         VARLINK_PENDING_METHOD,
         VARLINK_PENDING_METHOD_MORE,
+        VARLINK_PENDING_METHOD_ONEWAY,
 
         /* Common states (only during shutdown) */
         VARLINK_PENDING_DISCONNECT,
@@ -62,7 +63,8 @@ typedef enum VarlinkState {
                VARLINK_PROCESSING_METHOD_ONEWAY,        \
                VARLINK_PROCESSED_METHOD,                \
                VARLINK_PENDING_METHOD,                  \
-               VARLINK_PENDING_METHOD_MORE)
+               VARLINK_PENDING_METHOD_MORE,             \
+               VARLINK_PENDING_METHOD_ONEWAY)
 
 /* Tests whether we are expected to generate a method call reply, i.e. are processing a method call, except
  * one with the ONEWAY flag set. */
