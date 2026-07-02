@@ -101,7 +101,7 @@ typedef struct OvmfConfig {
         char *vars_format;
         char *device;
         char *mode;
-        bool supports_sb;
+        char **features;
 } OvmfConfig;
 
 static inline const char* ovmf_config_format(const OvmfConfig *c) {
@@ -111,7 +111,9 @@ static inline const char* ovmf_config_format(const OvmfConfig *c) {
 static inline const char* ovmf_config_vars_format(const OvmfConfig *c) {
         return ASSERT_PTR(c)->vars_format ?: "raw";
 }
+
 bool ovmf_config_is_stateless(const OvmfConfig *config);
+bool ovmf_config_has_feature(const OvmfConfig *config, const char *feature);
 
 OvmfConfig* ovmf_config_free(OvmfConfig *ovmf_config);
 DEFINE_TRIVIAL_CLEANUP_FUNC(OvmfConfig*, ovmf_config_free);

@@ -2655,6 +2655,8 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                                        "--coco= requires KVM, but KVM is not available.");
 
         if (arg_firmware_type == FIRMWARE_UEFI) {
+                const char *coco_feature = coco_firmware_feature(arg_confidential_computing);
+
                 if (arg_firmware) {
                         r = load_ovmf_config(arg_firmware, &ovmf_config);
                         if (r < 0)
@@ -2665,11 +2667,40 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                                 return r;
                 }
 
-                if (set_contains(arg_firmware_features_include, "secure-boot") && !ovmf_config->supports_sb)
+                /* Flash mode "combined" places the variable store in the (writable) executable,
+                 * which would have to be cloned for each guest. */
+                if (streq_ptr(ovmf_config->mode, "combined"))
+                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                               "Firmware descriptor '%s' declares flash mode 'combined', which is not supported.",
+                                               arg_firmware ?: ovmf_config->path);
+
+                if (arg_confidential_computing != COCO_NO) {
+                        if (!ovmf_config_has_feature(ovmf_config, coco_feature))
+                                return log_error_errno(SYNTHETIC_ERRNO(EMEDIUMTYPE),
+                                                       "Firmware descriptor '%s' does not declare the '%s' feature, but "
+                                                       "--coco=%s requires firmware built specifically for it.",
+                                                       arg_firmware ?: ovmf_config->path, coco_feature,
+                                                       confidential_computing_to_string(arg_confidential_computing));
+                        if (!ovmf_config_is_stateless(ovmf_config))
+                                return log_error_errno(SYNTHETIC_ERRNO(EMEDIUMTYPE),
+                                                       "Firmware descriptor '%s' does not describe stateless firmware, "
+                                                       "but --coco=%s requires stateless firmware.",
+                                                       arg_firmware ?: ovmf_config->path,
+                                                       confidential_computing_to_string(arg_confidential_computing));
+                        if (!streq(ovmf_config_format(ovmf_config), "raw"))
+                                return log_error_errno(SYNTHETIC_ERRNO(EMEDIUMTYPE),
+                                                       "Firmware image '%s' is in %s format, "
+                                                       "but --coco=%s requires a raw image.",
+                                                       ovmf_config->path, ovmf_config_format(ovmf_config),
+                                                       confidential_computing_to_string(arg_confidential_computing));
+                }
+
+                bool sb = ovmf_config_has_feature(ovmf_config, "secure-boot");
+                if (set_contains(arg_firmware_features_include, "secure-boot") && !sb)
                         return log_error_errno(SYNTHETIC_ERRNO(EMEDIUMTYPE),
                                                "Secure Boot requested, but selected OVMF firmware doesn't support it.");
 
-                log_debug("Using OVMF firmware %s Secure Boot support.", ovmf_config->supports_sb ? "with" : "without");
+                log_debug("Using OVMF firmware %s Secure Boot support.", sb ? "with" : "without");
         }
 
         _cleanup_(machine_bind_user_context_freep) MachineBindUserContext *bind_user_context = NULL;
@@ -2738,7 +2769,8 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         }
 
         if (ovmf_config && ARCHITECTURE_SUPPORTS_SMM && arg_confidential_computing == COCO_NO) {
-                r = qemu_config_key(config_file, "smm", on_off(ovmf_config->supports_sb));
+                bool sb = ovmf_config_has_feature(ovmf_config, "secure-boot");
+                r = qemu_config_key(config_file, "smm", on_off(sb));
                 if (r < 0)
                         return r;
         }
