@@ -78,7 +78,7 @@ static bool measure_smbios_object(const SmbiosHeader *header, size_t size, void 
 void measure_smbios(void) {
         bool measured = false;
 
-        if (!tpm_present())
+        if (!runtime_measurement_available())
                 return;
 
         /* If the measurement was already done this boot (e.g. by sd-boot before it chainloaded us), don't
