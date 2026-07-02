@@ -60,7 +60,7 @@ int varlink_connect_networkd(sd_varlink **ret_varlink) {
         return 0;
 }
 
-int reload_networkd(void) {
+int reload_networkd(bool configure_links) {
         _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *vl = NULL;
         int r;
 
@@ -70,10 +70,20 @@ int reload_networkd(void) {
 
         (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
 
+        if (configure_links)
+                /* Use the generic service reload method for the default case to retain
+                 * compatibility with older networkd versions that lack io.systemd.Network.Reload. */
+                return varlink_callbo_and_log(
+                                vl,
+                                "io.systemd.service.Reload",
+                                /* reply= */ NULL,
+                                SD_JSON_BUILD_PAIR_BOOLEAN("allowInteractiveAuthentication", arg_ask_password));
+
         return varlink_callbo_and_log(
                         vl,
-                        "io.systemd.service.Reload",
+                        "io.systemd.Network.Reload",
                         /* reply= */ NULL,
+                        SD_JSON_BUILD_PAIR_BOOLEAN("configureLinks", false),
                         SD_JSON_BUILD_PAIR_BOOLEAN("allowInteractiveAuthentication", arg_ask_password));
 }
 
