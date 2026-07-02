@@ -262,6 +262,10 @@
         or directories below mount points in the OS image operated on that are typically overmounted during
         runtime.</para>
 
+        <para>Note that this is not a sandboxing or security feature.
+        <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        definitions are potentially not processed in a hermetic fashion to the specified root.</para>
+
         <xi:include href="version-info.xml" xpointer="v212"/></listitem>
       </varlistentry>
 
