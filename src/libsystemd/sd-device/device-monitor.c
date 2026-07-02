@@ -781,9 +781,19 @@ int device_monitor_send(
         return count;
 }
 
-static void bpf_stmt(struct sock_filter *ins, unsigned *i,
-                     unsigned short code, unsigned data) {
+static void bpf_stmt_impl(struct sock_filter *ins, unsigned *i, size_t n_ins,
+                          unsigned short code, unsigned data) {
+        assert(ins);
         assert(i);
+
+        /* Once the buffer is full stop appending and mark it with a sentinel, so callers can fail in a
+         * single place (before installing the filter) instead of bounds-checking before every append. */
+        if (*i == UINT_MAX)
+                return;
+        if (*i >= n_ins) {
+                *i = UINT_MAX;
+                return;
+        }
 
         ins[(*i)++] = (struct sock_filter) {
                 .code = code,
@@ -791,10 +801,29 @@ static void bpf_stmt(struct sock_filter *ins, unsigned *i,
         };
 }
 
-static void bpf_jmp(struct sock_filter *ins, unsigned *i,
-                    unsigned short code, unsigned data,
-                    unsigned short jt, unsigned short jf) {
+#define bpf_stmt(ins, i, code, data) \
+        bpf_stmt_impl((ins), (i), ELEMENTSOF(ins), (code), (data))
+
+static void bpf_jmp_impl(struct sock_filter *ins, unsigned *i, size_t n_ins,
+                         unsigned short code, unsigned data,
+                         unsigned jt, unsigned jf) {
+        assert(ins);
         assert(i);
+
+        if (*i == UINT_MAX)
+                return;
+        if (*i >= n_ins) {
+                *i = UINT_MAX;
+                return;
+        }
+
+        /* The jump offsets are stored in single bytes (struct sock_filter.jt/.jf are __u8). A larger
+         * offset would be silently truncated and make the filter branch to the wrong instruction, i.e.
+         * drop events that should match. Trip the same sentinel so we fail cleanly with -E2BIG instead. */
+        if (jt > UINT8_MAX || jf > UINT8_MAX) {
+                *i = UINT_MAX;
+                return;
+        }
 
         ins[(*i)++] = (struct sock_filter) {
                 .code = code,
@@ -803,6 +832,9 @@ static void bpf_jmp(struct sock_filter *ins, unsigned *i,
                 .k = data,
         };
 }
+
+#define bpf_jmp(ins, i, code, data, jt, jf) \
+        bpf_jmp_impl((ins), (i), ELEMENTSOF(ins), (code), (data), (jt), (jf))
 
 _public_ int sd_device_monitor_filter_update(sd_device_monitor *m) {
         struct sock_filter ins[512] = {};
@@ -880,9 +912,6 @@ _public_ int sd_device_monitor_filter_update(sd_device_monitor *m) {
 
                         /* matched, pass packet */
                         bpf_stmt(ins, &i, BPF_RET|BPF_K, 0xffffffff);
-
-                        if (i+1 >= ELEMENTSOF(ins))
-                                return -E2BIG;
                 }
 
                 /* nothing matched, drop packet */
@@ -891,6 +920,11 @@ _public_ int sd_device_monitor_filter_update(sd_device_monitor *m) {
 
         /* matched, pass packet */
         bpf_stmt(ins, &i, BPF_RET|BPF_K, 0xffffffff);
+
+        /* If any of the appends above overflowed the instruction buffer, bpf_stmt()/bpf_jmp() set i to
+         * UINT_MAX. Fail here, in a single place, rather than after every append. */
+        if (i == UINT_MAX)
+                return -E2BIG;
 
         /* install filter */
         filter = (struct sock_fprog) {
