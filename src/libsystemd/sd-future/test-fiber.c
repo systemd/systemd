@@ -9,6 +9,7 @@
 #include "sd-event.h"
 #include "sd-future.h"
 
+#include "alloc-util.h"
 #include "architecture.h"
 #include "log-context.h"
 #include "memory-util.h"
@@ -1166,6 +1167,43 @@ TEST(fiber_stack_guard) {
         ASSERT_OK(pidref_wait_for_terminate(&pidref, &si));
         ASSERT_TRUE(IN_SET(si.si_code, CLD_KILLED, CLD_DUMPED));
         ASSERT_TRUE(IN_SET(si.si_status, SIGSEGV, SIGBUS));
+}
+
+/* A minimal sd_future implementation, to exercise the sd_future core directly. */
+
+static void* test_future_alloc(void) {
+        return new0(uint8_t, 1); /* alloc() must return non-NULL */
+}
+
+static void test_future_free(sd_future *f) {
+        free(sd_future_get_private(f));
+}
+
+static const sd_future_ops test_future_ops = {
+        .size = sizeof(sd_future_ops),
+        .alloc = test_future_alloc,
+        .free = test_future_free,
+};
+
+TEST(future_unref_while_pending) {
+        sd_future *f;
+
+        ASSERT_OK(sd_future_new(&test_future_ops, &f));
+        ASSERT_EQ(sd_future_state(f), (int) SD_FUTURE_PENDING);
+
+        /* Unref'ing a still-pending future must cancel it cleanly, not recurse into the
+         * destructor via sd_future_resolve()'s self-ref */
+        ASSERT_NULL(sd_future_unref(f));
+}
+
+TEST(future_resolve_then_unref) {
+        sd_future *f;
+
+        ASSERT_OK(sd_future_new(&test_future_ops, &f));
+        ASSERT_OK(sd_future_resolve(f, 0));
+        ASSERT_EQ(sd_future_state(f), (int) SD_FUTURE_RESOLVED);
+        ASSERT_OK_EQ(sd_future_result(f), 0);
+        ASSERT_NULL(sd_future_unref(f));
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

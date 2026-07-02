@@ -71,8 +71,13 @@ static sd_future* sd_future_free(sd_future *f) {
         if (!f)
                 return NULL;
 
-        if (f->state == SD_FUTURE_PENDING)
-                sd_future_resolve(f, -ECANCELED);
+        if (f->state == SD_FUTURE_PENDING) {
+                /* n_ref is already 0 here, take a ref so the self-ref/unref in sd_future_resolve() doesn't
+                 * recurse back */
+                f->n_ref = 1;
+                (void) sd_future_resolve(f, -ECANCELED);
+                assert(f->n_ref == 1);
+        }
 
         set_free(f->waiters);
 
