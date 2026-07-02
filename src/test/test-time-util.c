@@ -436,9 +436,11 @@ static void test_format_timestamp_impl(usec_t x) {
         /* When the timezone is built with rearguard being enabled (e.g. old Ubuntu and RHEL), the timezone
          * Africa/Windhoek may provide time shifted 1 hour from the original. See
          * https://github.com/systemd/systemd/issues/28472 and https://github.com/systemd/systemd/pull/35471.
-         * Also, the same may happen on MSK timezone (e.g. Europe/Volgograd or Europe/Kirov). */
+         * Also, the same may happen on MSK timezone (e.g. Europe/Volgograd or Europe/Kirov), or on
+         * Africa/Tripoli (Libya) which switched between CET and EET multiple times historically, causing
+         * certain timestamps to round-trip with a 1h offset. */
         bool ignore =
-                (streq_ptr(getenv("TZ"), "Africa/Windhoek") ||
+                (STRPTR_IN_SET(getenv("TZ"), "Africa/Windhoek", "Africa/Tripoli", "Libya") ||
                  STRPTR_IN_SET(get_tzname(/* dst= */ false), "CAT", "EAT", "MSK", "WET")) &&
                 (x_sec > y_sec ? x_sec - y_sec : y_sec - x_sec) == 3600;
 
@@ -463,6 +465,10 @@ static void test_format_timestamp_loop(void) {
 
         /* With tzdata-2025c, the timestamp (randomly?) fails on MSK time zone (e.g. Europe/Volgograd). */
         test_format_timestamp_impl(1414277092997572);
+
+        /* Africa/Tripoli (Libya) switched from CET to EET multiple times in the past, causing a 1h
+         * round-trip discrepancy for historical timestamps. */
+        test_format_timestamp_impl(378687574661411);
 
         for (unsigned i = 0; i < TRIAL; i++) {
                 usec_t x;
