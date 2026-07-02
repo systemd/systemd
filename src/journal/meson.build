@@ -93,7 +93,10 @@ executables += [
                 'sources' : systemd_journald_sources,
                 'extract' : systemd_journald_extract_sources,
                 'dependencies' : [
+                        libacl_cflags,
+                        libaudit_cflags,
                         liblz4_cflags,
+                        libpcre2_cflags,
                         libselinux_cflags,
                         libxz_cflags,
                         libzstd_cflags,
@@ -104,6 +107,9 @@ executables += [
                 'public' : true,
                 'conditions' : ['HAVE_QRENCODE'],
                 'sources' : files('bsod.c'),
+                'dependencies' : [
+                        libqrencode_cflags,
+                ],
         },
         executable_template + {
                 'name' : 'systemd-cat',
@@ -119,6 +125,7 @@ executables += [
                 'dependencies' : [
                         liblz4_cflags,
                         libopenssl_cflags,
+                        libpcre2_cflags,
                         libxz_cflags,
                         libzstd_cflags,
                 ],

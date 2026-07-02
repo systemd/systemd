@@ -6,6 +6,10 @@
 #include "shared-forward.h"
 
 #if HAVE_ACL
+#ifndef SYSTEMD_CFLAGS_MARKER_LIBACL
+#  error("missing libacl_cflags in meson dependency.");
+#endif
+
 #include <acl/libacl.h> /* IWYU pragma: export */
 #include <sys/acl.h>    /* IWYU pragma: export */
 

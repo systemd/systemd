@@ -8,6 +8,10 @@
 int dlopen_microhttpd(int log_level);
 
 #if HAVE_MICROHTTPD
+#ifndef SYSTEMD_CFLAGS_MARKER_LIBMICROHTTPD
+#  error("missing libmicrohttpd_cflags in meson dependency.");
+#endif
+
 #define MICROHTTPD_NOTE(priority)                                       \
         SD_ELF_NOTE_DLOPEN("microhttpd",                                \
                            "Support for embedded HTTP server via libmicrohttpd", \

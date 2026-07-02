@@ -6,6 +6,10 @@
 int dlopen_libaudit(int log_level);
 
 #if HAVE_AUDIT
+#  ifndef SYSTEMD_CFLAGS_MARKER_LIBAUDIT
+#    error("missing libaudit_cflags in meson dependency.");
+#  endif
+
 #  include <libaudit.h>         /* IWYU pragma: export */
 
 #  include "dlfcn-util.h"
