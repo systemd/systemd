@@ -1,14 +1,19 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <string.h>
+
 #include "alloc-util.h"
 #include "hashmap.h"
 #include "hostname-setup.h"
+#include "netif-sriov.h"
 #include "network-internal.h"
 #include "networkd-manager.h"
 #include "networkd-route-util.h"
 #include "strv.h"
 #include "tests.h"
 #include "vrf.h"
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(SRIOV*, sr_iov_free);
 
 TEST(deserialize_in_addr) {
         _cleanup_free_ struct in_addr *addresses = NULL;
@@ -166,6 +171,34 @@ TEST(dhcp_hostname_shorten_overlong) {
         /* overlong fqdn, cut to first dot, empty result error */
         ASSERT_ERROR(shorten_overlong(".test-dhcp-this-one-here-is-a-very-very-long-hostname.example.com", &s), EDOM);
         ASSERT_NULL(s);
+}
+
+TEST(sr_iov_dup) {
+        _cleanup_(sr_iov_freep) SRIOV *dup = NULL;
+        SRIOV original = {
+                .vf = 42,
+                .vlan = 7,
+                .mac.ether_addr_octet = { 0x02, 0x00, 0x00, 0x11, 0x22, 0x33 },
+        };
+
+        /* Non-NULL owning pointers that sr_iov_dup() must drop in the copy. They are only checked for
+         * detachment below, never dereferenced, so any non-NULL value is fine. */
+        original.section = (ConfigSection*) &original;
+        original.sr_iov_by_section = (OrderedHashmap*) &original;
+
+        ASSERT_OK(sr_iov_dup(&original, &dup));
+        ASSERT_NOT_NULL(dup);
+
+        /* The configuration is copied ... */
+        ASSERT_EQ(dup->vf, 42u);
+        ASSERT_EQ(dup->vlan, 7u);
+        ASSERT_EQ(memcmp(&dup->mac, &original.mac, sizeof(struct ether_addr)), 0);
+
+        /* ... but the copy is detached from the config section and the owning hashmap, so it can be freed
+         * independently of the Network that owns the original (otherwise an in-flight SR-IOV request would be
+         * left with a dangling userdata pointer once the Network is freed). */
+        ASSERT_NULL(dup->section);
+        ASSERT_NULL(dup->sr_iov_by_section);
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);

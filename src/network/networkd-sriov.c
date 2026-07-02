@@ -14,6 +14,8 @@
 #include "set.h"
 #include "string-util.h"
 
+DEFINE_TRIVIAL_CLEANUP_FUNC(SRIOV*, sr_iov_free);
+
 static int sr_iov_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, SRIOV *sr_iov) {
         int r;
 
@@ -95,14 +97,25 @@ int link_request_sr_iov_vfs(Link *link) {
 
         ORDERED_HASHMAP_FOREACH(sr_iov, link->network->sr_iov_by_section) {
                 for (SRIOVAttribute attr = 0; attr < _SR_IOV_ATTRIBUTE_MAX; attr++) {
+                        _cleanup_(sr_iov_freep) SRIOV *dup = NULL;
+
                         if (!sr_iov_has_config(sr_iov, attr))
                                 continue;
+
+                        /* Hand the request queue its own copy of the configuration. The original is owned by
+                         * link->network and may be freed (e.g. on reload) while the netlink reply is still in
+                         * flight, which would otherwise leave the request with a dangling userdata pointer. */
+                        r = sr_iov_dup(sr_iov, &dup);
+                        if (r < 0)
+                                return log_link_warning_errno(link, r,
+                                                              "Failed to duplicate SR-IOV configuration for virtual function %"PRIu32": %m",
+                                                              sr_iov->vf);
 
                         r = link_queue_request_safe(
                                         link,
                                         _REQUEST_TYPE_SRIOV_BASE + attr,
-                                        sr_iov,
-                                        NULL,
+                                        dup,
+                                        sr_iov_free,
                                         sr_iov_hash_func,
                                         sr_iov_compare_func,
                                         sr_iov_process_request,
@@ -113,6 +126,8 @@ int link_request_sr_iov_vfs(Link *link) {
                                 return log_link_warning_errno(link, r,
                                                               "Failed to request to set up %s for SR-IOV virtual function %"PRIu32": %m",
                                                               sr_iov_attribute_to_string(attr), sr_iov->vf);
+                        if (r > 0)
+                                TAKE_PTR(dup);
                 }
         }
 
