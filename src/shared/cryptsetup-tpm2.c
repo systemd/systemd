@@ -307,7 +307,7 @@ int find_tpm2_auto_data(
                 CLEANUP_ARRAY(policy_hash, n_policy_hash, iovec_array_free);
 
                 r = cryptsetup_get_token_as_json(cd, token, "systemd-tpm2", &v);
-                if (IN_SET(r, -ENOENT, -EINVAL, -EMEDIUMTYPE))
+                if (ERRNO_IS_NEG_CRYPTSETUP_TOKEN_SKIP(r))
                         continue;
                 if (r < 0)
                         return log_error_errno(r, "Failed to read JSON token data off disk: %m");
