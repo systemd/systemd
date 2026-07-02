@@ -154,7 +154,8 @@ libsystemd_static = static_library(
         c_args : libsystemd_c_args,
         link_with : [libc_wrapper_static,
                      libbasic_static],
-        dependencies : [libm,
+        dependencies : [libaudit_cflags,
+                        libm,
                         libucontext,
                         userspace],
         build_by_default : false)

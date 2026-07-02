@@ -204,9 +204,12 @@ executables += [
                         libsystemd_network,
                         networkd_link_with,
                 ],
+                'dependencies' : [
+                        libbpf_cflags,
+                ],
                 'bpf_programs': [
                         'sysctl-monitor',
-                ]
+                ],
         },
         libexec_template + {
                 'name' : 'systemd-networkd-wait-online',
@@ -224,6 +227,9 @@ executables += [
                 'link_with' : [
                         libsystemd_network,
                         networkd_link_with,
+                ],
+                'dependencies' : [
+                        libselinux_cflags,
                 ],
         },
         libexec_template + {

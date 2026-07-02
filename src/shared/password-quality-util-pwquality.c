@@ -6,6 +6,9 @@
 #include "log.h"
 
 #if HAVE_PWQUALITY
+#ifndef SYSTEMD_CFLAGS_MARKER_LIBPWQUALITY
+#  error("missing libpwquality_cflags in meson dependency.");
+#endif
 
 #include <pwquality.h>
 #include <stdio.h>

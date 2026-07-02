@@ -19,6 +19,10 @@ typedef enum Fido2EnrollFlags {
 int dlopen_libfido2(int log_level);
 
 #if HAVE_LIBFIDO2
+#ifndef SYSTEMD_CFLAGS_MARKER_LIBFIDO2
+#  error("missing libfido2_cflags in meson dependency.");
+#endif
+
 #include <fido.h>
 
 #include "dlfcn-util.h"

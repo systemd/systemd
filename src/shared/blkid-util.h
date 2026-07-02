@@ -6,6 +6,9 @@
 #include "shared-forward.h"
 
 #if HAVE_BLKID
+#  ifndef SYSTEMD_CFLAGS_MARKER_LIBBLKID
+#    error("missing libblkid_cflags in meson dependency.");
+#  endif
 
 #include <blkid.h>
 

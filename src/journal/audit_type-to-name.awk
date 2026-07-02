@@ -2,6 +2,9 @@
 
 BEGIN{
         print "#if HAVE_AUDIT"
+        print "#  ifndef SYSTEMD_CFLAGS_MARKER_LIBAUDIT"
+        print "#    error(\"missing libaudit_cflags in meson dependency.\");"
+        print "#  endif"
         print "#  include <libaudit.h>"
         print "#endif"
         print ""
