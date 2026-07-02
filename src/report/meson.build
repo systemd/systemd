@@ -10,6 +10,9 @@ executables += [
                         'report-sign.c',
                         'report-upload.c',
                 ),
+                'dependencies' : [
+                        libcurl_cflags,
+                ],
         },
 
         libexec_template + {

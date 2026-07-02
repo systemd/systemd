@@ -24,7 +24,10 @@ executables += [
                 ],
                 'sources' : bootctl_sources,
                 'link_with' : boot_link_with,
-                'dependencies' : [libopenssl_cflags],
+                'dependencies' : [
+                        libopenssl_cflags,
+                        tpm2_cflags,
+                ],
         },
         test_template + {
                 'sources' : files(

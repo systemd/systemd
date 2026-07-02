@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #if HAVE_LIBCRYPT
+#  ifndef SYSTEMD_CFLAGS_MARKER_LIBCRYPT
+#    error "missing libcrypt_cflags in meson dependency."
+#  endif
 #  include <crypt.h>
 #endif
 

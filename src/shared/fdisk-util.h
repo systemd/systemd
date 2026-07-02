@@ -6,6 +6,9 @@
 #include "shared-forward.h"
 
 #if HAVE_LIBFDISK
+#ifndef SYSTEMD_CFLAGS_MARKER_LIBFDISK
+#  error "missing libfdisk_cflags in meson dependency."
+#endif
 
 #include <libfdisk.h> /* IWYU pragma: export */
 

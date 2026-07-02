@@ -174,14 +174,18 @@ libcore_static = static_library(
         include_directories : core_includes,
         implicit_include_directories : false,
         c_args : ['-fvisibility=default'],
-        dependencies : [libaudit_cflags,
-                        libbpf_cflags,
-                        libcryptsetup_cflags,
-                        libm,
-                        libmount_cflags,
-                        libseccomp_cflags,
-                        libselinux_cflags,
-                        userspace],
+        dependencies : [
+                libacl_cflags,
+                libaudit_cflags,
+                libbpf_cflags,
+                libcryptsetup_cflags,
+                libm,
+                libmount_cflags,
+                libpcre2_cflags,
+                libseccomp_cflags,
+                libselinux_cflags,
+                userspace,
+        ],
         build_by_default : false)
 
 libcore = shared_library(
@@ -210,6 +214,7 @@ core_libs_shared = [
 
 systemd_deps = [
         libapparmor_cflags,
+        libaudit_cflags,
         libkmod_cflags,
         libmount_cflags,
         libseccomp_cflags,
@@ -226,6 +231,7 @@ if conf.get('SYSTEMD_MULTICALL_BINARY') == 1
         systemd_deps += [
                 libbpf_cflags,
                 libcryptsetup_cflags,
+                libopenssl_cflags,
                 libpam_cflags,
         ]
 endif
@@ -282,6 +288,7 @@ else
                                 libbpf_cflags,
                                 libcryptsetup_cflags,
                                 libmount_cflags,
+                                libopenssl_cflags,
                                 libpam_cflags,
                                 libseccomp_cflags,
                                 libselinux_cflags,

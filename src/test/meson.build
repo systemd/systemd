@@ -79,13 +79,11 @@ simple_tests += files(
         'test-clock.c',
         'test-color-util.c',
         'test-compare-operator.c',
-        'test-condition.c',
         'test-conf-files.c',
         'test-conf-parser.c',
         'test-copy.c',
         'test-coredump-util.c',
         'test-cpu-set-util.c',
-        'test-creds.c',
         'test-daemon.c',
         'test-data-fd-util.c',
         'test-date.c',
@@ -170,7 +168,6 @@ simple_tests += files(
         'test-parse-util.c',
         'test-path-lookup.c',
         'test-path-util.c',
-        'test-pe-binary.c',
         'test-percent-util.c',
         'test-pidref.c',
         'test-pressure.c',
@@ -246,6 +243,7 @@ executables += [
         test_template + {
                 'sources' : files('test-acl-util.c'),
                 'conditions' : ['HAVE_ACL'],
+                'dependencies' : libacl_cflags,
         },
         test_template + {
                 'sources' : files('test-af-list.c') +
@@ -281,6 +279,14 @@ executables += [
                 'link_with' : [libshared],
         },
         test_template + {
+                'sources' : files('test-condition.c'),
+                'dependencies' : [
+                        libapparmor_cflags,
+                        libaudit_cflags,
+                        libselinux_cflags,
+                ],
+        },
+        test_template + {
                 'sources' : files('test-coredump-stacktrace.c'),
                 'type' : 'manual',
                 # This test intentionally crashes with SIGSEGV by dereferencing a NULL pointer
@@ -290,6 +296,10 @@ executables += [
                 # what we build the rest of systemd with
                 'override_options' : ['b_sanitize=none', 'strip=false', 'debug=true'],
                 'c_args' : ['-fno-sanitize=all', '-fno-optimize-sibling-calls', '-O1'],
+        },
+        test_template + {
+                'sources' : files('test-creds.c'),
+                'dependencies' : tpm2_cflags,
         },
         test_template + {
                 'sources' : files('test-crypto-util.c'),
@@ -306,15 +316,29 @@ executables += [
                         'gcrypt-util.c',
                 ),
                 'dependencies' : [
+                        libacl_cflags,
+                        libapparmor_cflags,
+                        libarchive_cflags,
+                        libaudit_cflags,
                         libblkid_cflags,
+                        libbpf_cflags,
+                        libcryptsetup_cflags,
+                        libcurl_cflags,
                         libfdisk_cflags,
+                        libfido2_cflags,
                         libgcrypt_cflags,
                         libgnutls_cflags,
+                        libidn2_cflags,
                         libkmod_cflags,
                         libmicrohttpd_cflags,
                         libmount_cflags,
+                        libopenssl_cflags,
                         libp11kit_cflags,
+                        libpam_cflags,
+                        libpcre2_cflags,
                         libseccomp_cflags,
+                        libselinux_cflags,
+                        tpm2_cflags,
                 ],
         },
         test_template + {
@@ -373,6 +397,7 @@ executables += [
         test_template + {
                 'sources' : files('test-curl-util.c'),
                 'conditions' : ['HAVE_LIBCURL'],
+                'dependencies' : libcurl_cflags,
         },
         test_template + {
                 'sources' : files('test-libcrypt-util.c'),
@@ -422,6 +447,10 @@ executables += [
                 'sources' : files('test-nss-users.c'),
                 'objects' : ['test-nss-hosts'],
                 'conditions' : ['ENABLE_NSS'],
+        },
+        test_template + {
+                'sources' : files('test-pe-binary.c'),
+                'dependencies' : libopenssl_cflags,
         },
         test_template + {
                 'sources' : files('test-pkcs7-util.c'),
@@ -476,7 +505,10 @@ executables += [
         },
         test_template + {
                 'sources' : files('test-tpm2.c'),
-                'dependencies' : libopenssl_cflags,
+                'dependencies' : [
+                        libopenssl_cflags,
+                        tpm2_cflags,
+                ],
                 'timeout' : 120,
         },
         test_template + {
@@ -528,11 +560,17 @@ executables += [
         },
         core_test_template + {
                 'sources' : files('test-bpf-restrict-fs.c'),
-                'dependencies' : common_test_dependencies,
+                'dependencies' : [
+                        common_test_dependencies,
+                        libbpf_cflags,
+                ],
         },
         core_test_template + {
                 'sources' : files('test-bpf-restrict-fsaccess.c'),
-                'dependencies' : common_test_dependencies,
+                'dependencies' : [
+                        common_test_dependencies,
+                        libbpf_cflags,
+                ],
                 'bpf_programs' : ['restrict-fsaccess'],
                 'type' : 'manual',
         },
@@ -584,7 +622,10 @@ executables += [
         },
         core_test_template + {
                 'sources' : files('test-load-fragment.c'),
-                'dependencies' : common_test_dependencies,
+                'dependencies' : [
+                        common_test_dependencies,
+                        libpcre2_cflags,
+                ],
         },
         core_test_template + {
                 'sources' : files('test-loop-util.c'),

@@ -7,6 +7,10 @@
 #include "shared-forward.h"
 
 #if HAVE_SECCOMP
+#ifndef SYSTEMD_CFLAGS_MARKER_LIBSECCOMP
+#  error "missing libseccomp_cflags in meson dependency."
+#endif
+
 #include <seccomp.h> /* IWYU pragma: export */
 
 #include "dlfcn-util.h"
