@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 sd_journal_sources = files(
-        'sd-journal/audit-type.c',
         'sd-journal/catalog.c',
         'sd-journal/journal-authenticate-internal.c',
         'sd-journal/journal-file.c',
@@ -12,11 +11,6 @@ sd_journal_sources = files(
         'sd-journal/mmap-cache.c',
         'sd-journal/sd-journal.c',
 )
-
-subdir('sd-journal')
-
-generated_sources += audit_type_to_name
-sd_journal_sources += audit_type_to_name
 
 ############################################################
 
@@ -197,7 +191,6 @@ simple_tests += files(
         'sd-future/test-fiber-ops.c',
         'sd-hwdb/test-sd-hwdb.c',
         'sd-id128/test-id128.c',
-        'sd-journal/test-audit-type.c',
         'sd-journal/test-catalog.c',
         'sd-journal/test-journal-file.c',
         'sd-journal/test-journal-flush.c',
