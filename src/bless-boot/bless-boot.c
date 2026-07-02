@@ -428,7 +428,7 @@ static int rename_in_dir_idempotent(int fd, const char *from, const char *to) {
 
 static int verb_set(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *path = NULL, *prefix = NULL, *suffix = NULL, *good = NULL, *bad = NULL;
-        const char *target, *source1, *source2;
+        const char *target = NULL, *source1 = NULL, *source2 = NULL;  /* avoid false maybe-uninitialized warning */
         uint64_t left, done;
         int r;
 
