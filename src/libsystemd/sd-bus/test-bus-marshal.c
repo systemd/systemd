@@ -5,12 +5,18 @@
 #include "macro.h"
 
 #if HAVE_GLIB
+#ifndef SYSTEMD_CFLAGS_MARKER_LIBGLIB
+#  error("missing libglib_cflags in meson dependency.");
+#endif
 DISABLE_WARNING_FORMAT_NONLITERAL
 #include <gio/gio.h> /* NOLINT */
 REENABLE_WARNING
 #endif
 
 #if HAVE_DBUS
+#ifndef SYSTEMD_CFLAGS_MARKER_LIBDBUS
+#  error("missing libdbus_cflags in meson dependency.");
+#endif
 #include <dbus/dbus.h>
 #endif
 

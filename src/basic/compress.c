@@ -6,25 +6,40 @@
 #include <unistd.h>
 
 #if HAVE_XZ
+#ifndef SYSTEMD_CFLAGS_MARKER_LIBXZ
+#  error("missing libxz_cflags in meson dependency.");
+#endif
 #include <lzma.h>
 #endif
 
 #if HAVE_LZ4
+#ifndef SYSTEMD_CFLAGS_MARKER_LIBLZ4
+#  error("missing liblz4_cflags in meson dependency.");
+#endif
 #include <lz4.h>
 #include <lz4frame.h>
 #include <lz4hc.h>
 #endif
 
 #if HAVE_ZSTD
+#ifndef SYSTEMD_CFLAGS_MARKER_LIBZSTD
+#  error("missing libzstd_cflags in meson dependency.");
+#endif
 #include <zstd.h>
 #include <zstd_errors.h>
 #endif
 
 #if HAVE_ZLIB
+#ifndef SYSTEMD_CFLAGS_MARKER_LIBZ
+#  error("missing libz_cflags in meson dependency.");
+#endif
 #include <zlib.h>
 #endif
 
 #if HAVE_BZIP2
+#ifndef SYSTEMD_CFLAGS_MARKER_LIBBZIP2
+#  error("missing libbzip2_cflags in meson dependency.");
+#endif
 #include <bzlib.h>
 #endif
 

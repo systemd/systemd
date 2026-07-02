@@ -6,6 +6,9 @@
 #include "sd-dlopen.h"
 
 #if HAVE_LIBBPF
+#ifndef SYSTEMD_CFLAGS_MARKER_LIBBPF
+#  error("missing libbpf_cflags in meson dependency.");
+#endif
 
 #include <bpf/bpf.h>    /* IWYU pragma: export */
 #include <bpf/libbpf.h> /* IWYU pragma: export */
