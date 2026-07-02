@@ -7,6 +7,7 @@
 #include "bus-internal.h"
 #include "bus-message.h"
 #include "log.h"
+#include "set.h"
 #include "strv.h"
 #include "tests.h"
 
@@ -566,12 +567,33 @@ static int client(void *p) {
         return 0;
 }
 
+static const sd_bus_vtable partial_vtable[] = {
+        SD_BUS_VTABLE_START(0),
+        SD_BUS_METHOD("Foo", NULL, NULL, NULL, 0),
+        SD_BUS_METHOD("has space", NULL, NULL, NULL, 0), /* invalid member name, registration fails here */
+        SD_BUS_VTABLE_END
+};
+
+static void test_vtable_partial_failure(void) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+
+        ASSERT_OK(sd_bus_new(&bus));
+
+        /* Registration fails at the invalid member, after "Foo" was already inserted into the global vtable
+         * member tables. Check that the fail path removes it again. */
+        ASSERT_ERROR(sd_bus_add_object_vtable(bus, NULL, "/x", "org.test.iface", partial_vtable, NULL), EINVAL);
+
+        ASSERT_TRUE(set_isempty(bus->vtable_methods));
+}
+
 int main(int argc, char *argv[]) {
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
         _cleanup_(sd_future_unrefp) sd_future *f_server = NULL, *f_client = NULL;
         struct context c = {};
 
         test_setup_logging(LOG_DEBUG);
+
+        test_vtable_partial_failure();
 
         c.automatic_integer_property = 4711;
         ASSERT_NOT_NULL(c.automatic_string_property = strdup("dudeldu"));
