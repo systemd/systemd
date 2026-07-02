@@ -60,6 +60,10 @@
 #DefaultIOPressureWatch=auto
 #DefaultSmackProcessLabel=
 #DefaultRestrictSUIDSGID=
+#DefaultProtectKernelTunables=
+#DefaultProtectKernelModules=
+#DefaultPrivateTmp=
+#DefaultProtectHome=
 #ReloadLimitIntervalSec=
 #ReloadLimitBurst=
 #EventLoopRateLimitIntervalSec=1s
