@@ -8,6 +8,10 @@
 int dlopen_libssl(int log_level);
 
 #if HAVE_OPENSSL
+#ifndef SYSTEMD_CFLAGS_MARKER_LIBOPENSSL
+#  error("missing libopenssl_cflags in meson dependency.");
+#endif
+
 #define LIBSSL_NOTE(priority)                                           \
         SD_ELF_NOTE_DLOPEN("libssl",                                    \
                            "Support for TLS",                           \

@@ -6,6 +6,9 @@
 #include "shared-forward.h"
 
 #if HAVE_LIBMOUNT
+#ifndef SYSTEMD_CFLAGS_MARKER_LIBMOUNT
+#  error("missing libmount_cflags in meson dependency.");
+#endif
 
 /* This needs to be after sys/mount.h */
 #include <libmount.h> /* IWYU pragma: export */

@@ -27,6 +27,7 @@ executables += [
                         libfido2_cflags,
                         libopenssl_cflags,
                         libp11kit_cflags,
+                        tpm2_cflags,
                 ],
         },
 ]
