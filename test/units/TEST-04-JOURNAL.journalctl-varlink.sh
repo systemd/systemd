@@ -79,3 +79,55 @@ varlinkctl_get_entries '{"priority": 4, "limit": 1000}' | grep "varlink-test-war
 
 # NoEntries error is raised if there is no result
 (! varlinkctl call --more "$VARLINK_SOCKET" io.systemd.JournalAccess.GetEntries '{"units": ["nonexistent-unit-that-should-have-no-entries.service"]}' 2>&1 | grep io.systemd.JournalAccess.NoEntries )
+
+# follow mode: after the backlog the call stays open and new entries are streamed
+FOLLOW_OUT="$(mktemp)"
+FOLLOW_UNIT_OUT="$(mktemp)"
+FOLLOW_PID=""
+FOLLOW_UNIT_PID=""
+cleanup_follow() {
+    [[ -n "$FOLLOW_PID" ]] && kill "$FOLLOW_PID" 2>/dev/null || :
+    [[ -n "$FOLLOW_UNIT_PID" ]] && kill "$FOLLOW_UNIT_PID" 2>/dev/null || :
+    rm -f "$FOLLOW_OUT" "$FOLLOW_UNIT_OUT"
+}
+trap cleanup_follow EXIT
+
+# -E is short for --more --timeout=infinity: without it varlinkctl gives up on quiet streams after 45s.
+# Filter by our own unit: with debug logging the server instance traces every message it sends into
+# the very journal it is following, feeding back on itself until the output queue limit (-ENOBUFS)
+# kills the connection.
+varlinkctl call -E "$VARLINK_SOCKET" io.systemd.JournalAccess.GetEntries \
+    '{"follow": true, "limit": 2, "units": ["TEST-04-JOURNAL.service"]}' >"$FOLLOW_OUT" &
+FOLLOW_PID=$!
+
+# the backlog arrives quickly and the call does not complete
+timeout 30 bash -c "until [[ \$(wc -l <'$FOLLOW_OUT') -ge 2 ]]; do sleep .5; done"
+kill -0 "$FOLLOW_PID"
+
+# new entries are pushed into the stream as they are logged
+echo "varlink-follow-live-1" | systemd-cat -t "$TAG"
+journalctl --sync
+timeout 30 bash -c "until grep -q varlink-follow-live-1 '$FOLLOW_OUT'; do sleep .5; done"
+echo "varlink-follow-live-2" | systemd-cat -t "$TAG"
+journalctl --sync
+timeout 30 bash -c "until grep -q varlink-follow-live-2 '$FOLLOW_OUT'; do sleep .5; done"
+kill -0 "$FOLLOW_PID"
+
+# follow composes with filters, and an empty backlog does not complete the call
+FOLLOW_UNIT="test-journalctl-varlink-follow-$RANDOM.service"
+varlinkctl call -E "$VARLINK_SOCKET" io.systemd.JournalAccess.GetEntries "{\"follow\": true, \"units\": [\"$FOLLOW_UNIT\"]}" >"$FOLLOW_UNIT_OUT" &
+FOLLOW_UNIT_PID=$!
+sleep 1
+kill -0 "$FOLLOW_UNIT_PID"
+test ! -s "$FOLLOW_UNIT_OUT"
+
+systemd-run --unit="$FOLLOW_UNIT" --wait bash -c 'echo hello-from-follow-test'
+journalctl --sync
+timeout 30 bash -c "until grep -q hello-from-follow-test '$FOLLOW_UNIT_OUT'; do sleep .5; done"
+(! grep -q varlink-follow-live-1 "$FOLLOW_UNIT_OUT")
+
+# on client disconnect the socket-activated server instances exit again (exit-on-idle)
+kill "$FOLLOW_PID" "$FOLLOW_UNIT_PID"
+FOLLOW_PID=""
+FOLLOW_UNIT_PID=""
+timeout 30 bash -c 'until [[ $(systemctl list-units --no-legend --plain "systemd-journalctl@*.service" | wc -l) -eq 0 ]]; do sleep .5; done'
