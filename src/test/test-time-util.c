@@ -433,15 +433,26 @@ static void test_format_timestamp_impl(usec_t x) {
         if (x_sec == y_sec && streq(xx, yy))
                 return; /* Yay! */
 
-        /* When the timezone is built with rearguard being enabled (e.g. old Ubuntu and RHEL), the timezone
-         * Africa/Windhoek may provide time shifted 1 hour from the original. See
-         * https://github.com/systemd/systemd/issues/28472 and https://github.com/systemd/systemd/pull/35471.
-         * Also, the same may happen on MSK timezone (e.g. Europe/Volgograd or Europe/Kirov), or on
-         * Africa/Tripoli (Libya) which switched between CET and EET multiple times historically, causing
-         * certain timestamps to round-trip with a 1h offset. */
+        /* There are two classes of known round-trip failures that produce exactly a 1h offset:
+         *
+         * 1) The formatted abbreviation doesn't match the current timezone's abbreviations - the timestamp
+         *    is from a historical era (e.g. Africa/Tripoli switched between CET and EET multiple times
+         *    historically, America/Cancun switched between EST/EDT and CST/CDT several times in the past,
+         *    etc.), and the round-trip is inherently unreliable on platforms where parse_gmtoff() resolves
+         *    such abbreviations with incorrect offsets.
+         *
+         * 2) Rearguard/vanguard database format differences where the abbreviation matches but the
+         *    offset is still wrong (e.g. Africa/Windhoek).
+         *
+         * See:
+         *   - https://github.com/systemd/systemd/issues/28472
+         *   - https://github.com/systemd/systemd/pull/35471
+         *   - https://github.com/systemd/systemd/issues/37684
+         */
         bool ignore =
-                (STRPTR_IN_SET(getenv("TZ"), "Africa/Windhoek", "Africa/Tripoli", "Libya") ||
-                 STRPTR_IN_SET(get_tzname(/* dst= */ false), "CAT", "EAT", "MSK", "WET")) &&
+                ((!streq_ptr(tz, get_tzname(/* dst= */ false)) &&
+                  !streq_ptr(tz, get_tzname(/* dst= */ true))) ||
+                 streq_ptr(getenv("TZ"), "Africa/Windhoek")) &&
                 (x_sec > y_sec ? x_sec - y_sec : y_sec - x_sec) == 3600;
 
         log_full(ignore ? LOG_WARNING : LOG_ERR,
@@ -459,16 +470,17 @@ static void test_format_timestamp_loop(void) {
         test_format_timestamp_impl(USEC_TIMESTAMP_FORMATTABLE_MAX-1);
         test_format_timestamp_impl(USEC_TIMESTAMP_FORMATTABLE_MAX);
 
-        /* Two cases which trigger https://github.com/systemd/systemd/issues/28472 */
+        /* Specific timestamps known to cause a 1h round-trip discrepancy with certain timezones:
+         *
+         * Two cases which trigger https://github.com/systemd/systemd/issues/28472. */
         test_format_timestamp_impl(1504938962980066);
         test_format_timestamp_impl(1509482094632752);
-
         /* With tzdata-2025c, the timestamp (randomly?) fails on MSK time zone (e.g. Europe/Volgograd). */
         test_format_timestamp_impl(1414277092997572);
-
-        /* Africa/Tripoli (Libya) switched from CET to EET multiple times in the past, causing a 1h
-         * round-trip discrepancy for historical timestamps. */
+        /* Africa/Tripoli (Libya) switched from CET to EET multiple times in the past. */
         test_format_timestamp_impl(378687574661411);
+        /* America/Cancun switched from EST/EDT to CST/CDT multiple times in the past. */
+        test_format_timestamp_impl(902035565603993);
 
         for (unsigned i = 0; i < TRIAL; i++) {
                 usec_t x;
