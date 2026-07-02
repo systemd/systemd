@@ -3,12 +3,14 @@
 #include "sd-bus.h"
 #include "sd-json.h"
 
+#include "async.h"
 #include "bitfield.h"
 #include "bus-polkit.h"
 #include "cgroup.h"
 #include "condition.h"
 #include "dbus-job.h"
 #include "execute.h"
+#include "fd-util.h"
 #include "format-util.h"
 #include "install.h"
 #include "iovec-util.h"
@@ -739,6 +741,14 @@ typedef struct TransientServiceParameters {
         TransientExecCommandItem *exec_start;
         size_t n_exec_start;
         int remain_after_exit;
+        /* Indices of stdio fds attached to the method call (SCM_RIGHTS), UINT_MAX if unset. Resolved into
+         * the owned fds below by transient_service_resolve_stdio_fds(). */
+        unsigned stdin_fd_index;
+        unsigned stdout_fd_index;
+        unsigned stderr_fd_index;
+        int stdin_fd;
+        int stdout_fd;
+        int stderr_fd;
 } TransientServiceParameters;
 
 static void transient_service_parameters_done(TransientServiceParameters *p) {
@@ -746,6 +756,9 @@ static void transient_service_parameters_done(TransientServiceParameters *p) {
         FOREACH_ARRAY(i, p->exec_start, p->n_exec_start)
                 transient_exec_command_item_done(i);
         free(p->exec_start);
+        safe_close(p->stdin_fd);
+        safe_close(p->stdout_fd);
+        safe_close(p->stderr_fd);
 }
 
 static void transient_service_parameters_init(TransientServiceParameters *p) {
@@ -753,6 +766,12 @@ static void transient_service_parameters_init(TransientServiceParameters *p) {
         *p = (TransientServiceParameters) {
                 .type = _SERVICE_TYPE_INVALID,
                 .remain_after_exit = -1,
+                .stdin_fd_index = UINT_MAX,
+                .stdout_fd_index = UINT_MAX,
+                .stderr_fd_index = UINT_MAX,
+                .stdin_fd = -EBADF,
+                .stdout_fd = -EBADF,
+                .stderr_fd = -EBADF,
         };
 }
 
@@ -938,9 +957,12 @@ static int dispatch_transient_exec_context(const char *name, sd_json_variant *va
 
 static int dispatch_transient_service(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         static const sd_json_dispatch_field service_dispatch[] = {
-                { "Type",            SD_JSON_VARIANT_STRING,  dispatch_service_type,           offsetof(TransientServiceParameters, type),              0 },
-                { "ExecStart",       SD_JSON_VARIANT_ARRAY,   dispatch_transient_exec_command, 0,                                                       0 },
-                { "RemainAfterExit", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate,       offsetof(TransientServiceParameters, remain_after_exit), 0 },
+                { "Type",                         SD_JSON_VARIANT_STRING,        dispatch_service_type,           offsetof(TransientServiceParameters, type),              0 },
+                { "ExecStart",                    SD_JSON_VARIANT_ARRAY,         dispatch_transient_exec_command, 0,                                                       0 },
+                { "RemainAfterExit",              SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_tristate,       offsetof(TransientServiceParameters, remain_after_exit), 0 },
+                { "StandardInputFileDescriptor",  _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,           offsetof(TransientServiceParameters, stdin_fd_index),    0 },
+                { "StandardOutputFileDescriptor", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,           offsetof(TransientServiceParameters, stdout_fd_index),   0 },
+                { "StandardErrorFileDescriptor",  _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,           offsetof(TransientServiceParameters, stderr_fd_index),   0 },
                 {}
         };
 
@@ -1435,6 +1457,67 @@ static int transient_exec_context_apply_properties(Unit *u, ExecContext *c, Tran
         return 0;
 }
 
+static int transient_service_resolve_one_stdio_fd(
+                sd_varlink *link,
+                unsigned idx,
+                int accmode,
+                int *ret_fd) {
+
+        int r;
+
+        assert(link);
+        assert(ret_fd);
+
+        if (idx == UINT_MAX) /* not specified */
+                return 0;
+
+        /* Dup non-destructively off the connection, so that a re-dispatch of the method (e.g. after a
+         * deferred polkit authorization) can resolve the same index again. */
+        _cleanup_close_ int fd = sd_varlink_peek_dup_fd(link, (size_t) idx);
+        if (fd < 0)
+                return fd;
+
+        r = fd_vet_accmode(fd, accmode);
+        if (r < 0)
+                return r;
+
+        safe_close(*ret_fd);
+        *ret_fd = TAKE_FD(fd);
+        return 1;
+}
+
+/* Resolve stdio fd indices to fds attached to the method call. Ownership of the resolved fds lands in
+ * the parameters and is released by transient_service_parameters_done(). */
+static int transient_service_resolve_stdio_fds(sd_varlink *link, TransientServiceParameters *sp, const char **reterr_field) {
+        int r;
+
+        assert(link);
+        assert(sp);
+
+        r = transient_service_resolve_one_stdio_fd(link, sp->stdin_fd_index, O_RDONLY, &sp->stdin_fd);
+        if (r < 0) {
+                if (reterr_field)
+                        *reterr_field = "Service.StandardInputFileDescriptor";
+                return r;
+        }
+
+        r = transient_service_resolve_one_stdio_fd(link, sp->stdout_fd_index, O_WRONLY, &sp->stdout_fd);
+        if (r < 0) {
+                if (reterr_field)
+                        *reterr_field = "Service.StandardOutputFileDescriptor";
+                return r;
+        }
+
+        r = transient_service_resolve_one_stdio_fd(link, sp->stderr_fd_index, O_WRONLY, &sp->stderr_fd);
+        if (r < 0) {
+                if (reterr_field)
+                        *reterr_field = "Service.StandardErrorFileDescriptor";
+                return r;
+        }
+
+        return 0;
+}
+
 static int transient_service_apply_properties(Service *s, TransientServiceParameters *sp, const char **reterr_field) {
         Unit *u = UNIT(ASSERT_PTR(s));
         int r;
@@ -1444,6 +1527,25 @@ static int transient_service_apply_properties(Service *s, TransientServiceParame
         if (sp->type >= 0) {
                 s->type = sp->type;
                 unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE, "Type", "Type=%s", service_type_to_string(sp->type));
+        }
+
+        /* Passed stdio fds, resolved earlier by transient_service_resolve_stdio_fds(): store them on the
+         * Service and flag the exec context. Not written as a text setting; fd serialization across
+         * reexec is handled by service_serialize(). */
+        if (sp->stdin_fd >= 0) {
+                asynchronous_close(s->stdin_fd);
+                s->stdin_fd = TAKE_FD(sp->stdin_fd);
+                s->exec_context.stdio_as_fds = true;
+        }
+        if (sp->stdout_fd >= 0) {
+                asynchronous_close(s->stdout_fd);
+                s->stdout_fd = TAKE_FD(sp->stdout_fd);
+                s->exec_context.stdio_as_fds = true;
+        }
+        if (sp->stderr_fd >= 0) {
+                asynchronous_close(s->stderr_fd);
+                s->stderr_fd = TAKE_FD(sp->stderr_fd);
+                s->exec_context.stdio_as_fds = true;
         }
 
         if (sp->remain_after_exit >= 0) {
@@ -1577,6 +1679,15 @@ int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters
                         &manager->polkit_registry);
         if (r <= 0)
                 return r;
+
+        /* Resolve stdio fd indices against the fds attached to this method call before the unit exists,
+         * so a failure (bad index, wrong access mode) doesn't leave a half-configured transient unit. */
+        bad_field = NULL;
+        r = transient_service_resolve_stdio_fds(link, &p.context.service, &bad_field);
+        if (IN_SET(r, -ENXIO, -EPROTOTYPE, -EBADFD, -EISDIR)) /* bad index or unsuitable fd */
+                return sd_varlink_error_invalid_parameter_name(link, bad_field ?: "Service");
+        if (r < 0)
+                return sd_varlink_error_errno(link, r);
 
         r = manager_setup_transient_unit(manager, p.context.id, &u, &bus_error);
         if (r < 0)
