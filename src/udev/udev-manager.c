@@ -50,63 +50,6 @@
 #define EVENT_REQUEUE_INTERVAL_USEC (200 * USEC_PER_MSEC)
 #define EVENT_REQUEUE_TIMEOUT_USEC  (3 * USEC_PER_MINUTE)
 
-typedef enum EventState {
-        EVENT_UNDEF,
-        EVENT_QUEUED,
-        EVENT_RUNNING,
-        EVENT_LOCKED,
-        EVENT_PROCESSED,
-} EventState;
-
-typedef struct Event {
-        /* All events that have not been processed (state != EVENT_PROCESSED) are referenced by the Manager.
-         * Additionally, an event may be referenced by events blocked by this event. See event_find_blocker(). */
-        unsigned n_ref;
-
-        Manager *manager;
-        Worker *worker;
-        EventState state;
-
-        sd_device *dev;
-
-        sd_device_action_t action;
-        uint64_t seqnum;
-        const char *id;
-        const char *devpath;
-        const char *devpath_old;
-        const char *devnode;
-
-        /* Used when the device is locked by another program. */
-        usec_t requeue_next_usec;
-        usec_t requeue_timeout_usec;
-        unsigned locked_event_prioq_index;
-        char *whole_disk;
-        LIST_FIELDS(Event, same_disk);
-
-        /* The last blocker for this event. This event must not be processed before the blocker is processed. */
-        Event *blocker;
-
-        LIST_FIELDS(Event, event);
-} Event;
-
-typedef enum WorkerState {
-        WORKER_UNDEF,
-        WORKER_RUNNING,
-        WORKER_IDLE,
-        WORKER_KILLED,
-} WorkerState;
-
-typedef struct Worker {
-        Manager *manager;
-        PidRef pidref;
-        sd_event_source *child_event_source;
-        sd_event_source *timeout_warning_event_source;
-        sd_event_source *timeout_kill_event_source;
-        union sockaddr_union address;
-        WorkerState state;
-        Event *event;
-} Worker;
-
 static void event_unset_whole_disk(Event *event) {
         Manager *manager = ASSERT_PTR(ASSERT_PTR(event)->manager);
 
@@ -171,12 +114,17 @@ static Event* event_enter_processed(Event *event) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Event*, event_enter_processed);
 
-static Worker* worker_free(Worker *worker) {
+Worker* worker_free(Worker *worker) {
         if (!worker)
                 return NULL;
 
         if (worker->manager)
                 hashmap_remove(worker->manager->workers, &worker->pidref);
+
+        /* If an event is still attached, clear its back-pointer so it doesn't dangle (mirrors event_free(),
+         * which clears the worker's pointer). */
+        if (worker->event)
+                worker->event->worker = NULL;
 
         sd_event_source_disable_unref(worker->child_event_source);
         sd_event_source_unref(worker->timeout_warning_event_source);

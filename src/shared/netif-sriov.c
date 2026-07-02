@@ -16,7 +16,7 @@
 #include "string-table.h"
 #include "string-util.h"
 
-static SRIOV* sr_iov_free(SRIOV *sr_iov) {
+SRIOV* sr_iov_free(SRIOV *sr_iov) {
         if (!sr_iov)
                 return NULL;
 
@@ -29,6 +29,25 @@ static SRIOV* sr_iov_free(SRIOV *sr_iov) {
 }
 
 DEFINE_SECTION_CLEANUP_FUNCTIONS(SRIOV, sr_iov_free);
+
+int sr_iov_dup(const SRIOV *sr_iov, SRIOV **ret) {
+        _cleanup_(sr_iov_freep) SRIOV *dup = NULL;
+
+        assert(sr_iov);
+        assert(ret);
+
+        dup = newdup(SRIOV, sr_iov, 1);
+        if (!dup)
+                return -ENOMEM;
+
+        /* Detach the copy from the config section and its owning hashmap: it is handed to the request queue
+         * and must be freeable independently of the Network object that owns the original. */
+        dup->section = NULL;
+        dup->sr_iov_by_section = NULL;
+
+        *ret = TAKE_PTR(dup);
+        return 0;
+}
 
 DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
                 sr_iov_hash_ops_by_section,
