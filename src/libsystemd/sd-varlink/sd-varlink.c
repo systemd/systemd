@@ -63,6 +63,7 @@ static const char* const varlink_state_table[_VARLINK_STATE_MAX] = {
         [VARLINK_PROCESSED_METHOD]         = "processed-method",
         [VARLINK_PENDING_METHOD]           = "pending-method",
         [VARLINK_PENDING_METHOD_MORE]      = "pending-method-more",
+        [VARLINK_PENDING_METHOD_ONEWAY]    = "pending-method-oneway",
         [VARLINK_PENDING_DISCONNECT]       = "pending-disconnect",
         [VARLINK_PENDING_TIMEOUT]          = "pending-timeout",
         [VARLINK_PROCESSING_DISCONNECT]    = "processing-disconnect",
@@ -112,7 +113,7 @@ static JsonStreamPhase varlink_phase(void *userdata) {
         if (v->state == VARLINK_IDLE_CLIENT)
                 return JSON_STREAM_PHASE_IDLE_CLIENT;
 
-        if (IN_SET(v->state, VARLINK_PENDING_METHOD, VARLINK_PENDING_METHOD_MORE))
+        if (IN_SET(v->state, VARLINK_PENDING_METHOD, VARLINK_PENDING_METHOD_MORE, VARLINK_PENDING_METHOD_ONEWAY))
                 return JSON_STREAM_PHASE_PENDING_OUTPUT;
 
         return JSON_STREAM_PHASE_OTHER;
@@ -1085,12 +1086,45 @@ static void varlink_fiber_data_destroy(void *userdata) {
         varlink_fiber_data_free(userdata);
 }
 
+/* For oneway method calls no reply is ever sent to the client. But applications still call
+ * sd_varlink_reply()/sd_varlink_error() to signal completion of a deferred oneway method. In that case we
+ * discard the payload, but still drive the state machine forward, so the connection may dispatch the next
+ * queued method. Returns true if the connection was in a oneway state (and hence was handled here), false
+ * otherwise. */
+static bool varlink_oneway_complete(sd_varlink *v) {
+        assert(v);
+
+        if (!IN_SET(v->state, VARLINK_PROCESSING_METHOD_ONEWAY, VARLINK_PENDING_METHOD_ONEWAY))
+                return false;
+
+        if (v->state == VARLINK_PENDING_METHOD_ONEWAY) {
+                /* Completion happened outside the varlink_dispatch_method() stack frame (e.g. from a timer
+                 * or fiber). Return to idle ourselves and re-arm deferred processing to pick up the next
+                 * queued method. */
+                varlink_clear_current(v);
+                varlink_set_state(v, VARLINK_IDLE_SERVER);
+
+                if (v->defer_event_source)
+                        (void) sd_event_source_set_enabled(v->defer_event_source, SD_EVENT_ON);
+        } else
+                /* Still inside varlink_dispatch_method(), its post-callback switch returns us to idle. */
+                varlink_set_state(v, VARLINK_PROCESSED_METHOD);
+
+        return true;
+}
+
 static int varlink_fiber_entry(void *userdata) {
         VarlinkFiberData *d = ASSERT_PTR(userdata);
         sd_varlink *v = d->link;
         int r;
 
         r = d->callback(v, d->parameters, d->flags, d->userdata);
+
+        /* A deferred oneway method parks in VARLINK_PENDING_METHOD_ONEWAY. If the fiber generated a
+         * (discarded) reply, sd_varlink_reply() already returned us to idle, otherwise complete it here so
+         * the connection can dispatch the next queued method. */
+        if (varlink_oneway_complete(v))
+                return r;
 
         /* The fiber runs after varlink_dispatch_method() has already transitioned the state from
          * VARLINK_PROCESSING_METHOD{,_MORE} to VARLINK_PENDING_METHOD{,_MORE}, so that's what we match
@@ -1387,8 +1421,19 @@ static int varlink_dispatch_method(sd_varlink *v) {
 
         switch (v->state) {
 
+        case VARLINK_PROCESSING_METHOD_ONEWAY:
+                /* A oneway method that stashed the connection to finish asynchronously parks in
+                 * VARLINK_PENDING_METHOD_ONEWAY, so that we do not dispatch the next queued method until
+                 * the deferred work completes and produces its (discarded) reply. A oneway method that
+                 * finished synchronously simply returns to idle. */
+                if (v->n_ref > 2) {
+                        varlink_set_state(v, VARLINK_PENDING_METHOD_ONEWAY);
+                        break;
+                }
+
+                _fallthrough_;
+
         case VARLINK_PROCESSED_METHOD: /* Method call is fully processed */
-        case VARLINK_PROCESSING_METHOD_ONEWAY: /* ditto */
                 varlink_clear_current(v);
                 varlink_set_state(v, VARLINK_IDLE_SERVER);
                 break;
@@ -2360,9 +2405,14 @@ static int varlink_reply_internal(sd_varlink *v, sd_json_variant *parameters, bo
                 return varlink_log_errno(v, SYNTHETIC_ERRNO(ENOTCONN), "Not connected.");
 
         if (!IN_SET(v->state,
-                    VARLINK_PROCESSING_METHOD, VARLINK_PROCESSING_METHOD_MORE,
-                    VARLINK_PENDING_METHOD, VARLINK_PENDING_METHOD_MORE))
+                    VARLINK_PROCESSING_METHOD, VARLINK_PROCESSING_METHOD_MORE, VARLINK_PROCESSING_METHOD_ONEWAY,
+                    VARLINK_PENDING_METHOD, VARLINK_PENDING_METHOD_MORE, VARLINK_PENDING_METHOD_ONEWAY))
                 return varlink_log_errno(v, SYNTHETIC_ERRNO(EBUSY), "Connection busy.");
+
+        /* The client of a oneway call isn't listening for a reply, so discard it but still advance the
+         * state machine, so a deferred oneway method's completion lets the connection proceed. */
+        if (varlink_oneway_complete(v))
+                return 1;
 
         bool more = IN_SET(v->state, VARLINK_PROCESSING_METHOD_MORE, VARLINK_PENDING_METHOD_MORE);
 
@@ -2548,9 +2598,14 @@ _public_ int sd_varlink_error(sd_varlink *v, const char *error_id, sd_json_varia
         if (v->state == VARLINK_DISCONNECTED)
                 return varlink_log_errno(v, SYNTHETIC_ERRNO(ENOTCONN), "Not connected.");
         if (!IN_SET(v->state,
-                    VARLINK_PROCESSING_METHOD, VARLINK_PROCESSING_METHOD_MORE,
-                    VARLINK_PENDING_METHOD, VARLINK_PENDING_METHOD_MORE))
+                    VARLINK_PROCESSING_METHOD, VARLINK_PROCESSING_METHOD_MORE, VARLINK_PROCESSING_METHOD_ONEWAY,
+                    VARLINK_PENDING_METHOD, VARLINK_PENDING_METHOD_MORE, VARLINK_PENDING_METHOD_ONEWAY))
                 return varlink_log_errno(v, SYNTHETIC_ERRNO(EBUSY), "Connection busy.");
+
+        /* Discard errors for oneway calls too (the client isn't listening), but still advance the state
+         * machine so a deferred oneway method's completion lets the connection proceed. */
+        if (varlink_oneway_complete(v))
+                return sd_varlink_error_to_errno(error_id, parameters);
 
         if (v->previous) {
                 r = sd_json_variant_set_field_boolean(&v->previous, "continues", true);
@@ -2812,8 +2867,9 @@ _public_ void* sd_varlink_get_userdata(sd_varlink *v) {
 _public_ int sd_varlink_set_sentinel(sd_varlink *v, const char *error_id) {
         assert_return(v, -EINVAL);
 
-        /* If the caller doesn't want a reply, then don't set a sentinel. */
-        if (v->state == VARLINK_PROCESSING_METHOD_ONEWAY)
+        /* If the caller doesn't want a reply, then don't set a sentinel. This also covers deferred oneway
+         * methods (e.g. running in a fiber), which park in VARLINK_PENDING_METHOD_ONEWAY. */
+        if (IN_SET(v->state, VARLINK_PROCESSING_METHOD_ONEWAY, VARLINK_PENDING_METHOD_ONEWAY))
                 return 0;
 
         /* This has to be called during a callback, and not after it has exited. The PENDING states
