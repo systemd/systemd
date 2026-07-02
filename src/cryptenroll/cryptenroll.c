@@ -793,7 +793,7 @@ static int check_for_homed(struct crypt_device *cd) {
 
         for (int token = 0; token < sym_crypt_token_max(CRYPT_LUKS2); token++) {
                 r = cryptsetup_get_token_as_json(cd, token, "systemd-homed", NULL);
-                if (IN_SET(r, -ENOENT, -EINVAL, -EMEDIUMTYPE))
+                if (IN_SET(r, -ENOENT, -EINVAL, -EMEDIUMTYPE, -EUCLEAN))
                         continue;
                 if (r < 0)
                         return log_error_errno(r, "Failed to read JSON token data off disk: %m");

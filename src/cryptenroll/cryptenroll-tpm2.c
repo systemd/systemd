@@ -39,7 +39,7 @@ static int search_policy_hash(
                 sd_json_variant *w;
 
                 r = cryptsetup_get_token_as_json(cd, token, "systemd-tpm2", &v);
-                if (IN_SET(r, -ENOENT, -EINVAL, -EMEDIUMTYPE))
+                if (IN_SET(r, -ENOENT, -EINVAL, -EMEDIUMTYPE, -EUCLEAN))
                         continue;
                 if (r < 0)
                         return log_error_errno(r, "Failed to read JSON token data off disk: %m");
