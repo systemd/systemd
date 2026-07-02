@@ -91,6 +91,9 @@ void cryptsetup_enable_logging(struct crypt_device *cd);
 int cryptsetup_set_minimal_pbkdf(struct crypt_device *cd);
 
 int cryptsetup_get_token_as_json(struct crypt_device *cd, int idx, const char *verify_type, sd_json_variant **ret);
+/* Errors cryptsetup_get_token_as_json() returns for a token that is absent, of a different type, or
+ * unparseable, and callers should keep iterating other tokens. */
+#define ERRNO_IS_NEG_CRYPTSETUP_TOKEN_SKIP(r) IN_SET(r, -ENOENT, -EINVAL, -EMEDIUMTYPE, -EUCLEAN)
 int cryptsetup_add_token_json(struct crypt_device *cd, sd_json_variant *v);
 
 #else
