@@ -23,6 +23,7 @@
 #include "fd-util.h"
 #include "path-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "time-util.h"
 #endif
 
@@ -317,25 +318,37 @@ int mac_selinux_init_with_root(const char *root) {
         /* selinux_set_policy_root() expects the full policy directory path
          * (e.g. /etc/selinux/targeted), not a filesystem root prefix. Read
          * the SELINUXTYPE from the alternate root's config to build it. */
-        _cleanup_free_ char *selinux_config = path_join(root, "/etc/selinux/config");
-        if (!selinux_config)
-                return log_oom_debug();
-
-        /* /etc/selinux/config is a key=value file with a SELINUXTYPE=
-         * setting that names the active policy (e.g. "targeted"). */
         _cleanup_free_ char *policytype = NULL;
-        r = parse_env_file(NULL, selinux_config, "SELINUXTYPE", &policytype);
-        if (r < 0) {
-                log_debug_errno(r, "Failed to read SELinux config from %s, skipping labeling: %m", selinux_config);
+        const char *selinux_dir = NULL;
+
+        FOREACH_STRING(d, "/etc/selinux", "/usr/share/selinux") {
+                _cleanup_free_ char *selinux_config = path_join(root, d, "config");
+                if (!selinux_config)
+                        return log_oom_debug();
+
+                r = parse_env_file(NULL, selinux_config, "SELINUXTYPE", &policytype);
+                if (r == -ENOENT)
+                        continue;
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to read SELinux config from %s, skipping labeling: %m", selinux_config);
+                        return 0;
+                }
+
+                if (isempty(policytype)) {
+                        log_debug("SELINUXTYPE not set in %s, skipping labeling.", selinux_config);
+                        return 0;
+                }
+
+                selinux_dir = d;
+                break;
+        }
+
+        if (!selinux_dir) {
+                log_debug("No SELinux config found under %s, skipping labeling.", root);
                 return 0;
         }
 
-        if (isempty(policytype)) {
-                log_debug("SELINUXTYPE not set in %s, skipping labeling.", selinux_config);
-                return 0;
-        }
-
-        _cleanup_free_ char *policyroot = path_join(root, "/etc/selinux", policytype);
+        _cleanup_free_ char *policyroot = path_join(root, selinux_dir, policytype);
         if (!policyroot)
                 return log_oom_debug();
 
