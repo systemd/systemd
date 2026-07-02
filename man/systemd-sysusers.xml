@@ -66,6 +66,10 @@
         <replaceable>root</replaceable> path, including config search
         paths. </para>
 
+        <para>Note that this is not a sandboxing or security feature.
+        <citerefentry><refentrytitle>sysusers.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        definitions are potentially not processed in a hermetic fashion to the specified root.</para>
+
         <xi:include href="version-info.xml" xpointer="v215"/></listitem>
       </varlistentry>
 
