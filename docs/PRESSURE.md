@@ -241,9 +241,12 @@ a custom handler should be provided to take appropriate action:
 
 Other programming environments might have native APIs to watch memory
 pressure/low memory events. Most notable is probably GLib's
-[GMemoryMonitor](https://docs.gtk.org/gio/iface.MemoryMonitor.html). As of GLib
-2.86.0, it uses the per-cgroup PSI kernel file to monitor for memory pressure,
-but does not yet read the environment variables recommended above.
+[GMemoryMonitor](https://docs.gtk.org/gio/iface.MemoryMonitor.html), which GLib
+2.90.0 fully supports.
+
+Versions of GLib between 2.86.0 and 2.90.0 used the per-cgroup PSI kernel file
+to monitor for memory pressure, but did not read the environment variables
+recommended above.
 
 In older versions, it used the per-system Linux PSI interface as the backend, but operated
 differently than the above: memory pressure events were picked up by a system
