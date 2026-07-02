@@ -1096,7 +1096,7 @@ int portable_extract(
                         return -ENOMEM;
 
                 return sd_bus_error_setf(error,
-                                         SD_BUS_ERROR_INVALID_ARGS,
+                                         BUS_ERROR_NO_MATCHING_UNIT_FILES,
                                          "Couldn't find any matching unit files in image '%s%s%s', refusing.",
                                          image->path,
                                          isempty(extensions) ? "" : "' or any of its extensions '",
@@ -2100,7 +2100,7 @@ int portable_attach(
 
                 return sd_bus_error_setf(
                                 error,
-                                SD_BUS_ERROR_INVALID_ARGS,
+                                BUS_ERROR_NO_MATCHING_UNIT_FILES,
                                 "Couldn't find any matching unit files in image '%s%s%s', refusing.",
                                 image->path,
                                 isempty(extensions_joined) ? "" : "' or any of its extensions '",
