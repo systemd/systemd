@@ -334,9 +334,9 @@ static ssize_t udev_event_subst_format(
         case FORMAT_SUBST_LINKS:
                 FOREACH_DEVICE_DEVLINK(dev, link) {
                         if (s == dest)
-                                strpcpy_full(&s, l, link + STRLEN("/dev/"), &truncated);
+                                l = strpcpy_full(&s, l, link + STRLEN("/dev/"), &truncated);
                         else
-                                strpcpyl_full(&s, l, &truncated, " ", link + STRLEN("/dev/"), NULL);
+                                l = strpcpyl_full(&s, l, &truncated, " ", link + STRLEN("/dev/"), NULL);
                         if (truncated)
                                 break;
                 }
