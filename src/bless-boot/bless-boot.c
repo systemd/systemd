@@ -455,7 +455,7 @@ VERB_FULL(verb_set, "indeterminate", NULL, VERB_ANY, 1, 0, STATUS_INDETERMINATE,
           "Undo any marking as good or bad");
 static int verb_set(int argc, char *argv[], uintptr_t data, void *userdata) {
         _cleanup_free_ char *path = NULL, *prefix = NULL, *suffix = NULL, *good = NULL, *bad = NULL;
-        const char *target, *source1, *source2;
+        const char *target = NULL, *source1 = NULL, *source2 = NULL;  /* avoid false maybe-uninitialized warning */
         uint64_t left, done;
         Status status = data;
         int r;
