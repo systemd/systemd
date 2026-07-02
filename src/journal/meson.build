@@ -4,6 +4,7 @@ systemd_journald_sources = files(
         'journald.c',
 )
 systemd_journald_extract_sources = files(
+        'audit-type.c',
         'journald-audit.c',
         'journald-client.c',
         'journald-config.c',
@@ -28,6 +29,22 @@ journald_gperf_c = custom_target(
 
 generated_sources += journald_gperf_c
 systemd_journald_extract_sources += journald_gperf_c
+
+generate_audit_type_list = files('generate-audit_type-list.sh')
+audit_type_list_txt = custom_target(
+        input : [generate_audit_type_list, audit_sources],
+        output : 'audit_type-list.txt',
+        command : [env, 'bash', generate_audit_type_list, cpp, system_include_args],
+        capture : true)
+
+audit_type_to_name = custom_target(
+        input : ['audit_type-to-name.awk', audit_type_list_txt],
+        output : 'audit_type-to-name.inc',
+        command : [awk, '-f', '@INPUT0@', '@INPUT1@'],
+        capture : true)
+
+generated_sources += audit_type_to_name
+systemd_journald_extract_sources += audit_type_to_name
 
 journalctl_sources = files(
         'journalctl.c',
@@ -98,6 +115,9 @@ executables += [
                         libxz_cflags,
                         libzstd_cflags,
                 ],
+        },
+        journal_test_template + {
+                'sources' : files('test-audit-type.c'),
         },
         journal_test_template + {
                 'sources' : files('test-journald-config.c'),
