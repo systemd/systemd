@@ -550,6 +550,8 @@ static JSON_DISPATCH_ENUM_DEFINE(json_dispatch_boot_entry_token_type, BootEntryT
 typedef struct UnlinkParameters {
         UnlinkContext context;
         unsigned root_fd_index;
+        char *esp_path;
+        char *xbootldr_path;
         const char *id;
         bool oldest;
 } UnlinkParameters;
@@ -558,6 +560,8 @@ static void unlink_parameters_done(UnlinkParameters *p) {
         assert(p);
 
         unlink_context_done(&p->context);
+        free(p->esp_path);
+        free(p->xbootldr_path);
 }
 
 int vl_method_unlink(
@@ -578,6 +582,8 @@ int vl_method_unlink(
         static const sd_json_dispatch_field dispatch_table[] = {
                 { "rootFileDescriptor",   _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,               voffsetof(p, root_fd_index),            0 },
                 { "rootDirectory",        SD_JSON_VARIANT_STRING,        json_dispatch_path,                  voffsetof(p, context.root),             0 },
+                { "espPath",              SD_JSON_VARIANT_STRING,        json_dispatch_path,                  voffsetof(p, esp_path),                 0 },
+                { "xbootldrPath",         SD_JSON_VARIANT_STRING,        json_dispatch_path,                  voffsetof(p, xbootldr_path),            0 },
                 { "bootEntryTokenType",   SD_JSON_VARIANT_STRING,        json_dispatch_boot_entry_token_type, voffsetof(p, context.entry_token_type), 0 },
                 { "id",                   SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,       voffsetof(p, id),                       0 },
                 { "oldest",               SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,            voffsetof(p, oldest),                   0 },
@@ -631,7 +637,7 @@ int vl_method_unlink(
 
         r = find_esp_and_warn_at_full(
                         p.context.root_fd,
-                        /* path= */ NULL,
+                        p.esp_path,
                         /* unprivileged_mode= */ false,
                         &p.context.esp_path,
                         &p.context.esp_fd,
@@ -644,7 +650,7 @@ int vl_method_unlink(
                 return r;
         r = find_xbootldr_and_warn_at_full(
                         p.context.root_fd,
-                        /* path= */ NULL,
+                        p.xbootldr_path,
                         /* unprivileged_mode= */ false,
                         &p.context.xbootldr_path,
                         &p.context.xbootldr_fd,
