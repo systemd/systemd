@@ -175,12 +175,10 @@ TEST(getpeercred_getpeergroups) {
 
                         assert_se(fully_set_uid_gid(test_uid, test_gid, test_gids, n_test_gids) >= 0);
                 } else {
-                        long ngroups_max;
-
                         test_uid = getuid();
                         test_gid = getgid();
 
-                        ngroups_max = sysconf(_SC_NGROUPS_MAX);
+                        int ngroups_max = sysconf_ngroups_max();
                         assert_se(ngroups_max > 0);
 
                         test_gids = newa(gid_t, ngroups_max);

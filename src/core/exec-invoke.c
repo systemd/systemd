@@ -890,7 +890,7 @@ static int get_supplementary_groups(
         assert(ret_gids);
 
         /*
-         * If user is given, then lookup GID and supplementary groups list.
+         * If user is given, then look up GID and supplementary groups list.
          * We avoid NSS lookups for gid=0. Also we have to initialize groups
          * here and as early as possible so we keep the list of supplementary
          * groups of the caller.
@@ -898,15 +898,16 @@ static int get_supplementary_groups(
         bool keep_groups = false;
         if (user && gid_is_valid(gid) && gid != 0) {
                 /* First step, initialize groups from /etc/groups */
-                if (initgroups(user, gid) < 0) {
+                r = initgroups_wrapper(user, gid);
+                if (r < 0) {
                         /* If our primary gid is already the one specified in Group= (i.e. we're running in
                          * user mode), gracefully handle the case where we have no privilege to re-initgroups().
                          *
                          * Note that group memberships of the current user might have been modified, but
                          * the change will only take effect after re-login. It's better to continue on with
                          * existing credentials rather than erroring out. */
-                        if (!ERRNO_IS_PRIVILEGE(errno) || gid != getgid())
-                                return -errno;
+                        if (!ERRNO_IS_PRIVILEGE(r) || gid != getgid())
+                                return r;
                 }
 
                 keep_groups = true;
@@ -917,33 +918,29 @@ static int get_supplementary_groups(
                 return 0;
         }
 
-        /*
-         * If SupplementaryGroups= was passed then NGROUPS_MAX has to
-         * be positive, otherwise fail.
-         */
-        errno = 0;
-        long ngroups_max = sysconf(_SC_NGROUPS_MAX);
-        if (ngroups_max <= 0)
-                return errno_or_else(EOPNOTSUPP);
-
-        _cleanup_free_ gid_t *l_gids = new(gid_t, ngroups_max);
-        if (!l_gids)
-                return -ENOMEM;
+        /* If SupplementaryGroups= was passed then NGROUPS_MAX has to be positive, otherwise fail. */
+        _cleanup_free_ gid_t *l_gids = NULL;
 
         int k = 0;
         if (keep_groups) {
-                /*
-                 * Lookup the list of groups that the user belongs to, we
-                 * avoid NSS lookups here too for gid=0.
-                 */
-                k = ngroups_max;
-                if (getgrouplist(user, gid, l_gids, &k) < 0)
-                        return -EINVAL;
+                /* Look up the list of groups that the user belongs to.
+                 * We avoid NSS lookups here too for gid=0. */
+
+                k = getgrouplist_malloc(user, gid, &l_gids);
+                if (k < 0)
+                        return k;
         }
+
+        int ngroups_max = sysconf_ngroups_max();
+        if (ngroups_max < 0)
+                return ngroups_max;
 
         STRV_FOREACH(i, c->supplementary_groups) {
                 if (k >= ngroups_max)
                         return -E2BIG;
+
+                if (!GREEDY_REALLOC(l_gids, k + 1))
+                        return -ENOMEM;
 
                 r = get_group_creds(*i, /* flags= */ 0, /* ret_name= */ NULL, l_gids + k);
                 if (r < 0)
@@ -957,12 +954,11 @@ static int get_supplementary_groups(
                 return 0;
         }
 
-        /* Otherwise get the final list of supplementary groups */
-        gid_t *groups = newdup(gid_t, l_gids, k);
-        if (!groups)
-                return -ENOMEM;
+        /* We *could* trim the array size with realloc(3), but right now the only caller frees the array
+         * quickly anyway, so this is not worth the trouble. If other users pop up, this should be
+         * reconsidered. */
 
-        *ret_gids = groups;
+        *ret_gids = TAKE_PTR(l_gids);
         return k;
 }
 
