@@ -1038,7 +1038,7 @@ TEST(condition_test_group) {
         char gid[DECIMAL_STR_MAX(uint32_t)];
         gid_t *gids, max_gid;
         int ngroups, r, i;
-        long ngroups_max;
+        int ngroups_max;
 
         xsprintf(gid, "%u", UINT32_C(0xFFFF));
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_GROUP, gid, false, false)));
@@ -1054,7 +1054,7 @@ TEST(condition_test_group) {
         ASSERT_OK_POSITIVE(r);
         condition_free(condition);
 
-        ngroups_max = ASSERT_OK_ERRNO(sysconf(_SC_NGROUPS_MAX));
+        ngroups_max = ASSERT_OK(sysconf_ngroups_max());
         ASSERT_GT(ngroups_max, 0);
 
         gids = newa(gid_t, ngroups_max);

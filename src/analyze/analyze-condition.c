@@ -109,7 +109,7 @@ static int verify_conditions(char **lines, RuntimeScope scope, const char *unit,
                 if (r < 0)
                         return log_error_errno(r, "Failed to prepare filename %s: %m", unit);
 
-                r = manager_load_startable_unit_or_warn(m, NULL, prepared, &u);
+                r = manager_load_startable_unit_or_warn(m, /* name= */ NULL, prepared, LOG_ERR, &u);
                 if (r < 0)
                         return r;
         } else {
