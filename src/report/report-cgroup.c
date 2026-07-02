@@ -370,25 +370,21 @@ static const MetricFamily cgroup_metric_family_table[] = {
                 METRIC_IO_SYSTEMD_CGROUP_PREFIX "IOReadBytes",
                 "Per unit metric: IO bytes read",
                 METRIC_FAMILY_TYPE_COUNTER,
-                .generate = NULL,
         },
         {
                 METRIC_IO_SYSTEMD_CGROUP_PREFIX "IOReadOperations",
                 "Per unit metric: IO read operations",
                 METRIC_FAMILY_TYPE_COUNTER,
-                .generate = NULL,
         },
         {
                 METRIC_IO_SYSTEMD_CGROUP_PREFIX "MemoryUsage",
                 "Per unit metric: memory usage in bytes",
                 METRIC_FAMILY_TYPE_GAUGE,
-                .generate = NULL,
         },
         {
                 METRIC_IO_SYSTEMD_CGROUP_PREFIX "TasksCurrent",
                 "Per unit metric: current number of tasks",
                 METRIC_FAMILY_TYPE_GAUGE,
-                .generate = NULL,
         },
         {}
 };

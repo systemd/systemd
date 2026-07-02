@@ -73,6 +73,20 @@ static int metric_family_build_json(const MetricFamily *mf, sd_json_variant **re
                         SD_JSON_BUILD_PAIR_STRING("type", metric_family_type_to_string(mf->type)));
 }
 
+int metric_family_describe(const MetricFamily *mf, sd_varlink *link) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        int r;
+
+        assert(mf);
+        assert(link);
+
+        r = metric_family_build_json(mf, &v);
+        if (r < 0)
+                return r;
+
+        return sd_varlink_reply(link, v);
+}
+
 int metrics_method_describe(
                 const MetricFamily mfs[],
                 sd_varlink *link,
@@ -95,15 +109,9 @@ int metrics_method_describe(
                 return r;
 
         for (const MetricFamily *mf = mfs; mf->name; mf++) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-
-                r = metric_family_build_json(mf, &v);
+                r = metric_family_describe(mf, link);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to describe metric family '%s': %m", mf->name);
-
-                r = sd_varlink_reply(link, v);
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to send varlink reply: %m");
         }
 
         return 0;
