@@ -17,6 +17,10 @@ executables += [
                         'import-common.c',
                         'qcow2-util.c',
                 ),
+                'dependencies' : [
+                        libarchive_cflags,
+                        libselinux_cflags,
+                ],
         },
         libexec_template + {
                 'name' : 'systemd-pull',
@@ -73,6 +77,9 @@ executables += [
         test_template + {
                 'sources' : files('test-tar.c'),
                 'type' : 'manual',
+                'dependencies' : [
+                        libarchive_cflags,
+                ],
         },
         test_template + {
                 'sources' : files('test-qcow2.c'),

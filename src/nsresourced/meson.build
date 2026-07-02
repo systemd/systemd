@@ -24,6 +24,9 @@ executables += [
                 'name' : 'systemd-nsresourced',
                 'sources' : systemd_nsresourced_sources,
                 'extract' : systemd_nsresourced_extract_sources,
+                'dependencies' : [
+                        libbpf_cflags,
+                ],
                 'bpf_programs': ['userns-restrict'],
         },
         libexec_template + {

@@ -2,6 +2,9 @@
 #pragma once
 
 #if HAVE_LIBBPF
+#ifndef SYSTEMD_CFLAGS_MARKER_LIBBPF
+#  error "missing libbpf_cflags in meson dependency."
+#endif
 
 #include <bpf/libbpf.h>
 

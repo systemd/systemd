@@ -6,6 +6,9 @@
 #include "shared-forward.h"
 
 #if HAVE_KMOD
+#ifndef SYSTEMD_CFLAGS_MARKER_LIBKMOD
+#  error "missing libkmod_cflags in meson dependency."
+#endif
 
 #include <libkmod.h> /* IWYU pragma: export */
 

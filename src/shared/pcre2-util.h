@@ -4,6 +4,9 @@
 #include "shared-forward.h"
 
 #if HAVE_PCRE2
+#ifndef SYSTEMD_CFLAGS_MARKER_LIBPCRE2
+#  error "missing libpcre2_cflags in meson dependency."
+#endif
 
 #include "dlfcn-util.h"
 
