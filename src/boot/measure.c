@@ -187,6 +187,10 @@ bool tpm_present(void) {
         return tcg2_interface_check(/* ret_version= */ NULL);
 }
 
+bool runtime_measurement_available(void) {
+        return tpm_present() || cc_interface_check();
+}
+
 uint32_t tpm_get_active_pcr_banks(void) {
         EFI_STATUS err;
 
