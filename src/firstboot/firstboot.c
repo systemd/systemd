@@ -1698,10 +1698,6 @@ static int run(int argc, char *argv[]) {
                 }
         }
 
-        r = mac_init();
-        if (r < 0)
-                return r;
-
         if (arg_image) {
                 assert(!arg_root);
 
@@ -1729,6 +1725,10 @@ static int run(int argc, char *argv[]) {
                 if (rfd < 0)
                         return log_error_errno(errno, "Failed to open %s: %m", empty_to_root(arg_root));
         }
+
+        r = mac_init_with_root(arg_root);
+        if (r < 0)
+                return r;
 
         LOG_SET_PREFIX(arg_image ?: arg_root);
         DEFER_VOID_CALL(end_marker);

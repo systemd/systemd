@@ -6,6 +6,7 @@
 #include "btrfs-util.h"
 #include "errno-util.h"
 #include "label-util.h"
+#include "path-util.h"
 #include "selinux-util.h"
 #include "smack-util.h"
 
@@ -117,4 +118,11 @@ int mac_init_lazy(void) {
 
 int mac_init(void) {
         return init_internal(/* lazy= */ false);
+}
+
+int mac_init_with_root(const char *root) {
+        if (empty_or_root(root))
+                return mac_init();
+
+        return mac_selinux_init_with_root(root);
 }
