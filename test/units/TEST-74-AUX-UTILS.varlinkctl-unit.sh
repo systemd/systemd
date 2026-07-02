@@ -264,6 +264,25 @@ test -n "$fragment"
 grep '^RootHash=/etc/hostname$'          "$fragment" >/dev/null
 grep '^RootHashSignature=/etc/machine-id$' "$fragment" >/dev/null
 
+# Service.Standard{Output,Error}FileDescriptorIndex: connect passed fds (by push order)
+# to the unit's stdout/stderr; regular files, so output can be checked after exit.
+transient_out=$(mktemp)
+transient_err=$(mktemp)
+exec {transient_out_fd}>"$transient_out"
+exec {transient_err_fd}>"$transient_err"
+defer_transient_cleanup varlink-transient-fdpass.service
+varlinkctl --push-fd="$transient_out_fd" --push-fd="$transient_err_fd" \
+    call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+    '{"context":{"ID":"varlink-transient-fdpass.service","Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/sh","arguments":["/bin/sh","-c","echo to-stdout; echo to-stderr >&2"]}],"StandardOutputFileDescriptorIndex":0,"StandardErrorFileDescriptorIndex":1}}}' >/dev/null
+# Close our copies so the unit holds the only remaining write ends.
+exec {transient_out_fd}>&-
+exec {transient_err_fd}>&-
+timeout 30 bash -c 'until systemctl show -P ActiveState varlink-transient-fdpass.service | grep -q inactive; do sleep 0.5; done'
+systemctl show -P Result varlink-transient-fdpass.service | grep -q success
+grep -qx to-stdout "$transient_out"
+grep -qx to-stderr "$transient_err"
+rm -f "$transient_out" "$transient_err"
+
 # Error cases: verify specific varlink error types
 set +o pipefail
 varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
