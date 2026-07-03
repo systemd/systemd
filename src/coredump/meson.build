@@ -14,7 +14,7 @@ systemd_coredump_sources = files(
         'coredump-send.c',
         'coredump-submit.c',
 )
-systemd_coredump_extract_sources = files(
+systemd_coredump_export_sources = files(
         'coredump-vacuum.c',
 )
 
@@ -36,7 +36,7 @@ executables += [
         libexec_template + {
                 'name' : 'systemd-coredump',
                 'sources' : systemd_coredump_sources,
-                'extract' : systemd_coredump_extract_sources,
+                'export' : systemd_coredump_export_sources,
                 'link_with' : [libshared],
                 'dependencies' : common_dependencies,
         },
@@ -49,7 +49,7 @@ executables += [
         },
         test_template + {
                 'sources' : files('test-coredump-vacuum.c'),
-                'objects' : ['systemd-coredump'],
+                'import' : ['systemd-coredump'],
                 'type' : 'manual',
         },
 ]

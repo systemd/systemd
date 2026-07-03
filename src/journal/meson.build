@@ -3,7 +3,7 @@
 systemd_journald_sources = files(
         'journald.c',
 )
-systemd_journald_extract_sources = files(
+systemd_journald_export_sources = files(
         'journald-audit.c',
         'journald-client.c',
         'journald-config.c',
@@ -27,7 +27,7 @@ journald_gperf_c = custom_target(
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
 
 generated_sources += journald_gperf_c
-systemd_journald_extract_sources += journald_gperf_c
+systemd_journald_export_sources += journald_gperf_c
 
 journalctl_sources = files(
         'journalctl.c',
@@ -52,11 +52,11 @@ else
 endif
 
 journal_test_template = test_template + {
-        'objects' : ['systemd-journald'],
+        'import' : ['systemd-journald'],
 }
 
 journal_fuzz_template = fuzz_template + {
-        'objects' : [
+        'import' : [
                 'fuzz-journald-audit',
                 'systemd-journald',
         ],
@@ -67,7 +67,7 @@ executables += [
         libexec_template + {
                 'name' : 'systemd-journald',
                 'sources' : systemd_journald_sources,
-                'extract' : systemd_journald_extract_sources,
+                'export' : systemd_journald_export_sources,
                 'dependencies' : [
                         liblz4_cflags,
                         libselinux_cflags,
@@ -85,7 +85,7 @@ executables += [
                 'name' : 'systemd-cat',
                 'public' : true,
                 'sources' : files('cat.c'),
-                'objects' : ['systemd-journald'],
+                'import' : ['systemd-journald'],
         },
         executable_template + {
                 'name' : 'journalctl',
@@ -132,8 +132,8 @@ executables += [
         fuzz_template + {
                 'sources' : files('fuzz-journald-audit.c'),
                 # fuzz-journald-util.c is shared with the other fuzzers below.
-                'extract' : files('fuzz-journald-util.c'),
-                'objects' : ['systemd-journald'],
+                'export' : files('fuzz-journald-util.c'),
+                'import' : ['systemd-journald'],
         },
         journal_fuzz_template + {
                 'sources' : files('fuzz-journald-kmsg.c'),
