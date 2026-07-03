@@ -234,9 +234,7 @@ libsystemd_tests += [
                 'sources' : files('sd-bus/test-bus-marshal.c'),
                 'dependencies' : [
                         libdbus_cflags,
-                        libgio_cflags,
                         libglib_cflags,
-                        libgobject_cflags,
                 ],
         },
         {
