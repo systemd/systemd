@@ -4,8 +4,8 @@
 #include "conf-parser.h"
 #include "hash-funcs.h"
 #include "path-util.h"
+#include "specifier.h"
 #include "string-util.h"
-#include "sysupdate.h"
 #include "sysupdate-feature.h"
 #include "web-util.h"
 
@@ -65,7 +65,7 @@ static int config_parse_url_specifiers(
                 return 0;
         }
 
-        r = specifier_printf(rvalue, NAME_MAX, specifier_table, root, NULL, &resolved);
+        r = specifier_printf(rvalue, NAME_MAX, system_and_tmp_specifier_table, root, NULL, &resolved);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to expand specifiers in %s=, ignoring: %s", lvalue, rvalue);
