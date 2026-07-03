@@ -98,57 +98,231 @@ static int version_build_json(const MetricFamily *mf, sd_varlink *vl, void *user
                         /* fields= */ NULL);
 }
 
-static int boot_timestamp_build_json(
-                const MetricFamily *mf,
-                sd_varlink *vl,
-                const dual_timestamp *t,
-                bool with_monotonic) {
+/* Single source of truth for all manager timestamp metrics, driving both List (the values) and Describe
+ * (the schema advertised below). The .description is prefixed with "CLOCK_REALTIME "/"CLOCK_MONOTONIC " on
+ * emission; firmware, loader and kernel have no meaningful monotonic value (a pre-kernel offset or zero),
+ * hence they only expose the .Realtime metric (with_monotonic=false). */
+static const struct {
+        const char *name;
+        bool with_monotonic;
+        const char *description;
+} manager_timestamp_metrics[_MANAGER_TIMESTAMP_MAX] = {
+        [MANAGER_TIMESTAMP_FIRMWARE] = {
+                .name = "FirmwareTimestamp",
+                .with_monotonic = false,
+                .description = "microseconds at which the firmware began execution (CLOCK_MONOTONIC is a pre-kernel offset, not reported)",
+        },
+        [MANAGER_TIMESTAMP_LOADER] = {
+                .name = "LoaderTimestamp",
+                .with_monotonic = false,
+                .description = "microseconds at which the boot loader began execution (CLOCK_MONOTONIC is a pre-kernel offset, not reported)",
+        },
+        [MANAGER_TIMESTAMP_KERNEL] = {
+                .name = "KernelTimestamp",
+                .with_monotonic = false,
+                .description = "microseconds at which the kernel started (CLOCK_MONOTONIC == 0)",
+        },
+        [MANAGER_TIMESTAMP_INITRD] = {
+                .name = "InitRDTimestamp",
+                .with_monotonic = true,
+                .description = "microseconds at which the initrd began execution",
+        },
+        [MANAGER_TIMESTAMP_USERSPACE] = {
+                .name = "UserspaceTimestamp",
+                .with_monotonic = true,
+                .description = "microseconds at which userspace was reached",
+        },
+        [MANAGER_TIMESTAMP_FINISH] = {
+                .name = "FinishTimestamp",
+                .with_monotonic = true,
+                .description = "microseconds at which userspace finished booting",
+        },
+        [MANAGER_TIMESTAMP_SECURITY_START] = {
+                .name = "SecurityStartTimestamp",
+                .with_monotonic = true,
+                .description = "microseconds at which the manager started uploading security policies to the kernel",
+        },
+        [MANAGER_TIMESTAMP_SECURITY_FINISH] = {
+                .name = "SecurityFinishTimestamp",
+                .with_monotonic = true,
+                .description = "microseconds at which the manager finished uploading security policies to the kernel",
+        },
+        [MANAGER_TIMESTAMP_GENERATORS_START] = {
+                .name = "GeneratorsStartTimestamp",
+                .with_monotonic = true,
+                .description = "microseconds at which the manager started executing generators",
+        },
+        [MANAGER_TIMESTAMP_GENERATORS_FINISH] = {
+                .name = "GeneratorsFinishTimestamp",
+                .with_monotonic = true,
+                .description = "microseconds at which the manager finished executing generators",
+        },
+        [MANAGER_TIMESTAMP_UNITS_LOAD_START] = {
+                .name = "UnitsLoadStartTimestamp",
+                .with_monotonic = true,
+                .description = "microseconds at which the manager first started loading units",
+        },
+        [MANAGER_TIMESTAMP_UNITS_LOAD_FINISH] = {
+                .name = "UnitsLoadFinishTimestamp",
+                .with_monotonic = true,
+                .description = "microseconds at which the manager first finished loading units",
+        },
+        [MANAGER_TIMESTAMP_UNITS_LOAD] = {
+                .name = "UnitsLoadTimestamp",
+                .with_monotonic = true,
+                .description = "microseconds at which the manager last started loading units",
+        },
+        [MANAGER_TIMESTAMP_INITRD_SECURITY_START] = {
+                .name = "InitRDSecurityStartTimestamp",
+                .with_monotonic = true,
+                .description = "microseconds at which the manager started uploading security policies to the kernel in the initrd",
+        },
+        [MANAGER_TIMESTAMP_INITRD_SECURITY_FINISH] = {
+                .name = "InitRDSecurityFinishTimestamp",
+                .with_monotonic = true,
+                .description = "microseconds at which the manager finished uploading security policies to the kernel in the initrd",
+        },
+        [MANAGER_TIMESTAMP_INITRD_GENERATORS_START] = {
+                .name = "InitRDGeneratorsStartTimestamp",
+                .with_monotonic = true,
+                .description = "microseconds at which the manager started executing generators in the initrd",
+        },
+        [MANAGER_TIMESTAMP_INITRD_GENERATORS_FINISH] = {
+                .name = "InitRDGeneratorsFinishTimestamp",
+                .with_monotonic = true,
+                .description = "microseconds at which the manager finished executing generators in the initrd",
+        },
+        [MANAGER_TIMESTAMP_INITRD_UNITS_LOAD_START] = {
+                .name = "InitRDUnitsLoadStartTimestamp",
+                .with_monotonic = true,
+                .description = "microseconds at which the manager first started loading units in the initrd",
+        },
+        [MANAGER_TIMESTAMP_INITRD_UNITS_LOAD_FINISH] = {
+                .name = "InitRDUnitsLoadFinishTimestamp",
+                .with_monotonic = true,
+                .description = "microseconds at which the manager first finished loading units in the initrd",
+        },
+        [MANAGER_TIMESTAMP_SHUTDOWN_START] = {
+                .name = "ShutdownStartTimestamp",
+                .with_monotonic = true,
+                .description = "microseconds at which shutdown began, i.e. units started to be stopped",
+        },
+        [MANAGER_TIMESTAMP_SHUTDOWN_FINISH] = {
+                .name = "ShutdownFinishTimestamp",
+                .with_monotonic = true,
+                .description = "microseconds at which all units finished stopping during shutdown",
+        },
+        [MANAGER_TIMESTAMP_PREVIOUS_SHUTDOWN_START] = {
+                .name = "PreviousShutdownStartTimestamp",
+                .with_monotonic = true,
+                .description = "microseconds at which shutdown began during the previous boot, i.e. units started to be stopped, if available (e.g.: kexec or soft-reboot)",
+        },
+        [MANAGER_TIMESTAMP_PREVIOUS_SHUTDOWN_FINISH] = {
+                .name = "PreviousShutdownFinishTimestamp",
+                .with_monotonic = true,
+                .description = "microseconds at which all units finished stopping during the shutdown of the previous boot, if available (e.g.: kexec or soft-reboot)",
+        },
+        [MANAGER_TIMESTAMP_PREVIOUS_SHUTDOWN_LATE_START] = {
+                .name = "PreviousShutdownLateStartTimestamp",
+                .with_monotonic = true,
+                .description = "microseconds at which systemd-shutdown began execution during the previous boot, restored from the LUO payload after a kexec-based live update",
+        },
+        [MANAGER_TIMESTAMP_PREVIOUS_SHUTDOWN_LATE_FINISH] = {
+                .name = "PreviousShutdownLateFinishTimestamp",
+                .with_monotonic = true,
+                .description = "microseconds at which systemd-shutdown was about to kexec into the current kernel during the previous boot, restored from the LUO payload after a kexec-based live update",
+        },
+};
 
+static int manager_timestamps_build_json(sd_varlink *vl, void *userdata) {
+        Manager *manager = ASSERT_PTR(userdata);
         int r;
 
-        assert(mf && mf->name);
         assert(vl);
-        assert(t);
 
-        if (timestamp_is_set(t->realtime)) {
-                r = metric_build_send_unsigned(
-                                mf,  /* the .Realtime metric family entry */
-                                vl,
-                                /* object= */ NULL,
-                                t->realtime,
-                                /* fields= */ NULL);
-                if (r < 0)
-                        return r;
-        }
+        FOREACH_ELEMENT(i, manager_timestamp_metrics) {
+                if (!i->name)
+                        continue;
 
-        if (with_monotonic && timestamp_is_set(t->monotonic)) {
-                assert(endswith(mf[1].name, ".Monotonic"));
-                r = metric_build_send_unsigned(
-                                mf + 1,  /* the .Monotonic sibling is the next entry */
-                                vl,
-                                /* object= */ NULL,
-                                t->monotonic,
-                                /* fields= */ NULL);
-                if (r < 0)
-                        return r;
+                const dual_timestamp *t = manager->timestamps + (i - manager_timestamp_metrics);
+
+                if (timestamp_is_set(t->realtime)) {
+                        _cleanup_free_ char *name = strjoin(METRIC_IO_SYSTEMD_MANAGER_PREFIX, i->name, ".Realtime");
+                        if (!name)
+                                return -ENOMEM;
+
+                        r = metric_build_send_unsigned(
+                                        &(const MetricFamily) { .name = name },
+                                        vl,
+                                        /* object= */ NULL,
+                                        t->realtime,
+                                        /* fields= */ NULL);
+                        if (r < 0)
+                                return r;
+                }
+
+                if (i->with_monotonic && timestamp_is_set(t->monotonic)) {
+                        _cleanup_free_ char *name = strjoin(METRIC_IO_SYSTEMD_MANAGER_PREFIX, i->name, ".Monotonic");
+                        if (!name)
+                                return -ENOMEM;
+
+                        r = metric_build_send_unsigned(
+                                        &(const MetricFamily) { .name = name },
+                                        vl,
+                                        /* object= */ NULL,
+                                        t->monotonic,
+                                        /* fields= */ NULL);
+                        if (r < 0)
+                                return r;
+                }
         }
 
         return 0;
 }
 
-static int kernel_timestamp_build_json(const MetricFamily *mf, sd_varlink *vl, void *userdata) {
-        Manager *manager = ASSERT_PTR(userdata);
-        return boot_timestamp_build_json(mf, vl, &manager->timestamps[MANAGER_TIMESTAMP_KERNEL], /* with_monotonic= */ false);
-}
+static int manager_timestamps_describe(sd_varlink *link) {
+        int r;
 
-static int userspace_timestamp_build_json(const MetricFamily *mf, sd_varlink *vl, void *userdata) {
-        Manager *manager = ASSERT_PTR(userdata);
-        return boot_timestamp_build_json(mf, vl, &manager->timestamps[MANAGER_TIMESTAMP_USERSPACE], /* with_monotonic= */ true);
-}
+        assert(link);
 
-static int finish_timestamp_build_json(const MetricFamily *mf, sd_varlink *vl, void *userdata) {
-        Manager *manager = ASSERT_PTR(userdata);
-        return boot_timestamp_build_json(mf, vl, &manager->timestamps[MANAGER_TIMESTAMP_FINISH], /* with_monotonic= */ true);
+        FOREACH_ELEMENT(i, manager_timestamp_metrics) {
+                if (!i->name)
+                        continue;
+
+                _cleanup_free_ char *rt_name = strjoin(METRIC_IO_SYSTEMD_MANAGER_PREFIX, i->name, ".Realtime");
+                _cleanup_free_ char *rt_description = strjoin("CLOCK_REALTIME ", i->description);
+                if (!rt_name || !rt_description)
+                        return -ENOMEM;
+
+                r = metric_family_describe(
+                                &(const MetricFamily) {
+                                        .name = rt_name,
+                                        .description = rt_description,
+                                        .type = METRIC_FAMILY_TYPE_GAUGE,
+                                },
+                                link);
+                if (r < 0)
+                        return r;
+
+                if (i->with_monotonic) {
+                        _cleanup_free_ char *mt_name = strjoin(METRIC_IO_SYSTEMD_MANAGER_PREFIX, i->name, ".Monotonic");
+                        _cleanup_free_ char *mt_description = strjoin("CLOCK_MONOTONIC ", i->description);
+                        if (!mt_name || !mt_description)
+                                return -ENOMEM;
+
+                        r = metric_family_describe(
+                                        &(const MetricFamily) {
+                                                .name = mt_name,
+                                                .description = mt_description,
+                                                .type = METRIC_FAMILY_TYPE_GAUGE,
+                                        },
+                                        link);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        return 0;
 }
 
 static int state_change_timestamp_build_json(const MetricFamily *mf, sd_varlink *vl, void *userdata) {
@@ -458,19 +632,6 @@ static const MetricFamily metric_family_table[] = {
                 .generate = active_timestamp_build_json,
         },
         {
-                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "FinishTimestamp.Realtime",
-                .description = "CLOCK_REALTIME microseconds at which userspace finished booting",
-                .type = METRIC_FAMILY_TYPE_GAUGE,
-                .generate = finish_timestamp_build_json,
-        },
-        {
-                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "FinishTimestamp.Monotonic",
-                .description = "CLOCK_MONOTONIC microseconds at which userspace finished booting",
-                .type = METRIC_FAMILY_TYPE_GAUGE,
-                .generate = NULL,
-        },
-        /* Keep those ↑ in sync with finish_timestamp_build_json(). */
-        {
                 .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "InactiveExitTimestamp",
                 .description = "Per unit metric: timestamp when the unit last exited the inactive state in microseconds; 0 indicates the transition has not occurred",
                 .type = METRIC_FAMILY_TYPE_GAUGE,
@@ -481,12 +642,6 @@ static const MetricFamily metric_family_table[] = {
                 .description = "Number of jobs currently queued",
                 .type = METRIC_FAMILY_TYPE_GAUGE,
                 .generate = jobs_queued_build_json,
-        },
-        {
-                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "KernelTimestamp.Realtime",
-                .description = "CLOCK_REALTIME microseconds at which the kernel started (CLOCK_MONOTONIC == 0)",
-                .type = METRIC_FAMILY_TYPE_GAUGE,
-                .generate = kernel_timestamp_build_json,
         },
         {
                 .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "NRestarts",
@@ -555,19 +710,6 @@ static const MetricFamily metric_family_table[] = {
                 .generate = units_total_build_json,
         },
         {
-                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "UserspaceTimestamp.Realtime",
-                .description = "CLOCK_REALTIME microseconds at which userspace was reached",
-                .type = METRIC_FAMILY_TYPE_GAUGE,
-                .generate = userspace_timestamp_build_json,
-        },
-        {
-                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "UserspaceTimestamp.Monotonic",
-                .description = "CLOCK_MONOTONIC microseconds at which userspace was reached",
-                .type = METRIC_FAMILY_TYPE_GAUGE,
-                .generate = NULL,
-        },
-        /* Keep those ↑ in sync with userspace_timestamp_build_json(). */
-        {
                 .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "Version",
                 .description = "Version of systemd",
                 .type = METRIC_FAMILY_TYPE_STRING,
@@ -577,9 +719,21 @@ static const MetricFamily metric_family_table[] = {
 };
 
 int vl_method_describe_metrics(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
-        return metrics_method_describe(metric_family_table, link, parameters, flags, userdata);
+        int r;
+
+        r = metrics_method_describe(metric_family_table, link, parameters, flags, userdata);
+        if (r < 0)
+                return r;
+
+        return manager_timestamps_describe(link);
 }
 
 int vl_method_list_metrics(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
-        return metrics_method_list(metric_family_table, link, parameters, flags, userdata);
+        int r;
+
+        r = metrics_method_list(metric_family_table, link, parameters, flags, userdata);
+        if (r < 0)
+                return r;
+
+        return manager_timestamps_build_json(link, userdata);
 }

@@ -505,7 +505,6 @@ static int virtualization_generate(const MetricFamily *mf, sd_varlink *link, voi
                 METRIC_IO_SYSTEMD_BASIC_PREFIX "OSRelease." name,       \
                 "Operating system identification (" name "= field from os-release)", \
                 METRIC_FAMILY_TYPE_STRING,                              \
-                .generate = NULL,                                       \
         }
 
 #define MACHINE_INFO_STANDARD_FIELD(name)                               \
@@ -513,7 +512,6 @@ static int virtualization_generate(const MetricFamily *mf, sd_varlink *link, voi
                 METRIC_IO_SYSTEMD_BASIC_PREFIX "MachineInfo." name,     \
                 "Machine identification (" name "= field from machine-info)", \
                 METRIC_FAMILY_TYPE_STRING,                              \
-                .generate = NULL,                                       \
         }
 
 #define SMBIOS_STANDARD_FIELD(name)                                     \
@@ -521,7 +519,6 @@ static int virtualization_generate(const MetricFamily *mf, sd_varlink *link, voi
                 METRIC_IO_SYSTEMD_BASIC_PREFIX "SMBIOS." name,          \
                 "Firmware/hardware identification (" name " field from SMBIOS/DMI)", \
                 METRIC_FAMILY_TYPE_STRING,                              \
-                .generate = NULL,                                       \
         }
 
 static const MetricFamily metric_family_table[] = {
@@ -572,13 +569,11 @@ static const MetricFamily metric_family_table[] = {
                 METRIC_IO_SYSTEMD_BASIC_PREFIX "LoadAverage5Min",
                 "System load average over the last 5 minutes",
                 METRIC_FAMILY_TYPE_GAUGE,
-                .generate = NULL,
         },
         {
                 METRIC_IO_SYSTEMD_BASIC_PREFIX "LoadAverage15Min",
                 "System load average over the last 15 minutes",
                 METRIC_FAMILY_TYPE_GAUGE,
-                .generate = NULL,
         },
         /* Keep those ↑ in sync with load_average_generate(). */
         {
@@ -665,7 +660,6 @@ static const MetricFamily metric_family_table[] = {
                 METRIC_IO_SYSTEMD_BASIC_PREFIX "TPM2.VendorString",
                 "TPM2 device vendor string (ID_TPM2_VENDOR_STRING property of the tpmrm0 device)",
                 METRIC_FAMILY_TYPE_STRING,
-                .generate = NULL,
         },
         /* Keep those ↑ in sync with tpm2_generate(). */
         {
