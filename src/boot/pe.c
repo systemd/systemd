@@ -140,6 +140,9 @@ typedef struct PeFileHeader {
 
 #define SECTION_TABLE_BYTES_MAX (16U * 1024U * 1024U)
 
+/* https://learn.microsoft.com/en-us/windows/win32/debug/pe-format#optional-header-data-directories-image-only */
+#define BASE_RELOCATION_TABLE_DATA_DIRECTORY_ENTRY 5
+
 static bool verify_dos(const DosFileHeader *dos) {
         assert(dos);
 
@@ -163,7 +166,18 @@ static bool verify_pe(
                  (allow_compatibility && pe->FileHeader.Machine == TARGET_MACHINE_TYPE_COMPATIBILITY)) &&
                 pe->FileHeader.NumberOfSections > 0 &&
                 IN_SET(pe->OptionalHeader.Magic, OPTHDR32_MAGIC, OPTHDR64_MAGIC) &&
-                pe->FileHeader.SizeOfOptionalHeader < SIZE_MAX - (dos->ExeHeader + offsetof(PeFileHeader, OptionalHeader));
+                pe->FileHeader.SizeOfOptionalHeader < SIZE_MAX - (dos->ExeHeader + offsetof(PeFileHeader, OptionalHeader)) &&
+                /* The optional header must be large enough to actually contain every field we read from
+                 * it later (the deepest being the base relocation data directory entry), and must declare
+                 * at least that many data directory entries. */
+                pe->FileHeader.SizeOfOptionalHeader >=
+                        (pe->OptionalHeader.Magic == OPTHDR32_MAGIC ?
+                                offsetof(PeOptionalHeader, DataDirectory32) :
+                                offsetof(PeOptionalHeader, DataDirectory64)) +
+                        (BASE_RELOCATION_TABLE_DATA_DIRECTORY_ENTRY + 1) * sizeof(PeImageDataDirectory) &&
+                (pe->OptionalHeader.Magic == OPTHDR32_MAGIC ?
+                        pe->OptionalHeader.NumberOfRvaAndSizes32 :
+                        pe->OptionalHeader.NumberOfRvaAndSizes64) > BASE_RELOCATION_TABLE_DATA_DIRECTORY_ENTRY;
 }
 
 static size_t section_table_offset(const DosFileHeader *dos, const PeFileHeader *pe) {
@@ -171,6 +185,54 @@ static size_t section_table_offset(const DosFileHeader *dos, const PeFileHeader 
         assert(pe);
 
         return dos->ExeHeader + offsetof(PeFileHeader, OptionalHeader) + pe->FileHeader.SizeOfOptionalHeader;
+}
+
+static EFI_STATUS pe_headers_from_base(
+                const void *base,
+                size_t base_len,
+                bool allow_compatibility,
+                const DosFileHeader **ret_dos,
+                const PeFileHeader **ret_pe) {
+
+        assert(base);
+        assert(ret_dos);
+        assert(ret_pe);
+
+        /* Validate the DOS and PE headers against the buffer length */
+
+        if (base_len < sizeof(DosFileHeader))
+                return EFI_LOAD_ERROR;
+
+        const DosFileHeader *dos = (const DosFileHeader*) base;
+        if (!verify_dos(dos))
+                return EFI_LOAD_ERROR;
+
+        if (dos->ExeHeader > base_len || base_len - dos->ExeHeader < sizeof(PeFileHeader))
+                return EFI_LOAD_ERROR;
+
+        const PeFileHeader *pe = (const PeFileHeader*) ((const uint8_t*) base + dos->ExeHeader);
+        if (!verify_pe(dos, pe, allow_compatibility))
+                return EFI_LOAD_ERROR;
+
+        *ret_dos = dos;
+        *ret_pe = pe;
+        return EFI_SUCCESS;
+}
+
+static bool pe_section_table_in_bounds(
+                const DosFileHeader *dos,
+                const PeFileHeader *pe,
+                size_t base_len) {
+
+        assert(dos);
+        assert(pe);
+
+        /* verify_pe() already bounded SizeOfOptionalHeader so this offset cannot overflow, and
+         * NumberOfSections is a uint16_t so the byte count cannot either. */
+        size_t offset = section_table_offset(dos, pe);
+        size_t bytes = (size_t) pe->FileHeader.NumberOfSections * sizeof(PeSectionHeader);
+
+        return offset <= base_len && base_len - offset >= bytes;
 }
 
 static bool pe_section_name_equal(const char *a, const char *b) {
@@ -258,6 +320,7 @@ static void pe_locate_sections_internal(
                 size_t n_section_table,
                 const char *const section_names[],
                 size_t validate_base,
+                size_t size_in_memory,
                 const void *device_table,
                 const Device *device,
                 PeSectionVector sections[]) {
@@ -286,6 +349,11 @@ static void pe_locate_sections_internal(
                          * address for the section */
                         size_max = SIZE_MAX - j->VirtualAddress;
                         if ((size_t) j->VirtualSize > size_max)
+                                continue;
+
+                        /* The section's in-memory range must lie within the image, otherwise consumers
+                         * reading it via memory_offset/memory_size would read past the loaded image. */
+                        if ((size_t) j->VirtualAddress + (size_t) j->VirtualSize > size_in_memory)
                                 continue;
 
                         /* 2nd overflow check: ignore sections that are impossibly large also taking the
@@ -360,6 +428,7 @@ static void pe_locate_sections(
                 size_t n_section_table,
                 const char *const section_names[],
                 size_t validate_base,
+                size_t size_in_memory,
                 PeSectionVector sections[]) {
 
         if (!looking_for_dtbauto_or_efifw(section_names))
@@ -368,6 +437,7 @@ static void pe_locate_sections(
                                   n_section_table,
                                   section_names,
                                   validate_base,
+                                  size_in_memory,
                                   /* device_table= */ NULL,
                                   /* device= */ NULL,
                                   sections);
@@ -387,6 +457,7 @@ static void pe_locate_sections(
                    n_section_table,
                    hwid_section_names,
                    validate_base,
+                   size_in_memory,
                    /* device_table= */ NULL,
                    /* device= */ NULL,
                    hwids_section);
@@ -403,6 +474,7 @@ static void pe_locate_sections(
                                                 n_section_table,
                                                 section_names,
                                                 validate_base,
+                                                size_in_memory,
                                                 hwids,
                                                 device,
                                                 sections);
@@ -418,6 +490,7 @@ static void pe_locate_sections(
                                         n_section_table,
                                         section_names,
                                         validate_base,
+                                        size_in_memory,
                                         hwids,
                                         device,
                                         sections);
@@ -433,12 +506,13 @@ static void pe_locate_sections(
                    n_section_table,
                    section_names,
                    validate_base,
+                   size_in_memory,
                    hwids,
                    device,
                    sections);
 }
 
-static uint32_t get_compatibility_entry_address(const DosFileHeader *dos, const PeFileHeader *pe) {
+static uint32_t get_compatibility_entry_address(const DosFileHeader *dos, size_t base_len, const PeFileHeader *pe) {
         /* The kernel may provide alternative PE entry points for different PE architectures. This allows
          * booting a 64-bit kernel on 32-bit EFI that is otherwise running on a 64-bit CPU. The locations of any
          * such compat entry points are located in a special PE section. */
@@ -448,14 +522,27 @@ static uint32_t get_compatibility_entry_address(const DosFileHeader *dos, const 
 
         static const char *const section_names[] = { ".compat", NULL };
         PeSectionVector vector[1] = {};
+
+        /* Make sure the section table lies within the buffer before pe_locate_sections() iterates it. */
+        if (!pe_section_table_in_bounds(dos, pe, base_len))
+                return 0;
+
         pe_locate_sections(
                         (const PeSectionHeader *) ((const uint8_t *) dos + section_table_offset(dos, pe)),
                         pe->FileHeader.NumberOfSections,
                         section_names,
                         PTR_TO_SIZE(dos),
+                        pe->OptionalHeader.SizeOfImage,
                         vector);
 
         if (!PE_SECTION_VECTOR_IS_SET(vector)) /* not found */
+                return 0;
+
+        /* pe_locate_sections() bounded the section against SizeOfImage, the in-memory size. Here we read the
+         * section data straight from the file buffer 'dos', which may be smaller than SizeOfImage, so also
+         * require the section's data range to lie within base_len before scanning it. */
+        if (vector[0].memory_offset > base_len ||
+            vector[0].memory_size > base_len - vector[0].memory_offset)
                 return 0;
 
         typedef struct {
@@ -487,19 +574,18 @@ static uint32_t get_compatibility_entry_address(const DosFileHeader *dos, const 
 
 EFI_STATUS pe_kernel_info(
                 const void *base,
+                size_t base_len,
                 uint32_t *ret_entry_point,
                 uint32_t *ret_compat_entry_point,
                 size_t *ret_size_in_memory,
                 uint32_t *ret_section_alignment) {
         assert(base);
 
-        const DosFileHeader *dos = (const DosFileHeader *) base;
-        if (!verify_dos(dos))
-                return EFI_LOAD_ERROR;
-
-        const PeFileHeader *pe = (const PeFileHeader *) ((const uint8_t *) base + dos->ExeHeader);
-        if (!verify_pe(dos, pe, /* allow_compatibility= */ true))
-                return EFI_LOAD_ERROR;
+        const DosFileHeader *dos;
+        const PeFileHeader *pe;
+        EFI_STATUS err = pe_headers_from_base(base, base_len, /* allow_compatibility= */ true, &dos, &pe);
+        if (err != EFI_SUCCESS)
+                return err;
 
         /* When allocating we need to also consider the virtual/uninitialized data sections, so parse it out
          * of the SizeOfImage field in the PE header and return it */
@@ -520,6 +606,10 @@ EFI_STATUS pe_kernel_info(
                 return EFI_UNSUPPORTED;
 
         if (pe->FileHeader.Machine == TARGET_MACHINE_TYPE) {
+                /* The entry point is later called as ImageBase + entry_point, and only SizeOfImage
+                 * bytes are allocated for the image, so reject an entry point outside of it. */
+                if (pe->OptionalHeader.AddressOfEntryPoint >= size_in_memory)
+                        return EFI_LOAD_ERROR;
                 if (ret_entry_point)
                         *ret_entry_point = pe->OptionalHeader.AddressOfEntryPoint;
                 if (ret_compat_entry_point)
@@ -531,10 +621,13 @@ EFI_STATUS pe_kernel_info(
                 return EFI_SUCCESS;
         }
 
-        uint32_t compat_entry_point = get_compatibility_entry_address(dos, pe);
+        uint32_t compat_entry_point = get_compatibility_entry_address(dos, base_len, pe);
         if (compat_entry_point == 0)
                 /* Image type not supported and no compat entry found. */
                 return EFI_UNSUPPORTED;
+        if (compat_entry_point >= size_in_memory)
+                /* Same as above: the compat entry point is called as ImageBase + entry_point. */
+                return EFI_LOAD_ERROR;
 
         if (ret_entry_point)
                 *ret_entry_point = 0;
@@ -547,9 +640,6 @@ EFI_STATUS pe_kernel_info(
 
         return EFI_SUCCESS;
 }
-
-/* https://learn.microsoft.com/en-us/windows/win32/debug/pe-format#optional-header-data-directories-image-only */
-#define BASE_RELOCATION_TABLE_DATA_DIRECTORY_ENTRY 5
 
 /* We do not expect PE inner kernels to have any relocations. However that might be wrong for some
  * architectures, or it might change in the future. If the case of relocation arise, we should transform this
@@ -599,20 +689,20 @@ bool pe_kernel_check_nx_compat(const void *base) {
 
 EFI_STATUS pe_section_table_from_base(
                 const void *base,
+                size_t base_len,
                 const PeSectionHeader **ret_section_table,
-                size_t *ret_n_section_table) {
+                size_t *ret_n_section_table,
+                size_t *ret_size_in_memory) {
 
         assert(base);
         assert(ret_section_table);
         assert(ret_n_section_table);
 
-        const DosFileHeader *dos = (const DosFileHeader*) base;
-        if (!verify_dos(dos))
-                return EFI_LOAD_ERROR;
-
-        const PeFileHeader *pe = (const PeFileHeader*) ((const uint8_t*) base + dos->ExeHeader);
-        if (!verify_pe(dos, pe, /* allow_compatibility= */ false))
-                return EFI_LOAD_ERROR;
+        const DosFileHeader *dos;
+        const PeFileHeader *pe;
+        EFI_STATUS err = pe_headers_from_base(base, base_len, /* allow_compatibility= */ false, &dos, &pe);
+        if (err != EFI_SUCCESS)
+                return err;
 
         assert_cc(sizeof(pe->FileHeader.NumberOfSections) == sizeof(uint16_t)); /* multiplication below cannot overflow */
 
@@ -620,14 +710,22 @@ EFI_STATUS pe_section_table_from_base(
         if (n_section_table * sizeof(PeSectionHeader) > SECTION_TABLE_BYTES_MAX)
                 return EFI_OUT_OF_RESOURCES;
 
+        /* Make sure the section table lies within the buffer, so consumers iterating it don't read off the
+         * end. */
+        if (!pe_section_table_in_bounds(dos, pe, base_len))
+                return EFI_LOAD_ERROR;
+
         *ret_section_table = (const PeSectionHeader*) ((const uint8_t*) base + section_table_offset(dos, pe));
         *ret_n_section_table = n_section_table;
+        if (ret_size_in_memory)
+                *ret_size_in_memory = pe->OptionalHeader.SizeOfImage;
 
         return EFI_SUCCESS;
 }
 
 EFI_STATUS pe_memory_locate_sections(
                 const void *base,
+                size_t base_len,
                 const char *const section_names[],
                 PeSectionVector sections[]) {
 
@@ -638,8 +736,8 @@ EFI_STATUS pe_memory_locate_sections(
         assert(sections);
 
         const PeSectionHeader *section_table;
-        size_t n_section_table;
-        err = pe_section_table_from_base(base, &section_table, &n_section_table);
+        size_t n_section_table, size_in_memory;
+        err = pe_section_table_from_base(base, base_len, &section_table, &n_section_table, &size_in_memory);
         if (err != EFI_SUCCESS)
                 return err;
 
@@ -648,6 +746,7 @@ EFI_STATUS pe_memory_locate_sections(
                         n_section_table,
                         section_names,
                         PTR_TO_SIZE(base),
+                        size_in_memory,
                         sections);
 
         return EFI_SUCCESS;
@@ -656,7 +755,8 @@ EFI_STATUS pe_memory_locate_sections(
 EFI_STATUS pe_section_table_from_file(
                 EFI_FILE *handle,
                 PeSectionHeader **ret_section_table,
-                size_t *ret_n_section_table) {
+                size_t *ret_n_section_table,
+                size_t *ret_size_in_memory) {
 
         EFI_STATUS err;
         size_t len;
@@ -710,6 +810,8 @@ EFI_STATUS pe_section_table_from_file(
 
         *ret_section_table = TAKE_PTR(section_table);
         *ret_n_section_table = n_section_table;
+        if (ret_size_in_memory)
+                *ret_size_in_memory = pe.OptionalHeader.SizeOfImage;
         return EFI_SUCCESS;
 }
 
@@ -777,6 +879,7 @@ EFI_STATUS pe_locate_profile_sections(
                 const char* const section_names[],
                 unsigned profile,
                 size_t validate_base,
+                size_t size_in_memory,
                 PeSectionVector sections[]) {
 
         assert(section_table || n_section_table == 0);
@@ -798,6 +901,7 @@ EFI_STATUS pe_locate_profile_sections(
                         n,
                         section_names,
                         validate_base,
+                        size_in_memory,
                         sections);
 
         return EFI_SUCCESS;
