@@ -2535,6 +2535,11 @@ static void log_execution_mode(bool *ret_first_boot) {
                         }
                 }
 
+                /* Make the first-boot file visible now: the credential import
+                 * consults in_first_boot() for systemd.credentials_boot_policy= which runs
+                 * before the manager object is created. */
+                (void) update_first_boot_file(first_boot);
+
                 assert_se(uname(&uts) >= 0);
 
                 if (strverscmp_improved(uts.release, KERNEL_BASELINE_VERSION) < 0)
