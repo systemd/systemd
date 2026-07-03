@@ -79,9 +79,14 @@ EFI_STATUS vmm_open(EFI_HANDLE *ret_vmm_dev, EFI_FILE **ret_vmm_dir) {
 
         for (size_t order = 0;; order++) {
                 _cleanup_free_ EFI_DEVICE_PATH *dp = NULL;
+                size_t dp_size = 0;
 
                 _cleanup_free_ char16_t *order_str = xasprintf("VMMBootOrder%04zx", order);
-                dp_err = efivar_get_raw(MAKE_GUID_PTR(VMM_BOOT_ORDER), order_str, (void**) &dp, NULL);
+                dp_err = efivar_get_raw(MAKE_GUID_PTR(VMM_BOOT_ORDER), order_str, (void**) &dp, &dp_size);
+
+                /* Validate the device path from the (untrusted) EFI variable once, up front, rather than
+                 * re-checking it for every handle below. */
+                bool dp_valid = dp_err == EFI_SUCCESS && device_path_is_valid(dp, dp_size);
 
                 for (size_t i = 0; i < n_handles; i++) {
                         _cleanup_file_close_ EFI_FILE *root_dir = NULL, *efi_dir = NULL;
@@ -92,8 +97,8 @@ EFI_STATUS vmm_open(EFI_HANDLE *ret_vmm_dev, EFI_FILE **ret_vmm_dir) {
                         if (err != EFI_SUCCESS)
                                 return err;
 
-                        /* check against VMMBootOrderNNNN (if set) */
-                        if (dp_err == EFI_SUCCESS && !device_path_startswith(fs, dp))
+                        /* check against VMMBootOrderNNNN (if set and valid) */
+                        if (dp_valid && !device_path_startswith(fs, dp))
                                 continue;
 
                         err = open_volume(handles[i], &root_dir);
