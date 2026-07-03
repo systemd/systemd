@@ -30,7 +30,7 @@ systemctl_sources = files(
         'systemctl-trivial-method.c',
         'systemctl-whoami.c',
 )
-systemctl_extract_sources = files(
+systemctl_export_sources = files(
         'systemctl-compat-halt.c',
         'systemctl-compat-shutdown.c',
         'systemctl-daemon-reload.c',
@@ -52,7 +52,7 @@ executables += [
                 'name' : 'systemctl',
                 'public' : true,
                 'sources' : systemctl_sources,
-                'extract' : systemctl_extract_sources,
+                'export' : systemctl_export_sources,
                 'link_with' : systemctl_link_with,
                 'dependencies' : [
                         liblz4_cflags,
@@ -63,7 +63,7 @@ executables += [
         },
         fuzz_template + {
                 'sources' : files('fuzz-systemctl-parse-argv.c'),
-                'objects' : ['systemctl'],
+                'import' : ['systemctl'],
                 'link_with' : systemctl_link_with,
                 'dependencies' : [
                         libselinux_cflags,
