@@ -7,7 +7,7 @@ endif
 systemd_machined_sources = files(
         'machined.c'
 )
-systemd_machined_extract_sources = files(
+systemd_machined_export_sources = files(
         'image.c',
         'image-dbus.c',
         'image-varlink.c',
@@ -26,7 +26,7 @@ executables += [
                 'name' : 'systemd-machined',
                 'dbus' : true,
                 'sources' : systemd_machined_sources,
-                'export' : systemd_machined_extract_sources,
+                'export' : systemd_machined_export_sources,
         },
         executable_template + {
                 'name' : 'machinectl',

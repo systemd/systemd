@@ -7,7 +7,7 @@ endif
 systemd_localed_sources = files(
         'localed.c'
 )
-systemd_localed_extract_sources = files(
+systemd_localed_export_sources = files(
         'localed-util.c',
         'xkbcommon-util.c',
 )
@@ -29,7 +29,7 @@ executables += [
                 'name' : 'systemd-localed',
                 'dbus' : true,
                 'sources' : systemd_localed_sources,
-                'export' : systemd_localed_extract_sources,
+                'export' : systemd_localed_export_sources,
                 'dependencies' : libxkbcommon_deps,
         },
         executable_template + {
