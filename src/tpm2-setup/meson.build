@@ -23,6 +23,7 @@ executables += [
                         'HAVE_TPM2',
                 ],
                 'dependencies' : [
+                        libopenssl_cflags,
                         tpm2_cflags,
                 ],
         },
@@ -44,6 +45,7 @@ executables += [
                         'HAVE_TPM2',
                 ],
                 'dependencies' : [
+                        libopenssl_cflags,
                         tpm2_cflags,
                 ],
         },

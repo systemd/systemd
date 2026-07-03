@@ -300,7 +300,10 @@ executables += [
         },
         test_template + {
                 'sources' : files('test-creds.c'),
-                'dependencies' : tpm2_cflags,
+                'dependencies' : [
+                        libopenssl_cflags,
+                        tpm2_cflags,
+                ],
         },
         test_template + {
                 'sources' : files('test-crypto-util.c'),
