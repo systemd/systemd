@@ -13,7 +13,7 @@ nspawn_sources = files(
         'nspawn-setuid.c',
         'nspawn-stub-pid1.c',
 )
-nspawn_extract_sources = files(
+nspawn_export_sources = files(
         'nspawn-expose-ports.c',
         'nspawn-mount.c',
         'nspawn-network.c',
@@ -27,7 +27,7 @@ nspawn_gperf_c = custom_target(
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
 
 generated_sources += nspawn_gperf_c
-nspawn_extract_sources += nspawn_gperf_c
+nspawn_export_sources += nspawn_gperf_c
 
 nspawn_common_template = {
         'dependencies' : libseccomp_cflags,
@@ -41,7 +41,7 @@ executables += [
                 'name' : 'systemd-nspawn',
                 'public' : true,
                 'sources' : nspawn_sources,
-                'export' : nspawn_extract_sources,
+                'export' : nspawn_export_sources,
                 'include_directories' : [
                         include_directories('.'),
                         executable_template['include_directories'],

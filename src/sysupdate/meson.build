@@ -14,7 +14,7 @@ systemd_sysupdate_sources = files(
         'sysupdate-update-set.c',
         'sysupdate.c',
 )
-systemd_sysupdate_extract_sources = files(
+systemd_sysupdate_export_sources = files(
         'sysupdate-update-set-flags.c',
         'sysupdate-util.c',
 )
@@ -29,7 +29,7 @@ executables += [
                 'public' : true,
                 'conditions' : ['ENABLE_SYSUPDATE'],
                 'sources' : systemd_sysupdate_sources,
-                'export' : systemd_sysupdate_extract_sources,
+                'export' : systemd_sysupdate_export_sources,
                 'dependencies' : [
                         libfdisk_cflags,
                         libopenssl_cflags,

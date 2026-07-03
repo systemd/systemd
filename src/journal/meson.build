@@ -3,7 +3,7 @@
 systemd_journald_sources = files(
         'journald.c',
 )
-systemd_journald_extract_sources = files(
+systemd_journald_export_sources = files(
         'audit-type.c',
         'journald-audit.c',
         'journald-client.c',
@@ -28,7 +28,7 @@ journald_gperf_c = custom_target(
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
 
 generated_sources += journald_gperf_c
-systemd_journald_extract_sources += journald_gperf_c
+systemd_journald_export_sources += journald_gperf_c
 
 generate_audit_type_list = files('generate-audit_type-list.sh')
 generate_audit_type_command = [env, 'bash', generate_audit_type_list, cpp]
@@ -53,7 +53,7 @@ audit_type_to_name = custom_target(
         capture : true)
 
 generated_sources += audit_type_to_name
-systemd_journald_extract_sources += audit_type_to_name
+systemd_journald_export_sources += audit_type_to_name
 
 journalctl_sources = files(
         'journalctl.c',
@@ -93,7 +93,7 @@ executables += [
         libexec_template + {
                 'name' : 'systemd-journald',
                 'sources' : systemd_journald_sources,
-                'export' : systemd_journald_extract_sources,
+                'export' : systemd_journald_export_sources,
                 'dependencies' : [
                         libacl_cflags,
                         libaudit_cflags,

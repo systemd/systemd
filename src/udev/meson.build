@@ -17,7 +17,7 @@ udevadm_sources = files(
         'udevadm.c',
         'udevd.c',
 )
-udevadm_extract_sources = files(
+udevadm_export_sources = files(
         'net/link-config.c',
         'udev-builtin.c',
         'udev-builtin-btrfs.c',
@@ -48,19 +48,19 @@ udevadm_extract_sources = files(
 )
 
 if conf.get('HAVE_KMOD') == 1
-        udevadm_extract_sources += files('udev-builtin-kmod.c')
+        udevadm_export_sources += files('udev-builtin-kmod.c')
 endif
 
 if conf.get('HAVE_BLKID') == 1
-        udevadm_extract_sources += files('udev-builtin-blkid.c')
+        udevadm_export_sources += files('udev-builtin-blkid.c')
 endif
 
 if conf.get('HAVE_ACL') == 1
-        udevadm_extract_sources += files('udev-builtin-uaccess.c')
+        udevadm_export_sources += files('udev-builtin-uaccess.c')
 endif
 
 if conf.get('HAVE_TPM2') == 1
-        udevadm_extract_sources += files('udev-builtin-tpm2_id.c')
+        udevadm_export_sources += files('udev-builtin-tpm2_id.c')
 endif
 
 ############################################################
@@ -101,7 +101,7 @@ link_config_gperf_c = custom_target(
         output : 'link-config-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
 
-udevadm_extract_sources += link_config_gperf_c
+udevadm_export_sources += link_config_gperf_c
 generated_sources += link_config_gperf_c
 
 ############################################################
@@ -150,7 +150,7 @@ udev_binaries_dict = [
                 'public' : true,
                 'sources' : udevadm_sources +
                             keyboard_keys_from_name_inc,
-                'export' : udevadm_extract_sources,
+                'export' : udevadm_export_sources,
                 'include_directories' : [
                         include_directories('.', 'net'),
                         libexec_template['include_directories'],

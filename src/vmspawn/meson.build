@@ -13,7 +13,7 @@ vmspawn_sources = files(
         'vmspawn-scope.c',
         'vmspawn-mount.c',
 )
-vmspawn_extract_sources = files(
+vmspawn_export_sources = files(
         'vmspawn-util.c',
         'vmspawn-qemu-config.c',
 )
@@ -23,7 +23,7 @@ executables += [
                 'name' : 'systemd-vmspawn',
                 'public' : true,
                 'sources' : vmspawn_sources,
-                'export' : vmspawn_extract_sources,
+                'export' : vmspawn_export_sources,
         },
         test_template + {
                 'sources' : files('test-vmspawn-util.c'),
