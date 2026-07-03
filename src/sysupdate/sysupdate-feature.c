@@ -1,13 +1,16 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <unistd.h>
+
 #include "alloc-util.h"
+#include "condition.h"
 #include "conf-parser.h"
 #include "hash-funcs.h"
 #include "path-util.h"
 #include "string-util.h"
-#include "sysupdate.h"
+#include "sysupdate-config.h"
 #include "sysupdate-feature.h"
-#include "web-util.h"
+#include "sysupdate-util.h"
 
 static Feature *feature_free(Feature *f) {
         if (!f)
@@ -18,6 +21,8 @@ static Feature *feature_free(Feature *f) {
         free(f->description);
         free(f->documentation);
         free(f->appstream);
+
+        condition_free_list(f->suggest_on);
 
         return mfree(f);
 }
@@ -31,6 +36,7 @@ Feature *feature_new(void) {
 
         *f = (Feature) {
                 .n_ref = 1,
+                .suggest = -1,
         };
 
         return f;
@@ -42,65 +48,48 @@ DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(feature_hash_ops,
                                       char, string_hash_func, string_compare_func,
                                       Feature, feature_unref);
 
-static int config_parse_url_specifiers(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-        char **s = ASSERT_PTR(data);
-        const char *root = ASSERT_PTR(userdata);
-        _cleanup_free_ char *resolved = NULL;
-        int r;
-
-        assert(rvalue);
-
-        if (isempty(rvalue)) {
-                *s = mfree(*s);
-                return 0;
-        }
-
-        r = specifier_printf(rvalue, NAME_MAX, specifier_table, root, NULL, &resolved);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to expand specifiers in %s=, ignoring: %s", lvalue, rvalue);
-                return 0;
-        }
-
-        if (!http_url_is_valid(resolved)) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "%s= URL is not valid, ignoring: %s", lvalue, rvalue);
-                return 0;
-        }
-
-        return free_and_replace(*s, resolved);
-}
-
 int feature_read_definition(Feature *f, const char *root, const char *path, const char *const *dirs) {
-        assert(f);
-
-        ConfigTableItem table[] = {
-                { "Feature", "Description",   config_parse_string,         0, &f->description },
-                { "Feature", "Documentation", config_parse_url_specifiers, 0, &f->documentation },
-                { "Feature", "AppStream",     config_parse_url_specifiers, 0, &f->appstream },
-                { "Feature", "Enabled",       config_parse_bool,           0, &f->enabled },
-                {}
-        };
-
-        _cleanup_free_ char *filename = NULL;
         int r;
 
+        assert(f);
         assert(path);
         assert(dirs);
 
+        _cleanup_free_ char *filename = NULL;
         r = path_extract_filename(path, &filename);
         if (r < 0)
                 return log_error_errno(r, "Failed to extract filename from path '%s': %m", path);
+
+        char *e = endswith(filename, ".feature");
+        if (!e)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Feature file '%s' has bad suffix: %m", filename);
+
+        _cleanup_free_ char *id = strndup(filename, e - filename);
+        if (!id)
+                return log_oom();
+
+        if (!feature_name_valid(id))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Malformed feature filename '%s': %m", filename);
+
+        ConfigTableItem table[] = {
+                { "Feature", "Description",                config_parse_string,         0,                             &f->description   },
+                { "Feature", "Documentation",              config_parse_url_specifiers, 0,                             &f->documentation },
+                { "Feature", "AppStream",                  config_parse_url_specifiers, 0,                             &f->appstream     },
+                { "Feature", "Enabled",                    config_parse_bool,           0,                             &f->enabled       },
+                { "Feature", "Suggest",                    config_parse_tristate,       0,                             &f->suggest       },
+                { "Feature", "SuggestOnArchitecture",      config_parse_condition,      CONDITION_ARCHITECTURE,        &f->suggest_on    },
+                { "Feature", "SuggestOnFirmware",          config_parse_condition,      CONDITION_FIRMWARE,            &f->suggest_on    },
+                { "Feature", "SuggestOnVirtualization",    config_parse_condition,      CONDITION_VIRTUALIZATION,      &f->suggest_on    },
+                { "Feature", "SuggestOnHost",              config_parse_condition,      CONDITION_HOST,                &f->suggest_on    },
+                { "Feature", "SuggestOnFraction",          config_parse_condition,      CONDITION_FRACTION,            &f->suggest_on    },
+                { "Feature", "SuggestOnKernelCommandLine", config_parse_condition,      CONDITION_KERNEL_COMMAND_LINE, &f->suggest_on    },
+                { "Feature", "SuggestOnVersion",           config_parse_condition,      CONDITION_VERSION,             &f->suggest_on    },
+                { "Feature", "SuggestOnCredential",        config_parse_condition,      CONDITION_CREDENTIAL,          &f->suggest_on    },
+                { "Feature", "SuggestOnSecurity",          config_parse_condition,      CONDITION_SECURITY,            &f->suggest_on    },
+                { "Feature", "SuggestOnOSRelease",         config_parse_condition,      CONDITION_OS_RELEASE,          &f->suggest_on    },
+                { "Feature", "SuggestOnMachineTag",        config_parse_condition,      CONDITION_MACHINE_TAG,         &f->suggest_on    },
+                {}
+        };
 
         r = config_parse_many_full(
                         STRV_MAKE_CONST(path),
@@ -117,8 +106,19 @@ int feature_read_definition(Feature *f, const char *root, const char *path, cons
         if (r < 0)
                 return r;
 
-        *ASSERT_PTR(endswith(filename, ".feature")) = 0; /* Remove the file extension */
-        f->id = TAKE_PTR(filename);
+        f->id = TAKE_PTR(id);
 
         return 0;
+}
+
+int feature_is_suggested(Feature *f) {
+        assert(f);
+
+        if (f->suggest >= 0)
+                return f->suggest;
+
+        if (!f->suggest_on) /* no condition → false */
+                return false;
+
+        return condition_test_list(f->suggest_on, environ, suggest_on_type_to_string, /* logger= */ NULL, /* userdata= */ NULL);
 }
