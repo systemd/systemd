@@ -9,11 +9,14 @@
 #include <fcntl.h>
 
 #include "sd-bus.h"
+#include "sd-device.h"
 
 #include "alloc-util.h"
 #include "argv-util.h"
 #include "bus-common-errors.h"
 #include "bus-locator.h"
+#include "device-util.h"
+#include "devnum-util.h"
 #include "tests.h"
 #include "time-util.h"
 
@@ -171,6 +174,64 @@ TEST(set_idle_hint) {
         assert_se(bus_call_method(bus, &session, "SetIdleHint", NULL, NULL, "b", false) >= 0);
         assert_se(bus_get_property_trivial(bus, &session, "IdleHint", NULL, 'b', &idle_hint) >= 0);
         assert_se(!idle_hint);
+}
+
+/* Takes the first device matching subsystem/sysname that this session is allowed to take,
+ * returning its devnum in *ret. */
+static bool take_first_available_device(sd_bus *bus, const char *subsystem, const char *sysname, dev_t *ret) {
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+
+        assert_se(sd_device_enumerator_new(&e) >= 0);
+        assert_se(sd_device_enumerator_add_match_subsystem(e, subsystem, /* match= */ true) >= 0);
+        assert_se(sd_device_enumerator_add_match_sysname(e, sysname) >= 0);
+
+        FOREACH_DEVICE(e, d) {
+                dev_t devnum;
+
+                if (sd_device_get_devnum(d, &devnum) < 0)
+                        continue;
+
+                /* Take it once; skip devices that aren't takeable for this session. */
+                if (bus_call_method(bus, &session, "TakeDevice", NULL, NULL, "uu",
+                                    (uint32_t) major(devnum), (uint32_t) minor(devnum)) < 0)
+                        continue;
+
+                *ret = devnum;
+                return true;
+        }
+
+        return false;
+}
+
+/* Tests org.freedesktop.logind.Session TakeDevice/ReleaseDevice: a duplicate TakeDevice for a
+ * device the caller already holds must be rejected without tearing down the live device. */
+TEST(take_device) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        dev_t found_dev = 0;
+
+        assert_se(sd_bus_open_system(&bus) >= 0);
+        assert_se(bus_call_method(bus, &session, "TakeControl", NULL, NULL, "b", true) >= 0);
+
+        /* Take a device on the session's seat. Input event devices (e.g. the ACPI power button and
+         * the keyboard) and DRM cards belong to the seat and can be taken by its controller. */
+        if (!take_first_available_device(bus, "input", "event*", &found_dev) &&
+            !take_first_available_device(bus, "drm", "card*", &found_dev)) {
+                log_notice("No takeable seat device found, skipping %s.", __func__);
+                assert_se(bus_call_method(bus, &session, "ReleaseControl", NULL, NULL, NULL) >= 0);
+                return;
+        }
+
+        /* A duplicate TakeDevice must be rejected with 'device already taken' ... */
+        assert_se(bus_call_method(bus, &session, "TakeDevice", &error, NULL, "uu",
+                                  (uint32_t) major(found_dev), (uint32_t) minor(found_dev)) < 0);
+        assert_se(sd_bus_error_has_name(&error, BUS_ERROR_DEVICE_IS_TAKEN));
+
+        /* ... and must NOT tear down the original entry. */
+        assert_se(bus_call_method(bus, &session, "ReleaseDevice", NULL, NULL, "uu",
+                                  (uint32_t) major(found_dev), (uint32_t) minor(found_dev)) >= 0);
+
+        assert_se(bus_call_method(bus, &session, "ReleaseControl", NULL, NULL, NULL) >= 0);
 }
 
 static int intro(void) {
