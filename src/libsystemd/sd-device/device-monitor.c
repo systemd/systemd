@@ -67,27 +67,6 @@ struct sd_device_monitor {
         void *userdata;
 };
 
-#define UDEV_MONITOR_MAGIC                0xfeedcafe
-
-typedef struct monitor_netlink_header {
-        /* "libudev" prefix to distinguish libudev and kernel messages */
-        char prefix[8];
-        /* Magic to protect against daemon <-> Library message format mismatch
-         * Used in the kernel from socket filter rules; needs to be stored in network order */
-        unsigned magic;
-        /* Total length of header structure known to the sender */
-        unsigned header_size;
-        /* Properties string buffer */
-        unsigned properties_off;
-        unsigned properties_len;
-        /* Hashes of primary device properties strings, to let libudev subscribers
-         * use in-kernel socket filters; values need to be stored in network order */
-        unsigned filter_subsystem_hash;
-        unsigned filter_devtype_hash;
-        unsigned filter_tag_bloom_hi;
-        unsigned filter_tag_bloom_lo;
-} monitor_netlink_header;
-
 static int monitor_set_nl_address(sd_device_monitor *m) {
         union sockaddr_union snl;
         socklen_t addrlen;
@@ -642,10 +621,10 @@ _public_ int sd_device_monitor_receive(sd_device_monitor *m, sd_device **ret) {
                                                  "Invalid message signature (%x != %x).",
                                                  message.nlh->magic, htobe32(UDEV_MONITOR_MAGIC));
 
-                if (message.nlh->properties_off + 32 > (size_t) n)
+                if (message.nlh->properties_off > LESS_BY((size_t) n, 32u))
                         return log_monitor_errno(m, SYNTHETIC_ERRNO(EAGAIN),
-                                                 "Invalid offset for properties (%u > %zi).",
-                                                 message.nlh->properties_off + 32, n);
+                                                 "Invalid properties offset (%u) for message of length %zi.",
+                                                 message.nlh->properties_off, n);
 
                 offset = message.nlh->properties_off;
 
@@ -781,9 +760,19 @@ int device_monitor_send(
         return count;
 }
 
-static void bpf_stmt(struct sock_filter *ins, unsigned *i,
-                     unsigned short code, unsigned data) {
+static void bpf_stmt_impl(struct sock_filter *ins, unsigned *i, size_t n_ins,
+                          unsigned short code, unsigned data) {
+        assert(ins);
         assert(i);
+
+        /* Once the buffer is full stop appending and mark it with a sentinel, so callers can fail in a
+         * single place (before installing the filter) instead of bounds-checking before every append. */
+        if (*i == UINT_MAX)
+                return;
+        if (*i >= n_ins) {
+                *i = UINT_MAX;
+                return;
+        }
 
         ins[(*i)++] = (struct sock_filter) {
                 .code = code,
@@ -791,10 +780,21 @@ static void bpf_stmt(struct sock_filter *ins, unsigned *i,
         };
 }
 
-static void bpf_jmp(struct sock_filter *ins, unsigned *i,
-                    unsigned short code, unsigned data,
-                    unsigned short jt, unsigned short jf) {
+#define bpf_stmt(ins, i, code, data) \
+        bpf_stmt_impl((ins), (i), ELEMENTSOF(ins), (code), (data))
+
+static void bpf_jmp_impl(struct sock_filter *ins, unsigned *i, size_t n_ins,
+                         unsigned short code, unsigned data,
+                         unsigned short jt, unsigned short jf) {
+        assert(ins);
         assert(i);
+
+        if (*i == UINT_MAX)
+                return;
+        if (*i >= n_ins) {
+                *i = UINT_MAX;
+                return;
+        }
 
         ins[(*i)++] = (struct sock_filter) {
                 .code = code,
@@ -803,6 +803,9 @@ static void bpf_jmp(struct sock_filter *ins, unsigned *i,
                 .k = data,
         };
 }
+
+#define bpf_jmp(ins, i, code, data, jt, jf) \
+        bpf_jmp_impl((ins), (i), ELEMENTSOF(ins), (code), (data), (jt), (jf))
 
 _public_ int sd_device_monitor_filter_update(sd_device_monitor *m) {
         struct sock_filter ins[512] = {};
@@ -880,9 +883,6 @@ _public_ int sd_device_monitor_filter_update(sd_device_monitor *m) {
 
                         /* matched, pass packet */
                         bpf_stmt(ins, &i, BPF_RET|BPF_K, 0xffffffff);
-
-                        if (i+1 >= ELEMENTSOF(ins))
-                                return -E2BIG;
                 }
 
                 /* nothing matched, drop packet */
@@ -891,6 +891,11 @@ _public_ int sd_device_monitor_filter_update(sd_device_monitor *m) {
 
         /* matched, pass packet */
         bpf_stmt(ins, &i, BPF_RET|BPF_K, 0xffffffff);
+
+        /* If any of the appends above overflowed the instruction buffer, bpf_stmt()/bpf_jmp() set i to
+         * UINT_MAX. Fail here, in a single place, rather than after every append. */
+        if (i == UINT_MAX)
+                return -E2BIG;
 
         /* install filter */
         filter = (struct sock_fprog) {
