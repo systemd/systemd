@@ -127,7 +127,7 @@ static int config_parse_protect_version(
 
         assert(rvalue);
 
-        r = specifier_printf(rvalue, NAME_MAX, specifier_table, t->context->root, NULL, &resolved);
+        r = specifier_printf(rvalue, NAME_MAX, system_and_tmp_specifier_table, t->context->root, NULL, &resolved);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to expand specifiers in ProtectVersion=, ignoring: %s", rvalue);
@@ -166,7 +166,7 @@ static int config_parse_min_version(
 
         assert(rvalue);
 
-        r = specifier_printf(rvalue, NAME_MAX, specifier_table, t->context->root, NULL, &resolved);
+        r = specifier_printf(rvalue, NAME_MAX, system_and_tmp_specifier_table, t->context->root, NULL, &resolved);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to expand specifiers in MinVersion=, ignoring: %s", rvalue);
@@ -205,7 +205,7 @@ static int config_parse_url_specifiers(
                 return 0;
         }
 
-        r = specifier_printf(rvalue, NAME_MAX, specifier_table, t->context->root, NULL, &resolved);
+        r = specifier_printf(rvalue, NAME_MAX, system_and_tmp_specifier_table, t->context->root, NULL, &resolved);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to expand specifiers in %s=, ignoring: %s", lvalue, rvalue);
@@ -244,7 +244,7 @@ static int config_parse_current_symlink(
 
         assert(rvalue);
 
-        r = specifier_printf(rvalue, NAME_MAX, specifier_table, t->context->root, NULL, &resolved);
+        r = specifier_printf(rvalue, NAME_MAX, system_and_tmp_specifier_table, t->context->root, NULL, &resolved);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to expand specifiers in CurrentSymlink=, ignoring: %s", rvalue);
@@ -333,7 +333,7 @@ static int config_parse_resource_pattern(
                 if (r == 0)
                         break;
 
-                r = specifier_printf(word, NAME_MAX, specifier_table, t->context->root, NULL, &resolved);
+                r = specifier_printf(word, NAME_MAX, system_and_tmp_specifier_table, t->context->root, NULL, &resolved);
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Failed to expand specifiers in MatchPattern=, ignoring: %s", rvalue);
@@ -377,7 +377,7 @@ static int config_parse_resource_path(
                 return 0;
         }
 
-        r = specifier_printf(rvalue, PATH_MAX-1, specifier_table, t->context->root, NULL, &resolved);
+        r = specifier_printf(rvalue, PATH_MAX-1, system_and_tmp_specifier_table, t->context->root, NULL, &resolved);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to expand specifiers in Path=, ignoring: %s", rvalue);
