@@ -2354,7 +2354,7 @@ foreach dict : executables
                 sources += exe_sources
         endif
 
-        if dict.has_key('export')
+        if 'export' in dict
                 exported_by_name += {
                         name : {
                                 'exported' : exe.extract_objects(dict['export']),
@@ -2718,7 +2718,7 @@ if meson.version().version_compare('>=1.4.0')
         uniq = {}
 
         foreach source : sources
-                if uniq.has_key(source.full_path())
+                if source.full_path() in uniq
                         continue
                 endif
                 uniq += {source.full_path(): source}
