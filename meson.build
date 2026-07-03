@@ -1231,11 +1231,20 @@ libfido2 = dependency('libfido2',
 libfido2_cflags = libfido2.partial_dependency(includes: true, compile_args: true)
 conf.set10('HAVE_LIBFIDO2', libfido2.found())
 
-tpm2 = dependency('tss2-esys tss2-rc tss2-mu tss2-tcti-device',
-                  required : get_option('tpm2'))
-tpm2_cflags = tpm2.partial_dependency(includes: true, compile_args: true)
-conf.set10('HAVE_TPM2', tpm2.found())
-conf.set10('HAVE_TSS2_ESYS3', tpm2.found() and tpm2.version().version_compare('>= 3.0.0'))
+tss2_esys = dependency('tss2-esys', required : get_option('tpm2'))
+tss2_mu = dependency('tss2-mu', required : get_option('tpm2'))
+tss2_rc = dependency('tss2-rc', required : get_option('tpm2'))
+tss2_tcti_device = dependency('tss2-tcti-device', required : get_option('tpm2'))
+tpm2_cflags = declare_dependency(
+        dependencies : [
+                tss2_esys.partial_dependency(includes: true, compile_args: true),
+                tss2_mu.partial_dependency(includes: true, compile_args: true),
+                tss2_rc.partial_dependency(includes: true, compile_args: true),
+                tss2_tcti_device.partial_dependency(includes: true, compile_args: true),
+        ],
+)
+conf.set10('HAVE_TPM2', tss2_esys.found() and tss2_mu.found() and tss2_rc.found() and tss2_tcti_device.found())
+conf.set10('HAVE_TSS2_ESYS3', tss2_esys.found() and tss2_esys.version().version_compare('>= 3.0.0'))
 conf.set('TPM2_NVPCR_BASE', get_option('tpm2-nvpcr-base'))
 
 libdw = dependency('libdw',
