@@ -13,7 +13,7 @@ executables += [
                 ),
                 'dependencies' : [
                         libopenssl_cflags,
-                        tpm2,
+                        tpm2_cflags,
                 ],
                 'public' : true,
         },
