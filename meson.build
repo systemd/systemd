@@ -1345,9 +1345,13 @@ libgobject = dependency('gobject-2.0',
 libgio =     dependency('gio-2.0',
                         required : get_option('glib'))
 conf.set10('HAVE_GLIB', libglib.found() and libgobject.found() and libgio.found())
-libglib_cflags = libglib.partial_dependency(includes: true, compile_args: true)
-libgobject_cflags = libgobject.partial_dependency(includes: true, compile_args: true)
-libgio_cflags = libgio.partial_dependency(includes: true, compile_args: true)
+libglib_cflags = declare_dependency(
+        dependencies : [
+                libglib.partial_dependency(includes: true, compile_args: true),
+                libgobject.partial_dependency(includes: true, compile_args: true),
+                libgio.partial_dependency(includes: true, compile_args: true),
+        ],
+)
 
 libdbus = dependency('dbus-1',
                      version : '>= 1.3.2',
