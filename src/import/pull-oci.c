@@ -1066,7 +1066,9 @@ static int oci_pull_save_nspawn_settings(OciPull *i) {
                 fprintf(f, "Parameters=%s\n", ej);
         }
 
-        r = flink_tmpfile(f, tmpfile, j, LINK_TMPFILE_REPLACE);
+        r = flink_tmpfile(f, tmpfile, j,
+                          LINK_TMPFILE_REPLACE|
+                          (i->flags & IMPORT_SYNC ? LINK_TMPFILE_SYNC : 0));
         if (r < 0)
                 return log_error_errno(r, "Failed to move '%s' into place: %m", j);
 
@@ -1098,7 +1100,9 @@ static int oci_pull_save_oci_config(OciPull *i) {
         if (r < 0)
                 return log_error_errno(r, "Failed to write '%s': %m", j);
 
-        r = link_tmpfile(fd, tmpfile, j, LINK_TMPFILE_REPLACE);
+        r = link_tmpfile(fd, tmpfile, j,
+                         LINK_TMPFILE_REPLACE|
+                         (i->flags & IMPORT_SYNC ? LINK_TMPFILE_SYNC : 0));
         if (r < 0)
                 return log_error_errno(r, "Failed to move '%s' into place: %m", j);
 
@@ -1173,8 +1177,13 @@ static int oci_pull_save_mstack(OciPull *i) {
                 }
         }
 
-        if (rename(jt, j) < 0)
-                return log_error_errno(errno, "Failed to move '%s' into place: %m", j);
+        r = install_file(
+                        AT_FDCWD, jt,
+                        AT_FDCWD, j,
+                        (i->flags & IMPORT_FORCE ? INSTALL_REPLACE : 0) |
+                        (i->flags & IMPORT_SYNC ? INSTALL_SYNCFS|INSTALL_GRACEFUL : 0));
+        if (r < 0)
+                return log_error_errno(r, "Failed to move '%s' into place: %m", j);
 
         jt = mfree(jt); /* Disarm rm_rf_physical_and_free() */
 
