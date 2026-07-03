@@ -88,11 +88,27 @@ Button* button_new(Manager *m, const char *name) {
         return b;
 }
 
+static void stop_long_press(Button *b, sd_event_source **e) {
+        assert(b);
+        assert(e);
+
+        /* The long press timers are Manager-scoped but armed with the Button that started the
+         * press as userdata (see start_long_press()). Cancel the one this Button owns before it is
+         * freed. */
+        if (*e && sd_event_source_get_userdata(*e) == b)
+                *e = sd_event_source_unref(*e);
+}
+
 Button *button_free(Button *b) {
         if (!b)
                 return NULL;
 
         hashmap_remove(b->manager->buttons, b->name);
+
+        stop_long_press(b, &b->manager->power_key_long_press_event_source);
+        stop_long_press(b, &b->manager->reboot_key_long_press_event_source);
+        stop_long_press(b, &b->manager->suspend_key_long_press_event_source);
+        stop_long_press(b, &b->manager->hibernate_key_long_press_event_source);
 
         sd_event_source_unref(b->io_event_source);
         sd_event_source_unref(b->check_event_source);
