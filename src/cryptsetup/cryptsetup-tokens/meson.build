@@ -48,6 +48,7 @@ modules += [
                 'sources' : cryptsetup_token_systemd_tpm2_sources,
                 'dependencies' : [
                         libcryptsetup_cflags,
+                        libopenssl_cflags,
                         tpm2_cflags,
                 ],
         },
