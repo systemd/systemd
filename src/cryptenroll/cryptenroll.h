@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "crypto-util.h"
 #include "libfido2-util.h"
 #include "shared-forward.h"
 
@@ -32,6 +33,14 @@ typedef enum WipeScope {
         _WIPE_SCOPE_MAX,
         _WIPE_SCOPE_INVALID = -EINVAL,
 } WipeScope;
+
+typedef enum Tpm2WithPin {
+        TPM2_WITH_PIN_NO,
+        TPM2_WITH_PIN_YES,       /* with argon2id */
+        TPM2_WITH_PIN_DIRECT,    /* without argon2id (legacy mode, v251 and before) */
+        _TPM2_WITH_PIN_MAX,
+        _TPM2_WITH_PIN_INVALID = -EINVAL,
+} Tpm2WithPin;
 
 DECLARE_STRING_TABLE_LOOKUP(enroll_type, EnrollType);
 DECLARE_STRING_TABLE_LOOKUP(luks2_token_type, EnrollType);
@@ -74,7 +83,9 @@ typedef struct EnrollContext {
         char *tpm2_device_key;
         Tpm2PCRValue *tpm2_hash_pcr_values;
         size_t tpm2_n_hash_pcr_values;
-        bool tpm2_pin;
+        Tpm2WithPin tpm2_pin;
+        Argon2IdParameters tpm2_argon2id_params;
+        usec_t tpm2_argon2id_iter_time;
         char *tpm2_public_key;
         bool tpm2_load_public_key;
         char *tpm2_public_key_policyref;
@@ -106,7 +117,9 @@ typedef struct EnrollContext {
                 .unlock_type = UNLOCK_PASSWORD,                         \
                 .fido2_parameters_in_header = true,                     \
                 .fido2_lock_with = FIDO2ENROLL_PIN | FIDO2ENROLL_UP,    \
+                .tpm2_pin = _TPM2_WITH_PIN_INVALID,                     \
                 .tpm2_load_public_key = true,                           \
+                .tpm2_argon2id_params = ARGON2ID_PARAMETERS_DEFAULT,    \
                 .wipe_slots_scope = WIPE_EXPLICIT,                      \
                 .wipe_except_slot = -1,                                 \
                 .interactive = true,                                    \
