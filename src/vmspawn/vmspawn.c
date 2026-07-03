@@ -2574,6 +2574,14 @@ static int discover_ovmf_config(OvmfConfig **ret, sd_json_variant **ret_firmware
                 r = set_put_strdup(&arg_firmware_features_include, coco_feature);
                 if (r < 0)
                         return log_oom();
+
+                /* CoCo firmware is stateless, so Secure Boot keys cannot be enrolled at runtime
+                 * but must have baked-in, enrolled keys, which we avoid in other cases. */
+                if (set_contains(arg_firmware_features_include, "secure-boot")) {
+                        r = set_put_strdup(&arg_firmware_features_include, "enrolled-keys");
+                        if (r < 0)
+                                return log_oom();
+                }
         }
 
         FindOvmfConfigFlags flags =
@@ -2584,7 +2592,8 @@ static int discover_ovmf_config(OvmfConfig **ret, sd_json_variant **ret_firmware
         if (r == -ENOENT && coco_feature)
                 return log_error_errno(r, "No suitable firmware descriptor found for --coco=%s "
                                        "(requires stateless firmware in raw format with the '%s' firmware feature). "
-                                       "Install a suitable firmware or select a firmware descriptor with --firmware=.",
+                                       "Install a suitable firmware, select a firmware descriptor with --firmware=, or "
+                                       "opt in with --secure-boot=yes if the installed firmware enforces Secure Boot.",
                                        confidential_computing_to_string(arg_confidential_computing), coco_feature);
         if (r < 0)
                 return log_error_errno(r, "Failed to find OVMF config: %m");
@@ -4244,6 +4253,19 @@ static int verify_arguments(void) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "--grow-image is not supported for qcow2 images, use 'qemu-img resize FILE SIZE'.");
 
+        if (arg_confidential_computing != COCO_NO) {
+                /* Confidential computing firmware is stateless, there is no NVRAM to instantiate from a
+                 * template or to persist. */
+                if (arg_efi_nvram_template)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "--efi-nvram-template= cannot be used with --coco=, "
+                                               "confidential computing firmware is stateless.");
+                if (arg_efi_nvram_state_mode == STATE_PATH)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "An explicit --efi-nvram-state= path cannot be used with --coco=, "
+                                               "confidential computing firmware is stateless. Use 'off' or 'auto'.");
+        }
+
         if (arg_confidential_computing == COCO_AMD_SEV_SNP) {
                 if (native_architecture() != ARCHITECTURE_X86_64)
                         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
@@ -4255,9 +4277,6 @@ static int verify_arguments(void) {
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "--coco=sev-snp can't be used with %s firmware",
                                                firmware_to_string(arg_firmware_type));
-                if (set_contains(arg_firmware_features_include, "secure-boot"))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "--coco=sev-snp cannot be combined with --secure-boot=yes.");
                 if (arg_tpm > 0)
                         log_warning("TPM can't be trusted by the confidential computing guest");
                 /* kernel-hashes=on only covers what QEMU itself loads via -kernel/-initrd/-append.
@@ -4281,11 +4300,6 @@ static int verify_arguments(void) {
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "--coco=tdx can't be used with %s firmware",
                                                firmware_to_string(arg_firmware_type));
-                /* Secure Boot state is baked into the supplied TDVF image and can't be enrolled at
-                 * runtime (no writable NVRAM), so --secure-boot=yes would silently have no effect. */
-                if (set_contains(arg_firmware_features_include, "secure-boot"))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "--coco=tdx cannot be combined with --secure-boot=yes.");
                 if (arg_tpm > 0)
                         log_warning("TPM can't be trusted by the confidential computing guest");
         }
