@@ -974,7 +974,7 @@ static int condition_test_first_boot(Condition *c, char **env) {
         if (r < 0)
                 return r;
 
-        return in_first_boot() == r;
+        return (in_first_boot() > 0) == r;
 }
 
 static int condition_test_environment(Condition *c, char **env) {
