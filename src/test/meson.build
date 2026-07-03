@@ -413,14 +413,14 @@ executables += [
         },
         test_template + {
                 'sources' : files('test-nss-hosts.c'),
-                'extract' : files('nss-test-util.c'),
+                'export' : files('nss-test-util.c'),
                 'dependencies' : libseccomp_cflags,
                 'conditions' : ['ENABLE_NSS'],
                 'timeout' : 120,
         },
         test_template + {
                 'sources' : files('test-nss-users.c'),
-                'objects' : ['test-nss-hosts'],
+                'import' : ['test-nss-hosts'],
                 'conditions' : ['ENABLE_NSS'],
         },
         test_template + {
@@ -434,7 +434,7 @@ executables += [
         },
         test_template + {
                 'sources' : files('test-qmp-client-qemu.c'),
-                'objects' : ['systemd-vmspawn'],
+                'import' : ['systemd-vmspawn'],
                 'conditions' : ['ENABLE_VMSPAWN'],
         },
         test_template + {
@@ -485,12 +485,12 @@ executables += [
         },
         test_template + {
                 'sources' : files('test-varlink-idl-machine.c'),
-                'objects' : ['systemd-machined'],
+                'import' : ['systemd-machined'],
                 'conditions' : ['ENABLE_MACHINED'],
         },
         test_template + {
                 'sources' : files('test-varlink-idl-login.c'),
-                'objects' : ['systemd-logind'],
+                'import' : ['systemd-logind'],
                 'conditions' : ['ENABLE_LOGIND'],
         },
         test_template + {

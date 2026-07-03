@@ -10,7 +10,7 @@ systemd_oomd_sources = files(
         'oomd-manager.c',
         'oomd-manager-bus.c',
 )
-systemd_oomd_extract_sources = files(
+systemd_oomd_export_sources = files(
         'oomd-util.c',
 )
 
@@ -19,7 +19,7 @@ executables += [
                 'name' : 'systemd-oomd',
                 'dbus' : true,
                 'sources' : systemd_oomd_sources,
-                'extract' : systemd_oomd_extract_sources,
+                'export' : systemd_oomd_export_sources,
                 'dependencies' : libatomic,
         },
         executable_template + {
@@ -29,7 +29,7 @@ executables += [
         },
         test_template + {
                 'sources' : files('test-oomd-util.c'),
-                'objects' : ['systemd-oomd'],
+                'import' : ['systemd-oomd'],
                 'dependencies' : libatomic,
         },
 ]
