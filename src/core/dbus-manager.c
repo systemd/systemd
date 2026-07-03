@@ -2,6 +2,7 @@
 
 #include <linux/capability.h>
 #include <sys/prctl.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -33,6 +34,7 @@
 #include "hashmap.h"
 #include "initrd-util.h"
 #include "install.h"
+#include "io-util.h"
 #include "locale-util.h"
 #include "log.h"
 #include "manager-dump.h"
@@ -48,6 +50,7 @@
 #include "strv.h"
 #include "syslog-util.h"
 #include "taint.h"
+#include "tmpfile-util.h"
 #include "unit-name.h"
 #include "user-util.h"
 #include "version.h"
@@ -2288,15 +2291,180 @@ static int method_enqueue_marked_jobs(sd_bus_message *message, void *userdata, s
         return sd_bus_message_send(reply);
 }
 
-static int list_unit_files_by_patterns(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error, char **states, char **patterns) {
-        Manager *m = ASSERT_PTR(userdata);
+struct ListUnitFilesOp {
+        Manager *manager;
+        sd_bus_message *message;
+        sd_event_source *event_source;
+        sd_event_source *timeout_event_source;
+        PidRef pidref;
+        int data_fd;
+        int errno_fd;
+        LIST_FIELDS(ListUnitFilesOp, list_unit_files_ops);
+};
+
+static ListUnitFilesOp *list_unit_files_op_free(ListUnitFilesOp *op) {
+        if (!op)
+                return NULL;
+
+        sd_event_source_disable_unref(op->event_source);
+        sd_event_source_disable_unref(op->timeout_event_source);
+        sd_bus_message_unref(op->message);
+        (void) pidref_kill(&op->pidref, SIGKILL);
+        pidref_done(&op->pidref);
+        safe_close(op->data_fd);
+        safe_close(op->errno_fd);
+
+        if (op->manager) {
+                LIST_REMOVE(list_unit_files_ops, op->manager->list_unit_files_ops, op);
+                assert(op->manager->n_list_unit_files_ops > 0);
+                op->manager->n_list_unit_files_ops--;
+        }
+
+        return mfree(op);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(ListUnitFilesOp*, list_unit_files_op_free);
+
+void manager_cancel_list_unit_files_ops(Manager *m) {
+        assert(m);
+
+        while (m->list_unit_files_ops)
+                list_unit_files_op_free(m->list_unit_files_ops);
+}
+
+static int list_unit_files_op_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
+        _cleanup_(list_unit_files_op_freep) ListUnitFilesOp *op = ASSERT_PTR(userdata);
+        int r;
+
+        log_warning("ListUnitFiles child " PID_FMT " timed out, killing.", op->pidref.pid);
+
+        r = sd_bus_reply_method_errnof(op->message, ETIMEDOUT,
+                                       "ListUnitFiles operation timed out");
+        if (r < 0)
+                log_warning_errno(r, "Failed to send timeout error reply for ListUnitFiles: %m");
+
+        return 0;
+}
+
+static int list_unit_files_op_done(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        _cleanup_(list_unit_files_op_freep) ListUnitFilesOp *op = ASSERT_PTR(userdata);
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_hashmap_free_ Hashmap *h = NULL;
+        _cleanup_free_ char *data = NULL;
+        struct stat st;
+        ssize_t n;
+        int r, child_errno;
+
+        n = read(op->errno_fd, &child_errno, sizeof(child_errno));
+        if (n == 0) {
+                r = -ECONNABORTED;
+                goto fail;
+        }
+        if (n < 0) {
+                r = -errno;
+                goto fail;
+        }
+        if (n != (ssize_t) sizeof(child_errno)) {
+                r = -EIO;
+                goto fail;
+        }
+        if (child_errno < 0) {
+                r = child_errno;
+                goto fail;
+        }
+
+        if (fstat(op->data_fd, &st) < 0) {
+                r = -errno;
+                goto fail;
+        }
+
+        if (lseek(op->data_fd, 0, SEEK_SET) < 0) {
+                r = -errno;
+                goto fail;
+        }
+
+        if (st.st_size > MANAGER_MAX_LIST_UNIT_FILES_SIZE) {
+                r = -EFBIG;
+                goto fail;
+        }
+
+        if (st.st_size > 0) {
+                data = malloc(st.st_size);
+                if (!data) {
+                        r = -ENOMEM;
+                        goto fail;
+                }
+
+                n = loop_read(op->data_fd, data, st.st_size, false);
+                if (n < 0 || n != st.st_size) {
+                        r = n < 0 ? (int) n : -EIO;
+                        goto fail;
+                }
+        }
+
+        r = sd_bus_message_new_method_return(op->message, &reply);
+        if (r < 0)
+                goto fail;
+
+        r = sd_bus_message_open_container(reply, 'a', "(ss)");
+        if (r < 0)
+                goto fail;
+
+        /* Parse NUL-delimited path\0state\0 pairs from child */
+        if (data) {
+                const char *p = data, *end = data + st.st_size;
+                while (p < end) {
+                        const char *path = p;
+                        const char *nul = memchr(p, 0, end - p);
+                        if (!nul)
+                                break;
+                        p = nul + 1;
+
+                        const char *state = p;
+                        nul = memchr(p, 0, end - p);
+                        if (!nul)
+                                break;
+                        p = nul + 1;
+
+                        r = sd_bus_message_append(reply, "(ss)", path, state);
+                        if (r < 0)
+                                goto fail;
+                }
+        }
+
+        r = sd_bus_message_close_container(reply);
+        if (r < 0)
+                goto fail;
+
+        r = sd_bus_send(NULL, reply, NULL);
+        if (r < 0)
+                log_warning_errno(r, "Failed to send reply for ListUnitFiles: %m");
+
+        return 0;
+
+fail:
+        log_warning_errno(r, "ListUnitFiles operation failed: %m");
+        (void) sd_bus_reply_method_errnof(op->message, r, "ListUnitFiles operation failed: %m");
+        return 0;
+}
+
+static int list_unit_files_by_patterns(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error, char **states, char **patterns) {
+        _cleanup_close_pair_ int errno_pipe_fd[2] = EBADF_PAIR;
+        _cleanup_close_ int data_fd = -EBADF;
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        Manager *m = ASSERT_PTR(userdata);
+        ListUnitFilesOp *op;
         int r;
 
         assert(message);
 
         /* Anyone can call this method */
+
+        if (!sd_bus_message_get_expect_reply(message))
+                return 1; /* Caller doesn't want a reply, skip the expensive fork */
+
+        if (m->n_list_unit_files_ops >= MANAGER_MAX_LIST_UNIT_FILES_OPS)
+                return sd_bus_error_set(reterr_error, SD_BUS_ERROR_LIMITS_EXCEEDED,
+                                        "Too many concurrent ListUnitFiles operations.");
 
         if (strv_length(states) > MANAGER_MAX_STATES_PER_CALL)
                 return sd_bus_error_set(reterr_error, SD_BUS_ERROR_LIMITS_EXCEEDED,
@@ -2310,30 +2478,93 @@ static int list_unit_files_by_patterns(sd_bus_message *message, void *userdata, 
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_new_method_return(message, &reply);
+        if (pipe2(errno_pipe_fd, O_CLOEXEC|O_NONBLOCK) < 0)
+                return -errno;
+
+        data_fd = open_tmpfile_unlinkable(NULL, O_RDWR|O_CLOEXEC);
+        if (data_fd < 0)
+                return data_fd;
+
+        int except_fds[] = { data_fd, errno_pipe_fd[1] };
+        r = pidref_safe_fork_full(
+                        "(sd-lufiles)",
+                        /* stdio_fds= */ NULL,
+                        except_fds, ELEMENTSOF(except_fds),
+                        FORK_CLOSE_ALL_FDS|FORK_REOPEN_LOG|FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_LOG,
+                        &pidref);
         if (r < 0)
                 return r;
+        if (r == 0) {
+                /* Child: enumerate unit files and write NUL-delimited path\0state\0 pairs */
+                _cleanup_hashmap_free_ Hashmap *h = NULL;
+                UnitFileList *item;
 
-        r = unit_file_get_list(m->runtime_scope, /* root_dir= */ NULL, states, patterns, &h);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_message_open_container(reply, 'a', "(ss)");
-        if (r < 0)
-                return r;
-
-        UnitFileList *item;
-        HASHMAP_FOREACH(item, h) {
-                r = sd_bus_message_append(reply, "(ss)", item->path, unit_file_state_to_string(item->state));
+                r = unit_file_get_list(m->runtime_scope, /* root_dir= */ NULL, states, patterns, &h);
                 if (r < 0)
-                        return r;
+                        goto child_fail;
+
+                HASHMAP_FOREACH(item, h) {
+                        const char *state_str = unit_file_state_to_string(item->state);
+
+                        r = loop_write(data_fd, item->path, strlen(item->path) + 1);
+                        if (r < 0)
+                                goto child_fail;
+                        r = loop_write(data_fd, state_str, strlen(state_str) + 1);
+                        if (r < 0)
+                                goto child_fail;
+                }
+
+                r = 0;
+                (void) write(errno_pipe_fd[1], &r, sizeof(r));
+                _exit(EXIT_SUCCESS);
+
+        child_fail:
+                (void) write(errno_pipe_fd[1], &r, sizeof(r));
+                _exit(EXIT_FAILURE);
         }
 
-        r = sd_bus_message_close_container(reply);
-        if (r < 0)
-                return r;
+        /* Parent: register async completion handler */
+        errno_pipe_fd[1] = safe_close(errno_pipe_fd[1]);
 
-        return sd_bus_message_send(reply);
+        op = new(ListUnitFilesOp, 1);
+        if (!op) {
+                (void) pidref_kill(&pidref, SIGKILL);
+                return -ENOMEM;
+        }
+
+        *op = (ListUnitFilesOp) {
+                .manager = m,
+                .message = sd_bus_message_ref(message),
+                .pidref = TAKE_PIDREF(pidref),
+                .data_fd = TAKE_FD(data_fd),
+                .errno_fd = TAKE_FD(errno_pipe_fd[0]),
+        };
+
+        LIST_PREPEND(list_unit_files_ops, m->list_unit_files_ops, op);
+        m->n_list_unit_files_ops++;
+
+        r = sd_event_add_io(m->event, &op->event_source, op->errno_fd, EPOLLIN, list_unit_files_op_done, op);
+        if (r < 0) {
+                list_unit_files_op_free(op);
+                return r;
+        }
+
+        (void) sd_event_source_set_description(op->event_source, "list-unit-files-op");
+
+        r = sd_event_add_time_relative(
+                        m->event,
+                        &op->timeout_event_source,
+                        CLOCK_MONOTONIC,
+                        MANAGER_LIST_UNIT_FILES_TIMEOUT_USEC, 0,
+                        list_unit_files_op_timeout, op);
+        if (r < 0) {
+                list_unit_files_op_free(op);
+                return r;
+        }
+
+        (void) sd_event_source_set_description(op->timeout_event_source, "list-unit-files-op-timeout");
+
+        return 1;
 }
 
 static int method_list_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {

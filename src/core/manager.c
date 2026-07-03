@@ -1730,6 +1730,7 @@ Manager* manager_free(Manager *m) {
 
         lookup_paths_flush_generator(&m->lookup_paths);
 
+        manager_cancel_list_unit_files_ops(m);
         bus_done(m);
         manager_varlink_done(m);
 
