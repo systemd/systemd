@@ -7,6 +7,7 @@ enum {
         PATTERN_MATCH_NO,
         PATTERN_MATCH_YES,
         PATTERN_MATCH_RETRY,
+        PATTERN_MATCH_YES_AND_RETRY,
 };
 
 int pattern_match(const char *pattern, const char *s, InstanceMetadata *ret);
