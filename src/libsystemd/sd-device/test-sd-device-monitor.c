@@ -9,10 +9,12 @@
 #include "device-private.h"
 #include "device-util.h"
 #include "io-util.h"
+#include "iovec-util.h"
 #include "mountpoint-util.h"
 #include "path-util.h"
 #include "socket-util.h"
 #include "stat-util.h"
+#include "stdio-util.h"
 #include "string-util.h"
 #include "tests.h"
 #include "time-util.h"
@@ -282,6 +284,21 @@ TEST(sd_device_monitor_filter_add_match_tag) {
         ASSERT_EQ(sd_event_loop(sd_device_monitor_get_event(monitor_client)), 100);
 }
 
+TEST(sd_device_monitor_filter_update_bounds) {
+        _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *m = NULL;
+
+        ASSERT_OK(device_monitor_new_full(&m, MONITOR_GROUP_NONE, -EBADF));
+
+        /* Each tag emits 6 BPF instructions into a fixed 512-entry array, too many must be refused */
+        for (unsigned u = 0; u < 200; u++) {
+                char t[32];
+                xsprintf(t, "tag%u", u);
+                ASSERT_OK(sd_device_monitor_filter_add_match_tag(m, t));
+        }
+
+        ASSERT_ERROR(sd_device_monitor_filter_update(m), E2BIG);
+}
+
 TEST(sd_device_monitor_filter_add_match_sysattr) {
         _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor_server = NULL, *monitor_client = NULL;
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
@@ -406,6 +423,31 @@ TEST(sd_device_monitor_receive) {
         const char *s;
         ASSERT_OK(sd_device_get_syspath(dev, &s));
         ASSERT_STREQ(s, syspath);
+}
+
+TEST(sd_device_monitor_receive_bad_properties_off) {
+        _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor_server = NULL, *monitor_client = NULL;
+        union sockaddr_union sa;
+
+        prepare_monitor(&monitor_server, &monitor_client, &sa);
+
+        monitor_netlink_header nlh = {
+                .prefix = "libudev",
+                .magic = htobe32(UDEV_MONITOR_MAGIC),
+                .header_size = sizeof nlh,
+                .properties_off = UINT32_MAX - 10,
+        };
+        struct iovec iov = IOVEC_MAKE(&nlh, sizeof nlh);
+        struct msghdr smsg = {
+                .msg_iov = &iov,
+                .msg_iovlen = 1,
+                .msg_name = &sa,
+                .msg_namelen = sizeof(struct sockaddr_nl),
+        };
+        ASSERT_OK_ERRNO(sendmsg(sd_device_monitor_get_fd(monitor_server), &smsg, 0));
+
+        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        ASSERT_ERROR(sd_device_monitor_receive(monitor_client, &dev), EAGAIN);
 }
 
 static int intro(void) {

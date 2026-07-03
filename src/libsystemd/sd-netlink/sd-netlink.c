@@ -548,7 +548,7 @@ int sd_netlink_call_async(
                 uint64_t usec,
                 const char *description) {
 
-        _cleanup_free_ sd_netlink_slot *slot = NULL;
+        _cleanup_(sd_netlink_slot_unrefp) sd_netlink_slot *slot = NULL;
         int r, k;
 
         assert_return(nl, -EINVAL);
@@ -859,33 +859,38 @@ int netlink_add_match_internal(
                 void *userdata,
                 const char *description) {
 
-        _cleanup_free_ sd_netlink_slot *slot = NULL;
+        _cleanup_(sd_netlink_slot_unrefp) sd_netlink_slot *slot = NULL;
         int r;
 
         assert(groups);
         assert(n_groups > 0);
-
-        for (size_t i = 0; i < n_groups; i++) {
-                r = socket_broadcast_group_ref(nl, groups[i]);
-                if (r < 0)
-                        return r;
-        }
 
         r = netlink_slot_allocate(nl, !ret_slot, NETLINK_MATCH_CALLBACK, sizeof(struct match_callback),
                                   userdata, description, &slot);
         if (r < 0)
                 return r;
 
-        slot->match_callback.groups = newdup(uint32_t, groups, n_groups);
-        if (!slot->match_callback.groups)
-                return -ENOMEM;
-
-        slot->match_callback.n_groups = n_groups;
         slot->match_callback.callback = callback;
         slot->match_callback.type = type;
         slot->match_callback.cmd = cmd;
 
+        slot->match_callback.groups = newdup(uint32_t, groups, n_groups);
+        if (!slot->match_callback.groups)
+                return -ENOMEM;
+
+        /* Link the callback before taking the broadcast group references, so that on a partial failure the
+         * cleanup path (sd_netlink_slot_unref() -> netlink_slot_disconnect()) can unlink it again and drop
+         * the references we already took. n_groups is bumped as each reference is acquired, so the disconnect
+         * only releases what we actually got. */
         LIST_PREPEND(match_callbacks, nl->match_callbacks, &slot->match_callback);
+
+        for (size_t i = 0; i < n_groups; i++) {
+                r = socket_broadcast_group_ref(nl, groups[i]);
+                if (r < 0)
+                        return r;
+
+                slot->match_callback.n_groups = i + 1;
+        }
 
         /* Set this at last. Otherwise, some failures in above call the destroy callback but some do not. */
         slot->destroy_callback = destroy_callback;
