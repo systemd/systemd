@@ -1192,4 +1192,112 @@ EOF
 
 test_signature_verification
 
+# Test '**/' as prefix in MatchPattern= for subpaths in SHA256SUMS
+rm -rf "$CONFIGDIR" "$WORKDIR/blobs" "$WORKDIR/source/sub"
+mkdir -p "$CONFIGDIR" "$WORKDIR/blobs" "$WORKDIR/source/sub"
+
+printf '1234567' >"$WORKDIR/source/sub/blob-v10.bin"
+printf 'abcdefg' >"$WORKDIR/source/sub/blob-v11.bin"
+(cd "$WORKDIR/source" && rm -f BEST-BEFORE-* && sha256sum sub/blob-*.bin >SHA256SUMS)
+
+# A regular-file source where '**/' descends into sub/ to match against the basename
+cat >"$CONFIGDIR/01-basename-dir.transfer" <<EOF
+[Source]
+Type=regular-file
+Path=$WORKDIR/source
+MatchPattern=**/blob-@v.bin
+
+[Target]
+Type=regular-file
+Path=$WORKDIR/blobs
+MatchPattern=blob-@v.bin
+InstancesMax=1
+EOF
+"$SYSUPDATE" --verify=no update
+cmp "$WORKDIR/source/sub/blob-v11.bin" "$WORKDIR/blobs/blob-v11.bin"
+rm "$CONFIGDIR/01-basename-dir.transfer"
+
+# A url-file source pulled via file:// using SHA256SUMS with "sub/blob-v1x.bin" entries
+rm -rf "$WORKDIR/blobs"
+mkdir -p "$WORKDIR/blobs"
+cat >"$CONFIGDIR/01-basename-url.transfer" <<EOF
+[Source]
+Type=url-file
+Path=file://$WORKDIR/source
+MatchPattern=**/blob-@v.bin
+
+[Target]
+Type=regular-file
+Path=$WORKDIR/blobs
+MatchPattern=blob-@v.bin
+InstancesMax=1
+EOF
+"$SYSUPDATE" --verify=no update
+cmp "$WORKDIR/source/sub/blob-v11.bin" "$WORKDIR/blobs/blob-v11.bin"
+rm "$CONFIGDIR/01-basename-url.transfer"
+
+# A pattern that spells out the subdir literally should also work for url sources
+# for parity with regular-file sources
+rm -rf "$WORKDIR/blobs"
+mkdir -p "$WORKDIR/blobs"
+cat >"$CONFIGDIR/01-explicit-url.transfer" <<EOF
+[Source]
+Type=url-file
+Path=file://$WORKDIR/source
+MatchPattern=sub/blob-@v.bin
+
+[Target]
+Type=regular-file
+Path=$WORKDIR/blobs
+MatchPattern=blob-@v.bin
+InstancesMax=1
+EOF
+"$SYSUPDATE" --verify=no update
+cmp "$WORKDIR/source/sub/blob-v11.bin" "$WORKDIR/blobs/blob-v11.bin"
+rm "$CONFIGDIR/01-explicit-url.transfer"
+
+# Rejection test for a manifest entry containing ".."
+rm -rf "$WORKDIR/blobs"
+mkdir -p "$WORKDIR/blobs"
+mkdir -p "$WORKDIR/source/sub/nested"
+cp "$WORKDIR/source/SHA256SUMS" "$WORKDIR/source/SHA256SUMS.bak"
+sed -i 's,sub/,sub/nested/../,g' "$WORKDIR/source/SHA256SUMS"
+cat >"$CONFIGDIR/01-basename-url.transfer" <<EOF
+[Source]
+Type=url-file
+Path=file://$WORKDIR/source
+MatchPattern=**/blob-@v.bin
+
+[Target]
+Type=regular-file
+Path=$WORKDIR/blobs
+MatchPattern=blob-@v.bin
+EOF
+(! "$SYSUPDATE" --verify=no update) |& tee "$WORKDIR/traversal.log"
+grep "Invalid filename" "$WORKDIR/traversal.log" >/dev/null
+mv "$WORKDIR/source/SHA256SUMS.bak" "$WORKDIR/source/SHA256SUMS"
+rm "$CONFIGDIR/01-basename-url.transfer"
+
+# Rejection test for a manifest entry with a percent-encoded ".." which curl would
+# decode when pulling via file://, escaping the source dir past path_is_normalized()
+rm -rf "$WORKDIR/blobs"
+mkdir -p "$WORKDIR/blobs"
+cp "$WORKDIR/source/SHA256SUMS" "$WORKDIR/source/SHA256SUMS.bak"
+sed -i 's,sub/,sub/nested/%2e%2e/,g' "$WORKDIR/source/SHA256SUMS"
+cat >"$CONFIGDIR/01-basename-url.transfer" <<EOF
+[Source]
+Type=url-file
+Path=file://$WORKDIR/source
+MatchPattern=**/blob-@v.bin
+
+[Target]
+Type=regular-file
+Path=$WORKDIR/blobs
+MatchPattern=blob-@v.bin
+EOF
+(! "$SYSUPDATE" --verify=no update) |& tee "$WORKDIR/percent.log"
+grep "Invalid filename" "$WORKDIR/percent.log" >/dev/null
+mv "$WORKDIR/source/SHA256SUMS.bak" "$WORKDIR/source/SHA256SUMS"
+rm "$CONFIGDIR/01-basename-url.transfer"
+
 touch /testok
