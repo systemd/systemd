@@ -73,13 +73,13 @@ STATIC_DESTRUCTOR_REGISTER(arg_component, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_transfer_source, freep);
 
-#define CONTEXT_NULL \
-        (Context) { \
-                .sync = true, \
-                .instances_max = UINT64_MAX, \
-                .verify = -1, \
-                .cleanup = -1, \
-                .installdb_fd = -EBADF, \
+#define CONTEXT_NULL                                              \
+        (Context) {                                               \
+                .sync = true,                                     \
+                .instances_max = UINT64_MAX,                      \
+                .verify = -1,                                     \
+                .cleanup = -1,                                    \
+                .installdb_fd = -EBADF,                           \
                 .target_identifier.class = _TARGET_CLASS_INVALID, \
         }
 
