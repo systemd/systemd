@@ -1257,10 +1257,14 @@ conf.set('TPM2_NVPCR_BASE', get_option('tpm2-nvpcr-base'))
 libdw = dependency('libdw',
                    version : '>=0.177',
                    required : get_option('elfutils'))
-libdw_cflags = libdw.partial_dependency(includes: true, compile_args: true)
 libelf = dependency('libelf',
                     required : get_option('elfutils'))
-libelf_cflags = libelf.partial_dependency(includes: true, compile_args: true)
+libelf_cflags = declare_dependency(
+        dependencies : [
+                libelf.partial_dependency(includes: true, compile_args: true),
+                libdw.partial_dependency(includes: true, compile_args: true),
+        ],
+)
 conf.set10('HAVE_ELFUTILS', libdw.found() and libelf.found())
 
 libz = dependency('zlib',
