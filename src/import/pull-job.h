@@ -1,19 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <curl/curl.h>
 #include <sys/stat.h>
 #include <sys/uio.h>
 
-#include "shared-forward.h"
-
-typedef struct PullJob PullJob;
-
-typedef void (*PullJobFinished)(PullJob *job);
-typedef int (*PullJobOpenDisk)(PullJob *job);
-typedef int (*PullJobHeader)(PullJob *job, const char *header, size_t sz);
-typedef void (*PullJobProgress)(PullJob *job);
-typedef int (*PullJobNotFound)(PullJob *job, char **ret_new_url);
+#include "pull-forward.h"
 
 typedef enum PullJobState {
         PULL_JOB_INIT,
