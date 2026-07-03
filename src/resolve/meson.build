@@ -7,7 +7,7 @@ endif
 systemd_resolved_sources = files(
         'resolved.c',
 )
-systemd_resolved_extract_sources = files(
+systemd_resolved_export_sources = files(
         'resolved-bus.c',
         'resolved-conf.c',
         'resolved-dns-browse-services.c',
@@ -59,10 +59,10 @@ resolved_dns_delegate_gperf_c = custom_target(
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
 
 generated_sources += [resolved_gperf_c, resolved_dnssd_gperf_c, resolved_dns_delegate_gperf_c]
-systemd_resolved_extract_sources += [resolved_gperf_c, resolved_dnssd_gperf_c, resolved_dns_delegate_gperf_c]
+systemd_resolved_export_sources += [resolved_gperf_c, resolved_dnssd_gperf_c, resolved_dns_delegate_gperf_c]
 
 if conf.get('ENABLE_DNS_OVER_TLS') == 1
-        systemd_resolved_extract_sources += files(
+        systemd_resolved_export_sources += files(
                 'resolved-dnstls.c',
         )
 endif
@@ -82,7 +82,7 @@ executables += [
                 'name' : 'systemd-resolved',
                 'dbus' : true,
                 'sources' : systemd_resolved_sources,
-                'export' : systemd_resolved_extract_sources,
+                'export' : systemd_resolved_export_sources,
         },
         executable_template + resolve_common_template + {
                 'name' : 'resolvectl',

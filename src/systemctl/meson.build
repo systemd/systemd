@@ -30,7 +30,7 @@ systemctl_sources = files(
         'systemctl-trivial-method.c',
         'systemctl-whoami.c',
 )
-systemctl_extract_sources = files(
+systemctl_export_sources = files(
         'systemctl-compat-halt.c',
         'systemctl-compat-shutdown.c',
         'systemctl-daemon-reload.c',
@@ -52,7 +52,7 @@ executables += [
                 'name' : 'systemctl',
                 'public' : true,
                 'sources' : systemctl_sources,
-                'export' : systemctl_extract_sources,
+                'export' : systemctl_export_sources,
                 'link_with' : systemctl_link_with,
                 'dependencies' : [
                         liblz4_cflags,
