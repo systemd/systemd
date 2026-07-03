@@ -1,6 +1,10 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 BEGIN{
+        print "#if HAVE_AUDIT"
+        print "#  include <libaudit.h>"
+        print "#endif"
+        print ""
         print "#include <linux/audit.h>"
         print ""
         print "#include \"audit-type.h\""

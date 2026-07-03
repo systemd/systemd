@@ -8,6 +8,10 @@
 #include "shared-forward.h"
 
 #if HAVE_SELINUX
+#ifndef SYSTEMD_CFLAGS_MARKER_LIBSELINUX
+#  error("missing libselinux_cflags in meson dependency.");
+#endif
+
 #include <selinux/avc.h>
 #include <selinux/label.h>
 #include <selinux/context.h>

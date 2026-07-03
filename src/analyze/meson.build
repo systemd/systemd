@@ -55,7 +55,10 @@ executables += [
                         libcore,
                         libshared,
                 ],
-                'dependencies' : libseccomp_cflags,
+                'dependencies' : [
+                        libseccomp_cflags,
+                        tpm2_cflags,
+                ],
                 'install' : conf.get('ENABLE_ANALYZE') == 1,
         },
         core_test_template + {

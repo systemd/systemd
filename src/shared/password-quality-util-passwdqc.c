@@ -6,6 +6,9 @@
 #include "log.h"                 /* IWYU pragma: keep */
 
 #if HAVE_PASSWDQC
+#ifndef SYSTEMD_CFLAGS_MARKER_LIBPWQUALITY
+#  error("missing libpwquality_cflags in meson dependency.");
+#endif
 
 #include <passwdqc.h>
 

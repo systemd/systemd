@@ -5,6 +5,10 @@
 #include "shared-forward.h"
 
 #if HAVE_XKBCOMMON
+#ifndef SYSTEMD_CFLAGS_MARKER_LIBXKBCOMMON
+#  error("missing libxkbcommon_cflags in meson dependency.");
+#endif
+
 #include <xkbcommon/xkbcommon.h>
 
 extern DLSYM_PROTOTYPE(xkb_context_new);

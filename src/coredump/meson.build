@@ -38,7 +38,10 @@ executables += [
                 'sources' : systemd_coredump_sources,
                 'extract' : systemd_coredump_extract_sources,
                 'link_with' : [libshared],
-                'dependencies' : common_dependencies,
+                'dependencies' : [
+                        common_dependencies,
+                        libacl_cflags,
+                ],
         },
         executable_template + {
                 'name' : 'coredumpctl',
