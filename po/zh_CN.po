@@ -18,8 +18,8 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-06-01 11:49+0200\n"
-"PO-Revision-Date: 2026-06-12 09:22+0000\n"
-"Last-Translator: Luke Na <narukeu@outlook.com>\n"
+"PO-Revision-Date: 2026-07-03 16:17+0000\n"
+"Last-Translator: Jesse Guo <jesseguotech@outlook.com>\n"
 "Language-Team: Chinese (Simplified) <https://translate.fedoraproject.org/"
 "projects/systemd/main/zh_CN/>\n"
 "Language: zh_CN\n"
@@ -27,7 +27,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
-"X-Generator: Weblate 2026.6.1\n"
+"X-Generator: Weblate 2026.7.1.dev0\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -1302,11 +1302,10 @@ msgid "Please verify user on security token to unlock."
 msgstr "请在安全令牌上验证用户身份以解锁。"
 
 #: src/shared/libfido2-util.c:936
-#, fuzzy, c-format
-#| msgid "Please enter security token PIN:"
+#, c-format
 msgid ""
 "Please enter security token PIN (remaining attempts before lock-out: %d):"
-msgstr "请输入安全令牌 PIN："
+msgstr "请输入安全令牌 PIN（锁定前剩余尝试次数：%d）："
 
 #: src/shared/libfido2-util.c:948
 msgid "Please enter security token PIN:"
