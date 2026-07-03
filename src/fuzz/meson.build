@@ -8,13 +8,19 @@ simple_fuzzers += files(
         'fuzz-env-file.c',
         'fuzz-hostname-setup.c',
         'fuzz-json.c',
-        'fuzz-pe-binary.c',
         'fuzz-time-util.c',
         'fuzz-udev-database.c',
         'fuzz-user-record.c',
         'fuzz-varlink.c',
         'fuzz-varlink-idl.c',
 )
+
+executables += [
+        fuzz_template + {
+                'sources' : files('fuzz-pe-binary.c'),
+                'dependencies' : libopenssl_cflags,
+        },
+]
 
 # The following fuzzers do not work on oss-fuzz. See #11018.
 if not want_ossfuzz

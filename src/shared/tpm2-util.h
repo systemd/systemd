@@ -50,6 +50,10 @@ static inline bool TPM2_PCR_MASK_VALID(uint32_t pcr_mask) {
 int dlopen_tpm2(int log_level);
 
 #if HAVE_TPM2
+#ifndef SYSTEMD_CFLAGS_MARKER_TPM2
+#  error("missing tpm2_cflags in meson dependency.");
+#endif
+
 #define TPM2_ESYS_NOTE(priority) \
         SD_ELF_NOTE_DLOPEN("tpm", "Support for TPM", priority, "libtss2-esys.so.0")
 #define TPM2_RC_NOTE(priority) \

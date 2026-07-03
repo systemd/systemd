@@ -11,6 +11,7 @@ executables += [
                 ],
                 'dependencies' : [
                         libopenssl_cflags,
+                        tpm2_cflags,
                 ],
         },
         libexec_template + {
@@ -20,6 +21,9 @@ executables += [
                         'ENABLE_BOOTLOADER',
                         'HAVE_OPENSSL',
                         'HAVE_TPM2',
+                ],
+                'dependencies' : [
+                        tpm2_cflags,
                 ],
         },
         libexec_template + {
@@ -38,6 +42,9 @@ executables += [
                         'ENABLE_BOOTLOADER',
                         'HAVE_OPENSSL',
                         'HAVE_TPM2',
+                ],
+                'dependencies' : [
+                        tpm2_cflags,
                 ],
         },
 ]

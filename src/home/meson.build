@@ -75,7 +75,9 @@ executables += [
                 'objects' : ['systemd-homed'],
                 'dependencies' : [
                         libblkid_cflags,
+                        libcryptsetup_cflags,
                         libfdisk_cflags,
+                        libfido2_cflags,
                         libopenssl_cflags,
                         libp11kit_cflags,
                 ],
@@ -87,6 +89,7 @@ executables += [
                 'extract' : homectl_extract,
                 'objects' : ['systemd-homed'],
                 'dependencies' : [
+                        libfido2_cflags,
                         libopenssl_cflags,
                         libp11kit_cflags,
                 ],
