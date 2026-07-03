@@ -3,7 +3,7 @@
 systemd_journald_sources = files(
         'journald.c',
 )
-systemd_journald_extract_sources = files(
+systemd_journald_export_sources = files(
         'journald-audit.c',
         'journald-client.c',
         'journald-config.c',
@@ -27,7 +27,7 @@ journald_gperf_c = custom_target(
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
 
 generated_sources += journald_gperf_c
-systemd_journald_extract_sources += journald_gperf_c
+systemd_journald_export_sources += journald_gperf_c
 
 journalctl_sources = files(
         'journalctl.c',
@@ -67,7 +67,7 @@ executables += [
         libexec_template + {
                 'name' : 'systemd-journald',
                 'sources' : systemd_journald_sources,
-                'export' : systemd_journald_extract_sources,
+                'export' : systemd_journald_export_sources,
                 'dependencies' : [
                         liblz4_cflags,
                         libselinux_cflags,

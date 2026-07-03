@@ -8,7 +8,7 @@ timesyncd_sources = files(
         'timesyncd.c',
         'timesyncd-bus.c',
 )
-timesyncd_extract_sources = files(
+timesyncd_export_sources = files(
         'timesyncd-conf.c',
         'timesyncd-manager.c',
         'timesyncd-server.c',
@@ -20,7 +20,7 @@ timesyncd_gperf_c = custom_target(
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
 
 generated_sources += timesyncd_gperf_c
-timesyncd_extract_sources += timesyncd_gperf_c
+timesyncd_export_sources += timesyncd_gperf_c
 
 if get_option('link-timesyncd-shared')
         timesyncd_link_with = [libshared]
@@ -33,7 +33,7 @@ executables += [
         libexec_template + {
                 'name' : 'systemd-timesyncd',
                 'sources' : timesyncd_sources,
-                'export' : timesyncd_extract_sources,
+                'export' : timesyncd_export_sources,
                 'link_with' : timesyncd_link_with,
                 'dependencies' : libm,
         },
