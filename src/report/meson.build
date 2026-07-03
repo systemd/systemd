@@ -36,13 +36,13 @@ executables += [
         },
         libexec_template + {
                 'name' : 'systemd-report-sign-plain',
-                'conditions' : [
-                        'HAVE_OPENSSL',
-                ],
                 'sources' : files(
                         'report-sign-plain.c',
                 ),
                 'dependencies' : libopenssl_cflags,
+                'conditions' : [
+                        'HAVE_OPENSSL',
+                ],
         },
         libexec_template + {
                 'name' : 'systemd-report-sign-tsm',
