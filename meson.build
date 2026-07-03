@@ -1335,18 +1335,11 @@ libpcre2 = dependency('libpcre2-8',
 libpcre2_cflags = libpcre2.partial_dependency(includes: true, compile_args: true)
 conf.set10('HAVE_PCRE2', libpcre2.found())
 
-libglib =    dependency('glib-2.0',
-                        version : '>= 2.22.0',
-                        required : get_option('glib'))
-libgobject = dependency('gobject-2.0',
-                        version : '>= 2.22.0',
-                        required : get_option('glib'))
-libgio =     dependency('gio-2.0',
-                        required : get_option('glib'))
-conf.set10('HAVE_GLIB', libglib.found() and libgobject.found() and libgio.found())
+libglib = dependency('glib-2.0 gobject-2.0 gio-2.0',
+                     version : '>= 2.22.0',
+                     required : get_option('glib'))
+conf.set10('HAVE_GLIB', libglib.found())
 libglib_cflags = libglib.partial_dependency(includes: true, compile_args: true)
-libgobject_cflags = libgobject.partial_dependency(includes: true, compile_args: true)
-libgio_cflags = libgio.partial_dependency(includes: true, compile_args: true)
 
 libdbus = dependency('dbus-1',
                      version : '>= 1.3.2',
