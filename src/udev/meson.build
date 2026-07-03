@@ -133,7 +133,7 @@ udev_plugin_template = executable_template + {
 }
 
 udev_common_template = {
-        'objects' : ['udevadm'],
+        'import' : ['udevadm'],
         'dependencies' : [
                 libacl_cflags,
                 libblkid_cflags,
@@ -148,7 +148,7 @@ udev_binaries_dict = [
                 'public' : true,
                 'sources' : udevadm_sources +
                             keyboard_keys_from_name_inc,
-                'extract' : udevadm_extract_sources,
+                'export' : udevadm_extract_sources,
                 'include_directories' : [
                         include_directories('.', 'net'),
                         libexec_template['include_directories'],
@@ -174,7 +174,7 @@ udev_binaries_dict = [
         udev_plugin_template + {
                 'name' : 'fido_id',
                 'sources' : files('fido_id/fido_id.c'),
-                'extract' : files('fido_id/fido_id_desc.c'),
+                'export' : files('fido_id/fido_id_desc.c'),
         },
         udev_plugin_template + {
                 'name' : 'iocost',
@@ -209,7 +209,7 @@ executables += udev_binaries_dict
 executables += [
         test_template + {
                 'sources' : files('fido_id/test-fido-id-desc.c'),
-                'objects' : ['fido_id'],
+                'import' : ['fido_id'],
                 'suite' : 'udev',
         },
         udev_test_template + {
@@ -243,7 +243,7 @@ executables += [
         },
         fuzz_template + {
                 'sources' : files('fido_id/fuzz-fido-id-desc.c'),
-                'objects' : ['fido_id'],
+                'import' : ['fido_id'],
         },
         udev_fuzz_template + {
                 'sources' : files('net/fuzz-link-parser.c'),

@@ -28,7 +28,7 @@ executables += [
                 'public' : true,
                 'conditions' : ['ENABLE_SYSUPDATE'],
                 'sources' : systemd_sysupdate_sources,
-                'extract' : systemd_sysupdate_extract_sources,
+                'export' : systemd_sysupdate_extract_sources,
                 'dependencies' : [
                         libfdisk_cflags,
                         libopenssl_cflags,
@@ -44,12 +44,12 @@ executables += [
                 'name' : 'updatectl',
                 'public' : true,
                 'sources' : systemd_updatectl_sources,
-                'objects' : ['systemd-sysupdate'],
+                'import' : ['systemd-sysupdate'],
                 'conditions' : ['ENABLE_SYSUPDATED'],
         },
         test_template + {
                 'sources' : files('test-sysupdate-util.c'),
-                'objects' : ['systemd-sysupdate'],
+                'import' : ['systemd-sysupdate'],
                 'conditions' : ['ENABLE_SYSUPDATE'],
         },
 ]
