@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "specifier.h"
 #include "sysupdate-forward.h"
 #include "sysupdate-target.h"
 
@@ -46,5 +45,3 @@ typedef struct Context {
 } Context;
 
 void context_done(Context *c);
-
-extern const Specifier specifier_table[];
