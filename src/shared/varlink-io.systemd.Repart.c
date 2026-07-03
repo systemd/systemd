@@ -29,7 +29,7 @@ static SD_VARLINK_DEFINE_ENUM_TYPE(
                 SD_VARLINK_FIELD_COMMENT("Always create a new partition table, potentially overwriting an existing table"),
                 SD_VARLINK_DEFINE_ENUM_VALUE(force));
 
-static SD_VARLINK_DEFINE_ENUM_TYPE(
+SD_VARLINK_DEFINE_ENUM_TYPE(
                 BlockDeviceAction,
                 SD_VARLINK_FIELD_COMMENT("The device is currently present and a candidate. Emitted both during the initial enumeration and for live uevents (any action other than 'remove' is propagated as 'add', including the synthesized transitions when a device becomes empty or read-only and a relevant ignore* input is in effect)."),
                 SD_VARLINK_DEFINE_ENUM_VALUE(add),
@@ -93,9 +93,9 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 SD_VARLINK_DEFINE_OUTPUT(subsystem, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
 
 
-static SD_VARLINK_DEFINE_ERROR(NoCandidateDevices);
-static SD_VARLINK_DEFINE_ERROR(ConflictingDiskLabelPresent);
-static SD_VARLINK_DEFINE_ERROR(
+SD_VARLINK_DEFINE_ERROR(NoCandidateDevices);
+SD_VARLINK_DEFINE_ERROR(ConflictingDiskLabelPresent);
+SD_VARLINK_DEFINE_ERROR(
                 InsufficientFreeSpace,
                 SD_VARLINK_FIELD_COMMENT("Minimal size of the disk required for the installation."),
                 SD_VARLINK_DEFINE_FIELD(minimalSizeBytes, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
@@ -103,7 +103,7 @@ static SD_VARLINK_DEFINE_ERROR(
                 SD_VARLINK_DEFINE_FIELD(needFreeBytes, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Size of the selected block device."),
                 SD_VARLINK_DEFINE_FIELD(currentSizeBytes, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
-static SD_VARLINK_DEFINE_ERROR(
+SD_VARLINK_DEFINE_ERROR(
                 DiskTooSmall,
                 SD_VARLINK_FIELD_COMMENT("Minimal size of the disk required for the installation."),
                 SD_VARLINK_DEFINE_FIELD(minimalSizeBytes, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
