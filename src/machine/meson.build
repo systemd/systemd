@@ -26,7 +26,7 @@ executables += [
                 'name' : 'systemd-machined',
                 'dbus' : true,
                 'sources' : systemd_machined_sources,
-                'extract' : systemd_machined_extract_sources,
+                'export' : systemd_machined_extract_sources,
         },
         executable_template + {
                 'name' : 'machinectl',
@@ -40,7 +40,7 @@ executables += [
         },
         test_template + {
                 'sources' : files('test-machine-tables.c'),
-                'objects' : ['systemd-machined'],
+                'import' : ['systemd-machined'],
         },
 ]
 

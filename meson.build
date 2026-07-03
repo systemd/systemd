@@ -1815,7 +1815,7 @@ catalogs = []
 modules = [] # nss, pam, and other plugins
 executables = []
 executables_by_name = {}
-objects_by_name = {}
+exported_by_name = {}
 fuzzer_exes = []
 sources = []
 
@@ -2276,7 +2276,7 @@ foreach dict : executables
                 continue
         endif
 
-        exe_sources = dict.get('sources', []) + dict.get('extract', [])
+        exe_sources = dict.get('sources', []) + dict.get('export', [])
 
         foreach bpf_name : dict.get('bpf_programs', [])
                 if bpf_name in bpf_programs_by_name
@@ -2287,7 +2287,7 @@ foreach dict : executables
         kwargs = {}
         foreach key, val : dict
                 if key in ['name', 'dbus', 'public', 'conditions', 'type', 'suite',
-                           'timeout', 'parallel', 'objects', 'sources', 'extract',
+                           'timeout', 'parallel', 'sources', 'import', 'export',
                            'include_directories', 'build_by_default', 'install',
                            'bpf_programs']
                         continue
@@ -2305,9 +2305,9 @@ foreach dict : executables
                 include_directories += fs.parent(exe_sources[0])
         endif
 
-        foreach val : dict.get('objects', [])
-                obj = objects_by_name[val]
-                kwargs += { 'objects' : kwargs.get('objects', []) + obj['objects'] }
+        foreach val : dict.get('import', [])
+                obj = exported_by_name[val]
+                kwargs += { 'objects' : kwargs.get('objects', []) + obj['exported'] }
                 include_directories += obj['include_directories']
         endforeach
 
@@ -2354,11 +2354,11 @@ foreach dict : executables
                 sources += exe_sources
         endif
 
-        if dict.has_key('extract')
-                objects_by_name += {
+        if dict.has_key('export')
+                exported_by_name += {
                         name : {
-                                'objects' : exe.extract_objects(dict['extract']),
-                                'include_directories' : fs.parent(dict['extract'][0]),
+                                'exported' : exe.extract_objects(dict['export']),
+                                'include_directories' : fs.parent(dict['export'][0]),
                         }
                 }
         endif

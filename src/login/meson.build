@@ -47,7 +47,7 @@ executables += [
                 'name' : 'systemd-logind',
                 'dbus' : true,
                 'sources' : systemd_logind_sources,
-                'extract' : systemd_logind_extract_sources,
+                'export' : systemd_logind_extract_sources,
                 'dependencies' : [
                         libacl_cflags,
                 ],
@@ -77,7 +77,7 @@ executables += [
         },
         test_template + {
                 'sources' : files('test-login-tables.c'),
-                'objects' : ['systemd-logind'],
+                'import' : ['systemd-logind'],
         },
         test_template + {
                 'sources' : files('test-session-properties.c'),

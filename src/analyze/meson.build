@@ -49,7 +49,7 @@ executables += [
                 'name' : 'systemd-analyze',
                 'public' : conf.get('ENABLE_ANALYZE') == 1,
                 'sources' : systemd_analyze_sources,
-                'extract' : systemd_analyze_extract_sources,
+                'export' : systemd_analyze_extract_sources,
                 'include_directories' : core_includes,
                 'link_with' : [
                         libcore,
@@ -63,6 +63,6 @@ executables += [
         },
         core_test_template + {
                 'sources' : files('test-verify.c'),
-                'objects' : ['systemd-analyze'],
+                'import' : ['systemd-analyze'],
         },
 ]

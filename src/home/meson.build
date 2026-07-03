@@ -66,13 +66,13 @@ executables += [
                 'name' : 'systemd-homed',
                 'dbus' : true,
                 'sources' : systemd_homed_sources,
-                'extract' : systemd_homed_extract_sources,
+                'export' : systemd_homed_extract_sources,
                 'dependencies' : libopenssl_cflags,
         },
         libexec_template + {
                 'name' : 'systemd-homework',
                 'sources' : systemd_homework_sources,
-                'objects' : ['systemd-homed'],
+                'import' : ['systemd-homed'],
                 'dependencies' : [
                         libblkid_cflags,
                         libcryptsetup_cflags,
@@ -86,8 +86,8 @@ executables += [
                 'name' : 'homectl',
                 'public' : true,
                 'sources' : homectl_sources,
-                'extract' : homectl_extract,
-                'objects' : ['systemd-homed'],
+                'export' : homectl_extract,
+                'import' : ['systemd-homed'],
                 'dependencies' : [
                         libfido2_cflags,
                         libopenssl_cflags,
@@ -96,7 +96,7 @@ executables += [
         },
         test_template + {
                 'sources' : files('test-homectl-prompts.c'),
-                'objects' : ['homectl'],
+                'import' : ['homectl'],
                 'type' : 'manual',
         },
         test_template + {

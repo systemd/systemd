@@ -12,10 +12,10 @@ executables += [
                 'name' : 'busctl',
                 'public' : true,
                 'sources' : busctl_sources,
-                'extract' : busctl_extract_sources,
+                'export' : busctl_extract_sources,
         },
         test_template + {
                 'sources' : files('test-busctl-introspect.c'),
-                'objects' : ['busctl'],
+                'import' : ['busctl'],
         },
 ]
