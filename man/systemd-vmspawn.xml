@@ -269,7 +269,8 @@
           <listitem><para>Takes an absolute path, or a relative path beginning with
           <filename>./</filename>. Specifies the path to an EFI NVRAM template file to copy and use as the
           initial EFI variable NVRAM state. If not specified, the default NVRAM template from the firmware
-          definition is copied and used.</para>
+          definition is copied and used. Cannot be used together with <option>--coco=</option>, as
+          confidential computing firmware is stateless.</para>
 
           <xi:include href="version-info.xml" xpointer="v261"/></listitem>
         </varlistentry>
@@ -283,7 +284,8 @@
           automatically derived from the VM image path or directory path, with the
           <literal>.efinvramstate</literal> suffix appended. If set to the special string
           <literal>off</literal> the EFI variable NVRAM state is only maintained transiently and flushed out
-          when the VM shuts down. Defaults to <literal>auto</literal>.</para>
+          when the VM shuts down. Defaults to <literal>auto</literal>. An explicit path cannot be used
+          together with <option>--coco=</option>, as confidential computing firmware is stateless.</para>
 
           <para>If <option>--ephemeral</option> is specified, <literal>auto</literal> behaves like
           <literal>off</literal>.</para>
@@ -299,6 +301,13 @@
           <option>--firmware-features=secure-boot</option> and setting this to no is equivalent to
           <option>--firmware-features=~secure-boot</option>. Setting this to <literal>auto</literal>
           removes <literal>secure-boot</literal> from both the included and excluded feature lists.</para>
+
+          <para>With <option>--coco=</option>, setting this to <literal>yes</literal> additionally lifts
+          the default exclusion of the <literal>enrolled-keys</literal> firmware feature: confidential
+          computing firmware is stateless, so keys cannot be enrolled at runtime and Secure Boot is only
+          operative with keys baked into the image at build time, which in turn makes the firmware refuse
+          to boot unsigned images from the very first boot. The default exclusion of
+          <literal>enrolled-keys</literal> hence keeps unsigned images bootable.</para>
 
           <xi:include href="version-info.xml" xpointer="v255"/></listitem>
         </varlistentry>
@@ -317,8 +326,8 @@
           boot. Booting a UKI requires <literal>uefi</literal>. If the special string <literal>list</literal>
           is specified, all discovered firmware definition files are listed. If the special string
           <literal>describe</literal> is specified, the UEFI firmware that would be selected (taking
-          <option>--firmware-features=</option> into account) is printed and the program exits. If an empty
-          string is specified, the option is reset to its default.</para>
+          <option>--firmware-features=</option> and <option>--coco=</option> into account) is printed and
+          the program exits. If an empty string is specified, the option is reset to its default.</para>
 
           <xi:include href="version-info.xml" xpointer="v256"/></listitem>
         </varlistentry>
@@ -350,31 +359,35 @@
           <literal>no</literal>.</para>
 
           <para><literal>sev-snp</literal> enables AMD SEV-SNP. This requires KVM on an x86_64 host with
-          SNP-capable hardware and firmware. <option>--firmware=</option> must point to a raw SNP-built
-          OVMF <filename>.fd</filename> image; the standard pflash + NVRAM split is not supported under
-          SNP, so the firmware is loaded via QEMU's <option>-bios</option> and Secure Boot is
-          unavailable. Direct kernel boot via <option>--linux=</option> is required so that the kernel,
-          initrd and command line are hashed into the launch measurement
-          (<literal>kernel-hashes=on</literal>); booting the kernel off the disk image via the firmware
-          would leave it outside the measurement. Credentials passed via <option>--set-credential=</option>
-          or <option>--load-credential=</option> are bundled into a cpio archive appended to the initrd
-          (mirroring what <command>systemd-stub</command> does for ESP credentials), so they enter the
-          launch measurement via <literal>kernel-hashes=on</literal>; the SMBIOS and fw_cfg channels
-          normally used to deliver credentials are not used because they are unmeasured and would be
-          discarded by PID1 in confidential guests. This channel is measured but not confidential with
-          respect to the host or VMM: the initrd (and thus the credentials it carries) is supplied to QEMU
-          as plaintext and only its hash enters the launch measurement, which guarantees integrity but does
-          not keep the credentials secret from the host. This requires the guest to run a sufficiently
-          recent version of systemd (supporting <filename>/.extra/system_credentials/</filename>). A vTPM,
-          if attached via <option>--tpm=</option>, must be treated as untrusted by the guest.</para>
+          SNP-capable hardware and firmware. A suitable SNP-built OVMF firmware is picked automatically
+          from the installed QEMU firmware descriptors, by requiring the <literal>amd-sev-snp</literal>
+          firmware feature; use <option>--firmware=</option> with a path to a firmware descriptor file to
+          select a specific one. Secure Boot is effectively off by default (see
+          <option>--secure-boot=</option>). Direct kernel boot via
+          <option>--linux=</option> is required so that the kernel, initrd and command line are hashed
+          into the launch measurement (<literal>kernel-hashes=on</literal>); booting the kernel off the
+          disk image via the firmware would leave it outside the measurement. Credentials passed via
+          <option>--set-credential=</option> or <option>--load-credential=</option> are bundled into a
+          cpio archive appended to the initrd (mirroring what <command>systemd-stub</command> does for
+          ESP credentials), so they enter the launch measurement via <literal>kernel-hashes=on</literal>;
+          the SMBIOS and fw_cfg channels normally used to deliver credentials are not used because they are
+          unmeasured and would be discarded by PID1 in confidential guests. This channel is measured but
+          not confidential with respect to the host or VMM: the initrd (and thus the credentials it
+          carries) is supplied to QEMU as plaintext and only its hash enters the launch measurement,
+          which guarantees integrity but does not keep the credentials secret from the host. This requires
+          the guest to run a sufficiently recent version of systemd (supporting
+          <filename>/.extra/system_credentials/</filename>). A vTPM, if attached via
+          <option>--tpm=</option>, must be treated as untrusted by the guest.</para>
 
           <para><literal>tdx</literal> enables Intel TDX. This requires KVM on an x86_64 host with
-          TDX-capable hardware and a TDX-enabled host kernel. As with <literal>sev-snp</literal>,
-          <option>--firmware=</option> must point to a raw TDX-built OVMF (TDVF) <filename>.fd</filename>
-          image, which is loaded via QEMU's <option>-bios</option> (pflash + NVRAM split is not
-          supported), and the CPU model is fixed to <literal>host</literal>. Firmware is measured into
-          MRTD when the TD is built. Secure Boot cannot be enrolled at runtime (there is no writable
-          NVRAM); its state is fixed by the supplied TDVF image and is part of the measured firmware.
+          TDX-capable hardware and a TDX-enabled host kernel. As with <literal>sev-snp</literal>, a
+          TDX-built OVMF (TDVF) firmware is picked automatically from the installed QEMU firmware
+          descriptors, by requiring the <literal>intel-tdx</literal> firmware feature; use
+          <option>--firmware=</option> with a path to a firmware descriptor file to select a specific
+          one. The CPU model is fixed to <literal>host</literal>. Firmware is measured into MRTD when the
+          TD is built. Secure Boot cannot be enrolled at runtime (there is no writable NVRAM); its state
+          is fixed by the selected TDVF image and is part of the measured firmware (see
+          <option>--secure-boot=</option>).
           When booting a UKI, the whole UKI PE is measured into RTMR 1, and the loaded sections are
           measured individually by <command>systemd-stub</command> into RTMR 2. For direct linux boot,
           firmware measures the kernel PE into RTMR 1, and the Linux EFI stub measures initrd and
@@ -384,7 +397,7 @@
           to the host or VMM, since the host assembles the SMBIOS table. A vTPM, if attached via
           <option>--tpm=</option>, must be treated as untrusted by the guest. To obtain TD Quotes for
           remote attestation, the guest is wired to the host's local TDX Quote Generation Service
-          automatically: the unix socket up <filename>/run/tdx-qgs/qgs.socket</filename> is used if it
+          automatically: the unix socket <filename>/run/tdx-qgs/qgs.socket</filename> is used if it
           exists, otherwise vsock port 4050 on the host (cid 2). If the QGS is listening on neither
           channel, the guest's quote requests will fail.
           <xi:include href="version-info.xml" xpointer="v262"/></para>
