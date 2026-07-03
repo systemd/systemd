@@ -16,6 +16,17 @@ CHANGES WITH 262:
           have been provided. This clears the way for a new
           "systemd-sysupdate@.service" unit for varlink activation of sysupdate.
 
+        * TPM-sealed credentials are now pinned to the TPM's SRK. This prevents
+          MITM interposer attacks from stealing the decrypted credentials by
+          ensuring that communication with the TPM is protected by a private key
+          only known to the same TPM the credential was sealed to. Additionally,
+          this allows usage of TPM-sealed credentials when the TPM's owner
+          hierarchy is protected with a PIN.
+
+          TPM-bound credentials minted after this change are not recognized by
+          older systemd versions, however systemd continues to accept TPM-sealed
+          credentials that were created before this change.
+
         Changes in the system and service manager:
 
         * The manager now embeds a basic set of unit files (basic.target,
