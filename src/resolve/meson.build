@@ -74,15 +74,15 @@ resolve_common_template = {
         ],
 }
 
-resolve_test_template = test_template + resolve_common_template + {'objects' : ['systemd-resolved']}
-resolve_fuzz_template = fuzz_template + resolve_common_template + {'objects' : ['systemd-resolved']}
+resolve_test_template = test_template + resolve_common_template + {'import' : ['systemd-resolved']}
+resolve_fuzz_template = fuzz_template + resolve_common_template + {'import' : ['systemd-resolved']}
 
 executables += [
         libexec_template + resolve_common_template + {
                 'name' : 'systemd-resolved',
                 'dbus' : true,
                 'sources' : systemd_resolved_sources,
-                'extract' : systemd_resolved_extract_sources,
+                'export' : systemd_resolved_extract_sources,
         },
         executable_template + resolve_common_template + {
                 'name' : 'resolvectl',
@@ -91,7 +91,7 @@ executables += [
                         'resolvconf-compat.c',
                         'resolvectl.c',
                 ),
-                'objects' : ['systemd-resolved'],
+                'import' : ['systemd-resolved'],
         },
         resolve_test_template + {
                 'sources' : files('test-resolve-tables.c'),
