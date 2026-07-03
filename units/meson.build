@@ -869,6 +869,10 @@ units = [
           'conditions' : ['ENABLE_SYSINSTALL'],
         },
         {
+          'file' : 'systemd-sysupdate-auto-enable.service',
+          'conditions' : ['ENABLE_SYSUPDATE'],
+        },
+        {
           'file' : 'systemd-sysupdate-reboot.service',
           'conditions' : ['ENABLE_SYSUPDATE'],
         },
