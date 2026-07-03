@@ -548,7 +548,7 @@ int sd_netlink_call_async(
                 uint64_t usec,
                 const char *description) {
 
-        _cleanup_free_ sd_netlink_slot *slot = NULL;
+        _cleanup_(sd_netlink_slot_unrefp) sd_netlink_slot *slot = NULL;
         int r, k;
 
         assert_return(nl, -EINVAL);
@@ -859,7 +859,7 @@ int netlink_add_match_internal(
                 void *userdata,
                 const char *description) {
 
-        _cleanup_free_ sd_netlink_slot *slot = NULL;
+        _cleanup_(sd_netlink_slot_unrefp) sd_netlink_slot *slot = NULL;
         int r;
 
         assert(groups);

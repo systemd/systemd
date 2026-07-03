@@ -2099,6 +2099,32 @@ static int add_object_vtable_internal(
         return 0;
 
 fail:
+        /* Remove members we already inserted into the global tables before failing (identified by
+         * parent), so they don't dangle once the slot and node are freed below. */
+        if (s && s->node_vtable.interface)
+                for (v = bus_vtable_next(vtable, vtable); v->type != _SD_BUS_VTABLE_END; v = bus_vtable_next(vtable, v)) {
+                        BusVTableMember key, *x;
+                        Set *set;
+
+                        if (v->type == _SD_BUS_VTABLE_METHOD) {
+                                set = bus->vtable_methods;
+                                key.member = v->x.method.member;
+                        } else if (IN_SET(v->type, _SD_BUS_VTABLE_PROPERTY, _SD_BUS_VTABLE_WRITABLE_PROPERTY)) {
+                                set = bus->vtable_properties;
+                                key.member = v->x.property.member;
+                        } else
+                                continue;
+
+                        key.path = n->path;
+                        key.interface = s->node_vtable.interface;
+
+                        x = set_get(set, &key);
+                        if (x && x->parent == &s->node_vtable) {
+                                assert_se(set_remove(set, &key) == x);
+                                free(x);
+                        }
+                }
+
         sd_bus_slot_unref(s);
         bus_node_gc(bus, n);
 
