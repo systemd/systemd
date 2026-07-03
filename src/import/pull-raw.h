@@ -1,13 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "shared-forward.h"
 #include "import-common.h"
 #include "import-util.h"
-
-typedef struct RawPull RawPull;
-
-typedef void (*RawPullFinished)(RawPull *p, int error, void *userdata);
+#include "pull-forward.h"
 
 int raw_pull_new(RawPull **ret, sd_event *event, const char *image_root, RawPullFinished on_finished, void *userdata);
 RawPull* raw_pull_unref(RawPull *p);
