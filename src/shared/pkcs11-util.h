@@ -2,6 +2,9 @@
 #pragma once
 
 #if HAVE_P11KIT
+#  ifndef SYSTEMD_CFLAGS_MARKER_LIBP11KIT
+#    error "missing libp11kit_cflags in meson dependency."
+#  endif
 #  include <p11-kit/p11-kit.h>  /* IWYU pragma: export */
 #  include <p11-kit/uri.h>      /* IWYU pragma: export */
 #endif

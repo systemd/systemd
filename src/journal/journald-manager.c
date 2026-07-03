@@ -47,6 +47,7 @@
 #include "journald-sync.h"
 #include "journald-syslog.h"
 #include "journald-varlink.h"
+#include "libaudit-util.h"
 #include "log.h"
 #include "log-ratelimit.h"
 #include "memory-util.h"

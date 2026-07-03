@@ -3,6 +3,9 @@
 #include "qrcode-util.h"
 
 #if HAVE_QRENCODE
+#ifndef SYSTEMD_CFLAGS_MARKER_LIBQRENCODE
+#  error "missing libqrencode_cflags in meson dependency."
+#endif
 #include <qrencode.h>
 #endif
 #include <stdio.h>

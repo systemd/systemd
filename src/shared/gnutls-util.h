@@ -6,6 +6,10 @@
 int dlopen_gnutls(int log_level);
 
 #if HAVE_GNUTLS
+#  ifndef SYSTEMD_CFLAGS_MARKER_LIBGNUTLS
+#    error "missing libgnutls_cflags in meson dependency."
+#  endif
+
 #  include <gnutls/gnutls.h>    /* IWYU pragma: export */
 #  include <gnutls/x509.h>      /* IWYU pragma: export */
 

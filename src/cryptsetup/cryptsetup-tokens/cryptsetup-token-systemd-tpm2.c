@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <libcryptsetup.h>
 #include <syslog.h>
 
 #include "alloc-util.h"

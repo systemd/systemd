@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <linux/audit.h>        /* IWYU pragma: keep */
 #include <linux/liveupdate.h>
 #include <math.h>
 #include <sys/stat.h>
@@ -36,6 +35,7 @@
 #include "glyph-util.h"
 #include "id128-util.h"
 #include "image-policy.h"
+#include "libaudit-util.h"
 #include "log.h"
 #include "luo-util.h"
 #include "manager.h"

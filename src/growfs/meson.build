@@ -4,6 +4,9 @@ executables += [
         libexec_template + {
                 'name' : 'systemd-growfs',
                 'sources' : files('growfs.c'),
+                'dependencies' : [
+                        libcryptsetup_cflags,
+                ],
         },
         libexec_template + {
                 'name' : 'systemd-makefs',

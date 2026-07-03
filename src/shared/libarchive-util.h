@@ -6,6 +6,10 @@
 #include "shared-forward.h"
 
 #if HAVE_LIBARCHIVE
+#ifndef SYSTEMD_CFLAGS_MARKER_LIBARCHIVE
+#  error "missing libarchive_cflags in meson dependency."
+#endif
+
 #include <archive.h>            /* IWYU pragma: export */
 #include <archive_entry.h>      /* IWYU pragma: export */
 

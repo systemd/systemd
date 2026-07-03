@@ -33,6 +33,10 @@ int dlopen_libcrypto(int log_level);
 #define X509_FINGERPRINT_SIZE SHA256_DIGEST_SIZE
 
 #if HAVE_OPENSSL
+#ifndef SYSTEMD_CFLAGS_MARKER_LIBOPENSSL
+#  error "missing libopenssl_cflags in meson dependency."
+#endif
+
 #define LIBCRYPTO_NOTE(priority)                                        \
         SD_ELF_NOTE_DLOPEN("libcrypto",                                 \
                            "Support for cryptographic operations",      \

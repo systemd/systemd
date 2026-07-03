@@ -1,6 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #if HAVE_ELFUTILS
+#ifndef SYSTEMD_CFLAGS_MARKER_LIBELF
+#  error "missing libelf_cflags in meson dependency."
+#endif
+
 #include <dwarf.h>
 #include <elfutils/libdwelf.h>
 #include <elfutils/libdwfl.h>
