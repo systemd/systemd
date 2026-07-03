@@ -185,7 +185,10 @@ static int resource_load_from_directory_recursive(
                                 if (!S_ISDIR(st.st_mode)) /* The pattern continues with '/' but this is no directory */
                                         continue;
                                 descend = true;
-                        }
+                        } else if (r == PATTERN_MATCH_YES_AND_RETRY && S_ISDIR(st.st_mode) && m != S_IFDIR)
+                                /* The direct match is unusable since a directory can't be an instance here,
+                                 * but another pattern wants to descend, so do that instead */
+                                descend = true;
                 }
 
                 if (descend) {
@@ -205,7 +208,7 @@ static int resource_load_from_directory_recursive(
                         continue;
                 }
 
-                if (de->d_type == DT_DIR && m != S_IFDIR)
+                if (S_ISDIR(st.st_mode) && m != S_IFDIR)
                         continue;
 
                 joined = path_join(rr->path, rel_joined);
@@ -610,7 +613,7 @@ static int resource_load_from_web(
                         r = pattern_match_many(rr->patterns, fn, &extracted_fields);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to match pattern: %m");
-                        if (r == PATTERN_MATCH_YES) {
+                        if (IN_SET(r, PATTERN_MATCH_YES, PATTERN_MATCH_YES_AND_RETRY)) {
                                 _cleanup_free_ char *path = NULL;
 
                                 r = import_url_append_component(rr->path, fn, &path);

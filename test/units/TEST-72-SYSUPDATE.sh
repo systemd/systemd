@@ -1326,4 +1326,104 @@ EOF
 cmp "$WORKDIR/source/depth-v3/contents/image.raw" "$WORKDIR/blobs/depth-v3.raw"
 rm -rf "$CONFIGDIR/01-depth.transfer" "$WORKDIR/source/depth-v3"
 
+# Pattern matching should not depend on the pattern order. A transfer can list one pattern per repository
+# layout, e.g., when a source switches from one directory per version (bundle-v1/image.raw) to flat files
+# (bundle-v2.raw) and both layouts coexist during a migration.
+# Check that after a subdirectory pattern which descends we still can match a top-level file through a
+# '**/' pattern.
+# Also check that after a non-matching '**/' pattern we still can match a plain top-level file.
+# Then check that after a subdirectory pattern we can still match a plain top-level file.
+# The first and last work because the wildcard field also captures the '.raw' suffix, so the top-level file
+# matches the directory component of the subdirectory pattern and triggers the descend-retry logic.
+# The fourth transfer checks the vice versa migration where one directory per version is the new layout and
+# the old versions are flat files without a suffix: the directory name fully matches the flat pattern but
+# must still be descended into for the subdirectory pattern.
+rm -rf "$CONFIGDIR" "$WORKDIR/blobs" "$WORKDIR/source/bundle-v1" "$WORKDIR/source/pack-v2"
+mkdir -p "$CONFIGDIR" "$WORKDIR/blobs"/{glob-last,glob-first,subdir-first,yes-and-retry} \
+         "$WORKDIR/source/bundle-v1" "$WORKDIR/source/pack-v2"
+echo 'version-one' >"$WORKDIR/source/bundle-v1/image.raw"
+echo 'version-two' >"$WORKDIR/source/bundle-v2.raw"
+echo 'version-v1' >"$WORKDIR/source/pack-v1"
+echo 'version-v2' >"$WORKDIR/source/pack-v2/image.raw"
+cat >"$CONFIGDIR/01-glob-last.transfer" <<EOF
+[Source]
+Type=regular-file
+Path=$WORKDIR/source
+MatchPattern=bundle-@v/image.raw **/bundle-@v.raw
+
+[Target]
+Type=regular-file
+Path=$WORKDIR/blobs/glob-last
+MatchPattern=bundle-@v.raw
+InstancesMax=1
+EOF
+cat >"$CONFIGDIR/02-glob-first.transfer" <<EOF
+[Source]
+Type=regular-file
+Path=$WORKDIR/source
+MatchPattern=**/bundle-@v.img bundle-@v.raw
+
+[Target]
+Type=regular-file
+Path=$WORKDIR/blobs/glob-first
+MatchPattern=bundle-@v.raw
+InstancesMax=1
+EOF
+cat >"$CONFIGDIR/03-subdir-first.transfer" <<EOF
+[Source]
+Type=regular-file
+Path=$WORKDIR/source
+MatchPattern=bundle-@v/image.raw bundle-@v.raw
+
+[Target]
+Type=regular-file
+Path=$WORKDIR/blobs/subdir-first
+MatchPattern=bundle-@v.raw
+InstancesMax=1
+EOF
+cat >"$CONFIGDIR/04-yes-and-retry.transfer" <<EOF
+[Source]
+Type=regular-file
+Path=$WORKDIR/source
+MatchPattern=pack-@v/image.raw pack-@v
+
+[Target]
+Type=regular-file
+Path=$WORKDIR/blobs/yes-and-retry
+MatchPattern=pack-@v
+InstancesMax=1
+EOF
+"$SYSUPDATE" --verify=no update
+for target in glob-last glob-first subdir-first; do
+    cmp "$WORKDIR/source/bundle-v2.raw" "$WORKDIR/blobs/$target/bundle-v2.raw"
+done
+cmp "$WORKDIR/source/pack-v2/image.raw" "$WORKDIR/blobs/yes-and-retry/pack-v2"
+rm -rf "$CONFIGDIR"/{01-glob-last,02-glob-first,03-subdir-first,04-yes-and-retry}.transfer \
+       "$WORKDIR/source/bundle-v2.raw" "$WORKDIR/source/bundle-v1" \
+       "$WORKDIR/source/pack-v1" "$WORKDIR/source/pack-v2"
+
+# A manifest entry that both directly matches a flat pattern and prefix-matches a subdirectory pattern
+# must be downloaded, here the flat file is the newest version (this exercises YES_AND_RETRY)
+rm -rf "$CONFIGDIR" "$WORKDIR/blobs" "$WORKDIR/source/pack-v1"
+mkdir -p "$CONFIGDIR" "$WORKDIR/blobs" "$WORKDIR/source/pack-v1"
+echo 'version-v1' >"$WORKDIR/source/pack-v1/image.raw"
+echo 'version-v2' >"$WORKDIR/source/pack-v2"
+(cd "$WORKDIR/source" && sha256sum pack-v1/image.raw pack-v2 >SHA256SUMS)
+cat >"$CONFIGDIR/01-manifest-yes-and-retry.transfer" <<EOF
+[Source]
+Type=url-file
+Path=file://$WORKDIR/source
+MatchPattern=pack-@v/image.raw pack-@v
+
+[Target]
+Type=regular-file
+Path=$WORKDIR/blobs
+MatchPattern=pack-@v
+InstancesMax=1
+EOF
+"$SYSUPDATE" --verify=no update
+cmp "$WORKDIR/source/pack-v2" "$WORKDIR/blobs/pack-v2"
+rm -rf "$CONFIGDIR/01-manifest-yes-and-retry.transfer" \
+       "$WORKDIR/source/pack-v1" "$WORKDIR/source/pack-v2"
+
 touch /testok
