@@ -34,7 +34,6 @@
 #include "pretty-print.h"
 #include "runtime-scope.h"
 #include "sort-util.h"
-#include "specifier.h"
 #include "string-util.h"
 #include "strv.h"
 #include "sysupdate.h"
@@ -74,19 +73,13 @@ STATIC_DESTRUCTOR_REGISTER(arg_component, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_transfer_source, freep);
 
-const Specifier specifier_table[] = {
-        COMMON_SYSTEM_SPECIFIERS,
-        COMMON_TMP_SPECIFIERS,
-        {}
-};
-
-#define CONTEXT_NULL \
-        (Context) { \
-                .sync = true, \
-                .instances_max = UINT64_MAX, \
-                .verify = -1, \
-                .cleanup = -1, \
-                .installdb_fd = -EBADF, \
+#define CONTEXT_NULL                                              \
+        (Context) {                                               \
+                .sync = true,                                     \
+                .instances_max = UINT64_MAX,                      \
+                .verify = -1,                                     \
+                .cleanup = -1,                                    \
+                .installdb_fd = -EBADF,                           \
                 .target_identifier.class = _TARGET_CLASS_INVALID, \
         }
 
@@ -186,7 +179,50 @@ static void server_done(Server *s) {
 
 static DEFINE_POINTER_ARRAY_FREE_FUNC(Transfer*, transfer_free);
 
-static int read_definitions(
+static int read_features(
+                Context *c,
+                const char **dirs) {
+
+        int r;
+
+        assert(c);
+
+        ConfFile **files = NULL;
+        size_t n_files = 0;
+        CLEANUP_ARRAY(files, n_files, conf_file_free_array);
+
+        r = conf_files_list_strv_full(
+                        ".feature",
+                        c->root,
+                        CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED|CONF_FILES_WARN,
+                        dirs,
+                        &files,
+                        &n_files);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enumerate sysupdate.d/*.feature definitions: %m");
+
+        FOREACH_ARRAY(i, files, n_files) {
+                ConfFile *e = *i;
+
+                _cleanup_(feature_unrefp) Feature *f = feature_new();
+                if (!f)
+                        return log_oom();
+
+                r = feature_read_definition(f, c->root, e->result, dirs);
+                if (r < 0)
+                        return r;
+
+                r = hashmap_ensure_put(&c->features, &feature_hash_ops, f->id, f);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to insert feature '%s' into map: %m", f->id);
+
+                TAKE_PTR(f);
+        }
+
+        return 0;
+}
+
+static int read_transfers(
                 Context *c,
                 const char **dirs,
                 const char *suffix,
@@ -279,42 +315,17 @@ static int context_read_definitions(Context *c, const char* node, ReadDefinition
         if (!dirs)
                 return log_oom();
 
-        ConfFile **files = NULL;
-        size_t n_files = 0;
-
-        CLEANUP_ARRAY(files, n_files, conf_file_free_array);
-
-        r = conf_files_list_strv_full(".feature", c->root,
-                                      CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED|CONF_FILES_WARN,
-                                      (const char**) dirs, &files, &n_files);
+        r = read_features(c, (const char**) dirs);
         if (r < 0)
-                return log_error_errno(r, "Failed to enumerate sysupdate.d/*.feature definitions: %m");
+                return r;
 
-        FOREACH_ARRAY(i, files, n_files) {
-                _cleanup_(feature_unrefp) Feature *f = NULL;
-                ConfFile *e = *i;
-
-                f = feature_new();
-                if (!f)
-                        return log_oom();
-
-                r = feature_read_definition(f, c->root, e->result, (const char**) dirs);
-                if (r < 0)
-                        return r;
-
-                r = hashmap_ensure_put(&c->features, &feature_hash_ops, f->id, f);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to insert feature '%s' into map: %m", f->id);
-                TAKE_PTR(f);
-        }
-
-        r = read_definitions(c, (const char**) dirs, ".transfer", node);
+        r = read_transfers(c, (const char**) dirs, ".transfer", node);
         if (r < 0)
                 return r;
 
         if (c->n_transfers + c->n_disabled_transfers == 0) {
                 /* Backwards-compat: If no .transfer defs are found, fall back to trying .conf! */
-                r = read_definitions(c, (const char**) dirs, ".conf", node);
+                r = read_transfers(c, (const char**) dirs, ".conf", node);
                 if (r < 0)
                         return r;
 
@@ -1951,6 +1962,15 @@ static int verb_update_impl(int argc, char **argv, UpdateActionFlags action_flag
                                       "The --instances-max argument must be >= 2 while updating");
 
         if (context.reboot) {
+
+                if (context.image || context.root)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "The --root=/--image= switches may not be combined with the '%s' operation.", argv[0]);
+
+                if (context.component)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "The --component= switch may not be combined with the '%s' operation, which only applies to the booted OS version.", argv[0]);
+
                 /* If automatic reboot on completion is requested, let's first determine the currently booted image */
 
                 r = parse_os_release(context.root, "IMAGE_VERSION", &booted_version);
@@ -2155,11 +2175,12 @@ static int context_list_components(Context *context, char ***ret_component_names
         /* Does the system have at least one transfer file in /etc/sysupdate.d, which can be considered a
          * TARGET_HOST? See target_get_argument() in sysupdated.c */
         if (ret_has_default_component)
-                *ret_has_default_component = (!context->definitions &&
-                                          !context->component &&
-                                          !context->root &&
-                                          !context->image &&
-                                          context->n_transfers > 0);
+                *ret_has_default_component =
+                        !context->definitions &&
+                        !context->component &&
+                        !context->root &&
+                        !context->image &&
+                        context->n_transfers > 0;
 
         return 0;
 }
