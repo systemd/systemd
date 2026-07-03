@@ -8,7 +8,10 @@ executables += [
         libexec_template + {
                 'name' : 'systemd-veritysetup',
                 'sources' : files('veritysetup.c'),
-                'dependencies' : libcryptsetup_cflags,
+                'dependencies' : [
+                        libcryptsetup_cflags,
+                        tpm2_cflags,
+                ],
         },
         generator_template + {
                 'name' : 'systemd-veritysetup-generator',

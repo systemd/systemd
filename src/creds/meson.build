@@ -12,6 +12,7 @@ executables += [
                 'dependencies' : [
                         libmount_cflags,
                         libopenssl_cflags,
+                        tpm2_cflags,
                 ],
         },
 ]

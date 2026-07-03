@@ -48,6 +48,9 @@ executables += [
                 'dbus' : true,
                 'sources' : systemd_logind_sources,
                 'extract' : systemd_logind_extract_sources,
+                'dependencies' : [
+                        libacl_cflags,
+                ],
         },
         executable_template + {
                 'name' : 'loginctl',

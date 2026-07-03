@@ -4,6 +4,7 @@ systemd_journald_sources = files(
         'journald.c',
 )
 systemd_journald_extract_sources = files(
+        'audit-type.c',
         'journald-audit.c',
         'journald-client.c',
         'journald-config.c',
@@ -28,6 +29,29 @@ journald_gperf_c = custom_target(
 
 generated_sources += journald_gperf_c
 systemd_journald_extract_sources += journald_gperf_c
+
+generate_audit_type_list = files('generate-audit_type-list.sh')
+generate_audit_type_command = [env, 'bash', generate_audit_type_list, cpp]
+if libaudit.found()
+        ret = run_command('pkg-config', '--cflags', 'audit', check: true)
+        generate_audit_type_command += ['-include', 'libaudit.h'] + ret.stdout().strip().split()
+endif
+generate_audit_type_command += system_include_args
+
+audit_type_list_txt = custom_target(
+        input : [generate_audit_type_list],
+        output : 'audit_type-list.txt',
+        command : generate_audit_type_command,
+        capture : true)
+
+audit_type_to_name = custom_target(
+        input : ['audit_type-to-name.awk', audit_type_list_txt],
+        output : 'audit_type-to-name.inc',
+        command : [awk, '-f', '@INPUT0@', '@INPUT1@'],
+        capture : true)
+
+generated_sources += audit_type_to_name
+systemd_journald_extract_sources += audit_type_to_name
 
 journalctl_sources = files(
         'journalctl.c',
@@ -69,7 +93,10 @@ executables += [
                 'sources' : systemd_journald_sources,
                 'extract' : systemd_journald_extract_sources,
                 'dependencies' : [
+                        libacl_cflags,
+                        libaudit_cflags,
                         liblz4_cflags,
+                        libpcre2_cflags,
                         libselinux_cflags,
                         libxz_cflags,
                         libzstd_cflags,
@@ -80,6 +107,9 @@ executables += [
                 'public' : true,
                 'conditions' : ['HAVE_QRENCODE'],
                 'sources' : files('bsod.c'),
+                'dependencies' : [
+                        libqrencode_cflags,
+                ],
         },
         executable_template + {
                 'name' : 'systemd-cat',
@@ -95,9 +125,13 @@ executables += [
                 'dependencies' : [
                         liblz4_cflags,
                         libopenssl_cflags,
+                        libpcre2_cflags,
                         libxz_cflags,
                         libzstd_cflags,
                 ],
+        },
+        journal_test_template + {
+                'sources' : files('test-audit-type.c'),
         },
         journal_test_template + {
                 'sources' : files('test-journald-config.c'),

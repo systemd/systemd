@@ -7,6 +7,10 @@
 #include "shared-forward.h"
 
 #if HAVE_LIBCRYPTSETUP
+#ifndef SYSTEMD_CFLAGS_MARKER_LIBCRYPTSETUP
+#  error("missing libcryptsetup_cflags in meson dependency.");
+#endif
+
 #include <libcryptsetup.h> /* IWYU pragma: export */
 
 /* Available since libcryptsetup 2.7. Always redeclare so DLSYM_PROTOTYPE's typeof() resolves on older
