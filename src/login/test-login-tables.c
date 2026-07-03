@@ -8,6 +8,8 @@
 #include "logind.h"
 #include "logind-action.h"
 #include "logind-button.h"
+#include "logind-device.h"
+#include "logind-seat.h"
 #include "logind-session.h"
 #include "logind-user.h"
 #include "sleep-config.h"
@@ -69,6 +71,40 @@ static void test_button_free_cancels_long_press(void) {
         assert_se(!m->reboot_key_long_press_event_source);
 }
 
+/* Verify that seat_free() does not leave itself on the GC queue when draining a device re-queues it:
+ * device_detach() calls seat_add_to_gc_queue() once the seat loses its last master device, so a
+ * seat_free() that dropped itself from the queue before that drain would leave the freed seat dangling
+ * at the queue head for the next manager_gc() pass. */
+static void test_seat_free_dequeues_on_device_detach(void) {
+        _cleanup_(hashmap_freep) Hashmap *seats = NULL;
+        _cleanup_(hashmap_freep) Hashmap *devices = NULL;
+        _cleanup_free_ Manager *m = NULL;
+        Seat *s;
+        Device *d;
+
+        assert_se(m = new0(Manager, 1));
+        assert_se(seats = hashmap_new(&string_hash_ops));
+        assert_se(devices = hashmap_new(&string_hash_ops));
+        m->seats = seats;
+        m->devices = devices;
+
+        assert_se(seat_new(m, "seattest", &s) >= 0);
+
+        /* A non-master device: the seat has no master, so detaching it re-queues the seat for GC. */
+        assert_se(d = device_new(m, "/sys/devices/platform/test-seat-device", /* master= */ false));
+        device_attach(d, s);
+
+        /* Mimic manager_gc() having popped the seat off the queue right before freeing it. */
+        assert_se(!s->in_gc_queue);
+        assert_se(!m->seat_gc_queue);
+
+        seat_free(s);
+
+        /* Freeing the seat drained the device, which re-queued the (now freed) seat. seat_free() must
+         * have removed it again, otherwise the queue head is a dangling pointer. */
+        assert_se(!m->seat_gc_queue);
+}
+
 int main(int argc, char **argv) {
         test_setup_logging(LOG_DEBUG);
 
@@ -82,6 +118,7 @@ int main(int argc, char **argv) {
 
         test_sleep_handle_action();
         test_button_free_cancels_long_press();
+        test_seat_free_dequeues_on_device_detach();
 
         return EXIT_SUCCESS;
 }
