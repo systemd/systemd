@@ -269,7 +269,8 @@
           <listitem><para>Takes an absolute path, or a relative path beginning with
           <filename>./</filename>. Specifies the path to an EFI NVRAM template file to copy and use as the
           initial EFI variable NVRAM state. If not specified, the default NVRAM template from the firmware
-          definition is copied and used.</para>
+          definition is copied and used. Cannot be used together with <option>--coco=</option>, as
+          confidential computing firmware is stateless.</para>
 
           <xi:include href="version-info.xml" xpointer="v261"/></listitem>
         </varlistentry>
@@ -283,7 +284,8 @@
           automatically derived from the VM image path or directory path, with the
           <literal>.efinvramstate</literal> suffix appended. If set to the special string
           <literal>off</literal> the EFI variable NVRAM state is only maintained transiently and flushed out
-          when the VM shuts down. Defaults to <literal>auto</literal>.</para>
+          when the VM shuts down. Defaults to <literal>auto</literal>. An explicit path cannot be used
+          together with <option>--coco=</option>, as confidential computing firmware is stateless.</para>
 
           <para>If <option>--ephemeral</option> is specified, <literal>auto</literal> behaves like
           <literal>off</literal>.</para>
@@ -299,6 +301,13 @@
           <option>--firmware-features=secure-boot</option> and setting this to no is equivalent to
           <option>--firmware-features=~secure-boot</option>. Setting this to <literal>auto</literal>
           removes <literal>secure-boot</literal> from both the included and excluded feature lists.</para>
+
+          <para>With <option>--coco=</option>, setting this to <literal>yes</literal> additionally lifts
+          the default exclusion of the <literal>enrolled-keys</literal> firmware feature: confidential
+          computing firmware is stateless, so keys cannot be enrolled at runtime and Secure Boot is only
+          operative with keys baked into the image at build time, which in turn makes the firmware refuse
+          to boot unsigned images from the very first boot. The default exclusion of
+          <literal>enrolled-keys</literal> hence keeps unsigned images bootable.</para>
 
           <xi:include href="version-info.xml" xpointer="v255"/></listitem>
         </varlistentry>
@@ -353,7 +362,8 @@
           SNP-capable hardware and firmware. A suitable SNP-built OVMF firmware is picked automatically
           from the installed QEMU firmware descriptors, by requiring the <literal>amd-sev-snp</literal>
           firmware feature; use <option>--firmware=</option> with a path to a firmware descriptor file to
-          select a specific one. Secure Boot is unavailable. Direct kernel boot via
+          select a specific one. Secure Boot is effectively off by default (see
+          <option>--secure-boot=</option>). Direct kernel boot via
           <option>--linux=</option> is required so that the kernel, initrd and command line are hashed
           into the launch measurement (<literal>kernel-hashes=on</literal>); booting the kernel off the
           disk image via the firmware would leave it outside the measurement. Credentials passed via
@@ -376,7 +386,8 @@
           <option>--firmware=</option> with a path to a firmware descriptor file to select a specific
           one. The CPU model is fixed to <literal>host</literal>. Firmware is measured into MRTD when the
           TD is built. Secure Boot cannot be enrolled at runtime (there is no writable NVRAM); its state
-          is fixed by the selected TDVF image and is part of the measured firmware.
+          is fixed by the selected TDVF image and is part of the measured firmware (see
+          <option>--secure-boot=</option>).
           When booting a UKI, the whole UKI PE is measured into RTMR 1, and the loaded sections are
           measured individually by <command>systemd-stub</command> into RTMR 2. For direct linux boot,
           firmware measures the kernel PE into RTMR 1, and the Linux EFI stub measures initrd and
