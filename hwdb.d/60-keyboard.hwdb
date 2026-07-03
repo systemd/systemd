@@ -1432,6 +1432,10 @@ evdev:input:b0005v046DpB317*
  KEYBOARD_KEY_70047=brightnessdown
  KEYBOARD_KEY_70048=brightnessup
 
+# Logitech K950
+evdev:input:b0005v046DpB388*
+ KEYBOARD_KEY_100e1=micmute                             # Mic-mute key emits BTN_0
+
 # iTouch
 evdev:input:b0003v046DpC308*
  KEYBOARD_KEY_90001=shop                                # Shopping
