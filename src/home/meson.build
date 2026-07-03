@@ -16,7 +16,7 @@ systemd_homed_sources = files(
         'homed.c',
         'user-record-sign.c',
 )
-systemd_homed_extract_sources = files(
+systemd_homed_export_sources = files(
         'home-util.c',
         'user-record-password-quality.c',
         'user-record-util.c',
@@ -51,7 +51,7 @@ homectl_sources = files(
         'homectl.c',
 )
 
-homectl_extract = files(
+homectl_export_sources = files(
         'homectl-prompts.c',
 )
 
@@ -66,13 +66,13 @@ executables += [
                 'name' : 'systemd-homed',
                 'dbus' : true,
                 'sources' : systemd_homed_sources,
-                'extract' : systemd_homed_extract_sources,
+                'export' : systemd_homed_export_sources,
                 'dependencies' : libopenssl_cflags,
         },
         libexec_template + {
                 'name' : 'systemd-homework',
                 'sources' : systemd_homework_sources,
-                'objects' : ['systemd-homed'],
+                'import' : ['systemd-homed'],
                 'dependencies' : [
                         libblkid_cflags,
                         libfdisk_cflags,
@@ -84,8 +84,8 @@ executables += [
                 'name' : 'homectl',
                 'public' : true,
                 'sources' : homectl_sources,
-                'extract' : homectl_extract,
-                'objects' : ['systemd-homed'],
+                'export' : homectl_export_sources,
+                'import' : ['systemd-homed'],
                 'dependencies' : [
                         libopenssl_cflags,
                         libp11kit_cflags,
@@ -93,7 +93,7 @@ executables += [
         },
         test_template + {
                 'sources' : files('test-homectl-prompts.c'),
-                'objects' : ['homectl'],
+                'import' : ['homectl'],
                 'type' : 'manual',
         },
         test_template + {
