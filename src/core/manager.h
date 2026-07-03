@@ -643,6 +643,8 @@ LogTarget manager_get_executor_log_target(Manager *m);
 
 int manager_allocate_idle_pipe(Manager *m);
 
+int update_first_boot_file(bool b);
+
 void unit_defaults_init(UnitDefaults *defaults, RuntimeScope scope);
 void unit_defaults_done(UnitDefaults *defaults);
 
