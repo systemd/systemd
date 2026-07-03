@@ -56,6 +56,7 @@ executables += [
                         libshared,
                 ],
                 'dependencies' : [
+                        libopenssl_cflags,
                         libseccomp_cflags,
                         tpm2_cflags,
                 ],
