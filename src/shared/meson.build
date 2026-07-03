@@ -256,6 +256,7 @@ shared_sources = files(
         'varlink-io.systemd.Resolve.Monitor.c',
         'varlink-io.systemd.Shutdown.c',
         'varlink-io.systemd.StorageProvider.c',
+        'varlink-io.systemd.SysInstall.c',
         'varlink-io.systemd.SysUpdate.c',
         'varlink-io.systemd.SysUpdate.Notify.c',
         'varlink-io.systemd.Udev.c',
