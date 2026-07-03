@@ -339,6 +339,9 @@ static int recursively_get_cgroup_context(Hashmap *new_h, const char *path) {
                         log_debug_errno(r, "Failed to insert or recursively get from %s, ignoring: %m", cg_path);
         } while ((r = cg_read_subgroup(d, &subpath)) > 0);
 
+        if (r < 0)
+                return log_debug_errno(r, "Failed to read subgroup from %s, ignoring: %m", empty_to_root(path));
+
         return 0;
 }
 
