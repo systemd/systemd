@@ -248,12 +248,19 @@ int pattern_match(const char *pattern, const char *s, InstanceMetadata *ret) {
                 }
 
                 if (e->elements_next) {
-                        /* The next element must be literal, as we use it to determine where to split */
-                        assert(e->elements_next->type == PATTERN_LITERAL);
+                        if (e->elements_next->type == PATTERN_SLASH)
+                                /* The pattern has a slash after the wildcard. If the input string also has
+                                 * one we advance to it but if it has not, we capture everything to the end
+                                 * and since nothing is left it will lead to "retry" (after validation). */
+                                n = strchrnul(p, '/');
+                        else {
+                                /* The next element must be literal, as we use it to determine where to split */
+                                assert(e->elements_next->type == PATTERN_LITERAL);
 
-                        n = strstr(p, e->elements_next->literal);
-                        if (!n)
-                                goto nope;
+                                n = strstr(p, e->elements_next->literal);
+                                if (!n)
+                                        goto nope;
+                        }
 
                 } else
                         /* End of the string */
