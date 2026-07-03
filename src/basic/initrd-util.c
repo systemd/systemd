@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdlib.h>
 #include <unistd.h>
 
 #include "env-util.h"
@@ -37,4 +38,23 @@ bool in_initrd(void) {
 
 void in_initrd_force(bool value) {
         saved_in_initrd = value;
+}
+
+bool in_first_boot(void) {
+        static int first_boot = -1;
+        int r;
+
+        if (first_boot >= 0)
+                return first_boot;
+
+        r = secure_getenv_bool("SYSTEMD_FIRST_BOOT");
+        if (r >= 0)
+                return (first_boot = r);
+        if (r != -ENXIO)
+                log_debug_errno(r, "Failed to parse $SYSTEMD_FIRST_BOOT, ignoring: %m");
+
+        r = RET_NERRNO(access("/run/systemd/first-boot", F_OK));
+        if (r < 0 && r != -ENOENT)
+                log_debug_errno(r, "Failed to check if /run/systemd/first-boot exists, assuming no: %m");
+        return r >= 0;
 }

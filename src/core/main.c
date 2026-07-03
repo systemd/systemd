@@ -2683,6 +2683,13 @@ static int initialize_runtime(
                                 return -ENOEXEC;
                         }
 
+                        /* Make the first-boot flag visible now rather than in manager_set_first_boot():
+                         * decrypting the credentials imported below (machine ID, hostname) consults
+                         * in_first_boot() via the systemd.credentials_boot_policy= logic, which would
+                         * otherwise not detect this first boot. */
+                        if (first_boot)
+                                (void) touch("/run/systemd/first-boot");
+
                         /* Pull credentials from various sources into a common credential directory (we do
                          * this here, before setting up the machine ID, so that we can use credential info
                          * for setting up the machine ID) */
