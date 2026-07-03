@@ -23,14 +23,14 @@ executables += [
                 'name' : 'systemd-vmspawn',
                 'public' : true,
                 'sources' : vmspawn_sources,
-                'extract' : vmspawn_extract_sources,
+                'export' : vmspawn_extract_sources,
         },
         test_template + {
                 'sources' : files('test-vmspawn-util.c'),
-                'objects' : ['systemd-vmspawn'],
+                'import' : ['systemd-vmspawn'],
         },
         test_template + {
                 'sources' : files('test-vmspawn-qemu-config.c'),
-                'objects' : ['systemd-vmspawn'],
+                'import' : ['systemd-vmspawn'],
         },
 ]

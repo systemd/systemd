@@ -52,7 +52,7 @@ executables += [
                 'name' : 'systemctl',
                 'public' : true,
                 'sources' : systemctl_sources,
-                'extract' : systemctl_extract_sources,
+                'export' : systemctl_extract_sources,
                 'link_with' : systemctl_link_with,
                 'dependencies' : [
                         liblz4_cflags,
@@ -63,7 +63,7 @@ executables += [
         },
         fuzz_template + {
                 'sources' : files('fuzz-systemctl-parse-argv.c'),
-                'objects' : ['systemctl'],
+                'import' : ['systemctl'],
                 'link_with' : systemctl_link_with,
                 'dependencies' : [
                         libselinux_cflags,

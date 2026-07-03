@@ -33,19 +33,19 @@ executables += [
         libexec_template + {
                 'name' : 'systemd-timesyncd',
                 'sources' : timesyncd_sources,
-                'extract' : timesyncd_extract_sources,
+                'export' : timesyncd_extract_sources,
                 'link_with' : timesyncd_link_with,
                 'dependencies' : libm,
         },
         libexec_template + {
                 'name' : 'systemd-time-wait-sync',
                 'sources' : files('wait-sync.c'),
-                'objects' : ['systemd-timesyncd'],
+                'import' : ['systemd-timesyncd'],
                 'dependencies' : libm,
         },
         test_template + {
                 'sources' : files('test-timesync.c'),
-                'objects' : ['systemd-timesyncd'],
+                'import' : ['systemd-timesyncd'],
                 'dependencies' : libm,
         },
 ]
