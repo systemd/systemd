@@ -187,8 +187,8 @@ testcase_region_size() {
     region_workdir="$(mktemp -d)"
     read -r region_loop_src region_loop_dst region_loop_meta < <(create_loop_triplet "$region_workdir")
 
-    # Custom region_size=16 — dmsetup status must report 16 sectors per region.
-    $CLONESETUP_BIN add testregion "$region_loop_src" "$region_loop_dst" "$region_loop_meta" region_size=16
+    # Custom region_size=8K — verify a non-default bytes value is accepted.
+    $CLONESETUP_BIN add testregion "$region_loop_src" "$region_loop_dst" "$region_loop_meta" region_size=8K
     dmsetup info testregion
     $CLONESETUP_BIN remove testregion
 

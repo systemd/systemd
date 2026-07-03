@@ -57,8 +57,9 @@
     <citerefentry><refentrytitle>clonetab</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
     <para>Currently, the supported option in <parameter>OPTIONS</parameter> is
-    <varname>region_size=</varname><replaceable>N</replaceable>, where
-    <replaceable>N</replaceable> is measured in 512-byte sectors.</para>
+    <varname>region_size=</varname><replaceable>BYTES</replaceable>, where
+    <replaceable>BYTES</replaceable> is measured in bytes (standard suffixes like
+    <literal>K</literal>, <literal>M</literal>, <literal>G</literal> are supported).</para>
   </refsect1>
 
   <refsect1>

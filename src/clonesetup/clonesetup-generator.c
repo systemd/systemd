@@ -3,6 +3,7 @@
 #include <stdlib.h>
 
 #include "alloc-util.h"
+#include "clonesetup-util.h"
 #include "dropin.h"
 #include "errno-util.h"
 #include "fd-util.h"
@@ -157,14 +158,6 @@ static int generate_clone_units(
         if (r < 0)
                 return r;
 
-        return 0;
-}
-
-static int validate_dev_path(const char *what, const char *path) {
-        if (!string_is_safe(path, 0) || !path_is_valid(path) || !path_is_normalized(path) ||
-            !path_is_absolute(path) || !path_startswith(path, "/dev/"))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Invalid %s device path '%s'.", what, path);
         return 0;
 }
 

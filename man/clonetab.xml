@@ -63,22 +63,22 @@
 
       <variablelist>
         <varlistentry>
-          <term><option>region_size=<replaceable>N</replaceable></option></term>
+          <term><option>region_size=<replaceable>BYTES</replaceable></option></term>
           <listitem><para>Controls the granularity of background hydration copying — how much
-          data is copied at a time. Region size is specified in 512-byte sectors, so
-          <literal>region_size=8</literal> means 8 × 512 = 4KB per region. One region is the
-          atomic unit dm-clone tracks: it is either fully hydrated (copied to the destination)
+          data is copied at a time. Region size is specified in bytes (standard suffixes like
+          <literal>K</literal>, <literal>M</literal>, <literal>G</literal> are supported), and must
+          correspond to a power of two between 4 KiB and 1 GiB. For example,
+          <literal>region_size=4K</literal> or <literal>region_size=4096</literal> sets a 4 KiB region size.</para>
+
+        <para>
+          One region is the atomic unit dm-clone tracks: it is either fully hydrated (copied to the destination)
           or not, never partially. If a copy is interrupted mid-region, that whole region is
           retried from scratch on next boot. Smaller regions mean finer progress tracking;
-          larger regions reduce metadata overhead. Must be a power of two between
-          <literal>8</literal> and <literal>2097152</literal> sectors. Defaults to
-          <literal>8</literal> (4KB). For background, see
+          larger regions reduce metadata overhead. Defaults to <literal>4K</literal>. For background, see
           <ulink url="https://www.kernel.org/doc/html/latest/admin-guide/device-mapper/dm-clone.html">dm-clone kernel documentation</ulink>.
-          Device mapper sectors are always 512 bytes regardless of physical block size
-          (<filename>include/linux/blk_types.h</filename>: <literal>SECTOR_SIZE = 1 &lt;&lt; 9</literal>).
-          </para>
+        </para>
 
-          <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+          <xi:include href="version-info.xml" xpointer="v262"/></listitem>
         </varlistentry>
       </variablelist>
 
@@ -104,8 +104,8 @@
 
     <example>
       <title>Clone with custom region size</title>
-      <para>Clone a source device to a destination with a custom region size of 16 sectors:</para>
-      <programlisting>mydevice /dev/sdb /dev/sdc /dev/sdd region_size=16</programlisting>
+      <para>Clone a source device to a destination with a custom region size of 8 KiB:</para>
+      <programlisting>mydevice /dev/sdb /dev/sdc /dev/sdd region_size=8K</programlisting>
     </example>
   </refsect1>
 

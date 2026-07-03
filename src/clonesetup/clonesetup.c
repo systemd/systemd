@@ -1,10 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #include <sys/stat.h>
-#include <unistd.h>             /* access */
 
 #include "alloc-util.h"
 #include "build.h"
 #include "clonesetup-ioctl.h"
+#include "clonesetup-util.h"
 #include "extract-word.h"
 #include "format-table.h"
 #include "help-util.h"
@@ -12,21 +12,21 @@
 #include "main-func.h"
 #include "options.h"
 #include "parse-util.h"
-#include "path-util.h"          /* path_join */
+#include "path-util.h"          /* filename_is_valid */
 #include "string-util.h"
 #include "strv.h"               /* strv_skip */
 #include "verbs.h"
 
-/* region_size: size of each dm-clone region in 512-byte sectors.
- * Must be a power of 2 between 8 (4 KiB) and 2097152 (1 GiB) per dm-clone kernel docs. */
-#define CLONE_REGION_SIZE_DEFAULT       (UINT64_C(1) << 3)      /* 8 sectors = 4 KiB */
-#define CLONE_REGION_SIZE_MIN           (UINT64_C(1) << 3)      /* 8 sectors = 4 KiB */
-#define CLONE_REGION_SIZE_MAX           (UINT64_C(1) << 21)     /* 2097152 sectors = 1 GiB */
+/* region_size: size of each dm-clone region in bytes. Handled internally in bytes, but must correspond to a
+ * power of 2 between 4K and 1G per dm-clone kernel docs. */
+#define CLONE_REGION_SIZE_DEFAULT_BYTES       (UINT64_C(1) << 12)      /* 4 KiB */
+#define CLONE_REGION_SIZE_MIN_BYTES           (UINT64_C(1) << 12)      /* 4 KiB */
+#define CLONE_REGION_SIZE_MAX_BYTES           (UINT64_C(1) << 30)      /* 1 GiB */
 
-static int parse_clone_options(const char *options, uint64_t *ret_region_size) {
-        uint64_t region_size = CLONE_REGION_SIZE_DEFAULT;
+static int parse_clone_options(const char *options, uint64_t *ret_region_size_bytes) {
+        uint64_t region_size_bytes = CLONE_REGION_SIZE_DEFAULT_BYTES;
 
-        assert(ret_region_size);
+        assert(ret_region_size_bytes);
 
         for (;;) {
                 _cleanup_free_ char *word = NULL;
@@ -43,27 +43,26 @@ static int parse_clone_options(const char *options, uint64_t *ret_region_size) {
                 if (r == 0)
                         break;
 
-                /* region_size = N; size of each clone region in 512-byte sectors ( default 8 = 4KB )
-                 * Must be a power of 2 between 8 and 2097152 per dm-clone kernel docs. */
                 /* treat - as empty — common placeholders for "no options" */
                 if (streq(word, "-"))
                         continue;
 
                 if ((val = startswith(word, "region_size="))) {
-                        uint64_t r_size;
-                        r = safe_atou64(val, &r_size);
+                        uint64_t r_size_bytes;
+                        /* parse_size handles suffixes like K, M, G automatically */
+                        r = parse_size(val, 1024, &r_size_bytes);
                         if (r < 0)
                                 log_warning_errno(r, "Failed to parse region_size= value '%s', using default.", val);
-                        else if (!ISPOWEROF2(r_size) || r_size < CLONE_REGION_SIZE_MIN || r_size > CLONE_REGION_SIZE_MAX)
-                                log_warning("region_size=%s must be a power of two between 8 and 2097152, using default.", val);
+                        else if (!ISPOWEROF2(r_size_bytes) || r_size_bytes < CLONE_REGION_SIZE_MIN_BYTES || r_size_bytes > CLONE_REGION_SIZE_MAX_BYTES)
+                                log_warning("region_size=%s must be a power of two between 4K and 1G, using default.", val);
                         else
-                                region_size = r_size;
+                                region_size_bytes = r_size_bytes;
                 } else {
                         /* currently only region_size is supported */
                         log_warning("Unknown clone option '%s', ignoring.", word);
                 }
         }
-        *ret_region_size = region_size;
+        *ret_region_size_bytes = region_size_bytes;
         return 0;
 }
 
@@ -77,7 +76,6 @@ static int clone_device(
                 const char *metadata_dev,
                 const char *options) {
 
-        _cleanup_free_ char *clone_dev_path = NULL;
         int r;
 
         assert(clone_name);
@@ -85,22 +83,12 @@ static int clone_device(
         assert(dest_dev);
         assert(metadata_dev);
 
-        /* create clone device path to check if clone device already exists */
-        clone_dev_path = path_join("/dev/mapper", clone_name);
-        if (!clone_dev_path)
-                return log_oom();
-
-        /* Check before calling the DM ioctl to give a cleaner error message;
-         * DM_DEV_CREATE would return EEXIST too, but with a less obvious message. */
-        if (access(clone_dev_path, F_OK) >= 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EEXIST), "Device '%s' already exists.", clone_dev_path);
-
-        uint64_t region_size;
-        r = parse_clone_options(options, &region_size);
+        uint64_t region_size_bytes;
+        r = parse_clone_options(options, &region_size_bytes);
         if (r < 0)
                 return r;
 
-        r = dm_clone_create_device(clone_name, source_dev, dest_dev, metadata_dev, region_size);
+        r = dm_clone_create_device(clone_name, source_dev, dest_dev, metadata_dev, region_size_bytes);
         if (r < 0)
                 return r;
 
@@ -109,19 +97,6 @@ static int clone_device(
                 (void) dm_clone_remove_device_deferred(clone_name);
                 return r;
         }
-        return 0;
-}
-
-/* Argument validation — what each check covers:
- *   /, .., leading ., empty name     → filename_is_valid() on name
- *   control chars, \, ', whitespace  → string_is_safe() on device paths
- *   .. in device paths               → path_is_normalized()
- *   non-/dev/ device paths           → path_is_absolute() + path_startswith(path, "/dev/") */
-static int validate_dev_path(const char *what, const char *path) {
-        if (!string_is_safe(path, 0) || !path_is_valid(path) || !path_is_normalized(path) ||
-            !path_is_absolute(path) || !path_startswith(path, "/dev/"))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Invalid %s device path '%s'.", what, path);
         return 0;
 }
 
@@ -175,13 +150,8 @@ static int verb_remove(int argc, char *argv[], uintptr_t data, void *userdata) {
         int r;
 
         r = dm_clone_remove_device(name);
-        if (r == -ENXIO) {
-                log_info("Device %s already inactive.", name);
-                return 0;
-        }
         if (r == -EBUSY) {
-                r = dm_clone_remove_device_deferred(name);
-                return r == -ENXIO ? 0 : r;
+                return dm_clone_remove_device_deferred(name);
         }
         if (r < 0)
                 return r;

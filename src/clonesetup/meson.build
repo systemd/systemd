@@ -9,9 +9,11 @@ executables += [
         libexec_template + {
                 'name' : 'systemd-clonesetup',
                 'sources' : systemd_clonesetup_sources,
+                'extract' : files('clonesetup-util.c'),
         },
         generator_template + {
                 'name' : 'systemd-clonesetup-generator',
                 'sources' : files('clonesetup-generator.c'),
+                'objects' : ['systemd-clonesetup'],
         },
 ]

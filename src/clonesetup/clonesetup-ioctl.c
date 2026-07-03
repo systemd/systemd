@@ -21,7 +21,7 @@
  * caller can divide by 512 and pass the sector count to dm_clone_load_table(). */
 static int get_size(const char *dev_path, uint64_t *ret_size) {
         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
-        uint64_t size;
+        uint64_t size, temp_size;
         int r;
 
         assert(dev_path);
@@ -36,10 +36,12 @@ static int get_size(const char *dev_path, uint64_t *ret_size) {
                 return log_error_errno(r, "Failed to get device size for '%s': %m", dev_path);
 
         /* sysfs 'size' is in 512-byte sectors */
-        *ret_size = u64_multiply_safe(size, 512);
-        if (*ret_size == 0 && size != 0)
+        temp_size = u64_multiply_safe(size, 512);
+        if (temp_size == 0 && size != 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EOVERFLOW),
                                "Device size overflow for '%s'", dev_path);
+
+        *ret_size = temp_size;
         return 0;
 }
 
@@ -69,8 +71,10 @@ static int dm_ioctl_run(const char *name, uint32_t cmd, struct dm_ioctl *data, s
 
         r = RET_NERRNO(ioctl(fd, cmd, dm));
         if (r < 0) {
-                if (r == -ENXIO && cmd == DM_DEV_REMOVE)
-                        return log_debug_errno(r, "DM ioctl failed: %m");
+                if (r == -ENXIO && cmd == DM_DEV_REMOVE) {
+                        log_full_errno(LOG_DEBUG, r, "Device \"%s\" is already inactive, ignoring: %m", dm->name);
+                        return 0;
+                }
                 return log_error_errno(r, "DM ioctl failed: %m");
         }
         return 0;
@@ -78,10 +82,17 @@ static int dm_ioctl_run(const char *name, uint32_t cmd, struct dm_ioctl *data, s
 
 /* First dm ioctl needed to create a device. */
 static int dm_clone_create(const char *name) {
+        int r;
         assert(name);
 
         struct dm_ioctl dm = {};
-        return dm_ioctl_run(name, DM_DEV_CREATE, &dm, sizeof(dm));
+        r = dm_ioctl_run(name, DM_DEV_CREATE, &dm, sizeof(dm));
+        if (r < 0) {
+                if (r == -EEXIST)
+                        return log_error_errno(r, "Device '/dev/mapper/%s' already exists.", name);
+                return log_error_errno(r, "Failed to create DM device '%s': %m", name);
+        }
+        return 0;
 }
 
 /* Second dm ioctl needed to create a device. */
@@ -115,7 +126,7 @@ static int dm_clone_load_table(const char *name, uint64_t size_sectors, const ch
         };
         strncpy(tgt->target_type, "clone", sizeof(tgt->target_type));
 
-        params_buf = (char *) ((uint8_t *) tgt + ALIGN8(sizeof(struct dm_target_spec)));
+        params_buf = (char *) tgt + ALIGN8(sizeof(struct dm_target_spec));
         memcpy(params_buf, target_params, params_len);
 
         return dm_ioctl_run(name, DM_TABLE_LOAD, dm, dm_size);
@@ -136,10 +147,10 @@ int dm_clone_create_device(
                 const char *source_dev,
                 const char *dest_dev,
                 const char *metadata_dev,
-                uint64_t region_size) {
+                uint64_t region_size_bytes) {
 
         _cleanup_free_ char *target_params = NULL;
-        uint64_t src_dev_size_sectors, src_dev_size;
+        uint64_t src_dev_size_sectors, src_dev_size, region_size_sectors;
         int r;
 
         assert(name);
@@ -160,6 +171,9 @@ int dm_clone_create_device(
         assert(src_dev_size % 512 == 0);
         src_dev_size_sectors = src_dev_size / 512;
 
+        assert(region_size_bytes % 512 == 0);
+        region_size_sectors = region_size_bytes / 512;
+
         /* dm-clone target params: <metadata_dev> <dest_dev> <source_dev> <region_size> <hydration_threshold> [options]
          *   region_size = region size in sectors, configurable via clonetab (default 8 = 4KB regions with
          *   512-byte sectors) 1 = hydration threshold (regions to hydrate per batch) no_hydration = don't
@@ -171,7 +185,7 @@ int dm_clone_create_device(
          * that the paths in params - metadata_dev, dest_dev, source_dev, and region_size must not contain
          * spaces, which standard /dev/ paths never do, so the below args do NOT require shell escaping */
         if (asprintf(&target_params, "%s %s %s %" PRIu64 " 1 no_hydration",
-                                metadata_dev, dest_dev, source_dev, region_size) < 0)
+                                metadata_dev, dest_dev, source_dev, region_size_sectors) < 0)
                 return log_oom();
 
         r = dm_clone_create(name);
