@@ -583,8 +583,7 @@ static int method_take_device(sd_bus_message *message, void *userdata, sd_bus_er
                 return sd_bus_error_set(error, BUS_ERROR_NOT_IN_CONTROL, "You are not in control of this session");
 
         dev = makedev(major, minor);
-        sd = hashmap_get(s->devices, &dev);
-        if (sd)
+        if (hashmap_contains(s->devices, &dev))
                 /* We don't allow retrieving a device multiple times.
                  * The related ReleaseDevice call is not ref-counted.
                  * The caller should use dup() if it requires more
