@@ -9,6 +9,9 @@ executables += [
                         'HAVE_TPM2',
                 ],
                 'sources' : files('measure-tool.c'),
-                'dependencies' : libopenssl_cflags,
+                'dependencies' : [
+                        libopenssl_cflags,
+                        tpm2_cflags,
+                ],
         },
 ]

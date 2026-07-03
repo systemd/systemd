@@ -6,6 +6,10 @@
 #include "shared-forward.h"
 
 #if HAVE_PAM
+#ifndef SYSTEMD_CFLAGS_MARKER_LIBPAM
+#  error "missing libpam_cflags in meson dependency."
+#endif
+
 #include <security/pam_appl.h>
 #include <security/pam_ext.h>
 #include <security/pam_modules.h>       /* IWYU pragma: export */

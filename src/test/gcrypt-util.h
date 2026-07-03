@@ -11,6 +11,10 @@ int dlopen_gcrypt(int log_level);
 int initialize_libgcrypt(bool secmem);
 
 #if HAVE_GCRYPT
+#ifndef SYSTEMD_CFLAGS_MARKER_LIBGCRYPT
+#  error "missing libgcrypt_cflags in meson dependency."
+#endif
+
 #define GCRYPT_NOTE(priority)                                           \
         SD_ELF_NOTE_DLOPEN("gcrypt",                                    \
                            "Support for journald forward-sealing",      \

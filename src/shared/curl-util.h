@@ -6,6 +6,10 @@
 #include "shared-forward.h"
 
 #if HAVE_LIBCURL
+#ifndef SYSTEMD_CFLAGS_MARKER_LIBCURL
+#  error "missing libcurl_cflags in meson dependency."
+#endif
+
 #include <curl/curl.h>            /* IWYU pragma: export */
 
 #include "dlfcn-util.h"

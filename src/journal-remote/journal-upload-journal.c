@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <curl/curl.h>
-
 #include "sd-daemon.h"
 #include "sd-event.h"
 #include "sd-journal.h"

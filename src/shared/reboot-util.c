@@ -5,6 +5,10 @@
 #include <unistd.h>
 
 #if HAVE_XENCTRL
+#ifndef SYSTEMD_CFLAGS_MARKER_LIBXENCTRL
+#  error "missing libxenctrl_cflags in meson dependency."
+#endif
+
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 

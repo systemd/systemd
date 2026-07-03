@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <linux/audit.h>
 #include <linux/sockios.h>
 #include <sys/stat.h>
 #include <sys/ioctl.h>
@@ -47,6 +46,7 @@
 #include "journald-sync.h"
 #include "journald-syslog.h"
 #include "journald-varlink.h"
+#include "libaudit-util.h"
 #include "log.h"
 #include "log-ratelimit.h"
 #include "memory-util.h"

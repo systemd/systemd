@@ -4,6 +4,10 @@
 #include "shared-forward.h"
 
 #if HAVE_APPARMOR
+#  ifndef SYSTEMD_CFLAGS_MARKER_LIBAPPARMOR
+#    error "missing libapparmor_cflags in meson dependency."
+#  endif
+
 #  include <sys/apparmor.h>
 
 #  include "dlfcn-util.h"
