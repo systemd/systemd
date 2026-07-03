@@ -15,7 +15,6 @@
 #include "io-util.h"
 #include "log.h"
 #include "parse-util.h"
-#include "pull-common.h"
 #include "pull-job.h"
 #include "string-util.h"
 #include "strv.h"

@@ -28,6 +28,7 @@
 #include "pidref.h"
 #include "process-util.h"
 #include "pull-common.h"
+#include "pull-job.h"
 #include "pull-oci.h"
 #include "rm-rf.h"
 #include "set.h"
