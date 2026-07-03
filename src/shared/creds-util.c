@@ -1277,7 +1277,10 @@ static int check_null_key_policy(CredentialFlags flags) {
          * exists yet); the decision itself is made in credential_boot_policy_accepts_null(). */
 
         CredentialBootPolicy policy = query_credential_boot_policy();
-        bool first_boot = in_first_boot(), have_tpm2 = efi_has_tpm2(), secure_boot = is_efi_secure_boot();
+
+        bool have_tpm2 = efi_has_tpm2(), secure_boot = is_efi_secure_boot();
+        /* in_first_boot() can return <0 on error: use the the safe default in this case (not-first-boot). */
+        bool first_boot = in_first_boot() > 0;
 
         if (!credential_boot_policy_accepts_null(policy, first_boot, have_tpm2, secure_boot))
                 return log_error_errno(SYNTHETIC_ERRNO(EHWPOISON),
