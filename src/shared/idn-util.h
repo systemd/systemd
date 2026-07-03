@@ -6,6 +6,10 @@
 #include "shared-forward.h"
 
 #if HAVE_LIBIDN2
+#ifndef SYSTEMD_CFLAGS_MARKER_LIBIDN2
+#  error("missing libidn2_cflags in meson dependency.");
+#endif
+
 #include <idn2.h>
 
 #include "dlfcn-util.h"

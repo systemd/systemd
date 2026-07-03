@@ -122,6 +122,8 @@ udev_dependencies = [
         libblkid_cflags,
         libkmod_cflags,
         libmount_cflags,
+        libselinux_cflags,
+        tpm2_cflags,
 ]
 
 udev_plugin_template = executable_template + {

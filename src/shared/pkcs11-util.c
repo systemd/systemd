@@ -1,9 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#if HAVE_OPENSSL
-#  include <openssl/core_names.h>
-#endif
-
 #include "sd-dlopen.h"
 
 #include "alloc-util.h"
