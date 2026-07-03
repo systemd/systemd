@@ -401,7 +401,9 @@ int manager_setup_varlink_server(Manager *m) {
         if (m->varlink_server)
                 return 0;
 
-        sd_varlink_server_flags_t flags = SD_VARLINK_SERVER_INHERIT_USERDATA;
+        /* ALLOW_FD_PASSING_INPUT: allow clients to attach fds to method calls, used by
+         * io.systemd.Unit.StartTransient() to accept stdio fds. */
+        sd_varlink_server_flags_t flags = SD_VARLINK_SERVER_INHERIT_USERDATA|SD_VARLINK_SERVER_ALLOW_FD_PASSING_INPUT;
         if (MANAGER_IS_SYSTEM(m))
                 flags |= SD_VARLINK_SERVER_ACCOUNT_UID;
 
