@@ -3916,6 +3916,29 @@ static DissectImageFlags determine_dissect_image_flags(void) {
                  (arg_userns_ownership != USER_NAMESPACE_OWNERSHIP_AUTO) ? DISSECT_IMAGE_IDENTITY_UID : 0);
 }
 
+static int apply_deferred_mstack_bind_mounts(MStack *mstack, const char *directory, MStackFlags flags) {
+        int r;
+
+        /* Open an O_PATH fd anchored to the staged container root so that
+         * mstack_apply_bind_mounts() can use chaseat() to safely resolve bind
+         * target paths relative to it, without symlink escape risk. */
+        _cleanup_close_ int root_fd = open(directory, O_CLOEXEC|O_PATH|O_DIRECTORY|O_NOFOLLOW);
+        if (root_fd < 0)
+                return log_error_errno(errno, "Failed to open container root for deferred mstack mount: %m");
+
+        /* Apply .mstack bind mounts that were deferred to avoid being masked by the
+         * volatile overlay. We pass directory as the mount root so
+         * bind targets are constructed against the staged container root rather than
+         * the host filesystem. */
+        r = mstack_apply_bind_mounts(mstack, root_fd, directory, flags);
+        if (r < 0)
+                return r;
+
+        log_debug("Applied deferred .mstack bind mounts.");
+
+        return 0;
+}
+
 static int outer_child(
                 Barrier *barrier,
                 const char *directory,
@@ -3932,6 +3955,7 @@ static int outer_child(
         bool idmap = false;
         ssize_t l;
         int r;
+        MStackFlags mstack_flags = 0;
 
         /* This is the "outer" child process, i.e the one forked off by the container manager itself.  Its
          * namespace situation is:
@@ -4012,7 +4036,29 @@ static int outer_child(
                 assert(!arg_image);
                 assert(arg_mstack);
 
-                MStackFlags mstack_flags = arg_read_only ? MSTACK_RDONLY : 0;
+                /* Opt-in to the default behavior. */
+                if (arg_read_only)
+                        mstack_flags |= MSTACK_RDONLY;
+
+                /* Decouple arg_read_only from mstack binds. */
+                if (FLAGS_SET(arg_settings_mask, SETTING_READ_ONLY))
+                        mstack_flags |= MSTACK_BINDS_RDONLY;
+
+                bool writable = mstack_has_writable_layers(mstack, 0);
+
+                /* Always defer bind mounts to after mount_all(), so that API VFS
+                 * mounts (/proc, /sys, /dev, /run, /tmp) don't shadow mstack binds.
+                 * The root and /usr mounts are still attached immediately. */
+                mstack_flags |= MSTACK_DEFER_MOUNT;
+
+                if (writable && FLAGS_SET(arg_settings_mask, SETTING_READ_ONLY))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                        "Cannot combine .mstack/ rw/ directory with --read-only.");
+
+                if (writable && arg_volatile_mode != VOLATILE_NO)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                        "Cannot combine .mstack/ rw/ directory with --volatile=. "
+                                        "Use either rw/ for persistent state or --volatile= for ephemeral writes, not both.");
 
                 /* This creates the needed overlayfs or tmpfs, owned by our target userns. Note that we pass
                  * the target mount dir as temporary mount dir here. We after all just need some dir here
@@ -4025,7 +4071,8 @@ static int outer_child(
                 if (r < 0)
                         return log_error_errno(r, "Failed to make .mstack/ mounts: %m");
 
-                /* And then attaches all mounts to the directory */
+                /* And then attaches all mounts to the directory. If volatile is set, we're
+                 * skipping bind mounts to mount them after tmpfs overlay, mounting only root. */
                 r = mstack_bind_mounts(
                                 mstack,
                                 directory,
@@ -4033,7 +4080,7 @@ static int outer_child(
                                 mstack_flags,
                                 /* ret_root_fd= */ NULL);
                 if (r < 0)
-                        return log_error_errno(r, "Failed bind mount .mstack/ mounts: %m");
+                        return log_error_errno(r, "Failed to bind .mstack/ mounts: %m");
         } else {
                 assert(arg_directory);
                 assert(!arg_image);
@@ -4341,6 +4388,16 @@ static int outer_child(
         r = bind_user_setup(bind_user_context, directory);
         if (r < 0)
                 return r;
+
+        /* Apply deferred mstack bind mounts after mount_all() so they land on top
+         * of API VFS mounts rather than being shadowed by them. */
+        if (mstack) {
+                assert(arg_mstack);
+
+                r = apply_deferred_mstack_bind_mounts(mstack, directory, mstack_flags);
+                if (r < 0)
+                        return r;
+        }
 
         r = mount_custom(
                         directory,

@@ -7,10 +7,13 @@
 typedef enum MStackFlags {
         MSTACK_MKDIR  = 1 << 0, /* when mounting, create top-level inode to mount on top */
         MSTACK_RDONLY = 1 << 1,
+        MSTACK_DEFER_MOUNT  = 1 << 2,
+        MSTACK_BINDS_RDONLY = 1 << 3, /* Ensure bind@ mounts are read-only only if explicitly requested */
 } MStackFlags;
 
 typedef enum MStackMountType {
-        MSTACK_ROOT,     /* optional "root" entry used as root, with the layer@/rw layers only used for /usr/ */
+        MSTACK_ROOT,     /* optional "root" entry used as the base (bottommost) layer of the overlayfs
+                          * stack when layer@/rw are also present, or as the root directly on its own */
         MSTACK_LAYER,    /* "layer@…" entries that are the lower (read-only) layers of an overlayfs stack */
         MSTACK_RW,       /* "rw" entry that is the upper (writable) layer of an overlayfs stack (contains two subdirs: 'data' + 'work') */
         MSTACK_BIND,     /* "bind@…" entries that are (writable) bind mounted on top of the overlayfs */
@@ -38,13 +41,11 @@ typedef struct MStack {
         bool has_overlayfs;       /* Indicates whether we need overlayfs (i.e. if there are more than a single layer */
         MStackMount *root_mount;  /* If there's a MOUNT_BIND/MOUNT_ROBIND/MOUNT_ROOT mount, this points to it */
         int root_mount_fd;
-        int usr_mount_fd;
 } MStack;
 
 #define MSTACK_INIT                             \
         (MStack) {                              \
                 .root_mount_fd = -EBADF,        \
-                .usr_mount_fd = -EBADF,         \
         }
 
 MStack* mstack_free(MStack *mstack);
@@ -52,7 +53,9 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(MStack*, mstack_free);
 
 int mstack_load(const char *dir, int dir_fd, MStack **ret);
 int mstack_open_images(MStack *mstack, sd_varlink *mountfsd_link, int userns_fd, const ImagePolicy *image_policy, const ImageFilter *image_filter, MStackFlags flags);
+bool mstack_has_writable_layers(MStack *mstack, MStackFlags flags);
 int mstack_make_mounts(MStack *mstack, const char *temp_mount_dir, MStackFlags flags);
+int mstack_apply_bind_mounts(MStack *mstack, int root_fd, const char *where, MStackFlags flags);
 int mstack_bind_mounts(MStack *mstack, const char *where, int where_fd, MStackFlags flags, int *ret_root_fd);
 
 /* The four calls above in one */
