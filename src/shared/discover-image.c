@@ -2199,7 +2199,7 @@ int image_setup_pool(RuntimeScope scope, ImageClass class, bool use_btrfs_subvol
         if (!use_btrfs_subvol)
                 return 0;
 
-        (void) btrfs_subvol_make_label(pool);
+        (void) btrfs_subvol_make_label(pool, NULL);
 
         if (!use_btrfs_quota)
                 return 0;

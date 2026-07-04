@@ -218,7 +218,8 @@ int locale_context_save(LocaleContext *c, char ***ret_set, char ***ret_unset) {
                         etc_locale_conf(),
                         /* headers= */ NULL,
                         set,
-                        WRITE_ENV_FILE_LABEL);
+                        WRITE_ENV_FILE_LABEL,
+                        NULL);
         if (r < 0)
                 return r;
 

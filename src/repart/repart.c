@@ -8128,7 +8128,8 @@ static int context_split(Context *context) {
                                 p->split_path,
                                 O_WRONLY|O_NOCTTY|O_CLOEXEC|O_NOFOLLOW|O_CREAT|O_EXCL,
                                 attrs & FS_NOCOW_FL ? XO_NOCOW : 0,
-                                0666);
+                                0666,
+                                NULL);
                 if (fdt < 0)
                         return log_error_errno(fdt, "Failed to open split partition file %s: %m", p->split_path);
 
@@ -9728,7 +9729,8 @@ static int context_minimize(Context *context) {
                                 temp,
                                 O_CREAT|O_EXCL|O_CLOEXEC|O_RDWR|O_NOCTTY,
                                 attrs & FS_NOCOW_FL ? XO_NOCOW : 0,
-                                0600);
+                                0600,
+                                NULL);
                 if (fd < 0)
                         return log_error_errno(fd, "Failed to open temporary file %s: %m", temp);
 
@@ -9942,7 +9944,8 @@ static int context_minimize(Context *context) {
                                 temp,
                                 O_RDONLY|O_CLOEXEC|O_CREAT|O_NONBLOCK,
                                 attrs & FS_NOCOW_FL ? XO_NOCOW : 0,
-                                0600);
+                                0600,
+                                NULL);
                 if (fd < 0)
                         return log_error_errno(fd, "Failed to open temporary file %s: %m", temp);
 
@@ -11006,7 +11009,7 @@ static int find_root(Context *context) {
                         if (!s)
                                 return log_oom();
 
-                        fd = xopenat_full(AT_FDCWD, arg_node, open_flags|O_CREAT|O_EXCL|O_NOFOLLOW, XO_NOCOW, 0666);
+                        fd = xopenat_full(AT_FDCWD, arg_node, open_flags|O_CREAT|O_EXCL|O_NOFOLLOW, XO_NOCOW, 0666, NULL);
                         if (fd < 0)
                                 return log_error_errno(fd, "Failed to create '%s': %m", arg_node);
 

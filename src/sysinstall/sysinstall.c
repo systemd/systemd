@@ -1537,7 +1537,7 @@ static int sysinstall_context_settle_kernel_image(SysInstallContext *context,
                 if (r == O_DIRECTORY)
                         return log_error_errno(SYNTHETIC_ERRNO(EISDIR), "Kernel path '%s' refers to directory, must be regular file, refusing.", kernel_image);
 
-                kernel_fd = xopenat_full(XAT_FDROOT, kernel_image, O_RDONLY|O_CLOEXEC, XO_REGULAR, MODE_INVALID);
+                kernel_fd = xopenat_full(XAT_FDROOT, kernel_image, O_RDONLY|O_CLOEXEC, XO_REGULAR, MODE_INVALID, NULL);
                 if (kernel_fd < 0)
                         return log_error_errno(kernel_fd, "Failed to open kernel image '%s': %m", kernel_image);
 

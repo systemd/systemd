@@ -10,11 +10,11 @@
 int write_env_file_label(int dir_fd, const char *fname, char **headers, char **l) {
         int r;
 
-        r = mac_selinux_create_file_prepare(fname, S_IFREG);
+        r = mac_selinux_create_file_prepare(fname, S_IFREG, /* label_userdata= */ NULL);
         if (r < 0)
                 return r;
 
-        r = write_env_file(dir_fd, fname, headers, l);
+        r = write_env_file(dir_fd, fname, headers, l, 0, NULL);
 
         mac_selinux_create_file_clear();
 
@@ -24,7 +24,7 @@ int write_env_file_label(int dir_fd, const char *fname, char **headers, char **l
 int write_vconsole_conf_label(char **l) {
         int r;
 
-        r = mac_selinux_create_file_prepare(etc_vconsole_conf(), S_IFREG);
+        r = mac_selinux_create_file_prepare(etc_vconsole_conf(), S_IFREG, /* label_userdata= */ NULL);
         if (r < 0)
                 return r;
 

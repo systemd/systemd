@@ -55,7 +55,7 @@ int userns_registry_lock(int dir_fd) {
                 dir_fd = registry_fd;
         }
 
-        lock_fd = xopenat_lock_full(dir_fd, "lock", O_CREAT|O_RDWR|O_CLOEXEC, /* xopen_flags= */ 0, 0600, LOCK_BSD, LOCK_EX);
+        lock_fd = xopenat_lock_full(dir_fd, "lock", O_CREAT|O_RDWR|O_CLOEXEC, /* xopen_flags= */ 0, 0600, LOCK_BSD, LOCK_EX, NULL);
         if (lock_fd < 0)
                 return log_debug_errno(lock_fd, "Failed to open nsresource registry lock file: %m");
 
