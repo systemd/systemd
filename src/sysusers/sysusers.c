@@ -132,6 +132,8 @@ typedef struct Context {
 
         UGIDAllocationRange login_defs;
         bool login_defs_need_warning;
+
+        LabelContext *label_context;
 } Context;
 
 static void context_done(Context *c) {
@@ -152,6 +154,7 @@ static void context_done(Context *c) {
 
         set_free(c->names);
         uid_range_free(c->uid_range);
+        mac_label_context_free(c->label_context);
 }
 
 static void maybe_emit_login_defs_warning(Context *c) {
@@ -303,7 +306,7 @@ static int load_group_database(Context *c) {
         return r;
 }
 
-static int make_backup(const char *target, const char *x) {
+static int make_backup(const char *target, const char *x, LabelContext *label_context) {
         _cleanup_(unlink_and_freep) char *dst_tmp = NULL;
         _cleanup_fclose_ FILE *dst = NULL;
         _cleanup_close_ int src = -EBADF;
@@ -325,11 +328,13 @@ static int make_backup(const char *target, const char *x) {
         if (fstat(src, &st) < 0)
                 return -errno;
 
-        r = fopen_temporary_label(
+        r = fopen_temporary_at_label(
+                        AT_FDCWD,
                         target,   /* The path for which to the look up the label */
                         x,        /* Where we want the file actually to end up */
                         &dst,     /* The temporary file we write to */
-                        &dst_tmp);
+                        &dst_tmp,
+                        label_context);
         if (r < 0)
                 return r;
 
@@ -492,7 +497,7 @@ static int write_temporary_passwd(
                 goto done;
         }
 
-        r = fopen_temporary_label("/etc/passwd", passwd_path, &passwd, &passwd_tmp);
+        r = fopen_temporary_at_label(AT_FDCWD, passwd_path, passwd_path, &passwd, &passwd_tmp, c->label_context);
         if (r < 0)
                 return log_debug_errno(r, "Failed to open temporary copy of %s: %m", passwd_path);
 
@@ -625,7 +630,7 @@ static int write_temporary_shadow(
                 goto done;
         }
 
-        r = fopen_temporary_label("/etc/shadow", shadow_path, &shadow, &shadow_tmp);
+        r = fopen_temporary_at_label(AT_FDCWD, shadow_path, shadow_path, &shadow, &shadow_tmp, c->label_context);
         if (r < 0)
                 return log_debug_errno(r, "Failed to open temporary copy of %s: %m", shadow_path);
 
@@ -762,7 +767,7 @@ static int write_temporary_group(
                 goto done;
         }
 
-        r = fopen_temporary_label("/etc/group", group_path, &group, &group_tmp);
+        r = fopen_temporary_at_label(AT_FDCWD, group_path, group_path, &group, &group_tmp, c->label_context);
         if (r < 0)
                 return log_error_errno(r, "Failed to open temporary copy of %s: %m", group_path);
 
@@ -881,7 +886,7 @@ static int write_temporary_gshadow(
                 goto done;
         }
 
-        r = fopen_temporary_label("/etc/gshadow", gshadow_path, &gshadow, &gshadow_tmp);
+        r = fopen_temporary_at_label(AT_FDCWD, gshadow_path, gshadow_path, &gshadow, &gshadow_tmp, c->label_context);
         if (r < 0)
                 return log_error_errno(r, "Failed to open temporary copy of %s: %m", gshadow_path);
 
@@ -991,23 +996,23 @@ static int write_files(Context *c) {
 
         /* Make a backup of the old files */
         if (group) {
-                r = make_backup("/etc/group", group_path);
+                r = make_backup(group_path, group_path, c->label_context);
                 if (r < 0)
                         return log_error_errno(r, "Failed to backup %s: %m", group_path);
         }
         if (gshadow) {
-                r = make_backup("/etc/gshadow", gshadow_path);
+                r = make_backup(gshadow_path, gshadow_path, c->label_context);
                 if (r < 0)
                         return log_error_errno(r, "Failed to backup %s: %m", gshadow_path);
         }
 
         if (passwd) {
-                r = make_backup("/etc/passwd", passwd_path);
+                r = make_backup(passwd_path, passwd_path, c->label_context);
                 if (r < 0)
                         return log_error_errno(r, "Failed to backup %s: %m", passwd_path);
         }
         if (shadow) {
-                r = make_backup("/etc/shadow", shadow_path);
+                r = make_backup(shadow_path, shadow_path, c->label_context);
                 if (r < 0)
                         return log_error_errno(r, "Failed to backup %s: %m", shadow_path);
         }
@@ -2320,6 +2325,10 @@ static int run(int argc, char *argv[]) {
                 if (!arg_root)
                         return log_oom();
         }
+
+        r = mac_label_context_new(arg_root, &c.label_context);
+        if (r < 0)
+                return log_error_errno(r, "Failed to initialize label context for root '%s': %m", arg_root);
 
         /* Prepare to emit audit events, but only if we're operating on the host system. */
         if (!arg_root)
