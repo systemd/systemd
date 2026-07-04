@@ -144,9 +144,13 @@ portablectl detach --now --runtime --extension /tmp/app0 /tmp/rootdir app0
 # Provides coverage for https://github.com/systemd/systemd/issues/23481
 portablectl "${ARGS[@]}" attach --copy=symlink --now --runtime /tmp/rootdir minimal-app0
 portablectl detach --now --runtime --enable /tmp/rootdir minimal-app0
-# attach and detach again to check if all drop-in configs are removed even if the main unit files are removed
+# Attach and detach again to check if drop-in-only leftovers are still recognized and removed.
 portablectl "${ARGS[@]}" attach --copy=symlink --now --runtime /tmp/rootdir minimal-app0
+rm /run/systemd/system.attached/minimal-app0*.service
+status="$(portablectl is-attached --runtime /tmp/rootdir)"
+[[ "${status}" =~ ^(attached|running)-runtime$ ]]
 portablectl detach --now --runtime --enable /tmp/rootdir minimal-app0
+[[ ! -d /run/systemd/system.attached/minimal-app0.service.d ]]
 
 # The wrong file should be ignored, given the right one has the xattr set
 trap 'rm -rf /var/cache/wrongext' EXIT
