@@ -2,6 +2,7 @@
 
 #include <linux/loop.h>
 #include <sched.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "sd-bus.h"
@@ -2521,39 +2522,62 @@ static int portable_get_state_internal(
         }
 
         FOREACH_DIRENT(de, d, return log_debug_errno(errno, "Failed to enumerate '%s' directory: %m", where)) {
+                _cleanup_free_ char *unit_name = NULL;
+                const char *dot;
                 UnitFileState state;
 
-                if (!unit_name_is_valid(de->d_name, UNIT_NAME_ANY))
+                dot = endswith(de->d_name, ".d");
+                if (dot)
+                        unit_name = strndup(de->d_name, dot - de->d_name);
+                else
+                        unit_name = strdup(de->d_name);
+                if (!unit_name)
+                        return -ENOMEM;
+
+                if (!unit_name_is_valid(unit_name, UNIT_NAME_ANY))
                         continue;
 
                 /* Filter out duplicates */
-                if (set_contains(unit_files, de->d_name))
+                if (set_contains(unit_files, unit_name))
                         continue;
 
-                if (!IN_SET(de->d_type, DT_LNK, DT_REG))
+                if (dot) {
+                        struct stat st;
+
+                        /* If the main unit file still exists, let the regular entry handle it so that
+                         * enabled/running state is determined from the unit file as before. */
+                        if (fstatat(dirfd(d), unit_name, &st, AT_SYMLINK_NOFOLLOW) >= 0)
+                                continue;
+                        if (errno != ENOENT)
+                                return log_debug_errno(errno, "Failed to stat '%s/%s': %m", where, unit_name);
+                }
+
+                if (dot ? !IN_SET(de->d_type, DT_LNK, DT_DIR) : !IN_SET(de->d_type, DT_LNK, DT_REG))
                         continue;
 
-                r = test_chroot_dropin(d, where, de->d_name, name_or_path, extension_image_paths, NULL);
+                r = test_chroot_dropin(d, where, unit_name, name_or_path, extension_image_paths, NULL);
                 if (r < 0)
                         return r;
                 if (r == 0)
                         continue;
 
-                r = unit_file_lookup_state(scope, &paths, de->d_name, &state);
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to determine unit file state of '%s': %m", de->d_name);
-                if (!IN_SET(state, UNIT_FILE_STATIC, UNIT_FILE_DISABLED, UNIT_FILE_LINKED, UNIT_FILE_LINKED_RUNTIME))
-                        found_enabled = true;
+                if (!dot) {
+                        r = unit_file_lookup_state(scope, &paths, unit_name, &state);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to determine unit file state of '%s': %m", unit_name);
+                        if (!IN_SET(state, UNIT_FILE_STATIC, UNIT_FILE_DISABLED, UNIT_FILE_LINKED, UNIT_FILE_LINKED_RUNTIME))
+                                found_enabled = true;
 
-                r = unit_file_is_active(bus, de->d_name, error);
-                if (r < 0)
-                        return r;
-                if (r > 0)
-                        found_running = true;
+                        r = unit_file_is_active(bus, unit_name, error);
+                        if (r < 0)
+                                return r;
+                        if (r > 0)
+                                found_running = true;
+                }
 
-                r = set_put_strdup(&unit_files, de->d_name);
+                r = set_put_strdup(&unit_files, unit_name);
                 if (r < 0)
-                        return log_debug_errno(r, "Failed to add unit name '%s' to set: %m", de->d_name);
+                        return log_debug_errno(r, "Failed to add unit name '%s' to set: %m", unit_name);
         }
 
         *ret = found_running ? (!set_isempty(unit_files) && (flags & PORTABLE_RUNTIME) ? PORTABLE_RUNNING_RUNTIME : PORTABLE_RUNNING) :
