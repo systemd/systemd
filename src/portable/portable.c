@@ -2292,6 +2292,42 @@ static int test_chroot_dropin(
         return r;
 }
 
+static int portable_attached_dirent_name(
+                const struct dirent *de,
+                char **ret_unit_name,
+                bool *ret_dropin) {
+
+        _cleanup_free_ char *unit_name = NULL;
+        const char *dropin_suffix;
+
+        assert(de);
+        assert(ret_unit_name);
+
+        /* When a portable service is enabled with "portablectl --copy=symlink --enable --now attach",
+         * and is disabled with "portablectl --enable --now detach", which calls DisableUnitFilesWithFlags
+         * DBus method, the main unit file is removed, but its drop-ins are not. Hence, we need to list both
+         * main unit files and drop-in directories (without the main unit files). */
+
+        dropin_suffix = endswith(de->d_name, ".d");
+        if (dropin_suffix)
+                unit_name = strndup(de->d_name, dropin_suffix - de->d_name);
+        else
+                unit_name = strdup(de->d_name);
+        if (!unit_name)
+                return -ENOMEM;
+
+        if (!unit_name_is_valid(unit_name, UNIT_NAME_ANY))
+                return 0;
+
+        if (dropin_suffix ? !IN_SET(de->d_type, DT_LNK, DT_DIR) : !IN_SET(de->d_type, DT_LNK, DT_REG))
+                return 0;
+
+        *ret_unit_name = TAKE_PTR(unit_name);
+        if (ret_dropin)
+                *ret_dropin = dropin_suffix != NULL;
+        return 1;
+}
+
 int portable_detach(
                 RuntimeScope scope,
                 sd_bus *bus,
@@ -2328,29 +2364,15 @@ int portable_detach(
 
         FOREACH_DIRENT(de, d, return log_debug_errno(errno, "Failed to enumerate '%s' directory: %m", where)) {
                 _cleanup_free_ char *marker = NULL, *unit_name = NULL;
-                const char *dot;
 
-                /* When a portable service is enabled with "portablectl --copy=symlink --enable --now attach",
-                 * and is disabled with "portablectl --enable --now detach", which calls DisableUnitFilesWithFlags
-                 * DBus method, the main unit file is removed, but its drop-ins are not. Hence, here we need
-                 * to list both main unit files and drop-in directories (without the main unit files). */
-
-                dot = endswith(de->d_name, ".d");
-                if (dot)
-                        unit_name = strndup(de->d_name, dot - de->d_name);
-                else
-                        unit_name = strdup(de->d_name);
-                if (!unit_name)
-                        return -ENOMEM;
-
-                if (!unit_name_is_valid(unit_name, UNIT_NAME_ANY))
+                r = portable_attached_dirent_name(de, &unit_name, /* ret_dropin= */ NULL);
+                if (r < 0)
+                        return r;
+                if (r == 0)
                         continue;
 
                 /* Filter out duplicates */
                 if (set_contains(unit_files, unit_name))
-                        continue;
-
-                if (dot ? !IN_SET(de->d_type, DT_LNK, DT_DIR) : !IN_SET(de->d_type, DT_LNK, DT_REG))
                         continue;
 
                 r = test_chroot_dropin(d, where, unit_name, name_or_path, extension_image_paths, &marker);
@@ -2518,39 +2540,54 @@ static int portable_get_state_internal(
         }
 
         FOREACH_DIRENT(de, d, return log_debug_errno(errno, "Failed to enumerate '%s' directory: %m", where)) {
-                UnitFileState state;
+                _cleanup_free_ char *unit_name = NULL;
+                bool dropin;
 
-                if (!unit_name_is_valid(de->d_name, UNIT_NAME_ANY))
-                        continue;
-
-                /* Filter out duplicates */
-                if (set_contains(unit_files, de->d_name))
-                        continue;
-
-                if (!IN_SET(de->d_type, DT_LNK, DT_REG))
-                        continue;
-
-                r = test_chroot_dropin(d, where, de->d_name, name_or_path, extension_image_paths, NULL);
+                r = portable_attached_dirent_name(de, &unit_name, &dropin);
                 if (r < 0)
                         return r;
                 if (r == 0)
                         continue;
 
-                r = unit_file_lookup_state(scope, &paths, de->d_name, &state);
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to determine unit file state of '%s': %m", de->d_name);
-                if (!IN_SET(state, UNIT_FILE_STATIC, UNIT_FILE_DISABLED, UNIT_FILE_LINKED, UNIT_FILE_LINKED_RUNTIME))
-                        found_enabled = true;
+                /* Filter out duplicates */
+                if (set_contains(unit_files, unit_name))
+                        continue;
 
-                r = unit_file_is_active(bus, de->d_name, error);
+                if (dropin) {
+                        /* If the main unit file still exists, let the regular entry handle it so that
+                         * enabled/running state is determined from the unit file as before. */
+                        r = RET_NERRNO(faccessat(dirfd(d), unit_name, F_OK, AT_SYMLINK_NOFOLLOW));
+                        if (r >= 0)
+                                continue;
+                        if (r != -ENOENT)
+                                return log_debug_errno(r, "Failed to check if '%s/%s' exists: %m", where, unit_name);
+                }
+
+                r = test_chroot_dropin(d, where, unit_name, name_or_path, extension_image_paths, NULL);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        continue;
+
+                if (!dropin) {
+                        UnitFileState state;
+
+                        r = unit_file_lookup_state(scope, &paths, unit_name, &state);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to determine unit file state of '%s': %m", unit_name);
+                        if (!IN_SET(state, UNIT_FILE_STATIC, UNIT_FILE_DISABLED, UNIT_FILE_LINKED, UNIT_FILE_LINKED_RUNTIME))
+                                found_enabled = true;
+                }
+
+                r = unit_file_is_active(bus, unit_name, error);
                 if (r < 0)
                         return r;
                 if (r > 0)
                         found_running = true;
 
-                r = set_put_strdup(&unit_files, de->d_name);
+                r = set_ensure_consume(&unit_files, &string_hash_ops_free, TAKE_PTR(unit_name));
                 if (r < 0)
-                        return log_debug_errno(r, "Failed to add unit name '%s' to set: %m", de->d_name);
+                        return log_oom_debug();
         }
 
         *ret = found_running ? (!set_isempty(unit_files) && (flags & PORTABLE_RUNTIME) ? PORTABLE_RUNNING_RUNTIME : PORTABLE_RUNNING) :
