@@ -41,6 +41,7 @@ extern DLSYM_PROTOTYPE(selinux_check_access);
 extern DLSYM_PROTOTYPE(selinux_getenforcemode);
 extern DLSYM_PROTOTYPE(selinux_init_load_policy);
 extern DLSYM_PROTOTYPE(selinux_path);
+extern DLSYM_PROTOTYPE(selinux_policy_root);
 extern DLSYM_PROTOTYPE(selinux_set_callback);
 extern DLSYM_PROTOTYPE(selinux_status_close);
 extern DLSYM_PROTOTYPE(selinux_status_getenforce);
@@ -51,6 +52,7 @@ extern DLSYM_PROTOTYPE(setexeccon_raw);
 extern DLSYM_PROTOTYPE(setfilecon_raw);
 extern DLSYM_PROTOTYPE(setfscreatecon_raw);
 extern DLSYM_PROTOTYPE(setsockcreatecon_raw);
+extern DLSYM_PROTOTYPE(selinux_set_policy_root);
 extern DLSYM_PROTOTYPE(string_to_security_class);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(char*, sym_freecon, freeconp, NULL);
@@ -120,3 +122,7 @@ int mac_selinux_create_socket_prepare(const char *label);
 void mac_selinux_create_socket_clear(void);
 
 int mac_selinux_bind(int fd, const struct sockaddr *addr, socklen_t addrlen);
+
+int mac_selinux_label_context_new(const char *root, LabelContext **ret);
+LabelContext* mac_selinux_label_context_free(LabelContext *c);
+DEFINE_TRIVIAL_CLEANUP_FUNC(LabelContext*, mac_selinux_label_context_free);
