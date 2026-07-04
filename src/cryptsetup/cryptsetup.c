@@ -2069,7 +2069,8 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                         until,
                                         "cryptsetup.tpm2-pin",
                                         arg_ask_password_flags,
-                                        &decrypted_key);
+                                        &decrypted_key,
+                                        /* argon2id_params= */ NULL);
                         if (r >= 0)
                                 break;
                         if (IN_SET(r, -EACCES, -ENOLCK))
@@ -2114,6 +2115,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                 uint32_t hash_pcr_mask, pubkey_pcr_mask;
                                 size_t n_blobs = 0, n_policy_hash = 0;
                                 uint16_t pcr_bank, primary_alg;
+                                Argon2IdParameters argon2id_params = {};
                                 TPM2Flags tpm2_flags;
 
                                 CLEANUP_ARRAY(blobs, n_blobs, iovec_array_free);
@@ -2138,7 +2140,8 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                                 &pcrlock_nv,
                                                 &tpm2_flags,
                                                 &keyslot,
-                                                &token);
+                                                &token,
+                                                &argon2id_params);
                                 if (r == -ENXIO)
                                         /* No further TPM2 tokens found in the LUKS2 header. */
                                         return log_full_errno(found_some ? LOG_NOTICE : LOG_DEBUG,
@@ -2178,7 +2181,8 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                                 until,
                                                 "cryptsetup.tpm2-pin",
                                                 arg_ask_password_flags,
-                                                &decrypted_key);
+                                                &decrypted_key,
+                                                &argon2id_params);
                                 if (IN_SET(r, -EACCES, -ENOLCK))
                                         return log_notice_errno(SYNTHETIC_ERRNO(EAGAIN), "TPM2 PIN unlock failed, falling back to traditional unlocking.");
                                 if (r != -EPERM)
