@@ -431,7 +431,9 @@ possible_common_cc_flags = [
         '-Wno-string-plus-int',  # clang
 
         '-fdiagnostics-show-option',
+        '-fdata-sections',
         '-fexcess-precision=standard',
+        '-ffunction-sections',
         '-fno-common',
         '-fstack-protector',
         '-fstack-protector-strong',
