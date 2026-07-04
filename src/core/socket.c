@@ -1209,7 +1209,7 @@ static int fifo_address_create(
 
         (void) mkdir_parents_label(path, directory_mode);
 
-        r = mac_selinux_create_file_prepare(path, S_IFIFO);
+        r = mac_selinux_create_file_prepare(path, S_IFIFO, /* label_userdata= */ NULL);
         if (r < 0)
                 return r;
 

@@ -665,7 +665,7 @@ static void write_env_var(FILE *f, const char *v) {
         fputc_unlocked('\n', f);
 }
 
-int write_env_file(int dir_fd, const char *fname, char **headers, char **l, WriteEnvFileFlags flags) {
+int write_env_file(int dir_fd, const char *fname, char **headers, char **l, WriteEnvFileFlags flags, void *label_userdata) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *p = NULL;
         int r;
@@ -675,7 +675,7 @@ int write_env_file(int dir_fd, const char *fname, char **headers, char **l, Writ
 
         bool call_label_ops_post = false;
         if (FLAGS_SET(flags, WRITE_ENV_FILE_LABEL)) {
-                r = label_ops_pre(dir_fd, fname, S_IFREG);
+                r = label_ops_pre(dir_fd, fname, S_IFREG, label_userdata);
                 if (r < 0)
                         return r;
 
@@ -683,7 +683,7 @@ int write_env_file(int dir_fd, const char *fname, char **headers, char **l, Writ
         }
 
         r = fopen_tmpfile_linkable_at(dir_fd, fname, O_WRONLY|O_CLOEXEC, &p, &f);
-        int k = call_label_ops_post ? label_ops_post(f ? fileno(f) : dir_fd, f ? NULL : fname, /* created= */ !!f) : 0;
+        int k = call_label_ops_post ? label_ops_post(f ? fileno(f) : dir_fd, f ? NULL : fname, /* created= */ !!f, label_userdata) : 0;
         if (r < 0)
                 return r;
         CLEANUP_TMPFILE_AT(dir_fd, p);
@@ -717,5 +717,5 @@ int write_vconsole_conf(int dir_fd, const char *fname, char **l) {
                 "# Written by systemd-localed(8) or systemd-firstboot(1), read by systemd-localed",
                 "# and systemd-vconsole-setup(8). Use localectl(1) to update this file.");
 
-        return write_env_file(dir_fd, fname, headers, l, WRITE_ENV_FILE_LABEL);
+        return write_env_file(dir_fd, fname, headers, l, WRITE_ENV_FILE_LABEL, NULL);
 }

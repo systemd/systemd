@@ -2092,7 +2092,7 @@ static int grow_image(const char *path, uint64_t size) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Specified file size too large, refusing.");
         size *= 4096;
 
-        _cleanup_close_ int fd = xopenat_full(AT_FDCWD, path, O_RDWR|O_CLOEXEC, XO_REGULAR, /* mode= */ 0);
+        _cleanup_close_ int fd = xopenat_full(AT_FDCWD, path, O_RDWR|O_CLOEXEC, XO_REGULAR, /* mode= */ 0, NULL);
         if (fd < 0)
                 return log_error_errno(fd, "Failed to open image file '%s': %m", path);
 

@@ -925,7 +925,7 @@ static int resolve_mutable_directory(
                 if (fchmod(chmod_fd, hierarchy_mode) < 0)
                         return log_error_errno(errno, "Failed to chmod directory '%s/%s': %m", strempty(root), skip_leading_slash(path));
 
-                r = mac_selinux_fix_full(chmod_fd, /* inode_path= */ NULL, hierarchy, /* flags= */ 0);
+                r = mac_selinux_fix_full(chmod_fd, /* inode_path= */ NULL, hierarchy, /* flags= */ 0, NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to fix SELinux label for '%s/%s': %m", strempty(root), skip_leading_slash(path));
         }
@@ -1293,7 +1293,7 @@ static int mount_overlayfs_with_op(
         if (atfd < 0)
                 return log_error_errno(errno, "Failed to open directory '%s': %m", meta_path);
 
-        r = mac_selinux_fix_full(atfd, /* inode_path= */ NULL, op->hierarchy, /* flags= */ 0);
+        r = mac_selinux_fix_full(atfd, /* inode_path= */ NULL, op->hierarchy, /* flags= */ 0, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to fix SELinux label for '%s': %m", meta_path);
 
@@ -1306,7 +1306,7 @@ static int mount_overlayfs_with_op(
                 if (dfd < 0)
                         return log_error_errno(errno, "Failed to open directory '%s': %m", op->work_dir);
 
-                r = mac_selinux_fix_full(dfd, /* inode_path= */ NULL, op->hierarchy, /* flags= */ 0);
+                r = mac_selinux_fix_full(dfd, /* inode_path= */ NULL, op->hierarchy, /* flags= */ 0, NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to fix SELinux label for '%s': %m", op->work_dir);
 
@@ -1356,7 +1356,7 @@ static int write_extensions_file(ImageClass image_class, char **extensions, cons
         if (!hierarchy_path)
                 return log_oom();
 
-        r = write_string_file_full(AT_FDCWD, f, strempty(buf), WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755|WRITE_STRING_FILE_LABEL|WRITE_STRING_FILE_AVOID_NEWLINE, /* ts= */ NULL, hierarchy_path);
+        r = write_string_file_full(AT_FDCWD, f, strempty(buf), WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755|WRITE_STRING_FILE_LABEL|WRITE_STRING_FILE_AVOID_NEWLINE, /* ts= */ NULL, hierarchy_path, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to write extension meta file '%s': %m", f);
 
@@ -1380,7 +1380,7 @@ static int write_origin_file(ImageClass image_class, const char *origin_content,
 
         r = write_string_file_full(AT_FDCWD, f, strempty(origin_content),
                                    WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755|WRITE_STRING_FILE_LABEL|WRITE_STRING_FILE_AVOID_NEWLINE,
-                                   /* ts= */ NULL, hierarchy_path);
+                                   /* ts= */ NULL, hierarchy_path, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to write origin meta file '%s': %m", f);
 
@@ -1413,7 +1413,7 @@ static int write_dev_file(ImageClass image_class, const char *meta_path, const c
         if (!hierarchy_path)
                 return log_oom();
 
-        r = write_string_file_full(AT_FDCWD, f, FORMAT_DEVNUM(st.st_dev), WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_LABEL, /* ts= */ NULL, hierarchy_path);
+        r = write_string_file_full(AT_FDCWD, f, FORMAT_DEVNUM(st.st_dev), WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_LABEL, /* ts= */ NULL, hierarchy_path, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to write '%s': %m", f);
 
@@ -1442,7 +1442,7 @@ static int write_backing_file(ImageClass image_class, const char *meta_path, con
         if (!hierarchy_path)
                 return log_oom();
 
-        r = write_string_file_full(AT_FDCWD, f, FORMAT_DEVNUM(backing), WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_LABEL, /* ts= */ NULL, hierarchy_path);
+        r = write_string_file_full(AT_FDCWD, f, FORMAT_DEVNUM(backing), WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_LABEL, /* ts= */ NULL, hierarchy_path, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to write '%s': %m", f);
 
@@ -1481,7 +1481,7 @@ static int write_work_dir_file(ImageClass image_class, const char *meta_path, co
         if (!hierarchy_path)
                 return log_oom();
 
-        r = write_string_file_full(AT_FDCWD, f, escaped_work_dir_in_root, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_LABEL, /* ts= */ NULL, hierarchy_path);
+        r = write_string_file_full(AT_FDCWD, f, escaped_work_dir_in_root, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_LABEL, /* ts= */ NULL, hierarchy_path, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to write '%s': %m", f);
 
@@ -1516,7 +1516,7 @@ static int store_info_in_meta(
         if (atfd < 0)
                 return log_error_errno(errno, "Failed to open directory '%s': %m", f);
 
-        r = mac_selinux_fix_full(atfd, /* inode_path= */ NULL, hierarchy, /* flags= */ 0);
+        r = mac_selinux_fix_full(atfd, /* inode_path= */ NULL, hierarchy, /* flags= */ 0, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to fix SELinux label for '%s': %m", hierarchy);
 

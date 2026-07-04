@@ -904,7 +904,8 @@ static int context_write_data_machine_info(Context *c) {
                         etc_machine_info(),
                         /* headers= */ NULL,
                         l,
-                        WRITE_ENV_FILE_LABEL);
+                        WRITE_ENV_FILE_LABEL,
+                        NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to write '%s': %m", etc_machine_info());
 

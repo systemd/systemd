@@ -638,7 +638,7 @@ static int update_efi_boot_binaries(
                 if (strcaseeq_ptr(ignore_filename, de->d_name))
                         continue;
 
-                fd = xopenat_full(dirfd(d), de->d_name, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY|O_NOFOLLOW, XO_REGULAR, /* mode= */ MODE_INVALID);
+                fd = xopenat_full(dirfd(d), de->d_name, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY|O_NOFOLLOW, XO_REGULAR, /* mode= */ MODE_INVALID, NULL);
                 if (fd < 0)
                         return log_error_errno(fd, "Failed to open \"%s/%s\" for reading: %m", j, de->d_name);
 
@@ -730,7 +730,7 @@ static int copy_one_file(
         if (!dest_path)
                 return log_oom();
 
-        _cleanup_close_ int dest_fd = xopenat_full(dest_parent_fd, dest_name, O_RDONLY|O_CLOEXEC, XO_REGULAR, MODE_INVALID);
+        _cleanup_close_ int dest_fd = xopenat_full(dest_parent_fd, dest_name, O_RDONLY|O_CLOEXEC, XO_REGULAR, MODE_INVALID, NULL);
         if (dest_fd < 0 && dest_fd != -ENOENT)
                 return log_error_errno(dest_fd, "Failed to open '%s' under '%s/EFI/systemd' directory: %m", dest_name, j);
 
@@ -762,7 +762,7 @@ static int copy_one_file(
                          * fallback yet, LoaderInfo is unavailable, or there is a mismatch, then
                          * overwrite it with the current primary. */
                         bool should_rotate = true;
-                        _cleanup_close_ int fallback_fd = xopenat_full(dest_parent_fd, fallback_name, O_RDONLY|O_CLOEXEC, XO_REGULAR, MODE_INVALID);
+                        _cleanup_close_ int fallback_fd = xopenat_full(dest_parent_fd, fallback_name, O_RDONLY|O_CLOEXEC, XO_REGULAR, MODE_INVALID, NULL);
                         if (fallback_fd >= 0) {
                                 _cleanup_free_ char *loader_info = NULL, *fallback_version = NULL;
 
@@ -808,7 +808,7 @@ static int copy_one_file(
                 if (!default_dest_path)
                         return log_oom();
 
-                _cleanup_close_ int default_dest_fd = xopenat_full(default_dest_parent_fd, boot_dot_efi, O_RDONLY|O_CLOEXEC, XO_REGULAR, MODE_INVALID);
+                _cleanup_close_ int default_dest_fd = xopenat_full(default_dest_parent_fd, boot_dot_efi, O_RDONLY|O_CLOEXEC, XO_REGULAR, MODE_INVALID, NULL);
                 if (default_dest_fd < 0 && default_dest_fd != -ENOENT)
                         return log_error_errno(default_dest_fd, "Failed to open '%s' under '%s/EFI/BOOT' directory: %m", boot_dot_efi, j);
 
@@ -1805,7 +1805,7 @@ static int remove_boot_efi(InstallContext *c) {
                 if (!z)
                         return log_oom();
 
-                fd = xopenat_full(dirfd(d), de->d_name, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY|O_NOFOLLOW, XO_REGULAR, /* mode= */ MODE_INVALID);
+                fd = xopenat_full(dirfd(d), de->d_name, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY|O_NOFOLLOW, XO_REGULAR, /* mode= */ MODE_INVALID, NULL);
                 if (fd == -ENOENT)
                         continue;
                 if (fd < 0)

@@ -94,7 +94,7 @@ static int open_storage_dir(void) {
          * though, under the assumption that the dir is never removed, only created during runtime. */
         _cleanup_close_ int storage_fd = chase_and_openat(XAT_FDROOT, state_fd, "storage", CHASE_TRIGGER_AUTOFS|CHASE_MUST_BE_DIRECTORY, O_CLOEXEC|O_DIRECTORY, /* ret_path= */ NULL);
         if (storage_fd == -ENOENT) {
-                storage_fd = xopenat_full(state_fd, "storage", O_EXCL|O_CREAT|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW, XO_LABEL|XO_SUBVOLUME, 0700);
+                storage_fd = xopenat_full(state_fd, "storage", O_EXCL|O_CREAT|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW, XO_LABEL|XO_SUBVOLUME, 0700, NULL);
                 if (storage_fd == -EEXIST)
                         storage_fd = chase_and_openat(XAT_FDROOT, state_fd, "storage", CHASE_TRIGGER_AUTOFS|CHASE_MUST_BE_DIRECTORY, O_CLOEXEC|O_DIRECTORY, /* ret_path= */ NULL);
         }
@@ -308,11 +308,11 @@ static int create_volume_dir(
         if (r < 0)
                 return r;
 
-        _cleanup_close_ int volume_fd = xopenat_full(storage_fd, tf, O_CREAT|O_EXCL|O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW, xopen_flags, 0700);
+        _cleanup_close_ int volume_fd = xopenat_full(storage_fd, tf, O_CREAT|O_EXCL|O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW, xopen_flags, 0700, NULL);
         if (volume_fd < 0)
                 return volume_fd;
 
-        _cleanup_close_ int root_fd = xopenat_full(volume_fd, "root", O_CREAT|O_EXCL|O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW, xopen_flags, 0755);
+        _cleanup_close_ int root_fd = xopenat_full(volume_fd, "root", O_CREAT|O_EXCL|O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW, xopen_flags, 0755, NULL);
         if (root_fd < 0) {
                 r = root_fd;
                 goto fail;
@@ -620,7 +620,7 @@ static int vl_method_acquire(
                         open_flags |= O_DIRECTORY|O_NOFOLLOW;
                 }
 
-                real_fd = xopenat_full(pin_fd, subdir, open_flags|O_CLOEXEC, xopen_flags, /* mode= */ MODE_INVALID);
+                real_fd = xopenat_full(pin_fd, subdir, open_flags|O_CLOEXEC, xopen_flags, /* mode= */ MODE_INVALID, NULL);
                 if (real_fd < 0)
                         return log_debug_errno(real_fd, "Failed to reopen volume fd for '%s': %m", filename);
 

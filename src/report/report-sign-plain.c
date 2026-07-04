@@ -178,7 +178,8 @@ static int acquire_key(EVP_PKEY **ret) {
                         /* xopen_flags= */ 0,
                         /* mode= */ 0700,
                         LOCK_BSD,
-                        LOCK_EX);
+                        LOCK_EX,
+                        NULL);
         if (dir_fd < 0)
                 return log_error_errno(dir_fd, "Failed to open and lock directory '%s': %m", REPORT_SIGN_PLAIN_DIR);
 

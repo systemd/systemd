@@ -70,7 +70,7 @@ static int node_create_symlink(sd_device *dev, const char *devnode, const char *
                 return log_device_debug_errno(dev, r, "Failed to create parent directory of '%s': %m", slink);
 
         /* use relative link */
-        r = symlinkat_atomic_full(devnode, AT_FDCWD, slink, SYMLINK_MAKE_RELATIVE|SYMLINK_LABEL);
+        r = symlinkat_atomic_full(devnode, AT_FDCWD, slink, SYMLINK_MAKE_RELATIVE|SYMLINK_LABEL, NULL);
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to create symlink '%s' to '%s': %m", slink, devnode);
 
@@ -683,7 +683,7 @@ static int udev_node_apply_permissions_impl(
 
                 /* set the defaults */
                 if (!selinux)
-                        (void) mac_selinux_fix_full(node_fd, NULL, devnode, LABEL_IGNORE_ENOENT);
+                        (void) mac_selinux_fix_full(node_fd, NULL, devnode, LABEL_IGNORE_ENOENT, NULL);
                 if (!smack)
                         (void) mac_smack_apply_fd(node_fd, SMACK_ATTR_ACCESS, NULL);
         }
