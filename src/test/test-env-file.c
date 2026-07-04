@@ -172,7 +172,7 @@ TEST(write_and_load_env_file) {
                 assert_se(tempfn_random_child(NULL, NULL, &p) >= 0);
 
                 assert_se(j = strjoin("TEST=", v));
-                assert_se(write_env_file(AT_FDCWD, p, STRV_MAKE("# header 1", "", "# header 2"), STRV_MAKE(j), /* flags= */ 0) >= 0);
+                assert_se(write_env_file(AT_FDCWD, p, STRV_MAKE("# header 1", "", "# header 2"), STRV_MAKE(j), /* flags= */ 0, /* label_userdata= */ NULL) >= 0);
 
                 assert_se(cmd = strjoin(". ", p, " && /bin/echo -n \"$TEST\""));
                 assert_se(f = popen(cmd, "re"));
@@ -301,7 +301,7 @@ TEST(parse_env_file) {
         _cleanup_close_ int fd = -EBADF;
         ASSERT_OK(fd = mkostemp_safe(p));
 
-        ASSERT_OK(write_env_file(AT_FDCWD, p, /* headers= */ NULL, a, /* flags= */ 0));
+        ASSERT_OK(write_env_file(AT_FDCWD, p, /* headers= */ NULL, a, /* flags= */ 0, /* label_userdata= */ NULL));
         ASSERT_OK(load_env_file(NULL, p, &b));
 }
 
@@ -357,7 +357,7 @@ TEST(parse_multiline_env_file) {
         _cleanup_close_ int fd = -EBADF;
         ASSERT_OK(fd = mkostemp_safe(p));
 
-        ASSERT_OK(write_env_file(AT_FDCWD, p, /* headers= */ NULL, a, /* flags= */ 0));
+        ASSERT_OK(write_env_file(AT_FDCWD, p, /* headers= */ NULL, a, /* flags= */ 0, /* label_userdata= */ NULL));
         ASSERT_OK(load_env_file(NULL, p, &b));
 }
 

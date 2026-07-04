@@ -407,7 +407,7 @@ static int archive_unpack_symlink(
         if (!target)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to get symlink target for '%s': %m", path);
 
-        r = symlinkat_atomic_full(target, parent_fd, filename, /* flags= */ 0);
+        r = symlinkat_atomic_full(target, parent_fd, filename, /* flags= */ 0, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to create symlink '%s' → '%s': %m", path, target);
 

@@ -978,7 +978,7 @@ static int setup_credentials_plain_dir(
                 return log_debug_errno(dfd, "Failed to create workspace for credentials: %m");
         workspace_rm = workspace;
 
-        (void) label_fix_full(dfd, /* inode_path= */ NULL, cred_dir, /* flags= */ 0);
+        (void) label_fix_full(dfd, /* inode_path= */ NULL, cred_dir, /* flags= */ 0, NULL);
 
         r = acquire_credentials(context, dfd, /* ownership_ok= */ false);
         if (r < 0)
@@ -1059,7 +1059,7 @@ static int setup_credentials_internal(
         if (dfd < 0)
                 return dfd;
 
-        (void) label_fix_full(dfd, /* inode_path= */ NULL, cred_dir, /* flags= */ 0);
+        (void) label_fix_full(dfd, /* inode_path= */ NULL, cred_dir, /* flags= */ 0, NULL);
 
         r = acquire_credentials(context, dfd, /* ownership_ok= */ true);
         if (r < 0)

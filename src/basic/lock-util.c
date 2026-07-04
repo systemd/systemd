@@ -47,7 +47,8 @@ int make_lock_file_at(int dir_fd, const char *p, int operation, LockFile *ret) {
                                /* xopen_flags= */ 0,
                                0600,
                                LOCK_UNPOSIX,
-                               operation);
+                               operation,
+                               NULL);
         if (fd < 0)
                 return fd == -EAGAIN ? -EBUSY : fd;
 

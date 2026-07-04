@@ -310,7 +310,8 @@ static int context_write_data_timezone(Context *c) {
         }
 
         return symlinkat_atomic_full(source, AT_FDCWD, etc_localtime(),
-                                     !secure_getenv("SYSTEMD_ETC_LOCALTIME"));
+                                     !secure_getenv("SYSTEMD_ETC_LOCALTIME"),
+                                     NULL);
 }
 
 static const char* etc_adjtime(void) {

@@ -155,7 +155,7 @@ static int chase_xopenat(int dir_fd, const char *path, ChaseFlags chase_flags, i
         if (FLAGS_SET(chase_flags, CHASE_TRIGGER_AUTOFS) && FLAGS_SET(open_flags, O_PATH))
                 xopen_flags |= XO_TRIGGER_AUTOMOUNT;
 
-        return xopenat_full(dir_fd, path, open_flags, xopen_flags, MODE_INVALID);
+        return xopenat_full(dir_fd, path, open_flags, xopen_flags, MODE_INVALID, NULL);
 }
 
 static bool uid_unsafe_transition(uid_t a, uid_t b) {
@@ -581,7 +581,8 @@ int chaseat(int root_fd, int dir_fd, const char *path, ChaseFlags flags, char **
                 child = r = xopenat_full(fd, first,
                                          O_PATH|O_NOFOLLOW|O_CLOEXEC,
                                          FLAGS_SET(flags, CHASE_TRIGGER_AUTOFS) ? XO_TRIGGER_AUTOMOUNT : 0,
-                                         MODE_INVALID);
+                                         MODE_INVALID,
+                                         NULL);
                 if (r < 0) {
                         if (r != -ENOENT)
                                 return r;

@@ -692,52 +692,52 @@ TEST(xopenat_full) {
 
         /* Test that xopenat_full() creates directories if O_DIRECTORY is specified. */
 
-        assert_se((fd = xopenat_full(tfd, "abc", O_DIRECTORY|O_CREAT|O_EXCL|O_CLOEXEC, 0, 0755)) >= 0);
+        assert_se((fd = xopenat_full(tfd, "abc", O_DIRECTORY|O_CREAT|O_EXCL|O_CLOEXEC, 0, 0755, NULL)) >= 0);
         assert_se((fd_verify_directory(fd) >= 0));
         fd = safe_close(fd);
 
-        assert_se(xopenat_full(tfd, "abc", O_DIRECTORY|O_CREAT|O_EXCL|O_CLOEXEC, 0, 0755) == -EEXIST);
+        assert_se(xopenat_full(tfd, "abc", O_DIRECTORY|O_CREAT|O_EXCL|O_CLOEXEC, 0, 0755, NULL) == -EEXIST);
 
-        assert_se((fd = xopenat_full(tfd, "abc", O_DIRECTORY|O_CREAT|O_CLOEXEC, 0, 0755)) >= 0);
+        assert_se((fd = xopenat_full(tfd, "abc", O_DIRECTORY|O_CREAT|O_CLOEXEC, 0, 0755, NULL)) >= 0);
         assert_se((fd_verify_directory(fd) >= 0));
         fd = safe_close(fd);
 
         /* Test that xopenat_full() creates regular files if O_DIRECTORY is not specified. */
 
-        assert_se((fd = xopenat_full(tfd, "def", O_CREAT|O_EXCL|O_CLOEXEC, 0, 0644)) >= 0);
+        assert_se((fd = xopenat_full(tfd, "def", O_CREAT|O_EXCL|O_CLOEXEC, 0, 0644, NULL)) >= 0);
         assert_se(fd_verify_regular(fd) >= 0);
         fd = safe_close(fd);
 
         /* Test that we can reopen an existing fd with xopenat_full() by specifying an empty path. */
 
-        assert_se((fd = xopenat_full(tfd, "def", O_PATH|O_CLOEXEC, 0, 0)) >= 0);
-        assert_se((fd2 = xopenat_full(fd, "", O_RDWR|O_CLOEXEC, 0, 0644)) >= 0);
+        assert_se((fd = xopenat_full(tfd, "def", O_PATH|O_CLOEXEC, 0, 0, NULL)) >= 0);
+        assert_se((fd2 = xopenat_full(fd, "", O_RDWR|O_CLOEXEC, 0, 0644, NULL)) >= 0);
 }
 
 TEST(xopenat_regular) {
 
         _cleanup_close_ int fd = -EBADF;
 
-        assert_se(xopenat_full(AT_FDCWD, "/dev/null", O_RDWR|O_CLOEXEC, XO_REGULAR, 0) == -EBADFD);
-        assert_se(xopenat_full(AT_FDCWD, "/proc", O_RDONLY|O_CLOEXEC, XO_REGULAR, 0) == -EISDIR);
-        assert_se(xopenat_full(AT_FDCWD, "/proc/self", O_RDONLY|O_CLOEXEC, XO_REGULAR, 0) == -EISDIR);
-        assert_se(xopenat_full(AT_FDCWD, "/proc/self", O_RDONLY|O_CLOEXEC|O_NOFOLLOW, XO_REGULAR, 0) == -ELOOP);
+        assert_se(xopenat_full(AT_FDCWD, "/dev/null", O_RDWR|O_CLOEXEC, XO_REGULAR, 0, NULL) == -EBADFD);
+        assert_se(xopenat_full(AT_FDCWD, "/proc", O_RDONLY|O_CLOEXEC, XO_REGULAR, 0, NULL) == -EISDIR);
+        assert_se(xopenat_full(AT_FDCWD, "/proc/self", O_RDONLY|O_CLOEXEC, XO_REGULAR, 0, NULL) == -EISDIR);
+        assert_se(xopenat_full(AT_FDCWD, "/proc/self", O_RDONLY|O_CLOEXEC|O_NOFOLLOW, XO_REGULAR, 0, NULL) == -ELOOP);
 
-        fd = xopenat_full(AT_FDCWD, "/proc/mounts", O_RDONLY|O_CLOEXEC, XO_REGULAR, 0);
+        fd = xopenat_full(AT_FDCWD, "/proc/mounts", O_RDONLY|O_CLOEXEC, XO_REGULAR, 0, NULL);
         assert_se(fd >= 0);
         fd = safe_close(fd);
 
-        assert_se(xopenat_full(AT_FDCWD, "/proc/mounts", O_RDONLY|O_CLOEXEC|O_NOFOLLOW, XO_REGULAR, 0) == -ELOOP);
+        assert_se(xopenat_full(AT_FDCWD, "/proc/mounts", O_RDONLY|O_CLOEXEC|O_NOFOLLOW, XO_REGULAR, 0, NULL) == -ELOOP);
 
-        fd = xopenat_full(AT_FDCWD, "/proc/mounts", O_RDONLY|O_CLOEXEC|O_PATH, XO_REGULAR, 0);
+        fd = xopenat_full(AT_FDCWD, "/proc/mounts", O_RDONLY|O_CLOEXEC|O_PATH, XO_REGULAR, 0, NULL);
         assert_se(fd >= 0);
         fd = safe_close(fd);
 
-        fd = xopenat_full(AT_FDCWD, "/tmp/xopenat-regular-test", O_RDWR|O_CLOEXEC|O_CREAT, XO_REGULAR, 0600);
+        fd = xopenat_full(AT_FDCWD, "/tmp/xopenat-regular-test", O_RDWR|O_CLOEXEC|O_CREAT, XO_REGULAR, 0600, NULL);
         assert_se(fd >= 0);
         fd = safe_close(fd);
 
-        assert_se(xopenat_full(AT_FDCWD, "/tmp/xopenat-regular-test", O_RDWR|O_CLOEXEC|O_CREAT|O_EXCL, XO_REGULAR, 0600) == -EEXIST);
+        assert_se(xopenat_full(AT_FDCWD, "/tmp/xopenat-regular-test", O_RDWR|O_CLOEXEC|O_CREAT|O_EXCL, XO_REGULAR, 0600, NULL) == -EEXIST);
 
         assert_se(unlink("/tmp/xopenat-regular-test") >= 0);
 }
@@ -759,31 +759,31 @@ TEST(xopenat_socket) {
         fd = safe_close(fd);
 
         /* XO_SOCKET requires O_PATH. */
-        fd = xopenat_full(tfd, "test.sock", O_PATH|O_CLOEXEC, XO_SOCKET, 0);
+        fd = xopenat_full(tfd, "test.sock", O_PATH|O_CLOEXEC, XO_SOCKET, 0, NULL);
         ASSERT_OK(fd);
         fd = safe_close(fd);
 
         /* Reopen via empty path should also work. */
-        fd = ASSERT_OK(xopenat_full(tfd, "test.sock", O_PATH|O_CLOEXEC, 0, 0));
-        _cleanup_close_ int fd2 = xopenat_full(fd, NULL, O_PATH|O_CLOEXEC, XO_SOCKET, 0);
+        fd = ASSERT_OK(xopenat_full(tfd, "test.sock", O_PATH|O_CLOEXEC, 0, 0, NULL));
+        _cleanup_close_ int fd2 = xopenat_full(fd, NULL, O_PATH|O_CLOEXEC, XO_SOCKET, 0, NULL);
         ASSERT_OK(fd2);
         fd = safe_close(fd);
 
         /* Non-socket inodes must be rejected. */
         ASSERT_OK_ERRNO(mkdirat(tfd, "dir", 0755));
-        ASSERT_ERROR(xopenat_full(tfd, "dir", O_PATH|O_CLOEXEC, XO_SOCKET, 0), EISDIR);
+        ASSERT_ERROR(xopenat_full(tfd, "dir", O_PATH|O_CLOEXEC, XO_SOCKET, 0, NULL), EISDIR);
 
         fd = ASSERT_OK_ERRNO(openat(tfd, "reg", O_CREAT|O_CLOEXEC, 0600));
         fd = safe_close(fd);
-        ASSERT_ERROR(xopenat_full(tfd, "reg", O_PATH|O_CLOEXEC, XO_SOCKET, 0), ENOTSOCK);
+        ASSERT_ERROR(xopenat_full(tfd, "reg", O_PATH|O_CLOEXEC, XO_SOCKET, 0, NULL), ENOTSOCK);
 
         /* Reopen via empty path of a non-socket fd must also be rejected. */
-        fd = ASSERT_OK(xopenat_full(tfd, "reg", O_PATH|O_CLOEXEC, 0, 0));
-        ASSERT_ERROR(xopenat_full(fd, NULL, O_PATH|O_CLOEXEC, XO_SOCKET, 0), ENOTSOCK);
+        fd = ASSERT_OK(xopenat_full(tfd, "reg", O_PATH|O_CLOEXEC, 0, 0, NULL));
+        ASSERT_ERROR(xopenat_full(fd, NULL, O_PATH|O_CLOEXEC, XO_SOCKET, 0, NULL), ENOTSOCK);
         fd = safe_close(fd);
 
-        fd = ASSERT_OK(xopenat_full(tfd, "dir", O_PATH|O_CLOEXEC, 0, 0));
-        ASSERT_ERROR(xopenat_full(fd, NULL, O_PATH|O_CLOEXEC, XO_SOCKET, 0), EISDIR);
+        fd = ASSERT_OK(xopenat_full(tfd, "dir", O_PATH|O_CLOEXEC, 0, 0, NULL));
+        ASSERT_ERROR(xopenat_full(fd, NULL, O_PATH|O_CLOEXEC, XO_SOCKET, 0, NULL), EISDIR);
         fd = safe_close(fd);
 }
 
@@ -793,10 +793,10 @@ TEST(xopenat_trigger_automount) {
         /* We can't easily set up an autofs mount in a test, but we can verify that
          * XO_TRIGGER_AUTOMOUNT works on a regular path and produces the same inode as a
          * plain O_PATH open. */
-        fd = xopenat_full(AT_FDCWD, "/usr", O_PATH|O_CLOEXEC|O_DIRECTORY, XO_TRIGGER_AUTOMOUNT, 0);
+        fd = xopenat_full(AT_FDCWD, "/usr", O_PATH|O_CLOEXEC|O_DIRECTORY, XO_TRIGGER_AUTOMOUNT, 0, NULL);
         ASSERT_OK(fd);
 
-        _cleanup_close_ int fd2 = xopenat_full(AT_FDCWD, "/usr", O_PATH|O_CLOEXEC|O_DIRECTORY, 0, 0);
+        _cleanup_close_ int fd2 = xopenat_full(AT_FDCWD, "/usr", O_PATH|O_CLOEXEC|O_DIRECTORY, 0, 0, NULL);
         ASSERT_OK(fd2);
         ASSERT_OK_POSITIVE(fd_inode_same(fd, fd2));
 }
@@ -810,7 +810,7 @@ TEST(xopenat_auto_rw_ro) {
 
         /* Regular writable file: XO_AUTO_RW_RO should end up in O_RDWR. */
 
-        fd = xopenat_full(tfd, "rw", O_CREAT|O_EXCL|O_CLOEXEC, XO_AUTO_RW_RO, 0644);
+        fd = xopenat_full(tfd, "rw", O_CREAT|O_EXCL|O_CLOEXEC, XO_AUTO_RW_RO, 0644, NULL);
         assert_se(fd >= 0);
         ASSERT_OK_ERRNO(fl = fcntl(fd, F_GETFL));
         assert_se((fl & O_ACCMODE) == O_RDWR);
@@ -818,7 +818,7 @@ TEST(xopenat_auto_rw_ro) {
 
         /* Same thing, but with XO_REGULAR set too. */
 
-        fd = xopenat_full(tfd, "rw2", O_CREAT|O_EXCL|O_CLOEXEC, XO_AUTO_RW_RO|XO_REGULAR, 0644);
+        fd = xopenat_full(tfd, "rw2", O_CREAT|O_EXCL|O_CLOEXEC, XO_AUTO_RW_RO|XO_REGULAR, 0644, NULL);
         assert_se(fd >= 0);
         ASSERT_OK_ERRNO(fl = fcntl(fd, F_GETFL));
         assert_se((fl & O_ACCMODE) == O_RDWR);
@@ -826,9 +826,9 @@ TEST(xopenat_auto_rw_ro) {
 
         /* Reopen via empty path on an O_PATH fd must also end up in O_RDWR. */
 
-        _cleanup_close_ int path_fd = xopenat_full(tfd, "rw", O_PATH|O_CLOEXEC, 0, 0);
+        _cleanup_close_ int path_fd = xopenat_full(tfd, "rw", O_PATH|O_CLOEXEC, 0, 0, NULL);
         assert_se(path_fd >= 0);
-        fd = xopenat_full(path_fd, "", O_CLOEXEC, XO_AUTO_RW_RO, 0);
+        fd = xopenat_full(path_fd, "", O_CLOEXEC, XO_AUTO_RW_RO, 0, NULL);
         assert_se(fd >= 0);
         ASSERT_OK_ERRNO(fl = fcntl(fd, F_GETFL));
         assert_se((fl & O_ACCMODE) == O_RDWR);
@@ -836,7 +836,7 @@ TEST(xopenat_auto_rw_ro) {
 
         /* Directories can only be opened read-only: XO_AUTO_RW_RO with O_DIRECTORY must fall back to O_RDONLY. */
 
-        fd = xopenat_full(tfd, "subdir", O_DIRECTORY|O_CREAT|O_CLOEXEC, XO_AUTO_RW_RO, 0755);
+        fd = xopenat_full(tfd, "subdir", O_DIRECTORY|O_CREAT|O_CLOEXEC, XO_AUTO_RW_RO, 0755, NULL);
         assert_se(fd >= 0);
         ASSERT_OK_ERRNO(fl = fcntl(fd, F_GETFL));
         assert_se((fl & O_ACCMODE) == O_RDONLY);
@@ -844,7 +844,7 @@ TEST(xopenat_auto_rw_ro) {
 
         /* Same for opening an existing directory. */
 
-        fd = xopenat_full(tfd, "subdir", O_DIRECTORY|O_CLOEXEC, XO_AUTO_RW_RO, 0);
+        fd = xopenat_full(tfd, "subdir", O_DIRECTORY|O_CLOEXEC, XO_AUTO_RW_RO, 0, NULL);
         assert_se(fd >= 0);
         ASSERT_OK_ERRNO(fl = fcntl(fd, F_GETFL));
         assert_se((fl & O_ACCMODE) == O_RDONLY);
@@ -861,23 +861,23 @@ TEST(xopenat_auto_rw_ro) {
                 assert_se(fchmodat(tfd, "ro", 0444, 0) >= 0);
 
                 /* Plain case: no XO_REGULAR. */
-                fd = xopenat_full(tfd, "ro", O_CLOEXEC, XO_AUTO_RW_RO, 0);
+                fd = xopenat_full(tfd, "ro", O_CLOEXEC, XO_AUTO_RW_RO, 0, NULL);
                 assert_se(fd >= 0);
                 ASSERT_OK_ERRNO(fl = fcntl(fd, F_GETFL));
                 assert_se((fl & O_ACCMODE) == O_RDONLY);
                 fd = safe_close(fd);
 
                 /* With XO_REGULAR (exercises the pin-via-O_PATH + reopen path). */
-                fd = xopenat_full(tfd, "ro", O_CLOEXEC, XO_AUTO_RW_RO|XO_REGULAR, 0);
+                fd = xopenat_full(tfd, "ro", O_CLOEXEC, XO_AUTO_RW_RO|XO_REGULAR, 0, NULL);
                 assert_se(fd >= 0);
                 ASSERT_OK_ERRNO(fl = fcntl(fd, F_GETFL));
                 assert_se((fl & O_ACCMODE) == O_RDONLY);
                 fd = safe_close(fd);
 
                 /* Also exercise the empty-path/fd-reopen branch. */
-                _cleanup_close_ int ro_path_fd = xopenat_full(tfd, "ro", O_PATH|O_CLOEXEC, 0, 0);
+                _cleanup_close_ int ro_path_fd = xopenat_full(tfd, "ro", O_PATH|O_CLOEXEC, 0, 0, NULL);
                 assert_se(ro_path_fd >= 0);
-                fd = xopenat_full(ro_path_fd, "", O_CLOEXEC, XO_AUTO_RW_RO, 0);
+                fd = xopenat_full(ro_path_fd, "", O_CLOEXEC, XO_AUTO_RW_RO, 0, NULL);
                 assert_se(fd >= 0);
                 ASSERT_OK_ERRNO(fl = fcntl(fd, F_GETFL));
                 assert_se((fl & O_ACCMODE) == O_RDONLY);
@@ -897,10 +897,10 @@ TEST(xopenat_lock_full) {
          * and close the file descriptor and still properly create the directory and acquire the lock in
          * another process.  */
 
-        fd = ASSERT_OK(xopenat_lock_full(tfd, "abc", O_CREAT|O_DIRECTORY|O_CLOEXEC, 0, 0755, LOCK_BSD, LOCK_EX));
+        fd = ASSERT_OK(xopenat_lock_full(tfd, "abc", O_CREAT|O_DIRECTORY|O_CLOEXEC, 0, 0755, LOCK_BSD, LOCK_EX, NULL));
         ASSERT_OK_ERRNO(faccessat(tfd, "abc", F_OK, 0));
         ASSERT_OK(fd_verify_directory(fd));
-        ASSERT_ERROR(xopenat_lock_full(tfd, "abc", O_DIRECTORY|O_CLOEXEC, 0, 0755, LOCK_BSD, LOCK_EX|LOCK_NB), EAGAIN);
+        ASSERT_ERROR(xopenat_lock_full(tfd, "abc", O_DIRECTORY|O_CLOEXEC, 0, 0755, LOCK_BSD, LOCK_EX|LOCK_NB, NULL), EAGAIN);
 
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         r = ASSERT_OK(pidref_safe_fork("(lock)", FORK_DEATHSIG_SIGKILL|FORK_LOG, &pidref));
@@ -908,10 +908,10 @@ TEST(xopenat_lock_full) {
         if (r == 0) {
                 safe_close(fd);
 
-                fd = ASSERT_OK(xopenat_lock_full(tfd, "abc", O_CREAT|O_DIRECTORY|O_CLOEXEC, 0, 0755, LOCK_BSD, LOCK_EX));
+                fd = ASSERT_OK(xopenat_lock_full(tfd, "abc", O_CREAT|O_DIRECTORY|O_CLOEXEC, 0, 0755, LOCK_BSD, LOCK_EX, NULL));
                 ASSERT_OK_ERRNO(faccessat(tfd, "abc", F_OK, 0));
                 ASSERT_OK(fd_verify_directory(fd));
-                ASSERT_ERROR(xopenat_lock_full(tfd, "abc", O_DIRECTORY|O_CLOEXEC, 0, 0755, LOCK_BSD, LOCK_EX|LOCK_NB), EAGAIN);
+                ASSERT_ERROR(xopenat_lock_full(tfd, "abc", O_DIRECTORY|O_CLOEXEC, 0, 0755, LOCK_BSD, LOCK_EX|LOCK_NB, NULL), EAGAIN);
 
                 _exit(EXIT_SUCCESS);
         }
@@ -930,8 +930,8 @@ TEST(xopenat_lock_full) {
         ASSERT_OK(pidref_wait_for_terminate(&pidref, &si));
         ASSERT_EQ(si.si_code, CLD_EXITED);
 
-        ASSERT_ERROR(xopenat_lock_full(tfd, "abc", 0, 0, 0755, LOCK_POSIX, LOCK_EX), EBADF);
-        ASSERT_ERROR(xopenat_lock_full(tfd, "def", O_DIRECTORY, 0, 0755, LOCK_POSIX, LOCK_EX), EBADF);
+        ASSERT_ERROR(xopenat_lock_full(tfd, "abc", 0, 0, 0755, LOCK_POSIX, LOCK_EX, NULL), EBADF);
+        ASSERT_ERROR(xopenat_lock_full(tfd, "def", O_DIRECTORY, 0, 0755, LOCK_POSIX, LOCK_EX, NULL), EBADF);
 }
 
 TEST(linkat_replace) {

@@ -1220,7 +1220,7 @@ static int clone_device_node(const char *node, const char *temporary_mount, bool
 
         /* First, try to create device node properly */
         if (*make_devnode) {
-                mac_selinux_create_file_prepare(node, st.st_mode);
+                mac_selinux_create_file_prepare(node, st.st_mode, /* label_userdata= */ NULL);
                 r = mknod(dn, st.st_mode, st.st_rdev);
                 mac_selinux_create_file_clear();
                 if (r >= 0)
@@ -1341,7 +1341,7 @@ static int mount_private_dev(const MountEntry *m, const NamespaceParameters *p) 
         if (r < 0)
                 return r;
 
-        r = label_fix_full(AT_FDCWD, dev, "/dev", 0);
+        r = label_fix_full(AT_FDCWD, dev, "/dev", 0, NULL);
         if (r < 0)
                 return log_debug_errno(r, "Failed to fix label of '%s' as /dev/: %m", dev);
 
@@ -1610,7 +1610,7 @@ static int mount_tmpfs(const MountEntry *m) {
         if (r < 0)
                 return r;
 
-        r = label_fix_full(AT_FDCWD, entry_path, inner_path, 0);
+        r = label_fix_full(AT_FDCWD, entry_path, inner_path, 0, NULL);
         if (r < 0)
                 return log_debug_errno(r, "Failed to fix label of '%s' as '%s': %m", entry_path, inner_path);
 
@@ -2017,7 +2017,7 @@ static int apply_one_mount(
                         if (r < 0)
                                 return log_debug_errno(r, "Failed to create source directory %s: %m", mount_entry_source(m));
 
-                        r = label_fix_full(AT_FDCWD, mount_entry_source(m), mount_entry_unprefixed_path(m), /* flags= */ 0);
+                        r = label_fix_full(AT_FDCWD, mount_entry_source(m), mount_entry_unprefixed_path(m), /* flags= */ 0, NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set label of the source directory %s: %m", mount_entry_source(m));
                 }
@@ -3452,7 +3452,7 @@ int setup_tmp_dir_one(const char *id, const char *prefix, char **ret_path) {
                         return r;
                 }
 
-                r = label_fix_full(AT_FDCWD, inner_dir, prefix, 0);
+                r = label_fix_full(AT_FDCWD, inner_dir, prefix, 0, NULL);
                 if (r < 0) {
                         (void) rmdir(inner_dir);
                         (void) rmdir(d);

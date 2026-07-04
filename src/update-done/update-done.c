@@ -50,7 +50,7 @@ static int save_timestamp(const char *dir, struct timespec *ts) {
 
         r = write_string_file_full(fd, ".updated", message,
                                    WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_LABEL,
-                                   ts, NULL);
+                                   ts, NULL, NULL);
         if (r == -EROFS && !arg_root)
                 log_debug_errno(r, "Cannot create \"%s/.updated\", file system is read-only.", dirpath);
         else if (r < 0)
