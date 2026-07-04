@@ -461,7 +461,7 @@ int symlinkat_idempotent(const char *target, int atfd, const char *linkpath, boo
         return 0;
 }
 
-int symlinkat_atomic_full(const char *target, int atfd, const char *linkpath, SymlinkFlags flags) {
+int symlinkat_atomic_full_label(const char *target, int atfd, const char *linkpath, SymlinkFlags flags, LabelContext *label_context) {
         int r;
 
         assert(target);
@@ -483,7 +483,7 @@ int symlinkat_atomic_full(const char *target, int atfd, const char *linkpath, Sy
 
         bool call_label_ops_post = false;
         if (FLAGS_SET(flags, SYMLINK_LABEL)) {
-                r = label_ops_pre(atfd, linkpath, S_IFLNK);
+                r = label_ops_pre(atfd, linkpath, S_IFLNK, label_context);
                 if (r < 0)
                         return r;
 
@@ -492,7 +492,7 @@ int symlinkat_atomic_full(const char *target, int atfd, const char *linkpath, Sy
 
         r = RET_NERRNO(symlinkat(target, atfd, t));
         if (call_label_ops_post)
-                RET_GATHER(r, label_ops_post(atfd, t, /* created= */ r >= 0));
+                RET_GATHER(r, label_ops_post(atfd, t, /* created= */ r >= 0, label_context));
         if (r < 0)
                 return r;
 
@@ -1035,7 +1035,7 @@ int parse_cifs_service(
         return 0;
 }
 
-int open_mkdir_at_full(int dirfd, const char *path, int flags, XOpenFlags xopen_flags, mode_t mode) {
+int open_mkdir_at_full_label(int dirfd, const char *path, int flags, XOpenFlags xopen_flags, mode_t mode, LabelContext *label_context) {
         _cleanup_close_ int fd = -EBADF, parent_fd = -EBADF;
         _cleanup_free_ char *fname = NULL, *parent = NULL;
         int r;
@@ -1071,7 +1071,7 @@ int open_mkdir_at_full(int dirfd, const char *path, int flags, XOpenFlags xopen_
                 path = fname;
         }
 
-        fd = xopenat_full(dirfd, path, flags|O_CREAT|O_DIRECTORY|O_NOFOLLOW, xopen_flags, mode);
+        fd = xopenat_full_label(dirfd, path, flags|O_CREAT|O_DIRECTORY|O_NOFOLLOW, xopen_flags, mode, label_context);
         if (IN_SET(fd, -ELOOP, -ENOTDIR))
                 return -EEXIST;
         if (fd < 0)
@@ -1171,7 +1171,7 @@ static int openat_with_automount(int dir_fd, const char *path, int open_flags, m
         return RET_NERRNO(openat(dir_fd, path, open_flags, mode));
 }
 
-int xopenat_full(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_flags, mode_t mode) {
+int xopenat_full_label(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_flags, mode_t mode, LabelContext *label_context) {
         _cleanup_close_ int fd = -EBADF;
         bool made_dir = false, made_file = false;
         int r;
@@ -1276,7 +1276,7 @@ int xopenat_full(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_
         bool call_label_ops_post = false;
 
         if (FLAGS_SET(open_flags, O_CREAT) && FLAGS_SET(xopen_flags, XO_LABEL)) {
-                r = label_ops_pre(dir_fd, path, FLAGS_SET(open_flags, O_DIRECTORY) ? S_IFDIR : S_IFREG);
+                r = label_ops_pre(dir_fd, path, FLAGS_SET(open_flags, O_DIRECTORY) ? S_IFDIR : S_IFREG, label_context);
                 if (r < 0)
                         return r;
 
@@ -1433,7 +1433,7 @@ int xopenat_full(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_
         if (call_label_ops_post) {
                 call_label_ops_post = false;
 
-                r = label_ops_post(fd, /* path= */ NULL, made_file || made_dir);
+                r = label_ops_post(fd, /* path= */ NULL, made_file || made_dir, label_context);
                 if (r < 0)
                         goto error;
         }
@@ -1448,7 +1448,7 @@ int xopenat_full(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_
 
 error:
         if (call_label_ops_post)
-                (void) label_ops_post(fd >= 0 ? fd : dir_fd, fd >= 0 ? NULL : path, made_dir || made_file);
+                (void) label_ops_post(fd >= 0 ? fd : dir_fd, fd >= 0 ? NULL : path, made_dir || made_file, label_context);
 
         if (made_dir || made_file)
                 (void) unlinkat(dir_fd, path, made_dir ? AT_REMOVEDIR : 0);
@@ -1456,14 +1456,15 @@ error:
         return r;
 }
 
-int xopenat_lock_full(
+int xopenat_lock_full_label(
                 int dir_fd,
                 const char *path,
                 int open_flags,
                 XOpenFlags xopen_flags,
                 mode_t mode,
                 LockType locktype,
-                int operation) {
+                int operation,
+                LabelContext *label_context) {
 
         _cleanup_close_ int fd = -EBADF;
         int r;
@@ -1479,7 +1480,7 @@ int xopenat_lock_full(
         for (;;) {
                 struct stat st;
 
-                fd = xopenat_full(dir_fd, path, open_flags, xopen_flags, mode);
+                fd = xopenat_full_label(dir_fd, path, open_flags, xopen_flags, mode, label_context);
                 if (fd < 0)
                         return fd;
 

@@ -128,6 +128,7 @@ typedef struct dual_timestamp dual_timestamp;
 typedef struct triple_timestamp triple_timestamp;
 typedef struct Compressor Compressor;
 typedef struct ConfFile ConfFile;
+typedef struct LabelContext LabelContext;
 typedef struct LockFile LockFile;
 typedef struct PidRef PidRef;
 typedef struct Prioq Prioq;

@@ -46,7 +46,7 @@ int dev_setup(const char *prefix, uid_t uid, gid_t gid) {
                 } else
                         n = k;
 
-                r = symlink_label(j, n);
+                r = symlink_label(j, n, /* label_context= */ NULL);
                 if (r < 0)
                         log_debug_errno(r, "Failed to symlink %s to %s: %m", j, n);
 
@@ -113,9 +113,9 @@ int make_inaccessible_nodes(
                         return log_oom();
 
                 if (S_ISDIR(inode_type))
-                        r = mkdirat_label(inaccessible_fd, fn, 0000);
+                        r = mkdirat_label(inaccessible_fd, fn, 0000, /* label_context= */ NULL);
                 else
-                        r = mknodat_label(inaccessible_fd, fn, inode_type | 0000, makedev(0, 0));
+                        r = mknodat_label(inaccessible_fd, fn, inode_type | 0000, makedev(0, 0), /* label_context= */ NULL);
                 if (r == -EEXIST) {
                         if (fchmodat(inaccessible_fd, fn, 0000, AT_SYMLINK_NOFOLLOW) < 0)
                                 log_debug_errno(errno, "Failed to adjust access mode of existing inode '%s', ignoring: %m", path);
