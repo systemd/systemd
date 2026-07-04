@@ -310,7 +310,7 @@ static int link_context_add_cmdline_extras(LinkContext *b) {
                 if (r == O_DIRECTORY)
                         return log_error_errno(SYNTHETIC_ERRNO(EISDIR), "Extra file path '%s' does not refer to regular file.", *x);
 
-                _cleanup_close_ int fd = xopenat_full(AT_FDCWD, *x, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY, XO_REGULAR, /* mode= */ MODE_INVALID);
+                _cleanup_close_ int fd = xopenat_full(AT_FDCWD, *x, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY, XO_REGULAR, /* mode= */ MODE_INVALID, NULL);
                 if (fd < 0)
                         return log_error_errno(fd, "Failed to open '%s': %m", *x);
 
@@ -360,7 +360,7 @@ static int link_context_from_cmdline(LinkContext *ret, const char *kernel) {
                 return log_error_errno(r, "Failed to extract filename from kernel path '%s': %m", kernel);
         if (!efi_loader_entry_resource_filename_valid(b.kernel_filename))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Kernel '%s' is not suitable for reference in a boot menu entry.", kernel);
-        b.kernel_fd = xopenat_full(AT_FDCWD, kernel, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY, XO_REGULAR, /* mode= */ MODE_INVALID);
+        b.kernel_fd = xopenat_full(AT_FDCWD, kernel, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY, XO_REGULAR, /* mode= */ MODE_INVALID, NULL);
         if (b.kernel_fd < 0)
                 return log_error_errno(b.kernel_fd, "Failed to open kernel path '%s': %m", kernel);
 
@@ -1080,7 +1080,7 @@ static int link_context_add_extra(LinkContext *c, int dir_fd, const char *path, 
         if (!efi_loader_entry_resource_filename_valid(filename))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Extra file '%s' is not suitable for reference in a boot menu entry, refusing.", filename);
 
-        _cleanup_close_ int fd = xopenat_full(dir_fd, path, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY, XO_REGULAR, /* mode= */ MODE_INVALID);
+        _cleanup_close_ int fd = xopenat_full(dir_fd, path, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY, XO_REGULAR, /* mode= */ MODE_INVALID, NULL);
         if (fd < 0)
                 return log_error_errno(fd, "Failed to open extra file '%s': %m", path);
 
@@ -1227,7 +1227,8 @@ static int link_context_find_kernel(LinkContext *c, int uki_dir_fd) {
                         uki_dir_fd, "kernel.efi",
                         O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY|O_NOFOLLOW,
                         XO_REGULAR,
-                        /* mode= */ MODE_INVALID);
+                        /* mode= */ MODE_INVALID,
+                        NULL);
         if (kernel_fd == -ENOENT) {
                 _cleanup_(pick_result_done) PickResult pick = PICK_RESULT_NULL;
                 r = path_pick(/* root_path= */ NULL,

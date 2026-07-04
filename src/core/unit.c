@@ -5892,7 +5892,7 @@ static int unit_export_invocation_id(Unit *u) {
         if (r < 0)
                 return log_unit_debug_errno(u, r, "Failed to get invocation path: %m");
 
-        r = symlinkat_atomic_full(u->invocation_id_string, AT_FDCWD, p, SYMLINK_LABEL);
+        r = symlinkat_atomic_full(u->invocation_id_string, AT_FDCWD, p, SYMLINK_LABEL, NULL);
         if (r < 0)
                 return log_unit_debug_errno(u, r, "Failed to create invocation ID symlink %s: %m", p);
 

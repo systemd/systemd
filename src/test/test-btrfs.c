@@ -42,7 +42,7 @@ static int open_test_subvol(char **ret_path) {
         if (r < 0)
                 return r;
 
-        int fd = xopenat_full(AT_FDCWD, p, O_DIRECTORY|O_CREAT|O_CLOEXEC, XO_SUBVOLUME, MODE_INVALID);
+        int fd = xopenat_full(AT_FDCWD, p, O_DIRECTORY|O_CREAT|O_CLOEXEC, XO_SUBVOLUME, MODE_INVALID, NULL);
         if (fd < 0)
                 return fd;
 

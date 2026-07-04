@@ -53,28 +53,28 @@ TEST(conf_files_list) {
         }
 
         ASSERT_OK(touch(strjoina(t2, "/absolute-empty.real")));
-        ASSERT_OK(symlinkat_atomic_full(strjoina(t2, "/absolute-empty.real"), AT_FDCWD, strjoina(search3, "absolute-empty.conf"), /* flags= */ 0));
+        ASSERT_OK(symlinkat_atomic_full(strjoina(t2, "/absolute-empty.real"), AT_FDCWD, strjoina(search3, "absolute-empty.conf"), /* flags= */ 0, /* label_userdata= */ NULL));
 
         ASSERT_OK(write_string_file_at(tfd2, "absolute-non-empty.real", "absolute-non-empty", WRITE_STRING_FILE_CREATE));
-        ASSERT_OK(symlinkat_atomic_full(strjoina(t2, "/absolute-non-empty.real"), AT_FDCWD, strjoina(search3, "absolute-non-empty.conf"), /* flags= */ 0));
+        ASSERT_OK(symlinkat_atomic_full(strjoina(t2, "/absolute-non-empty.real"), AT_FDCWD, strjoina(search3, "absolute-non-empty.conf"), /* flags= */ 0, /* label_userdata= */ NULL));
 
         ASSERT_OK(touch(strjoina(t2, "/relative-empty.real")));
-        ASSERT_OK(symlinkat_atomic_full(strjoina(t2, "/relative-empty.real"), AT_FDCWD, strjoina(search3, "relative-empty.conf"), SYMLINK_MAKE_RELATIVE));
+        ASSERT_OK(symlinkat_atomic_full(strjoina(t2, "/relative-empty.real"), AT_FDCWD, strjoina(search3, "relative-empty.conf"), SYMLINK_MAKE_RELATIVE, /* label_userdata= */ NULL));
 
         ASSERT_OK(write_string_file_at(tfd2, "relative-non-empty.real", "relative-non-empty", WRITE_STRING_FILE_CREATE));
-        ASSERT_OK(symlinkat_atomic_full(strjoina(t2, "/relative-non-empty.real"), AT_FDCWD, strjoina(search3, "relative-non-empty.conf"), SYMLINK_MAKE_RELATIVE));
+        ASSERT_OK(symlinkat_atomic_full(strjoina(t2, "/relative-non-empty.real"), AT_FDCWD, strjoina(search3, "relative-non-empty.conf"), SYMLINK_MAKE_RELATIVE, /* label_userdata= */ NULL));
 
         ASSERT_OK(touch(strjoina(t, "/absolute-empty-for-root.real")));
-        ASSERT_OK(symlinkat_atomic_full("/absolute-empty-for-root.real", AT_FDCWD, strjoina(search3, "absolute-empty-for-root.conf"), /* flags= */ 0));
+        ASSERT_OK(symlinkat_atomic_full("/absolute-empty-for-root.real", AT_FDCWD, strjoina(search3, "absolute-empty-for-root.conf"), /* flags= */ 0, /* label_userdata= */ NULL));
 
         ASSERT_OK(write_string_file_at(tfd, "absolute-non-empty-for-root.real", "absolute-non-empty", WRITE_STRING_FILE_CREATE));
-        ASSERT_OK(symlinkat_atomic_full("/absolute-non-empty-for-root.real", AT_FDCWD, strjoina(search3, "absolute-non-empty-for-root.conf"), /* flags= */ 0));
+        ASSERT_OK(symlinkat_atomic_full("/absolute-non-empty-for-root.real", AT_FDCWD, strjoina(search3, "absolute-non-empty-for-root.conf"), /* flags= */ 0, /* label_userdata= */ NULL));
 
         ASSERT_OK(touch(strjoina(t, "/relative-empty-for-root.real")));
-        ASSERT_OK(symlinkat_atomic_full("../../../../relative-empty-for-root.real", AT_FDCWD, strjoina(search3, "relative-empty-for-root.conf"), /* flags= */ 0));
+        ASSERT_OK(symlinkat_atomic_full("../../../../relative-empty-for-root.real", AT_FDCWD, strjoina(search3, "relative-empty-for-root.conf"), /* flags= */ 0, /* label_userdata= */ NULL));
 
         ASSERT_OK(write_string_file_at(tfd, "relative-non-empty-for-root.real", "relative-non-empty", WRITE_STRING_FILE_CREATE));
-        ASSERT_OK(symlinkat_atomic_full("../../../../relative-non-empty-for-root.real", AT_FDCWD, strjoina(search3, "relative-non-empty-for-root.conf"), /* flags= */ 0));
+        ASSERT_OK(symlinkat_atomic_full("../../../../relative-non-empty-for-root.real", AT_FDCWD, strjoina(search3, "relative-non-empty-for-root.conf"), /* flags= */ 0, /* label_userdata= */ NULL));
 
         search1_a = strjoina(search1, "a.conf");
         search1_b = strjoina(search1, "b.conf");

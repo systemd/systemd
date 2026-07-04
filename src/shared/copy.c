@@ -494,7 +494,7 @@ static int fd_copy_symlink(
                 return r;
 
         if (copy_flags & COPY_MAC_CREATE) {
-                r = mac_selinux_create_file_prepare_at(dt, to, S_IFLNK);
+                r = mac_selinux_create_file_prepare_at(dt, to, S_IFLNK, /* label_userdata= */ NULL);
                 if (r < 0)
                         return r;
         }
@@ -845,12 +845,12 @@ static int fd_copy_regular(
         if (r > 0) /* worked! */
                 return 0;
 
-        fdf = xopenat_full(df, from, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, XO_REGULAR, 0);
+        fdf = xopenat_full(df, from, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, XO_REGULAR, 0, NULL);
         if (fdf < 0)
                 return fdf;
 
         if (copy_flags & COPY_MAC_CREATE) {
-                r = mac_selinux_create_file_prepare_at(dt, to, S_IFREG);
+                r = mac_selinux_create_file_prepare_at(dt, to, S_IFREG, /* label_userdata= */ NULL);
                 if (r < 0)
                         return r;
         }
@@ -937,7 +937,7 @@ static int fd_copy_fifo(
                 return 0;
 
         if (copy_flags & COPY_MAC_CREATE) {
-                r = mac_selinux_create_file_prepare_at(dt, to, S_IFIFO);
+                r = mac_selinux_create_file_prepare_at(dt, to, S_IFIFO, /* label_userdata= */ NULL);
                 if (r < 0)
                         return r;
         }
@@ -990,7 +990,7 @@ static int fd_copy_node(
                 return 0;
 
         if (copy_flags & COPY_MAC_CREATE) {
-                r = mac_selinux_create_file_prepare_at(dt, to, st->st_mode & S_IFMT);
+                r = mac_selinux_create_file_prepare_at(dt, to, st->st_mode & S_IFMT, /* label_userdata= */ NULL);
                 if (r < 0)
                         return r;
         }
@@ -1095,7 +1095,8 @@ static int fd_copy_directory(
                                 flags,
                                 st->st_mode & 07777,
                                 copy_flags & COPY_LOCK_BSD ? LOCK_BSD : LOCK_NONE,
-                                LOCK_EX);
+                                LOCK_EX,
+                                NULL);
         if (fdt < 0)
                 return fdt;
 
@@ -1438,7 +1439,7 @@ int copy_file_fd_at_full(
         assert(fdt >= 0);
         assert(!FLAGS_SET(copy_flags, COPY_LOCK_BSD));
 
-        fdf = xopenat_full(dir_fdf, from, O_RDONLY|O_CLOEXEC|O_NOCTTY, XO_REGULAR, 0);
+        fdf = xopenat_full(dir_fdf, from, O_RDONLY|O_CLOEXEC|O_NOCTTY, XO_REGULAR, 0, NULL);
         if (fdf < 0)
                 return fdf;
 
@@ -1495,7 +1496,7 @@ int copy_file_at_full(
         assert(dir_fdt >= 0 || dir_fdt == AT_FDCWD);
         assert(to);
 
-        fdf = xopenat_full(dir_fdf, from, O_RDONLY|O_CLOEXEC|O_NOCTTY, XO_REGULAR, 0);
+        fdf = xopenat_full(dir_fdf, from, O_RDONLY|O_CLOEXEC|O_NOCTTY, XO_REGULAR, 0, NULL);
         if (fdf < 0)
                 return fdf;
 
@@ -1513,7 +1514,8 @@ int copy_file_at_full(
                                         flags|O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY,
                                         XO_REGULAR | (copy_flags & COPY_MAC_CREATE ? XO_LABEL : 0),
                                         mode,
-                                        copy_flags & COPY_LOCK_BSD ? LOCK_BSD : LOCK_NONE, LOCK_EX);
+                                        copy_flags & COPY_LOCK_BSD ? LOCK_BSD : LOCK_NONE, LOCK_EX,
+                                        NULL);
                 if (fdt < 0)
                         return fdt;
         }
@@ -1591,7 +1593,7 @@ int copy_file_atomic_at_full(
         assert(!FLAGS_SET(copy_flags, COPY_LOCK_BSD));
 
         if (copy_flags & COPY_MAC_CREATE) {
-                r = mac_selinux_create_file_prepare_at(dir_fdt, to, S_IFREG);
+                r = mac_selinux_create_file_prepare_at(dir_fdt, to, S_IFREG, /* label_userdata= */ NULL);
                 if (r < 0)
                         return r;
         }

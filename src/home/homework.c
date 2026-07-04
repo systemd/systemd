@@ -557,7 +557,7 @@ static int read_identity_file(int root_fd, sd_json_variant **ret) {
         assert(root_fd >= 0);
         assert(ret);
 
-        _cleanup_close_ int identity_fd = xopenat_full(root_fd, ".identity", O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW|O_NONBLOCK, XO_REGULAR, MODE_INVALID);
+        _cleanup_close_ int identity_fd = xopenat_full(root_fd, ".identity", O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW|O_NONBLOCK, XO_REGULAR, MODE_INVALID, NULL);
         if (identity_fd < 0)
                 return log_error_errno(identity_fd, "Failed to open .identity file in home directory: %m");
 

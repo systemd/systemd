@@ -412,7 +412,8 @@ static int process_locale(int rfd, sd_varlink **mute_console_link) {
                         f,
                         /* headers= */ NULL,
                         locales,
-                        WRITE_ENV_FILE_LABEL);
+                        WRITE_ENV_FILE_LABEL,
+                        NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to write /etc/locale.conf: %m");
 
@@ -652,7 +653,7 @@ static int process_timezone(int rfd, sd_varlink **mute_console_link) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to read host's /etc/localtime: %m");
 
-                        r = symlinkat_atomic_full(s, pfd, f, SYMLINK_LABEL);
+                        r = symlinkat_atomic_full(s, pfd, f, SYMLINK_LABEL, NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to create /etc/localtime symlink: %m");
 
@@ -673,7 +674,7 @@ static int process_timezone(int rfd, sd_varlink **mute_console_link) {
         if (r < 0)
                 return r;
 
-        r = symlinkat_atomic_full(relpath, pfd, f, SYMLINK_LABEL);
+        r = symlinkat_atomic_full(relpath, pfd, f, SYMLINK_LABEL, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to create /etc/localtime symlink: %m");
 
@@ -1033,7 +1034,7 @@ static int write_root_passwd(int rfd, int etc_fd, const char *password, const ch
         int r;
         bool found = false;
 
-        r = fopen_temporary_at_label(etc_fd, "passwd", "passwd", &passwd, &passwd_tmp);
+        r = fopen_temporary_at_label(etc_fd, "passwd", "passwd", &passwd, &passwd_tmp, NULL);
         if (r < 0)
                 return r;
 
@@ -1104,7 +1105,7 @@ static int write_root_shadow(int etc_fd, const char *hashed_password) {
         int r;
         bool found = false;
 
-        r = fopen_temporary_at_label(etc_fd, "shadow", "shadow", &shadow, &shadow_tmp);
+        r = fopen_temporary_at_label(etc_fd, "shadow", "shadow", &shadow, &shadow_tmp, NULL);
         if (r < 0)
                 return r;
 
