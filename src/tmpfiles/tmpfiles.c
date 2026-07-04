@@ -1066,7 +1066,7 @@ shortcut:
         }
 
         log_debug("Relabelling \"%s\"", path);
-        return label_fix_full(fd, /* inode_path= */ NULL, /* label_path= */ path, 0);
+        return label_fix_full(fd, /* inode_path= */ NULL, /* label_path= */ path, /* flags= */ 0, /* label_context= */ NULL);
 }
 
 static int path_open_parent_safe(const char *path, bool allow_failure) {
@@ -2074,7 +2074,7 @@ static int create_file(
                 return dir_fd;
 
         WITH_UMASK(0000) {
-                mac_selinux_create_file_prepare(path, S_IFREG);
+                mac_selinux_create_file_prepare(path, S_IFREG, /* label_context= */ NULL);
                 fd = RET_NERRNO(openat(dir_fd, bn, O_CREAT|O_EXCL|O_NOFOLLOW|O_NONBLOCK|O_CLOEXEC|O_WRONLY|O_NOCTTY, i->mode));
                 mac_selinux_create_file_clear();
         }
@@ -2157,7 +2157,7 @@ static int truncate_file(
                 creation = CREATION_NORMAL; /* Didn't work without O_CREATE, try again with */
 
                 WITH_UMASK(0000) {
-                        mac_selinux_create_file_prepare(path, S_IFREG);
+                        mac_selinux_create_file_prepare(path, S_IFREG, /* label_context= */ NULL);
                         fd = RET_NERRNO(openat(dir_fd, bn, O_CREAT|O_NOFOLLOW|O_NONBLOCK|O_CLOEXEC|O_WRONLY|O_NOCTTY, i->mode));
                         mac_selinux_create_file_clear();
                 }
@@ -2315,7 +2315,7 @@ static int create_directory_or_subvolume(
                 log_action("Would create", "Creating", "%s directory \"%s\"", path);
                 if (!arg_dry_run)
                         WITH_UMASK(0000)
-                                r = mkdirat_label(pfd, bn, mode);
+                                r = mkdirat_label(pfd, bn, mode, /* label_context= */ NULL);
         }
 
         if (arg_dry_run)
@@ -2502,7 +2502,7 @@ static int create_device(
                 return dfd;
 
         WITH_UMASK(0000) {
-                mac_selinux_create_file_prepare(i->path, file_type);
+                mac_selinux_create_file_prepare(i->path, file_type, /* label_context= */ NULL);
                 r = RET_NERRNO(mknodat(dfd, bn, i->mode | file_type, i->major_minor));
                 mac_selinux_create_file_clear();
         }
@@ -2533,7 +2533,7 @@ static int create_device(
                         fd = safe_close(fd);
 
                         WITH_UMASK(0000) {
-                                mac_selinux_create_file_prepare(i->path, file_type);
+                                mac_selinux_create_file_prepare(i->path, file_type, /* label_context= */ NULL);
                                 r = mknodat_atomic(dfd, bn, i->mode | file_type, i->major_minor);
                                 mac_selinux_create_file_clear();
                         }
@@ -2544,7 +2544,7 @@ static int create_device(
                                 if (r < 0)
                                         return log_error_errno(r, "rm -rf %s failed: %m", i->path);
 
-                                mac_selinux_create_file_prepare(i->path, file_type);
+                                mac_selinux_create_file_prepare(i->path, file_type, /* label_context= */ NULL);
                                 r = RET_NERRNO(mknodat(dfd, bn, i->mode | file_type, i->major_minor));
                                 mac_selinux_create_file_clear();
                         }
@@ -2612,7 +2612,7 @@ static int create_fifo(Context *c, Item *i) {
                 return pfd;
 
         WITH_UMASK(0000) {
-                mac_selinux_create_file_prepare(i->path, S_IFIFO);
+                mac_selinux_create_file_prepare(i->path, S_IFIFO, /* label_context= */ NULL);
                 r = RET_NERRNO(mkfifoat(pfd, bn, i->mode));
                 mac_selinux_create_file_clear();
         }
@@ -2637,7 +2637,7 @@ static int create_fifo(Context *c, Item *i) {
                         fd = safe_close(fd);
 
                         WITH_UMASK(0000) {
-                                mac_selinux_create_file_prepare(i->path, S_IFIFO);
+                                mac_selinux_create_file_prepare(i->path, S_IFIFO, /* label_context= */ NULL);
                                 r = mkfifoat_atomic(pfd, bn, i->mode);
                                 mac_selinux_create_file_clear();
                         }
@@ -2646,7 +2646,7 @@ static int create_fifo(Context *c, Item *i) {
                                 if (r < 0)
                                         return log_error_errno(r, "rm -rf %s failed: %m", i->path);
 
-                                mac_selinux_create_file_prepare(i->path, S_IFIFO);
+                                mac_selinux_create_file_prepare(i->path, S_IFIFO, /* label_context= */ NULL);
                                 r = RET_NERRNO(mkfifoat(pfd, bn, i->mode));
                                 mac_selinux_create_file_clear();
                         }
@@ -2717,7 +2717,7 @@ static int create_symlink(Context *c, Item *i) {
         if (pfd < 0)
                 return pfd;
 
-        mac_selinux_create_file_prepare(i->path, S_IFLNK);
+        mac_selinux_create_file_prepare(i->path, S_IFLNK, /* label_context= */ NULL);
         r = RET_NERRNO(symlinkat(i->argument, pfd, bn));
         mac_selinux_create_file_clear();
 
@@ -3047,7 +3047,7 @@ static int mkdir_parents_rm_if_wrong_type(mode_t child_mode, const char *path) {
                 if (r == -ENOENT) {
                         if (!arg_dry_run) {
                                 WITH_UMASK(0000)
-                                        r = mkdirat_label(parent_fd, t, 0755);
+                                        r = mkdirat_label(parent_fd, t, 0755, /* label_context= */ NULL);
                                 if (r < 0) {
                                         _cleanup_free_ char *parent_name = NULL;
 
