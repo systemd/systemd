@@ -93,6 +93,7 @@ static bool arg_reset = false;
 static ImagePolicy *arg_image_policy = NULL;
 static bool arg_chrome = true;
 static bool arg_mute_console = false;
+static LabelContext *arg_label_context = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
@@ -106,6 +107,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_root_password, erase_and_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root_shell, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_kernel_cmdline, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_label_context, mac_label_context_freep);
 
 static bool welcome_done = false;
 
@@ -407,12 +409,13 @@ static int process_locale(int rfd, sd_varlink **mute_console_link) {
 
         locales[i] = NULL;
 
-        r = write_env_file(
+        r = write_env_file_label(
                         pfd,
                         f,
                         /* headers= */ NULL,
                         locales,
-                        WRITE_ENV_FILE_LABEL);
+                        WRITE_ENV_FILE_LABEL,
+                        arg_label_context);
         if (r < 0)
                 return log_error_errno(r, "Failed to write /etc/locale.conf: %m");
 
@@ -652,7 +655,7 @@ static int process_timezone(int rfd, sd_varlink **mute_console_link) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to read host's /etc/localtime: %m");
 
-                        r = symlinkat_atomic_full(s, pfd, f, SYMLINK_LABEL);
+                        r = symlinkat_atomic_full_label(s, pfd, f, SYMLINK_LABEL, arg_label_context);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to create /etc/localtime symlink: %m");
 
@@ -673,7 +676,7 @@ static int process_timezone(int rfd, sd_varlink **mute_console_link) {
         if (r < 0)
                 return r;
 
-        r = symlinkat_atomic_full(relpath, pfd, f, SYMLINK_LABEL);
+        r = symlinkat_atomic_full_label(relpath, pfd, f, SYMLINK_LABEL, arg_label_context);
         if (r < 0)
                 return log_error_errno(r, "Failed to create /etc/localtime symlink: %m");
 
@@ -778,8 +781,9 @@ static int process_hostname(int rfd, sd_varlink **mute_console_link) {
                         hostname = resolved;
         }
 
-        r = write_string_file_at(pfd, f, hostname,
-                                 WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_SYNC|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_LABEL);
+        r = write_string_file_full_label(pfd, f, hostname,
+                                   WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_SYNC|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_LABEL,
+                                   /* ts= */ NULL, /* label_fn= */ NULL, arg_label_context);
         if (r < 0)
                 return log_error_errno(r, "Failed to write /etc/hostname: %m");
 
@@ -811,8 +815,9 @@ static int process_machine_id(int rfd) {
                 return 0;
         }
 
-        r = write_string_file_at(pfd, "machine-id", SD_ID128_TO_STRING(arg_machine_id),
-                                 WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_SYNC|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_LABEL);
+        r = write_string_file_full_label(pfd, "machine-id", SD_ID128_TO_STRING(arg_machine_id),
+                                   WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_SYNC|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_LABEL,
+                                   /* ts= */ NULL, /* label_fn= */ NULL, arg_label_context);
         if (r < 0)
                 return log_error_errno(r, "Failed to write /etc/machine-id: %m");
 
@@ -873,11 +878,12 @@ static int process_machine_tags(int rfd) {
         if (!c)
                 return log_oom();
 
-        r = write_string_file_at(
+        r = write_string_file_full_label(
                         pfd,
                         "machine-info",
                         c,
-                        WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_SYNC|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_LABEL);
+                        WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_SYNC|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_LABEL,
+                        /* ts= */ NULL, /* label_fn= */ NULL, arg_label_context);
         if (r < 0)
                 return log_error_errno(r, "Failed to write /etc/machine-info: %m");
 
@@ -1033,7 +1039,7 @@ static int write_root_passwd(int rfd, int etc_fd, const char *password, const ch
         int r;
         bool found = false;
 
-        r = fopen_temporary_at_label(etc_fd, "passwd", "passwd", &passwd, &passwd_tmp, /* label_userdata= */ NULL);
+        r = fopen_temporary_at_label(etc_fd, "passwd", "passwd", &passwd, &passwd_tmp, arg_label_context);
         if (r < 0)
                 return r;
 
@@ -1104,7 +1110,7 @@ static int write_root_shadow(int etc_fd, const char *hashed_password) {
         int r;
         bool found = false;
 
-        r = fopen_temporary_at_label(etc_fd, "shadow", "shadow", &shadow, &shadow_tmp, /* label_userdata= */ NULL);
+        r = fopen_temporary_at_label(etc_fd, "shadow", "shadow", &shadow, &shadow_tmp, arg_label_context);
         if (r < 0)
                 return r;
 
@@ -1314,8 +1320,9 @@ static int process_kernel_cmdline(int rfd) {
                 return 0;
         }
 
-        r = write_string_file_at(pfd, "cmdline", arg_kernel_cmdline,
-                                 WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_SYNC|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_LABEL);
+        r = write_string_file_full_label(pfd, "cmdline", arg_kernel_cmdline,
+                                   WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_SYNC|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_LABEL,
+                                   /* ts= */ NULL, /* label_fn= */ NULL, arg_label_context);
         if (r < 0)
                 return log_error_errno(r, "Failed to write /etc/kernel/cmdline: %m");
 
@@ -1763,6 +1770,10 @@ static int run(int argc, char *argv[]) {
                 if (rfd < 0)
                         return log_error_errno(errno, "Failed to open %s: %m", empty_to_root(arg_root));
         }
+
+        r = mac_label_context_new(arg_root, &arg_label_context);
+        if (r < 0)
+                return log_error_errno(r, "Failed to initialize label context for root '%s': %m", arg_root);
 
         LOG_SET_PREFIX(arg_image ?: arg_root);
         DEFER_VOID_CALL(end_marker);
