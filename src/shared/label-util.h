@@ -27,3 +27,7 @@ int btrfs_subvol_make_label(const char *path, void *label_userdata);
 
 int mac_init(void);
 int mac_init_lazy(void);
+
+int mac_label_context_new(const char *root, LabelContext **ret);
+LabelContext* mac_label_context_free(LabelContext *c);
+DEFINE_TRIVIAL_CLEANUP_FUNC(LabelContext*, mac_label_context_free);
