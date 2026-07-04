@@ -43,7 +43,14 @@ static void measure_smbios_type1(const SmbiosHeader *header, size_t size, bool *
          * from sleep, AC restore, …), which would make the measurement non-reproducible. Hence measure a
          * copy with that field zeroed out. */
 
-        assert(size >= sizeof(SmbiosTableType1));
+        /* If the structure is too short to contain the wake-up type field, there's nothing to normalize.
+         * Measure it as-is. Note assert() is a no-op in release sd-boot builds, so this length coming
+         * from the (untrusted) firmware SMBIOS table must be checked explicitly before the copy is
+         * written to at a fixed offset. */
+        if (size < sizeof(SmbiosTableType1)) {
+                measure_smbios_raw(header, size, SMBIOS_TYPE1_EVENT_TAG_ID, u"smbios:type1", measured);
+                return;
+        }
 
         _cleanup_free_ SmbiosTableType1 *copy = xmemdup(header, size);
         copy->wake_up_type = 0;
