@@ -6,6 +6,7 @@
 #include "btrfs-util.h"
 #include "errno-util.h"
 #include "label-util.h"
+#include "path-util.h"
 #include "selinux-util.h"
 #include "smack-util.h"
 
@@ -95,6 +96,26 @@ int btrfs_subvol_make_label(const char *path, void *label_userdata) {
                 return r;
 
         return mac_smack_fix(path, 0);
+}
+
+int mac_label_context_new(const char *root, LabelContext **ret) {
+        assert(ret);
+
+        if (empty_or_root(root)) {
+                *ret = NULL;
+                return 0;
+        }
+
+        if (mac_smack_use()) {
+                *ret = NULL;
+                return 0;
+        }
+
+        return mac_selinux_label_context_new(root, ret);
+}
+
+LabelContext* mac_label_context_free(LabelContext *c) {
+        return mac_selinux_label_context_free(c);
 }
 
 static int init_internal(bool lazy) {

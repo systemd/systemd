@@ -23,12 +23,16 @@
 #include "fd-util.h"
 #include "path-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "time-util.h"
 #endif
 
+#include "chase.h"
+#include "env-file.h"
 #include "errno-util.h"
 #include "label-util.h"
 #include "selinux-util.h"
+#include "smack-util.h"
 
 #if HAVE_SELINUX
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(context_t, sym_context_free, context_freep, NULL);
@@ -77,6 +81,7 @@ DLSYM_PROTOTYPE(selinux_check_access) = NULL;
 DLSYM_PROTOTYPE(selinux_getenforcemode) = NULL;
 DLSYM_PROTOTYPE(selinux_init_load_policy) = NULL;
 DLSYM_PROTOTYPE(selinux_path) = NULL;
+DLSYM_PROTOTYPE(selinux_policy_root) = NULL;
 DLSYM_PROTOTYPE(selinux_set_callback) = NULL;
 DLSYM_PROTOTYPE(selinux_status_close) = NULL;
 DLSYM_PROTOTYPE(selinux_status_getenforce) = NULL;
@@ -87,6 +92,7 @@ DLSYM_PROTOTYPE(setexeccon_raw) = NULL;
 DLSYM_PROTOTYPE(setfilecon_raw) = NULL;
 DLSYM_PROTOTYPE(setfscreatecon_raw) = NULL;
 DLSYM_PROTOTYPE(setsockcreatecon_raw) = NULL;
+DLSYM_PROTOTYPE(selinux_set_policy_root) = NULL;
 DLSYM_PROTOTYPE(string_to_security_class) = NULL;
 #endif
 
@@ -123,7 +129,9 @@ int dlopen_libselinux(int log_level) {
                         DLSYM_ARG(selinux_getenforcemode),
                         DLSYM_ARG(selinux_init_load_policy),
                         DLSYM_ARG(selinux_path),
+                        DLSYM_ARG(selinux_policy_root),
                         DLSYM_ARG(selinux_set_callback),
+                        DLSYM_ARG(selinux_set_policy_root),
                         DLSYM_ARG(selinux_status_close),
                         DLSYM_ARG(selinux_status_getenforce),
                         DLSYM_ARG(selinux_status_open),
@@ -873,4 +881,175 @@ int mac_selinux_bind(int fd, const struct sockaddr *addr, socklen_t addrlen) {
 skipped:
 #endif
         return RET_NERRNO(bind(fd, addr, addrlen));
+}
+
+#if HAVE_SELINUX
+struct LabelContext {
+        struct selabel_handle *label_hnd;
+        char *root;
+        char *saved_policy_root;
+};
+#endif
+
+int mac_selinux_label_context_new(const char *root, LabelContext **ret) {
+        assert(ret);
+
+#if HAVE_SELINUX
+        _cleanup_free_ char *policytype = NULL, *policyroot = NULL, *canonical_root = NULL;
+        int r;
+
+        if (empty_or_root(root)) {
+                *ret = NULL;
+                return 0;
+        }
+
+        if (mac_smack_use()) {
+                *ret = NULL;
+                return 0;
+        }
+
+        r = dlopen_libselinux(LOG_ERR);
+        if (r < 0)
+                return r;
+
+        mac_selinux_disable_logging();
+
+        /* Read the SELinux config from the alternate root, trying /etc and /usr/lib */
+        FOREACH_STRING(config_dir, "/etc/selinux/config", "/usr/lib/selinux/config") {
+                _cleanup_free_ char *config_path = NULL;
+
+                r = chase(config_dir, root, CHASE_PREFIX_ROOT, &config_path, NULL);
+                if (r == -ENOENT)
+                        continue;
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to resolve SELinux config path in root '%s': %m", root);
+
+                r = parse_env_file(NULL, config_path, "SELINUXTYPE", &policytype);
+                if (r == -ENOENT)
+                        continue;
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to parse SELinux config '%s': %m", config_path);
+
+                if (!isempty(policytype))
+                        break;
+        }
+
+        if (isempty(policytype)) {
+                log_debug("No SELINUXTYPE configured in alternate root '%s', skipping label context setup.", root);
+                *ret = NULL;
+                return 0;
+        }
+
+        if (!filename_is_valid(policytype))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "SELINUXTYPE '%s' in alternate root '%s' is not a valid filename.", policytype, root);
+
+        /* Look for the policy database under the alternate root */
+        FOREACH_STRING(policy_dir, "/etc/selinux", "/usr/share/selinux") {
+                _cleanup_free_ char *try_path = NULL, *policy_subdir = NULL;
+
+                policy_subdir = path_join(policy_dir, policytype);
+                if (!policy_subdir)
+                        return log_oom();
+
+                r = chase(policy_subdir, root, CHASE_PREFIX_ROOT, &try_path, NULL);
+                if (r == -ENOENT)
+                        continue;
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to resolve policy directory '%s' in root '%s': %m", policy_subdir, root);
+                        continue;
+                }
+
+                free_and_replace(policyroot, try_path);
+                break;
+        }
+
+        if (!policyroot) {
+                log_debug("SELinux policy directory for type '%s' not found in alternate root '%s', skipping.", policytype, root);
+                *ret = NULL;
+                return 0;
+        }
+
+        /* Save the current policy root so we can restore it when the context is freed,
+         * avoiding a stale alternate-root policy root in libselinux's global state. */
+        _cleanup_free_ char *saved_policy_root = NULL;
+        const char *current_policy_root = sym_selinux_policy_root();
+        if (current_policy_root) {
+                saved_policy_root = strdup(current_policy_root);
+                if (!saved_policy_root)
+                        return log_oom();
+        }
+
+        r = RET_NERRNO(sym_selinux_set_policy_root(policyroot));
+        if (r < 0)
+                return log_error_errno(r, "Failed to set SELinux policy root to '%s': %m", policyroot);
+
+        struct selabel_handle *hnd = sym_selabel_open(SELABEL_CTX_FILE, NULL, 0);
+        if (!hnd) {
+                r = log_error_errno(errno, "Failed to open SELinux label database for alternate root '%s': %m", root);
+                if (saved_policy_root)
+                        (void) sym_selinux_set_policy_root(saved_policy_root);
+                return r;
+        }
+
+        /* Canonicalize root so path_startswith() works even if --root has symlink components */
+        r = chase(root, NULL, 0, &canonical_root, NULL);
+        if (r < 0) {
+                sym_selabel_close(hnd);
+                if (saved_policy_root)
+                        (void) sym_selinux_set_policy_root(saved_policy_root);
+                return log_error_errno(r, "Failed to canonicalize root path '%s': %m", root);
+        }
+
+        /* Ensure label_ops are registered (ignore -EBUSY if already set by mac_selinux_init) */
+        static const LabelOps label_ops = {
+                .pre = mac_selinux_label_pre,
+                .post = mac_selinux_label_post,
+        };
+        r = label_ops_set(&label_ops);
+        if (r < 0 && r != -EBUSY) {
+                sym_selabel_close(hnd);
+                if (saved_policy_root)
+                        (void) sym_selinux_set_policy_root(saved_policy_root);
+                return r;
+        }
+
+        LabelContext *c = new(LabelContext, 1);
+        if (!c) {
+                sym_selabel_close(hnd);
+                if (saved_policy_root)
+                        (void) sym_selinux_set_policy_root(saved_policy_root);
+                return log_oom();
+        }
+
+        *c = (LabelContext) {
+                .label_hnd = hnd,
+                .root = TAKE_PTR(canonical_root),
+                .saved_policy_root = TAKE_PTR(saved_policy_root),
+        };
+
+        *ret = c;
+        return 0;
+#else
+        *ret = NULL;
+        return 0;
+#endif
+}
+
+LabelContext* mac_selinux_label_context_free(LabelContext *c) {
+        if (!c)
+                return NULL;
+
+#if HAVE_SELINUX
+        if (c->label_hnd)
+                sym_selabel_close(c->label_hnd);
+
+        if (c->saved_policy_root)
+                (void) sym_selinux_set_policy_root(c->saved_policy_root);
+
+        free(c->saved_policy_root);
+        free(c->root);
+#endif
+
+        return mfree(c);
 }
