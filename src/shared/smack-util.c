@@ -221,11 +221,11 @@ int renameat_and_apply_smack_floor_label(int fdf, const char *from, int fdt, con
 #endif
 }
 
-static int mac_smack_label_pre(int dir_fd, const char *path, mode_t mode) {
+static int mac_smack_label_pre(int dir_fd, const char *path, mode_t mode, void *userdata) {
         return 0;
 }
 
-static int mac_smack_label_post(int dir_fd, const char *path, bool created) {
+static int mac_smack_label_post(int dir_fd, const char *path, bool created, void *userdata) {
         if (!created)
                 return 0;
 
