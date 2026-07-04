@@ -148,7 +148,7 @@ portablectl detach --now --runtime --enable /tmp/rootdir minimal-app0
 portablectl "${ARGS[@]}" attach --copy=symlink --now --runtime /tmp/rootdir minimal-app0
 rm /run/systemd/system.attached/minimal-app0*.service
 status="$(portablectl is-attached --runtime /tmp/rootdir)"
-[[ "${status}" =~ ^(attached|running)-runtime$ ]]
+[[ "${status}" == "running-runtime" ]]
 portablectl detach --now --runtime --enable /tmp/rootdir minimal-app0
 [[ ! -d /run/systemd/system.attached/minimal-app0.service.d ]]
 
