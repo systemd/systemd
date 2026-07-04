@@ -84,7 +84,7 @@ static void test_create_file_prepare(const char* fname) {
 
         log_info("============ %s ==========", __func__);
 
-        r = mac_selinux_create_file_prepare(fname, S_IRWXU);
+        r = mac_selinux_create_file_prepare(fname, S_IRWXU, /* label_userdata= */ NULL);
         log_info_errno(r, "mac_selinux_create_file_prepare → %d (%m)", r);
 
         mac_selinux_create_file_clear();

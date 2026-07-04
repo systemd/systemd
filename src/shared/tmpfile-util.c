@@ -10,14 +10,15 @@ int fopen_temporary_at_label(
                 const char *target,
                 const char *path,
                 FILE **f,
-                char **temp_path) {
+                char **temp_path,
+                LabelContext *label_userdata) {
 
         int r;
 
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
         assert(path);
 
-        r = mac_selinux_create_file_prepare_at(dir_fd, target, S_IFREG);
+        r = mac_selinux_create_file_prepare_at(dir_fd, target, S_IFREG, label_userdata);
         if (r < 0)
                 return r;
 

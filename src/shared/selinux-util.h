@@ -107,7 +107,7 @@ void mac_selinux_finish(void);
 
 void mac_selinux_disable_logging(void);
 
-int mac_selinux_fix_full(int atfd, const char *inode_path, const char *label_path, LabelFixFlags flags);
+int mac_selinux_fix_full(int atfd, const char *inode_path, const char *label_path, LabelFixFlags flags, LabelContext *label_userdata);
 
 int mac_selinux_apply(const char *path, const char *label);
 int mac_selinux_apply_fd(int fd, const char *path, const char *label);
@@ -117,9 +117,9 @@ int mac_selinux_get_our_label(char **ret_label);
 int mac_selinux_get_peer_label(int socket_fd, char **ret_label);
 int mac_selinux_get_child_mls_label(int socket_fd, const char *exe, const char *exec_label, char **ret_label);
 
-int mac_selinux_create_file_prepare_at(int dir_fd, const char *path, mode_t mode);
-static inline int mac_selinux_create_file_prepare(const char *path, mode_t mode) {
-        return mac_selinux_create_file_prepare_at(AT_FDCWD, path, mode);
+int mac_selinux_create_file_prepare_at(int dir_fd, const char *path, mode_t mode, LabelContext *label_userdata);
+static inline int mac_selinux_create_file_prepare(const char *path, mode_t mode, LabelContext *label_userdata) {
+        return mac_selinux_create_file_prepare_at(AT_FDCWD, path, mode, label_userdata);
 }
 int mac_selinux_create_file_prepare_label(const char *path, const char *label);
 void mac_selinux_create_file_clear(void);

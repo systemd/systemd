@@ -925,7 +925,7 @@ static int resolve_mutable_directory(
                 if (fchmod(chmod_fd, hierarchy_mode) < 0)
                         return log_error_errno(errno, "Failed to chmod directory '%s/%s': %m", strempty(root), skip_leading_slash(path));
 
-                r = mac_selinux_fix_full(chmod_fd, /* inode_path= */ NULL, hierarchy, /* flags= */ 0);
+                r = mac_selinux_fix_full(chmod_fd, /* inode_path= */ NULL, hierarchy, /* flags= */ 0, /* label_userdata= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to fix SELinux label for '%s/%s': %m", strempty(root), skip_leading_slash(path));
         }
@@ -1293,7 +1293,7 @@ static int mount_overlayfs_with_op(
         if (atfd < 0)
                 return log_error_errno(errno, "Failed to open directory '%s': %m", meta_path);
 
-        r = mac_selinux_fix_full(atfd, /* inode_path= */ NULL, op->hierarchy, /* flags= */ 0);
+        r = mac_selinux_fix_full(atfd, /* inode_path= */ NULL, op->hierarchy, /* flags= */ 0, /* label_userdata= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to fix SELinux label for '%s': %m", meta_path);
 
@@ -1306,7 +1306,7 @@ static int mount_overlayfs_with_op(
                 if (dfd < 0)
                         return log_error_errno(errno, "Failed to open directory '%s': %m", op->work_dir);
 
-                r = mac_selinux_fix_full(dfd, /* inode_path= */ NULL, op->hierarchy, /* flags= */ 0);
+                r = mac_selinux_fix_full(dfd, /* inode_path= */ NULL, op->hierarchy, /* flags= */ 0, /* label_userdata= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to fix SELinux label for '%s': %m", op->work_dir);
 
@@ -1516,7 +1516,7 @@ static int store_info_in_meta(
         if (atfd < 0)
                 return log_error_errno(errno, "Failed to open directory '%s': %m", f);
 
-        r = mac_selinux_fix_full(atfd, /* inode_path= */ NULL, hierarchy, /* flags= */ 0);
+        r = mac_selinux_fix_full(atfd, /* inode_path= */ NULL, hierarchy, /* flags= */ 0, /* label_userdata= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to fix SELinux label for '%s': %m", hierarchy);
 

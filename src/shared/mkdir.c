@@ -8,12 +8,12 @@
 #include "selinux-util.h"
 #include "smack-util.h"
 
-int mkdirat_label(int dirfd, const char *path, mode_t mode) {
+int mkdirat_label(int dirfd, const char *path, mode_t mode, LabelContext *label_userdata) {
         int r;
 
         assert(path);
 
-        r = mac_selinux_create_file_prepare_at(dirfd, path, S_IFDIR);
+        r = mac_selinux_create_file_prepare_at(dirfd, path, S_IFDIR, label_userdata);
         if (r < 0)
                 return r;
 
@@ -25,18 +25,10 @@ int mkdirat_label(int dirfd, const char *path, mode_t mode) {
         return mac_smack_fix_full(dirfd, path, NULL, 0);
 }
 
-int mkdirat_safe_label(int dir_fd, const char *path, mode_t mode, uid_t uid, gid_t gid, MkdirFlags flags) {
-        return mkdirat_safe_internal(dir_fd, path, mode, uid, gid, flags, mkdirat_label);
+int mkdirat_safe_label(int dir_fd, const char *path, mode_t mode, uid_t uid, gid_t gid, MkdirFlags flags, LabelContext *label_userdata) {
+        return mkdirat_safe_internal(dir_fd, path, mode, uid, gid, flags, mkdirat_label, label_userdata);
 }
 
-int mkdirat_parents_label(int dir_fd, const char *path, mode_t mode) {
-        return mkdirat_parents_internal(dir_fd, path, mode, UID_INVALID, UID_INVALID, 0, mkdirat_label);
-}
-
-int mkdir_parents_safe_label(const char *prefix, const char *path, mode_t mode, uid_t uid, gid_t gid, MkdirFlags flags) {
-        return mkdir_parents_internal(prefix, path, mode, uid, gid, flags, mkdirat_label);
-}
-
-int mkdir_p_label(const char *path, mode_t mode) {
-        return mkdir_p_internal(NULL, path, mode, UID_INVALID, UID_INVALID, 0, mkdirat_label);
+int mkdirat_parents_label(int dir_fd, const char *path, mode_t mode, LabelContext *label_userdata) {
+        return mkdirat_parents_internal(dir_fd, path, mode, UID_INVALID, UID_INVALID, 0, mkdirat_label, label_userdata);
 }
