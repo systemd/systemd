@@ -16,7 +16,7 @@
 #include "tmpfile-util.h"
 #include "virt.h"
 
-static bool overlayfs_set_fd_lowerdir_plus_supported(void) {
+static bool overlayfs_lowerdir_plus_supported(void) {
         int r;
 
         _cleanup_close_ int sb_fd = fsopen("overlay", FSOPEN_CLOEXEC);
@@ -27,12 +27,15 @@ static bool overlayfs_set_fd_lowerdir_plus_supported(void) {
         _cleanup_close_ int layer_fd = open("/", O_DIRECTORY|O_CLOEXEC);
         ASSERT_OK_ERRNO(layer_fd);
 
+        /* Try FSCONFIG_SET_FD first (kernel 6.13+) */
         r = RET_NERRNO(fsconfig(sb_fd, FSCONFIG_SET_FD, "lowerdir+", /* value= */ NULL, layer_fd));
-        if (r < 0 && (ERRNO_IS_NEG_NOT_SUPPORTED(r) || r == -EINVAL))
+        if (r >= 0)
+                return true;
+        if (r != -EBADF && r != -EINVAL && !ERRNO_IS_NEG_NOT_SUPPORTED(r))
                 return false;
 
-        ASSERT_OK_ERRNO(r);
-        return true;
+        /* Fall back to string path (kernel 6.5+) */
+        return RET_NERRNO(fsconfig(sb_fd, FSCONFIG_SET_STRING, "lowerdir+", FORMAT_PROC_FD_PATH(layer_fd), /* aux= */ 0)) >= 0;
 }
 
 TEST(mstack) {
@@ -67,8 +70,8 @@ TEST(mstack) {
                 return (void) log_tests_skipped("not attaching mstack, lacking privs");
         if (!mount_new_api_supported())
                 return (void) log_tests_skipped("kernel does not support new mount API, skipping mstack attachment test.");
-        if (!overlayfs_set_fd_lowerdir_plus_supported())
-                return (void) log_tests_skipped("overlayfs does not support FSCONFIG_SET_FD with lowerdir+, skipping mstack attachment test.");
+        if (!overlayfs_lowerdir_plus_supported())
+                return (void) log_tests_skipped("overlayfs does not support lowerdir+, skipping mstack attachment test.");
         if (running_in_chroot() > 0) /* we cannot disable mount prop if we are in a chroot without the root inode being a proper mount point */
                 return (void) log_tests_skipped("running in chroot(), skipping mstack attachment test.");
 

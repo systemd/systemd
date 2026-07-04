@@ -308,7 +308,7 @@ static int inspect_mstack(void) {
                                 TABLE_STRING, m->what,
                                 TABLE_STRING, image_type_to_string(m->image_type),
                                 TABLE_PATH, w,
-                                TABLE_PATH, m->where ?: ((mstack->root_mount && mstack->root_mount != m) ? "/usr" : "/"),
+                                TABLE_PATH, m->where ?: "/",
                                 TABLE_STRING, m->sort_key);
                 if (r < 0)
                         return table_log_add_error(r);
