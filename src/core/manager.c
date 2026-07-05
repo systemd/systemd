@@ -22,6 +22,7 @@
 #include "boot-timestamps.h"
 #include "bpf-restrict-fs.h"
 #include "bpf-restrict-fsaccess.h"
+#include "bpf-unix-socket-protocol.h"
 #include "build-path.h"
 #include "bus-common-errors.h"
 #include "bus-error.h"
@@ -1062,6 +1063,12 @@ int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, 
                         if (r < 0)
                                 log_warning_errno(r, "Failed to setup LSM BPF, ignoring: %m");
                 }
+
+                if (MANAGER_IS_SYSTEM(m) && unix_socket_protocol_bpf_supported()) {
+                        r = unix_socket_protocol_bpf_new(&m->unix_socket_protocol);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to setup Unix Socket Protocol BPF, ignoring: %m");
+                }
 #endif
         }
 
@@ -1814,6 +1821,7 @@ Manager* manager_free(Manager *m) {
 
 #if BPF_FRAMEWORK
         bpf_restrict_fs_destroy(m->restrict_fs);
+        unix_socket_protocol_bpf_destroy(m->unix_socket_protocol);
 #endif
         close_many(m->restrict_fsaccess_link_fds, ELEMENTSOF(m->restrict_fsaccess_link_fds));
         safe_close(m->restrict_fsaccess_bss_map_fd);
