@@ -20,5 +20,18 @@ executables += [
         },
 ]
 
+systemd_varlink_monitorctl_sources = files(
+        'varlink-monitorctl.c',
+        'ringbuf.c',
+)
+
+executables += [
+        executable_template + {
+                'name' : 'varlink-monitorctl',
+                'public' : true,
+                'sources' : systemd_varlink_monitorctl_sources,
+        },
+]
+
 install_data('io.systemd.VarlinkMonitor.policy',
              install_dir : polkitpolicydir)
