@@ -264,6 +264,52 @@ test -n "$fragment"
 grep '^RootHash=/etc/hostname$'          "$fragment" >/dev/null
 grep '^RootHashSignature=/etc/machine-id$' "$fragment" >/dev/null
 
+# CGroup context: scalar resource-control properties round-trip into the reply
+# context, systemctl show and the transient fragment
+defer_transient_cleanup varlink-transient-cgroup.service
+result=$(varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+    '{"context":{"ID":"varlink-transient-cgroup.service","CGroup":{"CPUWeight":200,"StartupCPUWeight":150,"CPUQuotaPerSecUSec":500000,"MemoryAccounting":true,"MemoryLow":8388608,"StartupMemoryLow":4194304,"MemoryHigh":33554432,"MemoryMax":67108864,"TasksAccounting":true,"TasksMax":{"value":16},"IOAccounting":true,"IOWeight":100},"Service":{"Type":"oneshot","RemainAfterExit":true,"ExecStart":[{"path":"/bin/true"}]}}}')
+echo "$result" | jq -e '.context.CGroup.CPUWeight == 200'
+echo "$result" | jq -e '.context.CGroup.StartupCPUWeight == 150'
+echo "$result" | jq -e '.context.CGroup.CPUQuotaPerSecUSec == 500000'
+echo "$result" | jq -e '.context.CGroup.StartupMemoryLow == 4194304'
+echo "$result" | jq -e '.context.CGroup.MemoryMax == 67108864'
+echo "$result" | jq -e '.context.CGroup.TasksMax.value == 16'
+timeout 30 bash -c 'until systemctl is-active varlink-transient-cgroup.service; do sleep 0.5; done'
+systemctl show -P CPUWeight varlink-transient-cgroup.service | grep '^200$' >/dev/null
+systemctl show -P CPUQuotaPerSecUSec varlink-transient-cgroup.service | grep '^500ms$' >/dev/null
+systemctl show -P MemoryLow varlink-transient-cgroup.service | grep '^8388608$' >/dev/null
+systemctl show -P MemoryHigh varlink-transient-cgroup.service | grep '^33554432$' >/dev/null
+systemctl show -P MemoryMax varlink-transient-cgroup.service | grep '^67108864$' >/dev/null
+systemctl show -P TasksMax varlink-transient-cgroup.service | grep '^16$' >/dev/null
+systemctl show -P IOWeight varlink-transient-cgroup.service | grep '^100$' >/dev/null
+# The fragment must use the unit-file directive spellings (CPUQuota=, not the JSON
+# property name), otherwise the next daemon-reload would drop the setting.
+fragment=$(systemctl show -P FragmentPath varlink-transient-cgroup.service)
+test -n "$fragment"
+grep '^CPUQuota=50.00%$'    "$fragment" >/dev/null
+grep '^MemoryMax=67108864$' "$fragment" >/dev/null
+grep '^TasksMax=16$'        "$fragment" >/dev/null
+
+# Cgroup limits materialize on the live cgroup
+defer_transient_cleanup varlink-transient-cgroup-live.service
+varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+    '{"context":{"ID":"varlink-transient-cgroup-live.service","CGroup":{"MemoryMax":67108864,"TasksMax":{"value":16}},"Service":{"ExecStart":[{"path":"/usr/bin/sleep","arguments":["/usr/bin/sleep","infinity"]}]}}}' >/dev/null
+timeout 10 bash -c 'until systemctl is-active varlink-transient-cgroup-live.service; do sleep 0.5; done'
+cgroup_path=$(systemctl show -P ControlGroup varlink-transient-cgroup-live.service)
+test -n "$cgroup_path"
+grep '^67108864$' "/sys/fs/cgroup${cgroup_path}/memory.max" >/dev/null
+grep '^16$'       "/sys/fs/cgroup${cgroup_path}/pids.max" >/dev/null
+
+# Slice= places the unit under an implicitly created slice
+defer_transient_cleanup varlink-transient-slice.service
+defer_transient_cleanup varlink-test.slice
+result=$(varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+    '{"context":{"ID":"varlink-transient-slice.service","CGroup":{"Slice":"varlink-test.slice"},"Service":{"Type":"oneshot","RemainAfterExit":true,"ExecStart":[{"path":"/bin/true"}]}}}')
+echo "$result" | jq -e '.context.CGroup.Slice == "varlink-test.slice"'
+timeout 30 bash -c 'until systemctl is-active varlink-transient-slice.service; do sleep 0.5; done'
+systemctl show -P Slice varlink-transient-slice.service | grep '^varlink-test.slice$' >/dev/null
+
 # Error cases: verify specific varlink error types
 set +o pipefail
 varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
@@ -345,6 +391,33 @@ unsupported_service=$(varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTra
     '{"context":{"ID":"varlink-transient-unknown-service.service","Service":{"Type":"oneshot","Restart":"always","ExecStart":[{"path":"/bin/true"}]}}}' 2>&1 || true)
 echo "$unsupported_service" | grep "io.systemd.Unit.PropertyNotSupported"
 echo "$unsupported_service" | grep "Service.Restart"
+# Out-of-range CPUWeight= is rejected
+defer_transient_cleanup varlink-transient-bad-weight.service
+expect_invalid_parameter \
+    '{"context":{"ID":"varlink-transient-bad-weight.service","CGroup":{"CPUWeight":123456},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' \
+    "CGroup.CPUWeight"
+# MemoryMax=0 is rejected (minimum 1, matching the D-Bus setter)
+defer_transient_cleanup varlink-transient-bad-memmax.service
+expect_invalid_parameter \
+    '{"context":{"ID":"varlink-transient-bad-memmax.service","CGroup":{"MemoryMax":0},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' \
+    "CGroup.MemoryMax"
+# Scaled TasksMax has no exact unit-file rendering and is rejected
+defer_transient_cleanup varlink-transient-bad-tasksmax.service
+expect_invalid_parameter \
+    '{"context":{"ID":"varlink-transient-bad-tasksmax.service","CGroup":{"TasksMax":{"value":5000,"scale":10000}},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' \
+    "CGroup.TasksMax"
+# Slice= pointing at a non-slice unit is rejected
+defer_transient_cleanup varlink-transient-bad-slice.service
+expect_invalid_parameter \
+    '{"context":{"ID":"varlink-transient-bad-slice.service","CGroup":{"Slice":"not-a-slice.service"},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' \
+    "CGroup.Slice"
+# CGroup field declared in the IDL but not yet settable at creation is rejected as
+# PropertyNotSupported, and the offending sub-property is identified
+defer_transient_cleanup varlink-transient-unknown-cgroup.service
+unsupported_cgroup=$(varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+    '{"context":{"ID":"varlink-transient-unknown-cgroup.service","CGroup":{"DeviceAllow":[]},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' 2>&1 || true)
+echo "$unsupported_cgroup" | grep "io.systemd.Unit.PropertyNotSupported"
+echo "$unsupported_cgroup" | grep "CGroup.DeviceAllow"
 set -o pipefail
 
 transient_cleanup
