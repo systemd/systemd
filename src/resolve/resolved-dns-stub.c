@@ -765,8 +765,25 @@ static int dns_stub_patch_bypass_reply_packet(
         return 0;
 }
 
-static void dns_stub_query_complete(DnsQuery *query) {
-        _cleanup_(dns_query_freep) DnsQuery *q = query;
+typedef struct DnsStubQueryFiberData {
+        DnsQuery *query;
+} DnsStubQueryFiberData;
+
+static DnsStubQueryFiberData* dns_stub_query_fiber_data_free(DnsStubQueryFiberData *d) {
+        if (!d)
+                return NULL;
+
+        dns_query_free(d->query);
+        return mfree(d);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(DnsStubQueryFiberData*, dns_stub_query_fiber_data_free);
+
+static void dns_stub_query_fiber_data_destroy(void *userdata) {
+        dns_stub_query_fiber_data_free(userdata);
+}
+
+static int dns_stub_query_process(DnsQuery *q) {
         int r;
 
         assert(q);
@@ -789,7 +806,7 @@ static void dns_stub_query_complete(DnsQuery *query) {
                         else
                                 (void) dns_stub_send(q->manager, q->stub_listener_extra, q->request_stream, q->request_packet, reply);
 
-                        return;
+                        return 0;
                 }
         }
 
@@ -801,7 +818,7 @@ static void dns_stub_query_complete(DnsQuery *query) {
                         dns_query_question_for_protocol(q, DNS_PROTOCOL_DNS),
                         dns_stub_reply_with_edns0_do(q));
         if (r < 0)
-                return (void) log_debug_errno(r, "Failed to assign sections: %m");
+                return log_debug_errno(r, "Failed to assign sections: %m");
 
         switch (q->state) {
 
@@ -836,10 +853,9 @@ static void dns_stub_query_complete(DnsQuery *query) {
                                  * now with the redirected question. We'll */
                                 r = dns_query_go(q);
                                 if (r < 0)
-                                        return (void) log_debug_errno(r, "Failed to restart query: %m");
+                                        return log_debug_errno(r, "Failed to restart query: %m");
 
-                                TAKE_PTR(q);
-                                return;
+                                return 1;
                         }
 
                         r = dns_stub_assign_sections(
@@ -847,7 +863,7 @@ static void dns_stub_query_complete(DnsQuery *query) {
                                         dns_query_question_for_protocol(q, DNS_PROTOCOL_DNS),
                                         dns_stub_reply_with_edns0_do(q));
                         if (r < 0)
-                                return (void) log_debug_errno(r, "Failed to assign sections: %m");
+                                return log_debug_errno(r, "Failed to assign sections: %m");
 
                         if (cname_result == DNS_QUERY_MATCH) /* A match? Then we are done, let's return what we got */
                                 break;
@@ -901,27 +917,79 @@ static void dns_stub_query_complete(DnsQuery *query) {
         default:
                 assert_not_reached();
         }
+
+        return 0;
+}
+
+static int dns_stub_query_fiber(void *userdata) {
+        DnsStubQueryFiberData *data = ASSERT_PTR(userdata);
+        _cleanup_(dns_query_freep) DnsQuery *q = TAKE_PTR(data->query);
+        int r;
+
+        for (;;) {
+                r = dns_query_await(q);
+                if (r < 0)
+                        return r;
+
+                if (q->request_packet->ipproto == IPPROTO_TCP && !q->request_stream)
+                        return 0;
+
+                r = dns_stub_query_process(q);
+                if (r <= 0)
+                        return r;
+        }
 }
 
 static int dns_stub_stream_complete(DnsStream *s, int error) {
         assert(s);
 
-        log_debug_errno(error, "DNS TCP connection terminated, destroying queries: %m");
+        log_debug_errno(error, "DNS TCP connection terminated, aborting queries: %m");
 
         for (;;) {
                 DnsQuery *q;
 
-                q = set_first(s->queries);
+                q = set_steal_first(s->queries);
                 if (!q)
                         break;
 
-                dns_query_free(q);
+                assert(q->request_stream == s);
+
+                q->request_stream = dns_stream_unref(q->request_stream);
+
+                if (DNS_TRANSACTION_IS_LIVE(q->state))
+                        dns_query_complete(q, DNS_TRANSACTION_ABORTED);
         }
 
-        /* This drops the implicit ref we keep around since it was allocated, as incoming stub connections
-         * should be kept as long as the client wants to. */
-        dns_stream_unref(s);
         return 0;
+}
+
+static void dns_stub_stream_complete_fiber_destroy(void *userdata) {
+        dns_stream_unref(userdata);
+}
+
+static int dns_stub_stream_complete_fiber(void *userdata) {
+        DnsStream *s = ASSERT_PTR(userdata);
+        int r;
+
+        r = dns_stream_await(s);
+        if (r == -ECANCELED)
+                return 0;
+
+        return dns_stub_stream_complete(s, r < 0 ? -r : 0);
+}
+
+static int dns_stub_watch_stream(DnsStream *s) {
+        _cleanup_(sd_future_unrefp) sd_future *completion = NULL;
+        int r;
+
+        assert(s);
+        assert(s->manager);
+
+        r = dns_stream_get_completion_future(s, &completion);
+        if (r < 0)
+                return r;
+
+        return sd_fiber_new(s->manager->event, "dns-stub-stream-complete", dns_stub_stream_complete_fiber, s, dns_stub_stream_complete_fiber_destroy, NULL);
 }
 
 static void dns_stub_process_query(Manager *m, DnsStubListenerExtra *l, DnsStream *s, DnsPacket *p) {
@@ -1036,7 +1104,6 @@ static void dns_stub_process_query(Manager *m, DnsStubListenerExtra *l, DnsStrea
         q->request_packet = dns_packet_ref(p);
         q->request_stream = dns_stream_ref(s); /* make sure the stream stays around until we can send a reply through it */
         q->stub_listener_extra = l;
-        q->complete = dns_stub_query_complete;
 
         if (s) {
                 /* Remember which queries belong to this stream, so that we can cancel them when the stream
@@ -1062,8 +1129,26 @@ static void dns_stub_process_query(Manager *m, DnsStubListenerExtra *l, DnsStrea
                 return;
         }
 
+        _cleanup_(dns_stub_query_fiber_data_freep) DnsStubQueryFiberData *data = new(DnsStubQueryFiberData, 1);
+        if (!data) {
+                log_oom();
+                dns_stub_send_failure(m, l, s, p, DNS_RCODE_SERVFAIL, false);
+                return;
+        }
+
+        *data = (DnsStubQueryFiberData) {
+                .query = TAKE_PTR(q),
+        };
+
+        r = sd_fiber_new(m->event, "dns-stub-query", dns_stub_query_fiber, data, dns_stub_query_fiber_data_destroy, NULL);
+        if (r < 0) {
+                log_error_errno(r, "Failed to create stub query fiber: %m");
+                dns_stub_send_failure(m, l, s, p, DNS_RCODE_SERVFAIL, false);
+                return;
+        }
+
         log_debug("Processing query...");
-        TAKE_PTR(q);
+        TAKE_PTR(data);
 }
 
 static int on_dns_stub_packet_internal(sd_event_source *s, int fd, uint32_t revents, Manager *m, DnsStubListenerExtra *l) {
@@ -1110,7 +1195,7 @@ static int on_dns_stub_stream_packet(DnsStream *s, DnsPacket *p) {
 }
 
 static int on_dns_stub_stream_internal(sd_event_source *s, int fd, uint32_t revents, Manager *m, DnsStubListenerExtra *l) {
-        DnsStream *stream;
+        _cleanup_(dns_stream_unrefp) DnsStream *stream = NULL;
         int cfd, r;
 
         cfd = accept4(fd, NULL, NULL, SOCK_NONBLOCK|SOCK_CLOEXEC);
@@ -1122,7 +1207,7 @@ static int on_dns_stub_stream_internal(sd_event_source *s, int fd, uint32_t reve
         }
 
         r = dns_stream_new(m, &stream, DNS_STREAM_STUB, DNS_PROTOCOL_DNS, cfd, NULL,
-                           on_dns_stub_stream_packet, dns_stub_stream_complete, DNS_STREAM_STUB_TIMEOUT_USEC);
+                           on_dns_stub_stream_packet, DNS_STREAM_STUB_TIMEOUT_USEC);
         if (r < 0) {
                 safe_close(cfd);
                 return r;
@@ -1130,7 +1215,13 @@ static int on_dns_stub_stream_internal(sd_event_source *s, int fd, uint32_t reve
 
         stream->stub_listener_extra = l;
 
-        /* We let the reference to the stream dangle here, it will be dropped later by the complete callback. */
+        r = dns_stub_watch_stream(stream);
+        if (r < 0)
+                return r;
+
+        /* The stream-completion fiber now owns the implicit ref, keeping incoming stub connections alive
+         * for as long as the client wants to keep them open. */
+        TAKE_PTR(stream);
 
         return 0;
 }

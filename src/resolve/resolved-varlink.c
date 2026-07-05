@@ -204,6 +204,21 @@ static void vl_on_notification_disconnect(sd_varlink_server *s, sd_varlink *link
         }
 }
 
+static int dns_query_varlink_request_connected(DnsQuery *q) {
+        int r;
+
+        assert(q);
+        assert(q->varlink_request);
+
+        r = sd_varlink_is_connected(q->varlink_request);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -ECANCELED;
+
+        return 0;
+}
+
 static int find_addr_records(
                 sd_json_variant **array,
                 DnsQuestion *question,
@@ -256,29 +271,17 @@ static int find_addr_records(
         return 0;
 }
 
-static void vl_method_resolve_hostname_complete(DnsQuery *query) {
+static int vl_method_resolve_hostname_reply(DnsQuery *q) {
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *canonical = NULL;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
-        _cleanup_(dns_query_freep) DnsQuery *q = query;
         _cleanup_free_ char *normalized = NULL;
         DnsQuestion *question;
         int r;
 
         assert(q);
 
-        if (q->state != DNS_TRANSACTION_SUCCESS)
-                return (void) reply_query_state(q);
-
-        r = dns_query_process_cname_many(q);
-        if (r == -ELOOP)
-                return (void) sd_varlink_error(q->varlink_request, "io.systemd.Resolve.CNAMELoop", NULL);
-        if (r < 0)
-                goto finish;
-        if (r == DNS_QUERY_CNAME) {
-                /* This was a cname, and the query was restarted. */
-                TAKE_PTR(q);
-                return;
-        }
+        if (!IN_SET(q->state, DNS_TRANSACTION_SUCCESS, DNS_TRANSACTION_NULL))
+                return reply_query_state(q);
 
         question = dns_query_question_for_protocol(q, q->answer_protocol);
 
@@ -287,7 +290,7 @@ static void vl_method_resolve_hostname_complete(DnsQuery *query) {
                 goto finish;
 
         if (sd_json_variant_is_blank_object(array))
-                return (void) sd_varlink_error(q->varlink_request, "io.systemd.Resolve.NoSuchResourceRecord", NULL);
+                return sd_varlink_error(q->varlink_request, "io.systemd.Resolve.NoSuchResourceRecord", NULL);
 
         assert(canonical);
         r = dns_name_normalize(dns_resource_key_name(canonical->key), 0, &normalized);
@@ -302,8 +305,10 @@ static void vl_method_resolve_hostname_complete(DnsQuery *query) {
 finish:
         if (r < 0) {
                 log_full_errno(ERRNO_IS_DISCONNECT(r) ? LOG_DEBUG : LOG_ERR, r, "Failed to send hostname reply: %m");
-                (void) sd_varlink_error_errno(q->varlink_request, r);
+                return sd_varlink_error_errno(q->varlink_request, r);
         }
+
+        return r;
 }
 
 static int parse_as_address(sd_varlink *link, LookupParameters *p) {
@@ -401,38 +406,49 @@ static int vl_method_resolve_hostname(sd_varlink *link, sd_json_variant *paramet
         q->varlink_request = sd_varlink_ref(link);
         sd_varlink_set_userdata(link, q);
         q->request_family = p.family;
-        q->complete = vl_method_resolve_hostname_complete;
 
         r = dns_query_go(q);
         if (r < 0)
                 return r;
 
-        TAKE_PTR(q);
-        return 1;
+        for (;;) {
+                r = dns_query_await(q);
+                if (r < 0)
+                        return r;
+
+                r = dns_query_varlink_request_connected(q);
+                if (r < 0)
+                        return r;
+
+                if (q->state != DNS_TRANSACTION_SUCCESS)
+                        break;
+
+                r = dns_query_process_cname_many(q);
+                if (r == -ELOOP)
+                        return sd_varlink_error(q->varlink_request, "io.systemd.Resolve.CNAMELoop", NULL);
+                if (r < 0)
+                        return r;
+                if (r != DNS_QUERY_CNAME)
+                        break;
+        }
+
+        r = dns_query_varlink_request_connected(q);
+        if (r < 0)
+                return r;
+
+        return vl_method_resolve_hostname_reply(q);
 }
 
-static void vl_method_resolve_address_complete(DnsQuery *query) {
+static int vl_method_resolve_address_reply(DnsQuery *q) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
-        _cleanup_(dns_query_freep) DnsQuery *q = query;
         DnsQuestion *question;
         DnsResourceRecord *rr;
         int ifindex, r;
 
         assert(q);
 
-        if (q->state != DNS_TRANSACTION_SUCCESS)
-                return (void) reply_query_state(q);
-
-        r = dns_query_process_cname_many(q);
-        if (r == -ELOOP)
-                return (void) sd_varlink_error(q->varlink_request, "io.systemd.Resolve.CNAMELoop", NULL);
-        if (r < 0)
-                goto finish;
-        if (r == DNS_QUERY_CNAME) {
-                /* This was a cname, and the query was restarted. */
-                TAKE_PTR(q);
-                return;
-        }
+        if (!IN_SET(q->state, DNS_TRANSACTION_SUCCESS, DNS_TRANSACTION_NULL))
+                return reply_query_state(q);
 
         question = dns_query_question_for_protocol(q, q->answer_protocol);
 
@@ -458,7 +474,7 @@ static void vl_method_resolve_address_complete(DnsQuery *query) {
         }
 
         if (sd_json_variant_is_blank_object(array))
-                return (void) sd_varlink_error(q->varlink_request, "io.systemd.Resolve.NoSuchResourceRecord", NULL);
+                return sd_varlink_error(q->varlink_request, "io.systemd.Resolve.NoSuchResourceRecord", NULL);
 
         r = sd_varlink_replybo(
                         q->varlink_request,
@@ -467,8 +483,10 @@ static void vl_method_resolve_address_complete(DnsQuery *query) {
 finish:
         if (r < 0) {
                 log_full_errno(ERRNO_IS_DISCONNECT(r) ? LOG_DEBUG : LOG_ERR, r, "Failed to send address reply: %m");
-                (void) sd_varlink_error_errno(q->varlink_request, r);
+                return sd_varlink_error_errno(q->varlink_request, r);
         }
+
+        return r;
 }
 
 static int vl_method_resolve_address(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
@@ -521,14 +539,37 @@ static int vl_method_resolve_address(sd_varlink *link, sd_json_variant *paramete
 
         q->request_family = p.family;
         q->request_address = a;
-        q->complete = vl_method_resolve_address_complete;
 
         r = dns_query_go(q);
         if (r < 0)
                 return r;
 
-        TAKE_PTR(q);
-        return 1;
+        for (;;) {
+                r = dns_query_await(q);
+                if (r < 0)
+                        return r;
+
+                r = dns_query_varlink_request_connected(q);
+                if (r < 0)
+                        return r;
+
+                if (q->state != DNS_TRANSACTION_SUCCESS)
+                        break;
+
+                r = dns_query_process_cname_many(q);
+                if (r == -ELOOP)
+                        return sd_varlink_error(q->varlink_request, "io.systemd.Resolve.CNAMELoop", NULL);
+                if (r < 0)
+                        return r;
+                if (r != DNS_QUERY_CNAME)
+                        break;
+        }
+
+        r = dns_query_varlink_request_connected(q);
+        if (r < 0)
+                return r;
+
+        return vl_method_resolve_address_reply(q);
 }
 
 static int append_txt(sd_json_variant **txt, DnsResourceRecord *rr) {
@@ -584,14 +625,14 @@ static int append_srv(
                         DnsResourceRecord *zz;
                         DnsQuestion *question;
 
-                        if (aux->state != DNS_TRANSACTION_SUCCESS)
+                        if (!IN_SET(aux->state, DNS_TRANSACTION_SUCCESS, DNS_TRANSACTION_NULL))
                                 continue;
                         if (aux->auxiliary_result != 0)
                                 continue;
 
                         question = dns_query_question_for_protocol(aux, aux->answer_protocol);
 
-                        r = dns_name_equal(dns_question_first_name(question), rr->srv.name);
+                        r = dns_name_equal(aux->auxiliary_name ?: dns_question_first_name(question), rr->srv.name);
                         if (r < 0)
                                 return r;
                         if (r == 0)
@@ -648,14 +689,14 @@ static int append_srv(
                 LIST_FOREACH(auxiliary_queries, aux, q->auxiliary_queries) {
                         DnsQuestion *question;
 
-                        if (aux->state != DNS_TRANSACTION_SUCCESS)
+                        if (!IN_SET(aux->state, DNS_TRANSACTION_SUCCESS, DNS_TRANSACTION_NULL))
                                 continue;
                         if (aux->auxiliary_result != 0)
                                 continue;
 
                         question = dns_query_question_for_protocol(aux, aux->answer_protocol);
 
-                        r = dns_name_equal(dns_question_first_name(question), rr->srv.name);
+                        r = dns_name_equal(aux->auxiliary_name ?: dns_question_first_name(question), rr->srv.name);
                         if (r < 0)
                                 return r;
                         if (r == 0)
@@ -678,18 +719,7 @@ static int append_srv(
         return 1; /* added */
 }
 
-static sd_varlink* take_vl_link_aux_query(DnsQuery *aux) {
-        assert(aux);
-
-        /* Find the main query */
-        while (aux->auxiliary_for)
-                aux = aux->auxiliary_for;
-
-        return TAKE_PTR(aux->varlink_request);
-}
-
-static void resolve_service_all_complete(DnsQuery *query) {
-        _cleanup_(dns_query_freep) DnsQuery *q = query;
+static int resolve_service_reply(DnsQuery *q) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *srv = NULL, *txt = NULL;
         _cleanup_free_ char *name = NULL, *type = NULL, *domain = NULL;
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *canonical = NULL;
@@ -699,10 +729,8 @@ static void resolve_service_all_complete(DnsQuery *query) {
 
         assert(q);
 
-        if (q->hook_query || q->block_all_complete > 0) {
-                TAKE_PTR(q);
-                return;
-        }
+        if (!IN_SET(q->state, DNS_TRANSACTION_SUCCESS, DNS_TRANSACTION_NULL))
+                return reply_query_state(q);
 
         if ((q->flags & SD_RESOLVED_NO_ADDRESS) == 0) {
                 DnsQuery *bad = NULL;
@@ -710,19 +738,13 @@ static void resolve_service_all_complete(DnsQuery *query) {
 
                 LIST_FOREACH(auxiliary_queries, aux, q->auxiliary_queries) {
 
-                        if (aux->hook_query) {
-                                /* If an auxiliary query's hook is still pending, let's wait */
-                                TAKE_PTR(q);
-                                return;
-                        }
-
                         switch (aux->state) {
 
                         case DNS_TRANSACTION_PENDING:
-                                /* If an auxiliary query is still pending, let's wait */
-                                TAKE_PTR(q);
-                                return;
+                        case DNS_TRANSACTION_VALIDATING:
+                                return -EBUSY;
 
+                        case DNS_TRANSACTION_NULL:
                         case DNS_TRANSACTION_SUCCESS:
                                 if (aux->auxiliary_result == 0)
                                         have_success = true;
@@ -738,19 +760,22 @@ static void resolve_service_all_complete(DnsQuery *query) {
                         /* We can only return one error, hence pick the last error we encountered */
 
                         assert(bad);
-                        if (bad->state == DNS_TRANSACTION_SUCCESS) {
+                        if (IN_SET(bad->state, DNS_TRANSACTION_SUCCESS, DNS_TRANSACTION_NULL)) {
                                 assert(bad->auxiliary_result != 0);
 
                                 if (bad->auxiliary_result == -ELOOP)
-                                        return (void) sd_varlink_error(query->varlink_request, "io.systemd.Resolve.CNAMELoop", NULL);
+                                        return sd_varlink_error(q->varlink_request, "io.systemd.Resolve.CNAMELoop", NULL);
 
                                 assert(bad->auxiliary_result < 0);
                                 r = bad->auxiliary_result;
                                 goto finish;
                         }
 
-                        bad->varlink_request = take_vl_link_aux_query(bad);
-                        return (void) reply_query_state(bad);
+                        assert(!bad->varlink_request);
+                        bad->varlink_request = sd_varlink_ref(q->varlink_request);
+                        r = reply_query_state(bad);
+                        bad->varlink_request = sd_varlink_unref(bad->varlink_request);
+                        return r;
                 }
         }
 
@@ -774,7 +799,7 @@ static void resolve_service_all_complete(DnsQuery *query) {
         }
 
         if (sd_json_variant_is_blank_object(srv))
-                return (void) sd_varlink_error(query->varlink_request, "io.systemd.Resolve.NoSuchResourceRecord", NULL);
+                return sd_varlink_error(q->varlink_request, "io.systemd.Resolve.NoSuchResourceRecord", NULL);
 
         DNS_ANSWER_FOREACH(rr, q->answer) {
                 r = dns_question_matches_rr(question, rr, NULL);
@@ -797,43 +822,25 @@ static void resolve_service_all_complete(DnsQuery *query) {
                 goto finish;
 
         if (isempty(type))
-                return (void) sd_varlink_error(q->varlink_request, "io.systemd.Resolve.InconsistentServiceRecords", NULL);
+                return sd_varlink_error(q->varlink_request, "io.systemd.Resolve.InconsistentServiceRecords", NULL);
 
         r = sd_varlink_replybo(
-                        query->varlink_request,
+                        q->varlink_request,
                         SD_JSON_BUILD_PAIR_VARIANT("services", srv),
                         SD_JSON_BUILD_PAIR_CONDITION(!sd_json_variant_is_blank_object(txt), "txt", SD_JSON_BUILD_VARIANT(txt)),
                         SD_JSON_BUILD_PAIR("canonical", SD_JSON_BUILD_OBJECT(
                                                            SD_JSON_BUILD_PAIR_STRING("name", name),
                                                            SD_JSON_BUILD_PAIR_STRING("type", type),
                                                            SD_JSON_BUILD_PAIR_STRING("domain", domain))),
-                        SD_JSON_BUILD_PAIR_UNSIGNED("flags", dns_query_reply_flags_make(query)));
+                        SD_JSON_BUILD_PAIR_UNSIGNED("flags", dns_query_reply_flags_make(q)));
 
 finish:
         if (r < 0) {
                 log_error_errno(r, "Failed to resolve service: %m");
-                (void) sd_varlink_error_errno(q->varlink_request, r);
-        }
-}
-
-static void resolve_service_hostname_complete(DnsQuery *q) {
-        int r;
-
-        assert(q);
-        assert(q->auxiliary_for);
-
-        if (q->state != DNS_TRANSACTION_SUCCESS) {
-                resolve_service_all_complete(q->auxiliary_for);
-                return;
+                return sd_varlink_error_errno(q->varlink_request, r);
         }
 
-        r = dns_query_process_cname_many(q);
-        if (r == DNS_QUERY_CNAME) /* This was a cname, and the query was restarted. */
-                return;
-
-        /* This auxiliary lookup is finished or failed, let's see if all are finished now. */
-        q->auxiliary_result = r < 0 ? r : 0;
-        resolve_service_all_complete(q->auxiliary_for);
+        return r;
 }
 
 static int resolve_service_hostname(DnsQuery *q, DnsResourceRecord *rr, int ifindex) {
@@ -858,7 +865,9 @@ static int resolve_service_hostname(DnsQuery *q, DnsResourceRecord *rr, int ifin
                 return r;
 
         aux->request_family = q->request_family;
-        aux->complete = resolve_service_hostname_complete;
+        aux->auxiliary_name = strdup(rr->srv.name);
+        if (!aux->auxiliary_name)
+                return -ENOMEM;
 
         r = dns_query_make_auxiliary(aux, q);
         if (r == -EAGAIN)
@@ -880,8 +889,39 @@ static int resolve_service_hostname(DnsQuery *q, DnsResourceRecord *rr, int ifin
         return 1;
 }
 
-static void vl_method_resolve_service_complete(DnsQuery *query) {
-        _cleanup_(dns_query_freep) DnsQuery *q = query;
+static int resolve_service_await_auxiliary(DnsQuery *q) {
+        int r;
+
+        assert(q);
+
+        LIST_FOREACH(auxiliary_queries, aux, q->auxiliary_queries)
+                for (;;) {
+                        r = dns_query_await(aux);
+                        if (r < 0)
+                                return r;
+
+                        r = dns_query_varlink_request_connected(q);
+                        if (r < 0)
+                                return r;
+
+                        if (aux->state != DNS_TRANSACTION_SUCCESS)
+                                break;
+
+                        r = dns_query_process_cname_many(aux);
+                        if (r < 0) {
+                                aux->auxiliary_result = r;
+                                break;
+                        }
+                        if (r != DNS_QUERY_CNAME) {
+                                aux->auxiliary_result = 0;
+                                break;
+                        }
+                }
+
+        return 0;
+}
+
+static int resolve_service_start_auxiliary(DnsQuery *q) {
         bool has_root_domain = false;
         DnsResourceRecord *rr;
         DnsQuestion *question;
@@ -890,26 +930,14 @@ static void vl_method_resolve_service_complete(DnsQuery *query) {
 
         assert(q);
 
-        if (q->state != DNS_TRANSACTION_SUCCESS)
-                return (void) reply_query_state(q);
-
-        r = dns_query_process_cname_many(q);
-        if (r == -ELOOP)
-                return (void) sd_varlink_error(q->varlink_request, "io.systemd.Resolve.CNAMELoop", NULL);
-        if (r < 0)
-                goto fail;
-        if (r == DNS_QUERY_CNAME) {
-                /* This was a cname, and the query was restarted. */
-                TAKE_PTR(q);
-                return;
-        }
-
         question = dns_query_question_for_protocol(q, q->answer_protocol);
 
         DNS_ANSWER_FOREACH_IFINDEX(rr, ifindex, q->answer) {
                 r = dns_question_matches_rr(question, rr, NULL);
-                if (r < 0)
-                        goto fail;
+                if (r < 0) {
+                        log_error_errno(r, "Failed to resolve service: %m");
+                        return sd_varlink_error_errno(q->varlink_request, r);
+                }
                 if (r == 0)
                         continue;
 
@@ -922,12 +950,11 @@ static void vl_method_resolve_service_complete(DnsQuery *query) {
                 }
 
                 if ((q->flags & SD_RESOLVED_NO_ADDRESS) == 0) {
-                        q->block_all_complete++;
                         r = resolve_service_hostname(q, rr, ifindex);
-                        q->block_all_complete--;
-
-                        if (r < 0)
-                                goto fail;
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to resolve service hostname: %m");
+                                return sd_varlink_error_errno(q->varlink_request, r);
+                        }
                 }
 
                 found++;
@@ -937,21 +964,15 @@ static void vl_method_resolve_service_complete(DnsQuery *query) {
                 /* If there's exactly one SRV RR and it uses the root domain as hostname, then the service is
                  * explicitly not offered on the domain. Report this as a recognizable error. See RFC 2782,
                  * Section "Usage Rules". */
-                return (void) sd_varlink_error(q->varlink_request, "io.systemd.Resolve.ServiceNotProvided", NULL);
+                return sd_varlink_error(q->varlink_request, "io.systemd.Resolve.ServiceNotProvided", NULL);
 
         if (found <= 0)
-                return (void) sd_varlink_error(q->varlink_request, "io.systemd.Resolve.NoSuchResourceRecord", NULL);
+                return sd_varlink_error(q->varlink_request, "io.systemd.Resolve.NoSuchResourceRecord", NULL);
 
-        /* Maybe we are already finished? check now... */
-        resolve_service_all_complete(TAKE_PTR(q));
-        return;
-
-fail:
-        log_error_errno(r, "Failed to send address reply: %m");
-        (void) sd_varlink_error_errno(q->varlink_request, r);
+        return 0;
 }
 
-static int vl_method_resolve_service(sd_varlink* link, sd_json_variant* parameters, sd_varlink_method_flags_t flags, void* userdata) {
+static int vl_method_resolve_service(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         static const sd_json_dispatch_field dispatch_table[] = {
                 { "name",    SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(LookupParametersResolveService, name),    0                 },
                 { "type",    SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(LookupParametersResolveService, type),    0                 },
@@ -1022,40 +1043,65 @@ static int vl_method_resolve_service(sd_varlink* link, sd_json_variant* paramete
                 return r;
 
         q->varlink_request = sd_varlink_ref(link);
-        q->request_family = p.family;
-        q->complete = vl_method_resolve_service_complete;
-
         sd_varlink_set_userdata(link, q);
+        q->request_family = p.family;
 
         r = dns_query_go(q);
         if (r < 0)
                 return r;
 
-        TAKE_PTR(q);
-        return 1;
+        for (;;) {
+                r = dns_query_await(q);
+                if (r < 0)
+                        return r;
+
+                r = dns_query_varlink_request_connected(q);
+                if (r < 0)
+                        return r;
+
+                if (q->state != DNS_TRANSACTION_SUCCESS)
+                        break;
+
+                r = dns_query_process_cname_many(q);
+                if (r == -ELOOP)
+                        return sd_varlink_error(q->varlink_request, "io.systemd.Resolve.CNAMELoop", NULL);
+                if (r < 0)
+                        return r;
+                if (r != DNS_QUERY_CNAME)
+                        break;
+        }
+
+        r = dns_query_varlink_request_connected(q);
+        if (r < 0)
+                return r;
+
+        if (!IN_SET(q->state, DNS_TRANSACTION_SUCCESS, DNS_TRANSACTION_NULL))
+                return reply_query_state(q);
+
+        r = resolve_service_start_auxiliary(q);
+        if (r != 0)
+                return r;
+
+        r = resolve_service_await_auxiliary(q);
+        if (r < 0)
+                return r;
+
+        r = dns_query_varlink_request_connected(q);
+        if (r < 0)
+                return r;
+
+        return resolve_service_reply(q);
 }
 
-static void vl_method_resolve_record_complete(DnsQuery *query) {
+static int vl_method_resolve_record_reply(DnsQuery *q) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
-        _cleanup_(dns_query_freep) DnsQuery *q = query;
         DnsQuestion *question;
         int r;
 
         assert(q);
 
-        if (q->state != DNS_TRANSACTION_SUCCESS)
-                return (void) reply_query_state(q);
-
-        r = dns_query_process_cname_many(q);
-        if (r == -ELOOP)
-                return (void) sd_varlink_error(q->varlink_request, "io.systemd.Resolve.CNAMELoop", NULL);
-        if (r < 0)
-                goto finish;
-        if (r == DNS_QUERY_CNAME) {
-                /* This was a cname, and the query was restarted. */
-                TAKE_PTR(q);
-                return;
-        }
+        if (!IN_SET(q->state, DNS_TRANSACTION_SUCCESS, DNS_TRANSACTION_NULL))
+                return reply_query_state(q);
 
         question = dns_query_question_for_protocol(q, q->answer_protocol);
 
@@ -1091,7 +1137,7 @@ static void vl_method_resolve_record_complete(DnsQuery *query) {
         }
 
         if (added <= 0)
-                return (void) sd_varlink_error(q->varlink_request, "io.systemd.Resolve.NoSuchResourceRecord", NULL);
+                return sd_varlink_error(q->varlink_request, "io.systemd.Resolve.NoSuchResourceRecord", NULL);
 
         r = sd_varlink_replybo(
                         q->varlink_request,
@@ -1100,8 +1146,10 @@ static void vl_method_resolve_record_complete(DnsQuery *query) {
 finish:
         if (r < 0) {
                 log_full_errno(ERRNO_IS_DISCONNECT(r) ? LOG_DEBUG : LOG_ERR, r, "Failed to send record reply: %m");
-                (void) sd_varlink_error_errno(q->varlink_request, r);
+                return sd_varlink_error_errno(q->varlink_request, r);
         }
+
+        return r;
 }
 
 static int vl_method_resolve_record(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
@@ -1168,14 +1216,37 @@ static int vl_method_resolve_record(sd_varlink *link, sd_json_variant *parameter
 
         q->varlink_request = sd_varlink_ref(link);
         sd_varlink_set_userdata(link, q);
-        q->complete = vl_method_resolve_record_complete;
 
         r = dns_query_go(q);
         if (r < 0)
                 return r;
 
-        TAKE_PTR(q);
-        return 1;
+        for (;;) {
+                r = dns_query_await(q);
+                if (r < 0)
+                        return r;
+
+                r = dns_query_varlink_request_connected(q);
+                if (r < 0)
+                        return r;
+
+                if (q->state != DNS_TRANSACTION_SUCCESS)
+                        break;
+
+                r = dns_query_process_cname_many(q);
+                if (r == -ELOOP)
+                        return sd_varlink_error(q->varlink_request, "io.systemd.Resolve.CNAMELoop", NULL);
+                if (r < 0)
+                        return r;
+                if (r != DNS_QUERY_CNAME)
+                        break;
+        }
+
+        r = dns_query_varlink_request_connected(q);
+        if (r < 0)
+                return r;
+
+        return vl_method_resolve_record_reply(q);
 }
 
 static int verify_polkit(sd_varlink *link, sd_json_variant *parameters, const char *action) {
@@ -1500,10 +1571,6 @@ static int varlink_main_server_init(Manager *m) {
 
         r = sd_varlink_server_bind_method_many(
                         s,
-                        "io.systemd.Resolve.ResolveHostname",      vl_method_resolve_hostname,
-                        "io.systemd.Resolve.ResolveAddress",       vl_method_resolve_address,
-                        "io.systemd.Resolve.ResolveService",       vl_method_resolve_service,
-                        "io.systemd.Resolve.ResolveRecord",        vl_method_resolve_record,
                         "io.systemd.service.Ping",                 varlink_method_ping,
                         "io.systemd.service.SetLogLevel",          varlink_method_set_log_level,
                         "io.systemd.service.GetEnvironment",       varlink_method_get_environment,
@@ -1511,6 +1578,15 @@ static int varlink_main_server_init(Manager *m) {
                         "io.systemd.Resolve.DumpDNSConfiguration", vl_method_dump_dns_configuration);
         if (r < 0)
                 return log_error_errno(r, "Failed to register varlink methods: %m");
+
+        r = varlink_server_bind_fiber_many(
+                        s,
+                        "io.systemd.Resolve.ResolveHostname", vl_method_resolve_hostname,
+                        "io.systemd.Resolve.ResolveAddress", vl_method_resolve_address,
+                        "io.systemd.Resolve.ResolveService", vl_method_resolve_service,
+                        "io.systemd.Resolve.ResolveRecord", vl_method_resolve_record);
+        if (r < 0)
+                return log_error_errno(r, "Failed to register varlink fiber methods: %m");
 
         r = sd_varlink_server_bind_disconnect(s, vl_on_disconnect);
         if (r < 0)

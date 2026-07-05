@@ -16,6 +16,7 @@
 #include "resolved-link.h"
 #include "resolved-manager.h"
 #include "tests.h"
+#include "time-util.h"
 
 static char* checked_strdup(const char *str) {
         char *copy = strdup(str);
@@ -185,6 +186,204 @@ TEST(dns_query_new_too_many_questions) {
 
         for (size_t i = 0; i < MAX_QUERIES; i++)
                 dns_query_free(queries[i]);
+}
+
+TEST(dns_query_completion_future) {
+        Manager manager = {};
+        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
+        _cleanup_(dns_query_freep) DnsQuery *query = NULL;
+        _cleanup_(sd_future_unrefp) sd_future *future = NULL, *late_future = NULL;
+
+        ASSERT_OK(dns_question_new_address(&question, AF_INET, "www.example.com", false));
+        ASSERT_OK(dns_query_new(&manager, &query, question, NULL, NULL, 1, 0));
+
+        ASSERT_OK(dns_query_get_completion_future(query, &future));
+        ASSERT_EQ(sd_future_state(future), SD_FUTURE_PENDING);
+
+        dns_query_complete(query, DNS_TRANSACTION_ABORTED);
+
+        ASSERT_EQ(sd_future_state(future), SD_FUTURE_RESOLVED);
+        ASSERT_EQ(sd_future_result(future), DNS_TRANSACTION_ABORTED);
+
+        ASSERT_OK(dns_query_get_completion_future(query, &late_future));
+        ASSERT_EQ(sd_future_state(late_future), SD_FUTURE_RESOLVED);
+        ASSERT_EQ(sd_future_result(late_future), DNS_TRANSACTION_ABORTED);
+}
+
+TEST(dns_query_completion_future_free) {
+        Manager manager = {};
+        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
+        _cleanup_(sd_future_unrefp) sd_future *future = NULL;
+        DnsQuery *query = NULL;
+
+        ASSERT_OK(dns_question_new_address(&question, AF_INET, "www.example.com", false));
+        ASSERT_OK(dns_query_new(&manager, &query, question, NULL, NULL, 1, 0));
+
+        ASSERT_OK(dns_query_get_completion_future(query, &future));
+        ASSERT_EQ(sd_future_state(future), SD_FUTURE_PENDING);
+
+        query = dns_query_free(query);
+
+        ASSERT_EQ(sd_future_state(future), SD_FUTURE_RESOLVED);
+        ASSERT_ERROR(sd_future_result(future), ECANCELED);
+}
+
+TEST(dns_query_completion_future_cancel) {
+        Manager manager = {};
+        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
+        _cleanup_(dns_query_freep) DnsQuery *query = NULL;
+        _cleanup_(sd_future_unrefp) sd_future *future = NULL;
+
+        ASSERT_OK(dns_question_new_address(&question, AF_INET, "www.example.com", false));
+        ASSERT_OK(dns_query_new(&manager, &query, question, NULL, NULL, 1, 0));
+
+        ASSERT_OK(dns_query_get_completion_future(query, &future));
+        ASSERT_ERROR(sd_future_cancel(future), EOPNOTSUPP);
+        ASSERT_EQ(sd_future_state(future), SD_FUTURE_PENDING);
+
+        dns_query_complete(query, DNS_TRANSACTION_ABORTED);
+
+        ASSERT_EQ(sd_future_state(future), SD_FUTURE_RESOLVED);
+        ASSERT_EQ(sd_future_result(future), DNS_TRANSACTION_ABORTED);
+}
+
+TEST(dns_query_completion_future_restart) {
+        Manager manager = {};
+        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
+        _cleanup_(dns_query_freep) DnsQuery *query = NULL;
+        _cleanup_(sd_future_unrefp) sd_future *first = NULL, *second = NULL;
+
+        ASSERT_OK(dns_question_new_address(&question, AF_INET, "www.example.com", false));
+        ASSERT_OK(dns_query_new(&manager, &query, question, NULL, NULL, 1, SD_RESOLVED_NO_SYNTHESIZE));
+
+        ASSERT_OK(dns_query_get_completion_future(query, &first));
+        dns_query_complete(query, DNS_TRANSACTION_ABORTED);
+        ASSERT_EQ(sd_future_result(first), DNS_TRANSACTION_ABORTED);
+
+        query->state = DNS_TRANSACTION_NULL;
+        ASSERT_OK_POSITIVE(dns_query_go(query));
+
+        ASSERT_EQ(sd_future_result(first), DNS_TRANSACTION_ABORTED);
+        ASSERT_OK(dns_query_get_completion_future(query, &second));
+        ASSERT_EQ(sd_future_state(second), SD_FUTURE_RESOLVED);
+        ASSERT_EQ(sd_future_result(second), DNS_TRANSACTION_NO_SERVERS);
+}
+
+typedef struct QueryAwaitContext {
+        DnsQuery *query;
+        int result;
+} QueryAwaitContext;
+
+static int query_await_fiber(void *userdata) {
+        QueryAwaitContext *ctx = ASSERT_PTR(userdata);
+
+        ctx->result = -ENOTRECOVERABLE;
+        ctx->result = dns_query_await(ctx->query);
+        return ctx->result;
+}
+
+TEST(dns_query_completion_future_await) {
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        Manager manager = {};
+        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
+        _cleanup_(dns_query_freep) DnsQuery *query = NULL;
+        _cleanup_(sd_future_unrefp) sd_future *completion = NULL, *fiber = NULL;
+        QueryAwaitContext ctx = {};
+
+        ASSERT_OK(sd_event_new(&event));
+        ASSERT_OK(sd_event_set_exit_on_idle(event, true));
+        manager.event = event;
+
+        ASSERT_OK(dns_question_new_address(&question, AF_INET, "www.example.com", false));
+        ASSERT_OK(dns_query_new(&manager, &query, question, NULL, NULL, 1, 0));
+        ctx.query = query;
+
+        ASSERT_OK(sd_fiber_new(event, "query-await", query_await_fiber, &ctx, NULL, &fiber));
+        ASSERT_OK_POSITIVE(sd_event_run(event, 0));
+        ASSERT_EQ(sd_future_state(fiber), SD_FUTURE_PENDING);
+        ASSERT_OK(dns_query_get_completion_future(query, &completion));
+        ASSERT_NULL(sd_future_get_userdata(completion));
+
+        dns_query_complete(query, DNS_TRANSACTION_ABORTED);
+
+        ASSERT_OK(sd_event_loop(event));
+        ASSERT_EQ(ctx.result, DNS_TRANSACTION_ABORTED);
+        ASSERT_EQ(sd_future_result(fiber), DNS_TRANSACTION_ABORTED);
+}
+
+TEST(dns_query_completion_future_await_spurious_resume) {
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        Manager manager = {};
+        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
+        _cleanup_(dns_query_freep) DnsQuery *query = NULL;
+        _cleanup_(sd_future_unrefp) sd_future *fiber = NULL;
+        QueryAwaitContext ctx = {};
+
+        ASSERT_OK(sd_event_new(&event));
+        ASSERT_OK(sd_event_set_exit_on_idle(event, true));
+        manager.event = event;
+
+        ASSERT_OK(dns_question_new_address(&question, AF_INET, "www.example.com", false));
+        ASSERT_OK(dns_query_new(&manager, &query, question, NULL, NULL, 1, 0));
+        query->state = DNS_TRANSACTION_PENDING;
+        ctx.query = query;
+
+        ASSERT_OK(sd_fiber_new(event, "query-await-spurious-resume", query_await_fiber, &ctx, NULL, &fiber));
+        ASSERT_OK_POSITIVE(sd_event_run(event, 0));
+        ASSERT_EQ(sd_future_state(fiber), SD_FUTURE_PENDING);
+        ASSERT_EQ(ctx.result, -ENOTRECOVERABLE);
+
+        ASSERT_OK(sd_fiber_resume(fiber, DNS_TRANSACTION_PENDING));
+        ASSERT_OK_POSITIVE(sd_event_run(event, 0));
+        ASSERT_EQ(sd_future_state(fiber), SD_FUTURE_PENDING);
+        ASSERT_EQ(ctx.result, -ENOTRECOVERABLE);
+
+        dns_query_complete(query, DNS_TRANSACTION_ABORTED);
+
+        ASSERT_OK(sd_event_loop(event));
+        ASSERT_EQ(ctx.result, DNS_TRANSACTION_ABORTED);
+        ASSERT_EQ(sd_future_result(fiber), DNS_TRANSACTION_ABORTED);
+}
+
+static int query_await_timeout_fiber(void *userdata) {
+        QueryAwaitContext *ctx = ASSERT_PTR(userdata);
+
+        ctx->result = -ENOTRECOVERABLE;
+        SD_FIBER_WITH_TIMEOUT(20 * USEC_PER_MSEC)
+                ctx->result = dns_query_await(ctx->query);
+
+        return ctx->result;
+}
+
+TEST(dns_query_completion_future_await_timeout) {
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        Manager manager = {};
+        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
+        _cleanup_(dns_query_freep) DnsQuery *query = NULL;
+        _cleanup_(sd_future_unrefp) sd_future *completion = NULL, *fiber = NULL;
+        QueryAwaitContext ctx = {};
+
+        ASSERT_OK(sd_event_new(&event));
+        ASSERT_OK(sd_event_set_exit_on_idle(event, true));
+        manager.event = event;
+
+        ASSERT_OK(dns_question_new_address(&question, AF_INET, "www.example.com", false));
+        ASSERT_OK(dns_query_new(&manager, &query, question, NULL, NULL, 1, 0));
+        ctx.query = query;
+
+        ASSERT_OK(sd_fiber_new(event, "query-await-timeout", query_await_timeout_fiber, &ctx, NULL, &fiber));
+        ASSERT_OK(sd_event_loop(event));
+        ASSERT_EQ(ctx.result, -ETIME);
+        ASSERT_ERROR(sd_future_result(fiber), ETIME);
+
+        ASSERT_OK(dns_query_get_completion_future(query, &completion));
+        ASSERT_EQ(sd_future_state(completion), SD_FUTURE_PENDING);
+        ASSERT_NULL(sd_future_get_userdata(completion));
+
+        dns_query_complete(query, DNS_TRANSACTION_ABORTED);
+
+        ASSERT_EQ(sd_future_state(completion), SD_FUTURE_RESOLVED);
+        ASSERT_EQ(sd_future_result(completion), DNS_TRANSACTION_ABORTED);
 }
 
 /* ================================================================

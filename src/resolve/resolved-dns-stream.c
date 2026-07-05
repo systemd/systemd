@@ -14,6 +14,7 @@
 #include "ordered-set.h"
 #include "resolved-dns-server.h"
 #include "resolved-dns-stream.h"
+#include "resolved-fiber-util.h"
 #include "resolved-manager.h"
 #include "set.h"
 #include "time-util.h"
@@ -87,9 +88,12 @@ static int dns_stream_complete(DnsStream *s, int error) {
 
         dns_stream_detach(s);
 
-        if (s->complete)
-                s->complete(s, error);
-        else /* the default action if no completion function is set is to close the stream */
+        s->completed = true;
+        s->completion_result = error == 0 ? 0 : -error;
+
+        if (s->completion_future)
+                (void) sd_future_resolve(s->completion_future, s->completion_result);
+        else /* the default action without a completion waiter is to close the stream */
                 dns_stream_unref(s);
 
         return 0;
@@ -500,6 +504,9 @@ static DnsStream *dns_stream_free(DnsStream *s) {
         dns_packet_unref(s->write_packet);
         dns_packet_unref(s->read_packet);
         dns_server_unref(s->server);
+        if (s->completion_future)
+                (void) sd_future_resolve(s->completion_future, -ECANCELED);
+        s->completion_future = sd_future_unref(s->completion_future);
 
         ordered_set_free(s->write_queue);
 
@@ -516,7 +523,6 @@ int dns_stream_new(
                 int fd,
                 const union sockaddr_union *tfo_address,
                 int (on_packet)(DnsStream*, DnsPacket*),
-                int (complete)(DnsStream*, int), /* optional */
                 usec_t connect_timeout_usec) {
 
         _cleanup_(dns_stream_unrefp) DnsStream *s = NULL;
@@ -572,7 +578,6 @@ int dns_stream_new(
 
         s->fd = fd;
         s->on_packet = on_packet;
-        s->complete = complete;
 
         if (tfo_address) {
                 s->tfo_address = *tfo_address;
@@ -609,6 +614,41 @@ void dns_stream_detach(DnsStream *s) {
                 return;
 
         dns_server_unref_stream(s->server);
+}
+
+int dns_stream_get_completion_future(DnsStream *s, sd_future **ret) {
+        int r;
+
+        assert(s);
+        assert(ret);
+
+        if (!s->completion_future) {
+                r = resolved_future_new(&s->completion_future);
+                if (r < 0)
+                        return r;
+
+                if (s->completed)
+                        (void) sd_future_resolve(s->completion_future, s->completion_result);
+        }
+
+        *ret = sd_future_ref(s->completion_future);
+        return 0;
+}
+
+int dns_stream_await(DnsStream *s) {
+        _cleanup_(sd_future_unrefp) sd_future *f = NULL;
+        int r;
+
+        assert(s);
+
+        if (s->completed)
+                return s->completion_result;
+
+        r = dns_stream_get_completion_future(s, &f);
+        if (r < 0)
+                return r;
+
+        return sd_fiber_await(f);
 }
 
 DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(

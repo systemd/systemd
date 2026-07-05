@@ -19,6 +19,7 @@
 #include "resolved-dns-synthesize.h"
 #include "resolved-dns-transaction.h"
 #include "resolved-etc-hosts.h"
+#include "resolved-fiber-util.h"
 #include "resolved-hook.h"
 #include "resolved-manager.h"
 #include "resolved-static-records.h"
@@ -79,6 +80,8 @@ static void dns_query_candidate_abandon(DnsQueryCandidate *c) {
         assert(c);
 
         (void) event_source_disable(c->timeout_event_source);
+        if (c->completion_future)
+                (void) sd_future_resolve(c->completion_future, -ECANCELED);
 
         /* Abandon all the DnsTransactions attached to this query */
 
@@ -113,6 +116,9 @@ static DnsQueryCandidate* dns_query_candidate_free(DnsQueryCandidate *c) {
                 return NULL;
 
         c->timeout_event_source = sd_event_source_disable_unref(c->timeout_event_source);
+        if (c->completion_future)
+                (void) sd_future_resolve(c->completion_future, -ECANCELED);
+        c->completion_future = sd_future_unref(c->completion_future);
 
         dns_query_candidate_stop(c);
         dns_query_candidate_unlink(c);
@@ -281,6 +287,50 @@ static DnsTransactionState dns_query_candidate_state(DnsQueryCandidate *c) {
         return state;
 }
 
+static void dns_query_candidate_resolve(DnsQueryCandidate *c, int result) {
+        assert(c);
+
+        if (c->completion_future)
+                (void) sd_future_resolve(c->completion_future, result);
+}
+
+int dns_query_candidate_get_completion_future(DnsQueryCandidate *c, sd_future **ret) {
+        int r;
+
+        assert(c);
+        assert(ret);
+
+        if (!c->completion_future) {
+                r = resolved_future_new(&c->completion_future);
+                if (r < 0)
+                        return r;
+
+                DnsTransactionState state = dns_query_candidate_state(c);
+                if (!DNS_TRANSACTION_IS_LIVE(state))
+                        (void) sd_future_resolve(c->completion_future, state);
+        }
+
+        *ret = sd_future_ref(c->completion_future);
+        return 0;
+}
+
+int dns_query_candidate_await(DnsQueryCandidate *c) {
+        _cleanup_(sd_future_unrefp) sd_future *f = NULL;
+        int r;
+
+        assert(c);
+
+        DnsTransactionState state = dns_query_candidate_state(c);
+        if (!DNS_TRANSACTION_IS_LIVE(state))
+                return state;
+
+        r = dns_query_candidate_get_completion_future(c, &f);
+        if (r < 0)
+                return r;
+
+        return sd_fiber_await(f);
+}
+
 static int dns_query_candidate_setup_transactions(DnsQueryCandidate *c) {
         DnsQuestion *question;
         DnsResourceKey *key;
@@ -418,11 +468,13 @@ void dns_query_candidate_notify(DnsQueryCandidate *c) {
 
         }
 
+        dns_query_candidate_resolve(c, state);
         dns_query_ready(c->query);
         return;
 
 fail:
         c->error_code = log_warning_errno(r, "Failed to follow search domains: %m");
+        dns_query_candidate_resolve(c, DNS_TRANSACTION_ERRNO);
         dns_query_ready(c->query);
 }
 
@@ -440,6 +492,8 @@ static void dns_query_abandon(DnsQuery *q) {
 
         /* Thankfully transactions have their own timeouts */
         event_source_disable(q->timeout_event_source);
+
+        hook_query_abort(q->hook_query);
 
         LIST_FOREACH(candidates_by_query, c, q->candidates)
                 dns_query_candidate_abandon(c);
@@ -475,6 +529,9 @@ DnsQuery *dns_query_free(DnsQuery *q) {
                 return NULL;
 
         q->timeout_event_source = sd_event_source_disable_unref(q->timeout_event_source);
+        if (q->completion_future)
+                (void) sd_future_resolve(q->completion_future, -ECANCELED);
+        q->completion_future = sd_future_unref(q->completion_future);
 
         while (q->auxiliary_queries)
                 dns_query_free(q->auxiliary_queries);
@@ -493,6 +550,8 @@ DnsQuery *dns_query_free(DnsQuery *q) {
         dns_question_unref(q->collected_questions);
 
         dns_query_reset_answer(q);
+
+        free(q->auxiliary_name);
 
         sd_bus_message_unref(q->bus_request);
         sd_bus_track_unref(q->bus_track);
@@ -779,8 +838,62 @@ void dns_query_complete(DnsQuery *q, DnsTransactionState state) {
         (void) manager_monitor_send(q->manager, q);
 
         dns_query_abandon(q);
-        if (q->complete)
-                q->complete(q);
+        if (q->completion_future)
+                (void) sd_future_resolve(q->completion_future, state);
+}
+
+int dns_query_get_completion_future(DnsQuery *q, sd_future **ret) {
+        int r;
+
+        assert(q);
+        assert(ret);
+
+        if (!q->completion_future) {
+                r = resolved_future_new(&q->completion_future);
+                if (r < 0)
+                        return r;
+
+                if (!DNS_TRANSACTION_IS_LIVE(q->state))
+                        (void) sd_future_resolve(q->completion_future, q->state);
+        }
+
+        *ret = sd_future_ref(q->completion_future);
+        return 0;
+}
+
+static int dns_query_process_hook_result(DnsQuery *q);
+
+int dns_query_await(DnsQuery *q) {
+        int r;
+
+        assert(q);
+
+        for (;;) {
+                _cleanup_(sd_future_unrefp) sd_future *f = NULL;
+
+                if (!DNS_TRANSACTION_IS_LIVE(q->state))
+                        return q->state;
+
+                if (q->hook_query) {
+                        r = dns_query_process_hook_result(q);
+                        if (r < 0)
+                                return r;
+
+                        continue;
+                }
+
+                r = dns_query_get_completion_future(q, &f);
+                if (r < 0)
+                        return r;
+
+                r = sd_fiber_await(f);
+                if (r < 0)
+                        return r;
+                if (DNS_TRANSACTION_IS_LIVE(q->state))
+                        continue;
+
+                return q->state;
+        }
 }
 
 static int on_query_timeout(sd_event_source *s, usec_t usec, void *userdata) {
@@ -1023,18 +1136,31 @@ fail:
         return r;
 }
 
-static void on_hook_complete(HookQuery *hq, int rcode, DnsAnswer *answer, void *userdata) {
-        DnsQuery *q = ASSERT_PTR(userdata);
+static int dns_query_process_hook_result(DnsQuery *q) {
+        _cleanup_(hook_query_freep) HookQuery *finished = NULL;
+        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
+        HookQuery *hq;
         int r;
+        int rcode;
 
-        assert(hq);
-        assert(q->hook_query == hq);
+        assert(q);
+        assert(q->hook_query);
         assert(q->state == DNS_TRANSACTION_NULL);
 
-        q->hook_query = hook_query_free(q->hook_query);
-        TAKE_PTR(hq);
+        hq = q->hook_query;
 
-        if (rcode < 0) {
+        r = hook_query_await(hq);
+        if (!DNS_TRANSACTION_IS_LIVE(q->state))
+                return q->state;
+        if (r < 0 && r != -ENODATA) {
+                q->hook_query = hook_query_free(q->hook_query);
+                return r;
+        }
+
+        finished = TAKE_PTR(q->hook_query);
+
+        r = hook_query_get_result(finished, &rcode, &answer);
+        if (r == -ENODATA) {
                 log_debug("Hook yielded no results, proceeding.");
                 r = dns_query_go_scopes(q);
                 if (r < 0) {
@@ -1043,17 +1169,21 @@ static void on_hook_complete(HookQuery *hq, int rcode, DnsAnswer *answer, void *
                         dns_query_complete(q, DNS_TRANSACTION_ERRNO);
                 }
 
-                return;
+                return 0;
         }
+        if (r < 0)
+                return r;
 
         dns_query_reset_answer(q);
 
-        q->answer = dns_answer_ref(answer);
+        q->answer = TAKE_PTR(answer);
         q->answer_rcode = rcode;
         q->answer_protocol = dns_synthesize_protocol(q->flags);
         q->answer_family = dns_synthesize_family(q->flags);
         q->answer_query_flags = SD_RESOLVED_FROM_HOOK;
         dns_query_complete(q, rcode == DNS_RCODE_SUCCESS ? DNS_TRANSACTION_SUCCESS : DNS_TRANSACTION_RCODE_FAILURE);
+
+        return 0;
 }
 
 int dns_query_go(DnsQuery *q) {
@@ -1065,6 +1195,9 @@ int dns_query_go(DnsQuery *q) {
         if (q->hook_query ||
             q->state != DNS_TRANSACTION_NULL)
                 return 0;
+
+        if (q->completion_future && sd_future_state(q->completion_future) == SD_FUTURE_RESOLVED)
+                q->completion_future = sd_future_unref(q->completion_future);
 
         r = dns_query_try_static_records(q);
         if (r < 0)
@@ -1086,8 +1219,6 @@ int dns_query_go(DnsQuery *q) {
                         q->manager,
                         q->question_bypass ? q->question_bypass->question : q->question_idna,
                         q->question_bypass ? q->question_bypass->question : q->question_utf8,
-                        on_hook_complete,
-                        q,
                         &q->hook_query);
         if (r < 0)
                 return r;
@@ -1215,6 +1346,7 @@ static void dns_query_accept(DnsQuery *q, DnsQueryCandidate *c) {
         if (r < 0)
                 goto fail;
 
+        dns_query_candidate_resolve(c, state);
         dns_query_complete(q, state);
         return;
 
