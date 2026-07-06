@@ -153,6 +153,7 @@ int check_password_quality(const char *password, const char *old, const char *us
 
 #endif
 
+_dlopen_
 int dlopen_pwquality(int log_level) {
 #if HAVE_PWQUALITY
         static void *pwquality_dl = NULL;

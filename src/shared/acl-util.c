@@ -44,6 +44,7 @@ DLSYM_PROTOTYPE(acl_set_tag_type);
 DLSYM_PROTOTYPE(acl_to_any_text);
 #endif
 
+_dlopen_
 int dlopen_libacl(int log_level) {
 #if HAVE_ACL
         static void *libacl_dl = NULL;

@@ -80,6 +80,7 @@ static void fido_log_propagate_handler(const char *s) {
 
 #endif
 
+_dlopen_
 int dlopen_libfido2(int log_level) {
 #if HAVE_LIBFIDO2
         static void *libfido2_dl = NULL;

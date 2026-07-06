@@ -32,6 +32,7 @@ DLSYM_PROTOTYPE(TLS_client_method) = NULL;
 
 #endif
 
+_dlopen_
 int dlopen_libssl(int log_level) {
 #if HAVE_OPENSSL
         static void *libssl_dl = NULL;

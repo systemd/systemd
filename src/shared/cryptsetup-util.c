@@ -271,6 +271,7 @@ int cryptsetup_get_volume_key_id(
 }
 #endif
 
+_dlopen_
 int dlopen_cryptsetup(int log_level) {
 #if HAVE_LIBCRYPTSETUP
         static void *cryptsetup_dl = NULL;

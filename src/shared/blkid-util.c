@@ -95,6 +95,7 @@ int blkid_probe_lookup_value_u64(blkid_probe b, const char *field, uint64_t *ret
 }
 #endif
 
+_dlopen_
 int dlopen_libblkid(int log_level) {
 #if HAVE_BLKID
         static void *libblkid_dl = NULL;

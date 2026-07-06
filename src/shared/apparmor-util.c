@@ -43,6 +43,7 @@ bool mac_apparmor_use(void) {
 
 #endif
 
+_dlopen_
 int dlopen_libapparmor(int log_level) {
 #if HAVE_APPARMOR
         static void *libapparmor_dl = NULL;

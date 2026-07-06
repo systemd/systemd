@@ -379,6 +379,7 @@ int pam_putenv_assign(pam_handle_t *pamh, const char *name, const char *value) {
 
 #endif
 
+_dlopen_
 int dlopen_libpam(int log_level) {
 #if HAVE_PAM
         static void *libpam_dl = NULL;

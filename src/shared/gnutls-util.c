@@ -18,6 +18,7 @@ DLSYM_PROTOTYPE(gnutls_x509_crt_import) = NULL;
 DLSYM_PROTOTYPE(gnutls_x509_crt_init) = NULL;
 #endif
 
+_dlopen_
 int dlopen_gnutls(int log_level) {
 #if HAVE_GNUTLS
         static void *gnutls_dl = NULL;
