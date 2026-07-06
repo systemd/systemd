@@ -59,6 +59,7 @@ int userns_info_remove_netifs(UserNamespaceInfo *userns);
 bool userns_name_is_valid(const char *name);
 
 int userns_registry_open_fd(void);
+int userns_registry_lock_full(int dir_fd, int operation);
 int userns_registry_lock(int dir_fd);
 
 int userns_registry_load_by_start_uid(int dir_fd, uid_t start, UserNamespaceInfo **ret);
