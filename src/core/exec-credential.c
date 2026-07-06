@@ -755,7 +755,7 @@ static int load_cred_recurse_dir_cb(
         if (event != RECURSE_DIR_ENTRY)
                 return RECURSE_DIR_CONTINUE;
 
-        if (!IN_SET(de->d_type, DT_REG, DT_SOCK))
+        if (de->d_type != DT_REG)
                 return RECURSE_DIR_CONTINUE;
 
         sub_id = strreplace(path, "/", "_");
