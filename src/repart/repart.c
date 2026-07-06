@@ -100,9 +100,6 @@
 /* We know up front we're never going to put more than this in a verity sig partition. */
 #define VERITY_SIG_SIZE (HARD_MIN_SIZE*4ULL)
 
-/* libfdisk takes off slightly more than 1M of the disk size when creating a GPT disk label */
-#define GPT_METADATA_SIZE (1044ULL*1024ULL)
-
 /* LUKS2 takes off 16M of the partition size with its metadata by default */
 #define LUKS2_METADATA_SIZE (16ULL*1024ULL*1024ULL)
 
@@ -11259,12 +11256,26 @@ static int determine_auto_size(
 
         assert(c);
 
-        minimal_size = round_up_size(GPT_METADATA_SIZE, 4096);
+        /* At the beginning of the image, some size is reserved for:
+         * Protective MBR (1 block) + GPT header (1 block) +
+         * Primary partition table (minimum 16KiB) = (2 * c->sector_size) + (16 * 1024)
+         *
+         * Note that fdisk usually sets the first usable block to 1MiB (at least for
+         * disks larger than 4MiB), so we just force it to that as well. If fdisk
+         * decides to set it lower, we made the image a bit larger than necessary,
+         * if it sets it higher, we'd have a problem. */
+        minimal_size = 1024 * 1024;
+        /* Of course need to align the start to our grain size as well */
+        minimal_size = round_up_size(minimal_size, c->grain_size);
+
+        /* At the end of the image, there is size reserved for:
+         * Secondary partition table (minimum 16KiB) + GPT header (1 block) */
+        minimal_size += (16 * 1024) + c->sector_size;
 
         if (c->from_scratch)
                 current_size = 0;
         else
-                current_size = round_up_size(GPT_METADATA_SIZE, 4096);
+                current_size = minimal_size;
 
         foreign_size = 0;
 
