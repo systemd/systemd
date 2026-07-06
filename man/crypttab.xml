@@ -654,6 +654,17 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>headless-recovery=</option></term>
+
+        <listitem><para>Takes a boolean argument, defaults to false. If true, never query interactively
+        for the recovery key. Useful for interactive systems with alternative recovery paths.</para>
+
+        <para>This option has no effect when <option>headless</option> is set.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>verify</option></term>
 
         <listitem><para>If the encryption password is read from console, it has to be entered twice to
