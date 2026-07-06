@@ -1082,6 +1082,29 @@ systemd-confext status
 systemd-confext unmerge
 rm -rf /run/confexts/
 
+# Check that the sysupdate notification refresh honors confext-specific configuration.
+mkdir -p /run/systemd/confext.conf.d
+cat >/run/systemd/confext.conf.d/50-test-mutable.conf <<EOF
+[ConfExt]
+Mutable=yes
+EOF
+mutable_marker="/etc/test-confext-mutable-$RANDOM"
+mkdir -p /run/confexts/test/etc/extension-release.d
+echo "ID=_any" >/run/confexts/test/etc/extension-release.d/extension-release.test
+echo "ARCHITECTURE=_any" >>/run/confexts/test/etc/extension-release.d/extension-release.test
+echo "MARKER_CONFEXT_123" >/run/confexts/test/etc/testfile
+systemd-confext merge
+echo "MARKER_CONFEXT_MUTABLE" >"$mutable_marker"
+grep -q -F "MARKER_CONFEXT_MUTABLE" "$mutable_marker"
+systemctl start systemd-sysupdate-notify-sysext.socket
+varlinkctl call /run/systemd/sysupdate/notify/io.systemd.sysext io.systemd.SysUpdate.Notify.OnCompletedUpdate '{}'
+grep -q -F "MARKER_CONFEXT_MUTABLE" "$mutable_marker"
+rm "$mutable_marker"
+systemd-confext unmerge
+rm -f /run/systemd/confext.conf.d/50-test-mutable.conf
+rm -rf /run/confexts/
+rmdir /var/lib/extensions.mutable/etc /var/lib/extensions.mutable 2>/dev/null || :
+
 unsquashfs -force -no-xattrs -d /tmp/img "$MINIMAL_IMAGE.raw"
 systemd-run --unit=test-root-ephemeral \
     -p RootDirectory=/tmp/img \
