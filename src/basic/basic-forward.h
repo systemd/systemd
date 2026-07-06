@@ -4,6 +4,7 @@
 /* IWYU pragma: always_keep */
 
 #include <errno.h>                      /* IWYU pragma: export */
+#include <fcntl.h>                      /* IWYU pragma: export */
 #include <inttypes.h>                   /* IWYU pragma: export */
 #include <limits.h>                     /* IWYU pragma: export */
 #include <paths.h>                      /* IWYU pragma: export */
