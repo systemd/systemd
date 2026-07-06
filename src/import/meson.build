@@ -10,7 +10,6 @@ executables += [
                 'dbus' : true,
                 'sources' : files(
                         'importd.c',
-                        'oci-util.c',
                 ),
                 'export' : files(
                         'oci-util.c',
