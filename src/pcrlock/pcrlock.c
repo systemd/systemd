@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/file.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "sd-device.h"
@@ -19,6 +20,7 @@
 #include "conf-files.h"
 #include "creds-util.h"
 #include "crypto-util.h"
+#include "data-fd-util.h"
 #include "efi-api.h"
 #include "efivars.h"
 #include "env-util.h"
@@ -4754,6 +4756,28 @@ static int verb_unlock_gpt(int argc, char *argv[], uintptr_t _data, void *userda
         return unlink_pcrlock(PCRLOCK_GPT_PATH);
 }
 
+static int acquire_stdin_pe_fd(void) {
+        struct stat st;
+        int fd;
+
+        if (fstat(STDIN_FILENO, &st) < 0)
+                return log_error_errno(errno, "Failed to stat stdin: %m");
+
+        if (S_ISREG(st.st_mode)) {
+                fd = fcntl(STDIN_FILENO, F_DUPFD_CLOEXEC, 3);
+                if (fd < 0)
+                        return log_error_errno(errno, "Failed to duplicate stdin: %m");
+
+                return fd;
+        }
+
+        fd = copy_data_fd(STDIN_FILENO);
+        if (fd < 0)
+                return log_error_errno(fd, "Failed to copy PE binary from stdin to temporary file: %m");
+
+        return fd;
+}
+
 VERB(verb_lock_pe, "lock-pe", "[BINARY]", VERB_ANY, 2, 0,
      "Generate a .pcrlock file from PE binary");
 static int verb_lock_pe(int argc, char *argv[], uintptr_t _data, void *userdata) {
@@ -4768,6 +4792,11 @@ static int verb_lock_pe(int argc, char *argv[], uintptr_t _data, void *userdata)
                 fd = open(argv[1], O_RDONLY|O_CLOEXEC);
                 if (fd < 0)
                         return log_error_errno(errno, "Failed to open '%s': %m", argv[1]);
+        }
+        if (fd < 0) {
+                fd = acquire_stdin_pe_fd();
+                if (fd < 0)
+                        return fd;
         }
 
         if (arg_pcr_mask == 0)
@@ -4788,7 +4817,7 @@ static int verb_lock_pe(int argc, char *argv[], uintptr_t _data, void *userdata)
                         assert_se(a = tpm2_hash_alg_to_string(*pa));
                         assert_se(md = sym_EVP_get_digestbyname(a));
 
-                        r = pe_hash(fd < 0 ? STDIN_FILENO : fd, md, &hash, &hash_size);
+                        r = pe_hash(fd, md, &hash, &hash_size);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to hash PE binary: %m");
 
@@ -4843,6 +4872,11 @@ static int verb_lock_uki(int argc, char *argv[], uintptr_t _data, void *userdata
                 if (fd < 0)
                         return log_error_errno(errno, "Failed to open '%s': %m", argv[1]);
         }
+        if (fd < 0) {
+                fd = acquire_stdin_pe_fd();
+                if (fd < 0)
+                        return fd;
+        }
 
         for (size_t i = 0; i < TPM2_N_HASH_ALGORITHMS; i++) {
                 _cleanup_free_ void *peh = NULL;
@@ -4852,7 +4886,7 @@ static int verb_lock_uki(int argc, char *argv[], uintptr_t _data, void *userdata
                 assert_se(a = tpm2_hash_alg_to_string(tpm2_hash_algorithms[i]));
                 assert_se(md = sym_EVP_get_digestbyname(a));
 
-                r = pe_hash(fd < 0 ? STDIN_FILENO : fd, md, &peh, hash_sizes + i);
+                r = pe_hash(fd, md, &peh, hash_sizes + i);
                 if (r < 0)
                         return log_error_errno(r, "Failed to hash PE binary: %m");
 
@@ -4863,7 +4897,7 @@ static int verb_lock_uki(int argc, char *argv[], uintptr_t _data, void *userdata
                 if (r < 0)
                         return log_error_errno(r, "Failed to build JSON digest object: %m");
 
-                r = uki_hash(fd < 0 ? STDIN_FILENO : fd, md, section_hashes + (i * _UNIFIED_SECTION_MAX), hash_sizes + i);
+                r = uki_hash(fd, md, section_hashes + (i * _UNIFIED_SECTION_MAX), hash_sizes + i);
                 if (r < 0)
                         return log_error_errno(r, "Failed to UKI hash PE binary: %m");
         }

@@ -106,8 +106,10 @@ SD_STUB="$(find /usr/lib/systemd/boot/efi/ -name "systemd-boot*.efi" | head -n1)
 if [[ -n "$SD_STUB" ]]; then
     "$SD_PCRLOCK" lock-pe "$SD_STUB"
     "$SD_PCRLOCK" lock-pe <"$SD_STUB"
+    cat "$SD_STUB" | "$SD_PCRLOCK" lock-pe
     "$SD_PCRLOCK" lock-uki "$SD_STUB"
     "$SD_PCRLOCK" lock-uki <"$SD_STUB"
+    cat "$SD_STUB" | "$SD_PCRLOCK" lock-uki
 fi
 
 PIN=huhu "$SD_PCRLOCK" make-policy --pcr="$PCRS" --recovery-pin=query
