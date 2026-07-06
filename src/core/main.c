@@ -41,6 +41,7 @@
 #include "dbus.h"
 #include "dbus-manager.h"
 #include "dev-setup.h"
+#include "dlopen-note.h"
 #include "efi-random.h"
 #include "emergency-action.h"
 #include "env-util.h"
@@ -4018,6 +4019,18 @@ finish:
 }
 
 int main(int argc, char *argv[]) {
+        LIBACL_NOTE(recommended);
+        LIBAPPARMOR_NOTE(recommended);
+        LIBAUDIT_NOTE(recommended);
+        LIBBLKID_NOTE(recommended);
+        LIBBPF_NOTE(recommended);
+        LIBCRYPTO_NOTE(suggested);
+        LIBCRYPTSETUP_NOTE(recommended);
+        LIBKMOD_NOTE(recommended);
+        LIBPCRE2_NOTE(suggested);
+        LIBSECCOMP_NOTE(recommended);
+        TPM2_NOTE(suggested);
+
 #if SYSTEMD_MULTICALL_BINARY
         if (invoked_as(argv, "executor"))
                 return run_executor(argc, argv);

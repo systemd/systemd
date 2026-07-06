@@ -9,6 +9,7 @@
 #include "ansi-color.h"
 #include "build.h"
 #include "discover-image.h"
+#include "dlopen-note.h"
 #include "env-util.h"
 #include "format-table.h"
 #include "hexdecoct.h"
@@ -607,6 +608,15 @@ static void parse_env(void) {
 
 static int run(int argc, char *argv[]) {
         int r;
+
+        LIBACL_NOTE(recommended);
+        LIBBZ2_NOTE(suggested);
+        LIBCURL_NOTE(suggested);
+        LIBLZ4_NOTE(COMPRESSION_PRIORITY_LZ4);
+        LIBLZMA_NOTE(COMPRESSION_PRIORITY_XZ);
+        LIBSELINUX_NOTE(recommended);
+        LIBZ_NOTE(suggested);
+        LIBZSTD_NOTE(COMPRESSION_PRIORITY_ZSTD);
 
         setlocale(LC_ALL, "");
         log_setup();

@@ -9,6 +9,7 @@
 #include "build.h"
 #include "conf-parser.h"
 #include "daemon-util.h"
+#include "dlopen-note.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "format-table.h"
@@ -1164,6 +1165,15 @@ static int run(int argc, char **argv) {
         _cleanup_(erase_and_freep) char *key = NULL;
         _cleanup_free_ char *cert = NULL, *trust = NULL;
         int r;
+
+        LIBBZ2_NOTE(suggested);
+        LIBCRYPTO_NOTE(suggested);
+        LIBGNUTLS_NOTE(suggested);
+        LIBLZ4_NOTE(COMPRESSION_PRIORITY_LZ4);
+        LIBLZMA_NOTE(COMPRESSION_PRIORITY_XZ);
+        LIBSELINUX_NOTE(recommended);
+        LIBZ_NOTE(suggested);
+        LIBZSTD_NOTE(COMPRESSION_PRIORITY_ZSTD);
 
         log_setup();
 
