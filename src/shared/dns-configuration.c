@@ -155,7 +155,7 @@ static int dispatch_search_domain_array(const char *name, sd_json_variant *varia
         return 0;
 }
 
-DNSScope* dns_scope_free(DNSScope *s) {
+static DNSScope* dns_scope_free(DNSScope *s) {
         if (!s)
                 return NULL;
 
@@ -166,6 +166,8 @@ DNSScope* dns_scope_free(DNSScope *s) {
 
         return mfree(s);
 }
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(DNSScope*, dns_scope_free);
 
 DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
         dns_scope_hash_ops,

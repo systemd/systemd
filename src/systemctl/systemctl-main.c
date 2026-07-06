@@ -3,6 +3,7 @@
 #include <locale.h>
 
 #include "dissect-image.h"
+#include "dlopen-note.h"
 #include "glyph-util.h"
 #include "log.h"
 #include "logs-show.h"
@@ -22,6 +23,17 @@ static int run(int argc, char *argv[]) {
         _cleanup_(umount_and_freep) char *mounted_dir = NULL;
         char **args = STRV_EMPTY;
         int r;
+
+        LIBBLKID_NOTE(recommended);
+        LIBBZ2_NOTE(suggested);
+        LIBCRYPTO_NOTE(suggested);
+        LIBCRYPTSETUP_NOTE(suggested);
+        LIBLZ4_NOTE(COMPRESSION_PRIORITY_LZ4);
+        LIBLZMA_NOTE(COMPRESSION_PRIORITY_XZ);
+        LIBMOUNT_NOTE(recommended);
+        LIBZ_NOTE(suggested);
+        LIBZSTD_NOTE(COMPRESSION_PRIORITY_ZSTD);
+        SECURITY_NOTE(recommended);
 
         setlocale(LC_ALL, "");
         log_setup();

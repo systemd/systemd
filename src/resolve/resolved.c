@@ -9,6 +9,7 @@
 #include "bus-object.h"
 #include "capability-util.h"
 #include "daemon-util.h"
+#include "dlopen-note.h"
 #include "label-util.h"
 #include "log.h"
 #include "main-func.h"
@@ -23,6 +24,8 @@ static int run(int argc, char *argv[]) {
         _cleanup_(manager_freep) Manager *m = NULL;
         _unused_ _cleanup_(notify_on_cleanup) const char *notify_stop = NULL;
         int r;
+
+        SECURITY_NOTE(recommended);
 
         log_setup();
 

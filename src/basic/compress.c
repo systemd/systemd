@@ -43,12 +43,11 @@
 #include <bzlib.h>
 #endif
 
-#include "sd-dlopen.h"
-
 #include "alloc-util.h"
 #include "bitfield.h"
 #include "compress.h"
 #include "dlfcn-util.h"
+#include "dlopen-note.h"
 #include "io-util.h"
 #include "log.h"
 #include "string-table.h"
@@ -293,11 +292,7 @@ int dlopen_xz(int log_level) {
 #if HAVE_XZ
         static void *lzma_dl = NULL;
 
-        SD_ELF_NOTE_DLOPEN(
-                        "lzma",
-                        "Support lzma compression in journal and coredump files",
-                        COMPRESSION_PRIORITY_XZ,
-                        "liblzma.so.5");
+        LIBLZMA_NOTE(COMPRESSION_PRIORITY_XZ);
 
         return dlopen_many_sym_or_warn(
                         &lzma_dl,
@@ -318,11 +313,7 @@ int dlopen_lz4(int log_level) {
 #if HAVE_LZ4
         static void *lz4_dl = NULL;
 
-        SD_ELF_NOTE_DLOPEN(
-                        "lz4",
-                        "Support lz4 compression in journal and coredump files",
-                        COMPRESSION_PRIORITY_LZ4,
-                        "liblz4.so.1");
+        LIBLZ4_NOTE(COMPRESSION_PRIORITY_LZ4);
 
         return dlopen_many_sym_or_warn(
                         &lz4_dl,
@@ -352,11 +343,7 @@ int dlopen_zstd(int log_level) {
 #if HAVE_ZSTD
         static void *zstd_dl = NULL;
 
-        SD_ELF_NOTE_DLOPEN(
-                        "zstd",
-                        "Support zstd compression in journal and coredump files",
-                        COMPRESSION_PRIORITY_ZSTD,
-                        "libzstd.so.1");
+        LIBZSTD_NOTE(COMPRESSION_PRIORITY_ZSTD);
 
         return dlopen_many_sym_or_warn(
                         &zstd_dl,
@@ -387,11 +374,7 @@ int dlopen_zlib(int log_level) {
 #if HAVE_ZLIB
         static void *zlib_dl = NULL;
 
-        SD_ELF_NOTE_DLOPEN(
-                        "zlib",
-                        "Support gzip compression and decompression",
-                        SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
-                        "libz.so.1");
+        LIBZ_NOTE(suggested);
 
         return dlopen_many_sym_or_warn(
                         &zlib_dl,
@@ -412,11 +395,7 @@ int dlopen_bzip2(int log_level) {
 #if HAVE_BZIP2
         static void *bzip2_dl = NULL;
 
-        SD_ELF_NOTE_DLOPEN(
-                        "bzip2",
-                        "Support bzip2 compression and decompression",
-                        SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
-                        "libbz2.so.1");
+        LIBBZ2_NOTE(suggested);
 
         return dlopen_many_sym_or_warn(
                         &bzip2_dl,

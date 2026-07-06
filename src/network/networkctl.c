@@ -4,6 +4,7 @@
 
 #include "alloc-util.h"
 #include "build.h"
+#include "dlopen-note.h"
 #include "format-table.h"
 #include "help-util.h"
 #include "log.h"
@@ -207,6 +208,13 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
 static int run(int argc, char* argv[]) {
         char **args = NULL;
         int r;
+
+        LIBBZ2_NOTE(suggested);
+        LIBLZ4_NOTE(COMPRESSION_PRIORITY_LZ4);
+        LIBLZMA_NOTE(COMPRESSION_PRIORITY_XZ);
+        LIBZ_NOTE(suggested);
+        LIBZSTD_NOTE(COMPRESSION_PRIORITY_ZSTD);
+        SECURITY_NOTE(recommended);
 
         log_setup();
 

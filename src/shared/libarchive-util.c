@@ -2,8 +2,7 @@
 
 #include <syslog.h>
 
-#include "sd-dlopen.h"
-
+#include "dlopen-note.h"
 #include "libarchive-util.h"
 #include "log.h"                        /* IWYU pragma: keep */
 #include "user-util.h"                  /* IWYU pragma: keep */
@@ -80,7 +79,7 @@ int dlopen_libarchive(int log_level) {
         static void *libarchive_dl = NULL;
         int r;
 
-        LIBARCHIVE_NOTE(SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED);
+        LIBARCHIVE_NOTE(suggested);
 
         r = dlopen_many_sym_or_warn(
                         &libarchive_dl,

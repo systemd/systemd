@@ -3,7 +3,8 @@
 
 #include <syslog.h>
 
-#include "sd-dlopen.h"
+#include "dlopen-note.h"
+#include "shared-forward.h"
 
 #if HAVE_LIBBPF
 #ifndef SYSTEMD_CFLAGS_MARKER_LIBBPF
@@ -14,7 +15,6 @@
 #include <bpf/libbpf.h> /* IWYU pragma: export */
 
 #include "dlfcn-util.h"
-#include "shared-forward.h"
 
 /* Always redeclare these so DLSYM_PROTOTYPE's typeof() resolves regardless of libbpf version;
  * suppress the warning when the libbpf headers already declare them.
@@ -92,20 +92,12 @@ static inline int compat_bpf_map_create(
  * this helper instead of libbpf_get_error() to ensure some of the known ones are translated into errnos
  * we understand. */
 int bpf_get_error_translated(const void *ptr);
-
-#define BPF_NOTE(priority)                                              \
-        SD_ELF_NOTE_DLOPEN("bpf",                                       \
-                           "Support firewalling and sandboxing with BPF", \
-                           priority,                                    \
-                           "libbpf.so.1", "libbpf.so.0")
-
-#define DLOPEN_BPF(log_level, priority)                                 \
-        ({                                                              \
-                BPF_NOTE(priority);                                     \
-                dlopen_bpf(log_level);                                  \
-        })
-#else
-#define DLOPEN_BPF(log_level, priority) dlopen_bpf(log_level)
 #endif
 
 int dlopen_bpf(int log_level);
+
+#define DLOPEN_BPF(log_level, priority)                                 \
+        ({                                                              \
+                LIBBPF_NOTE(priority);                                  \
+                dlopen_bpf(log_level);                                  \
+        })

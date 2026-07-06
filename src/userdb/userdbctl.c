@@ -10,6 +10,7 @@
 #include "copy.h"
 #include "creds-util.h"
 #include "dirent-util.h"
+#include "dlopen-note.h"
 #include "errno-list.h"
 #include "errno-util.h"
 #include "escape.h"
@@ -1852,6 +1853,8 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
 static int run(int argc, char *argv[]) {
         _cleanup_strv_free_ char **args = NULL;
         int r;
+
+        SECURITY_NOTE(recommended);
 
         log_setup();
 

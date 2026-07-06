@@ -15,6 +15,7 @@
 #include "bus-util.h"
 #include "constants.h"
 #include "daemon-util.h"
+#include "dlopen-note.h"
 #include "hashmap.h"
 #include "label-util.h"
 #include "localed-util.h"
@@ -631,6 +632,8 @@ static int run(int argc, char *argv[]) {
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
+
+        SECURITY_NOTE(recommended);
 
         log_setup();
 

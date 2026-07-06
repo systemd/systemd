@@ -17,6 +17,7 @@
 #include "bus-util.h"
 #include "cgroup-show.h"
 #include "cgroup-util.h"
+#include "dlopen-note.h"
 #include "format-table.h"
 #include "format-util.h"
 #include "help-util.h"
@@ -1660,6 +1661,12 @@ static int run(int argc, char *argv[]) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         char **args = NULL;
         int r;
+
+        LIBBZ2_NOTE(suggested);
+        LIBLZ4_NOTE(COMPRESSION_PRIORITY_LZ4);
+        LIBLZMA_NOTE(COMPRESSION_PRIORITY_XZ);
+        LIBZ_NOTE(suggested);
+        LIBZSTD_NOTE(COMPRESSION_PRIORITY_ZSTD);
 
         setlocale(LC_ALL, "");
         log_setup();

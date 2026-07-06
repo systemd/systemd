@@ -2,9 +2,8 @@
 
 #include <stdio.h>
 
-#include "sd-dlopen.h"
-
 #include "alloc-util.h"
+#include "dlopen-note.h"
 #include "gnutls-util.h"
 #include "log.h"
 #include "microhttpd-util.h"
@@ -36,7 +35,7 @@ int dlopen_microhttpd(int log_level) {
 #if HAVE_MICROHTTPD
         static void *microhttpd_dl = NULL;
 
-        MICROHTTPD_NOTE(SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED);
+        LIBMICROHTTPD_NOTE(suggested);
 
         return dlopen_many_sym_or_warn(
                         &microhttpd_dl,

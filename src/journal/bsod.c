@@ -8,6 +8,7 @@
 
 #include "alloc-util.h"
 #include "build.h"
+#include "dlopen-note.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-table.h"
@@ -286,6 +287,13 @@ static int run(int argc, char *argv[]) {
         };
         _cleanup_free_ char *message = NULL;
         int r;
+
+        LIBBZ2_NOTE(suggested);
+        LIBLZ4_NOTE(COMPRESSION_PRIORITY_LZ4);
+        LIBLZMA_NOTE(COMPRESSION_PRIORITY_XZ);
+        LIBQRENCODE_NOTE(suggested);
+        LIBZ_NOTE(suggested);
+        LIBZSTD_NOTE(COMPRESSION_PRIORITY_ZSTD);
 
         log_setup();
 

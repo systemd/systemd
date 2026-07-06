@@ -9,6 +9,7 @@
 #include "build.h"
 #include "capability-util.h"
 #include "cgroup.h"
+#include "dlopen-note.h"
 #include "dynamic-user.h"
 #include "exec-invoke.h"
 #include "execute.h"
@@ -231,6 +232,11 @@ static int run(int argc, char *argv[]) {
 
 int run_executor(int argc, char *argv[]) {
         int r;
+
+        LIBACL_NOTE(recommended);
+        LIBBLKID_NOTE(recommended);
+        SECURITY_NOTE(recommended);
+        TPM2_NOTE(suggested);
 
         /* We use safe_fork() for spawning sd-pam helper process, which internally calls rename_process().
          * As the last step of renaming, all saved argvs are memzero()-ed. Hence, we need to save the argv

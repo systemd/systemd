@@ -4,7 +4,6 @@
 #include <unistd.h>
 
 #include "sd-device.h"
-#include "sd-dlopen.h"
 
 #include "alloc-util.h"
 #include "ansi-color.h"
@@ -19,6 +18,7 @@
 #include "device-util.h"
 #include "dirent-util.h"
 #include "dlfcn-util.h"
+#include "dlopen-note.h"
 #include "efi-api.h"
 #include "errno-util.h"
 #include "extract-word.h"
@@ -171,7 +171,7 @@ static int dlopen_tpm2_esys(int log_level) {
         static void *libtss2_esys_dl = NULL;
         int r;
 
-        TPM2_ESYS_NOTE(SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED);
+        LIBTSS2_ESYS_NOTE(suggested);
 
         r = dlopen_many_sym_or_warn(
                         &libtss2_esys_dl, "libtss2-esys.so.0", log_level,
@@ -233,7 +233,7 @@ static int dlopen_tpm2_esys(int log_level) {
 static int dlopen_tpm2_rc(int log_level) {
         static void *libtss2_rc_dl = NULL;
 
-        TPM2_RC_NOTE(SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED);
+        LIBTSS2_RC_NOTE(suggested);
 
         return dlopen_many_sym_or_warn(
                         &libtss2_rc_dl, "libtss2-rc.so.0", log_level,
@@ -243,7 +243,7 @@ static int dlopen_tpm2_rc(int log_level) {
 static int dlopen_tpm2_mu(int log_level) {
         static void *libtss2_mu_dl = NULL;
 
-        TPM2_MU_NOTE(SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED);
+        LIBTSS2_MU_NOTE(suggested);
 
         return dlopen_many_sym_or_warn(
                         &libtss2_mu_dl, "libtss2-mu.so.0", log_level,
@@ -275,7 +275,7 @@ static int dlopen_tpm2_tcti_device(int log_level) {
         /* The "device" TCTI is the most relevant one, let's also load it explicitly on dlopen_tpm2(), even
          * if we don't resolve any symbols here. */
 
-        TPM2_TCTI_DEVICE_NOTE(SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED);
+        LIBTSS2_TCTI_DEVICE_NOTE(suggested);
 
         return dlopen_verbose(
                         &libtss2_tcti_device_dl,

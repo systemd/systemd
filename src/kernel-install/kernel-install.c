@@ -12,6 +12,7 @@
 #include "chase.h"
 #include "conf-files.h"
 #include "dissect-image.h"
+#include "dlopen-note.h"
 #include "env-file.h"
 #include "env-util.h"
 #include "exec-util.h"
@@ -1663,6 +1664,11 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
 
 static int run(int argc, char* argv[]) {
         int r;
+
+        LIBBLKID_NOTE(recommended);
+        LIBCRYPTO_NOTE(suggested);
+        LIBCRYPTSETUP_NOTE(suggested);
+        LIBMOUNT_NOTE(recommended);
 
         log_setup();
 

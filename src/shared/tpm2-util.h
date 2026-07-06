@@ -1,9 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-dlopen.h"
-
 #include "bitfield.h"
+#include "dlopen-note.h"
 #include "iovec-util.h"
 #include "shared-forward.h"
 #include "sha256.h"
@@ -49,33 +48,16 @@ static inline bool TPM2_PCR_MASK_VALID(uint32_t pcr_mask) {
 
 int dlopen_tpm2(int log_level);
 
-#if HAVE_TPM2
-#ifndef SYSTEMD_CFLAGS_MARKER_TPM2
-#  error "missing tpm2_cflags in meson dependency."
-#endif
-
-#define TPM2_ESYS_NOTE(priority) \
-        SD_ELF_NOTE_DLOPEN("tpm", "Support for TPM", priority, "libtss2-esys.so.0")
-#define TPM2_RC_NOTE(priority) \
-        SD_ELF_NOTE_DLOPEN("tpm", "Support for TPM", priority, "libtss2-rc.so.0")
-#define TPM2_MU_NOTE(priority) \
-        SD_ELF_NOTE_DLOPEN("tpm", "Support for TPM", priority, "libtss2-mu.so.0")
-#define TPM2_TCTI_DEVICE_NOTE(priority) \
-        SD_ELF_NOTE_DLOPEN("tpm", "Support for TPM", priority, "libtss2-tcti-device.so.0")
-
-#define TPM2_NOTE(priority)                                             \
-        ({                                                              \
-                TPM2_ESYS_NOTE(priority);                               \
-                TPM2_RC_NOTE(priority);                                 \
-                TPM2_MU_NOTE(priority);                                 \
-                TPM2_TCTI_DEVICE_NOTE(priority);                        \
-        })
-
 #define DLOPEN_TPM2(log_level, priority)                                \
         ({                                                              \
                 TPM2_NOTE(priority);                                    \
                 dlopen_tpm2(log_level);                                 \
         })
+
+#if HAVE_TPM2
+#ifndef SYSTEMD_CFLAGS_MARKER_TPM2
+#  error "missing tpm2_cflags in meson dependency."
+#endif
 
 #include <tss2/tss2_esys.h>     /* IWYU pragma: export */
 #include <tss2/tss2_mu.h>       /* IWYU pragma: export */
@@ -473,8 +455,6 @@ typedef struct Tpm2PCRValue {} Tpm2PCRValue;
 static inline int tpm2_pcrlock_search_file(const char *path, FILE **ret_file, char **ret_path) {
         return -ENOENT;
 }
-
-#define DLOPEN_TPM2(log_level, priority) dlopen_tpm2(log_level)
 #endif /* HAVE_TPM2 */
 
 int tpm2_list_devices(bool legend, bool quiet);

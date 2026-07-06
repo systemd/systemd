@@ -12,10 +12,9 @@
 
 #include <passwdqc.h>
 
-#include "sd-dlopen.h"
-
 #include "alloc-util.h"
 #include "dlfcn-util.h"
+#include "dlopen-note.h"
 #include "memory-util.h"
 #include "strv.h"
 
@@ -143,11 +142,7 @@ int dlopen_passwdqc(int log_level) {
 #if HAVE_PASSWDQC
         static void *passwdqc_dl = NULL;
 
-        SD_ELF_NOTE_DLOPEN(
-                        "passwdqc",
-                        "Support for password quality checks",
-                        SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
-                        "libpasswdqc.so.1");
+        LIBPASSWDQC_NOTE(suggested);
 
         return dlopen_many_sym_or_warn(
                         &passwdqc_dl, "libpasswdqc.so.1", log_level,
