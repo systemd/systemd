@@ -110,7 +110,7 @@ int find_pkcs11_auto_data(
                 int ks;
 
                 r = cryptsetup_get_token_as_json(cd, token, "systemd-pkcs11", &v);
-                if (IN_SET(r, -ENOENT, -EINVAL, -EMEDIUMTYPE))
+                if (ERRNO_IS_NEG_CRYPTSETUP_TOKEN_SKIP(r))
                         continue;
                 if (r < 0)
                         return log_error_errno(r, "Failed to read JSON token data off disk: %m");
