@@ -248,12 +248,16 @@ int pattern_match(const char *pattern, const char *s, InstanceMetadata *ret) {
                 }
 
                 if (e->elements_next) {
-                        /* The next element must be literal, as we use it to determine where to split */
-                        assert(e->elements_next->type == PATTERN_LITERAL);
-
-                        n = strstr(p, e->elements_next->literal);
-                        if (!n)
-                                goto nope;
+                        if (e->elements_next->type == PATTERN_LITERAL) {
+                                n = strstr(p, e->elements_next->literal);
+                                if (!n)
+                                        goto nope;
+                        } else if (e->elements_next->type == PATTERN_SLASH) {
+                                n = strchr(p, '/');
+                                if (!n)
+                                        goto retry;
+                        } else
+                                assert_not_reached();
 
                 } else
                         /* End of the string */
