@@ -1411,7 +1411,7 @@ static int vl_method_decrypt(sd_varlink *link, sd_json_variant *parameters, sd_v
                 ask_polkit = true;
         }
 
-        if (IN_SET(r, -EREMCHG, -ENOANO, -EUCLEAN, -EPERM))
+        if (ERRNO_IS_NEG_TPM2_UNSEAL_BAD_PCR(r))
                 return sd_varlink_error(link, "io.systemd.Credentials.UnexpectedPCRState", NULL);
         if (r < 0) {
                 const CredentialsVarlinkError *e = credentials_varlink_error_by_errno(r);
