@@ -53,3 +53,4 @@ typedef struct UnitRef UnitRef;
 
 struct restrict_fs_bpf;
 struct restrict_fsaccess_bpf;
+struct unix_socket_protocol_bpf;

@@ -104,6 +104,25 @@ int memfd_get_sealed(int fd) {
         return FLAGS_SET(seals, F_SEAL_SHRINK | F_SEAL_GROW | F_SEAL_WRITE);
 }
 
+int memfd_set_fixed_size(int fd) {
+        if (memfd_get_fixed_size(fd) > 0)
+                return 0;
+
+        return memfd_add_seals(fd, F_SEAL_SEAL | F_SEAL_SHRINK | F_SEAL_GROW);
+}
+
+int memfd_get_fixed_size(int fd) {
+        unsigned seals;
+        int r;
+
+        r = memfd_get_seals(fd, &seals);
+        if (r < 0)
+                return r;
+
+        /* We ignore F_SEAL_EXEC here to support older kernels. */
+        return FLAGS_SET(seals, F_SEAL_SHRINK | F_SEAL_GROW);
+}
+
 int memfd_get_size(int fd, uint64_t *ret) {
         struct stat stat;
 

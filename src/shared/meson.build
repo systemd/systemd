@@ -263,6 +263,7 @@ shared_sources = files(
         'varlink-io.systemd.Unit.c',
         'varlink-io.systemd.UserDatabase.c',
         'varlink-io.systemd.VirtualMachineInstance.c',
+        'varlink-io.systemd.VarlinkMonitor.c',
         'varlink-io.systemd.oom.c',
         'varlink-io.systemd.oom.Prekill.c',
         'varlink-io.systemd.service.c',

@@ -498,6 +498,8 @@ typedef struct Manager {
 
         /* Reference to RestrictFileSystems= BPF program */
         struct restrict_fs_bpf *restrict_fs;
+        /* Reference to unix socket protocol BPF program */
+        struct unix_socket_protocol_bpf *unix_socket_protocol;
 
         /* Reference to RestrictFileSystemAccess= BPF LSM program */
         RestrictFileSystemAccess restrict_filesystem_access;
