@@ -1,9 +1,11 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 #pragma once
 
-#include "sd-event.h"
+#include "shared-forward.h"
 
 #include "list.h"
+#include "pidref.h"
+#include "socket-util.h"
 #include "udev-config.h"
 #include "udev-forward.h"
 
@@ -33,6 +35,65 @@
 #define EVENT_PRIORITY_CONTROL        (SD_EVENT_PRIORITY_NORMAL + 2)
 /* The event is intended to trigger the post-event source, hence can be the lowest priority. */
 #define EVENT_PRIORITY_REQUEUE_EVENT  (SD_EVENT_PRIORITY_NORMAL + 3)
+
+typedef enum EventState {
+        EVENT_UNDEF,
+        EVENT_QUEUED,
+        EVENT_RUNNING,
+        EVENT_LOCKED,
+        EVENT_PROCESSED,
+} EventState;
+
+typedef struct Event {
+        /* All events that have not been processed (state != EVENT_PROCESSED) are referenced by the Manager.
+         * Additionally, an event may be referenced by events blocked by this event. See event_find_blocker(). */
+        unsigned n_ref;
+
+        Manager *manager;
+        Worker *worker;
+        EventState state;
+
+        sd_device *dev;
+
+        sd_device_action_t action;
+        uint64_t seqnum;
+        const char *id;
+        const char *devpath;
+        const char *devpath_old;
+        const char *devnode;
+
+        /* Used when the device is locked by another program. */
+        usec_t requeue_next_usec;
+        usec_t requeue_timeout_usec;
+        unsigned locked_event_prioq_index;
+        char *whole_disk;
+        LIST_FIELDS(Event, same_disk);
+
+        /* The last blocker for this event. This event must not be processed before the blocker is processed. */
+        Event *blocker;
+
+        LIST_FIELDS(Event, event);
+} Event;
+
+typedef enum WorkerState {
+        WORKER_UNDEF,
+        WORKER_RUNNING,
+        WORKER_IDLE,
+        WORKER_KILLED,
+} WorkerState;
+
+typedef struct Worker {
+        Manager *manager;
+        PidRef pidref;
+        sd_event_source *child_event_source;
+        sd_event_source *timeout_warning_event_source;
+        sd_event_source *timeout_kill_event_source;
+        union sockaddr_union address;
+        WorkerState state;
+        Event *event;
+} Worker;
+
+extern const struct hash_ops worker_hash_op;
 
 typedef struct Manager {
         sd_event *event;

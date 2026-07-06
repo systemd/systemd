@@ -42,6 +42,10 @@ executables += [
                 'sources' : files('test-machine-tables.c'),
                 'objects' : ['systemd-machined'],
         },
+        test_template + {
+                'sources' : files('test-machined-core.c'),
+                'objects' : ['systemd-machined'],
+        },
 ]
 
 install_data('org.freedesktop.machine1.conf',

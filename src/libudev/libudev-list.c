@@ -90,10 +90,24 @@ struct udev_list_entry* udev_list_entry_add(struct udev_list *list, const char *
                 return NULL;
 
         if (list->unique) {
-                udev_list_entry_free(hashmap_get(list->unique_entries, entry->name));
+                struct udev_list_entry *old;
 
-                if (hashmap_ensure_put(&list->unique_entries, &udev_list_entry_hash_ops, entry->name, entry) < 0)
+                /* Replace the entry for an already known name in a single step. hashmap_replace() reuses the
+                 * existing bucket and hence never allocates, so an existing entry is never dropped, not even
+                 * under memory pressure. Allocating may only fail when adding a genuinely new name, in which
+                 * case there is nothing to lose. */
+                old = hashmap_get(list->unique_entries, entry->name);
+
+                if (hashmap_ensure_replace(&list->unique_entries, &udev_list_entry_hash_ops, entry->name, entry) < 0)
                         return NULL;
+
+                if (old) {
+                        /* The hashmap now refers to the new entry (both the key and the value were updated),
+                         * so free the old one without letting udev_list_entry_free() drop the new entry by its
+                         * identical name. */
+                        old->name = mfree(old->name);
+                        udev_list_entry_free(old);
+                }
 
                 list->uptodate = false;
         } else
