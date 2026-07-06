@@ -33,6 +33,8 @@
 #include "parse-util.h"
 #include "pretty-print.h"
 #include "runtime-scope.h"
+#include "set.h"
+#include "siphash24.h"
 #include "sort-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -352,7 +354,7 @@ static int context_load_installed_instances(Context *c) {
 
         assert(c);
 
-        log_info("Discovering installed instances%s", glyph(GLYPH_ELLIPSIS));
+        log_debug("Discovering installed instances%s", glyph(GLYPH_ELLIPSIS));
 
         FOREACH_ARRAY(tr, c->transfers, c->n_transfers) {
                 Transfer *t = *tr;
@@ -1152,6 +1154,154 @@ static int context_load_paths_from_image(Context *context, Image *image) {
         }
 }
 
+static void target_identifier_hash_func(const TargetIdentifier *t, struct siphash *state) {
+        assert(t);
+
+        siphash24_compress_typesafe(t->class, state);
+        siphash24_compress_string(t->name, state);
+}
+
+static int target_identifier_compare_func(const TargetIdentifier *x, const TargetIdentifier *y) {
+        int r;
+
+        assert(x);
+        assert(y);
+
+        r = CMP(x->class, y->class);
+        if (r != 0)
+                return r;
+
+        return strcmp(x->name, y->name);
+}
+
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(target_identifier_hash_ops,
+                                              TargetIdentifier, target_identifier_hash_func, target_identifier_compare_func,
+                                              TargetIdentifier, target_identifier_free);
+
+static int enumerate_image_class(RuntimeScope runtime_scope, TargetClass class, Set **targets) {
+        _cleanup_hashmap_free_ Hashmap *images = NULL;
+        Image *image;
+        int r;
+
+        r = image_discover(runtime_scope, (ImageClass) class, NULL, &images);
+        if (r < 0)
+                return r;
+
+        HASHMAP_FOREACH(image, images) {
+                _cleanup_(target_identifier_freep) TargetIdentifier *t = NULL;
+                bool have = false;
+                _cleanup_(context_done) Context image_context = CONTEXT_NULL;
+
+                if (image_is_host(image))
+                        continue; /* We already enroll the host ourselves */
+
+                if (!image_type_can_sysupdate(image->type))
+                        continue;
+
+                r = context_load_paths_from_image(&image_context, image);
+                if (r < 0)
+                        return r;
+
+                /* Load the components in a separate Context specific to the given Image before
+                 * committing to loading that state to the main Context. */
+                r = context_load_offline(
+                                &image_context,
+                                /* process_image_flags= */ 0,
+                                /* read_definitions_flags= */ 0);
+                if (r < 0)
+                        return r;
+
+                r = context_list_components(&image_context, /* ret_component_names= */ NULL, &have);
+                if (r < 0)
+                        return r;
+                if (!have) {
+                        log_debug("Skipping %s because it has no default component", image->path);
+                        continue;
+                }
+
+                r = target_identifier_new(class, image->name, &t);
+                if (r < 0)
+                        return r;
+
+                r = set_ensure_put(targets, &target_identifier_hash_ops, t);
+                if (r < 0)
+                        return r;
+                TAKE_PTR(t);
+        }
+
+        return 0;
+}
+
+static int context_enumerate_components(Context *context, Set **targets) {
+        _cleanup_strv_free_ char **component_names = NULL;
+        bool have_default_component;
+        int r;
+
+        assert(context);
+
+        r = context_list_components(context, &component_names, &have_default_component);
+        if (r < 0)
+                return r;
+
+        if (have_default_component) {
+                _cleanup_(target_identifier_freep) TargetIdentifier *t = NULL;
+
+                r = target_identifier_new(TARGET_HOST, "host", &t);
+                if (r < 0)
+                        return r;
+
+                r = set_ensure_put(targets, &target_identifier_hash_ops, t);
+                if (r < 0)
+                        return r;
+                TAKE_PTR(t);
+        }
+
+        STRV_FOREACH(component, component_names) {
+                _cleanup_free_ char *path = NULL;
+                _cleanup_(target_identifier_freep) TargetIdentifier *t = NULL;
+
+                path = strjoin("sysupdate.", *component, ".d");
+                if (!path)
+                        return -ENOMEM;
+
+                r = target_identifier_new(TARGET_COMPONENT, *component, &t);
+                if (r < 0)
+                        return r;
+
+                r = set_ensure_put(targets, &target_identifier_hash_ops, t);
+                if (r < 0)
+                        return r;
+                TAKE_PTR(t);
+        }
+
+        return 0;
+}
+
+static int context_enumerate_targets(Context *context, Set **targets) {
+        static const TargetClass discoverable_classes[] = {
+                TARGET_MACHINE,
+                TARGET_PORTABLE,
+                TARGET_SYSEXT,
+                TARGET_CONFEXT,
+        };
+        int r;
+
+        assert(context);
+
+        FOREACH_ARRAY(class, discoverable_classes, ELEMENTSOF(discoverable_classes)) {
+                r = enumerate_image_class(RUNTIME_SCOPE_SYSTEM, *class, targets);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to enumerate %ss, ignoring: %m",
+                                          target_class_to_string(*class));
+        }
+
+        r = context_enumerate_components(context, targets);
+        if (r < 0)
+                log_warning_errno(r, "Failed to enumerate components, ignoring: %m");
+
+        return 0;
+}
+
 /* Load a Context to point to the target given by the TargetIdentifier. The TargetIdentifier will have been
  * syntactically validated by dispatch_target_identifier(), but might still point to components which don’t
  * exist, images which the user isn’t privileged to access, etc. This function validates the TargetIdentifier
@@ -1584,6 +1734,38 @@ static int context_install(
         return 1;
 }
 
+static int context_get_transfers_for_feature(Context *context, char ***transfers, const char *feature_id)
+{
+        int r;
+
+        assert(context);
+        assert(feature_id);
+
+        FOREACH_ARRAY(tr, context->transfers, context->n_transfers) {
+                Transfer *t = *tr;
+
+                if (!strv_contains(t->features, feature_id) && !strv_contains(t->requisite_features, feature_id))
+                        continue;
+
+                r = strv_extend(transfers, t->id);
+                if (r < 0)
+                        return log_oom();
+        }
+
+        FOREACH_ARRAY(tr, context->disabled_transfers, context->n_disabled_transfers) {
+                Transfer *t = *tr;
+
+                if (!strv_contains(t->features, feature_id) && !strv_contains(t->requisite_features, feature_id))
+                        continue;
+
+                r = strv_extend(transfers, t->id);
+                if (r < 0)
+                        return log_oom();
+        }
+
+        return 0;
+}
+
 static JSON_DISPATCH_ENUM_DEFINE(dispatch_target_class, TargetClass, target_class_from_string);
 
 static int dispatch_target_identifier(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
@@ -1742,27 +1924,9 @@ static int verb_features(int argc, char *argv[], uintptr_t _data, void *userdata
                 if (!table)
                         return log_oom();
 
-                FOREACH_ARRAY(tr, context.transfers, context.n_transfers) {
-                        Transfer *t = *tr;
-
-                        if (!strv_contains(t->features, f->id) && !strv_contains(t->requisite_features, f->id))
-                                continue;
-
-                        r = strv_extend(&transfers, t->id);
-                        if (r < 0)
-                                return log_oom();
-                }
-
-                FOREACH_ARRAY(tr, context.disabled_transfers, context.n_disabled_transfers) {
-                        Transfer *t = *tr;
-
-                        if (!strv_contains(t->features, f->id) && !strv_contains(t->requisite_features, f->id))
-                                continue;
-
-                        r = strv_extend(&transfers, t->id);
-                        if (r < 0)
-                                return log_oom();
-                }
+                r = context_get_transfers_for_feature(&context, &transfers, f->id);
+                if (r < 0)
+                        return r;
 
                 r = table_add_many(table,
                                    TABLE_FIELD, "Name",
@@ -1820,7 +1984,16 @@ static int verb_features(int argc, char *argv[], uintptr_t _data, void *userdata
                                 return table_log_add_error(r);
                 }
 
-                return table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, arg_legend);
+                r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, arg_legend);
+                if (r < 0)
+                        return r;
+
+                if (arg_legend) {
+                        if (table_isempty(table))
+                                log_info("No features.");
+                        else
+                                printf("\n%zu features listed.\n", table_get_rows(table) - 1);
+                }
         } else {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
                 _cleanup_strv_free_ char **features = NULL;
@@ -1841,6 +2014,90 @@ static int verb_features(int argc, char *argv[], uintptr_t _data, void *userdata
         }
 
         return 0;
+}
+
+static int feature_to_json(Context *context, const Feature *f, sd_json_variant **ret) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        int r;
+
+        assert(context);
+        assert(f);
+        assert(ret);
+
+        r = sd_json_variant_merge_objectbo(
+                        &v,
+                        SD_JSON_BUILD_PAIR_STRING("id", f->id),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!f->description, "description", SD_JSON_BUILD_STRING(f->description)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!f->documentation, "documentation", SD_JSON_BUILD_STRING(f->documentation)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!f->appstream, "appstream", SD_JSON_BUILD_STRING(f->appstream)),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("isEnabled", f->enabled));
+        if (r < 0)
+                return log_oom();
+
+        _cleanup_strv_free_ char **transfers = NULL;
+
+        r = context_get_transfers_for_feature(context, &transfers, f->id);
+        if (r < 0)
+                return r;
+
+        r = sd_json_variant_merge_objectbo(
+                        &v,
+                        SD_JSON_BUILD_PAIR_CONDITION(!!transfers, "transfers", SD_JSON_BUILD_STRV(transfers)));
+        if (r < 0)
+                return log_oom();
+
+        *ret = TAKE_PTR(v);
+        return 1;
+}
+
+static int vl_method_list_features(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        _cleanup_(context_done) Context context = CONTEXT_NULL;
+        Feature *f;
+        int r;
+
+        assert(link);
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "target", SD_JSON_VARIANT_OBJECT, dispatch_target_identifier, voffsetof(context, target_identifier), SD_JSON_MANDATORY },
+                {},
+        };
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &context);
+        if (r != 0)
+                return r;
+
+        /* Listing features doesn’t require a polkit check */
+
+        if (getenv_bool("SYSTEMD_SYSUPDATE_NO_VERIFY") > 0)
+                context.verify = false;
+
+        /* ListFeatures is always online */
+        context.offline = false;
+
+        r = context_load_online_from_target(&context, PROCESS_IMAGE_READ_ONLY);
+        if (r < 0)
+                return r;
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *l = NULL;
+
+        r = sd_json_variant_new_array(&l, NULL, 0);
+        if (r < 0)
+                return r;
+
+        HASHMAP_FOREACH(f, context.features) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+
+                r = feature_to_json(&context, f, &v);
+                if (r < 0)
+                        return r;
+
+                r = sd_json_variant_append_array(&l, v);
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_varlink_replybo(link,
+                        SD_JSON_BUILD_PAIR_VARIANT("features", l));
 }
 
 VERB_NOARG(verb_check_new, "check-new",
@@ -2232,6 +2489,64 @@ static int verb_components(int argc, char *argv[], uintptr_t _data, void *userda
         return 0;
 }
 
+static int vl_method_list_targets(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        _cleanup_(context_done) Context context = CONTEXT_NULL;
+        _cleanup_set_free_ Set *targets = NULL;
+        int r;
+
+        assert(link);
+
+        r = sd_varlink_dispatch(link, parameters, NULL, NULL);
+        if (r != 0)
+                return r;
+
+        /* Listing targets doesn’t require a polkit check */
+
+        if (getenv_bool("SYSTEMD_SYSUPDATE_NO_VERIFY") > 0)
+                context.verify = false;
+
+        /* ListTargets is always offline */
+        context.offline = true;
+
+        r = context_load_offline(
+                        &context,
+                        /* process_image_flags= */ 0,
+                        /* read_definitions_flags= */ 0);
+        if (r < 0)
+                return r;
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *l = NULL;
+
+        r = sd_json_variant_new_array(&l, NULL, 0);
+        if (r < 0)
+                return r;
+
+        r = context_enumerate_targets(&context, &targets);
+        if (r < 0)
+                return r;
+
+        /* Sort to ensure consistent ordering */
+        size_t n;
+        _cleanup_free_ TargetIdentifier **sorted = NULL;
+        r = set_dump_sorted(targets, (void***) &sorted, &n);
+        if (r < 0)
+                return log_oom();
+
+        FOREACH_ARRAY(p, sorted, n) {
+                TargetIdentifier *target_identifier = *p;
+
+                r = sd_json_variant_append_arraybo(&l,
+                                SD_JSON_BUILD_PAIR_OBJECT("id",
+                                                JSON_BUILD_PAIR_ENUM("class", target_class_to_string(target_identifier->class)),
+                                                SD_JSON_BUILD_PAIR_STRING("name", target_identifier->name)));
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_varlink_replybo(link,
+                        SD_JSON_BUILD_PAIR_VARIANT("targets", l));
+}
+
 VERB_NOARG(verb_cleanup, "cleanup", "Clean up orphaned files");
 static int verb_cleanup(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(context_done) Context context = CONTEXT_NULL;
@@ -2513,7 +2828,9 @@ static int vl_server(void) {
 
         r = sd_varlink_server_bind_method_many(
                         varlink_server,
-                        "io.systemd.SysUpdate.CheckNew", vl_method_check_new);
+                        "io.systemd.SysUpdate.CheckNew", vl_method_check_new,
+                        "io.systemd.SysUpdate.ListFeatures", vl_method_list_features,
+                        "io.systemd.SysUpdate.ListTargets", vl_method_list_targets);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind Varlink method: %m");
 
