@@ -9,9 +9,10 @@ set -o pipefail
 export SYSTEMD_LOG_LEVEL=debug
 SD_PCREXTEND="/usr/lib/systemd/systemd-pcrextend"
 SD_TPM2SETUP="/usr/lib/systemd/systemd-tpm2-setup"
+SD_MEASURE="/usr/lib/systemd/systemd-measure"
 
-if [[ ! -x "${SD_PCREXTEND:?}" ]] || ! tpm_has_pcr sha256 11; then
-    echo "$SD_PCREXTEND or PCR sysfs files not found, skipping PCR extension tests"
+if [[ ! -x "${SD_PCREXTEND:?}" ]] || [[ ! -x "${SD_MEASURE:?}" ]] || ! tpm_has_pcr sha256 11; then
+    echo "$SD_PCREXTEND, $SD_MEASURE or PCR sysfs files not found, skipping PCR extension tests"
     exit 0
 fi
 
@@ -21,9 +22,13 @@ at_exit() {
         jq --seq --slurp </run/log/systemd/tpm2-measure.log
     fi
 
+    mv -f /run/systemd/tpm2-pcr-public-key.pem.bak /run/systemd/tpm2-pcr-public-key.pem
+    mv -f /run/systemd/tpm2-pcr-signature.json.bak /run/systemd/tpm2-pcr-signature.json
+    rm -f /tmp/tpm2-pcr-private-key.pem
     rm -rf /run/nvpcr /tmp/nvpcr
     rm -f /var/tmp/nvpcr.raw /run/verity.d/test-70-nvpcr.crt
-    rm -f /run/systemd/nvpcr/test.anchor /run/systemd/nvpcr/test2.anchor /run/systemd/nvpcr/aaa.anchor /run/systemd/nvpcr/zzz.anchor
+    rm -f /run/systemd/nvpcr/test.auth /run/systemd/nvpcr/test2.auth /run/systemd/nvpcr/aaa.auth /run/systemd/nvpcr/zzz.auth
+    rm -r /tmp/test.policy
 }
 
 trap at_exit EXIT
@@ -40,16 +45,35 @@ run_tpm2_setup() {
 # Temporarily override sd-pcrextend's sanity checks
 export SYSTEMD_FORCE_MEASURE=1
 
+# Temporarily override the PCR signing key and PCR signatures to create a signed
+# PCR policy that's valid for the current state
+mv /run/systemd/tpm2-pcr-public-key.pem /run/systemd/tpm2-pcr-public-key.pem.bak
+# XXX: This gets removed in TEST-70-TPM2.measure.sh, but the intention here is to preserve the original one.
+touch /run/systemd/tpm2-pcr-signature.json
+mv /run/systemd/tpm2-pcr-signature.json /run/systemd/tpm2-pcr-signature.json.bak
+openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out "/tmp/tpm2-pcr-private-key.pem"
+openssl rsa -pubout -in "/tmp/tpm2-pcr-private-key.pem" -out "/run/systemd/tpm2-pcr-public-key.pem"
+"$SD_MEASURE" sign --current --bank sha256 --private-key="/tmp/tpm2-pcr-private-key.pem" --public-key="/run/systemd/tpm2-pcr-public-key.pem" --phase=":" --policyref="nvpcr-init" >"/run/systemd/tpm2-pcr-signature.json"
+
 mkdir -p /run/nvpcr
 
 cat >/run/nvpcr/test.nvpcr <<EOF
 {"name":"test","algorithm":"sha256","nvIndex":30474762}
 EOF
 run_tpm2_setup
-test -f /run/systemd/nvpcr/test.anchor
-/usr/lib/systemd/systemd-pcrextend --nvpcr=test schrumpel
-# To calculate the current value we need the anchor measurement
-DIGEST_BASE="$(cat /run/systemd/nvpcr/test.anchor)"
+test -f /run/systemd/nvpcr/test.auth
+# The initial measurement is all zeroes
+DIGEST_BASE_UNINITIALIZED="0000000000000000000000000000000000000000000000000000000000000000"
+DIGEST_INITIAL_MEASUREMENT="0000000000000000000000000000000000000000000000000000000000000000"
+DIGEST_BASE_EXPECTED=$(echo "$DIGEST_BASE_UNINITIALIZED$DIGEST_INITIAL_MEASUREMENT" | tr '[:lower:]' '[:upper:]' | basenc --base16 -d | openssl dgst -sha256 -hex -r | cut -d' ' -f1)
+DIGEST_BASE="$(systemd-analyze nvpcrs test --json=pretty | jq -r '.[] | select(.name=="test") | .value')"
+test "$DIGEST_BASE" = "$DIGEST_BASE_EXPECTED"
+
+ANCHOR_MEASUREMENT_STRING_EXPECTED="nvpcr-init:test:0x1d1020a:$(tpm2_nvreadpublic 0x01d1020a | awk '/name:/{print $2; exit}')"
+ANCHOR_MEASUREMENT_STRING=$(jq --seq --slurp -r '[.[] | select(.content.eventType=="nvpcr-init") | .content.string] | last' </run/log/systemd/tpm2-measure.log)
+test "$ANCHOR_MEASUREMENT_STRING" = "$ANCHOR_MEASUREMENT_STRING_EXPECTED"
+
+"$SD_PCREXTEND" --nvpcr=test schrumpel
 DIGEST_MEASURED="$(echo -n "schrumpel" | openssl dgst -sha256 -hex -r | cut -d' ' -f1)"
 DIGEST_EXPECTED="$(echo "$DIGEST_BASE$DIGEST_MEASURED" | tr '[:lower:]' '[:upper:]' | basenc --base16 -d | openssl dgst -sha256 -hex -r | cut -d' ' -f1)"
 DIGEST_ACTUAL="$(systemd-analyze nvpcrs test --json=pretty | jq -r '.[] | select(.name=="test") | .value')"
@@ -64,6 +88,18 @@ test "$DIGEST_ACTUAL2" != "$DIGEST_EXPECTED"
 DIGEST_MEASURED2="$(echo -n "schnurz" | openssl dgst -sha256 -hex -r | cut -d' ' -f1)"
 DIGEST_EXPECTED2="$(echo "$DIGEST_EXPECTED$DIGEST_MEASURED2" | tr '[:lower:]' '[:upper:]' | basenc --base16 -d | openssl dgst -sha256 -hex -r | cut -d' ' -f1)"
 test "$DIGEST_ACTUAL2" = "$DIGEST_EXPECTED2"
+
+# Make sure that systemd-tpm2-setup recognizes the pre-existing NV index as valid, to simulate
+# what we expect on a fresh boot.
+POLICY=$(tpm2_nvreadpublic 0x01d1020a | awk '/authorization policy:/{print $3; exit}')
+echo "$POLICY" | basenc --base16 -d >/tmp/test.policy
+rm -f /run/systemd/nvpcr/test.auth
+tpm2_nvundefine -C o 0x01d1020a
+tpm2_nvdefine -C o -s 32 -g sha256 -a "policywrite|ownerread|authread|orderly|clear_stclear|nt=extend" -L /tmp/test.policy 0x01d1020a
+run_tpm2_setup
+test -f /run/systemd/nvpcr/test.auth
+DIGEST_ACTUAL3="$(systemd-analyze nvpcrs test --json=pretty | jq -r '.[] | select(.name=="test") | .value')"
+test "$DIGEST_ACTUAL3" = "$DIGEST_BASE_EXPECTED"
 
 # Verify the 'priority' field round-trips through the JSON definition. The 'test' NvPCR above sets no
 # priority, so it must report the default (1000).
@@ -91,6 +127,13 @@ SETUP_LOG="$(run_tpm2_setup 2>&1)"
 AAA_LINE="$(echo "$SETUP_LOG" | grep -n "Setting up NvPCR 'aaa'" | cut -d: -f1)"
 ZZZ_LINE="$(echo "$SETUP_LOG" | grep -n "Setting up NvPCR 'zzz'" | cut -d: -f1)"
 test "$ZZZ_LINE" -lt "$AAA_LINE"
+
+# Verify that we can't redefine an NvPCR once we've exitted early boot by extending PCR11.
+rm -f /run/systemd/nvpcr/test.auth
+tpm2_nvundefine -C o 0x01d1020a
+"$SD_PCREXTEND" --pcr 11 "foo"
+SETUP_LOG="$(rc=0; $SD_TPM2SETUP 2>&1 || rc=$?; [[ "$rc" -ne 0 ]] && [[ "$rc" -ne 69 ]])"
+grep -F "Failed to initialize NvPCR index: No such device or address" <<<"$SETUP_LOG" >/dev/null
 
 # Test the --login= mode and the 'login' NvPCR, used in production by systemd-pcrlogin@.service.
 if [[ -f /usr/lib/nvpcr/login.nvpcr ]]; then
