@@ -11,6 +11,7 @@
 #include <stdbool.h>                    /* IWYU pragma: export */
 #include <stddef.h>                     /* IWYU pragma: export */
 #include <stdint.h>                     /* IWYU pragma: export */
+#include <sys/file.h>                   /* IWYU pragma: export */
 #include <sys/types.h>                  /* IWYU pragma: export */
 #include <uchar.h>                      /* IWYU pragma: export */
 
