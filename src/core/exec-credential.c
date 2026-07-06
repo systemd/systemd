@@ -598,7 +598,8 @@ static int load_credential(
                 struct load_cred_args *args,
                 const char *id,
                 int read_dfd,
-                const char *path) {
+                const char *path,
+                bool connect_socket) {
 
         ReadFullFileFlags flags = READ_FULL_FILE_SECURE|READ_FULL_FILE_FAIL_WHEN_LARGER;
         _cleanup_strv_free_ char **search_path = NULL;
@@ -619,10 +620,8 @@ static int load_credential(
         assert(path);
 
         if (read_dfd >= 0) {
-                /* If a directory fd is specified, then read the file directly from that dir. In this case we
-                 * won't do AF_UNIX stuff (we simply don't want to recursively iterate down a tree of AF_UNIX
-                 * IPC sockets). It's OK if a file vanishes here in the time we enumerate it and intend to
-                 * open it. */
+                /* If a directory fd is specified, then read the credential directly from that dir. It's OK
+                 * if an entry vanishes in the time between enumeration and opening it. */
 
                 if (!filename_is_valid(path)) /* safety check */
                         return -EINVAL;
@@ -637,13 +636,7 @@ static int load_credential(
                 if (!path_is_valid(path)) /* safety check */
                         return -EINVAL;
 
-                flags |= READ_FULL_FILE_CONNECT_SOCKET;
-
-                /* Pass some minimal info about the unit and the credential name we are looking to acquire
-                 * via the source socket address in case we read off an AF_UNIX socket. */
-                if (asprintf(&bindname, "@%" PRIx64 "/unit/%s/%s", random_u64(), args->unit, id) < 0)
-                        return -ENOMEM;
-
+                connect_socket = true;
                 missing_ok = false;
                 source = path;
 
@@ -665,6 +658,15 @@ static int load_credential(
                 maxsz = CREDENTIAL_ENCRYPTED_SIZE_MAX;
         } else
                 maxsz = CREDENTIAL_SIZE_MAX;
+
+        if (connect_socket) {
+                flags |= READ_FULL_FILE_CONNECT_SOCKET;
+
+                /* Pass some minimal info about the unit and the credential name we are looking to acquire
+                 * via the source socket address in case we read off an AF_UNIX socket. */
+                if (asprintf(&bindname, "@%" PRIx64 "/unit/%s/%s", random_u64(), args->unit, id) < 0)
+                        return -ENOMEM;
+        }
 
         if (search_path)
                 STRV_FOREACH(d, search_path) {
@@ -751,7 +753,8 @@ static int load_cred_recurse_dir_cb(
 
         r = load_credential(args,
                             sub_id,
-                            dir_fd, de->d_name);
+                            dir_fd, de->d_name,
+                            de->d_type == DT_SOCK);
         if (r < 0)
                 return r;
 
@@ -832,7 +835,8 @@ static int acquire_credentials(
                         /* Regular file (incl. a credential passed in from higher up) */
                         r = load_credential(&args,
                                             lc->id,
-                                            AT_FDCWD, lc->path);
+                                            AT_FDCWD, lc->path,
+                                            /* connect_socket= */ false);
                 else
                         /* Directory */
                         r = recurse_dir(sub_fd,
