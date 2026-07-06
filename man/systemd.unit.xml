@@ -1988,11 +1988,10 @@
         <varlistentry>
           <term><varname>ConditionCPUFeature=</varname></term>
 
-          <listitem><para>Verify that a given CPU feature is available via the <literal>CPUID</literal>
-          instruction. This condition only does something on i386 and x86-64 processors. On other
-          processors it is assumed that the CPU does not support the given feature. It checks the leaves
-          <literal>1</literal>, <literal>7</literal>, <literal>0x80000001</literal>, and
-          <literal>0x80000007</literal>. Valid values are:
+          <listitem><para>On i386 and x86-64, verify that a given CPU feature is available via the
+          <literal>CPUID</literal> instruction. It checks the leaves <literal>1</literal>,
+          <literal>7</literal>, <literal>0x80000001</literal>, and <literal>0x80000007</literal>. Valid
+          values are:
           <literal>fpu</literal>,
           <literal>vme</literal>,
           <literal>de</literal>,
@@ -2044,6 +2043,13 @@
           <literal>lahf_lm</literal>,
           <literal>abm</literal>,
           <literal>constant_tsc</literal>.</para>
+
+          <para>On aarch64, valid values are the corresponding aarch64 feature names, such as
+          <literal>asimd</literal>, <literal>pac</literal>, <literal>bti</literal>, <literal>mte</literal>,
+          among others. For the full list, see the documentation on
+          <ulink url="https://docs.kernel.org/arch/arm64/elf_hwcaps.html">ARM64 ELF hwcaps</ulink>.</para>
+
+          <para>On other architectures, it is assumed that the CPU does not support the given feature.</para>
 
           <xi:include href="version-info.xml" xpointer="v248"/>
           </listitem>
