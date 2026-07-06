@@ -7,6 +7,21 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 SD_VARLINK_REQUIRES_MORE,
                 SD_VARLINK_DEFINE_OUTPUT(record, SD_VARLINK_OBJECT, 0));
 
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                ComponentVariant,
+                SD_VARLINK_FIELD_COMMENT("The identifier of this component variant."),
+                SD_VARLINK_DEFINE_FIELD(id, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("The path of the .pcrlock file that defines this variant."),
+                SD_VARLINK_DEFINE_FIELD(path, SD_VARLINK_STRING, 0));
+
+static SD_VARLINK_DEFINE_METHOD_FULL(
+                ListComponents,
+                SD_VARLINK_REQUIRES_MORE,
+                SD_VARLINK_FIELD_COMMENT("The identifier of the component."),
+                SD_VARLINK_DEFINE_OUTPUT(id, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("The variants defined for this component, each backed by a .pcrlock file."),
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(variants, ComponentVariant, SD_VARLINK_ARRAY));
+
 static SD_VARLINK_DEFINE_METHOD(
                 MakePolicy,
                 SD_VARLINK_DEFINE_INPUT(force, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
@@ -39,6 +54,10 @@ SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_PCRLock,
                 "io.systemd.PCRLock",
                 &vl_method_ReadEventLog,
+                SD_VARLINK_SYMBOL_COMMENT("A single variant of a .pcrlock component, i.e. one alternative the component may take, backed by a specific .pcrlock file."),
+                &vl_type_ComponentVariant,
+                SD_VARLINK_SYMBOL_COMMENT("Lists the defined .pcrlock components, streamed one component per reply. Must be called with the 'more' flag."),
+                &vl_method_ListComponents,
                 &vl_method_MakePolicy,
                 &vl_method_RemovePolicy,
                 SD_VARLINK_SYMBOL_COMMENT("The category of measurements a .pcrlock file can be generated for or removed, as used by the Lock() method."),
