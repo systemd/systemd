@@ -126,7 +126,7 @@ static int mdns_maintenance_query(sd_event_source *s, uint64_t usec, void *userd
                 return log_error_errno(r, "Failed to create mDNS query for maintenance: %m");
 
         q->complete = mdns_maintenance_query_complete;
-        q->varlink_request = sd_varlink_ref(service->service_browser->link);
+        q->service_browser_request = dns_service_browser_ref(service->service_browser);
         q->dnsservice_request = dnssd_discovered_service_ref(service);
 
         /* Schedule the next maintenance query based on the TTL */
