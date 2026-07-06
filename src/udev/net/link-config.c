@@ -98,8 +98,7 @@ static void link_configs_free(LinkConfigContext *ctx) {
 
         ctx->stats_by_path = hashmap_free(ctx->stats_by_path);
 
-        LIST_FOREACH(configs, config, ctx->configs)
-                link_config_free(config);
+        LIST_CLEAR(configs, ctx->configs, link_config_free);
 }
 
 LinkConfigContext *link_config_ctx_free(LinkConfigContext *ctx) {
