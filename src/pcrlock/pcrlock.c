@@ -2674,17 +2674,11 @@ static int verb_show_cel(int argc, char *argv[], uintptr_t _data, void *userdata
         return 0;
 }
 
-VERB_NOARG(verb_list_components, "list-components",
-           "List defined .pcrlock components");
-static int verb_list_components(int argc, char *argv[], uintptr_t _data, void *userdata) {
+static int event_log_load_and_process_components(EventLog **ret) {
         _cleanup_(event_log_freep) EventLog *el = NULL;
-        _cleanup_(table_unrefp) Table *table = NULL;
-        enum {
-                BEFORE_LOCATION,
-                BETWEEN_LOCATION,
-                AFTER_LOCATION,
-        } loc = BEFORE_LOCATION;
         int r;
+
+        assert(ret);
 
         el = event_log_new();
         if (!el)
@@ -2699,6 +2693,26 @@ static int verb_list_components(int argc, char *argv[], uintptr_t _data, void *u
                 return r;
 
         r = event_log_load_components(el);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(el);
+        return 0;
+}
+
+VERB_NOARG(verb_list_components, "list-components",
+           "List defined .pcrlock components");
+static int verb_list_components(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        _cleanup_(event_log_freep) EventLog *el = NULL;
+        _cleanup_(table_unrefp) Table *table = NULL;
+        enum {
+                BEFORE_LOCATION,
+                BETWEEN_LOCATION,
+                AFTER_LOCATION,
+        } loc = BEFORE_LOCATION;
+        int r;
+
+        r = event_log_load_and_process_components(&el);
         if (r < 0)
                 return r;
 
@@ -5442,6 +5456,54 @@ static int vl_method_read_event_log(sd_varlink *link, sd_json_variant *parameter
         return 0;
 }
 
+static int vl_method_list_components(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        _cleanup_(event_log_freep) EventLog *el = NULL;
+        int r;
+
+        assert(link);
+        assert(FLAGS_SET(flags, SD_VARLINK_METHOD_MORE));
+
+        r = sd_varlink_dispatch(link, parameters, /* dispatch_table= */ NULL, /* userdata= */ NULL);
+        if (r != 0)
+                return r;
+
+        r = event_log_load_and_process_components(&el);
+        if (r < 0)
+                return r;
+
+        r = sd_varlink_set_sentinel(link, NULL);
+        if (r < 0)
+                return r;
+
+        FOREACH_ARRAY(c, el->components, el->n_components) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *variants = NULL;
+
+                FOREACH_ARRAY(variant, (*c)->variants, (*c)->n_variants) {
+                        r = sd_json_variant_append_arraybo(
+                                        &variants,
+                                        SD_JSON_BUILD_PAIR_STRING("id", (*variant)->id),
+                                        SD_JSON_BUILD_PAIR_STRING("path", (*variant)->path));
+                        if (r < 0)
+                                return r;
+                }
+
+                if (!variants) {
+                        r = sd_json_variant_new_array(&variants, NULL, 0);
+                        if (r < 0)
+                                return r;
+                }
+
+                r = sd_varlink_replybo(
+                                link,
+                                SD_JSON_BUILD_PAIR_STRING("id", (*c)->id),
+                                SD_JSON_BUILD_PAIR_VARIANT("variants", variants));
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 typedef struct MethodMakePolicyParameters {
         bool force;
 } MethodMakePolicyParameters;
@@ -5614,6 +5676,7 @@ static int run(int argc, char *argv[]) {
                 r = sd_varlink_server_bind_method_many(
                                 varlink_server,
                                 "io.systemd.PCRLock.ReadEventLog",                  vl_method_read_event_log,
+                                "io.systemd.PCRLock.ListComponents",                vl_method_list_components,
                                 "io.systemd.PCRLock.MakePolicy",                    vl_method_make_policy,
                                 "io.systemd.PCRLock.RemovePolicy",                  vl_method_remove_policy,
                                 "io.systemd.PCRLock.Lock",                          vl_method_lock,
