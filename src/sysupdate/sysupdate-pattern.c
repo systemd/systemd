@@ -5,6 +5,7 @@
 #include "list.h"
 #include "log.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "sysupdate-instance.h"
@@ -248,12 +249,19 @@ int pattern_match(const char *pattern, const char *s, InstanceMetadata *ret) {
                 }
 
                 if (e->elements_next) {
-                        /* The next element must be literal, as we use it to determine where to split */
-                        assert(e->elements_next->type == PATTERN_LITERAL);
+                        if (e->elements_next->type == PATTERN_SLASH)
+                                /* The pattern has a slash after the wildcard. If the input string also has
+                                 * one we advance to it but if it has not, we capture everything to the end
+                                 * and since nothing is left it will lead to "retry" (after validation). */
+                                n = strchrnul(p, '/');
+                        else {
+                                /* The next element must be literal, as we use it to determine where to split */
+                                assert(e->elements_next->type == PATTERN_LITERAL);
 
-                        n = strstr(p, e->elements_next->literal);
-                        if (!n)
-                                goto nope;
+                                n = strstr(p, e->elements_next->literal);
+                                if (!n)
+                                        goto nope;
+                        }
 
                 } else
                         /* End of the string */
@@ -451,27 +459,58 @@ retry:
 }
 
 int pattern_match_many(char **patterns, const char *s, InstanceMetadata *ret) {
-        _cleanup_(instance_metadata_destroy) InstanceMetadata found = INSTANCE_METADATA_NULL;
+        _cleanup_(instance_metadata_destroy) InstanceMetadata found = INSTANCE_METADATA_NULL,
+                matched = INSTANCE_METADATA_NULL;
+        bool have_match = false, retry_descent = false;
         int r;
 
+        /* Evaluate all patterns and report the combined result: a direct match wins and provides the
+         * extracted fields, but when another pattern would descend into a subdirectory this is reported
+         * too, so the caller can descend as fallback when the direct match is no valid candidate. */
         STRV_FOREACH(p, patterns) {
-                r = pattern_match(*p, s, &found);
+                const char *pat = *p, *input_path;
+
+                if (have_match && retry_descent)
+                        break; /* nothing more to learn */
+
+                /* A glob directory prefix on a pattern means to match the rest of the pattern against the
+                 * last path component only (the basename, "find this file anywhere under the source tree") */
+                if (pattern_skip_glob_directory_prefix(&pat))
+                        input_path = last_path_component(s);
+                else
+                        input_path = s;
+
+                r = pattern_match(pat, input_path, &found);
                 if (r < 0)
                         return r;
-                if (r != PATTERN_MATCH_NO) {
-                        if (ret) {
-                                *ret = found;
-                                found = (InstanceMetadata) INSTANCE_METADATA_NULL;
-                        }
-
-                        return r;
+                if (r == PATTERN_MATCH_YES && !have_match) {
+                        matched = found;
+                        found = (InstanceMetadata) INSTANCE_METADATA_NULL;
+                        have_match = true;
                 }
+                if (r == PATTERN_MATCH_RETRY)
+                        retry_descent = true;
         }
 
-        if (ret)
-                *ret = (InstanceMetadata) INSTANCE_METADATA_NULL;
+        if (ret) {
+                *ret = matched;
+                matched = (InstanceMetadata) INSTANCE_METADATA_NULL;
+        }
 
-        return PATTERN_MATCH_NO;
+        if (have_match)
+                return retry_descent ? PATTERN_MATCH_YES_AND_RETRY : PATTERN_MATCH_YES;
+        return retry_descent ? PATTERN_MATCH_RETRY : PATTERN_MATCH_NO;
+}
+
+bool pattern_skip_glob_directory_prefix(const char **pattern) {
+        assert(pattern);
+
+        const char *e = startswith(*pattern, "**/");
+        if (!e)
+                return false;
+
+        *pattern = e;
+        return true;
 }
 
 int pattern_valid(const char *pattern) {
