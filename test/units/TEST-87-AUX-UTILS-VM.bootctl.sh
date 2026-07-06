@@ -369,6 +369,77 @@ testcase_bootctl_varlink() {
     SYSTEMD_LOG_TARGET=console varlinkctl call --json=short /run/systemd/io.systemd.BootControl io.systemd.BootControl.SetRebootToFirmware '{"state":false}' --graceful=io.systemd.BootControl.RebootToFirmwareNotSupported
 }
 
+cleanup_varstore() {
+    chattr -i "$RTSV" "$VTF" 2>/dev/null || :
+    rm -f "$RTSV" "$VTF"
+
+    # With the fake mechanism variables gone this is a plain variable removal again.
+    bootctl --variables=yes set-timeout "" || :
+
+    rm -f "$STORE"
+
+    unset RTSV VTF STORE
+}
+
+testcase_bootctl_file_backed_varstore() {
+    # Exercise the file-backed variable store flush (efi_variable_store_flush() in
+    # src/shared/efivars.c): firmware that keeps its EFI variable store in a file on the
+    # ESP (see "File Format For Storing EFI Variables" in the EBBR specification) exports
+    # the serialized store through the volatile VarToFile variable and names the store
+    # file in RTStorageVolatile; after every variable write systemd has to copy the blob
+    # into that file, or the write does not survive a reboot. Fake the firmware side of
+    # the mechanism with real efivarfs variables and verify the store file is maintained.
+    if [[ ! -d /sys/firmware/efi ]]; then
+        echo "Not booted with EFI, skipping file-backed variable store tests."
+        return 0
+    fi
+
+    local efivars=/sys/firmware/efi/efivars
+    local store_guid=b2ac5fc9-92b7-4acd-aeac-11e818c3130c
+    local esp
+    esp="$(bootctl --print-esp-path)"
+    STORE="$esp/ubootefi.var"
+    RTSV="$efivars/RTStorageVolatile-$store_guid"
+    VTF="$efivars/VarToFile-$store_guid"
+
+    trap cleanup_varstore RETURN ERR
+
+    # efivarfs file layout is 4 bytes of attributes followed by the payload. The store
+    # file name is NUL-terminated, as U-Boot serves it.
+    printf '\x07\x00\x00\x00ubootefi.var\x00' >"$RTSV"
+    printf '\x07\x00\x00\x00EBBR-VARSTORE-BLOB-0123456789abcdef' >"$VTF"
+
+    # The store file is created by the firmware (or when the ESP is assembled).
+    echo garbage >"$STORE"
+
+    # A variable write must replace the store file with VarToFile minus the attributes.
+    bootctl --variables=yes set-timeout 5
+    # Strip the 4-byte attribute header with dd: efivarfs does not support seeking, which
+    # rules out tail -c +5 (dd falls back to reading and discarding on non-seekable input).
+    cmp <(dd if="$VTF" bs=4 skip=1 status=none) "$STORE"
+
+    # A variable removal must flush the store file too.
+    echo garbage >"$STORE"
+    bootctl --variables=yes set-timeout ""
+    cmp <(dd if="$VTF" bs=4 skip=1 status=none) "$STORE"
+
+    # Without the store file the write must fail, since it would not survive a reboot;
+    # the file is only ever updated, never created.
+    rm "$STORE"
+    (! bootctl --variables=yes set-timeout 5)
+    [[ ! -e "$STORE" ]]
+
+    # A removal that cannot be flushed must fail too — in particular it must not be
+    # mistaken for "the variable didn't exist" (which callers rightfully ignore).
+    (! bootctl --variables=yes set-timeout "")
+
+    # Without RTStorageVolatile the whole mechanism is a no-op and writes succeed again.
+    chattr -i "$RTSV" 2>/dev/null || :
+    rm "$RTSV"
+    bootctl --variables=yes set-timeout 5
+    [[ ! -e "$STORE" ]]
+}
+
 testcase_bootctl_secure_boot_auto_enroll() {
     # mkosi can also add keys here, so back them up and restored them
     backup_esp
