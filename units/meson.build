@@ -26,6 +26,10 @@ units = [
         },
         { 'file' : 'debug-shell.service.in' },
         {
+          'file' : 'decryption-failure@.target',
+          'conditions' : ['HAVE_LIBCRYPTSETUP'],
+        },
+        {
           'file' : 'dev-hugepages.mount',
           'symlinks' : ['sysinit.target.wants/'],
         },
