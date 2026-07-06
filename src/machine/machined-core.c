@@ -495,8 +495,11 @@ int rename_image_and_update_cache(Manager *m, Image *image, const char* new_name
                 return r;
         }
 
-        /* Then save the object again in the cache, now under its new name. This cannot fail either: the
-         * removal above freed a slot, and image_rename() already verified the new name is not taken. */
+        /* Then save the object again in the cache, now under its new name. A stale entry might still be
+         * cached under the new name if the image previously known under it was removed from disk out of
+         * band and the idle cache flush has not run yet. image_rename() confirmed the name is free on
+         * disk, so evict any such bogus entry first. Afterwards the reinsertion cannot fail. */
+        image_unref(hashmap_remove(m->image_cache, image->name));
         assert_se(hashmap_put(m->image_cache, image->name, image) >= 0);
 
         return 0;
