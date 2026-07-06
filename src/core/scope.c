@@ -456,10 +456,18 @@ static int scope_start(Unit *u) {
 static int scope_stop(Unit *u) {
         Scope *s = ASSERT_PTR(SCOPE(u));
 
-        if (IN_SET(s->state, SCOPE_STOP_SIGTERM, SCOPE_STOP_SIGKILL))
+        if (IN_SET(s->state, SCOPE_STOP_SIGTERM, SCOPE_STOP_SIGKILL, SCOPE_DEAD, SCOPE_FAILED))
                 return 0;
 
-        assert(IN_SET(s->state, SCOPE_RUNNING, SCOPE_ABANDONED));
+        assert(IN_SET(s->state, SCOPE_RUNNING, SCOPE_ABANDONED, SCOPE_START_CHOWN));
+
+        if (s->state == SCOPE_START_CHOWN) {
+                /* Stop was requested while the async cgroup chown helper is still running.
+                 * The payload PIDs in u->pids have not yet been moved into the scope's cgroup,
+                 * that only happens in scope_enter_running() via unit_attach_pids_to_cgroup().
+                 * Attach them now so the cgroup kill covers both the helper and the payload. */
+                unit_attach_pids_to_cgroup(UNIT(s), UNIT(s)->pids, NULL);
+        }
 
         scope_enter_signal(s, SCOPE_STOP_SIGTERM, SCOPE_SUCCESS);
         return 1;
