@@ -146,6 +146,7 @@ Manager* manager_free(Manager *m) {
 
 #if HAVE_VMLINUX_H
         sd_event_source_disable_unref(m->userns_restrict_bpf_ring_buffer_event_source);
+        sd_event_source_disable_unref(m->userns_restrict_bpf_ring_buffer_retry_event_source);
         bpf_ring_buffer_free(m->userns_restrict_bpf_ring_buffer);
         userns_restrict_bpf_free(m->userns_restrict_bpf);
 #endif
@@ -519,12 +520,9 @@ static int ringbuf_event(void *userdata, void *data, size_t size) {
         if ((size % sizeof(unsigned)) != 0) /* Not multiples of "unsigned"? */
                 return -EIO;
 
-        /* Workers are active alongside us once we're processing BPF events, so we have to serialize
-         * registry mutations against them. The startup-time release callers run before any worker
-         * exists and skip the lock. */
-        _cleanup_close_ int lock_fd = userns_registry_lock(m->registry_fd);
-        if (lock_fd < 0)
-                return log_error_errno(lock_fd, "Failed to lock registry: %m");
+        /* The registry lock is held by our caller, manager_drain_ringbuf(), so that we don't have to
+         * block the event loop acquiring it here. (The startup-time release callers run before any
+         * worker exists and don't need the lock either.) */
 
         n = size / sizeof(unsigned);
         for (size_t i = 0; i < n; i++) {
@@ -541,15 +539,66 @@ static int ringbuf_event(void *userdata, void *data, size_t size) {
         return 0;
 }
 
-static int on_ringbuf_io(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        Manager *m = ASSERT_PTR(userdata);
+/* How long to wait before retrying to drain the BPF ring buffer when a worker currently holds the
+ * registry lock. */
+#define NSRESOURCE_RINGBUF_RETRY_USEC (250 * USEC_PER_MSEC)
+
+static int on_ringbuf_retry(sd_event_source *s, uint64_t usec, void *userdata);
+
+static int manager_drain_ringbuf(Manager *m) {
         int r;
+
+        assert(m);
+
+        /* Serialize registry mutations against the workers, but never block the event loop while doing
+         * so: a worker may hold the registry lock across fork()s, procfs writes and BPF map operations,
+         * and blocking here would stall watchdog pings, SIGTERM and SIGCHLD handling. If the lock is
+         * contended, leave the pending notifications queued in the ring buffer, stop our IO source from
+         * busy-looping on the (still readable) ring buffer fd, and retry a little later. */
+        _cleanup_close_ int lock_fd = userns_registry_lock_full(m->registry_fd, LOCK_EX|LOCK_NB);
+        if (lock_fd == -EAGAIN) {
+                r = sd_event_source_set_enabled(m->userns_restrict_bpf_ring_buffer_event_source, SD_EVENT_OFF);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to disable BPF ring buffer event source: %m");
+
+                r = event_reset_time_relative(
+                                m->event,
+                                &m->userns_restrict_bpf_ring_buffer_retry_event_source,
+                                CLOCK_MONOTONIC,
+                                NSRESOURCE_RINGBUF_RETRY_USEC,
+                                /* accuracy= */ 0,
+                                on_ringbuf_retry,
+                                m,
+                                /* priority= */ 0,
+                                "nsresource-ringbuf-retry",
+                                /* force_reset= */ true);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to arm BPF ring buffer retry timer: %m");
+
+                return 0;
+        }
+        if (lock_fd < 0)
+                return log_error_errno(lock_fd, "Failed to lock registry: %m");
 
         r = sym_ring_buffer__poll(m->userns_restrict_bpf_ring_buffer, 0);
         if (r < 0)
                 return log_error_errno(r, "Got failure reading from BPF ring buffer: %m");
 
+        /* We drained the ring buffer under the lock, make sure the IO source is enabled again, in case a
+         * previous contention had disabled it. */
+        r = sd_event_source_set_enabled(m->userns_restrict_bpf_ring_buffer_event_source, SD_EVENT_ON);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enable BPF ring buffer event source: %m");
+
         return 0;
+}
+
+static int on_ringbuf_io(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        return manager_drain_ringbuf(ASSERT_PTR(userdata));
+}
+
+static int on_ringbuf_retry(sd_event_source *s, uint64_t usec, void *userdata) {
+        return manager_drain_ringbuf(ASSERT_PTR(userdata));
 }
 
 static int manager_setup_bpf(Manager *m) {
