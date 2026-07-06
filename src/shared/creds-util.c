@@ -1393,6 +1393,8 @@ int decrypt_credential_and_warn(
                                 &tpm2_key);
                 if (r == -EREMOTE)
                         return log_error_errno(r, "TPM key integrity check failed. Key most likely does not belong to this TPM.");
+                if (r == -EADDRNOTAVAIL)
+                        return log_error_errno(r, "NV index referenced by key is missing, unwritten, or unusable, it could be for another system.");
                 if (ERRNO_IS_NEG_TPM2_UNSEAL_BAD_PCR(r))
                         return log_error_errno(r, "TPM policy does not match current system state. Either system has been tempered with or policy out-of-date: %m");
                 if (r < 0)
@@ -1837,6 +1839,7 @@ static const CredentialsVarlinkError credentials_varlink_error_table[] = {
         { "io.systemd.Credentials.KeyBelongsToOtherTPM",   EREMOTE,      "The TPM integrity check for this key failed, key probably belongs to another TPM, or was corrupted." },
         { "io.systemd.Credentials.TPMInDictionaryLockout", ENOLCK,       "The TPM is in dictionary lockout mode, cannot operate." },
         { "io.systemd.Credentials.UnexpectedPCRState" ,    EUCLEAN,      "Unexpected TPM PCR state of the system." },
+        { "io.systemd.Credentials.NVIndexUnusable",        EADDRNOTAVAIL, "The NV index referenced by the key is missing, unwritten, or unusable, it could be for another system." },
 };
 
 const CredentialsVarlinkError* credentials_varlink_error_by_id(const char *id) {
