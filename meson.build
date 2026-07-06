@@ -2021,7 +2021,7 @@ endif
 
 executable_template = {
         'include_directories' : includes,
-        'link_with' : libshared,
+        'link_with' : [libshared],
         'install_rpath' : pkglibdir,
         'install' : true,
 }
