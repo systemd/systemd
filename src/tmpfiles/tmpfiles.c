@@ -25,6 +25,7 @@
 #include "devnum-util.h"
 #include "dirent-util.h"
 #include "dissect-image.h"
+#include "dlopen-note.h"
 #include "env-util.h"
 #include "errno-util.h"
 #include "escape.h"
@@ -4852,6 +4853,12 @@ static int run(int argc, char *argv[]) {
                 _PHASE_MAX
         } phase;
         int r;
+
+        LIBBLKID_NOTE(recommended);
+        LIBCRYPTSETUP_NOTE(suggested);
+        LIBCRYPTO_NOTE(suggested);
+        LIBMOUNT_NOTE(recommended);
+        LIBSELINUX_NOTE(recommended);
 
         char **args = NULL;
         r = parse_argv(argc, argv, &args);

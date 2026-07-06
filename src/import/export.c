@@ -9,6 +9,7 @@
 #include "ansi-color.h"
 #include "build.h"
 #include "discover-image.h"
+#include "dlopen-note.h"
 #include "export-raw.h"
 #include "export-tar.h"
 #include "fd-util.h"
@@ -281,6 +282,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
 static int run(int argc, char *argv[]) {
         int r;
+
+        ARCHIVE_NOTE(recommended);
+        LIBSELINUX_NOTE(recommended);
 
         setlocale(LC_ALL, "");
         log_setup();

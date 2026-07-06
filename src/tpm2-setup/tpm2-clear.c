@@ -4,6 +4,7 @@
 
 #include "alloc-util.h"
 #include "build.h"
+#include "dlopen-note.h"
 #include "env-util.h"
 #include "fileio.h"
 #include "format-table.h"
@@ -109,6 +110,10 @@ static int request_tpm2_clear(void) {
 
 static int run(int argc, char *argv[]) {
         int r;
+
+        LIBTSS2_ESYS_NOTE(suggested);
+        LIBTSS2_MU_NOTE(suggested);
+        LIBTSS2_RC_NOTE(suggested);
 
         log_setup();
 

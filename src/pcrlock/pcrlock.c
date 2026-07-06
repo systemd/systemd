@@ -21,6 +21,7 @@
 #include "copy.h"
 #include "creds-util.h"
 #include "crypto-util.h"
+#include "dlopen-note.h"
 #include "efi-api.h"
 #include "efivars.h"
 #include "env-util.h"
@@ -5697,6 +5698,10 @@ static int vl_method_on_completed_update(sd_varlink *link, sd_json_variant *para
 
 static int run(int argc, char *argv[]) {
         int r;
+
+        LIBBLKID_NOTE(recommended);
+        LIBSELINUX_NOTE(recommended);
+        TPM2_NOTE(suggested);
 
         log_setup();
 

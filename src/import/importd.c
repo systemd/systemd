@@ -19,6 +19,7 @@
 #include "constants.h"
 #include "daemon-util.h"
 #include "discover-image.h"
+#include "dlopen-note.h"
 #include "env-util.h"
 #include "event-util.h"
 #include "fd-util.h"
@@ -2080,6 +2081,8 @@ static int run(int argc, char *argv[]) {
         _cleanup_(manager_unrefp) Manager *m = NULL;
         RuntimeScope scope = RUNTIME_SCOPE_SYSTEM;
         int r;
+
+        LIBSELINUX_NOTE(recommended);
 
         log_setup();
 

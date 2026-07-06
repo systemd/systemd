@@ -6,6 +6,7 @@
 #include "sd-event.h"
 #include "sd-messages.h"
 
+#include "dlopen-note.h"
 #include "format-util.h"
 #include "journal-authenticate.h"
 #include "journald-kmsg.h"
@@ -24,6 +25,12 @@ static int run(int argc, char *argv[]) {
         const char *namespace;
         LogTarget log_target;
         int r;
+
+        COMPRESS_DEFAULT_NOTE;
+        LIBACL_NOTE(recommended);
+        LIBCRYPTO_NOTE(suggested);
+        LIBPCRE2_NOTE(suggested);
+        LIBSELINUX_NOTE(recommended);
 
         if (argc > 2)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program takes one or no arguments.");

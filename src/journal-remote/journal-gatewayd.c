@@ -1259,6 +1259,9 @@ static int run(int argc, char *argv[]) {
                 MHD_USE_THREAD_PER_CONNECTION;
         int r, n;
 
+        COMPRESS_DEFAULT_NOTE;
+        LIBGNUTLS_NOTE(suggested);
+
         log_setup();
 
         r = parse_argv(argc, argv);

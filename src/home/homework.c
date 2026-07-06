@@ -13,6 +13,7 @@
 #include "chown-recursive.h"
 #include "copy.h"
 #include "cryptsetup-util.h"
+#include "dlopen-note.h"
 #include "env-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
@@ -1997,6 +1998,12 @@ static int run(int argc, char *argv[]) {
         usec_t start;
         sd_json_variant *fdmap, *blob_fd_variant;
         int r;
+
+        LIBCRYPT_NOTE(recommended);
+        LIBFIDO2_NOTE(suggested);
+        LIBMOUNT_NOTE(recommended);
+        LIBP11KIT_NOTE(suggested);
+        LIBSELINUX_NOTE(recommended);
 
         start = now(CLOCK_MONOTONIC);
 

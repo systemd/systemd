@@ -2,6 +2,7 @@
 
 #include <unistd.h>
 
+#include "dlopen-note.h"
 #include "dropin.h"
 #include "efivars.h"
 #include "generator.h"
@@ -168,6 +169,10 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
         int r;
 
         assert_se(arg_dest = dest);
+
+        LIBTSS2_ESYS_NOTE(suggested);
+        LIBTSS2_MU_NOTE(suggested);
+        LIBTSS2_RC_NOTE(suggested);
 
         r = proc_cmdline_parse(parse_proc_cmdline_item, NULL, PROC_CMDLINE_STRIP_RD_PREFIX);
         if (r < 0)
