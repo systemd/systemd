@@ -459,6 +459,33 @@ static int scope_stop(Unit *u) {
         if (IN_SET(s->state, SCOPE_STOP_SIGTERM, SCOPE_STOP_SIGKILL))
                 return 0;
 
+        if (IN_SET(s->state, SCOPE_DEAD, SCOPE_FAILED))
+                return 0;
+
+        if (s->state == SCOPE_START_CHOWN) {
+                /* Stop was requested while the async cgroup chown helper is still running.
+                 * The scope has not entered the running state yet, so skip the controller
+                 * stop request that scope_enter_signal() would normally send.
+                 * Kill the cgroup directly instead. */
+                int r = unit_kill_context(UNIT(s), KILL_TERMINATE);
+                if (r < 0) {
+                        scope_enter_dead(s, SCOPE_FAILURE_RESOURCES);
+                        return 1;
+                }
+
+                if (r > 0) {
+                        r = scope_arm_timer(s, /* relative= */ true, s->timeout_stop_usec);
+                        if (r < 0) {
+                                scope_enter_dead(s, SCOPE_FAILURE_RESOURCES);
+                                return 1;
+                        }
+                        scope_set_state(s, SCOPE_STOP_SIGTERM);
+                } else
+                        scope_enter_dead(s, SCOPE_SUCCESS);
+
+                return 1;
+        }
+
         assert(IN_SET(s->state, SCOPE_RUNNING, SCOPE_ABANDONED));
 
         scope_enter_signal(s, SCOPE_STOP_SIGTERM, SCOPE_SUCCESS);
