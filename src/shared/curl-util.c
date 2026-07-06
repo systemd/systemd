@@ -600,6 +600,7 @@ int curl_append_to_header(struct curl_slist **list, char **headers) {
 
 #endif
 
+_dlopen_
 int dlopen_curl(int log_level) {
 #if HAVE_LIBCURL
         static void *curl_dl = NULL;

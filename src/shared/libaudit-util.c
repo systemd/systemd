@@ -20,6 +20,7 @@ DLSYM_PROTOTYPE(audit_log_user_comm_message) = NULL;
 static DLSYM_PROTOTYPE(audit_open) = NULL;
 #endif
 
+_dlopen_
 int dlopen_libaudit(int log_level) {
 #if HAVE_AUDIT
         static void *libaudit_dl = NULL;

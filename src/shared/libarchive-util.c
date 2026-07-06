@@ -74,6 +74,7 @@ DLSYM_PROTOTYPE(archive_write_set_format_filter_by_ext) = NULL;
 DLSYM_PROTOTYPE(archive_write_set_format_pax) = NULL;
 #endif
 
+_dlopen_
 int dlopen_libarchive(int log_level) {
 #if HAVE_LIBARCHIVE
         static void *libarchive_dl = NULL;

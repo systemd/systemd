@@ -288,6 +288,7 @@ Compression compression_detect_from_magic(const uint8_t data[static COMPRESSION_
         return _COMPRESSION_INVALID;
 }
 
+_dlopen_
 int dlopen_xz(int log_level) {
 #if HAVE_XZ
         static void *lzma_dl = NULL;
@@ -309,6 +310,7 @@ int dlopen_xz(int log_level) {
 #endif
 }
 
+_dlopen_
 int dlopen_lz4(int log_level) {
 #if HAVE_LZ4
         static void *lz4_dl = NULL;
@@ -339,6 +341,7 @@ int dlopen_lz4(int log_level) {
 #endif
 }
 
+_dlopen_
 int dlopen_zstd(int log_level) {
 #if HAVE_ZSTD
         static void *zstd_dl = NULL;
@@ -370,6 +373,7 @@ int dlopen_zstd(int log_level) {
 #endif
 }
 
+_dlopen_
 int dlopen_zlib(int log_level) {
 #if HAVE_ZLIB
         static void *zlib_dl = NULL;
@@ -391,6 +395,7 @@ int dlopen_zlib(int log_level) {
 #endif
 }
 
+_dlopen_
 int dlopen_bzip2(int log_level) {
 #if HAVE_BZIP2
         static void *bzip2_dl = NULL;

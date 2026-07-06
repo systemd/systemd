@@ -1958,6 +1958,7 @@ static int list_callback(
 }
 #endif
 
+_dlopen_
 int dlopen_p11kit(int log_level) {
 #if HAVE_P11KIT
         static void *p11kit_dl = NULL;

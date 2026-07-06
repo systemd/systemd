@@ -14,6 +14,7 @@ DLSYM_PROTOTYPE(idn2_to_unicode_8z8z) = NULL;
 
 #endif
 
+_dlopen_
 int dlopen_idn(int log_level) {
 #if HAVE_LIBIDN2
         LIBIDN2_NOTE(suggested);

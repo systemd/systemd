@@ -115,6 +115,7 @@ int libmount_is_leaf(
 
 #endif
 
+_dlopen_
 int dlopen_libmount(int log_level) {
 #if HAVE_LIBMOUNT
         static void *libmount_dl = NULL;

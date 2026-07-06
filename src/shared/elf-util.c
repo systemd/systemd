@@ -95,6 +95,7 @@ static DLSYM_PROTOTYPE(gelf_getnote) = NULL;
 
 #endif
 
+_dlopen_
 int dlopen_dw(int log_level) {
 #if HAVE_ELFUTILS
         static void *dw_dl = NULL;
@@ -157,6 +158,7 @@ bool dlopen_dw_has_dwfl_set_sysroot(void) {
 #endif
 }
 
+_dlopen_
 int dlopen_elf(int log_level) {
 #if HAVE_ELFUTILS
         static void *elf_dl = NULL;

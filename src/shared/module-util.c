@@ -168,6 +168,7 @@ int module_setup_context(struct kmod_ctx **ret) {
 
 #endif
 
+_dlopen_
 int dlopen_libkmod(int log_level) {
 #if HAVE_KMOD
         static void *libkmod_dl = NULL;
