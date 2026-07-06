@@ -370,7 +370,7 @@ label-id: 1D2CE291-7CCE-4F7D-BC83-FDB49AD74EBD
 device: $imgs/zzz
 unit: sectors
 first-lba: 2048
-last-lba: 6422494
+last-lba: 6422487
 $imgs/zzz1 : start=        2048, size=      591856, type=933AC7E1-2EB4-4F13-B844-0E14E2AEF915, uuid=4980595D-D74A-483A-AA9E-9903879A0EE5, name=\"home-first\", attrs=\"GUID:59\"
 $imgs/zzz2 : start=      593904, size=      591856, type=${root_guid}, uuid=${root_uuid}, name=\"root-${architecture}\", attrs=\"GUID:59\"
 $imgs/zzz3 : start=     1185760, size=      591864, type=${root_guid}, uuid=${root_uuid2}, name=\"root-${architecture}-2\", attrs=\"GUID:59\"
@@ -434,7 +434,7 @@ label-id: 1D2CE291-7CCE-4F7D-BC83-FDB49AD74EBD
 device: $imgs/zzz
 unit: sectors
 first-lba: 2048
-last-lba: 6553566
+last-lba: 6553559
 $imgs/zzz1 : start=        2048, size=      591856, type=933AC7E1-2EB4-4F13-B844-0E14E2AEF915, uuid=4980595D-D74A-483A-AA9E-9903879A0EE5, name=\"home-first\", attrs=\"GUID:59\"
 $imgs/zzz2 : start=      593904, size=      591856, type=${root_guid}, uuid=${root_uuid}, name=\"root-${architecture}\", attrs=\"GUID:59\"
 $imgs/zzz3 : start=     1185760, size=      591864, type=${root_guid}, uuid=${root_uuid2}, name=\"root-${architecture}-2\", attrs=\"GUID:59\"
@@ -566,6 +566,51 @@ EOF
     assert_in "$imgs/copy_to1 : start=        2048, size=       20480, type=${root_guid}," "$output"
     assert_in "$imgs/copy_to2 : start=       22528, size=       10240, type=${xbootldr_guid}," "$output"
     assert_in "$imgs/copy_to3 : start=       32768, size=       90072, type=${esp_guid}," "$output"
+}
+
+testcase_size_auto_with_grain_size() {
+    local defs imgs output
+
+    defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
+    imgs="$(mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs'" RETURN
+    chmod 0755 "$defs"
+
+    tee "$defs/01-esp.conf" <<EOF
+[Partition]
+Type=esp
+SizeMinBytes=10M
+EOF
+
+    tee "$defs/02-usr.conf" <<EOF
+[Partition]
+Type=usr-${architecture}
+SizeMinBytes=10M
+EOF
+
+    tee "$defs/03-root.conf" <<EOF
+[Partition]
+Type=root-${architecture}
+SizeMinBytes=10M
+EOF
+
+    systemd-repart --offline="$OFFLINE" \
+                   --empty=create \
+                   --size=auto \
+                   --definitions="$defs" \
+                   --seed="$seed" \
+                   --dry-run=no \
+                   --grain-size=2097152 \
+                   "$imgs/auto"
+
+    output=$(sfdisk --dump "$imgs/auto")
+
+    assert_in "first-lba: 2048" "$output"
+    assert_in "last-lba: 65535" "$output"
+    assert_in "$imgs/auto1 : start=        4096, size=       20480, type=${esp_guid}," "$output"
+    assert_in "$imgs/auto2 : start=       24576, size=       20480, type=${usr_guid}," "$output"
+    assert_in "$imgs/auto3 : start=       45056, size=       20480, type=${root_guid}," "$output"
 }
 
 testcase_dropin() {
