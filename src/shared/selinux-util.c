@@ -89,6 +89,7 @@ DLSYM_PROTOTYPE(setsockcreatecon_raw) = NULL;
 DLSYM_PROTOTYPE(string_to_security_class) = NULL;
 #endif
 
+_dlopen_
 int dlopen_libselinux(int log_level) {
 #if HAVE_SELINUX
         static void *libselinux_dl = NULL;

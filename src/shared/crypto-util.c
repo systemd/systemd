@@ -342,6 +342,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(UI_METHOD*, sym_UI_destroy_method, UI_de
 
 #endif
 
+_dlopen_
 int dlopen_libcrypto(int log_level) {
 #if HAVE_OPENSSL
         static void *libcrypto_dl = NULL;

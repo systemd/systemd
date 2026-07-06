@@ -77,6 +77,7 @@ static int bpf_print_func(enum libbpf_print_level level, const char *fmt, va_lis
 
 #endif
 
+_dlopen_
 int dlopen_bpf(int log_level) {
 #if HAVE_LIBBPF
         static void *bpf_dl = NULL;

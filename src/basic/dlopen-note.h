@@ -6,6 +6,16 @@
 #include "basic-forward.h"
 #include "strv.h"
 
+/* Prevent dlopen helper functions (e.g., dlopen_libfoo()) from being inlined or cloned by the compiler/LTO.
+ * This ensures that their specific symbols remain intact in the final executable, allowing the developer
+ * test utility to verify that the functions corresponding to the dlopen ELF notes are actually invoked.
+ * This is restricted to BUILD_MODE_DEVELOPER to avoid degrading production performance. */
+#if BUILD_MODE_DEVELOPER
+#  define _dlopen_ _noclone_ _noinline_
+#else
+#  define _dlopen_
+#endif
+
 /* Avoid invalid priority. */
 #define _DLOPEN_CHECK_PRIORITY_required    1
 #define _DLOPEN_CHECK_PRIORITY_recommended 1

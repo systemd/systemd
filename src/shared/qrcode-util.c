@@ -28,6 +28,7 @@ static DLSYM_PROTOTYPE(QRcode_encodeString) = NULL;
 static DLSYM_PROTOTYPE(QRcode_free) = NULL;
 #endif
 
+_dlopen_
 int dlopen_qrencode(int log_level) {
 #if HAVE_QRENCODE
         static void *qrcode_dl = NULL;

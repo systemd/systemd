@@ -31,6 +31,7 @@ DLSYM_PROTOTYPE(MHD_start_daemon) = NULL;
 DLSYM_PROTOTYPE(MHD_stop_daemon) = NULL;
 #endif
 
+_dlopen_
 int dlopen_microhttpd(int log_level) {
 #if HAVE_MICROHTTPD
         static void *microhttpd_dl = NULL;

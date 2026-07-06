@@ -137,6 +137,7 @@ int check_password_quality(
 
 #endif
 
+_dlopen_
 int dlopen_passwdqc(int log_level) {
 #if HAVE_PASSWDQC
         static void *passwdqc_dl = NULL;

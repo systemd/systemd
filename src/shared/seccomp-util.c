@@ -2599,6 +2599,7 @@ int seccomp_suppress_sync(void) {
 
 #endif
 
+_dlopen_
 int dlopen_libseccomp(int log_level) {
 #if HAVE_SECCOMP
         static void *libseccomp_dl = NULL;

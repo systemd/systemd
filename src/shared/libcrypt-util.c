@@ -130,6 +130,7 @@ bool looks_like_hashed_password(const char *s) {
         return !STR_IN_SET(s, "x", "*");
 }
 
+_dlopen_
 int dlopen_libcrypt(int log_level) {
 #if HAVE_LIBCRYPT
 #ifdef __GLIBC__

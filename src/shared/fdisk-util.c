@@ -78,6 +78,7 @@ DLSYM_PROTOTYPE(fdisk_unref_table) = NULL;
 DLSYM_PROTOTYPE(fdisk_write_disklabel) = NULL;
 #endif
 
+_dlopen_
 int dlopen_fdisk(int log_level) {
 #if HAVE_LIBFDISK
         static void *fdisk_dl = NULL;
