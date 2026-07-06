@@ -8,11 +8,11 @@ executables += [
         libexec_template + {
                 'name' : 'systemd-hibernate-resume',
                 'sources' : files('hibernate-resume.c'),
-                'extract' : files('hibernate-resume-config.c'),
+                'export' : files('hibernate-resume-config.c'),
         },
         generator_template + {
                 'name' : 'systemd-hibernate-resume-generator',
                 'sources' : files('hibernate-resume-generator.c'),
-                'objects' : ['systemd-hibernate-resume'],
+                'import' : ['systemd-hibernate-resume'],
         },
 ]

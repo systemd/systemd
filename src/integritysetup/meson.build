@@ -8,12 +8,12 @@ executables += [
         libexec_template + {
                 'name' : 'systemd-integritysetup',
                 'sources' : files('integritysetup.c'),
-                'extract' : files('integrity-util.c'),
+                'export' : files('integrity-util.c'),
                 'dependencies' : libcryptsetup_cflags,
         },
         generator_template + {
                 'name' : 'systemd-integritysetup-generator',
                 'sources' : files('integritysetup-generator.c'),
-                'objects' : ['systemd-integritysetup'],
+                'import' : ['systemd-integritysetup'],
         },
 ]

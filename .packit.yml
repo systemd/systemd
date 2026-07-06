@@ -51,7 +51,7 @@ jobs:
   trigger: pull_request
   fmf_url: https://src.fedoraproject.org/rpms/systemd
   # This is automatically updated by tools/fetch-distro.py --update fedora
-  fmf_ref: 9cb09470c9c5a437f8e9c1e0e449b87de83733eb
+  fmf_ref: de7b685908c0964672af830b157baf97d45c2a38
   targets:
   - fedora-rawhide-x86_64
   # testing-farm in the Fedora repository is explicitly configured to use testing-farm bare metal runners as
