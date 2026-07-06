@@ -18,6 +18,7 @@
 #include "cryptsetup-pkcs11.h"
 #include "cryptsetup-tpm2.h"
 #include "cryptsetup-util.h"
+#include "dlopen-note.h"
 #include "efi-api.h"
 #include "efi-loader.h"
 #include "efivars.h"
@@ -538,7 +539,7 @@ static int parse_one_option(const char *option) {
 #if HAVE_OPENSSL
                 _cleanup_strv_free_ char **l = NULL;
 
-                r = DLOPEN_LIBCRYPTO(LOG_ERR, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
+                r = DLOPEN_LIBCRYPTO(LOG_ERR, recommended);
                 if (r < 0)
                         return r;
 
@@ -2881,6 +2882,12 @@ static int verb_detach(int argc, char *argv[], uintptr_t _data, void *userdata) 
 static int run(int argc, char *argv[]) {
         int r;
 
+        LIBBLKID_NOTE(recommended);
+        LIBFIDO2_NOTE(suggested);
+        LIBMOUNT_NOTE(recommended);
+        LIBP11KIT_NOTE(suggested);
+        TPM2_NOTE(suggested);
+
         log_setup();
 
         umask(0022);
@@ -2890,7 +2897,7 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        r = DLOPEN_CRYPTSETUP(LOG_ERR, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED);
+        r = DLOPEN_CRYPTSETUP(LOG_ERR, required);
         if (r < 0)
                 return r;
 

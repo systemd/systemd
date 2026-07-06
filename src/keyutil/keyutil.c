@@ -233,7 +233,7 @@ static int verb_extract_public(int argc, char *argv[], uintptr_t _data, void *us
                                 return r;
                 }
 
-                r = DLOPEN_LIBCRYPTO(LOG_ERR, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED);
+                r = DLOPEN_LIBCRYPTO(LOG_ERR, required);
                 if (r < 0)
                         return r;
 

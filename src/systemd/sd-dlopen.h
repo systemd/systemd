@@ -23,6 +23,8 @@
 
 #include <stdint.h>
 
+#include "_sd-common.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -94,6 +96,68 @@ extern "C" {
                 ".popsection\n"                                                                                                 \
                 ".endif\n")
 
+/*
+ * SD_ELF_NOTE_DLOPEN_ANCHORED() emits a .note.dlopen ELF note that is "anchored" to a dummy symbol via the
+ * SHF_LINK_ORDER ('o') section flag, in addition to SHF_GROUP ('G') for folding identical notes together.
+ *
+ * Unlike the plain SD_ELF_NOTE_DLOPEN() macro, this variant ties the note's lifetime to a dummy symbol named
+ * with the specified tag: if the linker's --gc-sections removes the function that calls the macro (e.g.
+ * because the function is never referenced), the associated .note.dlopen entry is garbage-collected along
+ * with it.
+ *
+ * USAGE NOTE:
+ * - The 'tag' argument must be a unique symbol name to characterize the dlopen note (e.g. generated from
+ *   feature and its priority).
+ *
+ *   Example:
+ *       void dlopen_libfoo(int log_level) {
+ *               SD_ELF_NOTE_DLOPEN_ANCHORED(foo_suggested, "foo", "description of foo", "suggested", "libfoo.so.0");
+ *               ...
+ *       }
+ *
+ * TOOLCHAIN REQUIREMENTS:
+ * - GNU as (binutils) >= 2.35: this is when support for specifying the SHF_LINK_ORDER ('o') associated
+ *   symbol as a direct argument to .section/.pushsection was added.
+ * - LLVM (clang -integrated-as) >= 11: matching support for the 'o' flag argument combined with 'G'
+ *   (SHF_GROUP) landed around LLVM 11.
+ * - Do NOT add 'R' (SHF_GNU_RETAIN) to these flags: combined with SHF_LINK_ORDER, it would prevent the
+ *   linker from ever garbage-collecting the note, defeating the whole purpose of anchoring it to a symbol in
+ *   the first place.
+ */
+#define _SD_ELF_NOTE_DLOPEN_ANCHORED(tag, uniq_var, json)                                                                       \
+        _Pragma("GCC diagnostic push")                                                                                          \
+        _Pragma("GCC diagnostic ignored \"-Wnested-externs\"")                                                                  \
+        __attribute__((visibility("hidden")))                                                                                   \
+        extern volatile const char uniq_var __asm__("__sd_dlopen_anchor_" #tag);                                                \
+        _Pragma("GCC diagnostic pop")                                                                                           \
+        __asm__ (                                                                                                               \
+                ".ifndef \"sd_dlopen:emitted:" #tag "\"\n"                                                                      \
+                _SD_ELF_NOTE_DLOPEN_GUARD " \"sd_dlopen:emitted:" #tag "\", 1\n"                                                \
+                ".pushsection .data.sd_dlopen_dummy." #tag ", \"awG\", %progbits, sd_dlopen_group_" #tag ", comdat\n"           \
+                ".weak __sd_dlopen_anchor_" #tag "\n"                                                                           \
+                ".hidden __sd_dlopen_anchor_" #tag "\n"                                                                         \
+                ".type __sd_dlopen_anchor_" #tag ", %object\n"                                                                  \
+                "__sd_dlopen_anchor_" #tag ":\n"                                                                                \
+                ".byte 0\n"                                                                                                     \
+                ".popsection\n"                                                                                                 \
+                ".pushsection .note.dlopen, \"aGo\", %note, __sd_dlopen_anchor_" #tag ", sd_dlopen_group_" #tag ", comdat\n"    \
+                ".balign 4\n"                                                                                                   \
+                ".long 884f - 883f\n"                                                                                           \
+                ".long 882f - 881f\n"                                                                                           \
+                ".long 0x407c0c0a\n"                                                                                            \
+                "883:\n"                                                                                                        \
+                ".asciz \"" SD_ELF_NOTE_DLOPEN_VENDOR "\"\n"                                                                    \
+                "884:\n"                                                                                                        \
+                ".balign 4\n"                                                                                                   \
+                "881:\n"                                                                                                        \
+                ".asciz \"" json "\"\n"                                                                                         \
+                "882:\n"                                                                                                        \
+                ".balign 4\n"                                                                                                   \
+                ".popsection\n"                                                                                                 \
+                ".endif\n"                                                                                                      \
+        );                                                                                                                      \
+        __asm__ volatile ("" : : "r" (&uniq_var))
+
 #define _SD_SONAME_ARRAY1(a) "[\\\"" a "\\\"]"
 #define _SD_SONAME_ARRAY2(a, b) "[\\\"" a "\\\",\\\"" b "\\\"]"
 #define _SD_SONAME_ARRAY3(a, b, c) "[\\\"" a "\\\",\\\"" b "\\\",\\\"" c "\\\"]"
@@ -102,8 +166,21 @@ extern "C" {
 #define _SD_SONAME_ARRAY_GET(_1,_2,_3,_4,_5,NAME,...) NAME
 #define _SD_SONAME_ARRAY(...) _SD_SONAME_ARRAY_GET(__VA_ARGS__, _SD_SONAME_ARRAY5, _SD_SONAME_ARRAY4, _SD_SONAME_ARRAY3, _SD_SONAME_ARRAY2, _SD_SONAME_ARRAY1)(__VA_ARGS__)
 
+#define _SD_DLOPEN_JSON(feature, description, priority, ...)    \
+        "[{"                                                    \
+        "\\\"feature\\\":\\\"" feature "\\\","                  \
+        "\\\"description\\\":\\\"" description "\\\","          \
+        "\\\"priority\\\":\\\"" priority "\\\","                \
+        "\\\"soname\\\":" _SD_SONAME_ARRAY(__VA_ARGS__)         \
+        "}]"
+
 #define SD_ELF_NOTE_DLOPEN(feature, description, priority, ...) \
-        _SD_ELF_NOTE_DLOPEN("[{\\\"feature\\\":\\\"" feature "\\\",\\\"description\\\":\\\"" description "\\\",\\\"priority\\\":\\\"" priority "\\\",\\\"soname\\\":" _SD_SONAME_ARRAY(__VA_ARGS__) "}]")
+        _SD_ELF_NOTE_DLOPEN(_SD_DLOPEN_JSON(feature, description, priority, __VA_ARGS__))
+
+#define _SD_DLOPEN_UNIQ_VAR(tag)                                        \
+        _SD_CONCATENATE(_SD_CONCATENATE(__sd_dlopen_anchor_, tag), _SD_CONCATENATE(_, _SD_UNIQ))
+#define SD_ELF_NOTE_DLOPEN_ANCHORED(tag, feature, description, priority, ...) \
+        _SD_ELF_NOTE_DLOPEN_ANCHORED(tag, _SD_DLOPEN_UNIQ_VAR(tag), _SD_DLOPEN_JSON(feature, description, priority, __VA_ARGS__))
 
 #ifdef __cplusplus
 }

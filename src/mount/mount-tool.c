@@ -14,6 +14,7 @@
 #include "chase.h"
 #include "device-private.h"
 #include "device-util.h"
+#include "dlopen-note.h"
 #include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
@@ -1478,6 +1479,8 @@ static int run(int argc, char* argv[]) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         char **args = NULL;
         int r;
+
+        LIBMOUNT_NOTE(recommended);
 
         log_setup();
 

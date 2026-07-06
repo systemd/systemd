@@ -20,9 +20,11 @@
 #include "sd-path.h"
 #include "sd-varlink.h"
 
+#include "acl-util.h"
 #include "alloc-util.h"
 #include "barrier.h"
 #include "base-filesystem.h"
+#include "blkid-util.h"
 #include "btrfs-util.h"
 #include "build.h"
 #include "bus-error.h"
@@ -36,12 +38,13 @@
 #include "constants.h"
 #include "copy.h"
 #include "cpu-set-util.h"
+#include "crypto-util.h"
+#include "cryptsetup-util.h"
 #include "daemon-util.h"
 #include "dev-setup.h"
 #include "devnum-util.h"
 #include "discover-image.h"
 #include "dissect-image.h"
-#include "dlfcn-util.h"
 #include "env-util.h"
 #include "escape.h"
 #include "ether-addr-util.h"
@@ -6141,9 +6144,13 @@ static int run(int argc, char *argv[]) {
         if (arg_cleanup)
                 return do_cleanup();
 
-        (void) DLOPEN_LIBMOUNT(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
-        (void) DLOPEN_LIBSECCOMP(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
-        (void) DLOPEN_LIBSELINUX(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
+        (void) DLOPEN_CRYPTSETUP(LOG_DEBUG, suggested);
+        (void) DLOPEN_LIBACL(LOG_DEBUG, recommended);
+        (void) DLOPEN_LIBBLKID(LOG_DEBUG, recommended);
+        (void) DLOPEN_LIBCRYPTO(LOG_WARNING, recommended);
+        (void) DLOPEN_LIBMOUNT(LOG_DEBUG, recommended);
+        (void) DLOPEN_LIBSECCOMP(LOG_DEBUG, recommended);
+        (void) DLOPEN_LIBSELINUX(LOG_DEBUG, recommended);
 
         r = cg_has_legacy();
         if (r < 0)

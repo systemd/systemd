@@ -12,6 +12,7 @@
 #include "common-signal.h"
 #include "constants.h"
 #include "daemon-util.h"
+#include "dlopen-note.h"
 #include "hashmap.h"
 #include "log.h"
 #include "main-func.h"
@@ -142,6 +143,10 @@ static int run(int argc, char *argv[]) {
         _cleanup_(manager_unrefp) Manager *m = NULL;
         RuntimeScope scope = RUNTIME_SCOPE_SYSTEM;
         int r;
+
+        LIBBLKID_NOTE(recommended);
+        LIBCRYPTO_NOTE(suggested);
+        SECURITY_NOTE(recommended);
 
         log_setup();
 

@@ -5,6 +5,7 @@
 #include "alloc-util.h"
 #include "build.h"
 #include "devnum-util.h"
+#include "dlopen-note.h"
 #include "efivars.h"
 #include "fd-util.h"
 #include "find-esp.h"
@@ -565,6 +566,8 @@ exists:
 static int run(int argc, char *argv[]) {
         char **args = NULL;
         int r;
+
+        LIBBLKID_NOTE(recommended);
 
         log_setup();
 

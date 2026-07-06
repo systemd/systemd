@@ -19,6 +19,7 @@
 #include "conf-files.h"
 #include "creds-util.h"
 #include "crypto-util.h"
+#include "dlopen-note.h"
 #include "efi-api.h"
 #include "efivars.h"
 #include "env-util.h"
@@ -5578,6 +5579,10 @@ static int vl_method_on_completed_update(sd_varlink *link, sd_json_variant *para
 static int run(int argc, char *argv[]) {
         int r;
 
+        LIBBLKID_NOTE(recommended);
+        SECURITY_NOTE(recommended);
+        TPM2_NOTE(suggested);
+
         log_setup();
 
         r = mac_init();
@@ -5589,7 +5594,7 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        r = DLOPEN_LIBCRYPTO(LOG_ERR, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED);
+        r = DLOPEN_LIBCRYPTO(LOG_ERR, required);
         if (r < 0)
                 return r;
 

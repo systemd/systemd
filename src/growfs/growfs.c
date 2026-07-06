@@ -11,6 +11,7 @@
 #include "device-util.h"
 #include "devnum-util.h"
 #include "dissect-image.h"
+#include "dlopen-note.h"
 #include "fd-util.h"
 #include "format-table.h"
 #include "format-util.h"
@@ -33,7 +34,7 @@ static int resize_crypt_luks_device(dev_t devno, const char *fstype, dev_t main_
         uint64_t size;
         int r;
 
-        r = DLOPEN_CRYPTSETUP(LOG_WARNING, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
+        r = DLOPEN_CRYPTSETUP(LOG_WARNING, recommended);
         if (r < 0)
                 return r;
 
@@ -191,6 +192,8 @@ static int run(int argc, char *argv[]) {
         uint64_t size, newsize;
         dev_t devno;
         int r;
+
+        LIBBLKID_NOTE(recommended);
 
         log_setup();
 

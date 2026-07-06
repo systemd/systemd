@@ -7,6 +7,7 @@
 #include "alloc-util.h"
 #include "build.h"
 #include "crypto-util.h"
+#include "dlopen-note.h"
 #include "efi-loader.h"
 #include "escape.h"
 #include "format-table.h"
@@ -90,7 +91,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 OPTION_LONG("bank", "DIGEST", "Select TPM PCR bank (SHA1, SHA256)"): {
                         const EVP_MD *implementation;
 
-                        r = DLOPEN_LIBCRYPTO(LOG_ERR, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED);
+                        r = DLOPEN_LIBCRYPTO(LOG_ERR, required);
                         if (r < 0)
                                 return r;
 
@@ -511,6 +512,9 @@ static int run(int argc, char *argv[]) {
         _cleanup_free_ char *word = NULL;
         Tpm2UserspaceEventType event = _TPM2_USERSPACE_EVENT_TYPE_INVALID;
         int r;
+
+        LIBBLKID_NOTE(recommended);
+        TPM2_NOTE(suggested);
 
         log_setup();
 

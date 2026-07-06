@@ -9,6 +9,7 @@
 #include "device-util.h"
 #include "devnum-util.h"
 #include "dissect-image.h"
+#include "dlopen-note.h"
 #include "dropin.h"
 #include "efi-loader.h"
 #include "efivars.h"
@@ -1358,6 +1359,10 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
 static int run(const char *dest, const char *dest_early, const char *dest_late) {
         int r;
+
+        LIBBLKID_NOTE(recommended);
+        LIBMOUNT_NOTE(recommended);
+        SECURITY_NOTE(recommended);
 
         assert_se(arg_dest = dest);
         assert_se(arg_dest_late = dest_late);

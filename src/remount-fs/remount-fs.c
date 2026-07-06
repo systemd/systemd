@@ -5,6 +5,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "dlopen-note.h"
 #include "env-util.h"
 #include "exit-status.h"
 #include "format-util.h"
@@ -121,6 +122,8 @@ static int remount_by_fstab(Hashmap **ret_pids) {
 static int run(int argc, char *argv[]) {
         _cleanup_hashmap_free_ Hashmap *pids = NULL;
         int r;
+
+        LIBMOUNT_NOTE(recommended);
 
         log_setup();
 

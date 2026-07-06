@@ -5,6 +5,7 @@
 #include "alloc-util.h"
 #include "creds-util.h"
 #include "discover-image.h"
+#include "dlopen-note.h"
 #include "efivars.h"
 #include "errno-util.h"
 #include "extract-word.h"
@@ -425,6 +426,9 @@ static int generate(void) {
 
 static int run(const char *dest, const char *dest_early, const char *dest_late) {
         int r;
+
+        LIBCRYPTO_NOTE(suggested);
+        TPM2_NOTE(suggested);
 
         assert_se(arg_dest = dest);
 

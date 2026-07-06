@@ -3,10 +3,9 @@
 #include <sys/stat.h>
 #include <sys/syslog.h>
 
-#include "sd-dlopen.h"
-
 #include "acl-util.h"
 #include "alloc-util.h"
+#include "dlopen-note.h"
 #include "errno-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
@@ -49,7 +48,7 @@ int dlopen_libacl(int log_level) {
 #if HAVE_ACL
         static void *libacl_dl = NULL;
 
-        LIBACL_NOTE(SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
+        LIBACL_NOTE(recommended);
 
         return dlopen_many_sym_or_warn(
                         &libacl_dl,

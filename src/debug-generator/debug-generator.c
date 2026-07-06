@@ -5,6 +5,7 @@
 #include "alloc-util.h"
 #include "bitfield.h"
 #include "creds-util.h"
+#include "dlopen-note.h"
 #include "dropin.h"
 #include "errno-util.h"
 #include "extract-word.h"
@@ -363,6 +364,9 @@ static int process_unit_credentials(const char *credentials_dir) {
 static int run(const char *dest, const char *dest_early, const char *dest_late) {
         const char *credentials_dir;
         int r;
+
+        LIBCRYPTO_NOTE(suggested);
+        TPM2_NOTE(suggested);
 
         assert_se(arg_dest = dest_early);
 

@@ -2,8 +2,6 @@
 
 #pragma once
 
-#include "sd-dlopen.h"
-
 #include "basic-forward.h"
 
 int dlopen_gcrypt(int log_level);
@@ -14,18 +12,6 @@ int initialize_libgcrypt(bool secmem);
 #ifndef SYSTEMD_CFLAGS_MARKER_LIBGCRYPT
 #  error "missing libgcrypt_cflags in meson dependency."
 #endif
-
-#define GCRYPT_NOTE(priority)                                           \
-        SD_ELF_NOTE_DLOPEN("gcrypt",                                    \
-                           "Support for journald forward-sealing",      \
-                           priority,                                    \
-                           "libgcrypt.so.20")
-
-#define DLOPEN_GCRYPT(log_level, priority)                              \
-        ({                                                              \
-                GCRYPT_NOTE(priority);                                  \
-                dlopen_gcrypt(log_level);                               \
-        })
 
 #include <gcrypt.h> /* IWYU pragma: export */
 
@@ -71,6 +57,4 @@ extern DLSYM_PROTOTYPE(gcry_randomize);
         } while(false)
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(gcry_md_hd_t, sym_gcry_md_close, NULL);
-#else
-#define DLOPEN_GCRYPT(log_level, priority) dlopen_gcrypt(log_level)
 #endif

@@ -161,7 +161,7 @@ int find_suitable_partition(
         POINTER_MAY_BE_NULL(partition_type);
         assert(ret);
 
-        r = DLOPEN_FDISK(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
+        r = DLOPEN_FDISK(LOG_DEBUG, recommended);
         if (r < 0)
                 return r;
 
@@ -230,7 +230,7 @@ int patch_partition(
         if (change == 0) /* Nothing to do */
                 return 0;
 
-        r = DLOPEN_FDISK(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
+        r = DLOPEN_FDISK(LOG_DEBUG, recommended);
         if (r < 0)
                 return r;
 
