@@ -3,6 +3,9 @@
 #if defined(__i386__) || defined(__x86_64__)
 #include <cpuid.h>
 #endif
+#if defined(__aarch64__)
+#include <sys/auxv.h>
+#endif
 #include <stdlib.h>
 #include <threads.h>
 #include <unistd.h>
@@ -951,9 +954,177 @@ static bool real_has_cpu_with_flag(const char *flag) {
 }
 #endif
 
+#if defined(__aarch64__)
+struct hwcap_table_entry {
+        uint64_t flag_mask;
+        const char *name;
+};
+
+static const struct hwcap_table_entry hwcap[] = {
+        { HWCAP_FP, "fp" },
+        { HWCAP_ASIMD, "asimd" },
+        { HWCAP_EVTSTRM, "evtstrm" },
+        { HWCAP_AES, "aes" },
+        { HWCAP_PMULL, "pmull" },
+        { HWCAP_SHA1, "sha1" },
+        { HWCAP_SHA2, "sha2" },
+        { HWCAP_CRC32, "crc32" },
+        { HWCAP_ATOMICS, "atomics" },
+        { HWCAP_FPHP, "fphp" },
+        { HWCAP_ASIMDHP, "asimdhp" },
+        { HWCAP_CPUID, "cpuid" },
+        { HWCAP_ASIMDRDM, "asimdrdm" },
+        { HWCAP_JSCVT, "jscvt" },
+        { HWCAP_FCMA, "fcma" },
+        { HWCAP_LRCPC, "lrcpc" },
+        { HWCAP_DCPOP, "dcpop" },
+        { HWCAP_SHA3, "sha3" },
+        { HWCAP_SM3, "sm3" },
+        { HWCAP_SM4, "sm4" },
+        { HWCAP_ASIMDDP, "asimddp" },
+        { HWCAP_SHA512, "sha512" },
+        { HWCAP_SVE, "sve" },
+        { HWCAP_ASIMDFHM, "asimdfhm" },
+        { HWCAP_DIT, "dit" },
+        { HWCAP_USCAT, "uscat" },
+        { HWCAP_ILRCPC, "ilrcpc" },
+        { HWCAP_FLAGM, "flagm" },
+        { HWCAP_SSBS, "ssbs" },
+        { HWCAP_SB, "sb" },
+        { HWCAP_PACA, "paca" },
+        { HWCAP_PACG, "pacg" },
+        { HWCAP_GCS, "gcs" },
+        { HWCAP_CMPBR, "cmpbr" },
+        { HWCAP_FPRCVT, "fprcvt" },
+        { HWCAP_F8MM8, "f8mm8" },
+        { HWCAP_F8MM4, "f8mm4" },
+        { HWCAP_SVE_F16MM, "svef16mm" },
+        { HWCAP_SVE_ELTPERM, "sveeltperm" },
+        { HWCAP_SVE_AES2, "sveaes2" },
+        { HWCAP_SVE_BFSCALE, "svebfscale" },
+        { HWCAP_SVE2P2, "sve2p2" },
+        { HWCAP_SME2P2, "sme2p2" },
+        { HWCAP_SME_SBITPERM, "smesbitperm" },
+        { HWCAP_SME_AES, "smeaes" },
+        { HWCAP_SME_SFEXPA, "smesfexpa" },
+        { HWCAP_SME_STMOP, "smestmop" },
+        { HWCAP_SME_SMOP4, "smesmop4" },
+};
+
+static const struct hwcap_table_entry hwcap2[] = {
+        { HWCAP2_DCPODP, "dcpodp" },
+        { HWCAP2_SVE2, "sve2" },
+        { HWCAP2_SVEAES, "sveaes" },
+        { HWCAP2_SVEPMULL, "svepmull" },
+        { HWCAP2_SVEBITPERM, "svebitperm" },
+        { HWCAP2_SVESHA3, "svesha3" },
+        { HWCAP2_SVESM4, "svesm4" },
+        { HWCAP2_FLAGM2, "flagm2" },
+        { HWCAP2_FRINT, "frint" },
+        { HWCAP2_SVEI8MM, "svei8mm" },
+        { HWCAP2_SVEF32MM, "svef32mm" },
+        { HWCAP2_SVEF64MM, "svef64mm" },
+        { HWCAP2_SVEBF16, "svebf16" },
+        { HWCAP2_I8MM, "i8mm" },
+        { HWCAP2_BF16, "bf16" },
+        { HWCAP2_DGH, "dgh" },
+        { HWCAP2_RNG, "rng" },
+        { HWCAP2_BTI, "bti" },
+        { HWCAP2_MTE, "mte" },
+        { HWCAP2_ECV, "ecv" },
+        { HWCAP2_AFP, "afp" },
+        { HWCAP2_RPRES, "rpres" },
+        { HWCAP2_MTE3, "mte3" },
+        { HWCAP2_SME, "sme" },
+        { HWCAP2_SME_I16I64, "smei16i64" },
+        { HWCAP2_SME_F64F64, "smef64f64" },
+        { HWCAP2_SME_I8I32, "smei8i32" },
+        { HWCAP2_SME_F16F32, "smef16f32" },
+        { HWCAP2_SME_B16F32, "smeb16f32" },
+        { HWCAP2_SME_F32F32, "smef32f32" },
+        { HWCAP2_SME_FA64, "smefa64" },
+        { HWCAP2_WFXT, "wfxt" },
+        { HWCAP2_EBF16, "ebf16" },
+        { HWCAP2_SVE_EBF16, "sveebf16" },
+        { HWCAP2_CSSC, "cssc" },
+        { HWCAP2_RPRFM, "rprfm" },
+        { HWCAP2_SVE2P1, "sve2p1" },
+        { HWCAP2_SME2, "sme2" },
+        { HWCAP2_SME2P1, "sme2p1" },
+        { HWCAP2_SME_I16I32, "smei16i32" },
+        { HWCAP2_SME_BI32I32, "smebi32i32" },
+        { HWCAP2_SME_B16B16, "smeb16b16" },
+        { HWCAP2_SME_F16F16, "smef16f16" },
+        { HWCAP2_MOPS, "mops" },
+        { HWCAP2_HBC, "hbc" },
+        { HWCAP2_SVE_B16B16, "sveb16b16" },
+        { HWCAP2_LRCPC3, "lrcpc3" },
+        { HWCAP2_LSE128, "lse128" },
+        { HWCAP2_FPMR, "fpmr" },
+        { HWCAP2_LUT, "lut" },
+        { HWCAP2_FAMINMAX, "faminmax" },
+        { HWCAP2_F8CVT, "f8cvt" },
+        { HWCAP2_F8FMA, "f8fma" },
+        { HWCAP2_F8DP4, "f8dp4" },
+        { HWCAP2_F8DP2, "f8dp2" },
+        { HWCAP2_F8E4M3, "f8e4m3" },
+        { HWCAP2_F8E5M2, "f8e5m2" },
+        { HWCAP2_SME_LUTV2, "smelutv2" },
+        { HWCAP2_SME_F8F16, "smef8f16" },
+        { HWCAP2_SME_F8F32, "smef8f32" },
+        { HWCAP2_SME_SF8FMA, "smesf8fma" },
+        { HWCAP2_SME_SF8DP4, "smesf8dp4" },
+        { HWCAP2_SME_SF8DP2, "smesf8dp2" },
+        { HWCAP2_POE, "poe" },
+};
+
+static const struct hwcap_table_entry hwcap3[] = {
+        { HWCAP3_MTE_FAR, "mtefar" },
+        { HWCAP3_MTE_STORE_ONLY, "mtestoreonly" },
+        { HWCAP3_LSFE, "lsfe" },
+        { HWCAP3_LS64, "ls64" },
+        { HWCAP3_SVE_B16MM, "sveb16mm" },
+        { HWCAP3_SVE2P3, "sve2p3" },
+        { HWCAP3_SME_LUT6, "smelut6" },
+        { HWCAP3_SME2P3, "sme2p3" },
+        { HWCAP3_F16MM, "f16mm" },
+        { HWCAP3_F16F32DOT, "f16f32dot" },
+        { HWCAP3_F16F32MM, "f16f32mm" },
+        { HWCAP3_SVE_LUT6, "svelut6" },
+};
+
+static bool given_flag_in_hwcap_set(const char *flag, const struct hwcap_table_entry *set, size_t set_size, unsigned long val) {
+        assert(set);
+
+        for (size_t i = 0; i < set_size; i++)
+                if ((set[i].flag_mask & val) && streq(flag, set[i].name))
+                        return true;
+
+        return false;
+}
+
+static bool real_has_cpu_with_flag(const char *flag) {
+        unsigned long val;
+
+        val = getauxval(AT_HWCAP);
+        if (given_flag_in_hwcap_set(flag, hwcap, ELEMENTSOF(hwcap), val))
+                return true;
+
+        val = getauxval(AT_HWCAP2);
+        if (given_flag_in_hwcap_set(flag, hwcap2, ELEMENTSOF(hwcap2), val))
+                return true;
+
+        val = getauxval(AT_HWCAP3);
+        if (given_flag_in_hwcap_set(flag, hwcap3, ELEMENTSOF(hwcap3), val))
+                return true;
+
+        return false;
+}
+#endif
+
 bool has_cpu_with_flag(const char *flag) {
-        /* CPUID is an x86 specific interface. Assume on all others that no CPUs have those flags. */
-#if defined(__i386__) || defined(__x86_64__)
+        /* Check the architecture-specific CPU feature interface when available. */
+#if defined(__i386__) || defined(__x86_64__) || defined(__aarch64__)
         return real_has_cpu_with_flag(flag);
 #else
         return false;
