@@ -20,6 +20,7 @@
 #include "bus-locator.h"
 #include "bus-util.h"
 #include "crypto-util.h"
+#include "dlopen-note.h"
 #include "dns-configuration.h"
 #include "dns-domain.h"
 #include "dns-packet.h"
@@ -3791,6 +3792,8 @@ static int run(int argc, char **argv) {
         char **args = NULL;
         bool compat = false;
         int r;
+
+        LIBCRYPTO_NOTE(suggested);
 
         setlocale(LC_ALL, "");
         log_setup();

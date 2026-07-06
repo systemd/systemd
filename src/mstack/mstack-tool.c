@@ -6,6 +6,7 @@
 #include "argv-util.h"
 #include "build.h"
 #include "chase.h"
+#include "dlopen-note.h"
 #include "errno-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
@@ -375,6 +376,11 @@ static int umount_mstack(void) {
 
 static int run(int argc, char *argv[]) {
         int r;
+
+        LIBBLKID_NOTE(recommended);
+        LIBCRYPTO_NOTE(suggested);
+        LIBCRYPTSETUP_NOTE(suggested);
+        LIBMOUNT_NOTE(recommended);
 
         log_setup();
 

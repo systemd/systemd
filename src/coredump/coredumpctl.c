@@ -21,6 +21,7 @@
 #include "chase.h"
 #include "compress.h"
 #include "dissect-image.h"
+#include "dlopen-note.h"
 #include "errno-util.h"
 #include "escape.h"
 #include "extract-word.h"
@@ -1488,6 +1489,13 @@ static int run(int argc, char *argv[]) {
         _cleanup_(umount_and_freep) char *mounted_dir = NULL;
         char **args = NULL;
         int r, units_active;
+
+        JOURNAL_NOTE;
+        LIBACL_NOTE(recommended);
+        LIBBLKID_NOTE(recommended);
+        LIBCRYPTO_NOTE(suggested);
+        LIBCRYPTSETUP_NOTE(suggested);
+        LIBMOUNT_NOTE(recommended);
 
         setlocale(LC_ALL, "");
         log_setup();

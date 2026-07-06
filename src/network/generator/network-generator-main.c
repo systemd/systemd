@@ -5,6 +5,7 @@
 #include "alloc-util.h"
 #include "build.h"
 #include "creds-util.h"
+#include "dlopen-note.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "format-table.h"
@@ -196,6 +197,8 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 static int run(int argc, char *argv[]) {
         _cleanup_(context_clear) Context context = {};
         int r, ret = 0;
+
+        LIBSELINUX_NOTE(recommended);
 
         log_setup();
 

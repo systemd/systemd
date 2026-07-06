@@ -12,6 +12,7 @@
 #include "conf-parser.h"
 #include "curl-util.h"
 #include "daemon-util.h"
+#include "dlopen-note.h"
 #include "env-file.h"
 #include "extract-word.h"
 #include "fd-util.h"
@@ -868,6 +869,8 @@ static int run(int argc, char **argv) {
         char **args = NULL;
         bool use_journal;
         int r;
+
+        JOURNAL_NOTE;
 
         log_setup();
 

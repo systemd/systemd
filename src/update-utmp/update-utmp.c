@@ -7,6 +7,7 @@
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-util.h"
+#include "dlopen-note.h"
 #include "libaudit-util.h"
 #include "log.h"
 #include "main-func.h"
@@ -108,6 +109,8 @@ static int run(int argc, char *argv[]) {
         _cleanup_(context_clear) Context c = {
                 .audit_fd = -EBADF,
         };
+
+        LIBAUDIT_NOTE(recommended);
 
         log_setup();
 
