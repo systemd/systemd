@@ -11,6 +11,7 @@
 #include "copy.h"
 #include "creds-util.h"
 #include "dissect-image.h"
+#include "dlopen-note.h"
 #include "errno-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
@@ -2268,6 +2269,14 @@ static int run(int argc, char *argv[]) {
 
         Item *i;
         int r;
+
+        LIBAUDIT_NOTE(recommended);
+        LIBBLKID_NOTE(recommended);
+        LIBCRYPT_NOTE(recommended);
+        LIBCRYPTSETUP_NOTE(suggested);
+        LIBCRYPTO_NOTE(suggested);
+        LIBMOUNT_NOTE(recommended);
+        SECURITY_NOTE(recommended);
 
         char **args = NULL;
         r = parse_argv(argc, argv, &args);

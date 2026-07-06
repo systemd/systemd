@@ -24,6 +24,7 @@
 #include "detach-loopback.h"
 #include "detach-md.h"
 #include "detach-swap.h"
+#include "dlopen-note.h"
 #include "errno-util.h"
 #include "exec-util.h"
 #include "fd-util.h"
@@ -377,6 +378,8 @@ int main(int argc, char *argv[]) {
         dual_timestamp shutdown_late_start;
         size_t n_luo_fds = 0;
         int cmd, r;
+
+        SECURITY_NOTE(recommended);
 
         /* LUO will preserve these across kexec */
         dual_timestamp_now(&shutdown_late_start);

@@ -5,6 +5,7 @@
 #include "alloc-util.h"
 #include "build.h"
 #include "chase.h"
+#include "dlopen-note.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -123,6 +124,8 @@ static int parse_argv(int argc, char *argv[]) {
 static int run(int argc, char *argv[]) {
         struct stat st;
         int r;
+
+        SECURITY_NOTE(recommended);
 
         r = parse_argv(argc, argv);
         if (r <= 0)

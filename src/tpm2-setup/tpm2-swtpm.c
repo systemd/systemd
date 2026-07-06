@@ -6,6 +6,7 @@
 
 #include "alloc-util.h"
 #include "chase.h"
+#include "dlopen-note.h"
 #include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
@@ -144,6 +145,8 @@ static int setup_swtpm(const char *state_dir, int state_fd, const char *secret) 
 
 static int run(int argc, char *argv[]) {
         int r;
+
+        LIBBLKID_NOTE(recommended);
 
         log_setup();
 

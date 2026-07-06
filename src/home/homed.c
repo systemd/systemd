@@ -7,6 +7,7 @@
 #include "bus-log-control-api.h"
 #include "bus-object.h"
 #include "daemon-util.h"
+#include "dlopen-note.h"
 #include "homed-manager.h"
 #include "homed-manager-bus.h"
 #include "log.h"
@@ -17,6 +18,9 @@ static int run(int argc, char *argv[]) {
         _cleanup_(manager_freep) Manager *m = NULL;
         _unused_ _cleanup_(notify_on_cleanup) const char *notify_stop = NULL;
         int r;
+
+        LIBCRYPT_NOTE(recommended);
+        PASSWORD_NOTE(suggested);
 
         log_setup();
 

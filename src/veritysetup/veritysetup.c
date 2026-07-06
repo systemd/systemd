@@ -8,6 +8,7 @@
 #include "alloc-util.h"
 #include "argv-util.h"
 #include "cryptsetup-util.h"
+#include "dlopen-note.h"
 #include "extract-word.h"
 #include "fileio.h"
 #include "format-table.h"
@@ -492,6 +493,8 @@ static int run(int argc, char *argv[]) {
                 return help();
 
         log_setup();
+
+        LIBCRYPTO_NOTE(suggested);
 
         r = DLOPEN_CRYPTSETUP(LOG_ERR, required);
         if (r < 0)

@@ -22,6 +22,7 @@
 #include "daemon-util.h"
 #include "device-private.h"
 #include "device-util.h"
+#include "dlopen-note.h"
 #include "env-file.h"
 #include "env-util.h"
 #include "extract-word.h"
@@ -2658,6 +2659,8 @@ static int run(int argc, char *argv[]) {
                 .hostname_source = _HOSTNAME_INVALID, /* appropriate value will be set later */
         };
         int r;
+
+        SECURITY_NOTE(recommended);
 
         log_setup();
 

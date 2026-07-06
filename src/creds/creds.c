@@ -12,6 +12,7 @@
 #include "bus-util.h"
 #include "creds-util.h"
 #include "dirent-util.h"
+#include "dlopen-note.h"
 #include "errno-util.h"
 #include "escape.h"
 #include "fileio.h"
@@ -1466,6 +1467,9 @@ static int vl_server(void) {
 
 static int run(int argc, char *argv[]) {
         int r;
+
+        LIBCRYPTO_NOTE(suggested);
+        TPM2_NOTE(suggested);
 
         log_setup();
 

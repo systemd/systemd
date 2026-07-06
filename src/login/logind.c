@@ -17,6 +17,7 @@
 #include "device-util.h"
 #include "devnum-util.h"
 #include "dirent-util.h"
+#include "dlopen-note.h"
 #include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
@@ -1347,6 +1348,10 @@ static int run(int argc, char *argv[]) {
         _cleanup_(manager_freep) Manager *m = NULL;
         _unused_ _cleanup_(notify_on_cleanup) const char *notify_message = NULL;
         int r;
+
+        LIBACL_NOTE(recommended);
+        LIBBLKID_NOTE(recommended);
+        SECURITY_NOTE(recommended);
 
         log_set_facility(LOG_AUTH);
         log_setup();

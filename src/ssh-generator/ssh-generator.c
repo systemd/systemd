@@ -4,6 +4,7 @@
 
 #include "alloc-util.h"
 #include "creds-util.h"
+#include "dlopen-note.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -449,6 +450,9 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
         int r;
 
         assert(dest);
+
+        LIBCRYPTO_NOTE(suggested);
+        TPM2_NOTE(suggested);
 
         r = proc_cmdline_parse(parse_proc_cmdline_item, /* userdata= */ NULL, /* flags= */ 0);
         if (r < 0)

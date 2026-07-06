@@ -10,6 +10,7 @@
 #include "conf-files.h"
 #include "constants.h"
 #include "crypto-util.h"
+#include "dlopen-note.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -598,6 +599,8 @@ static int run(int argc, char *argv[]) {
                 log_notice("No complete TPM2 support detected, exiting gracefully.");
                 return EXIT_SUCCESS;
         }
+
+        LIBBLKID_NOTE(recommended);
 
         r = DLOPEN_LIBCRYPTO(LOG_ERR, required);
         if (r < 0)

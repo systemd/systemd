@@ -47,7 +47,11 @@ executables += [
                         executable_template['include_directories'],
                 ],
                 'dependencies' : [
+                        libacl_cflags,
+                        libblkid_cflags,
+                        libcryptsetup_cflags,
                         libmount_cflags,
+                        libopenssl_cflags,
                         libseccomp_cflags,
                         libselinux_cflags,
                 ],

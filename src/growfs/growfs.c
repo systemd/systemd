@@ -11,6 +11,7 @@
 #include "device-util.h"
 #include "devnum-util.h"
 #include "dissect-image.h"
+#include "dlopen-note.h"
 #include "fd-util.h"
 #include "format-table.h"
 #include "format-util.h"
@@ -191,6 +192,8 @@ static int run(int argc, char *argv[]) {
         uint64_t size, newsize;
         dev_t devno;
         int r;
+
+        LIBBLKID_NOTE(recommended);
 
         log_setup();
 
