@@ -215,7 +215,7 @@ executables += [
                 'suite' : 'udev',
         },
         udev_test_template + {
-                'sources' : files('net/test-link-config-tables.c'),
+                'sources' : files('net/test-link.c'),
                 'suite' : 'udev',
         },
         udev_test_template + {
