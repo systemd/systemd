@@ -176,6 +176,7 @@ cat >/etc/crypttab <<EOF
 empty_key            $IMAGE_EMPTY    $IMAGE_EMPTY_KEYFILE            headless,x-systemd.device-timeout=1m
 empty_key_erase      $IMAGE_EMPTY    $IMAGE_EMPTY_KEYFILE_ERASE      headless=1,keyfile-erase=1
 empty_key_erase_fail $IMAGE_EMPTY    $IMAGE_EMPTY_KEYFILE_ERASE_FAIL headless=1,keyfile-erase=1,keyfile-offset=4
+empty_key_recovery   $IMAGE_EMPTY    $IMAGE_EMPTY_KEYFILE            headless-recovery,x-systemd.device-timeout=1m
 # Empty passphrase without try-empty-password(=yes) shouldn't work
 empty_fail0          $IMAGE_EMPTY    -                               headless=1
 empty_fail1          $IMAGE_EMPTY    -                               headless=1,try-empty-password=0
@@ -213,6 +214,7 @@ systemctl daemon-reload
 systemctl list-unit-files "systemd-cryptsetup@*"
 
 cryptsetup_start_and_check empty_key
+cryptsetup_start_and_check empty_key_recovery
 test -e "$IMAGE_EMPTY_KEYFILE_ERASE"
 cryptsetup_start_and_check empty_key_erase
 test ! -e "$IMAGE_EMPTY_KEYFILE_ERASE"
