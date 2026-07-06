@@ -36,7 +36,7 @@ int resolve_system_hostname(char **full_hostname, char **first_label) {
 #if HAVE_LIBIDN2
         _cleanup_free_ char *utf8 = NULL;
 
-        if (DLOPEN_IDN(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED) >= 0) {
+        if (DLOPEN_IDN(LOG_DEBUG, recommended) >= 0) {
                 r = sym_idn2_to_unicode_8z8z(label, &utf8, 0);
                 if (r != IDN2_OK)
                         return log_debug_errno(SYNTHETIC_ERRNO(EUCLEAN),

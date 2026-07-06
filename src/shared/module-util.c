@@ -2,8 +2,7 @@
 
 #include <syslog.h>
 
-#include "sd-dlopen.h"
-
+#include "dlopen-note.h"
 #include "log.h"
 #include "module-util.h"
 #include "proc-cmdline.h"
@@ -173,7 +172,7 @@ int dlopen_libkmod(int log_level) {
 #if HAVE_KMOD
         static void *libkmod_dl = NULL;
 
-        LIBKMOD_NOTE(SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
+        LIBKMOD_NOTE(recommended);
 
         return dlopen_many_sym_or_warn(
                         &libkmod_dl,

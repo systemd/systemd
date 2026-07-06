@@ -281,7 +281,7 @@ static int pull_job_open_disk(PullJob *j) {
         }
 
         if (j->calc_checksum) {
-                r = DLOPEN_LIBCRYPTO(LOG_ERR, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
+                r = DLOPEN_LIBCRYPTO(LOG_ERR, recommended);
                 if (r < 0)
                         return r;
 
