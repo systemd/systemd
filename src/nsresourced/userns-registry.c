@@ -44,7 +44,7 @@ int userns_registry_open_fd(void) {
         return fd;
 }
 
-int userns_registry_lock(int dir_fd) {
+int userns_registry_lock_full(int dir_fd, int operation) {
         _cleanup_close_ int registry_fd = -EBADF, lock_fd = -EBADF;
 
         if (dir_fd < 0) {
@@ -55,7 +55,9 @@ int userns_registry_lock(int dir_fd) {
                 dir_fd = registry_fd;
         }
 
-        lock_fd = xopenat_lock_full(dir_fd, "lock", O_CREAT|O_RDWR|O_CLOEXEC, /* xopen_flags= */ 0, 0600, LOCK_BSD, LOCK_EX);
+        lock_fd = xopenat_lock_full(dir_fd, "lock", O_CREAT|O_RDWR|O_CLOEXEC, /* xopen_flags= */ 0, 0600, LOCK_BSD, operation);
+        if (lock_fd == -EAGAIN)
+                return -EAGAIN; /* Contended and LOCK_NB was requested: let the caller decide what to do. */
         if (lock_fd < 0)
                 return log_debug_errno(lock_fd, "Failed to open nsresource registry lock file: %m");
 
