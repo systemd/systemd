@@ -1416,11 +1416,11 @@ endif
 # In the dlopen ELF note we save the default compression library with a
 # higher priority, so that packages can give it priority over the
 # secondary libraries.
-conf.set_quoted('COMPRESSION_PRIORITY_ZSTD',
+conf.set('COMPRESSION_PRIORITY_ZSTD',
                 compression == 'zstd' ? 'recommended' : 'suggested')
-conf.set_quoted('COMPRESSION_PRIORITY_LZ4',
+conf.set('COMPRESSION_PRIORITY_LZ4',
                 compression == 'lz4' ? 'recommended' : 'suggested')
-conf.set_quoted('COMPRESSION_PRIORITY_XZ',
+conf.set('COMPRESSION_PRIORITY_XZ',
                 compression == 'xz' ? 'recommended' : 'suggested')
 conf.set('DEFAULT_COMPRESSION', 'COMPRESSION_@0@'.format(compression.to_upper()))
 

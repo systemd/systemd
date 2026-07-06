@@ -6141,9 +6141,9 @@ static int run(int argc, char *argv[]) {
         if (arg_cleanup)
                 return do_cleanup();
 
-        (void) DLOPEN_LIBMOUNT(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
-        (void) DLOPEN_LIBSECCOMP(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
-        (void) DLOPEN_LIBSELINUX(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
+        (void) DLOPEN_LIBMOUNT(LOG_DEBUG, recommended);
+        (void) DLOPEN_LIBSECCOMP(LOG_DEBUG, recommended);
+        (void) DLOPEN_LIBSELINUX(LOG_DEBUG, recommended);
 
         r = cg_has_legacy();
         if (r < 0)
