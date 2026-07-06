@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "apparmor-util.h"
-#include "dlopen-note.h"
 #include "log.h"
 
 #if HAVE_APPARMOR

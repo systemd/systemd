@@ -166,6 +166,7 @@ static DLSYM_PROTOTYPE(Tss2_MU_UINT32_Marshal) = NULL;
 
 static DLSYM_PROTOTYPE(Tss2_RC_Decode) = NULL;
 
+_dlopen_loader_
 static int dlopen_tpm2_esys(int log_level) {
         static void *libtss2_esys_dl = NULL;
         int r;
@@ -229,6 +230,7 @@ static int dlopen_tpm2_esys(int log_level) {
         return 0;
 }
 
+_dlopen_loader_
 static int dlopen_tpm2_rc(int log_level) {
         static void *libtss2_rc_dl = NULL;
 
@@ -239,6 +241,7 @@ static int dlopen_tpm2_rc(int log_level) {
                         DLSYM_ARG(Tss2_RC_Decode));
 }
 
+_dlopen_loader_
 static int dlopen_tpm2_mu(int log_level) {
         static void *libtss2_mu_dl = NULL;
 
@@ -268,6 +271,7 @@ static int dlopen_tpm2_mu(int log_level) {
                         DLSYM_ARG(Tss2_MU_UINT32_Marshal));
 }
 
+_dlopen_loader_
 static int dlopen_tpm2_tcti_device(int log_level) {
         static void *libtss2_tcti_device_dl = NULL;
 

@@ -63,7 +63,7 @@ static inline void freeconp(char **p) {
 
 #endif
 
-int dlopen_libselinux(int log_level);
+int dlopen_libselinux(int log_level) _dlopen_loader_;
 
 #define DLOPEN_LIBSELINUX(log_level, priority)                          \
         ({                                                              \

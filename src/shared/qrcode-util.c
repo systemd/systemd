@@ -12,7 +12,6 @@
 
 #include "ansi-color.h"
 #include "dlfcn-util.h"
-#include "dlopen-note.h"
 #include "locale-util.h"
 #include "log.h"
 #include "strv.h"

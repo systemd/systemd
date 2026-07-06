@@ -110,7 +110,7 @@ int pam_prompt_graceful(pam_handle_t *pamh, int style, char **ret_response, cons
 int pam_putenv_assign(pam_handle_t *pamh, const char *name, const char *value);
 #endif
 
-int dlopen_libpam(int log_level);
+int dlopen_libpam(int log_level) _dlopen_loader_;
 
 #define DLOPEN_LIBPAM(log_level, priority)                              \
         ({                                                              \

@@ -13,6 +13,7 @@ DLSYM_PROTOTYPE(xkb_context_set_log_fn) = NULL;
 DLSYM_PROTOTYPE(xkb_keymap_new_from_names) = NULL;
 DLSYM_PROTOTYPE(xkb_keymap_unref) = NULL;
 
+_dlopen_loader_
 static int dlopen_xkbcommon(int log_level) {
         static void *xkbcommon_dl = NULL;
 

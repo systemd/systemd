@@ -17,7 +17,6 @@
 #include "alloc-util.h"
 #include "coredump-util.h"
 #include "dlfcn-util.h"
-#include "dlopen-note.h"
 #include "elf-util.h"
 #include "errno-util.h"
 #include "escape.h"

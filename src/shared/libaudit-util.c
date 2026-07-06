@@ -4,7 +4,6 @@
 #include <linux/netlink.h>
 #include <sys/socket.h>
 
-#include "dlopen-note.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "iovec-util.h"

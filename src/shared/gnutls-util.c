@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "dlopen-note.h"
 #include "gnutls-util.h"
 #include "log.h"                /* IWYU pragma: keep */
 

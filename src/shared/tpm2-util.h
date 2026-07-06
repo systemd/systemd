@@ -46,7 +46,7 @@ static inline bool TPM2_PCR_MASK_VALID(uint32_t pcr_mask) {
 
 #define TPM2_N_HASH_ALGORITHMS 4U
 
-int dlopen_tpm2(int log_level);
+int dlopen_tpm2(int log_level) _dlopen_loader_;
 
 /* tpm2_unseal() returns a bunch of different errors for various flavours of PCR issues, let's group them.
  * Kept outside the HAVE_TPM2 guard as callers switch on these errnos even in builds without TPM2. */

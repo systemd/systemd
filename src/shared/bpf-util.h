@@ -94,7 +94,7 @@ static inline int compat_bpf_map_create(
 int bpf_get_error_translated(const void *ptr);
 #endif
 
-int dlopen_bpf(int log_level);
+int dlopen_bpf(int log_level) _dlopen_loader_;
 
 #define DLOPEN_BPF(log_level, priority)                                 \
         ({                                                              \

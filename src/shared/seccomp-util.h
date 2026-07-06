@@ -169,7 +169,7 @@ static inline bool is_seccomp_available(void) {
 
 #endif
 
-int dlopen_libseccomp(int log_level);
+int dlopen_libseccomp(int log_level) _dlopen_loader_;
 
 #define DLOPEN_LIBSECCOMP(log_level, priority)                          \
         ({                                                              \

@@ -4,7 +4,6 @@
 #include "ask-password-api.h"
 #include "crypto-util.h"
 #include "dlfcn-util.h"
-#include "dlopen-note.h"
 #include "env-util.h"
 #include "escape.h"
 #include "format-table.h"

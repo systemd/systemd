@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "dlopen-note.h"
 #include "shared-forward.h"
 
 #if HAVE_PCRE2
@@ -47,4 +48,4 @@ typedef enum PatternCompileCase {
 int pattern_compile_and_log(const char *pattern, PatternCompileCase case_, pcre2_code **ret);
 int pattern_matches_and_log(pcre2_code *compiled_pattern, const char *message, size_t size, size_t *ret_ovec);
 
-int dlopen_pcre2(int log_level);
+int dlopen_pcre2(int log_level) _dlopen_loader_;

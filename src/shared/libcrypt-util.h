@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "dlopen-note.h"
 #include "shared-forward.h"
 
 #if HAVE_LIBCRYPT
@@ -16,6 +17,6 @@ static inline int hash_password(const char *password, char **ret) {
 }
 #endif
 
-int dlopen_libcrypt(int log_level);
+int dlopen_libcrypt(int log_level) _dlopen_loader_;
 
 bool looks_like_hashed_password(const char *s);

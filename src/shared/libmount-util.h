@@ -88,7 +88,7 @@ static inline void* sym_mnt_unref_monitor(struct libmnt_monitor *p) {
 
 #endif
 
-int dlopen_libmount(int log_level);
+int dlopen_libmount(int log_level) _dlopen_loader_;
 
 #define DLOPEN_LIBMOUNT(log_level, priority)                            \
         ({                                                              \

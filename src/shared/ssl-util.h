@@ -47,7 +47,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(SSL*, sym_SSL_free, SSL_freep, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(SSL_CTX*, sym_SSL_CTX_free, SSL_CTX_freep, NULL);
 #endif
 
-int dlopen_libssl(int log_level);
+int dlopen_libssl(int log_level) _dlopen_loader_;
 
 #define DLOPEN_LIBSSL(log_level, priority)                              \
         ({                                                              \

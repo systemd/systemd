@@ -69,7 +69,7 @@ int blkid_probe_lookup_value_id128(blkid_probe b, const char *field, sd_id128_t 
 int blkid_probe_lookup_value_u64(blkid_probe b, const char *field, uint64_t *ret);
 #endif
 
-int dlopen_libblkid(int log_level);
+int dlopen_libblkid(int log_level) _dlopen_loader_;
 
 #define DLOPEN_LIBBLKID(log_level, priority)                            \
         ({                                                              \

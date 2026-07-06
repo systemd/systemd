@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "dlopen-note.h"
 #include "libfido2-util.h"
 #include "log.h"
 

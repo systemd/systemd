@@ -85,7 +85,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(struct archive*, sym_archive_write_free,
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(struct archive*, sym_archive_read_free, archive_read_freep, NULL);
 #endif
 
-int dlopen_libarchive(int log_level);
+int dlopen_libarchive(int log_level) _dlopen_loader_;
 
 #define DLOPEN_LIBARCHIVE(log_level, priority)                          \
         ({                                                              \

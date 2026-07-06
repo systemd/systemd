@@ -446,7 +446,7 @@ OpenSSLAskPasswordUI* openssl_ask_password_ui_free(OpenSSLAskPasswordUI *ui);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(OpenSSLAskPasswordUI*, openssl_ask_password_ui_free, NULL);
 #endif
 
-int dlopen_libcrypto(int log_level);
+int dlopen_libcrypto(int log_level) _dlopen_loader_;
 
 #define DLOPEN_LIBCRYPTO(log_level, priority)                           \
         ({                                                              \

@@ -77,7 +77,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(CURL*, sym_curl_easy_cleanup, curl_easy_
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(struct curl_slist*, sym_curl_slist_free_all, curl_slist_free_allp, NULL);
 #endif
 
-int dlopen_curl(int log_level);
+int dlopen_curl(int log_level) _dlopen_loader_;
 
 #define DLOPEN_CURL(log_level, priority)                                \
         ({                                                              \

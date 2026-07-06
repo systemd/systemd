@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "dlopen-note.h"
 #include "shared-forward.h"
 
 #if HAVE_APPARMOR
@@ -30,4 +31,4 @@ static inline bool mac_apparmor_use(void) {
 }
 #endif
 
-int dlopen_libapparmor(int log_level);
+int dlopen_libapparmor(int log_level) _dlopen_loader_;

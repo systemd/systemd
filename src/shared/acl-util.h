@@ -97,7 +97,7 @@ static inline int fd_add_uid_acl_permission(int fd, uid_t uid, unsigned mask) {
 }
 #endif
 
-int dlopen_libacl(int log_level);
+int dlopen_libacl(int log_level) _dlopen_loader_;
 
 #define DLOPEN_LIBACL(log_level, priority)                              \
         ({                                                              \

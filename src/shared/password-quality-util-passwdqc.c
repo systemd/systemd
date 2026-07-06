@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "dlopen-note.h"
 #include "errno-util.h"          /* IWYU pragma: keep */
 #include "log.h"                 /* IWYU pragma: keep */
 #include "password-quality-util-passwdqc.h"

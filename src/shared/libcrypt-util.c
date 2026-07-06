@@ -9,7 +9,6 @@
 
 #include "alloc-util.h"
 #include "dlfcn-util.h"
-#include "dlopen-note.h"
 #include "errno-util.h"
 #include "libcrypt-util.h"
 #include "log.h"

@@ -47,7 +47,6 @@
 #include "bitfield.h"
 #include "compress.h"
 #include "dlfcn-util.h"
-#include "dlopen-note.h"
 #include "io-util.h"
 #include "log.h"
 #include "string-table.h"

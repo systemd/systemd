@@ -18,7 +18,7 @@ extern const char *(*sym_idn2_strerror)(int rc) _const_;
 extern DLSYM_PROTOTYPE(idn2_to_unicode_8z8z);
 #endif
 
-int dlopen_idn(int log_level);
+int dlopen_idn(int log_level) _dlopen_loader_;
 
 #define DLOPEN_IDN(log_level, priority)                                 \
         ({                                                              \
