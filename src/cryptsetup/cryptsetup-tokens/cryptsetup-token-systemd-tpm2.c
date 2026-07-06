@@ -61,7 +61,7 @@ _public_ int cryptsetup_token_open_pin(
         assert(ret_password);
         assert(ret_password_len);
 
-        r = DLOPEN_CRYPTSETUP(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED);
+        r = DLOPEN_CRYPTSETUP(LOG_DEBUG, required);
         if (r < 0)
                 return r;
 
@@ -193,7 +193,7 @@ _public_ void cryptsetup_token_dump(
 
         assert(json);
 
-        if (DLOPEN_CRYPTSETUP(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED) < 0)
+        if (DLOPEN_CRYPTSETUP(LOG_DEBUG, required) < 0)
                 return;
 
         r = sd_json_parse(json, SD_JSON_PARSE_MUST_BE_OBJECT, &v, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
@@ -287,7 +287,7 @@ _public_ int cryptsetup_token_validate(
 
         assert(json);
 
-        r = DLOPEN_CRYPTSETUP(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED);
+        r = DLOPEN_CRYPTSETUP(LOG_DEBUG, required);
         if (r < 0)
                 return r;
 

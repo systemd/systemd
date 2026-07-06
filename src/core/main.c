@@ -3814,7 +3814,7 @@ static int run_systemd(int argc, char *argv[]) {
         }
 
         /* Building without libmount is allowed, but if it is compiled in, then we must be able to load it */
-        r = DLOPEN_LIBMOUNT(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED);
+        r = DLOPEN_LIBMOUNT(LOG_DEBUG, required);
         if (r < 0 && !ERRNO_IS_NEG_NOT_SUPPORTED(r)) {
                 error_message = "Failed to load libmount.so";
                 goto finish;

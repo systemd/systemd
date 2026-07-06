@@ -14,10 +14,9 @@
 #include <stdio.h>
 #include <unistd.h>
 
-#include "sd-dlopen.h"
-
 #include "alloc-util.h"
 #include "dlfcn-util.h"
+#include "dlopen-note.h"
 #include "password-quality-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -159,11 +158,7 @@ int dlopen_pwquality(int log_level) {
 #if HAVE_PWQUALITY
         static void *pwquality_dl = NULL;
 
-        SD_ELF_NOTE_DLOPEN(
-                        "pwquality",
-                        "Support for password quality checks",
-                        SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
-                        "libpwquality.so.1");
+        LIBPWQUALITY_NOTE(suggested);
 
         return dlopen_many_sym_or_warn(
                         &pwquality_dl, "libpwquality.so.1", log_level,

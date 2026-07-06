@@ -1310,7 +1310,7 @@ static int setup_pam(
          * parent process will exec() the actual daemon. We do things this way to ensure that the main PID of
          * the daemon is the one we initially fork()ed. */
 
-        r = DLOPEN_LIBPAM(LOG_ERR, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
+        r = DLOPEN_LIBPAM(LOG_ERR, recommended);
         if (r < 0)
                 return r;
 
@@ -1576,7 +1576,7 @@ static bool seccomp_allows_drop_privileges(const ExecContext *c) {
         assert(c);
 
         /* No libseccomp, all is fine */
-        if (DLOPEN_LIBSECCOMP(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED) < 0)
+        if (DLOPEN_LIBSECCOMP(LOG_DEBUG, recommended) < 0)
                 return true;
 
         /* No syscall filter, we are allowed to drop privileges */
@@ -1886,7 +1886,7 @@ static int apply_restrict_filesystems(const ExecContext *c, const ExecParameters
         }
 
         /* We are in a new binary, so dl-open again */
-        r = DLOPEN_BPF(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
+        r = DLOPEN_BPF(LOG_DEBUG, recommended);
         if (r < 0)
                 return r;
 
@@ -6000,12 +6000,12 @@ int exec_invoke(
         }
 
         /* Load a bunch of libraries we'll possibly need later, before we turn off dlopen() */
-        (void) DLOPEN_BPF(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
-        (void) DLOPEN_CRYPTSETUP(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
-        (void) DLOPEN_LIBMOUNT(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
-        (void) DLOPEN_LIBSECCOMP(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
+        (void) DLOPEN_BPF(LOG_DEBUG, recommended);
+        (void) DLOPEN_CRYPTSETUP(LOG_DEBUG, recommended);
+        (void) DLOPEN_LIBMOUNT(LOG_DEBUG, recommended);
+        (void) DLOPEN_LIBSECCOMP(LOG_DEBUG, recommended);
         /* Needed for userspace verity verification fallback */
-        (void) DLOPEN_LIBCRYPTO(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
+        (void) DLOPEN_LIBCRYPTO(LOG_DEBUG, recommended);
 
         /* Let's now disable further dlopen()ing of libraries, since we are about to do namespace
          * shenanigans, and do not want to mix resources from host and namespace */

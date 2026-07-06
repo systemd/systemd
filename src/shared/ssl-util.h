@@ -1,28 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-dlopen.h"
-
+#include "dlopen-note.h"
 #include "shared-forward.h"
-
-int dlopen_libssl(int log_level);
 
 #if HAVE_OPENSSL
 #ifndef SYSTEMD_CFLAGS_MARKER_LIBOPENSSL
 #  error "missing libopenssl_cflags in meson dependency."
 #endif
-
-#define LIBSSL_NOTE(priority)                                           \
-        SD_ELF_NOTE_DLOPEN("libssl",                                    \
-                           "Support for TLS",                           \
-                           priority,                                    \
-                           "libssl.so.4", "libssl.so.3")
-
-#define DLOPEN_LIBSSL(log_level, priority)                              \
-        ({                                                              \
-                LIBSSL_NOTE(priority);                                  \
-                dlopen_libssl(log_level);                               \
-        })
 
 #  include <openssl/ssl.h>              /* IWYU pragma: export */
 
@@ -60,7 +45,12 @@ extern DLSYM_PROTOTYPE(TLS_client_method);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(SSL*, sym_SSL_free, SSL_freep, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(SSL_CTX*, sym_SSL_CTX_free, SSL_CTX_freep, NULL);
-
-#else
-#define DLOPEN_LIBSSL(log_level, priority) dlopen_libssl(log_level)
 #endif
+
+int dlopen_libssl(int log_level);
+
+#define DLOPEN_LIBSSL(log_level, priority)                              \
+        ({                                                              \
+                LIBSSL_NOTE(priority);                                  \
+                dlopen_libssl(log_level);                               \
+        })

@@ -90,7 +90,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 OPTION_LONG("bank", "DIGEST", "Select TPM PCR bank (SHA1, SHA256)"): {
                         const EVP_MD *implementation;
 
-                        r = DLOPEN_LIBCRYPTO(LOG_ERR, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED);
+                        r = DLOPEN_LIBCRYPTO(LOG_ERR, required);
                         if (r < 0)
                                 return r;
 
