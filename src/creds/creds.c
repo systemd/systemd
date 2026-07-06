@@ -188,7 +188,7 @@ static int is_tmpfs_with_noswap(dev_t devno) {
         _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
         int r;
 
-        r = DLOPEN_LIBMOUNT(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
+        r = DLOPEN_LIBMOUNT(LOG_DEBUG, recommended);
         if (r < 0)
                 return r;
 

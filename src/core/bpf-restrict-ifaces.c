@@ -86,7 +86,7 @@ int bpf_restrict_ifaces_supported(void) {
         if (supported >= 0)
                 return supported;
 
-        if (DLOPEN_BPF(LOG_WARNING, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED) < 0)
+        if (DLOPEN_BPF(LOG_WARNING, recommended) < 0)
                 return (supported = false);
 
         r = prepare_restrict_ifaces_bpf(NULL, true, NULL, &obj);

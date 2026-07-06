@@ -17,8 +17,6 @@
 #include <selinux/label.h>
 #include <selinux/selinux.h>
 
-#include "sd-dlopen.h"
-
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "path-util.h"
@@ -94,7 +92,7 @@ int dlopen_libselinux(int log_level) {
 #if HAVE_SELINUX
         static void *libselinux_dl = NULL;
 
-        LIBSELINUX_NOTE(SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
+        LIBSELINUX_NOTE(recommended);
 
         return dlopen_many_sym_or_warn(
                         &libselinux_dl,

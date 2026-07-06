@@ -1828,7 +1828,7 @@ static int unmerge(
         bool need_to_reload;
         int r;
 
-        (void) DLOPEN_LIBMOUNT(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED);
+        (void) DLOPEN_LIBMOUNT(LOG_DEBUG, required);
 
         r = get_extension_release_metadata(image_class, hierarchies, no_reload, &need_to_reload, &units_to_restart, &units_to_reload_or_restart);
         if (r < 0)
@@ -2413,9 +2413,9 @@ static int merge(ImageClass image_class,
 
         int r;
 
-        (void) DLOPEN_CRYPTSETUP(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
-        (void) DLOPEN_LIBBLKID(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED);
-        (void) DLOPEN_LIBMOUNT(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED);
+        (void) DLOPEN_CRYPTSETUP(LOG_DEBUG, recommended);
+        (void) DLOPEN_LIBBLKID(LOG_DEBUG, required);
+        (void) DLOPEN_LIBMOUNT(LOG_DEBUG, required);
 
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         r = pidref_safe_fork("(sd-merge)", FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_NEW_MOUNTNS, &pidref);

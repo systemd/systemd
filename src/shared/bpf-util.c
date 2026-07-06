@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "sd-dlopen.h"
-
 #include "bpf-util.h"
 #include "dlfcn-util.h"
 #include "initrd-util.h"
@@ -90,7 +88,7 @@ int dlopen_bpf(int log_level) {
         if (cached < 0)
                 return cached; /* Already tried, and failed. */
 
-        BPF_NOTE(SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED);
+        LIBBPF_NOTE(suggested);
 
         DISABLE_WARNING_DEPRECATED_DECLARATIONS;
 

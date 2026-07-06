@@ -599,11 +599,11 @@ static int run(int argc, char *argv[]) {
                 return EXIT_SUCCESS;
         }
 
-        r = DLOPEN_LIBCRYPTO(LOG_ERR, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED);
+        r = DLOPEN_LIBCRYPTO(LOG_ERR, required);
         if (r < 0)
                 return r;
 
-        r = DLOPEN_TPM2(LOG_ERR, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED);
+        r = DLOPEN_TPM2(LOG_ERR, required);
         if (r < 0)
                 return r;
 

@@ -493,7 +493,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 OPTION_LONG("make-archive", NULL, "Convert the DDI to an archive file"):
-                        r = DLOPEN_LIBARCHIVE(LOG_ERR, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
+                        r = DLOPEN_LIBARCHIVE(LOG_ERR, recommended);
                         if (r < 0)
                                 return r;
 

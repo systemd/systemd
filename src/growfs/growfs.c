@@ -33,7 +33,7 @@ static int resize_crypt_luks_device(dev_t devno, const char *fstype, dev_t main_
         uint64_t size;
         int r;
 
-        r = DLOPEN_CRYPTSETUP(LOG_WARNING, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
+        r = DLOPEN_CRYPTSETUP(LOG_WARNING, recommended);
         if (r < 0)
                 return r;
 
