@@ -5,6 +5,7 @@
 
 #include "alloc-util.h"
 #include "creds-util.h"
+#include "dlopen-note.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -276,6 +277,9 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
         int r;
 
         assert_se(arg_dest = dest);
+
+        LIBCRYPTO_NOTE(suggested);
+        TPM2_NOTE(suggested);
 
         if (in_initrd()) {
                 log_debug("Skipping generator, running in the initrd.");

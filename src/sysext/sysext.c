@@ -28,6 +28,7 @@
 #include "devnum-util.h"
 #include "discover-image.h"
 #include "dissect-image.h"
+#include "dlopen-note.h"
 #include "env-util.h"
 #include "errno-util.h"
 #include "escape.h"
@@ -3170,6 +3171,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 static int run(int argc, char *argv[]) {
         char **args = NULL;
         int r;
+
+        LIBCRYPTO_NOTE(suggested);
+        LIBSELINUX_NOTE(recommended);
 
         log_setup();
 

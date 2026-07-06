@@ -8,6 +8,7 @@
 #include "ask-password-api.h"
 #include "build.h"
 #include "crypto-util.h"
+#include "dlopen-note.h"
 #include "efi-loader.h"
 #include "efivars.h"
 #include "fd-util.h"
@@ -1129,6 +1130,8 @@ static int verb_policy_digest(int argc, char *argv[], uintptr_t _data, void *use
 
 static int run(int argc, char *argv[]) {
         int r;
+
+        TPM2_NOTE(suggested);
 
         log_setup();
 

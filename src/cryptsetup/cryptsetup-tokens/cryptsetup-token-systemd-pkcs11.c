@@ -7,6 +7,7 @@
 #include "alloc-util.h"
 #include "cryptsetup-token.h"
 #include "cryptsetup-token-util.h"
+#include "dlopen-note.h"
 #include "luks2-pkcs11.h"
 #include "memory-util.h"
 #include "pkcs11-util.h"
@@ -17,7 +18,10 @@
 #define TOKEN_VERSION_MINOR "0"
 
 /* for libcryptsetup debug purpose */
-_public_ const char *cryptsetup_token_version(void) {
+_public_ const char* cryptsetup_token_version(void) {
+        LIBCRYPTO_NOTE(suggested);
+        LIBP11KIT_NOTE(suggested);
+
         return TOKEN_VERSION_MAJOR "." TOKEN_VERSION_MINOR " systemd-v" PROJECT_VERSION_FULL " (" GIT_VERSION ")";
 }
 
