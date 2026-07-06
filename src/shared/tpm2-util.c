@@ -4753,8 +4753,8 @@ int tpm2_policy_authorize_nv(
                                        "Submitted policy does not match policy stored in PolicyAuthorizeNV.");
         if ((rc & ~(TPM2_RC_N_MASK|TPM2_RC_P)) == TPM2_RC_HANDLE ||
             rc == TPM2_RC_NV_UNINITIALIZED) /* NV index is missing, unwritten, or otherwise unusable for this policy (or: wrong authHandle/policySession). */
-                return log_debug_errno(SYNTHETIC_ERRNO(EREMOTE),
-                                       "NV index referenced by token is missing, unwritten, or unusable.");
+                return log_debug_errno(SYNTHETIC_ERRNO(EADDRNOTAVAIL),
+                                       "NV index referenced by token is missing, unwritten, or unusable, it could be for another system.");
         if (rc != TSS2_RC_SUCCESS)
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                        "Failed to add AuthorizeNV policy to TPM: %s",
