@@ -488,16 +488,16 @@ int rename_image_and_update_cache(Manager *m, Image *image, const char* new_name
 
         r = image_rename(image, new_name, m->runtime_scope);
         if (r < 0) {
-                image = image_unref(image);
+                /* The rename failed, so the image keeps its old name. Put it back into the cache, so that
+                 * the reference the caller borrowed from us stays valid. This cannot fail: the removal
+                 * above just freed the very slot we are reinserting into. */
+                assert_se(hashmap_put(m->image_cache, image->name, image) >= 0);
                 return r;
         }
 
-        /* Then save the object again in the cache. */
-        r = hashmap_put(m->image_cache, image->name, image);
-        if (r < 0) {
-                image = image_unref(image);
-                log_debug_errno(r, "Failed to put renamed image into cache, ignoring: %m");
-        }
+        /* Then save the object again in the cache, now under its new name. This cannot fail either: the
+         * removal above freed a slot, and image_rename() already verified the new name is not taken. */
+        assert_se(hashmap_put(m->image_cache, image->name, image) >= 0);
 
         return 0;
 }
