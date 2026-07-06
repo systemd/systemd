@@ -104,10 +104,17 @@ SYSTEMD_COLORS=256 "$SD_PCRLOCK"
 
 SD_STUB="$(find /usr/lib/systemd/boot/efi/ -name "systemd-boot*.efi" | head -n1)"
 if [[ -n "$SD_STUB" ]]; then
-    "$SD_PCRLOCK" lock-pe "$SD_STUB"
-    "$SD_PCRLOCK" lock-pe <"$SD_STUB"
-    "$SD_PCRLOCK" lock-uki "$SD_STUB"
-    "$SD_PCRLOCK" lock-uki <"$SD_STUB"
+    pe_direct="$("$SD_PCRLOCK" lock-pe "$SD_STUB")"
+    pe_stdin="$("$SD_PCRLOCK" lock-pe <"$SD_STUB")"
+    pe_pipe="$(cat "$SD_STUB" | "$SD_PCRLOCK" lock-pe)"
+    [[ "$pe_direct" == "$pe_stdin" ]]
+    [[ "$pe_stdin" == "$pe_pipe" ]]
+
+    uki_direct="$("$SD_PCRLOCK" lock-uki "$SD_STUB")"
+    uki_stdin="$("$SD_PCRLOCK" lock-uki <"$SD_STUB")"
+    uki_pipe="$(cat "$SD_STUB" | "$SD_PCRLOCK" lock-uki)"
+    [[ "$uki_direct" == "$uki_stdin" ]]
+    [[ "$uki_stdin" == "$uki_pipe" ]]
 fi
 
 PIN=huhu "$SD_PCRLOCK" make-policy --pcr="$PCRS" --recovery-pin=query
