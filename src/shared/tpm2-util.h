@@ -49,8 +49,9 @@ int dlopen_tpm2(int log_level);
 #define ERRNO_IS_NEG_TPM2_UNSEAL_BAD_PCR(r) IN_SET(r, -EREMCHG, -ENOANO, -EUCLEAN, -EPERM)
 
 /* Errors that mean the tried TPM2 token does not match the boot state, be it due to wrong PCR state, a
- * different PCR signing key/policy, or even a different TPM. The caller should keep trying other tokens. */
-#define ERRNO_IS_NEG_TPM2_TOKEN_MISMATCH(r) IN_SET(r, -EREMCHG, -ENOANO, -EPERM, -ENOSTR, -EREMOTE)
+ * different PCR signing key/policy, a different TPM, or an unusable NV index. The caller should keep trying
+ * other tokens. */
+#define ERRNO_IS_NEG_TPM2_TOKEN_MISMATCH(r) IN_SET(r, -EREMCHG, -ENOANO, -EPERM, -ENOSTR, -EREMOTE, -EADDRNOTAVAIL)
 
 #if HAVE_TPM2
 #define TPM2_ESYS_NOTE(priority) \

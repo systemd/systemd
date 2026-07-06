@@ -110,7 +110,9 @@ int acquire_luks2_key(
                         srk,
                         ret_decrypted_key);
         if (r == -EREMOTE)
-                return log_warning_errno(r, "TPM key integrity check failed or NV index unusable. Key enrolled in superblock most likely does not belong to this TPM.");
+                return log_warning_errno(r, "TPM key integrity check failed. Key enrolled in superblock most likely does not belong to this TPM.");
+        if (r == -EADDRNOTAVAIL)
+                return log_warning_errno(r, "NV index referenced by token is missing, unwritten, or unusable, it could be for another system.");
         if (r == -EILSEQ)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOANO), "Bad PIN."); /* cryptsetup docs say we should return ENOANO on bad PIN */
         if (r == -ENOLCK)
