@@ -488,16 +488,22 @@ int rename_image_and_update_cache(Manager *m, Image *image, const char* new_name
 
         r = image_rename(image, new_name, m->runtime_scope);
         if (r < 0) {
-                image = image_unref(image);
+                /* image_rename() may fail after having already committed the on-disk rename and updated
+                 * image->name (e.g. while renaming auxiliary files), so image->name may be either the old
+                 * or the new name here. Either way, evict any stale entry cached under it (as on the
+                 * success path below) before putting the image back, so that the reference the caller
+                 * borrowed from us stays valid and cached. */
+                image_unref(hashmap_remove(m->image_cache, image->name));
+                assert_se(hashmap_put(m->image_cache, image->name, image) >= 0);
                 return r;
         }
 
-        /* Then save the object again in the cache. */
-        r = hashmap_put(m->image_cache, image->name, image);
-        if (r < 0) {
-                image = image_unref(image);
-                log_debug_errno(r, "Failed to put renamed image into cache, ignoring: %m");
-        }
+        /* Then save the object again in the cache, now under its new name. A stale entry might still be
+         * cached under the new name if the image previously known under it was removed from disk out of
+         * band and the idle cache flush has not run yet. image_rename() confirmed the name is free on
+         * disk, so evict any such bogus entry first. Afterwards the reinsertion cannot fail. */
+        image_unref(hashmap_remove(m->image_cache, image->name));
+        assert_se(hashmap_put(m->image_cache, image->name, image) >= 0);
 
         return 0;
 }
