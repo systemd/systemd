@@ -9,6 +9,7 @@
 #include "bus-object.h"
 #include "capability-util.h"
 #include "daemon-util.h"
+#include "dlopen-note.h"
 #include "main-func.h"
 #include "mkdir.h"
 #include "networkd-conf.h"
@@ -23,6 +24,14 @@ static int run(int argc, char *argv[]) {
         _cleanup_(manager_freep) Manager *m = NULL;
         _unused_ _cleanup_(notify_on_cleanup) const char *notify_message = NULL;
         int r;
+
+        LIBAUDIT_NOTE(recommended);
+        LIBIDN2_NOTE(suggested);
+        LIBMOUNT_NOTE(recommended);
+        LIBTSS2_ESYS_NOTE(suggested);
+        LIBTSS2_MU_NOTE(suggested);
+        LIBTSS2_RC_NOTE(suggested);
+        SECURITY_NOTE(recommended);
 
         log_setup();
 

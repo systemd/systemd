@@ -2,6 +2,7 @@
 
 #include "alloc-util.h"
 #include "build.h"
+#include "dlopen-note.h"
 #include "format-table.h"
 #include "hwdb-util.h"
 #include "label-util.h"
@@ -113,6 +114,8 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
 static int run(int argc, char *argv[]) {
         int r;
+
+        SECURITY_NOTE(recommended);
 
         log_setup();
 

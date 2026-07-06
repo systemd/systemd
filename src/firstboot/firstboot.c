@@ -20,6 +20,7 @@
 #include "copy.h"
 #include "creds-util.h"
 #include "dissect-image.h"
+#include "dlopen-note.h"
 #include "env-file.h"
 #include "errno-util.h"
 #include "fd-util.h"
@@ -1701,6 +1702,14 @@ static int run(int argc, char *argv[]) {
         _cleanup_(umount_and_freep) char *mounted_dir = NULL;
         _cleanup_close_ int rfd = -EBADF;
         int r;
+
+        LIBBLKID_NOTE(recommended);
+        LIBCRYPT_NOTE(recommended);
+        LIBCRYPTO_NOTE(suggested);
+        LIBCRYPTSETUP_NOTE(suggested);
+        LIBMOUNT_NOTE(recommended);
+        PASSWORD_NOTE(suggested);
+        SECURITY_NOTE(recommended);
 
         r = parse_argv(argc, argv);
         if (r <= 0)

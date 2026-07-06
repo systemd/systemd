@@ -5,6 +5,7 @@
 #include "alloc-util.h"
 #include "build.h"
 #include "dissect-image.h"
+#include "dlopen-note.h"
 #include "format-table.h"
 #include "id128-util.h"
 #include "image-policy.h"
@@ -130,6 +131,12 @@ static int run(int argc, char *argv[]) {
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_freep) char *mounted_dir = NULL;
         int r;
+
+        LIBBLKID_NOTE(recommended);
+        LIBCRYPTO_NOTE(suggested);
+        LIBCRYPTSETUP_NOTE(suggested);
+        LIBMOUNT_NOTE(recommended);
+        TPM2_NOTE(suggested);
 
         log_setup();
 

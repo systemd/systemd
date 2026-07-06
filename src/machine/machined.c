@@ -16,6 +16,7 @@
 #include "constants.h"
 #include "daemon-util.h"
 #include "dirent-util.h"
+#include "dlopen-note.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "hash-funcs.h"
@@ -346,6 +347,12 @@ static int run(int argc, char *argv[]) {
         _cleanup_(manager_unrefp) Manager *m = NULL;
         RuntimeScope scope = RUNTIME_SCOPE_SYSTEM;
         int r;
+
+        LIBBLKID_NOTE(recommended);
+        LIBCRYPTO_NOTE(suggested);
+        LIBCRYPTSETUP_NOTE(suggested);
+        LIBMOUNT_NOTE(recommended);
+        SECURITY_NOTE(recommended);
 
         log_set_facility(LOG_AUTH);
         log_setup();

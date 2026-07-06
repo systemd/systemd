@@ -13,6 +13,7 @@
 #include "conf-parser.h"
 #include "copy.h"
 #include "dirent-util.h"
+#include "dlopen-note.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "iovec-util.h"
@@ -308,6 +309,8 @@ static int list_files(PStoreList *list, const char *sourcepath) {
 static int run(int argc, char *argv[]) {
         _cleanup_(pstore_entries_reset) PStoreList list = {};
         int r;
+
+        SECURITY_NOTE(recommended);
 
         log_setup();
 
