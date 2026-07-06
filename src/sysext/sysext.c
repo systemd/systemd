@@ -117,9 +117,11 @@ static bool arg_always_refresh = false;
 static int arg_noexec = -1;
 static ImagePolicy *arg_image_policy = NULL;
 static bool arg_image_policy_set = false; /* Tracks initialization */
+static bool arg_image_policy_argv_set = false;
 static bool arg_varlink = false;
 static MutableMode arg_mutable = MUTABLE_NO;
 static bool arg_mutable_set = false; /* Tracks initialization */
+static bool arg_mutable_argv_set = false;
 static const char *arg_overlayfs_mount_options = NULL;
 
 /* Is set to IMAGE_CONFEXT when systemd is called with the confext functionality instead of the default */
@@ -765,25 +767,35 @@ static OverlayFSPaths *overlayfs_paths_free(OverlayFSPaths *op) {
 }
 DEFINE_TRIVIAL_CLEANUP_FUNC(OverlayFSPaths *, overlayfs_paths_free);
 
-static int parse_env(void) {
+static int parse_env_image_class_config(ImageClass image_class) {
         const char *env_var;
         int r;
 
-        env_var = secure_getenv(image_class_info[arg_image_class].mode_env);
+        env_var = secure_getenv(image_class_info[image_class].mode_env);
         if (env_var) {
                 r = parse_mutable_mode(env_var);
                 if (r < 0)
                         log_warning("Failed to parse %s environment variable value '%s'. Ignoring.",
-                                    image_class_info[arg_image_class].mode_env, env_var);
+                                    image_class_info[image_class].mode_env, env_var);
                 else {
                         arg_mutable = r;
                         arg_mutable_set = true;
                 }
         }
 
-        env_var = secure_getenv(image_class_info[arg_image_class].opts_env);
+        env_var = secure_getenv(image_class_info[image_class].opts_env);
         if (env_var)
                 arg_overlayfs_mount_options = env_var;
+
+        return 0;
+}
+
+static int parse_env(void) {
+        int r;
+
+        r = parse_env_image_class_config(arg_image_class);
+        if (r < 0)
+                return r;
 
         /* For debugging purposes it might make sense to do this for other hierarchies than /usr/ and
          * /opt/, but let's make that a hacker/debugging feature, i.e. env var instead of cmdline
@@ -2910,6 +2922,60 @@ static int refresh_class(ImageClass image_class) {
         return refresh(image_class, hierarchies, arg_force, arg_no_reload, arg_always_refresh, arg_noexec);
 }
 
+static int refresh_class_with_config(ImageClass image_class) {
+        ImageClass saved_image_class = arg_image_class;
+        MutableMode saved_mutable = arg_mutable;
+        bool saved_mutable_set = arg_mutable_set;
+        ImagePolicy *saved_image_policy = arg_image_policy;
+        bool saved_image_policy_set = arg_image_policy_set;
+        const char *saved_overlayfs_mount_options = arg_overlayfs_mount_options;
+        int r;
+
+        /* The sysupdate notification service is systemd-sysext, but it refreshes both sysexts and
+         * confexts. Apply the relevant class-specific environment and configuration for each refresh. */
+        arg_image_class = image_class;
+        arg_mutable = MUTABLE_NO;
+        arg_mutable_set = false;
+        arg_image_policy = NULL;
+        arg_image_policy_set = false;
+        arg_overlayfs_mount_options = NULL;
+
+        r = parse_env_image_class_config(image_class);
+        if (r < 0)
+                goto finish;
+
+        if (arg_mutable_argv_set) {
+                arg_mutable = saved_mutable;
+                arg_mutable_set = true;
+        }
+
+        if (arg_image_policy_argv_set) {
+                arg_image_policy = saved_image_policy;
+                arg_image_policy_set = true;
+        }
+
+        r = parse_config_file(image_class);
+        if (r < 0) {
+                log_warning_errno(r, "Failed to parse global config file, ignoring: %m");
+                r = 0;
+        }
+
+        RET_GATHER(r, refresh_class(image_class));
+
+finish:
+        if (arg_image_policy != saved_image_policy)
+                image_policy_free(arg_image_policy);
+
+        arg_image_class = saved_image_class;
+        arg_mutable = saved_mutable;
+        arg_mutable_set = saved_mutable_set;
+        arg_image_policy = saved_image_policy;
+        arg_image_policy_set = saved_image_policy_set;
+        arg_overlayfs_mount_options = saved_overlayfs_mount_options;
+
+        return r;
+}
+
 static int vl_method_on_completed_update(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         int r;
 
@@ -2927,8 +2993,8 @@ static int vl_method_on_completed_update(sd_varlink *link, sd_json_variant *para
          * classes and only fail afterwards, so a problem with one does not prevent refreshing the other. */
 
         r = 0;
-        RET_GATHER(r, refresh_class(IMAGE_SYSEXT));
-        RET_GATHER(r, refresh_class(IMAGE_CONFEXT));
+        RET_GATHER(r, refresh_class_with_config(IMAGE_SYSEXT));
+        RET_GATHER(r, refresh_class_with_config(IMAGE_CONFEXT));
         if (r < 0)
                 return r;
 
@@ -3109,6 +3175,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                                 return log_error_errno(r, "Failed to parse argument to --mutable=: %s", opts.arg);
                         arg_mutable = r;
                         arg_mutable_set = true;
+                        arg_mutable_argv_set = true;
                         break;
 
                 OPTION_LONG("image-policy", "POLICY", "Specify disk image dissection policy"):
@@ -3118,6 +3185,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         /* When the CLI flag is given we initialize even if NULL
                          * so that the config file entry won't overwrite it */
                         arg_image_policy_set = true;
+                        arg_image_policy_argv_set = true;
                         break;
 
                 OPTION_LONG("noexec", "BOOL", "Whether to mount extension overlay with noexec"):
