@@ -290,7 +290,7 @@ static int validate_gpt_metadata_one(sd_device *d, const char *path, const Valid
         assert(d);
         assert(f);
 
-        r = DLOPEN_LIBBLKID(LOG_ERR, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED);
+        r = DLOPEN_LIBBLKID(LOG_ERR, required);
         if (r < 0)
                 return r;
 

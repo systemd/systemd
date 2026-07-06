@@ -2,12 +2,12 @@
 
 #include <stdlib.h>
 
-#include "sd-dlopen.h"
 #include "sd-json.h"
 
 #include "alloc-util.h"
 #include "cryptsetup-util.h"
 #include "dlfcn-util.h"
+#include "dlopen-note.h"
 #include "escape.h"
 #include "hexdecoct.h"
 #include "hmac.h"
@@ -281,7 +281,7 @@ int dlopen_cryptsetup(int log_level) {
          * still available though, and given we want to support 2.2.0 for a while longer, we'll use the old
          * symbol if the new one is not available. */
 
-        CRYPTSETUP_NOTE(SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED);
+        LIBCRYPTSETUP_NOTE(suggested);
 
         r = dlopen_many_sym_or_warn(
                         &cryptsetup_dl, "libcryptsetup.so.12", log_level,

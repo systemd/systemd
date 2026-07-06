@@ -2,8 +2,7 @@
 
 #include <sys/syslog.h>
 
-#include "sd-dlopen.h"
-
+#include "dlopen-note.h"
 #include "gcrypt-util.h"
 #include "log.h"                /* IWYU pragma: keep */
 
@@ -46,7 +45,11 @@ int dlopen_gcrypt(int log_level) {
 #if HAVE_GCRYPT
         static void *gcrypt_dl = NULL;
 
-        GCRYPT_NOTE(SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED);
+        ELF_NOTE_DLOPEN_ANCHORED(
+                        gcrypt,
+                        "Support for testing journald forward-sealing feature",
+                        suggested,
+                        "libgcrypt.so.20");
 
         return dlopen_many_sym_or_warn(
                         &gcrypt_dl,
