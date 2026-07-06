@@ -32,7 +32,7 @@ static int log_debug_open_error(struct crypt_device *cd, int token, int r) {
                 (void) crypt_log_debug_errno(cd, r, "Token %d: no matching TPM2 token data found.", token);
                 return -EPERM;
         }
-        if (IN_SET(r, -EREMCHG, -EREMOTE)) {
+        if (IN_SET(r, -EREMCHG, -EREMOTE, -EADDRNOTAVAIL)) {
                 /* Remap as above. Note: For now without -EUCLEAN because currently the only error it
                  * reports won't be solved by moving to another token. */
                 (void) crypt_log_debug_errno(cd, r, "Token %d: TPM policy does not match current system state, skipping.", token);
