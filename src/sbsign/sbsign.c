@@ -659,7 +659,7 @@ static int verb_sign(int argc, char *argv[], uintptr_t _data, void *userdata) {
                    &(WIN_CERTIFICATE_HEADER) {
                            .wRevision = htole16(0x200),
                            .wCertificateType = htole16(0x0002), /* PKCS7 signedData */
-                           .dwLength = htole32(ROUND_UP(certsz, 8)),
+                           .dwLength = htole32(certsz),
                    },
                    sizeof(WIN_CERTIFICATE_HEADER),
                    end);
