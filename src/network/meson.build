@@ -174,8 +174,7 @@ network_includes = [include_directories(['.', 'netdev', 'tc']), libsystemd_netwo
 
 network_test_template = test_template + {
         'conditions' : ['ENABLE_NETWORKD'],
-        'link_with' : [
-                networkd_link_with,
+        'link_with' : networkd_link_with + [
                 libsystemd_network,
         ],
         'objects' : ['systemd-networkd'],
@@ -184,8 +183,7 @@ network_test_template = test_template + {
 
 network_fuzz_template = fuzz_template + {
         'conditions' : ['ENABLE_NETWORKD'],
-        'link_with' : [
-                networkd_link_with,
+        'link_with' : networkd_link_with + [
                 libsystemd_network,
         ],
         'objects' : ['systemd-networkd'],
@@ -200,9 +198,8 @@ executables += [
                 'sources' : systemd_networkd_sources,
                 'extract' : systemd_networkd_extract_sources,
                 'include_directories' : network_includes,
-                'link_with' : [
+                'link_with' : networkd_link_with + [
                         libsystemd_network,
-                        networkd_link_with,
                 ],
                 'dependencies' : [
                         libbpf_cflags,
@@ -224,9 +221,8 @@ executables += [
                 'conditions' : ['ENABLE_NETWORKD'],
                 'sources' : networkctl_sources,
                 'include_directories' : libsystemd_network_includes,
-                'link_with' : [
+                'link_with' : networkd_link_with + [
                         libsystemd_network,
-                        networkd_link_with,
                 ],
                 'dependencies' : [
                         libselinux_cflags,
