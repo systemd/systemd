@@ -1082,6 +1082,55 @@ systemd-confext status
 systemd-confext unmerge
 rm -rf /run/confexts/
 
+cleanup_sysupdate_notify_confext_mutable() {
+    local mutable_marker="$1"
+    local notify_socket_was_active="$2"
+
+    if [[ "$notify_socket_was_active" == "yes" ]]; then
+        systemctl restart systemd-sysupdate-notify-sysext.socket || :
+    else
+        systemctl stop systemd-sysupdate-notify-sysext.socket || :
+    fi
+
+    rm -f "$mutable_marker"
+    rm -f "/var/lib/extensions.mutable/etc/${mutable_marker#/etc/}"
+    systemd-confext unmerge || :
+    rm -f /run/systemd/confext.conf.d/50-test-mutable.conf
+    rm -rf /run/confexts/
+    rmdir /var/lib/extensions.mutable/etc /var/lib/extensions.mutable 2>/dev/null || :
+}
+
+test_sysupdate_notify_confext_mutable() {
+    local mutable_marker="/etc/test-confext-mutable-$RANDOM"
+    local notify_socket_was_active=no
+
+    if systemctl is-active --quiet systemd-sysupdate-notify-sysext.socket; then
+        notify_socket_was_active=yes
+    fi
+
+    trap 'cleanup_sysupdate_notify_confext_mutable "$mutable_marker" "$notify_socket_was_active"' RETURN ERR
+
+    # Check that the sysupdate notification refresh honors confext-specific configuration.
+    mkdir -p /run/systemd/confext.conf.d
+    cat >/run/systemd/confext.conf.d/50-test-mutable.conf <<EOF
+[ConfExt]
+Mutable=yes
+EOF
+    mkdir -p /run/confexts/test/etc/extension-release.d
+    echo "ID=_any" >/run/confexts/test/etc/extension-release.d/extension-release.test
+    echo "ARCHITECTURE=_any" >>/run/confexts/test/etc/extension-release.d/extension-release.test
+    echo "MARKER_CONFEXT_123" >/run/confexts/test/etc/testfile
+    systemd-confext merge
+    echo "MARKER_CONFEXT_MUTABLE" >"$mutable_marker"
+    systemctl start systemd-sysupdate-notify-sysext.socket
+    varlinkctl call /run/systemd/sysupdate/notify/io.systemd.sysext io.systemd.SysUpdate.Notify.OnCompletedUpdate '{}'
+    grep -F "MARKER_CONFEXT_MUTABLE" "$mutable_marker" >/dev/null
+    trap - RETURN ERR
+    cleanup_sysupdate_notify_confext_mutable "$mutable_marker" "$notify_socket_was_active"
+}
+
+test_sysupdate_notify_confext_mutable
+
 unsquashfs -force -no-xattrs -d /tmp/img "$MINIMAL_IMAGE.raw"
 systemd-run --unit=test-root-ephemeral \
     -p RootDirectory=/tmp/img \
