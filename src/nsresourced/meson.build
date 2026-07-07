@@ -8,7 +8,7 @@ systemd_nsresourced_sources = files(
         'nsresourced-manager.c',
         'nsresourced.c',
 )
-systemd_nsresourced_extract_sources = files(
+systemd_nsresourced_export_sources = files(
         'userns-restrict.c',
         'userns-registry.c',
 )
@@ -23,7 +23,7 @@ executables += [
         libexec_template + {
                 'name' : 'systemd-nsresourced',
                 'sources' : systemd_nsresourced_sources,
-                'extract' : systemd_nsresourced_extract_sources,
+                'export' : systemd_nsresourced_export_sources,
                 'dependencies' : [
                         libbpf_cflags,
                 ],
@@ -32,13 +32,13 @@ executables += [
         libexec_template + {
                 'name' : 'systemd-nsresourcework',
                 'sources' : systemd_nsresourcework_sources,
-                'objects' : ['systemd-nsresourced'],
+                'import' : ['systemd-nsresourced'],
                 'bpf_programs': ['userns-restrict'],
         },
         test_template + {
                 'sources' : test_userns_restrict_sources,
                 'conditions' : ['HAVE_VMLINUX_H'],
-                'objects' : ['systemd-nsresourced'],
+                'import' : ['systemd-nsresourced'],
                 'bpf_programs': ['userns-restrict'],
         },
 ]
