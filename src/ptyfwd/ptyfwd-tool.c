@@ -14,18 +14,42 @@
 #include "parse-argument.h"
 #include "pidref.h"
 #include "process-util.h"
+#include "ptybroker-client.h"
 #include "ptyfwd.h"
+#include "runtime-scope.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
 
+typedef enum ConsoleMode {
+        CONSOLE_INTERACTIVE, /* Interactively forward the local terminal to the child (default) */
+        CONSOLE_READ_ONLY,   /* Like interactive, but don't forward any input to the child */
+        CONSOLE_BROKER,      /* Acquire a PTY from ptybrokerd, output is discarded/monitored */
+        CONSOLE_BROKER_LOG,  /* Acquire a PTY from ptybrokerd, output is written to the logs */
+        _CONSOLE_MODE_MAX,
+        _CONSOLE_MODE_INVALID = -EINVAL,
+} ConsoleMode;
+
+static const char* const console_mode_table[_CONSOLE_MODE_MAX] = {
+        [CONSOLE_INTERACTIVE] = "interactive",
+        [CONSOLE_READ_ONLY]   = "read-only",
+        [CONSOLE_BROKER]      = "broker",
+        [CONSOLE_BROKER_LOG]  = "broker-log",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(console_mode, ConsoleMode);
+
 static bool arg_quiet = false;
-static bool arg_read_only = false;
+static ConsoleMode arg_console = CONSOLE_INTERACTIVE;
+static RuntimeScope arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
 static char *arg_background = NULL;
 static char *arg_title = NULL;
+static char *arg_pty_name = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_background, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_title, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_pty_name, freep);
 
 static int help(void) {
         _cleanup_(table_unrefp) Table *options = NULL;
@@ -68,8 +92,30 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                         arg_quiet = true;
                         break;
 
-                OPTION_LONG("read-only", NULL, "Do not accept any user input on stdin"):
-                        arg_read_only = true;
+                OPTION_LONG("read-only", NULL, NULL):
+                        /* --read-only is kept for backwards compatibility, but is nowadays subsumed by
+                         * --console=read-only. Hence keep parsing it, but hide it from --help. */
+                        arg_console = CONSOLE_READ_ONLY;
+                        break;
+
+                OPTION_LONG("console", "MODE", "Console mode: interactive, read-only, broker, broker-log"):
+                        arg_console = console_mode_from_string(opts.arg);
+                        if (arg_console < 0)
+                                return log_error_errno(arg_console, "Failed to parse --console= mode: %s", opts.arg);
+                        break;
+
+                OPTION_LONG("system", NULL, "Talk to system PTY broker"):
+                        arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
+                        break;
+
+                OPTION_LONG("user", NULL, "Talk to per-user PTY broker"):
+                        arg_runtime_scope = RUNTIME_SCOPE_USER;
+                        break;
+
+                OPTION_LONG("pty-name", "NAME", "Name to register the broker-allocated PTY under"):
+                        r = free_and_strdup_warn(&arg_pty_name, opts.arg);
+                        if (r < 0)
+                                return r;
                         break;
 
                 OPTION_LONG("background", "COLOR", "Set ANSI color for background"):
@@ -142,18 +188,33 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Failed to get event loop: %m");
 
-        pty_fd = openpt_allocate(O_RDWR|O_NOCTTY|O_NONBLOCK|O_CLOEXEC, /* ret_peer_path= */ NULL);
-        if (pty_fd < 0)
-                return log_error_errno(pty_fd, "Failed to acquire pseudo tty: %m");
+        if (IN_SET(arg_console, CONSOLE_BROKER, CONSOLE_BROKER_LOG)) {
+                /* In broker mode ptybrokerd owns the frontend of the PTY and takes care of its output
+                 * itself. We forward the local terminal to the upgraded monitor connection (used as PTY
+                 * forwarder "master"), and invoke the child on the acquired backend. */
+                r = pty_broker_acquire_pty(
+                                arg_runtime_scope,
+                                arg_console == CONSOLE_BROKER_LOG ? "log" : "null",
+                                arg_pty_name,
+                                &pty_fd,
+                                &peer_fd,
+                                /* ret_name= */ NULL);
+                if (r < 0)
+                        return r;
+        } else {
+                pty_fd = openpt_allocate(O_RDWR|O_NOCTTY|O_NONBLOCK|O_CLOEXEC, /* ret_peer_path= */ NULL);
+                if (pty_fd < 0)
+                        return log_error_errno(pty_fd, "Failed to acquire pseudo tty: %m");
 
-        peer_fd = pty_open_peer(pty_fd, O_RDWR|O_NOCTTY|O_CLOEXEC);
-        if (peer_fd < 0)
-                return log_error_errno(peer_fd, "Failed to open pty peer: %m");
+                peer_fd = pty_open_peer(pty_fd, O_RDWR|O_NOCTTY|O_CLOEXEC);
+                if (peer_fd < 0)
+                        return log_error_errno(peer_fd, "Failed to open pty peer: %m");
+        }
 
         if (!arg_quiet)
                 log_info("Press ^] three times within 1s to disconnect TTY.");
 
-        r = pty_forward_new(event, pty_fd, arg_read_only ? PTY_FORWARD_READ_ONLY : 0, &forward);
+        r = pty_forward_new(event, pty_fd, arg_console == CONSOLE_READ_ONLY ? PTY_FORWARD_READ_ONLY : 0, &forward);
         if (r < 0)
                 return log_error_errno(r, "Failed to create PTY forwarder: %m");
 
