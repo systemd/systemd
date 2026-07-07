@@ -21,10 +21,12 @@ import os
 import pathlib
 import re
 import shutil
+import struct
 import subprocess
 import sys
 import tempfile
 import textwrap
+import uuid
 
 try:
     import pytest
@@ -881,6 +883,78 @@ def test_inspect_json_alternative_set_sections(tmp_path, capsys):
     result = inspect(single)
     assert isinstance(result['.dtbauto'], list) and len(result['.dtbauto']) == 1
     assert isinstance(result['.efifw'], list) and len(result['.efifw']) == 1
+
+    shutil.rmtree(tmp_path)
+
+
+def _make_efifw_dir(tmp_path, name, payload, hwid=None):
+    fwdir = tmp_path / name
+    fwdir.mkdir()
+    (fwdir / 'firmware.bin').write_bytes(payload)
+    if hwid is not None:
+        (fwdir / 'hwid').write_text(hwid)
+    return fwdir
+
+
+def _unpack_efifw_header(blob):
+    # magic, header_len, fwid_len, payload_len — the fixed 16-byte base header.
+    magic, header_len, fwid_len, payload_len = struct.unpack('<IIII', blob[:16])
+    assert magic == ukify.FWHEADERMAGIC
+    return header_len, fwid_len, payload_len
+
+
+def test_efifw_without_chid_keeps_16byte_header(tmp_path):
+    payload = b'FIRMWARE-IMAGE'
+    fwdir = _make_efifw_dir(tmp_path, 'fw', payload)
+
+    blob = ukify.parse_efifw_dir(fwdir)
+    header_len, fwid_len, payload_len = _unpack_efifw_header(blob)
+
+    assert header_len == ukify.EFIFW_HEADER_SIZE == 16
+    assert fwid_len == len(b'fw\0')
+    assert payload_len == len(payload)
+    # fwid (dir name) then payload follow the header; no chid appended.
+    assert blob[header_len : header_len + fwid_len] == b'fw\0'
+    assert blob[header_len + fwid_len :] == payload
+
+    shutil.rmtree(tmp_path)
+
+
+def test_efifw_with_chid_appends_guid(tmp_path):
+    payload = b'CAPSULE-BLOB'
+    chid = '11223344-5566-7788-99aa-bbccddeeff00'
+    fwdir = _make_efifw_dir(tmp_path, 'fw', payload, hwid=chid)
+
+    blob = ukify.parse_efifw_dir(fwdir)
+    header_len, fwid_len, payload_len = _unpack_efifw_header(blob)
+
+    assert header_len == ukify.EFIFW_HEADER_SIZE_WITH_CHID == 32
+    # The 16 bytes between the base header and the fwid are the GUID, little-endian (matching pack_device).
+    assert blob[16:32] == uuid.UUID(chid).bytes_le
+    assert blob[header_len : header_len + fwid_len] == b'fw\0'
+    assert blob[header_len + fwid_len :] == payload
+
+    shutil.rmtree(tmp_path)
+
+
+def test_efifw_hwid_malformed_rejected(tmp_path):
+    fwdir = _make_efifw_dir(tmp_path, 'fw', b'CAPSULE-BLOB', hwid='not-a-uuid')
+    with pytest.raises(ValueError):
+        ukify.parse_efifw_dir(fwdir)
+
+    shutil.rmtree(tmp_path)
+
+
+def test_efifw_multiple_dirs_each_carry_own_chid(tmp_path):
+    # Each --efifw directory declares its own target CHID via the 'hwid' sidecar, independently: two
+    # capsule-carrying directories both produce a 32-byte header with their respective GUID.
+    chids = ('11223344-5566-7788-99aa-bbccddeeff00', 'aabbccdd-eeff-0011-2233-445566778899')
+    for i, chid in enumerate(chids):
+        fwdir = _make_efifw_dir(tmp_path, f'fw{i}', f'CAPSULE{i}'.encode(), hwid=chid)
+        blob = ukify.parse_efifw_dir(fwdir)
+        header_len, _, _ = _unpack_efifw_header(blob)
+        assert header_len == ukify.EFIFW_HEADER_SIZE_WITH_CHID
+        assert blob[16:32] == uuid.UUID(chid).bytes_le
 
     shutil.rmtree(tmp_path)
 
