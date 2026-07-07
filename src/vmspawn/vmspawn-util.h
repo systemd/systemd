@@ -108,6 +108,7 @@
 typedef enum QemuFdset {
         QEMU_FDSET_KVM,
         QEMU_FDSET_EFI_VARS,
+        QEMU_FDSET_CONSOLE,
         _QEMU_FDSET_MAX,
         _QEMU_FDSET_INVALID = -EINVAL,
 } QemuFdset;
