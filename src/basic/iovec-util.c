@@ -175,3 +175,19 @@ struct iovec* iovec_append(struct iovec *iovec, const struct iovec *append) {
 
         return iovec;
 }
+
+struct iovec* iovec_reduce(struct iovec *iovec, size_t n) {
+        if (!iovec_is_set(iovec))
+                return NULL;
+
+        if (n > iovec->iov_len)
+                return NULL;
+
+        if (n == 0)
+                return iovec;
+
+        iovec->iov_len -= n;
+
+        memmove(iovec->iov_base, (uint8_t*) iovec->iov_base + n, iovec->iov_len);
+        return iovec;
+}
