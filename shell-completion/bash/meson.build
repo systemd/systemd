@@ -51,6 +51,7 @@ foreach item : [
         ['systemd-id128',       ''],
         ['systemd-nspawn',      'ENABLE_NSPAWN'],
         ['systemd-path',        ''],
+        ['systemd-pty-forward', ''],
         ['systemd-resolve',     'ENABLE_RESOLVE'],
         ['systemd-run',         ''],
         ['systemd-sysext',      'ENABLE_SYSEXT'],
