@@ -35,3 +35,5 @@ __pycache__/
 .dir-locals-2.el
 .vscode/
 /pkg/
+.envrc
+.direnv/
