@@ -113,6 +113,29 @@ static EFI_STATUS populate_board_chids(EFI_GUID ret_chids[static CHID_TYPES_MAX]
         return EFI_SUCCESS;
 }
 
+EFI_STATUS chid_match_current_system(const EFI_GUID *target, bool *ret_matched) {
+        EFI_STATUS status;
+
+        assert(target);
+        assert(ret_matched);
+
+        EFI_GUID chids[CHID_TYPES_MAX] = {};
+        status = populate_board_chids(chids);
+        if (EFI_STATUS_IS_ERROR(status))
+                return status;
+
+        /* Membership test against all computed CHIDs, not the priority subset chid_match() uses for
+         * most-specific-wins selection. */
+        FOREACH_ELEMENT(chid, chids)
+                if (!efi_guid_is_zero(chid) && efi_guid_equal(chid, target)) {
+                        *ret_matched = true;
+                        return EFI_SUCCESS;
+                }
+
+        *ret_matched = false;
+        return EFI_SUCCESS;
+}
+
 EFI_STATUS chid_match(const void *hwid_buffer, size_t hwid_length, uint32_t match_type, const Device **ret_device) {
         EFI_STATUS status;
 
