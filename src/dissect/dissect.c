@@ -1490,28 +1490,14 @@ static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopD
 
                         /* We are looking at a directory. */
 
-                        target_fd = openat(dfd, bn, O_RDONLY|O_DIRECTORY|O_CLOEXEC);
-                        if (target_fd < 0) {
-                                if (errno != ENOENT)
-                                        return log_error_errno(errno, "Failed to open destination '%s': %m", arg_target);
-
-                                r = copy_tree_at(
-                                                source_fd, ".",
-                                                dfd, bn,
-                                                arg_copy_ownership == 0 ? getuid() : UID_INVALID,
-                                                arg_copy_ownership == 0 ? getgid() : GID_INVALID,
-                                                COPY_REFLINK|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS,
-                                                /* denylist= */ NULL,
-                                                /* subvolumes= */ NULL);
-                        } else
-                                r = copy_tree_at(
-                                                source_fd, ".",
-                                                target_fd, ".",
-                                                arg_copy_ownership == 0 ? getuid() : UID_INVALID,
-                                                arg_copy_ownership == 0 ? getgid() : GID_INVALID,
-                                                COPY_REFLINK|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS,
-                                                /* denylist= */ NULL,
-                                                /* subvolumes= */ NULL);
+                        r = copy_tree_at(
+                                        source_fd, ".",
+                                        dfd, bn,
+                                        arg_copy_ownership == 0 ? getuid() : UID_INVALID,
+                                        arg_copy_ownership == 0 ? getgid() : GID_INVALID,
+                                        COPY_REFLINK|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS,
+                                        /* denylist= */ NULL,
+                                        /* subvolumes= */ NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to copy '%s' to '%s' in image '%s': %m", arg_source, arg_target, arg_image);
 
