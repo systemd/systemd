@@ -1427,6 +1427,53 @@ fail:
         return r;
 }
 
+static int varlink_handle_upgrade_fds(sd_varlink *v, int *ret_input_fd, int *ret_output_fd) {
+        int r;
+
+        assert(v);
+        assert(ret_input_fd || ret_output_fd);
+
+        /* Ensure no post-upgrade data was consumed into our input buffer (we ensure this via MSG_PEEK or
+         * byte-to-byte) and refuse the upgrade rather than silently losing the data. */
+        if (json_stream_has_buffered_input(&v->stream))
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(EPROTO),
+                                         "Unexpected buffered data during protocol upgrade, refusing.");
+
+        _cleanup_close_ int input_fd = TAKE_FD(v->stream.input_fd),
+                            output_fd = TAKE_FD(v->stream.output_fd);
+
+        /* Pass the connection fds to the caller, it owns them now. Reset to blocking mode
+         * since callers of the upgraded protocol will generally expect normal blocking
+         * semantics. For bidirectional sockets (input_fd == output_fd), dup the fd so that
+         * callers always get two independent fds they can close separately. */
+        if (input_fd == output_fd) {
+                output_fd = fcntl(input_fd, F_DUPFD_CLOEXEC, 3);
+                if (output_fd < 0)
+                        return varlink_log_errno(v, errno, "Failed to dup upgraded connection fd: %m");
+        } else {
+                r = fd_nonblock(output_fd, false);
+                if (r < 0)
+                        return varlink_log_errno(v, r, "Failed to set output fd to blocking mode: %m");
+        }
+
+        r = fd_nonblock(input_fd, false);
+        if (r < 0)
+                return varlink_log_errno(v, r, "Failed to set input fd to blocking mode: %m");
+
+        /* Hand out requested fds, shut down unwanted directions. */
+        if (ret_input_fd)
+                *ret_input_fd = TAKE_FD(input_fd);
+        else
+                (void) shutdown(input_fd, SHUT_RD);
+
+        if (ret_output_fd)
+                *ret_output_fd = TAKE_FD(output_fd);
+        else
+                (void) shutdown(output_fd, SHUT_WR);
+
+        return 0;
+}
+
 _public_ int sd_varlink_process(sd_varlink *v) {
         int r;
 
@@ -2009,53 +2056,6 @@ _public_ int sd_varlink_call(
                 const char **ret_error_id) {
 
         return sd_varlink_call_full(v, method, parameters, ret_parameters, ret_error_id, NULL);
-}
-
-static int varlink_handle_upgrade_fds(sd_varlink *v, int *ret_input_fd, int *ret_output_fd) {
-        int r;
-
-        assert(v);
-        assert(ret_input_fd || ret_output_fd);
-
-        /* Ensure no post-upgrade data was consumed into our input buffer (we ensure this via MSG_PEEK or
-         * byte-to-byte) and refuse the upgrade rather than silently losing the data. */
-        if (json_stream_has_buffered_input(&v->stream))
-                return varlink_log_errno(v, SYNTHETIC_ERRNO(EPROTO),
-                                         "Unexpected buffered data during protocol upgrade, refusing.");
-
-        _cleanup_close_ int input_fd = TAKE_FD(v->stream.input_fd),
-                            output_fd = TAKE_FD(v->stream.output_fd);
-
-        /* Pass the connection fds to the caller, it owns them now. Reset to blocking mode
-         * since callers of the upgraded protocol will generally expect normal blocking
-         * semantics. For bidirectional sockets (input_fd == output_fd), dup the fd so that
-         * callers always get two independent fds they can close separately. */
-        if (input_fd == output_fd) {
-                output_fd = fcntl(input_fd, F_DUPFD_CLOEXEC, 3);
-                if (output_fd < 0)
-                        return varlink_log_errno(v, errno, "Failed to dup upgraded connection fd: %m");
-        } else {
-                r = fd_nonblock(output_fd, false);
-                if (r < 0)
-                        return varlink_log_errno(v, r, "Failed to set output fd to blocking mode: %m");
-        }
-
-        r = fd_nonblock(input_fd, false);
-        if (r < 0)
-                return varlink_log_errno(v, r, "Failed to set input fd to blocking mode: %m");
-
-        /* Hand out requested fds, shut down unwanted directions. */
-        if (ret_input_fd)
-                *ret_input_fd = TAKE_FD(input_fd);
-        else
-                (void) shutdown(input_fd, SHUT_RD);
-
-        if (ret_output_fd)
-                *ret_output_fd = TAKE_FD(output_fd);
-        else
-                (void) shutdown(output_fd, SHUT_WR);
-
-        return 0;
 }
 
 _public_ int sd_varlink_call_and_upgrade(
