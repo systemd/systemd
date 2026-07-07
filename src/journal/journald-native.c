@@ -319,7 +319,10 @@ void manager_process_native_message(
         assert(buffer || buffer_size == 0);
 
         if (ucred && pid_is_valid(ucred->pid)) {
-                r = client_context_get(m, ucred->pid, ucred, label, /* unit_id= */ NULL, &context);
+                /* Pin the sender's context for the whole dispatch below, as processing an entry may look up
+                 * further contexts (e.g. for an OBJECT_PID=), which can flush already reaped entries from
+                 * the cache */
+                r = client_context_acquire(m, ucred->pid, ucred, label, /* unit_id= */ NULL, &context);
                 if (r < 0)
                         log_ratelimit_warning_errno(r, JOURNAL_LOG_RATELIMIT,
                                                     "Failed to retrieve credentials for PID " PID_FMT ", ignoring: %m",
@@ -331,6 +334,8 @@ void manager_process_native_message(
                                          (const uint8_t*) buffer + (buffer_size - remaining), &remaining,
                                          context, ucred, tv, label);
         } while (r == 0);
+
+        client_context_release(m, context);
 }
 
 static size_t entry_size_max_by_ucred(Manager *m, const struct ucred *ucred, const char *label) {
