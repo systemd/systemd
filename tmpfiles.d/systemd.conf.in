@@ -41,6 +41,9 @@ A+ /run/log/journal/%m - - - - d:group:wheel:r-x,group:wheel:r-X
 z /var/log/journal 2755 root systemd-journal - -
 z /var/log/journal/%m 2755 root systemd-journal - -
 z /var/log/journal/%m/system.journal 0640 root systemd-journal - -
+{% if ENABLE_REMOTE %}
+z /var/log/journal/remote 2755 root systemd-journal-remote - -
+{% endif %}
 {% if HAVE_ACL %}
 {% if ENABLE_ADM_GROUP and ENABLE_WHEEL_GROUP %}
 a+ /var/log/journal    - - - - d:group::r-x,d:group:adm:r-x,d:group:wheel:r-x,group::r-x,group:adm:r-x,group:wheel:r-x
