@@ -1490,8 +1490,12 @@ static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopD
 
                         /* We are looking at a directory. */
 
-                        target_fd = openat(dfd, bn, O_RDONLY|O_DIRECTORY|O_CLOEXEC);
+                        target_fd = openat(dfd, bn, O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
                         if (target_fd < 0) {
+                                if (errno == ELOOP)
+                                        return log_error_errno(SYNTHETIC_ERRNO(ELOOP),
+                                                        "Refusing to copy directory to symlink destination '%s'.", arg_target);
+
                                 if (errno != ENOENT)
                                         return log_error_errno(errno, "Failed to open destination '%s': %m", arg_target);
 
