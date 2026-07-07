@@ -62,9 +62,11 @@ static const char* const varlink_state_table[_VARLINK_STATE_MAX] = {
         [VARLINK_PROCESSING_METHOD_ONEWAY]  = "processing-method-oneway",
         [VARLINK_PROCESSING_METHOD_UPGRADE] = "processing-method-upgrade",
         [VARLINK_PROCESSED_METHOD]          = "processed-method",
+        [VARLINK_PROCESSED_METHOD_UPGRADE]  = "processed-method-upgrade",
         [VARLINK_PENDING_METHOD]            = "pending-method",
         [VARLINK_PENDING_METHOD_MORE]       = "pending-method-more",
         [VARLINK_PENDING_METHOD_UPGRADE]    = "pending-method-upgrade",
+        [VARLINK_UPGRADING]                 = "upgrading",
         [VARLINK_PENDING_DISCONNECT]        = "pending-disconnect",
         [VARLINK_PENDING_TIMEOUT]           = "pending-timeout",
         [VARLINK_PROCESSING_DISCONNECT]     = "processing-disconnect",
@@ -1407,6 +1409,11 @@ static int varlink_dispatch_method(sd_varlink *v) {
                 varlink_set_state(v, VARLINK_PENDING_METHOD_UPGRADE);
                 break;
 
+        case VARLINK_PROCESSED_METHOD_UPGRADE: /* Upgrade requested, let's now wait till everything is flushed */
+                varlink_clear_current(v);
+                varlink_set_state(v, VARLINK_UPGRADING);
+                break;
+
         case VARLINK_DISCONNECTED: /* Handler called sd_varlink_close() on us, which is fine */
                 break;
 
@@ -1474,6 +1481,38 @@ static int varlink_handle_upgrade_fds(sd_varlink *v, int *ret_input_fd, int *ret
         return 0;
 }
 
+static int varlink_dispatch_upgrade(sd_varlink *v) {
+        int r;
+
+        assert(v);
+
+        if (v->state != VARLINK_UPGRADING)
+                return 0;
+
+        r = json_stream_has_buffered_output(&v->stream);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                return 0;
+
+        _cleanup_close_ int input_fd = -EBADF, output_fd = -EBADF;
+        r = varlink_handle_upgrade_fds(v, &input_fd, &output_fd);
+        if (r < 0)
+                return r;
+
+        sd_varlink_detach_event(v);
+        sd_varlink_close(v);
+
+        if (v->upgrade_callback) {
+                /* No matter what, we donate the fds to callback */
+                r = v->upgrade_callback(v, TAKE_FD(input_fd), TAKE_FD(output_fd), v->userdata);
+                if (r < 0)
+                        return r;
+        }
+
+        return 1;
+}
+
 _public_ int sd_varlink_process(sd_varlink *v) {
         int r;
 
@@ -1487,6 +1526,12 @@ _public_ int sd_varlink_process(sd_varlink *v) {
         r = varlink_write(v);
         if (r < 0)
                 varlink_log_errno(v, r, "Write failed: %m");
+        if (r != 0)
+                goto finish;
+
+        r = varlink_dispatch_upgrade(v);
+        if (r < 0)
+                varlink_log_errno(v, r, "Upgrade dispatch failed: %m");
         if (r != 0)
                 goto finish;
 
@@ -2457,11 +2502,12 @@ _public_ int sd_varlink_replyb(sd_varlink *v, ...) {
         return sd_varlink_reply(v, parameters);
 }
 
-_public_ int sd_varlink_reply_and_upgrade(sd_varlink *v, sd_json_variant *parameters, int *ret_input_fd, int *ret_output_fd) {
+_public_ int sd_varlink_respond_and_upgrade(
+                sd_varlink *v,
+                sd_json_variant *parameters) {
         int r;
 
         assert_return(v, -EINVAL);
-        assert_return(ret_input_fd || ret_output_fd, -EINVAL);
 
         if (v->state == VARLINK_DISCONNECTED)
                 return varlink_log_errno(v, SYNTHETIC_ERRNO(ENOTCONN), "Not connected.");
@@ -2507,6 +2553,55 @@ _public_ int sd_varlink_reply_and_upgrade(sd_varlink *v, sd_json_variant *parame
         r = varlink_enqueue(v, m);
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to enqueue json message: %m");
+
+        switch (v->state) {
+
+        case VARLINK_PENDING_METHOD_UPGRADE:
+                varlink_clear_current(v);
+                varlink_set_state(v, VARLINK_UPGRADING);
+                break;
+
+        case VARLINK_PROCESSING_METHOD_UPGRADE:
+                varlink_set_state(v, VARLINK_PROCESSED_METHOD_UPGRADE);
+                break;
+
+        default:
+                assert_not_reached();
+        }
+
+        return 1;
+}
+
+_public_ int sd_varlink_respond_and_upgradeb(sd_varlink *v, ...) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *parameters = NULL;
+        va_list ap;
+        int r;
+
+        assert_return(v, -EINVAL);
+
+        va_start(ap, v);
+        r = sd_json_buildv(&parameters, ap);
+        va_end(ap);
+
+        if (r < 0)
+                return r;
+
+        return sd_varlink_respond_and_upgrade(v, parameters);
+}
+
+_public_ int sd_varlink_reply_and_upgrade(
+                sd_varlink *v,
+                sd_json_variant *parameters,
+                int *ret_input_fd,
+                int *ret_output_fd) {
+        int r;
+
+        assert_return(v, -EINVAL);
+        assert_return(ret_input_fd || ret_output_fd, -EINVAL);
+
+        r = sd_varlink_respond_and_upgrade(v, parameters);
+        if (r < 0)
+                return r;
 
         /* Flush the reply to the socket before stealing the fds. The reply must be fully written
          * before the caller starts speaking the upgraded protocol. */
@@ -2793,6 +2888,17 @@ _public_ int sd_varlink_bind_reply(sd_varlink *v, sd_varlink_reply_t reply) {
                 return varlink_log_errno(v, SYNTHETIC_ERRNO(EBUSY), "A different callback was already set.");
 
         v->reply_callback = reply;
+
+        return 0;
+}
+
+_public_ int sd_varlink_bind_upgrade(sd_varlink *v, sd_varlink_upgrade_t upgrade) {
+        assert_return(v, -EINVAL);
+
+        if (upgrade && v->upgrade_callback && upgrade != v->upgrade_callback)
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(EBUSY), "A different callback was already set.");
+
+        v->upgrade_callback = upgrade;
 
         return 0;
 }
