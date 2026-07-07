@@ -26,9 +26,11 @@ typedef enum VarlinkState {
         VARLINK_PROCESSING_METHOD,
         VARLINK_PROCESSING_METHOD_MORE,
         VARLINK_PROCESSING_METHOD_ONEWAY,
+        VARLINK_PROCESSING_METHOD_UPGRADE,
         VARLINK_PROCESSED_METHOD,
         VARLINK_PENDING_METHOD,
         VARLINK_PENDING_METHOD_MORE,
+        VARLINK_PENDING_METHOD_UPGRADE,
 
         /* Common states (only during shutdown) */
         VARLINK_PENDING_DISCONNECT,
@@ -60,16 +62,19 @@ typedef enum VarlinkState {
                VARLINK_PROCESSING_METHOD,               \
                VARLINK_PROCESSING_METHOD_MORE,          \
                VARLINK_PROCESSING_METHOD_ONEWAY,        \
+               VARLINK_PROCESSING_METHOD_UPGRADE,       \
                VARLINK_PROCESSED_METHOD,                \
                VARLINK_PENDING_METHOD,                  \
-               VARLINK_PENDING_METHOD_MORE)
+               VARLINK_PENDING_METHOD_MORE,             \
+               VARLINK_PENDING_METHOD_UPGRADE)
 
 /* Tests whether we are expected to generate a method call reply, i.e. are processing a method call, except
  * one with the ONEWAY flag set. */
 #define VARLINK_STATE_WANTS_REPLY(state)                \
         IN_SET(state,                                   \
                VARLINK_PROCESSING_METHOD,               \
-               VARLINK_PROCESSING_METHOD_MORE)
+               VARLINK_PROCESSING_METHOD_MORE,          \
+               VARLINK_PROCESSING_METHOD_UPGRADE)
 
 typedef struct sd_varlink {
         unsigned n_ref;
@@ -85,13 +90,6 @@ typedef struct sd_varlink {
         JsonStream stream;
 
         unsigned n_pending;
-
-        /* Per-call protocol-upgrade marker: set when the *current* method call carries the
-         * SD_VARLINK_METHOD_UPGRADE flag. Validated by sd_varlink_reply_and_upgrade() to
-         * ensure the caller's contract is honored. The transport-layer "stop reading at the
-         * next message boundary" behavior is governed independently by the JsonStream's
-         * bounded_reads flag. */
-        bool protocol_upgrade;
 
         sd_varlink_reply_t reply_callback;
 
