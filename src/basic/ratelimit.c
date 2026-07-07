@@ -14,7 +14,7 @@ bool ratelimit_below(RateLimit *rl) {
         if (!ratelimit_configured(rl))
                 return true;
 
-        ts = now(CLOCK_MONOTONIC);
+        ts = now(CLOCK_BOOTTIME);
 
         if (rl->begin <= 0 ||
             usec_sub_unsigned(ts, rl->begin) > rl->interval) {
@@ -54,5 +54,5 @@ usec_t ratelimit_left(const RateLimit *rl) {
         if (rl->begin == 0)
                 return 0;
 
-        return usec_sub_unsigned(ratelimit_end(rl), now(CLOCK_MONOTONIC));
+        return usec_sub_unsigned(ratelimit_end(rl), now(CLOCK_BOOTTIME));
 }
