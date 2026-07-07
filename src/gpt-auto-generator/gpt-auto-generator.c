@@ -940,9 +940,10 @@ static int add_root_mount(void) {
 
         return add_mount(
                         "root",
-                        bdev,
+                        streq_ptr(arg_root_fstype, "crypto_LUKS") ? "/dev/mapper/root" : bdev,
                         in_initrd() ? "/sysroot" : "/",
-                        arg_root_fstype,
+                        /* systemd-cryptsetup@root.service survives switch-root */
+                        streq_ptr(arg_root_fstype, "crypto_LUKS") ? NULL : arg_root_fstype,
                         (arg_root_rw > 0 ? MOUNT_RW : 0) |
                         (in_initrd() ? MOUNT_VALIDATEFS : 0) |
                         MOUNT_MEASURE,
@@ -1020,9 +1021,10 @@ static int add_usr_mount(void) {
                         return log_oom();
 
         r = add_mount("usr",
-                      "/dev/disk/by-designator/usr",
+                      streq_ptr(arg_root_fstype, "crypto_LUKS") ? "/dev/mapper/usr" : "/dev/disk/by-designator/usr",
                       in_initrd() ? "/sysusr/usr" : "/usr",
-                      arg_usr_fstype,
+                      /* systemd-cryptsetup@usr.service survives switch-root */
+                      streq_ptr(arg_usr_fstype, "crypto_LUKS") ? NULL : arg_usr_fstype,
                       /* flags= */ 0,
                       options,
                       "/usr/ Partition",
