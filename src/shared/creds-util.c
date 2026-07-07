@@ -610,6 +610,8 @@ int get_credential_host_secret(CredentialSecretFlags flags, struct iovec *ret) {
                 /* Hmm, this secret is from somewhere else. Let's delete the file. Let's first acquire a lock
                  * to ensure we are the only ones accessing the file while we delete it. */
 
+                log_notice("'%s/%s' comes from a different machine ID, deleting.", dirname, filename);
+
                 if (flock(fd, LOCK_EX) < 0)
                         return log_debug_errno(errno,
                                                "Failed to flock %s/%s: %m", dirname, filename);
