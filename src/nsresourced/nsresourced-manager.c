@@ -291,7 +291,7 @@ static int start_workers(Manager *m, bool explicit_request) {
                                 r = sd_event_add_time(
                                                 m->event,
                                                 &m->deferred_start_worker_event_source,
-                                                CLOCK_MONOTONIC,
+                                                CLOCK_BOOTTIME,
                                                 ratelimit_end(&m->worker_ratelimit),
                                                 /* accuracy= */ 0,
                                                 on_deferred_start_worker,

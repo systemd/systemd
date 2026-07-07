@@ -1495,7 +1495,7 @@ static int manager_ratelimit_check_and_queue(Unit *u) {
         r = sd_event_add_time(
                         u->manager->event,
                         &u->auto_start_stop_event_source,
-                        CLOCK_MONOTONIC,
+                        CLOCK_BOOTTIME,
                         ratelimit_end(&u->auto_start_stop_ratelimit),
                         0,
                         manager_ratelimit_requeue,
