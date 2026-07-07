@@ -3336,7 +3336,7 @@ static int context_copy_from_one(Context *context, const char *src) {
         _cleanup_(fdisk_unref_contextp) struct fdisk_context *c = NULL;
         _cleanup_(fdisk_unref_tablep) struct fdisk_table *t = NULL;
         Partition *last = NULL;
-        unsigned long secsz, grainsz;
+        unsigned long secsz;
         size_t n_partitions;
         int r;
 
@@ -3355,7 +3355,6 @@ static int context_copy_from_one(Context *context, const char *src) {
                 return log_error_errno(r, "Failed to create fdisk context: %m");
 
         secsz = sym_fdisk_get_sector_size(c);
-        grainsz = sym_fdisk_get_grain_size(c);
 
         /* Insist on a power of two, and that it's a multiple of 512, i.e. the traditional sector size. */
         if (secsz < 512 || !ISPOWEROF2(secsz))
@@ -3436,7 +3435,9 @@ static int context_copy_from_one(Context *context, const char *src) {
                 if (!np->split_name_format)
                         return log_oom();
 
-                r = determine_current_padding(c, t, p, secsz, grainsz, &padding);
+                /* Pass grain size of 1 to disable rounding by grain as we don't know the grain size
+                 * of the old image. We'll round paddings to the grain size of the new image later. */
+                r = determine_current_padding(c, t, p, secsz, /* grainsz= */ 1, &padding);
                 if (r < 0)
                         return r;
 
