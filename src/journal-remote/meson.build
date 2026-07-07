@@ -5,7 +5,7 @@ systemd_journal_gatewayd_sources = files(
 )
 
 systemd_journal_remote_sources = files('journal-remote-main.c')
-systemd_journal_remote_extract_sources = files(
+systemd_journal_remote_export_sources = files(
         'journal-compression-util.c',
         'journal-remote-parse.c',
         'journal-remote-write.c',
@@ -16,7 +16,7 @@ systemd_journal_upload_sources = files(
         'journal-upload-journal.c',
         'journal-upload.c',
 )
-systemd_journal_upload_extract_sources = files(
+systemd_journal_upload_export_sources = files(
         'journal-header-util.c',
 )
 
@@ -46,7 +46,7 @@ executables += [
                 # Instead, we make sure we don't install it when the remote feature is disabled.
                 'install' : conf.get('ENABLE_REMOTE') == 1,
                 'sources' : systemd_journal_remote_sources,
-                'extract' : systemd_journal_remote_extract_sources,
+                'export' : systemd_journal_remote_export_sources,
                 'dependencies' : common_deps + [libmicrohttpd_cflags],
         },
         libexec_template + {
@@ -57,8 +57,8 @@ executables += [
                         'HAVE_LIBCURL',
                 ],
                 'sources' : systemd_journal_upload_sources,
-                'extract' : systemd_journal_upload_extract_sources,
-                'objects' : ['systemd-journal-remote'],
+                'export' : systemd_journal_upload_export_sources,
+                'import' : ['systemd-journal-remote'],
                 'dependencies' : [
                         common_deps,
                         libcurl_cflags,
@@ -67,11 +67,11 @@ executables += [
         test_template + {
                 'sources' : files('test-journal-header-util.c'),
                 'conditions' : ['ENABLE_REMOTE', 'HAVE_LIBCURL'],
-                'objects' : ['systemd-journal-upload'],
+                'import' : ['systemd-journal-upload'],
         },
         fuzz_template + {
                 'sources' : files('fuzz-journal-remote.c'),
-                'objects' : ['systemd-journal-remote'],
+                'import' : ['systemd-journal-remote'],
                 'dependencies' : common_deps + [libmicrohttpd_cflags],
         },
 ]

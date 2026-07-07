@@ -116,11 +116,11 @@ executables += [
         },
         network_test_template + {
                 'sources' : files('test-ndisc-ra.c'),
-                'extract' : files('icmp6-test-util.c'),
+                'export' : files('icmp6-test-util.c'),
         },
         network_test_template + {
                 'sources' : files('test-ndisc-rs.c'),
-                'objects' : ['test-ndisc-ra'],
+                'import' : ['test-ndisc-ra'],
         },
         network_test_template + {
                 'sources' : files('test-ndisc-send.c'),
@@ -146,6 +146,6 @@ executables += [
         },
         network_fuzz_template + {
                 'sources' : files('fuzz-ndisc-rs.c'),
-                'objects' : ['test-ndisc-ra'],
+                'import' : ['test-ndisc-ra'],
         },
 ]
