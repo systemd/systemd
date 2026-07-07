@@ -386,7 +386,7 @@ int bus_machine_method_open_shell(sd_bus_message *message, void *userdata, sd_bu
                 return r;
         user = isempty(user) ? "root" : user;
 
-        if (!valid_user_group_name(user, VALID_USER_RELAX))
+        if (!valid_user_group_name(user, VALID_USER_RELAX | VALID_USER_ALLOW_NUMERIC))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid user name '%s'", user);
 
         /* Ensure only root can shell into the root namespace. This is to avoid unprivileged users registering
