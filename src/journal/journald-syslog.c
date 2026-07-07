@@ -534,6 +534,8 @@ int manager_open_syslog_socket(Manager *m, const char *syslog_socket) {
         if (r < 0)
                 return log_error_errno(r, "Failed to enable SO_TIMESTAMP: %m");
 
+        m->syslog_event_source = sd_event_source_disable_unref(m->syslog_event_source);
+
         r = sd_event_add_io(m->event, &m->syslog_event_source, m->syslog_fd, EPOLLIN, manager_process_datagram, m);
         if (r < 0)
                 return log_error_errno(r, "Failed to add syslog sevrer fd to event loop: %m");
