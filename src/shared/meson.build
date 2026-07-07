@@ -178,6 +178,7 @@ shared_sources = files(
         'pretty-print.c',
         'printk-util.c',
         'prompt-util.c',
+        'ptybroker-client.c',
         'ptyfwd.c',
         'qmp-client.c',
         'qrcode-util.c',
