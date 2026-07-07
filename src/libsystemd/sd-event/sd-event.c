@@ -900,7 +900,7 @@ static void event_source_time_prioq_reshuffle(sd_event_source *s) {
          * properly again. */
 
         if (s->ratelimited)
-                d = &s->event->monotonic;
+                d = &s->event->boottime;
         else if (EVENT_SOURCE_IS_TIME(s->type))
                 assert_se(d = event_get_clock_data(s->event, s->type));
         else
@@ -950,7 +950,7 @@ static void source_disconnect(sd_event_source *s) {
         case SOURCE_TIME_BOOTTIME_ALARM:
                 /* Only remove this event source from the time event source here if it is not ratelimited. If
                  * it is ratelimited, we'll remove it below, separately. Why? Because the clock used might
-                 * differ: ratelimiting always uses CLOCK_MONOTONIC, but timer events might use any clock */
+                 * differ: ratelimiting always uses CLOCK_BOOTTIME, but timer events might use any clock */
 
                 if (!s->ratelimited) {
                         struct clock_data *d;
@@ -1070,7 +1070,7 @@ static void source_disconnect(sd_event_source *s) {
                 prioq_remove(s->event->prepare, s, &s->prepare_index);
 
         if (s->ratelimited)
-                event_source_time_prioq_remove(s, &s->event->monotonic);
+                event_source_time_prioq_remove(s, &s->event->boottime);
 
         event = TAKE_PTR(s->event);
         LIST_REMOVE(sources, event->sources, s);
@@ -3397,32 +3397,32 @@ static int event_source_enter_ratelimited(sd_event_source *s) {
 
         assert(s);
 
-        /* When an event source becomes ratelimited, we place it in the CLOCK_MONOTONIC priority queue, with
+        /* When an event source becomes ratelimited, we place it in the CLOCK_BOOTTIME priority queue, with
          * the end of the rate limit time window, much as if it was a timer event source. */
 
         if (s->ratelimited)
                 return 0; /* Already ratelimited, this is a NOP hence */
 
-        /* Make sure we can install a CLOCK_MONOTONIC event further down. */
-        r = setup_clock_data(s->event, &s->event->monotonic, CLOCK_MONOTONIC);
+        /* Make sure we can install a CLOCK_BOOTTIME event further down. */
+        r = setup_clock_data(s->event, &s->event->boottime, CLOCK_BOOTTIME);
         if (r < 0)
                 return r;
 
         /* Timer event sources are already using the earliest/latest queues for the timer scheduling. Let's
          * first remove them from the prioq appropriate for their own clock, so that we can use the prioq
-         * fields of the event source then for adding it to the CLOCK_MONOTONIC prioq instead. */
+         * fields of the event source then for adding it to the CLOCK_BOOTTIME prioq instead. */
         if (EVENT_SOURCE_IS_TIME(s->type))
                 event_source_time_prioq_remove(s, event_get_clock_data(s->event, s->type));
 
-        /* Now, let's add the event source to the monotonic clock instead */
-        r = event_source_time_prioq_put(s, &s->event->monotonic);
+        /* Now, let's add the event source to the boottime clock instead */
+        r = event_source_time_prioq_put(s, &s->event->boottime);
         if (r < 0)
                 goto fail;
 
         /* And let's take the event source officially offline */
         r = event_source_offline(s, s->enabled, /* ratelimited= */ true);
         if (r < 0) {
-                event_source_time_prioq_remove(s, &s->event->monotonic);
+                event_source_time_prioq_remove(s, &s->event->boottime);
                 goto fail;
         }
 
@@ -3448,8 +3448,8 @@ static int event_source_leave_ratelimit(sd_event_source *s, bool run_callback) {
         if (!s->ratelimited)
                 return 0;
 
-        /* Let's take the event source out of the monotonic prioq first. */
-        event_source_time_prioq_remove(s, &s->event->monotonic);
+        /* Let's take the event source out of the boottime prioq first. */
+        event_source_time_prioq_remove(s, &s->event->boottime);
 
         /* Let's then add the event source to its native clock prioq again — if this is a timer event source */
         if (EVENT_SOURCE_IS_TIME(s->type)) {
@@ -3501,7 +3501,7 @@ static int event_source_leave_ratelimit(sd_event_source *s, bool run_callback) {
 fail:
         /* Do something somewhat reasonable when we cannot move an event sources out of ratelimited mode:
          * simply put it back in it, maybe we can then process it more successfully next iteration. */
-        assert_se(event_source_time_prioq_put(s, &s->event->monotonic) >= 0);
+        assert_se(event_source_time_prioq_put(s, &s->event->boottime) >= 0);
 
         return r;
 }
@@ -4781,6 +4781,7 @@ static int process_epoll(sd_event *e, usec_t timeout, int64_t threshold, int64_t
 }
 
 _public_ int sd_event_wait(sd_event *e, uint64_t timeout) {
+        bool ratelimit_expired = false;
         int r;
 
         assert_return(e, -EINVAL);
@@ -4845,6 +4846,8 @@ _public_ int sd_event_wait(sd_event *e, uint64_t timeout) {
         r = process_timer(e, e->timestamp.boottime, &e->boottime);
         if (r < 0)
                 goto finish;
+        else if (r == 1)
+                ratelimit_expired = true;
 
         r = process_timer(e, e->timestamp.realtime, &e->realtime_alarm);
         if (r < 0)
@@ -4857,14 +4860,19 @@ _public_ int sd_event_wait(sd_event *e, uint64_t timeout) {
         r = process_timer(e, e->timestamp.monotonic, &e->monotonic);
         if (r < 0)
                 goto finish;
-        else if (r == 1) {
-                /* Ratelimit expiry callback was called. Let's postpone processing pending sources and
-                 * put loop in the initial state in order to evaluate (in the next iteration) also sources
-                 * there were potentially re-enabled by the callback.
+
+        if (ratelimit_expired) {
+                /* Ratelimit expiry callback was called. Let's postpone processing pending sources and put
+                 * the loop in the initial state in order to evaluate (in the next iteration) also sources
+                 * that were potentially re-enabled by the callback.
                  *
                  * Wondering why we treat only this invocation of process_timer() differently? Once event
-                 * source is ratelimited we essentially transform it into CLOCK_MONOTONIC timer hence
-                 * ratelimit expiry callback is never called for any other timer type. */
+                 * source is ratelimited we essentially transform it into a CLOCK_BOOTTIME timer hence
+                 * ratelimit expiry callback is never called for any other timer type.
+                 *
+                 * Note that we don't short-circuit earlier because all timer prioqs must be fully
+                 * processed - their timerfds may have already been flushed by process_epoll(), so
+                 * skipping them would leave those sources unprocessed and the timerfds un-rearmed. */
                 r = 0;
                 goto finish;
         }
