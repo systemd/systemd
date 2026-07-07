@@ -18,6 +18,8 @@ static const char *const console_mode_table[_CONSOLE_MODE_MAX] = {
         [CONSOLE_NATIVE]      = "native",
         [CONSOLE_GUI]         = "gui",
         [CONSOLE_HEADLESS]    = "headless",
+        [CONSOLE_BROKER]      = "broker",
+        [CONSOLE_BROKER_LOG]  = "broker-log",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(console_mode, ConsoleMode);

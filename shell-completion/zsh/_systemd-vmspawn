@@ -1,0 +1,71 @@
+#compdef systemd-vmspawn
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+(( $+functions[_systemd-vmspawn_mode_or_path] )) ||
+_systemd-vmspawn_mode_or_path() {
+    _alternative \
+        "modes:mode:($*)" \
+        'files:path:_files'
+}
+
+_arguments \
+    '(- *)'{-h,--help}'[Show this help]' \
+    '(- *)--version[Show package version]' \
+    '(--quiet -q)'{-q,--quiet}'[Do not show status information]' \
+    '--no-pager[Do not pipe output into a pager]' \
+    '--no-ask-password[Do not prompt for password]' \
+    '(--user)--system[Run in the system service manager scope]' \
+    '(--system)--user[Run in the user service manager scope]' \
+    '(--directory -D)'{-D+,--directory=}'[Root directory for the VM]:directory:_directories' \
+    '(--ephemeral -x)'{-x,--ephemeral}'[Run VM with snapshot of the disk or directory]' \
+    '(--image -i)'{-i+,--image=}'[Root file system disk image or device for the VM]:disk image:_files' \
+    '--image-format=[Specify disk image format]:format:(raw qcow2)' \
+    '--image-disk-type=[Specify disk interface type]:type:(virtio-blk virtio-scsi nvme)' \
+    '--discard-disk=[Control processing of discard requests]:boolean:(yes no)' \
+    '(--grow-image -G)'{-G+,--grow-image=}'[Grow image file to specified size in bytes]: : _message bytes' \
+    '--cpus=[Configure number of CPUs in guest]: : _message "number of CPUs"' \
+    '--ram=[Configure amount of RAM in guest]: : _message bytes' \
+    '--kvm=[Enable use of KVM]:boolean:(yes no)' \
+    '--vsock=[Override autodetection of VSOCK support]:boolean:(yes no)' \
+    "--vsock-cid=[Specify the CID to use for the guest's VSOCK support]: : _message CID" \
+    '--tpm=[Enable use of a virtual TPM]:boolean:(yes no)' \
+    '--tpm-state=[Where to store TPM state]:state: _systemd-vmspawn_mode_or_path off auto' \
+    '--efi-nvram-template=[Set the path to the EFI NVRAM template file to use]:path:_files' \
+    '--efi-nvram-state=[Where to store EFI variable NVRAM state]:state: _systemd-vmspawn_mode_or_path off auto' \
+    '--secure-boot=[Enable searching for firmware supporting SecureBoot]:boolean:(yes no auto)' \
+    '--firmware=[Select firmware to use]:firmware: _systemd-vmspawn_mode_or_path auto uefi bios none list describe' \
+    '--firmware-features=[Require/exclude specific firmware features]: : _message "firmware features"' \
+    '--coco=[Run the guest as a confidential VM]:mode:(no sev-snp tdx)' \
+    '(--network-tap -n)'{-n,--network-tap}'[Create a TAP device for networking]' \
+    '--network-user-mode[Use user mode networking]' \
+    '--linux=[Specify the linux kernel for direct kernel boot]:kernel:_files' \
+    '--initrd=[Specify the initrd for direct kernel boot]:initrd:_files' \
+    '(--smbios11 -s)'{-s+,--smbios11=}'[Pass an arbitrary SMBIOS Type #11 string to the VM]: : _message string' \
+    '--notify-ready=[Wait for ready notification from the VM]:boolean:(yes no)' \
+    '(--machine -M)'{-M+,--machine=}'[Set the machine name for the VM]: : _message "machine name"' \
+    '--uuid=[Set a specific machine UUID for the VM]: : _message UUID' \
+    '(--slice -S)'{-S+,--slice=}'[Place the VM in the specified slice]: : _message slice' \
+    '*--property=[Set scope unit property]: : _message "NAME=VALUE"' \
+    '--register=[Register VM as machine]:boolean:(yes no)' \
+    '--keep-unit[Reuse the service or scope unit vmspawn was invoked in]' \
+    '--private-users=[Shift UIDs/GIDs of the root directory]: : _message "UID base and range"' \
+    '*--bind=[Mount a file or directory from the host into the VM]:path:_files' \
+    '*--bind-ro=[Mount a file or directory, but read-only]:path:_files' \
+    '*--extra-drive=[Add an additional disk to the VM]:path:_files' \
+    '*--bind-volume=[Mount a volume from a volume provider into the VM]: : _message "PROVIDER:VOLUME"' \
+    '*--bind-user=[Bind user from host to virtual machine]:user:_users' \
+    '--bind-user-shell=[Configure the shell for users bound into the VM]: : _systemd-vmspawn_mode_or_path yes no' \
+    '*--bind-user-group=[Add an auxiliary group to --bind-user= users]:group:_groups' \
+    "--forward-journal=[Forward the VM's journal to the host]:path:_files" \
+    '--forward-journal-max-use=[Maximum disk space for forwarded journal]: : _message bytes' \
+    '--forward-journal-keep-free=[Minimum disk space to keep free]: : _message bytes' \
+    '--forward-journal-max-file-size=[Maximum size of individual journal files]: : _message bytes' \
+    '--forward-journal-max-files=[Maximum number of journal files to keep]: : _message number' \
+    '--pass-ssh-key=[Create an SSH key to access the VM]:boolean:(yes no)' \
+    '--ssh-key-type=[Choose what type of SSH key to pass]:type:(dsa ecdsa ecdsa-sk ed25519 ed25519-sk rsa)' \
+    '--console=[Console mode]:mode:(interactive read-only native gui headless broker broker-log)' \
+    '--console-transport=[Console transport]:transport:(virtio serial)' \
+    '--background=[Set ANSI color for background]: : _message "background color"' \
+    '*--set-credential=[Pass a credential with literal value to the VM]: : _message "ID:VALUE"' \
+    '*--load-credential=[Load credential for the VM from file or AF_UNIX stream socket]: : _message "ID:PATH"' \
+    '*: : _message "kernel command line argument"'
