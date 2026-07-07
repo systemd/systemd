@@ -1,11 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "boot-secret.h"
+#include "chid.h"
 #include "console.h"
 #include "cpio.h"
 #include "device-path-util.h"
 #include "devicetree.h"
 #include "efi-efivars.h"
+#include "efi-firmware.h"
 #include "efi-log.h"
 #include "efi-string.h"
 #include "export-vars.h"
@@ -695,6 +697,78 @@ static EFI_STATUS load_addons(
         return EFI_SUCCESS;
 }
 
+static EFI_STATUS apply_efifw_capsule(
+                EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
+                const PeSectionVector sections[static _UNIFIED_SECTION_MAX]) {
+        /* If the .efifw section carries a firmware capsule (a non-zero target chid), apply it when the
+         * running firmware isn't already at that version. We remember the capsule we attempted in the
+         * StubFirmwareUpdateAttempt NV variable and apply a given capsule only once: if the firmware is
+         * still not at the target chid on the next boot the capsule did not take effect, so we refuse to
+         * boot rather than re-applying it forever. The variable is cleared on every path that goes on to
+         * boot, so a fallback to a different UKI (or a later re-deploy) is never confused by a stale
+         * attempt. */
+
+        if (!PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_EFIFW)) {
+                (void) efivar_unset(MAKE_GUID_PTR(LOADER), u"StubFirmwareUpdateAttempt", EFI_VARIABLE_NON_VOLATILE);
+                return EFI_SUCCESS;
+        }
+
+        const void *blob = (const uint8_t *) loaded_image->ImageBase +
+                        sections[UNIFIED_SECTION_EFIFW].memory_offset;
+        size_t blob_len = sections[UNIFIED_SECTION_EFIFW].memory_size;
+
+        const EFI_GUID *chid = NULL;
+        const char *fwid = NULL;
+        const void *payload = NULL;
+        size_t payload_len = 0;
+
+        EFI_STATUS err = efi_firmware_get_capsule(blob, blob_len, &fwid, &chid, &payload, &payload_len);
+        if (err != EFI_SUCCESS)
+                return log_error_status(err, "Invalid .efifw section: %m");
+
+        if (!chid) { /* chid == NULL: not a capsule -> existing behavior, payload unused */
+                (void) efivar_unset(MAKE_GUID_PTR(LOADER), u"StubFirmwareUpdateAttempt", EFI_VARIABLE_NON_VOLATILE);
+                return EFI_SUCCESS;
+        }
+
+        bool matched = false;
+        err = chid_match_current_system(chid, &matched);
+        if (err != EFI_SUCCESS) /* can't tell fw state -> don't risk booting stale fw */
+                return log_error_status(err, "Failed to compute system CHIDs: %m");
+
+        if (matched) { /* already at target firmware -> boot, forget any pending fw update attempt */
+                (void) efivar_unset(MAKE_GUID_PTR(LOADER), u"StubFirmwareUpdateAttempt", EFI_VARIABLE_NON_VOLATILE);
+                return EFI_SUCCESS;
+        }
+
+        /* Not at the target version yet. Build a fingerprint unique to this capsule (target chid + fwid)
+         * so switching to a different UKI/capsule is never blocked by a previous failure. */
+        size_t fwid_sz = strlen8(fwid) + 1;
+        size_t fp_len = sizeof(EFI_GUID) + fwid_sz;
+        _cleanup_free_ uint8_t *fp = xmalloc(fp_len);
+        memcpy(fp, chid, sizeof(EFI_GUID));
+        memcpy(fp + sizeof(EFI_GUID), fwid, fwid_sz);
+
+        /* Already attempted this exact capsule and we're still not at the target chid? It did not take
+         * effect, so refuse to boot instead of re-applying it. With boot assessment the bootloader falls
+         * back to a known-good entry once its tries are spent. */
+        _cleanup_free_ void *prev = NULL;
+        size_t prev_len = 0;
+        if (efivar_get_raw(MAKE_GUID_PTR(LOADER), u"StubFirmwareUpdateAttempt", &prev, &prev_len) == EFI_SUCCESS &&
+            prev_len == fp_len && memcmp(prev, fp, fp_len) == 0)
+                return log_error_status(EFI_LOAD_ERROR,
+                                "Firmware capsule already attempted and did not take effect; refusing to boot.");
+
+        /* Record this attempt before applying.
+         * Best effort: if it fails (e.g. no NV variable storage), we can still try the capsule update
+         * with risk of a boot loop when sd-boot boot assessment or similar is not enabled. */
+        err = efivar_set_raw(MAKE_GUID_PTR(LOADER), u"StubFirmwareUpdateAttempt", fp, fp_len, EFI_VARIABLE_NON_VOLATILE);
+        if (err)
+                log_warning_status(err, "Failed to record capsule update attempt, ignoring: %m");
+
+        return efi_firmware_apply_capsule(payload, payload_len);
+}
+
 static void refresh_random_seed(EFI_LOADED_IMAGE_PROTOCOL *loaded_image) {
         EFI_STATUS err;
 
@@ -1222,6 +1296,10 @@ static EFI_STATUS run(EFI_HANDLE image) {
 
         measure_profile(profile, &parameters_measured);
         measure_sections(loaded_image, sections, &sections_measured);
+
+        err = apply_efifw_capsule(loaded_image, sections);
+        if (err != EFI_SUCCESS)
+                return err;
 
         /* Show splash screen as early as possible, but after measuring it */
         display_splash(loaded_image, sections);
