@@ -10,9 +10,8 @@
  * The note layout (owner "FDO", type NT_FDO_PACKAGING_METADATA == 0xcafe1a7e, description = JSON) follows
  * https://uapi-group.org/specifications/specs/package_metadata_for_executable_files/ and is written by hand
  * as a plain struct so that no special assembler or linker support is required. Two stanzas are embedded to
- * model a binary that carries metadata for both the application and a vendored dependency; note that
- * inspect-elf reports the first note found for a plain ELF object, so assertions should target the first
- * (systemd) stanza. */
+ * model a binary that carries metadata for both the application and a vendored dependency, exercising
+ * inspect-elf's parsing of multiple .note.package notes in a single object. */
 
 #if defined(__ELF__)
 

@@ -54,8 +54,7 @@ static int analyze_elf(char **filenames, sd_json_format_flags_t json_flags) {
                         const char *module_name;
 
                         JSON_VARIANT_OBJECT_FOREACH(module_name, module_json, package_metadata) {
-                                const char *field_name;
-                                sd_json_variant *field;
+                                sd_json_variant *build_id, *metadata, *entry;
 
                                 /* The ELF type and architecture are added as top-level objects,
                                  * since they are only parsed for the file itself, but the packaging
@@ -75,34 +74,59 @@ static int analyze_elf(char **filenames, sd_json_format_flags_t json_flags) {
                                         continue;
                                 }
 
-                                /* path/elfType/elfArchitecture come first just once per file,
-                                 * then we might have multiple modules, so add a separator between
-                                 * them to make the output more readable. */
-                                r = table_add_many(t, TABLE_EMPTY, TABLE_EMPTY);
-                                if (r < 0)
-                                        return table_log_add_error(r);
+                                /* Each module is an object with the module's (singular) build-id and an
+                                 * array of one or more package metadata entries. */
+                                build_id = sd_json_variant_by_key(module_json, "buildId");
+                                metadata = sd_json_variant_by_key(module_json, "packageMetadata");
 
-                                /* In case of core files the module name will be the executable,
-                                 * but for binaries/libraries it's just the path, so don't print it
-                                 * twice. */
-                                if (!streq(abspath, module_name)) {
-                                        r = table_add_many(
-                                                        t,
-                                                        TABLE_FIELD, "module name",
-                                                        TABLE_STRING, module_name);
+                                /* Print the module-level info (its name for core files, and the build-id)
+                                 * as its own paragraph, separated by a blank line. */
+                                if (!streq(abspath, module_name) || build_id) {
+                                        r = table_add_many(t, TABLE_EMPTY, TABLE_EMPTY);
                                         if (r < 0)
                                                 return table_log_add_error(r);
-                                }
 
-                                JSON_VARIANT_OBJECT_FOREACH(field_name, field, module_json)
-                                        if (sd_json_variant_is_string(field)) {
+                                        /* In case of core files the module name will be the executable,
+                                         * but for binaries/libraries it's just the path, so don't print it
+                                         * twice. */
+                                        if (!streq(abspath, module_name)) {
                                                 r = table_add_many(
                                                                 t,
-                                                                TABLE_FIELD, field_name,
-                                                                TABLE_STRING, sd_json_variant_string(field));
+                                                                TABLE_FIELD, "module name",
+                                                                TABLE_STRING, module_name);
                                                 if (r < 0)
                                                         return table_log_add_error(r);
                                         }
+
+                                        if (build_id) {
+                                                r = table_add_many(
+                                                                t,
+                                                                TABLE_FIELD, "buildId",
+                                                                TABLE_STRING, sd_json_variant_string(build_id));
+                                                if (r < 0)
+                                                        return table_log_add_error(r);
+                                        }
+                                }
+
+                                /* Then print each metadata entry as its own paragraph. */
+                                JSON_VARIANT_ARRAY_FOREACH(entry, metadata) {
+                                        const char *field_name;
+                                        sd_json_variant *field;
+
+                                        r = table_add_many(t, TABLE_EMPTY, TABLE_EMPTY);
+                                        if (r < 0)
+                                                return table_log_add_error(r);
+
+                                        JSON_VARIANT_OBJECT_FOREACH(field_name, field, entry)
+                                                if (sd_json_variant_is_string(field)) {
+                                                        r = table_add_many(
+                                                                        t,
+                                                                        TABLE_FIELD, field_name,
+                                                                        TABLE_STRING, sd_json_variant_string(field));
+                                                        if (r < 0)
+                                                                return table_log_add_error(r);
+                                                }
+                                }
                         }
                 }
 
