@@ -16,10 +16,9 @@
 #include <asm/sgidefs.h>
 #endif
 
-#include "sd-dlopen.h"
-
 #include "af-list.h"
 #include "alloc-util.h"
+#include "dlopen-note.h"
 #include "env-util.h"
 #include "errno-list.h"
 #include "log.h"
@@ -2600,11 +2599,12 @@ int seccomp_suppress_sync(void) {
 
 #endif
 
+_dlopen_
 int dlopen_libseccomp(int log_level) {
 #if HAVE_SECCOMP
         static void *libseccomp_dl = NULL;
 
-        LIBSECCOMP_NOTE(SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
+        LIBSECCOMP_NOTE(recommended);
 
         return dlopen_many_sym_or_warn(
                         &libseccomp_dl,

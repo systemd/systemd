@@ -7,6 +7,7 @@
 #include "alloc-util.h"
 #include "blockdev-util.h"
 #include "dissect-image.h"
+#include "dlopen-note.h"
 #include "fd-util.h"
 #include "log.h"
 #include "main-func.h"
@@ -19,6 +20,9 @@ static int run(int argc, char *argv[]) {
         sd_id128_t uuid;
         struct stat st;
         int r;
+
+        LIBBLKID_NOTE(recommended);
+        LIBMOUNT_NOTE(recommended);
 
         log_setup();
 

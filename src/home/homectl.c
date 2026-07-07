@@ -19,6 +19,7 @@
 #include "creds-util.h"
 #include "crypto-util.h"
 #include "dirent-util.h"
+#include "dlopen-note.h"
 #include "dns-domain.h"
 #include "env-util.h"
 #include "errno-util.h"
@@ -2501,7 +2502,7 @@ static int verb_list_signing_keys(int argc, char *argv[], uintptr_t _data, void 
                         /* Let's decode the PEM key to DER (so that we lose prefix/suffix), then truncate it
                          * for display reasons. */
 
-                        r = DLOPEN_LIBCRYPTO(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
+                        r = DLOPEN_LIBCRYPTO(LOG_DEBUG, recommended);
                         if (r < 0)
                                 return r;
 
@@ -5182,6 +5183,12 @@ static int fallback_shell(int argc, char *argv[]) {
 static int run(int argc, char *argv[]) {
         char **args = NULL;
         int r;
+
+        LIBCRYPT_NOTE(recommended);
+        LIBFIDO2_NOTE(suggested);
+        LIBP11KIT_NOTE(suggested);
+        LIBQRENCODE_NOTE(suggested);
+        PASSWORD_NOTE(suggested);
 
         log_setup();
 

@@ -5,11 +5,11 @@
 
 #if HAVE_LIBCURL
 
-#include "sd-dlopen.h"
 #include "sd-event.h"
 
 #include "alloc-util.h"
 #include "dlfcn-util.h"
+#include "dlopen-note.h"
 #include "fd-util.h"
 #include "hashmap.h"
 #include "set.h"
@@ -600,11 +600,12 @@ int curl_append_to_header(struct curl_slist **list, char **headers) {
 
 #endif
 
+_dlopen_
 int dlopen_curl(int log_level) {
 #if HAVE_LIBCURL
         static void *curl_dl = NULL;
 
-        CURL_NOTE(SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED);
+        LIBCURL_NOTE(suggested);
 
         return dlopen_many_sym_or_warn(
                         &curl_dl,

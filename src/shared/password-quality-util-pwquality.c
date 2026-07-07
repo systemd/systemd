@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "password-quality-util-pwquality.h"
-
+#include "dlopen-note.h"
 #include "errno-util.h"
 #include "log.h"
+#include "password-quality-util-pwquality.h"
 
 #if HAVE_PWQUALITY
 #ifndef SYSTEMD_CFLAGS_MARKER_LIBPWQUALITY
@@ -13,8 +13,6 @@
 #include <pwquality.h>
 #include <stdio.h>
 #include <unistd.h>
-
-#include "sd-dlopen.h"
 
 #include "alloc-util.h"
 #include "dlfcn-util.h"
@@ -155,15 +153,12 @@ int check_password_quality(const char *password, const char *old, const char *us
 
 #endif
 
+_dlopen_
 int dlopen_pwquality(int log_level) {
 #if HAVE_PWQUALITY
         static void *pwquality_dl = NULL;
 
-        SD_ELF_NOTE_DLOPEN(
-                        "pwquality",
-                        "Support for password quality checks",
-                        SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
-                        "libpwquality.so.1");
+        LIBPWQUALITY_NOTE(suggested);
 
         return dlopen_many_sym_or_warn(
                         &pwquality_dl, "libpwquality.so.1", log_level,

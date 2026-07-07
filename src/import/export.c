@@ -9,6 +9,7 @@
 #include "ansi-color.h"
 #include "build.h"
 #include "discover-image.h"
+#include "dlopen-note.h"
 #include "export-raw.h"
 #include "export-tar.h"
 #include "fd-util.h"
@@ -281,6 +282,14 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
 static int run(int argc, char *argv[]) {
         int r;
+
+        LIBACL_NOTE(recommended);
+        LIBBZ2_NOTE(suggested);
+        LIBLZ4_NOTE(COMPRESSION_PRIORITY_LZ4);
+        LIBLZMA_NOTE(COMPRESSION_PRIORITY_XZ);
+        LIBSELINUX_NOTE(recommended);
+        LIBZ_NOTE(suggested);
+        LIBZSTD_NOTE(COMPRESSION_PRIORITY_ZSTD);
 
         setlocale(LC_ALL, "");
         log_setup();

@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-dlopen.h"
-
+#include "dlopen-note.h"
 #include "shared-forward.h"
 
 #if HAVE_LIBARCHIVE
@@ -84,21 +83,12 @@ extern DLSYM_PROTOTYPE(archive_write_set_format_pax);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(struct archive_entry*, sym_archive_entry_free, archive_entry_freep, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(struct archive*, sym_archive_write_free, archive_write_freep, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(struct archive*, sym_archive_read_free, archive_read_freep, NULL);
+#endif
 
-#define LIBARCHIVE_NOTE(priority)                                       \
-        SD_ELF_NOTE_DLOPEN("archive",                                   \
-                           "Support for decompressing archive files",   \
-                           priority,                                    \
-                           "libarchive.so.13")
+int dlopen_libarchive(int log_level);
 
 #define DLOPEN_LIBARCHIVE(log_level, priority)                          \
         ({                                                              \
                 LIBARCHIVE_NOTE(priority);                              \
                 dlopen_libarchive(log_level);                           \
         })
-
-#else
-#define DLOPEN_LIBARCHIVE(log_level, priority) dlopen_libarchive(log_level)
-#endif
-
-int dlopen_libarchive(int log_level);

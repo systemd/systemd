@@ -64,7 +64,7 @@ static int http_upload_report(Context *context, sd_json_variant *report) {
         char error[CURL_ERROR_SIZE] = {};
         int r;
 
-        r = DLOPEN_CURL(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED);
+        r = DLOPEN_CURL(LOG_DEBUG, required);
         if (r < 0)
                 return r;
 

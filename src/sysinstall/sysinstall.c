@@ -15,6 +15,7 @@
 #include "chase.h"
 #include "conf-files.h"
 #include "constants.h"
+#include "dlopen-note.h"
 #include "efi-loader.h"
 #include "efivars.h"
 #include "env-file.h"
@@ -2061,6 +2062,11 @@ static void end_marker(void) {
 
 static int run(int argc, char *argv[]) {
         int r;
+
+        LIBBLKID_NOTE(recommended);
+        LIBCRYPTO_NOTE(suggested);
+        LIBCRYPTSETUP_NOTE(suggested);
+        LIBMOUNT_NOTE(recommended);
 
         setlocale(LC_ALL, "");
 

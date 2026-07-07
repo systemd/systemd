@@ -1,11 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-dlopen.h"
-
-#include "shared-forward.h"
+#include "dlopen-note.h"
 #include "iovec-util.h"
 #include "sha256.h"
+#include "shared-forward.h"
 
 typedef enum CertificateSourceType {
         OPENSSL_CERTIFICATE_SOURCE_FILE,
@@ -28,26 +27,12 @@ int parse_openssl_certificate_source_argument(const char *argument, char **certi
 
 int parse_openssl_key_source_argument(const char *argument, char **private_key_source, KeySourceType *private_key_source_type);
 
-int dlopen_libcrypto(int log_level);
-
 #define X509_FINGERPRINT_SIZE SHA256_DIGEST_SIZE
 
 #if HAVE_OPENSSL
 #ifndef SYSTEMD_CFLAGS_MARKER_LIBOPENSSL
 #  error "missing libopenssl_cflags in meson dependency."
 #endif
-
-#define LIBCRYPTO_NOTE(priority)                                        \
-        SD_ELF_NOTE_DLOPEN("libcrypto",                                 \
-                           "Support for cryptographic operations",      \
-                           priority,                                    \
-                           "libcrypto.so.4", "libcrypto.so.3")
-
-#define DLOPEN_LIBCRYPTO(log_level, priority)                           \
-        ({                                                              \
-                LIBCRYPTO_NOTE(priority);                               \
-                dlopen_libcrypto(log_level);                            \
-        })
 
 #  include <openssl/bio.h>              /* IWYU pragma: export */
 #  include <openssl/bn.h>               /* IWYU pragma: export */
@@ -459,7 +444,12 @@ int openssl_extract_public_key(EVP_PKEY *private_key, EVP_PKEY **ret);
 
 OpenSSLAskPasswordUI* openssl_ask_password_ui_free(OpenSSLAskPasswordUI *ui);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(OpenSSLAskPasswordUI*, openssl_ask_password_ui_free, NULL);
-
-#else
-#define DLOPEN_LIBCRYPTO(log_level, priority) dlopen_libcrypto(log_level)
 #endif
+
+int dlopen_libcrypto(int log_level);
+
+#define DLOPEN_LIBCRYPTO(log_level, priority)                           \
+        ({                                                              \
+                LIBCRYPTO_NOTE(priority);                               \
+                dlopen_libcrypto(log_level);                            \
+        })

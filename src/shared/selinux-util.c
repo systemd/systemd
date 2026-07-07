@@ -17,9 +17,8 @@
 #include <selinux/label.h>
 #include <selinux/selinux.h>
 
-#include "sd-dlopen.h"
-
 #include "alloc-util.h"
+#include "dlopen-note.h"
 #include "fd-util.h"
 #include "path-util.h"
 #include "string-util.h"
@@ -90,11 +89,12 @@ DLSYM_PROTOTYPE(setsockcreatecon_raw) = NULL;
 DLSYM_PROTOTYPE(string_to_security_class) = NULL;
 #endif
 
+_dlopen_
 int dlopen_libselinux(int log_level) {
 #if HAVE_SELINUX
         static void *libselinux_dl = NULL;
 
-        LIBSELINUX_NOTE(SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
+        LIBSELINUX_NOTE(recommended);
 
         return dlopen_many_sym_or_warn(
                         &libselinux_dl,

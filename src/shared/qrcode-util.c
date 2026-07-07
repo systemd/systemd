@@ -10,10 +10,9 @@
 #endif
 #include <stdio.h>
 
-#include "sd-dlopen.h"
-
 #include "ansi-color.h"
 #include "dlfcn-util.h"
+#include "dlopen-note.h"
 #include "locale-util.h"
 #include "log.h"
 #include "strv.h"
@@ -29,16 +28,13 @@ static DLSYM_PROTOTYPE(QRcode_encodeString) = NULL;
 static DLSYM_PROTOTYPE(QRcode_free) = NULL;
 #endif
 
+_dlopen_
 int dlopen_qrencode(int log_level) {
 #if HAVE_QRENCODE
         static void *qrcode_dl = NULL;
         int r;
 
-        SD_ELF_NOTE_DLOPEN(
-                        "qrencode",
-                        "Support for generating QR codes",
-                        SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
-                        "libqrencode.so.4", "libqrencode.so.3");
+        LIBQRENCODE_NOTE(suggested);
 
         FOREACH_STRING(s, "libqrencode.so.4", "libqrencode.so.3") {
                 r = dlopen_many_sym_or_warn(

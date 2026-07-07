@@ -786,7 +786,7 @@ _public_ PAM_EXTERN int pam_sm_authenticate(
         bool debug = false;
         int r;
 
-        r = DLOPEN_LIBPAM(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED);
+        r = DLOPEN_LIBPAM(LOG_DEBUG, required);
         if (r < 0)
                 return PAM_SERVICE_ERR;
 
@@ -851,7 +851,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         bool debug = false;
         int r;
 
-        r = DLOPEN_LIBPAM(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED);
+        r = DLOPEN_LIBPAM(LOG_DEBUG, required);
         if (r < 0)
                 return PAM_SERVICE_ERR;
 
@@ -908,7 +908,7 @@ _public_ PAM_EXTERN int pam_sm_close_session(
         bool debug = false;
         int r;
 
-        r = DLOPEN_LIBPAM(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED);
+        r = DLOPEN_LIBPAM(LOG_DEBUG, required);
         if (r < 0)
                 return PAM_SERVICE_ERR;
 
@@ -973,7 +973,7 @@ _public_ PAM_EXTERN int pam_sm_acct_mgmt(
         usec_t t;
         int r;
 
-        r = DLOPEN_LIBPAM(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED);
+        r = DLOPEN_LIBPAM(LOG_DEBUG, required);
         if (r < 0)
                 return PAM_SERVICE_ERR;
 
@@ -1092,7 +1092,7 @@ _public_ PAM_EXTERN int pam_sm_chauthtok(
         bool debug = false;
         int r;
 
-        r = DLOPEN_LIBPAM(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED);
+        r = DLOPEN_LIBPAM(LOG_DEBUG, required);
         if (r < 0)
                 return PAM_SERVICE_ERR;
 

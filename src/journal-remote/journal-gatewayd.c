@@ -1259,13 +1259,20 @@ static int run(int argc, char *argv[]) {
                 MHD_USE_THREAD_PER_CONNECTION;
         int r, n;
 
+        LIBBZ2_NOTE(suggested);
+        LIBGNUTLS_NOTE(suggested);
+        LIBLZ4_NOTE(COMPRESSION_PRIORITY_LZ4);
+        LIBLZMA_NOTE(COMPRESSION_PRIORITY_XZ);
+        LIBZ_NOTE(suggested);
+        LIBZSTD_NOTE(COMPRESSION_PRIORITY_ZSTD);
+
         log_setup();
 
         r = parse_argv(argc, argv);
         if (r <= 0)
                 return r;
 
-        r = DLOPEN_MICROHTTPD(LOG_ERR, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED);
+        r = DLOPEN_MICROHTTPD(LOG_ERR, required);
         if (r < 0)
                 return r;
 

@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "sd-dlopen.h"
-
 #include "libfido2-util.h"
 #include "log.h"
 
@@ -10,6 +8,7 @@
 #include "ansi-color.h"
 #include "ask-password-api.h"
 #include "dlfcn-util.h"
+#include "dlopen-note.h"
 #include "format-table.h"
 #include "glyph-util.h"
 #include "iovec-util.h"
@@ -81,16 +80,13 @@ static void fido_log_propagate_handler(const char *s) {
 
 #endif
 
+_dlopen_
 int dlopen_libfido2(int log_level) {
 #if HAVE_LIBFIDO2
         static void *libfido2_dl = NULL;
         int r;
 
-        SD_ELF_NOTE_DLOPEN(
-                        "fido2",
-                        "Support fido2 for encryption and authentication",
-                        SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
-                        "libfido2.so.1");
+        LIBFIDO2_NOTE(suggested);
 
         r = dlopen_many_sym_or_warn(
                         &libfido2_dl, "libfido2.so.1", log_level,

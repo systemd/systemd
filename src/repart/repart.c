@@ -3120,7 +3120,7 @@ static int partition_read_definition(
                                   "Cannot format %s filesystem without source files, refusing.", p->format);
 
         if (p->verity != VERITY_OFF || p->encrypt != ENCRYPT_OFF) {
-                r = DLOPEN_CRYPTSETUP(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
+                r = DLOPEN_CRYPTSETUP(LOG_DEBUG, recommended);
                 if (r < 0)
                         return log_syntax(NULL, LOG_ERR, path, 1, r,
                                           "libcryptsetup not found, Verity=/Encrypt= are not supported: %m");
@@ -4739,7 +4739,7 @@ static int context_wipe_range(Context *context, uint64_t offset, uint64_t size) 
         assert(offset != UINT64_MAX);
         assert(size != UINT64_MAX);
 
-        r = DLOPEN_LIBBLKID(LOG_ERR, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED);
+        r = DLOPEN_LIBBLKID(LOG_ERR, required);
         if (r < 0)
                 return r;
 
@@ -5431,7 +5431,7 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
         assert(p);
         assert(p->encrypt != ENCRYPT_OFF);
 
-        r = DLOPEN_CRYPTSETUP(LOG_ERR, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
+        r = DLOPEN_CRYPTSETUP(LOG_ERR, recommended);
         if (r < 0)
                 return r;
 
@@ -5973,7 +5973,7 @@ static int partition_format_verity_hash(
 
         (void) partition_hint(p, node, &hint);
 
-        r = DLOPEN_CRYPTSETUP(LOG_ERR, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
+        r = DLOPEN_CRYPTSETUP(LOG_ERR, recommended);
         if (r < 0)
                 return r;
 
@@ -6075,7 +6075,7 @@ static int sign_verity_roothash(
         assert(iovec_is_set(roothash));
         assert(ret_signature);
 
-        r = DLOPEN_LIBCRYPTO(LOG_ERR, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
+        r = DLOPEN_LIBCRYPTO(LOG_ERR, recommended);
         if (r < 0)
                 return r;
 
@@ -7167,7 +7167,7 @@ static int partition_populate_filesystem(Context *context, Partition *p, const c
          * appear in the host namespace. Hence we fork a child that has its own file system namespace and
          * detached mount propagation. */
 
-        (void) DLOPEN_LIBMOUNT(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED);
+        (void) DLOPEN_LIBMOUNT(LOG_DEBUG, required);
 
         r = pidref_safe_fork(
                         "(sd-copy)",
@@ -8798,7 +8798,7 @@ static int resolve_copy_blocks_auto_candidate(
                 return log_error_errno(r, "Failed to open block device " DEVNUM_FORMAT_STR ": %m",
                                        DEVNUM_FORMAT_VAL(whole_devno));
 
-        r = DLOPEN_LIBBLKID(LOG_ERR, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED);
+        r = DLOPEN_LIBBLKID(LOG_ERR, required);
         if (r < 0)
                 return r;
 
@@ -11614,13 +11614,16 @@ static int run(int argc, char *argv[]) {
         bool node_is_our_loop = false;
         int r;
 
+        LIBSELINUX_NOTE(recommended);
+        TPM2_NOTE(suggested);
+
         log_setup();
 
         r = parse_argv(argc, argv);
         if (r <= 0)
                 return r;
 
-        r = DLOPEN_FDISK(LOG_ERR, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED);
+        r = DLOPEN_FDISK(LOG_ERR, required);
         if (r < 0)
                 return r;
 
