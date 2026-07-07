@@ -13,6 +13,7 @@
 #include <sys/statvfs.h>
 #include <unistd.h>
 
+#include "sd-json.h"
 #include "sd-messages.h"
 #include "sd-varlink.h"
 
@@ -70,6 +71,7 @@
 #include "proc-cmdline.h"
 #include "process-util.h"
 #include "psi-util.h"
+#include "ptybroker-client.h"
 #include "quota-util.h"
 #include "random-util.h"
 #include "rlimit-util.h"
@@ -311,6 +313,168 @@ static int acquire_path(const char *path, int flags, mode_t mode) {
         return TAKE_FD(fd);
 }
 
+static void pick_term_environment(
+                char **env,
+                const char **ret_term,
+                const char **ret_colorterm,
+                const char **ret_no_color) {
+
+        assert(ret_term);
+
+        /* Determines the terminal environment ($TERM/$COLORTERM/$NO_COLOR) to use when there is no physical
+         * terminal to derive it from — i.e. for ptybrokerd-allocated PTYs, and as the fallback in
+         * setup_term_environment(). Honours whatever is explicitly configured in the passed environment block,
+         * otherwise falls back to a franken-vt220 with truecolor support: vt220 is a safe bet (it supports
+         * PageUp/PageDown unlike vt100, and is near-universally available in terminfo/termcap), and while real
+         * DEC vt220 gear never actually supported color, virtually every terminal emulator does nowadays, so
+         * we explicitly claim color support via $COLORTERM=truecolor whenever we resort to this default. */
+
+        const char *term = strv_env_get(env, "TERM");
+        const char *colorterm = strv_env_get(env, "COLORTERM");
+        const char *no_color = strv_env_get(env, "NO_COLOR");
+
+        if (isempty(term)) {
+                term = FALLBACK_TERM;
+                if (isempty(colorterm))
+                        colorterm = "truecolor";
+        }
+
+        *ret_term = term;
+        if (ret_colorterm)
+                *ret_colorterm = empty_to_null(colorterm);
+        if (ret_no_color)
+                *ret_no_color = empty_to_null(no_color);
+}
+
+static int build_pass_environment(const ExecContext *c, char ***ret);
+
+static int acquire_broker_terminal(
+                const ExecContext *context,
+                const ExecParameters *params,
+                int *ret_fd) {
+
+        int r;
+
+        assert(context);
+        assert(params);
+        assert(ret_fd);
+
+        /* Acquires a pseudo TTY from ptybrokerd, for use as stdin/stdout/stderr. This is the service-side
+         * counterpart to "systemd-pty-forward --console=broker": the broker allocates the PTY and keeps its
+         * frontend (i.e. the "master" side) itself — either discarding whatever the service writes ("null")
+         * or forwarding it to the logs ("log") — while handing us the backend (i.e. the "slave" side), which
+         * we install as the service's standard I/O.
+         *
+         * If any of the three standard streams uses the "broker-log" flavour we ask the broker to write the
+         * terminal output to the logs, otherwise we let it discard it. */
+
+        bool log_output =
+                context->std_input == EXEC_INPUT_BROKER_LOG ||
+                context->std_output == EXEC_OUTPUT_BROKER_LOG ||
+                context->std_error == EXEC_OUTPUT_BROKER_LOG;
+
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        r = pty_broker_connect(params->runtime_scope, &vl);
+        if (r < 0)
+                return r;
+
+        /* We receive the backend file descriptor in the method reply, hence we need to allow fd passing on
+         * input. We never send any fds ourselves, so output fd passing stays off. */
+        r = sd_varlink_set_allow_fd_passing_input(vl, true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enable file descriptor passing on ptybrokerd connection: %m");
+
+        /* Figure out the terminal environment for the PTY the same way setup_term_environment() derives it
+         * for the service itself, so that the broker-side view (used e.g. for the logs) matches the $TERM/
+         * $COLORTERM/$NO_COLOR the service will see. For that, merge the same environment sources (and in the
+         * same order) as the accum_env assembly in exec_invoke() does — i.e. the manager-supplied environment,
+         * PassEnvironment=, Environment= and EnvironmentFile=. $NO_COLOR follows no-color.org semantics: any
+         * non-empty value disables color, which the broker expresses as a boolean. */
+        _cleanup_strv_free_ char **pass_env = NULL;
+        r = build_pass_environment(context, &pass_env);
+        if (r < 0)
+                return log_oom();
+
+        _cleanup_strv_free_ char **merged_env = strv_env_merge(
+                        params->environment,
+                        pass_env,
+                        context->environment,
+                        params->files_env);
+        if (!merged_env)
+                return log_oom();
+
+        const char *term, *colorterm, *no_color;
+        pick_term_environment(merged_env, &term, &colorterm, &no_color);
+
+        /* Also propagate the explicitly configured TTYColumns=/TTYRows= to the allocated PTY. Anything left
+         * unspecified (i.e. UINT_MAX) is omitted, in which case the broker applies its own defaults. */
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *ts = NULL;
+        r = sd_json_buildo(
+                        &ts,
+                        SD_JSON_BUILD_PAIR_STRING("dollarTERM", term),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!colorterm, "dollarCOLORTERM", SD_JSON_BUILD_STRING(colorterm)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!no_color, "dollarNO_COLOR", SD_JSON_BUILD_BOOLEAN(true)),
+                        SD_JSON_BUILD_PAIR_CONDITION(context->tty_cols != UINT_MAX, "columns", SD_JSON_BUILD_UNSIGNED(context->tty_cols)),
+                        SD_JSON_BUILD_PAIR_CONDITION(context->tty_rows != UINT_MAX, "lines", SD_JSON_BUILD_UNSIGNED(context->tty_rows)));
+        if (r < 0)
+                return log_error_errno(r, "Failed to build terminal settings: %m");
+
+        const char *tag = context->syslog_identifier ?: params->unit_id;
+
+        _cleanup_free_ char *name = asprintf_safe(SD_ID128_FORMAT_STR "-" PID_FMT, SD_ID128_FORMAT_VAL(params->invocation_id), getpid_cached());
+        if (!name)
+                return log_oom();
+
+        uint64_t pidfdid;
+        if (pidfd_get_inode_id_self_cached(&pidfdid) >= 0)
+                if (strextendf(&name, "-%" PRIu64, pidfdid) < 0)
+                        return log_oom();
+
+        sd_json_variant *reply = NULL;
+        const char *error_id = NULL;
+        r = sd_varlink_callbo(
+                        vl,
+                        "io.systemd.PTYBroker.AcquirePty",
+                        &reply,
+                        &error_id,
+                        SD_JSON_BUILD_PAIR_STRING("name", name),
+                        SD_JSON_BUILD_PAIR_STRING("frontendType", log_output ? "log" : "null"),
+                        SD_JSON_BUILD_PAIR_STRING("backendType", "take"),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("monitor", false),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!params->unit_id, "description", SD_JSON_BUILD_STRING(params->unit_id)),
+                        SD_JSON_BUILD_PAIR_CONDITION(log_output && !!tag, "tag", SD_JSON_BUILD_STRING(tag)),
+                        SD_JSON_BUILD_PAIR_VARIANT("terminalSettings", ts));
+        if (r < 0)
+                return log_error_errno(r, "Failed to call AcquirePty(): %m");
+        if (error_id)
+                return log_error_errno(sd_varlink_error_to_errno(error_id, reply),
+                                       "Failed to acquire PTY from ptybrokerd: %s", error_id);
+
+        struct {
+                unsigned backend_fd_idx;
+        } p = {
+                .backend_fd_idx = UINT_MAX,
+        };
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "backendFileDescriptor", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint, voffsetof(p, backend_fd_idx), SD_JSON_MANDATORY },
+                {}
+        };
+
+        r = sd_json_dispatch(reply, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &p);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse AcquirePty() reply: %m");
+
+        int backend_fd = sd_varlink_take_fd(vl, p.backend_fd_idx);
+        if (backend_fd < 0)
+                return log_error_errno(backend_fd, "Failed to take PTY backend file descriptor from ptybrokerd: %m");
+
+        log_debug("Broker PTY acquired: %s", name);
+
+        *ret_fd = backend_fd;
+        return 0;
+}
+
 static int fixup_input(
                 const ExecContext *context,
                 bool apply_tty_stdin) {
@@ -334,6 +498,7 @@ static int setup_input(
                 const ExecContext *context,
                 const ExecParameters *params,
                 int socket_fd,
+                int broker_fd,
                 const int named_iofds[static 3]) {
 
         ExecInput i;
@@ -395,6 +560,20 @@ static int setup_input(
                 TAKE_FD(tty_fd);
                 return r;
         }
+
+        case EXEC_INPUT_BROKER:
+        case EXEC_INPUT_BROKER_LOG:
+                assert(broker_fd >= 0);
+
+                if (dup2(broker_fd, STDIN_FILENO) < 0)
+                        return -errno;
+
+                /* This is a pseudo TTY, so make it our controlling terminal, just like we do for a passed-in
+                 * TTY fd above. */
+                if (ioctl(STDIN_FILENO, TIOCSCTTY, 0) < 0)
+                        log_debug_errno(errno, "Failed to make PTY broker terminal our controlling terminal: %m");
+
+                return STDIN_FILENO;
 
         case EXEC_INPUT_SOCKET:
                 assert(socket_fd >= 0);
@@ -465,7 +644,7 @@ static bool can_inherit_stderr_from_stdout(const ExecContext *context) {
         return true;
 }
 
-static int maybe_inherit_stdout_from_stdin(const ExecContext *context, ExecInput i) {
+static int maybe_inherit_stdout_from_stdin(const ExecContext *context, ExecInput i, int broker_fd) {
         int r;
 
         assert(context);
@@ -473,9 +652,20 @@ static int maybe_inherit_stdout_from_stdin(const ExecContext *context, ExecInput
         if (context->std_output != EXEC_OUTPUT_INHERIT)
                 return 0;
 
-        /* If input got downgraded, inherit the original value */
-        if (i == EXEC_INPUT_NULL && exec_input_is_terminal(context->std_input))
-                return open_terminal_as(exec_context_tty_path(context), O_WRONLY, STDOUT_FILENO);
+        /* If input got downgraded, inherit the original value: reopen the configured TTY write-only, or — for
+         * a ptybrokerd PTY, which has no named device we could reopen — connect the acquired backend fd. */
+        if (i == EXEC_INPUT_NULL && exec_input_is_terminal(context->std_input)) {
+                if (exec_input_is_broker(context->std_input)) {
+                        /* If the broker PTY was not acquired (the broker is unreachable and this is a
+                         * command run for stopping, see exec_invoke()), fall through to the fallback below */
+                        if (broker_fd >= 0)
+                                return RET_NERRNO(dup2(broker_fd, STDOUT_FILENO));
+                } else {
+                        const char *tty_path = exec_context_tty_path(context);
+                        if (tty_path)
+                                return open_terminal_as(tty_path, O_WRONLY, STDOUT_FILENO);
+                }
+        }
 
         if (!exec_input_is_inheritable(i))
                 goto fallback;
@@ -505,6 +695,7 @@ static int setup_output(
                 const ExecParameters *params,
                 int fileno,
                 int socket_fd,
+                int broker_fd,
                 const int named_iofds[static 3],
                 const char *ident,
                 uid_t uid,
@@ -560,7 +751,7 @@ static int setup_output(
         } else {
                 assert(fileno == STDOUT_FILENO);
 
-                r = maybe_inherit_stdout_from_stdin(context, i);
+                r = maybe_inherit_stdout_from_stdin(context, i, broker_fd);
                 if (r != 0)
                         return r;
 
@@ -620,6 +811,28 @@ static int setup_output(
                 assert(socket_fd >= 0);
 
                 return RET_NERRNO(dup2(socket_fd, fileno));
+
+        case EXEC_OUTPUT_BROKER:
+        case EXEC_OUTPUT_BROKER_LOG:
+                /* The backend fd of the ptybrokerd-allocated PTY is shared between stdin/stdout/stderr, just
+                 * install it here too. If input is a terminal we could dup2() from stdin, but the broker fd is
+                 * equally valid regardless of what input is set to, so just use it directly. */
+                if (broker_fd >= 0)
+                        return RET_NERRNO(dup2(broker_fd, fileno));
+
+                /* No broker PTY was acquired: the broker is unreachable and this is a command run for
+                 * stopping (see exec_invoke()). Downgrade to the journal (for the logged flavour) or to
+                 * /dev/null, so that stop commands still work e.g. during late shutdown. */
+                if (o == EXEC_OUTPUT_BROKER_LOG) {
+                        r = connect_logger_as(context, params, EXEC_OUTPUT_JOURNAL, ident, fileno, uid, gid);
+                        if (r >= 0)
+                                return r;
+
+                        log_warning_errno(r, "Failed to connect %s to the journal socket, ignoring: %m",
+                                          fileno == STDOUT_FILENO ? "stdout" : "stderr");
+                }
+
+                return open_null_as(O_WRONLY, fileno);
 
         case EXEC_OUTPUT_NAMED_FD:
                 assert(named_iofds[fileno] >= 0);
@@ -4306,6 +4519,7 @@ static int close_remaining_fds(
                 const ExecParameters *params,
                 const ExecRuntime *runtime,
                 int socket_fd,
+                int broker_fd,
                 const int fds[],
                 size_t n_fds) {
 
@@ -4317,6 +4531,7 @@ static int close_remaining_fds(
         int static_fds[] = {
                 params->stdin_fd, params->stdout_fd, params->stderr_fd,
                 socket_fd,
+                broker_fd,
                 FD_PAIR(runtime->ephemeral_storage_socket),
                 FD_PAIR_CONDITION(runtime->shared, runtime->shared->userns_storage_socket),
                 FD_PAIR_CONDITION(runtime->shared, runtime->shared->netns_storage_socket),
@@ -5047,6 +5262,13 @@ static void prepare_terminal(
         assert(context);
         assert(p);
 
+        /* PTYs acquired from ptybrokerd are freshly allocated and get their dimensions applied by the broker
+         * at allocation time, hence they never need a reset. Moreover, the ANSI DSR size query issued by
+         * exec_context_apply_tty_size() below would just time out: the broker's frontend does not answer
+         * it. */
+        if (exec_context_has_broker(context))
+                return;
+
         /* We only try to reset things if we there's the chance our stdout points to a TTY */
         if (!(context->std_output == EXEC_OUTPUT_TTY ||
               (context->std_output == EXEC_OUTPUT_INHERIT && exec_input_is_terminal(context->std_input)) ||
@@ -5089,10 +5311,13 @@ static int setup_term_environment(const ExecContext *context, char ***env) {
                 return 0;
 
         /* Do we need $TERM at all? */
-        if (!exec_context_has_tty(context))
+        if (!exec_context_has_tty(context) && !exec_context_has_broker(context))
                 return 0;
 
-        const char *tty_path = exec_context_tty_path(context);
+        /* PTYs allocated via ptybrokerd have no physical terminal we could query, so skip straight to the
+         * fallback defaults below, matching the terminal environment we hand to the broker in
+         * acquire_broker_terminal(). */
+        const char *tty_path = exec_context_has_broker(context) ? NULL : exec_context_tty_path(context);
         if (tty_path) {
                 /* If we are forked off PID 1 and we are supposed to operate on /dev/console, then let's try
                  * to inherit the $TERM set for PID 1. This is useful for containers so that the $TERM the
@@ -5145,24 +5370,25 @@ static int setup_term_environment(const ExecContext *context, char ***env) {
                 }
         }
 
-        /* If $TERM is not known and we pick a fallback default, then let's also set
-         * $COLORTERM=truecolor. That's because our fallback default is vt220, which is
-         * generally a safe bet (as it supports PageUp/PageDown unlike vt100, and is quite
-         * universally available in terminfo/termcap), except for the fact that real DEC
-         * vt220 gear never actually supported color. Most tools these days generate color on
-         * vt220 anyway, ignoring the physical capabilities of the real hardware, but some
-         * tools actually believe in the historical truth. Which is unfortunate since *we*
-         * *don't* care about the historical truth, we just want sane defaults if nothing
-         * better is explicitly configured. It's 2025 after all, at the time of writing,
-         * pretty much all terminal emulators actually *do* support color, hence if we don't
-         * know any better let's explicitly claim color support via $COLORTERM. Or in other
-         * words: we now explicitly claim to be connected to a franken-vt220 with true color
-         * support. */
-        r = strv_env_replace_strdup(env, "COLORTERM=truecolor");
-        if (r < 0)
-                return r;
+        /* Nothing better known — fall back to our defaults (a franken-vt220 with truecolor support). This is
+         * derived the same way as for ptybrokerd-allocated PTYs; see pick_term_environment() for the
+         * rationale behind the vt220+truecolor choice. */
+        const char *term, *colorterm, *no_color;
+        pick_term_environment(*env, &term, &colorterm, &no_color);
 
-        return strv_env_replace_strdup(env, "TERM=" FALLBACK_TERM);
+        if (colorterm) {
+                r = strv_env_assign(env, "COLORTERM", colorterm);
+                if (r < 0)
+                        return r;
+        }
+
+        if (no_color) {
+                r = strv_env_assign(env, "NO_COLOR", no_color);
+                if (r < 0)
+                        return r;
+        }
+
+        return strv_env_assign(env, "TERM", term);
 }
 
 static inline void free_pressure_paths(char *(*p)[_PRESSURE_RESOURCE_MAX]) {
@@ -5211,7 +5437,7 @@ int exec_invoke(
         _cleanup_free_ gid_t *gids = NULL, *gids_after_pam = NULL;
         int ngids = 0, ngids_after_pam = 0;
         int named_iofds[3] = EBADF_TRIPLET;
-        _cleanup_close_ int socket_fd = -EBADF, bpffs_socket_fd = -EBADF, bpffs_errno_pipe = -EBADF;
+        _cleanup_close_ int socket_fd = -EBADF, broker_fd = -EBADF, bpffs_socket_fd = -EBADF, bpffs_errno_pipe = -EBADF;
         _cleanup_(pidref_done_sigkill_wait) PidRef bpffs_pidref = PIDREF_NULL;
 
         assert(command);
@@ -5252,6 +5478,38 @@ int exec_invoke(
         if (r < 0) {
                 *exit_status = EXIT_FDS;
                 return log_error_errno(r, "Failed to load a named file descriptor: %m");
+        }
+
+        /* If any of the standard streams is connected to a ptybrokerd-allocated PTY, acquire it now, before
+         * we enter any namespaces or drop privileges — at this point the ptybrokerd runtime socket is still
+         * reachable, and the acquired backend fd survives all later namespace transitions. The single backend
+         * fd is shared by stdin/stdout/stderr, matching how a physical TTY would be. Note that stdin might
+         * have been downgraded to /dev/null (e.g. for ExecStop= and friends, which run without
+         * EXEC_APPLY_TTY_STDIN): if the PTY would not actually be connected to any of the streams don't
+         * acquire it — otherwise we'd pointlessly allocate a PTY for every stop command, and worse, fail the
+         * command if the broker is not reachable anymore, for example during late shutdown. */
+        ExecInput fixed_input = fixup_input(context, FLAGS_SET(params->flags, EXEC_APPLY_TTY_STDIN));
+        if (exec_input_is_broker(fixed_input) ||
+            exec_output_is_broker(context->std_output) ||
+            exec_output_is_broker(context->std_error) ||
+            /* stdout inheriting from a downgraded broker stdin still connects to the broker PTY, see
+             * maybe_inherit_stdout_from_stdin() */
+            (exec_input_is_broker(context->std_input) && context->std_output == EXEC_OUTPUT_INHERIT)) {
+                r = acquire_broker_terminal(context, params, &broker_fd);
+                if (r < 0) {
+                        /* The function already logged about this */
+
+                        if (FLAGS_SET(params->flags, EXEC_APPLY_TTY_STDIN)) {
+                                *exit_status = EXIT_STDIN;
+                                return r;
+                        }
+
+                        /* For commands running without EXEC_APPLY_TTY_STDIN (i.e. ExecStop= and friends)
+                         * don't fail if the broker is not reachable anymore (e.g. during late shutdown), but
+                         * downgrade the streams instead — just like stdin is downgraded — so that stop
+                         * commands still work, see setup_output(). */
+                        log_warning_errno(r, "Failed to acquire PTY from ptybrokerd, downgrading standard output/error: %m");
+                }
         }
 
         /* We reset exactly these signals, since they are the only ones we set to SIG_IGN in the main
@@ -5323,7 +5581,7 @@ int exec_invoke(
                 return log_error_errno(r, "Failed to collect shifted fd: %m");
         }
 
-        r = close_remaining_fds(params, runtime, socket_fd, keep_fds, n_keep_fds);
+        r = close_remaining_fds(params, runtime, socket_fd, broker_fd, keep_fds, n_keep_fds);
         if (r < 0) {
                 *exit_status = EXIT_FDS;
                 return log_error_errno(r, "Failed to close unwanted file descriptors: %m");
@@ -5560,7 +5818,7 @@ int exec_invoke(
                 }
         }
 
-        r = setup_input(context, params, socket_fd, named_iofds);
+        r = setup_input(context, params, socket_fd, broker_fd, named_iofds);
         if (r < 0) {
                 *exit_status = EXIT_STDIN;
                 return log_error_errno(r, "Failed to set up standard input: %m");
@@ -5573,13 +5831,13 @@ int exec_invoke(
                 return log_error_errno(r, "Failed to extract filename from path %s: %m", command->path);
         }
 
-        r = setup_output(context, params, STDOUT_FILENO, socket_fd, named_iofds, fname, uid, gid, &journal_stream_dev, &journal_stream_ino);
+        r = setup_output(context, params, STDOUT_FILENO, socket_fd, broker_fd, named_iofds, fname, uid, gid, &journal_stream_dev, &journal_stream_ino);
         if (r < 0) {
                 *exit_status = EXIT_STDOUT;
                 return log_error_errno(r, "Failed to set up standard output: %m");
         }
 
-        r = setup_output(context, params, STDERR_FILENO, socket_fd, named_iofds, fname, uid, gid, &journal_stream_dev, &journal_stream_ino);
+        r = setup_output(context, params, STDERR_FILENO, socket_fd, broker_fd, named_iofds, fname, uid, gid, &journal_stream_dev, &journal_stream_ino);
         if (r < 0) {
                 *exit_status = EXIT_STDERR;
                 return log_error_errno(r, "Failed to set up standard error output: %m");
@@ -5758,6 +6016,17 @@ int exec_invoke(
                 if (r < 0) {
                         *exit_status = EXIT_STDIN;
                         return log_error_errno(r, "Failed to change ownership of terminal: %m");
+                }
+        }
+
+        /* Similar, for a PTY acquired from ptybrokerd: its backend device node is owned by the broker's user
+         * (i.e. typically root) initially, hence hand it over to the user we run the payload as, so that the
+         * payload may reopen its controlling terminal via /dev/tty. */
+        if (uid_is_valid(uid) && broker_fd >= 0) {
+                r = chown_terminal(broker_fd, uid);
+                if (r < 0) {
+                        *exit_status = EXIT_STDIN;
+                        return log_error_errno(r, "Failed to change ownership of ptybrokerd terminal: %m");
                 }
         }
 
