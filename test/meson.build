@@ -109,6 +109,17 @@ endif
 if install_tests
         install_data(test_compare_versions_sh,
                      install_dir : unittestsdir)
+
+        # A shared library carrying two .note.package (FDO_PACKAGING_METADATA) notes, used by
+        # TEST-65-ANALYZE to exercise "systemd-analyze inspect-elf". Built as a shared object (not an
+        # executable) so that no C runtime startup objects are linked in: some distributions ship those with
+        # their own .note.package note (e.g. Ubuntu's crt1.o/Scrt1.o), which would otherwise shadow ours.
+        shared_library(
+                'test-inspect-elf-helper',
+                'test-inspect-elf-helper.c',
+                name_prefix : '',
+                install : true,
+                install_dir : testdata_dir)
 endif
 
 ############################################################
