@@ -2447,6 +2447,40 @@ EOF
     losetup -d "$loop"
 }
 
+testcase_encrypted_volume_empty_name() {
+    local defs imgs
+
+    defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
+    imgs="$(mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs'" RETURN
+    chmod 0755 "$defs"
+
+    echo "*** testcase for EncryptedVolume= with empty volume name ***"
+
+    tee "$defs/root.conf" <<EOF
+[Partition]
+Type=linux-generic
+Format=ext4
+Encrypt=key-file
+EncryptedVolume=:none:discard
+EOF
+
+    systemd-repart --pretty=yes \
+                   --definitions "$defs" \
+                   --empty=create \
+                   --size=100M \
+                   --seed="$seed" \
+                   --dry-run=no \
+                   --offline="$OFFLINE" \
+                   --generate-crypttab="$imgs/crypttab" \
+                   "$imgs/emptyvolname.img"
+
+    # systemd-repart should fill in volume name as luks-UUID
+    grep -Eq '^luks-[0-9a-f-]{36} UUID=[0-9a-f-]{36} none discard$' \
+        "$imgs/crypttab"
+}
+
 testcase_block_device_replace() {
     if [[ "$OFFLINE" == "yes" ]]; then
         return 0
