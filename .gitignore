@@ -36,3 +36,5 @@ __pycache__/
 .vscode/
 /pkg/
 .aider*
+.envrc
+.direnv/
