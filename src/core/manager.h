@@ -323,6 +323,9 @@ typedef struct Manager {
         /* Data specific to the mount subsystem */
         struct libmnt_monitor *mount_monitor;
         sd_event_source *mount_event_source;
+        bool mount_use_fanotify;
+        struct libmnt_fs *mount_fanotify_fs;
+        Hashmap *mounts_by_uniq_id;
 
         /* Data specific to the swap filesystem */
         FILE *proc_swaps;
