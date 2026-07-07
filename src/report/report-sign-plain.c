@@ -304,7 +304,7 @@ static int vl_server(void) {
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *vs = NULL;
         int r;
 
-        r = DLOPEN_LIBCRYPTO(LOG_ERR, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED);
+        r = DLOPEN_LIBCRYPTO(LOG_ERR, required);
         if (r < 0)
                 return r;
 

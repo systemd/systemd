@@ -25,6 +25,7 @@
 #include "conf-files.h"
 #include "constants.h"
 #include "daemon-util.h"
+#include "dlopen-note.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -1163,6 +1164,8 @@ static int run(int argc, char *argv[]) {
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
+
+        LIBSELINUX_NOTE(recommended);
 
         log_setup();
 

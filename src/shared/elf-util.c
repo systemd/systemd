@@ -12,12 +12,12 @@
 #endif
 #include <unistd.h>
 
-#include "sd-dlopen.h"
 #include "sd-json.h"
 
 #include "alloc-util.h"
 #include "coredump-util.h"
 #include "dlfcn-util.h"
+#include "dlopen-note.h"
 #include "elf-util.h"
 #include "errno-util.h"
 #include "escape.h"
@@ -95,16 +95,13 @@ static DLSYM_PROTOTYPE(gelf_getnote) = NULL;
 
 #endif
 
+_dlopen_
 int dlopen_dw(int log_level) {
 #if HAVE_ELFUTILS
         static void *dw_dl = NULL;
         int r;
 
-        SD_ELF_NOTE_DLOPEN(
-                        "dw",
-                        "Support for backtrace and ELF package metadata decoding from core files",
-                        SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
-                        "libdw.so.1");
+        LIBDW_NOTE(suggested);
 
         r = dlopen_many_sym_or_warn(
                         &dw_dl, "libdw.so.1", log_level,
@@ -161,16 +158,13 @@ bool dlopen_dw_has_dwfl_set_sysroot(void) {
 #endif
 }
 
+_dlopen_
 int dlopen_elf(int log_level) {
 #if HAVE_ELFUTILS
         static void *elf_dl = NULL;
         int r;
 
-        SD_ELF_NOTE_DLOPEN(
-                        "elf",
-                        "Support for backtraces and reading ELF package metadata from core files",
-                        SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
-                        "libelf.so.1");
+        LIBELF_NOTE(suggested);
 
         r = dlopen_many_sym_or_warn(
                         &elf_dl, "libelf.so.1", log_level,

@@ -1,11 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "sd-dlopen.h"
-
 #include "alloc-util.h"
 #include "ask-password-api.h"
 #include "crypto-util.h"
 #include "dlfcn-util.h"
+#include "dlopen-note.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "hexdecoct.h"
@@ -343,12 +342,13 @@ DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(UI_METHOD*, sym_UI_destroy_method, UI_de
 
 #endif
 
+_dlopen_
 int dlopen_libcrypto(int log_level) {
 #if HAVE_OPENSSL
         static void *libcrypto_dl = NULL;
         int r;
 
-        LIBCRYPTO_NOTE(SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED);
+        LIBCRYPTO_NOTE(suggested);
 
         FOREACH_STRING(soname, "libcrypto.so.4", "libcrypto.so.3") {
                 r = dlopen_many_sym_or_warn(

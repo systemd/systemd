@@ -22,6 +22,7 @@
 #include "crypto-util.h"
 #include "devnum-util.h"
 #include "dissect-image.h"
+#include "dlopen-note.h"
 #include "efi-loader.h"
 #include "efivars.h"
 #include "escape.h"
@@ -857,6 +858,13 @@ static int run(int argc, char *argv[]) {
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_freep) char *mounted_dir = NULL;
         int r;
+
+        LIBBLKID_NOTE(recommended);
+        LIBCRYPTSETUP_NOTE(suggested);
+        LIBMOUNT_NOTE(recommended);
+        LIBTSS2_ESYS_NOTE(suggested);
+        LIBTSS2_MU_NOTE(suggested);
+        LIBTSS2_RC_NOTE(suggested);
 
         log_setup();
 

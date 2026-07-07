@@ -431,7 +431,9 @@ possible_common_cc_flags = [
         '-Wno-string-plus-int',  # clang
 
         '-fdiagnostics-show-option',
+        '-fdata-sections',
         '-fexcess-precision=standard',
+        '-ffunction-sections',
         '-fno-common',
         '-fstack-protector',
         '-fstack-protector-strong',
@@ -1414,11 +1416,11 @@ endif
 # In the dlopen ELF note we save the default compression library with a
 # higher priority, so that packages can give it priority over the
 # secondary libraries.
-conf.set_quoted('COMPRESSION_PRIORITY_ZSTD',
+conf.set('COMPRESSION_PRIORITY_ZSTD',
                 compression == 'zstd' ? 'recommended' : 'suggested')
-conf.set_quoted('COMPRESSION_PRIORITY_LZ4',
+conf.set('COMPRESSION_PRIORITY_LZ4',
                 compression == 'lz4' ? 'recommended' : 'suggested')
-conf.set_quoted('COMPRESSION_PRIORITY_XZ',
+conf.set('COMPRESSION_PRIORITY_XZ',
                 compression == 'xz' ? 'recommended' : 'suggested')
 conf.set('DEFAULT_COMPRESSION', 'COMPRESSION_@0@'.format(compression.to_upper()))
 
@@ -2021,7 +2023,7 @@ endif
 
 executable_template = {
         'include_directories' : includes,
-        'link_with' : libshared,
+        'link_with' : [libshared],
         'install_rpath' : pkglibdir,
         'install' : true,
 }
@@ -2276,13 +2278,15 @@ foreach dict : executables
                 continue
         endif
 
-        exe_sources = dict.get('sources', []) + dict.get('extract', [])
+        exe_sources_static = dict.get('sources', [])
 
         foreach bpf_name : dict.get('bpf_programs', [])
                 if bpf_name in bpf_programs_by_name
-                        exe_sources += bpf_programs_by_name[bpf_name]
+                        exe_sources_static += bpf_programs_by_name[bpf_name]
                 endif
         endforeach
+
+        exe_sources = exe_sources_static + dict.get('extract', [])
 
         kwargs = {}
         foreach key, val : dict
@@ -2372,6 +2376,47 @@ foreach dict : executables
                 endif
         endif
 
+        if not is_test and not is_fuzz
+                name_static = name + '.static'
+                kwargs_static = kwargs
+
+                if 'extract' in dict
+                        obj = objects_by_name[name]
+                        kwargs_static += { 'objects' : kwargs_static.get('objects', []) + obj['objects'] }
+                        include_directories += obj['include_directories']
+                endif
+
+                link_with_static = []
+                foreach obj : kwargs_static.get('link_with', [])
+                        if obj.full_path() == libshared.full_path()
+                                link_with_static += [
+                                        libshared_static,
+                                        libsystemd_static,
+                                ]
+                        elif obj.full_path() == libcore.full_path()
+                                link_with_static += libcore_static
+                        else
+                                link_with_static += obj
+                        endif
+                endforeach
+
+                kwargs_static += {
+                        'link_with' : link_with_static,
+                }
+
+                exe = executable(
+                        name_static,
+                        sources : exe_sources_static,
+                        kwargs : kwargs_static,
+                        implicit_include_directories : false,
+                        include_directories : include_directories,
+                        build_by_default: false,
+                        install: false,
+                )
+
+                executables_by_name += { name_static : exe }
+        endif
+
         if is_test
                 type = dict.get('type', '')
                 suite = dict.get('suite', '')
@@ -2440,6 +2485,7 @@ test_dlopen = executables_by_name.get('test-dlopen')
 nss_targets = []
 pam_targets = []
 module_targets = []
+modules_by_name = {}
 foreach dict : modules
         name = dict.get('name')
         is_nss = name.startswith('nss_')
@@ -2485,6 +2531,37 @@ foreach dict : modules
         )
 
         module_targets += lib
+        modules_by_name += { name : lib }
+
+        if not is_nss and not is_pam
+                name_static = name + '.static'
+                kwargs_static = kwargs
+
+                link_with_static = []
+                foreach obj : kwargs_static.get('link_with', [])
+                        if obj.full_path() == libshared.full_path()
+                                link_with_static += [
+                                        libshared_static,
+                                        libsystemd_static,
+                                ]
+                        else
+                                link_with_static += obj
+                        endif
+                endforeach
+
+                kwargs_static += {
+                        'link_with' : link_with_static,
+                        'install' : false,
+                }
+
+                lib_static = shared_library(
+                        name_static,
+                        kwargs : kwargs_static,
+                        implicit_include_directories : false,
+                )
+
+                modules_by_name += { name_static : lib_static }
+        endif
 
         if is_nss
                 # We cannot use shared_module because it does not support version suffix.

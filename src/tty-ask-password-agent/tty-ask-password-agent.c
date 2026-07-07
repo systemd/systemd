@@ -19,6 +19,7 @@
 #include "daemon-util.h"
 #include "devnum-util.h"
 #include "dirent-util.h"
+#include "dlopen-note.h"
 #include "errno-util.h"
 #include "exit-status.h"
 #include "fd-util.h"
@@ -699,6 +700,8 @@ static int ask_on_consoles(char *argv[]) {
 
 static int run(int argc, char *argv[]) {
         int r;
+
+        LIBSELINUX_NOTE(recommended);
 
         log_setup();
 

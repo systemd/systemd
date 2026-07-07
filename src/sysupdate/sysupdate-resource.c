@@ -233,7 +233,7 @@ static int resource_load_from_blockdev(Resource *rr) {
 
         assert(rr);
 
-        r = DLOPEN_FDISK(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
+        r = DLOPEN_FDISK(LOG_DEBUG, recommended);
         if (r < 0)
                 return r;
 

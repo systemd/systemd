@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "sd-dlopen.h"
-
 #include "dlfcn-util.h"
+#include "dlopen-note.h"
 #include "log.h"
 #include "string-util.h"
 #include "xkbcommon-util.h"
@@ -14,13 +13,11 @@ DLSYM_PROTOTYPE(xkb_context_set_log_fn) = NULL;
 DLSYM_PROTOTYPE(xkb_keymap_new_from_names) = NULL;
 DLSYM_PROTOTYPE(xkb_keymap_unref) = NULL;
 
+_dlopen_
 static int dlopen_xkbcommon(int log_level) {
         static void *xkbcommon_dl = NULL;
 
-        SD_ELF_NOTE_DLOPEN(
-                        "xkbcommon",
-                        "Support for keyboard locale descriptions",
-                        SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED, "libxkbcommon.so.0");
+        LIBXKBCOMMON_NOTE(suggested);
 
         return dlopen_many_sym_or_warn(
                         &xkbcommon_dl, "libxkbcommon.so.0", log_level,
