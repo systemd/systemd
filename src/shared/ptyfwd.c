@@ -601,6 +601,17 @@ static int pty_forward_ansi_process(PTYForward *f, size_t offset) {
         return 0;
 }
 
+static void pty_forward_master_hangup(PTYForward *f) {
+        assert(f);
+
+        /* The master side is gone: stop all I/O on it */
+
+        f->master_readable = f->master_writable = false;
+        f->master_hangup = true;
+
+        f->master_event_source = sd_event_source_unref(f->master_event_source);
+}
+
 static int do_shovel(PTYForward *f) {
         ssize_t k;
         int r;
@@ -697,12 +708,9 @@ static int do_shovel(PTYForward *f) {
 
                                 if (IN_SET(errno, EAGAIN, EIO))
                                         f->master_writable = false;
-                                else if (IN_SET(errno, EPIPE, ECONNRESET)) {
-                                        f->master_writable = f->master_readable = false;
-                                        f->master_hangup = true;
-
-                                        f->master_event_source = sd_event_source_unref(f->master_event_source);
-                                } else
+                                else if (ERRNO_IS_DISCONNECT(errno))
+                                        pty_forward_master_hangup(f);
+                                else
                                         return log_error_errno(errno, "write(): %m");
                         } else {
                                 assert(f->in_buffer_full >= (size_t) k);
@@ -724,14 +732,14 @@ static int do_shovel(PTYForward *f) {
 
                                 if (errno == EAGAIN || (errno == EIO && !pty_forward_vhangup_honored(f)))
                                         f->master_readable = false;
-                                else if (IN_SET(errno, EPIPE, ECONNRESET, EIO)) {
-                                        f->master_readable = f->master_writable = false;
-                                        f->master_hangup = true;
-
-                                        f->master_event_source = sd_event_source_unref(f->master_event_source);
-                                } else
+                                else if (errno == EIO || ERRNO_IS_DISCONNECT(errno))
+                                        pty_forward_master_hangup(f);
+                                else
                                         return log_error_errno(errno, "Failed to read from pty master fd: %m");
-                        } else {
+                        } else if (k == 0)
+                                /* EOF on master? (can only really happen if the master wasn't really a master) */
+                                pty_forward_master_hangup(f);
+                        else {
                                 f->read_from_master = true;
                                 size_t scan_index = f->out_buffer_full;
                                 f->out_buffer_full += (size_t) k;
