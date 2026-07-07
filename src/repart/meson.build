@@ -8,7 +8,7 @@ executables += [
         executable_template + {
                 'name' : 'systemd-repart',
                 'public' : true,
-                'extract' : files(
+                'export' : files(
                         'iso9660.c',
                         'repart.c',
                         'repart-list-candidate-devices.c',
@@ -25,7 +25,7 @@ executables += [
         executable_template + {
                 'name' : 'systemd-repart.standalone',
                 'public' : true,
-                'objects' : ['systemd-repart'],
+                'import' : ['systemd-repart'],
                 'link_with' : [
                         libc_wrapper_static,
                         libbasic_static,
