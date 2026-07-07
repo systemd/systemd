@@ -19,11 +19,6 @@
 
 #if ENABLE_EFI
 
-/* Reads from efivarfs sometimes fail with EINTR. Retry that many times. */
-#define EFI_N_RETRIES_NO_DELAY 20
-#define EFI_N_RETRIES_TOTAL 25
-#define EFI_RETRY_DELAY (50 * USEC_PER_MSEC)
-
 int efi_get_variable(
                 const char *variable,
                 uint32_t *ret_attribute,

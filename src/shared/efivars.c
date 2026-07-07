@@ -7,14 +7,172 @@
 #include "alloc-util.h"
 #include "chattr-util.h"
 #include "efivars.h"
+#include "errno-util.h"
 #include "fd-util.h"
+#include "fileio.h"
+#include "find-esp.h"
+#include "fs-util.h"
 #include "io-util.h"
 #include "log.h"
 #include "memory-util.h"
+#include "path-util.h"
 #include "string-util.h"
+#include "sync-util.h"
+#include "time-util.h"
+#include "tmpfile-util.h"
 #include "utf8.h"
 
 #if ENABLE_EFI
+
+/* Vendor GUID of the variables through which firmware keeping its variable store in a file on the ESP (see
+ * "File Format For Storing EFI Variables" in the EBBR specification,
+ * https://arm-software.github.io/ebbr/) hands the store over to the OS for persisting. */
+#define EFI_VENDOR_VARIABLE_STORE_STR SD_ID128_MAKE_UUID_STR(b2,ac,5f,c9,92,b7,4a,cd,ae,ac,11,e8,18,c3,13,0c)
+#define EFI_VARIABLE_STORE_VARIABLE_STR(name) EFI_VENDOR_VARIABLE_STR(EFI_VENDOR_VARIABLE_STORE_STR, name)
+
+static int variable_store_flush_internal(void) {
+        _cleanup_free_ void *name_raw = NULL;
+        _cleanup_free_ char *name = NULL, *esp_path = NULL, *path = NULL, *blob = NULL;
+        _cleanup_(unlink_and_freep) char *t = NULL;
+        _cleanup_close_ int fd = -EBADF;
+        size_t name_size = 0, blob_size = 0;
+        int r;
+
+        /* Firmware that has no access to its EFI variable store at runtime (common on EBBR systems, where
+         * the store lives in a file on the ESP the firmware cannot safely write to once the OS owns the
+         * device) accepts runtime SetVariable() calls into an in-memory store only, and exports a
+         * serialized copy of it through the volatile VarToFile variable. For a change to survive a reboot,
+         * the OS has to write that blob into the store file — named by the RTStorageVolatile variable —
+         * from which the firmware loads the variables on the next boot. The file format is specified in
+         * the EBBR specification ("File Format For Storing EFI Variables"); the blob is opaque to us. */
+
+        r = efi_get_variable(EFI_VARIABLE_STORE_VARIABLE_STR("RTStorageVolatile"), NULL, &name_raw, &name_size);
+        if (r < 0) {
+                /* Be strict only once the mechanism is positively identified: -ENOENT means the
+                 * firmware persists variables itself, and any other lookup failure means the
+                 * mechanism cannot be confirmed to be in use — either way, don't turn the variable
+                 * write that just succeeded into an error over it. */
+                if (r != -ENOENT)
+                        log_debug_errno(r, "Failed to read RTStorageVolatile EFI variable, ignoring: %m");
+                return 0;
+        }
+
+        /* An ASCII file name, possibly NUL-terminated. */
+        name = memdup_suffix0(name_raw, name_size);
+        if (!name)
+                return -ENOMEM;
+
+        if (!filename_is_valid(name) || !ascii_is_valid(name))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "RTStorageVolatile contains an invalid file name, refusing.");
+
+        r = find_esp_and_warn(/* root= */ NULL, /* path= */ NULL, /* unprivileged_mode= */ false,
+                              &esp_path, /* ret_fd= */ NULL);
+        if (r < 0)
+                return r;
+
+        path = path_join(esp_path, name);
+        if (!path)
+                return -ENOMEM;
+
+        /* The store file is created by the firmware (or when the ESP is assembled); we only ever update
+         * it, so that a bogus RTStorageVolatile value cannot make us place new files on the ESP. */
+        if (access(path, W_OK) < 0)
+                return log_debug_errno(errno,
+                                       "EFI variable store file '%s' not accessible, changes will not persist: %m",
+                                       path);
+
+        /* The firmware grows VarToFile behind the kernel's back on every SetVariable() call, while
+         * efivarfs only refreshes the inode size for writes going through the file system. Hence read the
+         * file to EOF instead of trusting st_size the way efi_get_variable() does, which would truncate
+         * the blob to the size the variable had when it was first enumerated. The kernel rate-limits
+         * efivarfs reads and transiently fails them with EINTR, hence retry like efi_get_variable()
+         * does; every attempt rereads a fresh snapshot. */
+        for (unsigned try = 0;; try++) {
+                r = read_full_file(EFIVAR_PATH(EFI_VARIABLE_STORE_VARIABLE_STR("VarToFile")), &blob, &blob_size);
+                if (r != -EINTR)
+                        break;
+                if (try >= EFI_N_RETRIES_TOTAL)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBUSY),
+                                               "Reading VarToFile EFI variable failed even after %u tries, giving up.", try);
+                if (try >= EFI_N_RETRIES_NO_DELAY)
+                        (void) usleep_safe(EFI_RETRY_DELAY);
+        }
+        if (r < 0)
+                return log_debug_errno(r, "Failed to read VarToFile EFI variable: %m");
+        if (blob_size <= sizeof(uint32_t))
+                return log_debug_errno(SYNTHETIC_ERRNO(ENODATA), "VarToFile EFI variable has no payload, refusing.");
+
+        /* Nothing to do if the store file already carries the current serialized store. This keeps
+         * retried and skipped writes from rewriting the ESP over and over. */
+        _cleanup_free_ char *current = NULL;
+        size_t current_size = 0;
+        if (read_full_file(path, &current, &current_size) >= 0 &&
+            memcmp_nn(current, current_size, (uint8_t*) blob + sizeof(uint32_t), blob_size - sizeof(uint32_t)) == 0)
+                return 0;
+
+        /* Replace the store file atomically so that a crash in the middle cannot corrupt it. */
+        r = tempfn_random(path, NULL, &t);
+        if (r < 0)
+                return r;
+
+        fd = open(t, O_WRONLY|O_CREAT|O_EXCL|O_NOFOLLOW|O_CLOEXEC, 0600);
+        if (fd < 0)
+                return log_debug_errno(errno, "Failed to create '%s': %m", t);
+
+        /* Skip the 4 bytes of variable attributes that efivarfs prepends. */
+        r = loop_write(fd, (uint8_t*) blob + sizeof(uint32_t), blob_size - sizeof(uint32_t));
+        if (r < 0)
+                return log_debug_errno(r, "Failed to write '%s': %m", t);
+
+        r = fsync_full(fd);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to sync '%s': %m", t);
+
+        /* Exchange rather than rename the temporary file into place: RENAME_EXCHANGE fails if the
+         * target does not exist, which enforces the update-only invariant atomically at the operation
+         * itself — the access() check above cannot guarantee it on its own. The displaced old store
+         * contents end up at the temporary path and are removed below. */
+        if (renameat2(AT_FDCWD, t, AT_FDCWD, path, RENAME_EXCHANGE) < 0) {
+                if (!ERRNO_IS_NOT_SUPPORTED(errno) && errno != EINVAL)
+                        return log_debug_errno(errno, "Failed to exchange '%s' and '%s': %m", t, path);
+
+                /* Fall back to a plain rename — and the raciness of the access() check — on file
+                 * systems without RENAME_EXCHANGE support (vfat gained it in kernel 5.19). */
+                if (access(path, W_OK) < 0)
+                        return log_debug_errno(errno,
+                                               "EFI variable store file '%s' vanished, refusing to create it: %m",
+                                               path);
+
+                if (rename(t, path) < 0)
+                        return log_debug_errno(errno, "Failed to rename '%s' to '%s': %m", t, path);
+        }
+
+        /* Remove the displaced old store contents (or, on the fallback path, nothing) before syncing
+         * the directory, so that one sync covers all of it. */
+        t = unlink_and_free(t);
+
+        r = fsync_parent_at(AT_FDCWD, path);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to sync parent directory of '%s': %m", path);
+
+        return 0;
+}
+
+static int efi_variable_store_flush(void) {
+        int r;
+
+        r = variable_store_flush_internal();
+        if (r == -ENOENT)
+                /* Never fail with -ENOENT, whatever its source — the store file disappearing before the
+                 * exchange, VarToFile vanishing, …: efi_set_variable() returns -ENOENT from the removal
+                 * path when the variable to remove didn't exist in the first place, and callers
+                 * rightfully treat that as success — while a removal that could not be flushed would
+                 * resurface on the next boot and hence must be reported. */
+                return -ENOMEDIUM;
+
+        return r;
+}
 
 static int efi_verify_variable(const char *variable, uint32_t attr, const void *value, size_t size) {
         _cleanup_free_ void *buf = NULL;
@@ -50,7 +208,11 @@ int efi_set_variable(const char *variable, const void *value, size_t size) {
         /* size 0 means removal, empty variable would not be enough for that */
         if (size > 0 && efi_verify_variable(variable, attr, value, size) > 0) {
                 log_debug("Variable '%s' is already in wanted state, skipping write.", variable);
-                return 0;
+                /* The runtime store matching the wanted value says nothing about the on-ESP store
+                 * file: if a previous flush failed, this is exactly where the retry of the same value
+                 * ends up, hence flush anyway. The flush itself detects an up-to-date store file and
+                 * turns into a no-op then. */
+                return efi_variable_store_flush();
         }
 
         const char *p = strjoina("/sys/firmware/efi/efivars/", variable);
@@ -76,7 +238,7 @@ int efi_set_variable(const char *variable, const void *value, size_t size) {
                         goto finish;
                 }
 
-                return 0;
+                return efi_variable_store_flush();
         }
 
         fd = open(p, O_WRONLY|O_CREAT|O_NOCTTY|O_CLOEXEC, 0644);
@@ -117,6 +279,11 @@ finish:
                 if (q < 0)
                         log_debug_errno(q, "Failed to restore FS_IMMUTABLE_FL on '%s', ignoring: %m", p);
         }
+
+        if (r >= 0)
+                /* Flush only after the immutable flag is restored: the flush does slow, unrelated ESP
+                 * I/O and never touches the variable, so don't leave it unprotected while it runs. */
+                r = efi_variable_store_flush();
 
         return r;
 }
