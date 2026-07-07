@@ -2183,6 +2183,31 @@ finish:
         return r;
 }
 
+_public_ int sd_varlink_call_and_upgradeb(
+                sd_varlink *v,
+                const char *method,
+                sd_json_variant **ret_parameters,
+                const char **ret_error_id,
+                int *ret_input_fd,
+                int *ret_output_fd,
+                ...) {
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *parameters = NULL;
+        va_list ap;
+        int r;
+
+        assert_return(v, -EINVAL);
+        assert_return(method, -EINVAL);
+
+        va_start(ap, ret_output_fd);
+        r = sd_json_buildv(&parameters, ap);
+        va_end(ap);
+        if (r < 0)
+                return varlink_log_errno(v, r, "Failed to build json message: %m");
+
+        return sd_varlink_call_and_upgrade(v, method, parameters, ret_parameters, ret_error_id, ret_input_fd, ret_output_fd);
+}
+
 _public_ int sd_varlink_callb_ap(
                 sd_varlink *v,
                 const char *method,
