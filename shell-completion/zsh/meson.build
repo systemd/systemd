@@ -26,6 +26,7 @@ foreach item : [
         ['_machinectl',               'ENABLE_MACHINED'],
         ['_networkctl',               'ENABLE_NETWORKD'],
         ['_oomctl',                   'ENABLE_OOMD'],
+        ['_ptyctl',                   ''],
         ['_resolvectl',               'ENABLE_RESOLVE'],
         ['_run0',                     ''],
         ['_sd_bus_address',           ''],
