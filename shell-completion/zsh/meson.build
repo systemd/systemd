@@ -49,6 +49,7 @@ foreach item : [
         ['_systemd-sysinstall',       'ENABLE_SYSINSTALL'],
         ['_systemd-sysupdate',        'ENABLE_SYSUPDATE'],
         ['_systemd-tmpfiles',         'ENABLE_TMPFILES'],
+        ['_systemd-vmspawn',          'ENABLE_VMSPAWN'],
         ['_timedatectl',              'ENABLE_TIMEDATED'],
         ['_udevadm',                  ''],
         ['_updatectl',                'ENABLE_SYSUPDATED'],
