@@ -99,7 +99,9 @@ typedef struct OvmfConfig {
         char *format;
         char *vars;
         char *vars_format;
-        bool supports_sb;
+        char *device;
+        char *mode;
+        char **features;
 } OvmfConfig;
 
 static inline const char* ovmf_config_format(const OvmfConfig *c) {
@@ -109,6 +111,9 @@ static inline const char* ovmf_config_format(const OvmfConfig *c) {
 static inline const char* ovmf_config_vars_format(const OvmfConfig *c) {
         return ASSERT_PTR(c)->vars_format ?: "raw";
 }
+
+bool ovmf_config_is_stateless(const OvmfConfig *config);
+bool ovmf_config_has_feature(const OvmfConfig *config, const char *feature);
 
 OvmfConfig* ovmf_config_free(OvmfConfig *ovmf_config);
 DEFINE_TRIVIAL_CLEANUP_FUNC(OvmfConfig*, ovmf_config_free);
@@ -134,7 +139,16 @@ int qemu_check_vsock_support(void);
 int list_ovmf_config(char ***ret);
 int list_ovmf_firmware_features(char ***ret);
 int load_ovmf_config(const char *path, OvmfConfig **ret);
-int find_ovmf_config(Set *features_include, Set *features_exclude, OvmfConfig **ret, sd_json_variant **ret_firmware_json);
+
+typedef enum FindOvmfConfigFlags {
+        FIND_OVMF_STATELESS   = 1 << 0, /* select stateless firmware (flash mode "stateless" or memory-mapped,
+                                         * bootable via -bios); default selects pflash firmware with an NVRAM
+                                         * template */
+        FIND_OVMF_REQUIRE_RAW = 1 << 1, /* skip non-raw firmware executables (-bios can't load qcow2) */
+} FindOvmfConfigFlags;
+
+int find_ovmf_config(Set *features_include, Set *features_exclude, FindOvmfConfigFlags flags, OvmfConfig **ret, sd_json_variant **ret_firmware_json);
+int native_arch_as_qemu(const char **ret);
 int find_qemu_binary(char **ret_qemu_binary);
 int vsock_fix_child_cid(int vhost_device_fd, unsigned *machine_cid, const char *machine);
 
