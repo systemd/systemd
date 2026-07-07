@@ -1,9 +1,17 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-event.h"
+
 #include "alloc-util.h"
+#include "fd-util.h"
+#include "fs-util.h"
+#include "journald-manager.h"
 #include "journald-syslog.h"
+#include "path-util.h"
+#include "rm-rf.h"
 #include "syslog-util.h"
 #include "tests.h"
+#include "tmpfile-util.h"
 
 static void test_syslog_parse_identifier_one(
                 const char *str,
@@ -69,6 +77,34 @@ TEST(syslog_parse_priority) {
         test_syslog_parse_priority_one("<22>", true, 22, 1);
         test_syslog_parse_priority_one("<111>", false, 0, 0);
         test_syslog_parse_priority_one("<111>", true, 111, 1);
+}
+
+TEST(syslog_socket_replaces_existing_event_source) {
+        _cleanup_(rm_rf_physical_and_freep) char *tmpdir = NULL;
+        _cleanup_(sd_event_source_unrefp) sd_event_source *old_source = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        _cleanup_free_ char *syslog_socket = NULL;
+        Manager m = {
+                .syslog_fd = -EBADF,
+        };
+
+        ASSERT_OK(sd_event_new(&event));
+        m.event = event;
+
+        ASSERT_OK(mkdtemp_malloc("/tmp/test-journald-syslog-XXXXXX", &tmpdir));
+        syslog_socket = path_join(tmpdir, "dev-log");
+        ASSERT_NOT_NULL(syslog_socket);
+
+        ASSERT_OK(manager_open_syslog_socket(&m, syslog_socket));
+        old_source = sd_event_source_ref(m.syslog_event_source);
+        ASSERT_NOT_NULL(old_source);
+
+        ASSERT_OK(manager_open_syslog_socket(&m, syslog_socket));
+        ASSERT_OK_ZERO(sd_event_source_get_enabled(old_source, /* ret= */ NULL));
+        ASSERT_TRUE(m.syslog_event_source != old_source);
+
+        m.syslog_event_source = sd_event_source_unref(m.syslog_event_source);
+        m.syslog_fd = safe_close(m.syslog_fd);
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);
