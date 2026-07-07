@@ -82,6 +82,7 @@ manpages = [
  ['portablectl', '1', [], 'ENABLE_PORTABLED'],
  ['poweroff', '8', ['halt', 'reboot'], ''],
  ['pstore.conf', '5', ['pstore.conf.d'], 'ENABLE_PSTORE'],
+ ['ptyctl', '1', [], ''],
  ['repart.d', '5', [], 'ENABLE_REPART'],
  ['report-geoip.conf',
   '5',
