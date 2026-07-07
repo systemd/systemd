@@ -13,7 +13,9 @@ SD_VARLINK_DEFINE_ENUM_TYPE(
                 SD_VARLINK_DEFINE_ENUM_VALUE(socket),
                 SD_VARLINK_DEFINE_ENUM_VALUE(fd),
                 SD_VARLINK_DEFINE_ENUM_VALUE(data),
-                SD_VARLINK_DEFINE_ENUM_VALUE(file));
+                SD_VARLINK_DEFINE_ENUM_VALUE(file),
+                SD_VARLINK_DEFINE_ENUM_VALUE(broker),
+                SD_VARLINK_DEFINE_ENUM_VALUE(broker_log));
 
 SD_VARLINK_DEFINE_ENUM_TYPE(
                 ExecUtmpMode,
