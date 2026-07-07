@@ -34,6 +34,7 @@ foreach item : [
         ['networkctl',          'ENABLE_NETWORKD'],
         ['oomctl',              'ENABLE_OOMD'],
         ['portablectl',         'ENABLE_PORTABLED'],
+        ['ptyctl',              ''],
         ['resolvectl',          'ENABLE_RESOLVE'],
         ['run0',                ''],
         ['storagectl',          ''],
