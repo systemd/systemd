@@ -145,6 +145,9 @@ int sd_varlink_callb(sd_varlink *v, const char *method, sd_json_variant **ret_pa
  * Returns > 0 if the connection was upgraded, 0 if a Varlink error occurred (and ret_error_id was set),
  * or < 0 on local failure. */
 int sd_varlink_call_and_upgrade(sd_varlink *v, const char *method, sd_json_variant *parameters, sd_json_variant **ret_parameters, const char **ret_error_id, int *ret_input_fd, int *ret_output_fd);
+int sd_varlink_call_and_upgradeb(sd_varlink *v, const char *method, sd_json_variant **ret_parameters, const char **ret_error_id, int *ret_input_fd, int *ret_output_fd, ...);
+#define sd_varlink_call_and_upgradebo(v, method, ret_parameters, ret_error_id, ret_input_fd, ret_output_fd, ...) \
+        sd_varlink_call_and_upgradeb((v), (method), (ret_parameters), (ret_error_id), (ret_input_fd), (ret_output_fd), SD_JSON_BUILD_OBJECT(__VA_ARGS__))
 
 /* Send method call and begin collecting all 'more' replies into an array, finishing when a final reply is sent */
 int sd_varlink_collect_full(sd_varlink *v, const char *method, sd_json_variant *parameters, sd_json_variant **ret_parameters, const char **ret_error_id, sd_varlink_reply_flags_t *ret_flags);
