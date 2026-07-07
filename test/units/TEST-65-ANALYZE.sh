@@ -1013,20 +1013,37 @@ if systemd-analyze --version | grep -F "+ELFUTILS" >/dev/null; then
     systemd-analyze inspect-elf /lib/systemd/systemd
     systemd-analyze inspect-elf --json=short /lib/systemd/systemd | grep -F '"elfType":"executable"' >/dev/null
 
-    # Inspect a purpose-built helper carrying an FDO_PACKAGING_METADATA (.note.package) note. It is shipped
-    # as a shared library so that no C runtime startup objects are linked in: on some distributions those
-    # carry their own .note.package note that would otherwise be reported instead of ours. inspect-elf reports
-    # the first note found, so we assert on the first (systemd) stanza embedded in the helper.
+    # Inspect purpose-built helpers carrying FDO_PACKAGING_METADATA (.note.package) notes. They are shipped as
+    # shared libraries so that no C runtime startup objects are linked in: on some distributions those carry
+    # their own .note.package note that would otherwise show up too.
+
+    # 1) A single note: the metadata must be reported flat on the module object (next to the build-id), with
+    #    no "contains" key, i.e. byte-identical to the historical format.
     elf_helper="/usr/lib/systemd/tests/testdata/test-inspect-elf-helper.so"
     systemd-analyze inspect-elf "$elf_helper"
     elf_json="$(systemd-analyze inspect-elf --json=short "$elf_helper")"
     assert_eq "$(echo "$elf_json" | jq -r '.elfType')" 'library'
-    # The package metadata is keyed by the module path, so pick the sole object-valued entry.
-    elf_pkg="$(echo "$elf_json" | jq '[to_entries[] | select(.value | type == "object")][0].value')"
-    assert_eq "$(echo "$elf_pkg" | jq -r '.type')" 'test-type'
-    assert_eq "$(echo "$elf_pkg" | jq -r '.os')" 'test-os'
-    assert_eq "$(echo "$elf_pkg" | jq -r '.name')" 'test-systemd'
-    assert_eq "$(echo "$elf_pkg" | jq -r '.buildId | type')" 'string'
+    elf_mod="$(echo "$elf_json" | jq '[to_entries[] | select(.value | type == "object")][0].value')"
+    assert_eq "$(echo "$elf_mod" | jq -r '.type')" 'test-type'
+    assert_eq "$(echo "$elf_mod" | jq -r '.os')" 'test-os'
+    assert_eq "$(echo "$elf_mod" | jq -r '.name')" 'test-systemd'
+    assert_eq "$(echo "$elf_mod" | jq -r '.buildId | type')" 'string'
+    # No "contains" key when there is only a single note (backwards compatibility).
+    assert_eq "$(echo "$elf_mod" | jq 'has("contains")')" 'false'
+
+    # 2) A main note plus an additional one: the main package stays flat on the module object exactly as
+    #    above, and the additional package is reported under "contains" (without a duplicated build-id).
+    elf_helper="/usr/lib/systemd/tests/testdata/test-inspect-elf-helper-contains.so"
+    systemd-analyze inspect-elf "$elf_helper"
+    elf_json="$(systemd-analyze inspect-elf --json=short "$elf_helper")"
+    elf_mod="$(echo "$elf_json" | jq '[to_entries[] | select(.value | type == "object")][0].value')"
+    # Main package unchanged from the single-note case.
+    assert_eq "$(echo "$elf_mod" | jq -r '.name')" 'test-systemd'
+    assert_eq "$(echo "$elf_mod" | jq -r '.buildId | type')" 'string'
+    # Additional package reported under "contains".
+    assert_eq "$(echo "$elf_mod" | jq '.contains | length')" '1'
+    assert_eq "$(echo "$elf_mod" | jq -r '.contains[0].name')" 'test-glibc'
+    assert_eq "$(echo "$elf_mod" | jq '.contains[0] | (.type == "test-type" and .os == "test-os" and (has("buildId") | not))')" 'true'
 
     # For some unknown reason the .note.dlopen sections are removed when building with sanitizers, so only
     # run this test if we're not running under sanitizers.

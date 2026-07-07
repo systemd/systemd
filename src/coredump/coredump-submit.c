@@ -753,6 +753,8 @@ int coredump_submit(const CoredumpConfig *config, CoredumpContext *context) {
                         if (!path_equal_filename(module_name, context->exe))
                                 continue;
 
+                        /* The module object holds the "main" package's fields directly (additional packages,
+                         * if any, live in the "contains" array), so read name/version straight from it. */
                         t = sd_json_variant_by_key(module_json, "name");
                         if (t)
                                 (void) iovw_put_string_field(&context->iovw, "COREDUMP_PACKAGE_NAME=", sd_json_variant_string(t));
