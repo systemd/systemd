@@ -7,12 +7,12 @@
 #include "event-util.h"
 #include "fd-util.h"
 #include "format-table.h"
+#include "help-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "options.h"
 #include "parse-argument.h"
 #include "pidref.h"
-#include "pretty-print.h"
 #include "process-util.h"
 #include "ptyfwd.h"
 #include "string-util.h"
@@ -28,32 +28,22 @@ STATIC_DESTRUCTOR_REGISTER(arg_background, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_title, freep);
 
 static int help(void) {
-        _cleanup_free_ char *link = NULL;
         _cleanup_(table_unrefp) Table *options = NULL;
         int r;
-
-        r = terminal_urlify_man("systemd-pty-forward", "1", &link);
-        if (r < 0)
-                return log_oom();
 
         r = option_parser_get_help_table(&options);
         if (r < 0)
                 return r;
 
-        printf("%s [OPTIONS...] COMMAND ...\n"
-               "\n%sRun command with a custom terminal background color or title.%s\n"
-               "\n%sOptions:%s\n",
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal(),
-               ansi_underline(),
-               ansi_normal());
+        help_cmdline("[OPTIONS...] COMMAND ...");
+        help_abstract("Run command with a custom terminal background color or title.");
 
+        help_section("Options");
         r = table_print_or_warn(options);
         if (r < 0)
                 return r;
 
-        printf("\nSee the %s for details.\n", link);
+        help_man_page_reference("systemd-pty-forward", "1");
         return 0;
 }
 
