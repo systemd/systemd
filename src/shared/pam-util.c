@@ -9,10 +9,10 @@
 #include <syslog.h>
 
 #include "sd-bus.h"
-#include "sd-dlopen.h"
 
 #include "alloc-util.h"
 #include "bus-internal.h"
+#include "dlopen-note.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "format-util.h"
@@ -379,11 +379,12 @@ int pam_putenv_assign(pam_handle_t *pamh, const char *name, const char *value) {
 
 #endif
 
+_dlopen_
 int dlopen_libpam(int log_level) {
 #if HAVE_PAM
         static void *libpam_dl = NULL;
 
-        LIBPAM_NOTE(SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
+        LIBPAM_NOTE(recommended);
 
         return dlopen_many_sym_or_warn(
                         &libpam_dl,

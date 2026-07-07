@@ -25,6 +25,9 @@ typedef struct SearchDomain {
         int ifindex;
 } SearchDomain;
 
+SearchDomain* search_domain_free(SearchDomain *d);
+DEFINE_TRIVIAL_CLEANUP_FUNC(SearchDomain*, search_domain_free);
+
 typedef struct DNSScope {
         char *ifname;
         int ifindex;
@@ -33,12 +36,6 @@ typedef struct DNSScope {
         char *dnssec_mode_str;
         char *dns_over_tls_mode_str;
 } DNSScope;
-
-DNSScope* dns_scope_free(DNSScope *s);
-DEFINE_TRIVIAL_CLEANUP_FUNC(DNSScope*, dns_scope_free);
-
-SearchDomain* search_domain_free(SearchDomain *d);
-DEFINE_TRIVIAL_CLEANUP_FUNC(SearchDomain*, search_domain_free);
 
 typedef struct DNSConfiguration {
         char *ifname;

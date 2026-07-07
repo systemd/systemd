@@ -9,7 +9,6 @@ lib_cryptsetup_token_common = static_library(
                 libcryptsetup_cflags,
                 userspace,
         ],
-        link_with : libshared,
         build_by_default : false)
 
 cryptsetup_token_systemd_tpm2_sources = files(

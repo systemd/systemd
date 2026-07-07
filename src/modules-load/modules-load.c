@@ -12,6 +12,7 @@
 #include "conf-files.h"
 #include "constants.h"
 #include "cpu-set-util.h"
+#include "dlopen-note.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -389,6 +390,8 @@ static int run(int argc, char *argv[]) {
         size_t n_threads = 0;
         char *module;
         int ret = 0, r;
+
+        LIBKMOD_NOTE(required);
 
         char **args = NULL;
         r = parse_argv(argc, argv, &args);

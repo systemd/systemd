@@ -6,12 +6,19 @@
 #include "coredump-kernel-helper.h"
 #include "coredump-receive.h"
 #include "coredump-util.h"
+#include "dlopen-note.h"
 #include "log.h"
 #include "main-func.h"
 #include "string-util.h"
 
 static int run(int argc, char *argv[]) {
         int r;
+
+        JOURNAL_NOTE;
+        LIBACL_NOTE(recommended);
+        LIBDW_NOTE(suggested);
+        LIBELF_NOTE(suggested);
+        LIBSELINUX_NOTE(recommended);
 
         /* When running as backtrace mode, it is not necessary to use kmsg, not necessary to disable coredump
          * from the command, and unexpectedly passed file descriptors can be silently ignored. */

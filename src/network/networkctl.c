@@ -4,6 +4,7 @@
 
 #include "alloc-util.h"
 #include "build.h"
+#include "dlopen-note.h"
 #include "format-table.h"
 #include "help-util.h"
 #include "log.h"
@@ -207,6 +208,9 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
 static int run(int argc, char* argv[]) {
         char **args = NULL;
         int r;
+
+        JOURNAL_NOTE;
+        LIBSELINUX_NOTE(recommended);
 
         log_setup();
 

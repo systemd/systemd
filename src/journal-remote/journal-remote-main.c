@@ -9,6 +9,7 @@
 #include "build.h"
 #include "conf-parser.h"
 #include "daemon-util.h"
+#include "dlopen-note.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "format-table.h"
@@ -468,7 +469,7 @@ static int setup_microhttpd_server(RemoteServer *s,
 #if HAVE_MICROHTTPD
         int r;
 
-        r = DLOPEN_MICROHTTPD(LOG_ERR, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED);
+        r = DLOPEN_MICROHTTPD(LOG_ERR, required);
         if (r < 0)
                 return r;
 
@@ -1164,6 +1165,11 @@ static int run(int argc, char **argv) {
         _cleanup_(erase_and_freep) char *key = NULL;
         _cleanup_free_ char *cert = NULL, *trust = NULL;
         int r;
+
+        JOURNAL_NOTE;
+        LIBCRYPTO_NOTE(suggested);
+        LIBGNUTLS_NOTE(suggested);
+        LIBSELINUX_NOTE(recommended);
 
         log_setup();
 

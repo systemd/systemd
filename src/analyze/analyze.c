@@ -55,6 +55,7 @@
 #include "bus-util.h"
 #include "calendarspec.h"
 #include "dissect-image.h"
+#include "dlopen-note.h"
 #include "extract-word.h"
 #include "format-table.h"
 #include "help-util.h"
@@ -684,6 +685,20 @@ static int run(int argc, char *argv[]) {
         _cleanup_(umount_and_freep) char *mounted_dir = NULL;
         _cleanup_strv_free_ char **args = NULL;
         int r;
+
+        LIBACL_NOTE(recommended);
+        LIBAPPARMOR_NOTE(recommended);
+        LIBAUDIT_NOTE(recommended);
+        LIBBLKID_NOTE(recommended);
+        LIBBPF_NOTE(recommended);
+        LIBCRYPTO_NOTE(suggested);
+        LIBCRYPTSETUP_NOTE(recommended);
+        LIBDW_NOTE(suggested);
+        LIBELF_NOTE(suggested);
+        LIBMOUNT_NOTE(recommended);
+        LIBPCRE2_NOTE(suggested);
+        LIBSELINUX_NOTE(recommended);
+        TPM2_NOTE(suggested);
 
         setlocale(LC_ALL, "");
         setlocale(LC_NUMERIC, "C"); /* we want to format/parse floats in C style */

@@ -8,6 +8,7 @@
 
 #include "alloc-util.h"
 #include "build.h"
+#include "dlopen-note.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-table.h"
@@ -286,6 +287,9 @@ static int run(int argc, char *argv[]) {
         };
         _cleanup_free_ char *message = NULL;
         int r;
+
+        JOURNAL_NOTE;
+        LIBQRENCODE_NOTE(suggested);
 
         log_setup();
 

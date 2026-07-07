@@ -7,8 +7,7 @@
 
 #include <stdio.h>
 
-#include "sd-dlopen.h"
-
+#include "dlopen-note.h"
 #include "fstab-util.h"
 
 DLSYM_PROTOTYPE(mnt_free_iter) = NULL;
@@ -116,11 +115,12 @@ int libmount_is_leaf(
 
 #endif
 
+_dlopen_
 int dlopen_libmount(int log_level) {
 #if HAVE_LIBMOUNT
         static void *libmount_dl = NULL;
 
-        LIBMOUNT_NOTE(SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
+        LIBMOUNT_NOTE(recommended);
 
         return dlopen_many_sym_or_warn(
                         &libmount_dl,

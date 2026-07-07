@@ -393,7 +393,7 @@ TEST(dnssec_ecdsa_verify_raw) {
 }
 
 static int intro(void) {
-        if (DLOPEN_LIBCRYPTO(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED) < 0)
+        if (DLOPEN_LIBCRYPTO(LOG_DEBUG, recommended) < 0)
                 return EXIT_TEST_SKIP;
 
         return EXIT_SUCCESS;

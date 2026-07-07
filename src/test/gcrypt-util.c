@@ -1,9 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <sys/syslog.h>
-
-#include "sd-dlopen.h"
-
 #include "gcrypt-util.h"
 #include "log.h"                /* IWYU pragma: keep */
 
@@ -45,8 +41,6 @@ DLSYM_PROTOTYPE(gcry_randomize) = NULL;
 int dlopen_gcrypt(int log_level) {
 #if HAVE_GCRYPT
         static void *gcrypt_dl = NULL;
-
-        GCRYPT_NOTE(SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED);
 
         return dlopen_many_sym_or_warn(
                         &gcrypt_dl,

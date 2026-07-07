@@ -36,7 +36,7 @@ int swap_list_get(const char *swaps, SwapDevice **head) {
 
         assert(head);
 
-        r = DLOPEN_LIBMOUNT(LOG_ERR, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
+        r = DLOPEN_LIBMOUNT(LOG_ERR, recommended);
         if (r < 0)
                 return r;
 
