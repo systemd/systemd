@@ -101,8 +101,38 @@
       entry in the <literal>.hwids</literal> section based on the hardware IDs supplied by SMBIOS (see below).
       If a suitable entry is found, the <literal>fwid</literal> string from that entry will be used to
       perform the matching procedure for firmware blobs in <literal>.efifw</literal> section. The first
-      matching firmware will be loaded.
-      </para></listitem>
+      matching firmware will be loaded.</para>
+
+      <para>A matching <literal>.efifw</literal> section may additionally carry a <emphasis>target
+      CHID</emphasis> in its header (set at build time via a <literal>hwid</literal> file in the
+      <option>--efifw=</option> directory of
+      <citerefentry><refentrytitle>ukify</refentrytitle><manvolnum>1</manvolnum></citerefentry>), in which
+      case its payload is a UEFI capsule rather than a plain firmware blob. When a target CHID is
+      present, <command>systemd-stub</command> computes the CHIDs of the running system and compares them
+      against it: if none match, the firmware is not yet at the target version, so the capsule is applied via
+      the UEFI <function>UpdateCapsule</function> runtime service and the system is reset. If one matches,
+      the firmware is already up to date and boot proceeds normally. Note that the
+      <literal>fwid</literal> from the <literal>.hwids</literal> section selects <emphasis>which</emphasis>
+      firmware image applies to the machine, while the target CHID in the <literal>.efifw</literal> header decides
+      <emphasis>whether</emphasis> the running firmware still needs updating. The target CHID must therefore
+      be the CHID the machine will report <emphasis>after</emphasis> a successful update; otherwise the UKI
+      will never boot.</para>
+
+      <para>If a pending capsule cannot be applied — the system CHIDs cannot be computed, the capsule is
+      malformed or unsupported, or <function>UpdateCapsule</function> fails — <command>systemd-stub</command>
+      refuses to proceed with the boot, so stale firmware is never booted silently.</para>
+
+      <para>Where persistent EFI variable storage is available, a given capsule is attempted only once to
+      avoid re-applying an ineffective capsule on every boot: if the firmware is still not at the target CHID
+      on the following boot, the capsule did not take effect and <command>systemd-stub</command> refuses to
+      boot rather than re-applying it. When the UKI is booted through an environment that provides automatic
+      boot assessment (see
+      <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry> and
+      <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification/">Boot Loader
+      Specification</ulink>), each refused boot consumes a try and the bootloader eventually falls back to a
+      known-good entry. Applying a capsule resets the machine before the boot completes, so even a
+      successful update consumes one try; a UKI carrying a capsule should therefore be given at least one
+      more try than a normal boot needs, so the updated firmware still has a try left to boot from.</para></listitem>
 
       <listitem><para>An optional <literal>.hwids</literal> section with hardware IDs of the machines to
       match DeviceTrees. <command>systemd-stub</command> will use the SMBIOS data to calculate hardware IDs
