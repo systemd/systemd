@@ -28,9 +28,11 @@ typedef enum VarlinkState {
         VARLINK_PROCESSING_METHOD_ONEWAY,
         VARLINK_PROCESSING_METHOD_UPGRADE,
         VARLINK_PROCESSED_METHOD,
+        VARLINK_PROCESSED_METHOD_UPGRADE,
         VARLINK_PENDING_METHOD,
         VARLINK_PENDING_METHOD_MORE,
         VARLINK_PENDING_METHOD_UPGRADE,
+        VARLINK_UPGRADING,
 
         /* Common states (only during shutdown) */
         VARLINK_PENDING_DISCONNECT,
@@ -64,9 +66,11 @@ typedef enum VarlinkState {
                VARLINK_PROCESSING_METHOD_ONEWAY,        \
                VARLINK_PROCESSING_METHOD_UPGRADE,       \
                VARLINK_PROCESSED_METHOD,                \
+               VARLINK_PROCESSED_METHOD_UPGRADE,        \
                VARLINK_PENDING_METHOD,                  \
                VARLINK_PENDING_METHOD_MORE,             \
-               VARLINK_PENDING_METHOD_UPGRADE)
+               VARLINK_PENDING_METHOD_UPGRADE,          \
+               VARLINK_UPGRADING)
 
 /* Tests whether we are expected to generate a method call reply, i.e. are processing a method call, except
  * one with the ONEWAY flag set. */
@@ -92,6 +96,7 @@ typedef struct sd_varlink {
         unsigned n_pending;
 
         sd_varlink_reply_t reply_callback;
+        sd_varlink_upgrade_t upgrade_callback;
 
         sd_json_variant *current;
         sd_json_variant *current_collected;
