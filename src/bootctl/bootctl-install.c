@@ -1339,7 +1339,7 @@ static int insert_into_order(InstallContext *c, uint16_t slot, uint16_t after_sl
         order = t;
 
         /* add us to the top or end of the list */
-        if (c->operation != INSTALL_NEW) {
+        if (c->operation == INSTALL_NEW) {
                 memmove(order + 1, order, n * sizeof(uint16_t));
                 order[0] = slot;
         } else
