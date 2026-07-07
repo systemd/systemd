@@ -868,6 +868,8 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
                         if (!path_equal_filename(module_name, f.fields[COREDUMP_FIELD_EXE]))
                                 continue;
 
+                        /* Each module is an object pairing the module's build-id with its array of package
+                         * metadata notes; the build-id sits right on the module object. */
                         build_id = sd_json_variant_by_key(module_json, "buildId");
                         if (build_id)
                                 fprintf(file, "      build-id: %s\n", sd_json_variant_string(build_id));

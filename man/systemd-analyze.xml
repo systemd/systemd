@@ -911,6 +911,13 @@ alias.service:7: Unknown key name 'MysteryKey' in section 'Service', ignoring.
       <ulink url="https://systemd.io/PACKAGE_METADATA_FOR_EXECUTABLE_FILES/">
       Package Metadata for Executable Files</ulink> document for more information.</para>
 
+      <para>A single ELF object (or module within a core file) may carry more than one packaging metadata
+      note, for example when statically linked dependencies each embed their own. All of them are parsed and
+      reported. In the JSON output the value for each module is an object with the module's build-id (there
+      is exactly one per module) and a <literal>packageMetadata</literal> array holding one or more metadata objects
+      (even when only a single note is present, and empty when only a build-id could be found). In the table
+      output the build-id is printed once per module, followed by each note as a separate paragraph.</para>
+
       <example>
         <title>Print information about a core file as JSON</title>
 
@@ -920,16 +927,24 @@ alias.service:7: Unknown key name 'MysteryKey' in section 'Service', ignoring.
         "elfType" : "coredump",
         "elfArchitecture" : "AMD x86-64",
         "/home/bluca/git/fsverity-utils/fsverity" : {
-                "type" : "deb",
-                "name" : "fsverity-utils",
-                "version" : "1.3-1",
-                "buildId" : "7c895ecd2a271f93e96268f479fdc3c64a2ec4ee"
+                "buildId" : "7c895ecd2a271f93e96268f479fdc3c64a2ec4ee",
+                "packageMetadata" : [
+                        {
+                                "type" : "deb",
+                                "name" : "fsverity-utils",
+                                "version" : "1.3-1"
+                        }
+                ]
         },
         "/home/bluca/git/fsverity-utils/libfsverity.so.0" : {
-                "type" : "deb",
-                "name" : "fsverity-utils",
-                "version" : "1.3-1",
-                "buildId" : "b5e428254abf14237b0ae70ed85fffbb98a78f88"
+                "buildId" : "b5e428254abf14237b0ae70ed85fffbb98a78f88",
+                "packageMetadata" : [
+                        {
+                                "type" : "deb",
+                                "name" : "fsverity-utils",
+                                "version" : "1.3-1"
+                        }
+                ]
         }
 }
 </programlisting>

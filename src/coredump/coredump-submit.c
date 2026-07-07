@@ -747,17 +747,22 @@ int coredump_submit(const CoredumpConfig *config, CoredumpContext *context) {
          * let's avoid guessing the module name and skip the loop. */
         if (context->exe)
                 JSON_VARIANT_OBJECT_FOREACH(module_name, module_json, json_metadata) {
-                        sd_json_variant *t;
+                        sd_json_variant *metadata, *t;
 
                         /* We only add structured fields for the 'main' ELF module, and only if we can identify it. */
                         if (!path_equal_filename(module_name, context->exe))
                                 continue;
 
-                        t = sd_json_variant_by_key(module_json, "name");
+                        /* Each module is an object with the module's build-id and an array of one or more
+                         * package metadata entries. Use the first entry for the structured
+                         * COREDUMP_PACKAGE_NAME=/COREDUMP_PACKAGE_VERSION= fields. */
+                        metadata = sd_json_variant_by_index(sd_json_variant_by_key(module_json, "packageMetadata"), 0);
+
+                        t = sd_json_variant_by_key(metadata, "name");
                         if (t)
                                 (void) iovw_put_string_field(&context->iovw, "COREDUMP_PACKAGE_NAME=", sd_json_variant_string(t));
 
-                        t = sd_json_variant_by_key(module_json, "version");
+                        t = sd_json_variant_by_key(metadata, "version");
                         if (t)
                                 (void) iovw_put_string_field(&context->iovw, "COREDUMP_PACKAGE_VERSION=", sd_json_variant_string(t));
                 }
