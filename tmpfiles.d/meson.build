@@ -4,30 +4,27 @@ if conf.get('ENABLE_TMPFILES') != 1
         subdir_done()
 endif
 
-files = [['README'                                  ],
-         ['home.conf'                               ],
-         ['root.conf'                               ],
-         ['journal-nocow.conf'                      ],
-         ['portables.conf',       'ENABLE_PORTABLED'],
-         ['systemd-network.conf', 'ENABLE_NETWORKD' ],
-         ['systemd-nologin.conf', 'HAVE_PAM'        ],
-         ['systemd-nspawn.conf',  'ENABLE_MACHINED' ],
-         ['systemd-pstore.conf',  'ENABLE_PSTORE'   ],
-         ['systemd-resolve.conf', 'ENABLE_RESOLVE'  ],
-         ['20-systemd-varlink.conf'                 ],
-         ['systemd-tmp.conf'                        ],
-         ['tmp.conf'                                ],
-         ['x11.conf'                                ],
-         ['provision.conf'                          ],
-         ['credstore.conf'                          ],
-        ]
+files = [['README',                  true],
+         ['home.conf',               true],
+         ['root.conf',               true],
+         ['journal-nocow.conf',      true],
+         ['portables.conf',          conf.get('ENABLE_PORTABLED') == 1],
+         ['systemd-network.conf',    conf.get('ENABLE_NETWORKD') == 1],
+         ['systemd-nologin.conf',    conf.get('HAVE_PAM') == 1],
+         ['systemd-nspawn.conf',     conf.get('ENABLE_MACHINED') == 1],
+         ['systemd-pstore.conf',     conf.get('ENABLE_PSTORE') == 1],
+         ['systemd-remote.conf',     conf.get('ENABLE_REMOTE') == 1 and conf.get('HAVE_MICROHTTPD') == 1],
+         ['systemd-resolve.conf',    conf.get('ENABLE_RESOLVE') == 1],
+         ['20-systemd-varlink.conf', true],
+         ['systemd-tmp.conf',        true],
+         ['tmp.conf',                true],
+         ['x11.conf',                true],
+         ['provision.conf',          true],
+         ['credstore.conf',          true]]
 
-foreach f : files
-        if f.length() == 1 or conf.get(f[1]) == 1
-                install_data(f[0], install_dir : tmpfilesdir)
-        else
-                message('Not installing tmpfiles.d/@0@ because @1@ is @2@'
-                        .format(f[0], f[1], conf.get(f[1], 0)))
+foreach tuple : files
+        if tuple[1]
+                install_data(tuple[0], install_dir : tmpfilesdir)
         endif
 endforeach
 
