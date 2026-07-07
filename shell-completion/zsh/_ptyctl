@@ -1,0 +1,49 @@
+#compdef ptyctl
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+(( $+functions[_ptyctl_ptys] )) || _ptyctl_ptys()
+{
+    local mode
+    if (( $words[(I)--user] )); then
+        mode=--user
+    else
+        mode=--system
+    fi
+
+    local -a _ptys
+    _ptys=( ${(f)"$(ptyctl $mode --quiet list 2>/dev/null | awk 'NR > 1 { print $1 }')"} )
+    _describe -t ptys 'pty' _ptys
+}
+
+(( $+functions[_ptyctl_commands] )) || _ptyctl_commands()
+{
+    local -a _ptyctl_cmds
+    _ptyctl_cmds=(
+        "list:List the PTYs registered with the broker"
+        "monitor:Monitor the specified PTY"
+        "hangup:Hang up the specified PTY(s)"
+    )
+    if (( CURRENT == 1 )); then
+        _describe -t commands 'ptyctl command' _ptyctl_cmds
+    else
+        case "$words[1]" in
+            monitor|hangup)
+                _ptyctl_ptys
+                ;;
+            *)
+                _message "no more options"
+                ;;
+        esac
+    fi
+}
+
+_arguments \
+    '(- *)'{-h,--help}'[Show this help]' \
+    '(- *)--version[Show package version]' \
+    '(--quiet -q)'{-q,--quiet}'[Suppress information messages during runtime]' \
+    '--no-ask-password[Do not prompt for password]' \
+    '(--user)--system[Talk to system PTY broker]' \
+    '(--system)--user[Talk to per-user PTY broker]' \
+    '--background=[Set ANSI color for background (when monitoring)]: : _message "background color"' \
+    '--title=[Set terminal title (when monitoring)]: : _message "terminal title"' \
+    '*::ptyctl command:_ptyctl_commands'
