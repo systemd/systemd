@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/file.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "sd-device.h"
@@ -1485,33 +1486,28 @@ static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopD
 
                 r = fd_verify_regular(source_fd);
                 if (r < 0) {
+                        struct stat st;
+
                         if (r != -EISDIR)
                                 return log_error_errno(r, "Source '%s' is neither regular file nor directory: %m", arg_source);
 
                         /* We are looking at a directory. */
 
-                        target_fd = openat(dfd, bn, O_RDONLY|O_DIRECTORY|O_CLOEXEC);
-                        if (target_fd < 0) {
+                        if (fstatat(dfd, bn, &st, AT_SYMLINK_NOFOLLOW) < 0) {
                                 if (errno != ENOENT)
-                                        return log_error_errno(errno, "Failed to open destination '%s': %m", arg_target);
+                                        return log_error_errno(errno, "Failed to stat destination '%s': %m", arg_target);
+                        } else if (S_ISLNK(st.st_mode))
+                                return log_error_errno(SYNTHETIC_ERRNO(ELOOP),
+                                                "Refusing to copy directory to symlink destination '%s'.", arg_target);
 
-                                r = copy_tree_at(
-                                                source_fd, ".",
-                                                dfd, bn,
-                                                arg_copy_ownership == 0 ? getuid() : UID_INVALID,
-                                                arg_copy_ownership == 0 ? getgid() : GID_INVALID,
-                                                COPY_REFLINK|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS,
-                                                /* denylist= */ NULL,
-                                                /* subvolumes= */ NULL);
-                        } else
-                                r = copy_tree_at(
-                                                source_fd, ".",
-                                                target_fd, ".",
-                                                arg_copy_ownership == 0 ? getuid() : UID_INVALID,
-                                                arg_copy_ownership == 0 ? getgid() : GID_INVALID,
-                                                COPY_REFLINK|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS,
-                                                /* denylist= */ NULL,
-                                                /* subvolumes= */ NULL);
+                        r = copy_tree_at(
+                                        source_fd, ".",
+                                        dfd, bn,
+                                        arg_copy_ownership == 0 ? getuid() : UID_INVALID,
+                                        arg_copy_ownership == 0 ? getgid() : GID_INVALID,
+                                        COPY_REFLINK|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS,
+                                        /* denylist= */ NULL,
+                                        /* subvolumes= */ NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to copy '%s' to '%s' in image '%s': %m", arg_source, arg_target, arg_image);
 
