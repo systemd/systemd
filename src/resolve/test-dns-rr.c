@@ -2240,6 +2240,26 @@ TEST(dns_resource_record_to_string_soa) {
         ASSERT_STREQ(str, "www.example.com IN SOA ns0.example.com ns0.example.com 1111111111 86400 7200 4000000 3600");
 }
 
+TEST(dns_resource_record_to_json_soa) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_SOA, "www.example.com");
+        ASSERT_NOT_NULL(rr);
+        rr->soa.mname = strdup("ns0.example.com");
+        rr->soa.rname = strdup("hostmaster.example.com");
+        rr->soa.serial = 1111111111;
+        rr->soa.refresh = 86400;
+        rr->soa.retry = 7200;
+        rr->soa.expire = 4000000;
+        rr->soa.minimum = 3600;
+
+        ASSERT_OK(dns_resource_record_to_json(rr, &j));
+        ASSERT_NOT_NULL(sd_json_variant_by_key(j, "retry"));
+        ASSERT_EQ(sd_json_variant_unsigned(sd_json_variant_by_key(j, "retry")), UINT64_C(7200));
+        ASSERT_EQ(sd_json_variant_unsigned(sd_json_variant_by_key(j, "expire")), UINT64_C(4000000));
+}
+
 TEST(dns_resource_record_to_string_ptr) {
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
         const char *str;
