@@ -189,6 +189,7 @@ shared_sources = files(
         'resolve-hook-util.c',
         'resolve-util.c',
         'resolve-varlink-util.c',
+        'ringbuf.c',
         'rm-rf.c',
         'seccomp-util.c',
         'securebits-util.c',
