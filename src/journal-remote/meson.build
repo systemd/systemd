@@ -95,9 +95,4 @@ endforeach
 if conf.get('ENABLE_REMOTE') == 1 and conf.get('HAVE_MICROHTTPD') == 1
         install_data('browse.html',
                      install_dir : pkgdatadir / 'gatewayd')
-
-        if get_option('create-log-dirs')
-                install_emptydir('/var/log/journal/remote',
-                                 install_mode : 'rwxr-xr-x')
-        endif
 endif
