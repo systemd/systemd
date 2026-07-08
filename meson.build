@@ -2525,6 +2525,7 @@ test_dlopen = executables_by_name.get('test-dlopen')
 nss_targets = []
 pam_targets = []
 module_targets = []
+modules_by_name = {}
 foreach dict : modules
         name = dict.get('name')
         is_nss = name.startswith('nss_')
@@ -2570,6 +2571,40 @@ foreach dict : modules
         )
 
         module_targets += lib
+        modules_by_name += { name : lib }
+
+        if not is_nss and not is_pam
+                # Typically for cryptsetup token modules.
+
+                name_static = name + '.standalone'
+                kwargs_static = kwargs
+
+                link_with_static = []
+                foreach obj : kwargs_static.get('link_with', [])
+                        if obj.full_path() == libshared.full_path()
+                                link_with_static += [
+                                        libshared_static,
+                                        libsystemd_static,
+                                ]
+                        else
+                                link_with_static += obj
+                        endif
+                endforeach
+
+                kwargs_static += {
+                        'link_with' : link_with_static,
+                        'install' : false,
+                        'build_by_default' : false,
+                }
+
+                lib_static = shared_library(
+                        name_static,
+                        kwargs : kwargs_static,
+                        implicit_include_directories : false,
+                )
+
+                modules_by_name += { name_static : lib_static }
+        endif
 
         if is_nss
                 # We cannot use shared_module because it does not support version suffix.
