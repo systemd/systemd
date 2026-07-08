@@ -15,12 +15,68 @@
 #include "icmp6-test-util.h"
 #include "in-addr-util.h"
 #include "ndisc-internal.h"
+#include "ndisc-neighbor-internal.h"
+#include "ndisc-redirect-internal.h"
+#include "ndisc-router-internal.h"
 #include "strv.h"
 #include "tests.h"
 
 static struct ether_addr mac_addr = {
         .ether_addr_octet = {'A', 'B', 'C', '1', '2', '3'}
 };
+
+static ICMP6Packet* make_packet(const void *raw, size_t size) {
+        ICMP6Packet *packet;
+
+        assert(raw);
+
+        packet = malloc0(offsetof(ICMP6Packet, raw_packet) + size);
+        ASSERT_NOT_NULL(packet);
+
+        packet->n_ref = 1;
+        packet->raw_size = size;
+        memcpy(packet->raw_packet, raw, size);
+
+        return packet;
+}
+
+TEST(parse_rejects_nonzero_code) {
+        static const struct nd_router_advert router_advertisement = {
+                .nd_ra_type = ND_ROUTER_ADVERT,
+                .nd_ra_code = 1,
+        };
+        static const struct nd_neighbor_advert neighbor_advertisement = {
+                .nd_na_type = ND_NEIGHBOR_ADVERT,
+                .nd_na_code = 1,
+        };
+        static const struct nd_redirect redirect = {
+                .nd_rd_type = ND_REDIRECT,
+                .nd_rd_code = 1,
+        };
+
+        _cleanup_(icmp6_packet_unrefp) ICMP6Packet *packet =
+                make_packet(&router_advertisement, sizeof(router_advertisement));
+        _cleanup_(sd_ndisc_router_unrefp) sd_ndisc_router *router =
+                ASSERT_PTR(ndisc_router_new(packet));
+
+        ASSERT_ERROR(ndisc_router_parse(/* nd= */ NULL, router), EBADMSG);
+        router = sd_ndisc_router_unref(router);
+        packet = icmp6_packet_unref(packet);
+
+        packet = make_packet(&neighbor_advertisement, sizeof(neighbor_advertisement));
+        _cleanup_(sd_ndisc_neighbor_unrefp) sd_ndisc_neighbor *neighbor =
+                ASSERT_PTR(ndisc_neighbor_new(packet));
+
+        ASSERT_ERROR(ndisc_neighbor_parse(/* nd= */ NULL, neighbor), EBADMSG);
+        neighbor = sd_ndisc_neighbor_unref(neighbor);
+        packet = icmp6_packet_unref(packet);
+
+        packet = make_packet(&redirect, sizeof(redirect));
+        _cleanup_(sd_ndisc_redirect_unrefp) sd_ndisc_redirect *rd =
+                ASSERT_PTR(ndisc_redirect_new(packet));
+
+        ASSERT_ERROR(ndisc_redirect_parse(/* nd= */ NULL, rd), EBADMSG);
+}
 
 static void router_dump(sd_ndisc_router *rt) {
         struct in6_addr addr;
