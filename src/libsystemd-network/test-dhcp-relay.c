@@ -314,7 +314,7 @@ TEST(forwarding) {
 
         /* Invalid message (too large hops). */
         ASSERT_OK(dhcp_message_append_option_u8(m, SD_DHCP_OPTION_MESSAGE_TYPE, 101));
-        m->header.hops = 16;
+        m->header.hops = 17;
         send_message(downstream_fd[1], m);
         dhcp_message_remove_option(m, SD_DHCP_OPTION_MESSAGE_TYPE);
         m->header.hops = 0;
