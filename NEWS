@@ -6,6 +6,14 @@ CHANGES WITH 263 in spe:
 
         Feature Removals and Incompatible Changes:
 
+        * The "TasksMax" field of the CGroup context in the io.systemd.Unit
+          varlink interface is no longer exposed as an object with "value" and
+          "scale" members. Absolute limits are now exposed as "TasksMax"
+          (integer), relative limits as "TasksMaxScale" (float, normalized so
+          that 1.0 means 100%), with exactly one of the two emitted. This
+          matches the corresponding new CGroup input fields accepted by
+          io.systemd.Unit.StartTransient().
+
 CHANGES WITH 262:
 
         Announcements of Future Feature Removals and Incompatible Changes:
