@@ -293,45 +293,46 @@ int efi_get_boot_option(
                 dnext = 0;
                 while (dnext < header->path_len) {
                         struct device_path *dpath;
+                        size_t remaining;
+
+                        remaining = header->path_len - dnext;
+                        if (remaining < offsetof(struct device_path, path))
+                                return -EINVAL;
 
                         dpath = (struct device_path *)(dbuf + dnext);
-                        if (dpath->length < 4)
-                                break;
+                        if (dpath->length < offsetof(struct device_path, path) ||
+                            dpath->length > remaining)
+                                return -EINVAL;
 
                         /* Type 0x7F – End of Hardware Device Path, Sub-Type 0xFF – End Entire Device Path */
                         if (dpath->type == END_DEVICE_PATH_TYPE && dpath->sub_type == END_ENTIRE_DEVICE_PATH_SUBTYPE)
                                 break;
 
-                        dnext += dpath->length;
-
                         /* Type 0x04 – Media Device Path */
-                        if (dpath->type != MEDIA_DEVICE_PATH)
-                                continue;
+                        if (dpath->type == MEDIA_DEVICE_PATH) {
+                                /* Sub-Type 1 – Hard Drive */
+                                if (dpath->sub_type == MEDIA_HARDDRIVE_DP) {
+                                        if (dpath->length < offsetof(struct device_path, drive) + sizeof(struct drive_path))
+                                                return -EINVAL;
 
-                        /* Sub-Type 1 – Hard Drive */
-                        if (dpath->sub_type == MEDIA_HARDDRIVE_DP) {
-                                /* 0x02 – GUID Partition Table */
-                                if (dpath->drive.mbr_type != MBR_TYPE_EFI_PARTITION_TABLE_HEADER)
-                                        continue;
+                                        /* 0x02 – GUID Partition Table */
+                                        if (dpath->drive.mbr_type == MBR_TYPE_EFI_PARTITION_TABLE_HEADER) {
+                                                /* 0x02 – GUID signature */
+                                                if (dpath->drive.signature_type == SIGNATURE_TYPE_GUID && ret_part_uuid)
+                                                        p_uuid = efi_guid_to_id128(dpath->drive.signature);
+                                        }
 
-                                /* 0x02 – GUID signature */
-                                if (dpath->drive.signature_type != SIGNATURE_TYPE_GUID)
-                                        continue;
+                                /* Sub-Type 4 – File Path */
+                                } else if (dpath->sub_type == MEDIA_FILEPATH_DP && !p && ret_path) {
+                                        p = utf16_to_utf8(dpath->path, dpath->length - offsetof(struct device_path, path));
+                                        if (!p)
+                                                return -ENOMEM;
 
-                                if (ret_part_uuid)
-                                        p_uuid = efi_guid_to_id128(dpath->drive.signature);
-                                continue;
+                                        efi_tilt_backslashes(p);
+                                }
                         }
 
-                        /* Sub-Type 4 – File Path */
-                        if (dpath->sub_type == MEDIA_FILEPATH_DP && !p && ret_path) {
-                                p = utf16_to_utf8(dpath->path, dpath->length-4);
-                                if (!p)
-                                        return  -ENOMEM;
-
-                                efi_tilt_backslashes(p);
-                                continue;
-                        }
+                        dnext += dpath->length;
                 }
         }
 

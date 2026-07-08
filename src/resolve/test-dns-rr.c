@@ -2449,12 +2449,19 @@ TEST(dns_resource_record_clamp_ttl_in_place) {
         ASSERT_NOT_NULL(rr);
         orig = rr;
         rr->ttl = 3600;
+        rr->a.in_addr.s_addr = htobe32(0xc0a8017f);
 
         ASSERT_FALSE(dns_resource_record_clamp_ttl(&rr, 4800));
         ASSERT_EQ(rr->ttl, 3600u);
 
+        ASSERT_OK(dns_resource_record_to_wire_format(rr, false));
+        ASSERT_NOT_NULL(rr->wire_format);
+
         ASSERT_TRUE(dns_resource_record_clamp_ttl(&rr, 2400));
         ASSERT_EQ(rr->ttl, 2400u);
+        ASSERT_NULL(rr->wire_format);
+        ASSERT_EQ(rr->wire_format_size, 0u);
+        ASSERT_EQ(rr->wire_format_rdata_offset, 0u);
 
         ASSERT_TRUE(rr == orig);
 

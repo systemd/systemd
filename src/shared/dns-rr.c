@@ -1977,6 +1977,9 @@ int dns_resource_record_clamp_ttl(DnsResourceRecord **rr, uint32_t max_ttl) {
         if (old_rr->n_ref == 1) {
                 /* Patch in place */
                 old_rr->ttl = new_ttl;
+                old_rr->wire_format = mfree(old_rr->wire_format);
+                old_rr->wire_format_size = 0;
+                old_rr->wire_format_rdata_offset = 0;
                 return 1;
         }
 
