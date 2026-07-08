@@ -40,31 +40,23 @@ systemctl_export_sources = files(
         'systemctl.c',
 )
 
-if get_option('link-systemctl-shared')
-        systemctl_link_with = [libshared]
-else
-        systemctl_link_with = [libsystemd_static,
-                               libshared_static]
-endif
-
 executables += [
         executable_template + {
                 'name' : 'systemctl',
                 'public' : true,
                 'sources' : systemctl_sources,
                 'export' : systemctl_export_sources,
-                'link_with' : systemctl_link_with,
                 'dependencies' : [
                         liblz4_cflags,
                         libxz_cflags,
                         libzstd_cflags,
                 ],
+                'install' : get_option('link-systemctl-shared') ? 'yes' : 'static',
                 'install_tag' : 'systemctl',
         },
         fuzz_template + {
                 'sources' : files('fuzz-systemctl-parse-argv.c'),
                 'import' : ['systemctl'],
-                'link_with' : systemctl_link_with,
                 'dependencies' : [
                         libselinux_cflags,
                 ],
