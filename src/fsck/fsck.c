@@ -108,18 +108,22 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
-                arg_mode = fsck_mode_from_string(value);
-                if (arg_mode < 0)
-                        log_warning_errno(arg_mode, "Invalid fsck.mode= parameter, ignoring: %s", value);
+                FSCKMode mode = fsck_mode_from_string(value);
+                if (mode < 0)
+                        log_warning_errno(mode, "Invalid fsck.mode= parameter, ignoring: %s", value);
+                else
+                        arg_mode = mode;
 
         } else if (streq(key, "fsck.repair")) {
 
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
-                arg_repair = fsck_repair_from_string(value);
-                if (arg_repair < 0)
-                        log_warning_errno(arg_repair, "Invalid fsck.repair= parameter, ignoring: %s", value);
+                FSCKRepair repair = fsck_repair_from_string(value);
+                if (repair < 0)
+                        log_warning_errno(repair, "Invalid fsck.repair= parameter, ignoring: %s", value);
+                else
+                        arg_repair = repair;
         }
 
         else if (streq(key, "fastboot") && !value)
@@ -139,9 +143,11 @@ static void parse_credentials(void) {
         if (r < 0)
                 log_debug_errno(r, "Failed to read credential 'fsck.mode', ignoring: %m");
         else {
-                arg_mode = fsck_mode_from_string(value);
-                if (arg_mode < 0)
-                        log_warning_errno(arg_mode, "Invalid 'fsck.mode' credential, ignoring: %s", value);
+                FSCKMode mode = fsck_mode_from_string(value);
+                if (mode < 0)
+                        log_warning_errno(mode, "Invalid 'fsck.mode' credential, ignoring: %s", value);
+                else
+                        arg_mode = mode;
         }
 
         value = mfree(value);
@@ -150,9 +156,11 @@ static void parse_credentials(void) {
         if (r < 0)
                 log_debug_errno(r, "Failed to read credential 'fsck.repair', ignoring: %m");
         else {
-                arg_repair = fsck_repair_from_string(value);
-                if (arg_repair < 0)
-                        log_warning_errno(arg_repair, "Invalid 'fsck.repair' credential, ignoring: %s", value);
+                FSCKRepair repair = fsck_repair_from_string(value);
+                if (repair < 0)
+                        log_warning_errno(repair, "Invalid 'fsck.repair' credential, ignoring: %s", value);
+                else
+                        arg_repair = repair;
         }
 }
 
