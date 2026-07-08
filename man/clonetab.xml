@@ -1,0 +1,121 @@
+<?xml version="1.0"?>
+<!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!--
+  SPDX-License-Identifier: LGPL-2.1-or-later
+-->
+<refentry id="clonetab" xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>clonetab</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>clonetab</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>clonetab</refname>
+    <refpurpose>Configuration for dm-clone block devices</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>/etc/clonetab</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para>The <filename>/etc/clonetab</filename> file describes
+    dm-clone block devices that are set up during system boot.</para>
+
+    <para>Empty lines and lines starting with the <literal>#</literal>
+    character are ignored. Each of the remaining lines describes one
+    dm-clone device. Fields are delimited by white space.</para>
+
+    <para>Each line is in the form<programlisting><replaceable>name</replaceable> <replaceable>source-device</replaceable> <replaceable>destination-device</replaceable> <replaceable>metadata-device</replaceable> [<replaceable>options</replaceable>]</programlisting>
+    The first four fields are mandatory, the fifth is optional.</para>
+
+    <para>The five fields of <filename>/etc/clonetab</filename> are defined as follows:</para>
+
+    <orderedlist>
+
+      <listitem><para>The first field contains the name of the resulting dm-clone device; its
+      block device is set up below <filename>/dev/mapper/</filename>.</para></listitem>
+
+      <listitem><para>The second field contains a path to the read-only source block device.
+      This is the device whose data is cloned to the destination device. Reads to regions not
+      yet hydrated are served directly from this device.</para></listitem>
+
+      <listitem><para>The third field contains a path to the writable destination block device.
+      The source device's data is copied here in the background. It must be at least as
+      large as the source device.</para></listitem>
+
+      <listitem><para>The fourth field contains a path to the metadata block device. This
+      small device tracks which regions of the destination have been hydrated and is managed
+      exclusively by dm-clone.</para></listitem>
+
+      <listitem><para>The fifth field, if present, contains comma-separated <literal>key=value</literal>
+      options. The following option is supported:</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><option>region-size=<replaceable>BYTES</replaceable></option></term>
+          <listitem><para>Controls the granularity of background hydration copying — how much
+          data is copied at a time. Region size is specified in bytes (standard suffixes like
+          <literal>K</literal>, <literal>M</literal>, <literal>G</literal> are supported), and must
+          correspond to a power of two between 4 KiB and 1 GiB. For example,
+          <literal>region-size=4K</literal> or <literal>region-size=4096</literal> sets a 4 KiB region size.</para>
+
+        <para>
+          One region is the atomic unit dm-clone tracks: it is either fully hydrated (copied to the destination)
+          or not, never partially. If a copy is interrupted mid-region, that whole region is
+          retried from scratch on next boot. Smaller regions mean finer progress tracking;
+          larger regions reduce metadata overhead. Defaults to <literal>4K</literal>. For background, see
+          <ulink url="https://www.kernel.org/doc/html/latest/admin-guide/device-mapper/dm-clone.html">dm-clone kernel documentation</ulink>.
+        </para>
+
+          <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+        </varlistentry>
+      </variablelist>
+
+      <para>If no options are needed, the field may be omitted entirely or
+      <literal>-</literal> may be used as a placeholder.</para>
+      </listitem>
+
+    </orderedlist>
+
+    <para>At early boot and when the system manager configuration is reloaded, this file is
+    translated into native systemd units by
+    <citerefentry><refentrytitle>systemd-clonesetup-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <example>
+      <title>Simple clone without options</title>
+      <para>Clone a source device to a destination, using a separate metadata device:</para>
+      <programlisting>mydevice /dev/sdb /dev/sdc /dev/sdd</programlisting>
+    </example>
+
+    <example>
+      <title>Clone with custom region size</title>
+      <para>Clone a source device to a destination with a custom region size of 8 KiB:</para>
+      <programlisting>mydevice /dev/sdb /dev/sdc /dev/sdd region-size=8K</programlisting>
+    </example>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-clonesetup-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry project='die-net'><refentrytitle>dmsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>
