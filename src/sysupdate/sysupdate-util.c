@@ -34,11 +34,26 @@ int reboot_now(void) {
 bool component_name_valid(const char *c) {
         /* See if the specified string enclosed in the directory prefix+suffix would be a valid file name */
 
+        if (endswith(c, ".component")) /* don't allow ambiguity around sysupdate.<foobar>.component.d/ */
+                return false;
+
         if (!string_is_safe(c, STRING_FILENAME_PART))
                 return false;
 
         /* Stack allocation is safe, since STRING_FILENAME_PART includes a length check */
         const char *j = strjoina("sysupdate.", c, ".d");
+
+        return filename_is_valid(j);
+}
+
+bool feature_name_valid(const char *c) {
+        /* See if the specified string enclosed in the file suffix would be a valid file name */
+
+        if (!string_is_safe(c, STRING_FILENAME_PART))
+                return false;
+
+        /* Stack allocation is safe, since STRING_FILENAME_PART includes a length check */
+        const char *j = strjoina(c, ".feature");
 
         return filename_is_valid(j);
 }
