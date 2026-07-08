@@ -547,14 +547,16 @@ static const char16_t *serial_console_arg(uint32_t index) {
 /* If there's no console= in the command line yet, try to detect the appropriate console device.
  *
  * Detection order:
- * 1. If exactly one VirtIO console PCI device exists -> console=hvc0
- * 2. If there's graphical output (GOP) -> don't add console=, the kernel defaults are fine
+ * 1. If there's graphical output (GOP) -> don't add console=, the kernel defaults are fine
+ * 2. If exactly one VirtIO console PCI device exists -> console=hvc0
  * 3. On x86, if exactly one serial console exists -> console=uart,io,<addr>
  * 4. Otherwise -> don't add console=, let the user handle it
  *
- * VirtIO console takes priority since it's explicitly configured by the VMM. Graphics is
- * checked before serial to avoid accidentally redirecting output away from a graphical
- * console by adding a serial console= argument.
+ * Graphics is checked first to avoid redirecting output away from a graphical console.
+ * The VirtIO console takes priority over serial since it's explicitly configured by the VMM but detection
+ * by PCI ID also triggers for non-console ports, so its presence alone doesn't imply that a hvc0 console
+ * actually exists. For example, for qemu-guest-agent the PCI device is present but only a traditional
+ * serial console is used. In this case we wrongly prefer hvc0 for now.
  *
  * Serial console auto-detection is restricted to x86 where ACPI PNP0501 UIDs map to fixed
  * I/O port addresses for 8250/16550 UARTs. On non-x86 (e.g. ARM), serial device indices are
@@ -571,14 +573,15 @@ void cmdline_append_console(char16_t **cmdline) {
                 return;
         }
 
+        if (has_graphics_output()) {
+                log_debug("Graphical output available, not adding console= to kernel command line.");
+                return;
+        }
+
         const char16_t *console_arg = NULL;
 
         if (has_virtio_console_pci_device())
                 console_arg = u"console=hvc0";
-        else if (has_graphics_output()) {
-                log_debug("Graphical output available, not adding console= to kernel command line.");
-                return;
-        }
 #if defined(__i386__) || defined(__x86_64__)
         else {
                 uint32_t serial_index;
