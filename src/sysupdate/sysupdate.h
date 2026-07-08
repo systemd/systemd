@@ -4,6 +4,14 @@
 #include "sysupdate-forward.h"
 #include "sysupdate-target.h"
 
+typedef enum SelectMode {
+        SELECT_EXPLICIT,       /* Only explicitly specified features/components */
+        SELECT_ALL,            /* All available features/components */
+        SELECT_SUGGESTED,      /* All suggested features/components */
+        _SELECT_MODE_MAX,
+        _SELECT_MODE_INVALID = -EINVAL,
+} SelectMode;
+
 typedef struct Context {
         /* Parameters/Command line arguments: */
         char *definitions;
@@ -14,7 +22,8 @@ typedef struct Context {
         bool reboot;
         int cleanup;
         char *component;
-        bool component_all;
+        SelectMode component_select;
+        SelectMode feature_select;
         int verify;
         ImagePolicy *image_policy;
         bool offline;
@@ -23,6 +32,13 @@ typedef struct Context {
         /* Loaded state: */
         LoopDevice *loop_device;
         char *mounted_dir;
+
+        char *component_description;
+        char **component_documentation;
+        bool component_enabled;
+
+        int component_suggest;
+        Condition *component_suggest_on;
 
         Transfer **transfers;
         size_t n_transfers;
