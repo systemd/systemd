@@ -17,55 +17,47 @@ at_exit() {
 trap at_exit EXIT
 
 test -x "${GENERATOR_BIN:?}"
-mkdir -p "$OUT_DIR"/{main,initrd}
+mkdir -p "$OUT_DIR"/{system,initrd}
 
 run_for_cmdline() {
-    local cmdline="${1:?}"
-    local out_dir="$OUT_DIR/${2:-main}"
-    local in_initrd=$([ "${2:?}" != "initrd" ]; echo $?)
+    if [[ "${2:?}" == "both" ]]; then
+        run_for_cmdline "$1" system
+        run_for_cmdline "$1" initrd
+    elif
+        local cmdline="${1:?}"
+        local out_dir="$OUT_DIR/${2:-system}"
+        local in_initrd=$([ "${2:?}" != "initrd" ]; echo $?)
 
-    SYSTEMD_IN_INITRD="$in_initrd" SYSTEMD_PROC_CMDLINE="$cmdline" run_and_list "$GENERATOR_BIN" "$out_dir"
-}
-
-compare_initrd_main() {
-    local cmdline="${1:?}"
-    local mount_id="${2:?}"
-
-    run_for_cmdline "$cmdline"
-    run_for_cmdline "$cmdline" initrd
-
-    test -f "$OUT_DIR"/main/late/systemd-cryptsetup@"$mount_id".service
-    test -f "$OUT_DIR"/initrd/late/systemd-cryptsetup@"$mount_id".service
-
-    # read-only is ignored by the generator for root and usr in initrd
-    # only initrd unconditionally builds cryptsetup service using dedicated designators
-    diff <( sed -E "s/^(ExecStart=.+ attach '.*' '.*' '.*' )('([^,]+,)+|')(read-only,?)(([^,]+)+'|')$/\1\2\5/
-                    s/^(ExecStart=.*),'$/\1'/" "$OUT_DIR"/main/late/systemd-cryptsetup@"$mount_id".service ) \
-         <( sed -E "s/^(ExecStart=.+ attach '.*' '.*)(-luks|-luks-ignore-factory-reset)(' '.*' '.*')$/\1\3/
-                    s/^((BindsTo|After)=dev-.*)\\\x2dluks(\.device)$/\1\3/" "$OUT_DIR"/initrd/late/systemd-cryptsetup@"$mount_id".service )
+        SYSTEMD_IN_INITRD="$in_initrd" SYSTEMD_PROC_CMDLINE="$cmdline" run_and_list "$GENERATOR_BIN" "$out_dir"
+    fi
 }
 
 # read-only is ignored by the generator for root and usr in initrd
 run_for_cmdline "ro root=gpt-auto" initrd
 (! grep -qE "^ExecStart=.*'(.+,)?read-only(,|')" "$OUT_DIR/initrd/late/systemd-cryptsetup@root.service" )
+grep -qE "^ExecStart=.+ attach '.*' '/dev/gpt-auto-root-luks' '.*' '.*'$" "$OUT_DIR/initrd/late/systemd-cryptsetup@root.service"
+grep -qE "^BindsTo=dev-gpt\\\x2dauto\\\x2droot\\\x2dluks.device$" "$OUT_DIR/initrd/late/systemd-cryptsetup@root.service"
 
-# both dissect and gpt-auto create systemd-cryptsetup@.service
-compare_initrd_main "rw root=gpt-auto rootfstype=crypto_LUKS" "root"
-compare_initrd_main "ro root=dissect rootfstype=crypto_LUKS" "root"
+# test luks-ignore-factory-reset
 
-# without explicit fstype crypto_LUKS, only initrd builds these services
-(! compare_initrd_main "rw root=dissect mount.usr=dissect" "root" )
-(! compare_initrd_main "rw root=dissect mount.usr=dissect" "usr" )
+# both dissect and gpt-auto create systemd-cryptsetup@.service in initrd
+# but these survive switch-root and thus are not created in system mode
+run_for_cmdline "ro root=gpt-auto rootfstype=crypto_LUKS" both
+test -f "$OUT_DIR"/initrd/late/systemd-cryptsetup@root.service
+(! test -f "$OUT_DIR"/system/late/systemd-cryptsetup@root.service )
+
+run_for_cmdline "rw root=dissect mount.usr=dissect" both
 test -f "$OUT_DIR"/initrd/late/systemd-cryptsetup@usr.service
 test -f "$OUT_DIR"/initrd/late/systemd-cryptsetup@root.service
+(! test -f "$OUT_DIR"/system/late/systemd-cryptsetup@usr.service )
+(! test -f "$OUT_DIR"/system/late/systemd-cryptsetup@root.service )
 
 # crypto_LUKS as fstype results in the service being created after initrd again
-compare_initrd_main "ro root=dissect mount.usr=dissect mount.usrfstype=crypto_LUKS" "usr"
-compare_initrd_main "rw root=dissect rootfstype=crypto_LUKS mount.usr=dissect mount.usrfstype=crypto_LUKS" "usr"
-compare_initrd_main "ro root=dissect rootfstype=crypto_LUKS mount.usr=dissect" "usr"
+run_for_cmdline "rw root=dissect rootfstype=crypto_LUKS mount.usr=dissect mount.usrfstype=crypto_LUKS" both
+(! test -f "$OUT_DIR"/system/late/systemd-cryptsetup@usr.service )
+(! test -f "$OUT_DIR"/system/late/systemd-cryptsetup@root.service )
 
 # mount.crypt.interactive_recovery=no turns on headless-recovery and adds a OnFailure target
-compare_initrd_main "rw root=dissect mount.usr=dissect rootfstype=crypto_LUKS mount.crypt.interactive_recovery=no" "root"
-compare_initrd_main "rw root=dissect mount.usr=dissect rootfstype=crypto_LUKS mount.crypt.interactive_recovery=no" "usr"
-grep -qE "^OnFailure=decryption-failure@usr.target" "$OUT_DIR/main/late/systemd-cryptsetup@usr.service"
-grep -qE "^ExecStart=.*'(.+,)?headless-recovery(,|')" "$OUT_DIR/main/late/systemd-cryptsetup@usr.service"
+run_for_cmdline "rw root=dissect mount.usr=dissect rootfstype=crypto_LUKS mount.crypt.interactive_recovery=no" both
+grep -qE "^OnFailure=decryption-failure@usr.target" "$OUT_DIR/system/late/systemd-cryptsetup@usr.service"
+grep -qE "^ExecStart=.*'(.+,)?headless-recovery(,|')" "$OUT_DIR/system/late/systemd-cryptsetup@usr.service"
