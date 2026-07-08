@@ -34,6 +34,9 @@ int reboot_now(void) {
 bool component_name_valid(const char *c) {
         /* See if the specified string enclosed in the directory prefix+suffix would be a valid file name */
 
+        if (endswith(c, ".component")) /* don't allow ambiguity around sysupdate.<foobar>.component.d/ */
+                return false;
+
         if (!string_is_safe(c, STRING_FILENAME_PART))
                 return false;
 
