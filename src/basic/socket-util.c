@@ -14,6 +14,7 @@
 #include <stdio.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
+#include <sys/xattr.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -22,7 +23,6 @@
 #include "fd-util.h"
 #include "format-ifname.h"
 #include "format-util.h"
-#include "fs-util.h"
 #include "in-addr-util.h"
 #include "io-util.h"
 #include "log.h"
@@ -38,7 +38,6 @@
 #include "string-util.h"
 #include "strv.h"
 #include "sysctl-util.h"
-#include "tmpfile-util.h"
 #include "user-util.h"
 #include "xattr-util.h"
 
@@ -1902,37 +1901,23 @@ int tos_to_priority(uint8_t tos) {
 int socket_xattr_supported(void) {
         int r;
 
-        // FIXME: Drop this check once Linux 7.0 becomes our baseline
-
-        /* Checks if socket inodes may have xattrs on this kernel. This should pass on kernel 7.0, fail on
-         * older kernels */
+        // FIXME: Drop this check once Linux 7.1 becomes our baseline
 
         static int cached = -1;
         if (cached >= 0)
                 return cached;
 
-        const char *t;
-        r = tmp_dir(&t);
-        if (r < 0)
-                return r;
-
-        _cleanup_free_ char *sp = NULL;
-        r = tempfn_random_child(t, "sockxattrtest", &sp);
-        if (r < 0)
-                return r;
-
-        if (mknod(sp, S_IFSOCK | 0600, /* dev= */ 0) < 0)
+        _cleanup_close_ int fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, /* protocol= */ 0);
+        if (fd < 0)
                 return -errno;
-
-        _cleanup_(unlink_and_freep) char *sp_destroy = TAKE_PTR(sp);
 
         /* Old kernels return EPERM. But let's also check for more appropriate error codes, to be friendly to
          * seccomp policies */
-        r = xsetxattr(AT_FDCWD, sp_destroy, /* at_flags= */ 0, "user.testxxx", "1");
+        r = xsetxattr(fd, /* path= */ NULL, AT_EMPTY_PATH, "user.testxxx", "1");
         if (ERRNO_IS_NEG_NOT_SUPPORTED(r) || r == -EPERM)
                 return (cached = false);
         if (r < 0)
-                return log_debug_errno(r, "Failed to set test xattr on socket inode '%s': %m", sp_destroy);
+                return log_debug_errno(r, "Failed to set test xattr on socket: %m");
 
         return (cached = true);
 }
