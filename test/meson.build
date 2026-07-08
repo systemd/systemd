@@ -279,6 +279,60 @@ endif
 
 ############################################################
 
+if want_tests != 'false' and pyelftools.found()
+        test_dlopen_note_py = files('test-dlopen-note.py')
+
+        foreach name, exe : executables_by_name
+                if name.endswith('.static') or name.endswith('.shared')
+                        continue
+                endif
+
+                name_static = name + '.static'
+                if name + '.standalone' in executables_by_name
+                        exe_shared = exe
+                        exe_static = executables_by_name.get(name + '.standalone')
+                elif name + '.shared' in executables_by_name
+                        exe_shared = executables_by_name.get(name + '.shared')
+                        exe_static = exe
+                else
+                        continue
+                endif
+
+                test(name,
+                     test_dlopen_note_py,
+                     env : test_env,
+                     args : ['--shared', exe_shared.full_path(), '--static', exe_static.full_path()],
+                     depends : [exe_shared, exe_static],
+                     suite : 'dlopen')
+        endforeach
+
+        foreach name, lib : modules_by_name
+                if name.endswith('.standalone')
+                        continue
+                endif
+
+                lib_static = modules_by_name.get(name + '.standalone', lib)
+
+                test('lib' + lib.name(),
+                     test_dlopen_note_py,
+                     env : test_env,
+                     args : ['--shared', lib.full_path(), '--static', lib_static.full_path()],
+                     depends : [lib, lib_static],
+                     suite : 'dlopen')
+        endforeach
+
+        foreach lib : [libshared, libsystemd, libudev]
+                test('lib' + lib.name(),
+                     test_dlopen_note_py,
+                     env : test_env,
+                     args : ['--shared', lib.full_path(), '--static', lib.full_path()],
+                     depends : [lib],
+                     suite : 'dlopen')
+        endforeach
+endif
+
+############################################################
+
 if want_tests != 'false'
         subdir('integration-tests')
 endif
