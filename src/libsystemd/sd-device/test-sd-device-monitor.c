@@ -444,7 +444,10 @@ TEST(sd_device_monitor_receive_bad_properties_off) {
                 .msg_name = &sa,
                 .msg_namelen = sizeof(struct sockaddr_nl),
         };
-        ASSERT_OK_ERRNO(sendmsg(sd_device_monitor_get_fd(monitor_server), &smsg, 0));
+
+        int fd = sd_device_monitor_get_fd(monitor_server);
+        ASSERT_OK(fd);
+        ASSERT_OK_ERRNO(sendmsg(fd, &smsg, 0));
 
         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
         ASSERT_ERROR(sd_device_monitor_receive(monitor_client, &dev), EAGAIN);
