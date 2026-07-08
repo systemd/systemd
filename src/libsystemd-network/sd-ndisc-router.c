@@ -108,7 +108,9 @@ int ndisc_router_parse(sd_ndisc *nd, sd_ndisc_router *rt) {
 
         a = (const struct nd_router_advert*) rt->packet->raw_packet;
         assert(a->nd_ra_type == ND_ROUTER_ADVERT);
-        assert(a->nd_ra_code == 0);
+        if (a->nd_ra_code != 0)
+                return log_ndisc_errno(nd, SYNTHETIC_ERRNO(EBADMSG),
+                                       "Received Router Advertisement with non-zero code, ignoring.");
 
         rt->hop_limit = a->nd_ra_curhoplimit;
         rt->flags = a->nd_ra_flags_reserved; /* the first 8 bits */

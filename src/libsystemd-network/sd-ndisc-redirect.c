@@ -52,7 +52,9 @@ int ndisc_redirect_parse(sd_ndisc *nd, sd_ndisc_redirect *rd) {
 
         const struct nd_redirect *a = (const struct nd_redirect*) rd->packet->raw_packet;
         assert(a->nd_rd_type == ND_REDIRECT);
-        assert(a->nd_rd_code == 0);
+        if (a->nd_rd_code != 0)
+                return log_ndisc_errno(nd, SYNTHETIC_ERRNO(EBADMSG),
+                                       "Received Redirect message with non-zero code, ignoring datagram.");
 
         rd->target_address = a->nd_rd_target;
         rd->destination_address = a->nd_rd_dst;
