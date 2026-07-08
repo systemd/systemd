@@ -52,7 +52,9 @@ int ndisc_neighbor_parse(sd_ndisc *nd, sd_ndisc_neighbor *na) {
         /* Neighbor advertisement packets are neatly aligned to 64-bit boundaries, hence we can access them directly */
         const struct nd_neighbor_advert *a = (const struct nd_neighbor_advert*) na->packet->raw_packet;
         assert(a->nd_na_type == ND_NEIGHBOR_ADVERT);
-        assert(a->nd_na_code == 0);
+        if (a->nd_na_code != 0)
+                return log_ndisc_errno(nd, SYNTHETIC_ERRNO(EBADMSG),
+                                       "Received Neighbor Advertisement with non-zero code, ignoring datagram.");
 
         na->flags = a->nd_na_flags_reserved; /* the first 3 bits */
         na->target_address = a->nd_na_target;
