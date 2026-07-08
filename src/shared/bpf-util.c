@@ -38,6 +38,7 @@ DLSYM_PROTOTYPE(bpf_map_delete_elem) = NULL;
 DLSYM_PROTOTYPE(bpf_map_get_fd_by_id) = NULL;
 DLSYM_PROTOTYPE(bpf_map_lookup_elem) = NULL;
 DLSYM_PROTOTYPE(bpf_map_update_elem) = NULL;
+DLSYM_PROTOTYPE(bpf_map__update_elem) = NULL;
 DLSYM_PROTOTYPE(bpf_obj_get_info_by_fd) = NULL;
 DLSYM_PROTOTYPE(bpf_object__attach_skeleton) = NULL;
 DLSYM_PROTOTYPE(bpf_object__destroy_skeleton) = NULL;
@@ -52,6 +53,7 @@ DLSYM_PROTOTYPE(bpf_program__attach_cgroup) = NULL;
 DLSYM_PROTOTYPE(bpf_program__attach_lsm) = NULL;
 DLSYM_PROTOTYPE(bpf_program__name) = NULL;
 DLSYM_PROTOTYPE(bpf_program__set_autoload) = NULL;
+
 static int missing_bpf_token_create(int bpffs_fd, struct bpf_token_create_opts *opts) {
         return -ENOSYS;
 }
@@ -107,6 +109,7 @@ int dlopen_bpf(int log_level) {
                                 DLSYM_ARG(bpf_map_get_fd_by_id),
                                 DLSYM_ARG(bpf_map_lookup_elem),
                                 DLSYM_ARG(bpf_map_update_elem),
+                                DLSYM_ARG(bpf_map__update_elem),
                                 DLSYM_ARG(bpf_obj_get_info_by_fd),
                                 DLSYM_ARG(bpf_object__attach_skeleton),
                                 DLSYM_ARG(bpf_object__destroy_skeleton),

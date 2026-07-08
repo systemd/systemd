@@ -358,6 +358,11 @@ bpf_programs = [
                 'condition' : 'HAVE_VMLINUX_H',
                 'depends' : vmlinux_h_dependency,
         },
+        {
+                'source' : files('socket-ratelimit.bpf.c'),
+                'condition' : 'HAVE_VMLINUX_H',
+                'depends' : vmlinux_h_dependency,
+        }
 ]
 
 bpf_programs_by_name = {}
