@@ -58,5 +58,14 @@ static inline int UINT32_SCALE_TO_PERMYRIAD(uint32_t scale) {
         return (int) u;
 }
 
+/* Converts a fraction normalized so that 1.0 == 100% into permyriad. Returns -ERANGE for values outside
+ * the 0.0…1.0 range, including NaN. */
+static inline int DOUBLE_SCALE_TO_PERMYRIAD(double scale) {
+        if (!(scale >= 0.0 && scale <= 1.0)) /* also catches NaN */
+                return -ERANGE;
+
+        return (int) (scale * 10000.0 + 0.5);
+}
+
 #define PERMYRIAD_AS_PERCENT_FORMAT_STR "%i.%02i%%"
 #define PERMYRIAD_AS_PERCENT_FORMAT_VAL(x) ((x)/100), ((x)%100)
