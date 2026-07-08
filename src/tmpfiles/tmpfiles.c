@@ -2897,10 +2897,9 @@ static int glob_item_recursively(
                 /* Make sure we won't trigger/follow file object (such as device nodes, automounts, ...)
                  * pointed out by 'fn' with O_PATH. Note, when O_PATH is used, flags other than
                  * O_CLOEXEC, O_DIRECTORY, and O_NOFOLLOW are ignored. */
-
-                fd = open(*fn, O_CLOEXEC|O_NOFOLLOW|O_PATH);
+                fd = path_open_safe(*fn);
                 if (fd < 0) {
-                        RET_GATHER(r, log_error_errno(errno, "Failed to open '%s': %m", *fn));
+                        RET_GATHER(r, fd);
                         continue;
                 }
 
