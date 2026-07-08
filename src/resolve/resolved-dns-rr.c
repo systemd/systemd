@@ -2357,7 +2357,8 @@ int dns_resource_record_to_json(DnsResourceRecord *rr, sd_json_variant **ret) {
                                 SD_JSON_BUILD_PAIR("rname", SD_JSON_BUILD_STRING(rr->soa.rname)),
                                 SD_JSON_BUILD_PAIR("serial", SD_JSON_BUILD_UNSIGNED(rr->soa.serial)),
                                 SD_JSON_BUILD_PAIR("refresh", SD_JSON_BUILD_UNSIGNED(rr->soa.refresh)),
-                                SD_JSON_BUILD_PAIR("expire", SD_JSON_BUILD_UNSIGNED(rr->soa.retry)),
+                                SD_JSON_BUILD_PAIR("retry", SD_JSON_BUILD_UNSIGNED(rr->soa.retry)),
+                                SD_JSON_BUILD_PAIR("expire", SD_JSON_BUILD_UNSIGNED(rr->soa.expire)),
                                 SD_JSON_BUILD_PAIR("minimum", SD_JSON_BUILD_UNSIGNED(rr->soa.minimum)));
 
         case DNS_TYPE_MX:
