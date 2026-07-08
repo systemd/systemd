@@ -76,7 +76,7 @@ void bus_slot_disconnect(sd_bus_slot *slot, bool unref) {
                 }
 
                 slot->bus->match_callbacks_modified = true;
-                bus_match_remove(&slot->bus->match_callbacks, &slot->match_callback);
+                (void) bus_match_remove(&slot->bus->match_callbacks, &slot->match_callback);
 
                 slot->match_callback.match_string = mfree(slot->match_callback.match_string);
 
