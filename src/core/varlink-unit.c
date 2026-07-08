@@ -870,9 +870,11 @@ typedef struct StartTransientContextParameters {
         TransientExecContextParameters exec;
         TransientKillContextParameters kill;
         TransientServiceParameters service;
+        TransientCGroupContextParameters cgroup;
         const char *bad_exec_field;    /* Set by inner Exec dispatcher to the unknown sub-property name */
         const char *bad_kill_field;
         const char *bad_service_field;
+        const char *bad_cgroup_field;
 } StartTransientContextParameters;
 
 static void start_transient_context_parameters_done(StartTransientContextParameters *p) {
@@ -891,6 +893,7 @@ static void start_transient_context_parameters_init(StartTransientContextParamet
         transient_exec_context_parameters_init(&p->exec);
         transient_kill_context_parameters_init(&p->kill);
         transient_service_parameters_init(&p->service);
+        transient_cgroup_context_parameters_init(&p->cgroup);
 }
 
 typedef struct StartTransientParameters {
@@ -1044,6 +1047,12 @@ static int dispatch_transient_service(const char *name, sd_json_variant *variant
         return sd_json_dispatch_full(variant, service_dispatch, /* bad= */ NULL, /* flags= */ 0, &p->service, &p->bad_service_field);
 }
 
+static int dispatch_transient_cgroup(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        StartTransientContextParameters *p = ASSERT_PTR(userdata);
+        p->cgroup.present = true;
+        return transient_cgroup_context_dispatch(variant, &p->cgroup, &p->bad_cgroup_field);
+}
+
 static int dispatch_transient_context(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         static const sd_json_dispatch_field context_dispatch[] = {
                 { "ID",          SD_JSON_VARIANT_STRING, json_dispatch_const_unit_name,   offsetof(StartTransientContextParameters, id),           SD_JSON_MANDATORY },
@@ -1052,6 +1061,7 @@ static int dispatch_transient_context(const char *name, sd_json_variant *variant
                 { "Exec",        SD_JSON_VARIANT_OBJECT, dispatch_transient_exec_context, 0,                                                       0                 },
                 { "Kill",        SD_JSON_VARIANT_OBJECT, dispatch_transient_kill,         0,                                                       0                 },
                 { "Service",     SD_JSON_VARIANT_OBJECT, dispatch_transient_service,      0,                                                       0                 },
+                { "CGroup",      SD_JSON_VARIANT_OBJECT, dispatch_transient_cgroup,       0,                                                       0                 },
                 {}
         };
 
@@ -1073,6 +1083,8 @@ static int dispatch_transient_context(const char *name, sd_json_variant *variant
                         p->unsupported_property = strjoin("Kill.", p->context.bad_kill_field);
                 else if (streq(bad_field, "Service") && !isempty(p->context.bad_service_field))
                         p->unsupported_property = strjoin("Service.", p->context.bad_service_field);
+                else if (streq(bad_field, "CGroup") && !isempty(p->context.bad_cgroup_field))
+                        p->unsupported_property = strjoin("CGroup.", p->context.bad_cgroup_field);
                 else
                         p->unsupported_property = strdup(bad_field);
                 if (!p->unsupported_property)
@@ -1864,9 +1876,7 @@ int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters
         if (r < 0)
                 return sd_varlink_error_errno(link, r);
 
-        /* Apply context.Exec only when an Exec object was actually sent. The tristate bool fields are
-         * seeded to -1 ("absent") during Exec dispatch; without an Exec object they stay 0, which the
-         * apply functions would misread as "explicitly false" and write out bogus FooBar=no lines. */
+        /* Apply context.Exec only when an Exec object was actually sent */
         if (p.context.exec.present) {
                 ExecContext *c = unit_get_exec_context(u);
                 if (!c)
@@ -1888,6 +1898,20 @@ int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters
                         return sd_varlink_error(link, VARLINK_ERROR_UNIT_TYPE_NOT_SUPPORTED, NULL);
 
                 r = transient_kill_context_apply_properties(u, k, &p.context.kill);
+                if (r < 0)
+                        return sd_varlink_error_errno(link, r);
+        }
+
+        /* Apply cgroup properties from context.CGroup */
+        if (p.context.cgroup.present) {
+                CGroupContext *cc = unit_get_cgroup_context(u);
+                if (!cc)
+                        return sd_varlink_error(link, VARLINK_ERROR_UNIT_TYPE_NOT_SUPPORTED, NULL);
+
+                bad_field = NULL;
+                r = transient_cgroup_context_apply_properties(u, cc, &p.context.cgroup, &bad_field);
+                if (r == -EINVAL)
+                        return sd_varlink_error_invalid_parameter_name(link, bad_field ?: "CGroup");
                 if (r < 0)
                         return sd_varlink_error_errno(link, r);
         }
