@@ -1289,8 +1289,10 @@ def test_make_uki_honors_tools_opt_for_keyutil(tmp_path):
         '--cmdline=ARG1 ARG2 ARG3',
         '--pcr-banks=sha384',
         f'--pcr-private-key={priv.name}',
-        '--tools', str(tmp_path),
-        '--stub', str(dummy_stub),
+        '--tools',
+        str(tmp_path),
+        '--stub',
+        str(dummy_stub),
     ]
     try:
         opts = ukify.parse_args(args)
