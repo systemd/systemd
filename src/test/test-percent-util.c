@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <math.h>
 
 #include "percent-util.h"
 #include "tests.h"
@@ -194,6 +195,15 @@ TEST(scale) {
 
                 assert_se(UINT32_SCALE_TO_PERMYRIAD(UINT32_SCALE_FROM_PERMYRIAD(permyriad)) == permyriad);
         }
+
+        assert_se(DOUBLE_SCALE_TO_PERMYRIAD(0.0) == 0);
+        assert_se(DOUBLE_SCALE_TO_PERMYRIAD(0.125) == 1250);
+        assert_se(DOUBLE_SCALE_TO_PERMYRIAD(0.33333) == 3333);
+        assert_se(DOUBLE_SCALE_TO_PERMYRIAD(0.66666) == 6667);
+        assert_se(DOUBLE_SCALE_TO_PERMYRIAD(1.0) == 10000);
+        assert_se(DOUBLE_SCALE_TO_PERMYRIAD(1.0001) == -ERANGE);
+        assert_se(DOUBLE_SCALE_TO_PERMYRIAD(-0.0001) == -ERANGE);
+        assert_se(DOUBLE_SCALE_TO_PERMYRIAD(NAN) == -ERANGE);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
