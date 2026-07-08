@@ -584,3 +584,6 @@ option('default-mountfsd-trusted-directories', type : 'boolean', value: false,
 
 option('default-oci-registry', type : 'string', value : 'docker.io',
        description : 'Default OCI registry name')
+
+option('varlink-monitord', type : 'boolean',
+       description : 'install the systemd-varlink-monitord daemon')
