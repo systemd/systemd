@@ -1256,5 +1256,62 @@ def test_join_pcrsig(capsys, kernel_initrd, tmp_path):
     shutil.rmtree(tmp_path)
 
 
+def test_make_uki_honors_tools_opt_for_keyutil(tmp_path):
+    ourdir = pathlib.Path(__file__).parent
+    pub = unbase64(ourdir / 'example.tpm2-pcr-public.pem.base64')
+    priv = unbase64(ourdir / 'example.tpm2-pcr-private.pem.base64')
+
+    marker = tmp_path / 'marker'
+    mock_keyutil = tmp_path / 'systemd-keyutil'
+    mock_keyutil.write_text(
+        textwrap.dedent(f'''\
+            #!/bin/sh
+            touch {marker}
+            cat {pub.name}
+        ''')
+    )
+    mock_keyutil.chmod(0o755)
+
+    dummy_linux = tmp_path / 'linux'
+    dummy_linux.write_text('dummy kernel')
+    dummy_initrd = tmp_path / 'initrd'
+    dummy_initrd.write_text('dummy initrd')
+    dummy_stub = tmp_path / 'systemd-bootx64.efi.stub'
+    dummy_stub.write_text('dummy stub')
+
+    output = f'{tmp_path}/out.efi'
+    args = [
+        'build',
+        f'--linux={dummy_linux}',
+        f'--initrd={dummy_initrd}',
+        f'--output={output}',
+        '--uname=1.2.3',
+        '--cmdline=ARG1 ARG2 ARG3',
+        '--pcr-banks=sha384',
+        f'--pcr-private-key={priv.name}',
+        '--tools',
+        str(tmp_path),
+        '--stub',
+        str(dummy_stub),
+    ]
+    try:
+        opts = ukify.parse_args(args)
+    except ValueError as e:
+        pytest.fail(f'Failed to parse arguments: {e}')
+
+    try:
+        ukify.check_inputs(opts)
+    except OSError as e:
+        pytest.skip(str(e))
+
+    # make_uki may fail because the stub is a dummy, but systemd-keyutil
+    # should have already been invoked from --tools by that point
+    try:
+        ukify.make_uki(opts)
+    except Exception:
+        pass
+    assert marker.exists(), 'systemd-keyutil from --tools was not invoked'
+
+
 if __name__ == '__main__':
     sys.exit(pytest.main(sys.argv))
