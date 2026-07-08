@@ -264,7 +264,7 @@
     automount unit; the mount will only be activated on-demand when accessed. The mount point will be created
     if necessary.</para>
 
-    <para>The ESP is mounted to <filename>/boot/</filename> if that directory exists and is not used for
+    <para>The ESP is mounted to <filename>/boot/</filename> if that directory is not used for
     XBOOTLDR, and otherwise to <filename>/efi/</filename>. Same as for <filename>/boot/</filename>, an
     automount unit is used. The mount point will be created if necessary. These apply once the system
     transitioned out of the initrd phase. Before that, if components in the initrd require ESP access, it
