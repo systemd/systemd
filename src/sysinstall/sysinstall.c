@@ -1875,6 +1875,12 @@ static int vl_method_list_candidate_devices(
         if (r < 0)
                 return r;
 
+        /* Disable connection timeout so that the connection to repart doesn't close before the link is
+         * disconnected */
+        r = sd_varlink_set_relative_timeout(context->repart_link, UINT64_MAX);
+        if (r < 0)
+                return r;
+
         /* The context is freed in vl_on_disconnect() */
         sd_varlink_set_userdata(context->repart_link, context);
         sd_varlink_set_userdata(link, TAKE_PTR(context));
