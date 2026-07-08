@@ -956,6 +956,9 @@ endif
 # Do not use set_quoted() here, so that the value is available as an integer.
 conf.set('TTY_MODE', tty_mode)
 
+var_log_mode = get_option('var-log-mode')
+conf.set_quoted('VAR_LOG_MODE', var_log_mode)
+
 kill_user_processes = get_option('default-kill-user-processes')
 conf.set10('KILL_USER_PROCESSES', kill_user_processes)
 
