@@ -40,6 +40,7 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
         const char *canonical = NULL;
         int n_addresses = 0;
         uint32_t local_address_ipv4 = 0;
+        bool ipv6_enabled;
         size_t l, idx, ms;
         char *r_name;
 
@@ -96,7 +97,9 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
         }
 
         l = strlen(canonical);
-        ms = ALIGN(l+1) + ALIGN(sizeof(struct gaih_addrtuple)) * (n_addresses > 0 ? n_addresses : 1 + socket_ipv6_is_enabled());
+        ipv6_enabled = n_addresses == 0 && socket_ipv6_is_enabled();
+        ms = ALIGN(l+1) +
+                ALIGN(sizeof(struct gaih_addrtuple)) * (n_addresses > 0 ? n_addresses : 1 + ipv6_enabled);
         if (buflen < ms) {
                 UNPROTECT_ERRNO;
                 *errnop = ERANGE;
@@ -112,13 +115,14 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
         assert(n_addresses >= 0);
         if (n_addresses == 0) {
                 /* Second, fill in IPv6 tuple */
-                if (socket_ipv6_is_enabled()) {
+                if (ipv6_enabled) {
                         r_tuple = (struct gaih_addrtuple*) (buffer + idx);
-                        r_tuple->next = r_tuple_prev;
-                        r_tuple->name = r_name;
-                        r_tuple->family = AF_INET6;
+                        *r_tuple = (struct gaih_addrtuple) {
+                                .next = r_tuple_prev,
+                                .name = r_name,
+                                .family = AF_INET6,
+                        };
                         memcpy(r_tuple->addr, LOCALADDRESS_IPV6, FAMILY_ADDRESS_SIZE(AF_INET6));
-                        r_tuple->scopeid = 0;
 
                         idx += ALIGN(sizeof(struct gaih_addrtuple));
                         r_tuple_prev = r_tuple;
@@ -126,11 +130,12 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
 
                 /* Third, fill in IPv4 tuple */
                 r_tuple = (struct gaih_addrtuple*) (buffer + idx);
-                r_tuple->next = r_tuple_prev;
-                r_tuple->name = r_name;
-                r_tuple->family = AF_INET;
-                *(uint32_t*) r_tuple->addr = local_address_ipv4;
-                r_tuple->scopeid = 0;
+                *r_tuple = (struct gaih_addrtuple) {
+                        .next = r_tuple_prev,
+                        .name = r_name,
+                        .family = AF_INET,
+                };
+                memcpy(r_tuple->addr, &local_address_ipv4, FAMILY_ADDRESS_SIZE(AF_INET));
 
                 idx += ALIGN(sizeof(struct gaih_addrtuple));
                 r_tuple_prev = r_tuple;
@@ -139,12 +144,18 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
         /* Fourth, fill actual addresses in, but in backwards order */
         for (int i = n_addresses; i > 0; i--) {
                 struct local_address *a = addresses + i - 1;
+                uint32_t scopeid = 0;
+
+                if (a->family == AF_INET6 && in6_addr_is_link_local(&a->address.in6))
+                        scopeid = a->ifindex;
 
                 r_tuple = (struct gaih_addrtuple*) (buffer + idx);
-                r_tuple->next = r_tuple_prev;
-                r_tuple->name = r_name;
-                r_tuple->family = a->family;
-                r_tuple->scopeid = a->family == AF_INET6 && in6_addr_is_link_local(&a->address.in6) ? a->ifindex : 0;
+                *r_tuple = (struct gaih_addrtuple) {
+                        .next = r_tuple_prev,
+                        .name = r_name,
+                        .family = a->family,
+                        .scopeid = scopeid,
+                };
                 memcpy(r_tuple->addr, &a->address, FAMILY_ADDRESS_SIZE(a->family));
 
                 idx += ALIGN(sizeof(struct gaih_addrtuple));
@@ -180,6 +191,7 @@ static enum nss_status fill_in_hostent(
                 int af,
                 struct local_address *addresses, unsigned n_addresses,
                 uint32_t local_address_ipv4,
+                bool ipv6_enabled,
                 struct hostent *result,
                 char *buffer, size_t buflen,
                 int *errnop, int *h_errnop,
@@ -212,8 +224,8 @@ static enum nss_status fill_in_hostent(
                 (additional ? ALIGN(l_additional+1) : 0) +
                 sizeof(char*) +
                 (additional ? sizeof(char*) : 0) +
-                (c > 0 ? c : af == AF_INET ? 1 : socket_ipv6_is_enabled()) * ALIGN(alen) +
-                (c > 0 ? c+1 : af == AF_INET ? 2 : (unsigned) socket_ipv6_is_enabled() + 1) * sizeof(char*);
+                (c > 0 ? c : af == AF_INET ? 1 : ipv6_enabled) * ALIGN(alen) +
+                (c > 0 ? c+1 : af == AF_INET ? 2 : (unsigned) ipv6_enabled + 1) * sizeof(char*);
 
         if (buflen < ms) {
                 UNPROTECT_ERRNO;
@@ -263,7 +275,7 @@ static enum nss_status fill_in_hostent(
         } else if (af == AF_INET) {
                 *(uint32_t*) r_addr = local_address_ipv4;
                 assert_se(INC_SAFE(&idx, ALIGN(alen)));
-        } else if (socket_ipv6_is_enabled()) {
+        } else if (ipv6_enabled) {
                 memcpy(r_addr, LOCALADDRESS_IPV6, FAMILY_ADDRESS_SIZE(AF_INET6));
                 assert_se(INC_SAFE(&idx, ALIGN(alen)));
         }
@@ -279,7 +291,7 @@ static enum nss_status fill_in_hostent(
                 ((char**) r_addr_list)[i] = NULL;
                 assert_se(INC_SAFE(&idx, (c+1) * sizeof(char*)));
 
-        } else if (af == AF_INET || socket_ipv6_is_enabled()) {
+        } else if (af == AF_INET || ipv6_enabled) {
                 ((char**) r_addr_list)[0] = r_addr;
                 ((char**) r_addr_list)[1] = NULL;
                 assert_se(INC_SAFE(&idx, 2 * sizeof(char*)));
@@ -324,6 +336,7 @@ enum nss_status _nss_myhostname_gethostbyname3_r(
         const char *canonical, *additional = NULL;
         _cleanup_free_ char *hn = NULL;
         uint32_t local_address_ipv4 = 0;
+        bool ipv6_enabled;
         int n_addresses = 0;
 
         PROTECT_ERRNO;
@@ -345,7 +358,8 @@ enum nss_status _nss_myhostname_gethostbyname3_r(
                 return NSS_STATUS_UNAVAIL;
         }
 
-        if (af == AF_INET6 && !socket_ipv6_is_enabled())
+        ipv6_enabled = af == AF_INET6 && socket_ipv6_is_enabled();
+        if (af == AF_INET6 && !ipv6_enabled)
                 goto not_found;
 
         if (is_localhost(name)) {
@@ -397,6 +411,7 @@ enum nss_status _nss_myhostname_gethostbyname3_r(
                         af,
                         addresses, n_addresses,
                         local_address_ipv4,
+                        ipv6_enabled,
                         host,
                         buffer, buflen,
                         errnop, h_errnop,
@@ -423,6 +438,7 @@ enum nss_status _nss_myhostname_gethostbyaddr2_r(
         int n_addresses = 0;
         struct local_address *a;
         bool additional_from_hostname = false;
+        bool ipv6_enabled = false;
         unsigned n;
 
         PROTECT_ERRNO;
@@ -461,7 +477,8 @@ enum nss_status _nss_myhostname_gethostbyaddr2_r(
         } else {
                 assert(af == AF_INET6);
 
-                if (!socket_ipv6_is_enabled())
+                ipv6_enabled = socket_ipv6_is_enabled();
+                if (!ipv6_enabled)
                         goto not_found;
 
                 if (memcmp(addr, LOCALADDRESS_IPV6, FAMILY_ADDRESS_SIZE(AF_INET6)) == 0) {
@@ -511,6 +528,7 @@ found:
                         af,
                         addresses, n_addresses,
                         local_address_ipv4,
+                        ipv6_enabled,
                         host,
                         buffer, buflen,
                         errnop, h_errnop,
