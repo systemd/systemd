@@ -11,11 +11,11 @@
 Description=Fallback Software TPM
 Documentation=man:systemd-tpm2-swtpm.service(8)
 DefaultDependencies=no
-Conflicts=shutdown.target
+Conflicts=shutdown.target initrd-switch-root.target
 After=systemd-sysusers.service
 Wants=modprobe@tpm_vtpm_proxy.service
 After=modprobe@tpm_vtpm_proxy.service
-Before=tpm2.target sysinit.target shutdown.target
+Before=tpm2.target sysinit.target shutdown.target initrd-switch-root.target
 
 [Service]
 CapabilityBoundingSet=CAP_SYS_ADMIN
