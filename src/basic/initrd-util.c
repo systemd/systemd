@@ -47,16 +47,24 @@ bool in_first_boot(void) {
         if (saved_in_first_boot >= 0)
                 return saved_in_first_boot;
 
+        /* If /run/systemd/first-boot exists, we're in first-boot mode.
+         * This can be overridden by setting SYSTEMD_FIRST_BOOT=0|1.
+         */
+
         r = secure_getenv_bool("SYSTEMD_FIRST_BOOT");
-        if (r >= 0)
-                return (saved_in_first_boot = r);
-        if (r != -ENXIO)
+        if (r < 0 && r != -ENXIO)
                 log_debug_errno(r, "Failed to parse $SYSTEMD_FIRST_BOOT, ignoring: %m");
 
-        r = RET_NERRNO(access("/run/systemd/first-boot", F_OK));
-        if (r < 0 && r != -ENOENT)
-                log_debug_errno(r, "Failed to check if /run/systemd/first-boot exists, assuming no: %m");
-        return r >= 0;
+        if (r >= 0)
+                saved_in_first_boot = r > 0;
+        else {
+                r = RET_NERRNO(access("/run/systemd/first-boot", F_OK));
+                if (r < 0 && r != -ENOENT)
+                        log_debug_errno(r, "Failed to check if /run/systemd/first-boot exists, assuming no: %m");
+                saved_in_first_boot = r >= 0;
+        }
+
+        return saved_in_first_boot;
 }
 
 void in_first_boot_force(bool value) {
