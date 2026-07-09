@@ -119,19 +119,22 @@ int sd_dhcp_relay_set_server_port(sd_dhcp_relay *relay, uint16_t port) {
 
 int sd_dhcp_relay_set_remote_id(sd_dhcp_relay *relay, const struct iovec *iov) {
         assert_return(relay, -EINVAL);
+        assert_return(!sd_dhcp_relay_is_running(relay), -EBUSY);
 
         return iovec_done_and_memdup(&relay->remote_id, iov);
 }
 
 int sd_dhcp_relay_set_server_identifier_override(sd_dhcp_relay *relay, int b) {
         assert_return(relay, -EINVAL);
+        assert_return(!sd_dhcp_relay_is_running(relay), -EBUSY);
 
         relay->server_identifier_override = !!b;
         return 0;
 }
 
 int dhcp_relay_set_extra_options(sd_dhcp_relay *relay, TLV *options) {
-        assert(relay);
+        assert_return(relay, -EINVAL);
+        assert_return(!sd_dhcp_relay_is_running(relay), -EBUSY);
 
         return unref_and_replace_new_ref(relay->extra_options, options, tlv_ref, tlv_unref);
 }
