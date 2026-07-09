@@ -726,7 +726,11 @@ static int write_to_journal(
         if (LOG_PRI(level) > log_target_max_level[LOG_TARGET_JOURNAL])
                 return 0;
 
-        iovec_len = MIN(6 + log_context_num_fields() * 3, IOVEC_MAX);
+        if (!MUL_SAFE(&iovec_len, log_context_num_fields(), 3) ||
+            !ADD_SAFE(&iovec_len, iovec_len, 6))
+                iovec_len = IOVEC_MAX;
+        else
+                iovec_len = MIN(iovec_len, IOVEC_MAX);
         iovec = newa(struct iovec, iovec_len);
 
         log_do_header(header, sizeof(header), level, error, file, line, func, object_field, object, extra_field, extra);
@@ -1024,7 +1028,11 @@ int log_struct_internal(
                         int r;
                         bool fallback = false;
 
-                        iovec_len = MIN(17 + log_context_num_fields() * 3, IOVEC_MAX);
+                        if (!MUL_SAFE(&iovec_len, log_context_num_fields(), 3) ||
+                            !ADD_SAFE(&iovec_len, iovec_len, 17))
+                                iovec_len = IOVEC_MAX;
+                        else
+                                iovec_len = MIN(iovec_len, IOVEC_MAX);
                         iovec = newa(struct iovec, iovec_len);
 
                         /* If the journal is available do structured logging.
@@ -1123,15 +1131,21 @@ int log_struct_iovec_internal(
 
                 char header[LINE_MAX];
                 struct iovec *iovec;
-                size_t n = 0, iovec_len;
+                size_t n = 0, iovec_len, n_context_iovec, n_input_iovec_expanded;
 
-                iovec_len = MIN(1 + n_input_iovec * 2 + log_context_num_fields() * 3, IOVEC_MAX);
+                if (!MUL_SAFE(&n_input_iovec_expanded, n_input_iovec, 2) ||
+                    !MUL_SAFE(&n_context_iovec, log_context_num_fields(), 3) ||
+                    !ADD_SAFE(&iovec_len, 1, n_input_iovec_expanded) ||
+                    !ADD_SAFE(&iovec_len, iovec_len, n_context_iovec))
+                        iovec_len = IOVEC_MAX;
+                else
+                        iovec_len = MIN(iovec_len, IOVEC_MAX);
                 iovec = newa(struct iovec, iovec_len);
 
                 log_do_header(header, sizeof(header), level, error, file, line, func, NULL, NULL, NULL, NULL);
 
                 iovec[n++] = IOVEC_MAKE_STRING(header);
-                for (size_t i = 0; i < n_input_iovec; i++) {
+                for (size_t i = 0; i < n_input_iovec && n + 2 <= iovec_len; i++) {
                         iovec[n++] = input_iovec[i];
                         iovec[n++] = IOVEC_MAKE_STRING("\n");
                 }
