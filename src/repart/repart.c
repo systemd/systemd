@@ -3287,7 +3287,8 @@ static int determine_current_padding(
                 struct fdisk_partition *p,
                 uint64_t secsz,
                 uint64_t grainsz,
-                uint64_t *ret) {
+                uint64_t *ret,
+                bool *ret_is_last_partition) {
 
         size_t n_partitions;
         uint64_t offset, next = UINT64_MAX;
@@ -3296,6 +3297,9 @@ static int determine_current_padding(
         assert(t);
         assert(p);
         assert(ret);
+
+        if (ret_is_last_partition)
+                *ret_is_last_partition = false;
 
         if (!sym_fdisk_partition_has_end(p))
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Partition has no end.");
@@ -3337,6 +3341,9 @@ static int determine_current_padding(
 
                 assert(next < UINT64_MAX / secsz);
                 next *= secsz;
+
+                if (ret_is_last_partition)
+                        *ret_is_last_partition = true;
 
                 if (offset > next)
                         return log_error_errno(SYNTHETIC_ERRNO(EIO), "Partition end beyond disk end.");
@@ -3454,11 +3461,13 @@ static int context_copy_from_one(Context *context, const char *src) {
                 if (!np->split_name_format)
                         return log_oom();
 
-                r = determine_current_padding(c, t, p, secsz, /* grainsz= */ 1, &padding);
+                bool is_last_partition;
+                r = determine_current_padding(c, t, p, secsz, /* grainsz= */ 1, &padding, &is_last_partition);
                 if (r < 0)
                         return r;
 
-                np->padding_min = np->padding_max = padding;
+                if (!is_last_partition)
+                        np->padding_min = np->padding_max = padding;
 
                 np->copy_blocks_path = strdup(src);
                 if (!np->copy_blocks_path)
@@ -4054,7 +4063,7 @@ static int context_load_partition_table(Context *context) {
                                 pp->current_partition = p;
                                 sym_fdisk_ref_partition(p);
 
-                                r = determine_current_padding(c, t, p, secsz, grainsz, &pp->current_padding);
+                                r = determine_current_padding(c, t, p, secsz, grainsz, &pp->current_padding, NULL);
                                 if (r < 0)
                                         return r;
 
@@ -4087,7 +4096,7 @@ static int context_load_partition_table(Context *context) {
                         np->current_partition = p;
                         sym_fdisk_ref_partition(p);
 
-                        r = determine_current_padding(c, t, p, secsz, grainsz, &np->current_padding);
+                        r = determine_current_padding(c, t, p, secsz, grainsz, &np->current_padding, NULL);
                         if (r < 0)
                                 return r;
 
