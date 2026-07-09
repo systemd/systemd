@@ -5,6 +5,7 @@
 #include "list.h"
 #include "log.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "sysupdate-instance.h"
@@ -453,27 +454,56 @@ retry:
 }
 
 int pattern_match_many(char **patterns, const char *s, InstanceMetadata *ret) {
-        _cleanup_(instance_metadata_destroy) InstanceMetadata found = INSTANCE_METADATA_NULL;
+        _cleanup_(instance_metadata_destroy) InstanceMetadata found = INSTANCE_METADATA_NULL,
+                matched = INSTANCE_METADATA_NULL;
+        bool have_match = false, retry_descent = false;
         int r;
 
+        /* Evaluate all patterns and report the combined result: a direct match wins and provides the
+         * extracted fields, but when another pattern would descend into a subdirectory this is reported
+         * too, so the caller can descend as fallback when the direct match is no valid candidate. */
         STRV_FOREACH(p, patterns) {
-                r = pattern_match(*p, s, &found);
+                const char *pat = *p, *input_path;
+
+                if (have_match && retry_descent)
+                        break; /* nothing more to learn */
+
+                /* A glob directory prefix on a pattern means to match the rest of the pattern against the
+                 * last path component only (the basename, "find this file anywhere under the source tree") */
+                if (pattern_skip_glob_directory_prefix(&pat))
+                        input_path = last_path_component(s);
+                else
+                        input_path = s;
+
+                r = pattern_match(pat, input_path, &found);
                 if (r < 0)
                         return r;
-                if (r != PATTERN_MATCH_NO) {
-                        if (ret) {
-                                *ret = found;
-                                found = (InstanceMetadata) INSTANCE_METADATA_NULL;
-                        }
-
-                        return r;
+                if (r == PATTERN_MATCH_YES && !have_match) {
+                        matched = TAKE_GENERIC(found, InstanceMetadata, INSTANCE_METADATA_NULL);
+                        have_match = true;
                 }
+                if (r == PATTERN_MATCH_RETRY)
+                        retry_descent = true;
         }
 
         if (ret)
-                *ret = (InstanceMetadata) INSTANCE_METADATA_NULL;
+                *ret = TAKE_GENERIC(matched, InstanceMetadata, INSTANCE_METADATA_NULL);
 
-        return PATTERN_MATCH_NO;
+        if (have_match)
+                return retry_descent ? PATTERN_MATCH_YES_AND_RETRY : PATTERN_MATCH_YES;
+        return retry_descent ? PATTERN_MATCH_RETRY : PATTERN_MATCH_NO;
+}
+
+bool pattern_skip_glob_directory_prefix(const char **pattern) {
+        assert(pattern);
+        assert(*pattern);
+
+        const char *e = startswith(*pattern, "**/");
+        if (!e)
+                return false;
+
+        *pattern = e;
+        return true;
 }
 
 int pattern_valid(const char *pattern) {
