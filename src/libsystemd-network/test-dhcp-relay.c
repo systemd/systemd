@@ -281,6 +281,9 @@ TEST(forwarding) {
         downstream->socket_fd = TAKE_FD(downstream_fd[0]);
         ASSERT_OK(sd_dhcp_relay_interface_start(downstream));
 
+        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_dhcp_relay_set_remote_id(relay, &IOVEC_MAKE_STRING("changed")), EBUSY));
+        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_dhcp_relay_set_server_identifier_override(relay, false), EBUSY));
+
         /* IO event source for the client side. */
         _cleanup_(sd_event_source_unrefp) sd_event_source *fake_client = NULL;
         ASSERT_OK(sd_event_add_io(e, &fake_client, downstream_fd[1], EPOLLIN, fake_client_handler, relay));
