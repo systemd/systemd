@@ -45,7 +45,10 @@ static inline int write_string_stream(FILE *f, const char *line, WriteStringFile
         return write_string_stream_full(f, line, flags, NULL);
 }
 
-int write_string_file_full(int dir_fd, const char *fn, const char *line, WriteStringFileFlags flags, const struct timespec *ts, const char *label_fn);
+int write_string_file_full_label(int dir_fd, const char *fn, const char *line, WriteStringFileFlags flags, const struct timespec *ts, const char *label_fn, void *label_userdata);
+static inline int write_string_file_full(int dir_fd, const char *fn, const char *line, WriteStringFileFlags flags, const struct timespec *ts, const char *label_fn) {
+        return write_string_file_full_label(dir_fd, fn, line, flags, ts, label_fn, /* label_userdata= */ NULL);
+}
 static inline int write_string_file_at(int dir_fd, const char *fn, const char *line, WriteStringFileFlags flags) {
         return write_string_file_full(dir_fd, fn, line, flags, NULL, NULL);
 }
