@@ -1060,7 +1060,7 @@ Ports=eth2</programlisting>
           <literal>prp</literal>. Defaults to <literal>hsr</literal>.</para>
 
           <para>Both protocols work by sending two copies of every outgoing frame, one for each of the two
-          ports. The destination node receives the two frames and and keeps only the first one. If a link
+          ports. The destination node receives the two frames and keeps only the first one. If a link
           fails, only one of the two frames is received. HSR uses a ring topology where the two outgoing
           frames are sent in opposite directions in the ring. PRP doesn't need a specific topology, but it
           requires two completely redundant networks attached to the two ports.</para>

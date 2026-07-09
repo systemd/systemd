@@ -2628,7 +2628,7 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                                 root_mount_fd = _root_mount_fd;
                         }
 
-                        /* Try to to clone the directory mount if we have privs to, so that we can apply the
+                        /* Try to clone the directory mount if we have privs to, so that we can apply the
                          * MS_SLAVE propagation settings right-away. */
                         if (root_mount_fd < 0) {
                                 _root_mount_fd = open_tree_attr_with_fallback(

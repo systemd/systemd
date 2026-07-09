@@ -26,7 +26,7 @@ SD_VARLINK_DEFINE_ENUM_TYPE(
                 SD_VARLINK_DEFINE_ENUM_VALUE(user_early_light),
                 SD_VARLINK_FIELD_COMMENT("Display manager greeter screen used for login"),
                 SD_VARLINK_DEFINE_ENUM_VALUE(greeter),
-                SD_VARLINK_FIELD_COMMENT("Similar, but a a lock screen"),
+                SD_VARLINK_FIELD_COMMENT("Similar, but a lock screen"),
                 SD_VARLINK_DEFINE_ENUM_VALUE(lock_screen),
                 SD_VARLINK_FIELD_COMMENT("Background session (that has no TTY, VT, Seat)"),
                 SD_VARLINK_DEFINE_ENUM_VALUE(background),

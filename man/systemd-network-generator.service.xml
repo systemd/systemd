@@ -108,7 +108,7 @@
           as a special placeholder rather than a real interface name. Then, in combination with the MAC address provided
           by <varname>BOOTIF=</varname>, this is translated into a
           <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry> file
-          which matches on the the provided MAC address. When <varname>rd.bootif=0</varname> is passed, this functionality
+          which matches on the provided MAC address. When <varname>rd.bootif=0</varname> is passed, this functionality
           is disabled, and the <varname>BOOTIF=</varname> option is ignored.</para>
 
           <para>See <citerefentry project='man-pages'><refentrytitle>dracut.cmdline</refentrytitle><manvolnum>7</manvolnum></citerefentry>
