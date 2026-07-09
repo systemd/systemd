@@ -498,16 +498,24 @@ static void timer_enter_waiting(Timer *t, bool time_change) {
                                 assert_not_reached();
                         }
 
-                        if (!time_change)
-                                v->next_elapse = usec_add(usec_shift_clock(base, CLOCK_MONOTONIC, TIMER_MONOTONIC_CLOCK(t)), v->value);
+                        if (!time_change) {
+                                bool is_oneshot = IN_SET(v->base, TIMER_ACTIVE, TIMER_BOOT, TIMER_STARTUP);
 
-                        if (dual_timestamp_is_set(&t->last_trigger) &&
-                            !time_change &&
-                            v->next_elapse < triple_timestamp_by_clock(&ts, TIMER_MONOTONIC_CLOCK(t)) &&
-                            IN_SET(v->base, TIMER_ACTIVE, TIMER_BOOT, TIMER_STARTUP)) {
-                                /* This is a one time trigger, disable it now */
-                                v->disabled = true;
-                                continue;
+                                /* Skip recalculating the next elapse timestamp for one-shot timers for which
+                                 * we've already calculated the value in this activation cycle. */
+                                if (!(v->next_elapse > 0 &&
+                                      t->last_trigger.monotonic > 0 &&
+                                      t->last_trigger.monotonic > base &&
+                                      is_oneshot))
+                                        v->next_elapse = usec_add(usec_shift_clock(base, CLOCK_MONOTONIC, TIMER_MONOTONIC_CLOCK(t)), v->value);
+
+                                if (dual_timestamp_is_set(&t->last_trigger) &&
+                                    v->next_elapse < triple_timestamp_by_clock(&ts, TIMER_MONOTONIC_CLOCK(t)) &&
+                                    is_oneshot) {
+                                        /* This is a one time trigger, disable it now. */
+                                        v->disabled = true;
+                                        continue;
+                                }
                         }
 
                         if (!found_monotonic)
