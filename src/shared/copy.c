@@ -959,7 +959,7 @@ static int fd_copy_fifo(
                      AT_SYMLINK_NOFOLLOW) < 0)
                 r = -errno;
 
-        if (fchmodat(dt, to, st->st_mode & 07777, 0) < 0)
+        if (fchmodat(dt, to, st->st_mode & 07777, AT_SYMLINK_NOFOLLOW) < 0)
                 r = -errno;
 
         (void) utimensat(dt, to, (struct timespec[]) { st->st_atim, st->st_mtim }, AT_SYMLINK_NOFOLLOW);
@@ -1012,7 +1012,7 @@ static int fd_copy_node(
                      AT_SYMLINK_NOFOLLOW) < 0)
                 r = -errno;
 
-        if (fchmodat(dt, to, st->st_mode & 07777, 0) < 0)
+        if (fchmodat(dt, to, st->st_mode & 07777, AT_SYMLINK_NOFOLLOW) < 0)
                 r = -errno;
 
         (void) utimensat(dt, to, (struct timespec[]) { st->st_atim, st->st_mtim }, AT_SYMLINK_NOFOLLOW);
