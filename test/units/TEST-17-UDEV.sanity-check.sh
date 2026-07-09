@@ -177,6 +177,8 @@ udevadm test -h
 
 # Builtins
 (! udevadm test-builtin aaaaa /dev/null)
+(! udevadm test-builtin k /dev/null)
+(! udevadm test-builtin key /dev/null)
 udevadm test-builtin blkid "$loopdev"
 (! udevadm test-builtin "btrfs" "$loopdev")
 (! udevadm test-builtin "btrfs aaaaa" "$loopdev")
