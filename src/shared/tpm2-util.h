@@ -49,6 +49,15 @@ static inline bool TPM2_PCR_MASK_VALID(uint32_t pcr_mask) {
 
 int dlopen_tpm2(int log_level);
 
+/* tpm2_unseal() returns a bunch of different errors for various flavours of PCR issues, let's group them.
+ * Kept outside the HAVE_TPM2 guard as callers switch on these errnos even in builds without TPM2. */
+#define ERRNO_IS_NEG_TPM2_UNSEAL_BAD_PCR(r) IN_SET(r, -EREMCHG, -ENOANO, -EUCLEAN, -EPERM)
+
+/* Errors that mean the tried TPM2 token does not match the boot state, be it due to wrong PCR state, a
+ * different PCR signing key/policy, a different TPM, or an unusable NV index. The caller should keep trying
+ * other tokens. */
+#define ERRNO_IS_NEG_TPM2_TOKEN_MISMATCH(r) IN_SET(r, -EREMCHG, -ENOANO, -EPERM, -ENOSTR, -EREMOTE, -EADDRNOTAVAIL)
+
 #if HAVE_TPM2
 #ifndef SYSTEMD_CFLAGS_MARKER_TPM2
 #  error "missing tpm2_cflags in meson dependency."
@@ -378,8 +387,9 @@ int tpm2_get_or_create_ek(Tpm2Context *c, const Tpm2Handle *session, TPM2B_PUBLI
 int tpm2_seal(Tpm2Context *c, uint32_t seal_key_handle, const TPM2B_DIGEST policy_hash[], size_t n_policy, const char *pin, struct iovec *ret_secret, struct iovec **ret_blobs, size_t *ret_n_blobs, uint16_t *ret_primary_alg, struct iovec *ret_srk);
 int tpm2_unseal(Tpm2Context *c, uint32_t hash_pcr_mask, uint16_t pcr_bank, const struct iovec *pubkey, const char *pubkey_policy_ref, uint32_t pubkey_pcr_mask, sd_json_variant *signature, const char *pin, const Tpm2PCRLockPolicy *pcrlock_policy, uint16_t primary_alg, const struct iovec blobs[], size_t n_blobs, const struct iovec known_policy_hash[], size_t n_known_policy_hash, const struct iovec *srk, struct iovec *ret_secret);
 
-/* tpm2_unseal() returns a bunch of different errors for various flavours of PCR issues, let's group them */
-#define ERRNO_IS_NEG_TPM2_UNSEAL_BAD_PCR(r) IN_SET(r, -EREMCHG, -ENOANO, -EUCLEAN, -EPERM)
+/* On load/import the return codes mean the key was wrapped for a different parent (INTEGRITY) or used a
+ * different template (SIZE), so it's probably not for our TPM. */
+#define TPM2_RC_IS_FOREIGN_KEY(rc) IN_SET((rc) & ~(TPM2_RC_N_MASK|TPM2_RC_P), TPM2_RC_INTEGRITY, TPM2_RC_SIZE)
 
 #if HAVE_OPENSSL
 int tpm2_tpm2b_public_to_openssl_pkey(const TPM2B_PUBLIC *public, EVP_PKEY **ret);
