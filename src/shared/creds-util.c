@@ -24,6 +24,7 @@
 #include "find-esp.h"
 #include "format-util.h"
 #include "fs-util.h"
+#include "initrd-util.h"
 #include "io-util.h"
 #include "json-util.h"
 #include "log.h"
@@ -31,10 +32,12 @@
 #include "mkdir.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "proc-cmdline.h"
 #include "random-util.h"
 #include "recurse-dir.h"
 #include "sparse-endian.h"
 #include "stat-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "tmpfile-util.h"
 #include "tpm2-pcr.h"
@@ -364,6 +367,39 @@ int get_credential_user_password(const char *username, char **ret_password, bool
         *ret_password = TAKE_PTR(creds_password);
 
         return r;
+}
+
+static const char* const credential_boot_policy_table[_CRED_BOOT_POLICY_MAX] = {
+        [CRED_BOOT_STRICT]  = "strict",
+        [CRED_BOOT_TOFU]    = "tofu",
+        [CRED_BOOT_RELAXED] = "relaxed",
+        [CRED_BOOT_OFF]     = "off",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(credential_boot_policy, CredentialBootPolicy);
+
+bool credential_boot_policy_accepts_null(CredentialBootPolicy policy, bool first_boot, bool have_tpm2, bool secure_boot) {
+
+        /* Decides whether a null-key encrypted credential (which offers neither confidentiality nor
+         * authenticity) may be accepted, given the configured policy and the current system state. */
+
+        switch (policy) {
+
+        case CRED_BOOT_STRICT:
+                return false;
+
+        case CRED_BOOT_TOFU:
+                return first_boot || !have_tpm2;
+
+        case CRED_BOOT_RELAXED:
+                return !secure_boot || !have_tpm2;
+
+        case CRED_BOOT_OFF:
+                return true;
+
+        default:
+                assert_not_reached();
+        }
 }
 
 #if HAVE_OPENSSL
@@ -1195,6 +1231,75 @@ int encrypt_credential_and_warn(
         return 0;
 }
 
+static CredentialBootPolicy query_credential_boot_policy(void) {
+        static CredentialBootPolicy cached = _CRED_BOOT_POLICY_INVALID;
+        _cleanup_free_ char *value = NULL;
+        int r;
+
+        if (cached >= 0)
+                return cached;
+
+        /* default to RELAXED if invalid or unset */
+        cached = CRED_BOOT_RELAXED;
+        r = proc_cmdline_get_key("systemd.credentials_boot_policy", PROC_CMDLINE_STRIP_RD_PREFIX, &value);
+        if (r < 0)
+                log_debug_errno(r, "Failed to read systemd.credentials_boot_policy= from kernel command line, ignoring: %m");
+        else if (r > 0) {
+                CredentialBootPolicy p = credential_boot_policy_from_string(value);
+                if (p < 0)
+                        log_warning("Invalid systemd.credentials_boot_policy= value '%s', ignoring.", value);
+                else
+                        cached = p;
+        }
+
+        return cached;
+}
+
+static int check_null_key_policy(CredentialFlags flags) {
+        if (FLAGS_SET(flags, CREDENTIAL_REFUSE_NULL))
+                return log_error_errno(SYNTHETIC_ERRNO(EHWPOISON),
+                                       "Credential uses null key, but that's not allowed, refusing.");
+
+        if (FLAGS_SET(flags, CREDENTIAL_ALLOW_NULL))
+                return 0;
+
+        /* So this is a credential encrypted with a zero length key. We support this to cover for the
+         * case where neither a host key not a TPM2 are available (specifically: initrd environments
+         * where the host key is not yet accessible and no TPM2 chip exists at all), to minimize
+         * different codeflow for TPM2 and non-TPM2 codepaths. Of course, credentials encoded this
+         * way offer no confidentiality nor authenticity. Because of that it's important we refuse to
+         * use them on systems that actually *do* have a TPM2 chip – if we are in SecureBoot
+         * mode. Otherwise an attacker could hand us credentials like this and we'd use them thinking
+         * they are trusted, even though they are not.
+         *
+         * Which conditions actually lead us to accept a null-key credential is configurable via
+         * systemd.credentials_boot_policy=, which also covers the first boot case (before any key
+         * exists yet); the decision itself is made in credential_boot_policy_accepts_null(). */
+
+        CredentialBootPolicy policy = query_credential_boot_policy();
+
+        bool have_tpm2 = efi_has_tpm2(), secure_boot = is_efi_secure_boot();
+        /* in_first_boot() can return <0 on error: use the safe default in this case (not-first-boot). */
+        bool first_boot = in_first_boot() > 0;
+
+        if (!credential_boot_policy_accepts_null(policy, first_boot, have_tpm2, secure_boot))
+                return log_error_errno(SYNTHETIC_ERRNO(EHWPOISON),
+                                       "Credential uses null key, but systemd.credentials_boot_policy=%s refuses it here (TPM2=%s, SecureBoot=%s, first boot=%s).",
+                                       credential_boot_policy_to_string(policy),
+                                       yes_no(have_tpm2), yes_no(secure_boot), yes_no(first_boot));
+
+        /* Accepting a null-key credential on a tpm2 host is undesired so keep it auditable */
+        if (have_tpm2 && !first_boot)
+                log_warning("Credential uses null key intended for use when TPM2 is absent, but TPM2 is present! "
+                            "Accepting anyway, under systemd.credentials_boot_policy=%s.",
+                            credential_boot_policy_to_string(policy));
+        else
+                log_debug("Credential uses null key, accepted under systemd.credentials_boot_policy=%s.",
+                          credential_boot_policy_to_string(policy));
+
+        return 0;
+}
+
 int decrypt_credential_and_warn(
                 const char *validate_name,
                 usec_t validate_timestamp,
@@ -1254,29 +1359,9 @@ int decrypt_credential_and_warn(
         }
 
         if (sd_id128_equal(h->id, CRED_AES256_GCM_BY_NULL)) {
-                if (FLAGS_SET(flags, CREDENTIAL_REFUSE_NULL))
-                        return log_error_errno(SYNTHETIC_ERRNO(EHWPOISON),
-                                               "Credential uses null key, but that's not allowed, refusing.");
-
-                if (!FLAGS_SET(flags, CREDENTIAL_ALLOW_NULL)) {
-                        /* So this is a credential encrypted with a zero length key. We support this to cover for the
-                         * case where neither a host key not a TPM2 are available (specifically: initrd environments
-                         * where the host key is not yet accessible and no TPM2 chip exists at all), to minimize
-                         * different codeflow for TPM2 and non-TPM2 codepaths. Of course, credentials encoded this
-                         * way offer no confidentiality nor authenticity. Because of that it's important we refuse to
-                         * use them on systems that actually *do* have a TPM2 chip – if we are in SecureBoot
-                         * mode. Otherwise an attacker could hand us credentials like this and we'd use them thinking
-                         * they are trusted, even though they are not. */
-
-                        if (efi_has_tpm2()) {
-                                if (is_efi_secure_boot())
-                                        return log_error_errno(SYNTHETIC_ERRNO(EHWPOISON),
-                                                               "Credential uses null key intended for fallback use when TPM2 is absent — but TPM2 is present, and SecureBoot is enabled, refusing.");
-
-                                log_warning("Credential uses null key intended for use when TPM2 is absent, but TPM2 is present! Accepting anyway, since SecureBoot is disabled.");
-                        } else
-                                log_debug("Credential uses null key intended for use when TPM2 is absent, and TPM2 indeed is absent. Accepting.");
-                }
+                r = check_null_key_policy(flags);
+                if (r < 0)
+                        return r;
         }
 
         if (CRED_KEY_IS_SCOPED(h->id)) {
