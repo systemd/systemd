@@ -303,7 +303,7 @@ int downstream_process_message(
 
         /* RFC 1542 section 4.1.1:
          * The relay agent MUST silently discard BOOTREQUEST messages whose 'hops' field exceeds the value 16. */
-        if (message->header.hops >= 16)
+        if (message->header.hops > 16)
                 return 0;
         message->header.hops++;
 
