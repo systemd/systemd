@@ -544,24 +544,32 @@ static const char16_t *serial_console_arg(uint32_t index) {
 
 #endif /* __i386__ || __x86_64__ */
 
-/* If there's no console= in the command line yet, try to detect the appropriate console device.
+/* If there's no console= in the command line yet, try to detect the appropriate console devices.
  *
- * Detection order:
- * 1. If there's graphical output (GOP) -> don't add console=, the kernel defaults are fine
+ * The kernel enables all consoles listed on the command line and the last console= becomes
+ * /dev/console, so entries are appended in ascending priority:
+ * 1. On x86, if exactly one serial console exists -> console=uart,io,<addr>
  * 2. If exactly one VirtIO console PCI device exists -> console=hvc0
- * 3. On x86, if exactly one serial console exists -> console=uart,io,<addr>
+ * 3. If there's graphical output (GOP) -> console=tty0, but only if 1. or 2. matched
  * 4. Otherwise -> don't add console=, let the user handle it
  *
- * Graphics is checked first to avoid redirecting output away from a graphical console.
+ * Graphics takes priority to avoid redirecting (possibly interactive) main-console output away from a
+ * graphical console. If we only have a graphical one, we don't need to set console= because the kernel
+ * defaults to it anyway (and it would suppress non-x86 kernel auto-detection).
  * The VirtIO console takes priority over serial since it's explicitly configured by the VMM but detection
  * by PCI ID also triggers for non-console ports, so its presence alone doesn't imply that a hvc0 console
  * actually exists. For example, for qemu-guest-agent the PCI device is present but only a traditional
- * serial console is used. In this case we wrongly prefer hvc0 for now.
+ * serial console is used. In this case we wrongly prefer hvc0 for now but this is mostly fine because a
+ * console= entry whose device never shows up is skipped by the kernel. The VMM can also be changed to make
+ * an explicit selection through a SMBIOS kernel-cmdline-extra or switch to using the virtio console
+ * instead of serial.
  *
  * Serial console auto-detection is restricted to x86 where ACPI PNP0501 UIDs map to fixed
  * I/O port addresses for 8250/16550 UARTs. On non-x86 (e.g. ARM), serial device indices are
  * assigned dynamically, and the kernel has its own console auto-detection mechanisms
- * (DT stdout-path, etc.).
+ * (DT stdout-path, etc.). This case is problematic with VirtIO because we could emit console=hvc0
+ * wrongly and then the kernel will never do its detection. TODO: For non-x86 ACPI we could do the SPCR
+ * lookup here.
  *
  * Not TPM-measured because the value is deterministically derived from firmware-reported
  * hardware state (PCI device enumeration, GOP presence, serial device paths). */
@@ -573,33 +581,43 @@ void cmdline_append_console(char16_t **cmdline) {
                 return;
         }
 
-        if (has_graphics_output()) {
-                log_debug("Graphical output available, not adding console= to kernel command line.");
-                return;
-        }
+        const char16_t *console_args[3];
+        size_t n_console_args = 0;
 
-        const char16_t *console_arg = NULL;
-
-        if (has_virtio_console_pci_device())
-                console_arg = u"console=hvc0";
 #if defined(__i386__) || defined(__x86_64__)
-        else {
-                uint32_t serial_index;
-                if (find_serial_console_index(&serial_index) == EFI_SUCCESS)
-                        console_arg = serial_console_arg(serial_index);
+        uint32_t serial_index;
+        if (find_serial_console_index(&serial_index) == EFI_SUCCESS) {
+                const char16_t *serial_arg = serial_console_arg(serial_index);
+                if (serial_arg) {
+                        assert(n_console_args < ELEMENTSOF(console_args));
+                        console_args[n_console_args++] = serial_arg;
+                }
         }
 #endif
 
-        if (!console_arg) {
-                log_debug("Cannot determine console type, not adding console= to kernel command line.");
+        if (has_virtio_console_pci_device()) {
+                assert(n_console_args < ELEMENTSOF(console_args));
+                console_args[n_console_args++] = u"console=hvc0";
+        }
+
+        if (n_console_args == 0) {
+                log_debug("No serial or VirtIO console found, not adding console= to kernel command line.");
                 return;
         }
 
-        log_debug("Appending %ls to kernel command line.", console_arg);
+        /* Keep the graphical console enabled, as the main one, when adding other consoles. */
+        if (has_graphics_output()) {
+                assert(n_console_args < ELEMENTSOF(console_args));
+                console_args[n_console_args++] = u"console=tty0";
+        }
 
-        _cleanup_free_ char16_t *old = TAKE_PTR(*cmdline);
-        if (isempty(old))
-                *cmdline = xstrdup16(console_arg);
-        else
-                *cmdline = xasprintf("%ls %ls", old, console_arg);
+        FOREACH_ARRAY(arg, console_args, n_console_args) {
+                log_debug("Appending %ls to kernel command line.", *arg);
+
+                _cleanup_free_ char16_t *old = TAKE_PTR(*cmdline);
+                if (isempty(old))
+                        *cmdline = xstrdup16(*arg);
+                else
+                        *cmdline = xasprintf("%ls %ls", old, *arg);
+        }
 }
