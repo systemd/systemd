@@ -73,9 +73,6 @@ Seat* seat_free(Seat *s) {
         if (!s)
                 return NULL;
 
-        if (s->in_gc_queue)
-                LIST_REMOVE(gc_queue, s->manager->seat_gc_queue, s);
-
         while (s->sessions)
                 session_free(s->sessions);
 
@@ -83,6 +80,13 @@ Seat* seat_free(Seat *s) {
 
         while (s->devices)
                 device_free(s->devices);
+
+        /* Draining sessions and devices above can put us back onto the GC queue: device_detach()
+         * re-queues the seat once it loses its last master device. Remove ourselves from the queue
+         * only here, after everything that could re-add us has run, otherwise we leave a dangling
+         * pointer behind for the next manager_gc() pass. */
+        if (s->in_gc_queue)
+                LIST_REMOVE(gc_queue, s->manager->seat_gc_queue, s);
 
         hashmap_remove(s->manager->seats, s->id);
 
