@@ -7,3 +7,4 @@ bool in_initrd(void);
 void in_initrd_force(bool value);
 
 bool in_first_boot(void);
+void in_first_boot_force(bool value);
