@@ -37,6 +37,9 @@ bool component_name_valid(const char *c) {
         if (!string_is_safe(c, STRING_FILENAME_PART))
                 return false;
 
+        if (endswith(c, ".component")) /* don't allow ambiguity around sysupdate.<foobar>.component.d/ */
+                return false;
+
         /* Stack allocation is safe, since STRING_FILENAME_PART includes a length check */
         const char *j = strjoina("sysupdate.", c, ".d");
 

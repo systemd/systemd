@@ -10,6 +10,7 @@
 #include "build.h"
 #include "bus-polkit.h"
 #include "conf-files.h"
+#include "conf-parser.h"
 #include "constants.h"
 #include "discover-image.h"
 #include "dissect-image.h"
@@ -38,6 +39,7 @@
 #include "strv.h"
 #include "sysupdate.h"
 #include "sysupdate-cleanup.h"
+#include "sysupdate-config.h"
 #include "sysupdate-feature.h"
 #include "sysupdate-instance.h"
 #include "sysupdate-target.h"
@@ -75,6 +77,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_transfer_source, freep);
 
 #define CONTEXT_NULL                                              \
         (Context) {                                               \
+                .component_enabled = true,                        \
                 .sync = true,                                     \
                 .instances_max = UINT64_MAX,                      \
                 .verify = -1,                                     \
@@ -114,6 +117,8 @@ void context_done(Context *c) {
         c->root = mfree(c->root);
         c->image = mfree(c->image);
         c->component = mfree(c->component);
+        c->component_description = mfree(c->component_description);
+        c->component_documentation = strv_free(c->component_documentation);
         c->image_policy = image_policy_free(c->image_policy);
         c->transfer_source = mfree(c->transfer_source);
 
@@ -153,6 +158,50 @@ static int context_from_cmdline(Context *ret) {
                 if (!context.image_policy)
                         return log_oom();
         }
+
+        *ret = TAKE_GENERIC(context, Context, CONTEXT_NULL);
+        return 0;
+}
+
+static int context_from_base_with_component(const Context *base, const char *component, Context *ret) {
+        assert(base);
+        assert(component);
+        assert(ret);
+
+        /* Copies the specified context, but changes the component to the specified one */
+
+        _cleanup_(context_done) Context context = CONTEXT_NULL;
+
+        context.instances_max = base->instances_max;
+        context.sync = base->sync;
+        context.reboot = base->reboot;
+        context.verify = base->verify;
+        context.offline = base->offline;
+        context.cleanup = base->cleanup;
+
+        if (strdup_to(&context.root, base->root) < 0)
+                return log_oom();
+
+        if (strdup_to(&context.image, base->image) < 0)
+                return log_oom();
+
+        if (strdup_to(&context.transfer_source, base->transfer_source) < 0)
+                return log_oom();
+
+        if (base->image_policy) {
+                context.image_policy = image_policy_copy(base->image_policy);
+                if (!context.image_policy)
+                        return log_oom();
+        }
+
+        if (strdup_to(&context.component, component) < 0)
+                return log_oom();
+
+        /* NB: we do not copy .loop_device/.mounted_dir here, since that's for lifetime tracking only, and
+         * not needed for access (we only need to copy .root/.image) for that. Under the assumption that the
+         * contexts initialized via context_from_base_with_component() have a shorter lifetime than the
+         * contexts they are copied from we don't bother with lifetime tracking of the loopback device/mount
+         * point here. */
 
         *ret = TAKE_GENERIC(context, Context, CONTEXT_NULL);
         return 0;
@@ -280,9 +329,46 @@ static int read_transfers(
         return 0;
 }
 
+static int read_component(Context *c) {
+        int r;
+
+        assert(c);
+
+        /* Read a component description file, but only if we actually operate on a component */
+        if (c->definitions || !c->component)
+                return 0;
+
+        _cleanup_free_ char *j = strjoin("sysupdate.", c->component, ".component");
+        if (!j)
+                return log_oom();
+
+        ConfigTableItem table[] = {
+                { "Component", "Description",   config_parse_string,              0, &c->component_description   },
+                { "Component", "Documentation", config_parse_url_specifiers_many, 0, &c->component_documentation },
+                { "Component", "Enabled",       config_parse_bool,                0, &c->component_enabled       },
+                {}
+        };
+
+        r = config_parse_standard_file_with_dropins_full(
+                        c->root,
+                        /* root_fd= */ -EBADF,
+                        j,
+                        "Component\0",
+                        config_item_table_lookup, table,
+                        CONFIG_PARSE_WARN,
+                        /* userdata= */ (void *) c->root,
+                        /* ret_stats_by_path= */ NULL,
+                        /* ret_dropin_files= */ NULL);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 typedef enum ReadDefinitionsFlags {
-        READ_DEFINITIONS_REQUIRES_ENABLED_TRANSFERS = 1 << 0,
-        READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS     = 1 << 1,
+        READ_DEFINITIONS_REQUIRES_ENABLED_TRANSFERS = 1 << 0, /* fail unless there's at least one enabled transfer */
+        READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS     = 1 << 1, /* fail unless there's at least one transfer */
+        READ_DEFINITIONS_REQUIRES_ENABLED_COMPONENT = 1 << 2, /* fail if component is disabled */
 } ReadDefinitionsFlags;
 
 static int context_read_definitions(Context *c, const char* node, ReadDefinitionsFlags flags) {
@@ -315,6 +401,10 @@ static int context_read_definitions(Context *c, const char* node, ReadDefinition
         if (!dirs)
                 return log_oom();
 
+        r = read_component(c);
+        if (r < 0)
+                return r;
+
         r = read_features(c, (const char**) dirs);
         if (r < 0)
                 return r;
@@ -343,6 +433,9 @@ static int context_read_definitions(Context *c, const char* node, ReadDefinition
                 return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
                                        "No transfer definitions found.");
         }
+
+        if (FLAGS_SET(flags, READ_DEFINITIONS_REQUIRES_ENABLED_COMPONENT) && !c->component_enabled)
+                return log_error_errno(SYNTHETIC_ERRNO(EHOSTDOWN), "Component is disabled.");
 
         return 0;
 }
@@ -1029,10 +1122,9 @@ static int context_process_image(
 
         assert(c);
 
-        if (!c->image)
+        if (c->root || !c->image) /* Idempotent or nothing to do */
                 return 0;
 
-        assert(!c->root);
         assert(!c->mounted_dir);
         assert(!c->loop_device);
 
@@ -1094,7 +1186,9 @@ static int context_load_offline(
 
 static int context_load_online(
                 Context *context,
-                ProcessImageFlags process_image_flags) {
+                ProcessImageFlags process_image_flags,
+                ReadDefinitionsFlags read_definitions_flags) {
+
         int r;
 
         assert(context);
@@ -1105,7 +1199,7 @@ static int context_load_online(
         r = context_load_offline(
                         context,
                         process_image_flags,
-                        READ_DEFINITIONS_REQUIRES_ENABLED_TRANSFERS|READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS);
+                        read_definitions_flags);
         if (r < 0)
                 return r;
 
@@ -1156,7 +1250,10 @@ static int context_load_paths_from_image(Context *context, Image *image) {
  * syntactically validated by dispatch_target_identifier(), but might still point to components which don’t
  * exist, images which the user isn’t privileged to access, etc. This function validates the TargetIdentifier
  * against an enumerated list of known targets, which are safe to update without additional permissions. */
-static int context_load_online_from_target(Context *context, ProcessImageFlags process_image_flags) {
+static int context_load_online_from_target(
+                Context *context,
+                ProcessImageFlags process_image_flags,
+                ReadDefinitionsFlags read_definitions_flags) {
         int r;
 
         assert(context);
@@ -1247,7 +1344,7 @@ static int context_load_online_from_target(Context *context, ProcessImageFlags p
                 assert_not_reached();
         }
 
-        return context_load_online(context, process_image_flags);
+        return context_load_online(context, process_image_flags, read_definitions_flags);
 }
 
 static int context_on_acquire_progress(const Transfer *t, const Instance *inst, unsigned percentage) {
@@ -1650,7 +1747,11 @@ static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (context.component_all)
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--component-all currently not supported for '%s'.", argv[0]);
 
-        r = context_load_online(&context, PROCESS_IMAGE_READ_ONLY);
+        r = context_load_online(
+                        &context,
+                        PROCESS_IMAGE_READ_ONLY,
+                        READ_DEFINITIONS_REQUIRES_ENABLED_TRANSFERS|
+                        READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS);
         if (r < 0)
                 return r;
 
@@ -1860,7 +1961,9 @@ static int verb_check_new(int argc, char *argv[], uintptr_t _data, void *userdat
 
         r = context_load_online(
                         &context,
-                        PROCESS_IMAGE_READ_ONLY);
+                        PROCESS_IMAGE_READ_ONLY,
+                        READ_DEFINITIONS_REQUIRES_ENABLED_TRANSFERS|
+                        READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS);
         if (r < 0)
                 return r;
 
@@ -1919,7 +2022,11 @@ static int vl_method_check_new(sd_varlink *link, sd_json_variant *parameters, sd
         /* CheckNew is always online */
         context.offline = false;
 
-        r = context_load_online_from_target(&context, PROCESS_IMAGE_READ_ONLY);
+        r = context_load_online_from_target(
+                        &context,
+                        PROCESS_IMAGE_READ_ONLY,
+                        READ_DEFINITIONS_REQUIRES_ENABLED_TRANSFERS|
+                        READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS);
         if (r == -ENOENT)
                 return sd_varlink_error(link, "io.systemd.SysUpdate.NoSuchTarget", NULL);
         if (r < 0)
@@ -1976,7 +2083,10 @@ static int verb_update_impl(int argc, char **argv, UpdateActionFlags action_flag
 
         r = context_load_online(
                         &context,
-                        /* process_image_flags= */ 0);
+                        /* process_image_flags= */ 0,
+                        READ_DEFINITIONS_REQUIRES_ENABLED_TRANSFERS|
+                        READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS|
+                        READ_DEFINITIONS_REQUIRES_ENABLED_COMPONENT);
         if (r < 0) {
                 if (r != -ENOENT)
                         return r;
@@ -2108,7 +2218,9 @@ static int verb_pending_or_reboot(int argc, char *argv[], uintptr_t _data, void 
         r = context_load_offline(
                         &context,
                         /* process_image_flags= */ 0,
-                        READ_DEFINITIONS_REQUIRES_ENABLED_TRANSFERS|READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS);
+                        READ_DEFINITIONS_REQUIRES_ENABLED_TRANSFERS|
+                        READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS|
+                        READ_DEFINITIONS_REQUIRES_ENABLED_COMPONENT);
         if (r < 0)
                 return r;
 
@@ -2210,12 +2322,58 @@ static int verb_components(int argc, char *argv[], uintptr_t _data, void *userda
                         return 0;
                 }
 
-                if (has_default_component)
-                        printf("%s<default>%s\n",
-                               ansi_highlight(), ansi_normal());
+                _cleanup_(table_unrefp) Table *t = table_new("", "component", "description", "documentation");
+                if (!t)
+                        return log_oom();
 
-                STRV_FOREACH(i, component_names)
-                        puts(*i);
+                table_set_ersatz_string(t, TABLE_ERSATZ_DASH);
+
+                if (has_default_component) {
+                        r = table_add_many(
+                                        t,
+                                        TABLE_EMPTY,
+                                        TABLE_STRING, "<default>",
+                                        TABLE_SET_COLOR, ansi_highlight(),
+                                        TABLE_STRING, "Default Component",
+                                        TABLE_EMPTY);
+                        if (r < 0)
+                                return table_log_add_error(r);
+                }
+
+                STRV_FOREACH(i, component_names) {
+                        _cleanup_(context_done) Context cc = CONTEXT_NULL;
+
+                        r = context_from_base_with_component(
+                                        &context,
+                                        *i,
+                                        &cc);
+                        if (r < 0)
+                                return r;
+
+                        r = context_load_offline(
+                                        &cc,
+                                        /* process_image_flags= */ 0,
+                                        /* read_definitions_flags= */ 0);
+                        if (r == -ENOMEM)
+                                return r;
+                        if (r < 0)
+                                continue;
+
+                        const char *doc = cc.component_documentation ? cc.component_documentation[0] : NULL;
+
+                        r = table_add_many(
+                                        t,
+                                        TABLE_BOOLEAN_CHECKMARK, cc.component_enabled,
+                                        TABLE_SET_COLOR, ansi_highlight_green_red(cc.component_enabled),
+                                        TABLE_STRING, *i,
+                                        TABLE_STRING, cc.component_description,
+                                        TABLE_STRING, doc,
+                                        TABLE_SET_URL, doc);
+                        if (r < 0)
+                                return table_log_add_error(r);
+                }
+
+                return table_print_with_pager(t, arg_json_format_flags, arg_pager_flags, arg_legend);
         } else {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
 
