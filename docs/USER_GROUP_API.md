@@ -327,6 +327,37 @@ Services which are asked for enumeration may return the `EnumerationNotSupported
 
 And that's really all there is to it.
 
+## Reducing IPC Requests
+
+In many cases backends are only interested in responding to certain UID/GID
+ranges, or only to user/group names matching a specific pattern. To optimize
+look-ups in this case it is possible to indicate on the Varlink entrypoint
+socket inode of the service which ranges or patterns these are: if the kernel
+supports extended attributes on socket inodes (Linux >= 7.1), the following
+extended attributes may be set:
+
+* `user.userdb.uid` takes a comma separated list of UIDs or dash-separated UID
+  range pairs. If set, then the service will not be contacted for any UID
+  look-ups outside of this range. Example: setting the extended attribute to
+  `61184-65519,524288-1879048191,4711` will have the effect that a lookup for
+  UID 1051 will not be attempted against this service, but one for 62334 will be.
+
+* `user.userdb.gid` is similar, but for GIDs and GID ranges.
+
+* `user.userdb.username` takes a NUL separated list of `fnmatch()` style glob
+  expressions. If set only look-ups for user names matching at least one of
+  these expressions will be routed to this service. Example: setting the
+  extended attribute to `foo-*\0www*h?` (where `\0` shall indicate the NUL
+  byte) will route only look-ups for `foo-bar` and `wwwooosh7` to this service,
+  but not `waldo`.
+
+* `user.userdb.groupname` is similar, but for group names.
+
+Note that these extended attributes are intended for optimization only: any
+backend *must* be prepared to answer look-ups for any UID, GID, user and group
+name, and respond with `NoRecordFound` for requests outside of the
+ranges/patterns defined this way.
+
 ## Command Line Access
 
 For command line access you can use the
