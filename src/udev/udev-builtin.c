@@ -105,7 +105,9 @@ UdevBuiltinCommand udev_builtin_lookup(const char *command) {
         command += strspn(command, WHITESPACE);
         n = strcspn(command, WHITESPACE);
         for (UdevBuiltinCommand i = 0; i < _UDEV_BUILTIN_MAX; i++)
-                if (builtins[i] && strneq(builtins[i]->name, command, n))
+                if (builtins[i] &&
+                    builtins[i]->name[n] == '\0' &&
+                    strneq(builtins[i]->name, command, n))
                         return i;
 
         return _UDEV_BUILTIN_INVALID;
