@@ -79,6 +79,7 @@ static SD_VARLINK_DEFINE_ERROR(NullKeyNotAllowed);
 static SD_VARLINK_DEFINE_ERROR(KeyBelongsToOtherTPM);
 static SD_VARLINK_DEFINE_ERROR(TPMInDictionaryLockout);
 static SD_VARLINK_DEFINE_ERROR(UnexpectedPCRState);
+static SD_VARLINK_DEFINE_ERROR(NVIndexUnusable);
 
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_Credentials,
@@ -111,4 +112,6 @@ SD_VARLINK_DEFINE_INTERFACE(
                 SD_VARLINK_SYMBOL_COMMENT("The TPM is in dictionary lockout mode, cannot operate."),
                 &vl_error_TPMInDictionaryLockout,
                 SD_VARLINK_SYMBOL_COMMENT("Unexpected TPM PCR state of the system."),
-                &vl_error_UnexpectedPCRState);
+                &vl_error_UnexpectedPCRState,
+                SD_VARLINK_SYMBOL_COMMENT("The NV index referenced by the key is missing, unwritten, or unusable, it could be for another system."),
+                &vl_error_NVIndexUnusable);
