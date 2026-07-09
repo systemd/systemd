@@ -395,7 +395,7 @@
           functionality may be used to consume replies that come with associated file descriptors in a
           reasonable way.</para>
 
-          <para>Now that if <option>--exec</option> is specified the the third parameter to
+          <para>Now that if <option>--exec</option> is specified the third parameter to
           <command>call</command> is not optional (i.e. the method call parameters).</para>
 
           <xi:include href="version-info.xml" xpointer="v258"/>
