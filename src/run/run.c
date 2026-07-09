@@ -607,7 +607,9 @@ static int parse_argv(int argc, char *argv[]) {
                                                "OnStartupSec=",
                                                "OnUnitActiveSec=",
                                                "OnUnitInactiveSec=",
-                                               "OnCalendar=");
+                                               "OnCalendar=",
+                                               "OnClockChange=",
+                                               "OnTimezoneChange=");
                         break;
                 }
 
