@@ -1109,4 +1109,47 @@ testcase_deactivate_busy() {
     homectl remove busytest
 }
 
+testcase_luks_passwd_rollback() {
+    # Regression test for a destroy-before-add bug in home_passwd_luks(): the
+    # LUKS key-slot rotation used to destroy the old key slot before adding its
+    # replacement at the same index, so a failure in between (e.g. argon2
+    # running out of memory while deriving the new slot's key) left the slot
+    # destroyed with no replacement and locked the user out for good.
+    #
+    # Force such a failure deterministically: use a memory-hard KDF (argon2id)
+    # with a fixed iteration count. The fixed count disables the PBKDF
+    # benchmark, so the configured memory cost is used verbatim rather than
+    # being auto-tuned down to fit available memory. homed clamps the cost to
+    # ~4 TiB, which no machine can allocate, so deriving the new key slot is
+    # guaranteed to fail. The original password must still work afterwards.
+
+    NEWPASSWORD=Chai8aLi7o homectl create test-luks-rollback \
+        --disk-size=min \
+        --luks-discard=yes \
+        --image-path=/home/test-luks-rollback.home \
+        --luks-pbkdf-type=argon2id \
+        --luks-pbkdf-force-iterations=4 \
+        --luks-pbkdf-memory-cost=32M \
+        --rate-limit-interval=1s \
+        --rate-limit-burst=1000
+    homectl inspect test-luks-rollback
+
+    PASSWORD=Chai8aLi7o homectl authenticate test-luks-rollback
+
+    # Store an argon2 memory cost that cannot possibly be allocated. It only
+    # takes effect when the key slots are rewritten (i.e. on the next 'passwd'),
+    # so this update itself succeeds.
+    PASSWORD=Chai8aLi7o homectl update test-luks-rollback --luks-pbkdf-memory-cost=1P
+
+    # 'passwd' now rewrites the key slot with the impossible memory cost, so the
+    # argon2 key derivation fails and the whole operation must fail.
+    (! PASSWORD=Chai8aLi7o NEWPASSWORD=oe4YeeGh0O homectl passwd test-luks-rollback)
+
+    # The failed rotation must not have destroyed the only key slot: the
+    # original password must still unlock the home directory.
+    PASSWORD=Chai8aLi7o homectl authenticate test-luks-rollback
+
+    homectl remove test-luks-rollback
+}
+
 run_testcases
