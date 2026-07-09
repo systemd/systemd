@@ -1109,4 +1109,62 @@ testcase_deactivate_busy() {
     homectl remove busytest
 }
 
+testcase_luks_passwd_rollback() {
+    # Regression test for a destroy-before-add bug in home_passwd_luks() that destroyed the old LUKS key
+    # slot before adding its replacement, locking the user out if adding the new slot was interrupted
+    # (e.g. argon2 running out of memory).
+    #
+    # Reproduce the interruption for real: cap systemd-homed's memory below the argon2 cost so the forked
+    # systemd-homework is OOM-killed mid-rotation. OOMPolicy=continue keeps homed itself alive so it can
+    # recover afterwards. The original password must still unlock the home.
+
+    NEWPASSWORD=Chai8aLi7o homectl create test-luks-rollback \
+        --disk-size=min \
+        --luks-discard=yes \
+        --image-path=/home/test-luks-rollback.home \
+        --luks-pbkdf-type=argon2id \
+        --luks-pbkdf-force-iterations=4 \
+        --luks-pbkdf-memory-cost=32M \
+        --rate-limit-interval=1s \
+        --rate-limit-burst=1000
+    homectl inspect test-luks-rollback
+
+    PASSWORD=Chai8aLi7o homectl authenticate test-luks-rollback
+
+    # Raise the argon2 memory cost above the MemoryMax set below. force-iterations disables the benchmark so
+    # the cost is used verbatim (not auto-tuned down); it only takes effect on the next 'passwd'.
+    PASSWORD=Chai8aLi7o homectl update test-luks-rollback --luks-pbkdf-memory-cost=512M
+
+    # Cap homed's memory well below that cost so the argon2 derivation is OOM-killed. OOMPolicy=continue
+    # stops systemd from tearing homed down when the worker is killed.
+    mkdir -p /run/systemd/system/systemd-homed.service.d
+    cat >/run/systemd/system/systemd-homed.service.d/50-oom.conf <<EOF
+[Service]
+MemoryMax=128M
+OOMPolicy=continue
+EOF
+    systemctl daemon-reload
+
+    # 'passwd' now rewrites the key slot with the oversized cost, so the worker is OOM-killed and the
+    # operation must fail. Capture the result and lift the cap before asserting, so it can't leak into
+    # later testcases.
+    local rc=0
+    PASSWORD=Chai8aLi7o NEWPASSWORD=oe4YeeGh0O homectl passwd test-luks-rollback || rc=$?
+
+    rm -f /run/systemd/system/systemd-homed.service.d/50-oom.conf
+    systemctl daemon-reload
+
+    assert_neq "$rc" 0
+
+    # The OOM-killed worker left the LUKS device set up but unmounted, which wedges homed ("incompletely
+    # set up"). Tear it down so homed can operate again.
+    cryptsetup close home-test-luks-rollback ||:
+
+    # The interrupted rotation must not have destroyed the old slot: the original password must still
+    # authenticate (homework revalidates it against the on-disk LUKS header).
+    PASSWORD=Chai8aLi7o homectl authenticate test-luks-rollback
+
+    homectl remove test-luks-rollback
+}
+
 run_testcases
