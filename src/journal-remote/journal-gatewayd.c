@@ -1259,7 +1259,7 @@ static int run(int argc, char *argv[]) {
                 MHD_USE_THREAD_PER_CONNECTION;
         int r, n;
 
-        COMPRESS_DEFAULT_NOTE;
+        COMPRESS_JOURNAL_NOTE;
         LIBGNUTLS_NOTE(suggested);
 
         log_setup();

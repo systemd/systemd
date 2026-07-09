@@ -94,8 +94,11 @@
         LIBZSTD_NOTE(priority)
 
 #define COMPRESS_DEFAULT_NOTE                           \
+        COMPRESS_JOURNAL_NOTE;                          \
         LIBBZ2_NOTE(suggested);                         \
+        LIBZ_NOTE(suggested)
+
+#define COMPRESS_JOURNAL_NOTE                           \
         LIBLZ4_NOTE(COMPRESSION_PRIORITY_LZ4);          \
         LIBLZMA_NOTE(COMPRESSION_PRIORITY_XZ);          \
-        LIBZ_NOTE(suggested);                           \
         LIBZSTD_NOTE(COMPRESSION_PRIORITY_ZSTD)

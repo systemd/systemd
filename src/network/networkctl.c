@@ -209,7 +209,7 @@ static int run(int argc, char* argv[]) {
         char **args = NULL;
         int r;
 
-        COMPRESS_DEFAULT_NOTE;
+        COMPRESS_JOURNAL_NOTE;
         LIBSELINUX_NOTE(recommended);
 
         log_setup();

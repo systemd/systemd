@@ -1022,7 +1022,7 @@ static int run(int argc, char *argv[]) {
         _cleanup_strv_free_ char **args = NULL;
         int r;
 
-        COMPRESS_DEFAULT_NOTE;
+        COMPRESS_JOURNAL_NOTE;
         LIBACL_NOTE(recommended);
         LIBBLKID_NOTE(recommended);
         LIBCRYPTSETUP_NOTE(suggested);

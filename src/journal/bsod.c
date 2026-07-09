@@ -288,7 +288,7 @@ static int run(int argc, char *argv[]) {
         _cleanup_free_ char *message = NULL;
         int r;
 
-        COMPRESS_DEFAULT_NOTE;
+        COMPRESS_JOURNAL_NOTE;
         LIBQRENCODE_NOTE(suggested);
 
         log_setup();

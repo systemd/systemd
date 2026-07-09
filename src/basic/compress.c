@@ -254,6 +254,19 @@ Compression compression_from_filename(const char *filename) {
         return c;
 }
 
+bool compression_supported_journal(Compression c) {
+        static const unsigned supported =
+                (1U << COMPRESSION_NONE) |
+                (1U << COMPRESSION_XZ) * HAVE_XZ |
+                (1U << COMPRESSION_LZ4) * HAVE_LZ4 |
+                (1U << COMPRESSION_ZSTD) * HAVE_ZSTD;
+
+        assert(c >= 0);
+        assert(c < _COMPRESSION_MAX);
+
+        return BIT_SET(supported, c);
+}
+
 bool compression_supported(Compression c) {
         static const unsigned supported =
                 (1U << COMPRESSION_NONE) |
@@ -639,7 +652,7 @@ static int compress_blob_bzip2(
 #endif
 }
 
-int compress_blob(
+int compress_blob_journal(
                 Compression compression,
                 const void *src, uint64_t src_size,
                 void *dst, size_t dst_alloc_size, size_t *dst_size, int level) {
@@ -651,12 +664,23 @@ int compress_blob(
                 return compress_blob_lz4(src, src_size, dst, dst_alloc_size, dst_size, level);
         case COMPRESSION_ZSTD:
                 return compress_blob_zstd(src, src_size, dst, dst_alloc_size, dst_size, level);
+        default:
+                return -EOPNOTSUPP;
+        }
+}
+
+int compress_blob(
+                Compression compression,
+                const void *src, uint64_t src_size,
+                void *dst, size_t dst_alloc_size, size_t *dst_size, int level) {
+
+        switch (compression) {
         case COMPRESSION_GZIP:
                 return compress_blob_gzip(src, src_size, dst, dst_alloc_size, dst_size, level);
         case COMPRESSION_BZIP2:
                 return compress_blob_bzip2(src, src_size, dst, dst_alloc_size, dst_size, level);
         default:
-                return -EOPNOTSUPP;
+                return compress_blob_journal(compression, src, src_size, dst, dst_alloc_size, dst_size, level);
         }
 }
 
@@ -1033,7 +1057,7 @@ static int decompress_blob_bzip2(
 #endif
 }
 
-int decompress_blob(
+int decompress_blob_journal(
                 Compression compression,
                 const void *src,
                 uint64_t src_size,
@@ -1054,6 +1078,20 @@ int decompress_blob(
                 return decompress_blob_zstd(
                                 src, src_size,
                                 dst, dst_size, dst_max);
+        default:
+                return -EPROTONOSUPPORT;
+        }
+}
+
+int decompress_blob(
+                Compression compression,
+                const void *src,
+                uint64_t src_size,
+                void **dst,
+                size_t *dst_size,
+                size_t dst_max) {
+
+        switch (compression) {
         case COMPRESSION_GZIP:
                 return decompress_blob_gzip(
                                 src, src_size,
@@ -1063,7 +1101,10 @@ int decompress_blob(
                                 src, src_size,
                                 dst, dst_size, dst_max);
         default:
-                return -EPROTONOSUPPORT;
+                return decompress_blob_journal(
+                                compression,
+                                src, src_size,
+                                dst, dst_size, dst_max);
         }
 }
 
@@ -1452,7 +1493,7 @@ static int decompress_startswith_bzip2(
 #endif
 }
 
-int decompress_startswith(
+int decompress_startswith_journal(
                 Compression compression,
                 const void *src, uint64_t src_size,
                 void **buffer,
@@ -1466,12 +1507,25 @@ int decompress_startswith(
                 return decompress_startswith_lz4(src, src_size, buffer, prefix, prefix_len, extra);
         case COMPRESSION_ZSTD:
                 return decompress_startswith_zstd(src, src_size, buffer, prefix, prefix_len, extra);
+        default:
+                return -EOPNOTSUPP;
+        }
+}
+
+int decompress_startswith(
+                Compression compression,
+                const void *src, uint64_t src_size,
+                void **buffer,
+                const void *prefix, size_t prefix_len,
+                uint8_t extra) {
+
+        switch (compression) {
         case COMPRESSION_GZIP:
                 return decompress_startswith_gzip(src, src_size, buffer, prefix, prefix_len, extra);
         case COMPRESSION_BZIP2:
                 return decompress_startswith_bzip2(src, src_size, buffer, prefix, prefix_len, extra);
         default:
-                return -EOPNOTSUPP;
+                return decompress_startswith_journal(compression, src, src_size, buffer, prefix, prefix_len, extra);
         }
 }
 

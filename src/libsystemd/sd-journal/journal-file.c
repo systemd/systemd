@@ -365,7 +365,7 @@ static Compression getenv_compression(void) {
                 return DEFAULT_COMPRESSION;
         }
 
-        if (!compression_supported(c)) {
+        if (!compression_supported_journal(c)) {
                 log_debug("Unsupported compression algorithm specified, ignoring: %s", e);
                 return DEFAULT_COMPRESSION;
         }
@@ -1861,7 +1861,7 @@ static int maybe_compress_payload(
                 return 0;
         }
 
-        r = compress_blob(c, src, size, dst, size - 1, rsize, /* level= */ -1);
+        r = compress_blob_journal(c, src, size, dst, size - 1, rsize, /* level= */ -1);
         if (r < 0)
                 return log_debug_errno(r, "Failed to compress data object using %s, ignoring: %m", compression_to_string(c));
 
@@ -1983,7 +1983,7 @@ static int maybe_decompress_payload(
                 int r;
 
                 if (field) {
-                        r = decompress_startswith(compression, payload, size, &f->compress_buffer, field,
+                        r = decompress_startswith_journal(compression, payload, size, &f->compress_buffer, field,
                                                   field_length, '=');
                         if (r < 0)
                                 return log_debug_errno(r,
@@ -2003,7 +2003,7 @@ static int maybe_decompress_payload(
                                 return 1;
                 }
 
-                r = decompress_blob(compression, payload, size, &f->compress_buffer, &rsize, DATA_SIZE_MAX);
+                r = decompress_blob_journal(compression, payload, size, &f->compress_buffer, &rsize, DATA_SIZE_MAX);
                 if (r < 0)
                         return r;
 

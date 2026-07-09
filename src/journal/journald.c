@@ -26,7 +26,7 @@ static int run(int argc, char *argv[]) {
         LogTarget log_target;
         int r;
 
-        COMPRESS_DEFAULT_NOTE;
+        COMPRESS_JOURNAL_NOTE;
         LIBACL_NOTE(recommended);
         LIBCRYPTO_NOTE(suggested);
         LIBPCRE2_NOTE(suggested);
