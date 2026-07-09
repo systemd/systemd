@@ -75,6 +75,12 @@ TEST(ellipsize_mem) {
                                 test_ellipsize_mem_one(s, l, k);
 }
 
+TEST(ellipsize_mem_truncated_utf8) {
+        static const char s[] = { 'a', '\xf0', '\x80', '\x80', '\x80', 'b' };
+
+        ASSERT_NULL(ellipsize_mem(s, 2, 1, 50));
+}
+
 static void test_ellipsize_one(const char *p) {
         _cleanup_free_ char *t = NULL;
         t = ellipsize(p, columns(), 70);
