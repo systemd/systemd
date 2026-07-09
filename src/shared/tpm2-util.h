@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <errno.h>
+
 #include "sd-dlopen.h"
 
 #include "bitfield.h"
@@ -17,6 +19,8 @@ typedef enum TPM2Flags {
  * TPM2 on a Client PC must have at least 24 PCRs. This hardcodes our expectation of 24. */
 #define TPM2_PCRS_MAX 24U
 #define TPM2_PCRS_MASK ((UINT32_C(1) << TPM2_PCRS_MAX) - 1)
+
+#define TPM2_PCRLOCK_POLICY_MISSING_ERRNO ENOLINK
 
 /* The SRK handle is defined in the Provisioning Guidance document (see above) in the table "Reserved Handles
  * for TPM Provisioning Fundamental Elements". The SRK is useful because it is "shared", meaning it has no
