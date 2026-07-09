@@ -260,7 +260,7 @@ int load_volume_key_tpm2(
                                 &decrypted_key);
                 if (IN_SET(r, -EACCES, -ENOLCK))
                         return log_notice_errno(SYNTHETIC_ERRNO(EAGAIN), "TPM2 PIN unlock failed");
-                if (r != -EPERM)
+                if (!IN_SET(r, -EPERM, -ENODATA))
                         break;
 
                 token++; /* try a different token next time */
