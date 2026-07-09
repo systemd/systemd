@@ -1309,15 +1309,17 @@ static int dissect_image(
                 start = sym_blkid_partition_get_start(pp);
                 if (start < 0)
                         return errno_or_else(EIO);
-
-                assert((uint64_t) start < UINT64_MAX/512);
+                if ((uint64_t) start >= UINT64_MAX/512)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EOVERFLOW),
+                                               "Partition start LBA too large to convert to a byte offset, refusing.");
 
                 errno = 0;
                 size = sym_blkid_partition_get_size(pp);
                 if (size < 0)
                         return errno_or_else(EIO);
-
-                assert((uint64_t) size < UINT64_MAX/512);
+                if ((uint64_t) size >= UINT64_MAX/512)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EOVERFLOW),
+                                               "Partition size in LBA too large to convert to a byte offset, refusing.");
 
                 /* While probing we need the non-diskseq device node name to access the thing, hence mask off
                  * DISSECT_IMAGE_DISKSEQ_DEVNODE. */
