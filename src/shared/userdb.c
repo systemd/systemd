@@ -1418,13 +1418,13 @@ static int groupdb_by_gid_fallbacks(
         assert(iterator);
         assert(ret);
 
-        if (!FLAGS_SET(flags, USERDB_EXCLUDE_DROPIN) && !(iterator && iterator->dropin_covered)) {
+        if (!FLAGS_SET(flags, USERDB_EXCLUDE_DROPIN) && !iterator->dropin_covered) {
                 r = dropin_group_record_by_gid(gid, NULL, flags, ret);
                 if (r >= 0)
                         return r;
         }
 
-        if (!FLAGS_SET(flags, USERDB_EXCLUDE_NSS) && !(iterator && iterator->nss_covered)) {
+        if (!FLAGS_SET(flags, USERDB_EXCLUDE_NSS) && !iterator->nss_covered) {
                 r = userdb_iterator_block_nss_systemd(iterator);
                 if (r >= 0) {
                         r = nss_group_record_by_gid(gid, !FLAGS_SET(flags, USERDB_SUPPRESS_SHADOW), ret);
