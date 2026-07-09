@@ -210,6 +210,7 @@ shared_sources = files(
         'switch-root.c',
         'swtpm-util.c',
         'tar-util.c',
+        'tdx-rtmr.c',
         'tmpfile-util.c',
         'tomoyo-util.c',
         'tpm2-util.c',

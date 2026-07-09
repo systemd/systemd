@@ -213,6 +213,7 @@ simple_tests += files(
         'test-strv.c',
         'test-strxcpyx.c',
         'test-sysctl-util.c',
+        'test-tdx-rtmr.c',
         'test-terminal-util.c',
         'test-tests.c',
         'test-tmpfile-util.c',
