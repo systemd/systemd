@@ -3742,44 +3742,86 @@ int home_passwd_luks(
 
         n_effective = strv_length(effective_passwords);
 
+        /* We add every new key slot before removing any old one, hence the device transiently holds both the
+         * old and the new slots. LUKS caps the total number of slots, so refuse right away if the new
+         * passwords alone cannot fit. */
+        if (n_effective > max_key_slots)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOSPC),
+                                       "Too many passwords (%zu) for LUKS device with %zu key slots.",
+                                       n_effective, max_key_slots);
+
         build_good_pbkdf(&good_pbkdf, h);
         build_minimal_pbkdf(&minimal_pbkdf, h);
 
-        for (size_t i = 0; i < max_key_slots; i++) {
-                r = sym_crypt_keyslot_destroy(setup->crypt_device, i);
-                if (r < 0 && !IN_SET(r, -ENOENT, -EINVAL)) /* Returns EINVAL or ENOENT if there's no key in this slot already */
-                        return log_error_errno(r, "Failed to destroy LUKS password: %m");
+        /* Rotate the LUKS key slots in two passes, so that at every on-disk state at least one valid key slot
+         * exists for each password the user currently holds. First add all new passwords into free key slots
+         * (purely additive, hence non-destructive), and only once that fully succeeded destroy the old slots.
+         * If an add fails (e.g. the argon2 PBKDF, which is intentionally memory hungry, hits OOM), we roll
+         * back the slots added so far and return with the pre-existing slots untouched. The reverse order
+         * (destroy a slot first, then add its replacement at the same index) would, on such a failure, leave
+         * the slot destroyed with no replacement, permanently locking the user out. */
 
-                if (i >= n_effective) {
-                        if (r >= 0)
-                                log_info("Destroyed LUKS key slot %zu.", i);
-                        continue;
-                }
+        _cleanup_free_ int *new_slots = new(int, n_effective ?: 1);
+        if (!new_slots)
+                return log_oom();
 
+        size_t n_added = 0;
+        for (size_t i = 0; i < n_effective; i++) {
                 if (password_cache_contains(cache, effective_passwords[i])) { /* Is this a FIDO2 or PKCS#11 password? */
-                        log_debug("Using minimal PBKDF for slot %zu", i);
+                        log_debug("Using minimal PBKDF for new key slot.");
                         r = sym_crypt_set_pbkdf_type(setup->crypt_device, &minimal_pbkdf);
                 } else {
-                        log_debug("Using good PBKDF for slot %zu", i);
+                        log_debug("Using good PBKDF for new key slot.");
                         r = sym_crypt_set_pbkdf_type(setup->crypt_device, &good_pbkdf);
                 }
-                if (r < 0)
-                        return log_error_errno(r, "Failed to tweak PBKDF for slot %zu: %m", i);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to tweak PBKDF for new key slot: %m");
+                        goto rollback;
+                }
 
                 r = sym_crypt_keyslot_add_by_volume_key(
                                 setup->crypt_device,
-                                i,
+                                CRYPT_ANY_SLOT,
                                 volume_key,
                                 volume_key_size,
                                 effective_passwords[i],
                                 strlen(effective_passwords[i]));
-                if (r < 0)
-                        return log_error_errno(r, "Failed to set up LUKS password: %m");
+                if (r < 0) {
+                        log_error_errno(r, "Failed to set up LUKS password: %m");
+                        goto rollback;
+                }
 
-                log_info("Updated LUKS key slot %zu.", i);
+                new_slots[n_added++] = r;
+                log_info("Added LUKS key slot %i.", r);
+        }
+
+        /* All replacement slots are committed now; drop every slot that isn't one we just added. */
+        for (size_t i = 0; i < max_key_slots; i++) {
+                bool keep = false;
+
+                for (size_t j = 0; j < n_added; j++)
+                        if (new_slots[j] == (int) i) {
+                                keep = true;
+                                break;
+                        }
+                if (keep)
+                        continue;
+
+                r = sym_crypt_keyslot_destroy(setup->crypt_device, i);
+                if (r < 0 && !IN_SET(r, -ENOENT, -EINVAL)) /* Returns EINVAL or ENOENT if there's no key in this slot already */
+                        return log_error_errno(r, "Failed to destroy LUKS password: %m");
+                if (r >= 0)
+                        log_info("Destroyed LUKS key slot %zu.", i);
         }
 
         return 1;
+
+rollback:
+        /* Undo the slots added in this call, so that the header is left exactly as we found it. */
+        for (size_t i = 0; i < n_added; i++)
+                (void) sym_crypt_keyslot_destroy(setup->crypt_device, new_slots[i]);
+
+        return r;
 }
 
 int home_lock_luks(UserRecord *h, HomeSetup *setup) {
