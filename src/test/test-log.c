@@ -58,6 +58,28 @@ static void test_log_once(void) {
                 test_log_once_impl();
 }
 
+TEST(log_struct_iovec_many_fields) {
+        LogTarget old_target = log_get_target();
+        struct iovec iovec[1024];
+
+        log_set_target(LOG_TARGET_JOURNAL);
+        log_open();
+        if (log_on_console()) {
+                log_set_target(old_target);
+                log_open();
+                return (void) log_tests_skipped("journal socket is not available");
+        }
+
+        iovec[0] = IOVEC_MAKE_STRING("MESSAGE=many fields");
+        for (size_t i = 1; i < ELEMENTSOF(iovec); i++)
+                iovec[i] = IOVEC_MAKE_STRING("FIELD=value");
+
+        ASSERT_OK(log_struct_iovec(LOG_INFO, iovec, ELEMENTSOF(iovec)));
+
+        log_set_target(old_target);
+        log_open();
+}
+
 static void test_log_struct(void) {
         log_struct(LOG_INFO,
                    "MESSAGE=Waldo PID="PID_FMT" (no errno)", getpid_cached(),
