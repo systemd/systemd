@@ -23,7 +23,7 @@
  * of resolution requests we keep multiple connections open thus, but not too many. */
 #define HOOK_IDLE_CONNECTIONS_MAX 4U
 
-/* Encapsulates a specific hook, i.e. bound socket in in the /run/systemd/resolve.hook/ directory */
+/* Encapsulates a specific hook, i.e. bound socket in the /run/systemd/resolve.hook/ directory */
 typedef struct Hook {
         unsigned n_ref;
 
