@@ -1340,9 +1340,45 @@ static int condition_test_kernel_module_loaded(Condition *c, char **env) {
         return true;
 }
 
-int condition_test(Condition *c, char **env) {
+typedef int (*condition_test_func_t)(Condition *c, char **env);
 
-        static int (*const condition_tests[_CONDITION_TYPE_MAX])(Condition *c, char **env) = {
+static int condition_test_impl(Condition *c, char **env, const condition_test_func_t table[]) {
+        int r, b;
+
+        assert(c);
+        assert(c->type >= 0);
+        assert(c->type < _CONDITION_TYPE_MAX);
+        assert(table);
+        assert(table[c->type]);
+
+        r = table[c->type](c, env);
+        if (r < 0) {
+                c->result = CONDITION_ERROR;
+                return r;
+        }
+
+        b = (r > 0) == !c->negate;
+        c->result = b ? CONDITION_SUCCEEDED : CONDITION_FAILED;
+        return b;
+}
+
+static int condition_test_net(Condition *c, char **env) {
+        static const condition_test_func_t table_net[_CONDITION_TYPE_MAX] = {
+                [CONDITION_KERNEL_COMMAND_LINE]      = condition_test_kernel_command_line,
+                [CONDITION_VERSION]                  = condition_test_version,
+                [CONDITION_CREDENTIAL]               = condition_test_credential,
+                [CONDITION_VIRTUALIZATION]           = condition_test_virtualization,
+                [CONDITION_HOST]                     = condition_test_host,
+                [CONDITION_ARCHITECTURE]             = condition_test_architecture,
+                [CONDITION_FIRMWARE]                 = condition_test_firmware,
+                [CONDITION_MACHINE_TAG]              = condition_test_machine_tag,
+        };
+
+        return condition_test_impl(c, env, table_net);
+}
+
+int condition_test(Condition *c, char **env) {
+        static const condition_test_func_t table[_CONDITION_TYPE_MAX] = {
                 [CONDITION_PATH_EXISTS]              = condition_test_path_exists,
                 [CONDITION_PATH_EXISTS_GLOB]         = condition_test_path_exists_glob,
                 [CONDITION_PATH_IS_DIRECTORY]        = condition_test_path_is_directory,
@@ -1382,28 +1418,15 @@ int condition_test(Condition *c, char **env) {
                 [CONDITION_KERNEL_MODULE_LOADED]     = condition_test_kernel_module_loaded,
         };
 
-        int r, b;
-
-        assert(c);
-        assert(c->type >= 0);
-        assert(c->type < _CONDITION_TYPE_MAX);
-
-        r = condition_tests[c->type](c, env);
-        if (r < 0) {
-                c->result = CONDITION_ERROR;
-                return r;
-        }
-
-        b = (r > 0) == !c->negate;
-        c->result = b ? CONDITION_SUCCEEDED : CONDITION_FAILED;
-        return b;
+        return condition_test_impl(c, env, table);
 }
 
-bool condition_test_list(
+static bool condition_test_list_impl(
                 Condition *first,
                 char **env,
                 condition_to_string_t to_string,
                 condition_test_logger_t logger,
+                condition_test_func_t tester,
                 void *userdata) {
 
         int triggered = -1;
@@ -1418,7 +1441,7 @@ bool condition_test_list(
         LIST_FOREACH(conditions, c, first) {
                 int r;
 
-                r = condition_test(c, env);
+                r = tester(c, env);
 
                 if (logger) {
                         if (r < 0)
@@ -1446,6 +1469,26 @@ bool condition_test_list(
         }
 
         return triggered != 0;
+}
+
+bool condition_test_list_net(
+                Condition *first,
+                char **env,
+                condition_to_string_t to_string,
+                condition_test_logger_t logger,
+                void *userdata) {
+
+        return condition_test_list_impl(first, env, to_string, logger, condition_test_net, userdata);
+}
+
+bool condition_test_list(
+                Condition *first,
+                char **env,
+                condition_to_string_t to_string,
+                condition_test_logger_t logger,
+                void *userdata) {
+
+        return condition_test_list_impl(first, env, to_string, logger, condition_test, userdata);
 }
 
 void condition_dump(Condition *c, FILE *f, const char *prefix, condition_to_string_t to_string) {

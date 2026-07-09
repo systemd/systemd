@@ -138,7 +138,7 @@ int network_verify(Network *network) {
                                          network->filename);
 
         /* skip out early if configuration does not match the environment */
-        if (!condition_test_list(network->conditions, environ, NULL, NULL, NULL))
+        if (!condition_test_list_net(network->conditions, environ, NULL, NULL, NULL))
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "%s: Conditions in the file do not match the system environment, skipping.",
                                        network->filename);

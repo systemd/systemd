@@ -25,14 +25,9 @@ static int run(int argc, char *argv[]) {
         _unused_ _cleanup_(notify_on_cleanup) const char *notify_message = NULL;
         int r;
 
-        LIBAPPARMOR_NOTE(recommended);
-        LIBAUDIT_NOTE(recommended);
         LIBIDN2_NOTE(suggested);
         LIBMOUNT_NOTE(recommended);
         LIBSELINUX_NOTE(recommended);
-        LIBTSS2_ESYS_NOTE(suggested);
-        LIBTSS2_MU_NOTE(suggested);
-        LIBTSS2_RC_NOTE(suggested);
 
         log_setup();
 

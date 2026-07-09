@@ -1044,7 +1044,7 @@ int netdev_load_one(Manager *manager, const char *filename, NetDev **ret) {
                 return r; /* config_parse_many() logs internally. */
 
         /* skip out early if configuration does not match the environment */
-        if (!condition_test_list(netdev_raw->conditions, environ, NULL, NULL, NULL))
+        if (!condition_test_list_net(netdev_raw->conditions, environ, NULL, NULL, NULL))
                 return log_debug_errno(SYNTHETIC_ERRNO(ESTALE), "%s: Conditions in the file do not match the system environment, skipping.", filename);
 
         if (netdev_raw->kind == _NETDEV_KIND_INVALID)
