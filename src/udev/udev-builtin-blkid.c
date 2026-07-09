@@ -187,7 +187,7 @@ static int find_gpt_root(UdevEvent *event, blkid_probe pr, const char *loop_back
                          * hence no need to bother with searching for ESP/XBOOTLDR */
                         need_esp_or_xbootldr = false;
                 } else
-                        /* We now know the the ESP/xbootldr UUID, but we cannot be sure yet it's on this block
+                        /* We now know the ESP/xbootldr UUID, but we cannot be sure yet it's on this block
                          * device, hence look for it among partitions now */
                         need_esp_or_xbootldr = true;
         } else {
