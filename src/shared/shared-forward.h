@@ -75,6 +75,7 @@ typedef struct ImageFilter ImageFilter;
 typedef struct ImagePolicy ImagePolicy;
 typedef struct InstallChange InstallChange;
 typedef struct InstallInfo InstallInfo;
+typedef struct LabelContext LabelContext;
 typedef struct LookupPaths LookupPaths;
 typedef struct LoopDevice LoopDevice;
 typedef struct MachineBindUserContext MachineBindUserContext;
