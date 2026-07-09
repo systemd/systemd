@@ -527,6 +527,47 @@ EOF
     assert_in "$imgs/copy_to2 : start=       32768, size=       16384, type=${xbootldr_guid}," "$output"
 }
 
+testcase_copy_from_no_padding_at_beginning_and_end() {
+    local defs imgs output
+
+    defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
+    imgs="$(mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs'" RETURN
+    chmod 0755 "$defs"
+
+    tee "$defs/03-esp.conf" <<EOF
+[Partition]
+Type=esp
+EOF
+
+    truncate -s 80MiB "$imgs/copy_from"
+    sfdisk "$imgs/copy_from" <<EOF
+label: gpt
+
+start=2280, size=20480, type=${root_guid}, uuid=837c3d67-21b3-478e-be82-7e7f83bf96d3
+start=22760, size=10240, type=${xbootldr_guid}, uuid=4985c03e-eecb-4fe0-9f65-3f6345782214
+EOF
+
+    truncate -s 60MiB "$imgs/copy_to"
+    output=$(systemd-repart --offline="$OFFLINE" \
+                            --empty=allow \
+                            --definitions="$defs" \
+                            --seed="$seed" \
+                            --dry-run=no \
+                            --json=pretty \
+                            --copy-from="$imgs/copy_from" \
+                            "$imgs/copy_to")
+
+    output=$(sfdisk --dump "$imgs/copy_to")
+
+    assert_in "first-lba: 2048" "$output"
+    assert_in "last-lba: 122846" "$output"
+    assert_in "$imgs/copy_to1 : start=        2048, size=       20480, type=${root_guid}," "$output"
+    assert_in "$imgs/copy_to2 : start=       22528, size=       10240, type=${xbootldr_guid}," "$output"
+    assert_in "$imgs/copy_to3 : start=       32768, size=       90072, type=${esp_guid}," "$output"
+}
+
 testcase_dropin() {
     local defs imgs output
 
