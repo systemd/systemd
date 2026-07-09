@@ -11,8 +11,8 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-06-01 11:49+0200\n"
-"PO-Revision-Date: 2026-07-03 16:17+0000\n"
-"Last-Translator: Michal Čihař <michal@cihar.com>\n"
+"PO-Revision-Date: 2026-07-09 19:17+0000\n"
+"Last-Translator: Pavel Borecki <pavel.borecki@gmail.com>\n"
 "Language-Team: Czech <https://translate.fedoraproject.org/projects/systemd/"
 "main/cs/>\n"
 "Language: cs\n"
@@ -1378,11 +1378,11 @@ msgstr ""
 
 #: src/shared/libfido2-util.c:500 src/shared/libfido2-util.c:557
 msgid "Please confirm presence on security token to unlock."
-msgstr ""
+msgstr "Pr odemčení potvrďte přítomnost bezpečnostního tokenu."
 
 #: src/shared/libfido2-util.c:516
 msgid "Please verify user on security token to unlock."
-msgstr ""
+msgstr "Pro odemčení ověřte uživatele pomocí bezpečnostního tokenu."
 
 #: src/shared/libfido2-util.c:936
 #, c-format
