@@ -2467,18 +2467,29 @@ TEST(dns_resource_record_is_synthetic) {
  * ================================================================ */
 
 TEST(dns_resource_record_clamp_ttl_in_place) {
+        _cleanup_free_ void *wire_format = NULL;
         DnsResourceRecord *rr = NULL, *orig = NULL;
+        size_t wire_format_size;
 
         rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(rr);
         orig = rr;
         rr->ttl = 3600;
+        rr->a.in_addr.s_addr = htobe32(0xc0a8017f);
 
         ASSERT_FALSE(dns_resource_record_clamp_ttl(&rr, 4800));
         ASSERT_EQ(rr->ttl, 3600u);
 
+        ASSERT_OK(dns_resource_record_to_wire_format(rr, false));
+        ASSERT_NOT_NULL(rr->wire_format);
+        wire_format_size = rr->wire_format_size;
+        ASSERT_NOT_NULL(wire_format = memdup(rr->wire_format, wire_format_size));
+
         ASSERT_TRUE(dns_resource_record_clamp_ttl(&rr, 2400));
         ASSERT_EQ(rr->ttl, 2400u);
+        ASSERT_OK(dns_resource_record_to_wire_format(rr, false));
+        ASSERT_EQ(rr->wire_format_size, wire_format_size);
+        ASSERT_NE(memcmp(rr->wire_format, wire_format, wire_format_size), 0);
 
         ASSERT_TRUE(rr == orig);
 
