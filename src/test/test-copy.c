@@ -3,6 +3,7 @@
 #include <linux/fsverity.h>
 #include <sys/file.h>
 #include <sys/ioctl.h>
+#include <sys/wait.h>
 #include <sys/xattr.h>
 #include <unistd.h>
 
@@ -291,6 +292,69 @@ TEST(copy_tree_at_symlink) {
         ASSERT_STREQ(p, expect);
         p = mfree(p);
         fd = safe_close(fd);
+}
+
+TEST(copy_tree_fifo_chmod_symlink_race) {
+        _cleanup_(rm_rf_physical_and_freep) char *srcp = NULL, *dstp = NULL;
+        _cleanup_close_ int src = -EBADF, dst = -EBADF;
+        _cleanup_close_pair_ int ready[2] = EBADF_PAIR, stop[2] = EBADF_PAIR;
+        struct stat st;
+        int status;
+        pid_t pid;
+        char c;
+
+        if (!slow_tests_enabled())
+                return (void) log_tests_skipped("slow tests are disabled");
+
+        ASSERT_OK(src = mkdtemp_open(NULL, 0, &srcp));
+        ASSERT_OK(dst = mkdtemp_open(NULL, 0, &dstp));
+        ASSERT_OK_ERRNO(mkfifoat(src, "fifo", 0777));
+        ASSERT_OK_ERRNO(fchmodat(src, "fifo", 0777, 0));
+        ASSERT_OK(write_string_file_at(dst, "victim", "victim", WRITE_STRING_FILE_CREATE));
+        ASSERT_OK_ERRNO(fchmodat(dst, "victim", 0600, 0));
+
+        ASSERT_OK_ERRNO(pipe2(ready, O_CLOEXEC));
+        ASSERT_OK_ERRNO(pipe2(stop, O_CLOEXEC|O_NONBLOCK));
+
+        pid = ASSERT_OK_ERRNO(fork());
+        if (pid == 0) {
+                ready[0] = safe_close(ready[0]);
+                stop[1] = safe_close(stop[1]);
+
+                assert_se(write(ready[1], &(const char) { 'x' }, 1) == 1);
+
+                for (;;) {
+                        char stop_char;
+
+                        ssize_t n = read(stop[0], &stop_char, 1);
+                        if (n >= 0)
+                                _exit(EXIT_SUCCESS);
+
+                        (void) unlinkat(dst, "fifo", 0);
+                        (void) symlinkat("victim", dst, "fifo");
+                }
+        }
+
+        ready[1] = safe_close(ready[1]);
+        stop[0] = safe_close(stop[0]);
+
+        ASSERT_OK_EQ_ERRNO(read(ready[0], &c, 1), 1);
+
+        bool changed = false;
+        for (unsigned i = 0; i < 20000; i++) {
+                (void) copy_tree_at(src, "fifo", dst, "fifo", UID_INVALID, GID_INVALID, COPY_REPLACE, NULL, NULL);
+
+                ASSERT_OK_ERRNO(fstatat(dst, "victim", &st, 0));
+                if ((st.st_mode & 0777) != 0600) {
+                        changed = true;
+                        break;
+                }
+        }
+
+        ASSERT_OK_EQ_ERRNO(write(stop[1], &(const char) { 'x' }, 1), 1);
+        ASSERT_OK_ERRNO(waitpid(pid, &status, 0));
+        ASSERT_TRUE(WIFEXITED(status));
+        ASSERT_FALSE(changed);
 }
 
 TEST_RET(copy_bytes) {
