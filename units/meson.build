@@ -1078,6 +1078,15 @@ units = [
           'conditions' : ['HAVE_LIBCRYPTSETUP'],
           'symlinks' : ['sysinit.target.wants/'],
         },
+        {
+          'file' : 'systemd-varlink-monitord.socket',
+          'conditions' : ['ENABLE_VARLINK_MONITORD'],
+          'symlinks' : ['sockets.target.wants/'],
+        },
+        {
+          'file' : 'systemd-varlink-monitord@.service.in',
+          'conditions' : ['ENABLE_VARLINK_MONITORD'],
+        },
 ]
 
 # For the udev/hwdb aliases
