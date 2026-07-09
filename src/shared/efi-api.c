@@ -283,19 +283,23 @@ int efi_get_boot_option(
 
         if (header->path_len > 0) {
                 uint8_t *dbuf;
-                size_t dnext, doff;
+                size_t dnext, doff, path_len;
 
                 doff = offsetof(struct boot_option, title) + title_size;
                 dbuf = buf + doff;
-                if (header->path_len > l - doff)
-                        return -EINVAL;
+                path_len = MIN((size_t) header->path_len, l - doff);
 
                 dnext = 0;
-                while (dnext < header->path_len) {
+                while (dnext < path_len) {
                         struct device_path *dpath;
+                        size_t remaining = path_len - dnext;
+
+                        if (remaining < offsetof(struct device_path, path))
+                                break;
 
                         dpath = (struct device_path *)(dbuf + dnext);
-                        if (dpath->length < 4)
+                        if (dpath->length < offsetof(struct device_path, path) ||
+                            dpath->length > remaining)
                                 break;
 
                         /* Type 0x7F – End of Hardware Device Path, Sub-Type 0xFF – End Entire Device Path */
@@ -310,6 +314,9 @@ int efi_get_boot_option(
 
                         /* Sub-Type 1 – Hard Drive */
                         if (dpath->sub_type == MEDIA_HARDDRIVE_DP) {
+                                if (dpath->length < offsetof(struct device_path, drive) + sizeof(struct drive_path))
+                                        break;
+
                                 /* 0x02 – GUID Partition Table */
                                 if (dpath->drive.mbr_type != MBR_TYPE_EFI_PARTITION_TABLE_HEADER)
                                         continue;
@@ -325,9 +332,9 @@ int efi_get_boot_option(
 
                         /* Sub-Type 4 – File Path */
                         if (dpath->sub_type == MEDIA_FILEPATH_DP && !p && ret_path) {
-                                p = utf16_to_utf8(dpath->path, dpath->length-4);
+                                p = utf16_to_utf8(dpath->path, dpath->length - offsetof(struct device_path, path));
                                 if (!p)
-                                        return  -ENOMEM;
+                                        return -ENOMEM;
 
                                 efi_tilt_backslashes(p);
                                 continue;
