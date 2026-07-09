@@ -1109,4 +1109,35 @@ testcase_deactivate_busy() {
     homectl remove busytest
 }
 
+testcase_luks_passwd_rollback() {
+    # Regression test for a destroy-before-add bug in home_passwd_luks() that destroyed the old LUKS key
+    # slot before adding its replacement, locking the user out if adding the new slot failed in between.
+    #
+    # Force that failure gracefully and portably with a nonexistent PBKDF hash, libcryptsetup rejects it
+    # when deriving the new slot. The original password must still work after.
+
+    NEWPASSWORD=Chai8aLi7o homectl create test-luks-rollback \
+        --disk-size=min \
+        --luks-discard=yes \
+        --image-path=/home/test-luks-rollback.home \
+        --luks-pbkdf-type=pbkdf2 \
+        --luks-pbkdf-time-cost=1ms \
+        --rate-limit-interval=1s \
+        --rate-limit-burst=1000
+    homectl inspect test-luks-rollback
+
+    PASSWORD=Chai8aLi7o homectl authenticate test-luks-rollback
+
+    # The bogus hash is only used when slots are rewritten, so this succeeds.
+    PASSWORD=Chai8aLi7o homectl update test-luks-rollback --luks-pbkdf-hash-algorithm=notahash
+
+    # 'passwd' derives the new slot with the invalid hash, so it must fail.
+    (! PASSWORD=Chai8aLi7o NEWPASSWORD=oe4YeeGh0O homectl passwd test-luks-rollback)
+
+    # The failed rotation must not have destroyed the old slot.
+    PASSWORD=Chai8aLi7o homectl authenticate test-luks-rollback
+
+    homectl remove test-luks-rollback
+}
+
 run_testcases
