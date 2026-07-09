@@ -149,7 +149,7 @@
 
         <listitem><para>Takes the <filename>/usr/</filename> filesystem to be mounted by the initrd. If
         <varname>mount.usrfstype=</varname> or <varname>mount.usrflags=</varname> is set, then the mount
-        configured via <varname>mount.usr=</varname> will default to the the same value set in
+        configured via <varname>mount.usr=</varname> will default to the same value set in
         <varname>root=</varname>.</para>
 
         <para>Set to <literal>dissect</literal> to explicitly request automatic <filename>/usr/</filename>
