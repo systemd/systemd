@@ -5,3 +5,5 @@
 
 bool in_initrd(void);
 void in_initrd_force(bool value);
+
+int in_first_boot(void);
