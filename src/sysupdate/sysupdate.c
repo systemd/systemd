@@ -1410,14 +1410,7 @@ static int context_enumerate_targets(Context *context, Set **targets) {
         return 0;
 }
 
-/* Load a Context to point to the target given by the TargetIdentifier. The TargetIdentifier will have been
- * syntactically validated by dispatch_target_identifier(), but might still point to components which don’t
- * exist, images which the user isn’t privileged to access, etc. This function validates the TargetIdentifier
- * against an enumerated list of known targets, which are safe to update without additional permissions. */
-static int context_load_online_from_target(
-                Context *context,
-                ProcessImageFlags process_image_flags,
-                ReadDefinitionsFlags read_definitions_flags) {
+static int context_load_paths_from_target(Context *context) {
         int r;
 
         assert(context);
@@ -1508,7 +1501,43 @@ static int context_load_online_from_target(
                 assert_not_reached();
         }
 
+        return 0;
+}
+
+/* Load a Context to point to the target given by the TargetIdentifier. The TargetIdentifier will have been
+ * syntactically validated by dispatch_target_identifier(), but might still point to components which don’t
+ * exist, images which the user isn’t privileged to access, etc. This function validates the TargetIdentifier
+ * against an enumerated list of known targets, which are safe to update without additional permissions. */
+static int context_load_online_from_target(
+                Context *context,
+                ProcessImageFlags process_image_flags,
+                ReadDefinitionsFlags read_definitions_flags) {
+        int r;
+
+        assert(context);
+        assert(context->target_identifier.class != _TARGET_CLASS_INVALID);
+
+        r = context_load_paths_from_target(context);
+        if (r < 0)
+                return r;
+
         return context_load_online(context, process_image_flags, read_definitions_flags);
+}
+
+static int context_load_offline_from_target(
+                Context *context,
+                ProcessImageFlags process_image_flags,
+                ReadDefinitionsFlags read_definitions_flags) {
+        int r;
+
+        assert(context);
+        assert(context->target_identifier.class != _TARGET_CLASS_INVALID);
+
+        r = context_load_paths_from_target(context);
+        if (r < 0)
+                return r;
+
+        return context_load_offline(context, process_image_flags, read_definitions_flags);
 }
 
 static int context_on_acquire_progress(const Transfer *t, const Instance *inst, unsigned percentage) {
@@ -2432,10 +2461,10 @@ static int vl_method_list_features(sd_varlink *link, sd_json_variant *parameters
         if (getenv_bool("SYSTEMD_SYSUPDATE_NO_VERIFY") > 0)
                 context.verify = false;
 
-        /* ListFeatures is always online */
-        context.offline = false;
+        /* ListFeatures is always offline */
+        context.offline = true;
 
-        r = context_load_online_from_target(
+        r = context_load_offline_from_target(
                         &context,
                         PROCESS_IMAGE_READ_ONLY,
                         READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS);
