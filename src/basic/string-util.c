@@ -400,6 +400,10 @@ char* ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigne
                         continue;  /* ANSI sequences don't take up any space in output */
                 }
 
+                r = utf8_encoded_valid_unichar(i, s + old_length - i);
+                if (r < 0)
+                        return NULL;
+
                 char32_t c;
                 r = utf8_encoded_to_unichar(i, &c);
                 if (r < 0)
@@ -431,7 +435,19 @@ char* ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigne
                         continue;
                 }
 
-                tt = utf8_prev_char(t);
+                /* Find the previous complete UTF-8 character inside the retained suffix. */
+                for (tt = t; tt > i; ) {
+                        tt--;
+                        if (((uint8_t) *tt & 0xc0) != 0x80)
+                                break;
+                }
+                if (tt == i && ((uint8_t) *tt & 0xc0) == 0x80)
+                        return NULL;
+
+                r = utf8_encoded_valid_unichar(tt, t - tt);
+                if (r < 0 || tt + r != t)
+                        return NULL;
+
                 r = utf8_encoded_to_unichar(tt, &c);
                 if (r < 0)
                         return NULL;
@@ -451,11 +467,31 @@ char* ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigne
         if (k >= new_length) {
                 /* Make space for ellipsis, if required and possible. We know that the edge character is not
                  * part of an ANSI sequence (because then we'd skip it). If the last character we looked at
-                 * was wide, we don't need to make space. */
-                if (j < s + old_length)
-                        j = utf8_next_char(j);
-                else if (i > s)
-                        i = utf8_prev_char(i);
+                 * was wide, we don't need to make space.
+                 * Move the edge by one complete UTF-8 character within the input slice. */
+                if (j < s + old_length) {
+                        r = utf8_encoded_valid_unichar(j, s + old_length - j);
+                        if (r < 0)
+                                return NULL;
+
+                        j += r;
+                } else if (i > s) {
+                        const char *tt;
+
+                        for (tt = i; tt > s; ) {
+                                tt--;
+                                if (((uint8_t) *tt & 0xc0) != 0x80)
+                                        break;
+                        }
+                        if (tt == s && ((uint8_t) *tt & 0xc0) == 0x80)
+                                return NULL;
+
+                        r = utf8_encoded_valid_unichar(tt, i - tt);
+                        if (r < 0 || tt + r != i)
+                                return NULL;
+
+                        i = tt;
+                }
         }
 
         len = i - s;
