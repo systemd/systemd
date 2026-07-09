@@ -79,6 +79,7 @@ executables += [
                 ],
                 'dependencies' : [
                         libblkid_cflags,
+                        libcryptsetup,
                         libfdisk,
                         libopenssl,
                         libp11kit_cflags,
