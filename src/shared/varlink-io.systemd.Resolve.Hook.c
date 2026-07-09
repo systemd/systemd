@@ -39,7 +39,7 @@ static SD_VARLINK_DEFINE_METHOD(
                 ResolveRecord,
                 SD_VARLINK_FIELD_COMMENT("The question being looked up, i.e. a combination of resource record keys. Note that unlike DNS "
                                          "queries on the wire these lookups can carry multiple key requests, albeit closely related ones. "
-                                         "Specifically, lookups for A+AAAA for the the same hostname are submitted as one question, as "
+                                         "Specifically, lookups for A+AAAA for the same hostname are submitted as one question, as "
                                          "are lookups for TXT+SRV when doing DNS-SD resolution. Moreover, when looking up resources with "
                                          "non-ASCII characters, they are placed together in a single question, once with labels encoded in "
                                          "UTF-8, and once in IDNA. Hook implementations must be able to deal with these and other similar "
