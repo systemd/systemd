@@ -501,9 +501,23 @@ static void timer_enter_waiting(Timer *t, bool time_change) {
                         if (!time_change)
                                 v->next_elapse = usec_add(usec_shift_clock(base, CLOCK_MONOTONIC, TIMER_MONOTONIC_CLOCK(t)), v->value);
 
+                        /* Determine if this is an already elapsed one shot timer by checking if:
+                         *
+                         *  - the timer has been already triggered at some point AND
+                         *  - we were not called from timer_time_change() where v->next_elapse is not
+                         *    recalculated AND
+                         *  - the next elapse timestamp is already in the past - this works correctly only
+                         *    if there's no clock skew between CLOCK_MONOTONIC and TIMER_MONOTONIC_CLOCK(t)
+                         *    (i.e. either WakeSystem=no or no suspend happened yet) OR
+                         *  - the timer has fired during this boot session AND the timer fired after the base
+                         *    event that started its countdown (both timestamps in this case are monotonic,
+                         *    so they are not affected by time spent in suspend and should cover the edge
+                         *    case mentioned above) AND
+                         *  - this is a one time trigger */
                         if (dual_timestamp_is_set(&t->last_trigger) &&
                             !time_change &&
-                            v->next_elapse < triple_timestamp_by_clock(&ts, TIMER_MONOTONIC_CLOCK(t)) &&
+                            (v->next_elapse < triple_timestamp_by_clock(&ts, TIMER_MONOTONIC_CLOCK(t)) ||
+                             (t->last_trigger.monotonic > 0 && t->last_trigger.monotonic >= base)) &&
                             IN_SET(v->base, TIMER_ACTIVE, TIMER_BOOT, TIMER_STARTUP)) {
                                 /* This is a one time trigger, disable it now */
                                 v->disabled = true;
