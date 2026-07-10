@@ -1339,6 +1339,11 @@ static int dns_query_cname_redirect(DnsQuery *q, const DnsResourceRecord *cname)
         if (r == 0 && k == 0) /* No actual cname happened? */
                 return -ELOOP;
 
+        if (r == 0)
+                nq_idna = dns_question_ref(q->question_idna);
+        if (k == 0)
+                nq_utf8 = dns_question_ref(q->question_utf8);
+
         if (q->answer_protocol == DNS_PROTOCOL_DNS)
                 /* Don't permit CNAME redirects from unicast DNS to LLMNR or MulticastDNS, so that global resources
                  * cannot invade the local namespace. The opposite way we permit: local names may redirect to global
