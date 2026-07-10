@@ -31,6 +31,17 @@ int reboot_now(void) {
         return 0;
 }
 
+bool feature_name_valid(const char *c) {
+
+        if (!string_is_safe(c, STRING_FILENAME_PART))
+                return false;
+
+        /* Stack allocation is safe, since STRING_FILENAME_PART includes a length check */
+        const char *j = strjoina(c, ".feature.d");
+
+        return filename_is_valid(j);
+}
+
 bool component_name_valid(const char *c) {
         /* See if the specified string enclosed in the directory prefix+suffix would be a valid file name */
 
@@ -41,7 +52,7 @@ bool component_name_valid(const char *c) {
                 return false;
 
         /* Stack allocation is safe, since STRING_FILENAME_PART includes a length check */
-        const char *j = strjoina("sysupdate.", c, ".d");
+        const char *j = strjoina("sysupdate.", c, ".component.d");
 
         return filename_is_valid(j);
 }

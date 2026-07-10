@@ -39,7 +39,7 @@ executables += [
                 'name' : 'systemd-sysupdated',
                 'dbus' : true,
                 'conditions' : ['ENABLE_SYSUPDATED'],
-                'sources' : files('sysupdated.c', 'sysupdate-target.c'),
+                'sources' : files('sysupdated.c', 'sysupdate-target.c', 'sysupdate-util.c'),
         },
         executable_template + {
                 'name' : 'updatectl',
