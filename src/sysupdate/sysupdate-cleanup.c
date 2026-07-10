@@ -184,7 +184,7 @@ static int context_is_path_currently_owned(
                         return log_error_errno(r, "Failed to match patterns '%s' against '%s': %m", cl, relpath);
                 }
 
-                if (IN_SET(r, PATTERN_MATCH_YES, PATTERN_MATCH_RETRY)) /* Yay, this path is pinned by this transfer file */
+                if (IN_SET(r, PATTERN_MATCH_YES, PATTERN_MATCH_RETRY, PATTERN_MATCH_YES_AND_RETRY)) /* Yay, this path is pinned by this transfer file */
                         return true;
 
                 assert(r == PATTERN_MATCH_NO);
