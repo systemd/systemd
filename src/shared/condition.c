@@ -516,26 +516,32 @@ static int condition_test_virtualization(Condition *c, char **env) {
         return v != VIRTUALIZATION_NONE && streq(c->parameter, virtualization_to_string(v));
 }
 
-static int condition_test_architecture(Condition *c, char **env) {
+static int condition_test_architecture_parameter(const char *parameter) {
         Architecture a, b;
 
-        assert(c);
-        assert(c->parameter);
-        assert(c->type == CONDITION_ARCHITECTURE);
+        assert(parameter);
 
         a = uname_architecture();
         if (a < 0)
                 return a;
 
-        if (streq(c->parameter, "native"))
+        if (streq(parameter, "native"))
                 b = native_architecture();
         else {
-                b = architecture_from_string(c->parameter);
+                b = architecture_from_string(parameter);
                 if (b < 0) /* unknown architecture? Then it's definitely not ours */
                         return false;
         }
 
         return a == b;
+}
+
+static int condition_test_architecture(Condition *c, char **env) {
+        assert(c);
+        assert(c->parameter);
+        assert(c->type == CONDITION_ARCHITECTURE);
+
+        return condition_test_architecture_parameter(c->parameter);
 }
 
 #define DTCOMPAT_FILE "/proc/device-tree/compatible"
@@ -1080,11 +1086,26 @@ static int condition_test_path_is_read_write(Condition *c, char **env) {
 }
 
 static int condition_test_cpufeature(Condition *c, char **env) {
+        _cleanup_free_ char *cpu_arch = NULL, *feature = NULL;
+        int r;
+
         assert(c);
         assert(c->parameter);
         assert(c->type == CONDITION_CPU_FEATURE);
 
-        return has_cpu_with_flag(ascii_strlower(c->parameter));
+        r = split_pair(c->parameter, ".", &cpu_arch, &feature);
+        if (r >= 0) {
+                r = condition_test_architecture_parameter(cpu_arch);
+                if (r <= 0)
+                        return r;
+        } else if (r == -EINVAL) {
+                feature = strdup(c->parameter);
+                if (!feature)
+                        return -ENOMEM;
+        } else
+                return r;
+
+        return has_cpu_with_flag(ascii_strlower(feature));
 }
 
 static int condition_test_path_is_encrypted(Condition *c, char **env) {
