@@ -4,7 +4,6 @@
 #include "sd-dlopen.h"
 
 #include "forward.h"
-#include "strv.h"
 
 /* Prevent dlopen helper functions (e.g., dlopen_libfoo()) from being inlined or cloned by the compiler/LTO.
  * This ensures that their specific symbols remain intact in the final executable, allowing the developer
