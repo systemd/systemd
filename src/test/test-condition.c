@@ -846,13 +846,51 @@ TEST(condition_test_credential) {
         ASSERT_OK(set_unset_env("ENCRYPTED_CREDENTIALS_DIRECTORY", d2, /* overwrite= */ true));
 }
 
-#if defined(__i386__) || defined(__x86_64__)
+#if defined(__i386__) || defined(__x86_64__) || defined(__aarch64__)
 TEST(condition_test_cpufeature) {
         Condition *condition;
 
+#if defined(__i386__)
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_CPU_FEATURE, "fpu", false, false)));
         ASSERT_OK_POSITIVE(condition_test(condition, environ));
         condition_free(condition);
+
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_CPU_FEATURE, "x86.fpu", false, false)));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        condition_free(condition);
+
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_CPU_FEATURE, "bogus.fpu", false, false)));
+        ASSERT_OK_ZERO(condition_test(condition, environ));
+        condition_free(condition);
+#elif defined(__x86_64__)
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_CPU_FEATURE, "fpu", false, false)));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        condition_free(condition);
+
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_CPU_FEATURE, "x86-64.fpu", false, false)));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        condition_free(condition);
+
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_CPU_FEATURE, "bogus.fpu", false, false)));
+        ASSERT_OK_ZERO(condition_test(condition, environ));
+        condition_free(condition);
+#elif defined(__aarch64__)
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_CPU_FEATURE, "fp", false, false)));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        condition_free(condition);
+
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_CPU_FEATURE, "asimd", false, false)));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        condition_free(condition);
+
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_CPU_FEATURE, "arm64.asimd", false, false)));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        condition_free(condition);
+
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_CPU_FEATURE, "bogus.asimd", false, false)));
+        ASSERT_OK_ZERO(condition_test(condition, environ));
+        condition_free(condition);
+#endif
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_CPU_FEATURE, "somecpufeaturethatreallydoesntmakesense", false, false)));
         ASSERT_OK_ZERO(condition_test(condition, environ));
