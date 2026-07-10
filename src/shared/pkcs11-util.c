@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "sd-dlopen.h"
-
 #include "alloc-util.h"
 #include "ask-password-api.h"
 #include "crypto-util.h"
@@ -1963,11 +1961,7 @@ int dlopen_p11kit(int log_level) {
 #if HAVE_P11KIT
         static void *p11kit_dl = NULL;
 
-        SD_ELF_NOTE_DLOPEN(
-                        "p11-kit",
-                        "Support for PKCS11 hardware tokens",
-                        SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
-                        "libp11-kit.so.0");
+        LIBP11KIT_NOTE(suggested);
 
         return dlopen_many_sym_or_warn(
                         &p11kit_dl,

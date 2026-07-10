@@ -15,7 +15,7 @@ project('systemd', 'c',
 
 add_test_setup(
         'default',
-        exclude_suites : ['clang-tidy', 'coccinelle', 'unused-symbols', 'integration-tests'],
+        exclude_suites : ['clang-tidy', 'coccinelle', 'dlopen', 'unused-symbols', 'integration-tests'],
         exe_wrapper : find_program('tools/test-crash-trace.sh'),
         is_default : true,
 )
@@ -431,7 +431,9 @@ possible_common_cc_flags = [
         '-Wno-string-plus-int',  # clang
 
         '-fdiagnostics-show-option',
+        '-fdata-sections',
         '-fexcess-precision=standard',
+        '-ffunction-sections',
         '-fno-common',
         '-fstack-protector',
         '-fstack-protector-strong',
@@ -1414,11 +1416,11 @@ endif
 # In the dlopen ELF note we save the default compression library with a
 # higher priority, so that packages can give it priority over the
 # secondary libraries.
-conf.set_quoted('COMPRESSION_PRIORITY_ZSTD',
+conf.set('COMPRESSION_PRIORITY_ZSTD',
                 compression == 'zstd' ? 'recommended' : 'suggested')
-conf.set_quoted('COMPRESSION_PRIORITY_LZ4',
+conf.set('COMPRESSION_PRIORITY_LZ4',
                 compression == 'lz4' ? 'recommended' : 'suggested')
-conf.set_quoted('COMPRESSION_PRIORITY_XZ',
+conf.set('COMPRESSION_PRIORITY_XZ',
                 compression == 'xz' ? 'recommended' : 'suggested')
 conf.set('DEFAULT_COMPRESSION', 'COMPRESSION_@0@'.format(compression.to_upper()))
 
@@ -2019,11 +2021,21 @@ endif
 
 #####################################################################
 
+# The 'install' field is extended to also control whether the automatically
+# added variant, which is statically linked with libsystemd-shared, is installed:
+#   'yes'    : Mapped to true. The static variant will not be installed.
+#   'no'     : Mapped to false. The static variant will not be installed either.
+#   'both'   : Mapped to true. The static variant will also be installed.
+#   'static' : Mapped to false, and its target name is suffixed with '.shared'.
+#              The static variant will be installed instead using the original name
+#              (without the '.standalone' suffix).
+# Currently, test and fuzzer executables only support 'yes' or 'no'.
 executable_template = {
         'include_directories' : includes,
-        'link_with' : libshared,
+        'link_with' : [libshared],
         'install_rpath' : pkglibdir,
-        'install' : true,
+        'install' : 'yes',
+        'build_by_default' : true,
 }
 
 generator_template = executable_template + {
@@ -2040,7 +2052,7 @@ executable_additional_kwargs = {
 
 test_template = executable_template + {
         'build_by_default' : want_tests != 'false',
-        'install' : install_tests,
+        'install' : install_tests ? 'yes' : 'no',
         'install_dir' : unittestsdir,
 }
 
@@ -2051,7 +2063,7 @@ test_additional_kwargs = {
 
 fuzz_template = executable_template + {
         'build_by_default' : want_fuzz_tests,
-        'install' : false,
+        'install' : 'no',
 }
 
 if want_ossfuzz
@@ -2263,7 +2275,6 @@ foreach dict : executables
 
         is_test = name.startswith('test-')
         is_fuzz = name.startswith('fuzz-')
-        is_standalone = name.endswith('.standalone')
 
         build = true
         foreach cond : dict.get('conditions', [])
@@ -2276,20 +2287,22 @@ foreach dict : executables
                 continue
         endif
 
-        exe_sources = dict.get('sources', []) + dict.get('export', [])
+        exe_sources_static = dict.get('sources', [])
 
         foreach bpf_name : dict.get('bpf_programs', [])
                 if bpf_name in bpf_programs_by_name
-                        exe_sources += bpf_programs_by_name[bpf_name]
+                        exe_sources_static += bpf_programs_by_name[bpf_name]
                 endif
         endforeach
+
+        exe_sources = exe_sources_static + dict.get('export', [])
 
         kwargs = {}
         foreach key, val : dict
                 if key in ['name', 'dbus', 'public', 'conditions', 'type', 'suite',
                            'timeout', 'parallel', 'sources', 'import', 'export',
                            'include_directories', 'build_by_default', 'install',
-                           'bpf_programs']
+                           'bpf_programs', 'link_args_static']
                         continue
                 endif
 
@@ -2329,30 +2342,54 @@ foreach dict : executables
                 endforeach
         endif
 
-        build_by_default = dict.get('build_by_default',
-                                    have_standalone_binaries or not is_standalone)
-
-        if not is_standalone
-                install = dict.get('install', true)
+        name_shared = name
+        name_static = name + '.standalone'
+        install = dict.get('install')
+        build_by_default = dict.get('build_by_default')
+        if install == 'yes'
+                install_shared = true
+                install_static = false
+                build_by_default_shared = build_by_default
+                build_by_default_static = false
+        elif install == 'no'
+                install_shared = false
+                install_static = false
+                build_by_default_shared = build_by_default
+                build_by_default_static = false
+        elif install == 'both'
+                if is_test or is_fuzz
+                        error('Install mode "@0@" is not supported for test or fuzzer target "@1@"'.format(install, name))
+                endif
+                install_shared = true
+                install_static = true
+                build_by_default_shared = build_by_default
+                build_by_default_static = build_by_default
+        elif install == 'static'
+                if is_test or is_fuzz
+                        error('Install mode "@0@" is not supported for test or fuzzer target "@1@"'.format(install, name))
+                endif
+                name_shared = name + '.shared'
+                name_static = name
+                install_shared = false
+                install_static = true
+                build_by_default_shared = false
+                build_by_default_static = build_by_default
         else
-                install = have_standalone_binaries
+                error('Unknown install mode "@0@" for target "@1@"'.format(install, name))
         endif
 
         exe = executable(
-                name,
+                name_shared,
                 sources : exe_sources,
                 kwargs : kwargs,
                 implicit_include_directories : false,
                 include_directories : include_directories,
-                build_by_default: build_by_default,
-                install: install,
+                build_by_default: build_by_default_shared,
+                install: install_shared,
         )
 
-        executables_by_name += { name : exe }
-
-        if not is_standalone
-                sources += exe_sources
-        endif
+        executables_by_name += { name_shared : exe }
+        sources += exe_sources
 
         if 'export' in dict
                 exported_by_name += {
@@ -2363,12 +2400,62 @@ foreach dict : executables
                 }
         endif
 
-        if build_by_default
+        if build_by_default_shared
                 if dict.get('dbus', false)
                         dbus_programs += exe
                 endif
                 if dict.get('public', false)
                         public_programs += exe
+                endif
+        endif
+
+        if not is_test and not is_fuzz
+                kwargs_static = kwargs
+
+                if 'export' in dict
+                        obj = exported_by_name[name]
+                        kwargs_static += { 'objects' : kwargs_static.get('objects', []) + obj['exported'] }
+                        include_directories += obj['include_directories']
+                endif
+
+                link_with_static = []
+                foreach obj : kwargs_static.get('link_with', [])
+                        if obj.full_path() == libshared.full_path()
+                                link_with_static += [
+                                        libshared_static,
+                                        libsystemd_static,
+                                ]
+                        elif obj.full_path() == libcore.full_path()
+                                link_with_static += libcore_static
+                        else
+                                link_with_static += obj
+                        endif
+                endforeach
+
+                kwargs_static += {
+                        'link_with' : link_with_static,
+                        'link_args' : dict.get('link_args_static', kwargs_static.get('link_args', [])),
+                }
+
+                exe = executable(
+                        name_static,
+                        sources : exe_sources_static,
+                        kwargs : kwargs_static,
+                        implicit_include_directories : false,
+                        include_directories : include_directories,
+                        build_by_default: build_by_default_static,
+                        install: install_static,
+                )
+
+                executables_by_name += { name_static : exe }
+
+                if build_by_default_static
+                        if dict.get('dbus', false) and not build_by_default_shared
+                                dbus_programs += exe
+                        endif
+                        if dict.get('public', false)
+                                public_programs += exe
+                        endif
                 endif
         endif
 
@@ -2440,6 +2527,7 @@ test_dlopen = executables_by_name.get('test-dlopen')
 nss_targets = []
 pam_targets = []
 module_targets = []
+modules_by_name = {}
 foreach dict : modules
         name = dict.get('name')
         is_nss = name.startswith('nss_')
@@ -2485,6 +2573,40 @@ foreach dict : modules
         )
 
         module_targets += lib
+        modules_by_name += { name : lib }
+
+        if not is_nss and not is_pam
+                # Typically for cryptsetup token modules.
+
+                name_static = name + '.standalone'
+                kwargs_static = kwargs
+
+                link_with_static = []
+                foreach obj : kwargs_static.get('link_with', [])
+                        if obj.full_path() == libshared.full_path()
+                                link_with_static += [
+                                        libshared_static,
+                                        libsystemd_static,
+                                ]
+                        else
+                                link_with_static += obj
+                        endif
+                endforeach
+
+                kwargs_static += {
+                        'link_with' : link_with_static,
+                        'install' : false,
+                        'build_by_default' : false,
+                }
+
+                lib_static = shared_library(
+                        name_static,
+                        kwargs : kwargs_static,
+                        implicit_include_directories : false,
+                )
+
+                modules_by_name += { name_static : lib_static }
+        endif
 
         if is_nss
                 # We cannot use shared_module because it does not support version suffix.

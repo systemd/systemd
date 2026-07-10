@@ -256,9 +256,10 @@ REQUIREMENTS:
         ninja
         gcc >= 8.4
             >= 13.1.0 is required to build BPF program by using GCC
+        binutils >= 2.35
         awk, sed, grep, and similar tools
-        clang >= 10.0, llvm >= 10.0 (optional, required to build BPF programs
-                from source code in C)
+        clang,llvm >= 10 (optional, required to build BPF programs)
+                   >= 13 (optional, required to build the entire project)
 
         During runtime, you need the following additional
         dependencies:

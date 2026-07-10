@@ -9,6 +9,7 @@
 #include "ansi-color.h"
 #include "build.h"
 #include "discover-image.h"
+#include "dlopen-note.h"
 #include "env-util.h"
 #include "fd-util.h"
 #include "format-table.h"
@@ -468,6 +469,9 @@ static void parse_env(void) {
 
 static int run(int argc, char *argv[]) {
         int r;
+
+        ARCHIVE_NOTE(recommended);
+        LIBSELINUX_NOTE(recommended);
 
         setlocale(LC_ALL, "");
         log_setup();

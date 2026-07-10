@@ -70,7 +70,7 @@ int action_setup_keys(void) {
 
         assert(arg_action == ACTION_SETUP_KEYS);
 
-        r = DLOPEN_LIBCRYPTO(LOG_ERR, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
+        r = DLOPEN_LIBCRYPTO(LOG_ERR, recommended);
         if (r < 0)
                 return r;
 

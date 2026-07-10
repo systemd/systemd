@@ -26,6 +26,7 @@
 #include "bus-wait-for-jobs.h"
 #include "cgroup-show.h"
 #include "cgroup-util.h"
+#include "dlopen-note.h"
 #include "edit-util.h"
 #include "env-util.h"
 #include "fd-util.h"
@@ -2633,6 +2634,9 @@ static int run(int argc, char *argv[]) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_strv_free_ char **args = NULL;
         int r;
+
+        COMPRESS_JOURNAL_NOTE;
+        LIBSELINUX_NOTE(recommended);
 
         setlocale(LC_ALL, "");
         log_setup();

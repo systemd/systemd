@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "sd-dlopen.h"
 #include "sd-id128.h"
 
 #include "blkid-util.h"
@@ -99,7 +98,7 @@ int dlopen_libblkid(int log_level) {
 #if HAVE_BLKID
         static void *libblkid_dl = NULL;
 
-        LIBBLKID_NOTE(SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
+        LIBBLKID_NOTE(recommended);
 
         return dlopen_many_sym_or_warn(
                         &libblkid_dl,

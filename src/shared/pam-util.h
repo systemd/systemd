@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-dlopen.h"
-
+#include "dlopen-note.h"
 #include "shared-forward.h"
 
 #if HAVE_PAM
@@ -109,20 +108,12 @@ int pam_prompt_graceful(pam_handle_t *pamh, int style, char **ret_response, cons
 /* Equivalent of pam_misc_setenv(pamh, name, value, 0), without the libpam_misc dep — builds "name=value"
  * and hands it to sym_pam_putenv(), then erases the buffer before freeing in case it carried a secret. */
 int pam_putenv_assign(pam_handle_t *pamh, const char *name, const char *value);
+#endif
 
-#define LIBPAM_NOTE(priority)                                           \
-        SD_ELF_NOTE_DLOPEN("pam",                                       \
-                           "Support for LinuxPAM",                      \
-                           priority,                                    \
-                           "libpam.so.0")
+int dlopen_libpam(int log_level) _dlopen_loader_;
 
 #define DLOPEN_LIBPAM(log_level, priority)                              \
         ({                                                              \
                 LIBPAM_NOTE(priority);                                  \
                 dlopen_libpam(log_level);                               \
         })
-#else
-#define DLOPEN_LIBPAM(log_level, priority) dlopen_libpam(log_level)
-#endif
-
-int dlopen_libpam(int log_level);

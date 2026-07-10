@@ -13,32 +13,23 @@ systemd_portabled_sources = files(
         'portabled.c',
 )
 
-if get_option('link-portabled-shared')
-        portabled_link_with = [libshared]
-else
-        portabled_link_with = [
-                libshared_static,
-                libsystemd_static,
-        ]
-endif
-
 executables += [
         libexec_template + {
                 'name' : 'systemd-portabled',
                 'dbus' : true,
                 'sources' : systemd_portabled_sources,
-                'link_with' : portabled_link_with,
                 'dependencies' : [
                         libcryptsetup_cflags,
                         libmount_cflags,
                         libselinux_cflags,
                 ],
+                'install' : get_option('link-portabled-shared') ? 'yes' : 'static',
         },
         executable_template + {
                 'name' : 'portablectl',
                 'public' : true,
                 'sources' : files('portablectl.c'),
-                'link_with' : portabled_link_with,
+                'install' : get_option('link-portabled-shared') ? 'yes' : 'static',
         },
 ]
 

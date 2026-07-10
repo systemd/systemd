@@ -21,25 +21,7 @@ executables += [
                         libopenssl_cflags,
                         tpm2_cflags,
                 ],
-        },
-        executable_template + {
-                'name' : 'systemd-repart.standalone',
-                'public' : true,
-                'import' : ['systemd-repart'],
-                'link_with' : [
-                        libc_wrapper_static,
-                        libbasic_static,
-                        libshared_static,
-                        libsystemd_static,
-                ],
-                'dependencies' : [
-                        libblkid_cflags,
-                        libcryptsetup_cflags,
-                        libfdisk_cflags,
-                        libmount_cflags,
-                        libopenssl_cflags,
-                        tpm2_cflags,
-                ],
+                'install' : have_standalone_binaries ? 'both' : 'yes',
         },
 ]
 

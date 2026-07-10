@@ -1,10 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "dlopen-note.h"
 #include "shared-forward.h"
 
-int dlopen_dw(int log_level);
-int dlopen_elf(int log_level);
+int dlopen_dw(int log_level) _dlopen_loader_;
+int dlopen_elf(int log_level) _dlopen_loader_;
 
 bool dlopen_dw_has_dwfl_set_sysroot(void);
 

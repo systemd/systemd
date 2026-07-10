@@ -200,18 +200,6 @@ libcore = shared_library(
         install : true,
         install_dir : pkglibdir)
 
-core_libs_static = [
-        libc_wrapper_static,
-        libcore_static,
-        libshared_static,
-        libbasic_static,
-        libsystemd_static,
-]
-core_libs_shared = [
-        libcore,
-        libshared,
-]
-
 systemd_deps = [
         libapparmor_cflags,
         libaudit_cflags,
@@ -220,11 +208,6 @@ systemd_deps = [
         libseccomp_cflags,
         libselinux_cflags,
 ]
-
-systemd_link_args = get_option('build-static') ? ['-static'] : []
-systemd_libs = get_option('build-static') ? core_libs_static : core_libs_shared
-
-executor_libs = get_option('link-executor-shared') ? core_libs_shared : core_libs_static
 
 if conf.get('SYSTEMD_MULTICALL_BINARY') == 1
         systemd_sources += systemd_executor_sources
@@ -242,16 +225,20 @@ executables += [
                 'dbus' : true,
                 'public' : true,
                 'sources' : systemd_sources,
-                'link_args' : systemd_link_args,
-                'link_with' : systemd_libs,
+                'link_args_static' : get_option('build-static') ? ['-static'] : [],
+                'link_with' : [
+                        libcore,
+                        libshared,
+                ],
                 'dependencies' : systemd_deps,
+                'install' : get_option('build-static') ? 'static' : 'yes',
         },
 
         fuzz_template + {
                 'sources' : files('fuzz-unit-file.c'),
                 'link_with' : [
                         libcore,
-                        libshared
+                        libshared,
                 ],
                 'dependencies' : libmount_cflags,
         },
@@ -259,14 +246,14 @@ executables += [
                 'sources' : files('fuzz-manager-serialize.c'),
                 'link_with' : [
                         libcore,
-                        libshared
+                        libshared,
                 ],
         },
         fuzz_template + {
                 'sources' : files('fuzz-execute-serialize.c'),
                 'link_with' : [
                         libcore,
-                        libshared
+                        libshared,
                 ],
         },
 ]
@@ -282,7 +269,10 @@ else
                         'name' : 'systemd-executor',
                         'public' : true,
                         'sources' : systemd_executor_sources,
-                        'link_with' : executor_libs,
+                        'link_with' : [
+                                libcore,
+                                libshared,
+                        ],
                         'dependencies' : [
                                 libapparmor_cflags,
                                 libbpf_cflags,
@@ -293,6 +283,7 @@ else
                                 libseccomp_cflags,
                                 libselinux_cflags,
                         ],
+                        'install' : get_option('link-executor-shared') ? 'yes' : 'static',
                 },
         ]
 endif

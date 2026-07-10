@@ -7,6 +7,7 @@
 
 #include "build.h"
 #include "dissect-image.h"
+#include "dlopen-note.h"
 #include "extract-word.h"
 #include "format-table.h"
 #include "glob-util.h"
@@ -1020,6 +1021,14 @@ static int run(int argc, char *argv[]) {
         _cleanup_(umount_and_freep) char *mounted_dir = NULL;
         _cleanup_strv_free_ char **args = NULL;
         int r;
+
+        COMPRESS_JOURNAL_NOTE;
+        LIBACL_NOTE(recommended);
+        LIBBLKID_NOTE(recommended);
+        LIBCRYPTSETUP_NOTE(suggested);
+        LIBMOUNT_NOTE(recommended);
+        LIBPCRE2_NOTE(suggested);
+        LIBQRENCODE_NOTE(suggested);
 
         setlocale(LC_ALL, "");
         log_setup();

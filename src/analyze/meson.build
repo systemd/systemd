@@ -59,7 +59,7 @@ executables += [
                         libseccomp_cflags,
                         tpm2_cflags,
                 ],
-                'install' : conf.get('ENABLE_ANALYZE') == 1,
+                'install' : conf.get('ENABLE_ANALYZE') == 1 ? 'yes' : 'no',
         },
         core_test_template + {
                 'sources' : files('test-verify.c'),

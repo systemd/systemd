@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "dlopen-note.h"
 #include "shared-forward.h"
 
 #define FIDO2_SALT_SIZE 32U
@@ -16,7 +17,7 @@ typedef enum Fido2EnrollFlags {
         _FIDO2ENROLL_TYPE_INVALID = -EINVAL,
 } Fido2EnrollFlags;
 
-int dlopen_libfido2(int log_level);
+int dlopen_libfido2(int log_level) _dlopen_loader_;
 
 #if HAVE_LIBFIDO2
 #ifndef SYSTEMD_CFLAGS_MARKER_LIBFIDO2

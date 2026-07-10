@@ -17,6 +17,7 @@
 #include "bus-util.h"
 #include "cgroup-show.h"
 #include "cgroup-util.h"
+#include "dlopen-note.h"
 #include "format-table.h"
 #include "format-util.h"
 #include "help-util.h"
@@ -1660,6 +1661,8 @@ static int run(int argc, char *argv[]) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         char **args = NULL;
         int r;
+
+        COMPRESS_JOURNAL_NOTE;
 
         setlocale(LC_ALL, "");
         log_setup();
