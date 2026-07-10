@@ -3,7 +3,7 @@
 
 #include "dlfcn-util.h"
 #include "dlopen-note.h"
-#include "shared-forward.h"
+#include "forward.h"
 
 #if HAVE_LIBCRYPTSETUP
 #ifndef SYSTEMD_CFLAGS_MARKER_LIBCRYPTSETUP

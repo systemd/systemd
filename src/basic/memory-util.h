@@ -3,7 +3,7 @@
 
 #include <string.h>
 
-#include "basic-forward.h"
+#include "forward.h"
 
 #include "../fundamental/memory-util.h" /* IWYU pragma: export */
 

@@ -2,7 +2,7 @@
 #pragma once
 
 #include "dlopen-note.h"
-#include "shared-forward.h"
+#include "forward.h"
 
 #if HAVE_OPENSSL
 #ifndef SYSTEMD_CFLAGS_MARKER_LIBOPENSSL

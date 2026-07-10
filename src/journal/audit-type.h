@@ -3,7 +3,7 @@
 
 #include <stdio.h>      /* IWYU pragma: keep */
 
-#include "sd-forward.h"
+#include "forward.h"
 
 #include "alloc-util.h" /* IWYU pragma: keep */
 

@@ -4,7 +4,7 @@
 #include <unistd.h>
 
 #include "errno-list.h"
-#include "shared-forward.h"
+#include "forward.h"
 #include "log.h"
 #include "log-assert-critical.h"
 #include "static-destruct.h"            /* IWYU pragma: keep */

@@ -2,7 +2,7 @@
 #pragma once
 
 #include "cgroup-util.h"
-#include "shared-forward.h"
+#include "forward.h"
 #include "psi-util.h"
 
 #define DUMP_ON_KILL_COUNT 10u

@@ -4,8 +4,8 @@
 #include "bitfield.h"
 #include "crypto-util.h"
 #include "dlopen-note.h"
+#include "forward.h"
 #include "iovec-util.h"
-#include "shared-forward.h"
 #include "sha256.h"
 
 typedef enum TPM2Flags {

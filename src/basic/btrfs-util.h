@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "basic-forward.h"
+#include "forward.h"
 
 typedef enum BtrfsSubvolFlags {
         BTRFS_SUBVOL_RO               = 1 << 0,

@@ -3,7 +3,7 @@
 
 #include <sys/uio.h>                /* IWYU pragma: export */
 
-#include "basic-forward.h"
+#include "forward.h"
 
 #include "../fundamental/iovec-util.h" /* IWYU pragma: export */
 

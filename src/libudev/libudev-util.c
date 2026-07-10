@@ -2,7 +2,6 @@
 
 #include "libudev.h"
 
-#include "shared-forward.h"
 #include "device-nodes.h"
 
 /**

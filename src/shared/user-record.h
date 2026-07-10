@@ -6,9 +6,9 @@
 #include "sd-id128.h"
 
 #include "bitfield.h"
+#include "forward.h"
 #include "pkcs11-padding.h"
 #include "rlimit-util.h"
-#include "shared-forward.h"
 
 typedef enum UserDisposition {
         USER_INTRINSIC,   /* root and nobody */

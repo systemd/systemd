@@ -3,7 +3,7 @@
 
 #include "dlopen-note.h"
 #include "errno-util.h"
-#include "shared-forward.h"
+#include "forward.h"
 
 #if HAVE_SECCOMP
 #ifndef SYSTEMD_CFLAGS_MARKER_LIBSECCOMP

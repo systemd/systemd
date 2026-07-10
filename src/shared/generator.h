@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "shared-forward.h"
+#include "forward.h"
 #include "main-func.h"
 
 int generator_open_unit_file_full(const char *dir, const char *source, const char *filename, FILE **ret_file, char **ret_final_path, char **ret_temp_path);

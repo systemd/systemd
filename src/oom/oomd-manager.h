@@ -3,7 +3,7 @@
 
 #include "conf-parser-forward.h"
 #include "constants.h"
-#include "shared-forward.h"
+#include "forward.h"
 #include "oomd-conf.h"
 #include "oomd-util.h"
 

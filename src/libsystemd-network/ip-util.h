@@ -4,7 +4,7 @@
 #include <netinet/ip.h>
 #include <netinet/udp.h>
 
-#include "sd-forward.h"
+#include "forward.h"
 
 #include "sparse-endian.h"
 

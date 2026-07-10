@@ -4,7 +4,7 @@
 #include <sys/stat.h>
 
 #include "architecture.h"
-#include "shared-forward.h"
+#include "forward.h"
 
 typedef enum PickFlags {
         PICK_ARCHITECTURE = 1 << 0,   /* Look for an architecture suffix */
