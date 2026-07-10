@@ -1272,6 +1272,17 @@ def test_make_uki_honors_tools_opt_for_keyutil(tmp_path):
     )
     mock_keyutil.chmod(0o755)
 
+    # Check if tmp_path supports executing files (it might be noexec)
+    noexec_probe = tmp_path / '.noexec-check'
+    noexec_probe.write_text('#!/bin/sh\nexit 0')
+    noexec_probe.chmod(0o755)
+    try:
+        subprocess.run([str(noexec_probe)], capture_output=True, timeout=5)
+    except OSError:
+        pytest.skip('tmp_path does not support executable files (e.g. noexec mount')
+    finally:
+        noexec_probe.unlink(missing_ok=True)
+
     dummy_linux = tmp_path / 'linux'
     dummy_linux.write_text('dummy kernel')
     dummy_initrd = tmp_path / 'initrd'
