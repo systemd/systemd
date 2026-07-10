@@ -443,7 +443,20 @@ int rm_rf_at(int dir_fd, const char *path, RemoveFlags flags) {
 
         /* We refuse to clean the root file system with this call. This is extra paranoia to never cause a
          * really seriously broken system. */
-        if (path_is_root_at(dir_fd, path) > 0)
+        r = path_is_root_at(dir_fd, path);
+        if (r == -ENOENT) {
+                struct stat st;
+
+                if (fstatat(dir_fd, path, &st, AT_SYMLINK_NOFOLLOW) < 0)
+                        r = -errno;
+                else
+                        r = 0; /* The entry exists, but is most likely a dangling symlink. */
+        }
+        if (FLAGS_SET(flags, REMOVE_MISSING_OK) && r == -ENOENT)
+                return 0;
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine whether '%s' is the root file system: %m", path);
+        if (r > 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EPERM),
                                        "Attempted to remove entire root file system, and we can't allow that.");
 
