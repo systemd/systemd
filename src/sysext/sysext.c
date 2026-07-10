@@ -1578,6 +1578,10 @@ static int unmerge_hierarchy(ImageClass image_class, const char *p, const char *
                         l = cunescape_length(escaped_work_dir_in_root, r, 0, &work_dir_in_root);
                         if (l < 0)
                                 return log_error_errno(l, "Failed to unescape work directory path: %m");
+                        if (path_is_absolute(work_dir_in_root) || !path_is_normalized(work_dir_in_root))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Invalid work directory path '%s'.", work_dir_in_root);
+
                         work_dir = path_join(arg_root, work_dir_in_root);
                         if (!work_dir)
                                 return log_oom();
