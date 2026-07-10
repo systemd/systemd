@@ -23,6 +23,7 @@ typedef struct Manager {
         struct userns_restrict_bpf *userns_restrict_bpf;
         struct ring_buffer *userns_restrict_bpf_ring_buffer;
         sd_event_source *userns_restrict_bpf_ring_buffer_event_source;
+        sd_event_source *userns_restrict_bpf_ring_buffer_retry_event_source;
 #endif
 
         int registry_fd;
