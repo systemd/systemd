@@ -352,8 +352,10 @@ int find_converted_keymap(const X11Context *xc, char **ret) {
         int r;
 
         assert(xc);
-        assert(!isempty(xc->layout));
         assert(ret);
+
+        if (isempty(xc->layout))
+                return -EINVAL;
 
         if (xc->variant)
                 n = strjoin(xc->layout, "-", xc->variant);
