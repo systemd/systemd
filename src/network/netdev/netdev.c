@@ -637,6 +637,13 @@ static bool netdev_can_set_mac(NetDev *netdev, const struct hw_addr_data *hw_add
         if (link_get_by_index(netdev->manager, netdev->ifindex, &link) < 0)
                 return true; /* The netdev does not exist yet. We can set MAC address. */
 
+        /* Only apply the automatically generated MAC address when creating a new interface.
+         * Otherwise, during the restart of networkd, it will conflict with the MAC address configured
+         * in the .network file.
+         * See issue #42457. */
+        if (netdev->hw_addr.length == 0)
+                return false;
+
         if (hw_addr_equal(&link->hw_addr, hw_addr))
                 return false; /* Unchanged, not necessary to set. */
 
