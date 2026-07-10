@@ -391,7 +391,7 @@ static int run(int argc, char *argv[]) {
         char *module;
         int ret = 0, r;
 
-        LIBKMOD_NOTE(required);
+        LIBKMOD_NOTE(recommended);
 
         char **args = NULL;
         r = parse_argv(argc, argv, &args);
