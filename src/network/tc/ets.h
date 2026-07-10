@@ -3,7 +3,6 @@
 
 #include <linux/pkt_sched.h>
 
-#include "shared-forward.h"
 #include "qdisc.h"
 
 typedef struct EnhancedTransmissionSelection {

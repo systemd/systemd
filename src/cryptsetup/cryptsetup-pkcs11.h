@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "forward.h"
 #include "pkcs11-padding.h"
-#include "shared-forward.h"
 
 int decrypt_pkcs11_key(
                 const char *volume_name,

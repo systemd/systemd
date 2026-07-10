@@ -3,7 +3,7 @@
 
 #include "sd-id128.h"
 
-#include "sd-forward.h"
+#include "forward.h"
 #include "sparse-endian.h"
 
 /* Make sure not to make this smaller than the maximum coredump size.

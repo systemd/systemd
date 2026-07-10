@@ -3,7 +3,7 @@
 #pragma once
 
 #include "cryptsetup-util.h"
-#include "shared-forward.h"
+#include "forward.h"
 
 /* crypt_dump() internal indentation magic */
 #define CRYPT_DUMP_LINE_SEP "\n\t            "

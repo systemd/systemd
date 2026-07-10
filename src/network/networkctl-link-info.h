@@ -9,7 +9,7 @@
 #include "dhcp-message.h"
 #include "ether-addr-util.h"
 #include "ethtool-util.h"
-#include "shared-forward.h"
+#include "forward.h"
 #include "in-addr-util.h"
 
 typedef struct VxLanInfo {

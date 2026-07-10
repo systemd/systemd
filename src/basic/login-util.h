@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "basic-forward.h"
+#include "forward.h"
 
 #define SD_LOGIND_ROOT_CHECK_INHIBITORS           (UINT64_C(1) << 0)
 #define SD_LOGIND_REBOOT_VIA_KEXEC                (UINT64_C(1) << 1)

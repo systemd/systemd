@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 #pragma once
 
-#include "basic-forward.h"
+#include "forward.h"
 
 /*
  * Copyright © IBM Corp. 2003

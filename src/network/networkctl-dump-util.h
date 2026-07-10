@@ -1,9 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "shared-forward.h"
-
 #include "dhcp-message.h"
+#include "forward.h"
 
 int dump_list(Table *table, const char *key, char * const *l);
 int ieee_oui(sd_hwdb *hwdb, const struct ether_addr *mac, char **ret);

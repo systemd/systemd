@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-forward.h"
+#include "forward.h"
 
 #define TLV_TAG_PAD UINT32_C(0)
 #define TLV_TAG_END UINT32_C(0xFF)

@@ -3,8 +3,8 @@
 
 #include "sd-id128.h"
 
+#include "forward.h"
 #include "runtime-scope.h"
-#include "shared-forward.h"
 
 typedef struct MachineRegistration {
         const char *name;

@@ -3,7 +3,7 @@
 
 #include <sys/socket.h>
 
-#include "sd-forward.h"
+#include "forward.h"
 
 #include "list.h"
 #include "log.h"

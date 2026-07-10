@@ -3,7 +3,7 @@
 
 #include <dlfcn.h>      /* IWYU pragma: export */
 
-#include "basic-forward.h"
+#include "forward.h"
 
 void* safe_dlclose(void *dl);
 

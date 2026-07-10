@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "shared-forward.h"
+#include "forward.h"
 
 typedef enum ExecDirectoryFlags {
         EXEC_DIRECTORY_READ_ONLY      = 1 << 0, /* Public API via DBUS, do not change */

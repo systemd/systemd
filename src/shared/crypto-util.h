@@ -2,9 +2,9 @@
 #pragma once
 
 #include "dlopen-note.h"
+#include "forward.h"
 #include "iovec-util.h"
 #include "sha256.h"
-#include "shared-forward.h"
 
 typedef enum CertificateSourceType {
         OPENSSL_CERTIFICATE_SOURCE_FILE,

@@ -3,7 +3,7 @@
 
 #include <sys/stat.h>
 
-#include "basic-forward.h"
+#include "forward.h"
 
 typedef enum ConfFilesFlags {
         CONF_FILES_EXECUTABLE               = 1 << 0, /* inode must be marked executable */

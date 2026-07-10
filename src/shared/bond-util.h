@@ -3,7 +3,7 @@
 
 #include <linux/if_bonding.h>
 
-#include "shared-forward.h"
+#include "forward.h"
 
 /*
  * Maximum number of targets supported by the kernel for a single

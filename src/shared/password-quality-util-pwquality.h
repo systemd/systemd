@@ -2,7 +2,7 @@
 #pragma once
 
 #include "dlopen-note.h"
-#include "shared-forward.h"
+#include "forward.h"
 
 #if HAVE_PWQUALITY
 int suggest_passwords(void);

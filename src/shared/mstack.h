@@ -2,7 +2,7 @@
 #pragma once
 
 #include "discover-image.h"
-#include "shared-forward.h"
+#include "forward.h"
 
 typedef enum MStackFlags {
         MSTACK_MKDIR  = 1 << 0, /* when mounting, create top-level inode to mount on top */

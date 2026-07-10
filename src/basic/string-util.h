@@ -4,7 +4,7 @@
 #include <string.h>
 
 #include "alloc-util.h"
-#include "basic-forward.h"
+#include "forward.h"
 
 #include "../fundamental/string-util.h" /* IWYU pragma: export */
 

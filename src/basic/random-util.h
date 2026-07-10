@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "basic-forward.h"
+#include "forward.h"
 
 /* Returns random bytes suitable for most uses, but may be insecure sometimes. */
 void random_bytes(void *p, size_t n) _nonnull_if_nonzero_(1, 2);
