@@ -655,16 +655,16 @@ static void cleanup_dir(DIR *dir, mode_t mask, int depth) {
  * entries for devices in /run/udev/data (such as "b8:16"), and removes
  * all files except those that haven't been deleted in /run/udev/data
  * (i.e. they were skipped during db cleanup because of the db_persist flag).
+ * If the database directory does not exist, all entries are considered stale.
  */
 static void cleanup_dir_after_db_cleanup(DIR *dir, DIR *datadir) {
         assert(dir);
-        assert(datadir);
 
         FOREACH_DIRENT_ALL(dent, dir, break) {
                 if (dot_or_dot_dot(dent->d_name))
                         continue;
 
-                if (faccessat(dirfd(datadir), dent->d_name, F_OK, AT_SYMLINK_NOFOLLOW) >= 0)
+                if (datadir && faccessat(dirfd(datadir), dent->d_name, F_OK, AT_SYMLINK_NOFOLLOW) >= 0)
                         /* The corresponding udev database file still exists.
                          * Assuming the persistent flag is set for the database. */
                         continue;
@@ -675,7 +675,6 @@ static void cleanup_dir_after_db_cleanup(DIR *dir, DIR *datadir) {
 
 static void cleanup_dirs_after_db_cleanup(DIR *dir, DIR *datadir) {
         assert(dir);
-        assert(datadir);
 
         FOREACH_DIRENT_ALL(dent, dir, break) {
                 struct stat stats;
