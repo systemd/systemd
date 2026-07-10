@@ -15,6 +15,7 @@
 #include "local-addresses.h"
 #include "log.h"
 #include "main-func.h"
+#include "memory-util.h"
 #include "nss-test-util.h"
 #include "nss-util.h"
 #include "parse-util.h"
@@ -67,6 +68,16 @@ static int print_gaih_addrtuples(const struct gaih_addrtuple *tuples) {
         return n;
 }
 
+static void assert_myhostname_gaih_addrtuples(const struct gaih_addrtuple *tuples) {
+        assert(tuples);
+
+        for (const struct gaih_addrtuple *it = tuples; it; it = it->next)
+                if (it->family == AF_INET)
+                        assert_se(memeqzero(
+                                        (const uint8_t*) it->addr + FAMILY_ADDRESS_SIZE(AF_INET),
+                                        sizeof(it->addr) - FAMILY_ADDRESS_SIZE(AF_INET)));
+}
+
 static void print_struct_hostent(struct hostent *host, const char *canon) {
         log_info("        \"%s\"", host->h_name);
         STRV_FOREACH(s, host->h_aliases)
@@ -112,6 +123,9 @@ static void test_gethostbyname4_r(void *handle, const char *module, const char *
                 return;
         }
 
+        /* Poison the scratch buffer so uninitialized padding in NSS replies is observable. */
+        memset(buffer, 0xa5, sizeof(buffer));
+
         status = f(name, &pat, buffer, sizeof buffer, &errno1, &errno2, &ttl);
         if (status == NSS_STATUS_SUCCESS) {
                 log_info("%s(\"%s\") → status=%s%-20spat=buffer+0x%"PRIxPTR" errno=%d/%s h_errno=%d/%s ttl=%"PRIi32,
@@ -122,6 +136,8 @@ static void test_gethostbyname4_r(void *handle, const char *module, const char *
                          errno2, hstrerror(errno2),
                          ttl);
                 n = print_gaih_addrtuples(pat);
+                if (streq(module, "myhostname"))
+                        assert_myhostname_gaih_addrtuples(pat);
         } else {
                 log_info("%s(\"%s\") → status=%s%-20spat=0x%p errno=%d/%s h_errno=%d/%s",
                          fname, name,
