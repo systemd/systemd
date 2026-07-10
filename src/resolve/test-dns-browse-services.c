@@ -3,10 +3,15 @@
 #include <string.h>
 #include <sys/socket.h>
 
+#include "sd-event.h"
+
 #include "dns-answer.h"
+#include "dns-question.h"
 #include "dns-rr.h"
 #include "resolved-dns-browse-services.h"
+#include "resolved-manager.h"
 #include "tests.h"
+#include "time-util.h"
 
 static DnsResourceRecord *new_test_service_rr(uint32_t ttl) {
         DnsResourceRecord *rr;
@@ -145,6 +150,117 @@ TEST(mdns_answer_contains_service_ifindex) {
 
         sb_scoped.ifindex = 3;
         ASSERT_OK_ZERO(mdns_answer_contains_service(&sb_scoped, answer2, &service));
+}
+
+/* dns_query_go() completes a query synchronously when no scope matches its question, and the
+ * completion handler then frees the query. The ladder tracks its maintenance query by pointer, so the
+ * pointer has to be stored before the query is started and be gone again once the handler returns — a
+ * manager without any scope makes the completion synchronous. */
+TEST(mdns_browser_maintenance_query_completing_synchronously) {
+        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+        Manager manager = {};
+
+        ASSERT_NOT_NULL(key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_PTR, "_http._tcp.local"));
+        ASSERT_NOT_NULL(question = dns_question_new(1));
+        ASSERT_OK(dns_question_add(question, key, /* flags= */ 0));
+
+        DnsServiceBrowser sb = {
+                .n_ref = 1,
+                .manager = &manager,
+                .question_idna = question,
+                .question_utf8 = question,
+                .rr_ttl_state = DNS_RECORD_TTL_STATE_80_PERCENT,
+        };
+
+        ASSERT_OK(mdns_browser_maintenance(/* s= */ NULL, /* usec= */ 0, &sb));
+
+        /* The rung advanced, the query was issued and is gone again, and nothing leaked. */
+        ASSERT_EQ(sb.rr_ttl_state, DNS_RECORD_TTL_STATE_85_PERCENT);
+        ASSERT_NULL(sb.maintenance_query);
+        ASSERT_EQ(sb.n_ref, 1u);
+        ASSERT_EQ(manager.n_dns_queries, 0u);
+}
+
+/* The terminal rung used to be a one-shot that returned without rescheduling; now it reconciles the
+ * cache and starts the ladder over. With no scope and no discovered service there is nothing to remove
+ * and nothing to re-arm against, but the rung must still be reset, no query issued, and the handler
+ * must return success so that sd-event keeps the source. */
+TEST(mdns_browser_maintenance_terminal_rung_resets_ladder) {
+        Manager manager = {};
+        DnsServiceBrowser sb = {
+                .n_ref = 1,
+                .manager = &manager,
+                .rr_ttl_state = DNS_RECORD_TTL_STATE_100_PERCENT,
+        };
+
+        ASSERT_OK(mdns_browser_maintenance(/* s= */ NULL, /* usec= */ 0, &sb));
+
+        ASSERT_EQ(sb.rr_ttl_state, DNS_RECORD_TTL_STATE_80_PERCENT);
+        ASSERT_NULL(sb.maintenance_query);
+        ASSERT_NULL(sb.maintenance_event);
+        ASSERT_EQ(sb.n_ref, 1u);
+        ASSERT_EQ(manager.n_dns_queries, 0u);
+}
+
+/* Every change to the discovered-service list winds the ladder back to 80%, so that a live RRset never
+ * ratchets towards the terminal rung and a surviving instance does not inherit the rung the just-removed
+ * soonest one had climbed to. */
+TEST(mdns_browser_ladder_winds_back_on_add_and_remove) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        DnsServiceBrowser sb = {
+                .rr_ttl_state = DNS_RECORD_TTL_STATE_95_PERCENT,
+        };
+
+        ASSERT_NOT_NULL(rr = new_test_service_rr(120));
+
+        ASSERT_OK(dns_add_new_service(&sb, rr, AF_INET, /* ifindex= */ 2, /* until= */ 100));
+        ASSERT_NOT_NULL(sb.dns_services);
+        ASSERT_EQ(sb.rr_ttl_state, DNS_RECORD_TTL_STATE_80_PERCENT);
+
+        sb.rr_ttl_state = DNS_RECORD_TTL_STATE_95_PERCENT;
+        dns_remove_service(&sb, sb.dns_services);
+        ASSERT_NULL(sb.dns_services);
+        ASSERT_EQ(sb.rr_ttl_state, DNS_RECORD_TTL_STATE_80_PERCENT);
+}
+
+/* ...and so does an answer that merely re-confirms a known instance, refreshing its expiry — which is
+ * what every answered maintenance query produces. Nothing is added or removed, so no client
+ * notification is attempted; the list stays as it was and the ladder is armed against it. */
+TEST(mdns_browser_ladder_winds_back_on_refresh) {
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        usec_t t = now(CLOCK_BOOTTIME);
+
+        ASSERT_OK(sd_event_new(&event));
+
+        Manager manager = {
+                .event = event,
+        };
+        DnsServiceBrowser sb = {
+                .n_ref = 1,
+                .manager = &manager,
+                .ifindex = 2,
+        };
+
+        ASSERT_NOT_NULL(rr = new_test_service_rr(120));
+        ASSERT_OK(dns_add_new_service(&sb, rr, AF_INET, /* ifindex= */ 2, usec_add(t, 60 * USEC_PER_SEC)));
+        sb.rr_ttl_state = DNS_RECORD_TTL_STATE_95_PERCENT;
+
+        ASSERT_OK(dns_answer_add_extend_full(
+                          &answer, rr, /* ifindex= */ 2, DNS_ANSWER_CACHEABLE, /* rrsig= */ NULL,
+                          usec_add(t, 120 * USEC_PER_SEC)));
+        ASSERT_OK(mdns_manage_services_answer(&sb, answer, AF_INET));
+
+        ASSERT_EQ(sb.rr_ttl_state, DNS_RECORD_TTL_STATE_80_PERCENT);
+        ASSERT_NOT_NULL(sb.dns_services);
+        ASSERT_NULL(sb.dns_services->dns_services_next);
+        ASSERT_EQ(sb.dns_services->until, usec_add(t, 120 * USEC_PER_SEC));
+        ASSERT_NOT_NULL(sb.maintenance_event);
+
+        sb.maintenance_event = sd_event_source_disable_unref(sb.maintenance_event);
+        dns_remove_service(&sb, sb.dns_services);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
