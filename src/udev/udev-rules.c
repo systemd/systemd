@@ -849,7 +849,7 @@ static int parse_token(
                 } else
                         r = rule_line_add_token(rule_line, TK_M_ENV, op, value, attr, is_case_insensitive, token_str);
         } else if (streq(key, "CONST")) {
-                if (isempty(attr) || !STR_IN_SET(attr, "arch", "virt"))
+                if (isempty(attr) || !STR_IN_SET(attr, "arch", "virt", "cvm"))
                         return log_line_invalid_attr(rule_line, key);
                 if (!is_match)
                         return log_line_invalid_op(rule_line, key);
@@ -2482,14 +2482,14 @@ static int udev_rule_apply_token_to_event(
 
                         /* Drop the last line. */
                         bool found = false;
-                        for (char *p = PTR_SUB1(buf + strlen(buf), buf); p; p = PTR_SUB1(p, buf))
+                        for (char *p = PTR_SUB1(result + strlen(result), result); p; p = PTR_SUB1(p, result))
                                 if (strchr(NEWLINE, *p)) {
                                         *p = '\0';
                                         found = true;
                                         break;
                                 }
                         if (!found)
-                                buf[0] = '\0';
+                                result[0] = '\0';
                 }
 
                 r = strv_split_newlines_full(&lines, result, EXTRACT_RETAIN_ESCAPE);
