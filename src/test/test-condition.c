@@ -854,6 +854,14 @@ TEST(condition_test_cpufeature) {
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_CPU_FEATURE, "fpu", false, false)));
         ASSERT_OK_POSITIVE(condition_test(condition, environ));
         condition_free(condition);
+
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_CPU_FEATURE, "x86-64.fpu", false, false)));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        condition_free(condition);
+
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_CPU_FEATURE, "bogus.fpu", false, false)));
+        ASSERT_OK_ZERO(condition_test(condition, environ));
+        condition_free(condition);
 #elif defined(__aarch64__)
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_CPU_FEATURE, "fp", false, false)));
         ASSERT_OK_POSITIVE(condition_test(condition, environ));
@@ -861,6 +869,14 @@ TEST(condition_test_cpufeature) {
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_CPU_FEATURE, "asimd", false, false)));
         ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        condition_free(condition);
+
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_CPU_FEATURE, "arm64.asimd", false, false)));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        condition_free(condition);
+
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_CPU_FEATURE, "bogus.asimd", false, false)));
+        ASSERT_OK_ZERO(condition_test(condition, environ));
         condition_free(condition);
 #endif
 
