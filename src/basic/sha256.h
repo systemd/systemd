@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "basic-forward.h"
+#include "forward.h"
 
 #include "../fundamental/sha256.h" /* IWYU pragma: export */
 

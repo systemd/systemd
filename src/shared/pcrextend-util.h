@@ -3,7 +3,7 @@
 
 #include <sys/uio.h>
 
-#include "shared-forward.h"
+#include "forward.h"
 
 int pcrextend_file_system_word(const char *path, char **ret, char **ret_normalized_path);
 int pcrextend_machine_id_word(char **ret);

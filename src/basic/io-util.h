@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "basic-forward.h"
+#include "forward.h"
 
 /* On most architectures POLL* and EPOLL* share numeric values, but sparc allocates POLLRDHUP at
  * 0x800 while EPOLLRDHUP is 0x2000 everywhere. Always go through these helpers when crossing

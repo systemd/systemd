@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "forward.h"
 #include "imds-util.h"
-#include "shared-forward.h"
 
 /* Helpers shared between imds-tool.c and imds-tool-metrics.c for talking to systemd-imdsd. */
 

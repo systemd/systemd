@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "shared-forward.h"
+#include "forward.h"
 
 /* Builds a new CPIO archive containing each credential as a
  * file under .extra/system_credentials/<id>.cred, writes it to a

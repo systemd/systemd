@@ -5,7 +5,7 @@
 #include "sd-id128.h"
 
 #include "architecture.h"
-#include "shared-forward.h"
+#include "forward.h"
 #include "sparse-endian.h"
 
 /* maximum length of gpt label */

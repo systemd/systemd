@@ -8,7 +8,7 @@
 #include "json-stream.h"
 #include "list.h"
 #include "pidref.h"
-#include "sd-forward.h"
+#include "forward.h"
 
 typedef enum VarlinkState {
         /* Client side states */

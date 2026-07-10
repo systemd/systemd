@@ -2,7 +2,7 @@
 #pragma once
 
 #include "crypto-util.h"
-#include "shared-forward.h"
+#include "forward.h"
 
 #if HAVE_OPENSSL
 

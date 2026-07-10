@@ -3,7 +3,7 @@
 
 #include <linux/if_bridge.h>
 
-#include "shared-forward.h"
+#include "forward.h"
 
 typedef enum BridgeState {
         NETDEV_BRIDGE_STATE_DISABLED   = BR_STATE_DISABLED,
