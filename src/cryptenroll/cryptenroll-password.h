@@ -2,7 +2,7 @@
 #pragma once
 
 #include "cryptenroll.h"
-#include "shared-forward.h"
+#include "forward.h"
 
 int load_volume_key_empty(const EnrollContext *c, struct crypt_device *cd, struct iovec *ret_vk);
 int load_volume_key_keyfile(const EnrollContext *c, struct crypt_device *cd, struct iovec *ret_vk);

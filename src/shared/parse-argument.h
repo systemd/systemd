@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "shared-forward.h"
+#include "forward.h"
 
 int parse_boolean_argument(const char *optname, const char *s, bool *ret);
 int parse_tristate_argument_with_auto(const char *optname, const char *s, int *ret);

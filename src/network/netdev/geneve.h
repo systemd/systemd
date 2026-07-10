@@ -5,7 +5,6 @@
 
 #include "in-addr-util.h"
 #include "netdev.h"
-#include "shared-forward.h"
 
 #define GENEVE_VID_MAX (1u << 24) - 1
 

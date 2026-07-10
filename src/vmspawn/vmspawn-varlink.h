@@ -2,7 +2,7 @@
 #pragma once
 
 #include "cleanup-util.h"
-#include "shared-forward.h"
+#include "forward.h"
 #include "vmspawn-qmp.h"
 
 typedef struct VmspawnVarlinkContext VmspawnVarlinkContext;

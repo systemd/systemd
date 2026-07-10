@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-forward.h"
+#include "forward.h"
 
 #define FSPRG_RECOMMENDED_SECPAR 1536
 #define FSPRG_RECOMMENDED_SEEDLEN (96/8)

@@ -3,7 +3,7 @@
 
 #include <stdlib.h>
 
-#include "basic-forward.h"
+#include "forward.h"
 #include "memory-util.h"        /* IWYU pragma: keep */
 
 #if HAS_FEATURE_MEMORY_SANITIZER

@@ -5,7 +5,7 @@
 
 #include "sd-dhcp6-option.h" /* IWYU pragma: export */
 
-#include "sd-forward.h"
+#include "forward.h"
 #include "list.h"
 #include "sparse-endian.h"
 

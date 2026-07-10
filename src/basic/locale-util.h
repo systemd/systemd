@@ -4,7 +4,7 @@
 #include <libintl.h>    /* IWYU pragma: export */
 #include <locale.h>     /* IWYU pragma: export */
 
-#include "basic-forward.h"
+#include "forward.h"
 
 typedef enum LocaleVariable {
         /* We don't list LC_ALL here on purpose. People should be

@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "basic-forward.h"
+#include "forward.h"
 #include "stat-util.h"
 
 #define FILESYSTEM_MAGIC_MAX 10

@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "shared-forward.h"
+#include "forward.h"
 #include "ratelimit.h"
 
 #define NSRESOURCE_WORKERS_MIN 5

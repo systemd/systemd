@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "basic-forward.h"
+#include "forward.h"
 
 int dlopen_gcrypt(int log_level);
 
