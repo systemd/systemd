@@ -529,7 +529,7 @@ static int setup_microhttpd_server(RemoteServer *s,
                                 {MHD_OPTION_HTTPS_MEM_TRUST, 0, (char*) trust};
         }
 
-        d = new(MHDDaemonWrapper, 1);
+        d = new0(MHDDaemonWrapper, 1);
         if (!d)
                 return log_oom();
 

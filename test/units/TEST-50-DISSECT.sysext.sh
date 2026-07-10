@@ -799,6 +799,40 @@ test ! -f "$fake_root$hierarchy/now-is-mutable"
 
 
 ( init_trap
+: "Empty work_dir metadata is rejected without removing the root"
+[[ -z "$roots_dir" ]] && exit 0
+
+fake_root="$roots_dir/empty-work-dir"
+hierarchy=/opt
+extension_data_dir="$fake_root/var/lib/extensions.mutable$hierarchy"
+work_dir_file="$fake_root$hierarchy/.systemd-sysext/work_dir"
+
+[[ "$FSTYPE" == "fuseblk" ]] && exit 0
+
+prepare_root "$fake_root" "$hierarchy"
+prepare_extension_image "$fake_root" "$hierarchy"
+prepare_read_only_hierarchy "$fake_root" "$hierarchy"
+touch "$fake_root/root-sentinel"
+
+run_systemd_sysext "$fake_root" --mutable=yes merge
+prepend_trap "rm -rf ${extension_data_dir@Q}"
+
+# Mutable overlays bind-mount the metadata directory read-only. Unmount that bind first to simulate
+# corrupted on-disk metadata, then empty the work_dir file.
+umount "$fake_root$hierarchy/.systemd-sysext"
+work_dir=$(<"$work_dir_file")
+: >"$work_dir_file"
+
+(! run_systemd_sysext "$fake_root" unmerge)
+test -f "$fake_root/root-sentinel"
+
+# Restore valid metadata and unmerge normally, so the test case leaves no mounted hierarchy behind.
+printf '%s\n' "$work_dir" >"$work_dir_file"
+run_systemd_sysext "$fake_root" unmerge
+)
+
+
+( init_trap
 : "/var/lib/extensions.mutable/… does not exist, auto-mutability, read-only merged"
 fake_root=${roots_dir:+"$roots_dir/simple-read-only-explicit"}
 hierarchy=/opt

@@ -67,7 +67,7 @@ executables += [
         test_template + {
                 'sources' : files('test-journal-header-util.c'),
                 'conditions' : ['ENABLE_REMOTE', 'HAVE_LIBCURL'],
-                'import' : ['systemd-journal-upload'],
+                'import' : ['systemd-journal-remote', 'systemd-journal-upload'],
         },
         fuzz_template + {
                 'sources' : files('fuzz-journal-remote.c'),
