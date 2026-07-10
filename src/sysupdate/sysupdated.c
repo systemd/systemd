@@ -32,7 +32,6 @@
 #include "notify-recv.h"
 #include "os-util.h"
 #include "parse-util.h"
-#include "path-util.h"
 #include "pidref.h"
 #include "process-util.h"
 #include "runtime-scope.h"
@@ -42,7 +41,6 @@
 #include "strv.h"
 #include "sysupdate-target.h"
 #include "sysupdate-util.h"
-#include "utf8.h"
 
 #define FEATURES_DROPIN_NAME "systemd-sysupdate-enabled"
 
@@ -1404,19 +1402,6 @@ static int target_method_list_features(sd_bus_message *msg, void *userdata, sd_b
         return sd_bus_message_send(reply);
 }
 
-static bool feature_name_is_valid(const char *name) {
-        if (isempty(name))
-                return false;
-
-        if (!ascii_is_valid(name))
-                return false;
-
-        if (!filename_is_valid(strjoina(name, ".feature.d")))
-                return false;
-
-        return true;
-}
-
 static int target_method_describe_feature(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
         Target *t = ASSERT_PTR(userdata);
         _cleanup_(job_freep) Job *j = NULL;
@@ -1430,7 +1415,7 @@ static int target_method_describe_feature(sd_bus_message *msg, void *userdata, s
         if (r < 0)
                 return r;
 
-        if (!feature_name_is_valid(feature))
+        if (!feature_name_valid(feature))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid feature name");
 
         if (flags != 0)
@@ -1470,7 +1455,7 @@ static int target_method_set_feature_enabled(sd_bus_message *msg, void *userdata
         r = sd_bus_message_read(msg, "sit", &feature, &enabled, &flags);
         if (r < 0)
                 return r;
-        if (!feature_name_is_valid(feature))
+        if (!feature_name_valid(feature))
                 return sd_bus_reply_method_errorf(msg,
                                                   SD_BUS_ERROR_INVALID_ARGS,
                                                   "The specified feature is invalid");
