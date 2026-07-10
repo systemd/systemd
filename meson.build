@@ -2289,15 +2289,13 @@ foreach dict : executables
                 continue
         endif
 
-        exe_sources_static = dict.get('sources', [])
+        exe_sources = dict.get('sources', []) + dict.get('export', [])
 
         foreach bpf_name : dict.get('bpf_programs', [])
                 if bpf_name in bpf_programs_by_name
-                        exe_sources_static += bpf_programs_by_name[bpf_name]
+                        exe_sources += bpf_programs_by_name[bpf_name]
                 endif
         endforeach
-
-        exe_sources = exe_sources_static + dict.get('export', [])
 
         kwargs = {}
         foreach key, val : dict
@@ -2412,16 +2410,8 @@ foreach dict : executables
         endif
 
         if not is_test and not is_fuzz
-                kwargs_static = kwargs
-
-                if 'export' in dict
-                        obj = exported_by_name[name]
-                        kwargs_static += { 'objects' : kwargs_static.get('objects', []) + obj['exported'] }
-                        include_directories += obj['include_directories']
-                endif
-
                 link_with_static = []
-                foreach obj : kwargs_static.get('link_with', [])
+                foreach obj : kwargs.get('link_with', [])
                         if obj.full_path() == libshared.full_path()
                                 link_with_static += [
                                         libshared_static,
@@ -2434,14 +2424,15 @@ foreach dict : executables
                         endif
                 endforeach
 
-                kwargs_static += {
+                kwargs_static = kwargs + {
+                        # Always import all objects from the main executable.
+                        'objects' : kwargs.get('objects', []) + exe.extract_objects(exe_sources),
                         'link_with' : link_with_static,
-                        'link_args' : dict.get('link_args_static', kwargs_static.get('link_args', [])),
+                        'link_args' : dict.get('link_args_static', kwargs.get('link_args', [])),
                 }
 
-                exe = executable(
+                exe_static = executable(
                         name_static,
-                        sources : exe_sources_static,
                         kwargs : kwargs_static,
                         implicit_include_directories : false,
                         include_directories : include_directories,
@@ -2449,14 +2440,14 @@ foreach dict : executables
                         install: install_static,
                 )
 
-                executables_by_name += { name_static : exe }
+                executables_by_name += { name_static : exe_static }
 
                 if build_by_default_static
                         if dict.get('dbus', false) and not build_by_default_shared
-                                dbus_programs += exe
+                                dbus_programs += exe_static
                         endif
                         if dict.get('public', false)
-                                public_programs += exe
+                                public_programs += exe_static
                         endif
                 endif
         endif
@@ -2581,10 +2572,9 @@ foreach dict : modules
                 # Typically for cryptsetup token modules.
 
                 name_static = name + '.standalone'
-                kwargs_static = kwargs
 
                 link_with_static = []
-                foreach obj : kwargs_static.get('link_with', [])
+                foreach obj : kwargs.get('link_with', [])
                         if obj.full_path() == libshared.full_path()
                                 link_with_static += [
                                         libshared_static,
@@ -2595,7 +2585,9 @@ foreach dict : modules
                         endif
                 endforeach
 
-                kwargs_static += {
+                kwargs_static = kwargs + {
+                        'sources' : [],
+                        'objects' : kwargs.get('objects', []) + lib.extract_objects(dict.get('sources', [])),
                         'link_with' : link_with_static,
                         'install' : false,
                         'build_by_default' : false,
