@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "shared-forward.h"
+#include "forward.h"
 
 typedef enum ImportFlags {
         /* Public Flags (i.e. accessible via D-Bus, must stay stable! */

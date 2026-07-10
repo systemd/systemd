@@ -2,7 +2,6 @@
 #pragma once
 
 #include "netdev.h"
-#include "shared-forward.h"
 
 #define LINK_BRIDGE_PORT_PRIORITY_INVALID 128U
 #define LINK_BRIDGE_PORT_PRIORITY_MAX 63U

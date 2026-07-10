@@ -6,9 +6,9 @@
 #include "capability-util.h"
 #include "conf-parser-forward.h"
 #include "cpu-set-util.h"
+#include "forward.h"
 #include "rlimit-util.h"
 #include "seccomp-util.h"
-#include "shared-forward.h"
 #include "volatile-util.h"
 
 typedef struct CustomMount CustomMount;

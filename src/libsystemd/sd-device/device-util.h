@@ -3,7 +3,7 @@
 
 #include "sd-device.h"
 
-#include "sd-forward.h"
+#include "forward.h"
 #include "log.h"
 
 #define device_unref_and_replace_new_ref(a, b)                          \

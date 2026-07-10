@@ -1871,8 +1871,8 @@ basic_includes = [
 ]
 
 libsystemd_includes = [include_directories(
+        'src/libsystemd',
         'src/libsystemd/sd-bus',
-        'src/libsystemd/sd-common',
         'src/libsystemd/sd-device',
         'src/libsystemd/sd-event',
         'src/libsystemd/sd-future',

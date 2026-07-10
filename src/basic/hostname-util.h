@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "basic-forward.h"
+#include "forward.h"
 #include "strv.h"
 
 /* HOST_NAME_MAX should be 64 on linux, but musl uses the one by POSIX (255). */

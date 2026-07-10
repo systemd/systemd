@@ -3,8 +3,8 @@
 
 #include <net/ethernet.h>
 
+#include "forward.h"
 #include "machine-util.h"
-#include "shared-forward.h"
 
 #define VMSPAWN_PCIE_HOTPLUG_SPARES 10
 

@@ -4,7 +4,7 @@
 #include <sys/stat.h>           /* IWYU pragma: export */
 #include <sys/statfs.h>         /* IWYU pragma: export */
 
-#include "basic-forward.h"
+#include "forward.h"
 
 int stat_verify_regular(const struct stat *st);
 int statx_verify_regular(const struct statx *stx);

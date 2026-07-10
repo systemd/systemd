@@ -8,7 +8,7 @@
 
 #include <bpf/libbpf.h>
 
-#include "shared-forward.h"
+#include "forward.h"
 
 bool bpf_can_link_program(struct bpf_program *prog);
 bool bpf_can_link_lsm_program(struct bpf_program *prog);

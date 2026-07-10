@@ -12,8 +12,8 @@
 #include "ask-password-api.h"
 #include "dlfcn-util.h"
 #include "dlopen-note.h"
+#include "forward.h"
 #include "pkcs11-padding.h"
-#include "shared-forward.h"
 
 bool pkcs11_uri_valid(const char *uri);
 

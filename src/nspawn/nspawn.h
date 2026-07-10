@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "shared-forward.h"
+#include "forward.h"
 
 int userns_chown_at(int fd, const char *fname, uid_t uid, gid_t gid, int flags);
 int userns_lchown(const char *p, uid_t uid, gid_t gid);

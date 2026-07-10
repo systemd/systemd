@@ -2,7 +2,7 @@
 #pragma once
 
 #include "constants.h"
-#include "shared-forward.h"
+#include "forward.h"
 
 #define PORTABLE_PROFILE_DIRS CONF_PATHS_NULSTR("systemd/portable/profile")
 

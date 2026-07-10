@@ -3,8 +3,8 @@
 
 #include <sys/uio.h>
 
+#include "forward.h"
 #include "in-addr-util.h"
-#include "shared-forward.h"
 
 typedef struct ResolveError {
         int rcode;

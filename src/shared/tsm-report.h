@@ -3,7 +3,7 @@
 
 #include <sys/uio.h>
 
-#include "shared-forward.h"
+#include "forward.h"
 
 #define TSM_REPORT_DATA_SIZE 64U
 

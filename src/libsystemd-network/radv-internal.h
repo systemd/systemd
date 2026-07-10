@@ -7,7 +7,7 @@
 
 #include <netinet/in.h>
 
-#include "sd-forward.h"
+#include "forward.h"
 #include "network-common.h"
 #include "time-util.h"
 

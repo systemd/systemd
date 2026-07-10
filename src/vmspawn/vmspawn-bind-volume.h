@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "forward.h"
 #include "machine-util.h"
-#include "shared-forward.h"
 #include "vmspawn-qmp.h"
 
 /* Empty/NULL defaults to virtio-blk; otherwise delegates to disk_type_from_string(). */

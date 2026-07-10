@@ -3,7 +3,7 @@
 
 /* IWYU pragma: always_keep */
 
-#include "basic-forward.h"            /* IWYU pragma: export */
+#include "../../basic/forward.h"        /* IWYU pragma: export */
 
 typedef void (*_sd_destroy_t)(void *userdata);
 
