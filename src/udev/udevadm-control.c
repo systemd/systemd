@@ -142,6 +142,9 @@ static int parse_argv(int argc, char *argv[]) {
                         r = safe_atou(optarg, &i);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse maximum number of children '%s': %m", optarg);
+                        if (i > INT_MAX)
+                                return log_error_errno(SYNTHETIC_ERRNO(ERANGE),
+                                                       "Maximum number of children is too large: %s", optarg);
                         arg_max_children = i;
                         break;
                 }
