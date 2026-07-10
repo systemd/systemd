@@ -3,7 +3,7 @@
 
 #include "sd-device.h"
 
-#include "sd-forward.h"
+#include "forward.h"
 #include "iterator.h"
 
 #define OLDEST_UDEV_DATABASE_VERSION 1

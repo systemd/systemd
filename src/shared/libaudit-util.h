@@ -2,7 +2,7 @@
 #pragma once
 
 #include "dlopen-note.h"
-#include "shared-forward.h"
+#include "forward.h"
 
 int dlopen_libaudit(int log_level) _dlopen_loader_;
 

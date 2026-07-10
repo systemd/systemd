@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "shared-forward.h"
+#include "forward.h"
 
 int user_record_sign(UserRecord *ur, EVP_PKEY *private_key, UserRecord **ret);
 

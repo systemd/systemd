@@ -5,7 +5,7 @@
 #include <sys/stat.h>
 
 #include "compress.h"
-#include "sd-forward.h"
+#include "forward.h"
 #include "journal-def.h"
 #include "mmap-cache.h"
 #include "ratelimit.h"

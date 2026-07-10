@@ -2,7 +2,7 @@
 #pragma once
 
 #include "journal-def.h"
-#include "sd-forward.h"
+#include "forward.h"
 
 typedef struct JournalAuthOps {
         JournalAuthContext* (*free)(JournalAuthContext *c);

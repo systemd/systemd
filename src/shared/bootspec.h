@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "shared-forward.h"
+#include "forward.h"
 
 #include "../fundamental/bootspec.h"   /* IWYU pragma: export */
 

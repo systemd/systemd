@@ -3,7 +3,7 @@
 
 #include "sd-dlopen.h"
 
-#include "basic-forward.h"
+#include "forward.h"
 #include "strv.h"
 
 /* Prevent dlopen helper functions (e.g., dlopen_libfoo()) from being inlined or cloned by the compiler/LTO.
