@@ -84,87 +84,173 @@ static usec_t mdns_maintenance_jitter(usec_t ttl_usec) {
         return random_u64_range(2 * ttl_usec / 100);
 }
 
+static void mdns_browser_schedule_maintenance(DnsServiceBrowser *sb);
+
+/* Revisit both families: the ladder is armed against the soonest expiry across both, and the callee
+ * logs about failures itself. */
+static void mdns_browser_revisit_cache_both(DnsServiceBrowser *sb) {
+        int af;
+
+        assert(sb);
+
+        FOREACH_ARGUMENT(af, AF_INET, AF_INET6)
+                (void) mdns_browser_revisit_cache(sb, af);
+}
+
 static void mdns_maintenance_query_complete(DnsQuery *q) {
         _cleanup_(dns_service_browser_unrefp) DnsServiceBrowser *sb = NULL;
         _cleanup_(dns_query_freep) DnsQuery *query = q;
-        DnssdDiscoveredService *service = NULL;
-        int r;
 
         assert(query);
         assert(query->manager);
 
-        if (query->state != DNS_TRANSACTION_SUCCESS)
-                return;
-
-        service = dnssd_discovered_service_ref(query->dnsservice_request);
-        if (!service)
-                return;
-
-        sb = dns_service_browser_ref(service->service_browser);
+        sb = dns_service_browser_ref(query->service_browser_request);
         if (!sb)
                 return;
 
-        r = mdns_browser_revisit_cache(sb, query->answer_family);
-        if (r < 0)
-                return (void) log_error_errno(r, "Failed to revisit cache for family %s: %m", af_to_name(query->answer_family));
+        if (sb->maintenance_query == query)
+                sb->maintenance_query = NULL;
+
+        if (query->state != DNS_TRANSACTION_SUCCESS)
+                return;
+
+        mdns_browser_revisit_cache_both(sb);
 }
 
-static int mdns_maintenance_query(sd_event_source *s, uint64_t usec, void *userdata) {
-        DnssdDiscoveredService *service = ASSERT_PTR(userdata);
+/* A maintenance query in flight pins the browser via its reference; abort it when the browser's
+ * subscription ends, so the browser can be released (the completion handler clears the field). */
+void mdns_browser_abort_maintenance_query(DnsServiceBrowser *sb) {
+        assert(sb);
+
+        if (!sb->maintenance_query)
+                return;
+
+        dns_query_complete(sb->maintenance_query, DNS_TRANSACTION_ABORTED);
+}
+
+/* One re-confirmation ladder per browser: the maintenance query re-issues the
+ * browse PTR question, and a single PTR response refreshes the entire browsed
+ * RRset (all discovered instances). Running the RFC 6762 §5.2 80/85/90/95/100%
+ * ladder once per browser — instead of once per discovered service — avoids
+ * multicasting the same question N*M times when N clients browse a type with M
+ * instances, while preserving loss-resilient re-confirmation and prompt
+ * removal-at-expiry. */
+static int mdns_browser_maintenance(sd_event_source *s, uint64_t usec, void *userdata) {
+        _cleanup_(dns_service_browser_unrefp) DnsServiceBrowser *sb = NULL;
         _cleanup_(dns_query_freep) DnsQuery *q = NULL;
         int r;
 
-        /* Check if the TTL state has reached the maximum value, then revisit
-         * cache */
-        if (service->rr_ttl_state++ == DNS_RECORD_TTL_STATE_100_PERCENT)
-                return mdns_browser_revisit_cache(service->service_browser, service->family);
+        /* Hold a ref for the duration of the handler, as mdns_next_query_schedule() does. */
+        sb = dns_service_browser_ref(ASSERT_PTR(userdata));
 
-        /* Create a new DNS query */
+        /* Terminal: the soonest expiry has elapsed. Reconcile the cache (this prunes expired records
+         * and emits "removed") and reschedule against what remains — the revisit frees services,
+         * never the browser that owns this timer. */
+        if (sb->rr_ttl_state == DNS_RECORD_TTL_STATE_100_PERCENT) {
+                sb->rr_ttl_state = DNS_RECORD_TTL_STATE_80_PERCENT;
+                mdns_browser_revisit_cache_both(sb);
+                mdns_browser_schedule_maintenance(sb);
+                return 0;
+        }
+
+        /* Advance the ladder and re-issue the browse question to re-confirm the RRset. Errors are
+         * logged and swallowed: a negative return would make sd-event disable the source over the
+         * re-arm, leaving the ladder dead for good. */
+        sb->rr_ttl_state++;
+
+        mdns_browser_schedule_maintenance(sb);
+
+        /* At most one maintenance query in flight per browser: a rung's query that has not completed
+         * by the next rung is superseded. */
+        mdns_browser_abort_maintenance_query(sb);
+
         r = dns_query_new(
-                        service->service_browser->manager,
+                        sb->manager,
                         &q,
-                        service->service_browser->question_utf8,
-                        service->service_browser->question_idna,
+                        sb->question_utf8,
+                        sb->question_idna,
                         /* question_bypass= */ NULL,
-                        service->ifindex,
-                        service->service_browser->flags);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create mDNS query for maintenance: %m");
+                        sb->ifindex,
+                        sb->flags);
+        if (r < 0) {
+                log_warning_errno(r, "Failed to create mDNS query for maintenance, ignoring: %m");
+                return 0;
+        }
 
         q->complete = mdns_maintenance_query_complete;
-        q->service_browser_request = dns_service_browser_ref(service->service_browser);
-        q->dnsservice_request = dnssd_discovered_service_ref(service);
+        q->service_browser_request = dns_service_browser_ref(sb);
 
-        /* Schedule the next maintenance query based on the TTL */
-        usec_t next_time = mdns_maintenance_next_time(
-                        service->until, service->rr->ttl * USEC_PER_SEC, service->rr_ttl_state);
-
-        r = event_reset_time(
-                        service->service_browser->manager->event,
-                        &service->schedule_event,
-                        CLOCK_BOOTTIME,
-                        next_time,
-                        /* accuracy= */ 0,
-                        mdns_maintenance_query,
-                        service,
-                        /* priority= */ 0,
-                        "mdns-next-query-schedule",
-                        /* force_reset= */ true);
-        if (r < 0)
-                return log_error_errno(r, "Failed to schedule next mDNS maintenance query: %m");
-
-        /* Perform the query */
         r = dns_query_go(q);
-        if (r < 0)
-                return log_error_errno(r, "Failed to send mDNS maintenance query: %m");
+        if (r < 0) {
+                log_warning_errno(r, "Failed to send mDNS maintenance query, ignoring: %m");
+                return 0;
+        }
 
-        TAKE_PTR(q);
+        sb->maintenance_query = TAKE_PTR(q);
         return 0;
 }
 
-int dns_add_new_service(DnsServiceBrowser *sb, DnsResourceRecord *rr, int owner_family, int ifindex, usec_t until) {
-        _cleanup_(dnssd_discovered_service_unrefp) DnssdDiscoveredService *s = NULL;
+/* (Re)arm the browser's single maintenance ladder against the soonest-expiring
+ * discovered service. Disables the timer when no services remain. */
+static void mdns_browser_schedule_maintenance(DnsServiceBrowser *sb) {
+        DnssdDiscoveredService *soonest = NULL;
+        usec_t next_time = 0;
         int r;
+
+        assert(sb);
+
+        LIST_FOREACH(dns_services, s, sb->dns_services)
+                if (!soonest || s->until < soonest->until)
+                        soonest = s;
+
+        if (!soonest) {
+                sb->maintenance_event = sd_event_source_disable_unref(sb->maintenance_event);
+                return;
+        }
+
+        usec_t usec = now(CLOCK_BOOTTIME), ttl_usec = soonest->rr->ttl * USEC_PER_SEC;
+
+        /* Skip ladder increments whose scheduled time already elapsed (e.g. a
+         * service discovered late in its lifetime, or a lingering expired one). */
+        while (sb->rr_ttl_state >= DNS_RECORD_TTL_STATE_80_PERCENT &&
+               sb->rr_ttl_state < _DNS_RECORD_TTL_STATE_MAX) {
+                next_time = mdns_maintenance_next_time(soonest->until, ttl_usec, sb->rr_ttl_state);
+                if (next_time >= usec)
+                        break;
+
+                sb->rr_ttl_state++;
+        }
+
+        if (next_time < usec) {
+                /* Already at/past expiry: re-check shortly so the terminal branch
+                 * prunes the record from cache and emits the removal. */
+                next_time = usec_add(usec, USEC_PER_SEC);
+                sb->rr_ttl_state = DNS_RECORD_TTL_STATE_100_PERCENT;
+        }
+
+        /* The 2% jitter desynchronizes the §5.2 re-confirmation queries across queriers; the terminal
+         * rung is our own expiry check, not a query — arming it past the record's actual expiry would
+         * only delay the removal this ladder exists to guarantee. */
+        usec_t jitter = sb->rr_ttl_state == DNS_RECORD_TTL_STATE_100_PERCENT ?
+                0 : mdns_maintenance_jitter(ttl_usec);
+
+        r = event_reset_time(
+                        sb->manager->event,
+                        &sb->maintenance_event,
+                        CLOCK_BOOTTIME,
+                        usec_add(next_time, jitter),
+                        /* accuracy= */ 0,
+                        mdns_browser_maintenance,
+                        sb,
+                        /* priority= */ 0,
+                        "mdns-browser-maintenance",
+                        /* force_reset= */ true);
+        if (r < 0)
+                log_warning_errno(r, "Failed to schedule mDNS maintenance query, ignoring: %m");
+}
+
+int dns_add_new_service(DnsServiceBrowser *sb, DnsResourceRecord *rr, int owner_family, int ifindex, usec_t until) {
+        _cleanup_(dnssd_discovered_service_freep) DnssdDiscoveredService *s = NULL;
 
         assert(sb);
         assert(rr);
@@ -173,62 +259,20 @@ int dns_add_new_service(DnsServiceBrowser *sb, DnsResourceRecord *rr, int owner_
         if (!s)
                 return log_oom();
 
-        usec_t usec = now(CLOCK_BOOTTIME);
-
         *s = (DnssdDiscoveredService) {
-                .n_ref = 1,
-                .service_browser = sb,
                 .rr = dns_resource_record_copy(rr),
                 .family = owner_family,
                 .ifindex = ifindex,
                 .until = until,
-                .query = NULL,
-                .rr_ttl_state = DNS_RECORD_TTL_STATE_80_PERCENT,
         };
         if (!s->rr)
                 return log_oom();
 
-        /* Schedule the first cache maintenance query at 80% of the record's
-         * TTL. Subsequent queries issued at 5% increments until 100% of the
-         * TTL. RFC 6762 section 5.2. If service is being added after 80% of the
-         * TTL has already elapsed, schedule the next query at the next 5%
-         * increment. */
-        usec_t ttl_usec = s->rr->ttl * USEC_PER_SEC, next_time = 0;
-        while (s->rr_ttl_state >= DNS_RECORD_TTL_STATE_80_PERCENT &&
-               s->rr_ttl_state < _DNS_RECORD_TTL_STATE_MAX) {
-                next_time = mdns_maintenance_next_time(s->until, ttl_usec, s->rr_ttl_state);
-                if (next_time >= usec)
-                        break;
-
-                s->rr_ttl_state++;
-        }
-
-        if (next_time < usec) {
-                /* If next_time is still in the past, the service is being added
-                 * after it has already expired. Just schedule a 100%
-                 * maintenance query. */
-                next_time = usec_add(usec, USEC_PER_SEC);
-                s->rr_ttl_state = DNS_RECORD_TTL_STATE_100_PERCENT;
-        }
-
-        usec_t jitter = mdns_maintenance_jitter(ttl_usec);
-
-        r = sd_event_add_time(
-                        sb->manager->event,
-                        &s->schedule_event,
-                        CLOCK_BOOTTIME,
-                        usec_add(next_time, jitter),
-                        /* accuracy= */ 0,
-                        mdns_maintenance_query,
-                        s);
-        if (r < 0)
-                return log_error_errno(
-                                r,
-                                "Failed to schedule mDNS maintenance query for DNS service: %m");
-
         LIST_PREPEND(dns_services, sb->dns_services, s);
-
         TAKE_PTR(s);
+
+        /* The list changed: wind the ladder back (see rr_ttl_state). */
+        sb->rr_ttl_state = DNS_RECORD_TTL_STATE_80_PERCENT;
         return 0;
 }
 
@@ -237,44 +281,27 @@ void dns_remove_service(DnsServiceBrowser *sb, DnssdDiscoveredService *service) 
         assert(service);
 
         LIST_REMOVE(dns_services, sb->dns_services, service);
-        dnssd_discovered_service_unref(service);
+        dnssd_discovered_service_free(service);
+
+        /* The list changed: wind the ladder back (see rr_ttl_state). */
+        sb->rr_ttl_state = DNS_RECORD_TTL_STATE_80_PERCENT;
 }
 
-DnssdDiscoveredService *dns_service_free(DnssdDiscoveredService *service) {
+DnssdDiscoveredService *dnssd_discovered_service_free(DnssdDiscoveredService *service) {
         if (!service)
                 return NULL;
-
-        service->schedule_event = sd_event_source_disable_unref(service->schedule_event);
-
-        if (service->query && DNS_TRANSACTION_IS_LIVE(service->query->state))
-                dns_query_complete(service->query, DNS_TRANSACTION_ABORTED);
 
         service->rr = dns_resource_record_unref(service->rr);
 
         return mfree(service);
 }
 
-DEFINE_TRIVIAL_REF_UNREF_FUNC(DnssdDiscoveredService, dnssd_discovered_service, dns_service_free);
-
-int mdns_service_update(DnssdDiscoveredService *service, DnsResourceRecord *rr, usec_t t, usec_t until) {
+void mdns_service_update(DnssdDiscoveredService *service, DnsResourceRecord *rr, usec_t until) {
         assert(service);
         assert(rr);
 
         service->until = until;
         service->rr->ttl = rr->ttl;
-
-        /* Update the 80% TTL maintenance event based on new record received
-         * from the network. RFC 6762 section 5.2  */
-        if (service->schedule_event) {
-                usec_t ttl_usec = service->rr->ttl * USEC_PER_SEC;
-                usec_t next_time = mdns_maintenance_next_time(
-                                service->until, ttl_usec, DNS_RECORD_TTL_STATE_80_PERCENT);
-                usec_t jitter = mdns_maintenance_jitter(ttl_usec);
-
-                return sd_event_source_set_time(service->schedule_event, usec_add(next_time, jitter));
-        }
-
-        return 0;
 }
 
 static int mdns_answer_item_ifindex(DnsServiceBrowser *sb, DnsAnswerItem *item) {
@@ -309,7 +336,6 @@ int dns_service_match_and_update(
                 int ifindex,
                 usec_t until) {
 
-        usec_t t = now(CLOCK_BOOTTIME);
         int r;
 
         /* Check if a discovered service matching the given resource record, owner family, and ifindex exists
@@ -327,7 +353,7 @@ int dns_service_match_and_update(
                         return 1;
 
                 if (service->until < until)
-                        mdns_service_update(service, rr, t, until);
+                        mdns_service_update(service, rr, until);
 
                 return 1;
         }
@@ -407,8 +433,11 @@ int mdns_manage_services_answer(DnsServiceBrowser *sb, DnsAnswer *answer, int ow
                         log_error_errno(r, "Failed to match DNS service: %m");
                         goto finish;
                 }
-                if (r > 0)
+                if (r > 0) {
+                        /* Seen again: wind the ladder back (see rr_ttl_state). */
+                        sb->rr_ttl_state = DNS_RECORD_TTL_STATE_80_PERCENT;
                         continue;
+                }
 
                 r = dns_service_split(item->rr->ptr.name, &name, &type, &domain);
                 if (r < 0) {
@@ -537,6 +566,12 @@ int mdns_manage_services_answer(DnsServiceBrowser *sb, DnsAnswer *answer, int ow
                 }
         }
 
+        /* (Re-)arm the browser's maintenance ladder once against the reconciled list — doing it per
+         * added/removed instance inside the loops above would make reconciling an answer with M
+         * instances O(M²), with M driven by untrusted multicast input. This also disables the timer
+         * when no discovered service remains. */
+        mdns_browser_schedule_maintenance(sb);
+
         if (!sd_json_variant_is_blank_array(array)) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *vm = NULL;
 
@@ -557,6 +592,9 @@ int mdns_manage_services_answer(DnsServiceBrowser *sb, DnsAnswer *answer, int ow
         return 0;
 
 finish:
+        /* The error reply below terminates the subscription — no further event can reach the client,
+         * so wind the ladder down rather than re-arming it for a dead link. */
+        sb->maintenance_event = sd_event_source_disable_unref(sb->maintenance_event);
         return sd_varlink_error_errno(sb->link, r);
 }
 
@@ -566,6 +604,14 @@ int mdns_browser_revisit_cache(DnsServiceBrowser *sb, int owner_family) {
 
         assert(sb);
         assert(sb->manager);
+
+        /* The reconciliation must see real cache expiry times: without SD_RESOLVED_NO_STALE the
+         * lookup substitutes the stale-serving clamp for item->until — an absolute timestamp ~30s
+         * after boot, i.e. long in the past on any running system — which would wedge the
+         * maintenance ladder in its past-expiry one-second re-check for as long as a matching
+         * record stays cached. Stale serving is a per-client query feature; the browse
+         * bookkeeping always wants the truth, whatever flags the subscriber passed. */
+        uint64_t lookup_flags = sb->flags | SD_RESOLVED_NO_STALE;
 
         /* ifindex=0 means "all interfaces". Collect the cached answers from
          * every matching mDNS scope into a single combined answer and reconcile
@@ -594,7 +640,7 @@ int mdns_browser_revisit_cache(DnsServiceBrowser *sb, int owner_family) {
                         r = dns_cache_lookup(
                                         &scope->cache,
                                         sb->key,
-                                        sb->flags,
+                                        lookup_flags,
                                         /* ret_rcode= */ NULL,
                                         &answer,
                                         /* ret_full_packet= */ NULL,
@@ -627,15 +673,24 @@ int mdns_browser_revisit_cache(DnsServiceBrowser *sb, int owner_family) {
 
         /* Single scope for specifically requested interface */
         DnsScope *scope = manager_find_scope_from_protocol(sb->manager, sb->ifindex, DNS_PROTOCOL_MDNS, owner_family);
-        if (!scope)
+        if (!scope) {
+                /* No scope to reconcile against — mDNS is off on the link, or the link is gone. Treat
+                 * it like the all-interfaces path with no matching scope and reconcile against an
+                 * empty answer: lingering instances get their removed events and the ladder winds
+                 * down, instead of re-checking a list nothing can update once per second. */
+                r = mdns_manage_services_answer(sb, NULL, owner_family);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to manage mDNS services without a scope: %m");
+
                 return 0;
+        }
 
         dns_cache_prune(&scope->cache);
 
         r = dns_cache_lookup(
                         &scope->cache,
                         sb->key,
-                        sb->flags,
+                        lookup_flags,
                         /* ret_rcode= */ NULL,
                         &lookup_ret_answer,
                         /* ret_full_packet= */ NULL,
@@ -907,6 +962,7 @@ DnsServiceBrowser *dns_service_browser_free(DnsServiceBrowser *sb) {
                 dns_remove_service(sb, sb->dns_services);
 
         sb->schedule_event = sd_event_source_disable_unref(sb->schedule_event);
+        sb->maintenance_event = sd_event_source_disable_unref(sb->maintenance_event);
 
         q = sd_varlink_get_userdata(sb->link);
         if (q && DNS_TRANSACTION_IS_LIVE(q->state))
