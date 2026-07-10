@@ -20,6 +20,7 @@ import json
 import os
 import pathlib
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -1266,8 +1267,8 @@ def test_make_uki_honors_tools_opt_for_keyutil(tmp_path):
     mock_keyutil.write_text(
         textwrap.dedent(f'''\
             #!/bin/sh
-            touch {marker}
-            cat {pub.name}
+            touch {shlex.quote(str(marker))}
+            cat {shlex.quote(pub.name)}
         ''')
     )
     mock_keyutil.chmod(0o755)
@@ -1300,10 +1301,8 @@ def test_make_uki_honors_tools_opt_for_keyutil(tmp_path):
         '--cmdline=ARG1 ARG2 ARG3',
         '--pcr-banks=sha384',
         f'--pcr-private-key={priv.name}',
-        '--tools',
-        str(tmp_path),
-        '--stub',
-        str(dummy_stub),
+        f'--tools={tmp_path}',
+        f'--stub={dummy_stub}',
     ]
     opts = ukify.parse_args(args)
 
