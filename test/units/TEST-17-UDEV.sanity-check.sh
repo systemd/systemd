@@ -55,6 +55,7 @@ udevadm control -l notice
 udevadm control --log-level info
 udevadm control --log-level debug
 (! udevadm control -l hello)
+(! udevadm control -m 2147483648)
 
 # Check if processing queued events has been stopped.
 udevadm control --stop-exec-queue
