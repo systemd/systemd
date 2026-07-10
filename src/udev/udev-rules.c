@@ -849,7 +849,7 @@ static int parse_token(
                 } else
                         r = rule_line_add_token(rule_line, TK_M_ENV, op, value, attr, is_case_insensitive, token_str);
         } else if (streq(key, "CONST")) {
-                if (isempty(attr) || !STR_IN_SET(attr, "arch", "virt"))
+                if (isempty(attr) || !STR_IN_SET(attr, "arch", "virt", "cvm"))
                         return log_line_invalid_attr(rule_line, key);
                 if (!is_match)
                         return log_line_invalid_op(rule_line, key);
