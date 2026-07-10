@@ -2636,8 +2636,13 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
         if (arg_image && arg_root)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Please specify either --root= or --image=, the combination of both is not supported.");
 
-        if ((arg_image || arg_root) && arg_reboot)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "The --reboot switch may not be combined with --root= or --image=.");
+        if (arg_image || arg_root) {
+                if (arg_reboot)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "The --reboot switch may not be combined with --root= or --image=.");
+
+                if (arg_definitions)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "The --definitions= switch may not be combined with --root= or --image=.");
+        }
 
         if (arg_reboot && arg_component)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "The --reboot switch may not be combined with --component=, as automatic reboots only apply to the booted OS version.");
