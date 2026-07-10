@@ -25,15 +25,11 @@ enum DnsRecordTTLState {
 };
 
 struct DnssdDiscoveredService {
-        unsigned n_ref;
         DnsServiceBrowser *service_browser;
-        sd_event_source *schedule_event;
         DnsResourceRecord *rr;
         int family;
         int ifindex;
         usec_t until;
-        DnsRecordTTLState rr_ttl_state;
-        DnsQuery *query;
         LIST_FIELDS(DnssdDiscoveredService, dns_services);
 };
 
@@ -44,7 +40,9 @@ struct DnsServiceBrowser {
         DnsQuestion *question_idna;
         DnsQuestion *question_utf8;
         uint64_t flags;
-        sd_event_source *schedule_event;
+        sd_event_source *schedule_event;      /* continuous browse query (RFC 6762 §5.2 backoff) */
+        sd_event_source *maintenance_event;   /* single TTL re-confirmation ladder for the whole RRset */
+        DnsRecordTTLState rr_ttl_state;
         usec_t delay;
         DnsResourceKey *key;
         int ifindex;
@@ -57,13 +55,12 @@ void dns_remove_service(DnsServiceBrowser *sb, DnssdDiscoveredService *service);
 DnssdDiscoveredService *dns_service_free(DnssdDiscoveredService *service);
 
 DECLARE_TRIVIAL_REF_UNREF_FUNC(DnsServiceBrowser, dns_service_browser);
-DECLARE_TRIVIAL_REF_UNREF_FUNC(DnssdDiscoveredService, dnssd_discovered_service);
 
 void dns_browse_services_purge(Manager *m, int family);
 void dns_browse_services_restart(Manager *m);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsServiceBrowser *, dns_service_browser_unref);
-DEFINE_TRIVIAL_CLEANUP_FUNC(DnssdDiscoveredService *, dnssd_discovered_service_unref);
+DEFINE_TRIVIAL_CLEANUP_FUNC(DnssdDiscoveredService *, dns_service_free);
 
 bool dns_service_match_and_update(DnssdDiscoveredService *services, DnsResourceRecord *rr, int owner_family, usec_t until);
 int mdns_manage_services_answer(DnsServiceBrowser *sb, DnsAnswer *answer, int owner_family);
