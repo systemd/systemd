@@ -119,4 +119,20 @@ TEST(rm_rf_chmod) {
         test_rm_rf_chmod_inner();
 }
 
+TEST(rm_rf_dangling_symlink) {
+        _cleanup_(rm_rf_physical_and_freep) char *d = NULL;
+        const char *link;
+
+        ASSERT_OK(mkdtemp_malloc("/tmp/test-rm-rf-dangling.XXXXXXX", &d));
+        link = strjoina(d, "/link");
+
+        ASSERT_OK_ERRNO(symlink("missing", link));
+        ASSERT_OK(rm_rf(link, REMOVE_ROOT|REMOVE_PHYSICAL));
+        ASSERT_ERROR_ERRNO(lstat(link, &(struct stat) {}), ENOENT);
+
+        ASSERT_OK_ERRNO(symlink("missing", link));
+        ASSERT_OK(rm_rf(link, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_MISSING_OK));
+        ASSERT_ERROR_ERRNO(lstat(link, &(struct stat) {}), ENOENT);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
