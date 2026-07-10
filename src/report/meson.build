@@ -45,6 +45,20 @@ report_executables = [
                 'conditions' : ['HAVE_OPENSSL'],
         },
         {
+                'name' : 'systemd-report-sign-tpm2',
+                'export': files(
+                        'report-sign-tpm2.c',
+                ),
+                'dependencies' : [
+                        libopenssl_cflags,
+                        tpm2_cflags,
+                ],
+                'conditions' : [
+                        'HAVE_OPENSSL',
+                        'HAVE_TPM2',
+                ],
+        },
+        {
                 'name' : 'systemd-report-sign-tsm',
                 'export' : files(
                         'report-sign-tsm.c',

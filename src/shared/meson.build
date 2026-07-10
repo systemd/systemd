@@ -308,6 +308,10 @@ if conf.get('HAVE_LIBBPF') == 1
         shared_sources += files('bpf-link.c')
 endif
 
+if conf.get('HAVE_TPM2') == 1
+        shared_sources += files('tpm2-report.c')
+endif
+
 generate_ip_protocol_list = files('generate-ip-protocol-list.sh')
 ip_protocol_list_txt = custom_target(
         input : [generate_ip_protocol_list, ipproto_sources],
