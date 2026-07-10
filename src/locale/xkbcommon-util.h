@@ -2,7 +2,7 @@
 #pragma once
 
 #include "dlfcn-util.h"
-#include "shared-forward.h"
+#include "forward.h"
 
 #if HAVE_XKBCOMMON
 #ifndef SYSTEMD_CFLAGS_MARKER_LIBXKBCOMMON

@@ -6,7 +6,7 @@
 #include "sd-json.h"
 
 #include "log.h"
-#include "sd-forward.h"
+#include "forward.h"
 #include "string-util.h"        /* IWYU pragma: keep */
 
 #define JSON_VARIANT_REPLACE(v, q)           \

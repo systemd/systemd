@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "shared-forward.h"
+#include "forward.h"
 
 int verb_link(int argc, char *argv[], uintptr_t data, void *userdata);
 int verb_link_auto(int argc, char *argv[], uintptr_t data, void *userdata);

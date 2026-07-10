@@ -4,7 +4,7 @@
 
 #include "sd-id128.h"
 
-#include "shared-forward.h"
+#include "forward.h"
 #include "iovec-wrapper.h"
 #include "time-util.h"
 

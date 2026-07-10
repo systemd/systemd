@@ -4,9 +4,9 @@
 #include "sd-id128.h"
 
 #include "architecture.h"
+#include "forward.h"
 #include "gpt.h"
 #include "iovec-util.h"
-#include "shared-forward.h"
 
 typedef struct DecryptedImage DecryptedImage;
 

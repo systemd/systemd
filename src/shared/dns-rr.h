@@ -5,8 +5,8 @@
 
 #include "dns-def.h"
 #include "dns-type.h"
+#include "forward.h"
 #include "list.h"
-#include "shared-forward.h"
 
 /* DNSKEY RR flags */
 #define DNSKEY_FLAG_SEP            (UINT16_C(1) << 0)

@@ -2,8 +2,8 @@
 #pragma once
 
 #include "crypto-util.h"
+#include "forward.h"
 #include "libfido2-util.h"
-#include "shared-forward.h"
 
 typedef enum EnrollType {
         ENROLL_PASSWORD,

@@ -6,7 +6,7 @@
 #include "sd-lldp-rx.h" /* IWYU pragma: export */
 
 #include "network-common.h"
-#include "sd-forward.h"
+#include "forward.h"
 
 struct sd_lldp_rx {
         unsigned n_ref;

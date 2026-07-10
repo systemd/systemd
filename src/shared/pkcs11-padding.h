@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "basic-forward.h"
+#include "forward.h"
 
 typedef enum Pkcs11RsaPadding {
         PKCS11_RSA_PADDING_PKCS1V15,    /* CKM_RSA_PKCS, RFC 8017 PKCS#1 v1.5 (legacy) */

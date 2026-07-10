@@ -5,7 +5,7 @@
 #include <net/ethernet.h>
 
 #include "conf-parser-forward.h"
-#include "shared-forward.h"
+#include "forward.h"
 
 typedef enum SRIOVAttribute {
         SR_IOV_VF_MAC,

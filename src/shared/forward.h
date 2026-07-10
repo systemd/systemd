@@ -3,7 +3,7 @@
 
 /* IWYU pragma: always_keep */
 
-#include "sd-forward.h"         /* IWYU pragma: export */
+#include "../libsystemd/forward.h"      /* IWYU pragma: export */
 
 typedef int (*copy_progress_bytes_t)(uint64_t n_bytes, uint64_t bytes_per_second, void *userdata);
 typedef int (*copy_progress_path_t)(const char *path, const struct stat *st, void *userdata);
