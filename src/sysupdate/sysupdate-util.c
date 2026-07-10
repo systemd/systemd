@@ -52,7 +52,7 @@ bool component_name_valid(const char *c) {
                 return false;
 
         /* Stack allocation is safe, since STRING_FILENAME_PART includes a length check */
-        const char *j = strjoina("sysupdate.", c, ".d");
+        const char *j = strjoina("sysupdate.", c, ".component.d");
 
         return filename_is_valid(j);
 }
