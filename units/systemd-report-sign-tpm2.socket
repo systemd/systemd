@@ -1,0 +1,30 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# This file is part of systemd.
+#
+# systemd is free software; you can redistribute it and/or modify it
+# under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation; either version 2.1 of the License, or
+# (at your option) any later version.
+
+[Unit]
+Description=Report Signing Socket (TPM2)
+Documentation=man:systemd-report-sign-tpm2@.service(8)
+DefaultDependencies=no
+Before=sockets.target shutdown.target
+Conflicts=shutdown.target
+WantsMountsFor=/var/lib/systemd/report.sign.tpm2
+
+[Socket]
+ListenStream=/run/systemd/report.sign/tpm2
+FileDescriptorName=varlink
+SocketMode=0666
+Accept=yes
+MaxConnectionsPerSource=16
+RemoveOnStop=yes
+XAttrEntryPoint=user.varlink=entrypoint
+XAttrListen=user.varlink=listen
+XAttrAccept=user.varlink=server
+
+[Install]
+WantedBy=sockets.target
