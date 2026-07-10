@@ -4842,19 +4842,30 @@ fail:
 }
 
 void manager_set_first_boot(Manager *m, bool b) {
+        int r;
+
         assert(m);
 
         if (!MANAGER_IS_SYSTEM(m))
                 return;
 
         if (m->first_boot != (int) b) {
-                if (b)
-                        (void) touch("/run/systemd/first-boot");
-                else
-                        (void) unlink("/run/systemd/first-boot");
+                r = update_first_boot_file(b);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to update the first-boot file, ignoring: %m");
         }
 
         m->first_boot = b;
+}
+
+int update_first_boot_file(bool b) {
+        if (b)
+                return touch("/run/systemd/first-boot");
+
+        if (unlink("/run/systemd/first-boot") < 0 && errno != ENOENT)
+                return -errno;
+
+        return 0;
 }
 
 void manager_disable_confirm_spawn(void) {

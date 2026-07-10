@@ -15,6 +15,7 @@
 #include "fd-util.h"
 #include "format-table.h"
 #include "fs-util.h"
+#include "initrd-util.h"
 #include "io-util.h"
 #include "log.h"
 #include "main-func.h"
@@ -88,8 +89,8 @@ static CreditEntropy may_credit(int seed_fd) {
         /* Don't credit the random seed if we are in first-boot mode, because we are supposed to start from
          * scratch. This is a safety precaution for cases where people ship "golden" images with empty
          * /etc but populated /var that contains a random seed. */
-        r = RET_NERRNO(access("/run/systemd/first-boot", F_OK));
-        if (r == -ENOENT)
+        r = in_first_boot();
+        if (r == 0)
                 /* All is good, we are not in first-boot mode. */
                 return CREDIT_ENTROPY_YES_PLEASE;
         if (r < 0) {
