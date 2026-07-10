@@ -521,8 +521,9 @@ static int setup_microhttpd_server(RemoteServer *s,
         d = new(MHDDaemonWrapper, 1);
         if (!d)
                 return log_oom();
-
-        d->fd = (uint64_t) fd;
+        *d = (MHDDaemonWrapper) {
+                .fd = (uint64_t) fd,
+        };
 
         d->daemon = MHD_start_daemon(flags, 0,
                                      NULL, NULL,
