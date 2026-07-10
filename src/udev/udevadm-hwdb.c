@@ -99,7 +99,7 @@ int verb_hwdb_main(int argc, char *argv[], uintptr_t _data, void *userdata) {
         }
 
         if (arg_test)
-                return hwdb_query(arg_test, NULL);
+                return hwdb_query(arg_test, arg_root);
 
         return 0;
 }
