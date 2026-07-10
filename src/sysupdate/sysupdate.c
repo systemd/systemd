@@ -15,6 +15,7 @@
 #include "discover-image.h"
 #include "dissect-image.h"
 #include "dlopen-note.h"
+#include "dropin.h"
 #include "env-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
@@ -33,6 +34,7 @@
 #include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "pretty-print.h"
 #include "runtime-scope.h"
 #include "sort-util.h"
@@ -1945,6 +1947,93 @@ static int verb_features(int argc, char *argv[], uintptr_t _data, void *userdata
         return 0;
 }
 
+static int make_dropin_dir(Context *c, char **ret) {
+        _cleanup_free_ char *dir = NULL;
+
+        assert(c);
+        assert(ret);
+
+        /* Returns the (writable) directory where feature definitions live, so that we can drop our
+         * 'Enabled=' override right next to them. This mirrors the directory logic in
+         * context_read_definitions(), but settles on a single writable location below /etc. */
+
+        if (c->definitions)
+                dir = strdup(c->definitions); /* --root= is not supported for this for now */
+        else if (c->component) {
+                _cleanup_free_ char *n = strjoin("sysupdate.", c->component, ".d");
+                if (!n)
+                        return log_oom();
+
+                dir = path_join(c->root, SYSCONF_DIR, n);
+        } else
+                dir = path_join(c->root, SYSCONF_DIR "/sysupdate.d");
+        if (!dir)
+                return log_oom();
+
+        *ret = TAKE_PTR(dir);
+        return 0;
+}
+
+VERB(verb_enable_feature, "enable-feature", "FEATURE…", 2, VERB_ANY, 0,
+     "Enable optional feature");
+VERB(verb_enable_feature, "disable-feature", "FEATURE…", 2, VERB_ANY, 0,
+     "Disable optional feature");
+static int verb_enable_feature(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        bool enable = streq(argv[0], "enable-feature");
+        int r;
+
+        _cleanup_(context_done) Context context = CONTEXT_NULL;
+        r = context_from_cmdline(&context);
+        if (r < 0)
+                return r;
+
+        if (context.component_all)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--component-all currently not supported for '%s'.", argv[0]);
+
+        r = context_load_offline(
+                        &context,
+                        /* process_image_flags= */ 0,
+                        /* read_definitions_flags= */ 0);
+        if (r < 0)
+                return r;
+
+        _cleanup_free_ char *dropin_dir = NULL;
+        r = make_dropin_dir(&context, &dropin_dir);
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH(name, strv_skip(argv, 1)) {
+
+                if (!feature_name_valid(*name))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Feature name invalid: %s", *name);
+
+                if (!hashmap_contains(context.features, *name))
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
+                                               "Optional feature not found: %s", *name);
+
+                _cleanup_free_ char *fname = strjoin(*name, ".feature");
+                if (!fname)
+                        return log_oom();
+
+                /* We assume that no sysadmin will name their config 50-systemd-sysupdate-enabled.conf */
+                r = write_drop_in_format(
+                                dropin_dir,
+                                fname,
+                                50, "systemd-sysupdate-enabled",
+                                "# Generated via 'systemd-sysupdate %s'\n\n"
+                                "[Feature]\n"
+                                "Enabled=%s\n",
+                                argv[0],
+                                yes_no(enable));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to write drop-in for feature '%s': %m", *name);
+
+                log_info("Feature '%s' %s.", *name, enable ? "enabled" : "disabled");
+        }
+
+        return 0;
+}
+
 VERB_NOARG(verb_check_new, "check-new",
            "Check if there's a new version available");
 static int verb_check_new(int argc, char *argv[], uintptr_t _data, void *userdata) {
@@ -2193,6 +2282,63 @@ static int verb_vacuum(int argc, char *argv[], uintptr_t _data, void *userdata) 
         return context_vacuum(&context, 0, NULL);
 }
 
+VERB_NOARG(verb_cleanup, "cleanup", "Clean up orphaned files");
+static int verb_cleanup(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        _cleanup_(context_done) Context context = CONTEXT_NULL;
+        int r;
+
+        assert(argc <= 1);
+
+        r = context_from_cmdline(&context);
+        if (r < 0)
+                return r;
+
+        if (context.cleanup == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invocation of 'cleanup' with --cleanup=no is contradictory, refusing.");
+
+        r = context_load_offline(
+                        &context,
+                        /* process_image_flags= */ 0,
+                        /* read_definitions_flags= */ 0);
+        if (r < 0)
+                return r;
+
+        int ret = 0;
+        RET_GATHER(ret, installdb_cleanup_component(&context));
+
+        if (context.component_all) {
+                _cleanup_strv_free_ char **z = NULL;
+                r = installdb_list_components(&context, &z);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to enumerate components: %m");
+
+                STRV_FOREACH(i, z) {
+                        _cleanup_(context_done) Context component_context = CONTEXT_NULL;
+
+                        r = context_from_cmdline(&component_context);
+                        if (r < 0)
+                                return r;
+
+                        /* Override the component with our iter. This needs to be done in a fresh Context
+                         * as the installdb_fd and other state are specific to the component. */
+                        r = free_and_strdup_warn(&component_context.component, *i);
+                        if (r < 0)
+                                return r;
+
+                        r = context_load_offline(
+                                        &component_context,
+                                        /* process_image_flags= */ 0,
+                                        /* read_definitions_flags= */ 0);
+                        if (r < 0)
+                                return r;
+
+                        RET_GATHER(ret, installdb_cleanup_component(&component_context));
+                }
+        }
+
+        return ret;
+}
+
 VERB(verb_pending_or_reboot, "pending", NULL, 1, 1, 0,
      "Report whether a newer version is installed than currently booted");
 VERB(verb_pending_or_reboot, "reboot", NULL, 1, 1, 0,
@@ -2391,19 +2537,27 @@ static int verb_components(int argc, char *argv[], uintptr_t _data, void *userda
         return 0;
 }
 
-VERB_NOARG(verb_cleanup, "cleanup", "Clean up orphaned files");
-static int verb_cleanup(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(context_done) Context context = CONTEXT_NULL;
+VERB(verb_enable_component, "enable-component", "COMPONENT…", 2, VERB_ANY, 0,
+     "Enable component");
+VERB(verb_enable_component, "disable-component", "COMPONENT…", 2, VERB_ANY, 0,
+     "Disable component");
+static int verb_enable_component(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        bool enable = streq(argv[0], "enable-component");
         int r;
 
-        assert(argc <= 1);
-
+        _cleanup_(context_done) Context context = CONTEXT_NULL;
         r = context_from_cmdline(&context);
         if (r < 0)
                 return r;
 
-        if (context.cleanup == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invocation of 'cleanup' with --cleanup=no is contradictory, refusing.");
+        if (context.component || context.component_all)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "The --component= and --component-all switches may not be combined with '%s', "
+                                       "specify the component(s) as arguments instead.", argv[0]);
+
+        if (context.definitions)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "The --definitions= switch may not be combined with '%s'.", argv[0]);
 
         r = context_load_offline(
                         &context,
@@ -2412,40 +2566,45 @@ static int verb_cleanup(int argc, char *argv[], uintptr_t _data, void *userdata)
         if (r < 0)
                 return r;
 
-        int ret = 0;
-        RET_GATHER(ret, installdb_cleanup_component(&context));
+        _cleanup_strv_free_ char **component_names = NULL;
+        r = context_list_components(&context, &component_names, /* ret_has_default_component= */ NULL);
+        if (r < 0)
+                return r;
 
-        if (context.component_all) {
-                _cleanup_strv_free_ char **z = NULL;
-                r = installdb_list_components(&context, &z);
+        /* Component definition files live directly below the configuration directories, hence the drop-in
+         * goes right next to them below /etc. */
+        _cleanup_free_ char *dropin_dir = path_join(context.root, SYSCONF_DIR);
+        if (!dropin_dir)
+                return log_oom();
+
+        STRV_FOREACH(name, strv_skip(argv, 1)) {
+                if (!component_name_valid(*name))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Component name invalid: %s", *name);
+
+                if (!strv_contains(component_names, *name))
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "Component not found: %s", *name);
+
+                _cleanup_free_ char *fname = strjoin("sysupdate.", *name, ".component");
+                if (!fname)
+                        return log_oom();
+
+                /* We assume that no sysadmin will name their config 50-systemd-sysupdate-enabled.conf */
+                r = write_drop_in_format(
+                                dropin_dir,
+                                fname,
+                                50, "systemd-sysupdate-enabled",
+                                "# Generated via 'systemd-sysupdate %s'\n\n"
+                                "[Component]\n"
+                                "Enabled=%s\n",
+                                argv[0],
+                                yes_no(enable));
                 if (r < 0)
-                        return log_error_errno(r, "Failed to enumerate components: %m");
+                        return log_error_errno(r, "Failed to write drop-in for component '%s': %m", *name);
 
-                STRV_FOREACH(i, z) {
-                        _cleanup_(context_done) Context component_context = CONTEXT_NULL;
-
-                        r = context_from_cmdline(&component_context);
-                        if (r < 0)
-                                return r;
-
-                        /* Override the component with our iter. This needs to be done in a fresh Context
-                         * as the installdb_fd and other state are specific to the component. */
-                        r = free_and_strdup_warn(&component_context.component, *i);
-                        if (r < 0)
-                                return r;
-
-                        r = context_load_offline(
-                                        &component_context,
-                                        /* process_image_flags= */ 0,
-                                        /* read_definitions_flags= */ 0);
-                        if (r < 0)
-                                return r;
-
-                        RET_GATHER(ret, installdb_cleanup_component(&component_context));
-                }
+                log_info("Component '%s' %s.", *name, enable ? "enabled" : "disabled");
         }
 
-        return ret;
+        return 0;
 }
 
 static int help(void) {
@@ -2636,8 +2795,13 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
         if (arg_image && arg_root)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Please specify either --root= or --image=, the combination of both is not supported.");
 
-        if ((arg_image || arg_root) && arg_reboot)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "The --reboot switch may not be combined with --root= or --image=.");
+        if (arg_image || arg_root) {
+                if (arg_reboot)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "The --reboot switch may not be combined with --root= or --image=.");
+
+                if (arg_definitions)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "The --definitions= switch may not be combined with --root= or --image=.");
+        }
 
         if (arg_reboot && arg_component)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "The --reboot switch may not be combined with --component=, as automatic reboots only apply to the booted OS version.");
