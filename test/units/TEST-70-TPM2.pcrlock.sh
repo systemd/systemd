@@ -27,8 +27,14 @@ at_exit() {
 
     systemd-cryptsetup detach pcrlock
 
+    if [[ -e /var/lib/systemd/pcrlock.json.gone && ! -e /var/lib/systemd/pcrlock.json ]]; then
+        mv /var/lib/systemd/pcrlock.json.gone /var/lib/systemd/pcrlock.json
+    fi
+
     if [[ -x "${SD_PCRLOCK:-}" ]]; then
         "$SD_PCRLOCK" remove-policy
+        "$SD_PCRLOCK" remove-policy --policy=/tmp/pcrlock-a.json
+        "$SD_PCRLOCK" remove-policy --policy=/tmp/pcrlock-b.json
         "$SD_PCRLOCK" unlock-firmware-config
         "$SD_PCRLOCK" unlock-gpt
         "$SD_PCRLOCK" unlock-machine-id
@@ -41,7 +47,7 @@ at_exit() {
     if [[ -n "${img:-}" ]]; then
         rm -f "$img" "$img".private.pem "$img".public.pem "$img".pcrsign
     fi
-    rm -f /tmp/borked /tmp/pcrlockpwd /var/lib/systemd/pcrlock.json /var/lib/systemd/pcrlock.json.gone
+    rm -f /tmp/borked /tmp/pcrlockpwd /tmp/pcrlock-a.json /tmp/pcrlock-b.json /var/lib/systemd/pcrlock.json /var/lib/systemd/pcrlock.json.gone
     systemctl daemon-reload
 }
 
@@ -181,11 +187,15 @@ systemd-cryptsetup detach pcrlock
 systemd-cryptenroll --unlock-key-file=/tmp/pcrlockpwd --tpm2-device=auto --tpm2-pcrlock=/var/lib/systemd/pcrlock.json --tpm2-public-key= --wipe-slot=tpm2 "$img"
 rm "$img".public.pem "$img".private.pem "$img".pcrsign
 
-# Now use the root fs support, i.e. make the tool write a copy of the pcrlock
-# file as service credential to some temporary dir and remove the local copy, so that
-# it has to use the credential version.
+# Regression test for issue #42775. Enroll two tokens with different pcrlock policies, but only make the
+# second policy available as a system credential. Unlocking must skip the first token and use the second.
+"$SD_PCRLOCK" make-policy --policy=/tmp/pcrlock-a.json --pcr="$PCRS"
+systemd-cryptenroll --unlock-key-file=/tmp/pcrlockpwd --tpm2-device=auto --tpm2-pcrlock=/tmp/pcrlock-a.json --tpm2-public-key= --wipe-slot=tpm2 "$img"
+
 mkdir /tmp/fakexbootldr
-SYSTEMD_XBOOTLDR_PATH=/tmp/fakexbootldr SYSTEMD_RELAX_XBOOTLDR_CHECKS=1 "$SD_PCRLOCK" make-policy --pcr="$PCRS" --force
+SYSTEMD_XBOOTLDR_PATH=/tmp/fakexbootldr SYSTEMD_RELAX_XBOOTLDR_CHECKS=1 "$SD_PCRLOCK" make-policy --policy=/tmp/pcrlock-b.json --pcr="$PCRS" --entry-token=pcrlock-b
+systemd-cryptenroll --unlock-key-file=/tmp/pcrlockpwd --tpm2-device=auto --tpm2-pcrlock=/tmp/pcrlock-b.json --tpm2-public-key= "$img"
+
 mv /var/lib/systemd/pcrlock.json /var/lib/systemd/pcrlock.json.gone
 
 ls -al /tmp/fakexbootldr/loader/credentials
@@ -207,8 +217,12 @@ test -f /tmp/fakexbootldr/loader/credentials/"$CREDENTIAL_NAME"
 
 SYSTEMD_ENCRYPTED_SYSTEM_CREDENTIALS_DIRECTORY=/tmp/fakexbootldr/loader/credentials systemd-cryptsetup attach pcrlock "$img" - tpm2-device=auto,headless
 systemd-cryptsetup detach pcrlock
+SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=0 SYSTEMD_ENCRYPTED_SYSTEM_CREDENTIALS_DIRECTORY=/tmp/fakexbootldr/loader/credentials systemd-cryptsetup attach pcrlock "$img" - tpm2-device=auto,headless
+systemd-cryptsetup detach pcrlock
 
 mv /var/lib/systemd/pcrlock.json.gone /var/lib/systemd/pcrlock.json
+"$SD_PCRLOCK" remove-policy --policy=/tmp/pcrlock-a.json
+"$SD_PCRLOCK" remove-policy --policy=/tmp/pcrlock-b.json
 SYSTEMD_XBOOTLDR_PATH=/tmp/fakexbootldr SYSTEMD_RELAX_XBOOTLDR_CHECKS=1 "$SD_PCRLOCK" remove-policy
 
 "$SD_PCRLOCK" unlock-firmware-config
