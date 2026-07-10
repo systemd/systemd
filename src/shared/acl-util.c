@@ -47,7 +47,7 @@ int dlopen_libacl(int log_level) {
 #if HAVE_ACL
         static void *libacl_dl = NULL;
 
-        LIBACL_NOTE(recommended);
+        LIBACL_NOTE(suggested);
 
         return dlopen_many_sym_or_warn(
                         &libacl_dl,
