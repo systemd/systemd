@@ -189,7 +189,7 @@ static int is_tmpfs_with_noswap(dev_t devno) {
         _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
         int r;
 
-        r = DLOPEN_LIBMOUNT(LOG_DEBUG, recommended);
+        r = dlopen_libmount(LOG_DEBUG);
         if (r < 0)
                 return r;
 
@@ -1473,6 +1473,7 @@ static int run(int argc, char *argv[]) {
         int r;
 
         LIBCRYPTO_NOTE(suggested);
+        LIBMOUNT_NOTE(recommended);
         TPM2_NOTE(suggested);
 
         log_setup();

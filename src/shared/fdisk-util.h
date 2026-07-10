@@ -90,9 +90,3 @@ int fdisk_partition_set_attrs_as_uint64(struct fdisk_partition *pa, uint64_t fla
 #endif
 
 int dlopen_fdisk(int log_level) _dlopen_loader_;
-
-#define DLOPEN_FDISK(log_level, priority)                               \
-        ({                                                              \
-                LIBFDISK_NOTE(priority);                                \
-                dlopen_fdisk(log_level);                                \
-        })

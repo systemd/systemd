@@ -2502,7 +2502,7 @@ static int verb_list_signing_keys(int argc, char *argv[], uintptr_t _data, void 
                         /* Let's decode the PEM key to DER (so that we lose prefix/suffix), then truncate it
                          * for display reasons. */
 
-                        r = DLOPEN_LIBCRYPTO(LOG_DEBUG, recommended);
+                        r = dlopen_libcrypto(LOG_DEBUG);
                         if (r < 0)
                                 return r;
 
@@ -5185,6 +5185,7 @@ static int run(int argc, char *argv[]) {
         int r;
 
         LIBCRYPT_NOTE(recommended);
+        LIBCRYPTO_NOTE(recommended);
         LIBFIDO2_NOTE(suggested);
         LIBP11KIT_NOTE(suggested);
         LIBQRENCODE_NOTE(suggested);

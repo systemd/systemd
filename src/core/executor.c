@@ -236,6 +236,12 @@ int run_executor(int argc, char *argv[]) {
         LIBACL_NOTE(recommended);
         LIBAPPARMOR_NOTE(recommended);
         LIBBLKID_NOTE(recommended);
+        LIBBPF_NOTE(recommended);
+        LIBCRYPTO_NOTE(recommended);
+        LIBCRYPTSETUP_NOTE(recommended);
+        LIBMOUNT_NOTE(recommended);
+        LIBPAM_NOTE(recommended);
+        LIBSECCOMP_NOTE(recommended);
         LIBSELINUX_NOTE(recommended);
         TPM2_NOTE(suggested);
 

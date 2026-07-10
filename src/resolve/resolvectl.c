@@ -3794,6 +3794,7 @@ static int run(int argc, char **argv) {
         int r;
 
         LIBCRYPTO_NOTE(suggested);
+        LIBIDN2_NOTE(recommended);
 
         setlocale(LC_ALL, "");
         log_setup();

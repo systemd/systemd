@@ -7,6 +7,7 @@
 #include "build.h"
 #include "chase.h"
 #include "dirent-util.h"
+#include "dlopen-note.h"
 #include "format-table.h"
 #include "help-util.h"
 #include "log.h"
@@ -1023,6 +1024,8 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 static int run(int argc, char *argv[]) {
         char **args = NULL;
         int r;
+
+        LIBCURL_NOTE(required);
 
         log_setup();
 

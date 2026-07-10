@@ -1035,6 +1035,7 @@ static int run(int argc, char *argv[]) {
         COMPRESS_JOURNAL_NOTE;
         LIBACL_NOTE(recommended);
         LIBBLKID_NOTE(recommended);
+        LIBCRYPTO_NOTE(recommended);
         LIBCRYPTSETUP_NOTE(suggested);
         LIBMOUNT_NOTE(recommended);
         LIBPCRE2_NOTE(suggested);

@@ -65,12 +65,6 @@ static inline void freeconp(char **p) {
 
 int dlopen_libselinux(int log_level) _dlopen_loader_;
 
-#define DLOPEN_LIBSELINUX(log_level, priority)                          \
-        ({                                                              \
-                LIBSELINUX_NOTE(priority);                              \
-                dlopen_libselinux(log_level);                           \
-        })
-
 #define _cleanup_freecon_ _cleanup_(freeconp)
 
 /* This accepts 0 error, like _zerook(). */
