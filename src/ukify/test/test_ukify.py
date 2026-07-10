@@ -1294,10 +1294,7 @@ def test_make_uki_honors_tools_opt_for_keyutil(tmp_path):
         '--stub',
         str(dummy_stub),
     ]
-    try:
-        opts = ukify.parse_args(args)
-    except ValueError as e:
-        pytest.fail(f'Failed to parse arguments: {e}')
+    opts = ukify.parse_args(args)
 
     try:
         ukify.check_inputs(opts)
@@ -1308,7 +1305,7 @@ def test_make_uki_honors_tools_opt_for_keyutil(tmp_path):
     # should have already been invoked from --tools by that point
     try:
         ukify.make_uki(opts)
-    except Exception:
+    except (OSError, subprocess.CalledProcessError, pefile.PEFormatError):
         pass
     assert marker.exists(), 'systemd-keyutil from --tools was not invoked'
 
