@@ -2482,14 +2482,14 @@ static int udev_rule_apply_token_to_event(
 
                         /* Drop the last line. */
                         bool found = false;
-                        for (char *p = PTR_SUB1(buf + strlen(buf), buf); p; p = PTR_SUB1(p, buf))
+                        for (char *p = PTR_SUB1(result + strlen(result), result); p; p = PTR_SUB1(p, result))
                                 if (strchr(NEWLINE, *p)) {
                                         *p = '\0';
                                         found = true;
                                         break;
                                 }
                         if (!found)
-                                buf[0] = '\0';
+                                result[0] = '\0';
                 }
 
                 r = strv_split_newlines_full(&lines, result, EXTRACT_RETAIN_ESCAPE);
