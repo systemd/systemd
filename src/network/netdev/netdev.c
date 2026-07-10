@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <linux/if_arp.h>
+#include <linux/netdevice.h>
 #include <unistd.h>
 
 #include "sd-netlink.h"
@@ -14,6 +15,7 @@
 #include "condition.h"
 #include "conf-files.h"
 #include "conf-parser.h"
+#include "device-private.h"
 #include "dummy.h"
 #include "fou-tunnel.h"
 #include "geneve.h"
@@ -575,6 +577,21 @@ int netdev_generate_hw_addr(
                 if (!IN_SET(NETDEV_VTABLE(netdev)->iftype, ARPHRD_ETHER, ARPHRD_INFINIBAND))
                         goto finalize;
 
+                /* If the interface already exists and its MAC address has been set by userspace
+                 * (e.g. through MACAddress= in the matching .network file, or manually), do not
+                 * generate a new address. Otherwise, on reconfiguration the generated address would
+                 * override the one set by userspace and, as they differ, both would be re-applied on
+                 * every reload/restart. See issue #42457. */
+                Link *link;
+                unsigned addr_assign_type;
+                if (link_get_by_index(netdev->manager, netdev->ifindex, &link) >= 0 &&
+                    link->dev &&
+                    device_get_sysattr_unsigned(link->dev, "addr_assign_type", &addr_assign_type) >= 0 &&
+                    addr_assign_type == NET_ADDR_SET) {
+                        log_netdev_debug(netdev, "MAC address is already set by userspace, not generating a new one.");
+                        goto finalize;
+                }
+
                 r = net_get_unique_predictable_data_from_name(name, &HASH_KEY, &result);
                 if (r < 0) {
                         log_netdev_warning_errno(netdev, r,
@@ -963,6 +980,13 @@ static int independent_netdev_process_request(Request *req, Link *link, void *us
 
                 return 1; /* Skip this request. */
         }
+
+        Link *existing;
+        if (link_get_by_index(netdev->manager, netdev->ifindex, &existing) >= 0 &&
+            IN_SET(existing->state,
+                   LINK_STATE_PENDING, /* Already exists and is being processed by udevd. Postpone the request. */
+                   LINK_STATE_LINGER)) /* Already removed; wait for the stale information to be cleared. */
+                return 0;
 
         r = netdev_is_ready_to_create(netdev, NULL);
         if (r <= 0)
