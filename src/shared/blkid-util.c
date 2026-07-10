@@ -98,7 +98,7 @@ int dlopen_libblkid(int log_level) {
 #if HAVE_BLKID
         static void *libblkid_dl = NULL;
 
-        LIBBLKID_NOTE(recommended);
+        LIBBLKID_NOTE(suggested);
 
         return dlopen_many_sym_or_warn(
                         &libblkid_dl,

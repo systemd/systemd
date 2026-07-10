@@ -2601,7 +2601,7 @@ int dlopen_libseccomp(int log_level) {
 #if HAVE_SECCOMP
         static void *libseccomp_dl = NULL;
 
-        LIBSECCOMP_NOTE(recommended);
+        LIBSECCOMP_NOTE(suggested);
 
         return dlopen_many_sym_or_warn(
                         &libseccomp_dl,

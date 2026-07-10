@@ -23,7 +23,7 @@ int dlopen_libaudit(int log_level) {
 #if HAVE_AUDIT
         static void *libaudit_dl = NULL;
 
-        LIBAUDIT_NOTE(recommended);
+        LIBAUDIT_NOTE(suggested);
 
         return dlopen_many_sym_or_warn(
                         &libaudit_dl,

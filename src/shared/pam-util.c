@@ -382,7 +382,7 @@ int dlopen_libpam(int log_level) {
 #if HAVE_PAM
         static void *libpam_dl = NULL;
 
-        LIBPAM_NOTE(recommended);
+        LIBPAM_NOTE(suggested);
 
         return dlopen_many_sym_or_warn(
                         &libpam_dl,
