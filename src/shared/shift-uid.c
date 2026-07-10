@@ -295,8 +295,9 @@ static int is_fs_fully_userns_compatible(const struct statfs *sfs) {
                F_TYPE_EQUAL(sfs->f_type, SYSFS_MAGIC);
 }
 
-static int recurse_fd(int fd, const struct stat *st, uid_t shift, bool is_toplevel) {
+static int recurse_fd(int input_fd, const struct stat *st, uid_t shift, bool is_toplevel) {
         _cleanup_closedir_ DIR *d = NULL;
+        _cleanup_close_ int fd = input_fd;
         bool changed = false;
         struct statfs sfs;
         int r;
