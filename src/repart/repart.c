@@ -3287,7 +3287,8 @@ static int determine_current_padding(
                 struct fdisk_partition *p,
                 uint64_t secsz,
                 uint64_t grainsz,
-                uint64_t *ret) {
+                uint64_t *ret,
+                bool     *is_last_partition) {
 
         size_t n_partitions;
         uint64_t offset, next = UINT64_MAX;
@@ -3296,6 +3297,9 @@ static int determine_current_padding(
         assert(t);
         assert(p);
         assert(ret);
+
+        if (is_last_partition)
+                *is_last_partition = false;
 
         if (!sym_fdisk_partition_has_end(p))
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Partition has no end.");
@@ -3338,6 +3342,9 @@ static int determine_current_padding(
                 assert(next < UINT64_MAX / secsz);
                 next *= secsz;
 
+                if (is_last_partition)
+                        *is_last_partition = true;
+
                 if (offset > next)
                         return log_error_errno(SYNTHETIC_ERRNO(EIO), "Partition end beyond disk end.");
         }
@@ -3355,7 +3362,7 @@ static int context_copy_from_one(Context *context, const char *src) {
         _cleanup_(fdisk_unref_contextp) struct fdisk_context *c = NULL;
         _cleanup_(fdisk_unref_tablep) struct fdisk_table *t = NULL;
         Partition *last = NULL;
-        unsigned long secsz, grainsz;
+        unsigned long secsz;
         size_t n_partitions;
         int r;
 
@@ -3374,7 +3381,6 @@ static int context_copy_from_one(Context *context, const char *src) {
                 return log_error_errno(r, "Failed to create fdisk context: %m");
 
         secsz = sym_fdisk_get_sector_size(c);
-        grainsz = sym_fdisk_get_grain_size(c);
 
         /* Insist on a power of two, and that it's a multiple of 512, i.e. the traditional sector size. */
         if (secsz < 512 || !ISPOWEROF2(secsz))
@@ -3455,11 +3461,13 @@ static int context_copy_from_one(Context *context, const char *src) {
                 if (!np->split_name_format)
                         return log_oom();
 
-                r = determine_current_padding(c, t, p, secsz, grainsz, &padding);
+                bool is_last_partition;
+                r = determine_current_padding(c, t, p, secsz, 1U, &padding, &is_last_partition);
                 if (r < 0)
                         return r;
 
-                np->padding_min = np->padding_max = padding;
+                if (!is_last_partition)
+                        np->padding_min = np->padding_max = padding;
 
                 np->copy_blocks_path = strdup(src);
                 if (!np->copy_blocks_path)
@@ -4055,7 +4063,7 @@ static int context_load_partition_table(Context *context) {
                                 pp->current_partition = p;
                                 sym_fdisk_ref_partition(p);
 
-                                r = determine_current_padding(c, t, p, secsz, grainsz, &pp->current_padding);
+                                r = determine_current_padding(c, t, p, secsz, grainsz, &pp->current_padding, NULL);
                                 if (r < 0)
                                         return r;
 
@@ -4088,7 +4096,7 @@ static int context_load_partition_table(Context *context) {
                         np->current_partition = p;
                         sym_fdisk_ref_partition(p);
 
-                        r = determine_current_padding(c, t, p, secsz, grainsz, &np->current_padding);
+                        r = determine_current_padding(c, t, p, secsz, grainsz, &np->current_padding, NULL);
                         if (r < 0)
                                 return r;
 
