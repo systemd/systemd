@@ -25,15 +25,10 @@ enum DnsRecordTTLState {
 };
 
 struct DnssdDiscoveredService {
-        unsigned n_ref;
-        DnsServiceBrowser *service_browser;
-        sd_event_source *schedule_event;
         DnsResourceRecord *rr;
         int family;
         int ifindex;
         usec_t until;
-        DnsRecordTTLState rr_ttl_state;
-        DnsQuery *query;
         LIST_FIELDS(DnssdDiscoveredService, dns_services);
 };
 
@@ -44,7 +39,15 @@ struct DnsServiceBrowser {
         DnsQuestion *question_idna;
         DnsQuestion *question_utf8;
         uint64_t flags;
-        sd_event_source *schedule_event;
+        sd_event_source *schedule_event;      /* continuous browse query (RFC 6762 §5.2 backoff) */
+        sd_event_source *maintenance_event;   /* single TTL re-confirmation ladder for the whole RRset */
+        DnsQuery *in_flight_query;          /* in-flight ladder query; cleared by dns_query_free() */
+        DnsRecordTTLState rr_ttl_state;       /* the ladder's rung: wound back to 80% whenever the list
+                                                 changes or an instance is seen again, advanced only by
+                                                 mdns_browser_maintenance(), re-armed once per
+                                                 reconciliation (re-arming skips the rungs already
+                                                 behind us, so a wind-back only takes effect once an
+                                                 expiry moved) */
         usec_t delay;
         DnsResourceKey *key;
         int ifindex;
@@ -54,16 +57,13 @@ struct DnsServiceBrowser {
 
 DnsServiceBrowser *dns_service_browser_free(DnsServiceBrowser *sb);
 void dns_remove_service(DnsServiceBrowser *sb, DnssdDiscoveredService *service);
-DnssdDiscoveredService *dns_service_free(DnssdDiscoveredService *service);
 
 DECLARE_TRIVIAL_REF_UNREF_FUNC(DnsServiceBrowser, dns_service_browser);
-DECLARE_TRIVIAL_REF_UNREF_FUNC(DnssdDiscoveredService, dnssd_discovered_service);
 
 void dns_browse_services_purge(Manager *m, int family);
 void dns_browse_services_restart(Manager *m);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsServiceBrowser *, dns_service_browser_unref);
-DEFINE_TRIVIAL_CLEANUP_FUNC(DnssdDiscoveredService *, dnssd_discovered_service_unref);
 
 int dns_service_match_and_update(
                 DnssdDiscoveredService *services,
@@ -77,8 +77,8 @@ int mdns_answer_contains_service(
                 DnssdDiscoveredService *service);
 int mdns_manage_services_answer(DnsServiceBrowser *sb, DnsAnswer *answer, int owner_family);
 int dns_add_new_service(DnsServiceBrowser *sb, DnsResourceRecord *rr, int owner_family, int ifindex, usec_t until);
-int mdns_service_update(DnssdDiscoveredService *service, DnsResourceRecord *rr, usec_t t, usec_t until);
 int mdns_browser_revisit_cache(DnsServiceBrowser *sb, int owner_family);
+int mdns_browser_maintenance(sd_event_source *s, uint64_t usec, void *userdata);
 int dns_subscribe_browse_service(
                 Manager *m,
                 sd_varlink *link,
@@ -86,5 +86,6 @@ int dns_subscribe_browse_service(
                 const char *type,
                 int ifindex,
                 uint64_t flags);
+void dns_unsubscribe_browse_service(Manager *m, sd_varlink *link);
 int mdns_notify_browsers_unsolicited_updates(Manager *m, DnsAnswer *answer, int owner_family);
 int mdns_notify_browsers_goodbye(DnsScope *scope);
