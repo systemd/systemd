@@ -1280,7 +1280,7 @@ def test_make_uki_honors_tools_opt_for_keyutil(tmp_path):
     try:
         subprocess.run([str(noexec_probe)], capture_output=True, timeout=5)
     except OSError:
-        pytest.skip('tmp_path does not support executable files (e.g. noexec mount')
+        pytest.skip('tmp_path does not support executable files e.g. noexec mount')
     finally:
         noexec_probe.unlink(missing_ok=True)
 
