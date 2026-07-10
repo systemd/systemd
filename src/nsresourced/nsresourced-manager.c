@@ -33,10 +33,12 @@
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
+#include "uid-classification.h"
 #include "umask-util.h"
 #include "unaligned.h"
 #include "userns-registry.h"
 #include "userns-restrict.h"
+#include "xattr-util.h"
 
 #define LISTEN_TIMEOUT_USEC (25 * USEC_PER_SEC)
 
@@ -449,6 +451,16 @@ static int manager_make_listen_socket(Manager *m) {
         r = symlink_idempotent("../io.systemd.NamespaceResource", "/run/systemd/userdb/io.systemd.NamespaceResource", /* make_relative= */ false);
         if (r < 0)
                 return log_error_errno(r, "Failed to symlink userdb socket: %m");
+
+        /* Reduce the noise routed to us: advertise that only look-ups for the higher UID range */
+        char text[2 * (DECIMAL_STR_MAX(uid_t) + 1 + DECIMAL_STR_MAX(uid_t) + 1)];
+        xsprintf(text, UID_FMT "-" UID_FMT "," UID_FMT "-" UID_FMT,
+                 CONTAINER_UID_MIN, CONTAINER_UID_MAX,
+                 (uid_t) DYNAMIC_UID_MIN, (uid_t) DYNAMIC_UID_MAX);
+        FOREACH_STRING(xattr, "user.userdb.uid", "user.userdb.gid")
+                (void) xsetxattr(AT_FDCWD, sockaddr.un.sun_path, /* at_flags= */ 0, xattr, text);
+        (void) xsetxattr(AT_FDCWD, sockaddr.un.sun_path, /* at_flags= */ 0, "user.userdb.username", "ns-*");
+        (void) xsetxattr(AT_FDCWD, sockaddr.un.sun_path, /* at_flags= */ 0, "user.userdb.groupname", "ns-*");
 
         if (listen(m->listen_fd, SOMAXCONN) < 0)
                 return log_error_errno(errno, "Failed to listen on socket: %m");
