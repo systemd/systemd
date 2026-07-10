@@ -62,6 +62,10 @@ _systemd_cryptenroll() {
                --tpm2-device
                --tpm2-device-key
                --tpm2-seal-key-handle
+               --tpm2-argon2id-memory
+               --tpm2-argon2id-iter-time
+               --tpm2-argon2id-iterations
+               --tpm2-argon2id-parallelism
                --tpm2-pcrs
                --tpm2-public-key
                --tpm2-public-key-pcrs
@@ -95,7 +99,7 @@ _systemd_cryptenroll() {
                 comps="auto list $(__get_fido2_devices)"
                 ;;
             --fido2-parameters-in-header|--fido2-with-client-pin|--fido2-with-user-presence|--fido2-with-user-verification|--tpm2-with-pin)
-                comps='yes no'
+                comps='yes no direct'
                 ;;
             --tpm2-device)
                 comps="auto list $(__get_tpm2_devices)"
