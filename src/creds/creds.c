@@ -602,7 +602,7 @@ static int verb_encrypt(int argc, char *argv[], uintptr_t _data, void *userdata)
         if (arg_not_after != USEC_INFINITY && arg_not_after < timestamp)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Credential is invalidated before it is valid.");
 
-        if (geteuid() != 0) {
+        if (geteuid() != 0 && !sd_id128_equal(arg_with_key, CRED_AES256_GCM_BY_NULL)) {
                 (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
 
                 r = ipc_encrypt_credential(
@@ -710,7 +710,7 @@ static int verb_decrypt(int argc, char *argv[], uintptr_t _data, void *userdata)
 
         timestamp = arg_timestamp != USEC_INFINITY ? arg_timestamp : now(CLOCK_REALTIME);
 
-        if (geteuid() != 0) {
+        if (geteuid() != 0 && !sd_id128_equal(arg_with_key, CRED_AES256_GCM_BY_NULL)) {
                 (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
 
                 r = ipc_decrypt_credential(
