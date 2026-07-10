@@ -522,7 +522,7 @@ TEST(dns_query_process_cname_one_success_match_dname_utf8_different) {
         ASSERT_EQ(query->n_cname_redirects, 1u);
 
         ASSERT_EQ(dns_question_size(query->collected_questions), 2u);
-        ASSERT_NULL(query->question_utf8);
+        ASSERT_EQ(dns_question_size(query->question_utf8), 1u);
         ASSERT_EQ(dns_question_size(query->question_idna), 1u);
 
         key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.\xF0\x9F\x98\xB1.com");
@@ -533,6 +533,11 @@ TEST(dns_query_process_cname_one_success_match_dname_utf8_different) {
         key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.xn--tl8h.com");
         ASSERT_NOT_NULL(key);
         ASSERT_TRUE(dns_question_contains_key(query->collected_questions, key));
+        dns_resource_key_unref(key);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.\xF0\x9F\x98\xB1.com");
+        ASSERT_NOT_NULL(key);
+        ASSERT_TRUE(dns_question_contains_key(query->question_utf8, key));
         dns_resource_key_unref(key);
 
         key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.v2.xn--tl8h.com");
