@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <linux/if_arp.h>
+#include <linux/netdevice.h>
 #include <unistd.h>
 
 #include "sd-netlink.h"
@@ -14,6 +15,7 @@
 #include "condition.h"
 #include "conf-files.h"
 #include "conf-parser.h"
+#include "device-private.h"
 #include "dummy.h"
 #include "fou-tunnel.h"
 #include "geneve.h"
@@ -574,6 +576,23 @@ int netdev_generate_hw_addr(
 
                 if (!IN_SET(NETDEV_VTABLE(netdev)->iftype, ARPHRD_ETHER, ARPHRD_INFINIBAND))
                         goto finalize;
+
+                /* If the interface already exists and its MAC address has been set by userspace
+                 * (e.g. through MACAddress= in the matching .network file, or manually), do not
+                 * generate a new address. Otherwise, on reconfiguration the generated address would
+                 * override the one set by userspace and, as they differ, both would be re-applied on
+                 * every reload/restart. See issue #42457. */
+                Link *link;
+                if (link_get_by_index(netdev->manager, netdev->ifindex, &link) >= 0) {
+                        unsigned addr_assign_type;
+
+                        if (link->dev &&
+                            device_get_sysattr_unsigned(link->dev, "addr_assign_type", &addr_assign_type) >= 0 &&
+                            addr_assign_type == NET_ADDR_SET) {
+                                log_netdev_debug(netdev, "MAC address is already set by userspace, not generating a new one.");
+                                goto finalize;
+                        }
+                }
 
                 r = net_get_unique_predictable_data_from_name(name, &HASH_KEY, &result);
                 if (r < 0) {
