@@ -19,6 +19,7 @@
 
 /* for libcryptsetup debug purpose */
 _public_ const char* cryptsetup_token_version(void) {
+        LIBCRYPTSETUP_NOTE(required);
         LIBFIDO2_NOTE(suggested);
 
         return TOKEN_VERSION_MAJOR "." TOKEN_VERSION_MINOR " systemd-v" PROJECT_VERSION_FULL " (" GIT_VERSION ")";
@@ -40,7 +41,7 @@ _public_ int cryptsetup_token_open_pin(
         assert(pin || pin_size == 0);
         assert(token >= 0);
 
-        r = DLOPEN_CRYPTSETUP(LOG_DEBUG, required);
+        r = dlopen_cryptsetup(LOG_DEBUG);
         if (r < 0)
                 return r;
 
@@ -105,7 +106,7 @@ _public_ void cryptsetup_token_dump(
 
         assert(json);
 
-        if (DLOPEN_CRYPTSETUP(LOG_DEBUG, required) < 0)
+        if (dlopen_cryptsetup(LOG_DEBUG) < 0)
                 return;
 
         r = parse_luks2_fido2_data(cd, json, &rp_id, &salt, &salt_size, &cid, &cid_size, &required);
@@ -172,7 +173,7 @@ _public_ int cryptsetup_token_validate(
 
         assert(json);
 
-        r = DLOPEN_CRYPTSETUP(LOG_DEBUG, required);
+        r = dlopen_cryptsetup(LOG_DEBUG);
         if (r < 0)
                 return r;
 

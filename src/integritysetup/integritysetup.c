@@ -6,6 +6,7 @@
 #include "alloc-util.h"
 #include "argv-util.h"
 #include "cryptsetup-util.h"
+#include "dlopen-note.h"
 #include "fileio.h"
 #include "format-table.h"
 #include "help-util.h"
@@ -199,12 +200,14 @@ static int verb_detach(int argc, char *argv[], uintptr_t _data, void *userdata) 
 static int run(int argc, char *argv[]) {
         int r;
 
+        LIBCRYPTSETUP_NOTE(required);
+
         if (argv_looks_like_help(argc, argv))
                 return help();
 
         log_setup();
 
-        r = DLOPEN_CRYPTSETUP(LOG_ERR, required);
+        r = dlopen_cryptsetup(LOG_ERR);
         if (r < 0)
                 return r;
 

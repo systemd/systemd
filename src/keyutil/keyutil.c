@@ -4,6 +4,7 @@
 #include "ask-password-api.h"
 #include "build.h"
 #include "crypto-util.h"
+#include "dlopen-note.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-table.h"
@@ -233,7 +234,7 @@ static int verb_extract_public(int argc, char *argv[], uintptr_t _data, void *us
                                 return r;
                 }
 
-                r = DLOPEN_LIBCRYPTO(LOG_ERR, required);
+                r = dlopen_libcrypto(LOG_ERR);
                 if (r < 0)
                         return r;
 
@@ -404,6 +405,8 @@ static int verb_pkcs7(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
 static int run(int argc, char *argv[]) {
         int r;
+
+        LIBCRYPTO_NOTE(required);
 
         log_setup();
 

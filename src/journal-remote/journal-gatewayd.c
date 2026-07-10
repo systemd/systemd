@@ -1261,6 +1261,7 @@ static int run(int argc, char *argv[]) {
 
         COMPRESS_JOURNAL_NOTE;
         LIBGNUTLS_NOTE(suggested);
+        LIBMICROHTTPD_NOTE(required);
 
         log_setup();
 
@@ -1268,7 +1269,7 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        r = DLOPEN_MICROHTTPD(LOG_ERR, required);
+        r = dlopen_microhttpd(LOG_ERR);
         if (r < 0)
                 return r;
 

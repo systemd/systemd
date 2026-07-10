@@ -9,6 +9,7 @@
 #include "alloc-util.h"
 #include "build.h"
 #include "crypto-util.h"
+#include "dlopen-note.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -304,7 +305,7 @@ static int vl_server(void) {
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *vs = NULL;
         int r;
 
-        r = DLOPEN_LIBCRYPTO(LOG_ERR, required);
+        r = dlopen_libcrypto(LOG_ERR);
         if (r < 0)
                 return r;
 
@@ -390,6 +391,8 @@ static int parse_argv(int argc, char *argv[]) {
 
 static int run(int argc, char *argv[]) {
         int r;
+
+        LIBCRYPTO_NOTE(required);
 
         log_setup();
 

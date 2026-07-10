@@ -1329,7 +1329,7 @@ static int determine_default_storage(UserStorage *ret) {
                         if (r < 0)
                                 log_warning_errno(r, "Failed to determine if %s is encrypted, ignoring: %m", get_home_root());
 
-                        r = DLOPEN_CRYPTSETUP(LOG_DEBUG, recommended);
+                        r = dlopen_cryptsetup(LOG_DEBUG);
                         if (r < 0)
                                 log_info("Not using '%s' storage, since libcryptsetup could not be loaded.", user_storage_to_string(USER_LUKS));
                         else {
@@ -1999,7 +1999,11 @@ static int run(int argc, char *argv[]) {
         sd_json_variant *fdmap, *blob_fd_variant;
         int r;
 
+        LIBBLKID_NOTE(recommended);
         LIBCRYPT_NOTE(recommended);
+        LIBCRYPTO_NOTE(recommended);
+        LIBCRYPTSETUP_NOTE(recommended);
+        LIBFDISK_NOTE(recommended);
         LIBFIDO2_NOTE(suggested);
         LIBMOUNT_NOTE(recommended);
         LIBP11KIT_NOTE(suggested);

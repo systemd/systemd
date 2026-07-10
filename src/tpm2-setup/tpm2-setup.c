@@ -601,12 +601,14 @@ static int run(int argc, char *argv[]) {
         }
 
         LIBBLKID_NOTE(recommended);
+        LIBCRYPTO_NOTE(required);
+        TPM2_NOTE(required);
 
-        r = DLOPEN_LIBCRYPTO(LOG_ERR, required);
+        r = dlopen_libcrypto(LOG_ERR);
         if (r < 0)
                 return r;
 
-        r = DLOPEN_TPM2(LOG_ERR, required);
+        r = dlopen_tpm2(LOG_ERR);
         if (r < 0)
                 return r;
 
