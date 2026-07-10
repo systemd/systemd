@@ -3568,6 +3568,7 @@ static int run(int argc, char *argv[]) {
         LIBBLKID_NOTE(recommended);
         LIBCRYPTO_NOTE(suggested);
         LIBCRYPTSETUP_NOTE(suggested);
+        LIBFDISK_NOTE(recommended);
         LIBMOUNT_NOTE(recommended);
         LIBSELINUX_NOTE(recommended);
         LIBTSS2_ESYS_NOTE(suggested);

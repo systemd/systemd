@@ -6,6 +6,7 @@
 #include "sd-event.h"
 
 #include "daemon-util.h"
+#include "dlopen-note.h"
 #include "log.h"
 #include "main-func.h"
 #include "nsresourced-manager.h"
@@ -13,6 +14,8 @@
 static int run(int argc, char *argv[]) {
         _cleanup_(manager_freep) Manager *m = NULL;
         int r;
+
+        LIBBPF_NOTE(recommended);
 
         log_setup();
 
