@@ -4,12 +4,14 @@
 
 #include "constants.h"
 #include "errno-util.h"
+#include "format-util.h"
 #include "job.h"
 #include "json-util.h"
 #include "manager.h"
 #include "metrics.h"
 #include "path-util.h"
 #include "pidref.h"
+#include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "unit.h"
@@ -27,6 +29,7 @@
 #include "varlink-serialize.h"
 #include "varlink-unit.h"
 #include "varlink-util.h"
+#include "xattr-util.h"
 
 static const char* const managed_oom_mode_properties[] = {
         "ManagedOOMSwap",
@@ -481,10 +484,14 @@ int manager_setup_varlink_metrics_server(Manager *m) {
         if (MANAGER_IS_SYSTEM(m))
                 flags |= SD_VARLINK_SERVER_ACCOUNT_UID;
 
-        return metrics_setup_varlink_server(&m->metrics_varlink_server, flags,
-                                            m->event, EVENT_PRIORITY_IPC,
-                                            vl_method_list_metrics, vl_method_describe_metrics,
-                                            m);
+        return metrics_setup_varlink_server(
+                        &m->metrics_varlink_server,
+                        flags,
+                        m->event,
+                        EVENT_PRIORITY_IPC,
+                        vl_method_list_metrics,
+                        vl_method_describe_metrics,
+                        m);
 }
 
 static int varlink_server_listen_many_idempotent_sentinel(
@@ -549,6 +556,12 @@ static int manager_varlink_init_system_api(Manager *m) {
                                 VARLINK_PATH_MANAGED_OOM_SYSTEM);
                 if (r < 0)
                         return r;
+
+                /* Reduce the noise routed to us: advertise that only look-ups for the dynamic UID range should go to us */
+                char text[DECIMAL_STR_MAX(uid_t) + 1 + DECIMAL_STR_MAX(gid_t) + 1];
+                xsprintf(text, UID_FMT "-" UID_FMT, (uid_t) DYNAMIC_UID_MIN, (uid_t) DYNAMIC_UID_MAX);
+                FOREACH_STRING(xattr, "user.userdb.uid", "user.userdb.gid")
+                        (void) xsetxattr(AT_FDCWD, "/run/systemd/userdb/io.systemd.DynamicUser", /* at_flags= */ 0, xattr, text);
         }
 
         return 0;
