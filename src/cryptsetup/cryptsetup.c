@@ -1075,7 +1075,7 @@ static int measure_volume_key(
                         /* pcr_index = */ arg_tpm2_measure_pcr,
                         /* data = */ &IOVEC_MAKE_STRING(prefix),
                         /* secret = */ &IOVEC_MAKE(volume_key, volume_key_size),
-                        /* event_type = */ TPM2_EVENT_VOLUME_KEY,
+                        /* event_type = */ USERSPACE_MEASUREMENT_EVENT_VOLUME_KEY,
                         /* description = */ prefix);
         if (r < 0)
                 return log_error_errno(r, "Could not extend PCR: %m");
@@ -1145,7 +1145,7 @@ static int measure_keyslot(
                         &IOVEC_MAKE_STRING(s),
                         /* secret= */ NULL,
                         /* sync_secondary_anchor= */ false,
-                        TPM2_EVENT_KEYSLOT,
+                        USERSPACE_MEASUREMENT_EVENT_KEYSLOT,
                         s);
         if (r < 0)
                 return log_error_errno(r, "Could not extend NvPCR: %m");

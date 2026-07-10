@@ -7718,23 +7718,6 @@ static int json_dispatch_tpm2_algorithm(const char *name, sd_json_variant *varia
         return 0;
 }
 
-static const char* tpm2_userspace_event_type_table[_TPM2_USERSPACE_EVENT_TYPE_MAX] = {
-        [TPM2_EVENT_PHASE]           = "phase",
-        [TPM2_EVENT_FILESYSTEM]      = "filesystem",
-        [TPM2_EVENT_VOLUME_KEY]      = "volume-key",
-        [TPM2_EVENT_MACHINE_ID]      = "machine-id",
-        [TPM2_EVENT_PRODUCT_ID]      = "product-id",
-        [TPM2_EVENT_KEYSLOT]         = "keyslot",
-        [TPM2_EVENT_NVPCR_INIT]      = "nvpcr-init",
-        [TPM2_EVENT_NVPCR_SEPARATOR] = "nvpcr-separator",
-        [TPM2_EVENT_DM_VERITY]       = "dm-verity",
-        [TPM2_EVENT_IMDS_USERDATA]   = "imds-userdata",
-        [TPM2_EVENT_OS_SEPARATOR]    = "os-separator",
-        [TPM2_EVENT_LOGIN]           = "login",
-};
-
-DEFINE_STRING_TABLE_LOOKUP(tpm2_userspace_event_type, Tpm2UserspaceEventType);
-
 const char* tpm2_userspace_log_path(void) {
         return secure_getenv("SYSTEMD_MEASURE_LOG_USERSPACE") ?: "/run/log/systemd/tpm2-measure.log";
 }
@@ -7750,7 +7733,7 @@ static int tpm2_userspace_log(
                 uint32_t nv_index,
                 const char *nv_index_name,
                 const TPML_DIGEST_VALUES *values,
-                Tpm2UserspaceEventType event_type,
+                UserspaceMeasurementEventType event_type,
                 const char *description,
                 bool reset_marker) {
 
@@ -7798,7 +7781,7 @@ static int tpm2_userspace_log(
                                                            SD_JSON_BUILD_PAIR_CONDITION(!!description, "string", SD_JSON_BUILD_STRING(description)),
                                                            SD_JSON_BUILD_PAIR_ID128("bootId", boot_id),
                                                            SD_JSON_BUILD_PAIR_UNSIGNED("timestamp", now(CLOCK_BOOTTIME)),
-                                                           SD_JSON_BUILD_PAIR_CONDITION(event_type >= 0, "eventType", SD_JSON_BUILD_STRING(tpm2_userspace_event_type_to_string(event_type))))));
+                                                           SD_JSON_BUILD_PAIR_CONDITION(event_type >= 0, "eventType", SD_JSON_BUILD_STRING(userspace_measurement_event_type_to_string(event_type))))));
         if (r < 0)
                 return log_debug_errno(r, "Failed to build log record JSON: %m");
 
@@ -7812,7 +7795,7 @@ int tpm2_pcr_extend_bytes(
                 unsigned pcr_index,
                 const struct iovec *data,
                 const struct iovec *secret,
-                Tpm2UserspaceEventType event_type,
+                UserspaceMeasurementEventType event_type,
                 const char *description) {
 
 #if HAVE_OPENSSL
@@ -7995,7 +7978,7 @@ static int nvpcr_extend_bytes(
                 const char *name,
                 const struct iovec *data,
                 const struct iovec *secret,
-                Tpm2UserspaceEventType event_type,
+                UserspaceMeasurementEventType event_type,
                 const char *description) {
 
 #if HAVE_OPENSSL
@@ -8109,7 +8092,7 @@ int tpm2_nvpcr_extend_bytes(
                 const struct iovec *data,
                 const struct iovec *secret,
                 bool sync_secondary_anchor,
-                Tpm2UserspaceEventType event_type,
+                UserspaceMeasurementEventType event_type,
                 const char *description) {
 
         int r;
@@ -8695,7 +8678,7 @@ int tpm2_nvpcr_initialize(
                         TPM2_PCR_KERNEL_INITRD,
                         &IOVEC_MAKE_STRING(word),
                         /* secret= */ NULL,
-                        TPM2_EVENT_NVPCR_INIT,
+                        USERSPACE_MEASUREMENT_EVENT_NVPCR_INIT,
                         word);
         if (r < 0)
                 return log_error_errno(r, "Could not extend PCR %i: %m", TPM2_PCR_KERNEL_INITRD);

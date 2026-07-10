@@ -14,6 +14,7 @@
 #include "help-util.h"
 #include "json-util.h"
 #include "main-func.h"
+#include "measurement-log.h"
 #include "options.h"
 #include "parse-argument.h"
 #include "pcrextend-util.h"
@@ -38,7 +39,7 @@ static uint32_t arg_pcr_mask = 0;
 static char *arg_nvpcr_name = NULL;
 static bool arg_varlink = false;
 static bool arg_early = false;
-static Tpm2UserspaceEventType arg_event_type = _TPM2_USERSPACE_EVENT_TYPE_INVALID;
+static UserspaceMeasurementEventType arg_event_type = _USERSPACE_MEASUREMENT_EVENT_TYPE_INVALID;
 
 STATIC_DESTRUCTOR_REGISTER(arg_banks, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_device, freep);
@@ -185,9 +186,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 OPTION_LONG("event-type", "TYPE",
                             "Event type to include in the event log"):
                         if (streq(opts.arg, "help"))
-                                return DUMP_STRING_TABLE(tpm2_userspace_event_type, Tpm2UserspaceEventType, _TPM2_USERSPACE_EVENT_TYPE_MAX);
+                                return DUMP_STRING_TABLE(userspace_measurement_event_type, UserspaceMeasurementEventType, _USERSPACE_MEASUREMENT_EVENT_TYPE_MAX);
 
-                        arg_event_type = tpm2_userspace_event_type_from_string(opts.arg);
+                        arg_event_type = userspace_measurement_event_type_from_string(opts.arg);
                         if (arg_event_type < 0)
                                 return log_error_errno(arg_event_type, "Failed to parse --event-type= argument: %s", opts.arg);
                         break;
@@ -308,7 +309,7 @@ static int extend_pcr_now(
                 uint32_t pcr_mask,
                 const void *data,
                 size_t size,
-                Tpm2UserspaceEventType event) {
+                UserspaceMeasurementEventType event) {
 
         _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
         int r;
@@ -356,7 +357,7 @@ static int extend_nvpcr_now(
                 const char *name,
                 const void *data,
                 size_t size,
-                Tpm2UserspaceEventType event) {
+                UserspaceMeasurementEventType event) {
 
         _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
         int r;
@@ -401,7 +402,7 @@ typedef struct MethodExtendParameters {
         const char *nvpcr;
         const char *text;
         struct iovec data;
-        Tpm2UserspaceEventType event_type;
+        UserspaceMeasurementEventType event_type;
 } MethodExtendParameters;
 
 static void method_extend_parameters_done(MethodExtendParameters *p) {
@@ -410,21 +411,21 @@ static void method_extend_parameters_done(MethodExtendParameters *p) {
         iovec_done(&p->data);
 }
 
-static JSON_DISPATCH_ENUM_DEFINE(json_dispatch_tpm2_userspace_event_type, Tpm2UserspaceEventType, tpm2_userspace_event_type_from_string);
+static JSON_DISPATCH_ENUM_DEFINE(json_dispatch_userspace_measurement_event_type, UserspaceMeasurementEventType, userspace_measurement_event_type_from_string);
 
 static int vl_method_extend(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "pcr",       _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,                   offsetof(MethodExtendParameters, pcr),   0 },
-                { "nvpcr",     SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,           offsetof(MethodExtendParameters, nvpcr), 0 },
-                { "text",      SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,           offsetof(MethodExtendParameters, text),  0 },
-                { "data",      SD_JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec,            offsetof(MethodExtendParameters, data),   0 },
-                { "eventType", SD_JSON_VARIANT_STRING,        json_dispatch_tpm2_userspace_event_type, offsetof(MethodExtendParameters, event_type), 0 },
+                { "pcr",       _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,                          offsetof(MethodExtendParameters, pcr),        0 },
+                { "nvpcr",     SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,                  offsetof(MethodExtendParameters, nvpcr),      0 },
+                { "text",      SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,                  offsetof(MethodExtendParameters, text),       0 },
+                { "data",      SD_JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec,                   offsetof(MethodExtendParameters, data),       0 },
+                { "eventType", SD_JSON_VARIANT_STRING,        json_dispatch_userspace_measurement_event_type, offsetof(MethodExtendParameters, event_type), 0 },
                 {}
         };
         _cleanup_(method_extend_parameters_done) MethodExtendParameters p = {
                 .pcr = UINT_MAX,
-                .event_type = _TPM2_USERSPACE_EVENT_TYPE_INVALID,
+                .event_type = _USERSPACE_MEASUREMENT_EVENT_TYPE_INVALID,
         };
         int r;
 
@@ -504,7 +505,7 @@ static int vl_server(void) {
 
 static int run(int argc, char *argv[]) {
         _cleanup_free_ char *word = NULL;
-        Tpm2UserspaceEventType event = _TPM2_USERSPACE_EVENT_TYPE_INVALID;
+        UserspaceMeasurementEventType event = _USERSPACE_MEASUREMENT_EVENT_TYPE_INVALID;
         int r;
 
         LIBBLKID_NOTE(recommended);
@@ -530,7 +531,7 @@ static int run(int argc, char *argv[]) {
                 if (r < 0)
                         return r;
 
-                event = TPM2_EVENT_FILESYSTEM;
+                event = USERSPACE_MEASUREMENT_EVENT_FILESYSTEM;
 
         } else if (arg_machine_id) {
 
@@ -541,7 +542,7 @@ static int run(int argc, char *argv[]) {
                 if (r < 0)
                         return r;
 
-                event = TPM2_EVENT_MACHINE_ID;
+                event = USERSPACE_MEASUREMENT_EVENT_MACHINE_ID;
 
         } else if (arg_product_id)  {
 
@@ -552,7 +553,7 @@ static int run(int argc, char *argv[]) {
                 if (r < 0)
                         return r;
 
-                event = TPM2_EVENT_PRODUCT_ID;
+                event = USERSPACE_MEASUREMENT_EVENT_PRODUCT_ID;
 
         } else if (arg_login) {
 
@@ -563,7 +564,7 @@ static int run(int argc, char *argv[]) {
                 if (r < 0)
                         return r;
 
-                event = TPM2_EVENT_LOGIN;
+                event = USERSPACE_MEASUREMENT_EVENT_LOGIN;
         } else {
                 if (n_args != 1)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Expected a single argument.");
@@ -578,7 +579,7 @@ static int run(int argc, char *argv[]) {
                 if (isempty(word))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "String to measure cannot be empty, refusing.");
 
-                event = TPM2_EVENT_PHASE;
+                event = USERSPACE_MEASUREMENT_EVENT_PHASE;
         }
 
         /* Override with explicitly configured event type */

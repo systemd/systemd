@@ -11,6 +11,7 @@
 #include "measurement-log.h"
 #include "mkdir.h"
 #include "stat-util.h"
+#include "string-table.h"
 #include "sync-util.h"
 
 int measurement_log_open(const char *path) {
@@ -129,3 +130,20 @@ int measurement_log_append(int fd, sd_json_variant *record, bool reset_marker) {
 
         return 1;
 }
+
+static const char* const userspace_measurement_event_type_table[_USERSPACE_MEASUREMENT_EVENT_TYPE_MAX] = {
+        [USERSPACE_MEASUREMENT_EVENT_PHASE]           = "phase",
+        [USERSPACE_MEASUREMENT_EVENT_FILESYSTEM]      = "filesystem",
+        [USERSPACE_MEASUREMENT_EVENT_VOLUME_KEY]      = "volume-key",
+        [USERSPACE_MEASUREMENT_EVENT_MACHINE_ID]      = "machine-id",
+        [USERSPACE_MEASUREMENT_EVENT_PRODUCT_ID]      = "product-id",
+        [USERSPACE_MEASUREMENT_EVENT_KEYSLOT]         = "keyslot",
+        [USERSPACE_MEASUREMENT_EVENT_NVPCR_INIT]      = "nvpcr-init",
+        [USERSPACE_MEASUREMENT_EVENT_NVPCR_SEPARATOR] = "nvpcr-separator",
+        [USERSPACE_MEASUREMENT_EVENT_DM_VERITY]       = "dm-verity",
+        [USERSPACE_MEASUREMENT_EVENT_IMDS_USERDATA]   = "imds-userdata",
+        [USERSPACE_MEASUREMENT_EVENT_OS_SEPARATOR]    = "os-separator",
+        [USERSPACE_MEASUREMENT_EVENT_LOGIN]           = "login",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(userspace_measurement_event_type, UserspaceMeasurementEventType);

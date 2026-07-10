@@ -28,6 +28,28 @@
  * callers shall return without cleaning: the sticky bit then persists and marks the log as unable to
  * explain the register state. */
 
+/* The type of a measurement event, encoded in the 'eventType' field of the records' 'content' subobject.
+ * The corresponding strings are part of the on-disk log format (and accepted by systemd-pcrextend's
+ * --event-type= switch), hence must remain stable. */
+typedef enum UserspaceMeasurementEventType {
+        USERSPACE_MEASUREMENT_EVENT_PHASE,
+        USERSPACE_MEASUREMENT_EVENT_FILESYSTEM,
+        USERSPACE_MEASUREMENT_EVENT_VOLUME_KEY,
+        USERSPACE_MEASUREMENT_EVENT_MACHINE_ID,
+        USERSPACE_MEASUREMENT_EVENT_PRODUCT_ID,
+        USERSPACE_MEASUREMENT_EVENT_KEYSLOT,
+        USERSPACE_MEASUREMENT_EVENT_NVPCR_INIT,
+        USERSPACE_MEASUREMENT_EVENT_NVPCR_SEPARATOR,
+        USERSPACE_MEASUREMENT_EVENT_DM_VERITY,
+        USERSPACE_MEASUREMENT_EVENT_IMDS_USERDATA,
+        USERSPACE_MEASUREMENT_EVENT_OS_SEPARATOR,
+        USERSPACE_MEASUREMENT_EVENT_LOGIN,
+        _USERSPACE_MEASUREMENT_EVENT_TYPE_MAX,
+        _USERSPACE_MEASUREMENT_EVENT_TYPE_INVALID = -EINVAL,
+} UserspaceMeasurementEventType;
+
+DECLARE_STRING_TABLE_LOOKUP(userspace_measurement_event_type, UserspaceMeasurementEventType);
+
 /* Opens the log file for appending, creating it (and its parent directories) if necessary, and takes an
  * exclusive BSD file lock on it. Open the log before updating a measurement register, so that no other
  * cooperating process can come between the update and the matching log record. */
