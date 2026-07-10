@@ -41,6 +41,19 @@ ci:
           - type: build
             status: disable
             project: system:systemd:ci
+          # Ubuntu's i586 is a partial architecture so builds don't work
+          - type: build
+            status: disable
+            project: system:systemd:ci
+            package: systemd
+            repository: Ubuntu_24.04
+            architecture: i586
+          - type: build
+            status: disable
+            project: system:systemd:ci
+            package: systemd
+            repository: Ubuntu_26.04
+            architecture: i586
           # Then enable systemd package builds only, so that images stay disabled
           - type: build
             status: enable
