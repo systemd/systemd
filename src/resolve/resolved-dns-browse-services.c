@@ -8,6 +8,7 @@
 #include "event-util.h"
 #include "log.h"
 #include "random-util.h"
+#include "siphash24.h"
 #include "resolved-dns-browse-services.h"
 #include "resolved-dns-cache.h"
 #include "resolved-dns-query.h"
@@ -797,6 +798,97 @@ void dns_browse_services_restart(Manager *m) {
         }
 }
 
+static void dns_service_querier_hash_func(const DnsServiceQuerier *sq, struct siphash *state) {
+        assert(sq);
+
+        dns_resource_key_hash_func(sq->key, state);
+        siphash24_compress_typesafe(sq->ifindex, state);
+        siphash24_compress_typesafe(sq->flags, state);
+}
+
+static int dns_service_querier_compare_func(const DnsServiceQuerier *a, const DnsServiceQuerier *b) {
+        int r;
+
+        assert(a);
+        assert(b);
+
+        r = dns_resource_key_compare_func(a->key, b->key);
+        if (r != 0)
+                return r;
+
+        r = CMP(a->ifindex, b->ifindex);
+        if (r != 0)
+                return r;
+
+        return CMP(a->flags, b->flags);
+}
+
+DEFINE_PRIVATE_HASH_OPS(
+                dns_service_querier_hash_ops,
+                DnsServiceQuerier,
+                dns_service_querier_hash_func,
+                dns_service_querier_compare_func);
+
+/* Bring a subscriber that joined an already-running querier up to speed: synthesize "added" events
+ * for everything discovered so far, mirroring what a first cache-served query would have yielded. */
+static int dns_service_browser_send_snapshot(DnsServiceBrowser *sb) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL, *vm = NULL;
+        int r;
+
+        assert(sb);
+        assert(sb->querier);
+
+        LIST_FOREACH(dns_services, service, sb->querier->dns_services) {
+                _cleanup_free_ char *name = NULL, *type = NULL, *domain = NULL;
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *entry = NULL;
+
+                r = dns_service_split(service->rr->ptr.name, &name, &type, &domain);
+                if (r < 0)
+                        return r;
+
+                if (!name) {
+                        type = mfree(type);
+                        domain = mfree(domain);
+                        r = dns_service_split(dns_resource_key_name(service->rr->key), &name, &type, &domain);
+                        if (r < 0)
+                                return r;
+                }
+
+                if (!type)
+                        continue;
+
+                r = sd_json_buildo(
+                                &entry,
+                                SD_JSON_BUILD_PAIR_STRING(
+                                                "updateFlag",
+                                                browse_service_update_event_to_string(
+                                                                BROWSE_SERVICE_UPDATE_ADDED)),
+                                SD_JSON_BUILD_PAIR_INTEGER("family", service->family),
+                                SD_JSON_BUILD_PAIR_CONDITION(
+                                                !isempty(name), "name", SD_JSON_BUILD_STRING(name)),
+                                SD_JSON_BUILD_PAIR_CONDITION(
+                                                !isempty(type), "type", SD_JSON_BUILD_STRING(type)),
+                                SD_JSON_BUILD_PAIR_CONDITION(
+                                                !isempty(domain), "domain", SD_JSON_BUILD_STRING(domain)),
+                                SD_JSON_BUILD_PAIR_INTEGER("ifindex", service->ifindex));
+                if (r < 0)
+                        return r;
+
+                r = sd_json_variant_append_array(&array, entry);
+                if (r < 0)
+                        return r;
+        }
+
+        if (sd_json_variant_is_blank_array(array))
+                return 0;
+
+        r = sd_json_buildo(&vm, SD_JSON_BUILD_PAIR_VARIANT("browserServiceData", array));
+        if (r < 0)
+                return r;
+
+        return sd_varlink_notify(sb->link, vm);
+}
+
 static int dns_service_querier_new(
                 Manager *m,
                 DnsQuestion *question_utf8,
@@ -906,17 +998,31 @@ int dns_subscribe_browse_service(
         if (r < 0)
                 return log_error_errno(r, "Failed to create DNS question for IDNA version: %m");
 
-        r = dns_service_querier_new(m, question_utf8, question_idna, ifindex, flags, &sq);
-        if (r < 0)
-                return r;
+        /* One querier per browse question: if somebody is asking this already, join them instead of
+         * multicasting the same question a second time. */
+        DnsServiceQuerier *shared = hashmap_get(
+                        m->dns_service_queriers,
+                        &(DnsServiceQuerier) {
+                                .key = dns_question_first_key(question_utf8),
+                                .ifindex = ifindex,
+                                .flags = flags,
+                        });
+        if (shared)
+                sq = dns_service_querier_ref(shared);
+        else {
+                r = dns_service_querier_new(m, question_utf8, question_idna, ifindex, flags, &sq);
+                if (r < 0)
+                        return r;
 
-        r = hashmap_ensure_put(&m->dns_service_queriers, NULL, sq, sq);
-        if (r < 0)
-                return log_error_errno(r, "Failed to add service querier to the hashmap: %m");
+                r = hashmap_ensure_put(&m->dns_service_queriers, &dns_service_querier_hash_ops, sq, sq);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add service querier to the hashmap: %m");
+        }
 
         sb = new(DnsServiceBrowser, 1);
         if (!sb) {
-                hashmap_remove(m->dns_service_queriers, sq);
+                if (!shared)
+                        hashmap_remove(m->dns_service_queriers, sq);
                 return log_oom();
         }
 
@@ -931,6 +1037,14 @@ int dns_subscribe_browse_service(
         r = hashmap_ensure_put(&m->dns_service_browsers, NULL, link, sb);
         if (r < 0)
                 return log_error_errno(r, "Failed to add service browser to the hashmap: %m");
+
+        /* A late joiner inherits the querier's current view; hand it over right away. Everything
+         * after this arrives as regular diff events like for any other subscriber. */
+        if (shared) {
+                r = dns_service_browser_send_snapshot(sb);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to send initial browse snapshot, ignoring: %m");
+        }
 
         TAKE_PTR(sb);
 
