@@ -3917,8 +3917,10 @@ int manager_override_watchdog_pretimeout_governor(Manager *m, const char *govern
 
 int manager_reload(Manager *m) {
         _unused_ _cleanup_(manager_reloading_stopp) Manager *reloading = NULL;
+        _cleanup_strv_free_ char **saved_subscribed_as_strv = NULL;
         _cleanup_fdset_free_ FDSet *fds = NULL;
         _cleanup_fclose_ FILE *f = NULL;
+        sd_id128_t saved_deserialized_bus_id;
         int r;
 
         assert(m);
@@ -3974,6 +3976,10 @@ int manager_reload(Manager *m) {
         manager_enumerate(m);
 
         /* Second, deserialize our stored data */
+        saved_subscribed_as_strv = TAKE_PTR(m->subscribed_as_strv);
+        saved_deserialized_bus_id = m->deserialized_bus_id;
+        m->deserialized_bus_id = SD_ID128_NULL;
+
         r = manager_deserialize(m, f, fds);
         if (r < 0)
                 log_warning_errno(r, "Deserialization failed, proceeding anyway: %m");
@@ -3987,10 +3993,12 @@ int manager_reload(Manager *m) {
         (void) manager_setup_handoff_timestamp_fd(m);
         (void) manager_setup_pidref_transport_fd(m);
 
-        /* Clean up deserialized bus track information. They're never consumed during reload (as opposed to
-         * reexec) since we do not disconnect from the bus. */
+        /* Discard the bus track information produced by this reload, since the bus stays connected. Preserve
+         * any validation state that was already pending before the reload, so its asynchronous GetId reply can
+         * still consume it when we return to the event loop. */
         m->subscribed_as_strv = strv_free(m->subscribed_as_strv);
-        m->deserialized_bus_id = SD_ID128_NULL;
+        m->subscribed_as_strv = TAKE_PTR(saved_subscribed_as_strv);
+        m->deserialized_bus_id = saved_deserialized_bus_id;
 
         /* Third, fire things up! */
         manager_coldplug(m);
