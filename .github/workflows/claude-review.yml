@@ -139,7 +139,7 @@ jobs:
   review:
     runs-on: ubuntu-latest
     needs: setup
-    timeout-minutes: 120
+    timeout-minutes: 60
 
     permissions:
       contents: read
@@ -186,7 +186,6 @@ jobs:
         uses: aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b
         with:
           role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ secrets.AWS_ROLE_NAME }}
-          role-duration-seconds: 7200
           role-session-name: GitHubActions-Claude-${{ github.run_id }}
           aws-region: us-east-1
 
