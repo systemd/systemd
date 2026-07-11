@@ -1748,8 +1748,9 @@ int dns_scope_announce(DnsScope *scope, bool goodbye) {
                 return log_debug_errno(r, "Failed to emit announcement packets: %m");
 
         /* In section 8.3 of RFC6762: "The Multicast DNS responder MUST send at least two unsolicited
-         * responses, one second apart." */
-        if (!scope->announced) {
+         * responses, one second apart." A goodbye is not one of those initial announcements: scheduling
+         * the positive-TTL re-announcement from here would resurrect the records just withdrawn. */
+        if (!scope->announced && !goodbye) {
                 scope->announced = true;
 
                 r = sd_event_add_time_relative(
