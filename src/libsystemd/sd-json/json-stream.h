@@ -206,6 +206,7 @@ int json_stream_parse(JsonStream *s, sd_json_variant **ret);
 
 /* Status accessors used by the consumer's state machine. */
 bool json_stream_has_buffered_input(const JsonStream *s);
+int json_stream_has_buffered_output(JsonStream *s);
 
 /* Compute the poll events the consumer should wait for. The stream queries the consumer's
  * phase via the registered get_phase callback. In JSON_STREAM_PHASE_READING the stream asks
