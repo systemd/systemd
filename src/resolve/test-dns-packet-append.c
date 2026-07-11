@@ -1,12 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "alloc-util.h"
 #include "dns-answer.h"
 #include "dns-packet.h"
 #include "dns-question.h"
 #include "dns-rr.h"
 #include "dns-type.h"
+#include "hashmap.h"
 #include "list.h"
 #include "log.h"
+#include "stdio-util.h"
 #include "tests.h"
 
 #define BIT_QR (1 << 7)
@@ -1296,6 +1299,195 @@ TEST(packet_append_key_name_too_long) {
 
         ASSERT_EQ(r, -EINVAL);
         ASSERT_EQ(packet->size, 12U);
+}
+
+/* The reader's label-type dispatch. RFC 1035 section 4.1.4 gives a length octet the top bits 00 and
+ * a compression pointer 11, and reserves 01 and 10: it takes *both* bits to make a pointer, so a
+ * reserved type must be rejected rather than followed as one with an offset built from it. */
+TEST(packet_read_name_rejects_reserved_label_types) {
+        uint8_t first;
+
+        FOREACH_ARGUMENT(first, 0x40, 0x80) {
+                _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+                _cleanup_free_ char *parsed = NULL;
+                const uint8_t data[] = { first, 0x00 };
+
+                ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, /* min_alloc_dsize= */ 0,
+                                         DNS_PACKET_SIZE_MAX));
+                ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+                dns_packet_rewind(packet, DNS_PACKET_HEADER_SIZE);
+
+                ASSERT_ERROR(dns_packet_read_name(packet, &parsed, /* allow_compression= */ true,
+                                                  NULL), EBADMSG);
+        }
+}
+
+TEST(packet_append_name_beyond_compression_pointer_range) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        size_t start;
+
+        ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
+
+        /* Fill the packet past the range a compression pointer can express (RFC 1035 pointers carry
+         * 14 bits, i.e. offsets up to 0x3fff) with unique names. */
+        for (size_t i = 0; packet->size <= DNS_COMPRESSION_OFFSET_MAX; i++) {
+                char name[64];
+
+                xsprintf(name, "filler%zu.example.com", i);
+                ASSERT_OK(dns_packet_append_name(packet, name,
+                                                 /* allow_compression= */ true,
+                                                 /* canonical_candidate= */ false,
+                                                 NULL));
+        }
+
+        /* The first occurrence of this name lands beyond pointer range, so it must not be added to
+         * the compression map... */
+        size_t n_mapped = hashmap_size(packet->names);
+        ASSERT_OK(dns_packet_append_name(packet, "far.example.org",
+                                         /* allow_compression= */ true, /* canonical_candidate= */ false,
+                                         &start));
+        ASSERT_GT(start, (size_t) DNS_COMPRESSION_OFFSET_MAX);
+        ASSERT_EQ(hashmap_size(packet->names), n_mapped);
+
+        /* ...and since no pointer can reference it, later occurrences must be appended as labels
+         * again. This used to fail with -EEXIST when the name was reinserted into the map. */
+        size_t second;
+        ASSERT_OK(dns_packet_append_name(packet, "far.example.org",
+                                         /* allow_compression= */ true, /* canonical_candidate= */ false,
+                                         &second));
+        ASSERT_OK(dns_packet_append_name(packet, "far.example.org",
+                                         /* allow_compression= */ true, /* canonical_candidate= */ false,
+                                         NULL));
+        ASSERT_EQ(hashmap_size(packet->names), n_mapped);
+
+        /* Names first seen within pointer range still compress: re-appending one takes exactly the
+         * two bytes of a compression pointer. */
+        size_t before = packet->size;
+        ASSERT_OK(dns_packet_append_name(packet, "filler0.example.com",
+                                         /* allow_compression= */ true, /* canonical_candidate= */ false,
+                                         NULL));
+        ASSERT_EQ(packet->size, before + 2);
+
+        /* Both encodings must round-trip through the parser: the label-form re-occurrence beyond
+         * pointer range and the pointer-form one within it. */
+        _cleanup_free_ char *parsed = NULL;
+        dns_packet_rewind(packet, second);
+        ASSERT_OK(dns_packet_read_name(packet, &parsed, /* allow_compression= */ true, NULL));
+        ASSERT_STREQ(parsed, "far.example.org");
+
+        parsed = mfree(parsed);
+        dns_packet_rewind(packet, before);
+        ASSERT_OK(dns_packet_read_name(packet, &parsed, /* allow_compression= */ true, NULL));
+        ASSERT_STREQ(parsed, "filler0.example.com");
+}
+
+/* The same case via dns_packet_append_rr(), where the name append is nested inside the rdlength
+ * backpatch -- the path the reported dns_scope_announce() failure came from. */
+TEST(packet_append_rr_beyond_compression_pointer_range) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        size_t first_rr = 0;
+
+        ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, /* min_alloc_dsize= */ 0, DNS_PACKET_SIZE_MAX));
+
+        /* Start past the range a pointer can express, so every name these records carry -- owner
+         * and rdata alike -- has its first occurrence out of reach. Uncompressed fillers, so the
+         * map stays empty and only the records below can put anything in it. */
+        while (packet->size <= DNS_COMPRESSION_OFFSET_MAX) {
+                char filler[DNS_LABEL_MAX + 1];
+
+                memset(filler, 'p', DNS_LABEL_MAX);
+                filler[DNS_LABEL_MAX] = 0;
+                ASSERT_OK(dns_packet_append_name(packet, filler,
+                                                 /* allow_compression= */ false,
+                                                 /* canonical_candidate= */ false, NULL));
+        }
+        ASSERT_EQ(hashmap_size(packet->names), 0u);
+
+        /* Distinct owners, one shared PTR target: the target recurs in every record, which is what
+         * used to fail. The first occurrence was mapped despite being unreferenceable, the second
+         * found it, could not emit a pointer, appended the labels again, and then failed the whole
+         * build re-inserting the same name with hashmap_ensure_put() returning -EEXIST. */
+        for (size_t i = 0; i < 8; i++) {
+                _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *ptr = NULL;
+                char name[64];
+                size_t start;
+
+                xsprintf(name, "%zu.instance.example.com", i);
+                ptr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_PTR, name);
+                ASSERT_NOT_NULL(ptr);
+                ptr->ttl = 120;
+                ASSERT_NOT_NULL(ptr->ptr.name = strdup("shared.target.example.org"));
+
+                ASSERT_OK(dns_packet_append_rr(packet, ptr, /* flags= */ 0,
+                                               &start, /* rdata_start= */ NULL));
+                if (i == 0)
+                        first_rr = start;
+        }
+
+        /* Nothing was mapped: every name in this packet starts beyond the range a pointer can
+         * express, which is what makes the appends above the re-occurrence case. */
+        ASSERT_EQ(hashmap_size(packet->names), 0u);
+
+        /* And every record reads back with its rdata intact: the rdlength backpatch has to agree
+         * with a target written as labels rather than pointed at. (The packet is read from the
+         * first record rather than through dns_packet_extract(), since the padding in front of it
+         * is not a question section.) */
+        dns_packet_rewind(packet, first_rr);
+        for (size_t i = 0; i < 8; i++) {
+                _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *parsed = NULL;
+                char name[64];
+
+                ASSERT_OK(dns_packet_read_rr(packet, &parsed, /* ret_cache_flush= */ NULL,
+                                             /* start= */ NULL));
+                ASSERT_NOT_NULL(parsed);
+
+                xsprintf(name, "%zu.instance.example.com", i);
+                ASSERT_EQ(parsed->key->type, (uint16_t) DNS_TYPE_PTR);
+                ASSERT_STREQ(dns_resource_key_name(parsed->key), name);
+                ASSERT_STREQ(parsed->ptr.name, "shared.target.example.org");
+        }
+}
+
+/* The rollback path: a failed append must not leave a compression entry behind that points into
+ * truncated space. A packet with room for the labels but not for the root byte reaches it -- with
+ * one name, and with two. */
+TEST(packet_append_name_rolls_back_on_failure) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        size_t before;
+
+        ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, /* min_alloc_dsize= */ 0,
+                                 /* max_size= */ DNS_PACKET_HEADER_SIZE + 4));
+        before = packet->size;
+
+        ASSERT_ERROR(dns_packet_append_name(packet, "abc",
+                                            /* allow_compression= */ true,
+                                            /* canonical_candidate= */ false,
+                                            NULL), EMSGSIZE);
+
+        /* Nothing of the half-written name is left on the wire... */
+        ASSERT_EQ(packet->size, before);
+
+        /* ...and, the point of the rollback, no compression entry either: the label was mapped
+         * before the root byte failed, and an entry surviving here would name an offset that no
+         * longer holds what it claims. */
+        ASSERT_EQ(hashmap_size(packet->names), 0u);
+
+        /* The same failure -- the root byte, which is the append this commit reroutes -- but with
+         * two labels, so more than one compression entry has to come back out: "a" and "b" fill
+         * the packet exactly, and the root byte fails with the map holding "a.b" and "b". A name
+         * whose *label* append fails would not do: that path took the rollback before this commit
+         * and would pass either way. */
+        packet = dns_packet_unref(packet);
+        ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, /* min_alloc_dsize= */ 0,
+                                 /* max_size= */ DNS_PACKET_HEADER_SIZE + 4));
+        before = packet->size;
+
+        ASSERT_ERROR(dns_packet_append_name(packet, "a.b",
+                                            /* allow_compression= */ true,
+                                            /* canonical_candidate= */ false,
+                                            NULL), EMSGSIZE);
+        ASSERT_EQ(packet->size, before);
+        ASSERT_EQ(hashmap_size(packet->names), 0u);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG)

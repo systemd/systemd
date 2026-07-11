@@ -636,16 +636,17 @@ int dns_packet_append_name(
 
                 if (allow_compression)
                         n = PTR_TO_SIZE(hashmap_get(p->names, name));
-                if (n > 0) {
-                        assert(n < p->size);
+                /* Defensive: only offsets that are pointer-expressible, and behind us, are inserted
+                 * below; should that ever break, fall through to plain labels (always valid) instead
+                 * of a pointer that is truncated or addresses bytes the packet does not have. Both
+                 * bounds as control flow, not assert(): under -Db_ndebug=true the latter is
+                 * __builtin_unreachable(), i.e. exactly no check at all. */
+                if (n > 0 && n <= DNS_COMPRESSION_OFFSET_MAX && n < p->size) {
+                        r = dns_packet_append_uint16(p, DNS_COMPRESSION_POINTER_FLAG | n, NULL);
+                        if (r < 0)
+                                goto fail;
 
-                        if (n < 0x4000) {
-                                r = dns_packet_append_uint16(p, 0xC000 | n, NULL);
-                                if (r < 0)
-                                        goto fail;
-
-                                goto done;
-                        }
+                        goto done;
                 }
 
                 r = dns_label_unescape(&name, label, sizeof label, 0);
@@ -656,7 +657,11 @@ int dns_packet_append_name(
                 if (r < 0)
                         goto fail;
 
-                if (allow_compression) {
+                /* Remember the name for compression -- but only if this occurrence sits within the
+                 * 14 bits an RFC 1035 pointer can express. An offset beyond that can never be
+                 * referenced, so it doesn't belong in the map: it would only collide with a later
+                 * occurrence of the same name, needlessly failing the whole append with -EEXIST. */
+                if (allow_compression && n <= DNS_COMPRESSION_OFFSET_MAX) {
                         _cleanup_free_ char *s = NULL;
 
                         if (!GREEDY_REALLOC(added_entries, n_added_entries + 1)) {
@@ -681,7 +686,7 @@ int dns_packet_append_name(
 
         r = dns_packet_append_uint8(p, 0, NULL);
         if (r < 0)
-                return r;
+                goto fail;
 
 done:
         if (start)
@@ -1626,7 +1631,7 @@ int dns_packet_read_name(
                                 return -EBADMSG;
 
                         continue;
-                } else if (allow_compression && FLAGS_SET(c, 0xc0)) {
+                } else if (allow_compression && FLAGS_SET(c, DNS_COMPRESSION_POINTER_FLAG >> 8)) {
                         uint16_t ptr;
 
                         /* Pointer */
@@ -1634,7 +1639,8 @@ int dns_packet_read_name(
                         if (r < 0)
                                 return r;
 
-                        ptr = (uint16_t) (c & ~0xc0) << 8 | (uint16_t) d;
+                        ptr = (uint16_t) (c & ~(DNS_COMPRESSION_POINTER_FLAG >> 8)) << 8;
+                        ptr |= (uint16_t) d;
                         if (ptr < DNS_PACKET_HEADER_SIZE || ptr >= jump_barrier)
                                 return -EBADMSG;
 
