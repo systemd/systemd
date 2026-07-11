@@ -926,6 +926,7 @@ Manager* manager_free(Manager *m) {
         while ((sb = hashmap_first(m->dns_service_browsers)))
                 dns_unsubscribe_browse_service(m, sb->link);
         hashmap_free(m->dns_service_browsers);
+        hashmap_free(m->dns_service_queriers);
 
         hashmap_free(m->hooks);
 
