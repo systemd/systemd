@@ -193,6 +193,73 @@ testcase_single_service_multiple_times() {
     done
 }
 
+testcase_mdns_goodbye_on_stop() {
+    : "Stopping resolved must withdraw its published services promptly via goodbye"
+    resolvectl flush-caches
+
+    local out_file unit_name service_type
+    out_file="$(mktemp)"
+    unit_name="varlinkctl-goodbye-$SRANDOM.service"
+    service_type="_testService6._udp"
+
+    # Note: --timeout=infinity, since the subscription sits idle between discovery
+    # and the goodbye-driven removal, and varlinkctl's default 45s idle timeout
+    # could sever it in between on a slow runner.
+    systemd-run --unit="$unit_name" --service-type=exec -p StandardOutput="file:$out_file" \
+        varlinkctl call --more --timeout=infinity /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.BrowseServices \
+        "{ \"domain\": \"$service_type.local\", \"type\": \"\", \"ifindex\": ${BRIDGE_INDEX:?}, \"flags\": 16785432 }"
+    # shellcheck disable=SC2064
+    trap "trap - RETURN; systemctl stop $unit_name" RETURN
+
+    # Wait until the second container's services have been discovered.
+    local ok=0
+    for _ in {0..14}; do
+        if grep -q "on $CONTAINER_2" "$out_file"; then ok=1; break; fi
+        sleep 2
+    done
+    if [[ "$ok" -ne 1 ]]; then
+        echo >&2 "Never discovered $CONTAINER_2 services"
+        cat "$out_file" >&2
+        return 1
+    fi
+
+    # Checkpoint the output so we only count 'removed' events produced AFTER the
+    # stop -- a match is then provably caused by the goodbye, not by earlier churn.
+    local off
+    off="$(wc -c <"$out_file")"
+
+    # Gracefully stop resolved in the second container. On a clean stop resolved
+    # multicasts mDNS goodbye packets (TTL=0) for its published services, so the
+    # browser must observe a 'removed' event for them well before the 120s record
+    # TTL would otherwise expire them.
+    systemd-run -M "$CONTAINER_2" --wait --pipe -- systemctl stop systemd-resolved.service
+
+    local removed=0
+    for _ in {0..29}; do  # ~60s: generous for slow (sanitizer) runners, still far below the 120s record TTL
+        if tail -c "+$((off + 1))" "$out_file" | { grep -oE '"updateFlag":"removed"[^}]*"name":"[^"]*"' || :; } | grep "on $CONTAINER_2" >/dev/null; then
+            removed=1
+            break
+        fi
+        sleep 2
+    done
+
+    if [[ "$removed" -ne 1 ]]; then
+        echo >&2 "No prompt 'removed' for $CONTAINER_2 after stopping its resolved (missing goodbye?)"
+        cat "$out_file" >&2
+        # Best-effort restore before failing.
+        systemd-run -M "$CONTAINER_2" --wait --pipe -- systemctl start systemd-resolved.service || :
+        return 1
+    fi
+
+    # Restore the second container's resolved (and its per-link mDNS/LLMNR
+    # overrides, which a resolved restart drops) for the remaining testcases.
+    systemd-run -M "$CONTAINER_2" --wait --pipe -- systemctl start systemd-resolved.service
+    systemd-run -M "$CONTAINER_2" --wait --pipe -- resolvectl mdns host0 yes
+    systemd-run -M "$CONTAINER_2" --wait --pipe -- resolvectl llmnr host0 yes
+
+    echo testcase_end
+}
+
 # Helper function to run browse services with a custom ifindex
 run_and_check_services_with_ifindex() {
     local service_id="${1:?}"
@@ -312,7 +379,26 @@ testcase_browse_ifindex_zero_no_flap() {
 testcase_second_unreachable() {
     : "Test each service type while the second container is unreachable"
     systemd-run -M "$CONTAINER_2" --wait --pipe -- networkctl down host0
-    resolvectl flush-caches
+    # Announcements that were already on the wire (or sitting unread in our socket buffer)
+    # can straddle a single flush and leak the now-unreachable container back into the
+    # cache: resolved's (re)start reliably re-announces every published service, and the
+    # preceding testcase restarts the second container's resolved. Flush until the cache
+    # stays clean of that container (bounded: the stragglers are only whatever queued up
+    # before host0 went down, but on slow sanitizer runners draining it can take a while).
+    local clean=0
+    for _ in {0..9}; do
+        resolvectl flush-caches
+        sleep 1
+        if ! resolvectl show-cache | grep "$CONTAINER_2" >/dev/null; then
+            clean=1
+            break
+        fi
+    done
+    if [[ "$clean" -ne 1 ]]; then
+        echo >&2 "Cache could not be cleaned of $CONTAINER_2 records after its link went down"
+        resolvectl show-cache >&2
+        return 1
+    fi
     for id in $(seq 0 $((SERVICE_TYPE_COUNT - 1))); do
         run_and_check_services "$id" check_first
     done
