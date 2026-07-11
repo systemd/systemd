@@ -51,7 +51,6 @@ struct DnsServiceBrowser {
         usec_t delay;
         DnsResourceKey *key;
         int ifindex;
-        uint64_t token;
         LIST_HEAD(DnssdDiscoveredService, dns_services);
 };
 
