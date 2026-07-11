@@ -636,16 +636,19 @@ int dns_packet_append_name(
 
                 if (allow_compression)
                         n = PTR_TO_SIZE(hashmap_get(p->names, name));
-                if (n > 0) {
+                /* Only pointer-expressible offsets ever enter the map (see the insertion guard
+                 * below); the range test restates that invariant as control flow, so that a
+                 * violation falls through to emitting the labels again -- valid wire format, and
+                 * what RFC 1035 section 4.1.4 requires when no pointer can express the offset --
+                 * instead of truncating the offset into a pointer to the wrong place. */
+                if (n > 0 && n <= DNS_PACKET_COMPRESSION_OFFSET_MAX) {
                         assert(n < p->size);
 
-                        if (n < 0x4000) {
-                                r = dns_packet_append_uint16(p, 0xC000 | n, NULL);
-                                if (r < 0)
-                                        goto fail;
+                        r = dns_packet_append_uint16(p, 0xC000 | n, NULL);
+                        if (r < 0)
+                                goto fail;
 
-                                goto done;
-                        }
+                        goto done;
                 }
 
                 r = dns_label_unescape(&name, label, sizeof label, 0);
@@ -656,7 +659,11 @@ int dns_packet_append_name(
                 if (r < 0)
                         goto fail;
 
-                if (allow_compression) {
+                /* Remember the name for compression — but only if this occurrence sits within the
+                 * 14 bits an RFC 1035 pointer can express. An offset beyond that can never be
+                 * referenced, so it doesn't belong in the map: it would only collide with a later
+                 * occurrence of the same name, needlessly failing the whole append with -EEXIST. */
+                if (allow_compression && n <= DNS_PACKET_COMPRESSION_OFFSET_MAX) {
                         _cleanup_free_ char *s = NULL;
 
                         if (!GREEDY_REALLOC(added_entries, n_added_entries + 1)) {
@@ -681,7 +688,7 @@ int dns_packet_append_name(
 
         r = dns_packet_append_uint8(p, 0, NULL);
         if (r < 0)
-                return r;
+                goto fail;
 
 done:
         if (start)
