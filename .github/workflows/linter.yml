@@ -90,3 +90,8 @@ jobs:
             CXXFLAGS="-idirafter /usr/include" \
               meson setup -Dlibc=musl -Ddbus-interfaces-dir=no musl
           mkosi box -- ninja -C musl
+
+      - name: Run man-rules checks
+        run: |
+          mkosi box -- ninja -C build update-man-rules
+          git diff --exit-code -- man/rules/meson.build
