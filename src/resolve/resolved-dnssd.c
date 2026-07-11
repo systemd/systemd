@@ -152,8 +152,12 @@ void dnssd_registered_service_unregister(DnssdRegisteredService *service) {
 
         Manager *m = ASSERT_PTR(service->manager);
 
-        /* Takes the service out of service: sends goodbye messages for it, removes its RRs from all mDNS
-         * zones, and drops it from the manager. Note that this also frees the passed object. */
+        /* Takes the service out of service: sends goodbye messages for it, removes its RRs from
+         * all mDNS zones, and drops it from the manager. Note that this also frees the passed
+         * object. The withdrawal goes through the precise runtime path: the type's enumeration
+         * PTR too when this was the last service of its type, records another service still
+         * stands behind are left alone, oversized emissions are split, and it is retransmitted
+         * once per RFC 6762 section 8.3. */
 
         HASHMAP_FOREACH(l, m->links)
                 FOREACH_ELEMENT(scope, ((DnsScope*[]) { l->mdns_ipv4_scope, l->mdns_ipv6_scope })) {
