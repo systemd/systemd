@@ -309,6 +309,127 @@ testcase_browse_ifindex_zero_no_flap() {
     echo testcase_end
 }
 
+testcase_browse_shared_querier() {
+    : "Concurrent subscribers of one service type share a querier and each receives updates"
+    resolvectl flush-caches
+
+    local out1 out2 out3 unit1 unit2 unit3 service_type params n1 n2 n3
+    service_type="_testService8._udp"
+    params="{ \"domain\": \"$service_type.local\", \"type\": \"\", \"ifindex\": ${BRIDGE_INDEX:?}, \"flags\": 16785432 }"
+    out1="$(mktemp)"; out2="$(mktemp)"; out3="$(mktemp)"
+    unit1="varlinkctl-shared1-$SRANDOM.service"
+    unit2="varlinkctl-shared2-$SRANDOM.service"
+    unit3="varlinkctl-shared3-$SRANDOM.service"
+
+    # Two concurrent subscriptions to the same question from the start. --timeout=infinity: both
+    # must survive the ~120s TTL expiry phase below despite going idle in between.
+    systemd-run --unit="$unit1" --service-type=exec -p StandardOutput="file:$out1" \
+        varlinkctl call --more --timeout=infinity /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.BrowseServices "$params"
+    systemd-run --unit="$unit2" --service-type=exec -p StandardOutput="file:$out2" \
+        varlinkctl call --more --timeout=infinity /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.BrowseServices "$params"
+    # shellcheck disable=SC2064
+    trap "trap - RETURN; systemctl stop $unit1 $unit2 $unit3 2>/dev/null || :" RETURN
+
+    # Both subscribers must see all 40 services (20 per container, both families collapse onto
+    # family-tagged entries; count 'added' occurrences like the other testcases). The raw >=40
+    # count alone could be satisfied by a single container's 20 services on two families, so
+    # also require that BOTH containers appear in each stream -- the expiry phase below yanks
+    # CONTAINER_2 and would be doomed from the start if it was never discovered.
+    local both=0
+    for _ in {0..14}; do
+        n1="$( { grep -o '"updateFlag":"added"' "$out1" || :; } | wc -l)"
+        n2="$( { grep -o '"updateFlag":"added"' "$out2" || :; } | wc -l)"
+        if [[ "$n1" -ge 40 && "$n2" -ge 40 ]] &&
+           grep "on $CONTAINER_1" "$out1" >/dev/null && grep "on $CONTAINER_2" "$out1" >/dev/null &&
+           grep "on $CONTAINER_1" "$out2" >/dev/null && grep "on $CONTAINER_2" "$out2" >/dev/null; then
+            both=1
+            break
+        fi
+        sleep 2
+    done
+    if [[ "$both" -ne 1 ]]; then
+        echo >&2 "Concurrent subscribers did not both discover both containers' services (n1=${n1:-0} n2=${n2:-0})"
+        cat "$out1" "$out2" >&2
+        return 1
+    fi
+
+    # A late joiner of the same question is served a snapshot of the querier state and must not
+    # need to wait for any wire traffic -- poll briefly only to absorb event-loop scheduling.
+    systemd-run --unit="$unit3" --service-type=exec -p StandardOutput="file:$out3" \
+        varlinkctl call --more --timeout=infinity /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.BrowseServices "$params"
+    local snap=0
+    for _ in {0..9}; do
+        n3="$( { grep -o '"updateFlag":"added"' "$out3" || :; } | wc -l)"
+        if [[ "$n3" -ge 40 ]] &&
+           grep "on $CONTAINER_1" "$out3" >/dev/null && grep "on $CONTAINER_2" "$out3" >/dev/null; then
+            snap=1
+            break
+        fi
+        sleep 1
+    done
+    if [[ "$snap" -ne 1 ]]; then
+        echo >&2 "Late joiner did not receive the full initial snapshot (n3=${n3:-0})"
+        cat "$out3" >&2
+        return 1
+    fi
+
+    # Detaching one subscriber must not affect the others: checkpoint the survivors' streams
+    # BEFORE the stop, hold a quiet window spanning several continuous-query revisits (as the
+    # no-flap testcase does), and assert no 'removed' reached them. All publishers are still up,
+    # so any hit here is detach-induced flap -- which would otherwise be indistinguishable from
+    # the expiry-driven removals asserted below.
+    local off1 off3
+    off1="$(wc -c <"$out1")"
+    off3="$(wc -c <"$out3")"
+
+    systemctl stop "$unit2"
+    sleep 12
+
+    if tail -c "+$((off1 + 1))" "$out1" | grep '"updateFlag":"removed"' >/dev/null; then
+        echo >&2 "Detaching a subscriber caused spurious 'removed' events for a surviving subscriber:"
+        tail -c "+$((off1 + 1))" "$out1" >&2
+        return 1
+    fi
+    if tail -c "+$((off3 + 1))" "$out3" | grep '"updateFlag":"removed"' >/dev/null; then
+        echo >&2 "Detaching a subscriber caused spurious 'removed' events for the late joiner:"
+        tail -c "+$((off3 + 1))" "$out3" >&2
+        return 1
+    fi
+
+    # Take the second container off the network abruptly. The assertion here is the fan-out:
+    # however the expired records get pruned (for a type the surviving publisher still answers,
+    # its refreshes can drive the pruning just as well as the querier's TTL-maintenance ladder
+    # -- testcase_mdns_remove_on_expiry is what pins down the ladder mechanism), every remaining
+    # subscriber must receive the resulting 'removed' events, late joiner included.
+    systemd-run -M "$CONTAINER_2" --wait --pipe -- networkctl down host0
+
+    local removed1=0 removed3=0
+    for _ in {0..99}; do
+        if [[ "$removed1" -eq 0 ]] && tail -c "+$((off1 + 1))" "$out1" | { grep -oE '"updateFlag":"removed"[^}]*"name":"[^"]*"' || :; } | grep "on $CONTAINER_2" >/dev/null; then
+            removed1=1
+        fi
+        if [[ "$removed3" -eq 0 ]] && tail -c "+$((off3 + 1))" "$out3" | { grep -oE '"updateFlag":"removed"[^}]*"name":"[^"]*"' || :; } | grep "on $CONTAINER_2" >/dev/null; then
+            removed3=1
+        fi
+        [[ "$removed1" -eq 1 && "$removed3" -eq 1 ]] && break
+        sleep 2
+    done
+
+    if [[ "$removed1" -ne 1 || "$removed3" -ne 1 ]]; then
+        echo >&2 "Expiry removals were not fanned out to all subscribers (removed1=$removed1 removed3=$removed3)"
+        cat "$out1" "$out3" >&2
+        systemd-run -M "$CONTAINER_2" --wait --pipe -- networkctl up host0 || :
+        return 1
+    fi
+
+    # Restore the second container for the remaining testcases.
+    systemd-run -M "$CONTAINER_2" --wait --pipe -- networkctl up host0
+    systemd-run -M "$CONTAINER_2" --wait --pipe -- \
+        /usr/lib/systemd/systemd-networkd-wait-online --ipv4 --ipv6 --interface=host0 --operational-state=degraded --timeout=30
+
+    echo testcase_end
+}
+
 testcase_second_unreachable() {
     : "Test each service type while the second container is unreachable"
     systemd-run -M "$CONTAINER_2" --wait --pipe -- networkctl down host0
