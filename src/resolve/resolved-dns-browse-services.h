@@ -99,5 +99,5 @@ int dns_subscribe_browse_service(
                 int ifindex,
                 uint64_t flags);
 void dns_unsubscribe_browse_service(Manager *m, sd_varlink *link);
-int mdns_notify_browsers_unsolicited_updates(Manager *m, DnsAnswer *answer, int owner_family);
-int mdns_notify_browsers_goodbye(DnsScope *scope);
+int mdns_queriers_notify_unsolicited_updates(Manager *m, DnsAnswer *answer, int owner_family);
+int mdns_queriers_notify_goodbye(DnsScope *scope);
