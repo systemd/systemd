@@ -522,7 +522,7 @@ DnsQuery *dns_query_free(DnsQuery *q) {
 
         free(q->request_address_string);
 
-        dns_service_browser_unref(q->service_browser_request);
+        dns_service_querier_unref(q->service_querier_request);
 
         hook_query_free(q->hook_query);
 
