@@ -1,10 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "alloc-util.h"
 #include "dns-answer.h"
 #include "dns-packet.h"
 #include "dns-question.h"
 #include "dns-rr.h"
 #include "dns-type.h"
+#include "hashmap.h"
 #include "list.h"
 #include "log.h"
 #include "tests.h"
@@ -1296,6 +1298,54 @@ TEST(packet_append_key_name_too_long) {
 
         ASSERT_EQ(r, -EINVAL);
         ASSERT_EQ(packet->size, 12U);
+}
+
+TEST(packet_append_name_beyond_compression_pointer_range) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        size_t start;
+
+        ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
+
+        /* Fill the packet past the range a compression pointer can express (RFC 1035 pointers carry
+         * 14 bits, i.e. offsets up to 0x3fff) with unique names. */
+        for (size_t i = 0; packet->size < 0x4000; i++) {
+                char name[64];
+
+                snprintf(name, sizeof(name), "filler%zu.example.com", i);
+                ASSERT_OK(dns_packet_append_name(packet, name, /* allow_compression= */ true, /* canonical_candidate= */ false, NULL));
+        }
+
+        /* The first occurrence of this name lands beyond pointer range, so it must not be added to
+         * the compression map... */
+        size_t n_mapped = hashmap_size(packet->names);
+        ASSERT_OK(dns_packet_append_name(packet, "far.example.org", /* allow_compression= */ true, /* canonical_candidate= */ false, &start));
+        ASSERT_GE(start, (size_t) 0x4000);
+        ASSERT_EQ(hashmap_size(packet->names), n_mapped);
+
+        /* ...and since no pointer can reference it, later occurrences must be appended as labels
+         * again. This used to fail with -EEXIST when the name was reinserted into the map. */
+        size_t second;
+        ASSERT_OK(dns_packet_append_name(packet, "far.example.org", /* allow_compression= */ true, /* canonical_candidate= */ false, &second));
+        ASSERT_OK(dns_packet_append_name(packet, "far.example.org", /* allow_compression= */ true, /* canonical_candidate= */ false, NULL));
+        ASSERT_EQ(hashmap_size(packet->names), n_mapped);
+
+        /* Names first seen within pointer range still compress: re-appending one takes exactly the
+         * two bytes of a compression pointer. */
+        size_t before = packet->size;
+        ASSERT_OK(dns_packet_append_name(packet, "filler0.example.com", /* allow_compression= */ true, /* canonical_candidate= */ false, NULL));
+        ASSERT_EQ(packet->size, before + 2);
+
+        /* Both encodings must round-trip through the parser: the label-form re-occurrence beyond
+         * pointer range and the pointer-form one within it. */
+        _cleanup_free_ char *parsed = NULL;
+        dns_packet_rewind(packet, second);
+        ASSERT_OK(dns_packet_read_name(packet, &parsed, /* allow_compression= */ true, NULL));
+        ASSERT_STREQ(parsed, "far.example.org");
+
+        parsed = mfree(parsed);
+        dns_packet_rewind(packet, before);
+        ASSERT_OK(dns_packet_read_name(packet, &parsed, /* allow_compression= */ true, NULL));
+        ASSERT_STREQ(parsed, "filler0.example.com");
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG)
