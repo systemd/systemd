@@ -17,6 +17,16 @@ CHANGES WITH 263 in spe:
         * As mentioned above, systemd-networkd and networkctl have been merged
           into a single multi-call binary to reduce the installation footprint.
 
+        Changes in systemd-resolved and resolvectl:
+
+        * systemd-resolved now sends mDNS goodbye announcements (RFC 6762
+          section 10.1) for the DNS-SD services it publishes when the daemon is
+          stopped, so peers drop them right away instead of waiting out the
+          record TTL. To let the goodbye reach the network (and be repeated
+          once, as that section requires), stopping the daemon now takes about a
+          second longer on hosts that publish any such service. Hosts publishing
+          none are unaffected.
+
 CHANGES WITH 262:
 
         Announcements of Future Feature Removals and Incompatible Changes:
