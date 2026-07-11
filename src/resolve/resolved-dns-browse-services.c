@@ -13,6 +13,7 @@
 #include "resolved-dns-query.h"
 #include "resolved-dns-scope.h"
 #include "resolved-manager.h"
+#include "siphash24.h"
 #include "string-table.h"
 #include "string-util.h"
 
@@ -29,6 +30,71 @@ static const char * const browse_service_update_event_table[_BROWSE_SERVICE_UPDA
 };
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(browse_service_update_event, BrowseServiceUpdateEvent);
+
+/* Split the service name out of a PTR record (falling back to the record's key for a PTR target
+ * that does not parse as an instance name) and append one browserServiceData event entry to the
+ * JSON array. Returns > 0 when an entry was appended, 0 when the record does not describe a
+ * service (no type) and nothing was appended. */
+static int browse_service_update_append(
+                sd_json_variant **array,
+                DnsResourceRecord *rr,
+                int family,
+                int ifindex,
+                BrowseServiceUpdateEvent event) {
+
+        _cleanup_free_ char *name = NULL, *type = NULL, *domain = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *entry = NULL;
+        int r;
+
+        assert(array);
+        assert(rr);
+
+        r = dns_service_split(rr->ptr.name, &name, &type, &domain);
+        if (r < 0)
+                return r;
+
+        if (!name) {
+                type = mfree(type);
+                domain = mfree(domain);
+
+                r = dns_service_split(dns_resource_key_name(rr->key), &name, &type, &domain);
+                if (r < 0)
+                        return r;
+        }
+
+        if (!type)
+                return 0;
+
+        log_debug("%s browsed service %s, %s, %s, %s, %d",
+                  browse_service_update_event_to_string(event),
+                  strna(name),
+                  strna(type),
+                  strna(domain),
+                  strna(af_to_ipv4_ipv6(family)),
+                  ifindex);
+
+        r = sd_json_buildo(
+                        &entry,
+                        SD_JSON_BUILD_PAIR_STRING(
+                                        "updateFlag",
+                                        browse_service_update_event_to_string(event)),
+                        SD_JSON_BUILD_PAIR_INTEGER("family", family),
+                        SD_JSON_BUILD_PAIR_CONDITION(
+                                        !isempty(name), "name", SD_JSON_BUILD_STRING(name)),
+                        SD_JSON_BUILD_PAIR_CONDITION(
+                                        !isempty(type), "type", SD_JSON_BUILD_STRING(type)),
+                        SD_JSON_BUILD_PAIR_CONDITION(
+                                        !isempty(domain), "domain", SD_JSON_BUILD_STRING(domain)),
+                        SD_JSON_BUILD_PAIR_INTEGER("ifindex", ifindex));
+        if (r < 0)
+                return r;
+
+        r = sd_json_variant_append_array(array, entry);
+        if (r < 0)
+                return r;
+
+        return 1;
+}
 
 /* RFC6762 5.2
  * The intervals between successive queries MUST increase by at least a
@@ -430,8 +496,6 @@ int mdns_manage_services_answer(DnsServiceQuerier *sq, DnsAnswer *answer, int ow
 
         /* Check for new service added */
         DNS_ANSWER_FOREACH_ITEM(item, answer) {
-                _cleanup_free_ char *name = NULL, *type = NULL, *domain = NULL;
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *entry = NULL;
                 int ifindex = mdns_answer_item_ifindex(sq, item);
 
                 r = dns_service_match_and_update(sq->dns_services, item->rr, owner_family, ifindex, item->until);
@@ -445,23 +509,12 @@ int mdns_manage_services_answer(DnsServiceQuerier *sq, DnsAnswer *answer, int ow
                         continue;
                 }
 
-                r = dns_service_split(item->rr->ptr.name, &name, &type, &domain);
+                r = browse_service_update_append(&array, item->rr, owner_family, ifindex, BROWSE_SERVICE_UPDATE_ADDED);
                 if (r < 0) {
-                        log_error_errno(r, "Failed to split DNS service name: %m");
+                        log_error_errno(r, "Failed to append 'added' service event: %m");
                         goto finish;
                 }
-
-                if (!name) {
-                        type = mfree(type);
-                        domain = mfree(domain);
-                        r = dns_service_split(dns_resource_key_name(item->rr->key), &name, &type, &domain);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to split DNS service name (fallback): %m");
-                                goto finish;
-                        }
-                }
-
-                if (!type)
+                if (r == 0)
                         continue;
 
                 r = dns_add_new_service(sq, item->rr, owner_family, ifindex, item->until);
@@ -469,46 +522,10 @@ int mdns_manage_services_answer(DnsServiceQuerier *sq, DnsAnswer *answer, int ow
                         log_error_errno(r, "Failed to add new DNS service: %m");
                         goto finish;
                 }
-
-                log_debug("Add into the list %s, %s, %s, %s, %d",
-                          strna(name),
-                          strna(type),
-                          strna(domain),
-                          strna(af_to_ipv4_ipv6(owner_family)),
-                          ifindex);
-
-                r = sd_json_buildo(
-                                &entry,
-                                SD_JSON_BUILD_PAIR_STRING(
-                                                "updateFlag",
-                                                browse_service_update_event_to_string(
-                                                                BROWSE_SERVICE_UPDATE_ADDED)),
-                                SD_JSON_BUILD_PAIR_INTEGER("family", owner_family),
-                                SD_JSON_BUILD_PAIR_CONDITION(
-                                                !isempty(name), "name", SD_JSON_BUILD_STRING(name)),
-                                SD_JSON_BUILD_PAIR_CONDITION(
-                                                !isempty(type), "type", SD_JSON_BUILD_STRING(type)),
-                                SD_JSON_BUILD_PAIR_CONDITION(
-                                                !isempty(domain), "domain", SD_JSON_BUILD_STRING(domain)),
-                                SD_JSON_BUILD_PAIR_INTEGER("ifindex", ifindex));
-                if (r < 0) {
-                        log_error_errno(r, "Failed to build JSON for new service: %m");
-                        goto finish;
-                }
-
-                r = sd_json_variant_append_array(&array, entry);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to append JSON entry to array: %m");
-                        goto finish;
-                }
         }
 
         /* Check for services removed */
         LIST_FOREACH(dns_services, service, sq->dns_services) {
-                _cleanup_free_ char *name = NULL, *type = NULL, *domain = NULL;
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *entry = NULL;
-                int ifindex;
-
                 if (service->family != owner_family)
                         continue;
 
@@ -520,56 +537,13 @@ int mdns_manage_services_answer(DnsServiceQuerier *sq, DnsAnswer *answer, int ow
                 if (r > 0)
                         continue;
 
-                r = dns_service_split(service->rr->ptr.name, &name, &type, &domain);
+                r = browse_service_update_append(&array, service->rr, owner_family, service->ifindex, BROWSE_SERVICE_UPDATE_REMOVED);
                 if (r < 0) {
-                        log_error_errno(r, "Failed to split DNS service name from list: %m");
+                        log_error_errno(r, "Failed to append 'removed' service event: %m");
                         goto finish;
                 }
-
-                if (!name) {
-                        type = mfree(type);
-                        domain = mfree(domain);
-                        r = dns_service_split(dns_resource_key_name(service->rr->key), &name, &type, &domain);
-                        if (r < 0) {
-                                log_error_errno(r,
-                                                "Failed to split DNS service name (fallback) from list: %m");
-                                goto finish;
-                        }
-                }
-
-                /* Capture ifindex before removing the service */
-                ifindex = service->ifindex;
 
                 dns_remove_service(sq, service);
-
-                log_debug("Remove from the list %s, %s, %s, %s, %d",
-                          strna(name),
-                          strna(type),
-                          strna(domain),
-                          strna(af_to_ipv4_ipv6(owner_family)),
-                          ifindex);
-
-                r = sd_json_buildo(
-                                &entry,
-                                SD_JSON_BUILD_PAIR_STRING(
-                                                "updateFlag",
-                                                browse_service_update_event_to_string(
-                                                                BROWSE_SERVICE_UPDATE_REMOVED)),
-                                SD_JSON_BUILD_PAIR_INTEGER("family", owner_family),
-                                SD_JSON_BUILD_PAIR_STRING("name", strempty(name)),
-                                SD_JSON_BUILD_PAIR_STRING("type", strempty(type)),
-                                SD_JSON_BUILD_PAIR_STRING("domain", strempty(domain)),
-                                SD_JSON_BUILD_PAIR_INTEGER("ifindex", ifindex));
-                if (r < 0) {
-                        log_error_errno(r, "Failed to build JSON for removed service: %m");
-                        goto finish;
-                }
-
-                r = sd_json_variant_append_array(&array, entry);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to append JSON entry to array: %m");
-                        goto finish;
-                }
         }
 
         /* (Re-)arm the querier's maintenance ladder once against the reconciled list — doing it per
@@ -718,7 +692,7 @@ int mdns_querier_revisit_cache(DnsServiceQuerier *sq, int owner_family) {
         return 0;
 }
 
-int mdns_notify_browsers_goodbye(DnsScope *scope) {
+int mdns_queriers_notify_goodbye(DnsScope *scope) {
         DnsServiceQuerier *sq;
         int r;
 
@@ -737,7 +711,7 @@ int mdns_notify_browsers_goodbye(DnsScope *scope) {
         return 0;
 }
 
-int mdns_notify_browsers_unsolicited_updates(Manager *m, DnsAnswer *answer, int owner_family) {
+int mdns_queriers_notify_unsolicited_updates(Manager *m, DnsAnswer *answer, int owner_family) {
         DnsServiceQuerier *sq;
         int r;
 
@@ -873,6 +847,62 @@ void dns_browse_services_restart(Manager *m) {
         }
 }
 
+static void dns_service_querier_hash_func(const DnsServiceQuerier *sq, struct siphash *state) {
+        assert(sq);
+
+        dns_resource_key_hash_func(sq->key, state);
+        siphash24_compress_typesafe(sq->ifindex, state);
+        siphash24_compress_typesafe(sq->flags, state);
+}
+
+static int dns_service_querier_compare_func(const DnsServiceQuerier *a, const DnsServiceQuerier *b) {
+        int r;
+
+        assert(a);
+        assert(b);
+
+        r = dns_resource_key_compare_func(a->key, b->key);
+        if (r != 0)
+                return r;
+
+        r = CMP(a->ifindex, b->ifindex);
+        if (r != 0)
+                return r;
+
+        return CMP(a->flags, b->flags);
+}
+
+DEFINE_PRIVATE_HASH_OPS(
+                dns_service_querier_hash_ops,
+                DnsServiceQuerier,
+                dns_service_querier_hash_func,
+                dns_service_querier_compare_func);
+
+/* Bring a subscriber that joined an already-running querier up to speed: synthesize "added" events
+ * for everything discovered so far, mirroring what a first cache-served query would have yielded. */
+static int dns_service_browser_send_snapshot(DnsServiceBrowser *sb) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL, *vm = NULL;
+        int r;
+
+        assert(sb);
+        assert(sb->querier);
+
+        LIST_FOREACH(dns_services, service, sb->querier->dns_services) {
+                r = browse_service_update_append(&array, service->rr, service->family, service->ifindex, BROWSE_SERVICE_UPDATE_ADDED);
+                if (r < 0)
+                        return r;
+        }
+
+        if (sd_json_variant_is_blank_array(array))
+                return 0;
+
+        r = sd_json_buildo(&vm, SD_JSON_BUILD_PAIR_VARIANT("browserServiceData", array));
+        if (r < 0)
+                return r;
+
+        return sd_varlink_notify(sb->link, vm);
+}
+
 static int dns_service_querier_new(
                 Manager *m,
                 DnsQuestion *question_utf8,
@@ -990,9 +1020,22 @@ int dns_subscribe_browse_service(
         if (r < 0)
                 return log_error_errno(r, "Failed to create DNS question for IDNA version: %m");
 
-        r = dns_service_querier_new(m, question_utf8, question_idna, ifindex, flags, &sq);
-        if (r < 0)
-                return r;
+        /* One querier per browse question: if somebody is asking this already, join them instead of
+         * multicasting the same question a second time. */
+        DnsServiceQuerier *shared = hashmap_get(
+                        m->dns_service_queriers,
+                        &(DnsServiceQuerier) {
+                                .key = dns_question_first_key(question_utf8),
+                                .ifindex = ifindex,
+                                .flags = flags,
+                        });
+        if (shared)
+                sq = dns_service_querier_ref(shared);
+        else {
+                r = dns_service_querier_new(m, question_utf8, question_idna, ifindex, flags, &sq);
+                if (r < 0)
+                        return r;
+        }
 
         /* Subscribe first, register afterwards: any failure from here on unwinds through
          * dns_service_browser_free() -> dns_service_querier_detach(), whose registry removal is a
@@ -1008,13 +1051,28 @@ int dns_subscribe_browse_service(
 
         LIST_PREPEND(subscribers, sq->subscribers, sb);
 
-        r = hashmap_ensure_put(&m->dns_service_queriers, NULL, sq, sq);
-        if (r < 0)
-                return log_error_errno(r, "Failed to add service querier to the hashmap: %m");
+        if (!shared) {
+                r = hashmap_ensure_put(&m->dns_service_queriers, &dns_service_querier_hash_ops, sq, sq);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add service querier to the hashmap: %m");
+        }
 
         r = hashmap_ensure_put(&m->dns_service_browsers, NULL, link, sb);
         if (r < 0)
                 return log_error_errno(r, "Failed to add service browser to the hashmap: %m");
+
+        /* A late joiner inherits the querier's current view; hand it over right away. Everything
+         * after this arrives as regular diff events like for any other subscriber. A subscriber
+         * whose snapshot failed must not stay registered with a silently empty view — fail the
+         * call instead, so the client knows to resubscribe. This matches the policy at
+         * mdns_manage_services_answer()'s finish: label for lost diff batches. */
+        if (shared) {
+                r = dns_service_browser_send_snapshot(sb);
+                if (r < 0) {
+                        hashmap_remove(m->dns_service_browsers, link);
+                        return log_debug_errno(r, "Failed to send initial browse snapshot: %m");
+                }
+        }
 
         TAKE_PTR(sb);
 
