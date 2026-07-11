@@ -84,10 +84,10 @@ static usec_t mdns_maintenance_jitter(uint32_t ttl) {
         return random_u64_range(2 * (usec_t) ttl * USEC_PER_SEC / 100);
 }
 
-static void mdns_browser_schedule_maintenance(DnsServiceBrowser *sb);
+static void mdns_querier_schedule_maintenance(DnsServiceQuerier *sq);
 
 static void mdns_maintenance_query_complete(DnsQuery *q) {
-        _cleanup_(dns_service_browser_unrefp) DnsServiceBrowser *sb = NULL;
+        _cleanup_(dns_service_querier_unrefp) DnsServiceQuerier *sq = NULL;
         _cleanup_(dns_query_freep) DnsQuery *query = q;
         int r;
 
@@ -97,19 +97,19 @@ static void mdns_maintenance_query_complete(DnsQuery *q) {
         if (query->state != DNS_TRANSACTION_SUCCESS)
                 return;
 
-        sb = dns_service_browser_ref(query->service_browser_request);
-        if (!sb)
+        sq = dns_service_querier_ref(query->service_querier_request);
+        if (!sq)
                 return;
 
         /* The ladder is armed against the soonest-expiring instance across both address families, so
          * bring both back in sync: the completing query carries one family's answer, but the other
          * family's records were refreshed in the cache by their own transaction all the same — the
-         * terminal branch of mdns_browser_maintenance() revisits both for the same reason. */
-        r = mdns_browser_revisit_cache(sb, AF_INET);
+         * terminal branch of mdns_querier_maintenance() revisits both for the same reason. */
+        r = mdns_querier_revisit_cache(sq, AF_INET);
         if (r < 0)
                 log_error_errno(r, "Failed to revisit IPv4 cache for maintenance query, ignoring: %m");
 
-        r = mdns_browser_revisit_cache(sb, AF_INET6);
+        r = mdns_querier_revisit_cache(sq, AF_INET6);
         if (r < 0)
                 log_error_errno(r, "Failed to revisit IPv6 cache for maintenance query, ignoring: %m");
 }
@@ -121,28 +121,28 @@ static void mdns_maintenance_query_complete(DnsQuery *q) {
  * multicasting the same question N*M times when N clients browse a type with M
  * instances, while preserving loss-resilient re-confirmation and prompt
  * removal-at-expiry. */
-static int mdns_browser_maintenance(sd_event_source *s, uint64_t usec, void *userdata) {
-        _cleanup_(dns_service_browser_unrefp) DnsServiceBrowser *sb = NULL;
+static int mdns_querier_maintenance(sd_event_source *s, uint64_t usec, void *userdata) {
+        _cleanup_(dns_service_querier_unrefp) DnsServiceQuerier *sq = NULL;
         _cleanup_(dns_query_freep) DnsQuery *q = NULL;
         int r;
 
         /* Hold a ref for the duration of the handler (as mdns_next_query_schedule()
          * does): the cache revisit below frees discovered services but not the
-         * browser, yet keeping our own ref makes that invariant local and robust. */
-        assert_se(sb = dns_service_browser_ref(userdata));
+         * querier, yet keeping our own ref makes that invariant local and robust. */
+        assert_se(sq = dns_service_querier_ref(userdata));
 
         /* Terminal state: the soonest-expiring instance's TTL has fully elapsed.
          * Reconcile the cache (this prunes expired records and emits "removed"),
-         * then reschedule against whatever remains. The browser owns this timer
+         * then reschedule against whatever remains. The querier owns this timer
          * and is NOT freed by the revisit — only individual services are — so it
-         * is safe to touch sb afterwards; if the record still lingers in cache
+         * is safe to touch sq afterwards; if the record still lingers in cache
          * (e.g. StaleRetentionSec>0), schedule_maintenance re-arms a short
          * re-check so removal stays bounded rather than leaving the timer dead. */
-        if (sb->rr_ttl_state == DNS_RECORD_TTL_STATE_100_PERCENT) {
-                sb->rr_ttl_state = DNS_RECORD_TTL_STATE_80_PERCENT;
-                (void) mdns_browser_revisit_cache(sb, AF_INET);
-                (void) mdns_browser_revisit_cache(sb, AF_INET6);
-                mdns_browser_schedule_maintenance(sb);
+        if (sq->rr_ttl_state == DNS_RECORD_TTL_STATE_100_PERCENT) {
+                sq->rr_ttl_state = DNS_RECORD_TTL_STATE_80_PERCENT;
+                (void) mdns_querier_revisit_cache(sq, AF_INET);
+                (void) mdns_querier_revisit_cache(sq, AF_INET6);
+                mdns_querier_schedule_maintenance(sq);
                 return 0;
         }
 
@@ -152,25 +152,25 @@ static int mdns_browser_maintenance(sd_event_source *s, uint64_t usec, void *use
          * leaving the ladder permanently dead — with a vanished publisher there are
          * no further answers that could revive it, so a single transient failure to
          * create or send one query would forfeit removal-on-expiry for good. */
-        sb->rr_ttl_state++;
+        sq->rr_ttl_state++;
 
-        mdns_browser_schedule_maintenance(sb);
+        mdns_querier_schedule_maintenance(sq);
 
         r = dns_query_new(
-                        sb->manager,
+                        sq->manager,
                         &q,
-                        sb->question_utf8,
-                        sb->question_idna,
+                        sq->question_utf8,
+                        sq->question_idna,
                         /* question_bypass= */ NULL,
-                        sb->ifindex,
-                        sb->flags);
+                        sq->ifindex,
+                        sq->flags | SD_RESOLVED_QUERY_CONTINUOUS | SD_RESOLVED_NO_CACHE);
         if (r < 0) {
                 log_error_errno(r, "Failed to create mDNS query for maintenance, ignoring: %m");
                 return 0;
         }
 
         q->complete = mdns_maintenance_query_complete;
-        q->service_browser_request = dns_service_browser_ref(sb);
+        q->service_querier_request = dns_service_querier_ref(sq);
 
         r = dns_query_go(q);
         if (r < 0) {
@@ -182,21 +182,21 @@ static int mdns_browser_maintenance(sd_event_source *s, uint64_t usec, void *use
         return 0;
 }
 
-/* (Re)arm the browser's single maintenance ladder against the soonest-expiring
+/* (Re)arm the querier's single maintenance ladder against the soonest-expiring
  * discovered service. Disables the timer when no services remain. */
-static void mdns_browser_schedule_maintenance(DnsServiceBrowser *sb) {
+static void mdns_querier_schedule_maintenance(DnsServiceQuerier *sq) {
         DnssdDiscoveredService *soonest = NULL;
         usec_t usec, next_time = 0;
         int r;
 
-        assert(sb);
+        assert(sq);
 
-        LIST_FOREACH(dns_services, s, sb->dns_services)
+        LIST_FOREACH(dns_services, s, sq->dns_services)
                 if (!soonest || s->until < soonest->until)
                         soonest = s;
 
         if (!soonest) {
-                sb->maintenance_event = sd_event_source_disable_unref(sb->maintenance_event);
+                sq->maintenance_event = sd_event_source_disable_unref(sq->maintenance_event);
                 return;
         }
 
@@ -204,47 +204,47 @@ static void mdns_browser_schedule_maintenance(DnsServiceBrowser *sb) {
 
         /* Skip ladder increments whose scheduled time already elapsed (e.g. a
          * service discovered late in its lifetime, or a lingering expired one). */
-        while (sb->rr_ttl_state >= DNS_RECORD_TTL_STATE_80_PERCENT &&
-               sb->rr_ttl_state < _DNS_RECORD_TTL_STATE_MAX) {
-                next_time = mdns_maintenance_next_time(soonest->until, soonest->rr->ttl, sb->rr_ttl_state);
+        while (sq->rr_ttl_state >= DNS_RECORD_TTL_STATE_80_PERCENT &&
+               sq->rr_ttl_state < _DNS_RECORD_TTL_STATE_MAX) {
+                next_time = mdns_maintenance_next_time(soonest->until, soonest->rr->ttl, sq->rr_ttl_state);
                 if (next_time >= usec)
                         break;
 
-                sb->rr_ttl_state++;
+                sq->rr_ttl_state++;
         }
 
         if (next_time < usec) {
                 /* Already at/past expiry: re-check shortly so the terminal branch
                  * prunes the record from cache and emits the removal. */
                 next_time = usec_add(usec, USEC_PER_SEC);
-                sb->rr_ttl_state = DNS_RECORD_TTL_STATE_100_PERCENT;
+                sq->rr_ttl_state = DNS_RECORD_TTL_STATE_100_PERCENT;
         }
 
         /* The 2% jitter desynchronizes the §5.2 re-confirmation queries across queriers; the terminal
          * rung is our own expiry check, not a query — arming it past the record's actual expiry would
          * only delay the removal this ladder exists to guarantee. */
-        usec_t jitter = sb->rr_ttl_state == DNS_RECORD_TTL_STATE_100_PERCENT ?
+        usec_t jitter = sq->rr_ttl_state == DNS_RECORD_TTL_STATE_100_PERCENT ?
                 0 : mdns_maintenance_jitter(soonest->rr->ttl);
 
         r = event_reset_time(
-                        sb->manager->event,
-                        &sb->maintenance_event,
+                        sq->manager->event,
+                        &sq->maintenance_event,
                         CLOCK_BOOTTIME,
                         usec_add(next_time, jitter),
                         /* accuracy= */ 0,
-                        mdns_browser_maintenance,
-                        sb,
+                        mdns_querier_maintenance,
+                        sq,
                         /* priority= */ 0,
-                        "mdns-browser-maintenance",
+                        "mdns-querier-maintenance",
                         /* force_reset= */ true);
         if (r < 0)
                 log_error_errno(r, "Failed to schedule mDNS maintenance query: %m");
 }
 
-int dns_add_new_service(DnsServiceBrowser *sb, DnsResourceRecord *rr, int owner_family, int ifindex, usec_t until) {
+int dns_add_new_service(DnsServiceQuerier *sq, DnsResourceRecord *rr, int owner_family, int ifindex, usec_t until) {
         _cleanup_(dns_service_freep) DnssdDiscoveredService *s = NULL;
 
-        assert(sb);
+        assert(sq);
         assert(rr);
 
         s = new(DnssdDiscoveredService, 1);
@@ -252,7 +252,7 @@ int dns_add_new_service(DnsServiceBrowser *sb, DnsResourceRecord *rr, int owner_
                 return log_oom();
 
         *s = (DnssdDiscoveredService) {
-                .service_browser = sb,
+                .querier = sq,
                 .rr = dns_resource_record_copy(rr),
                 .family = owner_family,
                 .ifindex = ifindex,
@@ -261,21 +261,21 @@ int dns_add_new_service(DnsServiceBrowser *sb, DnsResourceRecord *rr, int owner_
         if (!s->rr)
                 return log_oom();
 
-        LIST_PREPEND(dns_services, sb->dns_services, s);
+        LIST_PREPEND(dns_services, sq->dns_services, s);
         TAKE_PTR(s);
 
         /* A newly discovered instance extends the browsed RRset, so restart the
-         * browser's RFC 6762 §5.2 re-confirmation ladder from 80%. The re-arm
+         * querier's RFC 6762 §5.2 re-confirmation ladder from 80%. The re-arm
          * happens once per reconciliation, in mdns_manage_services_answer(). */
-        sb->rr_ttl_state = DNS_RECORD_TTL_STATE_80_PERCENT;
+        sq->rr_ttl_state = DNS_RECORD_TTL_STATE_80_PERCENT;
         return 0;
 }
 
-void dns_remove_service(DnsServiceBrowser *sb, DnssdDiscoveredService *service) {
-        assert(sb);
+void dns_remove_service(DnsServiceQuerier *sq, DnssdDiscoveredService *service) {
+        assert(sq);
         assert(service);
 
-        LIST_REMOVE(dns_services, sb->dns_services, service);
+        LIST_REMOVE(dns_services, sq->dns_services, service);
         dns_service_free(service);
 
         /* The removed instance may have been both the soonest-expiring one and the
@@ -284,8 +284,8 @@ void dns_remove_service(DnsServiceBrowser *sb, DnssdDiscoveredService *service) 
          * re-confirmation ladder instead of inheriting a high rung near its own
          * expiry. The re-arm — which also disables the timer when the last service
          * is gone — happens once per reconciliation, in mdns_manage_services_answer()
-         * (or in dns_service_browser_free(), which drops the timer altogether). */
-        sb->rr_ttl_state = DNS_RECORD_TTL_STATE_80_PERCENT;
+         * (or in dns_service_querier_free(), which drops the timer altogether). */
+        sq->rr_ttl_state = DNS_RECORD_TTL_STATE_80_PERCENT;
 }
 
 DnssdDiscoveredService *dns_service_free(DnssdDiscoveredService *service) {
@@ -304,14 +304,14 @@ void mdns_service_update(DnssdDiscoveredService *service, DnsResourceRecord *rr,
         service->until = until;
         service->rr->ttl = rr->ttl;
 
-        /* A genuine refresh extends the RRset lifetime, so restart the browser's
+        /* A genuine refresh extends the RRset lifetime, so restart the querier's
          * RFC 6762 §5.2 re-confirmation ladder from 80%. rr_ttl_state must be wound
          * back here: it is otherwise only ever incremented in
-         * mdns_browser_maintenance(), so without the reset a continuously-present
+         * mdns_querier_maintenance(), so without the reset a continuously-present
          * RRset would ratchet to 100% and fire the terminal expiry revisit
          * prematurely. The re-arm happens once per reconciliation, in
          * mdns_manage_services_answer(). */
-        service->service_browser->rr_ttl_state = DNS_RECORD_TTL_STATE_80_PERCENT;
+        service->querier->rr_ttl_state = DNS_RECORD_TTL_STATE_80_PERCENT;
 }
 
 bool dns_service_match_and_update(DnssdDiscoveredService *services, DnsResourceRecord *rr, int owner_family, usec_t until) {
@@ -341,32 +341,32 @@ void dns_browse_services_purge(Manager *m, int family) {
         if (!m)
                 return;
 
-        DnsServiceBrowser *sb;
-        HASHMAP_FOREACH(sb, m->dns_service_browsers) {
-                r = sd_event_source_set_enabled(sb->schedule_event, SD_EVENT_OFF);
+        DnsServiceQuerier *sq;
+        HASHMAP_FOREACH(sq, m->dns_service_queriers) {
+                r = sd_event_source_set_enabled(sq->schedule_event, SD_EVENT_OFF);
                 if (r < 0)
-                        log_error_errno(r, "Failed to disable event source for service browser, ignoring: %m");
+                        log_error_errno(r, "Failed to disable event source for service querier, ignoring: %m");
 
                 if (IN_SET(family, AF_INET, AF_UNSPEC)) {
-                     r = mdns_browser_revisit_cache(sb, AF_INET);
+                        r = mdns_querier_revisit_cache(sq, AF_INET);
                         if (r < 0)
                                 log_error_errno(r, "Failed to revisit cache for IPv4, ignoring: %m");
                 }
 
                 if (IN_SET(family, AF_INET6, AF_UNSPEC)) {
-                        r = mdns_browser_revisit_cache(sb, AF_INET6);
+                        r = mdns_querier_revisit_cache(sq, AF_INET6);
                         if (r < 0)
                                 log_error_errno(r, "Failed to revisit cache for IPv6, ignoring: %m");
                 }
         }
 }
 
-int mdns_manage_services_answer(DnsServiceBrowser *sb, DnsAnswer *answer, int owner_family) {
+int mdns_manage_services_answer(DnsServiceQuerier *sq, DnsAnswer *answer, int owner_family) {
         DnsAnswerItem *item;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
         int r;
 
-        assert(sb);
+        assert(sq);
 
         /* Check for new service added */
         DNS_ANSWER_FOREACH_ITEM(item, answer) {
@@ -374,7 +374,7 @@ int mdns_manage_services_answer(DnsServiceBrowser *sb, DnsAnswer *answer, int ow
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *entry = NULL;
                 int ifindex;
 
-                if (dns_service_match_and_update(sb->dns_services, item->rr, owner_family, item->until))
+                if (dns_service_match_and_update(sq->dns_services, item->rr, owner_family, item->until))
                         continue;
 
                 r = dns_service_split(item->rr->ptr.name, &name, &type, &domain);
@@ -397,9 +397,9 @@ int mdns_manage_services_answer(DnsServiceBrowser *sb, DnsAnswer *answer, int ow
                         continue;
 
                 /* Prefer the per-item ifindex, fall back to the service browser's ifindex */
-                ifindex = item->ifindex > 0 ? item->ifindex : sb->ifindex;
+                ifindex = item->ifindex > 0 ? item->ifindex : sq->ifindex;
 
-                r = dns_add_new_service(sb, item->rr, owner_family, ifindex, item->until);
+                r = dns_add_new_service(sq, item->rr, owner_family, ifindex, item->until);
                 if (r < 0) {
                         log_error_errno(r, "Failed to add new DNS service: %m");
                         goto finish;
@@ -439,7 +439,7 @@ int mdns_manage_services_answer(DnsServiceBrowser *sb, DnsAnswer *answer, int ow
         }
 
         /* Check for services removed */
-        LIST_FOREACH(dns_services, service, sb->dns_services) {
+        LIST_FOREACH(dns_services, service, sq->dns_services) {
                 _cleanup_free_ char *name = NULL, *type = NULL, *domain = NULL;
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *entry = NULL;
                 int ifindex;
@@ -470,7 +470,7 @@ int mdns_manage_services_answer(DnsServiceBrowser *sb, DnsAnswer *answer, int ow
                 /* Capture ifindex before removing the service */
                 ifindex = service->ifindex;
 
-                dns_remove_service(sb, service);
+                dns_remove_service(sq, service);
 
                 log_debug("Remove from the list %s, %s, %s, %s, %d",
                           strna(name),
@@ -502,11 +502,11 @@ int mdns_manage_services_answer(DnsServiceBrowser *sb, DnsAnswer *answer, int ow
                 }
         }
 
-        /* (Re-)arm the browser's maintenance ladder once against the reconciled list — doing it per
+        /* (Re-)arm the querier's maintenance ladder once against the reconciled list — doing it per
          * added/removed instance inside the loops above would make reconciling an answer with M
          * instances O(M²), with M driven by untrusted multicast input. This also disables the timer
          * when no discovered service remains. */
-        mdns_browser_schedule_maintenance(sb);
+        mdns_querier_schedule_maintenance(sq);
 
         if (!sd_json_variant_is_blank_array(array)) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *vm = NULL;
@@ -518,10 +518,12 @@ int mdns_manage_services_answer(DnsServiceBrowser *sb, DnsAnswer *answer, int ow
                         goto finish;
                 }
 
-                r = sd_varlink_notify(sb->link, vm);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to notify via varlink: %m");
-                        goto finish;
+                /* Deliver the same update to every subscriber of this querier. A failure to notify
+                 * one of them (e.g. mid-disconnect) must not keep the others from being served. */
+                LIST_FOREACH(subscribers, sb, sq->subscribers) {
+                        r = sd_varlink_notify(sb->link, vm);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to notify a browse subscriber via varlink, ignoring: %m");
                 }
         }
 
@@ -531,16 +533,24 @@ finish:
         /* The reconciliation may already have mutated the service list before failing — re-arm the
          * ladder against whatever the list now holds rather than leaving this pass without its
          * single (re-)arm. */
-        mdns_browser_schedule_maintenance(sb);
-        return sd_varlink_error_errno(sb->link, r);
+        mdns_querier_schedule_maintenance(sq);
+
+        /* The events accumulated for this batch are lost with the failure. Terminate every
+         * subscription with an error instead of carrying on silently -- an errored-out client knows
+         * to resubscribe and is then served a fresh snapshot, while a silently dropped batch would
+         * leave its view stale with no signal that anything is missing. */
+        LIST_FOREACH(subscribers, sb, sq->subscribers)
+                (void) sd_varlink_error_errno(sb->link, r);
+
+        return r;
 }
 
-int mdns_browser_revisit_cache(DnsServiceBrowser *sb, int owner_family) {
+int mdns_querier_revisit_cache(DnsServiceQuerier *sq, int owner_family) {
         _cleanup_(dns_answer_unrefp) DnsAnswer *lookup_ret_answer = NULL;
         int r;
 
-        assert(sb);
-        assert(sb->manager);
+        assert(sq);
+        assert(sq->manager);
 
         /* The reconciliation must see real cache expiry times: without SD_RESOLVED_NO_STALE the
          * lookup substitutes the stale-serving clamp for item->until — an absolute timestamp ~30s
@@ -548,21 +558,21 @@ int mdns_browser_revisit_cache(DnsServiceBrowser *sb, int owner_family) {
          * maintenance ladder in its past-expiry one-second re-check for as long as a matching
          * record stays cached. Stale serving is a per-client query feature; the browse
          * bookkeeping always wants the truth, whatever flags the subscriber passed. */
-        uint64_t lookup_flags = sb->flags | SD_RESOLVED_NO_STALE;
+        uint64_t lookup_flags = sq->flags | SD_RESOLVED_NO_STALE;
 
         /* ifindex=0 means "all interfaces". Collect the cached answers from
          * every matching mDNS scope into a single combined answer and reconcile
          * once. Reconciling per-scope would be wrong: mdns_manage_services_answer()
-         * derives removals by diffing the browser's global service list against
+         * derives removals by diffing the querier's global service list against
          * the answer it is handed, so a single scope's answer would spuriously
          * "remove" (and then, on the next scope/pass, re-"add") services that are
          * still present on other interfaces — resulting in a continuous
          * added/removed event flap for services seen on more than the current
          * scope. */
-        if (sb->ifindex == 0) {
+        if (sq->ifindex == 0) {
                 _cleanup_(dns_answer_unrefp) DnsAnswer *combined = NULL;
 
-                LIST_FOREACH(scopes, scope, sb->manager->dns_scopes) {
+                LIST_FOREACH(scopes, scope, sq->manager->dns_scopes) {
                         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
                         DnsAnswerItem *item;
 
@@ -576,7 +586,7 @@ int mdns_browser_revisit_cache(DnsServiceBrowser *sb, int owner_family) {
 
                         r = dns_cache_lookup(
                                         &scope->cache,
-                                        sb->key,
+                                        sq->key,
                                         lookup_flags,
                                         /* ret_rcode= */ NULL,
                                         &answer,
@@ -601,7 +611,7 @@ int mdns_browser_revisit_cache(DnsServiceBrowser *sb, int owner_family) {
                         }
                 }
 
-                r = mdns_manage_services_answer(sb, combined, owner_family);
+                r = mdns_manage_services_answer(sq, combined, owner_family);
                 if (r < 0)
                         return log_error_errno(r, "Failed to manage mDNS services after cache lookup for all interfaces: %m");
 
@@ -609,7 +619,7 @@ int mdns_browser_revisit_cache(DnsServiceBrowser *sb, int owner_family) {
         }
 
         /* Single scope for specifically requested interface */
-        DnsScope *scope = manager_find_scope_from_protocol(sb->manager, sb->ifindex, DNS_PROTOCOL_MDNS, owner_family);
+        DnsScope *scope = manager_find_scope_from_protocol(sq->manager, sq->ifindex, DNS_PROTOCOL_MDNS, owner_family);
         if (!scope)
                 return 0;
 
@@ -617,7 +627,7 @@ int mdns_browser_revisit_cache(DnsServiceBrowser *sb, int owner_family) {
 
         r = dns_cache_lookup(
                         &scope->cache,
-                        sb->key,
+                        sq->key,
                         lookup_flags,
                         /* ret_rcode= */ NULL,
                         &lookup_ret_answer,
@@ -627,7 +637,7 @@ int mdns_browser_revisit_cache(DnsServiceBrowser *sb, int owner_family) {
         if (r < 0)
                 return log_error_errno(r, "Failed to look up DNS cache for service browser key: %m");
 
-        r = mdns_manage_services_answer(sb, lookup_ret_answer, owner_family);
+        r = mdns_manage_services_answer(sq, lookup_ret_answer, owner_family);
         if (r < 0)
                 return log_error_errno(r, "Failed to manage mDNS services after cache lookup: %m");
 
@@ -635,18 +645,18 @@ int mdns_browser_revisit_cache(DnsServiceBrowser *sb, int owner_family) {
 }
 
 int mdns_notify_browsers_goodbye(DnsScope *scope) {
-        DnsServiceBrowser *sb;
+        DnsServiceQuerier *sq;
         int r;
 
         if (!scope)
                 return 0;
 
-        HASHMAP_FOREACH(sb, scope->manager->dns_service_browsers) {
-                r = mdns_browser_revisit_cache(sb, scope->family);
+        HASHMAP_FOREACH(sq, scope->manager->dns_service_queriers) {
+                r = mdns_querier_revisit_cache(sq, scope->family);
                 if (r < 0)
                         return log_error_errno(
                                         r,
-                                        "Failed to revisit cache for service browser with family %d: %m",
+                                        "Failed to revisit cache for service querier with family %d: %m",
                                         scope->family);
         }
 
@@ -654,7 +664,7 @@ int mdns_notify_browsers_goodbye(DnsScope *scope) {
 }
 
 int mdns_notify_browsers_unsolicited_updates(Manager *m, DnsAnswer *answer, int owner_family) {
-        DnsServiceBrowser *sb;
+        DnsServiceQuerier *sq;
         int r;
 
         assert(m);
@@ -662,26 +672,26 @@ int mdns_notify_browsers_unsolicited_updates(Manager *m, DnsAnswer *answer, int 
         if (!answer)
                 return 0;
 
-        HASHMAP_FOREACH(sb, m->dns_service_browsers) {
+        HASHMAP_FOREACH(sq, m->dns_service_queriers) {
 
-                r = dns_answer_match_key(answer, sb->key, NULL);
+                r = dns_answer_match_key(answer, sq->key, NULL);
                 if (r < 0)
                         return log_error_errno(
                                         r,
-                                        "Failed to match answer key with service browser's key: %m");
+                                        "Failed to match answer key with service querier's key: %m");
                 if (r == 0)
                         continue;
 
-                r = mdns_browser_revisit_cache(sb, owner_family);
+                r = mdns_querier_revisit_cache(sq, owner_family);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to revisit cache for service browser: %m");
+                        return log_error_errno(r, "Failed to revisit cache for service querier: %m");
         }
 
         return 0;
 }
 
 static void mdns_browse_service_query_complete(DnsQuery *q) {
-        _cleanup_(dns_service_browser_unrefp) DnsServiceBrowser *sb = NULL;
+        _cleanup_(dns_service_querier_unrefp) DnsServiceQuerier *sq = NULL;
         _cleanup_(dns_query_freep) DnsQuery *query = q;
         int r;
 
@@ -691,67 +701,62 @@ static void mdns_browse_service_query_complete(DnsQuery *q) {
         if (query->state != DNS_TRANSACTION_SUCCESS)
                 return;
 
-        sb = dns_service_browser_ref(query->service_browser_request);
-        if (!sb)
+        sq = dns_service_querier_ref(query->service_querier_request);
+        if (!sq)
                 return;
 
-        r = mdns_browser_revisit_cache(sb, query->answer_family);
+        r = mdns_querier_revisit_cache(sq, query->answer_family);
         if (r < 0)
-                return (void) log_error_errno(r, "Failed to revisit cache for service browser: %m");
+                return (void) log_error_errno(r, "Failed to revisit cache for service querier: %m");
 
         /* When the query is answered from cache, we only get answers for one
          * answer_family i.e. either ipv4 or ipv6. We need to perform another
          * cache lookup for the other answer_family */
         if (query->answer_query_flags == SD_RESOLVED_FROM_CACHE) {
-                r = mdns_browser_revisit_cache(sb, query->answer_family == AF_INET ? AF_INET6 : AF_INET);
+                r = mdns_querier_revisit_cache(sq, query->answer_family == AF_INET ? AF_INET6 : AF_INET);
                 if (r < 0)
-                        return (void) log_error_errno(r, "Failed to revisit cache for service browser: %m");
+                        return (void) log_error_errno(r, "Failed to revisit cache for service querier: %m");
         }
 }
 
 static int mdns_next_query_schedule(sd_event_source *s, uint64_t usec, void *userdata) {
-        _cleanup_(dns_service_browser_unrefp) DnsServiceBrowser *sb = NULL;
+        _cleanup_(dns_service_querier_unrefp) DnsServiceQuerier *sq = NULL;
         _cleanup_(dns_query_freep) DnsQuery *q = NULL;
+        uint64_t flags;
         int r;
 
         assert(userdata);
-        assert_se(sb = dns_service_browser_ref(userdata));
+        assert_se(sq = dns_service_querier_ref(userdata));
 
-        /* Enable the answer from the cache for the very first query */
-        if (sb->delay == 0)
-                SET_FLAG(sb->flags, SD_RESOLVED_NO_CACHE, false);
+        /* RFC 6762 Section 5.2 outlines timing requirements for continuous queries. Only the very
+         * first query may be served from the cache; every later one exists to poke the network.
+         * sq->flags itself stays untouched: it is part of the querier's identity. */
+        flags = sq->flags | SD_RESOLVED_QUERY_CONTINUOUS;
+        if (sq->delay != 0)
+                flags |= SD_RESOLVED_NO_CACHE;
 
-        /* Set the flag indicating that the query is continuous.
-         * RFC 6762 Section 5.2 outlines timing requirements for continuous queries.
-         */
-        sb->flags |= SD_RESOLVED_QUERY_CONTINUOUS;
-
-        r = dns_query_new(sb->manager, &q, sb->question_utf8, sb->question_idna, NULL, sb->ifindex, sb->flags);
+        r = dns_query_new(sq->manager, &q, sq->question_utf8, sq->question_idna, NULL, sq->ifindex, flags);
         if (r < 0)
                 return log_error_errno(r, "Failed to create new DNS query: %m");
 
         q->complete = mdns_browse_service_query_complete;
-        q->service_browser_request = dns_service_browser_ref(sb);
-        q->varlink_request = sd_varlink_ref(sb->link);
-        sd_varlink_set_userdata(sb->link, q);
+        q->service_querier_request = dns_service_querier_ref(sq);
 
         r = dns_query_go(q);
         if (r < 0)
                 return log_error_errno(r, "Failed to send DNS query: %m");
 
         /* Calculate the next query delay */
-        sb->delay = mdns_calculate_next_query_delay(sb->delay);
-
-        SET_FLAG(sb->flags, SD_RESOLVED_NO_CACHE, true);
+        sq->delay = mdns_calculate_next_query_delay(sq->delay);
 
         r = event_reset_time_relative(
-                        sb->manager->event,
-                        &sb->schedule_event,
+                        sq->manager->event,
+                        &sq->schedule_event,
                         CLOCK_BOOTTIME,
-                        sb->delay,
+                        sq->delay,
                         /* accuracy= */ 0,
                         mdns_next_query_schedule,
-                        sb,
+                        sq,
                         /* priority= */ 0,
                         "mdns-next-query-schedule",
                         /* force_reset= */ true);
@@ -766,36 +771,100 @@ static int mdns_next_query_schedule(sd_event_source *s, uint64_t usec, void *use
 void dns_browse_services_restart(Manager *m) {
         int r;
 
-        if (!(m && m->dns_service_browsers))
+        if (!(m && m->dns_service_queriers))
                 return;
 
-        DnsServiceBrowser *sb;
+        DnsServiceQuerier *sq;
 
-        HASHMAP_FOREACH(sb, m->dns_service_browsers) {
-                sb->delay = 0;
+        HASHMAP_FOREACH(sq, m->dns_service_queriers) {
+                sq->delay = 0;
 
                 r = event_reset_time_relative(
-                                sb->manager->event,
-                                &sb->schedule_event,
+                                sq->manager->event,
+                                &sq->schedule_event,
                                 CLOCK_BOOTTIME,
-                                (sb->delay * USEC_PER_SEC),
+                                (sq->delay * USEC_PER_SEC),
                                 /* accuracy= */ 0,
                                 mdns_next_query_schedule,
-                                sb,
+                                sq,
                                 /* priority= */ 0,
                                 "mdns-next-query-schedule",
                                 /* force_reset= */ true);
 
                 if (r < 0)
                         log_error_errno(r,
-                                        "Failed to reset mDNS service subscriber event for service browser: %m");
+                                        "Failed to reset mDNS service subscriber event for service querier: %m");
         }
+}
+
+static int dns_service_querier_new(
+                Manager *m,
+                DnsQuestion *question_utf8,
+                DnsQuestion *question_idna,
+                int ifindex,
+                uint64_t flags,
+                DnsServiceQuerier **ret) {
+
+        _cleanup_(dns_service_querier_unrefp) DnsServiceQuerier *sq = NULL;
+        int r;
+
+        assert(m);
+        assert(question_utf8);
+        assert(question_idna);
+        assert(ret);
+
+        sq = new(DnsServiceQuerier, 1);
+        if (!sq)
+                return log_oom();
+
+        *sq = (DnsServiceQuerier) {
+                .n_ref = 1,
+                .manager = m,
+                .question_utf8 = dns_question_ref(question_utf8),
+                .question_idna = dns_question_ref(question_idna),
+                .key = dns_resource_key_ref(dns_question_first_key(question_utf8)),
+                .ifindex = ifindex,
+                .flags = flags,
+                .delay = 0,
+        };
+
+        r = sd_event_add_time_relative(
+                        m->event,
+                        &sq->schedule_event,
+                        CLOCK_BOOTTIME,
+                        sq->delay,
+                        /* accuracy= */ 0,
+                        mdns_next_query_schedule,
+                        sq);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(sq);
+        return 0;
+}
+
+/* Detach a subscriber. The last one takes the querier off the air: it is dropped from the manager's
+ * registry and its timers are disabled right away, so no further queries hit the wire while in-flight
+ * completions (which hold their own reference) wind down against an empty subscriber list. */
+static void dns_service_querier_detach(DnsServiceQuerier *sq, DnsServiceBrowser *sb) {
+        assert(sq);
+        assert(sb);
+
+        LIST_REMOVE(subscribers, sq->subscribers, sb);
+
+        if (sq->subscribers)
+                return;
+
+        hashmap_remove(sq->manager->dns_service_queriers, sq);
+        sq->schedule_event = sd_event_source_disable_unref(sq->schedule_event);
+        sq->maintenance_event = sd_event_source_disable_unref(sq->maintenance_event);
 }
 
 int dns_subscribe_browse_service(
                 Manager *m, sd_varlink *link, const char *domain, const char *type, int ifindex, uint64_t flags) {
 
-        _cleanup_(dns_service_browser_unrefp) DnsServiceBrowser *sb = NULL;
+        _cleanup_(dns_service_querier_unrefp) DnsServiceQuerier *sq = NULL;
+        _cleanup_(dns_service_browser_freep) DnsServiceBrowser *sb = NULL;
         _cleanup_(dns_question_unrefp) DnsQuestion *question_idna = NULL, *question_utf8 = NULL;
         int r;
 
@@ -823,6 +892,10 @@ int dns_subscribe_browse_service(
                         return sd_varlink_error_invalid_parameter_name(link, "domain");
         }
 
+        /* Only mDNS continuous querying is currently supported. See RFC 6762 */
+        if (!FLAGS_SET(flags, SD_RESOLVED_MDNS))
+                return -EINVAL;
+
         r = dns_question_new_service_pointer(
                         &question_utf8, type, domain, /* convert_idna= */ false);
         if (r < 0)
@@ -833,36 +906,27 @@ int dns_subscribe_browse_service(
         if (r < 0)
                 return log_error_errno(r, "Failed to create DNS question for IDNA version: %m");
 
-        sb = new(DnsServiceBrowser, 1);
-        if (!sb)
-                return log_oom();
-
-        *sb = (DnsServiceBrowser) {
-                .n_ref = 1,
-                .manager = m,
-                .link = sd_varlink_ref(link),
-                .question_utf8 = dns_question_ref(question_utf8),
-                .question_idna = dns_question_ref(question_idna),
-                .key = dns_question_first_key(question_utf8),
-                .ifindex = ifindex,
-                .flags = flags,
-                .delay = 0,
-        };
-
-        /* Only mDNS continuous querying is currently supported. See RFC 6762 */
-        if (!FLAGS_SET(flags, SD_RESOLVED_MDNS))
-                return -EINVAL;
-
-        r = sd_event_add_time_relative(
-                        m->event,
-                        &sb->schedule_event,
-                        CLOCK_BOOTTIME,
-                        sb->delay,
-                        /* accuracy= */ 0,
-                        mdns_next_query_schedule,
-                        sb);
+        r = dns_service_querier_new(m, question_utf8, question_idna, ifindex, flags, &sq);
         if (r < 0)
                 return r;
+
+        r = hashmap_ensure_put(&m->dns_service_queriers, NULL, sq, sq);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add service querier to the hashmap: %m");
+
+        sb = new(DnsServiceBrowser, 1);
+        if (!sb) {
+                hashmap_remove(m->dns_service_queriers, sq);
+                return log_oom();
+        }
+
+        *sb = (DnsServiceBrowser) {
+                .manager = m,
+                .link = sd_varlink_ref(link),
+                .querier = dns_service_querier_ref(sq),
+        };
+
+        LIST_PREPEND(subscribers, sq->subscribers, sb);
 
         r = hashmap_ensure_put(&m->dns_service_browsers, NULL, link, sb);
         if (r < 0)
@@ -874,27 +938,36 @@ int dns_subscribe_browse_service(
 }
 
 DnsServiceBrowser *dns_service_browser_free(DnsServiceBrowser *sb) {
-        DnsQuery *q;
-
         if (!sb)
                 return NULL;
 
-        while (sb->dns_services)
-                dns_remove_service(sb, sb->dns_services);
-
-        sb->schedule_event = sd_event_source_disable_unref(sb->schedule_event);
-        sb->maintenance_event = sd_event_source_disable_unref(sb->maintenance_event);
-
-        q = sd_varlink_get_userdata(sb->link);
-        if (q && DNS_TRANSACTION_IS_LIVE(q->state))
-                dns_query_complete(q, DNS_TRANSACTION_ABORTED);
-
-        sb->question_idna = dns_question_unref(sb->question_idna);
-        sb->question_utf8 = dns_question_unref(sb->question_utf8);
+        if (sb->querier) {
+                dns_service_querier_detach(sb->querier, sb);
+                sb->querier = dns_service_querier_unref(sb->querier);
+        }
 
         sb->link = sd_varlink_unref(sb->link);
 
         return mfree(sb);
 }
 
-DEFINE_TRIVIAL_REF_UNREF_FUNC(DnsServiceBrowser, dns_service_browser, dns_service_browser_free);
+DnsServiceQuerier *dns_service_querier_free(DnsServiceQuerier *sq) {
+        if (!sq)
+                return NULL;
+
+        assert(!sq->subscribers);
+
+        while (sq->dns_services)
+                dns_remove_service(sq, sq->dns_services);
+
+        sq->schedule_event = sd_event_source_disable_unref(sq->schedule_event);
+        sq->maintenance_event = sd_event_source_disable_unref(sq->maintenance_event);
+
+        sq->question_idna = dns_question_unref(sq->question_idna);
+        sq->question_utf8 = dns_question_unref(sq->question_utf8);
+        sq->key = dns_resource_key_unref(sq->key);
+
+        return mfree(sq);
+}
+
+DEFINE_TRIVIAL_REF_UNREF_FUNC(DnsServiceQuerier, dns_service_querier, dns_service_querier_free);
