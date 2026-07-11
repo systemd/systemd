@@ -86,3 +86,8 @@ jobs:
 
       - name: Build with musl
         run: mkosi box -- .github/workflows/build-test-musl.sh
+
+      - name: Run man-rules checks
+        run: |
+          mkosi box -- ninja -C build update-man-rules
+          git diff --exit-code -- man/rules/meson.build
