@@ -41,6 +41,14 @@ assert_cc(sizeof(DnsPacketHeader) == 12);
  * field, hence that appears to be the absolute maximum. */
 #define DNS_PACKET_SIZE_MAX 0xFFFFu
 
+/* RFC 1035 § 4.1.4 compression pointers: the two high bits tag a 16-bit field as a pointer, the remaining
+ * 14 bits carry the offset. The largest offset a pointer can express is hence also the last position a
+ * referenced name can start at. */
+#define DNS_PACKET_COMPRESSION_POINTER_FLAG 0xC000u
+#define DNS_PACKET_COMPRESSION_OFFSET_MAX 0x3FFFu
+assert_cc((DNS_PACKET_COMPRESSION_POINTER_FLAG & DNS_PACKET_COMPRESSION_OFFSET_MAX) == 0);
+assert_cc((DNS_PACKET_COMPRESSION_POINTER_FLAG | DNS_PACKET_COMPRESSION_OFFSET_MAX) == UINT16_MAX);
+
 /* The default size to use for allocation when we don't know how large
  * the packet will turn out to be. */
 #define DNS_PACKET_SIZE_START 512u
