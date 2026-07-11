@@ -817,6 +817,35 @@ static int bus_setup_api(Manager *m, sd_bus *bus) {
         return 0;
 }
 
+static int api_bus_instance_id_reply(sd_bus_message *reply, void *userdata, sd_bus_error *reterr_error) {
+        Manager *m = ASSERT_PTR(userdata);
+        const sd_bus_error *e;
+        const char *id;
+        int r;
+
+        assert(reply);
+
+        e = sd_bus_message_get_error(reply);
+        if (e) {
+                log_debug_errno(sd_bus_error_get_errno(e),
+                                "Failed to query API bus instance ID, ignoring: %s",
+                                bus_error_message(e, sd_bus_error_get_errno(e)));
+                return 0;
+        }
+
+        r = sd_bus_message_read_basic(reply, 's', &id);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to read API bus instance ID, ignoring: %m");
+                return 0;
+        }
+
+        r = sd_id128_from_string(id, &m->bus_id);
+        if (r < 0)
+                log_debug_errno(r, "API bus instance ID not in expected format, ignoring: %m");
+
+        return 0;
+}
+
 int bus_init_api(Manager *m) {
         _cleanup_(sd_bus_close_unrefp) sd_bus *bus = NULL;
         int r;
@@ -850,11 +879,41 @@ int bus_init_api(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to set up API bus: %m");
 
-        r = bus_get_instance_id(bus, &m->bus_id);
-        if (r < 0)
-                log_warning_errno(r, "Failed to query API bus instance ID, not deserializing subscriptions: %m");
-        else if (sd_id128_is_null(m->deserialized_bus_id) || sd_id128_equal(m->bus_id, m->deserialized_bus_id))
+        if (sd_id128_is_null(m->deserialized_bus_id)) {
+                /* No bus instance ID was deserialized, i.e. we are not restoring subscriptions across a
+                 * reload/reexec: there is nothing to compare, just coldplug. Query the instance ID
+                 * asynchronously so that it can be serialized on the next reexec. A synchronous call is not
+                 * OK here: this path is taken on every (re-)connection attempt, and if the D-Bus socket
+                 * unit is listening while the message bus daemon is gone (e.g. it crashed during shutdown
+                 * while we still consider its service to be up), a synchronous call over the never-answered
+                 * connection blocks the whole manager for BUS_AUTH_TIMEOUT — repeatedly, since each queued
+                 * bus operation triggers another reconnection attempt. */
+                r = sd_bus_call_method_async(
+                                bus,
+                                /* ret_slot= */ NULL,
+                                "org.freedesktop.DBus",
+                                "/org/freedesktop/DBus",
+                                "org.freedesktop.DBus",
+                                "GetId",
+                                api_bus_instance_id_reply,
+                                m,
+                                /* types= */ NULL);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to enqueue API bus instance ID query, ignoring: %m");
+
                 (void) bus_track_coldplug(bus, &m->subscribed, m->subscribed_as_strv);
+        } else {
+                /* We are restoring subscription state from before a reload/reexec. Verify the bus instance
+                 * ID so that we do not coldplug it onto a different bus than it was recorded on. The
+                 * synchronous call is acceptable on this path: it is only taken right after
+                 * deserialization, and we serialized from this very bus moments ago, so it is known to be
+                 * up and responsive. */
+                r = bus_get_instance_id(bus, &m->bus_id);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to query API bus instance ID, not deserializing subscriptions: %m");
+                else if (sd_id128_equal(m->bus_id, m->deserialized_bus_id))
+                        (void) bus_track_coldplug(bus, &m->subscribed, m->subscribed_as_strv);
+        }
         m->subscribed_as_strv = strv_free(m->subscribed_as_strv);
         m->deserialized_bus_id = SD_ID128_NULL;
 
