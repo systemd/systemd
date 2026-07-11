@@ -522,12 +522,12 @@ DnsQuery *dns_query_free(DnsQuery *q) {
 
         free(q->request_address_string);
 
-        if (q->service_browser_request) {
-                /* As with the varlink userdata above: clear the browser's tracking pointer whichever way
+        if (q->service_querier_request) {
+                /* As with the varlink userdata above: clear the querier's tracking pointer whichever way
                  * the query goes away, so that it never dangles. */
-                if (q->service_browser_request->in_flight_query == q)
-                        q->service_browser_request->in_flight_query = NULL;
-                dns_service_browser_unref(q->service_browser_request);
+                if (q->service_querier_request->in_flight_query == q)
+                        q->service_querier_request->in_flight_query = NULL;
+                dns_service_querier_unref(q->service_querier_request);
         }
 
         hook_query_free(q->hook_query);
