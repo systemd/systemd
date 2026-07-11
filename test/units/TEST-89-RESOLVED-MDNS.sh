@@ -237,6 +237,74 @@ testcase_browse_all_interfaces_ifindex_zero() {
     run_and_check_services_with_ifindex 0 check_both 0
 }
 
+testcase_browse_ifindex_zero_no_flap() {
+    : "ifindex=0 browse must not emit spurious 'removed' events while publishers stay up"
+    resolvectl flush-caches
+
+    local out_file unit_name service_type added removed
+    local dummy="ravc-noflap"
+
+    out_file="$(mktemp)"
+    unit_name="varlinkctl-noflap-$SRANDOM.service"
+    service_type="_testService5._udp"
+
+    # The flap only manifests when the browser reconciles >=2 same-family mDNS
+    # scopes: the pre-fix code diffed the browser's global service list against
+    # each scope's partial answer, spuriously removing services absent from that
+    # one scope. The host normally has only the container bridge as an mDNS
+    # interface, so add a service-less dummy link with mDNS enabled to guarantee a
+    # second (empty) scope that the ifindex=0 reconciliation must combine. This
+    # must succeed -- without the second scope the testcase asserts nothing.
+    ip link add "$dummy" type dummy
+    # Arm the cleanup before anything else can fail, so the fixed-name link never
+    # leaks into later testcases. The browse unit may not exist yet, hence the
+    # best-effort stop.
+    # shellcheck disable=SC2064
+    trap "trap - RETURN; systemctl stop $unit_name 2>/dev/null || :; ip link del $dummy 2>/dev/null || :" RETURN
+    ip link set "$dummy" up multicast on
+    ip address add 169.254.171.171/16 dev "$dummy"
+    resolvectl mdns "$dummy" yes
+    [[ "$(resolvectl mdns "$dummy")" =~ :\ yes$ ]]
+    sleep 2  # let resolved create the scope before we start browsing
+
+    # Long-running browse across *all* interfaces (ifindex=0). With the
+    # combined-answer reconciliation there must be no 'removed' event as long as
+    # every publisher stays up. Use --timeout=infinity: the subscription goes idle
+    # once everything is discovered, and varlinkctl's default 45s idle timeout
+    # would sever it (and the assertion) mid-observation.
+    systemd-run --unit="$unit_name" --service-type=exec -p StandardOutput="file:$out_file" \
+        varlinkctl call --more --timeout=infinity /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.BrowseServices \
+        "{ \"domain\": \"$service_type.local\", \"type\": \"\", \"ifindex\": 0, \"flags\": 16785432 }"
+
+    # Wait until both containers' services (20 each, 40 total) have been
+    # discovered. Count occurrences, not lines: varlinkctl --more emits compact
+    # JSON-SEQ and one notify batches many entries onto a single line.
+    for _ in {0..14}; do
+        added="$( { grep -o '"updateFlag":"added"' "$out_file" || :; } | wc -l)"
+        [[ "$added" -ge 40 ]] && break
+        sleep 2
+    done
+    if [[ "${added:-0}" -lt 40 ]]; then
+        echo >&2 "Did not discover the expected services on ifindex=0"
+        cat "$out_file" >&2
+        return 1
+    fi
+
+    # Observe a further window during which several continuous-query revisits
+    # happen; a correct ifindex=0 browse emits zero 'removed' events while every
+    # publisher stays up.
+    sleep 12
+
+    removed="$( { grep -o '"updateFlag":"removed"' "$out_file" || :; } | wc -l)"
+    if [[ "${removed:-0}" -ne 0 ]]; then
+        echo >&2 "Got $removed spurious 'removed' event(s) on ifindex=0 while all publishers were up:"
+        grep -oE '"updateFlag":"removed"[^}]*"name":"[^"]*"' "$out_file" >&2 || :
+        return 1
+    fi
+
+    echo testcase_end
+}
+
 testcase_second_unreachable() {
     : "Test each service type while the second container is unreachable"
     systemd-run -M "$CONTAINER_2" --wait --pipe -- networkctl down host0
