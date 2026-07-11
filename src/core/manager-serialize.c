@@ -163,8 +163,10 @@ int manager_serialize(
         (void) serialize_ratelimit(f, "dump-ratelimit", &m->dump_ratelimit);
         (void) serialize_ratelimit(f, "reload-reexec-ratelimit", &m->reload_reexec_ratelimit);
 
-        (void) serialize_id128(f, "bus-id", m->bus_id);
+        (void) serialize_id128(f, "bus-id",
+                               sd_id128_is_null(m->bus_id) ? m->deserialized_bus_id : m->bus_id);
         bus_track_serialize(m->subscribed, f, "subscribed");
+        (void) serialize_strv(f, "subscribed", m->subscribed_as_strv);
 
         r = dynamic_user_serialize(m, f, fds);
         if (r < 0)
