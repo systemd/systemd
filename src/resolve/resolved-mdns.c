@@ -324,6 +324,27 @@ static int mdns_scope_process_query(DnsScope *s, DnsPacket *p) {
                         }
                 }
 
+                /* We are on the way out and our published records have been goodbye'd: answering
+                 * for them now would re-populate the peer caches the goodbyes just cleaned. The
+                 * host's own records are not withdrawn, so those are still answered -- a peer
+                 * probing for our host name in this window has to see it defended (RFC 6762
+                 * section 8.1), and it still resolves for everyone else meanwhile. */
+                if (s->manager->mdns_withdrawing) {
+                        _cleanup_(dns_answer_unrefp) DnsAnswer *kept = NULL;
+
+                        DNS_ANSWER_FOREACH_ITEM(item, answer) {
+                                if (!dns_scope_rr_is_host_record(s, item->rr))
+                                        continue;
+
+                                r = dns_answer_add_extend_full(&kept, item->rr, item->ifindex,
+                                                               item->flags, item->rrsig, item->until);
+                                if (r < 0)
+                                        return log_debug_errno(r, "Failed to keep host record: %m");
+                        }
+
+                        DNS_ANSWER_REPLACE(answer, TAKE_PTR(kept));
+                }
+
                 if (dns_answer_isempty(answer))
                         continue;
 
