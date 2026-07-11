@@ -1648,6 +1648,12 @@ int dns_scope_announce(DnsScope *scope, bool goodbye) {
         if (scope->protocol != DNS_PROTOCOL_MDNS)
                 return 0;
 
+        /* Once the shutdown goodbyes went out, nothing positive must be announced on this scope
+         * anymore: a probe transaction completing (or a stale §8.3 re-announcement timer firing)
+         * during the goodbye grace second would re-publish the very records just withdrawn. */
+        if (scope->withdrawing && !goodbye)
+                return 0;
+
         r = sd_event_get_state(scope->manager->event);
         if (r < 0)
                 return log_debug_errno(r, "Failed to get event loop state: %m");
@@ -1680,8 +1686,10 @@ int dns_scope_announce(DnsScope *scope, bool goodbye) {
                 }
 
                 /* Collect service types for _services._dns-sd._udp.local RRs in a set. Only two-label names
-                 * (not selective names) are considered according to RFC6763 § 9. */
-                if (!scope->announced &&
+                 * (not selective names) are considered according to RFC6763 § 9. Never do this for a
+                 * goodbye: the enumeration PTRs synthesized below are added to the answer with a positive
+                 * TTL and (re-)inserted into the zone — both the opposite of withdrawing. */
+                if (!scope->announced && !goodbye &&
                     dns_resource_key_is_dnssd_two_label_ptr(z->rr->key)) {
                         if (!set_contains(types, dns_resource_key_name(z->rr->key))) {
                                 r = set_ensure_put(&types, &dns_name_hash_ops, dns_resource_key_name(z->rr->key));
@@ -1748,8 +1756,9 @@ int dns_scope_announce(DnsScope *scope, bool goodbye) {
                 return log_debug_errno(r, "Failed to emit announcement packets: %m");
 
         /* In section 8.3 of RFC6762: "The Multicast DNS responder MUST send at least two unsolicited
-         * responses, one second apart." */
-        if (!scope->announced) {
+         * responses, one second apart." A goodbye is not one of those initial announcements: scheduling
+         * the positive-TTL re-announcement from here would resurrect the records just withdrawn. */
+        if (!scope->announced && !goodbye) {
                 scope->announced = true;
 
                 r = sd_event_add_time_relative(
