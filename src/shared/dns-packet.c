@@ -638,14 +638,13 @@ int dns_packet_append_name(
                         n = PTR_TO_SIZE(hashmap_get(p->names, name));
                 if (n > 0) {
                         assert(n < p->size);
+                        assert(n < 0x4000); /* the map only ever contains pointer-expressible offsets */
 
-                        if (n < 0x4000) {
-                                r = dns_packet_append_uint16(p, 0xC000 | n, NULL);
-                                if (r < 0)
-                                        goto fail;
+                        r = dns_packet_append_uint16(p, 0xC000 | n, NULL);
+                        if (r < 0)
+                                goto fail;
 
-                                goto done;
-                        }
+                        goto done;
                 }
 
                 r = dns_label_unescape(&name, label, sizeof label, 0);
@@ -656,7 +655,13 @@ int dns_packet_append_name(
                 if (r < 0)
                         goto fail;
 
-                if (allow_compression) {
+                /* Remember the name for compression — but only if this occurrence sits within the
+                 * 14 bits an RFC 1035 pointer can express. An offset beyond that can never be
+                 * referenced, so it doesn't belong in the map: it would only collide with a later
+                 * occurrence of the same name (needlessly failing the whole append with -EEXIST),
+                 * which instead is emitted as labels again, compressed from the first suffix that
+                 * is mapped in range. */
+                if (allow_compression && n < 0x4000) {
                         _cleanup_free_ char *s = NULL;
 
                         if (!GREEDY_REALLOC(added_entries, n_added_entries + 1)) {
