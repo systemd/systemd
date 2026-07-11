@@ -382,7 +382,7 @@ static int mdns_goodbye_callback(sd_event_source *s, uint64_t usec, void *userda
 
         dns_cache_prune(&scope->cache);
 
-        r = mdns_notify_browsers_goodbye(scope);
+        r = mdns_queriers_notify_goodbye(scope);
         if (r < 0)
                 log_warning_errno(r, "mDNS: Failed to notify service subscribers of goodbyes, ignoring: %m");
 
@@ -535,7 +535,7 @@ static int on_mdns_packet(sd_event_source *s, int fd, uint32_t revents, void *us
                 }
                 /* Check if incoming packet key matches with active browse clients. If yes, update the same */
                 if (unsolicited_packet)
-                        mdns_notify_browsers_unsolicited_updates(m, p->answer, p->family);
+                        mdns_queriers_notify_unsolicited_updates(m, p->answer, p->family);
         } else if (dns_packet_validate_query(p) > 0)  {
                 log_debug("Got mDNS query packet for id %u", DNS_PACKET_ID(p));
 
