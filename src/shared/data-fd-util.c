@@ -50,7 +50,7 @@ int copy_data_fd(int fd) {
                 if (copy_fd < 0)
                         return copy_fd;
 
-                r = copy_bytes(fd, copy_fd, DATA_FD_MEMORY_LIMIT, COPY_REFLINK);
+                r = copy_bytes(fd, copy_fd, DATA_FD_MEMORY_LIMIT, /* copy_flags= */ 0);
                 if (r < 0)
                         return r;
 
@@ -80,14 +80,14 @@ int copy_data_fd(int fd) {
                         /* If we tried a memfd first and it ended up being too large, then copy this into the
                          * temporary file first. */
 
-                        r = copy_bytes(copy_fd, tmp_fd, UINT64_MAX, COPY_REFLINK);
+                        r = copy_bytes(copy_fd, tmp_fd, UINT64_MAX, /* copy_flags= */ 0);
                         if (r < 0)
                                 return r;
 
                         assert(r == 0);
                 }
 
-                r = copy_bytes(fd, tmp_fd, DATA_FD_TMP_LIMIT - DATA_FD_MEMORY_LIMIT, COPY_REFLINK);
+                r = copy_bytes(fd, tmp_fd, DATA_FD_TMP_LIMIT - DATA_FD_MEMORY_LIMIT, /* copy_flags= */ 0);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -115,7 +115,7 @@ int copy_data_fd(int fd) {
         if (copy_fd >= 0) {
                 /* If we tried a memfd first, or a file in /tmp/, and it ended up being too large, than copy this
                  * into the temporary file first. */
-                r = copy_bytes(copy_fd, tmp_fd, UINT64_MAX, COPY_REFLINK);
+                r = copy_bytes(copy_fd, tmp_fd, UINT64_MAX, /* copy_flags= */ 0);
                 if (r < 0)
                         return r;
 
@@ -123,7 +123,7 @@ int copy_data_fd(int fd) {
         }
 
         /* Copy in the rest */
-        r = copy_bytes(fd, tmp_fd, UINT64_MAX, COPY_REFLINK);
+        r = copy_bytes(fd, tmp_fd, UINT64_MAX, /* copy_flags= */ 0);
         if (r < 0)
                 return r;
 
@@ -164,7 +164,7 @@ int memfd_clone_fd(int fd, const char *name, int mode) {
         if (mfd < 0)
                 return mfd;
 
-        r = copy_bytes(fd, mfd, UINT64_MAX, COPY_REFLINK);
+        r = copy_bytes(fd, mfd, UINT64_MAX, /* copy_flags= */ 0);
         if (r < 0)
                 return r;
 
