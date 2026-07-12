@@ -23,18 +23,21 @@
 #include "hexdecoct.h"
 #include "import-util.h"
 #include "iovec-util.h"
+#include "macro.h"
 #include "path-util.h"
 #include "pidref.h"
 #include "process-util.h"
 #include "sort-util.h"
 #include "stat-util.h"
 #include "string-table.h"
+#include "string-util.h"
 #include "strv.h"
 #include "sysupdate-cache.h"
 #include "sysupdate-instance.h"
 #include "sysupdate-partition.h"
 #include "sysupdate-pattern.h"
 #include "sysupdate-resource.h"
+#include "sysupdate-transfer.h"
 #include "time-util.h"
 #include "utf8.h"
 
@@ -362,7 +365,7 @@ static int resource_load_from_blockdev(Resource *rr) {
 
 static int download_manifest(
                 const char *url,
-                bool verify_signature,
+                VerifyMode verify,
                 char **ret_buffer,
                 size_t *ret_size) {
 
@@ -399,14 +402,29 @@ static int download_manifest(
                 return r;
         if (r == 0) {
                 /* Child */
+                const char *verify_str;
+                switch (verify) {
+                        case VERIFY_MODE_GPG:
+                                verify_str = "signature";
+                                break;
+                        case VERIFY_MODE_PKCS7:
+                                verify_str = "pkcs7";
+                                break;
+
+                        case _VERIFY_MODE_MAX:
+                        case _VERIFY_MODE_INVALID:
+                        case VERIFY_MODE_NO:
+                                verify_str = "no";
+                                break;
+                }
 
                 const char *cmdline[] = {
                         SYSTEMD_PULL_PATH,
                         "raw",
-                        "--direct",                        /* just download the specified URL, don't download anything else */
-                        "--verify", verify_signature ? "signature" : "no", /* verify the manifest file */
+                        "--direct",             /* just download the specified URL, don't download anything else */
+                        "--verify", verify_str, /* verify the manifest file */
                         suffixed_url,
-                        "-",                               /* write to stdout */
+                        "-",                    /* write to stdout */
                         NULL
                 };
 
@@ -510,7 +528,7 @@ static int process_magic_file(
 
 static int resource_load_from_web(
                 Resource *rr,
-                bool verify,
+                VerifyMode verify,
                 Hashmap **web_cache) {
 
         size_t manifest_size = 0, left = 0;
@@ -679,7 +697,7 @@ static int instance_cmp(Instance *const*a, Instance *const*b) {
         return path_compare((*a)->path, (*b)->path);
 }
 
-int resource_load_instances(Resource *rr, bool verify, Hashmap **web_cache) {
+int resource_load_instances(Resource *rr, VerifyMode verify, Hashmap **web_cache) {
         int r;
 
         assert(rr);
