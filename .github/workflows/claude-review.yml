@@ -448,7 +448,7 @@ jobs:
 
           claude \
             --model us.anthropic.claude-opus-4-8 \
-            --effort xhigh \
+            --effort high \
             --max-turns 200 \
             --setting-sources user \
             --output-format stream-json \
