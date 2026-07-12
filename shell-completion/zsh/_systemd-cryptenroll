@@ -65,10 +65,14 @@ _arguments -s \
     "($enroll)--tpm2-device=[Enroll a TPM2 device or list them]:TPM2 device:_systemd-cryptenroll_tpm2_device auto list" \
     "($enroll)--tpm2-device-key=[Enroll a TPM2 device using its public key]:public key file:_files" \
     '--tpm2-seal-key-handle=[Specify handle of key to use for sealing]:handle:' \
+    '--tpm2-argon2id-memory=[Argon2id memory cost]:memory (bytes):' \
+    '--tpm2-argon2id-iter-time=[Target time for Argon2id benchmark]:time (s):' \
+    '--tpm2-argon2id-iterations=[Argon2id iterations]:iterations:' \
+    '--tpm2-argon2id-parallelism=[Argon2id parallelism]:threads:' \
     '--tpm2-pcrs=[Specify TPM2 PCRs to seal against]:PCRs:' \
     '--tpm2-public-key=[Enroll signed TPM2 PCR policy against PEM public key]:public key file:_files' \
     '--tpm2-public-key-pcrs=[Enroll signed TPM2 PCR policy for specified TPM2 PCRs]:PCRs:' \
     '--tpm2-signature=[Validate public key enrollment works with JSON signature file]:signature file:_files' \
     '--tpm2-pcrlock=[Specify pcrlock policy to lock against]:pcrlock file:_files' \
-    '--tpm2-with-pin=[Whether to require entering a PIN to unlock the volume]:boolean:(yes no)' \
+    '--tpm2-with-pin=[Whether to require entering a PIN to unlock the volume]:mode:(yes no direct)' \
     '*::block device:_systemd-cryptenroll_devices'
