@@ -5,7 +5,7 @@
 #include "import-util.h"
 #include "pull-forward.h"
 
-int raw_pull_new(RawPull **ret, sd_event *event, const char *image_root, RawPullFinished on_finished, void *userdata);
+int raw_pull_new(RawPull **ret, sd_event *event,const char *image_root, const char *cert_path, RawPullFinished on_finished, void *userdata);
 RawPull* raw_pull_unref(RawPull *p);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(RawPull*, raw_pull_unref);

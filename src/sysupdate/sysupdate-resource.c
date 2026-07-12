@@ -29,6 +29,7 @@
 #include "sort-util.h"
 #include "stat-util.h"
 #include "string-table.h"
+#include "string-util.h"
 #include "strv.h"
 #include "sysupdate-cache.h"
 #include "sysupdate-instance.h"
@@ -363,6 +364,7 @@ static int resource_load_from_blockdev(Resource *rr) {
 static int download_manifest(
                 const char *url,
                 bool verify_signature,
+                char *cert_path,
                 char **ret_buffer,
                 size_t *ret_size) {
 
@@ -400,11 +402,25 @@ static int download_manifest(
         if (r == 0) {
                 /* Child */
 
+                _cleanup_free_ char *signature_arg = NULL;
+
+                /* If verification is enabled, use the provided certificate path if
+                * available; otherwise use the default signature verification. */
+                if (verify_signature)
+                        signature_arg = cert_path ? strjoin("x509:", cert_path)
+                                                : strdup("signature");
+                else
+                        signature_arg = strdup("no");
+
+                if (!signature_arg) {
+                        log_oom();
+                        _exit(EXIT_FAILURE);
+                }
                 const char *cmdline[] = {
                         SYSTEMD_PULL_PATH,
                         "raw",
                         "--direct",                        /* just download the specified URL, don't download anything else */
-                        "--verify", verify_signature ? "signature" : "no", /* verify the manifest file */
+                        "--verify", signature_arg, /* verify the manifest file */
                         suffixed_url,
                         "-",                               /* write to stdout */
                         NULL
@@ -511,6 +527,7 @@ static int process_magic_file(
 static int resource_load_from_web(
                 Resource *rr,
                 bool verify,
+                char *cert_path,
                 Hashmap **web_cache) {
 
         size_t manifest_size = 0, left = 0;
@@ -532,7 +549,7 @@ static int resource_load_from_web(
         } else {
                 log_debug("Manifest web cache miss for %s.", rr->path);
 
-                r = download_manifest(rr->path, verify, &buf, &manifest_size);
+                r = download_manifest(rr->path, verify, cert_path, &buf, &manifest_size);
                 if (r < 0)
                         return r;
 
@@ -679,7 +696,7 @@ static int instance_cmp(Instance *const*a, Instance *const*b) {
         return path_compare((*a)->path, (*b)->path);
 }
 
-int resource_load_instances(Resource *rr, bool verify, Hashmap **web_cache) {
+int resource_load_instances(Resource *rr, bool verify, char *cert_path, Hashmap **web_cache) {
         int r;
 
         assert(rr);
@@ -702,7 +719,7 @@ int resource_load_instances(Resource *rr, bool verify, Hashmap **web_cache) {
 
         case RESOURCE_URL_FILE:
         case RESOURCE_URL_TAR:
-                r = resource_load_from_web(rr, verify, web_cache);
+                r = resource_load_from_web(rr, verify, cert_path, web_cache);
                 break;
 
         default:

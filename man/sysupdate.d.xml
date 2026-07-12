@@ -519,6 +519,18 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>CertificatePath=</varname></term>
+
+        <listitem><para>Optionally takes in a path to an x509 certificate that controls the certificate used to verify downloaded resources. When this option is unset or blank <citerefentry><refentrytitle>systemd-sysupdate</refentrytitle><manvolnum>8</manvolnum></citerefentry> will default to using GPG to verify downloads.</para>
+
+        <para>This option only has an effect if the source resource type is selected as
+        <constant>url-file</constant> or <constant>url-tar</constant>, as integrity and authentication
+        checking is only available for transfers from remote sources.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>ChangeLog=</varname></term>
 
         <listitem><para>Optionally takes a human-presentable URL to a website containing a change-log of
