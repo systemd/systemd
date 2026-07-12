@@ -49,6 +49,13 @@
     for triggering an immediate shutdown. If no time argument is
     specified, <literal>+1</literal> is implied.</para>
 
+    <para>The time string specifies the earliest point in time the shutdown may take place; it is a lower
+    bound only: the shutdown is executed as soon as possible, but not before the specified time. Specifying a
+    time that already elapsed (for example an <literal>hh:mm</literal> time earlier today) is not an error and
+    results in an immediate shutdown. See the discussion of <option>--when=</option> in
+    <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
+    details.</para>
+
     <para>Note that to specify a wall message you must specify a time
     argument, too.</para>
 
