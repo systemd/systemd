@@ -56,6 +56,8 @@ typedef struct RawPull {
         char *local; /* In PULL_DIRECT mode the path we are supposed to place things in, otherwise the
                       * image name of the final copy we make */
 
+        char *certificate_path; /* sometimes when pulling a raw image we want to verify using not x509 certs*/
+
         char *final_path;
         char *temp_path;
 
@@ -93,6 +95,7 @@ RawPull* raw_pull_unref(RawPull *p) {
         unlink_and_free(p->roothash_signature_temp_path);
         unlink_and_free(p->verity_temp_path);
 
+        free(p->certificate_path);
         free(p->final_path);
         free(p->settings_path);
         free(p->roothash_path);
@@ -108,6 +111,7 @@ int raw_pull_new(
                 RawPull **ret,
                 sd_event *event,
                 const char *image_root,
+                const char *cert_path,
                 RawPullFinished on_finished,
                 void *userdata) {
 
@@ -115,12 +119,19 @@ int raw_pull_new(
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
         _cleanup_(raw_pull_unrefp) RawPull *p = NULL;
         _cleanup_free_ char *root = NULL;
+        _cleanup_free_ char *certificate_path = NULL;
         int r;
 
         assert(ret);
         assert(image_root);
 
         root = strdup(image_root);
+        if (cert_path) {
+                certificate_path = strdup(cert_path);
+                if (!certificate_path)
+                        return -ENOMEM;
+        }
+
         if (!root)
                 return -ENOMEM;
 
@@ -146,6 +157,7 @@ int raw_pull_new(
                 .image_root = TAKE_PTR(root),
                 .event = TAKE_PTR(e),
                 .glue = TAKE_PTR(g),
+                .certificate_path = TAKE_PTR(certificate_path),
                 .offset = UINT64_MAX,
         };
 
@@ -559,6 +571,7 @@ static void raw_pull_job_on_finished(PullJob *j) {
                 raw_pull_report_progress(p, RAW_VERIFYING);
 
                 r = pull_verify(p->verify,
+                                p->certificate_path,
                                 p->raw_job,
                                 p->checksum_job,
                                 p->signature_job,
