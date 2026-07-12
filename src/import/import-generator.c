@@ -87,7 +87,7 @@ static int parse_pull_expression(const char *v) {
 
         ImportType type = _IMPORT_TYPE_INVALID;
         ImageClass class = _IMAGE_CLASS_INVALID;
-        ImportVerify verify = IMPORT_VERIFY_SIGNATURE;
+        ImportVerify verify = IMPORT_VERIFY_GPG;
         bool ro = false, blockdev = false, bootorigin = false, runtime = in_initrd();
 
         const char *o = options;
@@ -117,7 +117,7 @@ static int parse_pull_expression(const char *v) {
                         else
                                 runtime = r;
                 } else if ((suffix = startswith(opt, "verify="))) {
-                        ImportVerify w = import_verify_from_string(suffix);
+                        ImportVerify w = parse_import_verify_compat(suffix);
 
                         if (w < 0)
                                 log_warning_errno(w, "Unknown verification mode, ignoring: %s", suffix);

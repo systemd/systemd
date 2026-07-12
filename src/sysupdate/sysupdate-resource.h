@@ -2,6 +2,7 @@
 #pragma once
 
 #include "gpt.h"
+#include "import-util.h"
 #include "sysupdate-forward.h"
 
 typedef enum ResourceType {
@@ -91,7 +92,7 @@ void resource_destroy(Resource *rr);
 
 bool resource_has_glob_directory_pattern(Resource *rr);
 
-int resource_load_instances(Resource *rr, bool verify, Hashmap **web_cache);
+int resource_load_instances(Resource *rr, ImportVerify verify, Hashmap **web_cache);
 
 Instance* resource_find_instance(Resource *rr, const char *version);
 
