@@ -111,6 +111,7 @@ udev_dependencies = [
         libblkid_cflags,
         libkmod_cflags,
         libmount_cflags,
+        libopenssl_cflags,
         libselinux_cflags,
         tpm2_cflags,
 ]
