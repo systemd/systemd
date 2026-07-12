@@ -608,7 +608,7 @@ static int verb_sign(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (!certificate_table)
                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "File lacks certificate table.");
 
-        r = copy_bytes(srcfd, dstfd, UINT64_MAX, COPY_REFLINK);
+        r = copy_bytes(srcfd, dstfd, UINT64_MAX, /* copy_flags= */ 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to copy %s to %s: %m", argv[1], tmp);
 

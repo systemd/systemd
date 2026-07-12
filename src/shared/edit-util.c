@@ -183,7 +183,7 @@ static int populate_edit_temp_file(EditFile *e, FILE *f, const char *filename) {
                         }
                 }
         } else if (source) {
-                r = copy_file_fd(source, fileno(f), COPY_REFLINK);
+                r = copy_file_fd(source, fileno(f), /* copy_flags= */ 0);
                 if (r < 0) {
                         assert(r != -ENOENT);
                         return log_error_errno(r, "Failed to copy file '%s' to temporary file '%s': %m",
@@ -444,7 +444,7 @@ static int edit_file_install_one_stdin(EditFile *e, const char *contents, size_t
                 if (r < 0)
                         return log_error_errno(r, "Failed to create parent directories for '%s': %m", e->path);
 
-                r = copy_file_atomic_at(*fd, NULL, AT_FDCWD, e->path, 0644, COPY_REFLINK|COPY_REPLACE|COPY_MAC_CREATE);
+                r = copy_file_atomic_at(*fd, NULL, AT_FDCWD, e->path, 0644, COPY_REPLACE|COPY_MAC_CREATE);
                 if (r < 0)
                         return log_error_errno(r, "Failed to copy stdin contents to '%s': %m", e->path);
 
