@@ -736,6 +736,12 @@ node /org/freedesktop/login1 {
       <function>CancelScheduledShutdown()</function> cancels a scheduled shutdown. The output parameter
       <varname>cancelled</varname> is true if a shutdown operation was scheduled.</para>
 
+      <para>Note that <varname>usec</varname> is a lower bound only: the shutdown operation is executed as soon
+      as possible, but not before the specified time. A timestamp in the past is not an error, it simply means
+      the operation is executed immediately. This is important, since a request to shut down immediately, or a
+      very short time into the future, typically already refers to the past by the time it is
+      processed.</para>
+
       <para><function>SetWallMessage()</function> sets the wall message (the message that will be sent out to
       all terminals and stored in a
       <citerefentry project="man-pages"><refentrytitle>utmp</refentrytitle><manvolnum>5</manvolnum></citerefentry> record) for a

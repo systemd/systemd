@@ -2917,6 +2917,19 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           <literal>auto</literal> will schedule the action according to maintenance window or one minute in
           the future.</para>
 
+          <para>The specified timestamp is a lower bound only: it declares the earliest point in time the
+          requested action may take place, i.e. the action is executed as soon as possible, but not before the
+          given timestamp. It is <emphasis>not</emphasis> a condition that is checked, and specifying a
+          timestamp in the past is not an error: the action is then executed immediately. This is intentional,
+          as the alternative would be racy and surprising — consider <option>--when=now</option>, which by the
+          time the request is processed necessarily refers to the past, or
+          <option>--when=+50ms</option>, which might well already have elapsed due to scheduling latencies
+          before the request is dispatched. In both cases the requested action is still carried out, as
+          the user asked for it.</para>
+
+          <para>If a timestamp in the past shall not result in the action being executed, this must be checked
+          for explicitly before invoking <command>systemctl</command>.</para>
+
           <xi:include href="version-info.xml" xpointer="v254"/>
         </listitem>
       </varlistentry>
