@@ -54,6 +54,7 @@ DLSYM_PROTOTYPE(ASN1_STRING_length) = NULL;
 DLSYM_PROTOTYPE(ASN1_STRING_new) = NULL;
 DLSYM_PROTOTYPE(ASN1_STRING_set) = NULL;
 DLSYM_PROTOTYPE(ASN1_STRING_set0) = NULL;
+DLSYM_PROTOTYPE(ASN1_TIME_cmp_time_t) = NULL;
 DLSYM_PROTOTYPE(ASN1_TIME_free) = NULL;
 DLSYM_PROTOTYPE(ASN1_TIME_set) = NULL;
 DLSYM_PROTOTYPE(ASN1_TYPE_new) = NULL;
@@ -290,8 +291,14 @@ static DLSYM_PROTOTYPE(X509_NAME_set) = NULL;
 DLSYM_PROTOTYPE(X509_VERIFY_PARAM_set1_host) = NULL;
 DLSYM_PROTOTYPE(X509_VERIFY_PARAM_set1_ip) = NULL;
 DLSYM_PROTOTYPE(X509_VERIFY_PARAM_set_hostflags) = NULL;
+DLSYM_PROTOTYPE(X509_STORE_add_cert) = NULL;
+DLSYM_PROTOTYPE(X509_STORE_free) = NULL;
+DLSYM_PROTOTYPE(X509_STORE_new) = NULL;
+DLSYM_PROTOTYPE(X509_check_purpose) = NULL;
 DLSYM_PROTOTYPE(X509_free) = NULL;
 DLSYM_PROTOTYPE(X509_get0_pubkey) = NULL;
+DLSYM_PROTOTYPE(X509_get0_notAfter) = NULL;
+DLSYM_PROTOTYPE(X509_get0_notBefore) = NULL;
 static DLSYM_PROTOTYPE(X509_get0_serialNumber) = NULL;
 static DLSYM_PROTOTYPE(X509_get_issuer_name) = NULL;
 DLSYM_PROTOTYPE(X509_get_pubkey) = NULL;
@@ -378,6 +385,7 @@ int dlopen_libcrypto(int log_level) {
                         DLSYM_ARG(ASN1_STRING_new),
                         DLSYM_ARG(ASN1_STRING_set),
                         DLSYM_ARG(ASN1_STRING_set0),
+                        DLSYM_ARG(ASN1_TIME_cmp_time_t),
                         DLSYM_ARG(ASN1_TIME_free),
                         DLSYM_ARG(ASN1_TIME_set),
                         DLSYM_ARG(ASN1_TYPE_new),
@@ -612,8 +620,14 @@ int dlopen_libcrypto(int log_level) {
                         DLSYM_ARG(X509_VERIFY_PARAM_set1_host),
                         DLSYM_ARG(X509_VERIFY_PARAM_set1_ip),
                         DLSYM_ARG(X509_VERIFY_PARAM_set_hostflags),
+                        DLSYM_ARG(X509_STORE_add_cert),
+                        DLSYM_ARG(X509_STORE_free),
+                        DLSYM_ARG(X509_STORE_new),
+                        DLSYM_ARG(X509_check_purpose),
                         DLSYM_ARG(X509_free),
                         DLSYM_ARG(X509_get0_pubkey),
+                        DLSYM_ARG(X509_get0_notAfter),
+                        DLSYM_ARG(X509_get0_notBefore),
                         DLSYM_ARG(X509_get0_serialNumber),
                         DLSYM_ARG(X509_get_issuer_name),
                         DLSYM_ARG(X509_get_pubkey),
