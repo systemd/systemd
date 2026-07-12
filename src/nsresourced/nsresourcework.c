@@ -1515,13 +1515,8 @@ static int vl_method_allocate_user_range(sd_varlink *link, sd_json_variant *para
         if (r < 0)
                 return r;
 
-        /* Register the userns in the BPF map with an empty allowlist */
-        r = userns_restrict_put_by_fd(
-                        c->bpf,
-                        userns_fd,
-                        /* replace= */ true,
-                        /* mount_fds= */ NULL,
-                        /* n_mount_fds= */ 0);
+        /* Subject the userns to the BPF-LSM policy that keeps its transient range off persistent file systems */
+        r = userns_restrict_register_by_fd(c->bpf, userns_fd);
         if (r < 0)
                 goto fail;
 
@@ -1742,13 +1737,8 @@ static int vl_method_register_user_namespace(sd_varlink *link, sd_json_variant *
         if (r < 0)
                 return log_debug_errno(r, "Failed to update userns registry: %m");
 
-        /* Register the userns in the BPF map with an empty allowlist */
-        r = userns_restrict_put_by_fd(
-                        c->bpf,
-                        userns_fd,
-                        /* replace= */ true,
-                        /* mount_fds= */ NULL,
-                        /* n_mount_fds= */ 0);
+        /* Subject the userns to the BPF-LSM policy that keeps its transient range off persistent file systems */
+        r = userns_restrict_register_by_fd(c->bpf, userns_fd);
         if (r < 0)
                 goto fail;
 
@@ -1887,22 +1877,17 @@ static int vl_method_add_mount_to_user_namespace(sd_varlink *link, sd_json_varia
         if (r < 0)
                 return r;
 
-        /* Add this mount to the user namespace's BPF map allowlist entry. */
-        r = userns_restrict_put_by_fd(
-                        c->bpf,
-                        userns_fd,
-                        /* replace= */ false,
-                        &mount_fd,
-                        1);
-        if (r < 0)
-                return r;
+        /* There's no mount allowlist anymore: the BPF-LSM policy decides per operation whether the ID that
+         * would be recorded on disk is a transient one, which needs no per-mount knowledge. We keep
+         * accepting and validating the call for the sake of older clients, and keep the mount pinned as
+         * before, but there is nothing left to allowlist. */
 
         if (DEBUG_LOGGING) {
                 if (userns_info->size > 0)
-                        log_debug("Granting access to mount %i to user namespace " INO_FMT " ('%s' @ UID " UID_FMT ")",
+                        log_debug("Delegated mount %i to user namespace " INO_FMT " ('%s' @ UID " UID_FMT ")",
                                   mnt_id, userns_st.st_ino, userns_info->name, userns_info->start_uid);
                 else
-                        log_debug("Granting access to mount %i to user namespace " INO_FMT " ('%s')",
+                        log_debug("Delegated mount %i to user namespace " INO_FMT " ('%s')",
                                   mnt_id, userns_st.st_ino, userns_info->name);
         }
 
