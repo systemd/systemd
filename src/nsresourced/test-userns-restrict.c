@@ -11,12 +11,15 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "namespace-util.h"
+#include "path-util.h"
 #include "pidref.h"
 #include "process-util.h"
 #include "rm-rf.h"
+#include "string-util.h"
 #include "tests.h"
 #include "tmpfile-util.h"
 #include "uid-classification.h"
+#include "user-util.h"
 #include "userns-restrict.h"
 
 static int make_tmpfs_fsmount(void) {
@@ -26,6 +29,22 @@ static int make_tmpfs_fsmount(void) {
         ASSERT_OK_ERRNO(fsconfig(fsfd, FSCONFIG_CMD_CREATE, NULL, NULL, 0));
 
         mntfd = ASSERT_OK_ERRNO(fsmount(fsfd, FSMOUNT_CLOEXEC, 0));
+
+        return TAKE_FD(mntfd);
+}
+
+/* A tmpfs on the host, but idmapped through the passed user namespace, i.e. the equivalent of what mountfsd
+ * hands to clients: our transient UID lands on disk as UID 0, so nothing recyclable is recorded. */
+static int make_idmapped_tmpfs_fsmount(int userns_fd) {
+        _cleanup_close_ int mntfd = -EBADF;
+
+        mntfd = ASSERT_OK(make_tmpfs_fsmount());
+
+        ASSERT_OK_ERRNO(mount_setattr(mntfd, "", AT_EMPTY_PATH,
+                                      &(struct mount_attr) {
+                                              .attr_set = MOUNT_ATTR_IDMAP,
+                                              .userns_fd = userns_fd,
+                                      }, sizeof(struct mount_attr)));
 
         return TAKE_FD(mntfd);
 }
@@ -47,7 +66,8 @@ static int intro(void) {
 }
 
 TEST(userns_restrict) {
-        _cleanup_close_ int userns_fd = -EBADF, host_fd1 = -EBADF, host_tmpfs = -EBADF, afd = -EBADF, bfd = -EBADF;
+        _cleanup_close_ int userns_fd = -EBADF, host_fd1 = -EBADF, host_tmpfs = -EBADF,
+                             idmapped_tmpfs = -EBADF;
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
         _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
         int r;
@@ -64,15 +84,9 @@ TEST(userns_restrict) {
         ASSERT_OK(asprintf(&idmap, "0 "UID_FMT" 1", CONTAINER_UID_MIN));
         userns_fd = ASSERT_OK(userns_acquire(idmap, idmap, /* setgroups_deny= */ true));
 
-        ASSERT_OK(userns_restrict_put_by_fd(
-                        bpf_obj,
-                        userns_fd,
-                        /* replace= */ true,
-                        /* mount_fds= */ NULL,
-                        /* n_mount_fds= */ 0));
+        idmapped_tmpfs = ASSERT_OK(make_idmapped_tmpfs_fsmount(userns_fd));
 
-        afd = ASSERT_OK_ERRNO(eventfd(0, EFD_CLOEXEC));
-        bfd = ASSERT_OK_ERRNO(eventfd(0, EFD_CLOEXEC));
+        ASSERT_OK(userns_restrict_register_by_fd(bpf_obj, userns_fd));
 
         r = ASSERT_OK(pidref_safe_fork("(test)", FORK_DEATHSIG_SIGKILL, &pidref));
         if (r == 0) {
@@ -81,10 +95,10 @@ TEST(userns_restrict) {
                 ASSERT_OK(namespace_enter(-EBADF, -EBADF, -EBADF, userns_fd, -EBADF));
                 ASSERT_OK_ERRNO(unshare(CLONE_NEWNS));
 
-                /* Allocate tmpfs locally */
+                /* Allocate tmpfs locally, i.e. a file system that dies together with our user namespace */
                 private_tmpfs = make_tmpfs_fsmount();
 
-                /* These two host mounts should be inaccessible */
+                /* These two host mounts would record our transient UID on disk, hence are inaccessible */
                 ASSERT_ERROR_ERRNO(openat(host_fd1, "test", O_RDWR|O_CREAT|O_CLOEXEC, 0666), EPERM);
                 ASSERT_ERROR_ERRNO(openat(host_tmpfs, "xxx", O_RDWR|O_CREAT|O_CLOEXEC, 0666), EPERM);
                 ASSERT_ERROR_ERRNO(mkdirat(host_fd1, "test2", 0666), EPERM);
@@ -94,57 +108,61 @@ TEST(userns_restrict) {
                 safe_close(ASSERT_OK_ERRNO(openat(private_tmpfs, "yyy", O_RDWR|O_CREAT|O_CLOEXEC, 0666)));
                 ASSERT_OK_ERRNO(mkdirat(private_tmpfs, "yyy2", 0666));
 
-                /* Let's sync with the parent, so that it allowlists more stuff for us */
-                ASSERT_OK_ERRNO(eventfd_write(afd, 1));
-                uint64_t x;
-                ASSERT_OK_ERRNO(eventfd_read(bfd, &x));
+                /* And so should the idmapped host mount: it translates our transient UID to UID 0 before
+                 * anything reaches the disk */
+                safe_close(ASSERT_OK_ERRNO(openat(idmapped_tmpfs, "zzz", O_RDWR|O_CREAT|O_CLOEXEC, 0666)));
+                ASSERT_OK_ERRNO(mkdirat(idmapped_tmpfs, "zzz2", 0666));
 
-                /* And now we should also have access to the host tmpfs */
-                safe_close(ASSERT_OK_ERRNO(openat(host_tmpfs, "zzz", O_RDWR|O_CREAT|O_CLOEXEC, 0666)));
+                /* chown() is subject to the same policy. Unlike the creation hooks it is handed the ID that
+                 * ends up on disk, so it needs no idmap arithmetic of its own. Setting a group the inode
+                 * already has still reaches the hook, before the change is applied. Giving the host
+                 * directory (which outlives us) our transient GID would leave something recyclable behind,
+                 * hence is refused... */
+                ASSERT_ERROR_ERRNO(fchownat(host_fd1, "", GID_INVALID, 0, AT_EMPTY_PATH), EPERM);
+
+                /* ...while the same chown() is fine on the file system that dies with us, and on the
+                 * idmapped mount where our transient GID is translated to 0 before it reaches the disk. */
+                ASSERT_OK_ERRNO(fchownat(private_tmpfs, "yyy", GID_INVALID, 0, 0));
+                ASSERT_OK_ERRNO(fchownat(idmapped_tmpfs, "zzz", GID_INVALID, 0, 0));
+
+                /* Unsharing a mount namespace hands us clones of every mount we can see, owned by our own
+                 * user namespace. That must not buy us anything.
+                 *
+                 * Note that this has to go through a path, not through the directory fd opened above: an
+                 * already open fd pins the original mount, while a path lookup lands on the clone, and it
+                 * is the clone that used to be mistaken for one of ours. */
+                ASSERT_OK_ERRNO(unshare(CLONE_NEWNS));
+
+                _cleanup_free_ char *p1 = NULL, *p2 = NULL;
+                ASSERT_NOT_NULL(p1 = path_join(t, "newns"));
+                ASSERT_NOT_NULL(p2 = path_join(t, "newns2"));
+
+                ASSERT_ERROR_ERRNO(open(p1, O_RDWR|O_CREAT|O_CLOEXEC, 0666), EPERM);
+                ASSERT_ERROR_ERRNO(mkdir(p2, 0666), EPERM);
+                ASSERT_ERROR_ERRNO(openat(host_fd1, "newns3", O_RDWR|O_CREAT|O_CLOEXEC, 0666), EPERM);
+                ASSERT_ERROR_ERRNO(openat(host_tmpfs, "newns4", O_RDWR|O_CREAT|O_CLOEXEC, 0666), EPERM);
+
+                /* And chown() through the clone must stay refused too, not just inode creation. */
+                ASSERT_ERROR_ERRNO(fchownat(AT_FDCWD, t, GID_INVALID, 0, 0), EPERM);
+
+                /* Neither must nesting a user namespace, which is not in the managed map itself */
+                ASSERT_OK_ERRNO(unshare(CLONE_NEWUSER));
+
+                _cleanup_free_ char *p3 = NULL, *p4 = NULL;
+                ASSERT_NOT_NULL(p3 = path_join(t, "newuser"));
+                ASSERT_NOT_NULL(p4 = path_join(t, "newuser2"));
+
+                ASSERT_ERROR_ERRNO(open(p3, O_RDWR|O_CREAT|O_CLOEXEC, 0666), EPERM);
+                ASSERT_ERROR_ERRNO(mkdir(p4, 0666), EPERM);
+                ASSERT_ERROR_ERRNO(openat(host_fd1, "newuser3", O_RDWR|O_CREAT|O_CLOEXEC, 0666), EPERM);
+                ASSERT_ERROR_ERRNO(openat(host_tmpfs, "newuser4", O_RDWR|O_CREAT|O_CLOEXEC, 0666), EPERM);
+
+                /* …while what was legitimately writable before stays writable */
                 safe_close(ASSERT_OK_ERRNO(openat(private_tmpfs, "aaa", O_RDWR|O_CREAT|O_CLOEXEC, 0666)));
-                ASSERT_OK_ERRNO(mkdirat(host_tmpfs, "zzz2", 0666));
-                ASSERT_OK_ERRNO(mkdirat(private_tmpfs, "aaa2", 0666));
-
-                /* But this one should still fail */
-                ASSERT_ERROR_ERRNO(openat(host_fd1, "bbb", O_RDWR|O_CREAT|O_CLOEXEC, 0666), EPERM);
-                ASSERT_ERROR_ERRNO(mkdirat(host_fd1, "bbb2", 0666), EPERM);
-
-                /* Sync again, to get more stuff allowlisted */
-                ASSERT_OK_ERRNO(eventfd_write(afd, 1));
-                ASSERT_OK_ERRNO(eventfd_read(bfd, &x));
-
-                /* Everything should now be allowed */
-                safe_close(ASSERT_OK_ERRNO(openat(host_tmpfs, "ccc", O_RDWR|O_CREAT|O_CLOEXEC, 0666)));
-                safe_close(ASSERT_OK_ERRNO(openat(host_fd1, "ddd", O_RDWR|O_CREAT|O_CLOEXEC, 0666)));
-                safe_close(ASSERT_OK_ERRNO(openat(private_tmpfs, "eee", O_RDWR|O_CREAT|O_CLOEXEC, 0666)));
-                ASSERT_OK_ERRNO(mkdirat(host_tmpfs, "ccc2", 0666));
-                safe_close(ASSERT_OK_ERRNO(openat(host_fd1, "ddd2", O_RDWR|O_CREAT|O_CLOEXEC, 0666)));
-                ASSERT_OK_ERRNO(mkdirat(private_tmpfs, "eee2", 0666));
+                safe_close(ASSERT_OK_ERRNO(openat(idmapped_tmpfs, "bbb", O_RDWR|O_CREAT|O_CLOEXEC, 0666)));
 
                 _exit(EXIT_SUCCESS);
         }
-
-        uint64_t x;
-        ASSERT_OK_ERRNO(eventfd_read(afd, &x));
-
-        ASSERT_OK(userns_restrict_put_by_fd(
-                        bpf_obj,
-                        userns_fd,
-                        /* replace= */ false,
-                        &host_tmpfs,
-                        1));
-
-        ASSERT_OK_ERRNO(eventfd_write(bfd, 1));
-        ASSERT_OK_ERRNO(eventfd_read(afd, &x));
-
-        ASSERT_OK(userns_restrict_put_by_fd(
-                        bpf_obj,
-                        userns_fd,
-                        /* replace= */ false,
-                        &host_fd1,
-                        1));
-
-        ASSERT_OK_ERRNO(eventfd_write(bfd, 1));
 
         ASSERT_OK(pidref_wait_for_terminate_and_check("(test)", &pidref, WAIT_LOG));
 }
@@ -184,23 +202,13 @@ TEST(setgroups_deny) {
          * denial specifically. */
         deny_userns_fd = ASSERT_OK(userns_acquire(idmap, idmap, /* setgroups_deny= */ false));
 
-        ASSERT_OK(userns_restrict_put_by_fd(
-                        bpf_obj,
-                        deny_userns_fd,
-                        /* replace= */ true,
-                        /* mount_fds= */ NULL,
-                        /* n_mount_fds= */ 0));
+        ASSERT_OK(userns_restrict_register_by_fd(bpf_obj, deny_userns_fd));
         ASSERT_OK(userns_restrict_setgroups_deny_by_fd(bpf_obj, deny_userns_fd));
 
-        /* Create a userns that is managed (in mount ID hash) but does NOT have setgroups() denied */
+        /* Create a userns that is managed but does NOT have setgroups() denied */
         allow_userns_fd = ASSERT_OK(userns_acquire(idmap, idmap, /* setgroups_deny= */ false));
 
-        ASSERT_OK(userns_restrict_put_by_fd(
-                        bpf_obj,
-                        allow_userns_fd,
-                        /* replace= */ true,
-                        /* mount_fds= */ NULL,
-                        /* n_mount_fds= */ 0));
+        ASSERT_OK(userns_restrict_register_by_fd(bpf_obj, allow_userns_fd));
 
         afd = ASSERT_OK_ERRNO(eventfd(0, EFD_CLOEXEC));
         bfd = ASSERT_OK_ERRNO(eventfd(0, EFD_CLOEXEC));
@@ -247,7 +255,7 @@ TEST(setgroups_deny) {
                 ASSERT_OK(pidref_wait_for_terminate_and_check("(test-deny)", &pidref, WAIT_LOG));
         }
 
-        /* Test 2: setgroups() should be allowed in the managed-only userns (mount ID hash but no setgroups
+        /* Test 2: setgroups() should be allowed in the managed-only userns (managed map but no setgroups
          * deny entry), including in a child user namespace. */
         {
                 _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
@@ -258,11 +266,11 @@ TEST(setgroups_deny) {
                         ASSERT_OK_ERRNO(setresgid(0, 0, 0));
                         ASSERT_OK_ERRNO(setresuid(0, 0, 0));
 
-                        /* setgroups() should succeed since this userns is only in the mount ID hash */
+                        /* setgroups() should succeed since this userns is only in the managed map */
                         ASSERT_OK_ERRNO(setgroups(0, NULL));
 
                         /* Also should work in a child userns since the ancestor walk finds the
-                         * mount ID hash entry (not the setgroups deny entry) */
+                         * managed map entry (not the setgroups deny entry) */
                         ASSERT_OK_ERRNO(unshare(CLONE_NEWUSER));
                         ASSERT_OK_ERRNO(eventfd_write(afd, 1));
                         uint64_t x;
