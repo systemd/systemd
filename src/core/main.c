@@ -2795,7 +2795,8 @@ static int initialize_runtime(
                 log_warning_errno(r, "Failed to reset ambient capability set, ignoring: %m");
 
         if (arg_timer_slack_nsec != NSEC_INFINITY)
-                if (prctl(PR_SET_TIMERSLACK, arg_timer_slack_nsec) < 0)
+                /* prctl() is variadic, hence pass the value as unsigned long, not as uint64_t (see exec-invoke.c). */
+                if (prctl(PR_SET_TIMERSLACK, (unsigned long) MIN(arg_timer_slack_nsec, (nsec_t) ULONG_MAX)) < 0)
                         log_warning_errno(errno, "Failed to adjust timer slack, ignoring: %m");
 
         if (arg_syscall_archs) {

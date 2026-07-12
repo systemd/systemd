@@ -5659,7 +5659,10 @@ int exec_invoke(
                 }
 
         if (context->timer_slack_nsec != NSEC_INFINITY)
-                if (prctl(PR_SET_TIMERSLACK, context->timer_slack_nsec) < 0) {
+                /* prctl() is variadic, hence the value must be passed as unsigned long, not as uint64_t:
+                 * on 32-bit ABIs that align 64-bit varargs to register pairs (e.g. ARM AAPCS) the kernel
+                 * would otherwise receive an unrelated register's contents as the timer slack. */
+                if (prctl(PR_SET_TIMERSLACK, (unsigned long) MIN(context->timer_slack_nsec, (nsec_t) ULONG_MAX)) < 0) {
                         *exit_status = EXIT_TIMERSLACK;
                         return log_error_errno(errno, "Failed to set up timer slack: %m");
                 }
