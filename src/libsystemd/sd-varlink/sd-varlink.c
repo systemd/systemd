@@ -48,27 +48,31 @@
 #define VARLINK_COLLECT_MAX 1024U
 
 static const char* const varlink_state_table[_VARLINK_STATE_MAX] = {
-        [VARLINK_IDLE_CLIENT]              = "idle-client",
-        [VARLINK_AWAITING_REPLY]           = "awaiting-reply",
-        [VARLINK_AWAITING_REPLY_MORE]      = "awaiting-reply-more",
-        [VARLINK_CALLING]                  = "calling",
-        [VARLINK_CALLED]                   = "called",
-        [VARLINK_COLLECTING]               = "collecting",
-        [VARLINK_COLLECTING_REPLY]         = "collecting-reply",
-        [VARLINK_PROCESSING_REPLY]         = "processing-reply",
-        [VARLINK_IDLE_SERVER]              = "idle-server",
-        [VARLINK_PROCESSING_METHOD]        = "processing-method",
-        [VARLINK_PROCESSING_METHOD_MORE]   = "processing-method-more",
-        [VARLINK_PROCESSING_METHOD_ONEWAY] = "processing-method-oneway",
-        [VARLINK_PROCESSED_METHOD]         = "processed-method",
-        [VARLINK_PENDING_METHOD]           = "pending-method",
-        [VARLINK_PENDING_METHOD_MORE]      = "pending-method-more",
-        [VARLINK_PENDING_DISCONNECT]       = "pending-disconnect",
-        [VARLINK_PENDING_TIMEOUT]          = "pending-timeout",
-        [VARLINK_PROCESSING_DISCONNECT]    = "processing-disconnect",
-        [VARLINK_PROCESSING_TIMEOUT]       = "processing-timeout",
-        [VARLINK_PROCESSING_FAILURE]       = "processing-failure",
-        [VARLINK_DISCONNECTED]             = "disconnected",
+        [VARLINK_IDLE_CLIENT]               = "idle-client",
+        [VARLINK_AWAITING_REPLY]            = "awaiting-reply",
+        [VARLINK_AWAITING_REPLY_MORE]       = "awaiting-reply-more",
+        [VARLINK_CALLING]                   = "calling",
+        [VARLINK_CALLED]                    = "called",
+        [VARLINK_COLLECTING]                = "collecting",
+        [VARLINK_COLLECTING_REPLY]          = "collecting-reply",
+        [VARLINK_PROCESSING_REPLY]          = "processing-reply",
+        [VARLINK_IDLE_SERVER]               = "idle-server",
+        [VARLINK_PROCESSING_METHOD]         = "processing-method",
+        [VARLINK_PROCESSING_METHOD_MORE]    = "processing-method-more",
+        [VARLINK_PROCESSING_METHOD_ONEWAY]  = "processing-method-oneway",
+        [VARLINK_PROCESSING_METHOD_UPGRADE] = "processing-method-upgrade",
+        [VARLINK_PROCESSED_METHOD]          = "processed-method",
+        [VARLINK_PROCESSED_METHOD_UPGRADE]  = "processed-method-upgrade",
+        [VARLINK_PENDING_METHOD]            = "pending-method",
+        [VARLINK_PENDING_METHOD_MORE]       = "pending-method-more",
+        [VARLINK_PENDING_METHOD_UPGRADE]    = "pending-method-upgrade",
+        [VARLINK_UPGRADING]                 = "upgrading",
+        [VARLINK_PENDING_DISCONNECT]        = "pending-disconnect",
+        [VARLINK_PENDING_TIMEOUT]           = "pending-timeout",
+        [VARLINK_PROCESSING_DISCONNECT]     = "processing-disconnect",
+        [VARLINK_PROCESSING_TIMEOUT]        = "processing-timeout",
+        [VARLINK_PROCESSING_FAILURE]        = "processing-failure",
+        [VARLINK_DISCONNECTED]              = "disconnected",
 };
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(varlink_state, VarlinkState);
@@ -112,7 +116,7 @@ static JsonStreamPhase varlink_phase(void *userdata) {
         if (v->state == VARLINK_IDLE_CLIENT)
                 return JSON_STREAM_PHASE_IDLE_CLIENT;
 
-        if (IN_SET(v->state, VARLINK_PENDING_METHOD, VARLINK_PENDING_METHOD_MORE))
+        if (IN_SET(v->state, VARLINK_PENDING_METHOD, VARLINK_PENDING_METHOD_MORE, VARLINK_PENDING_METHOD_UPGRADE))
                 return JSON_STREAM_PHASE_PENDING_OUTPUT;
 
         return JSON_STREAM_PHASE_OTHER;
@@ -1096,7 +1100,7 @@ static int varlink_fiber_entry(void *userdata) {
          * VARLINK_PROCESSING_METHOD{,_MORE} to VARLINK_PENDING_METHOD{,_MORE}, so that's what we match
          * here to decide whether the call still needs a reply. Any other state (e.g. IDLE_SERVER after
          * the callback replied, or DISCONNECTED after sd_varlink_close()) means no fixup is needed. */
-        if (!IN_SET(v->state, VARLINK_PENDING_METHOD, VARLINK_PENDING_METHOD_MORE))
+        if (!IN_SET(v->state, VARLINK_PENDING_METHOD, VARLINK_PENDING_METHOD_MORE, VARLINK_PENDING_METHOD_UPGRADE))
                 return r;
 
         if (r < 0) {
@@ -1118,7 +1122,7 @@ static int varlink_fiber_entry(void *userdata) {
                 r = 0;
 
         /* If we didn't manage to enqueue a response, then fail the connection completely. */
-        if (r < 0 && IN_SET(v->state, VARLINK_PENDING_METHOD, VARLINK_PENDING_METHOD_MORE))
+        if (r < 0 && IN_SET(v->state, VARLINK_PENDING_METHOD, VARLINK_PENDING_METHOD_MORE, VARLINK_PENDING_METHOD_UPGRADE))
                 goto fail;
 
         return r;
@@ -1264,20 +1268,20 @@ static int varlink_dispatch_method(sd_varlink *v) {
         if (r < 0)
                 goto fail;
 
-        varlink_set_state(v, (flags & SD_VARLINK_METHOD_MORE)   ? VARLINK_PROCESSING_METHOD_MORE :
-                             (flags & SD_VARLINK_METHOD_ONEWAY) ? VARLINK_PROCESSING_METHOD_ONEWAY :
-                                                                  VARLINK_PROCESSING_METHOD);
+        varlink_set_state(v, (flags & SD_VARLINK_METHOD_MORE)    ? VARLINK_PROCESSING_METHOD_MORE :
+                             (flags & SD_VARLINK_METHOD_ONEWAY)  ? VARLINK_PROCESSING_METHOD_ONEWAY :
+                             (flags & SD_VARLINK_METHOD_UPGRADE) ? VARLINK_PROCESSING_METHOD_UPGRADE :
+                                                                   VARLINK_PROCESSING_METHOD);
 
         assert(v->server);
 
         /* Reset the per-call upgrade marker on every dispatch — a previous method's
          * UPGRADE flag must not bleed into this one. The transport-level bounded reads
          * stay active for SD_VARLINK_SERVER_UPGRADABLE servers regardless. */
-        v->protocol_upgrade = FLAGS_SET(flags, SD_VARLINK_METHOD_UPGRADE);
         json_stream_set_flags(
                         &v->stream,
                         JSON_STREAM_BOUNDED_READS,
-                        v->protocol_upgrade || FLAGS_SET(v->server->flags, SD_VARLINK_SERVER_UPGRADABLE));
+                        FLAGS_SET(flags, SD_VARLINK_METHOD_UPGRADE) || FLAGS_SET(v->server->flags, SD_VARLINK_SERVER_UPGRADABLE));
 
         /* First consult user supplied method implementations */
         bool is_fiber = false;
@@ -1401,6 +1405,15 @@ static int varlink_dispatch_method(sd_varlink *v) {
                 varlink_set_state(v, VARLINK_PENDING_METHOD_MORE);
                 break;
 
+        case VARLINK_PROCESSING_METHOD_UPGRADE: /* Method call wasn't replied to, will be replied to later */
+                varlink_set_state(v, VARLINK_PENDING_METHOD_UPGRADE);
+                break;
+
+        case VARLINK_PROCESSED_METHOD_UPGRADE: /* Upgrade requested, let's now wait till everything is flushed */
+                varlink_clear_current(v);
+                varlink_set_state(v, VARLINK_UPGRADING);
+                break;
+
         case VARLINK_DISCONNECTED: /* Handler called sd_varlink_close() on us, which is fine */
                 break;
 
@@ -1421,6 +1434,88 @@ fail:
         return r;
 }
 
+static int varlink_handle_upgrade_fds(sd_varlink *v, int *ret_input_fd, int *ret_output_fd) {
+        int r;
+
+        assert(v);
+        assert(ret_input_fd || ret_output_fd);
+
+        /* Ensure no post-upgrade data was consumed into our input buffer (we ensure this via MSG_PEEK or
+         * byte-to-byte) and refuse the upgrade rather than silently losing the data. */
+        if (json_stream_has_buffered_input(&v->stream))
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(EPROTO),
+                                         "Unexpected buffered data during protocol upgrade, refusing.");
+
+        _cleanup_close_ int input_fd = TAKE_FD(v->stream.input_fd),
+                            output_fd = TAKE_FD(v->stream.output_fd);
+
+        /* Pass the connection fds to the caller, it owns them now. Reset to blocking mode
+         * since callers of the upgraded protocol will generally expect normal blocking
+         * semantics. For bidirectional sockets (input_fd == output_fd), dup the fd so that
+         * callers always get two independent fds they can close separately. */
+        if (input_fd == output_fd) {
+                output_fd = fcntl(input_fd, F_DUPFD_CLOEXEC, 3);
+                if (output_fd < 0)
+                        return varlink_log_errno(v, errno, "Failed to dup upgraded connection fd: %m");
+        } else {
+                r = fd_nonblock(output_fd, false);
+                if (r < 0)
+                        return varlink_log_errno(v, r, "Failed to set output fd to blocking mode: %m");
+        }
+
+        r = fd_nonblock(input_fd, false);
+        if (r < 0)
+                return varlink_log_errno(v, r, "Failed to set input fd to blocking mode: %m");
+
+        /* Hand out requested fds, shut down unwanted directions. */
+        if (ret_input_fd)
+                *ret_input_fd = TAKE_FD(input_fd);
+        else
+                (void) shutdown(input_fd, SHUT_RD);
+
+        if (ret_output_fd)
+                *ret_output_fd = TAKE_FD(output_fd);
+        else
+                (void) shutdown(output_fd, SHUT_WR);
+
+        return 0;
+}
+
+static int varlink_dispatch_upgrade(sd_varlink *v) {
+        int r;
+
+        assert(v);
+
+        if (v->state != VARLINK_UPGRADING)
+                return 0;
+
+        r = json_stream_has_buffered_output(&v->stream);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                return 0;
+
+        /* Detach from the event loop before stealing the fds */
+        sd_varlink_detach_event(v);
+
+        _cleanup_close_ int input_fd = -EBADF, output_fd = -EBADF;
+        r = varlink_handle_upgrade_fds(v, &input_fd, &output_fd);
+        sd_varlink_close(v);
+        if (r < 0)
+                return r;
+
+        /* Fail if by this time the caller still hasn't set an upgrade callback. */
+        if (!v->upgrade_callback)
+                return -ENOPKG;
+
+        /* No matter what, we donate the fds to callback */
+        r = v->upgrade_callback(v, TAKE_FD(input_fd), TAKE_FD(output_fd), v->userdata);
+        if (r < 0)
+                return r;
+
+        return 1;
+}
+
 _public_ int sd_varlink_process(sd_varlink *v) {
         int r;
 
@@ -1434,6 +1529,12 @@ _public_ int sd_varlink_process(sd_varlink *v) {
         r = varlink_write(v);
         if (r < 0)
                 varlink_log_errno(v, r, "Write failed: %m");
+        if (r != 0)
+                goto finish;
+
+        r = varlink_dispatch_upgrade(v);
+        if (r < 0)
+                varlink_log_errno(v, r, "Upgrade dispatch failed: %m");
         if (r != 0)
                 goto finish;
 
@@ -1516,7 +1617,7 @@ _public_ int sd_varlink_dispatch_again(sd_varlink *v) {
 
         if (v->state == VARLINK_DISCONNECTED)
                 return varlink_log_errno(v, SYNTHETIC_ERRNO(ENOTCONN), "Not connected.");
-        if (!IN_SET(v->state, VARLINK_PENDING_METHOD, VARLINK_PENDING_METHOD_MORE))
+        if (!IN_SET(v->state, VARLINK_PENDING_METHOD, VARLINK_PENDING_METHOD_MORE, VARLINK_PENDING_METHOD_UPGRADE))
                 return varlink_log_errno(v, SYNTHETIC_ERRNO(EBUSY), "Connection has no pending method.");
 
         varlink_set_state(v, VARLINK_IDLE_SERVER);
@@ -2005,53 +2106,6 @@ _public_ int sd_varlink_call(
         return sd_varlink_call_full(v, method, parameters, ret_parameters, ret_error_id, NULL);
 }
 
-static int varlink_handle_upgrade_fds(sd_varlink *v, int *ret_input_fd, int *ret_output_fd) {
-        int r;
-
-        assert(v);
-        assert(ret_input_fd || ret_output_fd);
-
-        /* Ensure no post-upgrade data was consumed into our input buffer (we ensure this via MSG_PEEK or
-         * byte-to-byte) and refuse the upgrade rather than silently losing the data. */
-        if (json_stream_has_buffered_input(&v->stream))
-                return varlink_log_errno(v, SYNTHETIC_ERRNO(EPROTO),
-                                         "Unexpected buffered data during protocol upgrade, refusing.");
-
-        _cleanup_close_ int input_fd = TAKE_FD(v->stream.input_fd),
-                            output_fd = TAKE_FD(v->stream.output_fd);
-
-        /* Pass the connection fds to the caller, it owns them now. Reset to blocking mode
-         * since callers of the upgraded protocol will generally expect normal blocking
-         * semantics. For bidirectional sockets (input_fd == output_fd), dup the fd so that
-         * callers always get two independent fds they can close separately. */
-        if (input_fd == output_fd) {
-                output_fd = fcntl(input_fd, F_DUPFD_CLOEXEC, 3);
-                if (output_fd < 0)
-                        return varlink_log_errno(v, errno, "Failed to dup upgraded connection fd: %m");
-        } else {
-                r = fd_nonblock(output_fd, false);
-                if (r < 0)
-                        return varlink_log_errno(v, r, "Failed to set output fd to blocking mode: %m");
-        }
-
-        r = fd_nonblock(input_fd, false);
-        if (r < 0)
-                return varlink_log_errno(v, r, "Failed to set input fd to blocking mode: %m");
-
-        /* Hand out requested fds, shut down unwanted directions. */
-        if (ret_input_fd)
-                *ret_input_fd = TAKE_FD(input_fd);
-        else
-                (void) shutdown(input_fd, SHUT_RD);
-
-        if (ret_output_fd)
-                *ret_output_fd = TAKE_FD(output_fd);
-        else
-                (void) shutdown(output_fd, SHUT_WR);
-
-        return 0;
-}
-
 _public_ int sd_varlink_call_and_upgrade(
                 sd_varlink *v,
                 const char *method,
@@ -2076,11 +2130,9 @@ _public_ int sd_varlink_call_and_upgrade(
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to build json message: %m");
 
-        v->protocol_upgrade = true;
         json_stream_set_flags(&v->stream, JSON_STREAM_BOUNDED_READS, true);
         r = varlink_call_internal(v, m);
         if (r < 0) {
-                v->protocol_upgrade = false;
                 json_stream_set_flags(&v->stream, JSON_STREAM_BOUNDED_READS, false);
                 return r;
         }
@@ -2125,11 +2177,35 @@ _public_ int sd_varlink_call_and_upgrade(
         return 1;
 
 finish:
-        v->protocol_upgrade = false;
         json_stream_set_flags(&v->stream, JSON_STREAM_BOUNDED_READS, false);
         assert(v->n_pending == 1);
         v->n_pending--;
         return r;
+}
+
+_public_ int sd_varlink_call_and_upgradeb(
+                sd_varlink *v,
+                const char *method,
+                sd_json_variant **ret_parameters,
+                const char **ret_error_id,
+                int *ret_input_fd,
+                int *ret_output_fd,
+                ...) {
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *parameters = NULL;
+        va_list ap;
+        int r;
+
+        assert_return(v, -EINVAL);
+        assert_return(method, -EINVAL);
+
+        va_start(ap, ret_output_fd);
+        r = sd_json_buildv(&parameters, ap);
+        va_end(ap);
+        if (r < 0)
+                return varlink_log_errno(v, r, "Failed to build json message: %m");
+
+        return sd_varlink_call_and_upgrade(v, method, parameters, ret_parameters, ret_error_id, ret_input_fd, ret_output_fd);
 }
 
 _public_ int sd_varlink_callb_ap(
@@ -2360,8 +2436,8 @@ static int varlink_reply_internal(sd_varlink *v, sd_json_variant *parameters, bo
                 return varlink_log_errno(v, SYNTHETIC_ERRNO(ENOTCONN), "Not connected.");
 
         if (!IN_SET(v->state,
-                    VARLINK_PROCESSING_METHOD, VARLINK_PROCESSING_METHOD_MORE,
-                    VARLINK_PENDING_METHOD, VARLINK_PENDING_METHOD_MORE))
+                    VARLINK_PROCESSING_METHOD, VARLINK_PROCESSING_METHOD_MORE, VARLINK_PROCESSING_METHOD_UPGRADE,
+                    VARLINK_PENDING_METHOD, VARLINK_PENDING_METHOD_MORE, VARLINK_PENDING_METHOD_UPGRADE))
                 return varlink_log_errno(v, SYNTHETIC_ERRNO(EBUSY), "Connection busy.");
 
         bool more = IN_SET(v->state, VARLINK_PROCESSING_METHOD_MORE, VARLINK_PENDING_METHOD_MORE);
@@ -2413,7 +2489,7 @@ static int varlink_reply_internal(sd_varlink *v, sd_json_variant *parameters, bo
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to enqueue json message: %m");
 
-        if (IN_SET(v->state, VARLINK_PENDING_METHOD, VARLINK_PENDING_METHOD_MORE)) {
+        if (IN_SET(v->state, VARLINK_PENDING_METHOD, VARLINK_PENDING_METHOD_MORE, VARLINK_PENDING_METHOD_UPGRADE)) {
                 /* We just replied to a method call that was let hanging for a while (i.e. we were outside of
                  * the varlink_dispatch_method() stack frame), which means with this reply we are ready to
                  * process further messages. */
@@ -2454,30 +2530,33 @@ _public_ int sd_varlink_replyb(sd_varlink *v, ...) {
         return sd_varlink_reply(v, parameters);
 }
 
-_public_ int sd_varlink_reply_and_upgrade(sd_varlink *v, sd_json_variant *parameters, int *ret_input_fd, int *ret_output_fd) {
+_public_ int sd_varlink_respond_and_upgrade(
+                sd_varlink *v,
+                sd_json_variant *parameters) {
         int r;
 
         assert_return(v, -EINVAL);
-        assert_return(ret_input_fd || ret_output_fd, -EINVAL);
 
         if (v->state == VARLINK_DISCONNECTED)
                 return varlink_log_errno(v, SYNTHETIC_ERRNO(ENOTCONN), "Not connected.");
 
+        /* Return -EBUSY if we are not processing methods at all */
         if (!IN_SET(v->state,
-                    VARLINK_PROCESSING_METHOD,
-                    VARLINK_PENDING_METHOD))
+                    VARLINK_PROCESSING_METHOD, VARLINK_PROCESSING_METHOD_MORE, VARLINK_PROCESSING_METHOD_ONEWAY, VARLINK_PROCESSING_METHOD_UPGRADE,
+                    VARLINK_PENDING_METHOD, VARLINK_PENDING_METHOD_MORE, VARLINK_PENDING_METHOD_UPGRADE))
                 return varlink_log_errno(v, SYNTHETIC_ERRNO(EBUSY), "Connection busy.");
 
-        /* Verify the client actually requested a protocol upgrade */
-        if (!v->protocol_upgrade)
-                return varlink_log_errno(v, SYNTHETIC_ERRNO(EPROTO),
-                                         "Method call did not request a protocol upgrade.");
+        /* Return -EPROTO if we are processing methods, but an upgrade was not requested. */
+        if (!IN_SET(v->state,
+                    VARLINK_PROCESSING_METHOD_UPGRADE,
+                    VARLINK_PENDING_METHOD_UPGRADE))
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(EPROTO), "Method call did not request a protocol upgrade.");
 
-        /* Ensure we did not buffer any data beyond the upgrade request. Check this before sending the
-         * reply so that we can return a normal error (the framework will send an error reply to the
-         * client). In normal operation this cannot happen because the client waits for our reply before
-         * sending raw data, and we set protocol_upgrade=true in dispatch to limit subsequent reads to
-         * single bytes. But a misbehaving client could pipeline data early. */
+        /* Ensure we did not buffer any data beyond the upgrade request. Check this before sending the reply
+         * so that we can return a normal error (the framework will send an error reply to the client). In
+         * normal operation this cannot happen because the client waits for our reply before sending raw
+         * data, and we disabled unbounded reads in dispatch to limit subsequent reads to single bytes. But a
+         * misbehaving client could pipeline data early. */
         if (json_stream_has_buffered_input(&v->stream))
                 return varlink_log_errno(v, SYNTHETIC_ERRNO(EBADMSG),
                                          "Unexpected buffered data from client during protocol upgrade.");
@@ -2502,6 +2581,55 @@ _public_ int sd_varlink_reply_and_upgrade(sd_varlink *v, sd_json_variant *parame
         r = varlink_enqueue(v, m);
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to enqueue json message: %m");
+
+        switch (v->state) {
+
+        case VARLINK_PENDING_METHOD_UPGRADE:
+                varlink_clear_current(v);
+                varlink_set_state(v, VARLINK_UPGRADING);
+                break;
+
+        case VARLINK_PROCESSING_METHOD_UPGRADE:
+                varlink_set_state(v, VARLINK_PROCESSED_METHOD_UPGRADE);
+                break;
+
+        default:
+                assert_not_reached();
+        }
+
+        return 1;
+}
+
+_public_ int sd_varlink_respond_and_upgradeb(sd_varlink *v, ...) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *parameters = NULL;
+        va_list ap;
+        int r;
+
+        assert_return(v, -EINVAL);
+
+        va_start(ap, v);
+        r = sd_json_buildv(&parameters, ap);
+        va_end(ap);
+
+        if (r < 0)
+                return r;
+
+        return sd_varlink_respond_and_upgrade(v, parameters);
+}
+
+_public_ int sd_varlink_reply_and_upgrade(
+                sd_varlink *v,
+                sd_json_variant *parameters,
+                int *ret_input_fd,
+                int *ret_output_fd) {
+        int r;
+
+        assert_return(v, -EINVAL);
+        assert_return(ret_input_fd || ret_output_fd, -EINVAL);
+
+        r = sd_varlink_respond_and_upgrade(v, parameters);
+        if (r < 0)
+                return r;
 
         /* Flush the reply to the socket before stealing the fds. The reply must be fully written
          * before the caller starts speaking the upgraded protocol. */
@@ -2548,8 +2676,8 @@ _public_ int sd_varlink_error(sd_varlink *v, const char *error_id, sd_json_varia
         if (v->state == VARLINK_DISCONNECTED)
                 return varlink_log_errno(v, SYNTHETIC_ERRNO(ENOTCONN), "Not connected.");
         if (!IN_SET(v->state,
-                    VARLINK_PROCESSING_METHOD, VARLINK_PROCESSING_METHOD_MORE,
-                    VARLINK_PENDING_METHOD, VARLINK_PENDING_METHOD_MORE))
+                    VARLINK_PROCESSING_METHOD, VARLINK_PROCESSING_METHOD_MORE, VARLINK_PROCESSING_METHOD_UPGRADE,
+                    VARLINK_PENDING_METHOD, VARLINK_PENDING_METHOD_MORE, VARLINK_PENDING_METHOD_UPGRADE))
                 return varlink_log_errno(v, SYNTHETIC_ERRNO(EBUSY), "Connection busy.");
 
         if (v->previous) {
@@ -2601,7 +2729,7 @@ _public_ int sd_varlink_error(sd_varlink *v, const char *error_id, sd_json_varia
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to enqueue json message: %m");
 
-        if (IN_SET(v->state, VARLINK_PENDING_METHOD, VARLINK_PENDING_METHOD_MORE)) {
+        if (IN_SET(v->state, VARLINK_PENDING_METHOD, VARLINK_PENDING_METHOD_MORE, VARLINK_PENDING_METHOD_UPGRADE)) {
                 varlink_clear_current(v);
                 varlink_set_state(v, VARLINK_IDLE_SERVER);
         } else
@@ -2788,6 +2916,17 @@ _public_ int sd_varlink_bind_reply(sd_varlink *v, sd_varlink_reply_t reply) {
                 return varlink_log_errno(v, SYNTHETIC_ERRNO(EBUSY), "A different callback was already set.");
 
         v->reply_callback = reply;
+
+        return 0;
+}
+
+_public_ int sd_varlink_bind_upgrade(sd_varlink *v, sd_varlink_upgrade_t upgrade) {
+        assert_return(v, -EINVAL);
+
+        if (upgrade && v->upgrade_callback && upgrade != v->upgrade_callback)
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(EBUSY), "A different callback was already set.");
+
+        v->upgrade_callback = upgrade;
 
         return 0;
 }

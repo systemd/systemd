@@ -84,6 +84,7 @@ __extension__ typedef enum _SD_ENUM_TYPE_S64(sd_varlink_invocation_flags_t) {
 
 typedef int (*sd_varlink_method_t)(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata);
 typedef int (*sd_varlink_reply_t)(sd_varlink *link, sd_json_variant *parameters, const char *error_id, sd_varlink_reply_flags_t flags, void *userdata);
+typedef int (*sd_varlink_upgrade_t)(sd_varlink *link, int input_fd, int output_fd, void *userdata);
 typedef int (*sd_varlink_connect_t)(sd_varlink_server *server, sd_varlink *link, void *userdata);
 typedef void (*sd_varlink_disconnect_t)(sd_varlink_server *server, sd_varlink *link, void *userdata);
 
@@ -144,6 +145,9 @@ int sd_varlink_callb(sd_varlink *v, const char *method, sd_json_variant **ret_pa
  * Returns > 0 if the connection was upgraded, 0 if a Varlink error occurred (and ret_error_id was set),
  * or < 0 on local failure. */
 int sd_varlink_call_and_upgrade(sd_varlink *v, const char *method, sd_json_variant *parameters, sd_json_variant **ret_parameters, const char **ret_error_id, int *ret_input_fd, int *ret_output_fd);
+int sd_varlink_call_and_upgradeb(sd_varlink *v, const char *method, sd_json_variant **ret_parameters, const char **ret_error_id, int *ret_input_fd, int *ret_output_fd, ...);
+#define sd_varlink_call_and_upgradebo(v, method, ret_parameters, ret_error_id, ret_input_fd, ret_output_fd, ...) \
+        sd_varlink_call_and_upgradeb((v), (method), (ret_parameters), (ret_error_id), (ret_input_fd), (ret_output_fd), SD_JSON_BUILD_OBJECT(__VA_ARGS__))
 
 /* Send method call and begin collecting all 'more' replies into an array, finishing when a final reply is sent */
 int sd_varlink_collect_full(sd_varlink *v, const char *method, sd_json_variant *parameters, sd_json_variant **ret_parameters, const char **ret_error_id, sd_varlink_reply_flags_t *ret_flags);
@@ -181,6 +185,12 @@ int sd_varlink_replyb(sd_varlink *v, ...);
  * could stall the caller. So do not use in servers that multiplex many varlink
  * connections. */
 int sd_varlink_reply_and_upgrade(sd_varlink *v, sd_json_variant *parameters, int *ret_input_fd, int *ret_output_fd);
+
+/* Like sd_varlink_reply_and_upgrade() but asynchronous */
+int sd_varlink_respond_and_upgrade(sd_varlink *v, sd_json_variant *parameters);
+int sd_varlink_respond_and_upgradeb(sd_varlink *v, ...);
+#define sd_varlink_respond_and_upgradebo(v, ...)                           \
+        sd_varlink_respond_and_upgradeb((v), SD_JSON_BUILD_OBJECT(__VA_ARGS__))
 
 /* Enqueue a (final) error */
 int sd_varlink_error(sd_varlink *v, const char *error_id, sd_json_variant *parameters);
@@ -223,6 +233,9 @@ int sd_varlink_set_allow_fd_passing_output(sd_varlink *v, int b);
 
 /* Bind a disconnect, reply or timeout callback */
 int sd_varlink_bind_reply(sd_varlink *v, sd_varlink_reply_t reply);
+
+/* Bind an upgrade callback (server side) */
+int sd_varlink_bind_upgrade(sd_varlink *v, sd_varlink_upgrade_t upgrade);
 
 void* sd_varlink_set_userdata(sd_varlink *v, void *userdata);
 void* sd_varlink_get_userdata(sd_varlink *v);
