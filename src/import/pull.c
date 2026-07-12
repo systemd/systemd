@@ -8,9 +8,11 @@
 #include "alloc-util.h"
 #include "ansi-color.h"
 #include "build.h"
+#include "crypto-util.h"
 #include "discover-image.h"
 #include "dlopen-note.h"
 #include "env-util.h"
+#include "extract-word.h"
 #include "format-table.h"
 #include "hexdecoct.h"
 #include "import-common.h"
@@ -34,6 +36,7 @@
 #include "web-util.h"
 
 static char *arg_image_root = NULL;
+static char *arg_certificate_path = NULL;
 static ImportVerify arg_verify = IMPORT_VERIFY_SIGNATURE;
 static ImportFlags arg_import_flags = IMPORT_PULL_SETTINGS | IMPORT_PULL_ROOTHASH | IMPORT_PULL_ROOTHASH_SIGNATURE | IMPORT_PULL_VERITY | IMPORT_BTRFS_SUBVOL | IMPORT_BTRFS_QUOTA | IMPORT_CONVERT_QCOW2 | IMPORT_SYNC;
 static uint64_t arg_offset = UINT64_MAX, arg_size_max = UINT64_MAX;
@@ -43,6 +46,7 @@ static RuntimeScope arg_runtime_scope = _RUNTIME_SCOPE_INVALID;
 
 STATIC_DESTRUCTOR_REGISTER(arg_checksum, iovec_done);
 STATIC_DESTRUCTOR_REGISTER(arg_image_root, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_certificate_path, freep);
 
 static int normalize_local(const char *local, const char *url, char **ret) {
         _cleanup_free_ char *ll = NULL;
@@ -160,7 +164,7 @@ static int verb_tar(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (r < 0)
                 return r;
 
-        r = tar_pull_new(&pull, event, arg_image_root, on_tar_finished, event);
+        r = tar_pull_new(&pull, event, arg_image_root, arg_certificate_path, on_tar_finished, event);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate puller: %m");
 
@@ -228,7 +232,7 @@ static int verb_raw(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (r < 0)
                 return r;
 
-        r = raw_pull_new(&pull, event, arg_image_root, on_raw_finished, event);
+        r = raw_pull_new(&pull, event, arg_image_root, arg_certificate_path, on_raw_finished, event);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate puller: %m");
 
@@ -387,13 +391,58 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         break;
 
                 OPTION_LONG("verify", "MODE",
-                            "Verify downloaded image, one of: 'no', 'checksum', 'signature' or literal SHA256 hash"): {
+                            "Verify downloaded image, one of: 'no', 'checksum', 'signature' 'x509:PATH' or literal SHA256 hash"): {
+                        /* this may be an x509 certificate, in which case we look at the path */
+                        if (startswith(opts.arg, "x509:")) {
+                                const char *p = opts.arg;
+
+                                _cleanup_free_ char *type = NULL, *path = NULL;
+
+                                r = extract_first_word(&p, &type, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
+                                if (r < 0)
+                                        return r;
+                                r = extract_first_word(&p, &path, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
+                                if (r < 0)
+                                        return r;
+
+                                r = parse_path_argument(path, /* suppress_root= */ false, &arg_certificate_path);
+                                if (r < 0)
+                                        return r;
+
+                                if (!endswith(arg_certificate_path, ".crt") && !endswith(arg_certificate_path, ".pem")) {
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Certificate path extension invalid!");
+                                }
+                                if (!path_is_valid(arg_certificate_path)) {
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Certificate path does not exist!");
+                                }
+
+                                _cleanup_(X509_freep) X509 *certificate = NULL;
+                                r = openssl_load_x509_certificate(
+                                        OPENSSL_CERTIFICATE_SOURCE_FILE,
+                                        /* certificate_source= */NULL,
+                                        arg_certificate_path,
+                                        &certificate
+                                );
+                                if (r < 0) {
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),"Unable to parse x509, certificate: %s", arg_certificate_path);
+                                }
+
+
+
+                                arg_verify = IMPORT_VERIFY_X509;
+                                break;
+                        }
+
+
                         ImportVerify v;
+
 
                         v = import_verify_from_string(opts.arg);
                         if (v < 0) {
                                 _cleanup_free_ void *h = NULL;
                                 size_t n;
+
+
 
                                 /* If this is not a valid verification mode, maybe it's a literally specified
                                  * SHA256 hash? We can handle that too... */

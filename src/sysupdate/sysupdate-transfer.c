@@ -66,6 +66,7 @@ Transfer* transfer_free(Transfer *t) {
         free(t->min_version);
         strv_free(t->protected_versions);
         free(t->current_symlink);
+        free(t->certificate_path);
         free(t->final_path);
 
         strv_free(t->features);
@@ -514,6 +515,7 @@ int transfer_read_definition(Transfer *t, const char *path, const char **dirs, H
                 { "Transfer",    "MinVersion",              config_parse_min_version,                  0,                    &t->min_version             },
                 { "Transfer",    "ProtectVersion",          config_parse_protect_version,              0,                    &t->protected_versions      },
                 { "Transfer",    "Verify",                  config_parse_bool,                         0,                    &t->verify                  },
+                { "Transfer",    "CertificatePath",         config_parse_path,                         0,                    &t->certificate_path        },
                 { "Transfer",    "ChangeLog",               config_parse_transfer_url_specifiers_many, 0,                    &t->changelog               },
                 { "Transfer",    "AppStream",               config_parse_transfer_url_specifiers_many, 0,                    &t->appstream               },
                 { "Transfer",    "Features",                config_parse_strv,                         0,                    &t->features                },
