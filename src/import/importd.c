@@ -1159,9 +1159,9 @@ static int method_pull_tar_or_raw_or_oci(sd_bus_message *msg, void *userdata, sd
         if (type == TRANSFER_PULL_OCI)
                 v = _IMPORT_VERIFY_INVALID;
         else if (isempty(verify))
-                v = IMPORT_VERIFY_SIGNATURE;
+                v = IMPORT_VERIFY_GPG;
         else {
-                v = import_verify_from_string(verify);
+                v = parse_import_verify_compat(verify);
                 if (v < 0)
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
                                                  "Unknown verification mode %s", verify);
@@ -1862,7 +1862,7 @@ static int vl_method_list_transfers(sd_varlink *link, sd_json_variant *parameter
         return 0;
 }
 
-static JSON_DISPATCH_ENUM_DEFINE(json_dispatch_import_verify, ImportVerify, import_verify_from_string);
+static JSON_DISPATCH_ENUM_DEFINE(json_dispatch_import_verify, ImportVerify, parse_import_verify_compat);
 static JSON_DISPATCH_ENUM_DEFINE(json_dispatch_import_type, ImportType, import_type_from_string);
 
 static int vl_method_pull(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
@@ -1878,7 +1878,7 @@ static int vl_method_pull(sd_varlink *link, sd_json_variant *parameters, sd_varl
                 const char *image_root;
         } p = {
                 .class = _IMAGE_CLASS_INVALID,
-                .verify = IMPORT_VERIFY_SIGNATURE,
+                .verify = IMPORT_VERIFY_GPG,
         };
 
         static const sd_json_dispatch_field dispatch_table[] = {
