@@ -1032,17 +1032,17 @@ int encrypt_credential_and_warn(
                                 return log_error_errno(r, "Failed to seal to TPM2: %m");
 
                         log_notice_errno(r, "TPM2 sealing didn't work, continuing without TPM2: %m");
+                } else {
+                        if (!iovec_memdup(&IOVEC_MAKE(tpm2_policy.buffer, tpm2_policy.size), &tpm2_policy_hash))
+                                return log_oom();
+
+                        assert(n_blobs == 1);
+                        tpm2_blob = TAKE_STRUCT(blobs[0]);
+
+                        assert(tpm2_blob.iov_len <= CREDENTIAL_FIELD_SIZE_MAX);
+                        assert(tpm2_policy_hash.iov_len <= CREDENTIAL_FIELD_SIZE_MAX);
+                        assert(tpm2_srk.iov_len <= CREDENTIAL_FIELD_SIZE_MAX);
                 }
-
-                if (!iovec_memdup(&IOVEC_MAKE(tpm2_policy.buffer, tpm2_policy.size), &tpm2_policy_hash))
-                        return log_oom();
-
-                assert(n_blobs == 1);
-                tpm2_blob = TAKE_STRUCT(blobs[0]);
-
-                assert(tpm2_blob.iov_len <= CREDENTIAL_FIELD_SIZE_MAX);
-                assert(tpm2_policy_hash.iov_len <= CREDENTIAL_FIELD_SIZE_MAX);
-                assert(tpm2_srk.iov_len <= CREDENTIAL_FIELD_SIZE_MAX);
         }
 #endif
 
