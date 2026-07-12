@@ -25,4 +25,5 @@ int acquire_luks2_key(
                 const struct iovec *srk,
                 const struct iovec *pcrlock_nv,
                 TPM2Flags flags,
+                const Argon2IdParameters *argon2id_params,
                 struct iovec *decrypted_key);

@@ -677,12 +677,18 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--tpm2-with-pin=<replaceable>BOOL</replaceable></option></term>
+        <term><option>--tpm2-with-pin=<replaceable>BOOL|direct</replaceable></option></term>
 
         <listitem><para>When enrolling a TPM2 device, controls whether to require the user to enter a PIN
-        when unlocking the volume in addition to PCR binding, based on TPM2 policy authentication. Defaults
-        to <literal>no</literal>. Despite being called PIN, any character can be used, not just numbers.
+        when unlocking the volume in addition to PCR binding, based on TPM2 policy authentication. Takes a
+        boolean or the special value <literal>direct</literal>. Defaults to <literal>no</literal>.
+        Despite being called PIN, any character can be used, not just numbers.
         </para>
+
+        <para>When enabled (<literal>yes</literal>), the PIN is hardened with Argon2id before it is passed
+        to the TPM, making the TPM a second factor rather than a single point of failure: a compromised TPM
+        alone does not expose the volume key without the PIN. When <literal>direct</literal> is used, the PIN
+        is hashed with PBKDF2 and used directly (compatible with systemd v253 and later).</para>
 
         <para>Note that incorrect PIN entry when unlocking increments the TPM dictionary attack lockout
         mechanism, and may lock out users for a prolonged time, depending on its configuration. The lockout
@@ -694,7 +700,51 @@
         project='mankier'><refentrytitle>tpm2_dictionarylockout</refentrytitle><manvolnum>1</manvolnum></citerefentry>
         commands, respectively.</para>
 
-        <xi:include href="version-info.xml" xpointer="v251"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--tpm2-argon2id-memory=<replaceable>BYTES</replaceable></option></term>
+
+        <listitem><para>When enrolling a TPM2 with PIN hardening enabled, sets the Argon2id memory cost,
+        in bytes. By default, the memory cost is auto-detected from available RAM (up to 50% of total
+        physical memory), with a minimum of 64 MiB. When specified, the benchmark calibrates only
+        iterations to the target time; the memory cost is used as specified. To express large values
+        comfortably, use suffixes such as <literal>K</literal>, <literal>M</literal>, <literal>G</literal>
+        (for kilobytes, megabytes, gigabytes).</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--tpm2-argon2id-iterations=<replaceable>NUM</replaceable></option></term>
+
+        <listitem><para>When enrolling a TPM2 with PIN hardening enabled, sets the Argon2id iteration
+        count. Defaults to auto-calibrated by a benchmark to reach the target unlock time. When
+        specified, the benchmark calibrates only memory cost to the target time; the iteration count
+        is used as specified.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--tpm2-argon2id-parallelism=<replaceable>NUM</replaceable></option></term>
+
+        <listitem><para>When enrolling a TPM2 with PIN hardening enabled, sets the Argon2id
+        parallelism (lane count). Defaults to the number of online CPUs.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--tpm2-argon2id-iter-time=<replaceable>SEC</replaceable></option></term>
+
+        <listitem><para>When enrolling a TPM2 with PIN hardening enabled, sets the target benchmark
+        time for the Argon2id parameter calibration, in seconds. Defaults to 2 seconds. The benchmark
+        adjusts memory cost and/or iteration count so that the actual derivation time falls within a
+        tolerance window of the specified target time.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
       </varlistentry>
 
       <varlistentry>
