@@ -4,6 +4,14 @@
 #include "gpt.h"
 #include "sysupdate-forward.h"
 
+typedef enum VerifyMode {
+        VERIFY_MODE_GPG,
+        VERIFY_MODE_PKCS7,
+        VERIFY_MODE_NO,
+        _VERIFY_MODE_MAX,
+        _VERIFY_MODE_INVALID = -EINVAL,
+} VerifyMode;
+
 typedef enum ResourceType {
         RESOURCE_URL_FILE,
         RESOURCE_URL_TAR,
@@ -91,7 +99,7 @@ void resource_destroy(Resource *rr);
 
 bool resource_has_glob_directory_pattern(Resource *rr);
 
-int resource_load_instances(Resource *rr, bool verify, Hashmap **web_cache);
+int resource_load_instances(Resource *rr, VerifyMode verify, Hashmap **web_cache);
 
 Instance* resource_find_instance(Resource *rr, const char *version);
 
@@ -99,3 +107,4 @@ int resource_resolve_path(Resource *rr, const char *root, const char *relative_t
 
 DECLARE_STRING_TABLE_LOOKUP(resource_type, ResourceType);
 DECLARE_STRING_TABLE_LOOKUP(path_relative_to, PathRelativeTo);
+DECLARE_STRING_TABLE_LOOKUP(verify_mode, VerifyMode);
