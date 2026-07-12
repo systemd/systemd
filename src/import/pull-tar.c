@@ -16,6 +16,7 @@
 #include "fs-util.h"
 #include "install-file.h"
 #include "log.h"
+#include "macro.h"
 #include "mkdir.h"
 #include "path-util.h"
 #include "pidref.h"
@@ -60,6 +61,8 @@ typedef struct TarPull {
 
         PidRef tar_pid;
 
+        char *certificate_path; /* sometimes when pulling a raw image we want to verify using not x509 certs*/
+
         char *final_path;
         char *temp_path;
 
@@ -93,6 +96,7 @@ TarPull* tar_pull_unref(TarPull *p) {
         }
         unlink_and_free(p->settings_temp_path);
 
+        free(p->certificate_path);
         free(p->final_path);
         free(p->settings_path);
         free(p->image_root);
@@ -108,6 +112,7 @@ int tar_pull_new(
                 TarPull **ret,
                 sd_event *event,
                 const char *image_root,
+                const char *cert_path,
                 TarPullFinished on_finished,
                 void *userdata) {
 
@@ -115,12 +120,20 @@ int tar_pull_new(
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
         _cleanup_(tar_pull_unrefp) TarPull *p = NULL;
         _cleanup_free_ char *root = NULL;
+        _cleanup_free_ char *certificate_path = NULL;
         int r;
 
         assert(image_root);
         assert(ret);
 
         root = strdup(image_root);
+        if (cert_path) {
+                certificate_path = strdup(cert_path);
+                if (!certificate_path)
+                        return -ENOMEM;
+
+        }
+
         if (!root)
                 return -ENOMEM;
 
@@ -144,6 +157,7 @@ int tar_pull_new(
                 .on_finished = on_finished,
                 .userdata = userdata,
                 .image_root = TAKE_PTR(root),
+                .certificate_path = TAKE_PTR(certificate_path),
                 .event = TAKE_PTR(e),
                 .glue = TAKE_PTR(g),
                 .tar_pid = PIDREF_NULL,
@@ -480,6 +494,7 @@ static void tar_pull_job_on_finished(PullJob *j) {
 
                 clear_progress_bar(/* prefix= */ NULL);
                 r = pull_verify(p->verify,
+                                p->certificate_path,
                                 p->tar_job,
                                 p->checksum_job,
                                 p->signature_job,
