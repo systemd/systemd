@@ -1155,7 +1155,7 @@ static int varlink_dispatch_fiber(sd_varlink *v, const char *method, sd_varlink_
                 .callback = callback,
         };
 
-        _cleanup_(sd_future_unrefp) sd_future *f = NULL;
+        _cleanup_(sd_future_cancel_unrefp) sd_future *f = NULL;
         r = sd_fiber_new(v->server->event, method, varlink_fiber_entry, d, varlink_fiber_data_destroy, &f);
         if (r < 0)
                 return r;
@@ -1180,6 +1180,8 @@ static int varlink_dispatch_fiber(sd_varlink *v, const char *method, sd_varlink_
         if (r < 0)
                 return r;
 
+        /* Floating self-ref keeps the fiber alive; release our local ref without cancelling. */
+        f = sd_future_unref(f);
         return 0;
 }
 
