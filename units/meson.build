@@ -1040,7 +1040,7 @@ units = [
           'conditions' : ['ENABLE_NSRESOURCED'],
         },
         {
-          'file' : 'systemd-nsresourced.socket',
+          'file' : 'systemd-nsresourced.socket.in',
           'conditions' : ['ENABLE_NSRESOURCED'],
         },
         {
