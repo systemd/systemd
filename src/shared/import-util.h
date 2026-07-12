@@ -14,7 +14,8 @@ typedef enum ImportType {
 typedef enum ImportVerify {
         IMPORT_VERIFY_NO,
         IMPORT_VERIFY_CHECKSUM,
-        IMPORT_VERIFY_SIGNATURE,
+        IMPORT_VERIFY_GPG,
+        IMPORT_VERIFY_PKCS7,
         _IMPORT_VERIFY_MAX,
         _IMPORT_VERIFY_INVALID = -EINVAL,
 } ImportVerify;
