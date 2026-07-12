@@ -456,6 +456,7 @@ static int context_load_installed_instances(Context *c) {
                 r = resource_load_instances(
                                 &t->target,
                                 c->verify >= 0 ? c->verify : t->verify,
+                                t->certificate_path,
                                 &c->web_cache);
                 if (r < 0)
                         return r;
@@ -467,6 +468,7 @@ static int context_load_installed_instances(Context *c) {
                 r = resource_load_instances(
                                 &t->target,
                                 c->verify >= 0 ? c->verify : t->verify,
+                                t->certificate_path,
                                 &c->web_cache);
                 if (r < 0)
                         return r;
@@ -488,7 +490,9 @@ static int context_load_available_instances(Context *c) {
                 r = resource_load_instances(
                                 &t->source,
                                 c->verify >= 0 ? c->verify : t->verify,
-                                &c->web_cache);
+                                t->certificate_path,
+                                &c->web_cache
+                                );
                 if (r < 0)
                         return r;
         }
