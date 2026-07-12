@@ -36,7 +36,3 @@ display. This is critical for diagnosing build and test failures.
 ## Integration Tests
 
 - Never use `grep -q` in pipelines; use `grep >/dev/null` instead (avoids `SIGPIPE`)
-
-## Pull Request Review Instructions
-
-- Always check out the PR in a git worktree in `worktrees/`, review it locally and remove the worktree when finished.
