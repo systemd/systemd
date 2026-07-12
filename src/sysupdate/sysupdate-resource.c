@@ -405,6 +405,7 @@ static int download_manifest(
                         "raw",
                         "--direct",                        /* just download the specified URL, don't download anything else */
                         "--verify", verify_signature ? "signature" : "no", /* verify the manifest file */
+                        "--voa-context=default",           /* We can't infer context from the class as our image could be anything */
                         suffixed_url,
                         "-",                               /* write to stdout */
                         NULL
