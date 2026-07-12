@@ -7,6 +7,7 @@
 #include "sd-id128.h"
 
 #include "alloc-util.h"
+#include "assert-util.h"
 #include "build-path.h"
 #include "chase.h"
 #include "conf-parser.h"
@@ -97,7 +98,7 @@ Transfer* transfer_new(Context *ctx) {
                 .mode = MODE_INVALID,
                 .tries_left = UINT64_MAX,
                 .tries_done = UINT64_MAX,
-                .verify = true,
+                .verify = VERIFY_MODE_GPG,
 
                 /* the three flags, as configured by the user */
                 .no_auto = -1,
@@ -398,6 +399,39 @@ static DEFINE_CONFIG_PARSE_ENUM(config_parse_resource_type, resource_type, Resou
 static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_resource_path_relto, path_relative_to, PathRelativeTo,
                                              PATH_RELATIVE_TO_ROOT);
 
+
+static int config_parse_verify_mode(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        int r;
+        VerifyMode *verify_mode = ASSERT_PTR(data);
+
+        assert(rvalue);
+
+        VerifyMode v = verify_mode_from_string(rvalue);
+        if (v < 0) {
+                /* may be a boolean instead */
+                r = parse_boolean(rvalue);
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r, "Invalid verification setting, ignoring: %s", rvalue);
+                        return 0;
+                }
+                v = r ? VERIFY_MODE_GPG : VERIFY_MODE_NO;
+        }
+
+        *verify_mode = v;
+        return 0;
+}
+
 static int config_parse_resource_ptype(
                 const char *unit,
                 const char *filename,
@@ -513,7 +547,7 @@ int transfer_read_definition(Transfer *t, const char *path, const char **dirs, H
         ConfigTableItem table[] = {
                 { "Transfer",    "MinVersion",              config_parse_min_version,                  0,                    &t->min_version             },
                 { "Transfer",    "ProtectVersion",          config_parse_protect_version,              0,                    &t->protected_versions      },
-                { "Transfer",    "Verify",                  config_parse_bool,                         0,                    &t->verify                  },
+                { "Transfer",    "Verify",                  config_parse_verify_mode,                  0,                    &t->verify                  },
                 { "Transfer",    "ChangeLog",               config_parse_transfer_url_specifiers_many, 0,                    &t->changelog               },
                 { "Transfer",    "AppStream",               config_parse_transfer_url_specifiers_many, 0,                    &t->appstream               },
                 { "Transfer",    "Features",                config_parse_strv,                         0,                    &t->features                },
