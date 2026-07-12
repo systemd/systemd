@@ -854,7 +854,7 @@ static int maybe_enable_start(sd_bus *bus, sd_bus_message *reply) {
         (void) maybe_start_stop_restart_units(bus, start_names, "start", wait);
 
         if (!arg_no_block) {
-                r = bus_wait_for_jobs(wait, arg_quiet, NULL);
+                r = bus_wait_for_jobs(wait, arg_quiet);
                 if (r < 0)
                         return r;
         }
@@ -950,7 +950,7 @@ static int maybe_stop_enable_restart(sd_bus *bus, sd_bus_message *reply) {
         (void) maybe_start_stop_restart_units(bus, restart_names, "restart", wait);
 
         if (!arg_no_block) {
-                r = bus_wait_for_jobs(wait, arg_quiet, NULL);
+                r = bus_wait_for_jobs(wait, arg_quiet);
                 if (r < 0)
                         return r;
         }
@@ -1068,7 +1068,7 @@ static int maybe_stop_disable_clean(sd_bus *bus, char *image, char *argv[]) {
                 (void) maybe_enable_disable(bus, *name, false);
 
         /* Stopping must always block or the detach will fail if the unit is still running */
-        r = bus_wait_for_jobs(wait, arg_quiet, NULL);
+        r = bus_wait_for_jobs(wait, arg_quiet);
         if (r < 0)
                 return r;
 

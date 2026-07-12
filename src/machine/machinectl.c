@@ -827,7 +827,7 @@ static int verb_start_machine(int argc, char *argv[], uintptr_t _data, void *use
                         return log_oom();
         }
 
-        r = bus_wait_for_jobs(w, arg_quiet, NULL);
+        r = bus_wait_for_jobs(w, arg_quiet);
         if (r < 0)
                 return r;
 
