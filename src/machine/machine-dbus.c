@@ -567,7 +567,7 @@ int bus_machine_method_bind_mount(sd_bus_message *message, void *userdata, sd_bu
 
 int bus_machine_method_copy(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         const char *src, *dest, *host_path, *container_path;
-        CopyFlags copy_flags = COPY_REFLINK|COPY_MERGE|COPY_HARDLINKS;
+        CopyFlags copy_flags = COPY_MERGE|COPY_HARDLINKS;
         Machine *m = ASSERT_PTR(userdata);
         Manager *manager = m->manager;
         bool copy_from;

@@ -966,7 +966,7 @@ int vl_method_copy_internal(sd_varlink *link, sd_json_variant *parameters, sd_va
         const char *dest = p.dest ?: p.src;
         const char *container_path = copy_from ? p.src : dest;
         const char *host_path = copy_from ? dest : p.src;
-        CopyFlags copy_flags = COPY_REFLINK|COPY_MERGE|COPY_HARDLINKS;
+        CopyFlags copy_flags = COPY_MERGE|COPY_HARDLINKS;
         copy_flags |= p.replace ? COPY_REPLACE : 0;
 
         Machine *machine;

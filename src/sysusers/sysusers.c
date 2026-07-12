@@ -332,7 +332,7 @@ static int make_backup(const char *target, const char *x) {
         if (r < 0)
                 return r;
 
-        r = copy_bytes(src, fileno(dst), UINT64_MAX, COPY_REFLINK);
+        r = copy_bytes(src, fileno(dst), UINT64_MAX, 0);
         if (r < 0)
                 return r;
 
