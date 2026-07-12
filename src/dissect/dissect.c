@@ -1401,7 +1401,7 @@ static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopD
 
                 /* Copying to stdout? */
                 if (streq(arg_target, "-")) {
-                        r = copy_bytes(source_fd, STDOUT_FILENO, UINT64_MAX, COPY_REFLINK);
+                        r = copy_bytes(source_fd, STDOUT_FILENO, UINT64_MAX, /* copy_flags= */ 0);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to copy bytes from %s in mage '%s' to stdout: %m", arg_source, arg_image);
 
@@ -1415,7 +1415,7 @@ static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopD
                                 AT_FDCWD, arg_target,
                                 arg_copy_ownership == 0 ? getuid() : UID_INVALID,
                                 arg_copy_ownership == 0 ? getgid() : GID_INVALID,
-                                COPY_REFLINK|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS);
+                                COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS);
                 if (r >= 0)
                         return 0;
                 if (r != -ENOTDIR)
@@ -1432,7 +1432,7 @@ static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopD
                 if (target_fd < 0)
                         return log_error_errno(errno, "Failed to create regular file at target path '%s': %m", arg_target);
 
-                r = copy_bytes(source_fd, target_fd, UINT64_MAX, COPY_REFLINK);
+                r = copy_bytes(source_fd, target_fd, UINT64_MAX, /* copy_flags= */ 0);
                 if (r < 0)
                         return log_error_errno(r, "Failed to copy bytes from %s in mage '%s' to '%s': %m", arg_source, arg_image, arg_target);
 
@@ -1471,7 +1471,7 @@ static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopD
                         if (target_fd < 0)
                                 return log_error_errno(errno, "Failed to open target file '%s': %m", arg_target);
 
-                        r = copy_bytes(STDIN_FILENO, target_fd, UINT64_MAX, COPY_REFLINK);
+                        r = copy_bytes(STDIN_FILENO, target_fd, UINT64_MAX, /* copy_flags= */ 0);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to copy bytes from stdin to '%s' in image '%s': %m", arg_target, arg_image);
 
@@ -1500,7 +1500,7 @@ static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopD
                                                 dfd, bn,
                                                 arg_copy_ownership == 0 ? getuid() : UID_INVALID,
                                                 arg_copy_ownership == 0 ? getgid() : GID_INVALID,
-                                                COPY_REFLINK|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS,
+                                                COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS,
                                                 /* denylist= */ NULL,
                                                 /* subvolumes= */ NULL);
                         } else
@@ -1509,7 +1509,7 @@ static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopD
                                                 target_fd, ".",
                                                 arg_copy_ownership == 0 ? getuid() : UID_INVALID,
                                                 arg_copy_ownership == 0 ? getgid() : GID_INVALID,
-                                                COPY_REFLINK|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS,
+                                                COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS,
                                                 /* denylist= */ NULL,
                                                 /* subvolumes= */ NULL);
                         if (r < 0)
@@ -1526,7 +1526,7 @@ static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopD
                 if (target_fd < 0)
                         return log_error_errno(errno, "Failed to open target file '%s': %m", arg_target);
 
-                r = copy_bytes(source_fd, target_fd, UINT64_MAX, COPY_REFLINK);
+                r = copy_bytes(source_fd, target_fd, UINT64_MAX, /* copy_flags= */ 0);
                 if (r < 0)
                         return log_error_errno(r, "Failed to copy bytes from '%s' to '%s' in image '%s': %m", arg_source, arg_target, arg_image);
 

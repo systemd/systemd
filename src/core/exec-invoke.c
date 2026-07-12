@@ -3596,7 +3596,7 @@ static int setup_ephemeral(
                 log_debug("Making ephemeral copy of %s to %s", rootfs->image, new_root);
 
                 fd = copy_file(rootfs->image, new_root, O_EXCL, 0600,
-                               COPY_LOCK_BSD|COPY_REFLINK|COPY_CRTIME|COPY_NOCOW_AFTER);
+                               COPY_LOCK_BSD|COPY_CRTIME|COPY_NOCOW_AFTER);
                 if (fd < 0) {
                         *reterr_path = strdup(rootfs->image);
                         return log_debug_errno(fd, "Failed to copy image %s to %s: %m",

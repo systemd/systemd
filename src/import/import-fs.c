@@ -228,7 +228,6 @@ static int verb_import_fs(int argc, char *argv[], uintptr_t _data, void *userdat
                                         AT_FDCWD, dest,
                                         /* override_uid= */ UID_INVALID,
                                         /* override_gid= */ GID_INVALID,
-                                        COPY_REFLINK|
                                         COPY_SAME_MOUNT|
                                         COPY_HARDLINKS|
                                         COPY_SIGINT|

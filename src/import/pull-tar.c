@@ -343,7 +343,7 @@ static int tar_pull_make_local_copy(TarPull *p) {
                                                 BTRFS_SNAPSHOT_FALLBACK_DIRECTORY|
                                                 BTRFS_SNAPSHOT_RECURSIVE);
                         else
-                                r = copy_tree(p->final_path, t, UID_INVALID, GID_INVALID, COPY_REFLINK|COPY_HARDLINKS, NULL, NULL);
+                                r = copy_tree(p->final_path, t, UID_INVALID, GID_INVALID, COPY_HARDLINKS, NULL, NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to create original download image: %m");
                 }
@@ -382,7 +382,6 @@ static int tar_pull_make_local_copy(TarPull *p) {
                                         p->settings_path,
                                         local_settings,
                                         0664,
-                                        COPY_REFLINK |
                                         (FLAGS_SET(p->flags, IMPORT_FORCE) ? COPY_REPLACE : 0) |
                                         (FLAGS_SET(p->flags, IMPORT_SYNC) ? COPY_FSYNC_FULL : 0));
                 else
