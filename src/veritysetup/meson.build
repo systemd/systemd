@@ -10,6 +10,7 @@ executables += [
                 'sources' : files('veritysetup.c'),
                 'dependencies' : [
                         libcryptsetup_cflags,
+                        libopenssl_cflags,
                         tpm2_cflags,
                 ],
         },
