@@ -104,8 +104,9 @@ int pid_get_comm(pid_t pid, char **ret) {
                 if (!comm)
                         return -ENOMEM;
 
-                if (prctl(PR_GET_NAME, comm) < 0)
-                        return -errno;
+                r = prctl_safe(PR_GET_NAME, (unsigned long) comm, 0, 0, 0);
+                if (r < 0)
+                        return r;
         } else {
                 const char *p;
 
@@ -1572,11 +1573,13 @@ int pidref_safe_fork_full(
         if (!FLAGS_SET(flags, FORK_ALLOW_DLOPEN))
                 block_dlopen();
 
-        if (flags & (FORK_DEATHSIG_SIGTERM|FORK_DEATHSIG_SIGINT|FORK_DEATHSIG_SIGKILL))
-                if (prctl(PR_SET_PDEATHSIG, fork_flags_to_signal(flags)) < 0) {
-                        log_full_errno(prio, errno, "Failed to set death signal: %m");
+        if (flags & (FORK_DEATHSIG_SIGTERM|FORK_DEATHSIG_SIGINT|FORK_DEATHSIG_SIGKILL)) {
+                r = prctl_safe(PR_SET_PDEATHSIG, fork_flags_to_signal(flags), 0, 0, 0);
+                if (r < 0) {
+                        log_full_errno(prio, r, "Failed to set death signal: %m");
                         _exit(EXIT_FAILURE);
                 }
+        }
 
         if (flags & FORK_RESET_SIGNALS) {
                 r = reset_all_signal_handlers();
@@ -1978,7 +1981,7 @@ int get_process_threads(pid_t pid) {
 }
 
 int is_reaper_process(void) {
-        int b = 0;
+        int b = 0, r;
 
         /* Checks if we are running in a reaper process, i.e. if we are expected to deal with processes
          * reparented to us. This simply checks if we are PID 1 or if PR_SET_CHILD_SUBREAPER was called. */
@@ -1986,13 +1989,15 @@ int is_reaper_process(void) {
         if (getpid_cached() == 1)
                 return true;
 
-        if (prctl(PR_GET_CHILD_SUBREAPER, (unsigned long) &b, 0UL, 0UL, 0UL) < 0)
-                return -errno;
+        r = prctl_safe(PR_GET_CHILD_SUBREAPER, (unsigned long) &b, 0, 0, 0);
+        if (r < 0)
+                return r;
 
         return b != 0;
 }
 
 int make_reaper_process(bool b) {
+        int r;
 
         if (getpid_cached() == 1) {
 
@@ -2002,10 +2007,9 @@ int make_reaper_process(bool b) {
                 return 0;
         }
 
-        /* Some prctl()s insist that all 5 arguments are specified, others do not. Let's always specify all,
-         * to avoid any ambiguities */
-        if (prctl(PR_SET_CHILD_SUBREAPER, (unsigned long) b, 0UL, 0UL, 0UL) < 0)
-                return -errno;
+        r = prctl_safe(PR_SET_CHILD_SUBREAPER, b, 0, 0, 0);
+        if (r < 0)
+                return r;
 
         return 0;
 }
@@ -2275,4 +2279,38 @@ int read_errno(int errno_fd) {
                 return log_debug_errno(r, "Child process failed with errno: %m");
 
         return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Received positive errno from child, refusing: %d", r);
+}
+
+int prctl_safe(int op, unsigned long arg2, unsigned long arg3, unsigned long arg4, unsigned long arg5) {
+
+        /* prctl(2) is a a bit messy: it's a variadic function, defined with "unsigned long" arguments. This
+         * means that unless people expicitly cast it's quite likely they end up passing a shorter type even
+         * though unsigned long is required. And most of the time it might even kind of work, but not
+         * always. Moreover, some calls insist on all unused arguments being zeroed out, others don't
+         * care. Let's define this wrapper to enforce the right types, and that all arguments are always
+         * passed, to avoid this confusion. */
+
+        return RET_NERRNO(prctl(op, arg2, arg3, arg4, arg5));
+}
+
+int proc_set_comm(const char *comm) {
+
+        if (isempty(comm))
+                return -EINVAL;
+
+        return prctl_safe(PR_SET_NAME, (unsigned long) comm, 0, 0, 0);
+}
+
+int proc_set_nnp(void) {
+        return prctl_safe(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0);
+}
+
+nsec_t proc_get_timerslack(void) {
+        int r;
+
+        r = prctl_safe(PR_GET_TIMERSLACK, 0, 0, 0, 0);
+        if (r < 0)
+                return NSEC_INFINITY;
+
+        return r;
 }

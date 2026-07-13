@@ -983,19 +983,20 @@ static int enforce_groups(gid_t gid, const gid_t *supplementary_gids, int ngids)
 
 static int set_securebits(unsigned bits, unsigned mask) {
         unsigned applied;
-        int current;
+        int current, r;
 
-        current = prctl(PR_GET_SECUREBITS);
+        current = prctl_safe(PR_GET_SECUREBITS, 0, 0, 0, 0);
         if (current < 0)
-                return -errno;
+                return current;
 
         /* Clear all securebits defined in mask and set bits */
         applied = ((unsigned) current & ~mask) | bits;
         if ((unsigned) current == applied)
                 return 0;
 
-        if (prctl(PR_SET_SECUREBITS, applied) < 0)
-                return -errno;
+        r = prctl_safe(PR_SET_SECUREBITS, applied, 0, 0, 0);
+        if (r < 0)
+                return r;
 
         return 1;
 }
@@ -1408,7 +1409,8 @@ static int setup_pam(
                 /* Wait until our parent died. This will only work if the above setresuid() succeeds,
                  * otherwise the kernel will not allow unprivileged parents kill their privileged children
                  * this way. We rely on the control groups kill logic to do the rest for us. */
-                if (prctl(PR_SET_PDEATHSIG, SIGTERM) < 0)
+                r = prctl_safe(PR_SET_PDEATHSIG, SIGTERM, 0, 0, 0);
+                if (r < 0)
                         goto child_finish;
 
                 /* Tell the parent that our setup is done. This is especially important regarding dropping
@@ -1714,13 +1716,13 @@ static int apply_memory_deny_write_execute(const ExecContext *c, const ExecParam
                 return 0;
 
         /* use prctl() if kernel supports it (6.3) */
-        r = prctl(PR_SET_MDWE, PR_MDWE_REFUSE_EXEC_GAIN, 0, 0, 0);
+        r = prctl_safe(PR_SET_MDWE, PR_MDWE_REFUSE_EXEC_GAIN, 0, 0, 0);
         if (r == 0) {
                 log_debug("Enabled MemoryDenyWriteExecute= with PR_SET_MDWE");
                 return 0;
         }
-        if (r < 0 && errno != EINVAL)
-                return log_debug_errno(errno, "Failed to enable MemoryDenyWriteExecute= with PR_SET_MDWE: %m");
+        if (r < 0 && r != -EINVAL)
+                return log_debug_errno(r, "Failed to enable MemoryDenyWriteExecute= with PR_SET_MDWE: %m");
         /* else use seccomp */
         log_debug("Kernel doesn't support PR_SET_MDWE: falling back to seccomp");
 
@@ -4850,15 +4852,15 @@ static int set_memory_thp(ExecMemoryTHP thp) {
                 return 0;
 
         case EXEC_MEMORY_THP_DISABLE:
-                r = RET_NERRNO(prctl(PR_SET_THP_DISABLE, 1, 0, 0, 0));
+                r = prctl_safe(PR_SET_THP_DISABLE, 1, 0, 0, 0);
                 break;
 
         case EXEC_MEMORY_THP_MADVISE:
-                r = RET_NERRNO(prctl(PR_SET_THP_DISABLE, 1, PR_THP_DISABLE_EXCEPT_ADVISED, 0, 0));
+                r = prctl_safe(PR_SET_THP_DISABLE, 1, PR_THP_DISABLE_EXCEPT_ADVISED, 0, 0);
                 break;
 
         case EXEC_MEMORY_THP_SYSTEM:
-                r = RET_NERRNO(prctl(PR_SET_THP_DISABLE, 0, 0, 0, 0));
+                r = prctl_safe(PR_SET_THP_DISABLE, 0, 0, 0, 0);
                 break;
 
         default:
@@ -5658,11 +5660,13 @@ int exec_invoke(
                         return log_error_errno(errno, "Failed to set up IO scheduling priority: %m");
                 }
 
-        if (context->timer_slack_nsec != NSEC_INFINITY)
-                if (prctl(PR_SET_TIMERSLACK, context->timer_slack_nsec) < 0) {
+        if (context->timer_slack_nsec != NSEC_INFINITY) {
+                r = prctl_safe(PR_SET_TIMERSLACK, context->timer_slack_nsec, 0, 0, 0);
+                if (r < 0) {
                         *exit_status = EXIT_TIMERSLACK;
-                        return log_error_errno(errno, "Failed to set up timer slack: %m");
+                        return log_error_errno(r, "Failed to set up timer slack: %m");
                 }
+        }
 
         if (context->personality != PERSONALITY_INVALID) {
                 r = safe_personality(context->personality);
@@ -5672,15 +5676,17 @@ int exec_invoke(
                 }
         }
 
-        if (context->memory_ksm >= 0)
-                if (prctl(PR_SET_MEMORY_MERGE, context->memory_ksm, 0, 0, 0) < 0) {
-                        if (ERRNO_IS_NOT_SUPPORTED(errno))
+        if (context->memory_ksm >= 0) {
+                r = prctl_safe(PR_SET_MEMORY_MERGE, context->memory_ksm, 0, 0, 0);
+                if (r < 0) {
+                        if (ERRNO_IS_NOT_SUPPORTED(r))
                                 log_debug_errno(errno, "KSM support not available, ignoring.");
                         else {
                                 *exit_status = EXIT_KSM;
-                                return log_error_errno(errno, "Failed to set KSM: %m");
+                                return log_error_errno(r, "Failed to set KSM: %m");
                         }
                 }
+        }
 
         r = set_memory_thp(context->memory_thp);
         if (r == -EOPNOTSUPP)
@@ -6321,9 +6327,10 @@ int exec_invoke(
                     seccomp_allows_drop_privileges(context)) {
                         keep_seccomp_privileges = true;
 
-                        if (prctl(PR_SET_KEEPCAPS, 1) < 0) {
+                        r = prctl_safe(PR_SET_KEEPCAPS, 1, 0, 0, 0);
+                        if (r < 0) {
                                 *exit_status = EXIT_USER;
-                                return log_error_errno(errno, "Failed to enable keep capabilities flag: %m");
+                                return log_error_errno(r, "Failed to enable keep capabilities flag: %m");
                         }
 
                         /* Save the current bounding set so we can restore it after applying the seccomp
@@ -6456,7 +6463,8 @@ int exec_invoke(
                 /* PR_GET_SECUREBITS is not privileged, while PR_SET_SECUREBITS is. So to suppress potential
                  * EPERMs we'll try not to call PR_SET_SECUREBITS unless necessary. Setting securebits
                  * requires CAP_SETPCAP. */
-                if (prctl(PR_GET_SECUREBITS) != secure_bits) {
+                r = prctl_safe(PR_GET_SECUREBITS, 0, 0, 0, 0);
+                if (r != secure_bits) {
                         /* CAP_SETPCAP is required to set securebits. This capability is raised into the
                          * effective set here.
                          *
@@ -6473,17 +6481,21 @@ int exec_invoke(
                                 *exit_status = EXIT_CAPABILITIES;
                                 return log_error_errno(r, "Failed to gain CAP_SETPCAP for setting secure bits");
                         }
-                        if (prctl(PR_SET_SECUREBITS, secure_bits) < 0) {
+
+                        r = prctl_safe(PR_SET_SECUREBITS, secure_bits, 0, 0, 0);
+                        if (r < 0) {
                                 *exit_status = EXIT_SECUREBITS;
-                                return log_error_errno(errno, "Failed to set process secure bits: %m");
+                                return log_error_errno(r, "Failed to set process secure bits: %m");
                         }
                 }
 
-                if (context_has_no_new_privileges(context))
-                        if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) < 0) {
+                if (context_has_no_new_privileges(context)) {
+                        r = proc_set_nnp();
+                        if (r < 0) {
                                 *exit_status = EXIT_NO_NEW_PRIVILEGES;
-                                return log_error_errno(errno, "Failed to disable new privileges: %m");
+                                return log_error_errno(r, "Failed to disable new privileges: %m");
                         }
+                }
 
 #if HAVE_SECCOMP
                 r = apply_address_families(context, params);
@@ -6613,9 +6625,10 @@ int exec_invoke(
                                 }
                         }
 
-                        if (prctl(PR_SET_KEEPCAPS, 0) < 0) {
+                        r = prctl_safe(PR_SET_KEEPCAPS, 0, 0, 0, 0);
+                        if (r < 0) {
                                 *exit_status = EXIT_USER;
-                                return log_error_errno(errno, "Failed to drop keep capabilities flag: %m");
+                                return log_error_errno(r, "Failed to drop keep capabilities flag: %m");
                         }
                 }
 #endif

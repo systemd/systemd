@@ -18,6 +18,7 @@
 #include "manager.h"
 #include "path-util.h"
 #include "pidref.h"
+#include "process-util.h"
 #include "selinux-access.h"
 #include "set.h"
 #include "strv.h"
@@ -118,7 +119,7 @@ static int manager_context_build_json(sd_json_variant **ret, const char *name, v
                         JSON_BUILD_PAIR_FINITE_USEC("RuntimeWatchdogPreUSec", manager_get_watchdog(m, WATCHDOG_PRETIMEOUT)),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("RuntimeWatchdogPreGovernor", m->watchdog_pretimeout_governor),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("WatchdogDevice", watchdog_get_device()),
-                        JSON_BUILD_PAIR_FINITE_USEC("TimerSlackNSec", (uint64_t) prctl(PR_GET_TIMERSLACK)),
+                        JSON_BUILD_PAIR_FINITE_USEC("TimerSlackNSec", proc_get_timerslack()),
                         JSON_BUILD_PAIR_ENUM("DefaultOOMPolicy", oom_policy_to_string(m->defaults.oom_policy)),
                         SD_JSON_BUILD_PAIR_INTEGER("DefaultOOMScoreAdjust", m->defaults.oom_score_adjust),
                         SD_JSON_BUILD_PAIR_BOOLEAN("DefaultRestrictSUIDSGID", m->defaults.restrict_suid_sgid),

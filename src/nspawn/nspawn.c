@@ -79,6 +79,7 @@
 #include "namespace-util.h"
 #include "netlink-internal.h"
 #include "notify-recv.h"
+#include "nspawn.h"
 #include "nspawn-bind-user.h"
 #include "nspawn-cgroup.h"
 #include "nspawn-expose-ports.h"
@@ -90,14 +91,13 @@
 #include "nspawn-settings.h"
 #include "nspawn-setuid.h"
 #include "nspawn-stub-pid1.h"
-#include "nspawn.h"
 #include "nsresource.h"
-#include "os-util.h"
-#include "parse-helpers.h"
-#include "osc-context.h"
 #include "options.h"
+#include "os-util.h"
+#include "osc-context.h"
 #include "pager.h"
 #include "parse-argument.h"
+#include "parse-helpers.h"
 #include "parse-util.h"
 #include "path-lookup.h"
 #include "path-util.h"
@@ -3579,8 +3579,9 @@ static int inner_child(
 
         /* Make sure we keep the caps across the uid/gid dropping, so that we can retain some selected caps
          * if we need to later on. */
-        if (prctl(PR_SET_KEEPCAPS, 1) < 0)
-                return log_error_errno(errno, "Failed to set PR_SET_KEEPCAPS: %m");
+        r = prctl_safe(PR_SET_KEEPCAPS, 1, 0, 0, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set PR_SET_KEEPCAPS: %m");
 
         if (uid_is_valid(arg_uid) || gid_is_valid(arg_gid))
                 r = change_uid_gid_raw(arg_uid, arg_gid, arg_supplementary_gids, arg_n_supplementary_gids, arg_console_mode != CONSOLE_PIPE);
@@ -3593,9 +3594,11 @@ static int inner_child(
         if (r < 0)
                 return log_error_errno(r, "Dropping capabilities failed: %m");
 
-        if (arg_no_new_privileges)
-                if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) < 0)
-                        return log_error_errno(errno, "Failed to disable new privileges: %m");
+        if (arg_no_new_privileges) {
+                r = proc_set_nnp();
+                if (r < 0)
+                        return log_error_errno(r, "Failed to disable new privileges: %m");
+        }
 
         /* LXC sets container=lxc, so follow the scheme here */
         envp[n_env++] = strjoina("container=", arg_container_service_name);
@@ -3961,8 +3964,9 @@ static int outer_child(
         if (r < 0)
                 log_debug_errno(r, "Failed to read os-release from host for container, ignoring: %m");
 
-        if (prctl(PR_SET_PDEATHSIG, SIGKILL) < 0)
-                return log_error_errno(errno, "PR_SET_PDEATHSIG failed: %m");
+        r = prctl_safe(PR_SET_PDEATHSIG, SIGKILL, 0, 0, 0);
+        if (r < 0)
+                return log_error_errno(r, "PR_SET_PDEATHSIG failed: %m");
 
         r = reset_audit_loginuid();
         if (r < 0)

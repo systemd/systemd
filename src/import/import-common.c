@@ -81,8 +81,9 @@ int import_fork_tar_x(int tree_fd, int userns_fd, PidRef *ret_pid) {
                 if (r < 0)
                         log_debug_errno(r, "Failed to drop capabilities, ignoring: %m");
 
-                if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) < 0)
-                        log_warning_errno(errno, "Failed to enable PR_SET_NO_NEW_PRIVS, ignoring: %m");
+                r = proc_set_nnp();
+                if (r < 0)
+                        log_warning_errno(r, "Failed to enable PR_SET_NO_NEW_PRIVS, ignoring: %m");
 
                 if (tar_x(pipefd[0], tree_fd, flags) < 0)
                         _exit(EXIT_FAILURE);
@@ -141,8 +142,9 @@ int import_fork_tar_c(int tree_fd, int userns_fd, PidRef *ret_pid) {
                 if (r < 0)
                         log_debug_errno(r, "Failed to drop capabilities, ignoring: %m");
 
-                if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) < 0)
-                        log_warning_errno(errno, "Failed to enable PR_SET_NO_NEW_PRIVS, ignoring: %m");
+                r = proc_set_nnp();
+                if (r < 0)
+                        log_warning_errno(r, "Failed to enable PR_SET_NO_NEW_PRIVS, ignoring: %m");
 
                 if (tar_c(tree_fd, pipefd[1], /* filename= */ NULL, flags) < 0)
                         _exit(EXIT_FAILURE);
