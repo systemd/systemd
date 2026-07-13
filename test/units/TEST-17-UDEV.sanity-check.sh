@@ -303,6 +303,9 @@ udevadm wait -t 5 /sys/class/net/$netdev
 udevadm wait --initialized true /sys/class/net/$netdev
 udevadm wait --initialized false /sys/class/net/$netdev
 (! udevadm wait --initialized hello /sys/class/net/$netdev)
+udevadm wait --timeout=0 --removed /dev/no-such-test-device
+udevadm wait --timeout=0 --removed --initialized=no /dev/no-such-test-device
+udevadm wait --timeout=0 --initialized=no --removed /dev/no-such-test-device
 assert_rc 124 timeout 5 udevadm wait --removed /sys/class/net/$netdev
 udevadm wait --settle /sys/class/net/$netdev
 udevadm wait -h
