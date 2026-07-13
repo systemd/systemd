@@ -1266,10 +1266,11 @@ static int load_credential_one(
 
         int *userdb_dir_fd = transient ? userdb_dir_transient_fd : userdb_dir_persist_fd;
         if (*userdb_dir_fd == -EBADF) {
-                *userdb_dir_fd = xopenat_full(AT_FDCWD, userdb_dir,
-                                              /* open_flags= */ O_DIRECTORY|O_CREAT|O_CLOEXEC,
-                                              /* xopen_flags= */ XO_LABEL,
-                                              /* mode= */ 0755);
+                *userdb_dir_fd = xopenat_full_label(AT_FDCWD, userdb_dir,
+                                                    /* open_flags= */ O_DIRECTORY|O_CREAT|O_CLOEXEC,
+                                                    /* xopen_flags= */ XO_LABEL,
+                                                    /* mode= */ 0755,
+                                                    /* label_userdata= */ NULL);
                 if (*userdb_dir_fd < 0)
                         return log_error_errno(*userdb_dir_fd, "Failed to open '%s/': %m", userdb_dir);
         } else if (*userdb_dir_fd < 0)

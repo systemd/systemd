@@ -24,7 +24,10 @@ typedef enum WriteEnvFileFlags {
         WRITE_ENV_FILE_LABEL = 1 << 0,
 } WriteEnvFileFlags;
 
-int write_env_file(int dir_fd, const char *fname, char **headers, char **l, WriteEnvFileFlags flags);
+int write_env_file_label(int dir_fd, const char *fname, char **headers, char **l, WriteEnvFileFlags flags, LabelContext *label_userdata);
+static inline int write_env_file(int dir_fd, const char *fname, char **headers, char **l, WriteEnvFileFlags flags) {
+        return write_env_file_label(dir_fd, fname, headers, l, flags, /* label_userdata= */ NULL);
+}
 
 int write_vconsole_conf(int dir_fd, const char *fname, char **l);
 

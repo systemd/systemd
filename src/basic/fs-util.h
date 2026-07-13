@@ -58,7 +58,10 @@ typedef enum SymlinkFlags {
         SYMLINK_LABEL         = 1 << 1,
 } SymlinkFlags;
 
-int symlinkat_atomic_full(const char *target, int atfd, const char *linkpath, SymlinkFlags flags);
+int symlinkat_atomic_full_label(const char *target, int atfd, const char *linkpath, SymlinkFlags flags, LabelContext *label_userdata);
+static inline int symlinkat_atomic_full(const char *target, int atfd, const char *linkpath, SymlinkFlags flags) {
+        return symlinkat_atomic_full_label(target, atfd, linkpath, flags, /* label_userdata= */ NULL);
+}
 static inline int symlink_atomic(const char *target, const char *linkpath) {
         return symlinkat_atomic_full(target, AT_FDCWD, linkpath, 0);
 }
@@ -118,7 +121,10 @@ typedef enum XOpenFlags {
         XO_AUTO_RW_RO        = 1 << 6, /* Open in O_RDWR mode if possible, O_RDONLY if not */
 } XOpenFlags;
 
-int open_mkdir_at_full(int dirfd, const char *path, int flags, XOpenFlags xopen_flags, mode_t mode);
+int open_mkdir_at_full_label(int dirfd, const char *path, int flags, XOpenFlags xopen_flags, mode_t mode, LabelContext *label_userdata);
+static inline int open_mkdir_at_full(int dirfd, const char *path, int flags, XOpenFlags xopen_flags, mode_t mode) {
+        return open_mkdir_at_full_label(dirfd, path, flags, xopen_flags, mode, /* label_userdata= */ NULL);
+}
 static inline int open_mkdir_at(int dirfd, const char *path, int flags, mode_t mode) {
         return open_mkdir_at_full(dirfd, path, flags, 0, mode);
 }
@@ -128,12 +134,18 @@ static inline int open_mkdir(const char *path, int flags, mode_t mode) {
 
 int openat_report_new(int dirfd, const char *pathname, int flags, mode_t mode, bool *ret_newly_created);
 
-int xopenat_full(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_flags, mode_t mode);
+int xopenat_full_label(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_flags, mode_t mode, LabelContext *label_userdata);
+static inline int xopenat_full(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_flags, mode_t mode) {
+        return xopenat_full_label(dir_fd, path, open_flags, xopen_flags, mode, /* label_userdata= */ NULL);
+}
 static inline int xopenat(int dir_fd, const char *path, int open_flags) {
         return xopenat_full(dir_fd, path, open_flags, 0, MODE_INVALID);
 }
 
-int xopenat_lock_full(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_flags, mode_t mode, LockType locktype, int operation);
+int xopenat_lock_full_label(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_flags, mode_t mode, LockType locktype, int operation, LabelContext *label_userdata);
+static inline int xopenat_lock_full(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_flags, mode_t mode, LockType locktype, int operation) {
+        return xopenat_lock_full_label(dir_fd, path, open_flags, xopen_flags, mode, locktype, operation, /* label_userdata= */ NULL);
+}
 static inline int xopenat_lock(int dir_fd, const char *path, int open_flags, LockType locktype, int operation) {
         return xopenat_lock_full(dir_fd, path, open_flags, 0, 0, locktype, operation);
 }

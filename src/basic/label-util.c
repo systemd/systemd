@@ -18,16 +18,16 @@ void label_ops_reset(void) {
         label_ops = NULL;
 }
 
-int label_ops_pre(int dir_fd, const char *path, mode_t mode) {
+int label_ops_pre(int dir_fd, const char *path, mode_t mode, LabelContext *userdata) {
         if (!label_ops || !label_ops->pre)
                 return 0;
 
-        return label_ops->pre(dir_fd, path, mode);
+        return label_ops->pre(dir_fd, path, mode, userdata);
 }
 
-int label_ops_post(int dir_fd, const char *path, bool created) {
+int label_ops_post(int dir_fd, const char *path, bool created, LabelContext *userdata) {
         if (!label_ops || !label_ops->post)
                 return 0;
 
-        return label_ops->post(dir_fd, path, created);
+        return label_ops->post(dir_fd, path, created, userdata);
 }

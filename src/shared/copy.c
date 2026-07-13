@@ -494,7 +494,7 @@ static int fd_copy_symlink(
                 return r;
 
         if (copy_flags & COPY_MAC_CREATE) {
-                r = mac_selinux_create_file_prepare_at(dt, to, S_IFLNK);
+                r = mac_selinux_create_file_prepare_at(dt, to, S_IFLNK, /* label_userdata= */ NULL);
                 if (r < 0)
                         return r;
         }
@@ -850,7 +850,7 @@ static int fd_copy_regular(
                 return fdf;
 
         if (copy_flags & COPY_MAC_CREATE) {
-                r = mac_selinux_create_file_prepare_at(dt, to, S_IFREG);
+                r = mac_selinux_create_file_prepare_at(dt, to, S_IFREG, /* label_userdata= */ NULL);
                 if (r < 0)
                         return r;
         }
@@ -937,7 +937,7 @@ static int fd_copy_fifo(
                 return 0;
 
         if (copy_flags & COPY_MAC_CREATE) {
-                r = mac_selinux_create_file_prepare_at(dt, to, S_IFIFO);
+                r = mac_selinux_create_file_prepare_at(dt, to, S_IFIFO, /* label_userdata= */ NULL);
                 if (r < 0)
                         return r;
         }
@@ -990,7 +990,7 @@ static int fd_copy_node(
                 return 0;
 
         if (copy_flags & COPY_MAC_CREATE) {
-                r = mac_selinux_create_file_prepare_at(dt, to, st->st_mode & S_IFMT);
+                r = mac_selinux_create_file_prepare_at(dt, to, st->st_mode & S_IFMT, /* label_userdata= */ NULL);
                 if (r < 0)
                         return r;
         }
@@ -1591,7 +1591,7 @@ int copy_file_atomic_at_full(
         assert(!FLAGS_SET(copy_flags, COPY_LOCK_BSD));
 
         if (copy_flags & COPY_MAC_CREATE) {
-                r = mac_selinux_create_file_prepare_at(dir_fdt, to, S_IFREG);
+                r = mac_selinux_create_file_prepare_at(dir_fdt, to, S_IFREG, /* label_userdata= */ NULL);
                 if (r < 0)
                         return r;
         }
