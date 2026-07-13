@@ -8,15 +8,19 @@
 #include "fd-util.h"
 #include "format-table.h"
 #include "format-util.h"
+#include "hash-funcs.h"
 #include "hashmap.h"
 #include "journal-authenticate.h"
 #include "journal-internal.h"
 #include "journal-verify.h"
 #include "journalctl.h"
+#include "journalctl-filter.h"
 #include "journalctl-misc.h"
 #include "journalctl-util.h"
 #include "log.h"
 #include "logs-show.h"
+#include "ordered-set.h"
+#include "set.h"
 #include "strv.h"
 #include "syslog-util.h"
 #include "time-util.h"
@@ -185,6 +189,99 @@ int action_list_boots(void) {
         return show_log_ids(ids, n_ids, "boot id");
 }
 
+static bool list_fields_needs_filtering(void) {
+        return
+                arg_boot ||
+                arg_invocation ||
+                arg_dmesg ||
+                !strv_isempty(arg_system_units) ||
+                !strv_isempty(arg_user_units) ||
+                !strv_isempty(arg_syslog_identifier) ||
+                !strv_isempty(arg_exclude_identifier) ||
+                arg_priorities != 0 ||
+                !set_isempty(arg_facilities) ||
+                arg_since_set ||
+                arg_until_set;
+}
+
+static int list_fields_filtered(sd_journal *j) {
+        _cleanup_ordered_set_free_ OrderedSet *values = NULL;
+        int n_shown = 0, r;
+
+        assert(j);
+
+        if (arg_since_set)
+                r = sd_journal_seek_realtime_usec(j, arg_since);
+        else
+                r = sd_journal_seek_head(j);
+        if (r < 0)
+                return log_error_errno(r, "Failed to seek journal: %m");
+
+        for (;;) {
+                _cleanup_free_ char *value = NULL;
+                const void *data, *eq;
+                size_t size, value_size;
+
+                r = sd_journal_next(j);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to iterate through journal: %m");
+                if (r == 0)
+                        break;
+
+                if (arg_since_set || arg_until_set) {
+                        usec_t usec;
+
+                        r = sd_journal_get_realtime_usec(j, &usec);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to determine timestamp: %m");
+
+                        if (arg_since_set && usec < arg_since)
+                                continue;
+
+                        if (arg_until_set && usec > arg_until)
+                                break;
+                }
+
+                r = sd_journal_get_data(j, arg_field, &data, &size);
+                if (r == -ENOENT)
+                        continue;
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get data object '%s': %m", arg_field);
+
+                eq = memchr(data, '=', size);
+                if (eq) {
+                        const uint8_t *p = (const uint8_t*) eq + 1;
+
+                        value_size = size - (p - (const uint8_t*) data);
+                        value = strndup((const char*) p, value_size);
+                } else
+                        value = strndup(data, size);
+                if (!value)
+                        return log_oom();
+
+                r = ordered_set_ensure_allocated(&values, &string_hash_ops_free);
+                if (r < 0)
+                        return log_oom();
+
+                if (ordered_set_contains(values, value))
+                        continue;
+
+                const char *p = value;
+
+                r = ordered_set_consume(values, TAKE_PTR(value));
+                if (r < 0)
+                        return log_oom();
+
+                puts(p);
+                n_shown++;
+
+                if (arg_lines >= 0 && n_shown >= arg_lines)
+                        break;
+        }
+
+        return 0;
+}
+
 int action_list_fields(void) {
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
         int r, n_shown = 0;
@@ -199,9 +296,16 @@ int action_list_fields(void) {
         if (!journal_boot_has_effect(j))
                 return 0;
 
+        r = add_filters(j, NULL);
+        if (r < 0)
+                return r;
+
         r = sd_journal_set_data_threshold(j, 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to unset data size threshold: %m");
+
+        if (list_fields_needs_filtering())
+                return list_fields_filtered(j);
 
         r = sd_journal_query_unique(j, arg_field);
         if (r < 0)
