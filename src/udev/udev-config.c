@@ -281,6 +281,7 @@ static void manager_merge_config(Manager *manager) {
 
         manager_merge_config_log_level(manager);
         MERGE_NON_NEGATIVE(resolve_name_timing, RESOLVE_NAME_EARLY);
+        MERGE_NON_ZERO(children_max, 0);
         MERGE_NON_ZERO(exec_delay_usec, 0);
         MERGE_NON_ZERO(timeout_usec, DEFAULT_WORKER_TIMEOUT_USEC);
         MERGE_NON_ZERO(timeout_signal, SIGKILL);
