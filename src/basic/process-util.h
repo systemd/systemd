@@ -255,3 +255,5 @@ int safe_mlockall(int flags);
 
 _noreturn_ void report_errno_and_exit(int errno_fd, int error);
 int read_errno(int errno_fd);
+
+int prctl_safe(int op, unsigned long arg2, unsigned long arg3, unsigned long arg4, unsigned long arg5);
