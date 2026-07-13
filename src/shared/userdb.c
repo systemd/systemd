@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <fnmatch.h>
 #include <gshadow.h>
 #include <stdlib.h>
 
@@ -18,6 +19,7 @@
 #include "log.h"
 #include "parse-util.h"
 #include "set.h"
+#include "socket-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "uid-classification.h"
@@ -25,6 +27,7 @@
 #include "user-util.h"
 #include "userdb.h"
 #include "userdb-dropin.h"
+#include "xattr-util.h"
 
 DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(link_hash_ops, void, trivial_hash_func, trivial_compare_func, sd_varlink, sd_varlink_unref);
 
@@ -34,6 +37,14 @@ typedef enum LookupWhat {
         LOOKUP_MEMBERSHIP,
         _LOOKUP_WHAT_MAX,
 } LookupWhat;
+
+typedef struct SocketFilter {
+        /* Restricts the sockets to connect to */
+        uid_t uid;
+        gid_t gid;
+        const char *username;
+        const char *groupname;
+} SocketFilter;
 
 struct UserDBIterator {
         LookupWhat what;
@@ -505,11 +516,138 @@ static int userdb_connect(
         return r;
 }
 
+static int socket_filter_id_test(
+                id_t id,
+                const char *xattr,
+                int dir_fd,
+                const char *fname,
+                const char *full_path /* for logging only */) {
+
+        int r;
+
+        assert(xattr);
+        assert(dir_fd >= 0);
+        assert(fname);
+        assert(full_path);
+
+        /* Generic implementation for both UIDs and GIDs */
+
+        if (!uid_is_valid(id))
+                return true;
+
+        /* Looks for an xattr of the specified name on the referenced socket entrypoint inode. Parses this
+         * as a pair of start UID/end UID. Matches the specified UID against it. If it matches yay. If it
+         * doesn't nay. If no UID is specified or no xattr set, also yay. */
+
+        _cleanup_free_ char *t = NULL;
+        r = getxattr_at_malloc(dir_fd, fname, xattr, AT_SYMLINK_FOLLOW, &t, /* ret_size= */ NULL);
+        if (r == -ENODATA)
+                return true; /* no such xattr? match! */
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(r)) {
+                log_debug_errno(r, "Extended attributes on sockets not supported after all, ignoring: %m");
+                return true; /* if sockets don't support xattrs here, then this is a match */
+        }
+        if (r < 0)
+                return log_debug_errno(r, "Unexpected error while reading extended attribute '%s' of '%s', ignoring: %m", xattr, full_path);
+
+        _cleanup_strv_free_ char **l = strv_split(t, ",");
+        if (!l)
+                return log_oom_debug();
+
+        STRV_FOREACH(i, l) {
+                /* Single UID or UID range */
+                uid_t x, y;
+                r = parse_uid_range(*i, &x, &y);
+                if (r < 0)
+                        return log_debug_errno(r, "Malformed extended attribute '%s' on '%s', ignoring.", xattr, full_path);
+
+                if (id >= x && id <= y)
+                        return true;
+        }
+
+        return false;
+}
+
+static int socket_filter_name_test(
+                const char *name,
+                const char *xattr,
+                int dir_fd,
+                const char *fname,
+                const char *full_path /* for logging only */) {
+
+        int r;
+
+        assert(xattr);
+        assert(dir_fd >= 0);
+        assert(fname);
+        assert(full_path);
+
+        /* Looks for an xattr of the specified name on the referenced socket entrypoint inode. Parses this
+         * as a NUL terminated string list. Matches the specified name against it via fnmatch(). If it matches
+         * yay. If it doesn't nay. If no name is specified or no xattr set, also yay. */
+
+        if (!name)
+                return true;
+
+        _cleanup_strv_free_ char **l = NULL;
+        r = getxattr_at_strv(dir_fd, fname, xattr, AT_SYMLINK_FOLLOW, &l);
+        if (r == -ENODATA)
+                return true; /* no such xattr? match! */
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(r)) {
+                log_debug_errno(r, "Extended attributes on sockets not supported after all, ignoring: %m");
+                return true; /* if sockets don't support xattrs here, then this is a match */
+        }
+        if (r < 0)
+                return log_debug_errno(r, "Unexpected error while reading extended attribute '%s' of '%s', ignoring: %m", xattr, full_path);
+
+        return strv_fnmatch_full(l, name, FNM_NOESCAPE, /* ret_matched_pos= */ NULL);
+}
+
+static int socket_filter_test(
+                const SocketFilter *sfilter,
+                int dir_fd,
+                const char *fname,
+                const char *full_path /* for logging only */) {
+
+        assert(dir_fd >= 0);
+        assert(fname);
+        assert(full_path);
+
+        /* Before we contact a Varlink service, let's see if there's any chance it might answer our questions
+         * at all. For such pre-filtering a userdb backend can install xattrs on their entrypoint inode to
+         * indicate that it's never going to answer outside of a certain UID/GID range or username/groupname
+         * pattern */
+
+        /* No filter means all sockets match */
+        if (!sfilter)
+                return 1;
+
+        /* No xattr support? then all sockets match. This check mostly exists to take benefit of the internal caching
+         * of the test. Either way we'll check below again. */
+        if (socket_xattr_supported() == 0)
+                return 1;
+
+        if (socket_filter_id_test(sfilter->uid, "user.userdb.uid", dir_fd, fname, full_path) == 0)
+                return 0;
+
+        if (socket_filter_id_test(sfilter->gid, "user.userdb.gid", dir_fd, fname, full_path) == 0)
+                return 0;
+
+        if (socket_filter_name_test(sfilter->username, "user.userdb.username", dir_fd, fname, full_path) == 0)
+                return 0;
+
+        if (socket_filter_name_test(sfilter->groupname, "user.userdb.groupname", dir_fd, fname, full_path) == 0)
+                return 0;
+
+        return 1;
+}
+
 static int userdb_start_query(
                 UserDBIterator *iterator,
                 const char *method, /* must be a static string, we are not going to copy this here! */
                 bool more,
                 sd_json_variant *query,
+                const SocketFilter *sfilter,
                 UserDBFlags flags) {
 
         _cleanup_strv_free_ char **except = NULL, **only = NULL;
@@ -600,6 +738,12 @@ static int userdb_start_query(
                 p = path_join("/run/systemd/userdb/", de->d_name);
                 if (!p)
                         return -ENOMEM;
+
+                r = socket_filter_test(sfilter, dirfd(d), de->d_name, p);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to filter sockets, ignoring: %m");
+                else if (r == 0)
+                        continue;
 
                 r = userdb_connect(iterator, p, method, more, query);
                 if (is_nss && r >= 0) /* Turn off fallback NSS + dropin if we found the NSS/dropin service
@@ -928,8 +1072,20 @@ int userdb_by_name(const char *name, const UserDBMatch *match, UserDBFlags flags
         if (!iterator)
                 return -ENOMEM;
 
+        SocketFilter sfilter = {
+                .uid = UID_INVALID,
+                .gid = GID_INVALID,
+                .username = name,
+        };
+
         _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
-        r = userdb_start_query(iterator, "io.systemd.UserDatabase.GetUserRecord", /* more= */ false, query, flags);
+        r = userdb_start_query(
+                        iterator,
+                        "io.systemd.UserDatabase.GetUserRecord",
+                        /* more= */ false,
+                        query,
+                        &sfilter,
+                        flags);
         if (r >= 0) {
                 r = userdb_process(iterator, &ur, /* ret_group_record= */ NULL, /* ret_user_name= */ NULL, /* ret_group_name= */ NULL);
                 if (r == -ENOEXEC) /* Found a user matching UID or name, but not filter. In this case the
@@ -1018,8 +1174,19 @@ int userdb_by_uid(uid_t uid, const UserDBMatch *match, UserDBFlags flags, UserRe
         if (!iterator)
                 return -ENOMEM;
 
+        SocketFilter sfilter = {
+                .uid = uid,
+                .gid = GID_INVALID,
+        };
+
         _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
-        r = userdb_start_query(iterator, "io.systemd.UserDatabase.GetUserRecord", /* more= */ false, query, flags);
+        r = userdb_start_query(
+                        iterator,
+                        "io.systemd.UserDatabase.GetUserRecord",
+                        /* more= */ false,
+                        query,
+                        &sfilter,
+                        flags);
         if (r >= 0) {
                 r = userdb_process(iterator, &ur, /* ret_group_record= */ NULL, /* ret_user_name= */ NULL, /* ret_group_name= */ NULL);
                 if (r == -ENOEXEC)
@@ -1055,7 +1222,13 @@ int userdb_all(const UserDBMatch *match, UserDBFlags flags, UserDBIterator **ret
         if (!iterator)
                 return -ENOMEM;
 
-        qr = userdb_start_query(iterator, "io.systemd.UserDatabase.GetUserRecord", /* more= */ true, query, flags);
+        qr = userdb_start_query(
+                        iterator,
+                        "io.systemd.UserDatabase.GetUserRecord",
+                        /* more= */ true,
+                        query,
+                        /* sfilter= */ NULL,
+                        flags);
 
         if (!FLAGS_SET(flags, USERDB_EXCLUDE_NSS) && (qr < 0 || !iterator->nss_covered)) {
                 r = userdb_iterator_block_nss_systemd(iterator);
@@ -1384,8 +1557,20 @@ int groupdb_by_name(const char *name, const UserDBMatch *match, UserDBFlags flag
         if (!iterator)
                 return -ENOMEM;
 
+        SocketFilter sfilter = {
+                .uid = UID_INVALID,
+                .gid = GID_INVALID,
+                .groupname = name,
+        };
+
         _cleanup_(group_record_unrefp) GroupRecord *gr = NULL;
-        r = userdb_start_query(iterator, "io.systemd.UserDatabase.GetGroupRecord", /* more= */ false, query, flags);
+        r = userdb_start_query(
+                        iterator,
+                        "io.systemd.UserDatabase.GetGroupRecord",
+                        /* more= */ false,
+                        query,
+                        &sfilter,
+                        flags);
         if (r >= 0) {
                 r = userdb_process(iterator, /* ret_user_record= */ NULL, &gr, /* ret_user_name= */ NULL, /* ret_group_name= */ NULL);
                 if (r == -ENOEXEC)
@@ -1418,13 +1603,13 @@ static int groupdb_by_gid_fallbacks(
         assert(iterator);
         assert(ret);
 
-        if (!FLAGS_SET(flags, USERDB_EXCLUDE_DROPIN) && !(iterator && iterator->dropin_covered)) {
+        if (!FLAGS_SET(flags, USERDB_EXCLUDE_DROPIN) && !iterator->dropin_covered) {
                 r = dropin_group_record_by_gid(gid, NULL, flags, ret);
                 if (r >= 0)
                         return r;
         }
 
-        if (!FLAGS_SET(flags, USERDB_EXCLUDE_NSS) && !(iterator && iterator->nss_covered)) {
+        if (!FLAGS_SET(flags, USERDB_EXCLUDE_NSS) && !iterator->nss_covered) {
                 r = userdb_iterator_block_nss_systemd(iterator);
                 if (r >= 0) {
                         r = nss_group_record_by_gid(gid, !FLAGS_SET(flags, USERDB_SUPPRESS_SHADOW), ret);
@@ -1470,8 +1655,19 @@ int groupdb_by_gid(gid_t gid, const UserDBMatch *match, UserDBFlags flags, Group
         if (!iterator)
                 return -ENOMEM;
 
+        SocketFilter sfilter = {
+                .uid = UID_INVALID,
+                .gid = gid,
+        };
+
         _cleanup_(group_record_unrefp) GroupRecord *gr = NULL;
-        r = userdb_start_query(iterator, "io.systemd.UserDatabase.GetGroupRecord", /* more= */ false, query, flags);
+        r = userdb_start_query(
+                        iterator,
+                        "io.systemd.UserDatabase.GetGroupRecord",
+                        /* more= */ false,
+                        query,
+                        &sfilter,
+                        flags);
         if (r >= 0) {
                 r = userdb_process(iterator, /* ret_user_record= */ NULL, &gr, /* ret_user_name= */ NULL, /* ret_group_name= */ NULL);
                 if (r == -ENOEXEC)
@@ -1507,7 +1703,13 @@ int groupdb_all(const UserDBMatch *match, UserDBFlags flags, UserDBIterator **re
         if (!iterator)
                 return -ENOMEM;
 
-        qr = userdb_start_query(iterator, "io.systemd.UserDatabase.GetGroupRecord", /* more= */ true, query, flags);
+        qr = userdb_start_query(
+                        iterator,
+                        "io.systemd.UserDatabase.GetGroupRecord",
+                        /* more= */ true,
+                        query,
+                        /* sfilter= */ NULL,
+                        flags);
 
         if (!FLAGS_SET(flags, USERDB_EXCLUDE_NSS) && (qr < 0 || !iterator->nss_covered)) {
                 r = userdb_iterator_block_nss_systemd(iterator);
@@ -1698,7 +1900,13 @@ int membershipdb_by_user(const char *name, UserDBFlags flags, UserDBIterator **r
         if (!iterator->filter_user_name)
                 return -ENOMEM;
 
-        qr = userdb_start_query(iterator, "io.systemd.UserDatabase.GetMemberships", true, query, flags);
+        qr = userdb_start_query(
+                        iterator,
+                        "io.systemd.UserDatabase.GetMemberships",
+                        /* more= */ true,
+                        query,
+                        /* sfilter= */ NULL,
+                        flags);
 
         if (!FLAGS_SET(flags, USERDB_EXCLUDE_NSS) && (qr < 0 || !iterator->nss_covered)) {
                 r = userdb_iterator_block_nss_systemd(iterator);
@@ -1743,7 +1951,13 @@ int membershipdb_by_group(const char *name, UserDBFlags flags, UserDBIterator **
         if (!iterator->filter_group_name)
                 return -ENOMEM;
 
-        qr = userdb_start_query(iterator, "io.systemd.UserDatabase.GetMemberships", true, query, flags);
+        qr = userdb_start_query(
+                        iterator,
+                        "io.systemd.UserDatabase.GetMemberships",
+                        /* more= */ true,
+                        query,
+                        /* sfilter= */ NULL,
+                        flags);
 
         if (!FLAGS_SET(flags, USERDB_EXCLUDE_NSS) && (qr < 0 || !iterator->nss_covered)) {
                 _cleanup_(group_record_unrefp) GroupRecord *gr = NULL;
@@ -1789,7 +2003,13 @@ int membershipdb_all(UserDBFlags flags, UserDBIterator **ret) {
         if (!iterator)
                 return -ENOMEM;
 
-        qr = userdb_start_query(iterator, "io.systemd.UserDatabase.GetMemberships", true, NULL, flags);
+        qr = userdb_start_query(
+                        iterator,
+                        "io.systemd.UserDatabase.GetMemberships",
+                        /* more= */ true,
+                        /* query= */ NULL,
+                        /* sfilter= */ NULL,
+                        flags);
 
         if (!FLAGS_SET(flags, USERDB_EXCLUDE_NSS) && (qr < 0 || !iterator->nss_covered)) {
                 r = userdb_iterator_block_nss_systemd(iterator);
