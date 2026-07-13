@@ -1,13 +1,19 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <net/if.h>
+
+#include "sd-netlink.h"
+
 #include "alloc-util.h"
 #include "hashmap.h"
 #include "hostname-setup.h"
 #include "network-internal.h"
 #include "networkd-manager.h"
+#include "networkd-queue.h"
 #include "networkd-route-util.h"
 #include "strv.h"
 #include "tests.h"
+#include "veth.h"
 #include "vrf.h"
 
 TEST(deserialize_in_addr) {
@@ -124,6 +130,111 @@ TEST(vrf_table) {
 
         ASSERT_OK(config_parse_vrf_table("netdev", "filename", 1, "VRF", 1, "Table", 0, "no-such-table", &vrf.table, &vrf));
         ASSERT_EQ(vrf.table, 5678U);
+}
+
+static NetDev* test_veth_new(Manager *manager, const char *filename, const char *ifname, const char *peer) {
+        _cleanup_(netdev_unrefp) NetDev *netdev = NULL;
+
+        Veth *veth = new(Veth, 1);
+        ASSERT_NOT_NULL(veth);
+
+        *veth = (Veth) {
+                .meta = {
+                        .manager = manager,
+                        .n_ref = 1,
+                        .state = NETDEV_STATE_LOADING,
+                        .kind = NETDEV_KIND_VETH,
+                },
+        };
+        netdev = NETDEV(veth);
+
+        ASSERT_NOT_NULL(netdev->filename = strdup(filename));
+        ASSERT_NOT_NULL(netdev->ifname = strdup(ifname));
+        ASSERT_NOT_NULL(veth->ifname_peer = strdup(peer));
+
+        return TAKE_PTR(netdev);
+}
+
+TEST(netdev_attach_rollback) {
+        _cleanup_(manager_freep) Manager *manager = NULL;
+        _cleanup_(netdev_unrefp) NetDev *first = NULL, *second = NULL;
+        NetDev *found;
+
+        ASSERT_OK(manager_new(&manager, /* test_mode= */ true));
+
+        first = test_veth_new(manager, "/first.netdev", "veth0", "veth0-peer");
+        ASSERT_OK(netdev_attach(first));
+        NetDev *attached = TAKE_PTR(first);
+
+        second = test_veth_new(manager, "/second.netdev", "veth1", "veth0");
+        ASSERT_ERROR(netdev_attach(second), EEXIST);
+
+        ASSERT_NULL(second->manager);
+        ASSERT_ERROR(netdev_get(manager, "veth1", &found), ENOENT);
+        ASSERT_OK(netdev_get(manager, "veth0", &found));
+        ASSERT_PTR_EQ(found, attached);
+        ASSERT_OK(netdev_get(manager, "veth0-peer", &found));
+        ASSERT_PTR_EQ(found, attached);
+}
+
+static int test_request_process(Request *req, Link *link, void *userdata) {
+        assert_not_reached();
+}
+
+static int test_request_netlink_handler(
+                sd_netlink *rtnl,
+                sd_netlink_message *message,
+                Request *req,
+                Link *link,
+                void *userdata) {
+
+        assert(rtnl);
+        assert(message);
+        assert(req);
+        assert(!link);
+        assert(userdata);
+
+        *(bool*) userdata = true;
+        return 0;
+}
+
+TEST(request_netlink_handler_detached) {
+        _cleanup_(manager_freep) Manager *manager = NULL;
+        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL;
+        bool handler_called = false;
+        unsigned counter = 0;
+        Request *req;
+
+        ASSERT_OK(manager_new(&manager, /* test_mode= */ true));
+        ASSERT_OK(sd_netlink_open(&rtnl));
+
+        ASSERT_OK_POSITIVE(manager_queue_request_full(
+                        manager,
+                        REQUEST_TYPE_ADDRESS_LABEL,
+                        &handler_called,
+                        /* free_func= */ NULL,
+                        /* hash_func= */ NULL,
+                        /* compare_func= */ NULL,
+                        test_request_process,
+                        &counter,
+                        test_request_netlink_handler,
+                        &req));
+        ASSERT_EQ(counter, 1U);
+
+        int ifindex = (int) if_nametoindex("lo");
+        ASSERT_GT(ifindex, 0);
+        ASSERT_OK(sd_rtnl_message_new_link(rtnl, &message, RTM_GETLINK, ifindex));
+        ASSERT_OK(request_call_netlink_async(rtnl, message, req));
+
+        request_detach(req);
+        ASSERT_EQ(counter, 0U);
+
+        ASSERT_OK(sd_netlink_wait(rtnl, 0));
+        ASSERT_OK_POSITIVE(sd_netlink_process(rtnl, /* ret= */ NULL));
+
+        ASSERT_FALSE(handler_called);
+        ASSERT_EQ(counter, 0U);
 }
 
 TEST(manager_enumerate) {
