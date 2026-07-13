@@ -1167,13 +1167,30 @@ static int resize_buckets(HashmapBase *h, unsigned entries_add) {
                 h->n_direct_entries = 0;
         }
 
+        /*
+         * Save the new storage pointer BEFORE calling get_hash_key().
+         *
+         * get_hash_key() may call random_bytes(), which invokes
+         * getrandom() — or falls back to open("/dev/urandom") — and both
+         * are pthread cancellation points.  If the calling thread is
+         * cancelled there, execution never reaches the assignment below,
+         * and h->indirect.storage would keep pointing to the old storage
+         * buffer that realloc() just freed, causing a heap-use-after-free
+         * when the hashmap is subsequently freed (e.g. from another
+         * thread after pthread_join() returns).
+         *
+         * By updating h->indirect.storage here, the hashmap always holds
+         * a valid pointer to the newly allocated storage, even if the
+         * thread is cancelled inside get_hash_key().
+         */
+        h->indirect.storage = new_storage;
+
         /* Get a new hash key. If we've just upgraded to indirect storage,
          * allow reusing a previously generated key. It's still a different key
          * from the shared one that we used for direct storage. */
         get_hash_key(h->indirect.hash_key, !h->has_indirect);
 
         h->has_indirect = true;
-        h->indirect.storage = new_storage;
         h->indirect.n_buckets = (1U << new_shift) /
                                 (hi->entry_size + sizeof(dib_raw_t));
 
