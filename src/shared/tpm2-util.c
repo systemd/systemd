@@ -36,6 +36,7 @@
 #include "measurement-log.h"
 #include "memory-util.h"
 #include "ordered-set.h"
+#include "proc-cmdline.h"
 #include "random-util.h"
 #include "recurse-dir.h"
 #include "siphash24.h"
@@ -10281,6 +10282,27 @@ Tpm2Support tpm2_support_full(Tpm2Support mask) {
 #endif
 
         return support & mask;
+}
+
+bool tpm2_is_device_expected(void) {
+        int r;
+
+        /* Returns true if a TPM2 device is expected to be available once tpm2.target has been reached:
+         * one is present, the firmware reports one (the driver might be a not yet loaded kmod), or the
+         * software TPM fallback was requested. For generators, which run before device probing and
+         * before the software TPM service. */
+
+        if (tpm2_support_full(TPM2_SUPPORT_DRIVER|TPM2_SUPPORT_FIRMWARE) != 0)
+                return true;
+
+        bool b;
+        r = proc_cmdline_get_bool("systemd.tpm2_software_fallback", /* flags= */ 0, &b);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to parse systemd.tpm2_software_fallback= kernel command line argument, ignoring: %m");
+                return false;
+        }
+
+        return r > 0 && b;
 }
 
 static void print_field(const char *prefix, const char *s, bool supported) {

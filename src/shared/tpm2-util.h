@@ -563,6 +563,10 @@ static inline bool tpm2_is_mostly_supported(void) {
         return (tpm2_support() & TPM2_SUPPORT_SOFTWARE) == TPM2_SUPPORT_SOFTWARE;
 }
 
+/* Whether a TPM2 device is expected to be available once tpm2.target has been reached, even if none is
+ * present yet. For generators, which run before device probing and the software TPM fallback service. */
+bool tpm2_is_device_expected(void);
+
 int verb_has_tpm2_generic(bool quiet);
 
 int tpm2_parse_pcr_argument(const char *arg, Tpm2PCRValue **ret_pcr_values, size_t *ret_n_pcr_values);

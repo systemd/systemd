@@ -13,6 +13,7 @@
 #include "special.h"
 #include "static-destruct.h"
 #include "string-util.h"
+#include "tpm2-util.h"
 #include "unit-name.h"
 
 static const char *arg_dest = NULL;
@@ -86,7 +87,7 @@ static int add_dissected_swap_cryptsetup(void) {
         r = generator_write_cryptsetup_service_section(
                         f, "swap", DISSECTED_SWAP_LUKS_DEVICE,
                         /* key_file= */ NULL,
-                        efi_measured_os(LOG_DEBUG) > 0 ? "tpm2-device=auto" : NULL);
+                        efi_measured_os(LOG_DEBUG) > 0 && tpm2_is_device_expected() ? "tpm2-device=auto" : NULL);
         if (r < 0)
                 return r;
 
