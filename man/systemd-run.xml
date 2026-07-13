@@ -616,6 +616,10 @@
       </varlistentry>
     </variablelist>
 
+    <para><option>--json=</option> may not be combined with <option>--scope</option>,
+    <option>--pty</option>, <option>--pty-late</option>, <option>--pipe</option>,
+    <option>--verbose</option>, or path, socket, or timer options.</para>
+
     <para>All command line arguments after the first non-option argument become part of the command line of
     the launched process.</para>
   </refsect1>
