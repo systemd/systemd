@@ -808,8 +808,8 @@ int pull_job_restart_with_signature(PullJob *j, char **ret) {
                         return log_error_errno(r, "Failed to replace SHA256SUMS suffix: %m");
                 break;
 
-        case SIGNATURE_GPG_PER_FILE: /* Try .sha256.sig next */
-                log_debug("Got 404 for '%s', now trying to get .sha256.sig instead.", j->url);
+        case SIGNATURE_GPG_PER_FILE: /* Try .sig next */
+                log_debug("Got 404 for '%s', now trying to get .sig instead.", j->url);
 
                 char *ext;
                 ext = endswith(last, ".sha256.gpg");
