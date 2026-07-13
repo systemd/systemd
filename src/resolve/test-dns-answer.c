@@ -371,6 +371,23 @@ TEST(dns_answer_remove_by_rr) {
         ASSERT_NULL(answer);
 }
 
+TEST(dns_answer_remove_shared) {
+        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = prepare_answer(), *alias = NULL;
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+
+        alias = dns_answer_ref(answer);
+        ASSERT_PTR_EQ(alias, answer);
+
+        rr = ASSERT_NOT_NULL(dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "b.example.com"));
+        rr->a.in_addr.s_addr = htobe32(0xc0a8017f);
+
+        ASSERT_OK_POSITIVE(dns_answer_remove_by_rr(&answer, rr));
+        ASSERT_EQ(dns_answer_size(answer), 2u);
+        ASSERT_EQ(dns_answer_size(alias), 3u);
+        ASSERT_FALSE(dns_answer_contains(answer, rr));
+        ASSERT_TRUE(dns_answer_contains(alias, rr));
+}
+
 TEST(dns_answer_remove_by_answer_keys) {
         _cleanup_(dns_answer_unrefp) DnsAnswer *a = prepare_answer(), *b = prepare_answer();
         DnsResourceKey *key;
