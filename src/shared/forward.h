@@ -35,6 +35,7 @@ typedef enum OutputFlags OutputFlags;
 typedef enum OutputMode OutputMode;
 typedef enum PagerFlags PagerFlags;
 typedef enum PatternCompileCase PatternCompileCase;
+typedef enum PolkitFlags PolkitFlags;
 typedef enum RemoveFlags RemoveFlags;
 typedef enum ResolveSupport ResolveSupport;
 typedef enum TPM2Flags TPM2Flags;
