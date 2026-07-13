@@ -259,3 +259,4 @@ int read_errno(int errno_fd);
 int prctl_safe(int op, unsigned long arg2, unsigned long arg3, unsigned long arg4, unsigned long arg5);
 
 int proc_set_comm(const char *comm);
+int proc_set_nnp(void);
