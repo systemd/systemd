@@ -211,9 +211,12 @@ int route_nexthops_compare_func(const Route *a, const Route *b) {
                 return route_nexthop_compare_func_full(&a->nexthop, &b->nexthop, /* with_weight= */ false);
 
         default: {
-                RouteNextHop *nh;
-                ORDERED_SET_FOREACH(nh, a->nexthops) {
-                        r = CMP(nh, (RouteNextHop*) ordered_set_get(a->nexthops, nh));
+                RouteNextHop *a_nh, *b_nh;
+                Iterator a_iterator = ITERATOR_FIRST, b_iterator = ITERATOR_FIRST;
+
+                while (ordered_set_iterate(a->nexthops, &a_iterator, (void**) &a_nh) &&
+                       ordered_set_iterate(b->nexthops, &b_iterator, (void**) &b_nh)) {
+                        r = route_nexthop_compare_func_full(a_nh, b_nh, /* with_weight= */ true);
                         if (r != 0)
                                 return r;
                 }

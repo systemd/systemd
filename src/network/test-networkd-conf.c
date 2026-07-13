@@ -6,6 +6,7 @@
 #include "networkd-address.h"
 #include "networkd-manager.h"
 #include "networkd-network.h"
+#include "networkd-route.h"
 #include "networkd-route-nexthop.h"
 #include "ordered-set.h"
 #include "set.h"
@@ -305,6 +306,38 @@ static void test_config_parse_multipath_route_verify(
 
         ASSERT_EQ(nh->ifindex, expected_ifindex);
         ASSERT_EQ(nh->weight, expected_weight);
+}
+
+TEST(route_nexthops_compare) {
+        _cleanup_ordered_set_free_ OrderedSet *a_nexthops = NULL, *b_nexthops = NULL;
+        Route a = {}, b = {};
+
+        ASSERT_OK_EQ(parse_mpr("10.0.0.1@1 10", &a_nexthops), 1);
+        ASSERT_OK_EQ(parse_mpr("10.0.0.2@2 20", &a_nexthops), 1);
+        ASSERT_OK_EQ(parse_mpr("10.0.0.1@1 10", &b_nexthops), 1);
+        ASSERT_OK_EQ(parse_mpr("10.0.0.2@2 20", &b_nexthops), 1);
+
+        a.nexthops = a_nexthops;
+        b.nexthops = b_nexthops;
+        ASSERT_EQ(route_nexthops_compare_func(&a, &b), 0);
+
+        b_nexthops = ordered_set_free(b_nexthops);
+        ASSERT_OK_EQ(parse_mpr("10.0.0.1@1 10", &b_nexthops), 1);
+        ASSERT_OK_EQ(parse_mpr("10.0.0.3@2 20", &b_nexthops), 1);
+        b.nexthops = b_nexthops;
+        ASSERT_NE(route_nexthops_compare_func(&a, &b), 0);
+
+        b_nexthops = ordered_set_free(b_nexthops);
+        ASSERT_OK_EQ(parse_mpr("10.0.0.1@1 10", &b_nexthops), 1);
+        ASSERT_OK_EQ(parse_mpr("10.0.0.2@2 30", &b_nexthops), 1);
+        b.nexthops = b_nexthops;
+        ASSERT_NE(route_nexthops_compare_func(&a, &b), 0);
+
+        b_nexthops = ordered_set_free(b_nexthops);
+        ASSERT_OK_EQ(parse_mpr("10.0.0.2@2 20", &b_nexthops), 1);
+        ASSERT_OK_EQ(parse_mpr("10.0.0.1@1 10", &b_nexthops), 1);
+        b.nexthops = b_nexthops;
+        ASSERT_NE(route_nexthops_compare_func(&a, &b), 0);
 }
 
 TEST(config_parse_multipath_route) {
