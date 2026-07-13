@@ -709,6 +709,10 @@
 
         <para>This option has no effect if the partition already exists.</para>
 
+        <para>This option may be combined with <varname>Verity=data</varname> in order to place the
+        encrypted partition inside a dm-verity protection envelope, see the description of
+        <varname>Verity=</varname> below.</para>
+
         <xi:include href="version-info.xml" xpointer="v247"/></listitem>
       </varlistentry>
 
@@ -773,7 +777,19 @@
 
         <para>This option has no effect if the partition already exists.</para>
 
-        <para>Usage of this option in combination with <varname>Encrypt=</varname> is not supported.</para>
+        <para><literal>data</literal> may be combined with <varname>Encrypt=</varname>, in which case the
+        partition is first encrypted with LUKS2 and the verity hash data is then generated from the
+        resulting ciphertext, i.e. Verity is the outer protection envelope and LUKS2 the inner. Tools such
+        as <citerefentry><refentrytitle>systemd-dissect</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        will then set up the dm-verity device first, and open the LUKS2 volume on top of it, so that all
+        encrypted data read is also authenticated via the verity root hash. Note that in this case the
+        verity hashes necessarily cover freshly generated ciphertext, hence the root hash (and thus the
+        default partition UUIDs derived from it) will change on every build, even if the plaintext contents
+        are fully reproducible. <varname>Encrypt=</varname> may not be combined with
+        <literal>hash</literal> or <literal>signature</literal>. Since the ciphertext is only generated
+        while the final image is built, <varname>Minimize=</varname> cannot be used for the hash partition
+        of an encrypted data partition; use <varname>SizeMaxBytes=</varname> on the data partition to size
+        the hash partition instead.</para>
 
         <para>For each unique <varname>VerityMatchKey=</varname> value, a single verity data partition
         (<literal>Verity=data</literal>) and a single verity hash partition (<literal>Verity=hash</literal>)
