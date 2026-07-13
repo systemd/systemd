@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <sys/prctl.h>
+#include <sys/prctl.h> /* IWYU pragma: keep */
 
+#include "process-util.h"
 #include "tests.h"
 
 #define PR_THP_DISABLE_NOT_SET 0
@@ -12,7 +13,7 @@ static const char *arg_mode = NULL;
 static int intro(void) {
         int r;
 
-        r = prctl(PR_GET_THP_DISABLE, 0, 0, 0, 0);
+        r = prctl_safe(PR_GET_THP_DISABLE, 0, 0, 0, 0);
         if (streq_ptr(arg_mode, "no-disable")) {
                 /* Test case: THPs should not be disabled */
                 if (r != PR_THP_DISABLE_NOT_SET) {

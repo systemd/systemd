@@ -8,7 +8,7 @@
 #include <linux/seccomp.h>
 #include <sched.h>
 #include <sys/mman.h>
-#include <sys/prctl.h>
+#include <sys/prctl.h> /* IWYU pragma: keep */
 #include <sys/shm.h>
 #include <sys/stat.h>
 
@@ -301,12 +301,11 @@ int seccomp_init_for_arch(scmp_filter_ctx *ret, uint32_t arch, uint32_t default_
 }
 
 static bool is_basic_seccomp_available(void) {
-        return prctl(PR_GET_SECCOMP, 0, 0, 0, 0) >= 0;
+        return prctl_safe(PR_GET_SECCOMP, 0, 0, 0, 0) >= 0;
 }
 
 static bool is_seccomp_filter_available(void) {
-        return prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, NULL, 0, 0) < 0 &&
-                errno == EFAULT;
+        return prctl_safe(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, 0, 0, 0) == -EFAULT;
 }
 
 bool is_seccomp_available(void) {

@@ -2,7 +2,7 @@
 
 #include <stdatomic.h>
 #include <stdio.h>
-#include <sys/prctl.h>
+#include <sys/prctl.h> /* IWYU pragma: keep */
 #include <sys/syscall.h>
 #include <unistd.h>
 
@@ -100,18 +100,18 @@ unsigned cap_last_cap(void) {
         /* Fall back to syscall-probing for pre linux-3.2, or where /proc/ is not mounted */
         unsigned long p = (unsigned long) MIN(CAP_LAST_CAP, CAP_LIMIT);
 
-        if (prctl(PR_CAPBSET_READ, p) < 0) {
+        if (prctl_safe(PR_CAPBSET_READ, p, 0, 0, 0) < 0) {
 
                 /* Hmm, look downwards, until we find one that works */
                 for (p--; p > 0; p--)
-                        if (prctl(PR_CAPBSET_READ, p) >= 0)
+                        if (prctl_safe(PR_CAPBSET_READ, p, 0, 0, 0) >= 0)
                                 break;
 
         } else {
 
                 /* Hmm, look upwards, until we find one that doesn't work */
                 for (; p < CAP_LIMIT; p++)
-                        if (prctl(PR_CAPBSET_READ, p+1) < 0)
+                        if (prctl_safe(PR_CAPBSET_READ, p+1, 0, 0, 0) < 0)
                                 break;
         }
 
@@ -154,7 +154,10 @@ int capability_ambient_set_apply(uint64_t set, bool also_inherit) {
                 if (!BIT_SET(set, i))
                         continue;
 
-                if (prctl(PR_CAPBSET_READ, (unsigned long) i) != 1) {
+                r = prctl_safe(PR_CAPBSET_READ, i, 0, 0, 0);
+                if (r < 0)
+                        return r;
+                if (r != 1) {
                         log_debug("Ambient capability %s requested but missing from bounding set, suppressing automatically.",
                                   capability_to_name(i));
                         CLEAR_BIT(set, i);
@@ -180,16 +183,19 @@ int capability_ambient_set_apply(uint64_t set, bool also_inherit) {
         for (unsigned i = 0; i <= cap_last_cap(); i++)
                 if (BIT_SET(set, i)) {
                         /* Add the capability to the ambient set. */
-                        if (prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, i, 0, 0) < 0)
-                                return -errno;
+                        r = prctl_safe(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, i, 0, 0);
+                        if (r < 0)
+                                return r;
                 } else {
                         /* Drop the capability so we don't inherit capabilities we didn't ask for. */
-                        r = prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_IS_SET, i, 0, 0);
+                        r = prctl_safe(PR_CAP_AMBIENT, PR_CAP_AMBIENT_IS_SET, i, 0, 0);
                         if (r < 0)
-                                return -errno;
-                        if (r > 0)
-                                if (prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_LOWER, i, 0, 0) < 0)
-                                        return -errno;
+                                return r;
+                        if (r > 0) {
+                                r = prctl_safe(PR_CAP_AMBIENT, PR_CAP_AMBIENT_LOWER, i, 0, 0);
+                                if (r < 0)
+                                        return r;
+                        }
                 }
 
         return 0;
@@ -241,13 +247,12 @@ int capability_bounding_set_drop(uint64_t keep, bool right_now) {
                         continue;
 
                 /* Drop it from the bounding set */
-                if (prctl(PR_CAPBSET_DROP, i) < 0) {
-                        r = -errno;
-
+                r = prctl_safe(PR_CAPBSET_DROP, i, 0, 0, 0);
+                if (r < 0) {
                         /* If dropping the capability failed, let's see if we didn't have it in the first
                          * place. If so, continue anyway, as dropping a capability we didn't have in the
                          * first place doesn't really matter anyway. */
-                        if (prctl(PR_CAPBSET_READ, i) != 0)
+                        if (prctl_safe(PR_CAPBSET_READ, i, 0, 0, 0) != 0)
                                 goto finish;
                 }
 
@@ -332,14 +337,16 @@ int drop_privileges(uid_t uid, gid_t gid, uint64_t keep_capabilities) {
         /* Ensure we keep the permitted caps across the setresuid(). Note that we do this even if we actually
          * don't want to keep any capabilities, since we want to be able to drop them from the bounding set
          * too, and we can only do that if we have capabilities. */
-        if (prctl(PR_SET_KEEPCAPS, 1) < 0)
-                return log_error_errno(errno, "Failed to enable keep capabilities flag: %m");
+        r = prctl_safe(PR_SET_KEEPCAPS, 1, 0, 0, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enable keep capabilities flag: %m");
 
         if (setresuid(uid, uid, uid) < 0)
                 return log_error_errno(errno, "Failed to change user ID: %m");
 
-        if (prctl(PR_SET_KEEPCAPS, 0) < 0)
-                return log_error_errno(errno, "Failed to disable keep capabilities flag: %m");
+        r = prctl_safe(PR_SET_KEEPCAPS, 0, 0, 0, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to disable keep capabilities flag: %m");
 
         /* Drop all caps from the bounding set (as well as the inheritable/permitted/effective sets), except
          * the ones we want to keep */
@@ -404,7 +411,7 @@ bool capability_quintet_mangle(CapabilityQuintet *q) {
                 if (!BIT_SET(combined, i))
                         continue;
 
-                if (prctl(PR_CAPBSET_READ, (unsigned long) i) > 0)
+                if (prctl_safe(PR_CAPBSET_READ, i, 0, 0, 0) > 0)
                         continue;
 
                 SET_BIT(drop, i);
@@ -515,9 +522,9 @@ int capability_get_ambient(uint64_t *ret) {
         assert(ret);
 
         for (unsigned i = 0; i <= cap_last_cap(); i++) {
-                r = prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_IS_SET, i, 0, 0);
+                r = prctl_safe(PR_CAP_AMBIENT, PR_CAP_AMBIENT_IS_SET, i, 0, 0);
                 if (r < 0)
-                        return -errno;
+                        return r;
                 if (r > 0)
                         SET_BIT(a, i);
         }
