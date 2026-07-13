@@ -194,7 +194,7 @@ int tpm2_pcr_extend_bytes(Tpm2Context *c, char **banks, unsigned pcr_index, cons
 #define TPM2_NVPCR_PRIORITY_DEFAULT UINT64_C(1000)
 
 int tpm2_nvpcr_get_index(const char *name, uint32_t *ret_nv_index, uint64_t *ret_priority);
-int tpm2_nvpcr_extend_bytes(Tpm2Context *c, const Tpm2Handle *session, const char *name, const struct iovec *data, const struct iovec *secret, Tpm2UserspaceEventType event_type, const char *description);
+int tpm2_nvpcr_extend_bytes(Tpm2Context *c, const Tpm2Handle *session, const char *name, const struct iovec *data, const struct iovec *secret, bool sync_secondary_anchor, Tpm2UserspaceEventType event_type, const char *description);
 int tpm2_nvpcr_acquire_anchor_secret(struct iovec *ret, bool sync_secondary);
 int tpm2_nvpcr_initialize(Tpm2Context *c, const Tpm2Handle *session, const char *name, const struct iovec *anchor_secret);
 int tpm2_nvpcr_read(Tpm2Context *c, const Tpm2Handle *session, const char *name, struct iovec *ret, uint32_t *ret_nv_index, uint64_t *ret_priority);

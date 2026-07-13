@@ -8099,7 +8099,7 @@ int tpm2_nvpcr_get_index(const char *name, uint32_t *ret_nv_index, uint64_t *ret
         return 0;
 }
 
-int tpm2_nvpcr_extend_bytes(
+static int nvpcr_extend_bytes(
                 Tpm2Context *c,
                 const Tpm2Handle *session,
                 const char *name,
@@ -8209,6 +8209,37 @@ int tpm2_nvpcr_extend_bytes(
 #else /* HAVE_OPENSSL */
         return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "OpenSSL support is disabled.");
 #endif
+}
+
+int tpm2_nvpcr_extend_bytes(
+                Tpm2Context *c,
+                const Tpm2Handle *session,
+                const char *name,
+                const struct iovec *data,
+                const struct iovec *secret,
+                bool sync_secondary_anchor,
+                Tpm2UserspaceEventType event_type,
+                const char *description) {
+
+        int r;
+
+        r = nvpcr_extend_bytes(c, session, name, data, secret, event_type, description);
+        if (r != -ENETDOWN)
+                return r;
+
+        /* The NvPCR isn't anchored yet, i.e. systemd-tpm2-setup hasn't run.
+         * Anchor it now and extend again. */
+
+        _cleanup_(iovec_done_erase) struct iovec anchor_secret = {};
+        r = tpm2_nvpcr_acquire_anchor_secret(&anchor_secret, sync_secondary_anchor);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to acquire anchor secret for NvPCR '%s': %m", name);
+
+        r = tpm2_nvpcr_initialize(c, session, name, &anchor_secret);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to initialize NvPCR '%s' with anchor secret: %m", name);
+
+        return nvpcr_extend_bytes(c, session, name, data, secret, event_type, description);
 }
 
 #if HAVE_OPENSSL
