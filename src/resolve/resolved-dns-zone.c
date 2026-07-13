@@ -161,8 +161,10 @@ static int dns_zone_link_item(DnsZone *z, DnsZoneItem *i) {
                 assert_se(hashmap_replace(z->by_name, dns_resource_key_name(first->rr->key), first) >= 0);
         } else {
                 r = hashmap_put(z->by_name, dns_resource_key_name(i->rr->key), i);
-                if (r < 0)
+                if (r < 0) {
+                        (void) hashmap_remove(z->by_key, i->rr->key);
                         return r;
+                }
         }
 
         return 0;
