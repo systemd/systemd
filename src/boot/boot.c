@@ -1333,6 +1333,13 @@ static EFI_STATUS boot_entry_bump_counters(BootEntry *entry) {
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Error getting boot entry file info: %m");
 
+        /* If the boot entry file is marked read-only take this as a hint that the boot counter logic shall
+         * not be applied to it, and skip it. */
+        if (FLAGS_SET(file_info->Attribute, EFI_FILE_READ_ONLY)) {
+                log_debug("Boot entry '%ls' is marked read-only, skipping boot counter logic.", old_path);
+                return EFI_SUCCESS;
+        }
+
         /* And rename the file */
         strcpy16(file_info->FileName, entry->next_name);
         err = handle->SetInfo(handle, MAKE_GUID_PTR(EFI_FILE_INFO), file_info_size, file_info);
