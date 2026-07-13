@@ -21,6 +21,8 @@
 /* Some basic domain separation in case somebody uses this data elsewhere */
 #define HASH_LABEL "systemd-boot random seed label v1"
 
+#define RANDOM_SEED_PATH u"\\loader\\random-seed"
+
 static EFI_STATUS acquire_rng(void *ret, size_t size) {
         EFI_RNG_PROTOCOL *rng;
         EFI_STATUS err;
@@ -109,6 +111,31 @@ static void validate_sha256(void) {
 #endif
 }
 
+static bool random_seed_file_read_only(EFI_FILE *root_dir) {
+        _cleanup_file_close_ EFI_FILE *handle = NULL;
+        _cleanup_free_ EFI_FILE_INFO *info = NULL;
+        EFI_STATUS err;
+
+        assert(root_dir);
+
+        /* Checks whether the random seed file exists and has the read-only file attribute set. */
+
+        err = root_dir->Open(root_dir, &handle, (char16_t *) RANDOM_SEED_PATH, EFI_FILE_MODE_READ, 0);
+        if (err != EFI_SUCCESS) {
+                if (err != EFI_NOT_FOUND)
+                        log_debug_status(err, "Failed to open random seed file for reading, ignoring: %m");
+                return false;
+        }
+
+        err = get_file_info(handle, &info, /* ret_size= */ NULL);
+        if (err != EFI_SUCCESS) {
+                log_debug_status(err, "Failed to get file info of random seed file, ignoring: %m");
+                return false;
+        }
+
+        return FLAGS_SET(info->Attribute, EFI_FILE_READ_ONLY);
+}
+
 EFI_STATUS process_random_seed(EFI_FILE *root_dir) {
         uint8_t random_bytes[DESIRED_SEED_SIZE], hash_key[HASH_VALUE_SIZE];
         _cleanup_free_ struct linux_efi_random_seed *new_seed_table = NULL;
@@ -142,6 +169,13 @@ EFI_STATUS process_random_seed(EFI_FILE *root_dir) {
                 log_debug("Volume is read-only, not updating random seed.");
                 return EFI_SUCCESS;
         }
+
+        /* Similarly, if the random seed file is marked read-only, take this as a hint that the seed shall
+         * not be updated — and hence not be used either, since a seed we cannot update would be the same on
+         * every boot. This provides a way to explicitly turn off random seed handling, for example for
+         * pre-built OS images replicated to many systems. */
+        if (random_seed_file_read_only(root_dir))
+                goto read_only;
 
         /* hash = LABEL || sizeof(input1) || input1 || ... || sizeof(inputN) || inputN */
         sha256_init_ctx(&hash);
@@ -200,7 +234,7 @@ EFI_STATUS process_random_seed(EFI_FILE *root_dir) {
         err = root_dir->Open(
                         root_dir,
                         &handle,
-                        (char16_t *) u"\\loader\\random-seed",
+                        (char16_t *) RANDOM_SEED_PATH,
                         EFI_FILE_MODE_READ | EFI_FILE_MODE_WRITE,
                         0);
         if (err == EFI_NOT_FOUND && seeded_by_efi) {
@@ -251,6 +285,9 @@ EFI_STATUS process_random_seed(EFI_FILE *root_dir) {
                 err = get_file_info(handle, &info, /* ret_size= */ NULL);
                 if (err != EFI_SUCCESS)
                         return log_error_status(err, "Failed to get file info for random seed: %m");
+
+                if (FLAGS_SET(info->Attribute, EFI_FILE_READ_ONLY))
+                        goto read_only;
 
                 /* Treat a short file just like a freshly created one for robustness reasons: consider a case
                  * where in a previous run a file was just created and the system was then powered off. In
@@ -386,5 +423,9 @@ EFI_STATUS process_random_seed(EFI_FILE *root_dir) {
                 free(previous_seed_table);
         }
 
+        return EFI_SUCCESS;
+
+read_only:
+        log_debug("Random seed file is read-only, not updating random seed.");
         return EFI_SUCCESS;
 }
