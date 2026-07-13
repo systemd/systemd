@@ -2623,26 +2623,22 @@ static int start_transient_scope(sd_bus *bus) {
                         return log_error_errno(errno, "Failed to set nice level: %m");
         }
 
+        gid_t gid = GID_INVALID;
         if (arg_exec_group) {
-                gid_t gid;
-
                 r = get_group_creds(arg_exec_group, /* flags= */ 0, /* ret_name= */ NULL, &gid);
                 if (r < 0)
                         return log_error_errno(r, "Failed to resolve group '%s': %s",
                                                arg_exec_group, STRERROR_GROUP(r));
-
-                if (setresgid(gid, gid, gid) < 0)
-                        return log_error_errno(errno, "Failed to change GID to " GID_FMT ": %m", gid);
         }
 
+        uid_t uid = UID_INVALID;
         if (arg_exec_user) {
                 _cleanup_free_ char *user = NULL, *home = NULL, *shell = NULL;
-                uid_t uid;
-                gid_t gid;
+                gid_t user_gid;
 
                 r = get_user_creds(arg_exec_user,
                                    USER_CREDS_CLEAN|USER_CREDS_SUPPRESS_PLACEHOLDER|USER_CREDS_PREFER_NSS,
-                                   &user, &uid, &gid, &home, &shell);
+                                   &user, &uid, &user_gid, &home, &shell);
                 if (r < 0)
                         return log_error_errno(r, "Failed to resolve user '%s': %s",
                                                arg_exec_user, STRERROR_USER(r));
@@ -2669,13 +2665,31 @@ static int start_transient_scope(sd_bus *bus) {
                 if (r < 0)
                         return log_oom();
 
-                if (!arg_exec_group &&
-                    setresgid(gid, gid, gid) < 0)
-                        return log_error_errno(errno, "Failed to change GID to " GID_FMT ": %m", gid);
+                if (!gid_is_valid(gid))
+                        gid = user_gid;
 
-                if (setresuid(uid, uid, uid) < 0)
-                        return log_error_errno(errno, "Failed to change UID to " UID_FMT ": %m", uid);
+                r = initgroups_wrapper(arg_exec_user, gid);
+                if (r < 0) {
+                        if (!ERRNO_IS_PRIVILEGE(r) || gid != getgid())
+                                return log_error_errno(r, "Failed to initialize supplementary groups for user '%s': %m", arg_exec_user);
+
+                        log_debug_errno(r, "Failed to initialize supplementary groups for user '%s', ignoring: %m", arg_exec_user);
+                }
+        } else if (gid_is_valid(gid)) {
+                r = maybe_setgroups(/* size= */ 0, /* list= */ NULL);
+                if (r < 0) {
+                        if (!ERRNO_IS_PRIVILEGE(r) || gid != getgid())
+                                return log_error_errno(r, "Failed to drop supplementary groups: %m");
+
+                        log_debug_errno(r, "Failed to drop supplementary groups, ignoring: %m");
+                }
         }
+
+        if (gid_is_valid(gid) && setresgid(gid, gid, gid) < 0)
+                return log_error_errno(errno, "Failed to change GID to " GID_FMT ": %m", gid);
+
+        if (uid_is_valid(uid) && setresuid(uid, uid, uid) < 0)
+                return log_error_errno(errno, "Failed to change UID to " UID_FMT ": %m", uid);
 
         if (arg_working_directory && chdir(arg_working_directory) < 0)
                 return log_error_errno(errno, "Failed to change directory to '%s': %m", arg_working_directory);
