@@ -307,7 +307,7 @@ int netdev_attach_name(NetDev *netdev, const char *name) {
         return netdev_attach_name_full(netdev, name, &netdev->manager->netdevs);
 }
 
-static int netdev_attach(NetDev *netdev) {
+int netdev_attach(NetDev *netdev) {
         int r;
 
         assert(netdev);
@@ -319,8 +319,10 @@ static int netdev_attach(NetDev *netdev) {
 
         if (NETDEV_VTABLE(netdev)->attach) {
                 r = NETDEV_VTABLE(netdev)->attach(netdev);
-                if (r < 0)
+                if (r < 0) {
+                        netdev_detach_impl(netdev);
                         return r;
+                }
         }
 
         return 0;
