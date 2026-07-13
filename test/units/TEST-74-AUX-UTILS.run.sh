@@ -72,6 +72,7 @@ systemctl cat "$UNIT"
 grep -q "^Type=oneshot" "/run/systemd/transient/$UNIT.service"
 systemctl stop "$UNIT"
 (! systemctl cat "$UNIT")
+(! systemd-run --wait --remain-after-exit true)
 
 : "Transient service (user daemon)"
 systemd-run --wait --pipe --user --machine=testuser@ \
@@ -111,10 +112,16 @@ systemd-run --scope --slice-inherit --slice=foo \
             bash -xec '[[ "$(</proc/self/cgroup)" =~ /system\.slice/system-foo\.slice/run-.+\.scope$ ]]'
 # We should inherit caller's environment
 systemd-run --scope bash -xec '[[ "$PARENT_FOO" == bar ]]'
+systemd-run --scope --uid=testuser \
+            bash -xec '[[ " $(id -G) " != *" 0 "* ]]'
+systemd-run --scope --gid=testuser \
+            bash -xec '[[ " $(id -G) " != *" 0 "* ]]'
 systemd-run --scope \
             --property=RuntimeMaxSec=10 \
             --property=RuntimeMaxSec=infinity \
             true
+(! systemd-run --scope --ignore-failure false)
+(! systemd-run --scope --json=short true)
 
 : "Transient scope (user daemon)"
 # FIXME: https://github.com/systemd/systemd/issues/27883
@@ -188,6 +195,17 @@ grep -q "^PathChanged=/root/bar$" "/run/systemd/transient/$UNIT.path"
 grep -qE "^ExecStart=.*true.*$" "/run/systemd/transient/$UNIT.service"
 systemctl stop "$UNIT.path" "$UNIT.service" || :
 
+UNIT="path-explicit-$RANDOM.path"
+SERVICE="${UNIT%.path}.service"
+systemd-run --remain-after-exit \
+            --unit="$UNIT" \
+            --path-property=PathExists=/tmp \
+            true
+systemctl cat "$UNIT" "$SERVICE"
+grep -q "^PathExists=/tmp$" "/run/systemd/transient/$UNIT"
+grep -qE "^ExecStart=.*true.*$" "/run/systemd/transient/$SERVICE"
+systemctl stop "$UNIT" "$SERVICE" || :
+
 : "Transient socket unit"
 UNIT="socket-0-$RANDOM"
 systemd-run --remain-after-exit \
@@ -203,6 +221,24 @@ grep -q "^ListenFIFO=/tmp/socket.fifo$" "/run/systemd/transient/$UNIT.socket"
 grep -q "^SocketMode=0666$" "/run/systemd/transient/$UNIT.socket"
 grep -q "^SocketMode=0644$" "/run/systemd/transient/$UNIT.socket"
 grep -qE "^ExecStart=.*true.*$" "/run/systemd/transient/$UNIT.service"
+systemctl stop "$UNIT.socket" "$UNIT.service" || :
+
+UNIT="socket-explicit-$RANDOM.socket"
+SERVICE="${UNIT%.socket}.service"
+systemd-run --remain-after-exit \
+            --unit="$UNIT" \
+            --socket-property=ListenFIFO=/tmp/socket-explicit.fifo \
+            true
+systemctl cat "$UNIT" "$SERVICE"
+grep -q "^ListenFIFO=/tmp/socket-explicit.fifo$" "/run/systemd/transient/$UNIT"
+grep -qE "^ExecStart=.*true.*$" "/run/systemd/transient/$SERVICE"
+systemctl stop "$UNIT" "$SERVICE" || :
+
+UNIT="socket-no-block-$RANDOM"
+systemd-run --no-block --collect \
+            --unit="$UNIT" \
+            --socket-property=ListenStream=/proc/systemd-run-repro/socket \
+            true
 systemctl stop "$UNIT.socket" "$UNIT.service" || :
 
 : "Job mode"
@@ -222,6 +258,9 @@ systemd-run --wait --pty true
 systemd-run --wait --machine=.host --pty true
 systemd-run --json=short true | jq . >/dev/null
 systemd-run --json=pretty true | jq . >/dev/null
+(! systemd-run --wait --pipe --json=short true)
+(! systemd-run --json=short --on-active=30s true)
+(! systemd-run --wait --verbose --json=short true)
 (! SHELL=/bin/false systemd-run --quiet --shell)
 
 (! systemd-run)
