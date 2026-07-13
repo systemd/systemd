@@ -5,7 +5,7 @@
 #include <linux/vt.h>
 #include <stdlib.h>
 #include <sys/mount.h>
-#include <sys/prctl.h>
+#include <sys/prctl.h> /* IWYU pragma: keep */
 #include <sys/utsname.h>
 #include <unistd.h>
 
@@ -2739,9 +2739,10 @@ static int initialize_runtime(
                 }
 
                 if (arg_no_new_privs) {
-                        if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) < 0) {
+                        r = proc_set_nnp();
+                        if (r < 0) {
                                 *ret_error_message = "Failed to disable new privileges";
-                                return log_struct_errno(LOG_EMERG, errno,
+                                return log_struct_errno(LOG_EMERG, r,
                                                         LOG_MESSAGE("Failed to disable new privileges: %m"),
                                                         LOG_MESSAGE_ID(SD_MESSAGE_CORE_DISABLE_PRIVILEGES_STR));
                         }
@@ -2794,9 +2795,11 @@ static int initialize_runtime(
         if (r < 0)
                 log_warning_errno(r, "Failed to reset ambient capability set, ignoring: %m");
 
-        if (arg_timer_slack_nsec != NSEC_INFINITY)
-                if (prctl(PR_SET_TIMERSLACK, arg_timer_slack_nsec) < 0)
-                        log_warning_errno(errno, "Failed to adjust timer slack, ignoring: %m");
+        if (arg_timer_slack_nsec != NSEC_INFINITY) {
+                r = prctl_safe(PR_SET_TIMERSLACK, arg_timer_slack_nsec, 0, 0, 0);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to adjust timer slack, ignoring: %m");
+        }
 
         if (arg_syscall_archs) {
                 r = enforce_syscall_archs(arg_syscall_archs);
@@ -3567,7 +3570,7 @@ static int run_systemd(int argc, char *argv[]) {
          * reexecution we are then called 'systemd'. That is confusing, hence let's call us systemd
          * right-away. */
         program_invocation_short_name = systemd;
-        (void) prctl(PR_SET_NAME, systemd);
+        (void) proc_set_comm(systemd);
 
         /* Save the original command line */
         save_argc_argv(argc, argv);

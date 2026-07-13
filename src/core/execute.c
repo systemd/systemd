@@ -4,7 +4,7 @@
 #include <poll.h>
 #include <sys/mman.h>
 #include <sys/mount.h>
-#include <sys/prctl.h>
+#include <sys/prctl.h> /* IWYU pragma: keep */
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -1972,9 +1972,11 @@ uint64_t exec_context_get_timer_slack_nsec(const ExecContext *c) {
         if (c->timer_slack_nsec != NSEC_INFINITY)
                 return c->timer_slack_nsec;
 
-        r = prctl(PR_GET_TIMERSLACK);
-        if (r < 0)
+        r = prctl_safe(PR_GET_TIMERSLACK, 0, 0, 0, 0);
+        if (r < 0) {
                 log_debug_errno(r, "Failed to get timer slack, ignoring: %m");
+                return 0;
+        }
 
         return (uint64_t) MAX(r, 0);
 }

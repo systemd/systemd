@@ -2,7 +2,6 @@
 
 #include <sched.h>
 #include <stdio.h>
-#include <sys/prctl.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -10,8 +9,8 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "memfd-util.h"
+#include "process-util.h"
 #include "string-util.h"
-#include "utf8.h"
 
 int memfd_create_wrapper(const char *name, unsigned mode) {
         unsigned mode_compat;
@@ -36,26 +35,23 @@ int memfd_create_wrapper(const char *name, unsigned mode) {
 
 int memfd_new_full(const char *name, unsigned extra_flags) {
         _cleanup_free_ char *g = NULL;
+        int r;
 
         if (!name) {
-                char pr[TASK_COMM_LEN] = {};
 
                 /* If no name is specified we generate one. We include
                  * a hint indicating our library implementation, and
                  * add the thread name to it */
 
-                assert_se(prctl(PR_GET_NAME, (unsigned long) pr) >= 0);
+                _cleanup_free_ char *comm = NULL;
+                r = pid_get_comm(/* pid= */ 0, &comm);
+                if (r < 0)
+                        return r;
 
-                if (isempty(pr))
+                if (isempty(comm))
                         name = "sd";
                 else {
-                        _cleanup_free_ char *e = NULL;
-
-                        e = utf8_escape_invalid(pr);
-                        if (!e)
-                                return -ENOMEM;
-
-                        g = strjoin("sd-", e);
+                        g = strjoin("sd-", comm);
                         if (!g)
                                 return -ENOMEM;
 

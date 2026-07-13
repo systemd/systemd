@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sched.h>
-#include <sys/prctl.h>
 
 #include "sd-varlink.h"
 
@@ -25,13 +24,15 @@
 assert_cc(TASK_COMM_LEN == NAMESPACE_NAME_MAX);
 
 static int make_pid_name(char **ret) {
-        char comm[TASK_COMM_LEN];
         static uint64_t counter = 0;
+        int r;
 
         assert(ret);
 
-        if (prctl(PR_GET_NAME, comm) < 0)
-                return -errno;
+        _cleanup_free_ char *comm = NULL;
+        r = pid_get_comm(0, &comm);
+        if (r < 0)
+                return r;
 
         char spid[DECIMAL_STR_MAX(pid_t)];
         xsprintf(spid, PID_FMT, getpid_cached());
