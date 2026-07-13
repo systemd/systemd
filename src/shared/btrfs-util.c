@@ -1471,7 +1471,6 @@ int btrfs_subvol_snapshot_at_full(
                                 /* override_uid= */ UID_INVALID,
                                 /* override_gid= */ GID_INVALID,
                                 COPY_MERGE_EMPTY|
-                                COPY_REFLINK|
                                 COPY_SAME_MOUNT|
                                 COPY_HARDLINKS|
                                 COPY_ALL_XATTRS|

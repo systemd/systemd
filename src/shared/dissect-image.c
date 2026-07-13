@@ -5609,7 +5609,7 @@ int copy_tree_at_foreign(int source_fd, int target_fd, int userns_fd) {
                                 target_fd, /* to= */ NULL,
                                 /* override_uid= */ UID_INVALID,
                                 /* override_gid= */ GID_INVALID,
-                                COPY_REFLINK|COPY_HARDLINKS|COPY_MERGE_EMPTY|COPY_MERGE_APPLY_STAT|COPY_SAME_MOUNT|COPY_ALL_XATTRS,
+                                COPY_HARDLINKS|COPY_MERGE_EMPTY|COPY_MERGE_APPLY_STAT|COPY_SAME_MOUNT|COPY_ALL_XATTRS,
                                 /* denylist= */ NULL,
                                 /* subvolumes= */ NULL);
                 if (r < 0) {

@@ -1505,7 +1505,7 @@ static int load_credential_one(
                                 return log_error_errno(errno, "Failed to chown %s: %m", hd);
 
                         r = copy_tree(user_record_skeleton_directory(ur), hd, ur->uid, user_record_gid(ur),
-                                      COPY_REFLINK|COPY_MERGE, /* denylist= */ NULL, /* subvolumes= */ NULL);
+                                      COPY_MERGE, /* denylist= */ NULL, /* subvolumes= */ NULL);
                         if (r < 0 && r != -ENOENT)
                                 return log_error_errno(r, "Failed to copy skeleton directory to %s: %m", hd);
                 }

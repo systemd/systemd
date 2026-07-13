@@ -2143,7 +2143,7 @@ static int config_parse_copy_files(
         if (!isempty(p))
                 return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL), "Too many arguments: %s", rvalue);
 
-        CopyFlags flags = COPY_REFLINK|COPY_HOLES|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS|COPY_ALL_XATTRS|COPY_GRACEFUL_WARN|COPY_TRUNCATE|COPY_RESTORE_DIRECTORY_TIMESTAMPS;
+        CopyFlags flags = COPY_HOLES|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS|COPY_ALL_XATTRS|COPY_GRACEFUL_WARN|COPY_TRUNCATE|COPY_RESTORE_DIRECTORY_TIMESTAMPS;
         for (const char *opts = options;;) {
                 _cleanup_free_ char *word = NULL;
                 const char *val;
@@ -5370,7 +5370,7 @@ static int partition_target_sync(Context *context, Partition *p, PartitionTarget
                                                "Partition %" PRIu64 "'s contents (%s) don't fit in the partition (%s).",
                                                p->partno, FORMAT_BYTES(st.st_size), FORMAT_BYTES(p->new_size));
 
-                r = copy_bytes(t->fd, whole_fd, UINT64_MAX, COPY_REFLINK|COPY_HOLES|COPY_FSYNC|COPY_SEEK0_SOURCE);
+                r = copy_bytes(t->fd, whole_fd, UINT64_MAX, COPY_HOLES|COPY_FSYNC|COPY_SEEK0_SOURCE);
                 if (r < 0)
                         return log_error_errno(r, "Failed to copy bytes to partition: %m");
         } else {
@@ -6358,7 +6358,15 @@ static int context_copy_blocks(Context *context) {
                                 return log_error_errno(errno, "Failed to seek to copy blocks offset in %s: %m", p->copy_blocks_path);
                 }
 
-                r = copy_bytes_full(p->copy_blocks_fd, partition_target_fd(t), p->copy_blocks_size, COPY_REFLINK, /* ret_remains= */ NULL, /* ret_remains_size= */ NULL, progress_bytes, p);
+                r = copy_bytes_full(
+                                p->copy_blocks_fd,
+                                partition_target_fd(t),
+                                p->copy_blocks_size,
+                                /* copy_flags= */ 0,
+                                /* ret_remains= */ NULL,
+                                /* ret_remains_size= */ NULL,
+                                progress_bytes,
+                                p);
                 clear_progress_bar(/* prefix= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to copy in data from '%s': %m", p->copy_blocks_path);
@@ -6882,7 +6890,7 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
                         if (tfd < 0)
                                 return log_error_errno(errno, "Failed to create target file '%s': %m", line->target);
 
-                        r = copy_bytes(sfd, tfd, UINT64_MAX, COPY_REFLINK|COPY_HOLES|COPY_SIGINT|COPY_TRUNCATE);
+                        r = copy_bytes(sfd, tfd, UINT64_MAX, COPY_HOLES|COPY_SIGINT|COPY_TRUNCATE);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to copy '%s' to '%s%s': %m", line->source, strempty(arg_copy_source), line->target);
 
@@ -8155,7 +8163,7 @@ static int context_split(Context *context) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to write to split partition %s: %m", p->split_path);
                 } else {
-                        r = copy_bytes(fd, fdt, p->new_size, COPY_REFLINK|COPY_HOLES|COPY_TRUNCATE);
+                        r = copy_bytes(fd, fdt, p->new_size, COPY_HOLES|COPY_TRUNCATE);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to copy to split partition %s: %m", p->split_path);
                 }

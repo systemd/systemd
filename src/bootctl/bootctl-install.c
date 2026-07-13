@@ -523,7 +523,7 @@ static int copy_file_with_version_check(
          * might be left at the end of the file. (Resetting before rather than after a copy attempt is safer
          * because a previous attempt might have failed half-way, leaving the file offset at some undefined
          * place.) */
-        r = copy_bytes(source_fd, write_fd, UINT64_MAX, COPY_REFLINK|COPY_SEEK0_SOURCE);
+        r = copy_bytes(source_fd, write_fd, UINT64_MAX, COPY_SEEK0_SOURCE);
         if (r < 0)
                 return log_error_errno(r, "Failed to copy data from \"%s\" to \"%s\": %m", source_path, dest_path);
 
