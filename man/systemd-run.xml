@@ -216,7 +216,9 @@
         <listitem><para>After the service process has terminated, keep the service around until it is explicitly
         stopped. This is useful to collect runtime information about the service after it finished running. Also see
         <varname>RemainAfterExit=</varname> in
-        <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>. This
+        option may not be combined with <option>--wait</option>, <option>--scope</option>, <option>--pty</option>,
+        <option>--pty-late</option>, or <option>--pipe</option>.
         </para>
 
         <xi:include href="version-info.xml" xpointer="v207"/>
@@ -529,8 +531,9 @@
         completed). On exit, terse information about the unit's runtime is shown, including total runtime (as well as
         CPU, memory, IO, and IP accounting data, if the corresponding cgroup accounting settings are enabled)
         and the exit code and status of the main process. This output may be suppressed with <option>--quiet</option>.
-        This option may not be combined with <option>--no-block</option>, <option>--scope</option> or the various
-        path, socket, or timer options.</para>
+        This option may not be combined with <option>--no-block</option>,
+        <option>--remain-after-exit</option>, <option>--scope</option> or the various path, socket, or timer
+        options.</para>
 
         <xi:include href="version-info.xml" xpointer="v232"/></listitem>
       </varlistentry>
