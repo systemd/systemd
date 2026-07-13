@@ -32,6 +32,7 @@ typedef enum WaitUntil {
 
 static WaitUntil arg_wait_until = WAIT_UNTIL_INITIALIZED;
 static usec_t arg_timeout_usec = USEC_INFINITY;
+static bool arg_removed = false;
 static bool arg_settle = false;
 static char **arg_devices = NULL;
 
@@ -350,13 +351,16 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 OPTION_LONG("removed", NULL, "Wait for devices being removed"):
-                        arg_wait_until = WAIT_UNTIL_REMOVED;
+                        arg_removed = true;
                         break;
 
                 OPTION_LONG("settle", NULL, "Also wait for all queued events being processed"):
                         arg_settle = true;
                         break;
                 }
+
+        if (arg_removed)
+                arg_wait_until = WAIT_UNTIL_REMOVED;
 
         char **args = option_parser_get_args(&opts);
         if (strv_isempty(args))
