@@ -2,6 +2,7 @@
 
 #include "alloc-util.h"
 #include "tests.h"
+#include "udev-config.h"
 #include "udev-manager.h"
 
 TEST(devpath_conflict) {
@@ -33,6 +34,18 @@ TEST(worker_free_detaches_event) {
         worker_free(worker);
 
         ASSERT_NULL(event->worker);
+}
+
+TEST(manager_load_merges_children_max) {
+        _cleanup_(manager_freep) Manager *manager = ASSERT_PTR(manager_new());
+        char *argv[] = {
+                (char*) "systemd-udevd",
+                (char*) "--children-max=1",
+                NULL,
+        };
+
+        ASSERT_OK_POSITIVE(manager_load(manager, ELEMENTSOF(argv) - 1, argv));
+        ASSERT_EQ(manager->config.children_max, 1U);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
