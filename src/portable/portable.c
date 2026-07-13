@@ -1610,7 +1610,7 @@ static int install_profile_dropin(
                 return -ENOMEM;
 
         if (flags & PORTABLE_PREFER_COPY) {
-                CopyFlags copy_flags = COPY_REFLINK|COPY_FSYNC;
+                CopyFlags copy_flags = COPY_FSYNC;
 
                 if (flags & PORTABLE_FORCE_ATTACH)
                         copy_flags |= COPY_REPLACE;
@@ -1754,7 +1754,7 @@ static int attach_unit_file(
                 if (fd < 0)
                         return log_debug_errno(fd, "Failed to create unit file '%s': %m", path);
 
-                r = copy_bytes(m->fd, fd, UINT64_MAX, COPY_REFLINK);
+                r = copy_bytes(m->fd, fd, UINT64_MAX, 0);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to copy unit file '%s': %m", path);
 
@@ -1883,7 +1883,7 @@ static int install_image(
                                       target,
                                       UID_INVALID,
                                       GID_INVALID,
-                                      COPY_REFLINK | COPY_FSYNC | COPY_FSYNC_FULL | COPY_SYNCFS,
+                                      COPY_FSYNC | COPY_FSYNC_FULL | COPY_SYNCFS,
                                       /* denylist= */ NULL,
                                       /* subvolumes= */ NULL);
                         if (r < 0)

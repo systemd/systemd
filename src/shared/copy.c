@@ -177,78 +177,6 @@ int copy_bytes_full(
             lseek(fdt, 0, SEEK_SET) < 0)
                 return -errno;
 
-        /* Try btrfs reflinks first. This only works on regular, seekable files, hence let's check the file offsets of
-         * source and destination first. */
-        if ((copy_flags & COPY_REFLINK)) {
-                off_t foffset;
-
-                /* In reflink mode, we need to know the current file offset, unless we already sought to 0 anyway. */
-                foffset = FLAGS_SET(copy_flags, COPY_SEEK0_SOURCE) ? 0 : lseek(fdf, 0, SEEK_CUR);
-                if (foffset >= 0) {
-                        off_t toffset;
-
-                        toffset = FLAGS_SET(copy_flags, COPY_SEEK0_TARGET) ? 0 : lseek(fdt, 0, SEEK_CUR);
-                        if (toffset >= 0) {
-
-                                if (foffset == 0 && toffset == 0 && max_bytes == UINT64_MAX)
-                                        r = reflink(fdf, fdt); /* full file reflink */
-                                else
-                                        r = reflink_range(fdf, foffset, fdt, toffset, max_bytes == UINT64_MAX ? 0 : max_bytes); /* partial reflink */
-                                if (r >= 0) {
-                                        off_t t;
-                                        int ret;
-
-                                        /* This worked, yay! Now — to be fully correct — let's adjust the file pointers */
-                                        if (max_bytes == UINT64_MAX) {
-
-                                                /* We cloned to the end of the source file, let's position the read
-                                                 * pointer there, and query it at the same time. */
-                                                t = lseek(fdf, 0, SEEK_END);
-                                                if (t < 0)
-                                                        return -errno;
-                                                if (t < foffset)
-                                                        return -ESPIPE;
-
-                                                /* Let's adjust the destination file write pointer by the same number
-                                                 * of bytes. */
-                                                t = lseek(fdt, toffset + (t - foffset), SEEK_SET);
-                                                if (t < 0)
-                                                        return -errno;
-
-                                                if (FLAGS_SET(copy_flags, COPY_VERIFY_LINKED)) {
-                                                        r = fd_verify_linked(fdf);
-                                                        if (r < 0)
-                                                                return r;
-                                                }
-
-                                                /* We copied the whole thing, hence hit EOF, return 0. */
-                                                ret = 0;
-                                        } else {
-                                                t = lseek(fdf, foffset + max_bytes, SEEK_SET);
-                                                if (t < 0)
-                                                        return -errno;
-
-                                                t = lseek(fdt, toffset + max_bytes, SEEK_SET);
-                                                if (t < 0)
-                                                        return -errno;
-
-                                                /* We copied only some number of bytes, which worked, but
-                                                 * this means we didn't hit EOF, return 1. */
-                                                ret = 1;
-                                        }
-
-                                        if (FLAGS_SET(copy_flags, COPY_VERIFY_LINKED)) {
-                                                r = fd_verify_linked(fdf);
-                                                if (r < 0)
-                                                        return r;
-                                        }
-
-                                        return ret;
-                                }
-                        }
-                }
-        }
-
         usec_t start_timestamp = USEC_INFINITY;
         if (progress)
                 start_timestamp = now(CLOCK_MONOTONIC);
@@ -342,7 +270,8 @@ int copy_bytes_full(
                         }
                 }
 
-                /* First, try copy_file_range(), unless we already tried */
+                /* First, try copy_file_range(), which attempts to reflink internally, unless we already
+                 * tried. */
                 if (try_cfr) {
                         n = try_copy_file_range(fdf, NULL, fdt, NULL, m, 0u);
                         if (n < 0) {
