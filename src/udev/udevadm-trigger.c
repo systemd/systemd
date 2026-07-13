@@ -491,7 +491,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (optarg) {
                                 r = parse_sec(optarg, &arg_ping_timeout_usec);
                                 if (r < 0)
-                                        log_error_errno(r, "Failed to parse timeout value '%s', ignoring: %m", optarg);
+                                        return log_error_errno(r, "Failed to parse timeout value '%s': %m", optarg);
                         }
                         break;
 
