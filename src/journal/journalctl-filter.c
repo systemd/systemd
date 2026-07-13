@@ -16,12 +16,34 @@
 #include "journalctl-util.h"
 #include "log.h"
 #include "logs-show.h"
+#include "pager.h"
 #include "path-util.h"
 #include "set.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "unit-name.h"
+
+bool journalctl_field_list_has_scope_options(void) {
+        return
+                arg_boot_filter ||
+                arg_invocation ||
+                arg_dmesg ||
+                arg_follow ||
+                FLAGS_SET(arg_pager_flags, PAGER_JUMP_TO_END) ||
+                arg_cursor ||
+                arg_after_cursor ||
+                arg_cursor_file ||
+                !strv_isempty(arg_system_units) ||
+                !strv_isempty(arg_user_units) ||
+                !strv_isempty(arg_syslog_identifier) ||
+                !strv_isempty(arg_exclude_identifier) ||
+                arg_priorities != 0 ||
+                !set_isempty(arg_facilities) ||
+                arg_since_set ||
+                arg_until_set ||
+                arg_pattern;
+}
 
 static int add_invocation(sd_journal *j) {
         int r;
