@@ -14,6 +14,7 @@
 #include "journalctl.h"
 #include "journalctl-authenticate.h"
 #include "journalctl-catalog.h"
+#include "journalctl-filter.h"
 #include "journalctl-misc.h"
 #include "journalctl-show.h"
 #include "journalctl-varlink.h"
@@ -61,6 +62,7 @@ bool arg_merge = false;
 int arg_boot = -1; /* tristate */
 sd_id128_t arg_boot_id = {};
 int arg_boot_offset = 0;
+bool arg_boot_filter = false;
 bool arg_dmesg = false;
 bool arg_no_hostname = false;
 char *arg_cursor = NULL;
@@ -539,12 +541,14 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_THIS_BOOT:
                         arg_boot = true;
+                        arg_boot_filter = true;
                         arg_boot_id = SD_ID128_NULL;
                         arg_boot_offset = 0;
                         break;
 
                 case 'b':
                         arg_boot = true;
+                        arg_boot_filter = true;
                         arg_boot_id = SD_ID128_NULL;
                         arg_boot_offset = 0;
 
@@ -554,6 +558,7 @@ static int parse_argv(int argc, char *argv[]) {
                                         return log_error_errno(r, "Failed to parse boot descriptor '%s'", optarg);
 
                                 arg_boot = r;
+                                arg_boot_filter = r > 0;
 
                         } else if (optind < argc) {
                                 /* Hmm, no argument? Maybe the next word on the command line is supposed to be the
@@ -561,6 +566,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 r = parse_id_descriptor(argv[optind], &arg_boot_id, &arg_boot_offset);
                                 if (r >= 0) {
                                         arg_boot = r;
+                                        arg_boot_filter = r > 0;
                                         optind++;
                                 }
                         }
@@ -1048,6 +1054,10 @@ static int parse_argv(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Extraneous arguments starting with '%s'",
                                        argv[optind]);
+
+        if (IN_SET(arg_action, ACTION_LIST_FIELDS, ACTION_LIST_FIELD_NAMES) && field_list_has_scope_options())
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "-F/--field= and -N/--fields cannot be combined with options that limit the journal.");
 
         if ((arg_boot || arg_action == ACTION_LIST_BOOTS) && arg_merge)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
