@@ -575,7 +575,7 @@
         <listitem><para>By default, if the specified command fails the invoked unit will be marked failed
         (though possibly still unloaded, see <option>--collect=</option>, above), and this is reported in the
         logs. If this switch is specified this is suppressed and any non-success exit status/code of the
-        command is treated as success.</para>
+        command is treated as success. This option is not supported in <option>--scope</option> mode.</para>
 
         <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
