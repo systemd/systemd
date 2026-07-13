@@ -38,6 +38,19 @@ SD_VARLINK_DEFINE_ENUM_TYPE(
                 SD_VARLINK_DEFINE_ENUM_VALUE(ipv6),
                 SD_VARLINK_DEFINE_ENUM_VALUE(both));
 
+SD_VARLINK_DEFINE_ENUM_TYPE(
+                OVSPortType,
+                SD_VARLINK_DEFINE_ENUM_VALUE(internal),
+                SD_VARLINK_DEFINE_ENUM_VALUE(patch),
+                SD_VARLINK_DEFINE_ENUM_VALUE(bond),
+                SD_VARLINK_DEFINE_ENUM_VALUE(tunnel),
+                SD_VARLINK_DEFINE_ENUM_VALUE(bond_member));
+
+SD_VARLINK_DEFINE_ENUM_TYPE(
+                OVSFailMode,
+                SD_VARLINK_DEFINE_ENUM_VALUE(secure),
+                SD_VARLINK_DEFINE_ENUM_VALUE(standalone));
+
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 RoutingPolicyRule,
                 SD_VARLINK_FIELD_COMMENT("Address family (AF_INET or AF_INET6)"),
@@ -542,7 +555,17 @@ SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("LLDP transmit configuration for this interface"),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(LLDP, LLDPNeighbor, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Current transmit/receive bitrates from speed meter"),
-                SD_VARLINK_DEFINE_FIELD_BY_TYPE(BitRates, BitRates, SD_VARLINK_NULLABLE));
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(BitRates, BitRates, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Parent OVS bridge name (if attached via .network OVSBridge= or a netdev OVS port)"),
+                SD_VARLINK_DEFINE_FIELD(OVSBridge, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Parent OVS bond port name (if attached via .network OVSBond=)"),
+                SD_VARLINK_DEFINE_FIELD(OVSBond, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("OVS port type (if this is an OVS port)"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(OVSPortType, OVSPortType, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("OVS bridge fail_mode (if this is an OVS bridge)"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(OVSFailMode, OVSFailMode, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Member interface names of this OVS bridge (only populated for OVS bridges)"),
+                SD_VARLINK_DEFINE_FIELD(OVSInterfaces, SD_VARLINK_STRING, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_METHOD(
                 Describe,
@@ -637,6 +660,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_type_NextHop,
                 &vl_type_NextHopGroup,
                 &vl_type_NTP,
+                &vl_type_OVSFailMode,
+                &vl_type_OVSPortType,
                 &vl_type_Pref64,
                 &vl_type_PrivateOption,
                 &vl_type_Route,
