@@ -152,6 +152,7 @@ udevadm monitor -h
 udevadm settle
 udevadm settle -t 5
 udevadm settle -E /sys/class/net/$netdev
+(! udevadm settle /no/such/argument)
 udevadm settle -h
 
 udevadm test /dev/null
