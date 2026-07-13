@@ -3567,7 +3567,7 @@ static int run_systemd(int argc, char *argv[]) {
          * reexecution we are then called 'systemd'. That is confusing, hence let's call us systemd
          * right-away. */
         program_invocation_short_name = systemd;
-        (void) prctl(PR_SET_NAME, systemd);
+        (void) proc_set_comm(systemd);
 
         /* Save the original command line */
         save_argc_argv(argc, argv);
