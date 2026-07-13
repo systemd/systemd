@@ -2700,7 +2700,9 @@ static int config_parse_encrypted_volume(
                 return 0;
         }
 
-        if (!filename_is_valid(volume)) {
+        if (isempty(volume))
+                volume = mfree(volume);
+        else if (!filename_is_valid(volume)) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Volume name %s is not valid, ignoring", volume);
                 return 0;
