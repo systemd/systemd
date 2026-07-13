@@ -3593,9 +3593,11 @@ static int inner_child(
         if (r < 0)
                 return log_error_errno(r, "Dropping capabilities failed: %m");
 
-        if (arg_no_new_privileges)
-                if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) < 0)
-                        return log_error_errno(errno, "Failed to disable new privileges: %m");
+        if (arg_no_new_privileges) {
+                r = proc_set_nnp();
+                if (r < 0)
+                        return log_error_errno(r, "Failed to disable new privileges: %m");
+        }
 
         /* LXC sets container=lxc, so follow the scheme here */
         envp[n_env++] = strjoina("container=", arg_container_service_name);

@@ -2296,3 +2296,7 @@ int proc_set_comm(const char *comm) {
 
         return prctl_safe(PR_SET_NAME, (unsigned long) comm, 0, 0, 0);
 }
+
+int proc_set_nnp(void) {
+        return prctl_safe(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0);
+}
