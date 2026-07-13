@@ -2819,7 +2819,9 @@ static int start_transient_trigger(sd_bus *bus, const char *suffix) {
         }
 
         if (arg_unit) {
-                switch (unit_name_to_type(arg_unit)) {
+                UnitType t = unit_name_to_type(arg_unit);
+
+                switch (t) {
 
                 case UNIT_SERVICE:
                         service = strdup(arg_unit);
@@ -2831,7 +2833,14 @@ static int start_transient_trigger(sd_bus *bus, const char *suffix) {
                                 return log_error_errno(r, "Failed to change unit suffix: %m");
                         break;
 
+                case UNIT_PATH:
+                case UNIT_SOCKET:
                 case UNIT_TIMER:
+                        if (!streq(suffix + 1, unit_type_to_string(t)))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Specified unit '%s' does not match requested %s trigger.",
+                                                       arg_unit, suffix + 1);
+
                         trigger = strdup(arg_unit);
                         if (!trigger)
                                 return log_oom();
