@@ -1652,23 +1652,14 @@ static bool context_grow_partitions_phase(
         return !try_again;
 }
 
-static void context_grow_partition_one(Context *context, FreeArea *a, Partition *p, uint64_t *span) {
+static void context_grow_partition_one(Context *context, Partition *p, uint64_t *span) {
         uint64_t m;
 
         assert(context);
-        assert(a);
         assert(p);
         assert(span);
 
-        if (*span == 0)
-                return;
-
-        if (p->allocated_to_area != a)
-                return;
-
-        if (PARTITION_IS_FOREIGN(p))
-                return;
-
+        assert(*span > 0);
         assert(p->new_size != UINT64_MAX);
 
         /* Calculate new size and align. */
@@ -1708,15 +1699,15 @@ static int context_grow_partitions_on_free_area(Context *context, FreeArea *a) {
                 if (context_grow_partitions_phase(context, a, phase, &span, &weight_sum))
                         phase++; /* go to the next phase */
 
-        /* We still have space left over? Donate to preceding partition if we have one */
-        if (span > 0 && a->after)
-                context_grow_partition_one(context, a, a->after, &span);
 
-        /* What? Even still some space left (maybe because there was no preceding partition, or it had a
-         * size limit), then let's donate it to whoever wants it. */
+        /* What? Even still some space left (because one partition had max_size < share
+         * and another had min_size > share), then let's donate it to whoever wants it. */
         if (span > 0)
                 LIST_FOREACH(partitions, p, context->partitions) {
-                        context_grow_partition_one(context, a, p, &span);
+                        if (p->allocated_to_area != a && p->padding_area != a)
+                                continue;
+
+                        context_grow_partition_one(context, p, &span);
                         if (span == 0)
                                 break;
                 }
@@ -1726,15 +1717,12 @@ static int context_grow_partitions_on_free_area(Context *context, FreeArea *a) {
                 Partition *last_partition = NULL;
 
                 LIST_FOREACH(partitions, p, context->partitions)
-                        if (p->allocated_to_area == a)
+                        if (p->allocated_to_area == a || p->padding_area != a)
                                 last_partition = p;
 
                 if (last_partition) {
                         assert(last_partition->new_padding != UINT64_MAX);
                         last_partition->new_padding += round_down_size(span, context->grain_size);
-                } else if (a->after) {
-                        assert(a->after->new_padding != UINT64_MAX);
-                        a->after->new_padding += round_down_size(span, context->grain_size);
                 }
         }
 
