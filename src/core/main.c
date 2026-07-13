@@ -2795,9 +2795,11 @@ static int initialize_runtime(
         if (r < 0)
                 log_warning_errno(r, "Failed to reset ambient capability set, ignoring: %m");
 
-        if (arg_timer_slack_nsec != NSEC_INFINITY)
-                if (prctl(PR_SET_TIMERSLACK, arg_timer_slack_nsec) < 0)
-                        log_warning_errno(errno, "Failed to adjust timer slack, ignoring: %m");
+        if (arg_timer_slack_nsec != NSEC_INFINITY) {
+                r = prctl_safe(PR_SET_TIMERSLACK, arg_timer_slack_nsec, 0, 0, 0);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to adjust timer slack, ignoring: %m");
+        }
 
         if (arg_syscall_archs) {
                 r = enforce_syscall_archs(arg_syscall_archs);

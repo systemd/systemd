@@ -133,10 +133,10 @@ static int update_argv(const char name[], size_t l) {
                 strncpy(nn, name, nn_size);
 
                 /* Now, let's tell the kernel about this new memory */
-                if (prctl(PR_SET_MM, PR_SET_MM_ARG_START, (unsigned long) nn, 0, 0) < 0) {
-                        if (ERRNO_IS_PRIVILEGE(errno))
-                                return log_debug_errno(errno, "PR_SET_MM_ARG_START failed: %m");
-
+                r = prctl_safe(PR_SET_MM, PR_SET_MM_ARG_START, (unsigned long) nn, 0, 0);
+                if (ERRNO_IS_NEG_PRIVILEGE(r))
+                        return log_debug_errno(r, "PR_SET_MM_ARG_START failed: %m");
+                if (r < 0) {
                         /* HACK: prctl() API is kind of dumb on this point.  The existing end address may already be
                          * below the desired start address, in which case the kernel may have kicked this back due
                          * to a range-check failure (see linux/kernel/sys.c:validate_prctl_map() to see this in
@@ -147,20 +147,23 @@ static int update_argv(const char name[], size_t l) {
                          * resizing it to what we want. */
                         log_debug_errno(errno, "PR_SET_MM_ARG_START failed, attempting PR_SET_MM_ARG_END hack: %m");
 
-                        if (prctl(PR_SET_MM, PR_SET_MM_ARG_END, (unsigned long) nn + l + 1, 0, 0) < 0) {
-                                r = log_debug_errno(errno, "PR_SET_MM_ARG_END hack failed, proceeding without: %m");
+                        r = prctl_safe(PR_SET_MM, PR_SET_MM_ARG_END, (unsigned long) nn + l + 1, 0, 0);
+                        if (r < 0) {
+                                log_debug_errno(r, "PR_SET_MM_ARG_END hack failed, proceeding without: %m");
                                 (void) munmap(nn, nn_size);
                                 return r;
                         }
 
-                        if (prctl(PR_SET_MM, PR_SET_MM_ARG_START, (unsigned long) nn, 0, 0) < 0)
-                                return log_debug_errno(errno, "PR_SET_MM_ARG_START still failed, proceeding without: %m");
+                        r = prctl_safe(PR_SET_MM, PR_SET_MM_ARG_START, (unsigned long) nn, 0, 0);
+                        if (r < 0)
+                                return log_debug_errno(r, "PR_SET_MM_ARG_START still failed, proceeding without: %m");
                 } else {
                         /* And update the end pointer to the new end, too. If this fails, we don't really know what
                          * to do, it's pretty unlikely that we can rollback, hence we'll just accept the failure,
                          * and continue. */
-                        if (prctl(PR_SET_MM, PR_SET_MM_ARG_END, (unsigned long) nn + l + 1, 0, 0) < 0)
-                                log_debug_errno(errno, "PR_SET_MM_ARG_END failed, proceeding without: %m");
+                        r = prctl_safe(PR_SET_MM, PR_SET_MM_ARG_END, (unsigned long) nn + l + 1, 0, 0);
+                        if (r < 0)
+                                log_debug_errno(r, "PR_SET_MM_ARG_END failed, proceeding without: %m");
                 }
 
                 if (mm)
@@ -172,8 +175,9 @@ static int update_argv(const char name[], size_t l) {
                 strncpy(mm, name, mm_size);
 
                 /* Update the end pointer, continuing regardless of any failure. */
-                if (prctl(PR_SET_MM, PR_SET_MM_ARG_END, (unsigned long) mm + l + 1, 0, 0) < 0)
-                        log_debug_errno(errno, "PR_SET_MM_ARG_END failed, proceeding without: %m");
+                r = prctl_safe(PR_SET_MM, PR_SET_MM_ARG_END, (unsigned long) mm + l + 1, 0, 0);
+                if (r < 0)
+                        log_debug_errno(r, "PR_SET_MM_ARG_END failed, proceeding without: %m");
         }
 
         can_do = true;
