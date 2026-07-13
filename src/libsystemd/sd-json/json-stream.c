@@ -844,16 +844,29 @@ fail:
         return r;
 }
 
+int json_stream_has_buffered_output(const JsonStream *s) {
+        assert(s);
+
+        if (s->output_buffer_size == 0 && !s->output_queue)
+                return false;
+
+        if (FLAGS_SET(s->flags, JSON_STREAM_WRITE_DISCONNECTED))
+                return -ECONNRESET;
+
+        return true;
+}
+
 int json_stream_flush(JsonStream *s) {
         int ret = 0, r;
 
         assert(s);
 
         for (;;) {
-                if (s->output_buffer_size == 0 && !s->output_queue)
+                r = json_stream_has_buffered_output(s);
+                if (r < 0)
+                        return r;
+                if (r == 0)
                         break;
-                if (FLAGS_SET(s->flags, JSON_STREAM_WRITE_DISCONNECTED))
-                        return -ECONNRESET;
 
                 r = json_stream_write(s);
                 if (r < 0)
