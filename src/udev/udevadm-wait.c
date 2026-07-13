@@ -31,6 +31,7 @@ typedef enum WaitUntil {
 
 static WaitUntil arg_wait_until = WAIT_UNTIL_INITIALIZED;
 static usec_t arg_timeout_usec = USEC_INFINITY;
+static bool arg_removed = false;
 static bool arg_settle = false;
 static char **arg_devices = NULL;
 
@@ -345,7 +346,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_REMOVED:
-                        arg_wait_until = WAIT_UNTIL_REMOVED;
+                        arg_removed = true;
                         break;
 
                 case ARG_SETTLE:
@@ -364,6 +365,9 @@ static int parse_argv(int argc, char *argv[]) {
                 default:
                         assert_not_reached();
                 }
+
+        if (arg_removed)
+                arg_wait_until = WAIT_UNTIL_REMOVED;
 
         if (optind >= argc)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
