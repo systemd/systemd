@@ -1717,15 +1717,12 @@ static int context_grow_partitions_on_free_area(Context *context, FreeArea *a) {
                 Partition *last_partition = NULL;
 
                 LIST_FOREACH(partitions, p, context->partitions)
-                        if (p->allocated_to_area == a)
+                        if (p->allocated_to_area == a || p->padding_area != a)
                                 last_partition = p;
 
                 if (last_partition) {
                         assert(last_partition->new_padding != UINT64_MAX);
                         last_partition->new_padding += round_down_size(span, context->grain_size);
-                } else if (a->after) {
-                        assert(a->after->new_padding != UINT64_MAX);
-                        a->after->new_padding += round_down_size(span, context->grain_size);
                 }
         }
 
