@@ -72,6 +72,8 @@ systemctl cat "$UNIT"
 grep -q "^Type=oneshot" "/run/systemd/transient/$UNIT.service"
 systemctl stop "$UNIT"
 (! systemctl cat "$UNIT")
+(! systemd-run --wait --remain-after-exit true)
+(! systemd-run --pipe --remain-after-exit true)
 
 : "Transient service (user daemon)"
 systemd-run --wait --pipe --user --machine=testuser@ \
