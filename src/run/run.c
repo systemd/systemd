@@ -763,6 +763,10 @@ static int parse_argv(int argc, char *argv[]) {
                 if (arg_scope)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "--wait may not be combined with --scope.");
+
+                if (arg_remain_after_exit)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "--wait may not be combined with --remain-after-exit.");
         }
 
         if (arg_scope && arg_root_directory)
