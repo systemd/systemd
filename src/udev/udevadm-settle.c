@@ -88,6 +88,10 @@ static int parse_argv(int argc, char *argv[]) {
                                               opts.opt->short_code);
                 }
 
+        if (option_parser_get_n_args(&opts) > 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "This subprogram takes no positional arguments.");
+
         return 1;
 }
 
