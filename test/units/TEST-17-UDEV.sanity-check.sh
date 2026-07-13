@@ -120,7 +120,9 @@ udevadm info -e --json=short | jq . >/dev/null
 udevadm info -e --subsystem-match acpi >/dev/null
 udevadm info -e --subsystem-nomatch acpi >/dev/null
 udevadm info -e --attr-match ifindex=2 >/dev/null
+udevadm info -e --attr-match ifindex >/dev/null
 udevadm info -e --attr-nomatch ifindex=2 >/dev/null
+udevadm info -e --attr-nomatch ifindex >/dev/null
 udevadm info -e --property-match SUBSYSTEM=acpi >/dev/null
 udevadm info -e --tag-match systemd >/dev/null
 udevadm info -e --sysname-match lo >/dev/null

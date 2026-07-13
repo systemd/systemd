@@ -530,7 +530,7 @@ static int setup_matches(sd_device_enumerator *e) {
         STRV_FOREACH(a, arg_attr_match) {
                 _cleanup_free_ char *k = NULL, *v = NULL;
 
-                r = parse_key_value_argument(*a, /* require_value= */ true, &k, &v);
+                r = parse_key_value_argument(*a, /* require_value= */ false, &k, &v);
                 if (r < 0)
                         return r;
 
@@ -542,7 +542,7 @@ static int setup_matches(sd_device_enumerator *e) {
         STRV_FOREACH(a, arg_attr_nomatch) {
                 _cleanup_free_ char *k = NULL, *v = NULL;
 
-                r = parse_key_value_argument(*a, /* require_value= */ true, &k, &v);
+                r = parse_key_value_argument(*a, /* require_value= */ false, &k, &v);
                 if (r < 0)
                         return r;
 
@@ -1118,10 +1118,6 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG("attr-match", "FILE[=VALUE]",
                             "Query devices that match an attribute"):
-                        if (!strchr(opts.arg, '='))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                "Expected <ATTR>=<value> instead of '%s'", opts.arg);
-
                         r = strv_extend(&arg_attr_match, opts.arg);
                         if (r < 0)
                                 return log_oom();
@@ -1129,10 +1125,6 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG("attr-nomatch", "FILE[=VALUE]",
                             "Query devices that do not match an attribute"):
-                        if (!strchr(opts.arg, '='))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                "Expected <ATTR>=<value> instead of '%s'", opts.arg);
-
                         r = strv_extend(&arg_attr_nomatch, opts.arg);
                         if (r < 0)
                                 return log_oom();
