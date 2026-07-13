@@ -3150,9 +3150,9 @@ static int partition_read_definition(
                                    verity_mode_to_string(p->verity));
         }
 
-        if (p->verity != VERITY_OFF && p->encrypt != ENCRYPT_OFF)
+        if (IN_SET(p->verity, VERITY_HASH, VERITY_SIG) && p->encrypt != ENCRYPT_OFF)
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                  "Encrypting verity hash/data partitions is not supported.");
+                                  "Encrypting verity hash/signature partitions is not supported.");
 
         if (p->verity == VERITY_SIG && (p->size_min != UINT64_MAX || p->size_max != UINT64_MAX))
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
@@ -3679,6 +3679,13 @@ static int context_read_definitions(Context *context) {
                 if (dp->minimize == MINIMIZE_OFF && !(dp->copy_blocks_path || dp->copy_blocks_auto))
                         return log_syntax(NULL, LOG_ERR, p->definition_path, 1, SYNTHETIC_ERRNO(EINVAL),
                                           "Minimize= set for verity hash partition but data partition does not set CopyBlocks= or Minimize=.");
+
+                /* The verity hash of an encrypted data partition covers the ciphertext, which is generated
+                 * with a fresh volume key only when the final image is built, hence it cannot be
+                 * precalculated for minimizing purposes. */
+                if (dp->encrypt != ENCRYPT_OFF)
+                        return log_syntax(NULL, LOG_ERR, p->definition_path, 1, SYNTHETIC_ERRNO(EINVAL),
+                                          "Minimize= cannot be set for verity hash partitions whose data partition is encrypted, use SizeMaxBytes= on the data partition instead.");
         }
 
         LIST_FOREACH(partitions, p, context->partitions) {
@@ -5335,6 +5342,15 @@ static int partition_target_prepare(
         return 0;
 }
 
+static void partition_target_drop_decrypted(PartitionTarget *t) {
+        assert(t);
+
+        /* Deactivate the dm-crypt device again, so that subsequent access to the target reaches the
+         * encrypted data as it is stored on disk (i.e. the ciphertext). Requires the target to have been
+         * sync'ed first. */
+        t->decrypted = decrypted_partition_target_free(t->decrypted);
+}
+
 static int partition_target_grow(PartitionTarget *t, uint64_t size) {
         int r;
 
@@ -6408,6 +6424,11 @@ static int context_copy_blocks(Context *context) {
                                  p->partno, FORMAT_TIMESPAN(time_spent, 0));
 
                 if (p->siblings[VERITY_HASH] && !partition_defer(context, p->siblings[VERITY_HASH])) {
+                        /* The verity hash must cover the partition contents as stored on disk, i.e. the
+                         * ciphertext if the partition is encrypted, hence tear down the dm-crypt device
+                         * first. */
+                        partition_target_drop_decrypted(t);
+
                         r = partition_format_verity_hash(context, p->siblings[VERITY_HASH],
                                                          /* node= */ NULL, partition_target_path(t));
                         if (r < 0)
@@ -7597,6 +7618,11 @@ static int context_mkfs(Context *context) {
                         return r;
 
                 if (p->siblings[VERITY_HASH] && !partition_defer(context, p->siblings[VERITY_HASH])) {
+                        /* The verity hash must cover the partition contents as stored on disk, i.e. the
+                         * ciphertext if the partition is encrypted, hence tear down the dm-crypt device
+                         * first. */
+                        partition_target_drop_decrypted(t);
+
                         r = partition_format_verity_hash(context, p->siblings[VERITY_HASH],
                                                          /* node= */ NULL, partition_target_path(t));
                         if (r < 0)
