@@ -191,6 +191,7 @@ simple_tests += files(
         'test-reread-partition-table.c',
         'test-rlimit-util.c',
         'test-rm-rf.c',
+        'test-runtime-measure.c',
         'test-secure-bits.c',
         'test-serialize.c',
         'test-set.c',

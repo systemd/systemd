@@ -191,6 +191,7 @@ shared_sources = files(
         'resolve-util.c',
         'resolve-varlink-util.c',
         'rm-rf.c',
+        'runtime-measure.c',
         'seccomp-util.c',
         'securebits-util.c',
         'selinux-util.c',
