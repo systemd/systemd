@@ -240,7 +240,7 @@
           <term><option>--device-id-of-file=<replaceable>FILE</replaceable></option></term>
           <listitem>
             <para>Print major/minor numbers of the underlying device, where the file lives on.
-            If this is specified, all positional arguments are ignored.</para>
+            If this is specified, no positional arguments are accepted.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
