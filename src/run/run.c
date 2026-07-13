@@ -696,10 +696,6 @@ static int parse_argv(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "--no-block is not supported in --scope mode.");
 
-        if (arg_scope && sd_json_format_enabled(arg_json_format_flags))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "--json= is not supported in --scope mode.");
-
         if (arg_stdio != ARG_STDIO_NONE) {
                 if (with_trigger || arg_scope)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -718,21 +714,31 @@ static int parse_argv(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "--pty-late is not compatible with --service-type=oneshot.");
 
-        if (sd_json_format_enabled(arg_json_format_flags) && arg_stdio != ARG_STDIO_NONE)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "--json= is not compatible with --pty/--pty-late/--pipe.");
-
         if (arg_scope && with_trigger)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Path, socket or timer options are not supported in --scope mode.");
 
+        if (sd_json_format_enabled(arg_json_format_flags)) {
+                if (arg_scope)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "--json= is not supported in --scope mode.");
+
+                if (arg_stdio != ARG_STDIO_NONE)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "--json= is not compatible with --pty/--pty-late/--pipe.");
+
+                if (arg_verbose)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "--json= is not compatible with --verbose.");
+
+                if (with_trigger)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "--json= is not compatible with path, socket or timer operations.");
+        }
+
         if (arg_timer_property && !arg_with_timer)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "--timer-property= has no effect without any other timer options.");
-
-        if (sd_json_format_enabled(arg_json_format_flags) && with_trigger)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "--json= is not compatible with path, socket or timer operations.");
 
         if (arg_wait) {
                 if (arg_no_block)
