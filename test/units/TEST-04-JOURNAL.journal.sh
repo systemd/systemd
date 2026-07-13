@@ -158,6 +158,10 @@ journalctl --root / | grep . >/dev/null
 journalctl --cursor "t=0;t=-1;t=0;t=0x0" | grep . >/dev/null
 journalctl --header | grep system.journal
 journalctl --field _EXE | grep . >/dev/null
+journalctl --field _EXE --pager-end | grep . >/dev/null
+(! journalctl -q --field _SYSTEMD_UNIT --unit "test-no-such-unit-$RANDOM.service" --no-pager)
+(! journalctl -q --field _SYSTEMD_UNIT --since "9999-01-01" --no-pager)
+(! journalctl -q --fields --unit "test-no-such-unit-$RANDOM.service" --no-pager)
 journalctl --no-hostname --utc --catalog | grep . >/dev/null
 # Exercise executable_is_script() and the related code, e.g. `journalctl -b /path/to/a/script.sh` should turn
 # into ((_EXE=/usr/bin/bash AND _COMM=script.sh) AND _BOOT_ID=c002e3683ba14fa8b6c1e12878386514)
