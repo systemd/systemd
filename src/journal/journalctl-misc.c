@@ -17,6 +17,7 @@
 #include "journalctl-util.h"
 #include "log.h"
 #include "logs-show.h"
+#include "set.h"
 #include "strv.h"
 #include "syslog-util.h"
 #include "time-util.h"
@@ -185,12 +186,35 @@ int action_list_boots(void) {
         return show_log_ids(ids, n_ids, "boot id");
 }
 
+static bool list_fields_has_filters(void) {
+        return
+                arg_boot ||
+                arg_invocation ||
+                arg_dmesg ||
+                arg_cursor ||
+                arg_after_cursor ||
+                arg_cursor_file ||
+                !strv_isempty(arg_system_units) ||
+                !strv_isempty(arg_user_units) ||
+                !strv_isempty(arg_syslog_identifier) ||
+                !strv_isempty(arg_exclude_identifier) ||
+                arg_priorities != 0 ||
+                !set_isempty(arg_facilities) ||
+                arg_since_set ||
+                arg_until_set ||
+                arg_pattern;
+}
+
 int action_list_fields(void) {
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
         int r, n_shown = 0;
 
         assert(arg_action == ACTION_LIST_FIELDS);
         assert(arg_field);
+
+        if (list_fields_has_filters())
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "--field/-F cannot be combined with filters.");
 
         r = acquire_journal(&j);
         if (r < 0)
