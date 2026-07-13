@@ -223,7 +223,7 @@ static EFI_STATUS acquire_secret_mixin(
                         (char16_t *) BOOT_SECRET_MIXIN_PATH,
                         EFI_FILE_MODE_READ | EFI_FILE_MODE_WRITE | EFI_FILE_MODE_CREATE,
                         /* Attributes= */ 0);
-        if (err == EFI_WRITE_PROTECTED) {
+        if (EFI_STATUS_IS_WRITE_REFUSED(err)) {
                 err = root_dir->Open(
                                 root_dir,
                                 &handle,
@@ -243,8 +243,13 @@ static EFI_STATUS acquire_secret_mixin(
         err = get_file_info(handle, &info, /* ret_size= */ NULL);
         if (err != EFI_SUCCESS)
                 return log_debug_status(err, "Failed to get boot secret mixin file '%ls' info: %m", BOOT_SECRET_MIXIN_PATH);
-        if (info->FileSize == 0 && writable) /* New file? Fill it. */
+        if (info->FileSize == 0 && writable) { /* New file? Fill it. */
+                /* If the mixin file is marked read-only take this as a hint that it shall not be initialized. */
+                if (FLAGS_SET(info->Attribute, EFI_FILE_READ_ONLY))
+                        return log_debug_status(EFI_WRITE_PROTECTED, "Boot secret mixin file '%ls' is marked read-only, not initializing it.", BOOT_SECRET_MIXIN_PATH);
+
                 return setup_secret_mixin(handle, seed_table, ret_mixin);
+        }
 
         /* If the mixin file is too small we won't overwrite it (in order to not destroy some potentially
          * load bearing key), but we won't use it either. */
