@@ -4,6 +4,7 @@
 
 #include "alloc-util.h"
 #include "bpf-restrict-fsaccess.h"
+#include "bpf-socket-ratelimit.h"
 #include "dbus.h"
 #include "dynamic-user.h"
 #include "fd-util.h"
@@ -223,6 +224,10 @@ int manager_serialize(
                 return r;
 
         r = bpf_restrict_fsaccess_serialize(m, f, fds);
+        if (r < 0)
+                return r;
+
+        r = bpf_socket_ratelimit_serialize(m, f, fds);
         if (r < 0)
                 return r;
 
@@ -810,7 +815,14 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                                 log_notice("Failed to parse previous objective '%s', ignoring.", val);
                         else
                                 m->previous_objective = objective;
-
+                } else if ((val = startswith(l, "socket-ratelimit-bind-fd="))) {
+                        int fd = deserialize_fd(fds, val);
+                        if (fd >= 0)
+                                close_and_replace(m->initial_socket_ratelimit_bind_link_fd, fd);
+                } else if ((val = startswith(l, "socket-ratelimit-send-fd="))) {
+                        int fd = deserialize_fd(fds, val);
+                        if (fd >= 0)
+                                close_and_replace(m->initial_socket_ratelimit_send_link_fd, fd);
                 } else {
                         ManagerTimestamp q;
 

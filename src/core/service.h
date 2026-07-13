@@ -238,6 +238,7 @@ typedef struct Service {
         NotifyAccess notify_access;
         NotifyAccess notify_access_override;
         NotifyState notify_state;
+        RateLimit notify_ratelimit;
 
         sd_bus_slot *bus_name_pid_lookup_slot;
 
