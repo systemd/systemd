@@ -2276,3 +2276,15 @@ int read_errno(int errno_fd) {
 
         return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Received positive errno from child, refusing: %d", r);
 }
+
+int prctl_safe(int op, unsigned long arg2, unsigned long arg3, unsigned long arg4, unsigned long arg5) {
+
+        /* prctl(2) is a bit messy: it's a variadic function, defined with "unsigned long" arguments. This
+         * means that unless people explicitly cast it's quite likely they end up passing a shorter type even
+         * though unsigned long is required. And most of the time it might even kind of work, but not
+         * always. Moreover, some calls insist on all unused arguments being zeroed out, others don't
+         * care. Let's define this wrapper to enforce the right types, and that all arguments are always
+         * passed, to avoid this confusion. */
+
+        return RET_NERRNO(prctl(op, arg2, arg3, arg4, arg5));
+}
