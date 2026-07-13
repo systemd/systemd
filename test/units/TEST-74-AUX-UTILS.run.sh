@@ -254,6 +254,7 @@ systemd-run --wait --pty true
 systemd-run --wait --machine=.host --pty true
 systemd-run --json=short true | jq . >/dev/null
 systemd-run --json=pretty true | jq . >/dev/null
+(! systemd-run --wait --pipe --json=short true)
 (! SHELL=/bin/false systemd-run --quiet --shell)
 
 (! systemd-run)
