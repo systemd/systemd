@@ -12,6 +12,7 @@
 
 #include "alloc-util.h"
 #include "async.h"
+#include "bpf-socket-ratelimit.h"
 #include "bus-common-errors.h"
 #include "bus-error.h"
 #include "bus-util.h"
@@ -192,6 +193,7 @@ static void service_init(Unit *u) {
         s->timeout_abort_usec = u->manager->defaults.timeout_abort_usec;
         s->timeout_abort_set = u->manager->defaults.timeout_abort_set;
         s->restart_usec = u->manager->defaults.restart_usec;
+        s->notify_ratelimit = u->manager->defaults.notify_ratelimit;
         s->restart_max_delay_usec = USEC_INFINITY;
         s->runtime_max_usec = USEC_INFINITY;
         s->type = _SERVICE_TYPE_INVALID;
@@ -1365,6 +1367,12 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, oom_policy_to_string(s->oom_policy),
                 prefix, signal_to_string(s->reload_signal));
 
+        fprintf(f,
+                "%sNotifyRateLimitIntervalSec: %s\n"
+                "%sNotifyRateLimitBurst: %u\n",
+                prefix, FORMAT_TIMESPAN(s->notify_ratelimit.interval, USEC_PER_SEC),
+                prefix, s->notify_ratelimit.burst);
+
         if (pidref_is_set(&s->control_pid))
                 fprintf(f,
                         "%sControl PID: "PID_FMT"\n",
@@ -1822,6 +1830,13 @@ static int service_coldplug(Unit *u) {
                 }
         }
 
+        if (service_get_notify_access(s) != NOTIFY_NONE &&
+            s->notify_ratelimit.interval > 0 && s->notify_ratelimit.burst > 0) {
+                r = bpf_socket_ratelimit_install(UNIT(s), s->notify_ratelimit.interval, s->notify_ratelimit.burst);
+                if (r < 0)
+                        log_unit_debug_errno(UNIT(s), r, "Failed to setup BPF based rate-limiter for notify socket messages, ignoring: %m");
+        }
+
         service_set_state(s, s->deserialized_state);
         return 0;
 }
@@ -2114,6 +2129,13 @@ static int service_spawn_internal(
                 return r;
 
         assert(!s->exec_fd_event_source);
+
+        if (service_get_notify_access(s) != NOTIFY_NONE &&
+            s->notify_ratelimit.interval > 0 && s->notify_ratelimit.burst > 0) {
+                r = bpf_socket_ratelimit_install(UNIT(s), s->notify_ratelimit.interval, s->notify_ratelimit.burst);
+                if (r < 0)
+                        log_unit_debug_errno(UNIT(s), r, "Failed to setup BPF based rate-limiter for notify socket messages, ignoring: %m");
+        }
 
         if (FLAGS_SET(exec_params.flags, EXEC_IS_CONTROL)) {
                 /* If this is a control process, mask the permissions/chroot application if this is requested. */
