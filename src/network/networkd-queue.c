@@ -22,6 +22,7 @@ static Request* request_detach_impl(Request *req) {
 
         ordered_set_remove(req->manager->request_queue, req);
         req->manager = NULL;
+        req->netlink_slot = sd_netlink_slot_unref(req->netlink_slot);
         return req;
 }
 
@@ -328,6 +329,10 @@ int manager_process_requests(Manager *manager) {
 static int request_netlink_handler(sd_netlink *nl, sd_netlink_message *m, Request *req) {
         assert(req);
 
+        assert(req->netlink_slot);
+        assert_se(sd_netlink_slot_set_floating(req->netlink_slot, true) >= 0);
+        req->netlink_slot = sd_netlink_slot_unref(req->netlink_slot);
+
         if (req->counter) {
                 assert(*req->counter > 0);
                 (*req->counter)--;
@@ -350,7 +355,7 @@ int request_call_netlink_async(sd_netlink *nl, sd_netlink_message *m, Request *r
         assert(m);
         assert(req);
 
-        r = netlink_call_async(nl, NULL, m, request_netlink_handler, request_destroy_callback, req);
+        r = netlink_call_async(nl, &req->netlink_slot, m, request_netlink_handler, request_destroy_callback, req);
         if (r < 0)
                 return r;
 
