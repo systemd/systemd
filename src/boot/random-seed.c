@@ -109,6 +109,31 @@ static void validate_sha256(void) {
 #endif
 }
 
+static bool random_seed_file_read_only(EFI_FILE *root_dir) {
+        _cleanup_file_close_ EFI_FILE *handle = NULL;
+        _cleanup_free_ EFI_FILE_INFO *info = NULL;
+        EFI_STATUS err;
+
+        assert(root_dir);
+
+        /* Checks whether the random seed file exists and has the read-only file attribute set. */
+
+        err = root_dir->Open(root_dir, &handle, (char16_t *) u"\\loader\\random-seed", EFI_FILE_MODE_READ, 0);
+        if (err != EFI_SUCCESS) {
+                if (err != EFI_NOT_FOUND)
+                        log_debug_status(err, "Failed to open random seed file for reading, ignoring: %m");
+                return false;
+        }
+
+        err = get_file_info(handle, &info, /* ret_size= */ NULL);
+        if (err != EFI_SUCCESS) {
+                log_debug_status(err, "Failed to get file info of random seed file, ignoring: %m");
+                return false;
+        }
+
+        return FLAGS_SET(info->Attribute, EFI_FILE_READ_ONLY);
+}
+
 EFI_STATUS process_random_seed(EFI_FILE *root_dir) {
         uint8_t random_bytes[DESIRED_SEED_SIZE], hash_key[HASH_VALUE_SIZE];
         _cleanup_free_ struct linux_efi_random_seed *new_seed_table = NULL;
@@ -140,6 +165,15 @@ EFI_STATUS process_random_seed(EFI_FILE *root_dir) {
                 log_debug_status(err, "Failed to determine if volume is read-only, assuming not: %m");
         else if (volume_ro) {
                 log_debug("Volume is read-only, not updating random seed.");
+                return EFI_SUCCESS;
+        }
+
+        /* Similarly, if the random seed file is marked read-only, take this as a hint that the seed shall
+         * not be updated — and hence not be used either, since a seed we cannot update would be the same on
+         * every boot. This provides a way to explicitly turn off random seed handling, for example for
+         * pre-built OS images replicated to many systems. */
+        if (random_seed_file_read_only(root_dir)) {
+                log_debug("Random seed file is marked read-only, not updating random seed.");
                 return EFI_SUCCESS;
         }
 
