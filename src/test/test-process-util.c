@@ -7,7 +7,6 @@
 #include <sys/eventfd.h>
 #include <sys/mount.h>
 #include <sys/personality.h>
-#include <sys/prctl.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -175,7 +174,7 @@ static void test_pid_get_comm_escape_one(const char *input, const char *output) 
 
         log_debug("input: <%s> — output: <%s>", input, output);
 
-        ASSERT_OK_ERRNO(prctl(PR_SET_NAME, input));
+        ASSERT_OK(proc_set_comm(input));
         ASSERT_OK(pid_get_comm(0, &n));
 
         log_debug("got: <%s>", n);
@@ -199,7 +198,7 @@ TEST(pid_get_comm_escape) {
         test_pid_get_comm_escape_one("xxxxäöüß", "xxxx\\303\\244\\303\\266\\303\\274\\303\\237");
         test_pid_get_comm_escape_one("xxxxxäöüß", "xxxxx\\303\\244\\303\\266\\303\\274\\303\\237");
 
-        ASSERT_OK_ERRNO(prctl(PR_SET_NAME, saved));
+        ASSERT_OK(proc_set_comm(saved));
 }
 
 TEST(pid_is_unwaited) {
@@ -314,7 +313,7 @@ TEST(pid_get_cmdline_harder) {
 
                 ASSERT_OK_ERRNO(unlink(path));
 
-                ASSERT_OK_ERRNO(prctl(PR_SET_NAME, "testa"));
+                ASSERT_OK(proc_set_comm("testa"));
 
                 ASSERT_ERROR(pid_get_cmdline(0, SIZE_MAX, 0, &line), ENOENT);
 
@@ -477,7 +476,7 @@ TEST(pid_get_cmdline_harder) {
                 args = strv_free(args);
 
                 ASSERT_OK_ERRNO(ftruncate(fd, 0));
-                ASSERT_OK_ERRNO(prctl(PR_SET_NAME, "aaaa bbbb cccc"));
+                ASSERT_OK(proc_set_comm("aaaa bbbb cccc"));
 
                 ASSERT_ERROR(pid_get_cmdline(0, SIZE_MAX, 0, &line), ENOENT);
 

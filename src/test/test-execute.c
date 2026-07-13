@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/mount.h>
-#include <sys/prctl.h>
+#include <sys/prctl.h> /* IWYU pragma: keep */
 #include <unistd.h>
 
 #include "sd-event.h"
@@ -1195,8 +1195,8 @@ static void test_exec_ambientcapabilities(Manager *m) {
          * the tests only if that's the case. Clearing all ambient
          * capabilities is fine, since we are expecting them to be unset
          * in the first place for the tests. */
-        r = prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_CLEAR_ALL, 0, 0, 0);
-        if (r < 0 && IN_SET(errno, EINVAL, EOPNOTSUPP, ENOSYS)) {
+        r = prctl_safe(PR_CAP_AMBIENT, PR_CAP_AMBIENT_CLEAR_ALL, 0, 0, 0);
+        if (r < 0 && IN_SET(r, -EINVAL, -EOPNOTSUPP, -ENOSYS)) {
                 log_notice("Skipping %s, the kernel does not support ambient capabilities", __func__);
                 return;
         }
