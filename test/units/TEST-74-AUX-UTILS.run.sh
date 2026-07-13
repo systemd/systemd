@@ -111,6 +111,8 @@ systemd-run --scope --slice-inherit --slice=foo \
             bash -xec '[[ "$(</proc/self/cgroup)" =~ /system\.slice/system-foo\.slice/run-.+\.scope$ ]]'
 # We should inherit caller's environment
 systemd-run --scope bash -xec '[[ "$PARENT_FOO" == bar ]]'
+systemd-run --scope --uid=testuser \
+            bash -xec '[[ " $(id -G) " != *" 0 "* ]]'
 systemd-run --scope \
             --property=RuntimeMaxSec=10 \
             --property=RuntimeMaxSec=infinity \
