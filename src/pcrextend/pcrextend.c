@@ -18,6 +18,7 @@
 #include "options.h"
 #include "parse-argument.h"
 #include "pcrextend-util.h"
+#include "runtime-measure.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
@@ -62,7 +63,7 @@ static int help(void) {
         help_cmdline("[OPTIONS...] --machine-id");
         help_cmdline("[OPTIONS...] --product-id");
         help_cmdline("[OPTIONS...] --login=UID|USER");
-        help_abstract("Extend a TPM2 PCR with boot phase, machine ID, file system ID or user record.");
+        help_abstract("Extend a PCR with boot phase, machine ID, file system ID or user record.");
 
         help_section("Options");
         r = table_print_or_warn(options);
@@ -145,7 +146,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 }
 
                 OPTION_LONG("graceful", NULL,
-                            "Exit gracefully if no TPM2 device is found"):
+                            "Exit gracefully if no measurement backend is found"):
                         arg_graceful = true;
                         break;
 
@@ -312,43 +313,64 @@ static int extend_pcr_now(
                 UserspaceMeasurementEventType event) {
 
         _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
+        _cleanup_free_ char *joined_banks = NULL, *banks_log = NULL;
         int r;
 
         assert(pcr_mask != 0);
 
-        r = tpm2_context_new_for_measurement(&c);
-        if (r < 0)
-                return r;
+        if (arg_tpm2_device || tpm2_is_mostly_supported()) {
+                r = tpm2_context_new_for_measurement(&c);
+                if (r < 0 && r != -EOPNOTSUPP)
+                        return r;
 
-        r = determine_banks(c, pcr_mask);
-        if (r < 0)
-                return r;
-        if (strv_isempty(arg_banks)) /* Still none? */
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Found a TPM2 without enabled PCR banks. Can't operate.");
+                r = determine_banks(c, pcr_mask);
+                if (r < 0)
+                        return r;
+                if (strv_isempty(arg_banks)) /* Still none? */
+                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Found a TPM2 without enabled PCR banks. Can't operate.");
 
-        _cleanup_free_ char *joined_banks = NULL;
-        joined_banks = strv_join(arg_banks, ", ");
-        if (!joined_banks)
-                return log_oom();
+                joined_banks = strv_join(arg_banks, ", ");
+                if (!joined_banks)
+                        return log_oom();
+
+                banks_log = strjoin(", banks ", joined_banks);
+                if (!banks_log)
+                        return log_oom();
+        }
 
         _cleanup_free_ char *safe = NULL;
         if (escape_and_truncate_data(data, size, &safe) < 0)
                 return log_oom();
 
-        BIT_FOREACH(pcr, pcr_mask) {
-                log_debug("Measuring '%s' into PCR index %i, banks %s.", safe, pcr, joined_banks);
+        bool measured = false;
 
-                r = tpm2_pcr_extend_bytes(c, arg_banks, pcr, &IOVEC_MAKE(data, size), /* secret= */ NULL, event, safe);
+        BIT_FOREACH(pcr, pcr_mask) {
+                log_debug("Measuring '%s' into PCR index %i%s.", safe, pcr, strempty(banks_log));
+
+                r = runtime_measurement_extend_bytes(
+                                &(RuntimeMeasureBackends) { .tpm2 = c, .tpm2_banks = arg_banks },
+                                pcr, &IOVEC_MAKE(data, size), /* secret= */ NULL, event, safe);
+                if (r == -EOPNOTSUPP) {
+                        /* On TPM2-less systems, PCRs without a mapping (e.g. PCR 0 maps to no RTMR) cannot
+                         * be measured anywhere. Skip them, but fail if nothing was measured at all. */
+                        log_info("No measurement backend covers PCR %i, skipping.", pcr);
+                        continue;
+                }
                 if (r < 0)
-                        return log_error_errno(r, "Could not extend PCR: %m");
+                        return log_error_errno(r, "Could not extend PCR %i: %m", pcr);
+
+                measured = true;
 
                 log_struct(LOG_INFO,
                            LOG_MESSAGE_ID(SD_MESSAGE_TPM_PCR_EXTEND_STR),
-                           LOG_MESSAGE("Extended PCR index %i with '%s' (banks %s).", pcr, safe, joined_banks),
+                           LOG_MESSAGE("Extended PCR index %i with '%s'%s.", pcr, safe, strempty(banks_log)),
                            LOG_ITEM("MEASURING=%s", safe),
                            LOG_ITEM("PCR=%i", pcr),
-                           LOG_ITEM("BANKS=%s", joined_banks));
+                           LOG_ITEM("BANKS=%s", strempty(joined_banks)));
         }
+
+        if (!measured)
+                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "No PCR could be measured, no measurement backend available.");
 
         return 0;
 }
@@ -364,9 +386,11 @@ static int extend_nvpcr_now(
 
         assert(name);
 
-        r = tpm2_context_new_for_measurement(&c);
-        if (r < 0)
-                return r;
+        if (arg_tpm2_device || tpm2_is_mostly_supported()) {
+                r = tpm2_context_new_for_measurement(&c);
+                if (r < 0 && r != -EOPNOTSUPP)
+                        return r;
+        }
 
         _cleanup_free_ char *safe = NULL;
         if (escape_and_truncate_data(data, size, &safe) < 0)
@@ -374,17 +398,17 @@ static int extend_nvpcr_now(
 
         log_debug("Measuring '%s' into NvPCR index '%s'.", safe, name);
 
-        r = tpm2_nvpcr_extend_bytes(
-                        c,
-                        /* session= */ NULL,
+        r = runtime_measurement_extend_nvpcr(
+                        &(RuntimeMeasureBackends) { .tpm2 = c, .tpm2_sync_secondary_anchor = !arg_early },
                         name,
                         &IOVEC_MAKE(data, size),
                         /* secret= */ NULL,
-                        /* sync_secondary_anchor= */ !arg_early,
                         event,
                         safe);
         if (r == -ENOBUFS)
                 return r; /* NV space exhausted; let caller handle gracefully */
+        if (r == -EOPNOTSUPP)
+                return r; /* No measurement backend available; let caller handle gracefully */
         if (r < 0)
                 return log_error_errno(r, "Could not extend NvPCR: %m");
 
@@ -586,8 +610,8 @@ static int run(int argc, char *argv[]) {
         if (arg_event_type >= 0)
                 event = arg_event_type;
 
-        if (arg_graceful && !tpm2_is_mostly_supported()) {
-                log_notice("No complete TPM2 support detected, exiting gracefully.");
+        if (arg_graceful && !runtime_measurements_supported()) {
+                log_notice("No measurement backend detected, exiting gracefully.");
                 return EXIT_SUCCESS;
         }
 
@@ -604,12 +628,12 @@ static int run(int argc, char *argv[]) {
                 r = extend_nvpcr_now(arg_nvpcr_name, word, strlen(word), event);
         else
                 r = extend_pcr_now(arg_pcr_mask, word, strlen(word), event);
-        /* Both extend paths report "TPM cannot be used for this measurement" (no PCR bank, missing crypto,
-         * no TPM device — see tpm2_context_new_for_measurement()) as -EOPNOTSUPP. Under --graceful we skip
-         * those rather than fail and block boot. Genuine faults keep their own errno and are never
-         * suppressed. */
+        /* Both extend paths report "no backend can be used for this measurement" (no PCR bank, missing
+         * crypto, no TPM device — see tpm2_context_new_for_measurement(), and no TDX RTMRs) as
+         * -EOPNOTSUPP. Under --graceful we skip those rather than fail and block boot. Genuine faults
+         * keep their own errno and are never suppressed. */
         if (arg_graceful && r == -EOPNOTSUPP) {
-                log_notice_errno(r, "TPM2 cannot be used for measurement (no usable PCR bank, missing device, or missing crypto support), skipping gracefully.");
+                log_notice_errno(r, "No measurement backend can be used, skipping gracefully.");
                 return EXIT_SUCCESS;
         }
         if (arg_graceful && r == -ENOBUFS) {
