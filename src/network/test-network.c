@@ -1,14 +1,20 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <arpa/inet.h>
+#include <net/if.h>
+
+#include "sd-netlink.h"
 
 #include "alloc-util.h"
 #include "dhcp-lease-internal.h"
 #include "hashmap.h"
 #include "hostname-setup.h"
+#include "netlink-util.h"
 #include "network-internal.h"
 #include "networkd-manager.h"
+#include "networkd-queue.h"
 #include "networkd-route-util.h"
+#include "ordered-set.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
@@ -220,11 +226,80 @@ static void test_dhcp_hostname_shorten_overlong(void) {
         }
 }
 
+static int test_request_process(Request *req, Link *link, void *userdata) {
+        assert_not_reached();
+}
+
+static int test_request_netlink_handler(
+                sd_netlink *rtnl,
+                sd_netlink_message *message,
+                Request *req,
+                Link *link,
+                void *userdata) {
+
+        assert(rtnl);
+        assert(message);
+        assert(req);
+        assert(!link);
+        assert(userdata);
+
+        *(bool*) userdata = true;
+        return 0;
+}
+
+static void test_request_netlink_handler_one(bool detach) {
+        _cleanup_(manager_freep) Manager *manager = NULL;
+        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL;
+        bool handler_called = false;
+        unsigned counter = 0;
+        Request *req;
+
+        ASSERT_OK(manager_new(&manager, /* test_mode= */ true));
+        ASSERT_OK(sd_netlink_open(&rtnl));
+
+        ASSERT_OK_POSITIVE(manager_queue_request_full(
+                        manager,
+                        REQUEST_TYPE_ADDRESS_LABEL,
+                        &handler_called,
+                        /* free_func= */ NULL,
+                        /* hash_func= */ NULL,
+                        /* compare_func= */ NULL,
+                        test_request_process,
+                        &counter,
+                        test_request_netlink_handler,
+                        &req));
+        ASSERT_EQ(counter, 1U);
+
+        int ifindex = (int) if_nametoindex("lo");
+        ASSERT_GT(ifindex, 0);
+        ASSERT_OK(sd_rtnl_message_new_link(rtnl, &message, RTM_GETLINK, ifindex));
+        ASSERT_OK(request_call_netlink_async(rtnl, message, req));
+        ASSERT_EQ(netlink_get_reply_callback_count(rtnl), 1U);
+
+        if (detach) {
+                request_detach(req);
+                ASSERT_EQ(counter, 0U);
+                ASSERT_EQ(netlink_get_reply_callback_count(rtnl), 0U);
+        }
+
+        ASSERT_OK(sd_netlink_wait(rtnl, 0));
+        ASSERT_OK_POSITIVE(sd_netlink_process(rtnl, /* ret= */ NULL));
+
+        ASSERT_EQ(handler_called, !detach);
+        ASSERT_EQ(counter, 0U);
+        ASSERT_EQ(netlink_get_reply_callback_count(rtnl), 0U);
+        ASSERT_TRUE(ordered_set_isempty(manager->request_queue));
+}
+
 int main(void) {
         _cleanup_(manager_freep) Manager *manager = NULL;
         int r;
 
         test_setup_logging(LOG_INFO);
+
+        test_request_netlink_handler_one(/* detach= */ false);
+        test_request_netlink_handler_one(/* detach= */ true);
 
         test_deserialize_in_addr();
         test_deserialize_dhcp_routes();
