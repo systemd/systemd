@@ -282,6 +282,7 @@ udevadm trigger --parent-match /sys/class/net/$netdev --name-match /dev/null
 udevadm trigger --initialized-match
 udevadm trigger --initialized-nomatch
 udevadm trigger -w
+(! udevadm trigger --dry-run --wait-daemon=bad)
 udevadm trigger --uuid /sys/class/net/$netdev
 udevadm settle -t 300
 udevadm trigger --wait-daemon
