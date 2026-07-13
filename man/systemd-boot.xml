@@ -390,7 +390,10 @@
     <filename>/EFI/Linux/</filename> on the ESP and the Extended Boot Loader partition.</para>
 
     <para>Optionally, a random seed for early boot entropy pool provisioning is stored in
-    <filename>/loader/random-seed</filename> in the ESP.</para>
+    <filename>/loader/random-seed</filename> in the ESP. If the read-only file attribute is set on this
+    file, it is neither updated nor used: a seed that cannot be updated would be identical on every boot,
+    and hence must not be credited. The file attribute may thus be used to explicitly turn off random seed
+    handling, for example in OS images that are replicated to multiple systems.</para>
 
     <para>During initialization, <command>systemd-boot</command> automatically loads all driver files placed
     in the <filename>/EFI/systemd/drivers/</filename> directory of the ESP. The files placed there must have
