@@ -24,6 +24,10 @@ static const char* cc_userspace_log_path(void) {
         return secure_getenv("SYSTEMD_MEASURE_LOG_CC_USERSPACE") ?: "/run/log/systemd/cc-measure.log";
 }
 
+const char* cc_firmware_log_path(void) {
+        return secure_getenv("SYSTEMD_MEASURE_LOG_CC_FIRMWARE") ?: "/sys/firmware/acpi/tables/data/CCEL";
+}
+
 bool tdx_rtmr_supported(void) {
         return access(tdx_rtmr_sysfs_dir(), F_OK) >= 0;
 }

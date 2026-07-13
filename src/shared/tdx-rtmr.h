@@ -18,6 +18,10 @@
  * from a secret, and RTMRs need no anchoring as they cannot be deleted and recreated. */
 #define TDX_NVPCR_RTMR 2U
 
+/* The firmware CC event log (CCEL ACPI table), the boot-time counterpart of the userspace CC
+ * measurement log. */
+const char* cc_firmware_log_path(void);
+
 /* Returns true if the kernel exposes the TDX measurement registers via sysfs. */
 bool tdx_rtmr_supported(void);
 
