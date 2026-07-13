@@ -260,3 +260,4 @@ int prctl_safe(int op, unsigned long arg2, unsigned long arg3, unsigned long arg
 
 int proc_set_comm(const char *comm);
 int proc_set_nnp(void);
+nsec_t proc_get_timerslack(void);
