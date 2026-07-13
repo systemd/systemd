@@ -2288,3 +2288,11 @@ int prctl_safe(int op, unsigned long arg2, unsigned long arg3, unsigned long arg
 
         return RET_NERRNO(prctl(op, arg2, arg3, arg4, arg5));
 }
+
+int proc_set_comm(const char *comm) {
+
+        if (isempty(comm))
+                return -EINVAL;
+
+        return prctl_safe(PR_SET_NAME, (unsigned long) comm, 0, 0, 0);
+}

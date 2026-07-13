@@ -182,6 +182,7 @@ static int update_argv(const char name[], size_t l) {
 
 int rename_process_full(const char *comm, const char *invocation) {
         bool truncated = false;
+        int r;
 
         /* This is a like a poor man's setproctitle(). It changes the comm field by the name specified by
          * 'comm', and changes argv[0] and the glibc's internally used names of the process
@@ -204,8 +205,9 @@ int rename_process_full(const char *comm, const char *invocation) {
 
         /* First step, change the comm field. The main thread's comm is identical to the process comm. This means we
          * can use PR_SET_NAME, which sets the thread name for the calling thread. */
-        if (prctl(PR_SET_NAME, comm) < 0)
-                log_debug_errno(errno, "PR_SET_NAME failed: %m");
+        r = proc_set_comm(comm);
+        if (r < 0)
+                log_debug_errno(r, "PR_SET_NAME failed: %m");
         if (l >= TASK_COMM_LEN) /* Linux userspace process names can be 15 chars at max */
                 truncated = true;
 
