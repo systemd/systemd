@@ -189,6 +189,17 @@ grep -q "^PathChanged=/root/bar$" "/run/systemd/transient/$UNIT.path"
 grep -qE "^ExecStart=.*true.*$" "/run/systemd/transient/$UNIT.service"
 systemctl stop "$UNIT.path" "$UNIT.service" || :
 
+UNIT="path-explicit-$RANDOM.path"
+SERVICE="${UNIT%.path}.service"
+systemd-run --remain-after-exit \
+            --unit="$UNIT" \
+            --path-property=PathExists=/tmp \
+            true
+systemctl cat "$UNIT" "$SERVICE"
+grep -q "^PathExists=/tmp$" "/run/systemd/transient/$UNIT"
+grep -qE "^ExecStart=.*true.*$" "/run/systemd/transient/$SERVICE"
+systemctl stop "$UNIT" "$SERVICE" || :
+
 : "Transient socket unit"
 UNIT="socket-0-$RANDOM"
 systemd-run --remain-after-exit \
@@ -205,6 +216,17 @@ grep -q "^SocketMode=0666$" "/run/systemd/transient/$UNIT.socket"
 grep -q "^SocketMode=0644$" "/run/systemd/transient/$UNIT.socket"
 grep -qE "^ExecStart=.*true.*$" "/run/systemd/transient/$UNIT.service"
 systemctl stop "$UNIT.socket" "$UNIT.service" || :
+
+UNIT="socket-explicit-$RANDOM.socket"
+SERVICE="${UNIT%.socket}.service"
+systemd-run --remain-after-exit \
+            --unit="$UNIT" \
+            --socket-property=ListenFIFO=/tmp/socket-explicit.fifo \
+            true
+systemctl cat "$UNIT" "$SERVICE"
+grep -q "^ListenFIFO=/tmp/socket-explicit.fifo$" "/run/systemd/transient/$UNIT"
+grep -qE "^ExecStart=.*true.*$" "/run/systemd/transient/$SERVICE"
+systemctl stop "$UNIT" "$SERVICE" || :
 
 UNIT="socket-no-block-$RANDOM"
 systemd-run --no-block --collect \
