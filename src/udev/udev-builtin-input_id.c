@@ -118,7 +118,7 @@ static void get_cap_mask(
 
                 val = bitmask_size / sizeof (unsigned long);
                 /* skip trailing zeros */
-                while (bitmask[val-1] == 0 && val > 0)
+                while (val > 0 && bitmask[val-1] == 0)
                         --val;
 
                 /* IN_SET() cannot be used in assert_cc(). */
