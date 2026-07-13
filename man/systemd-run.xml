@@ -603,7 +603,16 @@
       <xi:include href="standard-options.xml" xpointer="no-ask-password" />
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
-      <xi:include href="standard-options.xml" xpointer="json" />
+      <varlistentry id='json'>
+        <term><option>--json=<replaceable>MODE</replaceable></option></term>
+
+        <listitem><para>Shows output formatted as JSON. Expects one of <literal>short</literal> (for the
+        shortest possible output without any redundant whitespace or line breaks), <literal>pretty</literal>
+        (for a pretty version of the same, with indentation and line breaks) or <literal>off</literal> (to turn
+        off JSON output, the default). This option may not be combined with <option>--scope</option>,
+        <option>--pty</option>, <option>--pty-late</option>, <option>--pipe</option>,
+        <option>--verbose</option>, or path, socket, or timer options.</para></listitem>
+      </varlistentry>
 
       <varlistentry id='no-pager'>
         <term><option>--no-pager</option></term>
