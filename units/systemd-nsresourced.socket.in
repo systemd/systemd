@@ -22,6 +22,10 @@ FileDescriptorName=varlink
 SocketMode=0666
 XAttrEntryPoint=user.varlink=entrypoint
 XAttrListen=user.varlink=listen
+XAttrEntryPoint=user.userdb.uid={{DYNAMIC_UID_MIN}}-{{DYNAMIC_UID_MAX}},{{CONTAINER_UID_BASE_MIN}}-{{CONTAINER_UID_BASE_MAX+65535}}
+XAttrEntryPoint=user.userdb.gid={{DYNAMIC_UID_MIN}}-{{DYNAMIC_UID_MAX}},{{CONTAINER_UID_BASE_MIN}}-{{CONTAINER_UID_BASE_MAX+65535}}
+XAttrEntryPoint=user.userdb.username=ns-*
+XAttrEntryPoint=user.userdb.groupname=ns-*
 
 [Install]
 WantedBy=sockets.target
