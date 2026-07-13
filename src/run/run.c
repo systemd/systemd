@@ -701,6 +701,10 @@ static int parse_argv(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "--remain-after-exit and --service-type= are not supported in --scope mode.");
 
+        if (arg_scope && arg_ignore_failure)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--ignore-failure is not supported in --scope mode.");
+
         if (arg_scope && arg_no_block)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "--no-block is not supported in --scope mode.");
