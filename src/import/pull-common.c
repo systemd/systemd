@@ -1,15 +1,18 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <string.h>
 #include <unistd.h>
 
 #include "sd-id128.h"
 
 #include "alloc-util.h"
 #include "copy.h"
+#include "crypto-util.h"
 #include "dirent-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "hexdecoct.h"
+#include "import-util.h"
 #include "io-util.h"
 #include "iovec-util.h"
 #include "log.h"
@@ -240,11 +243,19 @@ static SignatureStyle signature_style_from_filename(const char *fn) {
         if (streq(fn, "SHA256SUMS.asc"))
                 return SIGNATURE_ASC_PER_DIRECTORY;
 
+        if (streq(fn, "SHA256SUMS.sig"))
+                return SIGNATURE_X509_PER_DIRECTORY;
+
+
         if (endswith(fn, ".sha256.gpg"))
                 return SIGNATURE_GPG_PER_FILE;
 
         if (endswith(fn, ".sha256.asc"))
                 return SIGNATURE_ASC_PER_FILE;
+
+        if (endswith(fn, ".sig"))
+                return SIGNATURE_X509_PER_FILE;
+
 
         return _SIGNATURE_STYLE_INVALID;
 }
@@ -308,7 +319,7 @@ int pull_make_verification_jobs(
                 checksum_job->on_not_found = pull_job_restart_with_sha256sum; /* if this fails, look for ubuntu-style checksum */
         }
 
-        if (verify == IMPORT_VERIFY_SIGNATURE && signature_style_from_filename(fn) < 0) {
+        if ((verify == IMPORT_VERIFY_SIGNATURE || verify == IMPORT_VERIFY_X509) && signature_style_from_filename(fn) < 0) {
                 _cleanup_free_ char *signature_url = NULL;
                 const char *suffixed = NULL;
 
@@ -400,6 +411,61 @@ static int verify_one(PullJob *checksum_job, PullJob *job) {
 
         log_info("SHA256 checksum of %s is valid.", job->url);
         return 1;
+}
+
+static int verify_x509(
+                const struct iovec *payload,
+                const struct iovec *signature,
+                const char *cert_path) {
+
+        int r;
+
+        assert(iovec_is_valid(signature));
+        assert(iovec_is_valid(payload));
+        assert(!isempty(cert_path));
+
+        _cleanup_(X509_freep) X509 *certificate = NULL;
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = NULL;
+        _cleanup_(EVP_MD_CTX_freep) EVP_MD_CTX *md_ctx = NULL;
+
+        r = openssl_load_x509_certificate(
+                OPENSSL_CERTIFICATE_SOURCE_FILE,
+                /* certificate_source= */NULL,
+                cert_path,
+                &certificate
+        );
+
+        if (r < 0)
+                return r;
+
+        pkey = sym_X509_get_pubkey(certificate);
+        if (!pkey) {
+                return log_openssl_errors(LOG_DEBUG, "Failed to get pubkey from cert.");
+        }
+
+
+        md_ctx = sym_EVP_MD_CTX_new();
+        if (!md_ctx)
+                return -ENOMEM;
+
+        if (sym_EVP_DigestVerifyInit(md_ctx, NULL, NULL, NULL, pkey) <= 0)
+                        return log_openssl_errors(LOG_DEBUG, "Failed to initialize signature verification.");
+
+        if (sym_EVP_DigestVerify(
+                        md_ctx,
+                        signature->iov_base,
+                        signature->iov_len,
+                        payload->iov_base,
+                        payload->iov_len) <= 0) {
+                r = log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                    "DOWNLOAD INVALID: Signature verification failed.");
+                r = 1;
+        } else {
+                log_info("Signature verification succeeded.");
+                r = 0;
+        }
+
+        return r;
 }
 
 static int verify_gpg(
@@ -550,6 +616,7 @@ finish:
 }
 
 int pull_verify(ImportVerify verify,
+                const char *cert_path,
                 PullJob *main_job,
                 PullJob *checksum_job,
                 PullJob *signature_job,
@@ -602,7 +669,7 @@ int pull_verify(ImportVerify verify,
                 verify_job = checksum_job;
         }
 
-        if (verify != IMPORT_VERIFY_SIGNATURE)
+        if (verify != IMPORT_VERIFY_SIGNATURE && verify != IMPORT_VERIFY_X509)
                 return 0;
 
         assert(verify_job);
@@ -612,6 +679,9 @@ int pull_verify(ImportVerify verify,
         if (!iovec_is_set(&signature_job->payload))
                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
                                        "Signature is empty, cannot verify.");
+
+        if (verify == IMPORT_VERIFY_X509)
+                return verify_x509(&verify_job->payload, &signature_job->payload, cert_path);
 
         return verify_gpg(&verify_job->payload, &signature_job->payload);
 }
@@ -713,38 +783,58 @@ int pull_job_restart_with_signature(PullJob *j, char **ret) {
 
         switch (style) {
 
-        case SIGNATURE_ASC_PER_DIRECTORY: /* Nothing to do anymore */
+        case SIGNATURE_X509_PER_DIRECTORY: /* Nothing to do anymore */
                 *ret = NULL;
                 return 0;
 
-        case SIGNATURE_ASC_PER_FILE: { /* Try .sha256.gpg next */
-                char *ext;
-
-                log_debug("Got 404 for '%s', now trying to get .sha256.gpg instead.", j->url);
-
-                ext = endswith(last, ".asc");
-                assert(ext);
-                strcpy(ext, ".gpg");
-
-                r = import_url_change_last_component(j->url, last, ret);
+        case SIGNATURE_ASC_PER_DIRECTORY: /* Try SHA256SUMS.sig next */
+                log_debug("Got 404 for '%s', now trying to get SHA256SUMS.sig instead.", j->url);
+                r = import_url_change_last_component(j->url, "SHA256SUMS.sig", ret);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to replace .sha256.asc suffix: %m");
+                        return log_error_errno(r, "Failed to replace SHA256SUMS.gpg suffix: %m");
                 break;
-        }
 
-        case SIGNATURE_GPG_PER_FILE: /* Try SHA256SUMS.gpg next */
+        case SIGNATURE_GPG_PER_DIRECTORY: /* Try SHA256SUMS.asc next */
+                log_debug("Got 404 for '%s', now trying to get SHA256SUMS.asc instead.", j->url);
+                r = import_url_change_last_component(j->url, "SHA256SUMS.asc", ret);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to replace SHA256SUMS.gpg suffix: %m");
+                break;
+
+        case SIGNATURE_X509_PER_FILE: /* Try SHA256SUMS.gpg next */
                 log_debug("Got 404 for '%s', now trying to get SHA256SUMS.gpg instead.", j->url);
                 r = import_url_change_last_component(j->url, "SHA256SUMS.gpg", ret);
                 if (r < 0)
                         return log_error_errno(r, "Failed to replace SHA256SUMS suffix: %m");
                 break;
 
-        case SIGNATURE_GPG_PER_DIRECTORY:
-                log_debug("Got 404 for '%s', now trying to get SHA256SUMS.asc instead.", j->url);
-                r = import_url_change_last_component(j->url, "SHA256SUMS.asc", ret);
+        case SIGNATURE_GPG_PER_FILE: /* Try .sig next */
+                log_debug("Got 404 for '%s', now trying to get .sig instead.", j->url);
+
+                char *ext;
+                ext = endswith(last, ".sha256.gpg");
+                assert(ext);
+                strcpy(ext, ".sig");
+
+                r = import_url_change_last_component(j->url, last, ret);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to replace SHA256SUMS.gpg suffix: %m");
+                        return log_error_errno(r, "Failed to replace .sha256.gpg suffix: %m");
                 break;
+
+
+        case SIGNATURE_ASC_PER_FILE: { /* Try .sha256.gpg next */
+                log_debug("Got 404 for '%s', now trying to get .sha256.gpg instead.", j->url);
+
+                char *_ext;
+                _ext = endswith(last, ".asc");
+                assert(_ext);
+                strcpy(_ext, ".gpg");
+
+                r = import_url_change_last_component(j->url, last, ret);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to replace .sha256.asc suffix: %m");
+                break;
+        }
 
         default:
                 assert_not_reached();
