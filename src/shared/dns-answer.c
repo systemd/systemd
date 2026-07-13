@@ -555,13 +555,27 @@ int dns_answer_remove_by_rr(DnsAnswer **a, DnsResourceRecord *rr) {
                 if (r < 0)
                         return r;
                 if (r > 0) {
-                        dns_answer_item_unref(ordered_set_remove((*a)->items, item));
                         found = true;
+                        break;
                 }
         }
 
         if (!found)
                 return 0;
+
+        if ((*a)->n_ref > 1) {
+                r = dns_answer_reserve_or_clone(a, 1);
+                if (r < 0)
+                        return r;
+        }
+
+        DNS_ANSWER_FOREACH_ITEM(item, *a) {
+                r = dns_resource_record_equal(item->rr, rr);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        dns_answer_item_unref(ordered_set_remove((*a)->items, item));
+        }
 
         if (dns_answer_isempty(*a))
                 *a = dns_answer_unref(*a); /* Return NULL for the empty answer */
