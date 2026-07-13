@@ -2296,3 +2296,13 @@ int proc_set_comm(const char *comm) {
 int proc_set_nnp(void) {
         return prctl_safe(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0);
 }
+
+nsec_t proc_get_timerslack(void) {
+        int r;
+
+        r = prctl_safe(PR_GET_TIMERSLACK, 0, 0, 0, 0);
+        if (r < 0)
+                return NSEC_INFINITY;
+
+        return r;
+}
