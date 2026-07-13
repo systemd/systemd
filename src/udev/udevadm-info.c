@@ -530,7 +530,7 @@ static int setup_matches(sd_device_enumerator *e) {
         STRV_FOREACH(a, arg_attr_match) {
                 _cleanup_free_ char *k = NULL, *v = NULL;
 
-                r = parse_key_value_argument(*a, /* require_value= */ true, &k, &v);
+                r = parse_key_value_argument(*a, /* require_value= */ false, &k, &v);
                 if (r < 0)
                         return r;
 
@@ -542,7 +542,7 @@ static int setup_matches(sd_device_enumerator *e) {
         STRV_FOREACH(a, arg_attr_nomatch) {
                 _cleanup_free_ char *k = NULL, *v = NULL;
 
-                r = parse_key_value_argument(*a, /* require_value= */ true, &k, &v);
+                r = parse_key_value_argument(*a, /* require_value= */ false, &k, &v);
                 if (r < 0)
                         return r;
 
