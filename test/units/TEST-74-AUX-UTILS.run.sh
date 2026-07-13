@@ -205,6 +205,13 @@ grep -q "^SocketMode=0644$" "/run/systemd/transient/$UNIT.socket"
 grep -qE "^ExecStart=.*true.*$" "/run/systemd/transient/$UNIT.service"
 systemctl stop "$UNIT.socket" "$UNIT.service" || :
 
+UNIT="socket-no-block-$RANDOM"
+systemd-run --no-block --collect \
+            --unit="$UNIT" \
+            --socket-property=ListenStream=/proc/systemd-run-repro/socket \
+            true
+systemctl stop "$UNIT.socket" "$UNIT.service" || :
+
 : "Job mode"
 systemd-run --job-mode=help
 (! systemd-run --job-mode=foo --scope true)
