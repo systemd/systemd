@@ -1326,12 +1326,19 @@ static EFI_STATUS boot_entry_bump_counters(BootEntry *entry) {
         old_path = xasprintf("%ls\\%ls", entry->directory, entry->current_name);
 
         err = root->Open(root, &handle, old_path, EFI_FILE_MODE_READ|EFI_FILE_MODE_WRITE, 0ULL);
+        if (EFI_STATUS_IS_WRITE_REFUSED(err))
+                goto read_only;
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Error opening boot entry '%ls': %m", old_path);
 
         err = get_file_info(handle, &file_info, &file_info_size);
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Error getting boot entry file info: %m");
+
+        /* If the boot entry file is marked read-only take this as a hint that the boot counter logic shall
+         * not be applied to it, and skip it. */
+        if (FLAGS_SET(file_info->Attribute, EFI_FILE_READ_ONLY))
+                goto read_only;
 
         /* And rename the file */
         strcpy16(file_info->FileName, entry->next_name);
@@ -1356,6 +1363,10 @@ static EFI_STATUS boot_entry_bump_counters(BootEntry *entry) {
                 entry->loader = TAKE_PTR(new_path);
         }
 
+        return EFI_SUCCESS;
+
+read_only:
+        log_debug("Boot entry '%ls' is read-only, skipping boot counter logic.", old_path);
         return EFI_SUCCESS;
 }
 
