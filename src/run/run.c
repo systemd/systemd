@@ -697,9 +697,9 @@ static int parse_argv(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Scope execution is not supported on remote systems.");
 
-        if (arg_scope && (arg_remain_after_exit || arg_service_type))
+        if (arg_scope && (arg_remain_after_exit || arg_service_type || arg_ignore_failure))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "--remain-after-exit and --service-type= are not supported in --scope mode.");
+                                       "--remain-after-exit, --service-type= and --ignore-failure are not supported in --scope mode.");
 
         if (arg_scope && arg_no_block)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),

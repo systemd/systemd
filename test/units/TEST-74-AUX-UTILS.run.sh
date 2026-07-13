@@ -115,6 +115,7 @@ systemd-run --scope \
             --property=RuntimeMaxSec=10 \
             --property=RuntimeMaxSec=infinity \
             true
+(! systemd-run --scope --ignore-failure false)
 
 : "Transient scope (user daemon)"
 # FIXME: https://github.com/systemd/systemd/issues/27883
