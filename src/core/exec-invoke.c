@@ -6479,11 +6479,13 @@ int exec_invoke(
                         }
                 }
 
-                if (context_has_no_new_privileges(context))
-                        if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) < 0) {
+                if (context_has_no_new_privileges(context)) {
+                        r = proc_set_nnp();
+                        if (r < 0) {
                                 *exit_status = EXIT_NO_NEW_PRIVILEGES;
-                                return log_error_errno(errno, "Failed to disable new privileges: %m");
+                                return log_error_errno(r, "Failed to disable new privileges: %m");
                         }
+                }
 
 #if HAVE_SECCOMP
                 r = apply_address_families(context, params);

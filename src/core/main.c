@@ -2739,9 +2739,10 @@ static int initialize_runtime(
                 }
 
                 if (arg_no_new_privs) {
-                        if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) < 0) {
+                        r = proc_set_nnp();
+                        if (r < 0) {
                                 *ret_error_message = "Failed to disable new privileges";
-                                return log_struct_errno(LOG_EMERG, errno,
+                                return log_struct_errno(LOG_EMERG, r,
                                                         LOG_MESSAGE("Failed to disable new privileges: %m"),
                                                         LOG_MESSAGE_ID(SD_MESSAGE_CORE_DISABLE_PRIVILEGES_STR));
                         }
