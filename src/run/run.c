@@ -727,6 +727,10 @@ static int parse_argv(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "--pty-late is not compatible with --service-type=oneshot.");
 
+        if (sd_json_format_enabled(arg_json_format_flags) && arg_stdio != ARG_STDIO_NONE)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--json= is not compatible with --pty/--pty-late/--pipe.");
+
         if (arg_scope && with_trigger)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Path, socket or timer options are not supported in --scope mode.");
