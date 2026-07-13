@@ -8,6 +8,7 @@
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "devnum-util.h"
+#include "dlopen-note.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "format-util.h"
@@ -326,6 +327,9 @@ static int do_tmpfs_quota(UserRecord *ur) {
 
 static int run(int argc, char *argv[]) {
         int r;
+
+        LIBMOUNT_NOTE(recommended);
+        LIBSELINUX_NOTE(recommended);
 
         log_setup();
 

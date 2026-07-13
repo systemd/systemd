@@ -412,11 +412,11 @@ int dnstls_manager_init(Manager *manager) {
         if (manager->dnstls_data.ctx)
                 return 0;
 
-        r = DLOPEN_LIBCRYPTO(LOG_WARNING, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
+        r = DLOPEN_LIBCRYPTO(LOG_WARNING, recommended);
         if (r < 0)
                 return r;
 
-        r = DLOPEN_LIBSSL(LOG_WARNING, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
+        r = DLOPEN_LIBSSL(LOG_WARNING, recommended);
         if (r < 0)
                 return r;
 

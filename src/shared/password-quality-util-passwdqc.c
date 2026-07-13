@@ -1,9 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "password-quality-util-passwdqc.h"
-
 #include "errno-util.h"          /* IWYU pragma: keep */
 #include "log.h"                 /* IWYU pragma: keep */
+#include "password-quality-util-passwdqc.h"
 
 #if HAVE_PASSWDQC
 #ifndef SYSTEMD_CFLAGS_MARKER_LIBPWQUALITY
@@ -11,8 +10,6 @@
 #endif
 
 #include <passwdqc.h>
-
-#include "sd-dlopen.h"
 
 #include "alloc-util.h"
 #include "dlfcn-util.h"
@@ -143,11 +140,7 @@ int dlopen_passwdqc(int log_level) {
 #if HAVE_PASSWDQC
         static void *passwdqc_dl = NULL;
 
-        SD_ELF_NOTE_DLOPEN(
-                        "passwdqc",
-                        "Support for password quality checks",
-                        SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
-                        "libpasswdqc.so.1");
+        LIBPASSWDQC_NOTE(suggested);
 
         return dlopen_many_sym_or_warn(
                         &passwdqc_dl, "libpasswdqc.so.1", log_level,

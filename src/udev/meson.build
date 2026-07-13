@@ -106,17 +106,6 @@ generated_sources += link_config_gperf_c
 
 ############################################################
 
-if get_option('link-udev-shared')
-        udev_link_with = [libshared]
-        udev_rpath = pkglibdir
-else
-        udev_link_with = [libshared_static,
-                          libsystemd_static]
-        udev_rpath = ''
-endif
-
-############################################################
-
 udev_dependencies = [
         libacl_cflags,
         libblkid_cflags,
@@ -128,8 +117,7 @@ udev_dependencies = [
 
 udev_plugin_template = executable_template + {
         'public' : true,
-        'link_with' : udev_link_with,
-        'install_rpath' : udev_rpath,
+        'install' : get_option('link-udev-shared') ? 'yes' : 'static',
         'install_dir' : udevlibexecdir,
         'install_tag' : 'udev',
 }
@@ -156,8 +144,7 @@ udev_binaries_dict = [
                         libexec_template['include_directories'],
                 ],
                 'dependencies' : udev_dependencies,
-                'link_with' : udev_link_with,
-                'install_rpath' : udev_rpath,
+                'install' : get_option('link-udev-shared') ? 'yes' : 'static',
                 'install_tag' : 'udev',
         },
         udev_plugin_template + {

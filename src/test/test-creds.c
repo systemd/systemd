@@ -222,10 +222,42 @@ TEST(credential_encrypt_decrypt) {
                 test_encrypt_decrypt_with(CRED_AES256_GCM_BY_TPM2_HMAC, UID_INVALID);
                 test_encrypt_decrypt_with(CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC, UID_INVALID);
                 test_encrypt_decrypt_with(CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED, 0);
+                test_encrypt_decrypt_with(CRED_AES256_GCM_BY_TPM2_HMAC_PINNED_SRK, UID_INVALID);
+                test_encrypt_decrypt_with(CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_PINNED_SRK, UID_INVALID);
+                test_encrypt_decrypt_with(CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED_PINNED_SRK, 0);
         }
 
         if (ec)
                 ASSERT_OK_ERRNO(setenv("SYSTEMD_CREDENTIAL_SECRET", ec, true));
+}
+
+TEST(credential_boot_policy) {
+
+        /* String table round-trip */
+        for (CredentialBootPolicy p = 0; p < _CRED_BOOT_POLICY_MAX; p++) {
+                const char *s = credential_boot_policy_to_string(p);
+                ASSERT_NOT_NULL(s);
+                ASSERT_EQ(credential_boot_policy_from_string(s), p);
+        }
+        ASSERT_STREQ(credential_boot_policy_to_string(CRED_BOOT_TOFU), "tofu");
+        ASSERT_TRUE(credential_boot_policy_from_string("bogus") < 0);
+
+        /* Exhaustively check the accept decision against every (first_boot, have_tpm2, secure_boot) state */
+        for (int first_boot = 0; first_boot < 2; first_boot++)
+                for (int have_tpm2 = 0; have_tpm2 < 2; have_tpm2++)
+                        for (int secure_boot = 0; secure_boot < 2; secure_boot++) {
+                                /* strict never accepts a null key, off always does */
+                                ASSERT_FALSE(credential_boot_policy_accepts_null(CRED_BOOT_STRICT, first_boot, have_tpm2, secure_boot));
+                                ASSERT_TRUE(credential_boot_policy_accepts_null(CRED_BOOT_OFF, first_boot, have_tpm2, secure_boot));
+
+                                /* tofu accepts when first boot, or no TPM2 */
+                                ASSERT_EQ(credential_boot_policy_accepts_null(CRED_BOOT_TOFU, first_boot, have_tpm2, secure_boot),
+                                          first_boot || !have_tpm2);
+
+                                /* relaxed accepts when SecureBoot off, or no TPM2 */
+                                ASSERT_EQ(credential_boot_policy_accepts_null(CRED_BOOT_RELAXED, first_boot, have_tpm2, secure_boot),
+                                          !secure_boot || !have_tpm2);
+                        }
 }
 
 TEST(mime_type_matches) {
@@ -239,6 +271,12 @@ TEST(mime_type_matches) {
                 CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED,
                 CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK,
                 CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_SCOPED,
+                CRED_AES256_GCM_BY_TPM2_HMAC_PINNED_SRK,
+                CRED_AES256_GCM_BY_TPM2_HMAC_WITH_PK_PINNED_SRK,
+                CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_PINNED_SRK,
+                CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED_PINNED_SRK,
+                CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_PINNED_SRK,
+                CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_SCOPED_PINNED_SRK,
                 CRED_AES256_GCM_BY_NULL,
         };
 

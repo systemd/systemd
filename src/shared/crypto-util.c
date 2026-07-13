@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "sd-dlopen.h"
-
 #include "alloc-util.h"
 #include "ask-password-api.h"
 #include "crypto-util.h"
@@ -348,7 +346,7 @@ int dlopen_libcrypto(int log_level) {
         static void *libcrypto_dl = NULL;
         int r;
 
-        LIBCRYPTO_NOTE(SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED);
+        LIBCRYPTO_NOTE(suggested);
 
         FOREACH_STRING(soname, "libcrypto.so.4", "libcrypto.so.3") {
                 r = dlopen_many_sym_or_warn(

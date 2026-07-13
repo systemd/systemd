@@ -4,8 +4,6 @@
 #include <linux/netlink.h>
 #include <sys/socket.h>
 
-#include "sd-dlopen.h"
-
 #include "errno-util.h"
 #include "fd-util.h"
 #include "iovec-util.h"
@@ -25,11 +23,7 @@ int dlopen_libaudit(int log_level) {
 #if HAVE_AUDIT
         static void *libaudit_dl = NULL;
 
-        SD_ELF_NOTE_DLOPEN(
-                        "audit",
-                        "Support for Audit logging",
-                        SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED,
-                        "libaudit.so.1");
+        LIBAUDIT_NOTE(recommended);
 
         return dlopen_many_sym_or_warn(
                         &libaudit_dl,

@@ -22,20 +22,13 @@ timesyncd_gperf_c = custom_target(
 generated_sources += timesyncd_gperf_c
 timesyncd_export_sources += timesyncd_gperf_c
 
-if get_option('link-timesyncd-shared')
-        timesyncd_link_with = [libshared]
-else
-        timesyncd_link_with = [libsystemd_static,
-                               libshared_static]
-endif
-
 executables += [
         libexec_template + {
                 'name' : 'systemd-timesyncd',
                 'sources' : timesyncd_sources,
                 'export' : timesyncd_export_sources,
-                'link_with' : timesyncd_link_with,
                 'dependencies' : libm,
+                'install' : get_option('link-timesyncd-shared') ? 'yes' : 'static',
         },
         libexec_template + {
                 'name' : 'systemd-time-wait-sync',

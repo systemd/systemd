@@ -8,6 +8,7 @@
 #include "ask-password-api.h"
 #include "build.h"
 #include "crypto-util.h"
+#include "dlopen-note.h"
 #include "efi-loader.h"
 #include "efivars.h"
 #include "fd-util.h"
@@ -178,7 +179,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                             "Select TPM bank (SHA1, SHA256, SHA384, SHA512)"): {
                         const EVP_MD *implementation;
 
-                        r = DLOPEN_LIBCRYPTO(LOG_ERR, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED);
+                        r = DLOPEN_LIBCRYPTO(LOG_ERR, required);
                         if (r < 0)
                                 return r;
 
@@ -1130,6 +1131,8 @@ static int verb_policy_digest(int argc, char *argv[], uintptr_t _data, void *use
 static int run(int argc, char *argv[]) {
         int r;
 
+        TPM2_NOTE(suggested);
+
         log_setup();
 
         char **args = NULL;
@@ -1137,7 +1140,7 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        r = DLOPEN_LIBCRYPTO(LOG_ERR, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED);
+        r = DLOPEN_LIBCRYPTO(LOG_ERR, required);
         if (r < 0)
                 return r;
 

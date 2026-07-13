@@ -6,8 +6,7 @@ executables += [
                 'public' : true,
                 'conditions' : ['ENABLE_HWDB'],
                 'sources' : files('hwdb.c'),
-                'link_with' : udev_link_with,
-                'install_rpath' : udev_rpath,
+                'install' : get_option('link-udev-shared') ? 'yes' : 'static',
                 'install_tag' : 'hwdb',
         },
 ]

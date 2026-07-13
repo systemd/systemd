@@ -320,7 +320,7 @@ int link_load_one(LinkConfigContext *ctx, const char *filename) {
                 return 0;
         }
 
-        if (!condition_test_list(config->conditions, environ, NULL, NULL, NULL)) {
+        if (!condition_test_list_net(config->conditions, environ, NULL, NULL, NULL)) {
                 log_debug("%s: Conditions do not match the system environment, skipping.", filename);
                 return 0;
         }

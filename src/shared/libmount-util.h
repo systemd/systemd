@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-dlopen.h"
-
+#include "dlopen-note.h"
 #include "shared-forward.h"
 
 #if HAVE_LIBMOUNT
@@ -78,28 +77,21 @@ int libmount_is_leaf(
                 struct libmnt_table *table,
                 struct libmnt_fs *fs);
 
-#define LIBMOUNT_NOTE(priority)                                         \
-        SD_ELF_NOTE_DLOPEN("mount",                                     \
-                           "Support for mount enumeration",             \
-                           priority,                                    \
-                           "libmount.so.1")
-
-#define DLOPEN_LIBMOUNT(log_level, priority)                            \
-        ({                                                              \
-                LIBMOUNT_NOTE(priority);                                \
-                dlopen_libmount(log_level);                             \
-        })
 #else
 
 struct libmnt_monitor;
-
 
 static inline void* sym_mnt_unref_monitor(struct libmnt_monitor *p) {
         assert(p == NULL);
         return NULL;
 }
 
-#define DLOPEN_LIBMOUNT(log_level, priority) dlopen_libmount(log_level)
 #endif
 
-int dlopen_libmount(int log_level);
+int dlopen_libmount(int log_level) _dlopen_loader_;
+
+#define DLOPEN_LIBMOUNT(log_level, priority)                            \
+        ({                                                              \
+                LIBMOUNT_NOTE(priority);                                \
+                dlopen_libmount(log_level);                             \
+        })

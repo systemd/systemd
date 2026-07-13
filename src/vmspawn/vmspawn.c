@@ -29,6 +29,7 @@
 #include "copy.h"
 #include "discover-image.h"
 #include "dissect-image.h"
+#include "dlopen-note.h"
 #include "escape.h"
 #include "ether-addr-util.h"
 #include "event-util.h"
@@ -4285,6 +4286,9 @@ static int verify_arguments(void) {
 static int run(int argc, char *argv[]) {
         int r, kvm_device_fd = -EBADF, vhost_device_fd = -EBADF;
         _cleanup_strv_free_ char **names = NULL;
+
+        LIBBLKID_NOTE(recommended);
+        LIBSELINUX_NOTE(recommended);
 
         log_setup();
 

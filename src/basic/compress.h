@@ -2,6 +2,7 @@
 #pragma once
 
 #include "basic-forward.h"
+#include "dlopen-note.h"
 
 typedef enum Compression {
         COMPRESSION_NONE,
@@ -26,6 +27,7 @@ Compression compression_from_string_harder(const char *s);
  * filename does not carry a recognized compression suffix. */
 Compression compression_from_filename(const char *filename);
 
+bool compression_supported_journal(Compression c);
 bool compression_supported(Compression c);
 
 /* Buffer size used by streaming compression APIs and pipeline stages that feed into them. Sized to
@@ -58,9 +60,17 @@ Compression compressor_type(const Compressor *c);
 
 /* Blob compression/decompression */
 
+int compress_blob_journal(
+                Compression compression,
+                const void *src, uint64_t src_size,
+                void *dst, size_t dst_alloc_size, size_t *dst_size, int level);
 int compress_blob(Compression compression,
                   const void *src, uint64_t src_size,
                   void *dst, size_t dst_alloc_size, size_t *dst_size, int level);
+int decompress_blob_journal(
+                Compression compression,
+                const void *src, uint64_t src_size,
+                void **dst, size_t *dst_size, size_t dst_max);
 int decompress_blob(Compression compression,
                     const void *src, uint64_t src_size,
                     void **dst, size_t *dst_size, size_t dst_max);
@@ -68,6 +78,12 @@ int decompress_blob(Compression compression,
 int decompress_zlib_raw(const void *src, uint64_t src_size,
                         void *dst, size_t dst_size, int wbits);
 
+int decompress_startswith_journal(
+                Compression compression,
+                const void *src, uint64_t src_size,
+                void **buffer,
+                const void *prefix, size_t prefix_len,
+                uint8_t extra);
 int decompress_startswith(Compression compression,
                           const void *src, uint64_t src_size,
                           void **buffer,
@@ -80,11 +96,11 @@ int compress_stream(Compression type, int fdf, int fdt, uint64_t max_bytes, uint
 int decompress_stream(Compression type, int fdf, int fdt, uint64_t max_bytes);
 int decompress_stream_by_filename(const char *filename, int fdf, int fdt, uint64_t max_bytes);
 
-int dlopen_xz(int log_level);
-int dlopen_lz4(int log_level);
-int dlopen_zstd(int log_level);
-int dlopen_zlib(int log_level);
-int dlopen_bzip2(int log_level);
+int dlopen_xz(int log_level) _dlopen_loader_;
+int dlopen_lz4(int log_level) _dlopen_loader_;
+int dlopen_zstd(int log_level) _dlopen_loader_;
+int dlopen_zlib(int log_level) _dlopen_loader_;
+int dlopen_bzip2(int log_level) _dlopen_loader_;
 
 static inline const char* default_compression_extension(void) {
         return compression_extension_to_string(DEFAULT_COMPRESSION) ?: "";

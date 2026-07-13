@@ -12,6 +12,7 @@
 #include "bus-util.h"
 #include "creds-util.h"
 #include "dirent-util.h"
+#include "dlopen-note.h"
 #include "errno-util.h"
 #include "escape.h"
 #include "fileio.h"
@@ -124,12 +125,12 @@ static sd_id128_t cred_key_id[_CRED_KEY_TYPE_MAX] = {
         [CRED_KEY_TYPE_AUTO]             = _CRED_AUTO,
         [CRED_KEY_TYPE_AUTO_INITRD]      = _CRED_AUTO_INITRD,
         [CRED_KEY_TYPE_HOST]             = CRED_AES256_GCM_BY_HOST,
-        [CRED_KEY_TYPE_TPM2]             = CRED_AES256_GCM_BY_TPM2_HMAC,
-        [CRED_KEY_TYPE_TPM2_PUBLIC]      = CRED_AES256_GCM_BY_TPM2_HMAC_WITH_PK,
-        [CRED_KEY_TYPE_HOST_TPM2]        = CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC,
-        [CRED_KEY_TYPE_TPM2_HOST]        = CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC,
-        [CRED_KEY_TYPE_HOST_TPM2_PUBLIC] = CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK,
-        [CRED_KEY_TYPE_TPM2_PUBLIC_HOST] = CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK,
+        [CRED_KEY_TYPE_TPM2]             = CRED_AES256_GCM_BY_TPM2_HMAC_PINNED_SRK,
+        [CRED_KEY_TYPE_TPM2_PUBLIC]      = CRED_AES256_GCM_BY_TPM2_HMAC_WITH_PK_PINNED_SRK,
+        [CRED_KEY_TYPE_HOST_TPM2]        = CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_PINNED_SRK,
+        [CRED_KEY_TYPE_TPM2_HOST]        = CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_PINNED_SRK,
+        [CRED_KEY_TYPE_HOST_TPM2_PUBLIC] = CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_PINNED_SRK,
+        [CRED_KEY_TYPE_TPM2_PUBLIC_HOST] = CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_PINNED_SRK,
         [CRED_KEY_TYPE_NULL]             = CRED_AES256_GCM_BY_NULL,
         [CRED_KEY_TYPE_TPM2_ABSENT]      = CRED_AES256_GCM_BY_NULL,
 };
@@ -188,7 +189,7 @@ static int is_tmpfs_with_noswap(dev_t devno) {
         _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
         int r;
 
-        r = DLOPEN_LIBMOUNT(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
+        r = DLOPEN_LIBMOUNT(LOG_DEBUG, recommended);
         if (r < 0)
                 return r;
 
@@ -601,7 +602,7 @@ static int verb_encrypt(int argc, char *argv[], uintptr_t _data, void *userdata)
         if (arg_not_after != USEC_INFINITY && arg_not_after < timestamp)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Credential is invalidated before it is valid.");
 
-        if (geteuid() != 0) {
+        if (geteuid() != 0 && !sd_id128_equal(arg_with_key, CRED_AES256_GCM_BY_NULL)) {
                 (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
 
                 r = ipc_encrypt_credential(
@@ -1036,6 +1037,10 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         arg_with_key = CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED;
                 else if (sd_id128_in_set(arg_with_key, CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK, CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_SCOPED))
                         arg_with_key = CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_SCOPED;
+                else if (sd_id128_in_set(arg_with_key, CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_PINNED_SRK, CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED_PINNED_SRK))
+                        arg_with_key = CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED_PINNED_SRK;
+                else if (sd_id128_in_set(arg_with_key, CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_PINNED_SRK, CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_SCOPED_PINNED_SRK))
+                        arg_with_key = CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_SCOPED_PINNED_SRK;
                 else
                         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Selected key not available in --uid= scoped mode, refusing.");
         }
@@ -1466,6 +1471,9 @@ static int vl_server(void) {
 
 static int run(int argc, char *argv[]) {
         int r;
+
+        LIBCRYPTO_NOTE(suggested);
+        TPM2_NOTE(suggested);
 
         log_setup();
 

@@ -3,6 +3,7 @@
 #include <stdio.h>
 
 #include "argv-util.h"
+#include "dlopen-note.h"
 #include "format-table.h"
 #include "help-util.h"
 #include "label-util.h"
@@ -100,6 +101,8 @@ int print_version(void) {
 static int run(int argc, char *argv[]) {
         char **args = NULL;
         int r;
+
+        LIBSELINUX_NOTE(recommended);
 
         if (invoked_as(argv, "udevd"))
                 return run_udevd(argc, argv);

@@ -56,7 +56,6 @@
  * /bin/mount regarding NFS and FUSE required?
  * what does terminal=false mean?
  * sysctl inside or outside? allow-listing?
- * swapiness typo -> swappiness
  *
  * Unsupported:
  *
@@ -1124,7 +1123,8 @@ static int oci_cgroup_memory(const char *name, sd_json_variant *v, sd_json_dispa
                 { "swap",             SD_JSON_VARIANT_NUMBER,  oci_cgroup_memory_limit, offsetof(struct memory_data, swap),        0                  },
                 { "kernel",           SD_JSON_VARIANT_NUMBER,  oci_unsupported,         0,                                         SD_JSON_PERMISSIVE },
                 { "kernelTCP",        SD_JSON_VARIANT_NUMBER,  oci_unsupported,         0,                                         SD_JSON_PERMISSIVE },
-                { "swapiness",        SD_JSON_VARIANT_NUMBER,  oci_unsupported,         0,                                         SD_JSON_PERMISSIVE },
+                { "swapiness",        SD_JSON_VARIANT_NUMBER,  oci_unsupported,         0,                                         SD_JSON_PERMISSIVE }, /* compat name, misspelt */
+                { "swappiness",       SD_JSON_VARIANT_NUMBER,  oci_unsupported,         0,                                         SD_JSON_PERMISSIVE }, /* spec-correct name */
                 { "disableOOMKiller", SD_JSON_VARIANT_BOOLEAN, oci_unsupported,         0,                                         SD_JSON_PERMISSIVE },
                 {}
         };
@@ -1826,7 +1826,7 @@ static int oci_seccomp(const char *name, sd_json_variant *v, sd_json_dispatch_fl
         if (r < 0)
                 return json_log(def, flags, r, "Unknown default action: %s", sd_json_variant_string(def));
 
-        r = DLOPEN_LIBSECCOMP(LOG_DEBUG, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
+        r = DLOPEN_LIBSECCOMP(LOG_DEBUG, recommended);
         if (r < 0)
                 return json_log(def, flags, r, "No support for libseccomp: %m");
 

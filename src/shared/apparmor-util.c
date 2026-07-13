@@ -7,8 +7,6 @@
 
 #include <syslog.h>
 
-#include "sd-dlopen.h"
-
 #include "fileio.h"
 
 DLSYM_PROTOTYPE(aa_change_onexec) = NULL;
@@ -48,11 +46,7 @@ int dlopen_libapparmor(int log_level) {
 #if HAVE_APPARMOR
         static void *libapparmor_dl = NULL;
 
-        SD_ELF_NOTE_DLOPEN(
-                        "apparmor",
-                        "Support for AppArmor policies",
-                        SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED,
-                        "libapparmor.so.1");
+        LIBAPPARMOR_NOTE(recommended);
 
         return dlopen_many_sym_or_warn(
                         &libapparmor_dl,

@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "sd-dlopen.h"
-
 #include "gnutls-util.h"
 #include "log.h"                /* IWYU pragma: keep */
 
@@ -23,11 +21,7 @@ int dlopen_gnutls(int log_level) {
 #if HAVE_GNUTLS
         static void *gnutls_dl = NULL;
 
-        SD_ELF_NOTE_DLOPEN(
-                        "gnutls",
-                        "Support for TLS via GnuTLS",
-                        SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
-                        "libgnutls.so.30");
+        LIBGNUTLS_NOTE(suggested);
 
         return dlopen_many_sym_or_warn(
                         &gnutls_dl,

@@ -8,6 +8,7 @@
 #include "alloc-util.h"
 #include "argv-util.h"
 #include "cryptsetup-util.h"
+#include "dlopen-note.h"
 #include "extract-word.h"
 #include "fileio.h"
 #include "format-table.h"
@@ -493,7 +494,9 @@ static int run(int argc, char *argv[]) {
 
         log_setup();
 
-        r = DLOPEN_CRYPTSETUP(LOG_ERR, SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED);
+        LIBCRYPTO_NOTE(suggested);
+
+        r = DLOPEN_CRYPTSETUP(LOG_ERR, required);
         if (r < 0)
                 return r;
 

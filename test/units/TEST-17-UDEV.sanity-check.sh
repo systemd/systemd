@@ -55,6 +55,7 @@ udevadm control -l notice
 udevadm control --log-level info
 udevadm control --log-level debug
 (! udevadm control -l hello)
+(! udevadm control -m 2147483648)
 
 # Check if processing queued events has been stopped.
 udevadm control --stop-exec-queue
@@ -177,6 +178,8 @@ udevadm test -h
 
 # Builtins
 (! udevadm test-builtin aaaaa /dev/null)
+(! udevadm test-builtin k /dev/null)
+(! udevadm test-builtin key /dev/null)
 udevadm test-builtin blkid "$loopdev"
 (! udevadm test-builtin "btrfs" "$loopdev")
 (! udevadm test-builtin "btrfs aaaaa" "$loopdev")

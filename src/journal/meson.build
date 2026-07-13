@@ -68,15 +68,6 @@ journalctl_sources = files(
         'journalctl-varlink-server.c',
 )
 
-if get_option('link-journalctl-shared')
-        journalctl_link_with = [libshared]
-else
-        journalctl_link_with = [
-                libshared_static,
-                libsystemd_static,
-        ]
-endif
-
 journal_test_template = test_template + {
         'import' : ['systemd-journald'],
 }
@@ -123,7 +114,6 @@ executables += [
                 'name' : 'journalctl',
                 'public' : true,
                 'sources' : journalctl_sources,
-                'link_with' : journalctl_link_with,
                 'dependencies' : [
                         liblz4_cflags,
                         libopenssl_cflags,
@@ -131,6 +121,7 @@ executables += [
                         libxz_cflags,
                         libzstd_cflags,
                 ],
+                'install' : get_option('link-journalctl-shared') ? 'yes' : 'static',
         },
         journal_test_template + {
                 'sources' : files('test-audit-type.c'),

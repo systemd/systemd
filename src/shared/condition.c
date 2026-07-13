@@ -516,26 +516,32 @@ static int condition_test_virtualization(Condition *c, char **env) {
         return v != VIRTUALIZATION_NONE && streq(c->parameter, virtualization_to_string(v));
 }
 
-static int condition_test_architecture(Condition *c, char **env) {
+static int condition_test_architecture_parameter(const char *parameter) {
         Architecture a, b;
 
-        assert(c);
-        assert(c->parameter);
-        assert(c->type == CONDITION_ARCHITECTURE);
+        assert(parameter);
 
         a = uname_architecture();
         if (a < 0)
                 return a;
 
-        if (streq(c->parameter, "native"))
+        if (streq(parameter, "native"))
                 b = native_architecture();
         else {
-                b = architecture_from_string(c->parameter);
+                b = architecture_from_string(parameter);
                 if (b < 0) /* unknown architecture? Then it's definitely not ours */
                         return false;
         }
 
         return a == b;
+}
+
+static int condition_test_architecture(Condition *c, char **env) {
+        assert(c);
+        assert(c->parameter);
+        assert(c->type == CONDITION_ARCHITECTURE);
+
+        return condition_test_architecture_parameter(c->parameter);
 }
 
 #define DTCOMPAT_FILE "/proc/device-tree/compatible"
@@ -960,28 +966,6 @@ static int condition_test_needs_update(Condition *c, char **env) {
         return timespec_load_nsec(&usr.st_mtim) > timestamp;
 }
 
-static bool in_first_boot(void) {
-        static int first_boot = -1;
-        int r;
-
-        if (first_boot >= 0)
-                return first_boot;
-
-        const char *e = secure_getenv("SYSTEMD_FIRST_BOOT");
-        if (e) {
-                r = parse_boolean(e);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to parse $SYSTEMD_FIRST_BOOT, ignoring: %m");
-                else
-                        return (first_boot = r);
-        }
-
-        r = RET_NERRNO(access("/run/systemd/first-boot", F_OK));
-        if (r < 0 && r != -ENOENT)
-                log_debug_errno(r, "Failed to check if /run/systemd/first-boot exists, assuming no: %m");
-        return r >= 0;
-}
-
 static int condition_test_first_boot(Condition *c, char **env) {
         int r;
 
@@ -996,7 +980,7 @@ static int condition_test_first_boot(Condition *c, char **env) {
         if (r < 0)
                 return r;
 
-        return in_first_boot() == r;
+        return (in_first_boot() > 0) == r;
 }
 
 static int condition_test_environment(Condition *c, char **env) {
@@ -1080,11 +1064,26 @@ static int condition_test_path_is_read_write(Condition *c, char **env) {
 }
 
 static int condition_test_cpufeature(Condition *c, char **env) {
+        _cleanup_free_ char *cpu_arch = NULL, *feature = NULL;
+        int r;
+
         assert(c);
         assert(c->parameter);
         assert(c->type == CONDITION_CPU_FEATURE);
 
-        return has_cpu_with_flag(ascii_strlower(c->parameter));
+        r = split_pair(c->parameter, ".", &cpu_arch, &feature);
+        if (r >= 0) {
+                r = condition_test_architecture_parameter(cpu_arch);
+                if (r <= 0)
+                        return r;
+        } else if (r == -EINVAL) {
+                feature = strdup(c->parameter);
+                if (!feature)
+                        return -ENOMEM;
+        } else
+                return r;
+
+        return has_cpu_with_flag(ascii_strlower(feature));
 }
 
 static int condition_test_path_is_encrypted(Condition *c, char **env) {
@@ -1340,9 +1339,45 @@ static int condition_test_kernel_module_loaded(Condition *c, char **env) {
         return true;
 }
 
-int condition_test(Condition *c, char **env) {
+typedef int (*condition_test_func_t)(Condition *c, char **env);
 
-        static int (*const condition_tests[_CONDITION_TYPE_MAX])(Condition *c, char **env) = {
+static int condition_test_impl(Condition *c, char **env, const condition_test_func_t table[]) {
+        int r, b;
+
+        assert(c);
+        assert(c->type >= 0);
+        assert(c->type < _CONDITION_TYPE_MAX);
+        assert(table);
+        assert(table[c->type]);
+
+        r = table[c->type](c, env);
+        if (r < 0) {
+                c->result = CONDITION_ERROR;
+                return r;
+        }
+
+        b = (r > 0) == !c->negate;
+        c->result = b ? CONDITION_SUCCEEDED : CONDITION_FAILED;
+        return b;
+}
+
+static int condition_test_net(Condition *c, char **env) {
+        static const condition_test_func_t table_net[_CONDITION_TYPE_MAX] = {
+                [CONDITION_KERNEL_COMMAND_LINE]      = condition_test_kernel_command_line,
+                [CONDITION_VERSION]                  = condition_test_version,
+                [CONDITION_CREDENTIAL]               = condition_test_credential,
+                [CONDITION_VIRTUALIZATION]           = condition_test_virtualization,
+                [CONDITION_HOST]                     = condition_test_host,
+                [CONDITION_ARCHITECTURE]             = condition_test_architecture,
+                [CONDITION_FIRMWARE]                 = condition_test_firmware,
+                [CONDITION_MACHINE_TAG]              = condition_test_machine_tag,
+        };
+
+        return condition_test_impl(c, env, table_net);
+}
+
+int condition_test(Condition *c, char **env) {
+        static const condition_test_func_t table[_CONDITION_TYPE_MAX] = {
                 [CONDITION_PATH_EXISTS]              = condition_test_path_exists,
                 [CONDITION_PATH_EXISTS_GLOB]         = condition_test_path_exists_glob,
                 [CONDITION_PATH_IS_DIRECTORY]        = condition_test_path_is_directory,
@@ -1382,28 +1417,15 @@ int condition_test(Condition *c, char **env) {
                 [CONDITION_KERNEL_MODULE_LOADED]     = condition_test_kernel_module_loaded,
         };
 
-        int r, b;
-
-        assert(c);
-        assert(c->type >= 0);
-        assert(c->type < _CONDITION_TYPE_MAX);
-
-        r = condition_tests[c->type](c, env);
-        if (r < 0) {
-                c->result = CONDITION_ERROR;
-                return r;
-        }
-
-        b = (r > 0) == !c->negate;
-        c->result = b ? CONDITION_SUCCEEDED : CONDITION_FAILED;
-        return b;
+        return condition_test_impl(c, env, table);
 }
 
-bool condition_test_list(
+static bool condition_test_list_impl(
                 Condition *first,
                 char **env,
                 condition_to_string_t to_string,
                 condition_test_logger_t logger,
+                condition_test_func_t tester,
                 void *userdata) {
 
         int triggered = -1;
@@ -1418,7 +1440,7 @@ bool condition_test_list(
         LIST_FOREACH(conditions, c, first) {
                 int r;
 
-                r = condition_test(c, env);
+                r = tester(c, env);
 
                 if (logger) {
                         if (r < 0)
@@ -1446,6 +1468,26 @@ bool condition_test_list(
         }
 
         return triggered != 0;
+}
+
+bool condition_test_list_net(
+                Condition *first,
+                char **env,
+                condition_to_string_t to_string,
+                condition_test_logger_t logger,
+                void *userdata) {
+
+        return condition_test_list_impl(first, env, to_string, logger, condition_test_net, userdata);
+}
+
+bool condition_test_list(
+                Condition *first,
+                char **env,
+                condition_to_string_t to_string,
+                condition_test_logger_t logger,
+                void *userdata) {
+
+        return condition_test_list_impl(first, env, to_string, logger, condition_test, userdata);
 }
 
 void condition_dump(Condition *c, FILE *f, const char *prefix, condition_to_string_t to_string) {

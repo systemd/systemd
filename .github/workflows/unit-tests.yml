@@ -99,3 +99,6 @@ jobs:
 
       - name: Test
         run: mkosi box -- meson test -C build --print-errorlogs --no-stdsplit --quiet
+
+      - name: Test (dlopen)
+        run: mkosi box -- meson test -C build --print-errorlogs --no-stdsplit --quiet --suite=dlopen

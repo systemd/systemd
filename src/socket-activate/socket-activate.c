@@ -9,6 +9,7 @@
 #include "alloc-util.h"
 #include "build.h"
 #include "daemon-util.h"
+#include "dlopen-note.h"
 #include "env-util.h"
 #include "errno-util.h"
 #include "escape.h"
@@ -467,6 +468,8 @@ static int run(int argc, char **argv) {
         _cleanup_close_ int epoll_fd = -EBADF;
         _cleanup_strv_free_ char **exec_argv = NULL;
         int r, n;
+
+        LIBSELINUX_NOTE(recommended);
 
         log_setup();
 

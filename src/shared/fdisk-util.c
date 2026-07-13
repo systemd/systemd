@@ -5,8 +5,6 @@
 
 #if HAVE_LIBFDISK
 
-#include "sd-dlopen.h"
-
 #include "alloc-util.h"
 #include "bitfield.h"
 #include "dissect-image.h"
@@ -83,7 +81,7 @@ int dlopen_fdisk(int log_level) {
 #if HAVE_LIBFDISK
         static void *fdisk_dl = NULL;
 
-        FDISK_NOTE(SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED);
+        LIBFDISK_NOTE(suggested);
 
         return dlopen_many_sym_or_warn(
                         &fdisk_dl,

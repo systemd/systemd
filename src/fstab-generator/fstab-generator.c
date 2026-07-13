@@ -14,6 +14,7 @@
 #include "bus-util.h"
 #include "chase.h"
 #include "creds-util.h"
+#include "dlopen-note.h"
 #include "efi-loader.h"
 #include "env-util.h"
 #include "errno-util.h"
@@ -1729,6 +1730,11 @@ static int run_generator(void) {
 }
 
 static int run(int argc, char **argv) {
+        LIBCRYPTO_NOTE(suggested);
+        LIBMOUNT_NOTE(recommended);
+        LIBSELINUX_NOTE(recommended);
+        TPM2_NOTE(suggested);
+
         arg_sysroot_check = invoked_as(argv, "systemd-sysroot-fstab-check");
 
         if (arg_sysroot_check) {
