@@ -41,6 +41,7 @@ extern DLSYM_PROTOTYPE(selinux_check_access);
 extern DLSYM_PROTOTYPE(selinux_getenforcemode);
 extern DLSYM_PROTOTYPE(selinux_init_load_policy);
 extern DLSYM_PROTOTYPE(selinux_path);
+extern DLSYM_PROTOTYPE(selinux_policy_root);
 extern DLSYM_PROTOTYPE(selinux_set_callback);
 extern DLSYM_PROTOTYPE(selinux_status_close);
 extern DLSYM_PROTOTYPE(selinux_status_getenforce);
@@ -51,6 +52,7 @@ extern DLSYM_PROTOTYPE(setexeccon_raw);
 extern DLSYM_PROTOTYPE(setfilecon_raw);
 extern DLSYM_PROTOTYPE(setfscreatecon_raw);
 extern DLSYM_PROTOTYPE(setsockcreatecon_raw);
+extern DLSYM_PROTOTYPE(selinux_set_policy_root);
 extern DLSYM_PROTOTYPE(string_to_security_class);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(char*, sym_freecon, freeconp, NULL);
@@ -99,7 +101,7 @@ void mac_selinux_finish(void);
 
 void mac_selinux_disable_logging(void);
 
-int mac_selinux_fix_full(int atfd, const char *inode_path, const char *label_path, LabelFixFlags flags);
+int mac_selinux_fix_full(int atfd, const char *inode_path, const char *label_path, LabelFixFlags flags, LabelContext *label_context);
 
 int mac_selinux_apply(const char *path, const char *label);
 int mac_selinux_apply_fd(int fd, const char *path, const char *label);
@@ -109,9 +111,9 @@ int mac_selinux_get_our_label(char **ret_label);
 int mac_selinux_get_peer_label(int socket_fd, char **ret_label);
 int mac_selinux_get_child_mls_label(int socket_fd, const char *exe, const char *exec_label, char **ret_label);
 
-int mac_selinux_create_file_prepare_at(int dir_fd, const char *path, mode_t mode);
-static inline int mac_selinux_create_file_prepare(const char *path, mode_t mode) {
-        return mac_selinux_create_file_prepare_at(AT_FDCWD, path, mode);
+int mac_selinux_create_file_prepare_at(int dir_fd, const char *path, mode_t mode, LabelContext *label_context);
+static inline int mac_selinux_create_file_prepare(const char *path, mode_t mode, LabelContext *label_context) {
+        return mac_selinux_create_file_prepare_at(AT_FDCWD, path, mode, label_context);
 }
 int mac_selinux_create_file_prepare_label(const char *path, const char *label);
 void mac_selinux_create_file_clear(void);
@@ -120,3 +122,7 @@ int mac_selinux_create_socket_prepare(const char *label);
 void mac_selinux_create_socket_clear(void);
 
 int mac_selinux_bind(int fd, const struct sockaddr *addr, socklen_t addrlen);
+
+int mac_selinux_label_context_new(const char *root, LabelContext **ret);
+LabelContext* mac_selinux_label_context_free(LabelContext *c);
+DEFINE_TRIVIAL_CLEANUP_FUNC(LabelContext*, mac_selinux_label_context_free);
