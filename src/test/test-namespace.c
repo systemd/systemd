@@ -5,7 +5,7 @@
 #include <sched.h>
 #include <stdlib.h>
 #include <sys/ioctl.h>
-#include <sys/prctl.h>
+#include <sys/prctl.h> /* IWYU pragma: keep */
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sysexits.h>
@@ -363,7 +363,7 @@ TEST(process_is_owned_by_uid) {
                 ASSERT_OK(fully_set_uid_gid(1, 1, NULL, 0));
 
                 /* After successfully changing id/gid DEATHSIG is reset, so it has to be set again */
-                ASSERT_OK_ERRNO(prctl(PR_SET_PDEATHSIG, SIGKILL));
+                ASSERT_OK(prctl_safe(PR_SET_PDEATHSIG, SIGKILL, 0, 0, 0));
 
                 ASSERT_OK_EQ_ERRNO(write(p[1], &(const char[]) { 'x' }, 1), 1);
                 p[1] = safe_close(p[1]);
@@ -401,7 +401,7 @@ TEST(process_is_owned_by_uid) {
                 ASSERT_OK(reset_uid_gid());
 
                 /* After successfully changing id/gid DEATHSIG is reset, so it has to be set again */
-                ASSERT_OK_ERRNO(prctl(PR_SET_PDEATHSIG, SIGKILL));
+                ASSERT_OK(prctl_safe(PR_SET_PDEATHSIG, SIGKILL, 0, 0, 0));
 
                 ASSERT_OK_EQ_ERRNO(write(p[1], &(const char[]) { 'x' }, 1), 1);
                 p[1] = safe_close(p[1]);

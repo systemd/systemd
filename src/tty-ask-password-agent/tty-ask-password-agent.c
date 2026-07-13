@@ -6,7 +6,7 @@
 #include <fcntl.h>
 #include <poll.h>
 #include <stdlib.h>
-#include <sys/prctl.h>
+#include <sys/prctl.h> /* IWYU pragma: keep */
 #include <sys/signalfd.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
@@ -560,7 +560,7 @@ static int ask_on_this_console(const char *tty, char **arguments, PidRef *ret) {
         if (r < 0)
                 return r;
         if (r == 0) {
-                assert_se(prctl(PR_SET_PDEATHSIG, SIGHUP) >= 0);
+                assert_se(prctl_safe(PR_SET_PDEATHSIG, SIGHUP, 0, 0, 0) >= 0);
 
                 STRV_FOREACH(i, arguments) {
                         char *k;
