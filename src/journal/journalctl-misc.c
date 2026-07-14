@@ -9,6 +9,7 @@
 #include "format-table.h"
 #include "format-util.h"
 #include "hashmap.h"
+#include "id128-util.h"
 #include "journal-authenticate.h"
 #include "journal-internal.h"
 #include "journal-verify.h"
@@ -288,7 +289,7 @@ int action_list_namespaces(void) {
 
         assert(arg_action == ACTION_LIST_NAMESPACES);
 
-        r = sd_id128_get_machine(&machine);
+        r = id128_get_machine(arg_root, &machine);
         if (r < 0)
                 return log_error_errno(r, "Failed to get machine ID: %m");
 
