@@ -56,6 +56,33 @@ CHANGES WITH 262:
           IPv4ProxyARP=yes but has no effect if IPv4ProxyARP= has been set to
           false. This mirrors the behavior of IPv6ProxyNDPAddress=.
 
+        Changes in TPM2 and Confidential VM Support:
+
+        * systemd's userspace measurements (i.e. systemd-pcrextend and its
+          systemd-pcrphase*, systemd-pcrfs*, systemd-pcrmachine,
+          systemd-pcrproduct, systemd-pcrlogin@ services, as well as
+          systemd-cryptsetup's volume key and key slot measurements) are now
+          also written to Intel TDX RTMRs, via the kernel's sysfs interface
+          for TSM measurement registers (Linux 6.16+). PCR indexes are mapped
+          to RTMRs following the UEFI specification, NvPCR measurements are
+          mapped to RTMR 2. On confidential VMs without a TPM2 whose kernel
+          was measured by systemd-stub via the UEFI CC measurement protocol,
+          ConditionSecurity=measured-os now holds, i.e. the measurement
+          services are active on such systems. Note that this changes the
+          expected RTMR values of such systems.
+
+        * Userspace measurements into CC measurement registers are recorded
+          in a new event log /run/log/systemd/cc-measure.log, using the same
+          CEL-JSON-like format as /run/log/systemd/tpm2-measure.log. Together
+          with the firmware's CCEL ACPI table this allows replaying and
+          thereby verifying the RTMR contents.
+
+        * systemd-gpt-auto-generator and systemd-hibernate-resume-generator
+          now enable TPM2 based disk unlocking (tpm2-device=auto) only if a
+          TPM2 device is actually expected to be available, i.e. one is
+          present, the firmware reports one, or the software TPM fallback was
+          requested.
+
 CHANGES WITH 261:
 
         Announcements of Future Feature Removals and Incompatible Changes:

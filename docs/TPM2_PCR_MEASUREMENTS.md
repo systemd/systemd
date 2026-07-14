@@ -31,7 +31,9 @@ Currently, four components will issue TPM2 PCR measurements:
 * The [`systemd-cryptsetup`](https://www.freedesktop.org/software/systemd/man/latest/systemd-cryptsetup@.service.html) disk encryption tool (userspace)
 
 A userspace measurement event log in a format close to TCG CEL-JSON is
-maintained in `/run/log/systemd/tpm2-measure.log`.
+maintained in `/run/log/systemd/tpm2-measure.log`. Userspace measurements into
+CC measurement registers (see below) are recorded in
+`/run/log/systemd/cc-measure.log` in the same format.
 
 ## Measurements Added in Future
 
@@ -100,6 +102,54 @@ TPM. Due to this, any process with access to the TPM and read access to any of
 the storage locations of the anchor secret is considered part of the TCB, as
 they are able to replay the NvPCR with their own content at will, so due care
 must be employed when designing a system that uses this feature.
+
+## Runtime measurements on Confidential VMs
+
+On confidential VMs that provide runtime measurement registers, systemd userspace
+measures into those too, in addition to (or in absence of) a TPM2. This is
+currently implemented for Intel TDX RTMRs, via the Linux kernel's sysfs
+interface for TSM measurement registers (Linux 6.16+,
+`/sys/devices/virtual/misc/tdx_guest/measurements/`).
+
+PCR-indexed measurements are mapped to the existing runtime measurement registers,
+if possible based on the existing UEFI specification. For TDX, measurements are
+following the fixed mapping of the UEFI specification (v2.10, section 38.4.1),
+which is the same mapping the virtual firmware uses:
+
+| PCR   | TDX register          |
+|-------|-----------------------|
+| 0     | MRTD (boot-time only) |
+| 1, 7  | RTMR0                 |
+| 2–6   | RTMR1                 |
+| 8–15  | RTMR2                 |
+| 16–23 | not mapped            |
+
+NvPCR measurements have no UEFI-defined mapping and are measured into RTMR2 by
+systemd convention, next to the other OS-level measurements. Note the
+semantic difference to the TPM2 counterpart: RTMRs are strictly per-boot,
+i.e. the cross-boot accumulation that persistent NvPCRs provide does not
+transfer, and NvPCR anchoring is a TPM2-only concept that is never mirrored to RTMRs.
+
+Userspace RTMR measurements are recorded in
+`/run/log/systemd/cc-measure.log`, in the same CEL-JSON-like format
+as `tpm2-measure.log`. Records carry an `rtmr` field (the register number, as
+used in the sysfs attribute names) in place of the `pcr`/`nv_index` field,
+plus an informational `mapped_pcr` field naming the PCR the measurement was
+mapped from. NvPCR-mapped events carry no `mapped_pcr`; they are identified by
+the `nvIndexName` field of their `content` object. Across both log files,
+exactly one register key (`pcr`, `nv_index` or `rtmr`) is present per record,
+and the `content` object has the same structure.
+
+To verify (replay) an RTMR, process the firmware CC event log (the CCEL ACPI
+table, exposed at `/sys/firmware/acpi/tables/data/CCEL`), followed by the
+records for that register from `/run/log/systemd/cc-measure.log`, in file
+order.
+
+Userspace measurements (and hence the OS measurement services) are only
+enabled if the kernel was measured by `systemd-stub` via the UEFI CC measurement
+protocol. Kernels booted without `systemd-stub` are still measured by the virtual
+firmware, but do not enable the systemd userspace measurement machinery, matching
+the behavior on TPM2 systems.
 
 ## PCR Measurements Made by `systemd-boot` (UEFI)
 
