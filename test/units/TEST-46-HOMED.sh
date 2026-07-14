@@ -848,6 +848,17 @@ homectl inspect matchtest
 homectl inspect matchtest | grep "Area: quux3"
 homectl remove matchtest
 
+NEWPASSWORD=foobar homectl create idgrouptest --enforce-password-policy=no
+PASSWORD=foobar homectl activate idgrouptest
+machinectl shell idgrouptest@ /usr/bin/bash -euxo pipefail -c "jq '.memberOf = ((.memberOf // []) + [\"systemd-journal\"] | unique) | .lastChangeUSec = ((.lastChangeUSec // 0) + 3600000000)' /home/idgrouptest/.identity > /home/idgrouptest/.identity.new && mv -f /home/idgrouptest/.identity.new /home/idgrouptest/.identity"
+jq -e '.memberOf | index("systemd-journal") != null' /home/idgrouptest/.identity
+PASSWORD=foobar homectl authenticate idgrouptest
+groups="$(machinectl shell idgrouptest@ /usr/bin/groups)"
+(! grep -q systemd-journal <<<"$groups")
+homectl deactivate idgrouptest ||:
+wait_for_state idgrouptest inactive
+homectl remove idgrouptest
+
 systemd-analyze log-level info
 
 touch /testok
