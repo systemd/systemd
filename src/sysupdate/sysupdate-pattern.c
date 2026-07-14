@@ -268,7 +268,7 @@ int pattern_match(const char *pattern, const char *s, InstanceMetadata *ret) {
                 switch (e->type) {
 
                 case PATTERN_VERSION:
-                        if (!version_is_valid(t)) {
+                        if (!version_is_valid(t, VERSION_ALLOW_UNDERSCORE|VERSION_ALLOW_PLUS)) {
                                 log_debug("Version string is not valid, refusing: %s", t);
                                 goto nope;
                         }

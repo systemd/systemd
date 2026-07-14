@@ -1492,7 +1492,7 @@ static int vl_link_prepare(sd_varlink *link, LinkParameters *p) {
         if (p->context.entry_title && !efi_loader_entry_title_valid(p->context.entry_title))
                 return sd_varlink_error_invalid_parameter_name(link, "entryTitle");
 
-        if (p->context.entry_version && !version_is_valid_versionspec(p->context.entry_version))
+        if (p->context.entry_version && !version_is_valid(p->context.entry_version, VERSION_ALLOW_UNDERSCORE|VERSION_ALLOW_PLUS))
                 return sd_varlink_error_invalid_parameter_name(link, "entryVersion");
 
         if (p->context.entry_commit != 0 && !entry_commit_valid(p->context.entry_commit))
