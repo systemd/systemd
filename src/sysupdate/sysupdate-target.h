@@ -29,4 +29,8 @@ typedef struct TargetIdentifier {
         char *name;
 } TargetIdentifier;
 
+int target_identifier_new(TargetClass class, const char *name, TargetIdentifier **ret);
 void target_identifier_done(TargetIdentifier *t);
+TargetIdentifier *target_identifier_free(TargetIdentifier *t);
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(TargetIdentifier*, target_identifier_free);
