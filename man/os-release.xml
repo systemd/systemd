@@ -282,10 +282,14 @@
         <varlistentry>
           <term><varname>VERSION_ID=</varname></term>
 
-          <listitem><para>A lower-case string (mostly numeric, no spaces or other characters outside of 0–9,
-          a–z, ".", "_" and "-") identifying the operating system version, excluding any OS name information
-          or release code name, and suitable for processing by scripts or usage in generated filenames. This
-          field is optional.</para>
+          <listitem><para>A string (lower-case recommended, no spaces or other characters outside of 0–9,
+          a–z, A-Z, ".", "-", "~", "^", "+" and "_") identifying the operating system version, excluding any
+          OS name information or release code name, and suitable for processing by scripts or usage in
+          generated filenames. This field is optional.</para>
+
+          <para>It is recommended to follow the <ulink
+          url="https://uapi-group.org/specifications/specs/version_format_specification/">UAPI.10 Version
+          Format Specification</ulink> for this version string, but this is generally not enforced.</para>
 
           <para>Examples: <literal>VERSION_ID=17</literal>, <literal>VERSION_ID=11.04</literal>.
           </para></listitem>
@@ -294,10 +298,11 @@
         <varlistentry>
           <term><varname>VERSION_CODENAME=</varname></term>
 
-          <listitem><para>A lower-case string (no spaces or other characters outside of 0–9, a–z, ".", "_"
-          and "-") identifying the operating system release code name, excluding any OS name information or
-          release version, and suitable for processing by scripts or usage in generated filenames. This field
-          is optional and may not be implemented on all systems.</para>
+          <listitem><para>A string (lower-case recommended, no spaces or other characters outside of 0–9,
+          a–z, A-Z, ".", "-", "~", "^", "+", and "_") identifying the operating system release code name,
+          excluding any OS name information or release version, and suitable for processing by scripts or
+          usage in generated filenames. This field is optional and may not be implemented on all
+          systems.</para>
 
           <para>Examples: <literal>VERSION_CODENAME=buster</literal>,
           <literal>VERSION_CODENAME=xenial</literal>.</para>
@@ -341,10 +346,14 @@
         <varlistentry>
           <term><varname>IMAGE_VERSION=</varname></term>
 
-          <listitem><para>A lower-case string (mostly numeric, no spaces or other characters outside of 0–9,
-          a–z, ".", "_" and "-") identifying the OS image version. This is supposed to be used together with
-          <varname>IMAGE_ID</varname> described above, to discern different versions of the same image.
-          </para>
+          <listitem><para>A string (lower-case recommended, no spaces or other characters outside of 0–9,
+          a–z, A-Z, ".", "-", "~", "^", "+" and "_") identifying the OS image version. This is supposed to be
+          used together with <varname>IMAGE_ID</varname> described above, to discern different versions of
+          the same image.</para>
+
+          <para>It is recommended to follow the <ulink
+          url="https://uapi-group.org/specifications/specs/version_format_specification/">UAPI.10 Version
+          Format Specification</ulink> for this version string, but this is generally not enforced.</para>
 
           <para>Examples: <literal>IMAGE_VERSION=33</literal>, <literal>IMAGE_VERSION=47.1rc1</literal>.
           </para>
