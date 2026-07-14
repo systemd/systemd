@@ -2052,7 +2052,7 @@ static int ndisc_router_process_captive_portal(Link *link, sd_ndisc_router *rt, 
                                 target = c;
 
                 assert(target);
-                assert(set_remove(link->ndisc_captive_portals, target) == target);
+                assert_se(set_remove(link->ndisc_captive_portals, target) == target);
                 ndisc_captive_portal_free(target);
         }
 
