@@ -1408,13 +1408,13 @@ TEST(strstrafter) {
 }
 
 TEST(version_is_valid) {
-        assert_se(!version_is_valid(NULL));
-        assert_se(!version_is_valid(""));
-        assert_se(version_is_valid("0"));
-        assert_se(version_is_valid("5"));
-        assert_se(version_is_valid("999999"));
-        assert_se(version_is_valid("999999.5"));
-        assert_se(version_is_valid("6.2.12-300.fc38.x86_64"));
+        assert_se(!version_is_valid(NULL, /* flags= */ 0));
+        assert_se(!version_is_valid("", /* flags= */ 0));
+        assert_se(version_is_valid("0", /* flags= */ 0));
+        assert_se(version_is_valid("5", /* flags= */ 0));
+        assert_se(version_is_valid("999999", /* flags= */ 0));
+        assert_se(version_is_valid("999999.5", /* flags= */ 0));
+        assert_se(version_is_valid("6.2.12-300.fc38.x86_64", /* flags= */ VERSION_ALLOW_UNDERSCORE));
 }
 
 TEST(strextendn) {

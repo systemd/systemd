@@ -141,7 +141,7 @@ static int config_parse_protect_version(
                 return 0;
         }
 
-        if (!version_is_valid(resolved))  {
+        if (!version_is_valid(resolved, VERSION_ALLOW_UNDERSCORE|VERSION_ALLOW_PLUS))  {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "ProtectVersion= string is not valid, ignoring: %s", resolved);
                 return 0;
@@ -180,7 +180,7 @@ static int config_parse_min_version(
                 return 0;
         }
 
-        if (!version_is_valid(rvalue)) {
+        if (!version_is_valid(resolved, VERSION_ALLOW_UNDERSCORE|VERSION_ALLOW_PLUS)) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "MinVersion= string is not valid, ignoring: %s", resolved);
                 return 0;
