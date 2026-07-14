@@ -2292,7 +2292,7 @@ static void config_add_entry_windows(Config *config, EFI_HANDLE *device, EFI_FIL
                         title ?: u"Windows Boot Manager",
                         u"\\EFI\\Microsoft\\Boot\\bootmgfw.efi");
 
-        if (config->reboot_for_bitlocker)
+        if (e && config->reboot_for_bitlocker)
                 e->call = call_boot_windows_bitlocker;
 #endif
 }
