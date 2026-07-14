@@ -113,7 +113,11 @@ static int bus_print_property(const char *name, const char *expected_value, sd_b
                         return r;
 
                 if (bus_property_is_timestamp(name))
-                        bus_print_property_value(name, expected_value, flags, FORMAT_TIMESTAMP(u));
+                        /* RTCTimeUSec should always be displayed in UTC, consistent with timedatectl status */
+                        if (streq(name, "RTCTimeUSec"))
+                                bus_print_property_value(name, expected_value, flags, FORMAT_TIMESTAMP_STYLE(u, TIMESTAMP_UTC));
+                        else
+                                bus_print_property_value(name, expected_value, flags, FORMAT_TIMESTAMP(u));
 
                 /* Managed OOM pressure default implies "unset" and use the default set in oomd.conf. Without
                  * this condition, we will print "infinity" which implies there is no limit on memory
