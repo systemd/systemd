@@ -178,8 +178,8 @@ int dns_add_new_service(DnsServiceBrowser *sb, DnsResourceRecord *rr, int owner_
                 .query = NULL,
                 .rr_ttl_state = DNS_RECORD_TTL_STATE_80_PERCENT,
         };
-
-        LIST_PREPEND(dns_services, sb->dns_services, s);
+        if (!s->rr)
+                return log_oom();
 
         /* Schedule the first cache maintenance query at 80% of the record's
          * TTL. Subsequent queries issued at 5% increments until 100% of the
@@ -218,6 +218,8 @@ int dns_add_new_service(DnsServiceBrowser *sb, DnsResourceRecord *rr, int owner_
                 return log_error_errno(
                                 r,
                                 "Failed to schedule mDNS maintenance query for DNS service: %m");
+
+        LIST_PREPEND(dns_services, sb->dns_services, s);
 
         TAKE_PTR(s);
         return 0;
