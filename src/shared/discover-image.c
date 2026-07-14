@@ -1625,7 +1625,7 @@ static int clone_auxiliary_file(const char *path, const char *new_name, const ch
         if (r < 0)
                 return r;
 
-        return copy_file_atomic(path, rs, 0664, COPY_REFLINK);
+        return copy_file_atomic(path, rs, 0664, /* copy_flags= */ 0);
 }
 
 static int get_pool_directory(
@@ -1805,7 +1805,7 @@ int image_clone(Image *i, const char *new_name, bool read_only, RuntimeScope sco
                         return r;
 
                 r = copy_file_atomic(i->path, new_path, read_only ? 0444 : 0644,
-                                     COPY_REFLINK|COPY_CRTIME|COPY_NOCOW_AFTER);
+                                     COPY_CRTIME|COPY_NOCOW_AFTER);
                 break;
         }
 

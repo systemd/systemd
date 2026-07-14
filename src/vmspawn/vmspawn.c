@@ -2025,7 +2025,7 @@ static int merge_initrds(char **ret) {
                 if (ifd < 0)
                         return log_error_errno(errno, "Failed to open %s: %m", *i);
 
-                r = copy_bytes(ifd, ofd, UINT64_MAX, COPY_REFLINK);
+                r = copy_bytes(ifd, ofd, UINT64_MAX, /* copy_flags= */ 0);
                 if (r < 0)
                         return log_error_errno(r, "Failed to copy bytes from %s to %s: %m", *i, merged_initrd);
         }
@@ -2254,7 +2254,7 @@ static int cmdline_add_ovmf(FILE *config_file, const OvmfConfig *ovmf_config, ch
                 if (source_fd < 0)
                         return log_error_errno(errno, "Failed to open OVMF vars file %s: %m", vars_source);
 
-                r = copy_bytes(source_fd, target_fd, UINT64_MAX, COPY_REFLINK);
+                r = copy_bytes(source_fd, target_fd, UINT64_MAX, /* copy_flags= */ 0);
                 if (r < 0)
                         return log_error_errno(r, "Failed to copy bytes from %s to %s: %m", vars_source, state);
 
