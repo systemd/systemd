@@ -115,7 +115,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         break;
 
                 OPTION_SHORT('V', "VERSION", "Look for specified version"):
-                        if (!version_is_valid(opts.arg))
+                        if (!version_is_valid(opts.arg, /* flags= */ 0))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid version string: %s", opts.arg);
 
                         r = free_and_strdup_warn(&arg_filter_version, opts.arg);
