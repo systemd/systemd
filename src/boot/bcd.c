@@ -94,14 +94,16 @@ assert_cc(offsetof(KeyValue, data_type) == 12);
 assert_cc(offsetof(KeyValue, name) == 20);
 
 #define BAD_OFFSET(offset, len, max) \
-        ((uint64_t) (offset) + (len) >= (max))
+        ((uint64_t) (offset) > (max) || \
+         (uint64_t) (len) > (uint64_t) (max) - (uint64_t) (offset))
 
 #define BAD_STRUCT(type, offset, max) \
-        ((uint64_t) (offset) + sizeof(type) >= (max))
+        BAD_OFFSET(offset, sizeof(type), max)
 
 #define BAD_ARRAY(type, array, offset, array_len, max) \
-        ((uint64_t) (offset) + offsetof(type, array) + \
-         sizeof((type){}.array[0]) * (uint64_t) (array_len) >= (max))
+        BAD_OFFSET(offset, \
+                   offsetof(type, array) + sizeof((type){}.array[0]) * (uint64_t) (array_len), \
+                   max)
 
 static const Key *get_key(const uint8_t *bcd, uint32_t bcd_len, uint32_t offset, const char *name);
 
