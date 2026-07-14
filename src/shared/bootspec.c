@@ -492,9 +492,12 @@ static int boot_entry_load_type1(
                         r = free_and_strdup(&tmp.title, p);
                 else if (streq(field, "sort-key"))
                         r = free_and_strdup(&tmp.sort_key, p);
-                else if (streq(field, "version"))
+                else if (streq(field, "version")) {
+                        if (!version_is_valid(p, VERSION_ALLOW_UNDERSCORE|VERSION_ALLOW_PLUS))
+                                log_syntax(NULL, LOG_WARNING, tmp.path, line, 0, "Version string '%s' is not a valid version, accepting anyway.", field);
+
                         r = free_and_strdup(&tmp.version, p);
-                else if (streq(field, "machine-id"))
+                } else if (streq(field, "machine-id"))
                         r = free_and_strdup(&tmp.machine_id, p);
                 else if (streq(field, "architecture"))
                         r = free_and_strdup(&tmp.architecture, p);
