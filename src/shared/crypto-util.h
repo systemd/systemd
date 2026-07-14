@@ -120,6 +120,7 @@ extern DLSYM_PROTOTYPE(EC_GROUP_get0_generator);
 extern DLSYM_PROTOTYPE(EC_GROUP_get0_order);
 extern DLSYM_PROTOTYPE(EC_GROUP_get_curve);
 extern DLSYM_PROTOTYPE(EC_GROUP_get_curve_name);
+extern DLSYM_PROTOTYPE(EC_GROUP_get_degree);
 extern DLSYM_PROTOTYPE(EC_GROUP_get_field_type);
 extern DLSYM_PROTOTYPE(EC_GROUP_new_by_curve_name);
 extern DLSYM_PROTOTYPE(EC_POINT_free);

@@ -110,6 +110,7 @@ DLSYM_PROTOTYPE(EC_GROUP_get0_generator) = NULL;
 DLSYM_PROTOTYPE(EC_GROUP_get0_order) = NULL;
 DLSYM_PROTOTYPE(EC_GROUP_get_curve) = NULL;
 DLSYM_PROTOTYPE(EC_GROUP_get_curve_name) = NULL;
+DLSYM_PROTOTYPE(EC_GROUP_get_degree) = NULL;
 DLSYM_PROTOTYPE(EC_GROUP_get_field_type) = NULL;
 DLSYM_PROTOTYPE(EC_GROUP_new_by_curve_name) = NULL;
 DLSYM_PROTOTYPE(EC_POINT_free) = NULL;
@@ -435,6 +436,7 @@ int dlopen_libcrypto(int log_level) {
                         DLSYM_ARG(EC_GROUP_get0_order),
                         DLSYM_ARG(EC_GROUP_get_curve),
                         DLSYM_ARG(EC_GROUP_get_curve_name),
+                        DLSYM_ARG(EC_GROUP_get_degree),
                         DLSYM_ARG(EC_GROUP_get_field_type),
                         DLSYM_ARG(EC_GROUP_new_by_curve_name),
                         DLSYM_ARG(EC_POINT_free),
@@ -1735,13 +1737,24 @@ int ecc_pkey_to_curve_x_y(
         if (!sym_EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_EC_PUB_Y, &bn_y))
                 return log_openssl_errors(LOG_DEBUG, "Failed to get ECC point y");
 
-        size_t x_size = sym_BN_num_bytes(bn_x), y_size = sym_BN_num_bytes(bn_y);
+        /* The affine coordinates are elements of the curve's underlying field and must be
+         * marshalled at the fixed field width. BN_bn2bin() writes the minimal big-endian
+         * encoding, dropping any leading zero bytes, so a coordinate whose most significant byte
+         * is zero (roughly 1 in 256 keys per coordinate) comes out one or more bytes short. A short
+         * coordinate makes callers such as tpm2_tpm2b_public_from_openssl_pkey() build a
+         * TPM2B_PUBLIC that TPM2_LoadExternal() rejects with TPM_RC_KEY, and changes the object
+         * name a TPM derives for the key. Size the buffers to the field width and zero-pad. */
+        _cleanup_(EC_GROUP_freep) EC_GROUP *group = sym_EC_GROUP_new_by_curve_name(curve_id);
+        if (!group)
+                return log_openssl_errors(LOG_DEBUG, "Failed to create EC group from curve id");
+
+        size_t x_size = DIV_ROUND_UP((size_t) sym_EC_GROUP_get_degree(group), 8u), y_size = x_size;
         _cleanup_free_ void *x = malloc(x_size), *y = malloc(y_size);
         if (!x || !y)
                 return log_oom_debug();
 
-        assert(sym_BN_bn2bin(bn_x, x) == (int) x_size);
-        assert(sym_BN_bn2bin(bn_y, y) == (int) y_size);
+        assert(sym_BN_bn2binpad(bn_x, x, x_size) == (int) x_size);
+        assert(sym_BN_bn2binpad(bn_y, y, y_size) == (int) y_size);
 
         if (ret_curve_id)
                 *ret_curve_id = curve_id;
