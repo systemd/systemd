@@ -18,6 +18,7 @@ rules = [
                '60-persistent-alsa.rules',
                '60-persistent-hidraw.rules',
                '60-persistent-input.rules',
+               '60-persistent-media-controller.rules',
                '60-persistent-storage-mtd.rules',
                '60-persistent-storage-tape.rules',
                '60-persistent-v4l.rules',
