@@ -245,6 +245,18 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--cow=<replaceable>BOOL</replaceable></option></term>
+
+        <listitem><para>Controls copy-on-write for newly created image files on filesystems that support it.
+        If true, copy-on-write is enabled; if false, it is disabled. If set to <literal>auto</literal>, the
+        filesystem or parent directory default is left unchanged. Copy-on-write allows files to be reflinked
+        into the image, reducing both build time and disk usage, but may result in fragmentation for images
+        subject to frequent random writes. Defaults to <literal>auto</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--factory-reset=</option></term>
 
         <listitem><para>Takes boolean. If this switch is not specified, <option>--factory-reset=no</option> is

@@ -218,6 +218,7 @@ static char *arg_generate_crypttab = NULL;
 static Set *arg_verity_settings = NULL;
 static bool arg_relax_copy_block_security = false;
 static bool arg_varlink = false;
+static int arg_cow = -1;
 static bool arg_eltorito = false;
 static char *arg_eltorito_system = NULL;
 static char *arg_eltorito_volume = NULL;
@@ -10235,6 +10236,13 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         break;
 
+                OPTION_LONG("cow", "BOOL|auto",
+                            "Whether to force copy-on-write for newly created image files"):
+                        r = parse_tristate_argument_with_auto("--cow=", opts.arg, &arg_cow);
+                        if (r < 0)
+                                return r;
+                        break;
+
                 OPTION_LONG("sector-size", "SIZE",
                             "Set the logical sector size for the image"):
                         r = parse_sector_size(opts.arg, &arg_sector_size);
@@ -11021,7 +11029,12 @@ static int find_root(Context *context) {
                         if (!s)
                                 return log_oom();
 
-                        fd = xopenat_full(AT_FDCWD, arg_node, open_flags|O_CREAT|O_EXCL|O_NOFOLLOW, XO_NOCOW, 0666);
+                        fd = xopenat_full(
+                                        AT_FDCWD,
+                                        arg_node,
+                                        open_flags|O_CREAT|O_EXCL|O_NOFOLLOW,
+                                        arg_cow < 0 ? 0 : (arg_cow > 0 ? XO_COW : XO_NOCOW),
+                                        0666);
                         if (fd < 0)
                                 return log_error_errno(fd, "Failed to create '%s': %m", arg_node);
 
