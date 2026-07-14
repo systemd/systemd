@@ -315,8 +315,13 @@ char* find_line_after_internal(const char *haystack, const char *needle);
 #define find_line_after(haystack, needle) \
         const_generic(haystack, find_line_after_internal(haystack, needle))
 
-bool version_is_valid(const char *s) _pure_;
-bool version_is_valid_versionspec(const char *s) _pure_;
+typedef enum VersionFlags {
+        VERSION_ALLOW_EMPTY      = 1 << 0,
+        VERSION_ALLOW_UNDERSCORE = 1 << 1, /* Allow "_" as separator (recommended separator) */
+        VERSION_ALLOW_PLUS       = 1 << 2, /* Allow "+" as separator (sometimes used as separator for boot attempt counters) */
+} VersionFlags;
+
+bool version_is_valid(const char *s, VersionFlags flags) _pure_;
 
 ssize_t strlevenshtein(const char *x, const char *y);
 
