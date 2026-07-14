@@ -94,6 +94,52 @@ else
     exit 1
 fi
 
+testcase_nocow() {
+    local attrs defs image imgs nocow_image probe
+
+    defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
+    imgs="$(mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs'" RETURN
+
+    # Make sure the test directory itself does not pass NOCOW down to newly created files, and skip the
+    # checks entirely if the underlying filesystem does not support the attribute.
+    if ! chattr -C "$imgs"; then
+        echo "NOCOW is not supported on $imgs, skipping tests"
+        return
+    fi
+
+    probe="$imgs/probe"
+    touch "$probe"
+    if ! chattr +C "$probe"; then
+        echo "NOCOW is not supported on $imgs, skipping tests"
+        return
+    fi
+    rm "$probe"
+
+    image="$imgs/cow.raw"
+    systemd-repart --offline="$OFFLINE" \
+                   --definitions="$defs" \
+                   --empty=create \
+                   --size=16M \
+                   --dry-run=no \
+                   "$image"
+
+    read -r attrs _ < <(lsattr -d -- "$image")
+    [[ "$attrs" != *C* ]]
+
+    nocow_image="$imgs/nocow.raw"
+    SYSTEMD_REPART_NOCOW=1 systemd-repart --offline="$OFFLINE" \
+                   --definitions="$defs" \
+                   --empty=create \
+                   --size=16M \
+                   --dry-run=no \
+                   "$nocow_image"
+
+    read -r attrs _ < <(lsattr -d -- "$nocow_image")
+    [[ "$attrs" == *C* ]]
+}
+
 testcase_basic() {
     local defs imgs output
     local loop volume
