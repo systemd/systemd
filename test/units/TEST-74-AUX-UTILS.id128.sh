@@ -32,17 +32,20 @@ systemd-id128 show root -P -u
 [[ "$(systemd-id128 var-partition-uuid)" != "4d21b016b53445c2a9fb5c16e091fd2d" ]]
 
 [[ "$(systemd-id128 new | wc -c)" -eq 33 ]]
+systemd-id128 --json=short new | jq -e '.id | type == "string"'
 systemd-id128 new -p
 systemd-id128 new -u
 systemd-id128 new -a 4f68bce3e8cd4db196e7fbcaf984b709
 
 systemd-id128 machine-id
+assert_eq "$(systemd-id128 --json=short machine-id | jq --raw-output .id)" "$(</etc/machine-id)"
 systemd-id128 machine-id --pretty
 systemd-id128 machine-id --uuid
 systemd-id128 machine-id --app-specific=4f68bce3e8cd4db196e7fbcaf984b709
 assert_eq "$(systemd-id128 machine-id)" "$(</etc/machine-id)"
 
 systemd-id128 boot-id
+assert_eq "$(systemd-id128 --json=short boot-id --uuid | jq --raw-output .id)" "$(</proc/sys/kernel/random/boot_id)"
 systemd-id128 boot-id --pretty
 systemd-id128 boot-id --uuid
 systemd-id128 boot-id --app-specific=4f68bce3e8cd4db196e7fbcaf984b709
