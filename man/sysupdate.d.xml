@@ -1068,6 +1068,8 @@ CurrentSymlink=myContainer</programlisting></para>
     <para><simplelist type="inline">
       <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd-sysupdate</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sysupdate.features</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sysupdate.components</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd-repart</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
     </simplelist></para>
   </refsect1>
