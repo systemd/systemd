@@ -8,6 +8,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
+#include "version.h"
 
 TEST(ellipsize_mem_ansi_short) {
         _cleanup_free_ char *a = ellipsize_mem("X\x1b[m", 4, 1, 50);
@@ -1415,6 +1416,9 @@ TEST(version_is_valid) {
         assert_se(version_is_valid("999999", /* flags= */ 0));
         assert_se(version_is_valid("999999.5", /* flags= */ 0));
         assert_se(version_is_valid("6.2.12-300.fc38.x86_64", /* flags= */ VERSION_ALLOW_UNDERSCORE));
+
+        assert_se(version_is_valid(GIT_VERSION, /* flags= */ 0));
+        assert_se(version_is_valid(STRINGIFY(PROJECT_VERSION), /* flags= */ 0));
 }
 
 TEST(strextendn) {
