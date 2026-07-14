@@ -319,7 +319,6 @@ static int raw_pull_copy_auxiliary_file(
                                 *path,
                                 local,
                                 0644,
-                                COPY_REFLINK |
                                 (FLAGS_SET(p->flags, IMPORT_FORCE) ? COPY_REPLACE : 0) |
                                 (FLAGS_SET(p->flags, IMPORT_SYNC) ? COPY_FSYNC_FULL : 0));
         else
@@ -392,7 +391,7 @@ static int raw_pull_make_local_copy(RawPull *p) {
                  * since it reduces fragmentation caused by not allowing in-place writes. */
                 (void) import_set_nocow_and_log(dfd, tp);
 
-                r = copy_bytes(p->raw_job->disk_fd, dfd, UINT64_MAX, COPY_REFLINK);
+                r = copy_bytes(p->raw_job->disk_fd, dfd, UINT64_MAX, /* copy_flags= */ 0);
                 if (r < 0)
                         return log_error_errno(r, "Failed to make writable copy of image: %m");
 

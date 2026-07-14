@@ -384,7 +384,7 @@ static int process_locale(int rfd, sd_varlink **mute_console_link) {
                 return log_error_errno(r, "Failed to check if directory file descriptor is root: %m");
 
         if (arg_copy_locale && r == 0) {
-                r = copy_file_atomic_at(AT_FDCWD, etc_locale_conf(), pfd, f, 0644, COPY_REFLINK);
+                r = copy_file_atomic_at(AT_FDCWD, etc_locale_conf(), pfd, f, 0644, /* copy_flags= */ 0);
                 if (r != -ENOENT) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to copy host's /etc/locale.conf: %m");
@@ -526,7 +526,7 @@ static int process_keymap(int rfd, sd_varlink **mute_console_link) {
                 return log_error_errno(r, "Failed to check if directory file descriptor is root: %m");
 
         if (arg_copy_keymap && r == 0) {
-                r = copy_file_atomic_at(AT_FDCWD, etc_vconsole_conf(), pfd, f, 0644, COPY_REFLINK);
+                r = copy_file_atomic_at(AT_FDCWD, etc_vconsole_conf(), pfd, f, 0644, /* copy_flags= */ 0);
                 if (r != -ENOENT) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to copy host's /etc/vconsole.conf: %m");
