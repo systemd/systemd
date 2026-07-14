@@ -1183,12 +1183,13 @@ int xopenat_full(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_
         /* Sockets cannot be open()ed, only pinned via O_PATH. */
         assert(!FLAGS_SET(xopen_flags, XO_SOCKET) || FLAGS_SET(open_flags, O_PATH));
         /* XO_TRIGGER_AUTOMOUNT requires O_PATH and does not support creating inodes. XO_SUBVOLUME
-         * requires O_CREAT, and XO_NOCOW needs a writable fd for its chattr ioctl, so neither is
+         * requires O_CREAT, and XO_COW/XO_NOCOW need a writable fd for their chattr ioctl, so none are
          * compatible with XO_TRIGGER_AUTOMOUNT. */
         assert(!FLAGS_SET(xopen_flags, XO_TRIGGER_AUTOMOUNT) ||
                (FLAGS_SET(open_flags, O_PATH) && !FLAGS_SET(open_flags, O_CREAT)));
         assert(!(FLAGS_SET(xopen_flags, XO_TRIGGER_AUTOMOUNT) && FLAGS_SET(xopen_flags, XO_SUBVOLUME)));
-        assert(!(FLAGS_SET(xopen_flags, XO_TRIGGER_AUTOMOUNT) && FLAGS_SET(xopen_flags, XO_NOCOW)));
+        assert(!(FLAGS_SET(xopen_flags, XO_TRIGGER_AUTOMOUNT) && (xopen_flags & (XO_COW|XO_NOCOW))));
+        assert((xopen_flags & (XO_COW|XO_NOCOW)) != (XO_COW|XO_NOCOW));
 
         /* Don't specify an access mode if you want auto mode. */
         assert(!FLAGS_SET(xopen_flags, XO_AUTO_RW_RO) || (open_flags & O_ACCMODE_STRICT) == 0);
@@ -1202,7 +1203,8 @@ int xopenat_full(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_
          *
          *   • If the path is specified NULL or empty, behaves like fd_reopen().
          *
-         *   • If XO_NOCOW is specified will turn on the NOCOW btrfs flag on the file, if available.
+         *   • If XO_COW or XO_NOCOW is specified will turn off or on the NOCOW btrfs flag on the file, if
+         *     available.
          *
          *   • if XO_REGULAR is specified will return an error if inode is not a regular file.
          *
@@ -1436,8 +1438,8 @@ int xopenat_full(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_
                         goto error;
         }
 
-        if (FLAGS_SET(xopen_flags, XO_NOCOW)) {
-                r = chattr_fd(fd, FS_NOCOW_FL, FS_NOCOW_FL);
+        if (xopen_flags & (XO_COW|XO_NOCOW)) {
+                r = chattr_fd(fd, FLAGS_SET(xopen_flags, XO_NOCOW) ? FS_NOCOW_FL : 0, FS_NOCOW_FL);
                 if (r < 0 && !ERRNO_IS_IOCTL_NOT_SUPPORTED(r))
                         goto error;
         }
