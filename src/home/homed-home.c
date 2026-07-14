@@ -1109,10 +1109,21 @@ static void home_authenticating_finish(Home *h, int ret, UserRecord *hr) {
         }
 
         if (hr) {
+                bool signed_locally = false, signed_locally_needs_update = false;
+
+                r = home_verify_user_record(h, hr, &signed_locally, /* ret_error= */ NULL);
+                if (r < 0)
+                        hr = h->record;
+                else
+                        signed_locally_needs_update = true;
+
                 r = home_set_record(h, hr);
                 if (r < 0)
                         log_warning_errno(r, "Failed to update home record, ignoring: %m");
                 else {
+                        if (signed_locally_needs_update)
+                                h->signed_locally = signed_locally;
+
                         r = user_record_good_authentication(h->record);
                         if (r < 0)
                                 log_warning_errno(r, "Failed to increase good authentication counter, ignoring: %m");
