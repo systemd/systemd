@@ -77,6 +77,14 @@ CHANGES WITH 262:
           with the firmware's CCEL ACPI table this allows replaying and
           thereby verifying the RTMR contents.
 
+        * systemd-tpm2-generator now makes tpm2.target wait for the TDX guest
+          device on TDX systems where the RTMR sysfs interface has not shown
+          up yet, so that early measurement services do not start before the
+          (typically udev-loaded) tdx-guest driver is available. The TPM2
+          device waits of tpm2.target moved from the static unit into
+          generator drop-ins accordingly, so that the target only waits for
+          devices the platform is actually expected to provide.
+
         * systemd-gpt-auto-generator and systemd-hibernate-resume-generator
           now enable TPM2 based disk unlocking (tpm2-device=auto) only if a
           TPM2 device is actually expected to be available, i.e. one is

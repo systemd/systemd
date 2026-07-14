@@ -151,6 +151,14 @@ protocol. Kernels booted without `systemd-stub` are still measured by the virtua
 firmware, but do not enable the systemd userspace measurement machinery, matching
 the behavior on TPM2 systems.
 
+The RTMR sysfs interface is provided by the kernel's `tdx-guest` driver. Where
+it is built as a module, `systemd-tpm2-generator` makes `tpm2.target` wait for
+the device to show up, so that the early measurement services (which order
+themselves after that target) do not start before the interface is available.
+For measurements from within the initrd (such as the `enter-initrd` boot
+phase), the module must be included in the initrd; kernels that build the
+driver in need no special handling.
+
 ## PCR Measurements Made by `systemd-boot` (UEFI)
 
 ### PCR 1, `EV_EVENT_TAG`, SMBIOS information
