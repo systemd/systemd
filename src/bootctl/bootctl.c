@@ -695,7 +695,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                                 break;
                         }
 
-                        if (!version_is_valid_versionspec(opts.arg))
+                        if (!version_is_valid(opts.arg, VERSION_ALLOW_UNDERSCORE|VERSION_ALLOW_PLUS))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Not a valid boot menu entry version: %s", opts.arg);
 
                         r = free_and_strdup_warn(&arg_entry_version, opts.arg);
