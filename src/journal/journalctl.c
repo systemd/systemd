@@ -70,6 +70,7 @@ bool arg_merge = false;
 int arg_boot = -1; /* tristate */
 sd_id128_t arg_boot_id = {};
 int arg_boot_offset = 0;
+static bool arg_boot_filter = false;
 bool arg_dmesg = false;
 bool arg_no_hostname = false;
 char *arg_cursor = NULL;
@@ -252,6 +253,25 @@ static int parse_priorities(const char *arg) {
         }
 
         return 0;
+}
+
+static bool list_fields_has_filters(void) {
+        return
+                arg_boot_filter ||
+                arg_invocation ||
+                arg_dmesg ||
+                arg_cursor ||
+                arg_after_cursor ||
+                arg_cursor_file ||
+                !strv_isempty(arg_system_units) ||
+                !strv_isempty(arg_user_units) ||
+                !strv_isempty(arg_syslog_identifier) ||
+                !strv_isempty(arg_exclude_identifier) ||
+                arg_priorities != 0 ||
+                !set_isempty(arg_facilities) ||
+                arg_since_set ||
+                arg_until_set ||
+                arg_pattern;
 }
 
 static int help_facilities(void) {
@@ -532,6 +552,7 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
 
                 OPTION_LONG("this-boot", NULL, /* help= */ NULL):
                         arg_boot = true;
+                        arg_boot_filter = true;
                         arg_boot_id = SD_ID128_NULL;
                         arg_boot_offset = 0;
                         break;
@@ -539,6 +560,7 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                 OPTION_FULL(OPTION_OPTIONAL_ARG, 'b', "boot", "ID",
                             "Show current boot or the specified boot"):
                         arg_boot = true;
+                        arg_boot_filter = true;
                         arg_boot_id = SD_ID128_NULL;
                         arg_boot_offset = 0;
 
@@ -548,6 +570,7 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                                         return log_error_errno(r, "Failed to parse boot descriptor '%s'", opts.arg);
 
                                 arg_boot = r;
+                                arg_boot_filter = r > 0;
 
                         } else {
                                 /* Hmm, no argument? Maybe the next word on the command line is supposed to
@@ -558,6 +581,7 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                                         r = parse_id_descriptor(peek, &arg_boot_id, &arg_boot_offset);
                                         if (r >= 0) {
                                                 arg_boot = r;
+                                                arg_boot_filter = r > 0;
                                                 (void) option_parser_consume_next_arg(&opts);
                                         }
                                 }
@@ -975,6 +999,10 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Extraneous arguments starting with '%s'",
                                        args[0]);
+
+        if (arg_action == ACTION_LIST_FIELDS && list_fields_has_filters())
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "--field/-F cannot be combined with filters.");
 
         if ((arg_boot || arg_action == ACTION_LIST_BOOTS) && arg_merge)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
