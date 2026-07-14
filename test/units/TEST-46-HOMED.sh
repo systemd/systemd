@@ -1109,4 +1109,12 @@ testcase_deactivate_busy() {
     homectl remove busytest
 }
 
+testcase_identity_groups() {
+    NEWPASSWORD=foobar homectl create foo --enforce-password-policy=no
+    PASSWORD=foobar homectl activate foo
+
+    machinectl shell foo@ /usr/bin/bash -c "jq '.memberOf = ((.memberOf // []) + [\"systemd-journal\"] | unique) | .lastChangeUSec = ((.lastChangeUSec // 0) + 3600000000)' /home/foo/.identity > /home/foo/.identity.new; mv -f /home/foo/.identity.new /home/foo/.identity; PASSWORD=foobar homectl authenticate foo"
+    machinectl shell foo@ /usr/bin/groups | grep -v systemd-journal
+}
+
 run_testcases

@@ -1109,6 +1109,19 @@ static void home_authenticating_finish(Home *h, int ret, UserRecord *hr) {
         }
 
         if (hr) {
+                bool signed_locally;
+
+                r = home_verify_user_record(h, hr, &signed_locally, /* ret_error= */ NULL);
+                if (r < 0) {
+                        log_warning_errno(r,
+                                          "Home %s returned an untrusted user record, ignoring: %m",
+                                          h->user_name);
+                        hr = h->record;
+                } else
+                        h->signed_locally = signed_locally;
+        }
+
+        if (hr) {
                 r = home_set_record(h, hr);
                 if (r < 0)
                         log_warning_errno(r, "Failed to update home record, ignoring: %m");
