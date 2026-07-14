@@ -267,9 +267,15 @@ EFI_STATUS linux_exec(
                  * if required for NX_COMPAT */
                 err = BS->LocateProtocol(MAKE_GUID_PTR(EFI_MEMORY_ATTRIBUTE_PROTOCOL), /* Registration= */ NULL, (void **) &memory_proto);
                 if (err != EFI_SUCCESS)
-                        /* Only warn if the UEFI should have support in the first place (version >= 2.10) */
+                        /* Only warn if the UEFI should have support in the
+                         * first place (version >= 2.10), and the firmware
+                         * is not U-Boot, which does not yet implement this
+                         * protocol.
+                         */
                         log_full(err,
-                                 ST->Hdr.Revision >= ((2U << 16) | 100U) ? LOG_WARNING : LOG_DEBUG,
+                                 ST->Hdr.Revision >= ((2U << 16) | 100U) &&
+                                 !streq16(ST->FirmwareVendor, u"Das U-Boot")
+                                 ? LOG_WARNING : LOG_DEBUG,
                                  "No EFI_MEMORY_ATTRIBUTE_PROTOCOL found, skipping NX_COMPAT support.");
         }
 
