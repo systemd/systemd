@@ -6973,8 +6973,9 @@ static int tpm2_userspace_log_dirty(int fd) {
 
         /* We set the sticky bit when we are about to append to the log file. We'll unset it afterwards
          * again. If we manage to take a lock on a file that has it set we know we didn't write it fully and
-         * it is corrupted. Ideally we'd like to use user xattrs for this, but unfortunately tmpfs (which is
-         * our assumed backend fs) doesn't know user xattrs. */
+         * it is corrupted. We return -ESTALE then; callers shall not reset the marker when they are done,
+         * so that the incompleteness remains detectable. Ideally we'd like to use user xattrs for this, but
+         * unfortunately tmpfs (which is our assumed backend fs) doesn't know user xattrs. */
 
         if (fstat(fd, &st) < 0)
                 return log_debug_errno(errno, "Failed to fstat TPM log file, ignoring: %m");
@@ -6988,7 +6989,7 @@ static int tpm2_userspace_log_dirty(int fd) {
         return 0;
 }
 
-static int tpm2_userspace_log_clean(int fd) {
+static int tpm2_userspace_log_clean(int fd, bool reset_marker) {
         int r;
 
         if (fd < 0) /* Apparently tpm2_local_log_open() failed earlier, let's not complain again */
@@ -6996,6 +6997,12 @@ static int tpm2_userspace_log_clean(int fd) {
 
         if (fsync(fd) < 0)
                 return log_debug_errno(errno, "Failed to sync JSON data: %m");
+
+        /* If the dirty marker was already set when we acquired the log, an earlier writer died before
+         * writing its record, i.e. the log is missing a record. Keep the marker then, so that the
+         * incompleteness remains detectable. */
+        if (!reset_marker)
+                return 0;
 
         /* Unset S_ISVTX again */
         if (fchmod(fd, 0600) < 0)
@@ -7015,7 +7022,8 @@ static int tpm2_userspace_log(
                 const char *nv_index_name,
                 const TPML_DIGEST_VALUES *values,
                 Tpm2UserspaceEventType event_type,
-                const char *description) {
+                const char *description,
+                bool reset_marker) {
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL, *array = NULL;
         _cleanup_free_ char *f = NULL;
@@ -7104,7 +7112,7 @@ static int tpm2_userspace_log(
         if (r < 0)
                 return log_debug_errno(r, "Failed to write JSON data to log: %m");
 
-        r = tpm2_userspace_log_clean(fd);
+        r = tpm2_userspace_log_clean(fd, reset_marker);
         if (r < 0)
                 return r;
 
@@ -7181,7 +7189,7 @@ int tpm2_pcr_extend_bytes(
          * and our measurement and change either */
         log_fd = tpm2_userspace_log_open();
 
-        (void) tpm2_userspace_log_dirty(log_fd);
+        bool reset_marker = tpm2_userspace_log_dirty(log_fd) >= 0;
         rc = sym_Esys_PCR_Extend(
                         c->esys_context,
                         ESYS_TR_PCR0 + pcr_index,
@@ -7204,7 +7212,8 @@ int tpm2_pcr_extend_bytes(
                         /* nv_index_name= */ NULL,
                         &values,
                         event_type,
-                        description);
+                        description,
+                        reset_marker);
 
         return 0;
 #else /* HAVE_OPENSSL */
@@ -7376,7 +7385,7 @@ static int nvpcr_extend_bytes(
 
         log_debug("Successfully acquired handle to existing NV index 0x%" PRIx32 ".", p.nv_index);
 
-        (void) tpm2_userspace_log_dirty(log_fd);
+        bool reset_marker = tpm2_userspace_log_dirty(log_fd) >= 0;
 
         r = tpm2_extend_nvpcr_nv_index(
                         c,
@@ -7400,7 +7409,8 @@ static int nvpcr_extend_bytes(
                         name,
                         &digest_values,
                         event_type,
-                        description);
+                        description,
+                        reset_marker);
 
         return 0;
 #else /* HAVE_OPENSSL */
@@ -7936,7 +7946,7 @@ int tpm2_nvpcr_initialize(
 
         log_debug("Successfully acquired handle to NV index 0x%" PRIx32 ".", p.nv_index);
 
-        tpm2_userspace_log_dirty(log_fd);
+        bool reset_marker = tpm2_userspace_log_dirty(log_fd) >= 0;
         rc = sym_Esys_NV_Extend(
                         c->esys_context,
                         /* authHandle= */ nv_handle->esys_handle,
@@ -7974,7 +7984,7 @@ int tpm2_nvpcr_initialize(
         if (r < 0)
                 return log_debug_errno(r, "Failed to write anchor file: %m");
 
-        tpm2_userspace_log_clean(log_fd);
+        (void) tpm2_userspace_log_clean(log_fd, reset_marker);
         log_fd = safe_close(log_fd);
 
         /* Now also measure the initialization into PCR 9, so that there's a trace of it in regular PCRs. You
