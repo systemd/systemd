@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/utsname.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -8,6 +9,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
+#include "version.h"
 
 TEST(ellipsize_mem_ansi_short) {
         _cleanup_free_ char *a = ellipsize_mem("X\x1b[m", 4, 1, 50);
@@ -1408,13 +1410,67 @@ TEST(strstrafter) {
 }
 
 TEST(version_is_valid) {
-        assert_se(!version_is_valid(NULL, /* flags= */ 0));
-        assert_se(!version_is_valid("", /* flags= */ 0));
-        assert_se(version_is_valid("0", /* flags= */ 0));
-        assert_se(version_is_valid("5", /* flags= */ 0));
-        assert_se(version_is_valid("999999", /* flags= */ 0));
-        assert_se(version_is_valid("999999.5", /* flags= */ 0));
-        assert_se(version_is_valid("6.2.12-300.fc38.x86_64", /* flags= */ VERSION_ALLOW_UNDERSCORE));
+        ASSERT_FALSE(version_is_valid(NULL, /* flags= */ 0));
+        ASSERT_FALSE(version_is_valid("", /* flags= */ 0));
+        ASSERT_TRUE(version_is_valid("0", /* flags= */ 0));
+        ASSERT_TRUE(version_is_valid("5", /* flags= */ 0));
+        ASSERT_TRUE(version_is_valid("999999", /* flags= */ 0));
+        ASSERT_TRUE(version_is_valid("999999.5", /* flags= */ 0));
+        ASSERT_TRUE(version_is_valid("6.2.12-300.fc38.x86_64", VERSION_ALLOW_UNDERSCORE));
+        ASSERT_TRUE(version_is_valid("6.2.12-300.fc38.x86_64", VERSION_ALLOW_UNDERSCORE|VERSION_ALLOW_PLUS));
+        ASSERT_FALSE(version_is_valid("6.2.12-300.fc38.x86_64", VERSION_ALLOW_PLUS));
+        ASSERT_FALSE(version_is_valid("6.2.12-300.fc38.x86_64", /* flags= */ 0));
+
+        struct utsname u;
+        ASSERT_OK_ERRNO(uname(&u));
+        ASSERT_TRUE(version_is_valid(u.release, VERSION_ALLOW_UNDERSCORE|VERSION_ALLOW_PLUS));
+
+        ASSERT_TRUE(version_is_valid(GIT_VERSION, VERSION_ALLOW_UNDERSCORE|VERSION_ALLOW_PLUS));
+        ASSERT_TRUE(version_is_valid(PROJECT_VERSION_STR, /* flags= */ 0));
+
+        /* VERSION_ALLOW_EMPTY permits the empty string, but never NULL */
+        ASSERT_TRUE(version_is_valid("", VERSION_ALLOW_EMPTY));
+        ASSERT_TRUE(version_is_valid("", VERSION_ALLOW_EMPTY|VERSION_ALLOW_UNDERSCORE|VERSION_ALLOW_PLUS));
+        ASSERT_FALSE(version_is_valid("", VERSION_ALLOW_UNDERSCORE|VERSION_ALLOW_PLUS));
+        ASSERT_FALSE(version_is_valid(NULL, VERSION_ALLOW_EMPTY));
+        ASSERT_FALSE(version_is_valid(NULL, VERSION_ALLOW_EMPTY|VERSION_ALLOW_UNDERSCORE|VERSION_ALLOW_PLUS));
+
+        /* The full UAPI.10 charset, including "~" and "^", is accepted regardless of flags */
+        ASSERT_TRUE(version_is_valid("1.2~rc1^5", /* flags= */ 0));
+        ASSERT_TRUE(version_is_valid("1.2~rc1^5", VERSION_ALLOW_EMPTY|VERSION_ALLOW_UNDERSCORE|VERSION_ALLOW_PLUS));
+
+        /* "_" and "+" require their respective flag, the other flags won't do */
+        ASSERT_FALSE(version_is_valid("1_2", /* flags= */ 0));
+        ASSERT_TRUE(version_is_valid("1_2", VERSION_ALLOW_UNDERSCORE));
+        ASSERT_FALSE(version_is_valid("1_2", VERSION_ALLOW_PLUS));
+        ASSERT_FALSE(version_is_valid("1_2", VERSION_ALLOW_EMPTY));
+        ASSERT_FALSE(version_is_valid("1+2", /* flags= */ 0));
+        ASSERT_TRUE(version_is_valid("1+2", VERSION_ALLOW_PLUS));
+        ASSERT_FALSE(version_is_valid("1+2", VERSION_ALLOW_UNDERSCORE));
+        ASSERT_FALSE(version_is_valid("1+2", VERSION_ALLOW_EMPTY));
+        ASSERT_FALSE(version_is_valid("1_2+3", VERSION_ALLOW_UNDERSCORE));
+        ASSERT_FALSE(version_is_valid("1_2+3", VERSION_ALLOW_PLUS));
+        ASSERT_TRUE(version_is_valid("1_2+3", VERSION_ALLOW_UNDERSCORE|VERSION_ALLOW_PLUS));
+
+        /* Characters outside the charset are refused, no matter which flags are set */
+        ASSERT_FALSE(version_is_valid("1 2", VERSION_ALLOW_EMPTY|VERSION_ALLOW_UNDERSCORE|VERSION_ALLOW_PLUS));
+        ASSERT_FALSE(version_is_valid("1/2", VERSION_ALLOW_EMPTY|VERSION_ALLOW_UNDERSCORE|VERSION_ALLOW_PLUS));
+        ASSERT_FALSE(version_is_valid("1=2", VERSION_ALLOW_EMPTY|VERSION_ALLOW_UNDERSCORE|VERSION_ALLOW_PLUS));
+        ASSERT_FALSE(version_is_valid("1\n2", VERSION_ALLOW_EMPTY|VERSION_ALLOW_UNDERSCORE|VERSION_ALLOW_PLUS));
+        ASSERT_FALSE(version_is_valid("©", VERSION_ALLOW_EMPTY|VERSION_ALLOW_UNDERSCORE|VERSION_ALLOW_PLUS));
+
+        /* "." and ".." pass the charset check and are OK as *part* of a filename, hence accepted */
+        ASSERT_TRUE(version_is_valid(".", /* flags= */ 0));
+        ASSERT_TRUE(version_is_valid("..", /* flags= */ 0));
+
+        /* Version strings must fit in a filename, i.e. no longer than NAME_MAX, no matter the flags */
+        _cleanup_free_ char *x = strrep("0", NAME_MAX);
+        ASSERT_NOT_NULL(x);
+        ASSERT_TRUE(version_is_valid(x, /* flags= */ 0));
+        _cleanup_free_ char *y = strrep("0", NAME_MAX+1);
+        ASSERT_NOT_NULL(y);
+        ASSERT_FALSE(version_is_valid(y, /* flags= */ 0));
+        ASSERT_FALSE(version_is_valid(y, VERSION_ALLOW_EMPTY|VERSION_ALLOW_UNDERSCORE|VERSION_ALLOW_PLUS));
 }
 
 TEST(strextendn) {
