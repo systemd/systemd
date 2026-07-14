@@ -1470,17 +1470,18 @@ bool version_is_valid(const char *s) {
                 return false;
 
         /* This is a superset of the characters used by semver. We additionally allow "_". */
-        if (!in_charset(s, ALPHANUMERICAL "._-+"))
+        if (!in_charset(s, ALPHANUMERICAL ".-+_"))
                 return false;
 
         return true;
 }
 
 bool version_is_valid_versionspec(const char *s) {
+
         if (!filename_part_is_valid(s))
                 return false;
 
-        if (!in_charset(s, ALPHANUMERICAL "-.~^"))
+        if (!in_charset(s, ALPHANUMERICAL ".-~^"))
                 return false;
 
         return true;
