@@ -249,7 +249,7 @@ verify_version_current() {
 verify_object_fields() {
     local updatectl_output="${1:?}"
 
-    [[ "${updatectl_output}" != *"Unrecognized object field"* ]] || exit 1
+    [[ "${updatectl_output}" != *"Unrecognized object field"* ]]
 }
 
 for sector_size in "${SECTOR_SIZES[@]}"; do
@@ -461,8 +461,16 @@ EOF
     verify_version_current "$blockdev" "$sector_size" v5 2
 
     # Now let's try enabling an optional feature
-    "$SYSUPDATE" features | grep "optional"
-    "$SYSUPDATE" features optional | grep "99-optional"
+    if [[ "$client" == "sysupdate-cli" ]]; then
+        "$SYSUPDATE" features | grep "optional"
+        "$SYSUPDATE" features optional | grep "99-optional"
+    elif [[ "$client" == "varlink" ]]; then
+        [[ $(varlinkctl call "$VARLINK_SOCKET" io.systemd.SysUpdate.ListFeatures '{"target":{"class":"host"}}' | jq -r '.features[] | select(.id=="optional") | .description') == "Optional Feature" ]]
+        varlinkctl call "$VARLINK_SOCKET" io.systemd.SysUpdate.ListFeatures '{"target":{"class":"host"}}' | jq -r '.features[] | select(.id=="optional") | .transfers' | grep "99-optional"
+    else
+        exit 1
+    fi
+
     test ! -f "$WORKDIR/xbootldr/EFI/Linux/uki_v5.efi.extra.d/optional.efi"
     mkdir "$CONFIGDIR/optional.feature.d"
     echo -e "[Feature]\nEnabled=true" > "$CONFIGDIR/optional.feature.d/enable.conf"
@@ -639,8 +647,11 @@ MatchPattern=some-component_@v
 CurrentSymlink=some-component
 EOF
 "$SYSUPDATE" --json=short components | grep -F '{"default":false,"components":["some-component"]}' >/dev/null
+varlinkctl call "$VARLINK_SOCKET" io.systemd.SysUpdate.ListTargets | jq -e '.targets | all(.id.class != "host")' >/dev/null
 mkdir /run/sysupdate.d
 "$SYSUPDATE" --json=short components | grep -F '{"default":false,"components":["some-component"]}' >/dev/null
+varlinkctl call "$VARLINK_SOCKET" io.systemd.SysUpdate.ListTargets | jq -e '.targets | all(.id.class != "host")' >/dev/null
+[[ $(varlinkctl call "$VARLINK_SOCKET" io.systemd.SysUpdate.ListTargets | jq -r '.targets[0].id.name') == "some-component" ]]
 
 # Regression test for https://github.com/systemd/systemd/issues/42330 — the
 # 'pending'/'reboot' verbs and the '--reboot' switch compare the newest installed
@@ -674,8 +685,15 @@ Path=$WORKDIR/blobs
 MatchPattern=tiny-@v.bin
 InstancesMax=1
 EOF
+
 "$SYSUPDATE" --verify=no update
 cmp "$WORKDIR/source/tiny-v1.bin" "$WORKDIR/blobs/tiny-v1.bin"
+
+# Test that listing features when none are configured gives an empty list.
+"$SYSUPDATE" features |& grep "No features." >/dev/null
+[[ $(varlinkctl call "$VARLINK_SOCKET" io.systemd.SysUpdate.ListFeatures '{"target":{"class":"host"}}' | jq -r '.features') == "[]" ]]
+
+# Cleanup
 rm "$CONFIGDIR/01-tiny-url.transfer"
 rm "$WORKDIR/source/tiny-v1.bin"
 rm "$WORKDIR/source/SHA256SUMS"
@@ -1425,5 +1443,9 @@ EOF
 cmp "$WORKDIR/source/pack-v2" "$WORKDIR/blobs/pack-v2"
 rm -rf "$CONFIGDIR/01-manifest-yes-and-retry.transfer" \
        "$WORKDIR/source/pack-v1" "$WORKDIR/source/pack-v2"
+
+# Test that listing components/targets when none are configured gives an empty list.
+"$SYSUPDATE" components |& grep "No components defined." >/dev/null
+[[ $(varlinkctl call "$VARLINK_SOCKET" io.systemd.SysUpdate.ListTargets | jq -r '.targets') == "[]" ]]
 
 touch /testok
