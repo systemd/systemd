@@ -229,6 +229,16 @@ machinectl import-fs /var/tmp/container.dir container-dir
 machinectl start container-dir
 rm -fr /var/tmp/container.dir
 
+# Check if machinectl can properly work with symlinks to raw images
+touch /var/lib/machines/linked.squashfs
+ln -svrf /var/lib/machines/linked.squashfs /var/lib/machines/linked.raw
+ls -la /var/lib/machines/
+machinectl list-images | tee /tmp/out.log
+grep -E "linked\s+raw" /tmp/out.log
+(! grep -E "linked\s+squashfs" /tmp/out.log)
+[[ "$(machinectl show-image --property=Type --value linked)" == "raw" ]]
+rm -f /var/lib/machines/linked.{squashfs,raw} /tmp/out.log
+
 timeout 30 bash -c "until machinectl clean --all; do sleep .5; done"
 
 NSPAWN_FRAGMENT="machinectl-test-$RANDOM.nspawn"
