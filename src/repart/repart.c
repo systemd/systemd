@@ -6006,6 +6006,9 @@ static int partition_format_verity_hash(
         if (r < 0)
                 return r;
 
+        if (p->partno != UINT64_MAX)
+                log_info("Calculating Verity protection data for future partition %" PRIu64 "...", p->partno);
+
         if (!node) {
                 r = partition_target_prepare(context, p, p->new_size, /* need_path= */ true, &t);
                 if (r < 0)
