@@ -44,6 +44,7 @@
 #include "pretty-print.h"
 #include "process-util.h"
 #include "random-util.h"
+#include "runtime-measure.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
@@ -1020,6 +1021,9 @@ static int measure_volume_key(
                 const void *volume_key,
                 size_t volume_key_size) {
 
+        _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
+        _cleanup_strv_free_ char **banks = NULL;
+        _cleanup_free_ char *joined = NULL, *banks_log = NULL;
         int r;
 
         assert(cd);
@@ -1040,22 +1044,25 @@ static int measure_volume_key(
                 return 0;
         }
 
-#if HAVE_TPM2
-        _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
-        r = tpm2_context_new_or_warn(arg_tpm2_device, &c);
-        if (r < 0)
-                return r;
-
-        _cleanup_strv_free_ char **l = NULL;
-        if (strv_isempty(arg_tpm2_measure_banks)) {
-                r = tpm2_get_good_pcr_banks_strv(c, UINT32_C(1) << arg_tpm2_measure_pcr, &l);
+        if (arg_tpm2_device || tpm2_is_mostly_supported()) {
+                r = tpm2_context_new_or_warn(arg_tpm2_device, &c);
                 if (r < 0)
-                        return log_error_errno(r, "Could not verify pcr banks: %m");
-        }
+                        return r;
 
-        _cleanup_free_ char *joined = strv_join(l ?: arg_tpm2_measure_banks, ", ");
-        if (!joined)
-                return log_oom();
+                if (strv_isempty(arg_tpm2_measure_banks)) {
+                        r = tpm2_get_good_pcr_banks_strv(c, UINT32_C(1) << arg_tpm2_measure_pcr, &banks);
+                        if (r < 0)
+                                return log_error_errno(r, "Could not verify pcr banks: %m");
+                }
+
+                joined = strv_join(banks ?: arg_tpm2_measure_banks, ", ");
+                if (!joined)
+                        return log_oom();
+
+                banks_log = strjoin(", banks ", joined);
+                if (!banks_log)
+                        return log_oom();
+        }
 
         /* Note: we don't directly measure the volume key, it might be a security problem to send an
          * unprotected direct hash of the secret volume key over the wire to the TPM. Hence let's instead
@@ -1067,30 +1074,31 @@ static int measure_volume_key(
          * calculated by cryptsetup_get_volume_key_id(). */
         r = cryptsetup_get_volume_key_prefix(cd, name, &prefix);
         if (r)
-                return log_error_errno(r, "Could not verify pcr banks: %m");
+                return log_error_errno(r, "Could not get volume key prefix: %m");
 
-        r = tpm2_pcr_extend_bytes(
-                        c,
-                        /* banks= */ l ?: arg_tpm2_measure_banks,
+        r = runtime_measurement_extend_bytes(
+                        &(RuntimeMeasureBackends) { .tpm2 = c, .tpm2_banks = banks ?: arg_tpm2_measure_banks },
                         /* pcr_index = */ arg_tpm2_measure_pcr,
                         /* data = */ &IOVEC_MAKE_STRING(prefix),
                         /* secret = */ &IOVEC_MAKE(volume_key, volume_key_size),
                         /* event_type = */ USERSPACE_MEASUREMENT_EVENT_VOLUME_KEY,
                         /* description = */ prefix);
+        if (r == -EOPNOTSUPP) {
+                log_debug("No measurement backend covers PCR %u, skipping volume key measurement.",
+                        arg_tpm2_measure_pcr);
+                return 0;
+        }
         if (r < 0)
                 return log_error_errno(r, "Could not extend PCR: %m");
 
         log_struct(LOG_INFO,
                    LOG_MESSAGE_ID(SD_MESSAGE_TPM_PCR_EXTEND_STR),
-                   LOG_MESSAGE("Successfully extended PCR index %u with '%s' and volume key (banks %s).", arg_tpm2_measure_pcr, prefix, joined),
+                   LOG_MESSAGE("Successfully extended PCR index %u with '%s' and volume key%s.", arg_tpm2_measure_pcr, prefix, strempty(banks_log)),
                    LOG_ITEM("MEASURING=%s", prefix),
                    LOG_ITEM("PCR=%u", arg_tpm2_measure_pcr),
-                   LOG_ITEM("BANKS=%s", joined));
+                   LOG_ITEM("BANKS=%s", strempty(joined)));
 
         return 0;
-#else
-        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "TPM2 support disabled, not measuring volume key.");
-#endif
 }
 
 static int measure_keyslot(
@@ -1099,9 +1107,9 @@ static int measure_keyslot(
                 const char *mechanism,
                 int keyslot) {
 
-#if HAVE_TPM2
+        _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
         int r;
-#endif
+
         assert(cd);
         assert(name);
 
@@ -1110,7 +1118,6 @@ static int measure_keyslot(
                 return 0;
         }
 
-#if HAVE_TPM2
         r = efi_measured_os(LOG_WARNING);
         if (r < 0)
                 return r;
@@ -1119,10 +1126,11 @@ static int measure_keyslot(
                 return 0;
         }
 
-        _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
-        r = tpm2_context_new_or_warn(arg_tpm2_device, &c);
-        if (r < 0)
-                return r;
+        if (arg_tpm2_device || tpm2_is_mostly_supported()) {
+                r = tpm2_context_new_or_warn(arg_tpm2_device, &c);
+                if (r < 0)
+                        return r;
+        }
 
         _cleanup_free_ char *escaped = NULL;
         escaped = xescape(name, ":"); /* avoid ambiguity around ":" once we join things below */
@@ -1138,15 +1146,18 @@ static int measure_keyslot(
         if (!s)
                 return log_oom();
 
-        r = tpm2_nvpcr_extend_bytes(
-                        c,
-                        /* session= */ NULL,
+        r = runtime_measurement_extend_nvpcr(
+                        &(RuntimeMeasureBackends) { .tpm2 = c },
                         arg_tpm2_measure_keyslot_nvpcr,
                         &IOVEC_MAKE_STRING(s),
                         /* secret= */ NULL,
-                        /* sync_secondary_anchor= */ false,
                         USERSPACE_MEASUREMENT_EVENT_KEYSLOT,
                         s);
+        if (r == -EOPNOTSUPP) {
+                log_debug("No measurement backend covers NvPCR '%s', skipping key slot measurement.",
+                          arg_tpm2_measure_keyslot_nvpcr);
+                return 0;
+        }
         if (r < 0)
                 return log_error_errno(r, "Could not extend NvPCR: %m");
 
@@ -1157,9 +1168,6 @@ static int measure_keyslot(
                    "NVPCR=%s", arg_tpm2_measure_keyslot_nvpcr);
 
         return 0;
-#else
-        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "TPM2 support disabled, not measuring keyslot.");
-#endif
 }
 
 static int log_external_activation(int r, const char *volume) {
