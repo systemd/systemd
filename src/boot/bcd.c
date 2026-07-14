@@ -93,15 +93,17 @@ assert_cc(offsetof(KeyValue, data_offset) == 8);
 assert_cc(offsetof(KeyValue, data_type) == 12);
 assert_cc(offsetof(KeyValue, name) == 20);
 
-#define BAD_OFFSET(offset, len, max) \
-        ((uint64_t) (offset) + (len) >= (max))
+static bool bad_offset(uint64_t offset, uint64_t len, uint64_t max) {
+        return offset > max || len > max - offset;
+}
 
 #define BAD_STRUCT(type, offset, max) \
-        ((uint64_t) (offset) + sizeof(type) >= (max))
+        bad_offset(offset, sizeof(type), max)
 
 #define BAD_ARRAY(type, array, offset, array_len, max) \
-        ((uint64_t) (offset) + offsetof(type, array) + \
-         sizeof((type){}.array[0]) * (uint64_t) (array_len) >= (max))
+        bad_offset(offset, \
+                   offsetof(type, array) + sizeof((type){}.array[0]) * (uint64_t) (array_len), \
+                   max)
 
 static const Key *get_key(const uint8_t *bcd, uint32_t bcd_len, uint32_t offset, const char *name);
 
@@ -167,7 +169,7 @@ static const KeyValue *get_key_value(const uint8_t *bcd, uint32_t bcd_len, const
         if (key->n_key_values == 0)
                 return NULL;
 
-        if (BAD_OFFSET(key->key_values_offset, sizeof(uint32_t) * (uint64_t) key->n_key_values, bcd_len) ||
+        if (bad_offset(key->key_values_offset, sizeof(uint32_t) * (uint64_t) key->n_key_values, bcd_len) ||
             (uintptr_t) (bcd + key->key_values_offset) % alignof(uint32_t) != 0)
                 return NULL;
 
@@ -191,7 +193,7 @@ static const KeyValue *get_key_value(const uint8_t *bcd, uint32_t bcd_len, const
                 if (FLAGS_SET(kv->data_size, UINT32_C(1) << 31))
                         continue;
 
-                if (BAD_OFFSET(kv->data_offset, kv->data_size, bcd_len))
+                if (bad_offset(kv->data_offset, kv->data_size, bcd_len))
                         continue;
 
                 if (strncaseeq8(name, kv->name, kv->name_len) && strlen8(name) == kv->name_len)

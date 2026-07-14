@@ -814,21 +814,6 @@ static int context_show_version(Context *c, const char *version) {
         if (arg_json_format_flags & (SD_JSON_FORMAT_OFF|SD_JSON_FORMAT_PRETTY|SD_JSON_FORMAT_PRETTY_AUTO))
                 pager_open(arg_pager_flags);
 
-        if (!sd_json_format_enabled(arg_json_format_flags))
-                printf("%s%s%s Version: %s\n"
-                       "    State: %s%s%s\n"
-                       "Installed: %s%s%s%s\n"
-                       "Available: %s%s\n"
-                       "Protected: %s%s%s\n"
-                       " Obsolete: %s%s%s\n\n",
-                       strempty(update_set_flags_to_color(us->flags)), update_set_flags_to_glyph(us->flags), ansi_normal(), us->version,
-                       strempty(update_set_flags_to_color(us->flags)), update_set_flags_to_string(us->flags), ansi_normal(),
-                       yes_no(us->flags & UPDATE_INSTALLED), FLAGS_SET(us->flags, UPDATE_INSTALLED|UPDATE_NEWEST) ? " (newest)" : "",
-                       FLAGS_SET(us->flags, UPDATE_INSTALLED|UPDATE_PENDING) ? " (pending)" : "", FLAGS_SET(us->flags, UPDATE_INSTALLED|UPDATE_PARTIAL) ? " (partial)" : "",
-                       yes_no(us->flags & UPDATE_AVAILABLE), (us->flags & (UPDATE_INSTALLED|UPDATE_AVAILABLE|UPDATE_NEWEST)) == (UPDATE_AVAILABLE|UPDATE_NEWEST) ? " (newest)" : "",
-                       FLAGS_SET(us->flags, UPDATE_INSTALLED|UPDATE_PROTECTED) ? ansi_highlight() : "", yes_no(FLAGS_SET(us->flags, UPDATE_INSTALLED|UPDATE_PROTECTED)), ansi_normal(),
-                       us->flags & UPDATE_OBSOLETE ? ansi_highlight_red() : "", yes_no(us->flags & UPDATE_OBSOLETE), ansi_normal());
-
         t = table_new("type", "path", "ptuuid", "ptflags", "mtime", "mode", "size", "tries-done", "tries-left", "noauto", "ro", "growfs", "sha256");
         if (!t)
                 return log_oom();
