@@ -11,4 +11,5 @@ int journal_add_unit_matches(
                 uid_t uid,
                 char * const *user_units);
 
+bool journalctl_field_list_has_scope_options(void);
 int add_filters(sd_journal *j, char **matches);
