@@ -618,7 +618,7 @@ static int image_make(
                 (*ret)->foreign_uid_owned = uid_is_foreign(st->st_uid);
                 return 0;
 
-        } else if (S_ISREG(st->st_mode) && endswith(path, ".raw")) {
+        } else if (S_ISREG(st->st_mode) && (endswith(path, ".raw") || pretty)) {
                 usec_t crtime = 0;
 
                 /* It's a RAW disk image */
