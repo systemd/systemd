@@ -298,6 +298,87 @@ _public_ void cryptsetup_token_dump(
         }
 }
 
+static int validate_tpm2_pcrs(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        sd_json_variant *i;
+
+        assert(variant);
+
+        JSON_VARIANT_ARRAY_FOREACH(i, variant) {
+                uint64_t u;
+
+                if (!sd_json_variant_is_number(i))
+                        return json_log(i, flags, SYNTHETIC_ERRNO(EINVAL), "TPM2 PCR is not a number.");
+
+                u = sd_json_variant_unsigned(i);
+                if (!TPM2_PCR_INDEX_VALID(u))
+                        return json_log(i, flags, SYNTHETIC_ERRNO(EINVAL), "TPM2 PCR number out of range.");
+        }
+
+        return 0;
+}
+
+static int validate_tpm2_pcr_bank(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        assert(variant);
+
+        if (tpm2_hash_alg_from_string(sd_json_variant_string(variant)) < 0)
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL),
+                                "TPM2 PCR bank invalid or not supported: %s.", sd_json_variant_string(variant));
+
+        return 0;
+}
+
+static int validate_tpm2_primary_alg(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        assert(variant);
+
+        if (tpm2_asym_alg_from_string(sd_json_variant_string(variant)) < 0)
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL),
+                                "TPM2 primary key algorithm invalid or not supported: %s", sd_json_variant_string(variant));
+
+        return 0;
+}
+
+static int validate_tpm2_blob(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        int r;
+
+        assert(variant);
+
+        if (sd_json_variant_is_array(variant)) {
+                sd_json_variant *i;
+                JSON_VARIANT_ARRAY_FOREACH(i, variant) {
+                        r = sd_json_variant_unbase64(i, /* ret= */ NULL, /* ret_size= */ NULL);
+                        if (r < 0)
+                                return json_log(i, flags, r, "Invalid base64 data in 'tpm2-blob' field: %m");
+                }
+        } else {
+                r = sd_json_variant_unbase64(variant, /* ret= */ NULL, /* ret_size= */ NULL);
+                if (r < 0)
+                        return json_log(variant, flags, r, "Invalid base64 data in 'tpm2-blob' field: %m");
+        }
+
+        return 0;
+}
+
+static int validate_tpm2_policy_hash(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        int r;
+
+        assert(variant);
+
+        if (sd_json_variant_is_array(variant)) {
+                sd_json_variant *i;
+                JSON_VARIANT_ARRAY_FOREACH(i, variant) {
+                        r = sd_json_variant_unhex(i, /* ret= */ NULL, /* ret_size= */ NULL);
+                        if (r < 0)
+                                return json_log(i, flags, r, "Invalid hex data in 'tpm2-policy-hash' field: %m");
+                }
+        } else {
+                r = sd_json_variant_unhex(variant, /* ret= */ NULL, /* ret_size= */ NULL);
+                if (r < 0)
+                        return json_log(variant, flags, r, "Invalid hex data in 'tpm2-policy-hash' field: %m");
+        }
+
+        return 0;
+}
+
 /*
  * Note:
  *   If plugin is available in library path, it's called in before following libcryptsetup calls:
@@ -309,8 +390,17 @@ _public_ int cryptsetup_token_validate(
                 const char *json /* contains valid 'type' and 'keyslots' fields. 'type' is 'systemd-tpm2' */) {
 
         int r;
-        sd_json_variant *w, *e;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "tpm2-pcrs",        SD_JSON_VARIANT_ARRAY,         validate_tpm2_pcrs,        0, SD_JSON_MANDATORY },
+                { "tpm2-pcr-bank",    SD_JSON_VARIANT_STRING,        validate_tpm2_pcr_bank,    0, 0                 },
+                { "tpm2-primary-alg", SD_JSON_VARIANT_STRING,        validate_tpm2_primary_alg, 0, 0                 },
+                { "tpm2-blob",        _SD_JSON_VARIANT_TYPE_INVALID, validate_tpm2_blob,        0, SD_JSON_MANDATORY },
+                { "tpm2-policy-hash", _SD_JSON_VARIANT_TYPE_INVALID, validate_tpm2_policy_hash, 0, SD_JSON_MANDATORY },
+                { "tpm2-pin",         SD_JSON_VARIANT_BOOLEAN,       NULL,                      0, 0                 },
+                {},
+        };
 
         assert(json);
 
@@ -322,106 +412,9 @@ _public_ int cryptsetup_token_validate(
         if (r < 0)
                 return crypt_log_debug_errno(cd, r, "Could not parse " TOKEN_NAME " json object: %m");
 
-        w = sd_json_variant_by_key(v, "tpm2-pcrs");
-        if (!w || !sd_json_variant_is_array(w)) {
-                crypt_log_debug(cd, "TPM2 token data lacks 'tpm2-pcrs' field.");
-                return 1;
-        }
-
-        JSON_VARIANT_ARRAY_FOREACH(e, w) {
-                uint64_t u;
-
-                if (!sd_json_variant_is_number(e)) {
-                        crypt_log_debug(cd, "TPM2 PCR is not a number.");
-                        return 1;
-                }
-
-                u = sd_json_variant_unsigned(e);
-                if (!TPM2_PCR_INDEX_VALID(u)) {
-                        crypt_log_debug(cd, "TPM2 PCR number out of range.");
-                        return 1;
-                }
-        }
-
-        /* The bank field is optional, since it was added in systemd 250 only. Before the bank was hardcoded
-         * to SHA256. */
-        w = sd_json_variant_by_key(v, "tpm2-pcr-bank");
-        if (w) {
-                /* The PCR bank field is optional */
-
-                if (!sd_json_variant_is_string(w)) {
-                        crypt_log_debug(cd, "TPM2 PCR bank is not a string.");
-                        return 1;
-                }
-
-                if (tpm2_hash_alg_from_string(sd_json_variant_string(w)) < 0) {
-                        crypt_log_debug(cd, "TPM2 PCR bank invalid or not supported: %s.", sd_json_variant_string(w));
-                        return 1;
-                }
-        }
-
-        /* The primary key algorithm field is optional, since it was also added in systemd 250 only. Before
-         * the algorithm was hardcoded to ECC. */
-        w = sd_json_variant_by_key(v, "tpm2-primary-alg");
-        if (w) {
-                /* The primary key algorithm is optional */
-
-                if (!sd_json_variant_is_string(w)) {
-                        crypt_log_debug(cd, "TPM2 primary key algorithm is not a string.");
-                        return 1;
-                }
-
-                if (tpm2_asym_alg_from_string(sd_json_variant_string(w)) < 0) {
-                        crypt_log_debug(cd, "TPM2 primary key algorithm invalid or not supported: %s", sd_json_variant_string(w));
-                        return 1;
-                }
-        }
-
-        w = sd_json_variant_by_key(v, "tpm2-blob");
-        if (!w) {
-                crypt_log_debug(cd, "TPM2 token data lacks 'tpm2-blob' field.");
-                return 1;
-        }
-
-        if (sd_json_variant_is_array(w)) {
-                sd_json_variant *i;
-                JSON_VARIANT_ARRAY_FOREACH(i, w) {
-                        r = sd_json_variant_unbase64(i, /* ret= */ NULL, /* ret_size= */ NULL);
-                        if (r < 0)
-                                return crypt_log_debug_errno(cd, r, "Invalid base64 data in 'tpm2-blob' field: %m");
-                }
-        } else {
-                r = sd_json_variant_unbase64(w, /* ret= */ NULL, /* ret_size= */ NULL);
-                if (r < 0)
-                        return crypt_log_debug_errno(cd, r, "Invalid base64 data in 'tpm2-blob' field: %m");
-        }
-
-        w = sd_json_variant_by_key(v, "tpm2-policy-hash");
-        if (!w) {
-                crypt_log_debug(cd, "TPM2 token data lacks 'tpm2-policy-hash' field.");
-                return 1;
-        }
-
-        if (sd_json_variant_is_array(w)) {
-                sd_json_variant *i;
-                JSON_VARIANT_ARRAY_FOREACH(i, w) {
-                        r = sd_json_variant_unhex(i, /* ret= */ NULL, /* ret_size= */ NULL);
-                        if (r < 0)
-                                return crypt_log_debug_errno(cd, r, "Invalid hex data in 'tpm2-policy-hash' field: %m");
-                }
-        } else {
-                r = sd_json_variant_unhex(w, /* ret= */ NULL, /* ret_size= */ NULL);
-                if (r < 0)
-                        return crypt_log_debug_errno(cd, r, "Invalid hex data in 'tpm2-policy-hash' field: %m");
-        }
-
-        w = sd_json_variant_by_key(v, "tpm2-pin");
-        if (w) {
-                if (!sd_json_variant_is_boolean(w)) {
-                        crypt_log_debug(cd, "TPM2 PIN policy is not a boolean.");
-                        return 1;
-                }
-        }
+        r = sd_json_dispatch(v, dispatch_table, SD_JSON_LOG, NULL);
+        if (r < 0)
+                return 1; /* Dispatch handles logging, return 1 for validation failure */
 
         return 0;
 }
