@@ -794,6 +794,22 @@
   </refsect1>
 
   <refsect1>
+    <title>Environment</title>
+
+    <variablelist class='environment-variables'>
+      <varlistentry>
+        <term><varname>$SYSTEMD_REPART_NOCOW</varname></term>
+
+        <listitem><para>Takes a boolean. If true, newly created image files are created with copy-on-write
+        disabled on filesystems that support it. By default, copy-on-write remains enabled so that files can
+        be reflinked into the image, reducing both build time and disk usage.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
     <title>Example</title>
 
     <example>

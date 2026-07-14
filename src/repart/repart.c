@@ -33,6 +33,7 @@
 #include "dirent-util.h"
 #include "dissect-image.h"
 #include "efivars.h"
+#include "env-util.h"
 #include "errno-util.h"
 #include "extract-word.h"
 #include "factory-reset.h"
@@ -218,6 +219,7 @@ static char *arg_generate_crypttab = NULL;
 static Set *arg_verity_settings = NULL;
 static bool arg_relax_copy_block_security = false;
 static bool arg_varlink = false;
+static bool arg_nocow = false;
 static bool arg_eltorito = false;
 static char *arg_eltorito_system = NULL;
 static char *arg_eltorito_volume = NULL;
@@ -11021,7 +11023,12 @@ static int find_root(Context *context) {
                         if (!s)
                                 return log_oom();
 
-                        fd = xopenat_full(AT_FDCWD, arg_node, open_flags|O_CREAT|O_EXCL|O_NOFOLLOW, XO_NOCOW, 0666);
+                        fd = xopenat_full(
+                                        AT_FDCWD,
+                                        arg_node,
+                                        open_flags|O_CREAT|O_EXCL|O_NOFOLLOW,
+                                        arg_nocow ? XO_NOCOW : 0,
+                                        0666);
                         if (fd < 0)
                                 return log_error_errno(fd, "Failed to create '%s': %m", arg_node);
 
@@ -11637,6 +11644,13 @@ static int run(int argc, char *argv[]) {
         r = parse_argv(argc, argv);
         if (r <= 0)
                 return r;
+
+        r = secure_getenv_bool("SYSTEMD_REPART_NOCOW");
+        if (r < 0) {
+                if (r != -ENXIO)
+                        log_warning_errno(r, "Failed to parse $SYSTEMD_REPART_NOCOW, ignoring: %m");
+        } else
+                arg_nocow = r;
 
         r = DLOPEN_FDISK(LOG_ERR, required);
         if (r < 0)
