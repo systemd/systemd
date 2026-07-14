@@ -20,6 +20,11 @@ journalctl --list-namespaces | grep foobaz
 journalctl --list-namespaces -o json | jq .
 [[ "$(journalctl --root=/tmp --list-namespaces --quiet)" == "" ]]
 
+root="$(mktemp -d /tmp/journal-ns-root.XXXXXX)"
+mkdir -p "$root/etc" "$root/var/log/journal/11111111111111111111111111111111.testns"
+printf '11111111111111111111111111111111\n' >"$root/etc/machine-id"
+[[ "$(journalctl --root="$root" --list-namespaces --quiet)" == "testns" ]]
+
 grep "^hello world$" /tmp/hello-world
 (! grep "^hello world$" /tmp/no-hello-world)
 
