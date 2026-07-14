@@ -1367,7 +1367,7 @@ def make_uki(opts: UkifyConfig) -> None:
 
     pcrpkey: Union[bytes, Path, None] = opts.pcrpkey
     if pcrpkey is None:
-        keyutil_tool = find_tool('systemd-keyutil', '/usr/lib/systemd/systemd-keyutil')
+        keyutil_tool = find_tool('systemd-keyutil', '/usr/lib/systemd/systemd-keyutil', opts=opts)
         cmd = [keyutil_tool, 'extract-public']
 
         if opts.pcr_public_keys and len(opts.pcr_public_keys) == 1:
