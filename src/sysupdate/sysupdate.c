@@ -2324,44 +2324,20 @@ typedef enum {
         UPDATE_ACTION_INSTALL = 1 << 1,
 } UpdateActionFlags;
 
-static int verb_update_impl(int argc, char **argv, UpdateActionFlags action_flags) {
-        _cleanup_free_ char *booted_version = NULL;
+static int context_update(
+                Context *c,
+                const char *version,
+                const char *booted_version,
+                UpdateActionFlags action_flags) {
+
         UpdateSet *applied = NULL;
-        const char *version;
-        int r;
-
-        assert(argc <= 2);
-        version = argc >= 2 ? argv[1] : NULL;
-
-        _cleanup_(context_done) Context context = CONTEXT_NULL;
-        r = context_from_cmdline(&context);
-        if (r < 0)
-                return r;
-
-        if (context.feature_select != SELECT_EXPLICIT)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--feature-all/--feature-suggested is not supported for '%s'.", argv[0]);
-        if (context.component_select != SELECT_EXPLICIT)
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--component-all/--component-suggested currently not supported for '%s'.", argv[0]);
-
-        if (context.instances_max < 2)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                      "The --instances-max= argument must be >= 2 while updating");
-
-        if (context.reboot) {
-                /* If automatic reboot on completion is requested, let's first determine the currently booted image */
-
-                r = parse_os_release(context.root, "IMAGE_VERSION", &booted_version);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to parse /etc/os-release: %m");
-                if (!booted_version)
-                        return log_error_errno(SYNTHETIC_ERRNO(ENODATA), "/etc/os-release lacks IMAGE_VERSION field.");
-        }
-
         bool installed = false;
-        int ret = 0;
+        int r, ret = 0;
+
+        assert(c);
 
         r = context_load_online(
-                        &context,
+                        c,
                         /* process_image_flags= */ 0,
                         READ_DEFINITIONS_REQUIRES_ENABLED_TRANSFERS|
                         READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS|
@@ -2373,15 +2349,15 @@ static int verb_update_impl(int argc, char **argv, UpdateActionFlags action_flag
                 /* No transfer files found. In that case, still do the installdb cleanup below */
                 RET_GATHER(ret, r);
         } else {
-                if (action_flags & UPDATE_ACTION_ACQUIRE)
-                        r = context_acquire(&context, version);
+                if (FLAGS_SET(action_flags, UPDATE_ACTION_ACQUIRE))
+                        r = context_acquire(c, version);
                 else
-                        r = context_process_partial_and_pending(&context, version);
+                        r = context_process_partial_and_pending(c, version);
                 if (r < 0)
                         return r;
 
                 if (FLAGS_SET(action_flags, UPDATE_ACTION_INSTALL) && r > 0) { /* installation of update indicated */
-                        r = context_install(&context, version, &applied);
+                        r = context_install(c, version, &applied);
                         if (r < 0)
                                 return r;
 
@@ -2391,22 +2367,22 @@ static int verb_update_impl(int argc, char **argv, UpdateActionFlags action_flag
                 /* context_install() returns > 0 (and emits a notification) only if it actually applied an update. If
                  * nothing was applied but SYSTEMD_SYSUPDATE_FORCE_NOTIFY=1 is set, still notify subscribers (without a
                  * resource list), so e.g. a kernel/policy refresh can be triggered unconditionally. */
-                if ((action_flags & UPDATE_ACTION_INSTALL) && !installed) {
+                if (FLAGS_SET(action_flags, UPDATE_ACTION_INSTALL) && !installed) {
                         int f = secure_getenv_bool("SYSTEMD_SYSUPDATE_FORCE_NOTIFY");
                         if (f < 0 && f != -ENXIO)
                                 log_debug_errno(f, "Failed to parse $SYSTEMD_SYSUPDATE_FORCE_NOTIFY, ignoring: %m");
                         if (f > 0)
-                                (void) context_notify_subscribers(&context, /* us= */ NULL);
+                                (void) context_notify_subscribers(c, /* us= */ NULL);
                 }
         }
 
-        if (context.cleanup > 0)
-                RET_GATHER(ret, installdb_cleanup_component(&context));
+        if (c->cleanup > 0)
+                RET_GATHER(ret, installdb_cleanup_component(c));
 
         if (installed) {
                 /* We installed something, yay */
 
-                if (context.reboot) {
+                if (c->reboot) {
                         assert(applied);
                         assert(booted_version);
 
@@ -2423,6 +2399,88 @@ static int verb_update_impl(int argc, char **argv, UpdateActionFlags action_flag
         }
 
         return ret;
+}
+
+static int verb_update_impl(int argc, char **argv, UpdateActionFlags action_flags) {
+        const char *version;
+        int r;
+
+        assert(argc <= 2);
+        version = argc >= 2 ? argv[1] : NULL;
+
+        _cleanup_(context_done) Context context = CONTEXT_NULL;
+        r = context_from_cmdline(&context);
+        if (r < 0)
+                return r;
+
+        if (context.feature_select != SELECT_EXPLICIT)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--feature-all/--feature-suggested is not supported for '%s'.", argv[0]);
+        if (!IN_SET(context.component_select, SELECT_EXPLICIT, SELECT_ALL))
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--component-suggested currently not supported for '%s'.", argv[0]);
+
+        if (context.instances_max < 2)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                      "The --instances-max= argument must be >= 2 while updating");
+
+        _cleanup_free_ char *booted_version = NULL;
+        if (context.reboot) {
+                if (context.component || context.component_select == SELECT_ALL)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "The --component=/--component-all switch may not be combined with the '%s --reboot' operation, which only applies to the booted OS version.", argv[0]);
+
+                /* If automatic reboot on completion is requested, let's first determine the currently booted image */
+
+                r = parse_os_release(context.root, "IMAGE_VERSION", &booted_version);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse /etc/os-release: %m");
+                if (!booted_version)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENODATA), "/etc/os-release lacks IMAGE_VERSION field.");
+        }
+
+        switch (context.component_select) {
+
+        case SELECT_EXPLICIT:
+                return context_update(&context, version, booted_version, action_flags);
+
+        case SELECT_ALL: {
+                int ret = 0;
+
+                /* Update the default, component-less installation first (if any). Running it before the
+                 * enumeration below also ensures the image (if any) is mounted and context.root is set, so
+                 * that we enumerate the components inside the image rather than on the host. A missing
+                 * default installation (ENOENT) is not an error in this mode. */
+                r = context_update(&context, version, booted_version, action_flags);
+                if (r != -ENOENT)
+                        RET_GATHER(ret, r);
+
+                _cleanup_strv_free_ char **component_names = NULL;
+                r = context_list_components(&context, &component_names, /* ret_has_default_component= */ NULL);
+                if (r < 0) {
+                        RET_GATHER(ret, r);
+                        return ret;
+                }
+
+                STRV_FOREACH(name, component_names) {
+                        _cleanup_(context_done) Context cc = CONTEXT_NULL;
+
+                        r = context_from_base_with_component(&context, *name, &cc);
+                        if (r < 0) {
+                                RET_GATHER(ret, r);
+                                continue;
+                        }
+
+                        r = context_update(&cc, version, booted_version, action_flags);
+                        if (r == -EHOSTDOWN) /* Component disabled → skip it in the "all" case. */
+                                continue;
+                        RET_GATHER(ret, r);
+                }
+
+                return ret;
+        }
+
+        default:
+                assert_not_reached();
+        }
 }
 
 VERB(verb_update, "update", "[VERSION]", VERB_ANY, 2, 0,
