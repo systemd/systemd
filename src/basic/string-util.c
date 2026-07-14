@@ -1469,8 +1469,8 @@ bool version_is_valid(const char *s) {
         if (!filename_part_is_valid(s))
                 return false;
 
-        /* This is a superset of the characters used by semver. We additionally allow "," and "_". */
-        if (!in_charset(s, ALPHANUMERICAL ".,_-+"))
+        /* This is a superset of the characters used by semver. We additionally allow "_". */
+        if (!in_charset(s, ALPHANUMERICAL "._-+"))
                 return false;
 
         return true;
