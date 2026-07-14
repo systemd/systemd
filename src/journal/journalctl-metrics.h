@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "shared-forward.h"
+#include "forward.h"
 
 #define METRIC_IO_SYSTEMD_JOURNAL_PREFIX "io.systemd.Journal."
 

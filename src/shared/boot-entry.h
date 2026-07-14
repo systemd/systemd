@@ -3,7 +3,7 @@
 
 #include "sd-id128.h"
 
-#include "shared-forward.h"
+#include "forward.h"
 
 typedef enum BootEntryTokenType {
         BOOT_ENTRY_TOKEN_MACHINE_ID,

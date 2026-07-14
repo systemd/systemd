@@ -2,7 +2,7 @@
 #pragma once
 
 #include "cryptenroll.h"
-#include "shared-forward.h"
+#include "forward.h"
 
 typedef struct EnrolledSlot {
         int slot;

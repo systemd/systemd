@@ -7,7 +7,7 @@
  * Contact: fsprg@point-at-infinity.org
  */
 
-#include "sd-forward.h"
+#include "forward.h"
 
 #ifdef __cplusplus
 extern "C" {

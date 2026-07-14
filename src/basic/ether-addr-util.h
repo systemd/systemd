@@ -5,7 +5,7 @@
 #include <netinet/in.h>
 #include <net/ethernet.h>
 
-#include "basic-forward.h"
+#include "forward.h"
 
 struct hw_addr_data {
         size_t length;

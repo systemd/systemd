@@ -8,7 +8,7 @@
 #include <pwd.h>
 #include <shadow.h>
 
-#include "basic-forward.h"
+#include "forward.h"
 #include "errno-util.h"
 
 /* Users managed by systemd-homed. See https://systemd.io/UIDS-GIDS for details

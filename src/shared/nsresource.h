@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "shared-forward.h"
+#include "forward.h"
 #include "user-util.h"
 
 /* Helpful constants for the only numbers of UIDs that can currently be allocated */
