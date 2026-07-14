@@ -2,6 +2,8 @@
 
 #include <stdio.h>
 
+#include "sd-json.h"
+
 #include "alloc-util.h"
 #include "build.h"
 #include "format-table.h"
@@ -24,9 +26,37 @@ static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
 static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 
+static int print_id(sd_id128_t id) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
+        int r;
+
+        if (!sd_json_format_enabled(arg_json_format_flags))
+                return id128_pretty_print(id, arg_mode);
+
+        if (arg_mode == ID128_PRINT_ID128)
+                r = sd_json_buildo(&json, SD_JSON_BUILD_PAIR_ID128("id", id));
+        else
+                r = sd_json_buildo(&json, SD_JSON_BUILD_PAIR_UUID("id", id));
+        if (r < 0)
+                return log_error_errno(r, "Failed to create JSON: %m");
+
+        r = sd_json_variant_dump(json, arg_json_format_flags, stdout, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to print JSON: %m");
+
+        return 0;
+}
+
 VERB_NOARG(verb_new, "new", "Generate a new ID");
 static int verb_new(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        return id128_print_new(arg_mode);
+        sd_id128_t id;
+        int r;
+
+        r = sd_id128_randomize(&id);
+        if (r < 0)
+                return log_error_errno(r, "Failed to generate ID: %m");
+
+        return print_id(id);
 }
 
 VERB_NOARG(verb_machine_id, "machine-id", "Print the ID of current machine");
@@ -42,7 +72,7 @@ static int verb_machine_id(int argc, char *argv[], uintptr_t _data, void *userda
                 return log_error_errno(r, "Failed to get %smachine-ID: %m",
                                        sd_id128_is_null(arg_app) ? "" : "app-specific ");
 
-        return id128_pretty_print(id, arg_mode);
+        return print_id(id);
 }
 
 VERB_NOARG(verb_boot_id, "boot-id", "Print the ID of current boot");
@@ -58,7 +88,7 @@ static int verb_boot_id(int argc, char *argv[], uintptr_t _data, void *userdata)
                 return log_error_errno(r, "Failed to get %sboot-ID: %m",
                                        sd_id128_is_null(arg_app) ? "" : "app-specific ");
 
-        return id128_pretty_print(id, arg_mode);
+        return print_id(id);
 }
 
 VERB_NOARG(verb_invocation_id, "invocation-id", "Print the ID of current invocation");
@@ -74,7 +104,7 @@ static int verb_invocation_id(int argc, char *argv[], uintptr_t _data, void *use
         if (r < 0)
                 return log_error_errno(r, "Failed to get invocation-ID: %m");
 
-        return id128_pretty_print(id, arg_mode);
+        return print_id(id);
 }
 
 VERB_NOARG(verb_var_uuid, "var-partition-uuid", "Print the UUID for the /var/ partition");
@@ -91,7 +121,7 @@ static int verb_var_uuid(int argc, char *argv[], uintptr_t _data, void *userdata
         if (r < 0)
                 return log_error_errno(r, "Failed to generate machine-specific /var/ UUID: %m");
 
-        return id128_pretty_print(id, arg_mode);
+        return print_id(id);
 }
 
 static int show_one(Table **table, const char *name, sd_id128_t uuid, bool first) {
@@ -120,7 +150,7 @@ static int show_one(Table **table, const char *name, sd_id128_t uuid, bool first
         }
 
         if (arg_value)
-                return id128_pretty_print(uuid, arg_mode);
+                return print_id(uuid);
 
         if (!*table) {
                 *table = table_new("name", "id");
@@ -141,6 +171,10 @@ static int verb_show(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r;
 
         argv = strv_skip(argv, 1);
+        if (arg_value && sd_json_format_enabled(arg_json_format_flags) && strv_length(argv) != 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "'show --value --json=' requires exactly one argument.");
+
         if (argv)
                 STRV_FOREACH(p, argv) {
                         sd_id128_t uuid;
@@ -289,6 +323,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         arg_mode = ID128_PRINT_UUID;
                         break;
                 }
+
+        if (arg_mode == ID128_PRINT_PRETTY && sd_json_format_enabled(arg_json_format_flags))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--pretty cannot be combined with --json=.");
 
         *ret_args = option_parser_get_args(&opts);
         return 1;
