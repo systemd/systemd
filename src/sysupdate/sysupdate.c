@@ -553,7 +553,7 @@ static int context_discover_update_sets_by_flag(Context *c, UpdateSetFlags flags
                                 if (boundary && strverscmp_improved(i->metadata.version, boundary) >= 0)
                                         continue; /* Not older than the boundary */
 
-                                if (cursor && strverscmp(i->metadata.version, cursor) <= 0)
+                                if (cursor && strverscmp_improved(i->metadata.version, cursor) <= 0)
                                         break; /* Not newer than the cursor. The same will be true for all
                                                 * subsequent instances (due to sorting) so let's skip to the
                                                 * next transfer. */

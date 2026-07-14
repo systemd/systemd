@@ -952,7 +952,7 @@ static int target_method_describe(sd_bus_message *msg, void *userdata, sd_bus_er
         if (r < 0)
                 return r;
 
-        if (!version_is_valid(version))
+        if (!version_is_valid(version, VERSION_ALLOW_UNDERSCORE|VERSION_ALLOW_PLUS))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid version");
 
         if ((flags & ~SD_SYSUPDATE_FLAGS_ALL) != 0)
@@ -1102,7 +1102,7 @@ static int target_method_acquire(sd_bus_message *msg, void *userdata, sd_bus_err
         if (isempty(version))
                 action = "org.freedesktop.sysupdate1.update";
         else {
-                if (!version_is_valid(version))
+                if (!version_is_valid(version, VERSION_ALLOW_UNDERSCORE|VERSION_ALLOW_PLUS))
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid version");
 
                 action = "org.freedesktop.sysupdate1.update-to-version";
@@ -1190,7 +1190,7 @@ static int target_method_install(sd_bus_message *msg, void *userdata, sd_bus_err
         if (isempty(version))
                 action = "org.freedesktop.sysupdate1.update";
         else {
-                if (!version_is_valid(version))
+                if (!version_is_valid(version, VERSION_ALLOW_UNDERSCORE|VERSION_ALLOW_PLUS))
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid version");
 
                 action = "org.freedesktop.sysupdate1.update-to-version";
