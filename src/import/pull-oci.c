@@ -1293,7 +1293,7 @@ static void oci_pull_job_on_finished_layer(PullJob *j) {
                 goto finish;
         }
 
-        assert(set_remove(i->active_layer_jobs, j) == j);
+        assert_se(set_remove(i->active_layer_jobs, j) == j);
 
         r = oci_pull_work(i);
         if (r <= 0)
