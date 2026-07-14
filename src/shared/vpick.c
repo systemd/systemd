@@ -447,7 +447,7 @@ static int make_choice(
                                 *underscore = 0;
                 }
 
-                if (!version_is_valid(e)) {
+                if (!version_is_valid(e, /* flags= */ 0)) {
                         log_debug("Version string '%s' of entry '%s' is invalid, ignoring entry.", e, (*entry)->d_name);
                         continue;
                 }
