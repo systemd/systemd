@@ -3,8 +3,7 @@
 
 #include <sys/uio.h>
 
-#include "crypto-util.h"
-#include "shared-forward.h"
+#include "forward.h"
 
 int acquire_tpm2_key(
                 const char *volume_name,

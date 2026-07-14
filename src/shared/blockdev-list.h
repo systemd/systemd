@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "basic-forward.h"
-#include "shared-forward.h"
+#include "forward.h"
 
 typedef enum BlockDevListFlags {
         BLOCKDEV_LIST_SHOW_SYMLINKS              = 1 << 0, /* Pick up symlinks to block devices too */

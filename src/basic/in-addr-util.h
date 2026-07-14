@@ -3,7 +3,7 @@
 
 #include <netinet/in.h>
 
-#include "basic-forward.h"
+#include "forward.h"
 
 union in_addr_union {
         struct in_addr in;

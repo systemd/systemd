@@ -4,7 +4,7 @@
 #include <sys/socket.h>
 
 #include "dlopen-note.h"
-#include "shared-forward.h"
+#include "forward.h"
 
 #if HAVE_SELINUX
 #ifndef SYSTEMD_CFLAGS_MARKER_LIBSELINUX

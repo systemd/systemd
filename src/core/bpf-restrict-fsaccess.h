@@ -3,7 +3,7 @@
 
 #include "core-forward.h"
 #include "macro.h"
-#include "shared-forward.h"
+#include "forward.h"
 
 typedef enum RestrictFileSystemAccess {
         RESTRICT_FILESYSTEM_ACCESS_NO,

@@ -2,7 +2,7 @@
 #pragma once
 
 #include "fd-util.h"
-#include "shared-forward.h"
+#include "forward.h"
 
 int load_kernel_install_conf_at(
                 const char *root,

@@ -4,7 +4,7 @@
 #include <syslog.h>
 
 #include "dlopen-note.h"
-#include "shared-forward.h"
+#include "forward.h"
 
 #if HAVE_LIBBPF
 #ifndef SYSTEMD_CFLAGS_MARKER_LIBBPF

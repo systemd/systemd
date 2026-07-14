@@ -3,7 +3,7 @@
 #pragma once
 
 #include "curl-util.h"
-#include "shared-forward.h"
+#include "forward.h"
 #include "journal-compression-util.h"
 
 typedef enum {

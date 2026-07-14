@@ -3,7 +3,7 @@
 
 #include "sd-id128.h"
 
-#include "sd-forward.h"
+#include "forward.h"
 #include "sparse-endian.h"
 
 #define CATALOG_SIGNATURE { 'R', 'H', 'H', 'H', 'K', 'S', 'L', 'P' }

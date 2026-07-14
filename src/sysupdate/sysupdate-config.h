@@ -2,7 +2,7 @@
 #pragma once
 
 #include "conf-parser-forward.h"
-#include "shared-forward.h"
+#include "forward.h"
 
 CONFIG_PARSER_PROTOTYPE(config_parse_url_specifiers);
 CONFIG_PARSER_PROTOTYPE(config_parse_url_specifiers_many);

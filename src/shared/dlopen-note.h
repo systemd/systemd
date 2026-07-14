@@ -2,7 +2,7 @@
 #pragma once
 
 #include "../basic/dlopen-note.h"       /* IWYU pragma: export */
-#include "shared-forward.h"
+#include "forward.h"
 
 #if HAVE_ACL
 #  define LIBACL_NOTE(priority)                                         \

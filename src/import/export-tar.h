@@ -3,7 +3,6 @@
 
 #include "compress.h"
 #include "import-common.h"
-#include "shared-forward.h"
 
 typedef struct TarExport TarExport;
 

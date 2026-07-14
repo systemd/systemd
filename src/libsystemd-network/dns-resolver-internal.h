@@ -3,7 +3,7 @@
 
 #include "sd-dns-resolver.h"
 
-#include "sd-forward.h"
+#include "forward.h"
 #include "socket-netlink.h"
 
 /* Represents a "designated resolver" */

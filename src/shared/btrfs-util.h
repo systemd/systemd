@@ -3,7 +3,7 @@
 
 #include "sd-id128.h"
 
-#include "shared-forward.h"
+#include "forward.h"
 
 #include "../basic/btrfs-util.h"      /* IWYU pragma: export */
 

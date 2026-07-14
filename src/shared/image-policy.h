@@ -3,7 +3,7 @@
 
 #include "conf-parser-forward.h"
 #include "dissect-image.h"
-#include "shared-forward.h"
+#include "forward.h"
 #include "gpt.h"
 
 typedef enum PartitionPolicyFlags {

@@ -3,7 +3,7 @@
 
 #include <dirent.h>
 
-#include "basic-forward.h"
+#include "forward.h"
 
 typedef enum RecurseDirFlags {
         /* Interpreted by readdir_all() */
