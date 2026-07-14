@@ -697,9 +697,9 @@ static int parse_argv(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Scope execution is not supported on remote systems.");
 
-        if (arg_scope && (arg_remain_after_exit || arg_service_type))
+        if (arg_scope && (arg_remain_after_exit || arg_service_type || arg_ignore_failure))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "--remain-after-exit and --service-type= are not supported in --scope mode.");
+                                       "--remain-after-exit, --service-type= and --ignore-failure are not supported in --scope mode.");
 
         if (arg_scope && arg_no_block)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -717,6 +717,10 @@ static int parse_argv(int argc, char *argv[]) {
                 if (arg_no_block)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "--pty/--pty-late/--pipe is not compatible with --no-block.");
+
+                if (arg_remain_after_exit)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "--pty/--pty-late/--pipe is not compatible with --remain-after-exit.");
         }
 
         if (arg_stdio == ARG_STDIO_PTY && arg_pty_late && streq_ptr(arg_service_type, "oneshot"))
@@ -726,6 +730,24 @@ static int parse_argv(int argc, char *argv[]) {
         if (arg_scope && with_trigger)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Path, socket or timer options are not supported in --scope mode.");
+
+        if (sd_json_format_enabled(arg_json_format_flags)) {
+                if (arg_scope)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "--json= is not supported in --scope mode.");
+
+                if (arg_stdio != ARG_STDIO_NONE)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "--json= is not compatible with --pty/--pty-late/--pipe.");
+
+                if (arg_verbose)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "--json= is not compatible with --verbose.");
+
+                if (with_trigger)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "--json= is not compatible with path, socket or timer operations.");
+        }
 
         if (arg_timer_property && !arg_with_timer)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -743,6 +765,10 @@ static int parse_argv(int argc, char *argv[]) {
                 if (arg_scope)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "--wait may not be combined with --scope.");
+
+                if (arg_remain_after_exit)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "--wait may not be combined with --remain-after-exit.");
         }
 
         if (arg_scope && arg_root_directory)
@@ -2517,6 +2543,17 @@ static int start_transient_service(sd_bus *bus) {
         return EXIT_SUCCESS;
 }
 
+static int log_scope_group_setup_errno(int r, gid_t gid, const char *message) {
+        assert(r < 0);
+        assert(message);
+
+        if (!ERRNO_IS_PRIVILEGE(r) || gid != getgid())
+                return log_error_errno(r, "%s: %m", message);
+
+        log_debug_errno(r, "%s, ignoring: %m", message);
+        return 0;
+}
+
 static int start_transient_scope(sd_bus *bus) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
@@ -2623,26 +2660,22 @@ static int start_transient_scope(sd_bus *bus) {
                         return log_error_errno(errno, "Failed to set nice level: %m");
         }
 
+        gid_t gid = GID_INVALID;
         if (arg_exec_group) {
-                gid_t gid;
-
                 r = get_group_creds(arg_exec_group, /* flags= */ 0, /* ret_name= */ NULL, &gid);
                 if (r < 0)
                         return log_error_errno(r, "Failed to resolve group '%s': %s",
                                                arg_exec_group, STRERROR_GROUP(r));
-
-                if (setresgid(gid, gid, gid) < 0)
-                        return log_error_errno(errno, "Failed to change GID to " GID_FMT ": %m", gid);
         }
 
+        uid_t uid = UID_INVALID;
         if (arg_exec_user) {
                 _cleanup_free_ char *user = NULL, *home = NULL, *shell = NULL;
-                uid_t uid;
-                gid_t gid;
+                gid_t user_gid;
 
                 r = get_user_creds(arg_exec_user,
                                    USER_CREDS_CLEAN|USER_CREDS_SUPPRESS_PLACEHOLDER|USER_CREDS_PREFER_NSS,
-                                   &user, &uid, &gid, &home, &shell);
+                                   &user, &uid, &user_gid, &home, &shell);
                 if (r < 0)
                         return log_error_errno(r, "Failed to resolve user '%s': %s",
                                                arg_exec_user, STRERROR_USER(r));
@@ -2669,13 +2702,32 @@ static int start_transient_scope(sd_bus *bus) {
                 if (r < 0)
                         return log_oom();
 
-                if (!arg_exec_group &&
-                    setresgid(gid, gid, gid) < 0)
-                        return log_error_errno(errno, "Failed to change GID to " GID_FMT ": %m", gid);
+                if (!gid_is_valid(gid))
+                        gid = user_gid;
 
-                if (setresuid(uid, uid, uid) < 0)
-                        return log_error_errno(errno, "Failed to change UID to " UID_FMT ": %m", uid);
+                r = initgroups_wrapper(arg_exec_user, gid);
+                if (r < 0) {
+                        r = log_scope_group_setup_errno(
+                                        r,
+                                        gid,
+                                        strjoina("Failed to initialize supplementary groups for user '", arg_exec_user, "'"));
+                        if (r < 0)
+                                return r;
+                }
+        } else if (gid_is_valid(gid)) {
+                r = maybe_setgroups(/* size= */ 0, /* list= */ NULL);
+                if (r < 0) {
+                        r = log_scope_group_setup_errno(r, gid, "Failed to drop supplementary groups");
+                        if (r < 0)
+                                return r;
+                }
         }
+
+        if (gid_is_valid(gid) && setresgid(gid, gid, gid) < 0)
+                return log_error_errno(errno, "Failed to change GID to " GID_FMT ": %m", gid);
+
+        if (uid_is_valid(uid) && setresuid(uid, uid, uid) < 0)
+                return log_error_errno(errno, "Failed to change UID to " UID_FMT ": %m", uid);
 
         if (arg_working_directory && chdir(arg_working_directory) < 0)
                 return log_error_errno(errno, "Failed to change directory to '%s': %m", arg_working_directory);
@@ -2808,12 +2860,16 @@ static int start_transient_trigger(sd_bus *bus, const char *suffix) {
         assert(bus);
         assert(suffix);
 
-        r = bus_wait_for_jobs_new(bus, &w);
-        if (r < 0)
-                return log_error_errno(r, "Could not watch jobs: %m");
+        if (!arg_no_block) {
+                r = bus_wait_for_jobs_new(bus, &w);
+                if (r < 0)
+                        return log_error_errno(r, "Could not watch jobs: %m");
+        }
 
         if (arg_unit) {
-                switch (unit_name_to_type(arg_unit)) {
+                UnitType t = unit_name_to_type(arg_unit);
+
+                switch (t) {
 
                 case UNIT_SERVICE:
                         service = strdup(arg_unit);
@@ -2825,7 +2881,14 @@ static int start_transient_trigger(sd_bus *bus, const char *suffix) {
                                 return log_error_errno(r, "Failed to change unit suffix: %m");
                         break;
 
+                case UNIT_PATH:
+                case UNIT_SOCKET:
                 case UNIT_TIMER:
+                        if (!streq(suffix + 1, unit_type_to_string(t)))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Specified unit '%s' does not match requested %s trigger.",
+                                                       arg_unit, suffix + 1);
+
                         trigger = strdup(arg_unit);
                         if (!trigger)
                                 return log_oom();
@@ -2875,10 +2938,12 @@ static int start_transient_trigger(sd_bus *bus, const char *suffix) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        r = bus_wait_for_jobs_one(w, object, arg_quiet ? 0 : BUS_WAIT_JOBS_LOG_ERROR,
-                                  arg_runtime_scope == RUNTIME_SCOPE_USER ? STRV_MAKE_CONST("--user") : NULL);
-        if (r < 0)
-                return r;
+        if (w) {
+                r = bus_wait_for_jobs_one(w, object, arg_quiet ? 0 : BUS_WAIT_JOBS_LOG_ERROR,
+                                          arg_runtime_scope == RUNTIME_SCOPE_USER ? STRV_MAKE_CONST("--user") : NULL);
+                if (r < 0)
+                        return r;
+        }
 
         if (!arg_quiet) {
                 log_info("Running %s as unit: %s", suffix + 1, trigger);
