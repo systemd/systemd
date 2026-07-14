@@ -1215,6 +1215,7 @@ InstancesMax=1
 EOF
 "$SYSUPDATE" --verify=no update
 cmp "$WORKDIR/source/sub/blob-v11.bin" "$WORKDIR/blobs/blob-v11.bin"
+[[ "$("$SYSUPDATE" --verify=no list v11 | grep -c "Version: v11")" == "1" ]]
 rm "$CONFIGDIR/01-basename-dir.transfer"
 
 # A url-file source pulled via file:// using SHA256SUMS with "sub/blob-v1x.bin" entries

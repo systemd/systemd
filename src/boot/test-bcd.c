@@ -90,6 +90,15 @@ TEST(base_block) {
         *bcd = backup;
 }
 
+TEST(offset_bounds) {
+        assert_se(!BAD_OFFSET(0, sizeof(Key), sizeof(Key)));
+        assert_se(!BAD_STRUCT(Key, 0, sizeof(Key)));
+        assert_se(!BAD_ARRAY(Key, key_name, 0, 0, sizeof(Key)));
+
+        assert_se(BAD_OFFSET(0, sizeof(Key) + 1, sizeof(Key)));
+        assert_se(BAD_OFFSET(UINT32_MAX, 2, UINT32_MAX));
+}
+
 TEST(bad_bcd) {
         size_t len;
         uint8_t *hbins;
