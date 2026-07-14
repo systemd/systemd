@@ -112,10 +112,11 @@ typedef enum XOpenFlags {
         XO_LABEL             = 1 << 0, /* When creating: relabel */
         XO_SUBVOLUME         = 1 << 1, /* When creating as directory: make it a subvolume */
         XO_NOCOW             = 1 << 2, /* Enable NOCOW mode after opening */
-        XO_REGULAR           = 1 << 3, /* Fail if the inode is not a regular file */
-        XO_SOCKET            = 1 << 4, /* Fail if the inode is not a socket */
-        XO_TRIGGER_AUTOMOUNT = 1 << 5, /* Trigger automounts via open_tree(). Requires O_PATH. */
-        XO_AUTO_RW_RO        = 1 << 6, /* Open in O_RDWR mode if possible, O_RDONLY if not */
+        XO_COW               = 1 << 3, /* Enable COW mode after opening */
+        XO_REGULAR           = 1 << 4, /* Fail if the inode is not a regular file */
+        XO_SOCKET            = 1 << 5, /* Fail if the inode is not a socket */
+        XO_TRIGGER_AUTOMOUNT = 1 << 6, /* Trigger automounts via open_tree(). Requires O_PATH. */
+        XO_AUTO_RW_RO        = 1 << 7, /* Open in O_RDWR mode if possible, O_RDONLY if not */
 } XOpenFlags;
 
 int open_mkdir_at_full(int dirfd, const char *path, int flags, XOpenFlags xopen_flags, mode_t mode);
