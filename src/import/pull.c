@@ -2,7 +2,6 @@
 
 #include <locale.h>
 #include <stdio.h>
-#include <string.h>
 
 #include "sd-event.h"
 

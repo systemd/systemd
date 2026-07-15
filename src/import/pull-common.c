@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <bits/time.h>
-#include <string.h>
 #include <unistd.h>
 
 #include "sd-id128.h"
@@ -483,7 +481,7 @@ static int verify_pkcs7(
                         log_debug("Unable to compare times for %s, ignoring.", *i);
                         continue;
                 }
-                if (r < 0) {
+                if (r > 0) {
                         log_debug("X509 certificate not yet valid: '%s', ignoring.", *i);
                         continue;
                 }
@@ -493,7 +491,7 @@ static int verify_pkcs7(
                         log_debug("Unable to compare times for %s, ignoring.", *i);
                         continue;
                 }
-                if (r > 0) {
+                if (r < 0) {
                         log_debug("X509 certificate expired: '%s', ignoring.", *i);
                         continue;
                 }
