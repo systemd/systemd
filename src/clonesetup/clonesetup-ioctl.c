@@ -98,16 +98,27 @@ static int dm_clone_create(const char *name) {
 /* Second dm ioctl needed to create a device. */
 static int dm_clone_load_table(const char *name, uint64_t size_sectors, const char *target_params) {
         char *params_buf;
-        size_t params_len, dm_size;
+        size_t params_len, target_size, dm_size;
         _cleanup_free_ struct dm_ioctl *dm = NULL;
         struct dm_target_spec *tgt;
 
         assert(name);
         assert(target_params);
 
-        params_len = strlen(target_params) + 1;
+        params_len = strlen(target_params);
+        target_size = sizeof(struct dm_target_spec);
+        if (!ADD_SAFE(&params_len, params_len, 1) ||
+            !ADD_SAFE(&target_size, target_size, params_len))
+                return log_error_errno(SYNTHETIC_ERRNO(EOVERFLOW), "DM target parameters too long.");
+
         /* ensure that dm_size is always aligned, so it makes the buffer actually match what .next claims */
-        dm_size = ALIGN8(sizeof(struct dm_ioctl)) + ALIGN8(sizeof(struct dm_target_spec) + params_len);
+        target_size = ALIGN8(target_size);
+        dm_size = ALIGN8(sizeof(struct dm_ioctl));
+        if (target_size == SIZE_MAX ||
+            !ADD_SAFE(&dm_size, dm_size, target_size) ||
+            dm_size > UINT32_MAX)
+                return log_error_errno(SYNTHETIC_ERRNO(EOVERFLOW), "DM target parameters too long.");
+
         dm = malloc0(dm_size);
         if (!dm)
                 return log_oom();
@@ -122,7 +133,7 @@ static int dm_clone_load_table(const char *name, uint64_t size_sectors, const ch
                 /* Per linux/dm-ioctl.h: next is the byte offset from this dm_target_spec to the next one,
                  * rounded up to 8-byte alignment. With target_count == 1 next == 0 works, but set it
                  * correctly to avoid silent breakage if a second target is ever added. */
-                .next = ALIGN8(sizeof(struct dm_target_spec) + params_len),
+                .next = target_size,
         };
         strncpy(tgt->target_type, "clone", sizeof(tgt->target_type));
 
@@ -219,9 +230,14 @@ int dm_clone_send_message(const char *name, const char *message) {
         assert(name);
         assert(message);
 
-        msg_len = strlen(message) + 1;
+        msg_len = strlen(message);
         /* need to take into account both headers in size calculation */
-        dm_size = ALIGN8(sizeof(struct dm_ioctl)) + sizeof(struct dm_target_msg) + msg_len;
+        dm_size = ALIGN8(sizeof(struct dm_ioctl));
+        if (!ADD_SAFE(&msg_len, msg_len, 1) ||
+            !ADD_SAFE(&dm_size, dm_size, sizeof(struct dm_target_msg)) ||
+            !ADD_SAFE(&dm_size, dm_size, msg_len))
+                return log_error_errno(SYNTHETIC_ERRNO(EOVERFLOW), "DM target message too long.");
+
         dm = malloc0(dm_size);
         if (!dm)
                 return log_oom();
