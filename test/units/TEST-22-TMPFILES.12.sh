@@ -204,3 +204,18 @@ test ! -d /tmp/ageby/d3
 
 # Cleanup the test directory (fail if not empty).
 rmdir /tmp/ageby
+
+# Removing an old child directory should restore the parent directory mtime.
+rm -rf /tmp/ageby-mtime
+mkdir -p /tmp/ageby-mtime/old-child
+touch --date "2020-01-01 00:00:00" /tmp/ageby-mtime/old-child /tmp/ageby-mtime
+before="$(stat -c %Y /tmp/ageby-mtime)"
+
+systemd-tmpfiles --clean - <<-EOF
+d /tmp/ageby-mtime - - - M:1s
+EOF
+
+after="$(stat -c %Y /tmp/ageby-mtime)"
+test "$before" = "$after"
+test ! -e /tmp/ageby-mtime/old-child
+rmdir /tmp/ageby-mtime
