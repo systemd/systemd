@@ -24,6 +24,8 @@ rm -rf /tmp/mismatched-name
 cp -a /tmp/minimal_0 /tmp/mismatched-name
 portablectl inspect /tmp/mismatched-name | grep -F "minimal-app0.service" >/dev/null
 
+(! portablectl attach --runtime --profile=no-such-profile /tmp/minimal_0 minimal-app0)
+
 rm -rf /tmp/bad-start
 cp -a /tmp/minimal_0 /tmp/bad-start
 sed -i 's|^ExecStart=.*|ExecStart=/no-such-binary|' /tmp/bad-start/usr/lib/systemd/system/minimal-app0.service
