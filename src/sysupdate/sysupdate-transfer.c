@@ -97,7 +97,7 @@ Transfer* transfer_new(Context *ctx) {
                 .mode = MODE_INVALID,
                 .tries_left = UINT64_MAX,
                 .tries_done = UINT64_MAX,
-                .verify = true,
+                .verify = VERIFY_MODE_GPG,
 
                 /* the three flags, as configured by the user */
                 .no_auto = -1,
@@ -393,6 +393,8 @@ static int config_parse_resource_path(
         return free_and_replace(rr->path, resolved);
 }
 
+static DEFINE_CONFIG_PARSE_ENUM(config_parse_verify_type, verify_type, VerifyType)
+
 static DEFINE_CONFIG_PARSE_ENUM(config_parse_resource_type, resource_type, ResourceType);
 
 static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_resource_path_relto, path_relative_to, PathRelativeTo,
@@ -513,7 +515,7 @@ int transfer_read_definition(Transfer *t, const char *path, const char **dirs, H
         ConfigTableItem table[] = {
                 { "Transfer",    "MinVersion",              config_parse_min_version,                  0,                    &t->min_version             },
                 { "Transfer",    "ProtectVersion",          config_parse_protect_version,              0,                    &t->protected_versions      },
-                { "Transfer",    "Verify",                  config_parse_bool,                         0,                    &t->verify                  },
+                { "Transfer",    "Verify",                  config_parse_verify_type,                  0,                    &t->verify                  },
                 { "Transfer",    "ChangeLog",               config_parse_transfer_url_specifiers_many, 0,                    &t->changelog               },
                 { "Transfer",    "AppStream",               config_parse_transfer_url_specifiers_many, 0,                    &t->appstream               },
                 { "Transfer",    "Features",                config_parse_strv,                         0,                    &t->features                },
