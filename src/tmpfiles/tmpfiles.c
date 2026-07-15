@@ -4411,6 +4411,12 @@ static int parse_line(
         existing = ordered_hashmap_get(h, i.path);
         if (existing) {
                 if (is_duplicated_item(existing, &i)) {
+                        if (i.type == CREATE_SYMLINK) {
+                                *invalid_config = true;
+                                return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EEXIST),
+                                                  "Conflicting symlink line for path \"%s\".", i.path);
+                        }
+
                         log_syntax(NULL, LOG_NOTICE, fname, line, 0,
                                    "Duplicate line for path \"%s\", ignoring.", i.path);
                         return 0;
