@@ -27,6 +27,15 @@ t /tmp/acl_exec - - - - invalid-xattr
 EOF
 )
 
+(! systemd-tmpfiles --create - <<EOF
+a /tmp/acl_exec - - - - definitely-not-an-acl
+EOF
+)
+
+systemd-tmpfiles --dry-run --create --graceful - <<EOF
+a /tmp/acl_exec - - - - u:tmpfiles-user-that-should-not-exist:rwx
+EOF
+
 # Set another ACL and append
 setfacl -m g:root:x /tmp/acl_exec
 
