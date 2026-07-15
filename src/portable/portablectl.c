@@ -556,7 +556,7 @@ static int verb_inspect_image(int argc, char *argv[], uintptr_t _data, void *use
                        strna(pretty_os));
         }
 
-        if (!strv_isempty(arg_extension_images)) {
+        if (!strv_isempty(arg_extension_images) || arg_force) {
                 /* If we specified any extensions, we'll first get back exactly the paths (and
                  * extension-release content) for each one of the arguments. */
 
@@ -920,8 +920,11 @@ static int maybe_start_stop_restart_units(
         log_debug_errno(r, "EnqueueUnitJobMany() not supported (%s), falling back to per-unit calls.",
                         bus_error_message(&error, r));
 
-        STRV_FOREACH(name, names)
-                (void) maybe_start_stop_restart(bus, *name, method, wait);
+        STRV_FOREACH(name, names) {
+                r = maybe_start_stop_restart(bus, *name, method, wait);
+                if (r < 0)
+                        return r;
+        }
 
         return 0;
 }
@@ -957,7 +960,9 @@ static int maybe_enable_start(sd_bus *bus, sd_bus_message *reply) {
                         break;
 
                 if (STR_IN_SET(type, "symlink", "copy") && is_portable_managed(path)) {
-                        (void) maybe_enable_disable(bus, path, true);
+                        r = maybe_enable_disable(bus, path, true);
+                        if (r < 0)
+                                return r;
 
                         _cleanup_free_ char *name = NULL;
                         r = path_extract_filename(path, &name);
@@ -974,7 +979,9 @@ static int maybe_enable_start(sd_bus *bus, sd_bus_message *reply) {
         if (r < 0)
                 return r;
 
-        (void) maybe_start_stop_restart_units(bus, start_names, "start", wait);
+        r = maybe_start_stop_restart_units(bus, start_names, "start", wait);
+        if (r < 0)
+                return r;
 
         if (!arg_no_block) {
                 r = bus_wait_for_jobs(wait, arg_quiet, NULL);
@@ -1035,7 +1042,9 @@ static int maybe_stop_enable_restart(sd_bus *bus, sd_bus_message *reply) {
         if (r < 0)
                 return r;
 
-        (void) maybe_start_stop_restart_units(bus, stop_names, "stop", wait);
+        r = maybe_start_stop_restart_units(bus, stop_names, "stop", wait);
+        if (r < 0)
+                return r;
 
         /* Then we get a list of units that were either added or changed, so that we can
          * enable them and/or restart them if the user asked us to. */
@@ -1053,7 +1062,9 @@ static int maybe_stop_enable_restart(sd_bus *bus, sd_bus_message *reply) {
                         break;
 
                 if (STR_IN_SET(type, "symlink", "copy") && is_portable_managed(path)) {
-                        (void) maybe_enable_disable(bus, path, true);
+                        r = maybe_enable_disable(bus, path, true);
+                        if (r < 0)
+                                return r;
 
                         _cleanup_free_ char *name = NULL;
                         r = path_extract_filename(path, &name);
@@ -1070,7 +1081,9 @@ static int maybe_stop_enable_restart(sd_bus *bus, sd_bus_message *reply) {
         if (r < 0)
                 return r;
 
-        (void) maybe_start_stop_restart_units(bus, restart_names, "restart", wait);
+        r = maybe_start_stop_restart_units(bus, restart_names, "restart", wait);
+        if (r < 0)
+                return r;
 
         if (!arg_no_block) {
                 r = bus_wait_for_jobs(wait, arg_quiet, NULL);
@@ -1201,6 +1214,28 @@ static int maybe_stop_disable_clean(sd_bus *bus, char *image, char *argv[]) {
         return 0;
 }
 
+static int validate_detach_matches(sd_bus *bus, const char *image, char *argv[]) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_strv_free_ char **matches = NULL;
+        int r;
+
+        assert(bus);
+        assert(image);
+
+        if (strv_isempty(argv + 2))
+                return 0;
+
+        r = determine_matches(argv[1], argv + 2, /* accept_glob= */ true, &matches);
+        if (r < 0)
+                return r;
+
+        r = get_image_metadata(bus, image, matches, &reply);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 static int attach_reattach_image(int argc, char *argv[], const char *method) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -1263,12 +1298,16 @@ static int attach_reattach_image(int argc, char *argv[], const char *method) {
 
         print_changes(reply);
 
-        if (STR_IN_SET(method, "AttachImage", "AttachImageWithExtensions"))
-                (void) maybe_enable_start(bus, reply);
-        else {
+        if (STR_IN_SET(method, "AttachImage", "AttachImageWithExtensions")) {
+                r = maybe_enable_start(bus, reply);
+                if (r < 0)
+                        return r;
+        } else {
                 /* ReattachImage returns 2 lists - removed units first, and changed/added second */
                 print_changes(reply);
-                (void) maybe_stop_enable_restart(bus, reply);
+                r = maybe_stop_enable_restart(bus, reply);
+                if (r < 0)
+                        return r;
         }
 
         return 0;
@@ -1299,6 +1338,10 @@ static int verb_detach_image(int argc, char *argv[], uintptr_t _data, void *user
                 return r;
 
         (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+
+        r = validate_detach_matches(bus, image, argv);
+        if (r < 0)
+                return r;
 
         (void) maybe_stop_disable_clean(bus, image, argv);
 
@@ -1399,6 +1442,7 @@ VERB(verb_read_only_image, "read-only", "NAME|PATH [BOOL]", 2, 3, 0,
 static int verb_read_only_image(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_free_ char *image = NULL;
         int b = true, r;
 
         if (argc > 2) {
@@ -1407,13 +1451,17 @@ static int verb_read_only_image(int argc, char *argv[], uintptr_t _data, void *u
                         return log_error_errno(b, "Failed to parse boolean argument: %s", argv[2]);
         }
 
+        r = determine_image(argv[1], false, &image);
+        if (r < 0)
+                return r;
+
         r = acquire_bus(&bus);
         if (r < 0)
                 return r;
 
         (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
-        r = bus_call_method(bus, bus_portable_mgr, "MarkImageReadOnly", &error, NULL, "sb", argv[1], b);
+        r = bus_call_method(bus, bus_portable_mgr, "MarkImageReadOnly", &error, NULL, "sb", image, b);
         if (r < 0)
                 return log_error_errno(r, "Could not mark image read-only: %s", bus_error_message(&error, r));
 
@@ -1435,12 +1483,17 @@ static int verb_remove_image(int argc, char *argv[], uintptr_t _data, void *user
         for (i = 1; i < argc; i++) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+                _cleanup_free_ char *image = NULL;
+
+                r = determine_image(argv[i], false, &image);
+                if (r < 0)
+                        return r;
 
                 r = bus_message_new_method_call(bus, &m, bus_portable_mgr, "RemoveImage");
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = sd_bus_message_append(m, "s", argv[i]);
+                r = sd_bus_message_append(m, "s", image);
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -1458,6 +1511,7 @@ VERB(verb_set_limit, "set-limit", "[NAME|PATH] LIMIT", 2, 3, 0,
 static int verb_set_limit(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_free_ char *image = NULL;
         uint64_t limit;
         int r;
 
@@ -1475,10 +1529,14 @@ static int verb_set_limit(int argc, char *argv[], uintptr_t _data, void *userdat
                         return log_error_errno(r, "Failed to parse size: %s", argv[argc-1]);
         }
 
-        if (argc > 2)
+        if (argc > 2) {
                 /* With two arguments changes the quota limit of the specified image */
-                r = bus_call_method(bus, bus_portable_mgr, "SetImageLimit", &error, NULL, "st", argv[1], limit);
-        else
+                r = determine_image(argv[1], false, &image);
+                if (r < 0)
+                        return r;
+
+                r = bus_call_method(bus, bus_portable_mgr, "SetImageLimit", &error, NULL, "st", image, limit);
+        } else
                 /* With one argument changes the pool quota limit */
                 r = bus_call_method(bus, bus_portable_mgr, "SetPoolLimit", &error, NULL, "t", limit);
 
