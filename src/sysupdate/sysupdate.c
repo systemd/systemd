@@ -27,6 +27,7 @@
 #include "hexdecoct.h"
 #include "image-policy.h"
 #include "json-util.h"
+#include "log.h"
 #include "loop-util.h"
 #include "main-func.h"
 #include "mount-util.h"
@@ -44,6 +45,7 @@
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "sysupdate-resource.h"
 #include "sysupdate.h"
 #include "sysupdate-cleanup.h"
 #include "sysupdate-config.h"
@@ -70,7 +72,7 @@ static int arg_cleanup = -1;
 static SelectMode arg_feature_select = SELECT_EXPLICIT;
 static char *arg_component = NULL;
 static SelectMode arg_component_select = SELECT_EXPLICIT;
-static int arg_verify = -1;
+static VerifyMode arg_verify = _VERIFY_MODE_INVALID;
 static ImagePolicy *arg_image_policy = NULL;
 static bool arg_offline = false;
 static char *arg_transfer_source = NULL;
@@ -88,7 +90,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_transfer_source, freep);
                 .component_enabled = true,                        \
                 .sync = true,                                     \
                 .instances_max = UINT64_MAX,                      \
-                .verify = -1,                                     \
+                .verify = _VERIFY_MODE_INVALID,                                     \
                 .cleanup = -1,                                    \
                 .installdb_fd = -EBADF,                           \
                 .target_identifier.class = _TARGET_CLASS_INVALID, \
@@ -217,6 +219,23 @@ static int context_from_base_with_component(const Context *base, const char *com
 
         *ret = TAKE_GENERIC(context, Context, CONTEXT_NULL);
         return 0;
+}
+
+VerifyMode parse_verify_mode(const char *s) {
+        VerifyMode v;
+        int r;
+
+        v = verify_mode_from_string(s);
+        if (v < 0) {
+        /* Could be a boolean option instead */
+                r = parse_boolean(s);
+                if (r < 0)
+                        return _VERIFY_MODE_INVALID;
+
+                v = r ? VERIFY_MODE_GPG : VERIFY_MODE_NO;
+        }
+
+        return v;
 }
 
 /* Stores any long-running server state which needs to persist between varlink calls, such as state for
@@ -476,7 +495,7 @@ static int context_load_installed_instances(Context *c) {
 
                 r = resource_load_instances(
                                 &t->target,
-                                c->verify >= 0 ? c->verify : t->verify,
+                                c->verify == _VERIFY_MODE_INVALID ? t->verify : c->verify,
                                 &c->web_cache);
                 if (r < 0)
                         return r;
@@ -487,7 +506,7 @@ static int context_load_installed_instances(Context *c) {
 
                 r = resource_load_instances(
                                 &t->target,
-                                c->verify >= 0 ? c->verify : t->verify,
+                                c->verify == _VERIFY_MODE_INVALID ? t->verify : c->verify,
                                 &c->web_cache);
                 if (r < 0)
                         return r;
@@ -508,7 +527,7 @@ static int context_load_available_instances(Context *c) {
 
                 r = resource_load_instances(
                                 &t->source,
-                                c->verify >= 0 ? c->verify : t->verify,
+                                c->verify == _VERIFY_MODE_INVALID ? t->verify : c->verify,
                                 &c->web_cache);
                 if (r < 0)
                         return r;
@@ -3393,15 +3412,13 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                                 return r;
                         break;
 
-                OPTION_LONG("verify", "BOOL",
-                            "Force signature verification on or off"): {
-                        bool b;
+                OPTION_LONG("verify", "MODE",
+                            "Force signature verification mode, one of: 'gpg', ' pkcs7', or 'no'"): {
+                        VerifyMode v = parse_verify_mode(opts.arg);
+                        if (v == _VERIFY_MODE_INVALID)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid verification setting: %s", opts.arg);
 
-                        r = parse_boolean_argument("--verify=", opts.arg, &b);
-                        if (r < 0)
-                                return r;
-
-                        arg_verify = b;
+                        arg_verify = v;
                         break;
                 }
 
