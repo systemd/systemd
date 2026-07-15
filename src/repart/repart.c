@@ -6371,6 +6371,12 @@ static int context_copy_blocks(Context *context) {
                                 return log_error_errno(errno, "Failed to seek to copy blocks offset in %s: %m", p->copy_blocks_path);
                 }
 
+                /* We call copy_bytes_full() instead of copy_file_range() directly, because copy_file_range()
+                 * needs to be called with a size limit to allow for progress updates. But we don't want that
+                 * for cloning, we want one big massive reflink if possible, and unfortunately we can't know
+                 * if copy_file_range() will do reflink or not, so we can't call it without the size limit.
+                 * Hence, call copy_bytes_full(), which tries FICLONE/BTRFS_IOC_CLONE first to do one big
+                 * clone, and then falls back to copying in chunks. */
                 r = copy_bytes_full(
                                 p->copy_blocks_fd,
                                 partition_target_fd(t),
