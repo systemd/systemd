@@ -324,6 +324,18 @@ elif use_provided_vmlinux_h
 endif
 conf.set10('HAVE_LSM_INTEGRITY_TYPE', have_lsm_integrity_type)
 
+have_bpf_sock_read_xattr = false
+if use_generated_vmlinux_h
+        have_bpf_sock_read_xattr = run_command('sh', '-c',
+                bpftool.full_path() + ' btf dump file /sys/kernel/btf/vmlinux format raw 2>/dev/null | grep -q bpf_sock_read_xattr',
+                check : false).returncode() == 0
+elif use_provided_vmlinux_h
+        have_bpf_sock_read_xattr = cc.compiles(
+                '#include "@0@"\ntypeof(bpf_sock_read_xattr) *_p;\n'.format(provided_vmlinux_h_path),
+                name : 'bpf_sock_read_xattr in vmlinux.h')
+endif
+conf.set10('HAVE_BPF_SOCK_READ_XATTR', have_bpf_sock_read_xattr)
+
 conf.set10('ENABLE_SYSCTL_BPF', conf.get('HAVE_VMLINUX_H') == 1 and libbpf.version().version_compare('>= 0.7'))
 
 bpf_programs = [
@@ -358,6 +370,11 @@ bpf_programs = [
                 'condition' : 'HAVE_VMLINUX_H',
                 'depends' : vmlinux_h_dependency,
         },
+        {
+                'source' : files('socket-ratelimit.bpf.c'),
+                'condition' : 'HAVE_BPF_SOCK_READ_XATTR',
+                'depends' : vmlinux_h_dependency,
+        }
 ]
 
 bpf_programs_by_name = {}
