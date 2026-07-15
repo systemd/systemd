@@ -1442,6 +1442,7 @@ VERB(verb_read_only_image, "read-only", "NAME|PATH [BOOL]", 2, 3, 0,
 static int verb_read_only_image(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_free_ char *image = NULL;
         int b = true, r;
 
         if (argc > 2) {
@@ -1450,13 +1451,17 @@ static int verb_read_only_image(int argc, char *argv[], uintptr_t _data, void *u
                         return log_error_errno(b, "Failed to parse boolean argument: %s", argv[2]);
         }
 
+        r = determine_image(argv[1], false, &image);
+        if (r < 0)
+                return r;
+
         r = acquire_bus(&bus);
         if (r < 0)
                 return r;
 
         (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
-        r = bus_call_method(bus, bus_portable_mgr, "MarkImageReadOnly", &error, NULL, "sb", argv[1], b);
+        r = bus_call_method(bus, bus_portable_mgr, "MarkImageReadOnly", &error, NULL, "sb", image, b);
         if (r < 0)
                 return log_error_errno(r, "Could not mark image read-only: %s", bus_error_message(&error, r));
 
