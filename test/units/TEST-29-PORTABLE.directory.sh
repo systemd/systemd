@@ -38,6 +38,10 @@ systemctl is-active minimal-app0.service
 systemctl is-active minimal-app0-foo.service
 systemctl is-active minimal-app0-bar.service && exit 1
 
+(! portablectl detach --runtime /tmp/minimal_0 definitely-not-matching)
+status="$(portablectl is-attached --runtime /tmp/minimal_0)"
+[[ "${status}" == "running-runtime" ]]
+
 portablectl "${ARGS[@]}" reattach --now --enable --runtime /tmp/minimal_1 minimal-app0
 
 systemctl is-active minimal-app0.service
