@@ -1226,7 +1226,7 @@ static int path_set_xattrs(
         return fd_set_xattrs(c, i, fd, path, /* st= */ NULL, creation);
 }
 
-static int parse_acls_from_arg(Item *item) {
+static int parse_acls_from_arg(Item *item, const char *fname, unsigned line) {
 #if HAVE_ACL
         int r;
 
@@ -1237,9 +1237,16 @@ static int parse_acls_from_arg(Item *item) {
 
         r = parse_acl(item->argument, &item->acl_access, &item->acl_access_exec,
                       &item->acl_default, !item->append_or_force);
-        if (r < 0)
-                log_full_errno(arg_graceful && IN_SET(r, -EINVAL, -ENOENT, -ESRCH) ? LOG_DEBUG : LOG_WARNING,
-                               r, "Failed to parse ACL \"%s\", ignoring: %m", item->argument);
+        if (r < 0) {
+                if (arg_graceful && IN_SET(r, -EINVAL, -ENOENT, -ESRCH)) {
+                        log_syntax(NULL, LOG_DEBUG, fname, line, r,
+                                   "Failed to parse ACL \"%s\", ignoring: %m", item->argument);
+                        return 0;
+                }
+
+                return log_syntax(NULL, LOG_ERR, fname, line, r,
+                                  "Failed to parse ACL \"%s\": %m", item->argument);
+        }
 #else
         log_warning("ACLs are not supported, ignoring.");
 #endif
@@ -4129,9 +4136,11 @@ static int parse_line(
                         return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EBADMSG),
                                           "Set ACLs requires argument.");
                 }
-                r = parse_acls_from_arg(&i);
-                if (r < 0)
+                r = parse_acls_from_arg(&i, fname, line);
+                if (r < 0) {
+                        *invalid_config = true;
                         return r;
+                }
                 break;
 
         case SET_FCAPS:
