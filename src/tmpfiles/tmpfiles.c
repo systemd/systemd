@@ -808,9 +808,14 @@ static int dir_cleanup(
 
                         log_action("Would remove", "Removing", "%s directory \"%s\"", sub_path);
                         if (!arg_dry_run &&
-                            unlinkat(dirfd(d), de->d_name, AT_REMOVEDIR) < 0 &&
-                            !IN_SET(errno, ENOENT, ENOTEMPTY))
-                                r = log_warning_errno(errno, "Failed to remove directory \"%s\", ignoring: %m", sub_path);
+                            unlinkat(dirfd(d), de->d_name, AT_REMOVEDIR) < 0) {
+                                if (errno == ENOTEMPTY)
+                                        continue;
+                                if (errno != ENOENT)
+                                        r = log_warning_errno(errno, "Failed to remove directory \"%s\", ignoring: %m", sub_path);
+                        }
+
+                        deleted = true;
 
                 } else {
                         _cleanup_close_ int fd = -EBADF; /* This file descriptor is defined here so that the
