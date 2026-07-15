@@ -55,6 +55,9 @@ static int dm_ioctl_run(const char *name, uint32_t cmd, struct dm_ioctl *data, s
         assert(data);
         assert(data_size >= sizeof(struct dm_ioctl));
 
+        if (data_size > UINT32_MAX)
+                return log_error_errno(SYNTHETIC_ERRNO(EOVERFLOW), "DM ioctl data too large.");
+
         dm->version[0] = DM_VERSION_MAJOR;
         dm->version[1] = DM_VERSION_MINOR;
         dm->version[2] = DM_VERSION_PATCHLEVEL;
@@ -219,9 +222,14 @@ int dm_clone_send_message(const char *name, const char *message) {
         assert(name);
         assert(message);
 
-        msg_len = strlen(message) + 1;
+        msg_len = strlen(message);
         /* need to take into account both headers in size calculation */
-        dm_size = ALIGN8(sizeof(struct dm_ioctl)) + sizeof(struct dm_target_msg) + msg_len;
+        dm_size = ALIGN8(sizeof(struct dm_ioctl));
+        if (!ADD_SAFE(&msg_len, msg_len, 1) ||
+            !ADD_SAFE(&dm_size, dm_size, sizeof(struct dm_target_msg)) ||
+            !ADD_SAFE(&dm_size, dm_size, msg_len))
+                return log_error_errno(SYNTHETIC_ERRNO(EOVERFLOW), "DM target message too long.");
+
         dm = malloc0(dm_size);
         if (!dm)
                 return log_oom();
