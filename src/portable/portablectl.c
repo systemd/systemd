@@ -920,8 +920,11 @@ static int maybe_start_stop_restart_units(
         log_debug_errno(r, "EnqueueUnitJobMany() not supported (%s), falling back to per-unit calls.",
                         bus_error_message(&error, r));
 
-        STRV_FOREACH(name, names)
-                (void) maybe_start_stop_restart(bus, *name, method, wait);
+        STRV_FOREACH(name, names) {
+                r = maybe_start_stop_restart(bus, *name, method, wait);
+                if (r < 0)
+                        return r;
+        }
 
         return 0;
 }
@@ -957,7 +960,9 @@ static int maybe_enable_start(sd_bus *bus, sd_bus_message *reply) {
                         break;
 
                 if (STR_IN_SET(type, "symlink", "copy") && is_portable_managed(path)) {
-                        (void) maybe_enable_disable(bus, path, true);
+                        r = maybe_enable_disable(bus, path, true);
+                        if (r < 0)
+                                return r;
 
                         _cleanup_free_ char *name = NULL;
                         r = path_extract_filename(path, &name);
@@ -974,7 +979,9 @@ static int maybe_enable_start(sd_bus *bus, sd_bus_message *reply) {
         if (r < 0)
                 return r;
 
-        (void) maybe_start_stop_restart_units(bus, start_names, "start", wait);
+        r = maybe_start_stop_restart_units(bus, start_names, "start", wait);
+        if (r < 0)
+                return r;
 
         if (!arg_no_block) {
                 r = bus_wait_for_jobs(wait, arg_quiet, NULL);
@@ -1035,7 +1042,9 @@ static int maybe_stop_enable_restart(sd_bus *bus, sd_bus_message *reply) {
         if (r < 0)
                 return r;
 
-        (void) maybe_start_stop_restart_units(bus, stop_names, "stop", wait);
+        r = maybe_start_stop_restart_units(bus, stop_names, "stop", wait);
+        if (r < 0)
+                return r;
 
         /* Then we get a list of units that were either added or changed, so that we can
          * enable them and/or restart them if the user asked us to. */
@@ -1053,7 +1062,9 @@ static int maybe_stop_enable_restart(sd_bus *bus, sd_bus_message *reply) {
                         break;
 
                 if (STR_IN_SET(type, "symlink", "copy") && is_portable_managed(path)) {
-                        (void) maybe_enable_disable(bus, path, true);
+                        r = maybe_enable_disable(bus, path, true);
+                        if (r < 0)
+                                return r;
 
                         _cleanup_free_ char *name = NULL;
                         r = path_extract_filename(path, &name);
@@ -1070,7 +1081,9 @@ static int maybe_stop_enable_restart(sd_bus *bus, sd_bus_message *reply) {
         if (r < 0)
                 return r;
 
-        (void) maybe_start_stop_restart_units(bus, restart_names, "restart", wait);
+        r = maybe_start_stop_restart_units(bus, restart_names, "restart", wait);
+        if (r < 0)
+                return r;
 
         if (!arg_no_block) {
                 r = bus_wait_for_jobs(wait, arg_quiet, NULL);
@@ -1263,12 +1276,16 @@ static int attach_reattach_image(int argc, char *argv[], const char *method) {
 
         print_changes(reply);
 
-        if (STR_IN_SET(method, "AttachImage", "AttachImageWithExtensions"))
-                (void) maybe_enable_start(bus, reply);
-        else {
+        if (STR_IN_SET(method, "AttachImage", "AttachImageWithExtensions")) {
+                r = maybe_enable_start(bus, reply);
+                if (r < 0)
+                        return r;
+        } else {
                 /* ReattachImage returns 2 lists - removed units first, and changed/added second */
                 print_changes(reply);
-                (void) maybe_stop_enable_restart(bus, reply);
+                r = maybe_stop_enable_restart(bus, reply);
+                if (r < 0)
+                        return r;
         }
 
         return 0;
