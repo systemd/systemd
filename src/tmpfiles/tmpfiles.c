@@ -2238,6 +2238,11 @@ static int copy_files(Context *c, Item *i) {
                 return log_error_errno(errno, "Failed to openat(%s): %m", i->path);
         }
 
+        if (r == -EROFS)
+                r = -EEXIST;
+        if (r < 0 && r != -EEXIST)
+                return log_error_errno(r, "Failed to copy files to %s: %m", i->path);
+
         if (fstat(fd, &st) < 0)
                 return log_error_errno(errno, "Failed to fstat(%s): %m", i->path);
 
