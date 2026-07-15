@@ -22,6 +22,7 @@
     <refname>systemd-sysupdate-update.timer</refname>
     <refname>systemd-sysupdate-reboot.service</refname>
     <refname>systemd-sysupdate-reboot.timer</refname>
+    <refname>systemd-sysupdate-auto-enable.service</refname>
 
     <!-- Compatibility symlinks for old names of systemd-sysupdate-update.{service,timer} -->
     <refname>systemd-sysupdate.service</refname>
@@ -87,6 +88,12 @@
     appropriate time (i.e. typically at night). The two sets of service/timer units may be enabled
     separately.</para>
 
+    <para>The <filename>systemd-sysupdate-auto-enable.service</filename> system service automatically enables all
+    suggested components and all features of the enabled components before each update. It is ordered before and
+    pulled in by <filename>systemd-sysupdate-update.service</filename>, and is not enabled by default. Enable it
+    if newly suggested components and features shall be picked up automatically as they become available, rather
+    than requiring manual <command>enable-component</command>/<command>enable-feature</command> invocations.</para>
+
     <para>For details about transfer files and examples see
     <citerefentry><refentrytitle>sysupdate.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
   </refsect1>
@@ -119,6 +126,21 @@
         details about the specific feature, including the transfers that are controlled by the feature.</para>
 
         <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>enable-feature</option> <replaceable>FEATURE</replaceable>…</term>
+        <term><option>disable-feature</option> <replaceable>FEATURE</replaceable>…</term>
+
+        <listitem><para>Enables or disables the specified optional features. This writes an
+        <varname>Enabled=</varname> setting into a drop-in next to the feature definition, see
+        <citerefentry><refentrytitle>sysupdate.features</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for details. The features may be specified either as arguments or selected via the
+        <option>--feature-all</option> or <option>--feature-suggested</option> switches. Note that this only
+        changes the configuration: to actually download the newly enabled transfers, or remove the disabled
+        ones, invoke <option>update</option> or <option>vacuum</option> afterwards.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -210,6 +232,18 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>enable-component</option> <replaceable>COMPONENT</replaceable>…</term>
+        <term><option>disable-component</option> <replaceable>COMPONENT</replaceable>…</term>
+
+        <listitem><para>Enables or disables the specified components. This writes an
+        <varname>Enabled=</varname> setting into a drop-in next to the component definition. The components
+        may be specified either as arguments or selected via the <option>--component=</option>,
+        <option>--component-all</option> or <option>--component-suggested</option> switches.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>cleanup</option></term>
 
         <listitem><para>Removes orphaned files that were previously installed by a transfer, but are no
@@ -280,11 +314,53 @@
         <term><option>--component-all</option></term>
         <term><option>-A</option></term>
 
-        <listitem><para>Instead of operating on a single component, operate on all known components (as well as
-        the default, component-less installation). This is currently only supported for the
-        <command>cleanup</command> command; all other commands will fail if this switch is used.</para>
+        <listitem><para>Instead of operating on a single component, operate on all known components (as well
+        as the default, component-less installation). This is supported for the <command>update</command>,
+        <command>acquire</command>, <command>cleanup</command>, <command>enable-feature</command>,
+        <command>disable-feature</command>, <command>enable-component</command> and
+        <command>disable-component</command> commands; all other commands will fail if this switch is
+        used.</para>
 
         <para>This option may not be combined with <option>--component=</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--component-suggested</option></term>
+        <term><option>-S</option></term>
+
+        <listitem><para>Similar to <option>--component-all</option>, but operates only on the components that
+        are currently <emphasis>suggested</emphasis> for this system, as determined by the
+        <varname>Suggest=</varname> and <varname>SuggestOn…=</varname> settings in the component definition
+        files. This is supported for the <command>enable-component</command> and
+        <command>disable-component</command> commands.</para>
+
+        <para>This option may not be combined with <option>--component=</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--feature-all</option></term>
+        <term><option>-a</option></term>
+
+        <listitem><para>Instead of operating on features specified on the command line, operate on all
+        optional features known to the selected component(s). This is supported for the
+        <command>enable-feature</command> and <command>disable-feature</command> commands.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--feature-suggested</option></term>
+        <term><option>-s</option></term>
+
+        <listitem><para>Similar to <option>--feature-all</option>, but operates only on the optional features
+        that are currently <emphasis>suggested</emphasis> for this system, as determined by the
+        <varname>Suggest=</varname> and <varname>SuggestOn…=</varname> settings in the feature definition
+        files. This is supported for the <command>enable-feature</command> and
+        <command>disable-feature</command> commands.</para>
 
         <xi:include href="version-info.xml" xpointer="v262"/></listitem>
       </varlistentry>
@@ -416,6 +492,8 @@
     <para><simplelist type="inline">
       <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>sysupdate.d</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sysupdate.features</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sysupdate.components</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd-sysupdated.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd-repart</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
     </simplelist></para>
