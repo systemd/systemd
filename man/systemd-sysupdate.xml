@@ -349,8 +349,8 @@
       <varlistentry>
         <term><option>--verify=</option></term>
 
-        <listitem><para>Takes a boolean argument, defaults to yes. Controls whether to cryptographically
-        verify downloads. Do not turn this off, except in testing environments.</para>
+        <listitem><para>Takes one of: 'gpg', 'pkcs7', or 'no', defaults to 'gpg'. Controls the method used to cryptographically verify
+        downloads. Do not use 'no', except in testing environments.</para>
 
         <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>

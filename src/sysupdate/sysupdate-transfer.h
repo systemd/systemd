@@ -13,7 +13,7 @@ typedef struct Transfer {
         char *min_version;
         char **protected_versions;
         char *current_symlink;
-        bool verify;
+        VerifyMode verify;
 
         char **features;
         char **requisite_features;

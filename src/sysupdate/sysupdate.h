@@ -2,6 +2,7 @@
 #pragma once
 
 #include "sysupdate-forward.h"
+#include "sysupdate-resource.h"
 #include "sysupdate-target.h"
 
 typedef enum SelectMode {
@@ -24,7 +25,7 @@ typedef struct Context {
         char *component;
         SelectMode component_select;
         SelectMode feature_select;
-        int verify;
+        VerifyMode verify;
         ImagePolicy *image_policy;
         bool offline;
         char *transfer_source;
@@ -61,3 +62,5 @@ typedef struct Context {
 } Context;
 
 void context_done(Context *c);
+
+VerifyMode parse_verify_mode(const char *s);
