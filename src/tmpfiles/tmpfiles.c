@@ -1737,9 +1737,8 @@ static int parse_caps_from_arg(Item *item) {
 
         r = capability_vfs_from_string(item->argument, &fcaps);
         if (r < 0) {
-                log_full_errno(arg_graceful ? LOG_DEBUG : LOG_WARNING,
-                               r, "Failed to parse capabilities \"%s\", ignoring: %m", item->argument);
-                return 0;
+                return log_full_errno(arg_graceful ? LOG_DEBUG : LOG_WARNING,
+                                      r, "Failed to parse capabilities \"%s\": %m", item->argument);
         }
 
         item->fcaps_set = true;
@@ -4144,8 +4143,10 @@ static int parse_line(
                                           "Set capabilities requires argument.");
                 }
                 r = parse_caps_from_arg(&i);
-                if (r < 0)
+                if (r < 0) {
+                        *invalid_config = true;
                         return r;
+                }
                 break;
 
         case SET_ATTRIBUTE:
