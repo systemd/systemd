@@ -322,16 +322,7 @@ static int specifier_directory(
         if (r < 0)
                 return r;
 
-        if (arg_root) {
-                _cleanup_free_ char *j = NULL;
-
-                j = path_join(arg_root, p);
-                if (!j)
-                        return -ENOMEM;
-
-                *ret = TAKE_PTR(j);
-        } else
-                *ret = TAKE_PTR(p);
+        *ret = TAKE_PTR(p);
 
         return 0;
 }
