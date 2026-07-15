@@ -2123,9 +2123,9 @@ int oci_load(FILE *f, const char *bundle, Settings **ret) {
         if (!s->bundle)
                 return log_oom();
 
-        r = oci_dispatch(oci, table, 0, s);
+        r = oci_dispatch(oci, table, /* flags= */ 0, s);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to parse OCI bundle configuration file '%s': %m", path);
 
         if (s->properties) {
                 r = sd_bus_message_seal(s->properties, 0, 0);
