@@ -392,6 +392,8 @@ int kdf_ss_derive(const char *digest, const void *key, size_t key_size, const vo
 
 int kdf_kb_hmac_derive(const char *mode, const char *digest, const void *key, size_t key_size, const void *salt, size_t salt_size, const void *info, size_t info_size, const void *seed, size_t seed_size, size_t derive_size, void **ret);
 
+int kdf_hkdf_derive(const char *digest, const struct iovec *key, const struct iovec *salt, const struct iovec *info, size_t derive_size, struct iovec *ret);
+
 int rsa_oaep_encrypt_bytes(const EVP_PKEY *pkey, const char *digest_alg, const char *label, const void *decrypted_key, size_t decrypted_key_size, void **ret_encrypt_key, size_t *ret_encrypt_key_size);
 
 int rsa_pkey_to_suitable_key_size(EVP_PKEY *pkey, size_t *ret_suitable_key_size);
