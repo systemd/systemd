@@ -22,6 +22,11 @@ k /tmp/setcap - - - - cap_setuid,cap_setgid=ep cap_setgid+i
 EOF
 assert_in 'cap_setgid=eip cap_setuid[+]ep' "$(getcap /tmp/setcap)"
 
+(! systemd-tmpfiles --create - <<EOF
+k /tmp/setcap - - - - definitely-not-a-cap
+EOF
+)
+
 systemd-tmpfiles --create - <<EOF
 k+ /tmp/setcap - - - - cap_setuid=
 EOF
