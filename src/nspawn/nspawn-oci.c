@@ -362,7 +362,7 @@ static int oci_process(const char *name, sd_json_variant *v, sd_json_dispatch_fl
         static const sd_json_dispatch_field table[] = {
                 { "terminal",        SD_JSON_VARIANT_BOOLEAN, oci_terminal,                   0,                                     0                  },
                 { "consoleSize",     SD_JSON_VARIANT_OBJECT,  oci_console_size,               0,                                     0                  },
-                { "cwd",             SD_JSON_VARIANT_STRING,  json_dispatch_path,             offsetof(Settings, working_directory), 0                  },
+                { "cwd",             SD_JSON_VARIANT_STRING,  json_dispatch_path,             offsetof(Settings, working_directory), SD_JSON_STRICT     },
                 { "env",             SD_JSON_VARIANT_ARRAY,   json_dispatch_strv_environment, offsetof(Settings, environment),       0                  },
                 { "args",            SD_JSON_VARIANT_ARRAY,   oci_args,                       offsetof(Settings, parameters),        0                  },
                 { "rlimits",         SD_JSON_VARIANT_ARRAY,   oci_rlimits,                    0,                                     0                  },
@@ -479,10 +479,10 @@ static int oci_mounts(const char *name, sd_json_variant *v, sd_json_dispatch_fla
 
         JSON_VARIANT_ARRAY_FOREACH(e, v) {
                 static const sd_json_dispatch_field table[] = {
-                        { "destination", SD_JSON_VARIANT_STRING, json_dispatch_path,      offsetof(oci_mount_data, destination), SD_JSON_MANDATORY },
-                        { "source",      SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(oci_mount_data, source),      0                 },
-                        { "options",     SD_JSON_VARIANT_ARRAY,  sd_json_dispatch_strv,   offsetof(oci_mount_data, options),     0,                },
-                        { "type",        SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(oci_mount_data, type),        0                 },
+                        { "destination", SD_JSON_VARIANT_STRING, json_dispatch_path,      offsetof(oci_mount_data, destination), SD_JSON_MANDATORY|SD_JSON_STRICT },
+                        { "source",      SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(oci_mount_data, source),      0                                },
+                        { "options",     SD_JSON_VARIANT_ARRAY,  sd_json_dispatch_strv,   offsetof(oci_mount_data, options),     0,                               },
+                        { "type",        SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(oci_mount_data, type),        0                                },
                         {}
                 };
 
@@ -586,7 +586,7 @@ static int oci_namespaces(const char *name, sd_json_variant *v, sd_json_dispatch
 
                 static const sd_json_dispatch_field table[] = {
                         { "type", SD_JSON_VARIANT_STRING, oci_namespace_type, offsetof(struct namespace_data, type), SD_JSON_MANDATORY },
-                        { "path", SD_JSON_VARIANT_STRING, json_dispatch_path, offsetof(struct namespace_data, path), 0                 },
+                        { "path", SD_JSON_VARIANT_STRING, json_dispatch_path, offsetof(struct namespace_data, path), SD_JSON_STRICT    },
                         {}
                 };
 
@@ -782,13 +782,13 @@ static int oci_devices(const char *name, sd_json_variant *v, sd_json_dispatch_fl
         JSON_VARIANT_ARRAY_FOREACH(e, v) {
 
                 static const sd_json_dispatch_field table[] = {
-                        { "type",     SD_JSON_VARIANT_STRING,   oci_device_type,          offsetof(DeviceNode, mode),  SD_JSON_MANDATORY },
-                        { "path",     SD_JSON_VARIANT_STRING,   json_dispatch_path,       offsetof(DeviceNode, path),  SD_JSON_MANDATORY },
-                        { "major",    SD_JSON_VARIANT_UNSIGNED, oci_device_major,         offsetof(DeviceNode, major), 0                 },
-                        { "minor",    SD_JSON_VARIANT_UNSIGNED, oci_device_minor,         offsetof(DeviceNode, minor), 0                 },
-                        { "fileMode", SD_JSON_VARIANT_UNSIGNED, oci_device_file_mode,     offsetof(DeviceNode, mode),  0                 },
-                        { "uid",      SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uid_gid, offsetof(DeviceNode, uid),   0                 },
-                        { "gid",      SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uid_gid, offsetof(DeviceNode, gid),   0                 },
+                        { "type",     SD_JSON_VARIANT_STRING,   oci_device_type,          offsetof(DeviceNode, mode),  SD_JSON_MANDATORY                },
+                        { "path",     SD_JSON_VARIANT_STRING,   json_dispatch_path,       offsetof(DeviceNode, path),  SD_JSON_MANDATORY|SD_JSON_STRICT },
+                        { "major",    SD_JSON_VARIANT_UNSIGNED, oci_device_major,         offsetof(DeviceNode, major), 0                                },
+                        { "minor",    SD_JSON_VARIANT_UNSIGNED, oci_device_minor,         offsetof(DeviceNode, minor), 0                                },
+                        { "fileMode", SD_JSON_VARIANT_UNSIGNED, oci_device_file_mode,     offsetof(DeviceNode, mode),  0                                },
+                        { "uid",      SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uid_gid, offsetof(DeviceNode, uid),   0                                },
+                        { "gid",      SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uid_gid, offsetof(DeviceNode, gid),   0                                },
                         {}
                 };
 
@@ -1983,10 +1983,10 @@ static int oci_hooks_array(const char *name, sd_json_variant *v, sd_json_dispatc
         JSON_VARIANT_ARRAY_FOREACH(e, v) {
 
                 static const sd_json_dispatch_field table[] = {
-                        { "path",    SD_JSON_VARIANT_STRING,   json_dispatch_path,             offsetof(OciHook, path),    SD_JSON_MANDATORY },
-                        { "args",    SD_JSON_VARIANT_ARRAY,    oci_args,                       offsetof(OciHook, args),    0,                },
-                        { "env",     SD_JSON_VARIANT_ARRAY,    json_dispatch_strv_environment, offsetof(OciHook, env),     0                 },
-                        { "timeout", SD_JSON_VARIANT_UNSIGNED, oci_hook_timeout,               offsetof(OciHook, timeout), 0                 },
+                        { "path",    SD_JSON_VARIANT_STRING,   json_dispatch_path,             offsetof(OciHook, path),    SD_JSON_MANDATORY|SD_JSON_STRICT },
+                        { "args",    SD_JSON_VARIANT_ARRAY,    oci_args,                       offsetof(OciHook, args),    0,                               },
+                        { "env",     SD_JSON_VARIANT_ARRAY,    json_dispatch_strv_environment, offsetof(OciHook, env),     0                                },
+                        { "timeout", SD_JSON_VARIANT_UNSIGNED, oci_hook_timeout,               offsetof(OciHook, timeout), 0                                },
                         {}
                 };
 
@@ -2123,9 +2123,9 @@ int oci_load(FILE *f, const char *bundle, Settings **ret) {
         if (!s->bundle)
                 return log_oom();
 
-        r = oci_dispatch(oci, table, 0, s);
+        r = oci_dispatch(oci, table, /* flags= */ 0, s);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to parse OCI bundle configuration file '%s': %m", path);
 
         if (s->properties) {
                 r = sd_bus_message_seal(s->properties, 0, 0);
