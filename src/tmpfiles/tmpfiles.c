@@ -1141,7 +1141,7 @@ static int path_set_perms(
         return fd_set_perms(c, i, fd, path, /* st= */ NULL, creation);
 }
 
-static int parse_xattrs_from_arg(Item *i) {
+static int parse_xattrs_from_arg(Item *i, const char *fname, unsigned line) {
         const char *p;
         int r;
 
@@ -1153,20 +1153,19 @@ static int parse_xattrs_from_arg(Item *i) {
 
                 r = extract_first_word(&p, &xattr, NULL, EXTRACT_UNQUOTE|EXTRACT_CUNESCAPE);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to parse extended attribute '%s', ignoring: %m", p);
-                if (r <= 0)
+                        return log_syntax(NULL, LOG_ERR, fname, line, r,
+                                          "Failed to parse extended attribute '%s': %m", p);
+                if (r == 0)
                         break;
 
                 r = split_pair(xattr, "=", &name, &value);
-                if (r < 0) {
-                        log_warning_errno(r, "Failed to parse extended attribute, ignoring: %s", xattr);
-                        continue;
-                }
+                if (r < 0)
+                        return log_syntax(NULL, LOG_ERR, fname, line, r,
+                                          "Failed to parse extended attribute: %s", xattr);
 
-                if (isempty(name) || isempty(value)) {
-                        log_warning("Malformed extended attribute found, ignoring: %s", xattr);
-                        continue;
-                }
+                if (isempty(name) || isempty(value))
+                        return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EINVAL),
+                                          "Malformed extended attribute: %s", xattr);
 
                 if (strv_push_pair(&i->xattrs, name, value) < 0)
                         return log_oom();
@@ -4111,9 +4110,11 @@ static int parse_line(
                         return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EBADMSG),
                                           "Set extended attribute requires argument.");
                 }
-                r = parse_xattrs_from_arg(&i);
-                if (r < 0)
+                r = parse_xattrs_from_arg(&i, fname, line);
+                if (r < 0) {
+                        *invalid_config = true;
                         return r;
+                }
                 break;
 
         case SET_ACL:
