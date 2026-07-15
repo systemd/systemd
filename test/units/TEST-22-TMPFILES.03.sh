@@ -209,6 +209,15 @@ test ! -e /tmp/C-copy-failure-dst/file
 chmod 755 /tmp/C-copy-failure-dst
 rm -rf /tmp/C-copy-failure-src /tmp/C-copy-failure-dst
 
+rm -f /tmp/C-copy-link-src /tmp/C-copy-link-dst
+ln -s missing-target /tmp/C-copy-link-src
+systemd-tmpfiles --create - <<EOF
+C     /tmp/C-copy-link-dst    - - - - /tmp/C-copy-link-src
+EOF
+test -L /tmp/C-copy-link-dst
+test "$(readlink /tmp/C-copy-link-dst)" = "missing-target"
+rm -f /tmp/C-copy-link-src /tmp/C-copy-link-dst
+
 #
 # 'w'
 #
