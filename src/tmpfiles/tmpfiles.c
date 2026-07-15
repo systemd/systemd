@@ -2679,19 +2679,6 @@ static int create_symlink(Context *c, Item *i) {
         assert(c);
         assert(i);
 
-        if (i->ignore_if_target_missing) {
-                r = chase(i->argument, arg_root, CHASE_SAFE|CHASE_PREFIX_ROOT|CHASE_NOFOLLOW, /* ret_path= */ NULL, /* ret_fd= */ NULL);
-                if (r == -ENOENT) {
-                        /* Silently skip over lines where the source file is missing. */
-                        log_debug_errno(r, "Symlink source path '%s/%s' does not exist, skipping line.",
-                                        strempty(arg_root), skip_leading_slash(i->argument));
-                        return 0;
-                }
-                if (r < 0)
-                        return log_error_errno(r, "Failed to check if symlink source path '%s/%s' exists: %m",
-                                               strempty(arg_root), skip_leading_slash(i->argument));
-        }
-
         r = path_extract_filename(i->path, &bn);
         if (r < 0)
                 return log_error_errno(r, "Failed to extract filename from path '%s': %m", i->path);
@@ -2699,14 +2686,36 @@ static int create_symlink(Context *c, Item *i) {
                 return log_error_errno(SYNTHETIC_ERRNO(EISDIR),
                                        "Cannot open path '%s' for creating symlink, is a directory.", i->path);
 
+        if (i->ignore_if_target_missing) {
+                if (path_is_absolute(i->argument))
+                        r = chase(i->argument, arg_root, CHASE_SAFE|CHASE_PREFIX_ROOT|CHASE_NOFOLLOW, /* ret_path= */ NULL, /* ret_fd= */ NULL);
+                else {
+                        pfd = path_open_parent_safe(i->path, i->allow_failure);
+                        if (pfd < 0)
+                                return pfd;
+
+                        r = chaseat(XAT_FDROOT, pfd, i->argument, CHASE_SAFE|CHASE_NOFOLLOW, /* ret_path= */ NULL, /* ret_fd= */ NULL);
+                }
+
+                if (r == -ENOENT) {
+                        /* Silently skip over lines where the source file is missing. */
+                        log_debug_errno(r, "Symlink source path '%s' does not exist, skipping line.", i->argument);
+                        return 0;
+                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to check if symlink source path '%s' exists: %m", i->argument);
+        }
+
         if (arg_dry_run) {
                 log_info("Would create symlink %s -> %s", i->path, i->argument);
                 return 0;
         }
 
-        pfd = path_open_parent_safe(i->path, i->allow_failure);
-        if (pfd < 0)
-                return pfd;
+        if (pfd < 0) {
+                pfd = path_open_parent_safe(i->path, i->allow_failure);
+                if (pfd < 0)
+                        return pfd;
+        }
 
         mac_selinux_create_file_prepare(i->path, S_IFLNK);
         r = RET_NERRNO(symlinkat(i->argument, pfd, bn));
