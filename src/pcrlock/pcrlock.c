@@ -1179,6 +1179,7 @@ static int event_log_load_userspace(EventLog *el) {
         _cleanup_free_ char *b = NULL;
         bool beginning = true;
         const char *path;
+        struct stat st;
         size_t bn = 0;
         int r;
 
@@ -1196,6 +1197,13 @@ static int event_log_load_userspace(EventLog *el) {
 
         if (flock(fileno(f), LOCK_SH) < 0)
                 return log_error_errno(errno, "Failed to lock userspace TPM measurement log file: %m");
+
+        /* The sticky bit marks the log as incomplete: a writer died between updating a PCR and appending
+         * the matching record. Load the log anyway, the affected PCRs will simply fail validation. */
+        if (fstat(fileno(f), &st) < 0)
+                log_warning_errno(errno, "Failed to stat userspace TPM measurement log file, cannot determine whether it is complete, ignoring: %m");
+        else if (FLAGS_SET(st.st_mode, S_ISVTX))
+                log_warning("Userspace TPM measurement log file is marked as incomplete, PCR validation may fail.");
 
         for (;;) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
