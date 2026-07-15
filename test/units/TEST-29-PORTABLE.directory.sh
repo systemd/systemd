@@ -39,6 +39,15 @@ rm -f /tmp/portable-host-unit
 
 (! portablectl attach --runtime --profile=no-such-profile /tmp/minimal_0 minimal-app0)
 
+rm -rf /tmp/link-conflict
+cp -a /tmp/minimal_0 /tmp/link-conflict
+mkdir -p /run/portables
+rm -f /run/portables/link-conflict
+ln -s /tmp/unrelated /run/portables/link-conflict
+(! portablectl "${ARGS[@]}" attach --copy=symlink --runtime /tmp/link-conflict minimal-app0)
+[[ "$(readlink /run/portables/link-conflict)" == "/tmp/unrelated" ]]
+rm -f /run/portables/link-conflict
+
 rm -rf /tmp/bad-start
 cp -a /tmp/minimal_0 /tmp/bad-start
 cat >/tmp/bad-start/usr/lib/systemd/system/minimal-app0.service <<EOF
