@@ -152,7 +152,7 @@ static int try_reflink_copy_bytes(
         if (toffset < 0)
                 return -EOPNOTSUPP;
 
-        r = reflink_range(fdf, foffset, fdt, toffset, max_bytes == UINT64_MAX ? 0 : max_bytes);
+        r = reflink_range(fdf, foffset, fdt, toffset, max_bytes);
         if (r < 0)
                 return -EOPNOTSUPP;
 
@@ -1748,22 +1748,19 @@ int reflink(int infd, int outfd) {
 
 assert_cc(sizeof(struct file_clone_range) == sizeof(struct btrfs_ioctl_clone_range_args));
 
-int reflink_range(int infd, uint64_t in_offset, int outfd, uint64_t out_offset, uint64_t sz) {
-        struct file_clone_range args = {
-                .src_fd = infd,
-                .src_offset = in_offset,
-                .src_length = sz,
-                .dest_offset = out_offset,
-        };
+int reflink_range(int infd, uint64_t in_offset, int outfd, uint64_t out_offset, uint64_t size) {
         int r;
 
         assert(infd >= 0);
         assert(outfd >= 0);
 
+        /* size==UINT64_MAX mean "clone everything". Translate to 0 for the kernel. */
+        if (size == UINT64_MAX)
+                size = 0;
+
         /* Inside the kernel, FICLONE is identical to FICLONERANGE with offsets and size set to zero, let's
-         * simplify things and use the simple ioctl in that case. Also, do the same if the size is
-         * UINT64_MAX, which is how we usually encode "everything". */
-        if (in_offset == 0 && out_offset == 0 && IN_SET(sz, 0, UINT64_MAX))
+         * simplify things and use the simple ioctl in that case. */
+        if (in_offset == 0 && out_offset == 0 && size == 0)
                 return reflink(infd, outfd);
 
         r = fd_verify_regular(outfd);
@@ -1772,5 +1769,11 @@ int reflink_range(int infd, uint64_t in_offset, int outfd, uint64_t out_offset, 
 
         assert_cc(FICLONERANGE == BTRFS_IOC_CLONE_RANGE);
 
+        struct file_clone_range args = {
+                .src_fd = infd,
+                .src_offset = in_offset,
+                .src_length = size,
+                .dest_offset = out_offset,
+        };
         return RET_NERRNO(ioctl(outfd, FICLONERANGE, &args));
 }
