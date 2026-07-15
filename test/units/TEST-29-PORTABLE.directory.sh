@@ -24,11 +24,55 @@ rm -rf /tmp/mismatched-name
 cp -a /tmp/minimal_0 /tmp/mismatched-name
 portablectl inspect /tmp/mismatched-name | grep -F "minimal-app0.service" >/dev/null
 
+rm -rf /tmp/remove-relative
+cp -a /tmp/minimal_0 /tmp/remove-relative
+(cd /tmp && portablectl remove ./remove-relative)
+test ! -e /tmp/remove-relative
+
+rm -rf /tmp/symlink-unit
+cp -a /tmp/minimal_0 /tmp/symlink-unit
+printf '[Service]\nExecStart=/bin/true\n' >/tmp/portable-host-unit
+rm -f /tmp/symlink-unit/usr/lib/systemd/system/minimal-app0.service
+ln -s /tmp/portable-host-unit /tmp/symlink-unit/usr/lib/systemd/system/minimal-app0.service
+(! portablectl inspect --cat /tmp/symlink-unit minimal-app0.service)
+rm -f /tmp/portable-host-unit
+
+(! portablectl attach --runtime --profile=no-such-profile /tmp/minimal_0 minimal-app0)
+
+rm -rf /tmp/link-conflict
+cp -a /tmp/minimal_0 /tmp/link-conflict
+mkdir -p /run/portables
+rm -f /run/portables/link-conflict
+ln -s /tmp/unrelated /run/portables/link-conflict
+(! portablectl "${ARGS[@]}" attach --copy=symlink --runtime /tmp/link-conflict minimal-app0)
+[[ "$(readlink /run/portables/link-conflict)" == "/tmp/unrelated" ]]
+rm -f /run/portables/link-conflict
+
+rm -rf /tmp/bad-start
+cp -a /tmp/minimal_0 /tmp/bad-start
+cat >/tmp/bad-start/usr/lib/systemd/system/minimal-app0.service <<EOF
+[Unit]
+Description=Bad portable service
+
+[Service]
+Type=oneshot
+ExecStart=/no-such-binary
+EOF
+cp /tmp/bad-start/usr/lib/systemd/system/minimal-app0.service /tmp/bad-start/usr/lib/systemd/system/minimal-app0-foo.service
+(! portablectl "${ARGS[@]}" attach --copy=symlink --now --runtime /tmp/bad-start minimal-app0)
+systemctl is-failed minimal-app0.service
+portablectl detach --force --runtime /tmp/bad-start minimal-app0
+systemctl reset-failed minimal-app0.service
+
 portablectl "${ARGS[@]}" attach --copy=symlink --now --runtime /tmp/minimal_0 minimal-app0
 
 systemctl is-active minimal-app0.service
 systemctl is-active minimal-app0-foo.service
 systemctl is-active minimal-app0-bar.service && exit 1
+
+(! portablectl detach --runtime /tmp/minimal_0 definitely-not-matching)
+status="$(portablectl is-attached --runtime /tmp/minimal_0)"
+[[ "${status}" == "running-runtime" ]]
 
 portablectl "${ARGS[@]}" reattach --now --enable --runtime /tmp/minimal_1 minimal-app0
 
@@ -143,6 +187,14 @@ grep -q -F "ExtensionDirectories=" /run/systemd/system.attached/app0.service.d/2
 (! grep -q -F "x-systemd.relax-extension-release-check" /run/systemd/system.attached/app0.service.d/20-portable.conf)
 
 portablectl detach --now --runtime --extension /tmp/app0 /tmp/rootdir app0
+
+rm -rf /tmp/app10
+cp -a /tmp/app0 /tmp/app10
+portablectl "${ARGS[@]}" attach --force --copy=symlink --now --runtime --extension /tmp/app10 /tmp/rootdir app0
+systemctl is-active app0.service
+portablectl inspect --force --cat --extension /tmp/app10 /tmp/rootdir app0 | grep -f /tmp/app10/usr/lib/extension-release.d/extension-release.app0 >/dev/null
+portablectl detach --now --runtime --extension /tmp/app10 /tmp/rootdir app0
+rm -rf /tmp/app10
 
 # Attempt to disable the app unit during detaching. Requires --copy=symlink to reproduce.
 # Provides coverage for https://github.com/systemd/systemd/issues/23481
