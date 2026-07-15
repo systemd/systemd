@@ -556,7 +556,7 @@ static int verb_inspect_image(int argc, char *argv[], uintptr_t _data, void *use
                        strna(pretty_os));
         }
 
-        if (!strv_isempty(arg_extension_images)) {
+        if (!strv_isempty(arg_extension_images) || arg_force) {
                 /* If we specified any extensions, we'll first get back exactly the paths (and
                  * extension-release content) for each one of the arguments. */
 
@@ -1399,6 +1399,7 @@ VERB(verb_read_only_image, "read-only", "NAME|PATH [BOOL]", 2, 3, 0,
 static int verb_read_only_image(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_free_ char *image = NULL;
         int b = true, r;
 
         if (argc > 2) {
@@ -1407,13 +1408,17 @@ static int verb_read_only_image(int argc, char *argv[], uintptr_t _data, void *u
                         return log_error_errno(b, "Failed to parse boolean argument: %s", argv[2]);
         }
 
+        r = determine_image(argv[1], false, &image);
+        if (r < 0)
+                return r;
+
         r = acquire_bus(&bus);
         if (r < 0)
                 return r;
 
         (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
-        r = bus_call_method(bus, bus_portable_mgr, "MarkImageReadOnly", &error, NULL, "sb", argv[1], b);
+        r = bus_call_method(bus, bus_portable_mgr, "MarkImageReadOnly", &error, NULL, "sb", image, b);
         if (r < 0)
                 return log_error_errno(r, "Could not mark image read-only: %s", bus_error_message(&error, r));
 
@@ -1435,12 +1440,17 @@ static int verb_remove_image(int argc, char *argv[], uintptr_t _data, void *user
         for (i = 1; i < argc; i++) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+                _cleanup_free_ char *image = NULL;
+
+                r = determine_image(argv[i], false, &image);
+                if (r < 0)
+                        return r;
 
                 r = bus_message_new_method_call(bus, &m, bus_portable_mgr, "RemoveImage");
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = sd_bus_message_append(m, "s", argv[i]);
+                r = sd_bus_message_append(m, "s", image);
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -1458,6 +1468,7 @@ VERB(verb_set_limit, "set-limit", "[NAME|PATH] LIMIT", 2, 3, 0,
 static int verb_set_limit(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_free_ char *image = NULL;
         uint64_t limit;
         int r;
 
@@ -1475,10 +1486,14 @@ static int verb_set_limit(int argc, char *argv[], uintptr_t _data, void *userdat
                         return log_error_errno(r, "Failed to parse size: %s", argv[argc-1]);
         }
 
-        if (argc > 2)
+        if (argc > 2) {
                 /* With two arguments changes the quota limit of the specified image */
-                r = bus_call_method(bus, bus_portable_mgr, "SetImageLimit", &error, NULL, "st", argv[1], limit);
-        else
+                r = determine_image(argv[1], false, &image);
+                if (r < 0)
+                        return r;
+
+                r = bus_call_method(bus, bus_portable_mgr, "SetImageLimit", &error, NULL, "st", image, limit);
+        } else
                 /* With one argument changes the pool quota limit */
                 r = bus_call_method(bus, bus_portable_mgr, "SetPoolLimit", &error, NULL, "t", limit);
 
