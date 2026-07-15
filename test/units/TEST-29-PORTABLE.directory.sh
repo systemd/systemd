@@ -157,6 +157,13 @@ grep -q -F "ExtensionDirectories=" /run/systemd/system.attached/app0.service.d/2
 
 portablectl detach --now --runtime --extension /tmp/app0 /tmp/rootdir app0
 
+rm -rf /tmp/app10
+cp -a /tmp/app0 /tmp/app10
+portablectl "${ARGS[@]}" attach --force --copy=symlink --runtime --extension /tmp/app10 /tmp/rootdir app0
+portablectl inspect --force --cat --extension /tmp/app10 /tmp/rootdir app0 | grep -f /tmp/app10/usr/lib/extension-release.d/extension-release.app0 >/dev/null
+portablectl detach --runtime --extension /tmp/app10 /tmp/rootdir app0
+rm -rf /tmp/app10
+
 # Attempt to disable the app unit during detaching. Requires --copy=symlink to reproduce.
 # Provides coverage for https://github.com/systemd/systemd/issues/23481
 portablectl "${ARGS[@]}" attach --copy=symlink --now --runtime /tmp/rootdir minimal-app0

@@ -541,7 +541,7 @@ static int portable_extract_by_path(
                                                 matches,
                                                 image_name,
                                                 path_is_extension,
-                                                /* relax_extension_release_check= */ false,
+                                                relax_extension_release_check,
                                                 seq[1],
                                                 /* ret_os_release= */ NULL,
                                                 /* ret_unit_files= */ NULL);
@@ -571,7 +571,7 @@ static int portable_extract_by_path(
                                         matches,
                                         image_name,
                                         path_is_extension,
-                                        /* relax_extension_release_check= */ false,
+                                        relax_extension_release_check,
                                         /* socket_fd= */ -EBADF,
                                         &os_release,
                                         &unit_files);
