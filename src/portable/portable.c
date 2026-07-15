@@ -1900,13 +1900,20 @@ static int install_image(
                                                 target);
                 }
         } else {
-                if (symlink(image_path, target) < 0)
+                if (symlink(image_path, target) < 0) {
+                        _cleanup_free_ char *link = NULL;
+
+                        r = -errno;
+                        if (r == -EEXIST && readlink_malloc(target, &link) >= 0 && path_equal(link, image_path))
+                                return 0;
+
                         return log_debug_errno(
-                                        errno,
+                                        r,
                                         "Failed to link %s %s %s: %m",
                                         image_path,
                                         glyph(GLYPH_ARROW_RIGHT),
                                         target);
+                }
         }
 
         (void) portable_changes_add(
@@ -1942,6 +1949,55 @@ static int install_image_and_extensions(
                 return r;
 
         return 0;
+}
+
+static int image_target_available(RuntimeScope scope, const char *image_path, PortableFlags flags) {
+        _cleanup_free_ char *target = NULL, *link = NULL;
+        int r;
+
+        assert(scope < _RUNTIME_SCOPE_MAX);
+        assert(image_path);
+
+        if (image_in_search_path(scope, IMAGE_PORTABLE, NULL, image_path))
+                return 0;
+
+        r = image_target_path(scope, image_path, flags, &target);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to generate image symlink path: %m");
+
+        r = readlink_malloc(target, &link);
+        if (r >= 0) {
+                if (path_equal(link, image_path))
+                        return 0;
+
+                return log_debug_errno(SYNTHETIC_ERRNO(EEXIST), "Image target '%s' already points to '%s'.", target, link);
+        }
+        if (r == -ENOENT)
+                return 0;
+        if (r == -EINVAL)
+                return log_debug_errno(SYNTHETIC_ERRNO(EEXIST), "Image target '%s' already exists and is not a symlink.", target);
+
+        return log_debug_errno(r, "Failed to determine whether image target '%s' is available: %m", target);
+}
+
+static int image_targets_available(
+                RuntimeScope scope,
+                const Image *image,
+                OrderedHashmap *extension_images,
+                PortableFlags flags) {
+
+        Image *ext;
+        int r;
+
+        assert(image);
+
+        ORDERED_HASHMAP_FOREACH(ext, extension_images) {
+                r = image_target_available(scope, ext->path, flags);
+                if (r < 0)
+                        return r;
+        }
+
+        return image_target_available(scope, image->path, flags);
 }
 
 static bool prefix_matches_compatible(char **matches, char **valid_prefixes) {
@@ -2114,6 +2170,10 @@ int portable_attach(
                                 strempty(extensions_joined));
         }
 
+        r = image_targets_available(scope, image, extension_images, flags);
+        if (r < 0)
+                return sd_bus_error_set_errnof(error, r, "Failed to prepare image target: %m");
+
         r = lookup_paths_init(&paths, scope, /* flags= */ 0, NULL);
         if (r < 0)
                 return r;
@@ -2153,9 +2213,9 @@ int portable_attach(
                         return sd_bus_error_set_errnof(error, r, "Failed to attach unit '%s': %m", item->name);
         }
 
-        /* We don't care too much for the image symlink/copy, it's just a convenience thing, it's not necessary for
-         * proper operation otherwise. */
-        (void) install_image_and_extensions(scope, image, extension_images, flags, changes, n_changes);
+        r = install_image_and_extensions(scope, image, extension_images, flags, changes, n_changes);
+        if (r < 0)
+                return sd_bus_error_set_errnof(error, r, "Failed to install image link: %m");
 
         log_portable_verb(
                         "attached",
