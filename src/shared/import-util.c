@@ -134,6 +134,7 @@ static const char* const import_verify_table[_IMPORT_VERIFY_MAX] = {
         [IMPORT_VERIFY_NO]        = "no",
         [IMPORT_VERIFY_CHECKSUM]  = "checksum",
         [IMPORT_VERIFY_SIGNATURE] = "signature",
+        [IMPORT_VERIFY_PKCS7]     = "pkcs7",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(import_verify, ImportVerify);
