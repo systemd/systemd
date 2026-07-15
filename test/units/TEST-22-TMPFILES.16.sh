@@ -22,6 +22,11 @@ a /tmp/acl_exec - - - - u:root:rwX
 EOF
 assert_in 'user:root:rw-' "$(getfacl -Ec /tmp/acl_exec)"
 
+(! systemd-tmpfiles --create - <<EOF
+t /tmp/acl_exec - - - - invalid-xattr
+EOF
+)
+
 # Set another ACL and append
 setfacl -m g:root:x /tmp/acl_exec
 
