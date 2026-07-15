@@ -130,36 +130,31 @@ static int create_hole(int fd, off_t size) {
         return 0;
 }
 
-/* Returns positive if the range was cloned, zero if cloning is unavailable, and negative if finalizing a
- * successful clone failed. If the range was cloned, returns the copy_bytes_full() result in ret_copy_result. */
 static int try_reflink_copy_bytes(
                 int fdf,
                 int fdt,
                 uint64_t max_bytes,
-                CopyFlags copy_flags,
-                int *ret_copy_result) {
+                CopyFlags copy_flags) {
 
-        off_t foffset, toffset;
         int r;
 
         assert(fdf >= 0);
         assert(fdt >= 0);
-        assert(ret_copy_result);
 
         if (max_bytes == 0)
-                return 0;
+                return -EOPNOTSUPP;
 
-        foffset = FLAGS_SET(copy_flags, COPY_SEEK0_SOURCE) ? 0 : lseek(fdf, 0, SEEK_CUR);
+        off_t foffset = FLAGS_SET(copy_flags, COPY_SEEK0_SOURCE) ? 0 : lseek(fdf, 0, SEEK_CUR);
         if (foffset < 0)
-                return 0;
+                return -EOPNOTSUPP;
 
-        toffset = FLAGS_SET(copy_flags, COPY_SEEK0_TARGET) ? 0 : lseek(fdt, 0, SEEK_CUR);
+        off_t toffset = FLAGS_SET(copy_flags, COPY_SEEK0_TARGET) ? 0 : lseek(fdt, 0, SEEK_CUR);
         if (toffset < 0)
-                return 0;
+                return -EOPNOTSUPP;
 
-        r = reflink_range(fdf, foffset, fdt, toffset, max_bytes == UINT64_MAX ? 0 : max_bytes);
+        r = reflink_range(fdf, foffset, fdt, toffset, max_bytes);
         if (r < 0)
-                return 0;
+                return -EOPNOTSUPP;
 
         if (max_bytes == UINT64_MAX) {
                 off_t end;
@@ -172,15 +167,11 @@ static int try_reflink_copy_bytes(
 
                 if (lseek(fdt, toffset + (end - foffset), SEEK_SET) < 0)
                         return -errno;
-
-                *ret_copy_result = 0; /* We copied to EOF. */
         } else {
                 if (lseek(fdf, foffset + max_bytes, SEEK_SET) < 0)
                         return -errno;
                 if (lseek(fdt, toffset + max_bytes, SEEK_SET) < 0)
                         return -errno;
-
-                *ret_copy_result = 1; /* We copied the requested range. */
         }
 
         if (FLAGS_SET(copy_flags, COPY_VERIFY_LINKED)) {
@@ -189,7 +180,8 @@ static int try_reflink_copy_bytes(
                         return r;
         }
 
-        return 1;
+        return max_bytes == UINT64_MAX ? 0 /* we copied until EOF */
+                                       : 1 /* we copied the requested range */;
 }
 
 int copy_bytes_full(
@@ -239,12 +231,11 @@ int copy_bytes_full(
             lseek(fdt, 0, SEEK_SET) < 0)
                 return -errno;
 
-        int reflink_result = 0;
-        r = try_reflink_copy_bytes(fdf, fdt, max_bytes, copy_flags, &reflink_result);
-        if (r < 0)
+        r = try_reflink_copy_bytes(fdf, fdt, max_bytes, copy_flags);
+        if (r < 0 && r != -EOPNOTSUPP)
                 return r;
-        if (r > 0)
-                return reflink_result;
+        if (r >= 0)
+                return r;
 
         usec_t start_timestamp = USEC_INFINITY;
         if (progress)
@@ -1759,22 +1750,19 @@ int reflink(int infd, int outfd) {
 
 assert_cc(sizeof(struct file_clone_range) == sizeof(struct btrfs_ioctl_clone_range_args));
 
-int reflink_range(int infd, uint64_t in_offset, int outfd, uint64_t out_offset, uint64_t sz) {
-        struct file_clone_range args = {
-                .src_fd = infd,
-                .src_offset = in_offset,
-                .src_length = sz,
-                .dest_offset = out_offset,
-        };
+int reflink_range(int infd, uint64_t in_offset, int outfd, uint64_t out_offset, uint64_t size) {
         int r;
 
         assert(infd >= 0);
         assert(outfd >= 0);
 
+        /* size==UINT64_MAX mean "clone everything". Translate to 0 for the kernel. */
+        if (size == UINT64_MAX)
+                size = 0;
+
         /* Inside the kernel, FICLONE is identical to FICLONERANGE with offsets and size set to zero, let's
-         * simplify things and use the simple ioctl in that case. Also, do the same if the size is
-         * UINT64_MAX, which is how we usually encode "everything". */
-        if (in_offset == 0 && out_offset == 0 && IN_SET(sz, 0, UINT64_MAX))
+         * simplify things and use the simple ioctl in that case. */
+        if (in_offset == 0 && out_offset == 0 && size == 0)
                 return reflink(infd, outfd);
 
         r = fd_verify_regular(outfd);
@@ -1783,5 +1771,11 @@ int reflink_range(int infd, uint64_t in_offset, int outfd, uint64_t out_offset, 
 
         assert_cc(FICLONERANGE == BTRFS_IOC_CLONE_RANGE);
 
+        struct file_clone_range args = {
+                .src_fd = infd,
+                .src_offset = in_offset,
+                .src_length = size,
+                .dest_offset = out_offset,
+        };
         return RET_NERRNO(ioctl(outfd, FICLONERANGE, &args));
 }
