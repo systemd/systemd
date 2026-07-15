@@ -4725,6 +4725,8 @@ static int read_config_file(
                         if (candidate_item && candidate_item->age_set) {
                                 i->age = candidate_item->age;
                                 i->age_set = true;
+                                i->age_by_file = candidate_item->age_by_file;
+                                i->age_by_dir = candidate_item->age_by_dir;
                         }
                 }
 
