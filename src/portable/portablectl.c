@@ -1440,12 +1440,17 @@ static int verb_remove_image(int argc, char *argv[], uintptr_t _data, void *user
         for (i = 1; i < argc; i++) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+                _cleanup_free_ char *image = NULL;
+
+                r = determine_image(argv[i], false, &image);
+                if (r < 0)
+                        return r;
 
                 r = bus_message_new_method_call(bus, &m, bus_portable_mgr, "RemoveImage");
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = sd_bus_message_append(m, "s", argv[i]);
+                r = sd_bus_message_append(m, "s", image);
                 if (r < 0)
                         return bus_log_create_error(r);
 
