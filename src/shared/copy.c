@@ -130,36 +130,31 @@ static int create_hole(int fd, off_t size) {
         return 0;
 }
 
-/* Returns positive if the range was cloned, zero if cloning is unavailable, and negative if finalizing a
- * successful clone failed. If the range was cloned, returns the copy_bytes_full() result in ret_copy_result. */
 static int try_reflink_copy_bytes(
                 int fdf,
                 int fdt,
                 uint64_t max_bytes,
-                CopyFlags copy_flags,
-                int *ret_copy_result) {
+                CopyFlags copy_flags) {
 
-        off_t foffset, toffset;
         int r;
 
         assert(fdf >= 0);
         assert(fdt >= 0);
-        assert(ret_copy_result);
 
         if (max_bytes == 0)
-                return 0;
+                return -EOPNOTSUPP;
 
-        foffset = FLAGS_SET(copy_flags, COPY_SEEK0_SOURCE) ? 0 : lseek(fdf, 0, SEEK_CUR);
+        off_t foffset = FLAGS_SET(copy_flags, COPY_SEEK0_SOURCE) ? 0 : lseek(fdf, 0, SEEK_CUR);
         if (foffset < 0)
-                return 0;
+                return -EOPNOTSUPP;
 
-        toffset = FLAGS_SET(copy_flags, COPY_SEEK0_TARGET) ? 0 : lseek(fdt, 0, SEEK_CUR);
+        off_t toffset = FLAGS_SET(copy_flags, COPY_SEEK0_TARGET) ? 0 : lseek(fdt, 0, SEEK_CUR);
         if (toffset < 0)
-                return 0;
+                return -EOPNOTSUPP;
 
         r = reflink_range(fdf, foffset, fdt, toffset, max_bytes == UINT64_MAX ? 0 : max_bytes);
         if (r < 0)
-                return 0;
+                return -EOPNOTSUPP;
 
         if (max_bytes == UINT64_MAX) {
                 off_t end;
@@ -172,15 +167,11 @@ static int try_reflink_copy_bytes(
 
                 if (lseek(fdt, toffset + (end - foffset), SEEK_SET) < 0)
                         return -errno;
-
-                *ret_copy_result = 0; /* We copied to EOF. */
         } else {
                 if (lseek(fdf, foffset + max_bytes, SEEK_SET) < 0)
                         return -errno;
                 if (lseek(fdt, toffset + max_bytes, SEEK_SET) < 0)
                         return -errno;
-
-                *ret_copy_result = 1; /* We copied the requested range. */
         }
 
         if (FLAGS_SET(copy_flags, COPY_VERIFY_LINKED)) {
@@ -189,7 +180,8 @@ static int try_reflink_copy_bytes(
                         return r;
         }
 
-        return 1;
+        return max_bytes == UINT64_MAX ? 0 /* we copied until EOF */
+                                       : 1 /* we copied the requested range */;
 }
 
 int copy_bytes_full(
@@ -239,12 +231,11 @@ int copy_bytes_full(
             lseek(fdt, 0, SEEK_SET) < 0)
                 return -errno;
 
-        int reflink_result = 0;
-        r = try_reflink_copy_bytes(fdf, fdt, max_bytes, copy_flags, &reflink_result);
-        if (r < 0)
+        r = try_reflink_copy_bytes(fdf, fdt, max_bytes, copy_flags);
+        if (r < 0 && r != -EOPNOTSUPP)
                 return r;
-        if (r > 0)
-                return reflink_result;
+        if (r >= 0)
+                return r;
 
         usec_t start_timestamp = USEC_INFINITY;
         if (progress)
