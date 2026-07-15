@@ -54,3 +54,36 @@ EOF
 )"
 [[ "$output" == *"Would create directory $root/run/test"* ]]
 [[ "$output" != *"$root$root"* ]]
+
+# Check that L? resolves relative targets from the symlink's parent directory.
+root='/tmp/L/4'
+rm -rf "$root"
+mkdir -p "$root"
+touch "$root/target"
+
+systemd-tmpfiles --create - <<EOF
+L?    $root/link    - - - - target
+EOF
+test "$(readlink "$root/link")" = "target"
+
+rm -f "$root/link" "$root/target"
+systemd-tmpfiles --create - <<EOF
+L?    $root/link    - - - - target
+EOF
+test ! -e "$root/link"
+
+# Check the same relative target lookup with --root=.
+rm -rf "$root"
+mkdir -p "$root/dir"
+touch "$root/dir/target"
+
+systemd-tmpfiles --create --root="$root" - <<EOF
+L?    /dir/link    - - - - target
+EOF
+test "$(readlink "$root/dir/link")" = "target"
+
+rm -f "$root/dir/link" "$root/dir/target"
+systemd-tmpfiles --create --root="$root" - <<EOF
+L?    /dir/link    - - - - target
+EOF
+test ! -e "$root/dir/link"
