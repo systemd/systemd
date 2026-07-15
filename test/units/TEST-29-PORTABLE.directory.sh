@@ -24,6 +24,14 @@ rm -rf /tmp/mismatched-name
 cp -a /tmp/minimal_0 /tmp/mismatched-name
 portablectl inspect /tmp/mismatched-name | grep -F "minimal-app0.service" >/dev/null
 
+rm -rf /tmp/symlink-unit
+cp -a /tmp/minimal_0 /tmp/symlink-unit
+printf '[Service]\nExecStart=/bin/true\n' >/tmp/portable-host-unit
+rm -f /tmp/symlink-unit/usr/lib/systemd/system/minimal-app0.service
+ln -s /tmp/portable-host-unit /tmp/symlink-unit/usr/lib/systemd/system/minimal-app0.service
+(! portablectl inspect --cat /tmp/symlink-unit minimal-app0.service)
+rm -f /tmp/portable-host-unit
+
 (! portablectl attach --runtime --profile=no-such-profile /tmp/minimal_0 minimal-app0)
 
 rm -rf /tmp/bad-start
