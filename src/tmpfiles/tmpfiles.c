@@ -1153,20 +1153,17 @@ static int parse_xattrs_from_arg(Item *i) {
 
                 r = extract_first_word(&p, &xattr, NULL, EXTRACT_UNQUOTE|EXTRACT_CUNESCAPE);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to parse extended attribute '%s', ignoring: %m", p);
+                        return log_warning_errno(r, "Failed to parse extended attribute '%s': %m", p);
                 if (r <= 0)
                         break;
 
                 r = split_pair(xattr, "=", &name, &value);
-                if (r < 0) {
-                        log_warning_errno(r, "Failed to parse extended attribute, ignoring: %s", xattr);
-                        continue;
-                }
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to parse extended attribute: %s", xattr);
 
-                if (isempty(name) || isempty(value)) {
-                        log_warning("Malformed extended attribute found, ignoring: %s", xattr);
-                        continue;
-                }
+                if (isempty(name) || isempty(value))
+                        return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                 "Malformed extended attribute: %s", xattr);
 
                 if (strv_push_pair(&i->xattrs, name, value) < 0)
                         return log_oom();
@@ -4109,8 +4106,10 @@ static int parse_line(
                                           "Set extended attribute requires argument.");
                 }
                 r = parse_xattrs_from_arg(&i);
-                if (r < 0)
+                if (r < 0) {
+                        *invalid_config = true;
                         return r;
+                }
                 break;
 
         case SET_ACL:
