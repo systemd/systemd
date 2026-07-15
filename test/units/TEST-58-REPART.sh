@@ -1454,6 +1454,163 @@ EOF
     veritysetup dump "${loop}p2" | grep 'Data blocks:' | grep "$data_verity_blocks" >/dev/null
 }
 
+testcase_verity_encrypt() {
+    local defs imgs output loop drh hrh part_size dm_devno verity_dep
+
+    defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
+    imgs="$(mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs'" RETURN
+    chmod 0755 "$defs"
+
+    echo "*** dm-verity + LUKS2 (verity envelope around encrypted data) ***"
+
+    echo -n "wetterfrosch" >"$imgs/key"
+
+    # Encrypting verity hash partitions must be refused
+    tee "$defs/verity-data.conf" <<EOF
+[Partition]
+Type=root-${architecture}
+CopyFiles=${defs}
+Verity=data
+VerityMatchKey=root
+Encrypt=key-file
+SizeMaxBytes=1G
+EOF
+
+    tee "$defs/verity-hash.conf" <<EOF
+[Partition]
+Type=root-${architecture}-verity
+Verity=hash
+VerityMatchKey=root
+Encrypt=key-file
+EOF
+
+    (! systemd-repart --offline="$OFFLINE" \
+                      --definitions="$defs" \
+                      --seed="$seed" \
+                      --dry-run=yes \
+                      --empty=create \
+                      --size=auto \
+                      --key-file="$imgs/key" \
+                      "$imgs/refused")
+
+    # Minimize= on the hash partition of an encrypted data partition must be refused. Set Minimize= on the
+    # data partition as well, so that the generic "data partition does not set CopyBlocks= or Minimize="
+    # check doesn't fire first and the encryption-specific check is actually reached.
+    tee "$defs/verity-data.conf" <<EOF
+[Partition]
+Type=root-${architecture}
+Format=ext4
+CopyFiles=${defs}
+Verity=data
+VerityMatchKey=root
+Encrypt=key-file
+Minimize=guess
+SizeMaxBytes=1G
+EOF
+
+    tee "$defs/verity-hash.conf" <<EOF
+[Partition]
+Type=root-${architecture}-verity
+Verity=hash
+VerityMatchKey=root
+Minimize=yes
+EOF
+
+    (! systemd-repart --offline="$OFFLINE" \
+                      --definitions="$defs" \
+                      --seed="$seed" \
+                      --dry-run=yes \
+                      --empty=create \
+                      --size=auto \
+                      --key-file="$imgs/key" \
+                      "$imgs/refused") |& grep "Minimize= cannot be set for verity hash partitions whose data partition is encrypted" >/dev/null
+
+    # Now a valid combination: the hash partition is sized via SizeMaxBytes= of the data partition
+    tee "$defs/verity-data.conf" <<EOF
+[Partition]
+Type=root-${architecture}
+CopyFiles=${defs}
+Verity=data
+VerityMatchKey=root
+Encrypt=key-file
+SizeMaxBytes=1G
+EOF
+
+    tee "$defs/verity-hash.conf" <<EOF
+[Partition]
+Type=root-${architecture}-verity
+Verity=hash
+VerityMatchKey=root
+EOF
+
+    output=$(systemd-repart --offline="$OFFLINE" \
+                            --definitions="$defs" \
+                            --seed="$seed" \
+                            --dry-run=no \
+                            --empty=create \
+                            --size=auto \
+                            --key-file="$imgs/key" \
+                            --json=pretty \
+                            "$imgs/verity-encrypt")
+
+    drh=$(jq -r ".[] | select(.type == \"root-${architecture}\") | .roothash" <<<"$output")
+    hrh=$(jq -r ".[] | select(.type == \"root-${architecture}-verity\") | .roothash" <<<"$output")
+
+    assert_neq "$drh" "null"
+    assert_eq "$drh" "$hrh"
+
+    if systemd-detect-virt --quiet --container; then
+        echo "Skipping verity+encrypt test dissect part in container."
+        return
+    fi
+
+    loop="$(systemd-dissect --attach "$imgs/verity-encrypt")"
+
+    # Make sure the loopback device gets cleaned up
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs' ; systemd-dissect --detach '$loop'" RETURN ERR
+
+    # The data partition must contain LUKS ciphertext as its outermost layer ...
+    blkid --output value --match-tag TYPE "${loop}p1" | grep -x crypto_LUKS
+
+    # ... and the verity hash data must cover exactly that ciphertext
+    veritysetup verify "${loop}p1" "${loop}p2" "$drh"
+
+    # Dissection must set up verity as the outer envelope and LUKS inside of it. The LUKS passphrase is
+    # picked up via the dissect.passphrase credential.
+    mkdir -p "$imgs/creds"
+    echo -n "wetterfrosch" >"$imgs/creds/dissect.passphrase"
+
+    systemd-dissect --root-hash "$drh" "$imgs/verity-encrypt"
+    systemd-dissect --root-hash "$drh" --validate --image-policy "root=encrypted+verity" "$imgs/verity-encrypt"
+    # A policy that doesn't allow encryption must be refused
+    (! systemd-dissect --root-hash "$drh" --validate --image-policy "root=verity" "$imgs/verity-encrypt")
+
+    CREDENTIALS_DIRECTORY="$imgs/creds" systemd-dissect --root-hash "$drh" -M "$imgs/verity-encrypt" "$imgs/mnt"
+
+    # shellcheck disable=SC2064
+    trap "umount --quiet --recursive '$imgs/mnt' || : ; rm -rf '$defs' '$imgs' ; systemd-dissect --detach '$loop'" RETURN ERR
+
+    # Check that both DM layers are stacked as expected: the mounted device is a LUKS volume backed by a
+    # dm-verity device
+    dm_devno=$(findmnt --noheadings --output MAJ:MIN "$imgs/mnt" | tr -d ' ')
+    [[ "$(dmsetup table -j "${dm_devno%%:*}" -m "${dm_devno##*:}" | cut -d' ' -f3)" == "crypt" ]]
+    verity_dep=$(dmsetup deps -o devname -j "${dm_devno%%:*}" -m "${dm_devno##*:}" | sed 's/.*(\(.*\))/\1/')
+    [[ "$(dmsetup table "/dev/mapper/$verity_dep" | cut -d' ' -f3)" == "verity" ]]
+
+    # The copied-in files must be intact
+    cmp "$defs/verity-data.conf" "$imgs/mnt$defs/verity-data.conf"
+
+    systemd-dissect -U "$imgs/mnt"
+
+    # Now corrupt a block in the middle of the encrypted data partition and check that verification fails
+    part_size=$(blockdev --getsize64 "${loop}p1")
+    dd if=/dev/urandom of="${loop}p1" bs=4096 count=1 seek=$(( part_size / 2 / 4096 )) oflag=direct conv=notrunc
+    (! veritysetup verify "${loop}p1" "${loop}p2" "$drh")
+}
+
 testcase_exclude_files() {
     local defs imgs root output
 
