@@ -24,6 +24,11 @@ rm -rf /tmp/mismatched-name
 cp -a /tmp/minimal_0 /tmp/mismatched-name
 portablectl inspect /tmp/mismatched-name | grep -F "minimal-app0.service" >/dev/null
 
+rm -rf /tmp/remove-relative
+cp -a /tmp/minimal_0 /tmp/remove-relative
+(cd /tmp && portablectl remove ./remove-relative)
+test ! -e /tmp/remove-relative
+
 rm -rf /tmp/symlink-unit
 cp -a /tmp/minimal_0 /tmp/symlink-unit
 printf '[Service]\nExecStart=/bin/true\n' >/tmp/portable-host-unit
