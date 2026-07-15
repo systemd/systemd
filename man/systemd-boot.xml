@@ -146,6 +146,23 @@
       </varlistentry>
 
       <varlistentry>
+        <term><keycap>↵</keycap> (Enter)</term>
+        <term><keycap>→</keycap> (Right)</term>
+        <listitem><para>Enter the selected submenu</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><keycap>←</keycap> (Left)</term>
+        <term><keycap>Del</keycap></term>
+        <term><keycap>Esc</keycap></term>
+        <listitem><para>Go back to the entry list from a submenu</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><keycap>d</keycap></term>
         <listitem><para>Make selected entry the preferred boot entry</para>
 
