@@ -1236,8 +1236,8 @@ static int parse_acls_from_arg(Item *item) {
         r = parse_acl(item->argument, &item->acl_access, &item->acl_access_exec,
                       &item->acl_default, !item->append_or_force);
         if (r < 0)
-                log_full_errno(arg_graceful && IN_SET(r, -EINVAL, -ENOENT, -ESRCH) ? LOG_DEBUG : LOG_WARNING,
-                               r, "Failed to parse ACL \"%s\", ignoring: %m", item->argument);
+                return log_full_errno(arg_graceful && IN_SET(r, -EINVAL, -ENOENT, -ESRCH) ? LOG_DEBUG : LOG_WARNING,
+                                      r, "Failed to parse ACL \"%s\": %m", item->argument);
 #else
         log_warning("ACLs are not supported, ignoring.");
 #endif
@@ -4125,8 +4125,10 @@ static int parse_line(
                                           "Set ACLs requires argument.");
                 }
                 r = parse_acls_from_arg(&i);
-                if (r < 0)
+                if (r < 0) {
+                        *invalid_config = true;
                         return r;
+                }
                 break;
 
         case SET_FCAPS:
