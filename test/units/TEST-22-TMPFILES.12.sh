@@ -204,3 +204,34 @@ test ! -d /tmp/ageby/d3
 
 # Cleanup the test directory (fail if not empty).
 rmdir /tmp/ageby
+
+# Removing an old child directory should restore the parent directory mtime.
+rm -rf /tmp/ageby-mtime
+mkdir -p /tmp/ageby-mtime/old-child
+touch --date "2020-01-01 00:00:00" /tmp/ageby-mtime/old-child /tmp/ageby-mtime
+before="$(stat -c %Y /tmp/ageby-mtime)"
+
+systemd-tmpfiles --clean - <<-EOF
+d /tmp/ageby-mtime - - - M:1s
+EOF
+
+after="$(stat -c %Y /tmp/ageby-mtime)"
+test "$before" = "$after"
+test ! -e /tmp/ageby-mtime/old-child
+rmdir /tmp/ageby-mtime
+
+# X entries inherit the parent cleanup age and its age-by fields.
+rm -rf /tmp/ageby-x-inherit
+mkdir -p /tmp/ageby-x-inherit/parent/child /tmp/ageby-x-inherit/parent/other
+printf old >/tmp/ageby-x-inherit/parent/child/file
+printf old >/tmp/ageby-x-inherit/parent/other/file
+touch --date "3 days ago" /tmp/ageby-x-inherit/parent/child/file /tmp/ageby-x-inherit/parent/other/file
+
+systemd-tmpfiles --clean - <<-EOF
+d /tmp/ageby-x-inherit/parent - - - m:1d
+X /tmp/ageby-x-inherit/parent/child - - - -
+EOF
+
+test ! -e /tmp/ageby-x-inherit/parent/child/file
+test ! -e /tmp/ageby-x-inherit/parent/other/file
+rm -rf /tmp/ageby-x-inherit

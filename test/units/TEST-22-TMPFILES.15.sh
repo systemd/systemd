@@ -42,3 +42,44 @@ systemd-tmpfiles --create --root="$root" - <<EOF
 L     %h    - - - -
 EOF
 test "$(readlink "$dst")" = "$src"
+
+# Check that directory specifiers are not prefixed with --root twice.
+root='/tmp/L/3'
+rm -rf "$root"
+mkdir -p "$root"
+
+output="$(systemd-tmpfiles --create --dry-run --root="$root" - <<EOF
+d     %t/test    - - - -
+EOF
+)"
+[[ "$output" == *"Would create directory $root/run/test"* ]]
+[[ "$output" != *"$root$root"* ]]
+
+# Check that L? resolves relative targets from the symlink's parent directory.
+root='/tmp/L/4'
+rm -rf "$root"
+mkdir -p "$root"
+touch "$root/target"
+
+systemd-tmpfiles --create - <<EOF
+L?    $root/link    - - - - target
+EOF
+test "$(readlink "$root/link")" = "target"
+
+rm -f "$root/link" "$root/target"
+systemd-tmpfiles --create - <<EOF
+L?    $root/link    - - - - target
+EOF
+test ! -e "$root/link"
+
+# Conflicting symlink targets for the same path should not be ignored.
+root='/tmp/L/5'
+rm -rf "$root"
+mkdir -p "$root"
+
+(! systemd-tmpfiles --create - <<EOF
+L     $root/link    - - - - /one
+L     $root/link    - - - - /two
+EOF
+)
+test ! -e "$root/link"
