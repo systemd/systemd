@@ -216,7 +216,7 @@ int oci_ref_normalize(char **protocol, char **registry, char **image, char **tag
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *path = NULL;
         r = search_and_fopen_nulstr(fn, "re", /* root= */ NULL, CONF_PATHS_NULSTR("systemd/oci-registry"), &f, &path);
-        if (r == -ENOENT)
+        if (r == -ENOENT && isempty(*registry))
                 r = search_and_fopen_nulstr("default.oci-registry", "re", /* root= */ NULL, CONF_PATHS_NULSTR("systemd/oci-registry"), &f, &path);
         if (r < 0 && r != -ENOENT)
                 return log_debug_errno(r, "Failed to find suitable OCI registry file: %m");
