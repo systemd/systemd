@@ -42,3 +42,15 @@ systemd-tmpfiles --create --root="$root" - <<EOF
 L     %h    - - - -
 EOF
 test "$(readlink "$dst")" = "$src"
+
+# Check that directory specifiers are not prefixed with --root twice.
+root='/tmp/L/3'
+rm -rf "$root"
+mkdir -p "$root"
+
+output="$(systemd-tmpfiles --create --dry-run --root="$root" - <<EOF
+d     %t/test    - - - -
+EOF
+)"
+[[ "$output" == *"Would create directory $root/run/test"* ]]
+[[ "$output" != *"$root$root"* ]]
