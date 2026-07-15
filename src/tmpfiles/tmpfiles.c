@@ -2680,16 +2680,30 @@ static int create_symlink(Context *c, Item *i) {
         assert(i);
 
         if (i->ignore_if_target_missing) {
-                r = chase(i->argument, arg_root, CHASE_SAFE|CHASE_PREFIX_ROOT|CHASE_NOFOLLOW, /* ret_path= */ NULL, /* ret_fd= */ NULL);
+                _cleanup_free_ char *target = NULL;
+                ChaseFlags chase_flags = CHASE_SAFE|CHASE_NOFOLLOW;
+
+                if (!path_is_absolute(i->argument)) {
+                        _cleanup_free_ char *dn = NULL;
+
+                        r = path_extract_directory(i->path, &dn);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to extract directory from path '%s': %m", i->path);
+
+                        target = path_join(dn, i->argument);
+                        if (!target)
+                                return log_oom();
+                } else
+                        chase_flags |= CHASE_PREFIX_ROOT;
+
+                r = chase(target ?: i->argument, arg_root, chase_flags, /* ret_path= */ NULL, /* ret_fd= */ NULL);
                 if (r == -ENOENT) {
                         /* Silently skip over lines where the source file is missing. */
-                        log_debug_errno(r, "Symlink source path '%s/%s' does not exist, skipping line.",
-                                        strempty(arg_root), skip_leading_slash(i->argument));
+                        log_debug_errno(r, "Symlink source path '%s' does not exist, skipping line.", i->argument);
                         return 0;
                 }
                 if (r < 0)
-                        return log_error_errno(r, "Failed to check if symlink source path '%s/%s' exists: %m",
-                                               strempty(arg_root), skip_leading_slash(i->argument));
+                        return log_error_errno(r, "Failed to check if symlink source path '%s' exists: %m", i->argument);
         }
 
         r = path_extract_filename(i->path, &bn);
