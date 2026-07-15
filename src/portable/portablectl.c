@@ -1511,6 +1511,7 @@ VERB(verb_set_limit, "set-limit", "[NAME|PATH] LIMIT", 2, 3, 0,
 static int verb_set_limit(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_free_ char *image = NULL;
         uint64_t limit;
         int r;
 
@@ -1528,10 +1529,14 @@ static int verb_set_limit(int argc, char *argv[], uintptr_t _data, void *userdat
                         return log_error_errno(r, "Failed to parse size: %s", argv[argc-1]);
         }
 
-        if (argc > 2)
+        if (argc > 2) {
                 /* With two arguments changes the quota limit of the specified image */
-                r = bus_call_method(bus, bus_portable_mgr, "SetImageLimit", &error, NULL, "st", argv[1], limit);
-        else
+                r = determine_image(argv[1], false, &image);
+                if (r < 0)
+                        return r;
+
+                r = bus_call_method(bus, bus_portable_mgr, "SetImageLimit", &error, NULL, "st", image, limit);
+        } else
                 /* With one argument changes the pool quota limit */
                 r = bus_call_method(bus, bus_portable_mgr, "SetPoolLimit", &error, NULL, "t", limit);
 
