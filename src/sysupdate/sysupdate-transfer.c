@@ -399,7 +399,6 @@ static DEFINE_CONFIG_PARSE_ENUM(config_parse_resource_type, resource_type, Resou
 static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_resource_path_relto, path_relative_to, PathRelativeTo,
                                              PATH_RELATIVE_TO_ROOT);
 
-
 static int config_parse_verify_mode(
                 const char *unit,
                 const char *filename,
@@ -412,20 +411,13 @@ static int config_parse_verify_mode(
                 void *data,
                 void *userdata) {
 
-        int r;
         VerifyMode *verify_mode = ASSERT_PTR(data);
-
         assert(rvalue);
 
-        VerifyMode v = verify_mode_from_string(rvalue);
-        if (v < 0) {
-                /* may be a boolean instead */
-                r = parse_boolean(rvalue);
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r, "Invalid verification setting, ignoring: %s", rvalue);
-                        return 0;
-                }
-                v = r ? VERIFY_MODE_GPG : VERIFY_MODE_NO;
+        VerifyMode v = parse_verify_mode(rvalue);
+        if (v == _VERIFY_MODE_INVALID) {
+                log_syntax(unit, LOG_WARNING, filename, line, EINVAL, "Invalid verification setting, ignoring: %s", rvalue);
+                return 0;
         }
 
         *verify_mode = v;

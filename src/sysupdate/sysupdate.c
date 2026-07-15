@@ -219,6 +219,23 @@ static int context_from_base_with_component(const Context *base, const char *com
         return 0;
 }
 
+VerifyMode parse_verify_mode(const char *s) {
+        VerifyMode v;
+        int r;
+
+        v = verify_mode_from_string(s);
+        if (v < 0) {
+        /* Could be a boolean option instead */
+                r = parse_boolean(s);
+                if (r < 0)
+                        return _VERIFY_MODE_INVALID;
+
+                v = r ? VERIFY_MODE_GPG : VERIFY_MODE_NO;
+        }
+
+        return v;
+}
+
 /* Stores any long-running server state which needs to persist between varlink calls, such as state for
  * pending polkit requests */
 typedef struct Server {
@@ -3069,16 +3086,9 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
 
                 OPTION_LONG("verify", "MODE",
                             "Force signature verification mode, one of: 'gpg', ' pkcs7', or 'no'"): {
-                        VerifyMode v;
-                        v = verify_mode_from_string(opts.arg);
-                        if (v < 0) {
-                                /* Could be a boolean option instead */
-                                r = parse_boolean(opts.arg);
-                                if (r < 0)
-                                        return log_error_errno(r, "Invalid verification setting: %s", opts.arg);
-
-                                v = r ? VERIFY_MODE_GPG : VERIFY_MODE_NO;
-                        }
+                        VerifyMode v = parse_verify_mode(opts.arg);
+                        if (v == _VERIFY_MODE_INVALID)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid verification setting: %s", opts.arg);
 
                         arg_verify = v;
                         break;

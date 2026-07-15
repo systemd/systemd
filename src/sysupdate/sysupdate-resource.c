@@ -38,7 +38,6 @@
 #include "sysupdate-partition.h"
 #include "sysupdate-pattern.h"
 #include "sysupdate-resource.h"
-#include "sysupdate-transfer.h"
 #include "time-util.h"
 #include "utf8.h"
 

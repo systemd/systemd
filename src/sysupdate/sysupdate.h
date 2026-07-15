@@ -62,3 +62,5 @@ typedef struct Context {
 } Context;
 
 void context_done(Context *c);
+
+VerifyMode parse_verify_mode(const char *s);

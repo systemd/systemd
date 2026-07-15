@@ -7,7 +7,6 @@
 #include "sysupdate-partition.h"
 #include "sysupdate-resource.h"
 
-
 typedef struct Transfer {
         char *id;
 

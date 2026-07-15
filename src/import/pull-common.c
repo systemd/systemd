@@ -414,18 +414,17 @@ static int verify_pkcs7(
                 const struct iovec *payload,
                 const struct iovec *signature) {
 #if HAVE_OPENSSL
-        int r;
         _cleanup_(sk_X509_free_allp) STACK_OF(X509) *sk = NULL;
         _cleanup_strv_free_ char **certs = NULL;
         _cleanup_(PKCS7_freep) PKCS7 *p7 = NULL;
         _cleanup_(BIO_freep) BIO *bio = NULL;
+        int r;
 
         assert(iovec_is_valid(payload));
         assert(iovec_is_valid(signature));
 
-        if (!iovec_is_set(payload) || !iovec_is_set(signature)) {
-                log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Empty signature or payload!");
-        }
+        if (!iovec_is_set(payload) || !iovec_is_set(signature))
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Empty signature or payload!");
 
         r = dlopen_libcrypto(LOG_DEBUG);
         if (r < 0)
@@ -484,7 +483,7 @@ static int verify_pkcs7(
                 TAKE_PTR(c);
         }
 
-        r = sym_PKCS7_verify(p7, sk, /* store= */ NULL, bio, /* out= */ NULL, PKCS7_NOINTERN|PKCS7_NOVERIFY);
+        r = sym_PKCS7_verify(p7, sk, /* store= */ NULL, bio, /* out= */ NULL, PKCS7_NOINTERN|PKCS7_NOVERIFY|PKCS7_BINARY);
         if (r) {
                 log_debug("PKCS#7 validation succeeded.");
                 return 0;

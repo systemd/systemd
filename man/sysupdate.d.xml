@@ -497,14 +497,14 @@
       <varlistentry>
         <term><varname>Verify=</varname></term>
 
-        <listitem><para>Takes one of: 'gpg', 'pkcs7', or 'no', defaults to 'gpg'. Controls whether to cryptographically verify
+        <listitem><para>Takes one of: 'gpg', 'pkcs7', or 'no', defaults to 'gpg'. Controls the method used to cryptographically verify
         downloaded resources. The default, 'gpg' validates the GPG signatures for downloaded
         <filename>SHA256SUMS</filename> manifest files, via their detached signature files
         <filename>SHA256SUMS.gpg</filename> in combination with the system keyring
         <filename>/usr/lib/systemd/import-pubring.pgp</filename> or
         <filename>/etc/systemd/import-pubring.pgp</filename>. Similarly 'pkcs7' validates <filename>SHA256SUMS</filename> with
         <filename>SHA256SUMS.p7s</filename> and the certificates located in
-        <filename>/usr/lib/import-certs.d</filename>
+        <filename>/usr/lib/import-certs.d</filename> and
         <filename>/etc/import-certs.d</filename>. Using 'no' disables signature verification.
         </para>
 
