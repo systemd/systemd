@@ -87,3 +87,15 @@ systemd-tmpfiles --create --root="$root" - <<EOF
 L?    /dir/link    - - - - target
 EOF
 test ! -e "$root/dir/link"
+
+# Conflicting symlink targets for the same path should not be ignored.
+root='/tmp/L/5'
+rm -rf "$root"
+mkdir -p "$root"
+
+(! systemd-tmpfiles --create - <<EOF
+L     $root/link    - - - - /one
+L     $root/link    - - - - /two
+EOF
+)
+test ! -e "$root/link"
