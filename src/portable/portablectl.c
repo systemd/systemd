@@ -1214,6 +1214,28 @@ static int maybe_stop_disable_clean(sd_bus *bus, char *image, char *argv[]) {
         return 0;
 }
 
+static int validate_detach_matches(sd_bus *bus, const char *image, char *argv[]) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_strv_free_ char **matches = NULL;
+        int r;
+
+        assert(bus);
+        assert(image);
+
+        if (strv_isempty(argv + 2))
+                return 0;
+
+        r = determine_matches(argv[1], argv + 2, /* accept_glob= */ true, &matches);
+        if (r < 0)
+                return r;
+
+        r = get_image_metadata(bus, image, matches, &reply);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 static int attach_reattach_image(int argc, char *argv[], const char *method) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -1316,6 +1338,10 @@ static int verb_detach_image(int argc, char *argv[], uintptr_t _data, void *user
                 return r;
 
         (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+
+        r = validate_detach_matches(bus, image, argv);
+        if (r < 0)
+                return r;
 
         (void) maybe_stop_disable_clean(bus, image, argv);
 
