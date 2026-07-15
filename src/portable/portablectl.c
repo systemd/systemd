@@ -351,7 +351,7 @@ static int inspect_image(int argc, char *argv[], void *userdata) {
                        strna(pretty_os));
         }
 
-        if (!strv_isempty(arg_extension_images)) {
+        if (!strv_isempty(arg_extension_images) || arg_force) {
                 /* If we specified any extensions, we'll first get back exactly the paths (and
                  * extension-release content) for each one of the arguments. */
 
