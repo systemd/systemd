@@ -2249,8 +2249,8 @@ static int copy_files(Context *c, Item *i) {
         if (fstat(fd, &st) < 0)
                 return log_error_errno(errno, "Failed to fstat(%s): %m", i->path);
 
-        if (stat(i->argument, &a) < 0)
-                return log_error_errno(errno, "Failed to stat(%s): %m", i->argument);
+        if (lstat(i->argument, &a) < 0)
+                return log_error_errno(errno, "Failed to lstat(%s): %m", i->argument);
 
         if (((st.st_mode ^ a.st_mode) & S_IFMT) != 0) {
                 log_debug("Can't copy to %s, file exists already and is of different type", i->path);
