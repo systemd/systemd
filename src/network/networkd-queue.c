@@ -14,6 +14,17 @@
 
 #define REPLY_CALLBACK_COUNT_THRESHOLD 128
 
+static void request_counter_decrement(Request *req) {
+        assert(req);
+
+        if (!req->counter)
+                return;
+
+        assert(*req->counter > 0);
+        (*req->counter)--;
+        req->counter = NULL;
+}
+
 static Request* request_detach_impl(Request *req) {
         assert(req);
 
@@ -26,7 +37,13 @@ static Request* request_detach_impl(Request *req) {
 }
 
 void request_detach(Request *req) {
-        request_unref(request_detach_impl(req));
+        Request *detached = request_detach_impl(req);
+        if (!detached)
+                return;
+
+        if (detached->waiting_reply)
+                request_counter_decrement(detached);
+        request_unref(detached);
 }
 
 static Request *request_free(Request *req) {
@@ -40,8 +57,7 @@ static Request *request_free(Request *req) {
         if (req->free_func)
                 req->free_func(req->userdata);
 
-        if (req->counter)
-                (*req->counter)--;
+        request_counter_decrement(req);
 
         link_unref(req->link); /* link may be NULL, but link_unref() can handle it gracefully. */
 
@@ -328,11 +344,10 @@ int manager_process_requests(Manager *manager) {
 static int request_netlink_handler(sd_netlink *nl, sd_netlink_message *m, Request *req) {
         assert(req);
 
-        if (req->counter) {
-                assert(*req->counter > 0);
-                (*req->counter)--;
-                req->counter = NULL; /* To prevent double decrement on free. */
-        }
+        request_counter_decrement(req);
+
+        if (!req->manager)
+                return 0;
 
         if (req->link && IN_SET(req->link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return 0;
