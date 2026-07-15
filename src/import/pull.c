@@ -2,6 +2,7 @@
 
 #include <locale.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "sd-event.h"
 
@@ -387,7 +388,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         break;
 
                 OPTION_LONG("verify", "MODE",
-                            "Verify downloaded image, one of: 'no', 'checksum', 'signature' or literal SHA256 hash"): {
+                            "Verify downloaded image, one of: 'no', 'checksum', 'signature', 'pkcs7' or literal SHA256 hash"): {
                         ImportVerify v;
 
                         v = import_verify_from_string(opts.arg);
