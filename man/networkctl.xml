@@ -543,7 +543,10 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
           </para>
 
           <para>If a new, modified, or removed <filename>.network</filename> file is found, then all
-          interfaces that matched the file are reconfigured.</para>
+          interfaces that matched the file are reconfigured. This reconfiguration step can be skipped by
+          passing <option>--no-reconfigure</option>, in which case only config files are reloaded from disk
+          without reconfiguring any network interfaces. Use <command>networkctl reconfigure</command> afterwards
+          to selectively apply config changes per interface.</para>
 
           <xi:include href="version-info.xml" xpointer="v244"/>
         </listitem>
@@ -726,6 +729,20 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
           will not be reloaded after the operation finishes.</para>
 
         <xi:include href="version-info.xml" xpointer="v254"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--no-reconfigure</option></term>
+
+        <listitem>
+          <para>When used with <command>reload</command>, only reload config files from disk without
+          reconfiguring any network interfaces. This is useful on high-availability setups (e.g. Pacemaker
+          or Corosync) where applying config changes to all interfaces simultaneously would cause brief
+          network outages. Use <command>networkctl reconfigure</command> afterwards to apply changes
+          selectively per interface.</para>
+
+          <xi:include href="version-info.xml" xpointer="v262"/>
         </listitem>
       </varlistentry>
 
