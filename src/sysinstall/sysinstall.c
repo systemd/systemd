@@ -903,6 +903,7 @@ static int prompt_confirm(void) {
         bool yes;
         r = prompt_loop_yes_no(arg_summary ? "Please type 'yes' to confirm the choices above and begin the installation" :
                                              "Please type 'yes' to begin the installation",
+                               /* prefill= */ NULL,
                                /* def= */ false,
                                &yes);
         if (r < 0)
