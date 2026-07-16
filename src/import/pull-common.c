@@ -5,11 +5,16 @@
 #include "sd-id128.h"
 
 #include "alloc-util.h"
+#include "assert-util.h"
+#include "conf-files.h"
+#include "constants.h"
 #include "copy.h"
+#include "crypto-util.h"
 #include "dirent-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "hexdecoct.h"
+#include "import-util.h"
 #include "io-util.h"
 #include "iovec-util.h"
 #include "log.h"
@@ -24,6 +29,7 @@
 #include "siphash24.h"
 #include "string-util.h"
 #include "strv.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 #include "web-util.h"
 
@@ -213,7 +219,7 @@ int pull_make_auxiliary_job(
         job->on_open_disk = on_open_disk;
         job->on_finished = on_finished;
         job->compressed_max = job->uncompressed_max = 1ULL * 1024ULL * 1024ULL;
-        job->calc_checksum = IN_SET(verify, IMPORT_VERIFY_CHECKSUM, IMPORT_VERIFY_SIGNATURE);
+        job->calc_checksum = IN_SET(verify, IMPORT_VERIFY_CHECKSUM, IMPORT_VERIFY_GPG, IMPORT_VERIFY_PKCS7);
 
         *ret = TAKE_PTR(job);
         return 0;
@@ -239,6 +245,9 @@ static SignatureStyle signature_style_from_filename(const char *fn) {
 
         if (streq(fn, "SHA256SUMS.asc"))
                 return SIGNATURE_ASC_PER_DIRECTORY;
+
+        if (streq(fn, "SHA256SUMS.p7s"))
+                return SIGNATURE_PKCS7_PER_DIRECTORY;
 
         if (endswith(fn, ".sha256.gpg"))
                 return SIGNATURE_GPG_PER_FILE;
@@ -290,7 +299,7 @@ int pull_make_verification_jobs(
 
                 /* Queue jobs for the checksum file for the image. */
 
-                if (fn)
+                if (fn && verify != IMPORT_VERIFY_PKCS7)
                         suffixed = strjoina(fn, ".sha256"); /* Start with the suse-style checksum (if there's a base filename) */
                 else
                         suffixed = "SHA256SUMS";
@@ -308,11 +317,13 @@ int pull_make_verification_jobs(
                 checksum_job->on_not_found = pull_job_restart_with_sha256sum; /* if this fails, look for ubuntu-style checksum */
         }
 
-        if (verify == IMPORT_VERIFY_SIGNATURE && signature_style_from_filename(fn) < 0) {
+        if (IN_SET(verify, IMPORT_VERIFY_GPG, IMPORT_VERIFY_PKCS7) && signature_style_from_filename(fn) < 0) {
                 _cleanup_free_ char *signature_url = NULL;
                 const char *suffixed = NULL;
 
-                if (fn)
+                if (verify == IMPORT_VERIFY_PKCS7)
+                        suffixed = "SHA256SUMS.p7s";
+                else if (verify == IMPORT_VERIFY_GPG && fn)
                         suffixed = strjoina(fn, ".sha256.asc"); /* Start with the suse-style checksum (if there's a base filename) */
                 else
                         suffixed = "SHA256SUMS.gpg";
@@ -400,6 +411,111 @@ static int verify_one(PullJob *checksum_job, PullJob *job) {
 
         log_info("SHA256 checksum of %s is valid.", job->url);
         return 1;
+}
+
+static int verify_pkcs7(
+                const struct iovec *payload,
+                const struct iovec *signature) {
+#if HAVE_OPENSSL
+        _cleanup_(sk_X509_free_allp) STACK_OF(X509) *sk = NULL;
+        _cleanup_strv_free_ char **certs = NULL;
+        _cleanup_(PKCS7_freep) PKCS7 *p7 = NULL;
+        _cleanup_(BIO_freep) BIO *bio = NULL;
+        int r;
+
+        assert(iovec_is_valid(payload));
+        assert(iovec_is_valid(signature));
+
+        if (!iovec_is_set(payload) || !iovec_is_set(signature))
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Empty signature or payload!");
+
+        r = dlopen_libcrypto(LOG_DEBUG);
+        if (r < 0)
+                return r;
+
+        r = conf_files_list_nulstr(&certs, ".crt", /* root= */ NULL, CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED, CONF_PATHS_NULSTR("import-certs.d"));
+        if (r < 0)
+                return log_error_errno(r, "Failed to enumerate PKCS#7 certificates: %m");
+        if (strv_isempty(certs)) {
+                return log_error_errno(SYNTHETIC_ERRNO(ENODATA), "No certificates found to verify PKCS#7 for download.");
+        }
+
+        const unsigned char *d = signature->iov_base;
+        p7 = sym_d2i_PKCS7(/* val_out= */ NULL, &d, (long) signature->iov_len);
+        if (!p7)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse PKCS7 DER signature data.");
+
+        bio = sym_BIO_new_mem_buf(payload->iov_base, payload->iov_len);
+        if (!bio)
+                return log_oom_debug();
+
+        sk = sym_sk_X509_new_null();
+        if (!sk)
+                return log_oom_debug();
+
+        STRV_FOREACH(i, certs) {
+                _cleanup_(X509_freep) X509 *c = NULL;
+                _cleanup_fclose_ FILE *f = NULL;
+
+                f = fopen(*i, "re");
+                if (!f) {
+                        log_debug_errno(errno, "Failed to open '%s', ignoring: %m", *i);
+                        continue;
+                }
+
+                c = sym_PEM_read_X509(f, /* x= */ NULL, /* pem_password_cb= */ NULL, /* u= */ NULL);
+                if (!c) {
+                        log_debug("Failed to load X509 certificate '%s', ignoring.", *i);
+                        continue;
+                }
+
+                time_t time_now = (time_t) (now(CLOCK_REALTIME) / USEC_PER_SEC);
+                /*
+                        sym_X509_cmp_current_time is deprecated so we use sym_ASN1_TIME_cmp_time_t instead.
+                        See also: https://docs.openssl.org/master/man3/ASN1_TIME_set/#return-values.
+                        -2: error
+                        -1: before
+                         0: equal
+                         1: after
+                */
+                r = sym_ASN1_TIME_cmp_time_t(sym_X509_get0_notBefore(c), time_now);
+                if (r <= -2) {
+                        log_debug("Unable to compare times for %s, ignoring.", *i);
+                        continue;
+                }
+                if (r > 0) {
+                        log_debug("X509 certificate not yet valid: '%s', ignoring.", *i);
+                        continue;
+                }
+
+                r = sym_ASN1_TIME_cmp_time_t(sym_X509_get0_notAfter(c), time_now);
+                if (r <= -2) {
+                        log_debug("Unable to compare times for %s, ignoring.", *i);
+                        continue;
+                }
+                if (r < 0) {
+                        log_debug("X509 certificate expired: '%s', ignoring.", *i);
+                        continue;
+                }
+
+                if (sym_sk_X509_push(sk, c) == 0)
+                        return log_oom_debug();
+
+                TAKE_PTR(c);
+        }
+
+        r = sym_PKCS7_verify(p7, sk, /* store= */ NULL, bio, /* out= */ NULL, PKCS7_NOINTERN|PKCS7_NOVERIFY|PKCS7_BINARY|PKCS7_DETACHED|PKCS7_NO_DUAL_CONTENT);
+        if (r) {
+                log_debug("PKCS#7 validation succeeded.");
+                return 0;
+        }
+
+        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
+                            "DOWNLOAD INVALID: PKCS#7 Signature verification failed.");
+#else
+        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
+                        "Can't verify PKCS#7 signature for download. OpenSSL support disabled.");
+#endif
 }
 
 static int verify_gpg(
@@ -602,7 +718,7 @@ int pull_verify(ImportVerify verify,
                 verify_job = checksum_job;
         }
 
-        if (verify != IMPORT_VERIFY_SIGNATURE)
+        if (verify != IMPORT_VERIFY_GPG && verify != IMPORT_VERIFY_PKCS7)
                 return 0;
 
         assert(verify_job);
@@ -612,6 +728,9 @@ int pull_verify(ImportVerify verify,
         if (!iovec_is_set(&signature_job->payload))
                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
                                        "Signature is empty, cannot verify.");
+
+        if (verify == IMPORT_VERIFY_PKCS7)
+                return verify_pkcs7(&verify_job->payload, &signature_job->payload);
 
         return verify_gpg(&verify_job->payload, &signature_job->payload);
 }
@@ -713,15 +832,32 @@ int pull_job_restart_with_signature(PullJob *j, char **ret) {
 
         switch (style) {
 
+        case SIGNATURE_PKCS7_PER_DIRECTORY:
+                *ret = NULL;
+                return 0;
+
         case SIGNATURE_ASC_PER_DIRECTORY: /* Nothing to do anymore */
                 *ret = NULL;
                 return 0;
 
-        case SIGNATURE_ASC_PER_FILE: { /* Try .sha256.gpg next */
-                char *ext;
+        case SIGNATURE_GPG_PER_DIRECTORY: /* Try SHA256SUMS.asc next */
+                log_debug("Got 404 for '%s', now trying to get SHA256SUMS.asc instead.", j->url);
+                r = import_url_change_last_component(j->url, "SHA256SUMS.asc", ret);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to replace SHA256SUMS.gpg suffix: %m");
+                break;
 
+        case SIGNATURE_GPG_PER_FILE:  /* Try SHA256SUMS.gpg next */
+                log_debug("Got 404 for '%s', now trying to get SHA256SUMS.gpg instead.", j->url);
+                r = import_url_change_last_component(j->url, "SHA256SUMS.gpg", ret);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to replace SHA256SUMS suffix: %m");
+                break;
+
+        case SIGNATURE_ASC_PER_FILE: { /* Try .sha256.gpg next */
                 log_debug("Got 404 for '%s', now trying to get .sha256.gpg instead.", j->url);
 
+                char *ext;
                 ext = endswith(last, ".asc");
                 assert(ext);
                 strcpy(ext, ".gpg");
@@ -731,20 +867,6 @@ int pull_job_restart_with_signature(PullJob *j, char **ret) {
                         return log_error_errno(r, "Failed to replace .sha256.asc suffix: %m");
                 break;
         }
-
-        case SIGNATURE_GPG_PER_FILE: /* Try SHA256SUMS.gpg next */
-                log_debug("Got 404 for '%s', now trying to get SHA256SUMS.gpg instead.", j->url);
-                r = import_url_change_last_component(j->url, "SHA256SUMS.gpg", ret);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to replace SHA256SUMS suffix: %m");
-                break;
-
-        case SIGNATURE_GPG_PER_DIRECTORY:
-                log_debug("Got 404 for '%s', now trying to get SHA256SUMS.asc instead.", j->url);
-                r = import_url_change_last_component(j->url, "SHA256SUMS.asc", ret);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to replace SHA256SUMS.gpg suffix: %m");
-                break;
 
         default:
                 assert_not_reached();

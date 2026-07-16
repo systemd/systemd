@@ -14,7 +14,8 @@ typedef enum ImportType {
 typedef enum ImportVerify {
         IMPORT_VERIFY_NO,
         IMPORT_VERIFY_CHECKSUM,
-        IMPORT_VERIFY_SIGNATURE,
+        IMPORT_VERIFY_GPG,
+        IMPORT_VERIFY_PKCS7,
         _IMPORT_VERIFY_MAX,
         _IMPORT_VERIFY_INVALID = -EINVAL,
 } ImportVerify;
@@ -34,6 +35,8 @@ static inline int import_url_append_component(const char *url, const char *suffi
 DECLARE_STRING_TABLE_LOOKUP(import_type, ImportType);
 
 DECLARE_STRING_TABLE_LOOKUP(import_verify, ImportVerify);
+ImportVerify parse_import_verify_bool_compat(const char *s);
+ImportVerify parse_import_verify_compat(const char *s);
 
 int tar_strip_suffixes(const char *name, char **ret);
 int raw_strip_suffixes(const char *name, char **ret);

@@ -2,6 +2,7 @@
 
 #include "alloc-util.h"
 #include "hashmap.h"
+#include "import-util.h"
 #include "memory-util.h"
 #include "sysupdate-cache.h"
 
@@ -23,7 +24,7 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(web_cache_hash_ops, char, string_h
 int web_cache_add_item(
                 Hashmap **web_cache,
                 const char *url,
-                bool verified,
+                ImportVerify verified,
                 const void *data,
                 size_t size) {
 
@@ -76,7 +77,7 @@ int web_cache_add_item(
         return 1;
 }
 
-WebCacheItem* web_cache_get_item(Hashmap *web_cache, const char *url, bool verified) {
+WebCacheItem* web_cache_get_item(Hashmap *web_cache, const char *url, ImportVerify verified) {
         WebCacheItem *i;
 
         i = hashmap_get(web_cache, url);
