@@ -841,7 +841,6 @@ int pull_job_restart_with_signature(PullJob *j, char **ret) {
         case SIGNATURE_ASC_PER_DIRECTORY: /* Nothing to do anymore */
                 *ret = NULL;
                 return 0;
-                break;
 
         case SIGNATURE_GPG_PER_DIRECTORY: /* Try SHA256SUMS.asc next */
                 log_debug("Got 404 for '%s', now trying to get SHA256SUMS.asc instead.", j->url);

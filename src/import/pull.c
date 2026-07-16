@@ -388,7 +388,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
                 OPTION_LONG("verify", "MODE",
                             "Verify downloaded image, one of: 'no', 'checksum', 'gpg', 'pkcs7' or literal SHA256 hash"): {
-                        /* For compatability, we have 'signature' map to GPG signatures */
+                        /* For compatibility, we have 'signature' map to GPG signatures */
                         if (streq("signature", opts.arg)) {
                                 arg_verify = IMPORT_VERIFY_GPG;
                                 break;
@@ -401,7 +401,6 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
                                 /* If this is not a valid verification mode, maybe it's a literally specified
                                  * SHA256 hash? We can handle that too... */
-
 
                                 r = unhexmem(opts.arg, &h, &n);
                                 if (r < 0 || n == 0)

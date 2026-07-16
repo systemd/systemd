@@ -1181,7 +1181,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         if (streq(opts.arg, "help"))
                                 return DUMP_STRING_TABLE(import_verify, ImportVerify, _IMPORT_VERIFY_MAX);
 
-                        /* For compatability, we have 'signature' map to GPG signatures */
+                        /* For compatibility, we have 'signature' map to GPG signatures */
                         if (streq("signature", opts.arg)) {
                                 arg_verify = IMPORT_VERIFY_GPG;
                                 break;

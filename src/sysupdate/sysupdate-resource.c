@@ -986,11 +986,3 @@ static const char *path_relative_to_table[_PATH_RELATIVE_TO_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(path_relative_to, PathRelativeTo);
-
-// static const char* const verify_mode_table[_VERIFY_MODE_MAX] = {
-//         [VERIFY_MODE_NO]    = "no",
-//         [VERIFY_MODE_GPG]   = "gpg",
-//         [VERIFY_MODE_PKCS7] = "pkcs7",
-// };
-
-// DEFINE_STRING_TABLE_LOOKUP(verify_mode, VerifyMode);
