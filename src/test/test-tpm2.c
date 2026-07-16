@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-json.h"
+
 #include "crypto-util.h"
 #include "hexdecoct.h"
 #include "iovec-util.h"
@@ -1680,6 +1682,650 @@ static void check_get_or_create_ek(Tpm2Context *c) {
         ASSERT_EQ(memcmp_nn(qname->name, qname->size, qname2->name, qname2->size), 0);
 }
 
+static void check_max_data_size(Tpm2Context *c) {
+        int r;
+
+        assert(c);
+
+        TEST_LOG_FUNC();
+
+        r = tpm2_max_data_size(c);
+        ASSERT_OK_POSITIVE(r);
+        ASSERT_TRUE(IN_SET(r, 22, 34, 50, 66));
+}
+
+TEST(tpm2_digest_to_data) {
+        DEFINE_HEX_PTR(h, "b48a7bdf4214ed87d617690ff108e0089939a6d6754b2b6be324e2bfb2bbc54a");
+        DEFINE_HEX_PTR(expected, "000bb48a7bdf4214ed87d617690ff108e0089939a6d6754b2b6be324e2bfb2bbc54a");
+
+        TPM2B_DATA d;
+        ASSERT_OK(tpm2_digest_buf_to_data(TPM2_ALG_SHA256, h, h_len, &d));
+        ASSERT_EQ(memcmp_nn(d.buffer, d.size, expected, expected_len), 0);
+
+        memset(&d, 0, sizeof(d));
+        ASSERT_OK(tpm2_digest_iovec_to_data(TPM2_ALG_SHA256, &IOVEC_MAKE(h, h_len), &d));
+        ASSERT_EQ(memcmp_nn(d.buffer, d.size, expected, expected_len), 0);
+}
+
+static void check_context_saving(Tpm2Context *c) {
+        assert(c);
+
+        TEST_LOG_FUNC();
+
+        TPM2B_PUBLIC template = { .size = sizeof(TPMT_PUBLIC), };
+        ASSERT_OK(tpm2_get_srk_template(TPM2_ALG_ECC, &template.publicArea));
+
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *handle = NULL;
+        ASSERT_OK(tpm2_create_primary(c, NULL, ESYS_TR_RH_OWNER, &template, NULL, NULL, &handle));
+
+        _cleanup_(Esys_Freep) TPMS_CONTEXT *context = NULL;
+        ASSERT_OK(tpm2_save_handle_context(c, handle, &context));
+
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *handle2 = NULL;
+        ASSERT_OK(tpm2_load_saved_handle_context(c, context, NULL, &handle2));
+
+        _cleanup_(Esys_Freep) TPM2B_NAME *name1 = NULL, *name2 = NULL;
+        ASSERT_OK(tpm2_get_name(c, handle, &name1));
+        ASSERT_OK(tpm2_get_name(c, handle2, &name2));
+
+        ASSERT_EQ(memcmp_nn(name1->name, name1->size, name2->name, name2->size), 0);
+}
+
+static void check_saved_context_marshaling(Tpm2Context *c) {
+        assert(c);
+
+        TEST_LOG_FUNC();
+
+        TPM2B_PUBLIC template = { .size = sizeof(TPMT_PUBLIC), };
+        ASSERT_OK(tpm2_get_srk_template(TPM2_ALG_ECC, &template.publicArea));
+
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *handle = NULL;
+        ASSERT_OK(tpm2_create_primary(c, NULL, ESYS_TR_RH_OWNER, &template, NULL, NULL, &handle));
+
+        _cleanup_(Esys_Freep) TPMS_CONTEXT *context = NULL;
+        ASSERT_OK(tpm2_save_handle_context(c, handle, &context));
+
+        _cleanup_free_ void *buf = NULL;
+        size_t sz;
+        ASSERT_OK(tpm2_marshal_saved_handle_context(context, &buf, &sz));
+
+        TPMS_CONTEXT context2;
+        ASSERT_OK(tpm2_unmarshal_saved_handle_context(buf, sz, &context2));
+
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *handle2 = NULL;
+        ASSERT_OK(tpm2_load_saved_handle_context(c, &context2, NULL, &handle2));
+
+        _cleanup_(Esys_Freep) TPM2B_NAME *name1 = NULL, *name2 = NULL;
+        ASSERT_OK(tpm2_get_name(c, handle, &name1));
+        ASSERT_OK(tpm2_get_name(c, handle2, &name2));
+
+        ASSERT_EQ(memcmp_nn(name1->name, name1->size, name2->name, name2->size), 0);
+}
+
+static void check_policy_secret(Tpm2Context *c) {
+        assert(c);
+
+        TEST_LOG_FUNC();
+
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *session = NULL;
+        ASSERT_OK(tpm2_make_policy_session(c, NULL, NULL, &session));
+
+        _cleanup_(Esys_Freep) TPM2B_DIGEST *digest = NULL;
+        ASSERT_OK(tpm2_policy_secret(c, NULL, session, &TPM2_HANDLE_RH_ENDORSEMENT, NULL, &digest));
+        ASSERT_TRUE(digest_check(digest, "837197674484b3f81a90cc8d46a5d724fd52d76e06520b64f2a1da1b331469aa"));
+
+        session = tpm2_handle_free(session);
+        ASSERT_OK(tpm2_make_policy_session(c, NULL, NULL, &session));
+
+        const char *s = "foo";
+
+        _cleanup_(Esys_Freep) TPM2B_DIGEST *digest2 = NULL;
+        TPM2B_NONCE ref = TPM2B_NONCE_MAKE(s, strlen(s));
+        ASSERT_OK(tpm2_policy_secret(c, NULL, session, &TPM2_HANDLE_RH_OWNER, &ref, &digest2));
+        ASSERT_TRUE(digest_check(digest2, "62fd94980db2a746545cab626e9df21a1d0f00472f637d4bf567026e40a6ebed"));
+}
+
+static void check_best_attestation_key_template(Tpm2Context *c) {
+        assert(c);
+
+        TEST_LOG_FUNC();
+
+        TPMT_PUBLIC template;
+        ASSERT_OK(tpm2_get_best_attestation_key_template(c, &template));
+
+        ASSERT_TRUE(IN_SET(template.type, TPM2_ALG_RSA, TPM2_ALG_ECC));
+        ASSERT_TRUE(IN_SET(template.nameAlg, TPM2_ALG_SHA256, TPM2_ALG_SHA384));
+        ASSERT_EQ(template.objectAttributes, TPMA_OBJECT_FIXEDTPM | TPMA_OBJECT_FIXEDPARENT | TPMA_OBJECT_SENSITIVEDATAORIGIN | TPMA_OBJECT_USERWITHAUTH | TPMA_OBJECT_ADMINWITHPOLICY | TPMA_OBJECT_RESTRICTED | TPMA_OBJECT_SIGN_ENCRYPT);
+        ASSERT_EQ(template.parameters.asymDetail.symmetric.algorithm, TPM2_ALG_NULL);
+        ASSERT_NE(template.parameters.asymDetail.scheme.scheme, TPM2_ALG_NULL);
+        ASSERT_TRUE(IN_SET(template.parameters.asymDetail.scheme.details.anySig.hashAlg, TPM2_ALG_SHA256, TPM2_ALG_SHA384));
+
+        if (template.type == TPM2_ALG_RSA) {
+                ASSERT_TRUE(IN_SET(template.parameters.rsaDetail.scheme.scheme, TPM2_ALG_RSASSA, TPM2_ALG_RSAPSS));
+                ASSERT_TRUE(IN_SET(template.parameters.rsaDetail.keyBits, 2048, 3072));
+        } else {
+                ASSERT_EQ(template.parameters.eccDetail.scheme.scheme, TPM2_ALG_ECDSA);
+                ASSERT_TRUE(IN_SET(template.parameters.eccDetail.curveID, TPM2_ECC_NIST_P256, TPM2_ECC_NIST_P384));
+        }
+}
+
+TEST(tpm2_tpmt_signature_to_pem) {
+        DEFINE_HEX_PTR(rsa,
+                       "dc3d4338b3a20f081f2204c54c0ddfd633fba8e49c2029d6612d1412e3204344fc64ee4b9ce9f4d37d0efe2637291643bbedea8e3af30f9396db7c33d02f7cf6"
+                       "ab8d2a668b6610092507370b9eebf4f044e248b89af6474085250d47de3cb40825f49d85a829df7915e6956bb48ad92a5765423698a13ee847c0edc1a25675bf"
+                       "e058c04992bc662c8734fc8a4dfc8276593cf3538e123a06e41b74ee012f7f7bca5d672cf3183d08e17eae0f9798455682902122bbbee3d76c89a851485c3461"
+                       "1158ec1a3abfc088753896d6739758ac99548df1b53ed0552789c5a007d75917aa680f2610117479544d13ae9234f14349d37a833999a43c9db4b16c26d0fb31");
+
+        TPMT_SIGNATURE rsa_sig = {
+                .sigAlg = TPM2_ALG_RSAPSS,
+                .signature.rsapss = {
+                        .hash = TPM2_ALG_SHA256,
+                        .sig = TPM2B_PUBLIC_KEY_RSA_MAKE(rsa, rsa_len),
+                },
+        };
+
+        _cleanup_free_ char *rsa_pem = NULL;
+        ASSERT_OK(tpm2_tpmt_signature_to_pem(&rsa_sig, &rsa_pem));
+        ASSERT_STREQ(rsa_pem,
+                     "-----BEGIN RSA SIGNATURE-----\n"
+                     "3D1DOLOiDwgfIgTFTA3f1jP7qOScICnWYS0UEuMgQ0T8ZO5LnOn0030O/iY3KRZD\n"
+                     "u+3qjjrzD5OW23wz0C989quNKmaLZhAJJQc3C57r9PBE4ki4mvZHQIUlDUfePLQI\n"
+                     "JfSdhagp33kV5pVrtIrZKldlQjaYoT7oR8DtwaJWdb/gWMBJkrxmLIc0/IpN/IJ2\n"
+                     "WTzzU44SOgbkG3TuAS9/e8pdZyzzGD0I4X6uD5eYRVaCkCEiu77j12yJqFFIXDRh\n"
+                     "EVjsGjq/wIh1OJbWc5dYrJlUjfG1PtBVJ4nFoAfXWReqaA8mEBF0eVRNE66SNPFD\n"
+                     "SdN6gzmZpDydtLFsJtD7MQ==\n"
+                     "-----END RSA SIGNATURE-----\n");
+
+        DEFINE_HEX_PTR(ecc_r, "d9eb686422a6fb9a64a5cf9806495d7e787f11b77f5f5928680c02558a2467ec526f04a9745dc4f196248dd2198a17d4");
+        DEFINE_HEX_PTR(ecc_s, "8e9f92622c4cd4c00ae4c551feecbc4e0cc5b321e023acf6f8b67f9075ecac5c9cea3cd1b6d76055a46c20ecd080d2cf");
+
+        TPMT_SIGNATURE ecc_sig = {
+                .sigAlg = TPM2_ALG_ECDSA,
+                .signature.ecdsa = {
+                        .hash = TPM2_ALG_SHA384,
+                        .signatureR = TPM2B_ECC_PARAMETER_MAKE(ecc_r, ecc_r_len),
+                        .signatureS = TPM2B_ECC_PARAMETER_MAKE(ecc_s, ecc_s_len),
+                },
+        };
+
+        _cleanup_free_ char *ecc_pem = NULL;
+        ASSERT_OK(tpm2_tpmt_signature_to_pem(&ecc_sig, &ecc_pem));
+        ASSERT_STREQ(ecc_pem,
+                     "-----BEGIN ECDSA SIGNATURE-----\n"
+                     "MGYCMQDZ62hkIqb7mmSlz5gGSV1+eH8Rt39fWShoDAJViiRn7FJvBKl0XcTxliSN\n"
+                     "0hmKF9QCMQCOn5JiLEzUwArkxVH+7LxODMWzIeAjrPb4tn+QdeysXJzqPNG212BV\n"
+                     "pGwg7NCA0s8=\n"
+                     "-----END ECDSA SIGNATURE-----\n");
+}
+
+TEST(tpm2_tpmt_public_to_pem) {
+        DEFINE_HEX_PTR(rsa,
+                       "615fc18fec08de00721ae55823d2e2c631fe3d7cb2bd7117a40d9be3cd7623c386db5c60ebcdccca39443c1203297f91b59945544efc7977e16e202e5938a37b"
+                       "ae31ee0b7e5249fe7f76f36c94428b3e0f0d53b730270dbb44b3c007a0b45733018f1d8feba462a5e67c7b87a5b913e4a606e105f97828732491686be253d0d7"
+                       "f20ad3450ae7b86fe36a7163013487c2659fe56420623241edbd1ecc9c6d2443143a4db68f6c449008e8b4fec5ad5b56598ffd22f67d317e46e4c48e693c38ee"
+                       "389886b1084e51cfe56408e7e8eee1ab65615d36aff585e25fb198df519b961054b6cfae85717ba387c597146f4d36e548101409a1ceddf321571d3364c968ef");
+
+        TPMT_PUBLIC rsa_public = {
+                .type = TPM2_ALG_RSA,
+                .nameAlg = TPM2_ALG_SHA256,
+                .objectAttributes =
+                        TPMA_OBJECT_FIXEDTPM |
+                        TPMA_OBJECT_FIXEDPARENT |
+                        TPMA_OBJECT_SENSITIVEDATAORIGIN |
+                        TPMA_OBJECT_USERWITHAUTH |
+                        TPMA_OBJECT_ADMINWITHPOLICY |
+                        TPMA_OBJECT_RESTRICTED |
+                        TPMA_OBJECT_SIGN_ENCRYPT,
+                .parameters.rsaDetail = {
+                        .symmetric.algorithm = TPM2_ALG_NULL,
+                        .scheme = {
+                                .scheme = TPM2_ALG_RSAPSS,
+                                .details.rsapss.hashAlg = TPM2_ALG_SHA256,
+                        },
+                        .keyBits = 2048,
+                        .exponent = 0,
+                },
+                .unique.rsa = TPM2B_PUBLIC_KEY_RSA_MAKE(rsa, rsa_len),
+        };
+
+        _cleanup_free_ char *rsa_pem = NULL;
+        ASSERT_OK(tpm2_tpmt_public_to_pem(&rsa_public, &rsa_pem));
+        ASSERT_STREQ(rsa_pem,
+                     "-----BEGIN PUBLIC KEY-----\n"
+                     "MIIBITANBgkqhkiG9w0BAQEFAAOCAQ4AMIIBCQKCAQBhX8GP7AjeAHIa5Vgj0uLG\n"
+                     "Mf49fLK9cRekDZvjzXYjw4bbXGDrzczKOUQ8EgMpf5G1mUVUTvx5d+FuIC5ZOKN7\n"
+                     "rjHuC35SSf5/dvNslEKLPg8NU7cwJw27RLPAB6C0VzMBjx2P66RipeZ8e4eluRPk\n"
+                     "pgbhBfl4KHMkkWhr4lPQ1/IK00UK57hv42pxYwE0h8Jln+VkIGIyQe29HsycbSRD\n"
+                     "FDpNto9sRJAI6LT+xa1bVlmP/SL2fTF+RuTEjmk8OO44mIaxCE5Rz+VkCOfo7uGr\n"
+                     "ZWFdNq/1heJfsZjfUZuWEFS2z66FcXujh8WXFG9NNuVIEBQJoc7d8yFXHTNkyWjv\n"
+                     "AgMBAAE=\n"
+                     "-----END PUBLIC KEY-----\n");
+
+        DEFINE_HEX_PTR(ecc_x, "6381d4a6aebcc46d5968efa80665820ed8b2ea8069e62ddfa28130f7a823620bf44e0779e2b9fe18c9f8b783800e7c2c");
+        DEFINE_HEX_PTR(ecc_y, "473fcbe01831c3be463dcc0093a34eb8196e095671bc10e38e0c8fb3ae459c50a408dfe45142fada5fc29bee6580c51e");
+
+        TPMT_PUBLIC ecc_public = {
+                .type = TPM2_ALG_ECC,
+                .nameAlg = TPM2_ALG_SHA384,
+                .objectAttributes =
+                        TPMA_OBJECT_FIXEDTPM |
+                        TPMA_OBJECT_FIXEDPARENT |
+                        TPMA_OBJECT_SENSITIVEDATAORIGIN |
+                        TPMA_OBJECT_USERWITHAUTH |
+                        TPMA_OBJECT_ADMINWITHPOLICY |
+                        TPMA_OBJECT_RESTRICTED |
+                        TPMA_OBJECT_SIGN_ENCRYPT,
+                .parameters.eccDetail = {
+                        .symmetric.algorithm = TPM2_ALG_NULL,
+                        .scheme = {
+                                .scheme = TPM2_ALG_ECDSA,
+                                .details.ecdsa.hashAlg = TPM2_ALG_SHA384,
+                        },
+                        .curveID = TPM2_ECC_NIST_P384,
+                        .kdf.scheme = TPM2_ALG_NULL,
+                },
+                .unique.ecc = {
+                        .x = TPM2B_ECC_PARAMETER_MAKE(ecc_x, ecc_x_len),
+                        .y = TPM2B_ECC_PARAMETER_MAKE(ecc_y, ecc_y_len),
+                },
+        };
+
+        _cleanup_free_ char *ecc_pem = NULL;
+        ASSERT_OK(tpm2_tpmt_public_to_pem(&ecc_public, &ecc_pem));
+        ASSERT_STREQ(ecc_pem,
+                     "-----BEGIN PUBLIC KEY-----\n"
+                     "MHYwEAYHKoZIzj0CAQYFK4EEACIDYgAEY4HUpq68xG1ZaO+oBmWCDtiy6oBp5i3f\n"
+                     "ooEw96gjYgv0Tgd54rn+GMn4t4OADnwsRz/L4Bgxw75GPcwAk6NOuBluCVZxvBDj\n"
+                     "jgyPs65FnFCkCN/kUUL62l/Cm+5lgMUe\n"
+                     "-----END PUBLIC KEY-----\n");
+}
+
+TEST(tpm2_tpmt_signature_to_json) {
+        TPMT_SIGNATURE rsa_sig = {
+                .sigAlg = TPM2_ALG_RSAPSS,
+                .signature.rsapss = {
+                        .hash = TPM2_ALG_SHA256,
+                        .sig = {
+                                .size = 256,
+                        },
+                },
+        };
+        assert(sizeof(rsa_sig.signature.rsapss.sig.buffer) >= 256);
+        random_bytes(rsa_sig.signature.rsapss.sig.buffer, 256);
+
+        _cleanup_free_ char *h_rsa = hexmem(rsa_sig.signature.rsapss.sig.buffer, 256);
+        ASSERT_NOT_NULL(h_rsa);
+
+        _cleanup_free_ char *rsa_expected = NULL;
+        ASSERT_OK(asprintf(&rsa_expected, "{\"sigAlg\":\"RSAPSS\",\"signature\":{\"hash\":\"SHA256\",\"sig\":\"%s\"}}", h_rsa));
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *rsav = NULL;
+        ASSERT_OK(tpm2_tpmt_signature_to_json(&rsa_sig, &rsav));
+
+        _cleanup_free_ char *rsa_json = NULL;
+        ASSERT_OK(sd_json_variant_format(rsav, 0, &rsa_json));
+        ASSERT_STREQ(rsa_json, rsa_expected);
+
+        DEFINE_HEX_PTR(ecc_r, "d9eb686422a6fb9a64a5cf9806495d7e787f11b77f5f5928680c02558a2467ec526f04a9745dc4f196248dd2198a17d4");
+        DEFINE_HEX_PTR(ecc_s, "8e9f92622c4cd4c00ae4c551feecbc4e0cc5b321e023acf6f8b67f9075ecac5c9cea3cd1b6d76055a46c20ecd080d2cf");
+
+        TPMT_SIGNATURE ecc_sig = {
+                .sigAlg = TPM2_ALG_ECDSA,
+                .signature.ecdsa = {
+                        .hash = TPM2_ALG_SHA384,
+                        .signatureR = TPM2B_ECC_PARAMETER_MAKE(ecc_r, ecc_r_len),
+                        .signatureS = TPM2B_ECC_PARAMETER_MAKE(ecc_s, ecc_s_len),
+                },
+        };
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *eccv = NULL;
+        ASSERT_OK(tpm2_tpmt_signature_to_json(&ecc_sig, &eccv));
+
+        _cleanup_free_ char *ecc_json = NULL;
+        ASSERT_OK(sd_json_variant_format(eccv, 0, &ecc_json));
+        ASSERT_STREQ(ecc_json, "{\"sigAlg\":\"ECDSA\",\"signature\":{\"hash\":\"SHA384\",\"signatureR\":\"d9eb686422a6fb9a64a5cf9806495d7e787f11b77f5f5928680c02558a2467ec526f04a9745dc4f196248dd2198a17d4\",\"signatureS\":\"8e9f92622c4cd4c00ae4c551feecbc4e0cc5b321e023acf6f8b67f9075ecac5c9cea3cd1b6d76055a46c20ecd080d2cf\"}}");
+}
+
+TEST(tpm2_attest_info_to_json) {
+        TPMT_SIG_SCHEME scheme1 = {
+                .scheme = TPM2_ALG_RSAPSS,
+                .details.rsapss.hashAlg = TPM2_ALG_SHA256,
+        };
+
+        DEFINE_HEX_PTR(signer1, "000b8f80817492905f8b4014186c828a5e0191d5146c70e644af0605e2cdd2093bfd");
+        TPML_PCR_SELECTION pcrs;
+        tpm2_tpml_pcr_selection_from_mask(64191, TPM2_ALG_SHA256, &pcrs);
+        DEFINE_HEX_PTR(pcr_digest, "4cdecd069d7522065dfa70e6d31292fe87ee99d0053d5582abddb2a6b5c2640c");
+
+        TPMS_ATTEST attest1 = {
+                .magic = TPM2_GENERATED_VALUE,
+                .type = TPM2_ST_ATTEST_QUOTE,
+                .qualifiedSigner = TPM2B_NAME_MAKE(signer1, signer1_len),
+                .clockInfo = {
+                        .clock = 8726451,
+                        .resetCount = 72,
+                        .restartCount = 0,
+                        .safe = TPM2_YES,
+                },
+                .firmwareVersion = 4294967300,
+                .attested.quote = {
+                        .pcrSelect = pcrs,
+                        .pcrDigest = TPM2B_DIGEST_MAKE(pcr_digest, pcr_digest_len),
+                },
+        };
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v1 = NULL;
+        ASSERT_OK(tpm2_attest_info_to_json(&scheme1, &attest1, &v1));
+
+        _cleanup_free_ char *json1 = NULL;
+        ASSERT_OK(sd_json_variant_format(v1, 0, &json1));
+        ASSERT_STREQ(json1, "{\"sig_scheme\":{\"scheme\":\"RSAPSS\",\"details\":{\"hashAlg\":\"SHA256\"}},\"attest\":{\"magic\":\"VALUE\",\"type\":\"ATTEST_QUOTE\",\"qualifiedSigner\":\"000b8f80817492905f8b4014186c828a5e0191d5146c70e644af0605e2cdd2093bfd\",\"extraData\":\"\",\"clockInfo\":{\"clock\":8726451,\"resetCount\":72,\"restartCount\":0,\"safe\":\"YES\"},\"firmwareVersion\":4294967300,\"attested\":{\"pcrSelect\":[{\"hash\":\"SHA256\",\"pcrSelect\":[0,1,2,3,4,5,7,9,11,12,13,14,15]}],\"pcrDigest\":\"4cdecd069d7522065dfa70e6d31292fe87ee99d0053d5582abddb2a6b5c2640c\"}}}");
+
+        TPMT_SIG_SCHEME scheme2 = {
+                .scheme = TPM2_ALG_ECDSA,
+                .details.ecdsa.hashAlg = TPM2_ALG_SHA384,
+        };
+
+        DEFINE_HEX_PTR(signer2, "000cf8d4b1e869e68f96f37b3cbe1106fd5566fa2de9ffbe3ab5a7b9a3193e10e35e7072bd7c3d3c4d081c931511e7aa5166");
+        DEFINE_HEX_PTR(extra_data, "000b7c88777e5165ac16f59fb7f74c6d54a2f77a2266974d6f811f2d4ee575203667");
+        DEFINE_HEX_PTR(nv_name, "000b743f1f9cf4b7e7f0e4e5d234d72310b4661c2b30d51801c8096e104325ccce9d");
+        DEFINE_HEX_PTR(nv_contents, "aefb5cd55ce0546baacb0ed96440eb796a0f10091f5c22b3c3b1d207ed338c7e");
+
+        TPMS_ATTEST attest2 = {
+                .magic = TPM2_GENERATED_VALUE,
+                .type = TPM2_ST_ATTEST_NV,
+                .qualifiedSigner = TPM2B_NAME_MAKE(signer2, signer2_len),
+                .extraData = TPM2B_DATA_MAKE(extra_data, extra_data_len),
+                .clockInfo = {
+                        .clock = 25924398,
+                        .resetCount = 151,
+                        .restartCount = 1,
+                        .safe = TPM2_YES,
+                },
+                .firmwareVersion = 8589934602,
+                .attested.nv = {
+                        .indexName = TPM2B_NAME_MAKE(nv_name, nv_name_len),
+                        .offset = 0,
+                        .nvContents = TPM2B_MAX_NV_BUFFER_MAKE(nv_contents, nv_contents_len),
+                },
+        };
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v2 = NULL;
+        ASSERT_OK(tpm2_attest_info_to_json(&scheme2, &attest2, &v2));
+
+        _cleanup_free_ char *json2 = NULL;
+        ASSERT_OK(sd_json_variant_format(v2, 0, &json2));
+        ASSERT_STREQ(json2, "{\"sig_scheme\":{\"scheme\":\"ECDSA\",\"details\":{\"hashAlg\":\"SHA384\"}},\"attest\":{\"magic\":\"VALUE\",\"type\":\"ATTEST_NV\",\"qualifiedSigner\":\"000cf8d4b1e869e68f96f37b3cbe1106fd5566fa2de9ffbe3ab5a7b9a3193e10e35e7072bd7c3d3c4d081c931511e7aa5166\",\"extraData\":\"000b7c88777e5165ac16f59fb7f74c6d54a2f77a2266974d6f811f2d4ee575203667\",\"clockInfo\":{\"clock\":25924398,\"resetCount\":151,\"restartCount\":1,\"safe\":\"YES\"},\"firmwareVersion\":8589934602,\"attested\":{\"indexName\":\"000b743f1f9cf4b7e7f0e4e5d234d72310b4661c2b30d51801c8096e104325ccce9d\",\"offset\":0,\"nvContents\":\"aefb5cd55ce0546baacb0ed96440eb796a0f10091f5c22b3c3b1d207ed338c7e\"}}}");
+}
+
+TEST(tpm2_tpmt_public_to_json) {
+        const char *rsa_h =
+                        "615fc18fec08de00721ae55823d2e2c631fe3d7cb2bd7117a40d9be3cd7623c386db5c60ebcdccca39443c1203297f91b59945544efc7977e16e202e5938a37b"
+                        "ae31ee0b7e5249fe7f76f36c94428b3e0f0d53b730270dbb44b3c007a0b45733018f1d8feba462a5e67c7b87a5b913e4a606e105f97828732491686be253d0d7"
+                        "f20ad3450ae7b86fe36a7163013487c2659fe56420623241edbd1ecc9c6d2443143a4db68f6c449008e8b4fec5ad5b56598ffd22f67d317e46e4c48e693c38ee"
+                        "389886b1084e51cfe56408e7e8eee1ab65615d36aff585e25fb198df519b961054b6cfae85717ba387c597146f4d36e548101409a1ceddf321571d3364c968ef";
+        DEFINE_HEX_PTR(rsa, rsa_h);
+
+        TPMT_PUBLIC rsa_public = {
+                .type = TPM2_ALG_RSA,
+                .nameAlg = TPM2_ALG_SHA256,
+                .objectAttributes =
+                        TPMA_OBJECT_FIXEDTPM |
+                        TPMA_OBJECT_FIXEDPARENT |
+                        TPMA_OBJECT_SENSITIVEDATAORIGIN |
+                        TPMA_OBJECT_USERWITHAUTH |
+                        TPMA_OBJECT_ADMINWITHPOLICY |
+                        TPMA_OBJECT_RESTRICTED |
+                        TPMA_OBJECT_SIGN_ENCRYPT,
+                .parameters.rsaDetail = {
+                        .symmetric.algorithm = TPM2_ALG_NULL,
+                        .scheme = {
+                                .scheme = TPM2_ALG_RSAPSS,
+                                .details.rsapss.hashAlg = TPM2_ALG_SHA256,
+                        },
+                        .keyBits = 2048,
+                        .exponent = 0,
+                },
+                .unique.rsa = TPM2B_PUBLIC_KEY_RSA_MAKE(rsa, rsa_len),
+        };
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *rsav = NULL;
+        ASSERT_OK(tpm2_tpmt_public_to_json(&rsa_public, &rsav));
+
+        _cleanup_free_ char *rsa_json = NULL;
+        ASSERT_OK(sd_json_variant_format(rsav, 0, &rsa_json));
+
+        _cleanup_free_ char *rsa_expected = NULL;
+        ASSERT_OK(asprintf(&rsa_expected, "{\"type\":\"RSA\",\"nameAlg\":\"SHA256\",\"objectAttributes\":327922,\"authPolicy\":\"\",\"parameters\":{\"symmetric\":{\"algorithm\":\"NULL\"},\"scheme\":{\"scheme\":\"RSAPSS\",\"details\":{\"hashAlg\":\"SHA256\"}},\"keyBits\":2048,\"exponent\":0},\"unique\":\"%s\"}", rsa_h));
+
+        ASSERT_STREQ(rsa_json, rsa_expected);
+
+        DEFINE_HEX_PTR(ecc_x, "6381d4a6aebcc46d5968efa80665820ed8b2ea8069e62ddfa28130f7a823620bf44e0779e2b9fe18c9f8b783800e7c2c");
+        DEFINE_HEX_PTR(ecc_y, "473fcbe01831c3be463dcc0093a34eb8196e095671bc10e38e0c8fb3ae459c50a408dfe45142fada5fc29bee6580c51e");
+
+        TPMT_PUBLIC ecc_public = {
+                .type = TPM2_ALG_ECC,
+                .nameAlg = TPM2_ALG_SHA384,
+                .objectAttributes =
+                        TPMA_OBJECT_FIXEDTPM |
+                        TPMA_OBJECT_FIXEDPARENT |
+                        TPMA_OBJECT_SENSITIVEDATAORIGIN |
+                        TPMA_OBJECT_USERWITHAUTH |
+                        TPMA_OBJECT_ADMINWITHPOLICY |
+                        TPMA_OBJECT_RESTRICTED |
+                        TPMA_OBJECT_SIGN_ENCRYPT,
+                .parameters.eccDetail = {
+                        .symmetric.algorithm = TPM2_ALG_NULL,
+                        .scheme = {
+                                .scheme = TPM2_ALG_ECDSA,
+                                .details.ecdsa.hashAlg = TPM2_ALG_SHA384,
+                        },
+                        .curveID = TPM2_ECC_NIST_P384,
+                        .kdf.scheme = TPM2_ALG_NULL,
+                },
+                .unique.ecc = {
+                        .x = TPM2B_ECC_PARAMETER_MAKE(ecc_x, ecc_x_len),
+                        .y = TPM2B_ECC_PARAMETER_MAKE(ecc_y, ecc_y_len),
+                },
+        };
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *eccv = NULL;
+        ASSERT_OK(tpm2_tpmt_public_to_json(&ecc_public, &eccv));
+
+        _cleanup_free_ char *ecc_json = NULL;
+        ASSERT_OK(sd_json_variant_format(eccv, 0, &ecc_json));
+        ASSERT_STREQ(ecc_json, "{\"type\":\"ECC\",\"nameAlg\":\"SHA384\",\"objectAttributes\":327922,\"authPolicy\":\"\",\"parameters\":{\"symmetric\":{\"algorithm\":\"NULL\"},\"scheme\":{\"scheme\":\"ECDSA\",\"details\":{\"hashAlg\":\"SHA384\"}},\"curveID\":\"NIST_P384\",\"kdf\":{\"scheme\":\"NULL\"}},\"unique\":{\"x\":\"6381d4a6aebcc46d5968efa80665820ed8b2ea8069e62ddfa28130f7a823620bf44e0779e2b9fe18c9f8b783800e7c2c\",\"y\":\"473fcbe01831c3be463dcc0093a34eb8196e095671bc10e38e0c8fb3ae459c50a408dfe45142fada5fc29bee6580c51e\"}}");
+}
+
+TEST(tpm2_tpms_nv_public_to_json) {
+        DEFINE_HEX_PTR(policy, "c0f52d0be7f6c1666d90a181a99a74b99c5e0bfd00bc52cc27ae0e66d89afcf5");
+
+        TPMS_NV_PUBLIC nv_public = {
+                .nvIndex = 0x01d10202,
+                .nameAlg = TPM2_ALG_SHA256,
+                .attributes =
+                        TPMA_NV_CLEAR_STCLEAR |
+                        TPMA_NV_ORDERLY |
+                        TPMA_NV_POLICYWRITE |
+                        TPMA_NV_OWNERREAD |
+                        TPMA_NV_AUTHREAD |
+                        TPMA_NV_WRITTEN |
+                        (TPM2_NT_EXTEND << TPMA_NV_TPM2_NT_SHIFT),
+                .authPolicy = TPM2B_DIGEST_MAKE(policy, policy_len),
+                .dataSize = 32,
+        };
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        ASSERT_OK(tpm2_tpms_nv_public_to_json(&nv_public, &v));
+
+        _cleanup_free_ char *json = NULL;
+        ASSERT_OK(sd_json_variant_format(v, 0, &json));
+        ASSERT_STREQ(json, "{\"nvIndex\":30474754,\"nameAlg\":\"SHA256\",\"attributes\":738590792,\"authPolicy\":\"c0f52d0be7f6c1666d90a181a99a74b99c5e0bfd00bc52cc27ae0e66d89afcf5\",\"dataSize\":32}");
+}
+
+static void check_attest_common(const TPMS_ATTEST *attest, TPMI_ST_ATTEST type, const TPM2B_DATA *extra_data) {
+        ASSERT_EQ(attest->magic, TPM2_GENERATED_VALUE);
+        ASSERT_EQ(attest->type, type);
+        ASSERT_EQ(memcmp_nn(attest->extraData.buffer, attest->extraData.size, extra_data->buffer, extra_data->size), 0);
+}
+
+static void check_attest_signature(const TPM2B_PUBLIC *public, const TPMT_SIGNATURE *sig) {
+        ASSERT_NOT_NULL(sig);
+        ASSERT_EQ(sig->sigAlg, public->publicArea.parameters.asymDetail.scheme.scheme);
+        ASSERT_EQ(sig->signature.any.hashAlg, public->publicArea.parameters.asymDetail.scheme.details.anySig.hashAlg);
+        switch (public->publicArea.parameters.asymDetail.scheme.scheme) {
+        case TPM2_ALG_RSAPSS:
+                ASSERT_EQ(sig->signature.rsapss.sig.size, public->publicArea.parameters.rsaDetail.keyBits / 8);
+                break;
+        case TPM2_ALG_RSASSA:
+                ASSERT_EQ(sig->signature.rsapss.sig.size, public->publicArea.parameters.rsaDetail.keyBits / 8);
+                break;
+        case TPM2_ALG_ECDSA: {
+                size_t expected_sz;
+                switch (public->publicArea.parameters.eccDetail.curveID) {
+                case TPM2_ECC_NIST_P256:
+                        expected_sz = 32;
+                        break;
+                case TPM2_ECC_NIST_P384:
+                        expected_sz = 48;
+                        break;
+                default:
+                        assert_not_reached();
+                }
+                ASSERT_EQ(sig->signature.ecdsa.signatureR.size, expected_sz);
+                ASSERT_EQ(sig->signature.ecdsa.signatureS.size, expected_sz);
+                break;
+        }
+        default:
+                assert_not_reached();
+        }
+
+        /* XXX: Probably would be good to verify the actual signature here. We could do that with
+         * TPM2_VerifySignature, we would just need to implement that in tpm2-util.c. */
+}
+
+static void check_quote(Tpm2Context *c) {
+        assert(c);
+
+        TEST_LOG_FUNC();
+
+        TPM2B_PUBLIC template = {
+                .size = sizeof(TPMT_PUBLIC),
+        };
+        ASSERT_OK(tpm2_get_best_attestation_key_template(c, &template.publicArea));
+
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *key = NULL;
+        ASSERT_OK(tpm2_create_primary(c, NULL, ESYS_TR_RH_OWNER, &template, NULL, NULL, &key));
+
+        const char *s = "foo";
+        TPM2B_DATA data = TPM2B_DATA_MAKE(s, strlen(s));
+
+        TPML_PCR_SELECTION pcrs;
+        tpm2_tpml_pcr_selection_from_mask(191, TPM2_ALG_SHA256, &pcrs);
+
+        _cleanup_(Esys_Freep) TPMS_ATTEST *quote = NULL;
+        _cleanup_(Esys_Freep) TPMT_SIGNATURE *sig = NULL;
+        ASSERT_OK(tpm2_quote(c, NULL, NULL, key, &data, &pcrs, &quote, &sig));
+
+        check_attest_common(quote, TPM2_ST_ATTEST_QUOTE, &data);
+        ASSERT_EQ(memcmp(&quote->attested.quote.pcrSelect, &pcrs, sizeof(pcrs)), 0);
+
+        check_attest_signature(&template, sig);
+}
+
+static void check_nv_certify(Tpm2Context *c) {
+        int r;
+
+        assert(c);
+
+        TEST_LOG_FUNC();
+
+        char payload[16];
+        random_bytes(payload, sizeof(payload));
+        struct iovec nv_data = IOVEC_MAKE(payload, sizeof(payload));
+
+        TPM2_HANDLE nv_index = 0;
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *nv_handle = NULL;
+        r = tpm2_define_data_nv_index(c, /* session= */ NULL, /* requested_nv_index= */ 0, &nv_data, &nv_index, &nv_handle);
+        if (r < 0) {
+                /* Could fail because the index size is greater than the value of TPM2_PT_NV_INDEX_MAX, or
+                 * there isn't enough space available. */
+                log_notice_errno(r, "Could not allocate NV index, skipping NV certify test: %m");
+                return;
+        }
+        ASSERT_NE(nv_index, 0U);
+        ASSERT_NOT_NULL(nv_handle);
+
+        TPMS_NV_PUBLIC nv_public = {
+                .nvIndex = nv_index,
+                .nameAlg = TPM2_ALG_SHA256,
+                .attributes = TPM2_NT_ORDINARY | TPMA_NV_AUTHWRITE | TPMA_NV_AUTHREAD | TPMA_NV_NO_DA,
+                .dataSize = nv_data.iov_len,
+        };
+
+        _cleanup_(Esys_Freep) TPM2B_NAME *nv_name = NULL;
+        ASSERT_OK(tpm2_get_name(c, nv_handle, &nv_name));
+
+        TPM2B_PUBLIC template = {
+                .size = sizeof(TPMT_PUBLIC),
+        };
+        ASSERT_OK(tpm2_get_best_attestation_key_template(c, &template.publicArea));
+
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *key = NULL;
+        ASSERT_OK(tpm2_create_primary(c, NULL, ESYS_TR_RH_OWNER, &template, NULL, NULL, &key));
+
+        const char *s = "bar";
+        TPM2B_DATA data = TPM2B_DATA_MAKE(s, strlen(s));
+
+        _cleanup_(Esys_Freep) TPMS_ATTEST *certify_info = NULL;
+        _cleanup_(Esys_Freep) TPMT_SIGNATURE *sig = NULL;
+        ASSERT_OK(tpm2_nv_certify(c, NULL, NULL, NULL, key, &nv_public, nv_handle, &data, &certify_info, &sig));
+
+        ASSERT_OK(tpm2_undefine_nv_index(c, NULL, nv_index, nv_handle));
+
+        check_attest_common(certify_info, TPM2_ST_ATTEST_NV, &data);
+        ASSERT_EQ(memcmp_nn(certify_info->attested.nv.indexName.name, certify_info->attested.nv.indexName.size, nv_name->name, nv_name->size), 0);
+        ASSERT_EQ(certify_info->attested.nv.offset, 0);
+        ASSERT_EQ(memcmp_nn(certify_info->attested.nv.nvContents.buffer, certify_info->attested.nv.nvContents.size, nv_data.iov_base, nv_data.iov_len), 0);
+
+        check_attest_signature(&template, sig);
+}
+
+static void check_get_session_audit_digest(Tpm2Context *c) {
+        assert(c);
+
+        TEST_LOG_FUNC();
+
+        TPM2B_PUBLIC template = {
+                .size = sizeof(TPMT_PUBLIC),
+        };
+        ASSERT_OK(tpm2_get_best_attestation_key_template(c, &template.publicArea));
+
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *key = NULL;
+        ASSERT_OK(tpm2_create_primary(c, NULL, ESYS_TR_RH_OWNER, &template, NULL, NULL, &key));
+
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *session = NULL;
+        ASSERT_OK(tpm2_make_exclusive_audit_session(c, &session));
+
+        /* Use the session */
+        TPML_PCR_SELECTION pcrs;
+        tpm2_tpml_pcr_selection_from_mask(191, TPM2_ALG_SHA256, &pcrs);
+        ASSERT_OK(tpm2_quote(c, NULL, session, key, NULL, &pcrs, NULL, NULL));
+
+        const char *s = "foo";
+        TPM2B_DATA data = TPM2B_DATA_MAKE(s, strlen(s));
+
+        _cleanup_(Esys_Freep) TPMS_ATTEST *audit_info = NULL;
+        _cleanup_(Esys_Freep) TPMT_SIGNATURE *sig = NULL;
+        ASSERT_OK(tpm2_get_session_audit_digest(c, NULL, NULL, session, key, &data, &audit_info, &sig));
+
+        check_attest_common(audit_info, TPM2_ST_ATTEST_SESSION_AUDIT, &data);
+        ASSERT_EQ(audit_info->attested.sessionAudit.exclusiveSession, TPM2_YES);
+        ASSERT_EQ(audit_info->attested.sessionAudit.sessionDigest.size, 32);
+
+        check_attest_signature(&template, sig);
+}
+
 TEST_RET(tests_which_require_tpm) {
         _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
         int r = 0;
@@ -1696,6 +2342,14 @@ TEST_RET(tests_which_require_tpm) {
         check_nv_index_read(c);
         check_get_ek_template(c);
         check_get_or_create_ek(c);
+        check_max_data_size(c);
+        check_context_saving(c);
+        check_saved_context_marshaling(c);
+        check_policy_secret(c);
+        check_best_attestation_key_template(c);
+        check_quote(c);
+        check_nv_certify(c);
+        check_get_session_audit_digest(c);
 
 #if HAVE_OPENSSL
         r = check_calculate_seal(c);
