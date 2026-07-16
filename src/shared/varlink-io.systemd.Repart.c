@@ -59,6 +59,8 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 SD_VARLINK_DEFINE_OUTPUT(minimalSizeBytes, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("In dry-run mode returns the size of the selected block device."),
                 SD_VARLINK_DEFINE_OUTPUT(currentSizeBytes, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Returns the number of partitions currently on the selected block device. Omitted if not determined by the workflow, e.g. if the existing partition table was not read because empty mode 'force' or 'require' was selected."),
+                SD_VARLINK_DEFINE_OUTPUT(partitionCount, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("If used with the 'more' flag, a phase identifier is sent in progress updates."),
                 SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(phase, ProgressPhase, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("If used with the 'more' flag, an object identifier string is sent in progress updates."),

@@ -11608,10 +11608,21 @@ static int vl_method_run(
                 if (r < 0)
                         return r;
 
+                bool count_partitions = IN_SET(context->empty, EMPTY_REFUSE, EMPTY_ALLOW);
+                uint64_t n_partitions = 0;
+
+                if (count_partitions)
+                        LIST_FOREACH(partitions, pp, context->partitions)
+                                n_partitions += PARTITION_EXISTS(pp);
+
+                /* In 'force' and 'require' modes the existing partition table is not read, hence we don't
+                 * know how many partitions the disk contains, and say nothing about it. */
                 return sd_varlink_replybo(
                                 link,
                                 SD_JSON_BUILD_PAIR_UNSIGNED("minimalSizeBytes", minimal_size),
-                                SD_JSON_BUILD_PAIR_UNSIGNED("currentSizeBytes", context->total));
+                                SD_JSON_BUILD_PAIR_UNSIGNED("currentSizeBytes", context->total),
+                                SD_JSON_BUILD_PAIR_CONDITION(count_partitions,
+                                                             "partitionCount", SD_JSON_BUILD_UNSIGNED(n_partitions)));
         }
 
         r = context_write_partition_table(context);
