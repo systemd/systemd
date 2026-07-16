@@ -51,6 +51,9 @@ MESON_ARGS=()
 if [ "$(uname -m)" = "aarch64" ] || [ "$(uname -m)" = "x86_64" ]; then
     ADDITIONAL_DEPS+=(python3-pefile)
     ADDITIONAL_DEPS+=(systemd-boot-efi)
+    HAVE_AMDARM64=true
+else
+    HAVE_AMDARM64=
 fi
 
 if [[ -n "$CROSS_ARCH" ]]; then
@@ -121,10 +124,21 @@ for phase in "${PHASES[@]}"; do
                 fi
             fi
 
-            # On ppc64le the workers are slower and some slow tests time out
             MESON_TEST_ARGS=()
-            if [[ "$(uname -m)" != "x86_64" ]] && [[ "$(uname -m)" != "aarch64" ]]; then
+
+            # On ppc64le the workers are slower and some slow tests time out
+            if [ -z "${HAVE_AMDARM64}" ]; then
                 MESON_TEST_ARGS+=(--timeout-multiplier=3)
+            fi
+
+            if [ -n "${HAVE_AMDARM64}" ] && [ -z "${CROSS_ARCH}" ] && [[ "$phase" == "RUN_GCC" ]]; then
+                # The dlopen tests require linking all .standalone binaries,
+                # which is fairly slow and uses up a lot of disk space. Enable
+                # those tests for one compiler and two fast native architectures.
+                #
+                # Note: linker garbage collection for unused symbols appears to
+                # be broken on ppc64le (both GCC and CLANG) or s390x (GCC).
+                MESON_ARGS+=(-Ddlopen-tests=true)
             fi
 
             MESON_ARGS+=(--fatal-meson-warnings)
@@ -132,12 +146,6 @@ for phase in "${PHASES[@]}"; do
             ninja -C build -v
             # Ensure setting a timezone (like the reproducible build tests do) does not break time/date unit tests
             TZ=GMT+12 meson test "${MESON_TEST_ARGS[@]}" -C build --print-errorlogs --no-stdsplit --quiet
-
-            # Linker garbage collection for unused symbols appears to be broken on ppc64le (both GCC and CLANG) or s390x (GCC).
-            # Skip the dlopen note verification test in those specific configurations.
-            if ! [[ "$(uname -m)" == "ppc64le" || ( "$(uname -m)" == "s390x" && "$phase" == "RUN_GCC" ) ]]; then
-                meson test -C build --suite=dlopen --print-errorlogs --no-stdsplit --quiet
-            fi
             ;;
         RUN_ASAN_UBSAN|RUN_GCC_ASAN_UBSAN|RUN_CLANG_ASAN_UBSAN|RUN_CLANG_ASAN_UBSAN_NO_DEPS)
             # TODO: drop after we switch to ubuntu 26.04

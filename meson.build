@@ -15,7 +15,7 @@ project('systemd', 'c',
 
 add_test_setup(
         'default',
-        exclude_suites : ['clang-tidy', 'coccinelle', 'dlopen', 'unused-symbols', 'integration-tests'],
+        exclude_suites : ['clang-tidy', 'coccinelle', 'unused-symbols', 'integration-tests'],
         exe_wrapper : find_program('tools/test-crash-trace.sh'),
         is_default : true,
 )
@@ -347,6 +347,7 @@ userspace_c_ld_args = []
 userspace_sources = []
 
 want_tests = get_option('tests')
+want_dlopen_tests = want_tests != 'false' and get_option('dlopen-tests')
 want_slow_tests = want_tests != 'false' and get_option('slow-tests')
 want_fuzz_tests = want_tests != 'false' and get_option('fuzz-tests')
 install_tests = want_tests != 'false' and get_option('install-tests')
@@ -1743,9 +1744,11 @@ efi_arch = {
         'x86'         : 'ia32',
 }.get(host_machine.cpu_family(), '')
 
-pyelftools = pymod.find_installation('python3',
-                                     required : get_option('bootloader'),
-                                     modules : ['elftools'])
+pyelftools = pymod.find_installation(
+        'python3',
+        required : get_option('bootloader').enabled() or want_dlopen_tests,
+        modules : ['elftools'],
+)
 
 have = get_option('bootloader').require(
         pyelftools.found() and get_option('efi') and efi_arch != '',
