@@ -42,7 +42,7 @@ static ImportFlags arg_import_flags = 0;
 static ImportFlags arg_import_flags_mask = 0; /* Indicates which flags have been explicitly set to on or to off */
 static bool arg_quiet = false;
 static bool arg_ask_password = true;
-static ImportVerify arg_verify = IMPORT_VERIFY_SIGNATURE;
+static ImportVerify arg_verify = IMPORT_VERIFY_GPG;
 static const char* arg_format = NULL;
 static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 static ImageClass arg_image_class = _IMAGE_CLASS_INVALID;
@@ -1177,11 +1177,11 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         break;
 
                 OPTION_LONG("verify", "MODE",
-                            "Verification mode for downloaded images (no, checksum, signature)"):
+                            "Verification mode for downloaded images (no, checksum, gpg, pkcs7)"):
                         if (streq(opts.arg, "help"))
                                 return DUMP_STRING_TABLE(import_verify, ImportVerify, _IMPORT_VERIFY_MAX);
 
-                        r = import_verify_from_string(opts.arg);
+                        r = parse_import_verify_compat(opts.arg);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse --verify= setting: %s", opts.arg);
                         arg_verify = r;

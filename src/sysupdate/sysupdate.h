@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "import-util.h"
 #include "sysupdate-forward.h"
 #include "sysupdate-target.h"
 
@@ -24,7 +25,7 @@ typedef struct Context {
         char *component;
         SelectMode component_select;
         SelectMode feature_select;
-        int verify;
+        ImportVerify verify;
         ImagePolicy *image_policy;
         bool offline;
         char *transfer_source;

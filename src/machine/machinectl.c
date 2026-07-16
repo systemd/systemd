@@ -106,7 +106,7 @@ static unsigned arg_lines = 10;
 static OutputMode arg_output = OUTPUT_SHORT;
 static bool arg_now = false;
 static bool arg_force = false;
-static ImportVerify arg_verify = IMPORT_VERIFY_SIGNATURE;
+static ImportVerify arg_verify = IMPORT_VERIFY_GPG;
 static MachineRunner arg_runner = RUNNER_NSPAWN;
 static const char* arg_format = NULL;
 static const char *arg_uid = NULL;
@@ -2591,7 +2591,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         if (streq(opts.arg, "help"))
                                 return DUMP_STRING_TABLE(import_verify, ImportVerify, _IMPORT_VERIFY_MAX);
 
-                        r = import_verify_from_string(opts.arg);
+                        r = parse_import_verify_compat(opts.arg);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse --verify= setting: %s", opts.arg);
                         arg_verify = r;
