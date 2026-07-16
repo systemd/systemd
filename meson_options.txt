@@ -538,6 +538,8 @@ option('zshcompletiondir', type : 'string',
 
 option('tests', type : 'combo', choices : ['true', 'unsafe', 'false'],
        description : 'enable extra tests with =unsafe')
+option('dlopen-tests', type : 'boolean', value : false,
+       description : 'run the dlopen tests by default (requires linking all .standalone binaries)')
 option('slow-tests', type : 'boolean', value : false,
        description : 'run the slow tests by default')
 option('fuzz-tests', type : 'boolean', value : true,

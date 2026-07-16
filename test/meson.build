@@ -279,9 +279,9 @@ endif
 
 ############################################################
 
-if want_tests != 'false' and pyelftools.found()
-        test_dlopen_note_py = files('test-dlopen-note.py')
+test_dlopen_note_py = files('test-dlopen-note.py')
 
+if want_dlopen_tests
         foreach name, exe : executables_by_name
                 if name.endswith('.static') or name.endswith('.shared')
                         continue
