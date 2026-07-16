@@ -130,6 +130,8 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 ## Features
 
+- acquire a TSA from time stamping server, include it in report
+
 - **report:**
   - implement signer for TPM2 that adds a quote + event log excerpt as signing
     object. should include a TPM timestamp, and some "generation ID" provided
