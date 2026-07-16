@@ -26,7 +26,7 @@ int prompt_loop(const char *text,
                 PromptFlags flags,
                 char **ret);
 
-int prompt_loop_yes_no(const char *question, bool def, bool *ret);
+int prompt_loop_yes_no(const char *question, int def, bool *ret);
 
 int chrome_show(const char *top, const char *bottom);
 void chrome_hide(void);
