@@ -11402,10 +11402,13 @@ static int context_ponder(Context *context) {
                 if (context_drop_or_foreignize_one_priority(context))
                         continue; /* Still no luck. Let's drop a priority and try again. */
 
-                /* No more priorities left to drop. This configuration just doesn't fit on this disk... */
-                return log_error_errno(SYNTHETIC_ERRNO(ENOSPC),
-                                       "Can't fit requested partitions into available free space (%s), refusing.",
-                                       FORMAT_BYTES(largest_free_area));
+                /* No more priorities left to drop. This configuration just doesn't fit on this disk...
+                 * In Varlink service mode the failure is reported to the client as a structured error,
+                 * hence only log at debug level here. */
+                return log_full_errno(arg_varlink ? LOG_DEBUG : LOG_ERR,
+                                      SYNTHETIC_ERRNO(ENOSPC),
+                                      "Can't fit requested partitions into available free space (%s), refusing.",
+                                      FORMAT_BYTES(largest_free_area));
         }
 
         LIST_FOREACH(partitions, p, context->partitions) {
