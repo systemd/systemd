@@ -1159,7 +1159,7 @@ static int method_pull_tar_or_raw_or_oci(sd_bus_message *msg, void *userdata, sd
         if (type == TRANSFER_PULL_OCI)
                 v = _IMPORT_VERIFY_INVALID;
         else if (isempty(verify))
-                v = IMPORT_VERIFY_SIGNATURE;
+                v = IMPORT_VERIFY_GPG;
         else {
                 v = import_verify_from_string(verify);
                 if (v < 0)
@@ -1878,7 +1878,7 @@ static int vl_method_pull(sd_varlink *link, sd_json_variant *parameters, sd_varl
                 const char *image_root;
         } p = {
                 .class = _IMAGE_CLASS_INVALID,
-                .verify = IMPORT_VERIFY_SIGNATURE,
+                .verify = IMPORT_VERIFY_GPG,
         };
 
         static const sd_json_dispatch_field dispatch_table[] = {

@@ -87,7 +87,7 @@ static int parse_pull_expression(const char *v) {
 
         ImportType type = _IMPORT_TYPE_INVALID;
         ImageClass class = _IMAGE_CLASS_INVALID;
-        ImportVerify verify = IMPORT_VERIFY_SIGNATURE;
+        ImportVerify verify = IMPORT_VERIFY_GPG;
         bool ro = false, blockdev = false, bootorigin = false, runtime = in_initrd();
 
         const char *o = options;
