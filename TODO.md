@@ -130,6 +130,13 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 ## Features
 
+- cryptsetup: add a new switch which makes it wait for the keyfile to
+  appear. use inotify/mount watching for that. usecase: system waits at boot
+  for some key to be supplied, possibly delivered via confext or so. This could
+  be useful in particular in CoCo scenarios where a disk encryption key is only
+  handed out once an attestation run completed, and might be delivered to the
+  node asynchronously.
+
 - acquire a TSA from time stamping server, include it in report
 
 - **report:**
