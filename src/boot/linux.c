@@ -217,7 +217,11 @@ EFI_STATUS linux_exec(
                         },
                         .MemoryType = EfiLoaderData,
                         .StartingAddress = POINTER_TO_PHYSICAL_ADDRESS(kernel->iov_base),
-                        .EndingAddress = POINTER_TO_PHYSICAL_ADDRESS(kernel->iov_base) + kernel->iov_len,
+                        /* NB: the UEFI spec doesn't clarify whether the EndingAddress field should point to
+                         * the very last byte or the byte one after. EDK2 puts the very last byte in this
+                         * field, hence let's do so here too. Note that iovec_is_set() check above ensured
+                         * this cannot underflow. */
+                        .EndingAddress = POINTER_TO_PHYSICAL_ADDRESS(kernel->iov_base) + kernel->iov_len - 1,
                 },
                 .end_path = DEVICE_PATH_END_NODE,
         };
