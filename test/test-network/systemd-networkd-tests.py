@@ -1713,7 +1713,7 @@ class NetworkctlTests(unittest.TestCase, Utilities):
         ) as f:
             f.write('[Match]\nName=dummy98\n\n[Network]\nIPv6AcceptRA=no\nAddress=10.99.0.1/24\n')
 
-        networkctl('reload', '--no-configure')
+        networkctl('reload', '--no-reconfigure')
 
         output = check_output('ip -4 address show dev dummy98')
         print(output)

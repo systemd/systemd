@@ -535,7 +535,7 @@ static int signal_restart_callback(sd_event_source *s, const struct signalfd_sig
 static int signal_reload_callback(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
 
-        (void) manager_reload(m, /* message= */ NULL, /* varlink= */ NULL, /* configure_links= */ true);
+        (void) manager_reload(m, /* message= */ NULL, /* varlink= */ NULL, /* reconfigure_links= */ true);
 
         return 0;
 }
@@ -1266,7 +1266,7 @@ int manager_set_timezone(Manager *m, const char *tz) {
         return 0;
 }
 
-int manager_reload(Manager *m, sd_bus_message *message, sd_varlink *varlink, bool configure_links) {
+int manager_reload(Manager *m, sd_bus_message *message, sd_varlink *varlink, bool reconfigure_links) {
         Link *link;
         int r;
 
@@ -1288,7 +1288,7 @@ int manager_reload(Manager *m, sd_bus_message *message, sd_varlink *varlink, boo
                 goto finish;
         }
 
-        if (configure_links)
+        if (reconfigure_links)
                 HASHMAP_FOREACH(link, m->links_by_index)
                         (void) link_reconfigure_full(
                                         link,

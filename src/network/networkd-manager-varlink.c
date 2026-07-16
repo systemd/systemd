@@ -239,7 +239,7 @@ static int vl_method_set_persistent_storage(sd_varlink *vlink, sd_json_variant *
 
 static int vl_method_reload(sd_varlink *vlink, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "reconfigureLinks", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate, 0, 0 },
+                { "reconfigureLinks", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate, 0, SD_JSON_NULLABLE },
                 VARLINK_DISPATCH_POLKIT_FIELD,
                 {}
         };
@@ -272,7 +272,7 @@ static int vl_method_reload(sd_varlink *vlink, sd_json_variant *parameters, sd_v
         if (r <= 0)
                 return r;
 
-        r = manager_reload(m, /* message= */ NULL, vlink, /* configure_links= */ reconfigure_links != 0);
+        r = manager_reload(m, /* message= */ NULL, vlink, /* reconfigure_links= */ reconfigure_links != 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to reload: %m");
 
