@@ -108,7 +108,8 @@ static uint16_t link_get_pvid(Link *link, bool *ret_untagged) {
 static int bridge_vlan_append_set_info(Link *link, sd_netlink_message *m) {
         _cleanup_free_ char *str = NULL;
         uint16_t pvid, begin = UINT16_MAX;
-        bool untagged, pvid_is_untagged;
+        bool pvid_is_untagged, untagged = false;  /* <untagged> is always set togather with <begin>.
+                                                   * Initialize to appease gcc. */
         int r;
 
         assert(link);
