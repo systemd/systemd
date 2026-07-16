@@ -60,7 +60,7 @@ static inline int DNS_RECORD_TTL_STATE_TO_PERCENT(DnsRecordTTLState ttl_state) {
         return ttl_percent_table[ttl_state];
 }
 
-static usec_t mdns_maintenance_next_time(usec_t until, uint32_t ttl, DnsRecordTTLState ttl_state) {
+static usec_t mdns_maintenance_next_time(usec_t until, usec_t ttl_usec, DnsRecordTTLState ttl_state) {
         assert(ttl_state >= DNS_RECORD_TTL_STATE_80_PERCENT);
         assert(ttl_state < _DNS_RECORD_TTL_STATE_MAX);
 
@@ -68,14 +68,20 @@ static usec_t mdns_maintenance_next_time(usec_t until, uint32_t ttl, DnsRecordTT
         assert(percent > 0);
         assert(percent <= 100);
 
-        return usec_sub_unsigned(until, (100 - percent) * ttl * USEC_PER_SEC / 100);
+        return usec_sub_unsigned(until, (100 - percent) * ttl_usec / 100);
 }
 
 /* RFC 6762 section 5.2
  * A random variation of 2% of the record TTL should
  * be added to maintenance queries. */
-static usec_t mdns_maintenance_jitter(uint32_t ttl) {
-        return random_u64_range(2 * ttl * USEC_PER_SEC / 100);
+static usec_t mdns_maintenance_jitter(usec_t ttl_usec) {
+        /* A zero TTL (as seen on the wire for goodbyes, or substituted for out-of-range TTLs per RFC
+         * 2181) must yield zero jitter: random_u64_range() treats 0 as "the full 64-bit range", which
+         * would saturate the maintenance timer to never-fire. */
+        if (ttl_usec == 0)
+                return 0;
+
+        return random_u64_range(2 * ttl_usec / 100);
 }
 
 static void mdns_maintenance_query_complete(DnsQuery *q) {
@@ -130,7 +136,8 @@ static int mdns_maintenance_query(sd_event_source *s, uint64_t usec, void *userd
         q->dnsservice_request = dnssd_discovered_service_ref(service);
 
         /* Schedule the next maintenance query based on the TTL */
-        usec_t next_time = mdns_maintenance_next_time(service->until, service->rr->ttl, service->rr_ttl_state);
+        usec_t next_time = mdns_maintenance_next_time(
+                        service->until, service->rr->ttl * USEC_PER_SEC, service->rr_ttl_state);
 
         r = event_reset_time(
                         service->service_browser->manager->event,
@@ -186,10 +193,10 @@ int dns_add_new_service(DnsServiceBrowser *sb, DnsResourceRecord *rr, int owner_
          * TTL. RFC 6762 section 5.2. If service is being added after 80% of the
          * TTL has already elapsed, schedule the next query at the next 5%
          * increment. */
-        usec_t next_time = 0;
+        usec_t ttl_usec = s->rr->ttl * USEC_PER_SEC, next_time = 0;
         while (s->rr_ttl_state >= DNS_RECORD_TTL_STATE_80_PERCENT &&
                s->rr_ttl_state < _DNS_RECORD_TTL_STATE_MAX) {
-                next_time = mdns_maintenance_next_time(s->until, s->rr->ttl, s->rr_ttl_state);
+                next_time = mdns_maintenance_next_time(s->until, ttl_usec, s->rr_ttl_state);
                 if (next_time >= usec)
                         break;
 
@@ -204,7 +211,7 @@ int dns_add_new_service(DnsServiceBrowser *sb, DnsResourceRecord *rr, int owner_
                 s->rr_ttl_state = DNS_RECORD_TTL_STATE_100_PERCENT;
         }
 
-        usec_t jitter = mdns_maintenance_jitter(rr->ttl);
+        usec_t jitter = mdns_maintenance_jitter(ttl_usec);
 
         r = sd_event_add_time(
                         sb->manager->event,
@@ -259,9 +266,10 @@ int mdns_service_update(DnssdDiscoveredService *service, DnsResourceRecord *rr, 
         /* Update the 80% TTL maintenance event based on new record received
          * from the network. RFC 6762 section 5.2  */
         if (service->schedule_event) {
+                usec_t ttl_usec = service->rr->ttl * USEC_PER_SEC;
                 usec_t next_time = mdns_maintenance_next_time(
-                        service->until, service->rr->ttl, DNS_RECORD_TTL_STATE_80_PERCENT);
-                usec_t jitter = mdns_maintenance_jitter(service->rr->ttl);
+                                service->until, ttl_usec, DNS_RECORD_TTL_STATE_80_PERCENT);
+                usec_t jitter = mdns_maintenance_jitter(ttl_usec);
 
                 return sd_event_source_set_time(service->schedule_event, usec_add(next_time, jitter));
         }
