@@ -1133,9 +1133,10 @@
       <literal>/dev/</literal> or <literal>/sys/</literal>, e.g. <literal>/dev/sda</literal>,
       <literal>/dev/disk/by-path/pci-0000:3c:00.0-nvme-1-part1</literal>,
       <literal>/sys/devices/pci0000:00/0000:00:1f.6/net/eth0</literal>, or
-      <literal>/sys/class/net/eth0</literal>. This can take multiple devices. This may be useful for
-      waiting for devices being processed by <command>systemd-udevd</command> after e.g. partitioning
-      or formatting the devices.</para>
+      <literal>/sys/class/net/eth0</literal>. This can take multiple devices. If multiple devices are
+      specified, waits until at least one device has been initialized. This may be useful for waiting
+      for devices being processed by <command>systemd-udevd</command> after e.g. partitioning or
+      formatting the devices.</para>
 
       <variablelist>
         <varlistentry>
