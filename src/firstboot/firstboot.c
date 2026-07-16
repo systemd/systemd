@@ -891,6 +891,10 @@ static int prompt_root_shell(int rfd) {
         if (r < 0)
                 log_debug_errno(r, "Failed to read credential passwd.shell.root, ignoring: %m");
         else {
+                r = find_shell(rfd, arg_root_shell);
+                if (r < 0)
+                        return r;
+
                 log_debug("Acquired root shell from credential.");
                 return 0;
         }
