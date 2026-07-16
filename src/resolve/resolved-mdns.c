@@ -272,6 +272,11 @@ static int mdns_scope_process_query(DnsScope *s, DnsPacket *p) {
         assert(s);
         assert(p);
 
+        /* We are on the way out and our records have been goodbye'd: answering queries positively
+         * now would just re-populate the peer caches we made an effort to clean. */
+        if (s->withdrawing)
+                return 0;
+
         r = dns_packet_extract(p);
         if (r < 0)
                 return log_debug_errno(r, "Failed to extract resource records from incoming packet: %m");
