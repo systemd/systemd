@@ -111,7 +111,6 @@ static int arg_pty_late = -1; /* tristate */
 static char **arg_path_property = NULL;
 static char **arg_socket_property = NULL;
 static char **arg_timer_property = NULL;
-static bool arg_with_timer = false;
 static bool arg_quiet = false;
 static bool arg_verbose = false;
 static OutputMode arg_output = _OUTPUT_MODE_INVALID;
@@ -514,7 +513,6 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
 
-                        arg_with_timer = true;
                         break;
 
                 OPTION_LONG("on-boot", "SECONDS", "Run SECONDS after machine was booted up"):
@@ -522,7 +520,6 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
 
-                        arg_with_timer = true;
                         break;
 
                 OPTION_LONG("on-startup", "SECONDS", "Run SECONDS after systemd activation"):
@@ -530,7 +527,6 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
 
-                        arg_with_timer = true;
                         break;
 
                 OPTION_LONG("on-unit-active", "SECONDS", "Run SECONDS after the last activation"):
@@ -538,7 +534,6 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
 
-                        arg_with_timer = true;
                         break;
 
                 OPTION_LONG("on-unit-inactive", "SECONDS",
@@ -547,7 +542,6 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
 
-                        arg_with_timer = true;
                         break;
 
                 OPTION_LONG("on-calendar", "SPEC", "Realtime timer"): {
@@ -577,7 +571,6 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
 
-                        arg_with_timer = true;
                         break;
                 }
 
@@ -586,7 +579,6 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
 
-                        arg_with_timer = true;
                         break;
 
                 OPTION_LONG("on-clock-change", NULL, "Run when the realtime clock jumps"):
@@ -594,23 +586,12 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
 
-                        arg_with_timer = true;
                         break;
 
                 OPTION_LONG("timer-property", "NAME=VALUE", "Set timer unit property"):
                         if (strv_extend(&arg_timer_property, opts.arg) < 0)
                                 return log_oom();
 
-                        arg_with_timer = arg_with_timer ||
-                                STARTSWITH_SET(opts.arg,
-                                               "OnActiveSec=",
-                                               "OnBootSec=",
-                                               "OnStartupSec=",
-                                               "OnUnitActiveSec=",
-                                               "OnUnitInactiveSec=",
-                                               "OnCalendar=",
-                                               "OnClockChange=",
-                                               "OnTimezoneChange=");
                         break;
                 }
 
@@ -618,10 +599,27 @@ static int parse_argv(int argc, char *argv[]) {
         if (arg_runtime_scope == RUNTIME_SCOPE_USER)
                 arg_ask_password = false;
 
-        with_trigger = !!arg_path_property || !!arg_socket_property || arg_with_timer;
+        size_t n_timer_triggers = 0, n_other_timer_properties = 0;
+        STRV_FOREACH(i, arg_timer_property)
+                if (STARTSWITH_SET(*i,
+                                   "OnActiveSec=",
+                                   "OnBootSec=",
+                                   "OnStartupSec=",
+                                   "OnUnitActiveSec=",
+                                   "OnUnitInactiveSec=",
+                                   "OnCalendar=",
+                                   "OnClockChange=",
+                                   "OnTimezoneChange="))
+                        n_timer_triggers++;
+                else
+                        n_other_timer_properties++;
+        if (n_other_timer_properties > 0 && n_timer_triggers == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--timer-property= set without any timer trigger expression (i.e. On*= setting), refusing.");
+
+        with_trigger = arg_path_property || arg_socket_property || arg_timer_property;
 
         /* currently, only single trigger (path, socket, timer) unit can be created simultaneously */
-        if (!!arg_path_property + !!arg_socket_property + (int) arg_with_timer > 1)
+        if (!!arg_path_property + !!arg_socket_property + !!arg_timer_property > 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Only single trigger (path, socket, timer) unit can be created.");
 
@@ -749,10 +747,6 @@ static int parse_argv(int argc, char *argv[]) {
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "--json= is not compatible with path, socket or timer operations.");
         }
-
-        if (arg_timer_property && !arg_with_timer)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "--timer-property= has no effect without any other timer options.");
 
         if (arg_wait) {
                 if (arg_no_block)
@@ -3090,7 +3084,7 @@ static int run(int argc, char* argv[]) {
                 return start_transient_trigger(bus, ".path");
         if (arg_socket_property)
                 return start_transient_trigger(bus, ".socket");
-        if (arg_with_timer)
+        if (arg_timer_property)
                 return start_transient_trigger(bus, ".timer");
         return start_transient_service(bus);
 }
