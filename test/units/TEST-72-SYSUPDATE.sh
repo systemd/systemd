@@ -918,8 +918,9 @@ test -f "$COMPALL/target-b/comp-b-v1.bin"
 test -d /var/lib/systemd/sysupdate/installdb.comp-a
 test -d /var/lib/systemd/sysupdate/installdb.comp-b
 
-# --component-all is only supported for the "cleanup" verb, refuse it elsewhere.
-(! "$SYSUPDATE" --component-all --verify=no update)
+# --component-all is not supported for every verb, so it must be refused where it isn't (e.g. "vacuum").
+# (It *is* supported for update/acquire/cleanup/enable-*/disable-*, which is exercised further down.)
+(! "$SYSUPDATE" --component-all --verify=no vacuum)
 
 # With the transfer files still in place "cleanup --component-all" is a no-op:
 # nothing is orphaned.
@@ -1448,5 +1449,376 @@ rm -rf "$CONFIGDIR/01-manifest-yes-and-retry.transfer" \
 # Test that listing components/targets when none are configured gives an empty list.
 "$SYSUPDATE" components |& grep "No components defined." >/dev/null
 [[ $(varlinkctl call "$VARLINK_SOCKET" io.systemd.SysUpdate.ListTargets | jq -r '.targets') == "[]" ]]
+
+# ============================================================================
+# Components & features: enable/disable verbs, the --component-{all,suggested}
+# and --feature-{all,suggested} switches, plus the Suggest=/SuggestOn…=
+# settings. Everything below operates on freshly minted throw-away components
+# and features, and cleans up after itself.
+#
+# Layout used throughout:
+#   * a component <c> is defined by a transfer directory /run/sysupdate.<c>.d/
+#     (which is what makes it show up in the 'components' list) plus an optional
+#     metadata file /run/sysupdate.<c>.component carrying Description=/Suggest=/…
+#   * the enable-component/disable-component verbs write their Enabled= override
+#     into a drop-in below /etc/sysupdate.<c>.component.d/
+#   * the enable-feature/disable-feature verbs write their Enabled= override into
+#     a drop-in below /etc/sysupdate.d/<f>.feature.d/ (default component) or
+#     /etc/sysupdate.<c>.d/<f>.feature.d/ (named component)
+# ============================================================================
+CF="$WORKDIR/compfeat"
+
+# The Suggest…MachineTag= tests below drive the machine tags via /etc/machine-info
+# (which the condition logic reads directly); back up any pre-existing file so we
+# can restore it afterwards, mirroring TEST-74-AUX-UTILS.machine-tags.sh.
+MI_BAK="$WORKDIR/machine-info.orig"
+rm -f "$MI_BAK"
+[[ -e /etc/machine-info ]] && cp -a /etc/machine-info "$MI_BAK"
+
+set_machine_tags() {
+    if [[ -n "${1:-}" ]]; then
+        echo "TAGS=$1" >/etc/machine-info
+    else
+        rm -f /etc/machine-info
+    fi
+}
+
+restore_machine_info() {
+    if [[ -e "$MI_BAK" ]]; then
+        cp -a "$MI_BAK" /etc/machine-info
+    else
+        rm -f /etc/machine-info
+    fi
+}
+
+compfeat_cleanup() {
+    rm -rf /run/sysupdate.d \
+           /run/sysupdate.compx.d /run/sysupdate.compx.component /run/sysupdate.compx.component.d \
+           /run/sysupdate.compy.d /run/sysupdate.compy.component /run/sysupdate.compy.component.d \
+           /run/sysupdate.compz.d /run/sysupdate.compz.component /run/sysupdate.compz.component.d \
+           /etc/sysupdate.d \
+           /etc/sysupdate.compx.d /etc/sysupdate.compx.component.d \
+           /etc/sysupdate.compy.d /etc/sysupdate.compy.component.d \
+           /etc/sysupdate.compz.d /etc/sysupdate.compz.component.d
+    rm -rf "$CF"
+}
+
+compfeat_reset() {
+    compfeat_cleanup
+    mkdir -p "$CF/source" \
+             "$CF/target-default" "$CF/target-compx" "$CF/target-compy" "$CF/target-compz"
+}
+
+# (Re)generate the source payloads + SHA256SUMS for a given version. We create a
+# payload for every component/feature so a single SHA256SUMS covers them all;
+# individual transfers only ever match their own pattern.
+compfeat_source() {
+    local v="${1:?}"
+    local n
+    for n in base compx compy compz feata featb featc; do
+        echo "$n-$v-$RANDOM" >"$CF/source/$n-$v.bin"
+    done
+    (cd "$CF/source" && sha256sum -- *.bin >SHA256SUMS)
+}
+
+# Write a regular-file transfer; optional 4th argument gates it behind a feature.
+compfeat_transfer() {
+    local file="${1:?}" pat="${2:?}" tgt="${3:?}" feature="${4:-}"
+    {
+        if [[ -n "$feature" ]]; then
+            printf '[Transfer]\nFeatures=%s\n\n' "$feature"
+        fi
+        printf '[Source]\nType=regular-file\nPath=%s\nMatchPattern=%s-@v.bin\n\n' "$CF/source" "$pat"
+        printf '[Target]\nType=regular-file\nPath=%s\nMatchPattern=%s-@v.bin\nInstancesMax=2\n' "$tgt" "$pat"
+    } >"$file"
+}
+
+comp_enable_dropin()          { echo "/etc/sysupdate.$1.component.d/50-systemd-sysupdate-enabled.conf"; }
+feat_enable_dropin_default()  { echo "/etc/sysupdate.d/$1.feature.d/50-systemd-sysupdate-enabled.conf"; }
+feat_enable_dropin_comp()     { echo "/etc/sysupdate.$1.d/$2.feature.d/50-systemd-sysupdate-enabled.conf"; }
+
+# Assert a generated Enabled= drop-in exists and carries the expected value.
+assert_dropin() {
+    local file="${1:?}" val="${2:?}"
+    test -f "$file"
+    grep "^Enabled=$val$" "$file" >/dev/null
+}
+
+# ---------------------------------------------------------------------------
+# enable-component / disable-component: explicit selection + observable effect
+# ---------------------------------------------------------------------------
+compfeat_reset
+compfeat_source v1
+mkdir -p /run/sysupdate.compx.d
+compfeat_transfer /run/sysupdate.compx.d/01-compx.transfer compx "$CF/target-compx"
+# A metadata file carrying a human-readable description (exercises loading of the
+# per-component *.component file from the search dirs).
+cat >/run/sysupdate.compx.component <<EOF
+[Component]
+Description=CompXDescription
+EOF
+
+# The description from the *.component file must surface in the 'components' listing.
+"$SYSUPDATE" --no-legend components | grep -F "CompXDescription" >/dev/null
+
+# A brand new component (no Enabled= override anywhere) is enabled by default and
+# can be updated.
+"$SYSUPDATE" --component=compx --verify=no update
+test -f "$CF/target-compx/compx-v1.bin"
+
+# Disable it: this must drop an Enabled=no override next to the definition, and
+# subsequent updates for that component must be refused.
+"$SYSUPDATE" disable-component compx
+assert_dropin "$(comp_enable_dropin compx)" no
+(! "$SYSUPDATE" --component=compx --verify=no update) |& grep -F "Component is disabled" >/dev/null
+
+# Re-enable via the "--component= + no positional argument" form and verify the
+# update works again.
+"$SYSUPDATE" --component=compx enable-component
+assert_dropin "$(comp_enable_dropin compx)" yes
+rm -f "$CF/target-compx/compx-v1.bin"
+"$SYSUPDATE" --component=compx --verify=no update
+test -f "$CF/target-compx/compx-v1.bin"
+
+# Enabling a component must not conjure a bogus "<c>.component" pseudo-component
+# out of the freshly created sysupdate.compx.component.d/ drop-in directory.
+(! "$SYSUPDATE" --json=short components | grep -F '"compx.component"' >/dev/null)
+"$SYSUPDATE" --json=short components | grep -F '"compx"' >/dev/null
+
+# ---------------------------------------------------------------------------
+# enable-component / disable-component: argument validation & error handling
+# ---------------------------------------------------------------------------
+# Positional argument and --component= are mutually exclusive.
+(! "$SYSUPDATE" --component=compx enable-component compx) |& grep -F "not both" >/dev/null
+# Syntactically invalid component name.
+(! "$SYSUPDATE" enable-component ../nope) |& grep -F "Component name invalid" >/dev/null
+# Unknown component.
+(! "$SYSUPDATE" enable-component doesnotexist) |& grep -F "Component not found" >/dev/null
+# --definitions= is incompatible with component enablement.
+(! "$SYSUPDATE" --definitions="$CF" enable-component compx) |& grep -F "may not be combined" >/dev/null
+# The feature-selection switches make no sense here.
+(! "$SYSUPDATE" --feature-all enable-component compx) |& grep -F "not supported" >/dev/null
+
+# ---------------------------------------------------------------------------
+# --component-all for enable-component / disable-component
+# ---------------------------------------------------------------------------
+compfeat_reset
+compfeat_source v1
+mkdir -p /run/sysupdate.compx.d /run/sysupdate.compy.d
+compfeat_transfer /run/sysupdate.compx.d/01-compx.transfer compx "$CF/target-compx"
+compfeat_transfer /run/sysupdate.compy.d/01-compy.transfer compy "$CF/target-compy"
+
+# Disable *all* components in one go, then re-enable them all.
+"$SYSUPDATE" --component-all disable-component
+assert_dropin "$(comp_enable_dropin compx)" no
+assert_dropin "$(comp_enable_dropin compy)" no
+(! "$SYSUPDATE" --component=compx --verify=no update) |& grep -F "Component is disabled" >/dev/null
+(! "$SYSUPDATE" --component=compy --verify=no update) |& grep -F "Component is disabled" >/dev/null
+
+"$SYSUPDATE" --component-all enable-component
+assert_dropin "$(comp_enable_dropin compx)" yes
+assert_dropin "$(comp_enable_dropin compy)" yes
+"$SYSUPDATE" --component=compx --verify=no update
+"$SYSUPDATE" --component=compy --verify=no update
+test -f "$CF/target-compx/compx-v1.bin"
+test -f "$CF/target-compy/compy-v1.bin"
+
+# ---------------------------------------------------------------------------
+# --component-suggested driven by Suggest= (compx suggested, compy not)
+# ---------------------------------------------------------------------------
+compfeat_reset
+compfeat_source v1
+mkdir -p /run/sysupdate.compx.d /run/sysupdate.compy.d
+compfeat_transfer /run/sysupdate.compx.d/01-compx.transfer compx "$CF/target-compx"
+compfeat_transfer /run/sysupdate.compy.d/01-compy.transfer compy "$CF/target-compy"
+cat >/run/sysupdate.compx.component <<EOF
+[Component]
+Suggest=yes
+EOF
+cat >/run/sysupdate.compy.component <<EOF
+[Component]
+Suggest=no
+EOF
+
+# 'enable-component --component-suggested' acts on the suggested components only.
+"$SYSUPDATE" --component-suggested enable-component
+assert_dropin "$(comp_enable_dropin compx)" yes
+test ! -e "$(comp_enable_dropin compy)"
+
+# 'disable-component --component-suggested' reconciles the other way around: it
+# acts on the components that are *not* suggested (i.e. compy).
+"$SYSUPDATE" --component-suggested disable-component
+assert_dropin "$(comp_enable_dropin compy)" no
+# compx must be left as it was (still enabled from above).
+assert_dropin "$(comp_enable_dropin compx)" yes
+
+# --component-suggested is not supported for the update verb.
+(! "$SYSUPDATE" --component-suggested --verify=no update) |& grep -F "not supported" >/dev/null
+
+# ---------------------------------------------------------------------------
+# SuggestOnMachineTag= for a component
+# ---------------------------------------------------------------------------
+compfeat_reset
+compfeat_source v1
+mkdir -p /run/sysupdate.compz.d
+compfeat_transfer /run/sysupdate.compz.d/01-compz.transfer compz "$CF/target-compz"
+cat >/run/sysupdate.compz.component <<EOF
+[Component]
+SuggestOnMachineTag=sysupdate-test-tag
+EOF
+
+# Without the matching machine tag the component is not suggested, so
+# --component-suggested selects nothing.
+set_machine_tags some-other-tag
+"$SYSUPDATE" --component-suggested enable-component
+test ! -e "$(comp_enable_dropin compz)"
+
+# With the matching tag present it becomes suggested and gets enabled.
+set_machine_tags sysupdate-test-tag:another
+"$SYSUPDATE" --component-suggested enable-component
+assert_dropin "$(comp_enable_dropin compz)" yes
+set_machine_tags ""
+
+# ---------------------------------------------------------------------------
+# enable-feature / disable-feature on the default component + observable effect
+# ---------------------------------------------------------------------------
+compfeat_reset
+compfeat_source v1
+mkdir -p /run/sysupdate.d
+compfeat_transfer /run/sysupdate.d/01-base.transfer base "$CF/target-default"
+compfeat_transfer /run/sysupdate.d/50-feata.transfer feata "$CF/target-default" feata
+cat >/run/sysupdate.d/feata.feature <<EOF
+[Feature]
+Description=Feature A
+EOF
+
+# The feature is listed and disabled by default, so its transfer is not installed.
+"$SYSUPDATE" features | grep -F "feata" >/dev/null
+"$SYSUPDATE" --verify=no update
+test -f "$CF/target-default/base-v1.bin"
+test ! -e "$CF/target-default/feata-v1.bin"
+
+# Enabling the feature must drop an Enabled=yes override and cause the gated
+# transfer to be installed on the next update.
+"$SYSUPDATE" enable-feature feata
+assert_dropin "$(feat_enable_dropin_default feata)" yes
+"$SYSUPDATE" --verify=no update
+test -f "$CF/target-default/feata-v1.bin"
+
+# Disabling it again + vacuum must remove the now-orphaned feature resource.
+"$SYSUPDATE" disable-feature feata
+assert_dropin "$(feat_enable_dropin_default feata)" no
+"$SYSUPDATE" --verify=no vacuum
+test ! -e "$CF/target-default/feata-v1.bin"
+
+# Argument validation for the feature verbs.
+(! "$SYSUPDATE" enable-feature --feature-all feata) |& grep -F "not both" >/dev/null
+(! "$SYSUPDATE" enable-feature 'bad/name') |& grep -F "Feature name invalid" >/dev/null
+(! "$SYSUPDATE" --component-suggested enable-feature feata) |& grep -F "not supported" >/dev/null
+
+# ---------------------------------------------------------------------------
+# --feature-all / --feature-suggested (default component)
+# ---------------------------------------------------------------------------
+compfeat_reset
+compfeat_source v1
+mkdir -p /run/sysupdate.d
+compfeat_transfer /run/sysupdate.d/01-base.transfer base "$CF/target-default"
+# feata: suggested (Suggest=yes); featb: not suggested (Suggest=no);
+# featc: suggested on a machine tag we will set below.
+cat >/run/sysupdate.d/feata.feature <<EOF
+[Feature]
+Suggest=yes
+EOF
+cat >/run/sysupdate.d/featb.feature <<EOF
+[Feature]
+Suggest=no
+EOF
+cat >/run/sysupdate.d/featc.feature <<EOF
+[Feature]
+SuggestOnMachineTag=sysupdate-test-tag
+EOF
+
+# --feature-all operates on every known feature.
+"$SYSUPDATE" enable-feature --feature-all
+assert_dropin "$(feat_enable_dropin_default feata)" yes
+assert_dropin "$(feat_enable_dropin_default featb)" yes
+assert_dropin "$(feat_enable_dropin_default featc)" yes
+
+# --feature-suggested (no machine tag): only the Suggest=yes feature is picked.
+rm -rf /etc/sysupdate.d
+set_machine_tags unrelated
+"$SYSUPDATE" enable-feature --feature-suggested
+assert_dropin "$(feat_enable_dropin_default feata)" yes
+test ! -e "$(feat_enable_dropin_default featb)"
+test ! -e "$(feat_enable_dropin_default featc)"
+
+# --feature-suggested with the machine tag set: feata + featc are picked.
+rm -rf /etc/sysupdate.d
+set_machine_tags sysupdate-test-tag
+"$SYSUPDATE" enable-feature --feature-suggested
+assert_dropin "$(feat_enable_dropin_default feata)" yes
+assert_dropin "$(feat_enable_dropin_default featc)" yes
+test ! -e "$(feat_enable_dropin_default featb)"
+set_machine_tags ""
+
+# ---------------------------------------------------------------------------
+# Features scoped to a named component, and across all components at once
+# ---------------------------------------------------------------------------
+compfeat_reset
+compfeat_source v1
+mkdir -p /run/sysupdate.d /run/sysupdate.compx.d
+compfeat_transfer /run/sysupdate.d/01-base.transfer base "$CF/target-default"
+compfeat_transfer /run/sysupdate.compx.d/01-compx.transfer compx "$CF/target-compx"
+cat >/run/sysupdate.d/feata.feature <<EOF
+[Feature]
+Description=Default feature A
+EOF
+cat >/run/sysupdate.compx.d/featx.feature <<EOF
+[Feature]
+Description=Component X feature
+EOF
+
+# --component= scopes feature operations to that component: the drop-in must land
+# next to the component's definitions, and the default component is untouched.
+"$SYSUPDATE" --component=compx enable-feature --feature-all
+assert_dropin "$(feat_enable_dropin_comp compx featx)" yes
+test ! -e "$(feat_enable_dropin_default feata)"
+
+# --component-all --feature-all fans out over the default component *and* every
+# named component.
+rm -rf /etc/sysupdate.d /etc/sysupdate.compx.d
+"$SYSUPDATE" --component-all enable-feature --feature-all
+assert_dropin "$(feat_enable_dropin_default feata)" yes
+assert_dropin "$(feat_enable_dropin_comp compx featx)" yes
+
+# ---------------------------------------------------------------------------
+# update --component-all installs every component's update in one invocation
+# ---------------------------------------------------------------------------
+compfeat_reset
+compfeat_source v1
+mkdir -p /run/sysupdate.compx.d /run/sysupdate.compy.d
+compfeat_transfer /run/sysupdate.compx.d/01-compx.transfer compx "$CF/target-compx"
+compfeat_transfer /run/sysupdate.compy.d/01-compy.transfer compy "$CF/target-compy"
+
+"$SYSUPDATE" --component-all --verify=no update
+test -f "$CF/target-compx/compx-v1.bin"
+test -f "$CF/target-compy/compy-v1.bin"
+
+# A second version must likewise be rolled out to every component at once.
+compfeat_source v2
+"$SYSUPDATE" --component-all --verify=no update
+test -f "$CF/target-compx/compx-v2.bin"
+test -f "$CF/target-compy/compy-v2.bin"
+
+# A disabled component must not turn "update --component-all" into a failure:
+# it is skipped, while the remaining enabled components are still updated.
+"$SYSUPDATE" disable-component compy
+compfeat_source v3
+"$SYSUPDATE" --component-all --verify=no update
+test -f "$CF/target-compx/compx-v3.bin"
+test ! -e "$CF/target-compy/compy-v3.bin"
+
+compfeat_cleanup
+restore_machine_info
 
 touch /testok
