@@ -34,7 +34,7 @@
 #include "web-util.h"
 
 static char *arg_image_root = NULL;
-static ImportVerify arg_verify = IMPORT_VERIFY_SIGNATURE;
+static ImportVerify arg_verify = IMPORT_VERIFY_GPG;
 static ImportFlags arg_import_flags = IMPORT_PULL_SETTINGS | IMPORT_PULL_ROOTHASH | IMPORT_PULL_ROOTHASH_SIGNATURE | IMPORT_PULL_VERITY | IMPORT_BTRFS_SUBVOL | IMPORT_BTRFS_QUOTA | IMPORT_CONVERT_QCOW2 | IMPORT_SYNC;
 static uint64_t arg_offset = UINT64_MAX, arg_size_max = UINT64_MAX;
 static struct iovec arg_checksum = {};
@@ -387,16 +387,21 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         break;
 
                 OPTION_LONG("verify", "MODE",
-                            "Verify downloaded image, one of: 'no', 'checksum', 'signature' or literal SHA256 hash"): {
-                        ImportVerify v;
+                            "Verify downloaded image, one of: 'no', 'checksum', 'gpg', 'pkcs7' or literal SHA256 hash"): {
+                        /* For compatability, we have 'signature' map to GPG signatures */
+                        if (streq("signature", opts.arg)) {
+                                arg_verify = IMPORT_VERIFY_GPG;
+                                break;
+                        }
 
-                        v = import_verify_from_string(opts.arg);
+                        ImportVerify v = import_verify_from_string(opts.arg);
                         if (v < 0) {
                                 _cleanup_free_ void *h = NULL;
                                 size_t n;
 
                                 /* If this is not a valid verification mode, maybe it's a literally specified
                                  * SHA256 hash? We can handle that too... */
+
 
                                 r = unhexmem(opts.arg, &h, &n);
                                 if (r < 0 || n == 0)
