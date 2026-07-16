@@ -323,13 +323,25 @@ static int job_on_exit(sd_event_source *s, const siginfo_t *si, void *userdata) 
                 sd_bus_error_setf(&error, SD_BUS_ERROR_FAILED,
                                   "Job terminated abnormally with signal %s.",
                                   signal_to_string(si->si_status));
-        } else if (si->si_status != EXIT_SUCCESS)
-                if (j->status_errno != 0)
+        } else if (si->si_status != EXIT_SUCCESS) {
+                if (j->type == JOB_CHECK_NEW && si->si_status == EXIT_FAILURE) {
+                        r = job_parse_child_output(TAKE_FD(j->stdout_fd), &json);
+                        if (r < 0)
+                                sd_bus_error_setf(&error, SD_BUS_ERROR_FAILED,
+                                                  "Job failed with exit code %i.", si->si_status);
+                        else {
+                                sd_json_variant *v = sd_json_variant_by_key(json, "available");
+
+                                if (!v || !sd_json_variant_is_null(v))
+                                        sd_bus_error_setf(&error, SD_BUS_ERROR_FAILED,
+                                                          "Job failed with exit code %i.", si->si_status);
+                        }
+                } else if (j->status_errno != 0)
                         sd_bus_error_set_errno(&error, j->status_errno);
                 else
                         sd_bus_error_setf(&error, SD_BUS_ERROR_FAILED,
                                           "Job failed with exit code %i.", si->si_status);
-        else {
+        } else {
                 r = job_parse_child_output(TAKE_FD(j->stdout_fd), &json);
                 if (r < 0)
                         sd_bus_error_set_errnof(&error, r, "Failed to parse job worker output: %m");
