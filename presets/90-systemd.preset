@@ -36,6 +36,7 @@ enable systemd-report-basic.socket
 enable systemd-report-cgroup.socket
 enable systemd-report-files.socket
 enable systemd-report-sign-plain.socket
+enable systemd-report-sign-tpm2.socket
 enable systemd-report-sign-tsm.socket
 enable systemd-report.socket
 enable systemd-resolved.service
