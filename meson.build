@@ -2022,11 +2022,11 @@ endif
 
 #####################################################################
 
-# The 'install' field is extended to also control whether the automatically
-# added variant, which is statically linked with libsystemd-shared, is installed:
-#   'yes'    : Mapped to true. The static variant will not be installed.
-#   'no'     : Mapped to false. The static variant will not be installed either.
-#   'both'   : Mapped to true. The static variant will also be installed.
+# The 'install' field is extended to also control whether a variant that is
+# statically linked with libsystemd-shared is created and installed:
+#   'yes'    : Mapped to true. No static variant is created.
+#   'no'     : Mapped to false. No static variant is created.
+#   'both'   : Mapped to true. The static variant is created and installed too.
 #   'static' : Mapped to false, and its target name is suffixed with '.shared'.
 #              The static variant will be installed instead using the original name
 #              (without the '.standalone' suffix).
@@ -2409,7 +2409,7 @@ foreach dict : executables
                 endif
         endif
 
-        if not is_test and not is_fuzz
+        if install in ['both', 'static']
                 link_with_static = []
                 foreach obj : kwargs.get('link_with', [])
                         if obj.full_path() == libshared.full_path()
