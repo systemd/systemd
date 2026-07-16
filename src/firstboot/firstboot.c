@@ -998,6 +998,10 @@ static int prompt_root_shell(int rfd, sd_varlink **mute_console_link) {
         if (r < 0)
                 log_debug_errno(r, "Failed to read credential passwd.shell.root, ignoring: %m");
         else {
+                r = find_shell(rfd, arg_root_shell);
+                if (r < 0)
+                        return r;
+
                 log_debug("Acquired root shell from credential.");
                 return 0;
         }
