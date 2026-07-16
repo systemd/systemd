@@ -1699,6 +1699,35 @@ class NetworkctlTests(unittest.TestCase, Utilities):
         networkctl_reload()
         self.wait_operstate('test1', 'degraded')
 
+    def test_reload_no_reconfigure(self):
+        copy_network_unit('12-dummy.netdev', '25-address-static.network', copy_dropins=False)
+        start_networkd()
+        self.wait_online('dummy98:routable')
+
+        output = check_output('ip -4 address show dev dummy98')
+        print(output)
+        self.assertIn('inet 10.1.2.3/16 brd 10.1.255.255 scope global dummy98', output)
+
+        with open(
+            os.path.join(network_unit_dir, '25-address-static.network'), mode='w', encoding='utf-8'
+        ) as f:
+            f.write('[Match]\nName=dummy98\n\n[Network]\nIPv6AcceptRA=no\nAddress=10.99.0.1/24\n')
+
+        networkctl('reload', '--no-reconfigure')
+
+        output = check_output('ip -4 address show dev dummy98')
+        print(output)
+        self.assertIn('inet 10.1.2.3/16 brd 10.1.255.255 scope global dummy98', output)
+        self.assertNotIn('inet 10.99.0.1/24', output)
+
+        networkctl_reconfigure('dummy98')
+        self.wait_online('dummy98:routable')
+
+        output = check_output('ip -4 address show dev dummy98')
+        print(output)
+        self.assertIn('inet 10.99.0.1/24 brd 10.99.0.255 scope global dummy98', output)
+        self.assertNotIn('inet 10.1.2.3/16', output)
+
     def test_glob(self):
         copy_network_unit('11-dummy.netdev', '11-dummy.network')
         start_networkd()
