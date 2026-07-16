@@ -122,11 +122,21 @@
         <filename>.tar</filename> file. With
         <option>--verify=checksum</option>, only the SHA256 checksum for the file is verified, based on the
         <filename>.sha256</filename> suffixed file or the <filename>SHA256SUMS</filename> file.  With
-        <option>--verify=signature</option>, the sha checksum file is first verified with the detached GPG
+        <option>--verify=gpg</option>, the sha checksum file is first verified with the detached GPG
         signature of <filename>.sha256</filename> or <filename>SHA256SUMS</filename>.  The public key for
         this verification step needs to be available in
         <filename>/usr/lib/systemd/import-pubring.pgp</filename> or
-        <filename>/etc/systemd/import-pubring.pgp</filename>.</para>
+        <filename>/etc/systemd/import-pubring.pgp</filename>.
+        Similarly the <option>--verify=pkcs7</option> verifies the <filename>SHA256SUMS</filename>
+        manifest with a detached PKCS#7 signature
+        <filename>SHA256SUMS.p7s</filename>, using certificates stored in the following locations:
+        <simplelist>
+            <member><filename>/etc/import-certs.d/*.crt</filename></member>
+            <member><filename>/run/import-certs.d/*.crt</filename></member>
+            <member><filename>/usr/local/lib/import-certs.d/*.crt</filename></member>
+            <member><filename>/usr/lib/import-certs.d/*.crt</filename></member>
+        </simplelist>
+        </para>
 
         <para>If <option>-keep-download=yes</option> is specified the image will be downloaded and stored in
         a read-only subvolume/directory in the image directory that is named after the specified URL and its
@@ -313,10 +323,10 @@
         made available. Takes one of <literal>no</literal>, <literal>checksum</literal> and
         <literal>signature</literal>.  If <literal>no</literal>, no verification is done. If
         <literal>checksum</literal> is specified, the download is checked for integrity after the transfer is
-        complete, but no signatures are verified. If <literal>signature</literal> is specified, the checksum
+        complete, but no signatures are verified. If <literal>gpg</literal> or <literal>pkcs7</literal> is specified, the checksum
         is verified and the image's signature is checked against a local keyring of trustable vendors. It is
-        strongly recommended to set this option to <literal>signature</literal> if the server and protocol
-        support this. Defaults to <literal>signature</literal>.</para>
+        strongly recommended to set this option to <literal>gpg</literal> or <literal>pkcs7</literal> if the server and protocol
+        support this. Defaults to <literal>gpg</literal>.</para>
 
         <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
