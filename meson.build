@@ -2022,11 +2022,11 @@ endif
 
 #####################################################################
 
-# The 'install' field is extended to also control whether the automatically
-# added variant, which is statically linked with libsystemd-shared, is installed:
-#   'yes'    : Mapped to true. The static variant will not be installed.
-#   'no'     : Mapped to false. The static variant will not be installed either.
-#   'both'   : Mapped to true. The static variant will also be installed.
+# The 'install' field is extended to also control whether a variant that is
+# statically linked with libsystemd-shared is created and installed:
+#   'yes'    : Mapped to true. No static variant is created.
+#   'no'     : Mapped to false. No static variant is created.
+#   'both'   : Mapped to true. The static variant is created and installed too.
 #   'static' : Mapped to false, and its target name is suffixed with '.shared'.
 #              The static variant will be installed instead using the original name
 #              (without the '.standalone' suffix).
@@ -2350,12 +2350,10 @@ foreach dict : executables
                 install_shared = true
                 install_static = false
                 build_by_default_shared = build_by_default
-                build_by_default_static = false
         elif install == 'no'
                 install_shared = false
                 install_static = false
                 build_by_default_shared = build_by_default
-                build_by_default_static = false
         elif install == 'both'
                 if is_test or is_fuzz
                         error('Install mode "@0@" is not supported for test or fuzzer target "@1@"'.format(install, name))
@@ -2363,7 +2361,6 @@ foreach dict : executables
                 install_shared = true
                 install_static = true
                 build_by_default_shared = build_by_default
-                build_by_default_static = build_by_default
         elif install == 'static'
                 if is_test or is_fuzz
                         error('Install mode "@0@" is not supported for test or fuzzer target "@1@"'.format(install, name))
@@ -2373,7 +2370,6 @@ foreach dict : executables
                 install_shared = false
                 install_static = true
                 build_by_default_shared = false
-                build_by_default_static = build_by_default
         else
                 error('Unknown install mode "@0@" for target "@1@"'.format(install, name))
         endif
@@ -2409,7 +2405,7 @@ foreach dict : executables
                 endif
         endif
 
-        if not is_test and not is_fuzz
+        if install_static
                 link_with_static = []
                 foreach obj : kwargs.get('link_with', [])
                         if obj.full_path() == libshared.full_path()
@@ -2436,19 +2432,16 @@ foreach dict : executables
                         kwargs : kwargs_static,
                         implicit_include_directories : false,
                         include_directories : include_directories,
-                        build_by_default: build_by_default_static,
-                        install: install_static,
+                        install: true,
                 )
 
                 executables_by_name += { name_static : exe_static }
 
-                if build_by_default_static
-                        if dict.get('dbus', false) and not build_by_default_shared
-                                dbus_programs += exe_static
-                        endif
-                        if dict.get('public', false)
-                                public_programs += exe_static
-                        endif
+                if dict.get('dbus', false) and not build_by_default_shared
+                        dbus_programs += exe_static
+                endif
+                if dict.get('public', false)
+                        public_programs += exe_static
                 endif
         endif
 
@@ -2525,6 +2518,7 @@ foreach dict : modules
         name = dict.get('name')
         is_nss = name.startswith('nss_')
         is_pam = name.startswith('pam_')
+        install_static = dict.get('install') in ['both', 'static']
 
         build = true
         foreach cond : dict.get('conditions', [])
@@ -2544,6 +2538,9 @@ foreach dict : modules
                 endif
                 kwargs += { key : val }
         endforeach
+        if install_static
+                kwargs += { 'install' : dict.get('install') == 'both' }
+        endif
 
         kwargs += {
                 'link_args' : [
@@ -2566,9 +2563,11 @@ foreach dict : modules
         )
 
         module_targets += lib
-        modules_by_name += { name : lib }
+        if is_nss or is_pam or install_static
+                modules_by_name += { name : lib }
+        endif
 
-        if not is_nss and not is_pam
+        if not is_nss and not is_pam and install_static
                 # Typically for cryptsetup token modules.
 
                 name_static = name + '.standalone'
