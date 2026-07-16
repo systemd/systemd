@@ -411,7 +411,7 @@ static int reload_daemons(ReloadFlags flags) {
                 if (!networkd_is_running())
                         log_debug("systemd-networkd is not running, skipping reload.");
                 else
-                        RET_GATHER(ret, reload_networkd());
+                        RET_GATHER(ret, reload_networkd(/* reconfigure_links= */ true));
         }
 
         return ret;

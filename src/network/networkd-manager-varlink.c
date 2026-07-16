@@ -18,6 +18,7 @@
 #include "networkd-manager.h"
 #include "networkd-manager-varlink.h"
 #include "stat-util.h"
+#include "string-util.h"
 #include "varlink-io.systemd.Network.h"
 #include "varlink-io.systemd.Network.Link.h"
 #include "varlink-io.systemd.service.h"
@@ -237,17 +238,30 @@ static int vl_method_set_persistent_storage(sd_varlink *vlink, sd_json_variant *
 }
 
 static int vl_method_reload(sd_varlink *vlink, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
-        Manager *m = ASSERT_PTR(userdata);
-        int r;
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "reconfigureLinks", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate, 0, SD_JSON_NULLABLE },
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {}
+        };
 
-        assert(vlink);
+        const char *method;
+        int r = sd_varlink_get_current_method(vlink, &method);
+        if (r < 0)
+                return r;
+
+        int reconfigure_links = -1; /* tristate: -1 = unset (defaults to true) */
+        r = sd_varlink_dispatch(
+                        vlink,
+                        parameters,
+                        streq(method, "io.systemd.Network.Reload") ? dispatch_table : dispatch_table_polkit_only,
+                        streq(method, "io.systemd.Network.Reload") ? &reconfigure_links : NULL);
+        if (r != 0)
+                return r;
+
+        Manager *m = ASSERT_PTR(userdata);
 
         if (m->reloading > 0)
                 return sd_varlink_error(vlink, "io.systemd.Network.AlreadyReloading", NULL);
-
-        r = sd_varlink_dispatch(vlink, parameters, dispatch_table_polkit_only, /* userdata= */ NULL);
-        if (r != 0)
-                return r;
 
         r = varlink_verify_polkit_async(
                         vlink,
@@ -258,7 +272,7 @@ static int vl_method_reload(sd_varlink *vlink, sd_json_variant *parameters, sd_v
         if (r <= 0)
                 return r;
 
-        r = manager_reload(m, /* message= */ NULL, vlink);
+        r = manager_reload(m, /* message= */ NULL, vlink, /* reconfigure_links= */ reconfigure_links != 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to reload: %m");
 
@@ -302,6 +316,7 @@ int manager_varlink_init(Manager *m, int fd) {
                         "io.systemd.Network.GetStates",            vl_method_get_states,
                         "io.systemd.Network.GetNamespaceId",       vl_method_get_namespace_id,
                         "io.systemd.Network.GetLLDPNeighbors",     vl_method_get_lldp_neighbors,
+                        "io.systemd.Network.Reload",               vl_method_reload,
                         "io.systemd.Network.SetPersistentStorage", vl_method_set_persistent_storage,
                         "io.systemd.Network.Link.Describe",        vl_method_link_describe,
                         "io.systemd.Network.Link.Up",              vl_method_link_up,
