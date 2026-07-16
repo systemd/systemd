@@ -24,6 +24,19 @@ rm -rf /tmp/mismatched-name
 cp -a /tmp/minimal_0 /tmp/mismatched-name
 portablectl inspect /tmp/mismatched-name | grep -F "minimal-app0.service" >/dev/null
 
+rm -rf /tmp/remove-relative
+cp -a /tmp/minimal_0 /tmp/remove-relative
+(cd /tmp && portablectl remove ./remove-relative)
+test ! -e /tmp/remove-relative
+
+rm -rf /tmp/symlink-unit
+cp -a /tmp/minimal_0 /tmp/symlink-unit
+printf '[Service]\nExecStart=/bin/true\n' >/tmp/portable-host-unit
+rm -f /tmp/symlink-unit/usr/lib/systemd/system/minimal-app0.service
+ln -s /tmp/portable-host-unit /tmp/symlink-unit/usr/lib/systemd/system/minimal-app0.service
+(! portablectl inspect --cat /tmp/symlink-unit minimal-app0.service)
+rm -f /tmp/portable-host-unit
+
 portablectl "${ARGS[@]}" attach --copy=symlink --now --runtime /tmp/minimal_0 minimal-app0
 
 systemctl is-active minimal-app0.service
@@ -143,6 +156,13 @@ grep -q -F "ExtensionDirectories=" /run/systemd/system.attached/app0.service.d/2
 (! grep -q -F "x-systemd.relax-extension-release-check" /run/systemd/system.attached/app0.service.d/20-portable.conf)
 
 portablectl detach --now --runtime --extension /tmp/app0 /tmp/rootdir app0
+
+rm -rf /tmp/app10
+cp -a /tmp/app0 /tmp/app10
+portablectl "${ARGS[@]}" attach --force --copy=symlink --runtime --extension /tmp/app10 /tmp/rootdir app0
+portablectl inspect --force --cat --extension /tmp/app10 /tmp/rootdir app0 | grep -f /tmp/app10/usr/lib/extension-release.d/extension-release.app0 >/dev/null
+portablectl detach --runtime --extension /tmp/app10 /tmp/rootdir app0
+rm -rf /tmp/app10
 
 # Attempt to disable the app unit during detaching. Requires --copy=symlink to reproduce.
 # Provides coverage for https://github.com/systemd/systemd/issues/23481
