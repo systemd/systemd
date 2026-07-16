@@ -1533,9 +1533,109 @@ static int on_announcement_timeout(sd_event_source *s, usec_t usec, void *userda
         return 0;
 }
 
+static int dns_scope_make_announcement_packet(DnsScope *scope, size_t max_size, DnsPacket **ret) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
+        int r;
+
+        assert(scope);
+        assert(ret);
+
+        r = dns_packet_new(&p, scope->protocol, 0, max_size);
+        if (r < 0)
+                return r;
+
+        DNS_PACKET_HEADER(p)->flags = htobe16(DNS_PACKET_MAKE_FLAGS(
+                                                              1 /* qr */,
+                                                              0 /* opcode */,
+                                                              1 /* aa, see RFC 6762, section 18.4 */,
+                                                              0 /* tc */,
+                                                              0 /* (tentative) */,
+                                                              0 /* (ra) */,
+                                                              0 /* (ad) */,
+                                                              0 /* (cd) */,
+                                                              DNS_RCODE_SUCCESS));
+
+        *ret = TAKE_PTR(p);
+        return 0;
+}
+
+static int dns_scope_emit_announcement(DnsScope *scope, DnsAnswer *answer) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
+        size_t max_size = DNS_PACKET_SIZE_MAX;
+        unsigned n_answer = 0;
+        DnsAnswerItem *item;
+        int r;
+
+        assert(scope);
+
+        /* An unsolicited DNS-SD announcement (or goodbye) covers the whole zone, which easily outgrows
+         * both the compression pointer range that dns_packet_append_name() can address and the interface
+         * MTU that RFC 6762 § 17 expects multicast DNS messages to fit into. Instead of emitting one
+         * oversized datagram, split the RRset across as many MTU-sized packets as needed. */
+        if (scope->link && scope->link->mtu > udp_header_size(scope->family) + DNS_PACKET_HEADER_SIZE)
+                max_size = scope->link->mtu - udp_header_size(scope->family);
+
+        DNS_ANSWER_FOREACH_ITEM(item, answer) {
+                if (!p) {
+                        r = dns_scope_make_announcement_packet(scope, max_size, &p);
+                        if (r < 0)
+                                return r;
+                }
+
+                r = dns_packet_append_rr(p, item->rr, item->flags, NULL, NULL);
+                if (r == -EMSGSIZE && n_answer > 0) {
+                        /* Packet full — emit it and retry this RR in a fresh one. */
+                        DNS_PACKET_HEADER(p)->ancount = htobe16(n_answer);
+                        r = dns_scope_emit_udp(scope, -1, AF_UNSPEC, p);
+                        if (r < 0)
+                                return r;
+
+                        p = dns_packet_unref(p);
+                        n_answer = 0;
+
+                        r = dns_scope_make_announcement_packet(scope, max_size, &p);
+                        if (r < 0)
+                                return r;
+
+                        r = dns_packet_append_rr(p, item->rr, item->flags, NULL, NULL);
+                }
+                if (r == -EMSGSIZE && max_size < DNS_PACKET_SIZE_MAX) {
+                        /* A single RR larger than the MTU. RFC 6762 § 17 allows exceeding the MTU for a
+                         * single resource record if it cannot be sent any other way, relying on IP
+                         * fragmentation. Emit it alone in an oversized packet. */
+                        p = dns_packet_unref(p);
+
+                        r = dns_scope_make_announcement_packet(scope, DNS_PACKET_SIZE_MAX, &p);
+                        if (r < 0)
+                                return r;
+
+                        r = dns_packet_append_rr(p, item->rr, item->flags, NULL, NULL);
+                        if (r < 0)
+                                return r;
+
+                        DNS_PACKET_HEADER(p)->ancount = htobe16(1);
+                        r = dns_scope_emit_udp(scope, -1, AF_UNSPEC, p);
+                        if (r < 0)
+                                return r;
+
+                        p = dns_packet_unref(p);
+                        continue;
+                }
+                if (r < 0)
+                        return r;
+
+                n_answer++;
+        }
+
+        if (!p)
+                return 0;
+
+        DNS_PACKET_HEADER(p)->ancount = htobe16(n_answer);
+        return dns_scope_emit_udp(scope, -1, AF_UNSPEC, p);
+}
+
 int dns_scope_announce(DnsScope *scope, bool goodbye) {
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
-        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
         _cleanup_set_free_ Set *types = NULL;
         DnsZoneItem *z;
         unsigned size = 0;
@@ -1546,6 +1646,12 @@ int dns_scope_announce(DnsScope *scope, bool goodbye) {
                 return 0;
 
         if (scope->protocol != DNS_PROTOCOL_MDNS)
+                return 0;
+
+        /* Once the shutdown goodbyes went out, nothing positive must be announced on this scope
+         * anymore: a probe transaction completing (or a stale §8.3 re-announcement timer firing)
+         * during the goodbye grace second would re-publish the very records just withdrawn. */
+        if (scope->withdrawing && !goodbye)
                 return 0;
 
         r = sd_event_get_state(scope->manager->event);
@@ -1580,8 +1686,10 @@ int dns_scope_announce(DnsScope *scope, bool goodbye) {
                 }
 
                 /* Collect service types for _services._dns-sd._udp.local RRs in a set. Only two-label names
-                 * (not selective names) are considered according to RFC6763 § 9. */
-                if (!scope->announced &&
+                 * (not selective names) are considered according to RFC6763 § 9. Never do this for a
+                 * goodbye: the enumeration PTRs synthesized below are added to the answer with a positive
+                 * TTL and (re-)inserted into the zone — both the opposite of withdrawing. */
+                if (!scope->announced && !goodbye &&
                     dns_resource_key_is_dnssd_two_label_ptr(z->rr->key)) {
                         if (!set_contains(types, dns_resource_key_name(z->rr->key))) {
                                 r = set_ensure_put(&types, &dns_name_hash_ops, dns_resource_key_name(z->rr->key));
@@ -1643,17 +1751,14 @@ int dns_scope_announce(DnsScope *scope, bool goodbye) {
         if (dns_answer_isempty(answer))
                 return 0;
 
-        r = dns_scope_make_reply_packet(scope, 0, DNS_RCODE_SUCCESS, NULL, answer, NULL, false, &p);
+        r = dns_scope_emit_announcement(scope, answer);
         if (r < 0)
-                return log_debug_errno(r, "Failed to build reply packet: %m");
-
-        r = dns_scope_emit_udp(scope, -1, AF_UNSPEC, p);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to send reply packet: %m");
+                return log_debug_errno(r, "Failed to emit announcement packets: %m");
 
         /* In section 8.3 of RFC6762: "The Multicast DNS responder MUST send at least two unsolicited
-         * responses, one second apart." */
-        if (!scope->announced) {
+         * responses, one second apart." A goodbye is not one of those initial announcements: scheduling
+         * the positive-TTL re-announcement from here would resurrect the records just withdrawn. */
+        if (!scope->announced && !goodbye) {
                 scope->announced = true;
 
                 r = sd_event_add_time_relative(

@@ -90,6 +90,8 @@ typedef struct Manager {
         int mdns_ipv6_fd;
         sd_event_source *mdns_ipv4_event_source;
         sd_event_source *mdns_ipv6_event_source;
+        sd_event_source *mdns_goodbye_retransmit_event_source;
+        bool mdns_goodbyes_sent;
 
         /* DNS-SD */
         Hashmap *dnssd_registered_services;
