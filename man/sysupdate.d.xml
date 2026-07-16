@@ -497,12 +497,21 @@
       <varlistentry>
         <term><varname>Verify=</varname></term>
 
-        <listitem><para>Takes a boolean, defaults to yes. Controls whether to cryptographically verify
-        downloaded resources (specifically: validate the GPG signatures for downloaded
+        <listitem><para>Takes one of: 'gpg', 'pkcs7', or 'no', defaults to 'gpg'. Controls the method used to cryptographically verify
+        downloaded resources. The default, 'gpg' validates the GPG signatures for downloaded
         <filename>SHA256SUMS</filename> manifest files, via their detached signature files
         <filename>SHA256SUMS.gpg</filename> in combination with the system keyring
         <filename>/usr/lib/systemd/import-pubring.pgp</filename> or
-        <filename>/etc/systemd/import-pubring.pgp</filename>).</para>
+        <filename>/etc/systemd/import-pubring.pgp</filename>. Similarly 'pkcs7' validates <filename>SHA256SUMS</filename> with
+        <filename>SHA256SUMS.p7s</filename> and the certificates located in:
+        <simplelist>
+            <member><filename>/etc/import-certs.d/*.crt</filename></member>
+            <member><filename>/run/import-certs.d/*.crt</filename></member>
+            <member><filename>/usr/local/lib/import-certs.d/*.crt</filename></member>
+            <member><filename>/usr/lib/import-certs.d/*.crt</filename></member>
+        </simplelist>
+        Using 'no' disables signature verification.
+        </para>
 
         <para>This option is essential to provide integrity guarantees for downloaded resources and thus
         should be left enabled, outside of test environments.</para>
