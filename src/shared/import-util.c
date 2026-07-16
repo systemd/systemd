@@ -7,6 +7,7 @@
 #include "import-util.h"
 #include "log.h"
 #include "nulstr-util.h"
+#include "parse-util.h"
 #include "string-table.h"
 #include "string-util.h"
 
@@ -133,10 +134,42 @@ DEFINE_STRING_TABLE_LOOKUP(import_type, ImportType);
 static const char* const import_verify_table[_IMPORT_VERIFY_MAX] = {
         [IMPORT_VERIFY_NO]        = "no",
         [IMPORT_VERIFY_CHECKSUM]  = "checksum",
-        [IMPORT_VERIFY_SIGNATURE] = "signature",
+        [IMPORT_VERIFY_GPG]       = "gpg",
+        [IMPORT_VERIFY_PKCS7]     = "pkcs7",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(import_verify, ImportVerify);
+
+/* In order to keep compat with the existing CLI and configuration of sysupdate we need
+   to parse boolean input in addition to the enum */
+ImportVerify parse_import_verify_bool_compat(const char *s) {
+        ImportVerify v;
+        int r;
+
+        v = import_verify_from_string(s);
+        /* Checksum is not valid here */
+        if (v < 0 || v == IMPORT_VERIFY_CHECKSUM) {
+                /* Could be a boolean option instead */
+                r = parse_boolean(s);
+                if (r < 0)
+                        return _IMPORT_VERIFY_INVALID;
+
+                v = r ? IMPORT_VERIFY_GPG : IMPORT_VERIFY_NO;
+        }
+
+        return v;
+}
+/* For compatibility, we have 'signature' map to GPG signatures */
+ImportVerify parse_import_verify_compat(const char *s) {
+        if (streq("signature", s))
+                return IMPORT_VERIFY_GPG;
+
+        ImportVerify v = import_verify_from_string(s);
+        if (v < 0)
+                return _IMPORT_VERIFY_INVALID;
+
+        return v;
+}
 
 int tar_strip_suffixes(const char *name, char **ret) {
         const char *e;
