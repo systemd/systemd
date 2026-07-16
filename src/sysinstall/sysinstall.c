@@ -689,11 +689,12 @@ static int sysinstall_context_invoke_repart_run(SysInstallContext *context) {
         return result.ret;
 }
 
-static int read_space_metrics(
+static int read_repart_metrics(
                 sd_json_variant *v,
                 uint64_t *min_size,
                 uint64_t *current_size,
-                uint64_t *need_free) {
+                uint64_t *need_free,
+                uint64_t *n_partitions) {
 
         int r;
 
@@ -701,16 +702,19 @@ static int read_space_metrics(
                 uint64_t min_size;
                 uint64_t current_size;
                 uint64_t need_free;
+                uint64_t n_partitions;
         } p = {
                 .min_size = UINT64_MAX,
                 .current_size = UINT64_MAX,
                 .need_free = UINT64_MAX,
+                .n_partitions = UINT64_MAX,
         };
 
         static const sd_json_dispatch_field dispatch_table[] = {
                 { "minimalSizeBytes", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64, voffsetof(p, min_size),     0 },
                 { "currentSizeBytes", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64, voffsetof(p, current_size), 0 },
                 { "needFreeBytes",    _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64, voffsetof(p, need_free),    0 },
+                { "partitionCount",  _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64, voffsetof(p, n_partitions), 0 },
                 {}
         };
 
@@ -724,6 +728,8 @@ static int read_space_metrics(
                 *current_size = p.current_size;
         if (need_free)
                 *need_free = p.need_free;
+        if (n_partitions)
+                *n_partitions = p.n_partitions;
 
         return 0;
 }
@@ -736,7 +742,8 @@ static int invoke_repart(
                 char **definitions,
                 uint64_t *min_size,        /* initialized both on success and error */
                 uint64_t *current_size,    /* ditto */
-                uint64_t *need_free) {     /* ditto */
+                uint64_t *need_free,       /* ditto */
+                uint64_t *n_partitions) {  /* ditto; UINT64_MAX if not determined */
 
         int r;
 
@@ -747,7 +754,7 @@ static int invoke_repart(
 
         r = connect_to_repart(link);
         if (r < 0) {
-                read_space_metrics(/* v= */ NULL, min_size, current_size, need_free);
+                read_repart_metrics(/* v= */ NULL, min_size, current_size, need_free, n_partitions);
                 return r;
         }
 
@@ -772,19 +779,19 @@ static int invoke_repart(
                         SD_JSON_BUILD_PAIR_BOOLEAN("deferPartitionsEmpty", true),
                         SD_JSON_BUILD_PAIR_BOOLEAN("deferPartitionsFactoryReset", true));
         if (r < 0) {
-                read_space_metrics(/* v= */ NULL, min_size, current_size, need_free);
+                read_repart_metrics(/* v= */ NULL, min_size, current_size, need_free, n_partitions);
                 return log_error_errno(r, "Failed to issue io.systemd.Repart.Run() varlink call: %m");
         }
         if (error_id) {
                 if (streq(error_id, "io.systemd.Repart.InsufficientFreeSpace")) {
-                        (void) read_space_metrics(reply, min_size, current_size, need_free);
+                        (void) read_repart_metrics(reply, min_size, current_size, need_free, n_partitions);
                         return log_full_errno(
                                         dry_run ? LOG_DEBUG : LOG_ERR,
                                         SYNTHETIC_ERRNO(ENOSPC),
                                         "Not enough free space on disk, cannot install.");
                 }
                 if (streq(error_id, "io.systemd.Repart.DiskTooSmall")) {
-                        (void) read_space_metrics(reply, min_size, current_size, need_free);
+                        (void) read_repart_metrics(reply, min_size, current_size, need_free, n_partitions);
                         return log_full_errno(
                                         dry_run ? LOG_DEBUG : LOG_ERR,
                                         SYNTHETIC_ERRNO(E2BIG),
@@ -792,7 +799,7 @@ static int invoke_repart(
                 }
 
                 /* For all other errors reset the metrics */
-                read_space_metrics(/* v= */ NULL, min_size, current_size, need_free);
+                read_repart_metrics(/* v= */ NULL, min_size, current_size, need_free, n_partitions);
 
                 if (streq(error_id, "io.systemd.Repart.ConflictingDiskLabelPresent"))
                         return log_full_errno(
@@ -807,7 +814,7 @@ static int invoke_repart(
                 return log_error_errno(r, "Failed to issue io.systemd.Repart.Run() varlink call: %s", error_id);
         }
 
-        (void) read_space_metrics(reply, min_size, current_size, need_free);
+        (void) read_repart_metrics(reply, min_size, current_size, need_free, n_partitions);
 
         return 0;
 }
@@ -922,7 +929,8 @@ static int validate_run(sd_varlink **repart_link, const char *node) {
         /* First loop: either with explicitly configured --erase= value, or false. A second loop only if not configured explicitly. */
         bool try_erase = arg_erase > 0, conflicting_disk_label = false;
         for (;;) {
-                uint64_t min_size = UINT64_MAX, current_size = UINT64_MAX, need_free = UINT64_MAX;
+                uint64_t min_size = UINT64_MAX, current_size = UINT64_MAX, need_free = UINT64_MAX,
+                        n_partitions = UINT64_MAX;
                 r = invoke_repart(
                                 repart_link,
                                 node,
@@ -931,7 +939,8 @@ static int validate_run(sd_varlink **repart_link, const char *node) {
                                 arg_definitions,
                                 &min_size,
                                 &current_size,
-                                &need_free);
+                                &need_free,
+                                &n_partitions);
                 if (r == -ENOSPC) {
                         /* The disk is large enough, but there's not enough unallocated space. Hence proceed, but require erasing */
                         if (try_erase || arg_erase >= 0)
@@ -969,9 +978,16 @@ static int validate_run(sd_varlink **repart_link, const char *node) {
                         log_warning("A conflicting disk label has been found, and must be erased for installation.");
 
                 if (arg_erase < 0) {
-                        r = prompt_erase(/* can_add= */ !try_erase, &arg_erase);
-                        if (r < 0)
-                                return r;
+                        if (n_partitions == 0) {
+                                /* If the disk contains no partitions there's nothing worth preserving on
+                                 * it, hence don't bother asking whether to erase it. */
+                                log_info("The selected disk contains no partitions, proceeding.");
+                                arg_erase = false;
+                        } else {
+                                r = prompt_erase(/* can_add= */ !try_erase, &arg_erase);
+                                if (r < 0)
+                                        return r;
+                        }
                 }
 
                 return 0;
@@ -1753,7 +1769,8 @@ static int fetch_candidate_devices_reply(
                         context->definitions,
                         &min_size,
                         &current_size,
-                        &need_free);
+                        &need_free,
+                        /* n_partitions= */ NULL);
 
         DeviceFit fit;
         if (r < 0) {
@@ -2131,7 +2148,8 @@ static int run(int argc, char *argv[]) {
                                 arg_definitions,
                                 &min_size,
                                 /* current_size= */ NULL,
-                                /* need_free= */ NULL);
+                                /* need_free= */ NULL,
+                                /* n_partitions= */ NULL);
                 if (r < 0)
                         return r;
 
