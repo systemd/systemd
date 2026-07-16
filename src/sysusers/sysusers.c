@@ -468,6 +468,34 @@ static const char* pick_shell(const Item *i) {
         return NOLOGIN;
 }
 
+static int read_shell_credential(const Item *i, char **ret) {
+        _cleanup_free_ char *cn = NULL, *shell = NULL;
+        int r;
+
+        assert(i);
+        assert(ret);
+
+        cn = strjoin("passwd.shell.", i->name);
+        if (!cn)
+                return -ENOMEM;
+
+        r = read_credential(cn, (void**) &shell, NULL);
+        if (r < 0) {
+                log_debug_errno(r, "Couldn't read credential '%s', ignoring: %m", cn);
+                *ret = NULL;
+                return 0;
+        }
+
+        path_simplify(shell);
+        if (!valid_shell(shell))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Shell credential '%s' specifies invalid login shell '%s'.",
+                                       cn, shell);
+
+        *ret = TAKE_PTR(shell);
+        return 0;
+}
+
 static int write_temporary_passwd(
                 Context *c,
                 const char *passwd_path,
@@ -488,6 +516,14 @@ static int write_temporary_passwd(
                 goto done;
 
         if (arg_dry_run) {
+                ORDERED_HASHMAP_FOREACH(i, c->todo_uids) {
+                        _cleanup_free_ char *creds_shell = NULL;
+
+                        r = read_shell_credential(i, &creds_shell);
+                        if (r < 0)
+                                return r;
+                }
+
                 log_info("Would write /etc/passwd%s", glyph(GLYPH_ELLIPSIS));
                 goto done;
         }
@@ -540,7 +576,7 @@ static int write_temporary_passwd(
         }
 
         ORDERED_HASHMAP_FOREACH(i, c->todo_uids) {
-                _cleanup_free_ char *creds_shell = NULL, *cn = NULL;
+                _cleanup_free_ char *creds_shell = NULL;
 
                 struct passwd n = {
                         .pw_name = i->name,
@@ -559,15 +595,10 @@ static int write_temporary_passwd(
                         .pw_shell = (char*) pick_shell(i),
                 };
 
-                /* Try to pick up the shell for this account via the credentials logic */
-                cn = strjoin("passwd.shell.", i->name);
-                if (!cn)
-                        return -ENOMEM;
-
-                r = read_credential(cn, (void**) &creds_shell, NULL);
+                r = read_shell_credential(i, &creds_shell);
                 if (r < 0)
-                        log_debug_errno(r, "Couldn't read credential '%s', ignoring: %m", cn);
-                else
+                        return r;
+                if (creds_shell)
                         n.pw_shell = creds_shell;
 
                 r = putpwent_sane(&n, passwd);
