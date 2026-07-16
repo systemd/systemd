@@ -7,6 +7,7 @@
 extern PagerFlags arg_pager_flags;
 extern bool arg_legend;
 extern bool arg_no_reload;
+extern bool arg_no_reconfigure;
 extern bool arg_all;
 extern bool arg_stats;
 extern bool arg_full;

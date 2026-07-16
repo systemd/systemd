@@ -28,6 +28,7 @@
 PagerFlags arg_pager_flags = 0;
 bool arg_legend = true;
 bool arg_no_reload = false;
+bool arg_no_reconfigure = false;
 bool arg_all = false;
 bool arg_stats = false;
 bool arg_full = false;
@@ -165,6 +166,11 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                 OPTION_LONG("no-reload", NULL,
                             "Do not reload systemd-networkd or systemd-udevd after editing network config"):
                         arg_no_reload = true;
+                        break;
+
+                OPTION_LONG("no-reconfigure", NULL,
+                            "Only reload config files, do not reconfigure network interfaces"):
+                        arg_no_reconfigure = true;
                         break;
 
                 OPTION_LONG("drop-in", "NAME",

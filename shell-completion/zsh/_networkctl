@@ -58,5 +58,6 @@ _arguments \
     '(- *)--version[Show package version]' \
     '--drop-in=[Use the given drop-in file name]:NAME' \
     '--no-reload[Do not reload the network manager state when editing]' \
+    '--no-reconfigure[Reload config files without reconfiguring network interfaces]' \
     '--json=[Shows output formatted as JSON]:format:_networkctl_get_json' \
     '*::networkctl commands:_networkctl_commands'
