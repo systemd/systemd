@@ -1428,6 +1428,23 @@ size_t strspn_from_end(const char *str, const char *accept) {
         return n;
 }
 
+size_t strnspn(const char *str, const char *accept, size_t n) {
+        size_t i;
+
+        /* Like strspn(), but reads at most 'n' bytes from 'str'. Returns the length of the initial
+         * run of 'str' (capped at 'n') that consists solely of bytes found in 'accept'. Stops at a
+         * NUL byte too. Unlike strspn() this is safe on a buffer that is not NUL terminated within
+         * 'n' bytes. */
+
+        assert(str || n == 0);
+        assert(accept);
+
+        for (i = 0; i < n && str[i] != '\0' && strchr(accept, str[i]); i++)
+                ;
+
+        return i;
+}
+
 char* strdupspn(const char *a, const char *accept) {
         if (isempty(a) || isempty(accept))
                 return strdup("");
