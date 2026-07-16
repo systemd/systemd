@@ -900,8 +900,8 @@ int encrypt_credential_and_warn(
         if (name && !credential_name_valid(name))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid credential name: %s", name);
 
-        if (not_after != USEC_INFINITY && timestamp != USEC_INFINITY && not_after < timestamp)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Credential is invalidated before it is valid (" USEC_FMT " < " USEC_FMT ").", not_after, timestamp);
+        if (not_after != USEC_INFINITY && timestamp != USEC_INFINITY && not_after <= timestamp)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Credential is invalidated before or when it becomes valid (" USEC_FMT " <= " USEC_FMT ").", not_after, timestamp);
 
         if (DEBUG_LOGGING) {
                 char buf[FORMAT_TIMESTAMP_MAX];
