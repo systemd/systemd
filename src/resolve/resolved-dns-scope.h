@@ -72,6 +72,7 @@ typedef struct DnsScope {
         LIST_FIELDS(DnsScope, scopes);
 
         bool announced;
+        bool withdrawing;
 } DnsScope;
 
 int dns_scope_new(Manager *m, DnsScope **ret, DnsScopeOrigin origin, Link *link, DnsDelegate *delegate, DnsProtocol protocol, int family);
