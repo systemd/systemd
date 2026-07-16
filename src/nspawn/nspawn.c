@@ -2232,9 +2232,9 @@ static int make_extra_nodes(const char *dest) {
         FOREACH_ARRAY(node, arg_extra_nodes, arg_n_extra_nodes) {
                 _cleanup_free_ char *path = NULL;
 
-                path = path_join(dest, node->path);
-                if (!path)
-                        return log_oom();
+                r = chase(node->path, dest, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT|CHASE_NOFOLLOW, &path, /* ret_fd= */ NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to resolve device node path '%s': %m", node->path);
 
                 dev_t dev = S_ISCHR(node->mode) || S_ISBLK(node->mode) ? makedev(node->major, node->minor) : 0;
                 if (mknod(path, node->mode, dev) < 0)
