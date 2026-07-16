@@ -3089,7 +3089,7 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                         break;
 
                 OPTION_LONG("verify", "MODE",
-                            "Force signature verification mode, one of: 'gpg', ' pkcs7', or 'no'"): {
+                            "Force signature verification mode, one of: 'gpg', 'pkcs7', or 'no'"): {
                         /* Checksum is not valid here */
                         ImportVerify v = parse_import_verify_bool_compat(opts.arg);
                         if (v < 0 || v == IMPORT_VERIFY_CHECKSUM)
