@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <unistd.h>
 #include "alloc-util.h"
 #include "efi-api.h"
 #include "efi-loader.h"
@@ -12,6 +13,7 @@
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "tdx-rtmr.h"
 #include "time-util.h"
 #include "tpm2-pcr.h"
 #include "utf8.h"
@@ -264,11 +266,62 @@ int efi_stub_get_features(uint64_t *ret) {
 #endif
 }
 
+#if ENABLE_EFI
+static int stub_measured_kernel_pcr(int log_level) {
+        _cleanup_free_ char *pcr_string = NULL;
+        unsigned pcr_nr;
+        int r;
+
+        r = efi_get_variable_string(EFI_LOADER_VARIABLE_STR("StubPcrKernelImage"), &pcr_string);
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0)
+                return log_full_errno(log_level, r,
+                                      "Failed to get StubPcrKernelImage EFI variable: %m");
+
+        r = safe_atou(pcr_string, &pcr_nr);
+        if (r < 0)
+                return log_full_errno(log_level, r,
+                                      "Failed to parse StubPcrKernelImage EFI variable: %s", pcr_string);
+        if (pcr_nr != TPM2_PCR_KERNEL_BOOT)
+                return log_full_errno(log_level, SYNTHETIC_ERRNO(EREMOTE),
+                                      "Kernel stub measured kernel image into PCR %u, which is different than expected %i.",
+                                      pcr_nr, TPM2_PCR_KERNEL_BOOT);
+        return 1;
+}
+#endif
+
+static int cc_measured_uki(int log_level) {
+        static int cached = -1;
+        int r;
+
+        if (cached >= 0)
+                return cached;
+
+        /* Same as efi_measured_uki(), but for CC measurement registers: whether sd-stub measured the
+         * kernel image into the PCR-11-equivalent CC register (e.g. a TDX RTMR) via the CC measurement
+         * protocol. The stub sets StubPcrKernelImage regardless of which protocol it measured through;
+         * the presence of the firmware CC event log (CCEL) tells us the CC protocol was in use. */
+
+        r = secure_getenv_bool("SYSTEMD_ENFORCE_MEASURE");
+        if (r >= 0)
+                return (cached = r);
+        if (r != -ENXIO)
+                log_debug_errno(r, "Failed to parse $SYSTEMD_FORCE_MEASURE, ignoring: %m");
+
+        if (access(cc_firmware_log_path(), F_OK) < 0) {
+                if (errno != ENOENT)
+                        log_debug_errno(errno, "Failed to check for CC event log, assuming none: %m");
+                return (cached = 0);
+        }
+
+        return (cached = stub_measured_kernel_pcr(log_level));
+}
+
 int efi_measured_uki(int log_level) {
 #if ENABLE_EFI
         _cleanup_free_ char *pcr_string = NULL;
         static int cached = -1;
-        unsigned pcr_nr;
         int r;
 
         if (cached >= 0)
@@ -282,7 +335,7 @@ int efi_measured_uki(int log_level) {
          * userspace. (i.e. we expect PCR 11 being used for this by both sd-stub and us) */
 
         r = secure_getenv_bool("SYSTEMD_FORCE_MEASURE"); /* Give user a chance to override the variable test,
-                                                          * for debugging purposes */
+                                                             * for debugging purposes */
         if (r >= 0)
                 return (cached = r);
         if (r != -ENXIO)
@@ -291,23 +344,7 @@ int efi_measured_uki(int log_level) {
         if (!efi_has_tpm2())
                 return (cached = 0);
 
-        r = efi_get_variable_string(EFI_LOADER_VARIABLE_STR("StubPcrKernelImage"), &pcr_string);
-        if (r == -ENOENT)
-                return (cached = 0);
-        if (r < 0)
-                return log_full_errno(log_level, r,
-                                      "Failed to get StubPcrKernelImage EFI variable: %m");
-
-        r = safe_atou(pcr_string, &pcr_nr);
-        if (r < 0)
-                return log_full_errno(log_level, r,
-                                      "Failed to parse StubPcrKernelImage EFI variable: %s", pcr_string);
-        if (pcr_nr != TPM2_PCR_KERNEL_BOOT)
-                return log_full_errno(log_level, SYNTHETIC_ERRNO(EREMOTE),
-                                      "Kernel stub measured kernel image into PCR %u, which is different than expected %i.",
-                                      pcr_nr, TPM2_PCR_KERNEL_BOOT);
-
-        return (cached = 1);
+        return (cached = stub_measured_kernel_pcr(log_level));
 #else
         return log_full_errno(log_level, SYNTHETIC_ERRNO(EOPNOTSUPP), "Compiled without support for EFI");
 #endif
@@ -331,7 +368,11 @@ int efi_measured_os(int log_level) {
                 return (cached = b);
 
         /* If nothing is explicitly configured, just assume that if we booted with a measured UKI we also want a measured OS */
-        return (cached = efi_measured_uki(log_level));
+        r = efi_measured_uki(log_level);
+        if (r != 0)
+                return (cached = r);   /* measured via TPM2, or a real error */
+
+        return (cached = cc_measured_uki(log_level));
 #else
         return log_full_errno(log_level, SYNTHETIC_ERRNO(EOPNOTSUPP), "Compiled without support for EFI");
 #endif

@@ -14,9 +14,11 @@
 #include "help-util.h"
 #include "json-util.h"
 #include "main-func.h"
+#include "measurement-log.h"
 #include "options.h"
 #include "parse-argument.h"
 #include "pcrextend-util.h"
+#include "runtime-measure.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
@@ -38,7 +40,7 @@ static uint32_t arg_pcr_mask = 0;
 static char *arg_nvpcr_name = NULL;
 static bool arg_varlink = false;
 static bool arg_early = false;
-static Tpm2UserspaceEventType arg_event_type = _TPM2_USERSPACE_EVENT_TYPE_INVALID;
+static UserspaceMeasurementEventType arg_event_type = _USERSPACE_MEASUREMENT_EVENT_TYPE_INVALID;
 
 STATIC_DESTRUCTOR_REGISTER(arg_banks, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_device, freep);
@@ -61,7 +63,7 @@ static int help(void) {
         help_cmdline("[OPTIONS...] --machine-id");
         help_cmdline("[OPTIONS...] --product-id");
         help_cmdline("[OPTIONS...] --login=UID|USER");
-        help_abstract("Extend a TPM2 PCR with boot phase, machine ID, file system ID or user record.");
+        help_abstract("Extend a PCR with boot phase, machine ID, file system ID or user record.");
 
         help_section("Options");
         r = table_print_or_warn(options);
@@ -144,7 +146,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 }
 
                 OPTION_LONG("graceful", NULL,
-                            "Exit gracefully if no TPM2 device is found"):
+                            "Exit gracefully if no measurement backend is found"):
                         arg_graceful = true;
                         break;
 
@@ -185,9 +187,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 OPTION_LONG("event-type", "TYPE",
                             "Event type to include in the event log"):
                         if (streq(opts.arg, "help"))
-                                return DUMP_STRING_TABLE(tpm2_userspace_event_type, Tpm2UserspaceEventType, _TPM2_USERSPACE_EVENT_TYPE_MAX);
+                                return DUMP_STRING_TABLE(userspace_measurement_event_type, UserspaceMeasurementEventType, _USERSPACE_MEASUREMENT_EVENT_TYPE_MAX);
 
-                        arg_event_type = tpm2_userspace_event_type_from_string(opts.arg);
+                        arg_event_type = userspace_measurement_event_type_from_string(opts.arg);
                         if (arg_event_type < 0)
                                 return log_error_errno(arg_event_type, "Failed to parse --event-type= argument: %s", opts.arg);
                         break;
@@ -308,46 +310,67 @@ static int extend_pcr_now(
                 uint32_t pcr_mask,
                 const void *data,
                 size_t size,
-                Tpm2UserspaceEventType event) {
+                UserspaceMeasurementEventType event) {
 
         _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
+        _cleanup_free_ char *joined_banks = NULL, *banks_log = NULL;
         int r;
 
         assert(pcr_mask != 0);
 
-        r = tpm2_context_new_for_measurement(&c);
-        if (r < 0)
-                return r;
+        if (arg_tpm2_device || tpm2_is_mostly_supported()) {
+                r = tpm2_context_new_for_measurement(&c);
+                if (r < 0 && r != -EOPNOTSUPP)
+                        return r;
 
-        r = determine_banks(c, pcr_mask);
-        if (r < 0)
-                return r;
-        if (strv_isempty(arg_banks)) /* Still none? */
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Found a TPM2 without enabled PCR banks. Can't operate.");
+                r = determine_banks(c, pcr_mask);
+                if (r < 0)
+                        return r;
+                if (strv_isempty(arg_banks)) /* Still none? */
+                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Found a TPM2 without enabled PCR banks. Can't operate.");
 
-        _cleanup_free_ char *joined_banks = NULL;
-        joined_banks = strv_join(arg_banks, ", ");
-        if (!joined_banks)
-                return log_oom();
+                joined_banks = strv_join(arg_banks, ", ");
+                if (!joined_banks)
+                        return log_oom();
+
+                banks_log = strjoin(", banks ", joined_banks);
+                if (!banks_log)
+                        return log_oom();
+        }
 
         _cleanup_free_ char *safe = NULL;
         if (escape_and_truncate_data(data, size, &safe) < 0)
                 return log_oom();
 
-        BIT_FOREACH(pcr, pcr_mask) {
-                log_debug("Measuring '%s' into PCR index %i, banks %s.", safe, pcr, joined_banks);
+        bool measured = false;
 
-                r = tpm2_pcr_extend_bytes(c, arg_banks, pcr, &IOVEC_MAKE(data, size), /* secret= */ NULL, event, safe);
+        BIT_FOREACH(pcr, pcr_mask) {
+                log_debug("Measuring '%s' into PCR index %i%s.", safe, pcr, strempty(banks_log));
+
+                r = runtime_measurement_extend_bytes(
+                                &(RuntimeMeasureBackends) { .tpm2 = c, .tpm2_banks = arg_banks },
+                                pcr, &IOVEC_MAKE(data, size), /* secret= */ NULL, event, safe);
+                if (r == -EOPNOTSUPP) {
+                        /* On TPM2-less systems, PCRs without a mapping (e.g. PCR 0 maps to no RTMR) cannot
+                         * be measured anywhere. Skip them, but fail if nothing was measured at all. */
+                        log_info("No measurement backend covers PCR %i, skipping.", pcr);
+                        continue;
+                }
                 if (r < 0)
-                        return log_error_errno(r, "Could not extend PCR: %m");
+                        return log_error_errno(r, "Could not extend PCR %i: %m", pcr);
+
+                measured = true;
 
                 log_struct(LOG_INFO,
                            LOG_MESSAGE_ID(SD_MESSAGE_TPM_PCR_EXTEND_STR),
-                           LOG_MESSAGE("Extended PCR index %i with '%s' (banks %s).", pcr, safe, joined_banks),
+                           LOG_MESSAGE("Extended PCR index %i with '%s'%s.", pcr, safe, strempty(banks_log)),
                            LOG_ITEM("MEASURING=%s", safe),
                            LOG_ITEM("PCR=%i", pcr),
-                           LOG_ITEM("BANKS=%s", joined_banks));
+                           LOG_ITEM("BANKS=%s", strempty(joined_banks)));
         }
+
+        if (!measured)
+                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "No PCR could be measured, no measurement backend available.");
 
         return 0;
 }
@@ -356,16 +379,18 @@ static int extend_nvpcr_now(
                 const char *name,
                 const void *data,
                 size_t size,
-                Tpm2UserspaceEventType event) {
+                UserspaceMeasurementEventType event) {
 
         _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
         int r;
 
         assert(name);
 
-        r = tpm2_context_new_for_measurement(&c);
-        if (r < 0)
-                return r;
+        if (arg_tpm2_device || tpm2_is_mostly_supported()) {
+                r = tpm2_context_new_for_measurement(&c);
+                if (r < 0 && r != -EOPNOTSUPP)
+                        return r;
+        }
 
         _cleanup_free_ char *safe = NULL;
         if (escape_and_truncate_data(data, size, &safe) < 0)
@@ -373,17 +398,17 @@ static int extend_nvpcr_now(
 
         log_debug("Measuring '%s' into NvPCR index '%s'.", safe, name);
 
-        r = tpm2_nvpcr_extend_bytes(
-                        c,
-                        /* session= */ NULL,
+        r = runtime_measurement_extend_nvpcr(
+                        &(RuntimeMeasureBackends) { .tpm2 = c, .tpm2_sync_secondary_anchor = !arg_early },
                         name,
                         &IOVEC_MAKE(data, size),
                         /* secret= */ NULL,
-                        /* sync_secondary_anchor= */ !arg_early,
                         event,
                         safe);
         if (r == -ENOBUFS)
                 return r; /* NV space exhausted; let caller handle gracefully */
+        if (r == -EOPNOTSUPP)
+                return r; /* No measurement backend available; let caller handle gracefully */
         if (r < 0)
                 return log_error_errno(r, "Could not extend NvPCR: %m");
 
@@ -401,7 +426,7 @@ typedef struct MethodExtendParameters {
         const char *nvpcr;
         const char *text;
         struct iovec data;
-        Tpm2UserspaceEventType event_type;
+        UserspaceMeasurementEventType event_type;
 } MethodExtendParameters;
 
 static void method_extend_parameters_done(MethodExtendParameters *p) {
@@ -410,21 +435,21 @@ static void method_extend_parameters_done(MethodExtendParameters *p) {
         iovec_done(&p->data);
 }
 
-static JSON_DISPATCH_ENUM_DEFINE(json_dispatch_tpm2_userspace_event_type, Tpm2UserspaceEventType, tpm2_userspace_event_type_from_string);
+static JSON_DISPATCH_ENUM_DEFINE(json_dispatch_userspace_measurement_event_type, UserspaceMeasurementEventType, userspace_measurement_event_type_from_string);
 
 static int vl_method_extend(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "pcr",       _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,                   offsetof(MethodExtendParameters, pcr),   0 },
-                { "nvpcr",     SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,           offsetof(MethodExtendParameters, nvpcr), 0 },
-                { "text",      SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,           offsetof(MethodExtendParameters, text),  0 },
-                { "data",      SD_JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec,            offsetof(MethodExtendParameters, data),   0 },
-                { "eventType", SD_JSON_VARIANT_STRING,        json_dispatch_tpm2_userspace_event_type, offsetof(MethodExtendParameters, event_type), 0 },
+                { "pcr",       _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,                          offsetof(MethodExtendParameters, pcr),        0 },
+                { "nvpcr",     SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,                  offsetof(MethodExtendParameters, nvpcr),      0 },
+                { "text",      SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,                  offsetof(MethodExtendParameters, text),       0 },
+                { "data",      SD_JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec,                   offsetof(MethodExtendParameters, data),       0 },
+                { "eventType", SD_JSON_VARIANT_STRING,        json_dispatch_userspace_measurement_event_type, offsetof(MethodExtendParameters, event_type), 0 },
                 {}
         };
         _cleanup_(method_extend_parameters_done) MethodExtendParameters p = {
                 .pcr = UINT_MAX,
-                .event_type = _TPM2_USERSPACE_EVENT_TYPE_INVALID,
+                .event_type = _USERSPACE_MEASUREMENT_EVENT_TYPE_INVALID,
         };
         int r;
 
@@ -504,7 +529,7 @@ static int vl_server(void) {
 
 static int run(int argc, char *argv[]) {
         _cleanup_free_ char *word = NULL;
-        Tpm2UserspaceEventType event = _TPM2_USERSPACE_EVENT_TYPE_INVALID;
+        UserspaceMeasurementEventType event = _USERSPACE_MEASUREMENT_EVENT_TYPE_INVALID;
         int r;
 
         LIBBLKID_NOTE(recommended);
@@ -530,7 +555,7 @@ static int run(int argc, char *argv[]) {
                 if (r < 0)
                         return r;
 
-                event = TPM2_EVENT_FILESYSTEM;
+                event = USERSPACE_MEASUREMENT_EVENT_FILESYSTEM;
 
         } else if (arg_machine_id) {
 
@@ -541,7 +566,7 @@ static int run(int argc, char *argv[]) {
                 if (r < 0)
                         return r;
 
-                event = TPM2_EVENT_MACHINE_ID;
+                event = USERSPACE_MEASUREMENT_EVENT_MACHINE_ID;
 
         } else if (arg_product_id)  {
 
@@ -552,7 +577,7 @@ static int run(int argc, char *argv[]) {
                 if (r < 0)
                         return r;
 
-                event = TPM2_EVENT_PRODUCT_ID;
+                event = USERSPACE_MEASUREMENT_EVENT_PRODUCT_ID;
 
         } else if (arg_login) {
 
@@ -563,7 +588,7 @@ static int run(int argc, char *argv[]) {
                 if (r < 0)
                         return r;
 
-                event = TPM2_EVENT_LOGIN;
+                event = USERSPACE_MEASUREMENT_EVENT_LOGIN;
         } else {
                 if (n_args != 1)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Expected a single argument.");
@@ -578,15 +603,15 @@ static int run(int argc, char *argv[]) {
                 if (isempty(word))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "String to measure cannot be empty, refusing.");
 
-                event = TPM2_EVENT_PHASE;
+                event = USERSPACE_MEASUREMENT_EVENT_PHASE;
         }
 
         /* Override with explicitly configured event type */
         if (arg_event_type >= 0)
                 event = arg_event_type;
 
-        if (arg_graceful && !tpm2_is_mostly_supported()) {
-                log_notice("No complete TPM2 support detected, exiting gracefully.");
+        if (arg_graceful && !runtime_measurements_supported()) {
+                log_notice("No measurement backend detected, exiting gracefully.");
                 return EXIT_SUCCESS;
         }
 
@@ -595,7 +620,9 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
         if (r == 0) {
-                log_info("OS measurements not explicitly requested and kernel stub did not measure kernel image into PCR %i, skipping userspace measurement, too.", TPM2_PCR_KERNEL_BOOT);
+                log_info("OS measurements not explicitly requested and kernel stub did not "
+                         "measure kernel image into PCR %i or an equivalent CC measurement register, "
+                         "skipping userspace measurement, too.", TPM2_PCR_KERNEL_BOOT);
                 return EXIT_SUCCESS;
         }
 
@@ -603,12 +630,12 @@ static int run(int argc, char *argv[]) {
                 r = extend_nvpcr_now(arg_nvpcr_name, word, strlen(word), event);
         else
                 r = extend_pcr_now(arg_pcr_mask, word, strlen(word), event);
-        /* Both extend paths report "TPM cannot be used for this measurement" (no PCR bank, missing crypto,
-         * no TPM device — see tpm2_context_new_for_measurement()) as -EOPNOTSUPP. Under --graceful we skip
-         * those rather than fail and block boot. Genuine faults keep their own errno and are never
-         * suppressed. */
+        /* Both extend paths report "no backend can be used for this measurement" (no PCR bank, missing
+         * crypto, no TPM device — see tpm2_context_new_for_measurement(), and no TDX RTMRs) as
+         * -EOPNOTSUPP. Under --graceful we skip those rather than fail and block boot. Genuine faults
+         * keep their own errno and are never suppressed. */
         if (arg_graceful && r == -EOPNOTSUPP) {
-                log_notice_errno(r, "TPM2 cannot be used for measurement (no usable PCR bank, missing device, or missing crypto support), skipping gracefully.");
+                log_notice_errno(r, "No measurement backend can be used, skipping gracefully.");
                 return EXIT_SUCCESS;
         }
         if (arg_graceful && r == -ENOBUFS) {

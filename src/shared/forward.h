@@ -39,12 +39,12 @@ typedef enum RemoveFlags RemoveFlags;
 typedef enum ResolveSupport ResolveSupport;
 typedef enum TPM2Flags TPM2Flags;
 typedef enum Tpm2Support Tpm2Support;
-typedef enum Tpm2UserspaceEventType Tpm2UserspaceEventType;
 typedef enum UnitFileFlags UnitFileFlags;
 typedef enum UnitFilePresetMode UnitFilePresetMode;
 typedef enum UnitFileState UnitFileState;
 typedef enum UserDBFlags UserDBFlags;
 typedef enum UserRecordLoadFlags UserRecordLoadFlags;
+typedef enum UserspaceMeasurementEventType UserspaceMeasurementEventType;
 typedef enum UserStorage UserStorage;
 
 typedef struct Argon2IdParameters Argon2IdParameters;

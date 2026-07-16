@@ -1009,10 +1009,13 @@ WantedBy=sleep.target</programlisting>
             if it detects that the firmware has discovered a TPM2 device but the OS kernel has not activated
             a driver for it yet. It is also pulled in whenever
             <citerefentry><refentrytitle>systemd-udevd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-            discovers a TPM2 device. The target unit is ordered after the <filename>/dev/tpmrm0</filename>
-            device node, so that it only becomes active once the TPM2 device is actually accessible. Early
-            boot programs that intend to access the TPM2 device should hence order themselves after this
-            target unit, but not pull it in.</para>
+            discovers a TPM2 device. The generator orders the target unit after the
+            <filename>/dev/tpmrm0</filename> device node, so that it only becomes active once the TPM2
+            device is actually accessible. On Intel TDX confidential VMs the target serves as the
+            equivalent synchronization point for the RTMR measurement interface, i.e. it is ordered after
+            the <filename>/dev/tdx_guest</filename> device instead. Early boot programs that intend to
+            access the TPM2 device (or the CC measurement registers) should hence order themselves after
+            this target unit, but not pull it in.</para>
 
             <xi:include href="version-info.xml" xpointer="v256"/>
           </listitem>

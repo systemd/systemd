@@ -14,5 +14,6 @@ executables += [
                 'name' : 'systemd-hibernate-resume-generator',
                 'sources' : files('hibernate-resume-generator.c'),
                 'import' : ['systemd-hibernate-resume'],
+                'dependencies' : [tpm2_cflags, libopenssl_cflags],
         },
 ]

@@ -6,6 +6,7 @@
 #include "dlopen-note.h"
 #include "forward.h"
 #include "iovec-util.h"
+#include "measurement-log.h"
 #include "sha256.h"
 
 typedef enum TPM2Flags {
@@ -168,33 +169,14 @@ int tpm2_get_best_pcr_bank_legacy(Tpm2Context *c, uint32_t pcr_mask, TPMI_ALG_HA
 const char* tpm2_userspace_log_path(void);
 const char* tpm2_firmware_log_path(void);
 
-typedef enum Tpm2UserspaceEventType {
-        TPM2_EVENT_PHASE,
-        TPM2_EVENT_FILESYSTEM,
-        TPM2_EVENT_VOLUME_KEY,
-        TPM2_EVENT_MACHINE_ID,
-        TPM2_EVENT_PRODUCT_ID,
-        TPM2_EVENT_KEYSLOT,
-        TPM2_EVENT_NVPCR_INIT,
-        TPM2_EVENT_NVPCR_SEPARATOR,
-        TPM2_EVENT_DM_VERITY,
-        TPM2_EVENT_IMDS_USERDATA,
-        TPM2_EVENT_OS_SEPARATOR,
-        TPM2_EVENT_LOGIN,
-        _TPM2_USERSPACE_EVENT_TYPE_MAX,
-        _TPM2_USERSPACE_EVENT_TYPE_INVALID = -EINVAL,
-} Tpm2UserspaceEventType;
-
-DECLARE_STRING_TABLE_LOOKUP(tpm2_userspace_event_type, Tpm2UserspaceEventType);
-
-int tpm2_pcr_extend_bytes(Tpm2Context *c, char **banks, unsigned pcr_index, const struct iovec *data, const struct iovec *secret, Tpm2UserspaceEventType event_type, const char *description);
+int tpm2_pcr_extend_bytes(Tpm2Context *c, char **banks, unsigned pcr_index, const struct iovec *data, const struct iovec *secret, UserspaceMeasurementEventType event_type, const char *description);
 
 /* Default allocation priority for NvPCRs that do not specify one explicitly. Lower values are more
  * important and are allocated first when the TPM's NV index space is constrained. */
 #define TPM2_NVPCR_PRIORITY_DEFAULT UINT64_C(1000)
 
 int tpm2_nvpcr_get_index(const char *name, uint32_t *ret_nv_index, uint64_t *ret_priority);
-int tpm2_nvpcr_extend_bytes(Tpm2Context *c, const Tpm2Handle *session, const char *name, const struct iovec *data, const struct iovec *secret, bool sync_secondary_anchor, Tpm2UserspaceEventType event_type, const char *description);
+int tpm2_nvpcr_extend_bytes(Tpm2Context *c, const Tpm2Handle *session, const char *name, const struct iovec *data, const struct iovec *secret, bool sync_secondary_anchor, UserspaceMeasurementEventType event_type, const char *description);
 int tpm2_nvpcr_acquire_anchor_secret(struct iovec *ret, bool sync_secondary);
 int tpm2_nvpcr_initialize(Tpm2Context *c, const Tpm2Handle *session, const char *name, const struct iovec *anchor_secret);
 int tpm2_nvpcr_read(Tpm2Context *c, const Tpm2Handle *session, const char *name, struct iovec *ret, uint32_t *ret_nv_index, uint64_t *ret_priority);
@@ -580,6 +562,10 @@ static inline bool tpm2_is_fully_supported(void) {
 static inline bool tpm2_is_mostly_supported(void) {
         return (tpm2_support() & TPM2_SUPPORT_SOFTWARE) == TPM2_SUPPORT_SOFTWARE;
 }
+
+/* Whether a TPM2 device is expected to be available once tpm2.target has been reached, even if none is
+ * present yet. For generators, which run before device probing and the software TPM fallback service. */
+bool tpm2_is_device_expected(void);
 
 int verb_has_tpm2_generic(bool quiet);
 
