@@ -567,8 +567,15 @@ static int write_temporary_passwd(
                 r = read_credential(cn, (void**) &creds_shell, NULL);
                 if (r < 0)
                         log_debug_errno(r, "Couldn't read credential '%s', ignoring: %m", cn);
-                else
+                else {
+                        path_simplify(creds_shell);
+                        if (!valid_shell(creds_shell))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Shell credential '%s' specifies invalid login shell '%s'.",
+                                                       cn, creds_shell);
+
                         n.pw_shell = creds_shell;
+                }
 
                 r = putpwent_sane(&n, passwd);
                 if (r < 0)
