@@ -352,6 +352,11 @@ grep -q "^root::" "$ROOT/etc/shadow"
 rm -fv "$ROOT/etc/passwd" "$ROOT/etc/shadow"
 
 (! systemd-firstboot --root="$ROOT" --root-shell=/bin/nonexistentshell)
+WCREDS="$(mktemp -d)"
+printf '/bin/nonexistentshell' >"$WCREDS/passwd.shell.root"
+(! CREDENTIALS_DIRECTORY="$WCREDS" systemd-firstboot --root="$ROOT")
+[[ ! -e "$ROOT/etc/passwd" ]]
+rm -rf "$WCREDS"
 (! systemd-firstboot --root="$ROOT" --machine-id=invalidmachineid)
 (! systemd-firstboot --root="$ROOT" --timezone=Foo/Bar)
 
