@@ -8284,6 +8284,11 @@ static int context_fstab(Context *context) {
                 return 0;
         }
 
+        if (arg_dry_run) {
+                log_notice("Running in dry run mode, not generating %s", arg_generate_fstab);
+                return 0;
+        }
+
         path = path_join(arg_copy_source, arg_generate_fstab);
         if (!path)
                 return log_oom();
@@ -8413,6 +8418,11 @@ static int context_crypttab(Context *context) {
         if (!need_crypttab(context)) {
                 log_notice("EncryptedVolume= is not specified for any eligible partitions, not generating %s",
                            arg_generate_crypttab);
+                return 0;
+        }
+
+        if (arg_dry_run) {
+                log_notice("Running in dry run mode, not generating %s", arg_generate_crypttab);
                 return 0;
         }
 
