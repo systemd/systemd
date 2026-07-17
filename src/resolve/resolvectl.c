@@ -2415,8 +2415,10 @@ static int dump_server_state(sd_json_variant *server) {
                 const char *type;
                 const char *ifname;
                 int ifindex;
-                const char *verified_feature_level;
-                const char *possible_feature_level;
+                const char *verified_transport;
+                const char *possible_transport;
+                const char *verified_capability_level;
+                const char *possible_capability_level;
                 const char *dnssec_mode;
                 bool dnssec_supported;
                 size_t received_udp_fragment_max;
@@ -2438,8 +2440,10 @@ static int dump_server_state(sd_json_variant *server) {
                 { "Type",                   SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,  offsetof(struct server_state, type),                      SD_JSON_MANDATORY },
                 { "Interface",              SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,  offsetof(struct server_state, ifname),                    0                 },
                 { "InterfaceIndex",         _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_ifindex,          offsetof(struct server_state, ifindex),                   SD_JSON_RELAX     },
-                { "VerifiedFeatureLevel",   SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,  offsetof(struct server_state, verified_feature_level),    0                 },
-                { "PossibleFeatureLevel",   SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,  offsetof(struct server_state, possible_feature_level),    0                 },
+                { "VerifiedTransport",      SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,  offsetof(struct server_state, verified_transport),        0                 },
+                { "PossibleTransport",      SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,  offsetof(struct server_state, possible_transport),        0                 },
+                { "VerifiedCapabilityLevel", SD_JSON_VARIANT_STRING,       sd_json_dispatch_const_string,  offsetof(struct server_state, verified_capability_level), 0                 },
+                { "PossibleCapabilityLevel", SD_JSON_VARIANT_STRING,       sd_json_dispatch_const_string,  offsetof(struct server_state, possible_capability_level), 0                 },
                 { "DNSSECMode",             SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,  offsetof(struct server_state, dnssec_mode),               SD_JSON_MANDATORY },
                 { "DNSSECSupported",        SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,       offsetof(struct server_state, dnssec_supported),          SD_JSON_MANDATORY },
                 { "ReceivedUDPFragmentMax", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,        offsetof(struct server_state, received_udp_fragment_max), SD_JSON_MANDATORY },
@@ -2493,18 +2497,34 @@ static int dump_server_state(sd_json_variant *server) {
                         return table_log_add_error(r);
         }
 
-        if (server_state.verified_feature_level) {
+        if (server_state.verified_transport) {
                 r = table_add_many(table,
-                                   TABLE_FIELD, "Verified feature level",
-                                   TABLE_STRING, server_state.verified_feature_level);
+                                   TABLE_FIELD, "Verified transport",
+                                   TABLE_STRING, server_state.verified_transport);
                 if (r < 0)
                         return table_log_add_error(r);
         }
 
-        if (server_state.possible_feature_level) {
+        if (server_state.possible_transport) {
                 r = table_add_many(table,
-                                   TABLE_FIELD, "Possible feature level",
-                                   TABLE_STRING, server_state.possible_feature_level);
+                                   TABLE_FIELD, "Possible transport",
+                                   TABLE_STRING, server_state.possible_transport);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        if (server_state.verified_capability_level) {
+                r = table_add_many(table,
+                                   TABLE_FIELD, "Verified capability level",
+                                   TABLE_STRING, server_state.verified_capability_level);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        if (server_state.possible_capability_level) {
+                r = table_add_many(table,
+                                   TABLE_FIELD, "Possible capability level",
+                                   TABLE_STRING, server_state.possible_capability_level);
                 if (r < 0)
                         return table_log_add_error(r);
         }
