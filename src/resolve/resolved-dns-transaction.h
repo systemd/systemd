@@ -85,6 +85,10 @@ typedef struct DnsTransaction {
         /* TCP connection logic, if we need it */
         DnsStream *stream;
 
+#if HAVE_LIBCURL_HEADER && HAVE_LIBCURL_URL
+        DnsHttpRequest *doh_request;
+#endif
+
         /* The active server */
         DnsServer *server;
 
@@ -150,6 +154,9 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(DnsTransaction*, dns_transaction_gc);
 int dns_transaction_go(DnsTransaction *t);
 
 void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, DnsTransactionTransport transport);
+#if HAVE_LIBCURL_HEADER && HAVE_LIBCURL_URL
+void dns_transaction_on_doh_complete(DnsTransaction *t, DnsHttpRequest *request, DnsPacket *p, int error);
+#endif
 void dns_transaction_complete(DnsTransaction *t, DnsTransactionState state);
 
 void dns_transaction_notify(DnsTransaction *t, DnsTransaction *source);
