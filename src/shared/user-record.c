@@ -394,7 +394,7 @@ static int json_dispatch_rlimits(const char *name, sd_json_variant *variant, sd_
         return 0;
 }
 
-static int json_dispatch_filename_or_path(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+static int json_dispatch_shell(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         char **s = ASSERT_PTR(userdata);
         const char *n;
         int r;
@@ -408,8 +408,8 @@ static int json_dispatch_filename_or_path(const char *name, sd_json_variant *var
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
 
         n = sd_json_variant_string(variant);
-        if (!filename_is_valid(n) && !path_is_normalized(n))
-                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a valid file name or normalized path.", strna(name));
+        if (!valid_shell(n))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a valid shell path.", strna(name));
 
         r = free_and_strdup(s, n);
         if (r < 0)
@@ -1282,7 +1282,7 @@ static int dispatch_per_machine(const char *name, sd_json_variant *variant, sd_j
                 { "blobManifest",               SD_JSON_VARIANT_OBJECT,        dispatch_blob_manifest,               offsetof(UserRecord, blob_manifest),                 0              },
                 { "iconName",                   SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,              offsetof(UserRecord, icon_name),                     SD_JSON_STRICT },
                 { "location",                   SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,              offsetof(UserRecord, location),                      0              },
-                { "shell",                      SD_JSON_VARIANT_STRING,        json_dispatch_filename_or_path,       offsetof(UserRecord, shell),                         0              },
+                { "shell",                      SD_JSON_VARIANT_STRING,        json_dispatch_shell,                  offsetof(UserRecord, shell),                         0              },
                 { "umask",                      _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_access_mode,            offsetof(UserRecord, umask),                         SD_JSON_STRICT },
                 { "environment",                SD_JSON_VARIANT_ARRAY,         json_dispatch_strv_environment,       offsetof(UserRecord, environment),                   0              },
                 { "timeZone",                   SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,              offsetof(UserRecord, time_zone),                     SD_JSON_STRICT },
@@ -1409,7 +1409,7 @@ static int dispatch_status(const char *name, sd_json_variant *variant, sd_json_d
                 { "removable",                  SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_tristate,      offsetof(UserRecord, removable),                     0              },
                 { "accessMode",                 _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_access_mode,      offsetof(UserRecord, access_mode),                   0              },
                 { "fileSystemType",             SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,        offsetof(UserRecord, file_system_type),              SD_JSON_STRICT },
-                { "fallbackShell",              SD_JSON_VARIANT_STRING,        json_dispatch_filename_or_path, offsetof(UserRecord, fallback_shell),                0              },
+                { "fallbackShell",              SD_JSON_VARIANT_STRING,        json_dispatch_shell,            offsetof(UserRecord, fallback_shell),                0              },
                 { "fallbackHomeDirectory",      SD_JSON_VARIANT_STRING,        json_dispatch_home_directory,   offsetof(UserRecord, fallback_home_directory),       0              },
                 { "useFallback",                SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,       offsetof(UserRecord, use_fallback),                  0              },
                 { "defaultArea",                SD_JSON_VARIANT_STRING,        json_dispatch_filename,         offsetof(UserRecord, default_area),                  0              },
@@ -1651,7 +1651,7 @@ int user_record_load(UserRecord *h, sd_json_variant *v, UserRecordLoadFlags load
                 { "disposition",                SD_JSON_VARIANT_STRING,        json_dispatch_user_disposition,       offsetof(UserRecord, disposition),                   0              },
                 { "lastChangeUSec",             _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,              offsetof(UserRecord, last_change_usec),              0              },
                 { "lastPasswordChangeUSec",     _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,              offsetof(UserRecord, last_password_change_usec),     0              },
-                { "shell",                      SD_JSON_VARIANT_STRING,        json_dispatch_filename_or_path,       offsetof(UserRecord, shell),                         0              },
+                { "shell",                      SD_JSON_VARIANT_STRING,        json_dispatch_shell,                  offsetof(UserRecord, shell),                         0              },
                 { "umask",                      _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_access_mode,            offsetof(UserRecord, umask),                         SD_JSON_STRICT },
                 { "environment",                SD_JSON_VARIANT_ARRAY,         json_dispatch_strv_environment,       offsetof(UserRecord, environment),                   0              },
                 { "timeZone",                   SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,              offsetof(UserRecord, time_zone),                     SD_JSON_STRICT },
