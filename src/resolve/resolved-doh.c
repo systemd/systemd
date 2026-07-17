@@ -16,6 +16,7 @@
 #include "resolved-dns-transaction.h"
 #include "resolved-manager.h"
 #include "socket-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "time-util.h"
 #include "utf8.h"
