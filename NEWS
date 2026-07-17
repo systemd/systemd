@@ -107,6 +107,19 @@ CHANGES WITH 262:
           upgraded, and the existing "anchor secret" stored in /var/lib and the
           ESP/XBOOTLDR will be removed.
 
+        Changes in systemd-report:
+
+        * The "generate" and "upload" commands of systemd-report can now
+          cryptographically sign the reports they produce. Signatures are
+          acquired from backend Varlink signers linked into
+          /run/systemd/report.sign/. The new "--sign=" option selects the
+          signing policy: "no" (the default) emits an unsigned report;
+          "best-effort" attaches whatever signatures can be acquired but never
+          fails; "require-one" requires at least one signature; and
+          "require-all" requires every available signer to succeed. A signed
+          report is emitted as a JSON-SEQ stream: the report object followed by
+          one signature object per acquired signature.
+
 CHANGES WITH 261:
 
         Announcements of Future Feature Removals and Incompatible Changes:

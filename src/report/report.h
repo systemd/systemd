@@ -9,11 +9,20 @@
 #define REPORT_CERT_FILE     CERTIFICATE_ROOT "/certs/systemd-report.pem"
 #define REPORT_TRUST_FILE    CERTIFICATE_ROOT "/ca/trusted.pem"
 
+typedef enum ReportSignMode {
+        REPORT_SIGN_NO,
+        REPORT_SIGN_BEST_EFFORT,
+        REPORT_SIGN_REQUIRE_ONE,
+        REPORT_SIGN_REQUIRE_ALL,
+        _REPORT_SIGN_MODE_MAX,
+        _REPORT_SIGN_MODE_INVALID = -EINVAL,
+} ReportSignMode;
+
 extern sd_json_format_flags_t arg_json_format_flags;
 extern char *arg_url, *arg_key, *arg_cert, *arg_trust;
 extern char **arg_extra_headers;
 extern usec_t arg_network_timeout_usec;
-extern bool arg_sign;
+extern ReportSignMode arg_sign_mode;
 
 typedef enum Action {
         ACTION_LIST_METRICS,
