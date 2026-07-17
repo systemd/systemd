@@ -1246,6 +1246,8 @@ libcurl_cflags = declare_dependency(
         compile_args : '-DSYSTEMD_CFLAGS_MARKER_LIBCURL',
 )
 conf.set10('HAVE_LIBCURL', libcurl.found())
+conf.set10('HAVE_LIBCURL_HEADER', libcurl.found() and libcurl.version().version_compare('>= 7.83.0'))
+conf.set10('HAVE_LIBCURL_URL', libcurl.found() and libcurl.version().version_compare('>= 7.62.0'))
 conf.set10('CURL_NO_OLDIES', conf.get('BUILD_MODE_DEVELOPER') == 1)
 
 libidn2 = dependency('libidn2',
@@ -1468,6 +1470,17 @@ libglib_cflags = declare_dependency(
         ],
         compile_args : '-DSYSTEMD_CFLAGS_MARKER_LIBGLIB',
 )
+
+libsoup = dependency('libsoup-3.0', version : '>= 3.2', required : get_option('doh-test-server'))
+doh_test_server = libsoup.found()
+if doh_test_server and get_option('doh-test-server').enabled()
+        if want_tests == 'false'
+                error('-Ddoh-test-server=enabled requires tests')
+        endif
+        if not get_option('resolve')
+                error('-Ddoh-test-server=enabled requires systemd-resolved')
+        endif
+endif
 
 libdbus = dependency('dbus-1',
                      version : '>= 1.3.2',
@@ -3153,6 +3166,7 @@ foreach tuple : [
         ['slow tests',             want_slow_tests],
         ['fuzz tests',             want_fuzz_tests],
         ['install tests',          install_tests],
+        ['DoH tests',              doh_test_server],
         ['link-udev-shared',       get_option('link-udev-shared')],
         ['link-systemctl-shared',  get_option('link-systemctl-shared')],
         ['link-networkd-shared',   get_option('link-networkd-shared')],
