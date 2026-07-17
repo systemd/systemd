@@ -37,6 +37,13 @@ static DLSYM_PROTOTYPE(curl_multi_setopt) = NULL;
 static DLSYM_PROTOTYPE(curl_multi_socket_action) = NULL;
 DLSYM_PROTOTYPE(curl_slist_append) = NULL;
 DLSYM_PROTOTYPE(curl_slist_free_all) = NULL;
+#if HAVE_LIBCURL_URL
+DLSYM_PROTOTYPE(curl_free) = NULL;
+DLSYM_PROTOTYPE(curl_url) = NULL;
+DLSYM_PROTOTYPE(curl_url_cleanup) = NULL;
+DLSYM_PROTOTYPE(curl_url_get) = NULL;
+DLSYM_PROTOTYPE(curl_url_set) = NULL;
+#endif
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(CURLM*, sym_curl_multi_cleanup, curl_multi_cleanupp, NULL);
 
@@ -628,7 +635,15 @@ int dlopen_curl(int log_level) {
                         DLSYM_ARG(curl_multi_setopt),
                         DLSYM_ARG(curl_multi_socket_action),
                         DLSYM_ARG(curl_slist_append),
-                        DLSYM_ARG(curl_slist_free_all));
+                        DLSYM_ARG(curl_slist_free_all)
+#if HAVE_LIBCURL_URL
+                        , DLSYM_ARG(curl_free)
+                        , DLSYM_ARG(curl_url)
+                        , DLSYM_ARG(curl_url_cleanup)
+                        , DLSYM_ARG(curl_url_get)
+                        , DLSYM_ARG(curl_url_set)
+#endif
+                        );
 #else
         return log_full_errno(log_level, SYNTHETIC_ERRNO(EOPNOTSUPP),
                               "libcurl support is not compiled in.");
