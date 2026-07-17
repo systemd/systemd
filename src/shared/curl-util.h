@@ -25,6 +25,13 @@ extern DLSYM_PROTOTYPE(curl_easy_header);
 extern DLSYM_PROTOTYPE(curl_getdate);
 extern DLSYM_PROTOTYPE(curl_slist_append);
 extern DLSYM_PROTOTYPE(curl_slist_free_all);
+#if HAVE_LIBCURL_URL
+extern DLSYM_PROTOTYPE(curl_free);
+extern DLSYM_PROTOTYPE(curl_url);
+extern DLSYM_PROTOTYPE(curl_url_cleanup);
+extern DLSYM_PROTOTYPE(curl_url_get);
+extern DLSYM_PROTOTYPE(curl_url_set);
+#endif
 
 #define easy_setopt(curl, log_level, opt, value) ({                         \
         CURLcode code = sym_curl_easy_setopt(ASSERT_PTR(curl), opt, value); \
@@ -75,6 +82,10 @@ int curl_append_to_header(struct curl_slist **list, char **headers);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(CURL*, sym_curl_easy_cleanup, curl_easy_cleanupp, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(struct curl_slist*, sym_curl_slist_free_all, curl_slist_free_allp, NULL);
+#if HAVE_LIBCURL_URL
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(char*, sym_curl_free, curl_freep, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(CURLU*, sym_curl_url_cleanup, curl_url_cleanupp, NULL);
+#endif
 #endif
 
 int dlopen_curl(int log_level) _dlopen_loader_;
