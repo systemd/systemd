@@ -23,7 +23,7 @@
 
 #include <stdint.h>
 
-#include "_sd-common.h"
+/* Note: do not include other internal headers from here, to keep it MIT-0 and self-contained */
 
 #ifdef __cplusplus
 extern "C" {
@@ -124,11 +124,12 @@ extern "C" {
  *   linker from ever garbage-collecting the note, defeating the whole purpose of anchoring it to a symbol in
  *   the first place.
  */
-#define _SD_ELF_NOTE_DLOPEN_ANCHORED(tag, uniq_var, json)                                                                       \
+#define _SD_ELF_NOTE_DLOPEN_ANCHORED(tag, json)                                                                                 \
         _Pragma("GCC diagnostic push")                                                                                          \
         _Pragma("GCC diagnostic ignored \"-Wnested-externs\"")                                                                  \
+        _Pragma("GCC diagnostic ignored \"-Wredundant-decls\"")                                                                 \
         __attribute__((visibility("hidden")))                                                                                   \
-        extern volatile const char uniq_var __asm__("__sd_dlopen_anchor_" #tag);                                                \
+        extern volatile const char __sd_dlopen_anchor_##tag __asm__("__sd_dlopen_anchor_" #tag);                                \
         _Pragma("GCC diagnostic pop")                                                                                           \
         __asm__ (                                                                                                               \
                 ".ifndef \"sd_dlopen:emitted:" #tag "\"\n"                                                                      \
@@ -157,7 +158,7 @@ extern "C" {
                 ".popsection\n"                                                                                                 \
                 ".endif\n"                                                                                                      \
         );                                                                                                                      \
-        __asm__ volatile ("" : : "r" (&uniq_var))
+        __asm__ volatile ("" : : "r" (&__sd_dlopen_anchor_##tag))
 
 #define _SD_SONAME_ARRAY1(a) "[\\\"" a "\\\"]"
 #define _SD_SONAME_ARRAY2(a, b) "[\\\"" a "\\\",\\\"" b "\\\"]"
@@ -166,9 +167,6 @@ extern "C" {
 #define _SD_SONAME_ARRAY5(a, b, c, d, e) "[\\\"" a "\\\",\\\"" b "\\\",\\\"" c "\\\",\\\"" d "\\\",\\\"" e "\\\"]"
 #define _SD_SONAME_ARRAY_GET(_1,_2,_3,_4,_5,NAME,...) NAME
 #define _SD_SONAME_ARRAY(...) _SD_SONAME_ARRAY_GET(__VA_ARGS__, _SD_SONAME_ARRAY5, _SD_SONAME_ARRAY4, _SD_SONAME_ARRAY3, _SD_SONAME_ARRAY2, _SD_SONAME_ARRAY1)(__VA_ARGS__)
-
-#define _SD_DLOPEN_UNIQ_VAR(tag)                                \
-        _SD_CONCATENATE(_SD_CONCATENATE(__sd_dlopen_anchor_, tag), _SD_CONCATENATE(_, _SD_UNIQ))
 
 #define _SD_DLOPEN_JSON(feature, description, priority, ...)    \
         "[{"                                                    \
@@ -187,7 +185,7 @@ extern "C" {
         SD_ELF_NOTE_DLOPEN(feature, description, priority, __VA_ARGS__)
 #else
 #  define SD_ELF_NOTE_DLOPEN_ANCHORED(tag, feature, description, priority, ...) \
-        _SD_ELF_NOTE_DLOPEN_ANCHORED(tag, _SD_DLOPEN_UNIQ_VAR(tag), _SD_DLOPEN_JSON(feature, description, priority, __VA_ARGS__))
+        _SD_ELF_NOTE_DLOPEN_ANCHORED(tag, _SD_DLOPEN_JSON(feature, description, priority, __VA_ARGS__))
 #endif
 
 #ifdef __cplusplus
