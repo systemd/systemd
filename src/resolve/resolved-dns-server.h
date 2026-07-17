@@ -42,8 +42,17 @@ typedef enum DnsTransactionTransport {
         _DNS_TRANSACTION_TRANSPORT_INVALID = -EINVAL,
 } DnsTransactionTransport;
 
+typedef enum DnsServerProtocol {
+        DNS_SERVER_PROTOCOL_DNS,
+        DNS_SERVER_PROTOCOL_HTTPS,
+        _DNS_SERVER_PROTOCOL_MAX,
+        _DNS_SERVER_PROTOCOL_INVALID = -EINVAL,
+} DnsServerProtocol;
+
 #define DNS_SERVER_TRANSPORT_WORST DNS_SERVER_TRANSPORT_TCP
 #define DNS_SERVER_TRANSPORT_BEST DNS_SERVER_TRANSPORT_TLS
+
+DECLARE_STRING_TABLE_LOOKUP(dns_server_protocol, DnsServerProtocol);
 
 DECLARE_STRING_TABLE_LOOKUP(dns_server_transport, DnsServerTransport);
 DECLARE_STRING_TABLE_LOOKUP(dns_server_capability_level, DnsServerCapabilityLevel);
@@ -67,6 +76,9 @@ typedef struct DnsServer {
         int ifindex; /* for IPv6 link-local DNS servers */
         uint16_t port;
         char *server_name;
+
+        DnsServerProtocol protocol;
+        char *doh_uri;
 
         char *server_string;
         char *server_string_full;
@@ -206,6 +218,10 @@ DnsScope *dns_server_scope(DnsServer *s);
 
 static inline bool dns_server_is_fallback(DnsServer *s) {
         return s && s->type == DNS_SERVER_FALLBACK;
+}
+
+static inline bool dns_server_is_doh(const DnsServer *s) {
+        return s && s->protocol == DNS_SERVER_PROTOCOL_HTTPS;
 }
 
 int dns_server_dump_state_to_json(DnsServer *server, sd_json_variant **ret);
