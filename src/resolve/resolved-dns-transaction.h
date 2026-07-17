@@ -88,11 +88,12 @@ typedef struct DnsTransaction {
         /* The active server */
         DnsServer *server;
 
-        /* The features of the DNS server at time of transaction start */
-        DnsServerFeatureLevel current_feature_level;
+        /* The DNS transport and message capabilities selected for this transaction */
+        DnsServerTransport current_transport;
+        DnsServerCapabilityLevel current_capability_level;
 
-        /* If we got SERVFAIL back, we retry the lookup, using a lower feature level than we used before. */
-        DnsServerFeatureLevel clamp_feature_level_servfail;
+        /* If we got SERVFAIL back, we retry the lookup, using fewer DNS message capabilities than before. */
+        DnsServerCapabilityLevel clamp_capability_level_servfail;
 
         uint16_t id;
 

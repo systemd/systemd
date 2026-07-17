@@ -18,16 +18,21 @@ typedef enum DnsServerType {
 
 DECLARE_STRING_TABLE_LOOKUP(dns_server_type, DnsServerType);
 
-typedef enum DnsServerFeatureLevel {
-        DNS_SERVER_FEATURE_LEVEL_TCP,
-        DNS_SERVER_FEATURE_LEVEL_UDP,
-        DNS_SERVER_FEATURE_LEVEL_EDNS0,
-        DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN,
-        DNS_SERVER_FEATURE_LEVEL_DO,
-        DNS_SERVER_FEATURE_LEVEL_TLS_DO,
-        _DNS_SERVER_FEATURE_LEVEL_MAX,
-        _DNS_SERVER_FEATURE_LEVEL_INVALID = -EINVAL,
-} DnsServerFeatureLevel;
+typedef enum DnsServerTransport {
+        DNS_SERVER_TRANSPORT_TCP,
+        DNS_SERVER_TRANSPORT_UDP,
+        DNS_SERVER_TRANSPORT_TLS,
+        _DNS_SERVER_TRANSPORT_MAX,
+        _DNS_SERVER_TRANSPORT_INVALID = -EINVAL,
+} DnsServerTransport;
+
+typedef enum DnsServerCapabilityLevel {
+        DNS_SERVER_CAPABILITY_LEVEL_PLAIN,
+        DNS_SERVER_CAPABILITY_LEVEL_EDNS0,
+        DNS_SERVER_CAPABILITY_LEVEL_DO,
+        _DNS_SERVER_CAPABILITY_LEVEL_MAX,
+        _DNS_SERVER_CAPABILITY_LEVEL_INVALID = -EINVAL,
+} DnsServerCapabilityLevel;
 
 typedef enum DnsTransactionTransport {
         DNS_TRANSACTION_TRANSPORT_UDP,
@@ -37,14 +42,16 @@ typedef enum DnsTransactionTransport {
         _DNS_TRANSACTION_TRANSPORT_INVALID = -EINVAL,
 } DnsTransactionTransport;
 
-#define DNS_SERVER_FEATURE_LEVEL_WORST 0
-#define DNS_SERVER_FEATURE_LEVEL_BEST (_DNS_SERVER_FEATURE_LEVEL_MAX - 1)
-#define DNS_SERVER_FEATURE_LEVEL_IS_EDNS0(x) ((x) >= DNS_SERVER_FEATURE_LEVEL_EDNS0)
-#define DNS_SERVER_FEATURE_LEVEL_IS_TLS(x) IN_SET(x, DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN, DNS_SERVER_FEATURE_LEVEL_TLS_DO)
-#define DNS_SERVER_FEATURE_LEVEL_IS_DNSSEC(x) ((x) >= DNS_SERVER_FEATURE_LEVEL_DO)
-#define DNS_SERVER_FEATURE_LEVEL_IS_UDP(x) IN_SET(x, DNS_SERVER_FEATURE_LEVEL_UDP, DNS_SERVER_FEATURE_LEVEL_EDNS0, DNS_SERVER_FEATURE_LEVEL_DO)
+#define DNS_SERVER_TRANSPORT_WORST DNS_SERVER_TRANSPORT_TCP
+#define DNS_SERVER_TRANSPORT_BEST DNS_SERVER_TRANSPORT_TLS
 
-DECLARE_STRING_TABLE_LOOKUP(dns_server_feature_level, DnsServerFeatureLevel);
+DECLARE_STRING_TABLE_LOOKUP(dns_server_transport, DnsServerTransport);
+DECLARE_STRING_TABLE_LOOKUP(dns_server_capability_level, DnsServerCapabilityLevel);
+
+#define DNS_SERVER_CAPABILITY_LEVEL_WORST DNS_SERVER_CAPABILITY_LEVEL_PLAIN
+#define DNS_SERVER_CAPABILITY_LEVEL_BEST DNS_SERVER_CAPABILITY_LEVEL_DO
+#define DNS_SERVER_CAPABILITY_LEVEL_IS_EDNS0(x) ((x) >= DNS_SERVER_CAPABILITY_LEVEL_EDNS0)
+#define DNS_SERVER_CAPABILITY_LEVEL_IS_DNSSEC(x) ((x) >= DNS_SERVER_CAPABILITY_LEVEL_DO)
 
 typedef struct DnsServer {
         Manager *manager;
@@ -71,8 +78,10 @@ typedef struct DnsServer {
         DnsTlsServerData dnstls_data;
 #endif
 
-        DnsServerFeatureLevel verified_feature_level;
-        DnsServerFeatureLevel possible_feature_level;
+        DnsServerTransport verified_transport;
+        DnsServerTransport possible_transport;
+        DnsServerCapabilityLevel verified_capability_level;
+        DnsServerCapabilityLevel possible_capability_level;
 
         size_t received_udp_fragment_max;   /* largest packet or fragment (without IP/UDP header) we saw so far */
 
@@ -87,8 +96,10 @@ typedef struct DnsServer {
         bool packet_do_off:1;           /* Set when the server didn't copy DNSSEC DO flag from request to response */
         bool packet_fragmented:1;       /* Set when we ever saw a fragmented packet */
 
-        usec_t verified_usec;
-        usec_t features_grace_period_usec;
+        usec_t transport_verified_usec;
+        usec_t transports_grace_period_usec;
+        usec_t capability_verified_usec;
+        usec_t capabilities_grace_period_usec;
 
         /* Whether we already warned about downgrading to non-DNSSEC mode for this server */
         bool warned_downgrade:1;
@@ -125,19 +136,28 @@ DECLARE_TRIVIAL_REF_UNREF_FUNC(DnsServer, dns_server);
 void dns_server_unlink(DnsServer *s);
 void dns_server_move_back_and_unmark(DnsServer *s);
 
-void dns_server_packet_received(DnsServer *s, DnsTransactionTransport transport, DnsServerFeatureLevel level, size_t fragsize);
-void dns_server_packet_lost(DnsServer *s, DnsTransactionTransport transport, DnsServerFeatureLevel level);
-void dns_server_packet_truncated(DnsServer *s, DnsServerFeatureLevel level);
-void dns_server_packet_rrsig_missing(DnsServer *s, DnsServerFeatureLevel level);
-void dns_server_packet_bad_opt(DnsServer *s, DnsServerFeatureLevel level);
-void dns_server_packet_rcode_downgrade(DnsServer *s, DnsServerFeatureLevel level);
-void dns_server_packet_invalid(DnsServer *s, DnsServerFeatureLevel level);
-void dns_server_packet_do_off(DnsServer *s, DnsServerFeatureLevel level);
+void dns_server_packet_received(
+                DnsServer *s,
+                DnsTransactionTransport received_transport,
+                DnsServerTransport selected_transport,
+                size_t fragsize);
+void dns_server_packet_lost(
+                DnsServer *s,
+                DnsTransactionTransport transport,
+                DnsServerTransport selected_transport);
+void dns_server_packet_truncated(DnsServer *s, DnsServerTransport selected_transport);
+void dns_server_capability_received(DnsServer *s, DnsServerCapabilityLevel level);
+void dns_server_packet_rrsig_missing(DnsServer *s, DnsServerCapabilityLevel level);
+void dns_server_packet_bad_opt(DnsServer *s, DnsServerCapabilityLevel level);
+void dns_server_packet_rcode_downgrade(DnsServer *s, DnsServerCapabilityLevel level);
+void dns_server_packet_invalid(DnsServer *s, DnsServerCapabilityLevel level);
+void dns_server_packet_do_off(DnsServer *s, DnsServerCapabilityLevel level);
 void dns_server_packet_udp_fragmented(DnsServer *s, size_t fragsize);
 
-DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s);
+DnsServerTransport dns_server_possible_transport(DnsServer *s);
+DnsServerCapabilityLevel dns_server_possible_capability_level(DnsServer *s);
 
-int dns_server_adjust_opt(DnsServer *server, DnsPacket *packet, DnsServerFeatureLevel level);
+int dns_server_adjust_opt(DnsServer *server, DnsPacket *packet, DnsServerCapabilityLevel level);
 
 const char* dns_server_string(DnsServer *server);
 const char* dns_server_string_full(DnsServer *server);
