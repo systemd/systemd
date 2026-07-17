@@ -2,6 +2,7 @@
 #pragma once
 
 #include "curl-util.h"
+#include "resolved-forward.h"
 
 #if HAVE_LIBCURL_HEADER && HAVE_LIBCURL_URL
 
@@ -20,6 +21,14 @@ bool dns_over_https_age_parse(const char *value, uint64_t *ret_age);
 int dns_over_https_response_headers_read(CURL *easy, uint64_t *ret_age);
 
 int dns_over_https_uri_expand_for_method(const char *uri_template, DnsOverHttpsMethod method, const void *dns_message, size_t dns_message_size, char **ret);
-int dns_over_https_uri_parse(const char *uri_template, char **ret_uri, char **ret_auth_name, uint16_t *ret_port);
+int dns_over_https_uri_for_request(const char *uri_template, const char *post_uri, const void *dns_message, size_t dns_message_size, DnsOverHttpsMethod *ret_method, char **ret_uri);
+int dns_over_https_uri_parse(const char *uri_template, char **ret_uri, char **ret_uri_template, char **ret_auth_name, uint16_t *ret_port);
+
+int dns_over_https_make_connection_override(const DnsServer *server, unsigned curl_version, bool *ret_use_resolve, char **ret);
+
+int dns_http_request_new(DnsTransaction *transaction, DnsServer *server, DnsPacket *packet, DnsHttpRequest **ret);
+DnsHttpRequest* dns_http_request_free(DnsHttpRequest *request);
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(DnsHttpRequest*, dns_http_request_free);
 
 #endif

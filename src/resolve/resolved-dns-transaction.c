@@ -22,6 +22,7 @@
 #include "resolved-dns-server.h"
 #include "resolved-dns-stream.h"
 #include "resolved-dns-transaction.h"
+#include "resolved-doh.h"
 #include "resolved-dnstls.h"
 #include "resolved-link.h"
 #include "resolved-llmnr.h"
@@ -33,6 +34,16 @@
 #include "string-util.h"
 
 #define TRANSACTIONS_MAX 4096
+
+static bool dns_transaction_has_doh_request(const DnsTransaction *t) {
+        assert(t);
+
+#if HAVE_LIBCURL_HEADER && HAVE_LIBCURL_URL
+        return t->doh_request;
+#else
+        return false;
+#endif
+}
 
 static void dns_transaction_reset_answer(DnsTransaction *t) {
         assert(t);
@@ -70,6 +81,10 @@ static void dns_transaction_close_connection(
         int r;
 
         assert(t);
+
+#if HAVE_LIBCURL_HEADER && HAVE_LIBCURL_URL
+        t->doh_request = dns_http_request_free(t->doh_request);
+#endif
 
         if (t->stream) {
                 /* Let's detach the stream from our transaction, in case something else keeps a reference to it. */
@@ -498,13 +513,13 @@ static int dns_transaction_pick_server(DnsTransaction *t) {
                 t->clamp_capability_level_servfail = _DNS_SERVER_CAPABILITY_LEVEL_INVALID;
 
         t->current_capability_level = dns_server_possible_capability_level(server);
-        t->current_transport = dns_server_possible_transport(server);
+        t->current_transport = dns_server_is_doh(server) ? _DNS_SERVER_TRANSPORT_INVALID : dns_server_possible_transport(server);
 
         if (t->clamp_capability_level_servfail != _DNS_SERVER_CAPABILITY_LEVEL_INVALID &&
             t->current_capability_level > t->clamp_capability_level_servfail)
                 t->current_capability_level = t->clamp_capability_level_servfail;
 
-        log_debug("Using DNS transport %s for transaction %u.", dns_server_transport_to_string(t->current_transport), t->id);
+        log_debug("Using DNS transport %s for transaction %u.", strna(dns_server_transport_to_string(t->current_transport)), t->id);
         log_debug("Using DNS message capability level %s for transaction %u.", dns_server_capability_level_to_string(t->current_capability_level), t->id);
 
         if (server == t->server)
@@ -565,7 +580,7 @@ static int dns_transaction_maybe_restart(DnsTransaction *t) {
                 return 0;
 
         if (t->current_capability_level <= dns_server_possible_capability_level(t->server) &&
-            t->current_transport <= dns_server_possible_transport(t->server))
+            (dns_server_is_doh(t->server) || t->current_transport <= dns_server_possible_transport(t->server)))
                 return 0;
 
         /* The server's current transport or DNS message capabilities are lower than when we sent the original query.
@@ -714,12 +729,8 @@ static int dns_transaction_emit_tcp(DnsTransaction *t) {
         switch (t->scope->protocol) {
 
         case DNS_PROTOCOL_DNS:
-                r = dns_transaction_pick_server(t);
-                if (r < 0)
-                        return r;
-
-                if (dns_server_is_doh(t->server))
-                        return -EPROTONOSUPPORT;
+                assert(t->server);
+                assert(!dns_server_is_doh(t->server));
 
                 if (manager_server_is_stub(t->scope->manager, t->server))
                         return -ELOOP;
@@ -838,6 +849,68 @@ static int dns_transaction_emit_tcp(DnsTransaction *t) {
 
         return 0;
 }
+
+static int dns_transaction_emit_doh(DnsTransaction *t) {
+#if HAVE_LIBCURL_HEADER && HAVE_LIBCURL_URL
+        _cleanup_(dns_http_request_freep) DnsHttpRequest *request = NULL;
+        int r;
+
+        assert(t);
+        assert(t->scope->protocol == DNS_PROTOCOL_DNS);
+        assert(t->server);
+        assert(dns_server_is_doh(t->server));
+        assert(t->sent);
+
+        dns_transaction_close_connection(t, true);
+
+        if (!t->bypass) {
+                if (!dns_server_dnssec_supported(t->server) && dns_type_is_dnssec(dns_transaction_key(t)->type))
+                        return -EOPNOTSUPP;
+
+                r = dns_server_adjust_opt(t->server, t->sent, t->current_capability_level);
+                if (r < 0)
+                        return r;
+        }
+
+        r = dns_http_request_new(t, t->server, t->sent, &request);
+        if (r < 0)
+                return r;
+
+        t->doh_request = TAKE_PTR(request);
+        dns_transaction_reset_answer(t);
+        return 0;
+#else
+        return -EPROTONOSUPPORT;
+#endif
+}
+
+#if HAVE_LIBCURL_HEADER && HAVE_LIBCURL_URL
+void dns_transaction_on_doh_complete(DnsTransaction *t, DnsHttpRequest *request, DnsPacket *p, int error) {
+        assert(t);
+        assert(request);
+        assert(t->doh_request == request);
+
+        t->doh_request = NULL;
+
+        if (error < 0) {
+                log_debug_errno(error, "DNS-over-HTTPS request failed: %m");
+                dns_transaction_retry(t, true);
+                return;
+        }
+
+        assert(p);
+        dns_scope_check_conflicts(t->scope, p);
+
+        t->block_gc++;
+        dns_transaction_process_reply(t, p, DNS_TRANSACTION_TRANSPORT_HTTPS);
+        t->block_gc--;
+
+        if (t->state == DNS_TRANSACTION_PENDING && !t->doh_request && !t->stream && t->dns_udp_fd < 0)
+                dns_transaction_complete(t, DNS_TRANSACTION_INVALID_REPLY);
+        else
+                dns_transaction_gc(t);
+}
+#endif
 
 static void dns_transaction_cache_answer(DnsTransaction *t) {
         assert(t);
@@ -1183,6 +1256,9 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, DnsTransacti
                         dns_transaction_complete(t, DNS_TRANSACTION_INVALID_REPLY);
                         return;
                 }
+        } else if (transport == DNS_TRANSACTION_TRANSPORT_HTTPS && (DNS_PACKET_TC(p) || DNS_PACKET_ID(p) != 0)) {
+                dns_transaction_complete(t, DNS_TRANSACTION_INVALID_REPLY);
+                return;
         }
 
         if (DNS_PACKET_TC(p)) {
@@ -1395,7 +1471,8 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, DnsTransacti
                 /* Report that we successfully received a packet. We keep track of the largest packet
                  * size/fragment size we got. Which is useful for announcing the EDNS(0) packet size we can
                  * receive to our server. */
-                dns_server_packet_received(t->server, transport, t->current_transport, dns_packet_size_unfragmented(p));
+                if (transport != DNS_TRANSACTION_TRANSPORT_HTTPS)
+                        dns_server_packet_received(t->server, transport, t->current_transport, dns_packet_size_unfragmented(p));
         }
 
         /* See if we know things we didn't know before that indicate we better restart the lookup immediately. */
@@ -1426,7 +1503,7 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, DnsTransacti
         t->answer_rcode = dns_packet_rcode(p);
         t->answer_dnssec_result = _DNSSEC_RESULT_INVALID;
         SET_FLAG(t->answer_query_flags, SD_RESOLVED_AUTHENTICATED, false);
-        SET_FLAG(t->answer_query_flags, SD_RESOLVED_CONFIDENTIAL, transport == DNS_TRANSACTION_TRANSPORT_TLS);
+        SET_FLAG(t->answer_query_flags, SD_RESOLVED_CONFIDENTIAL, IN_SET(transport, DNS_TRANSACTION_TRANSPORT_TLS, DNS_TRANSACTION_TRANSPORT_HTTPS));
 
         r = dns_transaction_fix_rcode(t);
         if (r < 0)
@@ -1513,19 +1590,14 @@ static int on_dns_packet(sd_event_source *s, int fd, uint32_t revents, void *use
         return 0;
 }
 
-static int dns_transaction_emit_udp(DnsTransaction *t) {
+static int dns_transaction_emit_udp(DnsTransaction *t, bool server_changed) {
         int r;
 
         assert(t);
 
         if (t->scope->protocol == DNS_PROTOCOL_DNS) {
-
-                r = dns_transaction_pick_server(t);
-                if (r < 0)
-                        return r;
-
-                if (dns_server_is_doh(t->server))
-                        return -EPROTONOSUPPORT;
+                assert(t->server);
+                assert(!dns_server_is_doh(t->server));
 
                 if (manager_server_is_stub(t->scope->manager, t->server))
                         return -ELOOP;
@@ -1535,7 +1607,7 @@ static int dns_transaction_emit_udp(DnsTransaction *t) {
 
                 if (!t->bypass && !dns_server_dnssec_supported(t->server) && dns_type_is_dnssec(dns_transaction_key(t)->type))
                         return -EOPNOTSUPP;
-                if (r > 0 || t->dns_udp_fd < 0) { /* Server changed, or no connection yet. */
+                if (server_changed || t->dns_udp_fd < 0) { /* Server changed, or no connection yet. */
                         int fd;
 
                         dns_transaction_close_connection(t, true);
@@ -1590,7 +1662,8 @@ static int on_transaction_timeout(sd_event_source *s, usec_t usec, void *userdat
 
                 case DNS_PROTOCOL_DNS:
                         assert(t->server);
-                        dns_server_packet_lost(t->server, t->stream ? dns_stream_transport(t->stream) : DNS_TRANSACTION_TRANSPORT_UDP, t->current_transport);
+                        if (!dns_transaction_has_doh_request(t))
+                                dns_server_packet_lost(t->server, t->stream ? dns_stream_transport(t->stream) : DNS_TRANSACTION_TRANSPORT_UDP, t->current_transport);
                         break;
 
                 case DNS_PROTOCOL_LLMNR:
@@ -1646,7 +1719,7 @@ static usec_t transaction_get_resend_timeout(DnsTransaction *t) {
 
         case DNS_PROTOCOL_DNS:
 
-                if (t->stream)
+                if (t->stream || dns_transaction_has_doh_request(t))
                         return TRANSACTION_TCP_TIMEOUT_USEC;
 
                 return TRANSACTION_UDP_TIMEOUT_USEC;
@@ -2170,6 +2243,19 @@ int dns_transaction_go(DnsTransaction *t) {
         if (r < 0)
                 return r;
 
+        bool server_changed = false;
+        if (t->scope->protocol == DNS_PROTOCOL_DNS) {
+                r = dns_transaction_pick_server(t);
+                if (r < 0)
+                        goto emit_done;
+                if (dns_server_is_doh(t->server)) {
+                        r = dns_transaction_emit_doh(t);
+                        goto emit_done;
+                }
+
+                server_changed = r > 0;
+        }
+
         if (t->scope->protocol == DNS_PROTOCOL_LLMNR &&
             (dns_name_endswith(dns_resource_key_name(dns_transaction_key(t)), "in-addr.arpa") > 0 ||
              dns_name_endswith(dns_resource_key_name(dns_transaction_key(t)), "ip6.arpa") > 0)) {
@@ -2180,7 +2266,7 @@ int dns_transaction_go(DnsTransaction *t) {
         } else {
                 /* Try via UDP, and if that fails due to large size or lack of
                  * support try via TCP */
-                r = dns_transaction_emit_udp(t);
+                r = dns_transaction_emit_udp(t, server_changed);
                 if (r == -EMSGSIZE)
                         log_debug("Sending query via TCP since it is too large.");
                 else if (r == -EAGAIN)
@@ -2190,6 +2276,8 @@ int dns_transaction_go(DnsTransaction *t) {
                 if (IN_SET(r, -EMSGSIZE, -EAGAIN, -EPERM))
                         r = dns_transaction_emit_tcp(t);
         }
+
+emit_done:
         if (r == -ELOOP) {
                 if (t->scope->protocol != DNS_PROTOCOL_DNS)
                         return r;

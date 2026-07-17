@@ -2794,20 +2794,12 @@ static int patch_rr(DnsPacket *p, usec_t age) {
         return 0;
 }
 
-int dns_packet_patch_ttls(DnsPacket *p, usec_t timestamp) {
+static int dns_packet_patch_ttls_by_usec(DnsPacket *p, usec_t age) {
         assert(p);
-        assert(timestamp_is_set(timestamp));
-
-        /* Adjusts all TTLs in the packet by subtracting the time difference between now and the specified timestamp */
 
         _unused_ _cleanup_(rewind_dns_packet) DnsPacketRewinder rewinder = REWINDER_INIT(p);
         unsigned n;
-        usec_t k;
         int r;
-
-        k = now(CLOCK_BOOTTIME);
-        assert(k >= timestamp);
-        k -= timestamp;
 
         dns_packet_rewind(p, DNS_PACKET_HEADER_SIZE);
 
@@ -2826,12 +2818,33 @@ int dns_packet_patch_ttls(DnsPacket *p, usec_t timestamp) {
                 if (p->rindex == p->size)
                         break;
 
-                r = patch_rr(p, k);
+                r = patch_rr(p, age);
                 if (r < 0)
                         return r;
         }
 
         return 0;
+}
+
+int dns_packet_patch_ttls(DnsPacket *p, usec_t timestamp) {
+        usec_t n;
+
+        assert(p);
+        assert(timestamp_is_set(timestamp));
+
+        /* Adjusts all TTLs in the packet by subtracting the time difference between now and the specified timestamp */
+
+        n = now(CLOCK_BOOTTIME);
+        assert(n >= timestamp);
+
+        return dns_packet_patch_ttls_by_usec(p, n - timestamp);
+}
+
+int dns_packet_patch_ttls_by_age(DnsPacket *p, uint64_t age) {
+        assert(p);
+
+        /* HTTP Age is expressed in whole seconds. */
+        return dns_packet_patch_ttls_by_usec(p, age > USEC_INFINITY / USEC_PER_SEC ? USEC_INFINITY : age * USEC_PER_SEC);
 }
 
 static void dns_packet_hash_func(const DnsPacket *s, struct siphash *state) {
