@@ -223,6 +223,7 @@ extern DLSYM_PROTOTYPE(OSSL_PARAM_free);
 extern DLSYM_PROTOTYPE(PEM_read_PUBKEY);
 extern DLSYM_PROTOTYPE(PEM_read_PrivateKey);
 extern DLSYM_PROTOTYPE(PEM_read_X509);
+extern DLSYM_PROTOTYPE(PEM_write);
 extern DLSYM_PROTOTYPE(PEM_write_PUBKEY);
 extern DLSYM_PROTOTYPE(PEM_write_PrivateKey);
 extern DLSYM_PROTOTYPE(PEM_write_X509);

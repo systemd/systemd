@@ -254,6 +254,7 @@ DLSYM_PROTOTYPE(PEM_read_PrivateKey) = NULL;
 DLSYM_PROTOTYPE(PEM_read_X509) = NULL;
 static DLSYM_PROTOTYPE(PEM_read_bio_PrivateKey) = NULL;
 static DLSYM_PROTOTYPE(PEM_read_bio_X509) = NULL;
+DLSYM_PROTOTYPE(PEM_write) = NULL;
 DLSYM_PROTOTYPE(PEM_write_PUBKEY) = NULL;
 DLSYM_PROTOTYPE(PEM_write_PrivateKey) = NULL;
 DLSYM_PROTOTYPE(PEM_write_X509) = NULL;
@@ -576,6 +577,7 @@ int dlopen_libcrypto(int log_level) {
                         DLSYM_ARG(PEM_read_X509),
                         DLSYM_ARG(PEM_read_bio_PrivateKey),
                         DLSYM_ARG(PEM_read_bio_X509),
+                        DLSYM_ARG(PEM_write),
                         DLSYM_ARG(PEM_write_PUBKEY),
                         DLSYM_ARG(PEM_write_PrivateKey),
                         DLSYM_ARG(PEM_write_X509),
