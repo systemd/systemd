@@ -13,7 +13,6 @@ extern sd_json_format_flags_t arg_json_format_flags;
 extern char *arg_url, *arg_key, *arg_cert, *arg_trust;
 extern char **arg_extra_headers;
 extern usec_t arg_network_timeout_usec;
-extern bool arg_sign;
 
 typedef enum Action {
         ACTION_LIST_METRICS,
