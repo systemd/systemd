@@ -59,12 +59,6 @@ int dlopen_tpm2(int log_level) _dlopen_loader_;
  * other tokens. */
 #define ERRNO_IS_NEG_TPM2_TOKEN_MISMATCH(r) IN_SET(r, -EREMCHG, -ENOANO, -EPERM, -ENOSTR, -EREMOTE, -EADDRNOTAVAIL)
 
-#define DLOPEN_TPM2(log_level, priority)                                \
-        ({                                                              \
-                TPM2_NOTE(priority);                                    \
-                dlopen_tpm2(log_level);                                 \
-        })
-
 #if HAVE_TPM2
 #ifndef SYSTEMD_CFLAGS_MARKER_TPM2
 #  error "missing tpm2_cflags in meson dependency."

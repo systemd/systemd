@@ -171,7 +171,7 @@ int dlopen_libkmod(int log_level) {
 #if HAVE_KMOD
         static void *libkmod_dl = NULL;
 
-        LIBKMOD_NOTE(recommended);
+        LIBKMOD_NOTE(suggested);
 
         return dlopen_many_sym_or_warn(
                         &libkmod_dl,

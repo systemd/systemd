@@ -21,6 +21,7 @@
 
 #include "argv-util.h"
 #include "bus-polkit.h"
+#include "dlopen-note.h"
 #include "env-util.h"
 #include "errno-util.h"
 #include "ether-addr-util.h"
@@ -2569,6 +2570,8 @@ static int run(int argc, char *argv[]) {
         _cleanup_(pidref_done) PidRef parent = PIDREF_NULL;
         unsigned n_iterations = 0;
         int m, listen_fd, r;
+
+        LIBBPF_NOTE(recommended);
 
         log_setup();
 

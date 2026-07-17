@@ -1257,6 +1257,7 @@ static int run(int argc, char *argv[]) {
         int slot, r;
 
         LIBCRYPTO_NOTE(suggested);
+        LIBCRYPTSETUP_NOTE(required);
         LIBFIDO2_NOTE(suggested);
         LIBP11KIT_NOTE(suggested);
         LIBQRENCODE_NOTE(suggested);
@@ -1282,7 +1283,7 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        r = DLOPEN_CRYPTSETUP(LOG_ERR, required);
+        r = dlopen_cryptsetup(LOG_ERR);
         if (r < 0)
                 return r;
 

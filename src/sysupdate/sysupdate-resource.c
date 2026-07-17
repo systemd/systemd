@@ -266,7 +266,7 @@ static int resource_load_from_blockdev(Resource *rr) {
 
         assert(rr);
 
-        r = DLOPEN_FDISK(LOG_DEBUG, recommended);
+        r = dlopen_fdisk(LOG_DEBUG);
         if (r < 0)
                 return r;
 

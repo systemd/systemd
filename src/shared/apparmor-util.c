@@ -46,7 +46,7 @@ int dlopen_libapparmor(int log_level) {
 #if HAVE_APPARMOR
         static void *libapparmor_dl = NULL;
 
-        LIBAPPARMOR_NOTE(recommended);
+        LIBAPPARMOR_NOTE(suggested);
 
         return dlopen_many_sym_or_warn(
                         &libapparmor_dl,

@@ -34,7 +34,7 @@ static int resize_crypt_luks_device(dev_t devno, const char *fstype, dev_t main_
         uint64_t size;
         int r;
 
-        r = DLOPEN_CRYPTSETUP(LOG_WARNING, recommended);
+        r = dlopen_cryptsetup(LOG_WARNING);
         if (r < 0)
                 return r;
 
@@ -194,6 +194,7 @@ static int run(int argc, char *argv[]) {
         int r;
 
         LIBBLKID_NOTE(recommended);
+        LIBCRYPTSETUP_NOTE(recommended);
 
         log_setup();
 

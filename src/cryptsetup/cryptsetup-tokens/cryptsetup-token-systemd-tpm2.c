@@ -21,6 +21,7 @@
 /* for libcryptsetup debug purpose */
 _public_ const char* cryptsetup_token_version(void) {
         LIBCRYPTO_NOTE(suggested);
+        LIBCRYPTSETUP_NOTE(required);
         TPM2_NOTE(suggested);
 
         return TOKEN_VERSION_MAJOR "." TOKEN_VERSION_MINOR " systemd-v" PROJECT_VERSION_FULL " (" GIT_VERSION ")";
@@ -73,7 +74,7 @@ _public_ int cryptsetup_token_open_pin(
         assert(ret_password);
         assert(ret_password_len);
 
-        r = DLOPEN_CRYPTSETUP(LOG_DEBUG, required);
+        r = dlopen_cryptsetup(LOG_DEBUG);
         if (r < 0)
                 return r;
 
@@ -217,7 +218,7 @@ _public_ void cryptsetup_token_dump(
 
         assert(json);
 
-        if (DLOPEN_CRYPTSETUP(LOG_DEBUG, required) < 0)
+        if (dlopen_cryptsetup(LOG_DEBUG) < 0)
                 return;
 
         r = sd_json_parse(json, SD_JSON_PARSE_MUST_BE_OBJECT, &v, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
@@ -313,7 +314,7 @@ _public_ int cryptsetup_token_validate(
 
         assert(json);
 
-        r = DLOPEN_CRYPTSETUP(LOG_DEBUG, required);
+        r = dlopen_cryptsetup(LOG_DEBUG);
         if (r < 0)
                 return r;
 

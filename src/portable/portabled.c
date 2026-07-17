@@ -146,6 +146,8 @@ static int run(int argc, char *argv[]) {
 
         LIBBLKID_NOTE(recommended);
         LIBCRYPTO_NOTE(suggested);
+        LIBCRYPTSETUP_NOTE(recommended);
+        LIBMOUNT_NOTE(required);
         LIBSELINUX_NOTE(recommended);
 
         log_setup();

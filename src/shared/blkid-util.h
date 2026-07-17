@@ -70,9 +70,3 @@ int blkid_probe_lookup_value_u64(blkid_probe b, const char *field, uint64_t *ret
 #endif
 
 int dlopen_libblkid(int log_level) _dlopen_loader_;
-
-#define DLOPEN_LIBBLKID(log_level, priority)                            \
-        ({                                                              \
-                LIBBLKID_NOTE(priority);                                \
-                dlopen_libblkid(log_level);                             \
-        })
