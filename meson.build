@@ -1246,6 +1246,7 @@ libcurl_cflags = declare_dependency(
         compile_args : '-DSYSTEMD_CFLAGS_MARKER_LIBCURL',
 )
 conf.set10('HAVE_LIBCURL', libcurl.found())
+conf.set10('HAVE_LIBCURL_HEADER', libcurl.found() and libcurl.version().version_compare('>= 7.83.0'))
 conf.set10('HAVE_LIBCURL_URL', libcurl.found() and libcurl.version().version_compare('>= 7.62.0'))
 conf.set10('CURL_NO_OLDIES', conf.get('BUILD_MODE_DEVELOPER') == 1)
 

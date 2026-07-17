@@ -23,7 +23,7 @@ DLSYM_PROTOTYPE(curl_easy_init) = NULL;
 DLSYM_PROTOTYPE(curl_easy_perform) = NULL;
 DLSYM_PROTOTYPE(curl_easy_setopt) = NULL;
 DLSYM_PROTOTYPE(curl_easy_strerror) = NULL;
-#if LIBCURL_VERSION_NUM >= 0x075300
+#if HAVE_LIBCURL_HEADER
 DLSYM_PROTOTYPE(curl_easy_header) = NULL;
 #endif
 DLSYM_PROTOTYPE(curl_getdate) = NULL;
@@ -622,7 +622,7 @@ int dlopen_curl(int log_level) {
                         DLSYM_ARG(curl_easy_perform),
                         DLSYM_ARG(curl_easy_setopt),
                         DLSYM_ARG(curl_easy_strerror),
-#if LIBCURL_VERSION_NUM >= 0x075300
+#if HAVE_LIBCURL_HEADER
                         DLSYM_ARG(curl_easy_header),
 #endif
                         DLSYM_ARG(curl_getdate),
