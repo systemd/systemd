@@ -38,7 +38,10 @@ typedef struct RequestObservation {
         uint64_t body_size;
         uint16_t dns_id;
         unsigned response_status;
+        int response_dns_rcode;
         bool have_dns_id;
+        bool has_opt;
+        bool do_bit;
 } RequestObservation;
 
 typedef struct ActiveRequest {
@@ -187,6 +190,8 @@ static RequestObservation* record_request(ServerContext *c, SoupServerMessage *m
                 o->dns_id = be16toh(DNS_PACKET_ID(packet));
                 o->have_dns_id = true;
                 o->question = g_strdup(dns_question_first_name(packet->question));
+                o->has_opt = !!packet->opt;
+                o->do_bit = dns_packet_do(packet);
         }
 
         if (c->history->len >= REQUEST_HISTORY_MAX)
@@ -439,7 +444,7 @@ static int make_question(const DnsResourceKey *original, const char *name, DnsQu
         return 0;
 }
 
-static int make_dns_reply(DnsPacket *query, DnsQuestion *question, int rcode, DnsPacket **ret) {
+static int make_dns_reply(DnsPacket *query, DnsQuestion *question, int rcode, bool suppress_opt, DnsPacket **ret) {
         _cleanup_(dns_packet_unrefp) DnsPacket *reply = NULL;
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
         union in_addr_union address;
@@ -485,6 +490,12 @@ static int make_dns_reply(DnsPacket *query, DnsQuestion *question, int rcode, Dn
                         return r;
 
                 DNS_PACKET_HEADER(reply)->ancount = htobe16(1);
+        }
+
+        if (query->opt && !suppress_opt) {
+                r = dns_packet_append_opt(reply, DNS_PACKET_SIZE_MAX, dns_packet_do(query), false, NULL, rcode, NULL);
+                if (r < 0)
+                        return r;
         }
 
         *ret = TAKE_PTR(reply);
@@ -577,6 +588,9 @@ static int make_state_json(ServerContext *c, char **ret) {
                                 SD_JSON_BUILD_PAIR_UNSIGNED("bodySize", o->body_size),
                                 SD_JSON_BUILD_PAIR_UNSIGNED("dnsId", o->dns_id),
                                 SD_JSON_BUILD_PAIR_BOOLEAN("haveDnsId", o->have_dns_id),
+                                SD_JSON_BUILD_PAIR_BOOLEAN("hasOpt", o->has_opt),
+                                SD_JSON_BUILD_PAIR_BOOLEAN("doBit", o->do_bit),
+                                SD_JSON_BUILD_PAIR_INTEGER("responseDnsRcode", o->response_dns_rcode),
                                 SD_JSON_BUILD_PAIR_UNSIGNED("responseStatus", o->response_status));
                 if (r < 0)
                         return r;
@@ -735,15 +749,20 @@ static void handle_dns_request(ServerContext *c, SoupServerMessage *message, con
                 rcode = DNS_RCODE_NXDOMAIN;
         else if (streq(path, "/dns-query/servfail"))
                 rcode = DNS_RCODE_SERVFAIL;
+        else if (streq(path, "/dns-query/retry-without-do") && observation->do_bit)
+                rcode = DNS_RCODE_SERVFAIL;
+        else if (streq(path, "/dns-query/retry-without-edns") && observation->has_opt)
+                rcode = DNS_RCODE_FORMERR;
         else if (streq(path, "/dns/wrong-question")) {
                 r = make_question(dns_question_first_key(query->question), "wrong.doh.test", &wrong_question);
                 if (r < 0)
                         goto fail;
         }
 
-        r = make_dns_reply(query, wrong_question, rcode, &reply);
+        r = make_dns_reply(query, wrong_question, rcode, streq(path, "/dns-query/retry-without-edns") && observation->has_opt, &reply);
         if (r < 0)
                 goto fail;
+        observation->response_dns_rcode = dns_packet_rcode(reply);
 
         if (streq(path, "/content-type/missing"))
                 content_type = NULL;
@@ -816,6 +835,8 @@ static bool path_is_known(const char *path) {
                 "/dns-query/aged-expired",
                 "/dns-query/nxdomain",
                 "/dns-query/servfail",
+                "/dns-query/retry-without-do",
+                "/dns-query/retry-without-edns",
                 "/content-type/missing",
                 "/content-type/wrong",
                 "/content-type/parameter",
@@ -949,7 +970,7 @@ static int run_self_test(void) {
         assert_se(dns_packet_from_bytes(decoded, decoded_size, &query) >= 0);
         assert_se(streq(dns_question_first_name(query->question), "example.com"));
         assert_se(be16toh(DNS_PACKET_ID(query)) == 0);
-        assert_se(make_dns_reply(query, NULL, DNS_RCODE_SUCCESS, &reply) >= 0);
+        assert_se(make_dns_reply(query, NULL, DNS_RCODE_SUCCESS, false, &reply) >= 0);
         assert_se(dns_packet_validate_reply(reply) > 0);
         assert_se(dns_packet_extract(reply) >= 0);
         assert_se(dns_question_is_equal(query->question, reply->question) > 0);
@@ -963,11 +984,14 @@ static int run_self_test(void) {
         assert_se(rr->ttl == DNS_TEST_TTL);
         assert_se(rr->key->type == DNS_TYPE_A);
         assert_se(rr->a.in_addr.s_addr == htobe32(UINT32_C(0xc0000201)));
+        reply = dns_packet_unref(reply);
+        assert_se(make_dns_reply(query, NULL, DNS_RCODE_SERVFAIL, false, &reply) >= 0);
+        assert_se(dns_packet_rcode(reply) == DNS_RCODE_SERVFAIL);
 
         memcpy(invalid_query, query_data, sizeof(query_data));
         invalid_query[sizeof(query_data) - 3] = DNS_TYPE_AAAA;
         assert_se(dns_packet_from_bytes(invalid_query, sizeof(query_data), &query_aaaa) >= 0);
-        assert_se(make_dns_reply(query_aaaa, NULL, DNS_RCODE_SUCCESS, &reply_aaaa) >= 0);
+        assert_se(make_dns_reply(query_aaaa, NULL, DNS_RCODE_SUCCESS, false, &reply_aaaa) >= 0);
         assert_se(dns_packet_extract(reply_aaaa) >= 0);
         assert_se(dns_answer_size(reply_aaaa->answer) == 1);
         rr = NULL;
