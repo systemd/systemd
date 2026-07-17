@@ -2531,6 +2531,9 @@ static int verb_check_new(int argc, char *argv[], uintptr_t _data, void *userdat
                 r = sd_json_variant_dump(json, arg_json_format_flags, stdout, NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to print JSON: %m");
+
+                if (!context.candidate)
+                        return EXIT_FAILURE;
         }
 
         return EXIT_SUCCESS;

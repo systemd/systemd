@@ -19,6 +19,7 @@ fi
 
 systemd-dissect --json=short "$MINIMAL_IMAGE.raw" | \
     grep -F '{"rw":"ro","designator":"root","partition_uuid":null,"partition_label":null,"fstype":"squashfs","architecture":null,"verity":"external"' >/dev/null
+systemd-dissect --json=short "$MINIMAL_IMAGE.raw" | grep -F '"size":' >/dev/null
 systemd-dissect "$MINIMAL_IMAGE.raw" | grep -F "MARKER=1" >/dev/null
 # shellcheck disable=SC2153
 systemd-dissect "$MINIMAL_IMAGE.raw" | grep -F -f <(sed 's/"//g' "$OS_RELEASE") >/dev/null
