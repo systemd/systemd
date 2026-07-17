@@ -162,6 +162,8 @@ TEST(server_configuration_ipv4) {
         ASSERT_OK(dns_server_dump_state_to_json(server, &state));
         ASSERT_STREQ(sd_json_variant_string(sd_json_variant_by_key(state, "Transport")), "https");
         ASSERT_STREQ(sd_json_variant_string(sd_json_variant_by_key(state, "URI")), "https://resolver.example/dns-query{?dns}");
+        ASSERT_STREQ(sd_json_variant_string(sd_json_variant_by_key(state, "PossibleTransport")), "n/a");
+        ASSERT_STREQ(sd_json_variant_string(sd_json_variant_by_key(state, "PossibleCapabilityLevel")), "EDNS0");
 
         ASSERT_OK(manager_parse_dns_server_string_and_warn(&duplicate_manager, DNS_SERVER_SYSTEM, "1.1.1.1#HTTPS://resolver.example/dns-query{?dns}"));
         DnsServer *duplicate = ASSERT_PTR(duplicate_manager.dns_servers);
@@ -291,12 +293,12 @@ TEST(curl_connection_override_serialization) {
         dns_server_unlink_all(manager.dns_servers);
 }
 
-TEST(server_transport_features) {
+TEST(server_transport_and_message_capabilities) {
         _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         Manager manager = {};
 
-        /* Verify that DoH uses DNS message capabilities without modifying UDP, TCP, or DoT transport state. */
+        /* DoH uses DNS message capabilities without assigning or modifying classic transport state. */
 
         ASSERT_OK(sd_event_default(&event));
         manager.event = event;
@@ -307,6 +309,7 @@ TEST(server_transport_features) {
         DnsServer *server = ASSERT_PTR(manager.dns_servers);
 
         dns_server_reset_features(server);
+        ASSERT_EQ(server->possible_transport, _DNS_SERVER_TRANSPORT_INVALID);
         ASSERT_EQ(dns_server_possible_capability_level(server), DNS_SERVER_CAPABILITY_LEVEL_DO);
 
         ASSERT_OK(dns_packet_new_query(&packet, DNS_PROTOCOL_DNS, 0, false));
@@ -317,7 +320,7 @@ TEST(server_transport_features) {
         server->n_failed_tcp = 2;
         server->n_failed_tls = 3;
         server->received_udp_fragment_max = 1232;
-        dns_server_packet_received(server, DNS_TRANSACTION_TRANSPORT_HTTPS, DNS_SERVER_TRANSPORT_TLS, 9000);
+        dns_server_capability_received(server, DNS_SERVER_CAPABILITY_LEVEL_DO);
         ASSERT_EQ(server->n_failed_udp, 1u);
         ASSERT_EQ(server->n_failed_tcp, 2u);
         ASSERT_EQ(server->n_failed_tls, 3u);
@@ -330,6 +333,46 @@ TEST(server_transport_features) {
 
         server->n_failed_tcp = UINT_MAX;
         ASSERT_TRUE(dns_server_dnssec_supported(server));
+
+        dns_server_unlink_all(manager.dns_servers);
+}
+
+TEST(classic_transport_and_message_capabilities) {
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        Manager manager = {};
+
+        ASSERT_OK(sd_event_default(&event));
+        manager.event = event;
+        manager.dns_over_tls_mode = DNS_OVER_TLS_NO;
+        manager.dnssec_mode = DNSSEC_ALLOW_DOWNGRADE;
+
+        ASSERT_OK(manager_parse_dns_server_string_and_warn(&manager, DNS_SERVER_SYSTEM, "1.1.1.1"));
+        DnsServer *server = ASSERT_PTR(manager.dns_servers);
+
+        ASSERT_EQ(dns_server_possible_capability_level(server), DNS_SERVER_CAPABILITY_LEVEL_DO);
+        ASSERT_EQ(dns_server_possible_transport(server), DNS_SERVER_TRANSPORT_UDP);
+
+        /* A successful lower-capability retry still verifies UDP transport, but must not verify the DO capability. */
+        dns_server_packet_rcode_downgrade(server, DNS_SERVER_CAPABILITY_LEVEL_EDNS0);
+        dns_server_capability_received(server, DNS_SERVER_CAPABILITY_LEVEL_EDNS0);
+        dns_server_packet_received(server, DNS_TRANSACTION_TRANSPORT_UDP, DNS_SERVER_TRANSPORT_UDP, 512);
+        ASSERT_EQ(server->verified_capability_level, DNS_SERVER_CAPABILITY_LEVEL_EDNS0);
+        ASSERT_EQ(server->verified_transport, DNS_SERVER_TRANSPORT_UDP);
+        ASSERT_EQ(dns_server_possible_capability_level(server), DNS_SERVER_CAPABILITY_LEVEL_EDNS0);
+        ASSERT_EQ(dns_server_possible_transport(server), DNS_SERVER_TRANSPORT_UDP);
+
+        dns_server_reset_features(server);
+        dns_server_capability_received(server, DNS_SERVER_CAPABILITY_LEVEL_DO);
+        manager.dnssec_mode = DNSSEC_NO;
+        ASSERT_EQ(dns_server_possible_capability_level(server), DNS_SERVER_CAPABILITY_LEVEL_EDNS0);
+
+        dns_server_reset_features(server);
+        manager.dns_over_tls_mode = DNS_OVER_TLS_YES;
+        ASSERT_EQ(dns_server_possible_transport(server), DNS_SERVER_TRANSPORT_TLS);
+        dns_server_capability_received(server, DNS_SERVER_CAPABILITY_LEVEL_EDNS0);
+        dns_server_packet_received(server, DNS_TRANSACTION_TRANSPORT_TLS, DNS_SERVER_TRANSPORT_TLS, 512);
+        manager.dns_over_tls_mode = DNS_OVER_TLS_NO;
+        ASSERT_EQ(dns_server_possible_transport(server), DNS_SERVER_TRANSPORT_UDP);
 
         dns_server_unlink_all(manager.dns_servers);
 }
