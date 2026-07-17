@@ -578,7 +578,7 @@ static int import_file(struct trie *trie, int fd, const char *filename, uint16_t
 }
 
 int hwdb_update(const char *root, const char *hwdb_bin_dir, bool strict, bool compat) {
-        _cleanup_free_ char *hwdb_bin = NULL;
+        _cleanup_free_ char *hwdb_bin = NULL, *root_abs = NULL;
         _cleanup_(trie_freep) struct trie *trie = NULL;
         uint16_t file_priority = 1;
         int r, ret = 0;
@@ -588,7 +588,18 @@ int hwdb_update(const char *root, const char *hwdb_bin_dir, bool strict, bool co
          * source. If true, then hwdb.bin will be created without the information. systemd-hwdb command
          * should set the argument false, and 'udevadm hwdb' command should set it true. */
 
-        hwdb_bin = path_join(root, hwdb_bin_dir ?: "/etc/udev", "hwdb.bin");
+        r = empty_or_root_harder_to_null(&root);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine if '%s' points to the root directory: %m", strempty(root));
+
+        if (root) {
+                r = path_make_absolute_cwd(root, &root_abs);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to make '%s' absolute: %m", root);
+                path_simplify(root_abs);
+        }
+
+        hwdb_bin = path_join(root_abs, hwdb_bin_dir ?: "/etc/udev", "hwdb.bin");
         if (!hwdb_bin)
                 return -ENOMEM;
 
@@ -613,7 +624,7 @@ int hwdb_update(const char *root, const char *hwdb_bin_dir, bool strict, bool co
 
         CLEANUP_ARRAY(files, n_files, conf_file_free_array);
 
-        r = conf_files_list_strv_full(".hwdb", root,
+        r = conf_files_list_strv_full(".hwdb", root_abs,
                                       CONF_FILES_REGULAR | CONF_FILES_FILTER_MASKED | CONF_FILES_WARN,
                                       conf_file_dirs, &files, &n_files);
         if (r < 0)
@@ -635,7 +646,13 @@ int hwdb_update(const char *root, const char *hwdb_bin_dir, bool strict, bool co
                 ConfFile *c = *i;
 
                 log_debug("Reading file \"%s\" -> \"%s\"", c->original_path, c->resolved_path);
-                RET_GATHER(ret, import_file(trie, c->fd, c->original_path, file_priority++, compat));
+
+                const char *path_in_root = path_startswith_full(c->original_path,
+                                                                empty_to_root(root_abs),
+                                                                PATH_STARTSWITH_RETURN_LEADING_SLASH);
+                assert(path_in_root);
+
+                RET_GATHER(ret, import_file(trie, c->fd, path_in_root, file_priority++, compat));
         }
 
         strbuf_complete(trie->strings);
