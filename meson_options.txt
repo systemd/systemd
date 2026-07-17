@@ -546,6 +546,8 @@ option('install-tests', type : 'boolean', value : false,
        description : 'install test executables')
 option('log-message-verification', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'do fake printf() calls to verify format strings')
+option('doh-test-server', type : 'feature', value : 'auto',
+       description : 'libsoup3 DNS-over-HTTPS server for resolved tests')
 
 option('ok-color', type : 'combo',
        choices : ['black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan',
