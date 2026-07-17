@@ -298,24 +298,26 @@ static void dns_server_reset_counters(DnsServer *s) {
          * incomplete. */
 }
 
-void dns_server_packet_received(DnsServer *s, int protocol, DnsServerFeatureLevel level, size_t fragsize) {
-        assert(s);
+void dns_server_packet_received(DnsServer *s, DnsTransactionTransport transport, DnsServerFeatureLevel level, size_t fragsize) {
 
-        if (protocol == IPPROTO_UDP) {
+        assert(s);
+        assert(transport >= 0);
+        assert(transport < _DNS_TRANSACTION_TRANSPORT_MAX);
+
+        if (transport == DNS_TRANSACTION_TRANSPORT_UDP) {
                 if (s->possible_feature_level == level)
                         s->n_failed_udp = 0;
-        } else if (protocol == IPPROTO_TCP) {
-                if (DNS_SERVER_FEATURE_LEVEL_IS_TLS(level)) {
-                        if (s->possible_feature_level == level)
-                                s->n_failed_tls = 0;
-                } else {
-                        if (s->possible_feature_level == level)
-                                s->n_failed_tcp = 0;
+        } else if (transport == DNS_TRANSACTION_TRANSPORT_TCP) {
+                if (s->possible_feature_level == level)
+                        s->n_failed_tcp = 0;
 
-                        /* Successful TCP connections are only useful to verify the TCP feature level. */
-                        level = DNS_SERVER_FEATURE_LEVEL_TCP;
-                }
-        }
+                /* Successful TCP connections are only useful to verify the TCP feature level. */
+                level = DNS_SERVER_FEATURE_LEVEL_TCP;
+        } else if (transport == DNS_TRANSACTION_TRANSPORT_TLS) {
+                if (s->possible_feature_level == level)
+                        s->n_failed_tls = 0;
+        } else
+                assert_not_reached();
 
         /* If the RRSIG data is missing, then we can only validate EDNS0 at max */
         if (s->packet_rrsig_missing && level >= DNS_SERVER_FEATURE_LEVEL_DO)
@@ -329,25 +331,27 @@ void dns_server_packet_received(DnsServer *s, int protocol, DnsServerFeatureLeve
 
         /* Remember the size of the largest UDP packet fragment we received from a server, we know that we
          * can always announce support for packets with at least this size. */
-        if (protocol == IPPROTO_UDP && s->received_udp_fragment_max < fragsize)
+        if (transport == DNS_TRANSACTION_TRANSPORT_UDP && s->received_udp_fragment_max < fragsize)
                 s->received_udp_fragment_max = fragsize;
 }
 
-void dns_server_packet_lost(DnsServer *s, int protocol, DnsServerFeatureLevel level) {
+void dns_server_packet_lost(DnsServer *s, DnsTransactionTransport transport, DnsServerFeatureLevel level) {
         assert(s);
         assert(s->manager);
+        assert(transport >= 0);
+        assert(transport < _DNS_TRANSACTION_TRANSPORT_MAX);
 
         if (s->possible_feature_level != level)
                 return;
 
-        if (protocol == IPPROTO_UDP)
+        if (transport == DNS_TRANSACTION_TRANSPORT_UDP)
                 s->n_failed_udp++;
-        else if (protocol == IPPROTO_TCP) {
-                if (DNS_SERVER_FEATURE_LEVEL_IS_TLS(level))
-                        s->n_failed_tls++;
-                else
-                        s->n_failed_tcp++;
-        }
+        else if (transport == DNS_TRANSACTION_TRANSPORT_TCP)
+                s->n_failed_tcp++;
+        else if (transport == DNS_TRANSACTION_TRANSPORT_TLS)
+                s->n_failed_tls++;
+        else
+                assert_not_reached();
 }
 
 void dns_server_packet_truncated(DnsServer *s, DnsServerFeatureLevel level) {
