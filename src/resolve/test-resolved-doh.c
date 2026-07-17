@@ -5,6 +5,7 @@
 #include "dns-packet.h"
 #include "resolved-dns-server.h"
 #include "resolved-doh.h"
+#include "resolved-link.h"
 #include "resolved-manager.h"
 #include "siphash24.h"
 #include "tests.h"
@@ -224,6 +225,26 @@ TEST(server_configuration_ipv6) {
         ASSERT_STREQ(server->doh_uri, "https://[2001:db8::53]:8443/dns-query");
 
         dns_server_unlink_all(manager.dns_servers);
+}
+
+TEST(server_configuration_link) {
+        _cleanup_(link_freep) Link *link = NULL;
+        Manager manager = {};
+
+        ASSERT_OK(link_new(&manager, &link, 42));
+        ASSERT_OK(dns_server_new_from_string(&manager, DNS_SERVER_LINK, link, NULL, "192.0.2.1#https://resolver.example/dns-query{?dns}", RESOLVE_CONFIG_SOURCE_NETWORKD));
+
+        DnsServer *server = ASSERT_PTR(link->dns_servers);
+        ASSERT_EQ(server->type, DNS_SERVER_LINK);
+        ASSERT_EQ(server->protocol, DNS_SERVER_PROTOCOL_HTTPS);
+        ASSERT_TRUE(server->link == link);
+        ASSERT_EQ(server->config_source, RESOLVE_CONFIG_SOURCE_NETWORKD);
+        ASSERT_EQ(server->ifindex, 0);
+        ASSERT_EQ(dns_server_ifindex(server), 42);
+        ASSERT_STREQ(server->doh_uri_template, "https://resolver.example/dns-query{?dns}");
+
+        ASSERT_ERROR(dns_server_new_from_string(&manager, DNS_SERVER_LINK, link, NULL, "fe80::1%1#https://resolver.example/dns-query{?dns}", RESOLVE_CONFIG_SOURCE_NETWORKD), EINVAL);
+        ASSERT_EQ(link->n_dns_servers, 1u);
 }
 
 TEST(server_configuration_invalid) {
