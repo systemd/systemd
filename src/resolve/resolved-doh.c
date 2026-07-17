@@ -105,11 +105,7 @@ int dns_over_https_response_headers_read(CURL *easy, uint64_t *ret_age) {
         code = sym_curl_easy_header(easy, "Content-Type", 0, CURLH_HEADER, -1, &header);
         if (code == CURLHE_OUT_OF_MEMORY)
                 return -ENOMEM;
-<<<<<<< HEAD
         if (code != CURLHE_OK || !dns_over_https_content_type_is_valid(header->value))
-=======
-        if (code != CURLHE_OK || !dns_over_https_content_type_is_valid(header->value))
->>>>>>> 84af685de0 (resolved: improve error handling and retry some failures)
                 return -EBADMSG;
 
         code = sym_curl_easy_header(easy, "Age", 0, CURLH_HEADER, -1, &header);
@@ -310,7 +306,7 @@ int dns_over_https_uri_parse(const char *uri_template, char **ret_uri, char **re
         if (!scheme_separator || !startswith(scheme_separator, "://") || IN_SET(scheme_separator[3], 0, '/', '?', '#'))
                 return -EINVAL;
 
-        r = DLOPEN_CURL(LOG_DEBUG, recommended);
+        r = dlopen_curl(LOG_DEBUG);
         if (r < 0)
                 return r;
 

@@ -8,6 +8,7 @@
 
 typedef enum DnsAnswerFlags DnsAnswerFlags;
 typedef enum DnsCacheMode DnsCacheMode;
+typedef enum DnsOverHttpsFailureAction DnsOverHttpsFailureAction;
 typedef enum DnsProtocol DnsProtocol;
 typedef enum DnssecResult DnssecResult;
 typedef enum DnssecVerdict DnssecVerdict;

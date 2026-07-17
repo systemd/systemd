@@ -47,12 +47,6 @@ typedef struct ActiveRequest {
         uint64_t connection_id;
 } ActiveRequest;
 
-typedef struct PausedRequest {
-        struct ServerContext *context;
-        SoupServerMessage *message;
-        GSource *socket_source;
-} PausedRequest;
-
 typedef struct ServerContext {
         SoupServer *server;
         GMainLoop *loop;
@@ -96,20 +90,6 @@ static void active_request_free(gpointer p) {
         g_free(request);
 }
 
-static void paused_request_free(gpointer p) {
-        PausedRequest *request = p;
-
-        if (!request)
-                return;
-
-        if (request->socket_source) {
-                g_source_destroy(request->socket_source);
-                g_source_unref(request->socket_source);
-        }
-        g_object_unref(request->message);
-        g_free(request);
-}
-
 static void server_context_done(ServerContext *c) {
         assert(c);
 
@@ -126,7 +106,7 @@ static void server_context_init(ServerContext *c) {
         c->request_counts = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
         c->connections = g_hash_table_new_full(g_direct_hash, g_direct_equal, g_object_unref, g_free);
         c->active_messages = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, active_request_free);
-        c->paused_messages = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, paused_request_free);
+        c->paused_messages = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, g_object_unref);
         c->history = g_ptr_array_new_with_free_func(request_observation_free);
         c->next_connection_id = 1;
 }
@@ -270,23 +250,8 @@ static void on_request_aborted(SoupServer *server, SoupServerMessage *message, g
         request_done(userdata, message, "was aborted");
 }
 
-static gboolean on_paused_socket_event(GSocket *socket, GIOCondition condition, gpointer userdata) {
-        PausedRequest *request = userdata;
-        g_autoptr(SoupServerMessage) message = NULL;
-        uint8_t byte;
-        ssize_t n;
-
-        assert(socket);
-        assert(request);
-
-        n = recv(g_socket_get_fd(socket), &byte, sizeof(byte), MSG_DONTWAIT | MSG_PEEK);
-        if (!(condition & (G_IO_HUP | G_IO_ERR)) && (n > 0 || (n < 0 && ERRNO_IS_TRANSIENT(errno))))
-                return G_SOURCE_CONTINUE;
-
-        message = g_object_ref(request->message);
-        request_done(request->context, message, "was cancelled while paused");
-        soup_server_message_unpause(message);
-        return G_SOURCE_REMOVE;
+static void on_paused_request_finished(SoupServerMessage *message, gpointer userdata) {
+        request_done(userdata, message, "finished while paused");
 }
 
 static int dns_packet_check_wire_size(DnsPacket *packet) {
@@ -752,23 +717,10 @@ static void handle_dns_request(ServerContext *c, SoupServerMessage *message, con
         }
 
         if (streq(path, "/hang")) {
-                PausedRequest *paused;
-                GSocket *socket;
-
-                paused = g_new0(PausedRequest, 1);
-                paused->context = c;
-                paused->message = g_object_ref(message);
-
-                socket = soup_server_message_get_socket(message);
-                if (socket) {
-                        paused->socket_source = g_socket_create_source(socket, G_IO_IN | G_IO_HUP | G_IO_ERR, NULL);
-                        g_source_set_callback(paused->socket_source, G_SOURCE_FUNC(on_paused_socket_event), paused, NULL);
-                        g_source_attach(paused->socket_source, NULL);
-                }
-
-                g_hash_table_insert(c->paused_messages, message, paused);
+                g_signal_connect(message, "finished", G_CALLBACK(on_paused_request_finished), c);
+                g_hash_table_insert(c->paused_messages, message, g_object_ref(message));
                 log_info("Request #%" PRIu64 " is paused until the client cancels it or the server state is reset.",
-                         observation->request_id);
+                          observation->request_id);
                 soup_server_message_pause(message);
                 return;
         }
@@ -795,7 +747,7 @@ static void handle_dns_request(ServerContext *c, SoupServerMessage *message, con
 
         if (streq(path, "/content-type/missing"))
                 content_type = NULL;
-        else if (streq(path, "/content-type/wrong"))
+        else if (streq(path, "/content-type/wrong") || (streq(path, "/sequence/content-type-wrong") && request_number > 1))
                 content_type = "application/json";
         else if (streq(path, "/content-type/parameter"))
                 content_type = "application/dns-message; charset=utf-8";
@@ -868,6 +820,7 @@ static bool path_is_known(const char *path) {
                 "/content-type/wrong",
                 "/content-type/parameter",
                 "/content-type/duplicate",
+                "/sequence/content-type-wrong",
                 "/age/missing",
                 "/age/malformed",
                 "/age/duplicate",
