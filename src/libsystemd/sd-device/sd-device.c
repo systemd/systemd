@@ -837,7 +837,7 @@ int device_read_uevent_file(sd_device *device) {
         device->uevent_loaded = true;
 
         const char *uevent;
-        r = device_get_sysattr_safe_string(device, "uevent", &uevent);
+        r = sd_device_get_sysattr_value(device, "uevent", &uevent);
         if (ERRNO_IS_NEG_PRIVILEGE(r) || ERRNO_IS_NEG_DEVICE_ABSENT(r))
                 /* The uevent files may be write-only, the device may be already removed, or the device
                  * may not have the uevent file. */
