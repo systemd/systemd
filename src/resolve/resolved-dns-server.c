@@ -17,6 +17,7 @@
 #include "resolved-dns-scope.h"
 #include "resolved-dns-search-domain.h"
 #include "resolved-dns-server.h"
+#include "resolved-doh.h"
 #include "resolved-link.h"
 #include "resolved-manager.h"
 #include "resolved-resolv-conf.h"
@@ -34,20 +35,22 @@
 /* The number of times we will attempt a certain feature set before degrading */
 #define DNS_SERVER_FEATURE_RETRY_ATTEMPTS 3
 
-int dns_server_new(
+static int dns_server_new_full(
                 Manager *m,
                 DnsServer **ret,
                 DnsServerType type,
                 Link *link,
                 DnsDelegate *delegate,
+                DnsServerProtocol protocol,
                 int family,
                 const union in_addr_union *in_addr,
                 uint16_t port,
                 int ifindex,
                 const char *server_name,
+                const char *doh_uri,
                 ResolveConfigSource config_source) {
 
-        _cleanup_free_ char *name = NULL;
+        _cleanup_free_ char *name = NULL, *uri = NULL;
         DnsServer *s;
 
         assert(m);
@@ -57,6 +60,16 @@ int dns_server_new(
 
         if (!IN_SET(family, AF_INET, AF_INET6))
                 return -EAFNOSUPPORT;
+        if (protocol < 0 || protocol >= _DNS_SERVER_PROTOCOL_MAX)
+                return -EINVAL;
+        if (protocol == DNS_SERVER_PROTOCOL_HTTPS) {
+                if (isempty(server_name) || isempty(doh_uri))
+                        return -EINVAL;
+#if !(HAVE_LIBCURL_HEADER && HAVE_LIBCURL_URL)
+                return -EOPNOTSUPP;
+#endif
+        } else if (doh_uri)
+                return -EINVAL;
 
         if (link) {
                 if (link->n_dns_servers >= LINK_DNS_SERVERS_MAX)
@@ -74,6 +87,11 @@ int dns_server_new(
                 if (!name)
                         return -ENOMEM;
         }
+        if (doh_uri) {
+                uri = strdup(doh_uri);
+                if (!uri)
+                        return -ENOMEM;
+        }
 
         s = new(DnsServer, 1);
         if (!s)
@@ -88,6 +106,8 @@ int dns_server_new(
                 .port = port,
                 .ifindex = ifindex,
                 .server_name = TAKE_PTR(name),
+                .protocol = protocol,
+                .doh_uri = TAKE_PTR(uri),
                 .config_source = config_source,
                 .accessible = -1,
         };
@@ -134,6 +154,24 @@ int dns_server_new(
         return 0;
 }
 
+int dns_server_new(
+                Manager *m,
+                DnsServer **ret,
+                DnsServerType type,
+                Link *link,
+                DnsDelegate *delegate,
+                int family,
+                const union in_addr_union *in_addr,
+                uint16_t port,
+                int ifindex,
+                const char *server_name,
+                ResolveConfigSource config_source) {
+
+        return dns_server_new_full(
+                        m, ret, type, link, delegate, DNS_SERVER_PROTOCOL_DNS,
+                        family, in_addr, port, ifindex, server_name, /* doh_uri= */ NULL, config_source);
+}
+
 static DnsServer* dns_server_free(DnsServer *s)  {
         assert(s);
 
@@ -146,6 +184,7 @@ static DnsServer* dns_server_free(DnsServer *s)  {
         free(s->server_string);
         free(s->server_string_full);
         free(s->server_name);
+        free(s->doh_uri);
         return mfree(s);
 }
 
@@ -786,7 +825,7 @@ uint16_t dns_server_port(const DnsServer *s) {
         if (s->port > 0)
                 return s->port;
 
-        return 53;
+        return dns_server_is_doh(s) ? 443 : 53;
 }
 
 const char* dns_server_string(DnsServer *server) {
@@ -801,14 +840,19 @@ const char* dns_server_string(DnsServer *server) {
 const char* dns_server_string_full(DnsServer *server) {
         assert(server);
 
-        if (!server->server_string_full)
-                (void) in_addr_port_ifindex_name_to_string(
-                                server->family,
-                                &server->address,
-                                server->port,
-                                dns_server_ifindex(server),
-                                server->server_name,
-                                &server->server_string_full);
+        if (!server->server_string_full) {
+                if (dns_server_is_doh(server)) {
+                        _cleanup_free_ char *address = NULL;
+
+                        if (in_addr_port_ifindex_name_to_string(
+                                            server->family, &server->address, server->port != 443 ? server->port : 0, dns_server_ifindex(server),
+                                            /* server_name= */ NULL, &address) >= 0)
+                                server->server_string_full = strjoin(address, "#", server->doh_uri);
+                } else
+                        (void) in_addr_port_ifindex_name_to_string(
+                                        server->family, &server->address, server->port, dns_server_ifindex(server),
+                                        server->server_name, &server->server_string_full);
+        }
 
         return server->server_string_full;
 }
@@ -868,6 +912,8 @@ static void dns_server_hash_func(const DnsServer *s, struct siphash *state) {
         siphash24_compress_typesafe(s->port, state);
         siphash24_compress_typesafe(s->ifindex, state);
         siphash24_compress_string(s->server_name, state);
+        siphash24_compress_typesafe(s->protocol, state);
+        siphash24_compress_string(s->doh_uri, state);
 }
 
 static int dns_server_compare_func(const DnsServer *x, const DnsServer *y) {
@@ -889,7 +935,15 @@ static int dns_server_compare_func(const DnsServer *x, const DnsServer *y) {
         if (r != 0)
                 return r;
 
-        return strcmp_ptr(x->server_name, y->server_name);
+        r = strcmp_ptr(x->server_name, y->server_name);
+        if (r != 0)
+                return r;
+
+        r = CMP(x->protocol, y->protocol);
+        if (r != 0)
+                return r;
+
+        return strcmp_ptr(x->doh_uri, y->doh_uri);
 }
 
 DEFINE_HASH_OPS(dns_server_hash_ops, DnsServer, dns_server_hash_func, dns_server_compare_func);
@@ -943,20 +997,43 @@ void dns_server_mark_all(DnsServer *server) {
         }
 }
 
-DnsServer *dns_server_find(DnsServer *first, int family, const union in_addr_union *in_addr, uint16_t port, int ifindex, const char *name) {
+static DnsServer* dns_server_find_with_protocol(
+                DnsServer *first,
+                int family,
+                const union in_addr_union *address,
+                uint16_t port,
+                int ifindex,
+                const char *name,
+                DnsServerProtocol protocol,
+                const char *doh_uri) {
+
         LIST_FOREACH(servers, s, first)
                 if (s->family == family &&
-                    in_addr_equal(family, &s->address, in_addr) > 0 &&
+                    in_addr_equal(family, &s->address, address) > 0 &&
                     s->port == port &&
                     s->ifindex == ifindex &&
-                    streq_ptr(s->server_name, name))
+                    streq_ptr(s->server_name, name) &&
+                    s->protocol == protocol &&
+                    streq_ptr(s->doh_uri, doh_uri))
                         return s;
 
         return NULL;
 }
 
+DnsServer *dns_server_find(DnsServer *first, int family, const union in_addr_union *in_addr, uint16_t port, int ifindex, const char *name) {
+        return dns_server_find_with_protocol(
+                        first,
+                        family,
+                        in_addr,
+                        port,
+                        ifindex,
+                        name,
+                        DNS_SERVER_PROTOCOL_DNS,
+                        /* doh_uri= */ NULL);
+}
+
 static int manager_add_dns_server_by_string(Manager *m, DnsServerType type, const char *word) {
-        _cleanup_free_ char *server_name = NULL;
+        _cleanup_free_ char *doh_uri = NULL, *server_name = NULL;
         union in_addr_union address;
         int family, r, ifindex = 0;
         uint16_t port;
@@ -969,17 +1046,40 @@ static int manager_add_dns_server_by_string(Manager *m, DnsServerType type, cons
         if (r < 0)
                 return r;
 
+        DnsServerProtocol protocol = DNS_SERVER_PROTOCOL_DNS;
+        if (server_name && (strstr(server_name, "://") || startswith_no_case(server_name, "https:"))) {
+                if (!startswith_no_case(server_name, "https://"))
+                        return -EPROTONOSUPPORT;
+
+#if HAVE_LIBCURL_HEADER && HAVE_LIBCURL_URL
+                _cleanup_free_ char *auth_name = NULL;
+                uint16_t doh_port;
+
+                r = dns_over_https_uri_parse(server_name, &doh_uri, &auth_name, &doh_port);
+                if (r < 0)
+                        return r;
+                if (port > 0 && port != doh_port)
+                        return -EINVAL;
+
+                port = doh_port;
+                free_and_replace(server_name, auth_name);
+                protocol = DNS_SERVER_PROTOCOL_HTTPS;
+#else
+                return -EOPNOTSUPP;
+#endif
+        }
+
         /* Silently filter out 0.0.0.0, 127.0.0.53, 127.0.0.54 (our own stub DNS listener) */
         if (!dns_server_address_valid(family, &address))
                 return 0;
 
-        /* By default, the port number is determined with the transaction feature level.
+        /* By default, the port number is determined with the selected transport.
          * See dns_transaction_port() and dns_server_port(). */
-        if (IN_SET(port, 53, 853))
+        if (protocol == DNS_SERVER_PROTOCOL_DNS && IN_SET(port, 53, 853))
                 port = 0;
 
         /* Filter out duplicates */
-        s = dns_server_find(manager_get_first_dns_server(m, type), family, &address, port, ifindex, server_name);
+        s = dns_server_find_with_protocol(manager_get_first_dns_server(m, type), family, &address, port, ifindex, server_name, protocol, doh_uri);
         if (s) {
                 /* Drop the marker. This is used to find the servers that ceased to exist, see
                  * manager_mark_dns_servers() and manager_flush_marked_dns_servers(). */
@@ -987,17 +1087,19 @@ static int manager_add_dns_server_by_string(Manager *m, DnsServerType type, cons
                 return 0;
         }
 
-        return dns_server_new(
+        return dns_server_new_full(
                         m,
                         /* ret= */ NULL,
                         type,
                         /* link= */ NULL,
                         /* delegate= */ NULL,
+                        protocol,
                         family,
                         &address,
                         port,
                         ifindex,
                         server_name,
+                        doh_uri,
                         RESOLVE_CONFIG_SOURCE_FILE);
 }
 
@@ -1277,6 +1379,8 @@ void dns_server_dump(DnsServer *s, FILE *f) {
         fputs(strna(dns_server_string_full(s)), f);
         fputs(" type=", f);
         fputs(dns_server_type_to_string(s->type), f);
+        fputs(" transport=", f);
+        fputs(dns_server_protocol_to_string(s->protocol), f);
 
         if (s->type == DNS_SERVER_LINK) {
                 assert(s->link);
@@ -1286,6 +1390,11 @@ void dns_server_dump(DnsServer *s, FILE *f) {
         }
 
         fputs("]\n", f);
+
+        if (dns_server_is_doh(s)) {
+                fprintf(f, "\tAuthentication name: %s\n", s->server_name);
+                fprintf(f, "\tURI: %s\n", s->doh_uri);
+        }
 
         fputs("\tVerified transport: ", f);
         fputs(strna(dns_server_transport_to_string(s->verified_transport)), f);
@@ -1365,6 +1474,12 @@ static const char* const dns_server_type_table[_DNS_SERVER_TYPE_MAX] = {
 };
 DEFINE_STRING_TABLE_LOOKUP(dns_server_type, DnsServerType);
 
+static const char* const dns_server_protocol_table[_DNS_SERVER_PROTOCOL_MAX] = {
+        [DNS_SERVER_PROTOCOL_DNS]   = "dns",
+        [DNS_SERVER_PROTOCOL_HTTPS] = "https",
+};
+DEFINE_STRING_TABLE_LOOKUP(dns_server_protocol, DnsServerProtocol);
+
 static const char* const dns_server_transport_table[_DNS_SERVER_TRANSPORT_MAX] = {
         [DNS_SERVER_TRANSPORT_TCP] = "TCP",
         [DNS_SERVER_TRANSPORT_UDP] = "UDP",
@@ -1380,16 +1495,21 @@ static const char* const dns_server_capability_level_table[_DNS_SERVER_CAPABILIT
 DEFINE_STRING_TABLE_LOOKUP(dns_server_capability_level, DnsServerCapabilityLevel);
 
 int dns_server_dump_state_to_json(DnsServer *server, sd_json_variant **ret) {
+        int ifindex;
 
         assert(server);
         assert(ret);
+
+        ifindex = dns_server_ifindex(server);
 
         return sd_json_buildo(
                         ret,
                         SD_JSON_BUILD_PAIR_STRING("Server", strna(dns_server_string_full(server))),
                         SD_JSON_BUILD_PAIR_STRING("Type", strna(dns_server_type_to_string(server->type))),
+                        SD_JSON_BUILD_PAIR_STRING("Protocol", strna(dns_server_protocol_to_string(server->protocol))),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("URI", server->doh_uri),
                         SD_JSON_BUILD_PAIR_CONDITION(server->type == DNS_SERVER_LINK, "Interface", SD_JSON_BUILD_STRING(server->link ? server->link->ifname : NULL)),
-                        SD_JSON_BUILD_PAIR_CONDITION(server->type == DNS_SERVER_LINK, "InterfaceIndex", SD_JSON_BUILD_UNSIGNED(server->link ? server->link->ifindex : 0)),
+                        SD_JSON_BUILD_PAIR_CONDITION(ifindex > 0, "InterfaceIndex", SD_JSON_BUILD_UNSIGNED(ifindex)),
                         SD_JSON_BUILD_PAIR_STRING("VerifiedTransport", strna(dns_server_transport_to_string(server->verified_transport))),
                         SD_JSON_BUILD_PAIR_STRING("PossibleTransport", strna(dns_server_transport_to_string(server->possible_transport))),
                         SD_JSON_BUILD_PAIR_STRING("VerifiedCapabilityLevel", strna(dns_server_capability_level_to_string(server->verified_capability_level))),
@@ -1475,5 +1595,7 @@ int dns_server_dump_configuration_to_json(DnsServer *server, sd_json_variant **r
                         SD_JSON_BUILD_PAIR_UNSIGNED("port", dns_server_port(server)),
                         SD_JSON_BUILD_PAIR_CONDITION(ifindex > 0, "ifindex", SD_JSON_BUILD_UNSIGNED(ifindex)),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("name", server->server_name),
+                        SD_JSON_BUILD_PAIR_STRING("protocol", strna(dns_server_protocol_to_string(server->protocol))),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("uri", server->doh_uri),
                         SD_JSON_BUILD_PAIR_BOOLEAN("accessible", accessible));
 }
