@@ -54,6 +54,12 @@ ci:
             package: systemd
             repository: Ubuntu_26.04
             architecture: i586
+          # No packaging support for building SUSE on stable branches
+          - type: build
+            status: disable
+            project: system:systemd:ci
+            package: systemd
+            repository: openSUSE_Tumbleweed
           # Then enable systemd package builds only, so that images stay disabled
           - type: build
             status: enable
