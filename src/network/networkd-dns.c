@@ -257,7 +257,21 @@ int config_parse_dns(
                         continue;
                 }
 
-                if (IN_SET(dns->port, 53, 853))
+                bool is_uri = dns->server_name && (strstr(dns->server_name, "://") || startswith_no_case(dns->server_name, "https:"));
+                if (is_uri && !startswith_no_case(dns->server_name, "https://")) {
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                   "DNS server URI must use HTTPS, ignoring: %s", w);
+                        continue;
+                }
+#if !(HAVE_LIBCURL_HEADER && HAVE_LIBCURL_URL)
+                if (is_uri) {
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                   "DNS-over-HTTPS support is unavailable, ignoring: %s", w);
+                        continue;
+                }
+#endif
+
+                if (!is_uri && IN_SET(dns->port, 53, 853))
                         dns->port = 0;
 
                 if (!GREEDY_REALLOC(n->dns, n->n_dns + 1))

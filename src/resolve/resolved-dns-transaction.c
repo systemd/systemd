@@ -440,7 +440,7 @@ void dns_transaction_complete(DnsTransaction *t, DnsTransactionState state) {
                            LOG_ITEM("DNS_QUESTION=%s", key_str),
                            LOG_ITEM("DNSSEC_RESULT=%s", dnssec_result_to_string(t->answer_dnssec_result)),
                            LOG_ITEM("DNS_SERVER=%s", strna(dns_server_string_full(t->server))),
-                           LOG_ITEM("DNS_SERVER_TRANSPORT=%s", dns_server_transport_to_string(t->server->possible_transport)));
+                           LOG_ITEM("DNS_SERVER_TRANSPORT=%s", strna(dns_server_transport_to_string(t->server->possible_transport))));
         }
 
         /* Note that this call might invalidate the query. Callers

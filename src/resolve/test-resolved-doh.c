@@ -5,6 +5,7 @@
 #include "dns-packet.h"
 #include "resolved-dns-server.h"
 #include "resolved-doh.h"
+#include "resolved-link.h"
 #include "resolved-manager.h"
 #include "siphash24.h"
 #include "tests.h"

@@ -1062,7 +1062,8 @@ static DnsServer* dns_server_find_with_protocol(
         return NULL;
 }
 
-static int manager_add_dns_server_by_string(Manager *m, DnsServerType type, const char *word) {
+int dns_server_new_from_string(Manager *m, DnsServerType type, Link *link, DnsDelegate *delegate, const char *word, ResolveConfigSource config_source) {
+
         _cleanup_free_ char *doh_uri = NULL, *doh_uri_template = NULL, *server_name = NULL;
         union in_addr_union address;
         int family, r, ifindex = 0;
@@ -1070,11 +1071,16 @@ static int manager_add_dns_server_by_string(Manager *m, DnsServerType type, cons
         DnsServer *s;
 
         assert(m);
+        assert((type == DNS_SERVER_LINK) == !!link);
+        assert((type == DNS_SERVER_DELEGATE) == !!delegate);
         assert(word);
 
         r = in_addr_port_ifindex_name_from_string_auto(word, &family, &address, &port, &ifindex, &server_name);
         if (r < 0)
                 return r;
+
+        if (link && ifindex != 0 && ifindex != link->ifindex)
+                return -EINVAL;
 
         DnsServerProtocol protocol = DNS_SERVER_PROTOCOL_DNS;
         if (server_name && (strstr(server_name, "://") || startswith_no_case(server_name, "https:"))) {
@@ -1109,7 +1115,8 @@ static int manager_add_dns_server_by_string(Manager *m, DnsServerType type, cons
                 port = 0;
 
         /* Filter out duplicates */
-        s = dns_server_find_with_protocol(manager_get_first_dns_server(m, type), family, &address, port, ifindex, server_name, protocol, doh_uri, doh_uri_template);
+        DnsServer *first = link ? link->dns_servers : delegate ? delegate->dns_servers : manager_get_first_dns_server(m, type);
+        s = dns_server_find_with_protocol(first, family, &address, port, ifindex, server_name, protocol, doh_uri, doh_uri_template);
         if (s) {
                 /* Drop the marker. This is used to find the servers that ceased to exist, see
                  * manager_mark_dns_servers() and manager_flush_marked_dns_servers(). */
@@ -1121,8 +1128,8 @@ static int manager_add_dns_server_by_string(Manager *m, DnsServerType type, cons
                         m,
                         /* ret= */ NULL,
                         type,
-                        /* link= */ NULL,
-                        /* delegate= */ NULL,
+                        link,
+                        delegate,
                         protocol,
                         family,
                         &address,
@@ -1131,7 +1138,7 @@ static int manager_add_dns_server_by_string(Manager *m, DnsServerType type, cons
                         server_name,
                         doh_uri,
                         doh_uri_template,
-                        RESOLVE_CONFIG_SOURCE_FILE);
+                        config_source);
 }
 
 int manager_parse_dns_server_string_and_warn(Manager *m, DnsServerType type, const char *string) {
@@ -1147,7 +1154,7 @@ int manager_parse_dns_server_string_and_warn(Manager *m, DnsServerType type, con
                 if (r <= 0)
                         return r;
 
-                r = manager_add_dns_server_by_string(m, type, word);
+                r = dns_server_new_from_string(m, type, /* link= */ NULL, /* delegate= */ NULL, word, RESOLVE_CONFIG_SOURCE_FILE);
                 if (r < 0)
                         log_warning_errno(r, "Failed to add DNS server address '%s', ignoring: %m", word);
         }
