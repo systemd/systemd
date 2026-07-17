@@ -568,6 +568,29 @@ static bool dns_transaction_limited_retry(DnsTransaction *t) {
         return true;
 }
 
+#if HAVE_LIBCURL_HEADER && HAVE_LIBCURL_URL
+static bool dns_transaction_retry_doh_failure(DnsTransaction *t, DnsOverHttpsFailureAction failure_action) {
+        assert(t);
+        assert(dns_server_is_doh(t->server));
+        assert(IN_SET(failure_action, DNS_OVER_HTTPS_FAILURE_RETRY_SAME_SERVER, DNS_OVER_HTTPS_FAILURE_RETRY_NEXT_SERVER));
+
+        if (failure_action == DNS_OVER_HTTPS_FAILURE_RETRY_SAME_SERVER) {
+                if (!t->doh_same_server_retry_used) {
+                        t->doh_same_server_retry_used = true;
+                        t->doh_fresh_connect_next = true;
+                        log_debug("Retrying DNS-over-HTTPS transaction %" PRIu16 " once on the same server with a fresh connection.", t->id);
+                        dns_transaction_retry(t, /* next_server= */ false);
+                        return true;
+                }
+
+                log_debug("Same-server DNS-over-HTTPS retry already used for transaction %" PRIu16 ".", t->id);
+        } else
+                assert(failure_action == DNS_OVER_HTTPS_FAILURE_RETRY_NEXT_SERVER);
+
+        return dns_transaction_limited_retry(t);
+}
+#endif
+
 static int dns_transaction_maybe_restart(DnsTransaction *t) {
         int r;
 
@@ -853,6 +876,7 @@ static int dns_transaction_emit_tcp(DnsTransaction *t) {
 static int dns_transaction_emit_doh(DnsTransaction *t) {
 #if HAVE_LIBCURL_HEADER && HAVE_LIBCURL_URL
         _cleanup_(dns_http_request_freep) DnsHttpRequest *request = NULL;
+        bool fresh_connection;
         int r;
 
         assert(t);
@@ -872,10 +896,12 @@ static int dns_transaction_emit_doh(DnsTransaction *t) {
                         return r;
         }
 
-        r = dns_http_request_new(t, t->server, t->sent, &request);
+        fresh_connection = t->doh_fresh_connect_next;
+        r = dns_http_request_new(t, t->server, t->sent, fresh_connection, &request);
         if (r < 0)
                 return r;
 
+        t->doh_fresh_connect_next = false;
         t->doh_request = TAKE_PTR(request);
         dns_transaction_reset_answer(t);
         return 0;
@@ -885,7 +911,7 @@ static int dns_transaction_emit_doh(DnsTransaction *t) {
 }
 
 #if HAVE_LIBCURL_HEADER && HAVE_LIBCURL_URL
-void dns_transaction_on_doh_complete(DnsTransaction *t, DnsHttpRequest *request, DnsPacket *p, int error) {
+void dns_transaction_on_doh_complete(DnsTransaction *t, DnsHttpRequest *request, DnsPacket *p, int error, DnsOverHttpsFailureAction failure_action) {
         assert(t);
         assert(request);
         assert(t->doh_request == request);
@@ -894,7 +920,11 @@ void dns_transaction_on_doh_complete(DnsTransaction *t, DnsHttpRequest *request,
 
         if (error < 0) {
                 log_debug_errno(error, "DNS-over-HTTPS request failed: %m");
-                dns_transaction_retry(t, true);
+
+                if (failure_action != DNS_OVER_HTTPS_FAILURE_ABORT && dns_transaction_retry_doh_failure(t, failure_action))
+                        return;
+
+                dns_transaction_complete_errno(t, error);
                 return;
         }
 
@@ -1677,6 +1707,16 @@ static int on_transaction_timeout(sd_event_source *s, usec_t usec, void *userdat
 
                 log_debug("Timeout reached on transaction %" PRIu16 ".", t->id);
         }
+
+#if HAVE_LIBCURL_HEADER && HAVE_LIBCURL_URL
+        if (t->doh_request) {
+                if (dns_transaction_retry_doh_failure(t, DNS_OVER_HTTPS_FAILURE_RETRY_SAME_SERVER))
+                        return 0;
+
+                dns_transaction_complete(t, DNS_TRANSACTION_TIMEOUT);
+                return 0;
+        }
+#endif
 
         dns_transaction_retry(t, /* next_server= */ true); /* try a different server, but given this means
                                                             * packet loss, let's do so even if we already
