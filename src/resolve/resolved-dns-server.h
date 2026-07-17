@@ -29,6 +29,14 @@ typedef enum DnsServerFeatureLevel {
         _DNS_SERVER_FEATURE_LEVEL_INVALID = -EINVAL,
 } DnsServerFeatureLevel;
 
+typedef enum DnsTransactionTransport {
+        DNS_TRANSACTION_TRANSPORT_UDP,
+        DNS_TRANSACTION_TRANSPORT_TCP,
+        DNS_TRANSACTION_TRANSPORT_TLS,
+        _DNS_TRANSACTION_TRANSPORT_MAX,
+        _DNS_TRANSACTION_TRANSPORT_INVALID = -EINVAL,
+} DnsTransactionTransport;
+
 #define DNS_SERVER_FEATURE_LEVEL_WORST 0
 #define DNS_SERVER_FEATURE_LEVEL_BEST (_DNS_SERVER_FEATURE_LEVEL_MAX - 1)
 #define DNS_SERVER_FEATURE_LEVEL_IS_EDNS0(x) ((x) >= DNS_SERVER_FEATURE_LEVEL_EDNS0)
@@ -117,8 +125,8 @@ DECLARE_TRIVIAL_REF_UNREF_FUNC(DnsServer, dns_server);
 void dns_server_unlink(DnsServer *s);
 void dns_server_move_back_and_unmark(DnsServer *s);
 
-void dns_server_packet_received(DnsServer *s, int protocol, DnsServerFeatureLevel level, size_t fragsize);
-void dns_server_packet_lost(DnsServer *s, int protocol, DnsServerFeatureLevel level);
+void dns_server_packet_received(DnsServer *s, DnsTransactionTransport transport, DnsServerFeatureLevel level, size_t fragsize);
+void dns_server_packet_lost(DnsServer *s, DnsTransactionTransport transport, DnsServerFeatureLevel level);
 void dns_server_packet_truncated(DnsServer *s, DnsServerFeatureLevel level);
 void dns_server_packet_rrsig_missing(DnsServer *s, DnsServerFeatureLevel level);
 void dns_server_packet_bad_opt(DnsServer *s, DnsServerFeatureLevel level);

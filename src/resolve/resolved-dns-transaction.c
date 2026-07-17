@@ -601,14 +601,17 @@ static void on_transaction_stream_error(DnsTransaction *t, int error) {
                 dns_transaction_complete_errno(t, error);
 }
 
+static DnsTransactionTransport dns_stream_transport(const DnsStream *s) {
+        assert(s);
+
+        return s->encrypted ? DNS_TRANSACTION_TRANSPORT_TLS : DNS_TRANSACTION_TRANSPORT_TCP;
+}
+
 static int dns_transaction_on_stream_packet(DnsTransaction *t, DnsStream *s, DnsPacket *p) {
-        bool encrypted;
 
         assert(t);
         assert(s);
         assert(p);
-
-        encrypted = s->encrypted;
 
         dns_transaction_close_connection(t, true);
 
@@ -621,7 +624,7 @@ static int dns_transaction_on_stream_packet(DnsTransaction *t, DnsStream *s, Dns
         dns_scope_check_conflicts(t->scope, p);
 
         t->block_gc++;
-        dns_transaction_process_reply(t, p, encrypted);
+        dns_transaction_process_reply(t, p, dns_stream_transport(s));
         t->block_gc--;
 
         /* If the response wasn't useful, then complete the transition
@@ -645,7 +648,7 @@ static int on_stream_complete(DnsStream *s, int error) {
                         DnsTransaction *t;
 
                         t = s->transactions;
-                        dns_server_packet_lost(t->server, IPPROTO_TCP, t->current_feature_level);
+                        dns_server_packet_lost(t->server, dns_stream_transport(s), t->current_feature_level);
                 }
         }
 
@@ -797,7 +800,7 @@ static int dns_transaction_emit_tcp(DnsTransaction *t) {
                                                         LOG_MESSAGE_ID(SD_MESSAGE_MISSING_DEPENDENCY_STR),
                                                         LOG_ITEM("FEATURE=DNS-over-TLS"),
                                                         LOG_MESSAGE("DNS-over-TLS has been requested but the required TLS libraries (libssl/libcrypto) are not installed."));
-                                        dns_server_packet_lost(t->server, IPPROTO_TCP, t->current_feature_level);
+                                        dns_server_packet_lost(t->server, DNS_TRANSACTION_TRANSPORT_TLS, t->current_feature_level);
                                         return -ECONNREFUSED;
                                 }
                                 return r;
@@ -1087,7 +1090,7 @@ static int dns_transaction_fix_rcode(DnsTransaction *t) {
         return 0;
 }
 
-void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypted) {
+void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, DnsTransactionTransport transport) {
         bool retry_with_tcp = false;
         int r;
 
@@ -1095,6 +1098,8 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
         assert(p);
         assert(t->scope);
         assert(t->scope->manager);
+        assert(transport >= 0);
+        assert(transport < _DNS_TRANSACTION_TRANSPORT_MAX);
 
         if (t->state != DNS_TRANSACTION_PENDING)
                 return;
@@ -1163,7 +1168,7 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
 
         t->answer_source = DNS_TRANSACTION_NETWORK;
 
-        if (p->ipproto == IPPROTO_TCP) {
+        if (IN_SET(transport, DNS_TRANSACTION_TRANSPORT_TCP, DNS_TRANSACTION_TRANSPORT_TLS)) {
                 if (DNS_PACKET_TC(p)) {
                         /* Truncated via TCP? Somebody must be fucking with us */
                         dns_transaction_complete(t, DNS_TRANSACTION_INVALID_REPLY);
@@ -1189,7 +1194,8 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
                 log_debug("Reply truncated, retrying via TCP.");
                 retry_with_tcp = true;
 
-        } else if (t->scope->protocol == DNS_PROTOCOL_DNS &&
+        } else if (transport == DNS_TRANSACTION_TRANSPORT_UDP &&
+                   t->scope->protocol == DNS_PROTOCOL_DNS &&
                    DNS_PACKET_IS_FRAGMENTED(p)) {
 
                 /* Report the fragment size, so that we downgrade from LARGE to regular EDNS0 if needed */
@@ -1403,7 +1409,7 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
                 /* Report that we successfully received a packet. We keep track of the largest packet
                  * size/fragment size we got. Which is useful for announcing the EDNS(0) packet size we can
                  * receive to our server. */
-                dns_server_packet_received(t->server, p->ipproto, t->current_feature_level, dns_packet_size_unfragmented(p));
+                dns_server_packet_received(t->server, transport, t->current_feature_level, dns_packet_size_unfragmented(p));
         }
 
         /* See if we know things we didn't know before that indicate we better restart the lookup immediately. */
@@ -1434,7 +1440,7 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
         t->answer_rcode = dns_packet_rcode(p);
         t->answer_dnssec_result = _DNSSEC_RESULT_INVALID;
         SET_FLAG(t->answer_query_flags, SD_RESOLVED_AUTHENTICATED, false);
-        SET_FLAG(t->answer_query_flags, SD_RESOLVED_CONFIDENTIAL, encrypted);
+        SET_FLAG(t->answer_query_flags, SD_RESOLVED_CONFIDENTIAL, transport == DNS_TRANSACTION_TRANSPORT_TLS);
 
         r = dns_transaction_fix_rcode(t);
         if (r < 0)
@@ -1488,7 +1494,7 @@ static int on_dns_packet(sd_event_source *s, int fd, uint32_t revents, void *use
 
                         log_debug_errno(r, "Connection failure for DNS UDP packet: %m");
                         assert_se(sd_event_now(t->scope->manager->event, CLOCK_BOOTTIME, &usec) >= 0);
-                        dns_server_packet_lost(t->server, IPPROTO_UDP, t->current_feature_level);
+                        dns_server_packet_lost(t->server, DNS_TRANSACTION_TRANSPORT_UDP, t->current_feature_level);
 
                         dns_transaction_close_connection(t, /* use_graveyard= */ false);
 
@@ -1517,7 +1523,7 @@ static int on_dns_packet(sd_event_source *s, int fd, uint32_t revents, void *use
                 return 0;
         }
 
-        dns_transaction_process_reply(t, p, false);
+        dns_transaction_process_reply(t, p, DNS_TRANSACTION_TRANSPORT_UDP);
         return 0;
 }
 
@@ -1596,7 +1602,7 @@ static int on_transaction_timeout(sd_event_source *s, usec_t usec, void *userdat
 
                 case DNS_PROTOCOL_DNS:
                         assert(t->server);
-                        dns_server_packet_lost(t->server, t->stream ? IPPROTO_TCP : IPPROTO_UDP, t->current_feature_level);
+                        dns_server_packet_lost(t->server, t->stream ? dns_stream_transport(t->stream) : DNS_TRANSACTION_TRANSPORT_UDP, t->current_feature_level);
                         break;
 
                 case DNS_PROTOCOL_LLMNR:
