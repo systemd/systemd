@@ -121,7 +121,7 @@ TEST(server_configuration_ipv4) {
         ASSERT_EQ(server->ifindex, 0);
         ASSERT_STREQ(server->server_name, "resolver.example");
         ASSERT_STREQ(server->doh_uri, "https://resolver.example/dns-query");
-        ASSERT_STREQ(dns_server_string_full(server), "1.1.1.1:443#https://resolver.example/dns-query");
+        ASSERT_STREQ(dns_server_string_full(server), "1.1.1.1#https://resolver.example/dns-query{?dns}");
 
         ASSERT_NULL(dns_server_find(manager.dns_servers, AF_INET, &server->address, 443, 0, "resolver.example"));
 

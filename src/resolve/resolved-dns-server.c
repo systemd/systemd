@@ -845,7 +845,7 @@ const char* dns_server_string_full(DnsServer *server) {
                         _cleanup_free_ char *address = NULL;
 
                         if (in_addr_port_ifindex_name_to_string(
-                                            server->family, &server->address, server->port, dns_server_ifindex(server),
+                                            server->family, &server->address, server->port != 443 ? server->port : 0, dns_server_ifindex(server),
                                             /* server_name= */ NULL, &address) >= 0)
                                 server->server_string_full = strjoin(address, "#", server->doh_uri);
                 } else
