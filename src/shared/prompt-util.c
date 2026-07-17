@@ -217,19 +217,19 @@ static int boolean_is_valid(const char *name, void *userdata) {
         return parse_boolean(name) >= 0;
 }
 
-int prompt_loop_yes_no(const char *question, bool def, bool *ret) {
+int prompt_loop_yes_no(const char *question, const char *prefill, bool def, bool *ret) {
         int r;
 
         assert(question);
         assert(ret);
 
-        char **l = STRV_MAKE("yes", "no");
+        char **menu = STRV_MAKE("yes", "no");
 
         _cleanup_free_ char *reply = NULL;
         r = prompt_loop(question,
                         GLYPH_WARNING_SIGN,
-                        /* prefill= */ def ? "yes" : "no",
-                        /* menu= */ l,
+                        /* prefill= */ prefill,
+                        /* menu= */ menu,
                         /* accepted= */ NULL,
                         /* ellipsize_percentage= */ 20,
                         /* n_columns= */ 2,
