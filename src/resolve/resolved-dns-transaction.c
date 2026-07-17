@@ -718,6 +718,9 @@ static int dns_transaction_emit_tcp(DnsTransaction *t) {
                 if (r < 0)
                         return r;
 
+                if (dns_server_is_doh(t->server))
+                        return -EPROTONOSUPPORT;
+
                 if (manager_server_is_stub(t->scope->manager, t->server))
                         return -ELOOP;
 
@@ -1520,6 +1523,9 @@ static int dns_transaction_emit_udp(DnsTransaction *t) {
                 r = dns_transaction_pick_server(t);
                 if (r < 0)
                         return r;
+
+                if (dns_server_is_doh(t->server))
+                        return -EPROTONOSUPPORT;
 
                 if (manager_server_is_stub(t->scope->manager, t->server))
                         return -ELOOP;

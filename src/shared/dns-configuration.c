@@ -19,6 +19,8 @@ DNSServer* dns_server_free(DNSServer *s) {
                 return NULL;
 
         free(s->server_name);
+        free(s->protocol);
+        free(s->uri);
         iovec_done(&s->addr);
 
         return mfree(s);
@@ -40,6 +42,8 @@ static int dispatch_dns_server(const char *name, sd_json_variant *variant, sd_js
                 { "port",          SD_JSON_VARIANT_UNSIGNED,      sd_json_dispatch_uint16,        offsetof(DNSServer, port),        0                 },
                 { "ifindex",       SD_JSON_VARIANT_UNSIGNED,      json_dispatch_ifindex,          offsetof(DNSServer, ifindex),     SD_JSON_RELAX     },
                 { "name",          SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,        offsetof(DNSServer, server_name), 0                 },
+                { "protocol",      SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,        offsetof(DNSServer, protocol),    0                 },
+                { "uri",           SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,        offsetof(DNSServer, uri),         0                 },
                 { "accessible",    SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,       offsetof(DNSServer, accessible),  SD_JSON_MANDATORY },
                 {},
         };

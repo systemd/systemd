@@ -788,6 +788,9 @@ DuplicateAddressDetection=none</programlisting></para>
           <literal>[1111:2222::3333]:9953%ifname#example.com</literal> for IPv6. If an empty string is
           assigned, then the all previous assignments are cleared. This setting is read by
           <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+          DNS-over-HTTPS URI specifications accepted by the global <varname>DNS=</varname> setting in
+          <citerefentry><refentrytitle>resolved.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry> are not
+          accepted here currently.
           </para>
 
           <xi:include href="version-info.xml" xpointer="v211"/>
