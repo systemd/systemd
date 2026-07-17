@@ -12,11 +12,21 @@
 #include "report.h"
 #include "report-sign.h"
 #include "sha256.h"
+#include "string-table.h"
 #include "time-util.h"
 #include "varlink-util.h"
 
 #define REPORT_SIGN_DIR "/run/systemd/report.sign"
 #define REPORT_SIGN_TIMEOUT_USEC USEC_PER_MINUTE
+
+static const char* const report_sign_mode_table[_REPORT_SIGN_MODE_MAX] = {
+        [REPORT_SIGN_NO]          = "no",
+        [REPORT_SIGN_BEST_EFFORT] = "best-effort",
+        [REPORT_SIGN_REQUIRE_ONE] = "require-one",
+        [REPORT_SIGN_REQUIRE_ALL] = "require-all",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(report_sign_mode, ReportSignMode);
 
 typedef struct Signature {
         char *mechanism;
@@ -26,7 +36,11 @@ typedef struct Signature {
 typedef struct SignatureList {
         Signature *signatures;
         size_t n_signatures;
-        int result;
+
+        size_t n_replies;   /* replies received (one per contacted socket) */
+        size_t n_errors;    /* replies that were errors */
+        size_t n_empty;     /* replies OK but with zero signatures (opt-out) */
+        int first_error;    /* first errno seen, for diagnostics */
 } SignatureList;
 
 static void signature_done(Signature *s) {
@@ -46,6 +60,15 @@ static void signature_list_done(SignatureList *sl) {
         sl->n_signatures = 0;
 }
 
+static int signature_reply_failed(SignatureList *sl, int r) {
+        assert(sl);
+
+        sl->n_errors++;
+        RET_GATHER(sl->first_error, r);
+
+        return 0;
+}
+
 static int execute_dir_reply(
                 sd_varlink *link,
                 sd_json_variant *reply,
@@ -58,18 +81,22 @@ static int execute_dir_reply(
 
         assert(link);
 
+        sl->n_replies++;
+
         /* Get the socket name */
         const char *p = ASSERT_PTR(sd_varlink_get_description(link));
 
         _cleanup_free_ char *sn = NULL;
         r = path_extract_filename(p, &sn);
-        if (r < 0)
-                return log_error_errno(r, "Failed to extract service name from '%s': %m", p);
+        if (r < 0) {
+                log_warning_errno(r, "Failed to extract service name from '%s': %m", p);
+                return signature_reply_failed(sl, r);
+        }
 
         if (error_id) {
                 r = sd_varlink_error_to_errno(error_id, reply);
-                RET_GATHER(sl->result, r);
-                return log_error_errno(r, "Signing via Varlink service '%s' failed: %s", p, error_id);
+                log_warning("Signing via Varlink service '%s' failed: %s", p, error_id);
+                return signature_reply_failed(sl, r);
         }
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
@@ -80,21 +107,23 @@ static int execute_dir_reply(
         };
 
         r = sd_json_dispatch(reply, dispatch_table, /* flags= */ 0, &array);
-        if (r < 0)
-                return log_error_errno(r, "Failed to dispatch method reply: %m");
+        if (r < 0) {
+                log_warning_errno(r, "Failed to parse reply from Varlink service '%s': %m", p);
+                return signature_reply_failed(sl, r);
+        }
 
         size_t n = 0;
         if (array) {
                 sd_json_variant *s;
                 JSON_VARIANT_ARRAY_FOREACH(s, array) {
                         if (!GREEDY_REALLOC(sl->signatures, sl->n_signatures + 1))
-                                return log_oom();
+                                return signature_reply_failed(sl, log_oom());
 
                         Signature *i = sl->signatures + sl->n_signatures;
 
                         i->mechanism = strdup(sn);
                         if (!i->mechanism)
-                                return log_oom();
+                                return signature_reply_failed(sl, log_oom());
 
                         i->data = sd_json_variant_ref(s);
                         sl->n_signatures++;
@@ -103,9 +132,10 @@ static int execute_dir_reply(
                 }
         }
 
-        if (n == 0)
+        if (n == 0) {
+                sl->n_empty++;
                 log_info("Mechanism '%s' succeeded, but returned no signatures.", p);
-        else
+        } else
                 log_info("Successfully acquired %zu signatures from '%s'", n, p);
 
         return 0;
@@ -114,6 +144,7 @@ static int execute_dir_reply(
 int context_sign_report(
                 Context *context,
                 sd_json_variant *report,
+                ReportSignMode mode,
                 sd_json_format_flags_t format_flags,
                 FILE *output) {
         int r;
@@ -156,17 +187,47 @@ int context_sign_report(
                         REPORT_SIGN_TIMEOUT_USEC,
                         execute_dir_reply,
                         /* userdata= */ &sl);
-        if (jobs < 0)
-                return log_error_errno(jobs, "Failed to execute signing via '%s': %m", REPORT_SIGN_DIR);
-        if (jobs == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOPKG),
-                                       "No signing mechanism found via '%s'.", REPORT_SIGN_DIR);
-        if (sl.result < 0)
-                /* The details were printed at error level by execute_dir_reply above. */
-                return log_debug_errno(sl.result, "Signing via '%s' failed: %m", REPORT_SIGN_DIR);
-        if (sl.n_signatures == 0)
-                return log_debug_errno(SYNTHETIC_ERRNO(ENOPKG),
-                                       "No signatures acquired via '%s'.", REPORT_SIGN_DIR);
+        if (jobs < 0) {
+                /* Could not open or enumerate the signer directory. Treat as "no signers present":
+                 * best-effort  emits an unsigned report, while require-one and require-all fail below. */
+                log_warning_errno(jobs, "Failed to execute signing via '%s': %m",
+                                REPORT_SIGN_DIR);
+                jobs = 0;
+        }
+
+        switch (mode) {
+        case REPORT_SIGN_REQUIRE_ALL:
+                if (jobs == 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOPKG),
+                                               "Signing mode '%s' requested, but no signing mechanism found via '%s'.",
+                                               report_sign_mode_to_string(mode), REPORT_SIGN_DIR);
+                if (sl.n_errors > 0)
+                        return log_error_errno(sl.first_error < 0 ? sl.first_error : SYNTHETIC_ERRNO(EIO),
+                                               "Signing mode '%s' requested, but %zu of %zu signing mechanisms failed.",
+                                               report_sign_mode_to_string(mode), sl.n_errors, sl.n_replies);
+                if (sl.n_empty > 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOPKG),
+                                               "Signing mode '%s' requested, but %zu of %zu signing mechanisms produced no signature.",
+                                               report_sign_mode_to_string(mode), sl.n_empty, sl.n_replies);
+                if (sl.n_signatures == 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOPKG),
+                                               "Signing mode '%s' requested, but no signatures could be acquired via '%s'.",
+                                               report_sign_mode_to_string(mode), REPORT_SIGN_DIR);
+                break;
+
+        case REPORT_SIGN_REQUIRE_ONE:
+                if (sl.n_signatures == 0)
+                        return log_error_errno(sl.first_error < 0 ? sl.first_error : SYNTHETIC_ERRNO(ENOPKG),
+                                               "Signing mode '%s' requested, but no signatures could be acquired via '%s'.",
+                                               report_sign_mode_to_string(mode), REPORT_SIGN_DIR);
+                break;
+
+        case REPORT_SIGN_BEST_EFFORT:
+                break;   /* never fails; may emit zero signatures */
+
+        default:
+                assert_not_reached();
+        }
 
         if (fputs(text, output) == EOF)
                 return log_error_errno(errno, "Failed to write report: %m");
@@ -202,6 +263,7 @@ int context_sign_report(
 int context_sign_report_as_string(
                 Context *context,
                 sd_json_variant *report,
+                ReportSignMode mode,
                 sd_json_format_flags_t format_flags,
                 char **ret)  {
 
@@ -217,7 +279,7 @@ int context_sign_report_as_string(
         if (!f)
                 return log_oom();
 
-        r = context_sign_report(context, report, format_flags, f);
+        r = context_sign_report(context, report, mode, format_flags, f);
         if (r < 0)
                 return r;
 
