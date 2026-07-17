@@ -378,11 +378,11 @@ CHANGES WITH 261:
 
         Changes in systemd-resolved:
 
-        * The global DNS= and FallbackDNS= settings now accept DNS-over-HTTPS
-          endpoint specifications containing a bootstrap address and HTTPS URI.
-          The endpoint transport and request URI are exposed through resolvectl
-          and the resolver's JSON and Varlink interfaces. Existing per-link
-          configuration and D-Bus interfaces remain unchanged.
+        * The global DNS= and FallbackDNS= settings, and per-link DNS= settings,
+          now accept DNS-over-HTTPS endpoint specifications containing a bootstrap
+          address and HTTPS URI. The endpoint transport and request URI are
+          exposed through resolvectl and the resolver's JSON and Varlink interfaces.
+          D-Bus interfaces remain unchanged.
 
         * systemd-resolved will now read additional DNS resource record
           definitions to resolve locally from JSON drop-in files in
