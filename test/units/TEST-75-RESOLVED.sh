@@ -1453,6 +1453,227 @@ testcase_15_wait_online_dns() {
     journalctl --after-cursor="$(cat "$cursor_file")" SYSLOG_IDENTIFIER=systemd-networkd-wait-online --grep="dns0: link is configured by networkd and online." >/dev/null
 }
 
+testcase_doh() {
+    local server=/usr/lib/systemd/tests/unit-tests/manual/test-resolved-doh-server
+    local unit=resolved-doh-test-server.service
+    local port=18443
+    local config=/run/systemd/resolved.conf.d/90-doh-test.conf
+    local cert_dir=/run/systemd/resolve/doh-test
+    local ca_source="$cert_dir/ca.crt"
+    local ca_destination=""
+    local doh_server_address=127.0.0.1
+    local doh_bootstrap=127.0.0.1
+    local doh_curl_resolve="doh.test:$port:127.0.0.1"
+    local doh_url="https://doh.test:$port"
+    local -a ca_refresh=()
+
+    if [[ ! -x "$server" ]]; then
+        echo "$server not found, skipping DNS-over-HTTPS integration tests" | tee --append /skipped
+        return 0
+    fi
+
+    if ! command -v curl >/dev/null || ! command -v openssl >/dev/null; then
+        echo "curl or openssl not found, skipping DNS-over-HTTPS integration tests" | tee --append /skipped
+        return 0
+    fi
+
+    if command -v update-ca-trust >/dev/null; then
+        ca_destination=/etc/pki/ca-trust/source/anchors/systemd-doh-test-ca.crt
+        ca_refresh=(update-ca-trust extract)
+    elif command -v update-ca-certificates >/dev/null; then
+        ca_destination=/usr/local/share/ca-certificates/systemd-doh-test-ca.crt
+        ca_refresh=(update-ca-certificates --fresh)
+    else
+        echo "No supported CA trust update tool found, skipping DNS-over-HTTPS integration tests" | tee --append /skipped
+        return 0
+    fi
+
+    # shellcheck disable=SC2317,SC2329
+    cleanup() {
+        rm -f "$config"
+        systemctl stop "$unit" || :
+        restart_resolved
+        rm -f "$ca_destination"
+        "${ca_refresh[@]}" || :
+        rm -rf "$cert_dir"
+    }
+
+    doh_make_certificates() {
+        rm -rf "$cert_dir"
+        mkdir -p "$cert_dir"
+        openssl req -new -x509 -newkey rsa:2048 -nodes -days 1 -sha256 -subj /CN=systemd-resolved-DoH-test-CA -keyout "$cert_dir/ca.key" -out "$ca_source" -addext basicConstraints=critical,CA:TRUE -addext keyUsage=critical,keyCertSign,cRLSign
+        openssl req -new -newkey rsa:2048 -nodes -sha256 -subj /CN=doh.test -keyout "$cert_dir/server.key" -out "$cert_dir/server.csr"
+        openssl x509 -req -in "$cert_dir/server.csr" -CA "$ca_source" -CAkey "$cert_dir/ca.key" -set_serial 1 -days 1 -sha256 -out "$cert_dir/server.crt" -extfile <(printf '%s\n' basicConstraints=critical,CA:FALSE keyUsage=critical,digitalSignature,keyEncipherment extendedKeyUsage=serverAuth subjectAltName=DNS:doh.test)
+    }
+
+    doh_server_start() {
+        systemctl stop "$unit" 2>/dev/null || :
+        systemd-run --collect --unit="$unit" --service-type=notify --property=Environment=SYSTEMD_LOG_LEVEL=debug "$server" "$doh_server_address" "$port" "$cert_dir/server.crt" "$cert_dir/server.key"
+    }
+
+    doh_curl() {
+        curl --silent --show-error --fail --cacert "$ca_source" --noproxy '*' --resolve "$doh_curl_resolve" "$@"
+    }
+
+    doh_reset() {
+        doh_curl --request POST --output /dev/null "$doh_url/reset"
+    }
+
+    doh_state() {
+        doh_curl "$doh_url/state"
+    }
+
+    doh_configure() {
+        local authentication_name="${1:?}"
+        local path="${2:?}"
+
+        cat >"$config" <<EOF
+[Resolve]
+DNS=
+DNS=$doh_bootstrap#https://$authentication_name:$port$path
+FallbackDNS=
+Domains=
+Domains=~.
+DNSSEC=no
+DNSOverTLS=no
+CacheFromLocalhost=yes
+EOF
+        systemctl reset-failed systemd-resolved.service
+        systemctl restart systemd-resolved.service
+        doh_reset
+        resolvectl status
+    }
+
+    trap cleanup RETURN ERR
+
+    doh_make_certificates
+    install -Dm644 "$ca_source" "$ca_destination"
+    "${ca_refresh[@]}"
+
+    doh_server_start
+
+    : "DoH GET request"
+    doh_configure doh.test '/dns-query{?dns}'
+    run resolvectl query get.doh.test. --type=A
+    grep -F '192.0.2.1' "$RUN_OUT"
+
+    local state
+    state="$(doh_state)"
+    assert_eq "$(jq -r '.requests' <<<"$state")" 1
+    assert_eq "$(jq -r '.history[0].method' <<<"$state")" GET
+    assert_eq "$(jq -r '.history[0].path' <<<"$state")" /dns-query
+    assert_eq "$(jq -r '.history[0].accept' <<<"$state")" application/dns-message
+    assert_eq "$(jq -r '.history[0].contentType' <<<"$state")" ""
+    assert_eq "$(jq -r '.history[0].question' <<<"$state")" get.doh.test
+    assert_eq "$(jq -r '.history[0].dnsId' <<<"$state")" 0
+    assert_eq "$(jq -r '.history[0].bodySize' <<<"$state")" 0
+    jq -e '.history[0].httpVersion == "1.1" or .history[0].httpVersion == "2"' <<<"$state"
+
+    : "DoH POST fallback when the URI template has no dns variable"
+    doh_configure doh.test /dns-query
+    run resolvectl query post.doh.test. --type=A
+    grep -F '192.0.2.1' "$RUN_OUT"
+    state="$(doh_state)"
+    assert_eq "$(jq -r '.requests' <<<"$state")" 1
+    assert_eq "$(jq -r '.history[0].method' <<<"$state")" POST
+    assert_eq "$(jq -r '.history[0].contentType' <<<"$state")" application/dns-message
+    assert_eq "$(jq -r '.history[0].dnsId' <<<"$state")" 0
+    test "$(jq -r '.history[0].bodySize' <<<"$state")" -gt 12
+
+    : "DNS errors are carried in successful HTTP responses"
+    doh_configure doh.test '/dns-query/nxdomain{?dns}'
+    (! run resolvectl query nxdomain.doh.test. --type=A)
+    state="$(doh_state)"
+    test "$(jq -r '.requests' <<<"$state")" -ge 1
+    assert_eq "$(jq -r '.history[-1].responseStatus' <<<"$state")" 200
+
+    doh_configure doh.test '/dns-query/servfail{?dns}'
+    (! run resolvectl query servfail.doh.test. --type=A)
+    state="$(doh_state)"
+    test "$(jq -r '.requests' <<<"$state")" -ge 1
+    assert_eq "$(jq -r '.history[-1].responseStatus' <<<"$state")" 200
+
+    : "Age is applied before inserting answers into resolved's cache"
+    doh_configure doh.test '/dns-query/aged{?dns}'
+    run resolvectl query cached.doh.test. --type=A
+    doh_reset
+    run resolvectl query cached.doh.test. --type=A
+    state="$(doh_state)"
+    assert_eq "$(jq -r '.requests' <<<"$state")" 0
+
+    doh_configure doh.test '/dns-query/aged-expired{?dns}'
+    run resolvectl query expired.doh.test. --type=A
+    doh_reset
+    run resolvectl query expired.doh.test. --type=A
+    state="$(doh_state)"
+    test "$(jq -r '.requests' <<<"$state")" -ge 1
+
+    : "Invalid HTTP representations and DNS messages are rejected"
+    doh_configure doh.test '/content-type/wrong{?dns}'
+    (! timeout 30s resolvectl query content-type.doh.test. --type=A)
+    state="$(doh_state)"
+    test "$(jq -r '.requests' <<<"$state")" -ge 1
+
+    doh_configure doh.test '/dns/wrong-id{?dns}'
+    (! timeout 30s resolvectl query wrong-id.doh.test. --type=A)
+    state="$(doh_state)"
+    test "$(jq -r '.requests' <<<"$state")" -ge 1
+
+    : "Redirects are not followed"
+    doh_configure doh.test '/redirect{?dns}'
+    (! timeout 30s resolvectl query redirect.doh.test. --type=A)
+    state="$(doh_state)"
+    test "$(jq -r '.requests' <<<"$state")" -ge 1
+    jq -e 'all(.history[]; .path == "/redirect")' <<<"$state"
+
+    : "Closing a DNS transaction cancels the HTTP request"
+    doh_configure doh.test '/hang{?dns}'
+    timeout 30s resolvectl query hang.doh.test. --type=A &
+    local query_pid=$!
+    for _ in {1..100}; do
+        state="$(doh_state)"
+        [[ $(jq -r '.activeRequests' <<<"$state") == 1 ]] && break
+        sleep 0.1
+    done
+    assert_eq "$(jq -r '.activeRequests' <<<"$state")" 1
+    systemctl reset-failed systemd-resolved.service
+    systemctl restart systemd-resolved.service
+    wait "$query_pid" || :
+    for _ in {1..100}; do
+        state="$(doh_state)"
+        [[ $(jq -r '.activeRequests' <<<"$state") == 0 ]] && break
+        sleep 0.1
+    done
+    assert_eq "$(jq -r '.activeRequests' <<<"$state")" 0
+
+    : "Sequential queries reuse the same HTTPS connection"
+    doh_configure doh.test '/dns-query{?dns}'
+    run resolvectl query reuse-a.doh.test. --type=A
+    run resolvectl query reuse-b.doh.test. --type=A
+    state="$(doh_state)"
+    assert_eq "$(jq -r '.requests' <<<"$state")" 2
+    assert_eq "$(jq -r '.connections' <<<"$state")" 1
+    assert_eq "$(jq -r '.history[0].connection' <<<"$state")" "$(jq -r '.history[1].connection' <<<"$state")"
+
+    : "The HTTPS authentication name is verified"
+    doh_configure wrong.test '/dns-query{?dns}'
+    (! timeout 30s resolvectl query wrong-name.doh.test. --type=A)
+    state="$(doh_state)"
+    assert_eq "$(jq -r '.requests' <<<"$state")" 0
+
+    : "IPv6 bootstrap address"
+    doh_server_address=::1
+    doh_bootstrap=::1
+    doh_curl_resolve="doh.test:$port:[::1]"
+    doh_server_start
+    doh_configure doh.test '/dns-query{?dns}'
+    run resolvectl query ipv6.doh.test. --type=AAAA
+    grep -F '2001:db8::1' "$RUN_OUT"
+    state="$(doh_state)"
+    assert_eq "$(jq -r '.requests' <<<"$state")" 1
+    assert_eq "$(jq -r '.history[0].question' <<<"$state")" ipv6.doh.test
+}
+
 testcase_delegate() {
     # Before we install the delegation file the DNS name should be directly resolvable via our DNS server
     run resolvectl query delegation.exercise.test
