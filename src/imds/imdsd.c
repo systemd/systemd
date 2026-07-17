@@ -20,6 +20,7 @@
 #include "creds-util.h"
 #include "curl-util.h"
 #include "device-private.h"
+#include "dlopen-note.h"
 #include "dns-rr.h"
 #include "errno-util.h"
 #include "escape.h"
@@ -3047,13 +3048,15 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 static int run(int argc, char* argv[]) {
         int r;
 
+        LIBCURL_NOTE(required);
+
         log_setup();
 
         r = parse_argv(argc, argv);
         if (r <= 0)
                 return r;
 
-        r = DLOPEN_CURL(LOG_DEBUG, required);
+        r = dlopen_curl(LOG_DEBUG);
         if (r < 0)
                 return r;
 

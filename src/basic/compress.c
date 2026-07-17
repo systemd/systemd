@@ -304,7 +304,7 @@ int dlopen_xz(int log_level) {
 #if HAVE_XZ
         static void *lzma_dl = NULL;
 
-        LIBLZMA_NOTE(COMPRESSION_PRIORITY_XZ);
+        LIBLZMA_NOTE(suggested);
 
         return dlopen_many_sym_or_warn(
                         &lzma_dl,
@@ -325,7 +325,7 @@ int dlopen_lz4(int log_level) {
 #if HAVE_LZ4
         static void *lz4_dl = NULL;
 
-        LIBLZ4_NOTE(COMPRESSION_PRIORITY_LZ4);
+        LIBLZ4_NOTE(suggested);
 
         return dlopen_many_sym_or_warn(
                         &lz4_dl,
@@ -355,7 +355,7 @@ int dlopen_zstd(int log_level) {
 #if HAVE_ZSTD
         static void *zstd_dl = NULL;
 
-        LIBZSTD_NOTE(COMPRESSION_PRIORITY_ZSTD);
+        LIBZSTD_NOTE(suggested);
 
         return dlopen_many_sym_or_warn(
                         &zstd_dl,

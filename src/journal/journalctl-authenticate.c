@@ -70,7 +70,7 @@ int action_setup_keys(void) {
 
         assert(arg_action == ACTION_SETUP_KEYS);
 
-        r = DLOPEN_LIBCRYPTO(LOG_ERR, recommended);
+        r = dlopen_libcrypto(LOG_ERR);
         if (r < 0)
                 return r;
 

@@ -102,7 +102,12 @@ static int run(int argc, char *argv[]) {
         char **args = NULL;
         int r;
 
+        LIBACL_NOTE(recommended);
+        LIBBLKID_NOTE(recommended);
+        LIBKMOD_NOTE(recommended);
+        LIBMOUNT_NOTE(recommended);
         LIBSELINUX_NOTE(recommended);
+        TPM2_NOTE(recommended);
 
         if (invoked_as(argv, "udevd"))
                 return run_udevd(argc, argv);

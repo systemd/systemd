@@ -281,7 +281,7 @@ static int pull_job_open_disk(PullJob *j) {
         }
 
         if (j->calc_checksum) {
-                r = DLOPEN_LIBCRYPTO(LOG_ERR, recommended);
+                r = dlopen_libcrypto(LOG_ERR);
                 if (r < 0)
                         return r;
 
